@@ -1,39 +1,40 @@
 # Current State
 
 - **Ngày cập nhật:** 2026-05-15
-- **Progress:** Module Login (Frontend + Backend) hoàn thiện. Backend Register API đã được triển khai. Frontend Register UI đang chờ duyệt để triển khai.
-- **Infrastructure:** GitHub Repository: Connected (Branch: `main`, Latest commit: `f38c85d`).
-- **Git Status:** Working tree clean. Đã push toàn bộ code.
+- **Progress:** Module Login & Register hoàn thiện. Đã chuyển đổi sang luồng Xác thực Email (OTP) với Ethereal Mail. Dashboard Shell đã được xây dựng.
+- **Infrastructure:** GitHub Repository: Connected (Branch: `main`).
 
 ## Stack đang chạy
 - Backend: `http://localhost:5000` (Express + TypeScript + pg Raw SQL)
-- Frontend: `http://localhost:5173` (Vite + React TSX + Tailwind)
+- Frontend: `http://localhost:3000` (Vite + React TSX + Tailwind)
 - Database: Docker PostgreSQL (`physioflow_db` - port 5432)
 - pgAdmin: `http://localhost:5050`
 
-## Những gì đã hoàn thành hôm nay
+## Những gì đã hoàn thành
 
-### Session hôm nay (2026-05-15):
-1. **Frontend TSX Migration:** Đã chuyển toàn bộ Vite React từ `.jsx` → `.tsx` (TypeScript). Tạo `tsconfig.json`, `tsconfig.node.json`, đổi tên file và cập nhật `index.html`.
-2. **Design System:** Đã tích hợp bảng màu từ `DESIGN.md` (Mint Teal `#2EC4B6`, Deep Navy `#0F172A`) vào `tailwind.config.js`. Import font Manrope/Inter từ Google Fonts vào `index.css`.
-3. **Zustand Auth Store:** Tạo `authStore.ts` lưu `user`, `accessToken`, `refreshToken` với middleware `persist`.
-4. **Axios Interceptors:** Tạo `api/axios.ts` tự động gắn Bearer Token vào header mọi request.
-5. **Login UI:** Giao diện màn hình Login 2 cột hoàn chỉnh:
-   - Bên trái: Form đăng nhập Minimalist với Tailwind + Glassmorphism.
-   - Bên phải: Background Image Panel với lớp overlay mờ, áp dụng Rule of Thirds — Logo trên cùng bên trái, Testimonial Card ở 1/3 dưới cùng.
-6. **Backend Zod Validation:** Tích hợp thư viện `zod`. Cập nhật `auth.controller.ts` để validate input trước khi query DB.
-7. **Backend Register API:** Viết hàm `register` trong `auth.controller.ts`, thêm route `POST /api/auth/register`.
-8. **GitHub:** Đã push đầy đủ lên `https://github.com/vinhtcpd09969-tech/PhysioFlow`.
+### Module Authentication:
+- Backend đã có schema validation chặt chẽ (Zod) cho đăng nhập, đăng ký và xác thực OTP.
+- Frontend đã cài đặt `react-hook-form`, `zod`, `zustand` để xử lý form và state.
+- Route guard (`ProtectedRoute`) bảo vệ các trang yêu cầu đăng nhập.
+- Bỏ trường số điện thoại, tích hợp chức năng gửi Email Xác thực OTP thông qua Nodemailer giả lập (`Ethereal`).
+- Sửa thành công lỗi 400 Bad Request ở `/register` và các cảnh báo React Router v7.
+
+### Dashboard Shell (Mới hoàn thành):
+- `DashboardLayout.tsx`: Boxed Layout chuẩn UX Psychology, với Topbar tinh giản và Sidebar menu ẩn/hiện tùy chọn.
+- `Dashboard.tsx`: Chứa các thành phần Dashboard theo bản thiết kế mẫu (Biểu đồ Mức độ đau, Tiến độ gói, Gợi ý AI có thẻ ✦ AI, Lịch hẹn sắp tới).
+- Đồng bộ UI với `DESIGN.md` (Mint Teal & Deep Navy).
 
 ## Trạng thái file quan trọng
-- `backend/src/controllers/auth.controller.ts` — có `login`, `register`, `refreshToken`, `getMe`
-- `backend/src/routes/auth.routes.ts` — có `/login`, `/register`, `/refresh-token`, `/me`
-- `backend/src/schemas/auth.schema.ts` — có `loginSchema`, `refreshTokenSchema` (**registerSchema đang bị xóa tạm thời, cần thêm lại khi làm Register UI**)
-- `frontend/src/pages/Login.tsx` — hoàn chỉnh
-- `frontend/src/stores/authStore.ts` — hoàn chỉnh
-- `frontend/src/api/axios.ts` — hoàn chỉnh
-- `frontend/src/App.tsx` — chỉ có route `/login`, `/dashboard` (placeholder)
+- `backend/src/controllers/auth.controller.ts` — có `login`, `register`, `refreshToken`, `getMe`, `verifyEmail`.
+- `backend/src/routes/auth.routes.ts` — có đầy đủ API Auth.
+- `backend/src/schemas/auth.schema.ts` — Schema cho OTP.
+- `backend/src/utils/mailer.ts` — Gửi thư Ethereal.
+- `frontend/src/layouts/DashboardLayout.tsx` — Giao diện khung app chính.
+- `frontend/src/pages/Dashboard.tsx` — Giao diện Home của user.
 
-## Lưu ý quan trọng
-- **registerSchema đã bị Sếp xóa thủ công** trong `auth.schema.ts`. Khi làm Register UI, cần thêm lại vào đầu phiên.
-- Background image Login nằm tại: `frontend/public/images/login-bg.png` (Sếp tự lưu thủ công).
+### 🔴 Lỗi cần giải quyết
+- Không có lỗi hiện hành.
+
+### 🔜 Bước tiếp theo
+- Xây dựng Module Quản lý Lịch hẹn (Dành cho Admin/Lễ tân).
+- Phát triển API Lấy Lịch hẹn.

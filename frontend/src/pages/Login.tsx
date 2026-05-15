@@ -8,7 +8,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useNavigate, Link } from 'react-router-dom';
 
 const loginSchema = z.object({
-  email: z.string().min(1, 'Vui lòng nhập email hoặc số điện thoại'),
+  email: z.string().email('Vui lòng nhập email hợp lệ'),
   password: z.string().min(6, 'Mật khẩu phải từ 6 ký tự'),
 });
 
@@ -60,12 +60,12 @@ export default function Login() {
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div>
-              <label className="block text-[12px] font-semibold uppercase tracking-wider text-gray-500 mb-2">SỐ ĐIỆN THOẠI / EMAIL</label>
+              <label className="block text-[12px] font-semibold uppercase tracking-wider text-gray-500 mb-2">EMAIL</label>
               <input
                 {...register('email')}
                 type="text"
                 className="w-full bg-[#F1F5F9] border border-transparent focus:bg-white focus:border-primary rounded-[16px] px-4 py-3 outline-none transition-all duration-300 text-[16px]"
-                placeholder="Nhập email hoặc số điện thoại"
+                placeholder="Nhập email"
               />
               {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
             </div>
@@ -119,6 +119,15 @@ export default function Login() {
               <button type="button" className="flex items-center justify-center gap-2 border border-gray-200 rounded-[16px] py-3 hover:bg-gray-50 transition-colors">
                 <span className="text-sm font-semibold">Facebook</span>
               </button>
+            </div>
+
+            <div className="mt-8 text-center">
+              <p className="text-gray-500">
+                Chưa có tài khoản?{' '}
+                <Link to="/register" className="text-primary font-bold hover:underline">
+                  Đăng ký ngay
+                </Link>
+              </p>
             </div>
           </form>
         </div>

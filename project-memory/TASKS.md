@@ -23,12 +23,13 @@
 - [x] Push toàn bộ code lên GitHub (commit `f38c85d`).
 
 ## ⏳ Đang chờ thực thi (Plan đã được duyệt)
-- [ ] **Backend:** Thêm lại `registerSchema` vào `auth.schema.ts`.
-- [ ] **Frontend:** Tạo `Register.tsx` — UI 2 cột theo wireframe đã gửi (Dark Panel bên trái, Form bên phải).
-- [ ] **Frontend:** Cập nhật tab "Đăng ký" trong `Login.tsx` → link điều hướng sang `/register`.
-- [ ] **Frontend:** Tạo `DashboardLayout.tsx` — Sidebar + Topbar layout.
-- [ ] **Frontend:** Tạo `Dashboard.tsx` — trang chào mừng + Stats cards.
-- [ ] **Frontend:** Cập nhật `App.tsx` — Route Guard + route `/register`, `/dashboard`.
+- [x] **Backend:** Thêm lại `registerSchema` vào `auth.schema.ts`.
+- [x] **Frontend:** Tạo `Register.tsx` — UI 2 cột theo wireframe đã gửi (Dark Panel bên trái, Form bên phải).
+- [x] **Frontend:** Cập nhật tab "Đăng ký" trong `Login.tsx` → link điều hướng sang `/register`.
+- [x] **Frontend:** Tạo `ProtectedRoute.tsx` — Route Guard.
+- `[x]` **Frontend:** Tạo `DashboardLayout.tsx` — Sidebar + Topbar layout.
+- `[x]` **Frontend:** Tạo `Dashboard.tsx` — trang chào mừng + Stats cards.
+- [x] **Frontend:** Cập nhật `App.tsx` — Route Guard + route `/register`, `/dashboard`.
 
 ## 📋 Backlog (Chưa lên kế hoạch)
 - [ ] Trang Quản lý Lịch hẹn (Admin/Lễ tân).

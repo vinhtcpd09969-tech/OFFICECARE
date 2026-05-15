@@ -82,6 +82,7 @@ CREATE TABLE nguoi_dung (
     -- [OPT-1] CHECK Constraint
     trang_thai          VARCHAR(20)   NOT NULL DEFAULT 'hoat_dong'
                         CHECK (trang_thai IN ('hoat_dong', 'tam_khoa', 'vo_hieu')),
+    da_xac_thuc_email   BOOLEAN       NOT NULL DEFAULT FALSE,
     avatar_url          TEXT,
     thoi_gian_tao       TIMESTAMP     NOT NULL DEFAULT NOW(),
     lan_dang_nhap_cuoi  TIMESTAMP,
@@ -966,3 +967,12 @@ CREATE OR REPLACE VIEW v_khach_hang_active AS
 SELECT kh.* FROM khach_hang kh
 JOIN nguoi_dung nd ON nd.id = kh.nguoi_dung_id
 WHERE kh.deleted_at IS NULL AND nd.deleted_at IS NULL;
+
+CREATE TABLE otp_codes (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email           VARCHAR(255) NOT NULL,
+    otp             VARCHAR(6) NOT NULL,
+    expires_at      TIMESTAMP NOT NULL,
+    created_at      TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
