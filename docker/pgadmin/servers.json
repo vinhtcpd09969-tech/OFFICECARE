@@ -1,0 +1,13 @@
+{
+    "Servers": {
+        "1": {
+            "Name": "PhysioFlow DB",
+            "Group": "Servers",
+            "Host": "db",
+            "Port": 5432,
+            "MaintenanceDB": "physioflow_db",
+            "Username": "postgres",
+            "SSLMode": "prefer"
+        }
+    }
+}
