@@ -1,44 +1,23 @@
 # Tasks — PhysioFlow
 
 ## ✅ Đã hoàn thành
-- [x] Khởi tạo Git repository và cấu trúc thư mục dự án.
-- [x] Thiết lập Docker Compose (PostgreSQL + pgAdmin).
-- [x] Chạy `docker compose up -d` thành công.
-- [x] Khởi tạo backend Express + TypeScript + pg Raw SQL.
-- [x] Khởi tạo frontend Vite + React + Tailwind CSS.
-- [x] Migrate backend từ JavaScript → TypeScript (strict mode).
-- [x] Cập nhật tài liệu ngữ cảnh (PHYSIOFLOW_CONTEXT.md, PLAN-physio-website.md) để phản ánh TypeScript.
-- [x] Cài đặt thư viện `zod` cho backend validation.
-- [x] Tạo `auth.schema.ts` với `loginSchema`, `refreshTokenSchema`.
-- [x] Triển khai Backend Auth API: `POST /login`, `POST /refresh-token`, `GET /me`.
-- [x] Tạo bảng `refresh_tokens` và seed tài khoản admin.
-- [x] Kết nối GitHub remote và push code lần đầu.
-- [x] Thiết lập quy tắc Git (Conventional Commits, hỏi push cuối session).
-- [x] Migrate Frontend từ `.jsx` → `.tsx` (TypeScript).
-- [x] Tích hợp Design System từ `DESIGN.md` vào Tailwind.
-- [x] Tạo `authStore.ts` (Zustand) và `api/axios.ts` (interceptors).
-- [x] Xây dựng `Login.tsx` — giao diện 2 cột đẹp theo wireframe + Design System.
-- [x] Cập nhật Login UI: background image thật ở bên phải, áp dụng Rule of Thirds.
-- [x] Triển khai Backend `POST /api/auth/register` (controller + route).
-- [x] Push toàn bộ code lên GitHub (commit `f38c85d`).
-- [x] Phân tích nghiệp vụ, tạo ma trận Module/Actor và file `MODULE_ARCHITECTURE.md`.
+- [x] Khởi tạo Git repository và cấu trúc hạ tầng (Docker, Backend TS, Frontend TS).
+- [x] Triển khai Auth Module (Login, Register, OTP Email, RBAC).
+- [x] Tái cấu trúc Storefront (Landing Page) & Portal (Dashboard).
+- [x] **Module Admin (Phase 1-3):** CRUD Dịch vụ, Gói, Nhân sự, Audit Log.
+- [x] **Module Admin (Phase 4):** Quản lý Khách hàng, Phòng & Thiết bị y tế.
+- [x] **Module Admin (Phase 5):** Quản lý Lịch trực (Schedules), Master View Lịch hẹn, Tra cứu Hồ sơ điều trị.
+- [x] **Refactoring:** Phân tách rạch ròi Client/Admin Backend Routes.
 
-## ⏳ Đang chờ thực thi (Plan đã được duyệt)
-- [x] **Backend:** Thêm lại `registerSchema` vào `auth.schema.ts`.
-- [x] **Frontend:** Tạo `Register.tsx` — UI 2 cột theo wireframe đã gửi (Dark Panel bên trái, Form bên phải).
-- [x] **Frontend:** Cập nhật tab "Đăng ký" trong `Login.tsx` → link điều hướng sang `/register`.
-- [x] **Frontend:** Tạo `ProtectedRoute.tsx` — Route Guard.
-- `[x]` **Frontend:** Tạo `DashboardLayout.tsx` — Sidebar + Topbar layout.
-- `[x]` **Frontend:** Tạo `Dashboard.tsx` — trang chào mừng + Stats cards.
-- [x] **Frontend:** Cập nhật `App.tsx` — Route Guard + route `/register`, `/dashboard`.
-- [x] **Frontend:** Tái cấu trúc Routing, phân tách `LandingLayout` và tạo Trang chủ (`Home.tsx`).
-- [x] **Frontend:** Thay đổi thiết kế (Design Language) sang Y tế truyền thống (White/Blue).
+## ⏳ Đang chờ thực thi (Phase 6 - Admin Finalization)
+- [ ] **Tài chính:** API & UI Quản lý Thanh toán, Hóa đơn (Admin).
+- [ ] **Marketing:** Module Quản lý Voucher & Khuyến mãi (Voucher Management).
+- [ ] **Chất lượng:** Xem và phản hồi Đánh giá (Feedback) của khách hàng.
+- [ ] **Báo cáo:** Dashboard Thống kê (Revenue, Charts).
 
-## 📋 Backlog (Chưa lên kế hoạch)
-- [ ] Trang Quản lý Lịch hẹn (Admin/Lễ tân).
-- [ ] Trang Hồ sơ Khách hàng.
-- [ ] Trang Kỹ thuật viên.
-- [ ] Module Đặt lịch (Booking Flow).
-- [ ] Module Gói Điều trị (Package System).
-- [ ] Module Thanh toán.
-- [ ] Module Thông báo.
+## 📋 Backlog (Modules Tiếp theo)
+- [ ] Module Lễ tân chuyên dụng (Check-in nhanh, In hóa đơn).
+- [ ] Module Kỹ thuật viên (SOAP Note, Lịch làm việc cá nhân).
+- [ ] Module Khách hàng (Portal cá nhân, Đặt lịch online hoàn chỉnh).
+- [ ] Module Thông báo (Email/Web Push).
+- [ ] Tích hợp AI (Tóm tắt bệnh án, gợi ý phác đồ).
