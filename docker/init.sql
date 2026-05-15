@@ -991,3 +991,14 @@ CREATE TABLE otp_codes (
     created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
+-- Bảng lưu nhật ký hệ thống (Audit Log)
+CREATE TABLE system_audit_log (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id         UUID REFERENCES nguoi_dung(id) ON DELETE SET NULL,
+    action          VARCHAR(100) NOT NULL,
+    entity_type     VARCHAR(100) NOT NULL,
+    entity_id       VARCHAR(255),
+    payload         JSONB,
+    ip_address      VARCHAR(50),
+    created_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);

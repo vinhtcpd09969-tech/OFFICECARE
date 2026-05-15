@@ -1,41 +1,39 @@
 # Current State
 
-- **Ngày cập nhật:** 2026-05-15
-- **Progress:** Hoàn thành Phân tích nghiệp vụ sâu (Domain Analysis), Kiến trúc Module/Actor. Xây dựng xong Trang chủ (Storefront) chuẩn y tế và tái cấu trúc hệ thống Routing phân tách Storefront/Portal. Đã đổi tông màu sang Blue-Medical.
-- **Infrastructure:** GitHub Repository: Connected (Branch: `main`, Latest commit: `b4ad5a5`).
+- **Ngày cập nhật:** 2026-05-16
+- **Progress:** Hoàn thành phần lớn Module Admin (Phase 4 & 5). Hệ thống đã có đầy đủ Dashboard quản trị toàn diện: Quản lý Nhân sự, Khách hàng, Dịch vụ, Phòng, Thiết bị, Ca làm việc, Lịch hẹn và Hồ sơ y tế. Đã tái cấu trúc Backend Route phân tách Client/Admin.
+- **Infrastructure:** Backend & Frontend running stable. Database schema updated with `system_audit_log` and `lich_lam_viec_ktv`.
 
 ## Stack đang chạy
 - Backend: `http://localhost:5000` (Express + TypeScript + pg Raw SQL)
 - Frontend: `http://localhost:3000` (Vite + React TSX + Tailwind)
 - Database: Docker PostgreSQL (`physioflow_db` - port 5432)
-- pgAdmin: `http://localhost:5050`
 
 ## Những gì đã hoàn thành
 
-### Module Authentication & RBAC:
-- Thiết lập Role-Based Access Control (RBAC) cho route và sidebar (Khách hàng, Lễ tân, Kỹ thuật viên, Quản trị viên).
-- Fix lỗi UI Logo dính vào Form khi có thông báo lỗi (Login/Register).
-- Tự động xác thực email cho tài khoản Admin/Lễ tân để demo.
+### Module Admin (Phase 1-5):
+- **Admin Dashboard & Layout:** Sidebar chuyên nghiệp với đầy đủ menu điều hướng.
+- **Quản lý Tài nguyên:** CRUD Dịch vụ, Phòng, Gói điều trị, Thiết bị y tế (theo dõi bảo trì).
+- **Quản lý Nhân sự & Khách hàng:** Quản lý toàn bộ tài khoản nhân viên (Bác sĩ, KTV, Lễ tân) và danh sách Khách hàng.
+- **Quản lý Lịch trình:** Hệ thống xếp ca làm việc cho KTV và Master View quản lý toàn bộ Lịch hẹn hệ thống.
+- **Hồ sơ y tế:** Giao diện tra cứu Bệnh án (Assessment) dành cho Admin.
+- **Audit Log:** Ghi lại mọi hành động nhạy cảm vào bảng `system_audit_log`.
 
-### Domain Analysis:
-- Tài liệu `MODULE_ARCHITECTURE.md` tại gốc dự án phân tích chi tiết quy trình SOAP, ma trận Actor-Module và các quy tắc bảo mật dữ liệu y khoa.
-
-### Storefront & Routing (Mới hoàn thành):
-- `LandingLayout.tsx`: Header/Footer phong cách Y tế, tích hợp xử lý trạng thái Auth động (hiện Avatar khi đã đăng nhập).
-- `Home.tsx` (Landing Page): Hero Section, Dịch vụ cốt lõi, Bảng giá gói tập (Mock data).
-- Tái cấu trúc `App.tsx`: Phân tách rạch ròi Layout của Landing Page và Dashboard Portal.
-- Cập nhật `tailwind.config.js` sang màu **Blue 600** (#2563EB) tạo sự tin cậy y khoa.
+### Cấu trúc Backend (Refactored):
+- Phân tách rạch ròi `/api/client` (dành cho website công khai) và `/api/admin` (dành cho quản trị nội bộ).
+- Chuyển toàn bộ API nghiệp vụ Admin vào `admin.routes.ts` với Middleware bảo vệ Role-based.
 
 ## Trạng thái file quan trọng
-- `MODULE_ARCHITECTURE.md` — Kiến trúc nghiệp vụ cốt lõi.
-- `frontend/src/layouts/LandingLayout.tsx` — Giao diện cửa hàng.
-- `frontend/src/pages/Home.tsx` — Trang chủ marketing.
-- `frontend/src/App.tsx` — Cấu hình routing mới.
+- `backend/src/routes/admin.routes.ts` — Cổng API Admin duy nhất.
+- `backend/src/controllers/admin.controller.ts` — Logic quản trị toàn diện.
+- `frontend/src/layouts/AdminLayout.tsx` — Giao diện Dashboard Admin.
+- `frontend/src/App.tsx` — Routing hệ thống (đã cập nhật các route Admin mới).
 
 ### 🔴 Lỗi cần giải quyết
-- Không có lỗi hiện hành.
+- Không có lỗi nghiêm trọng. Cần lưu ý mapping cột giữa schema cũ và schema mới khi mở rộng Audit Log.
 
-### 🔜 Bước tiếp theo
-- Xây dựng Dashboard riêng cho Lễ tân và Admin.
-- Phát triển Module Đặt lịch (Booking Flow) cho khách hàng (form đặt lịch và điều hướng từ Trang chủ).
-- Triển khai API cho danh mục Dịch vụ và Gói tập để thay thế Mock data.
+### 🔜 Bước tiếp theo (Phase 6)
+- **Tài chính:** Quản lý Thanh toán, Hóa đơn và Refund.
+- **Marketing:** Quản lý Voucher & Khuyến mãi.
+- **Báo cáo:** Xây dựng biểu đồ thống kê Doanh thu và Hiệu suất.
+- **Đánh giá:** Module xem Feedback của khách hàng.

@@ -31,7 +31,7 @@ export default function Appointments() {
 
   const fetchAppointments = async () => {
     try {
-      const response = await axiosInstance.get('/appointments');
+      const response = await axiosInstance.get('/admin/appointments');
       setAppointments(response.data);
     } catch (error) {
       console.error('Failed to fetch appointments:', error);
@@ -46,7 +46,7 @@ export default function Appointments() {
 
   const handleStatusChange = async (id: string, newStatus: string) => {
     try {
-      await axiosInstance.patch(`/appointments/${id}/status`, { trang_thai: newStatus });
+      await axiosInstance.patch(`/admin/appointments/${id}/status`, { trang_thai: newStatus });
       fetchAppointments();
     } catch (error) {
       console.error('Failed to update status:', error);

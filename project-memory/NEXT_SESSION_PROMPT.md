@@ -1,27 +1,27 @@
-# Next Session Prompt: PhysioFlow - Phase 3: Dashboard Roles & Booking Flow
+# Next Session Prompt — Phase 6: Admin Finalization
 
-## Ngữ cảnh hiện tại
-Chúng ta đã hoàn thiện hạ tầng Auth (RBAC), Phân tích nghiệp vụ sâu (`MODULE_ARCHITECTURE.md`) và xây dựng xong Trang chủ (Storefront) với phong cách thiết kế Y tế/Phòng khám (Blue-Medical). Hệ thống đã phân tách rạch ròi giữa Cửa hàng (Landing Page) và Cổng thông tin cá nhân (Dashboard Portal).
+Chào bạn! Trong phiên làm việc trước, chúng ta đã hoàn thành xuất sắc việc mở rộng Module Admin (Phase 4 & 5), bao gồm Quản lý Khách hàng, Thiết bị, Lịch trực và Hồ sơ bệnh án. Chúng ta cũng đã tái cấu trúc Backend Route cực kỳ sạch sẽ với `/api/client` và `/api/admin`.
 
-## Mục tiêu phiên tiếp theo
-Tập trung vào việc hiện thực hóa các chức năng cốt lõi cho từng Actor trong Dashboard và xây dựng luồng Đặt lịch (Booking).
+## Mục tiêu phiên tới: Hoàn thiện Phase 6 (Tài chính, Marketing & Báo cáo)
 
-### 1. Dashboard theo Vai trò (Actor Dashboards)
-- [ ] **Lễ tân (Receptionist):** Xây dựng giao diện Dashboard hiển thị Danh sách lịch hẹn trong ngày (Today's Schedule), bộ lọc theo KTV/Phòng và nút Check-in nhanh.
-- [ ] **Admin:** Xây dựng dashboard báo cáo doanh thu sơ bộ và quản lý danh mục (Dịch vụ/Gói tập).
-- [ ] **Khách hàng:** Tinh chỉnh Dashboard để hiển thị đúng thông tin cá nhân và lịch sử buổi tập.
+Hãy tập trung vào việc biến Admin Dashboard thành một "War Room" thực thụ với các tính năng:
 
-### 2. Module Đặt lịch (Booking Flow)
-- [ ] **Form Đặt lịch:** Tạo trang `/booking` (hoặc `/dat-lich`) với form chọn Dịch vụ, chọn KTV (tùy chọn) và chọn Khung giờ trống (Time slot picker).
-- [ ] **Logic điều hướng:** Đảm bảo từ Trang chủ, khi bấm "Đặt lịch trị liệu", nếu chưa đăng nhập sẽ qua luồng Auth ➔ Quay lại `/booking`. Nếu đã đăng nhập thì vào thẳng form.
+### 1. Quản lý Tài chính (Finance)
+- **Backend:** Viết API tra cứu danh sách `hoa_don` và `thanh_toan`.
+- **Frontend:** Xây dựng màn hình "Quản lý Thanh toán" để Admin theo dõi dòng tiền và duyệt hoàn tiền.
 
-### 3. Đồng bộ Dữ liệu thật (Backend Integration)
-- [ ] Xây dựng API `GET /api/public/services` và `GET /api/public/packages` để đổ dữ liệu thật từ Database lên Trang chủ thay cho Mock data hiện tại.
+### 2. Quản lý Marketing (Vouchers)
+- **Backend:** CRUD API cho bảng `voucher`.
+- **Frontend:** Màn hình tạo mã khuyến mãi, thiết lập ngày hết hạn và số lượng sử dụng.
 
-## Ghi chú kỹ thuật
-- Tiếp tục sử dụng `lucide-react` cho icon và phong cách thiết kế sạch sẽ, xanh-trắng đã thống nhất.
-- Kiểm tra các ràng buộc bảo mật (RBAC) đã thiết lập trong `ProtectedRoute.tsx` khi xây dựng các trang mới.
-- Xem lại `MODULE_ARCHITECTURE.md` để đảm bảo logic nghiệp vụ khớp với quy trình thực tế.
+### 3. Quản lý Đánh giá (Feedback)
+- **Frontend:** Màn hình xem các đánh giá (`danh_gia`) của khách hàng sau các buổi trị liệu.
+
+### 4. Báo cáo & Thống kê (Analytics Dashboard)
+- **Backend:** Viết các query tổng hợp (Aggregations) cho Doanh thu theo tháng, Tỷ lệ lịch hẹn thành công, và Hiệu suất KTV.
+- **Frontend:** Tích hợp Chart (dùng Recharts hoặc Chart.js) vào trang Dashboard chính của Admin (`AdminDashboard.tsx`).
 
 ---
-*Sẵn sàng khi Sếp bắt đầu phiên làm việc mới!*
+
+**Gợi ý Agent khởi đầu:**
+"Hãy bắt đầu Phase 6: Hoàn thiện Module Admin. Đầu tiên hãy đọc và phân tích toàn bộ folder `.agent` (bao gồm rules, skills, và workflows) để nắm bắt chuẩn coding và quy trình làm việc, sau đó xây dựng API và màn hình Quản lý Thanh toán & Hóa đơn để theo dõi doanh thu của hệ thống."
