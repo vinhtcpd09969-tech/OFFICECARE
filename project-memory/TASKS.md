@@ -21,6 +21,7 @@
 - [x] Cập nhật Login UI: background image thật ở bên phải, áp dụng Rule of Thirds.
 - [x] Triển khai Backend `POST /api/auth/register` (controller + route).
 - [x] Push toàn bộ code lên GitHub (commit `f38c85d`).
+- [x] Phân tích nghiệp vụ, tạo ma trận Module/Actor và file `MODULE_ARCHITECTURE.md`.
 
 ## ⏳ Đang chờ thực thi (Plan đã được duyệt)
 - [x] **Backend:** Thêm lại `registerSchema` vào `auth.schema.ts`.
@@ -30,6 +31,8 @@
 - `[x]` **Frontend:** Tạo `DashboardLayout.tsx` — Sidebar + Topbar layout.
 - `[x]` **Frontend:** Tạo `Dashboard.tsx` — trang chào mừng + Stats cards.
 - [x] **Frontend:** Cập nhật `App.tsx` — Route Guard + route `/register`, `/dashboard`.
+- [x] **Frontend:** Tái cấu trúc Routing, phân tách `LandingLayout` và tạo Trang chủ (`Home.tsx`).
+- [x] **Frontend:** Thay đổi thiết kế (Design Language) sang Y tế truyền thống (White/Blue).
 
 ## 📋 Backlog (Chưa lên kế hoạch)
 - [ ] Trang Quản lý Lịch hẹn (Admin/Lễ tân).

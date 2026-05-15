@@ -1,11 +1,19 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 
-export const ProtectedRoute = () => {
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated());
+interface ProtectedRouteProps {
+  allowedRoles?: number[];
+}
 
-  if (!isAuthenticated) {
+export const ProtectedRoute = ({ allowedRoles }: ProtectedRouteProps) => {
+  const { isAuthenticated, user } = useAuthStore((state) => state);
+
+  if (!isAuthenticated()) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (allowedRoles && user && !allowedRoles.includes(user.vai_tro_id)) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <Outlet />;

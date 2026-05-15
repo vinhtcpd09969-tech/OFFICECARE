@@ -25,12 +25,14 @@ export default function DashboardLayout() {
   };
 
   const navItems = [
-    { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={20} /> },
-    { name: 'Lịch hẹn', path: '/appointments', icon: <Calendar size={20} /> },
-    { name: 'Gói điều trị', path: '/packages', icon: <Package size={20} /> },
-    { name: 'Hồ sơ', path: '/profile', icon: <FileText size={20} /> },
-    { name: 'Cài đặt', path: '/settings', icon: <Settings size={20} /> },
+    { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={20} />, roles: [1, 2, 3, 4] },
+    { name: 'Lịch hẹn', path: '/appointments', icon: <Calendar size={20} />, roles: [2, 4] }, // Chỉ Lễ tân và Admin
+    { name: 'Gói điều trị', path: '/packages', icon: <Package size={20} />, roles: [1, 2, 4] },
+    { name: 'Hồ sơ', path: '/profile', icon: <FileText size={20} />, roles: [1, 2, 3, 4] },
+    { name: 'Cài đặt', path: '/settings', icon: <Settings size={20} />, roles: [1, 2, 3, 4] },
   ];
+
+  const filteredNavItems = navItems.filter(item => user && item.roles.includes(user.vai_tro_id));
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex font-body">
@@ -42,7 +44,7 @@ export default function DashboardLayout() {
         </div>
         
         <nav className="flex-1 px-4 mt-6 space-y-2">
-          {navItems.map((item) => (
+          {filteredNavItems.map((item) => (
             <NavLink
               key={item.name}
               to={item.path}
@@ -85,7 +87,7 @@ export default function DashboardLayout() {
             </div>
             
             <nav className="flex-1 space-y-2">
-              {navItems.map((item) => (
+              {filteredNavItems.map((item) => (
                 <NavLink
                   key={item.name}
                   to={item.path}
@@ -142,7 +144,12 @@ export default function DashboardLayout() {
             <div className="flex items-center gap-3 cursor-pointer group">
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-bold text-secondary group-hover:text-primary transition-colors">{user?.ho_ten || 'Người dùng'}</p>
-                <p className="text-xs text-gray-500 font-medium">Khách hàng</p>
+                <p className="text-xs text-gray-500 font-medium">
+                  {user?.vai_tro_id === 1 ? 'Khách hàng' : 
+                   user?.vai_tro_id === 2 ? 'Lễ tân' : 
+                   user?.vai_tro_id === 3 ? 'Kỹ thuật viên' : 
+                   user?.vai_tro_id === 4 ? 'Quản trị viên' : 'Khách hàng'}
+                </p>
               </div>
               <div className="w-10 h-10 rounded-full border-2 border-primary/20 p-0.5 overflow-hidden group-hover:border-primary transition-colors">
                 <img 

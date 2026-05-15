@@ -1,7 +1,7 @@
 # Current State
 
 - **Ngày cập nhật:** 2026-05-15
-- **Progress:** Module Login & Register hoàn thiện. Đã chuyển đổi sang luồng Xác thực Email (OTP) với Ethereal Mail. Dashboard Shell đã được xây dựng.
+- **Progress:** Hoàn thành Phân tích nghiệp vụ sâu (Domain Analysis), Kiến trúc Module/Actor. Xây dựng xong Trang chủ (Storefront) chuẩn y tế và tái cấu trúc hệ thống Routing phân tách Storefront/Portal. Đã đổi tông màu sang Blue-Medical.
 - **Infrastructure:** GitHub Repository: Connected (Branch: `main`, Latest commit: `b4ad5a5`).
 
 ## Stack đang chạy
@@ -12,29 +12,30 @@
 
 ## Những gì đã hoàn thành
 
-### Module Authentication:
-- Backend đã có schema validation chặt chẽ (Zod) cho đăng nhập, đăng ký và xác thực OTP.
-- Frontend đã cài đặt `react-hook-form`, `zod`, `zustand` để xử lý form và state.
-- Route guard (`ProtectedRoute`) bảo vệ các trang yêu cầu đăng nhập.
-- Bỏ trường số điện thoại, tích hợp chức năng gửi Email Xác thực OTP thông qua Nodemailer giả lập (`Ethereal`).
-- Sửa thành công lỗi 400 Bad Request ở `/register` và các cảnh báo React Router v7.
+### Module Authentication & RBAC:
+- Thiết lập Role-Based Access Control (RBAC) cho route và sidebar (Khách hàng, Lễ tân, Kỹ thuật viên, Quản trị viên).
+- Fix lỗi UI Logo dính vào Form khi có thông báo lỗi (Login/Register).
+- Tự động xác thực email cho tài khoản Admin/Lễ tân để demo.
 
-### Dashboard Shell (Mới hoàn thành):
-- `DashboardLayout.tsx`: Boxed Layout chuẩn UX Psychology, với Topbar tinh giản và Sidebar menu ẩn/hiện tùy chọn.
-- `Dashboard.tsx`: Chứa các thành phần Dashboard theo bản thiết kế mẫu (Biểu đồ Mức độ đau, Tiến độ gói, Gợi ý AI có thẻ ✦ AI, Lịch hẹn sắp tới).
-- Đồng bộ UI với `DESIGN.md` (Mint Teal & Deep Navy).
+### Domain Analysis:
+- Tài liệu `MODULE_ARCHITECTURE.md` tại gốc dự án phân tích chi tiết quy trình SOAP, ma trận Actor-Module và các quy tắc bảo mật dữ liệu y khoa.
+
+### Storefront & Routing (Mới hoàn thành):
+- `LandingLayout.tsx`: Header/Footer phong cách Y tế, tích hợp xử lý trạng thái Auth động (hiện Avatar khi đã đăng nhập).
+- `Home.tsx` (Landing Page): Hero Section, Dịch vụ cốt lõi, Bảng giá gói tập (Mock data).
+- Tái cấu trúc `App.tsx`: Phân tách rạch ròi Layout của Landing Page và Dashboard Portal.
+- Cập nhật `tailwind.config.js` sang màu **Blue 600** (#2563EB) tạo sự tin cậy y khoa.
 
 ## Trạng thái file quan trọng
-- `backend/src/controllers/auth.controller.ts` — có `login`, `register`, `refreshToken`, `getMe`, `verifyEmail`.
-- `backend/src/routes/auth.routes.ts` — có đầy đủ API Auth.
-- `backend/src/schemas/auth.schema.ts` — Schema cho OTP.
-- `backend/src/utils/mailer.ts` — Gửi thư Ethereal.
-- `frontend/src/layouts/DashboardLayout.tsx` — Giao diện khung app chính.
-- `frontend/src/pages/Dashboard.tsx` — Giao diện Home của user.
+- `MODULE_ARCHITECTURE.md` — Kiến trúc nghiệp vụ cốt lõi.
+- `frontend/src/layouts/LandingLayout.tsx` — Giao diện cửa hàng.
+- `frontend/src/pages/Home.tsx` — Trang chủ marketing.
+- `frontend/src/App.tsx` — Cấu hình routing mới.
 
 ### 🔴 Lỗi cần giải quyết
 - Không có lỗi hiện hành.
 
 ### 🔜 Bước tiếp theo
-- Xây dựng Module Quản lý Lịch hẹn (Dành cho Admin/Lễ tân).
-- Phát triển API Lấy Lịch hẹn.
+- Xây dựng Dashboard riêng cho Lễ tân và Admin.
+- Phát triển Module Đặt lịch (Booking Flow) cho khách hàng (form đặt lịch và điều hướng từ Trang chủ).
+- Triển khai API cho danh mục Dịch vụ và Gói tập để thay thế Mock data.

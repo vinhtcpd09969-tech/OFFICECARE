@@ -37,22 +37,28 @@ export default function Login() {
         navigate('/dashboard');
       }
     } catch (error: any) {
-      setServerError(error.response?.data?.message || 'Lỗi kết nối máy chủ');
+      if (error.response?.data?.requiresVerification) {
+        navigate(`/verify-email?email=${data.email}`);
+      } else {
+        setServerError(error.response?.data?.message || 'Lỗi kết nối máy chủ');
+      }
     }
   };
 
   return (
     <div className="min-h-screen flex font-sans bg-background">
       {/* Left Panel - Form */}
-      <div className="w-full lg:w-1/2 flex flex-col justify-center px-8 sm:px-16 lg:px-24 xl:px-32 relative z-10">
-        <div className="absolute top-8 left-8 sm:left-16 lg:left-24 font-heading font-bold text-primary text-xl tracking-wide">
+      <div className="w-full lg:w-1/2 flex flex-col px-8 sm:px-16 lg:px-24 xl:px-32 relative z-10 h-screen overflow-y-auto">
+        {/* Header / Logo */}
+        <div className="py-8 font-heading font-bold text-primary text-xl tracking-wide flex-none">
           PHYSIOFLOW
         </div>
 
-        <div className="w-full max-w-md mx-auto">
-          <div className="mb-8 flex gap-8 border-b border-gray-200">
+        {/* Form Container */}
+        <div className="flex-1 flex flex-col justify-center w-full max-w-md mx-auto pb-12 min-h-max">
+          <div className="mb-8 flex gap-8 border-b border-gray-200 w-full">
             <span className="pb-2 border-b-2 border-primary text-primary font-semibold text-sm">Đăng nhập</span>
-            <span className="pb-2 text-gray-400 font-semibold text-sm cursor-pointer hover:text-gray-600 transition-colors">Đăng ký</span>
+            <Link to="/register" className="pb-2 text-gray-400 font-semibold text-sm cursor-pointer hover:text-gray-600 transition-colors">Đăng ký</Link>
           </div>
 
           <h1 className="font-heading text-[32px] lg:text-[48px] font-bold text-secondary leading-tight mb-2">Chào mừng trở lại</h1>

@@ -7,13 +7,13 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: '#2EC4B6',
+        primary: '#2563EB', // Blue 600 - Medical/Trustworthy
         secondary: '#0F172A',
         accent: '#38BDF8',
         background: '#F8FAFC',
         surface: 'rgba(255, 255, 255, 0.9)',
-        'surface-tint': '#006a62',
-        'primary-container': '#2ec4b6'
+        'surface-tint': '#1D4ED8',
+        'primary-container': '#DBEAFE'
       },
       fontFamily: {
         sans: ['Inter', 'sans-serif'],

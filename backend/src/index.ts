@@ -4,6 +4,7 @@ dotenv.config();
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import authRoutes from './routes/auth.routes';
+import appointmentRoutes from './routes/appointment.routes';
 
 const app = express();
 
@@ -11,6 +12,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use('/api/auth', authRoutes);
+app.use('/api/appointments', appointmentRoutes);
 
 app.get('/api/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', message: 'PhysioFlow API is running (TypeScript)' });
