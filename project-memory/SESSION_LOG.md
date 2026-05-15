@@ -32,3 +32,20 @@
 - **Lưu ý:** Sếp xóa `registerSchema` trong `auth.schema.ts` vào cuối session (Register UI chưa làm). Plan Register UI + Dashboard Shell đã được duyệt, sẽ thực thi phiên sau.
 - Đọc `DESIGN.md` tại `d:\DATN\WF\DESIGN.md` để lấy thông tin màu sắc và typography.
 - Push commit `f38c85d` lên GitHub thành công.
+
+## Session 4 — 2026-05-15 (Email OTP Verification & Dashboard Shell)
+- **Database:** Thêm bảng `otp_codes` và trường `da_xac_thuc_email` (boolean) vào bảng `nguoi_dung` để thay thế hoàn toàn hình thức xác thực bằng số điện thoại.
+- **Backend (Auth):**
+  - Xóa toàn bộ logic xử lý `so_dien_thoai`.
+  - Hàm `register` giờ đây tạo mã OTP và gửi qua mail (sử dụng thư viện `nodemailer` giả lập bằng Ethereal) thay vì trả JWT.
+  - Viết hàm `verifyEmail` nhận `email` và `otp` từ người dùng, update DB, cấp phát JWT Tokens.
+  - Fix lỗi 400 Bad Request do schema `confirmPassword` dư thừa ở Backend.
+- **Frontend (Auth):**
+  - Cập nhật trang `Register.tsx`: bỏ trường SĐT, tự động redirect sang trang Xác thực sau khi đăng ký.
+  - Tạo trang `VerifyEmail.tsx`: Giao diện 6 ô nhập mã OTP có auto focus chuẩn UX, kết nối với API `/verify-email`.
+  - Cập nhật `Login.tsx`: chỉ cho phép đăng nhập qua Email.
+- **Frontend (Dashboard Shell):**
+  - Xây dựng `DashboardLayout.tsx` với Boxed Layout (`max-w-7xl`), Sidebar và Topbar sử dụng `lucide-react`. Lấy tên/avatar từ Zustand Auth Store.
+  - Xây dựng trang Home `Dashboard.tsx` hiển thị lưới 2 cột bắt mắt: Mức độ đau (Mockup Bar Chart), Tiến độ gói điều trị, Lịch hẹn sắp tới và Gợi ý AI (với badge ✦ AI).
+  - Khắc phục các cảnh báo liên quan đến React Router v7 Future Flag.
+- Commit toàn bộ code mới nhất (Hash: `b4ad5a5`) và push lên GitHub.

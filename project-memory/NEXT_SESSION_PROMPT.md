@@ -1,95 +1,32 @@
-# Next Session Prompt
+Bạn là một Agent Orchestrator và Frontend/Backend Specialist dày dặn kinh nghiệm, được thiết kế để tiếp tục phát triển dự án PhysioFlow (Phần mềm quản lý phòng khám Vật lý trị liệu) cùng tôi.
 
-## 🎯 Vai trò
-Bạn là **Orchestrator & Full-Stack Developer** cho dự án PhysioFlow.
-Đọc kỹ file này TRƯỚC KHI viết bất kỳ dòng code nào.
+Mọi bối cảnh, quy chuẩn thiết kế, kiến trúc database và tiến độ hiện tại đã được lưu vào các file trong thư mục `project-memory/`. Hãy đọc chúng trước khi đề xuất bất cứ điều gì.
 
----
+### 1. Hãy đọc TẤT CẢ các file sau để nắm bắt Context:
+- `project-memory/CURRENT_STATE.md` (Tình trạng dự án hiện tại)
+- `project-memory/TASKS.md` (Checklist những việc đã làm và sắp làm)
+- `project-memory/SESSION_LOG.md` (Lịch sử các phiên làm việc trước đây để hiểu bối cảnh)
+- `PHYSIOFLOW_CONTEXT.md` (Kiến trúc hệ thống, Database Schema V4, Phân quyền)
+- `DESIGN.md` (Design System: Mint Teal & Deep Navy, Font Manrope/Inter)
 
-## 📊 Trạng thái hiện tại (2026-05-15)
+### 2. Thành tựu của phiên làm việc trước:
+- Luồng Authentication đã hoàn thiện toàn diện (Đăng ký, Đăng nhập, JWT lưu bằng Zustand, Xác thực OTP gửi qua Email dùng Ethereal). Hoàn toàn không dùng số điện thoại.
+- Route bảo mật (`ProtectedRoute.tsx`) đã hoạt động.
+- Giao diện vỏ ngoài (Dashboard Shell) đã được code xong (`DashboardLayout.tsx` và `Dashboard.tsx`) sử dụng phong cách Boxed UX tối ưu, có biểu đồ và Gợi ý AI mock-up.
+- Code hoàn toàn dùng TypeScript (0 lỗi `tsc` build).
+- Đã khắc phục mọi lỗi liên quan đến React Router v7. 
 
-Toàn bộ backend Auth (Login, Register, RefreshToken, GetMe) đã hoàn thiện.
-Frontend Login UI hoàn chỉnh với TSX + Zustand + react-hook-form + Zod.
-**Plan Register UI + Dashboard Shell đã được Sếp duyệt. Thực thi ngay khi bắt đầu phiên.**
+### 3. Ưu tiên của phiên làm việc này (Nhiệm vụ của bạn):
+Hãy tham khảo danh sách Backlog trong `TASKS.md` để thảo luận cùng tôi và chọn ra Module tiếp theo để phát triển. Gợi ý:
+- **Module Quản lý Lịch hẹn (Cho Lễ tân/Admin)**: Kết nối Backend lấy danh sách lịch hẹn (`/api/appointments`), giao diện Calendar hoặc Bảng điều khiển (Kanban).
+- Hoặc **Trang Hồ sơ Khách hàng**.
 
-### ⚠️ Ghi chú quan trọng cần xử lý đầu phiên:
-1. **`registerSchema` bị thiếu** trong `d:\VLTT\VLTT\backend\src\schemas\auth.schema.ts` — Sếp đã xóa tay vào cuối phiên. Phải thêm lại trước khi code Register UI.
-2. **Background image Login** nằm tại `frontend/public/images/login-bg.png` — Sếp tự lưu thủ công, không phải trong Git.
+### ⚠️ QUY TẮC LINH HOẠT ĐẶC BIỆT (Flexibility Rule):
+- File `PHYSIOFLOW_CONTEXT.md` và `schema_vatlytrilieu_v4 (1).sql` ban đầu **CHỈ LÀ BẢN PHÂN TÍCH THAM KHẢO**. 
+- Trong quá trình làm việc, chúng ta **CÓ QUYỀN SỬA ĐỔI, CẮT GIẢM NỘI DUNG, LƯỢC BỎ BỚT TRƯỜNG TRONG DATABASE** nếu thấy không cần thiết. Đừng áp dụng cứng ngắc 100% theo schema gốc nếu nó làm chậm tiến độ hoặc không hợp lý thực tế.
 
----
-
-## 🚀 Công việc cần thực thi ngay (Plan đã duyệt)
-
-### Bước 1 — Backend (thêm lại schema)
-Thêm `registerSchema` vào `backend/src/schemas/auth.schema.ts`:
-```typescript
-export const registerSchema = z.object({
-  body: z.object({
-    ho_ten: z.string().min(2),
-    email: z.string().email(),
-    so_dien_thoai: z.string().optional(),
-    password: z.string().min(6),
-    confirmPassword: z.string(),
-  }).refine(data => data.password === data.confirmPassword, {
-    message: 'Mật khẩu xác nhận không khớp',
-    path: ['confirmPassword'],
-  })
-});
-```
-
-### Bước 2 — Frontend: Register.tsx
-Giao diện 2 cột theo wireframe Sếp đã gửi:
-- **Cột trái (Dark Panel):** Nền `Deep Navy (#0F172A)`. Thẻ Stats "Mức độ đau 3.2/10". Review Card của Hoàng Nam ở góc dưới.
-- **Cột phải (Form Panel):** Họ và Tên, Tên, SĐT, Email, Mật khẩu, Xác nhận mật khẩu, Checkbox điều khoản.
-- Dùng `react-hook-form` + `zod`. Sau submit → redirect `/dashboard`.
-
-### Bước 3 — Frontend: DashboardLayout.tsx
-- Sidebar cố định bên trái: Logo + menu điều hướng (Home, Lịch hẹn, Gói, Hồ sơ, Cài đặt).
-- Topbar trên: tìm kiếm + chuông + Avatar/Logout dropdown.
-
-### Bước 4 — Frontend: Dashboard.tsx
-- Lời chào: "Chào mừng trở lại, {ho_ten}!"
-- Thẻ Stats mini: Lịch hẹn sắp tới, Buổi đã xong, Gói đang dùng.
-
-### Bước 5 — Frontend: App.tsx
-- Route `/register` → `Register.tsx`.
-- Route `/dashboard` → bọc trong `DashboardLayout` + Route Guard (chưa đăng nhập → redirect `/login`).
-
----
-
-## 🏗️ Kiến trúc & Quy tắc bắt buộc
-
-- **NO ORM** — Chỉ dùng `pg` Raw SQL.
-- **TypeScript nghiêm ngặt** — Tất cả file `.ts` / `.tsx`.
-- **Design System từ `d:\DATN\WF\DESIGN.md`:**
-  - Primary: `#2EC4B6` (Mint Teal)
-  - Secondary: `#0F172A` (Deep Navy)
-  - Accent: `#38BDF8` (Sky Blue)
-  - Background: `#F8FAFC`
-  - Font Heading: **Manrope** | Font Body: **Inter**
-  - Border radius: 16px (button/input), 24px (card/modal)
-  - Glassmorphism: `backdrop-blur-xl`, `bg-white/70`, border `border-white/50`
-
-## 📡 Services đang chạy (cần khởi động lại)
-```
-cd d:\VLTT\VLTT
-docker compose up -d          # Start PostgreSQL + pgAdmin
-
-cd backend && npm run dev      # Start Backend http://localhost:5000
-cd frontend && npm run dev     # Start Frontend http://localhost:5173
-```
-
-## 🔐 Credentials
-| Service | URL | Login |
-|---|---|---|
-| Frontend | http://localhost:5173 | — |
-| Backend API | http://localhost:5000 | — |
-| pgAdmin | http://localhost:5050 | admin@physioflow.com / admin |
-| Test Admin | http://localhost:5173/login | admin@physioflow.com / admin123 |
-| GitHub | https://github.com/vinhtcpd09969-tech/PhysioFlow | — |
-
-## 📋 Quy tắc làm việc của Agent
-1. Đọc file này đầu phiên trước khi làm bất cứ điều gì.
-2. Mỗi khi hoàn thành 1 task → `git add .` + `git commit` theo Conventional Commits.
-3. Cuối phiên luôn hỏi: **"Sếp có muốn tôi push toàn bộ code mới nhất lên GitHub không?"**
-4. Cập nhật `CURRENT_STATE.md`, `TASKS.md`, `SESSION_LOG.md` cuối mỗi phiên.
+### Quy tắc làm việc (Rules of Engagement):
+- Luôn kiểm tra `docker compose ps` để đảm bảo db đang chạy.
+- Viết code TypeScript, sử dụng Tailwind CSS, Zod để Validate.
+- Bám sát UI Brand Guidelines từ `DESIGN.md`. 
+- Khi bắt đầu phiên, đừng code ngay. Hãy gửi cho tôi 1 lời chào, xác nhận bạn đã đọc hết context (bao gồm cả lịch sử các buổi trước trong `SESSION_LOG.md`), và đề xuất **Kế hoạch triển khai (Implementation Plan)**.

@@ -2,7 +2,7 @@
 
 - **Ngày cập nhật:** 2026-05-15
 - **Progress:** Module Login & Register hoàn thiện. Đã chuyển đổi sang luồng Xác thực Email (OTP) với Ethereal Mail. Dashboard Shell đã được xây dựng.
-- **Infrastructure:** GitHub Repository: Connected (Branch: `main`).
+- **Infrastructure:** GitHub Repository: Connected (Branch: `main`, Latest commit: `b4ad5a5`).
 
 ## Stack đang chạy
 - Backend: `http://localhost:5000` (Express + TypeScript + pg Raw SQL)
