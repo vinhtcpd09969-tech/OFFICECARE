@@ -6,6 +6,7 @@ import cors from 'cors';
 import authRoutes from './routes/auth.routes';
 import clientRoutes from './routes/client.routes';
 import adminRoutes from './routes/admin.routes';
+import receptionistRoutes from './routes/receptionist.routes';
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/client', clientRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/receptionist', receptionistRoutes);
 
 app.get('/api/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', message: 'PhysioFlow API is running (TypeScript)' });

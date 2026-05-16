@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { getCustomers } from '../../api/admin.api';
+import { useState, useEffect } from 'react';
+import { Search } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { getCustomers } from '../../../api/admin.api';
 import { format } from 'date-fns';
 
 export default function ManageCustomers() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const fetchCustomers = async () => {
     try {
@@ -22,12 +25,27 @@ export default function ManageCustomers() {
     fetchCustomers();
   }, []);
 
+  const filteredCustomers = customers.filter(c => 
+    c.ho_ten?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    c.so_dien_thoai?.includes(searchTerm)
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Quản lý Khách hàng</h2>
           <p className="text-slate-500 mt-1">Danh sách toàn bộ khách hàng và lịch sử tài khoản.</p>
+        </div>
+        <div className="relative w-64">
+          <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+          <input 
+            type="text" 
+            placeholder="Tìm theo tên hoặc SĐT..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+          />
         </div>
       </div>
 
@@ -52,10 +70,10 @@ export default function ManageCustomers() {
                 </tr>
               ) : customers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-slate-500">Chưa có khách hàng nào.</td>
+                  <td colSpan={7} className="p-8 text-center text-slate-500">Không tìm thấy khách hàng nào.</td>
                 </tr>
               ) : (
-                customers.map((cust) => (
+                filteredCustomers.map((cust) => (
                   <tr key={cust.khach_hang_id} className="hover:bg-slate-50 transition-colors">
                     <td className="p-4 font-medium text-slate-800">{cust.ma_khach_hang || '-'}</td>
                     <td className="p-4 font-medium text-slate-800">
@@ -75,7 +93,12 @@ export default function ManageCustomers() {
                       {cust.created_at ? format(new Date(cust.created_at), 'dd/MM/yyyy') : '-'}
                     </td>
                     <td className="p-4 text-center">
-                      <button className="text-teal-600 hover:text-teal-800 text-sm font-medium mr-3">Chi tiết</button>
+                      <Link 
+                        to={`/admin/medical-records?customer=${cust.khach_hang_id}`} 
+                        className="text-teal-600 hover:text-teal-800 text-sm font-medium mr-3"
+                      >
+                        Chi tiết
+                      </Link>
                       <button className="text-amber-600 hover:text-amber-800 text-sm font-medium">Reset Pass</button>
                     </td>
                   </tr>

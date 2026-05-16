@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { getEquipment, createEquipment } from '../../api/admin.api';
+import { getEquipment, createEquipment } from '../../../api/admin.api';
 import { format } from 'date-fns';
 
 const equipmentSchema = z.object({

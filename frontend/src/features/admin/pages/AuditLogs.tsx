@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getAuditLogs } from '../../api/admin.api';
+import { getAuditLogs } from '../../../api/admin.api';
 import { format } from 'date-fns';
 
 export default function AuditLogs() {

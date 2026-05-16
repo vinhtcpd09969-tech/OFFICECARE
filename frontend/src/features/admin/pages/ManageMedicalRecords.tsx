@@ -1,10 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { getMedicalRecords } from '../../api/admin.api';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { Search } from 'lucide-react';
+import { getMedicalRecords } from '../../../api/admin.api';
 import { format } from 'date-fns';
 
 export default function ManageMedicalRecords() {
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchParams] = useSearchParams();
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('customer') || '');
 
   const fetchRecords = async () => {
     try {
@@ -22,12 +26,28 @@ export default function ManageMedicalRecords() {
     fetchRecords();
   }, []);
 
+  const filteredRecords = records.filter(rec => 
+    rec.ten_khach_hang?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    rec.ma_khach_hang?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    rec.ma_danh_gia?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Hồ sơ điều trị</h2>
           <p className="text-slate-500 mt-1">Tra cứu bệnh án, phiếu lượng giá và lịch sử điều trị của khách hàng.</p>
+        </div>
+        <div className="relative w-72">
+          <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+          <input 
+            type="text" 
+            placeholder="Tìm theo mã KH, mã Bệnh án, tên..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+          />
         </div>
       </div>
 
@@ -55,7 +75,7 @@ export default function ManageMedicalRecords() {
                   <td colSpan={7} className="p-8 text-center text-slate-500">Chưa có hồ sơ điều trị nào.</td>
                 </tr>
               ) : (
-                records.map((rec) => (
+                filteredRecords.map((rec) => (
                   <tr key={rec.id} className="hover:bg-slate-50 transition-colors">
                     <td className="p-4 font-medium text-slate-800">{rec.ma_danh_gia || '-'}</td>
                     <td className="p-4 font-medium text-slate-800">
