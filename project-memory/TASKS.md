@@ -9,11 +9,8 @@
 - [x] **Module Admin (Phase 5):** Quản lý Lịch trực (Schedules), Master View Lịch hẹn, Tra cứu Hồ sơ điều trị.
 - [x] **Refactoring:** Phân tách rạch ròi Client/Admin Backend Routes.
 
-## ⏳ Đang chờ thực thi (Phase 6 - Admin Finalization)
-- [ ] **Tài chính:** API & UI Quản lý Thanh toán, Hóa đơn (Admin).
-- [ ] **Marketing:** Module Quản lý Voucher & Khuyến mãi (Voucher Management).
-- [ ] **Chất lượng:** Xem và phản hồi Đánh giá (Feedback) của khách hàng.
-- [ ] **Báo cáo:** Dashboard Thống kê (Revenue, Charts).
+- [x] **Module Admin (Phase 6):** Tài chính (Hóa đơn/Thanh toán/Hoàn tiền), Marketing (Voucher CRUD), Đánh giá khách hàng, Dashboard Analytics (Charts).
+- [x] **Architecture Overhaul:** Tái cấu trúc Backend thành 3-Tier (Controller-Service-Repository) và Frontend thành Feature-Based.
 
 ## 📋 Backlog (Modules Tiếp theo)
 - [ ] Module Lễ tân chuyên dụng (Check-in nhanh, In hóa đơn).

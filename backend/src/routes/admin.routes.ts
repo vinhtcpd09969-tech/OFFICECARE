@@ -40,6 +40,25 @@ router.get('/medical-records', adminController.getMedicalRecords);
 // Nhật ký hệ thống (Audit Logs)
 router.get('/audit-logs', adminController.getAuditLogs);
 
+// Tài chính (Finance)
+router.get('/invoices', adminController.getInvoices);
+router.get('/payments', adminController.getPayments);
+router.post('/payments/:id/refund', adminController.handleRefund);
+
+// Marketing (Vouchers)
+router.get('/vouchers', adminController.getVouchers);
+router.post('/vouchers', adminController.createVoucher);
+router.put('/vouchers/:id', adminController.updateVoucher);
+router.delete('/vouchers/:id', adminController.deleteVoucher);
+
+// Đánh giá (Feedback)
+router.get('/feedback', adminController.getFeedback);
+
+// Báo cáo (Analytics)
+router.get('/analytics/summary', adminController.getDashboardSummary);
+router.get('/analytics/revenue', adminController.getRevenueStats);
+router.get('/analytics/performance', adminController.getStaffPerformance);
+
 // Quản lý Lịch hẹn (Admin Master View)
 router.get('/appointments', appointmentController.getAllAppointments);
 router.post('/appointments', appointmentController.createAppointment);

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { getServices, createService, getCategories } from '../../api/admin.api';
+import { getServices, createService, getCategories } from '../../../api/admin.api';
 
 const serviceSchema = z.object({
   danh_muc_id: z.number().min(1, 'Vui lòng chọn danh mục'),

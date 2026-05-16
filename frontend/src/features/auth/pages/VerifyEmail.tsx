@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle2 } from 'lucide-react';
-import axiosInstance from '../api/axios';
-import { useAuthStore } from '../stores/authStore';
+import axiosInstance from '../../../api/axios';
+import { useAuthStore } from '../../../stores/authStore';
 
 export default function VerifyEmail() {
   const [searchParams] = useSearchParams();

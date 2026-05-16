@@ -4,8 +4,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate, Link } from 'react-router-dom';
 import { Eye, EyeOff, CheckCircle2 } from 'lucide-react';
-import axiosInstance from '../api/axios';
-import { useAuthStore } from '../stores/authStore';
+import axiosInstance from '../../../api/axios';
+import { useAuthStore } from '../../../stores/authStore';
 
 // Validation Schema using Zod
 const registerSchema = z.object({

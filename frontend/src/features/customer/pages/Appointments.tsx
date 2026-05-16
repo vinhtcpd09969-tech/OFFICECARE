@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Calendar as CalendarIcon, Clock, User, Filter, Search, Plus, CheckCircle2, XCircle, AlertCircle, PlayCircle } from 'lucide-react';
-import axiosInstance from '../api/axios';
+import axiosInstance from '../../../api/axios';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
@@ -28,6 +28,8 @@ const statusConfig = {
 export default function Appointments() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   const fetchAppointments = async () => {
     try {
@@ -58,6 +60,13 @@ export default function Appointments() {
     return <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
   }
 
+  const filteredAppointments = appointments.filter(apt => {
+    const matchSearch = apt.ma_lich_dat.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                        apt.ten_khach_hang.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchStatus = statusFilter === 'all' || apt.trang_thai === statusFilter;
+    return matchSearch && matchStatus;
+  });
+
   return (
     <div className="animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
@@ -69,9 +78,19 @@ export default function Appointments() {
         </div>
         
         <div className="flex gap-3 w-full md:w-auto">
-          <button className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex-1 md:flex-none">
-            <Filter size={16} /> Lọc
-          </button>
+          <select 
+            className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex-1 md:flex-none outline-none"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="all">Tất cả trạng thái</option>
+            <option value="cho_xac_nhan">Chờ xác nhận</option>
+            <option value="da_xac_nhan">Đã xác nhận</option>
+            <option value="da_checkin">Đã Check-in</option>
+            <option value="hoan_thanh">Hoàn thành</option>
+            <option value="da_huy">Đã hủy</option>
+            <option value="khong_den">Không đến</option>
+          </select>
           <button className="flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors shadow-sm flex-1 md:flex-none">
             <Plus size={16} /> Đặt lịch mới
           </button>
@@ -85,6 +104,8 @@ export default function Appointments() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input 
               type="text" 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Tìm kiếm theo mã, tên khách hàng..." 
               className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
             />
@@ -105,14 +126,14 @@ export default function Appointments() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {appointments.length === 0 ? (
+              {filteredAppointments.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
-                    Không có lịch hẹn nào.
+                    Không tìm thấy lịch hẹn nào.
                   </td>
                 </tr>
               ) : (
-                appointments.map((apt) => {
+                filteredAppointments.map((apt) => {
                   const status = statusConfig[apt.trang_thai];
                   return (
                     <tr key={apt.id} className="hover:bg-gray-50/50 transition-colors group">

@@ -22,6 +22,9 @@ export default function AdminLayout() {
     { name: 'Dịch vụ & Phòng', path: '/admin/services', icon: '🏥' },
     { name: 'Thiết bị y tế', path: '/admin/equipment', icon: '💻' },
     { name: 'Gói điều trị', path: '/admin/packages', icon: '📦' },
+    { name: 'Tài chính', path: '/admin/finance', icon: '💰' },
+    { name: 'Marketing', path: '/admin/marketing', icon: '📢' },
+    { name: 'Đánh giá', path: '/admin/feedback', icon: '⭐' },
     { name: 'Nhật ký hệ thống', path: '/admin/audit', icon: '📝' },
   ];
 

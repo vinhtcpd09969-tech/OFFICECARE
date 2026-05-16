@@ -1,0 +1,27 @@
+import appointmentRepository from '../repositories/appointment.repository';
+
+class AppointmentService {
+  async getAllAppointments() {
+    return appointmentRepository.getAllAppointments();
+  }
+
+  async createAppointment(data: any) {
+    const ma_lich_dat = 'LD-' + Math.floor(10000 + Math.random() * 90000);
+    return appointmentRepository.createAppointment(ma_lich_dat, data);
+  }
+
+  async createPublicAppointment(data: any) {
+    const ma_lich_dat = 'LD-' + Math.floor(10000 + Math.random() * 90000);
+    // Mặc định thời lượng khám là 30 phút
+    const ngay_gio_ket_thuc = new Date(new Date(data.ngay_gio_bat_dau).getTime() + 30 * 60000).toISOString();
+    return appointmentRepository.createPublicAppointment(ma_lich_dat, { ...data, ngay_gio_ket_thuc });
+  }
+
+  async updateAppointmentStatus(id: string, trang_thai: string) {
+    const appointment = await appointmentRepository.updateAppointmentStatus(id, trang_thai);
+    if (!appointment) throw new Error('Không tìm thấy lịch hẹn');
+    return appointment;
+  }
+}
+
+export default new AppointmentService();

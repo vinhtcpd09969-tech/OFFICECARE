@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { getStaff, createStaff } from '../../api/admin.api';
+import { getStaff, createStaff } from '../../../api/admin.api';
 
 const staffSchema = z.object({
   ho_ten: z.string().min(1, 'Họ tên là bắt buộc'),
@@ -62,7 +62,7 @@ export default function ManageStaff() {
           <h2 className="text-2xl font-bold text-slate-800">Quản lý Nhân sự</h2>
           <p className="text-slate-500 mt-1">Danh sách bác sĩ, kỹ thuật viên, lễ tân và quản trị viên.</p>
         </div>
-        <button 
+        <button
           onClick={() => setIsModalOpen(true)}
           className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm flex items-center gap-2"
         >
@@ -105,20 +105,18 @@ export default function ManageStaff() {
                     </td>
                     <td className="p-4 text-slate-600">{staff.email}</td>
                     <td className="p-4">
-                      <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
-                        staff.vai_tro === 'Admin' ? 'bg-purple-100 text-purple-700' :
-                        staff.vai_tro === 'Bác sĩ' ? 'bg-blue-100 text-blue-700' :
-                        staff.vai_tro === 'Kỹ thuật viên' ? 'bg-amber-100 text-amber-700' :
-                        'bg-slate-100 text-slate-700'
-                      }`}>
+                      <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${staff.vai_tro === 'Admin' ? 'bg-purple-100 text-purple-700' :
+                          staff.vai_tro === 'Bác sĩ' ? 'bg-blue-100 text-blue-700' :
+                            staff.vai_tro === 'Kỹ thuật viên' ? 'bg-amber-100 text-amber-700' :
+                              'bg-slate-100 text-slate-700'
+                        }`}>
                         {staff.vai_tro}
                       </span>
                     </td>
                     <td className="p-4 text-slate-600 text-sm">{staff.so_dien_thoai || '-'}</td>
                     <td className="p-4 text-center">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        staff.trang_thai === 'hoat_dong' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
-                      }`}>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${staff.trang_thai === 'hoat_dong' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
+                        }`}>
                         {staff.trang_thai === 'hoat_dong' ? 'Hoạt động' : 'Đã khóa'}
                       </span>
                     </td>
@@ -142,13 +140,13 @@ export default function ManageStaff() {
               <h3 className="text-lg font-bold text-slate-800">Thêm Nhân sự</h3>
               <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
-            
+
             <form onSubmit={handleSubmit(onSubmit)} className="p-6">
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Họ Tên *</label>
-                  <input 
-                    {...register('ho_ten')} 
+                  <input
+                    {...register('ho_ten')}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
                   />
                   {errors.ho_ten && <p className="text-red-500 text-xs mt-1">{errors.ho_ten.message}</p>}
@@ -156,9 +154,9 @@ export default function ManageStaff() {
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Email *</label>
-                  <input 
+                  <input
                     type="email"
-                    {...register('email')} 
+                    {...register('email')}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
                   />
                   {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
@@ -166,9 +164,9 @@ export default function ManageStaff() {
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Mật khẩu *</label>
-                  <input 
+                  <input
                     type="password"
-                    {...register('mat_khau')} 
+                    {...register('mat_khau')}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
                   />
                   {errors.mat_khau && <p className="text-red-500 text-xs mt-1">{errors.mat_khau.message}</p>}
@@ -177,8 +175,8 @@ export default function ManageStaff() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Vai trò *</label>
-                    <select 
-                      {...register('vai_tro_id', { valueAsNumber: true })} 
+                    <select
+                      {...register('vai_tro_id', { valueAsNumber: true })}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
                     >
                       <option value={0}>-- Chọn --</option>
@@ -191,8 +189,8 @@ export default function ManageStaff() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Số điện thoại</label>
-                    <input 
-                      {...register('so_dien_thoai')} 
+                    <input
+                      {...register('so_dien_thoai')}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
                     />
                   </div>

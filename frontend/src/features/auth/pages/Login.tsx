@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Eye, EyeOff } from 'lucide-react';
-import api from '../api/axios';
-import { useAuthStore } from '../stores/authStore';
+import api from '../../../api/axios';
+import { useAuthStore } from '../../../stores/authStore';
 import { useNavigate, Link } from 'react-router-dom';
 
 const loginSchema = z.object({
@@ -33,6 +33,8 @@ export default function Login() {
       // Navigate based on role
       if (user.vai_tro_id === 5) {
         navigate('/admin');
+      } else if (user.vai_tro_id === 2) {
+        navigate('/receptionist');
       } else {
         navigate('/dashboard');
       }

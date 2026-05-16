@@ -1,27 +1,29 @@
-# Next Session Prompt — Phase 6: Admin Finalization
+# Next Session Prompt — Phase 7: Reception Module
 
-Chào bạn! Trong phiên làm việc trước, chúng ta đã hoàn thành xuất sắc việc mở rộng Module Admin (Phase 4 & 5), bao gồm Quản lý Khách hàng, Thiết bị, Lịch trực và Hồ sơ bệnh án. Chúng ta cũng đã tái cấu trúc Backend Route cực kỳ sạch sẽ với `/api/client` và `/api/admin`.
+Chào bạn! Chúng ta đã hoàn thành xuất sắc toàn bộ Module Admin (Phase 1-6). Hệ thống hiện tại đã có một Dashboard quản trị vô cùng mạnh mẽ với đầy đủ tính năng Tài chính, Marketing và Báo cáo.
 
-## Mục tiêu phiên tới: Hoàn thiện Phase 6 (Tài chính, Marketing & Báo cáo)
+**Lưu ý: Đảm bảo Docker (PostgreSQL) đang chạy trước khi bắt đầu.**
 
-Hãy tập trung vào việc biến Admin Dashboard thành một "War Room" thực thụ với các tính năng:
+## Mục tiêu phiên tới: Triển khai Phase 7 (Module Lễ tân - Receptionist)
 
-### 1. Quản lý Tài chính (Finance)
-- **Backend:** Viết API tra cứu danh sách `hoa_don` và `thanh_toan`.
-- **Frontend:** Xây dựng màn hình "Quản lý Thanh toán" để Admin theo dõi dòng tiền và duyệt hoàn tiền.
+Lễ tân là bộ phận tiếp xúc khách hàng đầu tiên, cần các công cụ thao tác cực nhanh. Hãy tập trung vào:
 
-### 2. Quản lý Marketing (Vouchers)
-- **Backend:** CRUD API cho bảng `voucher`.
-- **Frontend:** Màn hình tạo mã khuyến mãi, thiết lập ngày hết hạn và số lượng sử dụng.
+### 1. Màn hình Dashboard Lễ tân (Reception Desk)
+- **Tính năng:** View tóm tắt lịch hẹn trong ngày, các ca đang điều trị và các ca vừa hoàn thành chờ thanh toán.
+- **Yêu cầu:** Giao diện tối giản, tập trung vào hành động.
 
-### 3. Quản lý Đánh giá (Feedback)
-- **Frontend:** Màn hình xem các đánh giá (`danh_gia`) của khách hàng sau các buổi trị liệu.
+### 2. Luồng Check-in nhanh
+- **Frontend:** Nút check-in nhanh tại danh sách lịch hẹn.
+- **Backend:** Cập nhật `thoi_gian_checkin` và chuyển trạng thái `lich_dat` sang `da_checkin`. Tự động gán phòng nếu chưa có.
 
-### 4. Báo cáo & Thống kê (Analytics Dashboard)
-- **Backend:** Viết các query tổng hợp (Aggregations) cho Doanh thu theo tháng, Tỷ lệ lịch hẹn thành công, và Hiệu suất KTV.
-- **Frontend:** Tích hợp Chart (dùng Recharts hoặc Chart.js) vào trang Dashboard chính của Admin (`AdminDashboard.tsx`).
+### 3. Tạo Hóa đơn & Thu tiền tại chỗ
+- **Backend:** Logic tự động tạo `hoa_don` và `hoa_don_chi_tiet` từ `lich_dat` đã hoàn thành.
+- **Frontend:** Màn hình thanh toán nhanh, chọn phương thức (Tiền mặt, Chuyển khoản) và in hóa đơn (hoặc xuất PDF).
+
+### 4. Quản lý Khách hàng (Lite)
+- **Frontend:** Form đăng ký nhanh khách hàng mới ngay tại quầy lễ tân (không cần qua luồng Register phức tạp).
 
 ---
 
 **Gợi ý Agent khởi đầu:**
-"Hãy bắt đầu Phase 6: Hoàn thiện Module Admin. Đầu tiên hãy đọc và phân tích toàn bộ folder `.agent` (bao gồm rules, skills, và workflows) để nắm bắt chuẩn coding và quy trình làm việc, sau đó xây dựng API và màn hình Quản lý Thanh toán & Hóa đơn để theo dõi doanh thu của hệ thống."
+"Hãy bắt đầu Phase 7: Triển khai Module Lễ tân. Đầu tiên hãy đọc lại schema bảng `hoa_don`, `thanh_toan` và `lich_dat` để nắm vững luồng dữ liệu, sau đó xây dựng tính năng Check-in nhanh và màn hình Quản lý Lễ tân tập trung."

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { getSchedules, createSchedule, getStaff } from '../../api/admin.api';
+import { getSchedules, createSchedule, getStaff } from '../../../api/admin.api';
 
 const scheduleSchema = z.object({
   ky_thuat_vien_id: z.string().min(1, 'Vui lòng chọn KTV'),
