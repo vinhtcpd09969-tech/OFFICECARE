@@ -22,6 +22,7 @@ import ManageCustomers from '../features/admin/pages/ManageCustomers';
 import ManageStaff from '../features/admin/pages/ManageStaff';
 import ManageSchedules from '../features/admin/pages/ManageSchedules';
 import ManageAppointments from '../features/admin/pages/ManageAppointments';
+import ManageTreatments from '../features/admin/pages/ManageTreatments';
 import ManageMedicalRecords from '../features/admin/pages/ManageMedicalRecords';
 import ManageServices from '../features/admin/pages/ManageServices';
 import ManageRoomsEquipment from '../features/admin/pages/ManageRoomsEquipment';
@@ -61,6 +62,7 @@ export default function AppRoutes() {
         <Route element={<AdminLayout />}>
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/appointments" element={<ManageAppointments />} />
+          <Route path="/admin/treatments" element={<ManageTreatments />} />
           <Route path="/admin/customers" element={<ManageCustomers />} />
           <Route path="/admin/medical-records" element={<ManageMedicalRecords />} />
           <Route path="/admin/staff" element={<ManageStaff />} />

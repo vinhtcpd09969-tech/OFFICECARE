@@ -5,9 +5,9 @@ import * as appointmentController from '../controllers/appointment.controller';
 
 const router = Router();
 
-// Tất cả các route trong file này đều yêu cầu đăng nhập và có quyền Admin (vai_tro_id = 5)
+// Tất cả các route trong file này đều yêu cầu đăng nhập và có quyền Admin (vai_tro_id = 5) hoặc Quản lý (vai_tro_id = 6)
 router.use(verifyToken);
-router.use(authorizeRoles(5));
+router.use(authorizeRoles(5, 6));
 
 // Danh mục & Dịch vụ
 router.get('/categories', adminController.getCategories);
