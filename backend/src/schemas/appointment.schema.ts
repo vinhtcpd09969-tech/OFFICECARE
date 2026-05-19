@@ -39,7 +39,7 @@ export const updateAppointmentStatusSchema = z.object({
     id: z.string().uuid('ID Lịch hẹn không hợp lệ'),
   }),
   body: z.object({
-    trang_thai: z.enum(['cho_xac_nhan', 'da_xac_nhan', 'da_checkin', 'hoan_thanh', 'da_huy', 'khong_den'], {
+    trang_thai: z.enum(['chua_xac_nhan', 'cho_xac_nhan', 'da_xac_nhan', 'da_checkin', 'hoan_thanh', 'da_huy', 'khong_den'], {
       required_error: 'Trạng thái là bắt buộc',
       invalid_type_error: 'Trạng thái không hợp lệ'
     }),

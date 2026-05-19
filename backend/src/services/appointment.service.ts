@@ -14,7 +14,7 @@ class AppointmentService {
     const ma_lich_dat = 'LD-' + Math.floor(10000 + Math.random() * 90000);
     // Mặc định thời lượng khám là 30 phút
     const ngay_gio_ket_thuc = new Date(new Date(data.ngay_gio_bat_dau).getTime() + 30 * 60000).toISOString();
-    return appointmentRepository.createPublicAppointment(ma_lich_dat, { ...data, ngay_gio_ket_thuc });
+    return appointmentRepository.createPublicAppointment(ma_lich_dat, { ...data, ngay_gio_ket_thuc, trang_thai: 'chua_xac_nhan' });
   }
 
   async updateAppointmentStatus(id: string, data: { trang_thai: string; ky_thuat_vien_id?: string | null; phong_id?: string | number | null }) {

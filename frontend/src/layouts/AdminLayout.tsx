@@ -33,7 +33,8 @@ export default function AdminLayout() {
 
   const navItems = [
     { name: 'Tổng quan', path: '/admin', icon: '📊' },
-    { name: 'Lịch hẹn', path: '/admin/appointments', icon: '📅', searchPlaceholder: 'Tìm kiếm lịch hẹn...' },
+    { name: 'Lịch hẹn khám', path: '/admin/appointments', icon: '📅', searchPlaceholder: 'Tìm kiếm lịch hẹn khám...' },
+    { name: 'Lịch điều trị', path: '/admin/treatments', icon: '⚡', searchPlaceholder: 'Tìm kiếm lịch điều trị...' },
     { name: 'Ca làm việc', path: '/admin/schedules', icon: '🕒' },
     { name: 'Khách hàng', path: '/admin/customers', icon: '👤', searchPlaceholder: 'Tìm kiếm khách hàng...' },
     { name: 'Hồ sơ điều trị', path: '/admin/medical-records', icon: '📋', searchPlaceholder: 'Tìm kiếm hồ sơ...' },

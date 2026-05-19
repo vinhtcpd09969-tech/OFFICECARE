@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+
 import { X, Activity, AlertCircle } from 'lucide-react';
 
 interface AppointmentDetailModalProps {
@@ -16,9 +16,7 @@ interface AppointmentDetailModalProps {
   onClose: () => void;
   onSave: (e: React.FormEvent) => void;
   onOpenTreatment: (type?: 'single' | 'package', recId?: string) => void;
-  services?: any[];
-  packages?: any[];
-  onSaveMedicalRecord?: (data: any) => void;
+  appointments?: any[];
 }
 
 export default function AppointmentDetailModal({
@@ -36,47 +34,41 @@ export default function AppointmentDetailModal({
   onClose,
   onSave,
   onOpenTreatment,
-  services = [],
-  packages = [],
-  onSaveMedicalRecord
+  appointments = []
 }: AppointmentDetailModalProps) {
-  const [chanDoan, setChanDoan] = useState(selectedAppointment?.chan_doan || '');
-  const [chongChiDinh, setChongChiDinh] = useState(selectedAppointment?.chong_chi_dinh || '');
-  const [khuyenNghiDVT, setKhuyenNghiDVT] = useState<'none' | 'single' | 'package'>('none');
-  const [khuyenNghiDichVuId, setKhuyenNghiDichVuId] = useState(selectedAppointment?.khuyen_nghi_dich_vu_id || '');
-  const [khuyenNghiGoiId, setKhuyenNghiGoiId] = useState(selectedAppointment?.khuyen_nghi_goi_id || '');
-  const [isSavingMedical, setIsSavingMedical] = useState(false);
 
-  useEffect(() => {
-    if (selectedAppointment) {
-      setChanDoan(selectedAppointment.chan_doan || '');
-      setChongChiDinh(selectedAppointment.chong_chi_dinh || '');
-      if (selectedAppointment.khuyen_nghi_dich_vu_id) {
-        setKhuyenNghiDVT('single');
-        setKhuyenNghiDichVuId(selectedAppointment.khuyen_nghi_dich_vu_id);
-      } else if (selectedAppointment.khuyen_nghi_goi_id) {
-        setKhuyenNghiDVT('package');
-        setKhuyenNghiGoiId(selectedAppointment.khuyen_nghi_goi_id);
-      } else {
-        setKhuyenNghiDVT('none');
-      }
-    }
-  }, [selectedAppointment]);
-
-  const handleSaveMedical = async () => {
-    if (onSaveMedicalRecord) {
-      setIsSavingMedical(true);
-      await onSaveMedicalRecord({
-        chan_doan: chanDoan,
-        chong_chi_dinh: chongChiDinh,
-        khuyen_nghi_dich_vu_id: khuyenNghiDVT === 'single' ? khuyenNghiDichVuId : null,
-        khuyen_nghi_goi_id: khuyenNghiDVT === 'package' ? khuyenNghiGoiId : null
-      });
-      setIsSavingMedical(false);
-    }
-  };
 
   if (!selectedAppointment) return null;
+
+  // Logic kiểm tra phòng trống & bác sĩ rảnh dựa vào khung giờ hẹn
+  const isOverlapping = (start1: string, end1: string, start2: string, end2: string) => {
+    const s1 = new Date(start1).getTime();
+    const e1 = new Date(end1).getTime();
+    const s2 = new Date(start2).getTime();
+    const e2 = new Date(end2).getTime();
+    return s1 < e2 && e1 > s2;
+  };
+
+  const currentStart = selectedAppointment.ngay_gio_bat_dau;
+  const currentEnd = selectedAppointment.ngay_gio_ket_thuc;
+
+  const overlappingApts = appointments.filter(apt => 
+    apt.id !== selectedAppointment.id && 
+    apt.trang_thai !== 'da_huy' &&
+    apt.trang_thai !== 'khong_den' &&
+    isOverlapping(currentStart, currentEnd, apt.ngay_gio_bat_dau, apt.ngay_gio_ket_thuc)
+  );
+
+  const occupiedStaffIds = overlappingApts.map(apt => apt.ky_thuat_vien_id).filter(Boolean);
+  const occupiedRoomIds = overlappingApts.map(apt => String(apt.phong_id)).filter(Boolean);
+
+  const availableRooms = roomsList.filter(room => 
+    !occupiedRoomIds.includes(String(room.id)) || String(room.id) === String(selectedAppointment.phong_id)
+  );
+  
+  const availableStaff = staffList.filter(staff => 
+    !occupiedStaffIds.includes(staff.ky_thuat_vien_id || staff.id) || (staff.ky_thuat_vien_id || staff.id) === selectedAppointment.ky_thuat_vien_id
+  );
 
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -115,61 +107,12 @@ export default function AppointmentDetailModal({
             </div>
           </div>
 
-          {/* Medical Record Section (Read/Write depending on role & status) */}
-          <div className="space-y-4">
-            <h4 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2 flex justify-between items-center">
-              Hồ sơ Bệnh án
-              {selectedAppointment.loai_lich === 'kham_moi' && (
-                <button type="button" onClick={handleSaveMedical} disabled={isSavingMedical} className="text-xs bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full font-bold hover:bg-emerald-200">
-                  {isSavingMedical ? 'Đang lưu...' : 'Lưu hồ sơ'}
-                </button>
-              )}
-            </h4>
-
-            {selectedAppointment.loai_lich === 'kham_moi' ? (
-              <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                <div>
-                  <label className="text-xs font-semibold text-slate-600 block mb-1">Chẩn đoán (Bác sĩ ghi)</label>
-                  <textarea
-                    value={chanDoan}
-                    onChange={e => setChanDoan(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:border-emerald-500"
-                    placeholder="Ghi nhận tình trạng bệnh..."
-                    rows={2}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-rose-600 block mb-1">Chống chỉ định (Lưu ý cho KTV)</label>
-                  <textarea
-                    value={chongChiDinh}
-                    onChange={e => setChongChiDinh(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-rose-200 rounded-lg text-sm outline-none focus:border-rose-500 placeholder-rose-200"
-                    placeholder="Không được xoa bóp mạnh, tránh nhiệt..."
-                    rows={2}
-                  />
-                </div>
-                <div className="pt-2 border-t border-slate-200">
-                  <label className="text-xs font-semibold text-emerald-600 block mb-2">Khuyến nghị Điều trị</label>
-                  <div className="flex gap-4">
-                    <label className="flex items-center gap-2 text-sm"><input type="radio" checked={khuyenNghiDVT === 'none'} onChange={() => setKhuyenNghiDVT('none')} /> Không</label>
-                    <label className="flex items-center gap-2 text-sm"><input type="radio" checked={khuyenNghiDVT === 'single'} onChange={() => setKhuyenNghiDVT('single')} /> Dịch vụ lẻ</label>
-                    <label className="flex items-center gap-2 text-sm"><input type="radio" checked={khuyenNghiDVT === 'package'} onChange={() => setKhuyenNghiDVT('package')} /> Gói trị liệu</label>
-                  </div>
-                  {khuyenNghiDVT === 'single' && (
-                    <select value={khuyenNghiDichVuId} onChange={e => setKhuyenNghiDichVuId(e.target.value)} className="w-full mt-2 px-3 py-2 bg-white border border-emerald-200 rounded-lg text-sm outline-none">
-                      <option value="">-- Chọn dịch vụ --</option>
-                      {services.filter(s => !s.ten_dich_vu.toLowerCase().includes('khám')).map(s => <option key={s.id} value={s.id}>{s.ten_dich_vu}</option>)}
-                    </select>
-                  )}
-                  {khuyenNghiDVT === 'package' && (
-                    <select value={khuyenNghiGoiId} onChange={e => setKhuyenNghiGoiId(e.target.value)} className="w-full mt-2 px-3 py-2 bg-white border border-emerald-200 rounded-lg text-sm outline-none">
-                      <option value="">-- Chọn gói --</option>
-                      {packages.map(p => <option key={p.id} value={p.id}>{p.ten_goi}</option>)}
-                    </select>
-                  )}
-                </div>
-              </div>
-            ) : (
+          {/* Medical Record Section (Read-only for KTV during Treatment) */}
+          {selectedAppointment.loai_lich === 'dieu_tri' && (
+            <div className="space-y-4">
+              <h4 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2">
+                Hồ sơ Bệnh án
+              </h4>
               <div className="space-y-3">
                 {selectedAppointment.chan_doan && (
                   <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 border-l-4 border-l-blue-500">
@@ -187,8 +130,9 @@ export default function AppointmentDetailModal({
                   <p className="text-sm text-slate-500 italic">Không có hồ sơ bệnh án.</p>
                 )}
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
 
           <div className="space-y-4">
             <h4 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2">Điều phối & Trạng thái</h4>
@@ -202,7 +146,7 @@ export default function AppointmentDetailModal({
                   onChange={(e) => setAssignRoomId(e.target.value)}
                 >
                   <option value="">-- Chưa xếp phòng --</option>
-                  {roomsList.map(r => (
+                  {availableRooms.map(r => (
                     <option key={r.id} value={r.id}>{r.ten_phong}</option>
                   ))}
                 </select>
@@ -216,7 +160,7 @@ export default function AppointmentDetailModal({
                   onChange={(e) => setAssignStaffId(e.target.value)}
                 >
                   <option value="">-- Chưa phân công --</option>
-                  {staffList.filter(s => s.vai_tro === activeRole).map(s => (
+                  {availableStaff.filter(s => s.vai_tro === activeRole).map(s => (
                     <option key={s.ky_thuat_vien_id || s.id} value={s.ky_thuat_vien_id || ''}>
                       {s.ho_ten}
                     </option>
@@ -231,6 +175,7 @@ export default function AppointmentDetailModal({
                   value={assignStatus}
                   onChange={(e) => setAssignStatus(e.target.value)}
                 >
+                  <option value="chua_xac_nhan">Chưa xác nhận</option>
                   <option value="cho_xac_nhan">Chờ xác nhận</option>
                   <option value="da_xac_nhan">Đã xác nhận</option>
                   <option value="da_checkin">Đã Check-in</option>
@@ -243,7 +188,7 @@ export default function AppointmentDetailModal({
           </div>
 
           <div className="pt-6 border-t border-slate-100 flex items-center justify-between gap-3">
-            {selectedAppointment.loai_lich === 'kham_moi' ? (
+            {selectedAppointment.loai_lich === 'kham_moi' && selectedAppointment.trang_thai === 'hoan_thanh' ? (
               <div className="flex gap-2">
                 <button
                   type="button"
