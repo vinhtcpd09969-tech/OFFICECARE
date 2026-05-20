@@ -1,8 +1,7 @@
-
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { createPackage } from '../../../api/admin.api';
+import { createPackage, updatePackage } from '../../../api/admin.api';
 
 const packageSchema = z.object({
   ten_goi: z.string().min(1, 'Tên gói là bắt buộc'),
@@ -25,12 +24,26 @@ interface PackageModalProps {
   services: any[];
   onClose: () => void;
   onSuccess: () => void;
+  editingPackage?: any;
 }
 
-export default function PackageModal({ services, onClose, onSuccess }: PackageModalProps) {
+export default function PackageModal({ services, onClose, onSuccess, editingPackage }: PackageModalProps) {
   const { register, handleSubmit, control, formState: { errors } } = useForm<PackageFormValues>({
     resolver: zodResolver(packageSchema) as any,
-    defaultValues: {
+    defaultValues: editingPackage ? {
+      ten_goi: editingPackage.ten_goi || '',
+      ma_goi: editingPackage.ma_goi || '',
+      mo_ta: editingPackage.mo_ta || '',
+      tong_so_buoi: editingPackage.tong_so_buoi || 10,
+      gia_tien: typeof editingPackage.gia_tien === 'string' ? parseInt(editingPackage.gia_tien) : (editingPackage.gia_tien || 0),
+      han_dung_thang: editingPackage.han_dung_thang || 6,
+      hien_thi_website: editingPackage.hien_thi_website !== undefined ? editingPackage.hien_thi_website : true,
+      trang_thai: editingPackage.trang_thai || 'hoat_dong',
+      chi_tiet_dich_vu: editingPackage.chi_tiet_dich_vu ? editingPackage.chi_tiet_dich_vu.map((item: any) => ({
+        dich_vu_id: item.dich_vu_id,
+        so_buoi: item.so_buoi || item.so_buoi_trong_goi || 1
+      })) : []
+    } : {
       trang_thai: 'hoat_dong',
       tong_so_buoi: 10,
       han_dung_thang: 6,
@@ -42,11 +55,15 @@ export default function PackageModal({ services, onClose, onSuccess }: PackageMo
 
   const onSubmit = async (data: PackageFormValues) => {
     try {
-      await createPackage(data);
+      if (editingPackage) {
+        await updatePackage(editingPackage.id, data);
+      } else {
+        await createPackage(data);
+      }
       onSuccess();
     } catch (error) {
-      console.error('Error creating package:', error);
-      alert('Có lỗi xảy ra khi tạo gói');
+      console.error('Error saving package:', error);
+      alert('Có lỗi xảy ra khi lưu cấu hình gói');
     }
   };
 
@@ -55,8 +72,12 @@ export default function PackageModal({ services, onClose, onSuccess }: PackageMo
       <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[90vh] animate-slide-up border border-slate-100">
         <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10">
           <div>
-            <h3 className="text-xl font-bold text-slate-800">Cấu hình gói điều trị</h3>
-            <p className="text-sm text-slate-500 mt-0.5">Thiết lập thông tin và cấu trúc dịch vụ của gói</p>
+            <h3 className="text-xl font-bold text-slate-800">
+              {editingPackage ? 'Cập nhật gói điều trị' : 'Cấu hình gói điều trị'}
+            </h3>
+            <p className="text-sm text-slate-500 mt-0.5">
+              {editingPackage ? 'Chỉnh sửa thông tin và cấu trúc dịch vụ' : 'Thiết lập thông tin và cấu trúc dịch vụ của gói'}
+            </p>
           </div>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 active:scale-90 transition-all">
             ✕

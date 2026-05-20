@@ -23,6 +23,14 @@ class AdminService {
     return adminRepository.createService(data);
   }
 
+  async updateService(id: string, data: any) {
+    return adminRepository.updateService(id, data);
+  }
+
+  async deleteService(id: string) {
+    return adminRepository.deleteService(id);
+  }
+
   // --- QUẢN LÝ GÓI ĐIỀU TRỊ ---
   async getPackages() {
     return adminRepository.getPackages();
@@ -30,6 +38,14 @@ class AdminService {
 
   async createPackage(data: any) {
     return adminRepository.createPackage(data);
+  }
+
+  async updatePackage(id: string, data: any) {
+    return adminRepository.updatePackage(id, data);
+  }
+
+  async deletePackage(id: string) {
+    return adminRepository.deletePackage(id);
   }
 
   // --- QUẢN LÝ NHÂN SỰ ---

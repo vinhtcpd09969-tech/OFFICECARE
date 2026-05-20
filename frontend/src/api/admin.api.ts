@@ -5,10 +5,14 @@ export const getCategories = () => api.get('/admin/categories');
 export const createCategory = (data: any) => api.post('/admin/categories', data);
 export const getServices = () => api.get('/admin/services');
 export const createService = (data: any) => api.post('/admin/services', data);
+export const updateService = (id: string, data: any) => api.put(`/admin/services/${id}`, data);
+export const deleteService = (id: string) => api.delete(`/admin/services/${id}`);
 
 // Packages
 export const getPackages = () => api.get('/admin/packages');
 export const createPackage = (data: any) => api.post('/admin/packages', data);
+export const updatePackage = (id: string, data: any) => api.put(`/admin/packages/${id}`, data);
+export const deletePackage = (id: string) => api.delete(`/admin/packages/${id}`);
 
 // Staff & Customers
 export const getStaff = () => api.get('/admin/staff');
