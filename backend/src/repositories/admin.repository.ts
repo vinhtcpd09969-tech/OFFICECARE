@@ -32,8 +32,8 @@ class AdminRepository {
 
   async createService(data: any) {
     const { rows } = await pool.query(
-      `INSERT INTO dich_vu (danh_muc_id, ten_dich_vu, mo_ta_ngan, thoi_luong_phut, don_gia, thiet_bi_yeu_cau, trang_thai) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *, thoi_luong_phut as thoi_gian_uoc_tinh`,
+      `INSERT INTO dich_vu (danh_muc_id, ten_dich_vu, mo_ta_ngan, thoi_luong_phut, don_gia, thiet_bi_yeu_cau, trang_thai, loai_dich_vu) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *, thoi_luong_phut as thoi_gian_uoc_tinh`,
       [
         data.danh_muc_id,
         data.ten_dich_vu,
@@ -41,10 +41,35 @@ class AdminRepository {
         data.thoi_gian_uoc_tinh,
         data.don_gia || 0,
         data.thiet_bi_yeu_cau || null,
-        data.trang_thai
+        data.trang_thai,
+        data.loai_dich_vu || 'chinh'
       ]
     );
     return rows[0];
+  }
+
+  async updateService(id: string, data: any) {
+    const { rows } = await pool.query(
+      `UPDATE dich_vu 
+       SET danh_muc_id = $1, ten_dich_vu = $2, mo_ta_ngan = $3, thoi_luong_phut = $4, don_gia = $5, thiet_bi_yeu_cau = $6, trang_thai = $7, loai_dich_vu = $8
+       WHERE id = $9 RETURNING *, thoi_luong_phut as thoi_gian_uoc_tinh`,
+      [
+        data.danh_muc_id,
+        data.ten_dich_vu,
+        data.mo_ta || null,
+        data.thoi_gian_uoc_tinh,
+        data.don_gia || 0,
+        data.thiet_bi_yeu_cau || null,
+        data.trang_thai,
+        data.loai_dich_vu || 'chinh',
+        id
+      ]
+    );
+    return rows[0];
+  }
+
+  async deleteService(id: string) {
+    await pool.query('DELETE FROM dich_vu WHERE id = $1', [id]);
   }
 
   // --- QUẢN LÝ GÓI ĐIỀU TRỊ ---
@@ -64,9 +89,9 @@ class AdminRepository {
     try {
       await client.query('BEGIN');
       const { rows } = await client.query(
-        `INSERT INTO goi_dich_vu (ten_goi, ma_goi, mo_ta, tong_so_buoi, gia_goi, han_dung_thang, hien_thi_website, trang_thai, danh_muc_id) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *, gia_goi as gia_tien`,
-        [data.ten_goi, ma_goi, data.mo_ta || null, data.tong_so_buoi, data.gia_tien, data.han_dung_thang || 6, data.hien_thi_website !== undefined ? data.hien_thi_website : true, data.trang_thai, data.danh_muc_id || null]
+        `INSERT INTO goi_dich_vu (ten_goi, ma_goi, mo_ta, tong_so_buoi, gia_goi, han_dung_thang, hien_thi_website, trang_thai, danh_muc_id, chi_tiet_dich_vu) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *, gia_goi as gia_tien`,
+        [data.ten_goi, ma_goi, data.mo_ta || null, data.tong_so_buoi, data.gia_tien, data.han_dung_thang || 6, data.hien_thi_website !== undefined ? data.hien_thi_website : true, data.trang_thai, data.danh_muc_id || null, JSON.stringify(data.chi_tiet_dich_vu || [])]
       );
       const packageId = rows[0].id;
 
@@ -79,6 +104,57 @@ class AdminRepository {
         }
       }
 
+      await client.query('COMMIT');
+      return rows[0];
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+
+  async updatePackage(id: string, data: any) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const { rows } = await client.query(
+        `UPDATE goi_dich_vu 
+         SET ten_goi = $1, ma_goi = $2, mo_ta = $3, tong_so_buoi = $4, gia_goi = $5, 
+             han_dung_thang = $6, hien_thi_website = $7, trang_thai = $8, danh_muc_id = $9, chi_tiet_dich_vu = $10
+         WHERE id = $11 RETURNING *, gia_goi as gia_tien`,
+        [data.ten_goi, data.ma_goi, data.mo_ta || null, data.tong_so_buoi, data.gia_tien, data.han_dung_thang || 6, data.hien_thi_website !== undefined ? data.hien_thi_website : true, data.trang_thai, data.danh_muc_id || null, JSON.stringify(data.chi_tiet_dich_vu || []), id]
+      );
+
+      // Xóa các chi tiết cũ
+      await client.query('DELETE FROM goi_dich_vu_chi_tiet WHERE goi_dich_vu_id = $1', [id]);
+
+      // Thêm lại chi tiết mới
+      if (data.chi_tiet_dich_vu && Array.isArray(data.chi_tiet_dich_vu)) {
+        for (const item of data.chi_tiet_dich_vu) {
+          await client.query(
+            'INSERT INTO goi_dich_vu_chi_tiet (goi_dich_vu_id, dich_vu_id, so_buoi_trong_goi) VALUES ($1, $2, $3)',
+            [id, item.dich_vu_id, item.so_buoi || item.so_buoi_trong_goi]
+          );
+        }
+      }
+
+      await client.query('COMMIT');
+      return rows[0];
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+
+  async deletePackage(id: string) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('DELETE FROM goi_dich_vu_chi_tiet WHERE goi_dich_vu_id = $1', [id]);
+      const { rows } = await client.query('DELETE FROM goi_dich_vu WHERE id = $1 RETURNING *', [id]);
       await client.query('COMMIT');
       return rows[0];
     } catch (e) {

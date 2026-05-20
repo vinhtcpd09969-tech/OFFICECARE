@@ -13,9 +13,9 @@ const clearDatabase = async () => {
   console.log('Đang xóa dữ liệu cũ...');
   await pool.query(`
     TRUNCATE TABLE 
-      nguoi_dung, vai_tro, khach_hang, ky_thuat_vien, danh_muc_dich_vu, dich_vu,
-      hoa_don, thanh_toan, voucher, phong, lich_dat, buoi_tri_lieu, danh_gia_dich_vu,
-      goi_dich_vu, lich_dieu_tri, thiet_bi_y_te, system_audit_log, lich_lam_viec
+      nguoi_dung, vai_tro, khach_hang, chuyen_gia_y_te, danh_muc_dich_vu, dich_vu,
+      hoa_don, hoa_don_chi_tiet, thanh_toan, voucher, phong, lich_dat, buoi_tri_lieu, danh_gia_dich_vu,
+      goi_dich_vu, goi_dich_vu_chi_tiet, lich_dieu_tri, thiet_bi_y_te, system_audit_log, lich_lam_viec
     CASCADE;
     ALTER SEQUENCE vai_tro_id_seq RESTART WITH 1;
   `);
@@ -61,7 +61,7 @@ const seedUsers = async (roles: any) => {
   const bacSiId = bacSiRows[0].id;
 
   await pool.query(`
-    INSERT INTO ky_thuat_vien (nguoi_dung_id, ma_nhan_vien, chuyen_mon_chinh, so_nam_kinh_nghiem)
+    INSERT INTO chuyen_gia_y_te (nguoi_dung_id, ma_nhan_vien, chuyen_mon_chinh, so_nam_kinh_nghiem)
     VALUES ($1, 'BS001', 'Bác sĩ chuyên khoa', 10)
   `, [bacSiId]);
 
@@ -75,7 +75,7 @@ const seedUsers = async (roles: any) => {
     ktvUsers.push(rows[0].id);
 
     await pool.query(`
-      INSERT INTO ky_thuat_vien (nguoi_dung_id, ma_nhan_vien, chuyen_mon_chinh, so_nam_kinh_nghiem)
+      INSERT INTO chuyen_gia_y_te (nguoi_dung_id, ma_nhan_vien, chuyen_mon_chinh, so_nam_kinh_nghiem)
       VALUES ($1, $2, $3, $4)
     `, [rows[0].id, `KTV${String(i).padStart(3, '0')}`, 'Vật lý trị liệu', faker.number.int({ min: 1, max: 10 })]);
   }
@@ -104,18 +104,18 @@ const seedServices = async () => {
   // Danh mục
   const { rows: categories } = await pool.query(`
     INSERT INTO danh_muc_dich_vu (ten_danh_muc, mo_ta) VALUES
-    ('Khám & Tư vấn', 'Khám lâm sàng và lượng giá'),
-    ('Vật lý trị liệu', 'Các phương pháp trị liệu cơ xương khớp'),
-    ('Phục hồi chức năng', 'Tập vận động phục hồi sau chấn thương')
+    ('Khám & Lượng giá', 'Khám lâm sàng và đánh giá tư thế'),
+    ('Trị liệu chuyên sâu', 'Các liệu trình trị liệu cơ xương khớp chuyên sâu cho dân văn phòng'),
+    ('Phục hồi & Phòng ngừa', 'Tập luyện phục hồi chức năng và định hình tư thế')
     RETURNING id;
   `);
 
   // Dịch vụ
   const services = [
-    { catId: categories[0].id, name: 'Khám lượng giá ban đầu', price: 300000, duration: 30 },
-    { catId: categories[1].id, name: 'Siêu âm trị liệu', price: 250000, duration: 45 },
-    { catId: categories[1].id, name: 'Điện xung trị liệu', price: 200000, duration: 45 },
-    { catId: categories[2].id, name: 'Tập vận động thụ động', price: 400000, duration: 60 },
+    { catId: categories[0].id, name: 'Khám lượng giá cột sống & tư thế', price: 150000, duration: 30 },
+    { catId: categories[1].id, name: 'Trị liệu Cổ Vai Gáy cấp tốc (Giải cứu giờ trưa)', price: 250000, duration: 45 },
+    { catId: categories[1].id, name: 'Trị liệu Hội chứng văn phòng chuyên sâu', price: 390000, duration: 75 },
+    { catId: categories[2].id, name: 'Phục hồi cột sống & Định hình tư thế', price: 590000, duration: 90 },
   ];
 
   const serviceIds = [];
@@ -124,7 +124,7 @@ const seedServices = async () => {
       INSERT INTO dich_vu (danh_muc_id, ten_dich_vu, thoi_luong_phut, don_gia)
       VALUES ($1, $2, $3, $4) RETURNING id
     `, [s.catId, s.name, s.duration, s.price]);
-    serviceIds.push({ id: rows[0].id, price: s.price });
+    serviceIds.push({ id: rows[0].id, name: s.name, price: s.price });
   }
 
   return serviceIds;
@@ -132,29 +132,61 @@ const seedServices = async () => {
 
 const seedPackages = async (services: any[]) => {
   console.log('Seeding packages...');
-  if (services.length < 3) return;
 
-  const package1Services = JSON.stringify([
-    { dich_vu_id: services[0].id, so_buoi: 6 },
-    { dich_vu_id: services[1].id, so_buoi: 6 }
+  // Tìm các dịch vụ tương ứng
+  const g1Service = services.find(s => s.name === 'Trị liệu Cổ Vai Gáy cấp tốc (Giải cứu giờ trưa)');
+  const g2Service = services.find(s => s.name === 'Trị liệu Hội chứng văn phòng chuyên sâu');
+  const g3Service = services.find(s => s.name === 'Phục hồi cột sống & Định hình tư thế');
+
+  if (!g1Service || !g2Service || !g3Service) {
+    console.error('Không tìm thấy dịch vụ tương ứng để seed gói!');
+    return;
+  }
+
+  const package1Details = JSON.stringify([
+    { dich_vu_id: g1Service.id, so_buoi: 5 }
   ]);
-  const package2Services = JSON.stringify([
-    { dich_vu_id: services[1].id, so_buoi: 2 },
-    { dich_vu_id: services[2].id, so_buoi: 2 },
-    { dich_vu_id: services[3].id, so_buoi: 2 }
+  const package2Details = JSON.stringify([
+    { dich_vu_id: g2Service.id, so_buoi: 10 }
   ]);
-  const package3Services = JSON.stringify([
-    { dich_vu_id: services[0].id, so_buoi: 12 },
-    { dich_vu_id: services[2].id, so_buoi: 12 }
+  const package3Details = JSON.stringify([
+    { dich_vu_id: g3Service.id, so_buoi: 15 }
   ]);
 
+  // Insert packages
+  const { rows: p1Rows } = await pool.query(`
+    INSERT INTO goi_dich_vu (ten_goi, ma_goi, mo_ta, tong_so_buoi, gia_goi, gia_goc, han_dung_thang, hien_thi_website, trang_thai, chi_tiet_dich_vu)
+    VALUES ('Combo 5 buổi - Giải cứu cột sống cấp tốc', 'PKG-5-SPINE', 'Cắt nhanh cơn đau thắt lưng, vai gáy cấp tính cho người ngồi làm việc nhiều.', 5, 1180000, 1250000, 3, true, 'hoat_dong', $1)
+    RETURNING id
+  `, [package1Details]);
+  const p1Id = p1Rows[0].id;
+
+  const { rows: p2Rows } = await pool.query(`
+    INSERT INTO goi_dich_vu (ten_goi, ma_goi, mo_ta, tong_so_buoi, gia_goi, gia_goc, han_dung_thang, hien_thi_website, trang_thai, chi_tiet_dich_vu)
+    VALUES ('Combo 10 buổi - Tái tạo & Trị liệu chuyên sâu', 'PKG-10-OFFICE', 'Liệu trình 10 buổi trị liệu dứt điểm cơn đau vai gáy, tê bì tay chân mãn tính.', 10, 3400000, 3900000, 6, true, 'hoat_dong', $1)
+    RETURNING id
+  `, [package2Details]);
+  const p2Id = p2Rows[0].id;
+
+  const { rows: p3Rows } = await pool.query(`
+    INSERT INTO goi_dich_vu (ten_goi, ma_goi, mo_ta, tong_so_buoi, gia_goi, gia_goc, han_dung_thang, hien_thi_website, trang_thai, chi_tiet_dich_vu)
+    VALUES ('Combo 15 buổi - Định hình tư thế & Bảo dưỡng trọn đời', 'PKG-15-POSTURE', 'Liệu trình 15 buổi sửa hoàn toàn tư thế gù lưng, cổ rùa, lệch xương chậu.', 15, 7000000, 8850000, 9, true, 'hoat_dong', $1)
+    RETURNING id
+  `, [package3Details]);
+  const p3Id = p3Rows[0].id;
+
+  // Insert package services details
   await pool.query(`
-    INSERT INTO goi_dich_vu (ten_goi, ma_goi, mo_ta, tong_so_buoi, gia_goi, han_dung_thang, hien_thi_website, trang_thai, chi_tiet_dich_vu)
+    INSERT INTO goi_dich_vu_chi_tiet (goi_dich_vu_id, dich_vu_id, so_buoi_trong_goi)
     VALUES 
-      ('Phục hồi Cột sống Chuyên sâu', 'PKG-2024-001', 'Liệu trình chuyên sâu phục hồi thoát vị đĩa đệm và thoái hóa cột sống.', 12, 8500000, 3, true, 'hoat_dong', $1),
-      ('Trị liệu Thể thao Cấp tốc', 'PKG-2024-002', 'Gói phục hồi chấn thương căng cơ, bong gân cấp tốc cho vận động viên.', 6, 4200000, 1, true, 'hoat_dong', $2),
-      ('Liệu trình Yoga Phục hồi', 'PKG-2024-003', 'Kết hợp vật lý trị liệu và Yoga cá nhân để phục hồi toàn diện và lâu dài.', 24, 15000000, 6, false, 'hoat_dong', $3)
-  `, [package1Services, package2Services, package3Services]);
+      ($1, $2, 5),
+      ($3, $4, 10),
+      ($5, $6, 15)
+  `, [
+    p1Id, g1Service.id,
+    p2Id, g2Service.id,
+    p3Id, g3Service.id
+  ]);
 };
 
 const seedInvoicesAndAnalytics = async (customerIds: string[], serviceIds: any[]) => {
@@ -184,7 +216,7 @@ const seedFeedback = async (customerIds: string[]) => {
   console.log('Seeding feedbacks...');
 
   // Lấy danh sách KTV thực tế
-  const { rows: ktvs } = await pool.query('SELECT id FROM ky_thuat_vien');
+  const { rows: ktvs } = await pool.query('SELECT id FROM chuyen_gia_y_te');
 
   // Cần ít nhất 1 buổi trị liệu để đánh giá
   const { rows: services } = await pool.query('SELECT id FROM dich_vu LIMIT 1');
@@ -196,8 +228,8 @@ const seedFeedback = async (customerIds: string[]) => {
 
     // Giả lập lịch đặt khám ban đầu (Bác sĩ)
     const { rows: ld } = await pool.query(`
-      INSERT INTO lich_dat (ma_lich_dat, khach_hang_id, dich_vu_id, ngay_gio_bat_dau, ngay_gio_ket_thuc, loai_lich, trang_thai)
-      VALUES ($1, $2, $3, NOW() - interval '${i} days', NOW() - interval '${i} days' + interval '1 hour', 'kham_moi', 'hoan_thanh') RETURNING id
+      INSERT INTO lich_dat (ma_lich_dat, khach_hang_id, dich_vu_id, ngay_gio_bat_dau, ngay_gio_ket_thuc, trang_thai)
+      VALUES ($1, $2, $3, NOW() - interval '${i} days', NOW() - interval '${i} days' + interval '1 hour', 'hoan_thanh') RETURNING id
     `, [`LD${faker.string.numeric(6)}`, customer, services[0].id]);
 
     // Giả lập hồ sơ điều trị

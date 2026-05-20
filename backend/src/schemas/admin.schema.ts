@@ -17,7 +17,8 @@ export const serviceSchema = z.object({
     thoi_gian_uoc_tinh: z.number().int().positive('Thời gian ước tính phải lớn hơn 0'),
     don_gia: z.number().min(0, 'Đơn giá không hợp lệ').optional().default(0),
     thiet_bi_yeu_cau: z.string().optional(),
-    trang_thai: z.enum(['hoat_dong', 'vo_hieu']).default('hoat_dong')
+    trang_thai: z.enum(['hoat_dong', 'vo_hieu']).default('hoat_dong'),
+    loai_dich_vu: z.enum(['chinh', 'bo_sung']).default('chinh')
   })
 });
 

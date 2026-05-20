@@ -14,6 +14,8 @@ router.get('/categories', adminController.getCategories);
 router.post('/categories', adminController.createCategory);
 router.get('/services', adminController.getServices);
 router.post('/services', adminController.createService);
+router.put('/services/:id', adminController.updateService);
+router.delete('/services/:id', adminController.deleteService);
 
 // Phòng lâm sàng (Rooms)
 router.get('/rooms', adminController.getRooms);
@@ -21,6 +23,8 @@ router.get('/rooms', adminController.getRooms);
 // Gói điều trị
 router.get('/packages', adminController.getPackages);
 router.post('/packages', adminController.createPackage);
+router.put('/packages/:id', adminController.updatePackage);
+router.delete('/packages/:id', adminController.deletePackage);
 
 // Nhân sự (Staff)
 router.get('/staff', adminController.getStaff);

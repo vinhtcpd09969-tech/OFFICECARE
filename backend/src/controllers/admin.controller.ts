@@ -61,6 +61,32 @@ export const createService = async (req: Request, res: Response): Promise<any> =
   }
 };
 
+export const updateService = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params as { id: string };
+    const { body } = serviceSchema.parse({ body: req.body });
+    const service = await adminService.updateService(id, body);
+
+    await logAudit(req, 'UPDATE_SERVICE', 'SERVICE', id, body);
+    res.json(service);
+  } catch (error) {
+    if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
+    res.status(500).json({ message: 'Lỗi server khi cập nhật dịch vụ' });
+  }
+};
+
+export const deleteService = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params as { id: string };
+    await adminService.deleteService(id);
+
+    await logAudit(req, 'DELETE_SERVICE', 'SERVICE', id, { id });
+    res.json({ message: 'Xóa dịch vụ thành công' });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi xóa dịch vụ' });
+  }
+};
+
 // --- QUẢN LÝ GÓI ĐIỀU TRỊ ---
 
 export const getPackages = async (req: Request, res: Response) => {
@@ -82,6 +108,32 @@ export const createPackage = async (req: Request, res: Response): Promise<any> =
   } catch (error) {
     if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
     res.status(500).json({ message: 'Lỗi server' });
+  }
+};
+
+export const updatePackage = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params as { id: string };
+    const { body } = packageSchema.parse({ body: req.body });
+    const packageData = await adminService.updatePackage(id, body);
+
+    await logAudit(req, 'UPDATE_PACKAGE', 'PACKAGE', id, body);
+    res.json(packageData);
+  } catch (error) {
+    if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+};
+
+export const deletePackage = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params as { id: string };
+    await adminService.deletePackage(id);
+
+    await logAudit(req, 'DELETE_PACKAGE', 'PACKAGE', id, {});
+    res.json({ message: 'Xóa gói điều trị thành công' });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi xóa gói điều trị' });
   }
 };
 
