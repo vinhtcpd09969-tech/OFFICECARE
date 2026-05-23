@@ -118,19 +118,201 @@ const seedServices = async () => {
 
   const services = [
     // 13 Shared services library (loai_dich_vu = 'chinh')
-    { catId: catTriLieu, name: 'Deep Tissue Therapy / Trị liệu cơ sâu', price: 150000, duration: 20, type: 'chinh', thiet_bi: null, ma: 'SVC-DTT' },
-    { catId: catTriLieu, name: 'Muscle Release / Giải phóng cơ căng', price: 100000, duration: 15, type: 'chinh', thiet_bi: null, ma: 'SVC-MRL' },
-    { catId: catTriLieu, name: 'Electrotherapy / Điện xung giảm đau', price: 120000, duration: 15, type: 'chinh', thiet_bi: 'Máy điện xung', ma: 'SVC-ELT' },
-    { catId: catTriLieu, name: 'Heat Therapy / Nhiệt trị liệu', price: 80000, duration: 15, type: 'chinh', thiet_bi: 'Đèn hồng ngoại', ma: 'SVC-HET' },
-    { catId: catTriLieu, name: 'Cervical Stretching / Kéo giãn vùng cổ', price: 100000, duration: 15, type: 'chinh', thiet_bi: null, ma: 'SVC-CST' },
-    { catId: catTriLieu, name: 'Spinal Stretching / Kéo giãn cột sống', price: 100000, duration: 15, type: 'chinh', thiet_bi: 'Giường kéo giãn', ma: 'SVC-SST' },
-    { catId: catTriLieu, name: 'Stretching Therapy / Trị liệu kéo giãn', price: 100000, duration: 15, type: 'chinh', thiet_bi: null, ma: 'SVC-STR' },
-    { catId: catTriLieu, name: 'Shoulder Mobility / Trị liệu linh hoạt vai', price: 120000, duration: 15, type: 'chinh', thiet_bi: null, ma: 'SVC-SMT' },
-    { catId: catTriLieu, name: 'Wrist Mobility / Trị liệu linh hoạt cổ tay', price: 120000, duration: 15, type: 'chinh', thiet_bi: null, ma: 'SVC-WMT' },
-    { catId: catTriLieu, name: 'Tendon Release / Giải phóng gân cơ', price: 120000, duration: 15, type: 'chinh', thiet_bi: null, ma: 'SVC-TRT' },
-    { catId: catTriLieu, name: 'Joint Mobility / Trị liệu linh hoạt khớp', price: 130000, duration: 15, type: 'chinh', thiet_bi: null, ma: 'SVC-JMT' },
-    { catId: catTriLieu, name: 'Piriformis Release / Giải phóng cơ mông', price: 130000, duration: 15, type: 'chinh', thiet_bi: null, ma: 'SVC-PMR' },
-    { catId: catPhucHoi, name: 'Exercise Guidance / Hướng dẫn bài tập', price: 70000, duration: 10, type: 'chinh', thiet_bi: null, ma: 'SVC-CEG' },
+    { 
+      catId: catTriLieu, 
+      name: 'Kéo giãn cột sống cổ bằng tay', 
+      price: 100000, 
+      duration: 15, 
+      type: 'chinh', 
+      thiet_bi: null, 
+      ma: 'SVC-CST',
+      mo_ta_chi_tiet: 'Kỹ thuật viên sử dụng lực tay chuyên môn thực hiện các kỹ thuật kéo giãn dọc trục cột sống cổ, di động nhẹ nhàng nhằm giải áp đĩa đệm vùng cổ vai gáy.',
+      loai_dich_vu_ho_tro: [
+        'Giải phóng chèn ép rễ thần kinh cổ, giảm nhanh chứng đau vai gáy lan xuống cánh tay.',
+        'Phục hồi tầm vận động tự nhiên khi xoay, cúi, nghiêng cổ.',
+        'Tăng cường lưu thông tuần hoàn máu não bộ, giảm đau đầu chóng mặt do chèn ép mạch.'
+      ]
+    },
+    { 
+      catId: catTriLieu, 
+      name: 'Kỹ thuật giải cơ chuyên sâu', 
+      price: 150000, 
+      duration: 20, 
+      type: 'chinh', 
+      thiet_bi: null, 
+      ma: 'SVC-DTT',
+      mo_ta_chi_tiet: 'Tác động lực vật lý sâu và chậm dọc theo thớ cơ nông đến cơ sâu, xác định và giải phóng các nút thắt cơ (Trigger Points) gây co cứng dai dẳng.',
+      loai_dich_vu_ho_tro: [
+        'Phá tan các bó cơ co thắt mãn tính, trả lại chiều dài sinh lý tối ưu cho thớ cơ.',
+        'Kích thích tuần hoàn máu mang dưỡng chất và oxy đến nuôi dưỡng vùng mô cơ bị xơ hóa.',
+        'Giảm nhức mỏi cơ bắp tức thì sau vận động nặng hoặc ngồi làm việc sai tư thế kéo dài.'
+      ]
+    },
+    { 
+      catId: catTriLieu, 
+      name: 'Trị liệu giảm đau bằng dòng điện xung', 
+      price: 120000, 
+      duration: 15, 
+      type: 'chinh', 
+      thiet_bi: 'Máy điện xung', 
+      ma: 'SVC-ELT',
+      mo_ta_chi_tiet: 'Dán các điện cực hydrogel y khoa lên vùng cơ đau nhức, sử dụng thiết bị chuyên dụng phát dòng điện xung tần số thấp thích hợp để cắt đứt tín hiệu đau dây thần kinh.',
+      loai_dich_vu_ho_tro: [
+        'Ức chế lập tức đường truyền tín hiệu đau lên não bộ theo cơ chế cổng kiểm soát đau.',
+        'Kích thích cơ thể tự giải phóng Endorphin (hormone giảm đau tự nhiên) để xoa dịu vùng tổn thương.',
+        'Kích thích tuần hoàn máu sâu giúp tiêu viêm, giảm sưng nề mô mềm cục bộ.'
+      ]
+    },
+    { 
+      catId: catPhucHoi, 
+      name: 'Hướng dẫn tập phục hồi chức năng', 
+      price: 70000, 
+      duration: 10, 
+      type: 'chinh', 
+      thiet_bi: null, 
+      ma: 'SVC-CEG',
+      mo_ta_chi_tiet: 'Bác sĩ hoặc Kỹ thuật viên trực tiếp hướng dẫn khách thực hiện chuẩn xác các bài tập ổn định khớp, kích hoạt cơ lõi yếu và điều chỉnh tư thế đứng/ngồi chuẩn y khoa.',
+      loai_dich_vu_ho_tro: [
+        'Tăng cường sức mạnh và độ bền cho các nhóm cơ hỗ trợ bảo vệ cột sống.',
+        'Sửa sai lệch tư thế (gù lưng, cổ rùa, lệch xương chậu) tận gốc.',
+        'Duy trì hiệu quả trị liệu lâu dài, ngăn ngừa tái phát cơn đau cơ xương khớp.'
+      ]
+    },
+    { 
+      catId: catTriLieu, 
+      name: 'Nhiệt trị liệu hồng ngoại', 
+      price: 80000, 
+      duration: 15, 
+      type: 'chinh', 
+      thiet_bi: 'Đèn hồng ngoại', 
+      ma: 'SVC-HET',
+      mo_ta_chi_tiet: 'Sử dụng đèn hồng ngoại y khoa chuyên khoa chiếu tia nhiệt trực tiếp lên vùng khớp viêm hoặc thắt lưng đau nhức ở cự ly y khoa tiêu chuẩn.',
+      loai_dich_vu_ho_tro: [
+        'Tác dụng nhiệt nóng sâu làm giãn cơ toàn vùng, loại bỏ tình trạng cứng khớp buổi sáng.',
+        'Giãn nở mạch máu ngoại vi, đẩy nhanh tốc độ đào thải độc tố và hấp thụ viêm sưng.',
+        'Làm dịu hệ thần kinh nhạy cảm, đem lại cảm giác ấm áp và thư giãn sâu cho khách hàng.'
+      ]
+    },
+    { 
+      catId: catTriLieu, 
+      name: 'Kỹ thuật di động khớp tăng biên độ', 
+      price: 130000, 
+      duration: 15, 
+      type: 'chinh', 
+      thiet_bi: null, 
+      ma: 'SVC-JMT',
+      mo_ta_chi_tiet: 'Áp dụng kỹ thuật trượt khớp cơ học bậc 1-3 theo chuẩn y khoa quốc tế lên các diện khớp bị hạn chế biên độ vận động do xơ hóa dây chằng.',
+      loai_dich_vu_ho_tro: [
+        'Kích thích tăng tiết dịch khớp tự nhiên để bôi trơn diện khớp, giảm ma sát gây thoái hóa.',
+        'Mở rộng nhanh biên độ khớp bị giới hạn do viêm bám gân hoặc thoái hóa diện khớp.',
+        'Ngăn chặn triệt để nguy cơ dính khớp và xơ cứng bao khớp gây tàn tật.'
+      ]
+    },
+    { 
+      catId: catTriLieu, 
+      name: 'Di động mô mềm giải phóng cơ', 
+      price: 100000, 
+      duration: 15, 
+      type: 'chinh', 
+      thiet_bi: null, 
+      ma: 'SVC-MRL',
+      mo_ta_chi_tiet: 'Kỹ thuật sử dụng các ngón tay và lòng bàn tay vuốt miết, trượt mô liên kết mềm dọc bó cơ căng thẳng nhằm phá vỡ các điểm kết dính cơ nông.',
+      loai_dich_vu_ho_tro: [
+        'Tháo xoắn cơ tức thì, loại bỏ cảm giác căng tức bứt rứt khó chịu ở cơ bắp.',
+        'Phục hồi độ đàn hồi tự nhiên linh hoạt của hệ thống mô mềm quanh khớp.',
+        'Tạo cảm giác nhẹ nhõm, thư thái ngay trong buổi trị liệu.'
+      ]
+    },
+    { 
+      catId: catTriLieu, 
+      name: 'Giải phóng cơ hình lê chuyên sâu', 
+      price: 130000, 
+      duration: 15, 
+      type: 'chinh', 
+      thiet_bi: null, 
+      ma: 'SVC-PMR',
+      mo_ta_chi_tiet: 'Kỹ thuật ấn bấm chuyên sâu giải phóng căng cơ vùng mông (đặc biệt cơ hình lê - Piriformis) để giảm áp cho dây thần kinh tọa chạy bên dưới cơ mông.',
+      loai_dich_vu_ho_tro: [
+        'Cắt đứt ngay cơn đau tê dọc mông lan xuống đùi và bắp chân (đau thần kinh tọa).',
+        'Giảm co thắt sâu vùng hông chậu, khôi phục bước đi linh hoạt vững vàng.',
+        'Giải phóng tình trạng mỏi khớp háng khi ngồi làm việc quá lâu một chỗ.'
+      ]
+    },
+    { 
+      catId: catTriLieu, 
+      name: 'Vận động trị liệu khớp vai', 
+      price: 120000, 
+      duration: 15, 
+      type: 'chinh', 
+      thiet_bi: null, 
+      ma: 'SVC-SMT',
+      mo_ta_chi_tiet: 'Kỹ thuật viên thực hiện các kỹ thuật vận động khớp thụ động và chủ động có trợ giúp khớp vai nhằm khôi phục cơ học xoay vai.',
+      loai_dich_vu_ho_tro: [
+        'Hỗ trợ phá vỡ tổ chức xơ dính quanh bao khớp vai gây đông cứng vai (frozen shoulder).',
+        'Giúp khách hàng dễ dàng thực hiện các động tác sinh hoạt như chải đầu, giơ tay cao, gãi lưng.',
+        'Giải tỏa chứng đau mỏi vai sâu bứt rứt gây mất ngủ về đêm.'
+      ]
+    },
+    { 
+      catId: catTriLieu, 
+      name: 'Kéo giãn cột sống thắt lưng bằng máy', 
+      price: 100000, 
+      duration: 15, 
+      type: 'chinh', 
+      thiet_bi: 'Giường kéo giãn', 
+      ma: 'SVC-SST',
+      mo_ta_chi_tiet: 'Sử dụng thiết bị kéo giãn cột sống tự động y khoa, cài đặt đai ngực đai chậu và lực kéo kéo - nhả theo chu kỳ phù hợp với trọng lượng cơ thể để giải áp cột sống.',
+      loai_dich_vu_ho_tro: [
+        'Giảm áp suất nội đĩa đệm thắt lưng tối đa, tạo lực hút âm giúp nhân nhầy thoát vị co hồi về vị trí cũ.',
+        'Mở rộng các lỗ liên hợp cột sống giải phóng chèn ép rễ thần kinh thắt lưng.',
+        'Cắt cơn đau lưng cấp và tê bì chân do thoát vị đĩa đệm gây ra.'
+      ]
+    },
+    { 
+      catId: catTriLieu, 
+      name: 'Kéo giãn cơ toàn thân chủ động', 
+      price: 100000, 
+      duration: 15, 
+      type: 'chinh', 
+      thiet_bi: null, 
+      ma: 'SVC-STR',
+      mo_ta_chi_tiet: 'Kỹ thuật viên phối hợp cùng khách thực hiện các chuỗi động tác kéo giãn cơ chuỗi sau, cơ liên sườn và giải áp toàn bộ các khớp chính.',
+      loai_dich_vu_ho_tro: [
+        'Gia tăng độ dẻo dai đàn hồi của toàn bộ hệ thống cơ xương khớp.',
+        'Giải phóng chứng đau mỏi tích tụ toàn thân do thói quen ngồi lì làm việc cả ngày.',
+        'Tăng cường độ linh hoạt, giúp cơ thể chuyển động nhẹ nhàng thanh thoát.'
+      ]
+    },
+    { 
+      catId: catTriLieu, 
+      name: 'Kỹ thuật giải phóng điểm bám gân', 
+      price: 120000, 
+      duration: 15, 
+      type: 'chinh', 
+      thiet_bi: null, 
+      ma: 'SVC-TRT',
+      mo_ta_chi_tiet: 'Tác động miết bấm ngang thớ gân cơ bị tổn thương tại khuỷu tay hoặc cổ tay nhằm kích thích tăng sinh tuần hoàn máu tại điểm bám tận của gân.',
+      loai_dich_vu_ho_tro: [
+        'Đặc trị đau mỏi cổ tay, khuỷu tay (Hội chứng ống cổ tay, viêm gân khuỷu tay Tennis Elbow).',
+        'Tiêu trừ các điểm viêm dính vi mô quanh bao gân cơ.',
+        'Tăng cường lực cầm nắm của bàn tay, giúp gõ phím di chuột không đau nhức.'
+      ]
+    },
+    { 
+      catId: catTriLieu, 
+      name: 'Vận động trị liệu khớp cổ tay', 
+      price: 120000, 
+      duration: 15, 
+      type: 'chinh', 
+      thiet_bi: null, 
+      ma: 'SVC-WMT',
+      mo_ta_chi_tiet: 'Di động nhẹ nhàng và vận động các diện khớp xương nhỏ vùng cổ tay và bàn ngón tay để kéo giãn dây chằng quanh ống cổ tay.',
+      loai_dich_vu_ho_tro: [
+        'Giải phóng chèn ép thần kinh giữa trong hội chứng ống cổ tay.',
+        'Khắc phục chứng tê rần, mất cảm giác hoặc đau buốt ngón tay khi làm việc văn phòng.',
+        'Khôi phục khả năng xoay gấp cổ tay mượt mà không lục cục.'
+      ]
+    },
 
     // Nhóm Cổ truyền & Chuyên sâu (loai_dich_vu = 'chinh')
     { catId: catKham, name: 'Khám lượng giá cột sống & tư thế', price: 150000, duration: 30, type: 'chinh', thiet_bi: null, ma: 'SVC-KHAM' },
@@ -162,10 +344,20 @@ const seedServices = async () => {
   const serviceIds = [];
   for (const s of services) {
     const { rows } = await pool.query(`
-      INSERT INTO dich_vu (danh_muc_id, ten_dich_vu, thoi_luong_phut, don_gia, loai_dich_vu, thiet_bi_yeu_cau, mo_ta_ngan)
-      VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id
-    `, [s.catId, s.name, s.duration, s.price, s.type, s.thiet_bi, `Dịch vụ ${s.name} (Mã: ${s.ma})`]);
-    serviceIds.push({ id: rows[0].id, name: s.name, price: s.price });
+      INSERT INTO dich_vu (danh_muc_id, ten_dich_vu, thoi_luong_phut, don_gia, loai_dich_vu, thiet_bi_yeu_cau, mo_ta_ngan, mo_ta_chi_tiet, loai_dich_vu_ho_tro)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id
+    `, [
+      s.catId, 
+      s.name, 
+      s.duration, 
+      s.price, 
+      s.type, 
+      s.thiet_bi, 
+      `Dịch vụ ${s.name} (Mã: ${s.ma})`,
+      (s as any).mo_ta_chi_tiet || null,
+      (s as any).loai_dich_vu_ho_tro ? JSON.stringify((s as any).loai_dich_vu_ho_tro) : '[]'
+    ]);
+    serviceIds.push({ id: rows[0].id, name: s.name, price: s.price, code: s.ma });
   }
 
   return serviceIds;
@@ -176,25 +368,10 @@ const seedPackages = async (services: any[]) => {
 
   // Helper to find service ID by shorthand matching
   const findSvcId = (shorthand: string) => {
-    let queryName = '';
-    switch (shorthand) {
-      case 'DTT': queryName = 'Deep Tissue'; break;
-      case 'MRL': queryName = 'Muscle Release'; break;
-      case 'ELT': queryName = 'Electrotherapy'; break;
-      case 'HET': queryName = 'Heat Therapy'; break;
-      case 'CST': queryName = 'Cervical Stretching'; break;
-      case 'SST': queryName = 'Spinal Stretching'; break;
-      case 'STR': queryName = 'Stretching Therapy'; break;
-      case 'SMT': queryName = 'Shoulder Mobility'; break;
-      case 'WMT': queryName = 'Wrist Mobility'; break;
-      case 'TRT': queryName = 'Tendon Release'; break;
-      case 'JMT': queryName = 'Joint Mobility'; break;
-      case 'PMR': queryName = 'Piriformis Release'; break;
-      case 'CEG': queryName = 'Exercise Guidance'; break;
-    }
-    const found = services.find(s => s.name.includes(queryName));
+    const code = 'SVC-' + shorthand;
+    const found = services.find(s => s.code === code);
     if (!found) {
-      throw new Error(`Shorthand service not found for: ${shorthand}`);
+      throw new Error(`Shorthand service not found for code: ${code}`);
     }
     return found.id;
   };

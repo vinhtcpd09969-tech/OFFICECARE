@@ -13,12 +13,15 @@ export const serviceSchema = z.object({
   body: z.object({
     danh_muc_id: z.number().int().positive('Danh mục không hợp lệ'),
     ten_dich_vu: z.string().min(1, 'Tên dịch vụ là bắt buộc'),
-    mo_ta: z.string().optional(),
+    mo_ta: z.string().optional().nullable(),
     thoi_gian_uoc_tinh: z.number().int().positive('Thời gian ước tính phải lớn hơn 0'),
     don_gia: z.number().min(0, 'Đơn giá không hợp lệ').optional().default(0),
-    thiet_bi_yeu_cau: z.string().optional(),
+    thiet_bi_yeu_cau: z.string().optional().nullable(),
     trang_thai: z.enum(['hoat_dong', 'vo_hieu']).default('hoat_dong'),
-    loai_dich_vu: z.enum(['chinh', 'bo_sung']).default('chinh')
+    loai_dich_vu: z.enum(['chinh', 'bo_sung']).default('chinh'),
+    hien_thi_website: z.boolean().optional().default(true),
+    mo_ta_chi_tiet: z.string().optional().nullable(),
+    loai_dich_vu_ho_tro: z.any().optional().nullable()
   })
 });
 

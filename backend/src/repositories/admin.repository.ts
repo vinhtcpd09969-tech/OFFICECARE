@@ -32,27 +32,8 @@ class AdminRepository {
 
   async createService(data: any) {
     const { rows } = await pool.query(
-      `INSERT INTO dich_vu (danh_muc_id, ten_dich_vu, mo_ta_ngan, thoi_luong_phut, don_gia, thiet_bi_yeu_cau, trang_thai, loai_dich_vu) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *, thoi_luong_phut as thoi_gian_uoc_tinh`,
-      [
-        data.danh_muc_id,
-        data.ten_dich_vu,
-        data.mo_ta || null,
-        data.thoi_gian_uoc_tinh,
-        data.don_gia || 0,
-        data.thiet_bi_yeu_cau || null,
-        data.trang_thai,
-        data.loai_dich_vu || 'chinh'
-      ]
-    );
-    return rows[0];
-  }
-
-  async updateService(id: string, data: any) {
-    const { rows } = await pool.query(
-      `UPDATE dich_vu 
-       SET danh_muc_id = $1, ten_dich_vu = $2, mo_ta_ngan = $3, thoi_luong_phut = $4, don_gia = $5, thiet_bi_yeu_cau = $6, trang_thai = $7, loai_dich_vu = $8
-       WHERE id = $9 RETURNING *, thoi_luong_phut as thoi_gian_uoc_tinh`,
+      `INSERT INTO dich_vu (danh_muc_id, ten_dich_vu, mo_ta_ngan, thoi_luong_phut, don_gia, thiet_bi_yeu_cau, trang_thai, loai_dich_vu, hien_thi_website, mo_ta_chi_tiet, loai_dich_vu_ho_tro) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *, thoi_luong_phut as thoi_gian_uoc_tinh`,
       [
         data.danh_muc_id,
         data.ten_dich_vu,
@@ -62,6 +43,31 @@ class AdminRepository {
         data.thiet_bi_yeu_cau || null,
         data.trang_thai,
         data.loai_dich_vu || 'chinh',
+        data.hien_thi_website !== undefined ? data.hien_thi_website : true,
+        data.mo_ta_chi_tiet || null,
+        data.loai_dich_vu_ho_tro ? (typeof data.loai_dich_vu_ho_tro === 'string' ? data.loai_dich_vu_ho_tro : JSON.stringify(data.loai_dich_vu_ho_tro)) : '[]'
+      ]
+    );
+    return rows[0];
+  }
+
+  async updateService(id: string, data: any) {
+    const { rows } = await pool.query(
+      `UPDATE dich_vu 
+       SET danh_muc_id = $1, ten_dich_vu = $2, mo_ta_ngan = $3, thoi_luong_phut = $4, don_gia = $5, thiet_bi_yeu_cau = $6, trang_thai = $7, loai_dich_vu = $8, hien_thi_website = $9, mo_ta_chi_tiet = $10, loai_dich_vu_ho_tro = $11
+       WHERE id = $12 RETURNING *, thoi_luong_phut as thoi_gian_uoc_tinh`,
+      [
+        data.danh_muc_id,
+        data.ten_dich_vu,
+        data.mo_ta || null,
+        data.thoi_gian_uoc_tinh,
+        data.don_gia || 0,
+        data.thiet_bi_yeu_cau || null,
+        data.trang_thai,
+        data.loai_dich_vu || 'chinh',
+        data.hien_thi_website !== undefined ? data.hien_thi_website : true,
+        data.mo_ta_chi_tiet || null,
+        data.loai_dich_vu_ho_tro ? (typeof data.loai_dich_vu_ho_tro === 'string' ? data.loai_dich_vu_ho_tro : JSON.stringify(data.loai_dich_vu_ho_tro)) : '[]',
         id
       ]
     );
