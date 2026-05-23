@@ -32,9 +32,13 @@ export const packageSchema = z.object({
     tong_so_buoi: z.number().int().positive('Số buổi phải lớn hơn 0'),
     gia_tien: z.number().min(0, 'Giá tiền không hợp lệ'),
     han_dung_thang: z.number().int().positive('Hạn dùng phải lớn hơn 0').default(6),
+    so_dv_toi_da_moi_buoi: z.number().int().positive().default(5),
     chi_tiet_dich_vu: z.array(z.object({
-      dich_vu_id: z.string().uuid('ID dịch vụ không hợp lệ'),
-      so_buoi: z.number().int().positive('Số buổi dịch vụ phải lớn hơn 0')
+      dich_vu_id: z.union([z.string(), z.number()]),
+      so_buoi: z.number().int().positive('Số buổi dịch vụ phải lớn hơn 0').optional(),
+      so_lan_toi_da_trong_goi: z.number().int().positive('Số lần tối đa trong gói phải lớn hơn 0').optional(),
+      bat_buoc: z.boolean().default(false),
+      thu_tu_thuc_hien: z.number().int().nonnegative().default(0)
     })).default([]),
     hien_thi_website: z.boolean().default(true),
     trang_thai: z.enum(['hoat_dong', 'vo_hieu']).default('hoat_dong'),
