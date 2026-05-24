@@ -30,17 +30,28 @@ export default function Login() {
       setServerError('');
       const response = await api.post('/auth/login', data);
       const { user, accessToken, refreshToken } = response.data;
+      console.log('Login success response user:', user, 'vai_tro_id type:', typeof user.vai_tro_id);
       setAuth(user, accessToken, refreshToken);
       const from = (location.state as any)?.from || '/dashboard';
+      console.log('Login navigating. from:', from, 'user.vai_tro_id:', user.vai_tro_id);
       
       // Navigate based on role
-      if (user.vai_tro_id === 5) {
+      const roleId = Number(user.vai_tro_id);
+      if (roleId === 5) {
+        console.log('Navigating to admin dashboard since user.vai_tro_id is 5');
         navigate(from === '/dashboard' ? '/admin' : from);
-      } else if (user.vai_tro_id === 2) {
+      } else if (roleId === 2) {
+        console.log('Navigating to receptionist dashboard since user.vai_tro_id is 2');
         navigate(from === '/dashboard' ? '/receptionist' : from);
+      } else if (roleId === 3) {
+        console.log('Navigating to technician workspace since user.vai_tro_id is 3');
+        navigate(from === '/dashboard' ? '/technician/workspace' : from);
       } else {
+        console.log('Navigating to from:', from);
         navigate(from);
       }
+
+
     } catch (error: any) {
       if (error.response?.data?.requiresVerification) {
         navigate(`/verify-email?email=${data.email}`);

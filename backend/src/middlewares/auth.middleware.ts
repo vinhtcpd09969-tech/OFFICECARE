@@ -31,9 +31,10 @@ export const verifyToken = (req: Request, res: Response, next: NextFunction) => 
 
 export const authorizeRoles = (...roles: number[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
-    if (!req.user || !roles.includes(req.user.vai_tro_id)) {
+    if (!req.user || !roles.map(Number).includes(Number(req.user.vai_tro_id))) {
       return res.status(403).json({ message: 'Forbidden: Insufficient permissions' });
     }
     next();
   };
 };
+

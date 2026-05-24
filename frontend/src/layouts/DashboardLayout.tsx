@@ -32,7 +32,7 @@ export default function DashboardLayout() {
     { name: 'Cài đặt', path: '/settings', icon: <Settings size={20} />, roles: [1, 2, 3, 4] },
   ];
 
-  const filteredNavItems = navItems.filter(item => user && item.roles.includes(user.vai_tro_id));
+  const filteredNavItems = navItems.filter(item => user && item.roles.map(Number).includes(Number(user.vai_tro_id)));
 
   return (
     <div className="min-h-screen bg-background flex font-body">
@@ -175,11 +175,13 @@ export default function DashboardLayout() {
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-semibold text-secondary group-hover:text-primary transition-colors">{user?.ho_ten || 'Người dùng'}</p>
                 <p className="text-xs text-zinc-500 font-medium">
-                  {user?.vai_tro_id === 1 ? 'Khách hàng' : 
-                   user?.vai_tro_id === 2 ? 'Lễ tân' : 
-                   user?.vai_tro_id === 3 ? 'Kỹ thuật viên' : 
-                   user?.vai_tro_id === 4 ? 'Quản trị viên' : 'Khách hàng'}
+                  {Number(user?.vai_tro_id) === 1 ? 'Khách hàng' : 
+                   Number(user?.vai_tro_id) === 2 ? 'Lễ tân' : 
+                   Number(user?.vai_tro_id) === 3 ? 'Kỹ thuật viên' : 
+                   Number(user?.vai_tro_id) === 4 ? 'Bác sĩ' : 
+                   Number(user?.vai_tro_id) === 5 ? 'Quản trị viên' : 'Khách hàng'}
                 </p>
+
               </div>
               <div className="size-10 rounded-full border-2 border-primary/20 p-0.5 overflow-hidden group-hover:border-primary transition-colors">
                 <img 
