@@ -55,6 +55,7 @@ export default function AdminLayout() {
     { name: 'Tổng quan', path: '/admin', icon: <LayoutDashboard size={18} /> },
     { name: 'Lịch hẹn khám', path: '/admin/appointments', icon: <Calendar size={18} />, searchPlaceholder: 'Tìm kiếm lịch hẹn khám...' },
     { name: 'Lịch điều trị', path: '/admin/treatments', icon: <Zap size={18} />, searchPlaceholder: 'Tìm kiếm lịch điều trị...' },
+    { name: 'Bàn làm việc KTV', path: '/technician/workspace', icon: <ClipboardList size={18} /> },
     { name: 'Ca làm việc', path: '/admin/schedules', icon: <Clock size={18} /> },
     { name: 'Khách hàng', path: '/admin/customers', icon: <User size={18} />, searchPlaceholder: 'Tìm kiếm khách hàng...' },
     { name: 'Hồ sơ điều trị', path: '/admin/medical-records', icon: <FileText size={18} />, searchPlaceholder: 'Tìm kiếm hồ sơ...' },

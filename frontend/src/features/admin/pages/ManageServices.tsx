@@ -145,7 +145,7 @@ export default function ManageServices() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingService, setEditingService] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'all' | 'chinh' | 'bo_sung'>('all');
+  // Removed activeTab state to simplify the view into a single unified list
   
   const [expandedServiceIds, setExpandedServiceIds] = useState<Record<string, boolean>>({});
 
@@ -350,11 +350,6 @@ export default function ManageServices() {
 
   const filteredServices = useMemo(() => {
     let result = services;
-    
-    // Filter by Tab
-    if (activeTab !== 'all') {
-      result = result.filter(svc => svc.loai_dich_vu === activeTab);
-    }
 
     // Filter by search query
     if (searchQuery) {
@@ -366,7 +361,7 @@ export default function ManageServices() {
     }
     
     return result;
-  }, [services, activeTab, searchQuery]);
+  }, [services, searchQuery]);
 
   return (
     <div className="space-y-6 pb-8 animate-fade-in text-zinc-800 font-sans text-sm">
@@ -448,41 +443,10 @@ export default function ManageServices() {
       {/* Main Workspace Section */}
       <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden shadow-sm">
         
-        {/* Workspace Controls / Tabs & Search */}
-        <div className="p-4 border-b border-zinc-200 bg-zinc-50/50 flex flex-col sm:flex-row justify-between items-center gap-4">
-          
-          {/* HUD Tabs */}
-          <div className="flex bg-zinc-100 p-1 rounded-xl border border-zinc-200">
-            <button
-              onClick={() => setActiveTab('all')}
-              className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                activeTab === 'all' 
-                  ? 'bg-white text-secondary shadow-sm border border-zinc-200' 
-                  : 'text-zinc-500 hover:text-secondary'
-              }`}
-            >
-              TẤT CẢ
-            </button>
-            <button
-              onClick={() => setActiveTab('chinh')}
-              className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                activeTab === 'chinh' 
-                  ? 'bg-primary text-white shadow-sm border border-primary/20' 
-                  : 'text-zinc-500 hover:text-primary'
-              }`}
-            >
-              KỸ THUẬT TRỊ LIỆU (NỘI BỘ)
-            </button>
-            <button
-              onClick={() => setActiveTab('bo_sung')}
-              className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                activeTab === 'bo_sung' 
-                  ? 'bg-zinc-700 text-white shadow-sm border border-zinc-650' 
-                  : 'text-zinc-500 hover:text-zinc-700'
-              }`}
-            >
-              DỊCH VỤ ĐƠN LẺ (CÔNG KHAI)
-            </button>
+        {/* Search & Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 bg-zinc-50 p-4 border-b border-zinc-200">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Danh mục dịch vụ y khoa ({filteredServices.length})</span>
           </div>
 
           {/* Search bar */}
@@ -590,13 +554,13 @@ export default function ManageServices() {
                           </div>
                         </td>
                         <td className="p-4">
-                          {svc.loai_dich_vu === 'bo_sung' ? (
+                          {svc.hien_thi_website !== false ? (
                             <span className="inline-flex items-center px-2 py-0.5 rounded-lg border border-emerald-250 bg-emerald-50 text-emerald-600 text-[10px] font-bold uppercase">
-                              Dịch vụ đơn lẻ
+                              Công khai Website
                             </span>
                           ) : (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-lg border border-primary/20 bg-primary-container text-primary text-[10px] font-bold uppercase">
-                              Kỹ thuật trị liệu
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-lg border border-zinc-200 bg-zinc-100 text-zinc-450 text-[10px] font-bold uppercase">
+                              Nội bộ (Cấu hình gói)
                             </span>
                           )}
                         </td>
@@ -823,8 +787,8 @@ export default function ManageServices() {
                         {...register('loai_dich_vu')}
                         className="w-full px-3.5 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all font-semibold text-primary text-xs shadow-sm"
                       >
-                        <option value="chinh">KỸ THUẬT TRỊ LIỆU (NỘI BỘ - CẤU HÌNH GÓI)</option>
-                        <option value="bo_sung">DỊCH VỤ ĐƠN LẺ (CÔNG KHAI WEBSITE)</option>
+                        <option value="chinh">DỊCH VỤ ĐIỀU TRỊ / KỸ THUẬT Y KHOA</option>
+                        <option value="bo_sung">DỊCH VỤ BỔ TRỢ / THƯ GIÃN (ADD-ON)</option>
                       </select>
                     </div>
 

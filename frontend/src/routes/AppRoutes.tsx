@@ -38,6 +38,9 @@ import ReceptionistDashboard from '../features/receptionist/pages/ReceptionistDa
 import WalkInBooking from '../features/receptionist/pages/WalkInBooking';
 import QuickBilling from '../features/receptionist/pages/QuickBilling';
 
+// Technician Feature
+import TechnicianWorkspace from '../features/technician/pages/TechnicianWorkspace';
+
 export default function AppRoutes() {
   return (
     <Routes>
@@ -86,6 +89,14 @@ export default function AppRoutes() {
           <Route path="/receptionist/billing" element={<QuickBilling />} />
         </Route>
       </Route>
+
+      {/* Technician Protected Routes */}
+      <Route element={<ProtectedRoute allowedRoles={[3, 5]} />}>
+        <Route element={<AdminLayout />}>
+          <Route path="/technician/workspace" element={<TechnicianWorkspace />} />
+        </Route>
+      </Route>
+
     </Routes>
   );
 }
