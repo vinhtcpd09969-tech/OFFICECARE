@@ -22,6 +22,7 @@ const VerifyEmail = lazy(() => import('../features/auth/pages/VerifyEmail'));
 
 // Customer Feature
 const Dashboard = lazy(() => import('../features/customer/pages/Dashboard'));
+const CustomerAppointments = lazy(() => import('../features/customer/pages/CustomerAppointments'));
 const CustomerPackages = lazy(() => import('../features/customer/pages/CustomerPackages'));
 const CustomerProfile = lazy(() => import('../features/customer/pages/CustomerProfile'));
 const CustomerExercises = lazy(() => import('../features/customer/pages/CustomerExercises'));
@@ -68,6 +69,7 @@ export default function AppRoutes() {
         <Route element={<ProtectedRoute />}>
           <Route element={<DashboardLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/appointments" element={<CustomerAppointments />} />
             <Route path="/packages" element={<CustomerPackages />} />
             <Route path="/profile" element={<CustomerProfile />} />
             <Route path="/exercises" element={<CustomerExercises />} />
