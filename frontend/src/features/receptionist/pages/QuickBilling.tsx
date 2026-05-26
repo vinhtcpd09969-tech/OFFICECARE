@@ -377,53 +377,187 @@ export default function QuickBilling() {
 
           {activeTab === 'package' && (
             <>
-              {/* Step A: Completed Diagnostic Sessions of the day */}
-              <div className="bg-white rounded-2xl border border-zinc-150 shadow-sm p-6 space-y-4">
-                <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
-                  <div className="space-y-1">
-                    <span className="text-[9px] font-black text-amber-500 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-md uppercase tracking-wider">
-                      Bước A: Chọn buổi khám đã hoàn thành
-                    </span>
-                    <h3 className="font-heading font-black text-secondary text-sm">Danh sách chẩn đoán & khám buổi đầu tiên</h3>
+              {/* Step A: Selected customer detail card or completed consultations list */}
+              {selectedConsultation ? (
+                <div className="bg-white rounded-2xl border border-zinc-150 shadow-sm p-6 space-y-4">
+                  <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                        Bệnh nhân đang thanh toán
+                      </span>
+                      <h3 className="font-heading font-black text-secondary text-sm">Thông tin cơ bản</h3>
+                    </div>
+                    <Users className="text-emerald-500 size-5" />
                   </div>
-                  <Users className="text-amber-500 size-5" />
+                  <div className="bg-emerald-50/20 border border-emerald-100 p-4.5 rounded-xl flex items-center justify-between transition-all">
+                    <div className="flex items-center gap-3.5">
+                      <div className="size-10 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center text-sm font-bold shadow-inner">
+                        👤
+                      </div>
+                      <div>
+                        <h4 className="text-secondary font-black text-xs">{selectedConsultation.ten_khach_hang}</h4>
+                        <p className="text-[10px] text-zinc-500 font-semibold mt-0.5">SĐT: {selectedConsultation.sdt_khach_hang} | Mã ca: {selectedConsultation.ma_lich_dat}</p>
+                        <p className="text-[10px] text-primary font-bold mt-0.5">Chỉ định: {selectedConsultation.ten_dich_vu}</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedConsultation(null);
+                        setSelectedPackage(null);
+                        setCalculatedData(null);
+                        setAppliedVoucher(null);
+                        setMaVoucher('');
+                      }}
+                      className="text-[10px] font-black text-rose-500 hover:text-rose-600 uppercase tracking-wider bg-rose-50 px-3 py-2 rounded-lg border border-rose-100 hover:bg-rose-100/50 transition-all active:scale-95"
+                    >
+                      Thay đổi khách
+                    </button>
+                  </div>
                 </div>
-
-                {completedConsultations.length === 0 ? (
-                  <div className="p-8 text-center bg-zinc-50 rounded-xl border border-dashed border-zinc-200">
-                    <p className="text-zinc-400 text-xs font-semibold">Không có lịch hẹn khám hoàn thành chờ lập gói hôm nay.</p>
-                    <p className="text-[10px] text-zinc-400 mt-1">Lễ tân có thể kiểm tra trạng thái bệnh nhân trên Bảng điều phối.</p>
+              ) : (
+                <div className="bg-white rounded-2xl border border-zinc-150 shadow-sm p-6 space-y-4">
+                  <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black text-amber-500 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                        Bước A: Chọn buổi khám đã hoàn thành
+                      </span>
+                      <h3 className="font-heading font-black text-secondary text-sm">Danh sách chẩn đoán & khám buổi đầu tiên</h3>
+                    </div>
+                    <Users className="text-amber-500 size-5" />
                   </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-56 overflow-y-auto pr-1">
-                    {completedConsultations.map((cons) => {
-                      const isSelected = selectedConsultation?.id === cons.id;
+
+                  {completedConsultations.length === 0 ? (
+                    <div className="p-8 text-center bg-zinc-50 rounded-xl border border-dashed border-zinc-200">
+                      <p className="text-zinc-400 text-xs font-semibold">Không có lịch hẹn khám hoàn thành chờ lập gói hôm nay.</p>
+                      <p className="text-[10px] text-zinc-400 mt-1">Lễ tân có thể kiểm tra trạng thái bệnh nhân trên Bảng điều phối.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-56 overflow-y-auto pr-1">
+                      {completedConsultations.map((cons) => {
+                        const isSelected = selectedConsultation?.id === cons.id;
+                        return (
+                          <div
+                            key={cons.id}
+                            onClick={() => handleSelectCompletedConsultation(cons)}
+                            className={`p-4 rounded-xl border cursor-pointer transition-all flex flex-col justify-between relative group ${
+                              isSelected 
+                                ? 'border-primary bg-primary/5 ring-1 ring-primary' 
+                                : 'border-zinc-200 hover:border-zinc-300 bg-zinc-50/50'
+                            }`}
+                          >
+                            <div className="space-y-1">
+                              <div className="flex justify-between items-start">
+                                <h4 className="font-bold text-secondary text-xs">{cons.ten_khach_hang}</h4>
+                                <span className="text-[9px] font-black text-zinc-400 font-mono">{cons.ma_lich_dat}</span>
+                              </div>
+                              <p className="text-[10px] text-zinc-500 font-medium">SĐT: {cons.sdt_khach_hang}</p>
+                              <p className="text-[10px] text-primary font-bold">DV: {cons.ten_dich_vu}</p>
+                            </div>
+                            
+                            <div className="mt-3 flex justify-between items-center text-[9px] font-black uppercase text-zinc-400 pt-2 border-t border-zinc-100/60">
+                              <span>Ngày khám</span>
+                              <span className="text-secondary">{new Date(cons.ngay_gio_bat_dau).toLocaleDateString('vi-VN')}</span>
+                            </div>
+
+                            {isSelected && (
+                              <div className="absolute -top-1.5 -right-1.5 bg-primary text-white rounded-full size-5 flex items-center justify-center text-[9px] font-bold border-2 border-white shadow-sm">
+                                ✓
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Step B: Visual Packages Selection */}
+              {selectedPackage ? (
+                <div className="bg-white rounded-2xl border border-zinc-150 shadow-sm p-6 space-y-4">
+                  <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black text-primary bg-primary/5 border border-primary/10 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                        Gói trị liệu được chỉ định
+                      </span>
+                      <h3 className="font-heading font-black text-secondary text-sm">Gói điều trị đăng ký</h3>
+                    </div>
+                    <Activity className="text-primary size-5" />
+                  </div>
+                  <div className="bg-amber-50/20 border border-amber-100 p-4.5 rounded-xl flex items-center justify-between transition-all">
+                    <div className="flex items-center gap-3.5">
+                      <div className="size-10 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center text-sm font-bold shadow-inner">
+                        📦
+                      </div>
+                      <div>
+                        <h4 className="text-secondary font-black text-xs">{selectedPackage.ten_goi}</h4>
+                        <p className="text-[10px] text-zinc-500 font-semibold mt-0.5">
+                          Số buổi: {selectedPackage.tong_so_buoi} Buổi | Hạn: {selectedPackage.han_dung_thang || 6} tháng
+                        </p>
+                        <p className="text-[10px] text-amber-600 font-bold mt-0.5">Giá gói: {formatCurrency(Number(selectedPackage.gia_goi))}</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedPackage(null);
+                        setCalculatedData(null);
+                        setAppliedVoucher(null);
+                        setMaVoucher('');
+                      }}
+                      className="text-[10px] font-black text-rose-500 hover:text-rose-600 uppercase tracking-wider bg-rose-50 px-3 py-2 rounded-lg border border-rose-100 hover:bg-rose-100/50 transition-all active:scale-95"
+                    >
+                      Thay đổi gói
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-white rounded-2xl border border-zinc-150 shadow-sm p-6 space-y-4">
+                  <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black text-primary bg-primary/5 border border-primary/10 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                        Bước B: Chọn gói trị liệu chỉ định
+                      </span>
+                      <h3 className="font-heading font-black text-secondary text-sm">Danh mục gói phục hồi chức năng</h3>
+                    </div>
+                    <Activity className="text-primary size-5" />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    {packages.map((pkg) => {
+                      const isSelected = selectedPackage?.id === pkg.id;
                       return (
                         <div
-                          key={cons.id}
-                          onClick={() => handleSelectCompletedConsultation(cons)}
-                          className={`p-4 rounded-xl border cursor-pointer transition-all flex flex-col justify-between relative group ${
+                          key={pkg.id}
+                          onClick={() => handleSelectPackage(pkg)}
+                          className={`p-4.5 rounded-xl border cursor-pointer transition-all flex flex-col justify-between relative group ${
                             isSelected 
                               ? 'border-primary bg-primary/5 ring-1 ring-primary' 
-                              : 'border-zinc-200 hover:border-zinc-300 bg-zinc-50/50'
+                              : 'border-zinc-200 hover:border-zinc-300 bg-zinc-50/20'
                           }`}
                         >
-                          <div className="space-y-1">
-                            <div className="flex justify-between items-start">
-                              <h4 className="font-bold text-secondary text-xs">{cons.ten_khach_hang}</h4>
-                              <span className="text-[9px] font-black text-zinc-400 font-mono">{cons.ma_lich_dat}</span>
+                          <div className="space-y-1.5">
+                            <div className="flex justify-between items-start gap-2">
+                              <h4 className="font-black text-secondary text-xs leading-snug group-hover:text-primary transition-colors">
+                                {pkg.ten_goi}
+                              </h4>
+                              <span className="text-[9px] font-black bg-amber-50 text-amber-600 border border-amber-100 px-2 py-0.5 rounded-md shrink-0 uppercase tracking-tight">
+                                {pkg.tong_so_buoi} Buổi
+                              </span>
                             </div>
-                            <p className="text-[10px] text-zinc-500 font-medium">SĐT: {cons.sdt_khach_hang}</p>
-                            <p className="text-[10px] text-primary font-bold">DV: {cons.ten_dich_vu}</p>
+                            <p className="text-[10px] text-zinc-400 line-clamp-2 leading-relaxed">{pkg.mo_ta || 'Không có mô tả chi tiết cho gói này.'}</p>
                           </div>
-                          
-                          <div className="mt-3 flex justify-between items-center text-[9px] font-black uppercase text-zinc-400 pt-2 border-t border-zinc-100/60">
-                            <span>Ngày khám</span>
-                            <span className="text-secondary">{new Date(cons.ngay_gio_bat_dau).toLocaleDateString('vi-VN')}</span>
+
+                          <div className="mt-4 flex justify-between items-center pt-2.5 border-t border-zinc-100">
+                            <span className="text-[9px] text-zinc-400 font-extrabold uppercase tracking-wide">Giá trị gói</span>
+                            <span className="font-black text-sm text-secondary group-hover:text-primary transition-colors">
+                              {formatCurrency(Number(pkg.gia_goi))}
+                            </span>
                           </div>
 
                           {isSelected && (
-                            <div className="absolute -top-1.5 -right-1.5 bg-primary text-white rounded-full size-5 flex items-center justify-center text-[9px] font-bold border-2 border-white shadow-sm">
+                            <div className="absolute -top-1.5 -right-1.5 bg-primary text-white rounded-full size-5 flex items-center justify-center text-[9px] font-bold border-2 border-white shadow-sm animate-bounce">
                               ✓
                             </div>
                           )}
@@ -431,63 +565,8 @@ export default function QuickBilling() {
                       );
                     })}
                   </div>
-                )}
-              </div>
-
-              {/* Step B: Visual Packages Selection */}
-              <div className="bg-white rounded-2xl border border-zinc-150 shadow-sm p-6 space-y-4">
-                <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
-                  <div className="space-y-1">
-                    <span className="text-[9px] font-black text-primary bg-primary/5 border border-primary/10 px-2 py-0.5 rounded-md uppercase tracking-wider">
-                      Bước B: Chọn gói trị liệu chỉ định
-                    </span>
-                    <h3 className="font-heading font-black text-secondary text-sm">Danh mục gói phục hồi chức năng</h3>
-                  </div>
-                  <Activity className="text-primary size-5" />
                 </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  {packages.map((pkg) => {
-                    const isSelected = selectedPackage?.id === pkg.id;
-                    return (
-                      <div
-                        key={pkg.id}
-                        onClick={() => handleSelectPackage(pkg)}
-                        className={`p-4.5 rounded-xl border cursor-pointer transition-all flex flex-col justify-between relative group ${
-                          isSelected 
-                            ? 'border-primary bg-primary/5 ring-1 ring-primary' 
-                            : 'border-zinc-200 hover:border-zinc-300 bg-zinc-50/20'
-                        }`}
-                      >
-                        <div className="space-y-1.5">
-                          <div className="flex justify-between items-start gap-2">
-                            <h4 className="font-black text-secondary text-xs leading-snug group-hover:text-primary transition-colors">
-                              {pkg.ten_goi}
-                            </h4>
-                            <span className="text-[9px] font-black bg-amber-50 text-amber-600 border border-amber-100 px-2 py-0.5 rounded-md shrink-0 uppercase tracking-tight">
-                              {pkg.tong_so_buoi} Buổi
-                            </span>
-                          </div>
-                          <p className="text-[10px] text-zinc-400 line-clamp-2 leading-relaxed">{pkg.mo_ta || 'Không có mô tả chi tiết cho gói này.'}</p>
-                        </div>
-
-                        <div className="mt-4 flex justify-between items-center pt-2.5 border-t border-zinc-100">
-                          <span className="text-[9px] text-zinc-400 font-extrabold uppercase tracking-wide">Giá trị gói</span>
-                          <span className="font-black text-sm text-secondary group-hover:text-primary transition-colors">
-                            {formatCurrency(Number(pkg.gia_goi))}
-                          </span>
-                        </div>
-
-                        {isSelected && (
-                          <div className="absolute -top-1.5 -right-1.5 bg-primary text-white rounded-full size-5 flex items-center justify-center text-[9px] font-bold border-2 border-white shadow-sm animate-bounce">
-                            ✓
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+              )}
 
               {/* Step C: Billing details and calculations */}
               {selectedPackage && (
