@@ -11,7 +11,8 @@ import {
   Bell, 
   Search,
   Menu,
-  X
+  X,
+  Activity
 } from 'lucide-react';
 
 export default function DashboardLayout() {
@@ -28,6 +29,7 @@ export default function DashboardLayout() {
     { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={20} />, roles: [1, 2, 3, 4] },
     { name: 'Lịch hẹn', path: '/appointments', icon: <Calendar size={20} />, roles: [2, 4] },
     { name: 'Gói điều trị', path: '/packages', icon: <Package size={20} />, roles: [1, 2, 4] },
+    { name: 'Bài tập tại nhà', path: '/exercises', icon: <Activity size={20} />, roles: [1] },
     { name: 'Hồ sơ', path: '/profile', icon: <FileText size={20} />, roles: [1, 2, 3, 4] },
     { name: 'Cài đặt', path: '/settings', icon: <Settings size={20} />, roles: [1, 2, 3, 4] },
   ];
@@ -49,6 +51,17 @@ export default function DashboardLayout() {
             </h1>
             <p className="text-[8px] text-zinc-400 font-extrabold tracking-widest uppercase mt-0.5">Phục hồi chức năng</p>
           </div>
+        </div>
+
+        {/* Back to Landing Page Button */}
+        <div className="px-3 pt-4 pb-1 border-b border-zinc-50">
+          <NavLink
+            to="/"
+            className="flex items-center gap-2.5 px-4 py-2.5 rounded-[12px] text-zinc-400 hover:text-primary hover:bg-primary/5 transition-all text-[11px] font-bold uppercase tracking-wider group"
+          >
+            <span className="transition-transform group-hover:-translate-x-1 duration-200">←</span>
+            Quay lại Trang chủ
+          </NavLink>
         </div>
         
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
