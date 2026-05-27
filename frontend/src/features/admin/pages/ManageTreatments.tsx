@@ -22,6 +22,7 @@ import toast from 'react-hot-toast';
 import AppointmentCalendar from '../components/AppointmentCalendar';
 import AppointmentWeeklyCalendar from '../components/AppointmentWeeklyCalendar';
 import AppointmentDetailModal from '../components/AppointmentDetailModal';
+import NewTreatmentForm from '../components/NewTreatmentForm';
 
 const statusConfig = {
   chua_xac_nhan: { label: 'Chưa xác nhận', color: 'bg-slate-100 text-slate-600 border-slate-200', icon: <HelpCircle size={14} /> },
@@ -52,6 +53,7 @@ export default function ManageTreatments() {
   // Modals State
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
 
   // Assignment State in Detail Modal
@@ -208,19 +210,27 @@ export default function ManageTreatments() {
           <p className="text-slate-500 text-sm">Quản lý và điều phối các ca phục hồi chức năng với Kỹ thuật viên.</p>
         </div>
 
-        <div className="flex items-center bg-white rounded-xl shadow-sm border border-slate-100 p-1 self-stretch md:self-auto justify-between">
-          <button onClick={() => handleNavigateDay('prev')} className="p-2 hover:bg-slate-50 text-slate-600 rounded-lg transition-colors">
-            <ChevronLeft size={18} />
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 self-stretch md:self-auto">
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-sm transition-all"
+          >
+            + Tạo lịch điều trị
           </button>
-          <div className="px-5 text-sm font-semibold text-slate-700 text-center min-w-[220px]">
-            {viewMode === 'today' 
-              ? format(selectedDate, 'eeee, dd/MM/yyyy', { locale: vi })
-              : `Tuần: ${format(startDateOfWeek, 'dd/MM')} - ${format(endDateOfWeek, 'dd/MM/yyyy')}`
-            }
+          <div className="flex items-center bg-white rounded-xl shadow-sm border border-slate-100 p-1 justify-between min-w-[280px]">
+            <button onClick={() => handleNavigateDay('prev')} className="p-2 hover:bg-slate-50 text-slate-600 rounded-lg transition-colors">
+              <ChevronLeft size={18} />
+            </button>
+            <div className="px-3 text-sm font-semibold text-slate-700 text-center flex-1">
+              {viewMode === 'today' 
+                ? format(selectedDate, 'eeee, dd/MM/yyyy', { locale: vi })
+                : `Tuần: ${format(startDateOfWeek, 'dd/MM')} - ${format(endDateOfWeek, 'dd/MM/yyyy')}`
+              }
+            </div>
+            <button onClick={() => handleNavigateDay('next')} className="p-2 hover:bg-slate-50 text-slate-600 rounded-lg transition-colors">
+              <ChevronRight size={18} />
+            </button>
           </div>
-          <button onClick={() => handleNavigateDay('next')} className="p-2 hover:bg-slate-50 text-slate-600 rounded-lg transition-colors">
-            <ChevronRight size={18} />
-          </button>
         </div>
       </div>
 
@@ -358,9 +368,16 @@ export default function ManageTreatments() {
           onClose={() => setIsDetailModalOpen(false)}
           onSave={handleUpdateAppointment}
           onOpenTreatment={() => {}}
-
+          onSuccess={fetchData}
         />
       )}
+
+      {/* COMPONENT: DRAWER TẠO MỚI LỊCH ĐIỀU TRỊ */}
+      <NewTreatmentForm
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={fetchData}
+      />
     </div>
   );
 }

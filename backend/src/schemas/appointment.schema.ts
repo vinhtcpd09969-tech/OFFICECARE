@@ -6,6 +6,7 @@ export const createAppointmentSchema = z.object({
     ho_ten_khach: z.string().optional(),
     so_dien_thoai: z.string().optional(),
     gioi_tinh_khach: z.string().optional(),
+    email: z.string().optional(),
     dich_vu_id: z.string().uuid('ID Dịch vụ không hợp lệ').optional().nullable(),
     ky_thuat_vien_id: z.string().uuid('ID KTV không hợp lệ').optional().nullable(),
     phong_id: z.string().optional().nullable(),
