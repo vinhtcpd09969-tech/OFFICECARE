@@ -2,6 +2,7 @@ import { useReducer, useState, useEffect, useMemo } from 'react';
 import axiosInstance from '../../../api/axios';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
+import { useAuthStore } from '../../../stores/authStore';
 import { 
   Search, 
   ArrowLeft, 
@@ -50,6 +51,7 @@ function billingReducer(state: BillingState, action: BillingAction): BillingStat
 const currencyFormatter = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
 
 export default function QuickBilling() {
+  const { user } = useAuthStore();
   const [state, dispatch] = useReducer(billingReducer, {
     lichDatId: '',
     soTienNhan: '',
@@ -139,26 +141,45 @@ export default function QuickBilling() {
     }
   };
 
-  // Auto select from redirect parameters
+  // Enforce parameter existence
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const queryLichDatId = params.get('lich_dat_id');
-    if (queryLichDatId && completedConsultations.length > 0) {
+    if (!queryLichDatId) {
+      toast.error('Vui lòng chọn ca điều trị cần thanh toán từ danh sách!');
+      const path = Number(user?.vai_tro_id) === 2 ? '/receptionist' : '/admin/treatments';
+      navigate(path);
+    }
+  }, [location.search, user, navigate]);
+
+  // Auto select from redirect parameters & validate existence
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const queryLichDatId = params.get('lich_dat_id');
+    if (!queryLichDatId) return;
+
+    if (completedConsultations.length > 0) {
       const matched = completedConsultations.find(c => String(c.id) === String(queryLichDatId));
       if (matched) {
         setSelectedConsultation(matched);
-        setActiveTab('package'); // Always route to package tab
-        
-        // Auto-select recommended package if it is loaded
-        if (matched.khuyen_nghi_goi_id && packages.length > 0) {
-          const matchedPkg = packages.find(p => String(p.id) === String(matched.khuyen_nghi_goi_id));
-          if (matchedPkg) {
-            setSelectedPackage(matchedPkg);
+        if (matched.khuyen_nghi_goi_id) {
+          setActiveTab('package');
+          if (packages.length > 0) {
+            const matchedPkg = packages.find(p => String(p.id) === String(matched.khuyen_nghi_goi_id));
+            if (matchedPkg) {
+              setSelectedPackage(matchedPkg);
+            }
           }
+        } else {
+          setActiveTab('single');
         }
+      } else {
+        toast.error('Không tìm thấy ca điều trị cần thanh toán hoặc ca đã được thanh toán rồi!');
+        const path = Number(user?.vai_tro_id) === 2 ? '/receptionist' : '/admin/treatments';
+        navigate(path);
       }
     }
-  }, [completedConsultations, packages, location.search]);
+  }, [completedConsultations, packages, location.search, user, navigate]);
 
   // Automatically load invoice for single service checkout if patient is fixed
   useEffect(() => {
@@ -417,33 +438,47 @@ export default function QuickBilling() {
       </div>
 
       {/* Tabs Selection - Soft Premium Clinical Switch */}
-      <div className="flex bg-white p-1.5 rounded-xl border border-zinc-200 shadow-sm max-w-md">
-        <button
-          onClick={() => {
-            setActiveTab('package');
-            dispatch({ type: 'RESET_HOA_DON' });
-            setFeedbackLyDo('');
-          }}
-          className={`flex-1 py-3 px-4 text-xs font-black uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-2 ${
-            activeTab === 'package' ? 'bg-primary text-white shadow-sm' : 'text-zinc-500 hover:text-secondary'
-          }`}
-        >
-          <Sparkles size={14} /> 1. Thanh toán Gói trị liệu
-        </button>
-        <button
-          onClick={() => {
-            setActiveTab('single');
-            setSelectedPackage(null);
-            setCalculatedData(null);
-            setFeedbackLyDo('');
-          }}
-          className={`flex-1 py-3 px-4 text-xs font-black uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-2 ${
-            activeTab === 'single' ? 'bg-primary text-white shadow-sm' : 'text-zinc-500 hover:text-secondary'
-          }`}
-        >
-          <Receipt size={14} /> 2. Thanh toán dịch vụ lẻ
-        </button>
-      </div>
+      {!isLocked ? (
+        <div className="flex bg-white p-1.5 rounded-xl border border-zinc-200 shadow-sm max-w-md">
+          <button
+            onClick={() => {
+              setActiveTab('package');
+              dispatch({ type: 'RESET_HOA_DON' });
+              setFeedbackLyDo('');
+            }}
+            className={`flex-1 py-3 px-4 text-xs font-black uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-2 ${
+              activeTab === 'package' ? 'bg-primary text-white shadow-sm' : 'text-zinc-500 hover:text-secondary'
+            }`}
+          >
+            <Sparkles size={14} /> 1. Thanh toán Gói trị liệu
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('single');
+              setSelectedPackage(null);
+              setCalculatedData(null);
+              setFeedbackLyDo('');
+            }}
+            className={`flex-1 py-3 px-4 text-xs font-black uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-2 ${
+              activeTab === 'single' ? 'bg-primary text-white shadow-sm' : 'text-zinc-500 hover:text-secondary'
+            }`}
+          >
+            <Receipt size={14} /> 2. Thanh toán dịch vụ lẻ
+          </button>
+        </div>
+      ) : (
+        <div className="bg-primary/5 text-primary border border-primary/20 rounded-xl px-4 py-3 text-xs font-black uppercase tracking-wider w-fit flex items-center gap-2">
+          {activeTab === 'package' ? (
+            <>
+              <Sparkles size={14} /> Thanh toán Gói trị liệu chỉ định
+            </>
+          ) : (
+            <>
+              <Receipt size={14} /> Thanh toán dịch vụ lẻ chỉ định
+            </>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
@@ -491,6 +526,13 @@ export default function QuickBilling() {
                       </button>
                     )}
                   </div>
+                </div>
+              ) : isLocked ? (
+                <div className="bg-white rounded-2xl border border-zinc-150 shadow-sm p-6 text-center py-12">
+                  <div className="animate-spin inline-block size-6 border-[3px] border-current border-t-transparent text-primary rounded-full" role="status" aria-label="loading">
+                    <span className="sr-only">Đang tải...</span>
+                  </div>
+                  <p className="text-xs text-zinc-500 mt-2 font-semibold">Đang tải thông tin ca điều trị...</p>
                 </div>
               ) : (
                 <div className="bg-white rounded-2xl border border-zinc-150 shadow-sm p-6 space-y-4">
@@ -590,6 +632,10 @@ export default function QuickBilling() {
                       </button>
                     )}
                   </div>
+                </div>
+              ) : isLocked ? (
+                <div className="bg-white rounded-2xl border border-zinc-150 shadow-sm p-6 text-center py-12">
+                  <p className="text-xs text-zinc-500 font-semibold">Không có gói điều trị được chỉ định cho ca này.</p>
                 </div>
               ) : (
                 <div className="bg-white rounded-2xl border border-zinc-150 shadow-sm p-6 space-y-4">
@@ -790,19 +836,21 @@ export default function QuickBilling() {
 
                   {/* Submission buttons */}
                   <div className="flex gap-3 pt-2.5">
-                    <button 
-                      type="button" 
-                      onClick={() => {
-                        setSelectedPackage(null);
-                        setCalculatedData(null);
-                        setAppliedVoucher(null);
-                        setMaVoucher('');
-                        dispatch({ type: 'RESET_HOA_DON' });
-                      }}
-                      className="flex-1 py-3.5 text-zinc-600 bg-zinc-50 hover:bg-zinc-100 rounded-xl font-black text-xs uppercase tracking-widest border border-zinc-200 transition-all active:scale-98"
-                    >
-                      Hủy lựa chọn
-                    </button>
+                    {!isLocked && (
+                      <button 
+                        type="button" 
+                        onClick={() => {
+                          setSelectedPackage(null);
+                          setCalculatedData(null);
+                          setAppliedVoucher(null);
+                          setMaVoucher('');
+                          dispatch({ type: 'RESET_HOA_DON' });
+                        }}
+                        className="flex-1 py-3.5 text-zinc-600 bg-zinc-50 hover:bg-zinc-100 rounded-xl font-black text-xs uppercase tracking-widest border border-zinc-200 transition-all active:scale-98"
+                      >
+                        Hủy lựa chọn
+                      </button>
+                    )}
                     <button 
                       type="submit" 
                       disabled={loading || calculating || !selectedConsultation}
@@ -1000,16 +1048,18 @@ export default function QuickBilling() {
                   )}
 
                   <div className="flex gap-3.5 pt-2">
-                    <button 
-                      type="button" 
-                      onClick={() => {
-                        dispatch({ type: 'RESET_HOA_DON' });
-                        setFeedbackLyDo('');
-                      }}
-                      className="flex-1 py-4 text-secondary bg-zinc-50 hover:bg-zinc-100 rounded-xl font-extrabold text-xs uppercase tracking-widest border border-zinc-200 transition-all active:scale-98"
-                    >
-                      Hủy hóa đơn
-                    </button>
+                    {!isLocked && (
+                      <button 
+                        type="button" 
+                        onClick={() => {
+                          dispatch({ type: 'RESET_HOA_DON' });
+                          setFeedbackLyDo('');
+                        }}
+                        className="flex-1 py-4 text-secondary bg-zinc-50 hover:bg-zinc-100 rounded-xl font-extrabold text-xs uppercase tracking-widest border border-zinc-200 transition-all active:scale-98"
+                      >
+                        Hủy hóa đơn
+                      </button>
+                    )}
                     <button 
                       type="submit" 
                       disabled={loading}

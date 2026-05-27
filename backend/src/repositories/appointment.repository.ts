@@ -1,4 +1,5 @@
 import { pool } from '../config/db';
+import bcrypt from 'bcryptjs';
 
 class AppointmentRepository {
   async getAllAppointments() {
@@ -78,18 +79,70 @@ class AppointmentRepository {
   }
 
   async createAppointment(ma_lich_dat: string, data: any) {
-    const { khach_hang_id, ho_ten_khach, so_dien_thoai, gioi_tinh_khach, dich_vu_id, ky_thuat_vien_id, phong_id, ngay_gio_bat_dau, ngay_gio_ket_thuc, ghi_chu_dat_lich, ly_do_kham, loai_lich, dang_ky_goi_id } = data;
+    const { khach_hang_id, ho_ten_khach, so_dien_thoai, gioi_tinh_khach, email, dich_vu_id, ky_thuat_vien_id, phong_id, ngay_gio_bat_dau, ngay_gio_ket_thuc, ghi_chu_dat_lich, ly_do_kham, loai_lich, dang_ky_goi_id } = data;
+
+    let final_khach_hang_id = khach_hang_id;
 
     if (loai_lich === 'dieu_tri') {
+      if (!final_khach_hang_id && (email || so_dien_thoai)) {
+        // 1. Search existing customer by email or phone
+        let existCust = null;
+        if (email) {
+          const res = await pool.query('SELECT kh.id FROM khach_hang kh JOIN nguoi_dung nd ON kh.nguoi_dung_id = nd.id WHERE nd.email = $1', [email]);
+          if (res.rows.length > 0) existCust = res.rows[0];
+        }
+        if (!existCust && so_dien_thoai) {
+          const res = await pool.query('SELECT kh.id FROM khach_hang kh JOIN nguoi_dung nd ON kh.nguoi_dung_id = nd.id WHERE nd.so_dien_thoai = $1', [so_dien_thoai]);
+          if (res.rows.length > 0) existCust = res.rows[0];
+        }
+
+        if (existCust) {
+          final_khach_hang_id = existCust.id;
+        } else {
+          // 2. Create new user with password hash (default password '123456')
+          const targetEmail = email || `${so_dien_thoai || 'guest_' + Math.floor(Math.random() * 100000)}@physioflow.placeholder`;
+          const defaultPassword = '123456';
+          const salt = bcrypt.genSaltSync(10);
+          const hash = bcrypt.hashSync(defaultPassword, salt);
+
+          const client = await pool.connect();
+          try {
+            await client.query('BEGIN');
+            const { rows: newUser } = await client.query(`
+              INSERT INTO nguoi_dung (ho_ten, so_dien_thoai, email, mat_khau_hash, vai_tro_id, da_xac_thuc_email) 
+              VALUES ($1, $2, $3, $4, (SELECT id FROM vai_tro WHERE ma_vai_tro = 'khach_hang'), TRUE) RETURNING id
+            `, [ho_ten_khach || 'Khách vãng lai', so_dien_thoai || null, targetEmail, hash]);
+            const { rows: newKh } = await client.query(`
+              INSERT INTO khach_hang (nguoi_dung_id, gioi_tinh) VALUES ($1, $2) RETURNING id
+            `, [newUser[0].id, gioi_tinh_khach || 'khac']);
+            await client.query('COMMIT');
+            final_khach_hang_id = newKh[0].id;
+          } catch (e) {
+            await client.query('ROLLBACK');
+            throw e;
+          } finally {
+            client.release();
+          }
+        }
+      }
+
       let ldtId = null;
       let target_dich_vu_id = dich_vu_id;
 
       if (dang_ky_goi_id) {
-        // Generate a new treatment plan for the package if needed
-        const ldtRes = await pool.query('INSERT INTO lich_dieu_tri(khach_hang_id, loai_dieu_tri, goi_dich_vu_id, tong_so_buoi, so_buoi_da_dung, trang_thai, lich_dat_id) VALUES ($1, $2, $3, 1, 0, $4, $5) RETURNING id', [khach_hang_id, 'theo_goi', dang_ky_goi_id, 'dang_dieu_tri', data.lich_dat_id || null]);
+        // Query total sessions from package
+        let tong_so_buoi = 1;
+        const goiRes = await pool.query('SELECT tong_so_buoi FROM goi_dich_vu WHERE id = $1', [dang_ky_goi_id]);
+        if (goiRes.rows.length > 0) {
+          tong_so_buoi = goiRes.rows[0].tong_so_buoi;
+        }
+
+        const ldtRes = await pool.query(`
+          INSERT INTO lich_dieu_tri(khach_hang_id, loai_dieu_tri, goi_dich_vu_id, tong_so_buoi, so_buoi_da_dung, trang_thai, lich_dat_id, ho_ten_khach, so_dien_thoai) 
+          VALUES ($1, $2, $3, $4, 0, $5, $6, $7, $8) RETURNING id
+        `, [final_khach_hang_id, 'theo_goi', dang_ky_goi_id, tong_so_buoi, 'dang_dieu_tri', data.lich_dat_id || null, ho_ten_khach || null, so_dien_thoai || null]);
         ldtId = ldtRes.rows[0].id;
 
-        // Fix: Check if package has associated services and extract from junction table
         if (!target_dich_vu_id) {
           const ktRes = await pool.query('SELECT dich_vu_id FROM goi_dich_vu_chi_tiet WHERE goi_dich_vu_id = $1 LIMIT 1', [dang_ky_goi_id]);
           if (ktRes.rows.length > 0) {
@@ -97,15 +150,19 @@ class AppointmentRepository {
           }
         }
       } else {
-        const ldtRes = await pool.query('INSERT INTO lich_dieu_tri(khach_hang_id, loai_dieu_tri, dich_vu_id, tong_so_buoi, so_buoi_da_dung, trang_thai, lich_dat_id) VALUES ($1, $2, $3, 1, 0, $4, $5) RETURNING id', [khach_hang_id, 'dich_vu_le', target_dich_vu_id, 'dang_dieu_tri', data.lich_dat_id || null]);
+        const ldtRes = await pool.query(`
+          INSERT INTO lich_dieu_tri(khach_hang_id, loai_dieu_tri, dich_vu_id, tong_so_buoi, so_buoi_da_dung, trang_thai, lich_dat_id, ho_ten_khach, so_dien_thoai) 
+          VALUES ($1, $2, $3, 1, 0, $4, $5, $6, $7) RETURNING id
+        `, [final_khach_hang_id, 'dich_vu_le', target_dich_vu_id, 'dang_dieu_tri', data.lich_dat_id || null, ho_ten_khach || null, so_dien_thoai || null]);
         ldtId = ldtRes.rows[0].id;
       }
 
+      // First treatment session should be 'cho_xac_nhan' initially, with optional KTV and Room
       const btlRes = await pool.query(`
         INSERT INTO buoi_tri_lieu(lich_dieu_tri_id, khach_hang_id, ky_thuat_vien_id, phong_id, dich_vu_id, thoi_gian_bat_dau, thoi_gian_ket_thuc, trang_thai)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING *
-      `, [ldtId, khach_hang_id, ky_thuat_vien_id, phong_id, target_dich_vu_id || null, ngay_gio_bat_dau, ngay_gio_ket_thuc, 'dang_thuc_hien']);
+      `, [ldtId, final_khach_hang_id, ky_thuat_vien_id || null, phong_id || null, target_dich_vu_id || null, ngay_gio_bat_dau, ngay_gio_ket_thuc, 'cho_xac_nhan']);
 
       return btlRes.rows[0];
     } else {

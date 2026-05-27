@@ -1,6 +1,9 @@
 
 import { X, Activity, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../../../stores/authStore';
+import axiosInstance from '../../../api/axios';
+import toast from 'react-hot-toast';
 
 interface AppointmentDetailModalProps {
   selectedAppointment: any;
@@ -18,6 +21,7 @@ interface AppointmentDetailModalProps {
   onSave: (e: React.FormEvent) => void;
   onOpenTreatment: (type?: 'single' | 'package', recId?: string) => void;
   appointments?: any[];
+  onSuccess?: () => void;
 }
 
 export default function AppointmentDetailModal({
@@ -35,10 +39,12 @@ export default function AppointmentDetailModal({
   onClose,
   onSave,
   onOpenTreatment,
-  appointments = []
+  appointments = [],
+  onSuccess
 }: AppointmentDetailModalProps) {
   const navigate = useNavigate();
-
+  const { user } = useAuthStore();
+  const isReceptionist = Number(user?.vai_tro_id) === 2;
 
   if (!selectedAppointment) return null;
 
@@ -143,9 +149,10 @@ export default function AppointmentDetailModal({
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-600">Phòng thực hiện</label>
                 <select
-                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all disabled:bg-slate-100 disabled:text-slate-500 cursor-not-allowed"
                   value={assignRoomId}
                   onChange={(e) => setAssignRoomId(e.target.value)}
+                  disabled={isReceptionist}
                 >
                   <option value="">-- Chưa xếp phòng --</option>
                   {availableRooms.map(r => (
@@ -157,9 +164,10 @@ export default function AppointmentDetailModal({
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-600">Nhân sự phụ trách</label>
                 <select
-                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all disabled:bg-slate-100 disabled:text-slate-500 cursor-not-allowed"
                   value={assignStaffId}
                   onChange={(e) => setAssignStaffId(e.target.value)}
+                  disabled={isReceptionist}
                 >
                   <option value="">-- Chưa phân công --</option>
                   {availableStaff.filter(s => s.vai_tro === activeRole).map(s => (
@@ -173,9 +181,10 @@ export default function AppointmentDetailModal({
               <div className="space-y-1.5 md:col-span-2">
                 <label className="text-xs font-semibold text-slate-600">Trạng thái ca trực</label>
                 <select
-                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium"
+                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium disabled:bg-slate-100 disabled:text-slate-500 cursor-not-allowed"
                   value={assignStatus}
                   onChange={(e) => setAssignStatus(e.target.value)}
+                  disabled={isReceptionist}
                 >
                   <option value="chua_xac_nhan">Chưa xác nhận</option>
                   <option value="cho_xac_nhan">Chờ xác nhận</option>
@@ -213,12 +222,37 @@ export default function AppointmentDetailModal({
               <button
                 type="button"
                 onClick={() => {
-                  navigate(`/admin/quick-billing?lich_dat_id=${selectedAppointment.id}`);
+                  const dest = isReceptionist ? '/receptionist/billing' : '/admin/quick-billing';
+                  navigate(`${dest}?lich_dat_id=${selectedAppointment.id}`);
                   onClose();
                 }}
                 className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white shadow-sm text-sm font-black rounded-xl flex items-center gap-2 transition-all animate-pulse"
               >
                 💵 Thanh toán Gói trị liệu
+              </button>
+            ) : selectedAppointment.loai_lich === 'dieu_tri' && selectedAppointment.trang_thai === 'da_xac_nhan' && isReceptionist ? (
+              <button
+                type="button"
+                disabled={isAssigning}
+                onClick={async () => {
+                  const toastId = toast.loading('Đang xác thực lịch trực và gửi thông báo...');
+                  try {
+                     await axiosInstance.patch(`/admin/appointments/${selectedAppointment.id}/status`, {
+                       trang_thai: 'da_checkin',
+                       ky_thuat_vien_id: assignStaffId || null,
+                       phong_id: assignRoomId || null
+                     });
+                     toast.success('Xác thực lịch và gửi thông báo thành công!', { id: toastId });
+                     onClose();
+                     if (onSuccess) onSuccess();
+                  } catch (error: any) {
+                     console.error(error);
+                     toast.error(error.response?.data?.message || 'Lỗi xác thực lịch trực', { id: toastId });
+                  }
+                }}
+                className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm text-sm font-black rounded-xl flex items-center gap-2 transition-all animate-pulse"
+              >
+                💵 Xác thực & Gửi thông báo
               </button>
             ) : <div></div>}
 
@@ -230,13 +264,15 @@ export default function AppointmentDetailModal({
               >
                 Đóng
               </button>
-              <button
-                type="submit"
-                disabled={isAssigning}
-                className="px-6 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-all disabled:opacity-50"
-              >
-                {isAssigning ? 'Đang lưu...' : 'Lưu cập nhật'}
-              </button>
+              {!isReceptionist && (
+                <button
+                  type="submit"
+                  disabled={isAssigning}
+                  className="px-6 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-all disabled:opacity-50"
+                >
+                  {isAssigning ? 'Đang lưu...' : 'Lưu cập nhật'}
+                </button>
+              )}
             </div>
           </div>
         </form>
