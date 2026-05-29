@@ -12,6 +12,8 @@ router.use(authorizeRoles(5, 6));
 // Danh mục & Dịch vụ
 router.get('/categories', adminController.getCategories);
 router.post('/categories', adminController.createCategory);
+router.put('/categories/:id', adminController.updateCategory);
+router.delete('/categories/:id', adminController.deleteCategory);
 router.get('/services', adminController.getServices);
 router.post('/services', adminController.createService);
 router.put('/services/:id', adminController.updateService);

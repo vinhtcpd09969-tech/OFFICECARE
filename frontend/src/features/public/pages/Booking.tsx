@@ -143,7 +143,7 @@ export default function Booking() {
     const ngay_gio_bat_dau = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hours), parseInt(minutes)).toISOString();
 
     try {
-      const response = await fetch('http://localhost:5000/api/client/appointments/public', {
+      const response = await fetch('http://localhost:5001/api/client/appointments/public', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
