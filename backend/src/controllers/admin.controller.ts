@@ -269,6 +269,28 @@ export const createSchedule = async (req: Request, res: Response): Promise<any> 
   }
 };
 
+export const updateSchedule = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params as { id: string };
+    const schedule = await adminService.updateSchedule(id, req.body);
+    await logAudit(req, 'UPDATE_SCHEDULE', 'SCHEDULE', id, req.body);
+    res.json(schedule);
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi cập nhật lịch trực' });
+  }
+};
+
+export const deleteSchedule = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params as { id: string };
+    await adminService.deleteSchedule(id);
+    await logAudit(req, 'DELETE_SCHEDULE', 'SCHEDULE', id, {});
+    res.json({ message: 'Xóa lịch trực thành công' });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi xóa lịch trực' });
+  }
+};
+
 // --- QUẢN LÝ HỒ SƠ ĐIỀU TRỊ (READ-ONLY) ---
 
 export const getMedicalRecords = async (req: Request, res: Response) => {

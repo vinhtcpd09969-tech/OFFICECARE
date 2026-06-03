@@ -46,6 +46,9 @@ export default function Login() {
       } else if (roleId === 3) {
         console.log('Navigating to technician workspace since user.vai_tro_id is 3');
         navigate(from === '/dashboard' ? '/technician/workspace' : from);
+      } else if (roleId === 4) {
+        console.log('Navigating to doctor dashboard since user.vai_tro_id is 4');
+        navigate(from === '/dashboard' ? '/doctor' : from);
       } else {
         console.log('Navigating to from:', from);
         navigate(from);

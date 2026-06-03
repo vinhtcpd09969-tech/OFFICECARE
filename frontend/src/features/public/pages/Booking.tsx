@@ -1,27 +1,32 @@
-import { useReducer, useState, useEffect } from 'react';
-import { 
-  Calendar as CalendarIcon, 
-  MapPin, 
-  User, 
-  Info, 
-  CheckCircle2, 
-  Activity, 
-  ShieldCheck, 
+import { useReducer, useState, useEffect, useRef } from 'react';
+import {
+  Calendar as CalendarIcon,
+  User,
+  Info,
+  CheckCircle2,
+  ShieldCheck,
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
   Clock,
   Stethoscope,
-  Award
+  Award,
+  Star,
+  Lock,
+  ArrowRight,
+  Upload,
+  X,
+  AlertTriangle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../../stores/authStore';
 import { toast } from 'react-hot-toast';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const timeSlots = [
   '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
   '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00',
-  '17:30', '18:00', '18:30', '19:00'
+  '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00'
 ];
 
 interface BookingState {
@@ -39,7 +44,7 @@ interface BookingState {
   };
 }
 
-type BookingAction = 
+type BookingAction =
   | { type: 'SET_DATE', date: string }
   | { type: 'SET_TIME', time: string }
   | { type: 'SET_FORM_FIELD', field: string, value: string }
@@ -70,17 +75,96 @@ const fullDateFormatter = new Intl.DateTimeFormat('vi-VN', {
   day: 'numeric',
 });
 
+const formatLocalDate = (date: Date): string => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+// Generate available date list for the next 14 days
+const generateAvailableDates = (): Date[] => {
+  const dates = [];
+  const today = new Date();
+  for (let i = 0; i < 14; i++) {
+    const nextDate = new Date();
+    nextDate.setDate(today.getDate() + i);
+    dates.push(nextDate);
+  }
+  return dates;
+};
+
+// Mock consistent spots available based on date string
+const getMockAvailableSlots = (dateStr: string): number => {
+  let hash = 0;
+  for (let i = 0; i < dateStr.length; i++) {
+    hash = dateStr.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return Math.abs(hash % 5) + 3; // 3 to 7 spots remaining
+};
+
 export default function Booking() {
   const navigate = useNavigate();
   const [isClient, setIsClient] = useState(false);
-  const { user, isAuthenticated } = useAuthStore();
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  
-  // Custom Datepicker state
-  const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
-  
+  const { user, isAuthenticated, setShowAuthModal } = useAuthStore();
+  const [bookedSlots, setBookedSlots] = useState<string[]>([]);
+  const [activeStep, setActiveStep] = useState(1);
+  const dateContainerRef = useRef<HTMLDivElement>(null);
+
+  const [dragActive, setDragActive] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      handleFile(e.target.files[0]);
+    }
+  };
+
+  const handleFile = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast.error('Chỉ chấp nhận tệp tin hình ảnh (.jpg, .jpeg, .png, .webp)!');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Kích thước ảnh tối đa là 5MB!');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      dispatch({ type: 'SET_FORM_FIELD', field: 'anh_dinh_kem_url', value: base64String });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeImage = () => {
+    dispatch({ type: 'SET_FORM_FIELD', field: 'anh_dinh_kem_url', value: '' });
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   const [state, dispatch] = useReducer(bookingReducer, {
-    selectedDate: new Date().toISOString().split('T')[0],
+    selectedDate: formatLocalDate(new Date()),
     selectedTime: '',
     isSubmitting: false,
     isSuccess: false,
@@ -89,15 +173,56 @@ export default function Booking() {
       so_dien_thoai: (user as any)?.so_dien_thoai || '',
       gioi_tinh_khach: 'nam',
       trieu_chung: '',
-      ly_do_kham: '',
+      ly_do_kham: 'Khám lượng giá ban đầu',
       anh_dinh_kem_url: ''
     }
   });
 
+  const { selectedDate, selectedTime, isSubmitting, isSuccess, formData } = state;
+
+  const isToday = selectedDate === formatLocalDate(new Date());
+  const MIN_BOOKING_BUFFER_MINUTES = 60; // 1 hour buffer to prevent last-minute bookings
+
+  const isSlotInPast = (timeStr: string): boolean => {
+    if (!isToday) return false;
+    const now = new Date();
+    const [slotHour, slotMinute] = timeStr.split(':').map(Number);
+    
+    // Create slot date matching today's date but with slot hours/minutes
+    const slotTime = new Date(now);
+    slotTime.setHours(slotHour, slotMinute, 0, 0);
+    
+    // Difference in minutes
+    const diffMins = (slotTime.getTime() - now.getTime()) / (1000 * 60);
+    return diffMins < MIN_BOOKING_BUFFER_MINUTES;
+  };
+
+  const isSlotUrgent = (timeStr: string): boolean => {
+    if (!isToday || !timeStr) return false;
+    const now = new Date();
+    const [slotHour, slotMinute] = timeStr.split(':').map(Number);
+    
+    const slotTime = new Date(now);
+    slotTime.setHours(slotHour, slotMinute, 0, 0);
+    
+    const diffMins = (slotTime.getTime() - now.getTime()) / (1000 * 60);
+    return diffMins > 0 && diffMins <= 120; // urgent if starting within 2 hours
+  };
+
+  // Intercept Route: If unauthenticated, redirect back and show global modal immediately
   useEffect(() => {
     setIsClient(true);
-    
-    // Khôi phục dữ liệu đặt lịch tạm thời (nếu có) sau khi đăng nhập thành công
+    if (!isAuthenticated()) {
+      // Go back to the page they came from, or home page if no history
+      navigate(-1);
+      setTimeout(() => {
+        setShowAuthModal(true);
+      }, 100);
+    }
+  }, [isAuthenticated, navigate, setShowAuthModal]);
+
+  // Restore saved booking form data on user state change
+  useEffect(() => {
     const saved = localStorage.getItem('temp_booking');
     if (saved) {
       try {
@@ -110,7 +235,7 @@ export default function Booking() {
             dispatch({ type: 'SET_FORM_FIELD', field: key, value: parsed.formData[key] });
           });
         }
-        toast.success('Đã khôi phục dữ liệu đăng ký lịch hẹn của bạn!');
+        toast.success('Đã khôi phục dữ liệu lịch hẹn của bạn!');
       } catch (e) {
         console.error('Lỗi khôi phục lịch đặt tạm thời:', e);
       }
@@ -118,29 +243,54 @@ export default function Booking() {
     }
   }, [user]);
 
+  // Fetch booked slots for the selected date
+  useEffect(() => {
+    if (!selectedDate) return;
+    fetch(`http://localhost:5001/api/client/appointments/booked-slots?date=${selectedDate}`)
+      .then(res => res.json())
+      .then(data => setBookedSlots(data.bookedSlots || []))
+      .catch(() => setBookedSlots([]));
+  }, [selectedDate]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     dispatch({ type: 'SET_FORM_FIELD', field: e.target.name, value: e.target.value });
   };
 
+  const handleGenderChange = (value: string) => {
+    dispatch({ type: 'SET_FORM_FIELD', field: 'gioi_tinh_khach', value });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!state.selectedTime) {
-      toast.error('Vui lòng chọn khung giờ khám lâm sàng!');
+    if (!selectedDate) {
+      toast.error('Vui lòng chọn ngày khám!');
       return;
     }
-
-    // NẾU CHƯA ĐĂNG NHẬP -> Bật Modal Popup xin ý kiến chuyển hướng
-    if (!isAuthenticated()) {
-      setShowAuthModal(true);
+    if (!selectedTime) {
+      toast.error('Vui lòng chọn khung giờ khám!');
+      return;
+    }
+    if (!formData.ho_ten_khach.trim() || !formData.so_dien_thoai.trim()) {
+      toast.error('Vui lòng điền đầy đủ Họ tên và Số điện thoại!');
+      return;
+    }
+    if (!formData.trieu_chung.trim()) {
+      toast.error('Vui lòng mô tả triệu chứng của bạn!');
       return;
     }
 
     const toastId = toast.loading('Đang gửi đăng ký lịch hẹn y khoa...');
     dispatch({ type: 'SET_SUBMITTING', isSubmitting: true });
-    
-    const [year, month, day] = state.selectedDate.split('-');
-    const [hours, minutes] = state.selectedTime.split(':');
-    const ngay_gio_bat_dau = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hours), parseInt(minutes)).toISOString();
+
+    const [year, month, day] = selectedDate.split('-');
+    const [hours, minutes] = selectedTime.split(':');
+    const ngay_gio_bat_dau = new Date(
+      parseInt(year),
+      parseInt(month) - 1,
+      parseInt(day),
+      parseInt(hours),
+      parseInt(minutes)
+    ).toISOString();
 
     try {
       const response = await fetch('http://localhost:5001/api/client/appointments/public', {
@@ -149,14 +299,14 @@ export default function Booking() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...state.formData,
+          ...formData,
           ngay_gio_bat_dau,
           nguoi_dung_id: user?.id,
         }),
       });
 
       if (response.ok) {
-        toast.success('Đăng ký lịch khám thành công!', { id: toastId });
+        toast.success('Đăng ký lịch khám lượng giá thành công!', { id: toastId });
         dispatch({ type: 'SET_SUCCESS', isSuccess: true });
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
@@ -170,514 +320,1007 @@ export default function Booking() {
     }
   };
 
-  const handleRedirectToLogin = () => {
-    localStorage.setItem('temp_booking', JSON.stringify({
-      selectedDate,
-      selectedTime,
-      formData
-    }));
-    navigate('/login', { state: { from: '/booking' } });
-  };
-
   const formatFullDate = (dateString: string) => {
-    if (!isClient) return '';
-    return fullDateFormatter.format(new Date(dateString));
+    if (!isClient || !dateString) return '';
+    try {
+      return fullDateFormatter.format(new Date(dateString));
+    } catch (e) {
+      return dateString;
+    }
   };
 
-  const { selectedDate, selectedTime, isSubmitting, isSuccess, formData } = state;
-
-  // Custom Grid Calendar Generator
-  const getDaysInMonth = (date: Date) => {
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    const firstDay = new Date(year, month, 1).getDay(); // 0 is Sunday
-    const totalDays = new Date(year, month + 1, 0).getDate();
-    
-    const days = [];
-    
-    // Pad previous month's days
-    const adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1; // Align to Monday
-    for (let i = 0; i < adjustedFirstDay; i++) {
-      days.push(null);
+  const scrollDates = (direction: 'left' | 'right') => {
+    if (dateContainerRef.current) {
+      const scrollAmount = direction === 'left' ? -260 : 260;
+      dateContainerRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
     }
-    
-    for (let d = 1; d <= totalDays; d++) {
-      days.push(new Date(year, month, d));
-    }
-    
-    return days;
   };
 
-  const daysGrid = getDaysInMonth(currentMonth);
-  const weekDays = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
-  const todayStr = new Date().toISOString().split('T')[0];
-
-  const handleMonthChange = (direction: 'prev' | 'next') => {
-    const newMonth = new Date(currentMonth);
-    if (direction === 'prev') {
-      newMonth.setMonth(newMonth.getMonth() - 1);
-    } else {
-      newMonth.setMonth(newMonth.getMonth() + 1);
-    }
-    
-    // Prevent moving before current month
-    const now = new Date();
-    if (direction === 'prev' && newMonth.getFullYear() === now.getFullYear() && newMonth.getMonth() < now.getMonth()) {
-      return;
-    }
-    setCurrentMonth(newMonth);
+  // Helper to format days of week
+  const getVietnameseDay = (date: Date): string => {
+    const day = date.getDay();
+    if (day === 0) return 'CN';
+    return `T${day + 1}`;
   };
 
+  const datesList = generateAvailableDates();
+
+  // Time groupings
+  const morningSlots = timeSlots.filter(t => t < '12:00');
+  const afternoonSlots = timeSlots.filter(t => t >= '12:00' && t < '18:00');
+  const eveningSlots = timeSlots.filter(t => t >= '18:00');
+
+  // Prevent flashing component structure if unauthenticated
+  if (!isAuthenticated()) {
+    return null;
+  }
+
+  // Render Success State redone as elegant Stripe/Apple-like page
   if (isSuccess) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-[32px] shadow-soft-ui-hover p-8 text-center space-y-6 border border-gray-150 animate-slide-up">
-          <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-[24px] flex items-center justify-center mx-auto shadow-inner border border-emerald-100/50">
-            <CheckCircle2 size={40} />
-          </div>
-          <h2 className="text-2xl font-heading font-black text-secondary">Đăng ký thành công!</h2>
-          
-          <div className="text-sm font-medium text-gray-500 leading-relaxed bg-zinc-50 p-4 rounded-2xl border border-zinc-100">
-            Cảm ơn bạn đã lựa chọn <span className="text-primary font-bold">Office Care</span>. Yêu cầu của bạn đã được chuyển tới bộ phận tiếp đón. Chúng tôi sẽ gửi thông báo phê duyệt ngay sau khi Lễ tân xác thực thông tin.
+      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center py-20 px-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96, y: 15 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          className="max-w-xl w-full bg-white rounded-[24px] shadow-2xl p-8 border border-slate-100/80 text-center space-y-6"
+        >
+          {/* Success Check Icon */}
+          <div className="relative w-20 h-20 mx-auto flex items-center justify-center">
+            <div className="absolute inset-0 bg-emerald-100 rounded-2xl rotate-6 animate-pulse" />
+            <div className="relative w-16 h-16 bg-[#10B981] text-white rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/20 border border-emerald-400">
+              <CheckCircle2 size={36} />
+            </div>
           </div>
 
-          <div className="bg-primary/5 text-primary p-5 rounded-[20px] text-left text-xs border border-primary/10">
-            <p className="font-extrabold mb-2 flex items-center gap-1">
-              <Info size={14} /> Lưu ý trước khi đến khám:
+          <div className="space-y-2">
+            <h2 className="text-3xl font-jakarta font-black text-[#0F172A] tracking-tight">
+              Đặt lịch thành công!
+            </h2>
+            <p className="text-sm font-semibold text-slate-500 max-w-md mx-auto leading-relaxed">
+              Yêu cầu khám lượng giá của bạn đã được tiếp nhận. Đội ngũ y tế sẽ liên hệ xác nhận trong thời gian sớm nhất.
             </p>
-            <ul className="list-disc list-inside space-y-1.5 font-medium text-gray-600">
-              <li>Mặc trang phục rộng rãi, co giãn tốt.</li>
-              <li>Mang theo chẩn đoán, phim chụp MRI/X-Quang cũ (nếu có).</li>
-              <li>Đến trước giờ khám 10 phút để làm hồ sơ y khoa.</li>
+          </div>
+
+          {/* Booking Summary Box */}
+          <div className="bg-slate-50 rounded-[20px] border border-slate-100 p-6 text-left space-y-4">
+            <div className="grid grid-cols-2 gap-y-4 gap-x-2 text-xs font-jakarta">
+              <div>
+                <p className="text-slate-400 font-bold uppercase tracking-wider">Dịch vụ</p>
+                <p className="text-[#0F172A] font-extrabold mt-1 text-sm">Khám Lượng Giá Ban Đầu</p>
+              </div>
+              <div>
+                <p className="text-slate-400 font-bold uppercase tracking-wider">Thời lượng</p>
+                <p className="text-[#0F172A] font-extrabold mt-1 text-sm">30 phút</p>
+              </div>
+              <div className="col-span-2 border-t border-slate-200/60 pt-3">
+                <p className="text-slate-400 font-bold uppercase tracking-wider">Thời gian hẹn</p>
+                <p className="text-[#0F172A] font-extrabold mt-1 text-sm capitalize">
+                  {selectedTime} — {formatFullDate(selectedDate)}
+                </p>
+              </div>
+              <div className="col-span-2 border-t border-slate-200/60 pt-3">
+                <p className="text-slate-400 font-bold uppercase tracking-wider">Bệnh nhân liên hệ</p>
+                <p className="text-[#0F172A] font-extrabold mt-1 text-sm">
+                  {formData.ho_ten_khach} ({formData.so_dien_thoai})
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Urgent Warning Banner on Success Page */}
+          {isSlotUrgent(selectedTime) && (
+            <div className="bg-amber-50 border border-amber-200/80 p-5 rounded-[20px] text-left text-xs flex items-start gap-3 text-amber-900 leading-relaxed font-semibold">
+              <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5 animate-bounce" />
+              <div>
+                <p className="font-extrabold uppercase tracking-wider text-amber-850 text-[10px]">Cảnh báo: Lịch hẹn cận giờ</p>
+                <p className="mt-1 font-medium text-amber-700">
+                  Lịch hẹn của bạn bắt đầu sau chưa đầy 2 tiếng. Vui lòng chuẩn bị di chuyển và có mặt trước 10 phút. Nếu cần hỗ trợ gấp hoặc thay đổi lịch hẹn, vui lòng liên hệ Hotline: <span className="font-extrabold text-slate-900">0398 655 332</span>.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Prep instructions */}
+          <div className="bg-[#E6F4F1] text-[#0F172A] p-5 rounded-[20px] text-left text-xs border border-[#2EC4B6]/15 space-y-2.5">
+            <p className="font-extrabold flex items-center gap-1.5 text-slate-800 text-sm">
+              <Info size={16} className="text-[#2EC4B6]" /> Hướng dẫn chuẩn bị trước khi khám:
+            </p>
+            <ul className="space-y-1.5 font-medium text-slate-600 list-none pl-0">
+              <li className="flex items-start gap-2">
+                <span className="text-[#2EC4B6] font-bold">✓</span>
+                Mặc trang phục thoải mái, co giãn tốt để dễ cử động khi thực hiện đo tầm vận động (ROM).
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-[#2EC4B6] font-bold">✓</span>
+                Mang theo phim chụp X-Quang, phim cộng hưởng từ (MRI) hoặc kết quả chẩn đoán cũ (nếu có).
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-[#2EC4B6] font-bold">✓</span>
+                Vui lòng đến trước lịch hẹn 10 phút để chuyên viên tiếp đón hướng dẫn làm hồ sơ bệnh án.
+              </li>
             </ul>
           </div>
-          
-          <div className="grid grid-cols-2 gap-3 pt-2">
+
+          {/* Redirection Options */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
             <button
-              onClick={() => navigate('/dashboard')}
-              className="w-full bg-secondary hover:opacity-90 text-white font-bold py-3.5 rounded-xl text-xs uppercase tracking-wider transition-all"
+              onClick={() => navigate('/appointments')}
+              className="w-full bg-[#0F172A] hover:bg-[#1E293B] text-white font-jakarta font-extrabold py-4 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md active:scale-98"
             >
-              Vào Dashboard
+              Xem lịch đặt của tôi
             </button>
             <button
               onClick={() => navigate('/')}
-              className="w-full bg-primary hover:opacity-90 text-white font-bold py-3.5 rounded-xl text-xs uppercase tracking-wider transition-all shadow-xs"
+              className="w-full bg-[#2EC4B6] hover:bg-[#25A89C] text-white font-jakarta font-extrabold py-4 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md hover:-translate-y-0.5 active:translate-y-0 duration-200"
             >
-              Quay lại Trang chủ
+              Quay lại trang chủ
             </button>
           </div>
-        </div>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] py-16 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-[#F8FAFC] py-20 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto space-y-16">
         
-        {/* Upper quick controls */}
-        <div className="flex justify-between items-center mb-8 animate-fade-in">
-          <button 
-            onClick={() => navigate(-1)} 
-            className="flex items-center gap-1.5 text-zinc-400 hover:text-primary transition-all text-xs font-bold uppercase tracking-wider"
+        {/* Navigation & Header */}
+        <div className="flex justify-between items-center animate-fade-in">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 text-slate-400 hover:text-[#2EC4B6] transition-all text-xs font-jakarta font-extrabold uppercase tracking-widest"
           >
             <ArrowLeft size={16} /> Quay lại
           </button>
-          <span className="text-[10px] bg-primary/10 text-primary border border-primary/20 px-3 py-1 rounded-full font-bold uppercase tracking-wide">
+          <span className="text-[10px] bg-[#2EC4B6]/10 text-[#2EC4B6] border border-[#2EC4B6]/20 px-3.5 py-1.5 rounded-full font-jakarta font-black uppercase tracking-widest shadow-inner">
             Cổng đặt lịch trực tuyến
           </span>
         </div>
 
-        {/* Hero Title */}
-        <div className="text-center mb-12 animate-slide-up">
-          <h1 className="text-3xl sm:text-5xl font-heading font-black text-secondary tracking-tight">
-            Đặt Lịch Khám Lượng Giá
-          </h1>
-          <p className="mt-3 text-base text-gray-500 font-semibold max-w-xl mx-auto leading-relaxed">
-            Khám chẩn đoán lâm sàng 5 bước chuyên sâu và lập phác đồ y khoa cá nhân hóa cùng Bác sĩ Chuyên khoa hàng đầu.
-          </p>
-        </div>
-
-        {/* Booking Interface columns (Asymmetric 33/66 layout) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          
-          {/* LEFT COLUMN: Service information & Clinical Details (Anti-Sparsity Expansion) */}
-          <div className="lg:col-span-4 space-y-6 animate-slide-up stagger-delay-1">
+        {/* REDESIGNED HERO SECTION (Stripe/Apple Clean aesthetic) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+          {/* Hero left content */}
+          <div className="lg:col-span-6 space-y-6 text-left">
+            <motion.h1
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="text-4xl sm:text-5xl lg:text-6xl font-jakarta font-black text-[#0F172A] tracking-tight leading-[1.05]"
+            >
+              Khởi đầu hành trình <br />
+              <span className="text-[#2EC4B6]">phục hồi</span> của bạn
+            </motion.h1>
             
-            {/* Main Service Card with Illustration */}
-            <div className="bg-white rounded-[24px] shadow-sm border border-gray-150 overflow-hidden relative group">
-              <div className="h-44 bg-gradient-to-br from-secondary to-[#1E293B] relative p-6 flex flex-col justify-end">
-                <div className="absolute inset-0 opacity-40 group-hover:scale-105 transition-transform duration-700 overflow-hidden">
-                  <img 
-                    src="/clinical_examination_illustration_1779796536526.png" 
-                    alt="Khám Lâm Sàng" 
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-secondary via-secondary/70 to-transparent"></div>
+            <motion.p
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              className="text-slate-500 font-medium text-base sm:text-lg leading-relaxed max-w-xl"
+            >
+              Đặt lịch khám lượng giá với chuyên gia vật lý trị liệu để xác định nguyên nhân đau nhức và xây dựng lộ trình điều trị phù hợp.
+            </motion.p>
+
+            {/* Micro badges & benefits */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="grid grid-cols-2 gap-4 max-w-md pt-2"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100/50">
+                  <Star size={16} className="fill-emerald-500 text-emerald-500" />
                 </div>
-                
-                <div className="relative z-10 text-white">
-                  <span className="bg-primary/20 text-primary border border-primary/30 text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full">
-                    PhysioFlow Rehab
-                  </span>
-                  <h2 className="text-lg font-heading font-black leading-tight mt-2.5">
-                    Khám Lâm sàng & Lượng giá
-                  </h2>
-                  <p className="text-zinc-400 text-[10px] font-bold mt-1">Chẩn đoán nguyên nhân tận gốc</p>
-                </div>
+                <span className="text-xs font-extrabold text-[#0F172A]">Đánh giá 4.9/5</span>
               </div>
-              
-              <div className="p-6 space-y-5">
-                <div className="flex items-start gap-3.5 text-gray-500">
-                  <MapPin className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                  <span className="text-xs font-semibold leading-relaxed">Tầng 3, Tòa nhà ABC, Quận 7, TP. Hồ Chí Minh</span>
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#2EC4B6]/10 text-[#2EC4B6] flex items-center justify-center border border-[#2EC4B6]/20">
+                  <Stethoscope size={16} />
                 </div>
-                
-                <div className="flex items-start gap-3.5 text-gray-500">
-                  <Activity className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                  <span className="text-xs font-semibold leading-relaxed">Trị liệu Cơ xương khớp cấp tính, cột sống & phục hồi vận động</span>
-                </div>
-
-                <div className="pt-5 border-t border-gray-100 space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Phí khám ban đầu</span>
-                    <span className="text-xs font-black text-emerald-500 bg-emerald-50 border border-emerald-100 px-3 py-1 rounded-full uppercase tracking-wider">
-                      Miễn phí 100%
-                    </span>
-                  </div>
-                  
-                  <div className="flex items-start gap-3 bg-[#E6F4F1] text-secondary p-4 rounded-[20px] text-xs border border-primary/10 leading-relaxed font-medium">
-                    <ShieldCheck className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                    <p className="text-[11px] text-gray-600 leading-relaxed">
-                      Chúng tôi **MIỄN PHÍ 100%** chi phí khám ban đầu cùng Bác sĩ để giúp bạn chẩn đoán chính xác tình trạng đau nhức mà không lo về giá.
-                    </p>
-                  </div>
-                </div>
+                <span className="text-xs font-extrabold text-[#0F172A]">Đội ngũ giàu kinh nghiệm</span>
               </div>
-            </div>
-
-            {/* Rich Content: 5-Step Clinical Process */}
-            <div className="bg-white rounded-[24px] shadow-sm border border-gray-150 p-6 space-y-6">
-              <h3 className="text-sm font-heading font-black text-secondary uppercase tracking-wider flex items-center gap-2">
-                <Stethoscope size={18} className="text-primary" />
-                Quy trình lượng giá 5 bước
-              </h3>
-              
-              <div className="relative border-l border-zinc-100 ml-2.5 pl-5 space-y-5 text-xs text-gray-500">
-                <div className="relative">
-                  <div className="absolute -left-[26px] top-0 size-3 bg-primary rounded-full border-2 border-white ring-4 ring-primary/10"></div>
-                  <h4 className="font-extrabold text-secondary">Bước 1: Tiếp nhận triệu chứng</h4>
-                  <p className="mt-1 leading-relaxed text-[11px]">Khai thác lịch sử đau nhức, thói quen sinh hoạt và các vùng nhức mỏi cục bộ.</p>
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#2EC4B6]/10 text-[#2EC4B6] flex items-center justify-center border border-[#2EC4B6]/20">
+                  <ShieldCheck size={16} />
                 </div>
-                
-                <div className="relative">
-                  <div className="absolute -left-[26px] top-0 size-3 bg-zinc-300 rounded-full border-2 border-white ring-4 ring-zinc-100"></div>
-                  <h4 className="font-extrabold text-secondary">Bước 2: Lượng giá tầm vận động (ROM)</h4>
-                  <p className="mt-1 leading-relaxed text-[11px]">Đo độ linh hoạt khớp xương, kiểm tra co rút cơ lực bằng thiết bị chuyên khoa.</p>
-                </div>
-
-                <div className="relative">
-                  <div className="absolute -left-[26px] top-0 size-3 bg-zinc-300 rounded-full border-2 border-white ring-4 ring-zinc-100"></div>
-                  <h4 className="font-extrabold text-secondary">Bước 3: Chẩn đoán hình ảnh y khoa</h4>
-                  <p className="mt-1 leading-relaxed text-[11px]">Đọc và đối chiếu kết quả phim X-Quang/MRI cũ để xác định tổn thương thực thể.</p>
-                </div>
-
-                <div className="relative">
-                  <div className="absolute -left-[26px] top-0 size-3 bg-zinc-300 rounded-full border-2 border-white ring-4 ring-zinc-100"></div>
-                  <h4 className="font-extrabold text-secondary">Bước 4: Hội chẩn cùng Bác sĩ</h4>
-                  <p className="mt-1 leading-relaxed text-[11px]">Bác sĩ chuyên khoa chẩn đoán gốc rễ nguyên nhân gây đau nhức lâm sàng.</p>
-                </div>
-
-                <div className="relative">
-                  <div className="absolute -left-[26px] top-0 size-3 bg-zinc-300 rounded-full border-2 border-white ring-4 ring-zinc-100"></div>
-                  <h4 className="font-extrabold text-secondary">Bước 5: Thiết lập phác đồ cá nhân hóa</h4>
-                  <p className="mt-1 leading-relaxed text-[11px]">Xây dựng liệu trình phục hồi, thời gian trị liệu và kế hoạch bài tập chi tiết.</p>
-                </div>
+                <span className="text-xs font-extrabold text-[#0F172A]">Quy trình chuẩn y khoa</span>
               </div>
-            </div>
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#2EC4B6]/10 text-[#2EC4B6] flex items-center justify-center border border-[#2EC4B6]/20">
+                  <Clock size={16} />
+                </div>
+                <span className="text-xs font-extrabold text-[#0F172A]">Khám chuyên sâu 30 phút</span>
+              </div>
+            </motion.div>
 
-            {/* Quality Commitments */}
-            <div className="bg-white rounded-[24px] shadow-sm border border-gray-150 p-6 space-y-4">
-              <h3 className="text-sm font-heading font-black text-secondary uppercase tracking-wider flex items-center gap-2">
-                <Award size={18} className="text-primary" />
-                Cam kết y khoa tại PhysioFlow
-              </h3>
-              <ul className="space-y-3 text-[11px] font-semibold text-gray-500 leading-relaxed">
-                <li className="flex items-center gap-2">
-                  <span className="size-1.5 bg-emerald-500 rounded-full"></span>
-                  Đội ngũ Bác sĩ/KTV 100% có chứng chỉ hành nghề y khoa chuyên môn.
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="size-1.5 bg-emerald-500 rounded-full"></span>
-                  Không chèo kéo dịch vụ, tập trung phục hồi gốc rễ bệnh lý.
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="size-1.5 bg-emerald-500 rounded-full"></span>
-                  Thiết bị hiện đại nhập khẩu đạt chứng nhận an toàn FDA.
-                </li>
-              </ul>
-            </div>
-
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              className="pt-4"
+            >
+              <button
+                onClick={() => {
+                  const cardElement = document.getElementById('booking-experience-card');
+                  if (cardElement) cardElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }}
+                className="bg-[#2EC4B6] hover:bg-[#25A89C] text-white font-jakarta font-extrabold px-8 py-4 rounded-xl text-xs uppercase tracking-widest transition-all shadow-lg shadow-[#2EC4B6]/25 hover:-translate-y-0.5 active:translate-y-0 duration-250 flex items-center gap-2 group"
+              >
+                Bắt đầu đặt lịch
+                <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+              </button>
+            </motion.div>
           </div>
 
-          {/* RIGHT COLUMN: Interactive Form with time slots */}
-          <div className="lg:col-span-8 bg-white rounded-[24px] shadow-sm border border-gray-150 p-6 sm:p-8 animate-slide-up stagger-delay-2">
+          {/* Hero right visual (Custom illustration overlay) */}
+          <div className="lg:col-span-6 relative flex justify-center items-center">
+            {/* Soft gradient blur backdrops */}
+            <div className="absolute w-72 h-72 rounded-full bg-gradient-to-br from-[#2EC4B6]/20 to-[#E6F4F1]/30 blur-3xl -z-10 animate-pulse" />
+            <div className="absolute w-96 h-96 rounded-full bg-gradient-to-tr from-[#0F172A]/5 to-[#2EC4B6]/10 blur-2xl -z-10" />
+
+            <div className="relative max-w-md w-full h-[380px] rounded-[32px] overflow-hidden border border-slate-100 shadow-2xl bg-white/60 p-4">
+              <img
+                src="/images/physio_hero.png"
+                alt="Physio Clinic Hero Visual"
+                className="w-full h-full object-cover rounded-[24px]"
+              />
+
+              {/* Floating trust card 1 */}
+              <div className="absolute top-8 -left-6 bg-white/80 backdrop-blur-md border border-slate-100 rounded-2xl shadow-xl p-3 flex items-center gap-3 animate-float stagger-delay-1 max-w-[190px]">
+                <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center">
+                  <ShieldCheck size={16} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-wide">Tiêu chuẩn</p>
+                  <p className="text-xs font-extrabold text-[#0F172A]">FDA Approved</p>
+                </div>
+              </div>
+
+              {/* Floating trust card 2 */}
+              <div className="absolute bottom-10 -right-6 bg-white/80 backdrop-blur-md border border-slate-100 rounded-2xl shadow-xl p-3.5 flex items-center gap-3 animate-float stagger-delay-3 max-w-[190px]">
+                <div className="w-8 h-8 rounded-full bg-[#2EC4B6] text-white flex items-center justify-center">
+                  <User size={16} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-wide">Đội ngũ</p>
+                  <p className="text-xs font-extrabold text-[#0F172A]">100% KTV Cấp Chứng Chỉ</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* BOOKING INTERFACE CONTAINER (Asymmetric Layout) */}
+        <div id="booking-experience-card" className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start pt-8">
+          
+          {/* WIZARD EXPERIENCE CARD (Left 8-cols) */}
+          <div className="lg:col-span-8 bg-white rounded-[24px] border border-slate-100 shadow-xl overflow-hidden p-6 sm:p-8 space-y-8">
+            
+            {/* Step progress bar */}
+            <div className="space-y-4">
+              <div className="flex justify-between items-center text-xs font-jakarta">
+                <span className="text-[#2EC4B6] font-extrabold uppercase tracking-wider">
+                  Bước {activeStep} / 4
+                </span>
+                <span className="text-slate-400 font-bold">
+                  {activeStep === 1 && 'Chọn Ngày Khám'}
+                  {activeStep === 2 && 'Chọn Giờ Khám'}
+                  {activeStep === 3 && 'Thông Tin Bệnh Nhân'}
+                  {activeStep === 4 && 'Xác Nhận Đăng Ký'}
+                </span>
+              </div>
+              <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden flex">
+                {[1, 2, 3, 4].map((stepNum) => (
+                  <div
+                    key={stepNum}
+                    className={`h-full flex-1 transition-all duration-300 border-r border-white last:border-0 ${
+                      activeStep >= stepNum ? 'bg-[#2EC4B6]' : 'bg-slate-100'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Wizard Form Panels */}
             <form onSubmit={handleSubmit} className="space-y-8">
-              
-              {/* Step 1: Time selectors */}
-              <div className="space-y-6">
-                <h3 className="text-lg font-heading font-black text-secondary flex items-center gap-2">
-                  <CalendarIcon className="w-5 h-5 text-primary" />
-                  1. Chọn thời gian khám lâm sàng
-                </h3>
+              <AnimatePresence mode="wait">
                 
-                {/* Modern Custom Grid Calendar (Bounce & Interaction Effect) */}
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center bg-zinc-50 p-3.5 rounded-xl border border-zinc-150">
-                    <span className="text-sm font-black text-secondary uppercase tracking-wider">
-                      {currentMonth.toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' })}
-                    </span>
-                    
-                    <div className="flex gap-1.5">
-                      <button 
-                        type="button"
-                        onClick={() => handleMonthChange('prev')}
-                        className="p-2 bg-white rounded-lg border border-gray-200 text-secondary hover:text-primary hover:border-primary/20 hover:bg-primary/5 transition-all active:scale-90"
-                      >
-                        <ChevronLeft size={16} />
-                      </button>
-                      <button 
-                        type="button"
-                        onClick={() => handleMonthChange('next')}
-                        className="p-2 bg-white rounded-lg border border-gray-200 text-secondary hover:text-primary hover:border-primary/20 hover:bg-primary/5 transition-all active:scale-90"
-                      >
-                        <ChevronRight size={16} />
-                      </button>
+                {/* STEP 1: DATE SELECTION */}
+                {activeStep === 1 && (
+                  <motion.div
+                    key="date-step"
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -15 }}
+                    transition={{ duration: 0.2 }}
+                    className="space-y-6"
+                  >
+                    <div className="flex justify-between items-end">
+                      <div className="space-y-1">
+                        <h3 className="text-lg font-jakarta font-black text-[#0F172A] flex items-center gap-2">
+                          <CalendarIcon className="text-[#2EC4B6]" size={20} />
+                          Chọn ngày lượng giá
+                        </h3>
+                        <p className="text-xs font-medium text-slate-400">
+                          Xem danh sách các ngày còn chỗ trống dưới đây.
+                        </p>
+                      </div>
+                      
+                      {/* Scrolling controls for desktop */}
+                      <div className="hidden sm:flex gap-1">
+                        <button
+                          type="button"
+                          onClick={() => scrollDates('left')}
+                          className="p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200/60 rounded-lg text-slate-500 transition-all"
+                        >
+                          <ChevronLeft size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => scrollDates('right')}
+                          className="p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200/60 rounded-lg text-slate-500 transition-all"
+                        >
+                          <ChevronRight size={16} />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  
-                  {/* Calendar Grid wrapper */}
-                  <div className="border border-zinc-100 rounded-2xl p-4 bg-white shadow-xs">
-                    {/* Days of week */}
-                    <div className="grid grid-cols-7 gap-1 text-center mb-2.5">
-                      {weekDays.map(day => (
-                        <span key={day} className="text-[10px] font-black text-zinc-400 uppercase tracking-widest py-1 block">
-                          {day}
-                        </span>
-                      ))}
-                    </div>
-                    
-                    {/* Month Days Grid */}
-                    <div className="grid grid-cols-7 gap-1.5">
-                      {daysGrid.map((day, idx) => {
-                        if (!day) return <div key={`empty-${idx}`} />;
-                        
-                        const dateStr = day.toISOString().split('T')[0];
-                        const isPast = dateStr < todayStr;
+
+                    {/* Date Cards Horizontal Container */}
+                    <div
+                      ref={dateContainerRef}
+                      className="flex gap-3 overflow-x-auto pb-4 pt-1 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent -mx-2 px-2 hide-scrollbar snap-x"
+                    >
+                      {datesList.map((dateItem) => {
+                        const dateStr = formatLocalDate(dateItem);
+                        const spots = getMockAvailableSlots(dateStr);
                         const isSelected = selectedDate === dateStr;
-                        
+                        const isClosed = spots === 0;
+
                         return (
                           <button
                             type="button"
                             key={dateStr}
-                            disabled={isPast}
+                            disabled={isClosed}
                             onClick={() => dispatch({ type: 'SET_DATE', date: dateStr })}
-                            className={`py-3.5 text-xs font-black rounded-xl transition-all duration-250 select-none outline-none relative flex flex-col items-center justify-center
-                              ${isPast 
-                                ? 'bg-zinc-50 text-zinc-300 cursor-not-allowed opacity-40' 
+                            className={`flex-shrink-0 w-24 h-24 rounded-2xl border flex flex-col items-center justify-center transition-all duration-300 relative snap-start outline-none
+                              ${isClosed
+                                ? 'bg-slate-50 border-slate-100 text-slate-300 cursor-not-allowed'
                                 : isSelected
-                                  ? 'bg-primary text-white shadow-md shadow-primary/20 scale-108 active:scale-95 z-10'
-                                  : 'bg-white text-secondary border border-zinc-100 hover:border-primary/20 hover:bg-primary/5 hover:text-primary active:scale-95'
+                                  ? 'bg-[#2EC4B6] border-[#2EC4B6] text-white shadow-lg shadow-[#2EC4B6]/25 scale-[1.04] z-10'
+                                  : 'bg-white border-slate-200/80 text-slate-700 hover:border-[#2EC4B6] hover:bg-slate-50/50 hover:scale-[1.02]'
                               }`}
                           >
-                            <span>{day.getDate()}</span>
-                            {dateStr === todayStr && !isSelected && (
-                              <span className="absolute bottom-1 size-1 bg-primary rounded-full"></span>
+                            <span className={`text-[10px] font-black uppercase tracking-wider ${isSelected ? 'text-white/80' : 'text-slate-400'}`}>
+                              {dateStr === formatLocalDate(new Date()) ? 'Hôm nay' : getVietnameseDay(dateItem)}
+                            </span>
+                            <span className="text-2xl font-jakarta font-black mt-1">
+                              {dateItem.getDate()}
+                            </span>
+                            
+                            {isClosed && (
+                              <span className="text-[9px] font-extrabold mt-1.5 px-2 py-0.5 rounded-full bg-slate-200/60 text-slate-400">
+                                Nghỉ
+                              </span>
                             )}
                           </button>
                         );
                       })}
                     </div>
-                  </div>
-                </div>
 
-                {/* Clock Slot Grid */}
-                <div className="space-y-3 pt-3">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block flex items-center gap-1.5">
-                    <Clock size={14} className="text-primary" />
-                    Khung giờ trống ({formatFullDate(selectedDate)})
-                  </label>
-                  
-                  <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
-                    {timeSlots.map((time) => (
+                    <div className="flex justify-end pt-4">
                       <button
                         type="button"
-                        key={time}
-                        onClick={() => dispatch({ type: 'SET_TIME', time })}
-                        className={`py-3 px-2 text-xs font-extrabold rounded-xl border transition-all active:scale-95 duration-200
-                          ${selectedTime === time 
-                            ? 'bg-primary border-primary text-white shadow-xs scale-102 font-black' 
-                            : 'bg-zinc-50 border-transparent text-secondary hover:border-primary/20 hover:bg-primary/5 hover:text-primary'
-                          }`}
+                        onClick={() => setActiveStep(2)}
+                        disabled={!selectedDate}
+                        className="bg-[#0F172A] hover:bg-[#1E293B] text-white font-jakarta font-extrabold py-3.5 px-6 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {time}
+                        Chọn Khung Giờ
                       </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <hr className="border-gray-150" />
-
-              {/* Step 2: Customer Identity info */}
-              <div className="space-y-6">
-                <h3 className="text-lg font-heading font-black text-secondary flex items-center gap-2">
-                  <User className="w-5 h-5 text-primary" />
-                  2. Thông tin bệnh nhân liên hệ
-                </h3>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label htmlFor="ho_ten_khach" className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Họ và tên *</label>
-                    <input
-                      id="ho_ten_khach"
-                      type="text"
-                      name="ho_ten_khach"
-                      required
-                      readOnly={!!user?.ho_ten}
-                      placeholder="Nguyễn Văn A"
-                      className={`w-full rounded-xl p-4 border font-bold text-secondary text-sm outline-none transition-colors ${
-                        user?.ho_ten 
-                          ? 'bg-zinc-100 text-gray-400 border-zinc-200 cursor-not-allowed' 
-                          : 'border-gray-250 focus:border-primary'
-                      }`}
-                      value={formData.ho_ten_khach}
-                      onChange={handleChange}
-                    />
-                  </div>
-                  
-                  <div className="space-y-1.5">
-                    <label htmlFor="so_dien_thoai" className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Số điện thoại *</label>
-                    <input
-                      id="so_dien_thoai"
-                      type="tel"
-                      name="so_dien_thoai"
-                      required
-                      placeholder="0901234567"
-                      className="w-full rounded-xl border-gray-250 focus:border-primary p-4 border font-bold text-secondary text-sm outline-none transition-colors"
-                      value={formData.so_dien_thoai}
-                      onChange={handleChange}
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2 space-y-2">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Giới tính</span>
-                    <div className="flex gap-6">
-                      <label className="flex items-center cursor-pointer group">
-                        <input 
-                          type="radio" 
-                          name="gioi_tinh_khach" 
-                          value="nam" 
-                          checked={formData.gioi_tinh_khach === 'nam'} 
-                          onChange={handleChange} 
-                          className="text-primary focus:ring-primary border-zinc-300 w-4 h-4 cursor-pointer" 
-                        />
-                        <span className="ml-2 text-xs font-bold text-secondary group-hover:text-primary transition-colors">Nam</span>
-                      </label>
-                      <label className="flex items-center cursor-pointer group">
-                        <input 
-                          type="radio" 
-                          name="gioi_tinh_khach" 
-                          value="nu" 
-                          checked={formData.gioi_tinh_khach === 'nu'} 
-                          onChange={handleChange} 
-                          className="text-primary focus:ring-primary border-zinc-300 w-4 h-4 cursor-pointer" 
-                        />
-                        <span className="ml-2 text-xs font-bold text-secondary group-hover:text-primary transition-colors">Nữ</span>
-                      </label>
                     </div>
-                  </div>
-                </div>
-              </div>
+                  </motion.div>
+                )}
 
-              <hr className="border-gray-150" />
+                {/* STEP 2: TIME SELECTION */}
+                {activeStep === 2 && (
+                  <motion.div
+                    key="time-step"
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -15 }}
+                    transition={{ duration: 0.2 }}
+                    className="space-y-6"
+                  >
+                    <div className="space-y-1">
+                      <h3 className="text-lg font-jakarta font-black text-[#0F172A] flex items-center gap-2">
+                        <Clock className="text-[#2EC4B6]" size={20} />
+                        Chọn giờ khám lâm sàng
+                      </h3>
+                      <p className="text-xs font-medium text-slate-400">
+                        Khung giờ trống cho ngày {formatFullDate(selectedDate)}
+                      </p>
+                    </div>
 
-              {/* Step 3: Symptoms Description */}
-              <div className="space-y-6">
-                <h3 className="text-lg font-heading font-black text-secondary flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-primary" />
-                  3. Mô tả tình trạng đau nhức
-                </h3>
+                    <div className="space-y-6 pt-2">
+                      {/* Morning slots */}
+                      {morningSlots.length > 0 && (
+                        <div className="space-y-3">
+                          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" /> Buổi sáng (08:00 - 11:30)
+                          </h4>
+                          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                             {morningSlots.map((time) => {
+                              const isBooked = bookedSlots.includes(time);
+                              const isPast = isSlotInPast(time);
+                              const isDisabled = isBooked || isPast;
+                              const isSelected = selectedTime === time;
+
+                              return (
+                                <button
+                                  type="button"
+                                  key={time}
+                                  disabled={isDisabled}
+                                  onClick={() => dispatch({ type: 'SET_TIME', time })}
+                                  className={`py-3 text-xs font-black rounded-full border transition-all duration-200 text-center active:scale-95
+                                    ${isDisabled
+                                      ? 'bg-slate-50/50 border-slate-100 text-slate-300/80 cursor-not-allowed opacity-50'
+                                      : isSelected
+                                        ? 'bg-[#2EC4B6] border-[#2EC4B6] text-white shadow-md shadow-[#2EC4B6]/20 font-black scale-[1.02]'
+                                        : 'bg-slate-50 border-slate-200/80 text-slate-700 hover:border-[#2EC4B6] hover:bg-[#2EC4B6]/5 hover:text-[#2EC4B6]'
+                                    }`}
+                                >
+                                  {time}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Afternoon slots */}
+                      {afternoonSlots.length > 0 && (
+                        <div className="space-y-3">
+                          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-sky-400" /> Buổi chiều (13:30 - 17:30)
+                          </h4>
+                          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                             {afternoonSlots.map((time) => {
+                              const isBooked = bookedSlots.includes(time);
+                              const isPast = isSlotInPast(time);
+                              const isDisabled = isBooked || isPast;
+                              const isSelected = selectedTime === time;
+
+                              return (
+                                <button
+                                  type="button"
+                                  key={time}
+                                  disabled={isDisabled}
+                                  onClick={() => dispatch({ type: 'SET_TIME', time })}
+                                  className={`py-3 text-xs font-black rounded-full border transition-all duration-200 text-center active:scale-95
+                                    ${isDisabled
+                                      ? 'bg-slate-50/50 border-slate-100 text-slate-300/80 cursor-not-allowed opacity-50'
+                                      : isSelected
+                                        ? 'bg-[#2EC4B6] border-[#2EC4B6] text-white shadow-md shadow-[#2EC4B6]/20 font-black scale-[1.02]'
+                                        : 'bg-slate-50 border-slate-200/80 text-slate-700 hover:border-[#2EC4B6] hover:bg-[#2EC4B6]/5 hover:text-[#2EC4B6]'
+                                    }`}
+                                >
+                                  {time}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Evening slots */}
+                      {eveningSlots.length > 0 && (
+                        <div className="space-y-3">
+                          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-700" /> Buổi tối (18:00 - 19:00)
+                          </h4>
+                          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                             {eveningSlots.map((time) => {
+                              const isBooked = bookedSlots.includes(time);
+                              const isPast = isSlotInPast(time);
+                              const isDisabled = isBooked || isPast;
+                              const isSelected = selectedTime === time;
+
+                              return (
+                                <button
+                                  type="button"
+                                  key={time}
+                                  disabled={isDisabled}
+                                  onClick={() => dispatch({ type: 'SET_TIME', time })}
+                                  className={`py-3 text-xs font-black rounded-full border transition-all duration-200 text-center active:scale-95
+                                    ${isDisabled
+                                      ? 'bg-slate-50/50 border-slate-100 text-slate-300/80 cursor-not-allowed opacity-50'
+                                      : isSelected
+                                        ? 'bg-[#2EC4B6] border-[#2EC4B6] text-white shadow-md shadow-[#2EC4B6]/20 font-black scale-[1.02]'
+                                        : 'bg-slate-50 border-slate-200/80 text-slate-700 hover:border-[#2EC4B6] hover:bg-[#2EC4B6]/5 hover:text-[#2EC4B6]'
+                                    }`}
+                                >
+                                  {time}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {selectedTime && isSlotUrgent(selectedTime) && (
+                      <div className="bg-amber-50 border border-amber-200/80 p-4 rounded-2xl text-xs flex items-start gap-3 text-amber-900 leading-relaxed font-semibold animate-fade-in mt-4">
+                        <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-extrabold uppercase tracking-wider text-amber-800 text-[10px]">Cảnh báo: Lịch hẹn cận giờ (Dưới 2 tiếng)</p>
+                          <p className="mt-0.5 font-medium text-amber-700">
+                            Khung giờ bạn chọn bắt đầu rất gần thời điểm hiện tại. Vui lòng di chuyển sớm để có mặt trước 10 phút. Hotline hỗ trợ gấp: <span className="font-extrabold text-slate-900">0398 655 332</span>.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex justify-between pt-4">
+                      <button
+                        type="button"
+                        onClick={() => setActiveStep(1)}
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-jakarta font-extrabold py-3.5 px-6 rounded-xl text-xs uppercase tracking-widest transition-all"
+                      >
+                        Quay lại
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveStep(3)}
+                        disabled={!selectedTime}
+                        className="bg-[#0F172A] hover:bg-[#1E293B] text-white font-jakarta font-extrabold py-3.5 px-6 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Điền Thông Tin
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* STEP 3: PATIENT INFORMATION */}
+                {activeStep === 3 && (
+                  <motion.div
+                    key="info-step"
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -15 }}
+                    transition={{ duration: 0.2 }}
+                    className="space-y-6"
+                  >
+                    <div className="space-y-1">
+                      <h3 className="text-lg font-jakarta font-black text-[#0F172A] flex items-center gap-2">
+                        <User className="text-[#2EC4B6]" size={20} />
+                        Thông tin bệnh nhân liên hệ
+                      </h3>
+                      <p className="text-xs font-medium text-slate-400">
+                        Vui lòng nhập thông tin liên hệ và mô tả sơ bộ tình trạng đau nhức.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-2">
+                      
+                      {/* Name input (Floating label) */}
+                      <div className="relative">
+                        <input
+                          id="ho_ten_khach"
+                          type="text"
+                          name="ho_ten_khach"
+                          required
+                          readOnly={!!user?.ho_ten}
+                          placeholder=" "
+                          className={`peer block w-full rounded-xl border bg-white px-4 pt-6 pb-2 text-sm font-bold text-slate-800 focus:ring-0 outline-none transition-all placeholder-transparent shadow-sm
+                            ${user?.ho_ten
+                              ? 'bg-slate-100/70 border-slate-200 text-slate-400 cursor-not-allowed'
+                              : 'border-slate-200 focus:border-[#2EC4B6]'
+                            }`}
+                          value={formData.ho_ten_khach}
+                          onChange={handleChange}
+                        />
+                        <label
+                          htmlFor="ho_ten_khach"
+                          className="absolute left-4 top-2 text-[10px] font-black text-slate-400 uppercase tracking-widest transition-all peer-placeholder-shown:text-xs peer-placeholder-shown:top-4 peer-focus:top-2 peer-focus:text-[10px] peer-focus:text-[#2EC4B6]"
+                        >
+                          Họ và tên *
+                        </label>
+                      </div>
+
+                      {/* Phone input (Floating label) */}
+                      <div className="relative">
+                        <input
+                          id="so_dien_thoai"
+                          type="tel"
+                          name="so_dien_thoai"
+                          required
+                          placeholder=" "
+                          className="peer block w-full rounded-xl border border-slate-200 bg-white px-4 pt-6 pb-2 text-sm font-bold text-slate-800 focus:border-[#2EC4B6] focus:ring-0 outline-none transition-all placeholder-transparent shadow-sm"
+                          value={formData.so_dien_thoai}
+                          onChange={handleChange}
+                        />
+                        <label
+                          htmlFor="so_dien_thoai"
+                          className="absolute left-4 top-2 text-[10px] font-black text-slate-400 uppercase tracking-widest transition-all peer-placeholder-shown:text-xs peer-placeholder-shown:top-4 peer-focus:top-2 peer-focus:text-[10px] peer-focus:text-[#2EC4B6]"
+                        >
+                          Số điện thoại *
+                        </label>
+                      </div>
+
+                      {/* Gender Custom Segments */}
+                      <div className="sm:col-span-2 space-y-2">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">
+                          Giới tính
+                        </span>
+                        <div className="flex gap-3">
+                          <button
+                            type="button"
+                            onClick={() => handleGenderChange('nam')}
+                            className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold transition-all border duration-200 active:scale-98
+                              ${formData.gioi_tinh_khach === 'nam'
+                                ? 'bg-[#2EC4B6] border-[#2EC4B6] text-white shadow-md shadow-[#2EC4B6]/10 font-extrabold'
+                                : 'bg-slate-50 border-slate-200/80 text-slate-600 hover:bg-slate-100/50'
+                              }`}
+                          >
+                            Nam
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleGenderChange('nu')}
+                            className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold transition-all border duration-200 active:scale-98
+                              ${formData.gioi_tinh_khach === 'nu'
+                                ? 'bg-[#2EC4B6] border-[#2EC4B6] text-white shadow-md shadow-[#2EC4B6]/10 font-extrabold'
+                                : 'bg-slate-50 border-slate-200/80 text-slate-600 hover:bg-slate-100/50'
+                              }`}
+                          >
+                            Nữ
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Symptom Textarea (Floating label) */}
+                      <div className="sm:col-span-2 relative">
+                        <textarea
+                          id="trieu_chung"
+                          name="trieu_chung"
+                          required
+                          rows={4}
+                          placeholder=" "
+                          className="peer block w-full rounded-xl border border-slate-200 bg-white px-4 pt-6 pb-2 text-sm font-medium text-slate-700 focus:border-[#2EC4B6] focus:ring-0 outline-none transition-all placeholder-transparent shadow-sm resize-none"
+                          value={formData.trieu_chung}
+                          onChange={handleChange}
+                        />
+                        <label
+                          htmlFor="trieu_chung"
+                          className="absolute left-4 top-2 text-[10px] font-black text-slate-400 uppercase tracking-widest transition-all peer-placeholder-shown:text-xs peer-placeholder-shown:top-4 peer-focus:top-2 peer-focus:text-[10px] peer-focus:text-[#2EC4B6]"
+                        >
+                          Mô tả triệu chứng, vùng đau nhức (VD: đau mỏi cổ vai gáy...) *
+                        </label>
+                      </div>
+
+                      {/* Symptom image upload (Optional) */}
+                      <div className="sm:col-span-2 space-y-2">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">
+                          Ảnh đính kèm triệu chứng (nếu có - tối đa 5MB)
+                        </span>
+                        
+                        {!formData.anh_dinh_kem_url ? (
+                          <div
+                            onDragEnter={handleDrag}
+                            onDragOver={handleDrag}
+                            onDragLeave={handleDrag}
+                            onDrop={handleDrop}
+                            onClick={() => fileInputRef.current?.click()}
+                            className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all duration-200 flex flex-col items-center justify-center gap-2.5 bg-slate-50/50 hover:bg-slate-50
+                              ${dragActive 
+                                ? 'border-[#2EC4B6] bg-[#2EC4B6]/5 scale-[1.01]' 
+                                : 'border-slate-200 hover:border-[#2EC4B6]'
+                              }`}
+                          >
+                            <input
+                              ref={fileInputRef}
+                              type="file"
+                              className="hidden"
+                              accept="image/*"
+                              onChange={handleFileInputChange}
+                            />
+                            <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center border border-slate-200/60 transition-colors">
+                              <Upload size={18} />
+                            </div>
+                            <div className="space-y-0.5">
+                              <p className="text-xs font-bold text-slate-700">Kéo thả ảnh hoặc click để tải lên</p>
+                              <p className="text-[10px] text-slate-400 font-semibold">Chấp nhận JPG, PNG, WEBP tối đa 5MB</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-4 p-4 border border-slate-200 bg-slate-50/30 rounded-2xl relative group">
+                            <div className="w-16 h-16 rounded-xl overflow-hidden border border-slate-200 shrink-0 relative bg-white">
+                              <img src={formData.anh_dinh_kem_url} alt="Uploaded symptom" className="w-full h-full object-cover" />
+                            </div>
+                            <div className="flex-1 min-w-0 space-y-0.5">
+                              <p className="text-xs font-bold text-slate-700 truncate font-jakarta">Ảnh triệu chứng đã tải lên</p>
+                              <p className="text-[10px] text-emerald-500 font-extrabold flex items-center gap-1 font-jakarta">
+                                <CheckCircle2 size={12} /> Sẵn sàng đính kèm
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={removeImage}
+                              className="w-8 h-8 rounded-lg bg-slate-105 hover:bg-red-50 hover:text-red-500 text-slate-550 flex items-center justify-center transition-all border border-slate-200/60"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between pt-4">
+                      <button
+                        type="button"
+                        onClick={() => setActiveStep(2)}
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-jakarta font-extrabold py-3.5 px-6 rounded-xl text-xs uppercase tracking-widest transition-all"
+                      >
+                        Quay lại
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (formData.ho_ten_khach.trim() && formData.so_dien_thoai.trim() && formData.trieu_chung.trim()) {
+                            setActiveStep(4);
+                          } else {
+                            toast.error('Vui lòng điền đầy đủ các trường thông tin có dấu *');
+                          }
+                        }}
+                        className="bg-[#0F172A] hover:bg-[#1E293B] text-white font-jakarta font-extrabold py-3.5 px-6 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md"
+                      >
+                        Xem Xác Nhận
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* STEP 4: CONFIRMATION */}
+                {activeStep === 4 && (
+                  <motion.div
+                    key="confirm-step"
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -15 }}
+                    transition={{ duration: 0.2 }}
+                    className="space-y-6"
+                  >
+                    <div className="space-y-1">
+                      <h3 className="text-lg font-jakarta font-black text-[#0F172A] flex items-center gap-2">
+                        <ShieldCheck className="text-[#2EC4B6]" size={20} />
+                        Xác nhận thông tin đặt lịch
+                      </h3>
+                      <p className="text-xs font-medium text-slate-400">
+                        Vui lòng kiểm tra lại thông tin cuộc hẹn trước khi xác nhận giữ chỗ.
+                      </p>
+                    </div>
+
+                    <div className="bg-slate-50/70 border border-slate-100 rounded-2xl p-5 space-y-4 text-xs">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-slate-400 font-bold uppercase tracking-wider">Họ và tên</p>
+                          <p className="text-[#0F172A] font-extrabold mt-1 text-sm">{formData.ho_ten_khach}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-400 font-bold uppercase tracking-wider">Số điện thoại</p>
+                          <p className="text-[#0F172A] font-extrabold mt-1 text-sm">{formData.so_dien_thoai}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-400 font-bold uppercase tracking-wider">Giới tính</p>
+                          <p className="text-[#0F172A] font-extrabold mt-1 text-sm capitalize">{formData.gioi_tinh_khach === 'nam' ? 'Nam' : 'Nữ'}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-400 font-bold uppercase tracking-wider">Dịch vụ</p>
+                          <p className="text-[#0F172A] font-extrabold mt-1 text-sm">Khám Lượng Giá Chuyên Sâu</p>
+                        </div>
+                        <div className="sm:col-span-2 border-t border-slate-200/60 pt-3">
+                          <p className="text-slate-400 font-bold uppercase tracking-wider">Thời gian khám</p>
+                          <p className="text-[#0F172A] font-extrabold mt-1 text-sm capitalize">
+                            {selectedTime} — {formatFullDate(selectedDate)}
+                          </p>
+                        </div>
+                        <div className="sm:col-span-2 border-t border-slate-200/60 pt-3">
+                          <p className="text-slate-400 font-bold uppercase tracking-wider">Mô tả triệu chứng</p>
+                          <p className="text-slate-700 font-medium mt-1 text-sm leading-relaxed whitespace-pre-wrap">{formData.trieu_chung}</p>
+                        </div>
+                        {formData.anh_dinh_kem_url && (
+                          <div className="sm:col-span-2 border-t border-slate-200/60 pt-3">
+                            <p className="text-slate-400 font-bold uppercase tracking-wider">Ảnh đính kèm triệu chứng</p>
+                            <div className="mt-2 relative w-32 h-32 rounded-xl overflow-hidden border border-slate-200 bg-white">
+                              <img src={formData.anh_dinh_kem_url} alt="Symptom preview" className="w-full h-full object-cover" />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Urgent Warning Banner */}
+                    {isSlotUrgent(selectedTime) && (
+                      <div className="bg-amber-50 border border-amber-200/80 p-4 rounded-xl text-xs flex items-start gap-3 text-amber-900 leading-relaxed font-semibold mb-1">
+                        <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5 animate-bounce" />
+                        <div>
+                          <p className="font-extrabold uppercase tracking-wider text-amber-800 text-[10px]">Cảnh báo đặt lịch sát giờ</p>
+                          <p className="mt-1 font-medium text-amber-700">
+                            Bạn đang đặt lịch khám bắt đầu trong vòng chưa đầy 2 giờ. Vui lòng di chuyển sớm để có mặt trước 10 phút. Hotline hỗ trợ gấp: <span className="font-extrabold text-amber-950">0398 655 332</span>.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex items-start gap-3 bg-teal-50/50 border border-[#2EC4B6]/15 p-4 rounded-xl text-[11px] leading-relaxed text-slate-650">
+                      <Lock size={16} className="text-[#2EC4B6] shrink-0 mt-0.5" />
+                      <p>
+                        Bằng cách bấm xác nhận giữ chỗ, bạn đồng ý cung cấp thông tin y khoa này phục vụ riêng cho việc thăm khám chẩn đoán tại PhysioFlow. Dữ liệu được bảo mật tuyệt mật.
+                      </p>
+                    </div>
+
+                    {/* LARGE SUBMIT BUTTON (CTA SECTION) */}
+                    <div className="pt-2">
+                      <button
+                        type="submit"
+                        disabled={isSubmitting}
+                        className="w-full bg-[#2EC4B6] hover:bg-[#25A89C] text-white font-jakarta font-extrabold text-xs uppercase tracking-widest rounded-[18px] h-16 shadow-lg shadow-[#2EC4B6]/25 transition-all hover:-translate-y-0.5 active:translate-y-0 duration-200 flex justify-center items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                      >
+                        {isSubmitting ? (
+                          <span className="flex items-center gap-2">
+                            <span className="animate-spin size-4 border-2 border-white border-t-transparent rounded-full" />
+                            Đang xử lý giữ chỗ...
+                          </span>
+                        ) : (
+                          <>
+                            Xác nhận giữ chỗ <ArrowRight size={14} />
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    <div className="flex justify-between pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setActiveStep(3)}
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-jakarta font-extrabold py-3 px-5 rounded-xl text-xs uppercase tracking-widest transition-all"
+                      >
+                        Sửa thông tin
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </form>
+          </div>
+
+          {/* STICKY APPOINTMENT SUMMARY (Right 4-cols) */}
+          <div className="lg:col-span-4 lg:sticky lg:top-28 space-y-6">
+            <div className="bg-white/80 backdrop-blur-md border border-slate-150 shadow-lg rounded-[24px] overflow-hidden p-6 space-y-6">
+              <div className="space-y-4">
+                <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full">
+                  Đặt lịch miễn phí
+                </span>
                 
-                <div className="space-y-1.5">
-                  <label htmlFor="trieu_chung" className="text-xs font-bold text-gray-400 uppercase tracking-wider block">
-                    Triệu chứng & Vùng đau nhức (Vị trí, cảm giác tê mỏi...) *
-                  </label>
-                  <textarea
-                    id="trieu_chung"
-                    name="trieu_chung"
-                    required
-                    rows={4}
-                    placeholder="VD: Tôi bị đau mỏi thắt lưng lan nhẹ xuống hông phải khi ngồi làm việc lâu, kèm cảm giác căng cứng cơ vào buổi sáng..."
-                    className="w-full rounded-xl border-gray-250 focus:border-primary p-4 border font-medium text-secondary text-sm resize-none outline-none transition-colors leading-relaxed"
-                    value={formData.trieu_chung}
-                    onChange={handleChange}
-                  />
+                <div className="space-y-1">
+                  <h3 className="text-lg font-jakarta font-black text-[#0F172A]">
+                    Khám Lượng Giá
+                  </h3>
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    Đánh giá & Chẩn đoán cột sống
+                  </p>
                 </div>
               </div>
 
-              {/* Submit button layout */}
-              <div className="pt-4">
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full bg-primary hover:opacity-95 text-white font-extrabold text-xs uppercase tracking-widest py-4 rounded-xl shadow-xs disabled:opacity-75 disabled:cursor-not-allowed flex justify-center items-center transition-all active:scale-98"
-                >
-                  {isSubmitting ? 'Đang gửi thông tin đăng ký...' : 'Xác nhận đăng ký lịch khám'}
-                </button>
-                <p className="text-center text-[10px] font-bold text-zinc-400 mt-4 leading-relaxed">
-                  Bằng việc gửi đăng ký lịch hẹn, bạn đã đồng ý với chính sách và quy trình đón tiếp lâm sàng của Office Care.
+              <div className="h-px bg-slate-100" />
+
+              {/* Summary Details */}
+              <div className="space-y-4 text-xs font-jakarta">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-450 font-bold uppercase tracking-wider">Ngày khám</span>
+                  <span className="text-[#0F172A] font-extrabold capitalize">
+                    {selectedDate ? formatFullDate(selectedDate).split(',').slice(0, 2).join(',') : 'Chưa chọn'}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-450 font-bold uppercase tracking-wider">Giờ khám</span>
+                  <span className="text-[#0F172A] font-extrabold">
+                    {selectedTime ? `${selectedTime}` : 'Chưa chọn'}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-450 font-bold uppercase tracking-wider">Thời lượng</span>
+                  <span className="text-[#0F172A] font-extrabold">30 phút</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-450 font-bold uppercase tracking-wider">Chi phí</span>
+                  <span className="text-emerald-500 font-extrabold bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100">
+                    Miễn phí
+                  </span>
+                </div>
+              </div>
+
+              <div className="h-px bg-slate-100" />
+
+              {/* Benefit checks */}
+              <div className="space-y-3">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  Quyền lợi của bạn
+                </p>
+                <ul className="space-y-2 text-xs font-bold text-slate-600">
+                  <li className="flex items-center gap-2 text-emerald-600">
+                    <span className="text-emerald-500">✓</span> Lượng giá tầm vận động (ROM)
+                  </li>
+                  <li className="flex items-center gap-2 text-emerald-600">
+                    <span className="text-emerald-500">✓</span> Xác định tận gốc nguyên nhân đau
+                  </li>
+                  <li className="flex items-center gap-2 text-emerald-600">
+                    <span className="text-emerald-500">✓</span> Nhận phác đồ y khoa cá nhân hóa
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* TRUST SECTION (5-step process, Certifications, Quality Commitments) */}
+        <div className="border-t border-slate-150 pt-16 space-y-12">
+          <div className="text-center max-w-xl mx-auto space-y-3">
+            <span className="text-[#2EC4B6] text-[10px] font-black uppercase tracking-widest bg-[#2EC4B6]/10 px-3.5 py-1.5 rounded-full border border-[#2EC4B6]/15 shadow-inner">
+              Cam kết chất lượng
+            </span>
+            <h2 className="text-3xl font-jakarta font-black text-[#0F172A] tracking-tight">
+              Đạt chuẩn y tế cao cấp nhất
+            </h2>
+            <p className="text-sm font-semibold text-slate-400">
+              Quy trình chẩn đoán nghiêm ngặt giúp tìm đúng nguyên nhân để trị liệu hiệu quả.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            {/* Box 1: 5-step process */}
+            <div className="bg-white border border-slate-100 shadow-lg rounded-[24px] p-6 space-y-5 hover:scale-[1.01] transition-transform duration-300">
+              <div className="w-10 h-10 rounded-xl bg-[#2EC4B6]/10 text-[#2EC4B6] flex items-center justify-center border border-[#2EC4B6]/20">
+                <Stethoscope size={20} />
+              </div>
+              <div className="space-y-2">
+                <h4 className="text-base font-jakarta font-black text-[#0F172A]">Quy trình khám 5 bước</h4>
+                <p className="text-xs font-medium text-slate-450 leading-relaxed">
+                  Từ tiếp nhận triệu chứng, kiểm tra khớp, đọc phim chụp y khoa đến thiết lập phác đồ cá nhân hóa dưới sự hội chẩn chuyên sâu của bác sĩ.
                 </p>
               </div>
+            </div>
 
-            </form>
+            {/* Box 2: Certifications */}
+            <div className="bg-white border border-slate-100 shadow-lg rounded-[24px] p-6 space-y-5 hover:scale-[1.01] transition-transform duration-300">
+              <div className="w-10 h-10 rounded-xl bg-[#2EC4B6]/10 text-[#2EC4B6] flex items-center justify-center border border-[#2EC4B6]/20">
+                <Award size={20} />
+              </div>
+              <div className="space-y-2">
+                <h4 className="text-base font-jakarta font-black text-[#0F172A]">Chứng chỉ y khoa chuyên môn</h4>
+                <p className="text-xs font-medium text-slate-450 leading-relaxed">
+                  100% bác sĩ, kỹ thuật viên có bằng cấp chuyên ngành phục hồi chức năng và sở hữu chứng chỉ hành nghề y tế hợp pháp của Bộ Y Tế.
+                </p>
+              </div>
+            </div>
+
+            {/* Box 3: Quality commitment */}
+            <div className="bg-white border border-slate-100 shadow-lg rounded-[24px] p-6 space-y-5 hover:scale-[1.01] transition-transform duration-300">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-650 flex items-center justify-center border border-emerald-100">
+                <ShieldCheck size={20} />
+              </div>
+              <div className="space-y-2">
+                <h4 className="text-base font-jakarta font-black text-[#0F172A]">Cam kết chất lượng điều trị</h4>
+                <p className="text-xs font-medium text-slate-455 leading-relaxed">
+                  PhysioFlow cam kết tập trung phục hồi từ gốc rễ bệnh lý cột sống, cơ xương khớp. Không chèo kéo các dịch vụ ngoài phác đồ chỉ định.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
       </div>
-
-      {/* POPUP MODAL REQUIRES ACCOUNT */}
-      {showAuthModal && (
-        <div className="fixed inset-0 bg-secondary/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-[32px] max-w-md w-full p-8 shadow-md overflow-hidden border border-gray-150 animate-slide-up">
-            <div className="text-center space-y-4">
-              <div className="w-16 h-16 bg-primary/10 text-primary rounded-[20px] flex items-center justify-center mx-auto border border-primary/20">
-                <User size={30} />
-              </div>
-              <h3 className="text-2xl font-heading font-black text-secondary">Đăng nhập thành viên</h3>
-              <p className="text-xs font-semibold text-gray-500 leading-relaxed">
-                Để bảo vệ an toàn hồ sơ bệnh lý của bạn và thuận tiện cập nhật kết quả sau khám, xin vui lòng đăng nhập hoặc tạo tài khoản trước khi hoàn tất đăng ký.
-              </p>
-            </div>
-            
-            <div className="mt-8 flex flex-col gap-3">
-              <button 
-                onClick={handleRedirectToLogin}
-                className="w-full bg-primary hover:opacity-90 text-white font-bold py-3.5 rounded-xl text-xs uppercase tracking-wider transition-all shadow-xs"
-              >
-                Đăng nhập hoặc Tạo tài khoản
-              </button>
-              <button 
-                onClick={() => setShowAuthModal(false)}
-                className="w-full bg-zinc-50 hover:bg-zinc-100 text-secondary font-bold py-3.5 rounded-xl text-xs border border-gray-200 transition-all"
-              >
-                Hủy bỏ
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }

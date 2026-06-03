@@ -255,7 +255,7 @@ class AdminRepository {
   // --- QUẢN LÝ NHÂN SỰ ---
   async getStaff() {
     const { rows } = await pool.query(`
-      SELECT nd.id, nd.ho_ten, nd.email, nd.so_dien_thoai, nd.trang_thai, vt.ten_hien_thi as vai_tro, ktv.id as ky_thuat_vien_id
+      SELECT nd.id, nd.ho_ten, nd.email, nd.so_dien_thoai, nd.trang_thai, vt.ten_hien_thi as vai_tro, ktv.id as chuyen_gia_id
       FROM nguoi_dung nd
       JOIN vai_tro vt ON nd.vai_tro_id = vt.id
       LEFT JOIN chuyen_gia_y_te ktv ON nd.id = ktv.nguoi_dung_id
@@ -369,18 +369,37 @@ class AdminRepository {
     return rows[0];
   }
 
+  async updateSchedule(id: string, data: any) {
+    const { rows } = await pool.query(
+      `UPDATE lich_lam_viec 
+       SET gio_bat_dau = $1, gio_ket_thuc = $2, trang_thai = $3
+       WHERE id = $4 RETURNING id, nguoi_dung_id, to_char(ngay, 'YYYY-MM-DD') as ngay, gio_bat_dau, gio_ket_thuc, trang_thai`,
+      [data.gio_bat_dau, data.gio_ket_thuc, data.trang_thai, id]
+    );
+    return rows[0];
+  }
+
+  async deleteSchedule(id: string) {
+    const { rows } = await pool.query(
+      'DELETE FROM lich_lam_viec WHERE id = $1 RETURNING *',
+      [id]
+    );
+    return rows[0];
+  }
+
   // --- QUẢN LÝ HỒ SƠ ĐIỀU TRỊ ---
   async getMedicalRecords() {
     const { rows } = await pool.query(`
-      SELECT ld.id, ld.ma_lich_dat as ma_danh_gia, ld.ngay_gio_bat_dau as ngay_danh_gia, ld.chan_doan, ld.trang_thai,
+      SELECT ld.id, ld.ma_lich_dat as ma_danh_gia, ld.ngay_gio_bat_dau as ngay_danh_gia, hsba.chan_doan, ld.trang_thai,
              nd_kh.ho_ten as ten_khach_hang, 'KH' as ma_khach_hang,
              nd_ktv.ho_ten as ten_ky_thuat_vien
       FROM lich_dat ld
+      LEFT JOIN ho_so_benh_an hsba ON hsba.lich_dat_id = ld.id
       LEFT JOIN khach_hang kh ON ld.khach_hang_id = kh.id
       LEFT JOIN nguoi_dung nd_kh ON kh.nguoi_dung_id = nd_kh.id
-      LEFT JOIN chuyen_gia_y_te ktv ON ld.ky_thuat_vien_id = ktv.id
+      LEFT JOIN chuyen_gia_y_te ktv ON ld.bac_si_id = ktv.id
       LEFT JOIN nguoi_dung nd_ktv ON ktv.nguoi_dung_id = nd_ktv.id
-      WHERE ld.chan_doan IS NOT NULL OR ld.trang_thai IN ('hoan_thanh', 'da_checkin')
+      WHERE hsba.chan_doan IS NOT NULL OR ld.trang_thai IN ('hoan_thanh', 'da_checkin')
       ORDER BY ld.ngay_gio_bat_dau DESC
     `);
     return rows;
@@ -711,7 +730,7 @@ class AdminRepository {
 
     const query = `
       SELECT 
-        ktv.id as ky_thuat_vien_id, 
+        ktv.id as chuyen_gia_id, 
         nd.id as nguoi_dung_id, 
         nd.ho_ten, 
         nd.email, 
@@ -735,7 +754,7 @@ class AdminRepository {
         -- 2. Khong trung voi bat ky lich dat nao
         AND NOT EXISTS (
           SELECT 1 FROM lich_dat ld
-          WHERE ld.ky_thuat_vien_id = ktv.id
+          WHERE ld.bac_si_id = ktv.id
             AND ld.trang_thai NOT IN ('da_huy', 'khong_den')
             AND ld.ngay_gio_bat_dau < ($1::date + $2::time + ($3 || ' minutes')::interval)::timestamp
             AND ld.ngay_gio_ket_thuc > ($1::date + $2::time)::timestamp

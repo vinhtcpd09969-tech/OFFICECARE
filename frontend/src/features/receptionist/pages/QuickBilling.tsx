@@ -117,6 +117,13 @@ export default function QuickBilling() {
     };
   }, [selectedPackage, vouchers]);
 
+  const hasAutoPromo = useMemo(() => {
+    if (!activePromo) return false;
+    return loaiThanhToan === 'tra_gop'
+      ? !!activePromo.installmentPromo
+      : !!activePromo.straightPromo;
+  }, [activePromo, loaiThanhToan]);
+
   const isLocked = !!new URLSearchParams(location.search).get('lich_dat_id');
 
   // Quick cash list
@@ -750,9 +757,9 @@ export default function QuickBilling() {
                           id="maVoucher"
                           type="text"
                           value={maVoucher}
-                          disabled={!!appliedVoucher}
+                          disabled={!!appliedVoucher || hasAutoPromo}
                           onChange={(e) => setMaVoucher(e.target.value.toUpperCase())}
-                          placeholder="Mã voucher (VD: UUDAI10, PHYSIO50K)"
+                          placeholder={hasAutoPromo ? "Đã tự động áp dụng ưu đãi, không cần nhập mã" : "Mã voucher (VD: UUDAI10, PHYSIO50K)"}
                           className="w-full pl-10 pr-4 py-3 bg-zinc-50 border border-zinc-200 focus:border-primary rounded-xl font-bold text-secondary text-xs outline-none transition-all uppercase placeholder-zinc-400 disabled:opacity-60"
                         />
                       </div>
@@ -769,7 +776,8 @@ export default function QuickBilling() {
                         <button
                           type="button"
                           onClick={handleApplyVoucher}
-                          className="px-5 bg-primary hover:opacity-90 text-white rounded-xl font-extrabold text-[10px] uppercase tracking-wider transition-all shadow-sm"
+                          disabled={hasAutoPromo}
+                          className="px-5 bg-primary hover:opacity-90 text-white rounded-xl font-extrabold text-[10px] uppercase tracking-wider transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
                         >
                           Áp dụng
                         </button>

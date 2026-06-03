@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
+import { Sun, Moon } from 'lucide-react';
 
 export default function ReceptionistLayout() {
   const location = useLocation();
@@ -8,10 +9,27 @@ export default function ReceptionistLayout() {
   const logout = useAuthStore(state => state.logout);
   const user = useAuthStore(state => state.user);
   const [isClient, setIsClient] = useState(false);
+  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
 
   useEffect(() => {
     setIsClient(true);
+    const handleThemeChange = () => {
+      setTheme(localStorage.getItem('theme') || 'light');
+    };
+    window.addEventListener('theme-change', handleThemeChange);
+    return () => window.removeEventListener('theme-change', handleThemeChange);
   }, []);
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+      document.body.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.body.classList.remove('dark');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
 
   const handleLogout = () => {
     logout();
@@ -24,9 +42,9 @@ export default function ReceptionistLayout() {
   ];
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen bg-background dark:bg-zinc-950 text-secondary dark:text-zinc-100 flex transition-colors duration-300">
       {/* Sidebar */}
-      <aside className="w-64 bg-secondary text-zinc-400 flex flex-col">
+      <aside className="w-64 bg-secondary text-zinc-400 flex flex-col shrink-0 border-r border-zinc-800">
         <div className="h-16 flex items-center justify-center border-b border-zinc-800">
           <h1 className="text-xl font-semibold text-white tracking-tight">Office Care <span className="text-primary">Receptionist</span></h1>
         </div>
@@ -78,21 +96,33 @@ export default function ReceptionistLayout() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-h-screen overflow-hidden">
+      <main className="flex-1 flex flex-col min-h-screen overflow-hidden bg-background dark:bg-zinc-950 transition-colors duration-300">
         {/* Top Header */}
-        <header className="h-16 bg-white border-b border-zinc-200 flex items-center justify-between px-8">
-          <h2 className="text-lg font-semibold text-secondary">
+        <header className="h-16 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-8 transition-colors duration-300">
+          <h2 className="text-lg font-semibold text-secondary dark:text-zinc-100">
             {navItems.find(item => item.path === location.pathname)?.name || 'Receptionist Portal'}
           </h2>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-zinc-500">
+          <div className="flex items-center gap-6">
+            <button 
+              onClick={() => {
+                const nextTheme = theme === 'dark' ? 'light' : 'dark';
+                setTheme(nextTheme);
+                localStorage.setItem('theme', nextTheme);
+                window.dispatchEvent(new Event('theme-change'));
+              }}
+              title={theme === 'dark' ? 'Chuyển giao diện sáng' : 'Chuyển giao diện tối'}
+              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 transition-colors"
+            >
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+            <span className="text-sm text-zinc-500 dark:text-zinc-400">
               {isClient ? new Date().toLocaleDateString('vi-VN') : ''}
             </span>
           </div>
         </header>
 
         {/* Page Content */}
-        <div className="flex-1 overflow-auto p-8">
+        <div className="flex-1 overflow-auto p-8 bg-background dark:bg-zinc-950 transition-colors duration-300">
           <Outlet />
         </div>
       </main>

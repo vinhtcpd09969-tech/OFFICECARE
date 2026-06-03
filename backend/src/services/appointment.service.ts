@@ -47,6 +47,14 @@ class AppointmentService {
     }
     return appointment;
   }
+
+  async cancelBreakTimeAppointments() {
+    return appointmentRepository.cancelBreakTimeAppointments();
+  }
+
+  async getBookedSlots(dateStr: string) {
+    return appointmentRepository.getBookedSlots(dateStr);
+  }
 }
 
 export default new AppointmentService();

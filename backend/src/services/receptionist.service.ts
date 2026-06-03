@@ -85,7 +85,8 @@ class ReceptionistService {
   }
 
   async handleWalkInBooking(data: any) {
-    const { sdt, ho_ten, gioi_tinh, ngay_sinh, dich_vu_id, ky_thuat_vien_id, gio_bat_dau } = data;
+    const { sdt, ho_ten, gioi_tinh, ngay_sinh, dich_vu_id, gio_bat_dau } = data;
+    const bac_si_id = data.bac_si_id || data.chuyen_gia_id || data.ky_thuat_vien_id;
 
     let khachHangId;
     const existCust = await receptionistRepository.findCustomerByPhone(sdt);
@@ -101,7 +102,7 @@ class ReceptionistService {
     const endTime = new Date(startTime.getTime() + duration * 60000);
     const maLichDat = `LD${Math.floor(100000 + Math.random() * 900000)}`;
 
-    const lich_dat_id = await receptionistRepository.createAppointment(maLichDat, khachHangId, dich_vu_id, ky_thuat_vien_id, startTime, endTime);
+    const lich_dat_id = await receptionistRepository.createAppointment(maLichDat, khachHangId, dich_vu_id, bac_si_id, startTime, endTime);
     return { lich_dat_id };
   }
 
@@ -140,36 +141,48 @@ class ReceptionistService {
     let so_tien_giam_phuong_thuc = 0;
     let uu_dai_thanh_toan_id: string | null = null; // Store auto-applied voucher ID in this column
 
-    const autoVouchers = await receptionistRepository.getAutoApplyVouchers();
-    
-    // Find the first matching auto-apply voucher
-    const matchingAutoVoucher = autoVouchers.find((v: any) => {
-      // Check if matches payment method
-      if (v.yeu_cau_thanh_toan === 'tra_thang' && loai_thanh_toan !== 'tra_thang') return false;
-      if (v.yeu_cau_thanh_toan === 'tra_gop' && loai_thanh_toan !== 'tra_gop') return false;
+    // ONLY calculate auto-applied voucher if NO manual voucher code is entered
+    if (!ma_voucher) {
+      const autoVouchers = await receptionistRepository.getAutoApplyVouchers();
+      
+      // Find the first matching auto-apply voucher
+      const matchingAutoVoucher = autoVouchers.find((v: any) => {
+        // Check if matches payment method
+        if (v.yeu_cau_thanh_toan === 'tra_thang' && loai_thanh_toan !== 'tra_thang') return false;
+        if (v.yeu_cau_thanh_toan === 'tra_gop' && loai_thanh_toan !== 'tra_gop') return false;
 
-      // Check targeting
-      if (v.ap_dung_cho === 'dich_vu' || v.ap_dung_cho === 'dich_vu_don' || v.ap_dung_cho === 'dich_vu_cu_the') {
-        return item_type === 'dich_vu' && Array.isArray(v.dich_vu_ids) && v.dich_vu_ids.includes(item_id);
-      }
-      if (v.ap_dung_cho === 'goi' || v.ap_dung_cho === 'goi_dich_vu' || v.ap_dung_cho === 'goi_dieu_tri' || v.ap_dung_cho === 'goi_cu_the') {
-        return item_type === 'goi' && Array.isArray(v.goi_dich_vu_ids) && v.goi_dich_vu_ids.includes(item_id);
-      }
-      return v.ap_dung_cho === 'tat_ca';
-    });
-
-    if (matchingAutoVoucher) {
-      uu_dai_thanh_toan_id = matchingAutoVoucher.id;
-      if (matchingAutoVoucher.loai_giam === 'phan_tram' || matchingAutoVoucher.loai_giam === 'percentage') {
-        so_tien_giam_phuong_thuc = Math.round(gia_goc * (Number(matchingAutoVoucher.gia_tri_giam) / 100));
-        if (matchingAutoVoucher.giam_toi_da && so_tien_giam_phuong_thuc > Number(matchingAutoVoucher.giam_toi_da)) {
-          so_tien_giam_phuong_thuc = Number(matchingAutoVoucher.giam_toi_da);
+        // Check targeting
+        if (v.ap_dung_cho === 'dich_vu_va_goi') {
+          if (item_type === 'dich_vu') {
+            return Array.isArray(v.dich_vu_ids) && v.dich_vu_ids.includes(item_id);
+          }
+          if (item_type === 'goi') {
+            return Array.isArray(v.goi_dich_vu_ids) && v.goi_dich_vu_ids.includes(item_id);
+          }
+          return false;
         }
-      } else {
-        so_tien_giam_phuong_thuc = Number(matchingAutoVoucher.gia_tri_giam);
-      }
-      if (so_tien_giam_phuong_thuc > gia_goc) {
-        so_tien_giam_phuong_thuc = gia_goc;
+        if (v.ap_dung_cho === 'dich_vu' || v.ap_dung_cho === 'dich_vu_don' || v.ap_dung_cho === 'dich_vu_cu_the') {
+          return item_type === 'dich_vu' && Array.isArray(v.dich_vu_ids) && v.dich_vu_ids.includes(item_id);
+        }
+        if (v.ap_dung_cho === 'goi' || v.ap_dung_cho === 'goi_dich_vu' || v.ap_dung_cho === 'goi_dieu_tri' || v.ap_dung_cho === 'goi_cu_the') {
+          return item_type === 'goi' && Array.isArray(v.goi_dich_vu_ids) && v.goi_dich_vu_ids.includes(item_id);
+        }
+        return v.ap_dung_cho === 'tat_ca';
+      });
+
+      if (matchingAutoVoucher) {
+        uu_dai_thanh_toan_id = matchingAutoVoucher.id;
+        if (matchingAutoVoucher.loai_giam === 'phan_tram' || matchingAutoVoucher.loai_giam === 'percentage') {
+          so_tien_giam_phuong_thuc = Math.round(gia_goc * (Number(matchingAutoVoucher.gia_tri_giam) / 100));
+          if (matchingAutoVoucher.giam_toi_da && so_tien_giam_phuong_thuc > Number(matchingAutoVoucher.giam_toi_da)) {
+            so_tien_giam_phuong_thuc = Number(matchingAutoVoucher.giam_toi_da);
+          }
+        } else {
+          so_tien_giam_phuong_thuc = Number(matchingAutoVoucher.gia_tri_giam);
+        }
+        if (so_tien_giam_phuong_thuc > gia_goc) {
+          so_tien_giam_phuong_thuc = gia_goc;
+        }
       }
     }
 
@@ -210,7 +223,21 @@ class ReceptionistService {
       }
 
       // Check targeting
-      if (voucher.ap_dung_cho === 'dich_vu' || voucher.ap_dung_cho === 'dich_vu_don' || voucher.ap_dung_cho === 'dich_vu_cu_the') {
+      if (voucher.ap_dung_cho === 'dich_vu_va_goi') {
+        const linkedSvcIds = Array.isArray(voucher.dich_vu_ids) ? voucher.dich_vu_ids : JSON.parse(voucher.dich_vu_ids || '[]');
+        const linkedPkgIds = Array.isArray(voucher.goi_dich_vu_ids) ? voucher.goi_dich_vu_ids : JSON.parse(voucher.goi_dich_vu_ids || '[]');
+        if (item_type === 'dich_vu') {
+          if (!linkedSvcIds.includes(item_id)) {
+            throw new Error('Mã giảm giá không áp dụng cho dịch vụ này');
+          }
+        } else if (item_type === 'goi') {
+          if (!linkedPkgIds.includes(item_id)) {
+            throw new Error('Mã giảm giá không áp dụng cho gói dịch vụ này');
+          }
+        } else {
+          throw new Error('Mã giảm giá không áp dụng cho sản phẩm này');
+        }
+      } else if (voucher.ap_dung_cho === 'dich_vu' || voucher.ap_dung_cho === 'dich_vu_don' || voucher.ap_dung_cho === 'dich_vu_cu_the') {
         const linkedSvcIds = Array.isArray(voucher.dich_vu_ids) ? voucher.dich_vu_ids : JSON.parse(voucher.dich_vu_ids || '[]');
         if (item_type !== 'dich_vu' || !linkedSvcIds.includes(item_id)) {
           throw new Error('Mã giảm giá không áp dụng cho dịch vụ này');
@@ -274,8 +301,48 @@ class ReceptionistService {
     };
   }
 
+  async confirmTreatmentPlan(data: any) {
+    return receptionistRepository.confirmTreatmentPlan(data);
+  }
+
   async createBillingDirect(data: any) {
-    const { khach_hang_id, item_type, item_id, loai_thanh_toan, ma_voucher, lich_dat_id, ho_ten_khach, so_dien_thoai } = data;
+    const { khach_hang_id, item_type, item_id, loai_thanh_toan, ma_voucher, lich_dat_id, ho_ten_khach, so_dien_thoai, lich_dieu_tri_id } = data;
+
+    let finalLdtId = lich_dieu_tri_id;
+
+    if (!finalLdtId && lich_dat_id) {
+      const resolvedLdtId = await receptionistRepository.getTreatmentPlanBySessionId(lich_dat_id);
+      if (resolvedLdtId) {
+        finalLdtId = resolvedLdtId;
+      }
+    }
+
+    if (finalLdtId) {
+      const ldt = await receptionistRepository.getTreatmentPlanById(finalLdtId);
+      if (!ldt) throw new Error('Không tìm thấy lịch điều trị');
+
+      const calc = await this.calculateBilling({ 
+        item_type: ldt.goi_dich_vu_id ? 'goi' : 'dich_vu', 
+        item_id: ldt.goi_dich_vu_id || ldt.dich_vu_id, 
+        loai_thanh_toan, 
+        ma_voucher 
+      });
+
+      const invoiceData = {
+        lich_dieu_tri_id: finalLdtId,
+        khach_hang_id: ldt.khach_hang_id,
+        item_type: ldt.goi_dich_vu_id ? 'goi' : 'dich_vu',
+        tong_tien_truoc_giam: calc.gia_goc,
+        so_tien_giam_voucher: calc.so_tien_giam_voucher,
+        uu_dai_thanh_toan_id: calc.uu_dai_thanh_toan_id,
+        so_tien_giam_phuong_thuc: calc.so_tien_giam_phuong_thuc,
+        tong_tien_thanh_toan: calc.tong_tien_thanh_toan,
+        loai_thanh_toan,
+        voucher_id: calc.voucher_id
+      };
+
+      return receptionistRepository.createInvoiceForTreatmentPlan(invoiceData);
+    }
 
     const calc = await this.calculateBilling({ item_type, item_id, loai_thanh_toan, ma_voucher });
 

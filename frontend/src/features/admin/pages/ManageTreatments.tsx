@@ -39,6 +39,7 @@ export default function ManageTreatments() {
   const [appointments, setAppointments] = useState<any[]>([]);
   const [staffList, setStaffList] = useState<any[]>([]);
   const [roomsList, setRoomsList] = useState<any[]>([]);
+  const [schedulesList, setSchedulesList] = useState<any[]>([]);
 
   const [loading, setLoading] = useState(true);
 
@@ -66,15 +67,17 @@ export default function ManageTreatments() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [aptRes, staffRes, roomsRes] = await Promise.all([
+      const [aptRes, staffRes, roomsRes, schedulesRes] = await Promise.all([
         axiosInstance.get('/admin/appointments'),
         axiosInstance.get('/admin/staff'),
-        axiosInstance.get('/admin/rooms').catch(() => ({ data: [] }))
+        axiosInstance.get('/admin/rooms').catch(() => ({ data: [] })),
+        axiosInstance.get('/admin/schedules').catch(() => ({ data: [] }))
       ]);
 
       setAppointments(aptRes.data);
       setStaffList(staffRes.data);
       setRoomsList(roomsRes.data || []);
+      setSchedulesList(schedulesRes.data || []);
     } catch (error) {
       console.error('Lỗi tải dữ liệu:', error);
       toast.error('Không thể tải dữ liệu lịch trình');
@@ -121,8 +124,8 @@ export default function ManageTreatments() {
     }
   };
 
-  const activeRole = 'Chuyên gia y tế'; // Cho màn hình Lịch điều trị
-  const columnsStaff = staffList.filter(s => s.vai_tro === activeRole && s.trang_thai === 'hoat_dong');
+
+  const activeRole = 'Chuyên gia y tế';
   const formattedSelectedDate = format(selectedDate, 'yyyy-MM-dd');
   
   const startDateOfWeek = startOfWeek(selectedDate, { weekStartsOn: 1 });
@@ -169,14 +172,7 @@ export default function ManageTreatments() {
     )
   ).sort();
 
-  const getCellAppointments = (hour: string, ktvId: string | null) => {
-    return filteredAppointments.filter(apt => {
-      const aptHourStr = format(new Date(apt.ngay_gio_bat_dau), 'HH:mm');
-      const isSameHour = aptHourStr === hour;
-      const isSameStaff = apt.ky_thuat_vien_id === ktvId;
-      return isSameHour && isSameStaff;
-    });
-  };
+
 
   const handleOpenDetailModal = (apt: any) => {
     setSelectedAppointment(apt);
@@ -311,9 +307,11 @@ export default function ManageTreatments() {
               className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 text-sm font-medium rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 appearance-none cursor-pointer"
             >
               <option value="all">Tất cả Phòng điều trị</option>
-              {roomsList.map(room => (
-                <option key={room.id} value={room.id}>{room.ten_phong}</option>
-              ))}
+              {roomsList
+                .filter(room => room.loai_phong === 'tri_lieu')
+                .map(room => (
+                  <option key={room.id} value={room.id}>{room.ten_phong}</option>
+                ))}
             </select>
             <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
           </div>
@@ -335,9 +333,7 @@ export default function ManageTreatments() {
       {viewMode === 'today' ? (
         <AppointmentCalendar
           timeSlots={dynamicTimeSlots.length > 0 ? dynamicTimeSlots : ['08:00', '13:00']} // Fallback nếu ngày trống
-          scheduleType={scheduleType}
-          columnsStaff={columnsStaff}
-          getCellAppointments={getCellAppointments}
+          appointments={filteredAppointments}
           statusConfig={statusConfig}
           handleOpenDetailModal={handleOpenDetailModal}
         />
@@ -369,6 +365,8 @@ export default function ManageTreatments() {
           onSave={handleUpdateAppointment}
           onOpenTreatment={() => {}}
           onSuccess={fetchData}
+          appointments={appointments}
+          schedulesList={schedulesList}
         />
       )}
 

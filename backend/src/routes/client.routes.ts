@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createPublicAppointment, getCustomerAppointments, cancelCustomerAppointment } from '../controllers/appointment.controller';
+import { createPublicAppointment, getCustomerAppointments, cancelCustomerAppointment, getBookedSlots } from '../controllers/appointment.controller';
 import { getNotifications, markAsRead, markAllAsRead } from '../controllers/notification.controller';
 import { verifyToken } from '../middlewares/auth.middleware';
 
@@ -7,6 +7,9 @@ const router = Router();
 
 // API Đặt lịch cho khách vãng lai
 router.post('/appointments/public', createPublicAppointment);
+
+// API public - lấy danh sách giờ đã đặt theo ngày (không cần xác thực)
+router.get('/appointments/booked-slots', getBookedSlots);
 
 // API có bảo mật cho Khách hàng
 router.get('/appointments', verifyToken, getCustomerAppointments);

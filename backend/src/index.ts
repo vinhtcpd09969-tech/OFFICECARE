@@ -28,7 +28,8 @@ app.use(cors({
   },
   credentials: true
 }));
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // --- SWAGGER UI ---
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
@@ -45,5 +46,6 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
+  // Hot-reloaded with updated port
   console.log(`Server is running on port ${PORT}`);
 });

@@ -57,9 +57,18 @@ export default function WalkInBooking() {
   const [isClient, setIsClient] = useState(false);
   const navigate = useNavigate();
 
+  const formatLocalDatetime = (date: Date): string => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    const h = String(date.getHours()).padStart(2, '0');
+    const min = String(date.getMinutes()).padStart(2, '0');
+    return `${y}-${m}-${d}T${h}:${min}`;
+  };
+
   useEffect(() => {
     setIsClient(true);
-    dispatch({ type: 'INIT_DATE', date: new Date().toISOString().slice(0, 16) });
+    dispatch({ type: 'INIT_DATE', date: formatLocalDatetime(new Date()) });
 
     const fetchSelectData = async () => {
       try {

@@ -30,6 +30,8 @@ export const createEquipment = (data: any) => api.post('/admin/equipment', data)
 // Schedules
 export const getSchedules = () => api.get('/admin/schedules');
 export const createSchedule = (data: any) => api.post('/admin/schedules', data);
+export const updateSchedule = (id: string, data: any) => api.put(`/admin/schedules/${id}`, data);
+export const deleteSchedule = (id: string) => api.delete(`/admin/schedules/${id}`);
 
 // Medical Records
 export const getMedicalRecords = () => api.get('/admin/medical-records');

@@ -13,6 +13,8 @@ interface AuthState {
   user: User | null;
   accessToken: string | null;
   refreshToken: string | null;
+  showAuthModal: boolean;
+  setShowAuthModal: (show: boolean) => void;
   setAuth: (user: User, accessToken: string, refreshToken: string) => void;
   updateAccessToken: (accessToken: string) => void;
   logout: () => void;
@@ -25,6 +27,8 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       accessToken: null,
       refreshToken: null,
+      showAuthModal: false,
+      setShowAuthModal: (show) => set({ showAuthModal: show }),
       setAuth: (user, accessToken, refreshToken) => set({ user, accessToken, refreshToken }),
       updateAccessToken: (accessToken) => set({ accessToken }),
       logout: () => set({ user: null, accessToken: null, refreshToken: null }),

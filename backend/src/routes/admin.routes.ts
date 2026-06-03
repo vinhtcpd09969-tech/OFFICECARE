@@ -81,6 +81,8 @@ router.post('/equipment', adminController.createEquipment);
  */
 router.get('/schedules', adminController.getSchedules);
 router.post('/schedules', adminController.createSchedule);
+router.put('/schedules/:id', adminController.updateSchedule);
+router.delete('/schedules/:id', adminController.deleteSchedule);
 
 // Hồ sơ điều trị (Tra cứu Bệnh án)
 router.get('/medical-records', adminController.getMedicalRecords);
@@ -171,5 +173,6 @@ router.get('/appointments', appointmentController.getAllAppointments);
 router.post('/appointments', appointmentController.createAppointment);
 router.patch('/appointments/:id/status', appointmentController.updateAppointmentStatus);
 router.put('/appointments/:id/medical-record', appointmentController.updateMedicalRecord);
+router.delete('/appointments/break-time', appointmentController.cancelBreakTimeAppointments);
 
 export default router;

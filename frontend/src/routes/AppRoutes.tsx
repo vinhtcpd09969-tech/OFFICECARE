@@ -8,6 +8,7 @@ import LandingLayout from '../layouts/LandingLayout';
 import DashboardLayout from '../layouts/DashboardLayout';
 import AdminLayout from '../layouts/AdminLayout';
 import ReceptionistLayout from '../layouts/ReceptionistLayout';
+import DoctorLayout from '../layouts/DoctorLayout';
 
 // --- Lazy Loaded Feature Pages (Implements Code Splitting for optimal initial page load) ---
 
@@ -53,6 +54,13 @@ const QuickBilling = lazy(() => import('../features/receptionist/pages/QuickBill
 
 // Technician Feature
 const TechnicianWorkspace = lazy(() => import('../features/technician/pages/TechnicianWorkspace'));
+
+// Doctor Feature
+const DoctorDashboard = lazy(() => import('../features/doctor/pages/DoctorDashboard'));
+const DoctorAppointments = lazy(() => import('../features/doctor/pages/DoctorAppointments'));
+const ClinicalAssessment = lazy(() => import('../features/doctor/pages/ClinicalAssessment'));
+const DoctorMedicalRecords = lazy(() => import('../features/doctor/pages/DoctorMedicalRecords'));
+const DoctorSchedules = lazy(() => import('../features/doctor/pages/DoctorSchedules'));
 
 export default function AppRoutes() {
   return (
@@ -116,6 +124,17 @@ export default function AppRoutes() {
         <Route element={<ProtectedRoute allowedRoles={[3, 5]} />}>
           <Route element={<AdminLayout />}>
             <Route path="/technician/workspace" element={<TechnicianWorkspace />} />
+          </Route>
+        </Route>
+
+        {/* Doctor Protected Routes */}
+        <Route element={<ProtectedRoute allowedRoles={[4]} />}>
+          <Route element={<DoctorLayout />}>
+            <Route path="/doctor" element={<DoctorDashboard />} />
+            <Route path="/doctor/appointments" element={<DoctorAppointments />} />
+            <Route path="/doctor/appointments/:id/assess" element={<ClinicalAssessment />} />
+            <Route path="/doctor/medical-records" element={<DoctorMedicalRecords />} />
+            <Route path="/doctor/schedules" element={<DoctorSchedules />} />
           </Route>
         </Route>
       </Routes>

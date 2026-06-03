@@ -121,3 +121,35 @@ export const cancelCustomerAppointment = async (req: Request, res: Response): Pr
     return res.status(500).json({ message: error.message || 'Lỗi server khi hủy lịch hẹn.' });
   }
 };
+
+// Hủy tự động tất cả các lịch nằm trong giờ nghỉ trưa
+export const cancelBreakTimeAppointments = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const result = await appointmentService.cancelBreakTimeAppointments();
+    return res.json({
+      success: true,
+      message: `Đã hủy tự động ${result.cancelled_count} lịch hẹn nằm trong giờ nghỉ trưa.`,
+      cancelledCount: result.cancelled_count
+    });
+  } catch (error: any) {
+    console.error('Lỗi khi dọn lịch giờ nghỉ trưa:', error);
+    return res.status(500).json({ message: error.message || 'Lỗi server khi dọn dẹp lịch giờ nghỉ.' });
+  }
+};
+
+// Lấy danh sách khung giờ đã đặt cho ngày cụ thể (public - dùng cho trang booking client)
+export const getBookedSlots = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { date } = req.query;
+    if (!date || typeof date !== 'string') {
+      return res.status(400).json({ message: 'Thiếu tham số ngày (date=YYYY-MM-DD)' });
+    }
+    const bookedSlots = await appointmentService.getBookedSlots(date);
+    return res.json({ bookedSlots });
+  } catch (error: any) {
+    console.error('Lỗi khi lấy danh sách giờ đã đặt:', error);
+    return res.status(500).json({ message: error.message || 'Lỗi server' });
+  }
+};
+
+

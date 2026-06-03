@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { getSchedules, createSchedule, getStaff } from '../../../api/admin.api';
+import { getSchedules, createSchedule, getStaff, updateSchedule, deleteSchedule } from '../../../api/admin.api';
 import { User, Calendar as CalendarIcon, PieChart, AlertTriangle, Plus, X, CheckCircle2 } from 'lucide-react';
 
 const scheduleSchema = z.object({
@@ -16,6 +16,13 @@ const scheduleSchema = z.object({
 type ScheduleFormValues = z.infer<typeof scheduleSchema>;
 
 const DOW_KEYS = ['thu_2', 'thu_3', 'thu_4', 'thu_5', 'thu_6', 'thu_7', 'chu_nhat'];
+
+const formatLocalDate = (date: Date): string => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
 
 const getWeekDates = (selectedWeek: 'current' | 'next') => {
   const dates = [];
@@ -37,7 +44,7 @@ const getWeekDates = (selectedWeek: 'current' | 'next') => {
       label: DOW_KEYS[i] === 'chu_nhat' ? 'CN' : `T${i + 2}`,
       dateStr: d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
       isToday: d.toDateString() === new Date().toDateString(),
-      fullDateStr: d.toISOString().split('T')[0]
+      fullDateStr: formatLocalDate(d)
     });
   }
   return dates;
@@ -59,10 +66,12 @@ export default function ManageSchedules() {
   const [roleFilter, setRoleFilter] = useState<string>('all');
   
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingSchedule, setEditingSchedule] = useState<any | null>(null);
+  const [selectedShiftType, setSelectedShiftType] = useState<'morning' | 'afternoon' | 'tam_nghi'>('morning');
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<ScheduleFormValues>({
     resolver: zodResolver(scheduleSchema),
-    defaultValues: { trang_thai: 'hoat_dong', gio_bat_dau: '08:00', gio_ket_thuc: '17:00' }
+    defaultValues: { trang_thai: 'hoat_dong', gio_bat_dau: '07:00', gio_ket_thuc: '15:30' }
   });
 
   const fetchData = async () => {
@@ -80,17 +89,78 @@ export default function ManageSchedules() {
 
   useEffect(() => { fetchData(); }, []);
 
+  const handleShiftTypeChange = (type: 'morning' | 'afternoon' | 'tam_nghi') => {
+    setSelectedShiftType(type);
+    if (type === 'morning') {
+      setValue('gio_bat_dau', '07:00');
+      setValue('gio_ket_thuc', '15:30');
+      setValue('trang_thai', 'hoat_dong');
+    } else if (type === 'afternoon') {
+      setValue('gio_bat_dau', '11:30');
+      setValue('gio_ket_thuc', '20:00');
+      setValue('trang_thai', 'hoat_dong');
+    } else if (type === 'tam_nghi') {
+      setValue('gio_bat_dau', '00:00');
+      setValue('gio_ket_thuc', '00:00');
+      setValue('trang_thai', 'tam_nghi');
+    }
+  };
+
   // Open modal pre-filled
   const handleOpenModal = (userId: string, dateStr?: string) => {
+    setEditingSchedule(null);
     reset();
     setValue('nguoi_dung_id', userId);
-    setValue('ngay', (dateStr || new Date().toISOString().split('T')[0]) as any);
+    setValue('ngay', (dateStr || formatLocalDate(new Date())) as any);
+    setSelectedShiftType('morning');
+    setValue('gio_bat_dau', '07:00');
+    setValue('gio_ket_thuc', '15:30');
+    setValue('trang_thai', 'hoat_dong');
     setIsModalOpen(true);
+  };
+
+  const handleOpenEditModal = (sched: any) => {
+    setEditingSchedule(sched);
+    reset();
+    setValue('nguoi_dung_id', sched.nguoi_dung_id);
+    setValue('ngay', sched.ngay);
+    setValue('gio_bat_dau', sched.gio_bat_dau.slice(0, 5));
+    setValue('gio_ket_thuc', sched.gio_ket_thuc.slice(0, 5));
+    setValue('trang_thai', sched.trang_thai as any);
+
+    if (sched.trang_thai === 'tam_nghi') {
+      setSelectedShiftType('tam_nghi');
+    } else {
+      const hour = parseInt(sched.gio_bat_dau.split(':')[0]);
+      if (hour >= 11) {
+        setSelectedShiftType('afternoon');
+      } else {
+        setSelectedShiftType('morning');
+      }
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleDeleteSchedule = async () => {
+    if (!editingSchedule) return;
+    if (window.confirm('Bạn có chắc chắn muốn xóa ca trực này?')) {
+      try {
+        await deleteSchedule(editingSchedule.id);
+        setIsModalOpen(false);
+        fetchData();
+      } catch (error: any) {
+        alert(error.response?.data?.message || 'Có lỗi xảy ra khi xóa');
+      }
+    }
   };
 
   const onSubmit = async (data: ScheduleFormValues) => {
     try {
-      await createSchedule(data);
+      if (editingSchedule) {
+        await updateSchedule(editingSchedule.id, data);
+      } else {
+        await createSchedule(data);
+      }
       setIsModalOpen(false);
       reset();
       fetchData();
@@ -166,33 +236,35 @@ export default function ManageSchedules() {
 
   // Helper to render shift badge
   const renderShiftBadge = (sched: any) => {
-    if (sched.trang_thai === 'tam_nghi') {
-      return (
-        <div key={sched.id} className="text-[11px] font-semibold bg-red-50 text-red-600 border border-red-200 px-2 py-1 rounded-md text-center mb-1">
-          Nghỉ phép
-        </div>
-      );
-    }
-
-    const hour = parseInt(sched.gio_bat_dau.split(':')[0]);
-    let label = 'Sáng'; let colorClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-    if (hour >= 12 && hour < 17) {
-      label = 'Chiều'; colorClass = 'bg-cyan-50 text-cyan-700 border-cyan-200';
-    } else if (hour >= 17) {
-      label = 'Tối'; colorClass = 'bg-indigo-50 text-indigo-700 border-indigo-200';
-    }
-
-    // Check conflict (simple styling)
     const isConflict = conflicts.some(c => c.id === sched.nguoi_dung_id && c.dowLabel === (weekDates.find(d => d.fullDateStr === sched.ngay)?.label || sched.ngay));
-    if (isConflict) {
-      colorClass = 'bg-rose-50 text-rose-700 border-rose-300 border-dashed';
+    
+    let label = 'Sáng'; let colorClass = 'bg-emerald-50 text-emerald-700 border-emerald-200 cursor-pointer hover:border-emerald-400';
+    if (sched.trang_thai === 'tam_nghi') {
+      label = 'Nghỉ phép'; colorClass = 'bg-red-50 text-red-600 border-red-200 cursor-pointer hover:border-red-400';
+    } else {
+      const hour = parseInt(sched.gio_bat_dau.split(':')[0]);
+      if (hour >= 11 && hour < 16) {
+        label = 'Chiều'; colorClass = 'bg-cyan-50 text-cyan-700 border-cyan-200 cursor-pointer hover:border-cyan-400';
+      } else if (hour >= 16) {
+        label = 'Tối'; colorClass = 'bg-indigo-50 text-indigo-700 border-indigo-200 cursor-pointer hover:border-indigo-400';
+      }
+    }
+
+    if (isConflict && sched.trang_thai !== 'tam_nghi') {
+      colorClass = 'bg-rose-50 text-rose-700 border-rose-300 border-dashed cursor-pointer hover:border-rose-450';
       label = `Trùng ca ${label}`;
     }
 
     return (
-      <div key={sched.id} className={`text-[11px] font-semibold border px-1.5 py-1 rounded-md text-center mb-1 shadow-sm ${colorClass}`}>
+      <div 
+        key={sched.id} 
+        onClick={(e) => { e.stopPropagation(); handleOpenEditModal(sched); }}
+        className={`text-[11px] font-semibold border px-1.5 py-1 rounded-md text-center mb-1 shadow-sm transition-all ${colorClass}`}
+      >
         <div className="uppercase tracking-wider">{label}</div>
-        <div className="opacity-80 mt-0.5">({sched.gio_bat_dau.slice(0,5)}-{sched.gio_ket_thuc.slice(0,5)})</div>
+        {sched.trang_thai !== 'tam_nghi' && (
+          <div className="opacity-80 mt-0.5">({sched.gio_bat_dau.slice(0,5)}-{sched.gio_ket_thuc.slice(0,5)})</div>
+        )}
       </div>
     );
   };
@@ -365,8 +437,10 @@ export default function ManageSchedules() {
         <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
           <div className="bg-white rounded-[24px] shadow-2xl max-w-md w-full overflow-hidden border border-gray-100 animate-in zoom-in-95 duration-200">
             <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-              <h3 className="text-lg font-bold text-gray-800">Phân công ca trực</h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 bg-white rounded-full p-1.5 shadow-sm border border-gray-100 transition-colors hover:bg-gray-100">
+              <h3 className="text-lg font-bold text-gray-800">
+                {editingSchedule ? 'Chỉnh sửa ca trực' : 'Phân công ca trực'}
+              </h3>
+              <button type="button" onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 bg-white rounded-full p-1.5 shadow-sm border border-gray-100 transition-colors hover:bg-gray-100">
                 <X size={18} />
               </button>
             </div>
@@ -394,30 +468,41 @@ export default function ManageSchedules() {
                   {errors.ngay && <p className="text-rose-500 text-xs mt-1.5 font-bold">{errors.ngay.message}</p>}
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Giờ bắt đầu</label>
-                    <input type="time" {...register('gio_bat_dau')} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none text-sm font-medium text-gray-800 transition-all" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Giờ kết thúc</label>
-                    <input type="time" {...register('gio_ket_thuc')} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none text-sm font-medium text-gray-800 transition-all" />
-                  </div>
-                </div>
-                
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1.5">Trạng thái</label>
-                  <select {...register('trang_thai')} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none text-sm font-medium text-gray-800 transition-all">
-                    <option value="hoat_dong">Hoạt động</option>
-                    <option value="tam_nghi">Tạm nghỉ / Nghỉ phép</option>
+                  <label className="block text-sm font-bold text-gray-700 mb-1.5">Ca trực thiết lập *</label>
+                  <select 
+                    value={selectedShiftType} 
+                    onChange={e => handleShiftTypeChange(e.target.value as any)}
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-250 text-gray-800 rounded-xl focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none text-sm font-bold transition-all"
+                  >
+                    <option value="morning">🌅 Ca Sáng (07:00 - 15:30)</option>
+                    <option value="afternoon">☀️ Ca Chiều (11:30 - 20:00)</option>
+                    <option value="tam_nghi">🌴 Nghỉ phép / Tạm nghỉ</option>
                   </select>
                 </div>
-
+                
+                {/* Các input ẩn để lưu giờ gửi lên backend */}
+                <input type="hidden" {...register('gio_bat_dau')} />
+                <input type="hidden" {...register('gio_ket_thuc')} />
+                <input type="hidden" {...register('trang_thai')} />
               </div>
 
-              <div className="mt-8 flex justify-end gap-3">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl font-bold text-sm transition-colors">Hủy</button>
-                <button type="submit" className="px-5 py-2.5 text-white bg-teal-600 hover:bg-teal-700 rounded-xl font-bold text-sm transition-colors shadow-sm shadow-teal-600/20">Lưu phân công</button>
+              <div className="mt-8 flex justify-between items-center">
+                {editingSchedule ? (
+                  <button 
+                    type="button" 
+                    onClick={handleDeleteSchedule} 
+                    className="px-4 py-2.5 text-rose-600 hover:text-white hover:bg-rose-600 border border-rose-200 rounded-xl font-bold text-sm transition-colors"
+                  >
+                    Xóa ca trực
+                  </button>
+                ) : <div />}
+                <div className="flex gap-3">
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl font-bold text-sm transition-colors">Hủy</button>
+                  <button type="submit" className="px-5 py-2.5 text-white bg-teal-600 hover:bg-teal-700 rounded-xl font-bold text-sm transition-colors shadow-sm shadow-teal-600/20">
+                    {editingSchedule ? 'Cập nhật' : 'Lưu phân công'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

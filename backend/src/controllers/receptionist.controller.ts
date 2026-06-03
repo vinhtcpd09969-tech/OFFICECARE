@@ -121,6 +121,17 @@ export const createBillingDirect = async (req: Request, res: Response): Promise<
   }
 };
 
+// POST /api/receptionist/treatment-plans/confirm
+export const confirmTreatmentPlan = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const result = await receptionistService.confirmTreatmentPlan(req.body);
+    res.json({ message: 'Chốt gói trị liệu thành công', lich_dieu_tri: result });
+  } catch (error: any) {
+    console.error('Lỗi chốt gói trị liệu:', error);
+    res.status(400).json({ message: error.message || 'Lỗi server' });
+  }
+};
+
 // POST /api/receptionist/sessions/:id/services
 export const updateSessionServices = async (req: Request, res: Response): Promise<any> => {
   try {

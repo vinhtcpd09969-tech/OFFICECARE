@@ -83,8 +83,8 @@ export default function TreatmentBookingModal({
           
           // Auto-select if there is exactly 1 available
           if (ktvs.length === 1) {
-            setSelectedKtvId(ktvs[0].ky_thuat_vien_id);
-          } else if (selectedKtvId && !ktvs.some((k: any) => String(k.ky_thuat_vien_id) === String(selectedKtvId))) {
+            setSelectedKtvId(ktvs[0].chuyen_gia_id);
+          } else if (selectedKtvId && !ktvs.some((k: any) => String(k.chuyen_gia_id) === String(selectedKtvId))) {
             setSelectedKtvId('');
           }
         }
@@ -167,7 +167,7 @@ export default function TreatmentBookingModal({
                 <>
                   <option value="">-- Chọn dịch vụ, ngày, giờ để lọc --</option>
                   {staffList.filter(s => s.vai_tro === 'Kỹ thuật viên' || s.vai_tro === 'Chuyên gia y tế').map(s => (
-                    <option key={s.ky_thuat_vien_id || s.id} value={s.ky_thuat_vien_id || ''}>{s.ho_ten}</option>
+                    <option key={s.chuyen_gia_id || s.id} value={s.chuyen_gia_id || ''}>{s.ho_ten}</option>
                   ))}
                 </>
               ) : availableStaff.length === 0 ? (
@@ -176,7 +176,7 @@ export default function TreatmentBookingModal({
                 <>
                   <option value="">-- Chọn kỹ thuật viên --</option>
                   {availableStaff.map((s: any) => (
-                    <option key={s.ky_thuat_vien_id} value={s.ky_thuat_vien_id}>{s.ho_ten} (Rảnh)</option>
+                    <option key={s.chuyen_gia_id} value={s.chuyen_gia_id}>{s.ho_ten} (Rảnh)</option>
                   ))}
                 </>
               )}

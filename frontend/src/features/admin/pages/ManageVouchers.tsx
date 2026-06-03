@@ -27,7 +27,7 @@ interface Voucher {
   gia_tri_giam: number;
   giam_toi_da: number | null;
   don_hang_toi_thieu: number;
-  ap_dung_cho: 'tat_ca' | 'dich_vu_cu_the' | 'goi_cu_the';
+  ap_dung_cho: 'tat_ca' | 'dich_vu_cu_the' | 'goi_cu_the' | 'dich_vu_va_goi';
   so_luong_toi_da: number | null;
   so_luong_da_dung: number;
   ngay_bat_dau: string;
@@ -78,7 +78,7 @@ export default function ManageVouchers() {
 
   // Auto-apply and payment requirements states inside Modal
   const [tuDongApDung, setTuDongApDung] = useState(false);
-  const [yeuCauThanhToan, setYeuCauThanhToan] = useState<'tat_ca' | 'tra_thang' | 'tra_gop'>('tat_ca');
+  const [yeuCauThanhToan, setYeuCauThanhToan] = useState<'tra_thang' | 'tra_gop'>('tra_thang');
 
   useEffect(() => {
     fetchVouchers();
@@ -86,12 +86,67 @@ export default function ManageVouchers() {
     fetchPackages();
   }, []);
 
+  // UI states for new interactive scope selector
+  const [scopeType, setScopeType] = useState<'tat_ca' | 'tuy_chinh'>('tat_ca');
+  const [isServicesActive, setIsServicesActive] = useState(false);
+  const [isPackagesActive, setIsPackagesActive] = useState(false);
+  const [currentTab, setCurrentTab] = useState<'services' | 'packages'>('services');
+
+  // Modal confirm state
+  const [confirmModalData, setConfirmModalData] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
+
   useEffect(() => {
     if (editingVoucher) {
       setTuDongApDung(editingVoucher.tu_dong_ap_dung || false);
-      setYeuCauThanhToan(editingVoucher.yeu_cau_thanh_toan || 'tat_ca');
+      
+      const reqPayment = editingVoucher.yeu_cau_thanh_toan === 'tra_gop' ? 'tra_gop' : 'tra_thang';
+      setYeuCauThanhToan(reqPayment);
+
+      // Initialize scope states based on editingVoucher
+      const apDung = editingVoucher.ap_dung_cho || 'tat_ca';
+      if (reqPayment === 'tra_gop') {
+        // For installment, it only applies to packages
+        setScopeType('tuy_chinh');
+        setIsServicesActive(false);
+        setIsPackagesActive(true);
+        setCurrentTab('packages');
+      } else if (apDung === 'tat_ca') {
+        setScopeType('tat_ca');
+        setIsServicesActive(false);
+        setIsPackagesActive(false);
+      } else {
+        setScopeType('tuy_chinh');
+        
+        const hasServices = apDung === 'dich_vu_cu_the' || apDung === 'dich_vu_va_goi' || (editingVoucher.dich_vu_ids && editingVoucher.dich_vu_ids.length > 0);
+        const hasPackages = apDung === 'goi_cu_the' || apDung === 'dich_vu_va_goi' || (editingVoucher.goi_dich_vu_ids && editingVoucher.goi_dich_vu_ids.length > 0);
+        
+        setIsServicesActive(!!hasServices);
+        setIsPackagesActive(!!hasPackages);
+        
+        if (hasPackages && !hasServices) {
+          setCurrentTab('packages');
+        } else {
+          setCurrentTab('services');
+        }
+      }
     }
   }, [editingVoucher]);
+
+  // Synchronize scope with yeuCauThanhToan when user changes it in UI
+  useEffect(() => {
+    if (yeuCauThanhToan === 'tra_gop') {
+      setScopeType('tuy_chinh');
+      setIsServicesActive(false);
+      setSelectedServices([]);
+      setIsPackagesActive(true);
+      setCurrentTab('packages');
+    }
+  }, [yeuCauThanhToan]);
 
   const fetchVouchers = async () => {
     try {
@@ -130,11 +185,41 @@ export default function ManageVouchers() {
   };
 
   // --- VOUCHER ACTIONS ---
-  const handleVoucherSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleVoucherSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const data = Object.fromEntries(formData.entries());
     
+    // Validate scope selections
+    if (scopeType === 'tuy_chinh' && !isServicesActive && !isPackagesActive) {
+      toast.error('Vui lòng chọn hoặc thiết lập phạm vi áp dụng ưu đãi');
+      return;
+    }
+    if (scopeType === 'tuy_chinh' && isServicesActive && selectedServices.length === 0 && !isPackagesActive) {
+      toast.error('Vui lòng chọn ít nhất một dịch vụ lẻ');
+      return;
+    }
+    if (scopeType === 'tuy_chinh' && isPackagesActive && selectedPackages.length === 0 && !isServicesActive) {
+      toast.error('Vui lòng chọn ít nhất một gói trị liệu');
+      return;
+    }
+    if (scopeType === 'tuy_chinh' && isServicesActive && isPackagesActive && selectedServices.length === 0 && selectedPackages.length === 0) {
+      toast.error('Vui lòng chọn ít nhất một dịch vụ lẻ hoặc gói trị liệu');
+      return;
+    }
+
+    // Determine ap_dung_cho value
+    let apDungCho: 'tat_ca' | 'dich_vu_cu_the' | 'goi_cu_the' | 'dich_vu_va_goi' = 'tat_ca';
+    if (scopeType === 'tuy_chinh') {
+      if (isServicesActive && isPackagesActive) {
+        apDungCho = 'dich_vu_va_goi';
+      } else if (isServicesActive) {
+        apDungCho = 'dich_vu_cu_the';
+      } else if (isPackagesActive) {
+        apDungCho = 'goi_cu_the';
+      }
+    }
+
     const payload = {
       ...data,
       gia_tri_giam: Number(data.gia_tri_giam),
@@ -143,25 +228,46 @@ export default function ManageVouchers() {
       so_luong_toi_da: data.so_luong_toi_da ? Number(data.so_luong_toi_da) : null,
       tu_dong_ap_dung: tuDongApDung,
       yeu_cau_thanh_toan: yeuCauThanhToan,
-      dich_vu_ids: data.ap_dung_cho === 'dich_vu_cu_the' ? selectedServices : [],
-      goi_dich_vu_ids: data.ap_dung_cho === 'goi_cu_the' ? selectedPackages : [],
+      ap_dung_cho: apDungCho,
+      dich_vu_ids: (apDungCho === 'dich_vu_cu_the' || apDungCho === 'dich_vu_va_goi') ? selectedServices : [],
+      goi_dich_vu_ids: (apDungCho === 'goi_cu_the' || apDungCho === 'dich_vu_va_goi') ? selectedPackages : [],
     };
 
-    try {
-      if (editingVoucher?.id) {
-        await api.put(`/admin/vouchers/${editingVoucher.id}`, payload);
-        toast.success('Cập nhật Chiến dịch thành công!');
-      } else {
-        await api.post('/admin/vouchers', payload);
-        toast.success('Tạo Chiến dịch mới thành công!');
-      }
-      setIsVoucherModalOpen(false);
-      setEditingVoucher(null);
-      fetchVouchers();
-    } catch (error: any) {
-      const msg = error.response?.data?.message || 'Lỗi khi lưu chiến dịch';
-      toast.error(msg);
+    // Calculate confirmation message
+    let message = '';
+    let title = editingVoucher?.id ? 'Xác nhận Cập nhật' : 'Xác nhận Kích hoạt';
+    
+    if (apDungCho === 'tat_ca') {
+      message = 'Chiến dịch ưu đãi này sẽ áp dụng cho tất cả dịch vụ lẻ và gói trị liệu hiện có.';
+    } else {
+      const parts = [];
+      if (isServicesActive && selectedServices.length > 0) parts.push(`${selectedServices.length} dịch vụ lẻ`);
+      if (isPackagesActive && selectedPackages.length > 0) parts.push(`${selectedPackages.length} gói trị liệu`);
+      message = `Chiến dịch ưu đãi này sẽ được áp dụng cho ${parts.join(' và ')}.`;
     }
+
+    setConfirmModalData({
+      isOpen: true,
+      title,
+      message: `${message} Bạn có chắc chắn muốn hoàn tất thao tác này không?`,
+      onConfirm: async () => {
+        try {
+          if (editingVoucher?.id) {
+            await api.put(`/admin/vouchers/${editingVoucher.id}`, payload);
+            toast.success('Cập nhật Chiến dịch thành công!');
+          } else {
+            await api.post('/admin/vouchers', payload);
+            toast.success('Tạo Chiến dịch mới thành công!');
+          }
+          setIsVoucherModalOpen(false);
+          setEditingVoucher(null);
+          fetchVouchers();
+        } catch (error: any) {
+          const msg = error.response?.data?.message || 'Lỗi khi lưu chiến dịch';
+          toast.error(msg);
+        }
+      }
+    });
   };
 
   const handleToggleVoucherStatus = async (v: Voucher) => {
@@ -256,6 +362,10 @@ export default function ManageVouchers() {
             setSelectedServices([]);
             setSelectedPackages([]);
             setSelectorSearch('');
+            setScopeType('tat_ca');
+            setIsServicesActive(false);
+            setIsPackagesActive(false);
+            setCurrentTab('services');
             setIsVoucherModalOpen(true); 
           }}
           className="bg-primary text-white px-5 py-2.5 rounded-xl font-semibold shadow-soft-button hover:-translate-y-0.5 transition-all duration-200 flex items-center gap-2 text-sm self-start md:self-auto"
@@ -491,6 +601,36 @@ export default function ManageVouchers() {
                             ) : null;
                           })}
                         </>
+                      )}
+                      {v.ap_dung_cho === 'dich_vu_va_goi' && (
+                        <div className="space-y-1.5 w-full">
+                          {v.dich_vu_ids && v.dich_vu_ids.length > 0 && (
+                            <div className="flex flex-wrap gap-1 items-center">
+                              <span className="text-[10px] bg-teal-50 text-teal-700 border border-teal-100 px-2 py-0.5 rounded font-medium flex-shrink-0">Dịch vụ:</span>
+                              <div className="flex flex-wrap gap-1">
+                                {v.dich_vu_ids.map(id => {
+                                  const s = services.find(srv => srv.id === id);
+                                  return s ? (
+                                    <span key={id} className="text-[9px] bg-slate-50 text-slate-600 border border-slate-100 px-1.5 py-0.5 rounded">{s.ten_dich_vu}</span>
+                                  ) : null;
+                                })}
+                              </div>
+                            </div>
+                          )}
+                          {v.goi_dich_vu_ids && v.goi_dich_vu_ids.length > 0 && (
+                            <div className="flex flex-wrap gap-1 items-center">
+                              <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded font-medium flex-shrink-0">Gói:</span>
+                              <div className="flex flex-wrap gap-1">
+                                {v.goi_dich_vu_ids.map(id => {
+                                  const p = packages.find(pkg => pkg.id === id);
+                                  return p ? (
+                                    <span key={id} className="text-[9px] bg-slate-50 text-slate-600 border border-slate-100 px-1.5 py-0.5 rounded">{p.ten_goi}</span>
+                                  ) : null;
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -729,125 +869,256 @@ export default function ManageVouchers() {
                       id="yeu_cau_thanh_toan"
                       value={yeuCauThanhToan}
                       onChange={(e) => setYeuCauThanhToan(e.target.value as any)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm bg-white cursor-pointer"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm bg-white cursor-pointer font-bold"
                     >
-                      <option value="tat_ca">Tất cả hình thức</option>
-                      <option value="tra_thang">Chỉ áp dụng khi Trả thẳng 100%</option>
-                      <option value="tra_gop">Chỉ áp dụng khi Trả góp</option>
+                      <option value="tra_thang">Trả thẳng 100%</option>
+                      <option value="tra_gop">Trả góp</option>
                     </select>
                   </div>
                 </div>
-              </div>
 
-              {/* Scope applicability */}
-              <div className="border-t border-slate-100 pt-6">
-                <label htmlFor="ap_dung_cho" className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Phạm vi áp dụng</label>
-                <select 
-                  id="ap_dung_cho"
-                  name="ap_dung_cho"
-                  defaultValue={editingVoucher?.ap_dung_cho || 'tat_ca'}
-                  onChange={(e) => {
-                    setEditingVoucher(prev => ({
-                      ...prev,
-                      ap_dung_cho: e.target.value as any
-                    }));
-                  }}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm bg-white cursor-pointer"
-                >
-                  <option value="tat_ca">Toàn bộ danh mục & Gói</option>
-                  <option value="dich_vu_cu_the">Chỉ định một số Dịch vụ cụ thể</option>
-                  <option value="goi_cu_the">Chỉ định một số Gói điều trị cụ thể</option>
-                </select>
-              </div>
+                    {/* Advanced interactive scope selector */}
+                    <div className="col-span-2 border-t border-slate-100 pt-5 space-y-4">
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Phạm vi áp dụng</label>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {yeuCauThanhToan !== 'tra_gop' ? (
+                          <>
+                            {/* Nút A: Áp dụng cho tất cả */}
+                            <div className="relative">
+                              {scopeType === 'tat_ca' && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setScopeType('tuy_chinh');
+                                  }}
+                                  className="absolute -top-1.5 -left-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-full p-1 shadow-md z-10 active:scale-95 transition-transform"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                disabled={isServicesActive || isPackagesActive}
+                                onClick={() => {
+                                  setScopeType('tat_ca');
+                                  setIsServicesActive(false);
+                                  setIsPackagesActive(false);
+                                  setSelectedServices([]);
+                                  setSelectedPackages([]);
+                                }}
+                                className={`w-full py-3 px-4 rounded-2xl border text-sm font-bold flex flex-col items-center justify-center gap-1.5 transition-all relative ${
+                                  scopeType === 'tat_ca'
+                                    ? 'border-primary bg-teal-50/50 text-teal-700 shadow-md ring-2 ring-primary/20 scale-[1.02]'
+                                    : (isServicesActive || isPackagesActive)
+                                      ? 'border-slate-150 bg-slate-50/50 text-slate-400 opacity-40 cursor-not-allowed'
+                                      : 'border-slate-200 bg-white text-slate-650 hover:border-slate-350 hover:bg-slate-50'
+                                }`}
+                              >
+                                <Layers className="w-4 h-4 text-teal-600" />
+                                <span>Áp dụng cho tất cả</span>
+                                <span className="text-[10px] font-normal text-slate-400">Toàn bộ dịch vụ & gói</span>
+                              </button>
+                            </div>
 
-              {/* Dynamic Relation selection panel */}
-              {editingVoucher?.ap_dung_cho === 'dich_vu_cu_the' && (
-                <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 space-y-4 animate-fade-in">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Chọn dịch vụ áp dụng</span>
-                    <input 
-                      type="text"
-                      placeholder="Tìm dịch vụ..."
-                      value={selectorSearch}
-                      onChange={(e) => setSelectorSearch(e.target.value)}
-                      className="px-3 py-1.5 rounded-lg border border-slate-200 focus:border-primary outline-none text-xs w-44 bg-white"
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
-                    {services
-                      .filter(s => s.ten_dich_vu.toLowerCase().includes(selectorSearch.toLowerCase()))
-                      .map(s => {
-                        const isChecked = selectedServices.includes(s.id);
-                        return (
-                          <div 
-                            key={s.id}
+                            {/* Nút B: Dịch vụ cụ thể */}
+                            <div className="relative">
+                              {isServicesActive && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setIsServicesActive(false);
+                                    setSelectedServices([]);
+                                    if (!isPackagesActive) {
+                                      setScopeType('tat_ca');
+                                    }
+                                  }}
+                                  className="absolute -top-1.5 -left-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-full p-1 shadow-md z-10 active:scale-95 transition-transform"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                disabled={scopeType === 'tat_ca'}
+                                onClick={() => {
+                                  setScopeType('tuy_chinh');
+                                  setIsServicesActive(true);
+                                  setCurrentTab('services');
+                                }}
+                                className={`w-full py-3 px-4 rounded-2xl border text-sm font-bold flex flex-col items-center justify-center gap-1.5 transition-all relative ${
+                                  isServicesActive
+                                    ? 'border-primary bg-teal-50/50 text-teal-700 shadow-md ring-2 ring-primary/20 scale-[1.02]'
+                                    : scopeType === 'tat_ca'
+                                      ? 'border-slate-150 bg-slate-50/50 text-slate-400 opacity-40 cursor-not-allowed'
+                                      : 'border-slate-200 bg-white text-slate-650 hover:border-slate-350 hover:bg-slate-50'
+                                }`}
+                              >
+                                <Layers className="w-4 h-4 text-teal-600" />
+                                <span>Chỉ định dịch vụ</span>
+                                <span className="text-[10px] font-normal text-slate-400">
+                                  {selectedServices.length > 0 ? `Đã chọn ${selectedServices.length} dịch vụ` : 'Chọn dịch vụ cụ thể'}
+                                </span>
+                              </button>
+                            </div>
+                          </>
+                        ) : null}
+
+                        {/* Nút C: Gói cụ thể */}
+                        <div className={`relative ${yeuCauThanhToan === 'tra_gop' ? 'col-span-3' : ''}`}>
+                          {isPackagesActive && yeuCauThanhToan !== 'tra_gop' && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsPackagesActive(false);
+                                setSelectedPackages([]);
+                                if (!isServicesActive) {
+                                  setScopeType('tat_ca');
+                                }
+                              }}
+                              className="absolute -top-1.5 -left-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-full p-1 shadow-md z-10 active:scale-95 transition-transform"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            disabled={scopeType === 'tat_ca' && yeuCauThanhToan !== 'tra_gop'}
                             onClick={() => {
-                              setSelectedServices(prev => 
-                                isChecked ? prev.filter(id => id !== s.id) : [...prev, s.id]
-                              );
+                              setScopeType('tuy_chinh');
+                              setIsPackagesActive(true);
+                              setCurrentTab('packages');
                             }}
-                            className={`flex items-center gap-2.5 p-2.5 rounded-xl border cursor-pointer select-none transition-all text-xs ${
-                              isChecked 
-                                ? 'bg-teal-50 border-primary text-primary font-semibold' 
-                                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100/50'
+                            className={`w-full py-3 px-4 rounded-2xl border text-sm font-bold flex flex-col items-center justify-center gap-1.5 transition-all relative ${
+                              isPackagesActive
+                                ? 'border-primary bg-teal-50/50 text-teal-700 shadow-md ring-2 ring-primary/20 scale-[1.02]'
+                                : scopeType === 'tat_ca'
+                                  ? 'border-slate-150 bg-slate-50/50 text-slate-400 opacity-40 cursor-not-allowed'
+                                  : 'border-slate-200 bg-white text-slate-650 hover:border-slate-350 hover:bg-slate-50'
                             }`}
                           >
-                            {isChecked ? <CheckSquare className="w-4 h-4 text-primary" /> : <Square className="w-4 h-4 text-slate-300" />}
-                            <span className="truncate">{s.ten_dich_vu}</span>
-                          </div>
-                        );
-                      })}
+                            <Layers className="w-4 h-4 text-teal-600" />
+                            <span>Chỉ định gói</span>
+                            <span className="text-[10px] font-normal text-slate-400">
+                              {selectedPackages.length > 0 ? `Đã chọn ${selectedPackages.length} gói` : 'Chọn gói trị liệu cụ thể'}
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  {selectedServices.length > 0 && (
-                    <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
-                      <AlertCircle className="w-3.5 h-3.5 text-primary" />
-                      <span>Đã chọn <strong className="text-primary font-bold">{selectedServices.length}</strong> dịch vụ.</span>
+
+              {/* Selector lists */}
+              {scopeType === 'tuy_chinh' && (isServicesActive || isPackagesActive) && (
+                <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 space-y-4">
+                  {/* Tab Switcher (only shown if both are active) */}
+                  {isServicesActive && isPackagesActive && (
+                    <div className="flex border-b border-slate-200">
+                      <button
+                        type="button"
+                        onClick={() => setCurrentTab('services')}
+                        className={`pb-2.5 px-4 text-xs font-bold transition-all relative ${
+                          currentTab === 'services'
+                            ? 'text-primary border-b-2 border-primary font-extrabold'
+                            : 'text-slate-400 hover:text-slate-600'
+                        }`}
+                      >
+                        Danh sách Dịch vụ ({selectedServices.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCurrentTab('packages')}
+                        className={`pb-2.5 px-4 text-xs font-bold transition-all relative ${
+                          currentTab === 'packages'
+                            ? 'text-primary border-b-2 border-primary font-extrabold'
+                            : 'text-slate-400 hover:text-slate-600'
+                        }`}
+                      >
+                        Danh sách Gói ({selectedPackages.length})
+                      </button>
                     </div>
                   )}
-                </div>
-              )}
 
-              {editingVoucher?.ap_dung_cho === 'goi_cu_the' && (
-                <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 space-y-4 animate-fade-in">
+                  {/* If only services is active */}
+                  {isServicesActive && !isPackagesActive && (
+                    <div className="text-xs font-bold text-slate-600 uppercase tracking-wider">
+                      Chọn dịch vụ áp dụng ({selectedServices.length} đã chọn)
+                    </div>
+                  )}
+
+                  {/* If only packages is active */}
+                  {!isServicesActive && isPackagesActive && (
+                    <div className="text-xs font-bold text-slate-600 uppercase tracking-wider">
+                      Chọn gói dịch vụ áp dụng ({selectedPackages.length} đã chọn)
+                    </div>
+                  )}
+
+                  {/* Search Bar for Selection */}
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Chọn gói dịch vụ áp dụng</span>
+                    <span className="text-[11px] text-slate-400 font-semibold">Tích chọn các mục để áp dụng giảm giá</span>
                     <input 
                       type="text"
-                      placeholder="Tìm gói..."
+                      placeholder={`Tìm ${((isServicesActive && !isPackagesActive) || (isServicesActive && isPackagesActive && currentTab === 'services')) ? 'dịch vụ' : 'gói'}...`}
                       value={selectorSearch}
                       onChange={(e) => setSelectorSearch(e.target.value)}
                       className="px-3 py-1.5 rounded-lg border border-slate-200 focus:border-primary outline-none text-xs w-44 bg-white"
                     />
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
-                    {packages
-                      .filter(p => p.ten_goi.toLowerCase().includes(selectorSearch.toLowerCase()))
-                      .map(p => {
-                        const isChecked = selectedPackages.includes(p.id);
-                        return (
-                          <div 
-                            key={p.id}
-                            onClick={() => {
-                              setSelectedPackages(prev => 
-                                isChecked ? prev.filter(id => id !== p.id) : [...prev, p.id]
-                              );
-                            }}
-                            className={`flex items-center gap-2.5 p-2.5 rounded-xl border cursor-pointer select-none transition-all text-xs ${
-                              isChecked 
-                                ? 'bg-teal-50 border-primary text-primary font-semibold' 
-                                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100/50'
-                            }`}
-                          >
-                            {isChecked ? <CheckSquare className="w-4 h-4 text-primary" /> : <Square className="w-4 h-4 text-slate-300" />}
-                            <span className="truncate">{p.ten_goi}</span>
-                          </div>
-                        );
-                      })}
-                  </div>
-                  {selectedPackages.length > 0 && (
-                    <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
-                      <AlertCircle className="w-3.5 h-3.5 text-primary" />
-                      <span>Đã chọn <strong className="text-primary font-bold">{selectedPackages.length}</strong> gói áp dụng.</span>
+
+                  {/* Service selection list */}
+                  {((isServicesActive && !isPackagesActive) || (isServicesActive && isPackagesActive && currentTab === 'services')) && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+                      {services
+                        .filter(s => s.ten_dich_vu.toLowerCase().includes(selectorSearch.toLowerCase()))
+                        .map(s => {
+                          const isChecked = selectedServices.includes(s.id);
+                          return (
+                            <div 
+                              key={s.id}
+                              onClick={() => {
+                                setSelectedServices(prev => 
+                                  isChecked ? prev.filter(id => id !== s.id) : [...prev, s.id]
+                                );
+                              }}
+                              className={`flex items-center gap-2.5 p-2.5 rounded-xl border cursor-pointer select-none transition-all text-xs ${
+                                isChecked 
+                                  ? 'bg-teal-50/50 border-primary text-primary font-semibold shadow-sm' 
+                                  : 'bg-white border-slate-200 text-slate-650 hover:bg-slate-100/50'
+                              }`}
+                            >
+                              {isChecked ? <CheckSquare className="w-4 h-4 text-primary" /> : <Square className="w-4 h-4 text-slate-300" />}
+                              <span className="truncate">{s.ten_dich_vu}</span>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
+
+                  {/* Package selection list */}
+                  {((!isServicesActive && isPackagesActive) || (isServicesActive && isPackagesActive && currentTab === 'packages')) && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+                      {packages
+                        .filter(p => p.ten_goi.toLowerCase().includes(selectorSearch.toLowerCase()))
+                        .map(p => {
+                          const isChecked = selectedPackages.includes(p.id);
+                          return (
+                            <div 
+                              key={p.id}
+                              onClick={() => {
+                                setSelectedPackages(prev => 
+                                  isChecked ? prev.filter(id => id !== p.id) : [...prev, p.id]
+                                );
+                              }}
+                              className={`flex items-center gap-2.5 p-2.5 rounded-xl border cursor-pointer select-none transition-all text-xs ${
+                                isChecked 
+                                  ? 'bg-teal-50/50 border-primary text-primary font-semibold shadow-sm' 
+                                  : 'bg-white border-slate-200 text-slate-650 hover:bg-slate-100/50'
+                              }`}
+                            >
+                              {isChecked ? <CheckSquare className="w-4 h-4 text-primary" /> : <Square className="w-4 h-4 text-slate-300" />}
+                              <span className="truncate">{p.ten_goi}</span>
+                            </div>
+                          );
+                        })}
                     </div>
                   )}
                 </div>
@@ -870,6 +1141,38 @@ export default function ManageVouchers() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Dialog Popup */}
+      {confirmModalData && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl border border-slate-100 text-center space-y-4">
+            <div className="w-12 h-12 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center mx-auto text-xl">
+              <AlertCircle className="w-6 h-6 text-teal-600" />
+            </div>
+            <h3 className="text-lg font-bold text-slate-800">{confirmModalData.title}</h3>
+            <p className="text-sm text-slate-500 leading-relaxed">{confirmModalData.message}</p>
+            <div className="flex gap-3 justify-center pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmModalData(null)}
+                className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 transition-colors text-sm"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  confirmModalData.onConfirm();
+                  setConfirmModalData(null);
+                }}
+                className="px-5 py-2.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary/95 shadow-md shadow-teal-500/10 transition-colors text-sm"
+              >
+                Xác nhận lưu
+              </button>
+            </div>
           </div>
         </div>
       )}

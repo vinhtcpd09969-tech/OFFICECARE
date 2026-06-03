@@ -13,7 +13,8 @@ import {
   getSessionServices,
   getPackagesForReceptionist,
   getCompletedConsultations,
-  getAutoVouchers
+  getAutoVouchers,
+  confirmTreatmentPlan
 } from '../controllers/receptionist.controller';
 
 const router = Router();
@@ -25,6 +26,8 @@ router.get('/stats', getReceptionistStats);
 router.post('/walk-in', handleWalkInBooking);
 router.post('/billing', createBillingFromAppointment);
 router.post('/payment', processPayment);
+
+router.post('/treatment-plans/confirm', confirmTreatmentPlan);
 
 router.post('/billing/calculate', calculateBilling);
 router.post('/billing/create', createBillingDirect);

@@ -15,7 +15,7 @@ class ReceptionistRepository {
       JOIN khach_hang kh_table ON ld.khach_hang_id = kh_table.id
       JOIN nguoi_dung kh ON kh_table.nguoi_dung_id = kh.id
       JOIN dich_vu dv ON ld.dich_vu_id = dv.id
-      LEFT JOIN chuyen_gia_y_te ktv ON ld.ky_thuat_vien_id = ktv.id
+      LEFT JOIN chuyen_gia_y_te ktv ON ld.bac_si_id = ktv.id
       LEFT JOIN nguoi_dung nd_ktv ON ktv.nguoi_dung_id = nd_ktv.id
       LEFT JOIN phong p ON ld.phong_id = p.id
       WHERE DATE(ld.ngay_gio_bat_dau) = CURRENT_DATE
@@ -188,7 +188,7 @@ class ReceptionistRepository {
       const phongId = rooms[0].id;
 
       const { rows } = await client.query(`
-        INSERT INTO lich_dat (ma_lich_dat, khach_hang_id, dich_vu_id, ky_thuat_vien_id, phong_id, ngay_gio_bat_dau, ngay_gio_ket_thuc, trang_thai, thoi_gian_checkin, nguoi_tao)
+        INSERT INTO lich_dat (ma_lich_dat, khach_hang_id, dich_vu_id, bac_si_id, phong_id, ngay_gio_bat_dau, ngay_gio_ket_thuc, trang_thai, thoi_gian_checkin, nguoi_tao)
         VALUES ($1, $2, $3, $4, $5, $6, $7, 'da_checkin', NOW(), 'le_tan') RETURNING id
       `, [maLichDat, khachHangId, dich_vu_id, ky_thuat_vien_id || null, phongId, startTime, endTime]);
 
@@ -563,13 +563,29 @@ class ReceptionistRepository {
     try {
       await client.query('BEGIN');
 
+      const btlRes = await client.query('SELECT ky_thuat_vien_id FROM buoi_tri_lieu WHERE id = $1', [buoi_tri_lieu_id]);
+      const defaultKtvId = btlRes.rows.length > 0 ? btlRes.rows[0].ky_thuat_vien_id : null;
+
       await client.query('DELETE FROM buoi_tri_lieu_dich_vu WHERE buoi_tri_lieu_id = $1', [buoi_tri_lieu_id]);
 
       for (const item of services) {
         await client.query(`
-          INSERT INTO buoi_tri_lieu_dich_vu (buoi_tri_lieu_id, dich_vu_id, so_luong, thoi_gian_thuc_hien)
-          VALUES ($1, $2, $3, NOW())
-        `, [buoi_tri_lieu_id, item.dich_vu_id, item.so_luong || 1]);
+          INSERT INTO buoi_tri_lieu_dich_vu (
+            buoi_tri_lieu_id, dich_vu_id, so_luong, thoi_gian_thuc_hien,
+            ktv_id, loai_dich_vu_su_dung, trang_thai, ghi_chu_ly_do, duyet_boi, duyet_luc
+          )
+          VALUES ($1, $2, $3, NOW(), $4, $5, $6, $7, $8, $9)
+        `, [
+          buoi_tri_lieu_id,
+          item.dich_vu_id,
+          item.so_luong || 1,
+          item.ktv_id || defaultKtvId,
+          item.loai_dich_vu_su_dung || 'trong_goi',
+          item.trang_thai || 'da_duyet',
+          item.ghi_chu_ly_do || null,
+          item.duyet_boi || null,
+          item.duyet_luc ? new Date(item.duyet_luc) : null
+        ]);
       }
 
       await client.query('COMMIT');
@@ -609,6 +625,165 @@ class ReceptionistRepository {
       'UPDATE lich_dieu_tri SET so_buoi_da_dung = $1 WHERE id = $2',
       [completedCount, ldtId]
     );
+  }
+
+  async getTreatmentPlanById(id: string) {
+    const { rows } = await pool.query('SELECT * FROM lich_dieu_tri WHERE id = $1', [id]);
+    return rows[0];
+  }
+
+  async confirmTreatmentPlan(planData: any) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const {
+        khach_hang_id,
+        item_type,
+        item_id,
+        lich_dat_id,
+        ho_ten_khach,
+        so_dien_thoai,
+        ghi_chu_noi_bo
+      } = planData;
+
+      // 1. Get ho_so_benh_an_id and bac_si_id from lich_dat_id
+      let hsbaId = null;
+      let bacSiId = null;
+      if (lich_dat_id) {
+        const hsbaRes = await client.query('SELECT id, bac_si_id FROM ho_so_benh_an WHERE lich_dat_id = $1', [lich_dat_id]);
+        if (hsbaRes.rows.length > 0) {
+          hsbaId = hsbaRes.rows[0].id;
+          bacSiId = hsbaRes.rows[0].bac_si_id;
+        } else {
+          const ldRes = await client.query('SELECT bac_si_id FROM lich_dat WHERE id = $1', [lich_dat_id]);
+          if (ldRes.rows.length > 0) {
+            bacSiId = ldRes.rows[0].bac_si_id;
+          }
+        }
+      }
+
+      // 2. Determine sessions count and initial service
+      let tong_so_buoi = 1;
+      let target_dich_vu_id = (item_type === 'dich_vu') ? item_id : null;
+      if (item_type === 'goi') {
+        const pkgRes = await client.query('SELECT tong_so_buoi FROM goi_dich_vu WHERE id = $1', [item_id]);
+        if (pkgRes.rows.length > 0) {
+          tong_so_buoi = pkgRes.rows[0].tong_so_buoi;
+        }
+        const svcRes = await client.query('SELECT dich_vu_id FROM goi_dich_vu_chi_tiet WHERE goi_dich_vu_id = $1 ORDER BY id ASC LIMIT 1', [item_id]);
+        if (svcRes.rows.length > 0) {
+          target_dich_vu_id = svcRes.rows[0].dich_vu_id;
+        }
+      }
+
+      // 3. Insert into lich_dieu_tri
+      const maLichDieuTri = `LDT${Math.floor(100000 + Math.random() * 900000)}`;
+      const { rows: ldtRows } = await client.query(`
+        INSERT INTO lich_dieu_tri (
+          khach_hang_id, loai_dieu_tri, goi_dich_vu_id, dich_vu_id, tong_so_buoi, 
+          so_buoi_da_dung, trang_thai, ma_lich_dieu_tri, ho_ten_khach, 
+          so_dien_thoai, lich_dat_id, ho_so_benh_an_id, ghi_chu_noi_bo
+        ) VALUES ($1, $2, $3, $4, $5, 0, 'cho_thanh_toan', $6, $7, $8, $9, $10, $11)
+        RETURNING *
+      `, [
+        khach_hang_id,
+        item_type === 'goi' ? 'theo_goi' : 'dich_vu_le',
+        item_type === 'goi' ? item_id : null,
+        item_type === 'dich_vu' ? item_id : null,
+        tong_so_buoi,
+        maLichDieuTri,
+        ho_ten_khach || null,
+        so_dien_thoai || null,
+        lich_dat_id || null,
+        hsbaId,
+        ghi_chu_noi_bo || null
+      ]);
+      const ldt = ldtRows[0];
+
+      // 4. Create first session (buoi_tri_lieu 1)
+      const ngay_gio_bat_dau = new Date();
+      const ngay_gio_ket_thuc = new Date(ngay_gio_bat_dau.getTime() + 60 * 60000);
+      await client.query(`
+        INSERT INTO buoi_tri_lieu (
+          lich_dieu_tri_id, khach_hang_id, ky_thuat_vien_id, dich_vu_id, 
+          thoi_gian_bat_dau, thoi_gian_ket_thuc, so_thu_tu_buoi, trang_thai
+        ) VALUES ($1, $2, $3, $4, $5, $6, 1, 'cho_thuc_hien')
+      `, [
+        ldt.id,
+        khach_hang_id,
+        bacSiId || null,
+        target_dich_vu_id,
+        ngay_gio_bat_dau,
+        ngay_gio_ket_thuc
+      ]);
+
+      await client.query('COMMIT');
+      return ldt;
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+
+  async createInvoiceForTreatmentPlan(invoiceData: any) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const {
+        lich_dieu_tri_id,
+        khach_hang_id,
+        item_type,
+        tong_tien_truoc_giam,
+        so_tien_giam_voucher,
+        uu_dai_thanh_toan_id,
+        so_tien_giam_phuong_thuc,
+        tong_tien_thanh_toan,
+        loai_thanh_toan,
+        voucher_id
+      } = invoiceData;
+
+      const maHoaDon = `HD${Math.floor(100000 + Math.random() * 900000)}`;
+
+      const { rows: hdRows } = await client.query(`
+        INSERT INTO hoa_don (
+          ma_hoa_don, khach_hang_id, loai_hoa_don, lich_dieu_tri_id,
+          tong_tien_truoc_giam, so_tien_giam, tong_tien_thanh_toan, da_thanh_toan,
+          trang_thai, loai_thanh_toan, voucher_id, so_tien_giam_voucher,
+          uu_dai_thanh_toan_id, so_tien_giam_phuong_thuc
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, 0, 'chua_thanh_toan', $8, $9, $10, $11, $12)
+        RETURNING *
+      `, [
+        maHoaDon,
+        khach_hang_id,
+        item_type === 'goi' ? 'goi_dich_vu' : 'dich_vu_don',
+        lich_dieu_tri_id,
+        tong_tien_truoc_giam,
+        so_tien_giam_voucher + so_tien_giam_phuong_thuc,
+        tong_tien_thanh_toan,
+        loai_thanh_toan,
+        voucher_id || null,
+        so_tien_giam_voucher,
+        uu_dai_thanh_toan_id || null,
+        so_tien_giam_phuong_thuc
+      ]);
+
+      await client.query('COMMIT');
+      return hdRows[0];
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+
+  async getTreatmentPlanBySessionId(sessionId: string) {
+    const { rows } = await pool.query('SELECT lich_dieu_tri_id FROM buoi_tri_lieu WHERE id = $1', [sessionId]);
+    return rows[0] ? rows[0].lich_dieu_tri_id : null;
   }
 }
 

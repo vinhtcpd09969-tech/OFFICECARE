@@ -1,14 +1,27 @@
 import { useState, useEffect } from 'react';
 import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
-import { LogOut, LayoutDashboard, ChevronDown, Menu, X, Calendar } from 'lucide-react';
+import { LogOut, LayoutDashboard, ChevronDown, Menu, X, Calendar, Facebook, Instagram, Youtube, Mail, Phone, MapPin, ShieldAlert } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function LandingLayout() {
-  const { isAuthenticated, user, logout } = useAuthStore();
+  const { isAuthenticated, user, logout, showAuthModal, setShowAuthModal } = useAuthStore();
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+
+  const handleBookingClick = (e: React.MouseEvent) => {
+    if (!isAuthenticated()) {
+      e.preventDefault();
+      setShowAuthModal(true);
+    }
+  };
+
+  const handleRedirectToLogin = () => {
+    setShowAuthModal(false);
+    navigate('/login', { state: { from: '/booking' } });
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -39,16 +52,16 @@ export default function LandingLayout() {
             : 'bg-white/40 backdrop-blur-sm border border-transparent shadow-none'
         }`}>
           
-          {/* Logo - Elegant Placeholder */}
+          {/* Logo */}
           <Link to="/" className="flex items-center gap-3 hover:opacity-95 transition-opacity">
-            <div className="flex items-center justify-center w-10 h-10 rounded-2xl bg-primary/10 border border-primary/20 text-primary font-black text-xl shadow-inner">
+            <div className="flex items-center justify-center w-10 h-10 rounded-2xl bg-primary/10 border border-primary/20 text-primary font-jakarta font-black text-xl shadow-inner">
               O
             </div>
             <div className="flex flex-col">
-              <span className="font-heading font-black text-base text-secondary tracking-tight leading-none uppercase">
+              <span className="font-jakarta font-black text-base text-secondary tracking-tight leading-none uppercase">
                 Office Care
               </span>
-              <span className="text-[9px] text-primary font-extrabold uppercase tracking-widest leading-none mt-1">
+              <span className="text-[9px] text-primary font-jakarta font-extrabold uppercase tracking-widest leading-none mt-1">
                 Premium Rehab
               </span>
             </div>
@@ -56,9 +69,9 @@ export default function LandingLayout() {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-8">
-            <Link to="/" className="text-sm font-bold text-secondary hover:text-primary transition-colors relative py-1 after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-primary hover:after:w-full after:transition-all">Trang chủ</Link>
-            <a href="/#services" className="text-sm font-bold text-secondary hover:text-primary transition-colors relative py-1 after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-primary hover:after:w-full after:transition-all">Dịch vụ</a>
-            <a href="/#pricing" className="text-sm font-bold text-secondary hover:text-primary transition-colors relative py-1 after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-primary hover:after:w-full after:transition-all">Bảng giá</a>
+            <Link to="/" className="text-sm font-jakarta font-bold text-secondary hover:text-primary transition-colors relative py-1 after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-primary hover:after:w-full after:transition-all">Trang chủ</Link>
+            <a href="/#services" className="text-sm font-jakarta font-bold text-secondary hover:text-primary transition-colors relative py-1 after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-primary hover:after:w-full after:transition-all">Dịch vụ</a>
+            <a href="/#pricing" className="text-sm font-jakarta font-bold text-secondary hover:text-primary transition-colors relative py-1 after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-primary hover:after:w-full after:transition-all">Bảng giá</a>
           </nav>
 
           {/* Auth Actions (Desktop) */}
@@ -77,8 +90,8 @@ export default function LandingLayout() {
                     />
                   </div>
                   <div className="text-left hidden lg:block">
-                    <p className="text-xs font-bold text-secondary leading-tight">{user.ho_ten}</p>
-                    <p className="text-[10px] text-gray-400 font-bold">Cá nhân</p>
+                    <p className="text-xs font-jakarta font-bold text-secondary leading-tight">{user.ho_ten}</p>
+                    <p className="text-[10px] text-gray-400 font-jakarta font-bold">Cá nhân</p>
                   </div>
                   <ChevronDown size={14} className={`text-gray-400 transition-transform ${isMenuOpen ? 'rotate-180' : ''}`} />
                 </button>
@@ -88,7 +101,7 @@ export default function LandingLayout() {
                   <div className="absolute right-0 mt-2 w-56 bg-white rounded-[24px] shadow-soft-ui border border-slate-100 py-2 animate-slide-up">
                     <Link 
                       to="/dashboard" 
-                      className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-secondary hover:bg-slate-50 transition-colors"
+                      className="flex items-center gap-3 px-4 py-3 text-sm font-jakarta font-bold text-secondary hover:bg-slate-50 transition-colors"
                       onClick={() => setIsMenuOpen(false)}
                     >
                       <LayoutDashboard size={18} className="text-primary" />
@@ -97,7 +110,7 @@ export default function LandingLayout() {
                     <div className="h-px bg-slate-100 my-1"></div>
                     <button 
                       onClick={handleLogout}
-                      className="flex items-center gap-3 w-full px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 transition-colors"
+                      className="flex items-center gap-3 w-full px-4 py-3 text-sm font-jakarta font-bold text-red-600 hover:bg-red-50 transition-colors"
                     >
                       <LogOut size={18} />
                       Đăng xuất
@@ -107,10 +120,10 @@ export default function LandingLayout() {
               </div>
             ) : (
               <div className="flex items-center gap-3">
-                <Link to="/login" className="text-sm font-bold text-secondary hover:text-primary transition-colors px-4 py-2">
+                <Link to="/login" className="text-sm font-jakarta font-bold text-secondary hover:text-primary transition-colors px-4 py-2">
                   Đăng nhập
                 </Link>
-                <Link to="/booking" className="bg-[#2EC4B6] hover:bg-[#25A89C] text-white text-xs font-extrabold px-5 py-3 rounded-full shadow-md hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5">
+                <Link to="/booking" onClick={handleBookingClick} className="bg-[#2EC4B6] hover:bg-[#25A89C] text-white text-xs font-jakarta font-extrabold px-5 py-3 rounded-full shadow-md hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5 animate-pulse-custom">
                   <Calendar size={14} />
                   Đặt lịch tư vấn chuyên sâu
                 </Link>
@@ -130,26 +143,26 @@ export default function LandingLayout() {
         {/* Mobile Menu Drawer */}
         {isMobileMenuOpen && (
           <div className="md:hidden w-full mt-2 bg-white/95 backdrop-blur-md rounded-[24px] border border-slate-100 shadow-lg px-6 py-6 flex flex-col gap-3 animate-slide-up">
-            <Link to="/" className="text-sm font-bold text-secondary py-2.5 border-b border-slate-50" onClick={() => setIsMobileMenuOpen(false)}>Trang chủ</Link>
-            <a href="/#services" className="text-sm font-bold text-secondary py-2.5 border-b border-slate-50" onClick={() => setIsMobileMenuOpen(false)}>Dịch vụ</a>
-            <a href="/#pricing" className="text-sm font-bold text-secondary py-2.5 border-b border-slate-50" onClick={() => setIsMobileMenuOpen(false)}>Bảng giá</a>
+            <Link to="/" className="text-sm font-jakarta font-bold text-secondary py-2.5 border-b border-slate-50" onClick={() => setIsMobileMenuOpen(false)}>Trang chủ</Link>
+            <a href="/#services" className="text-sm font-jakarta font-bold text-secondary py-2.5 border-b border-slate-50" onClick={() => setIsMobileMenuOpen(false)}>Dịch vụ</a>
+            <a href="/#pricing" className="text-sm font-jakarta font-bold text-secondary py-2.5 border-b border-slate-50" onClick={() => setIsMobileMenuOpen(false)}>Bảng giá</a>
             
             <div className="mt-4 flex flex-col gap-2.5">
               {isAuthenticated() && user ? (
                 <>
-                  <Link to="/dashboard" className="flex items-center justify-center gap-2 bg-slate-50 hover:bg-slate-100 text-secondary text-sm font-bold px-6 py-3 rounded-[16px] transition-all" onClick={() => setIsMobileMenuOpen(false)}>
+                  <Link to="/dashboard" className="flex items-center justify-center gap-2 bg-slate-50 hover:bg-slate-100 text-secondary text-sm font-jakarta font-bold px-6 py-3 rounded-[16px] transition-all" onClick={() => setIsMobileMenuOpen(false)}>
                     <LayoutDashboard size={18} /> Quản lý tài khoản
                   </Link>
-                  <button onClick={handleLogout} className="flex items-center justify-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 text-sm font-bold px-6 py-3 rounded-[16px] transition-all">
+                  <button onClick={handleLogout} className="flex items-center justify-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 text-sm font-jakarta font-bold px-6 py-3 rounded-[16px] transition-all">
                     <LogOut size={18} /> Đăng xuất
                   </button>
                 </>
               ) : (
                 <>
-                  <Link to="/login" className="flex items-center justify-center text-secondary bg-slate-50 hover:bg-slate-100 text-sm font-bold px-6 py-3 rounded-[16px] transition-all" onClick={() => setIsMobileMenuOpen(false)}>
+                  <Link to="/login" className="flex items-center justify-center text-secondary bg-slate-50 hover:bg-slate-100 text-sm font-jakarta font-bold px-6 py-3 rounded-[16px] transition-all" onClick={() => setIsMobileMenuOpen(false)}>
                     Đăng nhập
                   </Link>
-                  <Link to="/booking" className="flex items-center justify-center bg-primary hover:bg-[#25A89C] text-white text-sm font-bold px-6 py-3 rounded-[16px] shadow-soft-button transition-all" onClick={() => setIsMobileMenuOpen(false)}>
+                  <Link to="/booking" onClick={(e) => { setIsMobileMenuOpen(false); handleBookingClick(e); }} className="flex items-center justify-center bg-primary hover:bg-[#25A89C] text-white text-sm font-jakarta font-bold px-6 py-3 rounded-[16px] shadow-soft-button transition-all animate-pulse-custom">
                     Đặt lịch tư vấn chuyên sâu
                   </Link>
                 </>
@@ -164,75 +177,161 @@ export default function LandingLayout() {
         <Outlet />
       </main>
 
-      {/* Footer */}
-      <footer className="bg-slate-900 text-white pt-16 pb-8 border-t border-slate-800">
+      {/* Premium Wave Footer */}
+      <footer className="bg-primary text-white rounded-t-[40px] pt-16 pb-8 mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
-            <div className="md:col-span-1">
-              <Link to="/" className="flex items-center gap-3 mb-6 hover:opacity-95 transition-opacity">
-                <div className="flex items-center justify-center w-10 h-10 rounded-2xl bg-primary/10 border border-primary/20 text-primary font-black text-xl shadow-inner">
+            <div className="md:col-span-1 space-y-6">
+              <Link to="/" className="flex items-center gap-3 hover:opacity-95 transition-opacity">
+                <div className="flex items-center justify-center w-10 h-10 rounded-2xl bg-white/10 border border-white/20 text-white font-jakarta font-black text-xl shadow-inner">
                   O
                 </div>
                 <div className="flex flex-col">
-                  <span className="font-heading font-black text-lg text-white tracking-tight leading-none uppercase">
+                  <span className="font-jakarta font-black text-lg text-white tracking-tight leading-none uppercase">
                     Office Care
                   </span>
-                  <span className="text-[9px] text-primary font-extrabold uppercase tracking-widest leading-none mt-1">
+                  <span className="text-[9px] text-[#E6FFFA]/80 font-jakarta font-extrabold uppercase tracking-widest leading-none mt-1">
                     Premium Rehab
                   </span>
                 </div>
               </Link>
-              <p className="text-slate-400 text-sm leading-relaxed mb-6">
-                Giải pháp phục hồi chức năng chuyên sâu dành cho dân văn phòng. Lấy lại sự cân bằng, xua tan cơn đau cổ vai gáy.
+              <p className="text-white/80 text-sm leading-relaxed font-jakarta">
+                Therapeutic Precision for the Modern Professional.<br />
+                Giải pháp phục hồi chức năng cột sống và cơ xương khớp chuyên sâu, xóa tan những cơn đau kéo dài của giới văn phòng.
               </p>
+              <div className="flex gap-3 pt-2">
+                <a href="#" className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center hover:bg-white/10 transition-colors text-white">
+                  <Facebook size={18} />
+                </a>
+                <a href="#" className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center hover:bg-white/10 transition-colors text-white">
+                  <Instagram size={18} />
+                </a>
+                <a href="#" className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center hover:bg-white/10 transition-colors text-white">
+                  <Youtube size={18} />
+                </a>
+              </div>
             </div>
             
-            <div>
-              <h4 className="font-bold text-sm uppercase tracking-wider text-slate-200 mb-6">Dịch Vụ</h4>
-              <ul className="space-y-4">
-                <li><a href="/#services" className="text-slate-400 hover:text-primary transition-colors text-sm">Khám lượng giá ban đầu</a></li>
-                <li><a href="/#services" className="text-slate-400 hover:text-primary transition-colors text-sm">Siêu âm trị liệu</a></li>
-                <li><a href="/#services" className="text-slate-400 hover:text-primary transition-colors text-sm">Điện xung trị liệu</a></li>
-                <li><a href="/#services" className="text-slate-400 hover:text-primary transition-colors text-sm">Tập vận động thụ động</a></li>
+            <div className="space-y-6">
+              <h4 className="font-jakarta font-bold text-base tracking-wider text-white border-b border-white/10 pb-2">Dịch Vụ</h4>
+              <ul className="space-y-3 font-jakarta text-sm text-white/80">
+                <li><a href="/#services" className="hover:text-white hover:underline transition-all">Khám lượng giá ban đầu</a></li>
+                <li><a href="/#services" className="hover:text-white hover:underline transition-all">Siêu âm trị liệu sâu</a></li>
+                <li><a href="/#services" className="hover:text-white hover:underline transition-all">Điện xung giảm co thắt</a></li>
+                <li><a href="/#services" className="hover:text-white hover:underline transition-all">Tập vận động với kỹ thuật viên</a></li>
               </ul>
             </div>
             
-            <div>
-              <h4 className="font-bold text-sm uppercase tracking-wider text-slate-200 mb-6">Hỗ Trợ</h4>
-              <ul className="space-y-4">
-                <li><a href="#" className="text-slate-400 hover:text-primary transition-colors text-sm">Chính sách bảo mật</a></li>
-                <li><a href="#" className="text-slate-400 hover:text-primary transition-colors text-sm">Điều khoản sử dụng</a></li>
-                <li><a href="#" className="text-slate-400 hover:text-primary transition-colors text-sm">Câu hỏi thường gặp</a></li>
-                <li><a href="#" className="text-slate-400 hover:text-primary transition-colors text-sm">Liên hệ</a></li>
+            <div className="space-y-6">
+              <h4 className="font-jakarta font-bold text-base tracking-wider text-white border-b border-white/10 pb-2">Hỗ Trợ</h4>
+              <ul className="space-y-3 font-jakarta text-sm text-white/80">
+                <li><a href="#" className="hover:text-white hover:underline transition-all">Chính sách bảo mật</a></li>
+                <li><a href="#" className="hover:text-white hover:underline transition-all">Điều khoản sử dụng</a></li>
+                <li><a href="#" className="hover:text-white hover:underline transition-all">Câu hỏi thường gặp</a></li>
+                <li><a href="#" className="hover:text-white hover:underline transition-all">Liên hệ</a></li>
               </ul>
             </div>
             
-            <div>
-              <h4 className="font-bold text-sm uppercase tracking-wider text-slate-200 mb-6">Liên Hệ</h4>
-              <ul className="space-y-4 text-sm text-slate-400">
-                <li className="flex items-start gap-3">
-                  <span className="text-primary">📍</span> Khu đô thị Vinhomes Golden River, Bến Nghé, Quận 1, TP. Hồ Chí Minh
-                </li>
-                <li className="flex items-center gap-3">
-                  <span className="text-primary">📞</span> 1900 1234
-                </li>
-                <li className="flex items-center gap-3">
-                  <span className="text-primary">✉️</span> hello@officecare.com
-                </li>
-              </ul>
+            <div className="space-y-6">
+              <h4 className="font-jakarta font-bold text-base tracking-wider text-white border-b border-white/10 pb-2">Vị Trí</h4>
+              <div className="space-y-3 text-sm text-white/80 font-jakarta">
+                <p className="flex items-start gap-2.5 leading-snug">
+                  <MapPin size={16} className="shrink-0 mt-0.5 text-[#E6FFFA]" />
+                  <span>Khu đô thị Vinhomes Golden River, Bến Nghé, Quận 1, TP. Hồ Chí Minh</span>
+                </p>
+                <p className="flex items-center gap-2.5">
+                  <Phone size={16} className="shrink-0 text-[#E6FFFA]" />
+                  <span>1900 1234</span>
+                </p>
+                <p className="flex items-center gap-2.5">
+                  <Mail size={16} className="shrink-0 text-[#E6FFFA]" />
+                  <span>hello@officecare.com</span>
+                </p>
+                {/* Grayscale map mockup */}
+                <div className="h-28 w-full rounded-2xl overflow-hidden grayscale border border-white/10 shadow-inner mt-4">
+                  <img 
+                    alt="Map location" 
+                    className="w-full h-full object-cover" 
+                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuC19wwZDJ3bkj3fOUT-vEV-QurnB0OHl7qH6L_HUzvkp8uX63sAR71u-pzHgTlNhGTY94FL9Pf6rjR6otkrrMv5A8RxAF5U2yDFq1aKrtx4tE_ggNBdW-hrZp9FKYmhhZUcd42hAej3GbzPBZnC2DEpOHNC7g4rmyt6EYbt-L_CdBn8S6s2C97Rqe5e-WrMwtiEmx_Pvne2MNcsmUZDyoUZBcmi0Sg6t1yUclAmAXO62ATJeNgjzUvzUyraeG-8u2-KZb-lYDQ19P4"
+                  />
+                </div>
+              </div>
             </div>
           </div>
           
-          <div className="border-t border-slate-800 pt-8 text-center flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-slate-500 text-sm">© 2026 Office Care. Đã đăng ký bản quyền.</p>
-            <div className="flex gap-4">
-              <a href="#" className="w-10 h-10 rounded-full bg-slate-850 border border-slate-800 flex items-center justify-center text-slate-400 hover:bg-primary hover:text-white transition-all">FB</a>
-              <a href="#" className="w-10 h-10 rounded-full bg-slate-850 border border-slate-800 flex items-center justify-center text-slate-400 hover:bg-primary hover:text-white transition-all">IG</a>
-              <a href="#" className="w-10 h-10 rounded-full bg-slate-850 border border-slate-800 flex items-center justify-center text-slate-400 hover:bg-primary hover:text-white transition-all">YT</a>
-            </div>
+          <div className="border-t border-white/10 pt-8 text-center flex flex-col md:flex-row justify-between items-center gap-4">
+            <p className="text-white/60 text-xs font-jakarta">© 2026 Office Care. Đã đăng ký bản quyền. Phát triển với tiêu chuẩn y tế 5 sao.</p>
+            <p className="text-white/60 text-xs font-jakarta">Therapeutic Precision for the Modern Professional.</p>
           </div>
         </div>
       </footer>
+
+      {/* Global Premium Authentication Prompt Modal */}
+      <AnimatePresence>
+        {showAuthModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowAuthModal(false)}
+              className="absolute inset-0 bg-[#0F172A]/60 backdrop-blur-md"
+            />
+
+            {/* Modal Card */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 380 }}
+              className="relative w-full max-w-md bg-white rounded-[24px] border border-slate-100 shadow-2xl p-8 overflow-hidden z-10"
+            >
+              {/* Top Close Button */}
+              <button
+                onClick={() => setShowAuthModal(false)}
+                className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 hover:rotate-90 transition-all duration-300 p-1.5 rounded-full hover:bg-slate-50"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="text-center space-y-5">
+                {/* stylized medical shield/user icon */}
+                <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
+                  <div className="absolute inset-0 bg-[#2EC4B6]/10 rounded-2xl rotate-6 animate-pulse" />
+                  <div className="relative w-14 h-14 bg-[#2EC4B6]/15 text-[#2EC4B6] rounded-2xl flex items-center justify-center border border-[#2EC4B6]/20">
+                    <ShieldAlert size={28} />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="text-2xl font-jakarta font-black text-[#0F172A] tracking-tight">
+                    Đăng nhập thành viên
+                  </h3>
+                  <p className="text-xs font-medium text-slate-500 leading-relaxed max-w-[280px] mx-auto">
+                    Để bảo vệ an toàn hồ sơ bệnh lý của bạn và cập nhật phác đồ điều trị cá nhân hóa, vui lòng đăng nhập hoặc đăng ký tài khoản trước khi đặt lịch.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-8 flex flex-col gap-3">
+                <button
+                  onClick={handleRedirectToLogin}
+                  className="w-full bg-[#2EC4B6] hover:bg-[#25A89C] text-white font-jakarta font-extrabold py-4 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md hover:-translate-y-0.5 active:translate-y-0 duration-200"
+                >
+                  Đăng nhập hoặc Tạo tài khoản
+                </button>
+                <button
+                  onClick={() => setShowAuthModal(false)}
+                  className="w-full bg-slate-50 hover:bg-slate-100 text-slate-700 font-jakarta font-bold py-3.5 rounded-xl text-xs border border-slate-200 transition-all active:scale-98"
+                >
+                  Hủy bỏ
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

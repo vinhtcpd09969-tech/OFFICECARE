@@ -8,7 +8,7 @@ export const createAppointmentSchema = z.object({
     gioi_tinh_khach: z.string().optional(),
     email: z.string().optional(),
     dich_vu_id: z.string().uuid('ID Dịch vụ không hợp lệ').optional().nullable(),
-    ky_thuat_vien_id: z.string().uuid('ID KTV không hợp lệ').optional().nullable(),
+    bac_si_id: z.string().uuid('ID KTV không hợp lệ').optional().nullable(),
     phong_id: z.string().optional().nullable(),
     ngay_gio_bat_dau: z.string().datetime({ message: 'Ngày giờ bắt đầu không hợp lệ' }),
     ngay_gio_ket_thuc: z.string().datetime({ message: 'Ngày giờ kết thúc không hợp lệ' }),
@@ -17,6 +17,7 @@ export const createAppointmentSchema = z.object({
     loai_lich: z.string().optional(),
     dang_ky_goi_id: z.string().optional().nullable(),
     lich_dat_id: z.string().uuid().optional().nullable(),
+    trang_thai: z.string().optional(),
   }).refine(data => data.khach_hang_id || (data.ho_ten_khach && data.so_dien_thoai), {
     message: 'Phải cung cấp ID khách hàng hoặc thông tin khách vãng lai (họ tên, sđt)'
   })
@@ -44,8 +45,10 @@ export const updateAppointmentStatusSchema = z.object({
       required_error: 'Trạng thái là bắt buộc',
       invalid_type_error: 'Trạng thái không hợp lệ'
     }),
-    ky_thuat_vien_id: z.string().uuid('ID Nhân sự không hợp lệ').optional().nullable(),
+    bac_si_id: z.string().uuid('ID Nhân sự không hợp lệ').optional().nullable(),
     phong_id: z.union([z.string(), z.number()]).optional().nullable(),
+    ngay_gio_bat_dau: z.string().datetime({ message: 'Ngày giờ bắt đầu không hợp lệ' }).optional().nullable(),
+    ngay_gio_ket_thuc: z.string().datetime({ message: 'Ngày giờ kết thúc không hợp lệ' }).optional().nullable(),
   })
 });
 

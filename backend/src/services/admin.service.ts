@@ -101,6 +101,14 @@ class AdminService {
     return adminRepository.createSchedule(data);
   }
 
+  async updateSchedule(id: string, data: any) {
+    return adminRepository.updateSchedule(id, data);
+  }
+
+  async deleteSchedule(id: string) {
+    return adminRepository.deleteSchedule(id);
+  }
+
   // --- QUẢN LÝ HỒ SƠ ĐIỀU TRỊ ---
   async getMedicalRecords() {
     return adminRepository.getMedicalRecords();
