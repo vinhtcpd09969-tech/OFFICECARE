@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -6,6 +6,7 @@ import { Eye, EyeOff, Info } from 'lucide-react';
 import api from '../../../api/axios';
 import { useAuthStore } from '../../../stores/authStore';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
 
 const loginSchema = z.object({
   email: z.string().email('Vui lòng nhập email hợp lệ'),
@@ -13,6 +14,61 @@ const loginSchema = z.object({
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
+
+const WelcomeToast = ({ t, user }: { t: any; user: any }) => {
+  const [active, setActive] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setActive(true), 50);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!t.visible) {
+      setActive(false);
+    }
+  }, [t.visible]);
+
+  return (
+    <div
+      style={{
+        transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+      }}
+      className={`max-w-md w-full bg-white rounded-[24px] pointer-events-auto flex ring-1 ring-black ring-opacity-5 p-4 border border-teal-150/50 bg-gradient-to-r from-white to-teal-50/30
+        transition-all duration-700 transform
+        ${active ? 'translate-y-0 opacity-100 scale-100 shadow-[0_20px_50px_rgba(46,196,182,0.15)]' : '-translate-y-12 opacity-0 scale-90'}`}
+    >
+      <div className="flex-1 w-0 p-1">
+        <div className="flex items-center">
+          <div className="flex-shrink-0 pt-0.5">
+            <div className="w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center font-bold text-lg shadow-md shadow-primary/20">
+              {user.ho_ten.charAt(0).toUpperCase()}
+            </div>
+          </div>
+          <div className="ml-4 flex-1">
+            <p className="text-sm font-bold text-secondary">
+              Chào mừng bạn trở lại, {user.ho_ten}! ✨
+            </p>
+            <p className="mt-1 text-xs text-gray-500 font-medium">
+              Rất vui được phục vụ bạn. Chúc bạn có một ngày trị liệu tuyệt vời hôm nay!
+            </p>
+          </div>
+        </div>
+      </div>
+      <div className="flex border-l border-gray-100 pl-3 ml-3 items-center">
+        <button
+          onClick={() => {
+            setActive(false);
+            setTimeout(() => toast.dismiss(t.id), 500);
+          }}
+          className="border border-transparent rounded-xl px-2 py-1 flex items-center justify-center text-xs font-bold text-primary hover:bg-primary/5 focus:outline-none transition-colors"
+        >
+          Đóng
+        </button>
+      </div>
+    </div>
+  );
+};
 
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
@@ -32,6 +88,10 @@ export default function Login() {
       const { user, accessToken, refreshToken } = response.data;
       console.log('Login success response user:', user, 'vai_tro_id type:', typeof user.vai_tro_id);
       setAuth(user, accessToken, refreshToken);
+
+      // Custom Premium Welcome Toast
+      toast.custom((t) => <WelcomeToast t={t} user={user} />, { duration: 5000 });
+
       const from = (location.state as any)?.from || '/dashboard';
       console.log('Login navigating. from:', from, 'user.vai_tro_id:', user.vai_tro_id);
       
@@ -54,7 +114,7 @@ export default function Login() {
 
     } catch (error: any) {
       if (error.response?.data?.requiresVerification) {
-        navigate(`/verify-email?email=${data.email}`);
+        navigate(`/verify-email?email=${data.email}`, { state: location.state });
       } else {
         setServerError(error.response?.data?.message || 'Lỗi kết nối máy chủ');
       }

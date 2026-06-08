@@ -15,10 +15,10 @@ class AppointmentService {
     const ma_lich_dat = 'LD-' + Math.floor(10000 + Math.random() * 90000);
     // Mặc định thời lượng khám là 30 phút
     const ngay_gio_ket_thuc = new Date(new Date(data.ngay_gio_bat_dau).getTime() + 30 * 60000).toISOString();
-    return appointmentRepository.createPublicAppointment(ma_lich_dat, { ...data, ngay_gio_ket_thuc, trang_thai: 'chua_xac_nhan' });
+    return appointmentRepository.createPublicAppointment(ma_lich_dat, { ...data, ngay_gio_ket_thuc, trang_thai: 'cho_xac_nhan' });
   }
 
-  async updateAppointmentStatus(id: string, data: { trang_thai: string; ky_thuat_vien_id?: string | null; phong_id?: string | number | null }) {
+  async updateAppointmentStatus(id: string, data: { trang_thai: string; ky_thuat_vien_id?: string | null; phong_id?: string | number | null; ly_do_huy?: string | null }) {
     const appointment = await appointmentRepository.updateAppointmentStatus(id, data);
     if (!appointment) {
       throw new Error('Không tìm thấy lịch hẹn');
@@ -46,6 +46,18 @@ class AppointmentService {
       throw new Error('Lịch hẹn không tồn tại hoặc không thể hủy.');
     }
     return appointment;
+  }
+
+  async getPublicAppointmentById(id: string) {
+    return appointmentRepository.getPublicAppointmentById(id);
+  }
+
+  async getCustomerMedicalRecord(nguoi_dung_id: string) {
+    return appointmentRepository.getCustomerMedicalRecord(nguoi_dung_id);
+  }
+
+  async getCustomerTreatmentSessions(nguoi_dung_id: string) {
+    return appointmentRepository.getCustomerTreatmentSessions(nguoi_dung_id);
   }
 }
 

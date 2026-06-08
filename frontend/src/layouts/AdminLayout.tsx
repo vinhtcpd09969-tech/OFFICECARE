@@ -51,23 +51,29 @@ export default function AdminLayout() {
     navigate('/login');
   };
 
-  const navItems = [
-    { name: 'Tổng quan', path: '/admin', icon: <LayoutDashboard size={18} /> },
-    { name: 'Lịch hẹn khám', path: '/admin/appointments', icon: <Calendar size={18} />, searchPlaceholder: 'Tìm kiếm lịch hẹn khám...' },
-    { name: 'Lịch điều trị', path: '/admin/treatments', icon: <Zap size={18} />, searchPlaceholder: 'Tìm kiếm lịch điều trị...' },
-    { name: 'Bàn làm việc KTV', path: '/technician/workspace', icon: <ClipboardList size={18} /> },
-    { name: 'Ca làm việc', path: '/admin/schedules', icon: <Clock size={18} /> },
-    { name: 'Khách hàng', path: '/admin/customers', icon: <User size={18} />, searchPlaceholder: 'Tìm kiếm khách hàng...' },
-    { name: 'Hồ sơ điều trị', path: '/admin/medical-records', icon: <FileText size={18} />, searchPlaceholder: 'Tìm kiếm hồ sơ...' },
-    { name: 'Nhân sự', path: '/admin/staff', icon: <Users size={18} />, searchPlaceholder: 'Tìm kiếm nhân sự...' },
-    { name: 'Dịch vụ & Danh mục', path: '/admin/services', icon: <Briefcase size={18} />, searchPlaceholder: 'Tìm kiếm dịch vụ...' },
-    { name: 'Gói', path: '/admin/packages', icon: <Package size={18} />, searchPlaceholder: 'Tìm kiếm gói...' },
-    { name: 'Phòng & Thiết bị', path: '/admin/rooms-equipment', icon: <Key size={18} />, searchPlaceholder: 'Tìm kiếm phòng, thiết bị...' },
-    { name: 'Tài chính', path: '/admin/finance', icon: <DollarSign size={18} /> },
-    { name: 'Marketing', path: '/admin/marketing', icon: <Megaphone size={18} /> },
-    { name: 'Đánh giá', path: '/admin/feedback', icon: <Star size={18} /> },
-    { name: 'Nhật ký hệ thống', path: '/admin/audit', icon: <ClipboardList size={18} /> },
+  const isDoctor = user?.vai_tro_id === 4;
+
+  const rawNavItems = [
+    { name: 'Tổng quan', path: isDoctor ? '/doctor/appointments' : '/admin', icon: <LayoutDashboard size={18} />, roles: [4, 5, 6] },
+    { name: 'Lịch hẹn khám', path: isDoctor ? '/doctor/appointments' : '/admin/appointments', icon: <Calendar size={18} />, searchPlaceholder: 'Tìm kiếm lịch hẹn khám...', roles: [4, 5, 6] },
+    { name: 'Lịch điều trị', path: '/admin/treatments', icon: <Zap size={18} />, searchPlaceholder: 'Tìm kiếm lịch điều trị...', roles: [5, 6] },
+    { name: 'Bàn làm việc KTV', path: '/technician/workspace', icon: <ClipboardList size={18} />, roles: [4, 5, 6] },
+    { name: 'Ca làm việc', path: '/admin/schedules', icon: <Clock size={18} />, roles: [5, 6] },
+    { name: 'Khách hàng', path: '/admin/customers', icon: <User size={18} />, searchPlaceholder: 'Tìm kiếm khách hàng...', roles: [5, 6] },
+    { name: 'Hồ sơ điều trị', path: '/admin/medical-records', icon: <FileText size={18} />, searchPlaceholder: 'Tìm kiếm hồ sơ...', roles: [4, 5, 6] },
+    { name: 'Nhân sự', path: '/admin/staff', icon: <Users size={18} />, searchPlaceholder: 'Tìm kiếm nhân sự...', roles: [5] },
+    { name: 'Dịch vụ y khoa', path: '/admin/services', icon: <Briefcase size={18} />, searchPlaceholder: 'Tìm kiếm dịch vụ...', roles: [5, 6] },
+    { name: 'Danh mục dịch vụ', path: '/admin/categories', icon: <ClipboardList size={18} />, searchPlaceholder: 'Tìm kiếm danh mục...', roles: [5, 6] },
+    { name: 'Gói', path: '/admin/packages', icon: <Package size={18} />, searchPlaceholder: 'Tìm kiếm gói...', roles: [5, 6] },
+    { name: 'Phòng & Thiết bị', path: '/admin/rooms-equipment', icon: <Key size={18} />, searchPlaceholder: 'Tìm kiếm phòng, thiết bị...', roles: [5, 6] },
+    { name: 'Tài chính', path: '/admin/finance', icon: <DollarSign size={18} />, roles: [5, 6] },
+    { name: 'Thu ngân Gói (Lễ tân)', path: '/admin/quick-billing', icon: <DollarSign size={18} />, roles: [5, 6] },
+    { name: 'Marketing', path: '/admin/marketing', icon: <Megaphone size={18} />, roles: [5, 6] },
+    { name: 'Đánh giá', path: '/admin/feedback', icon: <Star size={18} />, roles: [5, 6] },
+    { name: 'Nhật ký hệ thống', path: '/admin/audit', icon: <ClipboardList size={18} />, roles: [5, 6] },
   ];
+
+  const navItems = rawNavItems.filter(item => item.roles.includes(user?.vai_tro_id || 5));
 
   const currentItem = navItems.find(item => item.path === location.pathname);
 
@@ -118,8 +124,10 @@ export default function AdminLayout() {
               {user?.email?.charAt(0).toUpperCase() || 'A'}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-secondary truncate">{user?.email || 'admin@officecare.com'}</p>
-              <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider mt-0.5">Quản trị viên</p>
+              <p className="text-xs font-bold text-secondary truncate">{user?.ho_ten || user?.email || 'admin@officecare.com'}</p>
+              <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider mt-0.5">
+                {user?.vai_tro_id === 4 ? 'Bác sĩ chuyên khoa' : user?.vai_tro_id === 6 ? 'Quản lý' : 'Quản trị viên'}
+              </p>
             </div>
           </div>
           <button 
@@ -177,8 +185,10 @@ export default function AdminLayout() {
             {/* Profile Avatar Card */}
             <div className="flex items-center gap-3 pl-2">
               <div className="text-right hidden sm:block">
-                <p className="text-xs font-bold text-secondary">Admin Physio</p>
-                <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider mt-0.5">Quản trị viên</p>
+                <p className="text-xs font-bold text-secondary">{user?.ho_ten || 'Admin Physio'}</p>
+                <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider mt-0.5">
+                  {user?.vai_tro_id === 4 ? 'Bác sĩ' : user?.vai_tro_id === 6 ? 'Quản lý' : 'Quản trị viên'}
+                </p>
               </div>
               <img 
                 src="https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=120&h=120"

@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { ZodError } from 'zod';
 import adminService from '../services/admin.service';
-import { categorySchema, serviceSchema, packageSchema, staffSchema } from '../schemas/admin.schema';
+import { categorySchema, serviceSchema, packageSchema, staffSchema, roomSchema, equipmentSchema } from '../schemas/admin.schema';
 import { refundSchema } from '../schemas/finance.schema';
 import { voucherSchema } from '../schemas/marketing.schema';
 import { logAudit } from '../utils/audit.util';
@@ -23,6 +23,45 @@ export const getRooms = async (req: Request, res: Response) => {
     res.json(rooms);
   } catch (error) {
     res.status(500).json({ message: 'Lỗi khi lấy danh sách phòng', error });
+  }
+};
+
+export const createRoom = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { body } = roomSchema.parse({ body: req.body });
+    const room = await adminService.createRoom(body);
+
+    await logAudit(req, 'CREATE_ROOM', 'ROOM', room.id.toString(), body);
+    res.status(201).json(room);
+  } catch (error) {
+    if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
+    res.status(500).json({ message: 'Lỗi server khi tạo phòng' });
+  }
+};
+
+export const updateRoom = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params as { id: string };
+    const { body } = roomSchema.parse({ body: req.body });
+    const room = await adminService.updateRoom(id, body);
+
+    await logAudit(req, 'UPDATE_ROOM', 'ROOM', id, body);
+    res.json(room);
+  } catch (error) {
+    if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
+    res.status(500).json({ message: 'Lỗi server khi cập nhật phòng' });
+  }
+};
+
+export const deleteRoom = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params as { id: string };
+    await adminService.deleteRoom(id);
+
+    await logAudit(req, 'DELETE_ROOM', 'ROOM', id, { id });
+    res.json({ message: 'Xóa phòng thành công' });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi xóa phòng' });
   }
 };
 
@@ -208,14 +247,40 @@ export const getEquipment = async (req: Request, res: Response) => {
 
 export const createEquipment = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { body } = require('../schemas/admin.schema').equipmentSchema.parse({ body: req.body });
+    const { body } = equipmentSchema.parse({ body: req.body });
     const equipment = await adminService.createEquipment(body);
 
     await logAudit(req, 'CREATE_EQUIPMENT', 'EQUIPMENT', equipment.id.toString(), body);
     res.status(201).json(equipment);
   } catch (error) {
     if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
-    res.status(500).json({ message: 'Lỗi server' });
+    res.status(500).json({ message: 'Lỗi server khi tạo thiết bị' });
+  }
+};
+
+export const updateEquipment = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params as { id: string };
+    const { body } = equipmentSchema.parse({ body: req.body });
+    const equipment = await adminService.updateEquipment(id, body);
+
+    await logAudit(req, 'UPDATE_EQUIPMENT', 'EQUIPMENT', id, body);
+    res.json(equipment);
+  } catch (error) {
+    if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
+    res.status(500).json({ message: 'Lỗi server khi cập nhật thiết bị' });
+  }
+};
+
+export const deleteEquipment = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params as { id: string };
+    await adminService.deleteEquipment(id);
+
+    await logAudit(req, 'DELETE_EQUIPMENT', 'EQUIPMENT', id, { id });
+    res.json({ message: 'Xóa thiết bị thành công' });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi xóa thiết bị' });
   }
 };
 

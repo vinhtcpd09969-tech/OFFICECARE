@@ -19,7 +19,12 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps, curl, or Postman)
     if (!origin) return callback(null, true);
     
-    if (allowedOrigins.includes(origin)) {
+    // Auto-allow any ngrok tunnel for seamless local testing
+    if (
+      allowedOrigins.includes(origin) || 
+      origin.endsWith('.ngrok-free.dev') || 
+      origin.endsWith('.ngrok.io')
+    ) {
       return callback(null, true);
     } else {
       const errorMsg = `The CORS policy for this site does not allow access from the specified Origin: ${origin}`;
@@ -47,3 +52,4 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
+// Reload trigger: new website email configured

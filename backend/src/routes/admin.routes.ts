@@ -5,8 +5,14 @@ import * as appointmentController from '../controllers/appointment.controller';
 
 const router = Router();
 
-// Tất cả các route trong file này đều yêu cầu đăng nhập và có quyền Admin (vai_tro_id = 5) hoặc Quản lý (vai_tro_id = 6)
+// Tất cả các route trong file này đều yêu cầu đăng nhập
 router.use(verifyToken);
+
+// Nhân sự (Staff) - Cho phép Lễ tân (2), Bác sĩ (3), KTV (4), Admin (5), Quản lý (6) xem thông tin để phục vụ đặt lịch và phân công
+router.get('/staff/available', authorizeRoles(2, 3, 4, 5, 6), adminController.getAvailableStaff);
+router.get('/staff', authorizeRoles(2, 3, 4, 5, 6), adminController.getStaff);
+
+// Tất cả các route dưới đây yêu cầu quyền Admin (5) hoặc Quản lý (6)
 router.use(authorizeRoles(5, 6));
 
 // Danh mục & Dịch vụ
@@ -19,6 +25,9 @@ router.delete('/services/:id', adminController.deleteService);
 
 // Phòng lâm sàng (Rooms)
 router.get('/rooms', adminController.getRooms);
+router.post('/rooms', adminController.createRoom);
+router.put('/rooms/:id', adminController.updateRoom);
+router.delete('/rooms/:id', adminController.deleteRoom);
 
 // Gói điều trị
 router.get('/packages', adminController.getPackages);
@@ -26,11 +35,9 @@ router.post('/packages', adminController.createPackage);
 router.put('/packages/:id', adminController.updatePackage);
 router.delete('/packages/:id', adminController.deletePackage);
 
-// Nhân sự (Staff)
-router.get('/staff/available', adminController.getAvailableStaff);
-router.get('/staff', adminController.getStaff);
-router.post('/staff', adminController.createStaff);
-router.patch('/staff/:id/status', adminController.updateStaffStatus);
+// Quản lý Nhân sự (Chỉ dành riêng cho Admin)
+router.post('/staff', authorizeRoles(5), adminController.createStaff);
+router.patch('/staff/:id/status', authorizeRoles(5), adminController.updateStaffStatus);
 
 // Khách hàng
 router.get('/customers', adminController.getCustomers);
@@ -38,6 +45,8 @@ router.get('/customers', adminController.getCustomers);
 // Thiết bị
 router.get('/equipment', adminController.getEquipment);
 router.post('/equipment', adminController.createEquipment);
+router.put('/equipment/:id', adminController.updateEquipment);
+router.delete('/equipment/:id', adminController.deleteEquipment);
 
 // Ca làm việc / Lịch làm việc
 /**
@@ -165,9 +174,16 @@ router.get('/analytics/performance', adminController.getStaffPerformance);
  *       200:
  *         description: Cập nhật thành công
  */
+import * as treatmentRecordController from '../controllers/treatment-record.controller';
+
 router.get('/appointments', appointmentController.getAllAppointments);
 router.post('/appointments', appointmentController.createAppointment);
 router.patch('/appointments/:id/status', appointmentController.updateAppointmentStatus);
 router.put('/appointments/:id/medical-record', appointmentController.updateMedicalRecord);
+
+// Hồ sơ điều trị (New Workflow)
+router.get('/treatment-records', treatmentRecordController.getTreatmentRecords);
+router.post('/treatment-records', treatmentRecordController.createTreatmentRecord);
+router.patch('/treatment-records/:id/assign', treatmentRecordController.assignTreatmentRecord);
 
 export default router;

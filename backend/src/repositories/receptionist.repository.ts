@@ -233,14 +233,55 @@ class ReceptionistRepository {
       `, [lich_dat_id]);
 
       let ldtId;
+      let doctorUserId = null;
+      let customerName = 'Khách hàng';
+
       if (btlRows.length > 0) {
         // Downgrade existing treatment plan
         ldtId = btlRows[0].lich_dieu_tri_id;
         await client.query(`
           UPDATE lich_dieu_tri 
-          SET loai_dieu_tri = 'dich_vu_le', tong_so_buoi = 1, trang_thai = 'cho_thanh_toan' 
+          SET loai_dieu_tri = 'dich_vu_le', tong_so_buoi = 1, trang_thai = 'cho_thanh_toan', goi_dich_vu_id = NULL 
           WHERE id = $1
         `, [ldtId]);
+
+        // Get original consultation and customer details
+        const { rows: planDetails } = await client.query(`
+          SELECT 
+            ldt.lich_dat_id,
+            nd_kh.ho_ten as ten_khach_hang
+          FROM lich_dieu_tri ldt
+          JOIN khach_hang kh ON ldt.khach_hang_id = kh.id
+          JOIN nguoi_dung nd_kh ON kh.nguoi_dung_id = nd_kh.id
+          WHERE ldt.id = $1
+        `, [ldtId]);
+
+        if (planDetails.length > 0) {
+          customerName = planDetails[0].ten_khach_hang;
+          const originalLichDatId = planDetails[0].lich_dat_id;
+
+          if (originalLichDatId) {
+            // Update recommendations in original lich_dat
+            await client.query(`
+              UPDATE lich_dat 
+              SET khuyen_nghi_goi_id = NULL, khuyen_nghi_dich_vu_id = $1 
+              WHERE id = $2
+            `, [dich_vu_id, originalLichDatId]);
+
+            // Get Doctor's user ID
+            const { rows: doctorRows } = await client.query(`
+              SELECT nd.id as doctor_user_id
+              FROM lich_dat ld
+              JOIN chuyen_gia_y_te cgyt ON ld.ky_thuat_vien_id = cgyt.id
+              JOIN nguoi_dung nd ON cgyt.nguoi_dung_id = nd.id
+              WHERE ld.id = $1
+            `, [originalLichDatId]);
+
+            if (doctorRows.length > 0) {
+              doctorUserId = doctorRows[0].doctor_user_id;
+            }
+          }
+        }
       } else {
         // Create new flexible treatment plan
         const maLichDieuTri = `LDT${Math.floor(100000 + Math.random() * 900000)}`;
@@ -260,7 +301,7 @@ class ReceptionistRepository {
       `, [maHoaDon, khach_hang_id, ldtId, don_gia]);
 
       await client.query('COMMIT');
-      return hoaDonRows[0];
+      return { hoa_don: hoaDonRows[0], doctorUserId, customerName };
     } catch (e) {
       await client.query('ROLLBACK');
       throw e;
@@ -327,6 +368,9 @@ class ReceptionistRepository {
       JOIN nguoi_dung kh ON kh_table.nguoi_dung_id = kh.id
       JOIN dich_vu dv ON ld.dich_vu_id = dv.id
       WHERE ld.trang_thai = 'hoan_thanh'
+        AND NOT EXISTS (
+          SELECT 1 FROM lich_dieu_tri ldt WHERE ldt.lich_dat_id = ld.id
+        )
 
       UNION ALL
 
@@ -342,7 +386,9 @@ class ReceptionistRepository {
       JOIN nguoi_dung kh ON kh_table.nguoi_dung_id = kh.id
       JOIN dich_vu dv ON btl.dich_vu_id = dv.id
       JOIN lich_dieu_tri ldt ON btl.lich_dieu_tri_id = ldt.id
-      WHERE btl.so_thu_tu_buoi = 1 AND btl.trang_thai = 'hoan_thanh'
+      WHERE btl.so_thu_tu_buoi = 1 
+        AND btl.trang_thai = 'hoan_thanh' 
+        AND ldt.trang_thai = 'dang_trai_nghiem'
       ORDER BY ngay_gio_bat_dau DESC
     `);
     return rows;
@@ -434,46 +480,77 @@ class ReceptionistRepository {
       // 1. Generate ma_hoa_don
       const maHoaDon = `HD${Math.floor(100000 + Math.random() * 900000)}`;
 
-      // 2. Create treatment plan (lich_dieu_tri) in 'cho_thanh_toan' status
+      // 2. Create treatment plan (lich_dieu_tri) in 'cho_thanh_toan' status (or reuse existing trial plan)
       let ldtId = null;
       const maLichDieuTri = `LDT${Math.floor(100000 + Math.random() * 900000)}`;
-      if (item_type === 'goi') {
-        const { rows: ldtRows } = await client.query(`
-          INSERT INTO lich_dieu_tri (
-            khach_hang_id, loai_dieu_tri, goi_dich_vu_id, tong_so_buoi, 
-            so_buoi_da_dung, trang_thai, ma_lich_dieu_tri, ho_ten_khach, 
-            so_dien_thoai, lich_dat_id
-          ) VALUES ($1, $2, $3, $4, 0, 'cho_thanh_toan', $5, $6, $7, $8)
-          RETURNING id
-        `, [
-          khach_hang_id,
-          'theo_goi',
-          item_id,
-          so_buoi_goi || 1,
-          maLichDieuTri,
-          ho_ten_khach || null,
-          so_dien_thoai || null,
-          lich_dat_id || null
-        ]);
-        ldtId = ldtRows[0].id;
-      } else {
-        const { rows: ldtRows } = await client.query(`
-          INSERT INTO lich_dieu_tri (
-            khach_hang_id, loai_dieu_tri, dich_vu_id, tong_so_buoi, 
-            so_buoi_da_dung, trang_thai, ma_lich_dieu_tri, ho_ten_khach, 
-            so_dien_thoai, lich_dat_id
-          ) VALUES ($1, $2, $3, 1, 0, 'cho_thanh_toan', $4, $5, $6, $7)
-          RETURNING id
-        `, [
-          khach_hang_id,
-          'dich_vu_le',
-          item_id,
-          maLichDieuTri,
-          ho_ten_khach || null,
-          so_dien_thoai || null,
-          lich_dat_id || null
-        ]);
-        ldtId = ldtRows[0].id;
+
+      if (lich_dat_id) {
+        // First check if the ID points to a buoi_tri_lieu
+        const { rows: btlRows } = await client.query(`
+          SELECT lich_dieu_tri_id FROM buoi_tri_lieu WHERE id = $1
+        `, [lich_dat_id]);
+
+        if (btlRows.length > 0) {
+          ldtId = btlRows[0].lich_dieu_tri_id;
+        } else {
+          // Fall back to checking if it is a lich_dat_id
+          const { rows: existingPlans } = await client.query(`
+            SELECT id FROM lich_dieu_tri 
+            WHERE lich_dat_id = $1 AND trang_thai = 'dang_trai_nghiem'
+          `, [lich_dat_id]);
+          if (existingPlans.length > 0) {
+            ldtId = existingPlans[0].id;
+          }
+        }
+
+        if (ldtId) {
+          await client.query(`
+            UPDATE lich_dieu_tri 
+            SET trang_thai = 'cho_thanh_toan' 
+            WHERE id = $1
+          `, [ldtId]);
+        }
+      }
+
+      if (!ldtId) {
+        if (item_type === 'goi') {
+          const { rows: ldtRows } = await client.query(`
+            INSERT INTO lich_dieu_tri (
+              khach_hang_id, loai_dieu_tri, goi_dich_vu_id, tong_so_buoi, 
+              so_buoi_da_dung, trang_thai, ma_lich_dieu_tri, ho_ten_khach, 
+              so_dien_thoai, lich_dat_id
+            ) VALUES ($1, $2, $3, $4, 0, 'cho_thanh_toan', $5, $6, $7, $8)
+            RETURNING id
+          `, [
+            khach_hang_id,
+            'theo_goi',
+            item_id,
+            so_buoi_goi || 1,
+            maLichDieuTri,
+            ho_ten_khach || null,
+            so_dien_thoai || null,
+            lich_dat_id || null
+          ]);
+          ldtId = ldtRows[0].id;
+        } else {
+          const { rows: ldtRows } = await client.query(`
+            INSERT INTO lich_dieu_tri (
+              khach_hang_id, loai_dieu_tri, dich_vu_id, tong_so_buoi, 
+              so_buoi_da_dung, trang_thai, ma_lich_dieu_tri, ho_ten_khach, 
+              so_dien_thoai, lich_dat_id
+            ) VALUES ($1, $2, $3, 1, 0, 'cho_thanh_toan', $4, $5, $6, $7)
+            RETURNING id
+          `, [
+            khach_hang_id,
+            'dich_vu_le',
+            item_id,
+            maLichDieuTri,
+            ho_ten_khach || null,
+            so_dien_thoai || null,
+            lich_dat_id || null
+          ]);
+          ldtId = ldtRows[0].id;
+        }
       }
 
       // 3. Create hoa_don

@@ -4,19 +4,38 @@ import nodemailer from 'nodemailer';
 // Ở môi trường Dev, chúng ta dùng Ethereal Email để tạo test account on-the-fly.
 export const sendOTP = async (toEmail: string, otpCode: string, userName: string) => {
   try {
-    // 1. Tạo một tài khoản test giả lập (chỉ chạy 1 lần tự lưu trong bộ nhớ)
-    const testAccount = await nodemailer.createTestAccount();
+    let transporter;
+    const isSMTPConfigured = process.env.EMAIL_USER && 
+                              process.env.EMAIL_USER !== 'your_email@gmail.com' && 
+                              process.env.EMAIL_PASS && 
+                              process.env.EMAIL_PASS !== 'your_app_password';
 
-    // 2. Tạo transporter kết nối tới Ethereal
-    const transporter = nodemailer.createTransport({
-      host: 'smtp.ethereal.email',
-      port: 587,
-      secure: false, // true for 465, false for other ports
-      auth: {
-        user: testAccount.user, // generated ethereal user
-        pass: testAccount.pass, // generated ethereal password
-      },
-    });
+    if (isSMTPConfigured) {
+      // Dùng SMTP thật từ tệp .env (Gmail SMTP)
+      transporter = nodemailer.createTransport({
+        host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+        port: parseInt(process.env.EMAIL_PORT || '587'),
+        secure: process.env.EMAIL_PORT === '465', // true for 465, false for other ports
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS,
+        },
+      });
+    } else {
+      // Fallback: Tạo một tài khoản test giả lập Ethereal
+      const testAccount = await nodemailer.createTestAccount();
+
+      // Tạo transporter kết nối tới Ethereal
+      transporter = nodemailer.createTransport({
+        host: 'smtp.ethereal.email',
+        port: 587,
+        secure: false,
+        auth: {
+          user: testAccount.user,
+          pass: testAccount.pass,
+        },
+      });
+    }
 
     // 3. Nội dung Email (HTML)
     const htmlContent = `
@@ -35,17 +54,24 @@ export const sendOTP = async (toEmail: string, otpCode: string, userName: string
       </div>
     `;
 
+    const fromAddress = isSMTPConfigured ? process.env.EMAIL_USER : '"PhysioFlow System" <noreply@physioflow.com>';
+
     // 4. Gửi mail
     const info = await transporter.sendMail({
-      from: '"PhysioFlow System" <noreply@physioflow.com>', 
+      from: fromAddress, 
       to: toEmail, 
       subject: 'PhysioFlow - Mã xác thực OTP của bạn', 
       html: htmlContent, 
     });
 
     console.log('----------------------------------------------------');
+    console.log('🔑 MÃ OTP CỦA BẠN LÀ: %s', otpCode);
     console.log('✅ Đã gửi Email OTP tới: %s', toEmail);
-    console.log('📩 Bấm vào Link này để XEM EMAIL (Ethereal): %s', nodemailer.getTestMessageUrl(info));
+    if (!isSMTPConfigured) {
+      console.log('📩 Bấm vào Link này để XEM EMAIL (Ethereal): %s', nodemailer.getTestMessageUrl(info));
+    } else {
+      console.log('📧 Đã gửi qua cổng SMTP Gmail thật!');
+    }
     console.log('----------------------------------------------------');
 
     return info;

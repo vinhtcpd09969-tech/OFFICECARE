@@ -55,7 +55,7 @@ export const staffSchema = z.object({
     ho_ten: z.string().min(1, 'Họ tên là bắt buộc'),
     email: z.string().email('Email không hợp lệ'),
     mat_khau: z.string().min(6, 'Mật khẩu tối thiểu 6 ký tự'),
-    vai_tro_id: z.number().int().positive('Vai trò không hợp lệ (2=Lễ tân, 3=KTV, 4=Bác sĩ, 5=Admin)'),
+    vai_tro_id: z.number().int().positive('Vai trò không hợp lệ (2=Lễ tân, 3=KTV, 4=Bác sĩ, 5=Admin, 6=Quản lý)'),
     so_dien_thoai: z.string().optional(),
     trang_thai: z.enum(['hoat_dong', 'vo_hieu']).default('hoat_dong')
   })
@@ -95,5 +95,17 @@ export const paymentPromotionSchema = z.object({
     ngay_het_han: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Ngày hết hạn không hợp lệ (YYYY-MM-DD)').optional().nullable(),
     trang_thai: z.enum(['hoat_dong', 'vo_hieu']).default('hoat_dong'),
     goi_dich_vu_ids: z.any().optional()
+  })
+});
+
+export const roomSchema = z.object({
+  body: z.object({
+    ten_phong: z.string().min(1, 'Tên phòng là bắt buộc'),
+    ma_phong: z.string().min(1, 'Mã phòng là bắt buộc'),
+    loai_phong: z.string().optional().nullable(),
+    loai_dich_vu_ho_tro: z.any().optional().nullable(),
+    mo_ta: z.string().optional().nullable(),
+    trang_thai: z.enum(['san_sang', 'dang_su_dung', 'dang_bao_tri', 'hong']).default('san_sang'),
+    tang: z.string().optional().nullable()
   })
 });

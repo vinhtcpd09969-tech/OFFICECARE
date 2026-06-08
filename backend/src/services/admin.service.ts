@@ -11,6 +11,18 @@ class AdminService {
     return adminRepository.getRooms();
   }
 
+  async createRoom(data: any) {
+    return adminRepository.createRoom(data);
+  }
+
+  async updateRoom(id: string | number, data: any) {
+    return adminRepository.updateRoom(id, data);
+  }
+
+  async deleteRoom(id: string | number) {
+    return adminRepository.deleteRoom(id);
+  }
+
   async createCategory(data: any) {
     return adminRepository.createCategory(data);
   }
@@ -82,6 +94,14 @@ class AdminService {
   async createEquipment(data: any) {
     const ma_thiet_bi = data.ma_thiet_bi || 'TB-' + Math.floor(1000 + Math.random() * 9000);
     return adminRepository.createEquipment(ma_thiet_bi, data);
+  }
+
+  async updateEquipment(id: string, data: any) {
+    return adminRepository.updateEquipment(id, data);
+  }
+
+  async deleteEquipment(id: string) {
+    return adminRepository.deleteEquipment(id);
   }
 
   // --- QUẢN LÝ LỊCH LÀM VIỆC ---

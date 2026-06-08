@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../../stores/authStore';
 import axiosInstance from '../../../api/axios';
 import toast from 'react-hot-toast';
+import { format, isValid } from 'date-fns';
 
 interface AppointmentDetailModalProps {
   selectedAppointment: any;
@@ -22,6 +23,7 @@ interface AppointmentDetailModalProps {
   onOpenTreatment: (type?: 'single' | 'package', recId?: string) => void;
   appointments?: any[];
   onSuccess?: () => void;
+  hideBilling?: boolean;
 }
 
 export default function AppointmentDetailModal({
@@ -40,7 +42,8 @@ export default function AppointmentDetailModal({
   onSave,
   onOpenTreatment,
   appointments = [],
-  onSuccess
+  onSuccess,
+  hideBilling = false
 }: AppointmentDetailModalProps) {
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -84,7 +87,7 @@ export default function AppointmentDetailModal({
         <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-white">
           <div>
             <h3 className="text-xl font-bold text-slate-800">
-              Hồ sơ Lịch hẹn <span className="text-emerald-600">#{selectedAppointment.ma_lich_dat}</span>
+              Lịch hẹn <span className="text-emerald-600">#{selectedAppointment.ma_lich_dat}</span>
             </h3>
             <p className="text-sm text-slate-500 mt-1">Thông tin chi tiết và điều phối phòng khám</p>
           </div>
@@ -109,38 +112,59 @@ export default function AppointmentDetailModal({
             </div>
             <div>
               <label className="text-xs font-semibold text-slate-500 uppercase">Thời gian</label>
-              <span className="text-base font-bold text-emerald-600 block mt-1 font-mono">
-                {selectedAppointment.ngay_gio_bat_dau.split('T')[1]?.substring(0, 5)}
-              </span>
+              {(() => {
+                const dateObj = new Date(selectedAppointment.ngay_gio_bat_dau);
+                const isValidDate = isValid(dateObj);
+                const timeStr = isValidDate ? format(dateObj, 'HH:mm') : '';
+                const dateStr = isValidDate ? format(dateObj, 'dd/MM/yyyy') : '';
+                return (
+                  <>
+                    <span className="text-base font-bold text-emerald-600 block mt-1 font-mono">
+                      {timeStr || selectedAppointment.ngay_gio_bat_dau}
+                    </span>
+                    {dateStr && (
+                      <span className="text-xs text-slate-500 block font-mono mt-0.5">
+                        {dateStr}
+                      </span>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           </div>
 
-          {/* Medical Record Section (Read-only for KTV during Treatment) */}
-          {selectedAppointment.loai_lich === 'dieu_tri' && (
-            <div className="space-y-4">
-              <h4 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2">
-                Hồ sơ Bệnh án
-              </h4>
-              <div className="space-y-3">
-                {selectedAppointment.chan_doan && (
-                  <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 border-l-4 border-l-blue-500">
-                    <p className="text-xs font-bold text-slate-500 uppercase">Chẩn đoán từ Bác sĩ</p>
-                    <p className="text-sm text-slate-800 mt-1">{selectedAppointment.chan_doan}</p>
-                  </div>
-                )}
-                {selectedAppointment.chong_chi_dinh && (
-                  <div className="bg-rose-50 p-3 rounded-lg border border-rose-200 border-l-4 border-l-rose-500">
-                    <p className="text-xs font-bold text-rose-700 uppercase flex items-center gap-1"><AlertCircle size={14} /> Chống chỉ định (CẢNH BÁO)</p>
-                    <p className="text-sm text-rose-900 mt-1">{selectedAppointment.chong_chi_dinh}</p>
-                  </div>
-                )}
-                {!selectedAppointment.chan_doan && !selectedAppointment.chong_chi_dinh && (
-                  <p className="text-sm text-slate-500 italic">Không có hồ sơ bệnh án.</p>
-                )}
+          {/* Triệu chứng khách hàng điền khi đặt lịch */}
+          <div className="bg-emerald-50/30 p-4 rounded-xl border border-emerald-100/50 space-y-2">
+            <h4 className="text-xs font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1">
+              📝 Triệu chứng khách hàng điền
+            </h4>
+            <div className="grid grid-cols-1 gap-2.5 text-sm">
+              <p className="text-slate-850 bg-white p-3 rounded-lg border border-slate-200/60 text-xs font-semibold italic text-slate-700">
+                "{selectedAppointment.ly_do_kham || 'Không mô tả triệu chứng'}"
+              </p>
+            </div>
+          </div>
+
+
+          {/* Cảnh báo yêu cầu hủy */}
+          {selectedAppointment.trang_thai === 'cho_huy' && (
+            <div className="bg-rose-50 p-4 rounded-xl border border-rose-200 border-l-4 border-l-rose-600 space-y-2 animate-in fade-in">
+              <p className="text-xs font-bold text-rose-800 uppercase flex items-center gap-1.5">
+                <AlertCircle size={16} className="text-rose-600 animate-bounce" /> Khách hàng yêu cầu hủy lịch này
+              </p>
+              <p className="text-sm text-slate-800 font-semibold">
+                Lý do khách đưa ra: <span className="font-normal italic text-slate-600">"{selectedAppointment.ly_do_huy || 'Không có lý do chi tiết'}"</span>
+              </p>
+              <div className="text-xs text-rose-700 font-medium leading-relaxed bg-white/60 p-2.5 rounded border border-rose-100">
+                ⚠️ <strong>Quy trình xử lý của Lễ tân:</strong>
+                <ol className="list-decimal pl-4 mt-1 space-y-1">
+                  <li>Gọi điện thoại đến số <strong>{selectedAppointment.so_dien_thoai}</strong> để xác minh lý do hủy.</li>
+                  <li>Nếu đồng ý hủy lịch, chọn trạng thái <strong>Đã hủy</strong> bên dưới và bấm <strong>Lưu cập nhật</strong>.</li>
+                  <li>Nếu khách muốn giữ lịch hoặc đổi giờ, hỗ trợ khách và cập nhật thông tin tương ứng.</li>
+                </ol>
               </div>
             </div>
           )}
-
 
           <div className="space-y-4">
             <h4 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2">Điều phối & Trạng thái</h4>
@@ -149,10 +173,10 @@ export default function AppointmentDetailModal({
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-600">Phòng thực hiện</label>
                 <select
-                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all disabled:bg-slate-100 disabled:text-slate-500 cursor-not-allowed"
                   value={assignRoomId}
                   onChange={(e) => setAssignRoomId(e.target.value)}
-                  disabled={isReceptionist}
+                  disabled={isReceptionist || selectedAppointment.trang_thai === 'hoan_thanh'}
+                  className={`w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all ${(isReceptionist || selectedAppointment.trang_thai === 'hoan_thanh') ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : ''}`}
                 >
                   <option value="">-- Chưa xếp phòng --</option>
                   {availableRooms.map(r => (
@@ -164,10 +188,10 @@ export default function AppointmentDetailModal({
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-600">Nhân sự phụ trách</label>
                 <select
-                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all disabled:bg-slate-100 disabled:text-slate-500 cursor-not-allowed"
                   value={assignStaffId}
                   onChange={(e) => setAssignStaffId(e.target.value)}
-                  disabled={isReceptionist}
+                  disabled={isReceptionist || selectedAppointment.trang_thai === 'hoan_thanh'}
+                  className={`w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all ${(isReceptionist || selectedAppointment.trang_thai === 'hoan_thanh') ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : ''}`}
                 >
                   <option value="">-- Chưa phân công --</option>
                   {availableStaff.filter(s => s.vai_tro === activeRole).map(s => (
@@ -181,16 +205,18 @@ export default function AppointmentDetailModal({
               <div className="space-y-1.5 md:col-span-2">
                 <label className="text-xs font-semibold text-slate-600">Trạng thái ca trực</label>
                 <select
-                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium disabled:bg-slate-100 disabled:text-slate-500 cursor-not-allowed"
                   value={assignStatus}
                   onChange={(e) => setAssignStatus(e.target.value)}
-                  disabled={isReceptionist}
+                  disabled={isReceptionist || selectedAppointment.trang_thai === 'hoan_thanh'}
+                  className={`w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium ${(isReceptionist || selectedAppointment.trang_thai === 'hoan_thanh') ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : ''}`}
                 >
                   <option value="chua_xac_nhan">Chưa xác nhận</option>
                   <option value="cho_xac_nhan">Chờ xác nhận</option>
+                  <option value="cho_phan_phong">Chờ phân phòng & bác sĩ y tế (Quản lý)</option>
                   <option value="da_xac_nhan">Đã xác nhận</option>
                   <option value="da_checkin">Đã Check-in</option>
                   <option value="hoan_thanh">Hoàn thành</option>
+                  <option value="cho_huy">Chờ hủy (Khách yêu cầu)</option>
                   <option value="da_huy">Đã hủy</option>
                   <option value="khong_den">Không đến</option>
                 </select>
@@ -218,7 +244,7 @@ export default function AppointmentDetailModal({
                   </button>
                 )}
               </div>
-            ) : selectedAppointment.loai_lich === 'dieu_tri' && Number(selectedAppointment.so_thu_tu_buoi) === 1 && selectedAppointment.trang_thai === 'hoan_thanh' ? (
+            ) : !hideBilling && selectedAppointment.loai_lich === 'dieu_tri' && Number(selectedAppointment.so_thu_tu_buoi) === 1 && selectedAppointment.trang_thai === 'hoan_thanh' ? (
               <button
                 type="button"
                 onClick={() => {
@@ -265,13 +291,25 @@ export default function AppointmentDetailModal({
                 Đóng
               </button>
               {!isReceptionist && (
-                <button
-                  type="submit"
-                  disabled={isAssigning}
-                  className="px-6 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-all disabled:opacity-50"
-                >
-                  {isAssigning ? 'Đang lưu...' : 'Lưu cập nhật'}
-                </button>
+                <>
+                  {selectedAppointment.trang_thai === 'da_xac_nhan' && (
+                    <button
+                      type="submit"
+                      onClick={() => setAssignStatus('da_checkin')}
+                      disabled={isAssigning}
+                      className="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 active:scale-95"
+                    >
+                      🛎️ Check-in Khách
+                    </button>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={isAssigning || selectedAppointment.trang_thai === 'hoan_thanh'}
+                    className="px-6 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isAssigning ? 'Đang lưu...' : 'Lưu cập nhật'}
+                  </button>
+                </>
               )}
             </div>
           </div>

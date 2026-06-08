@@ -16,8 +16,8 @@ export const ProtectedRoute = ({ allowedRoles }: ProtectedRouteProps) => {
 
   if (location.pathname === '/dashboard' && user) {
     const roleId = Number(user.vai_tro_id);
-    if (roleId === 5) {
-      console.log('ProtectedRoute: Redirecting Admin from /dashboard to /admin');
+    if (roleId === 5 || roleId === 6) {
+      console.log('ProtectedRoute: Redirecting Admin/Quản lý from /dashboard to /admin');
       return <Navigate to="/admin" replace />;
     }
     if (roleId === 2) {

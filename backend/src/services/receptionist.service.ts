@@ -110,7 +110,23 @@ class ReceptionistService {
     if (!lich) throw new Error('Lịch hẹn không hợp lệ hoặc chưa hoàn thành');
 
     const maHoaDon = `HD${Math.floor(100000 + Math.random() * 900000)}`;
-    const hoa_don = await receptionistRepository.createBilling(maHoaDon, lich.khach_hang_id, lich_dat_id, lich.don_gia, lich.dich_vu_id);
+    const result = await receptionistRepository.createBilling(maHoaDon, lich.khach_hang_id, lich_dat_id, lich.don_gia, lich.dich_vu_id);
+    
+    const { hoa_don, doctorUserId, customerName } = result;
+
+    if (doctorUserId) {
+      try {
+        await notificationService.createNotification(
+          doctorUserId,
+          'Đồng bộ hồ sơ điều trị',
+          `Bệnh nhân ${customerName} đã chuyển sang thanh toán lẻ 1 buổi sau buổi trải nghiệm.`,
+          'he_thong'
+        );
+      } catch (err) {
+        console.error('Lỗi gửi thông báo cho bác sĩ khi hạ cấp gói:', err);
+      }
+    }
+
     return hoa_don;
   }
 

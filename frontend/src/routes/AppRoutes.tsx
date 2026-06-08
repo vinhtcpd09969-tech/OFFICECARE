@@ -13,7 +13,11 @@ import ReceptionistLayout from '../layouts/ReceptionistLayout';
 
 // Public Feature
 const Home = lazy(() => import('../features/public/pages/Home'));
+const Services = lazy(() => import('../features/public/pages/Services'));
+const ServiceDetailPage = lazy(() => import('../features/public/pages/ServiceDetailPage'));
+const PackageDetailPage = lazy(() => import('../features/public/pages/PackageDetailPage'));
 const Booking = lazy(() => import('../features/public/pages/Booking'));
+const BookingSuccess = lazy(() => import('../features/public/pages/BookingSuccess'));
 
 // Auth Feature
 const Login = lazy(() => import('../features/auth/pages/Login'));
@@ -58,7 +62,11 @@ export default function AppRoutes() {
       <Routes>
         <Route element={<LandingLayout />}>
           <Route path="/" element={<Home />} />
+          <Route path="/services" element={<Services />} />
+          <Route path="/services/:id" element={<ServiceDetailPage />} />
+          <Route path="/packages/:id" element={<PackageDetailPage />} />
           <Route path="/booking" element={<Booking />} />
+          <Route path="/booking/success/:id" element={<BookingSuccess />} />
         </Route>
         
         <Route path="/login" element={<Login />} />
@@ -77,15 +85,20 @@ export default function AppRoutes() {
           </Route>
         </Route>
 
-        {/* Admin Protected Routes */}
-        <Route element={<ProtectedRoute allowedRoles={[5]} />}>
+        {/* Admin & Manager Protected Routes */}
+        <Route element={<ProtectedRoute allowedRoles={[5, 6]} />}>
           <Route element={<AdminLayout />}>
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/appointments" element={<ManageAppointments />} />
             <Route path="/admin/treatments" element={<ManageTreatments />} />
             <Route path="/admin/customers" element={<ManageCustomers />} />
             <Route path="/admin/medical-records" element={<ManageMedicalRecords />} />
-            <Route path="/admin/staff" element={<ManageStaff />} />
+            
+            {/* Staff Management is strictly Admin only (role 5) */}
+            <Route element={<ProtectedRoute allowedRoles={[5]} />}>
+              <Route path="/admin/staff" element={<ManageStaff />} />
+            </Route>
+
             <Route path="/admin/schedules" element={<ManageSchedules />} />
             <Route path="/admin/services" element={<ManageServices />} />
             <Route path="/admin/rooms-equipment" element={<ManageRoomsEquipment />} />
@@ -108,8 +121,15 @@ export default function AppRoutes() {
           </Route>
         </Route>
 
+        {/* Doctor Protected Routes */}
+        <Route element={<ProtectedRoute allowedRoles={[4]} />}>
+          <Route element={<AdminLayout />}>
+            <Route path="/doctor/appointments" element={<ManageAppointments />} />
+          </Route>
+        </Route>
+
         {/* Technician Protected Routes */}
-        <Route element={<ProtectedRoute allowedRoles={[3, 5]} />}>
+        <Route element={<ProtectedRoute allowedRoles={[3, 4, 5]} />}>
           <Route element={<AdminLayout />}>
             <Route path="/technician/workspace" element={<TechnicianWorkspace />} />
           </Route>

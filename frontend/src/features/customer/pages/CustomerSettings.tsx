@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '../../../stores/authStore';
 import { 
   Settings, 
@@ -16,10 +16,16 @@ export default function CustomerSettings() {
   const [savedSuccess, setSavedSuccess] = useState<boolean>(false);
 
   // Form states
-  const [hoTen, setHoTen] = useState(user?.ho_ten || 'Tuấn Khải Phan');
-  const email = user?.email || 'VanNgoc67@yahoo.com';
-  const [soDienThoai, setSoDienThoai] = useState((user as any)?.so_dien_thoai || '0248 1408 1678');
-  const [diaChi, setDiaChi] = useState('128 Nguyễn Trãi, Quận Thanh Xuân, Hà Nội');
+  const [hoTen, setHoTen] = useState(user?.ho_ten || '');
+  const email = user?.email || '';
+  const [soDienThoai, setSoDienThoai] = useState(user?.so_dien_thoai || '');
+
+  useEffect(() => {
+    if (user) {
+      setHoTen(user.ho_ten);
+      setSoDienThoai(user.so_dien_thoai || '');
+    }
+  }, [user]);
 
   // Password states
   const [oldPassword, setOldPassword] = useState('');
@@ -128,17 +134,7 @@ export default function CustomerSettings() {
                 <p className="text-[10px] text-gray-400 font-bold tracking-wide">Email đã được xác thực chính chủ. Liên hệ Lễ tân nếu muốn thay đổi.</p>
               </div>
 
-              <div className="space-y-1.5">
-                <label htmlFor="diaChiInput" className="text-xs font-bold text-gray-500 uppercase tracking-wider block">Địa chỉ liên hệ</label>
-                <input 
-                  id="diaChiInput"
-                  type="text" 
-                  value={diaChi}
-                  onChange={(e) => setDiaChi(e.target.value)}
-                  className="w-full bg-zinc-50 border border-gray-200 focus:border-primary rounded-xl px-4 py-3 text-sm text-secondary font-medium outline-none transition-colors"
-                  required
-                />
-              </div>
+
 
               <button 
                 type="submit"

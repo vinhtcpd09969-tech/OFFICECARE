@@ -25,6 +25,9 @@ export const createAppointment = async (req: Request, res: Response): Promise<an
     if (error instanceof ZodError) {
       return res.status(400).json({ message: error.errors[0].message });
     }
+    if (error.message && (error.message.includes('dùng thử') || error.message.includes('trải nghiệm'))) {
+      return res.status(400).json({ message: error.message });
+    }
     // Xử lý lỗi trùng lịch từ database (EXCLUDE USING gist)
     if (error.constraint === 'no_overlap_ktv') {
       return res.status(400).json({ message: 'Kỹ thuật viên đã có lịch trong khung giờ này.' });
@@ -119,5 +122,48 @@ export const cancelCustomerAppointment = async (req: Request, res: Response): Pr
   } catch (error: any) {
     console.error('Lỗi khi khách hàng hủy lịch:', error);
     return res.status(500).json({ message: error.message || 'Lỗi server khi hủy lịch hẹn.' });
+  }
+};
+
+// Lấy chi tiết lịch hẹn công khai (dành cho theo dõi tiến trình)
+export const getPublicAppointmentById = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const id = req.params.id as string;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(id)) {
+      return res.status(400).json({ message: 'Mã lịch hẹn không hợp lệ.' });
+    }
+
+    const appointment = await appointmentService.getPublicAppointmentById(id);
+    if (!appointment) {
+      return res.status(404).json({ message: 'Không tìm thấy thông tin lịch hẹn.' });
+    }
+
+    return res.json(appointment);
+  } catch (error) {
+    console.error('Lỗi khi lấy lịch hẹn công khai:', error);
+    return res.status(500).json({ message: 'Lỗi server khi truy vấn lịch hẹn.' });
+  }
+};
+
+export const getCustomerMedicalRecord = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const nguoi_dung_id = (req as any).user.id;
+    const record = await appointmentService.getCustomerMedicalRecord(nguoi_dung_id);
+    return res.json(record);
+  } catch (error) {
+    console.error('Lỗi khi lấy bệnh án khách hàng:', error);
+    return res.status(500).json({ message: 'Lỗi server khi truy vấn bệnh án.' });
+  }
+};
+
+export const getCustomerTreatmentSessions = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const nguoi_dung_id = (req as any).user.id;
+    const sessions = await appointmentService.getCustomerTreatmentSessions(nguoi_dung_id);
+    return res.json(sessions);
+  } catch (error) {
+    console.error('Lỗi khi lấy ca điều trị khách hàng:', error);
+    return res.status(500).json({ message: 'Lỗi server khi truy vấn ca điều trị.' });
   }
 };

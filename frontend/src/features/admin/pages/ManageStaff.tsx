@@ -121,6 +121,7 @@ export default function ManageStaff() {
                     <td className="p-4 text-zinc-600">{staff.email}</td>
                     <td className="p-4">
                       <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${staff.vai_tro === 'Admin' ? 'bg-purple-100 text-purple-700' :
+                          staff.vai_tro === 'Quản lý' ? 'bg-indigo-100 text-indigo-700' :
                           staff.vai_tro === 'Bác sĩ' ? 'bg-blue-100 text-blue-700' :
                             staff.vai_tro === 'Kỹ thuật viên' ? 'bg-amber-100 text-amber-700' :
                               'bg-zinc-100 text-zinc-700'
@@ -210,6 +211,7 @@ export default function ManageStaff() {
                       <option value={3}>Kỹ thuật viên</option>
                       <option value={4}>Bác sĩ</option>
                       <option value={5}>Admin</option>
+                      <option value={6}>Quản lý</option>
                     </select>
                     {errors.vai_tro_id && <p className="text-red-500 text-xs mt-1">{errors.vai_tro_id.message}</p>}
                   </div>

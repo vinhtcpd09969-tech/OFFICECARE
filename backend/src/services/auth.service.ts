@@ -71,6 +71,7 @@ class AuthService {
         id: user.id,
         ho_ten: user.ho_ten,
         email: user.email,
+        so_dien_thoai: user.so_dien_thoai,
         vai_tro_id: user.vai_tro_id,
         avatar_url: user.avatar_url
       }
@@ -100,6 +101,7 @@ class AuthService {
         id: user.id,
         ho_ten: user.ho_ten,
         email: user.email,
+        so_dien_thoai: user.so_dien_thoai,
         vai_tro_id: user.vai_tro_id,
         avatar_url: user.avatar_url
       }
@@ -126,6 +128,24 @@ class AuthService {
     const user = await authRepository.findUserById(userId);
     if (!user) throw new Error('User not found');
     return user;
+  }
+
+  async resendOTP(email: string) {
+    const user = await authRepository.findUserByEmail(email);
+    if (!user) throw new Error('Người dùng không tồn tại');
+    if (user.da_xac_thuc_email) throw new Error('Tài khoản đã được xác thực email trước đó');
+
+    // Tạo mã OTP mới
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 10);
+
+    // Xóa các OTP cũ và lưu OTP mới
+    await authRepository.deleteOTPsByEmail(email);
+    await authRepository.saveOTP(email, otp, expiresAt);
+    await sendOTP(email, otp, user.ho_ten);
+
+    return { message: 'Đã gửi lại mã OTP mới. Vui lòng kiểm tra email.' };
   }
 }
 

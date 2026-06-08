@@ -5,6 +5,7 @@ interface User {
   id: string;
   ho_ten: string;
   email: string;
+  so_dien_thoai: string | null;
   vai_tro_id: number;
   avatar_url: string | null;
 }

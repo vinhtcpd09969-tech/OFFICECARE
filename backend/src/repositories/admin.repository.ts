@@ -225,7 +225,7 @@ class AdminRepository {
       FROM nguoi_dung nd
       JOIN vai_tro vt ON nd.vai_tro_id = vt.id
       LEFT JOIN chuyen_gia_y_te ktv ON nd.id = ktv.nguoi_dung_id
-      WHERE nd.vai_tro_id IN (2, 3, 4, 5) AND nd.deleted_at IS NULL
+      WHERE nd.vai_tro_id IN (2, 3, 4, 5, 6) AND nd.deleted_at IS NULL
       ORDER BY nd.vai_tro_id, nd.ho_ten
     `);
     return rows;
@@ -312,6 +312,70 @@ class AdminRepository {
     return rows[0];
   }
 
+  async updateEquipment(id: string, data: any) {
+    const { rows } = await pool.query(
+      `UPDATE thiet_bi_y_te 
+       SET ma_thiet_bi = $1, ten_thiet_bi = $2, loai_thiet_bi = $3, ngay_mua = $4, ngay_bao_tri_tiep_theo = $5, trang_thai = $6, phong_id_hien_tai = $7, ghi_chu = $8
+       WHERE id = $9 RETURNING *`,
+      [
+        data.ma_thiet_bi,
+        data.ten_thiet_bi,
+        data.loai_thiet_bi || null,
+        data.ngay_mua || null,
+        data.ngay_bao_tri_tiep_theo || null,
+        data.trang_thai,
+        data.phong_id_hien_tai || null,
+        data.ghi_chu || null,
+        id
+      ]
+    );
+    return rows[0];
+  }
+
+  async deleteEquipment(id: string) {
+    await pool.query('DELETE FROM thiet_bi_y_te WHERE id = $1', [id]);
+  }
+
+  async createRoom(data: any) {
+    const { rows } = await pool.query(
+      `INSERT INTO phong (ten_phong, ma_phong, loai_phong, loai_dich_vu_ho_tro, mo_ta, trang_thai, tang) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [
+        data.ten_phong,
+        data.ma_phong,
+        data.loai_phong || null,
+        data.loai_dich_vu_ho_tro ? (typeof data.loai_dich_vu_ho_tro === 'string' ? data.loai_dich_vu_ho_tro : JSON.stringify(data.loai_dich_vu_ho_tro)) : '[]',
+        data.mo_ta || null,
+        data.trang_thai || 'san_sang',
+        data.tang || null
+      ]
+    );
+    return rows[0];
+  }
+
+  async updateRoom(id: string | number, data: any) {
+    const { rows } = await pool.query(
+      `UPDATE phong 
+       SET ten_phong = $1, ma_phong = $2, loai_phong = $3, loai_dich_vu_ho_tro = $4, mo_ta = $5, trang_thai = $6, tang = $7
+       WHERE id = $8 RETURNING *`,
+      [
+        data.ten_phong,
+        data.ma_phong,
+        data.loai_phong || null,
+        data.loai_dich_vu_ho_tro ? (typeof data.loai_dich_vu_ho_tro === 'string' ? data.loai_dich_vu_ho_tro : JSON.stringify(data.loai_dich_vu_ho_tro)) : '[]',
+        data.mo_ta || null,
+        data.trang_thai || 'san_sang',
+        data.tang || null,
+        id
+      ]
+    );
+    return rows[0];
+  }
+
+  async deleteRoom(id: string | number) {
+    await pool.query('DELETE FROM phong WHERE id = $1', [id]);
+  }
+
   // --- QUẢN LÝ LỊCH LÀM VIỆC ---
   async getSchedules() {
     const { rows } = await pool.query(`
@@ -338,16 +402,36 @@ class AdminRepository {
   // --- QUẢN LÝ HỒ SƠ ĐIỀU TRỊ ---
   async getMedicalRecords() {
     const { rows } = await pool.query(`
-      SELECT ld.id, ld.ma_lich_dat as ma_danh_gia, ld.ngay_gio_bat_dau as ngay_danh_gia, ld.chan_doan, ld.trang_thai,
-             nd_kh.ho_ten as ten_khach_hang, 'KH' as ma_khach_hang,
-             nd_ktv.ho_ten as ten_ky_thuat_vien
-      FROM lich_dat ld
-      LEFT JOIN khach_hang kh ON ld.khach_hang_id = kh.id
-      LEFT JOIN nguoi_dung nd_kh ON kh.nguoi_dung_id = nd_kh.id
-      LEFT JOIN chuyen_gia_y_te ktv ON ld.ky_thuat_vien_id = ktv.id
+      SELECT 
+        hs.id, 
+        ld.ma_lich_dat as ma_danh_gia, 
+        hs.thoi_gian_tao as ngay_danh_gia, 
+        hs.chan_doan, 
+        hs.trang_thai,
+        hs.ho_ten_khach as ten_khach_hang, 
+        hs.so_dien_thoai,
+        'KH' as ma_khach_hang,
+        hs.trieu_chung,
+        hs.ghi_chu,
+        hs.phuong_phap_dieu_tri,
+        hs.loai_goi,
+        hs.ten_goi,
+        hs.so_luong_buoi,
+        hs.so_luong_goi,
+        hs.gia_tien,
+        nd_bs.ho_ten as ten_bac_si,
+        p_kham.ten_phong as ten_phong_kham,
+        nd_ktv.ho_ten as ten_ky_thuat_vien,
+        p_tri.ten_phong as ten_phong_tri_lieu
+      FROM ho_so_dieu_tri hs
+      LEFT JOIN lich_dat ld ON hs.lich_dat_id = ld.id
+      LEFT JOIN chuyen_gia_y_te bs ON hs.bac_si_id = bs.id
+      LEFT JOIN nguoi_dung nd_bs ON bs.nguoi_dung_id = nd_bs.id
+      LEFT JOIN phong p_kham ON hs.phong_kham_id = p_kham.id
+      LEFT JOIN chuyen_gia_y_te ktv ON hs.ky_thuat_vien_id = ktv.id
       LEFT JOIN nguoi_dung nd_ktv ON ktv.nguoi_dung_id = nd_ktv.id
-      WHERE ld.chan_doan IS NOT NULL OR ld.trang_thai IN ('hoan_thanh', 'da_checkin')
-      ORDER BY ld.ngay_gio_bat_dau DESC
+      LEFT JOIN phong p_tri ON hs.phong_tri_lieu_id = p_tri.id
+      ORDER BY hs.thoi_gian_tao DESC
     `);
     return rows;
   }
@@ -682,7 +766,15 @@ class AdminRepository {
         nd.ho_ten, 
         nd.email, 
         nd.so_dien_thoai,
-        vt.ten_hien_thi as vai_tro
+        vt.ten_hien_thi as vai_tro,
+        (
+          SELECT COALESCE(COUNT(*), 0)::integer
+          FROM (
+            SELECT id FROM lich_dat WHERE ky_thuat_vien_id = ktv.id AND ngay_gio_bat_dau::date = $1::date AND trang_thai NOT IN ('da_huy', 'khong_den')
+            UNION ALL
+            SELECT id FROM buoi_tri_lieu WHERE ky_thuat_vien_id = ktv.id AND thoi_gian_bat_dau::date = $1::date AND trang_thai NOT IN ('da_huy')
+          ) as daily_activities
+        ) as so_ca_trong_ngay
       FROM chuyen_gia_y_te ktv
       JOIN nguoi_dung nd ON ktv.nguoi_dung_id = nd.id
       JOIN vai_tro vt ON nd.vai_tro_id = vt.id
@@ -714,7 +806,7 @@ class AdminRepository {
             AND btl.thoi_gian_bat_dau < ($1::date + $2::time + ($3 || ' minutes')::interval)::timestamp
             AND btl.thoi_gian_ket_thuc > ($1::date + $2::time)::timestamp
         )
-      ORDER BY nd.ho_ten
+      ORDER BY so_ca_trong_ngay ASC, nd.ho_ten ASC
     `;
 
     const { rows } = await pool.query(query, [ngay, gio_bat_dau, thoi_luong]);

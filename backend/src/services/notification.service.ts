@@ -120,6 +120,23 @@ class NotificationService {
       console.error('Lỗi khi trigger thông báo lịch hẹn:', error);
     }
   }
+
+  /**
+   * Gửi thông báo cho toàn bộ người dùng theo vai trò
+   */
+  async notifyRole(vai_tro_id: number, tieu_de: string, noi_dung: string, loai: string = 'he_thong') {
+    try {
+      const users = await prisma.nguoi_dung.findMany({
+        where: { vai_tro_id, deleted_at: null }
+      });
+      const promises = users.map(user => 
+        this.createNotification(user.id, tieu_de, noi_dung, loai)
+      );
+      await Promise.all(promises);
+    } catch (error) {
+      console.error('Lỗi khi gửi thông báo theo vai trò:', error);
+    }
+  }
 }
 
 export default new NotificationService();

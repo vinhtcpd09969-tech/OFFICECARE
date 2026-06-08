@@ -22,8 +22,13 @@ export const getCustomers = () => api.get('/admin/customers');
 
 // Rooms & Equipment
 export const getRooms = () => api.get('/admin/rooms');
+export const createRoom = (data: any) => api.post('/admin/rooms', data);
+export const updateRoom = (id: string | number, data: any) => api.put(`/admin/rooms/${id}`, data);
+export const deleteRoom = (id: string | number) => api.delete(`/admin/rooms/${id}`);
 export const getEquipment = () => api.get('/admin/equipment');
 export const createEquipment = (data: any) => api.post('/admin/equipment', data);
+export const updateEquipment = (id: string, data: any) => api.put(`/admin/equipment/${id}`, data);
+export const deleteEquipment = (id: string) => api.delete(`/admin/equipment/${id}`);
 
 // Schedules
 export const getSchedules = () => api.get('/admin/schedules');

@@ -17,6 +17,13 @@ type ScheduleFormValues = z.infer<typeof scheduleSchema>;
 
 const DOW_KEYS = ['thu_2', 'thu_3', 'thu_4', 'thu_5', 'thu_6', 'thu_7', 'chu_nhat'];
 
+const formatLocalDate = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const getWeekDates = (selectedWeek: 'current' | 'next') => {
   const dates = [];
   const current = new Date();
@@ -37,7 +44,7 @@ const getWeekDates = (selectedWeek: 'current' | 'next') => {
       label: DOW_KEYS[i] === 'chu_nhat' ? 'CN' : `T${i + 2}`,
       dateStr: d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
       isToday: d.toDateString() === new Date().toDateString(),
-      fullDateStr: d.toISOString().split('T')[0]
+      fullDateStr: formatLocalDate(d)
     });
   }
   return dates;
@@ -84,7 +91,7 @@ export default function ManageSchedules() {
   const handleOpenModal = (userId: string, dateStr?: string) => {
     reset();
     setValue('nguoi_dung_id', userId);
-    setValue('ngay', (dateStr || new Date().toISOString().split('T')[0]) as any);
+    setValue('ngay', (dateStr || formatLocalDate(new Date())) as any);
     setIsModalOpen(true);
   };
 

@@ -1,8 +1,8 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000/api/v1'; // Wait, is it /api or /api/v1?
+const API_URL = 'http://localhost:5001/api/v1'; // Wait, is it /api or /api/v1?
 // index.ts says app.use('/api/auth', authRoutes);
-const AUTH_URL = 'http://localhost:5000/api/auth';
+const AUTH_URL = 'http://localhost:5001/api/auth';
 
 async function test() {
   try {

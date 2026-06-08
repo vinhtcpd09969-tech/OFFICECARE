@@ -70,6 +70,13 @@ const fullDateFormatter = new Intl.DateTimeFormat('vi-VN', {
   day: 'numeric',
 });
 
+const formatLocalDate = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export default function Booking() {
   const navigate = useNavigate();
   const [isClient, setIsClient] = useState(false);
@@ -80,7 +87,7 @@ export default function Booking() {
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   
   const [state, dispatch] = useReducer(bookingReducer, {
-    selectedDate: new Date().toISOString().split('T')[0],
+    selectedDate: formatLocalDate(new Date()),
     selectedTime: '',
     isSubmitting: false,
     isSuccess: false,
@@ -97,6 +104,11 @@ export default function Booking() {
   useEffect(() => {
     setIsClient(true);
     
+    // Đồng bộ họ tên của user đã đăng nhập vào form đặt lịch
+    if (user?.ho_ten) {
+      dispatch({ type: 'SET_FORM_FIELD', field: 'ho_ten_khach', value: user.ho_ten });
+    }
+
     // Khôi phục dữ liệu đặt lịch tạm thời (nếu có) sau khi đăng nhập thành công
     const saved = localStorage.getItem('temp_booking');
     if (saved) {
@@ -129,8 +141,9 @@ export default function Booking() {
       return;
     }
 
-    // NẾU CHƯA ĐĂNG NHẬP -> Bật Modal Popup xin ý kiến chuyển hướng
+    // NẾU CHƯA ĐĂNG NHẬP -> Báo lỗi toast tiếng Việt và bật Modal hướng dẫn Đăng ký/Đăng nhập
     if (!isAuthenticated()) {
+      toast.error('Vui lòng đăng nhập trước khi đặt lịch!');
       setShowAuthModal(true);
       return;
     }
@@ -138,9 +151,7 @@ export default function Booking() {
     const toastId = toast.loading('Đang gửi đăng ký lịch hẹn y khoa...');
     dispatch({ type: 'SET_SUBMITTING', isSubmitting: true });
     
-    const [year, month, day] = state.selectedDate.split('-');
-    const [hours, minutes] = state.selectedTime.split(':');
-    const ngay_gio_bat_dau = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hours), parseInt(minutes)).toISOString();
+    const ngay_gio_bat_dau = `${state.selectedDate}T${state.selectedTime}:00.000Z`;
 
     try {
       const response = await fetch('http://localhost:5000/api/client/appointments/public', {
@@ -157,8 +168,8 @@ export default function Booking() {
 
       if (response.ok) {
         toast.success('Đăng ký lịch khám thành công!', { id: toastId });
-        dispatch({ type: 'SET_SUCCESS', isSuccess: true });
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        const data = await response.json();
+        navigate(`/booking/success/${data.id}`);
       } else {
         const error = await response.json();
         toast.error(error.message || 'Không thể tạo lịch hẹn. Hãy thử lại.', { id: toastId });
@@ -177,6 +188,15 @@ export default function Booking() {
       formData
     }));
     navigate('/login', { state: { from: '/booking' } });
+  };
+
+  const handleRedirectToRegister = () => {
+    localStorage.setItem('temp_booking', JSON.stringify({
+      selectedDate,
+      selectedTime,
+      formData
+    }));
+    navigate('/register', { state: { from: '/booking' } });
   };
 
   const formatFullDate = (dateString: string) => {
@@ -210,7 +230,17 @@ export default function Booking() {
 
   const daysGrid = getDaysInMonth(currentMonth);
   const weekDays = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = formatLocalDate(new Date());
+
+  const isTimeSlotDisabled = (time: string): boolean => {
+    if (selectedDate !== todayStr) return false;
+    const [hours, minutes] = time.split(':').map(Number);
+    const now = new Date();
+    const slotDate = new Date();
+    slotDate.setHours(hours, minutes, 0, 0);
+    const minBookingTime = new Date(now.getTime() + 60 * 60 * 1000);
+    return slotDate < minBookingTime;
+  };
 
   const handleMonthChange = (direction: 'prev' | 'next') => {
     const newMonth = new Date(currentMonth);
@@ -318,7 +348,7 @@ export default function Booking() {
                 
                 <div className="relative z-10 text-white">
                   <span className="bg-primary/20 text-primary border border-primary/30 text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full">
-                    PhysioFlow Rehab
+                    Office Care Premium Rehab
                   </span>
                   <h2 className="text-lg font-heading font-black leading-tight mt-2.5">
                     Khám Lâm sàng & Lượng giá
@@ -330,7 +360,7 @@ export default function Booking() {
               <div className="p-6 space-y-5">
                 <div className="flex items-start gap-3.5 text-gray-500">
                   <MapPin className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                  <span className="text-xs font-semibold leading-relaxed">Tầng 3, Tòa nhà ABC, Quận 7, TP. Hồ Chí Minh</span>
+                  <span className="text-xs font-semibold leading-relaxed">Tầng 3, 40 Nguyễn Văn Linh, Bình Hiên, Hải Châu, Đà Nẵng</span>
                 </div>
                 
                 <div className="flex items-start gap-3.5 text-gray-500">
@@ -400,7 +430,7 @@ export default function Booking() {
             <div className="bg-white rounded-[24px] shadow-sm border border-gray-150 p-6 space-y-4">
               <h3 className="text-sm font-heading font-black text-secondary uppercase tracking-wider flex items-center gap-2">
                 <Award size={18} className="text-primary" />
-                Cam kết y khoa tại PhysioFlow
+                Cam kết y khoa tại Office Care
               </h3>
               <ul className="space-y-3 text-[11px] font-semibold text-gray-500 leading-relaxed">
                 <li className="flex items-center gap-2">
@@ -421,7 +451,41 @@ export default function Booking() {
           </div>
 
           {/* RIGHT COLUMN: Interactive Form with time slots */}
-          <div className="lg:col-span-8 bg-white rounded-[24px] shadow-sm border border-gray-150 p-6 sm:p-8 animate-slide-up stagger-delay-2">
+          <div className="lg:col-span-8 bg-white rounded-[24px] shadow-sm border border-gray-150 p-6 sm:p-8 animate-slide-up stagger-delay-2 relative overflow-hidden">
+            
+            {/* GLASSMORPHIC LOCK OVERLAY FOR UNAUTHENTICATED USERS */}
+            {isClient && !isAuthenticated() && (
+              <div className="absolute inset-0 bg-white/60 backdrop-blur-md z-30 flex items-center justify-center p-6 text-center animate-fade-in">
+                <div className="max-w-md bg-white/95 rounded-[32px] p-8 shadow-[0_20px_50px_rgba(15,23,42,0.08)] border border-gray-100 space-y-6 animate-scale-in">
+                  <div className="w-16 h-16 bg-primary/10 text-primary rounded-[20px] flex items-center justify-center mx-auto border border-primary/20 animate-bounce">
+                    <User size={30} />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-xl font-heading font-black text-secondary">Đăng ký & Đăng nhập trước</h3>
+                    <p className="text-xs font-semibold text-gray-500 leading-relaxed max-w-xs mx-auto">
+                      Để tránh mất công điền thông tin lâm sàng cả buổi khi chưa có tài khoản, vui lòng đăng ký hoặc đăng nhập trước để tiếp tục khám lượng giá nhé!
+                    </p>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                    <button 
+                      type="button"
+                      onClick={handleRedirectToRegister}
+                      className="w-full bg-primary hover:opacity-90 text-white font-bold py-3.5 px-6 rounded-xl text-xs uppercase tracking-wider transition-all shadow-xs"
+                    >
+                      Đăng ký tài khoản mới
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={handleRedirectToLogin}
+                      className="w-full bg-secondary hover:opacity-95 text-white font-bold py-3.5 px-6 rounded-xl text-xs uppercase tracking-wider transition-all shadow-xs"
+                    >
+                      Đăng nhập ngay
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-8">
               
               {/* Step 1: Time selectors */}
@@ -472,7 +536,7 @@ export default function Booking() {
                       {daysGrid.map((day, idx) => {
                         if (!day) return <div key={`empty-${idx}`} />;
                         
-                        const dateStr = day.toISOString().split('T')[0];
+                        const dateStr = formatLocalDate(day);
                         const isPast = dateStr < todayStr;
                         const isSelected = selectedDate === dateStr;
                         
@@ -509,20 +573,26 @@ export default function Booking() {
                   </label>
                   
                   <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
-                    {timeSlots.map((time) => (
-                      <button
-                        type="button"
-                        key={time}
-                        onClick={() => dispatch({ type: 'SET_TIME', time })}
-                        className={`py-3 px-2 text-xs font-extrabold rounded-xl border transition-all active:scale-95 duration-200
-                          ${selectedTime === time 
-                            ? 'bg-primary border-primary text-white shadow-xs scale-102 font-black' 
-                            : 'bg-zinc-50 border-transparent text-secondary hover:border-primary/20 hover:bg-primary/5 hover:text-primary'
-                          }`}
-                      >
-                        {time}
-                      </button>
-                    ))}
+                    {timeSlots.map((time) => {
+                      const isDisabled = isTimeSlotDisabled(time);
+                      return (
+                        <button
+                          type="button"
+                          key={time}
+                          disabled={isDisabled}
+                          onClick={() => dispatch({ type: 'SET_TIME', time })}
+                          className={`py-3 px-2 text-xs font-extrabold rounded-xl border transition-all duration-200
+                            ${isDisabled
+                              ? 'bg-zinc-50 border-transparent text-zinc-300 cursor-not-allowed opacity-40'
+                              : selectedTime === time 
+                                ? 'bg-primary border-primary text-white shadow-xs scale-102 font-black active:scale-95' 
+                                : 'bg-zinc-50 border-transparent text-secondary hover:border-primary/20 hover:bg-primary/5 hover:text-primary active:scale-95'
+                            }`}
+                        >
+                          {time}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -654,18 +724,24 @@ export default function Booking() {
               <div className="w-16 h-16 bg-primary/10 text-primary rounded-[20px] flex items-center justify-center mx-auto border border-primary/20">
                 <User size={30} />
               </div>
-              <h3 className="text-2xl font-heading font-black text-secondary">Đăng nhập thành viên</h3>
+              <h3 className="text-2xl font-heading font-black text-secondary">Đăng ký & Đăng nhập</h3>
               <p className="text-xs font-semibold text-gray-500 leading-relaxed">
-                Để bảo vệ an toàn hồ sơ bệnh lý của bạn và thuận tiện cập nhật kết quả sau khám, xin vui lòng đăng nhập hoặc tạo tài khoản trước khi hoàn tất đăng ký.
+                Để bảo vệ an toàn hồ sơ bệnh lý và đặt lịch khám nhanh chóng, vui lòng đăng ký tài khoản mới trước. Nếu đã có tài khoản, bạn có thể đăng nhập trực tiếp.
               </p>
             </div>
             
             <div className="mt-8 flex flex-col gap-3">
               <button 
-                onClick={handleRedirectToLogin}
+                onClick={handleRedirectToRegister}
                 className="w-full bg-primary hover:opacity-90 text-white font-bold py-3.5 rounded-xl text-xs uppercase tracking-wider transition-all shadow-xs"
               >
-                Đăng nhập hoặc Tạo tài khoản
+                Đăng ký tài khoản mới
+              </button>
+              <button 
+                onClick={handleRedirectToLogin}
+                className="w-full bg-secondary hover:opacity-95 text-white font-bold py-3.5 rounded-xl text-xs uppercase tracking-wider transition-all shadow-xs animate-pulse"
+              >
+                Đã có tài khoản? Đăng nhập ngay
               </button>
               <button 
                 onClick={() => setShowAuthModal(false)}
