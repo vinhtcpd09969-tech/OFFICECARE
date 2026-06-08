@@ -194,7 +194,9 @@ export default function TreatmentBookingModal({
                 <>
                   <option value="">-- Chọn kỹ thuật viên --</option>
                   {availableStaff.map((s: any) => (
-                    <option key={s.chuyen_gia_id} value={s.chuyen_gia_id}>{s.ho_ten} (Rảnh)</option>
+                    <option key={s.ky_thuat_vien_id || s.chuyen_gia_id} value={s.ky_thuat_vien_id || s.chuyen_gia_id}>
+                      {s.ho_ten} (Rảnh - Hôm nay có: {s.so_ca_trong_ngay || 0} ca)
+                    </option>
                   ))}
                 </>
               )}

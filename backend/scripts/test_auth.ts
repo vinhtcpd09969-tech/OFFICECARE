@@ -1,7 +1,7 @@
 async function run() {
   try {
     console.log('Testing Login API...');
-    const loginRes = await fetch('http://localhost:5000/api/auth/login', {
+    const loginRes = await fetch('http://localhost:5001/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: 'admin@physioflow.com', password: 'admin123' })
@@ -15,7 +15,7 @@ async function run() {
     }
 
     console.log('\nTesting GetMe API...');
-    const meRes = await fetch('http://localhost:5000/api/auth/me', {
+    const meRes = await fetch('http://localhost:5001/api/auth/me', {
       headers: { 'Authorization': `Bearer ${loginData.accessToken}` }
     });
     const meData = await meRes.json();

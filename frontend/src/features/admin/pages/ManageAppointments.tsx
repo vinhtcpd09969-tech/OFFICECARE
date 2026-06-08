@@ -24,6 +24,7 @@ import { format, addDays, subDays, startOfWeek } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuthStore } from '../../../stores/authStore';
 
 // Import Components đã bóc tách
 import AppointmentCalendar from '../components/AppointmentCalendar';
@@ -31,6 +32,8 @@ import AppointmentWeeklyCalendar from '../components/AppointmentWeeklyCalendar';
 import AppointmentDetailModal from '../components/AppointmentDetailModal';
 import TreatmentBookingModal from '../components/TreatmentBookingModal';
 import WalkInBookingModal from '../components/WalkInBookingModal';
+import CreateTreatmentRecordModal from '../components/CreateTreatmentRecordModal';
+import AssignTreatmentModal from '../components/AssignTreatmentModal';
 
 const standardTimeSlots = [
   '07:00', '07:30', '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
@@ -44,13 +47,19 @@ const statusConfig = {
   da_xac_nhan: { label: 'Đã xác nhận', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: <CheckCircle2 size={14} /> },
   da_checkin: { label: 'Đã Check-in', color: 'bg-teal-100 text-teal-700 border-teal-200', icon: <PlayCircle size={14} /> },
   hoan_thanh: { label: 'Hoàn thành', color: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: <CheckCircle2 size={14} /> },
+  cho_huy: { label: 'Chờ hủy', color: 'bg-rose-100 text-rose-700 border-rose-200 animate-pulse', icon: <XCircle size={14} className="text-rose-600 animate-pulse" /> },
   da_huy: { label: 'Đã hủy', color: 'bg-red-100 text-red-700 border-red-200', icon: <XCircle size={14} /> },
   khong_den: { label: 'Không đến', color: 'bg-slate-200 text-slate-700 border-slate-300', icon: <XCircle size={14} /> },
 };
 
 export default function ManageAppointments() {
-  const location = useLocation();
-  const isReceptionist = location.pathname.startsWith('/receptionist');
+  const user = useAuthStore(state => state.user);
+
+  const [viewRole, setViewRole] = useState<'manager' | 'receptionist' | 'doctor'>(() => {
+    if (user?.vai_tro_id === 4) return 'doctor';
+    if (user?.vai_tro_id === 2) return 'receptionist';
+    return 'manager';
+  });
 
   const [appointments, setAppointments] = useState<any[]>([]);
   const [staffList, setStaffList] = useState<any[]>([]);
@@ -194,6 +203,21 @@ export default function ManageAppointments() {
     }
   }, [appointments]);
 
+  // New states for Treatment Records (ho_so_dieu_tri)
+  const [treatmentRecords, setTreatmentRecords] = useState<any[]>([]);
+  const [isCreateRecordModalOpen, setIsCreateRecordModalOpen] = useState(false);
+  const [activeAptForTreatmentRecord, setActiveAptForTreatmentRecord] = useState<any>(null);
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [selectedRecordForAssign, setSelectedRecordForAssign] = useState<any>(null);
+  const [treatmentSearchTerm, setTreatmentSearchTerm] = useState<string>('');
+  const [treatmentStatusFilter, setTreatmentStatusFilter] = useState<string>('all');
+  const [managerActiveTab, setManagerActiveTab] = useState<'treatments' | 'clinical'>('treatments');
+  const [receptionistActiveTab, setReceptionistActiveTab] = useState<'calendar' | 'new_bookings' | 'final_confirm'>('calendar');
+  const [cancelAptId, setCancelAptId] = useState<string | null>(null);
+  const [cancelReasonInput, setCancelReasonInput] = useState<string>('');
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState<boolean>(false);
+  const prevPendingCountRef = useRef<number>(-1);
+
   // Assignment State in Detail Modal
   const [assignStaffId, setAssignStaffId] = useState<string>('');
   const [assignRoomId, setAssignRoomId] = useState<string>('');
@@ -210,16 +234,17 @@ export default function ManageAppointments() {
   const [treatmentTime, setTreatmentTime] = useState<string>('09:00');
   const [bookingLoading, setBookingLoading] = useState(false);
 
-  const fetchData = async () => {
+  const fetchData = async (silent = false) => {
     try {
-      setLoading(true);
-      const [aptRes, staffRes, serviceRes, packageRes, roomsRes, schedulesRes] = await Promise.all([
+      if (!silent) setLoading(true);
+      const [aptRes, staffRes, serviceRes, packageRes, roomsRes, schedulesRes, treatmentRes] = await Promise.all([
         axiosInstance.get('/admin/appointments'),
         axiosInstance.get('/admin/staff'),
         axiosInstance.get('/admin/services'),
         axiosInstance.get('/admin/packages').catch(() => ({ data: [] })),
         axiosInstance.get('/admin/rooms').catch(() => ({ data: [] })),
-        axiosInstance.get('/admin/schedules').catch(() => ({ data: [] }))
+        axiosInstance.get('/admin/schedules').catch(() => ({ data: [] })),
+        axiosInstance.get('/admin/treatment-records').catch(() => ({ data: [] }))
       ]);
 
       setAppointments(aptRes.data);
@@ -228,17 +253,38 @@ export default function ManageAppointments() {
       setPackages(packageRes.data || []);
       setRoomsList(roomsRes.data || []);
       setSchedulesList(schedulesRes.data || []);
+
+      const newRecords = treatmentRes.data || [];
+      setTreatmentRecords(newRecords);
+
+      // Real-time Manager alert on new treatment records (cho_dieu_phoi)
+      if (viewRole === 'manager') {
+        const pendingCount = newRecords.filter((r: any) => r.trang_thai === 'cho_dieu_phoi').length;
+        if (prevPendingCountRef.current !== -1 && pendingCount > prevPendingCountRef.current) {
+          toast("Có hồ sơ điều trị mới cần điều phối từ Bác sĩ!", { icon: "🩺", duration: 8000 });
+        }
+        prevPendingCountRef.current = pendingCount;
+      } else {
+        prevPendingCountRef.current = -1;
+      }
     } catch (error) {
       console.error('Lỗi tải dữ liệu:', error);
-      toast.error('Không thể tải dữ liệu lịch hẹn');
+      if (!silent) toast.error('Không thể tải dữ liệu lịch hẹn');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchData();
-  }, []);
+
+    // 10-second polling for real-time alerts & automatic dashboard list updates
+    const interval = setInterval(() => {
+      fetchData(true);
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [viewRole]);
 
   const handleUpdateAppointment = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -246,9 +292,9 @@ export default function ManageAppointments() {
 
     try {
       setIsAssigning(true);
-      
+
       let finalStatus = assignStatus;
-      if (selectedAppointment.trang_thai === 'chua_xac_nhan' && assignStaffId && assignRoomId) {
+      if ((selectedAppointment.trang_thai === 'cho_phan_phong' || selectedAppointment.trang_thai === 'chua_xac_nhan') && assignStaffId && assignRoomId) {
         finalStatus = 'cho_xac_nhan';
       }
 
@@ -259,12 +305,19 @@ export default function ManageAppointments() {
         phong_id: assignRoomId || null
       });
 
-      toast.success('Cập nhật thông tin ca trực thành công');
+      if (finalStatus === 'da_checkin') {
+        const staffName = staffList.find(s => String(s.ky_thuat_vien_id || s.id) === String(assignStaffId))?.ho_ten || 'Bác sĩ';
+        const roomName = roomsList.find(r => String(r.id) === String(assignRoomId))?.ten_phong || 'Phòng khám';
+        toast.success(`Check-in thành công! Hãy hướng dẫn khách di chuyển đến ${roomName} gặp ${staffName}.`, { icon: '🛎️', duration: 8000 });
+      } else {
+        toast.success('Cập nhật ca khám y khoa thành công');
+      }
+
       setIsDetailModalOpen(false);
       fetchData();
     } catch (error) {
       console.error('Failed to update:', error);
-      toast.error('Lỗi cập nhật ca trực');
+      toast.error('Lỗi cập nhật thông tin ca khám');
     } finally {
       setIsAssigning(false);
     }
@@ -346,6 +399,135 @@ export default function ManageAppointments() {
     }
   };
 
+  const handleCompleteAppointment = async (appointmentId: string) => {
+    // Enforce safeguard: Check if treatment record has been created for this appointment
+    const hasRecord = treatmentRecords.some(r => r.lich_dat_id === appointmentId);
+    if (!hasRecord) {
+      toast.error("Vui lòng click '🩺 Lên phác đồ' để tạo hồ sơ điều trị trước khi hoàn thành ca khám!");
+      return;
+    }
+
+    if (!window.confirm('Bạn có chắc chắn muốn hoàn thành ca khám lâm sàng này?')) return;
+    try {
+      setLoading(true);
+      await axiosInstance.patch(`/admin/appointments/${appointmentId}/status`, {
+        trang_thai: 'hoan_thanh'
+      });
+      toast.success('Đã hoàn thành ca khám lâm sàng thành công!');
+      fetchData();
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Lỗi khi hoàn thành ca khám: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirmNewBooking = async (appointmentId: string) => {
+    try {
+      setLoading(true);
+      await axiosInstance.patch(`/admin/appointments/${appointmentId}/status`, {
+        trang_thai: 'cho_phan_phong'
+      });
+      toast.success('Đã gọi xác nhận và chuyển qua cho Quản lý xếp lịch!');
+      fetchData();
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Lỗi khi chuyển Quản lý: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFinalConfirmBooking = async (appointmentId: string) => {
+    try {
+      setLoading(true);
+      await axiosInstance.patch(`/admin/appointments/${appointmentId}/status`, {
+        trang_thai: 'da_xac_nhan'
+      });
+      toast.success('Xác nhận lịch khám thành công!');
+      fetchData();
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Lỗi khi xác nhận lịch: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirmCancelRequest = async (appointmentId: string, lyDo: string) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xác nhận hủy lịch hẹn này theo yêu cầu của khách hàng?')) return;
+    try {
+      setLoading(true);
+      await axiosInstance.patch(`/admin/appointments/${appointmentId}/status`, {
+        trang_thai: 'da_huy',
+        ly_do_huy: lyDo
+      });
+      toast.success('Đã xác nhận hủy lịch hẹn thành công!');
+      fetchData();
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Lỗi khi hủy lịch: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelBookingPrompt = (appointmentId: string) => {
+    setCancelAptId(appointmentId);
+    setCancelReasonInput('');
+    setIsCancelModalOpen(true);
+  };
+
+  const handleCancelBookingSubmit = async () => {
+    if (!cancelAptId || !cancelReasonInput.trim()) return;
+    try {
+      setLoading(true);
+      await axiosInstance.patch(`/admin/appointments/${cancelAptId}/status`, {
+        trang_thai: 'da_huy',
+        ly_do_huy: cancelReasonInput.trim()
+      });
+      toast.success('Đã hủy lịch hẹn thành công!');
+      setIsCancelModalOpen(false);
+      setCancelAptId(null);
+      setCancelReasonInput('');
+      fetchData();
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Lỗi khi hủy lịch: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateTreatmentRecordSubmit = async (payload: any) => {
+    try {
+      await axiosInstance.post('/admin/treatment-records', payload);
+      toast.success('Tạo hồ sơ điều trị thành công!');
+      setIsCreateRecordModalOpen(false);
+      fetchData();
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Lỗi khi tạo hồ sơ điều trị: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const handleAssignTreatmentSubmit = async (ktvId: string, roomId: string) => {
+    if (!selectedRecordForAssign) return;
+    try {
+      await axiosInstance.patch(`/admin/treatment-records/${selectedRecordForAssign.id}/assign`, {
+        ky_thuat_vien_id: ktvId,
+        phong_tri_lieu_id: Number(roomId)
+      });
+      toast.success('Điều phối kỹ thuật viên và phòng trị liệu thành công!');
+      setIsAssignModalOpen(false);
+      fetchData();
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Lỗi khi điều phối trị liệu: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
   const handleNavigateDay = (direction: 'next' | 'prev' | 'today') => {
     if (direction === 'today') {
       setSelectedDate(new Date());
@@ -359,7 +541,7 @@ export default function ManageAppointments() {
 
   const activeRole = 'Bác sĩ';
   const formattedSelectedDate = format(selectedDate, 'yyyy-MM-dd');
-  
+
   const startDateOfWeek = startOfWeek(selectedDate, { weekStartsOn: 1 });
   const endDateOfWeek = addDays(startDateOfWeek, 6);
 
@@ -380,23 +562,44 @@ export default function ManageAppointments() {
       apt.ma_lich_dat.toLowerCase().includes(searchTerm.toLowerCase()) ||
       apt.ten_khach_hang.toLowerCase().includes(searchTerm.toLowerCase());
 
-    if (isReceptionist && apt.trang_thai !== 'cho_xac_nhan') {
+    const hideUnconfirmed = viewRole === 'receptionist' || viewRole === 'doctor';
+    if (hideUnconfirmed && (apt.trang_thai === 'chua_xac_nhan' || apt.trang_thai === 'cho_xac_nhan' || apt.trang_thai === 'cho_phan_phong')) {
       return false;
     }
 
     return matchDate && matchType && matchRoom && matchSearch;
   });
 
+  const pendingClinicalAppointments = appointments.filter(apt =>
+    apt.loai_lich === 'kham_moi' &&
+    apt.trang_thai === 'cho_phan_phong' &&
+    (!apt.ky_thuat_vien_id || !apt.phong_id)
+  );
+
+  const receptionistNewBookings = appointments.filter(apt =>
+    apt.loai_lich === 'kham_moi' &&
+    (apt.trang_thai === 'cho_xac_nhan' || apt.trang_thai === 'cho_huy') &&
+    apt.ky_thuat_vien_id === null &&
+    apt.phong_id === null
+  );
+
+  const receptionistFinalConfirmBookings = appointments.filter(apt =>
+    apt.loai_lich === 'kham_moi' &&
+    (apt.trang_thai === 'cho_xac_nhan' || apt.trang_thai === 'cho_huy') &&
+    apt.ky_thuat_vien_id !== null &&
+    apt.phong_id !== null
+  );
+
   // KPI Metrics calculation
   const dailyAppointments = appointments.filter(apt => {
-      const aptDateStr = format(new Date(apt.ngay_gio_bat_dau), 'yyyy-MM-dd');
-      const matchType = apt.loai_lich === scheduleType || apt.loai_lich === 'dich_vu_don';
-      return aptDateStr === formattedSelectedDate && matchType;
+    const aptDateStr = format(new Date(apt.ngay_gio_bat_dau), 'yyyy-MM-dd');
+    const matchType = apt.loai_lich === scheduleType || apt.loai_lich === 'dich_vu_don';
+    return aptDateStr === formattedSelectedDate && matchType;
   });
 
   const kpis = {
     total: viewMode === 'today' ? dailyAppointments.length : filteredAppointments.length,
-    waiting: (viewMode === 'today' ? dailyAppointments : filteredAppointments).filter(a => a.trang_thai === 'cho_xac_nhan').length,
+    waiting: (viewMode === 'today' ? dailyAppointments : filteredAppointments).filter(a => a.trang_thai === 'cho_xac_nhan' || a.trang_thai === 'cho_huy').length,
     completed: (viewMode === 'today' ? dailyAppointments : filteredAppointments).filter(a => a.trang_thai === 'hoan_thanh').length,
     cancelled: (viewMode === 'today' ? dailyAppointments : filteredAppointments).filter(a => a.trang_thai === 'da_huy' || a.trang_thai === 'khong_den').length,
   };
@@ -561,28 +764,72 @@ export default function ManageAppointments() {
 
   return (
     <div className="space-y-6 max-w-full">
+      {/* ROLE SWITCHER FOR ADMIN */}
+      {user?.vai_tro_id === 5 && (
+        <div className="bg-white p-3.5 rounded-2xl border border-zinc-150/80 shadow-xs flex flex-wrap items-center gap-3 animate-in slide-in-from-top duration-300">
+          <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5 px-2">
+            👁️ Chế độ xem vai trò (Admin):
+          </span>
+          <div className="flex bg-zinc-50 p-1 rounded-xl border border-zinc-200/60">
+            <button
+              onClick={() => setViewRole('manager')}
+              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${viewRole === 'manager'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-105'
+                }`}
+            >
+              💼 Quản lý
+            </button>
+            <button
+              onClick={() => setViewRole('receptionist')}
+              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${viewRole === 'receptionist'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-105'
+                }`}
+            >
+              📅 Lễ tân
+            </button>
+            <button
+              onClick={() => setViewRole('doctor')}
+              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${viewRole === 'doctor'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-105'
+                }`}
+            >
+              🩺 Bác sĩ
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* HEADER SECTION */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center pb-2 gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Layers className="text-emerald-700 dark:text-emerald-450" size={28} />
             <h1 className="text-3xl font-extrabold tracking-tight text-slate-800 dark:text-zinc-100 flex items-center gap-2.5">
-              Lịch Hẹn Khám
+              {viewRole === 'doctor' && 'Màn hình Khám bệnh của Bác sĩ'}
+              {viewRole === 'receptionist' && 'Màn hình điều phối của Lễ tân'}
+              {viewRole === 'manager' && 'Màn hình Quản lý Hồ sơ Điều trị'}
               <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 px-2 py-0.5 rounded border border-slate-200/50 dark:border-zinc-700 font-semibold select-none">
                 <Command size={10} /> K
               </span>
             </h1>
           </div>
-          <p className="text-slate-500 dark:text-zinc-400 text-sm">Quản lý và điều phối các ca khám lâm sàng với Bác sĩ.</p>
+          <p className="text-slate-500 dark:text-zinc-400 text-sm">
+            {viewRole === 'doctor' && 'Theo dõi danh sách bệnh nhân chờ khám và lên phác đồ điều trị.'}
+            {viewRole === 'receptionist' && 'Tiếp đón khách hàng, cập nhật trạng thái check-in và xử lý yêu cầu hủy lịch.'}
+            {viewRole === 'manager' && 'Quản lý và điều phối các hồ sơ điều trị nhận từ bác sĩ chuyên khoa.'}
+          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 self-stretch md:self-auto justify-end">
+        {viewRole !== 'manager' && (
           <div className="flex items-center bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-slate-100 dark:border-zinc-800 p-1 justify-between select-none transition-colors duration-300">
             <button onClick={() => handleNavigateDay('prev')} className="p-2 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-650 dark:text-zinc-350 rounded-lg transition-colors">
               <ChevronLeft size={18} />
             </button>
             <div className="px-5 text-sm font-semibold text-slate-700 dark:text-zinc-200 text-center min-w-[180px] md:min-w-[220px]">
-              {viewMode === 'today' 
+              {viewMode === 'today'
                 ? format(selectedDate, 'eeee, dd/MM/yyyy', { locale: vi })
                 : `Tuần: ${format(startDateOfWeek, 'dd/MM')} - ${format(endDateOfWeek, 'dd/MM/yyyy')}`
               }
@@ -591,7 +838,7 @@ export default function ManageAppointments() {
               <ChevronRight size={18} />
             </button>
           </div>
-        </div>
+        )}
       </div>
 
       {/* UNCONFIRMED APPOINTMENTS ALERT WIDGET */}
@@ -629,249 +876,294 @@ export default function ManageAppointments() {
       </AnimatePresence>
 
       {/* KPI METRIC CARDS */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-zinc-900 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-zinc-800 flex flex-col justify-between hover:shadow-md transition-shadow duration-300">
-          <span className="text-slate-500 dark:text-zinc-400 text-xs font-bold uppercase tracking-wider">Tổng số ca khám</span>
-          <div className="flex justify-between items-end mt-3">
-            <div>
-              <span className="text-4xl font-black text-slate-800 dark:text-zinc-100">{kpis.total}</span>
-              <span className="text-[10px] text-emerald-500 dark:text-emerald-450 font-bold block mt-1">+14.2% hôm nay</span>
+      {viewRole !== 'manager' && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white dark:bg-zinc-900 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-zinc-800 flex flex-col justify-between hover:shadow-md transition-shadow duration-300">
+            <span className="text-slate-500 dark:text-zinc-400 text-xs font-bold uppercase tracking-wider">Tổng số ca khám</span>
+            <div className="flex justify-between items-end mt-3">
+              <div>
+                <span className="text-4xl font-black text-slate-800 dark:text-zinc-100">{kpis.total}</span>
+                <span className="text-[10px] text-emerald-500 dark:text-emerald-450 font-bold block mt-1">+14.2% hôm nay</span>
+              </div>
+              <div className="pb-1">
+                <svg className="w-16 h-8 text-emerald-500 dark:text-emerald-450" viewBox="0 0 100 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M0 25C15 23 30 15 45 18C60 21 75 5 100 2" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
             </div>
-            <div className="pb-1">
-              <svg className="w-16 h-8 text-emerald-500 dark:text-emerald-450" viewBox="0 0 100 30" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M0 25C15 23 30 15 45 18C60 21 75 5 100 2" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+          </div>
+          <div className="bg-white dark:bg-zinc-900 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-zinc-800 flex flex-col justify-between hover:shadow-md transition-shadow duration-300">
+            <span className="text-slate-500 dark:text-zinc-400 text-xs font-bold uppercase tracking-wider">Chờ xử lý</span>
+            <div className="flex justify-between items-end mt-3">
+              <div>
+                <span className="text-4xl font-black text-amber-600 dark:text-amber-550">{kpis.waiting}</span>
+                <span className="text-[10px] text-amber-600 dark:text-amber-500 font-bold block mt-1">Cần điều phối gấp</span>
+              </div>
+              <div className="pb-1">
+                <svg className="w-16 h-8 text-amber-550 dark:text-amber-500" viewBox="0 0 100 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M0 20C15 15 30 25 45 10C60 5 75 18 100 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white dark:bg-zinc-900 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-zinc-800 flex flex-col justify-between hover:shadow-md transition-shadow duration-300">
+            <span className="text-slate-500 dark:text-zinc-400 text-xs font-bold uppercase tracking-wider">Đã hoàn thành</span>
+            <div className="flex justify-between items-end mt-3">
+              <div>
+                <span className="text-4xl font-black text-emerald-600 dark:text-emerald-500">{kpis.completed}</span>
+                <span className="text-[10px] text-emerald-555 dark:text-emerald-450 font-bold block mt-1">+8 ca phục hồi</span>
+              </div>
+              <div className="pb-1">
+                <svg className="w-16 h-8 text-emerald-500 dark:text-emerald-450" viewBox="0 0 100 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M0 28C15 25 30 18 45 12C60 14 75 5 100 1" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white dark:bg-zinc-900 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-zinc-800 flex flex-col justify-between hover:shadow-md transition-shadow duration-300">
+            <span className="text-slate-500 dark:text-zinc-400 text-xs font-bold uppercase tracking-wider">Hủy / Vắng mặt</span>
+            <div className="flex justify-between items-end mt-3">
+              <div>
+                <span className="text-4xl font-black text-rose-600 dark:text-rose-500">{kpis.cancelled}</span>
+                <span className="text-[10px] text-rose-500 dark:text-rose-455 font-bold block mt-1">Giảm 5% so với tuần trước</span>
+              </div>
+              <div className="pb-1">
+                <svg className="w-16 h-8 text-rose-500" viewBox="0 0 100 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M0 5C15 10 30 5 45 12C60 18 75 8 100 9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
             </div>
           </div>
         </div>
-        <div className="bg-white dark:bg-zinc-900 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-zinc-800 flex flex-col justify-between hover:shadow-md transition-shadow duration-300">
-          <span className="text-slate-500 dark:text-zinc-400 text-xs font-bold uppercase tracking-wider">Chờ xử lý</span>
-          <div className="flex justify-between items-end mt-3">
-            <div>
-              <span className="text-4xl font-black text-amber-600 dark:text-amber-500">{kpis.waiting}</span>
-              <span className="text-[10px] text-amber-600 dark:text-amber-500 font-bold block mt-1">Cần điều phối gấp</span>
-            </div>
-            <div className="pb-1">
-              <svg className="w-16 h-8 text-amber-550 dark:text-amber-500" viewBox="0 0 100 30" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M0 20C15 15 30 25 45 10C60 5 75 18 100 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
+      )}
+
+      {/* HÀNG ĐỢI LÂM SÀNG: BỆNH NHÂN ĐÃ CHECK-IN ĐANG CHỜ KHÁM (DOCTOR ONLY) */}
+      {viewRole === 'doctor' && appointments.some(apt => apt.trang_thai === 'da_checkin') && (
+        <div className="bg-[#E6F4F1] dark:bg-emerald-950/20 border border-primary/20 dark:border-emerald-800/30 p-5 rounded-2xl shadow-sm space-y-4 animate-in fade-in duration-300">
+          <div className="flex items-center gap-2 text-primary dark:text-emerald-400 font-bold text-xs uppercase tracking-wider">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+            </span>
+            Hàng đợi lâm sàng: Bệnh nhân đã check-in đang chờ khám
           </div>
-        </div>
-        <div className="bg-white dark:bg-zinc-900 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-zinc-800 flex flex-col justify-between hover:shadow-md transition-shadow duration-300">
-          <span className="text-slate-500 dark:text-zinc-400 text-xs font-bold uppercase tracking-wider">Đã hoàn thành</span>
-          <div className="flex justify-between items-end mt-3">
-            <div>
-              <span className="text-4xl font-black text-emerald-600 dark:text-emerald-500">{kpis.completed}</span>
-              <span className="text-[10px] text-emerald-555 dark:text-emerald-450 font-bold block mt-1">+8 ca phục hồi</span>
-            </div>
-            <div className="pb-1">
-              <svg className="w-16 h-8 text-emerald-500 dark:text-emerald-450" viewBox="0 0 100 30" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M0 28C15 25 30 18 45 12C60 14 75 5 100 1" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white dark:bg-zinc-900 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-zinc-800 flex flex-col justify-between hover:shadow-md transition-shadow duration-300">
-          <span className="text-slate-500 dark:text-zinc-400 text-xs font-bold uppercase tracking-wider">Hủy / Vắng mặt</span>
-          <div className="flex justify-between items-end mt-3">
-            <div>
-              <span className="text-4xl font-black text-rose-600 dark:text-rose-500">{kpis.cancelled}</span>
-              <span className="text-[10px] text-rose-500 dark:text-rose-455 font-bold block mt-1">Giảm 5% so với tuần trước</span>
-            </div>
-            <div className="pb-1">
-              <svg className="w-16 h-8 text-rose-500" viewBox="0 0 100 30" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M0 5C15 10 30 5 45 12C60 18 75 8 100 9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* FILTER CONTROLS BAR - NO LONGER STICKY */}
-      <div className="relative bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-slate-100 dark:border-zinc-800/80 p-2 flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between transition-colors duration-300">
-        <div className="flex bg-slate-50 dark:bg-zinc-800/50 p-1 rounded-xl">
-          <button
-            onClick={() => setViewMode('today')}
-            className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg transition-all ${
-              viewMode === 'today' 
-                ? 'bg-white dark:bg-zinc-700 text-emerald-700 dark:text-emerald-400 shadow-sm border border-slate-200/50 dark:border-zinc-600/30' 
-                : 'text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200'
-            }`}
-          >
-            <CalendarIcon size={18} /> Hôm nay
-          </button>
-          <button
-            onClick={() => setViewMode('week')}
-            className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg transition-all ${
-              viewMode === 'week' 
-                ? 'bg-white dark:bg-zinc-700 text-emerald-700 dark:text-emerald-400 shadow-sm border border-slate-200/50 dark:border-zinc-600/30' 
-                : 'text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200'
-            }`}
-          >
-            <CalendarDays size={18} /> Tuần này
-          </button>
-        </div>
-
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1 lg:justify-end">
-          <button
-            onClick={handleCancelBreakTime}
-            disabled={clearingBreak}
-            className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 dark:bg-amber-955/20 hover:bg-amber-105 dark:hover:bg-amber-900/30 border border-amber-200 dark:border-amber-900/30 disabled:opacity-50 transition-colors text-sm font-semibold text-amber-700 dark:text-amber-400 rounded-xl shrink-0 shadow-sm"
-          >
-            <Coffee size={16} className={clearingBreak ? 'animate-bounce' : ''} />
-            {clearingBreak ? 'Đang dọn lịch...' : 'Dọn lịch giờ nghỉ'}
-          </button>
-
-          <button onClick={() => handleNavigateDay('today')} className="px-4 py-2.5 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors text-sm font-semibold text-slate-750 dark:text-zinc-300 rounded-xl shrink-0">
-            Trở về Hiện tại
-          </button>
-
-          <div className="relative shrink-0">
-            <select
-              value={roomFilter}
-              onChange={(e) => setRoomFilter(e.target.value)}
-              className="w-full pl-9 pr-8 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-250 dark:border-zinc-700 text-slate-800 dark:text-zinc-200 text-sm font-medium rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 appearance-none cursor-pointer"
-            >
-              <option value="all">Tất cả Phòng khám</option>
-              {roomsList
-                .filter(room => room.loai_phong === 'kham_benh')
-                .map(room => (
-                  <option key={room.id} value={room.id}>{room.ten_phong}</option>
-                ))}
-            </select>
-            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500" size={16} />
-          </div>
-
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500" size={16} />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Tìm bệnh nhân, mã lịch..."
-              className="w-full pl-9 pr-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-250 dark:border-zinc-700 rounded-xl text-sm text-slate-800 dark:text-zinc-150 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder-slate-400 dark:placeholder-zinc-500"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* OPERATIONS GRID: TIMELINE & WORKLOAD SIDEBAR */}
-      <div className="flex flex-col lg:flex-row gap-6 items-start">
-        {/* Left Area: Scheduling Board */}
-        <div className="flex-1 w-full min-w-0">
-          {viewMode === 'today' ? (
-            <AppointmentCalendar
-              timeSlots={standardTimeSlots}
-              appointments={filteredAppointments}
-              statusConfig={statusConfig}
-              handleOpenDetailModal={handleOpenDetailModal}
-              roomsList={roomsList}
-              staffList={staffList}
-              schedulesList={schedulesList}
-              allAppointments={appointments}
-              selectedDateStr={formattedSelectedDate}
-              onOpenWalkInModal={(time) => {
-                setWalkInTime(time);
-                setIsWalkInModalOpen(true);
-              }}
-              onUpdateAppointment={handleUpdateAppointmentFields}
-            />
-          ) : (
-            <AppointmentWeeklyCalendar
-              selectedDate={selectedDate}
-              appointments={filteredAppointments}
-              statusConfig={statusConfig}
-              handleOpenDetailModal={handleOpenDetailModal}
-              scheduleType={scheduleType}
-            />
-          )}
-        </div>
-
-        {/* Right Area: Doctor Workload Sidebar */}
-        <div className="w-full lg:w-80 shrink-0 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 space-y-4">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-zinc-800">
-            <h3 className="text-sm font-extrabold text-slate-800 dark:text-zinc-100 uppercase tracking-wider flex items-center gap-1.5">
-              <Activity size={16} className="text-primary" /> Phụ tải Bác sĩ
-            </h3>
-            <span className="text-[10px] font-bold text-slate-400 dark:text-zinc-500">Hôm nay</span>
-          </div>
-
-          <div className="space-y-4">
-            {doctorWorkloads.length === 0 ? (
-              <p className="text-xs text-slate-400 dark:text-zinc-500 italic text-center py-4">Không tìm thấy bác sĩ nào trong danh sách</p>
-            ) : (
-              doctorWorkloads.map(doc => {
-                const isOverloaded = doc.percentage >= 80;
-                
-                return (
-                  <div key={doc.id} className="flex flex-col gap-1.5 p-3 rounded-xl bg-slate-50/50 dark:bg-zinc-800/40 border border-slate-100/50 dark:border-zinc-800/50 hover:border-slate-200 dark:hover:border-zinc-700 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="size-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 flex items-center justify-center font-bold text-[11px] shrink-0">
-                          {doc.name.charAt(0)}
-                        </div>
-                        <div className="max-w-[130px] sm:max-w-none">
-                          <p className="text-xs font-bold text-slate-700 dark:text-zinc-200 truncate">{doc.name}</p>
-                          <span className={`text-[9px] font-semibold ${
-                            doc.hasShift ? 'text-emerald-600 dark:text-emerald-450' : 'text-slate-400 dark:text-zinc-500'
-                          }`}>
-                            {doc.hasShift ? 'Đang trực ca' : 'Không trực ca'}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-[11px] font-mono font-bold text-slate-700 dark:text-zinc-200">{doc.occupiedCount}/{doc.maxSlots} ca</span>
-                      </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {appointments
+              .filter(apt => apt.trang_thai === 'da_checkin')
+              .map(apt => (
+                <div key={apt.id} className="bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 p-4 rounded-xl shadow-xs flex flex-col justify-between gap-3 relative hover:border-primary/45 hover:shadow-sm transition-all duration-200">
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="font-mono text-[9px] font-black text-primary dark:text-emerald-400 bg-primary/10 dark:bg-emerald-500/10 border border-primary/20 dark:border-emerald-800/30 px-2.5 py-0.5 rounded-md">
+                        {apt.ma_lich_dat}
+                      </span>
+                      <span className="text-[10px] text-zinc-400 dark:text-zinc-555 font-bold font-mono">
+                        {(() => {
+                          try {
+                            const d = new Date(apt.ngay_gio_bat_dau);
+                            return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+                          } catch (e) {
+                            return '';
+                          }
+                        })()}
+                      </span>
                     </div>
-
-                    {doc.hasShift && (
-                      <div className="mt-1">
-                        <div className="flex items-center justify-between text-[9px] text-slate-400 dark:text-zinc-500 mb-1 font-semibold">
-                          <span>Mật độ công việc</span>
-                          <span className={isOverloaded ? 'text-rose-500 font-bold animate-pulse' : ''}>{doc.percentage}%</span>
-                        </div>
-                        <div className="w-full h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                          <div 
-                            className={`h-full rounded-full transition-all duration-500 ${
-                              doc.percentage < 50 
-                                ? 'bg-emerald-500' 
-                                : doc.percentage < 80 
-                                  ? 'bg-amber-500' 
-                                  : 'bg-rose-500 animate-pulse'
-                            }`}
-                            style={{ width: `${doc.percentage}%` }}
-                          />
-                        </div>
-                      </div>
-                    )}
+                    <h4 className="font-bold text-secondary dark:text-zinc-100 text-sm">{apt.ten_khach_hang}</h4>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 font-semibold">
+                      Triệu chứng: <span className="font-medium italic text-zinc-650 dark:text-zinc-300">"{apt.ly_do_kham || 'Không mô tả triệu chứng'}"</span>
+                    </p>
+                    <div className="mt-2.5 flex flex-wrap gap-2">
+                      {apt.ten_phong && (
+                        <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-455 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 px-2 py-0.5 rounded-md">
+                          Phòng: {apt.ten_phong}
+                        </span>
+                      )}
+                      {apt.ten_ky_thuat_vien && (
+                        <span className="text-[9px] font-bold text-slate-600 dark:text-zinc-300 bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 px-2 py-0.5 rounded-md">
+                          Bác sĩ: {apt.ten_ky_thuat_vien}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                );
-              })
-            )}
+                  {treatmentRecords.some(r => r.lich_dat_id === apt.id) ? (
+                    <button
+                      type="button"
+                      disabled
+                      className="w-full mt-2 py-2 bg-emerald-100 dark:bg-emerald-955/40 text-emerald-700 dark:text-emerald-400 font-bold uppercase tracking-wider text-[10px] rounded-lg flex items-center justify-center gap-1.5 cursor-not-allowed"
+                    >
+                      ✓ Đã Lên Phác Đồ
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveAptForTreatmentRecord(apt);
+                        setIsCreateRecordModalOpen(true);
+                      }}
+                      className="w-full mt-2 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold uppercase tracking-wider text-[10px] rounded-lg transition-all shadow-xs active:scale-95 flex items-center justify-center gap-1.5"
+                    >
+                      🩺 Khám & Lên Phác Đồ
+                    </button>
+                  )}
+                </div>
+              ))}
           </div>
         </div>
-      </div>
+      )}
 
-      {/* COMPONENT: MODAL CHI TIẾT CA TRỰC */}
-      {isDetailModalOpen && (
-        <AppointmentDetailModal
-          selectedAppointment={selectedAppointment}
-          roomsList={roomsList}
-          staffList={staffList}
-          activeRole={activeRole}
-          assignRoomId={assignRoomId}
-          setAssignRoomId={setAssignRoomId}
-          assignStaffId={assignStaffId}
-          setAssignStaffId={setAssignStaffId}
-          assignStatus={assignStatus}
-          setAssignStatus={setAssignStatus}
-          isAssigning={isAssigning}
-          onClose={() => setIsDetailModalOpen(false)}
-          onSave={handleUpdateAppointment}
-          onOpenTreatment={handleOpenTreatmentModal}
-          appointments={appointments}
-          schedulesList={schedulesList}
+      {/* PENDING CANCELLATION ALERTS (RECEPTIONIST ONLY) */}
+      {viewRole === 'receptionist' && appointments.some(apt => apt.trang_thai === 'cho_huy') && (
+        <div className="bg-rose-50 dark:bg-rose-955/10 border-l-4 border-rose-600 p-4 rounded-xl shadow-xs space-y-3">
+          <div className="flex items-center gap-2 text-rose-800 dark:text-rose-400 font-bold text-sm">
+            <AlertCircle className="text-rose-600 animate-bounce" size={18} />
+            CẢNH BÁO: CÓ YÊU CẦU HỦY LỊCH HẸN CẦN XÁC MINH
+          </div>
+          <div className="divide-y divide-rose-100 dark:divide-rose-900/30 max-h-40 overflow-y-auto">
+            {appointments
+              .filter(apt => apt.trang_thai === 'cho_huy')
+              .map(apt => (
+                <div key={apt.id} className="py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                  <div className="text-slate-800 dark:text-zinc-200">
+                    <span className="font-extrabold text-rose-700 dark:text-rose-400">[{apt.ma_lich_dat}]</span>{' '}
+                    Khách hàng <span className="font-bold">{apt.ten_khach_hang}</span> ({apt.so_dien_thoai})
+                    yêu cầu hủy lịch khám lúc <span className="font-bold">{format(new Date(apt.ngay_gio_bat_dau), 'HH:mm dd/MM/yyyy')}</span>.
+                    <span className="block text-slate-500 dark:text-zinc-400 mt-0.5 italic">Lý do: "{apt.ly_do_huy || 'Không có lý do chi tiết'}"</span>
+                  </div>
+                  <button
+                    onClick={() => handleOpenDetailModal(apt)}
+                    className="self-start sm:self-center bg-rose-600 hover:bg-rose-700 text-white font-bold uppercase tracking-wider px-3.5 py-1.5 rounded-lg transition-all shadow-xs"
+                  >
+                    Xử lý ngay
+                  </button>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {/* RECEPTIONIST VIEW - CALENDAR & QUEUES */}
+      {viewRole === 'receptionist' && (
+        <div className="space-y-6">
+          {/* RECEPTIONIST TABS */}
+          <div className="flex border-b border-zinc-250 dark:border-zinc-800">
+            <button
+              onClick={() => setReceptionistActiveTab('calendar')}
+              className={`px-5 py-3 text-xs font-extrabold uppercase tracking-wider transition-all border-b-2 -mb-[2px] ${
+                receptionistActiveTab === 'calendar'
+                  ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400 font-extrabold'
+                  : 'border-transparent text-slate-400 dark:text-zinc-500 hover:text-slate-655 dark:hover:text-zinc-300'
+              }`}
+            >
+              📅 Lịch trình hôm nay
+            </button>
+            <button
+              onClick={() => setReceptionistActiveTab('new_bookings')}
+              className={`px-5 py-3 text-xs font-extrabold uppercase tracking-wider transition-all border-b-2 -mb-[2px] ${
+                receptionistActiveTab === 'new_bookings'
+                  ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400 font-extrabold'
+                  : 'border-transparent text-slate-400 dark:text-zinc-500 hover:text-slate-655 dark:hover:text-zinc-300'
+              }`}
+            >
+              📞 Ca khám mới chờ liên hệ ({receptionistNewBookings.length})
+            </button>
+            <button
+              onClick={() => setReceptionistActiveTab('final_confirm')}
+              className={`px-5 py-3 text-xs font-extrabold uppercase tracking-wider transition-all border-b-2 -mb-[2px] ${
+                receptionistActiveTab === 'final_confirm'
+                  ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400 font-extrabold'
+                  : 'border-transparent text-slate-400 dark:text-zinc-500 hover:text-slate-655 dark:hover:text-zinc-300'
+              }`}
+            >
+              ✓ Chờ xác nhận lịch xếp ({receptionistFinalConfirmBookings.length})
+            </button>
+          </div>
+
+          {/* TAB 1: CALENDAR */}
+          {receptionistActiveTab === 'calendar' && (
+            <div className="space-y-6">
+              {/* FILTER CONTROLS BAR */}
+              <div className="relative bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-slate-100 dark:border-zinc-800/80 p-2 flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between transition-colors duration-300">
+                <div className="flex bg-slate-50 dark:bg-zinc-800/50 p-1 rounded-xl">
+                  <button
+                    onClick={() => setViewMode('today')}
+                    className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg transition-all ${
+                      viewMode === 'today'
+                        ? 'bg-white dark:bg-zinc-700 text-emerald-700 dark:text-emerald-400 shadow-sm border border-slate-200/50 dark:border-zinc-600/30'
+                        : 'text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200'
+                    }`}
+                  >
+                    <CalendarIcon size={18} /> Hôm nay
+                  </button>
+                  <button
+                    onClick={() => setViewMode('week')}
+                    className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg transition-all ${
+                      viewMode === 'week'
+                        ? 'bg-white dark:bg-zinc-700 text-emerald-700 dark:text-emerald-400 shadow-sm border border-slate-200/50 dark:border-zinc-600/30'
+                        : 'text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200'
+                    }`}
+                  >
+                    <CalendarDays size={18} /> Tuần này
+                  </button>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1 lg:justify-end">
+                  <button
+                    onClick={handleCancelBreakTime}
+                    disabled={clearingBreak}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 dark:bg-amber-955/20 hover:bg-amber-105 dark:hover:bg-amber-900/30 border border-amber-200 dark:border-amber-900/30 disabled:opacity-50 transition-colors text-sm font-semibold text-amber-700 dark:text-amber-400 rounded-xl shrink-0 shadow-sm"
+                  >
+                    <Coffee size={16} className={clearingBreak ? 'animate-bounce' : ''} />
+                    {clearingBreak ? 'Đang dọn lịch...' : 'Dọn lịch giờ nghỉ'}
+                  </button>
+
+                  <button onClick={() => handleNavigateDay('today')} className="px-4 py-2.5 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors text-sm font-semibold text-slate-755 dark:text-zinc-350 rounded-xl shrink-0">
+                    Trở về Hiện tại
+                  </button>
+
+                  <div className="relative shrink-0">
+                    <select
+                      value={roomFilter}
+                      onChange={(e) => setRoomFilter(e.target.value)}
+                      className="w-full pl-9 pr-8 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-250 dark:border-zinc-700 text-slate-800 dark:text-zinc-250 text-sm font-medium rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 appearance-none cursor-pointer"
+                    >
+                      <option value="all">Tất cả Phòng khám</option>
+                      {roomsList
+                        .filter(room => room.loai_phong === 'kham_benh')
+                        .map(room => (
+                          <option key={room.id} value={room.id}>{room.ten_phong}</option>
+                        ))}
+                    </select>
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-550" size={16} />
+                  </div>
+
+                  <div className="relative flex-1 max-w-sm">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-550" size={16} />
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Tìm bệnh nhân, mã lịch..."
+                      className="w-full pl-9 pr-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-250 dark:border-zinc-700 rounded-xl text-sm text-slate-800 dark:text-zinc-150 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder-slate-400 dark:placeholder-zinc-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* OPERATIONS GRID: TIMELINE & WORKLOAD SIDEBAR */}
+              <div className="flex flex-col lg:flex-row gap-6 items-start">
+                {/* Left Area: Scheduling Board */}
+                <div className="flex-1 w-full min-w-0">
+                  {viewMode === 'today' ? (
+                    <AppointmentCalendar
+                      timeSlots={standardTimeSlots}
+                      appointments={filteredAppointments}
+                      statusConfig={statusConfig}
+                      handleOpenDetailModal={handleOpenDetailModal}
+                      roomsList={roomsList}
+                      staffList={staffList}
+                      schedulesList={schedulesList}
+          hideBilling={viewRole === 'doctor'}
+
         />
       )}
 
@@ -903,7 +1195,7 @@ export default function ManageAppointments() {
         />
       )}
 
-      {/* COMPONENT: MODAL ĐĂNG KÝ KHÁM VÃNG LAI */}
+{/* COMPONENT: MODAL ĐĂNG KÝ KHÁM VÃNG LAI */}
       {isWalkInModalOpen && (
         <WalkInBookingModal
           roomsList={roomsList}
@@ -937,13 +1229,13 @@ export default function ManageAppointments() {
             >
               {/* Header search bar */}
               <div className="flex items-center gap-3 px-4 py-3.5 border-b border-slate-100 dark:border-zinc-800">
-                <Command className="text-slate-400 dark:text-zinc-500" size={18} />
+                <Command className="text-slate-400 dark:text-zinc-505" size={18} />
                 <input
                   type="text"
                   placeholder="Tìm bệnh nhân, tác vụ hoặc gõ lệnh..."
                   value={commandSearch}
                   onChange={e => setCommandSearch(e.target.value)}
-                  className="flex-1 bg-transparent border-none outline-none text-slate-800 dark:text-zinc-150 text-sm placeholder-slate-400 dark:placeholder-zinc-500"
+                  className="flex-1 bg-transparent border-none outline-none text-slate-800 dark:text-zinc-150 text-sm placeholder-slate-400 dark:placeholder-zinc-550"
                   autoFocus
                 />
                 <span className="text-[10px] font-mono bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 px-2 py-0.5 rounded border border-slate-200/50 dark:border-zinc-700">
@@ -966,7 +1258,7 @@ export default function ManageAppointments() {
                           cmd.action();
                           setIsCommandPaletteOpen(false);
                         }}
-                        className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-zinc-800/60 flex items-center justify-between text-xs font-semibold text-slate-750 dark:text-zinc-300 transition-colors group"
+                        className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-zinc-800/60 flex items-center justify-between text-xs font-semibold text-slate-750 dark:text-zinc-350 transition-colors group"
                       >
                         <div className="flex items-center gap-2.5">
                           <span className="text-slate-400 group-hover:text-primary dark:text-zinc-500 transition-colors">
@@ -1028,6 +1320,84 @@ export default function ManageAppointments() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* COMPONENT: TẠO HỒ SƠ ĐIỀU TRỊ (DOCTOR) */}
+      {isCreateRecordModalOpen && activeAptForTreatmentRecord && (
+        <CreateTreatmentRecordModal
+          selectedAppointment={activeAptForTreatmentRecord}
+          roomsList={roomsList}
+          staffList={staffList}
+          packages={packages}
+          onClose={() => {
+            setIsCreateRecordModalOpen(false);
+            setActiveAptForTreatmentRecord(null);
+          }}
+          onSubmit={handleCreateTreatmentRecordSubmit}
+        />
+      )}
+
+      {/* COMPONENT: ĐIỀU PHỐI KTV & PHÒNG TRỊ LIỆU (MANAGER) */}
+      {isAssignModalOpen && selectedRecordForAssign && (
+        <AssignTreatmentModal
+          record={selectedRecordForAssign}
+          staffList={staffList}
+          roomsList={roomsList}
+          onClose={() => {
+            setIsAssignModalOpen(false);
+            setSelectedRecordForAssign(null);
+          }}
+          onSubmit={handleAssignTreatmentSubmit}
+        />
+      )}
+
+      {/* COMPONENT: DIALOG HỦY LỊCH HẸN CHUYÊN NGHIỆP */}
+      {isCancelModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-zinc-900 rounded-[24px] border border-zinc-150 dark:border-zinc-800 max-w-md w-full p-6 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 space-y-4">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100 dark:border-zinc-800">
+              <h3 className="text-sm font-heading font-black text-secondary dark:text-zinc-100 uppercase tracking-wider flex items-center gap-2">
+                <AlertCircle className="text-rose-500" size={16} />
+                Yêu cầu hủy lịch khám
+              </h3>
+              <button
+                onClick={() => setIsCancelModalOpen(false)}
+                className="text-slate-400 hover:text-slate-655 p-1.5 hover:bg-slate-50 dark:hover:bg-zinc-850 rounded-full transition-all"
+              >
+                <XCircle size={18} />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-550 dark:text-zinc-400 leading-relaxed font-semibold">
+              Vui lòng nhập lý do hủy lịch để cập nhật hệ thống và gửi thông báo đến khách hàng:
+            </p>
+
+            <textarea
+              value={cancelReasonInput}
+              onChange={(e) => setCancelReasonInput(e.target.value)}
+              placeholder="Nhập lý do chi tiết (ví dụ: Khách bận đột xuất, Số điện thoại không liên lạc được...)"
+              rows={3}
+              className="w-full p-3.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all placeholder-zinc-400 dark:placeholder-zinc-500 text-slate-800 dark:text-zinc-200"
+            />
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => setIsCancelModalOpen(false)}
+                className="px-4.5 py-2.5 bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 text-zinc-650 dark:text-zinc-300 text-xs font-bold rounded-xl transition-all"
+              >
+                Đóng
+              </button>
+              <button
+                onClick={handleCancelBookingSubmit}
+                disabled={!cancelReasonInput.trim()}
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all shadow-sm shadow-rose-600/10 uppercase tracking-wider font-bold"
+              >
+                Xác nhận hủy
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

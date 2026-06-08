@@ -3,6 +3,7 @@ import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { LogOut, LayoutDashboard, ChevronDown, Menu, X, Calendar, Facebook, Instagram, Youtube, Mail, Phone, MapPin, ShieldAlert } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import GlobalAuthModal from '../components/GlobalAuthModal';
 
 export default function LandingLayout() {
   const { isAuthenticated, user, logout, showAuthModal, setShowAuthModal } = useAuthStore();
@@ -10,6 +11,25 @@ export default function LandingLayout() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [showGlobalAuthModal, setShowGlobalAuthModal] = useState(false);
+
+  useEffect(() => {
+    const handleOpenModal = () => {
+      setShowGlobalAuthModal(true);
+    };
+    window.addEventListener('trigger-global-auth-modal', handleOpenModal);
+    return () => {
+      window.removeEventListener('trigger-global-auth-modal', handleOpenModal);
+    };
+  }, []);
+
+  const handleBookingClick = (e: React.MouseEvent) => {
+    if (!isAuthenticated()) {
+      e.preventDefault();
+      setShowGlobalAuthModal(true);
+      setIsMobileMenuOpen(false);
+    }
+  };
 
   const handleBookingClick = (e: React.MouseEvent) => {
     if (!isAuthenticated()) {
@@ -70,8 +90,8 @@ export default function LandingLayout() {
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-8">
             <Link to="/" className="text-sm font-jakarta font-bold text-secondary hover:text-primary transition-colors relative py-1 after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-primary hover:after:w-full after:transition-all">Trang chủ</Link>
-            <a href="/#services" className="text-sm font-jakarta font-bold text-secondary hover:text-primary transition-colors relative py-1 after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-primary hover:after:w-full after:transition-all">Dịch vụ</a>
-            <a href="/#pricing" className="text-sm font-jakarta font-bold text-secondary hover:text-primary transition-colors relative py-1 after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-primary hover:after:w-full after:transition-all">Bảng giá</a>
+            <Link to="/services" state={{ activeTab: 'services' }} className="text-sm font-jakarta font-bold text-secondary hover:text-primary transition-colors relative py-1 after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-primary hover:after:w-full after:transition-all">Dịch vụ</Link>
+            <Link to="/services" state={{ activeTab: 'packages' }} className="text-sm font-jakarta font-bold text-secondary hover:text-primary transition-colors relative py-1 after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-primary hover:after:w-full after:transition-all">Bảng giá</Link>
           </nav>
 
           {/* Auth Actions (Desktop) */}
@@ -144,8 +164,8 @@ export default function LandingLayout() {
         {isMobileMenuOpen && (
           <div className="md:hidden w-full mt-2 bg-white/95 backdrop-blur-md rounded-[24px] border border-slate-100 shadow-lg px-6 py-6 flex flex-col gap-3 animate-slide-up">
             <Link to="/" className="text-sm font-jakarta font-bold text-secondary py-2.5 border-b border-slate-50" onClick={() => setIsMobileMenuOpen(false)}>Trang chủ</Link>
-            <a href="/#services" className="text-sm font-jakarta font-bold text-secondary py-2.5 border-b border-slate-50" onClick={() => setIsMobileMenuOpen(false)}>Dịch vụ</a>
-            <a href="/#pricing" className="text-sm font-jakarta font-bold text-secondary py-2.5 border-b border-slate-50" onClick={() => setIsMobileMenuOpen(false)}>Bảng giá</a>
+            <Link to="/services" state={{ activeTab: 'services' }} className="text-sm font-jakarta font-bold text-secondary py-2.5 border-b border-slate-50" onClick={() => setIsMobileMenuOpen(false)}>Dịch vụ</Link>
+            <Link to="/services" state={{ activeTab: 'packages' }} className="text-sm font-jakarta font-bold text-secondary py-2.5 border-b border-slate-50" onClick={() => setIsMobileMenuOpen(false)}>Bảng giá</Link>
             
             <div className="mt-4 flex flex-col gap-2.5">
               {isAuthenticated() && user ? (
@@ -215,10 +235,10 @@ export default function LandingLayout() {
             <div className="space-y-6">
               <h4 className="font-jakarta font-bold text-base tracking-wider text-white border-b border-white/10 pb-2">Dịch Vụ</h4>
               <ul className="space-y-3 font-jakarta text-sm text-white/80">
-                <li><a href="/#services" className="hover:text-white hover:underline transition-all">Khám lượng giá ban đầu</a></li>
-                <li><a href="/#services" className="hover:text-white hover:underline transition-all">Siêu âm trị liệu sâu</a></li>
-                <li><a href="/#services" className="hover:text-white hover:underline transition-all">Điện xung giảm co thắt</a></li>
-                <li><a href="/#services" className="hover:text-white hover:underline transition-all">Tập vận động với kỹ thuật viên</a></li>
+                <li><Link to="/services" state={{ activeTab: 'services' }} className="hover:text-white hover:underline transition-all">Khám lượng giá ban đầu</Link></li>
+                <li><Link to="/services" state={{ activeTab: 'services' }} className="hover:text-white hover:underline transition-all">Siêu âm trị liệu sâu</Link></li>
+                <li><Link to="/services" state={{ activeTab: 'services' }} className="hover:text-white hover:underline transition-all">Điện xung giảm co thắt</Link></li>
+                <li><Link to="/services" state={{ activeTab: 'services' }} className="hover:text-white hover:underline transition-all">Tập vận động với kỹ thuật viên</Link></li>
               </ul>
             </div>
             
@@ -266,72 +286,8 @@ export default function LandingLayout() {
         </div>
       </footer>
 
-      {/* Global Premium Authentication Prompt Modal */}
-      <AnimatePresence>
-        {showAuthModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowAuthModal(false)}
-              className="absolute inset-0 bg-[#0F172A]/60 backdrop-blur-md"
-            />
-
-            {/* Modal Card */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 380 }}
-              className="relative w-full max-w-md bg-white rounded-[24px] border border-slate-100 shadow-2xl p-8 overflow-hidden z-10"
-            >
-              {/* Top Close Button */}
-              <button
-                onClick={() => setShowAuthModal(false)}
-                className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 hover:rotate-90 transition-all duration-300 p-1.5 rounded-full hover:bg-slate-50"
-              >
-                <X size={18} />
-              </button>
-
-              <div className="text-center space-y-5">
-                {/* stylized medical shield/user icon */}
-                <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
-                  <div className="absolute inset-0 bg-[#2EC4B6]/10 rounded-2xl rotate-6 animate-pulse" />
-                  <div className="relative w-14 h-14 bg-[#2EC4B6]/15 text-[#2EC4B6] rounded-2xl flex items-center justify-center border border-[#2EC4B6]/20">
-                    <ShieldAlert size={28} />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <h3 className="text-2xl font-jakarta font-black text-[#0F172A] tracking-tight">
-                    Đăng nhập thành viên
-                  </h3>
-                  <p className="text-xs font-medium text-slate-500 leading-relaxed max-w-[280px] mx-auto">
-                    Để bảo vệ an toàn hồ sơ bệnh lý của bạn và cập nhật phác đồ điều trị cá nhân hóa, vui lòng đăng nhập hoặc đăng ký tài khoản trước khi đặt lịch.
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-8 flex flex-col gap-3">
-                <button
-                  onClick={handleRedirectToLogin}
-                  className="w-full bg-[#2EC4B6] hover:bg-[#25A89C] text-white font-jakarta font-extrabold py-4 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md hover:-translate-y-0.5 active:translate-y-0 duration-200"
-                >
-                  Đăng nhập hoặc Tạo tài khoản
-                </button>
-                <button
-                  onClick={() => setShowAuthModal(false)}
-                  className="w-full bg-slate-50 hover:bg-slate-100 text-slate-700 font-jakarta font-bold py-3.5 rounded-xl text-xs border border-slate-200 transition-all active:scale-98"
-                >
-                  Hủy bỏ
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      {/* Global Authentication Interceptor Modal */}
+      <GlobalAuthModal isOpen={showGlobalAuthModal} onClose={() => setShowGlobalAuthModal(false)} />
     </div>
   );
 }

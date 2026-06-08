@@ -34,6 +34,13 @@ export const createPublicAppointmentSchema = z.object({
     ly_do_kham: z.string().optional(),
     anh_dinh_kem_url: z.string().optional(),
     dich_vu_id: z.string().uuid('ID Dịch vụ không hợp lệ').optional().nullable(),
+  }).refine((data) => {
+    const batDau = new Date(data.ngay_gio_bat_dau);
+    const minTime = new Date(Date.now() + 60 * 60 * 1000);
+    return batDau >= minTime;
+  }, {
+    message: 'Khung giờ đặt lịch phải cách thời gian hiện tại ít nhất 1 tiếng',
+    path: ['ngay_gio_bat_dau']
   })
 });
 
@@ -42,7 +49,7 @@ export const updateAppointmentStatusSchema = z.object({
     id: z.string().uuid('ID Lịch hẹn không hợp lệ'),
   }),
   body: z.object({
-    trang_thai: z.enum(['chua_xac_nhan', 'cho_xac_nhan', 'da_xac_nhan', 'da_checkin', 'hoan_thanh', 'da_huy', 'khong_den'], {
+    trang_thai: z.enum(['chua_xac_nhan', 'cho_xac_nhan', 'cho_phan_phong', 'da_xac_nhan', 'da_checkin', 'hoan_thanh', 'cho_huy', 'da_huy', 'khong_den'], {
       required_error: 'Trạng thái là bắt buộc',
       invalid_type_error: 'Trạng thái không hợp lệ'
     }),
@@ -52,6 +59,7 @@ export const updateAppointmentStatusSchema = z.object({
     phong_id: z.union([z.string(), z.number()]).optional().nullable(),
     ngay_gio_bat_dau: z.string().datetime({ message: 'Ngày giờ bắt đầu không hợp lệ' }).optional().nullable(),
     ngay_gio_ket_thuc: z.string().datetime({ message: 'Ngày giờ kết thúc không hợp lệ' }).optional().nullable(),
+    ly_do_huy: z.string().optional().nullable(),
   })
 });
 

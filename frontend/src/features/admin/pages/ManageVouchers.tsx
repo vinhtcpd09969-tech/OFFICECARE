@@ -53,6 +53,13 @@ interface Package {
 
 const currencyFormatter = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
 
+const formatLocalDate = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export default function ManageVouchers() {
   // Data States
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
@@ -824,7 +831,7 @@ export default function ManageVouchers() {
                     id="ngay_bat_dau"
                     name="ngay_bat_dau"
                     type="date"
-                    defaultValue={editingVoucher?.ngay_bat_dau ? editingVoucher.ngay_bat_dau.split('T')[0] : new Date().toISOString().split('T')[0]}
+                    defaultValue={editingVoucher?.ngay_bat_dau ? editingVoucher.ngay_bat_dau.split('T')[0] : formatLocalDate(new Date())}
                     required
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm bg-slate-50/30"
                   />

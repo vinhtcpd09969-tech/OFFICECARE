@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import authService from '../services/auth.service';
-import { loginSchema, registerSchema, verifyEmailSchema, refreshTokenSchema } from '../schemas/auth.schema';
+import { loginSchema, registerSchema, verifyEmailSchema, refreshTokenSchema, resendOTPSchema } from '../schemas/auth.schema';
 import { asyncHandler } from '../utils/asyncHandler';
 import { BadRequestError, UnauthorizedError, ForbiddenError, NotFoundError } from '../utils/appError';
 
@@ -86,6 +86,22 @@ export const getMe = asyncHandler(async (req: Request, res: Response) => {
   } catch (error: any) {
     if (error.message === 'User not found') {
       throw new NotFoundError(error.message);
+    }
+    throw error;
+  }
+});
+
+export const resendOTP = asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const validatedData = resendOTPSchema.parse({ body: req.body });
+    const result = await authService.resendOTP(validatedData.body.email);
+    res.json({
+      success: true,
+      ...result
+    });
+  } catch (error: any) {
+    if (error.message === 'Người dùng không tồn tại' || error.message === 'Tài khoản đã được xác thực email trước đó') {
+      throw new BadRequestError(error.message);
     }
     throw error;
   }

@@ -37,7 +37,8 @@ const seedRoles = async () => {
       ('le_tan', 'Lễ tân', 'Quản lý lịch hẹn, check-in, tạo hóa đơn, thu tiền'),
       ('ky_thuat_vien', 'Kỹ thuật viên', 'Xem lịch của mình, tạo đánh giá, ghi chú buổi, đề xuất gói'),
       ('bac_si', 'Bác sĩ', 'Quản lý phác đồ điều trị, chẩn đoán, xem hồ sơ bệnh án'),
-      ('admin', 'Quản trị viên', 'Toàn quyền hệ thống')
+      ('admin', 'Quản trị viên', 'Toàn quyền hệ thống'),
+      ('quan_ly', 'Quản lý', 'Quản lý chung hệ thống phòng khám, nhân sự và tài chính')
     RETURNING id, ma_vai_tro;
   `);
   return rows.reduce((acc, row) => ({ ...acc, [row.ma_vai_tro]: row.id }), {});
@@ -53,6 +54,12 @@ const seedUsers = async (roles: any) => {
     VALUES ('Admin Master', 'admin@officecare.com', '0901234567', $1, $2, TRUE) RETURNING id
   `, [passwordHash, roles['admin']]);
   const adminId = adminRows[0].id;
+
+  // Manager
+  await pool.query(`
+    INSERT INTO nguoi_dung (ho_ten, email, so_dien_thoai, mat_khau_hash, vai_tro_id, da_xac_thuc_email)
+    VALUES ('Quản lý', 'quanli@officecare.com', '0912345678', $1, $2, TRUE)
+  `, [passwordHash, roles['quan_ly']]);
 
   // Lễ tân
   const { rows: leTanRows } = await pool.query(`

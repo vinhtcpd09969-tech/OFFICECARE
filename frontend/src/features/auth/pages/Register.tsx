@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Eye, EyeOff, CheckCircle2, Info } from 'lucide-react';
 import api from '../../../api/axios';
+import { toast } from 'react-hot-toast';
 
 const registerSchema = z.object({
   ho_ten: z.string().min(2, 'Họ tên phải có ít nhất 2 ký tự'),
@@ -46,7 +47,8 @@ export default function Register() {
         password: data.password,
       });
 
-      navigate(`/verify-email?email=${encodeURIComponent(data.email)}`, { replace: true });
+      toast.success('Đăng ký tài khoản thành công! Vui lòng đăng nhập để kích hoạt tài khoản bằng mã OTP.');
+      navigate('/login', { state: location.state, replace: true });
     } catch (error: any) {
       if (error.response?.data?.message) {
         setServerError(error.response.data.message);

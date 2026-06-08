@@ -65,10 +65,26 @@ class AuthRepository {
     
     if (!user) return null;
 
-    return prisma.nguoi_dung.update({
+    const updatedUser = await prisma.nguoi_dung.update({
       where: { id: user.id },
       data: { da_xac_thuc_email: true }
     });
+
+    if (updatedUser.vai_tro_id === 1) {
+      const existingKh = await prisma.khach_hang.findFirst({
+        where: { nguoi_dung_id: updatedUser.id }
+      });
+      if (!existingKh) {
+        await prisma.khach_hang.create({
+          data: {
+            nguoi_dung_id: updatedUser.id,
+            hang_khach_hang: 'thuong'
+          }
+        });
+      }
+    }
+
+    return updatedUser;
   }
 
   async deleteOTPsByEmail(email: string) {
@@ -108,6 +124,7 @@ class AuthRepository {
         id: true,
         ho_ten: true,
         email: true,
+        so_dien_thoai: true,
         vai_tro_id: true,
         trang_thai: true,
         avatar_url: true,

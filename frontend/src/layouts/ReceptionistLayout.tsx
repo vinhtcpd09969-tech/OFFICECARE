@@ -38,6 +38,7 @@ export default function ReceptionistLayout() {
 
   const navItems = [
     { name: 'Dashboard (Lịch hôm nay)', path: '/receptionist', icon: '📊' },
+    { name: 'Lịch hẹn khám', path: '/receptionist/appointments', icon: '📅' },
     { name: 'Đăng ký Khách vãng lai', path: '/receptionist/walk-in', icon: '👤' },
   ];
 

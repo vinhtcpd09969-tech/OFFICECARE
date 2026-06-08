@@ -701,6 +701,108 @@ class AppointmentRepository {
     const { rows } = await pool.query(query, [phong_id, start, end, excludeLichDatId || null, excludeBuoiTriLieuId || null]);
     return rows.length > 0;
   }
+
+  async getPublicAppointmentById(id: string) {
+    const query = `
+      SELECT 
+        ld.id, ld.ma_lich_dat, 
+        ld.ngay_gio_bat_dau as ngay_gio_bat_dau, 
+        ld.ngay_gio_ket_thuc as ngay_gio_ket_thuc, 
+        ld.trang_thai,
+        ld.ho_ten_khach, 
+        ld.so_dien_thoai,
+        ld.gioi_tinh_khach,
+        dv.ten_dich_vu,
+        nd_ktv.ho_ten AS ten_ky_thuat_vien,
+        ld.ky_thuat_vien_id,
+        ld.phong_id,
+        p.ten_phong,
+        ld.chan_doan,
+        ld.chong_chi_dinh,
+        ld.ly_do_huy,
+        ld.thoi_gian_huy,
+        ld.ly_do_kham,
+        ld.ghi_chu_dat_lich,
+        ld.thoi_gian_tao
+      FROM lich_dat ld
+      LEFT JOIN dich_vu dv ON ld.dich_vu_id = dv.id
+      LEFT JOIN chuyen_gia_y_te ktv ON ld.ky_thuat_vien_id = ktv.id
+      LEFT JOIN nguoi_dung nd_ktv ON ktv.nguoi_dung_id = nd_ktv.id
+      LEFT JOIN phong p ON ld.phong_id = p.id
+      WHERE ld.id = $1
+    `;
+    const { rows } = await pool.query(query, [id]);
+    return rows[0];
+  }
+
+  async getCustomerMedicalRecord(nguoi_dung_id: string) {
+    const khRes = await pool.query('SELECT id FROM khach_hang WHERE nguoi_dung_id = $1', [nguoi_dung_id]);
+    if (khRes.rows.length === 0) return null;
+    const khach_hang_id = khRes.rows[0].id;
+
+    const query = `
+      SELECT 
+        hs.id, 
+        ld.ma_lich_dat as ma_danh_gia, 
+        hs.thoi_gian_tao as ngay_danh_gia, 
+        hs.chan_doan, 
+        hs.trang_thai,
+        hs.ho_ten_khach as ten_khach_hang, 
+        hs.so_dien_thoai,
+        hs.trieu_chung,
+        hs.ghi_chu,
+        hs.phuong_phap_dieu_tri,
+        hs.loai_goi,
+        hs.ten_goi,
+        hs.so_luong_buoi,
+        hs.so_luong_goi,
+        hs.gia_tien,
+        nd_bs.ho_ten as ten_bac_si,
+        p_kham.ten_phong as ten_phong_kham
+      FROM ho_so_dieu_tri hs
+      LEFT JOIN lich_dat ld ON hs.lich_dat_id = ld.id
+      LEFT JOIN chuyen_gia_y_te bs ON hs.bac_si_id = bs.id
+      LEFT JOIN nguoi_dung nd_bs ON bs.nguoi_dung_id = nd_bs.id
+      LEFT JOIN phong p_kham ON hs.phong_kham_id = p_kham.id
+      WHERE hs.khach_hang_id = $1
+      ORDER BY hs.thoi_gian_tao DESC
+      LIMIT 1
+    `;
+    const { rows } = await pool.query(query, [khach_hang_id]);
+    return rows[0] || null;
+  }
+
+  async getCustomerTreatmentSessions(nguoi_dung_id: string) {
+    const khRes = await pool.query('SELECT id FROM khach_hang WHERE nguoi_dung_id = $1', [nguoi_dung_id]);
+    if (khRes.rows.length === 0) return [];
+    const khach_hang_id = khRes.rows[0].id;
+
+    const query = `
+      SELECT 
+        btl.id,
+        btl.so_thu_tu_buoi,
+        btl.thoi_gian_bat_dau,
+        btl.thoi_gian_ket_thuc,
+        btl.trang_thai,
+        btl.canh_bao_dac_biet,
+        btl.ai_tom_tat_ngan,
+        btl.danh_gia_truoc_buoi,
+        btl.danh_gia_sau_buoi,
+        btl.danh_gia_hieu_qua,
+        nd_ktv.ho_ten as ten_ky_thuat_vien,
+        dv.ten_dich_vu,
+        ldt.ten_goi
+      FROM buoi_tri_lieu btl
+      JOIN lich_dieu_tri ldt ON btl.lich_dieu_tri_id = ldt.id
+      LEFT JOIN chuyen_gia_y_te ktv ON btl.ky_thuat_vien_id = ktv.id
+      LEFT JOIN nguoi_dung nd_ktv ON ktv.nguoi_dung_id = nd_ktv.id
+      LEFT JOIN dich_vu dv ON btl.dich_vu_id = dv.id
+      WHERE btl.khach_hang_id = $1
+      ORDER BY btl.so_thu_tu_buoi DESC, btl.thoi_gian_bat_dau DESC
+    `;
+    const { rows } = await pool.query(query, [khach_hang_id]);
+    return rows;
+  }
 }
 
 export default new AppointmentRepository();

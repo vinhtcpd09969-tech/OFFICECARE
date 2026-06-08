@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Package, 
   CreditCard, 
@@ -11,44 +12,70 @@ import {
 } from 'lucide-react';
 
 export default function CustomerPackages() {
+  const navigate = useNavigate();
   const [selectedInvoice, setSelectedInvoice] = useState<string | null>(null);
 
-  // Mock data for purchased packages
-  const purchasedPackages = [
-    {
-      id: 'pkg-1',
-      name: 'Gói Trị Liệu Cổ Vai Gáy Chuyên Sâu',
-      totalSessions: 10,
-      completedSessions: 8,
-      purchaseDate: '01/05/2026',
-      status: 'hoat_dong',
-      gia_niem_yet: 5500000,
-      da_thanh_toan: 4950000, // Giảm 10% do trả thẳng
-      hinh_thuc_thanh_toan: 'tra_thang',
-      uu_dai_ap_dung: 'Khuyến mãi Hè 2024 (Giảm 10% trả thẳng)'
-    }
-  ];
+  // Purchased packages (empty as requested)
+  const purchasedPackages: any[] = [];
 
-  // Mock billing invoices
-  const invoices = [
-    {
-      id: 'HD-2026-0985',
-      date: '01/05/2026',
-      packageName: 'Gói Trị Liệu Cổ Vai Gáy Chuyên Sâu',
-      totalPrice: 5500000,
-      discount: 550000,
-      finalPrice: 4950000,
-      paidAmount: 4950000,
-      dueAmount: 0,
-      status: 'da_thanh_toan',
-      method: 'Chuyển khoản Ngân hàng',
-      transactionId: 'FT2612189432'
-    }
-  ];
+  // Billing invoices (empty as requested)
+  const invoices: any[] = [];
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
   };
+
+  const hasPackages = purchasedPackages.length > 0;
+
+  if (!hasPackages) {
+    return (
+      <div className="animate-in fade-in duration-500 space-y-6">
+        {/* Header */}
+        <div>
+          <h1 className="font-heading text-3xl font-bold text-secondary flex items-center gap-2.5">
+            <Package className="text-primary" size={32} />
+            Gói điều trị & Thanh toán
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">Quản lý các gói trị liệu đã đăng ký và theo dõi thông tin tài chính cá nhân.</p>
+        </div>
+
+        {/* Empty State Card */}
+        <div className="bg-white rounded-[32px] p-8 sm:p-12 border border-gray-100 shadow-sm text-center max-w-3xl mx-auto space-y-8 animate-in slide-in-from-bottom-4 duration-300">
+          <div className="w-24 h-24 bg-primary/5 text-primary rounded-[28px] flex items-center justify-center mx-auto border border-primary/10 shadow-sm">
+            <Package size={44} />
+          </div>
+          
+          <div className="space-y-3">
+            <h2 className="font-heading font-black text-2xl text-secondary">
+              Bạn chưa đăng ký gói trị liệu nào
+            </h2>
+            <p className="text-sm font-medium text-gray-500 max-w-md mx-auto leading-relaxed">
+              Office Care cung cấp các gói trị liệu y khoa cá nhân hóa chuyên sâu từ 6 đến 18 buổi giúp giải quyết tận gốc các cơn đau nhức cột sống, cơ xương khớp.
+            </p>
+          </div>
+
+          <div className="bg-zinc-50 border border-zinc-100 rounded-2xl p-5 max-w-lg mx-auto text-left text-xs font-semibold text-gray-500 space-y-3 leading-relaxed">
+            <p className="text-secondary font-extrabold flex items-center gap-1.5 uppercase tracking-wider text-[10px]">
+              <ShieldCheck size={14} className="text-primary" /> Quyền lợi khi mua gói trị liệu:
+            </p>
+            <ul className="list-disc list-inside space-y-2 pl-1 font-medium text-gray-600">
+              <li>Tiết kiệm lên tới 20% chi phí so với đặt lẻ từng buổi.</li>
+              <li>Được cam kết phân bổ Bác sĩ & Kỹ thuật viên phụ trách xuyên suốt liệu trình.</li>
+              <li>Tặng kèm cẩm nang bài tập vật lý trị liệu tại nhà cá nhân hóa.</li>
+              <li>Ưu tiên đặt hẹn trong các khung giờ cao điểm.</li>
+            </ul>
+          </div>
+
+          <button
+            onClick={() => navigate('/booking')}
+            className="inline-flex items-center gap-2 bg-primary hover:opacity-95 text-white font-extrabold text-xs uppercase tracking-widest py-4 px-8 rounded-xl transition-all active:scale-98 shadow-md shadow-primary/20"
+          >
+            Đăng ký khám & Nhận tư vấn gói ngay
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-in fade-in duration-500 space-y-6">

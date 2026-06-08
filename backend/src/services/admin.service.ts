@@ -16,11 +16,11 @@ class AdminService {
     return adminRepository.createRoom({ ...data, ma_phong });
   }
 
-  async updateRoom(id: string, data: any) {
+  async updateRoom(id: string | number, data: any) {
     return adminRepository.updateRoom(id, data);
   }
 
-  async deleteRoom(id: string) {
+  async deleteRoom(id: string | number) {
     return adminRepository.deleteRoom(id);
   }
 
