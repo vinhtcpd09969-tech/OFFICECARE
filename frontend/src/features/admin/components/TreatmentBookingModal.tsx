@@ -55,6 +55,16 @@ export default function TreatmentBookingModal({
   const [availableStaff, setAvailableStaff] = useState<any[] | null>(null);
   const [loadingAvailable, setLoadingAvailable] = useState(false);
 
+  const getPackageSessionDuration = (pkg: any) => {
+    if (!pkg) return 0;
+    const details = pkg.chi_tiet_dich_vu || [];
+    if (!details.length || !services.length) return 0;
+    return details.reduce((sum: number, item: any) => {
+      const svc = services.find(s => String(s.id) === String(item.dich_vu_id));
+      return sum + (svc?.thoi_gian_uoc_tinh || 0);
+    }, 0);
+  };
+
   useEffect(() => {
     let active = true;
     const fetchAvailableStaff = async () => {
@@ -139,7 +149,11 @@ export default function TreatmentBookingModal({
               <label className="text-sm font-bold text-slate-700">Chọn dịch vụ linh động *</label>
               <select value={selectedServiceId} onChange={(e) => setSelectedServiceId(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20" required>
                 <option value="">-- Lựa chọn --</option>
-                {services.filter(s => String(s.danh_muc_id) !== '10').map(s => <option key={s.id} value={s.id}>{s.ten_dich_vu}</option>)}
+                {services.filter(s => String(s.danh_muc_id) !== '10').map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.ten_dich_vu} ({s.thoi_gian_uoc_tinh} phút)
+                  </option>
+                ))}
               </select>
             </div>
           ) : (
@@ -147,7 +161,11 @@ export default function TreatmentBookingModal({
               <label className="text-sm font-bold text-slate-700">Chọn liệu trình *</label>
               <select value={selectedPackageId} onChange={(e) => setSelectedPackageId(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20" required>
                 <option value="">-- Lựa chọn --</option>
-                {packages.map(p => <option key={p.id} value={p.id}>{p.ten_goi}</option>)}
+                {packages.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.ten_goi} ({getPackageSessionDuration(p)} phút)
+                  </option>
+                ))}
               </select>
             </div>
           )}

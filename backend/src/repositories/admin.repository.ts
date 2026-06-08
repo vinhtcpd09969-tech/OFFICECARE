@@ -28,6 +28,49 @@ class AdminRepository {
     return rows;
   }
 
+  async createRoom(data: any) {
+    const { rows } = await pool.query(
+      `INSERT INTO phong (ten_phong, ma_phong, loai_phong, loai_dich_vu_ho_tro, thiet_bi, mo_ta, trang_thai, tang)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [
+        data.ten_phong,
+        data.ma_phong,
+        data.loai_phong || 'tri_lieu',
+        data.loai_dich_vu_ho_tro ? (typeof data.loai_dich_vu_ho_tro === 'string' ? data.loai_dich_vu_ho_tro : JSON.stringify(data.loai_dich_vu_ho_tro)) : '[]',
+        data.thiet_bi ? (typeof data.thiet_bi === 'string' ? data.thiet_bi : JSON.stringify(data.thiet_bi)) : '[]',
+        data.mo_ta || null,
+        data.trang_thai || 'san_sang',
+        data.tang || 'Tang 1'
+      ]
+    );
+    return rows[0];
+  }
+
+  async updateRoom(id: string, data: any) {
+    const { rows } = await pool.query(
+      `UPDATE phong 
+       SET ten_phong = $1, ma_phong = $2, loai_phong = $3, loai_dich_vu_ho_tro = $4, thiet_bi = $5, mo_ta = $6, trang_thai = $7, tang = $8
+       WHERE id = $9 RETURNING *`,
+      [
+        data.ten_phong,
+        data.ma_phong,
+        data.loai_phong,
+        data.loai_dich_vu_ho_tro ? (typeof data.loai_dich_vu_ho_tro === 'string' ? data.loai_dich_vu_ho_tro : JSON.stringify(data.loai_dich_vu_ho_tro)) : '[]',
+        data.thiet_bi ? (typeof data.thiet_bi === 'string' ? data.thiet_bi : JSON.stringify(data.thiet_bi)) : '[]',
+        data.mo_ta || null,
+        data.trang_thai,
+        data.tang,
+        id
+      ]
+    );
+    return rows[0];
+  }
+
+  async deleteRoom(id: string) {
+    const { rows } = await pool.query('DELETE FROM phong WHERE id = $1 RETURNING *', [id]);
+    return rows[0];
+  }
+
   async createCategory(data: any) {
     const an_hien = data.trang_thai !== 'vo_hieu';
     const loai_danh_muc = data.loai_danh_muc || 'dich_vu';
@@ -329,9 +372,61 @@ class AdminRepository {
   // --- QUẢN LÝ THIẾT BỊ Y TẾ ---
   async getEquipment() {
     const { rows } = await pool.query(`
-      SELECT tb.*, tb.ngay_bao_tri_tiep_theo as ngay_bao_tri_gan_nhat, p.ten_phong 
+      SELECT 
+        tb.*, 
+        tb.ngay_bao_tri_tiep_theo as ngay_bao_tri_gan_nhat, 
+        p.ten_phong,
+        p.ma_phong,
+        active_session.active_booking_type,
+        active_session.active_booking_id,
+        active_session.active_patient_name,
+        active_session.active_operator_name,
+        active_session.active_service_name,
+        active_session.active_booking_code
       FROM thiet_bi_y_te tb
       LEFT JOIN phong p ON tb.phong_id_hien_tai = p.id
+      LEFT JOIN LATERAL (
+        (
+          SELECT 
+            'lich_dieu_tri' AS active_booking_type,
+            btl.id::text AS active_booking_id,
+            kh_user.ho_ten AS active_patient_name,
+            ktv_user.ho_ten AS active_operator_name,
+            dv.ten_dich_vu AS active_service_name,
+            ldt.ma_lich_dieu_tri AS active_booking_code
+          FROM buoi_tri_lieu btl
+          JOIN lich_dieu_tri ldt ON btl.lich_dieu_tri_id = ldt.id
+          JOIN khach_hang kh ON btl.khach_hang_id = kh.id
+          JOIN nguoi_dung kh_user ON kh.nguoi_dung_id = kh_user.id
+          JOIN chuyen_gia_y_te cg ON btl.ky_thuat_vien_id = cg.id
+          JOIN nguoi_dung ktv_user ON cg.nguoi_dung_id = ktv_user.id
+          LEFT JOIN dich_vu dv ON btl.dich_vu_id = dv.id
+          WHERE btl.trang_thai = 'dang_thuc_hien'
+            AND btl.phong_id = tb.phong_id_hien_tai
+            AND (dv.thiet_bi_yeu_cau ILIKE '%' || tb.loai_thiet_bi || '%' OR tb.loai_thiet_bi ILIKE '%' || dv.thiet_bi_yeu_cau || '%')
+          LIMIT 1
+        )
+        UNION ALL
+        (
+          SELECT 
+            'lich_kham' AS active_booking_type,
+            ld.id::text AS active_booking_id,
+            COALESCE(ld.ho_ten_khach, kh_user.ho_ten) AS active_patient_name,
+            doc_user.ho_ten AS active_operator_name,
+            dv.ten_dich_vu AS active_service_name,
+            ld.ma_lich_dat AS active_booking_code
+          FROM lich_dat ld
+          LEFT JOIN khach_hang kh ON ld.khach_hang_id = kh.id
+          LEFT JOIN nguoi_dung kh_user ON kh.nguoi_dung_id = kh_user.id
+          LEFT JOIN chuyen_gia_y_te cg ON ld.bac_si_id = cg.id
+          LEFT JOIN nguoi_dung doc_user ON cg.nguoi_dung_id = doc_user.id
+          LEFT JOIN dich_vu dv ON ld.dich_vu_id = dv.id
+          WHERE ld.trang_thai = 'da_checkin'
+            AND ld.phong_id = tb.phong_id_hien_tai
+            AND (dv.thiet_bi_yeu_cau ILIKE '%' || tb.loai_thiet_bi || '%' OR tb.loai_thiet_bi ILIKE '%' || dv.thiet_bi_yeu_cau || '%')
+          LIMIT 1
+        )
+      ) active_session ON tb.trang_thai = 'dang_su_dung'
       ORDER BY tb.thoi_gian_tao DESC
     `);
     return rows;
@@ -339,10 +434,88 @@ class AdminRepository {
 
   async createEquipment(ma_thiet_bi: string, data: any) {
     const { rows } = await pool.query(
-      `INSERT INTO thiet_bi_y_te (ma_thiet_bi, ten_thiet_bi, loai_thiet_bi, ngay_mua, ngay_bao_tri_tiep_theo, trang_thai, phong_id_hien_tai, ghi_chu) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-      [ma_thiet_bi, data.ten_thiet_bi, data.loai_thiet_bi || null, data.ngay_mua || null, data.ngay_bao_tri_tiep_theo || null, data.trang_thai, data.phong_id_hien_tai || null, data.ghi_chu || null]
+      `INSERT INTO thiet_bi_y_te (
+         ma_thiet_bi, ten_thiet_bi, loai_thiet_bi, ngay_mua, ngay_bao_tri_tiep_theo,
+         trang_thai, phong_id_hien_tai, ghi_chu,
+         co_the_di_chuyen, cap_rui_ro, tan_suat_bao_tri_ngay,
+         nguong_canh_bao, nguong_bat_buoc_bao_tri, ngay_bao_tri_gan_nhat
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
+      [
+        ma_thiet_bi,
+        data.ten_thiet_bi,
+        data.loai_thiet_bi || null,
+        data.ngay_mua || null,
+        data.ngay_bao_tri_tiep_theo || null,
+        data.trang_thai,
+        data.phong_id_hien_tai || null,
+        data.ghi_chu || null,
+        data.co_the_di_chuyen !== undefined ? data.co_the_di_chuyen : true,
+        data.cap_rui_ro || 'trung_binh',
+        data.tan_suat_bao_tri_ngay || 45,
+        data.nguong_canh_bao || 80,
+        data.nguong_bat_buoc_bao_tri || 100,
+        data.ngay_bao_tri_gan_nhat || null
+      ]
     );
+    return rows[0];
+  }
+
+  async updateEquipment(id: string, data: any) {
+    // Kiểm tra thiết bị cố định không được phép đổi phòng
+    if (data.phong_id_hien_tai !== undefined) {
+      const { rows: current } = await pool.query(
+        'SELECT co_the_di_chuyen, phong_id_hien_tai FROM thiet_bi_y_te WHERE id = $1',
+        [id]
+      );
+      if (current.length > 0 && current[0].co_the_di_chuyen === false) {
+        const newPhongId = data.phong_id_hien_tai ? Number(data.phong_id_hien_tai) : null;
+        const curPhongId = current[0].phong_id_hien_tai ? Number(current[0].phong_id_hien_tai) : null;
+        if (newPhongId !== curPhongId) {
+          const err: any = new Error('Thiết bị này là thiết bị cố định, không thể di chuyển sang phòng khác.');
+          err.statusCode = 400;
+          throw err;
+        }
+      }
+    }
+
+    const { rows } = await pool.query(
+      `UPDATE thiet_bi_y_te 
+       SET ten_thiet_bi = $1, 
+           loai_thiet_bi = $2, 
+           ngay_mua = $3, 
+           ngay_bao_tri_tiep_theo = $4, 
+           trang_thai = $5, 
+           phong_id_hien_tai = $6, 
+           ghi_chu = $7,
+           co_the_di_chuyen = $8,
+           cap_rui_ro = $9,
+           tan_suat_bao_tri_ngay = $10,
+           nguong_canh_bao = $11,
+           nguong_bat_buoc_bao_tri = $12,
+           ngay_bao_tri_gan_nhat = $13
+       WHERE id = $14 RETURNING *`,
+      [
+        data.ten_thiet_bi,
+        data.loai_thiet_bi || null,
+        data.ngay_mua || null,
+        data.ngay_bao_tri_tiep_theo || null,
+        data.trang_thai,
+        data.phong_id_hien_tai || null,
+        data.ghi_chu || null,
+        data.co_the_di_chuyen !== undefined ? data.co_the_di_chuyen : true,
+        data.cap_rui_ro || 'trung_binh',
+        data.tan_suat_bao_tri_ngay || 45,
+        data.nguong_canh_bao || 80,
+        data.nguong_bat_buoc_bao_tri || 100,
+        data.ngay_bao_tri_gan_nhat || null,
+        id
+      ]
+    );
+    return rows[0];
+  }
+
+  async deleteEquipment(id: string) {
+    const { rows } = await pool.query('DELETE FROM thiet_bi_y_te WHERE id = $1 RETURNING *', [id]);
     return rows[0];
   }
 
@@ -361,6 +534,30 @@ class AdminRepository {
   }
 
   async createSchedule(data: any) {
+    // Check if staff member is a Doctor (role_id = 4)
+    const userRes = await pool.query('SELECT vai_tro_id FROM nguoi_dung WHERE id = $1', [data.nguoi_dung_id]);
+    const isDoc = userRes.rows[0]?.vai_tro_id === 4;
+
+    if (isDoc && data.trang_thai !== 'tam_nghi') {
+      const hour = parseInt(data.gio_bat_dau.split(':')[0]);
+      const isMorning = hour < 11;
+      
+      const checkQuery = `
+        SELECT llv.*, nd.ho_ten 
+        FROM lich_lam_viec llv
+        JOIN nguoi_dung nd ON llv.nguoi_dung_id = nd.id
+        WHERE nd.vai_tro_id = 4
+          AND llv.ngay = $1::date
+          AND llv.trang_thai = 'hoat_dong'
+          AND llv.nguoi_dung_id != $2
+          AND ${isMorning ? "llv.gio_bat_dau < '11:00'" : "llv.gio_bat_dau >= '11:00'"}
+      `;
+      const conflictRes = await pool.query(checkQuery, [data.ngay, data.nguoi_dung_id]);
+      if (conflictRes.rows.length > 0) {
+        throw new Error(`Bác sĩ ${conflictRes.rows[0].ho_ten} đã trực ca này vào ngày ${data.ngay} rồi! Mỗi ca trực chỉ phân công tối đa 1 bác sĩ.`);
+      }
+    }
+
     const { rows } = await pool.query(
       `INSERT INTO lich_lam_viec (nguoi_dung_id, ngay, gio_bat_dau, gio_ket_thuc, trang_thai) 
        VALUES ($1, $2, $3, $4, $5) RETURNING id, nguoi_dung_id, to_char(ngay, 'YYYY-MM-DD') as ngay, gio_bat_dau, gio_ket_thuc, trang_thai`,
@@ -370,6 +567,31 @@ class AdminRepository {
   }
 
   async updateSchedule(id: string, data: any) {
+    // Check if staff member is a Doctor (role_id = 4)
+    const userRes = await pool.query('SELECT vai_tro_id FROM nguoi_dung WHERE id = $1', [data.nguoi_dung_id]);
+    const isDoc = userRes.rows[0]?.vai_tro_id === 4;
+
+    if (isDoc && data.trang_thai !== 'tam_nghi') {
+      const hour = parseInt(data.gio_bat_dau.split(':')[0]);
+      const isMorning = hour < 11;
+      
+      const checkQuery = `
+        SELECT llv.*, nd.ho_ten 
+        FROM lich_lam_viec llv
+        JOIN nguoi_dung nd ON llv.nguoi_dung_id = nd.id
+        WHERE nd.vai_tro_id = 4
+          AND llv.ngay = $1::date
+          AND llv.trang_thai = 'hoat_dong'
+          AND llv.nguoi_dung_id != $2
+          AND llv.id != $3
+          AND ${isMorning ? "llv.gio_bat_dau < '11:00'" : "llv.gio_bat_dau >= '11:00'"}
+      `;
+      const conflictRes = await pool.query(checkQuery, [data.ngay, data.nguoi_dung_id, id]);
+      if (conflictRes.rows.length > 0) {
+        throw new Error(`Bác sĩ ${conflictRes.rows[0].ho_ten} đã trực ca này vào ngày ${data.ngay} rồi! Mỗi ca trực chỉ phân công tối đa 1 bác sĩ.`);
+      }
+    }
+
     const { rows } = await pool.query(
       `UPDATE lich_lam_viec 
        SET gio_bat_dau = $1, gio_ket_thuc = $2, trang_thai = $3
@@ -394,7 +616,7 @@ class AdminRepository {
              nd_kh.ho_ten as ten_khach_hang, 'KH' as ma_khach_hang,
              nd_ktv.ho_ten as ten_ky_thuat_vien
       FROM lich_dat ld
-      LEFT JOIN ho_so_benh_an hsba ON hsba.lich_dat_id = ld.id
+      LEFT JOIN ho_so_dieu_tri hsba ON hsba.lich_dat_id = ld.id
       LEFT JOIN khach_hang kh ON ld.khach_hang_id = kh.id
       LEFT JOIN nguoi_dung nd_kh ON kh.nguoi_dung_id = nd_kh.id
       LEFT JOIN chuyen_gia_y_te ktv ON ld.bac_si_id = ktv.id
@@ -715,16 +937,15 @@ class AdminRepository {
       }
     } else if (dang_ky_goi_id) {
       const { rows } = await pool.query(
-        `SELECT dv.id as dich_vu_id, dv.thoi_luong_phut 
+        `SELECT SUM(dv.thoi_luong_phut) as tong_thoi_luong, MAX(dv.id) as dich_vu_id
          FROM goi_dich_vu_chi_tiet gdvct
          JOIN dich_vu dv ON gdvct.dich_vu_id = dv.id
-         WHERE gdvct.goi_dich_vu_id = $1 
-         LIMIT 1`,
+         WHERE gdvct.goi_dich_vu_id = $1`,
         [dang_ky_goi_id]
       );
-      if (rows.length > 0) {
+      if (rows.length > 0 && rows[0].tong_thoi_luong) {
         finalDichVuId = rows[0].dich_vu_id;
-        thoi_luong = rows[0].thoi_luong_phut;
+        thoi_luong = parseInt(rows[0].tong_thoi_luong);
       }
     }
 

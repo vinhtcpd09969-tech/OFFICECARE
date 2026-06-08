@@ -8,7 +8,7 @@ class AppointmentRepository {
         ld.id, ld.ma_lich_dat, 
         ld.ngay_gio_bat_dau as ngay_gio_bat_dau, 
         ld.ngay_gio_ket_thuc as ngay_gio_ket_thuc, 
-        ld.trang_thai, 'kham_moi' as loai_lich,
+        ld.trang_thai, CASE WHEN ld.dich_vu_id IS NOT NULL THEN 'dich_vu_don' ELSE 'kham_moi' END as loai_lich,
         COALESCE(nd_kh.ho_ten, ld.ho_ten_khach) AS ten_khach_hang, 
         COALESCE(nd_kh.so_dien_thoai, ld.so_dien_thoai) AS so_dien_thoai,
         kh.id as khach_hang_id,
@@ -27,7 +27,7 @@ class AppointmentRepository {
         NULL::uuid AS goi_dich_vu_id,
         COALESCE(hd.trang_thai, 'chua_thanh_toan') AS trang_thai_thanh_toan
       FROM lich_dat ld
-      LEFT JOIN ho_so_benh_an hsba ON hsba.lich_dat_id = ld.id
+      LEFT JOIN ho_so_dieu_tri hsba ON hsba.lich_dat_id = ld.id
       LEFT JOIN khach_hang kh ON ld.khach_hang_id = kh.id
       LEFT JOIN nguoi_dung nd_kh ON kh.nguoi_dung_id = nd_kh.id
       LEFT JOIN dich_vu dv ON ld.dich_vu_id = dv.id
@@ -36,7 +36,7 @@ class AppointmentRepository {
       LEFT JOIN phong p ON ld.phong_id = p.id
       LEFT JOIN dich_vu kn_dv ON hsba.dich_vu_id = kn_dv.id
       LEFT JOIN goi_dich_vu kn_goi ON hsba.goi_dich_vu_id = kn_goi.id
-      LEFT JOIN lich_dieu_tri ldt ON ldt.lich_dat_id = ld.id
+      LEFT JOIN lich_dieu_tri ldt ON ldt.ho_so_dieu_tri_id = hsba.id
       LEFT JOIN hoa_don hd ON hd.lich_dieu_tri_id = ldt.id
       
       UNION ALL
@@ -61,7 +61,7 @@ class AppointmentRepository {
         NULL::text AS khuyen_nghi_ten_dich_vu,
         kn_goi.ten_goi AS khuyen_nghi_ten_goi,
         btl.so_thu_tu_buoi,
-        ldt.goi_dich_vu_id,
+        hsba.goi_dich_vu_id,
         COALESCE(hd.trang_thai, 'chua_thanh_toan') AS trang_thai_thanh_toan
       FROM buoi_tri_lieu btl
       JOIN khach_hang kh ON btl.khach_hang_id = kh.id
@@ -71,7 +71,7 @@ class AppointmentRepository {
       LEFT JOIN nguoi_dung nd_ktv ON ktv.nguoi_dung_id = nd_ktv.id
       LEFT JOIN phong p ON btl.phong_id = p.id
       LEFT JOIN lich_dieu_tri ldt ON btl.lich_dieu_tri_id = ldt.id
-      LEFT JOIN ho_so_benh_an hsba ON (ldt.ho_so_benh_an_id = hsba.id OR ldt.lich_dat_id = hsba.lich_dat_id)
+      LEFT JOIN ho_so_dieu_tri hsba ON ldt.ho_so_dieu_tri_id = hsba.id
       LEFT JOIN goi_dich_vu kn_goi ON hsba.goi_dich_vu_id = kn_goi.id
       LEFT JOIN hoa_don hd ON hd.lich_dieu_tri_id = btl.lich_dieu_tri_id
     `;
@@ -152,14 +152,32 @@ class AppointmentRepository {
       let ldtId = null;
       let target_dich_vu_id = dich_vu_id;
 
-      // Find ho_so_benh_an_id from lich_dat_id
+      // Find ho_so_dieu_tri_id from lich_dat_id
       let hsbaId = null;
       if (data.lich_dat_id) {
-        const hsbaRes = await pool.query('SELECT id FROM ho_so_benh_an WHERE lich_dat_id = $1', [data.lich_dat_id]);
+        const hsbaRes = await pool.query('SELECT id FROM ho_so_dieu_tri WHERE lich_dat_id = $1', [data.lich_dat_id]);
         if (hsbaRes.rows.length > 0) {
           hsbaId = hsbaRes.rows[0].id;
         }
       }
+
+      if (!hsbaId) {
+        // Enforce walk-in / direct treatment has a default parent treatment record
+        const hsbaRes = await pool.query(`
+          INSERT INTO ho_so_dieu_tri (chan_doan, chong_chi_dinh, dich_vu_id, goi_dich_vu_id, chuyen_gia_id, ghi_chu)
+          VALUES ($1, $2, $3, $4, $5, $6) RETURNING id
+        `, [
+          ly_do_kham || ghi_chu_dat_lich || 'Khách vãng lai mua dịch vụ lẻ trực tiếp',
+          'Không có chống chỉ định đặc biệt',
+          target_dich_vu_id || null,
+          dang_ky_goi_id || null,
+          bac_si_id || null,
+          'Hồ sơ điều trị tự động cho dịch vụ lẻ / khách vãng lai.'
+        ]);
+        hsbaId = hsbaRes.rows[0].id;
+      }
+
+      const maLDT = `LDT${Math.floor(100000 + Math.random() * 900000)}`;
 
       if (dang_ky_goi_id) {
         // Query total sessions from package
@@ -170,9 +188,9 @@ class AppointmentRepository {
         }
 
         const ldtRes = await pool.query(`
-          INSERT INTO lich_dieu_tri(khach_hang_id, loai_dieu_tri, goi_dich_vu_id, tong_so_buoi, so_buoi_da_dung, trang_thai, lich_dat_id, ho_ten_khach, so_dien_thoai, ho_so_benh_an_id) 
-          VALUES ($1, $2, $3, $4, 0, 'cho_thanh_toan', $5, $6, $7, $8) RETURNING id
-        `, [final_khach_hang_id, 'theo_goi', dang_ky_goi_id, tong_so_buoi, data.lich_dat_id || null, ho_ten_khach || null, so_dien_thoai || null, hsbaId]);
+          INSERT INTO lich_dieu_tri(khach_hang_id, loai_dieu_tri, tong_so_buoi, so_buoi_da_dung, trang_thai, ho_so_dieu_tri_id, ma_lich_dieu_tri) 
+          VALUES ($1, $2, $3, 0, 'cho_thanh_toan', $4, $5) RETURNING id
+        `, [final_khach_hang_id, 'theo_goi', tong_so_buoi, hsbaId, maLDT]);
         ldtId = ldtRes.rows[0].id;
 
         if (!target_dich_vu_id) {
@@ -183,9 +201,9 @@ class AppointmentRepository {
         }
       } else {
         const ldtRes = await pool.query(`
-          INSERT INTO lich_dieu_tri(khach_hang_id, loai_dieu_tri, dich_vu_id, tong_so_buoi, so_buoi_da_dung, trang_thai, lich_dat_id, ho_ten_khach, so_dien_thoai, ho_so_benh_an_id) 
-          VALUES ($1, $2, $3, 1, 0, 'cho_thanh_toan', $4, $5, $6, $7) RETURNING id
-        `, [final_khach_hang_id, 'dich_vu_le', target_dich_vu_id, data.lich_dat_id || null, ho_ten_khach || null, so_dien_thoai || null, hsbaId]);
+          INSERT INTO lich_dieu_tri(khach_hang_id, loai_dieu_tri, tong_so_buoi, so_buoi_da_dung, trang_thai, ho_so_dieu_tri_id, ma_lich_dieu_tri) 
+          VALUES ($1, $2, 1, 0, 'cho_thanh_toan', $3, $4) RETURNING id
+        `, [final_khach_hang_id, 'dich_vu_le', hsbaId, maLDT]);
         ldtId = ldtRes.rows[0].id;
       }
 
@@ -214,7 +232,7 @@ class AppointmentRepository {
   }
 
   async createPublicAppointment(ma_lich_dat: string, data: any) {
-    const { nguoi_dung_id, ho_ten_khach, so_dien_thoai, gioi_tinh_khach, ngay_gio_bat_dau, ngay_gio_ket_thuc, ly_do_kham, anh_dinh_kem_url, trang_thai } = data;
+    const { nguoi_dung_id, ho_ten_khach, so_dien_thoai, gioi_tinh_khach, ngay_gio_bat_dau, ngay_gio_ket_thuc, ly_do_kham, anh_dinh_kem_url, trang_thai, dich_vu_id } = data;
 
     let khach_hang_id = null;
     if (nguoi_dung_id) {
@@ -225,14 +243,27 @@ class AppointmentRepository {
     }
 
     const query = `
-      INSERT INTO lich_dat (ma_lich_dat, khach_hang_id, ho_ten_khach, so_dien_thoai, gioi_tinh_khach, ngay_gio_bat_dau, ngay_gio_ket_thuc, ly_do_kham, anh_dinh_kem_url, nguoi_tao, trang_thai)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'guest', $10)
+      INSERT INTO lich_dat (ma_lich_dat, khach_hang_id, ho_ten_khach, so_dien_thoai, gioi_tinh_khach, ngay_gio_bat_dau, ngay_gio_ket_thuc, ly_do_kham, anh_dinh_kem_url, nguoi_tao, trang_thai, dich_vu_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'guest', $10, $11)
       RETURNING *
     `;
     const { rows } = await pool.query(query, [
-      ma_lich_dat, khach_hang_id || null, ho_ten_khach || null, so_dien_thoai || null, gioi_tinh_khach || null, ngay_gio_bat_dau, ngay_gio_ket_thuc, ly_do_kham || null, anh_dinh_kem_url || null, trang_thai || 'chua_xac_nhan'
+      ma_lich_dat, khach_hang_id || null, ho_ten_khach || null, so_dien_thoai || null, gioi_tinh_khach || null, ngay_gio_bat_dau, ngay_gio_ket_thuc, ly_do_kham || null, anh_dinh_kem_url || null, trang_thai || 'chua_xac_nhan', dich_vu_id || null
     ]);
     return rows[0];
+  }
+
+  async getPublicServices() {
+    const query = `
+      SELECT id, ten_dich_vu, mo_ta_ngan, thoi_luong_phut, don_gia, hinh_anh_url
+      FROM dich_vu
+      WHERE trang_thai = 'hoat_dong' 
+        AND hien_thi_website = true
+        AND danh_muc_id NOT IN (10, 21)
+      ORDER BY thu_tu_hien_thi ASC
+    `;
+    const { rows } = await pool.query(query);
+    return rows;
   }
 
   // Lấy danh sách giờ đã có lịch (hết chỗ) cho ngày cụ thể - dùng cho trang booking client
@@ -293,9 +324,9 @@ class AppointmentRepository {
     const appointments = aptRes.rows;
 
     const timeSlots = [
-      '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
-      '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00',
-      '17:30', '18:00', '18:30', '19:00'
+      '07:30', '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
+      '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30',
+      '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30'
     ];
 
     const bookedSlots: string[] = [];
@@ -316,11 +347,28 @@ class AppointmentRepository {
 
       // Tìm bác sĩ có lịch trực ca phủ kín slot này
       const scheduledDoctors = doctors.filter(doc => {
-        const docSched = schedules.find(s => s.nguoi_dung_id === doc.nguoi_dung_id);
-        if (!docSched) return false;
-        const dutyStart = docSched.gio_bat_dau.substring(0, 5);
-        const dutyEnd = docSched.gio_ket_thuc.substring(0, 5);
-        return dutyStart <= slot && dutyEnd >= slot;
+        const docScheds = schedules.filter(s => s.nguoi_dung_id === doc.nguoi_dung_id);
+        if (docScheds.length === 0) return false;
+        
+        // Kiểm tra xem có bất kỳ ca trực nào của bác sĩ phủ kín slot hiện tại không
+        return docScheds.some(s => {
+          const dutyStart = s.gio_bat_dau.substring(0, 5);
+          const dutyEnd = s.gio_ket_thuc.substring(0, 5);
+          const isScheduled = dutyStart <= slot && dutyEnd > slot; // dutyEnd is exclusive
+          if (!isScheduled) return false;
+
+          // Ràng buộc ca nghỉ giữa ca:
+          // 1. Bác sĩ ca sáng (07:00 - 16:00) nghỉ từ 11:00 - 12:00 (slot 11:00, 11:30)
+          if (dutyStart === '07:00' && dutyEnd === '16:00') {
+            if (slot === '11:00' || slot === '11:30') return false;
+          }
+          // 2. Bác sĩ ca chiều (11:00 - 20:00) nghỉ từ 16:00 - 17:00 (slot 16:00, 16:30)
+          if (dutyStart === '11:00' && dutyEnd === '20:00') {
+            if (slot === '16:00' || slot === '16:30') return false;
+          }
+
+          return true;
+        });
       });
 
       // Lọc bác sĩ rảnh và phòng trống
@@ -486,7 +534,7 @@ class AppointmentRepository {
 
   async updateMedicalRecord(id: string, data: { chan_doan?: string, chong_chi_dinh?: string, khuyen_nghi_dich_vu_id?: string | null, khuyen_nghi_goi_id?: string | null }) {
     const query = `
-      INSERT INTO ho_so_benh_an (lich_dat_id, chan_doan, chong_chi_dinh, dich_vu_id, goi_dich_vu_id, bac_si_id)
+      INSERT INTO ho_so_dieu_tri (lich_dat_id, chan_doan, chong_chi_dinh, dich_vu_id, goi_dich_vu_id, chuyen_gia_id)
       VALUES ($1, $2, $3, $4, $5, (SELECT bac_si_id FROM lich_dat WHERE id = $1))
       ON CONFLICT (lich_dat_id) DO UPDATE 
       SET chan_doan = EXCLUDED.chan_doan,
@@ -497,7 +545,7 @@ class AppointmentRepository {
     `;
     const { rows } = await pool.query(query, [id, data.chan_doan || null, data.chong_chi_dinh || null, data.khuyen_nghi_dich_vu_id || null, data.khuyen_nghi_goi_id || null]);
     if (rows.length === 0) {
-      throw new Error('Không thể cập nhật hồ sơ bệnh án');
+      throw new Error('Không thể cập nhật hồ sơ điều trị');
     }
     return {
       lich_dat_id: id,
@@ -534,7 +582,7 @@ class AppointmentRepository {
         ld.id, ld.ma_lich_dat, 
         ld.ngay_gio_bat_dau as ngay_gio_bat_dau, 
         ld.ngay_gio_ket_thuc as ngay_gio_ket_thuc, 
-        ld.trang_thai, 'kham_moi' as loai_lich,
+        ld.trang_thai, CASE WHEN ld.dich_vu_id IS NOT NULL THEN 'dich_vu_don' ELSE 'kham_moi' END as loai_lich,
         COALESCE(nd_kh.ho_ten, ld.ho_ten_khach) AS ten_khach_hang, 
         COALESCE(nd_kh.so_dien_thoai, ld.so_dien_thoai) AS so_dien_thoai,
         kh.id as khach_hang_id,
@@ -552,7 +600,7 @@ class AppointmentRepository {
       FROM lich_dat ld
       JOIN khach_hang kh ON ld.khach_hang_id = kh.id
       JOIN nguoi_dung nd_kh ON kh.nguoi_dung_id = nd_kh.id
-      LEFT JOIN ho_so_benh_an hsba ON hsba.lich_dat_id = ld.id
+      LEFT JOIN ho_so_dieu_tri hsba ON hsba.lich_dat_id = ld.id
       LEFT JOIN dich_vu dv ON ld.dich_vu_id = dv.id
       LEFT JOIN chuyen_gia_y_te ktv ON ld.bac_si_id = ktv.id
       LEFT JOIN nguoi_dung nd_ktv ON ktv.nguoi_dung_id = nd_ktv.id

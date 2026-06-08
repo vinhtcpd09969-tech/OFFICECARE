@@ -28,11 +28,11 @@ class DoctorRepository {
         ld.id, ld.ma_lich_dat, ld.ngay_gio_bat_dau, ld.ngay_gio_ket_thuc, ld.trang_thai, ld.ly_do_kham,
         COALESCE(nd.ho_ten, ld.ho_ten_khach) as ten_khach_hang,
         COALESCE(nd.so_dien_thoai, ld.so_dien_thoai) as so_dien_thoai,
-        hsba.id as ho_so_benh_an_id, hsba.chan_doan, hsba.chong_chi_dinh
+        hsba.id as ho_so_dieu_tri_id, hsba.id as ho_so_benh_an_id, hsba.chan_doan, hsba.chong_chi_dinh
       FROM lich_dat ld
       LEFT JOIN khach_hang kh ON ld.khach_hang_id = kh.id
       LEFT JOIN nguoi_dung nd ON kh.nguoi_dung_id = nd.id
-      LEFT JOIN ho_so_benh_an hsba ON hsba.lich_dat_id = ld.id
+      LEFT JOIN ho_so_dieu_tri hsba ON hsba.lich_dat_id = ld.id
       WHERE ld.bac_si_id = $1
         AND ($2::timestamp IS NULL OR ld.ngay_gio_bat_dau >= $2::timestamp)
         AND ($3::timestamp IS NULL OR ld.ngay_gio_bat_dau <= $3::timestamp)
@@ -51,9 +51,9 @@ class DoctorRepository {
         nd_bs.ho_ten as ten_bac_si,
         dv.ten_dich_vu as khuyen_nghi_dich_vu,
         goi.ten_goi as khuyen_nghi_goi
-      FROM ho_so_benh_an hsba
+      FROM ho_so_dieu_tri hsba
       JOIN lich_dat ld ON hsba.lich_dat_id = ld.id
-      LEFT JOIN chuyen_gia_y_te bs ON hsba.bac_si_id = bs.id
+      LEFT JOIN chuyen_gia_y_te bs ON hsba.chuyen_gia_id = bs.id
       LEFT JOIN nguoi_dung nd_bs ON bs.nguoi_dung_id = nd_bs.id
       LEFT JOIN dich_vu dv ON hsba.dich_vu_id = dv.id
       LEFT JOIN goi_dich_vu goi ON hsba.goi_dich_vu_id = goi.id
@@ -72,9 +72,9 @@ class DoctorRepository {
         dv.ten_dich_vu, goi.ten_goi,
         hsba.chan_doan
       FROM lich_dieu_tri ldt
-      LEFT JOIN dich_vu dv ON ldt.dich_vu_id = dv.id
-      LEFT JOIN goi_dich_vu goi ON ldt.goi_dich_vu_id = goi.id
-      LEFT JOIN ho_so_benh_an hsba ON ldt.ho_so_benh_an_id = hsba.id
+      LEFT JOIN ho_so_dieu_tri hsba ON ldt.ho_so_dieu_tri_id = hsba.id
+      LEFT JOIN dich_vu dv ON hsba.dich_vu_id = dv.id
+      LEFT JOIN goi_dich_vu goi ON hsba.goi_dich_vu_id = goi.id
       WHERE ldt.khach_hang_id = $1
       ORDER BY ldt.thoi_gian_tao DESC;
     `;
@@ -115,11 +115,11 @@ class DoctorRepository {
 
       // 1. Tạo/cập nhật hồ sơ bệnh án (UPSERT)
       const hsbaQuery = `
-        INSERT INTO ho_so_benh_an (lich_dat_id, bac_si_id, chan_doan, chong_chi_dinh, goi_dich_vu_id, dich_vu_id, ghi_chu)
+        INSERT INTO ho_so_dieu_tri (lich_dat_id, chuyen_gia_id, chan_doan, chong_chi_dinh, goi_dich_vu_id, dich_vu_id, ghi_chu)
         VALUES ($1, $2, $3, $4, $5, $6, $7)
         ON CONFLICT (lich_dat_id) 
         DO UPDATE SET 
-          bac_si_id = EXCLUDED.bac_si_id,
+          chuyen_gia_id = EXCLUDED.chuyen_gia_id,
           chan_doan = EXCLUDED.chan_doan,
           chong_chi_dinh = EXCLUDED.chong_chi_dinh,
           goi_dich_vu_id = EXCLUDED.goi_dich_vu_id,
@@ -130,7 +130,7 @@ class DoctorRepository {
       `;
       const hsbaRes = await client.query(hsbaQuery, [
         data.lich_dat_id,
-        data.bac_si_id,
+        data.bac_si_id, // doctorId maps to chuyen_gia_id
         data.chan_doan,
         data.chong_chi_dinh,
         data.goi_dich_vu_id || null,
@@ -165,12 +165,12 @@ class DoctorRepository {
         ld.ngay_gio_bat_dau, ld.ngay_gio_ket_thuc, ld.ly_do_kham, ld.trang_thai, ld.anh_dinh_kem_url,
         kh.id as khach_hang_id, kh.ngay_sinh, kh.gioi_tinh,
         nd.ho_ten as ten_khach_hang, nd.so_dien_thoai as sdt_khach_hang, nd.avatar_url,
-        hsba.id as ho_so_benh_an_id, hsba.chan_doan, hsba.chong_chi_dinh, hsba.ghi_chu,
+        hsba.id as ho_so_dieu_tri_id, hsba.id as ho_so_benh_an_id, hsba.chan_doan, hsba.chong_chi_dinh, hsba.ghi_chu,
         hsba.goi_dich_vu_id, hsba.dich_vu_id
       FROM lich_dat ld
       LEFT JOIN khach_hang kh ON ld.khach_hang_id = kh.id
       LEFT JOIN nguoi_dung nd ON kh.nguoi_dung_id = nd.id
-      LEFT JOIN ho_so_benh_an hsba ON hsba.lich_dat_id = ld.id
+      LEFT JOIN ho_so_dieu_tri hsba ON hsba.lich_dat_id = ld.id
       WHERE ld.id = $1;
     `;
     const { rows } = await pool.query(queryStr, [appointmentId]);

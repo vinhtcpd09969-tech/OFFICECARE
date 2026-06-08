@@ -38,7 +38,7 @@ export default function DoctorMedicalRecords() {
     loadPatients();
   }, []);
 
-  // Load bệnh án của bệnh nhân được chọn
+  // Load hồ sơ điều trị của bệnh nhân được chọn
   useEffect(() => {
     if (!selectedPatient) {
       setProfile(null);
@@ -51,7 +51,7 @@ export default function DoctorMedicalRecords() {
         const res = await getPatientProfile(selectedPatient!.id);
         setProfile(res.data);
       } catch (error) {
-        console.error('Lỗi khi tải bệnh án bệnh nhân:', error);
+        console.error('Lỗi khi tải hồ sơ điều trị bệnh nhân:', error);
       } finally {
         setLoadingProfile(false);
       }
@@ -213,7 +213,7 @@ export default function DoctorMedicalRecords() {
               {loadingProfile ? (
                 <div className="h-full flex flex-col items-center justify-center gap-2 text-zinc-450">
                   <div className="size-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider">Đang nạp hồ sơ bệnh án...</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider">Đang nạp hồ sơ điều trị...</p>
                 </div>
               ) : (
                 <>
@@ -223,7 +223,7 @@ export default function DoctorMedicalRecords() {
                       {!profile || profile.medicalRecords.length === 0 ? (
                         <div className="text-center py-16 text-zinc-400 dark:text-zinc-550 flex flex-col items-center justify-center gap-2">
                           <FileText size={24} />
-                          <p className="text-xs font-bold">Chưa ghi nhận bệnh án nào từ chuyên gia y khoa</p>
+                          <p className="text-xs font-bold">Chưa ghi nhận hồ sơ điều trị nào từ chuyên gia y khoa</p>
                         </div>
                       ) : (
                         <div className="relative border-l border-zinc-150 dark:border-zinc-800 pl-6 space-y-6 ml-3">
@@ -375,7 +375,7 @@ export default function DoctorMedicalRecords() {
               🗂️
             </div>
             <div className="max-w-xs space-y-1">
-              <h3 className="font-extrabold text-secondary dark:text-zinc-300 text-sm">Hồ sơ bệnh án chi tiết</h3>
+              <h3 className="font-extrabold text-secondary dark:text-zinc-300 text-sm">Hồ sơ điều trị chi tiết</h3>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
                 Vui lòng chọn một bệnh nhân từ danh sách bên trái để tra cứu toàn bộ lịch sử chẩn đoán lâm sàng và quá trình điều trị thực tế.
               </p>

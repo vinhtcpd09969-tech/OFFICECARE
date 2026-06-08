@@ -33,6 +33,7 @@ export const createPublicAppointmentSchema = z.object({
     trieu_chung: z.string().optional(),
     ly_do_kham: z.string().optional(),
     anh_dinh_kem_url: z.string().optional(),
+    dich_vu_id: z.string().uuid('ID Dịch vụ không hợp lệ').optional().nullable(),
   })
 });
 
@@ -46,6 +47,8 @@ export const updateAppointmentStatusSchema = z.object({
       invalid_type_error: 'Trạng thái không hợp lệ'
     }),
     bac_si_id: z.string().uuid('ID Nhân sự không hợp lệ').optional().nullable(),
+    chuyen_gia_id: z.string().uuid('ID Chuyên gia không hợp lệ').optional().nullable(),
+    ky_thuat_vien_id: z.string().uuid('ID Kỹ thuật viên không hợp lệ').optional().nullable(),
     phong_id: z.union([z.string(), z.number()]).optional().nullable(),
     ngay_gio_bat_dau: z.string().datetime({ message: 'Ngày giờ bắt đầu không hợp lệ' }).optional().nullable(),
     ngay_gio_ket_thuc: z.string().datetime({ message: 'Ngày giờ kết thúc không hợp lệ' }).optional().nullable(),

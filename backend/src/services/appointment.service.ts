@@ -55,6 +55,10 @@ class AppointmentService {
   async getBookedSlots(dateStr: string) {
     return appointmentRepository.getBookedSlots(dateStr);
   }
+
+  async getPublicServices() {
+    return appointmentRepository.getPublicServices();
+  }
 }
 
 export default new AppointmentService();

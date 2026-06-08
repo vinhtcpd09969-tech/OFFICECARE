@@ -137,6 +137,10 @@ export default function ManagePackageServices() {
       .filter(Boolean);
   }, [currentPackage, allServices]);
 
+  const totalSessionDuration = useMemo(() => {
+    return linkedServices.reduce((sum: number, svc: any) => sum + (svc.thoi_gian_uoc_tinh || 0), 0);
+  }, [linkedServices]);
+
   // Available internal techniques in the system library that are not added to package
   const availableServices = useMemo(() => {
     if (!allServices.length) return [];
@@ -400,16 +404,15 @@ export default function ManagePackageServices() {
             </div>
           )}
         </div>
-
         {/* Card 3: Số lượng kỹ thuật lâm sàng */}
         <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm flex flex-col justify-between transition-all hover:shadow-md relative overflow-hidden">
-          <p className="text-[10px] font-bold text-zinc-450 uppercase tracking-wider mb-2">KỸ THUẬT NỘI BỘ TRONG GÓI</p>
+          <p className="text-[10px] font-bold text-zinc-450 uppercase tracking-wider mb-2">TỔNG THỜI LƯỢNG MỘT BUỔI</p>
           <div className="my-auto pt-2">
             <h3 className="text-2xl font-black text-secondary leading-none">
-              {linkedServices.length} KỸ THUẬT
+              {linkedServices.length} KT / {totalSessionDuration} PHÚT
             </h3>
             <span className="text-[9.5px] text-zinc-455 mt-2 block font-medium leading-relaxed">
-              Cấu trúc phác đồ y khoa nội bộ được đồng bộ tự động sang cả 3 mức của gói cố định.
+              Tổng thời lượng ước tính cho một buổi trị liệu là <strong>{totalSessionDuration} phút</strong> (gồm cả {linkedServices.length} kỹ thuật).
             </span>
           </div>
         </div>
@@ -477,8 +480,8 @@ export default function ManagePackageServices() {
                                     </span>
                                   )}
                                 </div>
-                                <p className="text-[10px] text-zinc-400 mt-0.5">
-                                  Kỹ thuật nội bộ phục hồi chuyên sâu
+                                <p className="text-[10px] text-zinc-400 mt-0.5 flex items-center gap-1.5">
+                                  <span>Kỹ thuật nội bộ phục hồi chuyên sâu</span>
                                 </p>
                               </div>
                             </div>
@@ -590,13 +593,15 @@ export default function ManagePackageServices() {
                 >
                   <div className="flex-1 min-w-0">
                     <p className="font-extrabold text-secondary text-xs truncate group-hover:text-primary transition-colors leading-normal">{svc.ten_dich_vu}</p>
-                    {svc.thiet_bi_yeu_cau ? (
-                      <span className="text-[8px] font-black text-amber-700 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded uppercase mt-1 inline-block tracking-wide">
-                        {svc.thiet_bi_yeu_cau}
-                      </span>
-                    ) : (
-                      <span className="text-[8px] font-bold text-zinc-400 mt-1 inline-block">Kỹ thuật y khoa nội bộ</span>
-                    )}
+                    <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                      {svc.thiet_bi_yeu_cau ? (
+                        <span className="text-[8px] font-black text-amber-700 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded uppercase tracking-wide">
+                          {svc.thiet_bi_yeu_cau}
+                        </span>
+                      ) : (
+                        <span className="text-[8px] font-bold text-zinc-400">Kỹ thuật nội bộ</span>
+                      )}
+                    </div>
                   </div>
 
                   <button

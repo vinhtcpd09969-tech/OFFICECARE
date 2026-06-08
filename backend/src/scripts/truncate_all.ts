@@ -22,7 +22,7 @@ const truncateAll = async () => {
       'thanh_toan',
       'hoa_don',
       'lich_dieu_tri',
-      'ho_so_benh_an',
+      'ho_so_dieu_tri',
       'lich_dat',
       'phong',
       'thiet_bi_y_te',

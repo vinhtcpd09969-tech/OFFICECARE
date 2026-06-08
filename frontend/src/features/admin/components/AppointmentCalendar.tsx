@@ -1,6 +1,6 @@
 import { MapPin, Clock, Plus, Coffee } from 'lucide-react';
 
-const BREAK_SLOTS = new Set(['12:00', '12:30']);
+const BREAK_SLOTS = new Set(['16:00', '16:30']);
 
 interface AppointmentCalendarProps {
   timeSlots: string[];
@@ -53,6 +53,11 @@ export default function AppointmentCalendar({
       const hourStr = `${String(aptTime.getHours()).padStart(2, '0')}:${String(aptTime.getMinutes()).padStart(2, '0')}`;
       if (hourStr !== hour) return false;
 
+      // Trong chế độ bác sĩ, API đã lọc sẵn lịch hẹn của bác sĩ đó rồi, không cần so sánh ID
+      if (viewMode === 'doctor') {
+        return true;
+      }
+
       if (doctorId === null) {
         return !apt.bac_si_id && !apt.chuyen_gia_id;
       } else {
@@ -63,21 +68,30 @@ export default function AppointmentCalendar({
 
   // Kiểm tra bác sĩ có rảnh không tại khung giờ
   const checkDoctorAvailability = (hour: string, docId: string) => {
-    const isBreakTime = BREAK_SLOTS.has(hour);
-    if (isBreakTime) return false;
-
     const docSchedule = getDoctorSchedule(docId);
     if (!docSchedule) return false;
 
     const dutyStart = docSchedule.gio_bat_dau.substring(0, 5);
     const dutyEnd = docSchedule.gio_ket_thuc.substring(0, 5);
-    const isWorking = dutyStart <= hour && dutyEnd >= hour;
+    const isWorking = dutyStart <= hour && dutyEnd > hour; // dutyEnd is exclusive
     if (!isWorking) return false;
+
+    // Ràng buộc ca nghỉ giữa ca:
+    // 1. Bác sĩ ca sáng (07:00 - 16:00) nghỉ từ 11:00 - 12:00 (slot 11:00, 11:30)
+    if (dutyStart === '07:00' && dutyEnd === '16:00') {
+      if (hour === '11:00' || hour === '11:30') return false;
+    }
+    // 2. Bác sĩ ca chiều (11:00 - 20:00) nghỉ từ 16:00 - 17:00 (slot 16:00, 16:30)
+    if (dutyStart === '11:00' && dutyEnd === '20:00') {
+      if (hour === '16:00' || hour === '16:30') return false;
+    }
 
     // Xem bác sĩ có ca hẹn nào trùng khung giờ này không
     const isOccupied = allAppointments.some(apt => {
       if (apt.trang_thai === 'da_huy' || apt.trang_thai === 'khong_den') return false;
-      if (apt.bac_si_id !== docId && apt.chuyen_gia_id !== docId) return false;
+      
+      // Ở chế độ bác sĩ, bỏ qua so sánh ID
+      if (viewMode !== 'doctor' && apt.bac_si_id !== docId && apt.chuyen_gia_id !== docId) return false;
 
       const aptStart = new Date(apt.ngay_gio_bat_dau);
       const aptStartHour = `${String(aptStart.getHours()).padStart(2, '0')}:${String(aptStart.getMinutes()).padStart(2, '0')}`;
@@ -196,25 +210,23 @@ export default function AppointmentCalendar({
                     onDrop={(e) => handleDrop(e, hour, null)}
                     className="p-3 align-top border-r border-slate-200 dark:border-zinc-800 bg-amber-50/5 dark:bg-amber-955/5 min-h-[80px] transition-all"
                   >
-                    {isBreak ? null : (
-                      <div className="space-y-2">
-                        {unassignedApts.map(apt => (
-                          <AppointmentCard 
-                            key={apt.id} 
-                            apt={apt} 
-                            statusConfig={statusConfig} 
-                            onClick={() => handleOpenDetailModal(apt)}
-                            onDragStart={handleDragStart}
-                            viewMode={viewMode}
-                          />
-                        ))}
-                        {unassignedApts.length === 0 && (
-                          <div className="text-[10px] text-slate-350 dark:text-zinc-600 italic text-center py-2 select-none">
-                            Kéo thả để bỏ gán
-                          </div>
-                        )}
-                      </div>
-                    )}
+                    <div className="space-y-2">
+                      {unassignedApts.map(apt => (
+                        <AppointmentCard 
+                          key={apt.id} 
+                          apt={apt} 
+                          statusConfig={statusConfig} 
+                          onClick={() => handleOpenDetailModal(apt)}
+                          onDragStart={handleDragStart}
+                          viewMode={viewMode}
+                        />
+                      ))}
+                      {unassignedApts.length === 0 && (
+                        <div className="text-[10px] text-slate-350 dark:text-zinc-600 italic text-center py-2 select-none">
+                          Kéo thả để bỏ gán
+                        </div>
+                      )}
+                    </div>
                   </td>
                 )}
 
@@ -224,15 +236,27 @@ export default function AppointmentCalendar({
                   const isAvailable = checkDoctorAvailability(hour, doc.id);
                   const sched = getDoctorSchedule(doc.id);
 
+                  // Xác định bác sĩ có nghỉ giữa ca tại khung giờ này không
+                  let isDocBreak = false;
+                  if (sched) {
+                    const dutyStart = sched.gio_bat_dau.substring(0, 5);
+                    const dutyEnd = sched.gio_ket_thuc.substring(0, 5);
+                    if (dutyStart === '07:00' && dutyEnd === '16:00') {
+                      isDocBreak = hour === '11:00' || hour === '11:30';
+                    } else if (dutyStart === '11:00' && dutyEnd === '20:00') {
+                      isDocBreak = hour === '16:00' || hour === '16:30';
+                    }
+                  }
+
                   return (
                     <td
                       key={doc.id}
-                      onDragOver={isBreak || !sched || viewMode === 'doctor' ? undefined : handleDragOver}
-                      onDragLeave={isBreak || !sched || viewMode === 'doctor' ? undefined : handleDragLeave}
-                      onDrop={isBreak || !sched || viewMode === 'doctor' ? undefined : (e) => handleDrop(e, hour, doc.chuyen_gia_id)}
+                      onDragOver={isDocBreak || !sched || viewMode === 'doctor' ? undefined : handleDragOver}
+                      onDragLeave={isDocBreak || !sched || viewMode === 'doctor' ? undefined : handleDragLeave}
+                      onDrop={isDocBreak || !sched || viewMode === 'doctor' ? undefined : (e) => handleDrop(e, hour, doc.chuyen_gia_id)}
                       className={`p-3 align-top border-r border-slate-200 dark:border-zinc-800 transition-all ${
-                        isBreak 
-                          ? '' 
+                        isDocBreak 
+                          ? 'bg-amber-50/10 dark:bg-amber-955/5' 
                           : !sched 
                             ? 'bg-slate-100/30 dark:bg-zinc-800/10' 
                             : isAvailable 
@@ -240,7 +264,12 @@ export default function AppointmentCalendar({
                               : 'bg-slate-50/10 dark:bg-zinc-800/2'
                       }`}
                     >
-                      {isBreak ? null : !sched ? (
+                      {isDocBreak ? (
+                        <div className="text-[9px] text-amber-600 dark:text-amber-400 font-bold text-center py-2 select-none flex flex-col items-center justify-center gap-1">
+                          <Coffee size={10} />
+                          <span>Nghỉ giữa ca</span>
+                        </div>
+                      ) : !sched ? (
                         <div className="text-[9px] text-slate-400 dark:text-zinc-500 italic text-center py-2 select-none">
                           Không trực ca
                         </div>

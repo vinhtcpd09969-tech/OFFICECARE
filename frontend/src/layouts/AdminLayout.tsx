@@ -21,7 +21,8 @@ import {
   Bell,
   HelpCircle,
   Sun,
-  Moon
+  Moon,
+  Cpu
 } from 'lucide-react';
 
 export default function AdminLayout() {
@@ -85,7 +86,8 @@ export default function AdminLayout() {
     { name: 'Dịch vụ y khoa', path: '/admin/services', icon: <Briefcase size={18} />, searchPlaceholder: 'Tìm kiếm dịch vụ...' },
     { name: 'Danh mục dịch vụ', path: '/admin/categories', icon: <ClipboardList size={18} />, searchPlaceholder: 'Tìm kiếm danh mục...' },
     { name: 'Gói', path: '/admin/packages', icon: <Package size={18} />, searchPlaceholder: 'Tìm kiếm gói...' },
-    { name: 'Phòng & Thiết bị', path: '/admin/rooms-equipment', icon: <Key size={18} />, searchPlaceholder: 'Tìm kiếm phòng, thiết bị...' },
+    { name: 'Phòng trị liệu', path: '/admin/rooms', icon: <Key size={18} />, searchPlaceholder: 'Tìm kiếm phòng...' },
+    { name: 'Thiết bị y tế', path: '/admin/equipment', icon: <Cpu size={18} />, searchPlaceholder: 'Tìm kiếm thiết bị...' },
     { name: 'Tài chính', path: '/admin/finance', icon: <DollarSign size={18} /> },
     { name: 'Marketing', path: '/admin/marketing', icon: <Megaphone size={18} /> },
     { name: 'Đánh giá', path: '/admin/feedback', icon: <Star size={18} /> },

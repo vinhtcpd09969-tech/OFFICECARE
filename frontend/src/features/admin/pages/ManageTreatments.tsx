@@ -308,7 +308,7 @@ export default function ManageTreatments() {
             >
               <option value="all">Tất cả Phòng điều trị</option>
               {roomsList
-                .filter(room => room.loai_phong === 'tri_lieu')
+                .filter(room => room.loai_phong === 'tri_lieu' || room.loai_phong === 'phong_tri_lieu_chuan')
                 .map(room => (
                   <option key={room.id} value={room.id}>{room.ten_phong}</option>
                 ))}

@@ -68,14 +68,21 @@ class ReceptionistRepository {
             WHERE p.trang_thai = 'san_sang'
             AND (
               (dm.ten_danh_muc LIKE '%Khám%' AND p.loai_phong = 'kham_benh') OR
-              (dm.ten_danh_muc LIKE '%Trị liệu%' AND p.loai_phong = 'tri_lieu') OR
-              (dm.ten_danh_muc LIKE '%Phục hồi%' AND p.loai_phong = 'phuc_hoi')
+              (dm.ten_danh_muc LIKE '%Trị liệu%' AND (p.loai_phong = 'tri_lieu' OR p.loai_phong = 'phong_tri_lieu_chuan')) OR
+              (dm.ten_danh_muc LIKE '%Phục hồi%' AND (p.loai_phong = 'phuc_hoi' OR p.loai_phong = 'phong_tap_phcn'))
             )
             AND NOT EXISTS (
                SELECT 1 FROM lich_dat ld
                WHERE ld.phong_id = p.id
                AND ld.trang_thai NOT IN ('da_huy', 'khong_den', 'hoan_thanh')
                AND (ld.ngay_gio_bat_dau, ld.ngay_gio_ket_thuc) OVERLAPS ($2::timestamp, $3::timestamp)
+            )
+            AND NOT EXISTS (
+               SELECT 1 FROM buoi_tri_lieu btl
+               WHERE btl.phong_id = p.id
+               AND btl.trang_thai NOT IN ('da_huy', 'khong_den', 'hoan_thanh')
+               AND btl.thoi_gian_bat_dau < $3::timestamp
+               AND (btl.thoi_gian_ket_thuc IS NULL OR btl.thoi_gian_ket_thuc > $2::timestamp)
             )
             LIMIT 1
           `, [appt.dich_vu_id, appt.ngay_gio_bat_dau, appt.ngay_gio_ket_thuc]);
@@ -100,6 +107,32 @@ class ReceptionistRepository {
 
         if (rows.length > 0) {
           await this.updateCompletedSessionsCountInternal(id, client);
+
+          // Tăng bộ đếm thiết bị khi buổi hoàn thành
+          if (trang_thai === 'hoan_thanh' && rows[0].dich_vu_id && rows[0].phong_id) {
+            const svcRes = await client.query(
+              'SELECT thiet_bi_yeu_cau FROM dich_vu WHERE id = $1',
+              [rows[0].dich_vu_id]
+            );
+            const thietBiYeuCau = svcRes.rows[0]?.thiet_bi_yeu_cau;
+            if (thietBiYeuCau && thietBiYeuCau !== 'Không cần thiết bị') {
+              // Tăng bộ đếm thiết bị phù hợp trong cùng phòng, nếu có
+              await client.query(`
+                UPDATE thiet_bi_y_te
+                SET so_lan_su_dung = so_lan_su_dung + 1,
+                    trang_thai = CASE
+                      WHEN nguong_bat_buoc_bao_tri IS NOT NULL
+                        AND (so_lan_su_dung + 1) >= nguong_bat_buoc_bao_tri
+                      THEN 'dang_bao_tri'
+                      ELSE trang_thai
+                    END
+                WHERE trang_thai = 'san_sang'
+                  AND phong_id_hien_tai = $1
+                  AND ten_thiet_bi ILIKE '%' || $2 || '%'
+                LIMIT 1
+              `, [rows[0].phong_id, thietBiYeuCau]);
+            }
+          }
         }
       }
 
@@ -169,14 +202,21 @@ class ReceptionistRepository {
         WHERE p.trang_thai = 'san_sang'
         AND (
           (dm.ten_danh_muc LIKE '%Khám%' AND p.loai_phong = 'kham_benh') OR
-          (dm.ten_danh_muc LIKE '%Trị liệu%' AND p.loai_phong = 'tri_lieu') OR
-          (dm.ten_danh_muc LIKE '%Phục hồi%' AND p.loai_phong = 'phuc_hoi')
+          (dm.ten_danh_muc LIKE '%Trị liệu%' AND (p.loai_phong = 'tri_lieu' OR p.loai_phong = 'phong_tri_lieu_chuan')) OR
+          (dm.ten_danh_muc LIKE '%Phục hồi%' AND (p.loai_phong = 'phuc_hoi' OR p.loai_phong = 'phong_tap_phcn'))
         )
         AND NOT EXISTS (
            SELECT 1 FROM lich_dat ld
            WHERE ld.phong_id = p.id
            AND ld.trang_thai NOT IN ('da_huy', 'khong_den', 'hoan_thanh')
            AND (ld.ngay_gio_bat_dau, ld.ngay_gio_ket_thuc) OVERLAPS ($2::timestamp, $3::timestamp)
+        )
+        AND NOT EXISTS (
+           SELECT 1 FROM buoi_tri_lieu btl
+           WHERE btl.phong_id = p.id
+           AND btl.trang_thai NOT IN ('da_huy', 'khong_den', 'hoan_thanh')
+           AND btl.thoi_gian_bat_dau < $3::timestamp
+           AND (btl.thoi_gian_ket_thuc IS NULL OR btl.thoi_gian_ket_thuc > $2::timestamp)
         )
         LIMIT 1
       `, [dich_vu_id, startTime, endTime]);
@@ -243,14 +283,30 @@ class ReceptionistRepository {
         `, [ldtId]);
       } else {
         // Create new flexible treatment plan
+        // First, check or create ho_so_dieu_tri
+        let hsdtId = null;
+        if (lich_dat_id) {
+          const hsRes = await client.query('SELECT id FROM ho_so_dieu_tri WHERE lich_dat_id = $1', [lich_dat_id]);
+          if (hsRes.rows.length > 0) {
+            hsdtId = hsRes.rows[0].id;
+          }
+        }
+        if (!hsdtId) {
+          const hsRes = await client.query(`
+            INSERT INTO ho_so_dieu_tri (chan_doan, chong_chi_dinh, dich_vu_id, ghi_chu)
+            VALUES ($1, $2, $3, $4) RETURNING id
+          `, ['Khách vãng lai mua dịch vụ lẻ trực tiếp', 'Không có chống chỉ định đặc biệt', dich_vu_id, 'Hồ sơ điều trị khởi tạo tự động khi thanh toán.']);
+          hsdtId = hsRes.rows[0].id;
+        }
+
         const maLichDieuTri = `LDT${Math.floor(100000 + Math.random() * 900000)}`;
         const { rows: ldtRows } = await client.query(`
           INSERT INTO lich_dieu_tri (
-            khach_hang_id, loai_dieu_tri, dich_vu_id, tong_so_buoi, 
-            so_buoi_da_dung, trang_thai, ma_lich_dieu_tri, lich_dat_id
-          ) VALUES ($1, 'dich_vu_le', $2, 1, 0, 'cho_thanh_toan', $3, $4)
+            khach_hang_id, loai_dieu_tri, tong_so_buoi, 
+            so_buoi_da_dung, trang_thai, ma_lich_dieu_tri, ho_so_dieu_tri_id
+          ) VALUES ($1, 'dich_vu_le', 1, 0, 'cho_thanh_toan', $2, $3)
           RETURNING id
-        `, [khach_hang_id, dich_vu_id, maLichDieuTri, lich_dat_id || null]);
+        `, [khach_hang_id, maLichDieuTri, hsdtId]);
         ldtId = ldtRows[0].id;
       }
 
@@ -336,12 +392,13 @@ class ReceptionistRepository {
         kh_table.id as khach_hang_id,
         kh.ho_ten as ten_khach_hang, kh.so_dien_thoai as sdt_khach_hang,
         dv.ten_dich_vu, dv.don_gia,
-        ldt.goi_dich_vu_id as khuyen_nghi_goi_id
+        hsba.goi_dich_vu_id as khuyen_nghi_goi_id
       FROM buoi_tri_lieu btl
       JOIN khach_hang kh_table ON btl.khach_hang_id = kh_table.id
       JOIN nguoi_dung kh ON kh_table.nguoi_dung_id = kh.id
       JOIN dich_vu dv ON btl.dich_vu_id = dv.id
       JOIN lich_dieu_tri ldt ON btl.lich_dieu_tri_id = ldt.id
+      LEFT JOIN ho_so_dieu_tri hsba ON ldt.ho_so_dieu_tri_id = hsba.id
       WHERE btl.so_thu_tu_buoi = 1 AND btl.trang_thai = 'hoan_thanh'
       ORDER BY ngay_gio_bat_dau DESC
     `);
@@ -435,43 +492,57 @@ class ReceptionistRepository {
       const maHoaDon = `HD${Math.floor(100000 + Math.random() * 900000)}`;
 
       // 2. Create treatment plan (lich_dieu_tri) in 'cho_thanh_toan' status
+      let hsdtId = null;
+      if (lich_dat_id) {
+        const hsRes = await client.query('SELECT id FROM ho_so_dieu_tri WHERE lich_dat_id = $1', [lich_dat_id]);
+        if (hsRes.rows.length > 0) {
+          hsdtId = hsRes.rows[0].id;
+        }
+      }
+      if (!hsdtId) {
+        const hsRes = await client.query(`
+          INSERT INTO ho_so_dieu_tri (lich_dat_id, chan_doan, chong_chi_dinh, dich_vu_id, goi_dich_vu_id, ghi_chu)
+          VALUES ($1, $2, $3, $4, $5, $6) RETURNING id
+        `, [
+          lich_dat_id || null,
+          item_type === 'goi' ? 'Được bác sĩ kê đơn điều trị theo gói' : 'Khách vãng lai mua dịch vụ lẻ trực tiếp',
+          'Không có chống chỉ định đặc biệt',
+          item_type === 'dich_vu' ? item_id : null,
+          item_type === 'goi' ? item_id : null,
+          'Khởi tạo tự động khi tạo hóa đơn trực tiếp.'
+        ]);
+        hsdtId = hsRes.rows[0].id;
+      }
+
       let ldtId = null;
       const maLichDieuTri = `LDT${Math.floor(100000 + Math.random() * 900000)}`;
       if (item_type === 'goi') {
         const { rows: ldtRows } = await client.query(`
           INSERT INTO lich_dieu_tri (
-            khach_hang_id, loai_dieu_tri, goi_dich_vu_id, tong_so_buoi, 
-            so_buoi_da_dung, trang_thai, ma_lich_dieu_tri, ho_ten_khach, 
-            so_dien_thoai, lich_dat_id
-          ) VALUES ($1, $2, $3, $4, 0, 'cho_thanh_toan', $5, $6, $7, $8)
+            khach_hang_id, loai_dieu_tri, tong_so_buoi, 
+            so_buoi_da_dung, trang_thai, ma_lich_dieu_tri, ho_so_dieu_tri_id
+          ) VALUES ($1, $2, $3, 0, 'cho_thanh_toan', $4, $5)
           RETURNING id
         `, [
           khach_hang_id,
           'theo_goi',
-          item_id,
           so_buoi_goi || 1,
           maLichDieuTri,
-          ho_ten_khach || null,
-          so_dien_thoai || null,
-          lich_dat_id || null
+          hsdtId
         ]);
         ldtId = ldtRows[0].id;
       } else {
         const { rows: ldtRows } = await client.query(`
           INSERT INTO lich_dieu_tri (
-            khach_hang_id, loai_dieu_tri, dich_vu_id, tong_so_buoi, 
-            so_buoi_da_dung, trang_thai, ma_lich_dieu_tri, ho_ten_khach, 
-            so_dien_thoai, lich_dat_id
-          ) VALUES ($1, $2, $3, 1, 0, 'cho_thanh_toan', $4, $5, $6, $7)
+            khach_hang_id, loai_dieu_tri, tong_so_buoi, 
+            so_buoi_da_dung, trang_thai, ma_lich_dieu_tri, ho_so_dieu_tri_id
+          ) VALUES ($1, $2, 1, 0, 'cho_thanh_toan', $3, $4)
           RETURNING id
         `, [
           khach_hang_id,
           'dich_vu_le',
-          item_id,
           maLichDieuTri,
-          ho_ten_khach || null,
-          so_dien_thoai || null,
-          lich_dat_id || null
+          hsdtId
         ]);
         ldtId = ldtRows[0].id;
       }
@@ -647,14 +718,14 @@ class ReceptionistRepository {
         ghi_chu_noi_bo
       } = planData;
 
-      // 1. Get ho_so_benh_an_id and bac_si_id from lich_dat_id
+      // 1. Get ho_so_dieu_tri_id and chuyen_gia_id from lich_dat_id
       let hsbaId = null;
       let bacSiId = null;
       if (lich_dat_id) {
-        const hsbaRes = await client.query('SELECT id, bac_si_id FROM ho_so_benh_an WHERE lich_dat_id = $1', [lich_dat_id]);
+        const hsbaRes = await client.query('SELECT id, chuyen_gia_id FROM ho_so_dieu_tri WHERE lich_dat_id = $1', [lich_dat_id]);
         if (hsbaRes.rows.length > 0) {
           hsbaId = hsbaRes.rows[0].id;
-          bacSiId = hsbaRes.rows[0].bac_si_id;
+          bacSiId = hsbaRes.rows[0].chuyen_gia_id;
         } else {
           const ldRes = await client.query('SELECT bac_si_id FROM lich_dat WHERE id = $1', [lich_dat_id]);
           if (ldRes.rows.length > 0) {
@@ -681,21 +752,15 @@ class ReceptionistRepository {
       const maLichDieuTri = `LDT${Math.floor(100000 + Math.random() * 900000)}`;
       const { rows: ldtRows } = await client.query(`
         INSERT INTO lich_dieu_tri (
-          khach_hang_id, loai_dieu_tri, goi_dich_vu_id, dich_vu_id, tong_so_buoi, 
-          so_buoi_da_dung, trang_thai, ma_lich_dieu_tri, ho_ten_khach, 
-          so_dien_thoai, lich_dat_id, ho_so_benh_an_id, ghi_chu_noi_bo
-        ) VALUES ($1, $2, $3, $4, $5, 0, 'cho_thanh_toan', $6, $7, $8, $9, $10, $11)
+          khach_hang_id, loai_dieu_tri, tong_so_buoi, 
+          so_buoi_da_dung, trang_thai, ma_lich_dieu_tri, ho_so_dieu_tri_id, ghi_chu_noi_bo
+        ) VALUES ($1, $2, $3, 0, 'cho_thanh_toan', $4, $5, $6)
         RETURNING *
       `, [
         khach_hang_id,
         item_type === 'goi' ? 'theo_goi' : 'dich_vu_le',
-        item_type === 'goi' ? item_id : null,
-        item_type === 'dich_vu' ? item_id : null,
         tong_so_buoi,
         maLichDieuTri,
-        ho_ten_khach || null,
-        so_dien_thoai || null,
-        lich_dat_id || null,
         hsbaId,
         ghi_chu_noi_bo || null
       ]);

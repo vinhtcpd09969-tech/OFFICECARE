@@ -91,12 +91,16 @@ export default function ManageSchedules() {
 
   const handleShiftTypeChange = (type: 'morning' | 'afternoon' | 'tam_nghi') => {
     setSelectedShiftType(type);
+    const currentUserId = watch('nguoi_dung_id');
+    const selectedStaff = staff.find(s => s.id === currentUserId);
+    const role = selectedStaff?.vai_tro || 'Bác sĩ';
+
     if (type === 'morning') {
       setValue('gio_bat_dau', '07:00');
-      setValue('gio_ket_thuc', '15:30');
+      setValue('gio_ket_thuc', role === 'Lễ tân' ? '12:00' : '16:00');
       setValue('trang_thai', 'hoat_dong');
     } else if (type === 'afternoon') {
-      setValue('gio_bat_dau', '11:30');
+      setValue('gio_bat_dau', role === 'Lễ tân' ? '12:00' : '11:00');
       setValue('gio_ket_thuc', '20:00');
       setValue('trang_thai', 'hoat_dong');
     } else if (type === 'tam_nghi') {
@@ -106,16 +110,126 @@ export default function ManageSchedules() {
     }
   };
 
+  const watchedNgay = watch('ngay');
+  const watchedNguoiDungId = watch('nguoi_dung_id');
+
+  const disabledShiftsForSelected = useMemo(() => {
+    if (!watchedNguoiDungId || !watchedNgay) {
+      return { morning: false, afternoon: false };
+    }
+
+    const selectedStaff = staff.find(s => s.id === watchedNguoiDungId);
+    if (!selectedStaff || selectedStaff.vai_tro !== 'Bác sĩ') {
+      return { morning: false, afternoon: false };
+    }
+
+    let morningTaken = false;
+    let afternoonTaken = false;
+
+    schedules.forEach(s => {
+      if (s.ngay === watchedNgay && s.vai_tro === 'Bác sĩ' && s.trang_thai === 'hoat_dong') {
+        if (editingSchedule && s.id === editingSchedule.id) {
+          return;
+        }
+        if (s.nguoi_dung_id === watchedNguoiDungId) {
+          return;
+        }
+
+        const hour = parseInt(s.gio_bat_dau.split(':')[0]);
+        if (hour >= 11) {
+          afternoonTaken = true;
+        } else {
+          morningTaken = true;
+        }
+      }
+    });
+
+    return { morning: morningTaken, afternoon: afternoonTaken };
+  }, [watchedNguoiDungId, watchedNgay, staff, schedules, editingSchedule]);
+
+  const getFirstAvailableShiftForDoctor = (userId: string, dateStr: string) => {
+    const selectedStaff = staff.find(s => s.id === userId);
+    if (!selectedStaff || selectedStaff.vai_tro !== 'Bác sĩ') {
+      return 'morning';
+    }
+
+    let morningTaken = false;
+    let afternoonTaken = false;
+
+    schedules.forEach(s => {
+      if (s.ngay === dateStr && s.vai_tro === 'Bác sĩ' && s.trang_thai === 'hoat_dong') {
+        if (editingSchedule && s.id === editingSchedule.id) {
+          return;
+        }
+        if (s.nguoi_dung_id === userId) {
+          return;
+        }
+        const hour = parseInt(s.gio_bat_dau.split(':')[0]);
+        if (hour >= 11) {
+          afternoonTaken = true;
+        } else {
+          morningTaken = true;
+        }
+      }
+    });
+
+    if (!morningTaken) return 'morning';
+    if (!afternoonTaken) return 'afternoon';
+    return 'tam_nghi';
+  };
+
+  useEffect(() => {
+    if (!watchedNguoiDungId || !watchedNgay) return;
+    const selectedStaff = staff.find(s => s.id === watchedNguoiDungId);
+    if (!selectedStaff || selectedStaff.vai_tro !== 'Bác sĩ') return;
+
+    const { morning, afternoon } = disabledShiftsForSelected;
+
+    if (selectedShiftType === 'morning' && morning) {
+      if (!afternoon) {
+        handleShiftTypeChange('afternoon');
+      } else {
+        handleShiftTypeChange('tam_nghi');
+      }
+    } else if (selectedShiftType === 'afternoon' && afternoon) {
+      if (!morning) {
+        handleShiftTypeChange('morning');
+      } else {
+        handleShiftTypeChange('tam_nghi');
+      }
+    }
+  }, [watchedNgay, watchedNguoiDungId, disabledShiftsForSelected, selectedShiftType]);
+
   // Open modal pre-filled
   const handleOpenModal = (userId: string, dateStr?: string) => {
     setEditingSchedule(null);
     reset();
     setValue('nguoi_dung_id', userId);
-    setValue('ngay', (dateStr || formatLocalDate(new Date())) as any);
-    setSelectedShiftType('morning');
-    setValue('gio_bat_dau', '07:00');
-    setValue('gio_ket_thuc', '15:30');
-    setValue('trang_thai', 'hoat_dong');
+    const targetDate = dateStr || formatLocalDate(new Date());
+    setValue('ngay', targetDate);
+    
+    const selectedStaff = staff.find(s => s.id === userId);
+    const role = selectedStaff?.vai_tro || 'Bác sĩ';
+    
+    let initialShift: 'morning' | 'afternoon' | 'tam_nghi' = 'morning';
+    if (role === 'Bác sĩ') {
+      initialShift = getFirstAvailableShiftForDoctor(userId, targetDate);
+    }
+    
+    setSelectedShiftType(initialShift);
+    if (initialShift === 'morning') {
+      setValue('gio_bat_dau', '07:00');
+      setValue('gio_ket_thuc', role === 'Lễ tân' ? '12:00' : '16:00');
+      setValue('trang_thai', 'hoat_dong');
+    } else if (initialShift === 'afternoon') {
+      setValue('gio_bat_dau', role === 'Lễ tân' ? '12:00' : '11:00');
+      setValue('gio_ket_thuc', '20:00');
+      setValue('trang_thai', 'hoat_dong');
+    } else {
+      setValue('gio_bat_dau', '00:00');
+      setValue('gio_ket_thuc', '00:00');
+      setValue('trang_thai', 'tam_nghi');
+    }
     setIsModalOpen(true);
   };
 
@@ -155,6 +269,33 @@ export default function ManageSchedules() {
   };
 
   const onSubmit = async (data: ScheduleFormValues) => {
+    // Validate doctor duplicate shifts
+    const selectedStaff = staff.find(s => s.id === data.nguoi_dung_id);
+    if (selectedStaff && selectedStaff.vai_tro === 'Bác sĩ') {
+      const hour = parseInt(data.gio_bat_dau.split(':')[0]);
+      const targetShiftType = data.trang_thai === 'tam_nghi' ? 'tam_nghi' : (hour >= 11 ? 'afternoon' : 'morning');
+      
+      if (targetShiftType !== 'tam_nghi') {
+        const conflict = schedules.find(s => {
+          const isSameDay = s.ngay === data.ngay;
+          const isNotSelf = editingSchedule ? s.id !== editingSchedule.id : true;
+          const isDoctor = s.vai_tro === 'Bác sĩ';
+          
+          if (isSameDay && isNotSelf && isDoctor && s.trang_thai !== 'tam_nghi') {
+            const sHour = parseInt(s.gio_bat_dau.split(':')[0]);
+            const sShiftType = sHour >= 11 ? 'afternoon' : 'morning';
+            return sShiftType === targetShiftType;
+          }
+          return false;
+        });
+
+        if (conflict) {
+          alert(`Không thể phân công: Bác sĩ ${conflict.ten_nhan_vien} đã trực ca này vào ngày ${data.ngay} rồi! Mỗi ca trực chỉ được phân công tối đa 1 bác sĩ.`);
+          return;
+        }
+      }
+    }
+
     try {
       if (editingSchedule) {
         await updateSchedule(editingSchedule.id, data);
@@ -233,6 +374,49 @@ export default function ManageSchedules() {
       stats: { activeToday, emptyShifts, coverage }
     };
   }, [staff, schedules, roleFilter, weekDates]);
+
+  const weeklyStatsByStaff = useMemo(() => {
+    const currentWeekDates = weekDates.map(d => d.fullDateStr);
+    const weeklySchedules = schedules.filter(s => currentWeekDates.includes(s.ngay));
+
+    const statsMap: Record<string, { name: string; role: string; morning: number; afternoon: number; off: number }> = {};
+
+    staff.forEach(s => {
+      statsMap[s.id] = {
+        name: s.ho_ten,
+        role: s.vai_tro,
+        morning: 0,
+        afternoon: 0,
+        off: 7
+      };
+    });
+
+    weeklySchedules.forEach(s => {
+      if (!statsMap[s.nguoi_dung_id]) return;
+      if (s.trang_thai === 'hoat_dong') {
+        const hour = parseInt(s.gio_bat_dau.split(':')[0]);
+        if (hour >= 11) {
+          statsMap[s.nguoi_dung_id].afternoon++;
+        } else {
+          statsMap[s.nguoi_dung_id].morning++;
+        }
+      }
+    });
+
+    // Post-process off days: Off = 7 - (S + C)
+    Object.values(statsMap).forEach(st => {
+      st.off = 7 - (st.morning + st.afternoon);
+    });
+
+    const groupedStats: Record<string, any[]> = { 'Bác sĩ': [], 'Lễ tân': [], 'Kỹ thuật viên': [] };
+    Object.values(statsMap).forEach(st => {
+      if (groupedStats[st.role]) {
+        groupedStats[st.role].push(st);
+      }
+    });
+
+    return groupedStats;
+  }, [staff, schedules, weekDates]);
 
   // Helper to render shift badge
   const renderShiftBadge = (sched: any) => {
@@ -397,8 +581,9 @@ export default function ManageSchedules() {
           </div>
         </div>
 
-        {/* Right: Conflict Sidebar */}
-        <div className="w-full xl:w-[320px] shrink-0">
+        {/* Right: Conflict & Weekly Stats Sidebar */}
+        <div className="w-full xl:w-[320px] shrink-0 space-y-6">
+          {/* Conflict Sidebar */}
           <div className="bg-rose-50/40 rounded-[24px] p-6 border border-rose-100 shadow-sm">
             <div className="flex items-center gap-2 mb-6">
               <AlertTriangle className="text-rose-600" size={20} />
@@ -428,6 +613,47 @@ export default function ManageSchedules() {
                 <p className="text-xs text-emerald-600/70 mt-1 font-medium">Lịch trình đang được tối ưu.</p>
               </div>
             )}
+          </div>
+
+          {/* Weekly Stats Panel */}
+          <div className="bg-white rounded-[24px] p-6 border border-gray-100 shadow-sm text-left">
+            <div className="flex items-center gap-2 mb-4">
+              <PieChart className="text-teal-600" size={20} />
+              <h3 className="font-heading font-bold text-lg text-gray-800">Thống kê ca tuần</h3>
+            </div>
+            <p className="text-xs text-gray-400 font-medium mb-4">
+              Số ca làm việc thực tế trong tuần đang xem.
+            </p>
+            
+            <div className="space-y-4">
+              {['Bác sĩ', 'Lễ tân', 'Kỹ thuật viên'].map(role => {
+                const roleStats = weeklyStatsByStaff[role];
+                if (!roleStats || roleStats.length === 0) return null;
+                return (
+                  <div key={role} className="space-y-2">
+                    <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100 pb-1.5">{role}</h4>
+                    <div className="space-y-2">
+                      {roleStats.map(st => (
+                        <div key={st.name} className="flex justify-between items-center text-xs">
+                          <span className="font-bold text-gray-700 truncate max-w-[130px]">{st.name}</span>
+                          <div className="flex gap-1.5 shrink-0">
+                            <span className="bg-emerald-50 text-emerald-700 border border-emerald-100 px-1.5 py-0.5 rounded text-[10px] font-extrabold" title="Ca sáng">
+                              S: {st.morning}
+                            </span>
+                            <span className="bg-cyan-50 text-cyan-700 border border-cyan-100 px-1.5 py-0.5 rounded text-[10px] font-extrabold" title="Ca chiều">
+                              C: {st.afternoon}
+                            </span>
+                            <span className="bg-red-50 text-red-600 border border-red-100 px-1.5 py-0.5 rounded text-[10px] font-extrabold" title="Nghỉ">
+                              N: {st.off}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
@@ -475,8 +701,16 @@ export default function ManageSchedules() {
                     onChange={e => handleShiftTypeChange(e.target.value as any)}
                     className="w-full px-4 py-2.5 bg-gray-50 border border-gray-250 text-gray-800 rounded-xl focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none text-sm font-bold transition-all"
                   >
-                    <option value="morning">🌅 Ca Sáng (07:00 - 15:30)</option>
-                    <option value="afternoon">☀️ Ca Chiều (11:30 - 20:00)</option>
+                    {!disabledShiftsForSelected.morning && (
+                      <option value="morning">
+                        🌅 Ca Sáng ({staff.find(s => s.id === watchedNguoiDungId)?.vai_tro === 'Lễ tân' ? '07:00 - 12:00' : '07:00 - 16:00'})
+                      </option>
+                    )}
+                    {!disabledShiftsForSelected.afternoon && (
+                      <option value="afternoon">
+                        ☀️ Ca Chiều ({staff.find(s => s.id === watchedNguoiDungId)?.vai_tro === 'Lễ tân' ? '12:00 - 20:00' : '11:00 - 20:00'})
+                      </option>
+                    )}
                     <option value="tam_nghi">🌴 Nghỉ phép / Tạm nghỉ</option>
                   </select>
                 </div>

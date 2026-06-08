@@ -160,7 +160,7 @@ export default function ManageServices() {
   const [searchParams, setSearchParams] = useSearchParams();
   const searchQuery = searchParams.get('q') || '';
 
-  const { register, handleSubmit, reset, watch, setValue, setError, formState: { errors } } = useForm<ServiceFormValues>({
+  const { register, handleSubmit, reset, setError, formState: { errors } } = useForm<ServiceFormValues>({
     resolver: zodResolver(serviceSchema) as any,
     defaultValues: { 
       trang_thai: 'hoat_dong', 
@@ -170,8 +170,6 @@ export default function ManageServices() {
       hien_thi_website: false
     }
   });
-
-  const watchStatus = watch('trang_thai');
 
   const fetchData = async () => {
     try {
@@ -570,7 +568,9 @@ export default function ManageServices() {
               <tr className="bg-zinc-50 border-b border-zinc-200 text-zinc-500 text-[11px] font-bold font-heading uppercase tracking-wider">
                 <th className="p-4">{selectedType === 'chinh' ? 'Dịch vụ kỹ thuật nội bộ' : 'Dịch vụ lẻ bổ trợ'}</th>
                 {selectedType === 'chinh' ? (
-                  <th className="p-4">Dùng trong gói</th>
+                  <>
+                    <th className="p-4">Dùng trong gói</th>
+                  </>
                 ) : (
                   <>
                     <th className="p-4">Chuyên khoa</th>
@@ -585,14 +585,14 @@ export default function ManageServices() {
             <tbody className="divide-y divide-zinc-200">
               {loading ? (
                 <tr>
-                  <td colSpan={selectedType === 'chinh' ? 4 : 7} className="p-12 text-center text-zinc-400 font-sans text-xs">
+                  <td colSpan={selectedType === 'chinh' ? 5 : 6} className="p-12 text-center text-zinc-400 font-sans text-xs">
                     <div className="animate-spin w-5 h-5 border-2 border-primary border-t-transparent rounded-full mx-auto mb-3"></div>
                     ĐANG TRUY VẤN CƠ SỞ DỮ LIỆU...
                   </td>
                 </tr>
               ) : filteredServices.length === 0 ? (
                 <tr>
-                  <td colSpan={selectedType === 'chinh' ? 4 : 7} className="p-12 text-center text-zinc-400 font-sans text-xs">
+                  <td colSpan={selectedType === 'chinh' ? 5 : 6} className="p-12 text-center text-zinc-400 font-sans text-xs">
                     CHƯA CÓ THIẾT LẬP DỊCH VỤ NÀO CHO PHÂN PHÂN LOẠI NÀY
                   </td>
                 </tr>
@@ -656,26 +656,28 @@ export default function ManageServices() {
                         </td>
 
                         {selectedType === 'chinh' ? (
-                          <td className="p-4">
-                            {pkgCount > 0 ? (
-                              <div className="relative group inline-block">
-                                <span className="cursor-help inline-flex items-center px-2 py-0.5 rounded-lg border border-zinc-200 bg-zinc-100 text-primary text-[10px] font-bold uppercase hover:bg-primary-container transition-colors font-heading font-semibold">
-                                  {pkgCount} GÓI
-                                </span>
-                                
-                                <div className="pointer-events-none absolute left-0 bottom-full mb-1 w-64 p-3 bg-secondary text-[11px] text-zinc-350 rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-opacity z-10 space-y-1.5 border border-zinc-800 leading-normal">
-                                  <p className="font-bold text-primary uppercase tracking-wider mb-1 border-b border-zinc-800 pb-1 text-[10px]">Xuất hiện trong các gói:</p>
-                                  {usageNames.map((name, index) => (
-                                    <p key={index} className="truncate">• {name}</p>
-                                  ))}
+                          <>
+                            <td className="p-4">
+                              {pkgCount > 0 ? (
+                                <div className="relative group inline-block">
+                                  <span className="cursor-help inline-flex items-center px-2 py-0.5 rounded-lg border border-zinc-200 bg-zinc-100 text-primary text-[10px] font-bold uppercase hover:bg-primary-container transition-colors font-heading font-semibold">
+                                    {pkgCount} GÓI
+                                  </span>
+                                  
+                                  <div className="pointer-events-none absolute left-0 bottom-full mb-1 w-64 p-3 bg-secondary text-[11px] text-zinc-350 rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-opacity z-10 space-y-1.5 border border-zinc-800 leading-normal">
+                                    <p className="font-bold text-primary uppercase tracking-wider mb-1 border-b border-zinc-800 pb-1 text-[10px]">Xuất hiện trong các gói:</p>
+                                    {usageNames.map((name, index) => (
+                                      <p key={index} className="truncate">• {name}</p>
+                                    ))}
+                                  </div>
                                 </div>
-                              </div>
-                            ) : (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-lg border border-zinc-150 bg-zinc-50 text-zinc-400 text-[10px] font-bold uppercase font-heading">
-                                CHƯA DÙNG
-                              </span>
-                            )}
-                          </td>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-lg border border-zinc-150 bg-zinc-50 text-zinc-400 text-[10px] font-bold uppercase font-heading">
+                                  CHƯA DÙNG
+                                </span>
+                              )}
+                            </td>
+                          </>
                         ) : (
                           <>
                             <td className="p-4">
@@ -738,7 +740,7 @@ export default function ManageServices() {
                       </tr>
                       {isExpanded && (
                         <tr className="bg-primary/5 select-none animate-in fade-in duration-200">
-                          <td colSpan={selectedType === 'chinh' ? 4 : 7} className="p-4 border-b border-zinc-200">
+                          <td colSpan={selectedType === 'chinh' ? 4 : 6} className="p-4 border-b border-zinc-200">
                             <div className="bg-white border border-primary/20 rounded-xl p-5 space-y-4 shadow-inner">
                               <div>
                                 <p className="text-[10px] font-bold text-primary uppercase tracking-wider flex items-center gap-1.5">
@@ -827,56 +829,20 @@ export default function ManageServices() {
                   </div>
 
                   {selectedType === 'bo_sung' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block font-bold text-zinc-500 mb-1.5 uppercase tracking-wider">DANH MỤC CHUYÊN KHOA *</label>
-                        <select 
-                          {...register('danh_muc_id', { valueAsNumber: true })} 
-                          className="w-full px-3.5 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-secondary font-semibold text-xs shadow-sm"
-                        >
-                          <option value="">-- CHỌN DANH MỤC --</option>
-                          {categories.map(c => (
-                            <option key={c.id} value={c.id} className="bg-white">{c.ten_danh_muc.toUpperCase()}</option>
-                          ))}
-                        </select>
-                        {errors.danh_muc_id && (
-                          <span className="text-rose-500 text-[10px] mt-1 block">{errors.danh_muc_id.message}</span>
-                        )}
-                      </div>
-
-                      <div>
-                        <label className="block font-bold text-zinc-500 mb-1.5 uppercase tracking-wider">TRẠNG THÁI HOẠT ĐỘNG</label>
-                        <div 
-                          className="w-full px-3.5 py-2.5 bg-white border border-zinc-200 rounded-xl flex items-center justify-between cursor-pointer shadow-sm"
-                          onClick={() => setValue('trang_thai', watchStatus === 'hoat_dong' ? 'vo_hieu' : 'hoat_dong')}
-                        >
-                          <span className={`font-bold text-xs ${watchStatus === 'hoat_dong' ? 'text-primary' : 'text-zinc-400'}`}>
-                            {watchStatus === 'hoat_dong' ? 'HOẠT ĐỘNG' : 'TẠM NGƯNG'}
-                          </span>
-                          <div className={`w-9 h-5 rounded-full flex items-center p-0.5 transition-colors ${watchStatus === 'hoat_dong' ? 'bg-primary' : 'bg-zinc-200'}`}>
-                            <div className={`bg-white w-3.5 h-3.5 rounded-full shadow transform transition-transform ${watchStatus === 'hoat_dong' ? 'translate-x-4.5' : 'translate-x-0'}`}></div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {selectedType === 'chinh' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block font-bold text-zinc-500 mb-1.5 uppercase tracking-wider">TRẠNG THÁI HOẠT ĐỘNG</label>
-                        <div 
-                          className="w-full px-3.5 py-2.5 bg-white border border-zinc-200 rounded-xl flex items-center justify-between cursor-pointer shadow-sm"
-                          onClick={() => setValue('trang_thai', watchStatus === 'hoat_dong' ? 'vo_hieu' : 'hoat_dong')}
-                        >
-                          <span className={`font-bold text-xs ${watchStatus === 'hoat_dong' ? 'text-primary' : 'text-zinc-400'}`}>
-                            {watchStatus === 'hoat_dong' ? 'HOẠT ĐỘNG' : 'TẠM NGƯNG'}
-                          </span>
-                          <div className={`w-9 h-5 rounded-full flex items-center p-0.5 transition-colors ${watchStatus === 'hoat_dong' ? 'bg-primary' : 'bg-zinc-200'}`}>
-                            <div className={`bg-white w-3.5 h-3.5 rounded-full shadow transform transition-transform ${watchStatus === 'hoat_dong' ? 'translate-x-4.5' : 'translate-x-0'}`}></div>
-                          </div>
-                        </div>
-                      </div>
+                    <div>
+                      <label className="block font-bold text-zinc-500 mb-1.5 uppercase tracking-wider">DANH MỤC CHUYÊN KHOA *</label>
+                      <select 
+                        {...register('danh_muc_id', { valueAsNumber: true })} 
+                        className="w-full px-3.5 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-secondary font-semibold text-xs shadow-sm"
+                      >
+                        <option value="">-- CHỌN DANH MỤC --</option>
+                        {categories.map(c => (
+                          <option key={c.id} value={c.id} className="bg-white">{c.ten_danh_muc.toUpperCase()}</option>
+                        ))}
+                      </select>
+                      {errors.danh_muc_id && (
+                        <span className="text-rose-500 text-[10px] mt-1 block">{errors.danh_muc_id.message}</span>
+                      )}
                     </div>
                   )}
                 </div>
@@ -923,11 +889,25 @@ export default function ManageServices() {
 
                     <div>
                       <label className="block font-bold text-zinc-500 mb-1.5 uppercase tracking-wider">THIẾT BỊ YÊU CẦU</label>
-                      <input 
+                      <select 
                         {...register('thiet_bi_yeu_cau')} 
-                        placeholder="Ví dụ: Máy điện xung, Máy siêu âm giảm đau..."
-                        className="w-full px-3.5 py-2 bg-white border border-zinc-200 rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all font-semibold text-secondary shadow-sm text-sm"
-                      />
+                        className="w-full px-3.5 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-secondary font-semibold text-xs shadow-sm"
+                      >
+                        <option value="không có">Không cần thiết bị (Trị liệu bằng tay)</option>
+                        <optgroup label="⚡ THIẾT BỊ DI ĐỘNG (MOBILE)">
+                          <option value="Máy điện xung">Máy điện xung</option>
+                          <option value="Đèn hồng ngoại">Đèn hồng ngoại</option>
+                          <option value="Máy laser">Máy Laser công suất cao</option>
+                          <option value="Máy Shockwave">Máy Shockwave trị liệu</option>
+                          <option value="Máy siêu âm">Máy siêu âm điều trị đa tần</option>
+                          <option value="Máy nén ép">Máy nén ép áp lực hơi</option>
+                        </optgroup>
+                        <optgroup label="🔒 THIẾT BỊ CỐ ĐỊNH (STATIONARY)">
+                          <option value="Giường kéo giãn">Giường kéo giãn cột sống thắt lưng</option>
+                          <option value="Máy kéo giãn cổ">Máy kéo giãn cột sống cổ</option>
+                          <option value="Máy từ trường">Máy từ trường siêu dẫn SIS</option>
+                        </optgroup>
+                      </select>
                     </div>
                   </div>
                 )}
@@ -938,11 +918,25 @@ export default function ManageServices() {
                     <h4 className="text-[10px] font-bold text-primary uppercase tracking-wider border-b border-zinc-150 pb-2">HỘP 2: CÔNG CỤ TRỊ LIỆU</h4>
                     <div>
                       <label className="block font-bold text-zinc-500 mb-1.5 uppercase tracking-wider">THIẾT BỊ Y KHOA YÊU CẦU</label>
-                      <input 
+                      <select 
                         {...register('thiet_bi_yeu_cau')} 
-                        placeholder="Ví dụ: Thiết bị từ trường, Giường kéo giãn cột sống..."
-                        className="w-full px-3.5 py-2 bg-white border border-zinc-200 rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all font-semibold text-secondary shadow-sm text-sm"
-                      />
+                        className="w-full px-3.5 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-secondary font-semibold text-xs shadow-sm"
+                      >
+                        <option value="không có">Không cần thiết bị (Trị liệu bằng tay)</option>
+                        <optgroup label="⚡ THIẾT BỊ DI ĐỘNG (MOBILE)">
+                          <option value="Máy điện xung">Máy điện xung</option>
+                          <option value="Đèn hồng ngoại">Đèn hồng ngoại</option>
+                          <option value="Máy laser">Máy Laser công suất cao</option>
+                          <option value="Máy Shockwave">Máy Shockwave trị liệu</option>
+                          <option value="Máy siêu âm">Máy siêu âm điều trị đa tần</option>
+                          <option value="Máy nén ép">Máy nén ép áp lực hơi</option>
+                        </optgroup>
+                        <optgroup label="🔒 THIẾT BỊ CỐ ĐỊNH (STATIONARY)">
+                          <option value="Giường kéo giãn">Giường kéo giãn cột sống thắt lưng</option>
+                          <option value="Máy kéo giãn cổ">Máy kéo giãn cột sống cổ</option>
+                          <option value="Máy từ trường">Máy từ trường siêu dẫn SIS</option>
+                        </optgroup>
+                      </select>
                     </div>
                   </div>
                 )}

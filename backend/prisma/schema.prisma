@@ -13,8 +13,8 @@ model buoi_tri_lieu {
   ky_thuat_vien_id      String                  @db.Uuid
   phong_id              BigInt?
   dich_vu_id            String?                 @db.Uuid
-  thoi_gian_bat_dau     DateTime                @db.Timestamp(6)
-  thoi_gian_ket_thuc    DateTime?               @db.Timestamp(6)
+  thoi_gian_bat_dau     DateTime                @db.Timestamptz(6)
+  thoi_gian_ket_thuc    DateTime?               @db.Timestamptz(6)
   danh_gia_truoc_buoi   Int?
   danh_gia_sau_buoi     Int?
   danh_gia_hieu_qua     Int?
@@ -23,7 +23,7 @@ model buoi_tri_lieu {
   trang_thai            String                  @default("dang_thuc_hien") @db.VarChar(20)
   canh_bao_dac_biet     String?
   ai_tom_tat_ngan       String?                 @db.VarChar(300)
-  thoi_gian_ghi_chu     DateTime?               @db.Timestamp(6)
+  thoi_gian_ghi_chu     DateTime?               @db.Timestamptz(6)
   dich_vu               dich_vu?                @relation(fields: [dich_vu_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   khach_hang            khach_hang              @relation(fields: [khach_hang_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   chuyen_gia_y_te       chuyen_gia_y_te         @relation(fields: [ky_thuat_vien_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -66,7 +66,7 @@ model chuyen_gia_y_te {
   buoi_tri_lieu_dich_vu buoi_tri_lieu_dich_vu[]
   nguoi_dung            nguoi_dung              @relation(fields: [nguoi_dung_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ky_thuat_vien_nguoi_dung_id_fkey")
   danh_gia_dich_vu      danh_gia_dich_vu[]
-  ho_so_benh_an         ho_so_benh_an[]
+  ho_so_dieu_tri        ho_so_dieu_tri[]
   lich_dat              lich_dat[]
 }
 
@@ -117,9 +117,8 @@ model dich_vu {
   buoi_tri_lieu_dich_vu                 buoi_tri_lieu_dich_vu[]
   danh_muc_dich_vu                      danh_muc_dich_vu        @relation(fields: [danh_muc_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   goi_dich_vu_chi_tiet                  goi_dich_vu_chi_tiet[]
-  ho_so_benh_an                         ho_so_benh_an[]
+  ho_so_dieu_tri                        ho_so_dieu_tri[]
   lich_dat_lich_dat_dich_vu_idTodich_vu lich_dat[]              @relation("lich_dat_dich_vu_idTodich_vu")
-  lich_dieu_tri                         lich_dieu_tri[]
   voucher_dich_vu                       voucher_dich_vu[]
 }
 
@@ -135,14 +134,13 @@ model goi_dich_vu {
   hien_thi_website      Boolean                @default(true)
   trang_thai            String                 @default("hoat_dong") @db.VarChar(20)
   chi_tiet_dich_vu      Json?                  @default("[]")
-  thoi_gian_tao         DateTime               @default(now()) @db.Timestamp(6)
+  thoi_gian_tao         DateTime               @default(now()) @db.Timestamptz(6)
   danh_muc_id           BigInt?
   loai_goi              String?                @default("lieu_trinh") @db.VarChar(20)
   so_dv_toi_da_moi_buoi Int?                   @default(5)
   danh_muc_dich_vu      danh_muc_dich_vu?      @relation(fields: [danh_muc_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   goi_dich_vu_chi_tiet  goi_dich_vu_chi_tiet[]
-  ho_so_benh_an         ho_so_benh_an[]
-  lich_dieu_tri         lich_dieu_tri[]
+  ho_so_dieu_tri        ho_so_dieu_tri[]
   voucher_goi_dich_vu   voucher_goi_dich_vu[]
 }
 
@@ -212,55 +210,46 @@ model lich_dat {
   dich_vu_id                           String?          @db.Uuid
   bac_si_id                            String?          @db.Uuid
   phong_id                             BigInt?
-  ngay_gio_bat_dau                     DateTime         @db.Timestamp(6)
-  ngay_gio_ket_thuc                    DateTime         @db.Timestamp(6)
+  ngay_gio_bat_dau                     DateTime         @db.Timestamptz(6)
+  ngay_gio_ket_thuc                    DateTime         @db.Timestamptz(6)
   ly_do_kham                           String?
   anh_dinh_kem_url                     String?
   trang_thai                           String           @default("cho_xac_nhan") @db.VarChar(30)
   ghi_chu_dat_lich                     String?
   ghi_chu_noi_bo                       String?
-  thoi_gian_checkin                    DateTime?        @db.Timestamp(6)
-  thoi_gian_huy                        DateTime?        @db.Timestamp(6)
+  thoi_gian_checkin                    DateTime?        @db.Timestamptz(6)
+  thoi_gian_huy                        DateTime?        @db.Timestamptz(6)
   ly_do_huy                            String?
   nguoi_tao                            String           @default("khach_hang") @db.VarChar(20)
-  thoi_gian_tao                        DateTime         @default(now()) @db.Timestamp(6)
-  ho_so_benh_an                        ho_so_benh_an?
+  thoi_gian_tao                        DateTime         @default(now()) @db.Timestamptz(6)
+  ho_so_dieu_tri                       ho_so_dieu_tri?
   dich_vu_lich_dat_dich_vu_idTodich_vu dich_vu?         @relation("lich_dat_dich_vu_idTodich_vu", fields: [dich_vu_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   khach_hang                           khach_hang?      @relation(fields: [khach_hang_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   chuyen_gia_y_te                      chuyen_gia_y_te? @relation(fields: [bac_si_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "lich_dat_ky_thuat_vien_id_fkey")
   phong                                phong?           @relation(fields: [phong_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  lich_dieu_tri                        lich_dieu_tri[]
 }
 
 model lich_dieu_tri {
-  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  khach_hang_id    String          @db.Uuid
-  loai_dieu_tri    String          @db.VarChar(20)
-  dich_vu_id       String?         @db.Uuid
-  goi_dich_vu_id   String?         @db.Uuid
-  tong_so_buoi     Int
-  so_buoi_da_dung  Int             @default(0)
-  trang_thai       String          @default("dang_dieu_tri") @db.VarChar(20)
-  thoi_gian_tao    DateTime        @default(now()) @db.Timestamp(6)
-  ma_lich_dieu_tri String?         @unique @db.VarChar(20)
-  phong_id         BigInt?
-  ho_ten_khach     String?         @db.VarChar(150)
-  so_dien_thoai    String?         @db.VarChar(20)
-  ghi_chu_noi_bo   String?
-  lich_dat_id      String?         @db.Uuid
-  ngay_bat_dau     DateTime?       @db.Timestamp(6)
-  ngay_ket_thuc    DateTime?       @db.Timestamp(6)
-  ho_so_benh_an_id String?         @db.Uuid
-  buoi_tri_lieu    buoi_tri_lieu[]
-  hoa_don          hoa_don[]
-  ho_so_benh_an    ho_so_benh_an?  @relation(fields: [ho_so_benh_an_id], references: [id], onUpdate: NoAction, map: "fk_ldt_hsba")
-  dich_vu          dich_vu?        @relation(fields: [dich_vu_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  goi_dich_vu      goi_dich_vu?    @relation(fields: [goi_dich_vu_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  khach_hang       khach_hang      @relation(fields: [khach_hang_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  lich_dat         lich_dat?       @relation(fields: [lich_dat_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  phong            phong?          @relation(fields: [phong_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  khach_hang_id     String          @db.Uuid
+  loai_dieu_tri     String          @db.VarChar(20)
+  tong_so_buoi      Int
+  so_buoi_da_dung   Int             @default(0)
+  trang_thai        String          @default("dang_dieu_tri") @db.VarChar(20)
+  thoi_gian_tao     DateTime        @default(now()) @db.Timestamptz(6)
+  ma_lich_dieu_tri  String?         @unique @db.VarChar(20)
+  phong_id          BigInt?
+  ghi_chu_noi_bo    String?
+  ngay_bat_dau      DateTime?       @db.Timestamp(6)
+  ngay_ket_thuc     DateTime?       @db.Timestamp(6)
+  ho_so_dieu_tri_id String?         @db.Uuid
+  buoi_tri_lieu     buoi_tri_lieu[]
+  hoa_don           hoa_don[]
+  ho_so_dieu_tri    ho_so_dieu_tri? @relation(fields: [ho_so_dieu_tri_id], references: [id], onUpdate: NoAction, map: "fk_ldt_hsdt")
+  khach_hang        khach_hang      @relation(fields: [khach_hang_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  phong             phong?          @relation(fields: [phong_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@index([ho_so_benh_an_id], map: "idx_ldt_hsba")
+  @@index([ho_so_dieu_tri_id], map: "idx_ldt_hsdt")
 }
 
 model lich_lam_viec {
@@ -356,16 +345,23 @@ model thanh_toan {
 }
 
 model thiet_bi_y_te {
-  id                     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  ma_thiet_bi            String    @unique @db.VarChar(20)
-  ten_thiet_bi           String    @db.VarChar(100)
-  loai_thiet_bi          String?   @db.VarChar(100)
-  ngay_mua               DateTime? @db.Date
-  ngay_bao_tri_tiep_theo DateTime? @db.Date
-  trang_thai             String    @default("san_sang") @db.VarChar(20)
-  phong_id_hien_tai      BigInt?
-  ghi_chu                String?
-  thoi_gian_tao          DateTime  @default(now()) @db.Timestamp(6)
+  id                      String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ma_thiet_bi             String    @unique @db.VarChar(20)
+  ten_thiet_bi            String    @db.VarChar(100)
+  loai_thiet_bi           String?   @db.VarChar(100)
+  ngay_mua                DateTime? @db.Date
+  ngay_bao_tri_tiep_theo  DateTime? @db.Date
+  trang_thai              String    @default("san_sang") @db.VarChar(20)
+  phong_id_hien_tai       BigInt?
+  ghi_chu                 String?
+  thoi_gian_tao           DateTime  @default(now()) @db.Timestamp(6)
+  co_the_di_chuyen        Boolean?  @default(true)
+  so_lan_su_dung          Int?      @default(0)
+  nguong_canh_bao         Int?      @default(80)
+  nguong_bat_buoc_bao_tri Int?      @default(100)
+  tan_suat_bao_tri_ngay   Int?      @default(45)
+  ngay_bao_tri_gan_nhat   DateTime? @db.Date
+  cap_rui_ro              String?   @default("trung_binh") @db.VarChar(20)
 }
 
 model vai_tro {
@@ -420,21 +416,21 @@ model voucher_goi_dich_vu {
   @@unique([voucher_id, goi_dich_vu_id], map: "unique_voucher_goi_dich_vu")
 }
 
-model ho_so_benh_an {
+model ho_so_dieu_tri {
   id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   lich_dat_id     String           @unique @db.Uuid
-  bac_si_id       String?          @db.Uuid
+  chuyen_gia_id   String?          @db.Uuid
   chan_doan       String?
   chong_chi_dinh  String?
   goi_dich_vu_id  String?          @db.Uuid
   dich_vu_id      String?          @db.Uuid
   ghi_chu         String?
-  thoi_gian_tao   DateTime?        @default(now()) @db.Timestamp(6)
-  chuyen_gia_y_te chuyen_gia_y_te? @relation(fields: [bac_si_id], references: [id], onUpdate: NoAction, map: "fk_hsba_bac_si")
-  dich_vu         dich_vu?         @relation(fields: [dich_vu_id], references: [id], onUpdate: NoAction, map: "fk_hsba_dich_vu")
-  goi_dich_vu     goi_dich_vu?     @relation(fields: [goi_dich_vu_id], references: [id], onUpdate: NoAction, map: "fk_hsba_goi_dich_vu")
-  lich_dat        lich_dat         @relation(fields: [lich_dat_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_hsba_lich_dat")
+  thoi_gian_tao   DateTime?        @default(now()) @db.Timestamptz(6)
+  chuyen_gia_y_te chuyen_gia_y_te? @relation(fields: [chuyen_gia_id], references: [id], onUpdate: NoAction, map: "fk_hsdt_chuyen_gia")
+  dich_vu         dich_vu?         @relation(fields: [dich_vu_id], references: [id], onUpdate: NoAction, map: "fk_hsdt_dich_vu")
+  goi_dich_vu     goi_dich_vu?     @relation(fields: [goi_dich_vu_id], references: [id], onUpdate: NoAction, map: "fk_hsdt_goi_dich_vu")
+  lich_dat        lich_dat         @relation(fields: [lich_dat_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_hsdt_lich_dat")
   lich_dieu_tri   lich_dieu_tri[]
 
-  @@index([lich_dat_id], map: "idx_hsba_lich_dat")
+  @@index([lich_dat_id], map: "idx_hsdt_lich_dat")
 }

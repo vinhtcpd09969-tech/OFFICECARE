@@ -108,7 +108,11 @@ export const saveAssessment = async (req: AuthenticatedRequest, res: Response) =
 export const getServices = async (req: Request, res: Response) => {
   try {
     const services = await adminService.getServices();
-    res.json(services);
+    const mappedServices = services.map((s: any) => ({
+      ...s,
+      gia_hien_tai: s.don_gia !== undefined ? Number(s.don_gia) : 0,
+    }));
+    res.json(mappedServices);
   } catch (error: any) {
     console.error('Lỗi khi lấy danh sách dịch vụ cho bác sĩ:', error);
     res.status(500).json({ message: error.message || 'Lỗi server' });

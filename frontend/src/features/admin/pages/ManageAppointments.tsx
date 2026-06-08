@@ -283,9 +283,42 @@ export default function ManageAppointments() {
 
     try {
       setBookingLoading(true);
+
+      let durationMin = 60; // default to 60 mins
+      if (treatmentType === 'single') {
+        const service = services.find(s => String(s.id) === String(chosenServiceId));
+        if (service) {
+          durationMin = Number(service.thoi_luong_phut) || 60;
+        }
+      } else {
+        const pkg = packages.find(p => String(p.id) === String(chosenPackageId));
+        if (pkg && pkg.chi_tiet_dich_vu) {
+          let items: any[] = [];
+          try {
+            items = typeof pkg.chi_tiet_dich_vu === 'string' 
+              ? JSON.parse(pkg.chi_tiet_dich_vu) 
+              : pkg.chi_tiet_dich_vu;
+          } catch (e) {
+            console.error('Lỗi parse chi_tiet_dich_vu:', e);
+          }
+          if (Array.isArray(items)) {
+            let sum = 0;
+            items.forEach(item => {
+              const svc = services.find(s => String(s.id) === String(item.dich_vu_id));
+              if (svc) {
+                sum += Number(svc.thoi_luong_phut) || 0;
+              }
+            });
+            if (sum > 0) {
+              durationMin = sum;
+            }
+          }
+        }
+      }
+
       // Chuyển đổi giờ cục bộ (VN UTC+7) sang UTC đúng chuẩn
       const startDateTimeStr = new Date(`${treatmentDate}T${treatmentTime}:00`).toISOString();
-      const endDateTime = new Date(new Date(startDateTimeStr).getTime() + 60 * 60 * 1000);
+      const endDateTime = new Date(new Date(startDateTimeStr).getTime() + durationMin * 60 * 1000);
 
       const payload = {
         khach_hang_id: selectedAppointment.khach_hang_id,

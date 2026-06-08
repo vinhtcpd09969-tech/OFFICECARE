@@ -68,11 +68,17 @@ export const equipmentSchema = z.object({
   body: z.object({
     ten_thiet_bi: z.string().min(1, 'Tên thiết bị là bắt buộc'),
     loai_thiet_bi: z.string().optional(),
-    ngay_mua: z.string().optional(),
-    ngay_bao_tri_tiep_theo: z.string().optional(),
+    ngay_mua: z.string().optional().nullable(),
+    ngay_bao_tri_tiep_theo: z.string().optional().nullable(),
     trang_thai: z.enum(['san_sang', 'dang_su_dung', 'dang_bao_tri', 'hong']).default('san_sang'),
     phong_id_hien_tai: z.number().int().positive().nullable().optional(),
-    ghi_chu: z.string().optional()
+    ghi_chu: z.string().optional().nullable(),
+    co_the_di_chuyen: z.boolean().optional().nullable(),
+    cap_rui_ro: z.string().optional().nullable(),
+    tan_suat_bao_tri_ngay: z.number().int().optional().nullable(),
+    nguong_canh_bao: z.number().int().optional().nullable(),
+    nguong_bat_buoc_bao_tri: z.number().int().optional().nullable(),
+    ngay_bao_tri_gan_nhat: z.string().optional().nullable()
   })
 });
 

@@ -114,6 +114,23 @@ export default function AppointmentDetailModal({
       return { hasDuty: false, label: `Trực ca ${dutyStart}-${dutyEnd}` };
     }
 
+    // Doctor Break Check
+    if (staff.vai_tro === 'Bác sĩ') {
+      if (dutyStart === '07:00') {
+        // Morning doctor: lunch break 11:00 - 12:00
+        const isLunchBreak = aptStartHourStr < '12:00' && aptEndHourStr > '11:00';
+        if (isLunchBreak) {
+          return { hasDuty: false, label: 'Đang nghỉ trưa' };
+        }
+      } else if (dutyStart === '11:00') {
+        // Afternoon doctor: break 16:00 - 17:00
+        const isDinnerBreak = aptStartHourStr < '17:00' && aptEndHourStr > '16:00';
+        if (isDinnerBreak) {
+          return { hasDuty: false, label: 'Đang nghỉ tối' };
+        }
+      }
+    }
+
     return { hasDuty: true, label: `Trực ca ${dutyStart}-${dutyEnd}` };
   };
 
@@ -127,8 +144,8 @@ export default function AppointmentDetailModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Bắt buộc phải chọn phòng và nhân sự mới được lưu cập nhật (trừ trạng thái Đã hủy và Không đến)
-    if (assignStatus !== 'da_huy' && assignStatus !== 'khong_den') {
+    // Bắt buộc phải chọn phòng và nhân sự mới được lưu cập nhật (trừ trạng thái Đã hủy, Không đến và Chưa xác nhận)
+    if (assignStatus !== 'da_huy' && assignStatus !== 'khong_den' && assignStatus !== 'chua_xac_nhan') {
       if (!assignRoomId) {
         toast.error('Vui lòng chọn phòng thực hiện!');
         return;
@@ -186,11 +203,11 @@ export default function AppointmentDetailModal({
             </div>
           </div>
 
-          {/* Hồ sơ bệnh án của Lịch trị liệu */}
+          {/* Hồ sơ điều trị của Lịch trị liệu */}
           {selectedAppointment.loai_lich === 'dieu_tri' && (
             <div className="space-y-3">
               <h4 className="text-xs font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider border-b border-slate-100 dark:border-zinc-800 pb-1.5">
-                Hồ sơ Bệnh án
+                Hồ sơ Điều trị
               </h4>
               <div className="space-y-2">
                 {selectedAppointment.chan_doan && (
@@ -206,7 +223,7 @@ export default function AppointmentDetailModal({
                   </div>
                 )}
                 {!selectedAppointment.chan_doan && !selectedAppointment.chong_chi_dinh && (
-                  <p className="text-xs text-slate-400 dark:text-zinc-500 italic">Không có hồ sơ bệnh án đi kèm.</p>
+                  <p className="text-xs text-slate-400 dark:text-zinc-500 italic">Không có hồ sơ điều trị đi kèm.</p>
                 )}
               </div>
             </div>
@@ -239,7 +256,7 @@ export default function AppointmentDetailModal({
                       return room.loai_phong === 'kham_benh';
                     }
                     if (selectedAppointment.loai_lich === 'dieu_tri') {
-                      return room.loai_phong === 'tri_lieu';
+                      return room.loai_phong === 'tri_lieu' || room.loai_phong === 'phong_tri_lieu_chuan';
                     }
                     return true;
                   })
@@ -328,7 +345,11 @@ export default function AppointmentDetailModal({
                                 ? 'bg-slate-200 dark:bg-zinc-800 text-slate-650 dark:text-zinc-450' 
                                 : 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-450'
                           }`}>
-                            {isOccupied ? 'Trùng lịch' : !duty.hasDuty ? 'Không trực' : 'Sẵn sàng'}
+                            {isOccupied 
+                              ? 'Trùng lịch' 
+                              : !duty.hasDuty 
+                                ? (['Đang nghỉ trưa', 'Đang nghỉ tối', 'Nghỉ phép cả ngày'].includes(duty.label) ? duty.label : 'Không trực') 
+                                : 'Sẵn sàng'}
                           </span>
                           {duty.label && duty.hasDuty && (
                             <span className="text-[9px] text-slate-400 dark:text-zinc-500 font-bold truncate">
@@ -349,7 +370,14 @@ export default function AppointmentDetailModal({
               <select
                 className="w-full px-3 py-2.5 bg-white dark:bg-zinc-900 border border-slate-250 dark:border-zinc-800 rounded-xl text-sm text-slate-800 dark:text-zinc-150 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-semibold disabled:bg-slate-100 dark:disabled:bg-zinc-800 disabled:text-slate-500"
                 value={assignStatus}
-                onChange={(e) => setAssignStatus(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setAssignStatus(val);
+                  if (val === 'chua_xac_nhan') {
+                    setAssignStaffId('');
+                    setAssignRoomId('');
+                  }
+                }}
                 disabled={isReceptionist}
               >
                 <option value="chua_xac_nhan">Chưa xác nhận</option>

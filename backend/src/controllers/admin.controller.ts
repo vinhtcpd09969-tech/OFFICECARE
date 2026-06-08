@@ -26,6 +26,38 @@ export const getRooms = async (req: Request, res: Response) => {
   }
 };
 
+export const createRoom = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const room = await adminService.createRoom(req.body);
+    await logAudit(req, 'CREATE_ROOM', 'ROOM', room.id.toString(), req.body);
+    res.status(201).json(room);
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi tạo phòng', error });
+  }
+};
+
+export const updateRoom = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params as { id: string };
+    const room = await adminService.updateRoom(id, req.body);
+    await logAudit(req, 'UPDATE_ROOM', 'ROOM', id, req.body);
+    res.json(room);
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi cập nhật phòng', error });
+  }
+};
+
+export const deleteRoom = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params as { id: string };
+    const room = await adminService.deleteRoom(id);
+    await logAudit(req, 'DELETE_ROOM', 'ROOM', id, { id });
+    res.json({ message: 'Xóa phòng thành công', room });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi xóa phòng', error });
+  }
+};
+
 export const createCategory = async (req: Request, res: Response): Promise<any> => {
   try {
     const { body } = categorySchema.parse({ body: req.body });
@@ -245,6 +277,33 @@ export const createEquipment = async (req: Request, res: Response): Promise<any>
   }
 };
 
+export const updateEquipment = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params as { id: string };
+    const { body } = require('../schemas/admin.schema').equipmentSchema.parse({ body: req.body });
+    const equipment = await adminService.updateEquipment(id, body);
+
+    await logAudit(req, 'UPDATE_EQUIPMENT', 'EQUIPMENT', id, body);
+    res.json(equipment);
+  } catch (error: any) {
+    if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
+    if (error?.statusCode === 400) return res.status(400).json({ message: error.message });
+    res.status(500).json({ message: 'Lỗi server khi cập nhật thiết bị', error });
+  }
+};
+
+export const deleteEquipment = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params as { id: string };
+    const equipment = await adminService.deleteEquipment(id);
+
+    await logAudit(req, 'DELETE_EQUIPMENT', 'EQUIPMENT', id, { id });
+    res.json({ message: 'Xóa thiết bị thành công', equipment });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi xóa thiết bị', error });
+  }
+};
+
 // --- QUẢN LÝ LỊCH LÀM VIỆC (CA LÀM VIỆC) ---
 
 export const getSchedules = async (req: Request, res: Response) => {
@@ -263,9 +322,9 @@ export const createSchedule = async (req: Request, res: Response): Promise<any> 
 
     await logAudit(req, 'CREATE_SCHEDULE', 'SCHEDULE', schedule.id.toString(), body);
     res.status(201).json(schedule);
-  } catch (error) {
+  } catch (error: any) {
     if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
-    res.status(500).json({ message: 'Lỗi server' });
+    res.status(400).json({ message: error.message || 'Lỗi server' });
   }
 };
 
@@ -275,8 +334,8 @@ export const updateSchedule = async (req: Request, res: Response): Promise<any> 
     const schedule = await adminService.updateSchedule(id, req.body);
     await logAudit(req, 'UPDATE_SCHEDULE', 'SCHEDULE', id, req.body);
     res.json(schedule);
-  } catch (error) {
-    res.status(500).json({ message: 'Lỗi server khi cập nhật lịch trực' });
+  } catch (error: any) {
+    res.status(400).json({ message: error.message || 'Lỗi server khi cập nhật lịch trực' });
   }
 };
 

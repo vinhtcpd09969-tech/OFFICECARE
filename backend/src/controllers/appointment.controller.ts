@@ -152,4 +152,15 @@ export const getBookedSlots = async (req: Request, res: Response): Promise<any> 
   }
 };
 
+// Lấy danh sách dịch vụ công khai cho khách hàng đặt lịch trực tiếp
+export const getPublicServices = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const services = await appointmentService.getPublicServices();
+    return res.json(services);
+  } catch (error: any) {
+    console.error('Lỗi khi lấy danh sách dịch vụ công khai:', error);
+    return res.status(500).json({ message: error.message || 'Lỗi server' });
+  }
+};
+
 

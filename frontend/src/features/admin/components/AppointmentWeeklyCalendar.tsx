@@ -25,9 +25,9 @@ export default function AppointmentWeeklyCalendar({
 
   // Define Shifts
   const shifts = [
-    { id: 'morning',   label: '🌅 Ca Sáng',  timeRange: '08:00 - 12:00', startHour: 8,  endHour: 12 },
-    { id: 'afternoon', label: '☀️ Ca Chiều', timeRange: '13:30 - 17:30', startHour: 13, endHour: 18 },
-    { id: 'evening',   label: '🌙 Ca Tối',   timeRange: '18:00 - 19:30', startHour: 18, endHour: 20 },
+    { id: 'morning',   label: '🌅 Ca Sáng',  timeRange: '07:00 - 12:00', startHour: 7,  endHour: 12 },
+    { id: 'afternoon', label: '☀️ Ca Chiều', timeRange: '12:00 - 18:00', startHour: 12, endHour: 18 },
+    { id: 'evening',   label: '🌙 Ca Tối',   timeRange: '18:00 - 20:00', startHour: 18, endHour: 20 },
   ];
 
   const getAppointmentsForSlot = (day: Date, shiftStartHour: number, shiftEndHour: number) => {
@@ -55,7 +55,16 @@ export default function AppointmentWeeklyCalendar({
                 <CalendarDays size={20} />
                 <span className="text-[10px] font-bold uppercase tracking-widest">Ca Trực</span>
                 <span className="text-[9px] text-slate-400 dark:text-zinc-500 font-medium leading-tight mt-1.5 bg-slate-100/70 dark:bg-zinc-850 px-1.5 py-0.5 rounded border border-slate-200/30 dark:border-zinc-800">
-                  Nghỉ trưa:<br/>12:00-13:30
+                  {scheduleType === 'kham_moi' ? (
+                    <>
+                      Nghỉ trưa:<br/>11:00-12:00<br/>
+                      Nghỉ tối:<br/>16:00-17:00
+                    </>
+                  ) : (
+                    <>
+                      Nghỉ trưa:<br/>12:00-13:30
+                    </>
+                  )}
                 </span>
               </div>
             </th>

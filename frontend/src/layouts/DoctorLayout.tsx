@@ -66,7 +66,7 @@ export default function DoctorLayout() {
   const navItems = [
     { name: 'Tổng quan', path: '/doctor', icon: <LayoutDashboard size={18} /> },
     { name: 'Lịch khám của tôi', path: '/doctor/appointments', icon: <Calendar size={18} />, searchPlaceholder: 'Tìm kiếm ca khám...' },
-    { name: 'Hồ sơ bệnh án', path: '/doctor/medical-records', icon: <FileText size={18} />, searchPlaceholder: 'Tìm kiếm hồ sơ bệnh nhân...' },
+    { name: 'Hồ sơ điều trị', path: '/doctor/medical-records', icon: <FileText size={18} />, searchPlaceholder: 'Tìm kiếm hồ sơ bệnh nhân...' },
     { name: 'Lịch trực cá nhân', path: '/doctor/schedules', icon: <Clock size={18} /> },
   ];
 

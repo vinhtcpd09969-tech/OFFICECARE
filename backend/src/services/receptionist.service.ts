@@ -308,6 +308,11 @@ class ReceptionistService {
   async createBillingDirect(data: any) {
     const { khach_hang_id, item_type, item_id, loai_thanh_toan, ma_voucher, lich_dat_id, ho_ten_khach, so_dien_thoai, lich_dieu_tri_id } = data;
 
+    // Enforce y khoa constraint: Receptionist cannot sell packages directly to walk-in customers
+    if (item_type === 'goi' && !lich_dat_id && !lich_dieu_tri_id) {
+      throw new Error('Lễ tân không được phép bán gói trị liệu trực tiếp cho khách vãng lai. Gói trị liệu phải được chỉ định bởi bác sĩ sau khi khám lâm sàng.');
+    }
+
     let finalLdtId = lich_dieu_tri_id;
 
     if (!finalLdtId && lich_dat_id) {

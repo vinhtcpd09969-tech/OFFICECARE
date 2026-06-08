@@ -75,7 +75,7 @@ export default function ClinicalAssessment() {
       setServices(servicesRes.data);
       setPackages(packagesRes.data);
 
-      // 3. Tải hồ sơ bệnh án cũ của bệnh nhân (nếu đã liên kết khách hàng)
+      // 3. Tải hồ sơ điều trị cũ của bệnh nhân (nếu đã liên kết khách hàng)
       if (apptData.khach_hang_id) {
         const profileRes = await getPatientProfile(apptData.khach_hang_id);
         setProfile(profileRes.data);
@@ -115,8 +115,8 @@ export default function ClinicalAssessment() {
       alert('Ghi nhận chẩn đoán lâm sàng và hoàn thành ca khám thành công!');
       navigate('/doctor'); // Trở lại danh sách hàng chờ
     } catch (error: any) {
-      console.error('Lỗi khi lưu bệnh án:', error);
-      alert(error.response?.data?.message || 'Có lỗi xảy ra khi lưu bệnh án.');
+      console.error('Lỗi khi lưu hồ sơ điều trị:', error);
+      alert(error.response?.data?.message || 'Có lỗi xảy ra khi lưu hồ sơ điều trị.');
     } finally {
       setSubmitLoading(false);
     }
@@ -138,7 +138,7 @@ export default function ClinicalAssessment() {
     return (
       <div className="min-h-[500px] flex flex-col items-center justify-center gap-3 text-zinc-400">
         <div className="size-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-xs font-bold uppercase tracking-wider">Đang tải hồ sơ bệnh án khách hàng...</p>
+        <p className="text-xs font-bold uppercase tracking-wider">Đang tải hồ sơ điều trị khách hàng...</p>
       </div>
     );
   }
@@ -288,7 +288,7 @@ export default function ClinicalAssessment() {
                   {!profile || profile.medicalRecords.length === 0 ? (
                     <div className="text-center py-12 text-zinc-400 dark:text-zinc-550 flex flex-col items-center justify-center gap-2">
                       <FileText size={24} />
-                      <p className="text-xs font-bold">Chưa có lịch sử bệnh án lâm sàng trước đây</p>
+                      <p className="text-xs font-bold">Chưa có lịch sử hồ sơ điều trị lâm sàng trước đây</p>
                     </div>
                   ) : (
                     <div className="relative border-l border-zinc-150 dark:border-zinc-800 pl-6 space-y-6 ml-3">

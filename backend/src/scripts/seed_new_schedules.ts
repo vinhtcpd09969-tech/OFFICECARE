@@ -21,31 +21,43 @@ async function seedNewSchedules() {
 
     console.log(`Found ${staff.length} staff members.`);
 
-    // 3. Tạo danh sách các ngày của tuần hiện tại và tuần tới
-    // Tuần hiện tại: 25-05-2026 đến 31-05-2026
-    // Tuần tới: 01-06-2026 đến 07-06-2026
-    const days = [
-      // Tuần này
-      '2026-05-25', '2026-05-26', '2026-05-27', '2026-05-28', '2026-05-29', '2026-05-30', '2026-05-31',
-      // Tuần sau
-      '2026-06-01', '2026-06-02', '2026-06-03', '2026-06-04', '2026-06-05', '2026-06-06', '2026-06-07'
-    ];
+    // 3. Tạo danh sách các ngày trong 30 ngày tới bắt đầu từ 2026-06-01
+    const generateDays = (startDateStr: string, count: number): string[] => {
+      const days = [];
+      const start = new Date(startDateStr);
+      for (let i = 0; i < count; i++) {
+        const d = new Date(start);
+        d.setDate(start.getDate() + i);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        days.push(`${y}-${m}-${day}`);
+      }
+      return days;
+    };
+    const days = generateDays('2026-06-01', 30);
 
-    // 4. Định nghĩa các ca trực chuẩn
+    // 4. Định nghĩa các ca trực chuẩn cho Bác sĩ, Lễ tân và KTV
     const SHIFTS = {
-      morning: { gio_bat_dau: '07:00', gio_ket_thuc: '15:30', trang_thai: 'hoat_dong' },
-      afternoon: { gio_bat_dau: '11:30', gio_ket_thuc: '20:00', trang_thai: 'hoat_dong' },
+      morning: { gio_bat_dau: '07:00', gio_ket_thuc: '16:00', trang_thai: 'hoat_dong' },
+      afternoon: { gio_bat_dau: '11:00', gio_ket_thuc: '20:00', trang_thai: 'hoat_dong' },
+      le_tan_morning: { gio_bat_dau: '07:00', gio_ket_thuc: '12:00', trang_thai: 'hoat_dong' },
+      le_tan_afternoon: { gio_bat_dau: '12:00', gio_ket_thuc: '20:00', trang_thai: 'hoat_dong' },
       dayoff: { gio_bat_dau: '00:00', gio_ket_thuc: '00:00', trang_thai: 'tam_nghi' }
     };
 
     // 5. Phân bổ lịch trực luân phiên
     let scheduleCount = 0;
 
+    // Tìm danh sách lễ tân và sắp xếp theo ho_ten/id
+    const receptionists = staff.filter(s => s.ma_vai_tro === 'le_tan').sort((a, b) => a.ho_ten.localeCompare(b.ho_ten));
+
     for (const member of staff) {
       console.log(`Setting schedule for: ${member.ho_ten} (${member.vai_tro})`);
       
       days.forEach((day, index) => {
-        const dayOfWeek = (index % 7); // 0 = T2, 1 = T3, ..., 5 = T7, 6 = CN
+        const dateObj = new Date(day);
+        const dayOfWeek = (dateObj.getDay() + 6) % 7; // 0 = T2, 1 = T3, ..., 5 = T7, 6 = CN
         
         // Mặc định chủ nhật được nghỉ
         if (dayOfWeek === 6) {
@@ -58,11 +70,22 @@ async function seedNewSchedules() {
           // Bác sĩ làm xen kẽ sáng chiều
           shift = dayOfWeek % 2 === 0 ? SHIFTS.morning : SHIFTS.afternoon;
         } else if (member.ma_vai_tro === 'le_tan') {
-          // Lễ tân: T4 nghỉ phép, các ngày khác làm sáng/chiều xen kẽ
-          if (dayOfWeek === 2) {
-            shift = SHIFTS.dayoff; // Nghỉ phép
+          // Lễ tân: xoay ca xen kẽ sáng chiều và so le ca nghỉ giữa Lễ tân 1 và Lễ tân 2
+          const repIndex = receptionists.findIndex(r => r.id === member.id);
+          if (repIndex === 0) {
+            // Lễ tân 1: Nghỉ phép thứ 4 (dayOfWeek = 2)
+            if (dayOfWeek === 2) {
+              shift = SHIFTS.dayoff;
+            } else {
+              shift = dayOfWeek % 2 === 0 ? SHIFTS.le_tan_morning : SHIFTS.le_tan_afternoon;
+            }
           } else {
-            shift = dayOfWeek % 2 === 0 ? SHIFTS.morning : SHIFTS.afternoon;
+            // Lễ tân 2: Nghỉ phép thứ 5 (dayOfWeek = 3)
+            if (dayOfWeek === 3) {
+              shift = SHIFTS.dayoff;
+            } else {
+              shift = dayOfWeek % 2 === 0 ? SHIFTS.le_tan_afternoon : SHIFTS.le_tan_morning;
+            }
           }
         } else if (member.ma_vai_tro === 'ky_thuat_vien') {
           // Kỹ thuật viên: chia ca theo ID để luôn có người trực sáng và chiều

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { getPackages, deletePackage, getCategories } from '../../../api/admin.api';
+import { getPackages, deletePackage, getCategories, getServices } from '../../../api/admin.api';
 import PackageModal from '../components/PackageModal';
 
 const currencyFormatter = new Intl.NumberFormat('vi-VN');
@@ -8,6 +8,7 @@ const currencyFormatter = new Intl.NumberFormat('vi-VN');
 export default function ManagePackages() {
   const navigate = useNavigate();
   const [packages, setPackages] = useState<any[]>([]);
+  const [services, setServices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPackage, setEditingPackage] = useState<any>(null);
@@ -16,6 +17,24 @@ export default function ManagePackages() {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const searchQuery = searchParams.get('q') || '';
+
+  const getPackageSessionDuration = (pkg: any) => {
+    if (!pkg) return 0;
+    let details = pkg.chi_tiet_dich_vu;
+    if (typeof details === 'string') {
+      try {
+        details = JSON.parse(details);
+      } catch (e) {
+        details = [];
+      }
+    }
+    if (!Array.isArray(details)) return 0;
+    return details.reduce((sum: number, item: any) => {
+      const svc = services.find(s => String(s.id) === String(item.dich_vu_id));
+      const duration = svc ? (svc.thoi_gian_uoc_tinh || svc.thoi_luong_phut || 0) : 0;
+      return sum + duration;
+    }, 0);
+  };
 
   // Nhóm các phân khúc Basic, Standard, Intensive của gói cố định thành 1 dòng duy nhất trên UI
   const groupedPackages = useMemo(() => {
@@ -91,12 +110,14 @@ export default function ManagePackages() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [pkgsRes, catsRes] = await Promise.all([
+      const [pkgsRes, catsRes, svcsRes] = await Promise.all([
         getPackages(),
-        getCategories()
+        getCategories(),
+        getServices()
       ]);
       setPackages(pkgsRes.data || []);
       setCategories((catsRes.data || []).filter((c: any) => c.loai_danh_muc === 'goi' && c.an_hien !== false));
+      setServices(svcsRes.data || []);
     } catch (error) {
       console.error('Error fetching packages:', error);
     } finally {
@@ -110,7 +131,7 @@ export default function ManagePackages() {
 
   const handleDelete = async (pkg: any) => {
     const confirmName = pkg.isGrouped ? pkg.baseName : pkg.ten_goi;
-    if (window.confirm(`Bạn có chắc chắn muốn xóa gói dịch vụ "${confirmName}" không?\nHành động này sẽ xóa toàn bộ các phân khúc liên quan.`)) {
+    if (window.confirm(`Bạn có chắc chắn muốn ngưng sử dụng gói dịch vụ "${confirmName}" không?\nHành động này sẽ tạm ngưng toàn bộ các phân khúc liên quan.`)) {
       try {
         if (pkg.isGrouped && pkg.subPackages) {
           for (const sub of pkg.subPackages) {
@@ -122,21 +143,12 @@ export default function ManagePackages() {
         fetchData();
       } catch (error) {
         console.error('Error deleting package:', error);
-        alert('Không thể xóa gói dịch vụ này. Rất có thể gói này đang được liên kết trong lịch đặt hoặc hóa đơn của khách hàng.');
+        alert('Không thể ngưng sử dụng gói dịch vụ này. Rất có thể gói này đang được liên kết trong lịch đặt hoặc hóa đơn của khách hàng.');
       }
     }
   };
 
-  const handleDuplicate = (pkg: any) => {
-    const duplicatedPkg = {
-      ...pkg,
-      id: undefined, // Clear the ID so it's treated as a new package creation flow
-      ten_goi: `${pkg.isGrouped ? pkg.baseName : pkg.ten_goi} (Bản sao)`,
-      ma_goi: '', // Let backend auto-generate a new code
-    };
-    setEditingPackage(duplicatedPkg);
-    setIsModalOpen(true);
-  };
+
 
   // KPI calculations
   const activeCount = useMemo(() => {
@@ -277,9 +289,16 @@ export default function ManagePackages() {
               return (
                 <div 
                   key={pkg.id} 
-                  className={`group relative bg-gradient-to-b from-white to-zinc-50/30 border border-zinc-200/90 rounded-2xl p-6 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:border-emerald-200/80 hover:shadow-[0_20px_50px_rgba(16,185,129,0.05)] hover:-translate-y-1.5 active:scale-[0.995] ${
+                  className={`group relative bg-gradient-to-b from-white to-zinc-50/30 border border-zinc-200/90 rounded-2xl p-6 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:border-emerald-200/80 hover:shadow-[0_20px_50px_rgba(16,185,129,0.05)] hover:-translate-y-1.5 active:scale-[0.995] cursor-pointer ${
                     isInactive ? 'opacity-70' : ''
                   }`}
+                  onClick={(e) => {
+                    const target = e.target as HTMLElement;
+                    if (target.closest('button') || target.closest('select') || target.closest('a') || window.getSelection()?.toString()) {
+                      return;
+                    }
+                    navigate(`/admin/packages/${pkg.id}/services`);
+                  }}
                 >
                   {/* Left accent bar on hover that glows beautifully and expands vertically */}
                   <div className={`absolute left-0 top-4 bottom-4 w-1.5 rounded-r-2xl scale-y-50 group-hover:scale-y-100 opacity-0 group-hover:opacity-100 transition-all duration-300 origin-center shadow-sm ${
@@ -292,11 +311,6 @@ export default function ManagePackages() {
                     {/* 1. THÔNG TIN GÓI (col-span-3) */}
                     <div className="col-span-12 lg:col-span-3 min-w-0">
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        <span className="font-mono text-[9px] font-black text-zinc-500 bg-zinc-50 border border-zinc-200/70 px-2 py-0.5 rounded uppercase tracking-wider shadow-2xs flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-zinc-400"></span>
-                          <span>{pkg.ma_goi || 'CHƯA CÓ MÃ'}</span>
-                        </span>
-                        
                         <span className="text-[9px] text-teal-850 font-black bg-gradient-to-r from-teal-500/5 to-emerald-500/5 border border-teal-150/60 px-2 py-0.5 rounded-lg uppercase tracking-wider shrink-0 flex items-center gap-1 shadow-2xs">
                           <svg className="w-3.5 h-3.5 text-teal-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2 2v12m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
@@ -304,20 +318,12 @@ export default function ManagePackages() {
                           <span>{pkg.ten_danh_muc || 'Không phân loại'}</span>
                         </span>
 
-                        {pkg.isGrouped && (
-                          <span className="text-[8px] font-black bg-zinc-50 border border-zinc-200 text-zinc-500 px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0 shadow-2xs">
-                            3 phân đoạn
-                          </span>
-                        )}
+                        <span className="text-[9px] text-zinc-600 font-black bg-zinc-50 border border-zinc-200 px-2 py-0.5 rounded-lg uppercase tracking-wider shrink-0 flex items-center gap-1 shadow-2xs">
+                          ⏱️ {getPackageSessionDuration(pkg.isGrouped ? pkg.standardPkg : pkg)} phút
+                        </span>
                       </div>
                       
-                      <h4 
-                        className="font-heading font-black text-[15px] text-secondary tracking-tight hover:text-primary transition-colors cursor-pointer mt-1 duration-200 leading-snug"
-                        onClick={() => {
-                          setEditingPackage(pkg);
-                          setIsModalOpen(true);
-                        }}
-                      >
+                      <h4 className="font-heading font-black text-[15px] text-secondary tracking-tight hover:text-primary transition-colors mt-1 duration-200 leading-snug">
                         {pkg.ten_goi}
                       </h4>
                     </div>
@@ -421,25 +427,6 @@ export default function ManagePackages() {
                     {/* 6. THAO TÁC QUẢN TRỊ (col-span-3) */}
                     <div className="col-span-12 lg:col-span-3 shrink-0 flex items-center lg:justify-end gap-2 flex-wrap">
                       <button
-                        onClick={() => navigate(`/admin/packages/${pkg.id}/services`)}
-                        className="px-3.5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 hover:shadow-[0_4px_12px_rgba(16,185,129,0.15)] active:scale-95 text-white rounded-xl transition-all duration-200 shadow-sm flex items-center gap-1.5 font-bold text-[10px] tracking-wide whitespace-nowrap"
-                        title="Chi tiết gói dịch vụ"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                        </svg>
-                        <span>CHI TIẾT GÓI</span>
-                      </button>
-                      
-                      <button
-                        onClick={() => handleDuplicate(pkg)}
-                        className="px-3 py-2.5 border border-zinc-200/80 hover:border-zinc-350 hover:bg-zinc-50 text-zinc-655 hover:text-zinc-800 rounded-xl transition-all duration-200 active:scale-95 bg-white shadow-2xs font-bold text-[9.5px]"
-                        title="Nhân bản gói"
-                      >
-                        NHÂN BẢN
-                      </button>
-
-                      <button
                         onClick={() => {
                           setEditingPackage(pkg);
                           setIsModalOpen(true);
@@ -452,11 +439,11 @@ export default function ManagePackages() {
 
                       <button
                         onClick={() => handleDelete(pkg)}
-                        className="p-2.5 border border-zinc-200/80 hover:border-rose-300 hover:bg-rose-50/50 text-zinc-400 hover:text-rose-500 rounded-xl transition-all duration-200 active:scale-95 bg-white shadow-2xs"
-                        title="Xóa gói dịch vụ"
+                        className="p-2.5 border border-zinc-200/80 hover:border-amber-300 hover:bg-amber-50/50 text-zinc-400 hover:text-amber-500 rounded-xl transition-all duration-200 active:scale-95 bg-white shadow-2xs"
+                        title="Ngưng sử dụng gói"
                       >
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                         </svg>
                       </button>
                     </div>

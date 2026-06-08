@@ -392,11 +392,6 @@ export default function QuickBilling() {
     toast.success(`Đã chọn khách hàng: ${cons.ten_khach_hang}`);
   };
 
-  const handleSelectPackage = (pkg: any) => {
-    setSelectedPackage(pkg);
-    toast.success(`Đã chọn gói: ${pkg.ten_goi}`);
-  };
-
   const { soTienNhan, phuongThuc, hoaDon, loading } = state;
 
   // Change computation logic based on active tab
@@ -624,78 +619,43 @@ export default function QuickBilling() {
                         <p className="text-[10px] text-amber-600 font-bold mt-0.5">Giá gói: {formatCurrency(Number(selectedPackage.gia_goi))}</p>
                       </div>
                     </div>
-                    {!isLocked && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedPackage(null);
-                          setCalculatedData(null);
-                          setAppliedVoucher(null);
-                          setMaVoucher('');
-                        }}
-                        className="text-[10px] font-black text-rose-500 hover:text-rose-600 uppercase tracking-wider bg-rose-50 px-3 py-2 rounded-lg border border-rose-100 hover:bg-rose-100/50 transition-all active:scale-95"
-                      >
-                        Thay đổi gói
-                      </button>
-                    )}
+                    <span className="text-[10px] font-black text-primary bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-lg uppercase tracking-wider">
+                      Chỉ định y khoa
+                    </span>
                   </div>
-                </div>
-              ) : isLocked ? (
-                <div className="bg-white rounded-2xl border border-zinc-150 shadow-sm p-6 text-center py-12">
-                  <p className="text-xs text-zinc-500 font-semibold">Không có gói điều trị được chỉ định cho ca này.</p>
                 </div>
               ) : (
                 <div className="bg-white rounded-2xl border border-zinc-150 shadow-sm p-6 space-y-4">
                   <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
                     <div className="space-y-1">
-                      <span className="text-[9px] font-black text-primary bg-primary/5 border border-primary/10 px-2 py-0.5 rounded-md uppercase tracking-wider">
-                        Bước B: Chọn gói trị liệu chỉ định
+                      <span className="text-[9px] font-black text-rose-500 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                        Không thể chọn gói trực tiếp
                       </span>
-                      <h3 className="font-heading font-black text-secondary text-sm">Danh mục gói phục hồi chức năng</h3>
+                      <h3 className="font-heading font-black text-secondary text-sm">Kiểm soát chỉ định gói trị liệu</h3>
                     </div>
-                    <Activity className="text-primary size-5" />
+                    <Activity className="text-rose-500 size-5" />
                   </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    {packages.map((pkg) => {
-                      const isSelected = selectedPackage?.id === pkg.id;
-                      return (
-                        <div
-                          key={pkg.id}
-                          onClick={() => handleSelectPackage(pkg)}
-                          className={`p-4.5 rounded-xl border cursor-pointer transition-all flex flex-col justify-between relative group ${
-                            isSelected 
-                              ? 'border-primary bg-primary/5 ring-1 ring-primary' 
-                              : 'border-zinc-200 hover:border-zinc-300 bg-zinc-50/20'
-                          }`}
-                        >
-                          <div className="space-y-1.5">
-                            <div className="flex justify-between items-start gap-2">
-                              <h4 className="font-black text-secondary text-xs leading-snug group-hover:text-primary transition-colors">
-                                {pkg.ten_goi}
-                              </h4>
-                              <span className="text-[9px] font-black bg-amber-50 text-amber-600 border border-amber-100 px-2 py-0.5 rounded-md shrink-0 uppercase tracking-tight">
-                                {pkg.tong_so_buoi} Buổi
-                              </span>
-                            </div>
-                            <p className="text-[10px] text-zinc-400 line-clamp-2 leading-relaxed">{pkg.mo_ta || 'Không có mô tả chi tiết cho gói này.'}</p>
-                          </div>
-
-                          <div className="mt-4 flex justify-between items-center pt-2.5 border-t border-zinc-100">
-                            <span className="text-[9px] text-zinc-400 font-extrabold uppercase tracking-wide">Giá trị gói</span>
-                            <span className="font-black text-sm text-secondary group-hover:text-primary transition-colors">
-                              {formatCurrency(Number(pkg.gia_goi))}
-                            </span>
-                          </div>
-
-                          {isSelected && (
-                            <div className="absolute -top-1.5 -right-1.5 bg-primary text-white rounded-full size-5 flex items-center justify-center text-[9px] font-bold border-2 border-white shadow-sm animate-bounce">
-                              ✓
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                  
+                  <div className="p-8 text-center bg-zinc-50 rounded-xl border border-dashed border-zinc-200 space-y-2">
+                    {selectedConsultation ? (
+                      <>
+                        <p className="text-zinc-650 text-xs font-bold text-slate-700">
+                          Bệnh nhân <span className="text-primary font-extrabold">{selectedConsultation.ten_khach_hang}</span> không có chỉ định gói trị liệu từ Bác sĩ.
+                        </p>
+                        <p className="text-[10px] text-zinc-450">
+                          Lễ tân không được tự ý chọn gói trị liệu. Vui lòng chuyển sang tab <span className="font-bold text-secondary">"Thanh toán dịch vụ lẻ"</span> để tiếp tục.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-zinc-600 text-xs font-bold">
+                          Chưa chọn bệnh nhân cần thanh toán gói.
+                        </p>
+                        <p className="text-[10px] text-zinc-400">
+                          Vui lòng chọn ca khám hoàn thành có chỉ định gói từ danh sách ở trên để tải thông tin gói.
+                        </p>
+                      </>
+                    )}
                   </div>
                 </div>
               )}

@@ -86,7 +86,7 @@ export default function Login() {
               <div>
                 <p className="font-bold text-emerald-900">Đặt lịch khám nhanh chóng</p>
                 <p className="text-xs text-emerald-700/95 mt-1 leading-relaxed">
-                  Vui lòng đăng nhập để chúng tôi lưu giữ bệnh án và đồng bộ hóa lịch trị liệu cá nhân của bạn nhé!
+                  Vui lòng đăng nhập để chúng tôi lưu giữ hồ sơ điều trị và đồng bộ hóa lịch trị liệu cá nhân của bạn nhé!
                 </p>
               </div>
             </div>

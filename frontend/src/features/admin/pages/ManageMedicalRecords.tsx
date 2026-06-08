@@ -37,13 +37,13 @@ export default function ManageMedicalRecords() {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Hồ sơ điều trị</h2>
-          <p className="text-slate-500 mt-1">Tra cứu bệnh án, phiếu lượng giá và lịch sử điều trị của khách hàng.</p>
+          <p className="text-slate-500 mt-1">Tra cứu hồ sơ điều trị, phiếu lượng giá và lịch sử điều trị của khách hàng.</p>
         </div>
         <div className="relative w-72">
           <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
           <input 
             type="text" 
-            placeholder="Tìm theo mã KH, mã Bệnh án, tên..." 
+            placeholder="Tìm theo mã KH, mã HS điều trị, tên..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10 w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"

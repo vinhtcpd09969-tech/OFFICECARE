@@ -73,6 +73,7 @@ interface Props {
 export default function NewTreatmentForm({ isOpen, onClose, onSuccess }: Props) {
   const [customers, setCustomers] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
+  const [allServices, setAllServices] = useState<any[]>([]);
   const [packages, setPackages] = useState<any[]>([]);
   const [staff, setStaff] = useState<any[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
@@ -94,12 +95,64 @@ export default function NewTreatmentForm({ isOpen, onClose, onSuccess }: Props) 
 
   const bookingMode = watch('bookingMode');
   const treatmentType = watch('treatmentType');
+  const watchedGioBatDau = watch('gio_bat_dau');
+  const watchedDichVuId = watch('dich_vu_id');
+  const watchedDangKyGoiId = watch('dang_ky_goi_id');
 
   useEffect(() => {
     if (isOpen) {
       fetchData();
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!watchedGioBatDau) return;
+    
+    let durationMin = 60; // default
+    if (treatmentType === 'single') {
+      const service = allServices.find(s => String(s.id) === String(watchedDichVuId));
+      if (service) {
+        durationMin = Number(service.thoi_luong_phut) || 60;
+      }
+    } else {
+      const pkg = packages.find(p => String(p.id) === String(watchedDangKyGoiId));
+      if (pkg && pkg.chi_tiet_dich_vu) {
+        let items: any[] = [];
+        try {
+          items = typeof pkg.chi_tiet_dich_vu === 'string'
+            ? JSON.parse(pkg.chi_tiet_dich_vu)
+            : pkg.chi_tiet_dich_vu;
+        } catch (e) {
+          console.error('Lỗi parse chi_tiet_dich_vu:', e);
+        }
+        if (Array.isArray(items)) {
+          let sum = 0;
+          items.forEach(item => {
+            const svc = allServices.find(s => String(s.id) === String(item.dich_vu_id));
+            if (svc) {
+              sum += Number(svc.thoi_luong_phut) || 0;
+            }
+          });
+          if (sum > 0) {
+            durationMin = sum;
+          }
+        }
+      }
+    }
+
+    try {
+      const [h, m] = watchedGioBatDau.split(':').map(Number);
+      const startMinutes = h * 60 + m;
+      const endMinutes = startMinutes + durationMin;
+      const endH = Math.floor(endMinutes / 60) % 24;
+      const endM = endMinutes % 60;
+      
+      const endStr = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+      setValue('gio_ket_thuc', endStr);
+    } catch (e) {
+      console.error('Lỗi tính toán giờ kết thúc:', e);
+    }
+  }, [treatmentType, watchedGioBatDau, watchedDichVuId, watchedDangKyGoiId, allServices, packages]);
 
   const fetchData = async () => {
     try {
@@ -111,6 +164,7 @@ export default function NewTreatmentForm({ isOpen, onClose, onSuccess }: Props) 
         axiosInstance.get('/admin/rooms').catch(() => ({ data: [] }))
       ]);
       setCustomers(custRes.data);
+      setAllServices(servRes.data);
       // Lọc các dịch vụ trị liệu chuyên sâu (bỏ qua khám lâm sàng nếu muốn, hoặc lấy tất cả trừ danh mục khám)
       setServices(servRes.data.filter((s: any) => String(s.danh_muc_id) !== '10' && String(s.danh_muc_id) !== '21'));
       setPackages(pkgRes.data);
@@ -378,9 +432,11 @@ export default function NewTreatmentForm({ isOpen, onClose, onSuccess }: Props) 
                       className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none text-sm rounded-xl"
                     >
                       <option value="">-- Tự động xếp phòng / Chọn sau --</option>
-                      {rooms.map(r => (
-                        <option key={r.id} value={r.id}>{r.ten_phong} ({r.loai_phong})</option>
-                      ))}
+                      {rooms
+                        .filter(r => r.loai_phong === 'tri_lieu' || r.loai_phong === 'phong_tri_lieu_chuan')
+                        .map(r => (
+                          <option key={r.id} value={r.id}>{r.ten_phong}</option>
+                        ))}
                     </select>
                   </div>
                 </div>

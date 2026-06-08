@@ -332,7 +332,7 @@ export default function Dashboard() {
           <div className="space-y-3">
             {[
               { title: 'Đặt lịch trị liệu mới', path: '/booking', icon: <Calendar size={18} />, color: 'text-primary', bg: 'bg-primary/10' },
-              { title: 'Bệnh án & Hồ sơ sức khỏe', path: '/profile', icon: <FileText size={18} />, color: 'text-blue-500', bg: 'bg-blue-50' },
+              { title: 'Hồ sơ điều trị & sức khỏe', path: '/profile', icon: <FileText size={18} />, color: 'text-blue-500', bg: 'bg-blue-50' },
               { title: 'Bài tập giãn cơ tại nhà', path: '/exercises', icon: <Activity size={18} />, color: 'text-amber-500', bg: 'bg-amber-50' },
               { title: 'Gói dịch vụ & Hóa đơn', path: '/packages', icon: <Clock size={18} />, color: 'text-zinc-500', bg: 'bg-zinc-100' }
             ].map((item, index) => (

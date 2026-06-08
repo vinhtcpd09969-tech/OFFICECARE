@@ -18,7 +18,7 @@ export default function CustomerProfile() {
   const [activeTab, setActiveTab] = useState<'record' | 'sessions'>('record');
   const [selectedSession, setSelectedSession] = useState<number | null>(null);
 
-  // Mock data for Electronic Medical Record (Bệnh án điện tử)
+  // Mock data for Electronic Medical Record (Hồ sơ điều trị điện tử)
   const medicalRecord = {
     chan_doan: 'Hội chứng Cổ Vai Gáy cấp tính / Thoái hóa cột sống cổ C5-C6 nhẹ',
     trieu_chung: 'Đau mỏi cổ lan xuống bả vai trái, hạn chế quay đầu sang trái, tê nhẹ ngón tay trỏ.',
@@ -60,9 +60,9 @@ export default function CustomerProfile() {
         <div>
           <h1 className="font-heading text-3xl font-bold text-secondary flex items-center gap-2.5">
             <HeartPulse className="text-primary" size={32} />
-            Hồ sơ Sức khỏe & Bệnh án
+            Hồ sơ Sức khỏe & Điều trị
           </h1>
-          <p className="text-gray-500 text-sm mt-1">Bệnh án điện tử và lịch trình phục hồi chi tiết của bạn tại Office Care.</p>
+          <p className="text-gray-500 text-sm mt-1">Hồ sơ điều trị điện tử và lịch trình phục hồi chi tiết của bạn tại Office Care.</p>
         </div>
         
         {/* Quick Identity Card */}
@@ -88,7 +88,7 @@ export default function CustomerProfile() {
           }`}
         >
           <Clipboard size={18} />
-          Bệnh án điện tử
+          Hồ sơ điều trị điện tử
         </button>
         <button
           onClick={() => setActiveTab('sessions')}

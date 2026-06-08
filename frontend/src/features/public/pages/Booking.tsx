@@ -24,9 +24,9 @@ import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const timeSlots = [
-  '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
-  '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00',
-  '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00'
+  '07:30', '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
+  '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30',
+  '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30'
 ];
 
 interface BookingState {
@@ -109,6 +109,26 @@ export default function Booking() {
   const { user, isAuthenticated, setShowAuthModal } = useAuthStore();
   const [bookedSlots, setBookedSlots] = useState<string[]>([]);
   const [activeStep, setActiveStep] = useState(1);
+  const [bookingType, setBookingType] = useState<'kham' | 'dich_vu'>('kham');
+  const [selectedServiceId, setSelectedServiceId] = useState<string>('');
+  const [services, setServices] = useState<any[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(false);
+
+  useEffect(() => {
+    setServicesLoading(true);
+    fetch('http://localhost:5001/api/client/services')
+      .then(res => res.json())
+      .then(data => {
+        setServices(data || []);
+      })
+      .catch(err => {
+        console.error('Lỗi tải danh sách dịch vụ:', err);
+      })
+      .finally(() => {
+        setServicesLoading(false);
+      });
+  }, []);
+
   const dateContainerRef = useRef<HTMLDivElement>(null);
 
   const [dragActive, setDragActive] = useState(false);
@@ -279,7 +299,7 @@ export default function Booking() {
       return;
     }
 
-    const toastId = toast.loading('Đang gửi đăng ký lịch hẹn y khoa...');
+    const toastId = toast.loading(bookingType === 'dich_vu' ? 'Đang gửi đăng ký lịch dịch vụ lẻ...' : 'Đang gửi đăng ký lịch hẹn y khoa...');
     dispatch({ type: 'SET_SUBMITTING', isSubmitting: true });
 
     const [year, month, day] = selectedDate.split('-');
@@ -293,6 +313,7 @@ export default function Booking() {
     ).toISOString();
 
     try {
+      const selectedService = services.find(s => s.id === selectedServiceId);
       const response = await fetch('http://localhost:5001/api/client/appointments/public', {
         method: 'POST',
         headers: {
@@ -302,11 +323,13 @@ export default function Booking() {
           ...formData,
           ngay_gio_bat_dau,
           nguoi_dung_id: user?.id,
+          dich_vu_id: bookingType === 'dich_vu' ? selectedServiceId : null,
+          ly_do_kham: bookingType === 'dich_vu' ? `Trị liệu lẻ: ${selectedService?.ten_dich_vu || 'Không rõ'}` : formData.ly_do_kham,
         }),
       });
 
       if (response.ok) {
-        toast.success('Đăng ký lịch khám lượng giá thành công!', { id: toastId });
+        toast.success(bookingType === 'dich_vu' ? 'Đăng ký lịch dịch vụ lẻ thành công!' : 'Đăng ký lịch khám lượng giá thành công!', { id: toastId });
         dispatch({ type: 'SET_SUCCESS', isSuccess: true });
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
@@ -357,6 +380,7 @@ export default function Booking() {
 
   // Render Success State redone as elegant Stripe/Apple-like page
   if (isSuccess) {
+    const selectedService = services.find(s => s.id === selectedServiceId);
     return (
       <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center py-20 px-4">
         <motion.div
@@ -377,7 +401,9 @@ export default function Booking() {
               Đặt lịch thành công!
             </h2>
             <p className="text-sm font-semibold text-slate-500 max-w-md mx-auto leading-relaxed">
-              Yêu cầu khám lượng giá của bạn đã được tiếp nhận. Đội ngũ y tế sẽ liên hệ xác nhận trong thời gian sớm nhất.
+              {bookingType === 'dich_vu' 
+                ? 'Yêu cầu đăng ký lịch dịch vụ lẻ của bạn đã được tiếp nhận. Đội ngũ điều phối sẽ liên hệ xác nhận trong thời gian sớm nhất.' 
+                : 'Yêu cầu khám lượng giá của bạn đã được tiếp nhận. Đội ngũ y tế sẽ liên hệ xác nhận trong thời gian sớm nhất.'}
             </p>
           </div>
 
@@ -386,13 +412,23 @@ export default function Booking() {
             <div className="grid grid-cols-2 gap-y-4 gap-x-2 text-xs font-jakarta">
               <div>
                 <p className="text-slate-400 font-bold uppercase tracking-wider">Dịch vụ</p>
-                <p className="text-[#0F172A] font-extrabold mt-1 text-sm">Khám Lượng Giá Ban Đầu</p>
+                <p className="text-[#0F172A] font-extrabold mt-1 text-sm">
+                  {bookingType === 'dich_vu' ? (selectedService?.ten_dich_vu || 'Trị liệu dịch vụ lẻ') : 'Khám Lượng Giá Ban Đầu'}
+                </p>
               </div>
               <div>
                 <p className="text-slate-400 font-bold uppercase tracking-wider">Thời lượng</p>
-                <p className="text-[#0F172A] font-extrabold mt-1 text-sm">30 phút</p>
+                <p className="text-[#0F172A] font-extrabold mt-1 text-sm">
+                  {bookingType === 'dich_vu' ? `${selectedService?.thoi_luong_phut || 45} phút` : '30 phút'}
+                </p>
               </div>
-              <div className="col-span-2 border-t border-slate-200/60 pt-3">
+              <div>
+                <p className="text-slate-400 font-bold uppercase tracking-wider">Chi phí</p>
+                <p className="text-[#0F172A] font-extrabold mt-1 text-sm">
+                  {bookingType === 'dich_vu' ? (selectedService ? `${Number(selectedService.don_gia).toLocaleString('vi-VN')}đ` : '...') : 'Miễn phí'}
+                </p>
+              </div>
+              <div>
                 <p className="text-slate-400 font-bold uppercase tracking-wider">Thời gian hẹn</p>
                 <p className="text-[#0F172A] font-extrabold mt-1 text-sm capitalize">
                   {selectedTime} — {formatFullDate(selectedDate)}
@@ -423,12 +459,12 @@ export default function Booking() {
           {/* Prep instructions */}
           <div className="bg-[#E6F4F1] text-[#0F172A] p-5 rounded-[20px] text-left text-xs border border-[#2EC4B6]/15 space-y-2.5">
             <p className="font-extrabold flex items-center gap-1.5 text-slate-800 text-sm">
-              <Info size={16} className="text-[#2EC4B6]" /> Hướng dẫn chuẩn bị trước khi khám:
+              <Info size={16} className="text-[#2EC4B6]" /> {bookingType === 'dich_vu' ? 'Hướng dẫn chuẩn bị trước khi trị liệu:' : 'Hướng dẫn chuẩn bị trước khi khám:'}
             </p>
             <ul className="space-y-1.5 font-medium text-slate-600 list-none pl-0">
               <li className="flex items-start gap-2">
                 <span className="text-[#2EC4B6] font-bold">✓</span>
-                Mặc trang phục thoải mái, co giãn tốt để dễ cử động khi thực hiện đo tầm vận động (ROM).
+                Mặc trang phục thoải mái, co giãn tốt để dễ dàng thực hiện trị liệu/vận động cơ khớp.
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-[#2EC4B6] font-bold">✓</span>
@@ -436,7 +472,7 @@ export default function Booking() {
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-[#2EC4B6] font-bold">✓</span>
-                Vui lòng đến trước lịch hẹn 10 phút để chuyên viên tiếp đón hướng dẫn làm hồ sơ bệnh án.
+                Vui lòng đến trước lịch hẹn 10 phút để chuyên viên tiếp đón hướng dẫn làm hồ sơ điều trị.
               </li>
             </ul>
           </div>
@@ -601,17 +637,18 @@ export default function Booking() {
             <div className="space-y-4">
               <div className="flex justify-between items-center text-xs font-jakarta">
                 <span className="text-[#2EC4B6] font-extrabold uppercase tracking-wider">
-                  Bước {activeStep} / 4
+                  Bước {activeStep} / 5
                 </span>
                 <span className="text-slate-400 font-bold">
-                  {activeStep === 1 && 'Chọn Ngày Khám'}
-                  {activeStep === 2 && 'Chọn Giờ Khám'}
-                  {activeStep === 3 && 'Thông Tin Bệnh Nhân'}
-                  {activeStep === 4 && 'Xác Nhận Đăng Ký'}
+                  {activeStep === 1 && 'Chọn Hình Thức'}
+                  {activeStep === 2 && 'Chọn Ngày Hẹn'}
+                  {activeStep === 3 && 'Chọn Giờ Hẹn'}
+                  {activeStep === 4 && 'Thông Tin Liên Hệ'}
+                  {activeStep === 5 && 'Xác Nhận Đăng Ký'}
                 </span>
               </div>
               <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden flex">
-                {[1, 2, 3, 4].map((stepNum) => (
+                {[1, 2, 3, 4, 5].map((stepNum) => (
                   <div
                     key={stepNum}
                     className={`h-full flex-1 transition-all duration-300 border-r border-white last:border-0 ${
@@ -626,8 +663,144 @@ export default function Booking() {
             <form onSubmit={handleSubmit} className="space-y-8">
               <AnimatePresence mode="wait">
                 
-                {/* STEP 1: DATE SELECTION */}
+                {/* STEP 1: BOOKING TYPE SELECTION */}
                 {activeStep === 1 && (
+                  <motion.div
+                    key="type-step"
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -15 }}
+                    transition={{ duration: 0.2 }}
+                    className="space-y-6 text-left"
+                  >
+                    <div className="space-y-1">
+                      <h3 className="text-lg font-jakarta font-black text-[#0F172A] flex items-center gap-2">
+                        <CalendarIcon className="text-[#2EC4B6]" size={20} />
+                        Chọn hình thức đặt lịch hẹn
+                      </h3>
+                      <p className="text-xs font-medium text-slate-450">
+                        PhysioFlow cung cấp dịch vụ khám lâm sàng và các gói chăm sóc trị liệu nhanh phù hợp với từng nhu cầu.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                      {/* Option A: Lịch Khám */}
+                      <div
+                        onClick={() => {
+                          setBookingType('kham');
+                          setSelectedServiceId('');
+                        }}
+                        className={`p-5 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between select-none ${
+                          bookingType === 'kham'
+                            ? 'bg-emerald-50/20 border-[#2EC4B6] ring-2 ring-[#2EC4B6]/10'
+                            : 'bg-white border-slate-200 hover:border-slate-350'
+                        }`}
+                      >
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-9 h-9 rounded-xl bg-[#2EC4B6]/10 text-[#2EC4B6] flex items-center justify-center">
+                              <Stethoscope size={20} />
+                            </div>
+                            <span className="text-sm font-black text-slate-800">Lịch Khám Lâm Sàng</span>
+                          </div>
+                          <p className="text-xs text-slate-400 font-semibold leading-relaxed">
+                            Dành cho khách hàng có nhu cầu trị liệu bệnh lý (đau mỏi vai gáy, lưng, khớp...) cần được Bác sĩ kiểm tra trực tiếp và lên phác đồ trước.
+                          </p>
+                        </div>
+                        <div className="flex gap-1.5 mt-4">
+                          <span className="text-[9px] font-black px-2 py-0.5 rounded bg-emerald-105 text-emerald-700 uppercase tracking-wider">Có Bác sĩ</span>
+                          <span className="text-[9px] font-black px-2 py-0.5 rounded bg-slate-100 text-slate-500 uppercase tracking-wider">30 phút</span>
+                          <span className="text-[9px] font-black px-2 py-0.5 rounded bg-emerald-105 text-emerald-700 uppercase tracking-wider">Miễn phí</span>
+                        </div>
+                      </div>
+
+                      {/* Option B: Dịch vụ lẻ */}
+                      <div
+                        onClick={() => setBookingType('dich_vu')}
+                        className={`p-5 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between select-none ${
+                          bookingType === 'dich_vu'
+                            ? 'bg-emerald-50/20 border-[#2EC4B6] ring-2 ring-[#2EC4B6]/10'
+                            : 'bg-white border-slate-200 hover:border-slate-355'
+                        }`}
+                      >
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-9 h-9 rounded-xl bg-[#2EC4B6]/10 text-[#2EC4B6] flex items-center justify-center">
+                              <Award size={20} />
+                            </div>
+                            <span className="text-sm font-black text-slate-800">Dịch Vụ Lẻ / Trị Liệu Nhanh</span>
+                          </div>
+                          <p className="text-xs text-slate-400 font-semibold leading-relaxed">
+                            Dành cho khách hàng chỉ muốn sử dụng các dịch vụ chăm sóc sức khỏe làm nhanh, thư giãn cơ, siêu âm trị liệu... không cần Bác sĩ khám trước.
+                          </p>
+                        </div>
+                        <div className="flex gap-1.5 mt-4">
+                          <span className="text-[9px] font-black px-2 py-0.5 rounded bg-amber-100 text-amber-700 uppercase tracking-wider">Không cần khám</span>
+                          <span className="text-[9px] font-black px-2 py-0.5 rounded bg-slate-100 text-slate-500 uppercase tracking-wider">45-60 phút</span>
+                          <span className="text-[9px] font-black px-2 py-0.5 rounded bg-emerald-105 text-emerald-700 uppercase tracking-wider">Bảng giá lẻ</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Service grid if bookingType === 'dich_vu' */}
+                    {bookingType === 'dich_vu' && (
+                      <div className="space-y-3 pt-4 border-t border-slate-150 animate-fade-in">
+                        <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider">
+                          Chọn Dịch vụ lẻ mong muốn *
+                        </h4>
+                        {servicesLoading ? (
+                          <div className="py-8 text-center text-slate-400 text-xs font-semibold">
+                            Đang tải danh sách dịch vụ lẻ...
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[220px] overflow-y-auto pr-1 scrollbar-thin">
+                            {services.map((srv) => {
+                              const isSelected = selectedServiceId === srv.id;
+                              return (
+                                <div
+                                  key={srv.id}
+                                  onClick={() => setSelectedServiceId(srv.id)}
+                                  className={`p-3.5 rounded-xl border-2 transition-all flex flex-col justify-between select-none cursor-pointer ${
+                                    isSelected
+                                      ? 'bg-emerald-50/40 border-emerald-500 text-emerald-800 ring-2 ring-emerald-500/10'
+                                      : 'bg-white border-slate-150 hover:border-slate-350'
+                                  }`}
+                                >
+                                  <div className="flex justify-between items-start">
+                                    <span className="text-xs font-black text-slate-800 leading-tight block truncate pr-2">{srv.ten_dich_vu}</span>
+                                    <span className="text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider bg-slate-100 text-slate-500">
+                                      {srv.thoi_luong_phut} phút
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between items-center mt-2.5">
+                                    <span className="text-[10px] text-slate-400 font-semibold truncate max-w-[130px]">{srv.mo_ta_ngan || 'Trị liệu phục hồi chức năng'}</span>
+                                    <span className="text-xs font-black text-emerald-600 font-jakarta">
+                                      {Number(srv.don_gia).toLocaleString('vi-VN')}đ
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="flex justify-end pt-4">
+                      <button
+                        type="button"
+                        onClick={() => setActiveStep(2)}
+                        disabled={bookingType === 'dich_vu' && !selectedServiceId}
+                        className="bg-[#0F172A] hover:bg-[#1E293B] text-white font-jakarta font-extrabold py-3.5 px-6 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Chọn Ngày Hẹn
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* STEP 2: DATE SELECTION */}
+                {activeStep === 2 && (
                   <motion.div
                     key="date-step"
                     initial={{ opacity: 0, y: 15 }}
@@ -708,10 +881,17 @@ export default function Booking() {
                       })}
                     </div>
 
-                    <div className="flex justify-end pt-4">
+                    <div className="flex justify-between pt-4">
                       <button
                         type="button"
-                        onClick={() => setActiveStep(2)}
+                        onClick={() => setActiveStep(1)}
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-jakarta font-extrabold py-3.5 px-6 rounded-xl text-xs uppercase tracking-widest transition-all"
+                      >
+                        Quay lại
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveStep(3)}
                         disabled={!selectedDate}
                         className="bg-[#0F172A] hover:bg-[#1E293B] text-white font-jakarta font-extrabold py-3.5 px-6 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                       >
@@ -721,8 +901,8 @@ export default function Booking() {
                   </motion.div>
                 )}
 
-                {/* STEP 2: TIME SELECTION */}
-                {activeStep === 2 && (
+                {/* STEP 3: TIME SELECTION */}
+                {activeStep === 3 && (
                   <motion.div
                     key="time-step"
                     initial={{ opacity: 0, y: 15 }}
@@ -863,14 +1043,14 @@ export default function Booking() {
                     <div className="flex justify-between pt-4">
                       <button
                         type="button"
-                        onClick={() => setActiveStep(1)}
+                        onClick={() => setActiveStep(2)}
                         className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-jakarta font-extrabold py-3.5 px-6 rounded-xl text-xs uppercase tracking-widest transition-all"
                       >
                         Quay lại
                       </button>
                       <button
                         type="button"
-                        onClick={() => setActiveStep(3)}
+                        onClick={() => setActiveStep(4)}
                         disabled={!selectedTime}
                         className="bg-[#0F172A] hover:bg-[#1E293B] text-white font-jakarta font-extrabold py-3.5 px-6 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                       >
@@ -880,8 +1060,8 @@ export default function Booking() {
                   </motion.div>
                 )}
 
-                {/* STEP 3: PATIENT INFORMATION */}
-                {activeStep === 3 && (
+                {/* STEP 4: PATIENT INFORMATION */}
+                {activeStep === 4 && (
                   <motion.div
                     key="info-step"
                     initial={{ opacity: 0, y: 15 }}
@@ -1058,7 +1238,7 @@ export default function Booking() {
                     <div className="flex justify-between pt-4">
                       <button
                         type="button"
-                        onClick={() => setActiveStep(2)}
+                        onClick={() => setActiveStep(3)}
                         className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-jakarta font-extrabold py-3.5 px-6 rounded-xl text-xs uppercase tracking-widest transition-all"
                       >
                         Quay lại
@@ -1066,22 +1246,22 @@ export default function Booking() {
                       <button
                         type="button"
                         onClick={() => {
-                          if (formData.ho_ten_khach.trim() && formData.so_dien_thoai.trim() && formData.trieu_chung.trim()) {
-                            setActiveStep(4);
+                          if (formData.ho_ten_khach && formData.so_dien_thoai && formData.trieu_chung) {
+                            setActiveStep(5);
                           } else {
-                            toast.error('Vui lòng điền đầy đủ các trường thông tin có dấu *');
+                            toast.error('Vui lòng điền đầy đủ các thông tin bắt buộc (*)');
                           }
                         }}
                         className="bg-[#0F172A] hover:bg-[#1E293B] text-white font-jakarta font-extrabold py-3.5 px-6 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md"
                       >
-                        Xem Xác Nhận
+                        Xác nhận
                       </button>
                     </div>
                   </motion.div>
                 )}
 
-                {/* STEP 4: CONFIRMATION */}
-                {activeStep === 4 && (
+                {/* STEP 5: CONFIRMATION */}
+                {activeStep === 5 && (
                   <motion.div
                     key="confirm-step"
                     initial={{ opacity: 0, y: 15 }}
@@ -1116,7 +1296,9 @@ export default function Booking() {
                         </div>
                         <div>
                           <p className="text-slate-400 font-bold uppercase tracking-wider">Dịch vụ</p>
-                          <p className="text-[#0F172A] font-extrabold mt-1 text-sm">Khám Lượng Giá Chuyên Sâu</p>
+                          <p className="text-[#0F172A] font-extrabold mt-1 text-sm">
+                            {bookingType === 'dich_vu' ? (services.find(s => s.id === selectedServiceId)?.ten_dich_vu || 'Trị liệu dịch vụ lẻ') : 'Khám Lượng Giá Chuyên Sâu'}
+                          </p>
                         </div>
                         <div className="sm:col-span-2 border-t border-slate-200/60 pt-3">
                           <p className="text-slate-400 font-bold uppercase tracking-wider">Thời gian khám</p>
@@ -1144,9 +1326,9 @@ export default function Booking() {
                       <div className="bg-amber-50 border border-amber-200/80 p-4 rounded-xl text-xs flex items-start gap-3 text-amber-900 leading-relaxed font-semibold mb-1">
                         <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5 animate-bounce" />
                         <div>
-                          <p className="font-extrabold uppercase tracking-wider text-amber-800 text-[10px]">Cảnh báo đặt lịch sát giờ</p>
+                          <p className="font-extrabold uppercase tracking-wider text-amber-850 text-[10px]">Cảnh báo đặt lịch sát giờ</p>
                           <p className="mt-1 font-medium text-amber-700">
-                            Bạn đang đặt lịch khám bắt đầu trong vòng chưa đầy 2 giờ. Vui lòng di chuyển sớm để có mặt trước 10 phút. Hotline hỗ trợ gấp: <span className="font-extrabold text-amber-950">0398 655 332</span>.
+                            Bạn đang đặt lịch khám bắt đầu trong vòng chưa đầy 2 giờ. Vui lòng di chuyển sớm để có mặt trước 10 phút. Hotline hỗ trợ gấp: <span className="font-extrabold text-amber-955">0398 655 332</span>.
                           </p>
                         </div>
                       </div>
@@ -1182,7 +1364,7 @@ export default function Booking() {
                     <div className="flex justify-between pt-2">
                       <button
                         type="button"
-                        onClick={() => setActiveStep(3)}
+                        onClick={() => setActiveStep(4)}
                         className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-jakarta font-extrabold py-3 px-5 rounded-xl text-xs uppercase tracking-widest transition-all"
                       >
                         Sửa thông tin
@@ -1197,17 +1379,19 @@ export default function Booking() {
           {/* STICKY APPOINTMENT SUMMARY (Right 4-cols) */}
           <div className="lg:col-span-4 lg:sticky lg:top-28 space-y-6">
             <div className="bg-white/80 backdrop-blur-md border border-slate-150 shadow-lg rounded-[24px] overflow-hidden p-6 space-y-6">
-              <div className="space-y-4">
-                <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full">
-                  Đặt lịch miễn phí
+              <div className="space-y-4 text-left">
+                <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border ${
+                  bookingType === 'dich_vu' ? 'bg-teal-50 text-teal-700 border-teal-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                }`}>
+                  {bookingType === 'dich_vu' ? 'Trị liệu trực tiếp' : 'Đặt lịch miễn phí'}
                 </span>
                 
                 <div className="space-y-1">
                   <h3 className="text-lg font-jakarta font-black text-[#0F172A]">
-                    Khám Lượng Giá
+                    {bookingType === 'dich_vu' ? (services.find(s => s.id === selectedServiceId)?.ten_dich_vu || 'Chọn dịch vụ') : 'Khám Lượng Giá'}
                   </h3>
                   <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                    Đánh giá & Chẩn đoán cột sống
+                    {bookingType === 'dich_vu' ? 'Trị liệu dịch vụ lẻ nhanh' : 'Đánh giá & Chẩn đoán cột sống'}
                   </p>
                 </div>
               </div>
@@ -1217,25 +1401,33 @@ export default function Booking() {
               {/* Summary Details */}
               <div className="space-y-4 text-xs font-jakarta">
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-450 font-bold uppercase tracking-wider">Ngày khám</span>
+                  <span className="text-slate-450 font-bold uppercase tracking-wider">
+                    {bookingType === 'dich_vu' ? 'Ngày hẹn' : 'Ngày khám'}
+                  </span>
                   <span className="text-[#0F172A] font-extrabold capitalize">
                     {selectedDate ? formatFullDate(selectedDate).split(',').slice(0, 2).join(',') : 'Chưa chọn'}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-450 font-bold uppercase tracking-wider">Giờ khám</span>
+                  <span className="text-slate-450 font-bold uppercase tracking-wider">
+                    {bookingType === 'dich_vu' ? 'Giờ hẹn' : 'Giờ khám'}
+                  </span>
                   <span className="text-[#0F172A] font-extrabold">
                     {selectedTime ? `${selectedTime}` : 'Chưa chọn'}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-slate-450 font-bold uppercase tracking-wider">Thời lượng</span>
-                  <span className="text-[#0F172A] font-extrabold">30 phút</span>
+                  <span className="text-[#0F172A] font-extrabold">
+                    {bookingType === 'dich_vu' ? `${services.find(s => s.id === selectedServiceId)?.thoi_luong_phut || 45} phút` : '30 phút'}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-slate-450 font-bold uppercase tracking-wider">Chi phí</span>
-                  <span className="text-emerald-500 font-extrabold bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100">
-                    Miễn phí
+                  <span className={`${
+                    bookingType === 'dich_vu' ? 'text-teal-600 bg-teal-50 border-teal-100' : 'text-emerald-500 bg-emerald-50 border-emerald-100'
+                  } font-extrabold px-2.5 py-0.5 rounded-full border`}>
+                    {bookingType === 'dich_vu' ? (services.find(s => s.id === selectedServiceId) ? `${Number(services.find(s => s.id === selectedServiceId).don_gia).toLocaleString('vi-VN')}đ` : '...') : 'Miễn phí'}
                   </span>
                 </div>
               </div>
@@ -1243,20 +1435,36 @@ export default function Booking() {
               <div className="h-px bg-slate-100" />
 
               {/* Benefit checks */}
-              <div className="space-y-3">
+              <div className="space-y-3 text-left">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  Quyền lợi của bạn
+                  {bookingType === 'dich_vu' ? 'Nội dung thực hiện' : 'Quyền lợi của bạn'}
                 </p>
-                <ul className="space-y-2 text-xs font-bold text-slate-600">
-                  <li className="flex items-center gap-2 text-emerald-600">
-                    <span className="text-emerald-500">✓</span> Lượng giá tầm vận động (ROM)
-                  </li>
-                  <li className="flex items-center gap-2 text-emerald-600">
-                    <span className="text-emerald-500">✓</span> Xác định tận gốc nguyên nhân đau
-                  </li>
-                  <li className="flex items-center gap-2 text-emerald-600">
-                    <span className="text-emerald-500">✓</span> Nhận phác đồ y khoa cá nhân hóa
-                  </li>
+                <ul className="space-y-2 text-xs font-bold text-slate-650">
+                  {bookingType === 'dich_vu' ? (
+                    <>
+                      <li className="flex items-center gap-2 text-[#2EC4B6]">
+                        <span className="text-[#2EC4B6] font-bold">✓</span> Trực tiếp trị liệu cùng KTV tay nghề cao
+                      </li>
+                      <li className="flex items-center gap-2 text-[#2EC4B6]">
+                        <span className="text-[#2EC4B6] font-bold">✓</span> Sử dụng máy móc chuyên dụng hiện đại
+                      </li>
+                      <li className="flex items-center gap-2 text-[#2EC4B6]">
+                        <span className="text-[#2EC4B6] font-bold">✓</span> Tối ưu hóa thời gian, không chờ đợi khám
+                      </li>
+                    </>
+                  ) : (
+                    <>
+                      <li className="flex items-center gap-2 text-emerald-600">
+                        <span className="text-emerald-500">✓</span> Lượng giá tầm vận động (ROM)
+                      </li>
+                      <li className="flex items-center gap-2 text-emerald-600">
+                        <span className="text-emerald-500">✓</span> Xác định tận gốc nguyên nhân đau
+                      </li>
+                      <li className="flex items-center gap-2 text-emerald-600">
+                        <span className="text-emerald-500">✓</span> Nhận phác đồ y khoa cá nhân hóa
+                      </li>
+                    </>
+                  )}
                 </ul>
               </div>
             </div>

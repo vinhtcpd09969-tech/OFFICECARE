@@ -113,19 +113,19 @@ CREATE TABLE IF NOT EXISTS lich_dat (
   dich_vu_id uuid REFERENCES dich_vu(id),
   ky_thuat_vien_id uuid REFERENCES chuyen_gia_y_te(id),
   phong_id bigint REFERENCES phong(id),
-  ngay_gio_bat_dau timestamp without time zone NOT NULL,
-  ngay_gio_ket_thuc timestamp without time zone NOT NULL,
+  ngay_gio_bat_dau timestamp with time zone NOT NULL,
+  ngay_gio_ket_thuc timestamp with time zone NOT NULL,
   ly_do_kham text,
   anh_dinh_kem_url text,
   trang_thai varchar(30) NOT NULL DEFAULT 'cho_xac_nhan',
   dang_ky_goi_id uuid,
   ghi_chu_dat_lich text,
   ghi_chu_noi_bo text,
-  thoi_gian_checkin timestamp without time zone,
-  thoi_gian_huy timestamp without time zone,
+  thoi_gian_checkin timestamp with time zone,
+  thoi_gian_huy timestamp with time zone,
   ly_do_huy text,
   nguoi_tao varchar(20) NOT NULL DEFAULT 'khach_hang',
-  thoi_gian_tao timestamp without time zone NOT NULL DEFAULT now(),
+  thoi_gian_tao timestamp with time zone NOT NULL DEFAULT now(),
   chan_doan text,
   chong_chi_dinh text,
   khuyen_nghi_dich_vu_id uuid REFERENCES dich_vu(id),
@@ -155,7 +155,7 @@ CREATE TABLE IF NOT EXISTS goi_dich_vu (
   hien_thi_website boolean NOT NULL DEFAULT true,
   trang_thai varchar(20) NOT NULL DEFAULT 'hoat_dong',
   chi_tiet_dich_vu jsonb DEFAULT '[]'::jsonb,
-  thoi_gian_tao timestamp without time zone NOT NULL DEFAULT now(),
+  thoi_gian_tao timestamp with time zone NOT NULL DEFAULT now(),
   danh_muc_id bigint REFERENCES danh_muc_dich_vu(id)
 );
 
@@ -180,15 +180,15 @@ CREATE TABLE IF NOT EXISTS lich_dieu_tri (
   tong_so_buoi integer NOT NULL,
   so_buoi_da_dung integer NOT NULL DEFAULT 0,
   trang_thai varchar(20) NOT NULL DEFAULT 'dang_dieu_tri',
-  thoi_gian_tao timestamp without time zone NOT NULL DEFAULT now(),
+  thoi_gian_tao timestamp with time zone NOT NULL DEFAULT now(),
   ma_lich_dieu_tri varchar(20) UNIQUE,
   phong_id bigint REFERENCES phong(id),
   ho_ten_khach varchar(150),
   so_dien_thoai varchar(20),
   ghi_chu_noi_bo text,
   lich_dat_id uuid REFERENCES lich_dat(id),
-  ngay_bat_dau timestamp without time zone,
-  ngay_ket_thuc timestamp without time zone
+  ngay_bat_dau timestamp with time zone,
+  ngay_ket_thuc timestamp with time zone
 );
 
 -- 14. buoi_tri_lieu
@@ -199,8 +199,8 @@ CREATE TABLE IF NOT EXISTS buoi_tri_lieu (
   ky_thuat_vien_id uuid NOT NULL REFERENCES chuyen_gia_y_te(id),
   phong_id bigint REFERENCES phong(id),
   dich_vu_id uuid REFERENCES dich_vu(id),
-  thoi_gian_bat_dau timestamp without time zone NOT NULL,
-  thoi_gian_ket_thuc timestamp without time zone,
+  thoi_gian_bat_dau timestamp with time zone NOT NULL,
+  thoi_gian_ket_thuc timestamp with time zone,
   danh_gia_truoc_buoi integer,
   danh_gia_sau_buoi integer,
   danh_gia_hieu_qua integer,
@@ -209,7 +209,7 @@ CREATE TABLE IF NOT EXISTS buoi_tri_lieu (
   trang_thai varchar(20) NOT NULL DEFAULT 'dang_thuc_hien',
   canh_bao_dac_biet text,
   ai_tom_tat_ngan varchar(300),
-  thoi_gian_ghi_chu timestamp without time zone
+  thoi_gian_ghi_chu timestamp with time zone
 );
 
 -- 15. danh_gia_dich_vu
@@ -309,7 +309,14 @@ CREATE TABLE IF NOT EXISTS thiet_bi_y_te (
   trang_thai varchar(20) NOT NULL DEFAULT 'san_sang',
   phong_id_hien_tai bigint,
   ghi_chu text,
-  thoi_gian_tao timestamp without time zone NOT NULL DEFAULT now()
+  thoi_gian_tao timestamp without time zone NOT NULL DEFAULT now(),
+  co_the_di_chuyen boolean DEFAULT true,
+  so_lan_su_dung integer DEFAULT 0,
+  nguong_canh_bao integer DEFAULT 80,
+  nguong_bat_buoc_bao_tri integer DEFAULT 100,
+  tan_suat_bao_tri_ngay integer DEFAULT 45,
+  ngay_bao_tri_gan_nhat date,
+  cap_rui_ro varchar(20) DEFAULT 'trung_binh'
 );
 
 

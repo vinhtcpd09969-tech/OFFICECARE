@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS ho_so_benh_an (
   goi_dich_vu_id        UUID,
   dich_vu_id            UUID,
   ghi_chu               TEXT,
-  thoi_gian_tao         TIMESTAMP DEFAULT NOW(),
+  thoi_gian_tao         TIMESTAMPTZ DEFAULT NOW(),
   
   CONSTRAINT fk_hsba_lich_dat FOREIGN KEY (lich_dat_id) REFERENCES lich_dat(id) ON DELETE CASCADE,
   CONSTRAINT fk_hsba_bac_si FOREIGN KEY (bac_si_id) REFERENCES chuyen_gia_y_te(id) ON DELETE SET NULL,
@@ -60,7 +60,7 @@ ALTER TABLE buoi_tri_lieu_dich_vu ADD COLUMN IF NOT EXISTS duyet_boi UUID;
 ALTER TABLE buoi_tri_lieu_dich_vu DROP CONSTRAINT IF EXISTS fk_btldv_duyet_boi;
 ALTER TABLE buoi_tri_lieu_dich_vu ADD CONSTRAINT fk_btldv_duyet_boi FOREIGN KEY (duyet_boi) REFERENCES nguoi_dung(id) ON DELETE SET NULL;
 
-ALTER TABLE buoi_tri_lieu_dich_vu ADD COLUMN IF NOT EXISTS duyet_luc TIMESTAMP;
+ALTER TABLE buoi_tri_lieu_dich_vu ADD COLUMN IF NOT EXISTS duyet_luc TIMESTAMPTZ;
 
 -- Drop the old table completely
 DROP TABLE IF EXISTS buoi_dich_vu_su_dung CASCADE;
