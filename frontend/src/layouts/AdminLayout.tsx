@@ -222,15 +222,10 @@ export default function AdminLayout() {
             {/* Profile Avatar Card */}
             <div className="flex items-center gap-3 pl-2">
               <div className="text-right hidden sm:block">
-<<<<<<< HEAD
-                <p className="text-xs font-bold text-secondary dark:text-zinc-100">Admin Physio</p>
-                <p className="text-[9px] text-zinc-400 dark:text-zinc-500 font-bold uppercase tracking-wider mt-0.5">Quản trị viên</p>
-=======
-                <p className="text-xs font-bold text-secondary">{user?.ho_ten || 'Admin Physio'}</p>
-                <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider mt-0.5">
+                <p className="text-xs font-bold text-secondary dark:text-zinc-100">{user?.ho_ten || 'Admin Physio'}</p>
+                <p className="text-[9px] text-zinc-400 dark:text-zinc-500 font-bold uppercase tracking-wider mt-0.5">
                   {user?.vai_tro_id === 4 ? 'Bác sĩ' : user?.vai_tro_id === 6 ? 'Quản lý' : 'Quản trị viên'}
                 </p>
->>>>>>> origin/feature/client-admin-updates
               </div>
               <img 
                 src="https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=120&h=120"

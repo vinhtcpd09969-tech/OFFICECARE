@@ -106,7 +106,7 @@ const getMockAvailableSlots = (dateStr: string): number => {
 export default function Booking() {
   const navigate = useNavigate();
   const [isClient, setIsClient] = useState(false);
-  const { user, isAuthenticated, showAuthModal, setShowAuthModal } = useAuthStore();
+  const { user, isAuthenticated, setShowAuthModal } = useAuthStore();
   const [bookedSlots, setBookedSlots] = useState<string[]>([]);
   const [activeStep, setActiveStep] = useState(1);
   const [bookingType, setBookingType] = useState<'kham' | 'dich_vu'>('kham');
@@ -241,14 +241,8 @@ export default function Booking() {
     }
   }, [isAuthenticated, navigate, setShowAuthModal]);
 
-  // Sync user details and restore saved booking form data on user state change
+  // Restore saved booking form data on user state change
   useEffect(() => {
-    if (user?.ho_ten) {
-      dispatch({ type: 'SET_FORM_FIELD', field: 'ho_ten_khach', value: user.ho_ten });
-    }
-    if ((user as any)?.so_dien_thoai) {
-      dispatch({ type: 'SET_FORM_FIELD', field: 'so_dien_thoai', value: (user as any).so_dien_thoai });
-    }
     const saved = localStorage.getItem('temp_booking');
     if (saved) {
       try {
@@ -305,13 +299,6 @@ export default function Booking() {
       return;
     }
 
-    // NẾU CHƯA ĐĂNG NHẬP -> Báo lỗi toast tiếng Việt và bật Modal hướng dẫn Đăng ký/Đăng nhập
-    if (!isAuthenticated()) {
-      toast.error('Vui lòng đăng nhập trước khi đặt lịch!');
-      setShowAuthModal(true);
-      return;
-    }
-
     const toastId = toast.loading(bookingType === 'dich_vu' ? 'Đang gửi đăng ký lịch dịch vụ lẻ...' : 'Đang gửi đăng ký lịch hẹn y khoa...');
     dispatch({ type: 'SET_SUBMITTING', isSubmitting: true });
 
@@ -342,9 +329,9 @@ export default function Booking() {
       });
 
       if (response.ok) {
-        const data = await response.json();
         toast.success(bookingType === 'dich_vu' ? 'Đăng ký lịch dịch vụ lẻ thành công!' : 'Đăng ký lịch khám lượng giá thành công!', { id: toastId });
-        navigate(`/booking/success/${data.id}`);
+        dispatch({ type: 'SET_SUCCESS', isSuccess: true });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
         const error = await response.json();
         toast.error(error.message || 'Không thể tạo lịch hẹn. Hãy thử lại.', { id: toastId });
@@ -356,23 +343,6 @@ export default function Booking() {
     }
   };
 
-  const handleRedirectToLogin = () => {
-    localStorage.setItem('temp_booking', JSON.stringify({
-      selectedDate,
-      selectedTime,
-      formData
-    }));
-    navigate('/login', { state: { from: '/booking' } });
-  };
-
-  const handleRedirectToRegister = () => {
-    localStorage.setItem('temp_booking', JSON.stringify({
-      selectedDate,
-      selectedTime,
-      formData
-    }));
-    navigate('/register', { state: { from: '/booking' } });
-  };
   const formatFullDate = (dateString: string) => {
     if (!isClient || !dateString) return '';
     try {
@@ -394,22 +364,6 @@ export default function Booking() {
     const day = date.getDay();
     if (day === 0) return 'CN';
     return `T${day + 1}`;
-  };
-
-  const handleMonthChange = (direction: 'prev' | 'next') => {
-    const newMonth = new Date(currentMonth);
-    if (direction === 'prev') {
-      newMonth.setMonth(newMonth.getMonth() - 1);
-    } else {
-      newMonth.setMonth(newMonth.getMonth() + 1);
-    }
-    
-    // Prevent moving before current month
-    const now = new Date();
-    if (direction === 'prev' && newMonth.getFullYear() === now.getFullYear() && newMonth.getMonth() < now.getMonth()) {
-      return;
-    }
-    setCurrentMonth(newMonth);
   };
 
   const datesList = generateAvailableDates();
@@ -706,44 +660,6 @@ export default function Booking() {
             </div>
 
             {/* Wizard Form Panels */}
-=======
-          {/* RIGHT COLUMN: Interactive Form with time slots */}
-          <div className="lg:col-span-8 bg-white rounded-[24px] shadow-sm border border-gray-150 p-6 sm:p-8 animate-slide-up stagger-delay-2 relative overflow-hidden">
-            
-            {/* GLASSMORPHIC LOCK OVERLAY FOR UNAUTHENTICATED USERS */}
-            {isClient && !isAuthenticated() && (
-              <div className="absolute inset-0 bg-white/60 backdrop-blur-md z-30 flex items-center justify-center p-6 text-center animate-fade-in">
-                <div className="max-w-md bg-white/95 rounded-[32px] p-8 shadow-[0_20px_50px_rgba(15,23,42,0.08)] border border-gray-100 space-y-6 animate-scale-in">
-                  <div className="w-16 h-16 bg-primary/10 text-primary rounded-[20px] flex items-center justify-center mx-auto border border-primary/20 animate-bounce">
-                    <User size={30} />
-                  </div>
-                  <div className="space-y-2">
-                    <h3 className="text-xl font-heading font-black text-secondary">Đăng ký & Đăng nhập trước</h3>
-                    <p className="text-xs font-semibold text-gray-500 leading-relaxed max-w-xs mx-auto">
-                      Để tránh mất công điền thông tin lâm sàng cả buổi khi chưa có tài khoản, vui lòng đăng ký hoặc đăng nhập trước để tiếp tục khám lượng giá nhé!
-                    </p>
-                  </div>
-                  <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                    <button 
-                      type="button"
-                      onClick={handleRedirectToRegister}
-                      className="w-full bg-primary hover:opacity-90 text-white font-bold py-3.5 px-6 rounded-xl text-xs uppercase tracking-wider transition-all shadow-xs"
-                    >
-                      Đăng ký tài khoản mới
-                    </button>
-                    <button 
-                      type="button"
-                      onClick={handleRedirectToLogin}
-                      className="w-full bg-secondary hover:opacity-95 text-white font-bold py-3.5 px-6 rounded-xl text-xs uppercase tracking-wider transition-all shadow-xs"
-                    >
-                      Đăng nhập ngay
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
->>>>>>> origin/feature/client-admin-updates
             <form onSubmit={handleSubmit} className="space-y-8">
               <AnimatePresence mode="wait">
                 
@@ -922,6 +838,7 @@ export default function Booking() {
                         </button>
                       </div>
                     </div>
+
                     {/* Date Cards Horizontal Container */}
                     <div
                       ref={dateContainerRef}
@@ -980,89 +897,6 @@ export default function Booking() {
                       >
                         Chọn Khung Giờ
                       </button>
-                              ? 'bg-zinc-50 border-transparent text-zinc-300 cursor-not-allowed opacity-40'
-                              : selectedTime === time 
-                                ? 'bg-primary border-primary text-white shadow-xs scale-102 font-black active:scale-95' 
-                                : 'bg-zinc-50 border-transparent text-secondary hover:border-primary/20 hover:bg-primary/5 hover:text-primary active:scale-95'
-                            }`}
-                        >
-                          {time}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              <hr className="border-gray-150" />
-
-              {/* Step 2: Customer Identity info */}
-              <div className="space-y-6">
-                <h3 className="text-lg font-heading font-black text-secondary flex items-center gap-2">
-                  <User className="w-5 h-5 text-primary" />
-                  2. Thông tin bệnh nhân liên hệ
-                </h3>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label htmlFor="ho_ten_khach" className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Họ và tên *</label>
-                    <input
-                      id="ho_ten_khach"
-                      type="text"
-                      name="ho_ten_khach"
-                      required
-                      readOnly={!!user?.ho_ten}
-                      placeholder="Nguyễn Văn A"
-                      className={`w-full rounded-xl p-4 border font-bold text-secondary text-sm outline-none transition-colors ${
-                        user?.ho_ten 
-                          ? 'bg-zinc-100 text-gray-400 border-zinc-200 cursor-not-allowed' 
-                          : 'border-gray-250 focus:border-primary'
-                      }`}
-                      value={formData.ho_ten_khach}
-                      onChange={handleChange}
-                    />
-                  </div>
-                  
-                  <div className="space-y-1.5">
-                    <label htmlFor="so_dien_thoai" className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Số điện thoại *</label>
-                    <input
-                      id="so_dien_thoai"
-                      type="tel"
-                      name="so_dien_thoai"
-                      required
-                      placeholder="0901234567"
-                      className="w-full rounded-xl border-gray-250 focus:border-primary p-4 border font-bold text-secondary text-sm outline-none transition-colors"
-                      value={formData.so_dien_thoai}
-                      onChange={handleChange}
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2 space-y-2">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Giới tính</span>
-                    <div className="flex gap-6">
-                      <label className="flex items-center cursor-pointer group">
-                        <input 
-                          type="radio" 
-                          name="gioi_tinh_khach" 
-                          value="nam" 
-                          checked={formData.gioi_tinh_khach === 'nam'} 
-                          onChange={handleChange} 
-                          className="text-primary focus:ring-primary border-zinc-300 w-4 h-4 cursor-pointer" 
-                        />
-                        <span className="ml-2 text-xs font-bold text-secondary group-hover:text-primary transition-colors">Nam</span>
-                      </label>
-                      <label className="flex items-center cursor-pointer group">
-                        <input 
-                          type="radio" 
-                          name="gioi_tinh_khach" 
-                          value="nu" 
-                          checked={formData.gioi_tinh_khach === 'nu'} 
-                          onChange={handleChange} 
-                          className="text-primary focus:ring-primary border-zinc-300 w-4 h-4 cursor-pointer" 
-                        />
-                        <span className="ml-2 text-xs font-bold text-secondary group-hover:text-primary transition-colors">Nữ</span>
-                      </label>
->>>>>>> origin/feature/client-admin-updates
                     </div>
                   </motion.div>
                 )}
@@ -1695,43 +1529,6 @@ export default function Booking() {
         </div>
 
       </div>
-      {/* POPUP MODAL REQUIRES ACCOUNT */}
-      {showAuthModal && (
-        <div className="fixed inset-0 bg-secondary/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-[32px] max-w-md w-full p-8 shadow-md overflow-hidden border border-gray-150 animate-slide-up">
-            <div className="text-center space-y-4">
-              <div className="w-16 h-16 bg-primary/10 text-primary rounded-[20px] flex items-center justify-center mx-auto border border-primary/20">
-                <User size={30} />
-              </div>
-              <h3 className="text-2xl font-heading font-black text-secondary">Đăng ký & Đăng nhập</h3>
-              <p className="text-xs font-semibold text-gray-500 leading-relaxed">
-                Để bảo vệ an toàn hồ sơ bệnh lý và đặt lịch khám nhanh chóng, vui lòng đăng ký tài khoản mới trước. Nếu đã có tài khoản, bạn có thể đăng nhập trực tiếp.
-              </p>
-            </div>
-            
-            <div className="mt-8 flex flex-col gap-3">
-              <button 
-                onClick={handleRedirectToRegister}
-                className="w-full bg-primary hover:opacity-90 text-white font-bold py-3.5 rounded-xl text-xs uppercase tracking-wider transition-all shadow-xs"
-              >
-                Đăng ký tài khoản mới
-              </button>
-              <button 
-                onClick={handleRedirectToLogin}
-                className="w-full bg-secondary hover:opacity-95 text-white font-bold py-3.5 rounded-xl text-xs uppercase tracking-wider transition-all shadow-xs animate-pulse"
-              >
-                Đã có tài khoản? Đăng nhập ngay
-              </button>
-              <button 
-                onClick={() => setShowAuthModal(false)}
-                className="w-full bg-zinc-50 hover:bg-zinc-100 text-secondary font-bold py-3.5 rounded-xl text-xs border border-gray-200 transition-all"
-              >
-                Hủy bỏ
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

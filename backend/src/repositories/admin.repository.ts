@@ -46,7 +46,7 @@ class AdminRepository {
     return rows[0];
   }
 
-  async updateRoom(id: string, data: any) {
+  async updateRoom(id: string | number, data: any) {
     const { rows } = await pool.query(
       `UPDATE phong 
        SET ten_phong = $1, ma_phong = $2, loai_phong = $3, loai_dich_vu_ho_tro = $4, thiet_bi = $5, mo_ta = $6, trang_thai = $7, tang = $8
@@ -66,7 +66,7 @@ class AdminRepository {
     return rows[0];
   }
 
-  async deleteRoom(id: string) {
+  async deleteRoom(id: string | number) {
     const { rows } = await pool.query('DELETE FROM phong WHERE id = $1 RETURNING *', [id]);
     return rows[0];
   }
@@ -521,45 +521,7 @@ class AdminRepository {
     return rows[0];
   }
 
-  async createRoom(data: any) {
-    const { rows } = await pool.query(
-      `INSERT INTO phong (ten_phong, ma_phong, loai_phong, loai_dich_vu_ho_tro, mo_ta, trang_thai, tang) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [
-        data.ten_phong,
-        data.ma_phong,
-        data.loai_phong || null,
-        data.loai_dich_vu_ho_tro ? (typeof data.loai_dich_vu_ho_tro === 'string' ? data.loai_dich_vu_ho_tro : JSON.stringify(data.loai_dich_vu_ho_tro)) : '[]',
-        data.mo_ta || null,
-        data.trang_thai || 'san_sang',
-        data.tang || null
-      ]
-    );
-    return rows[0];
-  }
 
-  async updateRoom(id: string | number, data: any) {
-    const { rows } = await pool.query(
-      `UPDATE phong 
-       SET ten_phong = $1, ma_phong = $2, loai_phong = $3, loai_dich_vu_ho_tro = $4, mo_ta = $5, trang_thai = $6, tang = $7
-       WHERE id = $8 RETURNING *`,
-      [
-        data.ten_phong,
-        data.ma_phong,
-        data.loai_phong || null,
-        data.loai_dich_vu_ho_tro ? (typeof data.loai_dich_vu_ho_tro === 'string' ? data.loai_dich_vu_ho_tro : JSON.stringify(data.loai_dich_vu_ho_tro)) : '[]',
-        data.mo_ta || null,
-        data.trang_thai || 'san_sang',
-        data.tang || null,
-        id
-      ]
-    );
-    return rows[0];
-  }
-
-  async deleteRoom(id: string | number) {
-    await pool.query('DELETE FROM phong WHERE id = $1', [id]);
-  }
   // --- QUẢN LÝ LỊCH LÀM VIỆC ---
   async getSchedules() {
     const { rows } = await pool.query(`

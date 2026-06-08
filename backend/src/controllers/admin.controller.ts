@@ -289,32 +289,6 @@ export const updateEquipment = async (req: Request, res: Response): Promise<any>
 
     await logAudit(req, 'UPDATE_EQUIPMENT', 'EQUIPMENT', id, body);
     res.json(equipment);
-  } catch (error) {
-    if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
-    res.status(500).json({ message: 'Lỗi server khi cập nhật thiết bị' });
-  }
-};
-
-export const deleteEquipment = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const { id } = req.params as { id: string };
-    await adminService.deleteEquipment(id);
-
-    await logAudit(req, 'DELETE_EQUIPMENT', 'EQUIPMENT', id, { id });
-    res.json({ message: 'Xóa thiết bị thành công' });
-  } catch (error) {
-    res.status(500).json({ message: 'Lỗi server khi xóa thiết bị' });
-  }
-};
-
-export const updateEquipment = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const { id } = req.params as { id: string };
-    const { body } = require('../schemas/admin.schema').equipmentSchema.parse({ body: req.body });
-    const equipment = await adminService.updateEquipment(id, body);
-
-    await logAudit(req, 'UPDATE_EQUIPMENT', 'EQUIPMENT', id, body);
-    res.json(equipment);
   } catch (error: any) {
     if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
     if (error?.statusCode === 400) return res.status(400).json({ message: error.message });

@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
-import { LogOut, LayoutDashboard, ChevronDown, Menu, X, Calendar, Facebook, Instagram, Youtube, Mail, Phone, MapPin, ShieldAlert } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { LogOut, LayoutDashboard, ChevronDown, Menu, X, Calendar, Facebook, Instagram, Youtube, Mail, Phone, MapPin } from 'lucide-react';
 import GlobalAuthModal from '../components/GlobalAuthModal';
 
 export default function LandingLayout() {
-  const { isAuthenticated, user, logout, showAuthModal, setShowAuthModal } = useAuthStore();
+  const { isAuthenticated, user, logout } = useAuthStore();
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -29,18 +28,6 @@ export default function LandingLayout() {
       setShowGlobalAuthModal(true);
       setIsMobileMenuOpen(false);
     }
-  };
-
-  const handleBookingClick = (e: React.MouseEvent) => {
-    if (!isAuthenticated()) {
-      e.preventDefault();
-      setShowAuthModal(true);
-    }
-  };
-
-  const handleRedirectToLogin = () => {
-    setShowAuthModal(false);
-    navigate('/login', { state: { from: '/booking' } });
   };
 
   useEffect(() => {
