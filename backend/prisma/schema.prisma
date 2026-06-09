@@ -311,8 +311,6 @@ model phong {
   ten_phong           String          @db.VarChar(100)
   ma_phong            String          @db.VarChar(20)
   loai_phong          String?         @db.VarChar(100)
-  loai_dich_vu_ho_tro Json?
-  thiet_bi            Json?
   mo_ta               String?
   trang_thai          String          @default("san_sang") @db.VarChar(20)
   tang                String?         @db.VarChar(20)
