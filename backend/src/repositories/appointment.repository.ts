@@ -357,16 +357,6 @@ class AppointmentRepository {
           const isScheduled = dutyStart <= slot && dutyEnd > slot; // dutyEnd is exclusive
           if (!isScheduled) return false;
 
-          // Ràng buộc ca nghỉ giữa ca:
-          // 1. Bác sĩ ca sáng (07:00 - 16:00) nghỉ từ 11:00 - 12:00 (slot 11:00, 11:30)
-          if (dutyStart === '07:00' && dutyEnd === '16:00') {
-            if (slot === '11:00' || slot === '11:30') return false;
-          }
-          // 2. Bác sĩ ca chiều (11:00 - 20:00) nghỉ từ 16:00 - 17:00 (slot 16:00, 16:30)
-          if (dutyStart === '11:00' && dutyEnd === '20:00') {
-            if (slot === '16:00' || slot === '16:30') return false;
-          }
-
           return true;
         });
       });
@@ -636,20 +626,7 @@ class AppointmentRepository {
 
   // Hủy tất cả lịch khám nằm trong giờ nghỉ trưa (12:00–13:00)
   async cancelBreakTimeAppointments(): Promise<{ cancelled_count: number }> {
-    const query = `
-      UPDATE lich_dat
-      SET 
-        trang_thai = 'da_huy',
-        ly_do_huy = 'Hủy tự động: lịch nằm trong giờ nghỉ trưa (12:00–13:00)',
-        thoi_gian_huy = NOW()
-      WHERE
-        trang_thai NOT IN ('da_huy', 'khong_den')
-        AND EXTRACT(HOUR FROM (ngay_gio_bat_dau AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Ho_Chi_Minh') = 12
-        AND EXTRACT(MINUTE FROM (ngay_gio_bat_dau AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Ho_Chi_Minh') < 60
-      RETURNING id
-    `;
-    const { rows } = await pool.query(query);
-    return { cancelled_count: rows.length };
+    return { cancelled_count: 0 };
   }
 
   // Kiểm tra trùng lịch bác sĩ

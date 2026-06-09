@@ -13,7 +13,6 @@ import {
   Calendar as CalendarIcon,
   CalendarDays,
   HelpCircle,
-  Coffee,
   Bell,
   Settings,
   Activity,
@@ -67,7 +66,7 @@ export default function ManageAppointments() {
   const [roomFilter, setRoomFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
   
-  const [clearingBreak, setClearingBreak] = useState(false);
+
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [commandSearch, setCommandSearch] = useState('');
 
@@ -86,23 +85,7 @@ export default function ManageAppointments() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const handleCancelBreakTime = async () => {
-    if (!window.confirm('Bạn có chắc chắn muốn hủy tất cả các lịch khám đang hoạt động nằm trong giờ nghỉ trưa (12:00–12:30) không?')) {
-      return;
-    }
 
-    try {
-      setClearingBreak(true);
-      const res = await axiosInstance.delete('/admin/appointments/break-time');
-      toast.success(res.data.message || 'Đã dọn dẹp các lịch khám trong giờ nghỉ trưa thành công.');
-      fetchData();
-    } catch (error: any) {
-      console.error('Lỗi khi dọn lịch giờ nghỉ trưa:', error);
-      toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi dọn dẹp lịch giờ nghỉ.');
-    } finally {
-      setClearingBreak(false);
-    }
-  };
 
   // Modals State
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
@@ -467,13 +450,7 @@ export default function ManageAppointments() {
         setIsWalkInModalOpen(true);
       }
     },
-    {
-      id: 'clear_break',
-      name: 'Hủy các lịch hẹn trong giờ nghỉ trưa',
-      icon: <Coffee size={14} />,
-      shortcut: 'D',
-      action: () => handleCancelBreakTime()
-    },
+
     {
       id: 'toggle_theme',
       name: 'Chuyển đổi giao diện Sáng / Tối',
@@ -714,14 +691,7 @@ export default function ManageAppointments() {
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1 lg:justify-end">
-          <button
-            onClick={handleCancelBreakTime}
-            disabled={clearingBreak}
-            className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 dark:bg-amber-955/20 hover:bg-amber-105 dark:hover:bg-amber-900/30 border border-amber-200 dark:border-amber-900/30 disabled:opacity-50 transition-colors text-sm font-semibold text-amber-700 dark:text-amber-400 rounded-xl shrink-0 shadow-sm"
-          >
-            <Coffee size={16} className={clearingBreak ? 'animate-bounce' : ''} />
-            {clearingBreak ? 'Đang dọn lịch...' : 'Dọn lịch giờ nghỉ'}
-          </button>
+
 
           <button onClick={() => handleNavigateDay('today')} className="px-4 py-2.5 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors text-sm font-semibold text-slate-750 dark:text-zinc-300 rounded-xl shrink-0">
             Trở về Hiện tại

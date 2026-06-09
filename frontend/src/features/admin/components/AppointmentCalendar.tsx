@@ -1,6 +1,6 @@
 import { MapPin, Clock, Plus, Coffee } from 'lucide-react';
 
-const BREAK_SLOTS = new Set(['16:00', '16:30']);
+const BREAK_SLOTS = new Set<string>();
 
 interface AppointmentCalendarProps {
   timeSlots: string[];
@@ -75,16 +75,6 @@ export default function AppointmentCalendar({
     const dutyEnd = docSchedule.gio_ket_thuc.substring(0, 5);
     const isWorking = dutyStart <= hour && dutyEnd > hour; // dutyEnd is exclusive
     if (!isWorking) return false;
-
-    // Ràng buộc ca nghỉ giữa ca:
-    // 1. Bác sĩ ca sáng (07:00 - 16:00) nghỉ từ 11:00 - 12:00 (slot 11:00, 11:30)
-    if (dutyStart === '07:00' && dutyEnd === '16:00') {
-      if (hour === '11:00' || hour === '11:30') return false;
-    }
-    // 2. Bác sĩ ca chiều (11:00 - 20:00) nghỉ từ 16:00 - 17:00 (slot 16:00, 16:30)
-    if (dutyStart === '11:00' && dutyEnd === '20:00') {
-      if (hour === '16:00' || hour === '16:30') return false;
-    }
 
     // Xem bác sĩ có ca hẹn nào trùng khung giờ này không
     const isOccupied = allAppointments.some(apt => {
@@ -237,16 +227,7 @@ export default function AppointmentCalendar({
                   const sched = getDoctorSchedule(doc.id);
 
                   // Xác định bác sĩ có nghỉ giữa ca tại khung giờ này không
-                  let isDocBreak = false;
-                  if (sched) {
-                    const dutyStart = sched.gio_bat_dau.substring(0, 5);
-                    const dutyEnd = sched.gio_ket_thuc.substring(0, 5);
-                    if (dutyStart === '07:00' && dutyEnd === '16:00') {
-                      isDocBreak = hour === '11:00' || hour === '11:30';
-                    } else if (dutyStart === '11:00' && dutyEnd === '20:00') {
-                      isDocBreak = hour === '16:00' || hour === '16:30';
-                    }
-                  }
+                  const isDocBreak = false;
 
                   return (
                     <td

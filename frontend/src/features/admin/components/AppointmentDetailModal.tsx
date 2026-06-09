@@ -117,22 +117,7 @@ export default function AppointmentDetailModal({
       return { hasDuty: false, label: `Trực ca ${dutyStart}-${dutyEnd}` };
     }
 
-    // Doctor Break Check
-    if (staff.vai_tro === 'Bác sĩ') {
-      if (dutyStart === '07:00') {
-        // Morning doctor: lunch break 11:00 - 12:00
-        const isLunchBreak = aptStartHourStr < '12:00' && aptEndHourStr > '11:00';
-        if (isLunchBreak) {
-          return { hasDuty: false, label: 'Đang nghỉ trưa' };
-        }
-      } else if (dutyStart === '11:00') {
-        // Afternoon doctor: break 16:00 - 17:00
-        const isDinnerBreak = aptStartHourStr < '17:00' && aptEndHourStr > '16:00';
-        if (isDinnerBreak) {
-          return { hasDuty: false, label: 'Đang nghỉ tối' };
-        }
-      }
-    }
+
 
     return { hasDuty: true, label: `Trực ca ${dutyStart}-${dutyEnd}` };
   };

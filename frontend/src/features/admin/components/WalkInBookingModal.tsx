@@ -14,7 +14,7 @@ interface WalkInBookingModalProps {
 }
 
 // Giờ làm việc: Ca 1 (07:00-16:00, nghỉ 12:00-13:00); Ca 2 (11:00-20:00, nghỉ 16:00-17:00)
-const BREAK_SLOTS = new Set(['16:00', '16:30']);
+const BREAK_SLOTS = new Set<string>();
 
 const timeSlots = [
   '07:30', '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
@@ -108,19 +108,7 @@ export default function WalkInBookingModal({
         return { ...doc, available: false, reason: `Trực ca ${dutyStart}-${dutyEnd}` };
       }
 
-      // Apply shift-specific breaks:
-      // 1. Morning shift (07:00 - 16:00) break 11:00 - 12:00 (slots 11:00, 11:30)
-      if (dutyStart === '07:00' && dutyEnd === '16:00') {
-        if (selectedTime === '11:00' || selectedTime === '11:30') {
-          return { ...doc, available: false, reason: 'Nghỉ trưa 11h-12h' };
-        }
-      }
-      // 2. Afternoon shift (11:00 - 20:00) break 16:00 - 17:00 (slots 16:00, 16:30)
-      if (dutyStart === '11:00' && dutyEnd === '20:00') {
-        if (selectedTime === '16:00' || selectedTime === '16:30') {
-          return { ...doc, available: false, reason: 'Nghỉ chiều 16h-17h' };
-        }
-      }
+
 
       // Check if doctor has overlap appointment
       const hasOverlap = occupiedDoctorIds.includes(doc.chuyen_gia_id);

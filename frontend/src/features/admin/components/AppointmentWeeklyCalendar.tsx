@@ -54,18 +54,7 @@ export default function AppointmentWeeklyCalendar({
               <div className="flex flex-col items-center justify-center gap-1 text-slate-555 dark:text-zinc-400">
                 <CalendarDays size={20} />
                 <span className="text-[10px] font-bold uppercase tracking-widest">Ca Trực</span>
-                <span className="text-[9px] text-slate-400 dark:text-zinc-500 font-medium leading-tight mt-1.5 bg-slate-100/70 dark:bg-zinc-850 px-1.5 py-0.5 rounded border border-slate-200/30 dark:border-zinc-800">
-                  {scheduleType === 'kham_moi' ? (
-                    <>
-                      Nghỉ trưa:<br/>11:00-12:00<br/>
-                      Nghỉ tối:<br/>16:00-17:00
-                    </>
-                  ) : (
-                    <>
-                      Nghỉ trưa:<br/>12:00-13:30
-                    </>
-                  )}
-                </span>
+
               </div>
             </th>
             {weekDays.map((day, idx) => {
