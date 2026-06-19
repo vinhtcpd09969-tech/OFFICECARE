@@ -138,7 +138,6 @@ export interface PatientInfo {
   nguoi_dung_id: string;
   ngay_sinh?: string;
   gioi_tinh?: string;
-  hang_khach_hang?: string;
   ho_ten: string;
   email: string;
   so_dien_thoai: string;

@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import authRepository from '../repositories/auth.repository';
-import { sendOTP } from '../utils/mailer';
+import { sendOTP, sendForgotPasswordOTP } from '../utils/mailer';
 
 class AuthService {
   private generateAccessToken(user: any) {
@@ -35,7 +35,11 @@ class AuthService {
     expiresAt.setMinutes(expiresAt.getMinutes() + 10);
 
     await authRepository.saveOTP(data.email, otp, expiresAt);
-    await sendOTP(data.email, otp, data.ho_ten);
+    
+    // Gửi email OTP bất đồng bộ để phản hồi đăng ký được ngay lập tức
+    sendOTP(data.email, otp, data.ho_ten).catch((err) => {
+      console.error('Lỗi gửi email OTP bất đồng bộ khi đăng ký:', err);
+    });
 
     return { message: 'Đăng ký thành công. Vui lòng kiểm tra email để nhận mã OTP.' };
   }
@@ -97,6 +101,7 @@ class AuthService {
 
     return {
       accessToken,
+      refreshToken,
       user: {
         id: user.id,
         ho_ten: user.ho_ten,
@@ -143,9 +148,54 @@ class AuthService {
     // Xóa các OTP cũ và lưu OTP mới
     await authRepository.deleteOTPsByEmail(email);
     await authRepository.saveOTP(email, otp, expiresAt);
-    await sendOTP(email, otp, user.ho_ten);
+    
+    // Gửi email OTP bất đồng bộ để tránh làm chậm yêu cầu gửi lại
+    sendOTP(email, otp, user.ho_ten).catch((err) => {
+      console.error('Lỗi gửi email OTP bất đồng bộ khi gửi lại:', err);
+    });
 
     return { message: 'Đã gửi lại mã OTP mới. Vui lòng kiểm tra email.' };
+  }
+
+  async checkEmail(email: string) {
+    const user = await authRepository.findUserByEmail(email);
+    return {
+      exists: !!user,
+      da_xac_thuc_email: user ? user.da_xac_thuc_email : false
+    };
+  }
+
+  async forgotPassword(email: string) {
+    const user = await authRepository.findActiveUserByEmail(email);
+    if (!user) throw new Error('Người dùng không tồn tại');
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 10);
+
+    await authRepository.deleteOTPsByEmail(email);
+    await authRepository.saveOTP(email, otp, expiresAt);
+
+    sendForgotPasswordOTP(email, otp, user.ho_ten).catch((err) => {
+      console.error('Lỗi gửi email OTP khôi phục mật khẩu bất đồng bộ:', err);
+    });
+
+    return { message: 'Đã gửi mã OTP khôi phục mật khẩu. Vui lòng kiểm tra email của bạn.' };
+  }
+
+  async resetPassword(data: any) {
+    const validOTP = await authRepository.findValidOTP(data.email, data.otp);
+    if (!validOTP) throw new Error('Mã OTP không hợp lệ hoặc đã hết hạn');
+
+    const salt = await bcrypt.genSalt(10);
+    const newHash = await bcrypt.hash(data.newPassword, salt);
+
+    const updatedUser = await authRepository.updatePassword(data.email, newHash);
+    if (!updatedUser) throw new Error('Người dùng không tồn tại');
+
+    await authRepository.deleteOTPsByEmail(data.email);
+
+    return { message: 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập bằng mật khẩu mới.' };
   }
 }
 

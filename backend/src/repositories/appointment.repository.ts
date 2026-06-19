@@ -1,6 +1,63 @@
 import { pool } from '../config/db';
 import bcrypt from 'bcryptjs';
 
+function calculateConfirmationDeadline(now: Date, appointmentStart: Date): Date {
+  const durationMs = 30 * 60 * 1000;
+  
+  // Get local hour in Vietnam (UTC+7)
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    hour: 'numeric',
+    hour12: false
+  });
+  const localHour = parseInt(formatter.format(now), 10);
+  let baseDeadline: Date;
+
+  if (localHour >= 20 || localHour < 8) {
+    // Nighttime: next opening is 08:00 (tomorrow if now is >=20:00, or today if now is <08:00)
+    let openingDate = now;
+    if (localHour >= 20) {
+      openingDate = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    }
+    const openingTime = new Date(getVnDateString(openingDate, 8, 0, 0));
+    baseDeadline = new Date(openingTime.getTime() + durationMs);
+  } else {
+    // Daytime: standard + 30 min, carry over overflow after 20:00 to next day 08:00
+    const standardDeadline = new Date(now.getTime() + durationMs);
+    const closingTime = new Date(getVnDateString(now, 20, 0, 0));
+
+    if (standardDeadline.getTime() > closingTime.getTime()) {
+      const overflowMs = standardDeadline.getTime() - closingTime.getTime();
+      const nextDay = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      const nextOpeningTime = new Date(getVnDateString(nextDay, 8, 0, 0));
+      baseDeadline = new Date(nextOpeningTime.getTime() + overflowMs);
+    } else {
+      baseDeadline = standardDeadline;
+    }
+  }
+
+  return baseDeadline < appointmentStart ? baseDeadline : appointmentStart;
+}
+
+function getVnDateString(date: Date, hour: number, minute: number, second: number): string {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour12: false
+  });
+  const parts = formatter.formatToParts(date);
+  const year = parts.find(p => p.type === 'year')!.value;
+  const month = parts.find(p => p.type === 'month')!.value;
+  const day = parts.find(p => p.type === 'day')!.value;
+  
+  const h = String(hour).padStart(2, '0');
+  const m = String(minute).padStart(2, '0');
+  const s = String(second).padStart(2, '0');
+  return `${year}-${month}-${day}T${h}:${m}:${s}+07:00`;
+}
+
 class AppointmentRepository {
   async getAllAppointments() {
     const query = `
@@ -25,7 +82,9 @@ class AppointmentRepository {
         kn_goi.ten_goi AS khuyen_nghi_ten_goi,
         NULL::integer AS so_thu_tu_buoi,
         NULL::uuid AS goi_dich_vu_id,
-        COALESCE(hd.trang_thai, 'chua_thanh_toan') AS trang_thai_thanh_toan
+        COALESCE(hd.trang_thai, 'chua_thanh_toan') AS trang_thai_thanh_toan,
+        ld.han_xac_nhan,
+        ld.thoi_gian_tao
       FROM lich_dat ld
       LEFT JOIN ho_so_dieu_tri hsba ON hsba.lich_dat_id = ld.id
       LEFT JOIN khach_hang kh ON ld.khach_hang_id = kh.id
@@ -62,7 +121,9 @@ class AppointmentRepository {
         kn_goi.ten_goi AS khuyen_nghi_ten_goi,
         btl.so_thu_tu_buoi,
         hsba.goi_dich_vu_id,
-        COALESCE(hd.trang_thai, 'chua_thanh_toan') AS trang_thai_thanh_toan
+        COALESCE(hd.trang_thai, 'chua_thanh_toan') AS trang_thai_thanh_toan,
+        NULL::timestamp with time zone AS han_xac_nhan,
+        NULL::timestamp with time zone AS thoi_gian_tao
       FROM buoi_tri_lieu btl
       JOIN khach_hang kh ON btl.khach_hang_id = kh.id
       JOIN nguoi_dung nd_kh ON kh.nguoi_dung_id = nd_kh.id
@@ -219,13 +280,17 @@ class AppointmentRepository {
       const trang_thai = data.trang_thai || 'cho_xac_nhan';
       const thoi_gian_checkin = trang_thai === 'da_checkin' ? new Date().toISOString() : null;
 
+      const start = new Date(ngay_gio_bat_dau);
+      const now = new Date();
+      const han_xac_nhan = !bac_si_id ? calculateConfirmationDeadline(now, start) : null;
+
       const query = `
-        INSERT INTO lich_dat (ma_lich_dat, khach_hang_id, ho_ten_khach, so_dien_thoai, gioi_tinh_khach, dich_vu_id, bac_si_id, phong_id, ngay_gio_bat_dau, ngay_gio_ket_thuc, ghi_chu_dat_lich, ly_do_kham, nguoi_tao, trang_thai, thoi_gian_checkin)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'le_tan', $13, $14)
+        INSERT INTO lich_dat (ma_lich_dat, khach_hang_id, ho_ten_khach, so_dien_thoai, gioi_tinh_khach, dich_vu_id, bac_si_id, phong_id, ngay_gio_bat_dau, ngay_gio_ket_thuc, ghi_chu_dat_lich, ly_do_kham, nguoi_tao, trang_thai, thoi_gian_checkin, han_xac_nhan)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'le_tan', $13, $14, $15)
         RETURNING *
       `;
       const { rows } = await pool.query(query, [
-        ma_lich_dat, khach_hang_id || null, ho_ten_khach || null, so_dien_thoai || null, gioi_tinh_khach || null, dich_vu_id || null, bac_si_id || null, phong_id || null, ngay_gio_bat_dau, ngay_gio_ket_thuc, ghi_chu_dat_lich || null, ly_do_kham || null, trang_thai, thoi_gian_checkin
+        ma_lich_dat, khach_hang_id || null, ho_ten_khach || null, so_dien_thoai || null, gioi_tinh_khach || null, dich_vu_id || null, bac_si_id || null, phong_id || null, ngay_gio_bat_dau, ngay_gio_ket_thuc, ghi_chu_dat_lich || null, ly_do_kham || null, trang_thai, thoi_gian_checkin, han_xac_nhan
       ]);
       return rows[0];
     }
@@ -242,13 +307,17 @@ class AppointmentRepository {
       }
     }
 
+    const start = new Date(ngay_gio_bat_dau);
+    const now = new Date();
+    const han_xac_nhan = calculateConfirmationDeadline(now, start);
+
     const query = `
-      INSERT INTO lich_dat (ma_lich_dat, khach_hang_id, ho_ten_khach, so_dien_thoai, gioi_tinh_khach, ngay_gio_bat_dau, ngay_gio_ket_thuc, ly_do_kham, anh_dinh_kem_url, nguoi_tao, trang_thai, dich_vu_id)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'guest', $10, $11)
+      INSERT INTO lich_dat (ma_lich_dat, khach_hang_id, ho_ten_khach, so_dien_thoai, gioi_tinh_khach, ngay_gio_bat_dau, ngay_gio_ket_thuc, ly_do_kham, anh_dinh_kem_url, nguoi_tao, trang_thai, dich_vu_id, han_xac_nhan)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'guest', $10, $11, $12)
       RETURNING *
     `;
     const { rows } = await pool.query(query, [
-      ma_lich_dat, khach_hang_id || null, ho_ten_khach || null, so_dien_thoai || null, gioi_tinh_khach || null, ngay_gio_bat_dau, ngay_gio_ket_thuc, ly_do_kham || null, anh_dinh_kem_url || null, trang_thai || 'chua_xac_nhan', dich_vu_id || null
+      ma_lich_dat, khach_hang_id || null, ho_ten_khach || null, so_dien_thoai || null, gioi_tinh_khach || null, ngay_gio_bat_dau, ngay_gio_ket_thuc, ly_do_kham || null, anh_dinh_kem_url || null, trang_thai || 'chua_xac_nhan', dich_vu_id || null, han_xac_nhan
     ]);
     return rows[0];
   }
@@ -342,8 +411,6 @@ class AppointmentRepository {
 
       // Tìm các ca hẹn bị trùng vào slot này
       const slotApts = appointments.filter(apt => isOverlapping(apt.bat_dau, apt.ket_thuc));
-      const occupiedDoctorIds = slotApts.map(apt => apt.bac_si_id).filter(Boolean);
-      const occupiedRoomIds = slotApts.map(apt => String(apt.phong_id)).filter(Boolean);
 
       // Tìm bác sĩ có lịch trực ca phủ kín slot này
       const scheduledDoctors = doctors.filter(doc => {
@@ -361,12 +428,21 @@ class AppointmentRepository {
         });
       });
 
-      // Lọc bác sĩ rảnh và phòng trống
+      // Phân nhóm các lịch hẹn trùng vào slot hiện tại
+      const assignedApts = slotApts.filter(a => a.bac_si_id !== null);
+      const assignedRoomApts = slotApts.filter(a => a.phong_id !== null);
+      const unassignedApts = slotApts.filter(a => a.bac_si_id === null);
+      const unassignedRoomApts = slotApts.filter(a => a.phong_id === null);
+
+      // Lọc bác sĩ rảnh và phòng trống thực tế
+      const occupiedDoctorIds = assignedApts.map(a => a.bac_si_id).filter(Boolean);
       const freeDoctors = scheduledDoctors.filter(doc => !occupiedDoctorIds.includes(doc.doctor_id));
+
+      const occupiedRoomIds = assignedRoomApts.map(a => String(a.phong_id)).filter(Boolean);
       const freeRooms = rooms.filter(r => !occupiedRoomIds.includes(String(r.id)));
 
-      // Khung giờ bị coi là HẾT CHỖ chỉ khi không còn bác sĩ nào rảnh HOẶC không còn phòng nào trống
-      if (freeDoctors.length === 0 || freeRooms.length === 0) {
+      // Khung giờ bị coi là HẾT CHỖ chỉ khi số ca chờ gán lớn hơn hoặc bằng số bác sĩ rảnh/phòng trống còn lại
+      if (unassignedApts.length >= freeDoctors.length || unassignedRoomApts.length >= freeRooms.length) {
         bookedSlots.push(slot);
       }
     }
@@ -382,6 +458,7 @@ class AppointmentRepository {
     phong_id?: string | number | null;
     ngay_gio_bat_dau?: string | null;
     ngay_gio_ket_thuc?: string | null;
+    ghi_chu_noi_bo?: string | null;
   }) {
     const final_bac_si_id = data.bac_si_id !== undefined ? data.bac_si_id : (data.chuyen_gia_id !== undefined ? data.chuyen_gia_id : data.ky_thuat_vien_id);
 
@@ -449,6 +526,10 @@ class AppointmentRepository {
       ldUpdates.push(`bac_si_id = $${ldParamIndex}`);
       ldValues.push(final_bac_si_id);
       ldParamIndex++;
+      
+      if (final_bac_si_id !== null) {
+        ldUpdates.push(`han_xac_nhan = NULL`);
+      }
     }
     if (data.phong_id !== undefined) {
       ldUpdates.push(`phong_id = $${ldParamIndex}`);
@@ -463,6 +544,11 @@ class AppointmentRepository {
     if (data.ngay_gio_ket_thuc !== undefined) {
       ldUpdates.push(`ngay_gio_ket_thuc = $${ldParamIndex}`);
       ldValues.push(data.ngay_gio_ket_thuc);
+      ldParamIndex++;
+    }
+    if (data.ghi_chu_noi_bo !== undefined) {
+      ldUpdates.push(`ghi_chu_noi_bo = $${ldParamIndex}`);
+      ldValues.push(data.ghi_chu_noi_bo);
       ldParamIndex++;
     }
 

@@ -22,6 +22,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../../stores/authStore';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
+import { convertToVietnamUtcIso } from '../../../utils/date';
 
 const timeSlots = [
   '07:30', '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
@@ -302,15 +303,7 @@ export default function Booking() {
     const toastId = toast.loading(bookingType === 'dich_vu' ? 'Đang gửi đăng ký lịch dịch vụ lẻ...' : 'Đang gửi đăng ký lịch hẹn y khoa...');
     dispatch({ type: 'SET_SUBMITTING', isSubmitting: true });
 
-    const [year, month, day] = selectedDate.split('-');
-    const [hours, minutes] = selectedTime.split(':');
-    const ngay_gio_bat_dau = new Date(
-      parseInt(year),
-      parseInt(month) - 1,
-      parseInt(day),
-      parseInt(hours),
-      parseInt(minutes)
-    ).toISOString();
+    const ngay_gio_bat_dau = convertToVietnamUtcIso(selectedDate, selectedTime);
 
     try {
       const selectedService = services.find(s => s.id === selectedServiceId);
@@ -401,9 +394,7 @@ export default function Booking() {
               Đặt lịch thành công!
             </h2>
             <p className="text-sm font-semibold text-slate-500 max-w-md mx-auto leading-relaxed">
-              {bookingType === 'dich_vu' 
-                ? 'Yêu cầu đăng ký lịch dịch vụ lẻ của bạn đã được tiếp nhận. Đội ngũ điều phối sẽ liên hệ xác nhận trong thời gian sớm nhất.' 
-                : 'Yêu cầu khám lượng giá của bạn đã được tiếp nhận. Đội ngũ y tế sẽ liên hệ xác nhận trong thời gian sớm nhất.'}
+              Vui lòng kiểm tra email của bạn (bao gồm cả mục thư rác/spam) và nhấn xác nhận giữ chỗ trong vòng 10 phút. Sau 10 phút nếu chưa xác nhận, thông tin sẽ được chuyển đến lễ tân để liên hệ hỗ trợ trực tiếp.
             </p>
           </div>
 

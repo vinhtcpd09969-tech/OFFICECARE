@@ -12,10 +12,7 @@ import {
   Filter, 
   Sparkles, 
   X,
-  CheckSquare,
-  Square,
-  AlertCircle,
-  Layers
+  AlertCircle
 } from 'lucide-react';
 import api from '../../../api/axios';
 
@@ -27,28 +24,12 @@ interface Voucher {
   gia_tri_giam: number;
   giam_toi_da: number | null;
   don_hang_toi_thieu: number;
-  ap_dung_cho: 'tat_ca' | 'dich_vu_cu_the' | 'goi_cu_the' | 'dich_vu_va_goi';
   so_luong_toi_da: number | null;
   so_luong_da_dung: number;
   ngay_bat_dau: string;
   ngay_het_han: string | null;
   trang_thai: 'hoat_dong' | 'tam_dung' | 'sap_ra_mat' | 'het_han';
-  tu_dong_ap_dung: boolean;
   yeu_cau_thanh_toan: 'tat_ca' | 'tra_thang' | 'tra_gop';
-  dich_vu_ids: string[];
-  goi_dich_vu_ids: string[];
-}
-
-interface Service {
-  id: string;
-  ten_dich_vu: string;
-  don_gia: number;
-}
-
-interface Package {
-  id: string;
-  ten_goi: string;
-  gia_tien: number;
 }
 
 const currencyFormatter = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
@@ -63,8 +44,6 @@ const formatLocalDate = (date: Date): string => {
 export default function ManageVouchers() {
   // Data States
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
-  const [services, setServices] = useState<Service[]>([]);
-  const [packages, setPackages] = useState<Package[]>([]);
   
   // UI States
   const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
@@ -76,28 +55,9 @@ export default function ManageVouchers() {
   // Filter States
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [typeFilter, setTypeFilter] = useState<string>('all');
   
-  // Relation Selector States inside Modal
-  const [selectedServices, setSelectedServices] = useState<string[]>([]);
-  const [selectedPackages, setSelectedPackages] = useState<string[]>([]);
-  const [selectorSearch, setSelectorSearch] = useState('');
-
-  // Auto-apply and payment requirements states inside Modal
-  const [tuDongApDung, setTuDongApDung] = useState(false);
-  const [yeuCauThanhToan, setYeuCauThanhToan] = useState<'tra_thang' | 'tra_gop'>('tra_thang');
-
-  useEffect(() => {
-    fetchVouchers();
-    fetchServices();
-    fetchPackages();
-  }, []);
-
-  // UI states for new interactive scope selector
-  const [scopeType, setScopeType] = useState<'tat_ca' | 'tuy_chinh'>('tat_ca');
-  const [isServicesActive, setIsServicesActive] = useState(false);
-  const [isPackagesActive, setIsPackagesActive] = useState(false);
-  const [currentTab, setCurrentTab] = useState<'services' | 'packages'>('services');
+  // Payment requirements states inside Modal
+  const [yeuCauThanhToan, setYeuCauThanhToan] = useState<'tat_ca' | 'tra_thang' | 'tra_gop'>('tat_ca');
 
   // Modal confirm state
   const [confirmModalData, setConfirmModalData] = useState<{
@@ -108,52 +68,14 @@ export default function ManageVouchers() {
   } | null>(null);
 
   useEffect(() => {
-    if (editingVoucher) {
-      setTuDongApDung(editingVoucher.tu_dong_ap_dung || false);
-      
-      const reqPayment = editingVoucher.yeu_cau_thanh_toan === 'tra_gop' ? 'tra_gop' : 'tra_thang';
-      setYeuCauThanhToan(reqPayment);
+    fetchVouchers();
+  }, []);
 
-      // Initialize scope states based on editingVoucher
-      const apDung = editingVoucher.ap_dung_cho || 'tat_ca';
-      if (reqPayment === 'tra_gop') {
-        // For installment, it only applies to packages
-        setScopeType('tuy_chinh');
-        setIsServicesActive(false);
-        setIsPackagesActive(true);
-        setCurrentTab('packages');
-      } else if (apDung === 'tat_ca') {
-        setScopeType('tat_ca');
-        setIsServicesActive(false);
-        setIsPackagesActive(false);
-      } else {
-        setScopeType('tuy_chinh');
-        
-        const hasServices = apDung === 'dich_vu_cu_the' || apDung === 'dich_vu_va_goi' || (editingVoucher.dich_vu_ids && editingVoucher.dich_vu_ids.length > 0);
-        const hasPackages = apDung === 'goi_cu_the' || apDung === 'dich_vu_va_goi' || (editingVoucher.goi_dich_vu_ids && editingVoucher.goi_dich_vu_ids.length > 0);
-        
-        setIsServicesActive(!!hasServices);
-        setIsPackagesActive(!!hasPackages);
-        
-        if (hasPackages && !hasServices) {
-          setCurrentTab('packages');
-        } else {
-          setCurrentTab('services');
-        }
-      }
+  useEffect(() => {
+    if (editingVoucher) {
+      setYeuCauThanhToan(editingVoucher.yeu_cau_thanh_toan || 'tat_ca');
     }
   }, [editingVoucher]);
-
-  // Synchronize scope with yeuCauThanhToan when user changes it in UI
-  useEffect(() => {
-    if (yeuCauThanhToan === 'tra_gop') {
-      setScopeType('tuy_chinh');
-      setIsServicesActive(false);
-      setSelectedServices([]);
-      setIsPackagesActive(true);
-      setCurrentTab('packages');
-    }
-  }, [yeuCauThanhToan]);
 
   const fetchVouchers = async () => {
     try {
@@ -162,24 +84,6 @@ export default function ManageVouchers() {
     } catch (error) {
       console.error('Lỗi khi tải danh sách voucher:', error);
       toast.error('Không thể kết nối với server để lấy danh sách voucher');
-    }
-  };
-
-  const fetchServices = async () => {
-    try {
-      const res = await api.get('/admin/services');
-      setServices(Array.isArray(res.data) ? res.data : []);
-    } catch (error) {
-      console.error('Lỗi khi tải danh sách dịch vụ:', error);
-    }
-  };
-
-  const fetchPackages = async () => {
-    try {
-      const res = await api.get('/admin/packages');
-      setPackages(Array.isArray(res.data) ? res.data : []);
-    } catch (error) {
-      console.error('Lỗi khi tải danh sách gói:', error);
     }
   };
 
@@ -197,61 +101,18 @@ export default function ManageVouchers() {
     const formData = new FormData(e.currentTarget);
     const data = Object.fromEntries(formData.entries());
     
-    // Validate scope selections
-    if (scopeType === 'tuy_chinh' && !isServicesActive && !isPackagesActive) {
-      toast.error('Vui lòng chọn hoặc thiết lập phạm vi áp dụng ưu đãi');
-      return;
-    }
-    if (scopeType === 'tuy_chinh' && isServicesActive && selectedServices.length === 0 && !isPackagesActive) {
-      toast.error('Vui lòng chọn ít nhất một dịch vụ lẻ');
-      return;
-    }
-    if (scopeType === 'tuy_chinh' && isPackagesActive && selectedPackages.length === 0 && !isServicesActive) {
-      toast.error('Vui lòng chọn ít nhất một gói trị liệu');
-      return;
-    }
-    if (scopeType === 'tuy_chinh' && isServicesActive && isPackagesActive && selectedServices.length === 0 && selectedPackages.length === 0) {
-      toast.error('Vui lòng chọn ít nhất một dịch vụ lẻ hoặc gói trị liệu');
-      return;
-    }
-
-    // Determine ap_dung_cho value
-    let apDungCho: 'tat_ca' | 'dich_vu_cu_the' | 'goi_cu_the' | 'dich_vu_va_goi' = 'tat_ca';
-    if (scopeType === 'tuy_chinh') {
-      if (isServicesActive && isPackagesActive) {
-        apDungCho = 'dich_vu_va_goi';
-      } else if (isServicesActive) {
-        apDungCho = 'dich_vu_cu_the';
-      } else if (isPackagesActive) {
-        apDungCho = 'goi_cu_the';
-      }
-    }
-
     const payload = {
       ...data,
       gia_tri_giam: Number(data.gia_tri_giam),
       giam_toi_da: data.giam_toi_da ? Number(data.giam_toi_da) : null,
       don_hang_toi_thieu: Number(data.don_hang_toi_thieu),
       so_luong_toi_da: data.so_luong_toi_da ? Number(data.so_luong_toi_da) : null,
-      tu_dong_ap_dung: tuDongApDung,
       yeu_cau_thanh_toan: yeuCauThanhToan,
-      ap_dung_cho: apDungCho,
-      dich_vu_ids: (apDungCho === 'dich_vu_cu_the' || apDungCho === 'dich_vu_va_goi') ? selectedServices : [],
-      goi_dich_vu_ids: (apDungCho === 'goi_cu_the' || apDungCho === 'dich_vu_va_goi') ? selectedPackages : [],
     };
 
     // Calculate confirmation message
-    let message = '';
-    let title = editingVoucher?.id ? 'Xác nhận Cập nhật' : 'Xác nhận Kích hoạt';
-    
-    if (apDungCho === 'tat_ca') {
-      message = 'Chiến dịch ưu đãi này sẽ áp dụng cho tất cả dịch vụ lẻ và gói trị liệu hiện có.';
-    } else {
-      const parts = [];
-      if (isServicesActive && selectedServices.length > 0) parts.push(`${selectedServices.length} dịch vụ lẻ`);
-      if (isPackagesActive && selectedPackages.length > 0) parts.push(`${selectedPackages.length} gói trị liệu`);
-      message = `Chiến dịch ưu đãi này sẽ được áp dụng cho ${parts.join(' và ')}.`;
-    }
+    const message = 'Chiến dịch ưu đãi này sẽ áp dụng toàn cục cho tất cả hóa đơn thanh toán.';
+    const title = editingVoucher?.id ? 'Xác nhận Cập nhật' : 'Xác nhận Kích hoạt';
 
     setConfirmModalData({
       isOpen: true,
@@ -336,17 +197,12 @@ export default function ManageVouchers() {
 
     const matchesStatus = statusFilter === 'all' || computedStatus === statusFilter;
 
-    // Type Filter
-    let matchesType = true;
-    if (typeFilter === 'auto') matchesType = v.tu_dong_ap_dung === true;
-    else if (typeFilter === 'manual') matchesType = v.tu_dong_ap_dung === false;
-
-    return matchesSearch && matchesStatus && matchesType;
+    return matchesSearch && matchesStatus;
   });
 
   // Calculate statistics
-  const activeVouchersCount = vouchers.filter(v => v.trang_thai === 'hoat_dong' && !v.tu_dong_ap_dung).length;
-  const activeAutoPromosCount = vouchers.filter(v => v.trang_thai === 'hoat_dong' && v.tu_dong_ap_dung).length;
+  const activeVouchersCount = vouchers.filter(v => v.trang_thai === 'hoat_dong').length;
+  const pausedVouchersCount = vouchers.filter(v => v.trang_thai === 'tam_dung').length;
   const totalUsedCount = vouchers.reduce((acc, v) => acc + (v.so_luong_da_dung || 0), 0);
 
   return (
@@ -359,20 +215,14 @@ export default function ManageVouchers() {
           </div>
           <div>
             <h1 className="text-2xl font-extrabold text-secondary font-heading tracking-tight">Chiến dịch Marketing & Ưu đãi</h1>
-            <p className="text-slate-500 text-sm mt-0.5">Quản lý thống nhất toàn bộ mã giảm giá và ưu đãi chiết khấu tự động.</p>
+            <p className="text-slate-500 text-sm mt-0.5">Quản lý thống nhất toàn bộ mã giảm giá áp dụng trên hóa đơn.</p>
           </div>
         </div>
         
         <button 
           onClick={() => { 
             setEditingVoucher({}); 
-            setSelectedServices([]);
-            setSelectedPackages([]);
-            setSelectorSearch('');
-            setScopeType('tat_ca');
-            setIsServicesActive(false);
-            setIsPackagesActive(false);
-            setCurrentTab('services');
+            setYeuCauThanhToan('tat_ca');
             setIsVoucherModalOpen(true); 
           }}
           className="bg-primary text-white px-5 py-2.5 rounded-xl font-semibold shadow-soft-button hover:-translate-y-0.5 transition-all duration-200 flex items-center gap-2 text-sm self-start md:self-auto"
@@ -393,12 +243,12 @@ export default function ManageVouchers() {
           </div>
         </div>
         <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-soft-ui flex items-center gap-4">
-          <div className="bg-indigo-50 text-indigo-600 p-3 rounded-xl">
-            <Sparkles className="w-5 h-5" />
+          <div className="bg-amber-50 text-amber-600 p-3 rounded-xl">
+            <Filter className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Ưu đãi Tự động chạy</span>
-            <span className="text-2xl font-extrabold text-secondary mt-0.5 block">{activeAutoPromosCount} Chiến dịch</span>
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Mã Voucher tạm dừng</span>
+            <span className="text-2xl font-extrabold text-secondary mt-0.5 block">{pausedVouchersCount} Mã</span>
           </div>
         </div>
         <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-soft-ui flex items-center gap-4">
@@ -425,20 +275,6 @@ export default function ManageVouchers() {
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm transition-all bg-slate-50/50"
             />
-          </div>
-
-          {/* Type Selector Filter */}
-          <div className="relative">
-            <Layers className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="pl-9 pr-8 py-2 rounded-xl border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm transition-all bg-slate-50/50 appearance-none cursor-pointer"
-            >
-              <option value="all">Tất cả hình thức</option>
-              <option value="auto">Chỉ ưu đãi Tự động</option>
-              <option value="manual">Chỉ mã nhập tay (Voucher)</option>
-            </select>
           </div>
 
           {/* Status Filter */}
@@ -477,20 +313,14 @@ export default function ManageVouchers() {
                 className="group relative bg-white border border-slate-200 rounded-3xl flex flex-col sm:flex-row shadow-soft-ui hover:shadow-soft-ui-hover hover:-translate-y-0.5 transition-all duration-300 overflow-hidden min-h-[180px]"
               >
                 {/* Left Side of Ticket (Coupon Tag) */}
-                <div className={`sm:w-44 border-b sm:border-b-0 sm:border-r border-dashed border-slate-200/80 p-6 flex flex-col items-center justify-center relative min-h-[140px] rounded-t-3xl sm:rounded-t-none sm:rounded-l-3xl ${
-                  v.tu_dong_ap_dung 
-                    ? 'bg-gradient-to-br from-indigo-500/5 to-teal-500/10' 
-                    : 'bg-gradient-to-br from-teal-500/5 to-primary/10'
-                }`}>
+                <div className="sm:w-44 border-b sm:border-b-0 sm:border-r border-dashed border-slate-200/80 p-6 flex flex-col items-center justify-center relative min-h-[140px] rounded-t-3xl sm:rounded-t-none sm:rounded-l-3xl bg-gradient-to-br from-teal-50/5 to-primary/10">
                   
                   {/* Circle cutouts for ticket look */}
                   <div className="hidden sm:block absolute -top-3.5 -right-3.5 w-7 h-7 bg-background border border-slate-200 rounded-full z-10" />
                   <div className="hidden sm:block absolute -bottom-3.5 -right-3.5 w-7 h-7 bg-background border border-slate-200 rounded-full z-10" />
                   
-                  <span className={`text-[10px] font-extrabold uppercase tracking-widest mb-1.5 font-heading ${
-                    v.tu_dong_ap_dung ? 'text-indigo-600' : 'text-primary'
-                  }`}>
-                    {v.tu_dong_ap_dung ? 'ƯU ĐÃI TỰ ĐỘNG' : 'MÃ GIẢM GIÁ'}
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest mb-1.5 font-heading text-primary">
+                    MÃ GIẢM GIÁ
                   </span>
                   <div className="text-3xl font-black text-secondary font-heading tracking-tight flex items-baseline gap-0.5">
                     {v.loai_giam === 'phan_tram' ? (
@@ -507,25 +337,18 @@ export default function ManageVouchers() {
                     </span>
                   )}
 
-                  {/* Copiable Code pill or Sparkles auto indication */}
-                  {v.tu_dong_ap_dung ? (
-                    <div className="mt-4 px-3 py-1.5 rounded-xl text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-150 shadow-sm flex items-center gap-1.5 select-none">
-                      <Sparkles className="w-3.5 h-3.5 text-indigo-500 animate-spin-slow" />
-                      Không cần nhập mã
-                    </div>
-                  ) : (
-                    <div 
-                      onClick={() => handleCopyCode(v.ma_voucher, v.id)}
-                      className={`mt-4 px-3 py-1.5 rounded-xl text-xs font-mono font-bold tracking-wider shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all select-none ${
-                        copiedId === v.id 
-                          ? 'bg-emerald-500 text-white border border-emerald-500' 
-                          : 'bg-white text-teal-600 border border-teal-200/80 hover:bg-teal-50'
-                      }`}
-                    >
-                      {copiedId === v.id ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5 text-teal-500/70" />}
-                      {v.ma_voucher}
-                    </div>
-                  )}
+                  {/* Copiable Code pill */}
+                  <div 
+                    onClick={() => handleCopyCode(v.ma_voucher, v.id)}
+                    className={`mt-4 px-3 py-1.5 rounded-xl text-xs font-mono font-bold tracking-wider shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all select-none ${
+                      copiedId === v.id 
+                        ? 'bg-emerald-500 text-white border border-emerald-500' 
+                        : 'bg-white text-teal-600 border border-teal-200/80 hover:bg-teal-50'
+                    }`}
+                  >
+                    {copiedId === v.id ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5 text-teal-500/70" />}
+                    {v.ma_voucher}
+                  </div>
                 </div>
 
                 {/* Right Side of Ticket (Voucher details) */}
@@ -544,12 +367,6 @@ export default function ManageVouchers() {
                            computedStatus === 'tam_dung' ? 'Tạm dừng' :
                            computedStatus === 'sap_ra_mat' ? 'Sắp hoạt động' : 'Hết hạn'}
                         </span>
-
-                        {v.tu_dong_ap_dung && (
-                          <span className="text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-lg border bg-indigo-50 text-indigo-700 border-indigo-100 flex items-center gap-1">
-                            <Sparkles className="w-3 h-3 text-indigo-500" /> Tự động áp dụng
-                          </span>
-                        )}
 
                         {v.yeu_cau_thanh_toan !== 'tat_ca' && (
                           <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-lg border ${
@@ -582,63 +399,9 @@ export default function ManageVouchers() {
                       Áp dụng cho đơn hàng từ <span className="font-semibold text-slate-700">{formatCurrency(v.don_hang_toi_thieu)}</span>.
                     </p>
 
-                    {/* Display targeted services or packages */}
+                    {/* Display targeted services or packages - Vouchers apply globally */}
                     <div className="mt-3 flex flex-wrap gap-1.5">
-                      {v.ap_dung_cho === 'tat_ca' && (
-                        <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">Áp dụng cho toàn bộ dịch vụ & gói</span>
-                      )}
-                      {v.ap_dung_cho === 'dich_vu_cu_the' && (
-                        <>
-                          <span className="text-[10px] bg-teal-50 text-teal-700 border border-teal-100 px-2 py-0.5 rounded font-medium">Dịch vụ áp dụng:</span>
-                          {v.dich_vu_ids?.map(id => {
-                            const s = services.find(srv => srv.id === id);
-                            return s ? (
-                              <span key={id} className="text-[9px] bg-slate-50 text-slate-600 border border-slate-100 px-1.5 py-0.5 rounded">{s.ten_dich_vu}</span>
-                            ) : null;
-                          })}
-                        </>
-                      )}
-                      {v.ap_dung_cho === 'goi_cu_the' && (
-                        <>
-                          <span className="text-[10px] bg-teal-50 text-teal-700 border border-teal-100 px-2 py-0.5 rounded font-medium">Gói áp dụng:</span>
-                          {v.goi_dich_vu_ids?.map(id => {
-                            const p = packages.find(pkg => pkg.id === id);
-                            return p ? (
-                              <span key={id} className="text-[9px] bg-slate-50 text-slate-600 border border-slate-100 px-1.5 py-0.5 rounded">{p.ten_goi}</span>
-                            ) : null;
-                          })}
-                        </>
-                      )}
-                      {v.ap_dung_cho === 'dich_vu_va_goi' && (
-                        <div className="space-y-1.5 w-full">
-                          {v.dich_vu_ids && v.dich_vu_ids.length > 0 && (
-                            <div className="flex flex-wrap gap-1 items-center">
-                              <span className="text-[10px] bg-teal-50 text-teal-700 border border-teal-100 px-2 py-0.5 rounded font-medium flex-shrink-0">Dịch vụ:</span>
-                              <div className="flex flex-wrap gap-1">
-                                {v.dich_vu_ids.map(id => {
-                                  const s = services.find(srv => srv.id === id);
-                                  return s ? (
-                                    <span key={id} className="text-[9px] bg-slate-50 text-slate-600 border border-slate-100 px-1.5 py-0.5 rounded">{s.ten_dich_vu}</span>
-                                  ) : null;
-                                })}
-                              </div>
-                            </div>
-                          )}
-                          {v.goi_dich_vu_ids && v.goi_dich_vu_ids.length > 0 && (
-                            <div className="flex flex-wrap gap-1 items-center">
-                              <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded font-medium flex-shrink-0">Gói:</span>
-                              <div className="flex flex-wrap gap-1">
-                                {v.goi_dich_vu_ids.map(id => {
-                                  const p = packages.find(pkg => pkg.id === id);
-                                  return p ? (
-                                    <span key={id} className="text-[9px] bg-slate-50 text-slate-600 border border-slate-100 px-1.5 py-0.5 rounded">{p.ten_goi}</span>
-                                  ) : null;
-                                })}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
+                      <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">Áp dụng cho toàn bộ hóa đơn thanh toán</span>
                     </div>
                   </div>
 
@@ -672,9 +435,6 @@ export default function ManageVouchers() {
                         <button
                           onClick={() => { 
                             setEditingVoucher(v);
-                            setSelectedServices(v.dich_vu_ids || []);
-                            setSelectedPackages(v.goi_dich_vu_ids || []);
-                            setSelectorSearch('');
                             setIsVoucherModalOpen(true);
                           }}
                           className="p-1.5 text-slate-400 hover:text-primary hover:bg-slate-100 rounded-lg transition-colors"
@@ -727,18 +487,15 @@ export default function ManageVouchers() {
               <div className="grid grid-cols-2 gap-5">
                 <div className="col-span-2 md:col-span-1">
                   <label htmlFor="ma_voucher" className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                    Mã Voucher {tuDongApDung ? '(Tự sinh tự động)' : '*'}
+                    Mã Voucher *
                   </label>
                   <input 
                     id="ma_voucher"
                     name="ma_voucher"
                     defaultValue={editingVoucher?.ma_voucher}
-                    required={!tuDongApDung}
-                    disabled={tuDongApDung}
-                    placeholder={tuDongApDung ? "Mã tự động phát sinh ẩn tại DB" : "VD: CHUNGHE2026"}
-                    className={`w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm transition-all ${
-                      tuDongApDung ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : 'bg-slate-50/30'
-                    }`}
+                    required
+                    placeholder="VD: CHUNGHE2026"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm transition-all bg-slate-50/30"
                   />
                 </div>
                 <div className="col-span-2 md:col-span-1">
@@ -748,7 +505,7 @@ export default function ManageVouchers() {
                     name="ten_chien_dich"
                     defaultValue={editingVoucher?.ten_chien_dich}
                     required
-                    placeholder="VD: Chiết khấu thanh toán 10% trả thẳng"
+                    placeholder="VD: Tri ân khách hàng"
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm bg-slate-50/30"
                   />
                 </div>
@@ -848,295 +605,28 @@ export default function ManageVouchers() {
                   />
                 </div>
 
-                {/* Advanced configuration for auto-apply / payment methods */}
-                <div className="col-span-2 grid grid-cols-1 md:grid-cols-2 gap-5 border-t border-slate-100 pt-5">
-                  <div className="flex items-center justify-between bg-slate-50/80 p-3.5 rounded-2xl border border-slate-100">
-                    <div>
-                      <span className="block text-xs font-bold text-slate-700">Tự động áp dụng</span>
-                      <span className="block text-[10px] text-slate-400 mt-0.5">Hệ thống tự tính không cần gõ mã</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setTuDongApDung(!tuDongApDung)}
-                      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                        tuDongApDung ? 'bg-indigo-500' : 'bg-slate-200'
-                      }`}
-                    >
-                      <span
-                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                          tuDongApDung ? 'translate-x-5' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
-                  </div>
-
-                  <div>
-                    <label htmlFor="yeu_cau_thanh_toan" className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Hình thức yêu cầu</label>
-                    <select 
-                      id="yeu_cau_thanh_toan"
-                      value={yeuCauThanhToan}
-                      onChange={(e) => setYeuCauThanhToan(e.target.value as any)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm bg-white cursor-pointer font-bold"
-                    >
-                      <option value="tra_thang">Trả thẳng 100%</option>
-                      <option value="tra_gop">Trả góp</option>
-                    </select>
-                  </div>
+                {/* Hình thức thanh toán yêu cầu */}
+                <div className="col-span-2 border-t border-slate-100 pt-5">
+                  <label htmlFor="yeu_cau_thanh_toan" className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Yêu cầu Hình thức thanh toán</label>
+                  <select 
+                    id="yeu_cau_thanh_toan"
+                    value={yeuCauThanhToan}
+                    onChange={(e) => setYeuCauThanhToan(e.target.value as any)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm bg-white cursor-pointer font-bold"
+                  >
+                    <option value="tat_ca">Tất cả hình thức</option>
+                    <option value="tra_thang">Chỉ trả thẳng 100%</option>
+                    <option value="tra_gop">Chỉ trả góp</option>
+                  </select>
                 </div>
-
-                    {/* Advanced interactive scope selector */}
-                    <div className="col-span-2 border-t border-slate-100 pt-5 space-y-4">
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Phạm vi áp dụng</label>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {yeuCauThanhToan !== 'tra_gop' ? (
-                          <>
-                            {/* Nút A: Áp dụng cho tất cả */}
-                            <div className="relative">
-                              {scopeType === 'tat_ca' && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setScopeType('tuy_chinh');
-                                  }}
-                                  className="absolute -top-1.5 -left-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-full p-1 shadow-md z-10 active:scale-95 transition-transform"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              )}
-                              <button
-                                type="button"
-                                disabled={isServicesActive || isPackagesActive}
-                                onClick={() => {
-                                  setScopeType('tat_ca');
-                                  setIsServicesActive(false);
-                                  setIsPackagesActive(false);
-                                  setSelectedServices([]);
-                                  setSelectedPackages([]);
-                                }}
-                                className={`w-full py-3 px-4 rounded-2xl border text-sm font-bold flex flex-col items-center justify-center gap-1.5 transition-all relative ${
-                                  scopeType === 'tat_ca'
-                                    ? 'border-primary bg-teal-50/50 text-teal-700 shadow-md ring-2 ring-primary/20 scale-[1.02]'
-                                    : (isServicesActive || isPackagesActive)
-                                      ? 'border-slate-150 bg-slate-50/50 text-slate-400 opacity-40 cursor-not-allowed'
-                                      : 'border-slate-200 bg-white text-slate-650 hover:border-slate-350 hover:bg-slate-50'
-                                }`}
-                              >
-                                <Layers className="w-4 h-4 text-teal-600" />
-                                <span>Áp dụng cho tất cả</span>
-                                <span className="text-[10px] font-normal text-slate-400">Toàn bộ dịch vụ & gói</span>
-                              </button>
-                            </div>
-
-                            {/* Nút B: Dịch vụ cụ thể */}
-                            <div className="relative">
-                              {isServicesActive && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setIsServicesActive(false);
-                                    setSelectedServices([]);
-                                    if (!isPackagesActive) {
-                                      setScopeType('tat_ca');
-                                    }
-                                  }}
-                                  className="absolute -top-1.5 -left-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-full p-1 shadow-md z-10 active:scale-95 transition-transform"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              )}
-                              <button
-                                type="button"
-                                disabled={scopeType === 'tat_ca'}
-                                onClick={() => {
-                                  setScopeType('tuy_chinh');
-                                  setIsServicesActive(true);
-                                  setCurrentTab('services');
-                                }}
-                                className={`w-full py-3 px-4 rounded-2xl border text-sm font-bold flex flex-col items-center justify-center gap-1.5 transition-all relative ${
-                                  isServicesActive
-                                    ? 'border-primary bg-teal-50/50 text-teal-700 shadow-md ring-2 ring-primary/20 scale-[1.02]'
-                                    : scopeType === 'tat_ca'
-                                      ? 'border-slate-150 bg-slate-50/50 text-slate-400 opacity-40 cursor-not-allowed'
-                                      : 'border-slate-200 bg-white text-slate-650 hover:border-slate-350 hover:bg-slate-50'
-                                }`}
-                              >
-                                <Layers className="w-4 h-4 text-teal-600" />
-                                <span>Chỉ định dịch vụ</span>
-                                <span className="text-[10px] font-normal text-slate-400">
-                                  {selectedServices.length > 0 ? `Đã chọn ${selectedServices.length} dịch vụ` : 'Chọn dịch vụ cụ thể'}
-                                </span>
-                              </button>
-                            </div>
-                          </>
-                        ) : null}
-
-                        {/* Nút C: Gói cụ thể */}
-                        <div className={`relative ${yeuCauThanhToan === 'tra_gop' ? 'col-span-3' : ''}`}>
-                          {isPackagesActive && yeuCauThanhToan !== 'tra_gop' && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setIsPackagesActive(false);
-                                setSelectedPackages([]);
-                                if (!isServicesActive) {
-                                  setScopeType('tat_ca');
-                                }
-                              }}
-                              className="absolute -top-1.5 -left-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-full p-1 shadow-md z-10 active:scale-95 transition-transform"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            disabled={scopeType === 'tat_ca' && yeuCauThanhToan !== 'tra_gop'}
-                            onClick={() => {
-                              setScopeType('tuy_chinh');
-                              setIsPackagesActive(true);
-                              setCurrentTab('packages');
-                            }}
-                            className={`w-full py-3 px-4 rounded-2xl border text-sm font-bold flex flex-col items-center justify-center gap-1.5 transition-all relative ${
-                              isPackagesActive
-                                ? 'border-primary bg-teal-50/50 text-teal-700 shadow-md ring-2 ring-primary/20 scale-[1.02]'
-                                : scopeType === 'tat_ca'
-                                  ? 'border-slate-150 bg-slate-50/50 text-slate-400 opacity-40 cursor-not-allowed'
-                                  : 'border-slate-200 bg-white text-slate-650 hover:border-slate-350 hover:bg-slate-50'
-                            }`}
-                          >
-                            <Layers className="w-4 h-4 text-teal-600" />
-                            <span>Chỉ định gói</span>
-                            <span className="text-[10px] font-normal text-slate-400">
-                              {selectedPackages.length > 0 ? `Đã chọn ${selectedPackages.length} gói` : 'Chọn gói trị liệu cụ thể'}
-                            </span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-              {/* Selector lists */}
-              {scopeType === 'tuy_chinh' && (isServicesActive || isPackagesActive) && (
-                <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 space-y-4">
-                  {/* Tab Switcher (only shown if both are active) */}
-                  {isServicesActive && isPackagesActive && (
-                    <div className="flex border-b border-slate-200">
-                      <button
-                        type="button"
-                        onClick={() => setCurrentTab('services')}
-                        className={`pb-2.5 px-4 text-xs font-bold transition-all relative ${
-                          currentTab === 'services'
-                            ? 'text-primary border-b-2 border-primary font-extrabold'
-                            : 'text-slate-400 hover:text-slate-600'
-                        }`}
-                      >
-                        Danh sách Dịch vụ ({selectedServices.length})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setCurrentTab('packages')}
-                        className={`pb-2.5 px-4 text-xs font-bold transition-all relative ${
-                          currentTab === 'packages'
-                            ? 'text-primary border-b-2 border-primary font-extrabold'
-                            : 'text-slate-400 hover:text-slate-600'
-                        }`}
-                      >
-                        Danh sách Gói ({selectedPackages.length})
-                      </button>
-                    </div>
-                  )}
-
-                  {/* If only services is active */}
-                  {isServicesActive && !isPackagesActive && (
-                    <div className="text-xs font-bold text-slate-600 uppercase tracking-wider">
-                      Chọn dịch vụ áp dụng ({selectedServices.length} đã chọn)
-                    </div>
-                  )}
-
-                  {/* If only packages is active */}
-                  {!isServicesActive && isPackagesActive && (
-                    <div className="text-xs font-bold text-slate-600 uppercase tracking-wider">
-                      Chọn gói dịch vụ áp dụng ({selectedPackages.length} đã chọn)
-                    </div>
-                  )}
-
-                  {/* Search Bar for Selection */}
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-[11px] text-slate-400 font-semibold">Tích chọn các mục để áp dụng giảm giá</span>
-                    <input 
-                      type="text"
-                      placeholder={`Tìm ${((isServicesActive && !isPackagesActive) || (isServicesActive && isPackagesActive && currentTab === 'services')) ? 'dịch vụ' : 'gói'}...`}
-                      value={selectorSearch}
-                      onChange={(e) => setSelectorSearch(e.target.value)}
-                      className="px-3 py-1.5 rounded-lg border border-slate-200 focus:border-primary outline-none text-xs w-44 bg-white"
-                    />
-                  </div>
-
-                  {/* Service selection list */}
-                  {((isServicesActive && !isPackagesActive) || (isServicesActive && isPackagesActive && currentTab === 'services')) && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
-                      {services
-                        .filter(s => s.ten_dich_vu.toLowerCase().includes(selectorSearch.toLowerCase()))
-                        .map(s => {
-                          const isChecked = selectedServices.includes(s.id);
-                          return (
-                            <div 
-                              key={s.id}
-                              onClick={() => {
-                                setSelectedServices(prev => 
-                                  isChecked ? prev.filter(id => id !== s.id) : [...prev, s.id]
-                                );
-                              }}
-                              className={`flex items-center gap-2.5 p-2.5 rounded-xl border cursor-pointer select-none transition-all text-xs ${
-                                isChecked 
-                                  ? 'bg-teal-50/50 border-primary text-primary font-semibold shadow-sm' 
-                                  : 'bg-white border-slate-200 text-slate-650 hover:bg-slate-100/50'
-                              }`}
-                            >
-                              {isChecked ? <CheckSquare className="w-4 h-4 text-primary" /> : <Square className="w-4 h-4 text-slate-300" />}
-                              <span className="truncate">{s.ten_dich_vu}</span>
-                            </div>
-                          );
-                        })}
-                    </div>
-                  )}
-
-                  {/* Package selection list */}
-                  {((!isServicesActive && isPackagesActive) || (isServicesActive && isPackagesActive && currentTab === 'packages')) && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
-                      {packages
-                        .filter(p => p.ten_goi.toLowerCase().includes(selectorSearch.toLowerCase()))
-                        .map(p => {
-                          const isChecked = selectedPackages.includes(p.id);
-                          return (
-                            <div 
-                              key={p.id}
-                              onClick={() => {
-                                setSelectedPackages(prev => 
-                                  isChecked ? prev.filter(id => id !== p.id) : [...prev, p.id]
-                                );
-                              }}
-                              className={`flex items-center gap-2.5 p-2.5 rounded-xl border cursor-pointer select-none transition-all text-xs ${
-                                isChecked 
-                                  ? 'bg-teal-50/50 border-primary text-primary font-semibold shadow-sm' 
-                                  : 'bg-white border-slate-200 text-slate-650 hover:bg-slate-100/50'
-                              }`}
-                            >
-                              {isChecked ? <CheckSquare className="w-4 h-4 text-primary" /> : <Square className="w-4 h-4 text-slate-300" />}
-                              <span className="truncate">{p.ten_goi}</span>
-                            </div>
-                          );
-                        })}
-                    </div>
-                  )}
-                </div>
-              )}
+              </div>
 
               {/* Action Buttons */}
               <div className="pt-6 border-t border-slate-100 flex justify-end gap-3.5">
                 <button 
                   type="button"
                   onClick={() => setIsVoucherModalOpen(false)}
-                  className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 transition-colors text-sm"
+                  className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-650 font-semibold hover:bg-slate-50 transition-colors text-sm"
                 >
                   Hủy bỏ
                 </button>
@@ -1165,7 +655,7 @@ export default function ManageVouchers() {
               <button
                 type="button"
                 onClick={() => setConfirmModalData(null)}
-                className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 transition-colors text-sm"
+                className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-650 font-semibold hover:bg-slate-50 transition-colors text-sm"
               >
                 Hủy bỏ
               </button>

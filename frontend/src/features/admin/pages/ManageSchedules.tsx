@@ -2,15 +2,18 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { getSchedules, createSchedule, getStaff, updateSchedule, deleteSchedule } from '../../../api/admin.api';
+import { getSchedules, createSchedule, getStaff, updateSchedule, deleteSchedule, getRooms } from '../../../api/admin.api';
 import { User, Calendar as CalendarIcon, PieChart, AlertTriangle, Plus, X, CheckCircle2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const scheduleSchema = z.object({
   nguoi_dung_id: z.string().min(1, 'Vui lòng chọn nhân sự'),
   ngay: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Ngày không hợp lệ (YYYY-MM-DD)'),
   gio_bat_dau: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Giờ không hợp lệ'),
   gio_ket_thuc: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Giờ không hợp lệ'),
-  trang_thai: z.enum(['hoat_dong', 'tam_nghi'])
+  trang_thai: z.enum(['hoat_dong', 'tam_nghi']),
+  phong_id: z.union([z.string(), z.number(), z.null()]).optional(),
+  giuong_so: z.union([z.string(), z.number(), z.null()]).optional()
 });
 
 type ScheduleFormValues = z.infer<typeof scheduleSchema>;
@@ -60,6 +63,7 @@ const getAvatarInitials = (name: string) => {
 export default function ManageSchedules() {
   const [schedules, setSchedules] = useState<any[]>([]);
   const [staff, setStaff] = useState<any[]>([]);
+  const [rooms, setRooms] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
   const [selectedWeek, setSelectedWeek] = useState<'current'|'next'>('current');
@@ -71,15 +75,16 @@ export default function ManageSchedules() {
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<ScheduleFormValues>({
     resolver: zodResolver(scheduleSchema),
-    defaultValues: { trang_thai: 'hoat_dong', gio_bat_dau: '07:00', gio_ket_thuc: '15:30' }
+    defaultValues: { trang_thai: 'hoat_dong', gio_bat_dau: '07:00', gio_ket_thuc: '15:30', phong_id: '', giuong_so: '' }
   });
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [schedRes, staffRes] = await Promise.all([ getSchedules(), getStaff() ]);
+      const [schedRes, staffRes, roomsRes] = await Promise.all([ getSchedules(), getStaff(), getRooms() ]);
       setSchedules(schedRes.data);
       setStaff(staffRes.data.filter((s: any) => ['Kỹ thuật viên', 'Bác sĩ', 'Lễ tân'].includes(s.vai_tro)));
+      setRooms(roomsRes.data || []);
     } catch (error) {
       console.error('Error fetching schedules:', error);
     } finally {
@@ -88,6 +93,75 @@ export default function ManageSchedules() {
   };
 
   useEffect(() => { fetchData(); }, []);
+
+  const watchedPhongId = watch('phong_id');
+  const watchedNguoiDungId = watch('nguoi_dung_id');
+  const watchedNgay = watch('ngay');
+
+  const selectedStaffObj = useMemo(() => {
+    return staff.find(s => s.id === watchedNguoiDungId);
+  }, [staff, watchedNguoiDungId]);
+
+  const isKTV = selectedStaffObj?.vai_tro === 'Kỹ thuật viên';
+  const isDoctor = selectedStaffObj?.vai_tro === 'Bác sĩ';
+  const watchedGioBatDau = watch('gio_bat_dau');
+
+  const availableRoomsForRole = useMemo(() => {
+    if (!watchedNguoiDungId) return [];
+    
+    if (isKTV) {
+      return rooms.filter((r: any) => 
+        ['phong_tri_lieu_chuan', 'tri_lieu'].includes(r.loai_phong)
+      );
+    }
+    
+    if (isDoctor) {
+      const clinicRooms = rooms.filter((r: any) => r.loai_phong === 'kham_benh');
+      if (!watchedNgay || !watchedGioBatDau) return clinicRooms;
+      
+      const currentHour = parseInt(watchedGioBatDau.split(':')[0]) || 0;
+      const isCurrentMorning = currentHour < 11;
+      
+      const occupiedRoomIds = new Set<string>();
+      schedules.forEach(s => {
+        if (
+          s.ngay === watchedNgay && 
+          s.trang_thai === 'hoat_dong' && 
+          (!editingSchedule || s.id !== editingSchedule.id) &&
+          s.phong_id
+        ) {
+          const schedStaff = staff.find(st => st.id === s.nguoi_dung_id);
+          if (schedStaff?.vai_tro === 'Bác sĩ') {
+            const sHour = parseInt(s.gio_bat_dau.split(':')[0]) || 0;
+            const isSMorning = sHour < 11;
+            
+            if (isCurrentMorning === isSMorning) {
+              occupiedRoomIds.add(s.phong_id.toString());
+            }
+          }
+        }
+      });
+      
+      return clinicRooms.filter((r: any) => !occupiedRoomIds.has(r.id.toString()));
+    }
+    
+    return [];
+  }, [rooms, isKTV, isDoctor, watchedNgay, watchedGioBatDau, schedules, editingSchedule, watchedNguoiDungId, staff]);
+
+  const selectedRoomObj = useMemo(() => {
+    if (!watchedPhongId) return null;
+    return rooms.find(r => r.id.toString() === watchedPhongId.toString());
+  }, [rooms, watchedPhongId]);
+
+  const bedOptions = useMemo(() => {
+    if (!selectedRoomObj) return [];
+    const count = selectedRoomObj.so_luong_giuong || 1;
+    const options = [];
+    for (let i = 1; i <= count; i++) {
+      options.push(i);
+    }
+    return options;
+  }, [selectedRoomObj]);
 
   const handleShiftTypeChange = (type: 'morning' | 'afternoon' | 'tam_nghi') => {
     setSelectedShiftType(type);
@@ -109,9 +183,6 @@ export default function ManageSchedules() {
       setValue('trang_thai', 'tam_nghi');
     }
   };
-
-  const watchedNgay = watch('ngay');
-  const watchedNguoiDungId = watch('nguoi_dung_id');
 
   const disabledShiftsForSelected = useMemo(() => {
     if (!watchedNguoiDungId || !watchedNgay) {
@@ -207,6 +278,8 @@ export default function ManageSchedules() {
     setValue('nguoi_dung_id', userId);
     const targetDate = dateStr || formatLocalDate(new Date());
     setValue('ngay', targetDate);
+    setValue('phong_id', '');
+    setValue('giuong_so', '');
     
     const selectedStaff = staff.find(s => s.id === userId);
     const role = selectedStaff?.vai_tro || 'Bác sĩ';
@@ -241,6 +314,8 @@ export default function ManageSchedules() {
     setValue('gio_bat_dau', sched.gio_bat_dau.slice(0, 5));
     setValue('gio_ket_thuc', sched.gio_ket_thuc.slice(0, 5));
     setValue('trang_thai', sched.trang_thai as any);
+    setValue('phong_id', sched.phong_id ? sched.phong_id.toString() : '');
+    setValue('giuong_so', sched.giuong_so ? Number(sched.giuong_so) : '');
 
     if (sched.trang_thai === 'tam_nghi') {
       setSelectedShiftType('tam_nghi');
@@ -260,10 +335,11 @@ export default function ManageSchedules() {
     if (window.confirm('Bạn có chắc chắn muốn xóa ca trực này?')) {
       try {
         await deleteSchedule(editingSchedule.id);
+        toast.success('Xóa ca trực thành công!');
         setIsModalOpen(false);
         fetchData();
       } catch (error: any) {
-        alert(error.response?.data?.message || 'Có lỗi xảy ra khi xóa');
+        toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi xóa');
       }
     }
   };
@@ -297,16 +373,28 @@ export default function ManageSchedules() {
     }
 
     try {
+      const selectedStaffObj = staff.find(s => s.id === data.nguoi_dung_id);
+      const isKTVNow = selectedStaffObj?.vai_tro === 'Kỹ thuật viên';
+      const isDoctorNow = selectedStaffObj?.vai_tro === 'Bác sĩ';
+      
+      const submitData = {
+        ...data,
+        phong_id: (isKTVNow || isDoctorNow) && data.trang_thai === 'hoat_dong' ? (data.phong_id ? Number(data.phong_id) : null) : null,
+        giuong_so: isKTVNow && data.trang_thai === 'hoat_dong' ? (data.giuong_so ? Number(data.giuong_so) : null) : null
+      };
+
       if (editingSchedule) {
-        await updateSchedule(editingSchedule.id, data);
+        await updateSchedule(editingSchedule.id, submitData);
+        toast.success('Cập nhật ca trực thành công!');
       } else {
-        await createSchedule(data);
+        await createSchedule(submitData);
+        toast.success('Tạo ca trực thành công!');
       }
       setIsModalOpen(false);
       reset();
       fetchData();
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Có lỗi xảy ra');
+      toast.error(error.response?.data?.message || 'Có lỗi xảy ra');
     }
   };
 
@@ -437,6 +525,14 @@ export default function ManageSchedules() {
     if (isConflict && sched.trang_thai !== 'tam_nghi') {
       colorClass = 'bg-rose-50 text-rose-700 border-rose-300 border-dashed cursor-pointer hover:border-rose-450';
       label = `Trùng ca ${label}`;
+    }
+
+    if (sched.trang_thai !== 'tam_nghi' && sched.ma_phong) {
+      if (sched.giuong_so) {
+        label = `${label} (${sched.ma_phong} - G${sched.giuong_so})`;
+      } else {
+        label = `${label} (${sched.ma_phong})`;
+      }
     }
 
     return (
@@ -688,6 +784,34 @@ export default function ManageSchedules() {
                   {errors.nguoi_dung_id && <p className="text-rose-500 text-xs mt-1.5 font-bold">{errors.nguoi_dung_id.message}</p>}
                 </div>
 
+                {editingSchedule && (
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Thông tin ca trực hiện tại</p>
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <span className="text-slate-400 font-bold block mb-0.5">KHUNG GIỜ LÀM:</span>
+                        <p className="font-extrabold text-slate-800">
+                          {editingSchedule.gio_bat_dau?.slice(0, 5)} - {editingSchedule.gio_ket_thuc?.slice(0, 5)}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 font-bold block mb-0.5">PHÒNG & GIƯỜNG:</span>
+                        <p className="font-extrabold text-slate-800">
+                          {editingSchedule.ma_phong ? (
+                            editingSchedule.giuong_so ? (
+                              `${editingSchedule.ma_phong} - Giường ${editingSchedule.giuong_so}`
+                            ) : (
+                              editingSchedule.ma_phong
+                            )
+                          ) : (
+                            'Chưa gán phòng'
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1.5">Ngày trực *</label>
                   <input type="date" {...register('ngay')} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none text-sm font-medium text-gray-800 transition-all" />
@@ -714,6 +838,47 @@ export default function ManageSchedules() {
                     <option value="tam_nghi">🌴 Nghỉ phép / Tạm nghỉ</option>
                   </select>
                 </div>
+                {watch('trang_thai') === 'hoat_dong' && (isKTV || isDoctor) && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-750 mb-1.5 font-sans uppercase text-[11px] tracking-wider text-slate-500">
+                        {isKTV ? 'Phòng trị liệu' : 'Phòng khám bệnh'}
+                      </label>
+                      <select
+                        {...register('phong_id', {
+                          setValueAs: (v) => (v === "" ? null : Number(v))
+                        })}
+                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none text-sm font-bold text-gray-800 transition-all"
+                      >
+                        <option value="">{isKTV ? '-- Chọn phòng trị liệu --' : '-- Chọn phòng khám --'}</option>
+                        {availableRoomsForRole.map(r => (
+                          <option key={r.id} value={r.id}>
+                            {r.ten_phong} ({r.ma_phong})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {isKTV && watchedPhongId && (
+                      <div>
+                        <label className="block text-sm font-bold text-gray-755 mb-1.5 font-sans uppercase text-[11px] tracking-wider text-slate-500">Giường số</label>
+                        <select
+                          {...register('giuong_so', {
+                            setValueAs: (v) => (v === "" ? null : Number(v))
+                          })}
+                          className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none text-sm font-bold text-gray-800 transition-all"
+                        >
+                          <option value="">-- Chọn giường --</option>
+                          {bedOptions.map(num => (
+                            <option key={num} value={num}>
+                              Giường số {num}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </>
+                )}
                 
                 {/* Các input ẩn để lưu giờ gửi lên backend */}
                 <input type="hidden" {...register('gio_bat_dau')} />

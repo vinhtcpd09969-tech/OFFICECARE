@@ -1,0 +1,403 @@
+// =====================================================
+// PHYSIOFLOW - DATABASE DIAGRAM (DBML for dbdiagram.io)
+// Copy toàn bộ nội dung này vào dbdiagram.io
+// =====================================================
+
+// ======================================================
+// PHÂN HỆ 1: XÁC THỰC & CON NGƯỜI (Authentication)
+// Màu: Xanh lam đậm (#1a56db)
+// ======================================================
+
+Table nguoi_dung [headercolor: #1a56db] {
+  id uuid [pk, not null]
+  ho_ten varchar(150) [not null]
+  email varchar(255) [not null]
+  so_dien_thoai varchar(20)
+  mat_khau_hash varchar(255) [not null]
+  vai_tro_id smallint [not null, ref: > vai_tro.id]
+  trang_thai varchar(20) [default: 'hoat_dong']
+  da_xac_thuc_email boolean [default: false]
+  avatar_url text
+  thoi_gian_tao timestamp
+  lan_dang_nhap_cuoi timestamp
+  deleted_at timestamp
+}
+
+Table vai_tro [headercolor: #1a56db] {
+  id smallint [pk]
+  ma_vai_tro varchar(20) [not null]
+  ten_hien_thi varchar(50) [not null]
+  mo_ta_quyen text
+}
+
+Table otp_codes [headercolor: #1a56db] {
+  id uuid [pk]
+  email varchar(255) [not null]
+  otp varchar(6) [not null]
+  expires_at timestamptz [not null]
+  created_at timestamptz
+}
+
+Table refresh_tokens [headercolor: #1a56db] {
+  id integer [pk]
+  nguoi_dung_id uuid [not null, ref: > nguoi_dung.id]
+  token text [not null]
+  expires_at timestamp [not null]
+  created_at timestamp
+}
+
+Table thong_bao [headercolor: #1a56db] {
+  id uuid [pk]
+  nguoi_dung_id uuid [not null, ref: > nguoi_dung.id]
+  tieu_de varchar(200) [not null]
+  noi_dung text [not null]
+  loai varchar(30) [default: 'he_thong']
+  da_doc boolean [default: false]
+  thoi_gian_tao timestamp
+}
+
+// ======================================================
+// PHÂN HỆ 2: CON NGƯỜI & NHÂN SỰ (Actors)
+// Màu: Xanh ngọc (#0e9f6e)
+// ======================================================
+
+Table khach_hang [headercolor: #0e9f6e] {
+  id uuid [pk, not null]
+  nguoi_dung_id uuid [not null, ref: - nguoi_dung.id]
+  ngay_sinh date
+  gioi_tinh varchar(10)
+  dia_chi text
+  thoi_gian_tao timestamp
+  deleted_at timestamp
+}
+
+Table chuyen_gia_y_te [headercolor: #0e9f6e] {
+  id uuid [pk, not null]
+  nguoi_dung_id uuid [not null, ref: - nguoi_dung.id]
+  ma_nhan_vien varchar(20) [not null]
+  chuyen_mon_chinh varchar(200) [not null]
+  so_nam_kinh_nghiem integer
+  chung_chi text
+  mo_ta_ban_than text
+  anh_dai_dien_url text
+  trang_thai varchar(20) [default: 'hoat_dong']
+  ngay_vao_lam date
+  luong_cung_ca bigint [default: 150000]
+  luong_kpi_ca bigint [default: 50000]
+}
+
+Table lich_lam_viec [headercolor: #0e9f6e] {
+  id uuid [pk]
+  nguoi_dung_id uuid [not null, ref: > nguoi_dung.id]
+  ngay date [not null]
+  gio_bat_dau time [not null]
+  gio_ket_thuc time [not null]
+  trang_thai varchar(20) [default: 'hoat_dong']
+  phong_id bigint [ref: > phong.id]
+  giuong_so integer
+  thoi_gian_checkin timestamptz
+  thoi_gian_checkout timestamptz
+  trang_thai_cham_cong varchar(30)
+}
+
+// ======================================================
+// PHÂN HỆ 3: DỊCH VỤ & GÓI ĐIỀU TRỊ (Services)
+// Màu: Cam (#d03801)
+// ======================================================
+
+Table danh_muc_dich_vu [headercolor: #d03801] {
+  id bigint [pk]
+  ten_danh_muc varchar(100) [not null]
+  mo_ta text
+  thu_tu_hien_thi integer [default: 0]
+  an_hien boolean [default: true]
+  loai_danh_muc varchar(20) [default: 'dich_vu']
+}
+
+Table dich_vu [headercolor: #d03801] {
+  id uuid [pk, not null]
+  danh_muc_id bigint [not null, ref: > danh_muc_dich_vu.id]
+  ten_dich_vu varchar(200) [not null]
+  mo_ta_ngan varchar(500)
+  mo_ta_chi_tiet text
+  thoi_luong_phut integer [not null]
+  don_gia bigint [not null]
+  hinh_anh_url text
+  trang_thai varchar(20) [default: 'hoat_dong']
+  thu_tu_hien_thi integer [default: 0]
+  thiet_bi_yeu_cau varchar(100)
+  loai_dich_vu varchar(20) [default: 'chinh']
+  hien_thi_website boolean [default: true]
+  loai_dich_vu_ho_tro jsonb [default: '[]']
+}
+
+Table goi_dich_vu [headercolor: #d03801] {
+  id uuid [pk, not null]
+  ten_goi varchar(200) [not null]
+  ma_goi varchar(30) [not null, unique]
+  mo_ta text
+  tong_so_buoi integer [not null]
+  gia_goi bigint [not null]
+  gia_goc bigint
+  han_dung_thang integer [default: 6]
+  hien_thi_website boolean [default: true]
+  trang_thai varchar(20) [default: 'hoat_dong']
+  danh_muc_id bigint [ref: > danh_muc_dich_vu.id]
+  loai_goi varchar(20) [default: 'lieu_trinh']
+  so_dv_toi_da_moi_buoi integer [default: 5]
+  phan_tram_giam_tra_thang integer [default: 10]
+  phan_tram_giam_tra_gop integer [default: 5]
+  thoi_gian_tao timestamptz
+}
+
+Table goi_dich_vu_chi_tiet [headercolor: #d03801] {
+  id integer [pk]
+  goi_dich_vu_id uuid [ref: > goi_dich_vu.id]
+  dich_vu_id uuid [ref: > dich_vu.id]
+  so_buoi_trong_goi integer [default: 1]
+  so_lan_toi_da_trong_goi integer [default: 10]
+  bat_buoc boolean [default: false]
+  thu_tu_thuc_hien integer [default: 0]
+}
+
+// ======================================================
+// PHÂN HỆ 4: KHÁM LÂM SÀNG & HỒ SƠ (Clinical)
+// Màu: Tím (#7e3af2)
+// ======================================================
+
+Table lich_dat [headercolor: #7e3af2] {
+  id uuid [pk, not null]
+  ma_lich_dat varchar(20) [not null]
+  khach_hang_id uuid [ref: > khach_hang.id]
+  ho_ten_khach varchar(150)
+  so_dien_thoai varchar(20)
+  gioi_tinh_khach varchar(10)
+  dich_vu_id uuid [ref: > dich_vu.id]
+  bac_si_id uuid [ref: > chuyen_gia_y_te.id]
+  phong_id bigint [ref: > phong.id]
+  ngay_gio_bat_dau timestamptz [not null]
+  ngay_gio_ket_thuc timestamptz [not null]
+  ly_do_kham text
+  anh_dinh_kem_url text
+  trang_thai varchar(30) [default: 'cho_xac_nhan']
+  ghi_chu_dat_lich text
+  ghi_chu_noi_bo text
+  thoi_gian_checkin timestamptz
+  thoi_gian_huy timestamptz
+  ly_do_huy text
+  nguoi_tao varchar(20) [default: 'khach_hang']
+  thoi_gian_tao timestamptz
+  han_xac_nhan timestamptz
+}
+
+Table ho_so_dieu_tri [headercolor: #7e3af2] {
+  id uuid [pk, not null]
+  lich_dat_id uuid [not null, unique, ref: - lich_dat.id]
+  chuyen_gia_id uuid [ref: > chuyen_gia_y_te.id]
+  chan_doan text
+  chong_chi_dinh text
+  goi_dich_vu_id uuid [ref: > goi_dich_vu.id]
+  dich_vu_id uuid [ref: > dich_vu.id]
+  ghi_chu text
+  thoi_gian_tao timestamptz
+}
+
+// ======================================================
+// PHÂN HỆ 5: ĐIỀU TRỊ THỰC TẾ & TÀI NGUYÊN (Operations)
+// Màu: Hồng đậm (#c01c7e)
+// ======================================================
+
+Table lich_dieu_tri [headercolor: #c01c7e] {
+  id uuid [pk, not null]
+  ma_lich_dieu_tri varchar(20) [unique]
+  khach_hang_id uuid [not null, ref: > khach_hang.id]
+  ho_so_dieu_tri_id uuid [ref: > ho_so_dieu_tri.id]
+  loai_dieu_tri varchar(20) [not null]
+  tong_so_buoi integer [not null]
+  so_buoi_da_dung integer [default: 0]
+  trang_thai varchar(20) [default: 'dang_dieu_tri']
+  phong_id bigint [ref: > phong.id]
+  ghi_chu_noi_bo text
+  ngay_bat_dau timestamp
+  ngay_ket_thuc timestamp
+  thoi_gian_tao timestamptz
+}
+
+Table buoi_tri_lieu [headercolor: #c01c7e] {
+  id uuid [pk, not null]
+  lich_dieu_tri_id uuid [not null, ref: > lich_dieu_tri.id]
+  khach_hang_id uuid [not null, ref: > khach_hang.id]
+  ky_thuat_vien_id uuid [not null, ref: > chuyen_gia_y_te.id]
+  phong_id bigint [ref: > phong.id]
+  dich_vu_id uuid [ref: > dich_vu.id]
+  thoi_gian_bat_dau timestamptz [not null]
+  thoi_gian_ket_thuc timestamptz
+  so_thu_tu_buoi integer
+  trang_thai varchar(20) [default: 'dang_thuc_hien']
+  danh_gia_truoc_buoi integer
+  danh_gia_sau_buoi integer
+  danh_gia_hieu_qua integer
+  canh_bao_dac_biet text
+  ai_tom_tat_ngan varchar(300)
+}
+
+Table buoi_tri_lieu_dich_vu [headercolor: #c01c7e] {
+  id uuid [pk]
+  buoi_tri_lieu_id uuid [not null, ref: > buoi_tri_lieu.id]
+  dich_vu_id uuid [not null, ref: > dich_vu.id]
+  ktv_id uuid [ref: > chuyen_gia_y_te.id]
+  so_luong integer [default: 1]
+  loai_dich_vu_su_dung varchar(20) [default: 'trong_goi']
+  trang_thai varchar(20) [default: 'da_duyet']
+  ghi_chu_ly_do text
+  duyet_boi uuid [ref: > nguoi_dung.id]
+  duyet_luc timestamp
+  thoi_gian_thuc_hien timestamp
+}
+
+Table phong [headercolor: #c01c7e] {
+  id bigint [pk]
+  ten_phong varchar(100) [not null]
+  ma_phong varchar(20) [not null]
+  loai_phong varchar(100)
+  mo_ta text
+  trang_thai varchar(20) [default: 'san_sang']
+  tang varchar(20)
+  so_luong_giuong integer [default: 1]
+}
+
+Table thiet_bi_y_te [headercolor: #c01c7e] {
+  id uuid [pk, not null]
+  ma_thiet_bi varchar(20) [not null, unique]
+  ten_thiet_bi varchar(100) [not null]
+  loai_thiet_bi varchar(100)
+  phong_id_hien_tai bigint [ref: > phong.id]
+  trang_thai varchar(20) [default: 'san_sang']
+  co_the_di_chuyen boolean [default: true]
+  ngay_mua date
+  ngay_bao_tri_tiep_theo date
+  ngay_bao_tri_gan_nhat date
+  so_lan_su_dung integer [default: 0]
+  nguong_canh_bao integer [default: 80]
+  nguong_bat_buoc_bao_tri integer [default: 100]
+  tan_suat_bao_tri_ngay integer [default: 45]
+  cap_rui_ro varchar(20) [default: 'trung_binh']
+  ghi_chu text
+  thoi_gian_tao timestamp
+}
+
+// ======================================================
+// PHÂN HỆ 6: TÀI CHÍNH & KHUYẾN MÃI (Finance)
+// Màu: Vàng đậm (#b45309)
+// ======================================================
+
+Table hoa_don [headercolor: #b45309] {
+  id uuid [pk, not null]
+  ma_hoa_don varchar(20) [not null]
+  khach_hang_id uuid [not null, ref: > khach_hang.id]
+  lich_dieu_tri_id uuid [ref: > lich_dieu_tri.id]
+  loai_hoa_don varchar(20) [not null]
+  tong_tien_truoc_giam bigint [default: 0]
+  so_tien_giam bigint [default: 0]
+  tong_tien_thanh_toan bigint [not null]
+  da_thanh_toan bigint [default: 0]
+  trang_thai varchar(30) [default: 'chua_thanh_toan']
+  loai_thanh_toan varchar(20) [default: 'tra_thang']
+  voucher_id uuid [ref: > voucher.id]
+  so_tien_giam_voucher bigint [default: 0]
+  so_tien_giam_phuong_thuc bigint [default: 0]
+  ngay_tao timestamp
+  ngay_thanh_toan timestamp
+  thu_boi uuid
+  ghi_chu text
+}
+
+Table thanh_toan [headercolor: #b45309] {
+  id uuid [pk, not null]
+  ma_giao_dich varchar(50) [not null]
+  hoa_don_id uuid [not null, ref: > hoa_don.id]
+  so_tien bigint [not null]
+  phuong_thuc varchar(20) [not null]
+  trang_thai varchar(20) [default: 'cho_xu_ly']
+  ma_tham_chieu varchar(100)
+  nguoi_thu_tien_id uuid
+  thoi_gian_giao_dich timestamp
+  ghi_chu text
+}
+
+Table voucher [headercolor: #b45309] {
+  id uuid [pk, not null]
+  ma_voucher varchar(50) [not null]
+  ten_chien_dich varchar(200)
+  loai_giam varchar(20) [not null]
+  gia_tri_giam bigint [not null]
+  giam_toi_da bigint
+  don_hang_toi_thieu bigint [default: 0]
+  so_luong_toi_da integer
+  so_luong_da_dung integer [default: 0]
+  ngay_bat_dau date [not null]
+  ngay_het_han date
+  tao_boi uuid [not null, ref: > nguoi_dung.id]
+  trang_thai varchar(20) [default: 'hoat_dong']
+  yeu_cau_thanh_toan varchar(30) [default: 'tat_ca']
+  thoi_gian_tao timestamp
+}
+
+Table danh_gia_dich_vu [headercolor: #b45309] {
+  id uuid [pk, not null]
+  buoi_tri_lieu_id uuid [not null, ref: > buoi_tri_lieu.id]
+  khach_hang_id uuid [not null, ref: > khach_hang.id]
+  ky_thuat_vien_id uuid [not null, ref: > chuyen_gia_y_te.id]
+  so_sao_tong integer [not null]
+  so_sao_ktv integer
+  nhan_xet text
+  hieu_qua_dieu_tri varchar(30)
+  se_quay_lai boolean
+  hien_thi_cong_khai boolean [default: false]
+  thoi_gian_danh_gia timestamp
+}
+
+// ======================================================
+// PHÂN NHÓM MÀU SẮC THEO PHÂN HỆ
+// ======================================================
+
+TableGroup "Xác Thực & Bảo Mật" [color: #1a56db] {
+  nguoi_dung
+  vai_tro
+  otp_codes
+  refresh_tokens
+  thong_bao
+}
+
+TableGroup "Con Người & Nhân Sự" [color: #0e9f6e] {
+  khach_hang
+  chuyen_gia_y_te
+  lich_lam_viec
+}
+
+TableGroup "Dịch Vụ & Gói Điều Trị" [color: #d03801] {
+  danh_muc_dich_vu
+  dich_vu
+  goi_dich_vu
+  goi_dich_vu_chi_tiet
+}
+
+TableGroup "Khám Lâm Sàng & Hồ Sơ" [color: #7e3af2] {
+  lich_dat
+  ho_so_dieu_tri
+}
+
+TableGroup "Điều Trị & Tài Nguyên" [color: #c01c7e] {
+  lich_dieu_tri
+  buoi_tri_lieu
+  buoi_tri_lieu_dich_vu
+  phong
+  thiet_bi_y_te
+}
+
+TableGroup "Tài Chính & Đánh Giá" [color: #b45309] {
+  hoa_don
+  thanh_toan
+  voucher
+  danh_gia_dich_vu
+}

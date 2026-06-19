@@ -97,6 +97,7 @@ export default function AppointmentWeeklyCalendar({
                         
                         return (
                           <div
+                            id={`appointment-card-${apt.id}`}
                             key={apt.id}
                             onClick={() => handleOpenDetailModal(apt)}
                             className="p-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 cursor-pointer shadow-sm hover:shadow-md hover:border-emerald-350 dark:hover:border-emerald-700 transition-all rounded-xl relative group/card"

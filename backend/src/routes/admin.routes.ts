@@ -186,6 +186,10 @@ router.patch('/appointments/:id/status', appointmentController.updateAppointment
 router.put('/appointments/:id/medical-record', appointmentController.updateMedicalRecord);
 router.delete('/appointments/break-time', appointmentController.cancelBreakTimeAppointments);
 
+router.get('/appointments/watchdog/status', appointmentController.getWatchdogStatus);
+router.post('/appointments/watchdog/run', appointmentController.runWatchdogManually);
+router.post('/appointments/:id/keep-alive', appointmentController.keepAliveAppointment);
+
 // Hồ sơ điều trị (New Workflow)
 router.get('/treatment-records', treatmentRecordController.getTreatmentRecords);
 router.post('/treatment-records', treatmentRecordController.createTreatmentRecord);

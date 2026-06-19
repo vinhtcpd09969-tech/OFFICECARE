@@ -1,4 +1,6 @@
+import { useState, useEffect } from 'react';
 import { MapPin, Clock, Plus, Coffee } from 'lucide-react';
+import { convertToVietnamUtcIso } from '../../../utils/date';
 
 const BREAK_SLOTS = new Set<string>();
 
@@ -16,6 +18,7 @@ interface AppointmentCalendarProps {
   onUpdateAppointment?: (appointmentId: string, updatedFields: any) => Promise<void>;
   viewMode?: 'admin' | 'doctor';
   currentStaffId?: string;
+  hideUnassignedColumn?: boolean;
 }
 
 export default function AppointmentCalendar({
@@ -30,7 +33,8 @@ export default function AppointmentCalendar({
   onOpenWalkInModal,
   onUpdateAppointment,
   viewMode = 'admin',
-  currentStaffId
+  currentStaffId,
+  hideUnassignedColumn = false
 }: AppointmentCalendarProps) {
   // Lấy danh sách Bác sĩ
   const doctors = viewMode === 'doctor'
@@ -120,8 +124,14 @@ export default function AppointmentCalendar({
 
     // Tính toán giờ kết thúc (khám lâm sàng mặc định 30p, trị liệu/dịch vụ lẻ mặc định 60p)
     const durationMin = draggedApt.loai_lich === 'dieu_tri' ? 60 : 30;
-    const startIso = new Date(`${selectedDateStr}T${hour}:00`).toISOString();
-    const endIso = new Date(new Date(startIso).getTime() + durationMin * 60000).toISOString();
+    const [h, m] = hour.split(':').map(Number);
+    const endTotalMins = h * 60 + m + durationMin;
+    const endH = Math.floor(endTotalMins / 60) % 24;
+    const endM = endTotalMins % 60;
+    const endHourStr = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+    
+    const startIso = convertToVietnamUtcIso(selectedDateStr, hour);
+    const endIso = convertToVietnamUtcIso(selectedDateStr, endHourStr);
 
     const payload: any = {
       trang_thai: doctorId === null 
@@ -143,9 +153,9 @@ export default function AppointmentCalendar({
         <thead>
           <tr className="bg-slate-50 dark:bg-zinc-800/40 text-slate-500 dark:text-zinc-400 text-xs uppercase tracking-wider font-bold border-b border-slate-200 dark:border-zinc-800">
             <th className="w-28 p-4 text-center border-r border-slate-200 dark:border-zinc-800">Khung giờ</th>
-            {viewMode !== 'doctor' && (
+            {viewMode !== 'doctor' && !hideUnassignedColumn && (
               <th className="w-64 p-4 border-r border-slate-200 dark:border-zinc-800 bg-amber-50/5 dark:bg-amber-955/5">
-                <span className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
+                <span className="flex items-center gap-1.5 text-amber-700 dark:text-amber-450">
                   ⚠️ Chờ chỉ định
                 </span>
               </th>
@@ -193,7 +203,7 @@ export default function AppointmentCalendar({
                 </td>
 
                 {/* Cột chờ chỉ định */}
-                {viewMode !== 'doctor' && (
+                {viewMode !== 'doctor' && !hideUnassignedColumn && (
                   <td
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
@@ -290,14 +300,63 @@ export default function AppointmentCalendar({
   );
 }
 
+// Subcomponent: Countdown Timer
+function CountdownTimer({ hanXacNhan, onExpire }: { hanXacNhan: string; onExpire?: () => void }) {
+  const [timeLeft, setTimeLeft] = useState<number>(0);
+
+  useEffect(() => {
+    const calculateTimeLeft = () => {
+      const diff = new Date(hanXacNhan).getTime() - Date.now();
+      return diff > 0 ? Math.floor(diff / 1000) : 0;
+    };
+
+    setTimeLeft(calculateTimeLeft());
+
+    const timer = setInterval(() => {
+      const seconds = calculateTimeLeft();
+      setTimeLeft(seconds);
+      if (seconds <= 0) {
+        clearInterval(timer);
+        if (onExpire) onExpire();
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [hanXacNhan, onExpire]);
+
+  if (timeLeft <= 0) {
+    return <span className="text-red-500 font-extrabold text-[9px] animate-pulse">Quá hạn</span>;
+  }
+
+  const minutes = Math.floor(timeLeft / 60);
+  const seconds = timeLeft % 60;
+  const timeStr = `${minutes}m ${seconds}s`;
+
+  let colorClass = 'text-amber-600 bg-amber-50 dark:bg-amber-950/20';
+  if (minutes < 5) {
+    colorClass = 'text-rose-600 bg-rose-50 dark:bg-rose-950/20 animate-pulse font-extrabold';
+  } else if (minutes < 10) {
+    colorClass = 'text-orange-600 bg-orange-50 dark:bg-orange-950/20 font-bold';
+  }
+
+  return (
+    <span className={`text-[9.5px] px-1.5 py-0.5 rounded flex items-center gap-1 font-mono ${colorClass}`}>
+      <span>⏳</span>
+      <span>{timeStr}</span>
+    </span>
+  );
+}
+
 // Subcomponent: Appointment Card (Premium Glassmorphic card styling)
 function AppointmentCard({ apt, statusConfig, onClick, onDragStart, viewMode = 'admin' }: { apt: any; statusConfig: any; onClick: () => void; onDragStart: (e: React.DragEvent, apt: any) => void; viewMode?: 'admin' | 'doctor' }) {
   const status = statusConfig[apt.trang_thai] || statusConfig.cho_xac_nhan;
   const isUnassigned = !apt.bac_si_id && !apt.chuyen_gia_id;
   const isCheckedIn = apt.trang_thai === 'da_checkin';
+  const showCountdown = isUnassigned && ['cho_xac_nhan', 'chua_xac_nhan'].includes(apt.trang_thai) && apt.han_xac_nhan;
 
   return (
     <div
+      id={`appointment-card-${apt.id}`}
       draggable={viewMode !== 'doctor'}
       onDragStart={(e) => onDragStart(e, apt)}
       onClick={onClick}
@@ -335,13 +394,19 @@ function AppointmentCard({ apt, statusConfig, onClick, onDragStart, viewMode = '
           {apt.ten_dich_vu}
         </div>
       </div>
-
+ 
       <div className="mt-2 pt-2 border-t border-slate-50 dark:border-zinc-800/85 flex items-center justify-between gap-1">
-        {apt.ten_phong && (
+        {apt.ten_phong ? (
           <div className="flex items-center gap-1 text-[9px] text-emerald-700 dark:text-emerald-450 font-extrabold bg-emerald-50 dark:bg-emerald-950/20 px-1.5 py-0.5 rounded border border-emerald-100/50 dark:border-emerald-900/20">
             <MapPin size={9} className="text-emerald-500" />
             <span>{apt.ten_phong}</span>
           </div>
+        ) : (
+          <div />
+        )}
+
+        {showCountdown && (
+          <CountdownTimer hanXacNhan={apt.han_xac_nhan} />
         )}
       </div>
     </div>

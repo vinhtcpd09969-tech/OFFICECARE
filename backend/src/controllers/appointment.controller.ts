@@ -208,3 +208,63 @@ export const getCustomerTreatmentSessions = async (req: Request, res: Response):
     return res.status(500).json({ message: 'Lỗi server khi truy vấn ca điều trị.' });
   }
 };
+
+export const getWatchdogStatus = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const status = await appointmentService.getWatchdogStatus();
+    return res.json(status);
+  } catch (error: any) {
+    console.error('Lỗi khi lấy trạng thái watchdog:', error);
+    return res.status(500).json({ message: error.message || 'Lỗi server' });
+  }
+};
+
+export const runWatchdogManually = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const result = await appointmentService.runWatchdogManually();
+    return res.json(result);
+  } catch (error: any) {
+    console.error('Lỗi khi chạy watchdog thủ công:', error);
+    return res.status(500).json({ message: error.message || 'Lỗi server' });
+  }
+};
+
+export const keepAliveAppointment = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const id = req.params.id as string;
+    const appointment = await appointmentService.keepAliveAppointment(id);
+    return res.json({ success: true, appointment });
+  } catch (error: any) {
+    console.error('Lỗi khi gia hạn giữ chỗ lịch hẹn:', error);
+    return res.status(400).json({ message: error.message || 'Lỗi server' });
+  }
+};
+
+export const confirmEmailAppointment = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const id = req.params.id as string;
+    await appointmentService.confirmEmailAppointment(id);
+    return res.redirect(`http://localhost:3000/booking/success/${id}?confirmed=true`);
+  } catch (error: any) {
+    console.error('Lỗi khi xác nhận lịch qua email:', error);
+    return res.status(400).send(`
+      <div style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+        <h2 style="color: #ef4444;">Xác nhận không thành công</h2>
+        <p>${error.message || 'Lỗi hệ thống'}</p>
+        <a href="http://localhost:3000/" style="color: #2EC4B6; font-weight: bold; text-decoration: none;">Quay lại Trang chủ</a>
+      </div>
+    `);
+  }
+};
+
+export const resendConfirmationEmail = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const id = req.params.id as string;
+    await appointmentService.resendConfirmationEmail(id);
+    return res.json({ success: true, message: 'Đã gửi lại email xác nhận thành công!' });
+  } catch (error: any) {
+    console.error('Lỗi khi gửi lại email xác nhận:', error);
+    return res.status(400).json({ message: error.message || 'Lỗi server' });
+  }
+};
+

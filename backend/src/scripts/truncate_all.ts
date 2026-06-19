@@ -33,8 +33,6 @@ const truncateAll = async () => {
       'thong_bao',
       'nguoi_dung',
       'vai_tro',
-      'voucher_dich_vu',
-      'voucher_goi_dich_vu',
       'voucher',
       'goi_dich_vu_chi_tiet',
       'goi_dich_vu',

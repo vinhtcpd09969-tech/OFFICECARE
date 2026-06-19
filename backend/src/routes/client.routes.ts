@@ -7,7 +7,8 @@ import {
   getPublicServices, 
   getPublicAppointmentById, 
   getCustomerMedicalRecord, 
-  getCustomerTreatmentSessions 
+  getCustomerTreatmentSessions,
+  confirmEmailAppointment
 } from '../controllers/appointment.controller';
 import { getNotifications, markAsRead, markAllAsRead } from '../controllers/notification.controller';
 import { verifyToken } from '../middlewares/auth.middleware';
@@ -18,6 +19,7 @@ const router = Router();
 // API Đặt lịch cho khách vãng lai
 router.post('/appointments/public', createPublicAppointment);
 router.get('/appointments/public/track/:id', getPublicAppointmentById);
+router.get('/appointments/public/confirm-email/:id', confirmEmailAppointment);
 
 // API công khai để lấy danh mục, dịch vụ và gói trị liệu
 router.get('/services', async (req, res) => {

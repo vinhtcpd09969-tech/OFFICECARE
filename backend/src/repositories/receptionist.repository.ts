@@ -45,13 +45,18 @@ class ReceptionistRepository {
     return rows;
   }
 
-  async updateAppointmentStatus(id: string, trang_thai: string) {
+  async updateAppointmentStatus(id: string, trang_thai: string, ghi_chu_noi_bo?: string) {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
 
       let updateQuery = 'UPDATE lich_dat SET trang_thai = $1 WHERE id = $2 RETURNING *';
       let updateValues: any[] = [trang_thai, id];
+
+      if (ghi_chu_noi_bo !== undefined) {
+        updateQuery = 'UPDATE lich_dat SET trang_thai = $1, ghi_chu_noi_bo = $2 WHERE id = $3 RETURNING *';
+        updateValues = [trang_thai, ghi_chu_noi_bo, id];
+      }
 
       if (trang_thai === 'da_checkin') {
         const { rows: appts } = await client.query('SELECT dich_vu_id, ngay_gio_bat_dau, ngay_gio_ket_thuc, phong_id FROM lich_dat WHERE id = $1', [id]);
@@ -194,43 +199,15 @@ class ReceptionistRepository {
     try {
       await client.query('BEGIN');
 
-      const { rows: rooms } = await client.query(`
-        SELECT p.id 
-        FROM phong p
-        JOIN dich_vu dv ON dv.id = $1
-        JOIN danh_muc_dich_vu dm ON dv.danh_muc_id = dm.id
-        WHERE p.trang_thai = 'san_sang'
-        AND (
-          (dm.ten_danh_muc LIKE '%Khám%' AND p.loai_phong = 'kham_benh') OR
-          (dm.ten_danh_muc LIKE '%Trị liệu%' AND (p.loai_phong = 'tri_lieu' OR p.loai_phong = 'phong_tri_lieu_chuan')) OR
-          (dm.ten_danh_muc LIKE '%Phục hồi%' AND (p.loai_phong = 'phuc_hoi' OR p.loai_phong = 'phong_tap_phcn'))
-        )
-        AND NOT EXISTS (
-           SELECT 1 FROM lich_dat ld
-           WHERE ld.phong_id = p.id
-           AND ld.trang_thai NOT IN ('da_huy', 'khong_den', 'hoan_thanh')
-           AND (ld.ngay_gio_bat_dau, ld.ngay_gio_ket_thuc) OVERLAPS ($2::timestamp, $3::timestamp)
-        )
-        AND NOT EXISTS (
-           SELECT 1 FROM buoi_tri_lieu btl
-           WHERE btl.phong_id = p.id
-           AND btl.trang_thai NOT IN ('da_huy', 'khong_den', 'hoan_thanh')
-           AND btl.thoi_gian_bat_dau < $3::timestamp
-           AND (btl.thoi_gian_ket_thuc IS NULL OR btl.thoi_gian_ket_thuc > $2::timestamp)
-        )
-        LIMIT 1
-      `, [dich_vu_id, startTime, endTime]);
-
-      if (rooms.length === 0) {
-        throw new Error('ROOM_UNAVAILABLE');
-      }
-
-      const phongId = rooms[0].id;
+      const now = new Date();
+      const expiryTime = new Date(now.getTime() + 30 * 60000);
+      const start = new Date(startTime);
+      const han_xac_nhan = expiryTime < start ? expiryTime : start;
 
       const { rows } = await client.query(`
-        INSERT INTO lich_dat (ma_lich_dat, khach_hang_id, dich_vu_id, bac_si_id, phong_id, ngay_gio_bat_dau, ngay_gio_ket_thuc, trang_thai, thoi_gian_checkin, nguoi_tao)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, 'da_checkin', NOW(), 'le_tan') RETURNING id
-      `, [maLichDat, khachHangId, dich_vu_id, ky_thuat_vien_id || null, phongId, startTime, endTime]);
+        INSERT INTO lich_dat (ma_lich_dat, khach_hang_id, dich_vu_id, bac_si_id, phong_id, ngay_gio_bat_dau, ngay_gio_ket_thuc, trang_thai, nguoi_tao, han_xac_nhan)
+        VALUES ($1, $2, $3, NULL, NULL, $4, $5, 'cho_xac_nhan', 'le_tan', $6) RETURNING id
+      `, [maLichDat, khachHangId, dich_vu_id, startTime, endTime, han_xac_nhan]);
 
       await client.query('COMMIT');
       return rows[0].id;
@@ -397,16 +374,40 @@ class ReceptionistRepository {
 
   async getPackageById(id: string) {
     const { rows } = await pool.query('SELECT * FROM goi_dich_vu WHERE id = $1', [id]);
-    return rows[0];
+    if (rows.length === 0) return null;
+    const pkg = rows[0];
+    const { rows: details } = await pool.query(`
+      SELECT ct.dich_vu_id, ct.so_buoi_trong_goi as so_buoi, ct.so_lan_toi_da_trong_goi, ct.bat_buoc, ct.thu_tu_thuc_hien,
+             dv.ten_dich_vu, dv.don_gia
+      FROM goi_dich_vu_chi_tiet ct
+      JOIN dich_vu dv ON ct.dich_vu_id = dv.id
+      WHERE ct.goi_dich_vu_id = $1
+      ORDER BY ct.thu_tu_thuc_hien ASC
+    `, [pkg.id]);
+    pkg.chi_tiet_dich_vu = details;
+    return pkg;
   }
 
   async getActivePackages() {
     const { rows } = await pool.query(`
-      SELECT id, ten_goi, ma_goi, mo_ta, tong_so_buoi, gia_goi, gia_goc, han_dung_thang
+      SELECT id, ten_goi, ma_goi, mo_ta, tong_so_buoi, gia_goi, gia_goc, han_dung_thang, phan_tram_giam_tra_thang, phan_tram_giam_tra_gop
       FROM goi_dich_vu
       WHERE trang_thai = 'hoat_dong'
       ORDER BY ten_goi ASC
     `);
+    
+    for (const pkg of rows) {
+      const { rows: details } = await pool.query(`
+        SELECT ct.dich_vu_id, ct.so_buoi_trong_goi as so_buoi, ct.so_lan_toi_da_trong_goi, ct.bat_buoc, ct.thu_tu_thuc_hien,
+               dv.ten_dich_vu, dv.don_gia
+        FROM goi_dich_vu_chi_tiet ct
+        JOIN dich_vu dv ON ct.dich_vu_id = dv.id
+        WHERE ct.goi_dich_vu_id = $1
+        ORDER BY ct.thu_tu_thuc_hien ASC
+      `, [pkg.id]);
+      pkg.chi_tiet_dich_vu = details;
+    }
+    
     return rows;
   }
 
@@ -458,11 +459,9 @@ class ReceptionistRepository {
 
   async getVoucherByCode(code: string) {
     const { rows } = await pool.query(`
-      SELECT v.*,
-             COALESCE((SELECT json_agg(dich_vu_id) FROM voucher_dich_vu WHERE voucher_id = v.id), '[]'::json) as dich_vu_ids,
-             COALESCE((SELECT json_agg(goi_dich_vu_id) FROM voucher_goi_dich_vu WHERE voucher_id = v.id), '[]'::json) as goi_dich_vu_ids
-      FROM voucher v
-      WHERE v.ma_voucher = $1
+      SELECT *
+      FROM voucher
+      WHERE ma_voucher = $1
     `, [code]);
     return rows[0];
   }
@@ -476,29 +475,11 @@ class ReceptionistRepository {
     const { rows: vouchers } = await pool.query(
       `SELECT * FROM voucher 
        WHERE trang_thai = 'hoat_dong' 
-       AND tu_dong_ap_dung = true 
        AND ngay_bat_dau <= CURRENT_DATE 
        AND (ngay_het_han IS NULL OR ngay_het_han >= CURRENT_DATE)
        ORDER BY thoi_gian_tao DESC`
     );
-
-    const result = [];
-    for (const v of vouchers) {
-      const { rows: packageRows } = await pool.query(
-        'SELECT goi_dich_vu_id FROM voucher_goi_dich_vu WHERE voucher_id = $1',
-        [v.id]
-      );
-      const { rows: serviceRows } = await pool.query(
-        'SELECT dich_vu_id FROM voucher_dich_vu WHERE voucher_id = $1',
-        [v.id]
-      );
-      result.push({
-        ...v,
-        goi_dich_vu_ids: packageRows.map(r => r.goi_dich_vu_id),
-        dich_vu_ids: serviceRows.map(r => r.dich_vu_id)
-      });
-    }
-    return result;
+    return vouchers;
   }
 
   async getCustomerContactInfo(khach_hang_id: string) {

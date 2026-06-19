@@ -77,8 +77,7 @@ class AuthRepository {
       if (!existingKh) {
         await prisma.khach_hang.create({
           data: {
-            nguoi_dung_id: updatedUser.id,
-            hang_khach_hang: 'thuong'
+            nguoi_dung_id: updatedUser.id
           }
         });
       }
@@ -137,6 +136,18 @@ class AuthRepository {
     await prisma.nguoi_dung.update({
       where: { id: userId },
       data: { lan_dang_nhap_cuoi: new Date() }
+    });
+  }
+
+  async updatePassword(email: string, mat_khau_hash: string) {
+    const user = await prisma.nguoi_dung.findFirst({
+      where: { email }
+    });
+    if (!user) return null;
+
+    return prisma.nguoi_dung.update({
+      where: { id: user.id },
+      data: { mat_khau_hash }
     });
   }
 }

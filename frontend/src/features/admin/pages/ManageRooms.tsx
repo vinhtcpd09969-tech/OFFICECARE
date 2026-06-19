@@ -12,9 +12,10 @@ interface Room {
   ten_phong: string;
   ma_phong: string;
   loai_phong: string;
-  tang: string;
+  tang?: string;
   trang_thai: string;
   mo_ta?: string;
+  so_luong_giuong?: number;
 }
 
 interface Equipment {
@@ -83,22 +84,13 @@ const renderRoomIconSVG = (type: string) => {
   );
 };
 
-const getCompatibleRoomTypes = (floor: string) => {
-  if (floor === 'Tang 1') return [
-    { value: 'kham_benh', label: 'Phòng khám' },
-    { value: 'kho_thiet_bi', label: 'Phòng thiết bị chung' }
-  ];
-  if (floor === 'Tang 2') return [
-    { value: 'phong_tri_lieu_chuan', label: 'Phòng trị liệu' },
-    { value: 'phong_may_co_dinh', label: 'Phòng có thiết bị cố định' },
-    { value: 'kho_thiet_bi', label: 'Phòng thiết bị chung' }
-  ];
-  if (floor === 'Tang 3') return [
-    { value: 'phong_tap_phcn', label: 'Phòng tập' },
-    { value: 'kho_thiet_bi', label: 'Phòng thiết bị chung' }
-  ];
-  return [];
-};
+const ALL_ROOM_TYPES = [
+  { value: 'phong_tri_lieu_chuan', label: 'Phòng trị liệu' },
+  { value: 'phong_may_co_dinh', label: 'Phòng có thiết bị cố định' },
+  { value: 'kham_benh', label: 'Phòng khám' },
+  { value: 'phong_tap_phcn', label: 'Phòng tập' },
+  { value: 'kho_thiet_bi', label: 'Phòng thiết bị chung' }
+];
 
 export default function ManageRooms() {
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -107,7 +99,6 @@ export default function ManageRooms() {
   
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFloor, setSelectedFloor] = useState<string>('all');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [statFilter, setStatFilter] = useState<string | null>(null);
@@ -122,7 +113,6 @@ export default function ManageRooms() {
     ten_phong: '',
     ma_phong: '',
     loai_phong: 'kham_benh',
-    tang: 'Tang 1',
     trang_thai: 'san_sang',
     mo_ta: '',
     so_luong_giuong: 1
@@ -173,8 +163,6 @@ export default function ManageRooms() {
   // Filtering Logic
   const filteredRooms = useMemo(() => {
     return rooms.filter(room => {
-      // 1. Floor Filter
-      if (selectedFloor !== 'all' && room.tang !== selectedFloor) return false;
       
       // 2. Type Filter
       if (selectedType !== 'all' && room.loai_phong !== selectedType) return false;
@@ -203,17 +191,7 @@ export default function ManageRooms() {
 
       return true;
     }).sort((a, b) => a.ma_phong.localeCompare(b.ma_phong));
-  }, [rooms, selectedFloor, selectedType, selectedStatus, searchQuery, statFilter]);
-
-  const handleFloorChange = (floor: string) => {
-    const compatible = getCompatibleRoomTypes(floor);
-    const isCompatible = compatible.some(t => t.value === roomFormData.loai_phong);
-    setRoomFormData(prev => ({
-      ...prev,
-      tang: floor,
-      loai_phong: isCompatible ? prev.loai_phong : compatible[0]?.value || 'kho_thiet_bi'
-    }));
-  };
+  }, [rooms, selectedType, selectedStatus, searchQuery, statFilter]);
 
   // Handle Room CRUD
   const handleOpenRoomModal = () => {
@@ -221,7 +199,6 @@ export default function ManageRooms() {
       ten_phong: '',
       ma_phong: '',
       loai_phong: 'kham_benh',
-      tang: 'Tang 1',
       trang_thai: 'san_sang',
       mo_ta: '',
       so_luong_giuong: 1
@@ -244,13 +221,7 @@ export default function ManageRooms() {
 
 
 
-  // Helper text mapper
-  const translateFloor = (floor: string) => {
-    if (floor.toLowerCase() === 'tang 1') return 'Tầng 1';
-    if (floor.toLowerCase() === 'tang 2') return 'Tầng 2';
-    if (floor.toLowerCase() === 'tang 3') return 'Tầng 3';
-    return floor;
-  };
+
 
   const translateType = (type: string) => {
     if (type === 'kham_benh') return 'Phòng khám';
@@ -365,7 +336,7 @@ export default function ManageRooms() {
       <div className="bg-slate-50 border border-slate-200 p-5 rounded-none grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
         
         {/* Search */}
-        <div className="relative md:col-span-2">
+        <div className="relative md:col-span-3">
           <span className="absolute inset-y-0 left-3 flex items-center text-slate-400">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -378,20 +349,6 @@ export default function ManageRooms() {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-4 py-2 border border-slate-200 bg-white text-sm font-semibold rounded-none focus:outline-none focus:border-teal-800 placeholder-slate-400"
           />
-        </div>
-
-        {/* Floor selector */}
-        <div>
-          <select 
-            value={selectedFloor}
-            onChange={(e) => setSelectedFloor(e.target.value)}
-            className="w-full py-2 px-3 border border-slate-200 bg-white text-sm font-bold rounded-none focus:outline-none focus:border-teal-800"
-          >
-            <option value="all">TẤT CẢ CÁC TẦNG</option>
-            <option value="Tang 1">TẦNG 1 (Lâm sàng)</option>
-            <option value="Tang 2">TẦNG 2 (Trị liệu chuyên sâu)</option>
-            <option value="Tang 3">TẦNG 3 (Vận động phục hồi)</option>
-          </select>
         </div>
 
         {/* Room Type Selector */}
@@ -412,7 +369,7 @@ export default function ManageRooms() {
       </div>
 
       {/* Active filters display */}
-      {(statFilter || selectedFloor !== 'all' || selectedType !== 'all' || selectedStatus !== 'all' || searchQuery) && (
+      {(statFilter || selectedType !== 'all' || selectedStatus !== 'all' || searchQuery) && (
         <div className="flex flex-wrap gap-2 items-center">
           <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Đang lọc theo:</span>
           {searchQuery && (
@@ -421,12 +378,7 @@ export default function ManageRooms() {
               <button onClick={() => setSearchQuery('')} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
             </span>
           )}
-          {selectedFloor !== 'all' && (
-            <span className="bg-slate-100 border border-slate-200 px-2.5 py-1 text-xs font-semibold rounded-none flex items-center gap-1.5">
-              {translateFloor(selectedFloor)}
-              <button onClick={() => setSelectedFloor('all')} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
-            </span>
-          )}
+
           {selectedType !== 'all' && (
             <span className="bg-slate-100 border border-slate-200 px-2.5 py-1 text-xs font-semibold rounded-none flex items-center gap-1.5">
               Loại: {translateType(selectedType)}
@@ -442,7 +394,6 @@ export default function ManageRooms() {
           <button 
             onClick={() => {
               setSearchQuery('');
-              setSelectedFloor('all');
               setSelectedType('all');
               setSelectedStatus('all');
               setStatFilter(null);
@@ -500,9 +451,6 @@ export default function ManageRooms() {
                       <div className="flex items-center gap-2.5">
                         <span className="bg-slate-900 text-white font-mono text-[10px] font-extrabold px-2 py-0.5 uppercase tracking-wider rounded-none">
                           {room.ma_phong}
-                        </span>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                          {translateFloor(room.tang)}
                         </span>
                       </div>
                       <h3 className="text-xl font-extrabold text-teal-950 mt-2 tracking-tight group-hover:text-teal-900 transition-colors">
@@ -587,7 +535,19 @@ export default function ManageRooms() {
                 {/* Card Footer indicator */}
                 <div className="flex items-center justify-between border-t border-slate-100 pt-3 mt-auto z-10 relative">
                   <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                    1 giường • 1 KTV phụ trách
+                    {room.loai_phong === 'phong_tri_lieu_chuan' || room.loai_phong === 'tri_lieu' ? (
+                      `${room.so_luong_giuong || 1} giường • ${room.so_luong_giuong || 1} KTV phụ trách`
+                    ) : room.loai_phong === 'kho_thiet_bi' ? (
+                      'Phòng thiết bị chung'
+                    ) : room.loai_phong === 'phong_may_co_dinh' ? (
+                      'Phòng máy trị liệu (Phân bổ động)'
+                    ) : room.loai_phong === 'kham_benh' ? (
+                      'Phòng khám chuyên khoa'
+                    ) : room.loai_phong === 'phong_tap_phcn' || room.loai_phong === 'phuc_hoi' ? (
+                      'Khu tập phục hồi chức năng'
+                    ) : (
+                      'Phòng chức năng'
+                    )}
                   </div>
                   <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-teal-800 transition-colors flex items-center gap-1">
                     Chi tiết phòng <span className="transform translate-x-0 group-hover:translate-x-1 transition-transform">→</span>
@@ -636,19 +596,7 @@ export default function ManageRooms() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-550 uppercase tracking-wider mb-1">Vị trí Tầng</label>
-                  <select 
-                    value={roomFormData.tang}
-                    onChange={(e) => handleFloorChange(e.target.value)}
-                    className="w-full border border-slate-200 bg-white p-2.5 text-sm font-bold rounded-none focus:outline-none focus:border-teal-800"
-                  >
-                    <option value="Tang 1">Tầng 1</option>
-                    <option value="Tang 2">Tầng 2</option>
-                    <option value="Tang 3">Tầng 3</option>
-                  </select>
-                </div>
+              <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-550 uppercase tracking-wider mb-1">Loại Phòng</label>
                   <select 
@@ -656,7 +604,7 @@ export default function ManageRooms() {
                     onChange={(e) => setRoomFormData({ ...roomFormData, loai_phong: e.target.value })}
                     className="w-full border border-slate-200 bg-white p-2.5 text-sm font-bold rounded-none focus:outline-none focus:border-teal-800"
                   >
-                    {getCompatibleRoomTypes(roomFormData.tang).map(t => (
+                    {ALL_ROOM_TYPES.map(t => (
                       <option key={t.value} value={t.value}>{t.label}</option>
                     ))}
                   </select>
@@ -664,7 +612,7 @@ export default function ManageRooms() {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div>
+                <div className={roomFormData.loai_phong === 'kho_thiet_bi' ? 'col-span-2' : ''}>
                   <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Trạng thái ban đầu (Mặc định)</label>
                   <input 
                     type="text"
@@ -673,15 +621,20 @@ export default function ManageRooms() {
                     className="w-full border border-slate-200 bg-slate-50 p-2.5 text-sm font-bold rounded-none cursor-not-allowed text-slate-400 focus:outline-none"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Sức chứa khách hàng (Mặc định)</label>
-                  <input 
-                    type="text"
-                    disabled
-                    value="1 khách hàng"
-                    className="w-full border border-slate-200 bg-slate-50 p-2.5 text-sm font-semibold rounded-none cursor-not-allowed text-slate-400 focus:outline-none"
-                  />
-                </div>
+                {roomFormData.loai_phong !== 'kho_thiet_bi' && (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-550 uppercase tracking-wider mb-1">Sức chứa (giường/ghế/bàn)</label>
+                    <input 
+                      type="number"
+                      min={1}
+                      max={10}
+                      required
+                      value={roomFormData.so_luong_giuong}
+                      onChange={(e) => setRoomFormData({ ...roomFormData, so_luong_giuong: Math.max(1, parseInt(e.target.value) || 1) })}
+                      className="w-full border border-slate-200 bg-white p-2.5 text-sm font-bold rounded-none focus:outline-none focus:border-teal-800"
+                    />
+                  </div>
+                )}
               </div>
 
               <div>

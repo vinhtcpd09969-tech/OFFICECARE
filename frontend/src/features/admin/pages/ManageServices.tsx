@@ -11,13 +11,64 @@ const serviceSchema = z.object({
   mo_ta: z.string().optional().nullable(),
   thoi_gian_uoc_tinh: z.number().min(1, 'Thời gian phải lớn hơn 0'),
   don_gia: z.number().min(0, 'Đơn giá phải từ 0đ'),
-  thiet_bi_yeu_cau: z.string().optional().nullable(),
+  thiet_bi_yeu_cau: z.string().min(1, 'Vui lòng chọn thiết bị hoặc Trị liệu bằng tay'),
   trang_thai: z.enum(['hoat_dong', 'vo_hieu']),
   loai_dich_vu: z.enum(['chinh', 'bo_sung']),
   hien_thi_website: z.boolean().default(false),
   mo_ta_chi_tiet: z.string().optional().nullable(),
   loai_dich_vu_ho_tro_str: z.string().optional().nullable()
 });
+
+// --- Constants & Helpers for Equipment Selection ---
+const removeVietnameseTones = (str: string) => {
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D');
+};
+
+const normalizeText = (text: string) => {
+  if (!text) return '';
+  return removeVietnameseTones(text.toLowerCase().trim());
+};
+
+const DEVICE_GROUPS = [
+  { id: 'nhiet', label: 'Nhiệt', devices: ['Đèn hồng ngoại', 'Máy laser'] },
+  { id: 'dien', label: 'Điện', devices: ['Máy điện xung'] },
+  { id: 'co_hoc', label: 'Cơ học/Sóng', devices: ['Máy Shockwave', 'Máy siêu âm', 'Máy nén ép'] },
+  { id: 'keo_gian', label: 'Kéo giãn', devices: ['Giường kéo giãn', 'Máy kéo giãn cổ'] },
+  { id: 'tu_truong', label: 'Từ trường', devices: ['Máy từ trường'] },
+  { id: 'tay_khong', label: 'Tay không', devices: ['không có'] }
+];
+
+const STATIONARY_DEVICES = ['Giường kéo giãn', 'Máy kéo giãn cổ', 'Máy từ trường'];
+
+const ALL_DEVICES = [
+  { value: 'không có', label: 'Không cần thiết bị (Trị liệu bằng tay)', type: 'hand' },
+  { value: 'Máy điện xung', label: 'Máy điện xung', type: 'mobile' },
+  { value: 'Đèn hồng ngoại', label: 'Đèn hồng ngoại', type: 'mobile' },
+  { value: 'Máy laser', label: 'Máy Laser công suất cao', type: 'mobile' },
+  { value: 'Máy Shockwave', label: 'Máy Shockwave trị liệu', type: 'mobile' },
+  { value: 'Máy siêu âm', label: 'Máy siêu âm điều trị đa tần', type: 'mobile' },
+  { value: 'Máy nén ép', label: 'Máy nén ép áp lực hơi', type: 'mobile' },
+  { value: 'Giường kéo giãn', label: 'Giường kéo giãn cột sống thắt lưng', type: 'stationary' },
+  { value: 'Máy kéo giãn cổ', label: 'Máy kéo giãn cột sống cổ', type: 'stationary' },
+  { value: 'Máy từ trường', label: 'Máy từ trường siêu dẫn SIS', type: 'stationary' }
+];
+
+const HINT_KEYWORDS = [
+  { keywords: ['hong ngoai', 'hồng ngoại'], device: 'Đèn hồng ngoại' },
+  { keywords: ['laser'], device: 'Máy laser' },
+  { keywords: ['dien xung', 'điện xung'], device: 'Máy điện xung' },
+  { keywords: ['shockwave', 'xung kich', 'xung kích'], device: 'Máy Shockwave' },
+  { keywords: ['sieu am', 'siêu âm'], device: 'Máy siêu âm' },
+  { keywords: ['nen ep', 'nén ép'], device: 'Máy nén ép' },
+  { keywords: ['keo gian co', 'kéo giãn cổ'], device: 'Máy kéo giãn cổ' },
+  { keywords: ['keo gian', 'kéo giãn'], device: 'Giường kéo giãn' },
+  { keywords: ['tu truong', 'từ trường', 'sis'], device: 'Máy từ trường' },
+  { keywords: ['tay', 'tay khong', 'xoa bop', 'massage', 'giai co', 'tay không'], device: 'không có' }
+];
 
 type ServiceFormValues = z.infer<typeof serviceSchema>;
 const currencyFormatter = new Intl.NumberFormat('vi-VN');
@@ -160,16 +211,127 @@ export default function ManageServices() {
   const [searchParams, setSearchParams] = useSearchParams();
   const searchQuery = searchParams.get('q') || '';
 
-  const { register, handleSubmit, reset, setError, formState: { errors } } = useForm<ServiceFormValues>({
+  const { register, handleSubmit, reset, setError, setValue, watch, formState: { errors } } = useForm<ServiceFormValues>({
     resolver: zodResolver(serviceSchema) as any,
     defaultValues: { 
       trang_thai: 'hoat_dong', 
       thoi_gian_uoc_tinh: 45, 
       don_gia: 150000,
       loai_dich_vu: 'chinh',
-      hien_thi_website: false
+      hien_thi_website: false,
+      thiet_bi_yeu_cau: 'không có'
     }
   });
+
+  const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
+
+  const watchedThietBiYeuCau = watch('thiet_bi_yeu_cau');
+  const watchedTenDichVu = watch('ten_dich_vu');
+
+  const suggestions = useMemo(() => {
+    if (!watchedTenDichVu) return [];
+    const normalized = normalizeText(watchedTenDichVu);
+    const result: string[] = [];
+    for (const hint of HINT_KEYWORDS) {
+      if (hint.keywords.some(kw => normalized.includes(kw))) {
+        if (!result.includes(hint.device)) {
+          result.push(hint.device);
+        }
+      }
+    }
+    return result;
+  }, [watchedTenDichVu]);
+
+  const handleGroupToggle = (groupId: string) => {
+    if (groupId === 'tay_khong') {
+      setSelectedGroups(['tay_khong']);
+      setValue('thiet_bi_yeu_cau', 'không có');
+      return;
+    }
+
+    setSelectedGroups(prev => {
+      const filtered = prev.filter(g => g !== 'tay_khong');
+      const isSelected = filtered.includes(groupId);
+      const next = isSelected 
+        ? filtered.filter(g => g !== groupId) 
+        : [...filtered, groupId];
+      
+      if (next.length > 0) {
+        const allowedNames = next.reduce((acc, gId) => {
+          const group = DEVICE_GROUPS.find(g => g.id === gId);
+          if (group) return [...acc, ...group.devices];
+          return acc;
+        }, [] as string[]);
+        
+        if (!allowedNames.includes(watchedThietBiYeuCau || '')) {
+          setValue('thiet_bi_yeu_cau', allowedNames[0] || '');
+        }
+      } else {
+        setValue('thiet_bi_yeu_cau', '');
+      }
+
+      return next;
+    });
+  };
+
+  const autoSelectGroupsForDevice = (deviceName: string) => {
+    if (!deviceName || deviceName === 'không có') {
+      setSelectedGroups(['tay_khong']);
+      return;
+    }
+    const groups: string[] = [];
+    DEVICE_GROUPS.forEach(g => {
+      if (g.devices.includes(deviceName)) {
+        groups.push(g.id);
+      }
+    });
+    setSelectedGroups(groups);
+  };
+
+  const renderDeviceOptions = () => {
+    if (selectedGroups.includes('tay_khong')) {
+      return (
+        <option value="không có">Không cần thiết bị (Trị liệu bằng tay)</option>
+      );
+    }
+
+    let allowedDevices = ALL_DEVICES;
+    if (selectedGroups.length > 0) {
+      const allowedNames = selectedGroups.reduce((acc, gId) => {
+        const group = DEVICE_GROUPS.find(g => g.id === gId);
+        if (group) return [...acc, ...group.devices];
+        return acc;
+      }, [] as string[]);
+      allowedDevices = ALL_DEVICES.filter(d => allowedNames.includes(d.value));
+    }
+
+    const handDevices = allowedDevices.filter(d => d.type === 'hand');
+    const mobileDevices = allowedDevices.filter(d => d.type === 'mobile');
+    const stationaryDevices = allowedDevices.filter(d => d.type === 'stationary');
+
+    return (
+      <>
+        <option value="">-- CHỌN THIẾT BỊ --</option>
+        {handDevices.map(d => (
+          <option key={d.value} value={d.value}>{d.label}</option>
+        ))}
+        {mobileDevices.length > 0 && (
+          <optgroup label="⚡ THIẾT BỊ DI ĐỘNG (MOBILE)">
+            {mobileDevices.map(d => (
+              <option key={d.value} value={d.value}>{d.label}</option>
+            ))}
+          </optgroup>
+        )}
+        {stationaryDevices.length > 0 && (
+          <optgroup label="🔒 THIẾT BỊ CỐ ĐỊNH (STATIONARY)">
+            {stationaryDevices.map(d => (
+              <option key={d.value} value={d.value}>{d.label}</option>
+            ))}
+          </optgroup>
+        )}
+      </>
+    );
+  };
 
   const fetchData = async () => {
     try {
@@ -273,8 +435,10 @@ export default function ManageServices() {
 
       if (editingService) {
         await updateService(editingService.id, payload);
+        alert('Cập nhật dịch vụ thành công!');
       } else {
         await createService(payload);
+        alert('Tạo dịch vụ thành công!');
       }
       setIsModalOpen(false);
       setEditingService(null);
@@ -322,6 +486,7 @@ export default function ManageServices() {
       mo_ta_chi_tiet: defaultMoTaChiTiet,
       loai_dich_vu_ho_tro_str: benefitsStr
     });
+    autoSelectGroupsForDevice(svc.thiet_bi_yeu_cau || '');
     setIsModalOpen(true);
   };
 
@@ -405,6 +570,7 @@ export default function ManageServices() {
               hien_thi_website: false,
               danh_muc_id: categories[0]?.id ? Number(categories[0].id) : 1
             }); 
+            setSelectedGroups([]);
             setIsModalOpen(true); 
           }}
           className="bg-primary hover:bg-primary/90 hover:shadow-soft-button active:scale-95 text-white px-5 py-2.5 rounded-xl font-heading text-xs font-bold tracking-wide transition-all shadow-sm flex items-center gap-2"
@@ -815,7 +981,7 @@ export default function ManageServices() {
                   <h4 className="text-[10px] font-bold text-primary uppercase tracking-wider border-b border-zinc-150 pb-2">HỘP 1: THÔNG TIN CƠ BẢN</h4>
                   
                   <div>
-                    <label className="block font-bold text-zinc-500 mb-1.5 uppercase tracking-wider">
+                    <label className="block font-bold text-zinc-550 mb-1.5 uppercase tracking-wider">
                       {selectedType === 'chinh' ? 'TÊN KỸ THUẬT Y KHOA NỘI BỘ *' : 'TÊN DỊCH VỤ LẺ BỔ TRỢ *'}
                     </label>
                     <input 
@@ -825,6 +991,28 @@ export default function ManageServices() {
                     />
                     {errors.ten_dich_vu && (
                       <span className="text-rose-500 text-[10px] mt-1 block">{errors.ten_dich_vu.message}</span>
+                    )}
+
+                    {/* Smart Soft Suggestions */}
+                    {suggestions.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-2 items-center bg-zinc-50 border border-dashed border-zinc-200 p-2.5 rounded-xl">
+                        <span className="text-[10px] font-bold text-zinc-500 flex items-center gap-1">
+                          💡 GỢI Ý THIẾT BỊ PHÙ HỢP:
+                        </span>
+                        {suggestions.map(s => (
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() => {
+                              setValue('thiet_bi_yeu_cau', s);
+                              autoSelectGroupsForDevice(s);
+                            }}
+                            className="bg-primary/10 text-primary hover:bg-primary hover:text-white border border-primary/20 text-[10px] font-extrabold px-2.5 py-1 rounded-lg transition-all active:scale-95 flex items-center gap-1 shrink-0"
+                          >
+                            + Thêm {s}
+                          </button>
+                        ))}
+                      </div>
                     )}
                   </div>
 
@@ -887,27 +1075,55 @@ export default function ManageServices() {
                       </div>
                     </div>
 
+                    {/* Nhóm tác động trị liệu */}
+                    <div className="space-y-2">
+                      <label className="block font-bold text-zinc-550 mb-1 uppercase tracking-wider">Nhóm tác động trị liệu</label>
+                      <div className="flex flex-wrap gap-2">
+                        {DEVICE_GROUPS.map(g => {
+                          const isSelected = selectedGroups.includes(g.id);
+                          return (
+                            <button
+                              key={g.id}
+                              type="button"
+                              onClick={() => handleGroupToggle(g.id)}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border shadow-sm active:scale-95 ${
+                                isSelected
+                                  ? 'bg-zinc-700 border-zinc-700 text-white'
+                                  : 'bg-white border-zinc-200 text-zinc-650 hover:bg-zinc-50'
+                              }`}
+                            >
+                              {g.id === 'tay_khong' ? '👐 ' : ''}
+                              {g.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
                     <div>
-                      <label className="block font-bold text-zinc-500 mb-1.5 uppercase tracking-wider">THIẾT BỊ YÊU CẦU</label>
+                      <label className="block font-bold text-zinc-550 mb-1.5 uppercase tracking-wider">THIẾT BỊ YÊU CẦU</label>
                       <select 
                         {...register('thiet_bi_yeu_cau')} 
-                        className="w-full px-3.5 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-secondary font-semibold text-xs shadow-sm"
+                        tabIndex={selectedGroups.includes('tay_khong') ? -1 : undefined}
+                        className={`w-full px-3.5 py-2.5 border border-zinc-200 rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-secondary font-semibold text-xs shadow-sm ${
+                          selectedGroups.includes('tay_khong') ? 'bg-zinc-100/70 text-zinc-400 pointer-events-none select-none' : 'bg-white'
+                        }`}
                       >
-                        <option value="không có">Không cần thiết bị (Trị liệu bằng tay)</option>
-                        <optgroup label="⚡ THIẾT BỊ DI ĐỘNG (MOBILE)">
-                          <option value="Máy điện xung">Máy điện xung</option>
-                          <option value="Đèn hồng ngoại">Đèn hồng ngoại</option>
-                          <option value="Máy laser">Máy Laser công suất cao</option>
-                          <option value="Máy Shockwave">Máy Shockwave trị liệu</option>
-                          <option value="Máy siêu âm">Máy siêu âm điều trị đa tần</option>
-                          <option value="Máy nén ép">Máy nén ép áp lực hơi</option>
-                        </optgroup>
-                        <optgroup label="🔒 THIẾT BỊ CỐ ĐỊNH (STATIONARY)">
-                          <option value="Giường kéo giãn">Giường kéo giãn cột sống thắt lưng</option>
-                          <option value="Máy kéo giãn cổ">Máy kéo giãn cột sống cổ</option>
-                          <option value="Máy từ trường">Máy từ trường siêu dẫn SIS</option>
-                        </optgroup>
+                        {renderDeviceOptions()}
                       </select>
+                      {errors.thiet_bi_yeu_cau && (
+                        <span className="text-rose-500 text-[10px] mt-1 block">{errors.thiet_bi_yeu_cau.message}</span>
+                      )}
+
+                      {/* Stationary Warning alert banner */}
+                      {STATIONARY_DEVICES.includes(watchedThietBiYeuCau || '') && (
+                        <div className="mt-3 border border-amber-200 bg-amber-50/50 p-3 rounded-xl flex items-start gap-2.5 text-[11px] leading-relaxed text-amber-900 animate-in fade-in duration-200">
+                          <span className="text-sm shrink-0">⚠️</span>
+                          <p className="font-semibold">
+                            Thiết bị cố định gắn với 1 phòng riêng. Mọi gói/dịch vụ chứa kỹ thuật này sẽ yêu cầu đặt phòng tương ứng cho TOÀN BỘ thời gian buổi điều trị, không thể dùng chung với các giường Standard.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -916,27 +1132,56 @@ export default function ManageServices() {
                 {selectedType === 'chinh' && (
                   <div className="p-4 border border-zinc-200 rounded-2xl bg-zinc-50/30 space-y-4">
                     <h4 className="text-[10px] font-bold text-primary uppercase tracking-wider border-b border-zinc-150 pb-2">HỘP 2: CÔNG CỤ TRỊ LIỆU</h4>
+                    
+                    {/* Nhóm tác động trị liệu */}
+                    <div className="space-y-2">
+                      <label className="block font-bold text-zinc-550 mb-1 uppercase tracking-wider">Nhóm tác động trị liệu</label>
+                      <div className="flex flex-wrap gap-2">
+                        {DEVICE_GROUPS.map(g => {
+                          const isSelected = selectedGroups.includes(g.id);
+                          return (
+                            <button
+                              key={g.id}
+                              type="button"
+                              onClick={() => handleGroupToggle(g.id)}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border shadow-sm active:scale-95 ${
+                                isSelected
+                                  ? 'bg-zinc-700 border-zinc-700 text-white'
+                                  : 'bg-white border-zinc-200 text-zinc-650 hover:bg-zinc-50'
+                              }`}
+                            >
+                              {g.id === 'tay_khong' ? '👐 ' : ''}
+                              {g.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
                     <div>
-                      <label className="block font-bold text-zinc-500 mb-1.5 uppercase tracking-wider">THIẾT BỊ Y KHOA YÊU CẦU</label>
+                      <label className="block font-bold text-zinc-550 mb-1.5 uppercase tracking-wider">THIẾT BỊ Y KHOA YÊU CẦU</label>
                       <select 
                         {...register('thiet_bi_yeu_cau')} 
-                        className="w-full px-3.5 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-secondary font-semibold text-xs shadow-sm"
+                        tabIndex={selectedGroups.includes('tay_khong') ? -1 : undefined}
+                        className={`w-full px-3.5 py-2.5 border border-zinc-200 rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-secondary font-semibold text-xs shadow-sm ${
+                          selectedGroups.includes('tay_khong') ? 'bg-zinc-100/70 text-zinc-400 pointer-events-none select-none' : 'bg-white'
+                        }`}
                       >
-                        <option value="không có">Không cần thiết bị (Trị liệu bằng tay)</option>
-                        <optgroup label="⚡ THIẾT BỊ DI ĐỘNG (MOBILE)">
-                          <option value="Máy điện xung">Máy điện xung</option>
-                          <option value="Đèn hồng ngoại">Đèn hồng ngoại</option>
-                          <option value="Máy laser">Máy Laser công suất cao</option>
-                          <option value="Máy Shockwave">Máy Shockwave trị liệu</option>
-                          <option value="Máy siêu âm">Máy siêu âm điều trị đa tần</option>
-                          <option value="Máy nén ép">Máy nén ép áp lực hơi</option>
-                        </optgroup>
-                        <optgroup label="🔒 THIẾT BỊ CỐ ĐỊNH (STATIONARY)">
-                          <option value="Giường kéo giãn">Giường kéo giãn cột sống thắt lưng</option>
-                          <option value="Máy kéo giãn cổ">Máy kéo giãn cột sống cổ</option>
-                          <option value="Máy từ trường">Máy từ trường siêu dẫn SIS</option>
-                        </optgroup>
+                        {renderDeviceOptions()}
                       </select>
+                      {errors.thiet_bi_yeu_cau && (
+                        <span className="text-rose-500 text-[10px] mt-1 block">{errors.thiet_bi_yeu_cau.message}</span>
+                      )}
+
+                      {/* Stationary Warning alert banner */}
+                      {STATIONARY_DEVICES.includes(watchedThietBiYeuCau || '') && (
+                        <div className="mt-3 border border-amber-200 bg-amber-50/50 p-3 rounded-xl flex items-start gap-2.5 text-[11px] leading-relaxed text-amber-900 animate-in fade-in duration-200">
+                          <span className="text-sm shrink-0">⚠️</span>
+                          <p className="font-semibold">
+                            Thiết bị cố định gắn với 1 phòng riêng. Mọi gói/dịch vụ chứa kỹ thuật này sẽ yêu cầu đặt phòng tương ứng cho TOÀN BỘ thời gian buổi điều trị, không thể dùng chung với các giường Standard.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

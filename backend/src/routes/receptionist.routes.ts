@@ -16,12 +16,14 @@ import {
   getAutoVouchers,
   confirmTreatmentPlan
 } from '../controllers/receptionist.controller';
+import { resendConfirmationEmail } from '../controllers/appointment.controller';
 
 const router = Router();
 
 router.get('/today-appointments', getTodayAppointments);
 router.get('/dashboard', getDashboardData);
 router.patch('/appointments/:id/status', updateAppointmentStatus);
+router.post('/appointments/:id/resend-email', resendConfirmationEmail);
 router.get('/stats', getReceptionistStats);
 router.post('/walk-in', handleWalkInBooking);
 router.post('/billing', createBillingFromAppointment);

@@ -12,9 +12,10 @@ interface Room {
   ten_phong: string;
   ma_phong: string;
   loai_phong: string;
-  tang: string;
+  tang?: string;
   trang_thai: string;
   mo_ta?: string;
+  so_luong_giuong?: number;
 }
 
 interface Equipment {
@@ -44,7 +45,6 @@ export default function RoomDetail() {
     ten_phong: '',
     ma_phong: '',
     loai_phong: 'phong_tri_lieu_chuan',
-    tang: 'Tang 1',
     trang_thai: 'san_sang',
     mo_ta: '',
     so_luong_giuong: 1
@@ -91,10 +91,9 @@ export default function RoomDetail() {
         ten_phong: currentRoom.ten_phong,
         ma_phong: currentRoom.ma_phong,
         loai_phong: currentRoom.loai_phong,
-        tang: currentRoom.tang,
         trang_thai: currentRoom.trang_thai,
         mo_ta: currentRoom.mo_ta || '',
-        so_luong_giuong: 1
+        so_luong_giuong: currentRoom.so_luong_giuong || 1
       });
     }
   }, [currentRoom]);
@@ -105,10 +104,9 @@ export default function RoomDetail() {
       ten_phong: currentRoom.ten_phong,
       ma_phong: currentRoom.ma_phong,
       loai_phong: currentRoom.loai_phong,
-      tang: currentRoom.tang,
       trang_thai: currentRoom.trang_thai,
       mo_ta: currentRoom.mo_ta || '',
-      so_luong_giuong: 1
+      so_luong_giuong: currentRoom.so_luong_giuong || 1
     });
     showToast('Đã khôi phục thông tin ban đầu.', 'info');
   };
@@ -269,19 +267,7 @@ export default function RoomDetail() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Vị trí Tầng (Cố định)</label>
-              <select 
-                disabled
-                value={roomFormData.tang}
-                className="w-full border border-slate-200 bg-slate-50 p-2.5 text-xs font-bold rounded-none cursor-not-allowed text-slate-450 focus:outline-none"
-              >
-                <option value="Tang 1">Tầng 1</option>
-                <option value="Tang 2">Tầng 2</option>
-                <option value="Tang 3">Tầng 3</option>
-              </select>
-            </div>
+          <div className="grid grid-cols-1 gap-4">
             <div>
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Loại Phòng (Cố định)</label>
               <select 
@@ -299,7 +285,7 @@ export default function RoomDetail() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
+            <div className={roomFormData.loai_phong === 'kho_thiet_bi' ? 'col-span-2' : ''}>
               <label className="block text-[10px] font-bold text-slate-550 uppercase tracking-wider mb-1">Trạng thái vận hành</label>
               <div className="flex border border-slate-200 rounded-none overflow-hidden shadow-sm select-none">
                 {/* SẴN SÀNG */}
@@ -378,15 +364,20 @@ export default function RoomDetail() {
                 </p>
               )}
             </div>
-            <div>
-              <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-wider mb-1">Sức chứa khách hàng (Cố định)</label>
-              <input 
-                type="text"
-                disabled
-                value="1 khách hàng"
-                className="w-full border border-slate-200 bg-slate-50 p-2.5 text-xs font-semibold rounded-none cursor-not-allowed text-slate-450 focus:outline-none"
-              />
-            </div>
+            {roomFormData.loai_phong !== 'kho_thiet_bi' && (
+              <div>
+                <label className="block text-[10px] font-bold text-slate-550 uppercase tracking-wider mb-1">Sức chứa (giường/ghế/bàn)</label>
+                <input 
+                  type="number"
+                  min={1}
+                  max={10}
+                  required
+                  value={roomFormData.so_luong_giuong}
+                  onChange={(e) => setRoomFormData({ ...roomFormData, so_luong_giuong: Math.max(1, parseInt(e.target.value) || 1) })}
+                  className="w-full border border-slate-200 bg-white p-2.5 text-xs font-semibold rounded-none focus:outline-none focus:border-teal-800 transition-colors"
+                />
+              </div>
+            )}
           </div>
 
           <div>

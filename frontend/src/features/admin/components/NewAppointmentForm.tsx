@@ -5,6 +5,7 @@ import * as z from 'zod';
 import { X, User, FileText, Calendar, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
 import axiosInstance from '../../../api/axios';
+import { convertToVietnamUtcIso } from '../../../utils/date';
 
 const schema = z.object({
   bookingMode: z.enum(['existing', 'walk_in']),
@@ -92,8 +93,8 @@ export default function NewAppointmentForm({ isOpen, onClose, onSuccess }: Props
 
       const payload: any = {
         dich_vu_id: data.dich_vu_id,
-        ngay_gio_bat_dau: new Date(`${data.ngay_bat_dau}T${data.gio_bat_dau}:00`).toISOString(),
-        ngay_gio_ket_thuc: new Date(`${data.ngay_bat_dau}T${data.gio_ket_thuc}:00`).toISOString(),
+        ngay_gio_bat_dau: convertToVietnamUtcIso(data.ngay_bat_dau, data.gio_bat_dau),
+        ngay_gio_ket_thuc: convertToVietnamUtcIso(data.ngay_bat_dau, data.gio_ket_thuc),
         ky_thuat_vien_id: data.ky_thuat_vien_id || undefined,
         ly_do_kham: data.ly_do_kham,
         ma_lich_dat: `BK${Math.floor(1000 + Math.random() * 9000)}`

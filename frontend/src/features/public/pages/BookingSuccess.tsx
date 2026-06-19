@@ -24,7 +24,7 @@ interface AppointmentData {
   ma_lich_dat: string;
   ngay_gio_bat_dau: string;
   ngay_gio_ket_thuc: string;
-  trang_thai: 'cho_xac_nhan' | 'da_xac_nhan' | 'hoan_thanh' | 'da_huy';
+  trang_thai: 'chua_xac_nhan' | 'cho_xac_nhan' | 'da_xac_nhan' | 'hoan_thanh' | 'da_huy';
   ho_ten_khach: string;
   so_dien_thoai: string;
   gioi_tinh_khach: string;
@@ -50,6 +50,36 @@ export default function BookingSuccess() {
   const [error, setError] = useState<string | null>(null);
   const [appointment, setAppointment] = useState<AppointmentData | null>(null);
   const [triggerTransition, setTriggerTransition] = useState(false);
+
+  // Check email confirmed redirect param
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('confirmed') === 'true') {
+      toast.success('🎉 Xác nhận lịch hẹn qua email thành công!', { duration: 6000 });
+      try {
+        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioContext) {
+          const ctx = new AudioContext();
+          const now = ctx.currentTime;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(523.25, now);
+          osc.frequency.setValueAtTime(659.25, now + 0.1);
+          osc.frequency.setValueAtTime(783.99, now + 0.2);
+          gain.gain.setValueAtTime(0.1, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.5);
+        }
+      } catch (e) {
+        console.error('Lỗi âm thanh:', e);
+      }
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
 
   // Poll status every 5 seconds
   useEffect(() => {
@@ -171,6 +201,7 @@ export default function BookingSuccess() {
     );
   }
 
+  const isUnconfirmed = appointment.trang_thai === 'chua_xac_nhan';
   const isPending = appointment.trang_thai === 'cho_xac_nhan';
   const isConfirmed = appointment.trang_thai === 'da_xac_nhan';
   const isCancelled = appointment.trang_thai === 'da_huy';
@@ -207,14 +238,16 @@ export default function BookingSuccess() {
             Thông tin hệ thống: Khám lâm sàng
           </div>
           <h1 className="text-3xl sm:text-4xl font-heading font-black text-slate-900 tracking-tight uppercase">
-            {isConfirmed ? 'Lịch Hẹn Đã Được Xác Nhận' : isCancelled ? 'Lịch Hẹn Đã Bị Hủy' : 'Đang Chờ Lễ Tân Xác Nhận'}
+            {isConfirmed ? 'Lịch Hẹn Đã Được Xác Nhận' : isCancelled ? 'Lịch Hẹn Đã Bị Hủy' : isUnconfirmed ? 'Đang Chờ Xác Nhận Email' : 'Lịch Hẹn Đang Chờ Phân Bổ'}
           </h1>
           <p className="mt-2 text-sm text-slate-500 font-semibold max-w-2xl leading-relaxed">
             {isConfirmed 
               ? 'Lịch hẹn của bạn đã được tiếp nhận thành công. Mời bạn quét mã QR dưới đây tại quầy lễ tân để tiến hành check-in.'
               : isCancelled 
                 ? `Lịch hẹn này đã được hủy bỏ. Lý do: "${appointment.ly_do_huy || 'Hủy bởi hệ thống'}"`
-                : 'Lịch khám của bạn đã được chuyển tiếp thành công đến bộ phận tiếp nhận. Lễ tân sẽ liên hệ điện thoại để xác nhận sớm nhất.'}
+                : isUnconfirmed
+                  ? 'Bạn đã đặt lịch thành công! Vui lòng kiểm tra email của bạn để xác nhận giữ chỗ trong vòng 10 phút. Sau 10 phút nếu chưa xác nhận, thông tin sẽ được chuyển đến bộ phận lễ tân liên hệ hỗ trợ trực tiếp.'
+                  : 'Lịch hẹn đã được bạn xác nhận qua email thành công. Lễ tân đang rà soát ca trực và sắp xếp phòng khám cho bạn.'}
           </p>
         </div>
 
@@ -296,11 +329,15 @@ export default function BookingSuccess() {
                     </svg>
 
                     {/* Pending Watermark overlay */}
-                    {isPending && (
+                    {(isUnconfirmed || isPending) && (
                       <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center p-3 text-center rounded-xl border border-amber-100">
                         <AlertCircle className="w-8 h-8 text-amber-500 animate-pulse mb-1" />
-                        <span className="text-[10px] font-black text-slate-800 uppercase tracking-wider">CHỜ XÁC NHẬN</span>
-                        <span className="text-[9px] text-slate-400 font-semibold mt-1">Sẽ kích hoạt sau khi lễ tân xác thực</span>
+                        <span className="text-[10px] font-black text-slate-800 uppercase tracking-wider">
+                          {isUnconfirmed ? 'CHƯA XÁC NHẬN (EMAIL)' : 'CHỜ PHÂN BỔ'}
+                        </span>
+                        <span className="text-[9px] text-slate-400 font-semibold mt-1">
+                          {isUnconfirmed ? 'Vui lòng xác nhận qua email để giữ chỗ' : 'Đang chờ Quản lý phân phòng/bác sĩ'}
+                        </span>
                       </div>
                     )}
 
@@ -375,8 +412,12 @@ export default function BookingSuccess() {
                     <p className="text-[10px] text-rose-500 font-black uppercase tracking-wider">LỊCH HẸN ĐÃ BỊ HỦY</p>
                   ) : (
                     <div className="space-y-0.5">
-                      <p className="text-xs font-black text-amber-600 uppercase tracking-wider animate-pulse">LỄ TÂN ĐANG XẾP LỊCH</p>
-                      <p className="text-[10px] text-slate-400 font-semibold">Bác sĩ và số phòng sẽ hiển thị ngay khi lịch đặt được xác nhận.</p>
+                      <p className="text-xs font-black text-amber-600 uppercase tracking-wider animate-pulse">
+                        {isUnconfirmed ? 'CHƯA XÁC NHẬN GIỮ CHỖ' : 'LỄ TÂN ĐANG XẾP LỊCH'}
+                      </p>
+                      <p className="text-[10px] text-slate-400 font-semibold">
+                        {isUnconfirmed ? 'Vui lòng kiểm tra hộp thư đến của bạn để xác nhận lịch' : 'Bác sĩ và số phòng sẽ hiển thị ngay khi lịch đặt được xác nhận.'}
+                      </p>
                     </div>
                   )}
                 </div>

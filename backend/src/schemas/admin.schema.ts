@@ -89,7 +89,9 @@ export const scheduleSchema = z.object({
     ngay: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Ngày không hợp lệ (YYYY-MM-DD)'),
     gio_bat_dau: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Giờ bắt đầu không hợp lệ (HH:mm)'),
     gio_ket_thuc: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Giờ kết thúc không hợp lệ (HH:mm)'),
-    trang_thai: z.enum(['hoat_dong', 'tam_nghi']).default('hoat_dong')
+    trang_thai: z.enum(['hoat_dong', 'tam_nghi']).default('hoat_dong'),
+    phong_id: z.union([z.string(), z.number()]).optional().nullable(),
+    giuong_so: z.union([z.string(), z.number()]).optional().nullable()
   })
 });
 
@@ -113,7 +115,8 @@ export const roomSchema = z.object({
     loai_phong: z.string().optional().nullable(),
     loai_dich_vu_ho_tro: z.any().optional().nullable(),
     mo_ta: z.string().optional().nullable(),
-    trang_thai: z.enum(['san_sang', 'dang_su_dung', 'dang_bao_tri', 'hong']).default('san_sang'),
-    tang: z.string().optional().nullable()
+    trang_thai: z.string().default('san_sang'),
+    tang: z.string().optional().nullable(),
+    so_luong_giuong: z.number().int().min(1).optional().default(1)
   })
 });

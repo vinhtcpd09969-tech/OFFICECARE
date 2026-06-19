@@ -27,8 +27,8 @@ export const getDashboardData = async (req: Request, res: Response) => {
 export const updateAppointmentStatus = async (req: Request, res: Response): Promise<any> => {
   try {
     const { id } = req.params as { id: string };
-    const { trang_thai } = req.body;
-    const appointment = await receptionistService.updateAppointmentStatus(id, trang_thai);
+    const { trang_thai, ghi_chu_noi_bo } = req.body;
+    const appointment = await receptionistService.updateAppointmentStatus(id, trang_thai, ghi_chu_noi_bo);
     res.json(appointment);
   } catch (error: any) {
     console.error('Lỗi cập nhật trạng thái:', error);

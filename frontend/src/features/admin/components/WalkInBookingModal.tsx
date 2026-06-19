@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Clock, MapPin, User, Stethoscope } from 'lucide-react';
 import { format } from 'date-fns';
+import { convertToVietnamUtcIso } from '../../../utils/date';
 
 interface WalkInBookingModalProps {
   roomsList: any[];
@@ -157,13 +158,14 @@ export default function WalkInBookingModal({
       return;
     }
 
-    // Chuyển đổi giờ cục bộ (VN UTC+7) sang UTC đúng chuẩn
-    const startUtcIso = new Date(`${todayStr}T${selectedTime}:00`).toISOString();
+    // Chuyển đổi giờ cục bộ (VN UTC+7) sang UTC đúng chuẩn độc lập với múi giờ trình duyệt
+    const startUtcIso = convertToVietnamUtcIso(todayStr, selectedTime);
 
     const [h, m] = selectedTime.split(':').map(Number);
     const endMin = (m + 30) % 60;
     const endHour = h + Math.floor((m + 30) / 60);
-    const endUtcIso = new Date(`${todayStr}T${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}:00`).toISOString();
+    const endTimeStr = `${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}`;
+    const endUtcIso = convertToVietnamUtcIso(todayStr, endTimeStr);
 
     const payload = {
       ho_ten_khach: hoTen,

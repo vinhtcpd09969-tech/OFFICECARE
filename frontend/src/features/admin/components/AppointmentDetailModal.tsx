@@ -1,4 +1,5 @@
-import { X, Activity, AlertCircle } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { X, Activity, AlertCircle, Phone, PhoneCall } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../../stores/authStore';
 import axiosInstance from '../../../api/axios';
@@ -24,6 +25,7 @@ interface AppointmentDetailModalProps {
   onSuccess?: () => void;
   schedulesList?: any[];
   hideBilling?: boolean;
+  isReceptionistOverride?: boolean;
 }
 
 export default function AppointmentDetailModal({
@@ -44,13 +46,66 @@ export default function AppointmentDetailModal({
   appointments = [],
   onSuccess,
   schedulesList = [],
-  hideBilling = false
+  hideBilling = false,
+  isReceptionistOverride
 }: AppointmentDetailModalProps) {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const isReceptionist = Number(user?.vai_tro_id) === 2;
+  const isReceptionist = isReceptionistOverride !== undefined ? isReceptionistOverride : (Number(user?.vai_tro_id) === 2);
+  const [localGhiChuNoiBo, setLocalGhiChuNoiBo] = useState<string>(selectedAppointment?.ghi_chu_noi_bo || '');
+  const isUnconfirmedState = isReceptionist && ['cho_xac_nhan', 'chua_xac_nhan'].includes(selectedAppointment.trang_thai);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+
+  const handleResendEmail = async () => {
+    setIsSendingEmail(true);
+    const toastId = toast.loading('Đang gửi lại email xác nhận...');
+    try {
+      await axiosInstance.post(`/receptionist/appointments/${selectedAppointment.id}/resend-email`);
+      toast.success('Đã gửi lại email xác nhận thành công!', { id: toastId });
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.response?.data?.message || 'Không thể gửi lại email xác nhận.', { id: toastId });
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
+  useEffect(() => {
+    setLocalGhiChuNoiBo(selectedAppointment?.ghi_chu_noi_bo || '');
+  }, [selectedAppointment]);
 
   if (!selectedAppointment) return null;
+
+  // Keep-alive heartbeat effect
+  useEffect(() => {
+    if (
+      selectedAppointment &&
+      !selectedAppointment.bac_si_id &&
+      !selectedAppointment.chuyen_gia_id &&
+      ['cho_xac_nhan', 'chua_xac_nhan'].includes(selectedAppointment.trang_thai) &&
+      selectedAppointment.han_xac_nhan
+    ) {
+      const sendKeepAlive = async () => {
+        try {
+          await axiosInstance.post(`/admin/appointments/${selectedAppointment.id}/keep-alive`);
+          console.log('[Keep-Alive] Đã gia hạn giữ chỗ lịch hẹn thêm 5 phút');
+          if (onSuccess) {
+            onSuccess();
+          }
+        } catch (error) {
+          console.error('[Keep-Alive] Lỗi khi gia hạn giữ chỗ:', error);
+        }
+      };
+
+      // Gọi ngay lập tức khi mở modal
+      sendKeepAlive();
+
+      // Thiết lập định kỳ mỗi 3 phút
+      const interval = setInterval(sendKeepAlive, 3 * 60 * 1000);
+
+      return () => clearInterval(interval);
+    }
+  }, [selectedAppointment, onSuccess]);
 
   // Logic kiểm tra trùng lịch (Overlap)
   const isOverlapping = (start1: string, end1: string, start2: string, end2: string) => {
@@ -59,6 +114,12 @@ export default function AppointmentDetailModal({
     const s2 = new Date(start2).getTime();
     const e2 = new Date(end2).getTime();
     return s1 < e2 && e1 > s2;
+  };
+
+  const appendCallLog = (logText: string) => {
+    const vnTimeStr = format(new Date(), 'HH:mm - dd/MM/yyyy');
+    const newLog = `[${vnTimeStr}] ${logText}\n`;
+    setLocalGhiChuNoiBo(prev => prev + newLog);
   };
 
   const currentStart = selectedAppointment.ngay_gio_bat_dau;
@@ -132,8 +193,8 @@ export default function AppointmentDetailModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Bắt buộc phải chọn phòng và nhân sự mới được lưu cập nhật (trừ trạng thái Đã hủy, Không đến và Chưa xác nhận)
-    if (assignStatus !== 'da_huy' && assignStatus !== 'khong_den' && assignStatus !== 'chua_xac_nhan') {
+    // Bắt buộc phải chọn phòng và nhân sự mới được lưu cập nhật (trừ các trạng thái chưa hoàn thiện gán phòng/bác sĩ)
+    if (!['da_huy', 'khong_den', 'chua_xac_nhan', 'cho_xac_nhan', 'cho_huy'].includes(assignStatus)) {
       if (!assignRoomId) {
         toast.error('Vui lòng chọn phòng thực hiện!');
         return;
@@ -261,169 +322,278 @@ export default function AppointmentDetailModal({
             </div>
           )}
 
-          {/* Điều phối phòng & bác sĩ */}
-          <div className="space-y-5">
-            <h4 className="text-xs font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider border-b border-slate-100 dark:border-zinc-800 pb-1.5">
-              Điều phối lâm sàng
-            </h4>
+          {/* Điều phối phòng & bác sĩ hoặc Giao diện gọi điện */}
+          {isUnconfirmedState ? (
+            <div className="space-y-6">
+              <div className="bg-slate-50 dark:bg-zinc-800/45 p-5 rounded-2xl border border-slate-150 dark:border-zinc-800/80 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-zinc-700/50 pb-3">
+                  <h4 className="text-xs font-black text-slate-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Phone size={14} className="text-emerald-600 dark:text-emerald-450" />
+                    Giao diện cuộc gọi & Xác nhận
+                  </h4>
+                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                    selectedAppointment.trang_thai === 'chua_xac_nhan'
+                      ? 'bg-amber-100 dark:bg-amber-955/20 text-amber-700 dark:text-amber-450 border border-amber-200/40 dark:border-amber-900/30'
+                      : 'bg-blue-100 dark:bg-blue-955/20 text-blue-700 dark:text-blue-450 border border-blue-200/40 dark:border-blue-900/30'
+                  }`}>
+                    {selectedAppointment.trang_thai === 'chua_xac_nhan' ? 'Chưa xác nhận' : 'Chờ xác nhận'}
+                  </span>
+                </div>
 
-            {/* PHÒNG THỰC HIỆN (Card grid) */}
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <label className="text-xs font-extrabold text-slate-700 dark:text-zinc-300 uppercase tracking-wider">Phòng khám lâm sàng</label>
-                {assignRoomId && !isReceptionist && (
-                  <button 
-                    type="button" 
-                    onClick={() => setAssignRoomId('')} 
-                    className="text-[10px] text-rose-500 font-extrabold hover:underline"
-                  >
-                    Hủy chọn phòng
-                  </button>
-                )}
-              </div>
-              <div className="grid grid-cols-2 gap-3 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin">
-                {roomsList
-                  .filter(room => {
-                    if (selectedAppointment.loai_lich === 'kham_moi') {
-                      return room.loai_phong === 'kham_benh';
-                    }
-                    if (selectedAppointment.loai_lich === 'dieu_tri') {
-                      return room.loai_phong === 'tri_lieu' || room.loai_phong === 'phong_tri_lieu_chuan';
-                    }
-                    return true;
-                  })
-                  .map(room => {
-                  const isOccupied = occupiedRoomIds.includes(String(room.id)) && String(room.id) !== String(selectedAppointment.phong_id);
-                  const isSelected = String(assignRoomId) === String(room.id);
-                  
-                  return (
-                    <div
-                      key={room.id}
-                      onClick={() => !isOccupied && !isReceptionist && setAssignRoomId(String(room.id))}
-                      className={`p-3 rounded-xl border-2 transition-all flex flex-col justify-between select-none ${
-                        isOccupied 
-                          ? 'bg-slate-50 dark:bg-zinc-800/20 border-slate-100 dark:border-zinc-800/50 opacity-50 cursor-not-allowed' 
-                          : isSelected 
-                            ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-500 dark:border-emerald-600 text-emerald-800 dark:text-emerald-350 ring-2 ring-emerald-500/10' 
-                            : 'bg-white dark:bg-zinc-900 border-slate-150 dark:border-zinc-800 hover:border-slate-350 dark:hover:border-zinc-700 cursor-pointer'
-                      }`}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 py-2">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-slate-450 dark:text-zinc-555 uppercase tracking-wider">Số điện thoại liên hệ</p>
+                    <a
+                      href={`tel:${selectedAppointment.so_dien_thoai}`}
+                      className="text-2xl font-black text-slate-800 dark:text-zinc-150 font-mono tracking-wide hover:text-emerald-600 dark:hover:text-emerald-450 transition-colors flex items-center gap-2 group"
+                      title="Nhấp để gọi điện"
                     >
-                      <div className="flex justify-between items-start">
-                        <span className="text-xs font-black text-slate-800 dark:text-zinc-200 leading-tight">{room.ten_phong}</span>
-                        <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider ${
-                          isOccupied ? 'bg-rose-100 dark:bg-rose-955/30 text-rose-700 dark:text-rose-455' : 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-450'
-                        }`}>
-                          {isOccupied ? 'Bận' : 'Trống'}
-                        </span>
-                      </div>
-                      <span className="text-[9px] text-slate-400 dark:text-zinc-550 mt-2 font-bold">{room.loai_phong || 'Phòng khám'}</span>
-                    </div>
-                  );
-                })}
+                      {selectedAppointment.so_dien_thoai}
+                      <span className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-450 group-hover:scale-110 transition-transform">
+                        <PhoneCall size={14} className="animate-pulse" />
+                      </span>
+                    </a>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={isSendingEmail}
+                    onClick={handleResendEmail}
+                    className="w-full sm:w-auto px-4 py-2.5 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-450 border border-emerald-250 dark:border-emerald-900/30 text-xs font-bold rounded-xl hover:bg-emerald-100 dark:hover:bg-emerald-950/30 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+                  >
+                    {isSendingEmail ? (
+                      <span className="w-3.5 h-3.5 border-2 border-emerald-700 dark:border-emerald-450 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <span className="text-sm">✉️</span>
+                    )}
+                    Gửi lại email xác nhận
+                  </button>
+                </div>
+
+                <div className="space-y-2 border-t border-slate-200/60 dark:border-zinc-700/50 pt-3">
+                  <p className="text-[10px] font-bold text-slate-450 dark:text-zinc-555 uppercase tracking-wider">Ghi nhanh lịch sử gọi điện</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => appendCallLog('Gọi thành công - Khách xác nhận lịch hẹn')}
+                      className="text-left px-3 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:border-emerald-500 dark:hover:border-emerald-600 hover:bg-emerald-50/20 dark:hover:bg-emerald-955/10 rounded-xl text-xs font-semibold text-slate-700 dark:text-zinc-300 transition-all flex items-center gap-2 active:scale-98"
+                    >
+                      🟢 Đã liên hệ & Xác nhận
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => appendCallLog('Khách bận/Thuê bao - Sẽ gọi lại sau')}
+                      className="text-left px-3 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:border-amber-500 dark:hover:border-amber-600 hover:bg-amber-50/20 dark:hover:bg-amber-955/10 rounded-xl text-xs font-semibold text-slate-700 dark:text-zinc-300 transition-all flex items-center gap-2 active:scale-98"
+                    >
+                      🟡 Máy bận/Gọi lại sau
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => appendCallLog('Gọi lần 1: Khách không nhấc máy')}
+                      className="text-left px-3 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:border-rose-500 dark:hover:border-rose-600 hover:bg-rose-50/20 dark:hover:bg-rose-955/10 rounded-xl text-xs font-semibold text-slate-700 dark:text-zinc-300 transition-all flex items-center gap-2 active:scale-98"
+                    >
+                      🔴 Không nhấc máy (Lần 1)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => appendCallLog('Gọi lần 2: Khách không nhấc máy')}
+                      className="text-left px-3 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:border-rose-500 dark:hover:border-rose-600 hover:bg-rose-50/20 dark:hover:bg-rose-955/10 rounded-xl text-xs font-semibold text-slate-700 dark:text-zinc-300 transition-all flex items-center gap-2 active:scale-98"
+                    >
+                      🔴 Không nhấc máy (Lần 2)
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5 border-t border-slate-200/60 dark:border-zinc-700/50 pt-3">
+                  <label className="text-xs font-extrabold text-slate-700 dark:text-zinc-300 uppercase tracking-wider block">Ghi chú nội bộ / Nhật ký cuộc gọi</label>
+                  <textarea
+                    rows={4}
+                    value={localGhiChuNoiBo}
+                    onChange={(e) => setLocalGhiChuNoiBo(e.target.value)}
+                    placeholder="Nhập ghi chú cuộc gọi, lý do đổi lịch hoặc phản hồi của khách hàng tại đây..."
+                    className="w-full px-3.5 py-2.5 bg-white dark:bg-zinc-900 border border-slate-250 dark:border-zinc-800 rounded-xl text-xs text-slate-800 dark:text-zinc-200 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-semibold font-mono leading-relaxed"
+                  />
+                </div>
               </div>
             </div>
+          ) : (
+            <div className="space-y-5">
+              <h4 className="text-xs font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider border-b border-slate-100 dark:border-zinc-800 pb-1.5">
+                Điều phối lâm sàng
+              </h4>
 
-            {/* NHÂN SỰ PHỤ TRÁCH (Card grid) */}
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <label className="text-xs font-extrabold text-slate-700 dark:text-zinc-300 uppercase tracking-wider">
-                  {activeRole === 'Bác sĩ' ? 'Bác sĩ phụ trách' : 'Kỹ thuật viên phụ trách'}
-                </label>
-                {assignStaffId && !isReceptionist && (
-                  <button 
-                    type="button" 
-                    onClick={() => setAssignStaffId('')} 
-                    className="text-[10px] text-rose-500 font-extrabold hover:underline"
-                  >
-                    Hủy phân công
-                  </button>
+              {/* PHÒNG THỰC HIỆN (Card grid) */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-extrabold text-slate-700 dark:text-zinc-300 uppercase tracking-wider">Phòng khám lâm sàng</label>
+                  {assignRoomId && !isReceptionist && (
+                    <button 
+                      type="button" 
+                      onClick={() => setAssignRoomId('')} 
+                      className="text-[10px] text-rose-500 font-extrabold hover:underline"
+                    >
+                      Hủy chọn phòng
+                    </button>
+                  )}
+                </div>
+                {!isReceptionist ? (
+                  <div className="grid grid-cols-2 gap-3 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin">
+                    {roomsList
+                      .filter(room => {
+                        if (selectedAppointment.loai_lich === 'kham_moi') {
+                          return room.loai_phong === 'kham_benh';
+                        }
+                        if (selectedAppointment.loai_lich === 'dieu_tri') {
+                          return room.loai_phong === 'tri_lieu' || room.loai_phong === 'phong_tri_lieu_chuan';
+                        }
+                        return true;
+                      })
+                      .map(room => {
+                        const isOccupied = occupiedRoomIds.includes(String(room.id)) && String(room.id) !== String(selectedAppointment.phong_id);
+                        const isSelected = String(assignRoomId) === String(room.id);
+
+                        return (
+                          <div
+                            key={room.id}
+                            onClick={() => !isOccupied && !isReceptionist && setAssignRoomId(String(room.id))}
+                            className={`p-3 rounded-xl border-2 transition-all flex flex-col justify-between select-none ${isOccupied
+                                ? 'bg-slate-50 dark:bg-zinc-800/20 border-slate-100 dark:border-zinc-800/50 opacity-50 cursor-not-allowed'
+                                : isSelected
+                                  ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-500 dark:border-emerald-600 text-emerald-800 dark:text-emerald-355 ring-2 ring-emerald-500/10'
+                                  : 'bg-white dark:bg-zinc-900 border-slate-150 dark:border-zinc-800 hover:border-slate-350 dark:hover:border-zinc-700 cursor-pointer'
+                              }`}
+                          >
+                            <div className="flex justify-between items-start">
+                              <span className="text-xs font-black text-slate-800 dark:text-zinc-200 leading-tight">{room.ten_phong}</span>
+                              <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider ${isOccupied ? 'bg-rose-100 dark:bg-rose-955/30 text-rose-700 dark:text-rose-455' : 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-450'
+                                }`}>
+                                {isOccupied ? 'Bận' : 'Trống'}
+                              </span>
+                            </div>
+                            <span className="text-[9px] text-slate-400 dark:text-zinc-550 mt-2 font-bold">{room.loai_phong || 'Phòng khám'}</span>
+                          </div>
+                        );
+                      })}
+                  </div>
+                ) : (
+                  <div className="w-full px-4 py-3 bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-850 rounded-xl text-sm font-bold text-slate-800 dark:text-zinc-150 flex items-center justify-between">
+                    <span>{selectedAppointment.ten_phong || 'Chưa chỉ định'}</span>
+                    <span className="text-[10px] text-slate-400 dark:text-zinc-500 uppercase tracking-wider font-extrabold">Đã phân phòng</span>
+                  </div>
                 )}
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[200px] overflow-y-auto pr-1 scrollbar-thin">
-                {staffList.filter(s => s.vai_tro === activeRole).map(staff => {
-                  const isOccupied = occupiedStaffIds.includes(staff.chuyen_gia_id || staff.id) && 
-                                     (staff.chuyen_gia_id || staff.id) !== (selectedAppointment.bac_si_id || selectedAppointment.chuyen_gia_id);
-                  const duty = getStaffDutyStatus(staff);
-                  const isAvailable = duty.hasDuty && !isOccupied;
-                  const isSelected = String(assignStaffId) === String(staff.chuyen_gia_id || staff.id);
 
-                  return (
-                    <div
-                      key={staff.id}
-                      onClick={() => isAvailable && !isReceptionist && setAssignStaffId(staff.chuyen_gia_id || staff.id)}
-                      className={`p-3 rounded-xl border-2 transition-all flex items-center gap-3 select-none ${
-                        !isAvailable 
-                          ? 'bg-slate-50 dark:bg-zinc-800/20 border-slate-100 dark:border-zinc-800/50 opacity-50 cursor-not-allowed' 
-                          : isSelected 
-                            ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-500 dark:border-emerald-600 text-emerald-800 dark:text-emerald-355 ring-2 ring-emerald-500/10 cursor-pointer' 
-                            : 'bg-white dark:bg-zinc-900 border-slate-150 dark:border-zinc-800 hover:border-slate-350 dark:hover:border-zinc-700 cursor-pointer'
-                      }`}
+              {/* NHÂN SỰ PHỤ TRÁCH (Card grid) */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-extrabold text-slate-700 dark:text-zinc-300 uppercase tracking-wider">
+                    {activeRole === 'Bác sĩ' ? 'Bác sĩ phụ trách' : 'Kỹ thuật viên phụ trách'}
+                  </label>
+                  {assignStaffId && !isReceptionist && (
+                    <button 
+                      type="button" 
+                      onClick={() => setAssignStaffId('')} 
+                      className="text-[10px] text-rose-500 font-extrabold hover:underline"
                     >
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-[10px] shrink-0 border ${
-                        isSelected 
-                          ? 'bg-emerald-600 dark:bg-emerald-700 text-white border-emerald-600' 
-                          : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-450 border-slate-200 dark:border-zinc-750'
-                      }`}>
-                        {getAvatarInitials(staff.ho_ten)}
-                      </div>
-                      
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-black text-slate-800 dark:text-zinc-200 truncate">{staff.ho_ten}</p>
-                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                          <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider ${
-                            isOccupied 
-                              ? 'bg-rose-100 dark:bg-rose-950/30 text-rose-700 dark:text-rose-455' 
-                              : !duty.hasDuty 
-                                ? 'bg-slate-200 dark:bg-zinc-800 text-slate-650 dark:text-zinc-450' 
-                                : 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-450'
-                          }`}>
-                            {isOccupied 
-                              ? 'Trùng lịch' 
-                              : !duty.hasDuty 
-                                ? (['Đang nghỉ trưa', 'Đang nghỉ tối', 'Nghỉ phép cả ngày'].includes(duty.label) ? duty.label : 'Không trực') 
-                                : 'Sẵn sàng'}
-                          </span>
-                          {duty.label && duty.hasDuty && (
-                            <span className="text-[9px] text-slate-400 dark:text-zinc-500 font-bold truncate">
-                              {duty.label.replace('Trực ca ', '')}
-                            </span>
-                          )}
+                      Hủy phân công
+                    </button>
+                  )}
+                </div>
+                {!isReceptionist ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[200px] overflow-y-auto pr-1 scrollbar-thin">
+                    {staffList.filter(s => s.vai_tro === activeRole).map(staff => {
+                      const isOccupied = occupiedStaffIds.includes(staff.chuyen_gia_id || staff.id) &&
+                        (staff.chuyen_gia_id || staff.id) !== (selectedAppointment.bac_si_id || selectedAppointment.chuyen_gia_id);
+                      const duty = getStaffDutyStatus(staff);
+                      const isAvailable = duty.hasDuty && !isOccupied;
+                      const isSelected = String(assignStaffId) === String(staff.chuyen_gia_id || staff.id);
+
+                      return (
+                        <div
+                          key={staff.id}
+                          onClick={() => isAvailable && !isReceptionist && setAssignStaffId(staff.chuyen_gia_id || staff.id)}
+                          className={`p-3 rounded-xl border-2 transition-all flex items-center gap-3 select-none ${!isAvailable
+                              ? 'bg-slate-50 dark:bg-zinc-800/20 border-slate-100 dark:border-zinc-800/50 opacity-50 cursor-not-allowed'
+                              : isSelected
+                                ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-500 dark:border-emerald-600 text-emerald-800 dark:text-emerald-355 ring-2 ring-emerald-500/10 cursor-pointer'
+                                : 'bg-white dark:bg-zinc-900 border-slate-150 dark:border-zinc-800 hover:border-slate-350 dark:hover:border-zinc-700 cursor-pointer'
+                            }`}
+                        >
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-[10px] shrink-0 border ${isSelected
+                              ? 'bg-emerald-600 dark:bg-emerald-700 text-white border-emerald-600'
+                              : 'bg-slate-100 dark:bg-zinc-800 text-slate-650 dark:text-zinc-450 border-slate-200 dark:border-zinc-750'
+                            }`}>
+                            {getAvatarInitials(staff.ho_ten)}
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-black text-slate-800 dark:text-zinc-200 truncate">{staff.ho_ten}</p>
+                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                              <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider ${isOccupied
+                                  ? 'bg-rose-100 dark:bg-rose-955/30 text-rose-700 dark:text-rose-455'
+                                  : !duty.hasDuty
+                                    ? 'bg-slate-200 dark:bg-zinc-800 text-slate-650 dark:text-zinc-450'
+                                    : 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-450'
+                                }`}>
+                                {isOccupied
+                                  ? 'Trùng lịch'
+                                  : !duty.hasDuty
+                                    ? (['Đang nghỉ trưa', 'Đang nghỉ tối', 'Nghỉ phép cả ngày'].includes(duty.label) ? duty.label : 'Không trực')
+                                    : 'Sẵn sàng'}
+                              </span>
+                              {duty.label && duty.hasDuty && (
+                                <span className="text-[9px] text-slate-400 dark:text-zinc-550 font-bold truncate">
+                                  {duty.label.replace('Trực ca ', '')}
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="w-full px-4 py-3 bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-855 rounded-xl text-sm font-bold text-slate-800 dark:text-zinc-150 flex items-center justify-between">
+                    <span>
+                      {selectedAppointment.ten_ky_thuat_vien
+                        ? (activeRole === 'Bác sĩ'
+                          ? `BS. ${selectedAppointment.ten_ky_thuat_vien}`
+                          : `KTV. ${selectedAppointment.ten_ky_thuat_vien}`)
+                        : 'Chưa chỉ định'}
+                    </span>
+                    <span className="text-[10px] text-slate-400 dark:text-zinc-500 uppercase tracking-wider font-extrabold">Đã phân công</span>
+                  </div>
+                )}
+              </div>
+
+              {/* TRẠNG THÁI CA TRỰC (Dropdown chuẩn) */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-extrabold text-slate-700 dark:text-zinc-300 uppercase tracking-wider">Trạng thái ca trực</label>
+                <select
+                  className="w-full px-3 py-2.5 bg-white dark:bg-zinc-900 border border-slate-250 dark:border-zinc-800 rounded-xl text-sm text-slate-800 dark:text-zinc-150 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-semibold disabled:bg-slate-100 dark:disabled:bg-zinc-800 disabled:text-slate-500"
+                  value={assignStatus}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setAssignStatus(val);
+                    if (val === 'chua_xac_nhan') {
+                      setAssignStaffId('');
+                      setAssignRoomId('');
+                    }
+                  }}
+                  disabled={isReceptionist}
+                >
+                  <option value="chua_xac_nhan">Chưa xác nhận</option>
+                  <option value="cho_xac_nhan">Chờ xác nhận</option>
+                  <option value="da_xac_nhan">Đã xác nhận</option>
+                  <option value="da_checkin">Đã Check-in</option>
+                  <option value="hoan_thanh">Hoàn thành</option>
+                  <option value="cho_huy">Chờ hủy (Khách yêu cầu)</option>
+                  <option value="da_huy">Đã hủy</option>
+                  <option value="khong_den">Không đến</option>
+                </select>
               </div>
             </div>
-
-            {/* TRẠNG THÁI CA TRỰC (Dropdown chuẩn) */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-extrabold text-slate-700 dark:text-zinc-300 uppercase tracking-wider">Trạng thái ca trực</label>
-              <select
-                className="w-full px-3 py-2.5 bg-white dark:bg-zinc-900 border border-slate-250 dark:border-zinc-800 rounded-xl text-sm text-slate-800 dark:text-zinc-150 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-semibold disabled:bg-slate-100 dark:disabled:bg-zinc-800 disabled:text-slate-500"
-                value={assignStatus}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setAssignStatus(val);
-                  if (val === 'chua_xac_nhan') {
-                    setAssignStaffId('');
-                    setAssignRoomId('');
-                  }
-                }}
-                disabled={isReceptionist}
-              >
-                <option value="chua_xac_nhan">Chưa xác nhận</option>
-                <option value="cho_xac_nhan">Chờ xác nhận</option>
-                <option value="cho_phan_phong">Chờ phân phòng & bác sĩ y tế</option>
-                <option value="da_xac_nhan">Đã xác nhận</option>
-                <option value="da_checkin">Đã Check-in</option>
-                <option value="hoan_thanh">Hoàn thành</option>
-                <option value="cho_huy">Chờ hủy (Khách yêu cầu)</option>
-                <option value="da_huy">Đã hủy</option>
-                <option value="khong_den">Không đến</option>
-              </select>
-            </div>
-          </div>
+          )}
 
           {/* Các nút hành động đặc biệt ở chân trang */}
           <div className="pt-6 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between gap-3">
@@ -492,6 +662,79 @@ export default function AppointmentDetailModal({
               >
                 💵 Xác thực & Gửi thông báo
               </button>
+            ) : isUnconfirmedState ? (
+              <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+                <button
+                  type="button"
+                  disabled={isAssigning}
+                  onClick={async () => {
+                    const toastId = toast.loading('Đang cập nhật trạng thái...');
+                    try {
+                      const url = isReceptionist ? `/receptionist/appointments/${selectedAppointment.id}/status` : `/admin/appointments/${selectedAppointment.id}/status`;
+                      await axiosInstance.patch(url, {
+                        trang_thai: 'cho_xac_nhan',
+                        ghi_chu_noi_bo: localGhiChuNoiBo
+                      });
+                      toast.success('Đã xác nhận liên hệ và chuyển tiếp cho Quản lý!', { id: toastId });
+                      onClose();
+                      if (onSuccess) onSuccess();
+                    } catch (error: any) {
+                      console.error(error);
+                      toast.error(error.response?.data?.message || 'Lỗi khi cập nhật trạng thái', { id: toastId });
+                    }
+                  }}
+                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm text-xs font-black rounded-xl flex items-center gap-2 transition-all active:scale-95 text-center justify-center flex-1 sm:flex-none"
+                >
+                  📞 Xác nhận & Chuyển Quản lý
+                </button>
+                <button
+                  type="button"
+                  disabled={isAssigning}
+                  onClick={async () => {
+                    const toastId = toast.loading('Đang lưu ghi chú cuộc gọi...');
+                    try {
+                      const url = isReceptionist ? `/receptionist/appointments/${selectedAppointment.id}/status` : `/admin/appointments/${selectedAppointment.id}/status`;
+                      await axiosInstance.patch(url, {
+                        trang_thai: selectedAppointment.trang_thai,
+                        ghi_chu_noi_bo: localGhiChuNoiBo
+                      });
+                      toast.success('Đã lưu ghi chú cuộc gọi thành công!', { id: toastId });
+                      if (onSuccess) onSuccess();
+                    } catch (error: any) {
+                      console.error(error);
+                      toast.error(error.response?.data?.message || 'Lỗi khi lưu ghi chú cuộc gọi', { id: toastId });
+                    }
+                  }}
+                  className="px-4 py-2.5 bg-slate-500 hover:bg-slate-650 text-white shadow-sm text-xs font-black rounded-xl flex items-center gap-2 transition-all active:scale-95 text-center justify-center flex-1 sm:flex-none"
+                >
+                  💾 Lưu ghi chú cuộc gọi
+                </button>
+                <button
+                  type="button"
+                  disabled={isAssigning}
+                  onClick={async () => {
+                    const confirmCancel = window.confirm('Bạn có chắc chắn muốn hủy lịch hẹn này không?');
+                    if (!confirmCancel) return;
+                    const toastId = toast.loading('Đang hủy lịch...');
+                    try {
+                      const url = isReceptionist ? `/receptionist/appointments/${selectedAppointment.id}/status` : `/admin/appointments/${selectedAppointment.id}/status`;
+                      await axiosInstance.patch(url, {
+                        trang_thai: 'da_huy',
+                        ghi_chu_noi_bo: localGhiChuNoiBo
+                      });
+                      toast.success('Đã hủy lịch hẹn thành công!', { id: toastId });
+                      onClose();
+                      if (onSuccess) onSuccess();
+                    } catch (error: any) {
+                      console.error(error);
+                      toast.error(error.response?.data?.message || 'Lỗi khi hủy lịch hẹn', { id: toastId });
+                    }
+                  }}
+                  className="px-4 py-2.5 bg-rose-600 hover:bg-rose-750 text-white shadow-sm text-xs font-black rounded-xl flex items-center gap-2 transition-all active:scale-95 text-center justify-center flex-1 sm:flex-none"
+                >
+                  ❌ Hủy lịch
+                </button>
+              </div>
             ) : <div></div>}
 
             <div className="flex gap-2 ml-auto">

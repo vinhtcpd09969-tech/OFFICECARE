@@ -40,7 +40,7 @@ export default function Dashboard() {
 
         // Tìm lịch hẹn sắp tới chưa hoàn thành/hủy (ưu tiên đã xác nhận rồi mới tới chờ xác nhận)
         const activeAppts = list.filter((app: any) => 
-          app.trang_thai === 'cho_xac_nhan' || app.trang_thai === 'cho_phan_phong' || app.trang_thai === 'da_xac_nhan'
+          app.trang_thai === 'cho_xac_nhan' || app.trang_thai === 'da_xac_nhan'
         );
         
         // Sắp xếp theo ngày bắt đầu gần nhất
@@ -400,11 +400,11 @@ export default function Dashboard() {
                   <div className="flex justify-between items-center mb-4 border-b border-dashed border-gray-150 pb-3">
                     <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Thời gian Khám</span>
                     <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                      (upcomingAppointment.trang_thai === 'cho_xac_nhan' || upcomingAppointment.trang_thai === 'cho_phan_phong')
+                      upcomingAppointment.trang_thai === 'cho_xac_nhan'
                         ? 'text-amber-600 bg-amber-50 border border-amber-200' 
                         : 'text-emerald-600 bg-emerald-50 border border-emerald-250 animate-pulse'
                     }`}>
-                      {(upcomingAppointment.trang_thai === 'cho_xac_nhan' || upcomingAppointment.trang_thai === 'cho_phan_phong') ? 'Chờ duyệt' : 'Đã duyệt'}
+                      {upcomingAppointment.trang_thai === 'cho_xac_nhan' ? 'Chờ duyệt' : 'Đã duyệt'}
                     </span>
                   </div>
                   

@@ -84,7 +84,7 @@ export default function CustomerAppointments() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'cho_xac_nhan':
-      case 'cho_phan_phong':
+      case 'chua_xac_nhan':
         return (
           <span className="text-[10px] font-black text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
             Chờ Lễ Tân Duyệt
@@ -126,7 +126,7 @@ export default function CustomerAppointments() {
   const getStatusLineClass = (status: string) => {
     switch (status) {
       case 'cho_xac_nhan':
-      case 'cho_phan_phong':
+      case 'chua_xac_nhan':
         return 'bg-amber-400';
       case 'da_xac_nhan':
         return 'bg-emerald-500';

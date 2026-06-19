@@ -56,7 +56,6 @@ export default function ManageTreatments() {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-
   // Assignment State in Detail Modal
   const [assignStaffId, setAssignStaffId] = useState<string>('');
   const [assignRoomId, setAssignRoomId] = useState<string>('');
@@ -89,6 +88,30 @@ export default function ManageTreatments() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  const scrollToAppointment = (aptId: string) => {
+    const element = document.getElementById(`appointment-card-${aptId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+      
+      // Highlighting style effects
+      element.style.transition = 'all 0.5s ease-in-out';
+      element.style.boxShadow = '0 0 25px rgba(245, 158, 11, 0.9)';
+      element.style.borderColor = '#f59e0b';
+      element.style.borderWidth = '2px';
+      element.style.transform = 'scale(1.05)';
+      
+      // Fade away smoothly after 2 seconds
+      setTimeout(() => {
+        element.style.boxShadow = '';
+        element.style.borderColor = '';
+        element.style.borderWidth = '';
+        element.style.transform = '';
+      }, 2000);
+    } else {
+      toast.error('Không tìm thấy ca hẹn trên bảng lịch trình.');
+    }
+  };
 
   const handleUpdateAppointment = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -165,6 +188,17 @@ export default function ManageTreatments() {
     completed: (viewMode === 'today' ? dailyAppointments : filteredAppointments).filter(a => a.trang_thai === 'hoan_thanh').length,
     cancelled: (viewMode === 'today' ? dailyAppointments : filteredAppointments).filter(a => a.trang_thai === 'da_huy' || a.trang_thai === 'khong_den').length,
   };
+
+  const unassignedTreatments = appointments
+    .filter(apt => {
+      const aptDateStr = format(new Date(apt.ngay_gio_bat_dau), 'yyyy-MM-dd');
+      const isSelectedDate = aptDateStr === formattedSelectedDate;
+      const isTreatment = apt.loai_lich === 'dieu_tri';
+      const isActive = !['hoan_thanh', 'da_huy', 'khong_den'].includes(apt.trang_thai);
+      const hasNoKtv = !apt.ky_thuat_vien_id;
+      return isSelectedDate && isTreatment && isActive && hasNoKtv;
+    })
+    .sort((a, b) => new Date(a.ngay_gio_bat_dau).getTime() - new Date(b.ngay_gio_bat_dau).getTime());
 
   const dynamicTimeSlots = Array.from(
     new Set(
@@ -376,6 +410,56 @@ export default function ManageTreatments() {
         onClose={() => setIsCreateModalOpen(false)}
         onSuccess={fetchData}
       />
+      {/* Floating Mascot Dispatch Widget */}
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+        {/* Mascot Button */}
+        <button
+          onClick={() => {
+            if (unassignedTreatments.length > 0) {
+              scrollToAppointment(unassignedTreatments[0].id);
+            } else {
+              toast.success("Tất cả các ca điều trị đã có KTV!");
+            }
+          }}
+          className="relative size-16 bg-white rounded-full shadow-2xl border border-slate-100 flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-300 group focus:outline-none"
+        >
+          {unassignedTreatments.length > 0 && (
+            <div className="absolute inset-0 rounded-full bg-emerald-500/20 animate-ping pointer-events-none" />
+          )}
+
+          <div className={`${unassignedTreatments.length > 0 ? 'animate-bounce' : 'group-hover:animate-pulse'}`} style={{ animationDuration: unassignedTreatments.length > 0 ? '1s' : '2s' }}>
+            <svg viewBox="0 0 100 100" className="size-14">
+              <circle cx="50" cy="55" r="32" fill="#10b981" />
+              <path d="M 22,40 Q 16,30 26,26 Q 36,22 41,32" fill="#f59e0b" />
+              <path d="M 36,26 Q 41,16 51,16 Q 61,16 56,26" fill="#f59e0b" />
+              <path d="M 51,21 Q 61,11 71,16 Q 76,26 66,31" fill="#f59e0b" />
+              <circle cx="66" cy="46" r="20" fill="#10b981" />
+              <path d="M 66,26 C 66,18 58,15 56,18 C 54,21 62,24 66,26" fill="#84cc16" />
+              <path d="M 66,26 C 66,18 74,15 76,18 C 78,21 70,24 66,26" fill="#84cc16" />
+              <rect x="65" y="25" width="2" height="3" rx="1" fill="#78350f" />
+              <circle cx="60" cy="43" r="3.5" fill="#0f172a" />
+              <circle cx="72" cy="43" r="3.5" fill="#0f172a" />
+              <circle cx="61.5" cy="41.5" r="1.2" fill="#ffffff" />
+              <circle cx="73.5" cy="41.5" r="1.2" fill="#ffffff" />
+              <circle cx="56" cy="48" r="2.5" fill="#f43f5e" opacity="0.5" />
+              <circle cx="76" cy="48" r="2.5" fill="#f43f5e" opacity="0.5" />
+              <path d="M 64,48 Q 66,50 68,48" fill="none" stroke="#0f172a" strokeWidth="2" strokeLinecap="round" />
+              <rect x="28" y="54" width="14" height="7" rx="1.5" fill="#fed7aa" transform="rotate(-15 35 57)" />
+              <line x1="35" y1="53" x2="35" y2="61" stroke="#f97316" strokeWidth="1" />
+            </svg>
+          </div>
+
+          {unassignedTreatments.length > 0 && (
+            <span className="absolute -top-1 -right-1 bg-rose-500 text-white font-extrabold text-[10px] px-1.5 py-0.5 rounded-full border-2 border-white shadow-md">
+              {unassignedTreatments.length}
+            </span>
+          )}
+
+          <span className="absolute -bottom-8 bg-slate-800 text-white text-[9px] font-bold px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+            Điều phối
+          </span>
+        </button>
+      </div>
     </div>
   );
 }

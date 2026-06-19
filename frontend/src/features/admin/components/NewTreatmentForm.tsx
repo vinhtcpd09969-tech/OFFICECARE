@@ -6,6 +6,7 @@ import { X, User, FileText, Sparkles, Layers, Clock, MapPin } from 'lucide-react
 import toast from 'react-hot-toast';
 import axiosInstance from '../../../api/axios';
 import { useAuthStore } from '../../../stores/authStore';
+import { convertToVietnamUtcIso } from '../../../utils/date';
 
 const schema = z.object({
   bookingMode: z.enum(['existing', 'walk_in']),
@@ -183,8 +184,8 @@ export default function NewTreatmentForm({ isOpen, onClose, onSuccess }: Props) 
 
       const payload: any = {
         loai_lich: 'dieu_tri',
-        ngay_gio_bat_dau: new Date(`${data.ngay_bat_dau}T${data.gio_bat_dau}:00`).toISOString(),
-        ngay_gio_ket_thuc: new Date(`${data.ngay_bat_dau}T${data.gio_ket_thuc}:00`).toISOString(),
+        ngay_gio_bat_dau: convertToVietnamUtcIso(data.ngay_bat_dau, data.gio_bat_dau),
+        ngay_gio_ket_thuc: convertToVietnamUtcIso(data.ngay_bat_dau, data.gio_ket_thuc),
         ghi_chu_dat_lich: data.ghi_chu_dat_lich,
         ma_lich_dat: `TR${Math.floor(1000 + Math.random() * 9000)}`
       };

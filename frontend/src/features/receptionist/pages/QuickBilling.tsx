@@ -1,4 +1,4 @@
-import { useReducer, useState, useEffect, useMemo } from 'react';
+import { useReducer, useState, useEffect } from 'react';
 import axiosInstance from '../../../api/axios';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
@@ -75,54 +75,8 @@ export default function QuickBilling() {
   const [calculatedData, setCalculatedData] = useState<any | null>(null);
   const [calculating, setCalculating] = useState(false);
   const [feedbackLyDo, setFeedbackLyDo] = useState('');
-  const [vouchers, setVouchers] = useState<any[]>([]);
 
-  // Find active auto-applied vouchers targeted to this package
-  const activePromo = useMemo(() => {
-    if (!selectedPackage || !vouchers.length) return null;
-
-    const now = new Date();
-
-    // Find auto-applied voucher for straight payment (tra_thang)
-    const straightPromo = vouchers.find((v: any) => {
-      const startDate = new Date(v.ngay_bat_dau);
-      const endDate = v.ngay_het_han ? new Date(v.ngay_het_han) : null;
-      const isTimeActive = now >= startDate && (!endDate || now <= endDate);
-
-      return v.trang_thai === 'hoat_dong' &&
-        v.tu_dong_ap_dung === true &&
-        isTimeActive &&
-        (v.yeu_cau_thanh_toan === 'tra_thang' || v.yeu_cau_thanh_toan === 'tat_ca') &&
-        (v.ap_dung_cho === 'tat_ca' || (Array.isArray(v.goi_dich_vu_ids) && v.goi_dich_vu_ids.includes(selectedPackage.id)));
-    }) || null;
-
-    // Find auto-applied voucher for installment (tra_gop)
-    const installmentPromo = vouchers.find((v: any) => {
-      const startDate = new Date(v.ngay_bat_dau);
-      const endDate = v.ngay_het_han ? new Date(v.ngay_het_han) : null;
-      const isTimeActive = now >= startDate && (!endDate || now <= endDate);
-
-      return v.trang_thai === 'hoat_dong' &&
-        v.tu_dong_ap_dung === true &&
-        isTimeActive &&
-        (v.yeu_cau_thanh_toan === 'tra_gop' || v.yeu_cau_thanh_toan === 'tat_ca') &&
-        (v.ap_dung_cho === 'tat_ca' || (Array.isArray(v.goi_dich_vu_ids) && v.goi_dich_vu_ids.includes(selectedPackage.id)));
-    }) || null;
-
-    if (!straightPromo && !installmentPromo) return null;
-
-    return {
-      straightPromo,
-      installmentPromo
-    };
-  }, [selectedPackage, vouchers]);
-
-  const hasAutoPromo = useMemo(() => {
-    if (!activePromo) return false;
-    return loaiThanhToan === 'tra_gop'
-      ? !!activePromo.installmentPromo
-      : !!activePromo.straightPromo;
-  }, [activePromo, loaiThanhToan]);
+  const hasAutoPromo = false;
 
   const isLocked = !!new URLSearchParams(location.search).get('lich_dat_id');
 
@@ -135,14 +89,12 @@ export default function QuickBilling() {
 
   const fetchPackageBillingData = async () => {
     try {
-      const [pkgRes, consRes, vouchersRes] = await Promise.all([
+      const [pkgRes, consRes] = await Promise.all([
         axiosInstance.get('/receptionist/packages'),
-        axiosInstance.get('/receptionist/completed-consultations'),
-        axiosInstance.get('/receptionist/auto-vouchers')
+        axiosInstance.get('/receptionist/completed-consultations')
       ]);
       setPackages(Array.isArray(pkgRes.data) ? pkgRes.data : []);
       setCompletedConsultations(Array.isArray(consRes.data) ? consRes.data : []);
-      setVouchers(Array.isArray(vouchersRes.data) ? vouchersRes.data : []);
     } catch (err) {
       console.error('Lỗi tải dữ liệu quầy thanh toán:', err);
     }
@@ -680,14 +632,10 @@ export default function QuickBilling() {
                         className="w-full px-3 py-3.5 bg-zinc-50 border border-zinc-200 focus:border-primary rounded-xl font-bold text-secondary text-xs outline-none cursor-pointer"
                       >
                         <option value="tra_thang">
-                          💳 {activePromo?.straightPromo 
-                            ? `Trả thẳng - ${activePromo.straightPromo.ten_chien_dich}` 
-                            : 'Trả thẳng (100% Phí)'}
+                          💳 Trả thẳng (Giảm {selectedPackage?.phan_tram_giam_tra_thang ?? 10}%)
                         </option>
                         <option value="tra_gop">
-                          🏦 {activePromo?.installmentPromo 
-                            ? `Trả góp - ${activePromo.installmentPromo.ten_chien_dich}` 
-                            : 'Trả góp (Đợt 1 - 50% Phí)'}
+                          🏦 Trả góp (Giảm {selectedPackage?.phan_tram_giam_tra_gop ?? 5}%)
                         </option>
                       </select>
                     </div>
@@ -1134,7 +1082,7 @@ export default function QuickBilling() {
                       {Number(calculatedData.so_tien_giam_phuong_thuc) > 0 && (
                         <div className="flex justify-between items-center text-emerald-500">
                           <span className="font-extrabold">
-                            Ưu đãi tự động ({loaiThanhToan === 'tra_gop' ? activePromo?.installmentPromo?.ten_chien_dich : activePromo?.straightPromo?.ten_chien_dich}):
+                            Ưu đãi thanh toán ({loaiThanhToan === 'tra_gop' ? `Trả góp ${selectedPackage?.phan_tram_giam_tra_gop ?? 5}%` : `Trả thẳng ${selectedPackage?.phan_tram_giam_tra_thang ?? 10}%`}):
                           </span>
                           <span className="font-black">-{formatCurrency(Number(calculatedData.so_tien_giam_phuong_thuc))}</span>
                         </div>
@@ -1144,6 +1092,12 @@ export default function QuickBilling() {
                         <div className="flex justify-between items-center text-emerald-500">
                           <span className="font-extrabold">Ưu đãi Voucher ({appliedVoucher?.ma_voucher}):</span>
                           <span className="font-black">-{formatCurrency(Number(calculatedData.so_tien_giam_voucher))}</span>
+                        </div>
+                      )}
+
+                      {appliedVoucher && calculatedData && Number(calculatedData.so_tien_giam_voucher) === 0 && (
+                        <div className="bg-amber-50 border border-amber-150 p-2.5 rounded-lg text-amber-700 text-[9px] font-semibold leading-relaxed col-span-2">
+                          ⚠️ Hệ thống tự động chọn ưu đãi thanh toán vì mức giảm nhiều hơn ưu đãi của Voucher ({appliedVoucher.ma_voucher}).
                         </div>
                       )}
                       

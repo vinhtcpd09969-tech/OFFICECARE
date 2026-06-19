@@ -13,7 +13,9 @@ const packageSchema = z.object({
   so_dv_toi_da_moi_buoi: z.number().min(1, 'Số dịch vụ mỗi buổi phải lớn hơn 0').default(5),
   trang_thai: z.enum(['hoat_dong', 'vo_hieu']),
   loai_goi: z.enum(['linh_dong', 'lieu_trinh']).default('lieu_trinh'),
-  danh_muc_id: z.number().min(1, 'Vui lòng chọn danh mục chuyên khoa').optional().nullable()
+  danh_muc_id: z.number().min(1, 'Vui lòng chọn danh mục chuyên khoa').optional().nullable(),
+  phan_tram_giam_tra_thang: z.number().min(0, 'Phần trăm giảm từ 0 đến 100').max(100, 'Phần trăm giảm từ 0 đến 100').default(10),
+  phan_tram_giam_tra_gop: z.number().min(0, 'Phần trăm giảm từ 0 đến 100').max(100, 'Phần trăm giảm từ 0 đến 100').default(5),
 });
 
 export type PackageFormValues = z.infer<typeof packageSchema>;
@@ -42,14 +44,18 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
       so_dv_toi_da_moi_buoi: editingPackage.so_dv_toi_da_moi_buoi || 5,
       trang_thai: editingPackage.trang_thai || 'hoat_dong',
       loai_goi: editingPackage.loai_goi || 'lieu_trinh',
-      danh_muc_id: editingPackage.danh_muc_id ? Number(editingPackage.danh_muc_id) : undefined
+      danh_muc_id: editingPackage.danh_muc_id ? Number(editingPackage.danh_muc_id) : undefined,
+      phan_tram_giam_tra_thang: editingPackage.phan_tram_giam_tra_thang !== undefined ? Number(editingPackage.phan_tram_giam_tra_thang) : 10,
+      phan_tram_giam_tra_gop: editingPackage.phan_tram_giam_tra_gop !== undefined ? Number(editingPackage.phan_tram_giam_tra_gop) : 5,
     } : {
       trang_thai: 'hoat_dong',
       tong_so_buoi: 10,
       so_dv_toi_da_moi_buoi: 5,
       gia_tien: 0,
       loai_goi: 'lieu_trinh',
-      danh_muc_id: undefined
+      danh_muc_id: undefined,
+      phan_tram_giam_tra_thang: 10,
+      phan_tram_giam_tra_gop: 5,
     }
   });
 
@@ -443,6 +449,32 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                   />
                   {errors.so_dv_toi_da_moi_buoi && (
                     <span className="text-rose-500 text-[10px] mt-1 block">{errors.so_dv_toi_da_moi_buoi.message}</span>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block font-bold text-zinc-500 mb-1.5 uppercase tracking-wider">Giảm trả thẳng (%) *</label>
+                  <input 
+                    type="number"
+                    {...register('phan_tram_giam_tra_thang', { valueAsNumber: true })} 
+                    placeholder="10"
+                    className="w-full px-3.5 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all font-semibold text-secondary shadow-sm text-sm"
+                  />
+                  {errors.phan_tram_giam_tra_thang && (
+                    <span className="text-rose-500 text-[10px] mt-1 block">{errors.phan_tram_giam_tra_thang.message}</span>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block font-bold text-zinc-500 mb-1.5 uppercase tracking-wider">Giảm trả góp (%) *</label>
+                  <input 
+                    type="number"
+                    {...register('phan_tram_giam_tra_gop', { valueAsNumber: true })} 
+                    placeholder="5"
+                    className="w-full px-3.5 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all font-semibold text-secondary shadow-sm text-sm"
+                  />
+                  {errors.phan_tram_giam_tra_gop && (
+                    <span className="text-rose-500 text-[10px] mt-1 block">{errors.phan_tram_giam_tra_gop.message}</span>
                   )}
                 </div>
 

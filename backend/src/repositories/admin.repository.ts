@@ -30,17 +30,16 @@ class AdminRepository {
 
   async createRoom(data: any) {
     const { rows } = await pool.query(
-      `INSERT INTO phong (ten_phong, ma_phong, loai_phong, loai_dich_vu_ho_tro, thiet_bi, mo_ta, trang_thai, tang)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      `INSERT INTO phong (ten_phong, ma_phong, loai_phong, mo_ta, trang_thai, tang, so_luong_giuong)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
       [
         data.ten_phong,
         data.ma_phong,
-        data.loai_phong || 'tri_lieu',
-        data.loai_dich_vu_ho_tro ? (typeof data.loai_dich_vu_ho_tro === 'string' ? data.loai_dich_vu_ho_tro : JSON.stringify(data.loai_dich_vu_ho_tro)) : '[]',
-        data.thiet_bi ? (typeof data.thiet_bi === 'string' ? data.thiet_bi : JSON.stringify(data.thiet_bi)) : '[]',
+        data.loai_phong || 'phong_tri_lieu_chuan',
         data.mo_ta || null,
         data.trang_thai || 'san_sang',
-        data.tang || 'Tang 1'
+        data.tang || 'Tang 1',
+        data.so_luong_giuong !== undefined ? Number(data.so_luong_giuong) : 1
       ]
     );
     return rows[0];
@@ -49,17 +48,16 @@ class AdminRepository {
   async updateRoom(id: string | number, data: any) {
     const { rows } = await pool.query(
       `UPDATE phong 
-       SET ten_phong = $1, ma_phong = $2, loai_phong = $3, loai_dich_vu_ho_tro = $4, thiet_bi = $5, mo_ta = $6, trang_thai = $7, tang = $8
-       WHERE id = $9 RETURNING *`,
+       SET ten_phong = $1, ma_phong = $2, loai_phong = $3, mo_ta = $4, trang_thai = $5, tang = $6, so_luong_giuong = $7
+       WHERE id = $8 RETURNING *`,
       [
         data.ten_phong,
         data.ma_phong,
         data.loai_phong,
-        data.loai_dich_vu_ho_tro ? (typeof data.loai_dich_vu_ho_tro === 'string' ? data.loai_dich_vu_ho_tro : JSON.stringify(data.loai_dich_vu_ho_tro)) : '[]',
-        data.thiet_bi ? (typeof data.thiet_bi === 'string' ? data.thiet_bi : JSON.stringify(data.thiet_bi)) : '[]',
         data.mo_ta || null,
         data.trang_thai,
-        data.tang,
+        data.tang || null,
+        data.so_luong_giuong !== undefined ? Number(data.so_luong_giuong) : 1,
         id
       ]
     );
@@ -163,6 +161,19 @@ class AdminRepository {
       LEFT JOIN danh_muc_dich_vu dm ON g.danh_muc_id = dm.id
       ORDER BY g.thoi_gian_tao DESC
     `);
+    
+    for (const pkg of rows) {
+      const { rows: details } = await pool.query(`
+        SELECT ct.dich_vu_id, ct.so_buoi_trong_goi as so_buoi, ct.so_lan_toi_da_trong_goi, ct.bat_buoc, ct.thu_tu_thuc_hien,
+               dv.ten_dich_vu, dv.don_gia
+        FROM goi_dich_vu_chi_tiet ct
+        JOIN dich_vu dv ON ct.dich_vu_id = dv.id
+        WHERE ct.goi_dich_vu_id = $1
+        ORDER BY ct.thu_tu_thuc_hien ASC
+      `, [pkg.id]);
+      pkg.chi_tiet_dich_vu = details;
+    }
+    
     return rows;
   }
 
@@ -172,8 +183,8 @@ class AdminRepository {
     try {
       await client.query('BEGIN');
       const { rows } = await client.query(
-        `INSERT INTO goi_dich_vu (ten_goi, ma_goi, mo_ta, tong_so_buoi, gia_goi, han_dung_thang, hien_thi_website, trang_thai, danh_muc_id, chi_tiet_dich_vu, loai_goi, so_dv_toi_da_moi_buoi) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *, gia_goi as gia_tien`,
+        `INSERT INTO goi_dich_vu (ten_goi, ma_goi, mo_ta, tong_so_buoi, gia_goi, han_dung_thang, hien_thi_website, trang_thai, danh_muc_id, loai_goi, so_dv_toi_da_moi_buoi, phan_tram_giam_tra_thang, phan_tram_giam_tra_gop) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *, gia_goi as gia_tien`,
         [
           data.ten_goi, 
           ma_goi, 
@@ -184,9 +195,10 @@ class AdminRepository {
           data.hien_thi_website !== undefined ? data.hien_thi_website : true, 
           data.trang_thai, 
           data.danh_muc_id || null, 
-          JSON.stringify(data.chi_tiet_dich_vu || []), 
           data.loai_goi || 'lieu_trinh',
-          data.so_dv_toi_da_moi_buoi || 5
+          data.so_dv_toi_da_moi_buoi || 5,
+          data.phan_tram_giam_tra_thang !== undefined ? Number(data.phan_tram_giam_tra_thang) : 10,
+          data.phan_tram_giam_tra_gop !== undefined ? Number(data.phan_tram_giam_tra_gop) : 5
         ]
       );
       const packageId = rows[0].id;
@@ -211,6 +223,7 @@ class AdminRepository {
       }
 
       await client.query('COMMIT');
+      rows[0].chi_tiet_dich_vu = data.chi_tiet_dich_vu || [];
       return rows[0];
     } catch (e) {
       await client.query('ROLLBACK');
@@ -227,8 +240,9 @@ class AdminRepository {
       const { rows } = await client.query(
         `UPDATE goi_dich_vu 
          SET ten_goi = $1, ma_goi = $2, mo_ta = $3, tong_so_buoi = $4, gia_goi = $5, 
-             han_dung_thang = $6, hien_thi_website = $7, trang_thai = $8, danh_muc_id = $9, chi_tiet_dich_vu = $10, loai_goi = $11, so_dv_toi_da_moi_buoi = $12
-         WHERE id = $13 RETURNING *, gia_goi as gia_tien`,
+             han_dung_thang = $6, hien_thi_website = $7, trang_thai = $8, danh_muc_id = $9, loai_goi = $10, so_dv_toi_da_moi_buoi = $11,
+             phan_tram_giam_tra_thang = $12, phan_tram_giam_tra_gop = $13
+         WHERE id = $14 RETURNING *, gia_goi as gia_tien`,
         [
           data.ten_goi, 
           data.ma_goi, 
@@ -239,9 +253,10 @@ class AdminRepository {
           data.hien_thi_website !== undefined ? data.hien_thi_website : true, 
           data.trang_thai, 
           data.danh_muc_id || null, 
-          JSON.stringify(data.chi_tiet_dich_vu || []), 
           data.loai_goi || 'lieu_trinh', 
           data.so_dv_toi_da_moi_buoi || 5,
+          data.phan_tram_giam_tra_thang !== undefined ? Number(data.phan_tram_giam_tra_thang) : 10,
+          data.phan_tram_giam_tra_gop !== undefined ? Number(data.phan_tram_giam_tra_gop) : 5,
           id
         ]
       );
@@ -270,6 +285,7 @@ class AdminRepository {
       }
 
       await client.query('COMMIT');
+      rows[0].chi_tiet_dich_vu = data.chi_tiet_dich_vu || [];
       return rows[0];
     } catch (e) {
       await client.query('ROLLBACK');
@@ -527,10 +543,12 @@ class AdminRepository {
     const { rows } = await pool.query(`
       SELECT llv.id, llv.nguoi_dung_id, to_char(llv.ngay, 'YYYY-MM-DD') as ngay, 
              llv.gio_bat_dau, llv.gio_ket_thuc, llv.trang_thai,
-             nd.ho_ten as ten_nhan_vien, vt.ten_hien_thi as vai_tro
+             nd.ho_ten as ten_nhan_vien, vt.ten_hien_thi as vai_tro,
+             llv.phong_id, llv.giuong_so, p.ma_phong, p.ten_phong
       FROM lich_lam_viec llv
       JOIN nguoi_dung nd ON llv.nguoi_dung_id = nd.id
       JOIN vai_tro vt ON nd.vai_tro_id = vt.id
+      LEFT JOIN phong p ON llv.phong_id = p.id
       ORDER BY vt.id, nd.ho_ten, llv.ngay
     `);
     return rows;
@@ -561,10 +579,13 @@ class AdminRepository {
       }
     }
 
+    const phongIdVal = data.phong_id && data.phong_id !== '' ? BigInt(data.phong_id) : null;
+    const giuongSoVal = data.giuong_so && data.giuong_so !== '' ? Number(data.giuong_so) : null;
+
     const { rows } = await pool.query(
-      `INSERT INTO lich_lam_viec (nguoi_dung_id, ngay, gio_bat_dau, gio_ket_thuc, trang_thai) 
-       VALUES ($1, $2, $3, $4, $5) RETURNING id, nguoi_dung_id, to_char(ngay, 'YYYY-MM-DD') as ngay, gio_bat_dau, gio_ket_thuc, trang_thai`,
-      [data.nguoi_dung_id, data.ngay, data.gio_bat_dau, data.gio_ket_thuc, data.trang_thai]
+      `INSERT INTO lich_lam_viec (nguoi_dung_id, ngay, gio_bat_dau, gio_ket_thuc, trang_thai, phong_id, giuong_so) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, nguoi_dung_id, to_char(ngay, 'YYYY-MM-DD') as ngay, gio_bat_dau, gio_ket_thuc, trang_thai, phong_id, giuong_so`,
+      [data.nguoi_dung_id, data.ngay, data.gio_bat_dau, data.gio_ket_thuc, data.trang_thai, phongIdVal, giuongSoVal]
     );
     return rows[0];
   }
@@ -595,11 +616,14 @@ class AdminRepository {
       }
     }
 
+    const phongIdVal = data.phong_id && data.phong_id !== '' ? BigInt(data.phong_id) : null;
+    const giuongSoVal = data.giuong_so && data.giuong_so !== '' ? Number(data.giuong_so) : null;
+
     const { rows } = await pool.query(
       `UPDATE lich_lam_viec 
-       SET gio_bat_dau = $1, gio_ket_thuc = $2, trang_thai = $3
-       WHERE id = $4 RETURNING id, nguoi_dung_id, to_char(ngay, 'YYYY-MM-DD') as ngay, gio_bat_dau, gio_ket_thuc, trang_thai`,
-      [data.gio_bat_dau, data.gio_ket_thuc, data.trang_thai, id]
+       SET gio_bat_dau = $1, gio_ket_thuc = $2, trang_thai = $3, phong_id = $4, giuong_so = $5
+       WHERE id = $6 RETURNING id, nguoi_dung_id, to_char(ngay, 'YYYY-MM-DD') as ngay, gio_bat_dau, gio_ket_thuc, trang_thai, phong_id, giuong_so`,
+      [data.gio_bat_dau, data.gio_ket_thuc, data.trang_thai, phongIdVal, giuongSoVal, id]
     );
     return rows[0];
   }
@@ -716,9 +740,7 @@ class AdminRepository {
   // --- QUẢN LÝ MARKETING ---
   async getVouchers() {
     const { rows } = await pool.query(`
-      SELECT v.*,
-             COALESCE((SELECT json_agg(dich_vu_id) FROM voucher_dich_vu WHERE voucher_id = v.id), '[]'::json) as dich_vu_ids,
-             COALESCE((SELECT json_agg(goi_dich_vu_id) FROM voucher_goi_dich_vu WHERE voucher_id = v.id), '[]'::json) as goi_dich_vu_ids
+      SELECT v.*
       FROM voucher v
       ORDER BY v.thoi_gian_tao DESC
     `);
@@ -727,9 +749,7 @@ class AdminRepository {
 
   async getVoucherByCode(code: string) {
     const { rows } = await pool.query(`
-      SELECT v.*,
-             COALESCE((SELECT json_agg(dich_vu_id) FROM voucher_dich_vu WHERE voucher_id = v.id), '[]'::json) as dich_vu_ids,
-             COALESCE((SELECT json_agg(goi_dich_vu_id) FROM voucher_goi_dich_vu WHERE voucher_id = v.id), '[]'::json) as goi_dich_vu_ids
+      SELECT v.*
       FROM voucher v
       WHERE v.ma_voucher = $1
     `, [code]);
@@ -737,144 +757,51 @@ class AdminRepository {
   }
 
   async createVoucher(data: any, userId: string) {
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      
-      // Auto-generate ma_voucher for auto-applied campaigns if empty
-      let maVoucher = data.ma_voucher;
-      if (data.tu_dong_ap_dung && (!maVoucher || maVoucher.trim() === '')) {
-        maVoucher = `AUTO_PRM_${Math.floor(100000 + Math.random() * 900000)}`;
-      }
-
-      const { rows } = await client.query(
-        `INSERT INTO voucher (ma_voucher, ten_chien_dich, loai_giam, gia_tri_giam, giam_toi_da, don_hang_toi_thieu, ap_dung_cho, so_luong_toi_da, ngay_bat_dau, ngay_het_han, trang_thai, tao_boi, tu_dong_ap_dung, yeu_cau_thanh_toan) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
-        [
-          maVoucher, 
-          data.ten_chien_dich, 
-          data.loai_giam, 
-          data.gia_tri_giam, 
-          data.giam_toi_da, 
-          data.don_hang_toi_thieu, 
-          data.ap_dung_cho, 
-          data.so_luong_toi_da, 
-          data.ngay_bat_dau, 
-          data.ngay_het_han, 
-          data.trang_thai, 
-          userId,
-          data.tu_dong_ap_dung || false,
-          data.yeu_cau_thanh_toan || 'tat_ca'
-        ]
-      );
-      const voucher = rows[0];
-
-      if (data.dich_vu_ids && Array.isArray(data.dich_vu_ids)) {
-        for (const dvId of data.dich_vu_ids) {
-          await client.query(
-            'INSERT INTO voucher_dich_vu (voucher_id, dich_vu_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-            [voucher.id, dvId]
-          );
-        }
-      }
-
-      if (data.goi_dich_vu_ids && Array.isArray(data.goi_dich_vu_ids)) {
-        for (const packageId of data.goi_dich_vu_ids) {
-          await client.query(
-            'INSERT INTO voucher_goi_dich_vu (voucher_id, goi_dich_vu_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-            [voucher.id, packageId]
-          );
-        }
-      }
-
-      await client.query('COMMIT');
-      return {
-        ...voucher,
-        dich_vu_ids: data.dich_vu_ids || [],
-        goi_dich_vu_ids: data.goi_dich_vu_ids || []
-      };
-    } catch (e) {
-      await client.query('ROLLBACK');
-      throw e;
-    } finally {
-      client.release();
-    }
+    const { rows } = await pool.query(
+      `INSERT INTO voucher (ma_voucher, ten_chien_dich, loai_giam, gia_tri_giam, giam_toi_da, don_hang_toi_thieu, so_luong_toi_da, ngay_bat_dau, ngay_het_han, trang_thai, tao_boi, yeu_cau_thanh_toan) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+      [
+        data.ma_voucher, 
+        data.ten_chien_dich, 
+        data.loai_giam, 
+        data.gia_tri_giam, 
+        data.giam_toi_da, 
+        data.don_hang_toi_thieu, 
+        data.so_luong_toi_da, 
+        data.ngay_bat_dau, 
+        data.ngay_het_han, 
+        data.trang_thai, 
+        userId,
+        data.yeu_cau_thanh_toan || 'tat_ca'
+      ]
+    );
+    return rows[0];
   }
 
   async updateVoucher(id: string, data: any) {
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      
-      let maVoucher = data.ma_voucher;
-      if (data.tu_dong_ap_dung && (!maVoucher || maVoucher.trim() === '')) {
-        maVoucher = `AUTO_PRM_${Math.floor(100000 + Math.random() * 900000)}`;
-      }
-
-      const { rows } = await client.query(
-        `UPDATE voucher SET 
-          ma_voucher = $1, ten_chien_dich = $2, loai_giam = $3, gia_tri_giam = $4, giam_toi_da = $5, 
-          don_hang_toi_thieu = $6, ap_dung_cho = $7, so_luong_toi_da = $8, 
-          ngay_bat_dau = $9, ngay_het_han = $10, trang_thai = $11,
-          tu_dong_ap_dung = $12, yeu_cau_thanh_toan = $13
-         WHERE id = $14 RETURNING *`,
-        [
-          maVoucher,
-          data.ten_chien_dich, 
-          data.loai_giam, 
-          data.gia_tri_giam, 
-          data.giam_toi_da, 
-          data.don_hang_toi_thieu, 
-          data.ap_dung_cho, 
-          data.so_luong_toi_da, 
-          data.ngay_bat_dau, 
-          data.ngay_het_han, 
-          data.trang_thai, 
-          data.tu_dong_ap_dung || false,
-          data.yeu_cau_thanh_toan || 'tat_ca',
-          id
-        ]
-      );
-      
-      if (rows.length === 0) {
-        await client.query('ROLLBACK');
-        return null;
-      }
-      const voucher = rows[0];
-
-      // Update links
-      await client.query('DELETE FROM voucher_dich_vu WHERE voucher_id = $1', [id]);
-      if (data.dich_vu_ids && Array.isArray(data.dich_vu_ids)) {
-        for (const dvId of data.dich_vu_ids) {
-          await client.query(
-            'INSERT INTO voucher_dich_vu (voucher_id, dich_vu_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-            [id, dvId]
-          );
-        }
-      }
-
-      await client.query('DELETE FROM voucher_goi_dich_vu WHERE voucher_id = $1', [id]);
-      if (data.goi_dich_vu_ids && Array.isArray(data.goi_dich_vu_ids)) {
-        for (const packageId of data.goi_dich_vu_ids) {
-          await client.query(
-            'INSERT INTO voucher_goi_dich_vu (voucher_id, goi_dich_vu_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-            [id, packageId]
-          );
-        }
-      }
-
-      await client.query('COMMIT');
-      return {
-        ...voucher,
-        dich_vu_ids: data.dich_vu_ids || [],
-        goi_dich_vu_ids: data.goi_dich_vu_ids || []
-      };
-    } catch (e) {
-      await client.query('ROLLBACK');
-      throw e;
-    } finally {
-      client.release();
-    }
+    const { rows } = await pool.query(
+      `UPDATE voucher SET 
+        ma_voucher = $1, ten_chien_dich = $2, loai_giam = $3, gia_tri_giam = $4, giam_toi_da = $5, 
+        don_hang_toi_thieu = $6, so_luong_toi_da = $7, 
+        ngay_bat_dau = $8, ngay_het_han = $9, trang_thai = $10,
+        yeu_cau_thanh_toan = $11
+       WHERE id = $12 RETURNING *`,
+      [
+        data.ma_voucher,
+        data.ten_chien_dich, 
+        data.loai_giam, 
+        data.gia_tri_giam, 
+        data.giam_toi_da, 
+        data.don_hang_toi_thieu, 
+        data.so_luong_toi_da, 
+        data.ngay_bat_dau, 
+        data.ngay_het_han, 
+        data.trang_thai, 
+        data.yeu_cau_thanh_toan || 'tat_ca',
+        id
+      ]
+    );
+    return rows[0];
   }
 
   async deleteVoucher(id: string) {

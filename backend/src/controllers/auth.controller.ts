@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import authService from '../services/auth.service';
-import { loginSchema, registerSchema, verifyEmailSchema, refreshTokenSchema, resendOTPSchema } from '../schemas/auth.schema';
+import { loginSchema, registerSchema, verifyEmailSchema, refreshTokenSchema, resendOTPSchema, checkEmailSchema, forgotPasswordSchema, resetPasswordSchema } from '../schemas/auth.schema';
 import { asyncHandler } from '../utils/asyncHandler';
 import { BadRequestError, UnauthorizedError, ForbiddenError, NotFoundError } from '../utils/appError';
 
@@ -101,6 +101,47 @@ export const resendOTP = asyncHandler(async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     if (error.message === 'Người dùng không tồn tại' || error.message === 'Tài khoản đã được xác thực email trước đó') {
+      throw new BadRequestError(error.message);
+    }
+    throw error;
+  }
+});
+
+export const checkEmail = asyncHandler(async (req: Request, res: Response) => {
+  const validatedData = checkEmailSchema.parse({ body: req.body });
+  const result = await authService.checkEmail(validatedData.body.email);
+  res.json({
+    success: true,
+    ...result
+  });
+});
+
+export const forgotPassword = asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const validatedData = forgotPasswordSchema.parse({ body: req.body });
+    const result = await authService.forgotPassword(validatedData.body.email);
+    res.json({
+      success: true,
+      ...result
+    });
+  } catch (error: any) {
+    if (error.message === 'Người dùng không tồn tại') {
+      throw new NotFoundError(error.message);
+    }
+    throw error;
+  }
+});
+
+export const resetPassword = asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const validatedData = resetPasswordSchema.parse({ body: req.body });
+    const result = await authService.resetPassword(validatedData.body);
+    res.json({
+      success: true,
+      ...result
+    });
+  } catch (error: any) {
+    if (error.message === 'Mã OTP không hợp lệ hoặc đã hết hạn' || error.message === 'Người dùng không tồn tại') {
       throw new BadRequestError(error.message);
     }
     throw error;

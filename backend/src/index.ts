@@ -7,6 +7,7 @@ import swaggerUi from 'swagger-ui-express';
 import { specs } from './config/swagger';
 import apiRouter from './routes';
 import { errorHandler } from './middlewares/error.middleware';
+import appointmentWatchdog from './services/appointment-watchdog.service';
 
 const app = express();
 
@@ -53,5 +54,6 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   // Hot-reloaded with updated port
   console.log(`Server is running on port ${PORT}`);
+  appointmentWatchdog.start();
 });
 // Reload trigger: new website email configured
