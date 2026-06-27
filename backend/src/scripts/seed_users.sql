@@ -9,7 +9,7 @@ SET session_replication_role = 'replica';
 -- BẢNG: nguoi_dung
 -- Vai trò: 1=KH, 2=LT, 3=KTV, 4=BS, 5=Admin, 6=QL
 -- =====================================================
-TRUNCATE TABLE nguoi_dung CASCADE;
+TRUNCATE TABLE nguoi_dung, khach_hang, voucher CASCADE;
 
 INSERT INTO nguoi_dung (id, ho_ten, email, so_dien_thoai, mat_khau_hash, vai_tro_id, trang_thai, da_xac_thuc_email, thoi_gian_tao) VALUES
 -- Admin
@@ -26,23 +26,17 @@ INSERT INTO nguoi_dung (id, ho_ten, email, so_dien_thoai, mat_khau_hash, vai_tro
 ('00000000-0000-0000-0000-000000000007', 'KTV. Đỗ Thanh Tùng', 'ktv1@physioflow.vn', '0901000007', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', 3, 'hoat_dong', true, now()),
 ('00000000-0000-0000-0000-000000000008', 'KTV. Nguyễn Thị Bích', 'ktv2@physioflow.vn', '0901000008', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', 3, 'hoat_dong', true, now()),
 ('00000000-0000-0000-0000-000000000009', 'KTV. Hoàng Văn Minh', 'ktv3@physioflow.vn', '0901000009', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', 3, 'hoat_dong', true, now()),
-('00000000-0000-0000-0000-000000000010', 'KTV. Vũ Thị Thanh', 'ktv4@physioflow.vn', '0901000010', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', 3, 'hoat_dong', true, now()),
--- Khách hàng
-('00000000-0000-0000-0000-000000000011', 'Nguyễn Văn An', 'kh1@gmail.com', '0912000011', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', 1, 'hoat_dong', true, now()),
-('00000000-0000-0000-0000-000000000012', 'Trần Thị Bảo', 'kh2@gmail.com', '0912000012', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', 1, 'hoat_dong', true, now()),
-('00000000-0000-0000-0000-000000000013', 'Lê Quang Cường', 'kh3@gmail.com', '0912000013', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', 1, 'hoat_dong', true, now()),
-('00000000-0000-0000-0000-000000000014', 'Phạm Thị Dung', 'kh4@gmail.com', '0912000014', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', 1, 'hoat_dong', true, now()),
-('00000000-0000-0000-0000-000000000015', 'Hoàng Văn Đức', 'kh5@gmail.com', '0912000015', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', 1, 'hoat_dong', true, now());
+('00000000-0000-0000-0000-000000000010', 'KTV. Vũ Thị Thanh', 'ktv4@physioflow.vn', '0901000010', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', 3, 'hoat_dong', true, now());
 
 -- =====================================================
 -- BẢNG: khach_hang
 -- =====================================================
-INSERT INTO khach_hang (id, nguoi_dung_id, ngay_sinh, gioi_tinh, dia_chi, thoi_gian_tao) VALUES
-('10000000-0000-0000-0000-000000000011', '00000000-0000-0000-0000-000000000011', '1988-03-15', 'nam', '12 Nguyễn Huệ, Q1, TP.HCM', now()),
-('10000000-0000-0000-0000-000000000012', '00000000-0000-0000-0000-000000000012', '1992-07-22', 'nu', '45 Lê Lợi, Q1, TP.HCM', now()),
-('10000000-0000-0000-0000-000000000013', '00000000-0000-0000-0000-000000000013', '1985-11-08', 'nam', '78 Trần Hưng Đạo, Q5, TP.HCM', now()),
-('10000000-0000-0000-0000-000000000014', '00000000-0000-0000-0000-000000000014', '1995-04-30', 'nu', '23 Điện Biên Phủ, Q3, TP.HCM', now()),
-('10000000-0000-0000-0000-000000000015', '00000000-0000-0000-0000-000000000015', '1990-09-17', 'nam', '56 Võ Văn Tần, Q3, TP.HCM', now());
+INSERT INTO khach_hang (id, ho_ten, email, so_dien_thoai, mat_khau_hash, da_xac_thuc_email, ngay_sinh, gioi_tinh, dia_chi, thoi_gian_tao) VALUES
+('10000000-0000-0000-0000-000000000011', 'Nguyễn Văn An', 'kh1@gmail.com', '0912000011', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', true, '1988-03-15', 'nam', '12 Nguyễn Huệ, Q1, TP.HCM', now()),
+('10000000-0000-0000-0000-000000000012', 'Trần Thị Bảo', 'kh2@gmail.com', '0912000012', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', true, '1992-07-22', 'nu', '45 Lê Lợi, Q1, TP.HCM', now()),
+('10000000-0000-0000-0000-000000000013', 'Lê Quang Cường', 'kh3@gmail.com', '0912000013', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', true, '1985-11-08', 'nam', '78 Trần Hưng Đạo, Q5, TP.HCM', now()),
+('10000000-0000-0000-0000-000000000014', 'Phạm Thị Dung', 'kh4@gmail.com', '0912000014', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', true, '1995-04-30', 'nu', '23 Điện Biên Phủ, Q3, TP.HCM', now()),
+('10000000-0000-0000-0000-000000000015', 'Hoàng Văn Đức', 'kh5@gmail.com', '0912000015', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', true, '1990-09-17', 'nam', '56 Võ Văn Tần, Q3, TP.HCM', now());
 
 -- =====================================================
 -- BẢNG: chuyen_gia_y_te (Bác sĩ + KTV)

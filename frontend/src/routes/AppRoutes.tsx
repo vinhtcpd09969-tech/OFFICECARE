@@ -51,10 +51,10 @@ const ManagePackageServices = lazy(() => import('../features/admin/pages/ManageP
 const ManageFinance = lazy(() => import('../features/admin/pages/ManageFinance'));
 const ManageVouchers = lazy(() => import('../features/admin/pages/ManageVouchers'));
 const ViewFeedback = lazy(() => import('../features/admin/pages/ViewFeedback'));
-const AuditLogs = lazy(() => import('../features/admin/pages/AuditLogs'));
 
 // Receptionist Feature
 const ReceptionistDashboard = lazy(() => import('../features/receptionist/pages/ReceptionistDashboard'));
+const ReceptionistAppointments = lazy(() => import('../features/receptionist/pages/ReceptionistAppointments'));
 const WalkInBooking = lazy(() => import('../features/receptionist/pages/WalkInBooking'));
 const QuickBilling = lazy(() => import('../features/receptionist/pages/QuickBilling'));
 
@@ -86,7 +86,7 @@ export default function AppRoutes() {
         <Route path="/verify-email" element={<VerifyEmail />} />
         
         {/* Protected Routes */}
-        <Route element={<ProtectedRoute />}>
+        <Route element={<ProtectedRoute allowedRoles={[1, 0]} />}>
           <Route element={<DashboardLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/appointments" element={<CustomerAppointments />} />
@@ -123,7 +123,6 @@ export default function AppRoutes() {
             <Route path="/admin/quick-billing" element={<QuickBilling />} />
             <Route path="/admin/marketing" element={<ManageVouchers />} />
             <Route path="/admin/feedback" element={<ViewFeedback />} />
-            <Route path="/admin/audit" element={<AuditLogs />} />
           </Route>
         </Route>
 
@@ -131,16 +130,9 @@ export default function AppRoutes() {
         <Route element={<ProtectedRoute allowedRoles={[2]} />}>
           <Route element={<ReceptionistLayout />}>
             <Route path="/receptionist" element={<ReceptionistDashboard />} />
-            <Route path="/receptionist/appointments" element={<ManageAppointments />} />
+            <Route path="/receptionist/appointments" element={<ReceptionistAppointments />} />
             <Route path="/receptionist/walk-in" element={<WalkInBooking />} />
             <Route path="/receptionist/billing" element={<QuickBilling />} />
-          </Route>
-        </Route>
-
-        {/* Doctor Protected Routes */}
-        <Route element={<ProtectedRoute allowedRoles={[4]} />}>
-          <Route element={<AdminLayout />}>
-            <Route path="/doctor/appointments" element={<ManageAppointments />} />
           </Route>
         </Route>
 

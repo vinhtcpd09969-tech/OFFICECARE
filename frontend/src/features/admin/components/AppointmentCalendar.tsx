@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
-import { MapPin, Clock, Plus, Coffee } from 'lucide-react';
-import { convertToVietnamUtcIso } from '../../../utils/date';
+import React, { useState, useEffect } from 'react';
+import { MapPin, Clock, Plus, Coffee, Play, X, Phone, UserCheck, CheckCircle2, Stethoscope } from 'lucide-react';
+import { format } from 'date-fns';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useAuthStore } from '../../../stores/authStore';
 
 const BREAK_SLOTS = new Set<string>();
 
@@ -27,74 +29,74 @@ export default function AppointmentCalendar({
   statusConfig,
   handleOpenDetailModal,
   staffList = [],
-  schedulesList = [],
-  allAppointments = [],
   selectedDateStr = '',
   onOpenWalkInModal,
   onUpdateAppointment,
   viewMode = 'admin',
-  currentStaffId,
-  hideUnassignedColumn = false
+  schedulesList = [],
+  allAppointments = []
 }: AppointmentCalendarProps) {
-  // Lấy danh sách Bác sĩ
-  const doctors = viewMode === 'doctor'
-    ? staffList.filter(s => s.vai_tro === 'Bác sĩ' && String(s.chuyen_gia_id) === String(currentStaffId))
-    : staffList.filter(s => s.vai_tro === 'Bác sĩ');
+  const { user } = useAuthStore();
+  const [currentTime, setCurrentTime] = useState(new Date());
 
-  // Lấy lịch trực của bác sĩ
-  const getDoctorSchedule = (docId: string) => {
-    return schedulesList.find(s => 
-      String(s.nguoi_dung_id) === String(docId) && 
-      s.ngay === selectedDateStr && 
-      s.trang_thai === 'hoat_dong'
+  const getStaffDutyStatus = (staff: any) => {
+    if (!schedulesList || schedulesList.length === 0) {
+      return { hasDuty: true, label: '' };
+    }
+
+    const staffSchedules = schedulesList.filter(s => 
+      String(s.nguoi_dung_id) === String(staff.id) && 
+      s.ngay === selectedDateStr
     );
+
+    if (staffSchedules.length === 0) {
+      return { hasDuty: false, label: 'Không trực hôm nay' };
+    }
+
+    const activeSchedule = staffSchedules.find(s => s.trang_thai === 'hoat_dong');
+    if (!activeSchedule) {
+      return { hasDuty: false, label: 'Nghỉ phép cả ngày' };
+    }
+
+    return { hasDuty: true, label: '' };
   };
 
-  // Lọc các lịch hẹn theo giờ và bác sĩ
-  const getSlotAppointments = (hour: string, doctorId: string | null) => {
-    return appointments.filter(apt => {
-      const aptTime = new Date(apt.ngay_gio_bat_dau);
-      const hourStr = `${String(aptTime.getHours()).padStart(2, '0')}:${String(aptTime.getMinutes()).padStart(2, '0')}`;
-      if (hourStr !== hour) return false;
+  const getIsDoctorUnavailable = (apt: any, doc: any) => {
+    if (!doc) return false;
+    
+    // Check ca trực
+    const duty = getStaffDutyStatus(doc);
+    if (!duty.hasDuty) return true;
 
-      // Trong chế độ bác sĩ, API đã lọc sẵn lịch hẹn của bác sĩ đó rồi, không cần so sánh ID
-      if (viewMode === 'doctor') {
-        return true;
-      }
+    // Check overlap
+    const isOverlapping = (start1: string, end1: string, start2: string, end2: string) => {
+      const s1 = new Date(start1).getTime();
+      const e1 = new Date(end1).getTime();
+      const s2 = new Date(start2).getTime();
+      const e2 = new Date(end2).getTime();
+      return s1 < e2 && e1 > s2;
+    };
 
-      if (doctorId === null) {
-        return !apt.bac_si_id && !apt.chuyen_gia_id;
-      } else {
-        return apt.bac_si_id === doctorId || apt.chuyen_gia_id === doctorId;
-      }
-    });
+    const isOccupied = allAppointments.some(otherApt => 
+      otherApt.id !== apt.id && 
+      otherApt.trang_thai !== 'da_huy' &&
+      otherApt.trang_thai !== 'khong_den' &&
+      String(otherApt.bac_si_id || otherApt.chuyen_gia_id) === String(doc.chuyen_gia_id || doc.id) &&
+      isOverlapping(apt.ngay_gio_bat_dau, apt.ngay_gio_ket_thuc, otherApt.ngay_gio_bat_dau, otherApt.ngay_gio_ket_thuc)
+    );
+
+    return isOccupied;
   };
 
-  // Kiểm tra bác sĩ có rảnh không tại khung giờ
-  const checkDoctorAvailability = (hour: string, docId: string) => {
-    const docSchedule = getDoctorSchedule(docId);
-    if (!docSchedule) return false;
+  // Update current time every minute for the NOW indicator
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000);
+    return () => clearInterval(timer);
+  }, []);
 
-    const dutyStart = docSchedule.gio_bat_dau.substring(0, 5);
-    const dutyEnd = docSchedule.gio_ket_thuc.substring(0, 5);
-    const isWorking = dutyStart <= hour && dutyEnd > hour; // dutyEnd is exclusive
-    if (!isWorking) return false;
-
-    // Xem bác sĩ có ca hẹn nào trùng khung giờ này không
-    const isOccupied = allAppointments.some(apt => {
-      if (apt.trang_thai === 'da_huy' || apt.trang_thai === 'khong_den') return false;
-      
-      // Ở chế độ bác sĩ, bỏ qua so sánh ID
-      if (viewMode !== 'doctor' && apt.bac_si_id !== docId && apt.chuyen_gia_id !== docId) return false;
-
-      const aptStart = new Date(apt.ngay_gio_bat_dau);
-      const aptStartHour = `${String(aptStart.getHours()).padStart(2, '0')}:${String(aptStart.getMinutes()).padStart(2, '0')}`;
-      
-      return aptStartHour === hour;
-    });
-
-    return !isOccupied;
-  };
+  const isToday = selectedDateStr === format(currentTime, 'yyyy-MM-dd');
 
   // Drag and Drop handlers
   const handleDragStart = (e: React.DragEvent, apt: any) => {
@@ -102,195 +104,117 @@ export default function AppointmentCalendar({
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    e.currentTarget.classList.add('bg-emerald-55/10', 'dark:bg-emerald-950/20', 'border-emerald-300/40');
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.currentTarget.classList.remove('bg-emerald-55/10', 'dark:bg-emerald-950/20', 'border-emerald-300/40');
-  };
-
-  const handleDrop = async (e: React.DragEvent, hour: string, doctorId: string | null) => {
-    e.preventDefault();
-    e.currentTarget.classList.remove('bg-emerald-55/10', 'dark:bg-emerald-950/20', 'border-emerald-300/40');
-    
-    const aptId = e.dataTransfer.getData('text/plain');
-    if (!aptId) return;
-
-    const draggedApt = allAppointments.find(a => a.id === aptId);
-    if (!draggedApt) return;
-
-    // Tính toán giờ kết thúc (khám lâm sàng mặc định 30p, trị liệu/dịch vụ lẻ mặc định 60p)
-    const durationMin = draggedApt.loai_lich === 'dieu_tri' ? 60 : 30;
-    const [h, m] = hour.split(':').map(Number);
-    const endTotalMins = h * 60 + m + durationMin;
-    const endH = Math.floor(endTotalMins / 60) % 24;
-    const endM = endTotalMins % 60;
-    const endHourStr = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
-    
-    const startIso = convertToVietnamUtcIso(selectedDateStr, hour);
-    const endIso = convertToVietnamUtcIso(selectedDateStr, endHourStr);
-
-    const payload: any = {
-      trang_thai: doctorId === null 
-        ? 'chua_xac_nhan' 
-        : (draggedApt.trang_thai === 'chua_xac_nhan' ? 'cho_xac_nhan' : draggedApt.trang_thai),
-      bac_si_id: doctorId || null,
-      ngay_gio_bat_dau: startIso,
-      ngay_gio_ket_thuc: endIso
-    };
-
-    if (onUpdateAppointment) {
-      await onUpdateAppointment(aptId, payload);
-    }
+  // Lọc các lịch hẹn theo giờ (không phân biệt bác sĩ để gộp chung vào 1 cột)
+  const getSlotAppointmentsAll = (hour: string) => {
+    return appointments.filter(apt => {
+      const aptTime = new Date(apt.ngay_gio_bat_dau);
+      const hourStr = `${String(aptTime.getHours()).padStart(2, '0')}:${String(aptTime.getMinutes()).padStart(2, '0')}`;
+      return hourStr === hour;
+    });
   };
 
   return (
-    <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-slate-100 dark:border-zinc-800 overflow-x-auto transition-colors duration-300">
-      <table className="w-full border-collapse text-left min-w-[800px]">
+    <div className="bg-white/90 dark:bg-zinc-900/90 backdrop-blur-xl rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-slate-100 dark:border-zinc-800 overflow-hidden transition-all duration-300">
+      <table className="w-full border-collapse text-left relative">
         <thead>
-          <tr className="bg-slate-50 dark:bg-zinc-800/40 text-slate-500 dark:text-zinc-400 text-xs uppercase tracking-wider font-bold border-b border-slate-200 dark:border-zinc-800">
-            <th className="w-28 p-4 text-center border-r border-slate-200 dark:border-zinc-800">Khung giờ</th>
-            {viewMode !== 'doctor' && !hideUnassignedColumn && (
-              <th className="w-64 p-4 border-r border-slate-200 dark:border-zinc-800 bg-amber-50/5 dark:bg-amber-955/5">
-                <span className="flex items-center gap-1.5 text-amber-700 dark:text-amber-450">
-                  ⚠️ Chờ chỉ định
-                </span>
-              </th>
-            )}
-            {doctors.map(doc => {
-              const sched = getDoctorSchedule(doc.id);
-              return (
-                <th key={doc.id} className="p-4 border-r border-slate-200 dark:border-zinc-800 min-w-[200px]">
-                  <div className="flex flex-col">
-                    <span className="text-slate-800 dark:text-zinc-200 font-extrabold text-xs">BS. {doc.ho_ten}</span>
-                    <span className={`text-[9px] font-semibold tracking-wide ${
-                      sched ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-zinc-500'
-                    }`}>
-                      {sched ? `Trực: ${sched.gio_bat_dau.substring(0, 5)} - ${sched.gio_ket_thuc.substring(0, 5)}` : 'Nghỉ ca'}
-                    </span>
-                  </div>
-                </th>
-              );
-            })}
+          <tr className="bg-slate-50/50 dark:bg-zinc-800/20 text-slate-400 dark:text-zinc-500 text-[10px] font-black uppercase tracking-wider border-b border-slate-150/60 dark:border-zinc-800/80 select-none">
+            <th className="w-28 p-4 text-center border-r border-slate-100 dark:border-zinc-800/50">Giờ khám</th>
+            <th className="p-4">Danh sách lịch hẹn trong khung giờ</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
+        <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/60 relative">
           {timeSlots.map((hour) => {
             const isBreak = BREAK_SLOTS.has(hour);
-            const unassignedApts = getSlotAppointments(hour, null);
+            const slotApts = getSlotAppointmentsAll(hour);
+
+            // NOW Indicator Calculation
+            const [slotH, slotM] = hour.split(':').map(Number);
+            const slotStartMins = slotH * 60 + slotM;
+            const nowH = currentTime.getHours();
+            const nowM = currentTime.getMinutes();
+            const nowMins = nowH * 60 + nowM;
+            
+            const isCurrentTimeInSlot = isToday && (nowMins >= slotStartMins && nowMins < slotStartMins + 30);
+            const offsetPercent = isCurrentTimeInSlot ? ((nowMins - slotStartMins) / 30) * 100 : 0;
 
             return (
               <tr 
                 key={hour} 
-                className={`${isBreak ? 'bg-amber-50/30 dark:bg-amber-955/5' : 'hover:bg-slate-50/5 dark:hover:bg-zinc-800/5'}`}
+                className={`relative group/row ${isBreak ? 'bg-amber-50/10 dark:bg-amber-955/2' : 'hover:bg-slate-50/30 dark:hover:bg-zinc-800/10 transition-colors'}`}
               >
+                {/* NOW Indicator Line overlay */}
+                {isCurrentTimeInSlot && (
+                  <td 
+                    className="absolute left-0 right-0 h-[1.5px] bg-rose-500 pointer-events-none z-30 flex items-center justify-start" 
+                    style={{ top: `${offsetPercent}%` }}
+                  >
+                    <span className="bg-rose-500 text-white font-mono text-[8px] font-black uppercase px-1.5 py-0.5 rounded shadow-[0_0_8px_rgba(239,68,68,0.5)] tracking-wider -translate-y-1/2 ml-2 select-none animate-pulse">
+                      NOW
+                    </span>
+                    <div className="w-full h-[1.5px] bg-gradient-to-r from-rose-500 via-rose-500/80 to-transparent shadow-[0_0_6px_rgba(239,68,68,0.2)]"></div>
+                  </td>
+                )}
+
                 {/* Khung giờ */}
-                <td className="p-4 text-center border-r border-slate-200 dark:border-zinc-800 font-mono text-xs font-bold text-slate-550 dark:text-zinc-400 bg-slate-50/30 dark:bg-zinc-900/30 relative select-none w-28">
+                <td className="p-4 text-center border-r border-slate-100 dark:border-zinc-800/50 font-mono text-xs font-black text-slate-500 dark:text-zinc-400 bg-slate-50/20 dark:bg-zinc-900/10 relative select-none w-28">
                   <div className="flex flex-col items-center justify-center gap-1">
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5">
                       {isBreak ? <Coffee size={12} className="text-amber-500" /> : <Clock size={12} className="text-slate-400" />}
                       <span>{hour}</span>
                     </div>
                     {isBreak && (
-                      <span className="text-[8px] font-black text-amber-700 bg-amber-100 dark:bg-amber-950/40 px-1 py-0.5 rounded uppercase tracking-wider scale-90">
+                      <span className="text-[7.5px] font-black text-amber-700 bg-amber-100 dark:bg-amber-950/40 px-1 py-0.5 rounded uppercase tracking-wider scale-90">
                         Nghỉ
                       </span>
                     )}
                   </div>
                 </td>
 
-                {/* Cột chờ chỉ định */}
-                {viewMode !== 'doctor' && !hideUnassignedColumn && (
-                  <td
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={(e) => handleDrop(e, hour, null)}
-                    className="p-3 align-top border-r border-slate-200 dark:border-zinc-800 bg-amber-50/5 dark:bg-amber-955/5 min-h-[80px] transition-all"
-                  >
-                    <div className="space-y-2">
-                      {unassignedApts.map(apt => (
-                        <AppointmentCard 
-                          key={apt.id} 
-                          apt={apt} 
-                          statusConfig={statusConfig} 
-                          onClick={() => handleOpenDetailModal(apt)}
-                          onDragStart={handleDragStart}
-                          viewMode={viewMode}
-                        />
-                      ))}
-                      {unassignedApts.length === 0 && (
-                        <div className="text-[10px] text-slate-350 dark:text-zinc-600 italic text-center py-2 select-none">
-                          Kéo thả để bỏ gán
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                )}
-
-                {/* Các cột Bác sĩ */}
-                {doctors.map(doc => {
-                  const docApts = getSlotAppointments(hour, doc.chuyen_gia_id);
-                  const isAvailable = checkDoctorAvailability(hour, doc.id);
-                  const sched = getDoctorSchedule(doc.id);
-
-                  // Xác định bác sĩ có nghỉ giữa ca tại khung giờ này không
-                  const isDocBreak = false;
-
-                  return (
-                    <td
-                      key={doc.id}
-                      onDragOver={isDocBreak || !sched || viewMode === 'doctor' ? undefined : handleDragOver}
-                      onDragLeave={isDocBreak || !sched || viewMode === 'doctor' ? undefined : handleDragLeave}
-                      onDrop={isDocBreak || !sched || viewMode === 'doctor' ? undefined : (e) => handleDrop(e, hour, doc.chuyen_gia_id)}
-                      className={`p-3 align-top border-r border-slate-200 dark:border-zinc-800 transition-all ${
-                        isDocBreak 
-                          ? 'bg-amber-50/10 dark:bg-amber-955/5' 
-                          : !sched 
-                            ? 'bg-slate-100/30 dark:bg-zinc-800/10' 
-                            : isAvailable 
-                              ? 'bg-emerald-50/5 dark:bg-emerald-950/2' 
-                              : 'bg-slate-50/10 dark:bg-zinc-800/2'
-                      }`}
-                    >
-                      {isDocBreak ? (
-                        <div className="text-[9px] text-amber-600 dark:text-amber-400 font-bold text-center py-2 select-none flex flex-col items-center justify-center gap-1">
-                          <Coffee size={10} />
-                          <span>Nghỉ giữa ca</span>
-                        </div>
-                      ) : !sched ? (
-                        <div className="text-[9px] text-slate-400 dark:text-zinc-500 italic text-center py-2 select-none">
-                          Không trực ca
-                        </div>
-                      ) : (
-                        <div className="space-y-2 min-h-[40px]">
-                          {docApts.map(apt => (
+                {/* Danh sách lịch hẹn */}
+                <td className="p-3.5 align-top min-h-[90px]">
+                  <div className="flex flex-col gap-3">
+                    {slotApts.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {slotApts.map(apt => {
+                          const assignedDoc = staffList.find(s => String(s.chuyen_gia_id || s.id) === String(apt.bac_si_id || apt.chuyen_gia_id));
+                          const isDocUnavailable = assignedDoc ? getIsDoctorUnavailable(apt, assignedDoc) : false;
+                          return (
                             <AppointmentCard 
                               key={apt.id} 
                               apt={apt} 
                               statusConfig={statusConfig} 
                               onClick={() => handleOpenDetailModal(apt)}
                               onDragStart={handleDragStart}
+                              onUpdateAppointment={onUpdateAppointment}
                               viewMode={viewMode}
+                              assignedDoc={assignedDoc}
+                              isDocUnavailable={isDocUnavailable}
                             />
-                          ))}
-                          {docApts.length === 0 && isAvailable && viewMode !== 'doctor' && (
-                            <div className="opacity-0 hover:opacity-100 transition-opacity duration-200 flex justify-center py-1">
-                              <button
-                                onClick={() => onOpenWalkInModal && onOpenWalkInModal(hour)}
-                                className="flex items-center gap-1 text-[9px] font-bold text-emerald-600 dark:text-emerald-450 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 px-2 py-1 rounded-md border border-emerald-200 dark:border-emerald-800/30"
-                              >
-                                <Plus size={10} /> Đặt khám
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                  );
-                })}
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="text-xs text-slate-350 dark:text-zinc-600 italic select-none py-1 flex items-center gap-2">
+                        <span className="size-1.5 rounded-full bg-slate-200 dark:bg-zinc-800" />
+                        <span>Trống lịch hẹn</span>
+                      </div>
+                    )}
+                    
+                    {/* Nút Đặt Khám Nhanh khi hover hàng */}
+                    {viewMode !== 'doctor' && (!user || Number(user.vai_tro_id) !== 4) && !isBreak && (
+                      <div className="flex justify-start opacity-0 group-hover/row:opacity-100 transition-opacity duration-200">
+                        <button
+                          type="button"
+                          onClick={() => onOpenWalkInModal && onOpenWalkInModal(hour)}
+                          className="flex items-center gap-1 text-[10px] font-black text-[#0D9488] bg-[#0D9488]/5 hover:bg-[#0D9488] hover:text-white px-2.5 py-1 rounded-lg border border-[#0D9488]/20 transition-all duration-200 shadow-sm"
+                        >
+                          <Plus size={10} className="stroke-[3]" />
+                          <span>Đặt khám nhanh ({hour})</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </td>
               </tr>
             );
           })}
@@ -330,84 +254,250 @@ function CountdownTimer({ hanXacNhan, onExpire }: { hanXacNhan: string; onExpire
 
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
-  const timeStr = `${minutes}m ${seconds}s`;
+  const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
 
-  let colorClass = 'text-amber-600 bg-amber-50 dark:bg-amber-950/20';
+  let colorClass = 'text-amber-600 bg-amber-50 dark:bg-amber-950/20 border border-amber-200/20';
   if (minutes < 5) {
-    colorClass = 'text-rose-600 bg-rose-50 dark:bg-rose-950/20 animate-pulse font-extrabold';
+    colorClass = 'text-rose-600 bg-rose-50 dark:bg-rose-955/20 animate-pulse font-extrabold border border-rose-250/20';
   } else if (minutes < 10) {
-    colorClass = 'text-orange-600 bg-orange-50 dark:bg-orange-950/20 font-bold';
+    colorClass = 'text-orange-600 bg-orange-50 dark:bg-orange-950/20 font-bold border border-orange-200/20';
   }
 
   return (
-    <span className={`text-[9.5px] px-1.5 py-0.5 rounded flex items-center gap-1 font-mono ${colorClass}`}>
+    <span className={`text-[9px] px-1.5 py-0.5 rounded-md flex items-center gap-1 font-mono ${colorClass}`}>
       <span>⏳</span>
       <span>{timeStr}</span>
     </span>
   );
 }
 
-// Subcomponent: Appointment Card (Premium Glassmorphic card styling)
-function AppointmentCard({ apt, statusConfig, onClick, onDragStart, viewMode = 'admin' }: { apt: any; statusConfig: any; onClick: () => void; onDragStart: (e: React.DragEvent, apt: any) => void; viewMode?: 'admin' | 'doctor' }) {
+// Subcomponent: Appointment Card (Premium Glassmorphic card styling with quick action panel)
+function AppointmentCard({
+  apt,
+  statusConfig,
+  onClick,
+  onDragStart,
+  onUpdateAppointment,
+  viewMode = 'admin',
+  assignedDoc,
+  isDocUnavailable = false
+}: {
+  apt: any;
+  statusConfig: any;
+  onClick: () => void;
+  onDragStart: (e: React.DragEvent, apt: any) => void;
+  onUpdateAppointment?: (appointmentId: string, updatedFields: any) => Promise<void>;
+  viewMode?: 'admin' | 'doctor';
+  assignedDoc?: any;
+  isDocUnavailable?: boolean;
+}) {
   const status = statusConfig[apt.trang_thai] || statusConfig.cho_xac_nhan;
   const isUnassigned = !apt.bac_si_id && !apt.chuyen_gia_id;
   const isCheckedIn = apt.trang_thai === 'da_checkin';
-  const showCountdown = isUnassigned && ['cho_xac_nhan', 'chua_xac_nhan'].includes(apt.trang_thai) && apt.han_xac_nhan;
+  const isPending = ['cho_xac_nhan', 'chua_xac_nhan'].includes(apt.trang_thai);
+  
+  const showCountdown = false;
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const handleQuickAction = async (e: React.MouseEvent, nextStatus: string) => {
+    e.stopPropagation(); // Avoid triggering details modal
+    if (!onUpdateAppointment || isUpdating) return;
+
+    try {
+      setIsUpdating(true);
+      await onUpdateAppointment(String(apt.id), { trang_thai: nextStatus });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   return (
     <div
       id={`appointment-card-${apt.id}`}
-      draggable={viewMode !== 'doctor'}
+      draggable={viewMode !== 'doctor' && !isUpdating}
       onDragStart={(e) => onDragStart(e, apt)}
       onClick={onClick}
-      className={`p-3 bg-white dark:bg-zinc-900 border ${viewMode === 'doctor' ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'} transition-all duration-300 rounded-xl relative flex flex-col justify-between min-h-[105px] group/card hover:-translate-y-0.5 hover:shadow-md select-none ${
-        isCheckedIn
-          ? 'border-teal-350 dark:border-teal-800 ring-2 ring-teal-500/10 dark:ring-teal-500/5 bg-teal-50/10 dark:bg-teal-950/5 shadow-[0_0_8px_rgba(46,196,182,0.08)]'
-          : isUnassigned 
-            ? 'border-rose-100 dark:border-rose-900/50 hover:border-rose-300 dark:hover:border-rose-800' 
-            : 'border-slate-100 dark:border-zinc-800 hover:border-emerald-350 dark:hover:border-emerald-800'
-      }`}
+      className={`p-3.5 bg-white dark:bg-zinc-900 border ${viewMode === 'doctor' ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'} transition-all duration-300 rounded-[18px] relative flex flex-col justify-between min-h-[110px] group/card hover:-translate-y-0.5 hover:shadow-lg select-none ${
+        ['da_huy', 'khong_den'].includes(apt.trang_thai)
+          ? 'opacity-40 border-slate-200 bg-slate-50/50 dark:bg-zinc-950/20 dark:border-zinc-850/80 saturate-50 cursor-pointer'
+          : isCheckedIn
+            ? 'border-teal-350 dark:border-teal-850 ring-2 ring-[#0D9488]/10 dark:ring-[#0D9488]/5 bg-[#0D9488]/2 dark:bg-[#0D9488]/2'
+            : (isUnassigned || isDocUnavailable) && !isPending
+              ? 'border-rose-500 ring-2 ring-rose-500/10 dark:ring-rose-500/5 bg-rose-55/10 dark:bg-rose-950/5 animate-pulse'
+              : isUnassigned && isPending
+                ? 'border-rose-100 dark:border-rose-900/30 hover:border-rose-300' 
+                : 'border-slate-100 dark:border-zinc-800 hover:border-[#14B8A6]/30'
+      } ${isUpdating ? 'opacity-50 pointer-events-none' : ''}`}
     >
       <div>
         <div className="flex justify-between items-center mb-1.5">
-          <span className="font-mono text-[9px] font-bold text-slate-500 dark:text-zinc-400 bg-slate-50 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
+          <span className="font-mono text-[9px] font-black text-slate-400 dark:text-zinc-550 bg-slate-50 dark:bg-zinc-800/80 px-2 py-0.5 rounded border border-slate-100 dark:border-zinc-800/50">
             {apt.ma_lich_dat}
           </span>
           <div className="flex items-center gap-1.5">
             {isCheckedIn && (
               <span className="flex h-1.5 w-1.5 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-teal-500"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#0D9488] opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#0D9488]"></span>
               </span>
             )}
-            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${status.color}`}>
+            {apt.trang_thai === 'dang_kham' && (
+              <span className="flex items-center justify-center text-emerald-600 dark:text-emerald-400 bg-emerald-100/50 dark:bg-emerald-950/40 p-1 rounded-full border border-emerald-250 ring-2 ring-emerald-500/15 animate-pulse">
+                <Stethoscope size={10} className="stroke-[2.5]" />
+              </span>
+            )}
+            <span className={`text-[8.5px] font-black px-2 py-0.5 rounded-full border ${status.color}`}>
               {status.label}
             </span>
           </div>
         </div>
         
-        <div className="text-xs font-bold text-slate-800 dark:text-zinc-150 line-clamp-1">
+        <div className="text-xs font-black text-slate-800 dark:text-zinc-150 line-clamp-1 group-hover/card:text-[#0D9488] transition-colors duration-200">
           {apt.ten_khach_hang}
         </div>
         
-        <div className="text-[9px] text-slate-400 dark:text-zinc-500 line-clamp-1 font-medium mt-0.5">
+        <div className="text-[9.5px] text-slate-400 dark:text-zinc-550 line-clamp-1 font-bold mt-0.5">
           {apt.ten_dich_vu}
         </div>
-      </div>
- 
-      <div className="mt-2 pt-2 border-t border-slate-50 dark:border-zinc-800/85 flex items-center justify-between gap-1">
-        {apt.ten_phong ? (
-          <div className="flex items-center gap-1 text-[9px] text-emerald-700 dark:text-emerald-450 font-extrabold bg-emerald-50 dark:bg-emerald-950/20 px-1.5 py-0.5 rounded border border-emerald-100/50 dark:border-emerald-900/20">
-            <MapPin size={9} className="text-emerald-500" />
-            <span>{apt.ten_phong}</span>
+        
+        {/* Lý do hủy/không đến nếu có */}
+        {['da_huy', 'khong_den'].includes(apt.trang_thai) && apt.ly_do_huy && (
+          <div className="mt-1 text-[8.5px] italic text-rose-500 dark:text-rose-455 font-bold line-clamp-1">
+            Lý do: {apt.ly_do_huy}
+          </div>
+        )}
+        
+        {/* Doctor badge inside the card if assigned or locked */}
+        {apt.trang_thai === 'chua_xac_nhan' ? (
+          <div className="mt-1.5 inline-flex items-center gap-1.5 text-[9px] font-black text-slate-500 bg-slate-50 dark:bg-zinc-800/40 px-2 py-0.5 rounded border border-slate-200/60 dark:border-zinc-850/80 select-none opacity-85" title="Yêu cầu xác nhận khách hàng trước khi chọn bác sĩ">
+            <span>🔒 Khóa chọn Bác sĩ</span>
+          </div>
+        ) : assignedDoc && !isDocUnavailable ? (
+          <div className="mt-1.5 inline-flex items-center gap-1.5 text-[9px] font-black text-[#0D9488] dark:text-teal-400 bg-[#0D9488]/5 dark:bg-teal-950/20 px-2 py-0.5 rounded border border-[#0D9488]/15 dark:border-teal-900/20 select-none">
+            <span className="size-1 bg-[#0D9488] rounded-full" />
+            <span>BS. {assignedDoc.ho_ten}</span>
           </div>
         ) : (
-          <div />
+          <div className="mt-1.5 inline-flex items-center gap-1.5 text-[9px] font-black text-rose-600 dark:text-rose-455 bg-rose-50/50 dark:bg-rose-955/20 px-2 py-0.5 rounded border border-rose-200/20 select-none">
+            <span className="size-1 bg-rose-500 rounded-full animate-pulse" />
+            <span>Chờ gán bác sĩ</span>
+          </div>
         )}
+      </div>
 
-        {showCountdown && (
-          <CountdownTimer hanXacNhan={apt.han_xac_nhan} />
+      {/* Floating Detailed Hover Info Tooltip Panel */}
+      <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 bg-slate-900 dark:bg-zinc-950 text-white text-[10px] p-3 rounded-xl shadow-xl w-60 opacity-0 group-hover/card:opacity-100 transition-opacity pointer-events-none z-50 border border-slate-800 dark:border-zinc-800">
+        <div className="absolute bottom-[-5px] left-1/2 -translate-x-1/2 w-0.5 h-0.5 border-t-[6px] border-t-slate-900 border-x-[6px] border-x-transparent" />
+        <p className="font-black text-xs text-white border-b border-slate-800 pb-1.5 mb-1.5 flex items-center justify-between">
+          <span>Chi tiết ca hẹn</span>
+          <span className="text-[9px] font-mono text-[#14B8A6]">{apt.ma_lich_dat}</span>
+        </p>
+        <p className="font-bold text-[11px] mb-1">📞 SDT: <span className="text-slate-350">{apt.so_dien_thoai}</span></p>
+        <p className="font-bold text-[11px] mb-1">🩺 Dịch vụ: <span className="text-slate-350">{apt.ten_dich_vu}</span></p>
+        {apt.ly_do_kham && (
+          <p className="text-[10px] text-slate-450 italic mt-1 bg-slate-950/40 p-1.5 rounded-lg border border-slate-800/20 line-clamp-2">
+            "{apt.ly_do_kham}"
+          </p>
         )}
+      </div>
+ 
+      <div className="mt-2.5 pt-2 border-t border-slate-50 dark:border-zinc-800/80 flex items-center justify-between gap-1 relative overflow-hidden h-7">
+        
+        {/* Default footer view */}
+        <AnimatePresence initial={false}>
+          <motion.div 
+            className="flex items-center justify-between w-full group-hover/card:translate-y-8 transition-transform duration-300 absolute inset-x-0 bottom-0"
+          >
+            {apt.ten_phong ? (
+              <div className="flex items-center gap-1 text-[9px] text-[#0d766e] dark:text-emerald-450 font-black bg-[#0D9488]/5 dark:bg-emerald-950/20 px-2 py-0.5 rounded border border-[#0D9488]/15 dark:border-teal-900/20 select-none">
+                <MapPin size={9} className="text-[#0D9488]" />
+                <span>{apt.ten_phong}</span>
+              </div>
+            ) : (
+              <div />
+            )}
+
+            {showCountdown && (
+              <CountdownTimer hanXacNhan={apt.han_xac_nhan} />
+            )}
+          </motion.div>
+        </AnimatePresence>
+
+        {/* Hover Quick Actions Bar */}
+        <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-2 translate-y-8 group-hover/card:translate-y-0 transition-transform duration-300 bg-white dark:bg-zinc-900 z-10 pt-1">
+          {onUpdateAppointment && viewMode !== 'doctor' && (
+            <>
+              {/* 1. Trạng thái: Chờ khách xác nhận */}
+              {apt.trang_thai === 'chua_xac_nhan' && (
+                <button
+                  type="button"
+                  onClick={(e) => handleQuickAction(e, 'cho_xac_nhan')}
+                  className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-black text-amber-700 bg-amber-50 hover:bg-amber-500 hover:text-white rounded-lg border border-amber-250/80 transition-all shadow-sm"
+                  title="Xác nhận khách"
+                >
+                  <Phone size={10} className="stroke-[3]" />
+                  <span>Xác nhận khách</span>
+                </button>
+              )}
+
+              {/* 2. Trạng thái: Đã xếp lịch */}
+              {apt.trang_thai === 'da_xac_nhan' && (
+                <button
+                  type="button"
+                  onClick={(e) => handleQuickAction(e, 'da_checkin')}
+                  className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-black text-blue-700 bg-blue-50 hover:bg-blue-500 hover:text-white rounded-lg border border-blue-200/50 flex items-center justify-center transition-all shadow-sm"
+                  title="Check-in khách"
+                >
+                  <UserCheck size={10} className="stroke-[3]" />
+                  <span>Check-in</span>
+                </button>
+              )}
+
+              {/* 3. Trạng thái: Đã Check-in */}
+              {apt.trang_thai === 'da_checkin' && (
+                <button
+                  type="button"
+                  onClick={(e) => handleQuickAction(e, 'dang_kham')}
+                  className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-black text-teal-700 bg-teal-50 hover:bg-teal-500 hover:text-white rounded-lg border border-teal-200/50 flex items-center justify-center transition-all shadow-sm"
+                  title="Bắt đầu khám"
+                >
+                  <Play size={10} className="stroke-[3] fill-current" />
+                  <span>Bắt đầu khám</span>
+                </button>
+              )}
+
+              {/* 4. Trạng thái: Đang khám */}
+              {apt.trang_thai === 'dang_kham' && (
+                <button
+                  type="button"
+                  onClick={(e) => handleQuickAction(e, 'hoan_thanh')}
+                  className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-black text-emerald-800 bg-emerald-50 hover:bg-emerald-500 hover:text-white rounded-lg border border-emerald-250 flex items-center justify-center transition-all shadow-sm"
+                  title="Hoàn thành khám"
+                >
+                  <CheckCircle2 size={10} className="stroke-[3]" />
+                  <span>Hoàn thành</span>
+                </button>
+              )}
+
+              {/* Nút Hủy chung cho các trạng thái hoạt động */}
+              {!['hoan_thanh', 'da_huy', 'khong_den'].includes(apt.trang_thai) && (
+                <button
+                  type="button"
+                  onClick={(e) => handleQuickAction(e, 'da_huy')}
+                  className="size-6 bg-rose-50 hover:bg-rose-500 text-rose-700 hover:text-white rounded-lg border border-rose-200/50 flex items-center justify-center transition-colors shadow-sm"
+                  title="Hủy lịch hẹn"
+                >
+                  <X size={11} className="stroke-[3]" />
+                </button>
+              )}
+            </>
+          )}
+          {viewMode === 'doctor' && (
+            <span className="text-[9px] font-black text-slate-400">Click vào ca khám</span>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -1,4 +1,6 @@
-import { ArrowLeft, ShieldCheck, Star, Heart } from 'lucide-react';
+import { MouseEvent } from 'react';
+import { ArrowLeft, ShieldCheck, Zap, Stethoscope, Activity, Heart, Sparkles } from 'lucide-react';
+import { motion, useMotionValue, useSpring } from 'framer-motion';
 
 interface AuthVisualPanelProps {
   onBack?: () => void;
@@ -11,180 +13,222 @@ export default function AuthVisualPanel({
   showBack = true,
   backText = 'Trở về trang trước',
 }: AuthVisualPanelProps) {
+  // Parallax motion tracking
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+
+  // Smooth springs for parallax lag
+  const springX = useSpring(mouseX, { stiffness: 80, damping: 20 });
+  const springY = useSpring(mouseY, { stiffness: 80, damping: 20 });
+
+  const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const width = rect.width;
+    const height = rect.height;
+    
+    // Calculate normalized coordinates (-0.5 to 0.5) from center
+    const x = (e.clientX - rect.left) / width - 0.5;
+    const y = (e.clientY - rect.top) / height - 0.5;
+    
+    // Set motion values (max range of motion in pixels)
+    mouseX.set(x * 30);
+    mouseY.set(y * 30);
+  };
+
+  const handleMouseLeave = () => {
+    mouseX.set(0);
+    mouseY.set(0);
+  };
+
+  // Timeline steps data
+  const timelineSteps = [
+    {
+      icon: <Zap size={18} className="text-[#0D9488]" />,
+      title: "Đánh giá chuyên sâu",
+      desc: "Lượng giá cơ sinh học cột sống lập thể"
+    },
+    {
+      icon: <Stethoscope size={18} className="text-[#0D9488]" />,
+      title: "Phác đồ cá nhân hóa",
+      desc: "Bác sĩ hội chẩn & tối ưu phác đồ"
+    },
+    {
+      icon: <Activity size={18} className="text-[#0D9488]" />,
+      title: "Trị liệu chuyên sâu",
+      desc: "Công nghệ cao kết hợp trị liệu cơ sâu"
+    },
+    {
+      icon: <Heart size={18} className="text-[#0D9488]" />,
+      title: "Phục hồi vận động",
+      desc: "Tái cấu trúc tư thế cơ xương khớp"
+    },
+    {
+      icon: <Sparkles size={18} className="text-[#0D9488]" />,
+      title: "Trở lại cuộc sống khỏe mạnh",
+      desc: "Tự do vận động, chấm dứt cơn đau"
+    }
+  ];
+
+  // Stat cards data
+  const statCards = [
+    { value: "95%", label: "Tỷ lệ cải thiện vận động", speedFactor: 0.8 },
+    { value: "12.000+", label: "Ca trị liệu thành công", speedFactor: 1.2 },
+    { value: "4.9★", label: "Đánh giá khách hàng", speedFactor: 0.6 },
+    { value: "98%", label: "Hài lòng sau điều trị", speedFactor: 1.0 }
+  ];
+
   return (
-    <div className="hidden lg:flex lg:w-[65%] h-screen relative flex-col justify-between p-16 xl:p-20 z-10 overflow-hidden select-none">
-      
+    <div 
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      className="hidden lg:flex lg:w-[58%] h-full relative flex-col justify-between p-10 xl:p-12 z-10 select-none bg-white/40 backdrop-blur-xl border border-white/50 rounded-[32px] shadow-[0_24px_50px_-12px_rgba(15,23,42,0.15)] overflow-hidden transition-all duration-300"
+    >
+      {/* HUD Medical Grid overlay pattern */}
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(20,184,166,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(20,184,166,0.02)_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none opacity-80 z-0"></div>
+
+      {/* Biophilic Teal glow overlays */}
+      <div className="absolute top-0 left-0 w-96 h-96 bg-[#14B8A6]/8 rounded-full blur-[80px] pointer-events-none z-0"></div>
+      <div className="absolute bottom-0 right-0 w-96 h-96 bg-[#22C55E]/5 rounded-full blur-[80px] pointer-events-none z-0"></div>
+
       {/* Top Header Row */}
-      <div className="flex justify-between items-start z-20">
-        <div className="flex flex-col gap-3">
+      <div className="flex justify-between items-center z-20">
+        <div className="flex flex-col gap-2">
           {showBack && onBack && (
-            <button
+            <motion.button
+              whileHover={{ scale: 1.02, x: -2 }}
+              whileTap={{ scale: 0.98 }}
               type="button"
               onClick={onBack}
-              className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-[#0F172A] font-semibold transition-colors focus:outline-none w-fit"
+              className="flex items-center gap-2 text-xs text-slate-700 hover:text-slate-900 font-bold transition-all focus:outline-none w-fit bg-white/80 hover:bg-white backdrop-blur-lg px-4 py-2.5 rounded-full border border-slate-200/60 shadow-sm group"
             >
-              <ArrowLeft size={13} />
+              <ArrowLeft size={13} className="transition-transform group-hover:-translate-x-0.5 text-[#0D9488]" />
               <span>{backText}</span>
-            </button>
+            </motion.button>
           )}
           
-          <div className="font-heading font-extrabold text-2xl text-[#0F172A] flex items-center gap-2.5 tracking-tight">
-            {/* Elegant brand geometry mark */}
-            <div className="size-5 rounded-full border-2 border-[#10B981] flex items-center justify-center relative bg-[#10B981]/5">
-              <div className="size-1.5 rounded-full bg-[#10B981] animate-pulse"></div>
+          <div className="font-heading font-extrabold text-2xl text-slate-900 flex items-center gap-2.5 tracking-tight mt-2">
+            <div className="size-5.5 rounded-full border-2 border-[#14B8A6] flex items-center justify-center relative bg-[#14B8A6]/20 shadow-[0_0_15px_rgba(20,184,166,0.2)]">
+              <div className="size-1.5 rounded-full bg-[#14B8A6] animate-ping absolute"></div>
+              <div className="size-1.5 rounded-full bg-[#14B8A6]"></div>
             </div>
-            <span className="font-bold text-xl">office<span className="text-zinc-400 font-light">care</span></span>
+            <span className="font-black text-2xl font-jakarta">Office<span className="text-[#0D9488] font-light">Care</span></span>
           </div>
         </div>
         
-        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[#0D9488] bg-[#10B981]/5 px-3.5 py-1.5 rounded-full border border-[#10B981]/10">
-          <ShieldCheck size={13} className="text-[#10B981]" />
-          <span>Hệ thống phục hồi y khoa</span>
+        <div className="flex items-center gap-2.5 text-[10px] font-bold uppercase tracking-widest text-[#0D9488] bg-white/80 backdrop-blur-lg px-4 py-2.5 rounded-2xl border border-slate-200/60 shadow-sm">
+          <ShieldCheck size={14} className="text-[#0D9488]" />
+          <span className="font-jakarta font-black">Hệ thống phục hồi y khoa cao cấp</span>
         </div>
       </div>
 
-      {/* Hero Headline */}
-      <div className="my-auto z-20 max-w-xl pr-10">
-        <div className="text-[11px] font-bold text-[#10B981] uppercase tracking-widest mb-4">OFFICARE REHABILITATION SYSTEM</div>
-        <h1 className="font-heading font-black text-5xl xl:text-6xl text-[#0F172A] tracking-tighter leading-[1.05] mb-6">
-          Rebuild Movement.<br />
-          <span className="bg-gradient-to-r from-[#10B981] to-[#0D9488] bg-clip-text text-transparent font-jakarta">Restore Confidence.</span>
-        </h1>
-        <p className="text-zinc-500 text-sm font-medium leading-relaxed max-w-sm font-sans">
-          Kiến tạo hành trình phục hồi cá nhân hóa bằng công nghệ định vị lập thể cột sống và giải pháp trị liệu lượng giá tối tân.
-        </p>
-      </div>
+      {/* Main Content Area: Storytelling & Timeline */}
+      <div className="grid grid-cols-12 gap-6 xl:gap-8 items-center z-20 my-auto w-full">
+        {/* Left Side: Headline Glass Card - Pristine light luxury contrast */}
+        <div className="col-span-12 xl:col-span-6 z-10">
+          <div className="bg-white/80 backdrop-blur-md border border-white/60 rounded-[28px] p-6 xl:p-8 space-y-5 shadow-lg relative overflow-hidden group hover:border-[#14B8A6]/30 transition-all duration-300">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#14B8A6]/5 to-transparent pointer-events-none"></div>
+            
+            <div className="text-[9px] font-black text-[#0D9488] uppercase tracking-widest bg-[#14B8A6]/10 px-3.5 py-2 rounded-xl border border-[#14B8A6]/20 w-fit">
+              Hành trình phục hồi cơ xương khớp
+            </div>
+            
+            <h1 className="font-jakarta font-black text-3xl xl:text-[38px] text-slate-900 tracking-tight leading-[1.08]">
+              Kiến tạo chuyển động.<br />
+              <span className="bg-gradient-to-r from-[#0D9488] to-[#0f766e] bg-clip-text text-transparent">
+                Khởi nguồn tự tin.
+              </span>
+            </h1>
+            
+            <p className="text-slate-600 text-xs font-semibold leading-relaxed max-w-sm font-jakarta">
+              Nền tảng lượng giá y khoa hiện đại chuẩn 5 sao giúp dân văn phòng giải quyết đau thắt lưng, cổ vai gáy tận gốc rễ.
+            </p>
+          </div>
+        </div>
 
-      {/* Floating Holographic Visual Elements on the Right of Left Section */}
-      <div className="absolute right-[5%] top-1/2 -translate-y-1/2 w-[420px] h-[550px] pointer-events-none z-10 flex items-center justify-center">
-        
-        <div className="relative w-full h-full flex items-center justify-center">
+        {/* Right Side: Recovery Timeline (Pristine light list) */}
+        <div className="col-span-12 xl:col-span-6 border-t xl:border-t-0 xl:border-l border-slate-200/80 pt-6 xl:pt-2 xl:pl-8 space-y-5 relative z-10">
+          {/* Glowing vertical line overlay */}
+          <div className="absolute left-0 top-6 bottom-6 w-0.5 bg-gradient-to-b from-[#14B8A6] via-[#14B8A6]/20 to-transparent shadow-[0_0_8px_rgba(20,184,166,0.15)] hidden xl:block"></div>
           
-          {/* Medical Anatomical Spine SVG Hologram */}
-          <svg viewBox="0 0 100 200" className="w-[85%] h-[85%] opacity-90 z-10 filter drop-shadow-[0_10px_30px_rgba(16,185,129,0.06)]">
-            <circle cx="50" cy="22" r="10" fill="none" stroke="url(#spineGrad)" strokeWidth="1" strokeDasharray="2 2" />
-            <circle cx="50" cy="22" r="6" fill="none" stroke="#10B981" strokeWidth="0.8" />
-            <circle cx="50" cy="22" r="2.5" fill="#10B981" />
-            
-            {/* Torso contour mapping */}
-            <path d="M22 65 C 32 46, 38 48, 50 48 C 62 48, 68 46, 78 65 C 72 85, 75 140, 68 185 L 32 185 C 25 140, 28 85, 22 65 Z" 
-                  fill="none" stroke="rgba(15, 23, 42, 0.03)" strokeWidth="1.2" />
-            
-            <path d="M50 48 L50 185" fill="none" stroke="url(#spineGrad)" strokeWidth="2" strokeLinecap="round" />
-            
-            {/* Neural flow animation */}
-            <path d="M50 48 L50 185" fill="none" stroke="#10B981" strokeWidth="3" strokeLinecap="round" 
-                  strokeDasharray="10 80" strokeDashoffset="10" className="animate-neural-flow" />
-            <path d="M50 48 L50 185" fill="none" stroke="#0D9488" strokeWidth="2" strokeLinecap="round" 
-                  strokeDasharray="15 120" strokeDashoffset="50" className="animate-neural-flow-delayed" />
-            
-            {/* Vertebrae joints */}
-            {[48, 60, 72, 84, 96, 108, 120, 132, 144, 156, 168, 180].map((y, idx) => (
-              <g key={y}>
-                <circle cx="50" cy={y} r="2" fill="#F8FAFC" stroke="#10B981" strokeWidth="1.5" />
-                <circle cx="50" cy={y} r="4" fill="none" stroke="#0D9488" strokeWidth="0.6" 
-                        className="animate-ping" style={{ animationDuration: `${3 + idx * 0.3}s` }} />
-              </g>
+          <motion.div 
+            initial="hidden"
+            animate="visible"
+            className="space-y-5"
+          >
+            {timelineSteps.map((step, idx) => (
+              <motion.div 
+                key={idx}
+                variants={{
+                  hidden: { opacity: 0, x: -10 },
+                  visible: { opacity: 1, x: 0 }
+                }}
+                transition={{ duration: 0.4, delay: idx * 0.08 }}
+                className="flex items-start gap-4 relative group cursor-default"
+              >
+                {/* Glowing step point */}
+                <div className="absolute -left-[41px] top-1.5 size-5 rounded-full border-2 border-white bg-slate-50 flex items-center justify-center z-10 transition-all duration-300 group-hover:border-[#14B8A6] group-hover:scale-110 shadow-sm hidden xl:flex">
+                  <div className="size-1.5 rounded-full bg-slate-300 transition-colors group-hover:bg-[#14B8A6] group-hover:shadow-[0_0_8px_rgba(20,184,166,0.6)]"></div>
+                </div>
+
+                <div className="size-8.5 rounded-xl bg-white/80 border border-slate-200/50 flex items-center justify-center shrink-0 shadow-sm text-slate-500 group-hover:border-[#14B8A6]/30 group-hover:text-[#0D9488] transition-all duration-300">
+                  {step.icon}
+                </div>
+                <div className="text-left space-y-0.5 pt-0.5">
+                  <p className="font-jakarta font-extrabold text-xs text-slate-800 group-hover:text-[#0D9488] transition-colors">{step.title}</p>
+                  <p className="font-jakarta text-[10px] text-slate-500 font-semibold">{step.desc}</p>
+                </div>
+              </motion.div>
             ))}
-
-            <defs>
-              <linearGradient id="spineGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor="#34D399" />
-                <stop offset="50%" stopColor="#10B981" />
-                <stop offset="100%" stopColor="#0D9488" />
-              </linearGradient>
-            </defs>
-          </svg>
-
-          {/* Apple Health Widget 1: Progress (Circular) */}
-          <div className="absolute top-[6%] left-0 bg-white/70 backdrop-blur-xl border border-zinc-200/50 rounded-2xl p-4 shadow-[0_15px_30px_rgba(15,23,42,0.04)] animate-float min-w-[150px] hover:border-zinc-300 transition-all duration-300">
-            <div className="flex items-center gap-3">
-              <div className="relative size-10 flex items-center justify-center">
-                <svg className="size-full transform -rotate-90">
-                  <circle cx="20" cy="20" r="16" fill="none" stroke="rgba(15,23,42,0.03)" strokeWidth="3" />
-                  <circle cx="20" cy="20" r="16" fill="none" stroke="#10B981" strokeWidth="3" 
-                          strokeDasharray="100" strokeDashoffset="6" strokeLinecap="round" className="filter drop-shadow-[0_0_3px_rgba(16,185,129,0.3)]" />
-                </svg>
-                <span className="absolute text-[10px] font-bold text-[#0F172A]">94%</span>
-              </div>
-              <div>
-                <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider font-sans">Tiến trình</p>
-                <p className="text-xs font-bold text-[#0F172A]">Hồi Phục</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Apple Health Widget 2: Rating (Stars) */}
-          <div className="absolute bottom-[28%] -right-4 bg-white/70 backdrop-blur-xl border border-zinc-200/50 rounded-2xl p-4 shadow-[0_15px_30px_rgba(15,23,42,0.04)] animate-float stagger-delay-3 min-w-[160px] hover:border-zinc-300 transition-all duration-300">
-            <div className="flex items-center gap-3 mb-1.5">
-              <div className="size-8 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 filter drop-shadow-[0_0_3px_rgba(245,158,11,0.25)]">
-                <Star size={16} fill="currentColor" />
-              </div>
-              <div>
-                <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider font-sans">Đánh giá</p>
-                <p className="text-xs font-bold text-[#0F172A]">4.9 ★ Quốc Tế</p>
-              </div>
-            </div>
-            <p className="text-[10px] text-zinc-500 font-medium font-sans">100% hài lòng</p>
-          </div>
-
-          {/* Apple Health Widget 3: Successful Therapy wave */}
-          <div className="absolute bottom-[4%] left-6 bg-white/70 backdrop-blur-xl border border-zinc-200/50 rounded-2xl p-4 shadow-[0_15px_30px_rgba(15,23,42,0.04)] animate-float stagger-delay-6 min-w-[180px] hover:border-zinc-300 transition-all duration-300">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="size-8 rounded-xl bg-emerald-500/10 flex items-center justify-center text-[#10B981] filter drop-shadow-[0_0_3px_rgba(16,185,129,0.25)]">
-                <Heart size={16} fill="currentColor" />
-              </div>
-              <div>
-                <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider font-sans">Trị liệu</p>
-                <p className="text-xs font-bold text-[#0F172A]">12,000+ Ca</p>
-              </div>
-            </div>
-            <svg viewBox="0 0 100 20" className="w-full h-5 stroke-[#10B981] opacity-80 filter drop-shadow-[0_0_2px_rgba(16,185,129,0.2)]">
-              <path d="M0 10 L30 10 L34 2 L38 18 L42 8 L46 12 L50 10 L100 10" fill="none" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </div>
-
+          </motion.div>
         </div>
       </div>
 
-      {/* Minimal Bottom Footer */}
-      <div className="text-zinc-400 text-xs font-medium z-20 font-sans">
-        © 2026 OfficeCare Inc. All rights reserved.
-      </div>
+      {/* Bottom Footer: Floating Insight Cards & Copyright */}
+      <div className="space-y-6 xl:space-y-8 z-20">
+        
+        {/* Floating Insight Cards: Borderless text statistics with mouse parallax */}
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 w-full">
+          {statCards.map((card, idx) => {
+            // Apply distinct spring offset per card based on speedFactor
+            const xOffset = useSpring(
+              useMotionValue(0),
+              { stiffness: 60, damping: 15 }
+            );
+            const yOffset = useSpring(
+              useMotionValue(0),
+              { stiffness: 60, damping: 15 }
+            );
 
-      <style>{`
-        @keyframes neural-flow {
-          0% { stroke-dashoffset: 200; }
-          100% { stroke-dashoffset: 0; }
-        }
-        .animate-neural-flow {
-          animation: neural-flow 3.5s linear infinite;
-        }
-        .animate-neural-flow-delayed {
-          animation: neural-flow 4.5s linear infinite;
-          animation-delay: 2.2s;
-        }
-        @keyframes float {
-          0%, 100% { transform: translateY(0px) rotate(0deg); }
-          50% { transform: translateY(-12px) rotate(1deg); }
-        }
-        .animate-float {
-          animation: float 6s ease-in-out infinite;
-        }
-        .stagger-delay-3 {
-          animation-delay: 1.8s;
-        }
-        .stagger-delay-6 {
-          animation-delay: 3.5s;
-        }
-        .duration-7000 {
-          animation-duration: 7s;
-        }
-        .duration-10000 {
-          animation-duration: 10s;
-        }
-      `}</style>
-      
+            // React to springX and springY changes
+            springX.on("change", (val) => xOffset.set(val * card.speedFactor));
+            springY.on("change", (val) => yOffset.set(val * card.speedFactor));
+
+            return (
+              <motion.div
+                key={idx}
+                style={{
+                  x: xOffset,
+                  y: yOffset
+                }}
+                whileHover={{ scale: 1.05 }}
+                className="bg-transparent text-left space-y-1.5 cursor-pointer group select-none"
+              >
+                <span className="text-2.5xl xl:text-3.5xl font-jakarta font-black text-slate-900 group-hover:text-[#0D9488] transition-colors drop-shadow-sm">
+                  {card.value}
+                </span>
+                <p className="text-[9px] font-black text-[#0D9488] uppercase tracking-widest font-jakarta leading-tight">
+                  {card.label}
+                </p>
+              </motion.div>
+            );
+          })}
+        </div>
+
+        <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest border-t border-slate-200/50 pt-4">
+          <span>© 2026 OfficeCare Inc. All rights reserved.</span>
+          <span>Chuẩn y khoa y tế 5★</span>
+        </div>
+      </div>
     </div>
   );
 }

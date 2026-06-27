@@ -26,11 +26,15 @@ export const createAppointmentSchema = z.object({
 export const createPublicAppointmentSchema = z.object({
   body: z.object({
     nguoi_dung_id: z.string().uuid().optional().nullable(),
-    ho_ten_khach: z.string().min(2, 'Họ tên phải có ít nhất 2 ký tự').optional(),
-    so_dien_thoai: z.string().min(10, 'Số điện thoại không hợp lệ').optional(),
+    ho_ten_khach: z.string({ required_error: 'Họ tên là bắt buộc' })
+      .min(2, 'Họ tên phải có ít nhất 2 ký tự')
+      .refine(val => /^[\p{L}\s']{2,}$/u.test(val.trim()), 'Họ tên chỉ được chứa chữ cái và khoảng trắng'),
+    so_dien_thoai: z.string({ required_error: 'Số điện thoại là bắt buộc' })
+      .regex(/^(03|05|07|08|09)[0-9]{8}$/, 'Số điện thoại phải gồm 10 chữ số và bắt đầu bằng 03, 05, 07, 08 hoặc 09'),
     gioi_tinh_khach: z.enum(['nam', 'nu', 'khac']).optional(),
     ngay_gio_bat_dau: z.string().datetime({ message: 'Ngày giờ bắt đầu không hợp lệ' }),
-    trieu_chung: z.string().optional(),
+    trieu_chung: z.string({ required_error: 'Mô tả triệu chứng là bắt buộc' })
+      .min(10, 'Mô tả triệu chứng phải có ít nhất 10 ký tự'),
     ly_do_kham: z.string().optional(),
     anh_dinh_kem_url: z.string().optional(),
     dich_vu_id: z.string().uuid('ID Dịch vụ không hợp lệ').optional().nullable(),

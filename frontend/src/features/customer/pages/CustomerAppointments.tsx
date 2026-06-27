@@ -87,7 +87,7 @@ export default function CustomerAppointments() {
       case 'chua_xac_nhan':
         return (
           <span className="text-[10px] font-black text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-            Chờ Lễ Tân Duyệt
+            Chờ Duyệt
           </span>
         );
       case 'da_xac_nhan':
@@ -257,6 +257,12 @@ export default function CustomerAppointments() {
                   )}
 
                   {/* Dynamic Status Notices */}
+                  {app.trang_thai === 'chua_xac_nhan' && (
+                    <div className="bg-rose-50 border border-rose-200 p-3.5 rounded-xl text-[11px] text-rose-700 font-extrabold leading-relaxed animate-pulse">
+                      📧 VUI LÒNG KIỂM TRA EMAIL ĐỂ XÁC NHẬN LỊCH HẸN!
+                    </div>
+                  )}
+
                   {app.trang_thai === 'cho_xac_nhan' && (
                     <div className="bg-amber-50/50 border border-amber-200 p-3.5 rounded-xl text-[11px] text-amber-700 font-semibold leading-relaxed">
                       Lịch hẹn đang chờ phê duyệt. Bạn sẽ nhận được thông báo ngay tại đây khi lễ tân xác thực.
@@ -289,16 +295,22 @@ export default function CustomerAppointments() {
                 </div>
 
                 {/* Actions */}
-                {(app.trang_thai === 'cho_xac_nhan' || app.trang_thai === 'da_xac_nhan') && (
-                  <div className="p-6 pl-8 pt-0">
+                <div className="p-6 pl-8 pt-0 flex flex-col gap-2">
+                  <button
+                    onClick={() => navigate(`/booking/success/${app.id}`)}
+                    className="w-full bg-primary hover:opacity-90 text-white font-bold text-xs uppercase tracking-wider py-3.5 rounded-xl transition-all text-center shadow-xs"
+                  >
+                    Xem Chi Tiết & Mã QR
+                  </button>
+                  {(app.trang_thai === 'cho_xac_nhan' || app.trang_thai === 'da_xac_nhan') && (
                     <button
                       onClick={() => setCancellingId(app.id)}
                       className="w-full bg-zinc-50 hover:bg-rose-50 hover:text-rose-600 border border-zinc-150 hover:border-rose-200 text-secondary font-bold text-xs uppercase tracking-wider py-3 rounded-xl transition-all"
                     >
                       Hủy lịch hẹn
                     </button>
-                  </div>
-                )}
+                  )}
+                </div>
 
               </div>
             );

@@ -57,6 +57,10 @@ class AuthService {
       throw error;
     }
 
+    if (!user.mat_khau_hash) {
+      throw new Error('Email hoặc mật khẩu không chính xác');
+    }
+
     const isMatch = await bcrypt.compare(data.password, user.mat_khau_hash);
     if (!isMatch) throw new Error('Email hoặc mật khẩu không chính xác');
 

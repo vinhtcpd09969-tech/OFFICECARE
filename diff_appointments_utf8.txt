@@ -1,0 +1,1907 @@
+﻿diff --git a/frontend/src/features/admin/pages/ManageAppointments.tsx b/frontend/src/features/admin/pages/ManageAppointments.tsx
+index 52137d5..ed8fd73 100644
+--- a/frontend/src/features/admin/pages/ManageAppointments.tsx
++++ b/frontend/src/features/admin/pages/ManageAppointments.tsx
+@@ -1,1663 +1,355 @@
+-import { useEffect, useState, useRef } from 'react';
+-import { useLocation, useNavigate } from 'react-router-dom';
++import { useState, useEffect, useCallback } from 'react';
++import { useLocation } from 'react-router-dom';
++import api from '@/shared/api/axios';
++import toast from 'react-hot-toast';
+ import {
+-  Search,
+-  CheckCircle2,
+-  XCircle,
+-  AlertCircle,
+-  PlayCircle,
+-  ChevronLeft,
+-  ChevronRight,
+-  Layers,
+-  MapPin,
+-  Calendar as CalendarIcon,
+-  CalendarDays,
+-  HelpCircle,
+-  Settings,
+-  Activity,
+-  Command,
+-  Briefcase,
+-  Stethoscope,
+-  PhoneCall
++  Search, Layers, CalendarDays, Calendar as CalendarIcon,
++  Command, Stethoscope, PhoneCall, Briefcase, Settings, Activity,
+ } from 'lucide-react';
+-import axiosInstance from '../../../api/axios';
+ import { format, addDays, subDays, startOfWeek } from 'date-fns';
+ import { vi } from 'date-fns/locale';
+-import toast from 'react-hot-toast';
+-import { motion, AnimatePresence } from 'framer-motion';
+-import { convertToVietnamUtcIso } from '../../../utils/date';
+ 
+-// Import Components ─æ├ú b├│c t├ích
++// Hooks ΓÇö all logic extracted here
++import { useAppointments } from '../components/appointments/hooks/useAppointments';
++import { useAppointmentActions } from '../components/appointments/hooks/useAppointmentActions';
++import { useAppointmentNotifications } from '../components/appointments/hooks/useAppointmentNotifications';
++
++// Sub-components (already existed before refactor)
+ import AppointmentCalendar from '../components/AppointmentCalendar';
+ import AppointmentWeeklyCalendar from '../components/AppointmentWeeklyCalendar';
+ import AppointmentDetailModal from '../components/AppointmentDetailModal';
+ import TreatmentBookingModal from '../components/TreatmentBookingModal';
+ import WalkInBookingModal from '../components/WalkInBookingModal';
+ 
+-const standardTimeSlots = [
+-  '07:00', '07:30', '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
+-  '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30',
+-  '17:00', '17:30', '18:00', '18:30', '19:00', '19:30'
+-];
+-
+-const statusConfig = {
+-  chua_xac_nhan: { label: 'Ch╞░a x├íc nhß║¡n', color: 'bg-slate-100 text-slate-600 border-slate-200', icon: <HelpCircle size={14} /> },
+-  cho_xac_nhan: { label: 'Chß╗¥ x├íc nhß║¡n', color: 'bg-amber-100 text-amber-700 border-amber-200', icon: <AlertCircle size={14} /> },
+-  da_xac_nhan: { label: '─É├ú x├íc nhß║¡n', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: <CheckCircle2 size={14} /> },
+-  da_checkin: { label: '─É├ú Check-in', color: 'bg-teal-100 text-teal-700 border-teal-200', icon: <PlayCircle size={14} /> },
+-  hoan_thanh: { label: 'Ho├án th├ánh', color: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: <CheckCircle2 size={14} /> },
+-  da_huy: { label: '─É├ú hß╗ºy', color: 'bg-red-100 text-red-700 border-red-200', icon: <XCircle size={14} /> },
+-  khong_den: { label: 'Kh├┤ng ─æß║┐n', color: 'bg-slate-200 text-slate-700 border-slate-300', icon: <XCircle size={14} /> },
+-};
++// Types & constants
++import { STATUS_CONFIG, STANDARD_TIME_SLOTS } from '../components/appointments/constants';
++import { RoleView, ViewMode, ReceptionistTab } from '../components/appointments/types';
++import { UNCONFIRMED_GRACE_MS } from '../components/appointments/constants';
+ 
+ export default function ManageAppointments() {
+   const location = useLocation();
+-  const navigate = useNavigate();
+-
+-  // Chß║┐ ─æß╗Ö xem vai tr├▓ phß╗Ñc vß╗Ñ kiß╗âm thß╗¡ (Test)
+-  const [roleView, setRoleView] = useState<'manager' | 'receptionist' | 'doctor'>('manager');
+-  const [receptionistTab, setReceptionistTab] = useState<'pending_contact' | 'today_schedule'>('pending_contact');
+-  const [selectedDocSimId, setSelectedDocSimId] = useState<string>('');
+ 
+-  const isReceptionist = location.pathname.startsWith('/receptionist') || roleView === 'receptionist';
+-
+-  const [appointments, setAppointments] = useState<any[]>([]);
+-  const [staffList, setStaffList] = useState<any[]>([]);
+-  const [roomsList, setRoomsList] = useState<any[]>([]);
+-  const [services, setServices] = useState<any[]>([]);
+-  const [packages, setPackages] = useState<any[]>([]);
+-  const [schedulesList, setSchedulesList] = useState<any[]>([]);
+-  const [loading, setLoading] = useState(true);
+-
+-  // Filters State
++  // ΓöÇΓöÇΓöÇ UI State ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++  const [roleView] = useState<RoleView>('manager');
++  const [receptionistTab] = useState<ReceptionistTab>('pending_contact');
++  const [selectedDocSimId, setSelectedDocSimId] = useState('');
+   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+-  const scheduleType = 'kham_moi'; // Hardcoded cho m├án h├¼nh Lß╗ïch Hß║╣n Kh├ím
+-  const [viewMode, setViewMode] = useState<'today' | 'week'>('today');
+-  const [roomFilter, setRoomFilter] = useState<string>('all');
+-  const [searchTerm, setSearchTerm] = useState<string>('');
++  const [viewMode, setViewMode] = useState<ViewMode>('today');
++  const [searchTerm, setSearchTerm] = useState('');
++  const [walkInLoading, setWalkInLoading] = useState(false);
+ 
++  const isReceptionist = location.pathname.startsWith('/receptionist') || roleView === 'receptionist';
+ 
++  // ΓöÇΓöÇΓöÇ Data hooks ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++  const { appointments, staffList, roomsList, services, packages, schedulesList, loading, refetch } = useAppointments();
++  const actions = useAppointmentActions(refetch);
+ 
+-  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+-  const [commandSearch, setCommandSearch] = useState('');
++  // ΓöÇΓöÇΓöÇ Notification hooks ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++  useAppointmentNotifications({ appointments, isReceptionist });
+ 
+-  // Keyboard shortcut listener for Ctrl+K command palette
++  // ΓöÇΓöÇΓöÇ Keyboard shortcut Ctrl+K ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+   useEffect(() => {
+-    const handleKeyDown = (e: KeyboardEvent) => {
+-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+-        e.preventDefault();
+-        setIsCommandPaletteOpen(prev => !prev);
+-      }
+-      if (e.key === 'Escape') {
+-        setIsCommandPaletteOpen(false);
+-      }
++    const handler = (e: KeyboardEvent) => {
++      if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); }
++      if (e.key === 'Escape') actions.setIsWalkInModalOpen(false);
+     };
+-    window.addEventListener('keydown', handleKeyDown);
+-    return () => window.removeEventListener('keydown', handleKeyDown);
+-  }, []);
+-
+-
+-
+-  // Modals State
+-  const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
+-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+-  const [isTreatmentModalOpen, setIsTreatmentModalOpen] = useState(false);
+-  const [isWalkInModalOpen, setIsWalkInModalOpen] = useState(false);
+-  const [walkInTime, setWalkInTime] = useState<string>('');
+-
+-  // Sound chime notifier for doctor
+-  const playNotificationSound = () => {
+-    try {
+-      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+-      if (!AudioContext) return;
+-      const ctx = new AudioContext();
+-      const now = ctx.currentTime;
+-
+-      const osc1 = ctx.createOscillator();
+-      const gain1 = ctx.createGain();
+-      osc1.type = 'sine';
+-      osc1.frequency.setValueAtTime(1046.50, now);
+-      gain1.gain.setValueAtTime(0.12, now);
+-      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+-      osc1.connect(gain1);
+-      gain1.connect(ctx.destination);
+-      osc1.start(now);
+-      osc1.stop(now + 0.4);
++    window.addEventListener('keydown', handler);
++    return () => window.removeEventListener('keydown', handler);
++  }, [actions]);
+ 
+-      const osc2 = ctx.createOscillator();
+-      const gain2 = ctx.createGain();
+-      osc2.type = 'sine';
+-      osc2.frequency.setValueAtTime(1567.98, now + 0.12);
+-      gain2.gain.setValueAtTime(0.12, now + 0.12);
+-      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+-      osc2.connect(gain2);
+-      gain2.connect(ctx.destination);
+-      osc2.start(now + 0.12);
+-      osc2.stop(now + 0.65);
+-    } catch (err) {
+-      console.error('Kh├┤ng thß╗â ph├ít ├óm thanh th├┤ng b├ío:', err);
+-    }
+-  };
+-
+-  const seenCheckedInIds = useRef<Set<string>>(new Set());
+-  const isFirstLoad = useRef(true);
+-  const seenUnconfirmedIds = useRef<Set<string>>(new Set());
+-
+-  // Polling for live updates (receptionist counter registration check)
+-  useEffect(() => {
+-    const interval = setInterval(() => {
+-      axiosInstance.get('/admin/appointments')
+-        .then(res => setAppointments(res.data))
+-        .catch(err => console.error('Silent refresh failed:', err));
+-    }, 8000);
+-
+-    return () => clearInterval(interval);
+-  }, []);
+-
+-  // Monitor changes in check-ins and trigger chime sound for new entries
+-  useEffect(() => {
+-    if (appointments.length === 0) return;
+-
+-    const currentCheckedInIds = appointments
+-      .filter(apt => apt.trang_thai === 'da_checkin')
+-      .map(apt => String(apt.id));
+-
+-    if (isFirstLoad.current) {
+-      currentCheckedInIds.forEach(id => seenCheckedInIds.current.add(id));
+-      isFirstLoad.current = false;
+-    } else {
+-      let hasNewCheckIn = false;
+-      currentCheckedInIds.forEach(id => {
+-        if (!seenCheckedInIds.current.has(id)) {
+-          seenCheckedInIds.current.add(id);
+-          hasNewCheckIn = true;
+-        }
+-      });
+-
+-      if (hasNewCheckIn) {
+-        playNotificationSound();
+-        toast('≡ƒöö Bß╗çnh nh├ón mß╗¢i vß╗½a check-in ph├▓ng kh├ím!', {
+-          icon: '≡ƒæÅ',
+-          style: {
+-            borderRadius: '16px',
+-            background: '#0d9488',
+-            color: '#fff',
+-            fontWeight: 'bold',
+-          },
+-        });
+-      }
+-    }
+-  }, [appointments]);
+-
+-  // Monitor changes in unconfirmed appointments (>10 min grace period)
+-  // Alarms fire for ALL qualifying appointments not yet in seenUnconfirmedIds,
+-  // including on page reload ΓÇö receptionist must always be aware of pending calls.
+-  useEffect(() => {
+-    if (appointments.length === 0) return;
+-
+-    const checkNewUnconfirmed = () => {
+-      const graceTimeMs = 10 * 60 * 1000;
+-      const currentUnconfirmed = appointments.filter(apt => {
+-        const createdAt = apt.thoi_gian_tao ? new Date(apt.thoi_gian_tao).getTime() : 0;
+-        const isGracePassed = createdAt > 0 && (createdAt + graceTimeMs <= Date.now());
+-        return apt.trang_thai === 'chua_xac_nhan' && isGracePassed;
+-      });
+-
+-      let hasNewUnconfirmed = false;
+-      let newAptNames: string[] = [];
+-
+-      currentUnconfirmed.forEach(apt => {
+-        const id = String(apt.id);
+-        if (!seenUnconfirmedIds.current.has(id)) {
+-          seenUnconfirmedIds.current.add(id);
+-          hasNewUnconfirmed = true;
+-          const name = apt.ten_khach_hang || apt.ho_ten_khach || 'Kh├ích h├áng';
+-          newAptNames.push(name);
+-        }
+-      });
+-
+-      if (hasNewUnconfirmed && isReceptionist) {
+-        playNotificationSound();
+-        const nameList = newAptNames.slice(0, 2).join(', ') + (newAptNames.length > 2 ? ` v├á ${newAptNames.length - 2} kh├íc` : '');
+-        toast(`≡ƒô₧ ${newAptNames.length} ca kh├ím chß╗¥ li├¬n hß╗ç: ${nameList}`, {
+-          icon: 'ΓÿÄ∩╕Å',
+-          duration: 8000,
+-          style: {
+-            borderRadius: '16px',
+-            background: '#f59e0b',
+-            color: '#fff',
+-            fontWeight: 'bold',
+-          },
+-        });
+-      }
+-    };
+-
+-    checkNewUnconfirmed();
+-    // Run check every 10s to catch appointments crossing the 10-min grace mark
+-    const interval = setInterval(checkNewUnconfirmed, 10000);
+-    return () => clearInterval(interval);
+-  }, [appointments, isReceptionist]);
+-
+-  // Assignment State in Detail Modal
+-  const [assignStaffId, setAssignStaffId] = useState<string>('');
+-  const [assignRoomId, setAssignRoomId] = useState<string>('');
+-  const [assignStatus, setAssignStatus] = useState<string>('');
+-  const [isAssigning, setIsAssigning] = useState(false);
+-
+-  // Treatment Booking Form State
+-  const [treatmentType, setTreatmentType] = useState<'single' | 'package'>('single');
+-  const [selectedServiceId, setSelectedServiceId] = useState<string>('');
+-  const [selectedPackageId, setSelectedPackageId] = useState<string>('');
+-  const [selectedKtvId, setSelectedKtvId] = useState<string>('');
+-  const [selectedRoomId, setSelectedRoomId] = useState<string>('');
+-  const [treatmentDate, setTreatmentDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+-  const [treatmentTime, setTreatmentTime] = useState<string>('09:00');
+-  const [bookingLoading, setBookingLoading] = useState(false);
+-
+-  const fetchData = async () => {
+-    try {
+-      setLoading(true);
+-      const [aptRes, staffRes, serviceRes, packageRes, roomsRes, schedulesRes] = await Promise.all([
+-        axiosInstance.get('/admin/appointments'),
+-        axiosInstance.get('/admin/staff'),
+-        axiosInstance.get('/admin/services'),
+-        axiosInstance.get('/admin/packages').catch(() => ({ data: [] })),
+-        axiosInstance.get('/admin/rooms').catch(() => ({ data: [] })),
+-        axiosInstance.get('/admin/schedules').catch(() => ({ data: [] }))
+-      ]);
+-
+-      setAppointments(aptRes.data);
+-      setStaffList(staffRes.data);
+-      setServices(serviceRes.data);
+-      setPackages(packageRes.data || []);
+-      setRoomsList(roomsRes.data || []);
+-      setSchedulesList(schedulesRes.data || []);
+-    } catch (error) {
+-      console.error('Lß╗ùi tß║úi dß╗» liß╗çu:', error);
+-      toast.error('Kh├┤ng thß╗â tß║úi dß╗» liß╗çu lß╗ïch hß║╣n');
+-    } finally {
+-      setLoading(false);
+-    }
+-  };
+-
+-  useEffect(() => {
+-    fetchData();
+-  }, []);
+-
+-  // Thiß║┐t lß║¡p B├íc s─⌐ mß║╖c ─æß╗ïnh cho kiß╗âm thß╗¡
++  // Auto-set default doctor for simulation
+   useEffect(() => {
+     if (staffList.length > 0 && !selectedDocSimId) {
+-      const doctors = staffList.filter(s => s.vai_tro === 'B├íc s─⌐');
+-      if (doctors.length > 0) {
+-        setSelectedDocSimId(doctors[0].chuyen_gia_id || doctors[0].id);
+-      }
++      const doctors = staffList.filter((s) => s.vai_tro === 'B├íc s─⌐');
++      if (doctors.length > 0) setSelectedDocSimId(doctors[0].chuyen_gia_id || doctors[0].id);
+     }
+   }, [staffList, selectedDocSimId]);
+ 
+-  const lastToastedRef = useRef<Record<string, number>>({});
+-  
+-  // Real-time expiring toast notifier
+-  useEffect(() => {
+-    const checkExpiringAppointments = () => {
+-      const now = Date.now();
+-      const urgentApts = appointments.filter(apt => {
+-        if (!['cho_xac_nhan', 'chua_xac_nhan'].includes(apt.trang_thai)) return false;
+-        if (apt.bac_si_id || apt.chuyen_gia_id) return false;
+-        if (!apt.han_xac_nhan) return false;
+-        const timeLeftMs = new Date(apt.han_xac_nhan).getTime() - now;
+-        return timeLeftMs > 0 && timeLeftMs <= 5 * 60 * 1000;
+-      });
+-
+-      urgentApts.forEach(apt => {
+-        const lastToastedTime = lastToastedRef.current[apt.id] || 0;
+-        if (now - lastToastedTime > 2 * 60 * 1000) {
+-          lastToastedRef.current[apt.id] = now;
+-          const timeLeftMins = Math.ceil((new Date(apt.han_xac_nhan).getTime() - now) / 60000);
+-          toast(`≡ƒÜ¿ Lß╗ïch kh├ím ${apt.ma_lich_dat} cß╗ºa ${apt.ten_khach_hang} sß║»p hß║┐t hß║ín ph├ón bß╗ò ΓÇö chß╗ë c├▓n ${timeLeftMins} ph├║t!`, {
+-            icon: 'ΓÅ│',
+-            duration: 8000,
+-            style: {
+-              borderRadius: '16px',
+-              background: '#ef4444',
+-              color: '#fff',
+-              fontWeight: 'bold',
+-            },
+-          });
+-        }
+-      });
+-    };
+-
+-    checkExpiringAppointments();
+-    const interval = setInterval(checkExpiringAppointments, 30 * 1000); // Check every 30s
+-    return () => clearInterval(interval);
+-  }, [appointments]);
+-
+-  const handleUpdateAppointment = async (e?: React.FormEvent) => {
+-    if (e) e.preventDefault();
+-    if (!selectedAppointment) return;
+-
+-    try {
+-      setIsAssigning(true);
+-
+-      let finalStatus = assignStatus;
+-      if (['chua_xac_nhan', 'cho_xac_nhan'].includes(selectedAppointment.trang_thai) && assignStaffId && assignRoomId) {
+-        finalStatus = 'da_xac_nhan';
+-      }
+-
+-      await axiosInstance.patch(`/admin/appointments/${selectedAppointment.id}/status`, {
+-        trang_thai: finalStatus,
+-        bac_si_id: assignStaffId || null,
+-        chuyen_gia_id: assignStaffId || null,
+-        phong_id: assignRoomId || null
+-      });
+-
+-      toast.success('Cß║¡p nhß║¡t th├┤ng tin ca trß╗▒c th├ánh c├┤ng');
+-      setIsDetailModalOpen(false);
+-      fetchData();
+-    } catch (error) {
+-      console.error('Failed to update:', error);
+-      toast.error('Lß╗ùi cß║¡p nhß║¡t ca trß╗▒c');
+-    } finally {
+-      setIsAssigning(false);
+-    }
+-  };
+-
+-  const handleBookTreatment = async (e: React.FormEvent) => {
+-    e.preventDefault();
+-    if (!selectedAppointment) return;
+-
+-    const chosenServiceId = treatmentType === 'single' ? selectedServiceId : null;
+-    const chosenPackageId = treatmentType === 'package' ? selectedPackageId : null;
+-
+-    if (treatmentType === 'single' && !chosenServiceId) { toast.error('Vui l├▓ng chß╗ìn dß╗ïch vß╗Ñ linh ─æß╗Öng'); return; }
+-    if (treatmentType === 'package' && !chosenPackageId) { toast.error('Vui l├▓ng chß╗ìn liß╗çu tr├¼nh'); return; }
+-    if (!selectedKtvId) { toast.error('Vui l├▓ng chß╗ìn Chuy├¬n gia y tß║┐'); return; }
+-
+-    try {
+-      setBookingLoading(true);
+-
+-      let durationMin = 60; // default to 60 mins
+-      if (treatmentType === 'single') {
+-        const service = services.find(s => String(s.id) === String(chosenServiceId));
+-        if (service) {
+-          durationMin = Number(service.thoi_luong_phut) || 60;
+-        }
+-      } else {
+-        const pkg = packages.find(p => String(p.id) === String(chosenPackageId));
+-        if (pkg && pkg.chi_tiet_dich_vu) {
+-          let items: any[] = [];
+-          try {
+-            items = typeof pkg.chi_tiet_dich_vu === 'string'
+-              ? JSON.parse(pkg.chi_tiet_dich_vu)
+-              : pkg.chi_tiet_dich_vu;
+-          } catch (e) {
+-            console.error('Lß╗ùi parse chi_tiet_dich_vu:', e);
+-          }
+-          if (Array.isArray(items)) {
+-            let sum = 0;
+-            items.forEach(item => {
+-              const svc = services.find(s => String(s.id) === String(item.dich_vu_id));
+-              if (svc) {
+-                sum += Number(svc.thoi_luong_phut) || 0;
+-              }
+-            });
+-            if (sum > 0) {
+-              durationMin = sum;
+-            }
+-          }
+-        }
+-      }
+-
+-      // Chuyß╗ân ─æß╗òi giß╗¥ cß╗Ñc bß╗Ö (VN UTC+7) sang UTC ─æ├║ng chuß║⌐n ─æß╗Öc lß║¡p vß╗¢i m├║i giß╗¥ tr├¼nh duyß╗çt
+-      const [h, m] = treatmentTime.split(':').map(Number);
+-      const endTotalMins = h * 60 + m + durationMin;
+-      const endH = Math.floor(endTotalMins / 60) % 24;
+-      const endM = endTotalMins % 60;
+-      const endHourStr = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+-
+-      const startDateTimeStr = convertToVietnamUtcIso(treatmentDate, treatmentTime);
+-      const endDateTimeStr = convertToVietnamUtcIso(treatmentDate, endHourStr);
+-
+-      const payload = {
+-        khach_hang_id: selectedAppointment.khach_hang_id,
+-        ho_ten_khach: selectedAppointment.khach_hang_id ? undefined : selectedAppointment.ten_khach_hang,
+-        so_dien_thoai: selectedAppointment.khach_hang_id ? undefined : selectedAppointment.so_dien_thoai,
+-        dich_vu_id: chosenServiceId || null,
+-        ky_thuat_vien_id: selectedKtvId,
+-        phong_id: selectedRoomId || null,
+-        ghi_chu_dat_lich: `Ca trß╗ï liß╗çu khß╗ƒi tß║ío tß╗½ Lß╗ïch kh├ím: ${selectedAppointment.ma_lich_dat}`,
+-        ngay_gio_bat_dau: startDateTimeStr,
+-        ngay_gio_ket_thuc: endDateTimeStr,
+-        loai_lich: 'dieu_tri',
+-        dang_ky_goi_id: chosenPackageId,
+-        lich_dat_id: selectedAppointment.id
+-      };
+-
+-      await axiosInstance.post('/admin/appointments', payload);
+-      toast.success('L├¬n lß╗ïch ca ─æiß╗üu trß╗ï th├ánh c├┤ng!');
+-      setIsTreatmentModalOpen(false);
+-      fetchData();
+-    } catch (error: any) {
+-      toast.error(error.response?.data?.message || 'Kh├┤ng thß╗â tß║ío ca ─æiß╗üu trß╗ï');
+-    } finally {
+-      setBookingLoading(false);
+-    }
+-  };
+-
+-  const handleNavigateDay = (direction: 'next' | 'prev' | 'today') => {
+-    if (direction === 'today') {
+-      setSelectedDate(new Date());
+-    } else if (direction === 'next') {
+-      setSelectedDate(prev => viewMode === 'week' ? addDays(prev, 7) : addDays(prev, 1));
+-    } else {
+-      setSelectedDate(prev => viewMode === 'week' ? subDays(prev, 7) : subDays(prev, 1));
+-    }
+-  };
+-
+-
+-  const activeRole = 'B├íc s─⌐';
++  // ΓöÇΓöÇΓöÇ Derived state ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++  const scheduleType = 'kham_moi';
++  const roomFilter = 'all';
+   const formattedSelectedDate = format(selectedDate, 'yyyy-MM-dd');
+-
+   const startDateOfWeek = startOfWeek(selectedDate, { weekStartsOn: 1 });
+   const endDateOfWeek = addDays(startDateOfWeek, 6);
++  const isSelectedToday = formattedSelectedDate === format(new Date(), 'yyyy-MM-dd');
++  const isSelectedCurrentWeek = format(startDateOfWeek, 'yyyy-MM-dd') === format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
++  const isCurrentRangeActive = viewMode === 'today' ? isSelectedToday : isSelectedCurrentWeek;
+ 
+-  const filteredAppointments = appointments.filter(apt => {
+-    const aptDate = new Date(apt.ngay_gio_bat_dau);
+-    let matchDate = false;
+-
+-    if (viewMode === 'today') {
+-      const aptDateStr = format(aptDate, 'yyyy-MM-dd');
+-      matchDate = aptDateStr === formattedSelectedDate;
+-    } else {
+-      matchDate = aptDate >= startDateOfWeek && aptDate <= new Date(endDateOfWeek.setHours(23, 59, 59, 999));
+-    }
++  const handleNavigateDay = (direction: 'next' | 'prev' | 'today') => {
++    if (direction === 'today') setSelectedDate(new Date());
++    else if (direction === 'next') setSelectedDate((p) => viewMode === 'week' ? addDays(p, 7) : addDays(p, 1));
++    else setSelectedDate((p) => viewMode === 'week' ? subDays(p, 7) : subDays(p, 1));
++  };
+ 
++  const filteredAppointments = appointments.filter((apt) => {
++    const aptDate = new Date(apt.ngay_gio_bat_dau);
++    const aptDateStr = format(aptDate, 'yyyy-MM-dd');
++    const matchDate = viewMode === 'today'
++      ? aptDateStr === formattedSelectedDate
++      : aptDate >= startDateOfWeek && aptDate <= new Date(new Date(endDateOfWeek).setHours(23, 59, 59, 999));
+     const matchType = apt.loai_lich === scheduleType || apt.loai_lich === 'dich_vu_don';
+     const matchRoom = roomFilter === 'all' || String(apt.phong_id) === roomFilter;
++    const name = apt.ten_khach_hang || apt.ho_ten_khach || '';
+     const matchSearch = searchTerm === '' ||
+-      apt.ma_lich_dat.toLowerCase().includes(searchTerm.toLowerCase()) ||
+-      apt.ten_khach_hang.toLowerCase().includes(searchTerm.toLowerCase());
++      (apt.ma_lich_dat?.toLowerCase().includes(searchTerm.toLowerCase())) ||
++      name.toLowerCase().includes(searchTerm.toLowerCase());
+ 
+     if (isReceptionist) {
+       if (receptionistTab === 'pending_contact') {
+-        // Chß╗ë hiß╗ân thß╗ï lß╗ïch kh├ím ch╞░a x├íc nhß║¡n v├á ─æ├ú qu├í 10 ph├║t kß╗â tß╗½ l├║c tß║ío
+-        const graceTimeMs = 10 * 60 * 1000;
+         const createdAt = apt.thoi_gian_tao ? new Date(apt.thoi_gian_tao).getTime() : 0;
+-        const isGracePassed = createdAt > 0 && (createdAt + graceTimeMs <= Date.now());
+-        return apt.trang_thai === 'chua_xac_nhan' && isGracePassed && matchSearch;
+-      } else {
+-        // Chß╗ë hiß╗ân thß╗ï lß╗ïch biß╗âu ─æ├ú ─æ╞░ß╗úc g├ín b├íc s─⌐
+-        return (apt.bac_si_id || apt.chuyen_gia_id) && matchDate && matchType && matchRoom && matchSearch;
+-      }
+-    } else {
+-      // Quß║ún l├╜: kh├┤ng hiß╗ân thß╗ï c├íc ca ch╞░a gß╗ìi x├íc nhß║¡n (chua_xac_nhan) tr├¬n bß║úng lß╗ïch tr├¼nh ch├¡nh
+-      if (apt.trang_thai === 'chua_xac_nhan') {
+-        return false;
++        return apt.trang_thai === 'chua_xac_nhan' && createdAt > 0 && createdAt + UNCONFIRMED_GRACE_MS <= Date.now() && matchSearch;
+       }
++      return (apt.bac_si_id || apt.chuyen_gia_id) && matchDate && matchType && matchRoom && matchSearch;
+     }
+-
++    if (apt.trang_thai === 'chua_xac_nhan') return false;
+     return matchDate && matchType && matchRoom && matchSearch;
+   });
+ 
+-  // KPI Metrics calculation
+-  const dailyAppointments = appointments.filter(apt => {
+-    const aptDateStr = format(new Date(apt.ngay_gio_bat_dau), 'yyyy-MM-dd');
++  const kpiApts = appointments.filter((apt) => {
++    const aptDate = new Date(apt.ngay_gio_bat_dau);
+     const matchType = apt.loai_lich === scheduleType || apt.loai_lich === 'dich_vu_don';
+-    return aptDateStr === formattedSelectedDate && matchType;
++    return viewMode === 'today'
++      ? format(aptDate, 'yyyy-MM-dd') === formattedSelectedDate && matchType
++      : aptDate >= startDateOfWeek && aptDate <= new Date(new Date(endDateOfWeek).setHours(23, 59, 59, 999)) && matchType;
+   });
+ 
+   const kpis = {
+-    total: (viewMode === 'today' ? dailyAppointments : filteredAppointments).filter(a => a.bac_si_id || a.chuyen_gia_id).length,
+-    waiting: (viewMode === 'today' ? dailyAppointments : filteredAppointments).filter(a => a.trang_thai === 'cho_xac_nhan').length,
+-    completed: (viewMode === 'today' ? dailyAppointments : filteredAppointments).filter(a => a.trang_thai === 'hoan_thanh').length,
+-    cancelled: (viewMode === 'today' ? dailyAppointments : filteredAppointments).filter(a => a.trang_thai === 'da_huy' || a.trang_thai === 'khong_den').length,
++    total: kpiApts.filter((a) => a.bac_si_id || a.chuyen_gia_id).length,
++    waiting: kpiApts.filter((a) => a.trang_thai === 'cho_xac_nhan').length,
++    completed: kpiApts.filter((a) => a.trang_thai === 'hoan_thanh').length,
++    cancelled: kpiApts.filter((a) => a.trang_thai === 'da_huy' || a.trang_thai === 'khong_den').length,
+   };
+ 
+-
+-
+-
+   const unconfirmedAppointments = appointments
+-    .filter(apt => {
+-      const graceTimeMs = 10 * 60 * 1000;
++    .filter((apt) => {
+       const createdAt = apt.thoi_gian_tao ? new Date(apt.thoi_gian_tao).getTime() : 0;
+-      const isGracePassed = createdAt > 0 && (createdAt + graceTimeMs <= Date.now());
+-      const isPending = apt.trang_thai === 'chua_xac_nhan' && isGracePassed;
+-      return isPending;
++      return apt.trang_thai === 'chua_xac_nhan' && createdAt > 0 && createdAt + UNCONFIRMED_GRACE_MS <= Date.now();
+     })
+     .sort((a, b) => new Date(a.ngay_gio_bat_dau).getTime() - new Date(b.ngay_gio_bat_dau).getTime());
+ 
+   const unassignedAppointments = appointments
+-    .filter(apt => {
++    .filter((apt) => {
+       const aptDateStr = format(new Date(apt.ngay_gio_bat_dau), 'yyyy-MM-dd');
+-      const isSelectedDate = aptDateStr === formattedSelectedDate;
+-      const isClinical = apt.loai_lich === 'kham_moi' || apt.loai_lich === 'dich_vu_don';
+-      const isWaitingForAssignment = apt.trang_thai === 'cho_xac_nhan';
+-      const hasNoDoctor = !apt.bac_si_id && !apt.chuyen_gia_id;
+-      return isSelectedDate && isClinical && isWaitingForAssignment && hasNoDoctor;
++      return aptDateStr === formattedSelectedDate &&
++        (apt.loai_lich === 'kham_moi' || apt.loai_lich === 'dich_vu_don') &&
++        apt.trang_thai === 'cho_xac_nhan' && !apt.bac_si_id && !apt.chuyen_gia_id;
+     })
+     .sort((a, b) => new Date(a.ngay_gio_bat_dau).getTime() - new Date(b.ngay_gio_bat_dau).getTime());
+ 
+-  const expiringAppointments = appointments
+-    .filter(apt => {
+-      if (!['cho_xac_nhan', 'chua_xac_nhan'].includes(apt.trang_thai)) return false;
+-      if (apt.bac_si_id || apt.chuyen_gia_id) return false;
+-      if (!apt.han_xac_nhan) return false;
+-      const timeLeftMs = new Date(apt.han_xac_nhan).getTime() - Date.now();
+-      return timeLeftMs > 0 && timeLeftMs <= 10 * 60 * 1000; // expiring in 10 minutes
+-    })
+-    .sort((a, b) => new Date(a.han_xac_nhan).getTime() - new Date(b.han_xac_nhan).getTime());
+-
+-  const urgent4hAppointments = unassignedAppointments.filter(apt => {
+-    const now = new Date();
+-    const start = new Date(apt.ngay_gio_bat_dau);
+-    const diffMs = start.getTime() - now.getTime();
+-    return diffMs > -15 * 60 * 1000 && diffMs <= 4 * 60 * 60 * 1000;
+-  });
+-
+-  // ─Éß╗ïnh ngh─⌐a danh s├ích Mascot theo vai tr├▓
+-  const managerMascotApts = appointments.filter(apt => {
+-    const isClinical = apt.loai_lich === 'kham_moi' || apt.loai_lich === 'dich_vu_don';
+-    const isWaitingForAssignment = apt.trang_thai === 'cho_xac_nhan';
+-    const hasNoDoctor = !apt.bac_si_id && !apt.chuyen_gia_id;
+-    return isClinical && isWaitingForAssignment && hasNoDoctor;
+-  }).sort((a, b) => new Date(a.ngay_gio_bat_dau).getTime() - new Date(b.ngay_gio_bat_dau).getTime());
+-
+-  const receptionistMascotApts = unconfirmedAppointments;
+-
+-  const doctorMascotApts = appointments.filter(apt => {
+-    const aptDateStr = format(new Date(apt.ngay_gio_bat_dau), 'yyyy-MM-dd');
+-    const isToday = aptDateStr === formattedSelectedDate;
+-    const isMatchedDoctor = String(apt.bac_si_id || apt.chuyen_gia_id) === String(selectedDocSimId);
+-    const isCheckedIn = apt.trang_thai === 'da_checkin';
+-    return isToday && isMatchedDoctor && isCheckedIn;
+-  }).sort((a, b) => new Date(a.ngay_gio_bat_dau).getTime() - new Date(b.ngay_gio_bat_dau).getTime());
+-
+-  // Chß╗ìn danh s├ích mß╗Ñc ti├¬u Mascot theo vai tr├▓ ─æang chß╗ìn
+-  const mascotTargetAppointments = 
+-    roleView === 'receptionist'
+-      ? receptionistMascotApts
+-      : roleView === 'doctor'
+-        ? doctorMascotApts
+-        : managerMascotApts;
+-
+-  // KPI ─æß║╖c th├╣ cho Lß╗à t├ón
+-  const receptionistKpis = {
+-    total: dailyAppointments.filter(a => a.bac_si_id || a.chuyen_gia_id).length,
+-    pendingContact: receptionistMascotApts.length,
+-    assigned: dailyAppointments.filter(a => (a.bac_si_id || a.chuyen_gia_id) && a.trang_thai === 'da_xac_nhan').length,
+-    checkedIn: dailyAppointments.filter(a => a.trang_thai === 'da_checkin').length,
+-  };
+-
+-  // T├¡nh to├ín phß╗Ñ tß║úi l├ám viß╗çc cß╗ºa tß╗½ng b├íc s─⌐ trong ng├áy
+-  const doctorWorkloads = staffList
+-    .filter(s => s.vai_tro === 'B├íc s─⌐')
+-    .map(doc => {
+-      const docSchedules = schedulesList.filter(s =>
+-        String(s.nguoi_dung_id) === String(doc.id) &&
+-        s.ngay === formattedSelectedDate &&
+-        s.trang_thai === 'hoat_dong'
+-      );
+-      const hasShift = docSchedules.length > 0;
+-
+-      const docApts = appointments.filter(apt =>
+-        (apt.bac_si_id === doc.chuyen_gia_id || apt.chuyen_gia_id === doc.chuyen_gia_id) &&
+-        format(new Date(apt.ngay_gio_bat_dau), 'yyyy-MM-dd') === formattedSelectedDate &&
+-        apt.trang_thai !== 'da_huy' &&
+-        apt.trang_thai !== 'khong_den'
+-      );
+-
+-      const maxSlots = 16;
+-      const occupiedCount = docApts.length;
+-      const percentage = maxSlots > 0 ? Math.min(Math.round((occupiedCount / maxSlots) * 100), 100) : 0;
+-
+-      return {
+-        id: doc.id,
+-        chuyen_gia_id: doc.chuyen_gia_id,
+-        name: doc.ho_ten,
+-        hasShift,
+-        occupiedCount,
+-        maxSlots,
+-        percentage
+-      };
+-    });
+-
+-  // Cß║Ñu h├¼nh danh s├ích lß╗çnh cho Command Palette (Ctrl+K)
+-  const commandShortcuts = [
+-    {
+-      id: 'view_today',
+-      name: 'Xem Lß╗ïch tr├¼nh H├┤m nay',
+-      icon: <CalendarIcon size={14} />,
+-      shortcut: 'T',
+-      action: () => setViewMode('today')
+-    },
+-    {
+-      id: 'view_week',
+-      name: 'Xem Lß╗ïch tr├¼nh Tuß║ºn n├áy',
+-      icon: <CalendarDays size={14} />,
+-      shortcut: 'W',
+-      action: () => setViewMode('week')
+-    },
+-    {
+-      id: 'walk_in',
+-      name: '─É─âng k├╜ Kh├ích v├úng lai (Walk-In)',
+-      icon: <Activity size={14} />,
+-      shortcut: 'N',
+-      action: () => {
+-        setWalkInTime('09:00');
+-        setIsWalkInModalOpen(true);
+-      }
+-    },
+-
+-    {
+-      id: 'toggle_theme',
+-      name: 'Chuyß╗ân ─æß╗òi giao diß╗çn S├íng / Tß╗æi',
+-      icon: <Settings size={14} />,
+-      shortcut: 'L',
+-      action: () => {
+-        const isDark = document.documentElement.classList.contains('dark');
+-        if (isDark) {
+-          document.documentElement.classList.remove('dark');
+-          document.body.classList.remove('dark');
+-          localStorage.setItem('theme', 'light');
+-        } else {
+-          document.documentElement.classList.add('dark');
+-          document.body.classList.add('dark');
+-          localStorage.setItem('theme', 'dark');
+-        }
+-        window.dispatchEvent(new Event('theme-change'));
+-      }
+-    }
+-  ];
++  const expiringAppointments = appointments.filter((apt) => {
++    if (!['cho_xac_nhan', 'chua_xac_nhan'].includes(apt.trang_thai)) return false;
++    if (apt.bac_si_id || apt.chuyen_gia_id) return false;
++    if (!apt.han_xac_nhan) return false;
++    const left = new Date(apt.han_xac_nhan).getTime() - Date.now();
++    return left > 0 && left <= 10 * 60 * 1000;
++  }).sort((a, b) => new Date(a.han_xac_nhan!).getTime() - new Date(b.han_xac_nhan!).getTime());
+ 
+-  const filteredCommands = commandShortcuts.filter(cmd =>
+-    cmd.name.toLowerCase().includes(commandSearch.toLowerCase())
+-  );
+-
+-  const filteredApts = commandSearch.trim() === '' ? [] : appointments.filter(apt =>
+-    apt.ten_khach_hang.toLowerCase().includes(commandSearch.toLowerCase()) ||
+-    apt.ma_lich_dat.toLowerCase().includes(commandSearch.toLowerCase())
+-  );
+-
+-  const handleOpenDetailModal = (apt: any) => {
+-    if (roleView === 'doctor') {
+-      if (['cho_kham', 'dang_kham', 'da_checkin'].includes(apt.trang_thai)) {
+-        navigate(`/doctor/appointments/${apt.id}/assess`);
+-        return;
+-      }
+-    }
+-    setSelectedAppointment(apt);
+-    setAssignStatus(apt.trang_thai);
+-    setAssignStaffId(apt.bac_si_id || apt.chuyen_gia_id || '');
+-    setAssignRoomId(apt.phong_id ? String(apt.phong_id) : '');
+-    setIsDetailModalOpen(true);
+-  };
++  const managerMascotApts = appointments
++    .filter((a) => (a.loai_lich === 'kham_moi' || a.loai_lich === 'dich_vu_don') && a.trang_thai === 'cho_xac_nhan' && !a.bac_si_id && !a.chuyen_gia_id)
++    .sort((a, b) => new Date(a.ngay_gio_bat_dau).getTime() - new Date(b.ngay_gio_bat_dau).getTime());
+ 
+-  const handleOpenTreatmentModal = (type: 'single' | 'package' | null = null, recId: string | null = null) => {
+-    if (!selectedAppointment) return;
+-    setIsDetailModalOpen(false);
+-    setTreatmentType(type || 'single');
+-    setSelectedServiceId(type === 'single' && recId ? recId : '');
+-    setSelectedPackageId(type === 'package' && recId ? recId : '');
+-    setSelectedKtvId('');
+-    setSelectedRoomId('');
+-    setTreatmentDate(format(new Date(), 'yyyy-MM-dd'));
+-    setTreatmentTime('10:00');
+-    setIsTreatmentModalOpen(true);
+-  };
++  void managerMascotApts;
++  void unconfirmedAppointments;
++  void unassignedAppointments;
++  void expiringAppointments;
+ 
+-  const handleBookWalkIn = async (payload: any) => {
++  const handleWalkInSubmit = useCallback(async (payload: Record<string, unknown>) => {
+     try {
+-      setBookingLoading(true);
+-      await axiosInstance.post('/admin/appointments', payload);
+-      toast.success('─É─âng k├╜ kh├ích v├úng lai th├ánh c├┤ng. Ca kh├ím ─æ├ú ─æ╞░ß╗úc Check-in!');
+-      setIsWalkInModalOpen(false);
+-      fetchData();
+-    } catch (error: any) {
+-      toast.error(error.response?.data?.message || 'Kh├┤ng thß╗â tß║ío ca kh├ím v├úng lai');
++      setWalkInLoading(true);
++      await api.post('/admin/appointments', payload);
++      toast.success('─É├ú tß║ío lß╗ïch walk-in th├ánh c├┤ng!');
++      actions.setIsWalkInModalOpen(false);
++      await refetch();
++    } catch {
++      toast.error('Kh├┤ng thß╗â tß║ío lß╗ïch walk-in');
+     } finally {
+-      setBookingLoading(false);
+-    }
+-  };
+-
+-  const handleUpdateAppointmentFields = async (appointmentId: string, updatedFields: any) => {
+-    try {
+-      await axiosInstance.patch(`/admin/appointments/${appointmentId}/status`, updatedFields);
+-      toast.success('─É├ú cß║¡p nhß║¡t ph├ón bß╗ò lß╗ïch tr├¼nh');
+-      fetchData();
+-    } catch (error: any) {
+-      console.error('Lß╗ùi khi ─æiß╗üu phß╗æi k├⌐o thß║ú:', error);
+-      toast.error(error.response?.data?.message || 'B├íc s─⌐ hoß║╖c ph├▓ng ─æ├ú bß╗ï tr├╣ng v├áo khung giß╗¥ n├áy.');
+-    }
+-  };
+-
+-  const scrollToAppointment = (aptId: string) => {
+-    const apt = appointments.find(a => String(a.id) === String(aptId));
+-    if (!apt) {
+-      toast.error('Kh├┤ng t├¼m thß║Ñy ca hß║╣n tr├¬n hß╗ç thß╗æng.');
+-      return;
++      setWalkInLoading(false);
+     }
++  }, [actions, refetch]);
+ 
+-    const aptDate = new Date(apt.ngay_gio_bat_dau);
+-    const formattedAptDate = format(aptDate, 'yyyy-MM-dd');
+-    const formattedSelectedDate = format(selectedDate, 'yyyy-MM-dd');
+-
+-    const doScroll = () => {
+-      const element = document.getElementById(`appointment-card-${aptId}`);
+-      if (element) {
+-        element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+-
+-        // Highlighting style effects
+-        element.style.transition = 'all 0.5s ease-in-out';
+-        element.style.boxShadow = '0 0 25px rgba(245, 158, 11, 0.9)';
+-        element.style.borderColor = '#f59e0b';
+-        element.style.borderWidth = '2px';
+-        element.style.transform = 'scale(1.05)';
+-
+-        // Fade away smoothly after 2 seconds
+-        setTimeout(() => {
+-          element.style.boxShadow = '';
+-          element.style.borderColor = '';
+-          element.style.borderWidth = '';
+-          element.style.transform = '';
+-        }, 2000);
+-      } else {
+-        toast.error('Kh├┤ng t├¼m thß║Ñy ca hß║╣n tr├¬n bß║úng lß╗ïch tr├¼nh.');
+-      }
+-    };
+-
+-    // Kiß╗âm tra xem ng├áy cß╗ºa lß╗ïch hß║╣n c├│ nß║▒m trong tuß║ºn ─æ╞░ß╗úc chß╗ìn hiß╗çn tß║íi kh├┤ng
+-    const currentWeekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
+-    const currentWeekEnd = addDays(currentWeekStart, 6);
+-    const isWithinSelectedWeek = aptDate >= currentWeekStart && aptDate <= new Date(currentWeekEnd.setHours(23, 59, 59, 999));
+-
+-    let needsTransition = false;
+-
+-    if (viewMode === 'today' && formattedAptDate !== formattedSelectedDate) {
+-      // Nß║┐u ─æang ß╗ƒ tab H├┤m nay m├á lß╗ïch hß║╣n ß╗ƒ ng├áy kh├íc: chuyß╗ân tab sang Tuß║ºn n├áy v├á ─æß╗òi ng├áy
+-      setViewMode('week');
+-      setSelectedDate(aptDate);
+-      needsTransition = true;
+-    } else if (viewMode === 'week' && !isWithinSelectedWeek) {
+-      // Nß║┐u ─æang ß╗ƒ tab Tuß║ºn n├áy m├á lß╗ïch hß║╣n ß╗ƒ tuß║ºn kh├íc: ─æß╗òi ng├áy ─æß╗â chuyß╗ân tuß║ºn
+-      setSelectedDate(aptDate);
+-      needsTransition = true;
+-    }
+-
+-    if (needsTransition) {
+-      // ─Éß╗úi DOM cß║¡p nhß║¡t lß║íi lß╗ïch tr├¼nh cß╗ºa tuß║ºn/ng├áy mß╗¢i
+-      setTimeout(doScroll, 300);
+-    } else {
+-      doScroll();
+-    }
+-  };
+-
+-  if (loading && appointments.length === 0) {
++  // ΓöÇΓöÇΓöÇ Loading state ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++  if (loading) {
+     return (
+-      <div className="flex flex-col justify-center items-center h-96 gap-4">
+-        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-emerald-600 border-r-2 border-emerald-200 dark:border-t-emerald-400"></div>
+-        <p className="text-slate-500 dark:text-zinc-400 font-medium text-sm">─Éang ─æß╗ông bß╗Ö h├│a hß╗ç thß╗æng lß╗ïch tr├¼nh...</p>
++      <div className="flex-1 flex items-center justify-center min-h-[60vh]">
++        <div className="flex flex-col items-center gap-4">
++          <div className="w-12 h-12 rounded-full border-4 border-[#2EC4B6] border-t-transparent animate-spin" />
++          <p className="text-sm font-semibold text-slate-400">─Éang tß║úi dß╗» liß╗çu lß╗ïch hß║╣n...</p>
++        </div>
+       </div>
+     );
+   }
+ 
++  // ΓöÇΓöÇΓöÇ JSX ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+   return (
+-    <div className="space-y-6 max-w-full">
+-      {/* HEADER SECTION */}
+-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center pb-2 gap-4">
+-        <div>
+-          <div className="flex items-center gap-2 mb-1">
+-            <Layers className="text-emerald-700 dark:text-emerald-450" size={28} />
+-            <h1 className="text-3xl font-extrabold tracking-tight text-slate-800 dark:text-zinc-100 flex items-center gap-2.5">
+-              Lß╗ïch Hß║╣n Kh├ím
+-              <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 px-2 py-0.5 rounded border border-slate-200/50 dark:border-zinc-700 font-semibold select-none">
+-                <Command size={10} /> K
+-              </span>
+-            </h1>
+-          </div>
+-          <p className="text-slate-500 dark:text-zinc-400 text-sm">Quß║ún l├╜ v├á ─æiß╗üu phß╗æi c├íc ca kh├ím l├óm s├áng vß╗¢i B├íc s─⌐.</p>
+-        </div>
+-
+-        <div className="flex flex-wrap items-center gap-3 self-stretch md:self-auto justify-end">
+-          <div className="flex items-center bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-slate-100 dark:border-zinc-800 p-1 justify-between select-none transition-colors duration-300">
+-            <button onClick={() => handleNavigateDay('prev')} className="p-2 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-650 dark:text-zinc-350 rounded-lg transition-colors">
+-              <ChevronLeft size={18} />
+-            </button>
+-            <div className="px-5 text-sm font-semibold text-slate-700 dark:text-zinc-200 text-center min-w-[180px] md:min-w-[220px]">
+-              {viewMode === 'today'
+-                ? format(selectedDate, 'eeee, dd/MM/yyyy', { locale: vi })
+-                : `Tuß║ºn: ${format(startDateOfWeek, 'dd/MM')} - ${format(endDateOfWeek, 'dd/MM/yyyy')}`
+-              }
+-            </div>
+-            <button onClick={() => handleNavigateDay('next')} className="p-2 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-650 dark:text-zinc-350 rounded-lg transition-colors">
+-              <ChevronRight size={18} />
+-            </button>
+-          </div>
+-        </div>
+-      </div>
+-
+-      {/* ROLE VIEW SWITCHER FOR TESTING */}
+-      <div className="bg-slate-50 dark:bg-zinc-800/40 border border-slate-200/60 dark:border-zinc-800/80 p-3 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm mb-4">
+-        <div className="flex items-center gap-2 select-none">
+-          <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
+-          <span className="text-xs font-black text-slate-500 dark:text-zinc-400 uppercase tracking-widest">
+-            CHß║╛ ─Éß╗ÿ XEM VAI TR├Æ (ADMIN TEST):
+-          </span>
+-        </div>
+-        
+-        <div className="flex flex-wrap items-center gap-4">
+-          {/* Button group */}
+-          <div className="flex bg-white dark:bg-zinc-900 p-1 rounded-xl shadow-inner border border-slate-100 dark:border-zinc-800/50 select-none">
+-            <button
+-              onClick={() => {
+-                setRoleView('manager');
+-                toast.success('─É├ú chuyß╗ân sang chß║┐ ─æß╗Ö Quß║ún l├╜ / Admin');
+-              }}
+-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-extrabold rounded-lg transition-all ${
+-                roleView === 'manager'
+-                  ? 'bg-emerald-600 dark:bg-emerald-700 text-white shadow-md'
+-                  : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200'
+-              }`}
+-            >
+-              <Briefcase size={14} /> Quß║ún l├╜
+-            </button>
+-            <button
+-              onClick={() => {
+-                setRoleView('receptionist');
+-                setReceptionistTab('pending_contact');
+-                toast.success('─É├ú chuyß╗ân sang chß║┐ ─æß╗Ö Lß╗à t├ón');
+-              }}
+-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-extrabold rounded-lg transition-all ${
+-                roleView === 'receptionist'
+-                  ? 'bg-emerald-600 dark:bg-emerald-700 text-white shadow-md'
+-                  : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200'
+-              }`}
+-            >
+-              <CalendarIcon size={14} /> Lß╗à t├ón
+-            </button>
+-            <button
+-              onClick={() => {
+-                setRoleView('doctor');
+-                toast.success('─É├ú chuyß╗ân sang chß║┐ ─æß╗Ö B├íc s─⌐');
+-              }}
+-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-extrabold rounded-lg transition-all ${
+-                roleView === 'doctor'
+-                  ? 'bg-emerald-600 dark:bg-emerald-700 text-white shadow-md'
+-                  : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200'
+-              }`}
+-            >
+-              <Stethoscope size={14} /> B├íc s─⌐
+-            </button>
+-          </div>
+-
+-          {/* Doctor selector dropdown when in doctor view */}
+-          {roleView === 'doctor' && (
+-            <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-3 duration-200">
+-              <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider select-none">M├┤ phß╗Ång B├íc s─⌐:</span>
+-              <select
+-                value={selectedDocSimId}
+-                onChange={(e) => {
+-                  setSelectedDocSimId(e.target.value);
+-                  const docObj = staffList.find(s => String(s.chuyen_gia_id || s.id) === String(e.target.value));
+-                  if (docObj) {
+-                    toast.success(`─Éang m├┤ phß╗Ång lß╗ïch cß╗ºa BS. ${docObj.ho_ten}`);
+-                  }
+-                }}
+-                className="px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-bold rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20"
+-              >
+-                {staffList
+-                  .filter(s => s.vai_tro === 'B├íc s─⌐')
+-                  .map(doc => (
+-                    <option key={doc.id} value={doc.chuyen_gia_id || doc.id}>
+-                      BS. {doc.ho_ten}
+-                    </option>
+-                  ))}
+-              </select>
+-            </div>
+-          )}
+-        </div>
+-      </div>
+-
+-      {/* RECEPTIONIST FLOW TABS (ONLY WHEN SIMULATING RECEPTIONIST) */}
+-      {isReceptionist && (
+-        <div className="flex bg-slate-100 dark:bg-zinc-800/40 p-1 rounded-2xl border border-slate-200/50 dark:border-zinc-800/85 max-w-lg mb-4 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
+-          <button
+-            onClick={() => setReceptionistTab('pending_contact')}
+-            className={`flex-1 flex items-center justify-center gap-2 px-5 py-3 text-sm font-extrabold rounded-xl transition-all ${
+-              receptionistTab === 'pending_contact'
+-                ? 'bg-white dark:bg-zinc-700 text-emerald-700 dark:text-emerald-450 shadow-sm border border-slate-200/30 dark:border-zinc-600/30'
+-                : 'text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200'
+-            }`}
+-          >
+-            ≡ƒô₧ Ca kh├ím mß╗¢i chß╗¥ li├¬n hß╗ç
+-            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border transition-all duration-300 ${
+-              unconfirmedAppointments.length > 0 
+-                ? 'bg-amber-500 text-white border-amber-600 animate-bounce' 
+-                : 'bg-amber-100 dark:bg-amber-955/40 text-amber-700 dark:text-amber-450 border-amber-200/20 dark:border-amber-900/10'
+-            }`}>
+-              {unconfirmedAppointments.length}
+-            </span>
+-          </button>
+-          <button
+-            onClick={() => setReceptionistTab('today_schedule')}
+-            className={`flex-1 flex items-center justify-center gap-2 px-5 py-3 text-sm font-extrabold rounded-xl transition-all ${
+-              receptionistTab === 'today_schedule'
+-                ? 'bg-white dark:bg-zinc-700 text-emerald-700 dark:text-emerald-450 shadow-sm border border-slate-200/30 dark:border-zinc-600/30'
+-                : 'text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200'
+-            }`}
+-          >
+-            ≡ƒùô∩╕Å Lß╗ïch tr├¼nh h├┤m nay
+-            <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-955/40 text-emerald-700 dark:text-emerald-450 border border-emerald-250/20 dark:border-emerald-900/10">
+-              {appointments.filter(a => (a.bac_si_id || a.chuyen_gia_id) && format(new Date(a.ngay_gio_bat_dau), 'yyyy-MM-dd') === formattedSelectedDate).length}
+-            </span>
+-          </button>
+-        </div>
+-      )}
+-
+-      {/* URGENT EXPIRING APPOINTMENTS BANNER */}
+-      <AnimatePresence>
+-        {expiringAppointments.length > 0 && isReceptionist && (
+-          <motion.div
+-            initial={{ opacity: 0, height: 0, y: -10 }}
+-            animate={{ opacity: 1, height: 'auto', y: 0 }}
+-            exit={{ opacity: 0, height: 0, y: -10 }}
+-            transition={{ duration: 0.3 }}
+-            onClick={() => handleOpenDetailModal(expiringAppointments[0])}
+-            className="bg-gradient-to-r from-rose-500/10 to-red-600/5 dark:from-rose-500/15 dark:to-red-650/5 hover:from-rose-500/15 hover:to-red-600/10 border border-rose-500/20 dark:border-rose-900/30 p-4 rounded-2xl flex items-center justify-between gap-4 cursor-pointer transition-all duration-300 group shadow-sm active:scale-[0.99] overflow-hidden mb-4"
+-          >
+-            <div className="flex items-center gap-3">
+-              <div className="w-10 h-10 rounded-xl bg-red-500 text-white flex items-center justify-center shadow-md shadow-red-500/10 font-black shrink-0 animate-pulse">
+-                <AlertCircle size={18} />
+-              </div>
+-              <div>
+-                <p className="text-sm font-extrabold text-slate-800 dark:text-zinc-150 font-jakarta flex items-center gap-2">
+-                  ≡ƒÜ¿ C├│ <span className="text-rose-650 dark:text-rose-455 font-black text-base">{expiringAppointments.length}</span> lß╗ïch ─æß║╖t sß║»p qu├í hß║ín x├íc nhß║¡n (d╞░ß╗¢i 10 ph├║t)!
+-                </p>
+-                <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400 mt-1">
+-                  Cß║ºn ph├ón bß╗ò gß║Ñp: Bß╗çnh nh├ón <span className="font-extrabold text-[#0f172a] dark:text-zinc-100">{expiringAppointments[0].ten_khach_hang}</span> sß║»p hß║┐t thß╗¥i gian giß╗» chß╗ù.
+-                </p>
+-              </div>
++    <div className="flex-1 bg-slate-50/50 min-h-screen">
++      {/* Page header + filters */}
++      <div className="bg-white border-b border-slate-100 sticky top-0 z-30 shadow-sm">
++        <div className="max-w-screen-xl mx-auto px-4 py-3 flex flex-col gap-3">
++          {/* Title row */}
++          <div className="flex justify-between items-center">
++            <div>
++              <h1 className="text-lg font-jakarta font-black text-[#0F172A] flex items-center gap-2">
++                <CalendarIcon size={20} className="text-[#2EC4B6]" />
++                Quß║ún l├╜ lß╗ïch hß║╣n kh├ím
++              </h1>
++              <p className="text-xs text-slate-400 font-medium mt-0.5">
++                {format(selectedDate, "EEEE, dd 'th├íng' MM yyyy", { locale: vi })}
++              </p>
+             </div>
+-            <button
+-              type="button"
+-              className="flex items-center gap-1.5 text-xs font-black text-rose-700 dark:text-rose-455 bg-rose-500/10 dark:bg-rose-500/20 group-hover:bg-rose-500/20 dark:group-hover:bg-rose-500/30 px-4 py-2.5 rounded-xl transition-all uppercase tracking-wider shrink-0"
+-            >
+-              Ph├ón bß╗ò ngay ΓåÆ
+-            </button>
+-          </motion.div>
+-        )}
+-      </AnimatePresence>
+-
+-      {/* URGENT 4H APPOINTMENTS BANNER */}
+-      <AnimatePresence>
+-        {urgent4hAppointments.length > 0 && expiringAppointments.length === 0 && !isReceptionist && roleView !== 'doctor' && (
+-          <motion.div
+-            initial={{ opacity: 0, height: 0, y: -10 }}
+-            animate={{ opacity: 1, height: 'auto', y: 0 }}
+-            exit={{ opacity: 0, height: 0, y: -10 }}
+-            transition={{ duration: 0.3 }}
+-            onClick={() => handleOpenDetailModal(urgent4hAppointments[0])}
+-            className="bg-gradient-to-r from-amber-500/10 to-orange-600/5 dark:from-amber-500/15 dark:to-orange-655/5 hover:from-amber-500/15 hover:to-orange-600/10 border border-amber-500/20 dark:border-amber-900/30 p-4 rounded-2xl flex items-center justify-between gap-4 cursor-pointer transition-all duration-300 group shadow-sm active:scale-[0.99] overflow-hidden mb-4"
+-          >
+-            <div className="flex items-center gap-3">
+-              <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-md shadow-amber-500/10 font-black shrink-0 animate-pulse">
+-                <AlertCircle size={18} />
+-              </div>
+-              <div>
+-                <p className="text-sm font-extrabold text-slate-800 dark:text-zinc-150 font-jakarta flex items-center gap-2">
+-                  ΓÜá∩╕Å C├│ <span className="text-amber-650 dark:text-amber-450 font-black text-base">{urgent4hAppointments.length}</span> lß╗ïch kh├ím s├ít giß╗¥ trong v├▓ng 4 tiß║┐ng!
+-                </p>
+-                <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400 mt-1">
+-                  Lß╗ïch tiß║┐p theo: Bß╗çnh nh├ón <span className="font-extrabold text-[#0f172a] dark:text-zinc-100">{urgent4hAppointments[0].ten_khach_hang}</span> bß║»t ─æß║ºu l├║c {format(new Date(urgent4hAppointments[0].ngay_gio_bat_dau), 'HH:mm')}.
+-                </p>
++            <div className="flex items-center gap-2">
++              <div className="relative hidden sm:block">
++                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
++                <input
++                  value={searchTerm}
++                  onChange={(e) => setSearchTerm(e.target.value)}
++                  placeholder="T├¼m m├ú / t├¬n kh├ích..."
++                  className="pl-8 pr-4 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 focus:border-[#2EC4B6] focus:bg-white outline-none transition-all w-52 font-medium"
++                />
+               </div>
++              <button
++                onClick={() => actions.setIsWalkInModalOpen(true)}
++                className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest bg-[#0F172A] text-white px-3 py-2 rounded-xl hover:bg-slate-800 transition-all"
++              >
++                <PhoneCall size={13} /> Walk-in
++              </button>
++              <button
++                onClick={() => {}}
++                className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-600 px-3 py-2 rounded-xl hover:bg-slate-200 transition-all"
++              >
++                <Command size={13} /> ΓîÿK
++              </button>
+             </div>
+-            <button
+-              type="button"
+-              className="flex items-center gap-1.5 text-xs font-black text-amber-700 dark:text-amber-450 bg-amber-500/10 dark:bg-amber-500/20 group-hover:bg-amber-500/20 dark:group-hover:bg-amber-500/30 px-4 py-2.5 rounded-xl transition-all uppercase tracking-wider shrink-0"
+-            >
+-              Ph├ón bß╗ò gß║Ñp ΓåÆ
+-            </button>
+-          </motion.div>
+-        )}
+-      </AnimatePresence>
++          </div>
+ 
+-      {/* UNCONFIRMED APPOINTMENTS ALERT WIDGET */}
+-      <AnimatePresence>
+-        {unconfirmedAppointments.length > 0 && isReceptionist && (
+-          <motion.div
+-            initial={{ opacity: 0, height: 0, y: -10 }}
+-            animate={{ opacity: 1, height: 'auto', y: 0 }}
+-            exit={{ opacity: 0, height: 0, y: -10 }}
+-            transition={{ duration: 0.3 }}
+-            onClick={() => handleOpenDetailModal(unconfirmedAppointments[0])}
+-            className="bg-gradient-to-r from-amber-500/10 to-amber-600/5 dark:from-amber-500/15 dark:to-amber-600/5 hover:from-amber-500/15 hover:to-amber-600/10 border border-amber-500/20 dark:border-amber-900/30 p-4 rounded-2xl flex items-center justify-between gap-4 cursor-pointer transition-all duration-300 group shadow-sm active:scale-[0.99] overflow-hidden"
+-          >
+-            <div className="flex items-center gap-3">
+-              <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-md shadow-amber-500/10 font-black shrink-0 animate-pulse">
+-                <PhoneCall size={18} />
+-              </div>
+-              <div>
+-                <p className="text-sm font-extrabold text-slate-800 dark:text-zinc-150 font-jakarta flex items-center gap-2">
+-                  C├▓n <span className="text-amber-650 dark:text-amber-450 font-black text-base">{unconfirmedAppointments.length}</span> lß╗ïch hß║╣n mß╗¢i ch╞░a ─æ╞░ß╗úc x├íc nhß║¡n
+-                </p>
+-                <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400 mt-1">
+-                  Lß╗ïch tiß║┐p theo: <span className="font-extrabold text-[#0f172a] dark:text-zinc-100 capitalize">{unconfirmedAppointments[0].ten_khach_hang}</span> l├║c <span className="font-extrabold text-amber-700 dark:text-amber-450 bg-amber-55 dark:bg-amber-955/30 border border-amber-100 dark:border-amber-900/20 px-1.5 py-0.5 rounded">{format(new Date(unconfirmedAppointments[0].ngay_gio_bat_dau), 'HH:mm - dd/MM/yyyy')}</span>
+-                </p>
+-              </div>
+-            </div>
++          {/* Day navigator */}
++          <div className="flex items-center gap-2">
++            <button onClick={() => handleNavigateDay('prev')} className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:border-[#2EC4B6] hover:text-[#2EC4B6] transition-all">ΓåÉ</button>
+             <button
+-              type="button"
+-              className="flex items-center gap-1.5 text-xs font-black text-amber-700 dark:text-amber-450 bg-amber-500/10 dark:bg-amber-500/20 group-hover:bg-amber-500/20 dark:group-hover:bg-amber-500/30 px-4 py-2.5 rounded-xl transition-all uppercase tracking-wider shrink-0"
++              onClick={() => handleNavigateDay('today')}
++              className={`text-xs font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border transition-all ${isCurrentRangeActive ? 'bg-[#2EC4B6] text-white border-[#2EC4B6]' : 'bg-white text-slate-600 border-slate-200 hover:border-[#2EC4B6]'}`}
+             >
+-              <PhoneCall size={12} /> Gß╗ìi x├íc nhß║¡n ngay
++              {viewMode === 'today' ? 'H├┤m nay' : 'Tuß║ºn n├áy'}
+             </button>
+-          </motion.div>
+-        )}
+-      </AnimatePresence>
+-
+-      {/* KPI METRIC CARDS */}
+-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+-        {/* Card 1: Tß╗òng sß╗æ ca kh├ím */}
+-        <div className="bg-white dark:bg-zinc-900 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-zinc-800 flex flex-col justify-between hover:shadow-md transition-shadow duration-300">
+-          <span className="text-slate-500 dark:text-zinc-400 text-xs font-bold uppercase tracking-wider">Tß╗òng sß╗æ ca kh├ím</span>
+-          <div className="flex justify-between items-end mt-3">
+-            <div>
+-              <span className="text-4xl font-black text-slate-800 dark:text-zinc-100">
+-                {isReceptionist ? receptionistKpis.total : kpis.total}
+-              </span>
+-              <span className="text-[10px] text-emerald-500 dark:text-emerald-450 font-bold block mt-1">+14.2% h├┤m nay</span>
+-            </div>
+-            <div className="pb-1">
+-              <svg className="w-16 h-8 text-emerald-500 dark:text-emerald-450" viewBox="0 0 100 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+-                <path d="M0 25C15 23 30 15 45 18C60 21 75 5 100 2" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+-              </svg>
+-            </div>
+-          </div>
+-        </div>
+-
+-        {/* Card 2: Chß╗¥ xß╗¡ l├╜ / Chß╗¥ li├¬n hß╗ç */}
+-        <div className="bg-white dark:bg-zinc-900 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-zinc-800 flex flex-col justify-between hover:shadow-md transition-shadow duration-300">
+-          <span className="text-slate-500 dark:text-zinc-400 text-xs font-bold uppercase tracking-wider">
+-            {isReceptionist ? 'Chß╗¥ li├¬n hß╗ç' : 'Chß╗¥ xß╗¡ l├╜'}
+-          </span>
+-          <div className="flex justify-between items-end mt-3">
+-            <div>
+-              <span className="text-4xl font-black text-amber-600 dark:text-amber-500">
+-                {isReceptionist ? receptionistKpis.pendingContact : kpis.waiting}
+-              </span>
+-              <span className="text-[10px] text-amber-600 dark:text-amber-500 font-bold block mt-1">
+-                {isReceptionist ? 'Cß║ºn gß╗ìi x├íc nhß║¡n' : 'Cß║ºn ─æiß╗üu phß╗æi gß║Ñp'}
+-              </span>
+-            </div>
+-            <div className="pb-1">
+-              <svg className="w-16 h-8 text-amber-550 dark:text-amber-500" viewBox="0 0 100 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+-                <path d="M0 20C15 15 30 25 45 10C60 5 75 18 100 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+-              </svg>
+-            </div>
+-          </div>
+-        </div>
+-
+-        {/* Card 3: ─É├ú g├ín B├íc s─⌐ / ─É├ú ho├án th├ánh */}
+-        <div className="bg-white dark:bg-zinc-900 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-zinc-800 flex flex-col justify-between hover:shadow-md transition-shadow duration-300">
+-          <span className="text-slate-500 dark:text-zinc-400 text-xs font-bold uppercase tracking-wider">
+-            {isReceptionist ? '─É├ú g├ín B├íc s─⌐' : '─É├ú ho├án th├ánh'}
+-          </span>
+-          <div className="flex justify-between items-end mt-3">
+-            <div>
+-              <span className="text-4xl font-black text-emerald-600 dark:text-emerald-500">
+-                {isReceptionist ? receptionistKpis.assigned : kpis.completed}
+-              </span>
+-              <span className="text-[10px] text-emerald-555 dark:text-emerald-455 font-bold block mt-1">
+-                {isReceptionist ? 'Chß╗¥ kh├ích ─æß║┐n kh├ím' : '+8 ca phß╗Ñc hß╗ôi'}
+-              </span>
+-            </div>
+-            <div className="pb-1">
+-              <svg className="w-16 h-8 text-emerald-500 dark:text-emerald-450" viewBox="0 0 100 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+-                <path d="M0 28C15 25 30 18 45 12C60 14 75 5 100 1" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+-              </svg>
+-            </div>
+-          </div>
+-        </div>
+-
+-        {/* Card 4: ─É├ú Check-in / Hß╗ºy */}
+-        <div className="bg-white dark:bg-zinc-900 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-zinc-800 flex flex-col justify-between hover:shadow-md transition-shadow duration-300">
+-          <span className="text-slate-500 dark:text-zinc-400 text-xs font-bold uppercase tracking-wider">
+-            {isReceptionist ? '─É├ú Check-in' : 'Hß╗ºy / Vß║»ng mß║╖t'}
+-          </span>
+-          <div className="flex justify-between items-end mt-3">
+-            <div>
+-              <span className={`text-4xl font-black ${isReceptionist ? 'text-teal-600 dark:text-teal-500' : 'text-rose-600 dark:text-rose-500'}`}>
+-                {isReceptionist ? receptionistKpis.checkedIn : kpis.cancelled}
+-              </span>
+-              <span className={`text-[10px] font-bold block mt-1 ${isReceptionist ? 'text-teal-600 dark:text-teal-500' : 'text-rose-500 dark:text-rose-455'}`}>
+-                {isReceptionist ? 'Kh├ích ─æ├ú c├│ mß║╖t' : 'Giß║úm 5% so vß╗¢i tuß║ºn tr╞░ß╗¢c'}
+-              </span>
+-            </div>
+-            <div className="pb-1">
+-              <svg className={`w-16 h-8 ${isReceptionist ? 'text-teal-500' : 'text-rose-500'}`} viewBox="0 0 100 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+-                <path d="M0 5C15 10 30 5 45 12C60 18 75 8 100 9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+-              </svg>
++            <button onClick={() => handleNavigateDay('next')} className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:border-[#2EC4B6] hover:text-[#2EC4B6] transition-all">ΓåÆ</button>
++
++            <div className="ml-auto flex gap-1 bg-slate-100 p-1 rounded-xl">
++              {(['today', 'week'] as const).map((mode) => (
++                <button key={mode} onClick={() => setViewMode(mode)}
++                  className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg transition-all ${viewMode === mode ? 'bg-white text-[#0F172A] shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
++                  {mode === 'today' ? <><Layers size={12} className="inline mr-1" />Ng├áy</> : <><CalendarDays size={12} className="inline mr-1" />Tuß║ºn</>}
++                </button>
++              ))}
+             </div>
+           </div>
+         </div>
+       </div>
+ 
+-      {/* FILTER CONTROLS BAR - NO LONGER STICKY */}
+-      <div className="relative bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-slate-100 dark:border-zinc-800/80 p-2 flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between transition-colors duration-300">
+-        <div className="flex bg-slate-50 dark:bg-zinc-800/50 p-1 rounded-xl">
+-          <button
+-            onClick={() => setViewMode('today')}
+-            className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg transition-all ${viewMode === 'today'
+-                ? 'bg-white dark:bg-zinc-700 text-emerald-700 dark:text-emerald-400 shadow-sm border border-slate-200/50 dark:border-zinc-600/30'
+-                : 'text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200'
+-              }`}
+-          >
+-            <CalendarIcon size={18} /> H├┤m nay
+-          </button>
+-          <button
+-            onClick={() => setViewMode('week')}
+-            className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg transition-all ${viewMode === 'week'
+-                ? 'bg-white dark:bg-zinc-700 text-emerald-700 dark:text-emerald-400 shadow-sm border border-slate-200/50 dark:border-zinc-600/30'
+-                : 'text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200'
+-              }`}
+-          >
+-            <CalendarDays size={18} /> Tuß║ºn n├áy
+-          </button>
+-        </div>
+-
+-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1 lg:justify-end">
+-
+-
+-          <button onClick={() => handleNavigateDay('today')} className="px-4 py-2.5 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors text-sm font-semibold text-slate-750 dark:text-zinc-300 rounded-xl shrink-0">
+-            Trß╗ƒ vß╗ü Hiß╗çn tß║íi
+-          </button>
+-
+-          <div className="relative shrink-0">
+-            <select
+-              value={roomFilter}
+-              onChange={(e) => setRoomFilter(e.target.value)}
+-              className="w-full pl-9 pr-8 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-250 dark:border-zinc-700 text-slate-800 dark:text-zinc-200 text-sm font-medium rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 appearance-none cursor-pointer"
+-            >
+-              <option value="all">Tß║Ñt cß║ú Ph├▓ng kh├ím</option>
+-              {roomsList
+-                .filter(room => room.loai_phong === 'kham_benh')
+-                .map(room => (
+-                  <option key={room.id} value={room.id}>{room.ten_phong}</option>
+-                ))}
+-            </select>
+-            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500" size={16} />
+-          </div>
+-
+-          <div className="relative flex-1 max-w-sm">
+-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500" size={16} />
+-            <input
+-              type="text"
+-              value={searchTerm}
+-              onChange={(e) => setSearchTerm(e.target.value)}
+-              placeholder="T├¼m bß╗çnh nh├ón, m├ú lß╗ïch..."
+-              className="w-full pl-9 pr-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-250 dark:border-zinc-700 rounded-xl text-sm text-slate-800 dark:text-zinc-150 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder-slate-400 dark:placeholder-zinc-500"
+-            />
++      {/* KPI cards */}
++      <div className="max-w-screen-xl mx-auto px-4 py-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
++        {[
++          { label: 'Tß╗òng ca ─æ├ú ph├ón', value: kpis.total, icon: <Activity size={16} />, color: 'text-blue-600' },
++          { label: 'Chß╗¥ x├íc nhß║¡n', value: kpis.waiting, icon: <Settings size={16} />, color: 'text-amber-500' },
++          { label: 'Ho├án th├ánh', value: kpis.completed, icon: <Stethoscope size={16} />, color: 'text-emerald-500' },
++          { label: 'Hß╗ºy / Vß║»ng', value: kpis.cancelled, icon: <Briefcase size={16} />, color: 'text-red-400' },
++        ].map((kpi) => (
++          <div key={kpi.label} className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
++            <div className={`${kpi.color} mb-2`}>{kpi.icon}</div>
++            <p className="text-2xl font-jakarta font-black text-[#0F172A]">{kpi.value}</p>
++            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-0.5">{kpi.label}</p>
+           </div>
+-        </div>
++        ))}
+       </div>
+ 
+-      {/* OPERATIONS GRID: TIMELINE & WORKLOAD SIDEBAR */}
+-      <div className="flex flex-col lg:flex-row gap-6 items-start">
+-        {/* Left Area: Scheduling Board */}
+-        <div className="flex-1 w-full min-w-0">
+-          {isReceptionist && receptionistTab === 'pending_contact' ? (
+-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-3 duration-300">
+-              {filteredAppointments.length === 0 ? (
+-                <div className="col-span-full bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-850 p-16 rounded-3xl text-center text-slate-450 dark:text-zinc-500 shadow-sm flex flex-col items-center justify-center gap-4">
+-                  <div className="size-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-450 flex items-center justify-center text-3xl shadow-sm">
+-                    ≡ƒÄë
+-                  </div>
+-                  <div>
+-                    <h3 className="text-sm font-black uppercase text-slate-700 dark:text-zinc-200 tracking-wider">Kh├┤ng c├│ ca kh├ím chß╗¥ li├¬n hß╗ç</h3>
+-                    <p className="text-xs text-slate-400 dark:text-zinc-500 mt-1.5 font-medium">Tß║Ñt cß║ú lß╗ïch ─æß║╖t trß╗▒c tuyß║┐n ─æß╗üu ─æ├ú ─æ╞░ß╗úc li├¬n hß╗ç v├á xß╗¡ l├╜ th├ánh c├┤ng!</p>
+-                  </div>
+-                </div>
+-              ) : (
+-                filteredAppointments.map((apt) => {
+-                  const now = Date.now();
+-                  const hanTime = apt.han_xac_nhan ? new Date(apt.han_xac_nhan).getTime() : 0;
+-                  const timeLeftMs = hanTime - now;
+-                  const isUrgent = timeLeftMs > 0 && timeLeftMs <= 10 * 60 * 1000;
+-                  const isExpired = timeLeftMs <= 0;
+-
+-                  return (
+-                    <div
+-                      key={apt.id}
+-                      onClick={() => handleOpenDetailModal(apt)}
+-                      className={`bg-white dark:bg-zinc-900 border-2 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer flex flex-col justify-between group relative overflow-hidden ${
+-                        isExpired
+-                          ? 'border-slate-105 dark:border-zinc-800 opacity-60'
+-                          : isUrgent
+-                            ? 'border-rose-500/30 dark:border-rose-900/40 hover:border-rose-500 ring-2 ring-rose-500/5'
+-                            : 'border-slate-150 dark:border-zinc-800 hover:border-emerald-500'
+-                      }`}
+-                    >
+-                      <div className="flex items-center justify-between mb-4">
+-                        <span className="font-mono text-[10px] font-black text-slate-550 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded border border-slate-200/40 dark:border-zinc-700/50">
+-                          {apt.ma_lich_dat}
+-                        </span>
+-                        {apt.han_xac_nhan && (
+-                          <div className="flex items-center gap-1">
+-                            <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-bold uppercase tracking-wider">Hß║ín x├íc nhß║¡n:</span>
+-                            <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${
+-                              isExpired
+-                                ? 'bg-slate-100 dark:bg-zinc-800 text-slate-500'
+-                                : isUrgent
+-                                  ? 'bg-rose-100 dark:bg-rose-955/40 text-rose-600 dark:text-rose-455 animate-pulse'
+-                                  : 'bg-amber-100 dark:bg-amber-955/30 text-amber-700 dark:text-amber-450'
+-                            }`}>
+-                              {isExpired ? '─É├ú hß║┐t hß║ín' : format(new Date(apt.han_xac_nhan), 'HH:mm')}
+-                            </span>
+-                          </div>
+-                        )}
+-                      </div>
+-
+-                      <div className="space-y-3 flex-1 mb-5">
+-                        <div>
+-                          <h4 className="font-black text-slate-800 dark:text-zinc-100 text-sm capitalize group-hover:text-emerald-600 transition-colors">
+-                            {apt.ten_khach_hang}
+-                          </h4>
+-                          <p className="text-xs text-slate-500 dark:text-zinc-400 font-semibold mt-0.5 flex items-center gap-1.5">
+-                            ≡ƒô₧ {apt.so_dien_thoai}
+-                          </p>
+-                        </div>
+-
+-                        <div className="pt-2.5 border-t border-slate-50 dark:border-zinc-850/50 space-y-1.5 text-xs text-slate-600 dark:text-zinc-450 font-semibold">
+-                          <div className="flex justify-between">
+-                            <span className="text-slate-400 dark:text-zinc-500 font-medium">Giß╗¥ hß║╣n mong muß╗æn:</span>
+-                            <span className="text-slate-700 dark:text-zinc-250 font-black">
+-                              {format(new Date(apt.ngay_gio_bat_dau), 'HH:mm - dd/MM/yyyy')}
+-                            </span>
+-                          </div>
+-                          <div className="flex justify-between">
+-                            <span className="text-slate-400 dark:text-zinc-500 font-medium">Dß╗ïch vß╗Ñ ─æ─âng k├╜:</span>
+-                            <span className="text-slate-700 dark:text-zinc-250 font-black truncate max-w-[150px]">
+-                              {apt.ten_dich_vu}
+-                            </span>
+-                          </div>
+-                        </div>
+-
+-                        {apt.ly_do_kham && (
+-                          <p className="text-[11px] text-slate-400 dark:text-zinc-500 italic mt-2.5 line-clamp-2">
+-                            " {apt.ly_do_kham} "
+-                          </p>
+-                        )}
+-                      </div>
+-
+-                      <button
+-                        type="button"
+-                        className="w-full py-2.5 bg-slate-50 dark:bg-zinc-800 text-emerald-700 dark:text-emerald-450 hover:bg-emerald-600 hover:text-white dark:hover:bg-emerald-700 font-extrabold text-xs rounded-xl border border-slate-200/50 dark:border-zinc-750 transition-all active:scale-[0.98] uppercase tracking-wider flex items-center justify-center gap-1.5"
+-                      >
+-                        ≡ƒô₧ Gß╗ìi x├íc nhß║¡n ngay
+-                      </button>
+-                    </div>
+-                  );
+-                })
+-              )}
+-            </div>
+-          ) : viewMode === 'today' ? (
+-            <AppointmentCalendar
+-              timeSlots={standardTimeSlots}
+-              appointments={filteredAppointments}
+-              statusConfig={statusConfig}
+-              handleOpenDetailModal={handleOpenDetailModal}
+-              roomsList={roomsList}
+-              staffList={staffList}
+-              schedulesList={schedulesList}
+-              allAppointments={appointments}
+-              selectedDateStr={formattedSelectedDate}
+-              onOpenWalkInModal={(time) => {
+-                setWalkInTime(time);
+-                setIsWalkInModalOpen(true);
+-              }}
+-              onUpdateAppointment={handleUpdateAppointmentFields}
+-              viewMode={roleView === 'doctor' ? 'doctor' : 'admin'}
+-              currentStaffId={roleView === 'doctor' ? selectedDocSimId : undefined}
+-              hideUnassignedColumn={isReceptionist}
+-            />
+-          ) : (
+-            <AppointmentWeeklyCalendar
+-              selectedDate={selectedDate}
+-              appointments={filteredAppointments}
+-              statusConfig={statusConfig}
+-              handleOpenDetailModal={handleOpenDetailModal}
+-              scheduleType={scheduleType}
+-            />
+-          )}
+-        </div>
+-
+-        {/* Right Area: Doctor Workload Sidebar */}
+-        <div className="w-full lg:w-80 shrink-0 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 space-y-4">
+-          <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-zinc-800">
+-            <h3 className="text-sm font-extrabold text-slate-800 dark:text-zinc-100 uppercase tracking-wider flex items-center gap-1.5">
+-              <Activity size={16} className="text-primary" /> Phß╗Ñ tß║úi B├íc s─⌐
+-            </h3>
+-            <span className="text-[10px] font-bold text-slate-400 dark:text-zinc-500">H├┤m nay</span>
+-          </div>
+-
+-          <div className="space-y-4">
+-            {doctorWorkloads.length === 0 ? (
+-              <p className="text-xs text-slate-400 dark:text-zinc-500 italic text-center py-4">Kh├┤ng t├¼m thß║Ñy b├íc s─⌐ n├áo trong danh s├ích</p>
+-            ) : (
+-              doctorWorkloads.map(doc => {
+-                const isOverloaded = doc.percentage >= 80;
+-
+-                return (
+-                  <div key={doc.id} className="flex flex-col gap-1.5 p-3 rounded-xl bg-slate-50/50 dark:bg-zinc-800/40 border border-slate-100/50 dark:border-zinc-800/50 hover:border-slate-200 dark:hover:border-zinc-700 transition-colors">
+-                    <div className="flex items-center justify-between">
+-                      <div className="flex items-center gap-2">
+-                        <div className="size-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 flex items-center justify-center font-bold text-[11px] shrink-0">
+-                          {doc.name.charAt(0)}
+-                        </div>
+-                        <div className="max-w-[130px] sm:max-w-none">
+-                          <p className="text-xs font-bold text-slate-700 dark:text-zinc-200 truncate">{doc.name}</p>
+-                          <span className={`text-[9px] font-semibold ${doc.hasShift ? 'text-emerald-600 dark:text-emerald-450' : 'text-slate-400 dark:text-zinc-500'
+-                            }`}>
+-                            {doc.hasShift ? '─Éang trß╗▒c ca' : 'Kh├┤ng trß╗▒c ca'}
+-                          </span>
+-                        </div>
+-                      </div>
+-                      <div className="text-right">
+-                        <span className="text-[11px] font-mono font-bold text-slate-700 dark:text-zinc-200">{doc.occupiedCount}/{doc.maxSlots} ca</span>
+-                      </div>
+-                    </div>
+-
+-                    {doc.hasShift && (
+-                      <div className="mt-1">
+-                        <div className="flex items-center justify-between text-[9px] text-slate-400 dark:text-zinc-500 mb-1 font-semibold">
+-                          <span>Mß║¡t ─æß╗Ö c├┤ng viß╗çc</span>
+-                          <span className={isOverloaded ? 'text-rose-500 font-bold animate-pulse' : ''}>{doc.percentage}%</span>
+-                        </div>
+-                        <div className="w-full h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+-                          <div
+-                            className={`h-full rounded-full transition-all duration-500 ${doc.percentage < 50
+-                                ? 'bg-emerald-500'
+-                                : doc.percentage < 80
+-                                  ? 'bg-amber-500'
+-                                  : 'bg-rose-500 animate-pulse'
+-                              }`}
+-                            style={{ width: `${doc.percentage}%` }}
+-                          />
+-                        </div>
+-                      </div>
+-                    )}
+-                  </div>
+-                );
+-              })
+-            )}
+-          </div>
+-        </div>
++      {/* Calendar view */}
++      <div className="max-w-screen-xl mx-auto px-4 pb-8">
++        {viewMode === 'today' ? (
++          <AppointmentCalendar
++            appointments={filteredAppointments}
++            timeSlots={STANDARD_TIME_SLOTS}
++            staffList={staffList}
++            schedulesList={schedulesList}
++            statusConfig={STATUS_CONFIG}
++            selectedDateStr={formattedSelectedDate}
++            handleOpenDetailModal={actions.openDetailModal}
++            onOpenWalkInModal={(time: string) => { actions.setWalkInTime(time); actions.setIsWalkInModalOpen(true); }}
++            allAppointments={appointments}
++          />
++        ) : (
++          <AppointmentWeeklyCalendar
++            appointments={filteredAppointments}
++            selectedDate={selectedDate}
++            statusConfig={STATUS_CONFIG}
++            handleOpenDetailModal={actions.openDetailModal}
++            scheduleType={scheduleType as 'kham_moi' | 'dieu_tri'}
++          />
++        )}
+       </div>
+ 
+-      {/* COMPONENT: MODAL CHI TIß║╛T CA TRß╗░C */}
+-      {isDetailModalOpen && (
++      {/* Detail Modal ΓÇö mounts when appointment is selected */}
++      {actions.isDetailModalOpen && actions.selectedAppointment && (
+         <AppointmentDetailModal
+-          selectedAppointment={selectedAppointment}
+-          roomsList={roomsList}
++          selectedAppointment={actions.selectedAppointment}
+           staffList={staffList}
+-          activeRole={activeRole}
+-          assignRoomId={assignRoomId}
+-          setAssignRoomId={setAssignRoomId}
+-          assignStaffId={assignStaffId}
+-          setAssignStaffId={setAssignStaffId}
+-          assignStatus={assignStatus}
+-          setAssignStatus={setAssignStatus}
+-          isAssigning={isAssigning}
+-          onClose={() => setIsDetailModalOpen(false)}
+-          onSave={handleUpdateAppointment}
+-          onOpenTreatment={handleOpenTreatmentModal}
++          roomsList={roomsList}
++          activeRole="B├íc s─⌐"
++          assignStaffId={actions.assignStaffId}
++          setAssignStaffId={actions.setAssignStaffId}
++          assignRoomId={actions.assignRoomId}
++          setAssignRoomId={actions.setAssignRoomId}
++          assignStatus={actions.assignStatus}
++          setAssignStatus={actions.setAssignStatus}
++          isAssigning={actions.isAssigning}
++          onSave={actions.handleUpdateAppointment}
++          onClose={() => actions.setIsDetailModalOpen(false)}
++          onOpenTreatment={() => actions.setIsTreatmentModalOpen(true)}
+           appointments={appointments}
++          onSuccess={refetch}
+           schedulesList={schedulesList}
+           isReceptionistOverride={isReceptionist}
+         />
+       )}
+ 
+-      {/* COMPONENT: MODAL ─Éß║╢T Lß╗èCH ─ÉIß╗ÇU TRß╗è CHUY├èN S├éU */}
+-      {isTreatmentModalOpen && (
++      {/* Treatment Booking Modal */}
++      {actions.isTreatmentModalOpen && actions.selectedAppointment && (
+         <TreatmentBookingModal
+-          selectedAppointment={selectedAppointment}
++          selectedAppointment={actions.selectedAppointment}
+           services={services}
+           packages={packages}
+           staffList={staffList}
+           roomsList={roomsList}
+-          treatmentType={treatmentType}
+-          setTreatmentType={setTreatmentType}
+-          selectedServiceId={selectedServiceId}
+-          setSelectedServiceId={setSelectedServiceId}
+-          selectedPackageId={selectedPackageId}
+-          setSelectedPackageId={setSelectedPackageId}
+-          selectedKtvId={selectedKtvId}
+-          setSelectedKtvId={setSelectedKtvId}
+-          selectedRoomId={selectedRoomId}
+-          setSelectedRoomId={setSelectedRoomId}
+-          treatmentDate={treatmentDate}
+-          setTreatmentDate={setTreatmentDate}
+-          treatmentTime={treatmentTime}
+-          setTreatmentTime={setTreatmentTime}
+-          bookingLoading={bookingLoading}
+-          onClose={() => setIsTreatmentModalOpen(false)}
+-          onSubmit={handleBookTreatment}
++          treatmentType={actions.treatmentType}
++          setTreatmentType={actions.setTreatmentType}
++          selectedServiceId={actions.selectedServiceId}
++          setSelectedServiceId={actions.setSelectedServiceId}
++          selectedPackageId={actions.selectedPackageId}
++          setSelectedPackageId={actions.setSelectedPackageId}
++          selectedKtvId={actions.selectedKtvId}
++          setSelectedKtvId={actions.setSelectedKtvId}
++          selectedRoomId={actions.selectedRoomId}
++          setSelectedRoomId={actions.setSelectedRoomId}
++          treatmentDate={actions.treatmentDate}
++          setTreatmentDate={actions.setTreatmentDate}
++          treatmentTime={actions.treatmentTime}
++          setTreatmentTime={actions.setTreatmentTime}
++          bookingLoading={actions.bookingLoading}
++          onSubmit={(e) => actions.handleBookTreatment(e, services)}
++          onClose={() => actions.setIsTreatmentModalOpen(false)}
+         />
+       )}
+ 
+-      {/* COMPONENT: MODAL ─É─éNG K├¥ KH├üM V├âNG LAI */}
+-      {isWalkInModalOpen && (
++      {/* Walk-in Modal */}
++      {actions.isWalkInModalOpen && (
+         <WalkInBookingModal
+-          roomsList={roomsList}
++          initialTime={actions.walkInTime}
+           staffList={staffList}
++          roomsList={roomsList}
+           appointments={appointments}
+           schedulesList={schedulesList}
+-          onClose={() => setIsWalkInModalOpen(false)}
+-          onSubmitApi={handleBookWalkIn}
+-          bookingLoading={bookingLoading}
+-          initialTime={walkInTime}
++          bookingLoading={walkInLoading}
++          onSubmitApi={handleWalkInSubmit}
++          onClose={() => actions.setIsWalkInModalOpen(false)}
+         />
+       )}
+-
+-      {/* COMMAND PALETTE (CTRL+K) */}
+-      <AnimatePresence>
+-        {isCommandPaletteOpen && (
+-          <motion.div
+-            initial={{ opacity: 0 }}
+-            animate={{ opacity: 1 }}
+-            exit={{ opacity: 0 }}
+-            className="fixed inset-0 bg-slate-950/40 dark:bg-zinc-950/65 backdrop-blur-md z-50 flex items-center justify-center p-4"
+-            onClick={() => setIsCommandPaletteOpen(false)}
+-          >
+-            <motion.div
+-              initial={{ scale: 0.95, y: -20, opacity: 0 }}
+-              animate={{ scale: 1, y: 0, opacity: 1 }}
+-              exit={{ scale: 0.95, y: -20, opacity: 0 }}
+-              transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+-              className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[500px]"
+-              onClick={e => e.stopPropagation()}
+-            >
+-              {/* Header search bar */}
+-              <div className="flex items-center gap-3 px-4 py-3.5 border-b border-slate-100 dark:border-zinc-800">
+-                <Command className="text-slate-400 dark:text-zinc-500" size={18} />
+-                <input
+-                  type="text"
+-                  placeholder="T├¼m bß╗çnh nh├ón, t├íc vß╗Ñ hoß║╖c g├╡ lß╗çnh..."
+-                  value={commandSearch}
+-                  onChange={e => setCommandSearch(e.target.value)}
+-                  className="flex-1 bg-transparent border-none outline-none text-slate-800 dark:text-zinc-150 text-sm placeholder-slate-400 dark:placeholder-zinc-500"
+-                  autoFocus
+-                />
+-                <span className="text-[10px] font-mono bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 px-2 py-0.5 rounded border border-slate-200/50 dark:border-zinc-700">
+-                  ESC
+-                </span>
+-              </div>
+-
+-              {/* Results list */}
+-              <div className="flex-1 overflow-y-auto p-2 space-y-1">
+-                {/* Filtered actions & shortcuts */}
+-                {filteredCommands.length > 0 && (
+-                  <div>
+-                    <p className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest px-3 py-1.5">
+-                      T├íc vß╗Ñ & Ph├¡m tß║»t
+-                    </p>
+-                    {filteredCommands.map(cmd => (
+-                      <button
+-                        key={cmd.id}
+-                        onClick={() => {
+-                          cmd.action();
+-                          setIsCommandPaletteOpen(false);
+-                        }}
+-                        className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-zinc-800/60 flex items-center justify-between text-xs font-semibold text-slate-750 dark:text-zinc-300 transition-colors group"
+-                      >
+-                        <div className="flex items-center gap-2.5">
+-                          <span className="text-slate-400 group-hover:text-primary dark:text-zinc-500 transition-colors">
+-                            {cmd.icon}
+-                          </span>
+-                          <span>{cmd.name}</span>
+-                        </div>
+-                        <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono bg-slate-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
+-                          {cmd.shortcut}
+-                        </span>
+-                      </button>
+-                    ))}
+-                  </div>
+-                )}
+-
+-                {/* Filtered Appointments */}
+-                {commandSearch.trim() !== '' && filteredApts.length > 0 && (
+-                  <div className="pt-2">
+-                    <p className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest px-3 py-1.5 border-t border-slate-50 dark:border-zinc-800/50">
+-                      Lß╗ïch hß║╣n khß╗¢p t├¼m kiß║┐m
+-                    </p>
+-                    {filteredApts.map(apt => (
+-                      <button
+-                        key={apt.id}
+-                        onClick={() => {
+-                          handleOpenDetailModal(apt);
+-                          setIsCommandPaletteOpen(false);
+-                        }}
+-                        className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-zinc-800/60 flex items-center justify-between text-xs text-slate-700 dark:text-zinc-300 transition-colors"
+-                      >
+-                        <div className="flex flex-col gap-0.5">
+-                          <span className="font-bold text-slate-800 dark:text-zinc-100">
+-                            {apt.ten_khach_hang}
+-                          </span>
+-                          <span className="text-[10px] text-slate-450 dark:text-zinc-400">
+-                            {apt.ten_dich_vu}
+-                          </span>
+-                        </div>
+-                        <div className="text-right flex flex-col items-end gap-1">
+-                          <span className="font-mono text-[9px] bg-slate-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-slate-600 dark:text-zinc-400">
+-                            {apt.ma_lich_dat}
+-                          </span>
+-                          <span className="text-[10px] text-slate-500 dark:text-zinc-400 font-semibold">
+-                            {format(new Date(apt.ngay_gio_bat_dau), 'HH:mm dd/MM')}
+-                          </span>
+-                        </div>
+-                      </button>
+-                    ))}
+-                  </div>
+-                )}
+-
+-                {commandSearch.trim() !== '' && filteredApts.length === 0 && filteredCommands.length === 0 && (
+-                  <div className="text-center py-8 text-slate-400 dark:text-zinc-500 text-xs italic">
+-                    Kh├┤ng t├¼m thß║Ñy kß║┐t quß║ú ph├╣ hß╗úp...
+-                  </div>
+-                )}
+-              </div>
+-            </motion.div>
+-          </motion.div>
+-        )}
+-      </AnimatePresence>
+-
+-      {/* Floating Mascot Dispatch Widget */}
+-      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+-        {/* Mascot Button */}
+-        <button
+-          onClick={() => {
+-            if (mascotTargetAppointments.length > 0) {
+-              const target = mascotTargetAppointments[0];
+-              if (roleView === 'receptionist') {
+-                // Receptionist: switch to pending contact list and open modal
+-                setReceptionistTab('pending_contact');
+-                handleOpenDetailModal(target);
+-              } else if (roleView === 'doctor') {
+-                // Doctor: navigate directly to clinical assessment page
+-                navigate(`/doctor/appointments/${target.id}/assess`);
+-              } else {
+-                // Manager: scroll to card on calendar
+-                scrollToAppointment(target.id);
+-              }
+-            } else {
+-              const noMsg = 
+-                roleView === 'receptionist'
+-                  ? "Tß║Ñt cß║ú lß╗ïch ─æß║╖t ─æ├ú ─æ╞░ß╗úc gß╗ìi x├íc nhß║¡n!"
+-                  : roleView === 'doctor'
+-                    ? "Kh├┤ng c├│ bß╗çnh nh├ón mß╗¢i ─æang chß╗¥ kh├ím!"
+-                    : "Tß║Ñt cß║ú c├íc ca kh├ím ─æß╗üu ─æ├ú ─æ╞░ß╗úc chß╗ë ─æß╗ïnh b├íc s─⌐!";
+-              toast.success(noMsg);
+-            }
+-          }}
+-          className="relative size-16 bg-white dark:bg-zinc-900 rounded-full shadow-2xl border border-slate-100 dark:border-zinc-850 flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-300 group focus:outline-none"
+-        >
+-          {mascotTargetAppointments.length > 0 && (
+-            <div className={`absolute inset-0 rounded-full animate-ping pointer-events-none ${
+-              roleView === 'receptionist'
+-                ? 'bg-amber-500/20'
+-                : roleView === 'doctor'
+-                  ? 'bg-teal-500/20'
+-                  : expiringAppointments.length > 0
+-                    ? 'bg-rose-500/20'
+-                    : 'bg-emerald-500/20'
+-            }`} />
+-          )}
+-
+-          <div className={`${mascotTargetAppointments.length > 0 ? 'animate-bounce' : 'group-hover:animate-pulse'}`} style={{ animationDuration: mascotTargetAppointments.length > 0 ? '1s' : '2s' }}>
+-            <svg viewBox="0 0 100 100" className="size-14">
+-              <circle cx="50" cy="55" r="32" fill="#10b981" />
+-              <path d="M 22,40 Q 16,30 26,26 Q 36,22 41,32" fill="#f59e0b" />
+-              <path d="M 36,26 Q 41,16 51,16 Q 61,16 56,26" fill="#f59e0b" />
+-              <path d="M 51,21 Q 61,11 71,16 Q 76,26 66,31" fill="#f59e0b" />
+-              <circle cx="66" cy="46" r="20" fill="#10b981" />
+-              <path d="M 66,26 C 66,18 58,15 56,18 C 54,21 62,24 66,26" fill="#84cc16" />
+-              <path d="M 66,26 C 66,18 74,15 76,18 C 78,21 70,24 66,26" fill="#84cc16" />
+-              <rect x="65" y="25" width="2" height="3" rx="1" fill="#78350f" />
+-              <circle cx="60" cy="43" r="3.5" fill="#0f172a" />
+-              <circle cx="72" cy="43" r="3.5" fill="#0f172a" />
+-              <circle cx="61.5" cy="41.5" r="1.2" fill="#ffffff" />
+-              <circle cx="73.5" cy="41.5" r="1.2" fill="#ffffff" />
+-              <circle cx="56" cy="48" r="2.5" fill="#f43f5e" opacity="0.5" />
+-              <circle cx="76" cy="48" r="2.5" fill="#f43f5e" opacity="0.5" />
+-              <path d="M 64,48 Q 66,50 68,48" fill="none" stroke="#0f172a" strokeWidth="2" strokeLinecap="round" />
+-              <rect x="28" y="54" width="14" height="7" rx="1.5" fill="#fed7aa" transform="rotate(-15 35 57)" />
+-              <line x1="35" y1="53" x2="35" y2="61" stroke="#f97316" strokeWidth="1" />
+-            </svg>
+-          </div>
+-
+-          {mascotTargetAppointments.length > 0 && (
+-            <span className={`absolute -top-1 -right-1 text-white font-extrabold text-[10px] px-1.5 py-0.5 rounded-full border-2 border-white dark:border-zinc-900 shadow-md ${
+-              roleView === 'receptionist'
+-                ? 'bg-amber-500 animate-pulse'
+-                : roleView === 'doctor'
+-                  ? 'bg-teal-500 animate-pulse'
+-                  : expiringAppointments.length > 0 
+-                    ? 'bg-rose-600 animate-pulse' 
+-                    : 'bg-emerald-500'
+-            }`}>
+-              {mascotTargetAppointments.length}
+-            </span>
+-          )}
+-
+-          <span className="absolute -bottom-8 bg-slate-800 text-white text-[9px] font-bold px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+-            {roleView === 'receptionist'
+-              ? 'Gß╗ìi x├íc nhß║¡n'
+-              : roleView === 'doctor'
+-                ? 'V├áo kh├ím ngay'
+-                : '─Éiß╗üu phß╗æi'}
+-          </span>
+-        </button>
+-      </div>
+     </div>
+   );
+ }

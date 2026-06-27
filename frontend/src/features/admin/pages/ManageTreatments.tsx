@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Search,
   CheckCircle2,
@@ -36,6 +37,8 @@ const statusConfig = {
 };
 
 export default function ManageTreatments() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [appointments, setAppointments] = useState<any[]>([]);
   const [staffList, setStaffList] = useState<any[]>([]);
   const [roomsList, setRoomsList] = useState<any[]>([]);
@@ -44,12 +47,32 @@ export default function ManageTreatments() {
   const [loading, setLoading] = useState(true);
 
   // Filters State
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const dateParam = params.get('date');
+    if (dateParam) {
+      const parsedDate = new Date(dateParam);
+      if (!isNaN(parsedDate.getTime())) {
+        return parsedDate;
+      }
+    }
+    return new Date();
+  });
+
   const scheduleType = 'dieu_tri'; // Hardcoded cho màn hình Lịch Trình Điều Trị
-  const [viewMode, setViewMode] = useState<'today' | 'week'>('today');
+
+  const [viewMode, setViewMode] = useState<'today' | 'week'>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const viewParam = params.get('view');
+    if (viewParam && ['today', 'week'].includes(viewParam)) {
+      return viewParam as 'today' | 'week';
+    }
+    return 'today';
+  });
   const [roomFilter, setRoomFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const focusTimerRef = useRef<any>(null);
 
   // Modals State
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
@@ -90,27 +113,38 @@ export default function ManageTreatments() {
   }, []);
 
   const scrollToAppointment = (aptId: string) => {
-    const element = document.getElementById(`appointment-card-${aptId}`);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-      
-      // Highlighting style effects
-      element.style.transition = 'all 0.5s ease-in-out';
-      element.style.boxShadow = '0 0 25px rgba(245, 158, 11, 0.9)';
-      element.style.borderColor = '#f59e0b';
-      element.style.borderWidth = '2px';
-      element.style.transform = 'scale(1.05)';
-      
-      // Fade away smoothly after 2 seconds
-      setTimeout(() => {
-        element.style.boxShadow = '';
-        element.style.borderColor = '';
-        element.style.borderWidth = '';
-        element.style.transform = '';
-      }, 2000);
-    } else {
-      toast.error('Không tìm thấy ca hẹn trên bảng lịch trình.');
-    }
+    const doScroll = (retries = 15) => {
+      const element = document.getElementById(`appointment-card-${aptId}`);
+      if (element) {
+        // Initial scroll instantly to bypass smooth scroll animation conflicts
+        element.scrollIntoView({ behavior: 'auto', block: 'center' });
+        
+        // Secondary corrective scroll to handle layout shifts and React DOM reflows
+        setTimeout(() => {
+          element.scrollIntoView({ behavior: 'auto', block: 'center' });
+        }, 150);
+        
+        // Highlighting style effects
+        element.style.transition = 'all 0.5s ease-in-out';
+        element.style.boxShadow = '0 0 25px rgba(245, 158, 11, 0.9)';
+        element.style.borderColor = '#f59e0b';
+        element.style.borderWidth = '2px';
+        element.style.transform = 'scale(1.05)';
+        
+        // Fade away smoothly after 2 seconds
+        setTimeout(() => {
+          element.style.boxShadow = '';
+          element.style.borderColor = '';
+          element.style.borderWidth = '';
+          element.style.transform = '';
+        }, 2000);
+      } else if (retries > 0) {
+        setTimeout(() => doScroll(retries - 1), 150);
+      } else {
+        toast.error('Không tìm thấy ca hẹn trên bảng lịch trình.');
+      }
+    };
+    doScroll(15);
   };
 
   const handleUpdateAppointment = async (e?: React.FormEvent) => {
@@ -154,6 +188,11 @@ export default function ManageTreatments() {
   const startDateOfWeek = startOfWeek(selectedDate, { weekStartsOn: 1 });
   const endDateOfWeek = addDays(startDateOfWeek, 6);
 
+  const isSelectedToday = format(selectedDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+  const currentActualWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+  const isSelectedCurrentWeek = format(startDateOfWeek, 'yyyy-MM-dd') === format(currentActualWeekStart, 'yyyy-MM-dd');
+  const isCurrentRangeActive = viewMode === 'today' ? isSelectedToday : isSelectedCurrentWeek;
+
   const filteredAppointments = appointments.filter(apt => {
     const aptDate = new Date(apt.ngay_gio_bat_dau);
     let matchDate = false;
@@ -175,30 +214,76 @@ export default function ManageTreatments() {
     return matchDate && matchType && matchRoom && matchStatus && matchSearch;
   });
 
-  // KPI Metrics calculation
-  const dailyAppointments = appointments.filter(apt => {
-      const aptDateStr = format(new Date(apt.ngay_gio_bat_dau), 'yyyy-MM-dd');
-      const matchType = apt.loai_lich === scheduleType;
+  // KPI Metrics calculation (Filtered by date/time range and type only, independent of search/status/room filters)
+  const kpiAppointments = appointments.filter(apt => {
+    const aptDate = new Date(apt.ngay_gio_bat_dau);
+    const matchType = apt.loai_lich === scheduleType;
+    
+    if (viewMode === 'today') {
+      const aptDateStr = format(aptDate, 'yyyy-MM-dd');
       return aptDateStr === formattedSelectedDate && matchType;
+    } else {
+      const isWithinWeek = aptDate >= startDateOfWeek && aptDate <= new Date(endDateOfWeek.setHours(23, 59, 59, 999));
+      return isWithinWeek && matchType;
+    }
   });
 
+
   const kpis = {
-    total: viewMode === 'today' ? dailyAppointments.length : filteredAppointments.length,
-    waiting: (viewMode === 'today' ? dailyAppointments : filteredAppointments).filter(a => a.trang_thai === 'cho_xac_nhan').length,
-    completed: (viewMode === 'today' ? dailyAppointments : filteredAppointments).filter(a => a.trang_thai === 'hoan_thanh').length,
-    cancelled: (viewMode === 'today' ? dailyAppointments : filteredAppointments).filter(a => a.trang_thai === 'da_huy' || a.trang_thai === 'khong_den').length,
+    total: kpiAppointments.length,
+    waiting: kpiAppointments.filter(a => a.trang_thai === 'cho_xac_nhan').length,
+    completed: kpiAppointments.filter(a => a.trang_thai === 'hoan_thanh').length,
+    cancelled: kpiAppointments.filter(a => a.trang_thai === 'da_huy' || a.trang_thai === 'khong_den').length,
   };
 
-  const unassignedTreatments = appointments
+  const allUnassignedTreatments = appointments
     .filter(apt => {
-      const aptDateStr = format(new Date(apt.ngay_gio_bat_dau), 'yyyy-MM-dd');
-      const isSelectedDate = aptDateStr === formattedSelectedDate;
       const isTreatment = apt.loai_lich === 'dieu_tri';
       const isActive = !['hoan_thanh', 'da_huy', 'khong_den'].includes(apt.trang_thai);
       const hasNoKtv = !apt.ky_thuat_vien_id;
-      return isSelectedDate && isTreatment && isActive && hasNoKtv;
+      return isTreatment && isActive && hasNoKtv;
     })
     .sort((a, b) => new Date(a.ngay_gio_bat_dau).getTime() - new Date(b.ngay_gio_bat_dau).getTime());
+
+  // Clean up focus timer on component unmount
+  useEffect(() => {
+    return () => {
+      if (focusTimerRef.current) {
+        clearTimeout(focusTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Auto-focus treatment session when navigated from other pages with triggerFocus=true
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const treatIdParam = params.get('treatmentId');
+    if (params.get('triggerFocus') === 'true' && !loading) {
+      const targetId = treatIdParam || (allUnassignedTreatments.length > 0 ? String(allUnassignedTreatments[0].id) : null);
+      if (targetId) {
+        // Find target details for date initialization if needed
+        const target = appointments.find(a => String(a.id) === targetId);
+        const targetDate = target ? new Date(target.ngay_gio_bat_dau) : (allUnassignedTreatments.length > 0 ? new Date(allUnassignedTreatments[0].ngay_gio_bat_dau) : new Date());
+        
+        // Clean up URL parameter immediately to prevent infinite loops on re-renders
+        params.delete('triggerFocus');
+        const newSearch = params.toString() ? `?${params.toString()}` : '';
+        navigate(location.pathname + newSearch, { replace: true });
+
+        setSelectedDate(targetDate);
+        setViewMode('today');
+
+        // Cancel previous timer if any
+        if (focusTimerRef.current) {
+          clearTimeout(focusTimerRef.current);
+        }
+
+        focusTimerRef.current = setTimeout(() => {
+          scrollToAppointment(targetId);
+        }, 500);
+      }
+    }
+  }, [location.search, allUnassignedTreatments, appointments, navigate, location.pathname, loading]);
 
   const dynamicTimeSlots = Array.from(
     new Set(
@@ -247,20 +332,6 @@ export default function ManageTreatments() {
           >
             + Tạo lịch điều trị
           </button>
-          <div className="flex items-center bg-white rounded-xl shadow-sm border border-slate-100 p-1 justify-between min-w-[280px]">
-            <button onClick={() => handleNavigateDay('prev')} className="p-2 hover:bg-slate-50 text-slate-600 rounded-lg transition-colors">
-              <ChevronLeft size={18} />
-            </button>
-            <div className="px-3 text-sm font-semibold text-slate-700 text-center flex-1">
-              {viewMode === 'today' 
-                ? format(selectedDate, 'eeee, dd/MM/yyyy', { locale: vi })
-                : `Tuần: ${format(startDateOfWeek, 'dd/MM')} - ${format(endDateOfWeek, 'dd/MM/yyyy')}`
-              }
-            </div>
-            <button onClick={() => handleNavigateDay('next')} className="p-2 hover:bg-slate-50 text-slate-600 rounded-lg transition-colors">
-              <ChevronRight size={18} />
-            </button>
-          </div>
         </div>
       </div>
 
@@ -298,28 +369,59 @@ export default function ManageTreatments() {
 
       {/* FILTER CONTROLS BAR */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-2 flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
-        <div className="flex bg-slate-50 p-1 rounded-xl">
-          <button
-            onClick={() => setViewMode('today')}
-            className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg transition-all ${viewMode === 'today' ? 'bg-white text-indigo-700 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-700'
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex bg-slate-50 p-1 rounded-xl">
+            <button
+              onClick={() => setViewMode('today')}
+              className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg transition-all ${viewMode === 'today' ? 'bg-white text-indigo-700 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-700'
+                }`}
+            >
+              <CalendarIcon size={18} /> Hôm nay
+            </button>
+            <button
+              onClick={() => setViewMode('week')}
+              className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg transition-all ${viewMode === 'week' ? 'bg-white text-indigo-700 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-700'
+                }`}
+            >
+              <CalendarDays size={18} /> Tuần này
+            </button>
+          </div>
+
+          <div className={`flex items-center rounded-xl p-1 justify-between select-none transition-all duration-300 border ${
+            isCurrentRangeActive
+              ? 'bg-indigo-100/80 border-indigo-300 text-indigo-900 shadow-sm font-extrabold'
+              : 'bg-white border-slate-200 text-slate-700 shadow-sm'
+          }`}>
+            <button
+              onClick={() => handleNavigateDay('prev')}
+              className={`p-2 rounded-lg transition-all shadow-sm border border-transparent ${
+                isCurrentRangeActive
+                  ? 'hover:bg-white text-indigo-800'
+                  : 'hover:bg-slate-100 text-slate-600'
               }`}
-          >
-            <CalendarIcon size={18} /> Hôm nay
-          </button>
-          <button
-            onClick={() => setViewMode('week')}
-            className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg transition-all ${viewMode === 'week' ? 'bg-white text-indigo-700 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-700'
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <div className="px-4 text-sm font-semibold text-center min-w-[180px] md:min-w-[220px]">
+              {viewMode === 'today'
+                ? format(selectedDate, 'eeee, dd/MM/yyyy', { locale: vi })
+                : `Tuần: ${format(startDateOfWeek, 'dd/MM')} - ${format(endDateOfWeek, 'dd/MM/yyyy')}`
+              }
+            </div>
+            <button
+              onClick={() => handleNavigateDay('next')}
+              className={`p-2 rounded-lg transition-all shadow-sm border border-transparent ${
+                isCurrentRangeActive
+                  ? 'hover:bg-white text-indigo-800'
+                  : 'hover:bg-slate-100 text-slate-600'
               }`}
-          >
-            <CalendarDays size={18} /> Tuần này
-          </button>
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1 lg:justify-end">
-          <button onClick={() => handleNavigateDay('today')} className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 transition-colors text-sm font-semibold text-slate-700 rounded-xl shrink-0">
-            Trở về Hiện tại
-          </button>
-
           <div className="relative shrink-0">
             <select
               value={statusFilter}
@@ -410,56 +512,6 @@ export default function ManageTreatments() {
         onClose={() => setIsCreateModalOpen(false)}
         onSuccess={fetchData}
       />
-      {/* Floating Mascot Dispatch Widget */}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
-        {/* Mascot Button */}
-        <button
-          onClick={() => {
-            if (unassignedTreatments.length > 0) {
-              scrollToAppointment(unassignedTreatments[0].id);
-            } else {
-              toast.success("Tất cả các ca điều trị đã có KTV!");
-            }
-          }}
-          className="relative size-16 bg-white rounded-full shadow-2xl border border-slate-100 flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-300 group focus:outline-none"
-        >
-          {unassignedTreatments.length > 0 && (
-            <div className="absolute inset-0 rounded-full bg-emerald-500/20 animate-ping pointer-events-none" />
-          )}
-
-          <div className={`${unassignedTreatments.length > 0 ? 'animate-bounce' : 'group-hover:animate-pulse'}`} style={{ animationDuration: unassignedTreatments.length > 0 ? '1s' : '2s' }}>
-            <svg viewBox="0 0 100 100" className="size-14">
-              <circle cx="50" cy="55" r="32" fill="#10b981" />
-              <path d="M 22,40 Q 16,30 26,26 Q 36,22 41,32" fill="#f59e0b" />
-              <path d="M 36,26 Q 41,16 51,16 Q 61,16 56,26" fill="#f59e0b" />
-              <path d="M 51,21 Q 61,11 71,16 Q 76,26 66,31" fill="#f59e0b" />
-              <circle cx="66" cy="46" r="20" fill="#10b981" />
-              <path d="M 66,26 C 66,18 58,15 56,18 C 54,21 62,24 66,26" fill="#84cc16" />
-              <path d="M 66,26 C 66,18 74,15 76,18 C 78,21 70,24 66,26" fill="#84cc16" />
-              <rect x="65" y="25" width="2" height="3" rx="1" fill="#78350f" />
-              <circle cx="60" cy="43" r="3.5" fill="#0f172a" />
-              <circle cx="72" cy="43" r="3.5" fill="#0f172a" />
-              <circle cx="61.5" cy="41.5" r="1.2" fill="#ffffff" />
-              <circle cx="73.5" cy="41.5" r="1.2" fill="#ffffff" />
-              <circle cx="56" cy="48" r="2.5" fill="#f43f5e" opacity="0.5" />
-              <circle cx="76" cy="48" r="2.5" fill="#f43f5e" opacity="0.5" />
-              <path d="M 64,48 Q 66,50 68,48" fill="none" stroke="#0f172a" strokeWidth="2" strokeLinecap="round" />
-              <rect x="28" y="54" width="14" height="7" rx="1.5" fill="#fed7aa" transform="rotate(-15 35 57)" />
-              <line x1="35" y1="53" x2="35" y2="61" stroke="#f97316" strokeWidth="1" />
-            </svg>
-          </div>
-
-          {unassignedTreatments.length > 0 && (
-            <span className="absolute -top-1 -right-1 bg-rose-500 text-white font-extrabold text-[10px] px-1.5 py-0.5 rounded-full border-2 border-white shadow-md">
-              {unassignedTreatments.length}
-            </span>
-          )}
-
-          <span className="absolute -bottom-8 bg-slate-800 text-white text-[9px] font-bold px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-            Điều phối
-          </span>
-        </button>
-      </div>
     </div>
   );
 }

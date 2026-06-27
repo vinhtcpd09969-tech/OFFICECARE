@@ -1,0 +1,60 @@
+@baseUrl = http://localhost:5001/api
+@token = {{login.response.body.token}}
+
+### 1. Đăng nhập Hệ thống (Lấy Token tự động)
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@physioflow.com",
+  "mat_khau": "123456"
+}
+
+###
+
+### 2. Quản lý Lịch hẹn (Admin Master View)
+GET {{baseUrl}}/admin/appointments
+Authorization: Bearer {{token}}
+
+###
+
+### 3. Danh sách Khách hàng
+GET {{baseUrl}}/admin/customers
+Authorization: Bearer {{token}}
+
+###
+
+### 4. Hồ sơ Điều trị (Bệnh án)
+GET {{baseUrl}}/admin/medical-records
+Authorization: Bearer {{token}}
+
+###
+
+### 5. Danh sách Thiết bị Y tế
+GET {{baseUrl}}/admin/equipment
+Authorization: Bearer {{token}}
+
+###
+
+### 6. Danh sách Giao dịch thanh toán
+GET {{baseUrl}}/admin/payments
+Authorization: Bearer {{token}}
+
+###
+
+### 7. Danh sách Hóa đơn
+GET {{baseUrl}}/admin/invoices
+Authorization: Bearer {{token}}
+
+###
+
+### 8. Danh sách Đánh giá (Feedback)
+GET {{baseUrl}}/admin/feedback
+Authorization: Bearer {{token}}
+
+###
+
+### 9. Danh sách Gói điều trị
+GET {{baseUrl}}/admin/packages
+Authorization: Bearer {{token}}

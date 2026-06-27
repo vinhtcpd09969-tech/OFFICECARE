@@ -25,12 +25,10 @@ interface Equipment {
   loai_thiet_bi?: string;
   trang_thai: string;
   phong_id_hien_tai?: string | number | null;
-  co_the_di_chuyen?: boolean;
 }
 
 const renderRoomIconSVG = (type: string) => {
-  // Render dynamic vector graphics based on room type
-  if (type === 'phong_tri_lieu_chuan' || type === 'tri_lieu') {
+  if (type === 'phong_tri_lieu' || type === 'phong_tri_lieu_chuan' || type === 'tri_lieu' || type === 'phong_dac_biet') {
     return (
       <svg className="w-10 h-10 text-teal-800/20 group-hover:text-teal-800/40 group-hover:scale-110 transition-all duration-500" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.5">
         <circle cx="32" cy="32" r="28" strokeDasharray="4 4" />
@@ -40,26 +38,7 @@ const renderRoomIconSVG = (type: string) => {
       </svg>
     );
   }
-  if (type === 'kho_thiet_bi') {
-    return (
-      <svg className="w-10 h-10 text-indigo-600/20 group-hover:text-indigo-600/40 group-hover:scale-110 transition-all duration-500" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path d="M32 6L8 18v28l24 12 24-12V18L32 6z" />
-        <path d="M32 6v52M8 18l24 12 24-12" />
-        <circle cx="32" cy="30" r="3" fill="currentColor" />
-      </svg>
-    );
-  }
-  if (type === 'phong_may_co_dinh') {
-    return (
-      <svg className="w-10 h-10 text-rose-700/20 group-hover:text-rose-600/40 group-hover:scale-110 transition-all duration-500" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <circle cx="32" cy="32" r="24" />
-        <circle cx="32" cy="32" r="14" strokeWidth="1" strokeDasharray="3 3" />
-        <circle cx="32" cy="32" r="6" />
-        <circle cx="32" cy="32" r="1.5" fill="currentColor" />
-      </svg>
-    );
-  }
-  if (type === 'kham_benh') {
+  if (type === 'phong_kham' || type === 'kham_benh') {
     return (
       <svg className="w-10 h-10 text-emerald-700/20 group-hover:text-emerald-600/40 group-hover:scale-110 transition-all duration-500" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.5">
         <rect x="6" y="12" width="52" height="40" rx="2" />
@@ -67,7 +46,7 @@ const renderRoomIconSVG = (type: string) => {
       </svg>
     );
   }
-  if (type === 'phong_tap_phcn' || type === 'phuc_hoi') {
+  if (type === 'phong_tap' || type === 'phong_tap_phcn' || type === 'phuc_hoi') {
     return (
       <svg className="w-10 h-10 text-teal-700/20 group-hover:text-teal-600/40 group-hover:scale-110 transition-all duration-500" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.5">
         <path d="M8 52c10-5 18-28 28-28s12 18 20 12" strokeWidth="2" strokeLinecap="round" />
@@ -85,11 +64,9 @@ const renderRoomIconSVG = (type: string) => {
 };
 
 const ALL_ROOM_TYPES = [
-  { value: 'phong_tri_lieu_chuan', label: 'Phòng trị liệu' },
-  { value: 'phong_may_co_dinh', label: 'Phòng có thiết bị cố định' },
-  { value: 'kham_benh', label: 'Phòng khám' },
-  { value: 'phong_tap_phcn', label: 'Phòng tập' },
-  { value: 'kho_thiet_bi', label: 'Phòng thiết bị chung' }
+  { value: 'phong_tri_lieu', label: 'Phòng trị liệu' },
+  { value: 'phong_kham', label: 'Phòng khám' },
+  { value: 'phong_tap', label: 'Phòng tập' }
 ];
 
 export default function ManageRooms() {
@@ -109,10 +86,17 @@ export default function ManageRooms() {
   // Modals state
   const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
 
-  const [roomFormData, setRoomFormData] = useState({
+  const [roomFormData, setRoomFormData] = useState<{
+    ten_phong: string;
+    ma_phong: string;
+    loai_phong: string;
+    trang_thai: string;
+    mo_ta: string;
+    so_luong_giuong: number | '';
+  }>({
     ten_phong: '',
     ma_phong: '',
-    loai_phong: 'kham_benh',
+    loai_phong: 'phong_tri_lieu',
     trang_thai: 'san_sang',
     mo_ta: '',
     so_luong_giuong: 1
@@ -198,7 +182,7 @@ export default function ManageRooms() {
     setRoomFormData({
       ten_phong: '',
       ma_phong: '',
-      loai_phong: 'kham_benh',
+      loai_phong: 'phong_tri_lieu',
       trang_thai: 'san_sang',
       mo_ta: '',
       so_luong_giuong: 1
@@ -209,7 +193,11 @@ export default function ManageRooms() {
   const handleRoomSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await createRoom(roomFormData);
+      const payload = {
+        ...roomFormData,
+        so_luong_giuong: Number(roomFormData.so_luong_giuong) || 1
+      };
+      await createRoom(payload);
       showToast('Tạo phòng mới thành công!');
       setIsRoomModalOpen(false);
       loadData();
@@ -224,13 +212,10 @@ export default function ManageRooms() {
 
 
   const translateType = (type: string) => {
-    if (type === 'kham_benh') return 'Phòng khám';
-    if (type === 'phong_tri_lieu_chuan') return 'Phòng trị liệu';
+    if (type === 'phong_kham' || type === 'kham_benh') return 'Phòng khám';
+    if (type === 'phong_tri_lieu' || type === 'phong_tri_lieu_chuan' || type === 'tri_lieu' || type === 'phong_dac_biet') return 'Phòng trị liệu';
+    if (type === 'phong_tap' || type === 'phong_tap_phcn' || type === 'phuc_hoi') return 'Phòng tập';
     if (type === 'kho_thiet_bi') return 'Phòng thiết bị chung';
-    if (type === 'phong_may_co_dinh') return 'Phòng có thiết bị cố định';
-    if (type === 'phong_tap_phcn') return 'Phòng tập';
-    if (type === 'tri_lieu') return 'Phòng trị liệu';
-    if (type === 'phuc_hoi') return 'Phòng tập';
     return type;
   };
 
@@ -351,21 +336,16 @@ export default function ManageRooms() {
           />
         </div>
 
-        {/* Room Type Selector */}
-        <div>
           <select 
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value)}
             className="w-full py-2 px-3 border border-slate-200 bg-white text-sm font-bold rounded-none focus:outline-none focus:border-teal-800"
           >
             <option value="all">TẤT CẢ CÁC LOẠI PHÒNG</option>
-            <option value="phong_tri_lieu_chuan">PHÒNG TRỊ LIỆU</option>
-            <option value="kho_thiet_bi">PHÒNG THIẾT BỊ CHUNG</option>
-            <option value="phong_may_co_dinh">PHÒNG CÓ THIẾT BỊ CỐ ĐỊNH</option>
-            <option value="kham_benh">PHÒNG KHÁM</option>
-            <option value="phong_tap_phcn">PHÒNG TẬP</option>
+            <option value="phong_tri_lieu">PHÒNG TRỊ LIỆU</option>
+            <option value="phong_kham">PHÒNG KHÁM</option>
+            <option value="phong_tap">PHÒNG TẬP</option>
           </select>
-        </div>
       </div>
 
       {/* Active filters display */}
@@ -535,16 +515,12 @@ export default function ManageRooms() {
                 {/* Card Footer indicator */}
                 <div className="flex items-center justify-between border-t border-slate-100 pt-3 mt-auto z-10 relative">
                   <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                    {room.loai_phong === 'phong_tri_lieu_chuan' || room.loai_phong === 'tri_lieu' ? (
-                      `${room.so_luong_giuong || 1} giường • ${room.so_luong_giuong || 1} KTV phụ trách`
-                    ) : room.loai_phong === 'kho_thiet_bi' ? (
-                      'Phòng thiết bị chung'
-                    ) : room.loai_phong === 'phong_may_co_dinh' ? (
-                      'Phòng máy trị liệu (Phân bổ động)'
-                    ) : room.loai_phong === 'kham_benh' ? (
+                    {room.loai_phong === 'phong_tri_lieu' || room.loai_phong === 'phong_tri_lieu_chuan' || room.loai_phong === 'tri_lieu' || room.loai_phong === 'phong_dac_biet' ? (
+                      `${room.so_luong_giuong || 1} giường trị liệu`
+                    ) : room.loai_phong === 'phong_kham' || room.loai_phong === 'kham_benh' ? (
                       'Phòng khám chuyên khoa'
-                    ) : room.loai_phong === 'phong_tap_phcn' || room.loai_phong === 'phuc_hoi' ? (
-                      'Khu tập phục hồi chức năng'
+                    ) : room.loai_phong === 'phong_tap' || room.loai_phong === 'phong_tap_phcn' || room.loai_phong === 'phuc_hoi' ? (
+                      'Phòng tập phục hồi chức năng'
                     ) : (
                       'Phòng chức năng'
                     )}
@@ -561,104 +537,100 @@ export default function ManageRooms() {
 
       {/* MODAL: CREATE NEW ROOM */}
       {isRoomModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white border border-slate-200 rounded-none shadow-[0_12px_40px_rgba(0,0,0,0.15)] max-w-lg w-full overflow-hidden animate-[zoomIn_0.25s_ease-out]">
-            <div className="bg-slate-900 text-white px-6 py-4 flex justify-between items-center">
-              <h3 className="font-extrabold text-sm uppercase tracking-widest">
-                Tạo mới Phòng điều trị
-              </h3>
-              <button onClick={() => setIsRoomModalOpen(false)} className="text-slate-400 hover:text-white font-bold text-lg">✕</button>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-[fadeIn_0.2s_ease-out]">
+          <div className="bg-white border-2 border-slate-950 shadow-[0_24px_60px_rgba(0,0,0,0.18)] max-w-lg w-full overflow-hidden rounded-none flex flex-col max-h-[90vh]">
+            {/* Modal Header */}
+            <div className="border-b-2 border-slate-950 bg-slate-950 text-white px-6 py-4 flex justify-between items-center flex-shrink-0">
+              <div>
+                <span className="text-[10px] font-black text-teal-400 uppercase tracking-widest block mb-0.5">Hạ tầng y tế</span>
+                <h3 className="font-extrabold text-sm uppercase tracking-wider">
+                  Đăng ký phòng điều trị mới
+                </h3>
+              </div>
+              <button 
+                onClick={() => setIsRoomModalOpen(false)} 
+                className="text-slate-400 hover:text-white transition-colors p-1"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
 
-            <form onSubmit={handleRoomSubmit} className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-550 uppercase tracking-wider mb-1">Mã Phòng (ví dụ: P204)</label>
-                  <input 
-                    type="text" 
-                    required
-                    placeholder="P204"
-                    value={roomFormData.ma_phong}
-                    onChange={(e) => setRoomFormData({ ...roomFormData, ma_phong: e.target.value.toUpperCase() })}
-                    className="w-full border border-slate-200 bg-white p-2.5 text-sm font-bold rounded-none focus:outline-none focus:border-teal-800"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-550 uppercase tracking-wider mb-1">Tên Phòng (ví dụ: Phòng 204)</label>
-                  <input 
-                    type="text" 
-                    required
-                    placeholder="Phòng 204"
-                    value={roomFormData.ten_phong}
-                    onChange={(e) => setRoomFormData({ ...roomFormData, ten_phong: e.target.value })}
-                    className="w-full border border-slate-200 bg-white p-2.5 text-sm font-bold rounded-none focus:outline-none focus:border-teal-800"
-                  />
-                </div>
+            {/* Modal Content */}
+            <form onSubmit={handleRoomSubmit} className="p-6 space-y-5 overflow-y-auto flex-1 text-slate-800">
+              <div>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Tên Phòng</label>
+                <input 
+                  type="text" 
+                  required
+                  placeholder="Phòng trị liệu, Phòng VIP, Phòng Laser..."
+                  value={roomFormData.ten_phong}
+                  onChange={(e) => setRoomFormData({ ...roomFormData, ten_phong: e.target.value })}
+                  className="w-full border-2 border-slate-200 bg-slate-50 hover:bg-white focus:bg-white p-3 text-sm font-bold rounded-none focus:outline-none focus:border-slate-950 focus:ring-0 transition-all placeholder-slate-400"
+                />
               </div>
 
-              <div className="grid grid-cols-1 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-550 uppercase tracking-wider mb-1">Loại Phòng</label>
-                  <select 
-                    value={roomFormData.loai_phong}
-                    onChange={(e) => setRoomFormData({ ...roomFormData, loai_phong: e.target.value })}
-                    className="w-full border border-slate-200 bg-white p-2.5 text-sm font-bold rounded-none focus:outline-none focus:border-teal-800"
-                  >
-                    {ALL_ROOM_TYPES.map(t => (
-                      <option key={t.value} value={t.value}>{t.label}</option>
-                    ))}
-                  </select>
-                </div>
+              <div>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Loại Phòng</label>
+                <select 
+                  value={roomFormData.loai_phong}
+                  onChange={(e) => setRoomFormData({ ...roomFormData, loai_phong: e.target.value })}
+                  className="w-full border-2 border-slate-200 bg-slate-50 hover:bg-white focus:bg-white p-3 text-sm font-bold rounded-none focus:outline-none focus:border-slate-950 focus:ring-0 transition-all"
+                >
+                  {ALL_ROOM_TYPES.map(t => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className={roomFormData.loai_phong === 'kho_thiet_bi' ? 'col-span-2' : ''}>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Trạng thái ban đầu (Mặc định)</label>
-                  <input 
-                    type="text"
-                    disabled
-                    value="SẴN SÀNG"
-                    className="w-full border border-slate-200 bg-slate-50 p-2.5 text-sm font-bold rounded-none cursor-not-allowed text-slate-400 focus:outline-none"
-                  />
-                </div>
-                {roomFormData.loai_phong !== 'kho_thiet_bi' && (
-                  <div>
-                    <label className="block text-xs font-bold text-slate-550 uppercase tracking-wider mb-1">Sức chứa (giường/ghế/bàn)</label>
+              {(roomFormData.loai_phong === 'phong_tri_lieu' || roomFormData.loai_phong === 'phong_tri_lieu_chuan' || roomFormData.loai_phong === 'tri_lieu') && (
+                <div className="p-4 bg-slate-50 border-2 border-slate-150 space-y-1.5">
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest">Sức chứa tối đa (Giường/Bàn trị liệu)</label>
+                  <div className="relative">
                     <input 
                       type="number"
                       min={1}
                       max={10}
                       required
                       value={roomFormData.so_luong_giuong}
-                      onChange={(e) => setRoomFormData({ ...roomFormData, so_luong_giuong: Math.max(1, parseInt(e.target.value) || 1) })}
-                      className="w-full border border-slate-200 bg-white p-2.5 text-sm font-bold rounded-none focus:outline-none focus:border-teal-800"
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setRoomFormData({ 
+                           ...roomFormData, 
+                           so_luong_giuong: val === '' ? '' : Math.max(1, parseInt(val) || 1)
+                        });
+                      }}
+                      className="w-full border-2 border-slate-200 bg-white p-3 text-sm font-bold rounded-none focus:outline-none focus:border-slate-950 transition-all"
                     />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 pointer-events-none">GIƯỜNG</span>
                   </div>
-                )}
-              </div>
+                  <p className="text-[10px] text-slate-400 italic">Dùng để kiểm soát sức chứa tối đa khi xếp lịch điều trị cho bệnh nhân.</p>
+                </div>
+              )}
 
               <div>
-                <label className="block text-xs font-bold text-slate-550 uppercase tracking-wider mb-1">Mô tả chi tiết / Ghi chú</label>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Mô tả chi tiết / Ghi chú</label>
                 <textarea 
                   value={roomFormData.mo_ta}
                   onChange={(e) => setRoomFormData({ ...roomFormData, mo_ta: e.target.value })}
                   placeholder="Ghi chú vệ sinh, dọn dẹp phòng, chỉ định kỹ thuật viên phụ trách..."
                   rows={3}
-                  className="w-full border border-slate-200 bg-white p-2.5 text-sm font-semibold rounded-none focus:outline-none focus:border-teal-800"
+                  className="w-full border-2 border-slate-200 bg-slate-50 hover:bg-white focus:bg-white p-3 text-sm font-semibold rounded-none focus:outline-none focus:border-slate-950 focus:ring-0 transition-all placeholder-slate-400"
                 />
               </div>
 
-              <div className="flex gap-3 justify-end pt-4 border-t border-slate-100">
+              <div className="flex gap-3 justify-end pt-4 border-t border-slate-100 flex-shrink-0">
                 <button 
                   type="button" 
                   onClick={() => setIsRoomModalOpen(false)}
-                  className="px-4 py-2 border border-slate-200 text-slate-500 text-xs font-bold uppercase tracking-wider rounded-none hover:bg-slate-50 transition-all"
+                  className="px-5 py-2.5 border-2 border-slate-200 hover:border-slate-300 text-slate-500 hover:text-slate-800 text-xs font-bold uppercase tracking-widest rounded-none transition-all"
                 >
                   Hủy
                 </button>
                 <button 
                   type="submit" 
-                  className="px-6 py-2 bg-teal-800 hover:bg-teal-950 text-white text-xs font-black uppercase tracking-wider transition-all rounded-none active:scale-95"
+                  className="px-6 py-2.5 bg-slate-950 hover:bg-teal-900 text-white text-xs font-black uppercase tracking-widest rounded-none transition-all shadow-md active:scale-[0.98]"
                 >
                   Tạo phòng
                 </button>

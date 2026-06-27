@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react';
-import Hero from '../components/Hero';
-import SymptomsGrid from '../components/SymptomsGrid';
-import Benefits from '../components/Benefits';
-import AiAssistant from '../components/AiAssistant';
-import ServicesCarousel from '../components/ServicesCarousel';
-import ProcessTimeline from '../components/ProcessTimeline';
-import Pricing from '../components/Pricing';
-import Specialists from '../components/Specialists';
-import Testimonials from '../components/Testimonials';
-import FaqAccordion from '../components/FaqAccordion';
-import FooterCta from '../components/FooterCta';
-import ChatbotWidget from '../components/ChatbotWidget';
+import Hero from '../components/home/Hero';
+import SymptomsGrid from '../components/home/SymptomsGrid';
+import Benefits from '../components/home/Benefits';
+import AiAssistant from '../components/chatbot/AiAssistant';
+import ServicesCarousel from '../components/home/ServicesCarousel';
+import ProcessTimeline from '../components/home/ProcessTimeline';
+import Pricing from '../components/home/Pricing';
+import Specialists from '../components/home/Specialists';
+import Testimonials from '../components/home/Testimonials';
+import FaqAccordion from '../components/home/FaqAccordion';
+import FooterCta from '../components/home/FooterCta';
+import ChatbotWidget from '../components/chatbot/ChatbotWidget';
 
 export default function Home() {
   const [isChatOpen, setIsChatOpen] = useState(false);

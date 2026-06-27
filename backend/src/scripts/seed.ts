@@ -35,18 +35,72 @@ const importBackupData = async () => {
   if (!fs.existsSync(filePath)) {
     throw new Error(`Backup file not found at: ${filePath}`);
   }
-  const sqlContent = fs.readFileSync(filePath, 'utf8');
+  let sqlContent = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
   
-  // Normalize newlines and strip comments before parsing
-  const normalizedSql = sqlContent
-    .replace(/\r\n/g, '\n')
-    .split('\n')
+  // Replace the old admin creator UUID in vouchers with our seeded admin ID
+  sqlContent = sqlContent.replace(/2bc223ef-02d9-484c-b0ef-b66ec2bdd6ee/g, '00000000-0000-0000-0000-000000000001');
+
+  // Clean up any outdated columns/values from thiet_bi_y_te insert statements in memory
+  const lines = sqlContent.split('\n');
+  const cleanedLines = lines.map(line => {
+    if (line.includes('INSERT INTO "thiet_bi_y_te"')) {
+      // Replace the column list
+      line = line.replace('"ngay_bao_tri_tiep_theo", ', '').replace('"co_the_di_chuyen", ', '');
+      
+      const valuesIndex = line.indexOf('VALUES (');
+      if (valuesIndex !== -1) {
+        const prefix = line.substring(0, valuesIndex + 8);
+        const valuesStr = line.substring(valuesIndex + 8).trim().replace(/\);$/, '');
+        
+        // Parse valuesStr considering single quotes
+        const values: string[] = [];
+        let current = '';
+        let inQuotes = false;
+        for (let i = 0; i < valuesStr.length; i++) {
+          const char = valuesStr[i];
+          if (char === "'") {
+            inQuotes = !inQuotes;
+            current += char;
+          } else if (char === ',' && !inQuotes) {
+            values.push(current.trim());
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+        if (current) {
+          values.push(current.trim());
+        }
+        
+        // Remove 11th (index 10: co_the_di_chuyen) and 6th (index 5: ngay_bao_tri_tiep_theo) values
+        values.splice(10, 1);
+        values.splice(5, 1);
+        
+        return prefix + values.join(', ') + ');';
+      }
+    }
+    return line;
+  });
+
+  const normalizedSql = cleanedLines
     .filter(line => !line.trim().startsWith('--'))
     .join('\n');
 
   const rawStatements = normalizedSql.split(/;\n/);
   const truncates: string[] = [];
   const insertsAndOthers: string[] = [];
+
+  const skipTables = [
+    'nguoi_dung',
+    'khach_hang',
+    'vai_tro',
+    'chuyen_gia_y_te',
+    'lich_lam_viec',
+    'lich_dat',
+    'lich_dieu_tri',
+    'buoi_tri_lieu',
+    'buoi_tri_lieu_dich_vu'
+  ];
 
   for (let i = 0; i < rawStatements.length; i++) {
     let stmt = rawStatements[i].trim();
@@ -55,8 +109,21 @@ const importBackupData = async () => {
     stmt += ';';
     if (stmt.startsWith('\\')) continue;
 
-    if (stmt.toUpperCase().startsWith('TRUNCATE')) {
+    const isTruncate = stmt.toUpperCase().startsWith('TRUNCATE');
+    const isInsert = stmt.toUpperCase().startsWith('INSERT');
+
+    const matchesSkipTable = skipTables.some(table => stmt.includes(`"${table}"`));
+
+    if (isTruncate) {
+      if (matchesSkipTable) {
+        continue;
+      }
       truncates.push(stmt);
+    } else if (isInsert) {
+      if (matchesSkipTable) {
+        continue;
+      }
+      insertsAndOthers.push(stmt);
     } else {
       insertsAndOthers.push(stmt);
     }
@@ -72,6 +139,23 @@ const importBackupData = async () => {
     await pool.query(s);
   }
   console.log('✅ Database restored successfully.');
+};
+
+const importUsersSeed = async () => {
+  console.log('Restoring users and schedules from seed_users.sql...');
+  const filePath = path.join(__dirname, 'seed_users.sql');
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`Users seed file not found at: ${filePath}`);
+  }
+  const sqlContent = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
+  
+  const rawStatements = sqlContent.split(/;\n/);
+  for (let i = 0; i < rawStatements.length; i++) {
+    const stmt = rawStatements[i].trim();
+    if (!stmt) continue;
+    await pool.query(stmt + ';');
+  }
+  console.log('✅ Users and schedules seeded successfully.');
 };
 
 const updateRoomsBedCapacity = async () => {
@@ -127,16 +211,19 @@ const runSeed = async () => {
     // 1. Run database alter statements
     await alterTables();
 
-    // 2. Import backup SQL file
+    // 2. Import users seed file first
+    await importUsersSeed();
+
+    // 3. Import backup SQL file
     await importBackupData();
 
-    // 3. Reset search path just in case
+    // 4. Reset search path just in case
     await pool.query('SET search_path TO public;');
 
-    // 4. Update rooms bed capacity
+    // 5. Update rooms bed capacity
     await updateRoomsBedCapacity();
 
-    // 5. Assign some KTV shifts to beds
+    // 6. Assign some KTV shifts to beds
     await assignKtvShifts();
 
     console.log('🎉 Seeding successfully completed!');

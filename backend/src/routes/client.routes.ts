@@ -4,6 +4,7 @@ import {
   getCustomerAppointments, 
   cancelCustomerAppointment, 
   getBookedSlots, 
+  getActiveDoctorDates,
   getPublicServices, 
   getPublicAppointmentById, 
   getCustomerMedicalRecord, 
@@ -54,6 +55,7 @@ router.get('/categories', async (req, res) => {
 
 // API public - lấy danh sách giờ đã đặt theo ngày (không cần xác thực)
 router.get('/appointments/booked-slots', getBookedSlots);
+router.get('/appointments/active-doctor-dates', getActiveDoctorDates);
 
 // API public - lấy danh sách dịch vụ hoạt động hiển thị trên website
 router.get('/services', getPublicServices);

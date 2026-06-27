@@ -14,6 +14,7 @@ const app = express();
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',')
   : [];
+allowedOrigins.push('http://localhost:5001', 'http://localhost:5000');
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -56,4 +57,6 @@ app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   appointmentWatchdog.start();
 });
-// Reload trigger: new website email configured
+// Reload trigger: new website email configured - trigger restart
+// Trigger reload comment to restart nodemon
+

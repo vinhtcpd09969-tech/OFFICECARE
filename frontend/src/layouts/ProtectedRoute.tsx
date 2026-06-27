@@ -11,7 +11,8 @@ export const ProtectedRoute = ({ allowedRoles }: ProtectedRouteProps) => {
 
   const getDefaultRouteByRole = (roleId: number) => {
     switch (roleId) {
-      case 5: return '/admin';
+      case 5:
+      case 6: return '/admin';
       case 2: return '/receptionist';
       case 3: return '/technician/workspace';
       case 4: return '/doctor';

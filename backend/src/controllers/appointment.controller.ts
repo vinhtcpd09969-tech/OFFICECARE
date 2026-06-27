@@ -28,12 +28,14 @@ export const createAppointment = async (req: Request, res: Response): Promise<an
     if (error.message && (error.message.includes('dùng thử') || error.message.includes('trải nghiệm'))) {
       return res.status(400).json({ message: error.message });
     }
-    // Xử lý lỗi trùng lịch từ database (EXCLUDE USING gist)
     if (error.constraint === 'no_overlap_ktv') {
       return res.status(400).json({ message: 'Kỹ thuật viên đã có lịch trong khung giờ này.' });
     }
     if (error.constraint === 'no_overlap_phong') {
       return res.status(400).json({ message: 'Phòng đã được đặt trong khung giờ này.' });
+    }
+    if (error.constraint === 'no_overlap_khach_hang') {
+      return res.status(400).json({ message: 'Khách hàng đã có lịch hẹn hoặc ca điều trị khác trong khung giờ này.' });
     }
     return res.status(500).json({ message: 'Lỗi server' });
   }
@@ -49,6 +51,14 @@ export const createPublicAppointment = async (req: Request, res: Response): Prom
     console.error('Lỗi khi tạo lịch hẹn public:', error);
     if (error instanceof ZodError) {
       return res.status(400).json({ message: error.errors[0].message });
+    }
+    if (error.message && (
+      error.message.includes('hết chỗ') || 
+      error.message.includes('Đã hết thiết bị') ||
+      error.message.includes('quá tải') ||
+      error.message.includes('đã có lịch')
+    )) {
+      return res.status(400).json({ message: error.message });
     }
     return res.status(500).json({ message: 'Lỗi server' });
   }
@@ -69,6 +79,15 @@ export const updateAppointmentStatus = async (req: Request, res: Response): Prom
     }
     if (error.message === 'Không tìm thấy lịch hẹn') {
       return res.status(404).json({ message: error.message });
+    }
+    if (error.constraint === 'no_overlap_ktv') {
+      return res.status(400).json({ message: 'Kỹ thuật viên đã có lịch trong khung giờ này.' });
+    }
+    if (error.constraint === 'no_overlap_phong') {
+      return res.status(400).json({ message: 'Phòng đã được đặt trong khung giờ này.' });
+    }
+    if (error.constraint === 'no_overlap_khach_hang') {
+      return res.status(400).json({ message: 'Khách hàng đã có lịch hẹn hoặc ca điều trị khác trong khung giờ này.' });
     }
     return res.status(500).json({ message: 'Lỗi server' });
   }
@@ -143,14 +162,41 @@ export const cancelBreakTimeAppointments = async (req: Request, res: Response): 
 // Lấy danh sách khung giờ đã đặt cho ngày cụ thể (public - dùng cho trang booking client)
 export const getBookedSlots = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { date } = req.query;
+    const { date, userId, phone, duration } = req.query;
     if (!date || typeof date !== 'string') {
       return res.status(400).json({ message: 'Thiếu tham số ngày (date=YYYY-MM-DD)' });
     }
-    const bookedSlots = await appointmentService.getBookedSlots(date);
-    return res.json({ bookedSlots });
+    const durationNum = duration ? parseInt(duration as string, 10) : 30;
+    const bookedSlots = await appointmentService.getBookedSlots(
+      date,
+      typeof userId === 'string' ? userId : undefined,
+      typeof phone === 'string' ? phone : undefined,
+      durationNum
+    );
+
+    let hasExistingClinicalExam = false;
+    if (typeof userId === 'string' || typeof phone === 'string') {
+      hasExistingClinicalExam = await appointmentService.checkCustomerHasClinicalExamOnDate(
+        typeof userId === 'string' ? userId : undefined,
+        typeof phone === 'string' ? phone : undefined,
+        date
+      );
+    }
+
+    return res.json({ bookedSlots, hasExistingClinicalExam });
   } catch (error: any) {
     console.error('Lỗi khi lấy danh sách giờ đã đặt:', error);
+    return res.status(500).json({ message: error.message || 'Lỗi server' });
+  }
+};
+
+// Lấy danh sách các ngày có lịch trực của Bác sĩ (public - dùng cho trang booking client)
+export const getActiveDoctorDates = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const dates = await appointmentService.getActiveDoctorDates();
+    return res.json({ dates });
+  } catch (error: any) {
+    console.error('Lỗi khi lấy danh sách ngày có lịch trực của Bác sĩ:', error);
     return res.status(500).json({ message: error.message || 'Lỗi server' });
   }
 };

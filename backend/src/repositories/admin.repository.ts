@@ -156,24 +156,28 @@ class AdminRepository {
   // --- QUẢN LÝ GÓI ĐIỀU TRỊ ---
   async getPackages() {
     const { rows } = await pool.query(`
-      SELECT g.*, g.gia_goi as gia_tien, dm.ten_danh_muc 
+      SELECT g.*, g.gia_goi as gia_tien, dm.ten_danh_muc,
+             COALESCE(
+               JSON_AGG(
+                 JSON_BUILD_OBJECT(
+                   'dich_vu_id', ct.dich_vu_id,
+                   'so_buoi', ct.so_buoi_trong_goi,
+                   'so_lan_toi_da_trong_goi', ct.so_lan_toi_da_trong_goi,
+                   'bat_buoc', ct.bat_buoc,
+                   'thu_tu_thuc_hien', ct.thu_tu_thuc_hien,
+                   'ten_dich_vu', dv.ten_dich_vu,
+                   'don_gia', dv.don_gia
+                 ) ORDER BY ct.thu_tu_thuc_hien ASC
+               ) FILTER (WHERE ct.dich_vu_id IS NOT NULL),
+               '[]'::json
+             ) as chi_tiet_dich_vu
       FROM goi_dich_vu g
       LEFT JOIN danh_muc_dich_vu dm ON g.danh_muc_id = dm.id
+      LEFT JOIN goi_dich_vu_chi_tiet ct ON g.id = ct.goi_dich_vu_id
+      LEFT JOIN dich_vu dv ON ct.dich_vu_id = dv.id
+      GROUP BY g.id, dm.ten_danh_muc
       ORDER BY g.thoi_gian_tao DESC
     `);
-    
-    for (const pkg of rows) {
-      const { rows: details } = await pool.query(`
-        SELECT ct.dich_vu_id, ct.so_buoi_trong_goi as so_buoi, ct.so_lan_toi_da_trong_goi, ct.bat_buoc, ct.thu_tu_thuc_hien,
-               dv.ten_dich_vu, dv.don_gia
-        FROM goi_dich_vu_chi_tiet ct
-        JOIN dich_vu dv ON ct.dich_vu_id = dv.id
-        WHERE ct.goi_dich_vu_id = $1
-        ORDER BY ct.thu_tu_thuc_hien ASC
-      `, [pkg.id]);
-      pkg.chi_tiet_dich_vu = details;
-    }
-    
     return rows;
   }
 
@@ -370,17 +374,16 @@ class AdminRepository {
   // --- QUẢN LÝ KHÁCH HÀNG ---
   async getCustomers() {
     const { rows } = await pool.query(`
-      SELECT kh.id as khach_hang_id, kh.ngay_sinh, kh.gioi_tinh, kh.dia_chi,
-             nd.id as nguoi_dung_id, 
-             COALESCE(nd.ho_ten, 'Khách vãng lai') as ho_ten, 
-             nd.email, 
-             nd.so_dien_thoai, 
-             nd.trang_thai, 
-             COALESCE(nd.thoi_gian_tao, kh.thoi_gian_tao) as created_at
-      FROM khach_hang kh
-      LEFT JOIN nguoi_dung nd ON kh.nguoi_dung_id = nd.id
-      WHERE nd.id IS NULL OR nd.deleted_at IS NULL
-      ORDER BY kh.thoi_gian_tao DESC
+      SELECT id as khach_hang_id, ngay_sinh, gioi_tinh, dia_chi,
+             id as nguoi_dung_id, 
+             COALESCE(ho_ten, 'Khách vãng lai') as ho_ten, 
+             email, 
+             so_dien_thoai, 
+             trang_thai, 
+             thoi_gian_tao as created_at
+      FROM khach_hang
+      WHERE deleted_at IS NULL
+      ORDER BY thoi_gian_tao DESC
     `);
     return rows;
   }
@@ -390,7 +393,6 @@ class AdminRepository {
     const { rows } = await pool.query(`
       SELECT 
         tb.*, 
-        tb.ngay_bao_tri_tiep_theo as ngay_bao_tri_gan_nhat, 
         p.ten_phong,
         p.ma_phong,
         active_session.active_booking_type,
@@ -406,14 +408,13 @@ class AdminRepository {
           SELECT 
             'lich_dieu_tri' AS active_booking_type,
             btl.id::text AS active_booking_id,
-            kh_user.ho_ten AS active_patient_name,
+            kh.ho_ten AS active_patient_name,
             ktv_user.ho_ten AS active_operator_name,
             dv.ten_dich_vu AS active_service_name,
             ldt.ma_lich_dieu_tri AS active_booking_code
           FROM buoi_tri_lieu btl
           JOIN lich_dieu_tri ldt ON btl.lich_dieu_tri_id = ldt.id
           JOIN khach_hang kh ON btl.khach_hang_id = kh.id
-          JOIN nguoi_dung kh_user ON kh.nguoi_dung_id = kh_user.id
           JOIN chuyen_gia_y_te cg ON btl.ky_thuat_vien_id = cg.id
           JOIN nguoi_dung ktv_user ON cg.nguoi_dung_id = ktv_user.id
           LEFT JOIN dich_vu dv ON btl.dich_vu_id = dv.id
@@ -427,13 +428,12 @@ class AdminRepository {
           SELECT 
             'lich_kham' AS active_booking_type,
             ld.id::text AS active_booking_id,
-            COALESCE(ld.ho_ten_khach, kh_user.ho_ten) AS active_patient_name,
+            COALESCE(ld.ho_ten_khach, kh.ho_ten) AS active_patient_name,
             doc_user.ho_ten AS active_operator_name,
             dv.ten_dich_vu AS active_service_name,
             ld.ma_lich_dat AS active_booking_code
           FROM lich_dat ld
           LEFT JOIN khach_hang kh ON ld.khach_hang_id = kh.id
-          LEFT JOIN nguoi_dung kh_user ON kh.nguoi_dung_id = kh_user.id
           LEFT JOIN chuyen_gia_y_te cg ON ld.bac_si_id = cg.id
           LEFT JOIN nguoi_dung doc_user ON cg.nguoi_dung_id = doc_user.id
           LEFT JOIN dich_vu dv ON ld.dich_vu_id = dv.id
@@ -448,24 +448,108 @@ class AdminRepository {
     return rows;
   }
 
+  getRawPool() {
+    return pool;
+  }
+
+  async checkRoomCapacity(phongId: number, countToAdd: number, excludeEquipmentId: string | null = null): Promise<void> {
+    const { rows: rooms } = await pool.query(
+      "SELECT loai_phong, so_luong_giuong, ten_phong FROM phong WHERE id = $1",
+      [phongId]
+    );
+    if (rooms.length === 0) return;
+    const room = rooms[0];
+    
+    // Ràng buộc chỉ áp dụng cho phòng trị liệu (phong_tri_lieu_chuan) và phòng đặc biệt (phong_dac_biet)
+    if (room.loai_phong === 'phong_tri_lieu_chuan' || room.loai_phong === 'phong_dac_biet') {
+      // Đếm số lượng thiết bị hoạt động (không ở trạng thái 'hong' - Hỏng/Ngưng sử dụng)
+      let queryStr = "SELECT COUNT(1)::int as count FROM thiet_bi_y_te WHERE phong_id_hien_tai = $1 AND trang_thai != 'hong'";
+      let queryParams: any[] = [phongId];
+      
+      if (excludeEquipmentId) {
+        queryStr += " AND id != $2";
+        queryParams.push(excludeEquipmentId);
+      }
+      
+      const { rows: counts } = await pool.query(queryStr, queryParams);
+      const activeCount = counts[0].count;
+      const capacity = room.so_luong_giuong || 1;
+      
+      if (activeCount + countToAdd > capacity) {
+        const roomTypeName = room.loai_phong === 'phong_tri_lieu_chuan' ? 'Trị liệu' : 'Đặc biệt';
+        const err: any = new Error(
+          `Phòng ${roomTypeName} (${room.ten_phong}) đã đạt giới hạn sức chứa. Tối đa: ${capacity} máy hoạt động. Hiện có: ${activeCount} máy. Không thể xếp thêm ${countToAdd} máy.`
+        );
+        err.statusCode = 400;
+        throw err;
+      }
+    }
+  }
+
+  async checkEquipmentCompatibility(loaiThietBi: string, phongId: number | null): Promise<void> {
+    if (!phongId) return; // Kho lưu trữ hoặc chưa gán thì luôn hợp lệ
+    
+    const { rows: rooms } = await pool.query(
+      "SELECT loai_phong, ten_phong FROM phong WHERE id = $1",
+      [phongId]
+    );
+    if (rooms.length === 0) return;
+    const room = rooms[0];
+    
+    const typeLower = (loaiThietBi || '').toLowerCase();
+    
+    // 1. Giường trị liệu -> Chỉ cho vào phòng trị liệu chuẩn, phòng đặc biệt hoặc kho
+    if (typeLower.includes('giường') || typeLower.includes('giuong')) {
+      if (room.loai_phong !== 'phong_tri_lieu_chuan' && room.loai_phong !== 'phong_dac_biet' && room.loai_phong !== 'kho_thiet_bi') {
+        const err: any = new Error(`Thiết bị loại giường trị liệu chỉ được phép gán vào Phòng trị liệu, Phòng đặc biệt hoặc Kho thiết bị. Phòng hiện tại chọn: ${room.ten_phong}.`);
+        err.statusCode = 400;
+        throw err;
+      }
+    }
+    
+    // 2. Thiết bị đặc biệt -> Chỉ phòng đặc biệt hoặc kho
+    if (typeLower.includes('kéo giãn') || typeLower.includes('keo gian') ||
+        typeLower.includes('từ trường') || typeLower.includes('tu truong')) {
+      if (room.loai_phong !== 'phong_dac_biet' && room.loai_phong !== 'kho_thiet_bi') {
+        const err: any = new Error(`Thiết bị đặc biệt (nặng, cố định) chỉ được phép gán vào Phòng đặc biệt hoặc Kho thiết bị. Phòng hiện tại chọn: ${room.ten_phong}.`);
+        err.statusCode = 400;
+        throw err;
+      }
+    }
+
+    // 3. Thiết bị tập -> Chỉ phòng tập hoặc kho
+    if (typeLower.includes('tập') || typeLower.includes('tap') || typeLower.includes('phcn')) {
+      if (room.loai_phong !== 'phong_tap_phcn' && room.loai_phong !== 'phuc_hoi' && room.loai_phong !== 'kho_thiet_bi') {
+        const err: any = new Error(`Thiết bị phòng tập chỉ được phép gán vào Phòng tập, phục hồi hoặc Kho thiết bị. Phòng hiện tại chọn: ${room.ten_phong}.`);
+        err.statusCode = 400;
+        throw err;
+      }
+    }
+    
+    // 4. Phòng khám không được có thiết bị
+    if (room.loai_phong === 'kham_benh') {
+      const err: any = new Error(`Phòng khám (${room.ten_phong}) là phòng thăm khám chuyên khoa lâm sàng, không thể gán thiết bị vật lý trị liệu.`);
+      err.statusCode = 400;
+      throw err;
+    }
+  }
+
   async createEquipment(ma_thiet_bi: string, data: any) {
     const { rows } = await pool.query(
       `INSERT INTO thiet_bi_y_te (
-         ma_thiet_bi, ten_thiet_bi, loai_thiet_bi, ngay_mua, ngay_bao_tri_tiep_theo,
+         ma_thiet_bi, ten_thiet_bi, loai_thiet_bi, ngay_mua,
          trang_thai, phong_id_hien_tai, ghi_chu,
-         co_the_di_chuyen, cap_rui_ro, tan_suat_bao_tri_ngay,
+         cap_rui_ro, tan_suat_bao_tri_ngay,
          nguong_canh_bao, nguong_bat_buoc_bao_tri, ngay_bao_tri_gan_nhat
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
       [
         ma_thiet_bi,
         data.ten_thiet_bi,
         data.loai_thiet_bi || null,
         data.ngay_mua || null,
-        data.ngay_bao_tri_tiep_theo || null,
         data.trang_thai,
         data.phong_id_hien_tai || null,
         data.ghi_chu || null,
-        data.co_the_di_chuyen !== undefined ? data.co_the_di_chuyen : true,
         data.cap_rui_ro || 'trung_binh',
         data.tan_suat_bao_tri_ngay || 45,
         data.nguong_canh_bao || 80,
@@ -477,22 +561,36 @@ class AdminRepository {
   }
 
   async updateEquipment(id: string, data: any) {
-    // Kiểm tra thiết bị cố định không được phép đổi phòng
-    if (data.phong_id_hien_tai !== undefined) {
-      const { rows: current } = await pool.query(
-        'SELECT co_the_di_chuyen, phong_id_hien_tai FROM thiet_bi_y_te WHERE id = $1',
-        [id]
-      );
-      if (current.length > 0 && current[0].co_the_di_chuyen === false) {
-        const newPhongId = data.phong_id_hien_tai ? Number(data.phong_id_hien_tai) : null;
-        const curPhongId = current[0].phong_id_hien_tai ? Number(current[0].phong_id_hien_tai) : null;
-        if (newPhongId !== curPhongId) {
-          const err: any = new Error('Thiết bị này là thiết bị cố định, không thể di chuyển sang phòng khác.');
-          err.statusCode = 400;
-          throw err;
-        }
-      }
+    const phongId = data.phong_id_hien_tai !== undefined ? (data.phong_id_hien_tai ? Number(data.phong_id_hien_tai) : null) : undefined;
+    
+    // 1. Lấy thông tin thiết bị hiện tại trước khi cập nhật
+    const { rows: current } = await pool.query(
+      'SELECT * FROM thiet_bi_y_te WHERE id = $1',
+      [id]
+    );
+    
+    if (current.length === 0) {
+      const err: any = new Error('Không tìm thấy thiết bị cần cập nhật.');
+      err.statusCode = 404;
+      throw err;
     }
+
+    const cur = current[0];
+    const curCode = cur.ma_thiet_bi;
+    const curName = cur.ten_thiet_bi;
+    const curType = cur.loai_thiet_bi;
+    const curPhongId = cur.phong_id_hien_tai ? Number(cur.phong_id_hien_tai) : null;
+    const curStatus = cur.trang_thai;
+    const curRisk = cur.cap_rui_ro;
+    const curFreq = cur.tan_suat_bao_tri_ngay;
+    const curWarn = cur.nguong_canh_bao;
+    const curMust = cur.nguong_bat_buoc_bao_tri;
+    const curBuyDate = cur.ngay_mua;
+    const curLastDate = cur.ngay_bao_tri_gan_nhat;
+    const curNote = cur.ghi_chu;
+
+    const targetPhongId = null;
+    const targetLoai = data.loai_thiet_bi !== undefined ? data.loai_thiet_bi : curType;
 
     const { rows } = await pool.query(
       `UPDATE thiet_bi_y_te 
@@ -500,32 +598,28 @@ class AdminRepository {
            ten_thiet_bi = $2, 
            loai_thiet_bi = $3, 
            ngay_mua = $4, 
-           ngay_bao_tri_tiep_theo = $5, 
-           trang_thai = $6, 
-           phong_id_hien_tai = $7, 
-           ghi_chu = $8,
-           co_the_di_chuyen = $9,
-           cap_rui_ro = $10,
-           tan_suat_bao_tri_ngay = $11,
-           nguong_canh_bao = $12,
-           nguong_bat_buoc_bao_tri = $13,
-           ngay_bao_tri_gan_nhat = $14
-       WHERE id = $15 RETURNING *`,
+           trang_thai = $5, 
+           phong_id_hien_tai = $6, 
+           ghi_chu = $7,
+           cap_rui_ro = $8,
+           tan_suat_bao_tri_ngay = $9,
+           nguong_canh_bao = $10,
+           nguong_bat_buoc_bao_tri = $11,
+           ngay_bao_tri_gan_nhat = $12
+       WHERE id = $13 RETURNING *`,
       [
-        data.ma_thiet_bi || null,
-        data.ten_thiet_bi,
-        data.loai_thiet_bi || null,
-        data.ngay_mua || null,
-        data.ngay_bao_tri_tiep_theo || null,
-        data.trang_thai,
-        data.phong_id_hien_tai || null,
-        data.ghi_chu || null,
-        data.co_the_di_chuyen !== undefined ? data.co_the_di_chuyen : true,
-        data.cap_rui_ro || 'trung_binh',
-        data.tan_suat_bao_tri_ngay || 45,
-        data.nguong_canh_bao || 80,
-        data.nguong_bat_buoc_bao_tri || 100,
-        data.ngay_bao_tri_gan_nhat || null,
+        data.ma_thiet_bi !== undefined ? data.ma_thiet_bi : curCode,
+        data.ten_thiet_bi !== undefined ? data.ten_thiet_bi : curName,
+        data.loai_thiet_bi !== undefined ? data.loai_thiet_bi : curType,
+        data.ngay_mua !== undefined ? data.ngay_mua : curBuyDate,
+        data.trang_thai !== undefined ? data.trang_thai : curStatus,
+        null,
+        data.ghi_chu !== undefined ? data.ghi_chu : curNote,
+        data.cap_rui_ro !== undefined ? data.cap_rui_ro : curRisk,
+        data.tan_suat_bao_tri_ngay !== undefined ? data.tan_suat_bao_tri_ngay : curFreq,
+        data.nguong_canh_bao !== undefined ? data.nguong_canh_bao : curWarn,
+        data.nguong_bat_buoc_bao_tri !== undefined ? data.nguong_bat_buoc_bao_tri : curMust,
+        data.ngay_bao_tri_gan_nhat !== undefined ? data.ngay_bao_tri_gan_nhat : curLastDate,
         id
       ]
     );
@@ -644,48 +738,54 @@ class AdminRepository {
         ld.ma_lich_dat as ma_danh_gia, 
         hs.thoi_gian_tao as ngay_danh_gia, 
         hs.chan_doan, 
-        hs.trang_thai,
-        hs.ho_ten_khach as ten_khach_hang, 
-        hs.so_dien_thoai,
-        'KH' as ma_khach_hang,
-        hs.trieu_chung,
+        ld.trang_thai,
+        COALESCE(kh.ho_ten, ld.ho_ten_khach, 'Khách vãng lai') as ten_khach_hang, 
+        COALESCE(kh.so_dien_thoai, ld.so_dien_thoai) as so_dien_thoai,
+        COALESCE('KH-' || SUBSTRING(kh.id::text, 1, 8), 'KH-VL') as ma_khach_hang,
+        ld.ly_do_kham as trieu_chung,
         hs.ghi_chu,
-        hs.phuong_phap_dieu_tri,
-        hs.loai_goi,
-        hs.ten_goi,
-        hs.so_luong_buoi,
-        hs.so_luong_goi,
-        hs.gia_tien,
+        dv.ten_dich_vu as phuong_phap_dieu_tri,
+        g.loai_goi,
+        g.ten_goi,
+        g.tong_so_buoi as so_luong_buoi,
+        1 as so_luong_goi,
+        g.gia_goi as gia_tien,
         nd_bs.ho_ten as ten_bac_si,
         p_kham.ten_phong as ten_phong_kham,
         nd_ktv.ho_ten as ten_ky_thuat_vien,
         p_tri.ten_phong as ten_phong_tri_lieu
       FROM ho_so_dieu_tri hs
       LEFT JOIN lich_dat ld ON hs.lich_dat_id = ld.id
-      LEFT JOIN chuyen_gia_y_te bs ON hs.bac_si_id = bs.id
+      LEFT JOIN khach_hang kh ON ld.khach_hang_id = kh.id
+      LEFT JOIN chuyen_gia_y_te bs ON hs.chuyen_gia_id = bs.id
       LEFT JOIN nguoi_dung nd_bs ON bs.nguoi_dung_id = nd_bs.id
-      LEFT JOIN phong p_kham ON hs.phong_kham_id = p_kham.id
-      LEFT JOIN chuyen_gia_y_te ktv ON hs.ky_thuat_vien_id = ktv.id
+      LEFT JOIN phong p_kham ON ld.phong_id = p_kham.id
+      LEFT JOIN dich_vu dv ON hs.dich_vu_id = dv.id
+      LEFT JOIN goi_dich_vu g ON hs.goi_dich_vu_id = g.id
+      LEFT JOIN lich_dieu_tri ldt ON ldt.ho_so_dieu_tri_id = hs.id
+      LEFT JOIN phong p_tri ON ldt.phong_id = p_tri.id
+      LEFT JOIN LATERAL (
+        SELECT cg_ktv.id
+        FROM buoi_tri_lieu btl
+        JOIN chuyen_gia_y_te cg_ktv ON btl.ky_thuat_vien_id = cg_ktv.id
+        WHERE btl.lich_dieu_tri_id = ldt.id
+        ORDER BY btl.thoi_gian_bat_dau DESC
+        LIMIT 1
+      ) last_btl ON TRUE
+      LEFT JOIN chuyen_gia_y_te ktv ON last_btl.id = ktv.id
       LEFT JOIN nguoi_dung nd_ktv ON ktv.nguoi_dung_id = nd_ktv.id
-      LEFT JOIN phong p_tri ON hs.phong_tri_lieu_id = p_tri.id
       ORDER BY hs.thoi_gian_tao DESC
     `);
     return rows;
   }
 
-  // --- AUDIT LOGS ---
-  async getAuditLogs() {
-    // Return empty array since system_audit_log table is deleted
-    return [];
-  }
 
   // --- QUẢN LÝ TÀI CHÍNH ---
   async getInvoices() {
     const { rows } = await pool.query(`
-      SELECT hd.*, nd.ho_ten as ten_khach_hang, nd.so_dien_thoai
+      SELECT hd.*, kh.ho_ten as ten_khach_hang, kh.so_dien_thoai
       FROM hoa_don hd
       JOIN khach_hang kh ON hd.khach_hang_id = kh.id
-      JOIN nguoi_dung nd ON kh.nguoi_dung_id = nd.id
       ORDER BY hd.ngay_tao DESC
     `);
     return rows;
@@ -693,11 +793,10 @@ class AdminRepository {
 
   async getPayments() {
     const { rows } = await pool.query(`
-      SELECT tt.*, hd.ma_hoa_don, nd.ho_ten as ten_khach_hang
+      SELECT tt.*, hd.ma_hoa_don, kh.ho_ten as ten_khach_hang
       FROM thanh_toan tt
       JOIN hoa_don hd ON tt.hoa_don_id = hd.id
       JOIN khach_hang kh ON hd.khach_hang_id = kh.id
-      JOIN nguoi_dung nd ON kh.nguoi_dung_id = nd.id
       ORDER BY tt.thoi_gian_giao_dich DESC
     `);
     return rows;
@@ -814,12 +913,11 @@ class AdminRepository {
   // --- QUẢN LÝ ĐÁNH GIÁ ---
   async getFeedback() {
     const { rows } = await pool.query(`
-      SELECT dg.*, nd_kh.ho_ten as ten_khach_hang, nd_ktv.ho_ten as ten_ky_thuat_vien, dv.ten_dich_vu
+      SELECT dg.*, kh.ho_ten as ten_khach_hang, nd_ktv.ho_ten as ten_ky_thuat_vien, dv.ten_dich_vu
       FROM danh_gia_dich_vu dg
       JOIN buoi_tri_lieu btl ON dg.buoi_tri_lieu_id = btl.id
       JOIN dich_vu dv ON btl.dich_vu_id = dv.id
       JOIN khach_hang kh ON dg.khach_hang_id = kh.id
-      JOIN nguoi_dung nd_kh ON kh.nguoi_dung_id = nd_kh.id
       JOIN chuyen_gia_y_te ktv ON dg.ky_thuat_vien_id = ktv.id
       JOIN nguoi_dung nd_ktv ON ktv.nguoi_dung_id = nd_ktv.id
       ORDER BY dg.thoi_gian_danh_gia DESC
@@ -833,14 +931,38 @@ class AdminRepository {
       pool.query('SELECT COUNT(*) FROM khach_hang'),
       pool.query('SELECT COUNT(*) FROM lich_dat WHERE trang_thai = \'cho_xac_nhan\''),
       pool.query('SELECT SUM(da_thanh_toan) FROM hoa_don'),
-      pool.query('SELECT COUNT(*) FROM chuyen_gia_y_te WHERE trang_thai = \'hoat_dong\'')
+      pool.query('SELECT COUNT(*) FROM chuyen_gia_y_te WHERE trang_thai = \'hoat_dong\''),
+      pool.query('SELECT COUNT(*) FROM lich_dat WHERE bac_si_id IS NULL AND trang_thai IN (\'cho_xac_nhan\', \'da_xac_nhan\')'),
+      pool.query('SELECT COUNT(*) FROM buoi_tri_lieu WHERE ky_thuat_vien_id IS NULL AND trang_thai NOT IN (\'hoan_thanh\', \'da_huy\', \'khong_den\')'),
+      pool.query('SELECT id, ngay_gio_bat_dau AS start_time FROM lich_dat WHERE bac_si_id IS NULL AND trang_thai IN (\'cho_xac_nhan\', \'da_xac_nhan\') ORDER BY ngay_gio_bat_dau ASC LIMIT 1'),
+      pool.query('SELECT id, thoi_gian_bat_dau AS start_time FROM buoi_tri_lieu WHERE ky_thuat_vien_id IS NULL AND trang_thai NOT IN (\'hoan_thanh\', \'da_huy\', \'khong_den\') ORDER BY thoi_gian_bat_dau ASC LIMIT 1')
     ];
     const results = await Promise.all(queries);
+
+    const aptTime = results[6].rows[0]?.start_time;
+    const treatTime = results[7].rows[0]?.start_time;
+    let earliestPending = null;
+
+    if (aptTime && treatTime) {
+      if (new Date(aptTime) <= new Date(treatTime)) {
+        earliestPending = { id: results[6].rows[0].id, type: 'appointment', ngay_gio_bat_dau: aptTime };
+      } else {
+        earliestPending = { id: results[7].rows[0].id, type: 'treatment', ngay_gio_bat_dau: treatTime };
+      }
+    } else if (aptTime) {
+      earliestPending = { id: results[6].rows[0].id, type: 'appointment', ngay_gio_bat_dau: aptTime };
+    } else if (treatTime) {
+      earliestPending = { id: results[7].rows[0].id, type: 'treatment', ngay_gio_bat_dau: treatTime };
+    }
+
     return {
       total_customers: results[0].rows[0].count,
       pending_appointments: results[1].rows[0].count,
       total_revenue: results[2].rows[0].sum || 0,
-      active_staff: results[3].rows[0].count
+      active_staff: results[3].rows[0].count,
+      pending_appointments_need_assign: results[4].rows[0].count,
+      pending_treatments: results[5].rows[0].count,
+      earliest_pending: earliestPending
     };
   }
 

@@ -8,13 +8,12 @@ class DoctorRepository {
         ld.id, ld.ma_lich_dat, ld.ho_ten_khach, ld.so_dien_thoai, ld.gioi_tinh_khach,
         ld.ngay_gio_bat_dau, ld.ngay_gio_ket_thuc, ld.ly_do_kham, ld.trang_thai, ld.anh_dinh_kem_url,
         kh.id as khach_hang_id, kh.ngay_sinh, kh.gioi_tinh,
-        nd.ho_ten as ten_khach_hang, nd.so_dien_thoai as sdt_khach_hang, nd.avatar_url
+        kh.ho_ten as ten_khach_hang, kh.so_dien_thoai as sdt_khach_hang, kh.avatar_url
       FROM lich_dat ld
       LEFT JOIN khach_hang kh ON ld.khach_hang_id = kh.id
-      LEFT JOIN nguoi_dung nd ON kh.nguoi_dung_id = nd.id
       WHERE ld.bac_si_id = $1 
         AND ld.trang_thai IN ('cho_kham', 'dang_kham')
-        AND ld.ngay_gio_bat_dau::date = CURRENT_DATE
+        AND DATE(ld.ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh') = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh')
       ORDER BY ld.ngay_gio_bat_dau ASC;
     `;
     const { rows } = await pool.query(queryStr, [doctorId]);
@@ -26,12 +25,11 @@ class DoctorRepository {
     const queryStr = `
       SELECT 
         ld.id, ld.ma_lich_dat, ld.ngay_gio_bat_dau, ld.ngay_gio_ket_thuc, ld.trang_thai, ld.ly_do_kham,
-        COALESCE(nd.ho_ten, ld.ho_ten_khach) as ten_khach_hang,
-        COALESCE(nd.so_dien_thoai, ld.so_dien_thoai) as so_dien_thoai,
+        COALESCE(kh.ho_ten, ld.ho_ten_khach) as ten_khach_hang,
+        COALESCE(kh.so_dien_thoai, ld.so_dien_thoai) as so_dien_thoai,
         hsba.id as ho_so_dieu_tri_id, hsba.id as ho_so_benh_an_id, hsba.chan_doan, hsba.chong_chi_dinh
       FROM lich_dat ld
       LEFT JOIN khach_hang kh ON ld.khach_hang_id = kh.id
-      LEFT JOIN nguoi_dung nd ON kh.nguoi_dung_id = nd.id
       LEFT JOIN ho_so_dieu_tri hsba ON hsba.lich_dat_id = ld.id
       WHERE ld.bac_si_id = $1
         AND ($2::timestamp IS NULL OR ld.ngay_gio_bat_dau >= $2::timestamp)
@@ -164,12 +162,11 @@ class DoctorRepository {
         ld.id, ld.ma_lich_dat, ld.ho_ten_khach, ld.so_dien_thoai, ld.gioi_tinh_khach,
         ld.ngay_gio_bat_dau, ld.ngay_gio_ket_thuc, ld.ly_do_kham, ld.trang_thai, ld.anh_dinh_kem_url,
         kh.id as khach_hang_id, kh.ngay_sinh, kh.gioi_tinh,
-        nd.ho_ten as ten_khach_hang, nd.so_dien_thoai as sdt_khach_hang, nd.avatar_url,
+        kh.ho_ten as ten_khach_hang, kh.so_dien_thoai as sdt_khach_hang, kh.avatar_url,
         hsba.id as ho_so_dieu_tri_id, hsba.id as ho_so_benh_an_id, hsba.chan_doan, hsba.chong_chi_dinh, hsba.ghi_chu,
         hsba.goi_dich_vu_id, hsba.dich_vu_id
       FROM lich_dat ld
       LEFT JOIN khach_hang kh ON ld.khach_hang_id = kh.id
-      LEFT JOIN nguoi_dung nd ON kh.nguoi_dung_id = nd.id
       LEFT JOIN ho_so_dieu_tri hsba ON hsba.lich_dat_id = ld.id
       WHERE ld.id = $1;
     `;

@@ -25,14 +25,14 @@ const WelcomeToast = ({ t, user }: { t: any; user: any }) => {
       style={{
         transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
       }}
-      className={`max-w-md w-full bg-white rounded-[24px] pointer-events-auto flex ring-1 ring-black/5 p-5 border border-[#10B981]/20 bg-gradient-to-r from-white to-[#F0FDF4]
+      className={`max-w-md w-full bg-white rounded-[24px] pointer-events-auto flex ring-1 ring-black/5 p-5 border border-[#0D9488]/20 bg-gradient-to-r from-white to-[#F0FDF4]
         transition-all duration-700 transform font-jakarta
         ${active ? 'translate-y-0 opacity-100 scale-100 shadow-[0_20px_50px_rgba(15,23,42,0.08)]' : '-translate-y-12 opacity-0 scale-90'}`}
     >
       <div className="flex-1 w-0 p-1">
         <div className="flex items-center">
           <div className="flex-shrink-0 pt-0.5">
-            <div className="w-12 h-12 bg-gradient-to-br from-[#10B981] to-[#0D9488] text-white rounded-full flex items-center justify-center font-bold text-lg shadow-md shadow-emerald-500/20">
+            <div className="w-12 h-12 bg-gradient-to-br from-[#0D9488] to-[#0D9488] text-white rounded-full flex items-center justify-center font-bold text-lg shadow-md shadow-emerald-500/20">
               {user.ho_ten.charAt(0).toUpperCase()}
             </div>
           </div>
@@ -52,7 +52,7 @@ const WelcomeToast = ({ t, user }: { t: any; user: any }) => {
             setActive(false);
             setTimeout(() => toast.dismiss(t.id), 500);
           }}
-          className="border border-transparent rounded-xl px-2 py-1 flex items-center justify-center text-xs font-bold text-[#10B981] hover:bg-emerald-500/5 focus:outline-none transition-colors"
+          className="border border-transparent rounded-xl px-2 py-1 flex items-center justify-center text-xs font-bold text-[#0D9488] hover:bg-emerald-500/5 focus:outline-none transition-colors"
         >
           Đóng
         </button>
@@ -208,55 +208,60 @@ export default function VerifyEmail() {
   };
 
   return (
-    <div 
-      className="min-h-screen w-full flex bg-[#F8FAFC] text-[#0F172A] relative overflow-hidden font-jakarta"
-    >
-      {/* HUD High-tech Grid Background */}
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(15,23,42,0.012)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.012)_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none opacity-80"></div>
+    <div className="h-screen w-full flex flex-col lg:flex-row text-[#0F172A] relative overflow-hidden font-jakarta p-6 gap-6 justify-between items-center">
+      {/* Full-screen Background Image with clean light clinical oak wood tone */}
+      <div className="absolute inset-0 z-0 select-none pointer-events-none">
+        <img 
+          src="/images/therapist_treatment_banner.png" 
+          alt="Clinic Rehab Background" 
+          className="w-full h-full object-cover object-right-bottom lg:object-center filter brightness-[1.02]"
+        />
+        {/* Fine vignette overlay fading from pristine soft white to transparent */}
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-50/95 via-slate-50/70 to-transparent z-10"></div>
+      </div>
 
-      {/* Radial soft backlights for clean ambient gradients */}
-      <div className="absolute top-[-20%] left-[-10%] w-[900px] h-[900px] bg-[#10B981]/5 rounded-full blur-[140px] pointer-events-none animate-pulse duration-7000"></div>
-      <div className="absolute bottom-[-10%] right-[10%] w-[900px] h-[900px] bg-[#0D9488]/5 rounded-full blur-[140px] pointer-events-none animate-pulse duration-10000"></div>
+      {/* HUD High-tech Grid Background */}
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(20,184,166,0.015)_1px,transparent_1px),linear-gradient(90deg,rgba(20,184,166,0.015)_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none opacity-80 z-10"></div>
 
       {/* Floating dynamic particles */}
-      <div className="absolute top-[20%] left-[15%] size-1.5 bg-[#10B981]/25 rounded-full animate-float"></div>
-      <div className="absolute bottom-[30%] left-[25%] size-2 bg-[#0D9488]/15 rounded-full animate-float stagger-delay-3"></div>
-      <div className="absolute top-[55%] left-[45%] size-1 bg-[#10B981]/30 rounded-full animate-float stagger-delay-6"></div>
+      <div className="absolute top-[20%] left-[15%] size-1.5 bg-[#14B8A6]/15 rounded-full animate-float z-10"></div>
+      <div className="absolute bottom-[30%] left-[25%] size-2 bg-[#22C55E]/8 rounded-full animate-float stagger-delay-3 z-10"></div>
+      <div className="absolute top-[55%] left-[45%] size-1 bg-[#14B8A6]/20 rounded-full animate-float stagger-delay-6 z-10"></div>
 
-      {/* 65% Left Immersive Visual Section */}
+      {/* LEFT 58% storytelling visual panel */}
       <AuthVisualPanel onBack={handleBack} showBack={true} />
 
-      {/* 35% Right Floating Card Container */}
-      <div className="w-full lg:w-[35%] h-screen flex items-center justify-center p-6 sm:p-10 z-20 relative bg-zinc-100/30 lg:border-l lg:border-zinc-200/50">
+      {/* RIGHT 40% Form container with responsive center canvas */}
+      <div className="w-full lg:w-[40%] h-full flex items-center justify-center p-2 sm:p-4 z-20 relative bg-transparent lg:overflow-y-auto">
         
         {/* Mobile Header (Hidden on Desktop) */}
         <div className="lg:hidden absolute top-6 left-6 flex flex-col gap-2 z-30">
           <button
             type="button"
             onClick={handleBack}
-            className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-[#0F172A] font-semibold transition-colors focus:outline-none w-fit"
+            className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-900 font-semibold transition-colors focus:outline-none w-fit"
           >
-            <ArrowLeft size={13} />
-            <span>Trở về trang trước</span>
+            <ArrowLeft size={13} className="text-[#0D9488]" />
+            <span>Trở về</span>
           </button>
           
-          <div className="font-heading font-extrabold text-2xl text-[#0F172A] flex items-center gap-2.5 tracking-tight">
-            <div className="size-4.5 rounded-full border-2 border-[#10B981] flex items-center justify-center bg-[#10B981]/5">
-              <div className="size-1 bg-[#10B981]"></div>
+          <div className="font-heading font-extrabold text-2xl text-slate-900 flex items-center gap-2.5 tracking-tight">
+            <div className="size-4.5 rounded-full border-2 border-[#0D9488] flex items-center justify-center bg-[#0D9488]/10">
+              <div className="size-1 bg-[#0D9488]"></div>
             </div>
-            <span>office<span className="text-zinc-455 font-light">care</span></span>
+            <span>Office<span className="text-[#0D9488] font-light">Care</span></span>
           </div>
         </div>
 
         {/* Card Body */}
-        <div className="w-full max-w-[390px] bg-white/80 backdrop-blur-xl border border-white rounded-3xl p-8 md:p-9 shadow-[0_30px_60px_-15px_rgba(15,23,42,0.06)] hover:border-zinc-200/50 transition-all duration-500 animate-card-reveal">
+        <div className="w-full max-w-[460px] bg-white/80 backdrop-blur-xl border border-white/60 rounded-[32px] p-8 md:p-10 shadow-[0_24px_50px_-12px_rgba(15,23,42,0.08)] hover:border-[#14B8A6]/20 transition-all duration-500">
           
           {/* Header Back Icon */}
           <div className="mb-6 flex justify-end border-b border-zinc-150/40 pb-3">
             <button
               type="button"
               onClick={() => navigate('/register')}
-              className="text-xs text-zinc-400 hover:text-[#10B981] font-bold transition-colors focus:outline-none font-sans"
+              className="text-xs text-zinc-400 hover:text-[#0D9488] font-bold transition-colors focus:outline-none font-sans"
             >
               Đăng ký mới
             </button>
@@ -295,7 +300,7 @@ export default function VerifyEmail() {
                 return (
                   <input
                     ref={el => (inputRefs.current[index] = el)}
-                    className="w-11 h-13 md:w-12 md:h-14 text-center text-xl font-bold bg-slate-50/50 border border-zinc-200 hover:border-zinc-300 focus:border-[#10B981] focus:ring-4 focus:ring-[#10B981]/10 rounded-2xl outline-none transition-all duration-200 text-zinc-900 shadow-sm font-sans"
+                    className="w-11 h-13 md:w-12 md:h-14 text-center text-xl font-bold bg-slate-50/50 border border-zinc-200 hover:border-zinc-300 focus:border-[#0D9488] focus:ring-4 focus:ring-[#0D9488]/10 rounded-2xl outline-none transition-all duration-200 text-zinc-900 shadow-sm font-sans"
                     type="text"
                     name="otp"
                     maxLength={1}
@@ -312,7 +317,7 @@ export default function VerifyEmail() {
 
             {/* OTP Timeout badge */}
             <div className="flex items-center justify-center gap-2 text-xs text-zinc-400 font-semibold bg-zinc-50 border border-zinc-100 py-2.5 px-4 rounded-2xl w-fit mx-auto shadow-sm">
-              <Timer size={14} className={timeLeft <= 60 ? 'text-red-500 animate-spin' : 'text-[#10B981]'} />
+              <Timer size={14} className={timeLeft <= 60 ? 'text-red-500 animate-spin' : 'text-[#0D9488]'} />
               <span className="font-sans">Mã có hiệu lực: </span>
               <span className={`font-mono font-bold text-sm ${timeLeft <= 60 ? 'text-red-500 animate-pulse' : 'text-[#0F172A]'}`}>
                 {formatTime(timeLeft)}
@@ -323,7 +328,7 @@ export default function VerifyEmail() {
             <button
               type="submit"
               disabled={isSubmitting || timeLeft <= 0}
-              className="w-full bg-gradient-to-r from-[#10B981] to-[#0D9488] hover:opacity-95 active:scale-[0.97] text-white font-bold rounded-2xl py-4 px-4 shadow-lg shadow-emerald-500/10 transition-all duration-300 disabled:opacity-50 flex items-center justify-center gap-2 text-sm hover:translate-y-[-2px] hover:shadow-[0_12px_24px_rgba(16,185,129,0.15)]"
+              className="w-full bg-gradient-to-r from-[#0D9488] to-[#0D9488] hover:opacity-95 active:scale-[0.97] text-white font-bold rounded-2xl py-4 px-4 shadow-lg shadow-emerald-500/10 transition-all duration-300 disabled:opacity-50 flex items-center justify-center gap-2 text-sm hover:translate-y-[-2px] hover:shadow-[0_12px_24px_rgba(16,185,129,0.15)]"
             >
               {isSubmitting ? (
                 <span className="inline-block border-2 border-white/30 border-t-white rounded-full w-4 h-4 animate-spin"></span>
@@ -342,7 +347,7 @@ export default function VerifyEmail() {
                 type="button"
                 onClick={handleResend}
                 disabled={isResending || timeLeft > 540} // Disallow resending immediately
-                className="text-[#10B981] font-bold text-xs hover:opacity-85 hover:underline disabled:opacity-50 disabled:no-underline transition-all flex items-center gap-1.5 mx-auto focus:outline-none font-sans"
+                className="text-[#0D9488] font-bold text-xs hover:opacity-85 hover:underline disabled:opacity-50 disabled:no-underline transition-all flex items-center gap-1.5 mx-auto focus:outline-none font-sans"
               >
                 {isResending ? (
                   <>

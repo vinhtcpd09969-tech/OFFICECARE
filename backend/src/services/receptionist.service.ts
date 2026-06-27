@@ -1,4 +1,5 @@
 import receptionistRepository from '../repositories/receptionist.repository';
+import appointmentRepository from '../repositories/appointment.repository';
 import notificationService from './notification.service';
 
 
@@ -412,6 +413,8 @@ class ReceptionistService {
   }
 
   async updateSessionServices(buoi_tri_lieu_id: string, services: any[]) {
+    const newDichVuIds = services.map(s => s.dich_vu_id);
+    await appointmentRepository.checkEquipmentOverlapForSession(buoi_tri_lieu_id, newDichVuIds);
     await receptionistRepository.updateSessionServices(buoi_tri_lieu_id, services);
     return { success: true };
   }

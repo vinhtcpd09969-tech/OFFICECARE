@@ -41,8 +41,6 @@ export const deleteSchedule = (id: string) => api.delete(`/admin/schedules/${id}
 // Medical Records
 export const getMedicalRecords = () => api.get('/admin/medical-records');
 
-// Audit
-export const getAuditLogs = () => api.get('/admin/audit-logs');
 
 // Vouchers & Marketing
 export const getVouchers = () => api.get('/admin/vouchers');

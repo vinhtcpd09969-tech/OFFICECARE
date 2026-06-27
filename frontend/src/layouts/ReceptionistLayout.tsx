@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { Sun, Moon } from 'lucide-react';
+import api from '../api/axios';
+import { MascotWidget } from '../components/MascotWidget';
 
 export default function ReceptionistLayout() {
   const location = useLocation();
@@ -10,6 +12,9 @@ export default function ReceptionistLayout() {
   const user = useAuthStore(state => state.user);
   const [isClient, setIsClient] = useState(false);
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
+  const [pendingContactCount, setPendingContactCount] = useState<number>(0);
+  const [earliestPendingId, setEarliestPendingId] = useState<string | null>(null);
+  const [earliestPendingDate, setEarliestPendingDate] = useState<string | null>(null);
 
   useEffect(() => {
     setIsClient(true);
@@ -30,6 +35,37 @@ export default function ReceptionistLayout() {
     }
     localStorage.setItem('theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    const fetchPending = async () => {
+      try {
+        const res = await api.get('/admin/appointments');
+        const appointments = res.data || [];
+        const graceTimeMs = 10 * 60 * 1000;
+        const pendingApts = appointments.filter((apt: any) => {
+          const createdAt = apt.thoi_gian_tao ? new Date(apt.thoi_gian_tao).getTime() : 0;
+          const isGracePassed = createdAt > 0 && (createdAt + graceTimeMs <= Date.now());
+          return apt.trang_thai === 'chua_xac_nhan' && isGracePassed;
+        });
+        setPendingContactCount(pendingApts.length);
+        if (pendingApts.length > 0) {
+          pendingApts.sort((a: any, b: any) => new Date(a.ngay_gio_bat_dau || '').getTime() - new Date(b.ngay_gio_bat_dau || '').getTime());
+          setEarliestPendingId(pendingApts[0].id);
+          const targetDate = pendingApts[0].ngay_gio_bat_dau ? pendingApts[0].ngay_gio_bat_dau.match(/^\d{4}-\d{2}-\d{2}/)?.[0] || '' : '';
+          setEarliestPendingDate(targetDate);
+        } else {
+          setEarliestPendingId(null);
+          setEarliestPendingDate(null);
+        }
+      } catch (err) {
+        console.error('Lỗi khi tải danh sách ca cần liên hệ:', err);
+      }
+    };
+
+    fetchPending();
+    const interval = setInterval(fetchPending, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -127,6 +163,20 @@ export default function ReceptionistLayout() {
           <Outlet />
         </div>
       </main>
+
+      {/* Floating Mascot Widget for Receptionist - Alerting of unconfirmed bookings needing contact */}
+      <MascotWidget
+        count={pendingContactCount}
+        onClick={() => {
+          if (earliestPendingId && earliestPendingDate) {
+            navigate(`/receptionist/appointments?date=${earliestPendingDate}&range=today&view=timeline&appointmentId=${earliestPendingId}&triggerFocus=true`);
+          } else {
+            navigate('/receptionist/appointments?triggerFocus=true');
+          }
+        }}
+        tooltipText={`Có ${pendingContactCount} ca khám chưa xác nhận quá 10 phút cần liên hệ!`}
+        badgeColor="rose"
+      />
     </div>
   );
 }

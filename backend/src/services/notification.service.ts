@@ -2,13 +2,14 @@ import prisma from '../config/prisma';
 
 class NotificationService {
   /**
-   * Tạo thông báo mới cho người dùng
+   * Tạo thông báo mới cho người dùng hoặc khách hàng
    */
-  async createNotification(nguoi_dung_id: string, tieu_de: string, noi_dung: string, loai: string = 'he_thong') {
+  async createNotification(id: string, tieu_de: string, noi_dung: string, loai: string = 'he_thong', isCustomer: boolean = false) {
     try {
       return await prisma.thong_bao.create({
         data: {
-          nguoi_dung_id,
+          nguoi_dung_id: isCustomer ? null : id,
+          khach_hang_id: isCustomer ? id : null,
           tieu_de,
           noi_dung,
           loai,
@@ -23,11 +24,11 @@ class NotificationService {
   }
 
   /**
-   * Lấy danh sách 50 thông báo gần nhất của người dùng
+   * Lấy danh sách 50 thông báo gần nhất của người dùng hoặc khách hàng
    */
-  async getNotifications(nguoi_dung_id: string) {
+  async getNotifications(id: string, isCustomer: boolean = false) {
     return prisma.thong_bao.findMany({
-      where: { nguoi_dung_id },
+      where: isCustomer ? { khach_hang_id: id } : { nguoi_dung_id: id },
       orderBy: { thoi_gian_tao: 'desc' },
       take: 50
     });
@@ -36,9 +37,9 @@ class NotificationService {
   /**
    * Đánh dấu 1 thông báo cụ thể là đã đọc
    */
-  async markAsRead(id: string, nguoi_dung_id: string) {
+  async markAsRead(id: string, userId: string, isCustomer: boolean = false) {
     const notification = await prisma.thong_bao.findFirst({
-      where: { id, nguoi_dung_id }
+      where: isCustomer ? { id, khach_hang_id: userId } : { id, nguoi_dung_id: userId }
     });
 
     if (!notification) {
@@ -54,9 +55,9 @@ class NotificationService {
   /**
    * Đánh dấu toàn bộ thông báo của người dùng là đã đọc
    */
-  async markAllAsRead(nguoi_dung_id: string) {
+  async markAllAsRead(userId: string, isCustomer: boolean = false) {
     return prisma.thong_bao.updateMany({
-      where: { nguoi_dung_id, da_doc: false },
+      where: isCustomer ? { khach_hang_id: userId, da_doc: false } : { nguoi_dung_id: userId, da_doc: false },
       data: { da_doc: true }
     });
   }
@@ -87,7 +88,7 @@ class NotificationService {
 
       if (!appointment || !appointment.khach_hang) return;
 
-      const nguoi_dung_id = appointment.khach_hang.nguoi_dung_id;
+      const customerId = appointment.khach_hang.id;
       const ma_lich_dat = appointment.ma_lich_dat;
       const ten_dich_vu = appointment.dich_vu_lich_dat_dich_vu_idTodich_vu?.ten_dich_vu || 'Khám Lâm sàng & Lượng giá';
 
@@ -115,7 +116,7 @@ class NotificationService {
           return;
       }
 
-      await this.createNotification(nguoi_dung_id, tieu_de, noi_dung, 'lich_hen');
+      await this.createNotification(customerId, tieu_de, noi_dung, 'lich_hen', true);
     } catch (error) {
       console.error('Lỗi khi trigger thông báo lịch hẹn:', error);
     }
@@ -130,7 +131,7 @@ class NotificationService {
         where: { vai_tro_id, deleted_at: null }
       });
       const promises = users.map(user => 
-        this.createNotification(user.id, tieu_de, noi_dung, loai)
+        this.createNotification(user.id, tieu_de, noi_dung, loai, false)
       );
       await Promise.all(promises);
     } catch (error) {
@@ -140,3 +141,4 @@ class NotificationService {
 }
 
 export default new NotificationService();
+

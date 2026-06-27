@@ -61,8 +61,21 @@ class AppointmentService {
     return appointmentRepository.cancelBreakTimeAppointments();
   }
 
-  async getBookedSlots(dateStr: string) {
-    return appointmentRepository.getBookedSlots(dateStr);
+  async getBookedSlots(dateStr: string, userId?: string, phone?: string, duration: number = 30) {
+    return appointmentRepository.getBookedSlots(dateStr, userId, phone, duration);
+  }
+
+  async checkCustomerHasClinicalExamOnDate(userId?: string, phone?: string, dateStr?: string) {
+    if (!dateStr) return false;
+    return appointmentRepository.checkCustomerHasClinicalExamOnDateByUserId(
+      userId || null,
+      phone || null,
+      dateStr
+    );
+  }
+
+  async getActiveDoctorDates() {
+    return appointmentRepository.getActiveDoctorDates();
   }
 
   async getPublicServices() {
@@ -165,11 +178,7 @@ class AppointmentService {
     const appt = await prisma.lich_dat.findUnique({
       where: { id },
       include: {
-        khach_hang: {
-          include: {
-            nguoi_dung: true
-          }
-        }
+        khach_hang: true
       }
     });
 
@@ -177,32 +186,22 @@ class AppointmentService {
       throw new Error('Lịch hẹn không tồn tại');
     }
 
-    let targetEmail = appt.khach_hang?.nguoi_dung?.email;
-    let targetName = appt.khach_hang?.nguoi_dung?.ho_ten || appt.ho_ten_khach || 'Khách hàng';
-
-    if (!targetEmail && appt.khach_hang?.nguoi_dung_id) {
-      const userRes = await prisma.nguoi_dung.findUnique({
-        where: { id: appt.khach_hang.nguoi_dung_id }
-      });
-      if (userRes?.email) {
-        targetEmail = userRes.email;
-        targetName = userRes.ho_ten;
-      }
-    }
+    let targetEmail = appt.khach_hang?.email;
+    let targetName = appt.khach_hang?.ho_ten || appt.ho_ten_khach || 'Khách hàng';
 
     if (!targetEmail && appt.so_dien_thoai) {
-      const userRes = await prisma.nguoi_dung.findFirst({
+      const customerRes = await prisma.khach_hang.findFirst({
         where: { so_dien_thoai: appt.so_dien_thoai }
       });
-      if (userRes?.email) {
-        targetEmail = userRes.email;
-        targetName = userRes.ho_ten;
+      if (customerRes?.email) {
+        targetEmail = customerRes.email;
+        targetName = customerRes.ho_ten;
       }
     }
 
     if (!targetEmail) {
       // Fallback: If no account email, construct from phone number
-      const sdt = appt.khach_hang?.nguoi_dung?.so_dien_thoai || appt.so_dien_thoai || '0901234567';
+      const sdt = appt.khach_hang?.so_dien_thoai || appt.so_dien_thoai || '0901234567';
       targetEmail = `${sdt}@physioflow.placeholder`;
     }
 

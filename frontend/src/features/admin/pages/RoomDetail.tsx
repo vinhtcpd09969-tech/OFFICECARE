@@ -26,7 +26,6 @@ interface Equipment {
   trang_thai: string;
   phong_id_hien_tai?: string | number | null;
   ghi_chu?: string;
-  co_the_di_chuyen?: boolean;
   so_lan_su_dung?: number;
   nguong_canh_bao?: number | null;
   nguong_bat_buoc_bao_tri?: number | null;
@@ -277,7 +276,7 @@ export default function RoomDetail() {
               >
                 <option value="phong_tri_lieu_chuan">Phòng trị liệu</option>
                 <option value="kho_thiet_bi">Phòng thiết bị chung</option>
-                <option value="phong_may_co_dinh">Phòng có thiết bị cố định</option>
+                <option value="phong_dac_biet">Phòng đặc biệt</option>
                 <option value="kham_benh">Phòng khám</option>
                 <option value="phong_tap_phcn">Phòng tập</option>
               </select>
@@ -376,6 +375,11 @@ export default function RoomDetail() {
                   onChange={(e) => setRoomFormData({ ...roomFormData, so_luong_giuong: Math.max(1, parseInt(e.target.value) || 1) })}
                   className="w-full border border-slate-200 bg-white p-2.5 text-xs font-semibold rounded-none focus:outline-none focus:border-teal-800 transition-colors"
                 />
+                {(currentRoom.loai_phong === 'phong_tri_lieu_chuan' || currentRoom.loai_phong === 'phong_dac_biet') && (
+                  <p className="text-[10px] text-teal-700 font-semibold mt-1">
+                    Hiện tại có {roomEquipment.filter(e => e.trang_thai !== 'hong').length} thiết bị đang chiếm slot.
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -471,8 +475,7 @@ export default function RoomDetail() {
                   <th className="p-3 pl-6 w-32">Mã thiết bị</th>
                   <th className="p-3">Tên thiết bị</th>
                   <th className="p-3 text-center w-36">Trạng thái kỹ thuật</th>
-                  <th className="p-3 w-40">Chế độ cơ động</th>
-                  <th className="p-3 pr-6 text-right w-64">Điều động vận hành</th>
+                  <th className="p-3 pr-6 text-right w-48">Thông số vận hành</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs">
@@ -513,22 +516,17 @@ export default function RoomDetail() {
                           {eq.trang_thai === 'san_sang' ? 'Hoạt động' : eq.trang_thai === 'dang_su_dung' ? 'Đang chạy' : eq.trang_thai === 'dang_bao_tri' ? 'Bảo trì' : 'Hỏng/Sự cố'}
                         </span>
                       </td>
-                      <td className="p-3 font-semibold text-slate-600">
-                        {eq.co_the_di_chuyen === false ? (
-                          <span className="text-rose-700">🔒 Cố định phòng</span>
-                        ) : (
-                          <span className="text-emerald-700">🟢 Di động</span>
-                        )}
-                      </td>
                       <td className="p-3 pr-6 text-right">
-                        {eq.co_the_di_chuyen === false ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 border border-slate-200 text-[10px] font-black text-slate-550 uppercase tracking-wider rounded-none">
-                            🔒 Cố định tại cabin
+                        {eq.so_lan_su_dung !== undefined && eq.nguong_bat_buoc_bao_tri ? (
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-none border ${
+                            (eq.so_lan_su_dung ?? 0) >= (eq.nguong_canh_bao ?? 999)
+                              ? 'bg-amber-50 border-amber-200 text-amber-800'
+                              : 'bg-slate-50 border-slate-200 text-slate-600'
+                          }`}>
+                            {eq.so_lan_su_dung} / {eq.nguong_bat_buoc_bao_tri} lần
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-teal-50 border border-teal-200 text-[10px] font-black text-teal-800 uppercase tracking-wider rounded-none animate-pulse">
-                            ⚡ Tự động phân bổ
-                          </span>
+                          <span className="text-slate-400 text-[10px] italic">Chưa có dữ liệu</span>
                         )}
                       </td>
                     </tr>

@@ -111,6 +111,7 @@ When user's prompt is NOT in English:
 - **Testing**: Mandatory. Pyramid (Unit > Int > E2E) + AAA Pattern.
 - **Performance**: Measure first. Adhere to 2025 standards (Core Web Vitals).
 - **Infra/Safety**: 5-Phase Deployment. Verify secrets security.
+- **Project Code Standards**: You MUST read and follow the workspace coding standards in [CODE_STANDARDS.md](file:///d:/VLTT/VLTT/.agent/rules/CODE_STANDARDS.md) before writing any code in this project.
 
 ### 📁 File Dependency Awareness
 

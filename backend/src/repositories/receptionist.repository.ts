@@ -7,18 +7,17 @@ class ReceptionistRepository {
         ld.id, ld.ma_lich_dat, ld.ngay_gio_bat_dau, ld.ngay_gio_ket_thuc, ld.trang_thai,
         'kham_moi' as loai_lich,
         kh_table.id as khach_hang_id,
-        kh.ho_ten as ten_khach_hang, kh.so_dien_thoai as sdt_khach_hang,
+        kh_table.ho_ten as ten_khach_hang, kh_table.so_dien_thoai as sdt_khach_hang,
         dv.ten_dich_vu,
         nd_ktv.ho_ten as ten_ky_thuat_vien,
         p.ten_phong
       FROM lich_dat ld
       JOIN khach_hang kh_table ON ld.khach_hang_id = kh_table.id
-      JOIN nguoi_dung kh ON kh_table.nguoi_dung_id = kh.id
       JOIN dich_vu dv ON ld.dich_vu_id = dv.id
       LEFT JOIN chuyen_gia_y_te ktv ON ld.bac_si_id = ktv.id
       LEFT JOIN nguoi_dung nd_ktv ON ktv.nguoi_dung_id = nd_ktv.id
       LEFT JOIN phong p ON ld.phong_id = p.id
-      WHERE DATE(ld.ngay_gio_bat_dau) = CURRENT_DATE
+      WHERE DATE(ld.ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh') = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh')
       
       UNION ALL
       
@@ -27,18 +26,17 @@ class ReceptionistRepository {
         btl.thoi_gian_bat_dau as ngay_gio_bat_dau, btl.thoi_gian_ket_thuc as ngay_gio_ket_thuc, btl.trang_thai,
         'dieu_tri' as loai_lich,
         kh_table.id as khach_hang_id,
-        kh.ho_ten as ten_khach_hang, kh.so_dien_thoai as sdt_khach_hang,
+        kh_table.ho_ten as ten_khach_hang, kh_table.so_dien_thoai as sdt_khach_hang,
         dv.ten_dich_vu,
         nd_ktv.ho_ten as ten_ky_thuat_vien,
         p.ten_phong
       FROM buoi_tri_lieu btl
       JOIN khach_hang kh_table ON btl.khach_hang_id = kh_table.id
-      JOIN nguoi_dung kh ON kh_table.nguoi_dung_id = kh.id
       JOIN dich_vu dv ON btl.dich_vu_id = dv.id
       LEFT JOIN chuyen_gia_y_te ktv ON btl.ky_thuat_vien_id = ktv.id
       LEFT JOIN nguoi_dung nd_ktv ON ktv.nguoi_dung_id = nd_ktv.id
       LEFT JOIN phong p ON btl.phong_id = p.id
-      WHERE DATE(btl.thoi_gian_bat_dau) = CURRENT_DATE
+      WHERE DATE(btl.thoi_gian_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh') = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh')
       
       ORDER BY ngay_gio_bat_dau ASC
     `);
@@ -158,35 +156,21 @@ class ReceptionistRepository {
         COUNT(*) FILTER (WHERE trang_thai IN ('cho_xac_nhan', 'da_xac_nhan')) as waiting_count,
         COUNT(*) as total_today
       FROM lich_dat
-      WHERE DATE(ngay_gio_bat_dau) = CURRENT_DATE
+      WHERE DATE(ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh') = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh')
     `);
     return rows[0];
   }
 
   async findCustomerByPhone(phone: string) {
-    const { rows } = await pool.query('SELECT id, khach_hang_id FROM nguoi_dung JOIN khach_hang ON nguoi_dung.id = khach_hang.nguoi_dung_id WHERE so_dien_thoai = $1', [phone]);
+    const { rows } = await pool.query('SELECT id AS khach_hang_id FROM khach_hang WHERE so_dien_thoai = $1', [phone]);
     return rows[0];
   }
 
   async createWalkInCustomer(ho_ten: string, sdt: string, gioi_tinh: string, ngay_sinh: string | null) {
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      const { rows: newUser } = await client.query(`
-        INSERT INTO nguoi_dung (ho_ten, so_dien_thoai, vai_tro_id) 
-        VALUES ($1, $2, (SELECT id FROM vai_tro WHERE ma_vai_tro = 'khach_hang')) RETURNING id
-      `, [ho_ten, sdt]);
-      const { rows: newKh } = await client.query(`
-        INSERT INTO khach_hang (nguoi_dung_id, gioi_tinh, ngay_sinh) VALUES ($1, $2, $3) RETURNING id
-      `, [newUser[0].id, gioi_tinh || 'khac', ngay_sinh || null]);
-      await client.query('COMMIT');
-      return newKh[0].id;
-    } catch (e) {
-      await client.query('ROLLBACK');
-      throw e;
-    } finally {
-      client.release();
-    }
+    const { rows: newKh } = await pool.query(`
+      INSERT INTO khach_hang (ho_ten, so_dien_thoai, gioi_tinh, ngay_sinh) VALUES ($1, $2, $3, $4) RETURNING id
+    `, [ho_ten, sdt, gioi_tinh || 'khac', ngay_sinh || null]);
+    return newKh[0].id;
   }
 
   async getServiceDuration(dich_vu_id: string) {
@@ -266,10 +250,9 @@ class ReceptionistRepository {
         const { rows: planDetails } = await client.query(`
           SELECT 
             ldt.lich_dat_id,
-            nd_kh.ho_ten as ten_khach_hang
+            kh.ho_ten as ten_khach_hang
           FROM lich_dieu_tri ldt
           JOIN khach_hang kh ON ldt.khach_hang_id = kh.id
-          JOIN nguoi_dung nd_kh ON kh.nguoi_dung_id = nd_kh.id
           WHERE ldt.id = $1
         `, [ldtId]);
 
@@ -373,41 +356,56 @@ class ReceptionistRepository {
   }
 
   async getPackageById(id: string) {
-    const { rows } = await pool.query('SELECT * FROM goi_dich_vu WHERE id = $1', [id]);
+    const { rows } = await pool.query(`
+      SELECT g.*,
+             COALESCE(
+               JSON_AGG(
+                 JSON_BUILD_OBJECT(
+                   'dich_vu_id', ct.dich_vu_id,
+                   'so_buoi', ct.so_buoi_trong_goi,
+                   'so_lan_toi_da_trong_goi', ct.so_lan_toi_da_trong_goi,
+                   'bat_buoc', ct.bat_buoc,
+                   'thu_tu_thuc_hien', ct.thu_tu_thuc_hien,
+                   'ten_dich_vu', dv.ten_dich_vu,
+                   'don_gia', dv.don_gia
+                 ) ORDER BY ct.thu_tu_thuc_hien ASC
+               ) FILTER (WHERE ct.dich_vu_id IS NOT NULL),
+               '[]'::json
+             ) as chi_tiet_dich_vu
+      FROM goi_dich_vu g
+      LEFT JOIN goi_dich_vu_chi_tiet ct ON g.id = ct.goi_dich_vu_id
+      LEFT JOIN dich_vu dv ON ct.dich_vu_id = dv.id
+      WHERE g.id = $1
+      GROUP BY g.id
+    `, [id]);
     if (rows.length === 0) return null;
-    const pkg = rows[0];
-    const { rows: details } = await pool.query(`
-      SELECT ct.dich_vu_id, ct.so_buoi_trong_goi as so_buoi, ct.so_lan_toi_da_trong_goi, ct.bat_buoc, ct.thu_tu_thuc_hien,
-             dv.ten_dich_vu, dv.don_gia
-      FROM goi_dich_vu_chi_tiet ct
-      JOIN dich_vu dv ON ct.dich_vu_id = dv.id
-      WHERE ct.goi_dich_vu_id = $1
-      ORDER BY ct.thu_tu_thuc_hien ASC
-    `, [pkg.id]);
-    pkg.chi_tiet_dich_vu = details;
-    return pkg;
+    return rows[0];
   }
 
   async getActivePackages() {
     const { rows } = await pool.query(`
-      SELECT id, ten_goi, ma_goi, mo_ta, tong_so_buoi, gia_goi, gia_goc, han_dung_thang, phan_tram_giam_tra_thang, phan_tram_giam_tra_gop
-      FROM goi_dich_vu
-      WHERE trang_thai = 'hoat_dong'
-      ORDER BY ten_goi ASC
+      SELECT g.id, g.ten_goi, g.ma_goi, g.mo_ta, g.tong_so_buoi, g.gia_goi, g.gia_goc, g.han_dung_thang, g.phan_tram_giam_tra_thang, g.phan_tram_giam_tra_gop,
+             COALESCE(
+               JSON_AGG(
+                 JSON_BUILD_OBJECT(
+                   'dich_vu_id', ct.dich_vu_id,
+                   'so_buoi', ct.so_buoi_trong_goi,
+                   'so_lan_toi_da_trong_goi', ct.so_lan_toi_da_trong_goi,
+                   'bat_buoc', ct.bat_buoc,
+                   'thu_tu_thuc_hien', ct.thu_tu_thuc_hien,
+                   'ten_dich_vu', dv.ten_dich_vu,
+                   'don_gia', dv.don_gia
+                 ) ORDER BY ct.thu_tu_thuc_hien ASC
+               ) FILTER (WHERE ct.dich_vu_id IS NOT NULL),
+               '[]'::json
+             ) as chi_tiet_dich_vu
+      FROM goi_dich_vu g
+      LEFT JOIN goi_dich_vu_chi_tiet ct ON g.id = ct.goi_dich_vu_id
+      LEFT JOIN dich_vu dv ON ct.dich_vu_id = dv.id
+      WHERE g.trang_thai = 'hoat_dong'
+      GROUP BY g.id
+      ORDER BY g.ten_goi ASC
     `);
-    
-    for (const pkg of rows) {
-      const { rows: details } = await pool.query(`
-        SELECT ct.dich_vu_id, ct.so_buoi_trong_goi as so_buoi, ct.so_lan_toi_da_trong_goi, ct.bat_buoc, ct.thu_tu_thuc_hien,
-               dv.ten_dich_vu, dv.don_gia
-        FROM goi_dich_vu_chi_tiet ct
-        JOIN dich_vu dv ON ct.dich_vu_id = dv.id
-        WHERE ct.goi_dich_vu_id = $1
-        ORDER BY ct.thu_tu_thuc_hien ASC
-      `, [pkg.id]);
-      pkg.chi_tiet_dich_vu = details;
-    }
-    
     return rows;
   }
 
@@ -416,17 +414,19 @@ class ReceptionistRepository {
       SELECT 
         ld.id, ld.ma_lich_dat, ld.ngay_gio_bat_dau, ld.trang_thai,
         kh_table.id as khach_hang_id,
-        COALESCE(ld.ho_ten_khach, kh.ho_ten) as ten_khach_hang, 
-        COALESCE(ld.so_dien_thoai, kh.so_dien_thoai) as sdt_khach_hang,
+        COALESCE(ld.ho_ten_khach, kh_table.ho_ten) as ten_khach_hang, 
+        COALESCE(ld.so_dien_thoai, kh_table.so_dien_thoai) as sdt_khach_hang,
         dv.ten_dich_vu, dv.don_gia,
-        ld.khuyen_nghi_goi_id
+        hsdt.goi_dich_vu_id as khuyen_nghi_goi_id
       FROM lich_dat ld
       JOIN khach_hang kh_table ON ld.khach_hang_id = kh_table.id
-      JOIN nguoi_dung kh ON kh_table.nguoi_dung_id = kh.id
       JOIN dich_vu dv ON ld.dich_vu_id = dv.id
+      LEFT JOIN ho_so_dieu_tri hsdt ON hsdt.lich_dat_id = ld.id
       WHERE ld.trang_thai = 'hoan_thanh'
         AND NOT EXISTS (
-          SELECT 1 FROM lich_dieu_tri ldt WHERE ldt.lich_dat_id = ld.id
+          SELECT 1 FROM lich_dieu_tri ldt 
+          JOIN ho_so_dieu_tri hsdt2 ON ldt.ho_so_dieu_tri_id = hsdt2.id 
+          WHERE hsdt2.lich_dat_id = ld.id
         )
 
       UNION ALL
@@ -435,12 +435,11 @@ class ReceptionistRepository {
         btl.id, 'TR' || UPPER(SUBSTRING(btl.id::text FROM 1 FOR 6)) as ma_lich_dat,
         btl.thoi_gian_bat_dau as ngay_gio_bat_dau, btl.trang_thai,
         kh_table.id as khach_hang_id,
-        kh.ho_ten as ten_khach_hang, kh.so_dien_thoai as sdt_khach_hang,
+        kh_table.ho_ten as ten_khach_hang, kh_table.so_dien_thoai as sdt_khach_hang,
         dv.ten_dich_vu, dv.don_gia,
         hsba.goi_dich_vu_id as khuyen_nghi_goi_id
       FROM buoi_tri_lieu btl
       JOIN khach_hang kh_table ON btl.khach_hang_id = kh_table.id
-      JOIN nguoi_dung kh ON kh_table.nguoi_dung_id = kh.id
       JOIN dich_vu dv ON btl.dich_vu_id = dv.id
       JOIN lich_dieu_tri ldt ON btl.lich_dieu_tri_id = ldt.id
       LEFT JOIN ho_so_dieu_tri hsba ON ldt.ho_so_dieu_tri_id = hsba.id
@@ -484,10 +483,9 @@ class ReceptionistRepository {
 
   async getCustomerContactInfo(khach_hang_id: string) {
     const { rows } = await pool.query(`
-      SELECT kh.id, nd.ho_ten, nd.so_dien_thoai 
-      FROM khach_hang kh
-      JOIN nguoi_dung nd ON kh.nguoi_dung_id = nd.id
-      WHERE kh.id = $1
+      SELECT id, ho_ten, so_dien_thoai 
+      FROM khach_hang
+      WHERE id = $1
     `, [khach_hang_id]);
     return rows[0];
   }

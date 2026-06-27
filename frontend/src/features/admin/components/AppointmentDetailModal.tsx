@@ -83,7 +83,7 @@ export default function AppointmentDetailModal({
       !selectedAppointment.bac_si_id &&
       !selectedAppointment.chuyen_gia_id &&
       ['cho_xac_nhan', 'chua_xac_nhan'].includes(selectedAppointment.trang_thai) &&
-      selectedAppointment.han_xac_nhan
+      false
     ) {
       const sendKeepAlive = async () => {
         try {
@@ -500,58 +500,98 @@ export default function AppointmentDetailModal({
                   )}
                 </div>
                 {!isReceptionist ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[200px] overflow-y-auto pr-1 scrollbar-thin">
-                    {staffList.filter(s => s.vai_tro === activeRole).map(staff => {
-                      const isOccupied = occupiedStaffIds.includes(staff.chuyen_gia_id || staff.id) &&
-                        (staff.chuyen_gia_id || staff.id) !== (selectedAppointment.bac_si_id || selectedAppointment.chuyen_gia_id);
-                      const duty = getStaffDutyStatus(staff);
-                      const isAvailable = duty.hasDuty && !isOccupied;
-                      const isSelected = String(assignStaffId) === String(staff.chuyen_gia_id || staff.id);
+                  assignStatus === 'chua_xac_nhan' ? (
+                    <div className="w-full px-4 py-8 bg-slate-50/50 dark:bg-zinc-800/10 border border-dashed border-slate-200 dark:border-zinc-800/80 rounded-2xl text-center select-none">
+                      <div className="text-xl mb-1.5">🔒</div>
+                      <p className="text-xs font-bold text-slate-500 dark:text-zinc-400">Khóa phân bổ Nhân sự</p>
+                      <p className="text-[10px] text-slate-450 dark:text-zinc-550 mt-1 max-w-[280px] mx-auto leading-relaxed">
+                        Lịch hẹn này chưa được xác nhận. Vui lòng cập nhật trạng thái lịch hẹn hoặc click "Xác nhận khách" để mở khóa phân công.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[200px] overflow-y-auto pr-1 scrollbar-thin">
+                      {(() => {
+                        const assignedDocId = selectedAppointment.bac_si_id || selectedAppointment.chuyen_gia_id;
+                        return staffList
+                          .filter(s => s.vai_tro === activeRole)
+                          .filter(staff => {
+                            const staffId = staff.chuyen_gia_id || staff.id;
+                            const isCurrentlyAssigned = assignedDocId && String(staffId) === String(assignedDocId);
+                            
+                            if (isCurrentlyAssigned) {
+                              return true;
+                            }
+                            
+                            const isOccupied = occupiedStaffIds.includes(staffId);
+                            const duty = getStaffDutyStatus(staff);
+                            return duty.hasDuty && !isOccupied;
+                          })
+                          .map(staff => {
+                            const staffId = staff.chuyen_gia_id || staff.id;
+                            const isCurrentlyAssigned = assignedDocId && String(staffId) === String(assignedDocId);
+                            const duty = getStaffDutyStatus(staff);
+                            const isOccupied = occupiedStaffIds.includes(staffId) && !isCurrentlyAssigned;
+                            const isAvailable = duty.hasDuty && !occupiedStaffIds.includes(staffId);
+                            const isSelected = String(assignStaffId) === String(staffId);
+                            const showWarning = isCurrentlyAssigned && !isAvailable;
 
-                      return (
-                        <div
-                          key={staff.id}
-                          onClick={() => isAvailable && !isReceptionist && setAssignStaffId(staff.chuyen_gia_id || staff.id)}
-                          className={`p-3 rounded-xl border-2 transition-all flex items-center gap-3 select-none ${!isAvailable
-                              ? 'bg-slate-50 dark:bg-zinc-800/20 border-slate-100 dark:border-zinc-800/50 opacity-50 cursor-not-allowed'
-                              : isSelected
-                                ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-500 dark:border-emerald-600 text-emerald-800 dark:text-emerald-355 ring-2 ring-emerald-500/10 cursor-pointer'
-                                : 'bg-white dark:bg-zinc-900 border-slate-150 dark:border-zinc-800 hover:border-slate-350 dark:hover:border-zinc-700 cursor-pointer'
-                            }`}
-                        >
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-[10px] shrink-0 border ${isSelected
-                              ? 'bg-emerald-600 dark:bg-emerald-700 text-white border-emerald-600'
-                              : 'bg-slate-100 dark:bg-zinc-800 text-slate-650 dark:text-zinc-450 border-slate-200 dark:border-zinc-750'
-                            }`}>
-                            {getAvatarInitials(staff.ho_ten)}
-                          </div>
+                            return (
+                              <div
+                                key={staff.id}
+                                onClick={() => (isAvailable || isCurrentlyAssigned) && !isReceptionist && setAssignStaffId(staffId)}
+                                className={`p-3 rounded-xl border-2 transition-all flex items-center gap-3 select-none cursor-pointer ${
+                                  showWarning
+                                    ? `${isSelected ? 'bg-rose-50/30 dark:bg-rose-955/10' : 'bg-white dark:bg-zinc-900'} border-dashed border-rose-500 dark:border-rose-600 animate-pulse ring-2 ring-rose-500/15`
+                                    : !isAvailable
+                                      ? 'bg-slate-50 dark:bg-zinc-800/20 border-slate-100 dark:border-zinc-800/50 opacity-50 cursor-not-allowed'
+                                      : isSelected
+                                        ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-500 dark:border-emerald-600 text-emerald-800 dark:text-emerald-355 ring-2 ring-emerald-500/10'
+                                        : 'bg-white dark:bg-zinc-900 border-slate-150 dark:border-zinc-800 hover:border-slate-350 dark:hover:border-zinc-700'
+                                }`}
+                              >
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-[10px] shrink-0 border ${isSelected
+                                    ? 'bg-emerald-600 dark:bg-emerald-700 text-white border-emerald-600'
+                                    : 'bg-slate-100 dark:bg-zinc-800 text-slate-650 dark:text-zinc-450 border-slate-200 dark:border-zinc-750'
+                                  }`}>
+                                  {getAvatarInitials(staff.ho_ten)}
+                                </div>
 
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-black text-slate-800 dark:text-zinc-200 truncate">{staff.ho_ten}</p>
-                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                              <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider ${isOccupied
-                                  ? 'bg-rose-100 dark:bg-rose-955/30 text-rose-700 dark:text-rose-455'
-                                  : !duty.hasDuty
-                                    ? 'bg-slate-200 dark:bg-zinc-800 text-slate-650 dark:text-zinc-450'
-                                    : 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-450'
-                                }`}>
-                                {isOccupied
-                                  ? 'Trùng lịch'
-                                  : !duty.hasDuty
-                                    ? (['Đang nghỉ trưa', 'Đang nghỉ tối', 'Nghỉ phép cả ngày'].includes(duty.label) ? duty.label : 'Không trực')
-                                    : 'Sẵn sàng'}
-                              </span>
-                              {duty.label && duty.hasDuty && (
-                                <span className="text-[9px] text-slate-400 dark:text-zinc-550 font-bold truncate">
-                                  {duty.label.replace('Trực ca ', '')}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-black text-slate-800 dark:text-zinc-200 truncate">{staff.ho_ten}</p>
+                                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                    {showWarning ? (
+                                      <span className="bg-rose-100 dark:bg-rose-955/30 text-rose-700 dark:text-rose-455 text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider animate-pulse">
+                                        ⚠️ Đang bận / Sai ca trực - Đã gán
+                                      </span>
+                                    ) : (
+                                      <>
+                                        <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider ${isOccupied
+                                            ? 'bg-rose-100 dark:bg-rose-955/30 text-rose-700 dark:text-rose-455'
+                                            : !duty.hasDuty
+                                              ? 'bg-slate-200 dark:bg-zinc-800 text-slate-650 dark:text-zinc-450'
+                                              : 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-450'
+                                          }`}>
+                                          {isOccupied
+                                            ? 'Trùng lịch'
+                                            : !duty.hasDuty
+                                              ? (['Đang nghỉ trưa', 'Đang nghỉ tối', 'Nghỉ phép cả ngày'].includes(duty.label) ? duty.label : 'Không trực')
+                                              : 'Sẵn sàng'}
+                                        </span>
+                                        {duty.label && duty.hasDuty && (
+                                          <span className="text-[9px] text-slate-400 dark:text-zinc-550 font-bold truncate">
+                                            {duty.label.replace('Trực ca ', '')}
+                                          </span>
+                                        )}
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          });
+                      })()}
+                    </div>
+                  )
                 ) : (
                   <div className="w-full px-4 py-3 bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-855 rounded-xl text-sm font-bold text-slate-800 dark:text-zinc-150 flex items-center justify-between">
                     <span>

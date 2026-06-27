@@ -246,10 +246,24 @@ export default function BookingSuccess() {
               : isCancelled 
                 ? `Lịch hẹn này đã được hủy bỏ. Lý do: "${appointment.ly_do_huy || 'Hủy bởi hệ thống'}"`
                 : isUnconfirmed
-                  ? 'Bạn đã đặt lịch thành công! Vui lòng kiểm tra email của bạn để xác nhận giữ chỗ trong vòng 10 phút. Sau 10 phút nếu chưa xác nhận, thông tin sẽ được chuyển đến bộ phận lễ tân liên hệ hỗ trợ trực tiếp.'
+                  ? 'Bạn đã đặt lịch thành công! Vui lòng kiểm tra email của bạn để xác nhận giữ chỗ. Nếu chưa xác nhận, thông tin sẽ được chuyển đến bộ phận lễ tân để liên hệ hỗ trợ trực tiếp.'
                   : 'Lịch hẹn đã được bạn xác nhận qua email thành công. Lễ tân đang rà soát ca trực và sắp xếp phòng khám cho bạn.'}
           </p>
         </div>
+
+        {isUnconfirmed && (
+          <div className="mb-8 bg-rose-50 border-2 border-rose-200 p-5 rounded-[24px] text-left text-xs flex items-start gap-4 text-rose-900 leading-relaxed font-semibold shadow-sm animate-pulse">
+            <div className="size-8 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center shrink-0">
+              📧
+            </div>
+            <div>
+              <p className="font-extrabold uppercase tracking-wider text-rose-800 text-[10px]">Yêu cầu xác thực lịch đặt</p>
+              <p className="mt-1 font-extrabold text-sm text-rose-700">
+                Vui lòng kiểm tra hộp thư đến Email của bạn và nhấn nút "Xác Nhận Giữ Chỗ Ngay" để hoàn tất giữ lịch hẹn khám!
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Main Grid Content */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">

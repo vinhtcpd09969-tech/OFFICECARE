@@ -65,10 +65,10 @@ async function main() {
       const roomId = insertedRoomsMap.get(mapping.roomMa);
       if (roomId) {
         await client.query(
-          'UPDATE thiet_bi_y_te SET phong_id_hien_tai = $1, co_the_di_chuyen = false WHERE ma_thiet_bi = $2',
+          'UPDATE thiet_bi_y_te SET phong_id_hien_tai = $1 WHERE ma_thiet_bi = $2',
           [roomId, mapping.ma]
         );
-        console.log(`- Mapped stationary device [${mapping.ma}] to bed [${mapping.roomMa}] (ID: ${roomId})`);
+        console.log(`- Mapped device [${mapping.ma}] to bed [${mapping.roomMa}] (ID: ${roomId})`);
       }
     }
 
@@ -77,11 +77,11 @@ async function main() {
     if (storeRoomId) {
       await client.query(
         `UPDATE thiet_bi_y_te 
-         SET phong_id_hien_tai = $1, co_the_di_chuyen = true 
+         SET phong_id_hien_tai = $1 
          WHERE ma_thiet_bi NOT IN ('EQP-DTS01', 'EQP-CST01', 'EQP-SIS01')`,
         [storeRoomId]
       );
-      console.log(`- Mapped all mobile devices to Central Storage [P200] (ID: ${storeRoomId})`);
+      console.log(`- Mapped devices to Central Storage [P200] (ID: ${storeRoomId})`);
     }
 
     await client.query('COMMIT');

@@ -4,7 +4,6 @@ import adminService from '../services/admin.service';
 import { categorySchema, serviceSchema, packageSchema, staffSchema, roomSchema, equipmentSchema } from '../schemas/admin.schema';
 import { refundSchema } from '../schemas/finance.schema';
 import { voucherSchema } from '../schemas/marketing.schema';
-import { logAudit } from '../utils/audit.util';
 
 // --- QUẢN LÝ DỊCH VỤ & DANH MỤC ---
 
@@ -30,7 +29,6 @@ export const createRoom = async (req: Request, res: Response): Promise<any> => {
   try {
     const { body } = roomSchema.parse({ body: req.body });
     const room = await adminService.createRoom(body);
-    await logAudit(req, 'CREATE_ROOM', 'ROOM', room.id.toString(), body);
     res.status(201).json(room);
   } catch (error) {
     if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
@@ -43,7 +41,6 @@ export const updateRoom = async (req: Request, res: Response): Promise<any> => {
     const { id } = req.params as { id: string };
     const { body } = roomSchema.parse({ body: req.body });
     const room = await adminService.updateRoom(id, body);
-    await logAudit(req, 'UPDATE_ROOM', 'ROOM', id, body);
     res.json(room);
   } catch (error) {
     if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
@@ -55,7 +52,6 @@ export const deleteRoom = async (req: Request, res: Response): Promise<any> => {
   try {
     const { id } = req.params as { id: string };
     const room = await adminService.deleteRoom(id);
-    await logAudit(req, 'DELETE_ROOM', 'ROOM', id, { id });
     res.json({ message: 'Xóa phòng thành công', room });
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server khi xóa phòng', error });
@@ -67,7 +63,6 @@ export const createCategory = async (req: Request, res: Response): Promise<any> 
     const { body } = categorySchema.parse({ body: req.body });
     const category = await adminService.createCategory(body);
     
-    await logAudit(req, 'CREATE_CATEGORY', 'CATEGORY', category.id.toString(), body);
     res.status(201).json(category);
   } catch (error) {
     if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
@@ -81,7 +76,6 @@ export const updateCategory = async (req: Request, res: Response): Promise<any> 
     const { body } = categorySchema.parse({ body: req.body });
     const category = await adminService.updateCategory(id, body);
 
-    await logAudit(req, 'UPDATE_CATEGORY', 'CATEGORY', id, body);
     res.json(category);
   } catch (error) {
     if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
@@ -94,7 +88,6 @@ export const deleteCategory = async (req: Request, res: Response): Promise<any> 
     const { id } = req.params as { id: string };
     await adminService.deleteCategory(id);
 
-    await logAudit(req, 'DELETE_CATEGORY', 'CATEGORY', id, { id });
     res.json({ message: 'Xóa danh mục thành công' });
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server khi xóa danh mục' });
@@ -115,7 +108,6 @@ export const createService = async (req: Request, res: Response): Promise<any> =
     const { body } = serviceSchema.parse({ body: req.body });
     const service = await adminService.createService(body);
 
-    await logAudit(req, 'CREATE_SERVICE', 'SERVICE', service.id.toString(), body);
     res.status(201).json(service);
   } catch (error) {
     if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
@@ -129,7 +121,6 @@ export const updateService = async (req: Request, res: Response): Promise<any> =
     const { body } = serviceSchema.parse({ body: req.body });
     const service = await adminService.updateService(id, body);
 
-    await logAudit(req, 'UPDATE_SERVICE', 'SERVICE', id, body);
     res.json(service);
   } catch (error) {
     if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
@@ -142,7 +133,6 @@ export const deleteService = async (req: Request, res: Response): Promise<any> =
     const { id } = req.params as { id: string };
     await adminService.deleteService(id);
 
-    await logAudit(req, 'DELETE_SERVICE', 'SERVICE', id, { id });
     res.json({ message: 'Xóa dịch vụ thành công' });
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server khi xóa dịch vụ' });
@@ -165,7 +155,6 @@ export const createPackage = async (req: Request, res: Response): Promise<any> =
     const { body } = packageSchema.parse({ body: req.body });
     const packageData = await adminService.createPackage(body);
 
-    await logAudit(req, 'CREATE_PACKAGE', 'PACKAGE', packageData.id.toString(), body);
     res.status(201).json(packageData);
   } catch (error) {
     if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
@@ -179,7 +168,6 @@ export const updatePackage = async (req: Request, res: Response): Promise<any> =
     const { body } = packageSchema.parse({ body: req.body });
     const packageData = await adminService.updatePackage(id, body);
 
-    await logAudit(req, 'UPDATE_PACKAGE', 'PACKAGE', id, body);
     res.json(packageData);
   } catch (error) {
     if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
@@ -192,7 +180,6 @@ export const deletePackage = async (req: Request, res: Response): Promise<any> =
     const { id } = req.params as { id: string };
     await adminService.deletePackage(id);
 
-    await logAudit(req, 'DELETE_PACKAGE', 'PACKAGE', id, {});
     res.json({ message: 'Xóa gói điều trị thành công' });
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server khi xóa gói điều trị' });
@@ -217,7 +204,6 @@ export const createStaff = async (req: Request, res: Response): Promise<any> => 
     const staff = await adminService.createStaff(body);
 
     const { mat_khau: _, ...logPayload } = body;
-    await logAudit(req, 'CREATE_STAFF', 'USER', staff.id, logPayload);
 
     res.status(201).json(staff);
   } catch (error: any) {
@@ -238,7 +224,6 @@ export const updateStaffStatus = async (req: Request, res: Response): Promise<an
 
     const staff = await adminService.updateStaffStatus(id, trang_thai);
 
-    await logAudit(req, 'UPDATE_STAFF_STATUS', 'USER', id, { trang_thai });
     res.json(staff);
   } catch (error: any) {
     if (error.message === 'Không tìm thấy nhân sự') return res.status(404).json({ message: error.message });
@@ -273,10 +258,10 @@ export const createEquipment = async (req: Request, res: Response): Promise<any>
     const { body } = equipmentSchema.parse({ body: req.body });
     const equipment = await adminService.createEquipment(body);
 
-    await logAudit(req, 'CREATE_EQUIPMENT', 'EQUIPMENT', equipment.id.toString(), body);
     res.status(201).json(equipment);
-  } catch (error) {
+  } catch (error: any) {
     if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
+    if (error?.statusCode === 400) return res.status(400).json({ message: error.message });
     res.status(500).json({ message: 'Lỗi server khi tạo thiết bị' });
   }
 };
@@ -287,7 +272,6 @@ export const updateEquipment = async (req: Request, res: Response): Promise<any>
     const { body } = equipmentSchema.parse({ body: req.body });
     const equipment = await adminService.updateEquipment(id, body);
 
-    await logAudit(req, 'UPDATE_EQUIPMENT', 'EQUIPMENT', id, body);
     res.json(equipment);
   } catch (error: any) {
     if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
@@ -301,7 +285,6 @@ export const deleteEquipment = async (req: Request, res: Response): Promise<any>
     const { id } = req.params as { id: string };
     const equipment = await adminService.deleteEquipment(id);
 
-    await logAudit(req, 'DELETE_EQUIPMENT', 'EQUIPMENT', id, { id });
     res.json({ message: 'Xóa thiết bị thành công', equipment });
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server khi xóa thiết bị', error });
@@ -324,7 +307,6 @@ export const createSchedule = async (req: Request, res: Response): Promise<any> 
     const { body } = require('../schemas/admin.schema').scheduleSchema.parse({ body: req.body });
     const schedule = await adminService.createSchedule(body);
 
-    await logAudit(req, 'CREATE_SCHEDULE', 'SCHEDULE', schedule.id.toString(), body);
     res.status(201).json(schedule);
   } catch (error: any) {
     if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
@@ -336,7 +318,6 @@ export const updateSchedule = async (req: Request, res: Response): Promise<any> 
   try {
     const { id } = req.params as { id: string };
     const schedule = await adminService.updateSchedule(id, req.body);
-    await logAudit(req, 'UPDATE_SCHEDULE', 'SCHEDULE', id, req.body);
     res.json(schedule);
   } catch (error: any) {
     res.status(400).json({ message: error.message || 'Lỗi server khi cập nhật lịch trực' });
@@ -347,7 +328,6 @@ export const deleteSchedule = async (req: Request, res: Response): Promise<any> 
   try {
     const { id } = req.params as { id: string };
     await adminService.deleteSchedule(id);
-    await logAudit(req, 'DELETE_SCHEDULE', 'SCHEDULE', id, {});
     res.json({ message: 'Xóa lịch trực thành công' });
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server khi xóa lịch trực' });
@@ -365,16 +345,7 @@ export const getMedicalRecords = async (req: Request, res: Response) => {
   }
 };
 
-// --- AUDIT LOGS ---
 
-export const getAuditLogs = async (req: Request, res: Response) => {
-  try {
-    const logs = await adminService.getAuditLogs();
-    res.json(logs);
-  } catch (error) {
-    res.status(500).json({ message: 'Lỗi server khi lấy audit log' });
-  }
-};
 
 // --- QUẢN LÝ TÀI CHÍNH (INVOICES & PAYMENTS) ---
 
@@ -403,7 +374,6 @@ export const handleRefund = async (req: Request, res: Response): Promise<any> =>
 
     const result = await adminService.handleRefund(id, body);
 
-    await logAudit(req, 'REFUND_PAYMENT', 'PAYMENT', id, { ...body, original_amount: result.originalAmount });
     res.json({ message: 'Hoàn tiền thành công', invoice: result.invoice });
   } catch (error: any) {
     if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
@@ -430,7 +400,6 @@ export const createVoucher = async (req: Request, res: Response): Promise<any> =
     
     const voucher = await adminService.createVoucher(body, userId);
 
-    await logAudit(req, 'CREATE_VOUCHER', 'VOUCHER', voucher.id, body);
     res.status(201).json(voucher);
   } catch (error: any) {
     if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
@@ -446,7 +415,6 @@ export const updateVoucher = async (req: Request, res: Response): Promise<any> =
 
     const voucher = await adminService.updateVoucher(id, body);
 
-    await logAudit(req, 'UPDATE_VOUCHER', 'VOUCHER', id, body);
     res.json(voucher);
   } catch (error: any) {
     if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
@@ -461,7 +429,6 @@ export const deleteVoucher = async (req: Request, res: Response): Promise<any> =
     
     const voucher = await adminService.deleteVoucher(id);
 
-    await logAudit(req, 'DELETE_VOUCHER', 'VOUCHER', id, voucher);
     res.json({ message: 'Xóa voucher thành công' });
   } catch (error: any) {
     if (error.message === 'Không tìm thấy voucher') return res.status(404).json({ message: error.message });
@@ -535,4 +502,3 @@ export const getAvailableStaff = async (req: Request, res: Response): Promise<an
     res.status(500).json({ message: 'Lỗi server khi lấy kỹ thuật viên khả dụng' });
   }
 };
-

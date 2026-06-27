@@ -1,6 +1,8 @@
 import { Link, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
+import api from '../api/axios';
 import { useState, useEffect } from 'react';
+import { MascotWidget } from '../components/MascotWidget';
 import { 
   LayoutDashboard, 
   Calendar, 
@@ -34,6 +36,107 @@ export default function AdminLayout() {
   
   const [searchValue, setSearchValue] = useState(searchParams.get('q') || '');
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
+
+  // State và Effect cho thông báo gán Bác sĩ & KTV (Alarm & Bouncing notification)
+  const [pendingAppointmentsCount, setPendingAppointmentsCount] = useState<number>(0);
+  const [pendingTreatmentsCount, setPendingTreatmentsCount] = useState<number>(0);
+  const [earliestPending, setEarliestPending] = useState<{ id: string, type: 'appointment' | 'treatment', ngay_gio_bat_dau: string } | null>(null);
+  const [activeRoleView, setActiveRoleView] = useState<string>(
+    localStorage.getItem('admin-test-role-view') || 'manager'
+  );
+
+  const pendingAssignCount = pendingAppointmentsCount + pendingTreatmentsCount;
+
+  let tooltipText = "Thông báo";
+  if (pendingAppointmentsCount > 0 && pendingTreatmentsCount > 0) {
+    tooltipText = `Có ${pendingAppointmentsCount} lịch khám & ${pendingTreatmentsCount} lịch điều trị chưa gán nhân sự!`;
+  } else if (pendingAppointmentsCount > 0) {
+    tooltipText = `Có ${pendingAppointmentsCount} lịch khám chưa gán Bác sĩ!`;
+  } else if (pendingTreatmentsCount > 0) {
+    tooltipText = `Có ${pendingTreatmentsCount} lịch điều trị chưa gán KTV!`;
+  }
+
+  useEffect(() => {
+    const handleRoleViewChange = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      setActiveRoleView(customEvent.detail || localStorage.getItem('admin-test-role-view') || 'manager');
+    };
+    window.addEventListener('admin-test-role-view-change', handleRoleViewChange);
+    return () => window.removeEventListener('admin-test-role-view-change', handleRoleViewChange);
+  }, []);
+
+  useEffect(() => {
+    const isManagerOrAdmin = user?.vai_tro_id === 5 || user?.vai_tro_id === 6;
+    if (!isManagerOrAdmin) {
+      setPendingAppointmentsCount(0);
+      setPendingTreatmentsCount(0);
+      setEarliestPending(null);
+      return;
+    }
+
+    const fetchPendingCount = async () => {
+      try {
+        const res = await api.get('/admin/analytics/summary');
+        setPendingAppointmentsCount(Number(res.data.pending_appointments_need_assign || 0));
+        setPendingTreatmentsCount(Number(res.data.pending_treatments || 0));
+        setEarliestPending(res.data.earliest_pending || null);
+      } catch (err) {
+        console.error('Lỗi lấy số lượng lịch chờ gán:', err);
+      }
+    };
+
+    fetchPendingCount();
+
+    // Poll every 10 seconds to detect new bookings immediately
+    const interval = setInterval(fetchPendingCount, 10000);
+    return () => clearInterval(interval);
+  }, [user]);
+
+  useEffect(() => {
+    const isManagerOrAdmin = user?.vai_tro_id === 5 || user?.vai_tro_id === 6;
+    if (!isManagerOrAdmin || activeRoleView !== 'manager' || pendingAssignCount <= 0) return;
+
+    const playAlarmSound = () => {
+      try {
+        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        if (!AudioContext) return;
+        const ctx = new AudioContext();
+        const now = ctx.currentTime;
+
+        // Soft, professional double-chime (bell-like sound)
+        const playChime = (freq: number, startTime: number, duration: number) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, startTime);
+          
+          // Gentle attack and exponential decay to avoid clicky sounds
+          gain.gain.setValueAtTime(0, startTime);
+          gain.gain.linearRampToValueAtTime(0.04, startTime + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start(startTime);
+          osc.stop(startTime + duration + 0.05);
+        };
+
+        // Play gentle major interval chime (C5 then E5)
+        playChime(523.25, now, 0.4);        // C5 (523.25 Hz)
+        playChime(659.25, now + 0.12, 0.4); // E5 (659.25 Hz)
+      } catch (e) {
+        console.error('Audio context alarm error:', e);
+      }
+    };
+
+    playAlarmSound();
+
+    // Repeat alarm beep every 4 seconds
+    const soundInterval = setInterval(playAlarmSound, 4000);
+    return () => clearInterval(soundInterval);
+  }, [pendingAssignCount, user, activeRoleView]);
 
   useEffect(() => {
     const handleThemeChange = () => {
@@ -91,10 +194,8 @@ export default function AdminLayout() {
     { name: 'Phòng trị liệu', path: '/admin/rooms', icon: <Key size={18} />, searchPlaceholder: 'Tìm kiếm phòng...', roles: [5, 6] },
     { name: 'Thiết bị y tế', path: '/admin/equipment', icon: <Cpu size={18} />, searchPlaceholder: 'Tìm kiếm thiết bị...', roles: [5, 6] },
     { name: 'Tài chính', path: '/admin/finance', icon: <DollarSign size={18} />, roles: [5, 6] },
-    { name: 'Thu ngân Gói (Lễ tân)', path: '/admin/quick-billing', icon: <DollarSign size={18} />, roles: [5, 6] },
     { name: 'Marketing', path: '/admin/marketing', icon: <Megaphone size={18} />, roles: [5, 6] },
     { name: 'Đánh giá', path: '/admin/feedback', icon: <Star size={18} />, roles: [5, 6] },
-    { name: 'Nhật ký hệ thống', path: '/admin/audit', icon: <ClipboardList size={18} />, roles: [5, 6] },
   ];
 
   const navItems = rawNavItems.filter(item => item.roles.includes(user?.vai_tro_id || 5));
@@ -210,15 +311,46 @@ export default function AdminLayout() {
                 {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
               </button>
               
-              <button className="relative w-8 h-8 rounded-full flex items-center justify-center hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 transition-colors">
-                <Bell size={18} />
-                <span className="absolute top-1 right-1 size-2 bg-rose-500 rounded-full ring-2 ring-white dark:ring-zinc-900"></span>
+              <button 
+                onClick={() => {
+                  if (earliestPending) {
+                    const targetDate = earliestPending.ngay_gio_bat_dau ? earliestPending.ngay_gio_bat_dau.match(/^\d{4}-\d{2}-\d{2}/)?.[0] || '' : '';
+                    if (earliestPending.type === 'appointment') {
+                      const query = targetDate 
+                        ? `?date=${targetDate}&range=today&view=timeline&appointmentId=${earliestPending.id}&triggerFocus=true` 
+                        : `?appointmentId=${earliestPending.id}&triggerFocus=true`;
+                      navigate(`/admin/appointments${query}`);
+                    } else {
+                      const query = targetDate 
+                        ? `?date=${targetDate}&view=today&treatmentId=${earliestPending.id}&triggerFocus=true` 
+                        : `?treatmentId=${earliestPending.id}&triggerFocus=true`;
+                      navigate(`/admin/treatments${query}`);
+                    }
+                  } else {
+                    if (pendingAppointmentsCount > 0) {
+                      navigate('/admin/appointments?triggerFocus=true');
+                    } else {
+                      navigate('/admin/treatments?triggerFocus=true');
+                    }
+                  }
+                }}
+                className="relative w-8 h-8 rounded-full flex items-center justify-center hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 transition-colors"
+                title={tooltipText}
+              >
+                <Bell size={18} className={pendingAssignCount > 0 ? "text-rose-500 animate-bounce" : ""} />
+                {pendingAssignCount > 0 ? (
+                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-black text-white ring-2 ring-white dark:ring-zinc-900 animate-pulse">
+                    {pendingAssignCount}
+                  </span>
+                ) : (
+                  <span className="absolute top-1 right-1 size-2 bg-rose-500 rounded-full ring-2 ring-white dark:ring-zinc-900"></span>
+                )}
               </button>
               <button className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 transition-colors">
                 <HelpCircle size={18} />
               </button>
             </div>
-
+ 
             {/* Profile Avatar Card */}
             <div className="flex items-center gap-3 pl-2">
               <div className="text-right hidden sm:block">
@@ -235,7 +367,7 @@ export default function AdminLayout() {
             </div>
           </div>
         </header>
-
+ 
         {/* Content Area */}
         <div className="flex-1 overflow-auto p-8 bg-background dark:bg-zinc-950 transition-colors duration-300">
           <div className="max-w-7xl mx-auto">
@@ -243,6 +375,37 @@ export default function AdminLayout() {
           </div>
         </div>
       </main>
+ 
+      {/* Floating Mascot Widget for all Admin pages */}
+      {(user?.vai_tro_id === 5 || user?.vai_tro_id === 6) && (
+        <MascotWidget
+          count={pendingAssignCount}
+          onClick={() => {
+            if (earliestPending) {
+              const targetDate = earliestPending.ngay_gio_bat_dau ? earliestPending.ngay_gio_bat_dau.match(/^\d{4}-\d{2}-\d{2}/)?.[0] || '' : '';
+              if (earliestPending.type === 'appointment') {
+                const query = targetDate 
+                  ? `?date=${targetDate}&range=today&view=timeline&appointmentId=${earliestPending.id}&triggerFocus=true` 
+                  : `?appointmentId=${earliestPending.id}&triggerFocus=true`;
+                navigate(`/admin/appointments${query}`);
+              } else {
+                const query = targetDate 
+                  ? `?date=${targetDate}&view=today&treatmentId=${earliestPending.id}&triggerFocus=true` 
+                  : `?treatmentId=${earliestPending.id}&triggerFocus=true`;
+                navigate(`/admin/treatments${query}`);
+              }
+            } else {
+              if (pendingAppointmentsCount > 0) {
+                navigate('/admin/appointments?triggerFocus=true');
+              } else {
+                navigate('/admin/treatments?triggerFocus=true');
+              }
+            }
+          }}
+          tooltipText={tooltipText}
+          badgeColor="emerald"
+        />
+      )}
     </div>
   );
 }
