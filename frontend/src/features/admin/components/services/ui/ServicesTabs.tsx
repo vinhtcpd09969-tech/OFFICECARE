@@ -1,22 +1,22 @@
 import { Service } from '../types';
 
 interface ServicesTabsProps {
-  selectedType: 'chinh' | 'bo_sung';
-  onSelectType: (type: 'chinh' | 'bo_sung') => void;
+  selectedType: 'ky_thuat' | 'don_le';
+  onSelectType: (type: 'ky_thuat' | 'don_le') => void;
   services: Service[];
 }
 
 export function ServicesTabs({ selectedType, onSelectType, services }: ServicesTabsProps) {
-  const countChinh = services.filter(s => s.loai_dich_vu === 'chinh').length;
-  const countBoSung = services.filter(s => s.loai_dich_vu === 'bo_sung').length;
+  const countKyThuat = services.filter(s => s.loai_dich_vu === 'ky_thuat').length;
+  const countDonLe = services.filter(s => s.loai_dich_vu === 'don_le').length;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      {/* Card 1: Kỹ thuật lâm sàng nội bộ */}
+      {/* Card 1: Kỹ thuật */}
       <div 
-        onClick={() => onSelectType('chinh')}
+        onClick={() => onSelectType('ky_thuat')}
         className={`cursor-pointer relative overflow-hidden rounded-[24px] p-6 border transition-all duration-300 flex flex-col justify-between group select-none min-h-[145px] ${
-          selectedType === 'chinh'
+          selectedType === 'ky_thuat'
             ? 'bg-gradient-to-br from-zinc-700 to-slate-900 border-zinc-700 text-white shadow-lg shadow-zinc-700/10 scale-[1.01]'
             : 'bg-white border-zinc-200 text-zinc-800 hover:border-zinc-400 hover:shadow-md hover:scale-[1.005]'
         }`}
@@ -26,26 +26,26 @@ export function ServicesTabs({ selectedType, onSelectType, services }: ServicesT
         <div className="flex justify-between items-start gap-4">
           <div className="space-y-1">
             <span className={`text-[9px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-full ${
-              selectedType === 'chinh' 
+              selectedType === 'ky_thuat' 
                 ? 'bg-white/20 text-white' 
                 : 'bg-teal-50 text-teal-600 border border-teal-200'
             }`}>
-              Nội bộ (Phác đồ gói)
+              KỸ THUẬT LÂM SÀNG
             </span>
             <h3 className={`text-base font-black tracking-tight mt-2.5 ${
-              selectedType === 'chinh' ? 'text-white' : 'text-secondary'
+              selectedType === 'ky_thuat' ? 'text-white' : 'text-secondary'
             }`}>
-              KỸ THUẬT LÂM SÀNG NỘI BỘ
+              KỸ THUẬT
             </h3>
             <p className={`text-[11px] leading-normal font-semibold mt-1.5 max-w-[85%] ${
-              selectedType === 'chinh' ? 'text-slate-200/90' : 'text-zinc-500'
+              selectedType === 'ky_thuat' ? 'text-slate-200/90' : 'text-zinc-500'
             }`}>
               Chứa danh mục các kỹ thuật lâm sàng chuyên biệt dùng để thiết lập phác đồ điều trị trị liệu trọn gói, được cấu hình trực tiếp vào gói.
             </p>
           </div>
           
           <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl shrink-0 transition-transform group-hover:scale-110 duration-300 shadow-sm ${
-            selectedType === 'chinh'
+            selectedType === 'ky_thuat'
               ? 'bg-white/20 text-white border border-white/25'
               : 'bg-teal-50 text-teal-600 border border-teal-200'
           }`}>
@@ -55,10 +55,10 @@ export function ServicesTabs({ selectedType, onSelectType, services }: ServicesT
         
         <div className="flex items-center justify-between mt-4 pt-3 border-t border-dashed border-current/15">
           <div className="flex items-baseline gap-1.5">
-            <span className="text-2xl font-black">{countChinh}</span>
-            <span className="text-[10px] font-extrabold uppercase tracking-wider opacity-85">kỹ thuật nội bộ</span>
+            <span className="text-2xl font-black">{countKyThuat}</span>
+            <span className="text-[10px] font-extrabold uppercase tracking-wider opacity-85">kỹ thuật</span>
           </div>
-          {selectedType === 'chinh' && (
+          {selectedType === 'ky_thuat' && (
             <span className="text-[10px] font-black uppercase tracking-widest bg-white text-zinc-700 px-3 py-1 rounded-lg shadow-sm border border-zinc-200">
               ĐANG CHỌN
             </span>
@@ -66,11 +66,11 @@ export function ServicesTabs({ selectedType, onSelectType, services }: ServicesT
         </div>
       </div>
 
-      {/* Card 2: Dịch vụ đơn lẻ bổ trợ */}
+      {/* Card 2: Đơn lẻ */}
       <div 
-        onClick={() => onSelectType('bo_sung')}
+        onClick={() => onSelectType('don_le')}
         className={`cursor-pointer relative overflow-hidden rounded-[24px] p-6 border transition-all duration-300 flex flex-col justify-between group select-none min-h-[145px] ${
-          selectedType === 'bo_sung'
+          selectedType === 'don_le'
             ? 'bg-gradient-to-br from-zinc-700 to-slate-900 border-zinc-700 text-white shadow-lg shadow-zinc-700/10 scale-[1.01]'
             : 'bg-white border-zinc-200 text-zinc-800 hover:border-zinc-400 hover:shadow-md hover:scale-[1.005]'
         }`}
@@ -80,26 +80,26 @@ export function ServicesTabs({ selectedType, onSelectType, services }: ServicesT
         <div className="flex justify-between items-start gap-4">
           <div className="space-y-1">
             <span className={`text-[9px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-full ${
-              selectedType === 'bo_sung' 
+              selectedType === 'don_le' 
                 ? 'bg-white/20 text-white' 
                 : 'bg-amber-50 text-amber-600 border border-amber-250'
             }`}>
-              Dịch vụ lẻ bổ trợ
+              DỊCH VỤ ĐƠN LẺ
             </span>
             <h3 className={`text-base font-black tracking-tight mt-2.5 ${
-              selectedType === 'bo_sung' ? 'text-white' : 'text-secondary'
+              selectedType === 'don_le' ? 'text-white' : 'text-secondary'
             }`}>
-              DỊCH VỤ ĐƠN LẺ BỔ TRỢ
+              ĐƠN LẺ
             </h3>
             <p className={`text-[11px] leading-normal font-semibold mt-1.5 max-w-[85%] ${
-              selectedType === 'bo_sung' ? 'text-slate-200/90' : 'text-zinc-500'
+              selectedType === 'don_le' ? 'text-slate-200/90' : 'text-zinc-500'
             }`}>
               Chứa các phân nhóm dịch vụ lượng giá ban đầu, các phương pháp lẻ chuyên sâu hay dịch vụ add-on bổ sung cho khách hàng đặt lịch hẹn lẻ.
             </p>
           </div>
           
           <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl shrink-0 transition-transform group-hover:scale-110 duration-300 shadow-sm ${
-            selectedType === 'bo_sung'
+            selectedType === 'don_le'
               ? 'bg-white/20 text-white border border-white/25'
               : 'bg-amber-50 text-amber-600 border border-amber-250'
           }`}>
@@ -109,10 +109,10 @@ export function ServicesTabs({ selectedType, onSelectType, services }: ServicesT
         
         <div className="flex items-center justify-between mt-4 pt-3 border-t border-dashed border-current/15">
           <div className="flex items-baseline gap-1.5">
-            <span className="text-2xl font-black">{countBoSung}</span>
+            <span className="text-2xl font-black">{countDonLe}</span>
             <span className="text-[10px] font-extrabold uppercase tracking-wider opacity-85">dịch vụ đơn lẻ</span>
           </div>
-          {selectedType === 'bo_sung' && (
+          {selectedType === 'don_le' && (
             <span className="text-[10px] font-black uppercase tracking-widest bg-white text-zinc-700 px-3 py-1 rounded-lg shadow-sm border border-zinc-200">
               ĐANG CHỌN
             </span>
@@ -122,4 +122,5 @@ export function ServicesTabs({ selectedType, onSelectType, services }: ServicesT
     </div>
   );
 }
+
 export default ServicesTabs;

@@ -13,6 +13,8 @@ interface AppointmentDetailModalProps {
   activeRole: string;
   assignRoomId: string;
   setAssignRoomId: (val: string) => void;
+  assignGiuongSo?: string;
+  setAssignGiuongSo?: (val: string) => void;
   assignStaffId: string;
   setAssignStaffId: (val: string) => void;
   assignStatus: string;
@@ -35,6 +37,8 @@ export default function AppointmentDetailModal({
   activeRole,
   assignRoomId,
   setAssignRoomId,
+  assignGiuongSo = '',
+  setAssignGiuongSo,
   assignStaffId,
   setAssignStaffId,
   assignStatus,
@@ -437,48 +441,79 @@ export default function AppointmentDetailModal({
                   )}
                 </div>
                 {!isReceptionist ? (
-                  <div className="grid grid-cols-2 gap-3 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin">
-                    {roomsList
-                      .filter(room => {
-                        if (selectedAppointment.loai_lich === 'kham_moi') {
-                          return room.loai_phong === 'kham_benh';
-                        }
-                        if (selectedAppointment.loai_lich === 'dieu_tri') {
-                          return room.loai_phong === 'tri_lieu' || room.loai_phong === 'phong_tri_lieu_chuan';
-                        }
-                        return true;
-                      })
-                      .map(room => {
-                        const isOccupied = occupiedRoomIds.includes(String(room.id)) && String(room.id) !== String(selectedAppointment.phong_id);
-                        const isSelected = String(assignRoomId) === String(room.id);
+                  <>
+                    <div className="grid grid-cols-2 gap-3 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin">
+                      {roomsList
+                        .filter(room => {
+                          if (selectedAppointment.loai_lich === 'kham_moi') {
+                            return room.loai_phong === 'kham_benh';
+                          }
+                          if (selectedAppointment.loai_lich === 'dieu_tri') {
+                            return room.loai_phong === 'tri_lieu' || room.loai_phong === 'phong_tri_lieu_chuan';
+                          }
+                          return true;
+                        })
+                        .map(room => {
+                          const isOccupied = occupiedRoomIds.includes(String(room.id)) && String(room.id) !== String(selectedAppointment.phong_id);
+                          const isSelected = String(assignRoomId) === String(room.id);
 
-                        return (
-                          <div
-                            key={room.id}
-                            onClick={() => !isOccupied && !isReceptionist && setAssignRoomId(String(room.id))}
-                            className={`p-3 rounded-xl border-2 transition-all flex flex-col justify-between select-none ${isOccupied
-                                ? 'bg-slate-50 dark:bg-zinc-800/20 border-slate-100 dark:border-zinc-800/50 opacity-50 cursor-not-allowed'
-                                : isSelected
-                                  ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-500 dark:border-emerald-600 text-emerald-800 dark:text-emerald-355 ring-2 ring-emerald-500/10'
-                                  : 'bg-white dark:bg-zinc-900 border-slate-150 dark:border-zinc-800 hover:border-slate-350 dark:hover:border-zinc-700 cursor-pointer'
-                              }`}
-                          >
-                            <div className="flex justify-between items-start">
-                              <span className="text-xs font-black text-slate-800 dark:text-zinc-200 leading-tight">{room.ten_phong}</span>
-                              <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider ${isOccupied ? 'bg-rose-100 dark:bg-rose-955/30 text-rose-700 dark:text-rose-455' : 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-450'
-                                }`}>
-                                {isOccupied ? 'Bận' : 'Trống'}
-                              </span>
+                          return (
+                            <div
+                              key={room.id}
+                              onClick={() => !isOccupied && !isReceptionist && setAssignRoomId(String(room.id))}
+                              className={`p-3 rounded-xl border-2 transition-all flex flex-col justify-between select-none ${isOccupied
+                                  ? 'bg-slate-50 dark:bg-zinc-800/20 border-slate-100 dark:border-zinc-800/50 opacity-50 cursor-not-allowed'
+                                  : isSelected
+                                    ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-500 dark:border-emerald-600 text-emerald-800 dark:text-emerald-355 ring-2 ring-emerald-500/10'
+                                    : 'bg-white dark:bg-zinc-900 border-slate-150 dark:border-zinc-800 hover:border-slate-350 dark:hover:border-zinc-700 cursor-pointer'
+                                }`}
+                            >
+                              <div className="flex justify-between items-start">
+                                <span className="text-xs font-black text-slate-800 dark:text-zinc-200 leading-tight">{room.ten_phong}</span>
+                                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider ${isOccupied ? 'bg-rose-100 dark:bg-rose-955/30 text-rose-700 dark:text-rose-455' : 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-450'
+                                  }`}>
+                                  {isOccupied ? 'Bận' : 'Trống'}
+                                </span>
+                              </div>
+                              <span className="text-[9px] text-slate-400 dark:text-zinc-550 mt-2 font-bold">{room.loai_phong || 'Phòng khám'}</span>
                             </div>
-                            <span className="text-[9px] text-slate-400 dark:text-zinc-550 mt-2 font-bold">{room.loai_phong || 'Phòng khám'}</span>
-                          </div>
-                        );
-                      })}
-                  </div>
+                          );
+                        })}
+                    </div>
+                    {selectedAppointment.loai_lich === 'dieu_tri' && assignRoomId && (() => {
+                      const selectedRoom = roomsList.find(r => String(r.id) === String(assignRoomId));
+                      const totalBeds = selectedRoom?.suc_chua || 0;
+                      if (totalBeds <= 0) return null;
+                      return (
+                        <div className="mt-3 p-3 bg-slate-50 dark:bg-zinc-800/20 border border-slate-150 dark:border-zinc-800 rounded-xl space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                          <label className="text-[10px] font-black text-slate-700 dark:text-zinc-350 uppercase tracking-wide">
+                            Chọn giường điều trị cụ thể
+                          </label>
+                          <select
+                            value={assignGiuongSo}
+                            onChange={(e) => setAssignGiuongSo?.(e.target.value)}
+                            className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-xs rounded-lg dark:text-zinc-200"
+                          >
+                            <option value="">-- Tự động xếp giường trống --</option>
+                            {Array.from({ length: totalBeds }, (_, i) => i + 1).map(num => (
+                              <option key={num} value={num}>Giường số {num}</option>
+                            ))}
+                          </select>
+                        </div>
+                      );
+                    })()}
+                  </>
                 ) : (
-                  <div className="w-full px-4 py-3 bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-850 rounded-xl text-sm font-bold text-slate-800 dark:text-zinc-150 flex items-center justify-between">
-                    <span>{selectedAppointment.ten_phong || 'Chưa chỉ định'}</span>
-                    <span className="text-[10px] text-slate-400 dark:text-zinc-500 uppercase tracking-wider font-extrabold">Đã phân phòng</span>
+                  <div className="w-full px-4 py-3 bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-850 rounded-xl text-sm font-bold text-slate-800 dark:text-zinc-150 flex flex-col gap-1">
+                    <div className="flex justify-between items-center">
+                      <span>{selectedAppointment.ten_phong || 'Chưa chỉ định'}</span>
+                      <span className="text-[10px] text-slate-400 dark:text-zinc-550 uppercase tracking-wider font-extrabold">Đã phân phòng</span>
+                    </div>
+                    {selectedAppointment.loai_lich === 'dieu_tri' && selectedAppointment.giuong_so && (
+                      <span className="text-xs text-emerald-600 dark:text-emerald-400 font-extrabold mt-1">
+                        🛏️ Giường số {selectedAppointment.giuong_so}
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
@@ -644,7 +679,7 @@ export default function AppointmentDetailModal({
                   onClick={() => onOpenTreatment('single')}
                   className="px-4 py-2.5 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-450 text-xs font-bold rounded-xl hover:bg-emerald-100 dark:hover:bg-emerald-950/30 flex items-center gap-2 transition-all border border-emerald-200 dark:border-emerald-800/30"
                 >
-                  <Activity size={14} /> Đặt Lịch Tiếp
+                  <Activity size={14} /> Đặt lịch điều trị nhanh (Buổi 1)
                 </button>
                 {(selectedAppointment.khuyen_nghi_dich_vu_id || selectedAppointment.khuyen_nghi_goi_id) && (
                   <button
@@ -652,7 +687,7 @@ export default function AppointmentDetailModal({
                     onClick={() => onOpenTreatment(selectedAppointment.khuyen_nghi_dich_vu_id ? 'single' : 'package', selectedAppointment.khuyen_nghi_dich_vu_id || selectedAppointment.khuyen_nghi_goi_id)}
                     className="px-4 py-2.5 bg-teal-600 dark:bg-teal-700 text-white shadow-sm text-xs font-bold rounded-xl hover:bg-teal-700 dark:hover:bg-teal-600 flex items-center gap-2 transition-all animate-pulse"
                   >
-                    🚀 Theo Khuyến nghị
+                    🚀 Đặt lịch nhanh theo khuyến nghị (Buổi 1)
                   </button>
                 )}
               </div>

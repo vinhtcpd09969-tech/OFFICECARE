@@ -19,6 +19,8 @@ interface TreatmentBookingModalProps {
   setSelectedKtvId: (val: string) => void;
   selectedRoomId: string;
   setSelectedRoomId: (val: string) => void;
+  selectedGiuongSo?: string;
+  setSelectedGiuongSo?: (val: string) => void;
   treatmentDate: string;
   setTreatmentDate: (val: string) => void;
   treatmentTime: string;
@@ -44,6 +46,8 @@ export default function TreatmentBookingModal({
   setSelectedKtvId,
   selectedRoomId,
   setSelectedRoomId,
+  selectedGiuongSo = '',
+  setSelectedGiuongSo,
   treatmentDate,
   setTreatmentDate,
   treatmentTime,
@@ -215,6 +219,27 @@ export default function TreatmentBookingModal({
               {roomsList.map(room => <option key={room.id} value={room.id}>{room.ten_phong}</option>)}
             </select>
           </div>
+
+          {selectedRoomId && (() => {
+            const selectedRoom = roomsList.find(r => String(r.id) === String(selectedRoomId));
+            const totalBeds = selectedRoom?.suc_chua || 0;
+            if (totalBeds <= 0) return null;
+            return (
+              <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                <label className="text-sm font-bold text-slate-700">Giường điều trị</label>
+                <select
+                  value={selectedGiuongSo}
+                  onChange={(e) => setSelectedGiuongSo?.(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20"
+                >
+                  <option value="">-- Tự động xếp giường trống --</option>
+                  {Array.from({ length: totalBeds }, (_, i) => i + 1).map(num => (
+                    <option key={num} value={num}>Giường số {num}</option>
+                  ))}
+                </select>
+              </div>
+            );
+          })()}
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">

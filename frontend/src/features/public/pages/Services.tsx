@@ -370,9 +370,9 @@ export default function ServicesPage() {
   const serviceCategories = categories.filter(c => c.loai_danh_muc === 'dich_vu');
   const packageCategories = categories.filter(c => c.loai_danh_muc === 'goi');
 
-  // Filter services: only show retail ('bo_sung') and match selected category
+  // Filter services: only show retail ('don_le') and match selected category
   const filteredServices = services.filter(s => {
-    const isRetail = s.loai_dich_vu === 'bo_sung';
+    const isRetail = s.loai_dich_vu === 'don_le';
     const matchesCat = selectedServiceCatId === 'all' || s.danh_muc_id.toString() === selectedServiceCatId.toString();
     return isRetail && matchesCat;
   });

@@ -181,7 +181,7 @@ export default function ManageCategories() {
   // Get count of linked services or packages
   const getLinkedCount = (category: Category) => {
     if (category.loai_danh_muc === 'dich_vu') {
-      return services.filter(s => Number(s.danh_muc_id) === Number(category.id) && s.loai_dich_vu === 'bo_sung').length;
+      return services.filter(s => Number(s.danh_muc_id) === Number(category.id) && s.loai_dich_vu === 'don_le').length;
     } else {
       // Deduplicate packages by base name to treat sister segments as 1 package family unit
       const linkedPkgs = packages.filter(p => Number(p.danh_muc_id) === Number(category.id));

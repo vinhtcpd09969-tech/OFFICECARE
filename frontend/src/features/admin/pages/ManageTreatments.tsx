@@ -82,6 +82,7 @@ export default function ManageTreatments() {
   // Assignment State in Detail Modal
   const [assignStaffId, setAssignStaffId] = useState<string>('');
   const [assignRoomId, setAssignRoomId] = useState<string>('');
+  const [assignGiuongSo, setAssignGiuongSo] = useState<string>('');
   const [assignStatus, setAssignStatus] = useState<string>('');
   const [isAssigning, setIsAssigning] = useState(false);
 
@@ -156,7 +157,8 @@ export default function ManageTreatments() {
       await axiosInstance.patch(`/admin/appointments/${selectedAppointment.id}/status`, {
         trang_thai: assignStatus,
         ky_thuat_vien_id: assignStaffId || null,
-        phong_id: assignRoomId || null
+        phong_id: assignRoomId || null,
+        giuong_so: assignGiuongSo ? Number(assignGiuongSo) : null
       });
 
       toast.success('Cập nhật thông tin ca trực thành công');
@@ -298,6 +300,7 @@ export default function ManageTreatments() {
     setAssignStatus(apt.trang_thai);
     setAssignStaffId(apt.ky_thuat_vien_id || '');
     setAssignRoomId(apt.phong_id ? String(apt.phong_id) : '');
+    setAssignGiuongSo(apt.giuong_so ? String(apt.giuong_so) : '');
     setIsDetailModalOpen(true);
   };
 
@@ -492,6 +495,8 @@ export default function ManageTreatments() {
           activeRole={activeRole}
           assignRoomId={assignRoomId}
           setAssignRoomId={setAssignRoomId}
+          assignGiuongSo={assignGiuongSo}
+          setAssignGiuongSo={setAssignGiuongSo}
           assignStaffId={assignStaffId}
           setAssignStaffId={setAssignStaffId}
           assignStatus={assignStatus}

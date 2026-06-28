@@ -127,6 +127,20 @@ class AdminService {
     const count = data.so_luong || 1;
     const phongId = data.phong_id_hien_tai ? Number(data.phong_id_hien_tai) : null;
     
+    // Resolve loai_thiet_bi from loai_thiet_bi_id if provided
+    let resolvedLoaiText = data.loai_thiet_bi || '';
+    if (data.loai_thiet_bi_id) {
+      const typeRecord = await adminRepository.getEquipmentTypeById(Number(data.loai_thiet_bi_id));
+      if (typeRecord) {
+        resolvedLoaiText = typeRecord.ten_loai;
+      }
+    }
+    
+    const resolvedData = {
+      ...data,
+      loai_thiet_bi: resolvedLoaiText
+    };
+
     // Bỏ qua kiểm tra tương thích phòng và sức chứa phòng do tài nguyên thiết bị đã được đưa về bể dùng chung (Pool-based)
     
     // 3. Tự động xác định tiền tố mã thiết bị
@@ -145,7 +159,7 @@ class AdminService {
       return 'EQP-GEN';
     };
 
-    const prefix = getCodePrefix(data.loai_thiet_bi);
+    const prefix = getCodePrefix(resolvedLoaiText);
     
     // 4. Lấy mã lớn nhất hiện tại để tự động tăng
     const { rows: existingCodes } = await adminRepository.getRawPool().query(
@@ -176,9 +190,21 @@ class AdminService {
     
     for (let i = 0; i < count; i++) {
       const code = `${prefix}${String(currentNum).padStart(maxDigits, '0')}`;
+      
+      // Auto-append sequence suffix to the name if count > 1
+      let baseName = (resolvedData.ten_thiet_bi || '').trim();
+      if (count > 1) {
+        baseName = baseName.replace(/\s+(s[ốo]|no\.?)?\s*\d+$/i, '');
+      }
+      const suffix = count > 1 ? ` ${String(currentNum).padStart(maxDigits, '0')}` : '';
+      const customData = {
+        ...resolvedData,
+        ten_thiet_bi: `${baseName}${suffix}`
+      };
+      
       currentNum++;
       
-      const singleEq = await adminRepository.createEquipment(code, data);
+      const singleEq = await adminRepository.createEquipment(code, customData);
       results.push(singleEq);
     }
     
@@ -187,11 +213,39 @@ class AdminService {
   }
 
   async updateEquipment(id: string, data: any) {
-    return adminRepository.updateEquipment(id, data);
+    let resolvedLoaiText = data.loai_thiet_bi;
+    if (data.loai_thiet_bi_id) {
+      const typeRecord = await adminRepository.getEquipmentTypeById(Number(data.loai_thiet_bi_id));
+      if (typeRecord) {
+        resolvedLoaiText = typeRecord.ten_loai;
+      }
+    }
+    const resolvedData = {
+      ...data,
+      loai_thiet_bi: resolvedLoaiText !== undefined ? resolvedLoaiText : undefined
+    };
+    return adminRepository.updateEquipment(id, resolvedData);
   }
 
   async deleteEquipment(id: string) {
     return adminRepository.deleteEquipment(id);
+  }
+
+  // --- QUẢN LÝ PHÂN LOẠI THIẾT BỊ ---
+  async getEquipmentTypes() {
+    return adminRepository.getEquipmentTypes();
+  }
+
+  async createEquipmentType(data: { ten_loai: string; nhom_thiet_bi: string }) {
+    return adminRepository.createEquipmentType(data);
+  }
+
+  async updateEquipmentType(id: number, data: { ten_loai: string; nhom_thiet_bi: string }) {
+    return adminRepository.updateEquipmentType(id, data);
+  }
+
+  async deleteEquipmentType(id: number) {
+    return adminRepository.deleteEquipmentType(id);
   }
 
   // --- QUẢN LÝ LỊCH LÀM VIỆC ---

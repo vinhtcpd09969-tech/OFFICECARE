@@ -10,6 +10,7 @@ class ReceptionistRepository {
         kh_table.ho_ten as ten_khach_hang, kh_table.so_dien_thoai as sdt_khach_hang,
         dv.ten_dich_vu,
         nd_ktv.ho_ten as ten_ky_thuat_vien,
+        ld.phong_id, NULL::integer as giuong_so,
         p.ten_phong
       FROM lich_dat ld
       JOIN khach_hang kh_table ON ld.khach_hang_id = kh_table.id
@@ -29,6 +30,7 @@ class ReceptionistRepository {
         kh_table.ho_ten as ten_khach_hang, kh_table.so_dien_thoai as sdt_khach_hang,
         dv.ten_dich_vu,
         nd_ktv.ho_ten as ten_ky_thuat_vien,
+        btl.phong_id, btl.giuong_so,
         p.ten_phong
       FROM buoi_tri_lieu btl
       JOIN khach_hang kh_table ON btl.khach_hang_id = kh_table.id
@@ -122,17 +124,14 @@ class ReceptionistRepository {
               // Tăng bộ đếm thiết bị phù hợp trong cùng phòng, nếu có
               await client.query(`
                 UPDATE thiet_bi_y_te
-                SET so_lan_su_dung = so_lan_su_dung + 1,
-                    trang_thai = CASE
-                      WHEN nguong_bat_buoc_bao_tri IS NOT NULL
-                        AND (so_lan_su_dung + 1) >= nguong_bat_buoc_bao_tri
-                      THEN 'dang_bao_tri'
-                      ELSE trang_thai
-                    END
-                WHERE trang_thai = 'san_sang'
-                  AND phong_id_hien_tai = $1
-                  AND ten_thiet_bi ILIKE '%' || $2 || '%'
-                LIMIT 1
+                SET so_lan_su_dung = so_lan_su_dung + 1
+                WHERE id IN (
+                  SELECT id FROM thiet_bi_y_te
+                  WHERE trang_thai = 'san_sang'
+                    AND phong_id_hien_tai = $1
+                    AND (ten_thiet_bi ILIKE '%' || $2 || '%' OR loai_thiet_bi ILIKE '%' || $2 || '%')
+                  LIMIT 1
+                )
               `, [rows[0].phong_id, thietBiYeuCau]);
             }
           }
@@ -362,9 +361,6 @@ class ReceptionistRepository {
                JSON_AGG(
                  JSON_BUILD_OBJECT(
                    'dich_vu_id', ct.dich_vu_id,
-                   'so_buoi', ct.so_buoi_trong_goi,
-                   'so_lan_toi_da_trong_goi', ct.so_lan_toi_da_trong_goi,
-                   'bat_buoc', ct.bat_buoc,
                    'thu_tu_thuc_hien', ct.thu_tu_thuc_hien,
                    'ten_dich_vu', dv.ten_dich_vu,
                    'don_gia', dv.don_gia
@@ -384,14 +380,11 @@ class ReceptionistRepository {
 
   async getActivePackages() {
     const { rows } = await pool.query(`
-      SELECT g.id, g.ten_goi, g.ma_goi, g.mo_ta, g.tong_so_buoi, g.gia_goi, g.gia_goc, g.han_dung_thang, g.phan_tram_giam_tra_thang, g.phan_tram_giam_tra_gop,
+      SELECT g.id, g.ten_goi, g.ma_goi, g.mo_ta, g.tong_so_buoi, g.gia_goi, g.gia_goc, g.han_dung_thang,
              COALESCE(
                JSON_AGG(
                  JSON_BUILD_OBJECT(
                    'dich_vu_id', ct.dich_vu_id,
-                   'so_buoi', ct.so_buoi_trong_goi,
-                   'so_lan_toi_da_trong_goi', ct.so_lan_toi_da_trong_goi,
-                   'bat_buoc', ct.bat_buoc,
                    'thu_tu_thuc_hien', ct.thu_tu_thuc_hien,
                    'ten_dich_vu', dv.ten_dich_vu,
                    'don_gia', dv.don_gia
@@ -803,14 +796,21 @@ class ReceptionistRepository {
       // 2. Determine sessions count and initial service
       let tong_so_buoi = 1;
       let target_dich_vu_id = (item_type === 'dich_vu') ? item_id : null;
+      let sessionDuration = 60; // default 60 minutes
       if (item_type === 'goi') {
-        const pkgRes = await client.query('SELECT tong_so_buoi FROM goi_dich_vu WHERE id = $1', [item_id]);
+        const pkgRes = await client.query('SELECT tong_so_buoi, thoi_luong_buoi_phut FROM goi_dich_vu WHERE id = $1', [item_id]);
         if (pkgRes.rows.length > 0) {
           tong_so_buoi = pkgRes.rows[0].tong_so_buoi;
+          sessionDuration = pkgRes.rows[0].thoi_luong_buoi_phut || 60;
         }
         const svcRes = await client.query('SELECT dich_vu_id FROM goi_dich_vu_chi_tiet WHERE goi_dich_vu_id = $1 ORDER BY id ASC LIMIT 1', [item_id]);
         if (svcRes.rows.length > 0) {
           target_dich_vu_id = svcRes.rows[0].dich_vu_id;
+        }
+      } else if (item_type === 'dich_vu') {
+        const svcRes = await client.query('SELECT thoi_luong_phut FROM dich_vu WHERE id = $1', [item_id]);
+        if (svcRes.rows.length > 0) {
+          sessionDuration = svcRes.rows[0].thoi_luong_phut || 60;
         }
       }
 
@@ -834,7 +834,7 @@ class ReceptionistRepository {
 
       // 4. Create first session (buoi_tri_lieu 1)
       const ngay_gio_bat_dau = new Date();
-      const ngay_gio_ket_thuc = new Date(ngay_gio_bat_dau.getTime() + 60 * 60000);
+      const ngay_gio_ket_thuc = new Date(ngay_gio_bat_dau.getTime() + sessionDuration * 60000);
       await client.query(`
         INSERT INTO buoi_tri_lieu (
           lich_dieu_tri_id, khach_hang_id, ky_thuat_vien_id, dich_vu_id, 

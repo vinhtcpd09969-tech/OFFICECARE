@@ -8,7 +8,7 @@ export function useServicesState() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedType, setSelectedType] = useState<'chinh' | 'bo_sung'>('chinh');
+  const [selectedType, setSelectedType] = useState<'ky_thuat' | 'don_le'>('ky_thuat');
   const [expandedServiceIds, setExpandedServiceIds] = useState<Record<string, boolean>>({});
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -107,7 +107,7 @@ export function useServicesState() {
         don_gia: Number(svc.don_gia || 0),
         thiet_bi_yeu_cau: svc.thiet_bi_yeu_cau || '',
         trang_thai: nextStatus,
-        loai_dich_vu: svc.loai_dich_vu || 'chinh',
+        loai_dich_vu: svc.loai_dich_vu || 'ky_thuat',
         hien_thi_website: false
       });
       await fetchData();

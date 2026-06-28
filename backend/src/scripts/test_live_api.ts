@@ -21,6 +21,7 @@ const client = axios.create({
 
 async function runTests() {
   const endpoints = [
+    '/admin/rooms',
     '/admin/appointments',
     '/admin/customers',
     '/admin/medical-records',

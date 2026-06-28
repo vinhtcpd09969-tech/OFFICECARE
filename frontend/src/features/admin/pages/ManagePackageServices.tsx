@@ -145,8 +145,8 @@ export default function ManagePackageServices() {
   const availableServices = useMemo(() => {
     if (!allServices.length) return [];
     
-    // Filter services of type 'chinh' (Kỹ thuật lâm sàng nội bộ)
-    let list = allServices.filter(svc => svc.loai_dich_vu === 'chinh');
+    // Filter services of type 'ky_thuat' (Kỹ thuật lâm sàng nội bộ)
+    let list = allServices.filter(svc => svc.loai_dich_vu === 'ky_thuat');
     
     // Exclude services that are already added
     const linkedIds = new Set(linkedServices.map((s: any) => String(s.id)));
@@ -172,46 +172,17 @@ export default function ManagePackageServices() {
         ma_goi: currentPackage.ma_goi,
         mo_ta: currentPackage.mo_ta,
         tong_so_buoi: Number(currentPackage.tong_so_buoi),
+        thoi_luong_buoi_phut: Number(currentPackage.thoi_luong_buoi_phut || 60),
         gia_tien: typeof currentPackage.gia_tien === 'string' ? parseInt(currentPackage.gia_tien) : Number(currentPackage.gia_tien || 0),
         han_dung_thang: Number(currentPackage.han_dung_thang || 12),
-        so_dv_toi_da_moi_buoi: Number(currentPackage.so_dv_toi_da_moi_buoi || 5),
-        hien_thi_website: currentPackage.hien_thi_website !== false,
         trang_thai: currentPackage.trang_thai,
-        loai_goi: currentPackage.loai_goi || 'lieu_trinh',
-        chi_tiet_dich_vu: newDetails
+        chi_tiet_dich_vu: newDetails.map((item: any) => ({
+          dich_vu_id: String(item.dich_vu_id),
+          thu_tu_thuc_hien: item.thu_tu_thuc_hien || 0
+        }))
       };
 
       const res = await updatePackage(currentPackage.id, payload);
-
-      // TỰ ĐỘNG ĐỒNG BỘ phác đồ sang các phân khúc chị em (BASIC, STANDARD, INTENSIVE) của Gói cố định
-      if (currentPackage.loai_goi === 'lieu_trinh' && currentPackage.ten_goi.match(/\s*-\s*(BASIC|STANDARD|INTENSIVE)$/i)) {
-        const baseName = currentPackage.ten_goi.replace(/\s*-\s*(BASIC|STANDARD|INTENSIVE)$/i, '').trim();
-        const pkgsRes = await getPackages();
-        const sisterPkgs = (pkgsRes.data || []).filter((p: any) => {
-          if (String(p.id) === String(currentPackage.id)) return false; // bỏ qua gói hiện tại
-          const pBase = p.ten_goi.replace(/\s*-\s*(BASIC|STANDARD|INTENSIVE)$/i, '').trim();
-          return p.loai_goi === 'lieu_trinh' && pBase.toLowerCase() === baseName.toLowerCase();
-        });
-
-        // Ghi nhận cấu trúc giống hệt cho các gói chị em
-        for (const sister of sisterPkgs) {
-          const sisterPayload = {
-            danh_muc_id: sister.danh_muc_id ? Number(sister.danh_muc_id) : undefined,
-            ten_goi: sister.ten_goi,
-            ma_goi: sister.ma_goi,
-            mo_ta: sister.mo_ta,
-            tong_so_buoi: Number(sister.tong_so_buoi),
-            gia_tien: typeof sister.gia_tien === 'string' ? parseInt(sister.gia_tien) : Number(sister.gia_tien || 0),
-            han_dung_thang: Number(sister.han_dung_thang || 12),
-            so_dv_toi_da_moi_buoi: Number(sister.so_dv_toi_da_moi_buoi || 5),
-            hien_thi_website: sister.hien_thi_website !== false,
-            trang_thai: sister.trang_thai,
-            loai_goi: sister.loai_goi || 'lieu_trinh',
-            chi_tiet_dich_vu: newDetails // cấu trúc kỹ thuật lâm sàng được sao chép nguyên mẫu
-          };
-          await updatePackage(sister.id, sisterPayload);
-        }
-      }
 
       if (res.data) {
         setCurrentPackage(res.data);
@@ -241,9 +212,6 @@ export default function ManagePackageServices() {
         ...currentDetails,
         {
           dich_vu_id: svc.id,
-          so_buoi: Number(currentPackage.tong_so_buoi),
-          so_lan_toi_da_trong_goi: Number(currentPackage.tong_so_buoi),
-          bat_buoc: true,
           thu_tu_thuc_hien: currentDetails.length
         }
       ];
@@ -400,7 +368,7 @@ export default function ManagePackageServices() {
               <h3 className="text-2xl font-bold text-primary">
                 {currentPackage.tong_so_buoi} BUỔI
               </h3>
-              <span className="text-[9px] text-zinc-400 mt-1 block font-semibold">Tối đa {currentPackage.so_dv_toi_da_moi_buoi || 5} dịch vụ mỗi buổi</span>
+              <span className="text-[9px] text-zinc-400 mt-1 block font-semibold">Thời lượng ca hẹn: {currentPackage.thoi_luong_buoi_phut || 60} phút</span>
             </div>
           )}
         </div>
@@ -429,7 +397,7 @@ export default function ManagePackageServices() {
               Phác đồ cấu trúc kỹ thuật lâm sàng hiện tại ({linkedServices.length})
             </h3>
             <span className="text-[10px] font-bold text-zinc-450 bg-white border border-zinc-200 rounded-lg px-2.5 py-1 uppercase">
-              HẠN MỨC BUỔI: TỐI ĐA {currentPackage.so_dv_toi_da_moi_buoi || 5} KỸ THUẬT / BUỔI
+              CHẶN LỊCH TRỌN CA: {currentPackage.thoi_luong_buoi_phut || 60} PHÚT
             </span>
           </div>
 

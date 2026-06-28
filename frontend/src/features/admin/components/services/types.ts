@@ -8,7 +8,7 @@ export const serviceSchema = z.object({
   don_gia: z.number().min(0, 'Đơn giá phải từ 0đ'),
   thiet_bi_yeu_cau: z.string().min(1, 'Vui lòng chọn thiết bị hoặc Trị liệu bằng tay'),
   trang_thai: z.enum(['hoat_dong', 'vo_hieu']),
-  loai_dich_vu: z.enum(['chinh', 'bo_sung']),
+  loai_dich_vu: z.enum(['ky_thuat', 'don_le']),
   hien_thi_website: z.boolean().default(false),
   mo_ta_chi_tiet: z.string().optional().nullable(),
   loai_dich_vu_ho_tro_str: z.string().optional().nullable()
@@ -26,7 +26,7 @@ export interface Service {
   don_gia: number;
   thiet_bi_yeu_cau?: string | null;
   trang_thai: 'hoat_dong' | 'vo_hieu';
-  loai_dich_vu: 'chinh' | 'bo_sung';
+  loai_dich_vu: 'ky_thuat' | 'don_le';
   hien_thi_website: boolean;
   mo_ta_chi_tiet?: string | null;
   loai_dich_vu_ho_tro?: string[] | string | null;

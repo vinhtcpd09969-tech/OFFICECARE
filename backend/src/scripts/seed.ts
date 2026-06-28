@@ -12,7 +12,7 @@ const pool = new Pool({
 const alterTables = async () => {
   console.log('Ensure database columns exist...');
   await pool.query(`
-    ALTER TABLE phong ADD COLUMN IF NOT EXISTS so_luong_giuong INTEGER DEFAULT 1;
+    ALTER TABLE phong ADD COLUMN IF NOT EXISTS suc_chua INTEGER DEFAULT 1;
     ALTER TABLE lich_lam_viec ADD COLUMN IF NOT EXISTS phong_id BIGINT;
     ALTER TABLE lich_lam_viec ADD COLUMN IF NOT EXISTS giuong_so INTEGER;
     
@@ -162,11 +162,11 @@ const updateRoomsBedCapacity = async () => {
   console.log('Configuring rooms bed counts (Phase 2 new model)...');
   // Update standard therapy rooms to have multiple beds
   await pool.query(`
-    UPDATE phong SET so_luong_giuong = 3 WHERE ma_phong = 'P201';
-    UPDATE phong SET so_luong_giuong = 2 WHERE ma_phong = 'P202';
-    UPDATE phong SET so_luong_giuong = 2 WHERE ma_phong = 'P203';
-    UPDATE phong SET so_luong_giuong = 2 WHERE ma_phong = 'P204';
-    UPDATE phong SET so_luong_giuong = 3 WHERE ma_phong = 'P205';
+    UPDATE phong SET suc_chua = 3 WHERE ma_phong = 'P201';
+    UPDATE phong SET suc_chua = 2 WHERE ma_phong = 'P202';
+    UPDATE phong SET suc_chua = 2 WHERE ma_phong = 'P203';
+    UPDATE phong SET suc_chua = 2 WHERE ma_phong = 'P204';
+    UPDATE phong SET suc_chua = 3 WHERE ma_phong = 'P205';
   `);
   console.log('✅ Rooms bed counts configured.');
 };
@@ -176,7 +176,7 @@ const assignKtvShifts = async () => {
   
   // Find therapy rooms
   const { rows: rooms } = await pool.query(
-    "SELECT id, ma_phong, so_luong_giuong FROM phong WHERE loai_phong = 'phong_tri_lieu_chuan'"
+    "SELECT id, ma_phong, suc_chua FROM phong WHERE loai_phong = 'phong_tri_lieu_chuan'"
   );
   
   if (rooms.length === 0) {
@@ -195,7 +195,7 @@ const assignKtvShifts = async () => {
     const shift = shifts[i];
     // Alternate rooms and beds for KTV shifts
     const room = rooms[i % rooms.length];
-    const bedNo = (i % room.so_luong_giuong) + 1;
+    const bedNo = (i % room.suc_chua) + 1;
     
     await pool.query(
       "UPDATE lich_lam_viec SET phong_id = $1, giuong_so = $2 WHERE id = $3",

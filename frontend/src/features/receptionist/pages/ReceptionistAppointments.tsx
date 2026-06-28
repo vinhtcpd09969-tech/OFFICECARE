@@ -15,6 +15,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import AppointmentCalendar from '../../admin/components/AppointmentCalendar';
 import AppointmentDetailModal from '../../admin/components/AppointmentDetailModal';
 import WalkInBookingModal from '../../admin/components/WalkInBookingModal';
+import TreatmentBookingModal from '../../admin/components/TreatmentBookingModal';
 
 // Import Shared Hooks & UI
 import { useAppointmentsData } from '../../admin/components/appointments/hooks/useAppointmentsData';
@@ -43,6 +44,8 @@ export default function ReceptionistAppointments() {
     staffList,
     roomsList,
     schedulesList,
+    services,
+    packages,
     loading,
     refetch
   } = useAppointmentsData(true);
@@ -60,19 +63,41 @@ export default function ReceptionistAppointments() {
     setAssignStaffId,
     assignRoomId,
     setAssignRoomId,
+    assignGiuongSo,
+    setAssignGiuongSo,
     assignStatus,
     setAssignStatus,
     isAssigning,
     bookingLoading,
+    isTreatmentModalOpen,
+    setIsTreatmentModalOpen,
+    treatmentType,
+    setTreatmentType,
+    selectedServiceId,
+    setSelectedServiceId,
+    selectedPackageId,
+    setSelectedPackageId,
+    selectedKtvId,
+    setSelectedKtvId,
+    selectedRoomId,
+    setSelectedRoomId,
+    selectedGiuongSo,
+    setSelectedGiuongSo,
+    treatmentDate,
+    setTreatmentDate,
+    treatmentTime,
+    setTreatmentTime,
     handleOpenDetailModal,
+    handleOpenTreatmentModal,
     handleUpdateAppointment,
+    handleBookTreatment,
     handleBookWalkIn,
     handleUpdateAppointmentFields,
     scrollToAppointment
   } = useAppointmentActions({
     appointments,
-    services: [],
-    packages: [],
+    services,
+    packages,
     selectedDate,
     setSelectedDate,
     viewMode,
@@ -456,6 +481,8 @@ export default function ReceptionistAppointments() {
           activeRole="receptionist"
           assignRoomId={assignRoomId}
           setAssignRoomId={setAssignRoomId}
+          assignGiuongSo={assignGiuongSo}
+          setAssignGiuongSo={setAssignGiuongSo}
           assignStaffId={assignStaffId}
           setAssignStaffId={setAssignStaffId}
           assignStatus={assignStatus}
@@ -463,7 +490,7 @@ export default function ReceptionistAppointments() {
           isAssigning={isAssigning}
           onClose={() => setIsDetailModalOpen(false)}
           onSave={handleUpdateAppointment}
-          onOpenTreatment={() => {}}
+          onOpenTreatment={handleOpenTreatmentModal}
           appointments={appointments}
           schedulesList={schedulesList}
           isReceptionistOverride={true}
@@ -476,10 +503,40 @@ export default function ReceptionistAppointments() {
           staffList={staffList}
           appointments={appointments}
           schedulesList={schedulesList}
+          servicesList={services}
           onClose={() => setIsWalkInModalOpen(false)}
           onSubmitApi={handleBookWalkIn}
           bookingLoading={bookingLoading}
           initialTime={walkInTime}
+        />
+      )}
+
+      {isTreatmentModalOpen && (
+        <TreatmentBookingModal
+          selectedAppointment={selectedAppointment}
+          services={services}
+          packages={packages}
+          staffList={staffList}
+          roomsList={roomsList}
+          treatmentType={treatmentType}
+          setTreatmentType={setTreatmentType}
+          selectedServiceId={selectedServiceId}
+          setSelectedServiceId={setSelectedServiceId}
+          selectedPackageId={selectedPackageId}
+          setSelectedPackageId={setSelectedPackageId}
+          selectedKtvId={selectedKtvId}
+          setSelectedKtvId={setSelectedKtvId}
+          selectedRoomId={selectedRoomId}
+          setSelectedRoomId={setSelectedRoomId}
+          selectedGiuongSo={selectedGiuongSo}
+          setSelectedGiuongSo={setSelectedGiuongSo}
+          treatmentDate={treatmentDate}
+          setTreatmentDate={setTreatmentDate}
+          treatmentTime={treatmentTime}
+          setTreatmentTime={setTreatmentTime}
+          bookingLoading={bookingLoading}
+          onClose={() => setIsTreatmentModalOpen(false)}
+          onSubmit={handleBookTreatment}
         />
       )}
     </div>

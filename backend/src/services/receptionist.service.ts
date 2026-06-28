@@ -147,8 +147,8 @@ class ReceptionistService {
       gia_goc = Number(pkg.gia_goi);
       ten_item = pkg.ten_goi;
       so_buoi_goi = pkg.tong_so_buoi;
-      phan_tram_giam_tra_thang = pkg.phan_tram_giam_tra_thang !== null ? Number(pkg.phan_tram_giam_tra_thang) : 10;
-      phan_tram_giam_tra_gop = pkg.phan_tram_giam_tra_gop !== null ? Number(pkg.phan_tram_giam_tra_gop) : 5;
+      phan_tram_giam_tra_thang = 10;
+      phan_tram_giam_tra_gop = 5;
     } else if (item_type === 'dich_vu') {
       const svc = await receptionistRepository.getServiceById(item_id);
       if (!svc) throw new Error('Không tìm thấy dịch vụ');

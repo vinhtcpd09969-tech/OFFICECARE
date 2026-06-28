@@ -13,27 +13,17 @@ export const normalizeText = (text: string) => {
 
 export const ALL_DEVICES = [
   { value: 'không có', label: 'Không cần thiết bị (Trị liệu bằng tay)', type: 'hand' },
-  { value: 'Máy điện xung', label: 'Máy điện xung', type: 'mobile' },
-  { value: 'Đèn hồng ngoại', label: 'Đèn hồng ngoại', type: 'mobile' },
-  { value: 'Máy laser', label: 'Máy Laser công suất cao', type: 'mobile' },
-  { value: 'Máy Shockwave', label: 'Máy Shockwave trị liệu', type: 'mobile' },
-  { value: 'Máy siêu âm', label: 'Máy siêu âm điều trị đa tần', type: 'mobile' },
-  { value: 'Máy nén ép', label: 'Máy nén ép áp lực hơi', type: 'mobile' },
-  { value: 'Giường kéo giãn', label: 'Giường kéo giãn cột sống thắt lưng', type: 'stationary' },
-  { value: 'Máy kéo giãn cổ', label: 'Máy kéo giãn cột sống cổ', type: 'stationary' },
-  { value: 'Máy từ trường', label: 'Máy từ trường siêu dẫn SIS', type: 'stationary' }
+  { value: 'Tác động điện', label: 'Tác động điện', type: 'mobile' },
+  { value: 'Tác động nhiệt', label: 'Tác động nhiệt', type: 'mobile' },
+  { value: 'Tác động cơ học / sóng', label: 'Tác động cơ học / sóng', type: 'mobile' },
+  { value: 'Thiết bị đặc biệt', label: 'Thiết bị đặc biệt', type: 'stationary' }
 ];
 
 export const HINT_KEYWORDS = [
-  { keywords: ['hong ngoai', 'hồng ngoại'], device: 'Đèn hồng ngoại' },
-  { keywords: ['laser'], device: 'Máy laser' },
-  { keywords: ['dien xung', 'điện xung'], device: 'Máy điện xung' },
-  { keywords: ['shockwave', 'xung kich', 'xung kích'], device: 'Máy Shockwave' },
-  { keywords: ['sieu am', 'siêu âm'], device: 'Máy siêu âm' },
-  { keywords: ['nen ep', 'nén ép'], device: 'Máy nén ép' },
-  { keywords: ['keo gian co', 'kéo giãn cổ'], device: 'Máy kéo giãn cổ' },
-  { keywords: ['keo gian', 'kéo giãn'], device: 'Giường kéo giãn' },
-  { keywords: ['tu truong', 'từ trường', 'sis'], device: 'Máy từ trường' },
+  { keywords: ['hong ngoai', 'hồng ngoại', 'laser', 'nhiệt', 'nhiet'], device: 'Tác động nhiệt' },
+  { keywords: ['dien xung', 'điện xung', 'điện phân', 'điện', 'dien'], device: 'Tác động điện' },
+  { keywords: ['shockwave', 'xung kich', 'xung kích', 'sieu am', 'siêu âm', 'nen ep', 'nén ép', 'co hoc', 'cơ học'], device: 'Tác động cơ học / sóng' },
+  { keywords: ['keo gian co', 'kéo giãn cổ', 'keo gian', 'kéo giãn', 'tu truong', 'từ trường', 'sis', 'đặc biệt', 'dac biet'], device: 'Thiết bị đặc biệt' },
   { keywords: ['tay', 'tay khong', 'xoa bop', 'massage', 'giai co', 'tay không'], device: 'không có' }
 ];
 

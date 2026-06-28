@@ -291,6 +291,63 @@ export const deleteEquipment = async (req: Request, res: Response): Promise<any>
   }
 };
 
+// --- QUẢN LÝ PHÂN LOẠI THIẾT BỊ (EQUIPMENT TYPES) ---
+
+export const getEquipmentTypes = async (req: Request, res: Response) => {
+  try {
+    const types = await adminService.getEquipmentTypes();
+    res.json(types);
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi lấy danh sách loại thiết bị', error });
+  }
+};
+
+export const createEquipmentType = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { ten_loai, nhom_thiet_bi } = req.body;
+    if (!ten_loai || !nhom_thiet_bi) {
+      return res.status(400).json({ message: 'Tên loại và nhóm thiết bị là bắt buộc' });
+    }
+    const newType = await adminService.createEquipmentType({ ten_loai, nhom_thiet_bi });
+    res.status(201).json(newType);
+  } catch (error: any) {
+    if (error?.code === '23505') {
+      return res.status(400).json({ message: 'Tên loại thiết bị này đã tồn tại.' });
+    }
+    res.status(500).json({ message: 'Lỗi server khi thêm loại thiết bị mới', error });
+  }
+};
+
+export const updateEquipmentType = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params as { id: string };
+    const { ten_loai, nhom_thiet_bi } = req.body;
+    if (!ten_loai || !nhom_thiet_bi) {
+      return res.status(400).json({ message: 'Tên loại và nhóm thiết bị là bắt buộc' });
+    }
+    const updatedType = await adminService.updateEquipmentType(Number(id), { ten_loai, nhom_thiet_bi });
+    res.json(updatedType);
+  } catch (error: any) {
+    if (error?.code === '23505') {
+      return res.status(400).json({ message: 'Tên loại thiết bị này đã tồn tại.' });
+    }
+    res.status(500).json({ message: 'Lỗi server khi cập nhật loại thiết bị', error });
+  }
+};
+
+export const deleteEquipmentType = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params as { id: string };
+    const deletedType = await adminService.deleteEquipmentType(Number(id));
+    res.json({ message: 'Xóa danh mục thiết bị thành công', deletedType });
+  } catch (error: any) {
+    if (error?.statusCode === 400) {
+      return res.status(400).json({ message: error.message });
+    }
+    res.status(500).json({ message: 'Lỗi server khi xóa danh mục thiết bị', error });
+  }
+};
+
 // --- QUẢN LÝ LỊCH LÀM VIỆC (CA LÀM VIỆC) ---
 
 export const getSchedules = async (req: Request, res: Response) => {

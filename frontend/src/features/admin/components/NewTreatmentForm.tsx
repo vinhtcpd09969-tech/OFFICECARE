@@ -22,6 +22,7 @@ const schema = z.object({
 
   ky_thuat_vien_id: z.string().optional(),
   phong_id: z.string().optional(),
+  giuong_so: z.string().optional(),
   ngay_bat_dau: z.string().min(1, 'Vui lòng chọn ngày'),
   gio_bat_dau: z.string().min(1, 'Vui lòng chọn giờ bắt đầu'),
   gio_ket_thuc: z.string().min(1, 'Vui lòng chọn giờ kết thúc'),
@@ -99,6 +100,7 @@ export default function NewTreatmentForm({ isOpen, onClose, onSuccess }: Props) 
   const watchedGioBatDau = watch('gio_bat_dau');
   const watchedDichVuId = watch('dich_vu_id');
   const watchedDangKyGoiId = watch('dang_ky_goi_id');
+  const watchedPhongId = watch('phong_id');
 
   useEffect(() => {
     if (isOpen) {
@@ -194,6 +196,7 @@ export default function NewTreatmentForm({ isOpen, onClose, onSuccess }: Props) 
       if (!isReceptionist) {
         payload.ky_thuat_vien_id = data.ky_thuat_vien_id || undefined;
         payload.phong_id = data.phong_id || undefined;
+        payload.giuong_so = data.giuong_so ? Number(data.giuong_so) : undefined;
       }
 
       // Khách hàng
@@ -440,6 +443,26 @@ export default function NewTreatmentForm({ isOpen, onClose, onSuccess }: Props) 
                         ))}
                     </select>
                   </div>
+
+                  {watchedPhongId && (() => {
+                    const selectedRoom = rooms.find(r => String(r.id) === String(watchedPhongId));
+                    const totalBeds = selectedRoom?.suc_chua || 0;
+                    if (totalBeds <= 0) return null;
+                    return (
+                      <div className="animate-in fade-in slide-in-from-top-2 duration-250">
+                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Chọn giường điều trị</label>
+                        <select
+                          {...register('giuong_so')}
+                          className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none text-sm rounded-xl"
+                        >
+                          <option value="">-- Tự động xếp giường trống --</option>
+                          {Array.from({ length: totalBeds }, (_, i) => i + 1).map(num => (
+                            <option key={num} value={num}>Giường số {num}</option>
+                          ))}
+                        </select>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </section>

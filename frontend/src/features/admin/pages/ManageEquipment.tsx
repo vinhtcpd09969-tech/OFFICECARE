@@ -4,7 +4,11 @@ import {
   getEquipment,
   createEquipment,
   updateEquipment,
-  deleteEquipment
+  deleteEquipment,
+  getEquipmentTypes,
+  createEquipmentType,
+  updateEquipmentType,
+  deleteEquipmentType
 } from '../../../api/admin.api';
 
 // --- Types ---
@@ -13,8 +17,7 @@ interface Room {
   ten_phong: string;
   ma_phong: string;
   loai_phong: string;
-  tang: string;
-  so_luong_giuong?: number;
+  suc_chua?: number;
 }
 
 interface Equipment {
@@ -41,25 +44,37 @@ interface Equipment {
   active_booking_code?: string;
 }
 
-// --- Constants & Helpers for Grouping ---
-const DEVICE_TO_GROUP_MAP: Record<string, string> = {
-  // Nhóm Nhiệt
-  'Đèn hồng ngoại': 'nhiet',
-  'Máy laser': 'nhiet',
-  // Nhóm Điện
-  'Máy điện xung': 'dien',
-  // Nhóm Cơ học / Sóng
-  'Máy Shockwave': 'co_hoc',
-  'Máy siêu âm': 'co_hoc',
-  'Máy nén ép': 'co_hoc',
-  // Nhóm Giường trị liệu (di chuyển được)
-  'Giường trị liệu': 'giuong_tri_lieu',
-  'Giường massage': 'giuong_tri_lieu',
-  'Giường điều trị': 'giuong_tri_lieu',
-  // Nhóm Thiết Bị Đặc Biệt (nặng, cố định)
-  'Giường kéo giãn': 'thiet_bi_dac_biet',
-  'Máy kéo giãn cổ': 'thiet_bi_dac_biet',
-  'Máy từ trường': 'thiet_bi_dac_biet',
+const getGroupFromDeviceType = (type: string): string => {
+  const typeLower = (type || '').toLowerCase();
+  
+  if (typeLower.includes('giường trị liệu bằng tay') || typeLower.includes('giuong tri lieu bang tay')) {
+    return 'giuong_tri_lieu';
+  }
+  if (typeLower.includes('hồng ngoại') || typeLower.includes('hong ngoai') || typeLower.includes('laser') || typeLower.includes('nhiệt') || typeLower.includes('nhiet')) {
+    return 'nhiet';
+  }
+  if (typeLower.includes('xung') || typeLower.includes('dien xung') || typeLower.includes('điện xung') || typeLower.includes('điện phân')) {
+    return 'dien';
+  }
+  if (typeLower.includes('shockwave') || typeLower.includes('xung kích') || typeLower.includes('siêu âm') || typeLower.includes('sieu am') || typeLower.includes('nén ép') || typeLower.includes('nen ep')) {
+    return 'co_hoc';
+  }
+  if (typeLower.includes('giường kéo giãn') || typeLower.includes('keo gian co') || typeLower.includes('kéo giãn cổ') || typeLower.includes('từ trường') || typeLower.includes('tu truong') || typeLower.includes('sis')) {
+    return 'thiet_bi_dac_biet';
+  }
+  if (typeLower.includes('giường') || typeLower.includes('giuong') || typeLower.includes('massage') || typeLower.includes('bàn trị liệu') || typeLower.includes('ban tri lieu')) {
+    return 'giuong_tri_lieu';
+  }
+  return 'khac';
+};
+
+const GROUP_SUGGESTED_TYPES: Record<string, string[]> = {
+  nhiet: ['Đèn hồng ngoại', 'Máy laser'],
+  dien: ['Máy điện xung'],
+  co_hoc: ['Máy Shockwave', 'Máy siêu âm', 'Máy nén ép'],
+  giuong_tri_lieu: ['Giường trị liệu', 'Giường trị liệu bằng tay', 'Giường massage', 'Giường điều trị'],
+  thiet_bi_dac_biet: ['Giường kéo giãn', 'Máy kéo giãn cổ', 'Máy từ trường'],
+  khac: ['Thiết bị phòng tập', 'Thước đo khớp', 'Bóng tập', 'Dây kháng lực', 'Búa phản xạ']
 };
 
 const GROUP_LABELS: Record<string, string> = {
@@ -90,10 +105,27 @@ const GROUP_OPTIONS = [
   { value: 'khac', label: 'Dụng cụ & Thiết bị khác' }
 ];
 
+interface EquipmentType {
+  id: number;
+  ten_loai: string;
+  nhom_thiet_bi: string;
+  thoi_gian_tao?: string;
+}
+
 export default function ManageEquipment() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Tab & Dynamic types
+  const [activeTab, setActiveTab] = useState<'equipment' | 'types'>('equipment');
+  const [equipmentTypes, setEquipmentTypes] = useState<EquipmentType[]>([]);
+  const [isTypeModalOpen, setIsTypeModalOpen] = useState(false);
+  const [editingType, setEditingType] = useState<EquipmentType | null>(null);
+  const [typeFormData, setTypeFormData] = useState({
+    ten_loai: '',
+    nhom_thiet_bi: 'dien'
+  });
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -120,6 +152,7 @@ export default function ManageEquipment() {
   // Form state
   const [formGroup, setFormGroup] = useState<string>('dien');
   const [formDeviceName, setFormDeviceName] = useState<string>('');
+  const [formDeviceType, setFormDeviceType] = useState<string>('');
 
   const [equipmentFormData, setEquipmentFormData] = useState<{
     ten_thiet_bi: string;
@@ -131,8 +164,6 @@ export default function ManageEquipment() {
     ghi_chu: string;
     cap_rui_ro: string;
     tan_suat_bao_tri_ngay: number | '';
-    nguong_canh_bao: number | '';
-    nguong_bat_buoc_bao_tri: number | '';
     ngay_bao_tri_gan_nhat: string;
     so_luong: number | '';
   }>({
@@ -145,11 +176,34 @@ export default function ManageEquipment() {
     ghi_chu: '',
     cap_rui_ro: 'trung_binh',
     tan_suat_bao_tri_ngay: 45,
-    nguong_canh_bao: 80,
-    nguong_bat_buoc_bao_tri: 100,
     ngay_bao_tri_gan_nhat: '',
     so_luong: 1
   });
+
+  const derivedGroupTypes = useMemo(() => {
+    const map: Record<string, string[]> = {
+      nhiet: [],
+      dien: [],
+      co_hoc: [],
+      giuong_tri_lieu: [],
+      thiet_bi_dac_biet: [],
+      khac: []
+    };
+    equipmentTypes.forEach(t => {
+      if (map[t.nhom_thiet_bi]) {
+        map[t.nhom_thiet_bi].push(t.ten_loai);
+      } else {
+        map['khac'].push(t.ten_loai);
+      }
+    });
+    // Fallback standard types if DB list is empty
+    Object.keys(map).forEach(key => {
+      if (map[key].length === 0) {
+        map[key] = GROUP_SUGGESTED_TYPES[key] || [];
+      }
+    });
+    return map;
+  }, [equipmentTypes]);
 
   // Derive loai_thiet_bi from selected group for SQL trigger compatibility
   const getLoaiThietBiFromGroup = (group: string) => GROUP_TO_LOAI_THIET_BI[group] || 'Thiết bị phòng tập';
@@ -166,9 +220,14 @@ export default function ManageEquipment() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [roomsRes, eqRes] = await Promise.all([getRooms(), getEquipment()]);
+      const [roomsRes, eqRes, typesRes] = await Promise.all([
+        getRooms(),
+        getEquipment(),
+        getEquipmentTypes()
+      ]);
       setRooms(roomsRes.data || []);
       setEquipment(eqRes.data || []);
+      setEquipmentTypes(typesRes.data || []);
     } catch (error) {
       console.error('Lỗi khi lấy dữ liệu y tế:', error);
       showToast('Không thể kết nối API. Đang dùng dữ liệu mô phỏng.', 'error');
@@ -186,15 +245,9 @@ export default function ManageEquipment() {
     const totalEq = equipment.length;
     const maintenanceEq = equipment.filter(e => e.trang_thai === 'dang_bao_tri' || e.trang_thai === 'hong').length;
 
-    // Check overdue maintenance based on use count
-    const overdueEq = equipment.filter(e => {
-      return e.so_lan_su_dung !== undefined && e.nguong_canh_bao && e.so_lan_su_dung >= e.nguong_canh_bao && e.trang_thai === 'san_sang';
-    }).length;
-
     return {
       totalEq,
-      maintenanceEq,
-      overdueEq
+      maintenanceEq
     };
   }, [equipment]);
 
@@ -215,15 +268,11 @@ export default function ManageEquipment() {
 
       if (selectedGroupFilter !== 'all') {
         const type = eq.loai_thiet_bi || '';
-        const groupKey = DEVICE_TO_GROUP_MAP[type] || 'khac';
+        const groupKey = getGroupFromDeviceType(type);
         if (groupKey !== selectedGroupFilter) return false;
       }
 
       if (statFilter === 'eq_maintenance' && eq.trang_thai !== 'dang_bao_tri' && eq.trang_thai !== 'hong') return false;
-      if (statFilter === 'eq_overdue') {
-        const isOverdue = eq.so_lan_su_dung !== undefined && eq.nguong_canh_bao && eq.so_lan_su_dung >= eq.nguong_canh_bao && eq.trang_thai === 'san_sang';
-        if (!isOverdue) return false;
-      }
 
       return true;
     });
@@ -241,9 +290,19 @@ export default function ManageEquipment() {
 
     filteredEquipment.forEach(eq => {
       const type = eq.loai_thiet_bi || '';
-      const groupKey = DEVICE_TO_GROUP_MAP[type] || 'khac';
+      const groupKey = getGroupFromDeviceType(type);
       groups[groupKey].push(eq);
     });
+
+    // Pushes discontinued equipment ('ngung_su_dung') to the bottom of the list
+    Object.keys(groups).forEach(key => {
+      groups[key].sort((a, b) => {
+        if (a.trang_thai === 'ngung_su_dung' && b.trang_thai !== 'ngung_su_dung') return 1;
+        if (a.trang_thai !== 'ngung_su_dung' && b.trang_thai === 'ngung_su_dung') return -1;
+        return 0;
+      });
+    });
+
     return groups;
   }, [filteredEquipment]);
 
@@ -276,10 +335,12 @@ export default function ManageEquipment() {
   const handleOpenEquipmentModal = (eq: Equipment | null = null) => {
     if (eq) {
       const deviceType = eq.loai_thiet_bi || 'Máy điện xung';
-      const groupKey = DEVICE_TO_GROUP_MAP[deviceType] || 'khac';
+      const groupKey = getGroupFromDeviceType(deviceType);
 
       setFormGroup(groupKey);
       setFormDeviceName(eq.ten_thiet_bi);
+      
+      setFormDeviceType(deviceType);
 
       setEditingEquipment(eq);
       setEquipmentFormData({
@@ -292,28 +353,26 @@ export default function ManageEquipment() {
         ghi_chu: eq.ghi_chu || '',
         cap_rui_ro: eq.cap_rui_ro || 'trung_binh',
         tan_suat_bao_tri_ngay: eq.tan_suat_bao_tri_ngay ?? 45,
-        nguong_canh_bao: eq.nguong_canh_bao ?? 80,
-        nguong_bat_buoc_bao_tri: eq.nguong_bat_buoc_bao_tri ?? 100,
         ngay_bao_tri_gan_nhat: eq.ngay_bao_tri_gan_nhat ? eq.ngay_bao_tri_gan_nhat.substring(0, 10) : '',
         so_luong: 1
       });
     } else {
       const defaultGroup = 'dien';
+      const defaultType = (derivedGroupTypes[defaultGroup] || [])[0] || 'Máy điện xung';
       setFormGroup(defaultGroup);
       setFormDeviceName('');
+      setFormDeviceType(defaultType);
       setEditingEquipment(null);
       setEquipmentFormData({
         ten_thiet_bi: '',
         ma_thiet_bi: '',
-        loai_thiet_bi: getLoaiThietBiFromGroup(defaultGroup),
+        loai_thiet_bi: defaultType,
         ngay_mua: new Date().toISOString().substring(0, 10),
         trang_thai: 'san_sang',
         phong_id_hien_tai: '',
         ghi_chu: '',
         cap_rui_ro: 'trung_binh',
         tan_suat_bao_tri_ngay: 45,
-        nguong_canh_bao: 80,
-        nguong_bat_buoc_bao_tri: 100,
         ngay_bao_tri_gan_nhat: '',
         so_luong: 1
       });
@@ -332,16 +391,29 @@ export default function ManageEquipment() {
     const count = editingEquipment ? 1 : (Number(equipmentFormData.so_luong) || 1);
 
     try {
-      const loai = getLoaiThietBiFromGroup(formGroup);
+      const loai = formDeviceType;
+      if (!loai) {
+        showToast('Vui lòng nhập loại thiết bị.', 'error');
+        return;
+      }
+
+      let typeRecord = equipmentTypes.find(t => t.ten_loai.toLowerCase() === loai.toLowerCase());
+      if (!typeRecord) {
+        const newTypeRes = await createEquipmentType({
+          ten_loai: loai,
+          nhom_thiet_bi: formGroup
+        });
+        typeRecord = newTypeRes.data;
+      }
+
       const dataToSend = {
         ...equipmentFormData,
-        loai_thiet_bi: loai,
+        loai_thiet_bi: typeRecord ? typeRecord.ten_loai : loai,
+        loai_thiet_bi_id: typeRecord ? typeRecord.id : null,
         ten_thiet_bi: trimmedName,
         phong_id_hien_tai: null,
         so_luong: count,
-        tan_suat_bao_tri_ngay: equipmentFormData.tan_suat_bao_tri_ngay !== '' ? Number(equipmentFormData.tan_suat_bao_tri_ngay) : null,
-        nguong_canh_bao: equipmentFormData.nguong_canh_bao !== '' ? Number(equipmentFormData.nguong_canh_bao) : null,
-        nguong_bat_buoc_bao_tri: equipmentFormData.nguong_bat_buoc_bao_tri !== '' ? Number(equipmentFormData.nguong_bat_buoc_bao_tri) : null
+        tan_suat_bao_tri_ngay: equipmentFormData.tan_suat_bao_tri_ngay !== '' ? Number(equipmentFormData.tan_suat_bao_tri_ngay) : null
       };
 
       if (!editingEquipment) {
@@ -365,13 +437,88 @@ export default function ManageEquipment() {
   };
 
   const handleDeleteEquipment = async (id: string | number) => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa thiết bị này khỏi hệ thống?')) {
+    if (window.confirm('Bạn có chắc chắn muốn ngưng sử dụng thiết bị này?')) {
       try {
         await deleteEquipment(id.toString());
-        showToast('Đã xóa thiết bị thành công.');
+        showToast('Đã chuyển trạng thái thiết bị thành ngưng sử dụng thành công.');
         loadData();
       } catch (error) {
-        showToast('Lỗi khi xóa thiết bị.', 'error');
+        showToast('Lỗi khi ngưng sử dụng thiết bị.', 'error');
+      }
+    }
+  };
+
+  // Handle Equipment Types CRUD
+  const handleOpenTypeModal = (type: EquipmentType | null = null) => {
+    if (type) {
+      setEditingType(type);
+      setTypeFormData({
+        ten_loai: type.ten_loai,
+        nhom_thiet_bi: type.nhom_thiet_bi
+      });
+    } else {
+      setEditingType(null);
+      setTypeFormData({
+        ten_loai: '',
+        nhom_thiet_bi: 'dien'
+      });
+    }
+    setIsTypeModalOpen(true);
+  };
+
+  const handleTypeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = typeFormData.ten_loai.trim();
+    if (!trimmed) {
+      showToast('Vui lòng nhập tên loại thiết bị.', 'error');
+      return;
+    }
+    try {
+      const nameLower = trimmed.toLowerCase();
+      let detectedGroup = 'khac';
+      if (nameLower.includes('giường') || nameLower.includes('giuong') || nameLower.includes('bàn trị liệu')) {
+        detectedGroup = 'giuong_tri_lieu';
+      } else if (nameLower.includes('đặc biệt') || nameLower.includes('kéo giãn') || nameLower.includes('từ trường')) {
+        detectedGroup = 'thiet_bi_dac_biet';
+      } else if (nameLower.includes('nhiệt') || nameLower.includes('laser') || nameLower.includes('hồng ngoại')) {
+        detectedGroup = 'nhiet';
+      } else if (nameLower.includes('điện') || nameLower.includes('xung') || nameLower.includes('châm')) {
+        detectedGroup = 'dien';
+      } else if (nameLower.includes('cơ học') || nameLower.includes('sóng') || nameLower.includes('siêu âm') || nameLower.includes('xung kích') || nameLower.includes('nén ép') || nameLower.includes('shockwave')) {
+        detectedGroup = 'co_hoc';
+      }
+
+      if (editingType) {
+        await updateEquipmentType(editingType.id, {
+          ten_loai: trimmed,
+          nhom_thiet_bi: detectedGroup
+        });
+        showToast('Cập nhật loại thiết bị thành công!');
+      } else {
+        await createEquipmentType({
+          ten_loai: trimmed,
+          nhom_thiet_bi: detectedGroup
+        });
+        showToast('Thêm loại thiết bị thành công!');
+      }
+      setIsTypeModalOpen(false);
+      loadData();
+    } catch (error: any) {
+      console.error(error);
+      const msg = error?.response?.data?.message || 'Lỗi khi lưu loại thiết bị.';
+      showToast(msg, 'error');
+    }
+  };
+
+  const handleDeleteType = async (id: number) => {
+    if (window.confirm('Bạn có chắc chắn muốn xóa danh mục thiết bị này?')) {
+      try {
+        await deleteEquipmentType(id);
+        showToast('Xóa danh mục thiết bị thành công.');
+        loadData();
+      } catch (error: any) {
+        const msg = error?.response?.data?.message || 'Lỗi khi xóa danh mục thiết bị.';
+        showToast(msg, 'error');
       }
     }
   };
@@ -419,155 +566,181 @@ export default function ManageEquipment() {
         </div>
 
         <div>
-          <button
-            onClick={() => handleOpenEquipmentModal()}
-            className="bg-teal-800 hover:bg-teal-900 text-white px-5 py-2.5 text-xs font-black uppercase tracking-wider transition-all duration-200 rounded-none active:scale-95 shadow-sm"
-          >
-            + THÊM THIẾT BỊ Y TẾ
-          </button>
+          {activeTab === 'equipment' ? (
+            <button
+              onClick={() => handleOpenEquipmentModal()}
+              className="bg-teal-800 hover:bg-teal-900 text-white px-5 py-2.5 text-xs font-black uppercase tracking-wider transition-all duration-200 rounded-none active:scale-95 shadow-sm"
+            >
+              + THÊM THIẾT BỊ Y TẾ
+            </button>
+          ) : (
+            <button
+              onClick={() => handleOpenTypeModal()}
+              className="bg-teal-800 hover:bg-teal-900 text-white px-5 py-2.5 text-xs font-black uppercase tracking-wider transition-all duration-200 rounded-none active:scale-95 shadow-sm"
+            >
+              + THÊM LOẠI THIẾT BỊ
+            </button>
+          )}
         </div>
       </div>
 
-      {/* QUICK STATS HEADER PANEL */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div
-          onClick={() => setStatFilter(null)}
-          className={`border p-5 cursor-pointer transition-all duration-300 rounded-none hover:shadow-md ${!statFilter ? 'bg-teal-950/5 border-teal-800 shadow-[0_0_12px_rgba(15,118,110,0.06)]' : 'bg-white border-slate-200 hover:border-slate-300'}`}
+      {/* Tabs */}
+      <div className="flex border-b border-slate-200">
+        <button
+          onClick={() => setActiveTab('equipment')}
+          className={`px-6 py-3 text-xs font-black uppercase tracking-wider transition-all border-b-2 -mb-[2px] ${
+            activeTab === 'equipment'
+              ? 'border-teal-800 text-teal-800'
+              : 'border-transparent text-slate-400 hover:text-slate-650'
+          }`}
         >
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Tổng Số Thiết Bị</span>
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-slate-900 tracking-tight">{stats.totalEq}</span>
-            <span className="text-xs text-slate-400">máy móc đang quản lý</span>
-          </div>
-        </div>
-
-        <div
-          className="border p-5 bg-white border-slate-200 hover:border-slate-300 transition-all duration-300 rounded-none"
+          ⚙️ Danh sách thiết bị
+        </button>
+        <button
+          onClick={() => setActiveTab('types')}
+          className={`px-6 py-3 text-xs font-black uppercase tracking-wider transition-all border-b-2 -mb-[2px] ${
+            activeTab === 'types'
+              ? 'border-teal-800 text-teal-800'
+              : 'border-transparent text-slate-400 hover:text-slate-650'
+          }`}
         >
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Thiết Bị Đang Vận Hành</span>
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-teal-850 tracking-tight">
-              {equipment.filter(e => e.trang_thai === 'dang_su_dung').length}
-            </span>
-            <span className="text-xs text-slate-400">máy móc đang chạy trị liệu</span>
-          </div>
-        </div>
-
-        <div
-          onClick={() => setStatFilter('eq_maintenance')}
-          className={`border p-5 cursor-pointer transition-all duration-300 rounded-none hover:shadow-md ${statFilter === 'eq_maintenance' ? 'bg-rose-50/50 border-rose-600 shadow-[0_0_12px_rgba(244,63,94,0.06)]' : 'bg-white border-slate-200 hover:border-slate-300'}`}
-        >
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Thiết Bị Sự Cố / Bảo Trì</span>
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-rose-700 tracking-tight">{stats.maintenanceEq}</span>
-            <span className="text-xs text-slate-400">đang sửa hoặc hỏng</span>
-          </div>
-        </div>
-
-        <div
-          onClick={() => setStatFilter('eq_overdue')}
-          className={`border p-5 cursor-pointer transition-all duration-300 rounded-none hover:shadow-md ${statFilter === 'eq_overdue' ? 'bg-amber-50/50 border-amber-600 shadow-[0_0_12px_rgba(245,158,11,0.06)]' : 'bg-white border-slate-200 hover:border-slate-300'}`}
-        >
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Máy Cần Hiệu Chuẩn</span>
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-amber-700 tracking-tight">{stats.overdueEq}</span>
-            <span className="text-xs text-rose-500 font-bold">chạm ngưỡng cảnh báo</span>
-          </div>
-        </div>
+          📁 Danh mục thiết bị ({equipmentTypes.length})
+        </button>
       </div>
 
-      {/* SEARCH AND FILTERS PANEL */}
-      <div className="bg-slate-50 border border-slate-200 p-5 rounded-none grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+      {activeTab === 'equipment' && (
+        <>
+          {/* QUICK STATS HEADER PANEL */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div
+              onClick={() => setStatFilter(null)}
+              className={`border p-5 cursor-pointer transition-all duration-300 rounded-none hover:shadow-md ${!statFilter ? 'bg-teal-950/5 border-teal-800 shadow-[0_0_12px_rgba(15,118,110,0.06)]' : 'bg-white border-slate-200 hover:border-slate-300'}`}
+            >
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Tổng Số Thiết Bị</span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-extrabold text-slate-900 tracking-tight">{stats.totalEq}</span>
+                <span className="text-xs text-slate-400">máy móc đang quản lý</span>
+              </div>
+            </div>
 
-        {/* Search */}
-        <div className="relative md:col-span-2">
-          <span className="absolute inset-y-0 left-3 flex items-center text-slate-400">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </span>
-          <input
-            type="text"
-            placeholder="Tìm mã thiết bị, tên máy, vị trí phòng..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 border border-slate-200 bg-white text-sm font-semibold rounded-none focus:outline-none focus:border-teal-800 placeholder-slate-400"
-          />
-        </div>
+            <div
+              className="border p-5 bg-white border-slate-200 hover:border-slate-300 transition-all duration-300 rounded-none"
+            >
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Thiết Bị Đang Vận Hành</span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-extrabold text-teal-850 tracking-tight">
+                  {equipment.filter(e => e.trang_thai === 'dang_su_dung').length}
+                </span>
+                <span className="text-xs text-slate-400">máy móc đang chạy trị liệu</span>
+              </div>
+            </div>
 
-        {/* Nhóm tác động selector */}
-        <div>
-          <select
-            value={selectedGroupFilter}
-            onChange={(e) => setSelectedGroupFilter(e.target.value)}
-            className="w-full py-2 px-3 border border-slate-200 bg-white text-sm font-bold rounded-none focus:outline-none focus:border-teal-800"
-          >
-            <option value="all">TẤT CẢ NHÓM</option>
-            <option value="nhiet">NHÓM TÁC ĐỘNG NHIỆT</option>
-            <option value="dien">NHÓM TÁC ĐỘNG ĐIỆN</option>
-            <option value="co_hoc">NHÓM CƠ HỌC / SÓNG</option>
-            <option value="giuong_tri_lieu">GIƯỜNG TRỊ LIỆU</option>
-            <option value="thiet_bi_dac_biet">THIẾT BỊ ĐẶC BIỆT (CỐ ĐỊNH)</option>
-            <option value="khac">DỤNG CỤ & THIẾT BỊ KHÁC</option>
-          </select>
-        </div>
+            <div
+              onClick={() => setStatFilter('eq_maintenance')}
+              className={`border p-5 cursor-pointer transition-all duration-300 rounded-none hover:shadow-md ${statFilter === 'eq_maintenance' ? 'bg-rose-50/50 border-rose-600 shadow-[0_0_12px_rgba(244,63,94,0.06)]' : 'bg-white border-slate-200 hover:border-slate-300'}`}
+            >
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Thiết Bị Sự Cố / Bảo Trì</span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-extrabold text-rose-700 tracking-tight">{stats.maintenanceEq}</span>
+                <span className="text-xs text-slate-400">đang sửa hoặc hỏng</span>
+              </div>
+            </div>
+          </div>
 
-        {/* Status selector */}
-        <div>
-          <select
-            value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
-            className="w-full py-2 px-3 border border-slate-200 bg-white text-sm font-bold rounded-none focus:outline-none focus:border-teal-800"
-          >
-            <option value="all">TẤT CẢ TRẠNG THÁI</option>
-            <option value="san_sang">HOẠT ĐỘNG BÌNH THƯỜNG</option>
-            <option value="dang_su_dung">ĐANG ĐƯỢC VẬN HÀNH</option>
-            <option value="dang_bao_tri">ĐANG HIỆU CHUẨN/BẢO TRÌ</option>
-            <option value="hong">HỎNG / NGỪNG SỬ DỤNG</option>
-          </select>
-        </div>
-      </div>
+          {/* SEARCH AND FILTERS PANEL */}
+          <div className="bg-slate-50 border border-slate-200 p-5 rounded-none grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
 
-      {/* Active filters display */}
-      {(statFilter || selectedStatus !== 'all' || selectedGroupFilter !== 'all' || searchQuery) && (
-        <div className="flex flex-wrap gap-2 items-center">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Đang lọc theo:</span>
-          {searchQuery && (
-            <span className="bg-slate-100 border border-slate-200 px-2.5 py-1 text-xs font-semibold rounded-none flex items-center gap-1.5">
-              Từ khóa: "{searchQuery}"
-              <button onClick={() => setSearchQuery('')} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
-            </span>
+            {/* Search */}
+            <div className="relative md:col-span-2">
+              <span className="absolute inset-y-0 left-3 flex items-center text-slate-400">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </span>
+              <input
+                type="text"
+                placeholder="Tìm mã thiết bị, tên máy, vị trí phòng..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 border border-slate-200 bg-white text-sm font-semibold rounded-none focus:outline-none focus:border-teal-800 placeholder-slate-400"
+              />
+            </div>
+
+            {/* Nhóm tác động selector */}
+            <div>
+              <select
+                value={selectedGroupFilter}
+                onChange={(e) => setSelectedGroupFilter(e.target.value)}
+                className="w-full py-2 px-3 border border-slate-200 bg-white text-sm font-bold rounded-none focus:outline-none focus:border-teal-800"
+              >
+                <option value="all">TẤT CẢ NHÓM</option>
+                <option value="nhiet">NHÓM TÁC ĐỘNG NHIỆT</option>
+                <option value="dien">NHÓM TÁC ĐỘNG ĐIỆN</option>
+                <option value="co_hoc">NHÓM CƠ HỌC / SÓNG</option>
+                <option value="giuong_tri_lieu">GIƯỜNG TRỊ LIỆU</option>
+                <option value="thiet_bi_dac_biet">THIẾT BỊ ĐẶC BIỆT (CỐ ĐỊNH)</option>
+                <option value="khac">DỤNG CỤ & THIẾT BỊ KHÁC</option>
+              </select>
+            </div>
+
+            {/* Status selector */}
+            <div>
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="w-full py-2 px-3 border border-slate-200 bg-white text-sm font-bold rounded-none focus:outline-none focus:border-teal-800"
+              >
+                <option value="all">TẤT CẢ TRẠNG THÁI</option>
+                <option value="san_sang">HOẠT ĐỘNG BÌNH THƯỜNG</option>
+                <option value="dang_su_dung">ĐANG ĐƯỢC VẬN HÀNH</option>
+                <option value="dang_bao_tri">ĐANG HIỆU CHUẨN/BẢO TRÌ</option>
+                <option value="hong">HỎNG / NGỪNG SỬ DỤNG</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Active filters display */}
+          {(statFilter || selectedStatus !== 'all' || selectedGroupFilter !== 'all' || searchQuery) && (
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Đang lọc theo:</span>
+              {searchQuery && (
+                <span className="bg-slate-100 border border-slate-200 px-2.5 py-1 text-xs font-semibold rounded-none flex items-center gap-1.5">
+                  Từ khóa: "{searchQuery}"
+                  <button onClick={() => setSearchQuery('')} className="text-slate-400 hover:text-slate-655 font-bold">✕</button>
+                </span>
+              )}
+              {selectedGroupFilter !== 'all' && (
+                <span className="bg-slate-100 border border-slate-200 px-2.5 py-1 text-xs font-semibold rounded-none flex items-center gap-1.5">
+                  Nhóm tác động: {GROUP_LABELS[selectedGroupFilter]}
+                  <button onClick={() => setSelectedGroupFilter('all')} className="text-slate-400 hover:text-slate-655 font-bold">✕</button>
+                </span>
+              )}
+              {selectedStatus !== 'all' && (
+                <span className="bg-slate-100 border border-slate-200 px-2.5 py-1 text-xs font-semibold rounded-none flex items-center gap-1.5">
+                  Trạng thái: {selectedStatus === 'san_sang' ? 'Hoạt động bình thường' : selectedStatus === 'dang_su_dung' ? 'Đang sử dụng' : selectedStatus === 'dang_bao_tri' ? 'Đang bảo trì' : 'Hỏng'}
+                  <button onClick={() => setSelectedStatus('all')} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+                </span>
+              )}
+              {statFilter && (
+                <span className="bg-teal-50 border border-teal-200 text-teal-950 px-2.5 py-1 text-xs font-black rounded-none flex items-center gap-1.5 uppercase tracking-wider">
+                  {statFilter === 'eq_maintenance' ? 'Lỗi/Sự cố' : statFilter === 'eq_overdue' ? 'Đến hạn bảo trì' : 'Lọc chỉ số'}
+                  <button onClick={() => setStatFilter(null)} className="text-teal-600 hover:text-teal-900 font-bold">✕</button>
+                </span>
+              )}
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedStatus('all');
+                  setSelectedGroupFilter('all');
+                  setStatFilter(null);
+                }}
+                className="text-xs font-bold text-teal-800 hover:underline hover:text-teal-900 uppercase tracking-widest ml-auto"
+              >
+                Đặt lại bộ lọc
+              </button>
+            </div>
           )}
-          {selectedGroupFilter !== 'all' && (
-            <span className="bg-slate-100 border border-slate-200 px-2.5 py-1 text-xs font-semibold rounded-none flex items-center gap-1.5">
-              Nhóm tác động: {GROUP_LABELS[selectedGroupFilter]}
-              <button onClick={() => setSelectedGroupFilter('all')} className="text-slate-400 hover:text-slate-655 font-bold">✕</button>
-            </span>
-          )}
-          {selectedStatus !== 'all' && (
-            <span className="bg-slate-100 border border-slate-200 px-2.5 py-1 text-xs font-semibold rounded-none flex items-center gap-1.5">
-              Trạng thái: {selectedStatus === 'san_sang' ? 'Hoạt động bình thường' : selectedStatus === 'dang_su_dung' ? 'Đang sử dụng' : selectedStatus === 'dang_bao_tri' ? 'Đang bảo trì' : 'Hỏng'}
-              <button onClick={() => setSelectedStatus('all')} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
-            </span>
-          )}
-          {statFilter && (
-            <span className="bg-teal-50 border border-teal-200 text-teal-950 px-2.5 py-1 text-xs font-black rounded-none flex items-center gap-1.5 uppercase tracking-wider">
-              {statFilter === 'eq_maintenance' ? 'Lỗi/Sự cố' : statFilter === 'eq_overdue' ? 'Đến hạn bảo trì' : 'Lọc chỉ số'}
-              <button onClick={() => setStatFilter(null)} className="text-teal-600 hover:text-teal-900 font-bold">✕</button>
-            </span>
-          )}
-          <button
-            onClick={() => {
-              setSearchQuery('');
-              setSelectedStatus('all');
-              setSelectedGroupFilter('all');
-              setStatFilter(null);
-            }}
-            className="text-xs font-bold text-teal-800 hover:underline hover:text-teal-900 uppercase tracking-widest ml-auto"
-          >
-            Đặt lại bộ lọc
-          </button>
-        </div>
+        </>
       )}
 
       {loading ? (
@@ -575,7 +748,7 @@ export default function ManageEquipment() {
           <div className="w-12 h-12 border-2 border-teal-800 border-t-transparent animate-spin rounded-none mb-4"></div>
           <p className="font-bold text-xs tracking-widest uppercase text-slate-500">Đang truy vấn danh mục thiết bị...</p>
         </div>
-      ) : (
+      ) : activeTab === 'equipment' ? (
         <div className="space-y-4 animate-[fadeIn_0.3s_ease-out]">
 
           {/* Accordion List for the 5 categories */}
@@ -659,17 +832,11 @@ export default function ManageEquipment() {
                                 <td className="p-3">
                                   <div className="flex items-center gap-2">
                                     <span className="font-extrabold text-slate-800">{eq.ten_thiet_bi}</span>
-                                    {eq.so_lan_su_dung !== undefined && eq.nguong_canh_bao && eq.so_lan_su_dung >= eq.nguong_canh_bao && eq.trang_thai === 'san_sang' && (
-                                      <span className="bg-amber-100 text-amber-800 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider border border-amber-200">
-                                        ⚠️ Cần bảo trì
-                                      </span>
-                                    )}
                                   </div>
                                   <div className="flex gap-2 text-[10px] text-slate-400 mt-0.5">
                                     {eq.so_lan_su_dung !== undefined && (
                                       <span className="font-semibold">
-                                        Đã dùng: <strong className="text-slate-655 font-bold">{eq.so_lan_su_dung}</strong>
-                                        {eq.nguong_bat_buoc_bao_tri ? ` / ${eq.nguong_bat_buoc_bao_tri}` : ''} lần
+                                        Đã dùng: <strong className="text-slate-655 font-bold">{eq.so_lan_su_dung}</strong> lần
                                       </span>
                                     )}
                                     {eq.ghi_chu && <span className="border-l border-slate-200 pl-2 italic">{eq.ghi_chu}</span>}
@@ -682,9 +849,11 @@ export default function ManageEquipment() {
                                         ? 'bg-cyan-50 text-cyan-700 border-cyan-200'
                                         : eq.trang_thai === 'dang_bao_tri'
                                           ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                          : 'bg-rose-50 text-rose-700 border-rose-200'
+                                          : eq.trang_thai === 'ngung_su_dung'
+                                            ? 'bg-slate-100 text-slate-600 border-slate-300'
+                                            : 'bg-rose-50 text-rose-700 border-rose-200'
                                     }`}>
-                                    {eq.trang_thai === 'san_sang' ? 'Hoạt động' : eq.trang_thai === 'dang_su_dung' ? 'Đang chạy' : eq.trang_thai === 'dang_bao_tri' ? 'Bảo trì' : 'Hỏng/Sự cố'}
+                                    {eq.trang_thai === 'san_sang' ? 'Hoạt động' : eq.trang_thai === 'dang_su_dung' ? 'Đang chạy' : eq.trang_thai === 'dang_bao_tri' ? 'Bảo trì' : eq.trang_thai === 'ngung_su_dung' ? 'Ngưng dùng' : 'Hỏng/Sự cố'}
                                   </span>
                                 </td>
                                 <td className="p-3">
@@ -711,7 +880,9 @@ export default function ManageEquipment() {
                                       )}
                                     </div>
                                   ) : (
-                                    <span className="text-xs text-slate-400 italic">Đang rảnh (Bể chung)</span>
+                                    <span className="text-xs font-semibold text-slate-500">
+                                      🟢 Sẵn sàng {eq.phong_id_hien_tai && eq.ten_phong ? `(Phòng: ${eq.ma_phong || ''} - ${eq.ten_phong})` : '(Bể chung / Kho)'}
+                                    </span>
                                   )}
                                 </td>
                                 <td className="p-3 pr-6 text-right">
@@ -728,7 +899,7 @@ export default function ManageEquipment() {
                                     <button
                                       onClick={() => handleDeleteEquipment(eq.id)}
                                       className="p-1 text-slate-400 hover:text-rose-600 transition-colors"
-                                      title="Xóa thiết bị"
+                                      title="Ngưng sử dụng"
                                     >
                                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -747,6 +918,57 @@ export default function ManageEquipment() {
               );
             });
           })()}
+        </div>
+      ) : (
+        /* Equipment Types Tab */
+        <div className="bg-white border border-slate-200/80 p-6 space-y-6 animate-[fadeIn_0.3s_ease-out]">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-lg font-bold text-slate-800">Danh mục thiết bị ({equipmentTypes.length})</h3>
+              <p className="text-xs text-slate-500">Định nghĩa danh sách các loại máy điều trị & giường để chọn nhanh khi khai báo thiết bị hoặc cấu hình dịch vụ.</p>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse border border-slate-200/60">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                  <th className="p-3 pl-6">ID</th>
+                  <th className="p-3">Tên danh mục thiết bị</th>
+                  <th className="p-3 text-right pr-6">Hành động</th>
+                </tr>
+              </thead>
+              <tbody>
+                {equipmentTypes.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="p-8 text-center text-slate-400 text-sm font-medium">
+                      Chưa có loại thiết bị nào được định nghĩa.
+                    </td>
+                  </tr>
+                ) : (
+                  equipmentTypes.map((type) => (
+                    <tr key={type.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
+                      <td className="p-3 pl-6 text-xs font-bold text-slate-400">#{type.id}</td>
+                      <td className="p-3 text-sm font-extrabold text-slate-800">{type.ten_loai}</td>
+                      <td className="p-3 pr-6 text-right">
+                        <div className="flex justify-end gap-2 items-center">
+                          <button
+                            onClick={() => handleOpenTypeModal(type)}
+                            className="p-1 text-slate-400 hover:text-teal-800 transition-colors"
+                            title="Sửa danh mục"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -783,19 +1005,22 @@ export default function ManageEquipment() {
             <form onSubmit={handleEquipmentSubmit} className="p-6 space-y-5 overflow-y-auto flex-1 text-slate-800">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Phân loại (Nhóm tác động)</label>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Nhóm tác động</label>
                   <select
                     value={formGroup}
                     onChange={(e) => {
                       const g = e.target.value;
                       setFormGroup(g);
-                      const loai = getLoaiThietBiFromGroup(g);
-                      const compRooms = getCompatibleRooms(loai);
+                      const defaultType = (derivedGroupTypes[g] || [])[0] || '';
+                      setFormDeviceType(defaultType);
+                      
+                      const compRooms = getCompatibleRooms(defaultType);
                       const defaultRoomId = compRooms.length > 0 ? compRooms[0].id : '';
                       const isCurrentCompatible = compRooms.some(r => r.id.toString() === equipmentFormData.phong_id_hien_tai.toString());
+                      
                       setEquipmentFormData(prev => ({
                         ...prev,
-                        loai_thiet_bi: loai,
+                        loai_thiet_bi: defaultType,
                         phong_id_hien_tai: isCurrentCompatible ? prev.phong_id_hien_tai : defaultRoomId
                       }));
                     }}
@@ -807,6 +1032,25 @@ export default function ManageEquipment() {
                   </select>
                 </div>
 
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Danh mục thiết bị</label>
+                  <select
+                    value={formDeviceType}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFormDeviceType(val);
+                      setEquipmentFormData(prev => ({ ...prev, loai_thiet_bi: val }));
+                    }}
+                    className="w-full border-2 border-slate-200 bg-slate-50 hover:bg-white focus:bg-white p-3 text-sm font-bold rounded-none focus:outline-none focus:border-slate-950 transition-all"
+                  >
+                    {(derivedGroupTypes[formGroup] || []).map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {editingEquipment ? (
                   <div>
                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Trạng thái kỹ thuật</label>
@@ -818,7 +1062,8 @@ export default function ManageEquipment() {
                       <option value="san_sang">Hoạt động bình thường</option>
                       <option value="dang_su_dung">Đang sử dụng</option>
                       <option value="dang_bao_tri">Đang sửa chữa / Bảo trì</option>
-                      <option value="hong">Hỏng hoàn toàn / Ngưng sử dụng</option>
+                      <option value="hong">Hỏng hoàn toàn / Trục trặc</option>
+                      <option value="ngung_su_dung">Ngưng sử dụng</option>
                     </select>
                   </div>
                 ) : (
@@ -865,45 +1110,7 @@ export default function ManageEquipment() {
                 />
               </div>
 
-              {/* Config card section */}
-              <div className="border-2 border-slate-200 p-4 space-y-4 bg-slate-50 rounded-none">
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block border-b border-slate-200 pb-2">⚙️ Cấu hình Vận hành & Bảo trì</span>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Ngưỡng cảnh báo (lần dùng)</label>
-                    <input
-                      type="number"
-                      min={1}
-                      value={equipmentFormData.nguong_canh_bao}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setEquipmentFormData({ 
-                          ...equipmentFormData, 
-                          nguong_canh_bao: val === '' ? '' : parseInt(val) || 0 
-                        });
-                      }}
-                      className="w-full border-2 border-slate-200 bg-white p-3 text-sm font-bold rounded-none focus:outline-none focus:border-slate-950 transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Bắt buộc bảo trì (lần dùng)</label>
-                    <input
-                      type="number"
-                      min={1}
-                      value={equipmentFormData.nguong_bat_buoc_bao_tri}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setEquipmentFormData({ 
-                          ...equipmentFormData, 
-                          nguong_bat_buoc_bao_tri: val === '' ? '' : parseInt(val) || 0 
-                        });
-                      }}
-                      className="w-full border-2 border-slate-200 bg-white p-3 text-sm font-bold rounded-none focus:outline-none focus:border-slate-950 transition-all"
-                    />
-                  </div>
-                </div>
-              </div>
 
               <div>
                 <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Nhật ký sự cố / Ghi chú kỹ thuật</label>
@@ -923,7 +1130,7 @@ export default function ManageEquipment() {
                     onClick={() => handleDeleteEquipment(editingEquipment.id)}
                     className="mr-auto px-4 py-2 border border-rose-600 text-rose-600 text-xs font-bold uppercase tracking-wider rounded-none hover:bg-rose-50 transition-all active:scale-95"
                   >
-                    Xóa máy
+                    Ngưng sử dụng
                   </button>
                 )}
                 <button
@@ -938,6 +1145,66 @@ export default function ManageEquipment() {
                   className="px-6 py-2 bg-teal-800 hover:bg-teal-950 text-white text-xs font-black uppercase tracking-wider transition-all rounded-none active:scale-95"
                 >
                   {editingEquipment ? 'Lưu thông tin' : 'Thêm thiết bị'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CREATE / EDIT EQUIPMENT TYPE */}
+      {isTypeModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-[fadeIn_0.2s_ease-out]">
+          <div className="bg-white border-2 border-slate-950 shadow-[0_24px_60px_rgba(0,0,0,0.18)] max-w-md w-full flex flex-col overflow-hidden rounded-none">
+            {/* Modal Header */}
+            <div className="border-b-2 border-slate-950 bg-slate-950 text-white px-6 py-4 flex justify-between items-center flex-shrink-0">
+              <div>
+                <span className="text-[10px] font-black text-teal-400 uppercase tracking-widest block mb-0.5">
+                  Danh mục thiết bị
+                </span>
+                <h3 className="font-extrabold text-sm uppercase tracking-wider flex items-center gap-2">
+                  {editingType ? 'Cập nhật danh mục thiết bị' : 'Thêm danh mục thiết bị mới'}
+                </h3>
+              </div>
+              <button 
+                onClick={() => setIsTypeModalOpen(false)} 
+                className="text-slate-400 hover:text-white transition-colors p-1"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <form onSubmit={handleTypeSubmit} className="p-6 space-y-5 flex-1 text-slate-800">
+              <div>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Tên loại thiết bị</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ví dụ: Tác động điện, Tác động nhiệt..."
+                  value={typeFormData.ten_loai}
+                  onChange={(e) => setTypeFormData({ ...typeFormData, ten_loai: e.target.value })}
+                  className="w-full border-2 border-slate-200 bg-slate-50 hover:bg-white focus:bg-white p-3 text-sm font-bold rounded-none focus:outline-none focus:border-slate-950 transition-all placeholder-slate-400"
+                />
+              </div>
+
+
+
+              <div className="flex gap-3 justify-end pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsTypeModalOpen(false)}
+                  className="px-4 py-2 border border-slate-200 text-slate-500 text-xs font-bold uppercase tracking-wider rounded-none hover:bg-slate-50 transition-all"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-teal-800 hover:bg-teal-950 text-white text-xs font-black uppercase tracking-wider transition-all rounded-none active:scale-95"
+                >
+                  {editingType ? 'Lưu thay đổi' : 'Thêm mới'}
                 </button>
               </div>
             </form>

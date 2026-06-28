@@ -35,15 +35,15 @@ async function seedPTClinic() {
     // 2. Insert professional clinic rooms (designed by a PT consultant)
     console.log("Seeding professional clinic rooms...");
     const roomInsertQuery = `
-      INSERT INTO phong (id, ten_phong, ma_phong, loai_phong, mo_ta, trang_thai, tang, so_luong_giuong) VALUES
-      (1, 'Phòng Lượng Giá & Khám Lâm Sàng 1', 'P101', 'kham_benh', 'Phòng chẩn đoán lâm sàng của BS. Khoa', 'san_sang', 'Tầng 1', 1),
-      (2, 'Phòng Lượng Giá & Khám Lâm Sàng 2', 'P102', 'kham_benh', 'Phòng chẩn đoán cột sống & tư thế của BS. Lan Anh', 'san_sang', 'Tầng 1', 1),
-      (3, 'Phòng Tập Vận Động Trị Liệu & PHCN', 'P201', 'phong_tap_phcn', 'Khu vực tập vận động tích cực, tập dáng đi và thăng bằng', 'san_sang', 'Tầng 2', 4),
-      (4, 'Phòng Điện Trị Liệu & Laser Công Suất Cao', 'P301', 'phong_tri_lieu_chuan', 'Phòng máy vật lý trị liệu giảm sưng viêm', 'san_sang', 'Tầng 3', 3),
-      (5, 'Phòng Kéo Giãn Giải Áp & Từ Trường', 'P302', 'phong_tri_lieu_chuan', 'Phòng điều trị thoái vị đĩa đệm, giải áp cột sống', 'san_sang', 'Tầng 3', 3),
-      (6, 'Phòng Trị Liệu Bằng Sóng Cơ Học & Siêu Âm', 'P303', 'phong_tri_lieu_chuan', 'Shockwave và Ultrasound tập trung giải điểm đau', 'san_sang', 'Tầng 3', 2),
-      (7, 'Phòng Trị Liệu Cơ Xương Khớp Bằng Tay 1', 'P401', 'phong_tri_lieu_chuan', 'Khu vực nắn chỉnh, di động khớp và trị liệu bằng tay', 'san_sang', 'Tầng 4', 2),
-      (8, 'Phòng Trị Liệu Cơ Xương Khớp Bằng Tay 2', 'P402', 'phong_tri_lieu_chuan', 'Khu vực nắn chỉnh giải phóng màng cơ sâu', 'san_sang', 'Tầng 4', 2)
+      INSERT INTO phong (id, ten_phong, ma_phong, loai_phong, mo_ta, trang_thai, suc_chua) VALUES
+      (1, 'Phòng Lượng Giá & Khám Lâm Sàng 1', 'P101', 'kham_benh', 'Phòng chẩn đoán lâm sàng của BS. Khoa', 'san_sang', 1),
+      (2, 'Phòng Lượng Giá & Khám Lâm Sàng 2', 'P102', 'kham_benh', 'Phòng chẩn đoán cột sống & tư thế của BS. Lan Anh', 'san_sang', 1),
+      (3, 'Phòng Tập Vận Động Trị Liệu & PHCN', 'P201', 'phong_tap_phcn', 'Khu vực tập vận động tích cực, tập dáng đi và thăng bằng', 'san_sang', 4),
+      (4, 'Phòng Điện Trị Liệu & Laser Công Suất Cao', 'P301', 'phong_tri_lieu_chuan', 'Phòng máy vật lý trị liệu giảm sưng viêm', 'san_sang', 3),
+      (5, 'Phòng Kéo Giãn Giải Áp & Từ Trường', 'P302', 'phong_tri_lieu_chuan', 'Phòng điều trị thoái vị đĩa đệm, giải áp cột sống', 'san_sang', 3),
+      (6, 'Phòng Trị Liệu Bằng Sóng Cơ Học & Siêu Âm', 'P303', 'phong_tri_lieu_chuan', 'Shockwave và Ultrasound tập trung giải điểm đau', 'san_sang', 2),
+      (7, 'Phòng Trị Liệu Cơ Xương Khớp Bằng Tay 1', 'P401', 'phong_tri_lieu_chuan', 'Khu vực nắn chỉnh, di động khớp và trị liệu bằng tay', 'san_sang', 2),
+      (8, 'Phòng Trị Liệu Cơ Xương Khớp Bằng Tay 2', 'P402', 'phong_tri_lieu_chuan', 'Khu vực nắn chỉnh giải phóng màng cơ sâu', 'san_sang', 2)
     `;
     await client.query(roomInsertQuery);
 

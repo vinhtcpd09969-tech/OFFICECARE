@@ -383,9 +383,9 @@ export default function ManageAppointments() {
   ];
 
   const mockRooms = [
-    { id: "room_1", ten_phong: "Phòng Khám 01", loai_phong: "Lâm sàng", so_luong_giuong: 1 },
-    { id: "room_2", ten_phong: "Phòng Khám 02", loai_phong: "Lâm sàng", so_luong_giuong: 1 },
-    { id: "room_3", ten_phong: "Phòng Trị Liệu 03", loai_phong: "Trị liệu", so_luong_giuong: 5 }
+    { id: "room_1", ten_phong: "Phòng Khám 01", loai_phong: "Lâm sàng", suc_chua: 1 },
+    { id: "room_2", ten_phong: "Phòng Khám 02", loai_phong: "Lâm sàng", suc_chua: 1 },
+    { id: "room_3", ten_phong: "Phòng Trị Liệu 03", loai_phong: "Trị liệu", suc_chua: 5 }
   ];
 
   const mockSchedules = [
@@ -420,6 +420,8 @@ export default function ManageAppointments() {
     setAssignStaffId,
     assignRoomId,
     setAssignRoomId,
+    assignGiuongSo,
+    setAssignGiuongSo,
     assignStatus,
     setAssignStatus,
     isAssigning,
@@ -433,6 +435,8 @@ export default function ManageAppointments() {
     setSelectedKtvId,
     selectedRoomId,
     setSelectedRoomId,
+    selectedGiuongSo,
+    setSelectedGiuongSo,
     treatmentDate,
     setTreatmentDate,
     treatmentTime,
@@ -1259,6 +1263,8 @@ export default function ManageAppointments() {
           activeRole={activeRole}
           assignRoomId={assignRoomId}
           setAssignRoomId={setAssignRoomId}
+          assignGiuongSo={assignGiuongSo}
+          setAssignGiuongSo={setAssignGiuongSo}
           assignStaffId={assignStaffId}
           setAssignStaffId={setAssignStaffId}
           assignStatus={assignStatus}
@@ -1290,6 +1296,8 @@ export default function ManageAppointments() {
           setSelectedKtvId={setSelectedKtvId}
           selectedRoomId={selectedRoomId}
           setSelectedRoomId={setSelectedRoomId}
+          selectedGiuongSo={selectedGiuongSo}
+          setSelectedGiuongSo={setSelectedGiuongSo}
           treatmentDate={treatmentDate}
           setTreatmentDate={setTreatmentDate}
           treatmentTime={treatmentTime}
@@ -1306,6 +1314,7 @@ export default function ManageAppointments() {
           staffList={staffToUse}
           appointments={appointmentsToUse}
           schedulesList={schedulesToUse}
+          servicesList={services}
           onClose={() => setIsWalkInModalOpen(false)}
           onSubmitApi={handleBookWalkIn}
           bookingLoading={bookingLoading}

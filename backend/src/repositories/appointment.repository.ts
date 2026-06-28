@@ -74,6 +74,7 @@ class AppointmentRepository {
         ld.bac_si_id,
         ld.bac_si_id AS ky_thuat_vien_id,
         ld.phong_id,
+        NULL::integer AS giuong_so,
         p.ten_phong,
         hsba.chan_doan,
         hsba.chong_chi_dinh,
@@ -113,6 +114,7 @@ class AppointmentRepository {
         btl.ky_thuat_vien_id AS bac_si_id,
         btl.ky_thuat_vien_id AS ky_thuat_vien_id,
         btl.phong_id,
+        btl.giuong_so,
         p.ten_phong,
         hsba.chan_doan,
         hsba.chong_chi_dinh,
@@ -141,7 +143,7 @@ class AppointmentRepository {
   }
 
   async createAppointment(ma_lich_dat: string, data: any) {
-    const { khach_hang_id, ho_ten_khach, so_dien_thoai, gioi_tinh_khach, email, dich_vu_id, phong_id, ngay_gio_bat_dau, ngay_gio_ket_thuc, ghi_chu_dat_lich, ly_do_kham, loai_lich, dang_ky_goi_id } = data;
+    const { khach_hang_id, ho_ten_khach, so_dien_thoai, gioi_tinh_khach, email, dich_vu_id, phong_id, giuong_so, ngay_gio_bat_dau, ngay_gio_ket_thuc, ghi_chu_dat_lich, ly_do_kham, loai_lich, dang_ky_goi_id } = data;
     const bac_si_id = data.bac_si_id || data.chuyen_gia_id || data.ky_thuat_vien_id;
     const ky_thuat_vien_id = bac_si_id; // map back for buoi_tri_lieu if loai_lich === 'dieu_tri'
 
@@ -165,9 +167,9 @@ class AppointmentRepository {
       }
     }
 
-    // Kiểm tra trùng/quá tải phòng theo sức chứa tối đa
+    // Kiểm tra trùng/quá tải phòng hoặc trùng giường
     if (phong_id) {
-      const roomCapacityOverlap = await this.checkRoomCapacityOverlap(phong_id, ngay_gio_bat_dau, ngay_gio_ket_thuc);
+      const roomCapacityOverlap = await this.checkRoomCapacityOverlap(phong_id, ngay_gio_bat_dau, ngay_gio_ket_thuc, undefined, undefined, giuong_so ? Number(giuong_so) : null);
       if (roomCapacityOverlap) {
         const err: any = new Error('Phòng điều trị được chọn đã đạt giới hạn sức chứa giường trong khung giờ này.');
         err.constraint = 'no_overlap_phong';
@@ -272,10 +274,10 @@ class AppointmentRepository {
 
       // First treatment session should be 'cho_xac_nhan' initially, with optional KTV and Room
       const btlRes = await pool.query(`
-        INSERT INTO buoi_tri_lieu(lich_dieu_tri_id, khach_hang_id, ky_thuat_vien_id, phong_id, dich_vu_id, thoi_gian_bat_dau, thoi_gian_ket_thuc, trang_thai, so_thu_tu_buoi)
-        VALUES ($1, $2, $3, $4, $5, $6, 1, $7)
+        INSERT INTO buoi_tri_lieu(lich_dieu_tri_id, khach_hang_id, ky_thuat_vien_id, phong_id, giuong_so, dich_vu_id, thoi_gian_bat_dau, thoi_gian_ket_thuc, trang_thai, so_thu_tu_buoi)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1)
         RETURNING *
-      `, [ldtId, final_khach_hang_id, ky_thuat_vien_id || null, phong_id || null, target_dich_vu_id || null, ngay_gio_bat_dau, ngay_gio_ket_thuc, 'cho_xac_nhan']);
+      `, [ldtId, final_khach_hang_id, ky_thuat_vien_id || null, phong_id || null, giuong_so ? Number(giuong_so) : null, target_dich_vu_id || null, ngay_gio_bat_dau, ngay_gio_ket_thuc, 'cho_xac_nhan']);
 
       return btlRes.rows[0];
     } else {
@@ -320,7 +322,15 @@ class AppointmentRepository {
     const khach_hang_id = nguoi_dung_id || null;
 
     // Kiểm tra trùng lịch khách hàng theo ngày (Tối đa 1 lịch khám/ngày)
-    if (!dich_vu_id && (khach_hang_id || so_dien_thoai)) {
+    let isExamService = false;
+    if (dich_vu_id) {
+      const dvRes = await pool.query('SELECT danh_muc_id FROM dich_vu WHERE id = $1', [dich_vu_id]);
+      if (dvRes.rows.length > 0 && String(dvRes.rows[0].danh_muc_id) === '1') {
+        isExamService = true;
+      }
+    }
+
+    if ((!dich_vu_id || isExamService) && (khach_hang_id || so_dien_thoai)) {
       const hasClinicalExam = await this.checkCustomerHasClinicalExamOnDate(khach_hang_id, so_dien_thoai || null, dateStr);
       if (hasClinicalExam) {
         const [y, m, d] = dateStr.split('-');
@@ -412,7 +422,7 @@ class AppointmentRepository {
 
     // 3. Lấy danh sách tất cả các phòng sẵn sàng kèm sức chứa
     const roomQuery = `
-      SELECT id, so_luong_giuong FROM phong WHERE trang_thai = 'san_sang'
+      SELECT id, suc_chua FROM phong WHERE trang_thai = 'san_sang'
     `;
     const roomRes = await pool.query(roomQuery);
     const rooms = roomRes.rows;
@@ -517,7 +527,7 @@ class AppointmentRepository {
 
       const freeRooms = rooms.filter(r => {
         const usage = roomUsage[String(r.id)] || 0;
-        return usage < (r.so_luong_giuong || 1);
+        return usage < (r.suc_chua || 1);
       });
 
       // Khung giờ bị coi là HẾT CHỖ chỉ khi số ca chờ gán lớn hơn hoặc bằng số bác sĩ rảnh/phòng trống còn lại
@@ -535,6 +545,7 @@ class AppointmentRepository {
     chuyen_gia_id?: string | null; 
     ky_thuat_vien_id?: string | null; 
     phong_id?: string | number | null;
+    giuong_so?: number | null;
     ngay_gio_bat_dau?: string | null;
     ngay_gio_ket_thuc?: string | null;
     ghi_chu_noi_bo?: string | null;
@@ -547,11 +558,11 @@ class AppointmentRepository {
       let aptTime = null;
       let isBtl = false;
       
-      const ldRes = await pool.query('SELECT ngay_gio_bat_dau, ngay_gio_ket_thuc, bac_si_id, phong_id, dich_vu_id, khach_hang_id, so_dien_thoai FROM lich_dat WHERE id = $1', [id]);
+      const ldRes = await pool.query('SELECT ngay_gio_bat_dau, ngay_gio_ket_thuc, bac_si_id, phong_id, NULL::integer as giuong_so, dich_vu_id, khach_hang_id, so_dien_thoai FROM lich_dat WHERE id = $1', [id]);
       if (ldRes.rows.length > 0) {
         aptTime = ldRes.rows[0];
       } else {
-        const btlRes = await pool.query('SELECT thoi_gian_bat_dau as ngay_gio_bat_dau, thoi_gian_ket_thuc as ngay_gio_ket_thuc, ky_thuat_vien_id as bac_si_id, phong_id, dich_vu_id, khach_hang_id FROM buoi_tri_lieu WHERE id = $1', [id]);
+        const btlRes = await pool.query('SELECT thoi_gian_bat_dau as ngay_gio_bat_dau, thoi_gian_ket_thuc as ngay_gio_ket_thuc, ky_thuat_vien_id as bac_si_id, phong_id, giuong_so, dich_vu_id, khach_hang_id FROM buoi_tri_lieu WHERE id = $1', [id]);
         if (btlRes.rows.length > 0) {
           aptTime = btlRes.rows[0];
           isBtl = true;
@@ -561,6 +572,7 @@ class AppointmentRepository {
       if (aptTime) {
         const check_bac_si_id = final_bac_si_id !== undefined ? final_bac_si_id : aptTime.bac_si_id;
         const check_phong_id = data.phong_id !== undefined ? data.phong_id : aptTime.phong_id;
+        const check_giuong_so = data.giuong_so !== undefined ? data.giuong_so : aptTime.giuong_so;
         const check_dich_vu_id = aptTime.dich_vu_id;
         const check_khach_hang_id = aptTime.khach_hang_id;
         const check_so_dien_thoai = aptTime.so_dien_thoai || null;
@@ -605,7 +617,8 @@ class AppointmentRepository {
             start,
             end,
             isBtl ? undefined : id,
-            isBtl ? id : undefined
+            isBtl ? id : undefined,
+            check_giuong_so ? Number(check_giuong_so) : null
           );
           if (roomCapacityOverlap) {
             const err: any = new Error('Phòng điều trị được chọn đã đạt giới hạn sức chứa giường trong khung giờ này.');
@@ -645,6 +658,7 @@ class AppointmentRepository {
       ldValues.push(data.phong_id);
       ldParamIndex++;
     }
+    // giuong_so is not in lich_dat, so skip it here
     if (data.ngay_gio_bat_dau !== undefined) {
       ldUpdates.push(`ngay_gio_bat_dau = $${ldParamIndex}`);
       ldValues.push(data.ngay_gio_bat_dau);
@@ -687,6 +701,11 @@ class AppointmentRepository {
     if (data.phong_id !== undefined) {
       btlUpdates.push(`phong_id = $${btlParamIndex}`);
       btlValues.push(data.phong_id);
+      btlParamIndex++;
+    }
+    if (data.giuong_so !== undefined) {
+      btlUpdates.push(`giuong_so = $${btlParamIndex}`);
+      btlValues.push(data.giuong_so);
       btlParamIndex++;
     }
     if (data.ngay_gio_bat_dau !== undefined) {
@@ -853,14 +872,15 @@ class AppointmentRepository {
     if (!khach_hang_id && !so_dien_thoai) return false;
 
     const query = `
-      SELECT 1 FROM lich_dat
+      SELECT 1 FROM lich_dat ld
+      LEFT JOIN dich_vu dv ON ld.dich_vu_id = dv.id
       WHERE (
-        ($1::uuid IS NOT NULL AND khach_hang_id = $1::uuid)
-        OR ($2::text IS NOT NULL AND so_dien_thoai = $2::text)
+        ($1::uuid IS NOT NULL AND ld.khach_hang_id = $1::uuid)
+        OR ($2::text IS NOT NULL AND ld.so_dien_thoai = $2::text)
       )
-      AND dich_vu_id IS NULL
-      AND trang_thai NOT IN ('da_huy', 'hoan_thanh', 'khong_den')
-      AND DATE(ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh') = $3::date
+      AND (ld.dich_vu_id IS NULL OR dv.danh_muc_id = 1)
+      AND ld.trang_thai NOT IN ('da_huy', 'hoan_thanh', 'khong_den')
+      AND DATE(ld.ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh') = $3::date
       LIMIT 1
     `;
     const { rows } = await pool.query(query, [
@@ -937,10 +957,35 @@ class AppointmentRepository {
   }
 
   // Kiểm tra trùng/quá tải phòng theo sức chứa tối đa
-  async checkRoomCapacityOverlap(phong_id: string | number, start: string, end: string, excludeLichDatId?: string, excludeBuoiTriLieuId?: string): Promise<boolean> {
-    const roomRes = await pool.query('SELECT so_luong_giuong FROM phong WHERE id = $1', [phong_id]);
+  async checkRoomCapacityOverlap(
+    phong_id: string | number,
+    start: string,
+    end: string,
+    excludeLichDatId?: string,
+    excludeBuoiTriLieuId?: string,
+    giuong_so?: number | null
+  ): Promise<boolean> {
+    const roomRes = await pool.query('SELECT suc_chua FROM phong WHERE id = $1', [phong_id]);
     if (roomRes.rows.length === 0) return false;
-    const capacity = roomRes.rows[0].so_luong_giuong || 1;
+    const capacity = roomRes.rows[0].suc_chua || 1;
+
+    if (giuong_so) {
+      const query = `
+        SELECT COUNT(*)::int as count FROM buoi_tri_lieu
+        WHERE phong_id = $1 AND giuong_so = $4
+          AND trang_thai != 'da_huy'
+          AND ($5::text IS NULL OR id::text != $5::text)
+          AND thoi_gian_bat_dau < $3::timestamptz
+          AND (thoi_gian_ket_thuc IS NULL OR thoi_gian_ket_thuc > $2::timestamptz)
+      `;
+      const { rows } = await pool.query(query, [phong_id, start, end, giuong_so, excludeBuoiTriLieuId || null]);
+      if (rows[0].count > 0) {
+        const err: any = new Error(`Giường số ${giuong_so} của phòng này đã bận trong khung giờ được chọn.`);
+        err.constraint = 'no_overlap_phong';
+        throw err;
+      }
+      return false;
+    }
 
     const query = `
       SELECT COUNT(*)::int as count FROM (
@@ -990,7 +1035,9 @@ class AppointmentRepository {
           if (
             part !== '' &&
             part.toLowerCase() !== 'không có' &&
-            part.toLowerCase() !== 'không cần thiết bị'
+            part.toLowerCase() !== 'không cần thiết bị' &&
+            !part.toLowerCase().includes('giường') &&
+            !part.toLowerCase().includes('giuong')
           ) {
             requiredDevicesSet.add(part);
           }
@@ -1073,14 +1120,31 @@ class AppointmentRepository {
   ): Promise<void> {
     if (!dich_vu_id) return;
 
-    const serviceIds = [dich_vu_id];
+    let serviceIds: string[] = [];
+
+    // Check if the ID is a package
+    const pkgRes = await pool.query('SELECT id FROM goi_dich_vu WHERE id = $1', [dich_vu_id]);
+    if (pkgRes.rows.length > 0) {
+      // It is a package, get all linked techniques
+      const detailsRes = await pool.query(
+        'SELECT dich_vu_id FROM goi_dich_vu_chi_tiet WHERE goi_dich_vu_id = $1',
+        [dich_vu_id]
+      );
+      serviceIds = detailsRes.rows.map((row: any) => row.dich_vu_id).filter(Boolean);
+    } else {
+      // It is a single service
+      serviceIds = [dich_vu_id];
+    }
+
     if (excludeBuoiTriLieuId) {
       const subRes = await pool.query(
         'SELECT dich_vu_id FROM buoi_tri_lieu_dich_vu WHERE buoi_tri_lieu_id = $1',
         [excludeBuoiTriLieuId]
       );
       for (const row of subRes.rows) {
-        serviceIds.push(row.dich_vu_id);
+        if (!serviceIds.includes(row.dich_vu_id)) {
+          serviceIds.push(row.dich_vu_id);
+        }
       }
     }
 
@@ -1092,16 +1156,30 @@ class AppointmentRepository {
     newDichVuIds: string[]
   ): Promise<void> {
     const btlRes = await pool.query(
-      'SELECT thoi_gian_bat_dau, thoi_gian_ket_thuc, dich_vu_id FROM buoi_tri_lieu WHERE id = $1',
+      `SELECT btl.thoi_gian_bat_dau, btl.thoi_gian_ket_thuc, btl.dich_vu_id,
+              pkg.thoi_luong_buoi_phut, dv.thoi_luong_phut
+       FROM buoi_tri_lieu btl
+       LEFT JOIN dich_vu dv ON btl.dich_vu_id = dv.id
+       LEFT JOIN lich_dieu_tri ldt ON btl.lich_dieu_tri_id = ldt.id
+       LEFT JOIN ho_so_dieu_tri hsba ON ldt.ho_so_dieu_tri_id = hsba.id
+       LEFT JOIN goi_dich_vu pkg ON hsba.goi_dich_vu_id = pkg.id
+       WHERE btl.id = $1`,
       [buoi_tri_lieu_id]
     );
     if (btlRes.rows.length === 0) return;
-    const { thoi_gian_bat_dau, thoi_gian_ket_thuc, dich_vu_id } = btlRes.rows[0];
+    const { thoi_gian_bat_dau, thoi_gian_ket_thuc, dich_vu_id, thoi_luong_buoi_phut, thoi_luong_phut } = btlRes.rows[0];
 
     const start = new Date(thoi_gian_bat_dau).toISOString();
+    let durationMinutes = 30;
+    if (thoi_luong_buoi_phut) {
+      durationMinutes = thoi_luong_buoi_phut;
+    } else if (thoi_luong_phut) {
+      durationMinutes = thoi_luong_phut;
+    }
+
     const end = thoi_gian_ket_thuc
       ? new Date(thoi_gian_ket_thuc).toISOString()
-      : new Date(new Date(thoi_gian_bat_dau).getTime() + 30 * 60000).toISOString();
+      : new Date(new Date(thoi_gian_bat_dau).getTime() + durationMinutes * 60000).toISOString();
 
     const allServiceIds = [...newDichVuIds];
     if (dich_vu_id && !allServiceIds.includes(dich_vu_id)) {

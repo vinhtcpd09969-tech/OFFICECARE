@@ -7,9 +7,10 @@ export const createAppointmentSchema = z.object({
     so_dien_thoai: z.string().optional(),
     gioi_tinh_khach: z.string().optional(),
     email: z.string().optional(),
-    dich_vu_id: z.string().uuid('ID Dịch vụ không hợp lệ').optional().nullable(),
+    dich_vu_id: z.string().uuid('Dịch vụ/Lịch khám là bắt buộc'),
     bac_si_id: z.string().uuid('ID KTV không hợp lệ').optional().nullable(),
     phong_id: z.string().optional().nullable(),
+    giuong_so: z.union([z.string(), z.number()]).optional().nullable(),
     ngay_gio_bat_dau: z.string().datetime({ message: 'Ngày giờ bắt đầu không hợp lệ' }),
     ngay_gio_ket_thuc: z.string().datetime({ message: 'Ngày giờ kết thúc không hợp lệ' }),
     ghi_chu_dat_lich: z.string().optional(),
@@ -37,7 +38,7 @@ export const createPublicAppointmentSchema = z.object({
       .min(10, 'Mô tả triệu chứng phải có ít nhất 10 ký tự'),
     ly_do_kham: z.string().optional(),
     anh_dinh_kem_url: z.string().optional(),
-    dich_vu_id: z.string().uuid('ID Dịch vụ không hợp lệ').optional().nullable(),
+    dich_vu_id: z.string().uuid('Dịch vụ/Lịch khám là bắt buộc'),
   }).refine((data) => {
     const batDau = new Date(data.ngay_gio_bat_dau);
     const minTime = new Date(Date.now() + 60 * 60 * 1000);
@@ -61,6 +62,7 @@ export const updateAppointmentStatusSchema = z.object({
     chuyen_gia_id: z.string().uuid('ID Chuyên gia không hợp lệ').optional().nullable(),
     ky_thuat_vien_id: z.string().uuid('ID Kỹ thuật viên không hợp lệ').optional().nullable(),
     phong_id: z.union([z.string(), z.number()]).optional().nullable(),
+    giuong_so: z.union([z.string(), z.number()]).optional().nullable(),
     ngay_gio_bat_dau: z.string().datetime({ message: 'Ngày giờ bắt đầu không hợp lệ' }).optional().nullable(),
     ngay_gio_ket_thuc: z.string().datetime({ message: 'Ngày giờ kết thúc không hợp lệ' }).optional().nullable(),
     ly_do_huy: z.string().optional().nullable(),

@@ -4,7 +4,7 @@ import { ALL_DEVICES } from '../constants';
 
 interface ServiceFormModalProps {
   isOpen: boolean;
-  selectedType: 'chinh' | 'bo_sung';
+  selectedType: 'ky_thuat' | 'don_le';
   categories: Category[];
   services: Service[];
   editingService: Service | null;
@@ -49,7 +49,7 @@ export function ServiceFormModal({
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-primary animate-ping"></span>
             <h3 className="text-sm font-bold font-heading tracking-wide uppercase">
-              {editingService ? `[CHỈNH SỬA] ${selectedType === 'chinh' ? 'KỸ THUẬT NỘI BỘ' : 'DỊCH VỤ ĐƠN LẺ'}` : `[THÊM MỚI] ${selectedType === 'chinh' ? 'KỸ THUẬT NỘI BỘ' : 'DỊCH VỤ ĐƠN LẺ'}`}
+              {editingService ? `[CHỈNH SỬA] ${selectedType === 'ky_thuat' ? 'KỸ THUẬT' : 'DỊCH VỤ ĐƠN LẺ'}` : `[THÊM MỚI] ${selectedType === 'ky_thuat' ? 'KỸ THUẬT' : 'DỊCH VỤ ĐƠN LẺ'}`}
             </h3>
           </div>
           <button 
@@ -71,11 +71,11 @@ export function ServiceFormModal({
               
               <div>
                 <label className="block font-bold text-zinc-550 mb-1.5 uppercase tracking-wider">
-                  {selectedType === 'chinh' ? 'TÊN KỸ THUẬT Y KHOA NỘI BỘ *' : 'TÊN DỊCH VỤ LẺ BỔ TRỢ *'}
+                  {selectedType === 'ky_thuat' ? 'TÊN KỸ THUẬT *' : 'TÊN DỊCH VỤ ĐƠN LẺ *'}
                 </label>
                 <input 
                   {...register('ten_dich_vu')} 
-                  placeholder={selectedType === 'chinh' ? "Nhập tên kỹ thuật nội bộ (Ví dụ: Giải cơ sâu vùng vai)..." : "Nhập tên dịch vụ lẻ (Ví dụ: Khám lượng giá cột sống)..."}
+                  placeholder={selectedType === 'ky_thuat' ? "Nhập tên kỹ thuật (Ví dụ: Giải cơ sâu vùng vai)..." : "Nhập tên dịch vụ đơn lẻ (Ví dụ: Khám lượng giá cột sống)..."}
                   className="w-full px-3.5 py-2 bg-white border border-zinc-200 rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all font-semibold text-secondary text-sm placeholder-zinc-300 shadow-sm"
                 />
                 {errors.ten_dich_vu && (
@@ -102,7 +102,7 @@ export function ServiceFormModal({
                 )}
               </div>
 
-              {selectedType === 'bo_sung' && (
+              {selectedType === 'don_le' && (
                 <div>
                   <label className="block font-bold text-zinc-500 mb-1.5 uppercase tracking-wider">DANH MỤC CHUYÊN KHOA *</label>
                   <select 
@@ -122,7 +122,7 @@ export function ServiceFormModal({
             </div>
 
             {/* HỘP 2: CẤU HÌNH LÂM SÀNG & CHI PHÍ */}
-            {selectedType === 'bo_sung' && (
+            {selectedType === 'don_le' && (
               <div className="p-4 border border-zinc-200 rounded-2xl bg-zinc-50/30 space-y-4">
                 <h4 className="text-[10px] font-bold text-primary uppercase tracking-wider border-b border-zinc-150 pb-2">HỘP 2: CẤU HÌNH LÂM SÀNG & CHI PHÍ</h4>
                 
@@ -207,7 +207,7 @@ export function ServiceFormModal({
             )}
 
             {/* HỘP 2 FOR CLINICAL TECHNIQUE (Only shows device, hides price & duration) */}
-            {selectedType === 'chinh' && (
+            {selectedType === 'ky_thuat' && (
               <div className="p-4 border border-zinc-200 rounded-2xl bg-zinc-50/30 space-y-4">
                 <h4 className="text-[10px] font-bold text-primary uppercase tracking-wider border-b border-zinc-150 pb-2">HỘP 2: CÔNG CỤ TRỊ LIỆU</h4>
 

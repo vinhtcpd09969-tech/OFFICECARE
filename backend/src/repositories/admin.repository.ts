@@ -29,35 +29,39 @@ class AdminRepository {
   }
 
   async createRoom(data: any) {
+    const isKhamBenh = data.loai_phong === 'kham_benh' || data.loai_phong === 'phong_kham';
+    const finalGiuong = isKhamBenh ? 1 : (data.suc_chua !== undefined ? Number(data.suc_chua) : 1);
+    
     const { rows } = await pool.query(
-      `INSERT INTO phong (ten_phong, ma_phong, loai_phong, mo_ta, trang_thai, tang, so_luong_giuong)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      `INSERT INTO phong (ten_phong, ma_phong, loai_phong, mo_ta, trang_thai, suc_chua)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
       [
         data.ten_phong,
         data.ma_phong,
         data.loai_phong || 'phong_tri_lieu_chuan',
         data.mo_ta || null,
         data.trang_thai || 'san_sang',
-        data.tang || 'Tang 1',
-        data.so_luong_giuong !== undefined ? Number(data.so_luong_giuong) : 1
+        finalGiuong
       ]
     );
     return rows[0];
   }
 
   async updateRoom(id: string | number, data: any) {
+    const isKhamBenh = data.loai_phong === 'kham_benh' || data.loai_phong === 'phong_kham';
+    const finalGiuong = isKhamBenh ? 1 : (data.suc_chua !== undefined ? Number(data.suc_chua) : 1);
+
     const { rows } = await pool.query(
       `UPDATE phong 
-       SET ten_phong = $1, ma_phong = $2, loai_phong = $3, mo_ta = $4, trang_thai = $5, tang = $6, so_luong_giuong = $7
-       WHERE id = $8 RETURNING *`,
+       SET ten_phong = $1, ma_phong = $2, loai_phong = $3, mo_ta = $4, trang_thai = $5, suc_chua = $6
+       WHERE id = $7 RETURNING *`,
       [
         data.ten_phong,
         data.ma_phong,
         data.loai_phong,
         data.mo_ta || null,
         data.trang_thai,
-        data.tang || null,
-        data.so_luong_giuong !== undefined ? Number(data.so_luong_giuong) : 1,
+        finalGiuong,
         id
       ]
     );
@@ -107,20 +111,17 @@ class AdminRepository {
 
   async createService(data: any) {
     const { rows } = await pool.query(
-      `INSERT INTO dich_vu (danh_muc_id, ten_dich_vu, mo_ta_ngan, thoi_luong_phut, don_gia, thiet_bi_yeu_cau, trang_thai, loai_dich_vu, hien_thi_website, mo_ta_chi_tiet, loai_dich_vu_ho_tro) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *, thoi_luong_phut as thoi_gian_uoc_tinh`,
+      `INSERT INTO dich_vu (danh_muc_id, ten_dich_vu, mo_ta, thoi_luong_phut, don_gia, thiet_bi_yeu_cau, trang_thai, loai_dich_vu) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *, thoi_luong_phut as thoi_gian_uoc_tinh`,
       [
         data.danh_muc_id,
         data.ten_dich_vu,
         data.mo_ta || null,
-        data.thoi_gian_uoc_tinh,
-        data.don_gia || 0,
+        data.thoi_gian_uoc_tinh || null,
+        data.don_gia || null,
         data.thiet_bi_yeu_cau || null,
         data.trang_thai,
-        data.loai_dich_vu || 'chinh',
-        data.hien_thi_website !== undefined ? data.hien_thi_website : true,
-        data.mo_ta_chi_tiet || null,
-        data.loai_dich_vu_ho_tro ? (typeof data.loai_dich_vu_ho_tro === 'string' ? data.loai_dich_vu_ho_tro : JSON.stringify(data.loai_dich_vu_ho_tro)) : '[]'
+        data.loai_dich_vu || 'ky_thuat'
       ]
     );
     return rows[0];
@@ -129,20 +130,17 @@ class AdminRepository {
   async updateService(id: string, data: any) {
     const { rows } = await pool.query(
       `UPDATE dich_vu 
-       SET danh_muc_id = $1, ten_dich_vu = $2, mo_ta_ngan = $3, thoi_luong_phut = $4, don_gia = $5, thiet_bi_yeu_cau = $6, trang_thai = $7, loai_dich_vu = $8, hien_thi_website = $9, mo_ta_chi_tiet = $10, loai_dich_vu_ho_tro = $11
-       WHERE id = $12 RETURNING *, thoi_luong_phut as thoi_gian_uoc_tinh`,
+       SET danh_muc_id = $1, ten_dich_vu = $2, mo_ta = $3, thoi_luong_phut = $4, don_gia = $5, thiet_bi_yeu_cau = $6, trang_thai = $7, loai_dich_vu = $8
+       WHERE id = $9 RETURNING *, thoi_luong_phut as thoi_gian_uoc_tinh`,
       [
         data.danh_muc_id,
         data.ten_dich_vu,
         data.mo_ta || null,
-        data.thoi_gian_uoc_tinh,
-        data.don_gia || 0,
+        data.thoi_gian_uoc_tinh || null,
+        data.don_gia || null,
         data.thiet_bi_yeu_cau || null,
         data.trang_thai,
-        data.loai_dich_vu || 'chinh',
-        data.hien_thi_website !== undefined ? data.hien_thi_website : true,
-        data.mo_ta_chi_tiet || null,
-        data.loai_dich_vu_ho_tro ? (typeof data.loai_dich_vu_ho_tro === 'string' ? data.loai_dich_vu_ho_tro : JSON.stringify(data.loai_dich_vu_ho_tro)) : '[]',
+        data.loai_dich_vu || 'ky_thuat',
         id
       ]
     );
@@ -161,9 +159,6 @@ class AdminRepository {
                JSON_AGG(
                  JSON_BUILD_OBJECT(
                    'dich_vu_id', ct.dich_vu_id,
-                   'so_buoi', ct.so_buoi_trong_goi,
-                   'so_lan_toi_da_trong_goi', ct.so_lan_toi_da_trong_goi,
-                   'bat_buoc', ct.bat_buoc,
                    'thu_tu_thuc_hien', ct.thu_tu_thuc_hien,
                    'ten_dich_vu', dv.ten_dich_vu,
                    'don_gia', dv.don_gia
@@ -187,39 +182,31 @@ class AdminRepository {
     try {
       await client.query('BEGIN');
       const { rows } = await client.query(
-        `INSERT INTO goi_dich_vu (ten_goi, ma_goi, mo_ta, tong_so_buoi, gia_goi, han_dung_thang, hien_thi_website, trang_thai, danh_muc_id, loai_goi, so_dv_toi_da_moi_buoi, phan_tram_giam_tra_thang, phan_tram_giam_tra_gop) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *, gia_goi as gia_tien`,
+        `INSERT INTO goi_dich_vu (ten_goi, ma_goi, mo_ta, tong_so_buoi, thoi_luong_buoi_phut, gia_goi, gia_goc, han_dung_thang, trang_thai, danh_muc_id) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *, gia_goi as gia_tien`,
         [
           data.ten_goi, 
           ma_goi, 
           data.mo_ta || null, 
           data.tong_so_buoi, 
+          data.thoi_luong_buoi_phut || 60,
           data.gia_tien, 
+          data.gia_goc || null,
           data.han_dung_thang || 6, 
-          data.hien_thi_website !== undefined ? data.hien_thi_website : true, 
           data.trang_thai, 
-          data.danh_muc_id || null, 
-          data.loai_goi || 'lieu_trinh',
-          data.so_dv_toi_da_moi_buoi || 5,
-          data.phan_tram_giam_tra_thang !== undefined ? Number(data.phan_tram_giam_tra_thang) : 10,
-          data.phan_tram_giam_tra_gop !== undefined ? Number(data.phan_tram_giam_tra_gop) : 5
+          data.danh_muc_id || null
         ]
       );
       const packageId = rows[0].id;
 
       if (data.chi_tiet_dich_vu && Array.isArray(data.chi_tiet_dich_vu)) {
         for (const item of data.chi_tiet_dich_vu) {
-          const so_buoi = item.so_buoi || item.so_lan_toi_da_trong_goi || data.tong_so_buoi;
-          const so_lan_toi_da_trong_goi = item.so_lan_toi_da_trong_goi || item.so_buoi || data.tong_so_buoi;
           await client.query(
-            `INSERT INTO goi_dich_vu_chi_tiet (goi_dich_vu_id, dich_vu_id, so_buoi_trong_goi, so_lan_toi_da_trong_goi, bat_buoc, thu_tu_thuc_hien) 
-             VALUES ($1, $2, $3, $4, $5, $6)`,
+            `INSERT INTO goi_dich_vu_chi_tiet (goi_dich_vu_id, dich_vu_id, thu_tu_thuc_hien) 
+             VALUES ($1, $2, $3)`,
             [
               packageId, 
               item.dich_vu_id, 
-              so_buoi, 
-              so_lan_toi_da_trong_goi, 
-              item.bat_buoc !== undefined ? item.bat_buoc : false, 
               item.thu_tu_thuc_hien || 0
             ]
           );
@@ -243,24 +230,20 @@ class AdminRepository {
       await client.query('BEGIN');
       const { rows } = await client.query(
         `UPDATE goi_dich_vu 
-         SET ten_goi = $1, ma_goi = $2, mo_ta = $3, tong_so_buoi = $4, gia_goi = $5, 
-             han_dung_thang = $6, hien_thi_website = $7, trang_thai = $8, danh_muc_id = $9, loai_goi = $10, so_dv_toi_da_moi_buoi = $11,
-             phan_tram_giam_tra_thang = $12, phan_tram_giam_tra_gop = $13
-         WHERE id = $14 RETURNING *, gia_goi as gia_tien`,
+         SET ten_goi = $1, ma_goi = $2, mo_ta = $3, tong_so_buoi = $4, thoi_luong_buoi_phut = $5, 
+             gia_goi = $6, gia_goc = $7, han_dung_thang = $8, trang_thai = $9, danh_muc_id = $10
+         WHERE id = $11 RETURNING *, gia_goi as gia_tien`,
         [
           data.ten_goi, 
           data.ma_goi, 
           data.mo_ta || null, 
           data.tong_so_buoi, 
+          data.thoi_luong_buoi_phut || 60,
           data.gia_tien, 
+          data.gia_goc || null,
           data.han_dung_thang || 6, 
-          data.hien_thi_website !== undefined ? data.hien_thi_website : true, 
           data.trang_thai, 
           data.danh_muc_id || null, 
-          data.loai_goi || 'lieu_trinh', 
-          data.so_dv_toi_da_moi_buoi || 5,
-          data.phan_tram_giam_tra_thang !== undefined ? Number(data.phan_tram_giam_tra_thang) : 10,
-          data.phan_tram_giam_tra_gop !== undefined ? Number(data.phan_tram_giam_tra_gop) : 5,
           id
         ]
       );
@@ -271,17 +254,12 @@ class AdminRepository {
       // Thêm lại chi tiết mới
       if (data.chi_tiet_dich_vu && Array.isArray(data.chi_tiet_dich_vu)) {
         for (const item of data.chi_tiet_dich_vu) {
-          const so_buoi = item.so_buoi || item.so_lan_toi_da_trong_goi || data.tong_so_buoi;
-          const so_lan_toi_da_trong_goi = item.so_lan_toi_da_trong_goi || item.so_buoi || data.tong_so_buoi;
           await client.query(
-            `INSERT INTO goi_dich_vu_chi_tiet (goi_dich_vu_id, dich_vu_id, so_buoi_trong_goi, so_lan_toi_da_trong_goi, bat_buoc, thu_tu_thuc_hien) 
-             VALUES ($1, $2, $3, $4, $5, $6)`,
+            `INSERT INTO goi_dich_vu_chi_tiet (goi_dich_vu_id, dich_vu_id, thu_tu_thuc_hien) 
+             VALUES ($1, $2, $3)`,
             [
               id, 
               item.dich_vu_id, 
-              so_buoi, 
-              so_lan_toi_da_trong_goi, 
-              item.bat_buoc !== undefined ? item.bat_buoc : false, 
               item.thu_tu_thuc_hien || 0
             ]
           );
@@ -454,7 +432,7 @@ class AdminRepository {
 
   async checkRoomCapacity(phongId: number, countToAdd: number, excludeEquipmentId: string | null = null): Promise<void> {
     const { rows: rooms } = await pool.query(
-      "SELECT loai_phong, so_luong_giuong, ten_phong FROM phong WHERE id = $1",
+      "SELECT loai_phong, suc_chua, ten_phong FROM phong WHERE id = $1",
       [phongId]
     );
     if (rooms.length === 0) return;
@@ -463,7 +441,7 @@ class AdminRepository {
     // Ràng buộc chỉ áp dụng cho phòng trị liệu (phong_tri_lieu_chuan) và phòng đặc biệt (phong_dac_biet)
     if (room.loai_phong === 'phong_tri_lieu_chuan' || room.loai_phong === 'phong_dac_biet') {
       // Đếm số lượng thiết bị hoạt động (không ở trạng thái 'hong' - Hỏng/Ngưng sử dụng)
-      let queryStr = "SELECT COUNT(1)::int as count FROM thiet_bi_y_te WHERE phong_id_hien_tai = $1 AND trang_thai != 'hong'";
+      let queryStr = "SELECT COUNT(1)::int as count FROM thiet_bi_y_te WHERE phong_id_hien_tai = $1 AND trang_thai != 'hong' AND trang_thai != 'ngung_su_dung'";
       let queryParams: any[] = [phongId];
       
       if (excludeEquipmentId) {
@@ -473,7 +451,7 @@ class AdminRepository {
       
       const { rows: counts } = await pool.query(queryStr, queryParams);
       const activeCount = counts[0].count;
-      const capacity = room.so_luong_giuong || 1;
+      const capacity = room.suc_chua || 1;
       
       if (activeCount + countToAdd > capacity) {
         const roomTypeName = room.loai_phong === 'phong_tri_lieu_chuan' ? 'Trị liệu' : 'Đặc biệt';
@@ -486,21 +464,22 @@ class AdminRepository {
     }
   }
 
-  async checkEquipmentCompatibility(loaiThietBi: string, phongId: number | null): Promise<void> {
+  async checkEquipmentCompatibility(loaiThietBi: string, phongId: number | null, excludeEquipmentId?: string): Promise<void> {
     if (!phongId) return; // Kho lưu trữ hoặc chưa gán thì luôn hợp lệ
     
     const { rows: rooms } = await pool.query(
-      "SELECT loai_phong, ten_phong FROM phong WHERE id = $1",
+      "SELECT loai_phong, ten_phong, suc_chua FROM phong WHERE id = $1",
       [phongId]
     );
     if (rooms.length === 0) return;
     const room = rooms[0];
     
     const typeLower = (loaiThietBi || '').toLowerCase();
+    const isBed = typeLower === 'giuong_tri_lieu' || typeLower === 'giường trị liệu';
     
     // 1. Giường trị liệu -> Chỉ cho vào phòng trị liệu chuẩn, phòng đặc biệt hoặc kho
-    if (typeLower.includes('giường') || typeLower.includes('giuong')) {
-      if (room.loai_phong !== 'phong_tri_lieu_chuan' && room.loai_phong !== 'phong_dac_biet' && room.loai_phong !== 'kho_thiet_bi') {
+    if (isBed) {
+      if (room.loai_phong !== 'phong_tri_lieu_chuan' && room.loai_phong !== 'phong_dac_biet' && room.loai_phong !== 'kho_thiet_bi' && room.loai_phong !== 'phong_tri_lieu') {
         const err: any = new Error(`Thiết bị loại giường trị liệu chỉ được phép gán vào Phòng trị liệu, Phòng đặc biệt hoặc Kho thiết bị. Phòng hiện tại chọn: ${room.ten_phong}.`);
         err.statusCode = 400;
         throw err;
@@ -509,7 +488,8 @@ class AdminRepository {
     
     // 2. Thiết bị đặc biệt -> Chỉ phòng đặc biệt hoặc kho
     if (typeLower.includes('kéo giãn') || typeLower.includes('keo gian') ||
-        typeLower.includes('từ trường') || typeLower.includes('tu truong')) {
+        typeLower.includes('từ trường') || typeLower.includes('tu truong') ||
+        typeLower === 'thiết bị đặc biệt') {
       if (room.loai_phong !== 'phong_dac_biet' && room.loai_phong !== 'kho_thiet_bi') {
         const err: any = new Error(`Thiết bị đặc biệt (nặng, cố định) chỉ được phép gán vào Phòng đặc biệt hoặc Kho thiết bị. Phòng hiện tại chọn: ${room.ten_phong}.`);
         err.statusCode = 400;
@@ -518,8 +498,9 @@ class AdminRepository {
     }
 
     // 3. Thiết bị tập -> Chỉ phòng tập hoặc kho
-    if (typeLower.includes('tập') || typeLower.includes('tap') || typeLower.includes('phcn')) {
-      if (room.loai_phong !== 'phong_tap_phcn' && room.loai_phong !== 'phuc_hoi' && room.loai_phong !== 'kho_thiet_bi') {
+    if (typeLower.includes('tập') || typeLower.includes('tap') || typeLower.includes('phcn') ||
+        typeLower === 'dụng cụ & thiết bị khác' || typeLower === 'dụng cụ tập' || typeLower === 'khác') {
+      if (room.loai_phong !== 'phong_tap_phcn' && room.loai_phong !== 'phong_tap' && room.loai_phong !== 'phuc_hoi' && room.loai_phong !== 'kho_thiet_bi') {
         const err: any = new Error(`Thiết bị phòng tập chỉ được phép gán vào Phòng tập, phục hồi hoặc Kho thiết bị. Phòng hiện tại chọn: ${room.ten_phong}.`);
         err.statusCode = 400;
         throw err;
@@ -532,29 +513,48 @@ class AdminRepository {
       err.statusCode = 400;
       throw err;
     }
+
+    // 5. Kiểm tra sức chứa tối đa của giường trị liệu (loai_thiet_bi = 'giuong_tri_lieu')
+    if (isBed) {
+      let countQuery = "SELECT COUNT(*)::int as count FROM thiet_bi_y_te WHERE phong_id_hien_tai = $1 AND (loai_thiet_bi = 'giuong_tri_lieu' OR loai_thiet_bi = 'Giường trị liệu')";
+      const countParams: any[] = [phongId];
+      if (excludeEquipmentId) {
+        countQuery += " AND id <> $2";
+        countParams.push(excludeEquipmentId);
+      }
+      const { rows: countRes } = await pool.query(countQuery, countParams);
+      const currentBeds = countRes[0].count;
+      if (currentBeds + 1 > room.suc_chua) {
+        const err: any = new Error(`Phòng (${room.ten_phong}) đã đạt giới hạn sức chứa tối đa (${room.suc_chua}). Không thể gán thêm giường trị liệu.`);
+        err.statusCode = 400;
+        throw err;
+      }
+    }
   }
 
   async createEquipment(ma_thiet_bi: string, data: any) {
+    const phongId = data.phong_id_hien_tai ? Number(data.phong_id_hien_tai) : null;
+    await this.checkEquipmentCompatibility(data.loai_thiet_bi || '', phongId);
+
     const { rows } = await pool.query(
       `INSERT INTO thiet_bi_y_te (
          ma_thiet_bi, ten_thiet_bi, loai_thiet_bi, ngay_mua,
          trang_thai, phong_id_hien_tai, ghi_chu,
-         cap_rui_ro, tan_suat_bao_tri_ngay,
-         nguong_canh_bao, nguong_bat_buoc_bao_tri, ngay_bao_tri_gan_nhat
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+         cap_rui_ro, tan_suat_bao_tri_ngay, ngay_bao_tri_gan_nhat,
+         loai_thiet_bi_id
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
       [
         ma_thiet_bi,
         data.ten_thiet_bi,
         data.loai_thiet_bi || null,
         data.ngay_mua || null,
-        data.trang_thai,
-        data.phong_id_hien_tai || null,
+        data.trang_thai || 'san_sang',
+        phongId,
         data.ghi_chu || null,
         data.cap_rui_ro || 'trung_binh',
         data.tan_suat_bao_tri_ngay || 45,
-        data.nguong_canh_bao || 80,
-        data.nguong_bat_buoc_bao_tri || 100,
-        data.ngay_bao_tri_gan_nhat || null
+        data.ngay_bao_tri_gan_nhat || null,
+        data.loai_thiet_bi_id ? Number(data.loai_thiet_bi_id) : null
       ]
     );
     return rows[0];
@@ -583,14 +583,16 @@ class AdminRepository {
     const curStatus = cur.trang_thai;
     const curRisk = cur.cap_rui_ro;
     const curFreq = cur.tan_suat_bao_tri_ngay;
-    const curWarn = cur.nguong_canh_bao;
-    const curMust = cur.nguong_bat_buoc_bao_tri;
     const curBuyDate = cur.ngay_mua;
     const curLastDate = cur.ngay_bao_tri_gan_nhat;
     const curNote = cur.ghi_chu;
 
-    const targetPhongId = null;
     const targetLoai = data.loai_thiet_bi !== undefined ? data.loai_thiet_bi : curType;
+    const resolvedPhongId = phongId !== undefined ? phongId : curPhongId;
+
+    await this.checkEquipmentCompatibility(targetLoai, resolvedPhongId, id);
+
+    const targetTypeId = data.loai_thiet_bi_id !== undefined ? (data.loai_thiet_bi_id ? Number(data.loai_thiet_bi_id) : null) : cur.loai_thiet_bi_id;
 
     const { rows } = await pool.query(
       `UPDATE thiet_bi_y_te 
@@ -603,23 +605,21 @@ class AdminRepository {
            ghi_chu = $7,
            cap_rui_ro = $8,
            tan_suat_bao_tri_ngay = $9,
-           nguong_canh_bao = $10,
-           nguong_bat_buoc_bao_tri = $11,
-           ngay_bao_tri_gan_nhat = $12
-       WHERE id = $13 RETURNING *`,
+           ngay_bao_tri_gan_nhat = $10,
+           loai_thiet_bi_id = $11
+       WHERE id = $12 RETURNING *`,
       [
         data.ma_thiet_bi !== undefined ? data.ma_thiet_bi : curCode,
         data.ten_thiet_bi !== undefined ? data.ten_thiet_bi : curName,
-        data.loai_thiet_bi !== undefined ? data.loai_thiet_bi : curType,
+        targetLoai,
         data.ngay_mua !== undefined ? data.ngay_mua : curBuyDate,
         data.trang_thai !== undefined ? data.trang_thai : curStatus,
-        null,
+        resolvedPhongId,
         data.ghi_chu !== undefined ? data.ghi_chu : curNote,
         data.cap_rui_ro !== undefined ? data.cap_rui_ro : curRisk,
         data.tan_suat_bao_tri_ngay !== undefined ? data.tan_suat_bao_tri_ngay : curFreq,
-        data.nguong_canh_bao !== undefined ? data.nguong_canh_bao : curWarn,
-        data.nguong_bat_buoc_bao_tri !== undefined ? data.nguong_bat_buoc_bao_tri : curMust,
         data.ngay_bao_tri_gan_nhat !== undefined ? data.ngay_bao_tri_gan_nhat : curLastDate,
+        targetTypeId,
         id
       ]
     );
@@ -627,7 +627,73 @@ class AdminRepository {
   }
 
   async deleteEquipment(id: string) {
-    const { rows } = await pool.query('DELETE FROM thiet_bi_y_te WHERE id = $1 RETURNING *', [id]);
+    const { rows } = await pool.query(
+      "UPDATE thiet_bi_y_te SET trang_thai = 'ngung_su_dung', phong_id_hien_tai = NULL WHERE id = $1 RETURNING *",
+      [id]
+    );
+    return rows[0];
+  }
+
+  // --- QUẢN LÝ PHÂN LOẠI THIẾT BỊ (EQUIPMENT TYPES) ---
+  async getEquipmentTypes() {
+    const { rows } = await pool.query('SELECT * FROM loai_thiet_bi ORDER BY nhom_thiet_bi DESC, ten_loai ASC');
+    return rows;
+  }
+
+  async getEquipmentTypeById(id: number) {
+    const { rows } = await pool.query('SELECT * FROM loai_thiet_bi WHERE id = $1', [id]);
+    return rows[0];
+  }
+
+  async createEquipmentType(data: { ten_loai: string; nhom_thiet_bi: string }) {
+    const { rows } = await pool.query(
+      'INSERT INTO loai_thiet_bi (ten_loai, nhom_thiet_bi) VALUES ($1, $2) RETURNING *',
+      [data.ten_loai, data.nhom_thiet_bi]
+    );
+    return rows[0];
+  }
+
+  async updateEquipmentType(id: number, data: { ten_loai: string; nhom_thiet_bi: string }) {
+    // 1. Get original type name to update associated text names in thiet_bi_y_te
+    const originalType = await this.getEquipmentTypeById(id);
+    if (!originalType) {
+      const err: any = new Error('Không tìm thấy loại thiết bị cần cập nhật.');
+      err.statusCode = 404;
+      throw err;
+    }
+
+    await pool.query('BEGIN');
+    try {
+      const { rows } = await pool.query(
+        'UPDATE loai_thiet_bi SET ten_loai = $1, nhom_thiet_bi = $2 WHERE id = $3 RETURNING *',
+        [data.ten_loai, data.nhom_thiet_bi, id]
+      );
+      
+      // Sync the text name in thiet_bi_y_te
+      await pool.query(
+        'UPDATE thiet_bi_y_te SET loai_thiet_bi = $1 WHERE loai_thiet_bi_id = $2',
+        [data.ten_loai, id]
+      );
+
+      await pool.query('COMMIT');
+      return rows[0];
+    } catch (error) {
+      await pool.query('ROLLBACK');
+      throw error;
+    }
+  }
+
+  async deleteEquipmentType(id: number) {
+    const { rows: eqCount } = await pool.query(
+      'SELECT COUNT(*)::int as count FROM thiet_bi_y_te WHERE loai_thiet_bi_id = $1',
+      [id]
+    );
+    if (eqCount[0].count > 0) {
+      const err: any = new Error(`Không thể xóa danh mục này vì đang có ${eqCount[0].count} thiết bị y tế trực thuộc. Vui lòng chuyển các thiết bị đó sang danh mục khác trước.`);
+      err.statusCode = 400;
+      throw err;
+    }
+    const { rows } = await pool.query('DELETE FROM loai_thiet_bi WHERE id = $1 RETURNING *', [id]);
     return rows[0];
   }
 

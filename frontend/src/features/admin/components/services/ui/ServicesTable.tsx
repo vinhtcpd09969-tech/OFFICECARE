@@ -6,7 +6,7 @@ import { ServiceDetailRow } from './ServiceDetailRow';
 interface ServicesTableProps {
   loading: boolean;
   filteredServices: Service[];
-  selectedType: 'chinh' | 'bo_sung';
+  selectedType: 'ky_thuat' | 'don_le';
   searchQuery: string;
   onSearchChange: (val: string) => void;
   packageCountMap: Record<string | number, number>;
@@ -37,10 +37,10 @@ export function ServicesTable({
       {/* Search & Header */}
       <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 bg-zinc-50 p-4 border-b border-zinc-200">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-zinc-450 uppercase tracking-wider">
-            {selectedType === 'chinh' 
-              ? `Danh sách kỹ thuật lâm sàng nội bộ (${filteredServices.length})`
-              : `Danh sách dịch vụ đơn lẻ & bổ trợ (${filteredServices.length})`
+          <span className="text-xs font-bold text-zinc-455 uppercase tracking-wider">
+            {selectedType === 'ky_thuat' 
+              ? `Danh sách kỹ thuật (${filteredServices.length})`
+              : `Danh sách dịch vụ đơn lẻ (${filteredServices.length})`
             }
           </span>
         </div>
@@ -52,7 +52,7 @@ export function ServicesTable({
           </svg>
           <input 
             type="text" 
-            placeholder={selectedType === 'chinh' ? "Tìm kiếm tên kỹ thuật nội bộ..." : "Tìm tên dịch vụ lẻ..."}
+            placeholder={selectedType === 'ky_thuat' ? "Tìm kiếm tên kỹ thuật..." : "Tìm tên dịch vụ đơn lẻ..."}
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             className="pl-9 pr-4 py-2 w-full border border-zinc-200 rounded-xl bg-white text-xs outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-secondary placeholder-zinc-400 transition-all shadow-inner font-semibold" 
@@ -65,8 +65,8 @@ export function ServicesTable({
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-zinc-50 border-b border-zinc-200 text-zinc-500 text-[11px] font-bold font-heading uppercase tracking-wider">
-              <th className="p-4">{selectedType === 'chinh' ? 'Dịch vụ kỹ thuật nội bộ' : 'Dịch vụ lẻ bổ trợ'}</th>
-              {selectedType === 'chinh' ? (
+              <th className="p-4">{selectedType === 'ky_thuat' ? 'Tên kỹ thuật' : 'Tên dịch vụ đơn lẻ'}</th>
+              {selectedType === 'ky_thuat' ? (
                 <th className="p-4">Dùng trong gói</th>
               ) : (
                 <>
@@ -82,14 +82,14 @@ export function ServicesTable({
           <tbody className="divide-y divide-zinc-200">
             {loading ? (
               <tr>
-                <td colSpan={selectedType === 'chinh' ? 5 : 6} className="p-12 text-center text-zinc-400 font-sans text-xs">
+                <td colSpan={selectedType === 'ky_thuat' ? 5 : 6} className="p-12 text-center text-zinc-400 font-sans text-xs">
                   <div className="animate-spin w-5 h-5 border-2 border-primary border-t-transparent rounded-full mx-auto mb-3"></div>
                   ĐANG TRUY VẤN CƠ SỞ DỮ LIỆU...
                 </td>
               </tr>
             ) : filteredServices.length === 0 ? (
               <tr>
-                <td colSpan={selectedType === 'chinh' ? 5 : 6} className="p-12 text-center text-zinc-400 font-sans text-xs">
+                <td colSpan={selectedType === 'ky_thuat' ? 5 : 6} className="p-12 text-center text-zinc-400 font-sans text-xs">
                   CHƯA CÓ THIẾT LẬP DỊCH VỤ NÀO CHO PHÂN PHÂN LOẠI NÀY
                 </td>
               </tr>
@@ -140,4 +140,5 @@ export function ServicesTable({
     </div>
   );
 }
+
 export default ServicesTable;

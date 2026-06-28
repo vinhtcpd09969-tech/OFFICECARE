@@ -48,6 +48,12 @@ router.post('/equipment', authorizeRoles(5, 6), adminController.createEquipment)
 router.put('/equipment/:id', authorizeRoles(5, 6), adminController.updateEquipment);
 router.delete('/equipment/:id', authorizeRoles(5, 6), adminController.deleteEquipment);
 
+// Phân loại thiết bị (Equipment Types)
+router.get('/equipment-types', authorizeRoles(2, 3, 4, 5, 6), adminController.getEquipmentTypes);
+router.post('/equipment-types', authorizeRoles(5, 6), adminController.createEquipmentType);
+router.put('/equipment-types/:id', authorizeRoles(5, 6), adminController.updateEquipmentType);
+router.delete('/equipment-types/:id', authorizeRoles(5, 6), adminController.deleteEquipmentType);
+
 // Ca làm việc / Lịch làm việc
 router.get('/schedules', authorizeRoles(2, 3, 4, 5, 6), adminController.getSchedules);
 router.post('/schedules', authorizeRoles(5, 6), adminController.createSchedule);

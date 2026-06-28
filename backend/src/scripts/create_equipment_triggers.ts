@@ -15,7 +15,6 @@ async function main() {
         v_device_array TEXT[];
         v_eq_id UUID;
         v_so_lan_su_dung INTEGER;
-        v_nguong_bat_buoc_bao_tri INTEGER;
         v_next_status VARCHAR(20);
       BEGIN
         -- 1. Nếu là buổi trị liệu (buoi_tri_lieu) thay đổi trạng thái
@@ -65,7 +64,7 @@ async function main() {
               FOREACH v_device_item IN ARRAY v_device_array LOOP
                 v_device_item := trim(v_device_item);
                 IF (v_device_item != '' AND v_device_item != 'không có' AND v_device_item != 'Không cần thiết bị') THEN
-                  SELECT id, so_lan_su_dung, nguong_bat_buoc_bao_tri INTO v_eq_id, v_so_lan_su_dung, v_nguong_bat_buoc_bao_tri
+                  SELECT id, so_lan_su_dung INTO v_eq_id, v_so_lan_su_dung
                   FROM thiet_bi_y_te
                   WHERE trang_thai = 'dang_su_dung' 
                     AND phong_id_hien_tai = OLD.phong_id 
@@ -78,9 +77,6 @@ async function main() {
                     END IF;
 
                     v_next_status := 'san_sang';
-                    IF (v_nguong_bat_buoc_bao_tri IS NOT NULL AND v_so_lan_su_dung >= v_nguong_bat_buoc_bao_tri) THEN
-                      v_next_status := 'dang_bao_tri';
-                    END IF;
 
                     UPDATE thiet_bi_y_te 
                     SET trang_thai = v_next_status, 
@@ -134,7 +130,7 @@ async function main() {
               FOREACH v_device_item IN ARRAY v_device_array LOOP
                 v_device_item := trim(v_device_item);
                 IF (v_device_item != '' AND v_device_item != 'không có' AND v_device_item != 'Không cần thiết bị') THEN
-                  SELECT id, so_lan_su_dung, nguong_bat_buoc_bao_tri INTO v_eq_id, v_so_lan_su_dung, v_nguong_bat_buoc_bao_tri
+                  SELECT id, so_lan_su_dung INTO v_eq_id, v_so_lan_su_dung
                   FROM thiet_bi_y_te
                   WHERE trang_thai = 'dang_su_dung' 
                     AND phong_id_hien_tai = OLD.phong_id 
@@ -147,9 +143,6 @@ async function main() {
                     END IF;
 
                     v_next_status := 'san_sang';
-                    IF (v_nguong_bat_buoc_bao_tri IS NOT NULL AND v_so_lan_su_dung >= v_nguong_bat_buoc_bao_tri) THEN
-                      v_next_status := 'dang_bao_tri';
-                    END IF;
 
                     UPDATE thiet_bi_y_te 
                     SET trang_thai = v_next_status, 

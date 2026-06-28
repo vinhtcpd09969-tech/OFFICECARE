@@ -32,6 +32,12 @@ export const createEquipment = (data: any) => api.post('/admin/equipment', data)
 export const updateEquipment = (id: string, data: any) => api.put(`/admin/equipment/${id}`, data);
 export const deleteEquipment = (id: string) => api.delete(`/admin/equipment/${id}`);
 
+// Equipment Types
+export const getEquipmentTypes = () => api.get('/admin/equipment-types');
+export const createEquipmentType = (data: any) => api.post('/admin/equipment-types', data);
+export const updateEquipmentType = (id: number | string, data: any) => api.put(`/admin/equipment-types/${id}`, data);
+export const deleteEquipmentType = (id: number | string) => api.delete(`/admin/equipment-types/${id}`);
+
 // Schedules
 export const getSchedules = () => api.get('/admin/schedules');
 export const createSchedule = (data: any) => api.post('/admin/schedules', data);

@@ -12,10 +12,9 @@ interface Room {
   ten_phong: string;
   ma_phong: string;
   loai_phong: string;
-  tang?: string;
   trang_thai: string;
   mo_ta?: string;
-  so_luong_giuong?: number;
+  suc_chua?: number;
 }
 
 interface Equipment {
@@ -92,14 +91,14 @@ export default function ManageRooms() {
     loai_phong: string;
     trang_thai: string;
     mo_ta: string;
-    so_luong_giuong: number | '';
+    suc_chua: number | '';
   }>({
     ten_phong: '',
     ma_phong: '',
     loai_phong: 'phong_tri_lieu',
     trang_thai: 'san_sang',
     mo_ta: '',
-    so_luong_giuong: 1
+    suc_chua: 1
   });
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -185,7 +184,7 @@ export default function ManageRooms() {
       loai_phong: 'phong_tri_lieu',
       trang_thai: 'san_sang',
       mo_ta: '',
-      so_luong_giuong: 1
+      suc_chua: 1
     });
     setIsRoomModalOpen(true);
   };
@@ -195,7 +194,7 @@ export default function ManageRooms() {
     try {
       const payload = {
         ...roomFormData,
-        so_luong_giuong: Number(roomFormData.so_luong_giuong) || 1
+        suc_chua: Number(roomFormData.suc_chua) || 1
       };
       await createRoom(payload);
       showToast('Tạo phòng mới thành công!');
@@ -516,13 +515,13 @@ export default function ManageRooms() {
                 <div className="flex items-center justify-between border-t border-slate-100 pt-3 mt-auto z-10 relative">
                   <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                     {room.loai_phong === 'phong_tri_lieu' || room.loai_phong === 'phong_tri_lieu_chuan' || room.loai_phong === 'tri_lieu' || room.loai_phong === 'phong_dac_biet' ? (
-                      `${room.so_luong_giuong || 1} giường trị liệu`
+                      `Sức chứa: ${room.suc_chua || 1} giường`
                     ) : room.loai_phong === 'phong_kham' || room.loai_phong === 'kham_benh' ? (
-                      'Phòng khám chuyên khoa'
+                      `Sức chứa: 1 khách`
                     ) : room.loai_phong === 'phong_tap' || room.loai_phong === 'phong_tap_phcn' || room.loai_phong === 'phuc_hoi' ? (
-                      'Phòng tập phục hồi chức năng'
+                      `Sức chứa: ${room.suc_chua || 1} slot tập`
                     ) : (
-                      'Phòng chức năng'
+                      `Sức chứa: ${room.suc_chua || 1} người`
                     )}
                   </div>
                   <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-teal-800 transition-colors flex items-center gap-1">
@@ -584,28 +583,36 @@ export default function ManageRooms() {
                 </select>
               </div>
 
-              {(roomFormData.loai_phong === 'phong_tri_lieu' || roomFormData.loai_phong === 'phong_tri_lieu_chuan' || roomFormData.loai_phong === 'tri_lieu') && (
+              {(roomFormData.loai_phong === 'phong_tri_lieu' || roomFormData.loai_phong === 'phong_tri_lieu_chuan' || roomFormData.loai_phong === 'tri_lieu' || roomFormData.loai_phong === 'phong_tap') && (
                 <div className="p-4 bg-slate-50 border-2 border-slate-150 space-y-1.5">
-                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest">Sức chứa tối đa (Giường/Bàn trị liệu)</label>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                    {roomFormData.loai_phong === 'phong_tap' ? 'Sức chứa tối đa (Slot tập)' : 'Sức chứa tối đa (Giường/Bàn trị liệu)'}
+                  </label>
                   <div className="relative">
                     <input 
                       type="number"
                       min={1}
-                      max={10}
+                      max={20}
                       required
-                      value={roomFormData.so_luong_giuong}
+                      value={roomFormData.suc_chua}
                       onChange={(e) => {
                         const val = e.target.value;
                         setRoomFormData({ 
                            ...roomFormData, 
-                           so_luong_giuong: val === '' ? '' : Math.max(1, parseInt(val) || 1)
+                           suc_chua: val === '' ? '' : Math.max(1, parseInt(val) || 1)
                         });
                       }}
                       className="w-full border-2 border-slate-200 bg-white p-3 text-sm font-bold rounded-none focus:outline-none focus:border-slate-950 transition-all"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 pointer-events-none">GIƯỜNG</span>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 pointer-events-none">
+                      {roomFormData.loai_phong === 'phong_tap' ? 'SLOT TẬP' : 'GIƯỜNG'}
+                    </span>
                   </div>
-                  <p className="text-[10px] text-slate-400 italic">Dùng để kiểm soát sức chứa tối đa khi xếp lịch điều trị cho bệnh nhân.</p>
+                  <p className="text-[10px] text-slate-400 italic">
+                    {roomFormData.loai_phong === 'phong_tap' 
+                      ? 'Dùng để kiểm soát sức chứa tối đa khi xếp lịch tập phục hồi chức năng đồng thời.'
+                      : 'Dùng để kiểm soát sức chứa tối đa khi xếp lịch điều trị cho bệnh nhân.'}
+                  </p>
                 </div>
               )}
 

@@ -8,6 +8,7 @@ interface WalkInBookingModalProps {
   staffList: any[];
   appointments: any[];
   schedulesList: any[];
+  servicesList?: any[];
   onClose: () => void;
   onSubmitApi: (payload: any) => Promise<void>;
   bookingLoading: boolean;
@@ -28,6 +29,7 @@ export default function WalkInBookingModal({
   staffList,
   appointments,
   schedulesList,
+  servicesList = [],
   onClose,
   onSubmitApi,
   bookingLoading,
@@ -36,11 +38,20 @@ export default function WalkInBookingModal({
   const [hoTen, setHoTen] = useState('');
   const [sdt, setSdt] = useState('');
   const [gioiTinh, setGioiTinh] = useState('nam');
+  const [selectedServiceId, setSelectedServiceId] = useState('');
   const [lyDo, setLyDo] = useState('');
   const [selectedTime, setSelectedTime] = useState(initialTime);
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
   const [selectedRoomId, setSelectedRoomId] = useState('');
   const [isTimeLocked, setIsTimeLocked] = useState(!!initialTime);
+
+  const examServices = servicesList?.filter((s: any) => String(s.danh_muc_id) === '1') || [];
+
+  useEffect(() => {
+    if (examServices.length > 0 && !selectedServiceId) {
+      setSelectedServiceId(examServices[0].id);
+    }
+  }, [examServices, selectedServiceId]);
 
   useEffect(() => {
     setSelectedTime(initialTime);
@@ -149,6 +160,10 @@ export default function WalkInBookingModal({
       alert('Vui lòng chọn khung giờ khám!');
       return;
     }
+    if (!selectedServiceId) {
+      alert('Vui lòng chọn dịch vụ khám!');
+      return;
+    }
     if (!selectedDoctorId) {
       alert('Vui lòng chọn bác sĩ khám!');
       return;
@@ -171,7 +186,8 @@ export default function WalkInBookingModal({
       ho_ten_khach: hoTen,
       so_dien_thoai: sdt,
       gioi_tinh_khach: gioiTinh,
-      ly_do_kham: lyDo,
+      ly_do_kham: lyDo || 'Khám lượng giá',
+      dich_vu_id: selectedServiceId,
       ngay_gio_bat_dau: startUtcIso,
       ngay_gio_ket_thuc: endUtcIso,
       bac_si_id: selectedDoctorId,
@@ -214,7 +230,7 @@ export default function WalkInBookingModal({
             <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-1.5">
               Thông tin hành chính bệnh nhân
             </h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-500">Họ tên khách hàng *</label>
                 <input
@@ -248,6 +264,22 @@ export default function WalkInBookingModal({
                   <option value="nam">Nam</option>
                   <option value="nu">Nữ</option>
                   <option value="khac">Khác</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-500">Dịch vụ khám *</label>
+                <select
+                  value={selectedServiceId}
+                  onChange={e => setSelectedServiceId(e.target.value)}
+                  required
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all font-semibold"
+                >
+                  <option value="">-- Chọn dịch vụ khám --</option>
+                  {examServices.map((svc: any) => (
+                    <option key={svc.id} value={svc.id}>
+                      {svc.ten_dich_vu} ({Number(svc.don_gia).toLocaleString()}đ)
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>

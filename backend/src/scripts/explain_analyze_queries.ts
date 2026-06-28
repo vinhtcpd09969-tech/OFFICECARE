@@ -13,9 +13,6 @@ async function profileQueries() {
                  JSON_AGG(
                    JSON_BUILD_OBJECT(
                      'dich_vu_id', ct.dich_vu_id,
-                     'so_buoi', ct.so_buoi_trong_goi,
-                     'so_lan_toi_da_trong_goi', ct.so_lan_toi_da_trong_goi,
-                     'bat_buoc', ct.bat_buoc,
                      'thu_tu_thuc_hien', ct.thu_tu_thuc_hien,
                      'ten_dich_vu', dv.ten_dich_vu,
                      'don_gia', dv.don_gia
@@ -35,14 +32,11 @@ async function profileQueries() {
       name: "getActivePackages (ReceptionistRepository)",
       sql: `
         EXPLAIN ANALYZE
-        SELECT g.id, g.ten_goi, g.ma_goi, g.mo_ta, g.tong_so_buoi, g.gia_goi, g.gia_goc, g.han_dung_thang, g.phan_tram_giam_tra_thang, g.phan_tram_giam_tra_gop,
+        SELECT g.id, g.ten_goi, g.ma_goi, g.mo_ta, g.tong_so_buoi, g.gia_goi, g.gia_goc, g.han_dung_thang,
                COALESCE(
                  JSON_AGG(
                    JSON_BUILD_OBJECT(
                      'dich_vu_id', ct.dich_vu_id,
-                     'so_buoi', ct.so_buoi_trong_goi,
-                     'so_lan_toi_da_trong_goi', ct.so_lan_toi_da_trong_goi,
-                     'bat_buoc', ct.bat_buoc,
                      'thu_tu_thuc_hien', ct.thu_tu_thuc_hien,
                      'ten_dich_vu', dv.ten_dich_vu,
                      'don_gia', dv.don_gia

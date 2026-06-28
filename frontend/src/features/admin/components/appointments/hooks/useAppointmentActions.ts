@@ -47,6 +47,7 @@ export function useAppointmentActions({
   // Assignment State in Detail Modal
   const [assignStaffId, setAssignStaffId] = useState<string>('');
   const [assignRoomId, setAssignRoomId] = useState<string>('');
+  const [assignGiuongSo, setAssignGiuongSo] = useState<string>('');
   const [assignStatus, setAssignStatus] = useState<string>('');
   const [isAssigning, setIsAssigning] = useState(false);
 
@@ -56,6 +57,7 @@ export function useAppointmentActions({
   const [selectedPackageId, setSelectedPackageId] = useState<string>('');
   const [selectedKtvId, setSelectedKtvId] = useState<string>('');
   const [selectedRoomId, setSelectedRoomId] = useState<string>('');
+  const [selectedGiuongSo, setSelectedGiuongSo] = useState<string>('');
   const [treatmentDate, setTreatmentDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [treatmentTime, setTreatmentTime] = useState<string>('09:00');
   const [bookingLoading, setBookingLoading] = useState(false);
@@ -73,6 +75,7 @@ export function useAppointmentActions({
     setAssignStatus(apt.trang_thai);
     setAssignStaffId(apt.bac_si_id || apt.chuyen_gia_id ? String(apt.bac_si_id || apt.chuyen_gia_id) : '');
     setAssignRoomId(apt.phong_id ? String(apt.phong_id) : '');
+    setAssignGiuongSo(apt.giuong_so ? String(apt.giuong_so) : '');
     setIsDetailModalOpen(true);
   }, [roleView, navigate]);
 
@@ -84,6 +87,7 @@ export function useAppointmentActions({
     setSelectedPackageId(type === 'package' && recId ? recId : '');
     setSelectedKtvId('');
     setSelectedRoomId('');
+    setSelectedGiuongSo('');
     setTreatmentDate(format(new Date(), 'yyyy-MM-dd'));
     setTreatmentTime('10:00');
     setIsTreatmentModalOpen(true);
@@ -105,7 +109,8 @@ export function useAppointmentActions({
               trang_thai: finalStatus, 
               bac_si_id: assignStaffId || null, 
               chuyen_gia_id: assignStaffId || null, 
-              phong_id: assignRoomId || null 
+              phong_id: assignRoomId || null,
+              giuong_so: assignGiuongSo ? Number(assignGiuongSo) : null
             }
           : apt
       ));
@@ -126,7 +131,8 @@ export function useAppointmentActions({
         trang_thai: finalStatus,
         bac_si_id: assignStaffId || null,
         chuyen_gia_id: assignStaffId || null,
-        phong_id: assignRoomId || null
+        phong_id: assignRoomId || null,
+        giuong_so: assignGiuongSo ? Number(assignGiuongSo) : null
       });
 
       toast.success('Cập nhật thông tin ca trực thành công');
@@ -138,7 +144,7 @@ export function useAppointmentActions({
     } finally {
       setIsAssigning(false);
     }
-  }, [selectedAppointment, assignStatus, assignStaffId, assignRoomId, refetch, isDemoMode, setDemoApts]);
+  }, [selectedAppointment, assignStatus, assignStaffId, assignRoomId, assignGiuongSo, refetch, isDemoMode, setDemoApts]);
 
   const handleBookTreatment = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -205,6 +211,7 @@ export function useAppointmentActions({
         bac_si_id: selectedKtvId,
         chuyen_gia_id: selectedKtvId,
         phong_id: selectedRoomId || null,
+        giuong_so: selectedGiuongSo ? Number(selectedGiuongSo) : null,
         ten_dich_vu: treatmentType === 'single'
           ? services.find(s => String(s.id) === String(chosenServiceId))?.ten_dich_vu || "Dịch vụ đơn"
           : packages.find(p => String(p.id) === String(chosenPackageId))?.ten_goi || "Liệu trình trị liệu",
@@ -226,6 +233,7 @@ export function useAppointmentActions({
         dich_vu_id: chosenServiceId || null,
         ky_thuat_vien_id: selectedKtvId,
         phong_id: selectedRoomId || null,
+        giuong_so: selectedGiuongSo ? Number(selectedGiuongSo) : null,
         ghi_chu_dat_lich: `Ca trị liệu khởi tạo từ Lịch khám: ${selectedAppointment.ma_lich_dat}`,
         ngay_gio_bat_dau: startDateTimeStr,
         ngay_gio_ket_thuc: endDateTimeStr,
@@ -243,7 +251,7 @@ export function useAppointmentActions({
     } finally {
       setBookingLoading(false);
     }
-  }, [selectedAppointment, treatmentType, selectedServiceId, selectedPackageId, selectedKtvId, selectedRoomId, treatmentDate, treatmentTime, services, packages, refetch, isDemoMode, setDemoApts]);
+  }, [selectedAppointment, treatmentType, selectedServiceId, selectedPackageId, selectedKtvId, selectedRoomId, selectedGiuongSo, treatmentDate, treatmentTime, services, packages, refetch, isDemoMode, setDemoApts]);
 
   const handleBookWalkIn = useCallback(async (payload: any) => {
     if (isDemoMode && setDemoApts) {
@@ -386,6 +394,8 @@ export function useAppointmentActions({
     setAssignStaffId,
     assignRoomId,
     setAssignRoomId,
+    assignGiuongSo,
+    setAssignGiuongSo,
     assignStatus,
     setAssignStatus,
     isAssigning,
@@ -400,6 +410,8 @@ export function useAppointmentActions({
     setSelectedKtvId,
     selectedRoomId,
     setSelectedRoomId,
+    selectedGiuongSo,
+    setSelectedGiuongSo,
     treatmentDate,
     setTreatmentDate,
     treatmentTime,

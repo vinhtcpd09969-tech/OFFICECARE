@@ -37,5 +37,5 @@ export interface Room {
   id: string | number;
   ten_phong: string;
   loai_phong: string;
-  so_luong_giuong: number;
+  suc_chua: number;
 }

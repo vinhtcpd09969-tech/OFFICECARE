@@ -3,7 +3,7 @@ import { getServiceBenefits } from '../constants';
 
 interface ServiceDetailRowProps {
   svc: Service;
-  selectedType: 'chinh' | 'bo_sung';
+  selectedType: 'ky_thuat' | 'don_le';
 }
 
 export function ServiceDetailRow({ svc, selectedType }: ServiceDetailRowProps) {
@@ -11,7 +11,7 @@ export function ServiceDetailRow({ svc, selectedType }: ServiceDetailRowProps) {
 
   return (
     <tr className="bg-primary/5 select-none animate-in fade-in duration-200">
-      <td colSpan={selectedType === 'chinh' ? 4 : 6} className="p-4 border-b border-zinc-200">
+      <td colSpan={selectedType === 'ky_thuat' ? 4 : 6} className="p-4 border-b border-zinc-200">
         <div className="bg-white border border-primary/20 rounded-xl p-5 space-y-4 shadow-inner">
           <div>
             <p className="text-[10px] font-bold text-primary uppercase tracking-wider flex items-center gap-1.5">

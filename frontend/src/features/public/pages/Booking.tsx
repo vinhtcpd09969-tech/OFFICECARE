@@ -175,7 +175,10 @@ export default function Booking() {
     const ngay_gio_bat_dau = convertToVietnamUtcIso(selectedDate, selectedTime);
 
     try {
+      const examService = services.find(s => String(s.danh_muc_id) === '1');
       const selectedService = services.find(s => s.id === selectedServiceId);
+      const targetDichVuId = bookingType === 'dich_vu' ? selectedServiceId : (examService?.id || null);
+
       const response = await fetch(`${BASE_URL}/client/appointments/public`, {
         method: 'POST',
         headers: {
@@ -185,8 +188,8 @@ export default function Booking() {
           ...formData,
           ngay_gio_bat_dau,
           nguoi_dung_id: user?.id,
-          dich_vu_id: bookingType === 'dich_vu' ? selectedServiceId : null,
-          ly_do_kham: bookingType === 'dich_vu' ? `Trị liệu lẻ: ${selectedService?.ten_dich_vu || 'Không rõ'}` : formData.ly_do_kham,
+          dich_vu_id: targetDichVuId,
+          ly_do_kham: bookingType === 'dich_vu' ? `Trị liệu lẻ: ${selectedService?.ten_dich_vu || 'Không rõ'}` : (formData.ly_do_kham || 'Khám lượng giá ban đầu'),
         }),
       });
 

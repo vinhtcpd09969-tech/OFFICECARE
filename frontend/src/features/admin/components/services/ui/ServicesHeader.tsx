@@ -1,5 +1,5 @@
 interface ServicesHeaderProps {
-  selectedType: 'chinh' | 'bo_sung';
+  selectedType: 'ky_thuat' | 'don_le';
   onAddClick: () => void;
 }
 
@@ -19,7 +19,7 @@ export function ServicesHeader({ selectedType, onAddClick }: ServicesHeaderProps
         onClick={onAddClick}
         className="bg-primary hover:bg-primary/90 hover:shadow-soft-button active:scale-95 text-white px-5 py-2.5 rounded-xl font-heading text-xs font-bold tracking-wide transition-all shadow-sm flex items-center gap-2 shrink-0"
       >
-        [+] THÊM {selectedType === 'chinh' ? 'KỸ THUẬT MỚI' : 'DỊCH VỤ MỚI'}
+        [+] THÊM {selectedType === 'ky_thuat' ? 'KỸ THUẬT MỚI' : 'DỊCH VỤ MỚI'}
       </button>
     </div>
   );

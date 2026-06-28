@@ -3,7 +3,7 @@ import { getServiceImage, isSharedLibraryService, currencyFormatter } from '../c
 
 interface ServiceRowProps {
   svc: Service;
-  selectedType: 'chinh' | 'bo_sung';
+  selectedType: 'ky_thuat' | 'don_le';
   pkgCount: number;
   usageNames: string[];
   isExpanded: boolean;
@@ -34,7 +34,7 @@ export function ServiceRow({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <p className="font-extrabold text-secondary text-sm">{svc.ten_dich_vu}</p>
-              {selectedType === 'bo_sung' && (
+              {selectedType === 'don_le' && (
                 <span className="text-[9px] text-primary font-bold bg-primary-container border border-primary/20 px-2 py-0.5 rounded-lg uppercase tracking-wider shrink-0">
                   {svc.ten_danh_muc || 'Không phân loại'}
                 </span>
@@ -77,7 +77,7 @@ export function ServiceRow({
         </div>
       </td>
 
-      {selectedType === 'chinh' ? (
+      {selectedType === 'ky_thuat' ? (
         <td className="p-4">
           {pkgCount > 0 ? (
             <div className="relative group inline-block">

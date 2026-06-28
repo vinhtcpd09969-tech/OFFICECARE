@@ -6,7 +6,7 @@ import { HINT_KEYWORDS, normalizeText, getServiceBenefits } from '../constants';
 import { createService, updateService } from '../../../../../api/admin.api';
 
 interface UseServiceFormProps {
-  selectedType: 'chinh' | 'bo_sung';
+  selectedType: 'ky_thuat' | 'don_le';
   categories: Category[];
   services: Service[];
   editingService: Service | null;
@@ -26,7 +26,7 @@ export function useServiceForm({
       trang_thai: 'hoat_dong', 
       thoi_gian_uoc_tinh: 45, 
       don_gia: 150000,
-      loai_dich_vu: 'chinh',
+      loai_dich_vu: 'ky_thuat',
       hien_thi_website: false,
       thiet_bi_yeu_cau: 'không có'
     }
@@ -144,21 +144,63 @@ export function useServiceForm({
         return;
       }
 
+      // Ràng buộc kiểm tra tên và danh mục dịch vụ (Mục đích chống nhầm lẫn tên kỹ thuật trị liệu vào danh mục khám)
+      const isExamCategory = Number(data.danh_muc_id) === 1; // Khám Bệnh & Lượng Giá Chuyên Sâu
+      const nameLower = data.ten_dich_vu.toLowerCase();
+      
+      // Các từ khóa liên quan đến thăm khám, lượng giá
+      const examKeywords = ['khám', 'lượng giá', 'luong gia', 'đánh giá', 'danh gia', 'kiểm tra', 'kiem tra', 'tư vấn', 'tu van'];
+      const hasExamKeywords = examKeywords.some(k => nameLower.includes(k));
+      
+      // Các từ khóa liên quan đến trị liệu, công nghệ cao, máy móc
+      const treatmentKeywords = ['trị liệu', 'tri lieu', 'điện xung', 'dien xung', 'xung kích', 'xung kich', 'laser', 'siêu âm', 'sieu am', 'kéo giãn', 'keo gian', 'châm cứu', 'cham cuu', 'bấm huyệt', 'bam huyet', 'xoa bóp', 'xoa bop', 'nắn chỉnh', 'nan chinh'];
+      const hasTreatmentKeywords = treatmentKeywords.some(k => nameLower.includes(k));
+
+      if (selectedType === 'don_le') {
+        if (isExamCategory) {
+          // Nếu xếp vào danh mục Khám thì bắt buộc phải có từ khóa thăm khám, lượng giá
+          if (!hasExamKeywords) {
+            setError('ten_dich_vu', {
+              type: 'manual',
+              message: 'Dịch vụ thuộc danh mục Khám & Lượng giá phải có tên liên quan đến thăm khám (ví dụ: Khám, Lượng giá, Tư vấn, Đánh giá, Kiểm tra...)'
+            });
+            return;
+          }
+          // Và không được chứa từ khóa trị liệu chuyên sâu đơn thuần (Ví dụ: điện xung trị liệu)
+          if (hasTreatmentKeywords && !nameLower.includes('khám') && !nameLower.includes('lượng giá') && !nameLower.includes('tư vấn')) {
+            setError('ten_dich_vu', {
+              type: 'manual',
+              message: 'Dịch vụ thuộc danh mục Khám không thể là kỹ thuật trị liệu đơn thuần (Ví dụ: điện xung trị liệu, sóng xung kích...). Hãy chuyển sang danh mục Trị liệu.'
+            });
+            return;
+          }
+        } else {
+          // Nếu xếp vào danh mục khác (Trị liệu...) nhưng tên lại chỉ chứa từ khóa khám bệnh
+          if (hasExamKeywords && !hasTreatmentKeywords) {
+            setError('ten_dich_vu', {
+              type: 'manual',
+              message: 'Dịch vụ thăm khám phải được phân loại vào danh mục "Khám Bệnh & Lượng Giá Chuyên Sâu".'
+            });
+            return;
+          }
+        }
+      }
+
       // Split multiline string into array of strings for backend
       const benefits = data.loai_dich_vu_ho_tro_str
         ? data.loai_dich_vu_ho_tro_str.split('\n').map((line: string) => line.trim()).filter(Boolean)
         : [];
 
       const payload = {
-        danh_muc_id: selectedType === 'chinh' 
-          ? (categories[0]?.id ? Number(categories[0].id) : 1) 
+        danh_muc_id: selectedType === 'ky_thuat' 
+          ? 3 
           : Number(data.danh_muc_id),
         ten_dich_vu: data.ten_dich_vu,
         mo_ta: data.mo_ta,
-        thoi_gian_uoc_tinh: selectedType === 'chinh' 
+        thoi_gian_uoc_tinh: selectedType === 'ky_thuat' 
           ? 45 
           : Number(data.thoi_gian_uoc_tinh),
-        don_gia: selectedType === 'chinh' 
+        don_gia: selectedType === 'ky_thuat' 
           ? 0 
           : Number(data.don_gia),
         thiet_bi_yeu_cau: data.thiet_bi_yeu_cau,
