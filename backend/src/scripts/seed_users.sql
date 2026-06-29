@@ -1,5 +1,5 @@
 -- =====================================================
--- PHYSIOFLOW - SEED DỮ LIỆU TEST WEBSITE
+-- OFFICECARE - SEED DỮ LIỆU TEST WEBSITE
 -- Mật khẩu tất cả tài khoản: 123456
 -- =====================================================
 
@@ -13,20 +13,20 @@ TRUNCATE TABLE nguoi_dung, khach_hang, voucher CASCADE;
 
 INSERT INTO nguoi_dung (id, ho_ten, email, so_dien_thoai, mat_khau_hash, vai_tro_id, trang_thai, da_xac_thuc_email, thoi_gian_tao) VALUES
 -- Admin
-('00000000-0000-0000-0000-000000000001', 'Nguyễn Admin Hệ Thống', 'admin@physioflow.vn', '0901000001', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', 5, 'hoat_dong', true, now()),
+('00000000-0000-0000-0000-000000000001', 'Nguyễn Admin Hệ Thống', 'admin@officecare.vn', '0901000001', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', 5, 'hoat_dong', true, now()),
 -- Quản lý
-('00000000-0000-0000-0000-000000000002', 'Trần Minh Quản Lý', 'quanly@physioflow.vn', '0901000002', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', 6, 'hoat_dong', true, now()),
+('00000000-0000-0000-0000-000000000002', 'Trần Minh Quản Lý', 'quanly@officecare.vn', '0901000002', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', 6, 'hoat_dong', true, now()),
 -- Lễ tân
-('00000000-0000-0000-0000-000000000003', 'Lê Thị Hoa', 'letan1@physioflow.vn', '0901000003', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', 2, 'hoat_dong', true, now()),
-('00000000-0000-0000-0000-000000000004', 'Phạm Ngọc Mai', 'letan2@physioflow.vn', '0901000004', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', 2, 'hoat_dong', true, now()),
+('00000000-0000-0000-0000-000000000003', 'Lê Thị Hoa', 'letan1@officecare.vn', '0901000003', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', 2, 'hoat_dong', true, now()),
+('00000000-0000-0000-0000-000000000004', 'Phạm Ngọc Mai', 'letan2@officecare.vn', '0901000004', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', 2, 'hoat_dong', true, now()),
 -- Bác sĩ
-('00000000-0000-0000-0000-000000000005', 'BS. Nguyễn Văn Khoa', 'bacsi1@physioflow.vn', '0901000005', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', 4, 'hoat_dong', true, now()),
-('00000000-0000-0000-0000-000000000006', 'BS. Trần Thị Lan Anh', 'bacsi2@physioflow.vn', '0901000006', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', 4, 'hoat_dong', true, now()),
+('00000000-0000-0000-0000-000000000005', 'BS. Nguyễn Văn Khoa', 'bacsi1@officecare.vn', '0901000005', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', 4, 'hoat_dong', true, now()),
+('00000000-0000-0000-0000-000000000006', 'BS. Trần Thị Lan Anh', 'bacsi2@officecare.vn', '0901000006', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', 4, 'hoat_dong', true, now()),
 -- Kỹ thuật viên
-('00000000-0000-0000-0000-000000000007', 'KTV. Đỗ Thanh Tùng', 'ktv1@physioflow.vn', '0901000007', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', 3, 'hoat_dong', true, now()),
-('00000000-0000-0000-0000-000000000008', 'KTV. Nguyễn Thị Bích', 'ktv2@physioflow.vn', '0901000008', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', 3, 'hoat_dong', true, now()),
-('00000000-0000-0000-0000-000000000009', 'KTV. Hoàng Văn Minh', 'ktv3@physioflow.vn', '0901000009', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', 3, 'hoat_dong', true, now()),
-('00000000-0000-0000-0000-000000000010', 'KTV. Vũ Thị Thanh', 'ktv4@physioflow.vn', '0901000010', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', 3, 'hoat_dong', true, now());
+('00000000-0000-0000-0000-000000000007', 'KTV. Đỗ Thanh Tùng', 'ktv1@officecare.vn', '0901000007', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', 3, 'hoat_dong', true, now()),
+('00000000-0000-0000-0000-000000000008', 'KTV. Nguyễn Thị Bích', 'ktv2@officecare.vn', '0901000008', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', 3, 'hoat_dong', true, now()),
+('00000000-0000-0000-0000-000000000009', 'KTV. Hoàng Văn Minh', 'ktv3@officecare.vn', '0901000009', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', 3, 'hoat_dong', true, now()),
+('00000000-0000-0000-0000-000000000010', 'KTV. Vũ Thị Thanh', 'ktv4@officecare.vn', '0901000010', '$2b$10$fmDzCTKr9D/J1LPUHTiVROE3Zoa4wASi4gho4xPNpJCOJM0sU0z.S', 3, 'hoat_dong', true, now());
 
 -- =====================================================
 -- BẢNG: khach_hang

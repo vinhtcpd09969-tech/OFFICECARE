@@ -40,49 +40,9 @@ const importBackupData = async () => {
   // Replace the old admin creator UUID in vouchers with our seeded admin ID
   sqlContent = sqlContent.replace(/2bc223ef-02d9-484c-b0ef-b66ec2bdd6ee/g, '00000000-0000-0000-0000-000000000001');
 
-  // Clean up any outdated columns/values from thiet_bi_y_te insert statements in memory
-  const lines = sqlContent.split('\n');
-  const cleanedLines = lines.map(line => {
-    if (line.includes('INSERT INTO "thiet_bi_y_te"')) {
-      // Replace the column list
-      line = line.replace('"ngay_bao_tri_tiep_theo", ', '').replace('"co_the_di_chuyen", ', '');
-      
-      const valuesIndex = line.indexOf('VALUES (');
-      if (valuesIndex !== -1) {
-        const prefix = line.substring(0, valuesIndex + 8);
-        const valuesStr = line.substring(valuesIndex + 8).trim().replace(/\);$/, '');
-        
-        // Parse valuesStr considering single quotes
-        const values: string[] = [];
-        let current = '';
-        let inQuotes = false;
-        for (let i = 0; i < valuesStr.length; i++) {
-          const char = valuesStr[i];
-          if (char === "'") {
-            inQuotes = !inQuotes;
-            current += char;
-          } else if (char === ',' && !inQuotes) {
-            values.push(current.trim());
-            current = '';
-          } else {
-            current += char;
-          }
-        }
-        if (current) {
-          values.push(current.trim());
-        }
-        
-        // Remove 11th (index 10: co_the_di_chuyen) and 6th (index 5: ngay_bao_tri_tiep_theo) values
-        values.splice(10, 1);
-        values.splice(5, 1);
-        
-        return prefix + values.join(', ') + ');';
-      }
-    }
-    return line;
-  });
-
-  const normalizedSql = cleanedLines
+  // Read and filter out comment lines
+  const normalizedSql = sqlContent
+    .split('\n')
     .filter(line => !line.trim().startsWith('--'))
     .join('\n');
 

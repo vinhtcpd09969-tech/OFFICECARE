@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useServicesState } from '../components/services/hooks/useServicesState';
 import { ServicesHeader } from '../components/services/ui/ServicesHeader';
-import { ServicesTabs } from '../components/services/ui/ServicesTabs';
 import { ServicesTable } from '../components/services/ui/ServicesTable';
 import { ServiceFormModal } from '../components/services/ui/ServiceFormModal';
 import { Service } from '../components/services/types';
@@ -11,11 +10,8 @@ export default function ManageServices() {
     services,
     categories,
     loading,
-    selectedType,
-    setSelectedType,
     expandedServiceIds,
     toggleExpandService,
-    clearExpandedServices,
     searchQuery,
     handleSearchChange,
     serviceUsageNamesMap,
@@ -53,23 +49,12 @@ export default function ManageServices() {
   return (
     <div className="space-y-6 pb-8 animate-fade-in text-zinc-800 font-sans text-sm">
       <ServicesHeader 
-        selectedType={selectedType} 
         onAddClick={handleOpenAddModal} 
-      />
-
-      <ServicesTabs 
-        selectedType={selectedType} 
-        onSelectType={(type) => {
-          setSelectedType(type);
-          clearExpandedServices();
-        }} 
-        services={services} 
       />
 
       <ServicesTable
         loading={loading}
         filteredServices={filteredServices}
-        selectedType={selectedType}
         searchQuery={searchQuery}
         onSearchChange={handleSearchChange}
         packageCountMap={packageCountMap}
@@ -83,7 +68,6 @@ export default function ManageServices() {
 
       <ServiceFormModal
         isOpen={isModalOpen}
-        selectedType={selectedType}
         categories={categories}
         services={services}
         editingService={editingService}

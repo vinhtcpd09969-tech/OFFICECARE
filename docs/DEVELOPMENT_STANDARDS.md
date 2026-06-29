@@ -1,4 +1,4 @@
-# QUY CHUẨN PHÁT TRIỂN & BÀO GIAO DỰ ÁN PHYSIOFLOW
+# QUY CHUẨN PHÁT TRIỂN & BÀO GIAO DỰ ÁN OFFICECARE
 
 > Quy chuẩn này thiết lập các nguyên tắc bắt buộc cho AI và lập trình viên trong quá trình phát triển mã nguồn, thiết kế giao diện UX/UI đẳng cấp cao, và duy trì ngữ cảnh nghiệp vụ qua các phiên làm việc khác nhau.
 
@@ -80,7 +80,7 @@ backend/src/
 
 ### 2. Cấm sử dụng màu Tím AI (AI Purple Ban)
 *   **Không lạm dụng màu tím:** Cấm sử dụng các dải màu tím (violet, indigo, magenta) làm tông màu chủ đạo hoặc hiệu ứng phát sáng neon tím. Đây là cliché phổ biến nhất của các AI thiết kế thiếu sáng tạo.
-*   **Palette màu cao cấp:** Sử dụng các tone màu đặc trưng của PhysioFlow:
+*   **Palette màu cao cấp:** Sử dụng các tone màu đặc trưng của OfficeCare:
     *   `Primary (Teal)`: `#2EC4B6` (Xanh mòng két chuẩn y khoa phục hồi).
     *   `Secondary (Slate tối)`: `#0F172A` (Mang lại cảm giác đáng tin cậy, vững chãi).
     *   `Accent (Amber/Emerald)`: Trạng thái khẩn cấp/thành công.
@@ -123,4 +123,4 @@ Cuối mỗi phiên làm việc, AI phải cập nhật hoặc tạo hai tài li
 
 ---
 
-*Quy chuẩn này là kim chỉ nam để giữ cho dự án PhysioFlow luôn sạch đẹp, ổn định và phát triển bền vững.*
+*Quy chuẩn này là kim chỉ nam để giữ cho dự án OfficeCare luôn sạch đẹp, ổn định và phát triển bền vững.*

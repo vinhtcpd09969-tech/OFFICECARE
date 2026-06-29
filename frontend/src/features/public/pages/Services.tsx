@@ -14,7 +14,7 @@ interface Service {
   thoi_luong_phut: number;
   don_gia: number | string;
   hinh_anh_url: string;
-  loai_dich_vu: string;
+  hien_thi_website: boolean;
   loai_dich_vu_ho_tro: string[] | string;
 }
 
@@ -368,13 +368,13 @@ export default function ServicesPage() {
 
   // Split categories
   const serviceCategories = categories.filter(c => c.loai_danh_muc === 'dich_vu');
-  const packageCategories = categories.filter(c => c.loai_danh_muc === 'goi');
+  const packageCategories = categories.filter(c => c.loai_danh_muc === 'goi' || c.loai_danh_muc === 'goi_dich_vu');
 
   // Filter services: only show retail ('don_le') and match selected category
   const filteredServices = services.filter(s => {
-    const isRetail = s.loai_dich_vu === 'don_le';
+    const isPublic = s.hien_thi_website;
     const matchesCat = selectedServiceCatId === 'all' || s.danh_muc_id.toString() === selectedServiceCatId.toString();
-    return isRetail && matchesCat;
+    return isPublic && matchesCat;
   });
 
   // Filter packages: match selected category

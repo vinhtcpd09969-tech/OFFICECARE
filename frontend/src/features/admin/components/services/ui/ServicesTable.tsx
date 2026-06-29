@@ -6,7 +6,6 @@ import { ServiceDetailRow } from './ServiceDetailRow';
 interface ServicesTableProps {
   loading: boolean;
   filteredServices: Service[];
-  selectedType: 'ky_thuat' | 'don_le';
   searchQuery: string;
   onSearchChange: (val: string) => void;
   packageCountMap: Record<string | number, number>;
@@ -21,7 +20,6 @@ interface ServicesTableProps {
 export function ServicesTable({
   loading,
   filteredServices,
-  selectedType,
   searchQuery,
   onSearchChange,
   packageCountMap,
@@ -38,10 +36,7 @@ export function ServicesTable({
       <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 bg-zinc-50 p-4 border-b border-zinc-200">
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold text-zinc-455 uppercase tracking-wider">
-            {selectedType === 'ky_thuat' 
-              ? `Danh sách kỹ thuật (${filteredServices.length})`
-              : `Danh sách dịch vụ đơn lẻ (${filteredServices.length})`
-            }
+            Danh sách dịch vụ ({filteredServices.length})
           </span>
         </div>
 
@@ -52,7 +47,7 @@ export function ServicesTable({
           </svg>
           <input 
             type="text" 
-            placeholder={selectedType === 'ky_thuat' ? "Tìm kiếm tên kỹ thuật..." : "Tìm tên dịch vụ đơn lẻ..."}
+            placeholder="Tìm kiếm dịch vụ..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             className="pl-9 pr-4 py-2 w-full border border-zinc-200 rounded-xl bg-white text-xs outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-secondary placeholder-zinc-400 transition-all shadow-inner font-semibold" 
@@ -65,16 +60,12 @@ export function ServicesTable({
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-zinc-50 border-b border-zinc-200 text-zinc-500 text-[11px] font-bold font-heading uppercase tracking-wider">
-              <th className="p-4">{selectedType === 'ky_thuat' ? 'Tên kỹ thuật' : 'Tên dịch vụ đơn lẻ'}</th>
-              {selectedType === 'ky_thuat' ? (
-                <th className="p-4">Dùng trong gói</th>
-              ) : (
-                <>
-                  <th className="p-4">Chuyên khoa</th>
-                  <th className="p-4 text-right">Thời lượng</th>
-                  <th className="p-4 text-right">Đơn giá</th>
-                </>
-              )}
+              <th className="p-4">Tên dịch vụ / Kỹ thuật</th>
+              <th className="p-4">Chuyên khoa</th>
+              <th className="p-4 text-right">Thời lượng</th>
+              <th className="p-4 text-right">Đơn giá</th>
+              <th className="p-4 text-center">Đặt trên web</th>
+              <th className="p-4 text-center">Dùng trong gói</th>
               <th className="p-4 text-center">Trạng thái</th>
               <th className="p-4 text-right">Thao tác</th>
             </tr>
@@ -82,15 +73,15 @@ export function ServicesTable({
           <tbody className="divide-y divide-zinc-200">
             {loading ? (
               <tr>
-                <td colSpan={selectedType === 'ky_thuat' ? 5 : 6} className="p-12 text-center text-zinc-400 font-sans text-xs">
+                <td colSpan={8} className="p-12 text-center text-zinc-400 font-sans text-xs">
                   <div className="animate-spin w-5 h-5 border-2 border-primary border-t-transparent rounded-full mx-auto mb-3"></div>
                   ĐANG TRUY VẤN CƠ SỞ DỮ LIỆU...
                 </td>
               </tr>
             ) : filteredServices.length === 0 ? (
               <tr>
-                <td colSpan={selectedType === 'ky_thuat' ? 5 : 6} className="p-12 text-center text-zinc-400 font-sans text-xs">
-                  CHƯA CÓ THIẾT LẬP DỊCH VỤ NÀO CHO PHÂN PHÂN LOẠI NÀY
+                <td colSpan={8} className="p-12 text-center text-zinc-400 font-sans text-xs">
+                  CHƯA CÓ THIẾT LẬP DỊCH VỤ NÀO PHÙ HỢP
                 </td>
               </tr>
             ) : (
@@ -103,7 +94,6 @@ export function ServicesTable({
                   <React.Fragment key={svc.id}>
                     <ServiceRow
                       svc={svc}
-                      selectedType={selectedType}
                       pkgCount={pkgCount}
                       usageNames={usageNames}
                       isExpanded={isExpanded}
@@ -115,7 +105,6 @@ export function ServicesTable({
                     {isExpanded && (
                       <ServiceDetailRow
                         svc={svc}
-                        selectedType={selectedType}
                       />
                     )}
                   </React.Fragment>

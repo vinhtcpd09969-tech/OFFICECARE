@@ -13,18 +13,51 @@ export const normalizeText = (text: string) => {
 
 export const ALL_DEVICES = [
   { value: 'không có', label: 'Không cần thiết bị (Trị liệu bằng tay)', type: 'hand' },
-  { value: 'Tác động điện', label: 'Tác động điện', type: 'mobile' },
-  { value: 'Tác động nhiệt', label: 'Tác động nhiệt', type: 'mobile' },
-  { value: 'Tác động cơ học / sóng', label: 'Tác động cơ học / sóng', type: 'mobile' },
-  { value: 'Thiết bị đặc biệt', label: 'Thiết bị đặc biệt', type: 'stationary' }
+  { value: 'Máy siêu âm điều trị', label: 'Máy siêu âm điều trị', type: 'mobile' },
+  { value: 'Máy sóng xung kích Shockwave', label: 'Máy sóng xung kích Shockwave', type: 'mobile' },
+  { value: 'Máy Laser công suất cao', label: 'Máy Laser công suất cao', type: 'mobile' },
+  { value: 'Máy kéo giãn cột sống tự động', label: 'Máy kéo giãn cột sống tự động', type: 'stationary' },
+  { value: 'Giường nắn chỉnh xương khớp chuyên dụng', label: 'Giường nắn chỉnh xương khớp chuyên dụng', type: 'stationary' },
+  { value: 'Giường trị liệu bằng tay', label: 'Giường trị liệu bằng tay', type: 'stationary' },
+  { value: 'Đèn hồng ngoại', label: 'Đèn hồng ngoại', type: 'mobile' },
+  { value: 'Máy điện xung', label: 'Máy điện xung', type: 'mobile' },
+  { value: 'Máy nén ép', label: 'Máy nén ép', type: 'mobile' },
+  { value: 'Máy từ trường', label: 'Máy từ trường', type: 'stationary' }
+];
+
+export const DEVICE_CATEGORIES = [
+  {
+    id: 'dien_tu',
+    name: 'Trị liệu điện & từ trường',
+    devices: ['Máy điện xung', 'Máy từ trường']
+  },
+  {
+    id: 'nhiet_quang',
+    name: 'Trị liệu nhiệt & quang học',
+    devices: ['Đèn hồng ngoại', 'Máy Laser công suất cao']
+  },
+  {
+    id: 'song_ap_luc',
+    name: 'Trị liệu sóng & áp lực',
+    devices: ['Máy siêu âm điều trị', 'Máy sóng xung kích Shockwave', 'Máy nén ép']
+  },
+  {
+    id: 'giuong_keo',
+    name: 'Giường & Kéo giãn chuyên dụng',
+    devices: ['Máy kéo giãn cột sống tự động', 'Giường nắn chỉnh xương khớp chuyên dụng', 'Giường trị liệu bằng tay']
+  }
 ];
 
 export const HINT_KEYWORDS = [
-  { keywords: ['hong ngoai', 'hồng ngoại', 'laser', 'nhiệt', 'nhiet'], device: 'Tác động nhiệt' },
-  { keywords: ['dien xung', 'điện xung', 'điện phân', 'điện', 'dien'], device: 'Tác động điện' },
-  { keywords: ['shockwave', 'xung kich', 'xung kích', 'sieu am', 'siêu âm', 'nen ep', 'nén ép', 'co hoc', 'cơ học'], device: 'Tác động cơ học / sóng' },
-  { keywords: ['keo gian co', 'kéo giãn cổ', 'keo gian', 'kéo giãn', 'tu truong', 'từ trường', 'sis', 'đặc biệt', 'dac biet'], device: 'Thiết bị đặc biệt' },
-  { keywords: ['tay', 'tay khong', 'xoa bop', 'massage', 'giai co', 'tay không'], device: 'không có' }
+  { keywords: ['hong ngoai', 'hồng ngoại'], device: 'Đèn hồng ngoại' },
+  { keywords: ['laser'], device: 'Máy Laser công suất cao' },
+  { keywords: ['dien xung', 'điện xung', 'điện phân', 'điện', 'dien'], device: 'Máy điện xung' },
+  { keywords: ['shockwave', 'xung kich', 'xung kích'], device: 'Máy sóng xung kích Shockwave' },
+  { keywords: ['sieu am', 'siêu âm'], device: 'Máy siêu âm điều trị' },
+  { keywords: ['nen ep', 'nén ép'], device: 'Máy nén ép' },
+  { keywords: ['keo gian', 'kéo giãn'], device: 'Máy kéo giãn cột sống tự động' },
+  { keywords: ['nan chinh', 'nắn chỉnh'], device: 'Giường nắn chỉnh xương khớp chuyên dụng' },
+  { keywords: ['tay', 'tay khong', 'massage', 'giai co', 'tay không'], device: 'không có' }
 ];
 
 export const currencyFormatter = new Intl.NumberFormat('vi-VN');
@@ -49,23 +82,11 @@ export const isSharedLibraryService = (svc: any) => {
     name.includes('tendon release') ||
     name.includes('joint mobility') ||
     name.includes('piriformis release') ||
-    name.includes('exercise guidance') ||
-    (svc.mo_ta_ngan && svc.mo_ta_ngan.includes('SVC-'))
+    name.includes('exercise guidance')
   );
 };
 
 export const getServiceBenefits = (svc: any) => {
-  if (svc.loai_dich_vu_ho_tro) {
-    let benefits = svc.loai_dich_vu_ho_tro;
-    if (typeof benefits === 'string') {
-      try {
-        benefits = JSON.parse(benefits);
-      } catch (e) {}
-    }
-    if (Array.isArray(benefits) && benefits.length > 0) {
-      return benefits;
-    }
-  }
   const name = (svc.ten_dich_vu || '').toLowerCase();
   if (name.includes('giải cơ') || name.includes('deep tissue')) {
     return [

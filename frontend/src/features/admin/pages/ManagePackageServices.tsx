@@ -119,7 +119,7 @@ export default function ManagePackageServices() {
     }));
   };
 
-  // Filtered services that are inside the package (internal techniques only)
+  // Filtered services that are inside the package
   const linkedServices = useMemo(() => {
     if (!currentPackage || !allServices.length) return [];
     const details = currentPackage.chi_tiet_dich_vu || [];
@@ -131,7 +131,8 @@ export default function ManagePackageServices() {
         return {
           ...svc,
           bat_buoc: item.bat_buoc !== false,
-          thu_tu_thuc_hien: item.thu_tu_thuc_hien || 0
+          thu_tu_thuc_hien: item.thu_tu_thuc_hien || 0,
+          thoi_gian_uoc_tinh: item.thoi_luong_phut ?? svc.thoi_gian_uoc_tinh ?? 45
         };
       })
       .filter(Boolean);
@@ -141,12 +142,12 @@ export default function ManagePackageServices() {
     return linkedServices.reduce((sum: number, svc: any) => sum + (svc.thoi_gian_uoc_tinh || 0), 0);
   }, [linkedServices]);
 
-  // Available internal techniques in the system library that are not added to package
+  // Available services in the library that are not added to package, excluding Exam category (ID 1)
   const availableServices = useMemo(() => {
     if (!allServices.length) return [];
     
-    // Filter services of type 'ky_thuat' (Kỹ thuật lâm sàng nội bộ)
-    let list = allServices.filter(svc => svc.loai_dich_vu === 'ky_thuat');
+    // Filter active services and exclude Exam category (ID 1)
+    let list = allServices.filter(svc => Number(svc.danh_muc_id) !== 1 && svc.trang_thai === 'hoat_dong');
     
     // Exclude services that are already added
     const linkedIds = new Set(linkedServices.map((s: any) => String(s.id)));
@@ -178,7 +179,8 @@ export default function ManagePackageServices() {
         trang_thai: currentPackage.trang_thai,
         chi_tiet_dich_vu: newDetails.map((item: any) => ({
           dich_vu_id: String(item.dich_vu_id),
-          thu_tu_thuc_hien: item.thu_tu_thuc_hien || 0
+          thu_tu_thuc_hien: item.thu_tu_thuc_hien || 0,
+          thoi_luong_phut: Number(item.thoi_luong_phut ?? item.thoi_gian_uoc_tinh ?? 45)
         }))
       };
 
@@ -196,7 +198,23 @@ export default function ManagePackageServices() {
     }
   };
 
-  // Link technique service from Library into the package phác đồ
+  // Update specific service duration inside package
+  const handleUpdateServiceDuration = async (svcId: string | number, newDuration: number) => {
+    if (!currentPackage) return;
+    const currentDetails = currentPackage.chi_tiet_dich_vu || [];
+    const updatedDetails = currentDetails.map((item: any) => {
+      if (String(item.dich_vu_id) === String(svcId)) {
+        return {
+          ...item,
+          thoi_luong_phut: newDuration
+        };
+      }
+      return item;
+    });
+    await savePackageDetails(updatedDetails);
+  };
+
+  // Link service from Library into the package phác đồ
   const handleLinkService = async (svc: any) => {
     if (!currentPackage) return;
     try {
@@ -212,7 +230,8 @@ export default function ManagePackageServices() {
         ...currentDetails,
         {
           dich_vu_id: svc.id,
-          thu_tu_thuc_hien: currentDetails.length
+          thu_tu_thuc_hien: currentDetails.length,
+          thoi_luong_phut: svc.thoi_gian_uoc_tinh ?? 45
         }
       ];
 
@@ -407,6 +426,7 @@ export default function ManagePackageServices() {
                 <tr className="bg-zinc-50 border-b border-zinc-200 text-zinc-400 font-bold uppercase tracking-wider text-[10px]">
                   <th className="p-4 w-12 text-center">STT</th>
                   <th className="p-4">Dịch vụ kỹ thuật lâm sàng</th>
+                  <th className="p-4 w-32 text-center">Thời lượng cấu hình</th>
                   <th className="p-4 w-28 text-center">Chi tiết</th>
                   <th className="p-4 w-24 text-right">Thao tác</th>
                 </tr>
@@ -414,7 +434,7 @@ export default function ManagePackageServices() {
               <tbody className="divide-y divide-zinc-150">
                 {linkedServices.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="p-12 text-center text-zinc-450 bg-zinc-50/30">
+                    <td colSpan={5} className="p-12 text-center text-zinc-450 bg-zinc-50/30">
                       <svg className="w-10 h-10 text-zinc-300 mx-auto mb-2 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                       </svg>
@@ -449,10 +469,28 @@ export default function ManagePackageServices() {
                                   )}
                                 </div>
                                 <p className="text-[10px] text-zinc-400 mt-0.5 flex items-center gap-1.5">
-                                  <span>Kỹ thuật nội bộ phục hồi chuyên sâu</span>
+                                  <span>Cơ chế vật lý trị liệu phục hồi</span>
                                 </p>
                               </div>
                             </div>
+                          </td>
+
+                          {/* Thời lượng cấu hình trong gói */}
+                          <td className="p-4 text-center">
+                            <select
+                              value={svc.thoi_gian_uoc_tinh}
+                              onChange={(e) => handleUpdateServiceDuration(svc.id, Number(e.target.value))}
+                              className="px-2 py-1 bg-white border border-zinc-200 rounded-lg text-secondary font-bold text-xs outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 shadow-sm"
+                            >
+                              <option value={10}>10 Phút</option>
+                              <option value={15}>15 Phút</option>
+                              <option value={20}>20 Phút</option>
+                              <option value={30}>30 Phút</option>
+                              <option value={45}>45 Phút</option>
+                              <option value={60}>60 Phút</option>
+                              <option value={90}>90 Phút</option>
+                              <option value={120}>120 Phút</option>
+                            </select>
                           </td>
 
                           <td className="p-4 text-center">
@@ -490,7 +528,7 @@ export default function ManagePackageServices() {
                         {/* Expanded Accordion Description */}
                         {isExpanded && (
                           <tr className="bg-primary/5 select-none animate-in fade-in duration-200">
-                            <td colSpan={4} className="p-4 border-b border-zinc-200">
+                            <td colSpan={5} className="p-4 border-b border-zinc-200">
                               <div className="bg-white border border-primary/20 rounded-xl p-5 space-y-4 shadow-inner">
                                 <div>
                                   <p className="text-[10px] font-bold text-primary uppercase tracking-wider flex items-center gap-1.5">

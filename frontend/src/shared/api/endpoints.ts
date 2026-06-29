@@ -1,5 +1,5 @@
 /**
- * Centralized API endpoint constants for PhysioFlow.
+ * Centralized API endpoint constants for OfficeCare.
  * All backend URLs are defined here — never hardcode URLs in components.
  */
 
@@ -79,5 +79,4 @@ export const CUSTOMER = {
   PROFILE: '/customer/profile',
   APPOINTMENTS: '/customer/appointments',
   PACKAGES: '/customer/packages',
-  EXERCISES: '/customer/exercises',
 } as const;

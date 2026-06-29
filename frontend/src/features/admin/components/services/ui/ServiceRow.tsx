@@ -3,7 +3,6 @@ import { getServiceImage, isSharedLibraryService, currencyFormatter } from '../c
 
 interface ServiceRowProps {
   svc: Service;
-  selectedType: 'ky_thuat' | 'don_le';
   pkgCount: number;
   usageNames: string[];
   isExpanded: boolean;
@@ -15,7 +14,6 @@ interface ServiceRowProps {
 
 export function ServiceRow({
   svc,
-  selectedType,
   pkgCount,
   usageNames,
   isExpanded,
@@ -28,26 +26,42 @@ export function ServiceRow({
 
   return (
     <tr className={`hover:bg-zinc-50/80 transition-colors ${svc.trang_thai === 'vo_hieu' ? 'bg-zinc-50/30 opacity-70' : ''}`}>
+      {/* Tên Dịch Vụ */}
       <td className="p-4">
         <div className="flex items-center gap-3">
           <img src={getServiceImage(svc.id)} alt={svc.ten_dich_vu} className="w-10 h-10 rounded-xl border border-zinc-200 object-cover shadow-sm shrink-0" />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <p className="font-extrabold text-secondary text-sm">{svc.ten_dich_vu}</p>
-              {selectedType === 'don_le' && (
-                <span className="text-[9px] text-primary font-bold bg-primary-container border border-primary/20 px-2 py-0.5 rounded-lg uppercase tracking-wider shrink-0">
-                  {svc.ten_danh_muc || 'Không phân loại'}
-                </span>
-              )}
               {shared && (
-                <span className="text-[9px] font-heading font-bold bg-zinc-100 border border-zinc-200 text-zinc-650 px-1.5 py-0.5 rounded shrink-0">
+                <span className="text-[9px] font-heading font-bold bg-zinc-100 border border-zinc-200 text-zinc-655 px-1.5 py-0.5 rounded shrink-0">
                   DÙNG CHUNG
                 </span>
               )}
+              {svc.loai_phong_yeu_cau === 'kham_benh' && (
+                <span className="text-[9px] font-bold bg-purple-50 border border-purple-200 text-purple-700 px-1.5 py-0.5 rounded-md shrink-0">
+                  🩺 KHÁM LÂM SÀNG
+                </span>
+              )}
+              {svc.loai_phong_yeu_cau === 'phong_tap' && (
+                <span className="text-[9px] font-bold bg-sky-50 border border-sky-200 text-sky-700 px-1.5 py-0.5 rounded-md shrink-0">
+                  🏃 TẬP PHCN
+                </span>
+              )}
+              {svc.loai_phong_yeu_cau === 'phong_tri_lieu' && (
+                <span className="text-[9px] font-bold bg-amber-50 border border-amber-200 text-amber-700 px-1.5 py-0.5 rounded-md shrink-0">
+                  💆 TRỊ LIỆU THƯỜNG
+                </span>
+              )}
+              {svc.loai_phong_yeu_cau === 'phong_dac_biet' && (
+                <span className="text-[9px] font-bold bg-rose-50 border border-rose-200 text-rose-700 px-1.5 py-0.5 rounded-md shrink-0">
+                  ⚡ ĐẶC BIỆT
+                </span>
+              )}
             </div>
-            {svc.thiet_bi_yeu_cau && (
+            {svc.ten_thiet_bi_yeu_cau && (
               <span className="text-[9px] text-zinc-400 mt-0.5 inline-block">
-                THIẾT BỊ: {svc.thiet_bi_yeu_cau.toUpperCase()}
+                THIẾT BỊ: {svc.ten_thiet_bi_yeu_cau.toUpperCase()}
               </span>
             )}
           </div>
@@ -77,43 +91,59 @@ export function ServiceRow({
         </div>
       </td>
 
-      {selectedType === 'ky_thuat' ? (
-        <td className="p-4">
-          {pkgCount > 0 ? (
-            <div className="relative group inline-block">
-              <span className="cursor-help inline-flex items-center px-2 py-0.5 rounded-lg border border-zinc-200 bg-zinc-100 text-primary text-[10px] font-bold uppercase hover:bg-primary-container transition-colors font-heading">
-                {pkgCount} GÓI
-              </span>
-              
-              <div className="pointer-events-none absolute left-0 bottom-full mb-1 w-64 p-3 bg-secondary text-[11px] text-zinc-350 rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-opacity z-10 space-y-1.5 border border-zinc-800 leading-normal">
-                <p className="font-bold text-primary uppercase tracking-wider mb-1 border-b border-zinc-800 pb-1 text-[10px]">Xuất hiện trong các gói:</p>
-                {usageNames.map((name, index) => (
-                  <p key={index} className="truncate">• {name}</p>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <span className="inline-flex items-center px-2 py-0.5 rounded-lg border border-zinc-150 bg-zinc-50 text-zinc-400 text-[10px] font-bold uppercase font-heading">
-              CHƯA DÙNG
-            </span>
-          )}
-        </td>
-      ) : (
-        <>
-          <td className="p-4">
-            <span className="font-bold text-secondary text-xs uppercase">
-              {svc.ten_danh_muc || 'CHƯA CÓ'}
-            </span>
-          </td>
-          <td className="p-4 text-right font-bold text-zinc-650 text-xs">
-            {svc.thoi_gian_uoc_tinh} PHÚT
-          </td>
-          <td className="p-4 text-right font-bold text-emerald-600 text-sm">
-            {currencyFormatter.format(svc.don_gia)}đ
-          </td>
-        </>
-      )}
+      {/* Danh mục chuyên khoa */}
+      <td className="p-4">
+        <span className="text-primary font-bold bg-primary-container border border-primary/20 px-2 py-0.5 rounded-lg text-[9px] uppercase tracking-wider shrink-0">
+          {svc.ten_danh_muc || 'Không phân loại'}
+        </span>
+      </td>
 
+      {/* Thời lượng */}
+      <td className="p-4 text-right font-bold text-zinc-650 text-xs">
+        {svc.thoi_gian_uoc_tinh} PHÚT
+      </td>
+
+      {/* Đơn giá */}
+      <td className="p-4 text-right font-bold text-emerald-600 text-sm">
+        {currencyFormatter.format(svc.don_gia)}đ
+      </td>
+
+      {/* Hiển thị Website */}
+      <td className="p-4 text-center">
+        {svc.hien_thi_website ? (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-[9px] font-extrabold uppercase">
+            CÔNG KHAI
+          </span>
+        ) : (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-400 text-[9px] font-extrabold uppercase">
+            NỘI BỘ
+          </span>
+        )}
+      </td>
+
+      {/* Dùng trong gói */}
+      <td className="p-4 text-center">
+        {pkgCount > 0 ? (
+          <div className="relative group inline-block">
+            <span className="cursor-help inline-flex items-center px-2 py-0.5 rounded-lg border border-zinc-200 bg-zinc-100 text-primary text-[9px] font-extrabold uppercase hover:bg-primary-container transition-colors font-heading">
+              {pkgCount} GÓI
+            </span>
+            
+            <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-1 w-64 p-3 bg-secondary text-[11px] text-zinc-350 rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-opacity z-10 space-y-1.5 border border-zinc-800 leading-normal text-left">
+              <p className="font-bold text-primary uppercase tracking-wider mb-1 border-b border-zinc-800 pb-1 text-[10px]">Xuất hiện trong các gói:</p>
+              {usageNames.map((name, index) => (
+                <p key={index} className="truncate">• {name}</p>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-lg border border-zinc-150 bg-zinc-50 text-zinc-400 text-[9px] font-extrabold uppercase font-heading">
+            CHƯA DÙNG
+          </span>
+        )}
+      </td>
+
+      {/* Toggle Trạng Thái */}
       <td className="p-4">
         <div className="flex justify-center items-center gap-2">
           <button 
@@ -136,11 +166,12 @@ export function ServiceRow({
         </div>
       </td>
       
+      {/* Thao tác */}
       <td className="p-4 text-right">
         <div className="flex items-center justify-end gap-2">
           <button 
             onClick={onEdit}
-            className="w-8 h-8 rounded-xl border border-zinc-200 flex items-center justify-center text-zinc-500 hover:text-primary hover:border-primary hover:bg-primary-container transition-all active:scale-90 bg-white shadow-sm"
+            className="w-8 h-8 rounded-xl border border-zinc-200 flex items-center justify-center text-zinc-500 hover:text-primary hover:border-primary hover:bg-primary-container transition-all active:scale-95 bg-white shadow-sm"
             title="Chỉnh sửa dịch vụ"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -149,7 +180,7 @@ export function ServiceRow({
           </button>
           <button 
             onClick={onDelete}
-            className="w-8 h-8 rounded-xl border border-zinc-200 flex items-center justify-center text-zinc-500 hover:text-rose-500 hover:border-rose-200 hover:bg-rose-50 transition-all active:scale-90 bg-white shadow-sm"
+            className="w-8 h-8 rounded-xl border border-zinc-200 flex items-center justify-center text-zinc-500 hover:text-rose-500 hover:border-rose-200 hover:bg-rose-50 transition-all active:scale-95 bg-white shadow-sm"
             title="Xóa dịch vụ"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -1,6 +1,6 @@
-# Hướng dẫn Vẽ Sơ đồ Thực thể - Mối quan hệ (ERD) - PhysioFlow (Bản Đầy Đủ Tất Cả Thuộc Tính)
+# Hướng dẫn Vẽ Sơ đồ Thực thể - Mối quan hệ (ERD) - OfficeCare (Bản Đầy Đủ Tất Cả Thuộc Tính)
 
-Tài liệu này được trích xuất hoàn toàn và đầy đủ từ cấu trúc Database thực tế của hệ thống PhysioFlow. Dưới đây là định nghĩa của **toàn bộ 23 bảng**, chi tiết **từng thuộc tính** (không lược bỏ) và hướng dẫn thiết lập mối quan hệ.
+Tài liệu này được trích xuất hoàn toàn và đầy đủ từ cấu trúc Database thực tế của hệ thống OfficeCare. Dưới đây là định nghĩa của **toàn bộ 23 bảng**, chi tiết **từng thuộc tính** (không lược bỏ) và hướng dẫn thiết lập mối quan hệ.
 
 ---
 

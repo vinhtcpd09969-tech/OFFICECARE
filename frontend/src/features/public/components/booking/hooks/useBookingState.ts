@@ -71,14 +71,20 @@ export function useBookingState(user: any, bookingType: 'kham' | 'dich_vu', sele
     const phone = state.formData.so_dien_thoai || user?.so_dien_thoai || '';
     
     let duration = 30;
-    if (bookingType === 'dich_vu' && selectedServiceId) {
+    let targetDichVuId = '';
+    
+    if (bookingType === 'dich_vu') {
+      targetDichVuId = selectedServiceId;
       const service = services.find(s => s.id === selectedServiceId);
       if (service) {
         duration = service.thoi_luong_phut || 30;
       }
+    } else {
+      const examService = services.find(s => String(s.danh_muc_id) === '1');
+      targetDichVuId = examService?.id || '';
     }
 
-    fetch(`${BASE_URL}/client/appointments/booked-slots?date=${state.selectedDate}&userId=${userId}&phone=${phone}&duration=${duration}`)
+    fetch(`${BASE_URL}/client/appointments/booked-slots?date=${state.selectedDate}&userId=${userId}&phone=${phone}&duration=${duration}&dichVuId=${targetDichVuId}`)
       .then(res => res.json())
       .then(data => {
         setBookedSlots(data.bookedSlots || []);

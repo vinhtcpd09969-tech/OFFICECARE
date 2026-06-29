@@ -52,12 +52,7 @@ export const createPublicAppointment = async (req: Request, res: Response): Prom
     if (error instanceof ZodError) {
       return res.status(400).json({ message: error.errors[0].message });
     }
-    if (error.message && (
-      error.message.includes('hết chỗ') || 
-      error.message.includes('Đã hết thiết bị') ||
-      error.message.includes('quá tải') ||
-      error.message.includes('đã có lịch')
-    )) {
+    if (error.message && !error.stack?.includes('pg') && !error.stack?.includes('Prisma') && !error.message.includes('connection')) {
       return res.status(400).json({ message: error.message });
     }
     return res.status(500).json({ message: 'Lỗi server' });
@@ -162,16 +157,18 @@ export const cancelBreakTimeAppointments = async (req: Request, res: Response): 
 // Lấy danh sách khung giờ đã đặt cho ngày cụ thể (public - dùng cho trang booking client)
 export const getBookedSlots = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { date, userId, phone, duration } = req.query;
+    const { date, userId, phone, duration, dichVuId, dich_vu_id } = req.query;
     if (!date || typeof date !== 'string') {
       return res.status(400).json({ message: 'Thiếu tham số ngày (date=YYYY-MM-DD)' });
     }
     const durationNum = duration ? parseInt(duration as string, 10) : 30;
+    const serviceId = (typeof dichVuId === 'string' ? dichVuId : (typeof dich_vu_id === 'string' ? dich_vu_id : undefined));
     const bookedSlots = await appointmentService.getBookedSlots(
       date,
       typeof userId === 'string' ? userId : undefined,
       typeof phone === 'string' ? phone : undefined,
-      durationNum
+      durationNum,
+      serviceId
     );
 
     let hasExistingClinicalExam = false;

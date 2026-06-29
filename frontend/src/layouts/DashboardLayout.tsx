@@ -12,8 +12,7 @@ import {
   Bell, 
   Search,
   Menu,
-  X,
-  Activity
+  X
 } from 'lucide-react';
 
 export default function DashboardLayout() {
@@ -92,7 +91,6 @@ export default function DashboardLayout() {
     { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={20} />, roles: [1, 2, 3, 4] },
     { name: 'Lịch hẹn', path: '/appointments', icon: <Calendar size={20} />, roles: [1, 2, 4] },
     { name: 'Gói điều trị', path: '/packages', icon: <Package size={20} />, roles: [1, 2, 4] },
-    { name: 'Bài tập tại nhà', path: '/exercises', icon: <Activity size={20} />, roles: [1] },
     { name: 'Hồ sơ', path: '/profile', icon: <FileText size={20} />, roles: [1, 2, 3, 4] },
     { name: 'Cài đặt', path: '/settings', icon: <Settings size={20} />, roles: [1, 2, 3, 4] },
   ];

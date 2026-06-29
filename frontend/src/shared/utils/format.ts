@@ -1,5 +1,5 @@
 /**
- * Currency and number formatting utilities for PhysioFlow.
+ * Currency and number formatting utilities for OfficeCare.
  */
 
 /**

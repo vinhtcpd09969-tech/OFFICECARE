@@ -1,4 +1,4 @@
-# Hướng Dẫn Từng Bước Vẽ Sơ Đồ Hoạt Động (Activity Diagram) - PhysioFlow
+# Hướng Dẫn Từng Bước Vẽ Sơ Đồ Hoạt Động (Activity Diagram) - OfficeCare
 
 Tài liệu này chi tiết hóa cách vẽ sơ đồ hoạt động bằng các ký hiệu chuẩn UML (như hình tròn, hình thoi, hình hộp chữ nhật bo góc, thanh đồng bộ) cho **Luồng Đặt Lịch Khám** và **Luồng Đặt Lịch Điều Trị**.
 
@@ -37,7 +37,7 @@ Step 4:  🔲 [Hành động]: "Bệnh nhân chọn khung giờ khả dụng và
           ↓
 Step 5:  🔲 [Hành động]: "Bệnh nhân gửi yêu cầu đặt lịch khám"
           ↓
-Step 6:  🔲 [Hành động]: "PhysioFlow tạo lịch hẹn trạng thái Chưa xác nhận và trừ sức chứa của khung giờ khách chọn"
+Step 6:  🔲 [Hành động]: "OfficeCare tạo lịch hẹn trạng thái Chưa xác nhận và trừ sức chứa của khung giờ khách chọn"
           ↓
 Step 7:  🔲 [Hành động]: "Hệ thống gửi Email xác nhận tự động cho bệnh nhân"
           ↓
@@ -118,7 +118,7 @@ Step 1:  ⚫ [Điểm bắt đầu]
           ↓
 Step 2:  🔲 [Hành động]: "Nhập mã bệnh nhân hoặc số điện thoại"
           ↓
-Step 3:  🔲 [Hành động]: "PhysioFlow tra cứu hồ sơ gói liệu trình"
+Step 3:  🔲 [Hành động]: "OfficeCare tra cứu hồ sơ gói liệu trình"
           ↓
 Step 4:  🔷 [Hình thoi]: "Gói điều trị còn buổi khả dụng?"
           ├── Không ──> 🔲 [Hành động]: "Báo hết số buổi & Gợi ý mua gói mới" ──> 🎯 [Kết thúc phụ]
@@ -151,7 +151,7 @@ graph TD
     classDef condition fill:#fffbeb,stroke:#f59e0b,stroke-width:1.5px,color:#b45309;
 
     Start([⚫ Bắt đầu]) :::startEnd --> InputId[🔲 Nhập mã bệnh nhân / SĐT]
-    InputId --> FetchRecord[🔲 PhysioFlow tra cứu hồ sơ gói liệu trình]
+    InputId --> FetchRecord[🔲 OfficeCare tra cứu hồ sơ gói liệu trình]
     
     FetchRecord --> CheckSession{🔷 Gói còn buổi khả dụng?} :::condition
     CheckSession -->|Không| BuyNew[🔲 Báo hết buổi & Gợi ý mua gói mới]

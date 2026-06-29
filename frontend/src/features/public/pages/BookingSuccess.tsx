@@ -469,7 +469,7 @@ export default function BookingSuccess() {
                       <span className="text-[10px] text-slate-400 font-mono font-normal">[{getRelativeTime(appointment.thoi_gian_tao)}]</span>
                     </h4>
                     <p className="text-[11px] text-slate-500 font-semibold leading-relaxed">
-                      Thông tin lịch khám lượng giá đã được lưu vào hệ thống PhysioFlow thành công.
+                      Thông tin lịch khám lượng giá đã được lưu vào hệ thống OfficeCare thành công.
                     </p>
                   </div>
                 </div>

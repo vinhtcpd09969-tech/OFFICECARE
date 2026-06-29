@@ -125,14 +125,13 @@ class AdminService {
 
   async createEquipment(data: any) {
     const count = data.so_luong || 1;
-    const phongId = data.phong_id_hien_tai ? Number(data.phong_id_hien_tai) : null;
     
-    // Resolve loai_thiet_bi from loai_thiet_bi_id if provided
-    let resolvedLoaiText = data.loai_thiet_bi || '';
-    if (data.loai_thiet_bi_id) {
-      const typeRecord = await adminRepository.getEquipmentTypeById(Number(data.loai_thiet_bi_id));
+    // Resolve ten_danh_muc from danh_muc_thiet_bi_id if provided
+    let resolvedLoaiText = '';
+    if (data.danh_muc_thiet_bi_id) {
+      const typeRecord = await adminRepository.getEquipmentTypeById(Number(data.danh_muc_thiet_bi_id));
       if (typeRecord) {
-        resolvedLoaiText = typeRecord.ten_loai;
+        resolvedLoaiText = typeRecord.ten_danh_muc;
       }
     }
     
@@ -140,8 +139,6 @@ class AdminService {
       ...data,
       loai_thiet_bi: resolvedLoaiText
     };
-
-    // Bỏ qua kiểm tra tương thích phòng và sức chứa phòng do tài nguyên thiết bị đã được đưa về bể dùng chung (Pool-based)
     
     // 3. Tự động xác định tiền tố mã thiết bị
     const getCodePrefix = (type: string): string => {
@@ -213,18 +210,7 @@ class AdminService {
   }
 
   async updateEquipment(id: string, data: any) {
-    let resolvedLoaiText = data.loai_thiet_bi;
-    if (data.loai_thiet_bi_id) {
-      const typeRecord = await adminRepository.getEquipmentTypeById(Number(data.loai_thiet_bi_id));
-      if (typeRecord) {
-        resolvedLoaiText = typeRecord.ten_loai;
-      }
-    }
-    const resolvedData = {
-      ...data,
-      loai_thiet_bi: resolvedLoaiText !== undefined ? resolvedLoaiText : undefined
-    };
-    return adminRepository.updateEquipment(id, resolvedData);
+    return adminRepository.updateEquipment(id, data);
   }
 
   async deleteEquipment(id: string) {
@@ -236,11 +222,11 @@ class AdminService {
     return adminRepository.getEquipmentTypes();
   }
 
-  async createEquipmentType(data: { ten_loai: string; nhom_thiet_bi: string }) {
+  async createEquipmentType(data: { ten_danh_muc: string; ten_thiet_bi: string; loai_danh_muc?: string }) {
     return adminRepository.createEquipmentType(data);
   }
 
-  async updateEquipmentType(id: number, data: { ten_loai: string; nhom_thiet_bi: string }) {
+  async updateEquipmentType(id: number, data: { ten_danh_muc: string; ten_thiet_bi: string; loai_danh_muc?: string }) {
     return adminRepository.updateEquipmentType(id, data);
   }
 

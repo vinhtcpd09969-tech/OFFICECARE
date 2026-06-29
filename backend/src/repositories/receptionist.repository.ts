@@ -113,28 +113,7 @@ class ReceptionistRepository {
         if (rows.length > 0) {
           await this.updateCompletedSessionsCountInternal(id, client);
 
-          // Tăng bộ đếm thiết bị khi buổi hoàn thành
-          if (trang_thai === 'hoan_thanh' && rows[0].dich_vu_id && rows[0].phong_id) {
-            const svcRes = await client.query(
-              'SELECT thiet_bi_yeu_cau FROM dich_vu WHERE id = $1',
-              [rows[0].dich_vu_id]
-            );
-            const thietBiYeuCau = svcRes.rows[0]?.thiet_bi_yeu_cau;
-            if (thietBiYeuCau && thietBiYeuCau !== 'Không cần thiết bị') {
-              // Tăng bộ đếm thiết bị phù hợp trong cùng phòng, nếu có
-              await client.query(`
-                UPDATE thiet_bi_y_te
-                SET so_lan_su_dung = so_lan_su_dung + 1
-                WHERE id IN (
-                  SELECT id FROM thiet_bi_y_te
-                  WHERE trang_thai = 'san_sang'
-                    AND phong_id_hien_tai = $1
-                    AND (ten_thiet_bi ILIKE '%' || $2 || '%' OR loai_thiet_bi ILIKE '%' || $2 || '%')
-                  LIMIT 1
-                )
-              `, [rows[0].phong_id, thietBiYeuCau]);
-            }
-          }
+
         }
       }
 

@@ -13,7 +13,7 @@ interface Service {
   thoi_luong_phut: number;
   don_gia: number | string;
   hinh_anh_url: string;
-  loai_dich_vu: string;
+  hien_thi_website: boolean;
   loai_dich_vu_ho_tro: string[] | string;
 }
 

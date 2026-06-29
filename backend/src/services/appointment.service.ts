@@ -61,8 +61,8 @@ class AppointmentService {
     return appointmentRepository.cancelBreakTimeAppointments();
   }
 
-  async getBookedSlots(dateStr: string, userId?: string, phone?: string, duration: number = 30) {
-    return appointmentRepository.getBookedSlots(dateStr, userId, phone, duration);
+  async getBookedSlots(dateStr: string, userId?: string, phone?: string, duration: number = 30, dichVuId?: string) {
+    return appointmentRepository.getBookedSlots(dateStr, userId, phone, duration, dichVuId);
   }
 
   async checkCustomerHasClinicalExamOnDate(userId?: string, phone?: string, dateStr?: string) {
@@ -126,30 +126,7 @@ class AppointmentService {
       throw new Error('Lịch hẹn không tồn tại');
     }
 
-    if (appt.bac_si_id) {
-      throw new Error('Lịch hẹn đã được phân bổ bác sĩ');
-    }
-
-    if (!['cho_xac_nhan', 'chua_xac_nhan'].includes(appt.trang_thai)) {
-      throw new Error('Lịch hẹn không ở trạng thái chờ xác nhận');
-    }
-
-    const now = new Date();
-    const minGrace = 5; // 5 minutes extension
-    const extendedTime = new Date(now.getTime() + minGrace * 60000);
-    const start = new Date(appt.ngay_gio_bat_dau);
-    
-    // Capped by appointment start time
-    const newHanXacNhan = extendedTime < start ? extendedTime : start;
-
-    const updated = await prisma.lich_dat.update({
-      where: { id },
-      data: {
-        han_xac_nhan: newHanXacNhan
-      }
-    });
-
-    return updated;
+    return appt;
   }
 
   async confirmEmailAppointment(id: string) {
@@ -202,7 +179,7 @@ class AppointmentService {
     if (!targetEmail) {
       // Fallback: If no account email, construct from phone number
       const sdt = appt.khach_hang?.so_dien_thoai || appt.so_dien_thoai || '0901234567';
-      targetEmail = `${sdt}@physioflow.placeholder`;
+      targetEmail = `${sdt}@officecare.placeholder`;
     }
 
     let serviceName = 'Khám Lượng Giá Lâm Sàng';

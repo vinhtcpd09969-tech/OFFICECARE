@@ -30,7 +30,6 @@ const Dashboard = lazy(() => import('../features/customer/pages/Dashboard'));
 const CustomerAppointments = lazy(() => import('../features/customer/pages/CustomerAppointments'));
 const CustomerPackages = lazy(() => import('../features/customer/pages/CustomerPackages'));
 const CustomerProfile = lazy(() => import('../features/customer/pages/CustomerProfile'));
-const CustomerExercises = lazy(() => import('../features/customer/pages/CustomerExercises'));
 const CustomerSettings = lazy(() => import('../features/customer/pages/CustomerSettings'));
 
 // Admin Feature
@@ -92,7 +91,6 @@ export default function AppRoutes() {
             <Route path="/appointments" element={<CustomerAppointments />} />
             <Route path="/packages" element={<CustomerPackages />} />
             <Route path="/profile" element={<CustomerProfile />} />
-            <Route path="/exercises" element={<CustomerExercises />} />
             <Route path="/settings" element={<CustomerSettings />} />
           </Route>
         </Route>

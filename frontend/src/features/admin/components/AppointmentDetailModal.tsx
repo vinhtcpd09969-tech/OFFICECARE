@@ -138,7 +138,7 @@ export default function AppointmentDetailModal({
   );
 
   const occupiedStaffIds = overlappingApts.map(apt => apt.bac_si_id || apt.chuyen_gia_id).filter(Boolean);
-  const occupiedRoomIds = overlappingApts.map(apt => String(apt.phong_id)).filter(Boolean);
+
 
   // Phân tích ca trực của nhân viên ngày hôm nay
   const aptDate = new Date(selectedAppointment.ngay_gio_bat_dau);
@@ -445,17 +445,37 @@ export default function AppointmentDetailModal({
                     <div className="grid grid-cols-2 gap-3 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin">
                       {roomsList
                         .filter(room => {
-                          if (selectedAppointment.loai_lich === 'kham_moi') {
+                          const selectedStaff = staffList.find(s => {
+                            const staffId = s.chuyen_gia_id || s.id;
+                            return String(staffId) === String(assignStaffId);
+                          });
+                          const isDoctor = selectedStaff 
+                            ? (selectedStaff.vai_tro === 'Bác sĩ' || selectedStaff.role === 'doctor') 
+                            : (activeRole === 'Bác sĩ' || activeRole === 'doctor');
+                          const isTherapist = selectedStaff
+                            ? (selectedStaff.vai_tro === 'Kỹ thuật viên' || selectedStaff.vai_tro === 'Chuyên gia y tế' || selectedStaff.role === 'therapist')
+                            : (activeRole === 'Kỹ thuật viên' || activeRole === 'Chuyên gia y tế' || activeRole === 'therapist');
+
+                          if (isDoctor) {
                             return room.loai_phong === 'kham_benh';
                           }
-                          if (selectedAppointment.loai_lich === 'dieu_tri') {
-                            return room.loai_phong === 'tri_lieu' || room.loai_phong === 'phong_tri_lieu_chuan';
+
+                          if (isTherapist || selectedAppointment.loai_lich === 'dieu_tri') {
+                            return room.loai_phong === 'tri_lieu' || room.loai_phong === 'phong_tri_lieu_chuan' || room.loai_phong === 'phong_tap';
+                          }
+
+                          if (selectedAppointment.loai_lich === 'kham_moi') {
+                            return room.loai_phong === 'kham_benh';
                           }
                           return true;
                         })
                         .map(room => {
-                          const isOccupied = occupiedRoomIds.includes(String(room.id)) && String(room.id) !== String(selectedAppointment.phong_id);
+                          const roomOverlaps = overlappingApts.filter(apt => String(apt.phong_id) === String(room.id));
+                          const occupiedSlots = roomOverlaps.length;
+                          const capacity = room.suc_chua || 1;
+                          const isOccupied = occupiedSlots >= capacity && String(room.id) !== String(selectedAppointment.phong_id);
                           const isSelected = String(assignRoomId) === String(room.id);
+                          const remainingSlots = Math.max(0, capacity - occupiedSlots);
 
                           return (
                             <div
@@ -468,11 +488,11 @@ export default function AppointmentDetailModal({
                                     : 'bg-white dark:bg-zinc-900 border-slate-150 dark:border-zinc-800 hover:border-slate-350 dark:hover:border-zinc-700 cursor-pointer'
                                 }`}
                             >
-                              <div className="flex justify-between items-start">
+                              <div className="flex justify-between items-start gap-1">
                                 <span className="text-xs font-black text-slate-800 dark:text-zinc-200 leading-tight">{room.ten_phong}</span>
-                                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider ${isOccupied ? 'bg-rose-100 dark:bg-rose-955/30 text-rose-700 dark:text-rose-455' : 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-450'
+                                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider whitespace-nowrap ${isOccupied ? 'bg-rose-100 dark:bg-rose-955/30 text-rose-700 dark:text-rose-455' : 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-450'
                                   }`}>
-                                  {isOccupied ? 'Bận' : 'Trống'}
+                                  {isOccupied ? 'Bận' : `Còn: ${remainingSlots}/${capacity}`}
                                 </span>
                               </div>
                               <span className="text-[9px] text-slate-400 dark:text-zinc-550 mt-2 font-bold">{room.loai_phong || 'Phòng khám'}</span>

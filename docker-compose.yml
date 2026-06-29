@@ -3,7 +3,7 @@ version: '3.8'
 services:
   db:
     image: postgres:15-alpine
-    container_name: physioflow_db
+    container_name: officecare_db
     restart: always
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -14,7 +14,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - physioflow_pgdata:/var/lib/postgresql/data
+      - officecare_pgdata:/var/lib/postgresql/data
 
 volumes:
-  physioflow_pgdata:
+  officecare_pgdata:

@@ -24,6 +24,7 @@ export interface Appointment {
   ten_dich_vu?: string;
   dich_vu_id?: string | number | null;
   loai_lich?: string;
+  giuong_so?: number | string | null;
 }
 
 export interface Staff {

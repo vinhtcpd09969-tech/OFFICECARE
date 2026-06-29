@@ -91,7 +91,7 @@ export default function WalkInBookingModal({
     );
 
     const occupiedDoctorIds = overlappingApts.map(apt => apt.bac_si_id || apt.chuyen_gia_id).filter(Boolean);
-    const occupiedRoomIds = overlappingApts.map(apt => String(apt.phong_id)).filter(Boolean);
+
 
     // 2. Filter Doctors (Bác sĩ) based on schedule duty and overlap
     const doctors = staffList.filter(s => s.vai_tro === 'Bác sĩ');
@@ -135,10 +135,15 @@ export default function WalkInBookingModal({
     const filteredRooms = roomsList
       .filter(room => room.loai_phong === 'kham_benh')
       .map(room => {
-        const isOccupied = occupiedRoomIds.includes(String(room.id));
+        const roomOverlaps = overlappingApts.filter(apt => String(apt.phong_id) === String(room.id));
+        const occupiedSlots = roomOverlaps.length;
+        const capacity = room.suc_chua || 1;
+        const isOccupied = occupiedSlots >= capacity;
         return {
           ...room,
-          available: !isOccupied
+          available: !isOccupied,
+          occupiedSlots,
+          capacity
         };
       });
 
@@ -429,7 +434,7 @@ export default function WalkInBookingModal({
                                 : 'bg-emerald-100 text-emerald-700' 
                               : 'bg-rose-50 text-rose-600'
                           }`}>
-                            {room.available ? (isSelected ? 'Đã chọn' : 'Trống') : 'Bận'}
+                            {room.available ? (isSelected ? 'Đã chọn' : `Còn: ${room.capacity - room.occupiedSlots}/${room.capacity}`) : 'Bận'}
                           </span>
                         </div>
                       );

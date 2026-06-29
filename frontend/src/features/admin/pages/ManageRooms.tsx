@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   getRooms, 
-  getEquipment, 
   createRoom 
 } from '../../../api/admin.api';
 
@@ -15,15 +14,6 @@ interface Room {
   trang_thai: string;
   mo_ta?: string;
   suc_chua?: number;
-}
-
-interface Equipment {
-  id: string | number;
-  ma_thiet_bi: string;
-  ten_thiet_bi: string;
-  loai_thiet_bi?: string;
-  trang_thai: string;
-  phong_id_hien_tai?: string | number | null;
 }
 
 const renderRoomIconSVG = (type: string) => {
@@ -70,7 +60,6 @@ const ALL_ROOM_TYPES = [
 
 export default function ManageRooms() {
   const [rooms, setRooms] = useState<Room[]>([]);
-  const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Filters
@@ -113,9 +102,8 @@ export default function ManageRooms() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [roomsRes, eqRes] = await Promise.all([getRooms(), getEquipment()]);
-      setRooms(roomsRes.data || []);
-      setEquipment(eqRes.data || []);
+      const res = await getRooms();
+      setRooms(res.data || []);
     } catch (error) {
       console.error('Lỗi khi lấy dữ liệu hạ tầng:', error);
       showToast('Không thể kết nối API. Đang dùng dữ liệu mô phỏng.', 'error');
@@ -396,11 +384,6 @@ export default function ManageRooms() {
             const isAvailable = room.trang_thai === 'san_sang' || room.trang_thai === 'trong';
             const isOccupied = room.trang_thai === 'dang_dung' || room.trang_thai === 'dang_co_khach';
 
-            // Get equipment associated with this room
-            const roomEquipment = equipment.filter(e => 
-              room.id.toString() === e.phong_id_hien_tai?.toString()
-            );
-
             return (
               <Link 
                 key={room.id} 
@@ -479,36 +462,7 @@ export default function ManageRooms() {
                     </div>
                   )}
 
-                  {/* Assigned Equipment list */}
-                  <div className="mb-4">
-                    <div className="flex justify-between items-center mb-2">
-                      <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Thiết bị y khoa ({roomEquipment.length}):</h4>
-                    </div>
-                    {roomEquipment.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {roomEquipment.slice(0, 3).map(eq => (
-                          <span 
-                            key={eq.id} 
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold border rounded-none ${
-                              eq.trang_thai === 'dang_bao_tri' || eq.trang_thai === 'hong'
-                                ? 'bg-rose-50 border-rose-200 text-rose-800' 
-                                : 'bg-slate-50 border-slate-200 text-slate-700'
-                            }`}
-                          >
-                            {eq.ten_thiet_bi} 
-                            <span className="font-mono text-[9px] text-slate-400 font-medium">({eq.ma_thiet_bi})</span>
-                          </span>
-                        ))}
-                        {roomEquipment.length > 3 && (
-                          <span className="inline-flex items-center px-2.5 py-0.5 text-[10px] font-bold bg-teal-50 border border-teal-200 text-teal-850 rounded-none">
-                            + {roomEquipment.length - 3} máy khác
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-slate-400 italic">Chưa có thiết bị nào.</p>
-                    )}
-                  </div>
+
                 </div>
 
                 {/* Card Footer indicator */}

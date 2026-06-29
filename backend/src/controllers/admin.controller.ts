@@ -304,11 +304,18 @@ export const getEquipmentTypes = async (req: Request, res: Response) => {
 
 export const createEquipmentType = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { ten_loai, nhom_thiet_bi } = req.body;
-    if (!ten_loai || !nhom_thiet_bi) {
-      return res.status(400).json({ message: 'Tên loại và nhóm thiết bị là bắt buộc' });
+    const { ten_loai, ten_thiet_bi, nhom_thiet_bi, ten_danh_muc, loai_danh_muc } = req.body;
+    const final_ten_danh_muc = ten_danh_muc || nhom_thiet_bi;
+    const final_ten_thiet_bi = ten_thiet_bi || ten_loai;
+
+    if (!final_ten_danh_muc || !final_ten_thiet_bi) {
+      return res.status(400).json({ message: 'Tên danh mục và Tên thiết bị là bắt buộc' });
     }
-    const newType = await adminService.createEquipmentType({ ten_loai, nhom_thiet_bi });
+    const newType = await adminService.createEquipmentType({ 
+      ten_danh_muc: final_ten_danh_muc, 
+      ten_thiet_bi: final_ten_thiet_bi,
+      loai_danh_muc: loai_danh_muc
+    });
     res.status(201).json(newType);
   } catch (error: any) {
     if (error?.code === '23505') {
@@ -321,11 +328,18 @@ export const createEquipmentType = async (req: Request, res: Response): Promise<
 export const updateEquipmentType = async (req: Request, res: Response): Promise<any> => {
   try {
     const { id } = req.params as { id: string };
-    const { ten_loai, nhom_thiet_bi } = req.body;
-    if (!ten_loai || !nhom_thiet_bi) {
-      return res.status(400).json({ message: 'Tên loại và nhóm thiết bị là bắt buộc' });
+    const { ten_loai, ten_thiet_bi, nhom_thiet_bi, ten_danh_muc, loai_danh_muc } = req.body;
+    const final_ten_danh_muc = ten_danh_muc || nhom_thiet_bi;
+    const final_ten_thiet_bi = ten_thiet_bi || ten_loai;
+
+    if (!final_ten_danh_muc || !final_ten_thiet_bi) {
+      return res.status(400).json({ message: 'Tên danh mục và Tên thiết bị là bắt buộc' });
     }
-    const updatedType = await adminService.updateEquipmentType(Number(id), { ten_loai, nhom_thiet_bi });
+    const updatedType = await adminService.updateEquipmentType(Number(id), { 
+      ten_danh_muc: final_ten_danh_muc, 
+      ten_thiet_bi: final_ten_thiet_bi,
+      loai_danh_muc: loai_danh_muc
+    });
     res.json(updatedType);
   } catch (error: any) {
     if (error?.code === '23505') {

@@ -3,7 +3,7 @@ import * as fs from 'fs';
 
 async function extractSchema() {
   const client = new Client({
-    connectionString: 'postgresql://postgres:password@localhost:5432/physioflow_db'
+    connectionString: 'postgresql://postgres:password@localhost:5432/office_care'
   });
 
   try {

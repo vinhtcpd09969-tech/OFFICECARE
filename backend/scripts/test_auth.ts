@@ -4,7 +4,7 @@ async function run() {
     const loginRes = await fetch('http://localhost:5001/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'admin@physioflow.com', password: 'admin123' })
+      body: JSON.stringify({ email: 'admin@officecare.com', password: 'admin123' })
     });
     const loginData = await loginRes.json();
     console.log('Login Response:', loginData);

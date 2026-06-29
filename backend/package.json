@@ -1,7 +1,7 @@
 {
   "name": "office-care-backend",
   "version": "1.0.0",
-  "description": "Backend API for PhysioFlow",
+  "description": "Backend API for OfficeCare",
   "main": "dist/index.js",
   "scripts": {
     "start": "node dist/index.js",

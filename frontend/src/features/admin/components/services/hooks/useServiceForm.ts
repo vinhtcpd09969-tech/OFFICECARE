@@ -1,12 +1,10 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMemo, useEffect, useCallback } from 'react';
+import { useEffect } from 'react';
 import { serviceSchema, ServiceFormValues, Service, Category } from '../types';
-import { HINT_KEYWORDS, normalizeText, getServiceBenefits } from '../constants';
 import { createService, updateService } from '../../../../../api/admin.api';
 
 interface UseServiceFormProps {
-  selectedType: 'ky_thuat' | 'don_le';
   categories: Category[];
   services: Service[];
   editingService: Service | null;
@@ -14,7 +12,6 @@ interface UseServiceFormProps {
 }
 
 export function useServiceForm({
-  selectedType,
   categories,
   services,
   editingService,
@@ -26,63 +23,12 @@ export function useServiceForm({
       trang_thai: 'hoat_dong', 
       thoi_gian_uoc_tinh: 45, 
       don_gia: 150000,
-      loai_dich_vu: 'ky_thuat',
       hien_thi_website: false,
-      thiet_bi_yeu_cau: 'không có'
+      loai_phong_yeu_cau: 'phong_tri_lieu'
     }
   });
 
-  const watchedThietBiYeuCau = watch('thiet_bi_yeu_cau');
-  const watchedTenDichVu = watch('ten_dich_vu');
-
-  const selectedDevices = useMemo(() => {
-    if (!watchedThietBiYeuCau) return [];
-    return watchedThietBiYeuCau.split(',').map((item: string) => item.trim()).filter(Boolean);
-  }, [watchedThietBiYeuCau]);
-
-  const handleDeviceCheckboxChange = useCallback((deviceValue: string) => {
-    if (deviceValue === 'không có') {
-      setValue('thiet_bi_yeu_cau', 'không có');
-    } else {
-      let current = [...selectedDevices].filter(d => d !== 'không có');
-      if (current.includes(deviceValue)) {
-        current = current.filter(d => d !== deviceValue);
-      } else {
-        current.push(deviceValue);
-      }
-      if (current.length === 0) {
-        setValue('thiet_bi_yeu_cau', 'không có');
-      } else {
-        setValue('thiet_bi_yeu_cau', current.join(', '));
-      }
-    }
-  }, [selectedDevices, setValue]);
-
-  const suggestions = useMemo(() => {
-    if (!watchedTenDichVu) return [];
-    const normalized = normalizeText(watchedTenDichVu);
-    const result: string[] = [];
-    for (const hint of HINT_KEYWORDS) {
-      if (hint.keywords.some(kw => normalized.includes(kw))) {
-        if (!result.includes(hint.device)) {
-          result.push(hint.device);
-        }
-      }
-    }
-    return result;
-  }, [watchedTenDichVu]);
-
-  const handleAddSuggestedDevice = useCallback((deviceValue: string) => {
-    if (deviceValue === 'không có') {
-      setValue('thiet_bi_yeu_cau', 'không có');
-    } else {
-      const current = selectedDevices.filter(d => d !== 'không có');
-      if (!current.includes(deviceValue)) {
-        current.push(deviceValue);
-        setValue('thiet_bi_yeu_cau', current.join(', '));
-      }
-    }
-  }, [selectedDevices, setValue]);
+  const watchedLoaiPhongYeuCau = watch('loai_phong_yeu_cau');
 
   // Load editing values when editingService is set
   useEffect(() => {
@@ -101,7 +47,11 @@ export function useServiceForm({
 
       // UX Improvement: If benefits are empty in DB, load the default fallback benefits
       if (!benefitsStr) {
-        benefitsStr = getServiceBenefits(editingService).join('\n');
+        const matchingSvc = services.find((s: any) => s.ten_dich_vu === editingService.ten_dich_vu);
+        const benefitsArray = matchingSvc?.loai_dich_vu_ho_tro;
+        if (Array.isArray(benefitsArray)) {
+          benefitsStr = benefitsArray.join('\n');
+        }
       }
 
       // UX Improvement: If mo_ta_chi_tiet is empty, load the short description as default
@@ -113,19 +63,31 @@ export function useServiceForm({
         mo_ta: editingService.mo_ta_ngan || editingService.mo_ta || '',
         thoi_gian_uoc_tinh: Number(editingService.thoi_gian_uoc_tinh || 45),
         don_gia: Number(editingService.don_gia || 0),
-        thiet_bi_yeu_cau: editingService.thiet_bi_yeu_cau || '',
-        trang_thai: editingService.trang_thai === 'hoat_dong' ? 'hoat_dong' : 'vo_hieu',
-        loai_dich_vu: selectedType,
-        hien_thi_website: false,
+        loai_phong_yeu_cau: (editingService.loai_phong_yeu_cau as any) || 'phong_tri_lieu',
+        trang_thai: editingService.trang_thai || 'hoat_dong',
+        hien_thi_website: editingService.hien_thi_website || false,
         mo_ta_chi_tiet: defaultMoTaChiTiet,
         loai_dich_vu_ho_tro_str: benefitsStr
       });
+    } else {
+      reset({
+        danh_muc_id: categories[0]?.id ? Number(categories[0].id) : 1,
+        ten_dich_vu: '',
+        mo_ta: '',
+        thoi_gian_uoc_tinh: 45,
+        don_gia: 150000,
+        loai_phong_yeu_cau: 'phong_tri_lieu',
+        trang_thai: 'hoat_dong',
+        hien_thi_website: false,
+        mo_ta_chi_tiet: '',
+        loai_dich_vu_ho_tro_str: ''
+      });
     }
-  }, [editingService, categories, selectedType, reset]);
+  }, [editingService, categories, reset, services]);
 
   const onSubmit = async (data: any) => {
     try {
-      // Kiểm tra trùng tên dịch vụ/kỹ thuật (không phân biệt hoa thường, khoảng trắng)
+      // Kiểm tra trùng tên dịch vụ (không phân biệt hoa thường, khoảng trắng)
       const inputNameTrimmed = data.ten_dich_vu.trim().toLowerCase();
       const isDuplicate = services.some((svc: any) => {
         // Nếu đang sửa đổi, bỏ qua bản ghi hiện tại
@@ -136,54 +98,11 @@ export function useServiceForm({
       });
 
       if (isDuplicate) {
-        const typeLabel = selectedType === 'chinh' ? 'Kỹ thuật nội bộ' : 'Dịch vụ lẻ bổ trợ';
         setError('ten_dich_vu', {
           type: 'manual',
-          message: `Tên ${typeLabel.toLowerCase()} này đã tồn tại trên hệ thống. Vui lòng nhập tên khác!`
+          message: `Tên dịch vụ này đã tồn tại trên hệ thống. Vui lòng nhập tên khác!`
         });
         return;
-      }
-
-      // Ràng buộc kiểm tra tên và danh mục dịch vụ (Mục đích chống nhầm lẫn tên kỹ thuật trị liệu vào danh mục khám)
-      const isExamCategory = Number(data.danh_muc_id) === 1; // Khám Bệnh & Lượng Giá Chuyên Sâu
-      const nameLower = data.ten_dich_vu.toLowerCase();
-      
-      // Các từ khóa liên quan đến thăm khám, lượng giá
-      const examKeywords = ['khám', 'lượng giá', 'luong gia', 'đánh giá', 'danh gia', 'kiểm tra', 'kiem tra', 'tư vấn', 'tu van'];
-      const hasExamKeywords = examKeywords.some(k => nameLower.includes(k));
-      
-      // Các từ khóa liên quan đến trị liệu, công nghệ cao, máy móc
-      const treatmentKeywords = ['trị liệu', 'tri lieu', 'điện xung', 'dien xung', 'xung kích', 'xung kich', 'laser', 'siêu âm', 'sieu am', 'kéo giãn', 'keo gian', 'châm cứu', 'cham cuu', 'bấm huyệt', 'bam huyet', 'xoa bóp', 'xoa bop', 'nắn chỉnh', 'nan chinh'];
-      const hasTreatmentKeywords = treatmentKeywords.some(k => nameLower.includes(k));
-
-      if (selectedType === 'don_le') {
-        if (isExamCategory) {
-          // Nếu xếp vào danh mục Khám thì bắt buộc phải có từ khóa thăm khám, lượng giá
-          if (!hasExamKeywords) {
-            setError('ten_dich_vu', {
-              type: 'manual',
-              message: 'Dịch vụ thuộc danh mục Khám & Lượng giá phải có tên liên quan đến thăm khám (ví dụ: Khám, Lượng giá, Tư vấn, Đánh giá, Kiểm tra...)'
-            });
-            return;
-          }
-          // Và không được chứa từ khóa trị liệu chuyên sâu đơn thuần (Ví dụ: điện xung trị liệu)
-          if (hasTreatmentKeywords && !nameLower.includes('khám') && !nameLower.includes('lượng giá') && !nameLower.includes('tư vấn')) {
-            setError('ten_dich_vu', {
-              type: 'manual',
-              message: 'Dịch vụ thuộc danh mục Khám không thể là kỹ thuật trị liệu đơn thuần (Ví dụ: điện xung trị liệu, sóng xung kích...). Hãy chuyển sang danh mục Trị liệu.'
-            });
-            return;
-          }
-        } else {
-          // Nếu xếp vào danh mục khác (Trị liệu...) nhưng tên lại chỉ chứa từ khóa khám bệnh
-          if (hasExamKeywords && !hasTreatmentKeywords) {
-            setError('ten_dich_vu', {
-              type: 'manual',
-              message: 'Dịch vụ thăm khám phải được phân loại vào danh mục "Khám Bệnh & Lượng Giá Chuyên Sâu".'
-            });
-            return;
-          }
-        }
       }
 
       // Split multiline string into array of strings for backend
@@ -192,21 +111,14 @@ export function useServiceForm({
         : [];
 
       const payload = {
-        danh_muc_id: selectedType === 'ky_thuat' 
-          ? 3 
-          : Number(data.danh_muc_id),
+        danh_muc_id: Number(data.danh_muc_id),
         ten_dich_vu: data.ten_dich_vu,
         mo_ta: data.mo_ta,
-        thoi_gian_uoc_tinh: selectedType === 'ky_thuat' 
-          ? 45 
-          : Number(data.thoi_gian_uoc_tinh),
-        don_gia: selectedType === 'ky_thuat' 
-          ? 0 
-          : Number(data.don_gia),
-        thiet_bi_yeu_cau: data.thiet_bi_yeu_cau,
-        trang_thai: data.trang_thai,
-        loai_dich_vu: selectedType, // Automatically set
-        hien_thi_website: false, // Hidden from website for both as requested
+        thoi_gian_uoc_tinh: Number(data.thoi_gian_uoc_tinh),
+        don_gia: Number(data.don_gia),
+        loai_phong_yeu_cau: data.loai_phong_yeu_cau || 'phong_tri_lieu',
+        trang_thai: data.trang_thai || 'hoat_dong',
+        hien_thi_website: Boolean(data.hien_thi_website),
         mo_ta_chi_tiet: data.mo_ta_chi_tiet || '',
         loai_dich_vu_ho_tro: benefits
       };
@@ -231,12 +143,7 @@ export function useServiceForm({
     reset,
     setValue,
     errors,
-    watchedThietBiYeuCau,
-    watchedTenDichVu,
-    selectedDevices,
-    suggestions,
-    handleDeviceCheckboxChange,
-    handleAddSuggestedDevice,
+    watchedLoaiPhongYeuCau,
     onSubmit
   };
 }

@@ -7,8 +7,8 @@ interface ServicesTabsProps {
 }
 
 export function ServicesTabs({ selectedType, onSelectType, services }: ServicesTabsProps) {
-  const countKyThuat = services.filter(s => s.loai_dich_vu === 'ky_thuat').length;
-  const countDonLe = services.filter(s => s.loai_dich_vu === 'don_le').length;
+  const countKyThuat = services.filter(s => s.loai_danh_muc === 'ky_thuat').length;
+  const countDonLe = services.filter(s => s.loai_danh_muc === 'dich_vu').length;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

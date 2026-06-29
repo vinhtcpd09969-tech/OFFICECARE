@@ -13,8 +13,8 @@ async function fixUsers() {
     console.log('Resetting/Creating test users...');
 
     const users = [
-      { email: 'admin@physioflow.com', ho_ten: 'System Admin', vai_tro_id: 5 },
-      { email: 'letan@physioflow.com', ho_ten: 'Lễ Tân Main', vai_tro_id: 2 },
+      { email: 'admin@officecare.com', ho_ten: 'System Admin', vai_tro_id: 5 },
+      { email: 'letan@officecare.com', ho_ten: 'Lễ Tân Main', vai_tro_id: 2 },
       { email: 'vinhtcpd09969@gmail.com', ho_ten: 'Trần Công Vinh', vai_tro_id: 5 }, // Make this one admin too if needed
     ];
 

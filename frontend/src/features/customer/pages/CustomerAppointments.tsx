@@ -152,7 +152,7 @@ export default function CustomerAppointments() {
             Lịch hẹn của tôi
           </h1>
           <p className="text-gray-500 text-sm mt-1">
-            Quản lý, đổi giờ hoặc hủy các cuộc hẹn khám lượng giá tại PhysioFlow.
+            Quản lý, đổi giờ hoặc hủy các cuộc hẹn khám lượng giá tại OfficeCare.
           </p>
         </div>
 

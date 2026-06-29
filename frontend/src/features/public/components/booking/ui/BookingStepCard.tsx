@@ -314,7 +314,7 @@ export function BookingStepCard({
               Chọn hình thức đặt lịch hẹn
             </h3>
             <p className="text-xs font-medium text-slate-400">
-              PhysioFlow cung cấp dịch vụ khám lâm sàng và các gói chăm sóc trị liệu nhanh phù hợp với từng nhu cầu.
+              OfficeCare cung cấp dịch vụ khám lâm sàng và các gói chăm sóc trị liệu nhanh phù hợp với từng nhu cầu.
             </p>
           </div>
 
@@ -389,33 +389,35 @@ export function BookingStepCard({
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[220px] overflow-y-auto pr-1 scrollbar-thin">
-                  {services.map((srv) => {
-                    const isSelected = selectedServiceId === srv.id;
-                    return (
-                      <div
-                        key={srv.id}
-                        onClick={() => setSelectedServiceId(srv.id)}
-                        className={`p-3.5 rounded-xl border-2 transition-all flex flex-col justify-between select-none cursor-pointer ${
-                          isSelected
-                            ? 'bg-emerald-50/40 border-emerald-500 text-emerald-800 ring-2 ring-emerald-500/10'
-                            : 'bg-white border-slate-150 hover:border-slate-350'
-                        }`}
-                      >
-                        <div className="flex justify-between items-start">
-                          <span className="text-xs font-black text-slate-800 leading-tight block truncate pr-2">{srv.ten_dich_vu}</span>
-                          <span className="text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider bg-slate-100 text-slate-500">
-                            {srv.thoi_luong_phut} phút
-                          </span>
+                  {services
+                    .filter(srv => String(srv.danh_muc_id) !== '1')
+                    .map((srv) => {
+                      const isSelected = selectedServiceId === srv.id;
+                      return (
+                        <div
+                          key={srv.id}
+                          onClick={() => setSelectedServiceId(srv.id)}
+                          className={`p-3.5 rounded-xl border-2 transition-all flex flex-col justify-between select-none cursor-pointer ${
+                            isSelected
+                              ? 'bg-emerald-50/40 border-emerald-500 text-emerald-800 ring-2 ring-emerald-500/10'
+                              : 'bg-white border-slate-150 hover:border-slate-350'
+                          }`}
+                        >
+                          <div className="flex justify-between items-start">
+                            <span className="text-xs font-black text-slate-800 leading-tight block truncate pr-2">{srv.ten_dich_vu}</span>
+                            <span className="text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider bg-slate-100 text-slate-500">
+                              {srv.thoi_luong_phut} phút
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center mt-2.5">
+                            <span className="text-[10px] text-slate-400 font-semibold truncate max-w-[130px]">{srv.mo_ta_ngan || 'Trị liệu phục hồi chức năng'}</span>
+                            <span className="text-xs font-black text-emerald-600 font-jakarta">
+                              {Number(srv.don_gia).toLocaleString('vi-VN')}đ
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex justify-between items-center mt-2.5">
-                          <span className="text-[10px] text-slate-400 font-semibold truncate max-w-[130px]">{srv.mo_ta_ngan || 'Trị liệu phục hồi chức năng'}</span>
-                          <span className="text-xs font-black text-emerald-600 font-jakarta">
-                            {Number(srv.don_gia).toLocaleString('vi-VN')}đ
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
                 </div>
               )}
             </div>
@@ -1054,7 +1056,7 @@ export function BookingStepCard({
           <div className="flex items-start gap-3 bg-teal-50/50 border border-[#2EC4B6]/15 p-4 rounded-xl text-[11px] leading-relaxed text-slate-500">
             <Lock size={16} className="text-[#2EC4B6] shrink-0 mt-0.5" />
             <p>
-              Bằng cách bấm xác nhận giữ chỗ, bạn đồng ý cung cấp thông tin y khoa này phục vụ riêng cho việc thăm khám chẩn đoán tại PhysioFlow. Dữ liệu được bảo mật tuyệt mật.
+              Bằng cách bấm xác nhận giữ chỗ, bạn đồng ý cung cấp thông tin y khoa này phục vụ riêng cho việc thăm khám chẩn đoán tại OfficeCare. Dữ liệu được bảo mật tuyệt mật.
             </p>
           </div>
 

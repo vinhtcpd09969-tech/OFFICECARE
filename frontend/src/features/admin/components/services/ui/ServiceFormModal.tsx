@@ -1,10 +1,9 @@
 import { Service, Category } from '../types';
 import { useServiceForm } from '../hooks/useServiceForm';
-import { ALL_DEVICES } from '../constants';
 
 interface ServiceFormModalProps {
   isOpen: boolean;
-  selectedType: 'ky_thuat' | 'don_le';
+  selectedType?: 'ky_thuat' | 'don_le';
   categories: Category[];
   services: Service[];
   editingService: Service | null;
@@ -14,7 +13,7 @@ interface ServiceFormModalProps {
 
 export function ServiceFormModal({
   isOpen,
-  selectedType,
+  selectedType = 'don_le',
   categories,
   services,
   editingService,
@@ -25,13 +24,8 @@ export function ServiceFormModal({
     register,
     handleSubmit,
     errors,
-    selectedDevices,
-    suggestions,
-    handleDeviceCheckboxChange,
-    handleAddSuggestedDevice,
     onSubmit
   } = useServiceForm({
-    selectedType,
     categories,
     services,
     editingService,
@@ -81,25 +75,6 @@ export function ServiceFormModal({
                 {errors.ten_dich_vu && (
                   <span className="text-rose-500 text-[10px] mt-1 block">{errors.ten_dich_vu.message}</span>
                 )}
-
-                {/* Smart Soft Suggestions */}
-                {suggestions.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-2 items-center bg-zinc-50 border border-dashed border-zinc-200 p-2.5 rounded-xl">
-                    <span className="text-[10px] font-bold text-zinc-500 flex items-center gap-1">
-                      💡 GỢI Ý THIẾT BỊ PHÙ HỢP:
-                    </span>
-                    {suggestions.map(s => (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={() => handleAddSuggestedDevice(s)}
-                        className="bg-primary/10 text-primary hover:bg-primary hover:text-white border border-primary/20 text-[10px] font-extrabold px-2.5 py-1 rounded-lg transition-all active:scale-95 flex items-center gap-1 shrink-0"
-                      >
-                        + Thêm {s}
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
 
               {selectedType === 'don_le' && (
@@ -126,6 +101,19 @@ export function ServiceFormModal({
               <div className="p-4 border border-zinc-200 rounded-2xl bg-zinc-50/30 space-y-4">
                 <h4 className="text-[10px] font-bold text-primary uppercase tracking-wider border-b border-zinc-150 pb-2">HỘP 2: CẤU HÌNH LÂM SÀNG & CHI PHÍ</h4>
                 
+                <div>
+                  <label className="block font-bold text-zinc-550 mb-1.5 uppercase tracking-wider text-[10px]">Phòng đặt lịch yêu cầu (Sức chứa) *</label>
+                  <select
+                    {...register('loai_phong_yeu_cau')}
+                    className="w-full px-3.5 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-secondary font-semibold text-xs shadow-sm"
+                  >
+                    <option value="kham_benh">🩺 Phòng Khám & Lượng giá (Không chiếm giường trị liệu)</option>
+                    <option value="phong_tap">🏃 Phòng/Khu tập vận động PHCN (Chiếm 1 slot tập chung)</option>
+                    <option value="phong_tri_lieu">💆 Phòng Trị liệu thường (Chiếm 1 giường trị liệu thường)</option>
+                    <option value="phong_dac_biet">⚡ Phòng Đặc biệt (Giường kéo giãn/máy cố định)</option>
+                  </select>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block font-bold text-zinc-500 mb-1.5 uppercase tracking-wider">THỜI LƯỢNG ĐỊNH MỨC</label>
@@ -161,48 +149,7 @@ export function ServiceFormModal({
                   </div>
                 </div>
 
-                {/* THIẾT BỊ YÊU CẦU - Checkbox List */}
-                <div>
-                  <label className="block font-bold text-zinc-550 mb-2 uppercase tracking-wider">THIẾT BỊ YÊU CẦU</label>
-                  <input type="hidden" {...register('thiet_bi_yeu_cau')} />
-                  <div className="border border-zinc-200 rounded-xl overflow-hidden bg-white shadow-sm">
-                    {/* Option: Không cần thiết bị */}
-                    <label className={`flex items-center gap-3 px-3.5 py-2.5 cursor-pointer transition-colors border-b border-zinc-100 last:border-b-0 ${
-                      selectedDevices.includes('không có') ? 'bg-primary/5' : 'hover:bg-zinc-50'
-                    }`}>
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 rounded border-zinc-300 text-primary accent-primary cursor-pointer"
-                        checked={selectedDevices.includes('không có')}
-                        onChange={() => handleDeviceCheckboxChange('không có')}
-                      />
-                      <span className="text-xs font-bold text-zinc-600">👐 Không cần thiết bị (Trị liệu bằng tay)</span>
-                    </label>
-                    {/* Danh sách các thiết bị */}
-                    {ALL_DEVICES.filter(d => d.type !== 'hand').map(d => (
-                      <label key={d.value} className={`flex items-center gap-3 px-3.5 py-2.5 cursor-pointer transition-colors border-b border-zinc-100 last:border-b-0 ${
-                        selectedDevices.includes(d.value) ? 'bg-primary/5' : 'hover:bg-zinc-50'
-                      }`}>
-                        <input
-                          type="checkbox"
-                          className="w-4 h-4 rounded border-zinc-300 text-primary accent-primary cursor-pointer"
-                          checked={selectedDevices.includes(d.value)}
-                          onChange={() => handleDeviceCheckboxChange(d.value)}
-                        />
-                        <span className="text-xs font-semibold text-zinc-700">{d.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                  {errors.thiet_bi_yeu_cau && (
-                    <span className="text-rose-500 text-[10px] mt-1 block">{errors.thiet_bi_yeu_cau.message}</span>
-                  )}
-                  {/* Selected summary */}
-                  {selectedDevices.length > 0 && !selectedDevices.includes('không có') && (
-                    <p className="text-[10px] text-primary font-bold mt-2 px-1">
-                      ✓ Đã chọn: {selectedDevices.join(', ')}
-                    </p>
-                  )}
-                </div>
+
               </div>
             )}
 
@@ -211,48 +158,20 @@ export function ServiceFormModal({
               <div className="p-4 border border-zinc-200 rounded-2xl bg-zinc-50/30 space-y-4">
                 <h4 className="text-[10px] font-bold text-primary uppercase tracking-wider border-b border-zinc-150 pb-2">HỘP 2: CÔNG CỤ TRỊ LIỆU</h4>
 
-                {/* THIẾT BỊ YÊU CẦU - Checkbox List */}
                 <div>
-                  <label className="block font-bold text-zinc-550 mb-2 uppercase tracking-wider">THIẾT BỊ Y KHOA YÊU CẦU</label>
-                  <input type="hidden" {...register('thiet_bi_yeu_cau')} />
-                  <div className="border border-zinc-200 rounded-xl overflow-hidden bg-white shadow-sm">
-                    {/* Option: Không cần thiết bị */}
-                    <label className={`flex items-center gap-3 px-3.5 py-2.5 cursor-pointer transition-colors border-b border-zinc-100 last:border-b-0 ${
-                      selectedDevices.includes('không có') ? 'bg-primary/5' : 'hover:bg-zinc-50'
-                    }`}>
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 rounded border-zinc-300 text-primary accent-primary cursor-pointer"
-                        checked={selectedDevices.includes('không có')}
-                        onChange={() => handleDeviceCheckboxChange('không có')}
-                      />
-                      <span className="text-xs font-bold text-zinc-600">👐 Không cần thiết bị (Trị liệu bằng tay)</span>
-                    </label>
-                    {/* Danh sách các thiết bị */}
-                    {ALL_DEVICES.filter(d => d.type !== 'hand').map(d => (
-                      <label key={d.value} className={`flex items-center gap-3 px-3.5 py-2.5 cursor-pointer transition-colors border-b border-zinc-100 last:border-b-0 ${
-                        selectedDevices.includes(d.value) ? 'bg-primary/5' : 'hover:bg-zinc-50'
-                      }`}>
-                        <input
-                          type="checkbox"
-                          className="w-4 h-4 rounded border-zinc-300 text-primary accent-primary cursor-pointer"
-                          checked={selectedDevices.includes(d.value)}
-                          onChange={() => handleDeviceCheckboxChange(d.value)}
-                        />
-                        <span className="text-xs font-semibold text-zinc-700">{d.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                  {errors.thiet_bi_yeu_cau && (
-                    <span className="text-rose-500 text-[10px] mt-1 block">{errors.thiet_bi_yeu_cau.message}</span>
-                  )}
-                  {/* Selected summary */}
-                  {selectedDevices.length > 0 && !selectedDevices.includes('không có') && (
-                    <p className="text-[10px] text-primary font-bold mt-2 px-1">
-                      ✓ Đã chọn: {selectedDevices.join(', ')}
-                    </p>
-                  )}
+                  <label className="block font-bold text-zinc-550 mb-1.5 uppercase tracking-wider text-[10px]">Phòng đặt lịch yêu cầu (Sức chứa) *</label>
+                  <select
+                    {...register('loai_phong_yeu_cau')}
+                    className="w-full px-3.5 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-secondary font-semibold text-xs shadow-sm"
+                  >
+                    <option value="kham_benh">🩺 Phòng Khám & Lượng giá (Không chiếm giường trị liệu)</option>
+                    <option value="phong_tap">🏃 Phòng/Khu tập vận động PHCN (Chiếm 1 slot tập chung)</option>
+                    <option value="phong_tri_lieu">💆 Phòng Trị liệu thường (Chiếm 1 giường trị liệu thường)</option>
+                    <option value="phong_dac_biet">⚡ Phòng Đặc biệt (Giường kéo giãn/máy cố định)</option>
+                  </select>
                 </div>
+
+
               </div>
             )}
 

@@ -82,7 +82,7 @@ export default function DoctorLayout() {
           </div>
           <div>
             <h1 className="text-sm font-extrabold text-secondary dark:text-zinc-100 tracking-tight flex items-center gap-1.5">
-              PHYSIOFLOW <span className="text-primary font-bold text-[9px] bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20">DOCTOR</span>
+              OFFICECARE <span className="text-primary font-bold text-[9px] bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20">DOCTOR</span>
             </h1>
             <p className="text-[8px] text-zinc-400 dark:text-zinc-500 font-extrabold tracking-widest uppercase mt-0.5">Phân hệ Bác sĩ lâm sàng</p>
           </div>
@@ -161,7 +161,7 @@ export default function DoctorLayout() {
           <div className="flex items-center gap-6 shrink-0">
             <span className="text-xs text-zinc-400 dark:text-zinc-500 font-semibold hidden lg:inline-flex items-center gap-1.5 bg-zinc-50 dark:bg-zinc-800 px-2.5 py-1 rounded-full border border-zinc-100 dark:border-zinc-800">
               <span className="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              Phòng khám: <span className="font-bold text-primary">PhysioFlow</span>
+              Phòng khám: <span className="font-bold text-primary">OfficeCare</span>
             </span>
 
             {/* Actions */}

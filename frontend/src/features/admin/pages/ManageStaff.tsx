@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import ShortId from '../../../components/ShortId';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -90,6 +91,7 @@ export default function ManageStaff() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-zinc-50 border-b border-zinc-200 text-zinc-600 text-sm">
+                <th className="p-4 font-semibold w-28">ID</th>
                 <th className="p-4 font-semibold">Họ Tên</th>
                 <th className="p-4 font-semibold">Email</th>
                 <th className="p-4 font-semibold">Vai trò</th>
@@ -110,6 +112,9 @@ export default function ManageStaff() {
               ) : (
                 staffList.map((staff) => (
                   <tr key={staff.id} className="hover:bg-zinc-50 transition-colors">
+                    <td className="p-4">
+                      <ShortId id={staff.id} />
+                    </td>
                     <td className="p-4 font-medium text-secondary">
                       <div className="flex items-center gap-3">
                         <div className="size-8 rounded-full bg-zinc-200 flex items-center justify-center text-zinc-600 font-bold text-xs">

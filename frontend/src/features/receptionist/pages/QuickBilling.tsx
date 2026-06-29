@@ -1012,7 +1012,7 @@ export default function QuickBilling() {
                 <div className="text-center space-y-2 pb-5 border-b border-dashed border-zinc-200">
                   <span className="size-10 bg-primary/10 text-primary border border-primary/20 rounded-xl flex items-center justify-center mx-auto text-lg font-bold">🏥</span>
                   <div>
-                    <h4 className="font-heading font-black text-secondary text-sm tracking-wide">PHYSIOFLOW CLINIC</h4>
+                    <h4 className="font-heading font-black text-secondary text-sm tracking-wide">OFFICECARE CLINIC</h4>
                     <p className="text-[8px] text-zinc-400 font-extrabold uppercase tracking-widest">Biên lai y khoa lâm sàng</p>
                   </div>
                   <div className="text-[9px] text-zinc-400 font-mono tracking-widest">
@@ -1148,7 +1148,7 @@ export default function QuickBilling() {
                 {/* Symbology Security Barcode */}
                 <div className="pt-6 text-center space-y-2 select-none pointer-events-none">
                   <div className="h-8 w-48 bg-zinc-800 mx-auto opacity-35" style={{ backgroundImage: 'repeating-linear-gradient(90deg, #000, #000 2px, transparent 2px, transparent 8px)' }}></div>
-                  <p className="text-[8px] text-zinc-400 font-extrabold tracking-widest uppercase">PhysioFlow Secure Ledger</p>
+                  <p className="text-[8px] text-zinc-400 font-extrabold tracking-widest uppercase">OfficeCare Secure Ledger</p>
                 </div>
               </div>
 

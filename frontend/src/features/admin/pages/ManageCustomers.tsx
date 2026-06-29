@@ -3,6 +3,7 @@ import { Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getCustomers } from '../../../api/admin.api';
 import { format } from 'date-fns';
+import ShortId from '../../../components/ShortId';
 
 export default function ManageCustomers() {
   const [customers, setCustomers] = useState<any[]>([]);
@@ -77,7 +78,12 @@ export default function ManageCustomers() {
               ) : (
                 filteredCustomers.map((cust) => (
                   <tr key={cust.khach_hang_id} className="hover:bg-zinc-50 transition-colors">
-                    <td className="p-4 font-medium text-secondary">{cust.ma_khach_hang || '-'}</td>
+                    <td className="p-4">
+                      <div className="flex flex-col gap-1">
+                        <span className="font-medium text-secondary">{cust.ma_khach_hang || '-'}</span>
+                        {cust.khach_hang_id && <ShortId id={cust.khach_hang_id} />}
+                      </div>
+                    </td>
                     <td className="p-4 font-medium text-secondary">
                       <div className="flex items-center gap-3">
                         <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">

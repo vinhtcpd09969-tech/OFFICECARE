@@ -7,7 +7,7 @@ async function updatePasswords() {
     const hash = await bcrypt.hash('password123', salt);
 
     await pool.query(
-      `UPDATE nguoi_dung SET mat_khau_hash = $1 WHERE email IN ('admin@physioflow.com', 'letan@physioflow.com')`,
+      `UPDATE nguoi_dung SET mat_khau_hash = $1 WHERE email IN ('admin@officecare.com', 'letan@officecare.com')`,
       [hash]
     );
 

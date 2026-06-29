@@ -18,58 +18,12 @@ export const serviceSchema = z.object({
     mo_ta: z.string().optional().nullable(),
     thoi_gian_uoc_tinh: z.number().int().positive('Thời gian ước tính phải lớn hơn 0'),
     don_gia: z.number().min(0, 'Đơn giá không hợp lệ').optional().default(0),
-    thiet_bi_yeu_cau: z.string().optional().nullable(),
+    loai_phong_yeu_cau: z.enum(['kham_benh', 'phong_tap', 'phong_tri_lieu', 'phong_dac_biet']).default('phong_tri_lieu'),
     trang_thai: z.enum(['hoat_dong', 'vo_hieu']).default('hoat_dong'),
-    loai_dich_vu: z.enum(['ky_thuat', 'don_le']).default('ky_thuat'),
     hien_thi_website: z.boolean().optional().default(true),
     mo_ta_chi_tiet: z.string().optional().nullable(),
     loai_dich_vu_ho_tro: z.any().optional().nullable()
   })
-}).superRefine((data, ctx) => {
-  const { danh_muc_id, ten_dich_vu, loai_dich_vu } = data.body;
-  const isExamCategory = Number(danh_muc_id) === 1;
-  const nameLower = ten_dich_vu.toLowerCase();
-
-  const examKeywords = ['khám', 'lượng giá', 'luong gia', 'đánh giá', 'danh gia', 'kiểm tra', 'kiem tra', 'tư vấn', 'tu van'];
-  const hasExamKeywords = examKeywords.some(k => nameLower.includes(k));
-
-  const treatmentKeywords = ['trị liệu', 'tri lieu', 'điện xung', 'dien xung', 'xung kích', 'xung kich', 'laser', 'siêu âm', 'sieu am', 'kéo giãn', 'keo gian', 'châm cứu', 'cham cuu', 'bấm huyệt', 'bam huyet', 'xoa bóp', 'xoa bop', 'nắn chỉnh', 'nan chinh'];
-  const hasTreatmentKeywords = treatmentKeywords.some(k => nameLower.includes(k));
-
-  if (loai_dich_vu === 'ky_thuat' && isExamCategory) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'Kỹ thuật trị liệu nội bộ không được thuộc danh mục Khám bệnh.',
-      path: ['body', 'danh_muc_id']
-    });
-  }
-
-  if (loai_dich_vu === 'don_le') {
-    if (isExamCategory) {
-      if (!hasExamKeywords) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'Dịch vụ thuộc danh mục Khám & Lượng giá phải có tên liên quan đến thăm khám (ví dụ: Khám, Lượng giá...).',
-          path: ['body', 'ten_dich_vu']
-        });
-      }
-      if (hasTreatmentKeywords && !nameLower.includes('khám') && !nameLower.includes('lượng giá') && !nameLower.includes('tư vấn')) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'Dịch vụ thuộc danh mục Khám không thể là kỹ thuật trị liệu đơn thuần (Ví dụ: điện xung trị liệu).',
-          path: ['body', 'ten_dich_vu']
-        });
-      }
-    } else {
-      if (hasExamKeywords && !hasTreatmentKeywords) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'Dịch vụ thăm khám phải được xếp vào danh mục "Khám Bệnh & Lượng Giá Chuyên Sâu".',
-          path: ['body', 'danh_muc_id']
-        });
-      }
-    }
-  }
 });
 
 // --- Gói điều trị ---
@@ -88,7 +42,8 @@ export const packageSchema = z.object({
       so_buoi: z.number().int().positive('Số buổi dịch vụ phải lớn hơn 0').optional(),
       so_lan_toi_da_trong_goi: z.number().int().positive('Số lần tối đa trong gói phải lớn hơn 0').optional(),
       bat_buoc: z.boolean().default(false),
-      thu_tu_thuc_hien: z.number().int().nonnegative().default(0)
+      thu_tu_thuc_hien: z.number().int().nonnegative().default(0),
+      thoi_luong_phut: z.number().int().positive('Thời lượng phải lớn hơn 0').optional().nullable()
     })).default([]),
     hien_thi_website: z.boolean().default(true),
     trang_thai: z.enum(['hoat_dong', 'vo_hieu']).default('hoat_dong'),
@@ -112,14 +67,10 @@ export const staffSchema = z.object({
 export const equipmentSchema = z.object({
   body: z.object({
     ten_thiet_bi: z.string().min(1, 'Tên thiết bị là bắt buộc'),
-    loai_thiet_bi: z.string().optional(),
+    danh_muc_thiet_bi_id: z.union([z.number(), z.string()]).optional().nullable(),
     ngay_mua: z.string().optional().nullable(),
     trang_thai: z.enum(['san_sang', 'dang_su_dung', 'dang_bao_tri', 'hong']).default('san_sang'),
-    phong_id_hien_tai: z.number().int().positive().nullable().optional(),
     ghi_chu: z.string().optional().nullable(),
-    cap_rui_ro: z.string().optional().nullable(),
-    tan_suat_bao_tri_ngay: z.number().int().optional().nullable(),
-    ngay_bao_tri_gan_nhat: z.string().optional().nullable(),
     so_luong: z.number().int().min(1).optional().default(1)
   })
 });

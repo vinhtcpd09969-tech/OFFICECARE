@@ -1,6 +1,11 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+// Globally parse BigInt to string in JSON.stringify to prevent serialization errors
+(BigInt.prototype as any).toJSON = function () {
+  return this.toString();
+};
+
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import swaggerUi from 'swagger-ui-express';
@@ -45,7 +50,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 app.use('/api', apiRouter);
 
 app.get('/api/health', (req: Request, res: Response) => {
-  res.json({ status: 'ok', message: 'PhysioFlow API is running (TypeScript)' });
+  res.json({ status: 'ok', message: 'OfficeCare API is running (TypeScript)' });
 });
 
 // --- GLOBAL ERROR HANDLER (MUST be registered last) ---
@@ -57,6 +62,5 @@ app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   appointmentWatchdog.start();
 });
-// Reload trigger: new website email configured - trigger restart
-// Trigger reload comment to restart nodemon
+// Reload trigger: swagger docs fully documented - all 80 endpoints
 

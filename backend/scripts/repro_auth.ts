@@ -6,9 +6,9 @@ const AUTH_URL = 'http://localhost:5001/api/auth';
 
 async function test() {
   try {
-    console.log('Testing login with admin@physioflow.com...');
+    console.log('Testing login with admin@officecare.com...');
     const loginRes = await axios.post(`${AUTH_URL}/login`, {
-      email: 'admin@physioflow.com',
+      email: 'admin@officecare.com',
       password: 'password123'
     });
     console.log('Login success:', loginRes.data.message);

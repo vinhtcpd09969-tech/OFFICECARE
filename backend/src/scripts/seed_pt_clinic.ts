@@ -28,7 +28,8 @@ async function seedPTClinic() {
         goi_dich_vu,
         dich_vu,
         danh_muc_dich_vu,
-        phong
+        phong,
+        thiet_bi_y_te
       CASCADE;
     `);
 
@@ -54,7 +55,9 @@ async function seedPTClinic() {
       (1, 'Khám Bệnh & Lượng Giá Chuyên Sâu', 'Dịch vụ chẩn đoán lâm sàng, đo tầm vận động khớp và lập phác đồ', 1, true, 'dich_vu'),
       (2, 'Trị Liệu Bằng Tay & Nắn Chỉnh', 'Giải phóng cơ sâu, di động khớp và nắn chỉnh cột sống', 2, true, 'dich_vu'),
       (3, 'Vật Lý Trị Liệu Công Nghệ Cao', 'Các liệu pháp nhiệt, điện xung, siêu âm, laser công suất cao và sóng xung kích', 3, true, 'dich_vu'),
-      (4, 'Vận Động Trị Liệu Phục Hồi Chức Năng', 'Tập vận động tích cực ổn định hệ cơ lõi và phục hồi dáng đi', 4, true, 'dich_vu')
+      (4, 'Vận Động Trị Liệu Phục Hồi Chức Năng', 'Tập vận động tích cực ổn định hệ cơ lõi và phục hồi dáng đi', 4, true, 'dich_vu'),
+      (5, 'Gói Trị Liệu Cột Sống & Cổ Vai Gáy', 'Các gói combo trị liệu giảm áp đĩa đệm, giải phóng chèn ép rễ thần kinh', 5, true, 'goi_dich_vu'),
+      (6, 'Gói Cơ Xương Khớp & Chấn Thương', 'Các gói liệu trình phục hồi chấn thương khớp gối, viêm gân cấp, PHCN dáng đi', 6, true, 'goi_dich_vu')
     `;
     await client.query(categoryInsertQuery);
 
@@ -66,112 +69,112 @@ async function seedPTClinic() {
         id: 'd1000000-0000-0000-0000-000000000001',
         danh_muc_id: 1,
         ten_dich_vu: 'Khám lâm sàng & Lượng giá chức năng cơ xương khớp',
-        mo_ta_ngan: 'Bác sĩ kiểm tra tầm vận động, sức mạnh cơ và lập phác đồ trị liệu',
+        mo_ta: 'Bác sĩ kiểm tra tầm vận động, sức mạnh cơ và lập phác đồ trị liệu',
         thoi_luong_phut: 30,
         don_gia: 200000,
-        thiet_bi_yeu_cau: 'Thước đo khớp, Búa phản xạ',
-        loai_dich_vu: 'chinh'
+        loai_phong_yeu_cau: 'kham_benh',
+        thu_tu_hien_thi: 1
       },
       // Category 2: Trị Liệu Bằng Tay
       {
         id: 'd2000000-0000-0000-0000-000000000001',
         danh_muc_id: 2,
         ten_dich_vu: 'Trị liệu giải phóng cơ sâu & màng cơ - Myofascial Release',
-        mo_ta_ngan: 'Giải phóng căng thẳng các điểm đau kích hoạt vùng cổ vai gáy và thắt lưng',
+        mo_ta: 'Giải phóng căng thẳng các điểm đau kích hoạt vùng cổ vai gáy và thắt lưng',
         thoi_luong_phut: 45,
         don_gia: 350000,
-        thiet_bi_yeu_cau: 'Giường trị liệu bằng tay',
-        loai_dich_vu: 'chinh'
+        loai_phong_yeu_cau: 'phong_tri_lieu_chuan',
+        thu_tu_hien_thi: 2
       },
       {
         id: 'd2000000-0000-0000-0000-000000000002',
         danh_muc_id: 2,
         ten_dich_vu: 'Di động khớp & Nắn chỉnh cột sống - Chiropractic',
-        mo_ta_ngan: 'Khôi phục tầm vận động của các đốt sống khớp và cải thiện hệ thần kinh',
+        mo_ta: 'Khôi phục tầm vận động của các đốt sống khớp và cải thiện hệ thần kinh',
         thoi_luong_phut: 30,
         don_gia: 400000,
-        thiet_bi_yeu_cau: 'Giường nắn chỉnh xương khớp chuyên dụng',
-        loai_dich_vu: 'chinh'
+        loai_phong_yeu_cau: 'phong_tri_lieu_chuan',
+        thu_tu_hien_thi: 3
       },
       // Category 3: Công nghệ cao
       {
         id: 'd3000000-0000-0000-0000-000000000001',
         danh_muc_id: 3,
         ten_dich_vu: 'Trị liệu Laser công suất cao giảm sưng viêm',
-        mo_ta_ngan: 'Kích thích sinh học tế bào giúp lành thương nhanh vùng gân, dây chằng',
+        mo_ta: 'Kích thích sinh học tế bào giúp lành thương nhanh vùng gân, dây chằng',
         thoi_luong_phut: 15,
         don_gia: 250000,
-        thiet_bi_yeu_cau: 'Máy Laser công suất cao',
-        loai_dich_vu: 'ho_tro'
+        loai_phong_yeu_cau: 'phong_tri_lieu_chuan',
+        thu_tu_hien_thi: 4
       },
       {
         id: 'd3000000-0000-0000-0000-000000000002',
         danh_muc_id: 3,
         ten_dich_vu: 'Trị liệu sóng xung kích hội tụ - Focused Shockwave',
-        mo_ta_ngan: 'Phá tan xơ hóa, thúc đẩy tái tạo mạch máu mới vùng gót chân, khớp gối',
+        mo_ta: 'Phá tan xơ hóa, thúc đẩy tái tạo mạch máu mới vùng gót chân, khớp gối',
         thoi_luong_phut: 20,
         don_gia: 300000,
-        thiet_bi_yeu_cau: 'Máy sóng xung kích Shockwave',
-        loai_dich_vu: 'ho_tro'
+        loai_phong_yeu_cau: 'phong_tri_lieu_chuan',
+        thu_tu_hien_thi: 5
       },
       {
         id: 'd3000000-0000-0000-0000-000000000003',
         danh_muc_id: 3,
         ten_dich_vu: 'Siêu âm trị liệu sâu giải áp điểm đau cơ',
-        mo_ta_ngan: 'Nhiệt sâu cơ học giúp tăng tuần hoàn cục bộ và giảm co thắt cơ',
+        mo_ta: 'Nhiệt sâu cơ học giúp tăng tuần hoàn cục bộ và giảm co thắt cơ',
         thoi_luong_phut: 15,
         don_gia: 200000,
-        thiet_bi_yeu_cau: 'Máy siêu âm điều trị',
-        loai_dich_vu: 'ho_tro'
+        loai_phong_yeu_cau: 'phong_tri_lieu_chuan',
+        thu_tu_hien_thi: 6
       },
       {
         id: 'd3000000-0000-0000-0000-000000000004',
         danh_muc_id: 3,
         ten_dich_vu: 'Kéo giãn cột sống cổ/thắt lưng giải áp đĩa đệm',
-        mo_ta_ngan: 'Kéo giãn cơ học giúp gia tăng khoảng cách đốt sống và giảm chèn ép rễ thần kinh',
+        mo_ta: 'Kéo giãn cơ học giúp gia tăng khoảng cách đốt sống và giảm chèn ép rễ thần kinh',
         thoi_luong_phut: 20,
         don_gia: 200000,
-        thiet_bi_yeu_cau: 'Máy kéo giãn cột sống tự động',
-        loai_dich_vu: 'ho_tro'
+        loai_phong_yeu_cau: 'phong_tri_lieu_chuan',
+        thu_tu_hien_thi: 7
       },
       // Category 4: Vận động trị liệu
       {
         id: 'd4000000-0000-0000-0000-000000000001',
         danh_muc_id: 4,
         ten_dich_vu: 'Tập vận động phục hồi chức năng chuyên biệt - Kinetic Rehab',
-        mo_ta_ngan: 'Các bài tập kéo giãn cơ chủ động, củng cố sức mạnh nhóm cơ yếu dưới sự giám sát',
+        mo_ta: 'Các bài tập kéo giãn cơ chủ động, củng cố sức mạnh nhóm cơ yếu dưới sự giám sát',
         thoi_luong_phut: 45,
         don_gia: 300000,
-        thiet_bi_yeu_cau: 'Thảm tập, Dây kháng lực, Bóng yoga',
-        loai_dich_vu: 'chinh'
+        loai_phong_yeu_cau: 'phong_tap_phcn',
+        thu_tu_hien_thi: 8
       },
       {
         id: 'd4000000-0000-0000-0000-000000000002',
         danh_muc_id: 4,
         ten_dich_vu: 'Tập ổn định khớp & Phục hồi chức năng cột sống cổ vai gáy',
-        mo_ta_ngan: 'Cải thiện tư thế, gia tăng sức mạnh hệ cơ lõi và cơ ổn định cột sống cổ',
+        mo_ta: 'Cải thiện tư thế, gia tăng sức mạnh hệ cơ lõi và cơ ổn định cột sống cổ',
         thoi_luong_phut: 45,
         don_gia: 300000,
-        thiet_bi_yeu_cau: 'Bóng tập, Gậy gỗ, Máy tập đa năng',
-        loai_dich_vu: 'chinh'
+        loai_phong_yeu_cau: 'phong_tap_phcn',
+        thu_tu_hien_thi: 9
       }
     ];
-
+ 
     const serviceInsertQuery = `
-      INSERT INTO dich_vu (id, danh_muc_id, ten_dich_vu, mo_ta_ngan, thoi_luong_phut, don_gia, thiet_bi_yeu_cau, trang_thai, loai_dich_vu, hien_thi_website)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, 'hoat_dong', $8, true)
+      INSERT INTO dich_vu (id, danh_muc_id, ten_dich_vu, mo_ta, thoi_luong_phut, don_gia, loai_phong_yeu_cau, trang_thai, thu_tu_hien_thi)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 'hoat_dong', $8)
     `;
-
+ 
     for (const s of services) {
       await client.query(serviceInsertQuery, [
         s.id,
         s.danh_muc_id,
         s.ten_dich_vu,
-        s.mo_ta_ngan,
+        s.mo_ta,
         s.thoi_luong_phut,
         s.don_gia,
-        s.thiet_bi_yeu_cau,
-        s.loai_dich_vu
+        s.loai_phong_yeu_cau,
+        s.thu_tu_hien_thi
       ]);
     }
 
@@ -187,7 +190,7 @@ async function seedPTClinic() {
         gia_goi: 3200000,
         gia_goc: 4000000,
         han_dung_thang: 6,
-        danh_muc_id: 2,
+        danh_muc_id: 5,
         loai_goi: 'lieu_trinh'
       },
       {
@@ -199,7 +202,7 @@ async function seedPTClinic() {
         gia_goi: 4500000,
         gia_goc: 5500000,
         han_dung_thang: 6,
-        danh_muc_id: 3,
+        danh_muc_id: 5,
         loai_goi: 'lieu_trinh'
       },
       {
@@ -211,14 +214,14 @@ async function seedPTClinic() {
         gia_goi: 5400000,
         gia_goc: 6600000,
         han_dung_thang: 6,
-        danh_muc_id: 4,
+        danh_muc_id: 6,
         loai_goi: 'lieu_trinh'
       }
     ];
 
     const packageInsertQuery = `
-      INSERT INTO goi_dich_vu (id, ten_goi, ma_goi, mo_ta, tong_so_buoi, gia_goi, gia_goc, han_dung_thang, hien_thi_website, trang_thai, danh_muc_id, loai_goi)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, 'hoat_dong', $9, $10)
+      INSERT INTO goi_dich_vu (id, ten_goi, ma_goi, mo_ta, tong_so_buoi, gia_goi, gia_goc, han_dung_thang, hien_thi_website, trang_thai, danh_muc_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, 'hoat_dong', $9)
     `;
 
     for (const p of packages) {
@@ -231,8 +234,7 @@ async function seedPTClinic() {
         p.gia_goi,
         p.gia_goc,
         p.han_dung_thang,
-        p.danh_muc_id,
-        p.loai_goi
+        p.danh_muc_id
       ]);
     }
 
@@ -240,33 +242,30 @@ async function seedPTClinic() {
     console.log("Seeding package details...");
     const packageDetails = [
       // Gói Vai Gáy (8 buổi)
-      { goi_dich_vu_id: 'c1000000-0000-0000-0000-000000000001', dich_vu_id: 'd2000000-0000-0000-0000-000000000001', so_buoi: 8, so_lan: 8, bat_buoc: true, thu_tu: 1 },
-      { goi_dich_vu_id: 'c1000000-0000-0000-0000-000000000001', dich_vu_id: 'd3000000-0000-0000-0000-000000000003', so_buoi: 8, so_lan: 8, bat_buoc: true, thu_tu: 2 },
-      { goi_dich_vu_id: 'c1000000-0000-0000-0000-000000000001', dich_vu_id: 'd4000000-0000-0000-0000-000000000002', so_buoi: 8, so_lan: 8, bat_buoc: false, thu_tu: 3 },
+      { goi_dich_vu_id: 'c1000000-0000-0000-0000-000000000001', dich_vu_id: 'd2000000-0000-0000-0000-000000000001', thu_tu: 1 },
+      { goi_dich_vu_id: 'c1000000-0000-0000-0000-000000000001', dich_vu_id: 'd3000000-0000-0000-0000-000000000003', thu_tu: 2 },
+      { goi_dich_vu_id: 'c1000000-0000-0000-0000-000000000001', dich_vu_id: 'd4000000-0000-0000-0000-000000000002', thu_tu: 3 },
 
       // Gói Đĩa Đệm (10 buổi)
-      { goi_dich_vu_id: 'c1000000-0000-0000-0000-000000000002', dich_vu_id: 'd2000000-0000-0000-0000-000000000002', so_buoi: 10, so_lan: 10, bat_buoc: true, thu_tu: 1 },
-      { goi_dich_vu_id: 'c1000000-0000-0000-0000-000000000002', dich_vu_id: 'd3000000-0000-0000-0000-000000000004', so_buoi: 10, so_lan: 10, bat_buoc: true, thu_tu: 2 },
-      { goi_dich_vu_id: 'c1000000-0000-0000-0000-000000000002', dich_vu_id: 'd4000000-0000-0000-0000-000000000001', so_buoi: 10, so_lan: 10, bat_buoc: false, thu_tu: 3 },
+      { goi_dich_vu_id: 'c1000000-0000-0000-0000-000000000002', dich_vu_id: 'd2000000-0000-0000-0000-000000000002', thu_tu: 1 },
+      { goi_dich_vu_id: 'c1000000-0000-0000-0000-000000000002', dich_vu_id: 'd3000000-0000-0000-0000-000000000004', thu_tu: 2 },
+      { goi_dich_vu_id: 'c1000000-0000-0000-0000-000000000002', dich_vu_id: 'd4000000-0000-0000-0000-000000000001', thu_tu: 3 },
 
       // Gói Chấn thương Thể Thao (12 buổi)
-      { goi_dich_vu_id: 'c1000000-0000-0000-0000-000000000003', dich_vu_id: 'd3000000-0000-0000-0000-000000000001', so_buoi: 12, so_lan: 12, bat_buoc: true, thu_tu: 1 },
-      { goi_dich_vu_id: 'c1000000-0000-0000-0000-000000000003', dich_vu_id: 'd3000000-0000-0000-0000-000000000002', so_buoi: 12, so_lan: 12, bat_buoc: true, thu_tu: 2 },
-      { goi_dich_vu_id: 'c1000000-0000-0000-0000-000000000003', dich_vu_id: 'd4000000-0000-0000-0000-000000000001', so_buoi: 12, so_lan: 12, bat_buoc: true, thu_tu: 3 }
+      { goi_dich_vu_id: 'c1000000-0000-0000-0000-000000000003', dich_vu_id: 'd3000000-0000-0000-0000-000000000001', thu_tu: 1 },
+      { goi_dich_vu_id: 'c1000000-0000-0000-0000-000000000003', dich_vu_id: 'd3000000-0000-0000-0000-000000000002', thu_tu: 2 },
+      { goi_dich_vu_id: 'c1000000-0000-0000-0000-000000000003', dich_vu_id: 'd4000000-0000-0000-0000-000000000001', thu_tu: 3 }
     ];
 
     const packageDetailInsertQuery = `
-      INSERT INTO goi_dich_vu_chi_tiet (goi_dich_vu_id, dich_vu_id, so_buoi_trong_goi, so_lan_toi_da_trong_goi, bat_buoc, thu_tu_thuc_hien)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO goi_dich_vu_chi_tiet (goi_dich_vu_id, dich_vu_id, thu_tu_thuc_hien)
+      VALUES ($1, $2, $3)
     `;
 
     for (const d of packageDetails) {
       await client.query(packageDetailInsertQuery, [
         d.goi_dich_vu_id,
         d.dich_vu_id,
-        d.so_buoi,
-        d.so_lan,
-        d.bat_buoc,
         d.thu_tu
       ]);
     }
@@ -323,30 +322,30 @@ async function seedPTClinic() {
     // Seeding medical devices (required for booking validations)
     console.log("Seeding medical devices...");
     const devices = [
-      { code: 'EQP-GONIO', name: 'Thước đo khớp cơ học', type: 'Thước đo khớp', room: 1 },
-      { code: 'EQP-HAMMER', name: 'Búa phản xạ thần kinh Taylor', type: 'Búa phản xạ', room: 1 },
-      { code: 'EQP-BED01', name: 'Giường trị liệu bằng tay cao cấp 01', type: 'Giường trị liệu bằng tay', room: 7 },
-      { code: 'EQP-BED02', name: 'Giường trị liệu bằng tay cao cấp 02', type: 'Giường trị liệu bằng tay', room: 8 },
-      { code: 'EQP-CHIRO', name: 'Giường nắn chỉnh xương khớp chuyên dụng Chiro-Max', type: 'Giường nắn chỉnh xương khớp chuyên dụng', room: 7 },
-      { code: 'EQP-LASER', name: 'Máy Laser công suất cao BTL-6000 20W', type: 'Máy Laser công suất cao', room: 4 },
-      { code: 'EQP-SHOCK', name: 'Máy sóng xung kích Shockwave BTL-6000', type: 'Máy sóng xung kích Shockwave', room: 6 },
-      { code: 'EQP-ULTRA', name: 'Máy siêu âm điều trị đa tần BTL-4710', type: 'Máy siêu âm điều trị', room: 6 },
-      { code: 'EQP-TRITON', name: 'Máy kéo giãn cột sống tự động Triton DTS', type: 'Máy kéo giãn cột sống tự động', room: 5 },
-      { code: 'EQP-MAT', name: 'Thảm tập Kinetic Rehab', type: 'Thảm tập', room: 3 },
-      { code: 'EQP-BAND', name: 'Dây kháng lực Theraband', type: 'Dây kháng lực', room: 3 },
-      { code: 'EQP-YOGA', name: 'Bóng yoga tròn', type: 'Bóng yoga', room: 3 },
-      { code: 'EQP-BALL', name: 'Bóng tập giữ thăng bằng', type: 'Bóng tập', room: 3 },
-      { code: 'EQP-STICK', name: 'Gậy gỗ tập vận động khớp vai', type: 'Gậy gỗ', room: 3 },
-      { code: 'EQP-MULTI', name: 'Máy tập đa năng phục hồi chức năng', type: 'Máy tập đa năng', room: 3 }
+      { code: 'EQP-GONIO', name: 'Thước đo khớp cơ học', danh_muc_id: null },
+      { code: 'EQP-HAMMER', name: 'Búa phản xạ thần kinh Taylor', danh_muc_id: null },
+      { code: 'EQP-BED01', name: 'Giường trị liệu bằng tay cao cấp 01', danh_muc_id: 85 },
+      { code: 'EQP-BED02', name: 'Giường trị liệu bằng tay cao cấp 02', danh_muc_id: 85 },
+      { code: 'EQP-CHIRO', name: 'Giường nắn chỉnh xương khớp chuyên dụng Chiro-Max', danh_muc_id: 85 },
+      { code: 'EQP-LASER', name: 'Máy Laser công suất cao BTL-6000 20W', danh_muc_id: 97 },
+      { code: 'EQP-SHOCK', name: 'Máy sóng xung kích Shockwave BTL-6000', danh_muc_id: 83 },
+      { code: 'EQP-ULTRA', name: 'Máy siêu âm điều trị đa tần BTL-4710', danh_muc_id: 81 },
+      { code: 'EQP-TRITON', name: 'Máy kéo giãn cột sống tự động Triton DTS', danh_muc_id: 90 },
+      { code: 'EQP-MAT', name: 'Thảm tập Kinetic Rehab', danh_muc_id: null },
+      { code: 'EQP-BAND', name: 'Dây kháng lực Theraband', danh_muc_id: null },
+      { code: 'EQP-YOGA', name: 'Bóng yoga tròn', danh_muc_id: null },
+      { code: 'EQP-BALL', name: 'Bóng tập giữ thăng bằng', danh_muc_id: null },
+      { code: 'EQP-STICK', name: 'Gậy gỗ tập vận động khớp vai', danh_muc_id: null },
+      { code: 'EQP-MULTI', name: 'Máy tập đa năng phục hồi chức năng', danh_muc_id: null }
     ];
 
     const deviceQuery = `
-      INSERT INTO thiet_bi_y_te (ma_thiet_bi, ten_thiet_bi, loai_thiet_bi, trang_thai, phong_id_hien_tai, ghi_chu, so_lan_su_dung, cap_rui_ro)
-      VALUES ($1, $2, $3, 'san_sang', $4, 'Dữ liệu được seed tự động.', 0, 'trung_binh')
+      INSERT INTO thiet_bi_y_te (ma_thiet_bi, ten_thiet_bi, trang_thai, ghi_chu, danh_muc_thiet_bi_id)
+      VALUES ($1, $2, 'san_sang', 'Dữ liệu được seed tự động.', $3)
     `;
 
     for (const d of devices) {
-      await client.query(deviceQuery, [d.code, d.name, d.type, d.room]);
+      await client.query(deviceQuery, [d.code, d.name, d.danh_muc_id]);
     }
 
     await client.query('COMMIT');

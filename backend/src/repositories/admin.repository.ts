@@ -101,7 +101,7 @@ class AdminRepository {
 
   async getServices() {
     const { rows } = await pool.query(`
-      SELECT dv.*, dv.thoi_luong_phut as thoi_gian_uoc_tinh, dm.ten_danh_muc 
+      SELECT dv.*, dv.thoi_luong_phut as thoi_gian_uoc_tinh, dm.ten_danh_muc, dm.loai_danh_muc
       FROM dich_vu dv
       JOIN danh_muc_dich_vu dm ON dv.danh_muc_id = dm.id
       ORDER BY dv.danh_muc_id, dv.ten_dich_vu
@@ -111,17 +111,16 @@ class AdminRepository {
 
   async createService(data: any) {
     const { rows } = await pool.query(
-      `INSERT INTO dich_vu (danh_muc_id, ten_dich_vu, mo_ta, thoi_luong_phut, don_gia, thiet_bi_yeu_cau, trang_thai, loai_dich_vu) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *, thoi_luong_phut as thoi_gian_uoc_tinh`,
+      `INSERT INTO dich_vu (danh_muc_id, ten_dich_vu, mo_ta, thoi_luong_phut, don_gia, trang_thai, loai_phong_yeu_cau) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *, thoi_luong_phut as thoi_gian_uoc_tinh`,
       [
         data.danh_muc_id,
         data.ten_dich_vu,
         data.mo_ta || null,
         data.thoi_gian_uoc_tinh || null,
         data.don_gia || null,
-        data.thiet_bi_yeu_cau || null,
         data.trang_thai,
-        data.loai_dich_vu || 'ky_thuat'
+        data.loai_phong_yeu_cau || 'phong_tri_lieu'
       ]
     );
     return rows[0];
@@ -130,17 +129,16 @@ class AdminRepository {
   async updateService(id: string, data: any) {
     const { rows } = await pool.query(
       `UPDATE dich_vu 
-       SET danh_muc_id = $1, ten_dich_vu = $2, mo_ta = $3, thoi_luong_phut = $4, don_gia = $5, thiet_bi_yeu_cau = $6, trang_thai = $7, loai_dich_vu = $8
-       WHERE id = $9 RETURNING *, thoi_luong_phut as thoi_gian_uoc_tinh`,
+       SET danh_muc_id = $1, ten_dich_vu = $2, mo_ta = $3, thoi_luong_phut = $4, don_gia = $5, trang_thai = $6, loai_phong_yeu_cau = $7
+       WHERE id = $8 RETURNING *, thoi_luong_phut as thoi_gian_uoc_tinh`,
       [
         data.danh_muc_id,
         data.ten_dich_vu,
         data.mo_ta || null,
         data.thoi_gian_uoc_tinh || null,
         data.don_gia || null,
-        data.thiet_bi_yeu_cau || null,
         data.trang_thai,
-        data.loai_dich_vu || 'ky_thuat',
+        data.loai_phong_yeu_cau || 'phong_tri_lieu',
         id
       ]
     );
@@ -370,57 +368,18 @@ class AdminRepository {
   async getEquipment() {
     const { rows } = await pool.query(`
       SELECT 
-        tb.*, 
-        p.ten_phong,
-        p.ma_phong,
-        active_session.active_booking_type,
-        active_session.active_booking_id,
-        active_session.active_patient_name,
-        active_session.active_operator_name,
-        active_session.active_service_name,
-        active_session.active_booking_code
+        tb.id,
+        tb.ma_thiet_bi,
+        tb.ten_thiet_bi,
+        tb.ngay_mua,
+        tb.trang_thai,
+        tb.ghi_chu,
+        tb.thoi_gian_tao,
+        tb.danh_muc_thiet_bi_id,
+        dm.ten_thiet_bi AS loai_thiet_bi,
+        dm.ten_danh_muc AS ten_danh_muc
       FROM thiet_bi_y_te tb
-      LEFT JOIN phong p ON tb.phong_id_hien_tai = p.id
-      LEFT JOIN LATERAL (
-        (
-          SELECT 
-            'lich_dieu_tri' AS active_booking_type,
-            btl.id::text AS active_booking_id,
-            kh.ho_ten AS active_patient_name,
-            ktv_user.ho_ten AS active_operator_name,
-            dv.ten_dich_vu AS active_service_name,
-            ldt.ma_lich_dieu_tri AS active_booking_code
-          FROM buoi_tri_lieu btl
-          JOIN lich_dieu_tri ldt ON btl.lich_dieu_tri_id = ldt.id
-          JOIN khach_hang kh ON btl.khach_hang_id = kh.id
-          JOIN chuyen_gia_y_te cg ON btl.ky_thuat_vien_id = cg.id
-          JOIN nguoi_dung ktv_user ON cg.nguoi_dung_id = ktv_user.id
-          LEFT JOIN dich_vu dv ON btl.dich_vu_id = dv.id
-          WHERE btl.trang_thai = 'dang_thuc_hien'
-            AND btl.phong_id = tb.phong_id_hien_tai
-            AND (dv.thiet_bi_yeu_cau ILIKE '%' || tb.loai_thiet_bi || '%' OR tb.loai_thiet_bi ILIKE '%' || dv.thiet_bi_yeu_cau || '%')
-          LIMIT 1
-        )
-        UNION ALL
-        (
-          SELECT 
-            'lich_kham' AS active_booking_type,
-            ld.id::text AS active_booking_id,
-            COALESCE(ld.ho_ten_khach, kh.ho_ten) AS active_patient_name,
-            doc_user.ho_ten AS active_operator_name,
-            dv.ten_dich_vu AS active_service_name,
-            ld.ma_lich_dat AS active_booking_code
-          FROM lich_dat ld
-          LEFT JOIN khach_hang kh ON ld.khach_hang_id = kh.id
-          LEFT JOIN chuyen_gia_y_te cg ON ld.bac_si_id = cg.id
-          LEFT JOIN nguoi_dung doc_user ON cg.nguoi_dung_id = doc_user.id
-          LEFT JOIN dich_vu dv ON ld.dich_vu_id = dv.id
-          WHERE ld.trang_thai = 'da_checkin'
-            AND ld.phong_id = tb.phong_id_hien_tai
-            AND (dv.thiet_bi_yeu_cau ILIKE '%' || tb.loai_thiet_bi || '%' OR tb.loai_thiet_bi ILIKE '%' || dv.thiet_bi_yeu_cau || '%')
-          LIMIT 1
-        )
-      ) active_session ON tb.trang_thai = 'dang_su_dung'
+      LEFT JOIN danh_muc_thiet_bi dm ON tb.danh_muc_thiet_bi_id = dm.id
       ORDER BY tb.thoi_gian_tao DESC
     `);
     return rows;
@@ -430,139 +389,25 @@ class AdminRepository {
     return pool;
   }
 
-  async checkRoomCapacity(phongId: number, countToAdd: number, excludeEquipmentId: string | null = null): Promise<void> {
-    const { rows: rooms } = await pool.query(
-      "SELECT loai_phong, suc_chua, ten_phong FROM phong WHERE id = $1",
-      [phongId]
-    );
-    if (rooms.length === 0) return;
-    const room = rooms[0];
-    
-    // Ràng buộc chỉ áp dụng cho phòng trị liệu (phong_tri_lieu_chuan) và phòng đặc biệt (phong_dac_biet)
-    if (room.loai_phong === 'phong_tri_lieu_chuan' || room.loai_phong === 'phong_dac_biet') {
-      // Đếm số lượng thiết bị hoạt động (không ở trạng thái 'hong' - Hỏng/Ngưng sử dụng)
-      let queryStr = "SELECT COUNT(1)::int as count FROM thiet_bi_y_te WHERE phong_id_hien_tai = $1 AND trang_thai != 'hong' AND trang_thai != 'ngung_su_dung'";
-      let queryParams: any[] = [phongId];
-      
-      if (excludeEquipmentId) {
-        queryStr += " AND id != $2";
-        queryParams.push(excludeEquipmentId);
-      }
-      
-      const { rows: counts } = await pool.query(queryStr, queryParams);
-      const activeCount = counts[0].count;
-      const capacity = room.suc_chua || 1;
-      
-      if (activeCount + countToAdd > capacity) {
-        const roomTypeName = room.loai_phong === 'phong_tri_lieu_chuan' ? 'Trị liệu' : 'Đặc biệt';
-        const err: any = new Error(
-          `Phòng ${roomTypeName} (${room.ten_phong}) đã đạt giới hạn sức chứa. Tối đa: ${capacity} máy hoạt động. Hiện có: ${activeCount} máy. Không thể xếp thêm ${countToAdd} máy.`
-        );
-        err.statusCode = 400;
-        throw err;
-      }
-    }
-  }
-
-  async checkEquipmentCompatibility(loaiThietBi: string, phongId: number | null, excludeEquipmentId?: string): Promise<void> {
-    if (!phongId) return; // Kho lưu trữ hoặc chưa gán thì luôn hợp lệ
-    
-    const { rows: rooms } = await pool.query(
-      "SELECT loai_phong, ten_phong, suc_chua FROM phong WHERE id = $1",
-      [phongId]
-    );
-    if (rooms.length === 0) return;
-    const room = rooms[0];
-    
-    const typeLower = (loaiThietBi || '').toLowerCase();
-    const isBed = typeLower === 'giuong_tri_lieu' || typeLower === 'giường trị liệu';
-    
-    // 1. Giường trị liệu -> Chỉ cho vào phòng trị liệu chuẩn, phòng đặc biệt hoặc kho
-    if (isBed) {
-      if (room.loai_phong !== 'phong_tri_lieu_chuan' && room.loai_phong !== 'phong_dac_biet' && room.loai_phong !== 'kho_thiet_bi' && room.loai_phong !== 'phong_tri_lieu') {
-        const err: any = new Error(`Thiết bị loại giường trị liệu chỉ được phép gán vào Phòng trị liệu, Phòng đặc biệt hoặc Kho thiết bị. Phòng hiện tại chọn: ${room.ten_phong}.`);
-        err.statusCode = 400;
-        throw err;
-      }
-    }
-    
-    // 2. Thiết bị đặc biệt -> Chỉ phòng đặc biệt hoặc kho
-    if (typeLower.includes('kéo giãn') || typeLower.includes('keo gian') ||
-        typeLower.includes('từ trường') || typeLower.includes('tu truong') ||
-        typeLower === 'thiết bị đặc biệt') {
-      if (room.loai_phong !== 'phong_dac_biet' && room.loai_phong !== 'kho_thiet_bi') {
-        const err: any = new Error(`Thiết bị đặc biệt (nặng, cố định) chỉ được phép gán vào Phòng đặc biệt hoặc Kho thiết bị. Phòng hiện tại chọn: ${room.ten_phong}.`);
-        err.statusCode = 400;
-        throw err;
-      }
-    }
-
-    // 3. Thiết bị tập -> Chỉ phòng tập hoặc kho
-    if (typeLower.includes('tập') || typeLower.includes('tap') || typeLower.includes('phcn') ||
-        typeLower === 'dụng cụ & thiết bị khác' || typeLower === 'dụng cụ tập' || typeLower === 'khác') {
-      if (room.loai_phong !== 'phong_tap_phcn' && room.loai_phong !== 'phong_tap' && room.loai_phong !== 'phuc_hoi' && room.loai_phong !== 'kho_thiet_bi') {
-        const err: any = new Error(`Thiết bị phòng tập chỉ được phép gán vào Phòng tập, phục hồi hoặc Kho thiết bị. Phòng hiện tại chọn: ${room.ten_phong}.`);
-        err.statusCode = 400;
-        throw err;
-      }
-    }
-    
-    // 4. Phòng khám không được có thiết bị
-    if (room.loai_phong === 'kham_benh') {
-      const err: any = new Error(`Phòng khám (${room.ten_phong}) là phòng thăm khám chuyên khoa lâm sàng, không thể gán thiết bị vật lý trị liệu.`);
-      err.statusCode = 400;
-      throw err;
-    }
-
-    // 5. Kiểm tra sức chứa tối đa của giường trị liệu (loai_thiet_bi = 'giuong_tri_lieu')
-    if (isBed) {
-      let countQuery = "SELECT COUNT(*)::int as count FROM thiet_bi_y_te WHERE phong_id_hien_tai = $1 AND (loai_thiet_bi = 'giuong_tri_lieu' OR loai_thiet_bi = 'Giường trị liệu')";
-      const countParams: any[] = [phongId];
-      if (excludeEquipmentId) {
-        countQuery += " AND id <> $2";
-        countParams.push(excludeEquipmentId);
-      }
-      const { rows: countRes } = await pool.query(countQuery, countParams);
-      const currentBeds = countRes[0].count;
-      if (currentBeds + 1 > room.suc_chua) {
-        const err: any = new Error(`Phòng (${room.ten_phong}) đã đạt giới hạn sức chứa tối đa (${room.suc_chua}). Không thể gán thêm giường trị liệu.`);
-        err.statusCode = 400;
-        throw err;
-      }
-    }
-  }
-
   async createEquipment(ma_thiet_bi: string, data: any) {
-    const phongId = data.phong_id_hien_tai ? Number(data.phong_id_hien_tai) : null;
-    await this.checkEquipmentCompatibility(data.loai_thiet_bi || '', phongId);
-
     const { rows } = await pool.query(
       `INSERT INTO thiet_bi_y_te (
-         ma_thiet_bi, ten_thiet_bi, loai_thiet_bi, ngay_mua,
-         trang_thai, phong_id_hien_tai, ghi_chu,
-         cap_rui_ro, tan_suat_bao_tri_ngay, ngay_bao_tri_gan_nhat,
-         loai_thiet_bi_id
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+         ma_thiet_bi, ten_thiet_bi, ngay_mua,
+         trang_thai, ghi_chu, danh_muc_thiet_bi_id
+       ) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
       [
         ma_thiet_bi,
         data.ten_thiet_bi,
-        data.loai_thiet_bi || null,
         data.ngay_mua || null,
         data.trang_thai || 'san_sang',
-        phongId,
         data.ghi_chu || null,
-        data.cap_rui_ro || 'trung_binh',
-        data.tan_suat_bao_tri_ngay || 45,
-        data.ngay_bao_tri_gan_nhat || null,
-        data.loai_thiet_bi_id ? Number(data.loai_thiet_bi_id) : null
+        data.danh_muc_thiet_bi_id ? Number(data.danh_muc_thiet_bi_id) : null
       ]
     );
     return rows[0];
   }
 
   async updateEquipment(id: string, data: any) {
-    const phongId = data.phong_id_hien_tai !== undefined ? (data.phong_id_hien_tai ? Number(data.phong_id_hien_tai) : null) : undefined;
-    
     // 1. Lấy thông tin thiết bị hiện tại trước khi cập nhật
     const { rows: current } = await pool.query(
       'SELECT * FROM thiet_bi_y_te WHERE id = $1',
@@ -578,47 +423,27 @@ class AdminRepository {
     const cur = current[0];
     const curCode = cur.ma_thiet_bi;
     const curName = cur.ten_thiet_bi;
-    const curType = cur.loai_thiet_bi;
-    const curPhongId = cur.phong_id_hien_tai ? Number(cur.phong_id_hien_tai) : null;
     const curStatus = cur.trang_thai;
-    const curRisk = cur.cap_rui_ro;
-    const curFreq = cur.tan_suat_bao_tri_ngay;
     const curBuyDate = cur.ngay_mua;
-    const curLastDate = cur.ngay_bao_tri_gan_nhat;
     const curNote = cur.ghi_chu;
 
-    const targetLoai = data.loai_thiet_bi !== undefined ? data.loai_thiet_bi : curType;
-    const resolvedPhongId = phongId !== undefined ? phongId : curPhongId;
-
-    await this.checkEquipmentCompatibility(targetLoai, resolvedPhongId, id);
-
-    const targetTypeId = data.loai_thiet_bi_id !== undefined ? (data.loai_thiet_bi_id ? Number(data.loai_thiet_bi_id) : null) : cur.loai_thiet_bi_id;
+    const targetTypeId = data.danh_muc_thiet_bi_id !== undefined ? (data.danh_muc_thiet_bi_id ? Number(data.danh_muc_thiet_bi_id) : null) : cur.danh_muc_thiet_bi_id;
 
     const { rows } = await pool.query(
       `UPDATE thiet_bi_y_te 
        SET ma_thiet_bi = $1,
            ten_thiet_bi = $2, 
-           loai_thiet_bi = $3, 
-           ngay_mua = $4, 
-           trang_thai = $5, 
-           phong_id_hien_tai = $6, 
-           ghi_chu = $7,
-           cap_rui_ro = $8,
-           tan_suat_bao_tri_ngay = $9,
-           ngay_bao_tri_gan_nhat = $10,
-           loai_thiet_bi_id = $11
-       WHERE id = $12 RETURNING *`,
+           ngay_mua = $3, 
+           trang_thai = $4, 
+           ghi_chu = $5,
+           danh_muc_thiet_bi_id = $6
+       WHERE id = $7 RETURNING *`,
       [
         data.ma_thiet_bi !== undefined ? data.ma_thiet_bi : curCode,
         data.ten_thiet_bi !== undefined ? data.ten_thiet_bi : curName,
-        targetLoai,
         data.ngay_mua !== undefined ? data.ngay_mua : curBuyDate,
         data.trang_thai !== undefined ? data.trang_thai : curStatus,
-        resolvedPhongId,
         data.ghi_chu !== undefined ? data.ghi_chu : curNote,
-        data.cap_rui_ro !== undefined ? data.cap_rui_ro : curRisk,
-        data.tan_suat_bao_tri_ngay !== undefined ? data.tan_suat_bao_tri_ngay : curFreq,
-        data.ngay_bao_tri_gan_nhat !== undefined ? data.ngay_bao_tri_gan_nhat : curLastDate,
         targetTypeId,
         id
       ]
@@ -628,64 +453,49 @@ class AdminRepository {
 
   async deleteEquipment(id: string) {
     const { rows } = await pool.query(
-      "UPDATE thiet_bi_y_te SET trang_thai = 'ngung_su_dung', phong_id_hien_tai = NULL WHERE id = $1 RETURNING *",
+      "UPDATE thiet_bi_y_te SET trang_thai = 'ngung_su_dung' WHERE id = $1 RETURNING *",
       [id]
     );
     return rows[0];
   }
 
-  // --- QUẢN LÝ PHÂN LOẠI THIẾT BỊ (EQUIPMENT TYPES) ---
+  // --- QUẢN LÝ DANH MỤC THIẾT BỊ (EQUIPMENT CATEGORIES) ---
   async getEquipmentTypes() {
-    const { rows } = await pool.query('SELECT * FROM loai_thiet_bi ORDER BY nhom_thiet_bi DESC, ten_loai ASC');
+    const { rows } = await pool.query('SELECT id, ten_danh_muc, ten_thiet_bi FROM danh_muc_thiet_bi ORDER BY ten_danh_muc ASC, ten_thiet_bi ASC');
     return rows;
   }
 
   async getEquipmentTypeById(id: number) {
-    const { rows } = await pool.query('SELECT * FROM loai_thiet_bi WHERE id = $1', [id]);
+    const { rows } = await pool.query('SELECT id, ten_danh_muc, ten_thiet_bi FROM danh_muc_thiet_bi WHERE id = $1', [id]);
     return rows[0];
   }
 
-  async createEquipmentType(data: { ten_loai: string; nhom_thiet_bi: string }) {
+  async createEquipmentType(data: { ten_danh_muc: string; ten_thiet_bi: string }) {
     const { rows } = await pool.query(
-      'INSERT INTO loai_thiet_bi (ten_loai, nhom_thiet_bi) VALUES ($1, $2) RETURNING *',
-      [data.ten_loai, data.nhom_thiet_bi]
+      'INSERT INTO danh_muc_thiet_bi (ten_danh_muc, ten_thiet_bi) VALUES ($1, $2) RETURNING id, ten_danh_muc, ten_thiet_bi',
+      [data.ten_danh_muc, data.ten_thiet_bi]
     );
     return rows[0];
   }
 
-  async updateEquipmentType(id: number, data: { ten_loai: string; nhom_thiet_bi: string }) {
-    // 1. Get original type name to update associated text names in thiet_bi_y_te
+  async updateEquipmentType(id: number, data: { ten_danh_muc: string; ten_thiet_bi: string }) {
     const originalType = await this.getEquipmentTypeById(id);
     if (!originalType) {
-      const err: any = new Error('Không tìm thấy loại thiết bị cần cập nhật.');
+      const err: any = new Error('Không tìm thấy danh mục thiết bị cần cập nhật.');
       err.statusCode = 404;
       throw err;
     }
 
-    await pool.query('BEGIN');
-    try {
-      const { rows } = await pool.query(
-        'UPDATE loai_thiet_bi SET ten_loai = $1, nhom_thiet_bi = $2 WHERE id = $3 RETURNING *',
-        [data.ten_loai, data.nhom_thiet_bi, id]
-      );
-      
-      // Sync the text name in thiet_bi_y_te
-      await pool.query(
-        'UPDATE thiet_bi_y_te SET loai_thiet_bi = $1 WHERE loai_thiet_bi_id = $2',
-        [data.ten_loai, id]
-      );
-
-      await pool.query('COMMIT');
-      return rows[0];
-    } catch (error) {
-      await pool.query('ROLLBACK');
-      throw error;
-    }
+    const { rows } = await pool.query(
+      'UPDATE danh_muc_thiet_bi SET ten_danh_muc = $1, ten_thiet_bi = $2 WHERE id = $3 RETURNING id, ten_danh_muc, ten_thiet_bi',
+      [data.ten_danh_muc, data.ten_thiet_bi, id]
+    );
+    return rows[0];
   }
 
   async deleteEquipmentType(id: number) {
     const { rows: eqCount } = await pool.query(
-      'SELECT COUNT(*)::int as count FROM thiet_bi_y_te WHERE loai_thiet_bi_id = $1',
+      'SELECT COUNT(*)::int as count FROM thiet_bi_y_te WHERE danh_muc_thiet_bi_id = $1',
       [id]
     );
     if (eqCount[0].count > 0) {
@@ -693,7 +503,7 @@ class AdminRepository {
       err.statusCode = 400;
       throw err;
     }
-    const { rows } = await pool.query('DELETE FROM loai_thiet_bi WHERE id = $1 RETURNING *', [id]);
+    const { rows } = await pool.query('DELETE FROM danh_muc_thiet_bi WHERE id = $1 RETURNING *', [id]);
     return rows[0];
   }
 
@@ -811,7 +621,7 @@ class AdminRepository {
         ld.ly_do_kham as trieu_chung,
         hs.ghi_chu,
         dv.ten_dich_vu as phuong_phap_dieu_tri,
-        g.loai_goi,
+        NULL::text AS loai_goi,
         g.ten_goi,
         g.tong_so_buoi as so_luong_buoi,
         1 as so_luong_goi,

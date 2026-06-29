@@ -50,7 +50,7 @@ export function TrustSection() {
           <div className="space-y-2 text-left">
             <h4 className="text-base font-jakarta font-black text-[#0F172A]">Cam kết chất lượng điều trị</h4>
             <p className="text-xs font-medium text-slate-400 leading-relaxed">
-              PhysioFlow cam kết tập trung phục hồi từ gốc rễ bệnh lý cột sống, cơ xương khớp. Không chèo kéo các dịch vụ ngoài phác đồ chỉ định.
+              OfficeCare cam kết tập trung phục hồi từ gốc rễ bệnh lý cột sống, cơ xương khớp. Không chèo kéo các dịch vụ ngoài phác đồ chỉ định.
             </p>
           </div>
         </div>
