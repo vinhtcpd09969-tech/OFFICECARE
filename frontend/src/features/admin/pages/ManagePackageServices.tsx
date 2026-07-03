@@ -171,7 +171,8 @@ export default function ManagePackageServices() {
         danh_muc_id: currentPackage.danh_muc_id ? Number(currentPackage.danh_muc_id) : undefined,
         ten_goi: currentPackage.ten_goi,
         ma_goi: currentPackage.ma_goi,
-        mo_ta: currentPackage.mo_ta,
+        quy_trinh: currentPackage.quy_trinh,
+        muc_tieu: currentPackage.muc_tieu,
         tong_so_buoi: Number(currentPackage.tong_so_buoi),
         thoi_luong_buoi_phut: Number(currentPackage.thoi_luong_buoi_phut || 60),
         gia_tien: typeof currentPackage.gia_tien === 'string' ? parseInt(currentPackage.gia_tien) : Number(currentPackage.gia_tien || 0),
@@ -319,7 +320,7 @@ export default function ManagePackageServices() {
             CHI TIẾT GÓI DỊCH VỤ: {groupedInfo.isGrouped ? groupedInfo.baseName : currentPackage.ten_goi}
           </h2>
           <p className="text-zinc-500 text-xs mt-1">
-            {currentPackage.mo_ta || 'Phác đồ phục hồi cột sống và cơ xương khớp chuyên sâu.'}
+            {currentPackage.quy_trinh || currentPackage.muc_tieu || 'Phác đồ phục hồi cột sống và cơ xương khớp chuyên sâu.'}
           </p>
         </div>
         

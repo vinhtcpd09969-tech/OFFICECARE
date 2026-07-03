@@ -21,6 +21,7 @@ interface AppointmentKpiCardsProps {
   receptionistKpis: ReceptionistKpiData;
   viewMode: 'timeline' | 'capacity';
   timeRange: 'today' | '7days' | 'month' | 'custom';
+  activeType: 'kham' | 'dieu_tri';
 }
 
 export function AppointmentKpiCards({
@@ -28,7 +29,8 @@ export function AppointmentKpiCards({
   kpis,
   receptionistKpis,
   viewMode,
-  timeRange
+  timeRange,
+  activeType
 }: AppointmentKpiCardsProps) {
   // Determine displayed values
   const total = isReceptionist ? receptionistKpis.total : kpis.total;
@@ -72,11 +74,13 @@ export function AppointmentKpiCards({
         ? 'tháng này'
         : 'tuần này';
 
+  const isKham = activeType === 'kham';
+
   const stats = [
     {
-      title: "Tổng ca khám",
+      title: isKham ? "Tổng ca khám" : "Tổng ca điều trị",
       value: total,
-      subtext: isReceptionist ? `Tổng ca đặt lịch ${rangeLabel}` : `+14.2% ${rangeLabel}`,
+      subtext: isReceptionist ? `Tổng ca đặt lịch ${rangeLabel}` : (isKham ? `+14.2% ${rangeLabel}` : `+8.5% ${rangeLabel}`),
       subtextColor: "text-[#0D9488]",
       pct: 100,
       color: "from-[#0D9488] to-[#14B8A6]",
@@ -85,9 +89,9 @@ export function AppointmentKpiCards({
       icon: <Calendar className="text-[#0D9488]" size={18} />
     },
     {
-      title: isReceptionist ? "Chờ liên hệ" : "Chờ xử lý",
+      title: "Chưa xác nhận",
       value: waiting,
-      subtext: isReceptionist ? "Cần gọi xác nhận" : `Cần điều phối ${rangeLabel}`,
+      subtext: isReceptionist ? "Cần gọi hoặc gán nhân sự" : "Cần gán hoặc xác thực",
       subtextColor: "text-amber-500",
       pct: waitingPct,
       color: "from-[#F59E0B] to-[#FBBF24]",
@@ -96,9 +100,9 @@ export function AppointmentKpiCards({
       icon: <AlertCircle className="text-[#F59E0B]" size={18} />
     },
     {
-      title: isReceptionist ? "Đã gán Bác sĩ" : "Đã hoàn thành",
+      title: isReceptionist ? "Đã xác nhận" : "Đã hoàn thành",
       value: completed,
-      subtext: isReceptionist ? "Chờ khách đến khám" : `Khám xong ${rangeLabel}`,
+      subtext: isReceptionist ? "Sẵn sàng đón khách" : (isKham ? `Khám xong ${rangeLabel}` : `Trị liệu xong ${rangeLabel}`),
       subtextColor: "text-emerald-500",
       pct: completedPct,
       color: "from-[#22C55E] to-[#4ADE80]",

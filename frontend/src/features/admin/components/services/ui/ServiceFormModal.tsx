@@ -35,11 +35,10 @@ export function ServiceFormModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-secondary/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-      <div className="bg-white border border-zinc-250 rounded-2xl shadow-2xl max-w-xl w-full overflow-hidden flex flex-col max-h-[90vh] text-secondary animate-in slide-in-from-bottom-8 duration-300">
+    <div className="bg-white border border-zinc-200 rounded-3xl shadow-sm max-w-3xl mx-auto w-full text-secondary overflow-hidden">
         
         {/* Modal Header */}
-        <div className="px-6 py-4 flex justify-between items-center border-b border-zinc-200 bg-zinc-50/50 shrink-0">
+        <div className="px-6 py-5 flex justify-between items-center border-b border-zinc-150 bg-zinc-50/50">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-primary animate-ping"></span>
             <h3 className="text-sm font-bold font-heading tracking-wide uppercase">
@@ -56,8 +55,8 @@ export function ServiceFormModal({
         </div>
         
         {/* Form Body */}
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col flex-1 overflow-hidden">
-          <div className="p-6 space-y-5 overflow-y-auto custom-scrollbar text-xs">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-0">
+          <div className="p-6 space-y-5 text-xs">
             
             {/* HỘP 1: THÔNG TIN CƠ BẢN */}
             <div className="p-4 border border-zinc-200 rounded-2xl bg-zinc-50/30 space-y-4">
@@ -213,7 +212,7 @@ export function ServiceFormModal({
           </div>
           
           {/* Pinned Footer */}
-          <div className="px-6 py-4 border-t border-zinc-200 bg-zinc-50/50 shrink-0 flex gap-3">
+          <div className="px-6 py-5 border-t border-zinc-150 bg-zinc-50/50 flex gap-3">
             <button 
               type="button" 
               onClick={onClose} 
@@ -230,7 +229,6 @@ export function ServiceFormModal({
           </div>
         </form>
       </div>
-    </div>
   );
 }
 export default ServiceFormModal;

@@ -1,656 +1,423 @@
-import { useState, useEffect } from 'react';
-import { useLocation, Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, Clock, Award, ShieldCheck, Layers, BookOpen, Sparkles } from 'lucide-react';
-import { useAuthStore } from '../../../stores/authStore';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Clock, AlertTriangle, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getPublicServices, getPublicPackages, getPublicCategories } from '../../../api/client.api';
-import toast from 'react-hot-toast';
+import LoadingScreen from '../../../components/LoadingScreen';
 
-interface Service {
-  id: string;
-  danh_muc_id: string;
-  ten_dich_vu: string;
-  mo_ta_ngan: string;
-  mo_ta_chi_tiet: string;
-  thoi_luong_phut: number;
-  don_gia: number | string;
-  hinh_anh_url: string;
-  hien_thi_website: boolean;
-  loai_dich_vu_ho_tro: string[] | string;
-}
-
-interface Package {
+interface UnifiedService {
   id: string;
   ten_goi: string;
   ma_goi: string;
   mo_ta: string;
   tong_so_buoi: number;
-  gia_tien: number | string;
-  gia_goc?: number | string;
-  han_dung_thang: number;
-  chi_tiet_dich_vu: any;
-  danh_muc_id?: string | number;
-  ten_danh_muc?: string;
+  gia_tien: number;
+  thoi_luong_phut?: number;
+  anh_goi?: string;
+  loai_goi: 'KHAM' | 'LE' | 'LIEU_TRINH';
+  danh_muc_id?: number | string | null;
+  luot_dung: number;
 }
 
 interface Category {
-  id: string | number;
+  id: string;
   ten_danh_muc: string;
-  mo_ta: string;
-  loai_danh_muc: string;
-  thu_tu_hien_thi: number;
-}
-
-interface GroupedPackage {
-  baseName: string;
-  mo_ta: string;
-  danh_muc_id?: string | number;
-  levels: {
-    [levelName: string]: Package;
-  };
-}
-
-// Subcomponent to render a grouped package card with tabs and expandable details
-function GroupedPackageCard({ 
-  groupedPackage, 
-  services,
-  handleBookingClick,
-  onViewDetails
-}: { 
-  groupedPackage: GroupedPackage; 
-  services: Service[];
-  handleBookingClick: (e: React.MouseEvent) => void;
-  onViewDetails: () => void;
-}) {
-  // Find available levels and sort them (BASIC -> STANDARD -> INTENSIVE)
-  const availableLevels = Object.keys(groupedPackage.levels).sort((a, b) => {
-    const order = ['BASIC', 'STANDARD', 'INTENSIVE'];
-    return order.indexOf(a) - order.indexOf(b);
-  });
-
-  // Default to first available level
-  const [selectedLevel, setSelectedLevel] = useState<string>(availableLevels[0] || 'BASIC');
-
-  const activePkg = groupedPackage.levels[selectedLevel] || Object.values(groupedPackage.levels)[0];
-
-  const getPackageServices = (pkg: Package) => {
-    try {
-      const detail = typeof pkg.chi_tiet_dich_vu === 'string' ? JSON.parse(pkg.chi_tiet_dich_vu) : pkg.chi_tiet_dich_vu;
-      if (Array.isArray(detail)) {
-        return detail.map((d: any) => {
-          const svc = services.find(s => s.id.toString() === d.dich_vu_id.toString());
-          return {
-            name: svc ? svc.ten_dich_vu : 'Liệu pháp trị liệu',
-            so_buoi: d.so_buoi || d.so_lan_toi_da_trong_goi,
-            mo_ta: svc ? svc.mo_ta_ngan : 'Dịch vụ phục hồi chức năng chuyên sâu.'
-          };
-        });
-      }
-    } catch (e) {
-      // ignore
-    }
-    return [];
-  };
-
-  const includedServices = getPackageServices(activePkg);
-
-  const formatPrice = (price: number | string | undefined): string => {
-    if (price === undefined || price === null) return '';
-    const numPrice = typeof price === 'string' ? parseInt(price, 10) : price;
-    if (isNaN(numPrice)) return price.toString();
-    if (numPrice === 0) return 'Liên hệ';
-    return numPrice.toLocaleString('vi-VN') + ' đ';
-  };
-
-  return (
-    <div className="bg-white rounded-[32px] p-6 md:p-8 border border-slate-100 hover:border-[#FF9F1C]/25 shadow-[0_15px_40px_rgba(15,23,42,0.02)] hover:shadow-[0_25px_50px_rgba(15,23,42,0.06)] hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between relative group">
-      <div>
-        {/* Card Header */}
-        <div className="flex items-center justify-between gap-4 mb-4">
-          <span className="bg-primary/10 text-primary border border-primary/20 text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full">
-            {activePkg.ma_goi}
-          </span>
-          <div className="flex items-center gap-1 text-[11px] font-bold text-slate-400">
-            <ShieldCheck size={14} className="text-emerald-500" /> Cam kết hiệu quả
-          </div>
-        </div>
-
-        {/* Base Package Title */}
-        <h3 className="font-heading font-black text-xl md:text-2xl text-slate-900 group-hover:text-primary transition-colors leading-tight mb-3">
-          {groupedPackage.baseName}
-        </h3>
-        
-        {/* Level Tabs Selection */}
-        <div className="flex gap-1 p-1 bg-slate-100/80 border border-slate-200/30 rounded-xl w-fit mb-5">
-          {availableLevels.map(lvl => (
-            <button
-              key={lvl}
-              type="button"
-              onClick={() => setSelectedLevel(lvl)}
-              className={`px-3.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${
-                selectedLevel === lvl
-                  ? 'bg-primary text-white shadow-sm'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              {lvl}
-            </button>
-          ))}
-        </div>
-
-        {/* Dynamic Level Description */}
-        <p className="text-slate-500 text-xs font-semibold leading-relaxed mb-6">
-          {activePkg.mo_ta}
-        </p>
-
-        {/* Expandable Details Button */}
-        <button
-          type="button"
-          onClick={onViewDetails}
-          className="w-full flex items-center justify-between bg-slate-50 hover:bg-slate-100/60 p-4 rounded-2xl border border-slate-100 text-[10px] font-black uppercase text-[#2EC4B6] hover:text-[#25A89C] tracking-wider transition-all mb-6 select-none shadow-xs group/btn"
-        >
-          <span className="flex items-center gap-1.5 font-bold">
-            <BookOpen size={13} className="text-[#2EC4B6]" /> Phác đồ chi tiết ({includedServices.length} liệu pháp)
-          </span>
-          <span className="font-extrabold text-[11px] flex items-center gap-0.5">
-            Xem chi tiết <span className="group-hover/btn:translate-x-0.5 transition-transform">→</span>
-          </span>
-        </button>
-      </div>
-
-      {/* Card Footer */}
-      <div className="pt-6 border-t border-slate-100">
-        <div className="flex items-center justify-between gap-4 mb-6">
-          <div>
-            <span className="text-2xl md:text-3xl font-black text-slate-900">
-              {formatPrice(activePkg.gia_tien)}
-            </span>
-            <span className="text-slate-400 text-xs font-bold"> / {activePkg.tong_so_buoi} buổi</span>
-          </div>
-          
-          {activePkg.gia_goc && (
-            <div className="text-right">
-              <span className="text-xs text-slate-400 line-through font-semibold block">
-                {formatPrice(activePkg.gia_goc)}
-              </span>
-              <span className="text-[10px] text-emerald-500 font-extrabold uppercase">
-                Tiết kiệm 20%
-              </span>
-            </div>
-          )}
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Link
-            to="/booking"
-            onClick={handleBookingClick}
-            className="bg-[#2EC4B6] hover:bg-[#25A89C] text-white text-center font-extrabold py-3.5 rounded-2xl text-xs uppercase tracking-wider transition-all duration-300 shadow-md hover:shadow-primary/20"
-          >
-            Đăng ký nhận phác đồ
-          </Link>
-          
-          <div className="flex items-center justify-center gap-2 border border-slate-200 rounded-2xl bg-slate-50 text-[10px] text-slate-400 font-bold uppercase shrink-0">
-            ⏳ Hạn dùng: {activePkg.han_dung_thang} tháng
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  mo_ta: string | null;
+  loai_goi_ap_dung: 'KHAM' | 'LE' | 'LIEU_TRINH';
 }
 
 export default function ServicesPage() {
-  const { isAuthenticated } = useAuthStore();
-  const location = useLocation();
   const navigate = useNavigate();
-  const state = location.state as { activeTab?: 'services' | 'packages' } | null;
-
-  const [activeTab, setActiveTab] = useState<'services' | 'packages'>(state?.activeTab || 'services');
-  const [services, setServices] = useState<Service[]>([]);
-  const [packages, setPackages] = useState<Package[]>([]);
+  const [items, setItems] = useState<UnifiedService[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  
-  // Separate category states
-  const [selectedServiceCatId, setSelectedServiceCatId] = useState<string>('all');
-  const [selectedPackageCatId, setSelectedPackageCatId] = useState<string>('all');
-  
-  const [loading, setLoading] = useState<boolean>(true);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('ALL');
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'KHAM' | 'LE' | 'LIEU_TRINH'>('KHAM');
+  const [showLieuTrinhWarning, setShowLieuTrinhWarning] = useState(false);
 
-  const getPackageSlug = (baseName: string): string => {
-    const nameLower = baseName.toLowerCase();
-    if (nameLower.includes('đốt sống cổ') || (nameLower.includes('cổ') && !nameLower.includes('cổ tay') && !nameLower.includes('vai và lưng trên'))) {
-      return 'co-vai-gay';
+  const sliderRef = useRef<HTMLDivElement>(null);
+
+  const handleScroll = (direction: 'left' | 'right') => {
+    if (sliderRef.current) {
+      const container = sliderRef.current;
+      const cardWidth = container.firstElementChild?.getBoundingClientRect().width || 400;
+      const scrollAmount = direction === 'left' ? -(cardWidth + 24) : (cardWidth + 24);
+      container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
     }
-    if (nameLower.includes('vai và lưng trên') || nameLower.includes('khớp vai')) {
-      return 'vai-lung-tren';
-    }
-    if (nameLower.includes('thắt lưng') || (nameLower.includes('lưng') && !nameLower.includes('lưng trên'))) {
-      return 'that-lung';
-    }
-    if (nameLower.includes('tư thế') || nameLower.includes('chỉnh dáng')) {
-      return 'chinh-tu-the';
-    }
-    // Clean slug for other packages: lowercase, strip special characters, replace spaces with dashes
-    return baseName
-      .toLowerCase()
-      .replace(/[^a-z0-9\sđáàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵ]/g, '')
-      .trim()
-      .replace(/\s+/g, '-');
   };
 
-  // Sync tab state if location state changes
-  useEffect(() => {
-    if (state?.activeTab) {
-      setActiveTab(state.activeTab);
-    }
-  }, [state]);
+  // Reset category filter when changing tab
+  const handleTabChange = (tab: 'KHAM' | 'LE' | 'LIEU_TRINH') => {
+    setActiveTab(tab);
+    setSelectedCategoryId('ALL');
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
+    async function fetchData() {
       try {
-        setLoading(true);
-        const [resCats, resSvcs, resPkgs] = await Promise.all([
-          getPublicCategories(),
+        const [servicesRes, packagesRes, categoriesRes] = await Promise.all([
           getPublicServices(),
-          getPublicPackages()
+          getPublicPackages(),
+          getPublicCategories()
         ]);
+        setCategories(categoriesRes.data);
         
-        setCategories(resCats.data || []);
-        setServices(resSvcs.data || []);
-        setPackages(resPkgs.data || []);
-      } catch (error) {
-        console.error('Error fetching services details:', error);
-        toast.error('Lỗi khi tải danh mục dịch vụ.');
+        // Map services (KHAM and LE)
+        const servicesMapped = servicesRes.data.map((s: any) => ({
+          id: s.id.toString(),
+          ten_goi: s.ten_dich_vu,
+          ma_goi: s.loai_dich_vu === 'KHAM' ? 'KHAM' : 'LE',
+          mo_ta: s.quy_trinh || s.muc_tieu || 'Dịch vụ lượng giá lâm sàng và trị liệu chuyên khoa cơ xương khớp.',
+          quy_trinh: s.quy_trinh,
+          muc_tieu: s.muc_tieu,
+          tong_so_buoi: 1,
+          gia_tien: Number(s.don_gia),
+          thoi_luong_phut: s.thoi_luong_phut,
+          anh_goi: s.anh_goi || (s.loai_dich_vu === 'KHAM' ? '/goi/images/kham_sang_loc.png' : '/goi/images/laser_tri_lieu.png'),
+          loai_goi: s.loai_dich_vu === 'KHAM' ? 'KHAM' : 'LE',
+          danh_muc_id: s.danh_muc_id,
+          luot_dung: Number(s.luot_dung || 0)
+        }));
+
+        // Map packages (LIEU_TRINH)
+        const packagesMapped = packagesRes.data.map((p: any) => ({
+          id: p.id.toString(),
+          ten_goi: p.ten_goi,
+          ma_goi: p.ma_goi || 'LIEU_TRINH',
+          mo_ta: p.quy_trinh || p.muc_tieu || 'Lộ trình phục hồi toàn diện cá nhân hóa theo phác đồ bác sĩ.',
+          quy_trinh: p.quy_trinh,
+          muc_tieu: p.muc_tieu,
+          tong_so_buoi: p.tong_so_buoi,
+          gia_tien: Number(p.gia_tien),
+          thoi_luong_phut: p.thoi_luong_phut || 60,
+          anh_goi: p.anh_goi || '/goi/images/giai_co_sau.png',
+          loai_goi: 'LIEU_TRINH',
+          danh_muc_id: p.danh_muc_id,
+          luot_dung: Number(p.luot_dung || 0)
+        }));
+
+        setItems([...servicesMapped, ...packagesMapped]);
+      } catch (err) {
+        console.error('Lỗi khi lấy danh sách dịch vụ:', err);
       } finally {
         setLoading(false);
       }
-    };
-
+    }
     fetchData();
   }, []);
 
-  // Scroll-reveal Intersection Observer
-  useEffect(() => {
-    if (loading) return;
+  if (loading) {
+    return <LoadingScreen />;
+  }
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('active-reveal');
-          }
-        });
-      },
-      {
-        threshold: 0.05,
-        rootMargin: '0px 0px -50px 0px'
-      }
-    );
+  const activeCategories = categories.filter(cat => cat.loai_goi_ap_dung === activeTab);
 
-    const elements = document.querySelectorAll('.reveal-on-scroll');
-    elements.forEach((el) => observer.observe(el));
-
-    return () => {
-      elements.forEach((el) => observer.unobserve(el));
-    };
-  }, [loading, activeTab, selectedServiceCatId, selectedPackageCatId]);
-
-  const handleBookingClick = (e: React.MouseEvent) => {
-    if (!isAuthenticated()) {
-      e.preventDefault();
-      window.dispatchEvent(new CustomEvent('trigger-global-auth-modal'));
-    }
-  };
-
-  const formatPrice = (price: number | string | undefined): string => {
-    if (price === undefined || price === null) return '';
-    const numPrice = typeof price === 'string' ? parseInt(price, 10) : price;
-    if (isNaN(numPrice)) return price.toString();
-    if (numPrice === 0) return 'Liên hệ';
-    return numPrice.toLocaleString('vi-VN') + ' đ';
-  };
-
-  const getServiceBenefits = (service: Service): string[] => {
-    try {
-      if (typeof service.loai_dich_vu_ho_tro === 'string') {
-        const parsed = JSON.parse(service.loai_dich_vu_ho_tro);
-        if (Array.isArray(parsed)) return parsed;
-      } else if (Array.isArray(service.loai_dich_vu_ho_tro)) {
-        return service.loai_dich_vu_ho_tro;
-      }
-    } catch (e) {
-      // ignore
-    }
-    return [service.mo_ta_ngan || 'Hỗ trợ phục hồi tối ưu.'];
-  };
-
-  const getCategoryEmoji = (name: string): string => {
-    const lower = name.toLowerCase();
-    if (lower.includes('cổ') || lower.includes('vai') || lower.includes('gáy')) return '⚡';
-    if (lower.includes('thắt lưng') || lower.includes('cột sống') || lower.includes('lưng')) return '🦴';
-    if (lower.includes('tư thế') || lower.includes('thái học') || lower.includes('chỉnh')) return '📐';
-    if (lower.includes('thư giãn') || lower.includes('stress') || lower.includes('wellness')) return '🧘‍♂️';
-    if (lower.includes('vận động') || lower.includes('linh hoạt')) return '🤸‍♂️';
-    if (lower.includes('tay') || lower.includes('cơ')) return '💪';
-    if (lower.includes('giảm đau') || lower.includes('phục hồi cơ')) return '🩹';
-    if (lower.includes('chuyên sâu')) return '🩺';
-    if (lower.includes('kéo giãn')) return '🏃‍♂️';
-    return '🩺';
-  };
-
-  // Helper to extract base name and level from package name
-  const getBaseNameAndLevel = (name: string) => {
-    const upperName = name.toUpperCase();
-    let level = 'BASIC';
-    let baseName = name;
-    
-    if (upperName.includes(' - BASIC')) {
-      level = 'BASIC';
-      baseName = name.substring(0, upperName.indexOf(' - BASIC'));
-    } else if (upperName.includes(' - STANDARD')) {
-      level = 'STANDARD';
-      baseName = name.substring(0, upperName.indexOf(' - STANDARD'));
-    } else if (upperName.includes(' - INTENSIVE')) {
-      level = 'INTENSIVE';
-      baseName = name.substring(0, upperName.indexOf(' - INTENSIVE'));
-    } else {
-      const parts = name.split(' - ');
-      if (parts.length > 1) {
-        level = parts[parts.length - 1].toUpperCase();
-        baseName = parts.slice(0, -1).join(' - ');
-      }
-    }
-    return { baseName, level };
-  };
-
-  const getCategoryName = (catId: string): string => {
-    const cat = categories.find(c => c.id.toString() === catId.toString());
-    return cat ? cat.ten_danh_muc : 'Dịch vụ';
-  };
-
-  // Split categories
-  const serviceCategories = categories.filter(c => c.loai_danh_muc === 'dich_vu');
-  const packageCategories = categories.filter(c => c.loai_danh_muc === 'goi' || c.loai_danh_muc === 'goi_dich_vu');
-
-  // Filter services: only show retail ('don_le') and match selected category
-  const filteredServices = services.filter(s => {
-    const isPublic = s.hien_thi_website;
-    const matchesCat = selectedServiceCatId === 'all' || s.danh_muc_id.toString() === selectedServiceCatId.toString();
-    return isPublic && matchesCat;
+  const filteredItems = items.filter(item => {
+    if (item.loai_goi !== activeTab) return false;
+    if (selectedCategoryId !== 'ALL' && item.danh_muc_id !== selectedCategoryId) return false;
+    return true;
   });
 
-  // Filter packages: match selected category
-  const filteredPackages = packages.filter(p => {
-    return selectedPackageCatId === 'all' || p.danh_muc_id?.toString() === selectedPackageCatId.toString();
-  });
 
-  // Group filtered packages by base name
-  const groupedPackages = filteredPackages.reduce((acc: { [key: string]: GroupedPackage }, pkg) => {
-    const { baseName, level } = getBaseNameAndLevel(pkg.ten_goi);
-    if (!acc[baseName]) {
-      acc[baseName] = {
-        baseName,
-        mo_ta: pkg.mo_ta,
-        danh_muc_id: pkg.danh_muc_id,
-        levels: {}
-      };
-    }
-    acc[baseName].levels[level] = pkg;
-    return acc;
-  }, {});
 
-  const groupedPackagesList = Object.values(groupedPackages);
+  // Dynamic counts for sidebar indicators
+  const khamCount = items.filter(item => item.loai_goi === 'KHAM').length;
+  const leCount = items.filter(item => item.loai_goi === 'LE').length;
+  const lieuTrinhCount = items.filter(item => item.loai_goi === 'LIEU_TRINH').length;
 
   return (
-    <div className="min-h-screen bg-slate-50/50 pt-32 pb-24 font-body relative">
-      {/* Scroll Reveal Styles */}
-      <style>{`
-        .reveal-on-scroll {
-          opacity: 0;
-          transform: translateY(40px);
-          transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-          will-change: transform, opacity;
-        }
-        .reveal-on-scroll.slide-left {
-          transform: translateX(-50px) translateY(0);
-        }
-        .reveal-on-scroll.slide-right {
-          transform: translateX(50px) translateY(0);
-        }
-        .reveal-on-scroll.active-reveal {
-          opacity: 1;
-          transform: translate(0);
-        }
-      `}</style>
+    <div className="min-h-screen bg-slate-50/50 pb-20 pt-28 font-jakarta">
+      {/* HUD High-tech Grid Background */}
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(20,184,166,0.01)_1px,transparent_1px),linear-gradient(90deg,rgba(20,184,166,0.01)_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none opacity-60 z-0"></div>
 
-      {/* Background decoration elements */}
-      <div className="absolute top-0 left-0 right-0 h-[400px] bg-gradient-to-b from-teal-50/20 via-transparent to-transparent pointer-events-none z-0"></div>
-      
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        {/* Page Header */}
-        <div className="text-center max-w-3xl mx-auto mb-16 animate-slide-up">
-          <p className="text-primary font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-1.5 mb-3">
-            <span className="size-1.5 bg-primary rounded-full"></span> Office Care Clinic Catalog
-          </p>
-          <h1 className="text-4xl md:text-5xl font-heading font-black text-slate-900 tracking-tight leading-tight uppercase">
-            Danh Mục Chăm Sóc Sức Khỏe
+      <div className="max-w-7xl mx-auto px-6 relative z-10">
+        
+        {/* Centered Header */}
+        <div className="mb-12 max-w-3xl mx-auto text-center">
+          <span className="bg-[#14B8A6]/10 text-[#0D9488] border border-[#14B8A6]/20 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full inline-block mb-3 shadow-sm">
+            ✨ DỊCH VỤ & LIỆU TRÌNH Y KHOA
+          </span>
+          <h1 className="font-heading font-black text-2xl md:text-3xl text-slate-900 tracking-tight leading-tight mb-3">
+            Giải Pháp <span className="bg-gradient-to-r from-[#0D9488] to-[#14B8A6] bg-clip-text text-transparent">Trị Liệu & Phục Hồi</span>
           </h1>
-          <p className="mt-4 text-sm md:text-base text-slate-500 font-semibold leading-relaxed">
-            Tra cứu toàn bộ thông tin chi tiết về các dịch vụ trị liệu cơ học riêng lẻ và phác đồ combo trọn gói được cấu hình chuẩn y khoa.
+          <p className="text-slate-500 font-semibold text-xs md:text-sm leading-relaxed max-w-2xl mx-auto">
+            Tất cả dịch vụ được chuẩn hóa y khoa với các thiết bị vật lý trị liệu tân tiến nhập khẩu từ Châu Âu cùng phác đồ cá nhân hóa từ chuyên gia.
           </p>
         </div>
 
-        {/* Dynamic Dual Main Selector Tabs */}
-        <div className="flex justify-center mb-12 animate-slide-up">
-          <div className="bg-white p-1.5 rounded-full border border-slate-200 shadow-sm flex items-center">
-            <button
-              onClick={() => setActiveTab('services')}
-              className={`px-8 py-3 rounded-full text-xs font-black uppercase tracking-wider transition-all duration-300 flex items-center gap-2 ${
-                activeTab === 'services'
-                  ? 'bg-primary text-white shadow-md shadow-primary/25'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <Award size={14} /> Dịch vụ đơn lẻ
-            </button>
-            <button
-              onClick={() => setActiveTab('packages')}
-              className={`px-8 py-3 rounded-full text-xs font-black uppercase tracking-wider transition-all duration-300 flex items-center gap-2 ${
-                activeTab === 'packages'
-                  ? 'bg-primary text-white shadow-md shadow-primary/25'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <Layers size={14} /> Gói trị liệu Combo
-            </button>
+        {/* Two-Column Responsive Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          
+          {/* Left Column: Sidebar Filters */}
+          <div className="lg:col-span-3 bg-white/80 backdrop-blur-md p-5 border border-slate-200/50 rounded-3xl shadow-[0_15px_35px_rgba(15,23,42,0.02)] space-y-4">
+            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-1">
+              📂 PHÂN LOẠI DỊCH VỤ
+            </span>
+            
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => handleTabChange('KHAM')}
+                className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all duration-300 ${
+                  activeTab === 'KHAM'
+                    ? 'bg-[#14B8A6] text-white shadow-md shadow-teal-500/10'
+                    : 'text-slate-600 hover:text-slate-800 hover:bg-slate-100/50'
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <span>🩺</span> Khám Lâm Sàng
+                </span>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                  activeTab === 'KHAM' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                }`}>{khamCount}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleTabChange('LE')}
+                className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all duration-300 ${
+                  activeTab === 'LE'
+                    ? 'bg-[#14B8A6] text-white shadow-md shadow-teal-500/10'
+                    : 'text-slate-600 hover:text-slate-800 hover:bg-slate-100/50'
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <span>⚡</span> Trị Liệu Đơn Buổi
+                </span>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                  activeTab === 'LE' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                }`}>{leCount}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleTabChange('LIEU_TRINH')}
+                className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all duration-300 ${
+                  activeTab === 'LIEU_TRINH'
+                    ? 'bg-[#14B8A6] text-white shadow-md shadow-teal-500/10'
+                    : 'text-slate-600 hover:text-slate-800 hover:bg-slate-100/50'
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <span>💎</span> Liệu Trình Chuyên Sâu
+                </span>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                  activeTab === 'LIEU_TRINH' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                }`}>{lieuTrinhCount}</span>
+              </button>
+            </div>
+
+            {activeCategories.length > 0 && (
+              <div className="border-t border-slate-150/80 pt-4 space-y-2">
+                <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest block mb-2">
+                  🔍 Chuyên khoa / Danh mục
+                </span>
+                <div className="flex flex-col gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCategoryId('ALL');
+                    }}
+                    className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                      selectedCategoryId === 'ALL'
+                        ? 'bg-slate-100 text-slate-900 border border-slate-200'
+                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+                    }`}
+                  >
+                    👉 Tất cả danh mục
+                  </button>
+                  {activeCategories.map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedCategoryId(cat.id);
+                      }}
+                      className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                        selectedCategoryId === cat.id
+                          ? 'bg-primary/10 text-primary border border-primary/20'
+                          : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+                      }`}
+                    >
+                      • {cat.ten_danh_muc}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="border-t border-slate-100 pt-4 text-[10px] text-slate-400 font-bold leading-normal">
+              💡 Bệnh nhân được khuyến nghị khám sàng lọc trước khi tham gia các liệu trình.
+            </div>
           </div>
+
+          {/* Right Column: Services Slider */}
+          <div className="lg:col-span-9 relative group/slider">
+            
+            {/* Navigation buttons at the top right of the section */}
+            {filteredItems.length > 2 && (
+              <div className="absolute right-4 top-[-48px] flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleScroll('left')}
+                  className="size-9 rounded-xl bg-white border border-slate-200 shadow-xs hover:bg-slate-50 flex items-center justify-center text-slate-600 active:scale-95 transition-all cursor-pointer"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleScroll('right')}
+                  className="size-9 rounded-xl bg-white border border-slate-200 shadow-xs hover:bg-slate-50 flex items-center justify-center text-slate-600 active:scale-95 transition-all cursor-pointer"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            )}
+
+            <div 
+              ref={sliderRef}
+              className="flex gap-6 overflow-x-auto hide-scrollbar snap-x snap-mandatory scroll-smooth pb-4 pr-1"
+            >
+              {filteredItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="min-w-full md:min-w-[calc(50%-12px)] max-w-full md:max-w-[calc(50%-12px)] snap-start bg-white rounded-[24px] p-4 border border-slate-100/80 shadow-[0_8px_25px_rgba(15,23,42,0.01)] hover:shadow-[0_15px_35px_rgba(15,23,42,0.04)] hover:-translate-y-0.5 transition-all duration-300 flex flex-col justify-between overflow-hidden relative group"
+                >
+                  <div>
+                    {/* Visual Thumbnail */}
+                    <div className="aspect-[16/9] w-full rounded-xl overflow-hidden bg-slate-100 relative mb-3">
+                      <img
+                        src={item.anh_goi || '/goi/images/giai_co_sau.png'}
+                        alt={item.ten_goi}
+                        className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/15 to-transparent"></div>
+                      
+                      {item.thoi_luong_phut && (
+                        <div className="absolute bottom-2 left-2 bg-slate-900/60 backdrop-blur-md px-2 py-0.5 rounded-lg flex items-center gap-1 text-[9px] font-bold text-white shadow-sm border border-white/5">
+                          <Clock size={10} className="text-[#14B8A6]" />
+                          <span>{item.thoi_luong_phut} phút</span>
+                        </div>
+                      )}
+
+                      <div className="absolute top-2 right-2 bg-slate-900/60 backdrop-blur-md px-2 py-0.5 rounded-lg flex items-center gap-0.5 text-[9px] font-black text-white shadow-sm border border-white/5">
+                        <span>🔥 {item.luot_dung || 12} lượt đặt</span>
+                      </div>
+                    </div>
+
+                    {/* Title */}
+                    <h3 className="font-heading font-black text-sm text-slate-800 group-hover:text-[#0D9488] transition-colors leading-snug mb-2.5 min-h-[40px] line-clamp-2">
+                      {item.ten_goi}
+                    </h3>
+
+                    {/* Price and Session info */}
+                    <div className="flex items-baseline gap-1 mb-4">
+                      <span className="text-base font-black text-slate-900">
+                        {item.gia_tien === 0 ? 'Liên hệ' : item.gia_tien.toLocaleString('vi-VN') + ' đ'}
+                      </span>
+                      {item.loai_goi === 'LIEU_TRINH' && (
+                        <span className="text-[10px] text-slate-400 font-bold">
+                          / {item.tong_so_buoi} buổi
+                        </span>
+                      )}
+                      {item.loai_goi !== 'LIEU_TRINH' && (
+                        <span className="text-[10px] text-slate-400 font-bold">
+                          / buổi
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="grid grid-cols-2 gap-2.5 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (item.loai_goi === 'LIEU_TRINH') {
+                          navigate(`/packages/${item.id}`);
+                        } else {
+                          navigate(`/services/${item.id}`);
+                        }
+                      }}
+                      className="bg-slate-50 hover:bg-slate-100 text-slate-600 text-center font-bold py-2.5 rounded-xl text-[10px] uppercase tracking-wider transition-all duration-300 border border-slate-200/60 cursor-pointer active:scale-98"
+                    >
+                      Chi Tiết
+                    </button>
+                    
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (item.loai_goi === 'LIEU_TRINH') {
+                          setShowLieuTrinhWarning(true);
+                        } else {
+                          navigate('/booking', { 
+                            state: { 
+                              bookingType: item.loai_goi === 'KHAM' ? 'kham' : 'le',
+                              selectedServiceId: item.id 
+                            } 
+                          });
+                        }
+                      }}
+                      className="bg-[#2EC4B6] hover:bg-[#25A89C] text-white text-center font-black py-2.5 rounded-xl text-[10px] uppercase tracking-wider transition-all duration-300 cursor-pointer active:scale-98 shadow-sm shadow-[#2EC4B6]/15"
+                    >
+                      Đặt Lịch
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {filteredItems.length === 0 && (
+                <div className="w-full text-center py-12 text-slate-400 font-bold">
+                  Không có dịch vụ nào trong mục này.
+                </div>
+              )}
+            </div>
+          </div>
+
         </div>
 
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto py-8">
-            {[1, 2, 3, 4].map(idx => (
-              <div key={idx} className="bg-white rounded-[32px] p-8 h-48 animate-pulse border border-slate-100 shadow-xs"></div>
-            ))}
-          </div>
-        ) : (
-          <div className="animate-fade-in">
-            
-            {/* VIEW 1: SINGLE SERVICES */}
-            {activeTab === 'services' && (
-              <div className="space-y-10">
-                {/* Category selectors (Dynamic Pills) */}
-                {serviceCategories.length > 0 && (
-                  <div className="flex flex-wrap items-center justify-center gap-2 max-w-4xl mx-auto">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedServiceCatId('all')}
-                      className={`px-5 py-2.5 rounded-full text-[11px] font-extrabold uppercase tracking-wider transition-all duration-300 border ${
-                        selectedServiceCatId === 'all'
-                          ? 'bg-slate-900 border-slate-900 text-white shadow-md'
-                          : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
-                      }`}
-                    >
-                      Tất cả
-                    </button>
-                    {serviceCategories.map((cat) => (
-                      <button
-                        type="button"
-                        key={cat.id}
-                        onClick={() => setSelectedServiceCatId(cat.id.toString())}
-                        className={`px-5 py-2.5 rounded-full text-[11px] font-extrabold uppercase tracking-wider transition-all duration-300 border flex items-center gap-1.5 ${
-                          selectedServiceCatId === cat.id.toString()
-                            ? 'bg-[#2EC4B6]/10 border-[#2EC4B6]/30 text-primary'
-                            : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
-                        }`}
-                      >
-                        <span>{getCategoryEmoji(cat.ten_danh_muc)}</span>
-                        <span>{cat.ten_danh_muc}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {/* Staggered dynamic grid of services */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-6xl mx-auto">
-                  {filteredServices.length === 0 ? (
-                    <div className="col-span-full text-center py-16 bg-white rounded-[28px] border border-slate-150 shadow-xs">
-                      <p className="text-slate-400 font-semibold text-sm">Không tìm thấy dịch vụ nào phù hợp.</p>
-                    </div>
-                  ) : (
-                    filteredServices.map((item, idx) => (
-                      <div
-                        key={item.id}
-                        className={`reveal-on-scroll ${idx % 2 === 0 ? 'slide-left' : 'slide-right'} bg-white rounded-[28px] p-6 md:p-8 shadow-[0_10px_30px_rgba(15,23,42,0.02)] hover:shadow-[0_20px_45px_rgba(15,23,42,0.06)] hover:-translate-y-1 transition-all duration-300 border border-slate-100 hover:border-teal-500/20 flex flex-col justify-between group`}
-                      >
-                        <div className="space-y-5">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex items-center gap-3">
-                              <div className="size-12 rounded-2xl bg-teal-50/70 border border-teal-100/50 text-primary flex items-center justify-center text-lg shrink-0">
-                                {getCategoryEmoji(getCategoryName(item.danh_muc_id))}
-                              </div>
-                              <div>
-                                <span className="text-[9px] bg-slate-100 text-slate-500 font-bold uppercase tracking-wider px-2 py-0.5 rounded-md">
-                                  {getCategoryName(item.danh_muc_id)}
-                                </span>
-                                <Link to={`/services/${item.id}`}>
-                                  <h3 className="font-heading font-extrabold text-lg text-slate-900 group-hover:text-primary transition-colors leading-snug pt-1">
-                                    {item.ten_dich_vu}
-                                  </h3>
-                                </Link>
-                              </div>
-                            </div>
-                            
-                            <div className="text-right shrink-0">
-                              <span className="text-primary font-black text-lg block">
-                                {formatPrice(item.don_gia)}
-                              </span>
-                              <span className="text-[10px] text-slate-400 font-bold">/buổi</span>
-                            </div>
-                          </div>
-
-                          <p className="text-slate-500 text-xs md:text-sm font-semibold leading-relaxed">
-                            {item.mo_ta_ngan}
-                          </p>
-
-                          <div className="bg-slate-50/70 p-4 rounded-2xl border border-slate-100/80 space-y-2.5">
-                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Mục tiêu phục hồi:</p>
-                            <ul className="space-y-1.5">
-                              {getServiceBenefits(item).map((benefit, idx) => (
-                                <li key={idx} className="flex items-start gap-2 text-xs text-slate-600 font-medium leading-relaxed">
-                                  <span className="text-primary mt-0.5 shrink-0">✓</span>
-                                  <span>{benefit}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        </div>
-
-                        <div className="pt-5 mt-5 border-t border-slate-100 flex items-center justify-between">
-                          <div className="flex items-center gap-3 text-[11px] font-bold text-slate-400">
-                            <span className="flex items-center gap-1"><Clock size={12} /> {item.thoi_luong_phut} phút</span>
-                            <span>•</span>
-                            <span className="text-primary flex items-center gap-0.5">
-                              <Sparkles size={11} /> Đạt chuẩn y tế
-                            </span>
-                          </div>
-                          
-                          <Link
-                            to={`/services/${item.id}`}
-                            className="text-xs font-black text-[#2EC4B6] hover:text-[#25A89C] flex items-center gap-1 group/btn"
-                          >
-                            Xem chi tiết dịch vụ <ArrowRight size={13} className="group-hover/btn:translate-x-0.5 transition-transform" />
-                          </Link>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* VIEW 2: SERVICE PACKAGES COMBO */}
-            {activeTab === 'packages' && (
-              <div className="space-y-10 max-w-6xl mx-auto">
-                {/* Category selectors (Dynamic Pills for Packages) */}
-                {packageCategories.length > 0 && (
-                  <div className="flex flex-wrap items-center justify-center gap-2 max-w-4xl mx-auto">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedPackageCatId('all')}
-                      className={`px-5 py-2.5 rounded-full text-[11px] font-extrabold uppercase tracking-wider transition-all duration-300 border ${
-                        selectedPackageCatId === 'all'
-                          ? 'bg-slate-900 border-slate-900 text-white shadow-md'
-                          : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
-                      }`}
-                    >
-                      Tất cả
-                    </button>
-                    {packageCategories.map((cat) => (
-                      <button
-                        type="button"
-                        key={cat.id}
-                        onClick={() => setSelectedPackageCatId(cat.id.toString())}
-                        className={`px-5 py-2.5 rounded-full text-[11px] font-extrabold uppercase tracking-wider transition-all duration-300 border flex items-center gap-1.5 ${
-                          selectedPackageCatId === cat.id.toString()
-                            ? 'bg-[#2EC4B6]/10 border-[#2EC4B6]/30 text-primary'
-                            : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
-                        }`}
-                      >
-                        <span>{getCategoryEmoji(cat.ten_danh_muc)}</span>
-                        <span>{cat.ten_danh_muc}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {/* Grid of Grouped Packages */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-                  {groupedPackagesList.length === 0 ? (
-                    <div className="col-span-full text-center py-16 bg-white rounded-[28px] border border-slate-150 shadow-xs">
-                      <p className="text-slate-400 font-semibold text-sm">Chưa có gói dịch vụ nào phù hợp.</p>
-                    </div>
-                  ) : (
-                    groupedPackagesList.map((groupedPkg, idx) => (
-                      <div
-                        key={idx}
-                        className={`reveal-on-scroll ${idx % 2 === 0 ? 'slide-left' : 'slide-right'}`}
-                      >
-                        <GroupedPackageCard 
-                          groupedPackage={groupedPkg}
-                          services={services}
-                          handleBookingClick={handleBookingClick}
-                          onViewDetails={() => {
-                            const slug = getPackageSlug(groupedPkg.baseName);
-                            navigate(`/packages/${slug}`);
-                          }}
-                        />
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
       </div>
+
+      {/* Gói Liệu Trình Warning Modal */}
+      {showLieuTrinhWarning && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white text-slate-800 rounded-[32px] border border-slate-100 max-w-md w-full p-8 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+            <button
+              onClick={() => setShowLieuTrinhWarning(false)}
+              className="absolute top-6 right-6 p-1.5 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              <X size={18} />
+            </button>
+            <div className="text-center space-y-4">
+              <div className="w-14 h-14 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto border border-amber-100">
+                <AlertTriangle size={28} />
+              </div>
+              <h3 className="text-xl font-heading font-black text-slate-900 uppercase tracking-wide">Yêu cầu chỉ định thăm khám</h3>
+              <p className="text-xs text-slate-500 font-semibold leading-relaxed">
+                Gói liệu trình chuyên sâu cần có chỉ định thăm khám lâm sàng từ Bác sĩ chuyên khoa trước khi thực hiện để đảm bảo an toàn & hiệu quả điều trị.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mt-8">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLieuTrinhWarning(false);
+                  navigate('/booking', { state: { bookingType: 'kham' } });
+                }}
+                className="bg-primary hover:bg-[#25A89C] text-white font-extrabold text-xs uppercase tracking-wider py-3.5 rounded-xl shadow-sm transition-all"
+              >
+                Tiếp tục đặt lịch khám
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowLieuTrinhWarning(false)}
+                className="bg-zinc-50 hover:bg-zinc-100 text-slate-650 font-bold text-xs uppercase tracking-wider py-3.5 rounded-xl border border-zinc-200 transition-all"
+              >
+                Hủy bỏ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

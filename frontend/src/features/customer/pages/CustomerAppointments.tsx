@@ -4,7 +4,8 @@ import {
   AlertCircle, 
   XCircle, 
   RefreshCw,
-  PlusCircle
+  PlusCircle,
+  Star
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
@@ -28,6 +29,9 @@ interface Appointment {
   thoi_gian_huy: string | null;
   ly_do_kham: string | null;
   thoi_gian_tao: string;
+  rating_id?: string | null;
+  rating_stars?: number | null;
+  rating_comment?: string | null;
 }
 
 export default function CustomerAppointments() {
@@ -36,6 +40,28 @@ export default function CustomerAppointments() {
   const [loading, setLoading] = useState<boolean>(true);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [lyDoHuy, setLyDoHuy] = useState<string>('');
+  const [ratingApptId, setRatingApptId] = useState<string | null>(null);
+  const [ratingStars, setRatingStars] = useState<number>(5);
+  const [ratingComment, setRatingComment] = useState<string>('');
+
+  const handleRatingSubmit = async () => {
+    if (!ratingApptId) return;
+    const toastId = toast.loading('Đang gửi đánh giá...');
+    try {
+      await api.post(`/client/appointments/${ratingApptId}/rate`, {
+        so_sao: ratingStars,
+        nhan_xet: ratingComment
+      });
+      toast.success('Cảm ơn bạn đã gửi đánh giá cho dịch vụ!', { id: toastId });
+      setRatingApptId(null);
+      setRatingStars(5);
+      setRatingComment('');
+      fetchAppointments();
+    } catch (error: any) {
+      console.error('Lỗi khi gửi đánh giá:', error);
+      toast.error(error.response?.data?.message || 'Không thể gửi đánh giá.', { id: toastId });
+    }
+  };
 
   const fetchAppointments = async () => {
     setLoading(true);
@@ -258,8 +284,15 @@ export default function CustomerAppointments() {
 
                   {/* Dynamic Status Notices */}
                   {app.trang_thai === 'chua_xac_nhan' && (
-                    <div className="bg-rose-50 border border-rose-200 p-3.5 rounded-xl text-[11px] text-rose-700 font-extrabold leading-relaxed animate-pulse">
-                      📧 VUI LÒNG KIỂM TRA EMAIL ĐỂ XÁC NHẬN LỊCH HẸN!
+                    <div className="bg-rose-50 border border-rose-200 p-3.5 rounded-xl text-[11px] text-rose-700 font-extrabold leading-relaxed flex flex-col gap-2.5 animate-pulse">
+                      <span>📧 VUI LÒNG XÁC THỰC LỊCH HẸN BẰNG OTP!</span>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/booking/success/${app.id}`)}
+                        className="bg-rose-600 hover:bg-rose-750 text-white text-[10px] font-black uppercase px-3 py-1.5 rounded-lg w-fit transition-all duration-200 self-start shadow-sm active:scale-95"
+                      >
+                        Xác thực ngay
+                      </button>
                     </div>
                   )}
 
@@ -309,6 +342,22 @@ export default function CustomerAppointments() {
                     >
                       Hủy lịch hẹn
                     </button>
+                  )}
+                  {app.trang_thai === 'hoan_thanh' && (
+                    app.rating_id ? (
+                      <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl text-center text-xs font-semibold text-slate-500">
+                        ⭐ Đã đánh giá: {app.rating_stars} / 5 sao
+                        {app.rating_comment && <p className="text-[10px] text-slate-450 font-medium mt-1">"{app.rating_comment}"</p>}
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setRatingApptId(app.id)}
+                        className="w-full bg-amber-500 hover:bg-amber-650 text-white font-bold text-xs uppercase tracking-wider py-3.5 rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Star size={14} fill="currentColor" />
+                        Đánh giá dịch vụ
+                      </button>
+                    )
                   )}
                 </div>
 
@@ -360,13 +409,83 @@ export default function CustomerAppointments() {
                     setCancellingId(null);
                     setLyDoHuy('');
                   }}
-                  className="bg-zinc-50 hover:bg-zinc-100 text-slate-600 font-bold text-xs uppercase tracking-wider py-3.5 rounded-xl border border-zinc-200 transition-all"
+                  className="bg-zinc-50 hover:bg-zinc-100 text-slate-650 font-bold text-xs uppercase tracking-wider py-3.5 rounded-xl border border-zinc-200 transition-all"
                 >
                   Quay lại
                 </button>
               </div>
             </form>
 
+          </div>
+        </div>
+      )}
+
+      {/* RATING MODAL */}
+      {ratingApptId && (
+        <div className="fixed inset-0 bg-secondary/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white text-slate-800 rounded-[32px] border border-zinc-150 max-w-md w-full p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="text-center space-y-3">
+              <div className="w-14 h-14 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto border border-amber-100">
+                <Star size={28} fill="currentColor" />
+              </div>
+              <h3 className="text-xl font-heading font-black text-slate-900 uppercase tracking-wide">Đánh giá buổi điều trị</h3>
+              <p className="text-xs text-slate-500 font-semibold leading-relaxed">
+                Ý kiến của bạn sẽ giúp OfficeCare nâng cao chất lượng điều trị và phục vụ tốt hơn.
+              </p>
+            </div>
+
+            <div className="my-6 space-y-4">
+              <div className="flex justify-center gap-2">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setRatingStars(star)}
+                    className="p-1 hover:scale-110 active:scale-95 transition-all text-amber-400 cursor-pointer"
+                  >
+                    <Star
+                      size={32}
+                      fill={star <= ratingStars ? "#FF9F1C" : "none"}
+                      stroke={star <= ratingStars ? "#FF9F1C" : "currentColor"}
+                      className="stroke-[1.5]"
+                    />
+                  </button>
+                ))}
+              </div>
+
+              <div className="space-y-1.5 text-left">
+                <label htmlFor="nhanXetInput" className="text-[9px] font-mono font-bold text-slate-400 uppercase block tracking-wider">Nhận xét của bạn</label>
+                <textarea
+                  id="nhanXetInput"
+                  rows={3}
+                  value={ratingComment}
+                  onChange={(e) => setRatingComment(e.target.value)}
+                  placeholder="Hãy chia sẻ trải nghiệm trị liệu và cảm nhận của bạn về bác sĩ/KTV..."
+                  className="w-full bg-zinc-50 border border-zinc-200 focus:border-primary p-4 rounded-xl text-xs font-semibold resize-none outline-none text-slate-800 transition-colors"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={handleRatingSubmit}
+                className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs uppercase tracking-wider py-3.5 rounded-xl shadow-xs transition-all cursor-pointer"
+              >
+                Gửi đánh giá
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setRatingApptId(null);
+                  setRatingStars(5);
+                  setRatingComment('');
+                }}
+                className="bg-zinc-50 hover:bg-zinc-100 text-slate-650 font-bold text-xs uppercase tracking-wider py-3.5 rounded-xl border border-zinc-200 transition-all cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -1,4 +1,4 @@
-import { User, Calendar as CalendarIcon, PieChart } from 'lucide-react';
+import { User } from 'lucide-react';
 
 interface Stats {
   activeToday: number;
@@ -12,32 +12,16 @@ interface SchedulesKpisProps {
 
 export function SchedulesKpis({ stats }: SchedulesKpisProps) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 select-none">
-      <div className="bg-white rounded-[24px] p-6 shadow-sm border border-gray-100 flex items-center gap-5">
-        <div className="w-14 h-14 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center shrink-0">
+    <div className="flex select-none">
+      <div className="bg-gradient-to-r from-teal-500 to-emerald-600 text-white rounded-[24px] p-6 shadow-md border border-teal-400/20 flex items-center gap-5 max-w-sm w-full">
+        <div className="w-14 h-14 rounded-full bg-white/10 text-white flex items-center justify-center shrink-0 border border-white/15">
           <User size={28} />
         </div>
-        <div>
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Nhân sự trong ngày</p>
-          <h3 className="text-3xl font-heading font-bold text-gray-800">{stats.activeToday}</h3>
-        </div>
-      </div>
-      <div className="bg-white rounded-[24px] p-6 shadow-sm border border-gray-100 flex items-center gap-5">
-        <div className="w-14 h-14 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
-          <CalendarIcon size={28} />
-        </div>
-        <div>
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Ca trống cần lắp</p>
-          <h3 className="text-3xl font-heading font-bold text-gray-800">{stats.emptyShifts}</h3>
-        </div>
-      </div>
-      <div className="bg-white rounded-[24px] p-6 shadow-sm border border-gray-100 flex items-center gap-5">
-        <div className="w-14 h-14 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-          <PieChart size={28} />
-        </div>
-        <div>
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Tỷ lệ phủ kín</p>
-          <h3 className="text-3xl font-heading font-bold text-gray-800">{stats.coverage}%</h3>
+        <div className="text-left">
+          <p className="text-xs font-bold text-teal-100 uppercase tracking-wider mb-0.5">Nhân sự trong ngày</p>
+          <h3 className="text-3xl font-heading font-black tracking-tight">
+            {stats.activeToday} <span className="text-xs font-bold text-teal-200">người</span>
+          </h3>
         </div>
       </div>
     </div>

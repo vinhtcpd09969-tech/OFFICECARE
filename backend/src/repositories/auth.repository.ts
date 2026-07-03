@@ -29,7 +29,7 @@ class AuthRepository {
     const staff = await prisma.nguoi_dung.findFirst({
       where: {
         email,
-        deleted_at: null
+        trang_thai: 'hoat_dong'
       }
     });
     if (staff) {
@@ -40,7 +40,7 @@ class AuthRepository {
     const customer = await prisma.khach_hang.findFirst({
       where: {
         email,
-        deleted_at: null
+        trang_thai: 'hoat_dong'
       }
     });
     if (customer) {
@@ -60,7 +60,6 @@ class AuthRepository {
         email: data.email,
         mat_khau_hash: data.mat_khau_hash,
         trang_thai: 'hoat_dong',
-        da_xac_thuc_email: false,
       },
       select: {
         id: true,
@@ -102,7 +101,7 @@ class AuthRepository {
     if (staff) {
       return prisma.nguoi_dung.update({
         where: { id: staff.id },
-        data: { da_xac_thuc_email: true }
+        data: { trang_thai: 'hoat_dong' }
       });
     }
 
@@ -113,7 +112,7 @@ class AuthRepository {
     if (customer) {
       const updatedCustomer = await prisma.khach_hang.update({
         where: { id: customer.id },
-        data: { da_xac_thuc_email: true }
+        data: { trang_thai: 'hoat_dong' }
       });
       return {
         ...updatedCustomer,
@@ -124,22 +123,10 @@ class AuthRepository {
     return null;
   }
 
-  async deleteOTPsByEmail(email: string) {
-    await prisma.otp_codes.deleteMany({
-      where: { email }
-    });
-  }
-
-  async saveRefreshToken(userId: string, token: string, expiresAt: Date) {
-    // Check if it's a customer
-    const isCustomer = await prisma.khach_hang.findFirst({
-      where: { id: userId },
-      select: { id: true }
-    });
-
+  async saveRefreshToken(userId: string, token: string, expiresAt: Date, isCustomer: boolean) {
     await prisma.refresh_tokens.create({
       data: {
-        nguoi_dung_id: isCustomer ? null : userId,
+        nguoi_dung_id: isCustomer ? null : parseInt(userId, 10),
         khach_hang_id: isCustomer ? userId : null,
         token,
         expires_at: expiresAt,
@@ -160,29 +147,30 @@ class AuthRepository {
 
   async findUserById(id: string) {
     // 1. Search staff (nguoi_dung)
-    const staff = await prisma.nguoi_dung.findFirst({
-      where: {
-        id,
-        deleted_at: null
-      },
-      select: {
-        id: true,
-        ho_ten: true,
-        email: true,
-        so_dien_thoai: true,
-        vai_tro_id: true,
-        trang_thai: true,
-        avatar_url: true,
-        thoi_gian_tao: true
-      }
-    });
-    if (staff) return staff;
+    const parsedId = parseInt(id, 10);
+    if (!isNaN(parsedId)) {
+      const staff = await prisma.nguoi_dung.findFirst({
+        where: {
+          id: parsedId,
+          trang_thai: 'hoat_dong'
+        },
+        select: {
+          id: true,
+          ho_ten: true,
+          email: true,
+          so_dien_thoai: true,
+          vai_tro_id: true,
+          trang_thai: true,
+        }
+      });
+      if (staff) return staff;
+    }
 
     // 2. Search customer (khach_hang)
     const customer = await prisma.khach_hang.findFirst({
       where: {
         id,
-        deleted_at: null
+        trang_thai: 'hoat_dong'
       },
       select: {
         id: true,
@@ -190,8 +178,6 @@ class AuthRepository {
         email: true,
         so_dien_thoai: true,
         trang_thai: true,
-        avatar_url: true,
-        thoi_gian_tao: true
       }
     });
     if (customer) {
@@ -204,23 +190,14 @@ class AuthRepository {
     return null;
   }
 
-  async updateLastLogin(userId: string) {
-    const isCustomer = await prisma.khach_hang.findFirst({
-      where: { id: userId },
-      select: { id: true }
-    });
+  async updateLastLogin(userId: string | number) {
+    // No last login timestamp column in DB schema
+  }
 
-    if (isCustomer) {
-      await prisma.khach_hang.update({
-        where: { id: userId },
-        data: { lan_dang_nhap_cuoi: new Date() }
-      });
-    } else {
-      await prisma.nguoi_dung.update({
-        where: { id: userId },
-        data: { lan_dang_nhap_cuoi: new Date() }
-      });
-    }
+  async deleteOTPsByEmail(email: string) {
+    await prisma.otp_codes.deleteMany({
+      where: { email }
+    });
   }
 
   async updatePassword(email: string, mat_khau_hash: string) {
@@ -249,4 +226,3 @@ class AuthRepository {
 }
 
 export default new AuthRepository();
-

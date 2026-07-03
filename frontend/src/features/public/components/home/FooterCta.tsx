@@ -7,31 +7,28 @@ interface FooterCtaProps {
 
 export default function FooterCta({ setIsChatOpen }: FooterCtaProps) {
   return (
-    <section className="mt-16">
-      <div className="wave-container flex items-center justify-center px-4 md:px-margin-desktop text-center">
-        <div className="wave"></div>
-        <ScrollReveal direction="none" delay={100}>
-          <div className="relative z-10 flex flex-col md:flex-row gap-6 md:gap-12 items-center">
-            <h2 className="font-jakarta text-2xl md:text-3xl font-black text-white">
-              Sẵn Sàng Xóa Bỏ Cơn Đau Cơ Khớp?
-            </h2>
-            <div className="flex gap-3">
-              <Link 
-                to="/booking" 
-                className="px-6 py-3 bg-white text-primary font-jakarta font-extrabold rounded-full shadow-lg hover:bg-teal-50 hover:scale-105 active:scale-95 transition-all text-xs md:text-sm"
-              >
-                Đặt Lịch Khám Miễn Phí
-              </Link>
-              <button 
-                onClick={() => setIsChatOpen(true)}
-                className="px-6 py-3 border-2 border-white text-white font-jakarta font-extrabold rounded-full hover:bg-white/10 active:scale-95 transition-all text-xs md:text-sm"
-              >
-                Chat Với Bác Sĩ AI
-              </button>
-            </div>
+    <section className="bg-[#E6F4F1]/60 text-slate-800 border-t border-[#2EC4B6]/15 py-16 px-6 text-center font-jakarta">
+      <ScrollReveal direction="none" delay={100}>
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row gap-6 md:gap-12 items-center justify-between">
+          <h2 className="text-2xl md:text-3xl font-black text-slate-900 text-left">
+            Sẵn Sàng Xóa Bỏ Cơn Đau Cơ Khớp?
+          </h2>
+          <div className="flex gap-4">
+            <Link 
+              to="/booking" 
+              className="px-6 py-3.5 bg-primary hover:bg-[#25A89C] text-white font-extrabold rounded-2xl shadow-md hover:scale-[1.02] active:scale-98 transition-all text-xs md:text-sm cursor-pointer"
+            >
+              Đặt lịch
+            </Link>
+            <button 
+              onClick={() => setIsChatOpen(true)}
+              className="px-6 py-3.5 border-2 border-primary/20 hover:border-primary/40 text-primary font-extrabold rounded-2xl hover:bg-primary/5 hover:scale-[1.02] active:scale-98 transition-all text-xs md:text-sm cursor-pointer"
+            >
+              Chat Với Bác Sĩ AI
+            </button>
           </div>
-        </ScrollReveal>
-      </div>
+        </div>
+      </ScrollReveal>
     </section>
   );
 }

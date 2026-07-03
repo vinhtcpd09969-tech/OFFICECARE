@@ -13,10 +13,11 @@ interface AuthenticatedRequest extends Request {
 export const getQueue = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user?.id;
+    const userRole = req.user?.vai_tro_id ? Number(req.user.vai_tro_id) : 4;
     if (!userId) {
       return res.status(401).json({ message: 'Không xác định được danh tính người dùng.' });
     }
-    const queue = await doctorService.getQueue(userId);
+    const queue = await doctorService.getQueue(userId, userRole);
     res.json(queue);
   } catch (error: any) {
     console.error('Lỗi khi lấy hàng đợi bác sĩ:', error);
@@ -28,13 +29,14 @@ export const getQueue = async (req: AuthenticatedRequest, res: Response) => {
 export const getAppointments = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user?.id;
+    const userRole = req.user?.vai_tro_id ? Number(req.user.vai_tro_id) : 4;
     const { startDate, endDate } = req.query as { startDate?: string; endDate?: string };
     
     if (!userId) {
       return res.status(401).json({ message: 'Không xác định được danh tính người dùng.' });
     }
     
-    const appointments = await doctorService.getAppointments(userId, startDate, endDate);
+    const appointments = await doctorService.getAppointments(userId, userRole, startDate, endDate);
     res.json(appointments);
   } catch (error: any) {
     console.error('Lỗi khi lấy danh sách lịch hẹn bác sĩ:', error);
@@ -90,7 +92,6 @@ export const saveAssessment = async (req: AuthenticatedRequest, res: Response) =
       chan_doan,
       chong_chi_dinh,
       goi_dich_vu_id,
-      dich_vu_id,
       ghi_chu,
     });
 
@@ -107,12 +108,20 @@ export const saveAssessment = async (req: AuthenticatedRequest, res: Response) =
 // GET /api/doctor/services
 export const getServices = async (req: Request, res: Response) => {
   try {
-    const services = await adminService.getServices();
-    const mappedServices = services.map((s: any) => ({
-      ...s,
-      gia_hien_tai: s.don_gia !== undefined ? Number(s.don_gia) : 0,
-    }));
-    res.json(mappedServices);
+    const packages = await adminService.getPackages();
+    // Lọc ra các gói lẻ (LE) đang hoạt động
+    const retailPackages = packages
+      .filter((pkg: any) => pkg.loai_goi === 'LE' && pkg.trang_thai === 'hoat_dong')
+      .map((pkg: any) => ({
+        id: pkg.id,
+        ten_dich_vu: pkg.ten_goi,
+        don_gia: Number(pkg.don_gia),
+        gia_hien_tai: Number(pkg.don_gia),
+        thoi_luong_phut: pkg.thoi_luong_phut,
+        loai_dich_vu: 'DIEU_TRI',
+        dang_hoat_dong: true,
+      }));
+    res.json(retailPackages);
   } catch (error: any) {
     console.error('Lỗi khi lấy danh sách dịch vụ cho bác sĩ:', error);
     res.status(500).json({ message: error.message || 'Lỗi server' });
@@ -123,7 +132,9 @@ export const getServices = async (req: Request, res: Response) => {
 export const getPackages = async (req: Request, res: Response) => {
   try {
     const packages = await adminService.getPackages();
-    res.json(packages);
+    // Lọc ra các gói liệu trình (LIEU_TRINH) đang hoạt động
+    const activePackages = packages.filter((pkg: any) => pkg.loai_goi === 'LIEU_TRINH' && pkg.trang_thai === 'hoat_dong');
+    res.json(activePackages);
   } catch (error: any) {
     console.error('Lỗi khi lấy danh sách gói cho bác sĩ:', error);
     res.status(500).json({ message: error.message || 'Lỗi server' });

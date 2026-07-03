@@ -81,7 +81,7 @@ export default function AppointmentCalendar({
       otherApt.id !== apt.id && 
       otherApt.trang_thai !== 'da_huy' &&
       otherApt.trang_thai !== 'khong_den' &&
-      String(otherApt.bac_si_id || otherApt.chuyen_gia_id) === String(doc.chuyen_gia_id || doc.id) &&
+      String(otherApt.bac_si_id) === String(doc.id) &&
       isOverlapping(apt.ngay_gio_bat_dau, apt.ngay_gio_ket_thuc, otherApt.ngay_gio_bat_dau, otherApt.ngay_gio_ket_thuc)
     );
 
@@ -106,10 +106,14 @@ export default function AppointmentCalendar({
 
   // Lọc các lịch hẹn theo giờ (không phân biệt bác sĩ để gộp chung vào 1 cột)
   const getSlotAppointmentsAll = (hour: string) => {
+    const [slotH, slotM] = hour.split(':').map(Number);
+    const slotStartMins = slotH * 60 + slotM;
+    const slotEndMins = slotStartMins + 30;
+
     return appointments.filter(apt => {
       const aptTime = new Date(apt.ngay_gio_bat_dau);
-      const hourStr = `${String(aptTime.getHours()).padStart(2, '0')}:${String(aptTime.getMinutes()).padStart(2, '0')}`;
-      return hourStr === hour;
+      const aptStartMins = aptTime.getHours() * 60 + aptTime.getMinutes();
+      return aptStartMins >= slotStartMins && aptStartMins < slotEndMins;
     });
   };
 
@@ -176,7 +180,7 @@ export default function AppointmentCalendar({
                     {slotApts.length > 0 ? (
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                         {slotApts.map(apt => {
-                          const assignedDoc = staffList.find(s => String(s.chuyen_gia_id || s.id) === String(apt.bac_si_id || apt.chuyen_gia_id));
+                          const assignedDoc = staffList.find(s => String(s.id) === String(apt.bac_si_id));
                           const isDocUnavailable = assignedDoc ? getIsDoctorUnavailable(apt, assignedDoc) : false;
                           return (
                             <AppointmentCard 
@@ -291,8 +295,14 @@ function AppointmentCard({
   assignedDoc?: any;
   isDocUnavailable?: boolean;
 }) {
-  const status = statusConfig[apt.trang_thai] || statusConfig.cho_xac_nhan;
-  const isUnassigned = !apt.bac_si_id && !apt.chuyen_gia_id;
+  const rawStatus = statusConfig[apt.trang_thai] || statusConfig.cho_xac_nhan;
+  const status = {
+    ...rawStatus,
+    label: apt.trang_thai === 'cho_xac_nhan' 
+      ? (apt.loai_lich === 'dich_vu_don' ? 'Chờ gán KTV' : 'Chờ gán Bác sĩ')
+      : rawStatus.label
+  };
+  const isUnassigned = !apt.bac_si_id;
   const isCheckedIn = apt.trang_thai === 'da_checkin';
   const isPending = ['cho_xac_nhan', 'chua_xac_nhan'].includes(apt.trang_thai);
   
@@ -321,11 +331,11 @@ function AppointmentCard({
       onClick={onClick}
       className={`p-3.5 bg-white dark:bg-zinc-900 border ${viewMode === 'doctor' ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'} transition-all duration-300 rounded-[18px] relative flex flex-col justify-between min-h-[110px] group/card hover:-translate-y-0.5 hover:shadow-lg select-none ${
         ['da_huy', 'khong_den'].includes(apt.trang_thai)
-          ? 'opacity-40 border-slate-200 bg-slate-50/50 dark:bg-zinc-950/20 dark:border-zinc-850/80 saturate-50 cursor-pointer'
+          ? 'opacity-85 border-slate-200 bg-slate-50/50 dark:bg-zinc-950/20 dark:border-zinc-850/80 cursor-pointer'
           : isCheckedIn
             ? 'border-teal-350 dark:border-teal-850 ring-2 ring-[#0D9488]/10 dark:ring-[#0D9488]/5 bg-[#0D9488]/2 dark:bg-[#0D9488]/2'
             : (isUnassigned || isDocUnavailable) && !isPending
-              ? 'border-rose-500 ring-2 ring-rose-500/10 dark:ring-rose-500/5 bg-rose-55/10 dark:bg-rose-950/5 animate-pulse'
+              ? 'border-rose-500 ring-2 ring-rose-500/10 dark:ring-rose-500/5 bg-rose-55/10 dark:bg-rose-955/5 animate-pulse'
               : isUnassigned && isPending
                 ? 'border-rose-100 dark:border-rose-900/30 hover:border-rose-300' 
                 : 'border-slate-100 dark:border-zinc-800 hover:border-[#14B8A6]/30'
@@ -344,7 +354,7 @@ function AppointmentCard({
               </span>
             )}
             {apt.trang_thai === 'dang_kham' && (
-              <span className="flex items-center justify-center text-emerald-600 dark:text-emerald-400 bg-emerald-100/50 dark:bg-emerald-950/40 p-1 rounded-full border border-emerald-250 ring-2 ring-emerald-500/15 animate-pulse">
+              <span className="flex items-center justify-center text-emerald-600 dark:text-emerald-400 bg-emerald-100/50 dark:bg-emerald-955/40 p-1 rounded-full border border-emerald-250 ring-2 ring-emerald-500/15 animate-pulse">
                 <Stethoscope size={10} className="stroke-[2.5]" />
               </span>
             )}
@@ -370,19 +380,18 @@ function AppointmentCard({
         )}
         
         {/* Doctor badge inside the card if assigned or locked */}
-        {apt.trang_thai === 'chua_xac_nhan' ? (
-          <div className="mt-1.5 inline-flex items-center gap-1.5 text-[9px] font-black text-slate-500 bg-slate-50 dark:bg-zinc-800/40 px-2 py-0.5 rounded border border-slate-200/60 dark:border-zinc-850/80 select-none opacity-85" title="Yêu cầu xác nhận khách hàng trước khi chọn bác sĩ">
-            <span>🔒 Khóa chọn Bác sĩ</span>
-          </div>
-        ) : assignedDoc && !isDocUnavailable ? (
+        {assignedDoc && !isDocUnavailable ? (
           <div className="mt-1.5 inline-flex items-center gap-1.5 text-[9px] font-black text-[#0D9488] dark:text-teal-400 bg-[#0D9488]/5 dark:bg-teal-950/20 px-2 py-0.5 rounded border border-[#0D9488]/15 dark:border-teal-900/20 select-none">
             <span className="size-1 bg-[#0D9488] rounded-full" />
-            <span>BS. {assignedDoc.ho_ten}</span>
+            <span>{apt.loai_lich === 'dich_vu_don' || apt.loai_lich === 'dieu_tri' ? 'KTV.' : 'BS.'} {assignedDoc.ho_ten}</span>
+            {['chua_xac_nhan', 'cho_xac_nhan'].includes(apt.trang_thai) && (
+              <span className="text-[8px] text-amber-600 bg-amber-50 px-1 py-0.2 rounded ml-1.5 font-black border border-amber-200 uppercase tracking-wide">Chưa xác nhận</span>
+            )}
           </div>
         ) : (
           <div className="mt-1.5 inline-flex items-center gap-1.5 text-[9px] font-black text-rose-600 dark:text-rose-455 bg-rose-50/50 dark:bg-rose-955/20 px-2 py-0.5 rounded border border-rose-200/20 select-none">
             <span className="size-1 bg-rose-500 rounded-full animate-pulse" />
-            <span>Chờ gán bác sĩ</span>
+            <span>Chờ gán {apt.loai_lich === 'dich_vu_don' || apt.loai_lich === 'dieu_tri' ? 'kỹ thuật viên' : 'bác sĩ'}</span>
           </div>
         )}
       </div>

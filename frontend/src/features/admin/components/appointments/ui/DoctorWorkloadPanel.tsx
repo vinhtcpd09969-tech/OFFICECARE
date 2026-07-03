@@ -13,9 +13,19 @@ export interface DoctorWorkload {
 
 interface DoctorWorkloadPanelProps {
   doctorWorkloads: DoctorWorkload[];
+  activeType: 'kham' | 'dieu_tri';
+  selectedStaffId: string | null;
+  onSelectStaff: (id: string | null) => void;
 }
 
-export function DoctorWorkloadPanel({ doctorWorkloads }: DoctorWorkloadPanelProps) {
+export function DoctorWorkloadPanel({
+  doctorWorkloads,
+  activeType,
+  selectedStaffId,
+  onSelectStaff
+}: DoctorWorkloadPanelProps) {
+  const isKham = activeType === 'kham';
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -43,8 +53,8 @@ export function DoctorWorkloadPanel({ doctorWorkloads }: DoctorWorkloadPanelProp
     <div className="w-full lg:w-80 shrink-0 bg-white/70 dark:bg-zinc-900/60 backdrop-blur-xl border border-slate-100 dark:border-zinc-800 p-5 rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.02)] hover:shadow-[0_20px_40px_rgba(15,23,42,0.06)] hover:border-[#14B8A6]/20 transition-all duration-500 space-y-4">
       <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800/80">
         <h3 className="text-xs font-black text-slate-800 dark:text-zinc-150 uppercase tracking-widest flex items-center gap-2">
-          <Activity size={15} className="text-[#0D9488]" /> 
-          <span>Điều phối Bác sĩ</span>
+          <Activity size={15} className={isKham ? "text-[#0D9488]" : "text-amber-500"} /> 
+          <span>{isKham ? 'Điều phối Bác sĩ' : 'Điều phối Kỹ thuật viên'}</span>
         </h3>
         <span className="text-[9px] font-black text-slate-400 dark:text-zinc-500 bg-slate-50 dark:bg-zinc-800 px-2 py-0.5 rounded-md border border-slate-100 dark:border-zinc-800/50 uppercase tracking-widest">
           Hôm nay
@@ -59,34 +69,40 @@ export function DoctorWorkloadPanel({ doctorWorkloads }: DoctorWorkloadPanelProp
       >
         {doctorWorkloads.length === 0 ? (
           <p className="text-xs text-slate-450 dark:text-zinc-500 italic text-center py-4">
-            Không tìm thấy bác sĩ nào trong danh sách
+            Không tìm thấy {isKham ? 'bác sĩ' : 'kỹ thuật viên'} nào trong danh sách
           </p>
         ) : (
           doctorWorkloads.map(doc => {
             const isNearOverload = doc.percentage >= 90;
             const isBusy = doc.percentage >= 75 && doc.percentage < 90;
             const isAvailable = doc.percentage < 75;
+            const isSelected = selectedStaffId !== null && String(doc.id) === String(selectedStaffId);
 
             return (
               <motion.div
                 key={doc.id}
                 variants={itemVariants}
                 whileHover={{ x: -2 }}
-                className="flex flex-col gap-2.5 p-3.5 rounded-[18px] bg-white/80 dark:bg-zinc-900/50 border border-slate-100 dark:border-zinc-800/60 hover:border-[#14B8A6]/20 hover:bg-white dark:hover:bg-zinc-900 transition-all duration-300 shadow-[0_2px_8px_rgba(15,23,42,0.01)]"
+                onClick={() => onSelectStaff(isSelected ? null : String(doc.id))}
+                className={`flex flex-col gap-2.5 p-3.5 rounded-[18px] bg-white/80 dark:bg-zinc-900/50 border transition-all duration-300 shadow-[0_2px_8px_rgba(15,23,42,0.01)] cursor-pointer ${
+                  isSelected
+                    ? 'border-teal-500 ring-2 ring-teal-500/20 bg-teal-50/10 dark:bg-teal-950/20 shadow-[0_0_15px_rgba(20,184,166,0.1)]'
+                    : 'border-slate-100 dark:border-zinc-800/60 hover:border-[#14B8A6]/20 hover:bg-white dark:hover:bg-zinc-900'
+                }`}
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2.5">
                     {/* Doctor Initials Avatar with dynamic borders */}
                     <div className={`size-8 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 select-none ${
                       doc.hasShift 
-                        ? 'bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20' 
+                        ? (isKham ? 'bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20' : 'bg-amber-500/10 text-amber-600 border border-amber-500/20')
                         : 'bg-slate-550/5 text-slate-400 border border-slate-200/50 dark:border-zinc-800'
                     }`}>
                       {doc.name.split(' ').pop()?.charAt(0).toUpperCase() || doc.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="max-w-[130px] sm:max-w-none">
                       <p className="text-xs font-black text-slate-800 dark:text-zinc-150 truncate leading-snug">
-                        BS. {doc.name}
+                        {isKham ? 'BS.' : 'KTV.'} {doc.name}
                       </p>
                       <span className={`text-[9px] font-bold inline-flex items-center gap-1 ${
                         doc.hasShift ? 'text-emerald-500' : 'text-slate-400 dark:text-zinc-500'
@@ -101,13 +117,6 @@ export function DoctorWorkloadPanel({ doctorWorkloads }: DoctorWorkloadPanelProp
                         )}
                       </span>
                     </div>
-                  </div>
-
-                  {/* Occupancy counts */}
-                  <div className="text-right">
-                    <span className="text-[10px] font-mono font-black text-slate-700 dark:text-zinc-300">
-                      {doc.occupiedCount}/{doc.maxSlots} ca
-                    </span>
                   </div>
                 </div>
 

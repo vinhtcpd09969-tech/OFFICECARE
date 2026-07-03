@@ -4,12 +4,9 @@ import {
   CheckCircle, 
   Clock, 
   Stethoscope, 
-  Check, 
   ShieldAlert,
   TrendingUp
 } from 'lucide-react';
-import { getServices } from '../../../api/admin.api';
-
 export default function TechnicianWorkspace() {
   // State for active session/patient
   const [sessions, setSessions] = useState<any[]>([]);
@@ -17,7 +14,6 @@ export default function TechnicianWorkspace() {
   const [loading, setLoading] = useState(true);
   
   // Interactive checklist states
-  const [selectedServices, setSelectedServices] = useState<Record<string, boolean>>({});
   const [beforeNotes, setBeforeNotes] = useState('');
   const [afterNotes, setAfterNotes] = useState('');
   const [restorationIndex, setRestorationIndex] = useState(80); // percentage slider
@@ -26,7 +22,6 @@ export default function TechnicianWorkspace() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      await getServices();
 
       // Clinical Mock Sessions representing actual KTV workflow for roleplaying
       const mockSessions = [
@@ -49,16 +44,7 @@ export default function TechnicianWorkspace() {
           ma_goi: 'PKG-LBR-SCI-10',
           tong_so_buoi: 10,
           so_buoi_da_dung: 2, // Đây là buổi thứ 3
-          so_dv_toi_da_moi_buoi: 5,
-          chi_tiet_dich_vu: [
-            { id: '1', name: 'Khám lượng giá cột sống & tư thế', limit: 1, used: 1, batBuoc: true, order: 1 },
-            { id: '2', name: 'Nhiệt trị liệu hồng ngoại', limit: 10, used: 2, batBuoc: true, order: 2 },
-            { id: '3', name: 'Trị liệu giảm đau bằng dòng điện xung', limit: 10, used: 2, batBuoc: true, order: 3 },
-            { id: '4', name: 'Kỹ thuật giải cơ chuyên sâu', limit: 10, used: 2, batBuoc: true, order: 4 },
-            { id: '5', name: 'Giải phóng cơ hình lê chuyên sâu', limit: 5, used: 4, batBuoc: true, order: 5 }, // KTV đã dùng 4/5 lần
-            { id: '6', name: 'Kéo giãn cột sống thắt lưng bằng máy', limit: 9, used: 1, batBuoc: true, order: 6 },
-            { id: '7', name: 'Hướng dẫn tập phục hồi chức năng', limit: 5, used: 0, batBuoc: true, order: 7 } // Tập từ buổi 6 trở đi
-          ]
+          mo_ta: 'Thực hiện nhiệt trị liệu hồng ngoại kết hợp dòng điện xung giảm đau 15 phút. Giải phóng chuyên sâu cơ vuông thắt lưng và cơ hình lê bằng kỹ thuật tay. Kéo giãn cột sống máy L4-L5 lực 1/3 trọng lượng cơ thể. Hướng dẫn các tư thế đúng khi cúi nghiêng.'
         },
         {
           id: 'btl-002',
@@ -79,16 +65,7 @@ export default function TechnicianWorkspace() {
           ma_goi: 'PKG-FLEXI-CARE',
           tong_so_buoi: 1,
           so_buoi_da_dung: 0,
-          so_dv_toi_da_moi_buoi: 4,
-          chi_tiet_dich_vu: [
-            { id: '4', name: 'Kỹ thuật giải cơ chuyên sâu', limit: 5, used: 0, batBuoc: false, order: 1 },
-            { id: '3', name: 'Trị liệu giảm đau bằng dòng điện xung', limit: 5, used: 0, batBuoc: false, order: 2 },
-            { id: '2', name: 'Nhiệt trị liệu hồng ngoại', limit: 5, used: 0, batBuoc: false, order: 3 },
-            { id: '8', name: 'Di động mô mềm giải phóng cơ', limit: 5, used: 0, batBuoc: false, order: 4 },
-            { id: '9', name: 'Kéo giãn cột sống cổ bằng tay', limit: 5, used: 0, batBuoc: false, order: 5 },
-            { id: '6', name: 'Kéo giãn cột sống thắt lưng bằng máy', limit: 5, used: 0, batBuoc: false, order: 6 },
-            { id: '10', name: 'Massage Đầu Cổ Vai Gáy', limit: 5, used: 0, batBuoc: false, order: 7 }
-          ]
+          mo_ta: 'Thực hiện nhiệt hồng ngoại làm mềm cơ thang, điện xung thư giãn cơ nâng vai 2 bên. Di động mô mềm cột sống cổ nhẹ nhàng.'
         },
         {
           id: 'btl-003',
@@ -109,26 +86,13 @@ export default function TechnicianWorkspace() {
           ma_goi: 'LE-003',
           tong_so_buoi: 1,
           so_buoi_da_dung: 1,
-          so_dv_toi_da_moi_buoi: 2,
-          chi_tiet_dich_vu: [
-            { id: '10', name: 'Massage Đầu Cổ Vai Gáy', limit: 1, used: 1, batBuoc: true, order: 1 },
-            { id: '11', name: 'Massage Chân Phục Hồi', limit: 1, used: 1, batBuoc: true, order: 2 }
-          ]
+          mo_ta: 'Massage phục hồi lòng bàn chân, xoa bóp vuốt miết trị liệu làm giãn cơ khớp cổ vai gáy.'
         }
       ];
 
       setSessions(mockSessions);
       setSelectedSessionId(mockSessions[0].id);
       
-      // Auto-load mandatory/default services for session 1
-      const initialChecked: Record<string, boolean> = {};
-      mockSessions[0].chi_tiet_dich_vu.forEach(d => {
-        // Auto check if it is part of the standard flow (e.g. Nhiệt, Điện xung, Giải cơ, Cơ hình lê, Kéo giãn thắt lưng máy)
-        if (d.name !== 'Khám lượng giá cột sống & tư thế' && d.name !== 'Hướng dẫn tập phục hồi chức năng') {
-          initialChecked[d.id] = true;
-        }
-      });
-      setSelectedServices(initialChecked);
       setBeforeNotes('Bệnh nhân đau mỏi rát dọc thắt lưng lan mông trái, đứng lâu buốt mỏi. Thắt lưng hơi gù nhẹ để tránh đau.');
       setAfterNotes('Sau kéo giãn máy L4-L5 và giải cơ hình lê mông trái, bệnh nhân thấy nhả cơ đáng kể, đi lại nhẹ nhõm hơn, bớt tê rần các ngón chân.');
     } catch (e) {
@@ -149,71 +113,24 @@ export default function TechnicianWorkspace() {
   // Set checklists and evaluations when active session changes
   const handleSelectSession = (session: any) => {
     setSelectedSessionId(session.id);
-    const checked: Record<string, boolean> = {};
     
     if (session.trang_thai === 'hoan_thanh') {
-      session.chi_tiet_dich_vu.forEach((d: any) => {
-        if (d.used > 0) checked[d.id] = true;
-      });
       setBeforeNotes('Ghi chú lưu trữ buổi hoàn thành.');
       setAfterNotes('Hiệu quả trị liệu tốt, phục hồi nhanh.');
     } else {
-      session.chi_tiet_dich_vu.forEach((d: any) => {
-        // Clinical recommendation auto-checking
-        if (session.ma_goi === 'PKG-LBR-SCI-10') {
-          if (d.name !== 'Khám lượng giá cột sống & tư thế' && d.name !== 'Hướng dẫn tập phục hồi chức năng') {
-            checked[d.id] = true;
-          }
-        } else if (session.ma_goi === 'PKG-FLEXI-CARE') {
-          if (d.name.includes('giải cơ') || d.name.includes('nhiệt') || d.name.includes('điện xung')) {
-            checked[d.id] = true;
-          }
-        }
-      });
       setBeforeNotes(session.id === 'btl-001' ? 'Bệnh nhân đau mỏi rát dọc thắt lưng lan mông trái, đứng lâu buốt mỏi. Thắt lưng hơi gù nhẹ để tránh đau.' : '');
       setAfterNotes(session.id === 'btl-001' ? 'Sau kéo giãn máy L4-L5 và giải cơ hình lê mông trái, bệnh nhân thấy nhả cơ đáng kể, đi lại nhẹ nhõm hơn, bớt tê rần các ngón chân.' : '');
     }
-    
-    setSelectedServices(checked);
-  };
-
-  // Count checked services
-  const checkedCount = useMemo(() => {
-    return Object.values(selectedServices).filter(Boolean).length;
-  }, [selectedServices]);
-
-  // CLINICAL OPERATION VALIDATIONS
-  const handleToggleService = (item: any) => {
-    if (activeSession.trang_thai === 'hoan_thanh') return; // Read-only for completed
-
-    const isChecked = !!selectedServices[item.id];
-    
-    // Check constraint 1: Max services per session limit (so_dv_toi_da_moi_buoi)
-    if (!isChecked && checkedCount >= activeSession.so_dv_toi_da_moi_buoi) {
-      alert(`⚠️ CẢNH BÁO QUY TRÌNH Y KHOA:\n\nHạn mức tối đa của một buổi điều trị trong gói này là ${activeSession.so_dv_toi_da_moi_buoi} dịch vụ.\n\nKỹ thuật viên không được thực hiện quá hạn mức để đảm bảo cơ bắp của bệnh nhân không bị quá tải nhiệt/kích thích cơ học!`);
-      return;
-    }
-
-    // Check constraint 2: Total package limits (so_lan_toi_da_trong_goi)
-    if (!isChecked && item.used >= item.limit) {
-      alert(`⚠️ HẾT HẠN MỨC GÓI:\n\nDịch vụ "${item.name}" đã được sử dụng hết hạn mức (${item.used}/${item.limit} lần) trong gói của khách hàng.\n\nVui lòng tư vấn nâng cấp gói hoặc chuyển đổi sang kỹ thuật hỗ trợ khác!`);
-      return;
-    }
-
-    setSelectedServices(prev => ({
-      ...prev,
-      [item.id]: !prev[item.id]
-    }));
   };
 
   // Complete KTV session submission
   const handleCompleteSession = () => {
-    if (checkedCount === 0) {
-      alert('Vui lòng tích chọn ít nhất 1 dịch vụ kỹ thuật đã thực hiện hôm nay!');
+    if (!beforeNotes.trim() || !afterNotes.trim()) {
+      alert('Vui lòng nhập đầy đủ ghi chú trước và sau buổi điều trị để hoàn tất buổi học!');
       return;
     }
 
-    if (window.confirm(`XÁC NHẬN HOÀN THÀNH CA ĐIỀU TRỊ?\n\n- Khách hàng: ${activeSession.ten_khach}\n- Số dịch vụ đã thực hiện: ${checkedCount}/${activeSession.so_dv_toi_da_moi_buoi}\n\nHệ thống sẽ tự động trừ hạn mức gói của khách hàng và cập nhật lịch trình.`)) {
+    if (window.confirm(`XÁC NHẬN HOÀN THÀNH CA ĐIỀU TRỊ?\n\n- Khách hàng: ${activeSession.ten_khach}\n\nHệ thống sẽ tự động trừ hạn mức số buổi còn lại và ghi nhận lịch sử.`)) {
       setSessions(prev => 
         prev.map(s => 
           s.id === activeSession.id 
@@ -382,88 +299,15 @@ export default function TechnicianWorkspace() {
                   </div>
                 </div>
 
-                {/* THE SERVICE CLINICAL CHECKLIST PANEL */}
+                {/* THE SERVICE CLINICAL CHECKLIST PANEL - Now simplified package description */}
                 <div>
-                  <div className="flex justify-between items-center mb-2.5">
-                    <h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-                      <span>HỘP I: THỰC HIỆN DỊCH VỤ TRONG CA HÔM NAY</span>
-                      <span className={`px-2 py-0.2 rounded-lg border text-[9px] font-bold font-heading ${
-                        checkedCount > activeSession.so_dv_toi_da_moi_buoi
-                          ? 'bg-rose-50 border-rose-200 text-rose-500'
-                          : 'bg-primary-container border-primary/20 text-primary'
-                      }`}>
-                        ĐÃ CHỌN: {checkedCount}/{activeSession.so_dv_toi_da_moi_buoi} DỊCH VỤ TỐI ĐA
-                      </span>
-                    </h4>
-                    <span className="text-[9px] text-zinc-400 font-bold">* MỖI DỊCH VỤ CHỈ THỰC HIỆN TỐI ĐA 1 LẦN/BUỔI</span>
-                  </div>
-
-                  {/* Checklist Table */}
-                  <div className="bg-white border border-zinc-200 rounded-2xl overflow-hidden shadow-sm">
-                    <table className="w-full text-left border-collapse text-[11px]">
-                      <thead>
-                        <tr className="bg-zinc-50 border-b border-zinc-200 text-zinc-500 uppercase tracking-wider font-heading">
-                          <th className="p-3 font-bold w-12 text-center">Thực hiện</th>
-                          <th className="p-3 font-bold">Kỹ thuật lâm sàng</th>
-                          <th className="p-3 font-bold text-center">Bắt buộc</th>
-                          <th className="p-3 font-bold text-center">Đã dùng / Hạn mức gói</th>
-                          <th className="p-3 font-bold text-center w-24">Số lần buổi này</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-200">
-                        {activeSession.chi_tiet_dich_vu.map((item: any) => {
-                          const isChecked = !!selectedServices[item.id];
-                          const isExhausted = item.used >= item.limit;
-
-                          return (
-                            <tr 
-                              key={item.id} 
-                              className={`transition-colors ${
-                                isChecked ? 'bg-primary/5 hover:bg-primary/8' : 'hover:bg-zinc-50/50'
-                              } ${isExhausted ? 'opacity-50' : ''}`}
-                            >
-                              <td className="p-3 text-center">
-                                <button
-                                  type="button"
-                                  disabled={activeSession.trang_thai === 'hoan_thanh' || isExhausted}
-                                  onClick={() => handleToggleService(item)}
-                                  className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-all ${
-                                    isChecked
-                                      ? 'bg-primary border-primary text-white shadow-sm'
-                                      : 'bg-white border-zinc-200 text-transparent hover:border-primary'
-                                  }`}
-                                >
-                                  <Check className="w-3.5 h-3.5" strokeWidth={3} />
-                                </button>
-                              </td>
-                              <td className="p-3">
-                                <p className={`font-bold ${isChecked ? 'text-primary' : 'text-secondary'}`}>
-                                  {item.name}
-                                </p>
-                              </td>
-                              <td className="p-3 text-center">
-                                {item.batBuoc ? (
-                                  <span className="px-1.5 py-0.5 text-[8px] font-bold bg-primary-container border border-primary/20 text-primary rounded-lg">BẮT BUỘC</span>
-                                ) : (
-                                  <span className="px-1.5 py-0.5 text-[8px] font-bold bg-zinc-100 text-zinc-400 border border-zinc-200 rounded-lg">LINH ĐỘNG</span>
-                                )}
-                              </td>
-                              <td className="p-3 text-center font-bold text-zinc-500">
-                                <span className={isExhausted ? 'text-rose-500 font-bold' : 'text-zinc-650'}>
-                                  {item.used}
-                                </span>
-                                <span className="text-zinc-350 font-normal"> / {item.limit} LẦN</span>
-                              </td>
-                              <td className="p-3 text-center">
-                                <span className={`font-bold font-mono text-xs ${isChecked ? 'text-primary' : 'text-zinc-450'}`}>
-                                  {isChecked ? '1 Lần' : '0 Lần'}
-                                </span>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                  <h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2.5">
+                    HỘP I: HƯỚNG DẪN KỸ THUẬT & MÔ TẢ ĐIỀU TRỊ CỦA GÓI
+                  </h4>
+                  <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-5 shadow-inner">
+                    <p className="text-xs text-secondary font-medium leading-relaxed">
+                      {activeSession.quy_trinh || activeSession.muc_tieu || 'Không có mô tả kỹ thuật cụ thể cho gói này. Kỹ thuật viên tiến hành quy trình giải cơ, vật lý trị liệu phục hồi chức năng tiêu chuẩn dựa trên chẩn đoán của Bác sĩ.'}
+                    </p>
                   </div>
                 </div>
 

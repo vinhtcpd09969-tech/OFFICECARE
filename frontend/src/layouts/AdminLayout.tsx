@@ -1,4 +1,4 @@
-import { Link, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import api from '../api/axios';
 import { useState, useEffect } from 'react';
@@ -6,12 +6,10 @@ import { MascotWidget } from '../components/MascotWidget';
 import { 
   LayoutDashboard, 
   Calendar, 
-  Zap, 
   Clock, 
   User, 
   FileText, 
   Users, 
-  Briefcase, 
   Package, 
   Key, 
   DollarSign, 
@@ -19,7 +17,6 @@ import {
   Star, 
   ClipboardList,
   LogOut,
-  Search,
   Bell,
   HelpCircle,
   Sun,
@@ -30,11 +27,9 @@ import {
 export default function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
   const logout = useAuthStore(state => state.logout);
   const user = useAuthStore(state => state.user);
   
-  const [searchValue, setSearchValue] = useState(searchParams.get('q') || '');
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
 
   // State và Effect cho thông báo gán Bác sĩ & KTV (Alarm & Bouncing notification)
@@ -157,40 +152,33 @@ export default function AdminLayout() {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
-  // Synchronize searchValue when URL query changes
-  useEffect(() => {
-    setSearchValue(searchParams.get('q') || '');
-  }, [searchParams]);
-
-  const handleSearchChange = (val: string) => {
-    setSearchValue(val);
-    if (val.trim()) {
-      setSearchParams({ q: val });
-    } else {
-      searchParams.delete('q');
-      setSearchParams(searchParams);
-    }
-  };
-
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
   const isDoctor = user?.vai_tro_id === 4;
+  const isTechnician = user?.vai_tro_id === 3;
 
   const rawNavItems = [
-    { name: 'Tổng quan', path: isDoctor ? '/doctor/appointments' : '/admin', icon: <LayoutDashboard size={18} />, roles: [4, 5, 6] },
-    { name: 'Lịch hẹn khám', path: isDoctor ? '/doctor/appointments' : '/admin/appointments', icon: <Calendar size={18} />, searchPlaceholder: 'Tìm kiếm lịch hẹn khám...', roles: [4, 5, 6] },
-    { name: 'Lịch điều trị', path: '/admin/treatments', icon: <Zap size={18} />, searchPlaceholder: 'Tìm kiếm lịch điều trị...', roles: [5, 6] },
-    { name: 'Bàn làm việc KTV', path: '/technician/workspace', icon: <ClipboardList size={18} />, roles: [4, 5, 6] },
+    { name: 'Tổng quan', path: isDoctor ? '/doctor/appointments' : (isTechnician ? '/technician/workspace' : '/admin'), icon: <LayoutDashboard size={18} />, roles: [3, 4, 5, 6] },
+    { 
+      name: 'Lịch hẹn', 
+      path: isDoctor 
+        ? '/doctor/appointments' 
+        : (isTechnician 
+          ? '/technician/appointments' 
+          : '/admin/appointments'), 
+      icon: <Calendar size={18} />, 
+      searchPlaceholder: 'Tìm kiếm lịch hẹn...', 
+      roles: [3, 4, 5, 6] 
+    },
+    { name: 'Bàn làm việc KTV', path: '/technician/workspace', icon: <ClipboardList size={18} />, roles: [3, 4, 5, 6] },
     { name: 'Ca làm việc', path: '/admin/schedules', icon: <Clock size={18} />, roles: [5, 6] },
     { name: 'Khách hàng', path: '/admin/customers', icon: <User size={18} />, searchPlaceholder: 'Tìm kiếm khách hàng...', roles: [5, 6] },
-    { name: 'Hồ sơ điều trị', path: '/admin/medical-records', icon: <FileText size={18} />, searchPlaceholder: 'Tìm kiếm hồ sơ...', roles: [4, 5, 6] },
+    { name: 'Hồ sơ điều trị', path: '/admin/medical-records', icon: <FileText size={18} />, searchPlaceholder: 'Tìm kiếm hồ sơ...', roles: [3, 4, 5, 6] },
     { name: 'Nhân sự', path: '/admin/staff', icon: <Users size={18} />, searchPlaceholder: 'Tìm kiếm nhân sự...', roles: [5] },
-    { name: 'Dịch vụ y khoa', path: '/admin/services', icon: <Briefcase size={18} />, searchPlaceholder: 'Tìm kiếm dịch vụ...', roles: [5, 6] },
-    { name: 'Danh mục dịch vụ', path: '/admin/categories', icon: <ClipboardList size={18} />, searchPlaceholder: 'Tìm kiếm danh mục...', roles: [5, 6] },
-    { name: 'Gói', path: '/admin/packages', icon: <Package size={18} />, searchPlaceholder: 'Tìm kiếm gói...', roles: [5, 6] },
+    { name: 'Gói Dịch Vụ', path: '/admin/packages', icon: <Package size={18} />, searchPlaceholder: 'Tìm kiếm gói...', roles: [5, 6] },
     { name: 'Phòng trị liệu', path: '/admin/rooms', icon: <Key size={18} />, searchPlaceholder: 'Tìm kiếm phòng...', roles: [5, 6] },
     { name: 'Thiết bị y tế', path: '/admin/equipment', icon: <Cpu size={18} />, searchPlaceholder: 'Tìm kiếm thiết bị...', roles: [5, 6] },
     { name: 'Tài chính', path: '/admin/finance', icon: <DollarSign size={18} />, roles: [5, 6] },
@@ -223,7 +211,7 @@ export default function AdminLayout() {
             {navItems.map((item) => {
               const isActive = location.pathname === item.path;
               return (
-                <li key={item.path}>
+                <li key={item.name}>
                   <Link
                     to={item.path}
                     className={`flex items-center px-4 py-2.5 rounded-[14px] transition-all duration-200 group border-l-4 ${
@@ -273,21 +261,6 @@ export default function AdminLayout() {
               {currentItem?.name || 'Tổng quan'}
             </h2>
             
-            {/* Dynamic Search Bar */}
-            {currentItem?.searchPlaceholder && (
-              <div className="relative max-w-md w-full hidden md:block group animate-fade-in">
-                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400 dark:text-zinc-500 group-focus-within:text-primary transition-colors">
-                  <Search size={14} />
-                </span>
-                <input 
-                  type="text" 
-                  value={searchValue}
-                  onChange={(e) => handleSearchChange(e.target.value)}
-                  placeholder={currentItem.searchPlaceholder}
-                  className="w-full pl-10 pr-4 py-2 text-xs bg-zinc-50 dark:bg-zinc-855 border border-zinc-200 dark:border-zinc-800 rounded-full focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white dark:focus:bg-zinc-900 outline-none transition-all font-semibold text-secondary dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500"
-                />
-              </div>
-            )}
           </div>
 
           <div className="flex items-center gap-6 shrink-0">
@@ -315,23 +288,12 @@ export default function AdminLayout() {
                 onClick={() => {
                   if (earliestPending) {
                     const targetDate = earliestPending.ngay_gio_bat_dau ? earliestPending.ngay_gio_bat_dau.match(/^\d{4}-\d{2}-\d{2}/)?.[0] || '' : '';
-                    if (earliestPending.type === 'appointment') {
-                      const query = targetDate 
-                        ? `?date=${targetDate}&range=today&view=timeline&appointmentId=${earliestPending.id}&triggerFocus=true` 
-                        : `?appointmentId=${earliestPending.id}&triggerFocus=true`;
-                      navigate(`/admin/appointments${query}`);
-                    } else {
-                      const query = targetDate 
-                        ? `?date=${targetDate}&view=today&treatmentId=${earliestPending.id}&triggerFocus=true` 
-                        : `?treatmentId=${earliestPending.id}&triggerFocus=true`;
-                      navigate(`/admin/treatments${query}`);
-                    }
+                    const query = targetDate 
+                      ? `?date=${targetDate}&range=today&view=timeline&appointmentId=${earliestPending.id}&triggerFocus=true` 
+                      : `?appointmentId=${earliestPending.id}&triggerFocus=true`;
+                    navigate(`/admin/appointments${query}`);
                   } else {
-                    if (pendingAppointmentsCount > 0) {
-                      navigate('/admin/appointments?triggerFocus=true');
-                    } else {
-                      navigate('/admin/treatments?triggerFocus=true');
-                    }
+                    navigate('/admin/appointments?triggerFocus=true');
                   }
                 }}
                 className="relative w-8 h-8 rounded-full flex items-center justify-center hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 transition-colors"
@@ -383,23 +345,12 @@ export default function AdminLayout() {
           onClick={() => {
             if (earliestPending) {
               const targetDate = earliestPending.ngay_gio_bat_dau ? earliestPending.ngay_gio_bat_dau.match(/^\d{4}-\d{2}-\d{2}/)?.[0] || '' : '';
-              if (earliestPending.type === 'appointment') {
-                const query = targetDate 
-                  ? `?date=${targetDate}&range=today&view=timeline&appointmentId=${earliestPending.id}&triggerFocus=true` 
-                  : `?appointmentId=${earliestPending.id}&triggerFocus=true`;
-                navigate(`/admin/appointments${query}`);
-              } else {
-                const query = targetDate 
-                  ? `?date=${targetDate}&view=today&treatmentId=${earliestPending.id}&triggerFocus=true` 
-                  : `?treatmentId=${earliestPending.id}&triggerFocus=true`;
-                navigate(`/admin/treatments${query}`);
-              }
+              const query = targetDate 
+                ? `?date=${targetDate}&range=today&view=timeline&appointmentId=${earliestPending.id}&triggerFocus=true` 
+                : `?appointmentId=${earliestPending.id}&triggerFocus=true`;
+              navigate(`/admin/appointments${query}`);
             } else {
-              if (pendingAppointmentsCount > 0) {
-                navigate('/admin/appointments?triggerFocus=true');
-              } else {
-                navigate('/admin/treatments?triggerFocus=true');
-              }
+              navigate('/admin/appointments?triggerFocus=true');
             }
           }}
           tooltipText={tooltipText}

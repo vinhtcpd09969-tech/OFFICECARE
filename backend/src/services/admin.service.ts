@@ -2,41 +2,13 @@ import adminRepository from '../repositories/admin.repository';
 import bcrypt from 'bcryptjs';
 
 class AdminService {
-  // --- QUẢN LÝ DỊCH VỤ & DANH MỤC ---
-  async getCategories() {
-    return adminRepository.getCategories();
-  }
-
+  // --- QUẢN LÝ PHÒNG KHÁM ---
   async getRooms() {
     return adminRepository.getRooms();
   }
 
   async createRoom(data: any) {
-    let ma_phong = data.ma_phong;
-    if (!ma_phong || String(ma_phong).trim() === '') {
-      const { rows: existingRooms } = await adminRepository.getRawPool().query(
-        `SELECT ma_phong FROM phong 
-         WHERE ma_phong ~ '^P\\d+$' 
-         ORDER BY length(ma_phong) DESC, ma_phong DESC`
-      );
-      
-      let maxNum = 0;
-      let maxDigits = 3;
-      
-      for (const r of existingRooms) {
-        const code = r.ma_phong;
-        const numPart = code.substring(1);
-        const num = parseInt(numPart, 10);
-        if (num > maxNum) {
-          maxNum = num;
-          maxDigits = Math.max(3, numPart.length);
-        }
-      }
-      
-      const nextNum = maxNum > 0 ? maxNum + 1 : 201;
-      ma_phong = `P${String(nextNum).padStart(maxDigits, '0')}`;
-    }
-    return adminRepository.createRoom({ ...data, ma_phong });
+    return adminRepository.createRoom(data);
   }
 
   async updateRoom(id: string | number, data: any) {
@@ -45,34 +17,6 @@ class AdminService {
 
   async deleteRoom(id: string | number) {
     return adminRepository.deleteRoom(id);
-  }
-
-  async createCategory(data: any) {
-    return adminRepository.createCategory(data);
-  }
-
-  async updateCategory(id: string, data: any) {
-    return adminRepository.updateCategory(id, data);
-  }
-
-  async deleteCategory(id: string) {
-    return adminRepository.deleteCategory(id);
-  }
-
-  async getServices() {
-    return adminRepository.getServices();
-  }
-
-  async createService(data: any) {
-    return adminRepository.createService(data);
-  }
-
-  async updateService(id: string, data: any) {
-    return adminRepository.updateService(id, data);
-  }
-
-  async deleteService(id: string) {
-    return adminRepository.deleteService(id);
   }
 
   // --- QUẢN LÝ GÓI ĐIỀU TRỊ ---
@@ -90,6 +34,23 @@ class AdminService {
 
   async deletePackage(id: string) {
     return adminRepository.deletePackage(id);
+  }
+
+  // --- QUẢN LÝ DANH MỤC GÓI ---
+  async getCategories() {
+    return adminRepository.getCategories();
+  }
+
+  async createCategory(data: any) {
+    return adminRepository.createCategory(data);
+  }
+
+  async updateCategory(id: string, data: any) {
+    return adminRepository.updateCategory(id, data);
+  }
+
+  async deleteCategory(id: string) {
+    return adminRepository.deleteCategory(id);
   }
 
   // --- QUẢN LÝ NHÂN SỰ ---
@@ -124,89 +85,7 @@ class AdminService {
   }
 
   async createEquipment(data: any) {
-    const count = data.so_luong || 1;
-    
-    // Resolve ten_danh_muc from danh_muc_thiet_bi_id if provided
-    let resolvedLoaiText = '';
-    if (data.danh_muc_thiet_bi_id) {
-      const typeRecord = await adminRepository.getEquipmentTypeById(Number(data.danh_muc_thiet_bi_id));
-      if (typeRecord) {
-        resolvedLoaiText = typeRecord.ten_danh_muc;
-      }
-    }
-    
-    const resolvedData = {
-      ...data,
-      loai_thiet_bi: resolvedLoaiText
-    };
-    
-    // 3. Tự động xác định tiền tố mã thiết bị
-    const getCodePrefix = (type: string): string => {
-      const typeLower = (type || '').toLowerCase().trim();
-      if (typeLower.includes('nén ép')) return 'EQP-COM';
-      if (typeLower.includes('kéo giãn cổ') || typeLower.includes('keo gian co')) return 'EQP-CST';
-      if (typeLower.includes('giường kéo giãn') || typeLower.includes('giuong keo gian')) return 'EQP-DTS';
-      if (typeLower.includes('điện xung') || typeLower.includes('dien xung')) return 'EQP-ELT';
-      if (typeLower.includes('hồng ngoại') || typeLower.includes('hong ngoai')) return 'EQP-IR';
-      if (typeLower.includes('laser')) return 'EQP-LAS';
-      if (typeLower.includes('từ trường') || typeLower.includes('tu truong')) return 'EQP-SIS';
-      if (typeLower.includes('shockwave') || typeLower.includes('xung kích')) return 'EQP-SW';
-      if (typeLower.includes('siêu âm') || typeLower.includes('sieu am')) return 'EQP-US';
-      if (typeLower.includes('giường') || typeLower.includes('giuong')) return 'EQP-BED';
-      return 'EQP-GEN';
-    };
-
-    const prefix = getCodePrefix(resolvedLoaiText);
-    
-    // 4. Lấy mã lớn nhất hiện tại để tự động tăng
-    const { rows: existingCodes } = await adminRepository.getRawPool().query(
-      `SELECT ma_thiet_bi FROM thiet_bi_y_te 
-       WHERE ma_thiet_bi LIKE $1 
-       ORDER BY length(ma_thiet_bi) DESC, ma_thiet_bi DESC`,
-      [`${prefix}%`]
-    );
-    
-    let maxNum = 0;
-    let maxDigits = 2; // Độ dài mặc định cho chữ số (ví dụ: 01)
-    
-    for (const r of existingCodes) {
-      const code = r.ma_thiet_bi;
-      const numPart = code.substring(prefix.length);
-      if (/^\d+$/.test(numPart)) {
-        const num = parseInt(numPart, 10);
-        if (num > maxNum) {
-          maxNum = num;
-          maxDigits = numPart.length;
-        }
-      }
-    }
-    
-    // 5. Tạo danh sách thiết bị
-    const results = [];
-    let currentNum = maxNum + 1;
-    
-    for (let i = 0; i < count; i++) {
-      const code = `${prefix}${String(currentNum).padStart(maxDigits, '0')}`;
-      
-      // Auto-append sequence suffix to the name if count > 1
-      let baseName = (resolvedData.ten_thiet_bi || '').trim();
-      if (count > 1) {
-        baseName = baseName.replace(/\s+(s[ốo]|no\.?)?\s*\d+$/i, '');
-      }
-      const suffix = count > 1 ? ` ${String(currentNum).padStart(maxDigits, '0')}` : '';
-      const customData = {
-        ...resolvedData,
-        ten_thiet_bi: `${baseName}${suffix}`
-      };
-      
-      currentNum++;
-      
-      const singleEq = await adminRepository.createEquipment(code, customData);
-      results.push(singleEq);
-    }
-    
-    // Trả về thiết bị đầu tiên để tương thích đầu ra API cũ
-    return results[0];
+    return adminRepository.createEquipment('', data);
   }
 
   async updateEquipment(id: string, data: any) {
@@ -222,11 +101,11 @@ class AdminService {
     return adminRepository.getEquipmentTypes();
   }
 
-  async createEquipmentType(data: { ten_danh_muc: string; ten_thiet_bi: string; loai_danh_muc?: string }) {
+  async createEquipmentType(data: any) {
     return adminRepository.createEquipmentType(data);
   }
 
-  async updateEquipmentType(id: number, data: { ten_danh_muc: string; ten_thiet_bi: string; loai_danh_muc?: string }) {
+  async updateEquipmentType(id: number, data: any) {
     return adminRepository.updateEquipmentType(id, data);
   }
 
@@ -255,7 +134,6 @@ class AdminService {
   async getMedicalRecords() {
     return adminRepository.getMedicalRecords();
   }
-
 
   // --- QUẢN LÝ TÀI CHÍNH ---
   async getInvoices() {
@@ -305,7 +183,6 @@ class AdminService {
     return adminRepository.getFeedback();
   }
 
-
   // --- BÁO CÁO & THỐNG KÊ ---
   async getDashboardSummary() {
     return adminRepository.getDashboardSummary();
@@ -325,4 +202,3 @@ class AdminService {
 }
 
 export default new AdminService();
-

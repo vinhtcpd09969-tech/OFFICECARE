@@ -37,8 +37,8 @@ class TreatmentRecordService {
     return treatmentRecordRepository.getTreatmentRecords();
   }
 
-  async assignTreatmentRecord(id: string, data: { ky_thuat_vien_id: string; phong_tri_lieu_id: string }) {
-    return treatmentRecordRepository.assignTreatmentRecord(id, data);
+  async assignTreatmentRecord(id: string) {
+    return treatmentRecordRepository.assignTreatmentRecord(id);
   }
 }
 

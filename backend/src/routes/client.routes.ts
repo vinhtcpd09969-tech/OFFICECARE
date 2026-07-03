@@ -9,336 +9,249 @@ import {
   getPublicAppointmentById,
   getCustomerMedicalRecord,
   getCustomerTreatmentSessions,
-  confirmEmailAppointment
+  confirmEmailAppointment,
+  confirmOTPAppointment,
+  resendConfirmationEmail,
+  createTempHold,
+  releaseTempHold
 } from '../controllers/appointment.controller';
 import { getNotifications, markAsRead, markAllAsRead } from '../controllers/notification.controller';
 import { verifyToken } from '../middlewares/auth.middleware';
 import adminService from '../services/admin.service';
+import { pool } from '../config/db';
 
 const router = Router();
 
-/**
- * @swagger
- * tags:
- *   name: Khách hàng - Client
- *   description: API dành cho khách hàng - đặt lịch, xem lịch sử, bệnh án và thông báo
- */
-
-/**
- * @swagger
- * /client/appointments/public:
- *   post:
- *     summary: Đặt lịch khám lâm sàng (khách vãng lai, không cần đăng nhập)
- *     tags: [Khách hàng - Client]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - ho_ten
- *               - so_dien_thoai
- *               - ngay_gio_bat_dau
- *             properties:
- *               ho_ten:
- *                 type: string
- *                 example: Nguyễn Thị B
- *               so_dien_thoai:
- *                 type: string
- *                 example: "0909123456"
- *               email:
- *                 type: string
- *                 example: khach@gmail.com
- *               ngay_gio_bat_dau:
- *                 type: string
- *                 format: date-time
- *                 example: "2026-07-01T08:00:00+07:00"
- *               ghi_chu:
- *                 type: string
- *                 example: Đau vai gáy vùng cổ
- *               dich_vu_id:
- *                 type: integer
- *                 example: null
- *               voucher_code:
- *                 type: string
- *                 example: null
- *     responses:
- *       201:
- *         description: Đặt lịch thành công, email xác nhận được gửi cho khách
- *       400:
- *         description: Khung giờ đã bận hoặc dữ liệu không hợp lệ
- */
 router.post('/appointments/public', createPublicAppointment);
-
-/**
- * @swagger
- * /client/appointments/public/track/{id}:
- *   get:
- *     summary: Tra cứu lịch hẹn theo ID (không cần đăng nhập)
- *     tags: [Khách hàng - Client]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: ID lịch hẹn
- *     responses:
- *       200:
- *         description: Thông tin chi tiết lịch hẹn
- *       404:
- *         description: Không tìm thấy lịch hẹn
- */
 router.get('/appointments/public/track/:id', getPublicAppointmentById);
-
-/**
- * @swagger
- * /client/appointments/public/confirm-email/{id}:
- *   get:
- *     summary: Xác nhận lịch hẹn qua link email
- *     tags: [Khách hàng - Client]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: ID lịch hẹn cần xác nhận
- *     responses:
- *       200:
- *         description: Xác nhận thành công
- */
 router.get('/appointments/public/confirm-email/:id', confirmEmailAppointment);
+router.post('/appointments/public/confirm-otp', confirmOTPAppointment);
+router.post('/appointments/public/:id/resend-otp', resendConfirmationEmail);
+router.post('/appointments/hold', createTempHold);
+router.delete('/appointments/hold/:session_id', releaseTempHold);
 
-/**
- * @swagger
- * /client/services:
- *   get:
- *     summary: Lấy danh sách dịch vụ đang hoạt động hiển thị trên website
- *     tags: [Khách hàng - Client]
- *     responses:
- *       200:
- *         description: Danh sách dịch vụ công khai
- */
 router.get('/services', async (req, res) => {
   try {
-    const services = await adminService.getServices();
-    const publicServices = services.filter((s: any) => s.hien_thi_website !== false && s.trang_thai === 'hoat_dong');
+    const packages = await adminService.getPackages();
+    // Trả về gói lẻ (LE) và gói khám (KHAM) làm danh sách dịch vụ
+    const publicServices = packages
+      .filter((pkg: any) => (pkg.loai_goi === 'LE' || pkg.loai_goi === 'KHAM') && pkg.trang_thai === 'hoat_dong')
+      .map((pkg: any) => ({
+        id: pkg.id,
+        ten_goi: pkg.ten_goi,
+        ten_dich_vu: pkg.ten_goi, // backward compatibility
+        don_gia: Number(pkg.don_gia),
+        thoi_luong_phut: pkg.thoi_luong_phut,
+        loai_goi: pkg.loai_goi,
+        loai_dich_vu: pkg.loai_goi === 'KHAM' ? 'KHAM' : 'DIEU_TRI', // backward compatibility
+        trang_thai: pkg.trang_thai,
+        dang_hoat_dong: pkg.trang_thai === 'hoat_dong',
+        hien_thi_website: pkg.trang_thai === 'hoat_dong',
+        quy_trinh: pkg.quy_trinh,
+        muc_tieu: pkg.muc_tieu,
+        anh_goi: pkg.anh_goi,
+        danh_muc_goi_id: pkg.danh_muc_id,
+        danh_muc_id: pkg.danh_muc_id, // backward compatibility
+        luot_dung: Number(pkg.luot_dung || 0),
+      }));
     res.json(publicServices);
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server khi lấy danh sách dịch vụ' });
   }
 });
 
-/**
- * @swagger
- * /client/packages:
- *   get:
- *     summary: Lấy danh sách gói điều trị đang hiển thị trên website
- *     tags: [Khách hàng - Client]
- *     responses:
- *       200:
- *         description: Danh sách gói điều trị công khai
- */
 router.get('/packages', async (req, res) => {
   try {
     const packages = await adminService.getPackages();
-    const publicPackages = packages.filter((p: any) => p.hien_thi_website !== false && p.trang_thai === 'hoat_dong');
+    // Trả về gói liệu trình (LIEU_TRINH) làm danh sách gói
+    const publicPackages = packages.filter((p: any) => p.loai_goi === 'LIEU_TRINH' && p.trang_thai === 'hoat_dong');
     res.json(publicPackages);
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server khi lấy danh sách gói dịch vụ' });
   }
 });
 
-/**
- * @swagger
- * /client/categories:
- *   get:
- *     summary: Lấy danh mục dịch vụ (công khai)
- *     tags: [Khách hàng - Client]
- *     responses:
- *       200:
- *         description: Danh sách danh mục
- */
+router.get('/top-services', async (req, res) => {
+  try {
+    const queryStr = `
+      SELECT gdv.id, gdv.ten_goi, gdv.loai_goi, gdv.tong_so_buoi, gdv.thoi_luong_phut, gdv.don_gia, gdv.anh_goi,
+             COUNT(ch.id) AS luot_dung
+      FROM goi_dich_vu gdv
+      LEFT JOIN cuoc_hen ch ON gdv.id = ch.goi_dich_vu_id
+      WHERE gdv.trang_thai = 'hoat_dong'
+      GROUP BY gdv.id
+      ORDER BY luot_dung DESC, gdv.ten_goi ASC
+      LIMIT 3
+    `;
+    const { rows } = await pool.query(queryStr);
+    const formatted = rows.map((p: any) => ({
+      id: p.id,
+      ten_goi: p.ten_goi,
+      loai_goi: p.loai_goi,
+      tong_so_buoi: p.tong_so_buoi,
+      thoi_luong_phut: p.thoi_luong_phut,
+      don_gia: Number(p.don_gia),
+      anh_goi: p.anh_goi,
+      luot_dung: Number(p.luot_dung)
+    }));
+    res.json(formatted);
+  } catch (error) {
+    console.error('Lỗi khi lấy top dịch vụ:', error);
+    res.status(500).json({ message: 'Lỗi server khi lấy top dịch vụ' });
+  }
+});
+
 router.get('/categories', async (req, res) => {
   try {
-    const categories = await adminService.getCategories();
-    const publicCategories = categories.filter((c: any) => c.an_hien !== false);
-    res.json(publicCategories);
+    const { rows } = await pool.query('SELECT id, ten_danh_muc, mo_ta, loai_goi_ap_dung FROM danh_muc_goi ORDER BY id ASC');
+    res.json(rows);
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server khi lấy danh mục' });
   }
 });
 
-/**
- * @swagger
- * /client/appointments/booked-slots:
- *   get:
- *     summary: Lấy danh sách khung giờ đã đặt theo ngày (không cần đăng nhập)
- *     tags: [Khách hàng - Client]
- *     parameters:
- *       - in: query
- *         name: date
- *         required: true
- *         schema:
- *           type: string
- *           format: date
- *         example: "2026-07-01"
- *         description: Ngày cần kiểm tra (YYYY-MM-DD)
- *       - in: query
- *         name: phone
- *         schema:
- *           type: string
- *         description: Số điện thoại khách để kiểm tra giới hạn tuần
- *     responses:
- *       200:
- *         description: Danh sách giờ đã bận trong ngày
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 bookedSlots:
- *                   type: array
- *                   items:
- *                     type: string
- *                 hasReachedWeeklyLimit:
- *                   type: boolean
- *                   description: Khách đã đặt đủ 2 lịch khám lâm sàng trong tuần này chưa
- */
+router.get('/specialists', async (req, res) => {
+  try {
+    const queryStr = `
+      SELECT nd.id, nd.ho_ten, nd.email, nd.so_dien_thoai, nd.anh_dai_dien, vt.ten_vai_tro as vai_tro,
+             hs.so_nam_kinh_nghiem, hs.bang_cap_chung_chi, hs.mo_ta,
+             COALESCE(AVG(dg.so_sao)::numeric(3,1), 5.0) as trung_binh_sao,
+             COUNT(dg.id)::int as tong_danh_gia
+      FROM nguoi_dung nd
+      JOIN vai_tro vt ON nd.vai_tro_id = vt.id
+      LEFT JOIN ho_so_chuyen_gia hs ON nd.id = hs.nguoi_dung_id
+      LEFT JOIN cuoc_hen ch ON nd.id = ch.nhan_su_id
+      LEFT JOIN danh_gia_chat_luong dg ON ch.id = dg.cuoc_hen_id
+      WHERE nd.vai_tro_id IN (3, 4) AND nd.trang_thai = 'hoat_dong'
+      GROUP BY nd.id, nd.ho_ten, nd.email, nd.so_dien_thoai, nd.anh_dai_dien, vt.ten_vai_tro, hs.so_nam_kinh_nghiem, hs.bang_cap_chung_chi, hs.mo_ta
+      ORDER BY nd.vai_tro_id DESC, nd.ho_ten ASC
+    `;
+    const { rows } = await pool.query(queryStr);
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi lấy danh sách chuyên gia' });
+  }
+});
+
+router.get('/specialists/:id', async (req, res) => {
+  try {
+    const queryStr = `
+      SELECT nd.id, nd.ho_ten, nd.email, nd.so_dien_thoai, nd.anh_dai_dien, vt.ten_vai_tro as vai_tro,
+             hs.so_nam_kinh_nghiem, hs.bang_cap_chung_chi, hs.mo_ta,
+             COALESCE(AVG(dg.so_sao)::numeric(3,1), 5.0) as trung_binh_sao,
+             COUNT(dg.id)::int as tong_danh_gia
+      FROM nguoi_dung nd
+      JOIN vai_tro vt ON nd.vai_tro_id = vt.id
+      LEFT JOIN ho_so_chuyen_gia hs ON nd.id = hs.nguoi_dung_id
+      LEFT JOIN cuoc_hen ch ON nd.id = ch.nhan_su_id
+      LEFT JOIN danh_gia_chat_luong dg ON ch.id = dg.cuoc_hen_id
+      WHERE nd.id = $1 AND nd.vai_tro_id IN (3, 4)
+      GROUP BY nd.id, nd.ho_ten, nd.email, nd.so_dien_thoai, nd.anh_dai_dien, vt.ten_vai_tro, hs.so_nam_kinh_nghiem, hs.bang_cap_chung_chi, hs.mo_ta
+    `;
+    const { rows } = await pool.query(queryStr, [req.params.id]);
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Không tìm thấy chuyên gia' });
+    }
+    res.json(rows[0]);
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi lấy thông tin chi tiết chuyên gia' });
+  }
+});
+
+router.get('/testimonials', async (req, res) => {
+  try {
+    const queryStr = `
+      SELECT dg.id, dg.so_sao, dg.nhan_xet, kh.ho_ten, kh.gioi_tinh
+      FROM danh_gia_chat_luong dg
+      JOIN khach_hang kh ON dg.khach_hang_id = kh.id
+      ORDER BY dg.id DESC
+    `;
+    const { rows } = await pool.query(queryStr);
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi lấy đánh giá' });
+  }
+});
+
 router.get('/appointments/booked-slots', getBookedSlots);
-
-/**
- * @swagger
- * /client/appointments/active-doctor-dates:
- *   get:
- *     summary: Lấy danh sách ngày có bác sĩ làm việc (công khai)
- *     tags: [Khách hàng - Client]
- *     responses:
- *       200:
- *         description: Danh sách ngày có bác sĩ hoạt động
- */
 router.get('/appointments/active-doctor-dates', getActiveDoctorDates);
-
-/**
- * @swagger
- * /client/appointments:
- *   get:
- *     summary: Lấy lịch sử lịch hẹn của khách hàng đang đăng nhập
- *     tags: [Khách hàng - Client]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Danh sách lịch hẹn của khách hàng
- *       401:
- *         description: Chưa đăng nhập
- */
 router.get('/appointments', verifyToken, getCustomerAppointments);
-
-/**
- * @swagger
- * /client/appointments/{id}/cancel:
- *   patch:
- *     summary: Hủy lịch hẹn của khách hàng
- *     tags: [Khách hàng - Client]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: ID lịch hẹn cần hủy
- *     responses:
- *       200:
- *         description: Hủy lịch thành công
- *       403:
- *         description: Không có quyền hủy lịch này
- */
 router.patch('/appointments/:id/cancel', verifyToken, cancelCustomerAppointment);
 
-/**
- * @swagger
- * /client/medical-record:
- *   get:
- *     summary: Lấy hồ sơ bệnh án của khách hàng đang đăng nhập
- *     tags: [Khách hàng - Client]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Hồ sơ bệnh án chi tiết (chẩn đoán, phác đồ điều trị, đánh giá)
- *       401:
- *         description: Chưa đăng nhập
- */
+router.get('/appointments/pending-rating', verifyToken, async (req, res) => {
+  try {
+    const khach_hang_id = (req as any).user.id;
+    const queryStr = `
+      SELECT ch.id, ch.ngay_gio_bat_dau, g.ten_goi as ten_dich_vu, nd.ho_ten as ten_bac_si
+      FROM cuoc_hen ch
+      LEFT JOIN goi_dich_vu g ON ch.goi_dich_vu_id = g.id
+      LEFT JOIN nguoi_dung nd ON ch.nhan_su_id = nd.id
+      LEFT JOIN danh_gia_chat_luong dg ON ch.id = dg.cuoc_hen_id
+      WHERE ch.khach_hang_id = $1 
+        AND ch.trang_thai = 'hoan_thanh' 
+        AND dg.id IS NULL
+      ORDER BY ch.ngay_gio_bat_dau DESC
+    `;
+    const { rows } = await pool.query(queryStr, [khach_hang_id]);
+    res.json(rows);
+  } catch (error) {
+    console.error('Lỗi khi lấy lịch hẹn chưa đánh giá:', error);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
+
+router.post('/appointments/:id/rate', verifyToken, async (req, res) => {
+  try {
+    const { so_sao, nhan_xet } = req.body;
+    const cuoc_hen_id = req.params.id;
+    const khach_hang_id = (req as any).user.id;
+
+    // Check if appointment exists, is completed, and belongs to this client
+    const { rows: apptRows } = await pool.query(
+      'SELECT id, trang_thai, khach_hang_id FROM cuoc_hen WHERE id = $1',
+      [cuoc_hen_id]
+    );
+
+    if (apptRows.length === 0) {
+      return res.status(404).json({ message: 'Không tìm thấy lịch hẹn' });
+    }
+
+    const appt = apptRows[0];
+    if (appt.khach_hang_id !== khach_hang_id) {
+      return res.status(403).json({ message: 'Không có quyền đánh giá lịch hẹn này' });
+    }
+
+    if (appt.trang_thai !== 'hoan_thanh') {
+      return res.status(400).json({ message: 'Chỉ có thể đánh giá các lịch hẹn đã hoàn thành khám' });
+    }
+
+    // Check if already rated
+    const { rows: checkRows } = await pool.query(
+      'SELECT id FROM danh_gia_chat_luong WHERE cuoc_hen_id = $1',
+      [cuoc_hen_id]
+    );
+    if (checkRows.length > 0) {
+      return res.status(400).json({ message: 'Lịch hẹn này đã được đánh giá trước đó' });
+    }
+
+    // Create review
+    const { rows: newReview } = await pool.query(
+      `INSERT INTO danh_gia_chat_luong (cuoc_hen_id, khach_hang_id, so_sao, nhan_xet)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [cuoc_hen_id, khach_hang_id, Number(so_sao), nhan_xet]
+    );
+
+    res.status(201).json(newReview[0]);
+  } catch (error) {
+    console.error('Lỗi khi lưu đánh giá:', error);
+    res.status(500).json({ message: 'Lỗi server khi lưu đánh giá' });
+  }
+});
 router.get('/medical-record', verifyToken, getCustomerMedicalRecord);
-
-/**
- * @swagger
- * /client/treatment-sessions:
- *   get:
- *     summary: Lấy lịch sử các buổi trị liệu của khách hàng đang đăng nhập
- *     tags: [Khách hàng - Client]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Danh sách các buổi trị liệu đã thực hiện
- *       401:
- *         description: Chưa đăng nhập
- */
 router.get('/treatment-sessions', verifyToken, getCustomerTreatmentSessions);
-
-/**
- * @swagger
- * /client/notifications:
- *   get:
- *     summary: Lấy danh sách thông báo của khách hàng
- *     tags: [Khách hàng - Client]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Danh sách thông báo
- */
 router.get('/notifications', verifyToken, getNotifications);
-
-/**
- * @swagger
- * /client/notifications/read-all:
- *   patch:
- *     summary: Đánh dấu tất cả thông báo là đã đọc
- *     tags: [Khách hàng - Client]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Tất cả thông báo đã được đánh dấu đã đọc
- */
 router.patch('/notifications/read-all', verifyToken, markAllAsRead);
-
-/**
- * @swagger
- * /client/notifications/{id}/read:
- *   patch:
- *     summary: Đánh dấu một thông báo là đã đọc
- *     tags: [Khách hàng - Client]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: ID thông báo
- *     responses:
- *       200:
- *         description: Thông báo đã được đánh dấu đã đọc
- */
 router.patch('/notifications/:id/read', verifyToken, markAsRead);
 
 export default router;

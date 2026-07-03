@@ -10,6 +10,7 @@ interface CapacityViewProps {
   setViewMode: (view: 'timeline' | 'capacity') => void;
   appointments: any[];
   timeRange: 'today' | '7days' | 'month' | 'custom';
+  activeType: 'kham' | 'dieu_tri';
 }
 
 export function CapacityView({
@@ -17,7 +18,8 @@ export function CapacityView({
   setSelectedDate,
   setViewMode,
   appointments,
-  timeRange
+  timeRange,
+  activeType
 }: CapacityViewProps) {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const pageSize = 7;
@@ -63,7 +65,7 @@ export function CapacityView({
     });
 
     const activeRooms = Array.from(new Set(dayApts.map(apt => apt.phong_id).filter(Boolean)));
-    const activeDocs = Array.from(new Set(dayApts.map(apt => apt.bac_si_id || apt.chuyen_gia_id).filter(Boolean)));
+    const activeDocs = Array.from(new Set(dayApts.map(apt => apt.bac_si_id).filter(Boolean)));
 
     const maxDailyCapacity = 20; // 20 slots max
     const percentage = Math.min(Math.round((dayApts.length / maxDailyCapacity) * 100), 100);
@@ -83,19 +85,29 @@ export function CapacityView({
       activeRoomsCount: activeRooms.length,
       activeDocsCount: activeDocs.length,
       activeDocsList: Array.from(new Set(activeDocs.map(id => {
-        const aptWithDoc = dayApts.find(apt => (apt.bac_si_id || apt.chuyen_gia_id) === id);
+        const aptWithDoc = dayApts.find(apt => apt.bac_si_id === id);
         if (aptWithDoc?.ten_ky_thuat_vien) {
           const fullName = aptWithDoc.ten_ky_thuat_vien;
-          const prefix = fullName.toLowerCase().startsWith('bs') ? '' : 'BS. ';
+          const prefix = activeType === 'kham' ? 'BS. ' : 'KTV. ';
           const parts = fullName.trim().split(' ');
           const lastName = parts[parts.length - 1];
           return `${prefix}${lastName}`;
         }
-        if (id === 'doc_1' || id === '20000000-0000-0000-0000-000000000005') return 'BS. Khoa';
-        if (id === 'doc_2' || id === '20000000-0000-0000-0000-000000000006') return 'BS. Lan Anh';
-        if (id === 'doc_3' || id === '20000000-0000-0000-0000-000000000007') return 'BS. Hưng';
-        if (id === 'doc_4' || id === '20000000-0000-0000-0000-000000000008') return 'BS. Minh';
-        return 'BS. Minh';
+        if (aptWithDoc?.ten_bac_si) {
+          const fullName = aptWithDoc.ten_bac_si;
+          const prefix = activeType === 'kham' ? 'BS. ' : 'KTV. ';
+          const parts = fullName.trim().split(' ');
+          const lastName = parts[parts.length - 1];
+          return `${prefix}${lastName}`;
+        }
+        const prefix = activeType === 'kham' ? 'BS. ' : 'KTV. ';
+        if (id === 'doc_1' || id === '20000000-0000-0000-0000-000000000005') return `${prefix}Khoa`;
+        if (id === 'doc_2' || id === '20000000-0000-0000-0000-000000000006') return `${prefix}Lan Anh`;
+        if (id === 'doc_3' || id === '20000000-0000-0000-0000-000000000007') return `${prefix}Hưng`;
+        if (id === 'doc_4' || id === '20000000-0000-0000-0000-000000000008') return `${prefix}Minh`;
+        if (id === 'ktv_1' || id === '20000000-0000-0000-0000-000000000009') return `${prefix}Tuấn`;
+        if (id === 'ktv_2' || id === '20000000-0000-0000-0000-000000000010') return `${prefix}Trang`;
+        return `${prefix}Nhân viên`;
       })))
     };
   };
@@ -182,7 +194,9 @@ export function CapacityView({
               {/* Load Progress Column */}
               <div className="flex-1 min-w-0 max-w-sm flex flex-col gap-1.5">
                 <div className="flex justify-between items-center text-[10px] font-bold">
-                  <span className="text-slate-500 dark:text-zinc-400">{stats.count} ca khám đã đặt</span>
+                  <span className="text-slate-500 dark:text-zinc-400">
+                    {stats.count} {activeType === 'kham' ? 'ca khám đã đặt' : 'ca điều trị đã đặt'}
+                  </span>
                   <span className={`${textColor} font-black font-mono`}>{stats.percentage}% lấp đầy</span>
                 </div>
                 
@@ -204,14 +218,14 @@ export function CapacityView({
                 </div>
               </div>
 
-              {/* Doctor On Duty Column */}
+              {/* Doctor/KTV On Duty Column */}
               <div className="w-52 shrink-0 flex flex-col justify-center">
                 <span className="text-[9px] text-slate-400 dark:text-zinc-550 font-bold uppercase tracking-wider block mb-1">
-                  Bác sĩ trực
+                  {activeType === 'kham' ? 'Bác sĩ trực' : 'Kỹ thuật viên trực'}
                 </span>
                 <div className="flex items-center gap-1.5 font-bold text-xs text-slate-700 dark:text-zinc-350">
                   <User size={13} className="text-slate-400 shrink-0" />
-                  <span>{stats.activeDocsCount} Bác sĩ</span>
+                  <span>{stats.activeDocsCount} {activeType === 'kham' ? 'Bác sĩ' : 'Kỹ thuật viên'}</span>
                 </div>
                 {stats.activeDocsList.length > 0 ? (
                   <p className="text-[10px] text-slate-500 dark:text-zinc-400 mt-1 font-medium truncate max-w-[190px]">

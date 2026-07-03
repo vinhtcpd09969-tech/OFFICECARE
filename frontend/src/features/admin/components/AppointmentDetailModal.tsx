@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, Activity, AlertCircle, Phone, PhoneCall } from 'lucide-react';
+import { X, AlertCircle, Phone, PhoneCall } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../../stores/authStore';
 import axiosInstance from '../../../api/axios';
@@ -19,10 +19,12 @@ interface AppointmentDetailModalProps {
   setAssignStaffId: (val: string) => void;
   assignStatus: string;
   setAssignStatus: (val: string) => void;
+  cancelReason?: string;
+  setCancelReason?: (val: string) => void;
   isAssigning: boolean;
   onClose: () => void;
   onSave: (e: React.FormEvent) => void;
-  onOpenTreatment: (type?: 'single' | 'package', recId?: string) => void;
+  onOpenTreatment?: (type?: 'single' | 'package', recId?: string) => void;
   appointments?: any[];
   onSuccess?: () => void;
   schedulesList?: any[];
@@ -46,7 +48,6 @@ export default function AppointmentDetailModal({
   isAssigning,
   onClose,
   onSave,
-  onOpenTreatment,
   appointments = [],
   onSuccess,
   schedulesList = [],
@@ -696,20 +697,15 @@ export default function AppointmentDetailModal({
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => onOpenTreatment('single')}
-                  className="px-4 py-2.5 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-450 text-xs font-bold rounded-xl hover:bg-emerald-100 dark:hover:bg-emerald-950/30 flex items-center gap-2 transition-all border border-emerald-200 dark:border-emerald-800/30"
+                  onClick={() => {
+                    const dest = isReceptionist ? '/receptionist/billing' : '/admin/quick-billing';
+                    navigate(`${dest}?lich_dat_id=${selectedAppointment.id}`);
+                    onClose();
+                  }}
+                  className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white shadow-sm text-xs font-black rounded-xl flex items-center gap-2 transition-all"
                 >
-                  <Activity size={14} /> Đặt lịch điều trị nhanh (Buổi 1)
+                  💵 Thanh toán / Lập gói
                 </button>
-                {(selectedAppointment.khuyen_nghi_dich_vu_id || selectedAppointment.khuyen_nghi_goi_id) && (
-                  <button
-                    type="button"
-                    onClick={() => onOpenTreatment(selectedAppointment.khuyen_nghi_dich_vu_id ? 'single' : 'package', selectedAppointment.khuyen_nghi_dich_vu_id || selectedAppointment.khuyen_nghi_goi_id)}
-                    className="px-4 py-2.5 bg-teal-600 dark:bg-teal-700 text-white shadow-sm text-xs font-bold rounded-xl hover:bg-teal-700 dark:hover:bg-teal-600 flex items-center gap-2 transition-all animate-pulse"
-                  >
-                    🚀 Đặt lịch nhanh theo khuyến nghị (Buổi 1)
-                  </button>
-                )}
               </div>
             ) : !hideBilling && selectedAppointment.loai_lich === 'dieu_tri' && Number(selectedAppointment.so_thu_tu_buoi) === 1 && selectedAppointment.trang_thai === 'hoan_thanh' ? (
               <button

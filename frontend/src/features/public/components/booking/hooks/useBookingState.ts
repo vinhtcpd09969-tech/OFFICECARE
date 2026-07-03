@@ -23,6 +23,15 @@ function bookingReducer(state: BookingState, action: BookingAction): BookingStat
 }
 
 export function useBookingState(user: any, bookingType: 'kham' | 'dich_vu', selectedServiceId: string, services: any[]) {
+  const [tempHoldId] = useState(() => {
+    let id = sessionStorage.getItem('booking_temp_hold_id');
+    if (!id) {
+      id = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36);
+      sessionStorage.setItem('booking_temp_hold_id', id);
+    }
+    return id;
+  });
+
   const [state, dispatch] = useReducer(bookingReducer, {
     selectedDate: formatLocalDate(new Date()),
     selectedTime: '',
@@ -39,7 +48,14 @@ export function useBookingState(user: any, bookingType: 'kham' | 'dich_vu', sele
   });
 
   const [bookedSlots, setBookedSlots] = useState<string[]>([]);
+  const [specialists, setSpecialists] = useState<any[]>([]);
+  const [slotAvailability, setSlotAvailability] = useState<Record<string, number[]>>({});
   const [hasExistingClinicalExam, setHasExistingClinicalExam] = useState<boolean>(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const refreshSlots = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
 
   // Restore saved booking form data on user state change
   useEffect(() => {
@@ -80,21 +96,25 @@ export function useBookingState(user: any, bookingType: 'kham' | 'dich_vu', sele
         duration = service.thoi_luong_phut || 30;
       }
     } else {
-      const examService = services.find(s => String(s.danh_muc_id) === '1');
+      const examService = services.find(s => s.loai_goi === 'KHAM' || s.loai_dich_vu === 'KHAM');
       targetDichVuId = examService?.id || '';
     }
 
-    fetch(`${BASE_URL}/client/appointments/booked-slots?date=${state.selectedDate}&userId=${userId}&phone=${phone}&duration=${duration}&dichVuId=${targetDichVuId}`)
+    fetch(`${BASE_URL}/client/appointments/booked-slots?date=${state.selectedDate}&userId=${userId}&phone=${phone}&duration=${duration}&dichVuId=${targetDichVuId}&excludeSessionId=${tempHoldId}`)
       .then(res => res.json())
       .then(data => {
         setBookedSlots(data.bookedSlots || []);
+        setSpecialists(data.specialists || []);
+        setSlotAvailability(data.slotAvailability || {});
         setHasExistingClinicalExam(!!data.hasExistingClinicalExam);
       })
       .catch(() => {
         setBookedSlots([]);
+        setSpecialists([]);
+        setSlotAvailability({});
         setHasExistingClinicalExam(false);
       });
-  }, [state.selectedDate, user?.id, state.formData.so_dien_thoai, user?.so_dien_thoai, bookingType, selectedServiceId, services]);
+  }, [state.selectedDate, user?.id, state.formData.so_dien_thoai, user?.so_dien_thoai, bookingType, selectedServiceId, services, tempHoldId, refreshTrigger]);
 
   const setDateField = useCallback((date: string) => {
     setHasExistingClinicalExam(false); // Reset cờ khi set date mới
@@ -120,11 +140,15 @@ export function useBookingState(user: any, bookingType: 'kham' | 'dich_vu', sele
   return {
     state,
     bookedSlots,
+    specialists,
+    slotAvailability,
     hasExistingClinicalExam,
     setDateField,
     setTimeField,
     setFormField,
     setSubmitting,
-    setSuccess
+    setSuccess,
+    tempHoldId,
+    refreshSlots
   };
 }

@@ -56,7 +56,7 @@ export function useAppointmentsData(isReceptionist: boolean) {
       const [aptRes, staffRes, serviceRes, packageRes, roomsRes, schedulesRes] = await Promise.all([
         axiosInstance.get('/admin/appointments'),
         axiosInstance.get('/admin/staff'),
-        axiosInstance.get('/admin/services'),
+        axiosInstance.get('/admin/packages').catch(() => ({ data: [] })),
         axiosInstance.get('/admin/packages').catch(() => ({ data: [] })),
         axiosInstance.get('/admin/rooms').catch(() => ({ data: [] })),
         axiosInstance.get('/admin/schedules').catch(() => ({ data: [] }))

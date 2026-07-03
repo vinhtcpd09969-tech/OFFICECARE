@@ -100,16 +100,7 @@ export default function QuickBilling() {
     }
   };
 
-  // Enforce parameter existence
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const queryLichDatId = params.get('lich_dat_id');
-    if (!queryLichDatId) {
-      toast.error('Vui lòng chọn ca điều trị cần thanh toán từ danh sách!');
-      const path = Number(user?.vai_tro_id) === 2 ? '/receptionist' : '/admin/treatments';
-      navigate(path);
-    }
-  }, [location.search, user, navigate]);
+  // Enforce parameter existence removed to allow receptionist to choose patients manually from the list if they navigate here directly.
 
   // Auto select from redirect parameters & validate existence
   useEffect(() => {
@@ -134,7 +125,7 @@ export default function QuickBilling() {
         }
       } else {
         toast.error('Không tìm thấy ca điều trị cần thanh toán hoặc ca đã được thanh toán rồi!');
-        const path = Number(user?.vai_tro_id) === 2 ? '/receptionist' : '/admin/treatments';
+        const path = Number(user?.vai_tro_id) === 2 ? '/receptionist' : '/admin/appointments';
         navigate(path);
       }
     }
@@ -341,6 +332,22 @@ export default function QuickBilling() {
 
   const handleSelectCompletedConsultation = (cons: any) => {
     setSelectedConsultation(cons);
+    if (cons.khuyen_nghi_goi_id) {
+      setActiveTab('package');
+      if (packages.length > 0) {
+        const matchedPkg = packages.find(p => String(p.id) === String(cons.khuyen_nghi_goi_id));
+        if (matchedPkg) {
+          setSelectedPackage(matchedPkg);
+        } else {
+          setSelectedPackage(null);
+        }
+      } else {
+        setSelectedPackage(null);
+      }
+    } else {
+      setSelectedPackage(null);
+      setActiveTab('single');
+    }
     toast.success(`Đã chọn khách hàng: ${cons.ten_khach_hang}`);
   };
 

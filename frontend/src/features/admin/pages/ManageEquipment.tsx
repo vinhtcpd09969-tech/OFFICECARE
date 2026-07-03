@@ -3,117 +3,37 @@ import {
   getEquipment,
   createEquipment,
   updateEquipment,
-  deleteEquipment,
-  getEquipmentTypes,
-  createEquipmentType,
-  updateEquipmentType
+  deleteEquipment
 } from '../../../api/admin.api';
 
-// --- Types ---
 interface Equipment {
-  id: string | number;
+  id: string;
   ma_thiet_bi: string;
   ten_thiet_bi: string;
-  loai_thiet_bi?: string;
-  ten_danh_muc?: string;
   ngay_mua?: string;
-  ngay_bao_tri_gan_nhat?: string;
   trang_thai: string;
-  danh_muc_thiet_bi_id?: number | null;
   ghi_chu?: string;
-  so_lan_su_dung?: number;
-  nguong_canh_bao?: number | null;
-  nguong_bat_buoc_bao_tri?: number | null;
-  tan_suat_bao_tri_ngay?: number | null;
-  cap_rui_ro?: string;
-  active_booking_type?: string;
-  active_booking_id?: string;
-  active_patient_name?: string;
-  active_operator_name?: string;
-  active_service_name?: string;
-  active_booking_code?: string;
-}
-
-
-// GROUP_SUGGESTED_TYPES removed since DB categories are used dynamically.
-
-
-
-
-// Removed static GROUP_OPTIONS to use dynamic database equipment categories instead.
-
-interface EquipmentType {
-  id: number;
-  ten_loai?: string;
-  ten_danh_muc: string;
-  ten_thiet_bi: string;
 }
 
 export default function ManageEquipment() {
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  // Tab & Dynamic types
-  const [activeTab, setActiveTab] = useState<'equipment' | 'types'>('equipment');
-  const [equipmentTypes, setEquipmentTypes] = useState<EquipmentType[]>([]);
-  const [isTypeModalOpen, setIsTypeModalOpen] = useState(false);
-  const [editingType, setEditingType] = useState<EquipmentType | null>(null);
-  const [typeFormData, setTypeFormData] = useState({
-    ten_thiet_bi: '',
-    ten_danh_muc: ''
-  });
-
-  // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  const [selectedGroupFilter, setSelectedGroupFilter] = useState<string>('all');
-  const [statFilter, setStatFilter] = useState<string | null>(null);
-
-  // Toasts
   const [toasts, setToasts] = useState<{ id: number; message: string; type: 'success' | 'error' | 'info' }[]>([]);
 
   // Modals state
   const [isEquipmentModalOpen, setIsEquipmentModalOpen] = useState(false);
   const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
 
-  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
-    'nhiet': true,
-    'dien': true,
-    'co_hoc': true,
-    'giuong_tri_lieu': true,
-    'thiet_bi_dac_biet': true,
-    'khac': true
-  });
-
   // Form state
-  const [selectedTypeId, setSelectedTypeId] = useState<string | number>('');
-  const [formDeviceName, setFormDeviceName] = useState<string>('');
-
-  const [equipmentFormData, setEquipmentFormData] = useState<{
-    ten_thiet_bi: string;
-    ma_thiet_bi: string;
-    loai_thiet_bi: string;
-    ngay_mua: string;
-    trang_thai: string;
-    ghi_chu: string;
-    cap_rui_ro: string;
-    tan_suat_bao_tri_ngay: number | '';
-    ngay_bao_tri_gan_nhat: string;
-    so_luong: number | '';
-  }>({
-    ten_thiet_bi: '',
+  const [equipmentFormData, setEquipmentFormData] = useState({
     ma_thiet_bi: '',
-    loai_thiet_bi: 'Máy điện xung',
+    ten_thiet_bi: '',
     ngay_mua: '',
     trang_thai: 'san_sang',
-    ghi_chu: '',
-    cap_rui_ro: 'trung_binh',
-    tan_suat_bao_tri_ngay: 45,
-    ngay_bao_tri_gan_nhat: '',
-    so_luong: 1
+    ghi_chu: ''
   });
-
-  // derivedGroupTypes removed since categories are loaded dynamically from DB
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     const id = Date.now();
@@ -123,19 +43,14 @@ export default function ManageEquipment() {
     }, 4000);
   };
 
-  // Fetch all equipment
   const loadData = async () => {
     try {
       setLoading(true);
-      const [eqRes, typesRes] = await Promise.all([
-        getEquipment(),
-        getEquipmentTypes()
-      ]);
+      const eqRes = await getEquipment();
       setEquipment(eqRes.data || []);
-      setEquipmentTypes(typesRes.data || []);
     } catch (error) {
-      console.error('Lỗi khi lấy dữ liệu y tế:', error);
-      showToast('Không thể kết nối API. Đang dùng dữ liệu mô phỏng.', 'error');
+      console.error('Lỗi khi lấy danh sách thiết bị:', error);
+      showToast('Không thể kết nối API thiết bị.', 'error');
     } finally {
       setLoading(false);
     }
@@ -145,15 +60,11 @@ export default function ManageEquipment() {
     loadData();
   }, []);
 
-  // Statistics calculation
   const stats = useMemo(() => {
-    const totalEq = equipment.length;
-    const maintenanceEq = equipment.filter(e => e.trang_thai === 'dang_bao_tri' || e.trang_thai === 'hong').length;
-
-    return {
-      totalEq,
-      maintenanceEq
-    };
+    const total = equipment.length;
+    const ready = equipment.filter(e => e.trang_thai === 'san_sang').length;
+    const maintenance = equipment.filter(e => e.trang_thai === 'dang_bao_tri' || e.trang_thai === 'hong').length;
+    return { total, ready, maintenance };
   }, [equipment]);
 
   const filteredEquipment = useMemo(() => {
@@ -164,95 +75,31 @@ export default function ManageEquipment() {
       if (!matchSearch) return false;
 
       if (selectedStatus !== 'all') {
-        if (selectedStatus === 'san_sang' && eq.trang_thai !== 'san_sang') return false;
-        if (selectedStatus === 'dang_su_dung' && eq.trang_thai !== 'dang_su_dung') return false;
-        if (selectedStatus === 'dang_bao_tri' && eq.trang_thai !== 'dang_bao_tri') return false;
-        if (selectedStatus === 'hong' && eq.trang_thai !== 'hong') return false;
+        if (eq.trang_thai !== selectedStatus) return false;
       }
-
-      if (selectedGroupFilter !== 'all') {
-        const groupKey = eq.ten_danh_muc || 'khac';
-        if (groupKey !== selectedGroupFilter) return false;
-      }
-
-      if (statFilter === 'eq_maintenance' && eq.trang_thai !== 'dang_bao_tri' && eq.trang_thai !== 'hong') return false;
 
       return true;
     });
-  }, [equipment, searchQuery, selectedStatus, selectedGroupFilter, statFilter]);
+  }, [equipment, searchQuery, selectedStatus]);
 
-  const groupedEquipment = useMemo(() => {
-    const groups: Record<string, Equipment[]> = {};
-
-    // Initialize groups dynamically from loaded categories
-    equipmentTypes.forEach(t => {
-      if (t.ten_danh_muc) {
-        groups[t.ten_danh_muc] = [];
-      }
-    });
-    groups['khac'] = [];
-
-    filteredEquipment.forEach(eq => {
-      const groupKey = eq.ten_danh_muc || 'khac';
-      if (groups[groupKey]) {
-        groups[groupKey].push(eq);
-      } else {
-        groups['khac'].push(eq);
-      }
-    });
-
-    // Pushes discontinued equipment ('ngung_su_dung') to the bottom of the list
-    Object.keys(groups).forEach(key => {
-      groups[key].sort((a, b) => {
-        if (a.trang_thai === 'ngung_su_dung' && b.trang_thai !== 'ngung_su_dung') return 1;
-        if (a.trang_thai !== 'ngung_su_dung' && b.trang_thai === 'ngung_su_dung') return -1;
-        return 0;
-      });
-    });
-
-    return groups;
-  }, [filteredEquipment, equipmentTypes]);
-
-  // Handle Equipment CRUD
   const handleOpenEquipmentModal = (eq: Equipment | null = null) => {
     if (eq) {
-      const deviceType = eq.loai_thiet_bi || '';
-
-      setSelectedTypeId(eq.danh_muc_thiet_bi_id || '');
-      setFormDeviceName(eq.ten_thiet_bi);
       setEditingEquipment(eq);
       setEquipmentFormData({
-        ten_thiet_bi: eq.ten_thiet_bi,
         ma_thiet_bi: eq.ma_thiet_bi,
-        loai_thiet_bi: deviceType,
+        ten_thiet_bi: eq.ten_thiet_bi,
         ngay_mua: eq.ngay_mua ? eq.ngay_mua.substring(0, 10) : '',
         trang_thai: eq.trang_thai,
-        ghi_chu: eq.ghi_chu || '',
-        cap_rui_ro: eq.cap_rui_ro || 'trung_binh',
-        tan_suat_bao_tri_ngay: eq.tan_suat_bao_tri_ngay ?? 45,
-        ngay_bao_tri_gan_nhat: eq.ngay_bao_tri_gan_nhat ? eq.ngay_bao_tri_gan_nhat.substring(0, 10) : '',
-        so_luong: 1
+        ghi_chu: eq.ghi_chu || ''
       });
     } else {
-      // Create mode: select first type if available
-      const firstType = equipmentTypes[0];
-      const defaultTypeId = firstType ? firstType.id : '';
-      const defaultTypeName = firstType ? (firstType.ten_thiet_bi || firstType.ten_loai || '') : '';
-
-      setSelectedTypeId(defaultTypeId);
-      setFormDeviceName(defaultTypeName);
       setEditingEquipment(null);
       setEquipmentFormData({
+        ma_thiet_bi: 'TB-' + Math.random().toString(36).substring(2, 7).toUpperCase(),
         ten_thiet_bi: '',
-        ma_thiet_bi: '',
-        loai_thiet_bi: defaultTypeName,
         ngay_mua: new Date().toISOString().substring(0, 10),
         trang_thai: 'san_sang',
-        ghi_chu: '',
-        cap_rui_ro: 'trung_binh',
-        tan_suat_bao_tri_ngay: 45,
-        ngay_bao_tri_gan_nhat: '',
-        so_luong: 1
+        ghi_chu: ''
       });
     }
     setIsEquipmentModalOpen(true);
@@ -260,32 +107,26 @@ export default function ManageEquipment() {
 
   const handleEquipmentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmedName = formDeviceName.trim();
-    if (!trimmedName) {
+    if (!equipmentFormData.ma_thiet_bi.trim()) {
+      showToast('Vui lòng nhập mã thiết bị.', 'error');
+      return;
+    }
+    if (!equipmentFormData.ten_thiet_bi.trim()) {
       showToast('Vui lòng nhập tên thiết bị.', 'error');
       return;
     }
 
-    const count = editingEquipment ? 1 : (Number(equipmentFormData.so_luong) || 1);
-
     try {
-      const catId = selectedTypeId ? Number(selectedTypeId) : null;
-      if (!catId) {
-        showToast('Vui lòng chọn danh mục thiết bị (hãy tạo danh mục trước nếu chưa có).', 'error');
-        return;
-      }
-
       const dataToSend = {
-        ten_thiet_bi: trimmedName,
-        danh_muc_thiet_bi_id: catId,
+        ma_thiet_bi: equipmentFormData.ma_thiet_bi.trim(),
+        ten_thiet_bi: equipmentFormData.ten_thiet_bi.trim(),
         ngay_mua: equipmentFormData.ngay_mua || null,
         trang_thai: equipmentFormData.trang_thai,
-        ghi_chu: equipmentFormData.ghi_chu || null,
-        so_luong: count
+        ghi_chu: equipmentFormData.ghi_chu || null
       };
 
       if (editingEquipment) {
-        await updateEquipment(editingEquipment.id.toString(), dataToSend);
+        await updateEquipment(editingEquipment.id, dataToSend);
         showToast('Cập nhật thiết bị thành công!');
       } else {
         await createEquipment(dataToSend);
@@ -300,89 +141,33 @@ export default function ManageEquipment() {
     }
   };
 
-  const handleDeleteEquipment = async (id: string | number) => {
-    if (window.confirm('Bạn có chắc chắn muốn ngưng sử dụng thiết bị này?')) {
+  const handleDeleteEquipment = async (id: string) => {
+    if (window.confirm('Bạn có chắc chắn muốn xóa thiết bị này khỏi hệ thống?')) {
       try {
-        await deleteEquipment(id.toString());
-        showToast('Đã chuyển trạng thái thiết bị thành ngưng sử dụng thành công.');
+        await deleteEquipment(id);
+        showToast('Đã xóa thiết bị thành công.');
         loadData();
       } catch (error) {
-        showToast('Lỗi khi ngưng sử dụng thiết bị.', 'error');
+        showToast('Lỗi khi xóa thiết bị.', 'error');
       }
     }
   };
-
-  // Handle Equipment Types CRUD
-  const handleOpenTypeModal = (type: EquipmentType | null = null) => {
-    if (type) {
-      setEditingType(type);
-      setTypeFormData({
-        ten_thiet_bi: type.ten_thiet_bi || type.ten_loai || '',
-        ten_danh_muc: type.ten_danh_muc || ''
-      });
-    } else {
-      setEditingType(null);
-      setTypeFormData({
-        ten_thiet_bi: '',
-        ten_danh_muc: ''
-      });
-    }
-    setIsTypeModalOpen(true);
-  };
-
-  const handleTypeSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleanTenThietBi = typeFormData.ten_thiet_bi.trim();
-    const cleanTenDanhMuc = typeFormData.ten_danh_muc.trim();
-
-    if (!cleanTenThietBi) {
-      showToast('Vui lòng nhập Tên danh mục thiết bị.', 'error');
-      return;
-    }
-    if (!cleanTenDanhMuc) {
-      showToast('Vui lòng nhập Mã danh mục thiết bị.', 'error');
-      return;
-    }
-
-    try {
-      const payload = {
-        ten_thiet_bi: cleanTenThietBi,
-        ten_danh_muc: cleanTenDanhMuc
-      };
-
-      if (editingType) {
-        await updateEquipmentType(editingType.id, payload as any);
-        showToast('Cập nhật danh mục thiết bị thành công!');
-      } else {
-        await createEquipmentType(payload as any);
-        showToast('Thêm danh mục thiết bị thành công!');
-      }
-      setIsTypeModalOpen(false);
-      loadData();
-    } catch (error: any) {
-      console.error(error);
-      const msg = error?.response?.data?.message || 'Lỗi khi lưu loại thiết bị.';
-      showToast(msg, 'error');
-    }
-  };
-
-
-
 
   return (
     <div className="space-y-6 pb-12 relative animate-[fadeIn_0.4s_ease-out] font-sans text-slate-800">
-
-      {/* HUD-Style Custom Toast System */}
+      
+      {/* Toast Notification System */}
       <div className="fixed top-6 right-6 z-[999] flex flex-col gap-3">
         {toasts.map(t => (
           <div
             key={t.id}
-            className={`border px-5 py-3.5 rounded-none shadow-[0_4px_20px_rgba(0,0,0,0.08)] flex items-center justify-between gap-4 w-96 backdrop-blur-md transition-all duration-300 translate-x-0 border-l-[3px] ${t.type === 'success'
+            className={`border px-5 py-3.5 shadow-md flex items-center justify-between gap-4 w-96 backdrop-blur-md transition-all duration-300 border-l-[3px] ${
+              t.type === 'success'
                 ? 'bg-emerald-50/90 border-emerald-500 text-emerald-950 border-l-emerald-500'
                 : t.type === 'error'
                   ? 'bg-rose-50/90 border-rose-500 text-rose-950 border-l-rose-500'
                   : 'bg-teal-50/90 border-teal-500 text-teal-950 border-l-teal-500'
-              }`}
+            }`}
           >
             <div className="flex items-center gap-3">
               <span className="text-xs font-bold tracking-widest uppercase">
@@ -390,7 +175,7 @@ export default function ManageEquipment() {
               </span>
               <p className="text-sm font-medium">{t.message}</p>
             </div>
-            <button onClick={() => setToasts(prev => prev.filter(item => item.id !== t.id))} className="text-slate-400 hover:text-slate-600 transition-colors">
+            <button onClick={() => setToasts(prev => prev.filter(item => item.id !== t.id))} className="text-slate-400 hover:text-slate-655 transition-colors">
               ✕
             </button>
           </div>
@@ -401,7 +186,7 @@ export default function ManageEquipment() {
       <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4 border-b border-slate-200/80 pb-6">
         <div>
           <h2 className="text-3xl font-extrabold text-teal-950 tracking-tight flex items-center gap-3">
-            <svg className="w-8 h-8 text-teal-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-8 h-8 text-teal-850" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
             </svg>
             QUẢN LÝ THIẾT BỊ Y TẾ
@@ -410,708 +195,255 @@ export default function ManageEquipment() {
         </div>
 
         <div>
-          {activeTab === 'equipment' ? (
-            <button
-              onClick={() => handleOpenEquipmentModal()}
-              className="bg-teal-800 hover:bg-teal-900 text-white px-5 py-2.5 text-xs font-black uppercase tracking-wider transition-all duration-200 rounded-none active:scale-95 shadow-sm"
-            >
-              + THÊM THIẾT BỊ Y TẾ
-            </button>
-          ) : (
-            <button
-              onClick={() => handleOpenTypeModal()}
-              className="bg-teal-800 hover:bg-teal-900 text-white px-5 py-2.5 text-xs font-black uppercase tracking-wider transition-all duration-200 rounded-none active:scale-95 shadow-sm"
-            >
-              + THÊM LOẠI THIẾT BỊ
-            </button>
-          )}
+          <button
+            onClick={() => handleOpenEquipmentModal()}
+            className="bg-teal-800 hover:bg-teal-900 text-white px-5 py-2.5 text-xs font-black uppercase tracking-wider transition-all duration-200 rounded-none active:scale-95 shadow-sm"
+          >
+            + THÊM THIẾT BỊ MỚI
+          </button>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-slate-200">
-        <button
-          onClick={() => setActiveTab('equipment')}
-          className={`px-6 py-3 text-xs font-black uppercase tracking-wider transition-all border-b-2 -mb-[2px] ${
-            activeTab === 'equipment'
-              ? 'border-teal-800 text-teal-800'
-              : 'border-transparent text-slate-400 hover:text-slate-650'
-          }`}
-        >
-          ⚙️ Danh sách thiết bị
-        </button>
-        <button
-          onClick={() => setActiveTab('types')}
-          className={`px-6 py-3 text-xs font-black uppercase tracking-wider transition-all border-b-2 -mb-[2px] ${
-            activeTab === 'types'
-              ? 'border-teal-800 text-teal-800'
-              : 'border-transparent text-slate-400 hover:text-slate-650'
-          }`}
-        >
-          📁 Danh mục thiết bị ({equipmentTypes.length})
-        </button>
+      {/* Statistics panel */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="border p-5 bg-white border-slate-200 hover:shadow-md transition-all duration-300 rounded-none">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Tổng Số Thiết Bị</span>
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-extrabold text-slate-900 tracking-tight">{stats.total}</span>
+            <span className="text-xs text-slate-400">máy móc đang quản lý</span>
+          </div>
+        </div>
+
+        <div className="border p-5 bg-white border-slate-200 hover:shadow-md transition-all duration-300 rounded-none">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Đang hoạt động</span>
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-extrabold text-teal-850 tracking-tight">{stats.ready}</span>
+            <span className="text-xs text-slate-400">máy móc sẵn sàng sử dụng</span>
+          </div>
+        </div>
+
+        <div className="border p-5 bg-white border-slate-200 hover:shadow-md transition-all duration-300 rounded-none">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Đang Bảo Trì / Hỏng</span>
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-extrabold text-rose-700 tracking-tight">{stats.maintenance}</span>
+            <span className="text-xs text-slate-400">cần sửa chữa hoặc kiểm định</span>
+          </div>
+        </div>
       </div>
 
-      {activeTab === 'equipment' && (
-        <>
-          {/* QUICK STATS HEADER PANEL */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div
-              onClick={() => setStatFilter(null)}
-              className={`border p-5 cursor-pointer transition-all duration-300 rounded-none hover:shadow-md ${!statFilter ? 'bg-teal-950/5 border-teal-800 shadow-[0_0_12px_rgba(15,118,110,0.06)]' : 'bg-white border-slate-200 hover:border-slate-300'}`}
-            >
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Tổng Số Thiết Bị</span>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-extrabold text-slate-900 tracking-tight">{stats.totalEq}</span>
-                <span className="text-xs text-slate-400">máy móc đang quản lý</span>
-              </div>
-            </div>
-
-            <div
-              className="border p-5 bg-white border-slate-200 hover:border-slate-300 transition-all duration-300 rounded-none"
-            >
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Thiết Bị Đang Vận Hành</span>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-extrabold text-teal-850 tracking-tight">
-                  {equipment.filter(e => e.trang_thai === 'dang_su_dung').length}
-                </span>
-                <span className="text-xs text-slate-400">máy móc đang chạy trị liệu</span>
-              </div>
-            </div>
-
-            <div
-              onClick={() => setStatFilter('eq_maintenance')}
-              className={`border p-5 cursor-pointer transition-all duration-300 rounded-none hover:shadow-md ${statFilter === 'eq_maintenance' ? 'bg-rose-50/50 border-rose-600 shadow-[0_0_12px_rgba(244,63,94,0.06)]' : 'bg-white border-slate-200 hover:border-slate-300'}`}
-            >
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Thiết Bị Sự Cố / Bảo Trì</span>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-extrabold text-rose-700 tracking-tight">{stats.maintenanceEq}</span>
-                <span className="text-xs text-slate-400">đang sửa hoặc hỏng</span>
-              </div>
-            </div>
-          </div>
-
-          {/* SEARCH AND FILTERS PANEL */}
-          <div className="bg-slate-50 border border-slate-200 p-5 rounded-none grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
-
-            {/* Search */}
-            <div className="relative md:col-span-2">
-              <span className="absolute inset-y-0 left-3 flex items-center text-slate-400">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </span>
-              <input
-                type="text"
-                placeholder="Tìm mã thiết bị, tên máy, vị trí phòng..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 border border-slate-200 bg-white text-sm font-semibold rounded-none focus:outline-none focus:border-teal-800 placeholder-slate-400"
-              />
-            </div>
-
-            {/* Nhóm tác động selector */}
-            <div>
-              <select
-                value={selectedGroupFilter}
-                onChange={(e) => setSelectedGroupFilter(e.target.value)}
-                className="w-full py-2 px-3 border border-slate-200 bg-white text-sm font-bold rounded-none focus:outline-none focus:border-teal-800 uppercase"
-              >
-                <option value="all">TẤT CẢ DANH MỤC</option>
-                {equipmentTypes.map(type => (
-                  <option key={type.id} value={type.ten_danh_muc}>
-                    {type.ten_thiet_bi || type.ten_loai || type.ten_danh_muc}
-                  </option>
-                ))}
-                <option value="khac">DỤNG CỤ & THIẾT BỊ KHÁC</option>
-              </select>
-            </div>
-
-            {/* Status selector */}
-            <div>
-              <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="w-full py-2 px-3 border border-slate-200 bg-white text-sm font-bold rounded-none focus:outline-none focus:border-teal-800"
-              >
-                <option value="all">TẤT CẢ TRẠNG THÁI</option>
-                <option value="san_sang">HOẠT ĐỘNG BÌNH THƯỜNG</option>
-                <option value="dang_su_dung">ĐANG ĐƯỢC VẬN HÀNH</option>
-                <option value="dang_bao_tri">ĐANG HIỆU CHUẨN/BẢO TRÌ</option>
-                <option value="hong">HỎNG / NGỪNG SỬ DỤNG</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Active filters display */}
-          {(statFilter || selectedStatus !== 'all' || selectedGroupFilter !== 'all' || searchQuery) && (
-            <div className="flex flex-wrap gap-2 items-center">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Đang lọc theo:</span>
-              {searchQuery && (
-                <span className="bg-slate-100 border border-slate-200 px-2.5 py-1 text-xs font-semibold rounded-none flex items-center gap-1.5">
-                  Từ khóa: "{searchQuery}"
-                  <button onClick={() => setSearchQuery('')} className="text-slate-400 hover:text-slate-655 font-bold">✕</button>
-                </span>
-              )}
-              {selectedGroupFilter !== 'all' && (
-                <span className="bg-slate-100 border border-slate-200 px-2.5 py-1 text-xs font-semibold rounded-none flex items-center gap-1.5">
-                  Danh mục: {equipmentTypes.find(t => t.ten_danh_muc === selectedGroupFilter)?.ten_thiet_bi || selectedGroupFilter}
-                  <button onClick={() => setSelectedGroupFilter('all')} className="text-slate-400 hover:text-slate-655 font-bold">✕</button>
-                </span>
-              )}
-              {selectedStatus !== 'all' && (
-                <span className="bg-slate-100 border border-slate-200 px-2.5 py-1 text-xs font-semibold rounded-none flex items-center gap-1.5">
-                  Trạng thái: {selectedStatus === 'san_sang' ? 'Hoạt động bình thường' : selectedStatus === 'dang_su_dung' ? 'Đang sử dụng' : selectedStatus === 'dang_bao_tri' ? 'Đang bảo trì' : 'Hỏng'}
-                  <button onClick={() => setSelectedStatus('all')} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
-                </span>
-              )}
-              {statFilter && (
-                <span className="bg-teal-50 border border-teal-200 text-teal-950 px-2.5 py-1 text-xs font-black rounded-none flex items-center gap-1.5 uppercase tracking-wider">
-                  {statFilter === 'eq_maintenance' ? 'Lỗi/Sự cố' : statFilter === 'eq_overdue' ? 'Đến hạn bảo trì' : 'Lọc chỉ số'}
-                  <button onClick={() => setStatFilter(null)} className="text-teal-600 hover:text-teal-900 font-bold">✕</button>
-                </span>
-              )}
-              <button
-                onClick={() => {
-                  setSearchQuery('');
-                  setSelectedStatus('all');
-                  setSelectedGroupFilter('all');
-                  setStatFilter(null);
-                }}
-                className="text-xs font-bold text-teal-800 hover:underline hover:text-teal-900 uppercase tracking-widest ml-auto"
-              >
-                Đặt lại bộ lọc
-              </button>
-            </div>
-          )}
-        </>
-      )}
-
-      {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 text-teal-800">
-          <div className="w-12 h-12 border-2 border-teal-800 border-t-transparent animate-spin rounded-none mb-4"></div>
-          <p className="font-bold text-xs tracking-widest uppercase text-slate-500">Đang truy vấn danh mục thiết bị...</p>
+      {/* Search and Filters panel */}
+      <div className="bg-slate-50 border border-slate-200 p-5 rounded-none grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+        <div className="relative md:col-span-2">
+          <span className="absolute inset-y-0 left-3 flex items-center text-slate-400">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </span>
+          <input
+            type="text"
+            placeholder="Tìm theo tên máy hoặc mã thiết bị..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-white border border-slate-250/70 p-2.5 pl-9 text-xs font-semibold rounded-none focus:outline-none focus:border-teal-800 transition-colors placeholder-slate-400"
+          />
         </div>
-      ) : activeTab === 'equipment' ? (
-        <div className="space-y-4 animate-[fadeIn_0.3s_ease-out]">
 
-          {/* Accordion List for the 5 categories */}
-          {(() => {
-            const categories = equipmentTypes.map(t => {
-              const isBed = t.ten_danh_muc === 'giuong_tri_lieu' || t.ten_danh_muc.includes('giuong');
-              const isSpecial = t.ten_danh_muc === 'thiet_bi_dac_biet' || t.ten_danh_muc.includes('dac_biet');
-              
-              return {
-                key: t.ten_danh_muc,
-                title: t.ten_thiet_bi || t.ten_loai || t.ten_danh_muc,
-                icon: isBed ? '🛏️' : isSpecial ? '🏗️' : '⚡',
-                color: isBed 
-                  ? 'text-emerald-600 bg-emerald-50 border-emerald-200' 
-                  : isSpecial 
-                    ? 'text-rose-700 bg-rose-50 border-rose-300' 
-                    : 'text-indigo-600 bg-indigo-50 border-indigo-200'
-              };
-            });
-
-            const hasKhacItems = groupedEquipment['khac'] && groupedEquipment['khac'].length > 0;
-            const allCategories = hasKhacItems 
-              ? [
-                  ...categories,
-                  { key: 'khac', title: 'Khác (Dụng cụ & Thiết bị khác)', icon: '⚙️', color: 'text-slate-600 bg-slate-50 border-slate-200' }
-                ]
-              : categories;
-
-            return allCategories.map(cat => {
-              const items = groupedEquipment[cat.key] || [];
-              if (items.length === 0) return null; // Hide categories with no items
-
-              const isExpanded = expandedCategories[cat.key] !== false;
-
-              const activeCount = items.filter(e => e.trang_thai === 'san_sang').length;
-              const runningCount = items.filter(e => e.trang_thai === 'dang_su_dung').length;
-              const maintenanceCount = items.filter(e => e.trang_thai === 'dang_bao_tri' || e.trang_thai === 'hong').length;
-
-              return (
-                <div key={cat.key} className="border border-slate-200 bg-white overflow-hidden rounded-none shadow-sm hover:shadow-md transition-all duration-300">
-                  {/* Category Header */}
-                  <div
-                    onClick={() => setExpandedCategories(prev => ({ ...prev, [cat.key]: !prev[cat.key] }))}
-                    className="p-4 bg-slate-50/50 flex justify-between items-center cursor-pointer select-none border-b border-slate-100 hover:bg-slate-50 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className={`w-8 h-8 rounded-none border flex items-center justify-center font-bold text-base ${cat.color}`}>
-                        {cat.icon}
-                      </span>
-                      <div>
-                        <h4 className="font-extrabold text-teal-950 text-xs tracking-tight uppercase">{cat.title}</h4>
-                        <div className="flex gap-2.5 text-[9px] text-slate-400 mt-0.5 font-bold uppercase tracking-wider">
-                          <span>Tổng số: <strong className="text-slate-600 font-black">{items.length} máy</strong></span>
-                          {activeCount > 0 && <span className="text-emerald-600">• Sẵn sàng: {activeCount}</span>}
-                          {runningCount > 0 && <span className="text-cyan-600">• Đang dùng: {runningCount}</span>}
-                          {maintenanceCount > 0 && <span className="text-rose-600">• Bảo trì/Lỗi: {maintenanceCount}</span>}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <span className="text-slate-400">
-                        {isExpanded ? (
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                          </svg>
-                        ) : (
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        )}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Category Content */}
-                  {isExpanded && (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="bg-slate-50/30 border-b border-slate-100 text-slate-500 text-[9px] font-black uppercase tracking-widest select-none">
-                            <th className="p-3 pl-6 w-32">Mã thiết bị</th>
-                            <th className="p-3">Tên thiết bị y khoa</th>
-                            <th className="p-3 text-center w-36">Trạng thái</th>
-                            <th className="p-3 w-72">Thông tin vận hành</th>
-                            <th className="p-3 pr-6 text-right w-24">Thao tác</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {items.map(eq => {
-                            return (
-                              <tr key={eq.id} className="hover:bg-teal-950/[0.01] transition-colors group text-xs">
-                                <td className="p-3 pl-6 font-mono font-bold text-slate-450">{eq.ma_thiet_bi}</td>
-                                <td className="p-3">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="font-extrabold text-slate-800">{eq.ten_thiet_bi}</span>
-                                    <span className="bg-teal-50 border border-teal-200/60 text-teal-850 px-2 py-0.5 text-[10px] font-bold uppercase rounded-none">
-                                      {eq.loai_thiet_bi || 'Chưa phân loại'}
-                                    </span>
-                                  </div>
-                                  <div className="flex gap-2 text-[10px] text-slate-400 mt-0.5">
-                                    {eq.so_lan_su_dung !== undefined && (
-                                      <span className="font-semibold">
-                                        Đã dùng: <strong className="text-slate-655 font-bold">{eq.so_lan_su_dung}</strong> lần
-                                      </span>
-                                    )}
-                                    {eq.ghi_chu && <span className="border-l border-slate-200 pl-2 italic">{eq.ghi_chu}</span>}
-                                  </div>
-                                </td>
-                                <td className="p-3 text-center">
-                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-none text-[9px] font-black uppercase tracking-wider border ${eq.trang_thai === 'san_sang'
-                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                      : eq.trang_thai === 'dang_su_dung'
-                                        ? 'bg-cyan-50 text-cyan-700 border-cyan-200'
-                                        : eq.trang_thai === 'dang_bao_tri'
-                                          ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                          : eq.trang_thai === 'ngung_su_dung'
-                                            ? 'bg-slate-100 text-slate-600 border-slate-300'
-                                            : 'bg-rose-50 text-rose-700 border-rose-200'
-                                    }`}>
-                                    {eq.trang_thai === 'san_sang' ? 'Hoạt động' : eq.trang_thai === 'dang_su_dung' ? 'Đang chạy' : eq.trang_thai === 'dang_bao_tri' ? 'Bảo trì' : eq.trang_thai === 'ngung_su_dung' ? 'Ngưng dùng' : 'Hỏng/Sự cố'}
-                                  </span>
-                                </td>
-                                <td className="p-3">
-                                  {eq.trang_thai === 'dang_su_dung' && eq.active_booking_code ? (
-                                    <div className="bg-teal-950/[0.03] border border-teal-600/10 p-2 rounded-none space-y-1 text-[11px] font-medium max-w-xs text-slate-600 text-left">
-                                      <div className="flex items-center gap-1">
-                                        <span className="font-extrabold text-teal-900">
-                                          {eq.active_booking_type === 'lich_kham' ? '🩺 Lịch khám:' : '⚡ Lịch điều trị:'}
-                                        </span>
-                                        <span className="font-mono text-teal-850 font-bold bg-teal-50 px-1 border border-teal-200/50">
-                                          {eq.active_booking_code}
-                                        </span>
-                                      </div>
-                                      <div>
-                                        <strong className="text-slate-700">Khách:</strong> {eq.active_patient_name}
-                                      </div>
-                                      <div>
-                                        <strong className="text-slate-700">{eq.active_booking_type === 'lich_kham' ? 'Bác sĩ:' : 'KTV:'}</strong> {eq.active_operator_name}
-                                      </div>
-                                      {eq.active_service_name && (
-                                        <div className="text-[10px] text-slate-400 italic mt-0.5">
-                                          ({eq.active_service_name})
-                                        </div>
-                                      )}
-                                    </div>
-                                  ) : (
-                                      <span className="text-xs font-semibold text-slate-500">
-                                        🟢 Sẵn sàng (Kho dùng chung)
-                                      </span>
-                                  )}
-                                </td>
-                                <td className="p-3 pr-6 text-right">
-                                  <div className="flex justify-end gap-2 items-center">
-                                    <button
-                                      onClick={() => handleOpenEquipmentModal(eq)}
-                                      className="p-1 text-slate-400 hover:text-teal-800 transition-colors ml-1"
-                                      title="Chỉnh sửa thiết bị"
-                                    >
-                                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                      </svg>
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteEquipment(eq.id)}
-                                      className="p-1 text-slate-400 hover:text-rose-600 transition-colors"
-                                      title="Ngưng sử dụng"
-                                    >
-                                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                      </svg>
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              );
-            });
-          })()}
+        <div>
+          <select
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value)}
+            className="w-full bg-white border border-slate-250/70 p-2.5 text-xs font-black uppercase tracking-wider rounded-none focus:outline-none focus:border-teal-800 transition-colors cursor-pointer"
+          >
+            <option value="all">🔍 Tất cả trạng thái</option>
+            <option value="san_sang">🟢 Sẵn sàng</option>
+            <option value="dang_su_dung">⚡ Đang sử dụng</option>
+            <option value="dang_bao_tri">🛠️ Đang bảo trì</option>
+            <option value="hong">❌ Hỏng / Sự cố</option>
+          </select>
         </div>
-      ) : (
-        /* Equipment Types Tab */
-        <div className="bg-white border border-slate-200/80 p-6 space-y-6 animate-[fadeIn_0.3s_ease-out]">
-          <div className="flex justify-between items-center">
-            <div>
-              <h3 className="text-lg font-bold text-slate-800">Danh mục thiết bị ({equipmentTypes.length})</h3>
-              <p className="text-xs text-slate-500">Định nghĩa danh sách các loại máy điều trị & giường để chọn nhanh khi khai báo thiết bị hoặc cấu hình dịch vụ.</p>
-            </div>
-          </div>
+      </div>
 
+      {/* Equipment Table */}
+      <div className="border border-slate-200 bg-white overflow-hidden rounded-none shadow-sm">
+        {loading ? (
+          <div className="p-12 text-center text-slate-400 font-bold uppercase tracking-wider text-xs">
+            ⏳ Đang đồng bộ hóa thiết bị y tế...
+          </div>
+        ) : filteredEquipment.length === 0 ? (
+          <div className="p-12 text-center text-slate-400 font-semibold italic text-xs">
+            Không tìm thấy thiết bị nào phù hợp.
+          </div>
+        ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse border border-slate-200/60">
+            <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                  <th className="p-3 pl-6 w-20">ID</th>
-                  <th className="p-3 w-72">Tên danh mục thiết bị</th>
-                  <th className="p-3">Các thiết bị thuộc danh mục</th>
-                  <th className="p-3 text-right pr-6 w-24">Hành động</th>
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-black uppercase tracking-widest select-none">
+                  <th className="p-4 pl-6 w-32">Mã thiết bị</th>
+                  <th className="p-4">Tên thiết bị y khoa</th>
+                  <th className="p-4 w-44">Ngày mua</th>
+                  <th className="p-4 text-center w-40">Trạng thái</th>
+                  <th className="p-4 pr-6 text-right w-24">Thao tác</th>
                 </tr>
               </thead>
-              <tbody>
-                {equipmentTypes.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="p-8 text-center text-slate-400 text-sm font-medium">
-                      Chưa có loại thiết bị nào được định nghĩa.
+              <tbody className="divide-y divide-slate-100">
+                {filteredEquipment.map(eq => (
+                  <tr key={eq.id} className="hover:bg-slate-50/50 transition-colors group text-xs">
+                    <td className="p-4 pl-6 font-mono font-bold text-slate-500">{eq.ma_thiet_bi}</td>
+                    <td className="p-4">
+                      <div className="font-extrabold text-slate-800">{eq.ten_thiet_bi}</div>
+                      {eq.ghi_chu && <div className="text-[11px] text-slate-400 italic mt-0.5">{eq.ghi_chu}</div>}
+                    </td>
+                    <td className="p-4 font-medium text-slate-600">
+                      {eq.ngay_mua ? new Date(eq.ngay_mua).toLocaleDateString('vi-VN') : '—'}
+                    </td>
+                    <td className="p-4 text-center">
+                      <span className={`inline-flex items-center px-2 py-0.5 text-[9px] font-black uppercase tracking-wider border ${
+                        eq.trang_thai === 'san_sang'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : eq.trang_thai === 'dang_su_dung'
+                            ? 'bg-cyan-50 text-cyan-700 border-cyan-200'
+                            : eq.trang_thai === 'dang_bao_tri'
+                              ? 'bg-amber-50 text-amber-700 border-amber-200'
+                              : 'bg-rose-50 text-rose-700 border-rose-200'
+                      }`}>
+                        {eq.trang_thai === 'san_sang' ? 'Sẵn sàng' : eq.trang_thai === 'dang_su_dung' ? 'Đang dùng' : eq.trang_thai === 'dang_bao_tri' ? 'Bảo trì' : 'Hỏng / Sự cố'}
+                      </span>
+                    </td>
+                    <td className="p-4 pr-6 text-right">
+                      <div className="flex justify-end gap-3 items-center">
+                        <button
+                          onClick={() => handleOpenEquipmentModal(eq)}
+                          className="p-1 text-slate-400 hover:text-teal-800 transition-colors"
+                          title="Sửa thông tin"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteEquipment(eq.id)}
+                          className="p-1 text-slate-400 hover:text-rose-600 transition-colors"
+                          title="Xóa thiết bị"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
                     </td>
                   </tr>
-                ) : (
-                  equipmentTypes.map((type) => (
-                    <tr key={type.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
-                      <td className="p-3 pl-6 text-xs font-bold text-slate-400">#{type.id}</td>
-                      <td className="p-3 text-sm font-extrabold text-slate-800">
-                        {type.ten_thiet_bi || type.ten_loai}
-                        <span className="ml-2 bg-slate-100 border border-slate-200 text-slate-655 px-1.5 py-0.5 text-[9px] font-bold uppercase rounded-none">
-                          {type.ten_danh_muc}
-                        </span>
-                      </td>
-                      <td className="p-3 text-xs text-slate-600">
-                        {(() => {
-                          const linked = equipment.filter(eq => Number(eq.danh_muc_thiet_bi_id) === Number(type.id));
-                          if (linked.length === 0) {
-                            return <span className="text-slate-450 italic font-semibold">Chưa có máy nào</span>;
-                          }
-                          return (
-                            <div className="flex flex-wrap gap-1.5">
-                              {linked.map(eq => (
-                                <span key={eq.id} className="bg-teal-950/[0.04] border border-slate-200 text-slate-700 px-2 py-0.5 font-bold uppercase rounded-none" title={eq.ma_thiet_bi}>
-                                  {eq.ten_thiet_bi}
-                                </span>
-                              ))}
-                            </div>
-                          );
-                        })()}
-                      </td>
-                      <td className="p-3 pr-6 text-right">
-                        <div className="flex justify-end gap-2 items-center">
-                          <button
-                            onClick={() => handleOpenTypeModal(type)}
-                            className="p-1 text-slate-400 hover:text-teal-800 transition-colors"
-                            title="Sửa danh mục"
-                          >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                            </svg>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
+                ))}
               </tbody>
             </table>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* MODAL: CREATE / EDIT EQUIPMENT */}
+      {/* Modal: Add / Edit Equipment */}
       {isEquipmentModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-[fadeIn_0.2s_ease-out]">
-          <div className="bg-white border-2 border-slate-950 shadow-[0_24px_60px_rgba(0,0,0,0.18)] max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden rounded-none">
+          <div className="bg-white border-2 border-slate-950 shadow-2xl max-w-md w-full flex flex-col overflow-hidden rounded-none">
             {/* Modal Header */}
-            <div className="border-b-2 border-slate-950 bg-slate-950 text-white px-6 py-4 flex justify-between items-center flex-shrink-0">
+            <div className="border-b-2 border-slate-950 bg-slate-950 text-white px-6 py-4 flex justify-between items-center">
               <div>
                 <span className="text-[10px] font-black text-teal-400 uppercase tracking-widest block mb-0.5">
                   {editingEquipment ? 'Hạ tầng y tế' : 'Đăng ký thiết bị'}
                 </span>
-                <h3 className="font-extrabold text-sm uppercase tracking-wider flex items-center gap-2">
-                  {editingEquipment ? 'Hiệu chỉnh thông tin máy' : 'Đăng ký thiết bị y tế mới'}
-                  {editingEquipment && (
-                    <span className="bg-teal-900 border border-teal-500/30 text-teal-300 font-mono text-[10px] font-extrabold px-2 py-0.5 rounded-none tracking-widest">
-                      {equipmentFormData.ma_thiet_bi}
-                    </span>
-                  )}
+                <h3 className="font-extrabold text-sm uppercase tracking-wider">
+                  {editingEquipment ? 'Hiệu chỉnh thiết bị' : 'Thêm thiết bị mới'}
                 </h3>
               </div>
-              <button 
-                onClick={() => setIsEquipmentModalOpen(false)} 
-                className="text-slate-400 hover:text-white transition-colors p-1"
+              <button
+                onClick={() => setIsEquipmentModalOpen(false)}
+                className="text-slate-400 hover:text-white transition-colors"
               >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                ✕
               </button>
             </div>
 
-            {/* Modal Content */}
-            <form onSubmit={handleEquipmentSubmit} className="p-6 space-y-5 overflow-y-auto flex-1 text-slate-800">
-              <div className="grid grid-cols-1 gap-4">
+            {/* Modal Form */}
+            <form onSubmit={handleEquipmentSubmit} className="p-6 space-y-4 text-slate-800 text-xs">
+              <div>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Mã thiết bị (Độc nhất)</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ví dụ: LASER-01, SHOCK-02..."
+                  value={equipmentFormData.ma_thiet_bi}
+                  onChange={(e) => setEquipmentFormData({ ...equipmentFormData, ma_thiet_bi: e.target.value })}
+                  className="w-full border border-slate-300 p-2.5 font-bold rounded-none focus:outline-none focus:border-slate-950 transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Tên thiết bị</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ví dụ: Máy Laser trị liệu công suất cao..."
+                  value={equipmentFormData.ten_thiet_bi}
+                  onChange={(e) => setEquipmentFormData({ ...equipmentFormData, ten_thiet_bi: e.target.value })}
+                  className="w-full border border-slate-300 p-2.5 font-bold rounded-none focus:outline-none focus:border-slate-950 transition-colors"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Danh mục thiết bị</label>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Trạng thái</label>
                   <select
-                    value={selectedTypeId}
-                    required
-                    onChange={(e) => {
-                      const typeId = e.target.value;
-                      setSelectedTypeId(typeId);
-                      
-                      const selectedType = equipmentTypes.find(t => t.id.toString() === typeId.toString());
-                      if (selectedType) {
-                        const typeName = selectedType.ten_thiet_bi || selectedType.ten_loai || '';
-                        
-                        // Suggest default name matching type
-                        setFormDeviceName(typeName);
-                        
-                        setEquipmentFormData(prev => ({
-                          ...prev,
-                          loai_thiet_bi: typeName
-                        }));
-                      }
-                    }}
-                    className={`w-full border-2 p-3 text-sm font-bold rounded-none focus:outline-none transition-all ${
-                      equipmentTypes.length === 0
-                        ? 'border-red-500 bg-red-50 text-red-700 focus:border-red-500 animate-[pulse_2s_infinite]'
-                        : 'border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:border-slate-950 text-slate-800'
-                    }`}
+                    value={equipmentFormData.trang_thai}
+                    onChange={(e) => setEquipmentFormData({ ...equipmentFormData, trang_thai: e.target.value })}
+                    className="w-full border border-slate-300 p-2.5 font-bold rounded-none focus:outline-none focus:border-slate-950 transition-colors cursor-pointer"
                   >
-                    {equipmentTypes.length === 0 ? (
-                      <option value="">Chưa có danh mục được tạo, vui lòng tạo danh mục</option>
-                    ) : (
-                      <>
-                        <option value="" disabled>-- Chọn danh mục thiết bị --</option>
-                        {equipmentTypes.map(type => (
-                          <option key={type.id} value={type.id}>
-                            {type.ten_thiet_bi || type.ten_loai} ({type.ten_danh_muc})
-                          </option>
-                        ))}
-                      </>
-                    )}
+                    <option value="san_sang">Sẵn sàng</option>
+                    <option value="dang_su_dung">Đang sử dụng</option>
+                    <option value="dang_bao_tri">Đang bảo trì</option>
+                    <option value="hong">Hỏng / Sự cố</option>
                   </select>
-                  {equipmentTypes.length === 0 && (
-                    <span className="text-[11px] text-red-600 font-bold block mt-1.5 animate-[bounce_1.5s_infinite]">
-                      ⚠️ Bạn chưa có danh mục thiết bị nào. Vui lòng chuyển qua tab "Danh mục thiết bị" để tạo trước!
-                    </span>
-                  )}
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Ngày mua</label>
+                  <input
+                    type="date"
+                    value={equipmentFormData.ngay_mua}
+                    onChange={(e) => setEquipmentFormData({ ...equipmentFormData, ngay_mua: e.target.value })}
+                    className="w-full border border-slate-300 p-2.5 font-semibold rounded-none focus:outline-none focus:border-slate-950 transition-colors"
+                  />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {editingEquipment ? (
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Trạng thái kỹ thuật</label>
-                    <select
-                      value={equipmentFormData.trang_thai}
-                      onChange={(e) => setEquipmentFormData({ ...equipmentFormData, trang_thai: e.target.value })}
-                      className="w-full border-2 border-slate-200 bg-slate-50 hover:bg-white focus:bg-white p-3 text-sm font-bold rounded-none focus:outline-none focus:border-slate-950 transition-all"
-                    >
-                      <option value="san_sang">Hoạt động bình thường</option>
-                      <option value="dang_su_dung">Đang sử dụng</option>
-                      <option value="dang_bao_tri">Đang sửa chữa / Bảo trì</option>
-                      <option value="hong">Hỏng hoàn toàn / Trục trặc</option>
-                      <option value="ngung_su_dung">Ngưng sử dụng</option>
-                    </select>
-                  </div>
-                ) : (
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Số lượng cần tạo</label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={10}
-                      required
-                      value={equipmentFormData.so_luong}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setEquipmentFormData({ 
-                          ...equipmentFormData, 
-                          so_luong: val === '' ? '' : Math.max(1, parseInt(val) || 1) 
-                        });
-                      }}
-                      className="w-full border-2 border-slate-200 bg-slate-50 hover:bg-white focus:bg-white p-3 text-sm font-bold rounded-none focus:outline-none focus:border-slate-950 transition-all"
-                    />
-                  </div>
-                )}
-              </div>
-
               <div>
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Tên thiết bị (nhập chính xác tên / model / hãng)</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Đèn hồng ngoại Philips HP3616, Máy điện xung BTL-4000..."
-                  value={formDeviceName}
-                  onChange={(e) => setFormDeviceName(e.target.value)}
-                  className="w-full border-2 border-slate-200 bg-slate-50 hover:bg-white focus:bg-white p-3 text-sm font-bold rounded-none focus:outline-none focus:border-slate-950 transition-all placeholder-slate-400"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Ngày mua máy</label>
-                <input
-                  type="date"
-                  value={equipmentFormData.ngay_mua}
-                  onChange={(e) => setEquipmentFormData({ ...equipmentFormData, ngay_mua: e.target.value })}
-                  className="w-full border-2 border-slate-200 bg-slate-50 hover:bg-white focus:bg-white p-3 text-sm font-semibold rounded-none focus:outline-none focus:border-slate-950 transition-all"
-                />
-              </div>
-
-
-
-              <div>
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Nhật ký sự cố / Ghi chú kỹ thuật</label>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Ghi chú / Mô tả</label>
                 <textarea
                   value={equipmentFormData.ghi_chu}
                   onChange={(e) => setEquipmentFormData({ ...equipmentFormData, ghi_chu: e.target.value })}
-                  placeholder="Ghi chú lịch sử sửa chữa, số series máy hoặc lỗi vận hành..."
-                  rows={2}
-                  className="w-full border-2 border-slate-200 bg-slate-50 hover:bg-white focus:bg-white p-3 text-sm font-semibold rounded-none focus:outline-none focus:border-slate-950 transition-all placeholder-slate-400"
+                  placeholder="Thông tin chi tiết về tình trạng máy..."
+                  rows={3}
+                  className="w-full border border-slate-300 p-2.5 font-semibold rounded-none focus:outline-none focus:border-slate-950 transition-colors"
                 />
               </div>
 
-              <div className="flex gap-3 justify-end pt-4 border-t border-slate-100 flex-shrink-0">
-                {editingEquipment && (
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteEquipment(editingEquipment.id)}
-                    className="mr-auto px-4 py-2 border border-rose-600 text-rose-600 text-xs font-bold uppercase tracking-wider rounded-none hover:bg-rose-50 transition-all active:scale-95"
-                  >
-                    Ngưng sử dụng
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setIsEquipmentModalOpen(false)}
-                  className="px-4 py-2 border border-slate-200 text-slate-500 text-xs font-bold uppercase tracking-wider rounded-none hover:bg-slate-50 transition-all"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2 bg-teal-800 hover:bg-teal-950 text-white text-xs font-black uppercase tracking-wider transition-all rounded-none active:scale-95"
-                >
-                  {editingEquipment ? 'Lưu thông tin' : 'Thêm thiết bị'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: CREATE / EDIT EQUIPMENT TYPE */}
-      {isTypeModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-[fadeIn_0.2s_ease-out]">
-          <div className="bg-white border-2 border-slate-950 shadow-[0_24px_60px_rgba(0,0,0,0.18)] max-w-md w-full flex flex-col overflow-hidden rounded-none">
-            {/* Modal Header */}
-            <div className="border-b-2 border-slate-950 bg-slate-950 text-white px-6 py-4 flex justify-between items-center flex-shrink-0">
-              <div>
-                <span className="text-[10px] font-black text-teal-400 uppercase tracking-widest block mb-0.5">
-                  Danh mục thiết bị
-                </span>
-                <h3 className="font-extrabold text-sm uppercase tracking-wider flex items-center gap-2">
-                  {editingType ? 'Cập nhật danh mục thiết bị' : 'Thêm danh mục thiết bị mới'}
-                </h3>
-              </div>
-              <button 
-                onClick={() => setIsTypeModalOpen(false)} 
-                className="text-slate-400 hover:text-white transition-colors p-1"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Modal Content */}
-            <form onSubmit={handleTypeSubmit} className="p-6 space-y-4 flex-1 text-slate-800 text-xs">
-              <div>
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Tên danh mục thiết bị (Hiển thị)</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ví dụ: Cơ học / Sóng, Điện trị liệu, Nhiệt..."
-                  value={typeFormData.ten_thiet_bi}
-                  onChange={(e) => setTypeFormData({ ...typeFormData, ten_thiet_bi: e.target.value })}
-                  className="w-full border-2 border-slate-200 bg-slate-50 hover:bg-white focus:bg-white p-2.5 text-xs font-bold rounded-none focus:outline-none focus:border-slate-950 transition-all placeholder-slate-450"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Mã danh mục (Viết liền không dấu)</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ví dụ: co_hoc, dien_tri_lieu, nhiet..."
-                  value={typeFormData.ten_danh_muc}
-                  onChange={(e) => setTypeFormData({ ...typeFormData, ten_danh_muc: e.target.value })}
-                  className="w-full border-2 border-slate-200 bg-slate-50 hover:bg-white focus:bg-white p-2.5 text-xs font-bold rounded-none focus:outline-none focus:border-slate-950 transition-all placeholder-slate-450"
-                />
-              </div>
-
-
-
-
-
+              {/* Action buttons */}
               <div className="flex gap-3 justify-end pt-4 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setIsTypeModalOpen(false)}
-                  className="px-4 py-2 border border-slate-200 text-slate-500 text-xs font-bold uppercase tracking-wider rounded-none hover:bg-slate-50 transition-all"
+                  onClick={() => setIsEquipmentModalOpen(false)}
+                  className="px-4 py-2 border border-slate-200 text-slate-500 text-xs font-bold uppercase tracking-wider rounded-none hover:bg-slate-50 transition-colors"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-teal-800 hover:bg-teal-950 text-white text-xs font-black uppercase tracking-wider transition-all rounded-none active:scale-95"
+                  className="px-6 py-2 bg-teal-800 hover:bg-teal-900 text-white text-xs font-black uppercase tracking-wider transition-colors rounded-none active:scale-95"
                 >
-                  {editingType ? 'Lưu thay đổi' : 'Thêm mới'}
+                  {editingEquipment ? 'Lưu thông tin' : 'Thêm mới'}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
-
     </div>
   );
 }

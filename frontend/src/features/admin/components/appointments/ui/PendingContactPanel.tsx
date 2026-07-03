@@ -36,8 +36,8 @@ export function PendingContactPanel({ pendingAppointments, onOpenDetailModal }: 
               <div className="absolute top-0 right-0 h-full w-1 bg-rose-500/20 group-hover:bg-rose-500 transition-colors" />
 
               <div className="flex justify-between items-start gap-2">
-                <span className="text-xs font-black text-slate-800 dark:text-zinc-200 capitalize">
-                  {apt.ten_khach_hang}
+                <span className="text-xs font-black text-slate-800 dark:text-zinc-200 capitalize flex items-center gap-1">
+                  <span className="animate-bounce inline-block">📞</span> {apt.ten_khach_hang}
                 </span>
                 <span className="font-mono text-[9px] bg-slate-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded border border-slate-200/50 dark:border-zinc-700/50 text-slate-500 dark:text-zinc-400">
                   {apt.ma_lich_dat}

@@ -93,7 +93,9 @@ export default function ReceptionistAppointments() {
     handleBookTreatment,
     handleBookWalkIn,
     handleUpdateAppointmentFields,
-    scrollToAppointment
+    scrollToAppointment,
+    cancelReason,
+    setCancelReason
   } = useAppointmentActions({
     appointments,
     services,
@@ -111,6 +113,7 @@ export default function ReceptionistAppointments() {
   });
 
   const focusTimerRef = useRef<any>(null);
+  const [activeType, setActiveType] = useState<'kham' | 'dieu_tri'>('kham');
 
   // Unmount cleanup only
   useEffect(() => {
@@ -238,7 +241,9 @@ export default function ReceptionistAppointments() {
       matchDate = aptDate >= activeInterval.start && aptDate <= activeInterval.end;
     }
 
-    const matchType = apt.loai_lich === 'kham_moi' || apt.loai_lich === 'dich_vu_don';
+    const matchType = activeType === 'kham'
+      ? apt.loai_lich === 'kham_moi'
+      : (apt.loai_lich === 'dieu_tri' || apt.loai_lich === 'dich_vu_don');
     
     const matchSearch = searchTerm === '' ||
       apt.ma_lich_dat.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -265,7 +270,9 @@ export default function ReceptionistAppointments() {
   });
 
   const getKpiAppointments = () => {
-    const matchType = (apt: any) => apt.loai_lich === 'kham_moi' || apt.loai_lich === 'dich_vu_don';
+    const matchType = (apt: any) => activeType === 'kham'
+      ? apt.loai_lich === 'kham_moi'
+      : (apt.loai_lich === 'dieu_tri' || apt.loai_lich === 'dich_vu_don');
     if (viewMode === 'timeline') {
       return appointments.filter(apt => {
         const aptDateStr = format(new Date(apt.ngay_gio_bat_dau || ''), 'yyyy-MM-dd');
@@ -289,7 +296,7 @@ export default function ReceptionistAppointments() {
       return a.trang_thai !== 'chua_xac_nhan' || isGracePassed;
     }).length,
     pendingContact: pendingContactAppointments.length,
-    assigned: kpiAppointments.filter(a => (a.bac_si_id || a.chuyen_gia_id) && a.trang_thai === 'da_xac_nhan').length,
+    assigned: kpiAppointments.filter(a => a.bac_si_id && a.trang_thai === 'da_xac_nhan').length,
     checkedIn: kpiAppointments.filter(a => a.trang_thai === 'da_checkin').length,
   };
 
@@ -310,6 +317,7 @@ export default function ReceptionistAppointments() {
             receptionistKpis={receptionistKpis}
             viewMode={viewMode}
             timeRange={timeRange}
+            activeType={activeType}
           />
 
           {/* GUIDE BANNER */}
@@ -386,6 +394,8 @@ export default function ReceptionistAppointments() {
             setSearchTerm={setSearchTerm}
             viewMode={viewMode}
             selectedDate={selectedDate}
+            activeType={activeType}
+            onToggleType={() => setActiveType(prev => prev === 'kham' ? 'dieu_tri' : 'kham')}
           />
 
           {/* DYNAMIC HEADER & BACK NAVIGATION */}
@@ -439,8 +449,13 @@ export default function ReceptionistAppointments() {
                   selectedDate={selectedDate}
                   setSelectedDate={setSelectedDate}
                   setViewMode={setViewMode}
-                  appointments={appointments}
+                  appointments={appointments.filter(apt => 
+                    activeType === 'kham'
+                      ? apt.loai_lich === 'kham_moi'
+                      : (apt.loai_lich === 'dieu_tri' || apt.loai_lich === 'dich_vu_don')
+                  )}
                   timeRange={timeRange}
+                  activeType={activeType}
                 />
               )}
             </div>
@@ -487,6 +502,8 @@ export default function ReceptionistAppointments() {
           setAssignStaffId={setAssignStaffId}
           assignStatus={assignStatus}
           setAssignStatus={setAssignStatus}
+          cancelReason={cancelReason}
+          setCancelReason={setCancelReason}
           isAssigning={isAssigning}
           onClose={() => setIsDetailModalOpen(false)}
           onSave={handleUpdateAppointment}

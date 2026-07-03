@@ -5,16 +5,10 @@ import {
   CalendarDays,
   Settings,
   ChevronLeft,
-  CheckCircle2,
-  Sparkles,
-  Activity,
-  Eye,
-  EyeOff,
-  Zap
+  X
 } from 'lucide-react';
 import { format, addDays, subDays, startOfWeek, addMonths, subMonths } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { useAuthStore } from '../../../stores/authStore';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Import Components đã bóc tách cũ
@@ -26,7 +20,7 @@ import WalkInBookingModal from '../components/WalkInBookingModal';
 // Import các Module FSD mới bóc tách
 import { useAppointmentsData } from '../components/appointments/hooks/useAppointmentsData';
 import { useAppointmentActions } from '../components/appointments/hooks/useAppointmentActions';
-import { RoleViewSwitcher } from '../components/appointments/ui/RoleViewSwitcher';
+
 import { AppointmentKpiCards } from '../components/appointments/ui/AppointmentKpiCards';
 import { AppointmentsFilterBar } from '../components/appointments/ui/AppointmentsFilterBar';
 import { DoctorWorkloadPanel } from '../components/appointments/ui/DoctorWorkloadPanel';
@@ -38,14 +32,13 @@ import { RoleView, ViewMode, TimeRange } from '../components/appointments/types'
 export default function ManageAppointments() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuthStore();
 
   // Chế độ Mô phỏng dữ liệu giúp kiểm thử
-  const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
+  const isDemoMode = false;
   const [demoApts, setDemoApts] = useState<any[]>([]);
 
   // Chế độ xem vai trò phục vụ kiểm thử (Test) hoặc vai trò thực tế của route
-  const [roleView, setRoleView] = useState<RoleView>(() => {
+  const roleView: RoleView = (() => {
     if (window.location.pathname.startsWith('/receptionist')) {
       return 'receptionist';
     }
@@ -53,7 +46,7 @@ export default function ManageAppointments() {
       return 'doctor';
     }
     return 'manager';
-  });
+  })();
   const [selectedDocSimId, setSelectedDocSimId] = useState<string>('');
 
   // State quản lý việc gọi dữ liệu từ Custom Hook
@@ -81,7 +74,8 @@ export default function ManageAppointments() {
     return new Date();
   });
 
-  const scheduleType = 'kham_moi'; // Hardcoded cho màn hình Lịch Hẹn Khám
+
+  const [activeType, setActiveType] = useState<'kham' | 'dieu_tri'>('kham');
 
   const [timeRange, setTimeRange] = useState<TimeRange>(() => {
     const params = new URLSearchParams(window.location.search);
@@ -103,7 +97,6 @@ export default function ManageAppointments() {
 
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
-  const [showGuide, setShowGuide] = useState<boolean>(true);
   const focusTimerRef = useRef<any>(null);
 
 
@@ -405,6 +398,14 @@ export default function ManageAppointments() {
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [commandSearch, setCommandSearch] = useState('');
 
+  // Staff filter for filtering appointments on calendar
+  const [selectedStaffFilter, setSelectedStaffFilter] = useState<string | null>(null);
+
+  // Clear staff filter when activeType or selectedDate changes
+  useEffect(() => {
+    setSelectedStaffFilter(null);
+  }, [activeType, selectedDate]);
+
   // Actions custom hook
   const {
     selectedAppointment,
@@ -448,7 +449,9 @@ export default function ManageAppointments() {
     handleBookTreatment,
     handleBookWalkIn,
     handleUpdateAppointmentFields,
-    scrollToAppointment
+    scrollToAppointment,
+    cancelReason,
+    setCancelReason
   } = useAppointmentActions({
     appointments: appointmentsToUse,
     services,
@@ -561,7 +564,7 @@ export default function ManageAppointments() {
     if (staffToUse.length > 0 && !selectedDocSimId) {
       const doctors = staffToUse.filter(s => s.vai_tro === 'Bác sĩ');
       if (doctors.length > 0) {
-        setSelectedDocSimId(String(doctors[0].chuyen_gia_id || doctors[0].id));
+        setSelectedDocSimId(String(doctors[0].id));
       }
     }
   }, [staffToUse, selectedDocSimId]);
@@ -636,20 +639,26 @@ export default function ManageAppointments() {
       matchDate = aptDate >= activeInterval.start && aptDate <= activeInterval.end;
     }
 
-    const matchType = apt.loai_lich === scheduleType || apt.loai_lich === 'dich_vu_don';
+    const matchType = activeType === 'kham'
+      ? apt.loai_lich === 'kham_moi'
+      : (apt.loai_lich === 'dieu_tri' || apt.loai_lich === 'dich_vu_don');
     
     const matchSearch = searchTerm === '' ||
       apt.ma_lich_dat.toLowerCase().includes(searchTerm.toLowerCase()) ||
       apt.ten_khach_hang.toLowerCase().includes(searchTerm.toLowerCase());
 
-    return matchDate && matchType && matchSearch;
+    const matchStaff = !selectedStaffFilter || String(apt.bac_si_id) === String(selectedStaffFilter);
+
+    return matchDate && matchType && matchSearch && matchStaff;
   });
 
   // KPI Metrics calculation (dailyAppointments removed)
 
   // KPI Metrics calculation based on the active range (day, week, month)
   const getKpiAppointments = () => {
-    const matchType = (apt: any) => apt.loai_lich === scheduleType || apt.loai_lich === 'dich_vu_don';
+    const matchType = (apt: any) => activeType === 'kham'
+      ? apt.loai_lich === 'kham_moi'
+      : (apt.loai_lich === 'dieu_tri' || apt.loai_lich === 'dich_vu_don');
     
     if (viewMode === 'timeline') {
       return appointmentsToUse.filter(apt => {
@@ -674,89 +683,13 @@ export default function ManageAppointments() {
     cancelled: kpiAppointments.filter(a => a.trang_thai === 'da_huy' || a.trang_thai === 'khong_den').length,
   };
 
-  // Dynamic Real-time Insights calculation based on actual appointments
-  const getDynamicInsights = () => {
-    const activeApts = kpiAppointments;
-    
-    // 1. Capacity fill rate
-    const totalApts = activeApts.length;
-    const activeDays = viewMode === 'timeline' ? 1 : (timeRange === 'month' ? 30 : 7);
-    const capacityPerDay = 20; // assumed max appointments capacity per day
-    const totalCapacity = activeDays * capacityPerDay;
-    const fillRate = totalCapacity > 0 ? Math.min(Math.round((totalApts / totalCapacity) * 100), 100) : 0;
-
-    // 2. Real-time Peak Hours calculation
-    const hourCounts: { [key: string]: number } = {};
-    activeApts.forEach(apt => {
-      try {
-        const date = new Date(apt.ngay_gio_bat_dau);
-        const hour = date.getHours();
-        let slotKey = '';
-        if (hour >= 8 && hour < 10) slotKey = '08:00 - 10:00 (Sáng)';
-        else if (hour >= 10 && hour < 12) slotKey = '10:00 - 12:00 (Trưa)';
-        else if (hour >= 13 && hour < 15) slotKey = '13:00 - 15:00 (Chiều đầu)';
-        else if (hour >= 15 && hour < 17) slotKey = '15:00 - 17:00 (Chiều muộn)';
-        else slotKey = 'Ngoài giờ chính';
-
-        if (slotKey) {
-          hourCounts[slotKey] = (hourCounts[slotKey] || 0) + 1;
-        }
-      } catch (e) {}
-    });
-
-    let peakSlot = 'Không có dữ liệu ca hẹn';
-    let maxCount = 0;
-    Object.entries(hourCounts).forEach(([slot, count]) => {
-      if (count > maxCount) {
-        maxCount = count;
-        peakSlot = slot;
-      }
-    });
-
-    // 3. Dynamic recommendation text
-    let recommendation = 'Khoảng thời gian này ghi nhận hoạt động bình thường, phân bổ phòng và nhân sự đều đặn.';
-    let recommendationTitle = 'Tải trọng Ổn định';
-    let statusBg = 'bg-emerald-50 dark:bg-emerald-955/10 border-emerald-100/30 text-emerald-800 dark:text-emerald-450';
-    let iconColor = 'text-emerald-500';
-
-    if (fillRate >= 75) {
-      recommendation = '⚡ Tải trọng cao! Khuyến nghị tăng cường nhân sự trực phòng khám và điều phối khách đặt mới sang các ngày/khung giờ trống.';
-      recommendationTitle = 'Khuyến nghị Tải trọng Cao';
-      statusBg = 'bg-rose-50 dark:bg-rose-955/10 border-rose-200/20 text-rose-800 dark:text-rose-450';
-      iconColor = 'text-rose-500';
-    } else if (fillRate <= 30 && totalApts > 0) {
-      recommendation = '💡 Tải trọng thấp. Hệ thống gợi ý tiếp nhận thêm khách vãng lai (Walk-in) hoặc mở thêm các chương trình ưu đãi dịch vụ giờ vàng.';
-      recommendationTitle = 'Tối ưu Giờ trống';
-      statusBg = 'bg-teal-50 dark:bg-teal-955/10 border-teal-100/30 text-teal-850 dark:text-teal-450';
-      iconColor = 'text-teal-500';
-    } else if (totalApts === 0) {
-      recommendation = '📅 Chưa ghi nhận bất kỳ lịch hẹn nào trong khoảng thời gian này. Hệ thống sẵn sàng tiếp nhận các ca khám mới.';
-      recommendationTitle = 'Sẵn sàng Tiếp nhận';
-      statusBg = 'bg-slate-50 dark:bg-zinc-850 border-slate-200/50 dark:border-zinc-700 text-slate-700 dark:text-zinc-350';
-      iconColor = 'text-slate-400';
-    }
-
-    return {
-      fillRate,
-      peakSlot,
-      recommendation,
-      recommendationTitle,
-      statusBg,
-      iconColor
-    };
-  };
-
-  const insights = getDynamicInsights();
-
-
-
   const unassignedAppointments = appointmentsToUse
     .filter(apt => {
       const aptDateStr = format(new Date(apt.ngay_gio_bat_dau || ''), 'yyyy-MM-dd');
       const isSelectedDate = aptDateStr === formattedSelectedDate;
       const isClinical = apt.loai_lich === 'kham_moi' || apt.loai_lich === 'dich_vu_don';
       const isWaitingForAssignment = apt.trang_thai === 'cho_xac_nhan';
-      const hasNoDoctor = !apt.bac_si_id && !apt.chuyen_gia_id;
+      const hasNoDoctor = !apt.bac_si_id;
       return isSelectedDate && isClinical && isWaitingForAssignment && hasNoDoctor;
     })
     .sort((a, b) => new Date(a.ngay_gio_bat_dau || '').getTime() - new Date(b.ngay_gio_bat_dau || '').getTime());
@@ -791,7 +724,7 @@ export default function ManageAppointments() {
       otherApt.id !== apt.id && 
       otherApt.trang_thai !== 'da_huy' &&
       otherApt.trang_thai !== 'khong_den' &&
-      String(otherApt.bac_si_id || otherApt.chuyen_gia_id) === String(doc.chuyen_gia_id || doc.id) &&
+      String(otherApt.bac_si_id) === String(doc.id) &&
       isOverlapping(apt.ngay_gio_bat_dau, apt.ngay_gio_ket_thuc, otherApt.ngay_gio_bat_dau, otherApt.ngay_gio_ket_thuc)
     );
 
@@ -804,10 +737,10 @@ export default function ManageAppointments() {
     const isActive = ['cho_xac_nhan', 'da_xac_nhan'].includes(apt.trang_thai);
     if (!isClinical || !isActive) return false;
 
-    const hasNoDoctor = !apt.bac_si_id && !apt.chuyen_gia_id;
+    const hasNoDoctor = !apt.bac_si_id;
     if (hasNoDoctor) return true;
 
-    const doc = staffToUse.find(s => String(s.chuyen_gia_id || s.id) === String(apt.bac_si_id || apt.chuyen_gia_id));
+    const doc = staffToUse.find(s => String(s.id) === String(apt.bac_si_id));
     const isDocUnavailable = doc ? getIsDoctorUnavailable(apt, doc) : true;
 
     return isDocUnavailable;
@@ -851,9 +784,10 @@ export default function ManageAppointments() {
     }
   }, [location.search, mascotTargetAppointments, scrollToAppointment, navigate, location.pathname, loading]);
 
-  // Tính toán phụ tải làm việc của từng bác sĩ trong ngày
+  // Tính toán phụ tải làm việc của từng bác sĩ/KTV trong ngày
+  const targetWorkloadRole = activeType === 'kham' ? 'Bác sĩ' : 'Kỹ thuật viên';
   const doctorWorkloads = staffToUse
-    .filter(s => s.vai_tro === 'Bác sĩ')
+    .filter(s => s.vai_tro === targetWorkloadRole)
     .map(doc => {
       const docSchedules = schedulesToUse.filter(s =>
         String(s.nguoi_dung_id) === String(doc.id) &&
@@ -863,7 +797,7 @@ export default function ManageAppointments() {
       const hasShift = docSchedules.length > 0;
 
       const docApts = appointmentsToUse.filter(apt =>
-        (apt.bac_si_id === doc.chuyen_gia_id || apt.chuyen_gia_id === doc.chuyen_gia_id) &&
+        String(apt.bac_si_id) === String(doc.id) &&
         format(new Date(apt.ngay_gio_bat_dau || ''), 'yyyy-MM-dd') === formattedSelectedDate &&
         apt.trang_thai !== 'da_huy' &&
         apt.trang_thai !== 'khong_den'
@@ -875,14 +809,15 @@ export default function ManageAppointments() {
 
       return {
         id: doc.id,
-        chuyen_gia_id: doc.chuyen_gia_id,
+        chuyen_gia_id: String(doc.id),
         name: doc.ho_ten,
         hasShift,
         occupiedCount,
         maxSlots,
         percentage
       };
-    });
+    })
+    .filter(doc => doc.hasShift);
 
   // Cấu hình danh sách lệnh cho Command Palette (Ctrl+K)
   const commandShortcuts = [
@@ -962,18 +897,7 @@ export default function ManageAppointments() {
   return (
     <div className="space-y-6 max-w-full font-jakarta">
 
-      {/* 2. ROLE VIEW SWITCHER FOR TESTING */}
-      {(user?.vai_tro_id === 5 || user?.vai_tro_id === 6) && (
-        <RoleViewSwitcher
-          roleView={roleView}
-          setRoleView={setRoleView}
-          selectedDocSimId={selectedDocSimId}
-          setSelectedDocSimId={setSelectedDocSimId}
-          staffList={staffToUse}
-          isDemoMode={isDemoMode}
-          setIsDemoMode={setIsDemoMode}
-        />
-      )}
+
 
       {/* Onboarding flow guide removed from main area */}
 
@@ -996,138 +920,8 @@ export default function ManageAppointments() {
             receptionistKpis={{ total: 0, pendingContact: 0, assigned: 0, checkedIn: 0 }}
             viewMode={viewMode}
             timeRange={timeRange}
+            activeType={activeType}
           />
-
-            {/* AI CLINIC INSIGHTS / GUIDE BANNER */}
-            <AnimatePresence mode="wait">
-              {showGuide ? (
-                <motion.div
-                  key="guide-visible"
-                  initial={{ height: 0, opacity: 0, marginBottom: 0 }}
-                  animate={{ height: 'auto', opacity: 1, marginBottom: 20 }}
-                  exit={{ height: 0, opacity: 0, marginBottom: 0 }}
-                  transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-                  className="overflow-hidden"
-                >
-                  <div className="bg-gradient-to-br from-slate-50/80 via-white/80 to-transparent dark:from-zinc-900/60 dark:via-zinc-900/40 dark:to-transparent border border-slate-100 dark:border-zinc-800/80 p-5 rounded-[24px] shadow-[0_4px_20px_rgba(0,0,0,0.01)] relative overflow-hidden transition-all duration-300">
-                    <div className="absolute top-0 right-0 w-36 h-36 bg-[#0D9488]/4 rounded-full blur-3xl pointer-events-none" />
-                    
-                    {/* Header Row */}
-                    <div className="flex items-center justify-between gap-4 border-b border-slate-100/80 dark:border-zinc-800/60 pb-3">
-                      <div className="flex items-center gap-2.5">
-                        <span className="p-1.5 bg-[#0D9488]/10 text-[#0D9488] rounded-xl border border-[#0D9488]/15 dark:bg-teal-950/30 dark:border-teal-900/30">
-                          <Sparkles size={16} className="animate-pulse" />
-                        </span>
-                        <h3 className="text-sm font-black uppercase text-slate-800 dark:text-zinc-200 tracking-wider flex items-center gap-2">
-                          {roleView === 'manager' && viewMode === 'capacity' 
-                            ? "AI Clinic Insights & Đánh giá công suất"
-                            : roleView === 'manager' 
-                              ? "Quy trình điều phối hoạt động" 
-                              : "Quy trình đón tiếp & xác nhận"}
-                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase border ${
-                            roleView === 'manager' && viewMode === 'capacity'
-                              ? 'text-[#0D9488] bg-[#0D9488]/10 border-[#0D9488]/20 dark:bg-teal-950/40'
-                              : 'text-slate-400 bg-slate-50 border-slate-100 dark:text-zinc-400 dark:bg-zinc-800/50 dark:border-zinc-700/50'
-                          }`}>
-                            {roleView === 'manager' && viewMode === 'capacity' ? "Phân tích thông minh" : "Hướng dẫn vai trò"}
-                          </span>
-                        </h3>
-                      </div>
-                      
-                      <button
-                        type="button"
-                        onClick={() => setShowGuide(false)}
-                        className="flex items-center gap-1.5 py-1 px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-rose-500 dark:text-zinc-450 dark:hover:text-rose-455 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-lg border border-slate-100 dark:border-zinc-800 hover:border-rose-100 dark:hover:border-rose-950/40 transition-all duration-200 cursor-pointer"
-                      >
-                        <EyeOff size={11} />
-                        <span>{roleView === 'manager' && viewMode === 'capacity' ? "Ẩn phân tích" : "Ẩn hướng dẫn"}</span>
-                      </button>
-                    </div>
-
-                    {/* Content Section */}
-                    {roleView === 'manager' && viewMode === 'capacity' ? (
-                      <div className="mt-4 space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {/* Fill Rate Card */}
-                          <div className="bg-white/40 dark:bg-zinc-900/40 border border-slate-100/50 dark:border-zinc-800/50 rounded-2xl p-4 flex items-center gap-4 transition-all duration-200 hover:border-teal-500/20 dark:hover:border-teal-500/10">
-                            <span className="p-3 bg-emerald-500/10 dark:bg-emerald-955/20 text-emerald-600 dark:text-emerald-400 rounded-2xl border border-emerald-500/10">
-                              <Activity size={20} />
-                            </span>
-                            <div className="space-y-0.5 text-left">
-                              <span className="text-[10px] font-bold text-slate-400 dark:text-zinc-550 tracking-wider uppercase block">Mật độ lịch hẹn</span>
-                              <div className="flex items-baseline gap-2">
-                                <span className="text-2xl font-jakarta font-black text-[#0D9488] dark:text-teal-400 leading-none">
-                                  {insights.fillRate}%
-                                </span>
-                              </div>
-                              <span className="text-xs font-semibold text-slate-500 dark:text-zinc-400 block mt-0.5 leading-tight">
-                                Mật độ lịch thực tế đạt khoảng {insights.fillRate}% công suất tối đa của phòng khám.
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Peak Hours Card */}
-                          <div className="bg-white/40 dark:bg-zinc-900/40 border border-slate-100/50 dark:border-zinc-800/50 rounded-2xl p-4 flex items-center gap-4 transition-all duration-200 hover:border-teal-500/20 dark:hover:border-teal-500/10">
-                            <span className="p-3 bg-amber-500/10 dark:bg-amber-955/20 text-amber-600 dark:text-amber-400 rounded-2xl border border-amber-500/10">
-                              <Zap size={20} className="fill-amber-500/10" />
-                            </span>
-                            <div className="space-y-0.5 text-left">
-                              <span className="text-[10px] font-bold text-slate-400 dark:text-zinc-550 tracking-wider uppercase block">Khung giờ cao điểm</span>
-                              <div className="flex items-baseline gap-2">
-                                <span className="text-base font-black font-jakarta text-slate-700 dark:text-zinc-200 leading-none">
-                                  {insights.peakSlot}
-                                </span>
-                              </div>
-                              <span className="text-xs font-semibold text-slate-500 dark:text-zinc-400 block mt-0.5 leading-tight">
-                                Khung giờ ghi nhận số lượng lịch hẹn tập trung bận rộn nhất.
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Dynamic Recommendation Alert */}
-                        <div className={`p-3.5 rounded-2xl border text-xs font-bold flex items-start gap-3 transition-all duration-200 ${insights.statusBg}`}>
-                          <span className="text-sm select-none shrink-0 mt-0.5">💡</span>
-                          <div className="space-y-0.5 text-left leading-relaxed">
-                            <span className="font-extrabold uppercase text-[10px] tracking-wider block mb-0.5">{insights.recommendationTitle}</span>
-                            <span className="font-semibold">{insights.recommendation}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="mt-4 flex gap-4 items-start">
-                        <div className="p-3 bg-teal-500/10 text-teal-600 dark:text-teal-400 rounded-2xl border border-teal-500/10 shrink-0">
-                          <CheckCircle2 size={20} />
-                        </div>
-                        <p className="text-xs text-slate-650 dark:text-zinc-400 leading-relaxed font-semibold text-left">
-                          {roleView === 'manager' 
-                            ? "Quản lý có quyền hạn cao nhất: Theo dõi công suất hoạt động toàn phòng khám trong tuần (Capacity Heatmap/Timeline), kiểm tra danh sách bác sĩ rảnh để gán ca khám mới (Unassigned Panel) và đảm bảo không có bác sĩ nào bị quá tải (>90% công suất làm việc)." 
-                            : "Lễ tân là trạm liên lạc chính: Theo dõi lịch đặt và tình hình hoạt động của phòng khám, điều phối ca bệnh nhanh, check-in khi khách đến và phân bổ phòng khám phù hợp."}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="guide-hidden"
-                  initial={{ opacity: 0, scale: 0.95, y: -5 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: -5 }}
-                  className="flex justify-end mb-4 pr-1"
-                >
-                  <button
-                    type="button"
-                    onClick={() => setShowGuide(true)}
-                    className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-500 hover:text-[#0D9488] dark:text-zinc-450 dark:hover:text-teal-450 bg-white/60 hover:bg-[#0D9488]/5 dark:bg-zinc-900/60 dark:hover:bg-teal-950/20 rounded-xl border border-slate-100 dark:border-zinc-800/80 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-[0_2px_10px_rgba(0,0,0,0.01)] cursor-pointer"
-                    title="Hiện phân tích & hướng dẫn"
-                  >
-                    <Eye size={13.5} className="text-[#0D9488] animate-pulse" />
-                    <span>Hiện phân tích AI & Quy trình</span>
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
 
             <AppointmentsFilterBar
               timeRange={timeRange}
@@ -1139,6 +933,8 @@ export default function ManageAppointments() {
               setSearchTerm={setSearchTerm}
               viewMode={viewMode}
               selectedDate={selectedDate}
+              activeType={activeType}
+              onToggleType={() => setActiveType(prev => prev === 'kham' ? 'dieu_tri' : 'kham')}
             />
 
             {/* DYNAMIC HEADER & BACK NAVIGATION */}
@@ -1170,6 +966,26 @@ export default function ManageAppointments() {
               
               {/* Left Content Area */}
               <div className="flex-1 w-full min-w-0">
+                {viewMode === 'timeline' && selectedStaffFilter && (
+                  <div className="mb-4 flex items-center justify-between bg-teal-550/10 dark:bg-teal-955/20 border border-teal-500/30 p-4 rounded-2xl shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="flex items-center gap-3">
+                      <div className="size-2 rounded-full bg-teal-500 animate-pulse" />
+                      <span className="text-xs font-black text-slate-800 dark:text-zinc-150 uppercase tracking-wider">
+                        Lịch {activeType === 'kham' ? 'Bác sĩ' : 'Kỹ thuật viên'}: {
+                          staffToUse.find(s => String(s.id) === String(selectedStaffFilter))?.ho_ten || 'Chuyên gia'
+                        }
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => setSelectedStaffFilter(null)}
+                      className="flex items-center gap-1 px-3 py-1.5 text-[10px] font-black text-rose-500 hover:text-rose-600 bg-rose-50/50 hover:bg-rose-50 dark:bg-rose-955/20 dark:hover:bg-rose-955/30 rounded-xl border border-rose-250/20 dark:border-rose-900/30 transition-all uppercase tracking-wider"
+                    >
+                      <X size={12} className="stroke-[3]" />
+                      <span>Hủy lọc</span>
+                    </button>
+                  </div>
+                )}
+
                 {viewMode === 'timeline' && (
                   <AppointmentCalendar
                     timeSlots={standardTimeSlots}
@@ -1194,8 +1010,13 @@ export default function ManageAppointments() {
                     selectedDate={selectedDate}
                     setSelectedDate={setSelectedDate}
                     setViewMode={setViewMode}
-                    appointments={appointmentsToUse}
+                    appointments={appointmentsToUse.filter(apt => 
+                      activeType === 'kham'
+                        ? apt.loai_lich === 'kham_moi'
+                        : (apt.loai_lich === 'dieu_tri' || apt.loai_lich === 'dich_vu_don')
+                    )}
                     timeRange={timeRange}
+                    activeType={activeType}
                   />
                 )}
               </div>
@@ -1218,12 +1039,17 @@ export default function ManageAppointments() {
                         unassignedAppointments={unassignedAppointments}
                         onOpenDetailModal={handleOpenDetailModal}
                       />
-                      <DoctorWorkloadPanel doctorWorkloads={doctorWorkloads} />
+                      <DoctorWorkloadPanel 
+                        doctorWorkloads={doctorWorkloads} 
+                        activeType={activeType} 
+                        selectedStaffId={selectedStaffFilter}
+                        onSelectStaff={setSelectedStaffFilter}
+                      />
                       
                       <div className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 p-4 rounded-2xl shadow-sm">
                         <h4 className="text-xs font-black text-slate-800 dark:text-zinc-200 uppercase mb-2 tracking-wide">Trạng thái phòng khám</h4>
                         <div className="space-y-2">
-                          {roomsToUse.filter(r => r.loai_phong === 'kham_benh').map(r => {
+                          {roomsToUse.filter(r => r.loai_phong === 'kham_benh' || r.loai_phong === 'phong_kham').map(r => {
                             const isUsed = filteredAppointments.some(a => String(a.phong_id) === String(r.id));
                             return (
                               <div key={r.id} className="flex justify-between items-center text-xs">
@@ -1269,6 +1095,8 @@ export default function ManageAppointments() {
           setAssignStaffId={setAssignStaffId}
           assignStatus={assignStatus}
           setAssignStatus={setAssignStatus}
+          cancelReason={cancelReason}
+          setCancelReason={setCancelReason}
           isAssigning={isAssigning}
           onClose={() => setIsDetailModalOpen(false)}
           onSave={handleUpdateAppointment}

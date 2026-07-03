@@ -49,6 +49,7 @@ export function useAppointmentActions({
   const [assignRoomId, setAssignRoomId] = useState<string>('');
   const [assignGiuongSo, setAssignGiuongSo] = useState<string>('');
   const [assignStatus, setAssignStatus] = useState<string>('');
+  const [cancelReason, setCancelReason] = useState<string>('');
   const [isAssigning, setIsAssigning] = useState(false);
 
   // Treatment Booking Form State
@@ -73,9 +74,9 @@ export function useAppointmentActions({
     }
     setSelectedAppointment(apt);
     setAssignStatus(apt.trang_thai);
-    setAssignStaffId(apt.bac_si_id || apt.chuyen_gia_id ? String(apt.bac_si_id || apt.chuyen_gia_id) : '');
+    setAssignStaffId(apt.bac_si_id ? String(apt.bac_si_id) : '');
     setAssignRoomId(apt.phong_id ? String(apt.phong_id) : '');
-    setAssignGiuongSo(apt.giuong_so ? String(apt.giuong_so) : '');
+    setAssignGiuongSo('');
     setIsDetailModalOpen(true);
   }, [roleView, navigate]);
 
@@ -132,7 +133,8 @@ export function useAppointmentActions({
         bac_si_id: assignStaffId || null,
         chuyen_gia_id: assignStaffId || null,
         phong_id: assignRoomId || null,
-        giuong_so: assignGiuongSo ? Number(assignGiuongSo) : null
+        giuong_so: assignGiuongSo ? Number(assignGiuongSo) : null,
+        ly_do_huy: finalStatus === 'da_huy' ? cancelReason : null
       });
 
       toast.success('Cập nhật thông tin ca trực thành công');
@@ -209,9 +211,7 @@ export function useAppointmentActions({
         ngay_gio_ket_thuc: endDateTimeStr,
         trang_thai: "da_xac_nhan",
         bac_si_id: selectedKtvId,
-        chuyen_gia_id: selectedKtvId,
         phong_id: selectedRoomId || null,
-        giuong_so: selectedGiuongSo ? Number(selectedGiuongSo) : null,
         ten_dich_vu: treatmentType === 'single'
           ? services.find(s => String(s.id) === String(chosenServiceId))?.ten_dich_vu || "Dịch vụ đơn"
           : packages.find(p => String(p.id) === String(chosenPackageId))?.ten_goi || "Liệu trình trị liệu",
@@ -264,7 +264,6 @@ export function useAppointmentActions({
         ngay_gio_ket_thuc: payload.ngay_gio_ket_thuc,
         trang_thai: "da_checkin",
         bac_si_id: payload.ky_thuat_vien_id || null,
-        chuyen_gia_id: payload.ky_thuat_vien_id || null,
         phong_id: payload.phong_id || null,
         ten_dich_vu: services.find(s => String(s.id) === String(payload.dich_vu_id))?.ten_dich_vu || "Khám lâm sàng",
         loai_lich: 'kham_moi'
@@ -424,7 +423,9 @@ export function useAppointmentActions({
     handleBookTreatment,
     handleBookWalkIn,
     handleUpdateAppointmentFields,
-    scrollToAppointment
+    scrollToAppointment,
+    cancelReason,
+    setCancelReason
   };
 }
 

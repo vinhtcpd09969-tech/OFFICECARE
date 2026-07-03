@@ -21,6 +21,14 @@ export function SchedulesGrid({
   onOpenEditModal
 }: SchedulesGridProps) {
 
+  const todayDateStr = React.useMemo(() => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const d = String(today.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }, []);
+
   const renderShiftBadge = (sched: Schedule) => {
     const isConflict = conflicts.some(
       c => c.id === sched.nguoi_dung_id && 
@@ -28,33 +36,44 @@ export function SchedulesGrid({
     );
     
     let label = 'Sáng'; 
-    let colorClass = 'bg-emerald-50 text-emerald-700 border-emerald-200 cursor-pointer hover:border-emerald-400';
+    let colorClass = 'bg-emerald-50 text-emerald-700 border-emerald-250 cursor-pointer hover:border-emerald-450';
     
     if (sched.trang_thai === 'tam_nghi') {
       label = 'Nghỉ phép'; 
-      colorClass = 'bg-red-50 text-red-600 border-red-200 cursor-pointer hover:border-red-400';
+      colorClass = 'bg-rose-50 text-rose-600 border-rose-200 cursor-pointer hover:border-rose-400';
     } else {
       const hour = parseInt(sched.gio_bat_dau.split(':')[0]);
       if (hour >= 11 && hour < 16) {
         label = 'Chiều'; 
-        colorClass = 'bg-cyan-50 text-cyan-700 border-cyan-200 cursor-pointer hover:border-cyan-400';
+        colorClass = 'bg-sky-50 text-sky-700 border-sky-200 cursor-pointer hover:border-sky-400';
       } else if (hour >= 16) {
         label = 'Tối'; 
-        colorClass = 'bg-indigo-50 text-indigo-700 border-indigo-200 cursor-pointer hover:border-indigo-400';
+        colorClass = 'bg-amber-50 text-amber-700 border-amber-200 cursor-pointer hover:border-amber-400';
       }
     }
 
     if (isConflict && sched.trang_thai !== 'tam_nghi') {
-      colorClass = 'bg-rose-50 text-rose-700 border-rose-300 border-dashed cursor-pointer hover:border-rose-450';
+      colorClass = 'bg-rose-100 text-rose-800 border-rose-350 border-dashed cursor-pointer hover:border-rose-500';
       label = `Trùng ca ${label}`;
     }
-
     if (sched.trang_thai !== 'tam_nghi' && sched.ma_phong) {
-      if (sched.giuong_so) {
-        label = `${label} (${sched.ma_phong} - G${sched.giuong_so})`;
-      } else {
-        label = `${label} (${sched.ma_phong})`;
-      }
+      label = `${label} (${sched.ma_phong})`;
+    }
+
+    const isPastDate = sched.ngay < todayDateStr;
+
+    if (isPastDate) {
+      return (
+        <div 
+          key={sched.id} 
+          className="text-[11px] font-semibold border border-gray-200 px-1.5 py-1 rounded-md text-center mb-1 shadow-sm transition-all bg-gray-50 text-gray-400 cursor-not-allowed select-none opacity-85"
+        >
+          <div className="uppercase tracking-wider">{label}</div>
+          {sched.trang_thai !== 'tam_nghi' && (
+            <div className="opacity-80 mt-0.5">({sched.gio_bat_dau.slice(0, 5)}-{sched.gio_ket_thuc.slice(0, 5)})</div>
+          )}
+        </div>
+      );
     }
 
     return (
@@ -137,6 +156,7 @@ export function SchedulesGrid({
                         </td>
                         {weekDates.map(dow => {
                           const cellSchedules = schedules.filter(s => s.nguoi_dung_id === staff.id && s.ngay === dow.fullDateStr);
+                          const isPastDate = dow.fullDateStr < todayDateStr;
                           return (
                             <td 
                               key={dow.key} 
@@ -149,12 +169,16 @@ export function SchedulesGrid({
                               {cellSchedules.length > 0 ? (
                                 cellSchedules.map(renderShiftBadge)
                               ) : (
-                                <div 
-                                  onClick={() => onOpenModal(staff.id, dow.fullDateStr)}
-                                  className="h-full min-h-[40px] rounded-lg border border-transparent hover:border-gray-300 hover:bg-gray-50 border-dashed flex items-center justify-center cursor-pointer transition-all opacity-0 group-hover:opacity-100 text-gray-400 hover:text-teal-600"
-                                >
-                                  <Plus size={16} />
-                                </div>
+                                !isPastDate ? (
+                                  <div 
+                                    onClick={() => onOpenModal(staff.id, dow.fullDateStr)}
+                                    className="h-full min-h-[40px] rounded-lg border border-transparent hover:border-gray-300 hover:bg-gray-50 border-dashed flex items-center justify-center cursor-pointer transition-all opacity-0 group-hover:opacity-100 text-gray-400 hover:text-teal-600"
+                                  >
+                                    <Plus size={16} />
+                                  </div>
+                                ) : (
+                                  <div className="h-full min-h-[40px]" />
+                                )
                               )}
                             </td>
                           );

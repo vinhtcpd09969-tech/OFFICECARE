@@ -1,8 +1,24 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { getSchedules, getStaff, getRooms, deleteSchedule } from '../../../../../api/admin.api';
-import { getWeekDates } from '../constants';
 import { Schedule, Staff, Room } from '../types';
 import toast from 'react-hot-toast';
+
+const removeDiacritics = (str: string): string => {
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D');
+};
+
+const getMonday = (d: Date): Date => {
+  const date = new Date(d);
+  const day = date.getDay();
+  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(date.setDate(diff));
+  monday.setHours(0, 0, 0, 0);
+  return monday;
+};
 
 export function useSchedulesState() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -10,8 +26,9 @@ export function useSchedulesState() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
   
-  const [selectedWeek, setSelectedWeek] = useState<'current' | 'next' | 'after_next'>('current');
+  const [selectedMonday, setSelectedMonday] = useState<Date>(() => getMonday(new Date()));
   const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   const fetchData = useCallback(async () => {
     try {
@@ -22,7 +39,7 @@ export function useSchedulesState() {
         getRooms()
       ]);
       setSchedules(schedRes.data || []);
-      setStaff((staffRes.data || []).filter((s: any) => ['Kỹ thuật viên', 'Bác sĩ', 'Lễ tân'].includes(s.vai_tro)));
+      setStaff((staffRes.data || []).filter((s: any) => ['Kỹ thuật viên', 'Bác sĩ', 'Lễ tân'].includes(s.vai_tro) && s.trang_thai === 'hoat_dong'));
       setRooms(roomsRes.data || []);
     } catch (error) {
       console.error('Error fetching schedules data:', error);
@@ -36,14 +53,36 @@ export function useSchedulesState() {
     fetchData();
   }, [fetchData]);
 
-  const weekDates = useMemo(() => getWeekDates(selectedWeek), [selectedWeek]);
+  const weekDates = useMemo(() => {
+    const dates: any[] = [];
+    const dowKeys = ['thu_2', 'thu_3', 'thu_4', 'thu_5', 'thu_6', 'thu_7', 'chu_nhat'];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(selectedMonday);
+      d.setDate(selectedMonday.getDate() + i);
+      dates.push({
+        key: dowKeys[i],
+        label: dowKeys[i] === 'chu_nhat' ? 'CN' : `T${i + 2}`,
+        dateStr: d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
+        isToday: d.toDateString() === today.toDateString(),
+        fullDateStr: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      });
+    }
+    return dates;
+  }, [selectedMonday]);
 
   // Derived state calculations: groupedStaff, conflicts, stats
   const { groupedStaff, conflicts, stats } = useMemo(() => {
-    // 1. Filter staff by role
+    // 1. Filter staff by role and search query with smart diacritic normalization
     let filtered = staff;
     if (roleFilter !== 'all') {
       filtered = staff.filter(s => s.vai_tro === roleFilter);
+    }
+    if (searchQuery.trim() !== '') {
+      const q = removeDiacritics(searchQuery).toLowerCase().trim();
+      filtered = filtered.filter(s => removeDiacritics(s.ho_ten).toLowerCase().includes(q));
     }
 
     // 2. Group by role
@@ -57,42 +96,54 @@ export function useSchedulesState() {
     const staffSchedules: Record<string, Schedule[]> = {};
     schedules.forEach(s => {
       const key = `${s.nguoi_dung_id}-${s.ngay}`;
-      if (!staffSchedules[key]) staffSchedules[key] = [];
+      if (!staffSchedules[key]) {
+        staffSchedules[key] = [];
+      }
       staffSchedules[key].push(s);
     });
 
     Object.values(staffSchedules).forEach(list => {
       if (list.length > 1) {
-        const sorted = [...list].sort((a, b) => a.gio_bat_dau.localeCompare(b.gio_bat_dau));
-        for (let i = 0; i < sorted.length - 1; i++) {
-          if (sorted[i].gio_ket_thuc > sorted[i + 1].gio_bat_dau) {
-            const conflictDowLabel = weekDates.find(d => d.fullDateStr === sorted[i].ngay)?.label || sorted[i].ngay;
+        const activeList = list.filter(s => s.trang_thai === 'hoat_dong');
+        if (activeList.length > 1) {
+          const first = activeList[0];
+          const second = activeList[1];
+          const staffMember = staff.find(st => String(st.id) === String(first.nguoi_dung_id));
+          if (staffMember) {
+            const dateObj = weekDates.find(d => d.fullDateStr === first.ngay);
+            const dowLabel = dateObj ? dateObj.label : first.ngay;
             conflictList.push({
-              id: sorted[i].nguoi_dung_id,
-              name: sorted[i].ten_nhan_vien,
-              dowLabel: conflictDowLabel,
-              dateStr: sorted[i].ngay,
-              time1: sorted[i].gio_bat_dau.slice(0, 5),
-              time2: sorted[i + 1].gio_bat_dau.slice(0, 5)
+              id: first.nguoi_dung_id,
+              name: staffMember.ho_ten,
+              dowLabel,
+              dateStr: first.ngay,
+              time1: `${first.gio_bat_dau}-${first.gio_ket_thuc}`,
+              time2: `${second.gio_bat_dau}-${second.gio_ket_thuc}`
             });
-            break; // just register one conflict per staff/day
           }
         }
       }
     });
 
     // 4. Calculate Stats
-    const todayStr = weekDates.find(d => d.isToday)?.fullDateStr;
-    const activeToday = todayStr 
-      ? new Set(schedules.filter(s => s.ngay === todayStr && s.trang_thai === 'hoat_dong').map(s => s.nguoi_dung_id)).size 
-      : 0;
+    const getLocalVietnamDate = () => {
+      const now = new Date();
+      const localTime = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+      return localTime.toISOString().split('T')[0];
+    };
+    const todayDateStr = getLocalVietnamDate();
+
+    const activeToday = schedules.filter(s => s.ngay === todayDateStr && s.trang_thai === 'hoat_dong').length;
     
     // To only count coverage for the currently viewed week's schedules
     const currentWeekDates = weekDates.map(d => d.fullDateStr);
-    const visibleSchedules = schedules.filter(s => currentWeekDates.includes(s.ngay));
+    
+    // Filter to only count from today onwards (todayDateStr)
+    const futureWeekDates = currentWeekDates.filter(dateStr => dateStr >= todayDateStr);
 
-    const expectedShifts = staff.length * 6;
-    const currentActiveShifts = visibleSchedules.filter(s => s.trang_thai === 'hoat_dong').length;
+    const expectedShifts = Math.round(staff.length * 6 * (futureWeekDates.length / 7));
+    const futureSchedules = schedules.filter(s => futureWeekDates.includes(s.ngay));
+    const currentActiveShifts = futureSchedules.filter(s => s.trang_thai === 'hoat_dong').length;
     const coverage = expectedShifts > 0 ? Math.min(100, Math.round((currentActiveShifts / expectedShifts) * 100)) : 0;
     const emptyShifts = Math.max(0, expectedShifts - currentActiveShifts);
 
@@ -101,7 +152,7 @@ export function useSchedulesState() {
       conflicts: conflictList,
       stats: { activeToday, emptyShifts, coverage }
     };
-  }, [staff, schedules, roleFilter, weekDates]);
+  }, [staff, schedules, roleFilter, weekDates, searchQuery]);
 
   const weeklyStatsByStaff = useMemo(() => {
     const currentWeekDates = weekDates.map(d => d.fullDateStr);
@@ -109,7 +160,11 @@ export function useSchedulesState() {
 
     const statsMap: Record<string, { name: string; role: string; morning: number; afternoon: number; off: number }> = {};
 
-    staff.forEach(s => {
+    const filteredStaffForStats = searchQuery.trim() !== ''
+      ? staff.filter(s => removeDiacritics(s.ho_ten).toLowerCase().includes(removeDiacritics(searchQuery).toLowerCase().trim()))
+      : staff;
+
+    filteredStaffForStats.forEach(s => {
       statsMap[s.id] = {
         name: s.ho_ten,
         role: s.vai_tro,
@@ -144,7 +199,7 @@ export function useSchedulesState() {
     });
 
     return groupedStats;
-  }, [staff, schedules, weekDates]);
+  }, [staff, schedules, weekDates, searchQuery]);
 
   const handleDeleteScheduleById = useCallback(async (id: string | number) => {
     if (window.confirm('Bạn có chắc chắn muốn xóa ca trực này?')) {
@@ -166,8 +221,8 @@ export function useSchedulesState() {
     staff,
     rooms,
     loading,
-    selectedWeek,
-    setSelectedWeek,
+    selectedMonday,
+    setSelectedMonday,
     roleFilter,
     setRoleFilter,
     weekDates,
@@ -176,6 +231,8 @@ export function useSchedulesState() {
     stats,
     weeklyStatsByStaff,
     handleDeleteScheduleById,
-    fetchData
+    fetchData,
+    searchQuery,
+    setSearchQuery
   };
 }

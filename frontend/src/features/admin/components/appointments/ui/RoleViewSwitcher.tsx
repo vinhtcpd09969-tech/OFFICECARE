@@ -106,7 +106,7 @@ export function RoleViewSwitcher({
               value={selectedDocSimId}
               onChange={(e) => {
                 setSelectedDocSimId(e.target.value);
-                const docObj = staffList.find(s => String(s.chuyen_gia_id || s.id) === String(e.target.value));
+                const docObj = staffList.find(s => String(s.id) === String(e.target.value));
                 if (docObj) {
                   toast.success(`Đang mô phỏng lịch của BS. ${docObj.ho_ten}`);
                 }
@@ -116,7 +116,7 @@ export function RoleViewSwitcher({
               {staffList
                 .filter(s => s.vai_tro === 'Bác sĩ')
                 .map(doc => (
-                  <option key={doc.id} value={doc.chuyen_gia_id || doc.id}>
+                  <option key={doc.id} value={String(doc.id)}>
                     BS. {doc.ho_ten}
                   </option>
                 ))}

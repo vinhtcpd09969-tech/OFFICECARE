@@ -7,8 +7,9 @@
  * @returns ISO string in UTC representing the local time in Vietnam
  */
 export function convertToVietnamUtcIso(dateStr: string, timeStr: string): string {
+  const actualTime = timeStr.includes(' - ') ? timeStr.split(' - ')[0] : timeStr;
   const [year, month, day] = dateStr.split('-');
-  const timeParts = timeStr.split(':');
+  const timeParts = actualTime.split(':');
   const hours = timeParts[0];
   const minutes = timeParts[1] || '00';
 

@@ -37,9 +37,9 @@ export default function Dashboard() {
         );
         setHasActiveTreatments(completedTreatments.length > 0);
 
-        // Tìm lịch hẹn sắp tới chưa hoàn thành/hủy (ưu tiên đã xác nhận rồi mới tới chờ xác nhận)
+        // Tìm lịch hẹn sắp tới chưa hoàn thành/hủy (bao gồm chưa xác nhận, chờ xác nhận, đã xác nhận)
         const activeAppts = list.filter((app: any) => 
-          app.trang_thai === 'cho_xac_nhan' || app.trang_thai === 'da_xac_nhan'
+          app.trang_thai === 'chua_xac_nhan' || app.trang_thai === 'cho_xac_nhan' || app.trang_thai === 'da_xac_nhan'
         );
         
         // Sắp xếp theo ngày bắt đầu gần nhất
@@ -399,11 +399,13 @@ export default function Dashboard() {
                   <div className="flex justify-between items-center mb-4 border-b border-dashed border-gray-150 pb-3">
                     <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Thời gian Khám</span>
                     <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                      upcomingAppointment.trang_thai === 'cho_xac_nhan'
+                      upcomingAppointment.trang_thai === 'chua_xac_nhan'
+                        ? 'text-rose-600 bg-rose-50 border border-rose-200 animate-pulse font-extrabold'
+                        : upcomingAppointment.trang_thai === 'cho_xac_nhan'
                         ? 'text-amber-600 bg-amber-50 border border-amber-200' 
-                        : 'text-emerald-600 bg-emerald-50 border border-emerald-250 animate-pulse'
+                        : 'text-emerald-600 bg-emerald-50 border border-emerald-250'
                     }`}>
-                      {upcomingAppointment.trang_thai === 'cho_xac_nhan' ? 'Chờ duyệt' : 'Đã duyệt'}
+                      {upcomingAppointment.trang_thai === 'chua_xac_nhan' ? 'Chờ OTP' : upcomingAppointment.trang_thai === 'cho_xac_nhan' ? 'Chờ duyệt' : 'Đã duyệt'}
                     </span>
                   </div>
                   
@@ -443,9 +445,13 @@ export default function Dashboard() {
                 <div className="grid grid-cols-2 gap-3">
                   <button 
                     onClick={() => navigate(`/booking/success/${upcomingAppointment.id}`)}
-                    className="bg-white hover:bg-gray-50 text-secondary font-bold text-xs uppercase tracking-wider py-3.5 rounded-xl border border-gray-150 transition-all text-center"
+                    className={`font-bold text-xs uppercase tracking-wider py-3.5 rounded-xl border transition-all text-center ${
+                      upcomingAppointment.trang_thai === 'chua_xac_nhan'
+                        ? 'bg-rose-600 hover:bg-rose-700 text-white border-rose-600 animate-pulse'
+                        : 'bg-white hover:bg-gray-50 text-secondary border-gray-150'
+                    }`}
                   >
-                    Xem Chi Tiết
+                    {upcomingAppointment.trang_thai === 'chua_xac_nhan' ? 'Xác thực OTP' : 'Xem Chi Tiết'}
                   </button>
                   
                   <button 

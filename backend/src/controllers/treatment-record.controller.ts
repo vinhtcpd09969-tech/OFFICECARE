@@ -24,11 +24,7 @@ export const getTreatmentRecords = async (req: Request, res: Response): Promise<
 export const assignTreatmentRecord = async (req: Request, res: Response): Promise<any> => {
   try {
     const { id } = req.params;
-    const { ky_thuat_vien_id, phong_tri_lieu_id } = req.body;
-    if (!ky_thuat_vien_id || !phong_tri_lieu_id) {
-      return res.status(400).json({ message: 'Vui lòng cung cấp đầy đủ Kỹ thuật viên và Phòng trị liệu' });
-    }
-    const result = await treatmentRecordService.assignTreatmentRecord(id as string, { ky_thuat_vien_id, phong_tri_lieu_id });
+    const result = await treatmentRecordService.assignTreatmentRecord(id as string);
     return res.json(result);
   } catch (error: any) {
     console.error('Lỗi khi điều phối hồ sơ điều trị:', error);

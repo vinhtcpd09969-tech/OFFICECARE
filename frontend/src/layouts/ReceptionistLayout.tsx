@@ -74,7 +74,8 @@ export default function ReceptionistLayout() {
 
   const navItems = [
     { name: 'Dashboard (Lịch hôm nay)', path: '/receptionist', icon: '📊' },
-    { name: 'Lịch hẹn khám', path: '/receptionist/appointments', icon: '📅' },
+    { name: 'Lập hóa đơn & Gói', path: '/receptionist/billing', icon: '💵' },
+    { name: 'Lịch hẹn', path: '/receptionist/appointments', icon: '📅' },
     { name: 'Đăng ký Khách vãng lai', path: '/receptionist/walk-in', icon: '👤' },
   ];
 
@@ -94,14 +95,21 @@ export default function ReceptionistLayout() {
                 <li key={item.path}>
                   <Link
                     to={item.path}
-                    className={`flex items-center px-4 py-2.5 rounded-xl transition-all ${
+                    className={`flex items-center justify-between px-4 py-2.5 rounded-xl transition-all ${
                       isActive 
                         ? 'bg-primary/10 text-primary font-medium' 
                         : 'hover:bg-white/5 hover:text-white'
                     }`}
                   >
-                    <span className="mr-3">{item.icon}</span>
-                    {item.name}
+                    <div className="flex items-center">
+                      <span className="mr-3">{item.icon}</span>
+                      <span>{item.name}</span>
+                    </div>
+                    {item.path === '/receptionist/appointments' && pendingContactCount > 0 && (
+                      <span className="animate-bounce inline-flex items-center justify-center w-5 h-5 text-[9px] font-black text-white bg-rose-500 rounded-full border border-rose-455">
+                        {pendingContactCount}
+                      </span>
+                    )}
                   </Link>
                 </li>
               );

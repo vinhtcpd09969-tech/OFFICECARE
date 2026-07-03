@@ -19,17 +19,14 @@ export interface Appointment {
   thoi_gian_tao?: string;
   han_xac_nhan?: string;
   bac_si_id?: string | number | null;
-  chuyen_gia_id?: string | number | null;
   phong_id?: string | number | null;
   ten_dich_vu?: string;
   dich_vu_id?: string | number | null;
   loai_lich?: string;
-  giuong_so?: number | string | null;
 }
 
 export interface Staff {
   id: string | number;
-  chuyen_gia_id?: string;
   ho_ten: string;
   vai_tro: string;
 }

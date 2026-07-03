@@ -4,6 +4,7 @@ import {
   getRooms, 
   createRoom 
 } from '../../../api/admin.api';
+import { DoorOpen, Users, Compass, CheckCircle2, AlertTriangle, Info, X } from 'lucide-react';
 
 // --- Types ---
 interface Room {
@@ -16,46 +17,37 @@ interface Room {
   suc_chua?: number;
 }
 
-const renderRoomIconSVG = (type: string) => {
+const renderRoomIcon = (type: string) => {
   if (type === 'phong_tri_lieu' || type === 'phong_tri_lieu_chuan' || type === 'tri_lieu' || type === 'phong_dac_biet') {
     return (
-      <svg className="w-10 h-10 text-teal-800/20 group-hover:text-teal-800/40 group-hover:scale-110 transition-all duration-500" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <circle cx="32" cy="32" r="28" strokeDasharray="4 4" />
-        <circle cx="32" cy="32" r="16" />
-        <path d="M12 32h40M32 12v40" strokeWidth="1" strokeDasharray="2 2" />
-        <circle cx="32" cy="32" r="4" fill="currentColor" className="animate-pulse" />
-      </svg>
+      <div className="w-12 h-12 rounded-xl bg-teal-50 flex items-center justify-center text-teal-850 shadow-inner group-hover:bg-teal-600 group-hover:text-white transition-all duration-300">
+        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+          <path d="M12 6v12M6 12h12" />
+        </svg>
+      </div>
     );
   }
   if (type === 'phong_kham' || type === 'kham_benh') {
     return (
-      <svg className="w-10 h-10 text-emerald-700/20 group-hover:text-emerald-600/40 group-hover:scale-110 transition-all duration-500" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <rect x="6" y="12" width="52" height="40" rx="2" />
-        <path d="M6 32h16l4-12 5 24 4-15 3 6h20" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    );
-  }
-  if (type === 'phong_tap' || type === 'phong_tap_phcn' || type === 'phuc_hoi') {
-    return (
-      <svg className="w-10 h-10 text-teal-700/20 group-hover:text-teal-600/40 group-hover:scale-110 transition-all duration-500" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path d="M8 52c10-5 18-28 28-28s12 18 20 12" strokeWidth="2" strokeLinecap="round" />
-        <path d="M8 52h48M8 12v40" strokeWidth="1" />
-        <circle cx="36" cy="24" r="3" fill="currentColor" />
-      </svg>
+      <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-700 shadow-inner group-hover:bg-emerald-600 group-hover:text-white transition-all duration-300">
+        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+          <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+        </svg>
+      </div>
     );
   }
   return (
-    <svg className="w-10 h-10 text-slate-400/20 group-hover:text-slate-500/40 group-hover:scale-110 transition-all duration-500" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <circle cx="32" cy="32" r="24" />
-      <path d="M32 12v40M12 32h40" />
-    </svg>
+    <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center text-slate-500 shadow-inner group-hover:bg-slate-600 group-hover:text-white transition-all duration-300">
+      <DoorOpen className="w-6 h-6" />
+    </div>
   );
 };
 
 const ALL_ROOM_TYPES = [
   { value: 'phong_tri_lieu', label: 'Phòng trị liệu' },
-  { value: 'phong_kham', label: 'Phòng khám' },
-  { value: 'phong_tap', label: 'Phòng tập' }
+  { value: 'phong_kham', label: 'Phòng khám' }
 ];
 
 export default function ManageRooms() {
@@ -98,7 +90,7 @@ export default function ManageRooms() {
     }, 4000);
   };
 
-  // Fetch all rooms & equipment
+  // Fetch all rooms
   const loadData = async () => {
     try {
       setLoading(true);
@@ -106,7 +98,7 @@ export default function ManageRooms() {
       setRooms(res.data || []);
     } catch (error) {
       console.error('Lỗi khi lấy dữ liệu hạ tầng:', error);
-      showToast('Không thể kết nối API. Đang dùng dữ liệu mô phỏng.', 'error');
+      showToast('Không thể kết nối dữ liệu máy chủ.', 'error');
     } finally {
       setLoading(false);
     }
@@ -135,17 +127,17 @@ export default function ManageRooms() {
   const filteredRooms = useMemo(() => {
     return rooms.filter(room => {
       
-      // 2. Type Filter
+      // Type Filter
       if (selectedType !== 'all' && room.loai_phong !== selectedType) return false;
 
-      // 3. Search Filter
+      // Search Filter
       const query = searchQuery.toLowerCase();
       const matchSearch = room.ten_phong.toLowerCase().includes(query) || 
-                          room.ma_phong.toLowerCase().includes(query) ||
+                          (room.ma_phong || '').toLowerCase().includes(query) ||
                           (room.mo_ta && room.mo_ta.toLowerCase().includes(query));
       if (!matchSearch) return false;
 
-      // 4. Quick Stat Filter
+      // Quick Stat Filter
       if (statFilter) {
         if (statFilter === 'available' && !(room.trang_thai === 'san_sang' || room.trang_thai === 'trong')) return false;
         if (statFilter === 'occupied' && !(room.trang_thai === 'dang_dung' || room.trang_thai === 'dang_co_khach')) return false;
@@ -153,7 +145,7 @@ export default function ManageRooms() {
         if (statFilter === 'inactive' && room.trang_thai !== 'ngung_hoat_dong') return false;
       }
 
-      // 5. Status Filter
+      // Status Filter
       if (selectedStatus !== 'all') {
         if (selectedStatus === 'san_sang' && !(room.trang_thai === 'san_sang' || room.trang_thai === 'trong')) return false;
         if (selectedStatus === 'dang_dung' && !(room.trang_thai === 'dang_dung' || room.trang_thai === 'dang_co_khach')) return false;
@@ -161,7 +153,7 @@ export default function ManageRooms() {
       }
 
       return true;
-    }).sort((a, b) => a.ma_phong.localeCompare(b.ma_phong));
+    }).sort((a, b) => (a.ma_phong || '').localeCompare(b.ma_phong || ''));
   }, [rooms, selectedType, selectedStatus, searchQuery, statFilter]);
 
   // Handle Room CRUD
@@ -185,177 +177,168 @@ export default function ManageRooms() {
         suc_chua: Number(roomFormData.suc_chua) || 1
       };
       await createRoom(payload);
-      showToast('Tạo phòng mới thành công!');
+      showToast('Đăng ký phòng trực thành công!');
       setIsRoomModalOpen(false);
       loadData();
     } catch (error) {
       console.error(error);
-      showToast('Lỗi khi lưu thông tin phòng.', 'error');
+      showToast('Có lỗi xảy ra khi tạo phòng mới.', 'error');
     }
   };
-
-
-
-
 
   const translateType = (type: string) => {
     if (type === 'phong_kham' || type === 'kham_benh') return 'Phòng khám';
     if (type === 'phong_tri_lieu' || type === 'phong_tri_lieu_chuan' || type === 'tri_lieu' || type === 'phong_dac_biet') return 'Phòng trị liệu';
-    if (type === 'phong_tap' || type === 'phong_tap_phcn' || type === 'phuc_hoi') return 'Phòng tập';
-    if (type === 'kho_thiet_bi') return 'Phòng thiết bị chung';
     return type;
   };
 
   return (
-    <div className="space-y-6 pb-12 relative animate-[fadeIn_0.4s_ease-out] font-sans text-slate-800">
+    <div className="space-y-8 pb-16 font-sans text-slate-700 max-w-7xl mx-auto px-4 sm:px-6">
       
-      {/* HUD-Style Custom Toast System */}
+      {/* Toast Notifier */}
       <div className="fixed top-6 right-6 z-[999] flex flex-col gap-3">
         {toasts.map(t => (
           <div 
             key={t.id} 
-            className={`border px-5 py-3.5 rounded-none shadow-[0_4px_20px_rgba(0,0,0,0.08)] flex items-center justify-between gap-4 w-96 backdrop-blur-md transition-all duration-300 translate-x-0 border-l-[3px] ${
+            className={`px-5 py-4 rounded-2xl shadow-xl flex items-center justify-between gap-4 w-96 backdrop-blur-lg border transition-all duration-300 transform translate-y-0 ${
               t.type === 'success' 
-                ? 'bg-emerald-50/90 border-emerald-500 text-emerald-950 border-l-emerald-500' 
+                ? 'bg-emerald-50/95 border-emerald-200 text-emerald-900' 
                 : t.type === 'error' 
-                  ? 'bg-rose-50/90 border-rose-500 text-rose-950 border-l-rose-500' 
-                  : 'bg-teal-50/90 border-teal-500 text-teal-950 border-l-teal-500'
+                  ? 'bg-rose-50/95 border-rose-200 text-rose-900' 
+                  : 'bg-teal-50/95 border-teal-200 text-teal-900'
             }`}
           >
             <div className="flex items-center gap-3">
-              <span className="text-xs font-bold tracking-widest uppercase">
-                {t.type === 'success' ? 'SUCCESS' : t.type === 'error' ? 'ERROR' : 'INFO'}
-              </span>
-              <p className="text-sm font-medium">{t.message}</p>
+              {t.type === 'success' ? <CheckCircle2 className="w-5 h-5 text-emerald-600" /> : t.type === 'error' ? <AlertTriangle className="w-5 h-5 text-rose-600" /> : <Info className="w-5 h-5 text-teal-800" />}
+              <p className="text-sm font-semibold leading-relaxed">{t.message}</p>
             </div>
-            <button onClick={() => setToasts(prev => prev.filter(item => item.id !== t.id))} className="text-slate-400 hover:text-slate-600 transition-colors">
-              ✕
+            <button onClick={() => setToasts(prev => prev.filter(item => item.id !== t.id))} className="text-slate-400 hover:text-slate-700 transition-colors">
+              <X className="w-4 h-4" />
             </button>
           </div>
         ))}
       </div>
 
-      {/* Header section */}
-      <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4 border-b border-slate-200/80 pb-6">
+      {/* Header Panel */}
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-6 border-b border-slate-100 pb-8">
         <div>
-          <h2 className="text-3xl font-extrabold text-teal-950 tracking-tight flex items-center gap-3">
-            <svg className="w-8 h-8 text-teal-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-            </svg>
-            QUẢN LÝ PHÒNG TRỊ LIỆU
+          <div className="flex items-center gap-3">
+            <span className="bg-teal-50 text-teal-800 text-xs font-black uppercase tracking-widest px-3 py-1 rounded-full">Hạ tầng y khoa</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          </div>
+          <h2 className="text-4xl font-black text-slate-900 tracking-tight mt-2 flex items-center gap-3">
+            Hệ Thống Phòng Khám & Điều Trị
           </h2>
-          <p className="text-slate-500 mt-1 text-sm font-medium tracking-wide uppercase">Danh sách cabin điều trị y khoa & cơ sở vật chất vật lý trị liệu</p>
+          <p className="text-slate-500 mt-2 text-sm font-medium">Quản lý sơ đồ phòng khám lâm sàng, cabin trị liệu và thiết lập sức chứa vận hành</p>
         </div>
         
         <div>
           <button 
             onClick={() => handleOpenRoomModal()}
-            className="bg-teal-800 hover:bg-teal-900 text-white px-5 py-2.5 text-xs font-black uppercase tracking-wider transition-all duration-200 rounded-none active:scale-95 shadow-sm"
+            className="bg-teal-800 hover:bg-teal-900 text-white font-bold text-xs uppercase tracking-wider px-6 py-3.5 rounded-xl shadow-md hover:shadow-lg transition-all active:scale-[0.98] duration-250"
           >
-            + THÊM PHÒNG MỚI
+            + Khai báo phòng trực mới
           </button>
         </div>
       </div>
 
-      {/* QUICK STATS HEADER PANEL */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
         <div 
           onClick={() => setStatFilter(null)}
-          className={`border p-5 cursor-pointer transition-all duration-300 rounded-none hover:shadow-md ${!statFilter ? 'bg-teal-950/5 border-teal-800 shadow-[0_0_12px_rgba(15,118,110,0.06)]' : 'bg-white border-slate-200 hover:border-slate-300'}`}
+          className={`border p-6 cursor-pointer transition-all duration-300 rounded-2xl hover:shadow-lg ${!statFilter ? 'bg-teal-900/5 border-teal-500/50 shadow-md' : 'bg-white border-slate-200/80 hover:border-slate-300'}`}
         >
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Tổng Số Phòng</span>
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">TỔNG SỐ PHÒNG</span>
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-slate-900 tracking-tight">{stats.totalPhysicalRooms}</span>
-            <span className="text-xs text-slate-400">phòng khám & điều trị</span>
+            <span className="text-4xl font-black text-slate-900 tracking-tight">{stats.totalPhysicalRooms}</span>
+            <span className="text-xs text-slate-400 font-medium">cabin vận hành</span>
           </div>
         </div>
 
         <div 
           onClick={() => setStatFilter('available')}
-          className={`border p-5 cursor-pointer transition-all duration-300 rounded-none hover:shadow-md ${statFilter === 'available' ? 'bg-emerald-50/50 border-emerald-600 shadow-[0_0_12px_rgba(16,185,129,0.06)]' : 'bg-white border-slate-200 hover:border-slate-300'}`}
+          className={`border p-6 cursor-pointer transition-all duration-300 rounded-2xl hover:shadow-lg ${statFilter === 'available' ? 'bg-emerald-50/50 border-emerald-500/50 shadow-md' : 'bg-white border-slate-200/80 hover:border-slate-300'}`}
         >
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Phòng Đang Trống</span>
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">ĐANG TRỐNG</span>
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-emerald-700 tracking-tight">{stats.availableRooms}</span>
-            <span className="text-xs text-slate-400">sẵn sàng tiếp nhận khách</span>
+            <span className="text-4xl font-black text-emerald-600 tracking-tight">{stats.availableRooms}</span>
+            <span className="text-xs text-slate-400 font-medium">Sẵn sàng nhận khách</span>
           </div>
         </div>
 
         <div 
           onClick={() => setStatFilter('occupied')}
-          className={`border p-5 cursor-pointer transition-all duration-300 rounded-none hover:shadow-md ${statFilter === 'occupied' ? 'bg-cyan-50/50 border-cyan-600 shadow-[0_0_12px_rgba(8,145,178,0.06)]' : 'bg-white border-slate-200 hover:border-slate-300'}`}
+          className={`border p-6 cursor-pointer transition-all duration-300 rounded-2xl hover:shadow-lg ${statFilter === 'occupied' ? 'bg-cyan-50/50 border-cyan-500/50 shadow-md' : 'bg-white border-slate-200/80 hover:border-slate-300'}`}
         >
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Đang Có Khách</span>
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">ĐANG BẬN</span>
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-cyan-700 tracking-tight">{stats.occupiedRooms}</span>
-            <span className="text-xs text-slate-400">ktv đang điều trị</span>
+            <span className="text-4xl font-black text-cyan-600 tracking-tight">{stats.occupiedRooms}</span>
+            <span className="text-xs text-slate-400 font-medium">Đang điều trị</span>
           </div>
         </div>
 
         <div 
           onClick={() => setStatFilter('maintenance')}
-          className={`border p-5 cursor-pointer transition-all duration-300 rounded-none hover:shadow-md ${statFilter === 'maintenance' ? 'bg-amber-50/50 border-amber-600 shadow-[0_0_12px_rgba(245,158,11,0.06)]' : 'bg-white border-slate-200 hover:border-slate-300'}`}
+          className={`border p-6 cursor-pointer transition-all duration-300 rounded-2xl hover:shadow-lg ${statFilter === 'maintenance' ? 'bg-amber-50/50 border-amber-500/50 shadow-md' : 'bg-white border-slate-200/80 hover:border-slate-300'}`}
         >
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Đang Bảo Trì</span>
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">ĐANG BẢO TRÌ</span>
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-amber-700 tracking-tight">{stats.maintenanceRooms}</span>
-            <span className="text-xs text-slate-400">dọn dẹp hoặc sửa hạ tầng</span>
+            <span className="text-4xl font-black text-amber-600 tracking-tight">{stats.maintenanceRooms}</span>
+            <span className="text-xs text-slate-400 font-medium">Bảo dưỡng hạ tầng</span>
           </div>
         </div>
       </div>
 
-      {/* SEARCH AND FILTERS PANEL */}
-      <div className="bg-slate-50 border border-slate-200 p-5 rounded-none grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+      {/* Filters Panel */}
+      <div className="bg-slate-50/80 backdrop-blur-md border border-slate-200/60 p-5 rounded-2xl grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
         
         {/* Search */}
         <div className="relative md:col-span-3">
-          <span className="absolute inset-y-0 left-3 flex items-center text-slate-400">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+          <span className="absolute inset-y-0 left-3.5 flex items-center text-slate-400">
+            <Compass className="w-5 h-5" />
           </span>
           <input 
             type="text" 
-            placeholder="Tìm kiếm mã phòng, tên phòng, ghi chú..."
+            placeholder="Tìm kiếm theo mã phòng, tên phòng hoặc ghi chú..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 border border-slate-200 bg-white text-sm font-semibold rounded-none focus:outline-none focus:border-teal-800 placeholder-slate-400"
+            className="w-full pl-11 pr-4 py-3 border border-slate-200/80 bg-white text-sm font-semibold rounded-xl focus:outline-none focus:border-teal-800 focus:ring-2 focus:ring-teal-100 transition-all placeholder-slate-400"
           />
         </div>
 
-          <select 
-            value={selectedType}
-            onChange={(e) => setSelectedType(e.target.value)}
-            className="w-full py-2 px-3 border border-slate-200 bg-white text-sm font-bold rounded-none focus:outline-none focus:border-teal-800"
-          >
-            <option value="all">TẤT CẢ CÁC LOẠI PHÒNG</option>
-            <option value="phong_tri_lieu">PHÒNG TRỊ LIỆU</option>
-            <option value="phong_kham">PHÒNG KHÁM</option>
-            <option value="phong_tap">PHÒNG TẬP</option>
-          </select>
+        {/* Room Type Filter */}
+        <select 
+          value={selectedType}
+          onChange={(e) => setSelectedType(e.target.value)}
+          className="w-full py-3 px-4 border border-slate-200/80 bg-white text-sm font-bold rounded-xl focus:outline-none focus:border-teal-800 focus:ring-2 focus:ring-teal-100 transition-all"
+        >
+          <option value="all">TẤT CẢ LOẠI PHÒNG</option>
+          <option value="phong_tri_lieu">PHÒNG TRỊ LIỆU</option>
+          <option value="phong_kham">PHÒNG KHÁM</option>
+        </select>
       </div>
 
       {/* Active filters display */}
       {(statFilter || selectedType !== 'all' || selectedStatus !== 'all' || searchQuery) && (
-        <div className="flex flex-wrap gap-2 items-center">
+        <div className="flex flex-wrap gap-2.5 items-center">
           <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Đang lọc theo:</span>
           {searchQuery && (
-            <span className="bg-slate-100 border border-slate-200 px-2.5 py-1 text-xs font-semibold rounded-none flex items-center gap-1.5">
+            <span className="bg-slate-100 border border-slate-200/60 px-3.5 py-1.5 text-xs font-semibold rounded-xl flex items-center gap-2">
               Từ khóa: "{searchQuery}"
-              <button onClick={() => setSearchQuery('')} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+              <button onClick={() => setSearchQuery('')} className="text-slate-400 hover:text-slate-700 font-bold">✕</button>
             </span>
           )}
 
           {selectedType !== 'all' && (
-            <span className="bg-slate-100 border border-slate-200 px-2.5 py-1 text-xs font-semibold rounded-none flex items-center gap-1.5">
+            <span className="bg-slate-100 border border-slate-200/60 px-3.5 py-1.5 text-xs font-semibold rounded-xl flex items-center gap-2">
               Loại: {translateType(selectedType)}
-              <button onClick={() => setSelectedType('all')} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+              <button onClick={() => setSelectedType('all')} className="text-slate-400 hover:text-slate-700 font-bold">✕</button>
             </span>
           )}
           {statFilter && (
-            <span className="bg-teal-50 border border-teal-200 text-teal-950 px-2.5 py-1 text-xs font-black rounded-none flex items-center gap-1.5 uppercase tracking-wider">
-              {statFilter === 'available' ? 'Phòng trống' : statFilter === 'occupied' ? 'Phòng có khách' : statFilter === 'maintenance' ? 'Đang bảo trì' : statFilter === 'inactive' ? 'Ngừng hoạt động' : 'Lọc nhanh chỉ số'}
-              <button onClick={() => setStatFilter(null)} className="text-teal-600 hover:text-teal-900 font-bold">✕</button>
+            <span className="bg-teal-50 border border-teal-200 text-teal-900 px-3.5 py-1.5 text-xs font-bold rounded-xl flex items-center gap-2 uppercase tracking-wider">
+              {statFilter === 'available' ? 'Phòng trống' : statFilter === 'occupied' ? 'Phòng có khách' : statFilter === 'maintenance' ? 'Đang bảo trì' : 'Chỉ số thống kê'}
+              <button onClick={() => setStatFilter(null)} className="text-teal-600 hover:text-teal-950 font-bold">✕</button>
             </span>
           )}
           <button 
@@ -367,18 +350,19 @@ export default function ManageRooms() {
             }} 
             className="text-xs font-bold text-teal-800 hover:underline hover:text-teal-900 uppercase tracking-widest ml-auto"
           >
-            Đặt lại tất cả bộ lọc
+            Đặt lại bộ lọc
           </button>
         </div>
       )}
 
+      {/* Grid of rooms */}
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 text-teal-800">
-          <div className="w-12 h-12 border-2 border-teal-800 border-t-transparent animate-spin rounded-none mb-4"></div>
-          <p className="font-bold text-xs tracking-widest uppercase text-slate-500">Đang truy vấn dữ liệu vận hành phòng khám...</p>
+        <div className="flex flex-col items-center justify-center py-24 text-teal-800">
+          <div className="w-12 h-12 border-4 border-teal-800 border-t-transparent animate-spin rounded-full mb-4"></div>
+          <p className="font-bold text-xs tracking-widest uppercase text-slate-400">Đang đồng bộ dữ liệu phòng điều trị...</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 animate-[fadeIn_0.3s_ease-out]">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredRooms.map(room => {
             const isUnderMaintenance = room.trang_thai === 'bao_tri';
             const isAvailable = room.trang_thai === 'san_sang' || room.trang_thai === 'trong';
@@ -388,99 +372,84 @@ export default function ManageRooms() {
               <Link 
                 key={room.id} 
                 to={`/admin/rooms/${room.id}`}
-                className={`border p-6 rounded-none transition-all duration-300 bg-white relative flex flex-col justify-between group overflow-hidden ${
+                className={`border bg-gradient-to-br from-white to-slate-50/50 p-6 rounded-2xl transition-all duration-300 hover:shadow-xl hover:-translate-y-1 relative flex flex-col justify-between group overflow-hidden ${
                   isUnderMaintenance 
-                    ? 'border-amber-400 hover:border-teal-800 hover:shadow-[0_16px_35px_rgba(15,118,110,0.12)]' 
-                    : 'border-slate-200 hover:border-teal-800 hover:shadow-[0_16px_35px_rgba(15,118,110,0.12)]'
-                } hover:-translate-y-1`}
+                    ? 'border-amber-200/80 hover:border-amber-400' 
+                    : isOccupied 
+                      ? 'border-cyan-200/80 hover:border-cyan-400'
+                      : 'border-slate-200/60 hover:border-teal-500'
+                }`}
               >
-                {/* Tech dashed grid background pattern */}
-                <div className="absolute inset-0 opacity-[0.015] group-hover:opacity-[0.035] transition-opacity pointer-events-none select-none">
+                {/* Visual patterns */}
+                <div className="absolute inset-0 opacity-[0.01] group-hover:opacity-[0.03] transition-opacity pointer-events-none select-none">
                   <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                      <pattern id={`grid-${room.id}`} width="14" height="14" patternUnits="userSpaceOnUse">
-                        <path d="M 14 0 L 0 0 0 14" fill="none" stroke="currentColor" strokeWidth="1" />
-                      </pattern>
-                    </defs>
+                    <pattern id={`grid-${room.id}`} width="16" height="16" patternUnits="userSpaceOnUse">
+                      <path d="M 16 0 L 0 0 0 16" fill="none" stroke="currentColor" strokeWidth="1" />
+                    </pattern>
                     <rect width="100%" height="100%" fill={`url(#grid-${room.id})`} />
                   </svg>
                 </div>
 
-                {/* Header Room Info */}
-                <div className="z-10 relative w-full">
-                  <div className="flex justify-between items-start border-b border-slate-100 pb-4 mb-4">
-                    <div>
-                      <div className="flex items-center gap-2.5">
-                        <span className="bg-slate-900 text-white font-mono text-[10px] font-extrabold px-2 py-0.5 uppercase tracking-wider rounded-none">
-                          {room.ma_phong}
-                        </span>
-                      </div>
-                      <h3 className="text-xl font-extrabold text-teal-950 mt-2 tracking-tight group-hover:text-teal-900 transition-colors">
+                <div className="z-10 w-full">
+                  <div className="flex justify-between items-start border-b border-slate-100/80 pb-4 mb-4">
+                    <div className="space-y-1">
+                      <span className="bg-slate-900 text-white font-mono text-[9px] font-black px-2.5 py-1 rounded-md uppercase tracking-wider">
+                        {room.ma_phong || 'Chưa có mã'}
+                      </span>
+                      <h3 className="text-lg font-black text-slate-800 tracking-tight mt-2.5 group-hover:text-teal-900 transition-colors">
                         {room.ten_phong}
                       </h3>
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <div className="hidden sm:block">
-                        {renderRoomIconSVG(room.loai_phong)}
-                      </div>
-                      
-                      <div className="text-right flex flex-col items-end gap-1">
-                        <span className={`inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-none border ${
-                          isAvailable 
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
-                            : isOccupied 
-                              ? 'bg-teal-50 text-teal-700 border-teal-200' 
-                              : room.trang_thai === 'ngung_hoat_dong'
-                                ? 'bg-rose-50 text-rose-700 border-rose-200'
-                                : 'bg-amber-50 text-amber-700 border-amber-200'
-                        }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${
-                            isAvailable 
-                              ? 'bg-emerald-500 animate-[pulse_1.5s_infinite]' 
-                              : isOccupied
-                                ? 'bg-teal-500 animate-[pulse_2s_infinite]'
-                                : room.trang_thai === 'ngung_hoat_dong'
-                                  ? 'bg-rose-500'
-                                  : 'bg-amber-500'
-                          }`}></span>
-                          {isAvailable ? 'TRỐNG' : isOccupied ? 'ĐANG DÙNG' : room.trang_thai === 'ngung_hoat_dong' ? 'NGỪNG DÙNG' : 'BẢO TRÌ'}
-                        </span>
-                        <span className="block text-[8px] font-bold text-slate-450 uppercase tracking-widest">
-                          {translateType(room.loai_phong)}
-                        </span>
-                      </div>
+                      {renderRoomIcon(room.loai_phong)}
                     </div>
                   </div>
 
-                  {/* Room Description */}
+                  {/* Status Badge */}
+                  <div className="flex justify-between items-center mb-4">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Trạng thái</span>
+                    <span className={`inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg border ${
+                      isAvailable 
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                        : isOccupied 
+                          ? 'bg-cyan-50 text-cyan-700 border-cyan-200' 
+                          : room.trang_thai === 'ngung_hoat_dong'
+                            ? 'bg-rose-50 text-rose-700 border-rose-200'
+                            : 'bg-amber-50 text-amber-700 border-amber-200'
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${
+                        isAvailable 
+                          ? 'bg-emerald-500 animate-pulse' 
+                          : isOccupied
+                            ? 'bg-cyan-500 animate-pulse'
+                            : room.trang_thai === 'ngung_hoat_dong'
+                              ? 'bg-rose-500'
+                              : 'bg-amber-500'
+                      }`}></span>
+                      {isAvailable ? 'Sẵn sàng' : isOccupied ? 'Đang hoạt động' : room.trang_thai === 'ngung_hoat_dong' ? 'Ngừng dùng' : 'Bảo trì'}
+                    </span>
+                  </div>
+
                   {room.mo_ta && (
-                    <div className="mb-4">
-                      <p className="text-xs text-slate-500 leading-relaxed font-medium line-clamp-2">
-                        {room.mo_ta}
-                      </p>
-                    </div>
+                    <p className="text-xs text-slate-500 font-medium leading-relaxed line-clamp-2 mb-4 bg-slate-50/50 p-2.5 rounded-xl border border-slate-100/50">
+                      {room.mo_ta}
+                    </p>
                   )}
-
-
                 </div>
 
-                {/* Card Footer indicator */}
-                <div className="flex items-center justify-between border-t border-slate-100 pt-3 mt-auto z-10 relative">
-                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                    {room.loai_phong === 'phong_tri_lieu' || room.loai_phong === 'phong_tri_lieu_chuan' || room.loai_phong === 'tri_lieu' || room.loai_phong === 'phong_dac_biet' ? (
-                      `Sức chứa: ${room.suc_chua || 1} giường`
-                    ) : room.loai_phong === 'phong_kham' || room.loai_phong === 'kham_benh' ? (
-                      `Sức chứa: 1 khách`
-                    ) : room.loai_phong === 'phong_tap' || room.loai_phong === 'phong_tap_phcn' || room.loai_phong === 'phuc_hoi' ? (
-                      `Sức chứa: ${room.suc_chua || 1} slot tập`
-                    ) : (
-                      `Sức chứa: ${room.suc_chua || 1} người`
-                    )}
+                <div className="flex items-center justify-between border-t border-slate-100/80 pt-4 mt-4 z-10">
+                  <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-bold">
+                    <Users className="w-3.5 h-3.5 text-slate-400" />
+                    <span>
+                      {room.loai_phong === 'phong_tri_lieu' || room.loai_phong === 'tri_lieu'
+                        ? `Giường tối đa: ${room.suc_chua || 1}` 
+                        : `Sức chứa: ${room.suc_chua || 1} bác sĩ`}
+                    </span>
                   </div>
-                  <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-teal-800 transition-colors flex items-center gap-1">
-                    Chi tiết phòng <span className="transform translate-x-0 group-hover:translate-x-1 transition-transform">→</span>
-                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-teal-800 transition-colors flex items-center gap-1">
+                    Cấu hình phòng <span className="transform translate-x-0 group-hover:translate-x-1.5 transition-transform">→</span>
+                  </span>
                 </div>
               </Link>
             );
@@ -488,48 +457,58 @@ export default function ManageRooms() {
         </div>
       )}
 
-      {/* MODAL: CREATE NEW ROOM */}
+      {/* CREATE NEW ROOM MODAL */}
       {isRoomModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-[fadeIn_0.2s_ease-out]">
-          <div className="bg-white border-2 border-slate-950 shadow-[0_24px_60px_rgba(0,0,0,0.18)] max-w-lg w-full overflow-hidden rounded-none flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col max-h-[90vh] border border-slate-100 animate-in zoom-in-95 duration-200">
             {/* Modal Header */}
-            <div className="border-b-2 border-slate-950 bg-slate-950 text-white px-6 py-4 flex justify-between items-center flex-shrink-0">
+            <div className="bg-teal-900 text-white px-6 py-5 flex justify-between items-center flex-shrink-0">
               <div>
-                <span className="text-[10px] font-black text-teal-400 uppercase tracking-widest block mb-0.5">Hạ tầng y tế</span>
-                <h3 className="font-extrabold text-sm uppercase tracking-wider">
-                  Đăng ký phòng điều trị mới
+                <span className="text-[9px] font-black text-teal-350 uppercase tracking-widest block mb-0.5">THIẾT LẬP VẬN HÀNH</span>
+                <h3 className="font-extrabold text-base uppercase tracking-wider">
+                  Khai báo phòng mới
                 </h3>
               </div>
               <button 
                 onClick={() => setIsRoomModalOpen(false)} 
-                className="text-slate-400 hover:text-white transition-colors p-1"
+                className="text-white/70 hover:text-white transition-colors p-1.5 hover:bg-white/10 rounded-full"
               >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Modal Content */}
-            <form onSubmit={handleRoomSubmit} className="p-6 space-y-5 overflow-y-auto flex-1 text-slate-800">
+            {/* Modal Content Form */}
+            <form onSubmit={handleRoomSubmit} className="p-6 space-y-5 overflow-y-auto flex-1 text-slate-700">
               <div>
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Tên Phòng</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Tên phòng khám / điều trị *</label>
                 <input 
                   type="text" 
                   required
-                  placeholder="Phòng trị liệu, Phòng VIP, Phòng Laser..."
+                  placeholder="Ví dụ: Phòng trị liệu Laser, Phòng khám số 3..."
                   value={roomFormData.ten_phong}
                   onChange={(e) => setRoomFormData({ ...roomFormData, ten_phong: e.target.value })}
-                  className="w-full border-2 border-slate-200 bg-slate-50 hover:bg-white focus:bg-white p-3 text-sm font-bold rounded-none focus:outline-none focus:border-slate-950 focus:ring-0 transition-all placeholder-slate-400"
+                  className="w-full border border-slate-200/80 bg-slate-50/50 focus:bg-white p-3.5 text-sm font-semibold rounded-xl focus:outline-none focus:border-teal-800 focus:ring-2 focus:ring-teal-100 transition-all placeholder-slate-400"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Loại Phòng</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Mã phòng y tế *</label>
+                <input 
+                  type="text" 
+                  required
+                  placeholder="Ví dụ: PK-01, TL-05..."
+                  value={roomFormData.ma_phong}
+                  onChange={(e) => setRoomFormData({ ...roomFormData, ma_phong: e.target.value.toUpperCase().trim() })}
+                  className="w-full border border-slate-200/80 bg-slate-50/50 focus:bg-white p-3.5 text-sm font-mono font-bold rounded-xl focus:outline-none focus:border-teal-800 focus:ring-2 focus:ring-teal-100 transition-all placeholder-slate-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Phân loại phòng chức năng</label>
                 <select 
                   value={roomFormData.loai_phong}
                   onChange={(e) => setRoomFormData({ ...roomFormData, loai_phong: e.target.value })}
-                  className="w-full border-2 border-slate-200 bg-slate-50 hover:bg-white focus:bg-white p-3 text-sm font-bold rounded-none focus:outline-none focus:border-slate-950 focus:ring-0 transition-all"
+                  className="w-full border border-slate-200/80 bg-slate-50/50 focus:bg-white p-3.5 text-sm font-bold rounded-xl focus:outline-none focus:border-teal-800 focus:ring-2 focus:ring-teal-100 transition-all"
                 >
                   {ALL_ROOM_TYPES.map(t => (
                     <option key={t.value} value={t.value}>{t.label}</option>
@@ -537,63 +516,61 @@ export default function ManageRooms() {
                 </select>
               </div>
 
-              {(roomFormData.loai_phong === 'phong_tri_lieu' || roomFormData.loai_phong === 'phong_tri_lieu_chuan' || roomFormData.loai_phong === 'tri_lieu' || roomFormData.loai_phong === 'phong_tap') && (
-                <div className="p-4 bg-slate-50 border-2 border-slate-150 space-y-1.5">
-                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                    {roomFormData.loai_phong === 'phong_tap' ? 'Sức chứa tối đa (Slot tập)' : 'Sức chứa tối đa (Giường/Bàn trị liệu)'}
-                  </label>
-                  <div className="relative">
-                    <input 
-                      type="number"
-                      min={1}
-                      max={20}
-                      required
-                      value={roomFormData.suc_chua}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setRoomFormData({ 
-                           ...roomFormData, 
-                           suc_chua: val === '' ? '' : Math.max(1, parseInt(val) || 1)
-                        });
-                      }}
-                      className="w-full border-2 border-slate-200 bg-white p-3 text-sm font-bold rounded-none focus:outline-none focus:border-slate-950 transition-all"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 pointer-events-none">
-                      {roomFormData.loai_phong === 'phong_tap' ? 'SLOT TẬP' : 'GIƯỜNG'}
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-slate-400 italic">
-                    {roomFormData.loai_phong === 'phong_tap' 
-                      ? 'Dùng để kiểm soát sức chứa tối đa khi xếp lịch tập phục hồi chức năng đồng thời.'
-                      : 'Dùng để kiểm soát sức chứa tối đa khi xếp lịch điều trị cho bệnh nhân.'}
-                  </p>
+              <div className="p-4 bg-teal-50/30 rounded-2xl border border-teal-100/50 space-y-2">
+                <label className="block text-[10px] font-bold text-teal-800 uppercase tracking-widest">
+                  {roomFormData.loai_phong === 'phong_tri_lieu' ? 'SỨC CHỨA TỐI ĐA (GIƯỜNG TRỊ LIỆU) *' : 'SỨC CHỨA TỐI ĐA (BÁC SĨ TRỰC CA) *'}
+                </label>
+                <div className="relative">
+                  <input 
+                    type="number"
+                    min={1}
+                    max={20}
+                    required
+                    value={roomFormData.suc_chua}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setRoomFormData({ 
+                         ...roomFormData, 
+                         suc_chua: val === '' ? '' : Math.max(1, parseInt(val) || 1)
+                      });
+                    }}
+                    className="w-full border border-slate-200 bg-white p-3 text-sm font-bold rounded-xl focus:outline-none focus:border-teal-800 transition-all"
+                  />
+                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[9px] font-black text-slate-400 pointer-events-none uppercase">
+                    {roomFormData.loai_phong === 'phong_tri_lieu' ? 'Giường' : 'Nhân sự'}
+                  </span>
                 </div>
-              )}
+                <p className="text-[10px] text-slate-400 italic">
+                  {roomFormData.loai_phong === 'phong_tri_lieu' 
+                    ? 'Dùng để gán đồng thời nhiều kỹ thuật viên trực tiếp phục vụ trong ca trực.' 
+                    : 'Dùng để giới hạn số lượng bác sĩ khám bệnh đồng thời trong một ca trực.'}
+                </p>
+              </div>
 
               <div>
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Mô tả chi tiết / Ghi chú</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Mô tả / Ghi chú trang thiết bị</label>
                 <textarea 
                   value={roomFormData.mo_ta}
                   onChange={(e) => setRoomFormData({ ...roomFormData, mo_ta: e.target.value })}
-                  placeholder="Ghi chú vệ sinh, dọn dẹp phòng, chỉ định kỹ thuật viên phụ trách..."
+                  placeholder="Ghi chú thiết bị có sẵn (ví dụ: máy laser, giường điện kéo giãn...) hoặc vệ sinh phòng trực..."
                   rows={3}
-                  className="w-full border-2 border-slate-200 bg-slate-50 hover:bg-white focus:bg-white p-3 text-sm font-semibold rounded-none focus:outline-none focus:border-slate-950 focus:ring-0 transition-all placeholder-slate-400"
+                  className="w-full border border-slate-200/80 bg-slate-50/50 focus:bg-white p-3.5 text-sm font-medium rounded-xl focus:outline-none focus:border-teal-800 focus:ring-2 focus:ring-teal-100 transition-all placeholder-slate-400"
                 />
               </div>
 
-              <div className="flex gap-3 justify-end pt-4 border-t border-slate-100 flex-shrink-0">
+              <div className="flex gap-3 justify-end pt-4 border-t border-slate-100 flex-shrink-0 font-bold">
                 <button 
                   type="button" 
                   onClick={() => setIsRoomModalOpen(false)}
-                  className="px-5 py-2.5 border-2 border-slate-200 hover:border-slate-300 text-slate-500 hover:text-slate-800 text-xs font-bold uppercase tracking-widest rounded-none transition-all"
+                  className="px-5 py-3 border border-slate-200 text-slate-505 hover:bg-slate-50 text-xs uppercase tracking-widest rounded-xl transition-all"
                 >
                   Hủy
                 </button>
                 <button 
                   type="submit" 
-                  className="px-6 py-2.5 bg-slate-950 hover:bg-teal-900 text-white text-xs font-black uppercase tracking-widest rounded-none transition-all shadow-md active:scale-[0.98]"
+                  className="px-6 py-3 bg-teal-800 hover:bg-teal-900 text-white text-xs uppercase tracking-widest rounded-xl transition-all shadow-md active:scale-[0.98]"
                 >
-                  Tạo phòng
+                  Xác nhận
                 </button>
               </div>
             </form>

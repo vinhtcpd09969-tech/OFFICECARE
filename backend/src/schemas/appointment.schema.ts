@@ -1,5 +1,10 @@
 import { z } from 'zod';
 
+const staffIdSchema = z.union([
+  z.number().int(),
+  z.string().regex(/^\d+$/).transform(Number)
+]).optional().nullable();
+
 export const createAppointmentSchema = z.object({
   body: z.object({
     khach_hang_id: z.string().uuid('ID Khách hàng không hợp lệ').optional().nullable(),
@@ -7,10 +12,9 @@ export const createAppointmentSchema = z.object({
     so_dien_thoai: z.string().optional(),
     gioi_tinh_khach: z.string().optional(),
     email: z.string().optional(),
-    dich_vu_id: z.string().uuid('Dịch vụ/Lịch khám là bắt buộc'),
-    bac_si_id: z.string().uuid('ID KTV không hợp lệ').optional().nullable(),
+    goi_dich_vu_id: z.string().uuid('Gói dịch vụ/Lịch khám là bắt buộc'),
+    bac_si_id: staffIdSchema,
     phong_id: z.string().optional().nullable(),
-    giuong_so: z.union([z.string(), z.number()]).optional().nullable(),
     ngay_gio_bat_dau: z.string().datetime({ message: 'Ngày giờ bắt đầu không hợp lệ' }),
     ngay_gio_ket_thuc: z.string().datetime({ message: 'Ngày giờ kết thúc không hợp lệ' }),
     ghi_chu_dat_lich: z.string().optional(),
@@ -26,7 +30,9 @@ export const createAppointmentSchema = z.object({
 
 export const createPublicAppointmentSchema = z.object({
   body: z.object({
-    nguoi_dung_id: z.string().uuid().optional().nullable(),
+    nguoi_dung_id: staffIdSchema,
+    nhan_su_id: staffIdSchema,
+    khach_hang_id: z.string().uuid().optional().nullable(),
     ho_ten_khach: z.string({ required_error: 'Họ tên là bắt buộc' })
       .min(2, 'Họ tên phải có ít nhất 2 ký tự')
       .refine(val => /^[\p{L}\s']{2,}$/u.test(val.trim()), 'Họ tên chỉ được chứa chữ cái và khoảng trắng'),
@@ -38,13 +44,13 @@ export const createPublicAppointmentSchema = z.object({
       .min(10, 'Mô tả triệu chứng phải có ít nhất 10 ký tự'),
     ly_do_kham: z.string().optional(),
     anh_dinh_kem_url: z.string().optional(),
-    dich_vu_id: z.string().uuid('Dịch vụ/Lịch khám là bắt buộc'),
+    goi_dich_vu_id: z.string().uuid('Gói dịch vụ/Lịch khám là bắt buộc'),
   }).refine((data) => {
     const batDau = new Date(data.ngay_gio_bat_dau);
     const minTime = new Date(Date.now() + 60 * 60 * 1000);
     return batDau >= minTime;
   }, {
-    message: 'Khung giờ đặt lịch phải cách thời gian hiện tại ít nhất 1 tiếng',
+    message: 'Thời gian bắt đầu lịch khám phải sau thời điểm hiện tại ít nhất 1 tiếng',
     path: ['ngay_gio_bat_dau']
   })
 });
@@ -58,15 +64,13 @@ export const updateAppointmentStatusSchema = z.object({
       required_error: 'Trạng thái là bắt buộc',
       invalid_type_error: 'Trạng thái không hợp lệ'
     }),
-    bac_si_id: z.string().uuid('ID Nhân sự không hợp lệ').optional().nullable(),
-    chuyen_gia_id: z.string().uuid('ID Chuyên gia không hợp lệ').optional().nullable(),
-    ky_thuat_vien_id: z.string().uuid('ID Kỹ thuật viên không hợp lệ').optional().nullable(),
+    bac_si_id: staffIdSchema,
+    chuyen_gia_id: staffIdSchema,
+    ky_thuat_vien_id: staffIdSchema,
     phong_id: z.union([z.string(), z.number()]).optional().nullable(),
-    giuong_so: z.union([z.string(), z.number()]).optional().nullable(),
     ngay_gio_bat_dau: z.string().datetime({ message: 'Ngày giờ bắt đầu không hợp lệ' }).optional().nullable(),
     ngay_gio_ket_thuc: z.string().datetime({ message: 'Ngày giờ kết thúc không hợp lệ' }).optional().nullable(),
     ly_do_huy: z.string().optional().nullable(),
-    ghi_chu_noi_bo: z.string().optional().nullable(),
   })
 });
 
@@ -77,7 +81,6 @@ export const updateMedicalRecordSchema = z.object({
   body: z.object({
     chan_doan: z.string().optional(),
     chong_chi_dinh: z.string().optional(),
-    khuyen_nghi_dich_vu_id: z.string().uuid().optional().nullable(),
     khuyen_nghi_goi_id: z.string().uuid().optional().nullable(),
   })
 });

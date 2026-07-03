@@ -8,7 +8,7 @@ class AuthService {
     return jwt.sign(
       { id: user.id, email: user.email, vai_tro_id: user.vai_tro_id },
       process.env.JWT_SECRET as string,
-      { expiresIn: '15m' }
+      { expiresIn: '1d' }
     );
   }
 
@@ -21,27 +21,39 @@ class AuthService {
   }
 
   async register(data: any) {
-    const existing = await authRepository.findUserByEmail(data.email);
-    if (existing) throw new Error('Email đã được sử dụng');
+    // 1. Check if email already exists
+    const existingUser = await authRepository.findUserByEmail(data.email);
+    if (existingUser) {
+      throw new Error('Email đã được đăng ký sử dụng');
+    }
 
+    // 2. Hash password
     const salt = await bcrypt.genSalt(10);
-    const mat_khau_hash = await bcrypt.hash(data.password, salt);
+    const hash = await bcrypt.hash(data.password, salt);
 
-    const user = await authRepository.createUser({ ho_ten: data.ho_ten, email: data.email, mat_khau_hash });
+    // 3. Create customer account
+    const newUser = await authRepository.createUser({
+      ho_ten: data.ho_ten,
+      email: data.email,
+      mat_khau_hash: hash
+    });
 
-    // Generate OTP
+    // 4. Generate & Save OTP code
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date();
-    expiresAt.setMinutes(expiresAt.getMinutes() + 10);
+    expiresAt.setMinutes(expiresAt.getMinutes() + 10); // OTP valid for 10 minutes
 
     await authRepository.saveOTP(data.email, otp, expiresAt);
-    
-    // Gửi email OTP bất đồng bộ để phản hồi đăng ký được ngay lập tức
+
+    // 5. Send verification email (fire-and-forget to avoid blocking user response)
     sendOTP(data.email, otp, data.ho_ten).catch((err) => {
       console.error('Lỗi gửi email OTP bất đồng bộ khi đăng ký:', err);
     });
 
-    return { message: 'Đăng ký thành công. Vui lòng kiểm tra email để nhận mã OTP.' };
+    return {
+      message: 'Đăng ký tài khoản thành công. Vui lòng kiểm tra hòm thư email để nhận mã OTP xác thực.',
+      email: data.email
+    };
   }
 
   async login(data: any) {
@@ -50,7 +62,8 @@ class AuthService {
 
     if (user.trang_thai !== 'hoat_dong') throw new Error('Tài khoản đã bị khóa hoặc vô hiệu hóa');
 
-    if (!user.da_xac_thuc_email) {
+    const isVerified = (user as any).trang_thai !== 'cho_kich_hoat';
+    if (!isVerified) {
       const error = new Error('Tài khoản chưa được xác thực email') as any;
       error.requiresVerification = true;
       error.email = user.email;
@@ -69,7 +82,9 @@ class AuthService {
 
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
-    await authRepository.saveRefreshToken(user.id, refreshToken, expiresAt);
+    
+    const isCustomer = user.vai_tro_id === 1;
+    await authRepository.saveRefreshToken(String(user.id), refreshToken, expiresAt, isCustomer);
     await authRepository.updateLastLogin(user.id);
 
     return {
@@ -81,7 +96,7 @@ class AuthService {
         email: user.email,
         so_dien_thoai: user.so_dien_thoai,
         vai_tro_id: user.vai_tro_id,
-        avatar_url: user.avatar_url
+        avatar_url: null
       }
     };
   }
@@ -100,7 +115,9 @@ class AuthService {
 
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
-    await authRepository.saveRefreshToken(user.id, refreshToken, expiresAt);
+    
+    const isCustomer = user.vai_tro_id === 1;
+    await authRepository.saveRefreshToken(String(user.id), refreshToken, expiresAt, isCustomer);
     await authRepository.updateLastLogin(user.id);
 
     return {
@@ -112,7 +129,7 @@ class AuthService {
         email: user.email,
         so_dien_thoai: user.so_dien_thoai,
         vai_tro_id: user.vai_tro_id,
-        avatar_url: user.avatar_url
+        avatar_url: null
       }
     };
   }
@@ -142,7 +159,9 @@ class AuthService {
   async resendOTP(email: string) {
     const user = await authRepository.findUserByEmail(email);
     if (!user) throw new Error('Người dùng không tồn tại');
-    if (user.da_xac_thuc_email) throw new Error('Tài khoản đã được xác thực email trước đó');
+    
+    const isVerified = (user as any).trang_thai !== 'cho_kich_hoat';
+    if (isVerified) throw new Error('Tài khoản đã được xác thực email trước đó');
 
     // Tạo mã OTP mới
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -165,7 +184,7 @@ class AuthService {
     const user = await authRepository.findUserByEmail(email);
     return {
       exists: !!user,
-      da_xac_thuc_email: user ? user.da_xac_thuc_email : false
+      da_xac_thuc_email: user ? (user.trang_thai !== 'cho_kich_hoat') : false
     };
   }
 

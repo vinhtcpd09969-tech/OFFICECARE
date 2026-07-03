@@ -1,20 +1,11 @@
 import { Request, Response } from 'express';
 import { ZodError } from 'zod';
 import adminService from '../services/admin.service';
-import { categorySchema, serviceSchema, packageSchema, staffSchema, roomSchema, equipmentSchema } from '../schemas/admin.schema';
+import { packageSchema, staffSchema, roomSchema, equipmentSchema } from '../schemas/admin.schema';
 import { refundSchema } from '../schemas/finance.schema';
 import { voucherSchema } from '../schemas/marketing.schema';
 
-// --- QUẢN LÝ DỊCH VỤ & DANH MỤC ---
-
-export const getCategories = async (req: Request, res: Response) => {
-  try {
-    const categories = await adminService.getCategories();
-    res.json(categories);
-  } catch (error) {
-    res.status(500).json({ message: 'Lỗi server khi lấy danh mục' });
-  }
-};
+// --- QUẢN LÝ PHÒNG KHÁM ---
 
 export const getRooms = async (req: Request, res: Response) => {
   try {
@@ -55,87 +46,6 @@ export const deleteRoom = async (req: Request, res: Response): Promise<any> => {
     res.json({ message: 'Xóa phòng thành công', room });
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server khi xóa phòng', error });
-  }
-};
-
-export const createCategory = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const { body } = categorySchema.parse({ body: req.body });
-    const category = await adminService.createCategory(body);
-    
-    res.status(201).json(category);
-  } catch (error) {
-    if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
-    res.status(500).json({ message: 'Lỗi server' });
-  }
-};
-
-export const updateCategory = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const { id } = req.params as { id: string };
-    const { body } = categorySchema.parse({ body: req.body });
-    const category = await adminService.updateCategory(id, body);
-
-    res.json(category);
-  } catch (error) {
-    if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
-    res.status(500).json({ message: 'Lỗi server khi cập nhật danh mục' });
-  }
-};
-
-export const deleteCategory = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const { id } = req.params as { id: string };
-    await adminService.deleteCategory(id);
-
-    res.json({ message: 'Xóa danh mục thành công' });
-  } catch (error) {
-    res.status(500).json({ message: 'Lỗi server khi xóa danh mục' });
-  }
-};
-
-export const getServices = async (req: Request, res: Response) => {
-  try {
-    const services = await adminService.getServices();
-    res.json(services);
-  } catch (error) {
-    res.status(500).json({ message: 'Lỗi server khi lấy dịch vụ' });
-  }
-};
-
-export const createService = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const { body } = serviceSchema.parse({ body: req.body });
-    const service = await adminService.createService(body);
-
-    res.status(201).json(service);
-  } catch (error) {
-    if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
-    res.status(500).json({ message: 'Lỗi server' });
-  }
-};
-
-export const updateService = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const { id } = req.params as { id: string };
-    const { body } = serviceSchema.parse({ body: req.body });
-    const service = await adminService.updateService(id, body);
-
-    res.json(service);
-  } catch (error) {
-    if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
-    res.status(500).json({ message: 'Lỗi server khi cập nhật dịch vụ' });
-  }
-};
-
-export const deleteService = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const { id } = req.params as { id: string };
-    await adminService.deleteService(id);
-
-    res.json({ message: 'Xóa dịch vụ thành công' });
-  } catch (error) {
-    res.status(500).json({ message: 'Lỗi server khi xóa dịch vụ' });
   }
 };
 
@@ -183,6 +93,45 @@ export const deletePackage = async (req: Request, res: Response): Promise<any> =
     res.json({ message: 'Xóa gói điều trị thành công' });
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server khi xóa gói điều trị' });
+  }
+};
+
+// --- QUẢN LÝ DANH MỤC GÓI ---
+export const getCategories = async (req: Request, res: Response) => {
+  try {
+    const categories = await adminService.getCategories();
+    res.json(categories);
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi lấy danh sách danh mục' });
+  }
+};
+
+export const createCategory = async (req: Request, res: Response) => {
+  try {
+    const category = await adminService.createCategory(req.body);
+    res.json(category);
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi tạo danh mục' });
+  }
+};
+
+export const updateCategory = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params as { id: string };
+    const category = await adminService.updateCategory(id, req.body);
+    res.json(category);
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi cập nhật danh mục' });
+  }
+};
+
+export const deleteCategory = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params as { id: string };
+    await adminService.deleteCategory(id);
+    res.json({ message: 'Xóa danh mục thành công' });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi xóa danh mục' });
   }
 };
 
@@ -288,77 +237,6 @@ export const deleteEquipment = async (req: Request, res: Response): Promise<any>
     res.json({ message: 'Xóa thiết bị thành công', equipment });
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server khi xóa thiết bị', error });
-  }
-};
-
-// --- QUẢN LÝ PHÂN LOẠI THIẾT BỊ (EQUIPMENT TYPES) ---
-
-export const getEquipmentTypes = async (req: Request, res: Response) => {
-  try {
-    const types = await adminService.getEquipmentTypes();
-    res.json(types);
-  } catch (error) {
-    res.status(500).json({ message: 'Lỗi server khi lấy danh sách loại thiết bị', error });
-  }
-};
-
-export const createEquipmentType = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const { ten_loai, ten_thiet_bi, nhom_thiet_bi, ten_danh_muc, loai_danh_muc } = req.body;
-    const final_ten_danh_muc = ten_danh_muc || nhom_thiet_bi;
-    const final_ten_thiet_bi = ten_thiet_bi || ten_loai;
-
-    if (!final_ten_danh_muc || !final_ten_thiet_bi) {
-      return res.status(400).json({ message: 'Tên danh mục và Tên thiết bị là bắt buộc' });
-    }
-    const newType = await adminService.createEquipmentType({ 
-      ten_danh_muc: final_ten_danh_muc, 
-      ten_thiet_bi: final_ten_thiet_bi,
-      loai_danh_muc: loai_danh_muc
-    });
-    res.status(201).json(newType);
-  } catch (error: any) {
-    if (error?.code === '23505') {
-      return res.status(400).json({ message: 'Tên loại thiết bị này đã tồn tại.' });
-    }
-    res.status(500).json({ message: 'Lỗi server khi thêm loại thiết bị mới', error });
-  }
-};
-
-export const updateEquipmentType = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const { id } = req.params as { id: string };
-    const { ten_loai, ten_thiet_bi, nhom_thiet_bi, ten_danh_muc, loai_danh_muc } = req.body;
-    const final_ten_danh_muc = ten_danh_muc || nhom_thiet_bi;
-    const final_ten_thiet_bi = ten_thiet_bi || ten_loai;
-
-    if (!final_ten_danh_muc || !final_ten_thiet_bi) {
-      return res.status(400).json({ message: 'Tên danh mục và Tên thiết bị là bắt buộc' });
-    }
-    const updatedType = await adminService.updateEquipmentType(Number(id), { 
-      ten_danh_muc: final_ten_danh_muc, 
-      ten_thiet_bi: final_ten_thiet_bi,
-      loai_danh_muc: loai_danh_muc
-    });
-    res.json(updatedType);
-  } catch (error: any) {
-    if (error?.code === '23505') {
-      return res.status(400).json({ message: 'Tên loại thiết bị này đã tồn tại.' });
-    }
-    res.status(500).json({ message: 'Lỗi server khi cập nhật loại thiết bị', error });
-  }
-};
-
-export const deleteEquipmentType = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const { id } = req.params as { id: string };
-    const deletedType = await adminService.deleteEquipmentType(Number(id));
-    res.json({ message: 'Xóa danh mục thiết bị thành công', deletedType });
-  } catch (error: any) {
-    if (error?.statusCode === 400) {
-      return res.status(400).json({ message: error.message });
-    }
-    res.status(500).json({ message: 'Lỗi server khi xóa danh mục thiết bị', error });
   }
 };
 

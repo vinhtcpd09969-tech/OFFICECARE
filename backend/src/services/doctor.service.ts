@@ -1,28 +1,15 @@
 import doctorRepository from '../repositories/doctor.repository';
-import { pool } from '../config/db';
 
 class DoctorService {
-  // Lấy doctorId (chuyen_gia_y_te.id) từ userId (nguoi_dung.id)
-  async getDoctorIdByUserId(userId: string): Promise<string> {
-    const queryStr = 'SELECT id FROM chuyen_gia_y_te WHERE nguoi_dung_id = $1 LIMIT 1;';
-    const { rows } = await pool.query(queryStr, [userId]);
-    if (rows.length === 0) {
-      throw new Error('Tài khoản này không liên kết với thông tin chuyên gia y tế (Bác sĩ).');
-    }
-    return rows[0].id;
-  }
-
   // 1. Lấy danh sách hàng đợi khám bệnh hôm nay của bác sĩ
-  async getQueue(userId: string) {
-    const doctorId = await this.getDoctorIdByUserId(userId);
-    const queue = await doctorRepository.getDoctorQueue(doctorId);
+  async getQueue(userId: string, roleId: number = 4) {
+    const queue = await doctorRepository.getDoctorQueue(userId, roleId);
     return queue;
   }
 
   // 2. Lấy danh sách lịch hẹn của bác sĩ
-  async getAppointments(userId: string, startDate?: string, endDate?: string) {
-    const doctorId = await this.getDoctorIdByUserId(userId);
-    const appointments = await doctorRepository.getDoctorAppointments(doctorId, startDate, endDate);
+  async getAppointments(userId: string, roleId: number = 4, startDate?: string, endDate?: string) {
+    const appointments = await doctorRepository.getDoctorAppointments(userId, roleId, startDate, endDate);
     return appointments;
   }
 
@@ -67,20 +54,16 @@ class DoctorService {
       chan_doan: string;
       chong_chi_dinh: string;
       goi_dich_vu_id?: string | null;
-      dich_vu_id?: string | null;
       ghi_chu?: string | null;
     }
   ) {
-    const doctorId = await this.getDoctorIdByUserId(userId);
-    
     // Gọi repository để thực hiện transaction lưu bệnh án và đóng lịch hẹn
     const result = await doctorRepository.saveClinicalAssessment({
       lich_dat_id: data.lich_dat_id,
-      bac_si_id: doctorId,
+      bac_si_id: userId,
       chan_doan: data.chan_doan,
       chong_chi_dinh: data.chong_chi_dinh,
       goi_dich_vu_id: data.goi_dich_vu_id,
-      dich_vu_id: data.dich_vu_id,
       ghi_chu: data.ghi_chu,
     });
 

@@ -1,3 +1,4 @@
+import React from 'react';
 import { AlertTriangle, CheckCircle2, PieChart } from 'lucide-react';
 
 interface Conflict {
@@ -28,6 +29,13 @@ export function SchedulesSidebar({
   weeklyStatsByStaff,
   onOpenModal
 }: SchedulesSidebarProps) {
+  const todayDateStr = React.useMemo(() => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const d = String(today.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }, []);
   return (
     <div className="w-full xl:w-[320px] shrink-0 space-y-6">
       {/* Conflict Sidebar */}
@@ -45,12 +53,14 @@ export function SchedulesSidebar({
                   <span className="font-bold">{c.name}</span> đang được phân công trùng giờ vào <span className="font-bold">{c.dowLabel}</span>.
                 </p>
                 <p className="text-xs text-rose-600 font-bold mb-3 bg-rose-50 w-fit px-2 py-0.5 rounded-md">({c.time1} - {c.time2})</p>
-                <button 
-                  onClick={() => onOpenModal(c.id, c.dateStr)} 
-                  className="text-xs font-bold text-rose-600 hover:text-rose-800 underline transition-colors"
-                >
-                  Xem chi tiết & Chỉnh sửa
-                </button>
+                {!(c.dateStr < todayDateStr) && (
+                  <button 
+                    onClick={() => onOpenModal(c.id, c.dateStr)} 
+                    className="text-xs font-bold text-rose-600 hover:text-rose-800 underline transition-colors"
+                  >
+                    Xem chi tiết & Chỉnh sửa
+                  </button>
+                )}
               </div>
             ))}
           </div>

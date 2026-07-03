@@ -18,7 +18,6 @@ interface AppointmentWeeklyCalendarProps {
   appointments: any[];
   statusConfig: any;
   handleOpenDetailModal: (apt: any) => void;
-  scheduleType: 'kham_moi' | 'dieu_tri';
   onOpenWalkInModal?: (time: string) => void;
 }
 
@@ -28,7 +27,6 @@ export default function AppointmentWeeklyCalendar({
   appointments,
   statusConfig,
   handleOpenDetailModal,
-  scheduleType,
   onOpenWalkInModal
 }: AppointmentWeeklyCalendarProps) {
   const startDate = startOfWeek(selectedDate, { weekStartsOn: 1 });
@@ -64,7 +62,7 @@ export default function AppointmentWeeklyCalendar({
   const averageCapacity = Math.min(Math.round((totalWeeklyApts / maxWeeklyCapacity) * 100), 100);
 
   // Active resources count
-  const activeDocsCount = Array.from(new Set(appointments.map(apt => apt.bac_si_id || apt.chuyen_gia_id).filter(Boolean))).length || 4;
+  const activeDocsCount = Array.from(new Set(appointments.map(apt => apt.bac_si_id).filter(Boolean))).length || 4;
   const activeRoomsCount = Array.from(new Set(appointments.map(apt => apt.phong_id).filter(Boolean))).length || 2;
 
   // 2. Daily calculations for the selected day (expandedDayStr)
@@ -77,7 +75,7 @@ export default function AppointmentWeeklyCalendar({
   const dayActiveRoomsCount = Array.from(new Set(dayApts.map(apt => apt.phong_id).filter(Boolean))).length;
 
   const activeDocsMap = dayApts.reduce<Record<string, { id: string; name: string; count: number }>>((acc, apt) => {
-    const docId = apt.bac_si_id || apt.chuyen_gia_id;
+    const docId = apt.bac_si_id;
     if (docId) {
       const docName = apt.ten_ky_thuat_vien || `BS. ${docId === 'doc_1' ? 'Khoa' : docId === 'doc_2' ? 'Lan Anh' : docId === 'doc_3' ? 'Hưng' : 'Minh'}`;
       if (!acc[docId]) {
@@ -364,7 +362,13 @@ export default function AppointmentWeeklyCalendar({
               </div>
             ) : (
               dayApts.map((apt) => {
-                const status = statusConfig[apt.trang_thai] || statusConfig.cho_xac_nhan;
+                const rawStatus = statusConfig[apt.trang_thai] || statusConfig.cho_xac_nhan;
+                const status = {
+                  ...rawStatus,
+                  label: apt.trang_thai === 'cho_xac_nhan' 
+                    ? (apt.loai_lich === 'dich_vu_don' ? 'Chờ gán KTV' : 'Chờ gán Bác sĩ')
+                    : rawStatus.label
+                };
                 const aptTime = format(new Date(apt.ngay_gio_bat_dau), 'HH:mm');
 
                 return (
@@ -397,7 +401,7 @@ export default function AppointmentWeeklyCalendar({
 
                     <div className="flex items-center flex-wrap gap-2 shrink-0 w-full sm:w-auto justify-end">
                       <span className="text-[9px] text-slate-500 dark:text-zinc-400 font-bold bg-slate-50 dark:bg-zinc-800 px-2 py-0.5 rounded border border-slate-200/50 dark:border-zinc-750">
-                        🩺 {apt.ten_ky_thuat_vien ? `${scheduleType === 'kham_moi' ? 'BS.' : 'KTV.'} ${apt.ten_ky_thuat_vien}` : 'Chưa chỉ định'}
+                        🩺 {apt.ten_ky_thuat_vien ? `${apt.loai_lich === 'kham_moi' ? 'BS.' : 'KTV.'} ${apt.ten_ky_thuat_vien}` : 'Chưa chỉ định'}
                       </span>
                       {apt.ten_phong && (
                         <span className="flex items-center gap-0.5 text-[9px] text-emerald-600 dark:text-emerald-450 bg-emerald-50 dark:bg-emerald-955/20 px-2 py-0.5 rounded border border-emerald-100/30">

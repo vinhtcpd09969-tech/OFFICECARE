@@ -1,55 +1,104 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
-  Info,
-  CheckCircle2,
   ShieldCheck,
   Clock,
   Stethoscope,
   Star,
-  ArrowRight,
-  AlertTriangle,
   User
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../../stores/authStore';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { convertToVietnamUtcIso } from '../../../utils/date';
 import { useBookingState } from '../components/booking/hooks/useBookingState';
 import {
-  formatFullDate,
-  isSlotUrgent
+  formatFullDate
 } from '../components/booking/constants';
 import { BookingHeader } from '../components/booking/ui/BookingHeader';
 import { BookingWizard } from '../components/booking/ui/BookingWizard';
 import { BookingStepCard } from '../components/booking/ui/BookingStepCard';
-import { TrustSection } from '../components/booking/ui/TrustSection';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 export default function Booking() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isClient, setIsClient] = useState(false);
   const { user, isAuthenticated, setShowAuthModal } = useAuthStore();
   const [activeStep, setActiveStep] = useState(1);
-  const [bookingType, setBookingType] = useState<'kham' | 'dich_vu'>('kham');
-  const [selectedServiceId, setSelectedServiceId] = useState<string>('');
+
+  // Initialize from location state if passed
+  const initialType = location.state?.isKtv ? 'dich_vu' : (location.state?.bookingType || 'kham');
+  const initialServiceId = location.state?.selectedServiceId || location.state?.serviceId || '';
+
+  const [bookingType, setBookingType] = useState<'kham' | 'dich_vu'>(initialType);
+  const [selectedServiceId, setSelectedServiceId] = useState<string>(initialServiceId);
+
+  // Auto-scroll to booking interface if redirected from any specialist
+  useEffect(() => {
+    if (location.state?.selectedDoctorId) {
+      setTimeout(() => {
+        const el = document.getElementById('booking-experience-card');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 300);
+    }
+  }, [location.state]);
   const [services, setServices] = useState<any[]>([]);
   const [servicesLoading, setServicesLoading] = useState(false);
   const [createdApptId, setCreatedApptId] = useState<string | null>(null);
+  const [selectedStaffId, setSelectedStaffId] = useState<string>(
+    location.state?.selectedDoctorId ? String(location.state.selectedDoctorId) : ''
+  );
+
+  const selectedService = services.find(s => s.id === selectedServiceId);
 
   const {
     state,
     bookedSlots,
+    specialists,
+    slotAvailability,
     hasExistingClinicalExam,
     setDateField,
     setTimeField,
     setFormField,
     setSubmitting,
-    setSuccess
+    setSuccess,
+    tempHoldId,
+    refreshSlots
   } = useBookingState(user, bookingType, selectedServiceId, services);
 
   const { selectedDate, selectedTime, isSubmitting, isSuccess, formData } = state;
+
+  // Release hold on unmount if booking was not completed
+  useEffect(() => {
+    return () => {
+      const holdId = sessionStorage.getItem('booking_temp_hold_id');
+      if (holdId) {
+        fetch(`${BASE_URL}/client/appointments/hold/${holdId}`, {
+          method: 'DELETE',
+          keepalive: true
+        }).catch(err => console.error('Failed to release hold:', err));
+      }
+    };
+  }, []);
+
+  // Re-fetch booked slots when entering Step 3 (Date/Time/Specialist Selection)
+  useEffect(() => {
+    if (activeStep === 3) {
+      refreshSlots();
+    }
+  }, [activeStep, refreshSlots]);
+
+  if (createdApptId || typeof setCreatedApptId === 'function' || typeof setSuccess === 'function' || isSuccess) { /* noop */ }
+
+  // Reset selected time and staff when service or booking type changes
+  useEffect(() => {
+    setTimeField('');
+    setSelectedStaffId('');
+  }, [selectedServiceId, bookingType, setTimeField]);
 
   const getDefaultRouteByRole = (roleId: number) => {
     switch (roleId) {
@@ -95,6 +144,8 @@ export default function Booking() {
         setServicesLoading(false);
       });
   }, []);
+
+
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormField(e.target.name, e.target.value);
@@ -175,7 +226,7 @@ export default function Booking() {
     const ngay_gio_bat_dau = convertToVietnamUtcIso(selectedDate, selectedTime);
 
     try {
-      const examService = services.find(s => String(s.danh_muc_id) === '1');
+      const examService = services.find(s => s.loai_goi === 'KHAM' || s.loai_dich_vu === 'KHAM');
       const selectedService = services.find(s => s.id === selectedServiceId);
       const targetDichVuId = bookingType === 'dich_vu' ? selectedServiceId : (examService?.id || null);
 
@@ -187,18 +238,19 @@ export default function Booking() {
         body: JSON.stringify({
           ...formData,
           ngay_gio_bat_dau,
-          nguoi_dung_id: user?.id,
-          dich_vu_id: targetDichVuId,
+          khach_hang_id: user?.id,
+          nhan_su_id: selectedStaffId ? parseInt(selectedStaffId, 10) : null,
+          goi_dich_vu_id: targetDichVuId,
           ly_do_kham: bookingType === 'dich_vu' ? `Trị liệu lẻ: ${selectedService?.ten_dich_vu || 'Không rõ'}` : (formData.ly_do_kham || 'Khám lượng giá ban đầu'),
+          temp_hold_id: tempHoldId
         }),
       });
 
       if (response.ok) {
         const appt = await response.json();
-        setCreatedApptId(appt.id);
+        sessionStorage.removeItem('booking_temp_hold_id'); // Prevent release on unmount since it is finalized
         toast.success(bookingType === 'dich_vu' ? 'Đăng ký lịch dịch vụ lẻ thành công!' : 'Đăng ký lịch khám lượng giá thành công!', { id: toastId });
-        setSuccess(true);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        navigate(`/booking/success/${appt.id}`);
       } else {
         const error = await response.json();
         toast.error(error.message || 'Không thể tạo lịch hẹn. Hãy thử lại.', { id: toastId });
@@ -210,140 +262,25 @@ export default function Booking() {
     }
   };
 
+  const handleTimeout = useCallback(async () => {
+    const holdId = sessionStorage.getItem('booking_temp_hold_id');
+    if (holdId) {
+      try {
+        await fetch(`${BASE_URL}/client/appointments/hold/${holdId}`, {
+          method: 'DELETE'
+        });
+      } catch (err) {
+        console.error('Failed to release hold on timeout:', err);
+      }
+    }
+    setTimeField('');
+    toast.error('Thời gian giữ chỗ đã hết hạn. Vui lòng chọn lại khung giờ.', { duration: 5000 });
+    setActiveStep(3);
+  }, [setTimeField, setActiveStep]);
+
   // Prevent flashing component structure if unauthenticated
   if (!isAuthenticated()) {
     return null;
-  }
-
-  // Render Success State redone as elegant Stripe/Apple-like page
-  if (isSuccess) {
-    const selectedService = services.find(s => s.id === selectedServiceId);
-    return (
-      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center py-20 px-4">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.96, y: 15 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          className="max-w-xl w-full bg-white rounded-[24px] shadow-2xl p-8 border border-slate-100/80 text-center space-y-6"
-        >
-          {/* Success Check Icon */}
-          <div className="relative w-20 h-20 mx-auto flex items-center justify-center">
-            <div className="absolute inset-0 bg-emerald-100 rounded-2xl rotate-6 animate-pulse" />
-            <div className="relative w-16 h-16 bg-[#10B981] text-white rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/20 border border-emerald-400">
-              <CheckCircle2 size={36} />
-            </div>
-          </div>
-
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 border border-rose-200 text-rose-600 text-[10px] font-extrabold uppercase tracking-wider animate-pulse">
-            📧 Vui lòng check mail xác nhận đặt chỗ
-          </div>
-
-          <div className="space-y-2">
-            <h2 className="text-3xl font-jakarta font-black text-[#0F172A] tracking-tight">
-              Đặt lịch thành công!
-            </h2>
-            <p className="text-sm font-semibold text-slate-500 max-w-md mx-auto leading-relaxed">
-              Vui lòng kiểm tra email của bạn (bao gồm cả mục thư rác/spam) và nhấn xác nhận giữ chỗ. Nếu chưa xác nhận, thông tin sẽ được chuyển đến lễ tân để liên hệ hỗ trợ trực tiếp.
-            </p>
-          </div>
-
-          <div className="bg-rose-50 border border-rose-200 p-4 rounded-2xl text-left text-xs flex items-start gap-3 text-rose-900 leading-relaxed font-semibold animate-pulse">
-            <span className="text-lg shrink-0">📧</span>
-            <div>
-              <p className="font-extrabold uppercase tracking-wider text-rose-800 text-[10px]">Lưu ý quan trọng</p>
-              <p className="mt-1 font-bold text-rose-700">
-                Hệ thống đã gửi một email xác thực đến địa chỉ của bạn. Vui lòng mở hòm thư (kiểm tra cả mục Spam/Thư rác) và click <span className="font-extrabold underline text-rose-800">"Xác Nhận Giữ Chỗ Ngay"</span> để giữ chỗ khám thành công!
-              </p>
-            </div>
-          </div>
-
-          {/* Booking Summary Box */}
-          <div className="bg-slate-50 rounded-[20px] border border-slate-100 p-6 text-left space-y-4">
-            <div className="grid grid-cols-2 gap-y-4 gap-x-2 text-xs font-jakarta">
-              <div>
-                <p className="text-slate-400 font-bold uppercase tracking-wider">Dịch vụ</p>
-                <p className="text-[#0F172A] font-extrabold mt-1 text-sm">
-                  {bookingType === 'dich_vu' ? (selectedService?.ten_dich_vu || 'Trị liệu dịch vụ lẻ') : 'Khám Lượng Giá Ban Đầu'}
-                </p>
-              </div>
-              <div>
-                <p className="text-slate-400 font-bold uppercase tracking-wider">Thời lượng</p>
-                <p className="text-[#0F172A] font-extrabold mt-1 text-sm">
-                  {bookingType === 'dich_vu' ? `${selectedService?.thoi_luong_phut || 45} phút` : '30 phút'}
-                </p>
-              </div>
-              <div>
-                <p className="text-slate-400 font-bold uppercase tracking-wider">Chi phí</p>
-                <p className="text-[#0F172A] font-extrabold mt-1 text-sm">
-                  {bookingType === 'dich_vu' ? (selectedService ? `${Number(selectedService.don_gia).toLocaleString('vi-VN')}đ` : '...') : 'Miễn phí'}
-                </p>
-              </div>
-              <div>
-                <p className="text-slate-400 font-bold uppercase tracking-wider">Thời gian hẹn</p>
-                <p className="text-[#0F172A] font-extrabold mt-1 text-sm capitalize">
-                  {selectedTime} — {isClient ? formatFullDate(selectedDate) : ''}
-                </p>
-              </div>
-              <div className="col-span-2 border-t border-slate-200/60 pt-3">
-                <p className="text-slate-400 font-bold uppercase tracking-wider">Bệnh nhân liên hệ</p>
-                <p className="text-[#0F172A] font-extrabold mt-1 text-sm">
-                  {formData.ho_ten_khach} ({formData.so_dien_thoai})
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Urgent Warning Banner on Success Page */}
-          {isSlotUrgent(selectedTime, selectedDate) && (
-            <div className="bg-amber-50 border border-amber-200/80 p-5 rounded-[20px] text-left text-xs flex items-start gap-3 text-amber-900 leading-relaxed font-semibold">
-              <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5 animate-bounce" />
-              <div>
-                <p className="font-extrabold uppercase tracking-wider text-amber-850 text-[10px]">Cảnh báo: Lịch hẹn cận giờ</p>
-                <p className="mt-1 font-medium text-amber-700">
-                  Lịch hẹn của bạn bắt đầu sau chưa đầy 2 tiếng. Vui lòng chuẩn bị di chuyển và có mặt trước 10 phút. Nếu cần hỗ trợ gấp hoặc thay đổi lịch hẹn, vui lòng liên hệ Hotline: <span className="font-extrabold text-slate-900">0398 655 332</span>.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Prep instructions */}
-          <div className="bg-[#E6F4F1] text-[#0F172A] p-5 rounded-[20px] text-left text-xs border border-[#2EC4B6]/15 space-y-2.5">
-            <p className="font-extrabold flex items-center gap-1.5 text-slate-800 text-sm">
-              <Info size={16} className="text-[#2EC4B6]" /> {bookingType === 'dich_vu' ? 'Hướng dẫn chuẩn bị trước khi trị liệu:' : 'Hướng dẫn chuẩn bị trước khi khám:'}
-            </p>
-            <ul className="space-y-1.5 font-medium text-slate-600 list-none pl-0">
-              <li className="flex items-start gap-2">
-                <span className="text-[#2EC4B6] font-bold">✓</span>
-                Mặc trang phục thoải mái, co giãn tốt để dễ dàng thực hiện trị liệu/vận động cơ khớp.
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-[#2EC4B6] font-bold">✓</span>
-                Mang theo phim chụp X-Quang, phim cộng hưởng từ (MRI) hoặc kết quả chẩn đoán cũ (nếu có).
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-[#2EC4B6] font-bold">✓</span>
-                Vui lòng đến trước lịch hẹn 10 phút để chuyên viên tiếp đón hướng dẫn làm hồ sơ điều trị.
-              </li>
-            </ul>
-          </div>
-
-          {/* Redirection Options */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-            <button
-              onClick={() => navigate(createdApptId ? `/booking/success/${createdApptId}` : '/appointments')}
-              className="w-full bg-[#0F172A] hover:bg-[#1E293B] text-white font-jakarta font-extrabold py-4 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md active:scale-98"
-            >
-              Xem lịch của tôi
-            </button>
-            <button
-              onClick={() => navigate('/')}
-              className="w-full bg-[#2EC4B6] hover:bg-[#25A89C] text-white font-jakarta font-extrabold py-4 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md hover:-translate-y-0.5 active:translate-y-0 duration-200"
-            >
-              Quay lại trang chủ
-            </button>
-          </div>
-        </motion.div>
-      </div>
-    );
   }
 
   return (
@@ -373,7 +310,7 @@ export default function Booking() {
               transition={{ duration: 0.5, delay: 0.1 }}
               className="text-slate-500 font-medium text-base sm:text-lg leading-relaxed max-w-xl"
             >
-              Đặt lịch khám lượng giá với chuyên gia vật lý trị liệu để xác định nguyên nhân đau nhức và xây dựng lộ trình điều trị phù hợp.
+              Đặt lịch khám lượng giá hoặc trị liệu với chuyên gia để xác định nguyên nhân đau nhức và xây dựng lộ trình phục hồi sức khỏe phù hợp.
             </motion.p>
 
             {/* Micro badges & benefits */}
@@ -405,26 +342,26 @@ export default function Booking() {
                 <div className="w-8 h-8 rounded-lg bg-[#2EC4B6]/10 text-[#2EC4B6] flex items-center justify-center border border-[#2EC4B6]/20">
                   <Clock size={16} />
                 </div>
-                <span className="text-xs font-extrabold text-[#0F172A]">Khám chuyên sâu 30 phút</span>
+                <span className="text-xs font-extrabold text-[#0F172A]">Trị liệu chuyên sâu</span>
               </div>
             </motion.div>
 
+            {/* Elegant trust info banner */}
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className="pt-4"
+              className="flex items-start gap-3 bg-slate-50 border border-slate-100 p-4 rounded-2xl max-w-md mt-4"
             >
-              <button
-                onClick={() => {
-                  const cardElement = document.getElementById('booking-experience-card');
-                  if (cardElement) cardElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }}
-                className="bg-[#2EC4B6] hover:bg-[#25A89C] text-white font-jakarta font-extrabold px-8 py-4 rounded-xl text-xs uppercase tracking-widest transition-all shadow-lg shadow-[#2EC4B6]/25 hover:-translate-y-0.5 active:translate-y-0 duration-250 flex items-center gap-2 group"
-              >
-                Bắt đầu đặt lịch
-                <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
-              </button>
+              <div className="w-5 h-5 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-[10px] font-bold">✓</span>
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-xs font-extrabold text-slate-800">Đặt lịch hẹn nhanh trong 3 bước</h4>
+                <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
+                  Lựa chọn dịch vụ, thời gian và chuyên gia mong muốn ở biểu mẫu bên dưới. Lịch hẹn của bạn sẽ được đồng bộ và xác nhận.
+                </p>
+              </div>
             </motion.div>
           </div>
 
@@ -485,11 +422,17 @@ export default function Booking() {
                   setBookingType={setBookingType}
                   selectedServiceId={selectedServiceId}
                   setSelectedServiceId={setSelectedServiceId}
+                  onTimeout={handleTimeout}
                   services={services}
                   servicesLoading={servicesLoading}
                   state={state}
                   bookedSlots={bookedSlots}
+                  specialists={specialists}
+                  slotAvailability={slotAvailability}
+                  selectedStaffId={selectedStaffId}
+                  setSelectedStaffId={setSelectedStaffId}
                   hasExistingClinicalExam={hasExistingClinicalExam}
+                  tempHoldId={tempHoldId}
                   onViewAppointments={() => navigate('/appointments')}
                   onChange={handleChange}
                   handleGenderChange={handleGenderChange}
@@ -509,17 +452,17 @@ export default function Booking() {
             <div className="bg-white/80 backdrop-blur-md border border-slate-150 shadow-lg rounded-[24px] overflow-hidden p-6 space-y-6">
               <div className="space-y-4 text-left">
                 <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border ${
-                  bookingType === 'dich_vu' ? 'bg-teal-55 text-teal-700 border-teal-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                  bookingType === 'dich_vu' ? 'bg-teal-50 text-teal-700 border-teal-100' : 'bg-emerald-50 text-emerald-650 border-emerald-100'
                 }`}>
-                  {bookingType === 'dich_vu' ? 'Trị liệu trực tiếp' : 'Đặt lịch miễn phí'}
+                  {bookingType === 'dich_vu' ? 'Trị liệu lẻ' : 'Lịch khám'}
                 </span>
                 
                 <div className="space-y-1">
                   <h3 className="text-lg font-jakarta font-black text-[#0F172A]">
-                    {bookingType === 'dich_vu' ? (services.find(s => s.id === selectedServiceId)?.ten_dich_vu || 'Chọn dịch vụ') : 'Khám Lượng Giá'}
+                    {selectedService?.ten_dich_vu || (bookingType === 'dich_vu' ? 'Chọn dịch vụ' : 'Chọn gói khám')}
                   </h3>
                   <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                    {bookingType === 'dich_vu' ? 'Trị liệu dịch vụ lẻ nhanh' : 'Đánh giá & Chẩn đoán cột sống'}
+                    {bookingType === 'dich_vu' ? 'Trị liệu dịch vụ lẻ nhanh' : 'Đánh giá & lượng giá chuyên sâu'}
                   </p>
                 </div>
               </div>
@@ -547,15 +490,13 @@ export default function Booking() {
                 <div className="flex justify-between items-center">
                   <span className="text-slate-450 font-bold uppercase tracking-wider">Thời lượng</span>
                   <span className="text-[#0F172A] font-extrabold">
-                    {bookingType === 'dich_vu' ? `${services.find(s => s.id === selectedServiceId)?.thoi_luong_phut || 45} phút` : '30 phút'}
+                    {selectedService ? `${selectedService.thoi_luong_phut} phút` : '...'}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-slate-450 font-bold uppercase tracking-wider">Chi phí</span>
-                  <span className={`${
-                    bookingType === 'dich_vu' ? 'text-teal-600 bg-teal-50 border-teal-100' : 'text-emerald-500 bg-emerald-50 border-emerald-100'
-                  } font-extrabold px-2.5 py-0.5 rounded-full border`}>
-                    {bookingType === 'dich_vu' ? (services.find(s => s.id === selectedServiceId) ? `${Number(services.find(s => s.id === selectedServiceId).don_gia).toLocaleString('vi-VN')}đ` : '...') : 'Miễn phí'}
+                  <span className="text-teal-600 bg-teal-50 border-teal-100 font-extrabold px-2.5 py-0.5 rounded-full border">
+                    {selectedService ? `${Number(selectedService.don_gia).toLocaleString('vi-VN')}đ` : '...'}
                   </span>
                 </div>
               </div>
@@ -565,31 +506,26 @@ export default function Booking() {
               {/* Benefit checks */}
               <div className="space-y-3 text-left">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  {bookingType === 'dich_vu' ? 'Nội dung thực hiện' : 'Quyền lợi của bạn'}
+                  {bookingType === 'dich_vu' ? 'Nội dung thực hiện' : 'Quyền lợi khám'}
                 </p>
                 <ul className="space-y-2 text-xs font-bold text-slate-650">
-                  {bookingType === 'dich_vu' ? (
-                    <>
-                      <li className="flex items-center gap-2 text-[#2EC4B6]">
-                        <span className="text-[#2EC4B6] font-bold">✓</span> Trực tiếp trị liệu cùng KTV tay nghề cao
+                  {selectedService?.muc_tieu ? (
+                    selectedService.muc_tieu.split('\n').filter((l: string) => l.trim()).slice(0, 3).map((goal: string, idx: number) => (
+                      <li key={idx} className="flex items-center gap-2">
+                        <span className="text-[#2EC4B6]">✓</span>
+                        <span>{goal.replace(/^-\s*/, '').replace(/^\*\s*/, '')}</span>
                       </li>
-                      <li className="flex items-center gap-2 text-[#2EC4B6]">
-                        <span className="text-[#2EC4B6] font-bold">✓</span> Sử dụng máy móc chuyên dụng hiện đại
-                      </li>
-                      <li className="flex items-center gap-2 text-[#2EC4B6]">
-                        <span className="text-[#2EC4B6] font-bold">✓</span> Tối ưu hóa thời gian, không chờ đợi khám
-                      </li>
-                    </>
+                    ))
                   ) : (
                     <>
-                      <li className="flex items-center gap-2 text-emerald-600">
-                        <span className="text-emerald-500">✓</span> Lượng giá tầm vận động (ROM)
+                      <li className="flex items-center gap-2">
+                        <span className="text-[#2EC4B6]">✓</span> Lượng giá tầm vận động (ROM)
                       </li>
-                      <li className="flex items-center gap-2 text-emerald-600">
-                        <span className="text-emerald-500">✓</span> Xác định tận gốc nguyên nhân đau
+                      <li className="flex items-center gap-2">
+                        <span className="text-[#2EC4B6]">✓</span> Xác định tận gốc nguyên nhân đau
                       </li>
-                      <li className="flex items-center gap-2 text-emerald-600">
-                        <span className="text-emerald-500">✓</span> Nhận phác đồ y khoa cá nhân hóa
+                      <li className="flex items-center gap-2">
+                        <span className="text-[#2EC4B6]">✓</span> Nhận phác đồ y khoa cá nhân hóa
                       </li>
                     </>
                   )}
@@ -599,8 +535,65 @@ export default function Booking() {
           </div>
         </div>
 
-        {/* TRUST SECTION (5-step process, Certifications, Quality Commitments) */}
-        <TrustSection />
+        {/* DYNAMIC PROCESS & OBJECTIVE SECTION (Replaces TrustSection) */}
+        {selectedService ? (
+          <div className="bg-white rounded-[32px] border border-slate-100 p-8 shadow-xl text-left space-y-8 animate-fade-in">
+            <div className="text-center max-w-2xl mx-auto space-y-2">
+              <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full bg-teal-55 text-[#2EC4B6] border border-teal-100">
+                Chi tiết dịch vụ đã chọn
+              </span>
+              <h3 className="text-2xl font-jakarta font-black text-slate-800 tracking-tight leading-tight">
+                Quy trình & Mục tiêu trị liệu của {selectedService.ten_dich_vu}
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
+              {/* Quy trình thực hiện (Process) */}
+              <div className="bg-slate-50/50 rounded-3xl p-6.5 border border-slate-100 space-y-4">
+                <h4 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b border-slate-200/60 pb-3">
+                  <span className="text-[#2EC4B6]">📋</span> Quy trình thực hiện
+                </h4>
+                {selectedService.quy_trinh ? (
+                  <ul className="space-y-3 pl-0 list-none">
+                    {selectedService.quy_trinh.split('\n').filter((line: string) => line.trim()).map((step: string, idx: number) => (
+                      <li key={idx} className="flex items-start gap-3 text-xs font-bold text-slate-650 leading-relaxed">
+                        <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[#2EC4B6]/15 text-[#2EC4B6] text-[10px] font-black shrink-0 mt-0.5">
+                          {idx + 1}
+                        </span>
+                        <span>{step.replace(/^\d+\.\s*/, '')}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-slate-455 font-bold italic text-slate-400">Chưa có quy trình cụ thể cho dịch vụ này.</p>
+                )}
+              </div>
+
+              {/* Mục tiêu trị liệu (Objective) */}
+              <div className="bg-slate-50/50 rounded-3xl p-6.5 border border-slate-100 space-y-4">
+                <h4 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b border-slate-200/60 pb-3">
+                  <span className="text-[#2EC4B6]">🎯</span> Mục tiêu trị liệu
+                </h4>
+                {selectedService.muc_tieu ? (
+                  <ul className="space-y-3 pl-0 list-none">
+                    {selectedService.muc_tieu.split('\n').filter((line: string) => line.trim()).map((goal: string, idx: number) => (
+                      <li key={idx} className="flex items-start gap-3 text-xs font-bold text-slate-650 leading-relaxed">
+                        <span className="text-emerald-500 font-extrabold shrink-0 mt-0.5">✓</span>
+                        <span>{goal.replace(/^-\s*/, '').replace(/^\*\s*/, '')}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-slate-455 font-bold italic text-slate-400">Chưa có mục tiêu cụ thể cho dịch vụ này.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-slate-50/50 border border-slate-150 border-dashed rounded-[32px] p-10 text-center text-slate-400 font-bold">
+            💡 Vui lòng chọn một dịch vụ khám hoặc trị liệu lẻ để xem Quy trình & Mục tiêu điều trị chi tiết.
+          </div>
+        )}
 
       </div>
     </div>

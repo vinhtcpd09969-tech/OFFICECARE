@@ -1,6 +1,7 @@
 import receptionistRepository from '../repositories/receptionist.repository';
 import appointmentRepository from '../repositories/appointment.repository';
 import notificationService from './notification.service';
+import { pool } from '../config/db';
 
 
 class ReceptionistService {
@@ -64,8 +65,33 @@ class ReceptionistService {
     };
   }
 
-  async updateAppointmentStatus(id: string, trang_thai: string, ghi_chu_noi_bo?: string) {
-    const appointment = await receptionistRepository.updateAppointmentStatus(id, trang_thai, ghi_chu_noi_bo);
+  async updateAppointmentStatus(id: string, trang_thai: string, ly_do_huy?: string) {
+    if (trang_thai === 'da_checkin' || trang_thai === 'check_in') {
+      const appt = await pool.query(
+        'SELECT phac_do_dieu_tri_id, so_thu_tu_buoi, loai FROM cuoc_hen WHERE id = $1',
+        [id]
+      );
+      if (appt.rows.length > 0) {
+        const { phac_do_dieu_tri_id, so_thu_tu_buoi, loai } = appt.rows[0];
+        if (loai === 'DIEU_TRI' && so_thu_tu_buoi === 5 && phac_do_dieu_tri_id) {
+          const hdRes = await pool.query(
+            'SELECT tong_tien_phai_tra, so_tien_da_tra, trang_thai FROM hoa_don WHERE phac_do_dieu_tri_id = $1',
+            [phac_do_dieu_tri_id]
+          );
+          if (hdRes.rows.length > 0) {
+            const hd = hdRes.rows[0];
+            const isFullyPaid = hd.trang_thai === 'da_thanh_toan' || Number(hd.so_tien_da_tra) >= Number(hd.tong_tien_phai_tra);
+            if (!isFullyPaid) {
+              const err = new Error('Khách hàng bắt buộc phải đóng nốt 50% còn lại của gói trước khi check-in Buổi 5.') as any;
+              err.statusCode = 400;
+              throw err;
+            }
+          }
+        }
+      }
+    }
+
+    const appointment = await receptionistRepository.updateAppointmentStatus(id, trang_thai, ly_do_huy);
     if (!appointment) throw new Error('Không tìm thấy lịch hẹn');
 
     // Kích hoạt gửi thông báo tự động cho khách hàng
@@ -86,7 +112,8 @@ class ReceptionistService {
   }
 
   async handleWalkInBooking(data: any) {
-    const { sdt, ho_ten, gioi_tinh, ngay_sinh, dich_vu_id, gio_bat_dau } = data;
+    const goi_dich_vu_id = data.goi_dich_vu_id || data.dich_vu_id;
+    const { sdt, ho_ten, gioi_tinh, ngay_sinh, gio_bat_dau } = data;
     const bac_si_id = data.bac_si_id || data.chuyen_gia_id || data.ky_thuat_vien_id;
 
     let khachHangId;
@@ -98,12 +125,12 @@ class ReceptionistService {
       khachHangId = await receptionistRepository.createWalkInCustomer(ho_ten, sdt, gioi_tinh, ngay_sinh);
     }
 
-    const duration = await receptionistRepository.getServiceDuration(dich_vu_id);
+    const duration = await receptionistRepository.getServiceDuration(goi_dich_vu_id);
     const startTime = new Date(gio_bat_dau);
     const endTime = new Date(startTime.getTime() + duration * 60000);
     const maLichDat = `LD${Math.floor(100000 + Math.random() * 900000)}`;
 
-    const lich_dat_id = await receptionistRepository.createAppointment(maLichDat, khachHangId, dich_vu_id, bac_si_id, startTime, endTime);
+    const lich_dat_id = await receptionistRepository.createAppointment(maLichDat, khachHangId, goi_dich_vu_id, bac_si_id, startTime, endTime);
     return { lich_dat_id };
   }
 
@@ -112,7 +139,7 @@ class ReceptionistService {
     if (!lich) throw new Error('Lịch hẹn không hợp lệ hoặc chưa hoàn thành');
 
     const maHoaDon = `HD${Math.floor(100000 + Math.random() * 900000)}`;
-    const result = await receptionistRepository.createBilling(maHoaDon, lich.khach_hang_id, lich_dat_id, lich.don_gia, lich.dich_vu_id);
+    const result = await receptionistRepository.createBilling(maHoaDon, lich.khach_hang_id, lich_dat_id, lich.don_gia, lich.goi_dich_vu_id);
     
     const { hoa_don, doctorUserId, customerName } = result;
 
@@ -289,8 +316,8 @@ class ReceptionistService {
       if (!ldt) throw new Error('Không tìm thấy lịch điều trị');
 
       const calc = await this.calculateBilling({ 
-        item_type: ldt.goi_dich_vu_id ? 'goi' : 'dich_vu', 
-        item_id: ldt.goi_dich_vu_id || ldt.dich_vu_id, 
+        item_type: 'goi', 
+        item_id: ldt.goi_dich_vu_id, 
         loai_thanh_toan, 
         ma_voucher 
       });
@@ -298,7 +325,7 @@ class ReceptionistService {
       const invoiceData = {
         lich_dieu_tri_id: finalLdtId,
         khach_hang_id: ldt.khach_hang_id,
-        item_type: ldt.goi_dich_vu_id ? 'goi' : 'dich_vu',
+        item_type: 'goi',
         tong_tien_truoc_giam: calc.gia_goc,
         so_tien_giam_voucher: calc.so_tien_giam_voucher,
         uu_dai_thanh_toan_id: calc.uu_dai_thanh_toan_id,

@@ -90,7 +90,7 @@ export default function WalkInBookingModal({
       isOverlapping(aptStartLocal, aptEndLocal, apt.ngay_gio_bat_dau, apt.ngay_gio_ket_thuc)
     );
 
-    const occupiedDoctorIds = overlappingApts.map(apt => apt.bac_si_id || apt.chuyen_gia_id).filter(Boolean);
+    const occupiedDoctorIds = overlappingApts.map(apt => apt.bac_si_id).filter(Boolean);
 
 
     // 2. Filter Doctors (Bác sĩ) based on schedule duty and overlap
@@ -123,7 +123,7 @@ export default function WalkInBookingModal({
 
 
       // Check if doctor has overlap appointment
-      const hasOverlap = occupiedDoctorIds.includes(doc.chuyen_gia_id);
+      const hasOverlap = occupiedDoctorIds.includes(doc.id);
       if (hasOverlap) {
         return { ...doc, available: false, reason: 'Trùng lịch khám khác' };
       }
@@ -133,7 +133,7 @@ export default function WalkInBookingModal({
 
     // 3. Filter Rooms based on overlap
     const filteredRooms = roomsList
-      .filter(room => room.loai_phong === 'kham_benh')
+      .filter(room => room.loai_phong === 'kham_benh' || room.loai_phong === 'phong_kham')
       .map(room => {
         const roomOverlaps = overlappingApts.filter(apt => String(apt.phong_id) === String(room.id));
         const occupiedSlots = roomOverlaps.length;
@@ -151,7 +151,7 @@ export default function WalkInBookingModal({
     setAvailableRooms(filteredRooms);
     
     // Clear selection if previously selected resource is no longer available
-    if (selectedDoctorId && !filteredDocs.find(d => d.chuyen_gia_id === selectedDoctorId && d.available)) {
+    if (selectedDoctorId && !filteredDocs.find(d => String(d.id) === selectedDoctorId && d.available)) {
       setSelectedDoctorId('');
     }
     if (selectedRoomId && !filteredRooms.find(r => String(r.id) === selectedRoomId && r.available)) {
@@ -196,7 +196,6 @@ export default function WalkInBookingModal({
       ngay_gio_bat_dau: startUtcIso,
       ngay_gio_ket_thuc: endUtcIso,
       bac_si_id: selectedDoctorId,
-      chuyen_gia_id: selectedDoctorId,
       phong_id: selectedRoomId,
       loai_lich: 'kham_moi',
       trang_thai: 'da_checkin',
@@ -366,11 +365,11 @@ export default function WalkInBookingModal({
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {availableDoctors.map(doc => {
-                      const isSelected = selectedDoctorId === doc.chuyen_gia_id;
+                      const isSelected = String(selectedDoctorId) === String(doc.id);
                       return (
                         <div
                           key={doc.id}
-                          onClick={() => doc.available && setSelectedDoctorId(doc.chuyen_gia_id)}
+                          onClick={() => doc.available && setSelectedDoctorId(String(doc.id))}
                           className={`p-3.5 border rounded-2xl flex items-center gap-3 transition-all ${
                             doc.available 
                               ? isSelected

@@ -1,6 +1,7 @@
-import { ChevronLeft, ChevronRight, Search, SlidersHorizontal } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, Stethoscope, Zap } from 'lucide-react';
 import { format, startOfWeek, isSameDay } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { motion } from 'framer-motion';
 
 interface AppointmentsFilterBarProps {
   timeRange: 'today' | '7days' | 'month' | 'custom';
@@ -12,6 +13,8 @@ interface AppointmentsFilterBarProps {
   setSearchTerm: (term: string) => void;
   viewMode: 'timeline' | 'capacity';
   selectedDate: Date;
+  activeType: 'kham' | 'dieu_tri';
+  onToggleType: () => void;
 }
 
 export function AppointmentsFilterBar({
@@ -23,7 +26,9 @@ export function AppointmentsFilterBar({
   searchTerm,
   setSearchTerm,
   viewMode,
-  selectedDate
+  selectedDate,
+  activeType,
+  onToggleType
 }: AppointmentsFilterBarProps) {
   
   return (
@@ -33,18 +38,42 @@ export function AppointmentsFilterBar({
         {/* Left Section: Icon, Title, and Search bar combined in a clean row/group */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-4 flex-1 min-w-0">
           
-          {/* Title block with clean subtle icon */}
+          {/* Title block with interactive toggle button */}
           <div className="flex items-center gap-3 shrink-0">
-            <div className="p-2.5 bg-[#0D9488]/10 text-[#0D9488] dark:text-teal-400 rounded-2xl border border-[#0D9488]/20 select-none">
-              <SlidersHorizontal className="size-4 shrink-0" />
-            </div>
+            <button
+              onClick={onToggleType}
+              title="Click để hoán đổi chế độ Khám / Điều trị"
+              className={`p-2.5 rounded-2xl border transition-all duration-300 active:scale-95 group select-none ${
+                activeType === 'kham'
+                  ? 'bg-[#0D9488]/10 hover:bg-[#0D9488]/20 text-[#0D9488] dark:text-teal-400 border-[#0D9488]/20'
+                  : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/20'
+              }`}
+            >
+              {activeType === 'kham' ? (
+                <motion.div
+                  initial={{ rotate: 0 }}
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <Stethoscope className="size-4 shrink-0" />
+                </motion.div>
+              ) : (
+                <motion.div
+                  initial={{ rotate: 0 }}
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <Zap className="size-4 shrink-0" />
+                </motion.div>
+              )}
+            </button>
             <div className="flex flex-col text-left">
               <span className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-zinc-200">
-                Bộ lọc lịch hẹn
+                {activeType === 'kham' ? 'Quản lý lịch khám' : 'Quản lý lịch điều trị'}
               </span>
               <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-semibold mt-0.5 whitespace-nowrap">
                 {viewMode === 'timeline' 
-                  ? "Xem chi tiết trình tự ngày khám" 
+                  ? "Xem chi tiết trình tự ngày hẹn" 
                   : "Tổng quan công suất hoạt động"}
               </p>
             </div>
