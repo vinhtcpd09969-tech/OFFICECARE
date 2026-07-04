@@ -154,6 +154,24 @@ export default function AppointmentDetailModal({
   const aptStartHourStr = getLocalTimeStr(selectedAppointment.ngay_gio_bat_dau); // HH:mm
   const aptEndHourStr = getLocalTimeStr(selectedAppointment.ngay_gio_ket_thuc); // HH:mm
 
+  // Tự động phân phòng dựa trên ca trực của nhân viên khi gán
+  useEffect(() => {
+    if (!assignStaffId) return;
+
+    // Tìm ca trực của nhân viên được chọn tại thời điểm này
+    const staffSchedule = (schedulesList || []).find(s => 
+      String(s.nguoi_dung_id) === String(assignStaffId) &&
+      s.ngay === aptDateStr &&
+      s.trang_thai === 'hoat_dong' &&
+      s.gio_bat_dau.substring(0, 5) <= aptStartHourStr &&
+      s.gio_ket_thuc.substring(0, 5) >= aptEndHourStr
+    );
+
+    if (staffSchedule && staffSchedule.phong_id) {
+      setAssignRoomId(String(staffSchedule.phong_id));
+    }
+  }, [assignStaffId, schedulesList, aptDateStr, aptStartHourStr, aptEndHourStr, setAssignRoomId]);
+
   const getStaffDutyStatus = (staff: any) => {
     if (!schedulesList || schedulesList.length === 0) {
       return { hasDuty: true, label: '' };
@@ -458,15 +476,15 @@ export default function AppointmentDetailModal({
                             : (activeRole === 'Kỹ thuật viên' || activeRole === 'Chuyên gia y tế' || activeRole === 'therapist');
 
                           if (isDoctor) {
-                            return room.loai_phong === 'kham_benh';
+                            return ['phong_kham', 'kham_benh'].includes(room.loai_phong);
                           }
 
                           if (isTherapist || selectedAppointment.loai_lich === 'dieu_tri') {
-                            return room.loai_phong === 'tri_lieu' || room.loai_phong === 'phong_tri_lieu_chuan' || room.loai_phong === 'phong_tap';
+                            return ['phong_tri_lieu', 'tri_lieu', 'phong_tri_lieu_chuan', 'phong_tap'].includes(room.loai_phong);
                           }
 
                           if (selectedAppointment.loai_lich === 'kham_moi') {
-                            return room.loai_phong === 'kham_benh';
+                            return ['phong_kham', 'kham_benh'].includes(room.loai_phong);
                           }
                           return true;
                         })
