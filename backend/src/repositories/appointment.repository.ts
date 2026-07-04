@@ -88,8 +88,18 @@ class AppointmentRepository {
         ch.so_thu_tu_buoi,
         ch.phac_do_dieu_tri_id as goi_dich_vu_id,
         COALESCE(hd.trang_thai, 'chua_thanh_toan') AS trang_thai_thanh_toan,
-        ch.ngay_gio_bat_dau as thoi_gian_tao,
-        ch.ghi_chu AS ly_do_kham
+        COALESCE(
+          (
+            SELECT created_at 
+            FROM otp_codes 
+            WHERE email = COALESCE(kh.email, (kh.so_dien_thoai || '@officecare.placeholder')) 
+            ORDER BY created_at DESC 
+            LIMIT 1
+          ), 
+          ch.ngay_gio_bat_dau
+        ) as thoi_gian_tao,
+        ch.ghi_chu AS ly_do_kham,
+        ch.ly_do_huy
       FROM cuoc_hen ch
       LEFT JOIN khach_hang kh ON ch.khach_hang_id = kh.id
       LEFT JOIN goi_dich_vu g ON ch.goi_dich_vu_id = g.id
@@ -728,6 +738,7 @@ class AppointmentRepository {
         nk.chan_doan,
         nk.chong_chi_dinh,
         ch.ghi_chu,
+        ch.ly_do_huy,
         ch.ngay_gio_bat_dau as thoi_gian_tao,
         dg.id as rating_id,
         dg.so_sao as rating_stars,

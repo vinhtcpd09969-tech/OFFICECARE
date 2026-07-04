@@ -157,9 +157,13 @@ export const getSchedules = async (req: AuthenticatedRequest, res: Response) => 
 };
 
 // GET /api/doctor/patients
-export const getPatients = async (req: Request, res: Response) => {
+export const getPatients = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const patients = await adminService.getCustomers();
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: 'Không xác định được danh tính người dùng.' });
+    }
+    const patients = await doctorService.getPatients(userId);
     res.json(patients);
   } catch (error: any) {
     console.error('Lỗi khi lấy danh sách bệnh nhân cho bác sĩ:', error);

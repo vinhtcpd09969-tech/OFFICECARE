@@ -206,6 +206,31 @@ class DoctorRepository {
     const { rows } = await pool.query(queryStr, [userId]);
     return rows;
   }
+
+  // 9. Lấy danh sách bệnh nhân kèm thông tin chống chỉ định cho bác sĩ (chỉ hiển thị bệnh nhân liên quan đến bác sĩ này)
+  async getPatients(userId: string) {
+    const queryStr = `
+      SELECT DISTINCT kh.id as khach_hang_id, kh.id as id, kh.id as nguoi_dung_id, kh.ngay_sinh, kh.gioi_tinh, kh.dia_chi,
+             COALESCE(kh.ho_ten, 'Khách vãng lai') as ho_ten, 
+             kh.email, 
+             kh.so_dien_thoai, 
+             kh.trang_thai, 
+             EXISTS (
+               SELECT 1 
+               FROM cuoc_hen ch_inner
+               JOIN nhat_ky_buoi_dieu_tri nk ON nk.cuoc_hen_id = ch_inner.id
+               WHERE ch_inner.khach_hang_id = kh.id 
+                 AND nk.chong_chi_dinh IS NOT NULL 
+                 AND nk.chong_chi_dinh <> ''
+             ) as has_chong_chi_dinh
+      FROM khach_hang kh
+      JOIN cuoc_hen ch ON ch.khach_hang_id = kh.id
+      WHERE ch.nhan_su_id = $1::integer
+      ORDER BY ho_ten ASC;
+    `;
+    const { rows } = await pool.query(queryStr, [userId]);
+    return rows;
+  }
 }
 
 export default new DoctorRepository();

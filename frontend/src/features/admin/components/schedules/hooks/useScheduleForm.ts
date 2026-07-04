@@ -257,7 +257,7 @@ export function useScheduleForm({
         });
 
         if (conflict) {
-          alert(`Không thể phân công: Bác sĩ ${selectedStaff.ho_ten} đã có lịch trực ca này vào ngày ${data.ngay} rồi!`);
+          toast.error(`Không thể phân công: Bác sĩ ${selectedStaff.ho_ten} đã có lịch trực ca này vào ngày ${data.ngay} rồi!`);
           return;
         }
       }

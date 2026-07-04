@@ -28,11 +28,11 @@ const Register = lazy(() => import('../features/auth/pages/Register'));
 const VerifyEmail = lazy(() => import('../features/auth/pages/VerifyEmail'));
 
 // Customer Feature
-const Dashboard = lazy(() => import('../features/customer/pages/Dashboard'));
-const CustomerAppointments = lazy(() => import('../features/customer/pages/CustomerAppointments'));
-const CustomerPackages = lazy(() => import('../features/customer/pages/CustomerPackages'));
-const CustomerProfile = lazy(() => import('../features/customer/pages/CustomerProfile'));
-const CustomerSettings = lazy(() => import('../features/customer/pages/CustomerSettings'));
+const Dashboard = lazy(() => import('../features/customer/pages/Dashboard/index'));
+const CustomerAppointments = lazy(() => import('../features/customer/pages/CustomerAppointments/index'));
+const CustomerPackages = lazy(() => import('../features/customer/pages/CustomerPackages/index'));
+const CustomerProfile = lazy(() => import('../features/customer/pages/CustomerProfile/index'));
+const CustomerSettings = lazy(() => import('../features/customer/pages/CustomerSettings/index'));
 
 // Admin Feature
 const AdminDashboard = lazy(() => import('../features/admin/pages/AdminDashboard'));
@@ -42,7 +42,7 @@ const ManageSchedules = lazy(() => import('../features/admin/pages/ManageSchedul
 const ManageAppointments = lazy(() => import('../features/admin/pages/ManageAppointments'));
 const ManageMedicalRecords = lazy(() => import('../features/admin/pages/ManageMedicalRecords'));
 const ManageRooms = lazy(() => import('../features/admin/pages/ManageRooms'));
-const RoomDetail = lazy(() => import('../features/admin/pages/RoomDetail'));
+const RoomDetail = lazy(() => import('../features/admin/pages/ManageRooms/RoomDetail'));
 const ManageEquipment = lazy(() => import('../features/admin/pages/ManageEquipment'));
 const ManagePackages = lazy(() => import('../features/admin/pages/ManagePackages'));
 const ManageFinance = lazy(() => import('../features/admin/pages/ManageFinance'));
@@ -50,14 +50,14 @@ const ManageVouchers = lazy(() => import('../features/admin/pages/ManageVouchers
 const ViewFeedback = lazy(() => import('../features/admin/pages/ViewFeedback'));
 
 // Receptionist Feature
-const ReceptionistDashboard = lazy(() => import('../features/receptionist/pages/ReceptionistDashboard'));
-const ReceptionistAppointments = lazy(() => import('../features/receptionist/pages/ReceptionistAppointments'));
-const WalkInBooking = lazy(() => import('../features/receptionist/pages/WalkInBooking'));
-const QuickBilling = lazy(() => import('../features/receptionist/pages/QuickBilling'));
+const ReceptionistDashboard = lazy(() => import('../features/receptionist/pages/ReceptionistDashboard/index'));
+const ReceptionistAppointments = lazy(() => import('../features/receptionist/pages/ReceptionistAppointments/index'));
+const WalkInBooking = lazy(() => import('../features/receptionist/pages/WalkInBooking/index'));
+const QuickBilling = lazy(() => import('../features/receptionist/pages/QuickBilling/index'));
 
 // Technician Feature
-const TechnicianWorkspace = lazy(() => import('../features/technician/pages/TechnicianWorkspace'));
-const TechnicianAppointments = lazy(() => import('../features/technician/pages/TechnicianAppointments'));
+const TechnicianWorkspace = lazy(() => import('../features/technician/pages/TechnicianWorkspace/index'));
+const TechnicianAppointments = lazy(() => import('../features/technician/pages/TechnicianAppointments/index'));
 
 // Doctor Feature
 const DoctorDashboard = lazy(() => import('../features/doctor/pages/DoctorDashboard'));

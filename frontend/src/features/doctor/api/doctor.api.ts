@@ -142,6 +142,7 @@ export interface PatientInfo {
   email: string;
   so_dien_thoai: string;
   avatar_url?: string;
+  has_chong_chi_dinh?: boolean;
 }
 
 export const getPatients = () => api.get<PatientInfo[]>('/doctor/patients');

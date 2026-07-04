@@ -75,6 +75,12 @@ class DoctorService {
     const schedules = await doctorRepository.getDoctorSchedules(userId);
     return schedules;
   }
+
+  // 7. Lấy danh sách bệnh nhân cho bác sĩ (kèm has_chong_chi_dinh và filter theo bác sĩ)
+  async getPatients(userId: string) {
+    const patients = await doctorRepository.getPatients(userId);
+    return patients;
+  }
 }
 
 export default new DoctorService();

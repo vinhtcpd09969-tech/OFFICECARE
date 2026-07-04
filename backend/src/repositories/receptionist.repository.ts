@@ -22,14 +22,22 @@ class ReceptionistRepository {
         nd_ktv.ho_ten as ten_ky_thuat_vien,
         ch.phong_id as phong_id,
         p.ten_phong as ten_phong,
-        ch.ngay_gio_bat_dau as thoi_gian_tao
+        COALESCE(
+          (
+            SELECT created_at 
+            FROM otp_codes 
+            WHERE email = COALESCE(kh.email, (kh.so_dien_thoai || '@officecare.placeholder')) 
+            ORDER BY created_at DESC 
+            LIMIT 1
+          ), 
+          ch.ngay_gio_bat_dau
+        ) as thoi_gian_tao
       FROM cuoc_hen ch
       JOIN khach_hang kh ON ch.khach_hang_id = kh.id
       LEFT JOIN goi_dich_vu dv ON ch.goi_dich_vu_id = dv.id
       LEFT JOIN nguoi_dung nd_ktv ON ch.nhan_su_id = nd_ktv.id
       LEFT JOIN phong_lam_viec p ON ch.phong_id = p.id
       WHERE DATE(ch.ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh') = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh')
-        AND ch.trang_thai != 'cho_xac_nhan'
         AND (
           ch.trang_thai != 'chua_xac_nhan'
           OR NOT EXISTS (

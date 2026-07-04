@@ -262,26 +262,6 @@ class AdminRepository {
     return rows[0];
   }
 
-  async getEquipmentTypes(): Promise<any[]> {
-    return [];
-  }
-
-  async getEquipmentTypeById(id: number): Promise<any> {
-    return null;
-  }
-
-  async createEquipmentType(data: any): Promise<any> {
-    return null;
-  }
-
-  async updateEquipmentType(id: number, data: any): Promise<any> {
-    return null;
-  }
-
-  async deleteEquipmentType(id: number): Promise<any> {
-    return null;
-  }
-
   // --- QUẢN LÝ LỊCH LÀM VIỆC (MAPPED TO LICH TRUC NHAN SU) ---
   async getSchedules() {
     const { rows } = await pool.query(`

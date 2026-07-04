@@ -96,22 +96,6 @@ class AdminService {
     return adminRepository.deleteEquipment(id);
   }
 
-  // --- QUẢN LÝ PHÂN LOẠI THIẾT BỊ ---
-  async getEquipmentTypes() {
-    return adminRepository.getEquipmentTypes();
-  }
-
-  async createEquipmentType(data: any) {
-    return adminRepository.createEquipmentType(data);
-  }
-
-  async updateEquipmentType(id: number, data: any) {
-    return adminRepository.updateEquipmentType(id, data);
-  }
-
-  async deleteEquipmentType(id: number) {
-    return adminRepository.deleteEquipmentType(id);
-  }
 
   // --- QUẢN LÝ LỊCH LÀM VIỆC ---
   async getSchedules() {
