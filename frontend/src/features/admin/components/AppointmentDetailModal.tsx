@@ -465,7 +465,7 @@ export default function AppointmentDetailModal({
                       {roomsList
                         .filter(room => {
                           const selectedStaff = staffList.find(s => {
-                            const staffId = s.chuyen_gia_id || s.id;
+                            const staffId = s.id;
                             return String(staffId) === String(assignStaffId);
                           });
                           const isDoctor = selectedStaff 
@@ -589,7 +589,7 @@ export default function AppointmentDetailModal({
                         return staffList
                           .filter(s => s.vai_tro === activeRole)
                           .filter(staff => {
-                            const staffId = staff.chuyen_gia_id || staff.id;
+                            const staffId = staff.id;
                             const isCurrentlyAssigned = assignedDocId && String(staffId) === String(assignedDocId);
                             
                             if (isCurrentlyAssigned) {
@@ -601,7 +601,7 @@ export default function AppointmentDetailModal({
                             return duty.hasDuty && !isOccupied;
                           })
                           .map(staff => {
-                            const staffId = staff.chuyen_gia_id || staff.id;
+                            const staffId = staff.id;
                             const isCurrentlyAssigned = assignedDocId && String(staffId) === String(assignedDocId);
                             const duty = getStaffDutyStatus(staff);
                             const isOccupied = occupiedStaffIds.includes(staffId) && !isCurrentlyAssigned;
