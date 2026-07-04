@@ -59,6 +59,8 @@ export default function AppointmentDetailModal({
   const isReceptionist = isReceptionistOverride !== undefined ? isReceptionistOverride : (Number(user?.vai_tro_id) === 2);
   const targetRole = selectedAppointment?.loai_lich === 'kham_moi' ? 'Bác sĩ' : 'Kỹ thuật viên';
   const [localGhiChuNoiBo, setLocalGhiChuNoiBo] = useState<string>(selectedAppointment?.ghi_chu_noi_bo || '');
+  const resolvedRoom = roomsList.find(r => String(r.id) === String(assignRoomId));
+  const resolvedRoomName = resolvedRoom?.ten_phong || selectedAppointment.ten_phong || 'Chưa chỉ định';
   const isUnconfirmedState = isReceptionist && ['cho_xac_nhan', 'chua_xac_nhan'].includes(selectedAppointment.trang_thai);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
 
@@ -446,116 +448,44 @@ export default function AppointmentDetailModal({
                 Điều phối lâm sàng
               </h4>
 
-              {/* PHÒNG THỰC HIỆN (Card grid) */}
+              {/* PHÒNG THỰC HIỆN (Tự động hiển thị theo ca trực của KTV) */}
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <label className="text-xs font-extrabold text-slate-700 dark:text-zinc-300 uppercase tracking-wider">Phòng khám lâm sàng</label>
-                  {assignRoomId && !isReceptionist && (
-                    <button 
-                      type="button" 
-                      onClick={() => setAssignRoomId('')} 
-                      className="text-[10px] text-rose-500 font-extrabold hover:underline"
-                    >
-                      Hủy chọn phòng
-                    </button>
-                  )}
+                  <label className="text-xs font-extrabold text-slate-700 dark:text-zinc-300 uppercase tracking-wider">
+                    {selectedAppointment.loai_lich === 'kham_moi' ? 'Phòng khám lâm sàng' : 'Phòng trị liệu'}
+                  </label>
                 </div>
-                {!isReceptionist ? (
-                  <>
-                    <div className="grid grid-cols-2 gap-3 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin">
-                      {roomsList
-                        .filter(room => {
-                          const selectedStaff = staffList.find(s => {
-                            const staffId = s.id;
-                            return String(staffId) === String(assignStaffId);
-                          });
-                          const isDoctor = selectedStaff 
-                            ? (selectedStaff.vai_tro === 'Bác sĩ' || selectedStaff.role === 'doctor') 
-                            : (targetRole === 'Bác sĩ');
-                          const isTherapist = selectedStaff
-                            ? (selectedStaff.vai_tro === 'Kỹ thuật viên' || selectedStaff.vai_tro === 'Chuyên gia y tế' || selectedStaff.role === 'therapist')
-                            : (targetRole === 'Kỹ thuật viên');
-
-                          if (isDoctor) {
-                            return ['phong_kham', 'kham_benh'].includes(room.loai_phong);
-                          }
-
-                          if (isTherapist || selectedAppointment.loai_lich === 'dieu_tri') {
-                            return ['phong_tri_lieu', 'tri_lieu', 'phong_tri_lieu_chuan'].includes(room.loai_phong);
-                          }
-
-                          if (selectedAppointment.loai_lich === 'kham_moi') {
-                            return ['phong_kham', 'kham_benh'].includes(room.loai_phong);
-                          }
-                          return true;
-                        })
-                        .map(room => {
-                          const roomOverlaps = overlappingApts.filter(apt => String(apt.phong_id) === String(room.id));
-                          const occupiedSlots = roomOverlaps.length;
-                          const capacity = room.suc_chua || 1;
-                          const isOccupied = occupiedSlots >= capacity && String(room.id) !== String(selectedAppointment.phong_id);
-                          const isSelected = String(assignRoomId) === String(room.id);
-                          const remainingSlots = Math.max(0, capacity - occupiedSlots);
-
-                          return (
-                            <div
-                              key={room.id}
-                              onClick={() => !isOccupied && !isReceptionist && setAssignRoomId(String(room.id))}
-                              className={`p-3 rounded-xl border-2 transition-all flex flex-col justify-between select-none ${isOccupied
-                                  ? 'bg-slate-50 dark:bg-zinc-800/20 border-slate-100 dark:border-zinc-800/50 opacity-50 cursor-not-allowed'
-                                  : isSelected
-                                    ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-500 dark:border-emerald-600 text-emerald-800 dark:text-emerald-355 ring-2 ring-emerald-500/10'
-                                    : 'bg-white dark:bg-zinc-900 border-slate-150 dark:border-zinc-800 hover:border-slate-350 dark:hover:border-zinc-700 cursor-pointer'
-                                }`}
-                            >
-                              <div className="flex justify-between items-start gap-1">
-                                <span className="text-xs font-black text-slate-800 dark:text-zinc-200 leading-tight">{room.ten_phong}</span>
-                                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider whitespace-nowrap ${isOccupied ? 'bg-rose-100 dark:bg-rose-955/30 text-rose-700 dark:text-rose-455' : 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-450'
-                                  }`}>
-                                  {isOccupied ? 'Bận' : `Còn: ${remainingSlots}/${capacity}`}
-                                </span>
-                              </div>
-                              <span className="text-[9px] text-slate-400 dark:text-zinc-550 mt-2 font-bold">{room.loai_phong || 'Phòng khám'}</span>
-                            </div>
-                          );
-                        })}
-                    </div>
-                    {selectedAppointment.loai_lich === 'dieu_tri' && assignRoomId && (() => {
-                      const selectedRoom = roomsList.find(r => String(r.id) === String(assignRoomId));
-                      const totalBeds = selectedRoom?.suc_chua || 0;
-                      if (totalBeds <= 0) return null;
-                      return (
-                        <div className="mt-3 p-3 bg-slate-50 dark:bg-zinc-800/20 border border-slate-150 dark:border-zinc-800 rounded-xl space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
-                          <label className="text-[10px] font-black text-slate-700 dark:text-zinc-350 uppercase tracking-wide">
-                            Chọn giường điều trị cụ thể
-                          </label>
-                          <select
-                            value={assignGiuongSo}
-                            onChange={(e) => setAssignGiuongSo?.(e.target.value)}
-                            className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-xs rounded-lg dark:text-zinc-200"
-                          >
-                            <option value="">-- Tự động xếp giường trống --</option>
-                            {Array.from({ length: totalBeds }, (_, i) => i + 1).map(num => (
-                              <option key={num} value={num}>Giường số {num}</option>
-                            ))}
-                          </select>
-                        </div>
-                      );
-                    })()}
-                  </>
-                ) : (
-                  <div className="w-full px-4 py-3 bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-850 rounded-xl text-sm font-bold text-slate-800 dark:text-zinc-150 flex flex-col gap-1">
-                    <div className="flex justify-between items-center">
-                      <span>{selectedAppointment.ten_phong || 'Chưa chỉ định'}</span>
-                      <span className="text-[10px] text-slate-400 dark:text-zinc-550 uppercase tracking-wider font-extrabold">Đã phân phòng</span>
-                    </div>
-                    {selectedAppointment.loai_lich === 'dieu_tri' && selectedAppointment.giuong_so && (
-                      <span className="text-xs text-emerald-600 dark:text-emerald-400 font-extrabold mt-1">
-                        🛏️ Giường số {selectedAppointment.giuong_so}
-                      </span>
-                    )}
+                <div className="w-full px-4 py-3.5 bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-850 rounded-xl text-sm font-bold text-slate-800 dark:text-zinc-150 flex flex-col gap-1">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-800 dark:text-zinc-100">{resolvedRoomName}</span>
+                    <span className="text-[10px] text-slate-400 dark:text-zinc-550 uppercase tracking-wider font-extrabold">
+                      {resolvedRoom ? 'Tự động phân theo ca trực KTV' : 'Đã phân phòng'}
+                    </span>
                   </div>
-                )}
+                  {selectedAppointment.loai_lich === 'dieu_tri' && assignRoomId && (() => {
+                    const selectedRoom = roomsList.find(r => String(r.id) === String(assignRoomId));
+                    const totalBeds = selectedRoom?.suc_chua || 0;
+                    if (totalBeds <= 0) return null;
+                    return (
+                      <div className="mt-2.5 pt-2.5 border-t border-slate-200/50 dark:border-zinc-800 space-y-1.5">
+                        <label className="text-[10px] font-black text-slate-700 dark:text-zinc-350 uppercase tracking-wide">
+                          Chọn giường điều trị cụ thể
+                        </label>
+                        <select
+                          disabled={isReceptionist}
+                          value={assignGiuongSo}
+                          onChange={(e) => setAssignGiuongSo?.(e.target.value)}
+                          className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-xs rounded-lg dark:text-zinc-200 disabled:opacity-75 disabled:cursor-not-allowed"
+                        >
+                          <option value="">-- Tự động xếp giường trống --</option>
+                          {Array.from({ length: totalBeds }, (_, i) => i + 1).map(num => (
+                            <option key={num} value={num}>Giường số {num}</option>
+                          ))}
+                        </select>
+                      </div>
+                    );
+                  })()}
+                </div>
               </div>
 
               {/* NHÂN SỰ PHỤ TRÁCH (Card grid) */}
