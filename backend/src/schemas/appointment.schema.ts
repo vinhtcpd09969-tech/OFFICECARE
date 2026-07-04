@@ -45,6 +45,7 @@ export const createPublicAppointmentSchema = z.object({
     ly_do_kham: z.string().optional(),
     anh_dinh_kem_url: z.string().optional(),
     goi_dich_vu_id: z.string().uuid('Gói dịch vụ/Lịch khám là bắt buộc'),
+    temp_hold_id: z.string().optional(),
   }).refine((data) => {
     const batDau = new Date(data.ngay_gio_bat_dau);
     const minTime = new Date(Date.now() + 60 * 60 * 1000);
