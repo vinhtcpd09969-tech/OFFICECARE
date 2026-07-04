@@ -625,7 +625,7 @@ export default function ManageAppointments() {
     }
   };
 
-  const activeRole = 'Bác sĩ';
+  const activeRole = activeType === 'kham' ? 'Bác sĩ' : 'Kỹ thuật viên';
   const formattedSelectedDate = format(selectedDate, 'yyyy-MM-dd');
 
   const filteredAppointments = appointmentsToUse.filter(apt => {

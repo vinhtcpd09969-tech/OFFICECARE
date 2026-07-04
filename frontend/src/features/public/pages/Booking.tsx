@@ -490,7 +490,7 @@ export default function Booking() {
                 <div className="flex justify-between items-center">
                   <span className="text-slate-450 font-bold uppercase tracking-wider">Thời lượng</span>
                   <span className="text-[#0F172A] font-extrabold">
-                    {selectedService ? `${selectedService.thoi_luong_phut} phút` : '...'}
+                    {selectedService ? `${selectedService.thoi_luong_phut + 10} phút` : '...'}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">

@@ -103,7 +103,7 @@ export function Step3DateTimeSpecialist({
           return `${h}:${m}`;
         };
 
-        const slotEnd = new Date(slotStart.getTime() + duration * 60000);
+        const slotEnd = new Date(slotStart.getTime() + (duration + 10) * 60000);
         slots.push(`${formatTime(slotStart)} - ${formatTime(slotEnd)}`);
         current = slotNextStart;
       }

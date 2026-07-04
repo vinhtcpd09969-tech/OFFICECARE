@@ -36,7 +36,7 @@ export default function AppointmentDetailModal({
   selectedAppointment,
   roomsList,
   staffList,
-  activeRole,
+  activeRole: _activeRole,
   assignRoomId,
   setAssignRoomId,
   assignGiuongSo = '',
@@ -57,6 +57,7 @@ export default function AppointmentDetailModal({
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const isReceptionist = isReceptionistOverride !== undefined ? isReceptionistOverride : (Number(user?.vai_tro_id) === 2);
+  const targetRole = selectedAppointment?.loai_lich === 'kham_moi' ? 'Bác sĩ' : 'Kỹ thuật viên';
   const [localGhiChuNoiBo, setLocalGhiChuNoiBo] = useState<string>(selectedAppointment?.ghi_chu_noi_bo || '');
   const isUnconfirmedState = isReceptionist && ['cho_xac_nhan', 'chua_xac_nhan'].includes(selectedAppointment.trang_thai);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
@@ -224,7 +225,7 @@ export default function AppointmentDetailModal({
       }
       if (!assignStaffId) {
         toast.error(
-          activeRole === 'Bác sĩ' 
+          targetRole === 'Bác sĩ' 
             ? 'Vui lòng chọn Bác sĩ phụ trách!' 
             : 'Vui lòng chọn Kỹ thuật viên phụ trách!'
         );
@@ -470,17 +471,17 @@ export default function AppointmentDetailModal({
                           });
                           const isDoctor = selectedStaff 
                             ? (selectedStaff.vai_tro === 'Bác sĩ' || selectedStaff.role === 'doctor') 
-                            : (activeRole === 'Bác sĩ' || activeRole === 'doctor');
+                            : (targetRole === 'Bác sĩ');
                           const isTherapist = selectedStaff
                             ? (selectedStaff.vai_tro === 'Kỹ thuật viên' || selectedStaff.vai_tro === 'Chuyên gia y tế' || selectedStaff.role === 'therapist')
-                            : (activeRole === 'Kỹ thuật viên' || activeRole === 'Chuyên gia y tế' || activeRole === 'therapist');
+                            : (targetRole === 'Kỹ thuật viên');
 
                           if (isDoctor) {
                             return ['phong_kham', 'kham_benh'].includes(room.loai_phong);
                           }
 
                           if (isTherapist || selectedAppointment.loai_lich === 'dieu_tri') {
-                            return ['phong_tri_lieu', 'tri_lieu', 'phong_tri_lieu_chuan', 'phong_tap'].includes(room.loai_phong);
+                            return ['phong_tri_lieu', 'tri_lieu', 'phong_tri_lieu_chuan'].includes(room.loai_phong);
                           }
 
                           if (selectedAppointment.loai_lich === 'kham_moi') {
@@ -561,7 +562,7 @@ export default function AppointmentDetailModal({
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <label className="text-xs font-extrabold text-slate-700 dark:text-zinc-300 uppercase tracking-wider">
-                    {activeRole === 'Bác sĩ' ? 'Bác sĩ phụ trách' : 'Kỹ thuật viên phụ trách'}
+                    {targetRole === 'Bác sĩ' ? 'Bác sĩ phụ trách' : 'Kỹ thuật viên phụ trách'}
                   </label>
                   {assignStaffId && !isReceptionist && (
                     <button 
@@ -587,7 +588,7 @@ export default function AppointmentDetailModal({
                       {(() => {
                         const assignedDocId = selectedAppointment.bac_si_id || selectedAppointment.chuyen_gia_id;
                         return staffList
-                          .filter(s => s.vai_tro === activeRole)
+                          .filter(s => s.vai_tro === targetRole)
                           .filter(staff => {
                             const staffId = staff.id;
                             const isCurrentlyAssigned = assignedDocId && String(staffId) === String(assignedDocId);
@@ -670,7 +671,7 @@ export default function AppointmentDetailModal({
                   <div className="w-full px-4 py-3 bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-855 rounded-xl text-sm font-bold text-slate-800 dark:text-zinc-150 flex items-center justify-between">
                     <span>
                       {selectedAppointment.ten_ky_thuat_vien
-                        ? (activeRole === 'Bác sĩ'
+                        ? (targetRole === 'Bác sĩ'
                           ? `BS. ${selectedAppointment.ten_ky_thuat_vien}`
                           : `KTV. ${selectedAppointment.ten_ky_thuat_vien}`)
                         : 'Chưa chỉ định'}
