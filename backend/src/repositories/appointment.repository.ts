@@ -81,14 +81,15 @@ class AppointmentRepository {
         nd_ktv.ho_ten AS ten_ky_thuat_vien,
         ch.nhan_su_id as bac_si_id,
         ch.nhan_su_id AS ky_thuat_vien_id,
-        ch.phong_id as phong_id,
-        p.ten_phong as ten_phong,
+        COALESCE(shift_room.phong_id, ch.phong_id) as phong_id,
+        COALESCE(shift_room.ten_phong, p.ten_phong) as ten_phong,
         nk.chan_doan,
         nk.chong_chi_dinh,
         ch.so_thu_tu_buoi,
         ch.phac_do_dieu_tri_id as goi_dich_vu_id,
         COALESCE(hd.trang_thai, 'chua_thanh_toan') AS trang_thai_thanh_toan,
-        ch.ngay_gio_bat_dau as thoi_gian_tao
+        ch.ngay_gio_bat_dau as thoi_gian_tao,
+        ch.ghi_chu AS ly_do_kham
       FROM cuoc_hen ch
       LEFT JOIN khach_hang kh ON ch.khach_hang_id = kh.id
       LEFT JOIN goi_dich_vu g ON ch.goi_dich_vu_id = g.id
@@ -98,6 +99,17 @@ class AppointmentRepository {
       LEFT JOIN nhat_ky_buoi_dieu_tri nk ON nk.cuoc_hen_id = ch.id
       LEFT JOIN hoa_don hd ON hd.phac_do_dieu_tri_id = pd.id OR hd.cuoc_hen_id = ch.id
       LEFT JOIN phong_lam_viec p ON ch.phong_id = p.id
+      LEFT JOIN LATERAL (
+        SELECT lt.phong_id, p_lt.ten_phong
+        FROM lich_truc_nhan_su lt
+        JOIN phong_lam_viec p_lt ON lt.phong_id = p_lt.id
+        WHERE lt.nhan_su_id = ch.nhan_su_id
+          AND lt.ngay_truc = DATE(ch.ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh')
+          AND lt.trang_thai = 'hoat_dong'
+          AND lt.gio_bat_dau <= (ch.ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh')::time
+          AND lt.gio_ket_thuc > (ch.ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh')::time
+        LIMIT 1
+      ) shift_room ON TRUE
       ${whereClause}
       ORDER BY ch.ngay_gio_bat_dau DESC
     `;
@@ -226,7 +238,7 @@ class AppointmentRepository {
 
   async createPublicAppointment(ma_lich_dat: string, data: any) {
     const goi_dich_vu_id = data.goi_dich_vu_id || data.dich_vu_id;
-    const { khach_hang_id, nhan_su_id, ho_ten_khach, so_dien_thoai, gioi_tinh_khach, ngay_gio_bat_dau, ly_do_kham, trang_thai } = data;
+    const { khach_hang_id, nhan_su_id, ho_ten_khach, so_dien_thoai, gioi_tinh_khach, ngay_gio_bat_dau, ly_do_kham, trang_thai, trieu_chung } = data;
 
     const startLocal = new Date(new Date(ngay_gio_bat_dau).getTime() + 7 * 60 * 60000);
     const dateStr = `${startLocal.getUTCFullYear()}-${String(startLocal.getUTCMonth() + 1).padStart(2, '0')}-${String(startLocal.getUTCDate()).padStart(2, '0')}`;
@@ -250,7 +262,7 @@ class AppointmentRepository {
       }
     }
 
-    const ngay_gio_ket_thuc = data.ngay_gio_ket_thuc || new Date(new Date(ngay_gio_bat_dau).getTime() + duration * 60000).toISOString();
+    const ngay_gio_ket_thuc = data.ngay_gio_ket_thuc || new Date(new Date(ngay_gio_bat_dau).getTime() + (duration + 10) * 60000).toISOString();
 
     if (final_khach_hang_id_input || so_dien_thoai) {
       const hasClinicalExam = await this.checkCustomerHasClinicalExamOnDate(final_khach_hang_id_input, so_dien_thoai || null, dateStr, data.temp_hold_id);
@@ -320,7 +332,7 @@ class AppointmentRepository {
       ngay_gio_ket_thuc,
       isExamService ? 'KHAM' : 'DICH_VU_LE',
       trang_thai || 'chua_xac_nhan',
-      ly_do_kham || null,
+      trieu_chung || ly_do_kham || null,
       resolvedPhongId
     ]);
     
@@ -1116,7 +1128,7 @@ class AppointmentRepository {
       }
     }
 
-    const ngay_gio_ket_thuc = new Date(new Date(data.ngay_gio_bat_dau).getTime() + duration * 60000).toISOString();
+    const ngay_gio_ket_thuc = new Date(new Date(data.ngay_gio_bat_dau).getTime() + (duration + 10) * 60000).toISOString();
     const thoi_gian_het_han = new Date(Date.now() + 5 * 60000).toISOString(); // 5 minutes hold
 
     const upsertQuery = `
