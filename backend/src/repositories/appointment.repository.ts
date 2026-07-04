@@ -149,12 +149,7 @@ class AppointmentRepository {
           throw new Error('Khách hàng đã đạt giới hạn tối đa 3 dịch vụ trong ngày này.');
         }
 
-        if (isExamService) {
-          const hasReachedWeeklyLimit = await this.checkCustomerWeeklyClinicalExamLimit(khach_hang_id, so_dien_thoai || null, ngay_gio_bat_dau);
-          if (hasReachedWeeklyLimit) {
-            throw new Error('Khách hàng đã đạt giới hạn tối đa 2 lịch khám trong tuần của ngày đã chọn.');
-          }
-        }
+
       }
     }
 
@@ -264,12 +259,7 @@ class AppointmentRepository {
         throw new Error(`Bạn đã đạt giới hạn đặt tối đa 3 dịch vụ trong ngày ${parseInt(d, 10)}/${parseInt(m, 10)}. Vui lòng chọn ngày khác hoặc liên hệ hotline.`);
       }
 
-      if (isExamService) {
-        const hasReachedWeeklyLimit = await this.checkCustomerWeeklyClinicalExamLimit(final_khach_hang_id_input, so_dien_thoai || null, ngay_gio_bat_dau);
-        if (hasReachedWeeklyLimit) {
-          throw new Error('Khách hàng đã đạt giới hạn tối đa 2 lịch khám trong tuần của ngày đã chọn.');
-        }
-      }
+
     }
 
     if (final_khach_hang_id_input || so_dien_thoai) {
