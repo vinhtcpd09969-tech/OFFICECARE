@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useAuthStore } from '../../../../stores/authStore';
+import { useAuthStore, useAuthActions } from '../../../../stores/authStore';
+import { updateProfile } from '../../api/customer.api';
+import toast from 'react-hot-toast';
 import { 
   Settings, 
   User, 
@@ -7,13 +9,16 @@ import {
   Bell, 
   ShieldAlert,
   Save,
-  Check
+  Check,
+  Loader2
 } from 'lucide-react';
 
 export default function CustomerSettings() {
   const { user } = useAuthStore();
+  const { updateUser } = useAuthActions();
   const [activeSection, setActiveSection] = useState<'profile' | 'security' | 'notifications'>('profile');
   const [savedSuccess, setSavedSuccess] = useState<boolean>(false);
+  const [loading, setLoading] = useState(false);
 
   // Form states
   const [hoTen, setHoTen] = useState(user?.ho_ten || '');
@@ -37,7 +42,28 @@ export default function CustomerSettings() {
   const [notifyEmail, setNotifyEmail] = useState(true);
   const [notifyZalo, setNotifyZalo] = useState(true);
 
-  const handleSave = (e: any) => {
+  const handleSaveProfile = async (e: any) => {
+    e.preventDefault();
+    if (!hoTen.trim()) {
+      toast.error('Họ và tên không được để trống');
+      return;
+    }
+    setLoading(true);
+    try {
+      await updateProfile({ ho_ten: hoTen, so_dien_thoai: soDienThoai });
+      updateUser({ ho_ten: hoTen, so_dien_thoai: soDienThoai });
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 3000);
+      toast.success('Cập nhật thông tin cá nhân thành công!');
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi lưu thông tin');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveGeneric = (e: any) => {
     e.preventDefault();
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 3000);
@@ -90,7 +116,7 @@ export default function CustomerSettings() {
           )}
 
           {activeSection === 'profile' && (
-            <form onSubmit={handleSave} className="space-y-5">
+            <form onSubmit={handleSaveProfile} className="space-y-5">
               <h2 className="font-heading font-bold text-lg text-secondary border-b border-gray-100 pb-3 flex items-center gap-2">
                 <User size={20} className="text-primary" />
                 Thông tin cá nhân
@@ -138,15 +164,24 @@ export default function CustomerSettings() {
 
               <button 
                 type="submit"
-                className="flex items-center justify-center gap-2 bg-primary hover:opacity-90 text-white font-bold text-xs uppercase tracking-wider py-3.5 px-6 rounded-xl transition-all shadow-xs"
+                disabled={loading}
+                className="flex items-center justify-center gap-2 bg-primary hover:opacity-90 disabled:opacity-50 text-white font-bold text-xs uppercase tracking-wider py-3.5 px-6 rounded-xl transition-all shadow-xs disabled:cursor-not-allowed cursor-pointer"
               >
-                <Save size={16} /> Lưu thông tin cá nhân
+                {loading ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" /> Đang lưu...
+                  </>
+                ) : (
+                  <>
+                    <Save size={16} /> Lưu thông tin cá nhân
+                  </>
+                )}
               </button>
             </form>
           )}
 
           {activeSection === 'security' && (
-            <form onSubmit={handleSave} className="space-y-5">
+            <form onSubmit={handleSaveGeneric} className="space-y-5">
               <h2 className="font-heading font-bold text-lg text-secondary border-b border-gray-100 pb-3 flex items-center gap-2">
                 <Lock size={20} className="text-primary" />
                 Mật khẩu & Bảo mật
@@ -213,7 +248,7 @@ export default function CustomerSettings() {
           )}
 
           {activeSection === 'notifications' && (
-            <form onSubmit={handleSave} className="space-y-6">
+            <form onSubmit={handleSaveGeneric} className="space-y-6">
               <h2 className="font-heading font-bold text-lg text-secondary border-b border-gray-100 pb-3 flex items-center gap-2">
                 <Bell size={20} className="text-primary" />
                 Cài đặt kênh thông báo nhắc lịch

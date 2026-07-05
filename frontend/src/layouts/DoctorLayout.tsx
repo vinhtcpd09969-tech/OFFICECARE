@@ -1,6 +1,8 @@
 import { Link, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { useState, useEffect } from 'react';
+import api from '../api/axios';
+import { format } from 'date-fns';
 import { 
   LayoutDashboard, 
   Calendar, 
@@ -23,6 +25,80 @@ export default function DoctorLayout() {
   
   const [searchValue, setSearchValue] = useState(searchParams.get('q') || '');
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
+
+  const [activeCheckIn, setActiveCheckIn] = useState<any>(null);
+
+  // Auto-acknowledge when on the assessment page
+  useEffect(() => {
+    const match = location.pathname.match(/\/doctor\/appointments\/([a-f\d-]+)\/assess/);
+    if (match && match[1]) {
+      const aptId = match[1];
+      const ackStr = localStorage.getItem('ack-checkins') || '[]';
+      try {
+        const acks = JSON.parse(ackStr);
+        if (!acks.includes(aptId)) {
+          acks.push(aptId);
+          localStorage.setItem('ack-checkins', JSON.stringify(acks));
+        }
+      } catch (e) {
+        localStorage.setItem('ack-checkins', JSON.stringify([aptId]));
+      }
+    }
+  }, [location.pathname]);
+
+  // Poll queue for checked-in appointments and play alert sound
+  useEffect(() => {
+    if (!user || Number(user.vai_tro_id) !== 4) return;
+
+    const checkQueue = async () => {
+      try {
+        const res = await api.get('/doctor/queue');
+        const checkedInApts = res.data.filter((apt: any) => 
+          (apt.trang_thai === 'da_checkin' || apt.trang_thai === 'check_in' || apt.trang_thai === 'cho_kham')
+        );
+
+        if (checkedInApts.length > 0) {
+          const ackStr = localStorage.getItem('ack-checkins') || '[]';
+          let acks = [];
+          try { acks = JSON.parse(ackStr); } catch(e) {}
+
+          const unack = checkedInApts.find((apt: any) => !acks.includes(String(apt.id)));
+          if (unack) {
+            setActiveCheckIn(unack);
+            
+            // Play notification chime
+            try {
+              const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+              if (AudioContextClass) {
+                const ctx = new AudioContextClass();
+                const now = ctx.currentTime;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, now);
+                gain.gain.setValueAtTime(0.08, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.35);
+              }
+            } catch (soundErr) {
+              console.error('Quiet beep failed:', soundErr);
+            }
+            return;
+          }
+        }
+        setActiveCheckIn(null);
+      } catch (err) {
+        console.error('Error fetching doctor queue for notifications:', err);
+      }
+    };
+
+    checkQueue();
+    const timer = setInterval(checkQueue, 6000);
+    return () => clearInterval(timer);
+  }, [location.pathname, user]);
 
   useEffect(() => {
     const handleThemeChange = () => {
@@ -166,6 +242,23 @@ export default function DoctorLayout() {
 
             {/* Actions */}
             <div className="flex items-center gap-3 border-l border-zinc-100 dark:border-zinc-800 pl-6">
+              {activeCheckIn && (
+                <button 
+                  onClick={() => {
+                    const ackStr = localStorage.getItem('ack-checkins') || '[]';
+                    try {
+                      const acks = JSON.parse(ackStr);
+                      acks.push(activeCheckIn.id);
+                      localStorage.setItem('ack-checkins', JSON.stringify(acks));
+                    } catch(e) {}
+                    navigate(`/doctor/appointments/${activeCheckIn.id}/assess`);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-full text-[10px] font-black uppercase tracking-wider animate-bounce shadow-md mr-2"
+                >
+                  <span className="size-2 rounded-full bg-white animate-ping"></span>
+                  🔔 Ca mới check-in!
+                </button>
+              )}
               <button 
                 onClick={() => {
                   const nextTheme = theme === 'dark' ? 'light' : 'dark';
@@ -206,6 +299,33 @@ export default function DoctorLayout() {
         {/* Content Area */}
         <div className="flex-1 overflow-auto p-8 bg-background dark:bg-zinc-950 transition-colors duration-300">
           <div className="max-w-7xl mx-auto">
+            {activeCheckIn && (
+              <div className="mb-6 p-4 bg-gradient-to-r from-rose-500 to-red-600 text-white rounded-2xl shadow-xl flex items-center justify-between gap-4 animate-bounce border border-rose-400/20">
+                <div className="flex items-center gap-3 text-left">
+                  <span className="text-2xl animate-spin shrink-0">🔔</span>
+                  <div>
+                    <p className="text-sm font-black uppercase tracking-wider">CÓ CA CHECK-IN MỚI CHƯA VÀO PHÒNG KHÁM!</p>
+                    <p className="text-xs font-bold opacity-90 mt-0.5">
+                      Bệnh nhân: <span className="underline font-black">{activeCheckIn.ho_ten_khach || activeCheckIn.ten_khach_hang}</span> | Mã ca: {activeCheckIn.ma_lich_dat} | Khung giờ: {format(new Date(activeCheckIn.ngay_gio_bat_dau), 'HH:mm')}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    const ackStr = localStorage.getItem('ack-checkins') || '[]';
+                    try {
+                      const acks = JSON.parse(ackStr);
+                      acks.push(activeCheckIn.id);
+                      localStorage.setItem('ack-checkins', JSON.stringify(acks));
+                    } catch(e) {}
+                    navigate(`/doctor/appointments/${activeCheckIn.id}/assess`);
+                  }}
+                  className="bg-white text-rose-600 hover:bg-rose-50 px-4 py-2 rounded-xl text-xs font-black transition-colors uppercase tracking-widest shrink-0 shadow-md"
+                >
+                  Vào khám ngay ➜
+                </button>
+              </div>
+            )}
             <Outlet />
           </div>
         </div>

@@ -63,7 +63,7 @@ class DoctorRepository {
       LEFT JOIN chi_dinh_buoi cd ON cd.nhat_ky_id = nk.id
       LEFT JOIN nguoi_dung nd_bs ON ch.nhan_su_id = nd_bs.id
       LEFT JOIN goi_dich_vu goi ON cd.goi_dich_vu_id = goi.id
-      WHERE ch.khach_hang_id = $1::uuid AND ch.loai = 'KHAM'
+      WHERE khach_hang_id = $1::uuid AND ch.loai = 'KHAM'
       ORDER BY nk.ngay_tao DESC;
     `;
     const { rows } = await pool.query(queryStr, [patientId]);
@@ -75,12 +75,13 @@ class DoctorRepository {
     const queryStr = `
       SELECT 
         pd.id, 
-        CASE WHEN pd.goi_dich_vu_id IS NOT NULL THEN 'theo_goi' ELSE 'dich_vu_le' END as loai_dieu_tri, 
+        CASE WHEN goi.loai_goi = 'LIEU_TRINH' THEN 'goi' ELSE 'dich_vu' END as loai_dieu_tri, 
         pd.tong_so_buoi, pd.so_buoi_da_dung, pd.trang_thai, pd.ngay_kich_hoat as thoi_gian_tao, 
         'PD-' || UPPER(SUBSTRING(pd.id::text FROM 1 FOR 6)) as ma_lich_dieu_tri,
         NULL::text as ten_dich_vu, goi.ten_goi,
         'Hội chẩn lâm sàng' as chan_doan
       FROM phac_do_dieu_tri pd
+      JOIN hoa_don hd ON hd.phac_do_dieu_tri_id = pd.id
       LEFT JOIN goi_dich_vu goi ON pd.goi_dich_vu_id = goi.id
       WHERE pd.khach_hang_id = $1::uuid
       ORDER BY pd.ngay_kich_hoat DESC NULLS LAST;
@@ -182,6 +183,7 @@ class DoctorRepository {
         kh.id as khach_hang_id, kh.ngay_sinh, kh.gioi_tinh,
         kh.ho_ten as ten_khach_hang, kh.so_dien_thoai as sdt_khach_hang, NULL::text as avatar_url,
         nk.id as ho_so_dieu_tri_id, nk.id as ho_so_benh_an_id, nk.chan_doan, nk.chong_chi_dinh, nk.ghi_chu,
+        nk.vas_truoc, nk.vas_sau,
         cd.goi_dich_vu_id
       FROM cuoc_hen ch
       JOIN khach_hang kh ON ch.khach_hang_id = kh.id
@@ -216,12 +218,12 @@ class DoctorRepository {
              kh.so_dien_thoai, 
              kh.trang_thai, 
              EXISTS (
-               SELECT 1 
-               FROM cuoc_hen ch_inner
-               JOIN nhat_ky_buoi_dieu_tri nk ON nk.cuoc_hen_id = ch_inner.id
-               WHERE ch_inner.khach_hang_id = kh.id 
-                 AND nk.chong_chi_dinh IS NOT NULL 
-                 AND nk.chong_chi_dinh <> ''
+                SELECT 1 
+                FROM cuoc_hen ch_inner
+                JOIN nhat_ky_buoi_dieu_tri nk ON nk.cuoc_hen_id = ch_inner.id
+                WHERE ch_inner.khach_hang_id = kh.id 
+                  AND nk.chong_chi_dinh IS NOT NULL 
+                  AND nk.chong_chi_dinh <> ''
              ) as has_chong_chi_dinh
       FROM khach_hang kh
       JOIN cuoc_hen ch ON ch.khach_hang_id = kh.id

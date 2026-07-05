@@ -57,7 +57,7 @@ export function useLoginState(WelcomeToastComponent: React.ComponentType<{ t: an
       } else if (roleId === 2) {
         navigate(from === '/dashboard' ? '/receptionist' : from);
       } else if (roleId === 3) {
-        navigate(from === '/dashboard' ? '/technician/workspace' : from);
+        navigate(from === '/dashboard' ? '/technician/appointments' : from);
       } else if (roleId === 4) {
         navigate(from === '/dashboard' ? '/doctor' : from);
       } else {

@@ -13,6 +13,7 @@ import {
   TrendingUp,
   Image as ImageIcon
 } from 'lucide-react';
+import { useAuthStore } from '../../../../stores/authStore';
 import { 
   getAppointmentDetail, 
   getPatientProfile, 
@@ -23,10 +24,27 @@ import {
   ServiceItem,
   PackageItem
 } from '../../api/doctor.api';
+import {
+  getAppointmentDetail as getAppointmentDetailKtv,
+  saveTreatmentRecord as saveTreatmentRecordKtv,
+  getPatientProfile as getPatientProfileKtv
+} from '../../../technician/api/technician.api';
+
+const getVasDescription = (score: number | null) => {
+  if (score === null || score === undefined) return 'Vui lòng chọn mức độ đau';
+  if (score === 0) return '🟢 0 - Không đau: Không cảm thấy đau, hoàn toàn thoải mái.';
+  if (score <= 3) return `🟢 ${score} - Đau nhẹ: Ê ẩm, mỏi nhẹ (Vẫn làm việc, sinh hoạt bình thường).`;
+  if (score <= 6) return `🟡 ${score} - Đau trung bình: Nhức rõ rệt, cản trở khớp (Gây bất tiện khi cử động).`;
+  if (score <= 9) return `🔴 ${score} - Đau dữ dội: Đau buốt nhiều (Hạn chế vận động, không tự làm một số việc).`;
+  return '🔴 10 - Đau cực độ: Đau kinh khủng không thể chịu đựng nổi, cần cấp cứu ngay.';
+};
 
 export default function ClinicalAssessment() {
   const { id: appointmentId } = useParams<{ id: string }>();
   const navigate = useNavigate();
+
+  const { user } = useAuthStore();
+  const isKtv = Number(user?.vai_tro_id) === 3;
 
   // Ca khám hiện tại
   const [appointment, setAppointment] = useState<any>(null);
@@ -44,6 +62,10 @@ export default function ClinicalAssessment() {
   const [dichVuId, setDichVuId] = useState<string>('');
   const [ghiChu, setGhiChu] = useState('');
 
+  // VAS states for KTV
+  const [vasTruoc, setVasTruoc] = useState<number>(5);
+  const [vasSau, setVasSau] = useState<number>(0);
+
   // UI States
   const [loading, setLoading] = useState(true);
   const [submitLoading, setSubmitLoading] = useState(false);
@@ -57,7 +79,9 @@ export default function ClinicalAssessment() {
     setErrorMsg('');
     try {
       // 1. Tải chi tiết ca khám
-      const apptRes = await getAppointmentDetail(appointmentId);
+      const apptRes = isKtv
+        ? await getAppointmentDetailKtv(appointmentId)
+        : await getAppointmentDetail(appointmentId);
       const apptData = apptRes.data;
       setAppointment(apptData);
 
@@ -67,18 +91,24 @@ export default function ClinicalAssessment() {
       if (apptData.goi_dich_vu_id) setGoiDichVuId(apptData.goi_dich_vu_id);
       if (apptData.dich_vu_id) setDichVuId(apptData.dich_vu_id);
       if (apptData.ghi_chu) setGhiChu(apptData.ghi_chu);
+      if (apptData.vas_truoc !== undefined && apptData.vas_truoc !== null) setVasTruoc(apptData.vas_truoc);
+      if (apptData.vas_sau !== undefined && apptData.vas_sau !== null) setVasSau(apptData.vas_sau);
 
-      // 2. Tải danh mục dịch vụ và gói để làm đề xuất
-      const [servicesRes, packagesRes] = await Promise.all([
-        getServices(),
-        getPackages()
-      ]);
-      setServices(servicesRes.data);
-      setPackages(packagesRes.data);
+      // 2. Tải danh mục dịch vụ và gói để làm đề xuất (chỉ bác sĩ)
+      if (!isKtv) {
+        const [servicesRes, packagesRes] = await Promise.all([
+          getServices(),
+          getPackages()
+        ]);
+        setServices(servicesRes.data);
+        setPackages(packagesRes.data);
+      }
 
       // 3. Tải hồ sơ điều trị cũ của bệnh nhân (nếu đã liên kết khách hàng)
       if (apptData.khach_hang_id) {
-        const profileRes = await getPatientProfile(apptData.khach_hang_id);
+        const profileRes = isKtv
+          ? await getPatientProfileKtv(apptData.khach_hang_id)
+          : await getPatientProfile(apptData.khach_hang_id);
         setProfile(profileRes.data);
       }
     } catch (error: any) {
@@ -87,7 +117,7 @@ export default function ClinicalAssessment() {
     } finally {
       setLoading(false);
     }
-  }, [appointmentId]);
+  }, [appointmentId, isKtv]);
 
   useEffect(() => {
     loadInitialData();
@@ -97,24 +127,46 @@ export default function ClinicalAssessment() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!appointmentId) return;
-    if (!chanDoan.trim()) {
-      toast.error('Vui lòng điền chẩn đoán lâm sàng của bệnh nhân.');
-      return;
+
+    if (isKtv) {
+      if (vasTruoc === undefined || vasSau === undefined) {
+        toast.error('Vui lòng điền đầy đủ lượng giá VAS trước và sau buổi.');
+        return;
+      }
+      if (!ghiChu.trim()) {
+        toast.error('Vui lòng điền diễn tiến / ghi chú trị liệu.');
+        return;
+      }
+    } else {
+      if (!chanDoan.trim()) {
+        toast.error('Vui lòng điền chẩn đoán lâm sàng của bệnh nhân.');
+        return;
+      }
     }
 
     setSubmitLoading(true);
     try {
-      await saveAssessment({
-        lich_dat_id: appointmentId,
-        chan_doan: chanDoan,
-        chong_chi_dinh: chongChiDinh,
-        goi_dich_vu_id: goiDichVuId || null,
-        dich_vu_id: dichVuId || null,
-        ghi_chu: ghiChu || null
-      });
-
-      toast.success('Ghi nhận chẩn đoán lâm sàng và hoàn thành ca khám thành công!');
-      navigate('/doctor'); // Trở lại danh sách hàng chờ
+      if (isKtv) {
+        await saveTreatmentRecordKtv({
+          lich_dat_id: appointmentId,
+          vas_truoc: vasTruoc,
+          vas_sau: vasSau,
+          ghi_chu: ghiChu || null
+        });
+        toast.success('Ghi nhận kết quả buổi trị liệu thành công!');
+        navigate('/technician/appointments');
+      } else {
+        await saveAssessment({
+          lich_dat_id: appointmentId,
+          chan_doan: chanDoan,
+          chong_chi_dinh: chongChiDinh,
+          goi_dich_vu_id: goiDichVuId || null,
+          dich_vu_id: dichVuId || null,
+          ghi_chu: ghiChu || null
+        });
+        toast.success('Ghi nhận chẩn đoán lâm sàng và hoàn thành ca khám thành công!');
+        navigate('/doctor'); // Trở lại danh sách hàng chờ
+      }
     } catch (error: any) {
       console.error('Lỗi khi lưu hồ sơ điều trị:', error);
       toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi lưu hồ sơ điều trị.');
@@ -151,10 +203,10 @@ export default function ClinicalAssessment() {
         <h3 className="font-extrabold text-secondary dark:text-red-400">Đã xảy ra lỗi</h3>
         <p className="text-xs text-zinc-600 dark:text-zinc-400 font-medium">{errorMsg}</p>
         <button 
-          onClick={() => navigate('/doctor')}
+          onClick={() => navigate(isKtv ? '/technician/appointments' : '/doctor')}
           className="bg-primary text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all hover:opacity-90"
         >
-          Trở lại hàng chờ
+          {isKtv ? 'Trở lại lịch hẹn' : 'Trở lại hàng chờ'}
         </button>
       </div>
     );
@@ -166,14 +218,14 @@ export default function ClinicalAssessment() {
       {/* Top Navigation */}
       <div className="flex items-center gap-4">
         <button
-          onClick={() => navigate('/doctor')}
+          onClick={() => navigate(isKtv ? '/technician/appointments' : '/doctor')}
           className="p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-650 dark:text-zinc-300 hover:bg-zinc-50 rounded-xl transition-all shadow-sm"
         >
           <ArrowLeft size={16} />
         </button>
         <div>
           <h1 className="text-xl font-black text-secondary dark:text-zinc-100 tracking-tight flex items-center gap-2">
-            Khám Lâm Sàng & Lượng Giá
+            {isKtv ? 'Bàn Trị Liệu & Lượng Giá KTV' : 'Khám Lâm Sàng & Lượng Giá'}
           </h1>
           <p className="text-zinc-450 dark:text-zinc-550 text-[10px] font-bold uppercase mt-0.5">
             Mã ca khám: <span className="font-mono text-primary font-extrabold">{appointment.ma_lich_dat}</span>
@@ -422,6 +474,14 @@ export default function ClinicalAssessment() {
                                         <TrendingUp size={12} /> Tiến trình: {session.ai_tom_tat_ngan}
                                       </div>
                                     )}
+                                    {session.danh_gia_hieu_qua && (
+                                      <div className="md:col-span-2 border-t border-zinc-100/80 pt-2">
+                                        <span className="text-zinc-400 font-bold uppercase text-[8px]">Ghi chú trị liệu của KTV</span>
+                                        <p className="font-semibold text-zinc-755 dark:text-zinc-350 mt-0.5 italic">
+                                          "{session.danh_gia_hieu_qua}"
+                                        </p>
+                                      </div>
+                                    )}
                                   </div>
                                 )}
                               </div>
@@ -445,104 +505,217 @@ export default function ClinicalAssessment() {
             className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-100 dark:border-zinc-800 p-6 shadow-sm space-y-5 sticky top-24"
           >
             <div>
-              <h3 className="text-sm font-extrabold text-secondary dark:text-zinc-100 uppercase tracking-wider">Kết luận lâm sàng</h3>
-              <p className="text-[10px] text-zinc-400 dark:text-zinc-550 font-bold uppercase mt-0.5">Phần nhập chẩn đoán & phác đồ</p>
+              <h3 className="text-sm font-extrabold text-secondary dark:text-zinc-100 uppercase tracking-wider">
+                {isKtv ? 'Lượng giá & Ghi nhận buổi trị liệu' : 'Kết luận lâm sàng'}
+              </h3>
+              <p className="text-[10px] text-zinc-400 dark:text-zinc-550 font-bold uppercase mt-0.5">
+                {isKtv ? 'Phần nhập chỉ số đau & tiến trình trị liệu KTV' : 'Phần nhập chẩn đoán & phác đồ'}
+              </p>
             </div>
 
-            {/* Chẩn đoán */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest block">
-                Chẩn đoán lâm sàng <span className="text-rose-500">*</span>
-              </label>
-              <textarea
-                value={chanDoan}
-                onChange={(e) => setChanDoan(e.target.value)}
-                placeholder="Nhập chẩn đoán y khoa của bạn... (ví dụ: Thoái hóa đốt sống cổ C5-C6 kèm co thắt cơ nâng vai)"
-                rows={4}
-                required
-                className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-855 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-xs font-semibold text-secondary dark:text-zinc-150 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder-zinc-400"
-              />
-            </div>
+            {isKtv ? (
+              <>
+                {/* Chẩn đoán & Chống chỉ định dạng Read-only */}
+                <div className="space-y-4 p-4 bg-zinc-50 dark:bg-zinc-850/50 rounded-2xl border border-zinc-100 dark:border-zinc-800/80">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest block">
+                      Chẩn đoán của Bác sĩ
+                    </label>
+                    <div className="w-full px-3 py-2.5 bg-indigo-50/20 dark:bg-indigo-950/10 border border-indigo-150/30 dark:border-indigo-900/40 rounded-xl text-xs font-bold text-indigo-950 dark:text-indigo-200">
+                      {chanDoan || 'Chưa có chẩn đoán lâm sàng từ Bác sĩ.'}
+                    </div>
+                  </div>
 
-            {/* Chống chỉ định */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-rose-400 dark:text-rose-500 uppercase tracking-widest block flex items-center gap-1.5">
-                <AlertTriangle size={14} /> Chống chỉ định y khoa (nếu có)
-              </label>
-              <textarea
-                value={chongChiDinh}
-                onChange={(e) => setChongChiDinh(e.target.value)}
-                placeholder="Chống chỉ định kỹ thuật (ví dụ: Tránh xung sóng siêu âm vùng cột sống ngực, không dán parafin nóng vùng cổ chân có viêm khớp dạng thấp)"
-                rows={2}
-                className="w-full px-4 py-3 bg-rose-50/10 dark:bg-rose-950/5 border border-rose-200 dark:border-rose-900/40 rounded-2xl text-xs font-semibold text-rose-600 dark:text-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-400 outline-none transition-all placeholder-rose-300"
-              />
-            </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-rose-450 dark:text-rose-500 uppercase tracking-widest block flex items-center gap-1.5">
+                      <AlertTriangle size={12} className="text-rose-500" /> Chống chỉ định (Bác sĩ chỉ định)
+                    </label>
+                    <div className="w-full px-3 py-2.5 bg-rose-50/30 dark:bg-rose-950/10 border border-rose-150/30 dark:border-rose-900/40 rounded-xl text-xs font-bold text-rose-650 dark:text-rose-400">
+                      {chongChiDinh || 'Không có chống chỉ định đặc biệt.'}
+                    </div>
+                  </div>
+                </div>
 
-            {/* Đề xuất dịch vụ điều trị */}
-            <div className="space-y-4 pt-3 border-t border-zinc-100 dark:border-zinc-800">
-              <div>
-                <h4 className="text-[10px] font-black text-zinc-400 dark:text-zinc-550 uppercase tracking-widest">Khuyến nghị phác đồ trị liệu</h4>
-                <p className="text-[9px] text-zinc-400 dark:text-zinc-550 font-bold uppercase mt-0.5">Chọn gói điều trị hoặc dịch vụ lẻ đề xuất cho bệnh nhân</p>
-              </div>
+                {/* Pain Scale (VAS) circular selectors */}
+                <div className="space-y-4 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest block">
+                      Mức độ đau Trước trị liệu (VAS: 0 - 10) <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="flex flex-wrap gap-1.5 justify-between">
+                      {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
+                        const isSelected = vasTruoc === num;
+                        let colorClass = "bg-zinc-50 border-zinc-200 text-zinc-650 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-400 hover:bg-zinc-100";
+                        if (isSelected) {
+                          if (num <= 3) colorClass = "bg-emerald-500 border-emerald-600 text-white font-black shadow-md shadow-emerald-500/20";
+                          else if (num <= 6) colorClass = "bg-amber-500 border-amber-600 text-white font-black shadow-md shadow-amber-500/20";
+                          else colorClass = "bg-rose-500 border-rose-600 text-white font-black shadow-md shadow-rose-500/20";
+                        }
+                        return (
+                          <button
+                            key={num}
+                            type="button"
+                            onClick={() => setVasTruoc(num)}
+                            className={`size-8 rounded-full border text-xs font-extrabold transition-all hover:scale-110 flex items-center justify-center ${colorClass}`}
+                          >
+                            {num}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {vasTruoc !== null && (
+                      <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold mt-1.5 italic bg-zinc-50 dark:bg-zinc-800/40 p-2.5 rounded-xl border border-zinc-100 dark:border-zinc-800/60 leading-relaxed">
+                        {getVasDescription(vasTruoc)}
+                      </p>
+                    )}
+                  </div>
 
-              {/* Gói đề xuất */}
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-extrabold text-zinc-450 dark:text-zinc-500 uppercase tracking-wider block">
-                  Đề xuất gói điều trị (Ưu tiên)
-                </label>
-                <select
-                  value={goiDichVuId}
-                  onChange={(e) => {
-                    setGoiDichVuId(e.target.value);
-                    if (e.target.value) setDichVuId(''); // Nếu chọn gói thì xóa chọn dịch vụ lẻ
-                  }}
-                  className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-855 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-xs font-semibold text-secondary dark:text-zinc-150 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all cursor-pointer"
-                >
-                  <option value="">-- Không đề xuất gói --</option>
-                  {packages.map((pkg) => (
-                    <option key={pkg.id} value={pkg.id}>
-                      {pkg.ten_goi} ({pkg.gia_goi.toLocaleString('vi-VN')}đ)
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest block">
+                      Mức độ đau Sau trị liệu (VAS: 0 - 10) <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="flex flex-wrap gap-1.5 justify-between">
+                      {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
+                        const isSelected = vasSau === num;
+                        let colorClass = "bg-zinc-50 border-zinc-200 text-zinc-650 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-400 hover:bg-zinc-100";
+                        if (isSelected) {
+                          if (num <= 3) colorClass = "bg-emerald-500 border-emerald-600 text-white font-black shadow-md shadow-emerald-500/20";
+                          else if (num <= 6) colorClass = "bg-amber-500 border-amber-600 text-white font-black shadow-md shadow-amber-500/20";
+                          else colorClass = "bg-rose-500 border-rose-600 text-white font-black shadow-md shadow-rose-500/20";
+                        }
+                        return (
+                          <button
+                            key={num}
+                            type="button"
+                            onClick={() => setVasSau(num)}
+                            className={`size-8 rounded-full border text-xs font-extrabold transition-all hover:scale-110 flex items-center justify-center ${colorClass}`}
+                          >
+                            {num}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {vasSau !== null && (
+                      <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold mt-1.5 italic bg-zinc-50 dark:bg-zinc-800/40 p-2.5 rounded-xl border border-zinc-100 dark:border-zinc-800/60 leading-relaxed">
+                        {getVasDescription(vasSau)}
+                      </p>
+                    )}
+                  </div>
+                </div>
 
-              {/* Dịch vụ lẻ đề xuất */}
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-extrabold text-zinc-450 dark:text-zinc-500 uppercase tracking-wider block">
-                  Hoặc đề xuất dịch vụ lẻ (Sử dụng 1 buổi)
-                </label>
-                <select
-                  value={dichVuId}
-                  onChange={(e) => {
-                    setDichVuId(e.target.value);
-                    if (e.target.value) setGoiDichVuId(''); // Nếu chọn dịch vụ thì xóa chọn gói
-                  }}
-                  className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-855 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-xs font-semibold text-secondary dark:text-zinc-150 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all cursor-pointer"
-                >
-                  <option value="">-- Không đề xuất dịch vụ lẻ --</option>
-                  {services.map((svc) => (
-                    <option key={svc.id} value={svc.id}>
-                      {svc.ten_dich_vu} ({svc.gia_hien_tai.toLocaleString('vi-VN')}đ)
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+                {/* Diễn tiến / Ghi chú trị liệu */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest block">
+                    Diễn tiến / Ghi chú buổi trị liệu <span className="text-rose-500">*</span>
+                  </label>
+                  <textarea
+                    value={ghiChu}
+                    onChange={(e) => setGhiChu(e.target.value)}
+                    placeholder="Nhập tiến trình trị liệu, phản hồi cơ thể của khách và hướng xử lý tiếp theo..."
+                    rows={4}
+                    required
+                    className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-855 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-xs font-semibold text-secondary dark:text-zinc-150 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder-zinc-400"
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Chẩn đoán */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest block">
+                    Chẩn đoán lâm sàng <span className="text-rose-500">*</span>
+                  </label>
+                  <textarea
+                    value={chanDoan}
+                    onChange={(e) => setChanDoan(e.target.value)}
+                    placeholder="Nhập chẩn đoán y khoa của bạn... (ví dụ: Thoái hóa đốt sống cổ C5-C6 kèm co thắt cơ nâng vai)"
+                    rows={4}
+                    required
+                    className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-855 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-xs font-semibold text-secondary dark:text-zinc-150 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder-zinc-400"
+                  />
+                </div>
 
-            {/* Dặn dò bác sĩ */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest block">
-                Ghi chú / Dặn dò thêm
-              </label>
-              <textarea
-                value={ghiChu}
-                onChange={(e) => setGhiChu(e.target.value)}
-                placeholder="Nhập hướng dẫn tập luyện tại nhà hoặc dặn dò thêm..."
-                rows={2}
-                className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-855 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-xs font-semibold text-secondary dark:text-zinc-150 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder-zinc-400"
-              />
-            </div>
+                {/* Chống chỉ định */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-rose-400 dark:text-rose-500 uppercase tracking-widest block flex items-center gap-1.5">
+                    <AlertTriangle size={14} /> Chống chỉ định y khoa (nếu có)
+                  </label>
+                  <textarea
+                    value={chongChiDinh}
+                    onChange={(e) => setChongChiDinh(e.target.value)}
+                    placeholder="Chống chỉ định kỹ thuật (ví dụ: Tránh xung sóng siêu âm vùng cột sống ngực, không dán parafin nóng vùng cổ chân có viêm khớp dạng thấp)"
+                    rows={2}
+                    className="w-full px-4 py-3 bg-rose-50/10 dark:bg-rose-955/5 border border-rose-200 dark:border-rose-900/40 rounded-2xl text-xs font-semibold text-rose-650 dark:text-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-400 outline-none transition-all placeholder-rose-300"
+                  />
+                </div>
+
+                {/* Đề xuất dịch vụ điều trị */}
+                <div className="space-y-4 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+                  <div>
+                    <h4 className="text-[10px] font-black text-zinc-400 dark:text-zinc-555 uppercase tracking-widest">Khuyến nghị phác đồ trị liệu</h4>
+                    <p className="text-[9px] text-zinc-400 dark:text-zinc-555 font-bold uppercase mt-0.5">Chọn gói điều trị hoặc dịch vụ lẻ đề xuất cho bệnh nhân</p>
+                  </div>
+
+                  {/* Gói đề xuất */}
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-extrabold text-zinc-450 dark:text-zinc-500 uppercase tracking-wider block">
+                      Đề xuất gói điều trị (Ưu tiên)
+                    </label>
+                    <select
+                      value={goiDichVuId}
+                      onChange={(e) => {
+                        setGoiDichVuId(e.target.value);
+                        if (e.target.value) setDichVuId(''); // Nếu chọn gói thì xóa chọn dịch vụ lẻ
+                      }}
+                      className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-855 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-xs font-semibold text-secondary dark:text-zinc-150 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all cursor-pointer"
+                    >
+                      <option value="">-- Không đề xuất gói --</option>
+                      {packages.map((pkg) => (
+                        <option key={pkg.id} value={pkg.id}>
+                          {pkg.ten_goi} ({pkg.gia_goi.toLocaleString('vi-VN')}đ)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Dịch vụ lẻ đề xuất */}
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-extrabold text-zinc-450 dark:text-zinc-500 uppercase tracking-wider block">
+                      Hoặc đề xuất dịch vụ lẻ (Sử dụng 1 buổi)
+                    </label>
+                    <select
+                      value={dichVuId}
+                      onChange={(e) => {
+                        setDichVuId(e.target.value);
+                        if (e.target.value) setGoiDichVuId(''); // Nếu chọn dịch vụ thì xóa chọn gói
+                      }}
+                      className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-855 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-xs font-semibold text-secondary dark:text-zinc-150 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all cursor-pointer"
+                    >
+                      <option value="">-- Không đề xuất dịch vụ lẻ --</option>
+                      {services.map((svc) => (
+                        <option key={svc.id} value={svc.id}>
+                          {svc.ten_dich_vu} ({svc.gia_hien_tai.toLocaleString('vi-VN')}đ)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Dặn dò bác sĩ */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest block">
+                    Ghi chú / Dặn dò thêm
+                  </label>
+                  <textarea
+                    value={ghiChu}
+                    onChange={(e) => setGhiChu(e.target.value)}
+                    placeholder="Nhập hướng dẫn tập luyện tại nhà hoặc dặn dò thêm..."
+                    rows={2}
+                    className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-855 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-xs font-semibold text-secondary dark:text-zinc-150 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder-zinc-400"
+                  />
+                </div>
+              </>
+            )}
 
             {/* Submit Button */}
             <button
@@ -555,7 +728,7 @@ export default function ClinicalAssessment() {
               ) : (
                 <>
                   <CheckCircle size={16} />
-                  Hoàn thành ca khám
+                  {isKtv ? 'Xác nhận hoàn thành ca trị liệu' : 'Hoàn thành ca khám'}
                 </>
               )}
             </button>

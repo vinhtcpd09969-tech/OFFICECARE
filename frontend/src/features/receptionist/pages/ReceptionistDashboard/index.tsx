@@ -8,7 +8,7 @@ import {
   Filter,
   Plus
 } from 'lucide-react';
-import api from '../../../../api/axios';
+import { getDashboardData } from '../../api/receptionist.api';
 
 // Moved KanbanColumn out of the main component to prevent re-renders
 const KanbanColumn = ({ title, count, color, children }: any) => (
@@ -45,7 +45,7 @@ export default function ReceptionistDashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      const res = await api.get('/receptionist/dashboard');
+      const res = await getDashboardData();
       setDashboardData({
         appointments: Array.isArray(res.data.appointments) ? res.data.appointments : [],
         stats: res.data.stats || { pending: 0, active: 0, completed: 0 },

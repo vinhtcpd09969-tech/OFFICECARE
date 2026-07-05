@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import ScrollReveal from '../shared/ScrollReveal';
-import { getPublicTopServices } from '../../../../api/client.api';
+import { getPublicTopServices } from '../../api/public.api';
 
 interface FeaturedService {
   id: string;

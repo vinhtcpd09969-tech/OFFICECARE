@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Mail, Phone, Award, Calendar } from 'lucide-react';
-import { getPublicSpecialistById } from '../../../api/client.api';
+import { getPublicSpecialistById } from '../api/public.api';
 import LoadingScreen from '../../../components/LoadingScreen';
 
 interface Specialist {

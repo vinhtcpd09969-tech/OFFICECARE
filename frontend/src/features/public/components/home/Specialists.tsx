@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Star } from 'lucide-react';
 import { motion } from 'framer-motion';
 import ScrollReveal from '../shared/ScrollReveal';
-import { getPublicSpecialists } from '../../../../api/client.api';
+import { getPublicSpecialists } from '../../api/public.api';
 
 interface Specialist {
   id: number;

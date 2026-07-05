@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { 
   getRooms, 
   updateRoom
-} from '../../../../api/admin.api';
+} from '../../api/admin.api';
 import { Sparkles, CheckCircle2, AlertTriangle, Info, X, ArrowLeft, Save, RotateCcw } from 'lucide-react';
 
 interface Room {

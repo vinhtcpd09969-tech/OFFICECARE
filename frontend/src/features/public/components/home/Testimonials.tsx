@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Star, Quote } from 'lucide-react';
 import ScrollReveal from '../shared/ScrollReveal';
-import { getPublicTestimonials } from '../../../../api/client.api';
+import { getPublicTestimonials } from '../../api/public.api';
 
 interface Testimonial {
   id: string;

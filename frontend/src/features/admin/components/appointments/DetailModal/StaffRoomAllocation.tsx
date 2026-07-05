@@ -74,24 +74,7 @@ export function StaffRoomAllocation({
         Điều phối lâm sàng
       </h4>
 
-      {/* PHÒNG THỰC HIỆN */}
-      <div className="space-y-2">
-        <div className="flex justify-between items-center">
-          <label className="text-xs font-extrabold text-slate-700 dark:text-zinc-300 uppercase tracking-wider">
-            {selectedAppointment.loai_lich === 'kham_moi' ? 'Phòng khám lâm sàng' : 'Phòng trị liệu'}
-          </label>
-        </div>
-        <div className="w-full px-4 py-3.5 bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-850 rounded-xl text-sm font-bold text-slate-800 dark:text-zinc-150 flex flex-col gap-1">
-          <div className="flex justify-between items-center">
-            <span className="text-slate-800 dark:text-zinc-100">{resolvedRoomName}</span>
-            <span className="text-[10px] text-slate-400 dark:text-zinc-550 uppercase tracking-wider font-extrabold">
-              {resolvedRoom ? 'Tự động phân theo ca trực KTV' : 'Đã phân phòng'}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* NHÂN SỰ PHỤ TRÁCH */}
+      {/* 1. NHÂN SỰ PHỤ TRÁCH (Đưa lên trước theo yêu cầu) */}
       <div className="space-y-2">
         <div className="flex justify-between items-center">
           <label className="text-xs font-extrabold text-slate-700 dark:text-zinc-300 uppercase tracking-wider">
@@ -112,8 +95,8 @@ export function StaffRoomAllocation({
             <div className="w-full px-4 py-8 bg-slate-50/50 dark:bg-zinc-800/10 border border-dashed border-slate-200 dark:border-zinc-800/80 rounded-2xl text-center select-none">
               <div className="text-xl mb-1.5">🔒</div>
               <p className="text-xs font-bold text-slate-500 dark:text-zinc-400">Khóa phân bổ Nhân sự</p>
-              <p className="text-[10px] text-slate-450 dark:text-zinc-550 mt-1 max-w-[280px] mx-auto leading-relaxed">
-                Lịch hẹn này chưa được xác nhận. Vui lòng cập nhật trạng thái lịch hẹn hoặc click "Xác nhận khách" để mở khóa phân công.
+              <p className="text-[10px] text-slate-450 dark:text-zinc-555 mt-1 max-w-[280px] mx-auto leading-relaxed">
+                Lịch hẹn này chưa được xác nhận. Vui lòng cập nhật trạng thái lịch hẹn hoặc bấm nút "Xác nhận" ở bên dưới để mở khóa phân công.
               </p>
             </div>
           ) : (
@@ -212,6 +195,25 @@ export function StaffRoomAllocation({
             <span className="text-[10px] text-slate-400 dark:text-zinc-500 uppercase tracking-wider font-extrabold">Đã phân công</span>
           </div>
         )}
+      </div>
+
+      {/* 2. PHÒNG THỰC HIỆN (Đưa xuống dưới nhân sự) */}
+      <div className="space-y-2">
+        <div className="flex justify-between items-center">
+          <label className="text-xs font-extrabold text-slate-700 dark:text-zinc-300 uppercase tracking-wider">
+            {selectedAppointment.loai_lich === 'kham_moi' ? 'Phòng khám lâm sàng' : 'Phòng trị liệu'}
+          </label>
+        </div>
+        <div className="w-full px-4 py-3.5 bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-850 rounded-xl text-sm font-bold text-slate-800 dark:text-zinc-150 flex flex-col gap-1">
+          <div className="flex justify-between items-center">
+            <span className="text-slate-800 dark:text-zinc-100">{resolvedRoomName}</span>
+            <span className="text-[10px] text-slate-400 dark:text-zinc-550 uppercase tracking-wider font-extrabold">
+              {resolvedRoom 
+                ? (selectedAppointment.loai_lich === 'kham_moi' ? 'Tự động phân theo ca trực Bác sĩ' : 'Tự động phân theo ca trực KTV')
+                : 'Chưa phân phòng'}
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );

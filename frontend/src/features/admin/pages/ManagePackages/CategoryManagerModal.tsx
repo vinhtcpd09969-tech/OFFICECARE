@@ -4,7 +4,7 @@ import {
   createCategory, 
   updateCategory, 
   deleteCategory 
-} from '../../../../api/admin.api';
+} from '../../api/admin.api';
 
 interface CategoryManagerModalProps {
   isOpen: boolean;

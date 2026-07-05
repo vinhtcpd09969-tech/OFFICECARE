@@ -14,7 +14,7 @@ export const ProtectedRoute = ({ allowedRoles }: ProtectedRouteProps) => {
       case 5:
       case 6: return '/admin';
       case 2: return '/receptionist';
-      case 3: return '/technician/workspace';
+      case 3: return '/technician/appointments';
       case 4: return '/doctor';
       default: return '/dashboard';
     }

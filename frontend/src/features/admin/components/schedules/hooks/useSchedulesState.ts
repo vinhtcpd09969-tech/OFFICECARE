@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { getSchedules, getStaff, getRooms, deleteSchedule } from '../../../../../api/admin.api';
+import { getSchedules, getStaff, getRooms, deleteSchedule } from '../../../api/admin.api';
 import { Schedule, Staff, Room } from '../types';
 import toast from 'react-hot-toast';
 

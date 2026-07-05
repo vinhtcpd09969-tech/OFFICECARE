@@ -17,6 +17,7 @@ interface AuthState {
   showAuthModal: boolean;
   setShowAuthModal: (show: boolean) => void;
   setAuth: (user: User, accessToken: string, refreshToken: string) => void;
+  updateUser: (user: Partial<User>) => void;
   updateAccessToken: (accessToken: string) => void;
   logout: () => void;
   isAuthenticated: () => boolean;
@@ -31,6 +32,9 @@ export const useAuthStore = create<AuthState>()(
       showAuthModal: false,
       setShowAuthModal: (show) => set({ showAuthModal: show }),
       setAuth: (user, accessToken, refreshToken) => set({ user, accessToken, refreshToken }),
+      updateUser: (updatedFields) => set((state) => ({
+        user: state.user ? { ...state.user, ...updatedFields } : null
+      })),
       updateAccessToken: (accessToken) => set({ accessToken }),
       logout: () => set({ user: null, accessToken: null, refreshToken: null }),
       isAuthenticated: () => !!get().accessToken,
@@ -64,6 +68,7 @@ export const useIsAuthenticated = () => useAuthStore((state) => !!state.accessTo
 export const useAuthActions = () => {
   return useAuthStore((state) => ({
     setAuth: state.setAuth,
+    updateUser: state.updateUser,
     updateAccessToken: state.updateAccessToken,
     logout: state.logout,
   }));

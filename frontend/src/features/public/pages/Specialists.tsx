@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, ShieldCheck, Briefcase, GraduationCap, ChevronLeft, ChevronRight, Star } from 'lucide-react';
-import { getPublicSpecialists } from '../../../api/client.api';
+import { getPublicSpecialists } from '../api/public.api';
 import LoadingScreen from '../../../components/LoadingScreen';
 
 interface Specialist {

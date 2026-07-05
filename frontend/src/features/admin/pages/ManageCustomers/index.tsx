@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { getCustomers } from '../../../../api/admin.api';
+import { getCustomers } from '../../api/admin.api';
 import { format } from 'date-fns';
 import ShortId from '../../../../components/ShortId';
 

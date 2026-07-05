@@ -199,10 +199,8 @@ export default function TechnicianAppointments() {
   const handleOpenDetailModal = useCallback((apt: any) => {
     if (['cho_kham', 'dang_kham', 'da_checkin'].includes(apt.trang_thai)) {
       setConfirmApt(apt);
-    } else {
-      navigate('/technician/workspace');
     }
-  }, [navigate]);
+  }, []);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -457,8 +455,9 @@ export default function TechnicianAppointments() {
                 </button>
                 <button
                   onClick={() => {
+                    const aptId = confirmApt.id;
                     setConfirmApt(null);
-                    navigate('/technician/workspace');
+                    navigate(`/technician/appointments/${aptId}/assess`);
                   }}
                   className="flex-1 bg-primary hover:bg-primary-hover text-white py-2.5 rounded-xl font-bold transition-all text-xs shadow-md shadow-primary/10"
                 >

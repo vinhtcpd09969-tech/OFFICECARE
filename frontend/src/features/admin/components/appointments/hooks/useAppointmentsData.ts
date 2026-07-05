@@ -1,6 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import axiosInstance from '../../../../../api/axios';
 import toast from 'react-hot-toast';
+import { 
+  getAppointments as getAppointmentsAdmin,
+  getStaff,
+  getPackages,
+  getRooms,
+  getSchedules
+} from '../../../api/admin.api';
+import { getAppointments as getAppointmentsRec } from '../../../../receptionist/api/receptionist.api';
 import { Appointment, Staff, Room } from '../types';
 
 export function useAppointmentsData(isReceptionist: boolean) {
@@ -53,13 +60,14 @@ export function useAppointmentsData(isReceptionist: boolean) {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
+      const getApts = isReceptionist ? getAppointmentsRec : getAppointmentsAdmin;
       const [aptRes, staffRes, serviceRes, packageRes, roomsRes, schedulesRes] = await Promise.all([
-        axiosInstance.get('/admin/appointments'),
-        axiosInstance.get('/admin/staff'),
-        axiosInstance.get('/admin/packages').catch(() => ({ data: [] })),
-        axiosInstance.get('/admin/packages').catch(() => ({ data: [] })),
-        axiosInstance.get('/admin/rooms').catch(() => ({ data: [] })),
-        axiosInstance.get('/admin/schedules').catch(() => ({ data: [] }))
+        getApts(),
+        getStaff(),
+        getPackages().catch(() => ({ data: [] })),
+        getPackages().catch(() => ({ data: [] })),
+        getRooms().catch(() => ({ data: [] })),
+        getSchedules().catch(() => ({ data: [] }))
       ]);
 
       setAppointments(aptRes.data);
@@ -74,7 +82,7 @@ export function useAppointmentsData(isReceptionist: boolean) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isReceptionist]);
 
   useEffect(() => {
     fetchData();
@@ -83,13 +91,14 @@ export function useAppointmentsData(isReceptionist: boolean) {
   // Polling for live updates (receptionist counter registration check)
   useEffect(() => {
     const interval = setInterval(() => {
-      axiosInstance.get('/admin/appointments')
+      const getApts = isReceptionist ? getAppointmentsRec : getAppointmentsAdmin;
+      getApts()
         .then((res: any) => setAppointments(res.data))
         .catch((err: any) => console.error('Silent refresh failed:', err));
     }, 8000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [isReceptionist]);
 
   // Monitor changes in check-ins and trigger chime sound for new entries
   useEffect(() => {
@@ -152,7 +161,6 @@ export function useAppointmentsData(isReceptionist: boolean) {
       });
 
       if (hasNewUnconfirmed && isReceptionist) {
-        playNotificationSound();
         const nameList = newAptNames.slice(0, 2).join(', ') + (newAptNames.length > 2 ? ` và ${newAptNames.length - 2} khác` : '');
         toast(`📞 ${newAptNames.length} ca khám chờ liên hệ: ${nameList}`, {
           icon: '☎️',
@@ -164,6 +172,11 @@ export function useAppointmentsData(isReceptionist: boolean) {
             fontWeight: 'bold',
           },
         });
+      }
+
+      // Play sound continuously every 10 seconds if any unconfirmed appointment is overdue
+      if (currentUnconfirmed.length > 0 && isReceptionist) {
+        playNotificationSound();
       }
     };
 

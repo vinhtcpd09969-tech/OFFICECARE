@@ -70,8 +70,8 @@ class AppointmentRepository {
         ch.ngay_gio_ket_thuc as ngay_gio_ket_thuc, 
         ch.trang_thai, 
         CASE 
-          WHEN ch.loai = 'KHAM' THEN 'kham_moi'
-          WHEN ch.loai = 'DIEU_TRI' THEN 'dieu_tri'
+          WHEN UPPER(ch.loai) IN ('KHAM', 'KHAM_MOI') THEN 'kham_moi'
+          WHEN UPPER(ch.loai) IN ('DIEU_TRI') THEN 'dieu_tri'
           ELSE 'dich_vu_don'
         END as loai_lich,
         kh.ho_ten AS ten_khach_hang, 
@@ -86,8 +86,14 @@ class AppointmentRepository {
         nk.chan_doan,
         nk.chong_chi_dinh,
         ch.so_thu_tu_buoi,
+        ch.phac_do_dieu_tri_id as phac_do_dieu_tri_id,
         ch.phac_do_dieu_tri_id as goi_dich_vu_id,
         COALESCE(hd.trang_thai, 'chua_thanh_toan') AS trang_thai_thanh_toan,
+        hd.trang_thai as trang_thai_hoa_don_goi,
+        hd.so_tien_da_tra as so_tien_da_tra_goi,
+        hd.tong_tien_phai_tra as tong_tien_phai_tra_goi,
+        hd.hinh_thuc_thanh_toan_goi as hinh_thuc_thanh_toan_goi,
+        hd.id as hoa_don_goi_id,
         COALESCE(
           (
             SELECT created_at 
@@ -107,7 +113,17 @@ class AppointmentRepository {
       LEFT JOIN goi_dich_vu gpd ON pd.goi_dich_vu_id = gpd.id
       LEFT JOIN nguoi_dung nd_ktv ON ch.nhan_su_id = nd_ktv.id
       LEFT JOIN nhat_ky_buoi_dieu_tri nk ON nk.cuoc_hen_id = ch.id
-      LEFT JOIN hoa_don hd ON hd.phac_do_dieu_tri_id = pd.id OR hd.cuoc_hen_id = ch.id
+      LEFT JOIN LATERAL (
+        SELECT 
+          id, trang_thai, so_tien_da_tra, tong_tien_phai_tra, hinh_thuc_thanh_toan_goi
+        FROM hoa_don
+        WHERE 
+          (ch.phac_do_dieu_tri_id IS NOT NULL AND phac_do_dieu_tri_id = ch.phac_do_dieu_tri_id)
+          OR
+          (ch.phac_do_dieu_tri_id IS NULL AND cuoc_hen_id = ch.id)
+        ORDER BY phac_do_dieu_tri_id ASC NULLS FIRST
+        LIMIT 1
+      ) hd ON TRUE
       LEFT JOIN phong_lam_viec p ON ch.phong_id = p.id
       LEFT JOIN LATERAL (
         SELECT lt.phong_id, p_lt.ten_phong
@@ -204,7 +220,11 @@ class AppointmentRepository {
       }
     }
 
-    const trang_thai = data.trang_thai || 'cho_xac_nhan';
+    const isCreatedByStaff = !!data.nguoi_tao_id;
+    const defaultStatus = isCreatedByStaff 
+      ? (bac_si_id ? 'da_xac_nhan' : 'cho_xac_nhan')
+      : 'chua_xac_nhan';
+    const trang_thai = data.trang_thai || defaultStatus;
     const finalLoai = loai_lich === 'dieu_tri' ? 'DIEU_TRI' : (loai_lich === 'kham_moi' ? 'KHAM' : 'DICH_VU_LE');
 
     // Tự động phân phòng từ lịch trực của nhân sự nếu chưa gán
@@ -225,8 +245,8 @@ class AppointmentRepository {
     }
 
     const query = `
-      INSERT INTO cuoc_hen (khach_hang_id, nhan_su_id, goi_dich_vu_id, phac_do_dieu_tri_id, so_thu_tu_buoi, ngay_gio_bat_dau, ngay_gio_ket_thuc, loai, trang_thai, ghi_chu, phong_id)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      INSERT INTO cuoc_hen (khach_hang_id, nhan_su_id, goi_dich_vu_id, phac_do_dieu_tri_id, so_thu_tu_buoi, ngay_gio_bat_dau, ngay_gio_ket_thuc, loai, trang_thai, ghi_chu, phong_id, nguoi_tao_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING *
     `;
     const { rows } = await pool.query(query, [
@@ -240,7 +260,8 @@ class AppointmentRepository {
       finalLoai,
       trang_thai,
       ghi_chu_dat_lich || null,
-      resolvedPhongId
+      resolvedPhongId,
+      data.nguoi_tao_id || null
     ]);
 
     return rows[0];
@@ -272,7 +293,7 @@ class AppointmentRepository {
       }
     }
 
-    const ngay_gio_ket_thuc = data.ngay_gio_ket_thuc || new Date(new Date(ngay_gio_bat_dau).getTime() + (duration + 10) * 60000).toISOString();
+    const ngay_gio_ket_thuc = data.ngay_gio_ket_thuc || new Date(new Date(ngay_gio_bat_dau).getTime() + duration * 60000).toISOString();
 
     if (final_khach_hang_id_input || so_dien_thoai) {
       const hasClinicalExam = await this.checkCustomerHasClinicalExamOnDate(final_khach_hang_id_input, so_dien_thoai || null, dateStr, data.temp_hold_id);
@@ -450,7 +471,7 @@ class AppointmentRepository {
 
     const appointments = [...aptRes.rows, ...holdRes.rows];
 
-    const interval = duration + 10;
+    const interval = duration;
 
     const generateSlots = (startHour: number, startMinute: number, endHour: number, endMinute: number) => {
       const slots: string[] = [];
@@ -480,7 +501,7 @@ class AppointmentRepository {
 
     const timeSlots = [
       ...generateSlots(8, 0, 12, 0),
-      ...generateSlots(13, 30, 18, 0),
+      ...generateSlots(12, 0, 18, 0),
       ...generateSlots(18, 0, 20, 0)
     ];
 
@@ -723,8 +744,8 @@ class AppointmentRepository {
         ch.ngay_gio_ket_thuc as ngay_gio_ket_thuc, 
         ch.trang_thai, 
         CASE 
-          WHEN ch.loai = 'KHAM' THEN 'kham_moi'
-          WHEN ch.loai = 'DIEU_TRI' THEN 'dieu_tri'
+          WHEN UPPER(ch.loai) IN ('KHAM', 'KHAM_MOI') THEN 'kham_moi'
+          WHEN UPPER(ch.loai) IN ('DIEU_TRI') THEN 'dieu_tri'
           ELSE 'dich_vu_don'
         END as loai_lich,
         kh.ho_ten AS ten_khach_hang, 
@@ -904,22 +925,7 @@ class AppointmentRepository {
     return rows.length > 0;
   }
 
-  async checkRoomCapacityOverlap(phong_id: string | number, start: string, end: string, excludeId?: string, dummy?: any, giuong_so?: number | null): Promise<boolean> {
-    // Physical rooms and beds are deprecated, return false (no conflict)
-    return false;
-  }
 
-  async checkEquipmentConflict(serviceIds: string[], start: string, end: string, excludeId?: string): Promise<void> {
-    return;
-  }
-
-  async checkEquipmentOverlap(dich_vu_id: string | null, start: string, end: string, excludeId?: string): Promise<void> {
-    return;
-  }
-
-  async checkEquipmentOverlapForSession(buoi_tri_lieu_id: string, newDichVuIds: string[]): Promise<void> {
-    return;
-  }
 
   async getPublicAppointmentById(id: string) {
     const query = `
@@ -1139,7 +1145,7 @@ class AppointmentRepository {
       }
     }
 
-    const ngay_gio_ket_thuc = new Date(new Date(data.ngay_gio_bat_dau).getTime() + (duration + 10) * 60000).toISOString();
+    const ngay_gio_ket_thuc = new Date(new Date(data.ngay_gio_bat_dau).getTime() + duration * 60000).toISOString();
     const thoi_gian_het_han = new Date(Date.now() + 5 * 60000).toISOString(); // 5 minutes hold
 
     const upsertQuery = `

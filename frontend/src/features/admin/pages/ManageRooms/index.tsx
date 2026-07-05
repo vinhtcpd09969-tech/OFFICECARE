@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { 
   getRooms, 
   createRoom 
-} from '../../../../api/admin.api';
+} from '../../api/admin.api';
 import { Compass, CheckCircle2, AlertTriangle, Info, X } from 'lucide-react';
 
 // Local subcomponents & types

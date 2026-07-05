@@ -56,7 +56,6 @@ const WalkInBooking = lazy(() => import('../features/receptionist/pages/WalkInBo
 const QuickBilling = lazy(() => import('../features/receptionist/pages/QuickBilling/index'));
 
 // Technician Feature
-const TechnicianWorkspace = lazy(() => import('../features/technician/pages/TechnicianWorkspace/index'));
 const TechnicianAppointments = lazy(() => import('../features/technician/pages/TechnicianAppointments/index'));
 
 // Doctor Feature
@@ -134,8 +133,8 @@ export default function AppRoutes() {
         {/* Technician Protected Routes */}
         <Route element={<ProtectedRoute allowedRoles={[3, 4, 5]} />}>
           <Route element={<AdminLayout />}>
-            <Route path="/technician/workspace" element={<TechnicianWorkspace />} />
             <Route path="/technician/appointments" element={<TechnicianAppointments />} />
+            <Route path="/technician/appointments/:id/assess" element={<ClinicalAssessment />} />
           </Route>
         </Route>
 

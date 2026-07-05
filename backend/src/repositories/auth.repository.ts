@@ -146,9 +146,10 @@ class AuthRepository {
   }
 
   async findUserById(id: string) {
-    // 1. Search staff (nguoi_dung)
-    const parsedId = parseInt(id, 10);
-    if (!isNaN(parsedId)) {
+    // 1. Search staff (nguoi_dung) - only if id is numeric string
+    const isNguoiDung = /^\d+$/.test(id);
+    if (isNguoiDung) {
+      const parsedId = parseInt(id, 10);
       const staff = await prisma.nguoi_dung.findFirst({
         where: {
           id: parsedId,
@@ -222,6 +223,47 @@ class AuthRepository {
     }
 
     return null;
+  }
+
+  async updateProfile(userId: string | number, data: { ho_ten: string; so_dien_thoai: string }) {
+    const isNguoiDung = typeof userId === 'number' || (typeof userId === 'string' && /^\d+$/.test(userId));
+    if (isNguoiDung) {
+      const parsedId = typeof userId === 'number' ? userId : parseInt(userId, 10);
+      return prisma.nguoi_dung.update({
+        where: { id: parsedId },
+        data: {
+          ho_ten: data.ho_ten,
+          so_dien_thoai: data.so_dien_thoai
+        },
+        select: {
+          id: true,
+          ho_ten: true,
+          email: true,
+          so_dien_thoai: true,
+          vai_tro_id: true,
+          trang_thai: true
+        }
+      });
+    } else {
+      const customer = await prisma.khach_hang.update({
+        where: { id: String(userId) },
+        data: {
+          ho_ten: data.ho_ten,
+          so_dien_thoai: data.so_dien_thoai
+        },
+        select: {
+          id: true,
+          ho_ten: true,
+          email: true,
+          so_dien_thoai: true,
+          trang_thai: true
+        }
+      });
+      return {
+        ...customer,
+        vai_tro_id: 1
+      };
+    }
   }
 }
 

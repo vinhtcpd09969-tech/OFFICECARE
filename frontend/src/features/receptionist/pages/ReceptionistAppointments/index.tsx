@@ -37,6 +37,7 @@ export default function ReceptionistAppointments() {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [showGuide, setShowGuide] = useState<boolean>(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
+  const [activeType, setActiveType] = useState<'kham' | 'dieu_tri'>('kham');
 
   // Fetch appointments and resources (isReceptionist = true)
   const {
@@ -91,7 +92,9 @@ export default function ReceptionistAppointments() {
     handleUpdateAppointmentFields,
     scrollToAppointment,
     cancelReason,
-    setCancelReason
+    setCancelReason,
+    selectedTimeSlot,
+    setSelectedTimeSlot
   } = useAppointmentActions({
     appointments,
     services,
@@ -105,11 +108,12 @@ export default function ReceptionistAppointments() {
     refetch,
     navigate,
     roleView: 'receptionist',
-    isDemoMode: false
+    isDemoMode: false,
+    activeType,
+    setActiveType
   });
 
   const focusTimerRef = useRef<any>(null);
-  const [activeType, setActiveType] = useState<'kham' | 'dieu_tri'>('kham');
 
   // Unmount cleanup only
   useEffect(() => {
@@ -151,6 +155,7 @@ export default function ReceptionistAppointments() {
     const triggerFocus = params.get('triggerFocus');
 
     if (focusAptId && triggerFocus === 'true') {
+      setIsWalkInModalOpen(false);
       scrollToAppointment(focusAptId);
       
       // Clean up parameter without re-triggering timers
@@ -159,7 +164,7 @@ export default function ReceptionistAppointments() {
       const newSearch = `?${newParams.toString()}`;
       navigate(location.pathname + newSearch, { replace: true });
     }
-  }, [mascotTargetAppointments, scrollToAppointment, navigate, location.pathname, loading]);
+  }, [mascotTargetAppointments, scrollToAppointment, navigate, location.pathname, loading, setIsWalkInModalOpen]);
 
   // Update URL search parameters when filtering state changes
   useEffect(() => {
@@ -269,31 +274,20 @@ export default function ReceptionistAppointments() {
     const matchType = (apt: any) => activeType === 'kham'
       ? apt.loai_lich === 'kham_moi'
       : (apt.loai_lich === 'dieu_tri' || apt.loai_lich === 'dich_vu_don');
-    if (viewMode === 'timeline') {
-      return appointments.filter(apt => {
-        const aptDateStr = format(new Date(apt.ngay_gio_bat_dau || ''), 'yyyy-MM-dd');
-        return aptDateStr === formattedSelectedDate && matchType(apt);
-      });
-    } else {
-      const interval = getActiveInterval();
-      return appointments.filter(apt => {
-        const aptDate = new Date(apt.ngay_gio_bat_dau || '');
-        return aptDate >= interval.start && aptDate <= interval.end && matchType(apt);
-      });
-    }
+    
+    const interval = getActiveInterval();
+    return appointments.filter(apt => {
+      const aptDate = new Date(apt.ngay_gio_bat_dau || '');
+      return aptDate >= interval.start && aptDate <= interval.end && matchType(apt);
+    });
   };
   const kpiAppointments = getKpiAppointments();
 
   const receptionistKpis = {
-    total: kpiAppointments.filter(a => {
-      const graceTimeMs = 10 * 60 * 1000;
-      const createdAt = a.thoi_gian_tao ? new Date(a.thoi_gian_tao).getTime() : 0;
-      const isGracePassed = createdAt > 0 && (createdAt + graceTimeMs <= Date.now());
-      return a.trang_thai !== 'chua_xac_nhan' || isGracePassed;
-    }).length,
-    pendingContact: pendingContactAppointments.length,
-    assigned: kpiAppointments.filter(a => a.bac_si_id && a.trang_thai === 'da_xac_nhan').length,
-    checkedIn: kpiAppointments.filter(a => a.trang_thai === 'da_checkin').length,
+    total: kpiAppointments.length,
+    pendingContact: kpiAppointments.filter(a => ['chua_xac_nhan', 'cho_xac_nhan'].includes(a.trang_thai)).length,
+    assigned: kpiAppointments.filter(a => a.trang_thai === 'hoan_thanh').length,
+    checkedIn: kpiAppointments.filter(a => a.trang_thai === 'da_huy').length,
   };
 
   return (
@@ -421,38 +415,57 @@ export default function ReceptionistAppointments() {
           {/* MAIN CALENDAR / TIMELINE WORKSPACE */}
           <div className="flex flex-col lg:flex-row gap-6 items-start">
             <div className="flex-1 w-full min-w-0">
-              {viewMode === 'timeline' && (
-                <AppointmentCalendar
-                  timeSlots={standardTimeSlots}
-                  appointments={filteredAppointments}
-                  statusConfig={statusConfig}
-                  handleOpenDetailModal={handleOpenDetailModal}
+              {isWalkInModalOpen ? (
+                <WalkInBookingModal
+                  roomsList={roomsList}
                   staffList={staffList}
+                  appointments={appointments}
                   schedulesList={schedulesList}
-                  allAppointments={appointments}
-                  selectedDateStr={formattedSelectedDate}
-                  onOpenWalkInModal={(time) => {
-                    setWalkInTime(time);
-                    setIsWalkInModalOpen(true);
-                  }}
-                  onUpdateAppointment={handleUpdateAppointmentFields}
-                  viewMode="admin"
-                />
-              )}
-
-              {viewMode === 'capacity' && (
-                <CapacityView
-                  selectedDate={selectedDate}
-                  setSelectedDate={setSelectedDate}
-                  setViewMode={setViewMode}
-                  appointments={appointments.filter(apt => 
-                    activeType === 'kham'
-                      ? apt.loai_lich === 'kham_moi'
-                      : (apt.loai_lich === 'dieu_tri' || apt.loai_lich === 'dich_vu_don')
-                  )}
-                  timeRange={timeRange}
+                  servicesList={services}
+                  onClose={() => setIsWalkInModalOpen(false)}
+                  onSubmitApi={handleBookWalkIn}
+                  bookingLoading={bookingLoading}
+                  initialTime={walkInTime}
                   activeType={activeType}
+                  isReceptionist={true}
+                  selectedDateStr={formattedSelectedDate}
                 />
+              ) : (
+                <>
+                  {viewMode === 'timeline' && (
+                    <AppointmentCalendar
+                      timeSlots={standardTimeSlots}
+                      appointments={filteredAppointments}
+                      statusConfig={statusConfig}
+                      handleOpenDetailModal={handleOpenDetailModal}
+                      staffList={staffList}
+                      schedulesList={schedulesList}
+                      allAppointments={appointments}
+                      selectedDateStr={formattedSelectedDate}
+                      onOpenWalkInModal={(time) => {
+                        setWalkInTime(time);
+                        setIsWalkInModalOpen(true);
+                      }}
+                      onUpdateAppointment={handleUpdateAppointmentFields}
+                      viewMode="admin"
+                    />
+                  )}
+
+                  {viewMode === 'capacity' && (
+                    <CapacityView
+                      selectedDate={selectedDate}
+                      setSelectedDate={setSelectedDate}
+                      setViewMode={setViewMode}
+                      appointments={appointments.filter(apt => 
+                        activeType === 'kham'
+                          ? apt.loai_lich === 'kham_moi'
+                          : (apt.loai_lich === 'dieu_tri' || apt.loai_lich === 'dich_vu_don')
+                      )}
+                      timeRange={timeRange}
+                      activeType={activeType}
+                    />
+                  )}
+                </>
               )}
             </div>
 
@@ -505,22 +518,12 @@ export default function ReceptionistAppointments() {
           appointments={appointments}
           schedulesList={schedulesList}
           isReceptionistOverride={true}
+          selectedTimeSlot={selectedTimeSlot}
+          setSelectedTimeSlot={setSelectedTimeSlot}
         />
       )}
 
-      {isWalkInModalOpen && (
-        <WalkInBookingModal
-          roomsList={roomsList}
-          staffList={staffList}
-          appointments={appointments}
-          schedulesList={schedulesList}
-          servicesList={services}
-          onClose={() => setIsWalkInModalOpen(false)}
-          onSubmitApi={handleBookWalkIn}
-          bookingLoading={bookingLoading}
-          initialTime={walkInTime}
-        />
-      )}
+
 
       {isTreatmentModalOpen && (
         <TreatmentBookingModal

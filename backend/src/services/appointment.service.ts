@@ -13,18 +13,18 @@ class AppointmentService {
     
     // Trigger notification async
     if (newApt) {
-      // 1. Generate and save OTP to DB synchronously to prevent race conditions on redirect
-      const otpCode = await this.generateAndSaveOTP(newApt);
-
       const { default: notificationService } = require('./notification.service');
       notificationService.triggerAppointmentNotification(newApt.id, newApt.trang_thai, newApt).catch((err: any) => {
         console.error('Lỗi khi gửi thông báo lịch hẹn khi tạo:', err);
       });
 
-      // 2. Send SMTP email asynchronously in background
-      this.sendOTPEmailAsync(newApt, otpCode).catch((err: any) => {
-        console.error('Lỗi khi gửi mail xác nhận lịch hẹn khi tạo:', err);
-      });
+      // Gửi OTP chỉ khi lịch ở trạng thái chưa xác nhận (cần khách hàng xác thực)
+      if (newApt.trang_thai === 'chua_xac_nhan') {
+        const otpCode = await this.generateAndSaveOTP(newApt);
+        this.sendOTPEmailAsync(newApt, otpCode).catch((err: any) => {
+          console.error('Lỗi khi gửi mail xác nhận lịch hẹn khi tạo:', err);
+        });
+      }
     }
 
     return newApt;

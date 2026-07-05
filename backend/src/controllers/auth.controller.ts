@@ -147,3 +147,17 @@ export const resetPassword = asyncHandler(async (req: Request, res: Response) =>
     throw error;
   }
 });
+
+export const updateProfile = asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { ho_ten, so_dien_thoai } = req.body;
+    const updatedUser = await authService.updateProfile(req.user.id, { ho_ten, so_dien_thoai });
+    res.json({
+      success: true,
+      message: 'Cập nhật thông tin thành công',
+      user: updatedUser
+    });
+  } catch (error: any) {
+    throw new BadRequestError(error.message || 'Lỗi khi cập nhật thông tin');
+  }
+});

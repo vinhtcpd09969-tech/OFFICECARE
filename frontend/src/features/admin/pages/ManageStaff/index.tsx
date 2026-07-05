@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { toast } from 'react-hot-toast';
-import { getStaff, createStaff, updateStaffStatus } from '../../../../api/admin.api';
+import { getStaff, createStaff, updateStaffStatus } from '../../api/admin.api';
 
 const staffSchema = z.object({
   ho_ten: z.string().min(1, 'Họ tên là bắt buộc'),

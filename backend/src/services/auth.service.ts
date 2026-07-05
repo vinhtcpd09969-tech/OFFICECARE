@@ -220,6 +220,11 @@ class AuthService {
 
     return { message: 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập bằng mật khẩu mới.' };
   }
+
+  async updateProfile(userId: string | number, data: { ho_ten: string; so_dien_thoai: string }) {
+    if (!data.ho_ten) throw new Error('Họ tên không được để trống');
+    return authRepository.updateProfile(userId, data);
+  }
 }
 
 export default new AuthService();

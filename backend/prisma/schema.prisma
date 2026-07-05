@@ -23,6 +23,7 @@ model nguoi_dung {
   vai_tro_id            Int                     @db.SmallInt
   trang_thai            String                  @default("hoat_dong") @db.VarChar(20)
   anh_dai_dien          String?
+  cuoc_hen_tao          cuoc_hen[]              @relation("cuoc_hen_nguoi_tao")
   cuoc_hen              cuoc_hen[]
   giao_dich_thanh_toan  giao_dich_thanh_toan[]
   ho_so_chuyen_gia      ho_so_chuyen_gia?
@@ -66,6 +67,7 @@ model khach_hang {
   ngay_sinh           DateTime?             @db.Date
   gioi_tinh           String?               @db.VarChar(10)
   trang_thai          String                @default("hoat_dong") @db.VarChar(20)
+  diem_uy_tin         Int                   @default(100)
   cuoc_hen            cuoc_hen[]
   danh_gia_chat_luong danh_gia_chat_luong[]
   hoa_don             hoa_don[]
@@ -113,9 +115,11 @@ model cuoc_hen {
   phong_id              Int?
   ly_do_huy             String?
   thoi_gian_huy         DateTime?              @db.Timestamptz(6)
+  nguoi_tao_id          Int?
   goi_dich_vu           goi_dich_vu?           @relation(fields: [goi_dich_vu_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   khach_hang            khach_hang             @relation(fields: [khach_hang_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   nguoi_dung            nguoi_dung?            @relation(fields: [nhan_su_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  nguoi_dung_tao        nguoi_dung?            @relation("cuoc_hen_nguoi_tao", fields: [nguoi_tao_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   phac_do_dieu_tri      phac_do_dieu_tri?      @relation(fields: [phac_do_dieu_tri_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   phong                 phong_lam_viec?        @relation(fields: [phong_id], references: [id], onUpdate: NoAction)
   danh_gia_chat_luong   danh_gia_chat_luong?

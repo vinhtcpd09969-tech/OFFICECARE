@@ -5,7 +5,7 @@ import {
   createEquipment,
   updateEquipment,
   deleteEquipment
-} from '../../../../api/admin.api';
+} from '../../api/admin.api';
 
 interface Equipment {
   id: string;

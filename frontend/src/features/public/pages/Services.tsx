@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, AlertTriangle, X, ChevronLeft, ChevronRight } from 'lucide-react';
-import { getPublicServices, getPublicPackages, getPublicCategories } from '../../../api/client.api';
+import { getPublicServices, getPublicPackages, getPublicCategories } from '../api/public.api';
 import LoadingScreen from '../../../components/LoadingScreen';
 
 interface UnifiedService {

@@ -231,7 +231,8 @@ export function Step4CustomerForm({
             name="ho_ten_khach"
             required
             placeholder=" "
-            className={`peer block w-full rounded-xl border bg-white px-4 pt-6 pb-2 text-sm font-bold focus:ring-0 outline-none transition-all placeholder-transparent shadow-sm
+            disabled={!!user}
+            className={`peer block w-full rounded-xl border bg-white px-4 pt-6 pb-2 text-sm font-bold focus:ring-0 outline-none transition-all placeholder-transparent shadow-sm disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed
               ${errors.ho_ten_khach
                 ? 'border-rose-300 focus:border-rose-500 text-rose-600'
                 : 'border-slate-200 focus:border-[#2EC4B6] text-slate-800'
@@ -250,7 +251,7 @@ export function Step4CustomerForm({
             Họ và tên *
           </label>
           {user?.ho_ten && (
-            <span className="absolute right-3 top-1 text-[9px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full select-none">
+            <span className="absolute right-3 top-4 text-[9px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full select-none">
               Tài khoản
             </span>
           )}
@@ -269,7 +270,8 @@ export function Step4CustomerForm({
             name="so_dien_thoai"
             required
             placeholder=" "
-            className={`peer block w-full rounded-xl border bg-white px-4 pt-6 pb-2 text-sm font-bold focus:ring-0 outline-none transition-all placeholder-transparent shadow-sm
+            disabled={!!user}
+            className={`peer block w-full rounded-xl border bg-white px-4 pt-6 pb-2 text-sm font-bold focus:ring-0 outline-none transition-all placeholder-transparent shadow-sm disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed
               ${errors.so_dien_thoai
                 ? 'border-rose-300 focus:border-rose-500 text-rose-600'
                 : 'border-slate-200 focus:border-[#2EC4B6] text-slate-800'

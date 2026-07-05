@@ -1,5 +1,5 @@
 import React, { useReducer, useEffect, useState } from 'react';
-import api from '../../../../api/axios';
+import { walkInBooking, getStaff, getPackages } from '../../api/receptionist.api';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 
@@ -73,12 +73,12 @@ export default function WalkInBooking() {
 
     const fetchSelectData = async () => {
       try {
-        const [servRes, staffRes] = await Promise.all([
-          api.get('/admin/services'),
-          api.get('/admin/staff')
+        const [packageRes, staffRes] = await Promise.all([
+          getPackages(),
+          getStaff()
         ]);
 
-        const services = Array.isArray(servRes.data) ? servRes.data : [];
+        const services = Array.isArray(packageRes.data) ? packageRes.data : [];
         const staff = Array.isArray(staffRes.data) ? staffRes.data.filter((s: any) => s.vai_tro === 'Chuyên gia y tế' || s.vai_tro === 'Bác sĩ' || s.vai_tro === 'Kỹ thuật viên') : [];
 
         dispatch({ type: 'SET_DATA', services, staff });
@@ -97,7 +97,7 @@ export default function WalkInBooking() {
     e.preventDefault();
     dispatch({ type: 'SET_LOADING', loading: true });
     try {
-      await api.post('/receptionist/walk-in', state.formData);
+      await walkInBooking(state.formData);
       toast.success('Tạo lịch thành công!');
       navigate('/receptionist');
     } catch (error) {

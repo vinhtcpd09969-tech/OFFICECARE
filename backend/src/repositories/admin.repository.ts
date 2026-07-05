@@ -496,41 +496,90 @@ class AdminRepository {
 
   // --- QUẢN LÝ HỒ SƠ ĐIỀU TRỊ (MAPPED TO PHAC DO DIEU TRI) ---
   async getMedicalRecords() {
-    const { rows } = await pool.query(`
-      SELECT 
-        pd.id, 
-        'PD-' || UPPER(SUBSTRING(pd.id::text FROM 1 FOR 6)) as ma_danh_gia, 
-        pd.ngay_kich_hoat as ngay_danh_gia, 
-        pd.trang_thai,
-        COALESCE(kh.ho_ten, 'Khách vãng lai') as ten_khach_hang, 
-        kh.so_dien_thoai as so_dien_thoai,
-        'KH-' || SUBSTRING(kh.id::text, 1, 8) as ma_khach_hang,
-        'Hội chẩn lâm sàng' as trieu_chung,
-        'Điều trị theo liệu trình' as ghi_chu,
-        g.ten_goi as phuong_phap_dieu_tri,
-        NULL::text AS loai_goi,
-        g.ten_goi,
-        pd.tong_so_buoi as so_luong_buoi,
-        1 as so_luong_goi,
-        g.don_gia as gia_tien,
-        'Bác sĩ phụ trách' as ten_bac_si,
-        'Phòng khám VIP' as ten_phong_kham,
-        'Kỹ thuật viên phụ trách' as ten_ky_thuat_vien,
-        'Phòng trị liệu VIP' as ten_phong_tri_lieu
-      FROM phac_do_dieu_tri pd
-      JOIN khach_hang kh ON pd.khach_hang_id = kh.id
-      JOIN goi_dich_vu g ON pd.goi_dich_vu_id = g.id
-      ORDER BY pd.ngay_kich_hoat DESC NULLS LAST
+    // 1. Lấy danh sách khách hàng
+    const { rows: patients } = await pool.query(`
+      SELECT id, ho_ten, so_dien_thoai, email, trang_thai, diem_uy_tin
+      FROM khach_hang
+      ORDER BY ho_ten ASC
     `);
-    return rows;
+
+    // 2. Lấy danh sách phác đồ điều trị kèm chẩn đoán ban đầu của Bác sĩ
+    const { rows: plans } = await pool.query(`
+      SELECT 
+        pd.id, pd.khach_hang_id, pd.goi_dich_vu_id, pd.tong_so_buoi, pd.so_buoi_da_dung, pd.trang_thai, pd.ngay_kich_hoat,
+        g.ten_goi, g.loai_goi, g.don_gia as gia_tien,
+        nk_kham.chan_doan, nk_kham.chong_chi_dinh, nk_kham.ghi_chu as ghi_chu_kham,
+        nd_bs.ho_ten as ten_bac_si,
+        p_kham.ten_phong as ten_phong_kham
+      FROM phac_do_dieu_tri pd
+      JOIN goi_dich_vu g ON pd.goi_dich_vu_id = g.id
+      JOIN hoa_don hd ON hd.phac_do_dieu_tri_id = pd.id
+      LEFT JOIN cuoc_hen ch_kham ON ch_kham.phac_do_dieu_tri_id = pd.id AND ch_kham.loai = 'KHAM'
+      LEFT JOIN nhat_ky_buoi_dieu_tri nk_kham ON nk_kham.cuoc_hen_id = ch_kham.id
+      LEFT JOIN nguoi_dung nd_bs ON ch_kham.nhan_su_id = nd_bs.id
+      LEFT JOIN phong_lam_viec p_kham ON ch_kham.phong_id = p_kham.id
+      ORDER BY pd.ngay_kich_hoat DESC
+    `);
+
+    // 3. Lấy toàn bộ lịch sử cuộc hẹn/buổi điều trị kèm nhật ký chi tiết
+    const { rows: appointments } = await pool.query(`
+      SELECT 
+        ch.id, ch.khach_hang_id, ch.phac_do_dieu_tri_id, ch.so_thu_tu_buoi, 
+        ch.ngay_gio_bat_dau, ch.ngay_gio_ket_thuc, ch.loai, ch.trang_thai, ch.ghi_chu,
+        nd.ho_ten as ten_nhan_su, nd.vai_tro_id,
+        p.ten_phong as ten_phong,
+        nk.vas_truoc, nk.vas_sau, nk.ghi_chu as ghi_chu_tri_lieu, nk.chan_doan as chan_doan_tri_lieu, nk.chong_chi_dinh as chong_chi_dinh_tri_lieu
+      FROM cuoc_hen ch
+      LEFT JOIN nguoi_dung nd ON ch.nhan_su_id = nd.id
+      LEFT JOIN phong_lam_viec p ON ch.phong_id = p.id
+      LEFT JOIN nhat_ky_buoi_dieu_tri nk ON nk.cuoc_hen_id = ch.id
+      ORDER BY ch.ngay_gio_bat_dau DESC
+    `);
+
+    // Ghép dữ liệu dạng lồng nhau
+    const results = patients.map((p: any) => {
+      const patientPlans = plans.filter((pl: any) => pl.khach_hang_id === p.id);
+      const patientApts = appointments.filter((ap: any) => ap.khach_hang_id === p.id);
+
+      return {
+        ...p,
+        ma_khach_hang: 'KH-' + p.id.substring(0, 8).toUpperCase(),
+        plans: patientPlans,
+        appointments: patientApts
+      };
+    }).filter((p: any) => p.plans.length > 0 || p.appointments.length > 0);
+
+    return results;
   }
 
   // --- QUẢN LÝ TÀI CHÍNH ---
   async getInvoices() {
     const { rows } = await pool.query(`
-      SELECT hd.*, 'HD-' || UPPER(SUBSTRING(hd.id::text FROM 1 FOR 6)) as ma_hoa_don, kh.ho_ten as ten_khach_hang, kh.so_dien_thoai
+      SELECT 
+        hd.id, 
+        hd.khach_hang_id, 
+        hd.phac_do_dieu_tri_id, 
+        hd.cuoc_hen_id, 
+        hd.tong_tien_goc, 
+        hd.hinh_thuc_thanh_toan_goi, 
+        hd.ti_le_giam_gia_goi, 
+        hd.voucher_id, 
+        hd.so_tien_giam_voucher, 
+        hd.tong_tien_phai_tra as tong_tien_thanh_toan, 
+        hd.so_tien_da_tra as da_thanh_toan, 
+        hd.trang_thai, 
+        hd.ghi_chu, 
+        hd.ngay_tao, 
+        'HD-' || UPPER(SUBSTRING(hd.id::text FROM 1 FOR 6)) as ma_hoa_don, 
+        kh.ho_ten as ten_khach_hang, 
+        kh.so_dien_thoai,
+        COALESCE(gdv.ten_goi, dv.ten_goi, 'Phí khám lâm sàng & Lượng giá') as ten_dich_vu
       FROM hoa_don hd
       JOIN khach_hang kh ON hd.khach_hang_id = kh.id
+      LEFT JOIN phac_do_dieu_tri pd ON hd.phac_do_dieu_tri_id = pd.id
+      LEFT JOIN goi_dich_vu gdv ON pd.goi_dich_vu_id = gdv.id
+      LEFT JOIN cuoc_hen ch ON hd.cuoc_hen_id = ch.id
+      LEFT JOIN goi_dich_vu dv ON ch.goi_dich_vu_id = dv.id
       ORDER BY hd.ngay_tao DESC
     `);
     return rows;
@@ -540,6 +589,7 @@ class AdminRepository {
     const { rows } = await pool.query(`
       SELECT 
         gt.id, gt.hoa_don_id, gt.so_tien, gt.loai_giao_dich, gt.phuong_thuc, gt.ma_tham_chieu,
+        gt.ma_tham_chieu as ma_giao_dich,
         gt.ngay_giao_dich as thoi_gian_giao_dich,
         'HD-' || UPPER(SUBSTRING(hd.id::text FROM 1 FOR 6)) as ma_hoa_don, kh.ho_ten as ten_khach_hang
       FROM giao_dich_thanh_toan gt

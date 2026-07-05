@@ -7,7 +7,7 @@ import {
   getPackages, 
   deletePackage, 
   getCategories
-} from '../../../../api/admin.api';
+} from '../../api/admin.api';
 
 // Shared Components
 import PackageModal from '../../components/packages/PackageModal';

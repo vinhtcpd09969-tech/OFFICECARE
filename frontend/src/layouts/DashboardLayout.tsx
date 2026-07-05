@@ -3,7 +3,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import api from '../api/axios';
 import { toast } from 'react-hot-toast';
-import { getPendingRatingAppointments, rateAppointment } from '../api/client.api';
+import { getPendingRatingAppointments, rateAppointment } from '../features/customer/api/customer.api';
 import { 
   LayoutDashboard, 
   Calendar, 

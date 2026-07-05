@@ -153,7 +153,9 @@ export default function ManageAppointments() {
     handleUpdateAppointmentFields,
     scrollToAppointment,
     cancelReason,
-    setCancelReason
+    setCancelReason,
+    selectedTimeSlot,
+    setSelectedTimeSlot
   } = useAppointmentActions({
     appointments: appointmentsToUse,
     services,
@@ -168,7 +170,9 @@ export default function ManageAppointments() {
     navigate,
     roleView,
     isDemoMode,
-    setDemoApts
+    setDemoApts,
+    activeType,
+    setActiveType
   });
 
   // Keyboard shortcut listener for Ctrl+K command palette
@@ -446,6 +450,7 @@ export default function ManageAppointments() {
     if (params.get('triggerFocus') === 'true' && !loading) {
       const targetId = aptIdParam || (mascotTargetAppointments.length > 0 ? String(mascotTargetAppointments[0].id) : null);
       if (targetId) {
+        setIsWalkInModalOpen(false);
         params.delete('triggerFocus');
         const newSearch = params.toString() ? `?${params.toString()}` : '';
         navigate(location.pathname + newSearch, { replace: true });
@@ -459,7 +464,7 @@ export default function ManageAppointments() {
         }, 500);
       }
     }
-  }, [location.search, mascotTargetAppointments, scrollToAppointment, navigate, location.pathname, loading]);
+  }, [location.search, mascotTargetAppointments, scrollToAppointment, navigate, location.pathname, loading, setIsWalkInModalOpen]);
 
   const targetWorkloadRole = activeType === 'kham' ? 'Bác sĩ' : 'Kỹ thuật viên';
   const doctorWorkloads = staffToUse
@@ -639,38 +644,57 @@ export default function ManageAppointments() {
                 </div>
               )}
 
-              {viewMode === 'timeline' && (
-                <AppointmentCalendar
-                  timeSlots={standardTimeSlots}
-                  appointments={filteredAppointments}
-                  statusConfig={statusConfig}
-                  handleOpenDetailModal={handleOpenDetailModal}
+              {isWalkInModalOpen ? (
+                <WalkInBookingModal
+                  roomsList={roomsToUse}
                   staffList={staffToUse}
+                  appointments={appointmentsToUse}
                   schedulesList={schedulesToUse}
-                  allAppointments={appointmentsToUse}
-                  selectedDateStr={formattedSelectedDate}
-                  onOpenWalkInModal={(time) => {
-                    setWalkInTime(time);
-                    setIsWalkInModalOpen(true);
-                  }}
-                  onUpdateAppointment={handleUpdateAppointmentFields}
-                  viewMode="admin"
-                />
-              )}
-
-              {viewMode === 'capacity' && (
-                <CapacityView
-                  selectedDate={selectedDate}
-                  setSelectedDate={setSelectedDate}
-                  setViewMode={setViewMode}
-                  appointments={appointmentsToUse.filter(apt => 
-                    activeType === 'kham'
-                      ? apt.loai_lich === 'kham_moi'
-                      : (apt.loai_lich === 'dieu_tri' || apt.loai_lich === 'dich_vu_don')
-                  )}
-                  timeRange={timeRange}
+                  servicesList={services}
+                  onClose={() => setIsWalkInModalOpen(false)}
+                  onSubmitApi={handleBookWalkIn}
+                  bookingLoading={bookingLoading}
+                  initialTime={walkInTime}
                   activeType={activeType}
+                  isReceptionist={roleView === 'receptionist'}
+                  selectedDateStr={formattedSelectedDate}
                 />
+              ) : (
+                <>
+                  {viewMode === 'timeline' && (
+                    <AppointmentCalendar
+                      timeSlots={standardTimeSlots}
+                      appointments={filteredAppointments}
+                      statusConfig={statusConfig}
+                      handleOpenDetailModal={handleOpenDetailModal}
+                      staffList={staffToUse}
+                      schedulesList={schedulesToUse}
+                      allAppointments={appointmentsToUse}
+                      selectedDateStr={formattedSelectedDate}
+                      onOpenWalkInModal={(time) => {
+                        setWalkInTime(time);
+                        setIsWalkInModalOpen(true);
+                      }}
+                      onUpdateAppointment={handleUpdateAppointmentFields}
+                      viewMode="admin"
+                    />
+                  )}
+
+                  {viewMode === 'capacity' && (
+                    <CapacityView
+                      selectedDate={selectedDate}
+                      setSelectedDate={setSelectedDate}
+                      setViewMode={setViewMode}
+                      appointments={appointmentsToUse.filter(apt => 
+                        activeType === 'kham'
+                          ? apt.loai_lich === 'kham_moi'
+                          : (apt.loai_lich === 'dieu_tri' || apt.loai_lich === 'dich_vu_don')
+                      )}
+                      timeRange={timeRange}
+                      activeType={activeType}
+                    />
+                  )}
+                </>
               )}
             </div>
 
@@ -753,6 +777,8 @@ export default function ManageAppointments() {
           appointments={appointmentsToUse}
           schedulesList={schedulesToUse}
           isReceptionistOverride={false}
+          selectedTimeSlot={selectedTimeSlot}
+          setSelectedTimeSlot={setSelectedTimeSlot}
         />
       )}
 
@@ -783,19 +809,7 @@ export default function ManageAppointments() {
         />
       )}
 
-      {isWalkInModalOpen && (
-        <WalkInBookingModal
-          roomsList={roomsToUse}
-          staffList={staffToUse}
-          appointments={appointmentsToUse}
-          schedulesList={schedulesToUse}
-          servicesList={services}
-          onClose={() => setIsWalkInModalOpen(false)}
-          onSubmitApi={handleBookWalkIn}
-          bookingLoading={bookingLoading}
-          initialTime={walkInTime}
-        />
-      )}
+
 
       {/* COMMAND PALETTE (CTRL+K) */}
       <CommandPalette 

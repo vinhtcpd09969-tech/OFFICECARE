@@ -69,7 +69,8 @@ export default function QuickBilling() {
   const [completedConsultations, setCompletedConsultations] = useState<any[]>([]);
   const [selectedConsultation, setSelectedConsultation] = useState<any | null>(null);
   const [selectedPackage, setSelectedPackage] = useState<any | null>(null);
-  const [loaiThanhToan, setLoaiThanhToan] = useState<'tra_thang' | 'tra_gop'>('tra_thang');
+  const [loaiThanhToan, setLoaiThanhToan] = useState<'tra_thang' | 'tra_gop' | 'tung_buoi'>('tra_thang');
+  const [dangKyGoi, setDangKyGoi] = useState<boolean>(true);
   const [maVoucher, setMaVoucher] = useState('');
   const [appliedVoucher, setAppliedVoucher] = useState<any | null>(null);
   const [calculatedData, setCalculatedData] = useState<any | null>(null);
@@ -108,27 +109,101 @@ export default function QuickBilling() {
     const queryLichDatId = params.get('lich_dat_id');
     if (!queryLichDatId) return;
 
-    if (completedConsultations.length > 0) {
-      const matched = completedConsultations.find(c => String(c.id) === String(queryLichDatId));
-      if (matched) {
-        setSelectedConsultation(matched);
-        if (matched.khuyen_nghi_goi_id) {
-          setActiveTab('package');
-          if (packages.length > 0) {
-            const matchedPkg = packages.find(p => String(p.id) === String(matched.khuyen_nghi_goi_id));
-            if (matchedPkg) {
-              setSelectedPackage(matchedPkg);
+    const loadBillingInfo = async () => {
+      // 1. Check completedConsultations first
+      if (completedConsultations.length > 0) {
+        const matched = completedConsultations.find(c => String(c.id) === String(queryLichDatId));
+        if (matched) {
+          setSelectedConsultation(matched);
+          if (matched.khuyen_nghi_goi_id) {
+            setActiveTab('package');
+            setDangKyGoi(true);
+            if (packages.length > 0) {
+              const matchedPkg = packages.find(p => String(p.id) === String(matched.khuyen_nghi_goi_id));
+              if (matchedPkg) {
+                setSelectedPackage(matchedPkg);
+              }
             }
+          } else {
+            setActiveTab('single');
+            setDangKyGoi(false);
           }
-        } else {
-          setActiveTab('single');
+          return;
         }
-      } else {
+      }
+
+      // 2. Fetch directly from server
+      try {
+        const res = await axiosInstance.get(`/receptionist/appointments/${queryLichDatId}/billing-info`);
+        const appt = res.data;
+        if (appt.loai_lich === 'dieu_tri') {
+          setSelectedConsultation(appt);
+          setActiveTab('single');
+
+          // Calculate price for this single therapy session based on payment type
+          let sessionPrice = 0;
+          const hinhThuc = appt.hinh_thuc_thanh_toan_goi;
+          const alreadyPaid = Number(appt.so_tien_da_tra_goi || 0);
+          const totalRequired = Number(appt.tong_tien_phai_tra_goi || 0);
+          const soThuTu = Number(appt.so_thu_tu_buoi || 1);
+          const totalSessions = Number(appt.pd_tong_so_buoi || 10);
+
+          if (hinhThuc === 'tra_thang') {
+            sessionPrice = 0;
+          } else if (hinhThuc === 'tra_gop') {
+            if (alreadyPaid >= totalRequired) {
+              sessionPrice = 0;
+            } else if (soThuTu === 5) {
+              sessionPrice = totalRequired - alreadyPaid; // Collect Dot 2
+            } else {
+              sessionPrice = 0;
+            }
+          } else if (hinhThuc === 'tung_buoi') {
+            sessionPrice = Math.round(totalRequired / totalSessions);
+          } else {
+            // Default fallback
+            const totalPackageCost = totalRequired - Number(appt.don_gia_dich_vu || 200000);
+            sessionPrice = Math.round(totalPackageCost / totalSessions);
+          }
+
+          const mockHoaDon = {
+            id: appt.hoa_don_goi_id,
+            ma_hoa_don: appt.hoa_don_goi_ma,
+            khach_hang_id: appt.khach_hang_id,
+            loai_hoa_don: 'dich_vu_don',
+            tong_tien_truoc_giam: sessionPrice,
+            tong_tien_thanh_toan: sessionPrice,
+            so_tien_da_tra: appt.so_tien_da_tra_goi,
+            trang_thai: appt.trang_thai_hoa_don_goi,
+            ten_item: `Buổi trị liệu số ${appt.so_thu_tu_buoi} (${appt.pd_ten_goi})`,
+            so_buoi_goi: 1,
+            ho_ten_khach: appt.ten_khach_hang,
+            so_dien_thoai: appt.sdt_khach_hang
+          };
+          dispatch({ type: 'SET_HOA_DON', hoaDon: mockHoaDon });
+        } else {
+          // If clinical exam but not in completed listing, load normally
+          setSelectedConsultation(appt);
+          if (appt.khuyen_nghi_goi_id) {
+            setActiveTab('package');
+            setDangKyGoi(true);
+            if (packages.length > 0) {
+              const matchedPkg = packages.find(p => String(p.id) === String(appt.khuyen_nghi_goi_id));
+              if (matchedPkg) setSelectedPackage(matchedPkg);
+            }
+          } else {
+            setActiveTab('single');
+            setDangKyGoi(false);
+          }
+        }
+      } catch (err) {
         toast.error('Không tìm thấy ca điều trị cần thanh toán hoặc ca đã được thanh toán rồi!');
         const path = Number(user?.vai_tro_id) === 2 ? '/receptionist' : '/admin/appointments';
         navigate(path);
       }
-    }
+    };
+
+    loadBillingInfo();
   }, [completedConsultations, packages, location.search, user, navigate]);
 
   // Automatically load invoice for single service checkout if patient is fixed
@@ -150,25 +225,36 @@ export default function QuickBilling() {
     }
   }, [activeTab, selectedConsultation, state.hoaDon, state.loading]);
 
-  // Run calculation when package, voucher, or payment type changes
+  // Run calculation when package, voucher, payment type, or dangKyGoi changes
   useEffect(() => {
-    if (activeTab === 'package' && selectedPackage) {
+    if (activeTab === 'package' && (selectedPackage || selectedConsultation)) {
       triggerCalculation();
     }
-  }, [selectedPackage, loaiThanhToan, appliedVoucher, activeTab]);
+  }, [selectedPackage, loaiThanhToan, appliedVoucher, activeTab, dangKyGoi, selectedConsultation]);
 
   const triggerCalculation = async () => {
     setCalculating(true);
     try {
-      const res = await axiosInstance.post('/receptionist/billing/calculate', {
-        item_type: 'goi',
-        item_id: selectedPackage.id,
-        loai_thanh_toan: loaiThanhToan,
-        ma_voucher: maVoucher || null
-      });
+      const payload = dangKyGoi && selectedPackage
+        ? {
+            item_type: 'goi',
+            item_id: selectedPackage.id,
+            loai_thanh_toan: loaiThanhToan,
+            ma_voucher: maVoucher || null,
+            lich_dat_id: selectedConsultation?.id || null
+          }
+        : {
+            item_type: 'dich_vu',
+            item_id: selectedConsultation?.goi_dich_vu_id || selectedConsultation?.id,
+            loai_thanh_toan: 'tra_thang',
+            ma_voucher: null,
+            lich_dat_id: null
+          };
+
+      const res = await axiosInstance.post('/receptionist/billing/calculate', payload);
       setCalculatedData(res.data);
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Lỗi tính tiền gói trị liệu');
+      toast.error(error.response?.data?.message || 'Lỗi tính tiền hóa đơn');
       setAppliedVoucher(null);
       setMaVoucher('');
     } finally {
@@ -191,7 +277,8 @@ export default function QuickBilling() {
         item_type: 'goi',
         item_id: selectedPackage.id,
         loai_thanh_toan: loaiThanhToan,
-        ma_voucher: maVoucher
+        ma_voucher: maVoucher,
+        lich_dat_id: selectedConsultation?.id || null
       });
       setCalculatedData(res.data);
       setAppliedVoucher({ ma_voucher: maVoucher, so_tien_giam: res.data.so_tien_giam_voucher });
@@ -236,7 +323,7 @@ export default function QuickBilling() {
       return;
     }
 
-    if (selectedConsultation && !feedbackLyDo.trim()) {
+    if (selectedConsultation && selectedConsultation.loai_lich === 'kham_moi' && selectedConsultation.khuyen_nghi_goi_id && !feedbackLyDo.trim()) {
       toast.error('Vui lòng nhập lý do khách không hài lòng về gói!');
       return;
     }
@@ -270,13 +357,15 @@ export default function QuickBilling() {
       toast.error('Vui lòng chọn khách hàng/buổi khám hoàn thành đầu tiên!');
       return;
     }
-    if (!selectedPackage) {
+    if (dangKyGoi && !selectedPackage) {
       toast.error('Vui lòng chọn gói trị liệu chỉ định!');
       return;
     }
     if (!calculatedData) return;
 
-    const tongCanThu = loaiThanhToan === 'tra_gop' ? Number(calculatedData.so_tien_dot_1) : Number(calculatedData.tong_tien_thanh_toan);
+    const tongCanThu = (loaiThanhToan === 'tra_gop' || loaiThanhToan === 'tung_buoi') 
+      ? Number(calculatedData.so_tien_dot_1) 
+      : Number(calculatedData.tong_tien_thanh_toan);
     const receivedAmount = Number(state.soTienNhan);
 
     if (state.phuongThuc === 'tien_mat' && receivedAmount < tongCanThu) {
@@ -284,19 +373,20 @@ export default function QuickBilling() {
       return;
     }
 
-    const toastId = toast.loading('Đang lập hóa đơn & đăng ký gói trị liệu...');
+    const toastId = toast.loading('Đang lập hóa đơn & xử lý thanh toán...');
     dispatch({ type: 'SET_LOADING', loading: true });
     try {
-      // 1. Create package invoice direct
+      // 1. Create invoice
       const invoiceRes = await axiosInstance.post('/receptionist/billing/create', {
         khach_hang_id: selectedConsultation.khach_hang_id,
-        item_type: 'goi',
-        item_id: selectedPackage.id,
-        loai_thanh_toan: loaiThanhToan,
-        ma_voucher: appliedVoucher ? appliedVoucher.ma_voucher : null,
+        item_type: dangKyGoi ? 'goi' : 'dich_vu',
+        item_id: dangKyGoi ? selectedPackage.id : (selectedConsultation.goi_dich_vu_id || selectedConsultation.id),
+        loai_thanh_toan: dangKyGoi ? loaiThanhToan : 'tra_thang',
+        ma_voucher: (dangKyGoi && appliedVoucher) ? appliedVoucher.ma_voucher : null,
         lich_dat_id: selectedConsultation.id,
         ho_ten_khach: selectedConsultation.ten_khach_hang,
-        so_dien_thoai: selectedConsultation.sdt_khach_hang
+        so_dien_thoai: selectedConsultation.sdt_khach_hang,
+        dang_ky_goi: dangKyGoi
       });
 
       const hoaDonMoi = invoiceRes.data.hoa_don;
@@ -308,7 +398,7 @@ export default function QuickBilling() {
         phuong_thuc: state.phuongThuc
       });
 
-      toast.success('Đăng ký & Thanh toán gói trị liệu thành công!', { id: toastId });
+      toast.success(dangKyGoi ? 'Đăng ký & Thanh toán gói trị liệu thành công!' : 'Đã lập hóa đơn & thanh toán phí khám thành công!', { id: toastId });
       setTimeout(() => {
         // Refresh listings
         fetchPackageBillingData();
@@ -332,6 +422,7 @@ export default function QuickBilling() {
 
   const handleSelectCompletedConsultation = (cons: any) => {
     setSelectedConsultation(cons);
+    setDangKyGoi(!!cons.khuyen_nghi_goi_id);
     if (cons.khuyen_nghi_goi_id) {
       setActiveTab('package');
       if (packages.length > 0) {
@@ -360,7 +451,9 @@ export default function QuickBilling() {
       required = hoaDon ? Number(hoaDon.tong_tien_thanh_toan) : 0;
     } else {
       if (calculatedData) {
-        required = loaiThanhToan === 'tra_gop' ? Number(calculatedData.so_tien_dot_1) : Number(calculatedData.tong_tien_thanh_toan);
+        required = (loaiThanhToan === 'tra_gop' || loaiThanhToan === 'tung_buoi') 
+          ? Number(calculatedData.so_tien_dot_1) 
+          : Number(calculatedData.tong_tien_thanh_toan);
       }
     }
     const received = Number(soTienNhan) || 0;
@@ -429,7 +522,11 @@ export default function QuickBilling() {
         </div>
       ) : (
         <div className="bg-primary/5 text-primary border border-primary/20 rounded-xl px-4 py-3 text-xs font-black uppercase tracking-wider w-fit flex items-center gap-2">
-          {activeTab === 'package' ? (
+          {selectedConsultation?.loai_lich === 'dieu_tri' ? (
+            <>
+              <Coins size={14} /> Thanh toán Buổi trị liệu (Buổi {selectedConsultation.so_thu_tu_buoi})
+            </>
+          ) : activeTab === 'package' ? (
             <>
               <Sparkles size={14} /> Thanh toán Gói trị liệu chỉ định
             </>
@@ -578,9 +675,20 @@ export default function QuickBilling() {
                         <p className="text-[10px] text-amber-600 font-bold mt-0.5">Giá gói: {formatCurrency(Number(selectedPackage.gia_goi))}</p>
                       </div>
                     </div>
-                    <span className="text-[10px] font-black text-primary bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-lg uppercase tracking-wider">
-                      Chỉ định y khoa
-                    </span>
+                    <div className="flex flex-col items-end gap-2">
+                      <span className="text-[10px] font-black text-primary bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-lg uppercase tracking-wider">
+                        Chỉ định y khoa
+                      </span>
+                      <label className="flex items-center gap-2 cursor-pointer mt-1 select-none">
+                        <input
+                          type="checkbox"
+                          checked={dangKyGoi}
+                          onChange={(e) => setDangKyGoi(e.target.checked)}
+                          className="rounded border-zinc-300 text-primary focus:ring-primary size-3.5 cursor-pointer"
+                        />
+                        <span className="text-[10px] font-extrabold text-secondary uppercase tracking-wider">Đăng ký gói này</span>
+                      </label>
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -620,7 +728,7 @@ export default function QuickBilling() {
               )}
 
               {/* Step C: Billing details and calculations */}
-              {selectedPackage && (
+              {selectedConsultation && (
                 <form onSubmit={handleThanhToanPackage} className="bg-white rounded-2xl border border-zinc-150 shadow-sm p-6 space-y-6 animate-in slide-in-from-bottom duration-300">
                   <div className="space-y-1 border-b border-zinc-100 pb-3">
                     <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-md uppercase tracking-wider">
@@ -632,19 +740,28 @@ export default function QuickBilling() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <label htmlFor="loaiThanhToan" className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Hình thức thanh toán gói</label>
-                      <select 
-                        id="loaiThanhToan"
-                        value={loaiThanhToan}
-                        onChange={(e: any) => setLoaiThanhToan(e.target.value)}
-                        className="w-full px-3 py-3.5 bg-zinc-50 border border-zinc-200 focus:border-primary rounded-xl font-bold text-secondary text-xs outline-none cursor-pointer"
-                      >
-                        <option value="tra_thang">
-                          💳 Trả thẳng (Giảm {selectedPackage?.phan_tram_giam_tra_thang ?? 10}%)
-                        </option>
-                        <option value="tra_gop">
-                          🏦 Trả góp (Giảm {selectedPackage?.phan_tram_giam_tra_gop ?? 5}%)
-                        </option>
-                      </select>
+                      {dangKyGoi && selectedPackage ? (
+                        <select 
+                          id="loaiThanhToan"
+                          value={loaiThanhToan}
+                          onChange={(e: any) => setLoaiThanhToan(e.target.value)}
+                          className="w-full px-3 py-3.5 bg-zinc-50 border border-zinc-200 focus:border-primary rounded-xl font-bold text-secondary text-xs outline-none cursor-pointer"
+                        >
+                          <option value="tra_thang">
+                            💳 Trả thẳng (Giảm {selectedPackage?.phan_tram_giam_tra_thang ?? 10}%)
+                          </option>
+                          <option value="tra_gop">
+                            🏦 Trả góp (Giảm {selectedPackage?.phan_tram_giam_tra_gop ?? 5}%)
+                          </option>
+                          <option value="tung_buoi">
+                            💵 Thanh toán từng buổi (Giảm 0%)
+                          </option>
+                        </select>
+                      ) : (
+                        <div className="w-full px-3 py-3.5 bg-zinc-100 border border-zinc-250 rounded-xl font-bold text-zinc-400 text-xs select-none">
+                          ❌ Không đăng ký gói (Chỉ thanh toán phí khám)
+                        </div>
+                      )}
                     </div>
 
                     <div className="space-y-1.5">
@@ -663,42 +780,44 @@ export default function QuickBilling() {
                   </div>
 
                   {/* Voucher Area */}
-                  <div className="space-y-2">
-                    <label htmlFor="maVoucher" className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Áp dụng mã giảm giá lâm sàng (Voucher)</label>
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <Gift className="absolute left-3.5 top-3.5 text-zinc-400" size={16} />
-                        <input
-                          id="maVoucher"
-                          type="text"
-                          value={maVoucher}
-                          disabled={!!appliedVoucher || hasAutoPromo}
-                          onChange={(e) => setMaVoucher(e.target.value.toUpperCase())}
-                          placeholder={hasAutoPromo ? "Đã tự động áp dụng ưu đãi, không cần nhập mã" : "Mã voucher (VD: UUDAI10, PHYSIO50K)"}
-                          className="w-full pl-10 pr-4 py-3 bg-zinc-50 border border-zinc-200 focus:border-primary rounded-xl font-bold text-secondary text-xs outline-none transition-all uppercase placeholder-zinc-400 disabled:opacity-60"
-                        />
+                  {dangKyGoi && selectedPackage && (
+                    <div className="space-y-2">
+                      <label htmlFor="maVoucher" className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Áp dụng mã giảm giá lâm sàng (Voucher)</label>
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <Gift className="absolute left-3.5 top-3.5 text-zinc-400" size={16} />
+                          <input
+                            id="maVoucher"
+                            type="text"
+                            value={maVoucher}
+                            disabled={!!appliedVoucher || hasAutoPromo}
+                            onChange={(e) => setMaVoucher(e.target.value.toUpperCase())}
+                            placeholder={hasAutoPromo ? "Đã tự động áp dụng ưu đãi, không cần nhập mã" : "Mã voucher (VD: UUDAI10, PHYSIO50K)"}
+                            className="w-full pl-10 pr-4 py-3 bg-zinc-50 border border-zinc-200 focus:border-primary rounded-xl font-bold text-secondary text-xs outline-none transition-all uppercase placeholder-zinc-400 disabled:opacity-60"
+                          />
+                        </div>
+                        
+                        {appliedVoucher ? (
+                          <button
+                            type="button"
+                            onClick={handleRemoveVoucher}
+                            className="px-5 bg-rose-50 border border-rose-200 hover:bg-rose-100 text-rose-600 rounded-xl font-extrabold text-[10px] uppercase tracking-wider transition-all"
+                          >
+                            Hủy áp dụng
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={handleApplyVoucher}
+                            disabled={hasAutoPromo}
+                            className="px-5 bg-primary hover:opacity-90 text-white rounded-xl font-extrabold text-[10px] uppercase tracking-wider transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                          >
+                            Áp dụng
+                          </button>
+                        )}
                       </div>
-                      
-                      {appliedVoucher ? (
-                        <button
-                          type="button"
-                          onClick={handleRemoveVoucher}
-                          className="px-5 bg-rose-50 border border-rose-200 hover:bg-rose-100 text-rose-600 rounded-xl font-extrabold text-[10px] uppercase tracking-wider transition-all"
-                        >
-                          Hủy áp dụng
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={handleApplyVoucher}
-                          disabled={hasAutoPromo}
-                          className="px-5 bg-primary hover:opacity-90 text-white rounded-xl font-extrabold text-[10px] uppercase tracking-wider transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                        >
-                          Áp dụng
-                        </button>
-                      )}
                     </div>
-                  </div>
+                  )}
 
                   {/* Smart Cash input (for Cash only) */}
                   {phuongThuc === 'tien_mat' && (
@@ -779,7 +898,15 @@ export default function QuickBilling() {
                       disabled={loading || calculating || !selectedConsultation}
                       className="flex-1 py-3.5 text-white bg-primary hover:opacity-90 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-md disabled:opacity-50 active:scale-98"
                     >
-                      {loading ? 'Đang hoàn tất...' : 'Hoàn tất & Đăng ký gói'}
+                      {loading 
+                        ? 'Đang hoàn tất...' 
+                        : !dangKyGoi 
+                        ? 'Hoàn tất & Thanh toán khám' 
+                        : loaiThanhToan === 'tung_buoi'
+                        ? 'Kích hoạt gói & Thu phí khám'
+                        : loaiThanhToan === 'tra_gop'
+                        ? 'Kích hoạt gói & Thu Đợt 1'
+                        : 'Kích hoạt gói & Thu 100%'}
                     </button>
                   </div>
                 </form>
@@ -809,7 +936,14 @@ export default function QuickBilling() {
                       <div>
                         <h4 className="text-secondary font-black text-xs">{selectedConsultation.ten_khach_hang}</h4>
                         <p className="text-[10px] text-zinc-500 font-semibold mt-0.5">SĐT: {selectedConsultation.sdt_khach_hang} | Mã ca: {selectedConsultation.ma_lich_dat}</p>
-                        <p className="text-[10px] text-primary font-bold mt-0.5">Thực hiện: {selectedConsultation.ten_dich_vu}</p>
+                        {selectedConsultation.loai_lich === 'dieu_tri' ? (
+                          <>
+                            <p className="text-[10px] text-primary font-bold mt-0.5">Gói trị liệu: {selectedConsultation.pd_ten_goi}</p>
+                            <p className="text-[10px] text-indigo-600 font-black mt-0.5">Buổi thứ: {selectedConsultation.so_thu_tu_buoi} / {selectedConsultation.pd_tong_so_buoi}</p>
+                          </>
+                        ) : (
+                          <p className="text-[10px] text-primary font-bold mt-0.5">Thực hiện: {selectedConsultation.ten_dich_vu}</p>
+                        )}
                       </div>
                     </div>
                     {!isLocked && (
@@ -910,7 +1044,7 @@ export default function QuickBilling() {
                       </div>
                     )}
 
-                    {selectedConsultation && (
+                    {selectedConsultation && selectedConsultation.loai_lich === 'kham_moi' && selectedConsultation.khuyen_nghi_goi_id && (
                       <div className="space-y-1.5 sm:col-span-2">
                         <label htmlFor="feedbackLyDo" className="text-[10px] font-extrabold text-amber-600 bg-amber-50 border border-amber-100 px-2.5 py-1 rounded uppercase tracking-wider block w-fit">
                           Lý do khách không hài lòng về gói * (Lễ tân thu thập phản hồi)
@@ -1055,14 +1189,30 @@ export default function QuickBilling() {
                   </div>
                   
                   {activeTab === 'package' ? (
-                    <div className="flex justify-between items-start gap-4 text-[11px] font-bold text-zinc-500">
-                      <div className="space-y-1">
-                        <p className="text-secondary font-black leading-snug">{selectedPackage.ten_goi}</p>
-                        <p className="text-[9px] text-zinc-400 font-extrabold uppercase tracking-wider">
-                          Phác đồ trọn gói: {selectedPackage.tong_so_buoi} Buổi | Hạn: {selectedPackage.han_dung_thang || 6} tháng
-                        </p>
-                      </div>
-                      <span className="text-secondary font-black shrink-0">{formatCurrency(Number(calculatedData.gia_goc))}</span>
+                    <div className="space-y-3">
+                      {selectedConsultation && calculatedData && (
+                        <div className="flex justify-between items-start gap-4 text-[11px] font-bold text-zinc-500">
+                          <div className="space-y-1">
+                            <p className="text-secondary font-black leading-snug">Phí khám lâm sàng & Lượng giá</p>
+                            <p className="text-[9px] text-zinc-400 font-extrabold uppercase tracking-wider">Buổi khám đầu tiên</p>
+                          </div>
+                          <span className="text-secondary font-black shrink-0">{formatCurrency(Number(calculatedData.chi_phi_kham))}</span>
+                        </div>
+                      )}
+
+                      {dangKyGoi && selectedPackage && calculatedData && (
+                        <div className="flex justify-between items-start gap-4 text-[11px] font-bold text-zinc-500 border-t border-zinc-100 pt-3">
+                          <div className="space-y-1">
+                            <p className="text-secondary font-black leading-snug">{selectedPackage.ten_goi}</p>
+                            <p className="text-[9px] text-zinc-400 font-extrabold uppercase tracking-wider">
+                              Phác đồ trọn gói: {selectedPackage.tong_so_buoi} Buổi | Hạn: {selectedPackage.han_dung_thang || 6} tháng
+                            </p>
+                          </div>
+                          <span className="text-secondary font-black shrink-0">
+                            {formatCurrency(Number(calculatedData.gia_goc) - Number(calculatedData.chi_phi_kham))}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="flex justify-between items-start gap-4 text-[11px] font-bold text-zinc-500">
@@ -1108,16 +1258,73 @@ export default function QuickBilling() {
                         </div>
                       )}
                       
-                      {loaiThanhToan === 'tra_gop' && (
-                        <div className="bg-amber-50/50 border border-amber-100 p-2.5 rounded-lg space-y-1 text-amber-700 text-[9px] leading-relaxed">
-                          <div className="flex justify-between font-black">
-                            <span>Thanh toán Đợt 1 (50%):</span>
-                            <span>{formatCurrency(Number(calculatedData.so_tien_dot_1))}</span>
+                      {dangKyGoi && (
+                        <div className="bg-indigo-50/50 border border-indigo-100 p-3 rounded-xl space-y-2 text-indigo-750 text-[10px] font-semibold leading-relaxed shadow-sm col-span-2 mt-2">
+                          <div className="flex justify-between items-center border-b border-indigo-100/60 pb-1.5 mb-1.5">
+                            <span className="font-extrabold text-[9px] uppercase tracking-wider text-indigo-600">Lộ trình thanh toán gói</span>
+                            <span className="text-[8px] font-black text-indigo-650 bg-indigo-100/60 px-2 py-0.5 rounded uppercase">
+                              {loaiThanhToan === 'tra_thang' ? 'Trả thẳng 100%' : loaiThanhToan === 'tra_gop' ? 'Trả góp 50%' : 'Thanh toán từng buổi'}
+                            </span>
                           </div>
-                          <div className="flex justify-between opacity-80 font-bold border-t border-amber-100/50 pt-1 mt-1">
-                            <span>Ghi nợ Đợt 2 (50%):</span>
-                            <span>{formatCurrency(Number(calculatedData.so_tien_dot_2))}</span>
+
+                          <div className="flex justify-between items-center">
+                            <span className="opacity-75">Phí khám lâm sàng & Lượng giá:</span>
+                            <span className="text-secondary font-black">{formatCurrency(Number(calculatedData.chi_phi_kham))}</span>
                           </div>
+
+                          {Number(calculatedData.so_tien_giam_phuong_thuc) > 0 && (
+                            <div className="flex justify-between items-center text-emerald-600">
+                              <span className="opacity-95">Ưu đãi thanh toán:</span>
+                              <span className="font-black">-{formatCurrency(Number(calculatedData.so_tien_giam_phuong_thuc))}</span>
+                            </div>
+                          )}
+
+                          {Number(calculatedData.so_tien_giam_voucher) > 0 && (
+                            <div className="flex justify-between items-center text-emerald-600">
+                              <span className="opacity-95">Ưu đãi Voucher:</span>
+                              <span className="font-black">-{formatCurrency(Number(calculatedData.so_tien_giam_voucher))}</span>
+                            </div>
+                          )}
+
+                          {Number(calculatedData.giam_tru_kham_truoc_do) > 0 && (
+                            <div className="flex justify-between items-center text-amber-600">
+                              <span className="opacity-95">Khấu trừ phí khám đã đóng trước đó:</span>
+                              <span className="font-black">-{formatCurrency(Number(calculatedData.giam_tru_kham_truoc_do))}</span>
+                            </div>
+                          )}
+
+                          {Number(calculatedData.mien_phi_kham_chua_dong) > 0 && (
+                            <div className="flex justify-between items-center text-emerald-600">
+                              <span className="opacity-95">Ưu đãi miễn phí khám (Gói &gt; 1M):</span>
+                              <span className="font-black">-{formatCurrency(Number(calculatedData.mien_phi_kham_chua_dong))}</span>
+                            </div>
+                          )}
+
+                          <div className="flex justify-between items-center border-t border-indigo-100/40 pt-2 mt-2">
+                            <span className="text-indigo-700 font-extrabold">Hôm nay thu (Phí khám + Gói đợt đầu):</span>
+                            <strong className="text-indigo-600 font-black text-[11px]">{formatCurrency(Number(calculatedData.so_tien_dot_1))}</strong>
+                          </div>
+
+                          <div className="flex justify-between items-center">
+                            <span>Trạng thái kích hoạt:</span>
+                            <span className="text-emerald-600 font-black flex items-center gap-1">🟢 Kích hoạt ngay</span>
+                          </div>
+
+                          {loaiThanhToan === 'tra_gop' && (
+                            <div className="flex justify-between items-center opacity-85 pl-2 border-l border-indigo-200">
+                              <span>• Ghi nợ Đợt 2 (50% gói):</span>
+                              <span className="text-secondary font-black">{formatCurrency(Number(calculatedData.so_tien_dot_2))}</span>
+                            </div>
+                          )}
+
+                          {loaiThanhToan === 'tung_buoi' && (
+                            <div className="flex justify-between items-center opacity-85 pl-2 border-l border-indigo-200">
+                              <span>• Thanh toán sau mỗi buổi:</span>
+                              <span className="text-secondary font-black">
+                                {formatCurrency(Math.round(Number(calculatedData.so_tien_dot_2) / (Number(calculatedData.so_buoi_goi) || 1)))}/buổi (Khi hoàn thành buổi trị liệu)
+                              </span>
+                            </div>
+                          )}
                         </div>
                       )}
                     </>

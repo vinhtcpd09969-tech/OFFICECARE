@@ -110,7 +110,16 @@ export const getAppointments = (startDate?: string, endDate?: string) =>
   api.get<DoctorAppointment[]>('/doctor/appointments', { params: { startDate, endDate } });
 
 export const getAppointmentDetail = (id: string) => 
-  api.get<DoctorQueueItem & { ho_so_benh_an_id?: string; chan_doan?: string; chong_chi_dinh?: string; ghi_chu?: string; goi_dich_vu_id?: string; dich_vu_id?: string }>(`/doctor/appointments/${id}`);
+  api.get<DoctorQueueItem & { 
+    ho_so_benh_an_id?: string; 
+    chan_doan?: string; 
+    chong_chi_dinh?: string; 
+    ghi_chu?: string; 
+    goi_dich_vu_id?: string; 
+    dich_vu_id?: string;
+    vas_truoc?: number;
+    vas_sau?: number;
+  }>(`/doctor/appointments/${id}`);
 
 export const getPatientProfile = (patientId: string) => 
   api.get<PatientProfile>(`/doctor/patients/${patientId}/profile`);

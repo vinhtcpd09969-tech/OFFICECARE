@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { createPackage, updatePackage, getCategories } from '../../../../api/admin.api';
+import { createPackage, updatePackage, getCategories } from '../../api/admin.api';
 import { useEffect, useState, useRef } from 'react';
 import { UploadCloud, X, Sparkles, Coins, Layers, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';

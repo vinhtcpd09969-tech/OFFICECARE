@@ -13,26 +13,14 @@ interface SymptomNotesProps {
 export function SymptomNotes({
   selectedAppointment,
   isUnconfirmedState,
-  isSendingEmail,
-  handleResendEmail,
-  appendCallLog,
+  isSendingEmail: _isSendingEmail,
+  handleResendEmail: _handleResendEmail,
+  appendCallLog: _,
   localGhiChuNoiBo,
   setLocalGhiChuNoiBo
 }: SymptomNotesProps) {
   return (
     <div className="space-y-6">
-      {/* Triệu chứng khách hàng điền khi đặt lịch */}
-      <div className="bg-emerald-50/30 p-4 rounded-xl border border-emerald-100/50 space-y-2">
-        <h4 className="text-xs font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1">
-          📝 Triệu chứng khách hàng điền
-        </h4>
-        <div className="grid grid-cols-1 gap-2.5 text-sm">
-          <p className="text-slate-850 bg-white p-3 rounded-lg border border-slate-200/60 text-xs font-semibold italic text-slate-700">
-            "{selectedAppointment.ly_do_kham || 'Không mô tả triệu chứng'}"
-          </p>
-        </div>
-      </div>
-
       {/* Cảnh báo yêu cầu hủy */}
       {selectedAppointment.trang_thai === 'cho_huy' && (
         <div className="bg-rose-50 p-4 rounded-xl border border-rose-200 border-l-4 border-l-rose-600 space-y-2 animate-in fade-in">
@@ -53,7 +41,7 @@ export function SymptomNotes({
         </div>
       )}
 
-      {/* Điều phối phòng & bác sĩ hoặc Giao diện gọi điện */}
+      {/* Giao diện cuộc gọi & Xác nhận */}
       {isUnconfirmedState && (
         <div className="bg-slate-50 dark:bg-zinc-800/45 p-5 rounded-2xl border border-slate-150 dark:border-zinc-800/80 space-y-4">
           <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-zinc-700/50 pb-3">
@@ -83,54 +71,6 @@ export function SymptomNotes({
                   <PhoneCall size={14} className="animate-pulse" />
                 </span>
               </a>
-            </div>
-
-            <button
-              type="button"
-              disabled={isSendingEmail}
-              onClick={handleResendEmail}
-              className="w-full sm:w-auto px-4 py-2.5 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-450 border border-emerald-250 dark:border-emerald-900/30 text-xs font-bold rounded-xl hover:bg-emerald-100 dark:hover:bg-emerald-955/30 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
-            >
-              {isSendingEmail ? (
-                <span className="w-3.5 h-3.5 border-2 border-emerald-700 dark:border-emerald-450 border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <span className="text-sm">✉️</span>
-              )}
-              Gửi lại email xác nhận
-            </button>
-          </div>
-
-          <div className="space-y-2 border-t border-slate-200/60 dark:border-zinc-700/50 pt-3">
-            <p className="text-[10px] font-bold text-slate-450 dark:text-zinc-555 uppercase tracking-wider">Ghi nhanh lịch sử gọi điện</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => appendCallLog('Gọi thành công - Khách xác nhận lịch hẹn')}
-                className="text-left px-3 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:border-emerald-500 dark:hover:border-emerald-600 hover:bg-emerald-50/20 dark:hover:bg-emerald-955/10 rounded-xl text-xs font-semibold text-slate-700 dark:text-zinc-300 transition-all flex items-center gap-2 active:scale-98"
-              >
-                🟢 Đã liên hệ & Xác nhận
-              </button>
-              <button
-                type="button"
-                onClick={() => appendCallLog('Khách bận/Thuê bao - Sẽ gọi lại sau')}
-                className="text-left px-3 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:border-amber-500 dark:hover:border-amber-600 hover:bg-amber-50/20 dark:hover:bg-amber-955/10 rounded-xl text-xs font-semibold text-slate-700 dark:text-zinc-300 transition-all flex items-center gap-2 active:scale-98"
-              >
-                🟡 Máy bận/Gọi lại sau
-              </button>
-              <button
-                type="button"
-                onClick={() => appendCallLog('Gọi lần 1: Khách không nhấc máy')}
-                className="text-left px-3 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:border-rose-500 dark:hover:border-rose-600 hover:bg-rose-50/20 dark:hover:bg-rose-955/10 rounded-xl text-xs font-semibold text-slate-700 dark:text-zinc-300 transition-all flex items-center gap-2 active:scale-98"
-              >
-                🔴 Không nhấc máy (Lần 1)
-              </button>
-              <button
-                type="button"
-                onClick={() => appendCallLog('Gọi lần 2: Khách không nhấc máy')}
-                className="text-left px-3 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:border-rose-500 dark:hover:border-rose-600 hover:bg-rose-50/20 dark:hover:bg-rose-955/10 rounded-xl text-xs font-semibold text-slate-700 dark:text-zinc-300 transition-all flex items-center gap-2 active:scale-98"
-              >
-                🔴 Không nhấc máy (Lần 2)
-              </button>
             </div>
           </div>
 

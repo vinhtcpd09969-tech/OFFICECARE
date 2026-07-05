@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowRight, Clock, Phone, Loader2, Info } from 'lucide-react';
-import { getPublicPackages, getPublicCategories } from '../../../api/client.api';
+import { getPublicPackages, getPublicCategories } from '../api/public.api';
 import toast from 'react-hot-toast';
 
 interface Package {

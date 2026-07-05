@@ -15,11 +15,13 @@ export const getAllAppointments = async (req: Request, res: Response) => {
   }
 };
 
-// Tạo lịch hẹn mới
 export const createAppointment = async (req: Request, res: Response): Promise<any> => {
   try {
     const validated = createAppointmentSchema.parse({ body: req.body });
-    const appointment = await appointmentService.createAppointment(validated.body);
+    const appointment = await appointmentService.createAppointment({
+      ...validated.body,
+      nguoi_tao_id: req.user?.id ? Number(req.user.id) : null
+    });
     return res.status(201).json(appointment);
   } catch (error: any) {
     console.error('Lỗi khi tạo lịch hẹn:', error);

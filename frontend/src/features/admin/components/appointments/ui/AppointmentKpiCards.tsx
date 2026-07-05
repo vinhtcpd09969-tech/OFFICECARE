@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Calendar, AlertCircle, CheckCircle2, UserCheck, HelpCircle } from 'lucide-react';
+import { Calendar, AlertCircle, CheckCircle2, HelpCircle } from 'lucide-react';
 
 interface KpiData {
   total: number;
@@ -100,9 +100,9 @@ export function AppointmentKpiCards({
       icon: <AlertCircle className="text-[#F59E0B]" size={18} />
     },
     {
-      title: isReceptionist ? "Đã xác nhận" : "Đã hoàn thành",
+      title: "Đã hoàn thành",
       value: completed,
-      subtext: isReceptionist ? "Sẵn sàng đón khách" : (isKham ? `Khám xong ${rangeLabel}` : `Trị liệu xong ${rangeLabel}`),
+      subtext: isKham ? `Khám xong ${rangeLabel}` : `Trị liệu xong ${rangeLabel}`,
       subtextColor: "text-emerald-500",
       pct: completedPct,
       color: "from-[#22C55E] to-[#4ADE80]",
@@ -111,15 +111,15 @@ export function AppointmentKpiCards({
       icon: <CheckCircle2 className="text-[#22C55E]" size={18} />
     },
     {
-      title: isReceptionist ? "Đã Check-in" : "Hủy / Vắng mặt",
+      title: isReceptionist ? "Đã hủy" : "Hủy / Vắng mặt",
       value: secondary,
-      subtext: isReceptionist ? "Khách đã có mặt" : `Hủy / Vắng ${rangeLabel}`,
-      subtextColor: isReceptionist ? "text-[#14B8A6]" : "text-rose-500",
+      subtext: isReceptionist ? `Ca đặt đã hủy ${rangeLabel}` : `Hủy / Vắng ${rangeLabel}`,
+      subtextColor: "text-rose-500",
       pct: secondaryPct,
-      color: isReceptionist ? "from-[#14B8A6] to-[#0D9488]" : "from-[#EF4444] to-[#F87171]",
-      trackColor: isReceptionist ? "stroke-teal-500/10" : "stroke-rose-500/10",
-      ringColor: isReceptionist ? "stroke-[#14B8A6]" : "stroke-[#EF4444]",
-      icon: isReceptionist ? <UserCheck className="text-[#14B8A6]" size={18} /> : <HelpCircle className="text-[#EF4444]" size={18} />
+      color: "from-[#EF4444] to-[#F87171]",
+      trackColor: "stroke-rose-500/10",
+      ringColor: "stroke-[#EF4444]",
+      icon: <HelpCircle className="text-[#EF4444]" size={18} />
     }
   ];
 

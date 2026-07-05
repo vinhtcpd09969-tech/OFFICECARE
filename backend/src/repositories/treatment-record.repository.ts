@@ -35,6 +35,7 @@ class TreatmentRecordRepository {
         'KTV phụ trách' as ten_ky_thuat_vien_hien_tai,
         'Phòng trị liệu' as ten_phong_tri_lieu_hien_tai
       FROM phac_do_dieu_tri pd
+      JOIN hoa_don hd ON hd.phac_do_dieu_tri_id = pd.id
       JOIN khach_hang kh ON pd.khach_hang_id = kh.id
       LEFT JOIN goi_dich_vu goi ON pd.goi_dich_vu_id = goi.id
       ORDER BY pd.ngay_kich_hoat DESC NULLS LAST

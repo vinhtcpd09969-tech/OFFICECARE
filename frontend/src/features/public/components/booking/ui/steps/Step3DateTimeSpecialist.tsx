@@ -45,7 +45,7 @@ export function Step3DateTimeSpecialist({
   user
 }: Step3DateTimeSpecialistProps) {
   const location = useLocation();
-  const interval = duration + 10;
+  const interval = duration;
 
   const handleNextStep = async () => {
     if (selectedDate && selectedTime) {
@@ -103,7 +103,7 @@ export function Step3DateTimeSpecialist({
           return `${h}:${m}`;
         };
 
-        const slotEnd = new Date(slotStart.getTime() + (duration + 10) * 60000);
+        const slotEnd = new Date(slotStart.getTime() + duration * 60000);
         slots.push(`${formatTime(slotStart)} - ${formatTime(slotEnd)}`);
         current = slotNextStart;
       }
@@ -112,7 +112,7 @@ export function Step3DateTimeSpecialist({
 
     return {
       morningSlots: generateSlots(8, 0, 12, 0),
-      afternoonSlots: generateSlots(13, 30, 18, 0),
+      afternoonSlots: generateSlots(12, 0, 18, 0),
       eveningSlots: generateSlots(18, 0, 20, 0)
     };
   }, [selectedDate, interval]);
@@ -197,7 +197,7 @@ export function Step3DateTimeSpecialist({
         {afternoonSlots.length > 0 && (
           <div className="space-y-3">
             <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-orange-400" /> Buổi chiều (13:30 - 18:00)
+              <span className="w-1.5 h-1.5 rounded-full bg-orange-400" /> Buổi chiều (12:00 - 18:00)
             </h4>
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
               {afternoonSlots.map((time) => {

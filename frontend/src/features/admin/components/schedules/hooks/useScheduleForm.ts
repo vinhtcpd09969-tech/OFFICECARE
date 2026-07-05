@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMemo, useCallback } from 'react';
 import { scheduleSchema, ScheduleFormValues, Schedule, Staff, Room } from '../types';
 import { formatLocalDate } from '../constants';
-import { createSchedule, updateSchedule } from '../../../../../api/admin.api';
+import { createSchedule, updateSchedule } from '../../../api/admin.api';
 import toast from 'react-hot-toast';
 
 interface UseScheduleFormProps {

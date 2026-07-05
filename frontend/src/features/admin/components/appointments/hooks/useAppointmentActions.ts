@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { format } from 'date-fns';
-import axiosInstance from '../../../../../api/axios';
+import { createAppointment, updateAppointmentStatus } from '../../../api/admin.api';
 import toast from 'react-hot-toast';
 import { convertToVietnamUtcIso } from '../../../../../utils/date';
 import { Appointment } from '../types';
@@ -19,6 +19,8 @@ interface UseAppointmentActionsProps {
   roleView: 'manager' | 'receptionist' | 'doctor';
   isDemoMode?: boolean;
   setDemoApts?: React.Dispatch<React.SetStateAction<Appointment[]>>;
+  activeType?: 'kham' | 'dieu_tri';
+  setActiveType?: (type: 'kham' | 'dieu_tri') => void;
 }
 
 export function useAppointmentActions({
@@ -35,7 +37,9 @@ export function useAppointmentActions({
   navigate,
   roleView,
   isDemoMode = false,
-  setDemoApts
+  setDemoApts,
+  activeType,
+  setActiveType
 }: UseAppointmentActionsProps) {
   // Modal states
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
@@ -50,6 +54,9 @@ export function useAppointmentActions({
   const [assignStatus, setAssignStatus] = useState<string>('');
   const [cancelReason, setCancelReason] = useState<string>('');
   const [isAssigning, setIsAssigning] = useState(false);
+
+  // Time Rescheduling State
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>('');
 
   // Treatment Booking Form State
   const [treatmentType, setTreatmentType] = useState<'single' | 'package'>('single');
@@ -74,6 +81,13 @@ export function useAppointmentActions({
     setAssignStatus(apt.trang_thai);
     setAssignStaffId(apt.bac_si_id ? String(apt.bac_si_id) : '');
     setAssignRoomId(apt.phong_id ? String(apt.phong_id) : '');
+    
+    // Set initial selected time slot
+    const date = new Date(apt.ngay_gio_bat_dau);
+    const startHourStr = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+    setSelectedTimeSlot(startHourStr);
+    
+    setIsWalkInModalOpen(false); // Close Walk-in Booking Form to show detail modal cleanly
     setIsDetailModalOpen(true);
   }, [roleView, navigate]);
 
@@ -123,12 +137,32 @@ export function useAppointmentActions({
         finalStatus = 'da_xac_nhan';
       }
 
-      await axiosInstance.patch(`/admin/appointments/${selectedAppointment.id}/status`, {
+      // Construct new date strings if selectedTimeSlot has changed
+      let finalNgayGioBatDau: string | null = null;
+      let finalNgayGioKetThuc: string | null = null;
+
+      const origStart = new Date(selectedAppointment.ngay_gio_bat_dau);
+      const origEnd = new Date(selectedAppointment.ngay_gio_ket_thuc);
+      const durationMs = origEnd.getTime() - origStart.getTime();
+
+      const [hours, minutes] = selectedTimeSlot.split(':').map(Number);
+      const newStart = new Date(origStart);
+      newStart.setHours(hours, minutes, 0, 0);
+      const newEnd = new Date(newStart.getTime() + durationMs);
+
+      if (newStart.getTime() !== origStart.getTime()) {
+        finalNgayGioBatDau = newStart.toISOString();
+        finalNgayGioKetThuc = newEnd.toISOString();
+      }
+
+      await updateAppointmentStatus(String(selectedAppointment.id), {
         trang_thai: finalStatus,
         bac_si_id: assignStaffId || null,
         chuyen_gia_id: assignStaffId || null,
         phong_id: assignRoomId || null,
-        ly_do_huy: finalStatus === 'da_huy' ? cancelReason : null
+        ly_do_huy: finalStatus === 'da_huy' ? cancelReason : null,
+        ...(finalNgayGioBatDau && { ngay_gio_bat_dau: finalNgayGioBatDau }),
+        ...(finalNgayGioKetThuc && { ngay_gio_ket_thuc: finalNgayGioKetThuc })
       });
 
       toast.success('Cập nhật thông tin ca trực thành công');
@@ -140,7 +174,7 @@ export function useAppointmentActions({
     } finally {
       setIsAssigning(false);
     }
-  }, [selectedAppointment, assignStatus, assignStaffId, assignRoomId, refetch, isDemoMode, setDemoApts]);
+  }, [selectedAppointment, assignStatus, assignStaffId, assignRoomId, refetch, isDemoMode, setDemoApts, selectedTimeSlot, cancelReason]);
 
   const handleBookTreatment = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -235,7 +269,7 @@ export function useAppointmentActions({
         lich_dat_id: selectedAppointment.id
       };
 
-      await axiosInstance.post('/admin/appointments', payload);
+      await createAppointment(payload);
       toast.success('Lên lịch ca điều trị thành công!');
       setIsTreatmentModalOpen(false);
       await refetch();
@@ -247,6 +281,10 @@ export function useAppointmentActions({
   }, [selectedAppointment, treatmentType, selectedServiceId, selectedPackageId, selectedKtvId, selectedRoomId, treatmentDate, treatmentTime, services, packages, refetch, isDemoMode, setDemoApts]);
 
   const handleBookWalkIn = useCallback(async (payload: any) => {
+    const statusLabel = payload.trang_thai === 'da_checkin' 
+      ? 'đã Check-in' 
+      : (payload.trang_thai === 'da_xac_nhan' ? 'đã xác nhận' : 'chờ gán nhân sự');
+
     if (isDemoMode && setDemoApts) {
       const newApt: Appointment = {
         id: `demo_${Date.now()}`,
@@ -255,26 +293,26 @@ export function useAppointmentActions({
         so_dien_thoai: payload.so_dien_thoai || "09xxxxxxxx",
         ngay_gio_bat_dau: payload.ngay_gio_bat_dau,
         ngay_gio_ket_thuc: payload.ngay_gio_ket_thuc,
-        trang_thai: "da_checkin",
-        bac_si_id: payload.ky_thuat_vien_id || null,
+        trang_thai: payload.trang_thai || "cho_xac_nhan",
+        bac_si_id: payload.bac_si_id || null,
         phong_id: payload.phong_id || null,
-        ten_dich_vu: services.find(s => String(s.id) === String(payload.dich_vu_id))?.ten_dich_vu || "Khám lâm sàng",
-        loai_lich: 'kham_moi'
+        ten_dich_vu: services.find(s => String(s.id) === String(payload.goi_dich_vu_id))?.ten_dich_vu || "Dịch vụ khám/trị liệu",
+        loai_lich: payload.loai_lich || 'kham_moi'
       };
       setDemoApts(prev => [...prev, newApt]);
-      toast.success('MÔ PHỎNG: Đăng ký khách vãng lai thành công. Ca khám đã được Check-in!');
+      toast.success(`MÔ PHỎNG: Lập lịch hẹn thành công (Trạng thái: ${statusLabel})!`);
       setIsWalkInModalOpen(false);
       return;
     }
 
     try {
       setBookingLoading(true);
-      await axiosInstance.post('/admin/appointments', payload);
-      toast.success('Đăng ký khách vãng lai thành công. Ca khám đã được Check-in!');
+      await createAppointment(payload);
+      toast.success(`Đăng ký lịch hẹn thành công (Trạng thái: ${statusLabel})!`);
       setIsWalkInModalOpen(false);
       await refetch();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Không thể tạo ca khám vãng lai');
+      toast.error(error.response?.data?.message || 'Không thể đăng ký lịch hẹn');
     } finally {
       setBookingLoading(false);
     }
@@ -292,7 +330,7 @@ export function useAppointmentActions({
     }
 
     try {
-      await axiosInstance.patch(`/admin/appointments/${appointmentId}/status`, updatedFields);
+      await updateAppointmentStatus(appointmentId, updatedFields);
       toast.success('Đã cập nhật phân bổ lịch trình');
       await refetch();
     } catch (error: any) {
@@ -346,6 +384,17 @@ export function useAppointmentActions({
 
     let needsTransition = false;
 
+    // Tự động chuyển tab Khám / Điều trị dựa vào loai_lich của lịch hẹn
+    if (setActiveType && activeType) {
+      if (apt.loai_lich === 'kham_moi' && activeType !== 'kham') {
+        setActiveType('kham');
+        needsTransition = true;
+      } else if ((apt.loai_lich === 'dieu_tri' || apt.loai_lich === 'dich_vu_don') && activeType !== 'dieu_tri') {
+        setActiveType('dieu_tri');
+        needsTransition = true;
+      }
+    }
+
     // Enforce switching to timeline (daily view) of that date so it is guaranteed to show
     if (viewMode !== 'timeline') {
       setViewMode('timeline');
@@ -368,7 +417,7 @@ export function useAppointmentActions({
     } else {
       doScroll(15);
     }
-  }, [appointments, selectedDate, viewMode, timeRange, setSelectedDate, setViewMode, setTimeRange]);
+  }, [appointments, selectedDate, viewMode, timeRange, setSelectedDate, setViewMode, setTimeRange, activeType, setActiveType]);
 
   return {
     selectedAppointment,
@@ -414,7 +463,9 @@ export function useAppointmentActions({
     handleUpdateAppointmentFields,
     scrollToAppointment,
     cancelReason,
-    setCancelReason
+    setCancelReason,
+    selectedTimeSlot,
+    setSelectedTimeSlot
   };
 }
 

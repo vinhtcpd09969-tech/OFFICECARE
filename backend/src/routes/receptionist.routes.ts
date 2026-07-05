@@ -16,7 +16,10 @@ import {
   getPackagesForReceptionist,
   getCompletedConsultations,
   getAutoVouchers,
-  confirmTreatmentPlan
+  confirmTreatmentPlan,
+  searchCustomers,
+  getCustomerTreatmentPlans,
+  getAppointmentBillingInfo
 } from '../controllers/receptionist.controller';
 
 const router = Router();
@@ -41,5 +44,8 @@ router.get('/sessions/:id/services', getSessionServices);
 router.get('/packages', getPackagesForReceptionist);
 router.get('/completed-consultations', getCompletedConsultations);
 router.get('/auto-vouchers', getAutoVouchers);
+router.get('/customers/search', searchCustomers);
+router.get('/customers/:id/treatment-plans', getCustomerTreatmentPlans);
+router.get('/appointments/:id/billing-info', getAppointmentBillingInfo);
 
 export default router;
