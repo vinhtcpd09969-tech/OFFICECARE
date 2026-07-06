@@ -856,6 +856,14 @@ class AdminRepository {
             AND ch.ngay_gio_bat_dau < ($1::date + $2::time + ($3 || ' minutes')::interval)::timestamp
             AND ch.ngay_gio_ket_thuc > ($1::date + $2::time)::timestamp
         )
+        -- 3. Khong trung voi bat ky ca giu cho nao
+        AND NOT EXISTS (
+          SELECT 1 FROM tam_giu_cho t
+          WHERE t.nhan_su_id = nd.id
+            AND t.thoi_gian_het_han > NOW()
+            AND t.ngay_gio_bat_dau < ($1::date + $2::time + ($3 || ' minutes')::interval)::timestamp
+            AND t.ngay_gio_ket_thuc > ($1::date + $2::time)::timestamp
+        )
       ORDER BY so_ca_trong_ngay ASC, nd.ho_ten ASC
     `;
 

@@ -322,15 +322,18 @@ export default function WalkInBookingModal({
         return !hasOverlap;
       });
 
-      if (availableStaff.length === 0) {
+      const unassignedAptsCount = overlappingApts.filter(apt => !apt.bac_si_id).length;
+      const finalCount = Math.max(0, availableStaff.length - unassignedAptsCount);
+
+      if (finalCount === 0) {
         return { time, available: false, count: 0, reason: 'Hết nhân sự' };
       }
 
       return {
         time,
         available: true,
-        count: availableStaff.length,
-        reason: `Còn ${availableStaff.length} NV`
+        count: finalCount,
+        reason: `Còn ${finalCount} NV`
       };
     });
   }, [selectedServiceId, selectedDoctorId, appointments, schedulesList, staffList, selectedDate, isExam, selectedService, isNewCustomer, selectedCustomer, isReceptionist, baseTimeSlots]);

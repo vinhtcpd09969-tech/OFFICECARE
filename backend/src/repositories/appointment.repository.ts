@@ -140,7 +140,55 @@ class AppointmentRepository {
       ORDER BY ch.ngay_gio_bat_dau DESC
     `;
     const { rows } = await pool.query(query);
-    return rows;
+
+    // Fetch active holds that have not expired yet
+    const holdQuery = `
+      SELECT 
+        t.id,
+        'HOLD-' || UPPER(SUBSTRING(t.id::text FROM 1 FOR 6)) as ma_lich_dat,
+        t.ngay_gio_bat_dau as ngay_gio_bat_dau,
+        t.ngay_gio_ket_thuc as ngay_gio_ket_thuc,
+        'giu_cho' as trang_thai,
+        CASE 
+          WHEN UPPER(g.loai_goi) IN ('KHAM', 'KHAM_MOI') THEN 'kham_moi'
+          ELSE 'dieu_tri'
+        END as loai_lich,
+        COALESCE(kh.ho_ten, 'Khách giữ chỗ') as ten_khach_hang,
+        t.so_dien_thoai as so_dien_thoai,
+        t.khach_hang_id as khach_hang_id,
+        g.ten_goi as ten_dich_vu,
+        nd.ho_ten as ten_ky_thuat_vien,
+        t.nhan_su_id as bac_si_id,
+        t.nhan_su_id as ky_thuat_vien_id,
+        null as phong_id,
+        null as ten_phong,
+        null as chan_doan,
+        null as chong_chi_dinh,
+        null as so_thu_tu_buoi,
+        null as phac_do_dieu_tri_id,
+        t.goi_dich_vu_id as goi_dich_vu_id,
+        'chua_thanh_toan' as trang_thai_thanh_toan,
+        null as trang_thai_hoa_don_goi,
+        null as so_tien_da_tra_goi,
+        null as tong_tien_phai_tra_goi,
+        null as hinh_thuc_thanh_toan_goi,
+        null as hoa_don_goi_id,
+        t.thoi_gian_tao as thoi_gian_tao,
+        'Giữ chỗ đang điền thông tin' as ly_do_kham,
+        null as ly_do_huy
+      FROM tam_giu_cho t
+      LEFT JOIN khach_hang kh ON t.khach_hang_id = kh.id
+      LEFT JOIN goi_dich_vu g ON t.goi_dich_vu_id = g.id
+      LEFT JOIN nguoi_dung nd ON t.nhan_su_id = nd.id
+      WHERE t.thoi_gian_het_han > NOW()
+    `;
+    try {
+      const holdRes = await pool.query(holdQuery);
+      return [...rows, ...holdRes.rows];
+    } catch (err) {
+      console.error('Error fetching tam_giu_cho rows:', err);
+      return rows;
+    }
   }
 
   async createAppointment(ma_lich_dat: string, data: any) {
