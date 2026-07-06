@@ -345,7 +345,7 @@ export default function ManageAppointments() {
 
     const matchStaff = !selectedStaffFilter || String(apt.bac_si_id) === String(selectedStaffFilter);
 
-    return matchDate && matchType && matchSearch && matchStaff;
+    return matchDate && matchType && matchSearch && matchStaff && apt.trang_thai !== 'giu_cho';
   });
 
   const getKpiAppointments = () => {

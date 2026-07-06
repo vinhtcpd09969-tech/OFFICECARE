@@ -259,7 +259,7 @@ export default function ReceptionistAppointments() {
     const isOverdueUnconfirmed = apt.trang_thai === 'chua_xac_nhan' && isGracePassed;
 
     const isAllowed = allowedStatuses.includes(apt.trang_thai) || isOverdueUnconfirmed;
-    return isAllowed && matchDate && matchType && matchSearch;
+    return isAllowed && matchDate && matchType && matchSearch && apt.trang_thai !== 'giu_cho';
   });
 
   // Danh sách các ca khám chưa xác nhận đã quá 10 phút (cho toàn bộ các ngày)
