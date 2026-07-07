@@ -1,6 +1,14 @@
 # Kế hoạch Thiết lập Database & Phát triển Tính năng Quản lý Bài viết Chuẩn SEO
 
-Tài liệu này hướng dẫn cách thiết lập nhanh cơ sở dữ liệu từ bản sao lưu mới nhất và lập kế hoạch xây dựng tính năng Quản lý Bài viết (Blog) chuẩn SEO cho hệ thống PhysioFlow.
+> [!IMPORTANT]
+> **🤖 CHỈ THỊ DÀNH CHO AI CODING ASSISTANT (CURSOR / CLAUDE / GEMINI):**
+> 1. **Đồng bộ mã nguồn:** Hãy chạy lệnh Git dưới đây để tải code chuẩn từ GitHub repo `https://github.com/vinhtcpd09969-tech/PhysioFlow.git` nhánh `feature/client-admin-updates` về ghi đè hoàn toàn code local hiện tại:
+>    ```bash
+>    git fetch origin
+>    git reset --hard origin/feature/client-admin-updates
+>    ```
+> 2. **Thiết lập cơ sở dữ liệu:** Thực hiện thiết lập môi trường `.env`, chạy `npx prisma db push`, và nạp dữ liệu từ file backup `database/office_care_backup_new.sql` theo hướng dẫn ở **Phần 1**.
+> 3. **Phát triển tính năng:** Thiết kế cơ sở dữ liệu và triển khai toàn diện tính năng bài viết (Blog/Articles) chuẩn SEO y khoa theo đặc tả kỹ thuật và cấu trúc đề xuất ở **Phần 2**.
 
 ---
 
