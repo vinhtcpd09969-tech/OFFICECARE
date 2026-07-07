@@ -60,13 +60,14 @@ export const getPatientProfile = async (req: Request, res: Response) => {
 };
 
 // GET /api/doctor/appointments/:id
-export const getAppointmentDetail = async (req: Request, res: Response) => {
+export const getAppointmentDetail = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params as { id: string };
+    const userId = req.user?.id;
     if (!id) {
       return res.status(400).json({ message: 'Thiếu ID lịch hẹn.' });
     }
-    const detail = await doctorService.getAppointmentDetail(id);
+    const detail = await doctorService.getAppointmentDetail(id, userId);
     res.json(detail);
   } catch (error: any) {
     console.error('Lỗi khi lấy chi tiết ca khám:', error);
@@ -91,7 +92,7 @@ export const saveAssessment = async (req: AuthenticatedRequest, res: Response) =
       lich_dat_id,
       chan_doan,
       chong_chi_dinh,
-      goi_dich_vu_id,
+      goi_dich_vu_id: goi_dich_vu_id || dich_vu_id || null,
       ghi_chu,
     });
 

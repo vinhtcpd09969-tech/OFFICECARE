@@ -102,8 +102,21 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
         setValue('tong_so_buoi', 12);
       }
     }
-    
-    // Reset selected category only if it's a manual change of package type
+  }, [watchLoaiGoi, setValue, watch]);
+
+  // Sync don_gia_theo_buoi automatically for Lieu Trinh
+  useEffect(() => {
+    if (watchLoaiGoi === 'LIEU_TRINH') {
+      if (watchDonGia > 0 && watchTongSoBuoi > 0) {
+        setValue('don_gia_theo_buoi', Math.round(watchDonGia / watchTongSoBuoi));
+      } else {
+        setValue('don_gia_theo_buoi', 0);
+      }
+    }
+  }, [watchLoaiGoi, watchDonGia, watchTongSoBuoi, setValue]);
+
+  // Reset selected category only if it's a manual change of package type
+  useEffect(() => {
     if (prevLoaiGoiRef.current !== undefined && prevLoaiGoiRef.current !== watchLoaiGoi) {
       setValue('danh_muc_goi_id', '');
     }
@@ -597,9 +610,10 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                             <div className="relative">
                               <input 
                                 type="number"
+                                readOnly
                                 {...register('don_gia_theo_buoi', { valueAsNumber: true })} 
-                                placeholder={averageCost ? String(Math.round(averageCost * 1.25)) : "60000"}
-                                className="w-full px-4 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 outline-none transition-all font-semibold text-secondary shadow-sm text-sm pr-12"
+                                placeholder={averageCost ? String(averageCost) : "60000"}
+                                className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl outline-none font-semibold text-secondary shadow-sm text-sm pr-12 cursor-not-allowed"
                               />
                               <span className="absolute right-3 top-2.5 text-[10px] font-bold text-slate-400">VND</span>
                             </div>

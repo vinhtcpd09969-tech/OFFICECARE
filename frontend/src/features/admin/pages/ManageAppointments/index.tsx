@@ -155,7 +155,9 @@ export default function ManageAppointments() {
     cancelReason,
     setCancelReason,
     selectedTimeSlot,
-    setSelectedTimeSlot
+    setSelectedTimeSlot,
+    rescheduleDate,
+    setRescheduleDate
   } = useAppointmentActions({
     appointments: appointmentsToUse,
     services,
@@ -236,7 +238,14 @@ export default function ManageAppointments() {
         setSelectedDate(new Date());
       }
     }
-  }, [location.search, roleView]);
+
+    const khId = params.get('khach_hang_id');
+    const svcId = params.get('goi_dich_vu_id');
+    if (khId && svcId) {
+      setActiveType('dieu_tri');
+      setIsWalkInModalOpen(true);
+    }
+  }, [location.search, roleView, setActiveType, setIsWalkInModalOpen]);
 
   // Update URL when states change
   useEffect(() => {
@@ -356,13 +365,13 @@ export default function ManageAppointments() {
     if (viewMode === 'timeline') {
       return appointmentsToUse.filter(apt => {
         const aptDateStr = format(new Date(apt.ngay_gio_bat_dau || ''), 'yyyy-MM-dd');
-        return aptDateStr === formattedSelectedDate && matchType(apt);
+        return aptDateStr === formattedSelectedDate && matchType(apt) && apt.trang_thai !== 'giu_cho';
       });
     } else {
       const interval = getActiveInterval();
       return appointmentsToUse.filter(apt => {
         const aptDate = new Date(apt.ngay_gio_bat_dau || '');
-        return aptDate >= interval.start && aptDate <= interval.end && matchType(apt);
+        return aptDate >= interval.start && aptDate <= interval.end && matchType(apt) && apt.trang_thai !== 'giu_cho';
       });
     }
   };
@@ -477,12 +486,14 @@ export default function ManageAppointments() {
       );
       const hasShift = docSchedules.length > 0;
 
-      const docApts = appointmentsToUse.filter(apt =>
-        String(apt.bac_si_id) === String(doc.id) &&
-        format(new Date(apt.ngay_gio_bat_dau || ''), 'yyyy-MM-dd') === formattedSelectedDate &&
-        apt.trang_thai !== 'da_huy' &&
-        apt.trang_thai !== 'khong_den'
-      );
+      const docApts = appointmentsToUse.filter(apt => {
+        const assignedId = apt.bac_si_id || apt.chuyen_gia_id;
+        return String(assignedId) === String(doc.id) &&
+          format(new Date(apt.ngay_gio_bat_dau || ''), 'yyyy-MM-dd') === formattedSelectedDate &&
+          apt.trang_thai !== 'da_huy' &&
+          apt.trang_thai !== 'khong_den' &&
+          apt.trang_thai !== 'giu_cho';
+      });
 
       const maxSlots = 16;
       const occupiedCount = docApts.length;
@@ -651,13 +662,21 @@ export default function ManageAppointments() {
                   appointments={appointmentsToUse}
                   schedulesList={schedulesToUse}
                   servicesList={services}
-                  onClose={() => setIsWalkInModalOpen(false)}
+                  onClose={() => {
+                    setIsWalkInModalOpen(false);
+                    const newParams = new URLSearchParams(location.search);
+                    newParams.delete('khach_hang_id');
+                    newParams.delete('goi_dich_vu_id');
+                    navigate(location.pathname + '?' + newParams.toString(), { replace: true });
+                  }}
                   onSubmitApi={handleBookWalkIn}
                   bookingLoading={bookingLoading}
                   initialTime={walkInTime}
                   activeType={activeType}
                   isReceptionist={roleView === 'receptionist'}
                   selectedDateStr={formattedSelectedDate}
+                  initialCustomerId={new URLSearchParams(location.search).get('khach_hang_id') || undefined}
+                  initialServiceId={new URLSearchParams(location.search).get('goi_dich_vu_id') || undefined}
                 />
               ) : (
                 <>
@@ -779,6 +798,8 @@ export default function ManageAppointments() {
           isReceptionistOverride={false}
           selectedTimeSlot={selectedTimeSlot}
           setSelectedTimeSlot={setSelectedTimeSlot}
+          rescheduleDate={rescheduleDate}
+          setRescheduleDate={setRescheduleDate}
         />
       )}
 

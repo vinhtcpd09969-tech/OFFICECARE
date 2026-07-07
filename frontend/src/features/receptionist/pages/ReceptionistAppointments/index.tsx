@@ -94,7 +94,9 @@ export default function ReceptionistAppointments() {
     cancelReason,
     setCancelReason,
     selectedTimeSlot,
-    setSelectedTimeSlot
+    setSelectedTimeSlot,
+    rescheduleDate,
+    setRescheduleDate
   } = useAppointmentActions({
     appointments,
     services,
@@ -143,7 +145,14 @@ export default function ReceptionistAppointments() {
     if (viewParam && ['timeline', 'capacity'].includes(viewParam)) {
       setViewMode(viewParam as ViewMode);
     }
-  }, [location.search]);
+
+    const khId = params.get('khach_hang_id');
+    const svcId = params.get('goi_dich_vu_id');
+    if (khId && svcId) {
+      setActiveType('dieu_tri');
+      setIsWalkInModalOpen(true);
+    }
+  }, [location.search, setActiveType, setIsWalkInModalOpen]);
 
   // Handle Mascot redirection focus
   const mascotTargetAppointments = location.search;
@@ -278,7 +287,12 @@ export default function ReceptionistAppointments() {
     const interval = getActiveInterval();
     return appointments.filter(apt => {
       const aptDate = new Date(apt.ngay_gio_bat_dau || '');
-      return aptDate >= interval.start && aptDate <= interval.end && matchType(apt);
+      return (
+        aptDate >= interval.start &&
+        aptDate <= interval.end &&
+        matchType(apt) &&
+        apt.trang_thai !== 'giu_cho'
+      );
     });
   };
   const kpiAppointments = getKpiAppointments();
@@ -422,13 +436,21 @@ export default function ReceptionistAppointments() {
                   appointments={appointments}
                   schedulesList={schedulesList}
                   servicesList={services}
-                  onClose={() => setIsWalkInModalOpen(false)}
+                  onClose={() => {
+                    setIsWalkInModalOpen(false);
+                    const newParams = new URLSearchParams(location.search);
+                    newParams.delete('khach_hang_id');
+                    newParams.delete('goi_dich_vu_id');
+                    navigate(location.pathname + '?' + newParams.toString(), { replace: true });
+                  }}
                   onSubmitApi={handleBookWalkIn}
                   bookingLoading={bookingLoading}
                   initialTime={walkInTime}
                   activeType={activeType}
                   isReceptionist={true}
                   selectedDateStr={formattedSelectedDate}
+                  initialCustomerId={new URLSearchParams(location.search).get('khach_hang_id') || undefined}
+                  initialServiceId={new URLSearchParams(location.search).get('goi_dich_vu_id') || undefined}
                 />
               ) : (
                 <>
@@ -520,6 +542,8 @@ export default function ReceptionistAppointments() {
           isReceptionistOverride={true}
           selectedTimeSlot={selectedTimeSlot}
           setSelectedTimeSlot={setSelectedTimeSlot}
+          rescheduleDate={rescheduleDate}
+          setRescheduleDate={setRescheduleDate}
         />
       )}
 

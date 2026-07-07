@@ -247,7 +247,7 @@ export default function DoctorAppointments() {
             <div className="absolute top-0 right-0 w-24 h-24 bg-[#14B8A6]/2 rounded-full blur-2xl group-hover:bg-[#14B8A6]/5 transition-all duration-300 pointer-events-none" />
             <div className="flex justify-between items-start">
               <div className="space-y-1">
-                <span className="text-slate-400 dark:text-zinc-550 text-[10px] font-black uppercase tracking-wider block">
+                <span className="text-slate-400 dark:text-zinc-555 text-[10px] font-black uppercase tracking-wider block">
                   Tổng ca khám
                 </span>
                 <div className="flex items-baseline gap-1.5">
@@ -281,7 +281,7 @@ export default function DoctorAppointments() {
             <div className="absolute top-0 right-0 w-24 h-24 bg-[#14B8A6]/2 rounded-full blur-2xl group-hover:bg-[#14B8A6]/5 transition-all duration-300 pointer-events-none" />
             <div className="flex justify-between items-start">
               <div className="space-y-1">
-                <span className="text-slate-400 dark:text-zinc-550 text-[10px] font-black uppercase tracking-wider block">
+                <span className="text-slate-400 dark:text-zinc-555 text-[10px] font-black uppercase tracking-wider block">
                   Chờ khám
                 </span>
                 <div className="flex items-baseline gap-1.5">
@@ -315,7 +315,7 @@ export default function DoctorAppointments() {
             <div className="absolute top-0 right-0 w-24 h-24 bg-[#14B8A6]/2 rounded-full blur-2xl group-hover:bg-[#14B8A6]/5 transition-all duration-300 pointer-events-none" />
             <div className="flex justify-between items-start">
               <div className="space-y-1">
-                <span className="text-slate-400 dark:text-zinc-550 text-[10px] font-black uppercase tracking-wider block">
+                <span className="text-slate-400 dark:text-zinc-555 text-[10px] font-black uppercase tracking-wider block">
                   Đã hoàn thành
                 </span>
                 <div className="flex items-baseline gap-1.5">
@@ -435,12 +435,12 @@ export default function DoctorAppointments() {
 
       {/* Detail Modal for Finished/Cancelled Appointments */}
       {isDetailOpen && selectedApt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-955/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-lg bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden relative">
             {/* Modal Header */}
             <div className="px-6 py-5 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
               <div>
-                <span className="font-mono text-[9px] font-bold text-slate-500 bg-slate-100 dark:bg-zinc-800 px-2 py-1 rounded">
+                <span className="font-mono text-[9px] font-bold text-slate-550 bg-slate-100 dark:bg-zinc-800 px-2 py-1 rounded">
                   {selectedApt.ma_lich_dat}
                 </span>
                 <h3 className="text-sm font-black text-secondary dark:text-zinc-100 uppercase mt-2">Thông tin ca khám</h3>
@@ -515,49 +515,70 @@ export default function DoctorAppointments() {
       )}
 
       {/* Confirmation Modal for Checked-in Appointments */}
-      {confirmApt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden p-6 relative">
-            <div className="flex flex-col items-center text-center space-y-4">
-              <div className="size-12 bg-teal-50 dark:bg-teal-950/30 rounded-full flex items-center justify-center text-[#0D9488]">
-                <CheckCircle2 size={24} />
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-sm font-black text-secondary dark:text-zinc-100 uppercase">Xác nhận vào ca</h3>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 font-bold">
-                  Bệnh nhân: <span className="text-slate-800 dark:text-zinc-200">{confirmApt.ten_khach_hang}</span>
-                </p>
-                <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium">
-                  {confirmApt.ten_dich_vu}
-                </p>
-              </div>
-              
-              <p className="text-xs font-bold text-secondary dark:text-zinc-355">
-                Bạn đã sẵn sàng cho ca khám này chưa?
-              </p>
+      {confirmApt && (() => {
+        const isStarted = confirmApt.trang_thai === 'dang_kham';
+        const getRemainingMinutes = (apt: any) => {
+          if (!apt || !apt.nhat_ky_ngay_tao) return 0;
+          const start = new Date(apt.nhat_ky_ngay_tao);
+          const serviceStart = new Date(apt.ngay_gio_bat_dau);
+          const serviceEnd = new Date(apt.ngay_gio_ket_thuc);
+          const durationMs = serviceEnd.getTime() - serviceStart.getTime();
+          const durationMinutes = Math.round(durationMs / 60000) || 30;
+          
+          const completionTime = start.getTime() + durationMinutes * 60000;
+          const remainingMs = completionTime - Date.now();
+          return Math.max(0, Math.ceil(remainingMs / 60000));
+        };
+        const remaining = getRemainingMinutes(confirmApt);
 
-              <div className="flex items-center gap-3 w-full pt-3">
-                <button
-                  onClick={() => setConfirmApt(null)}
-                  className="flex-1 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-355 py-2.5 rounded-xl font-bold transition-all text-xs"
-                >
-                  Hủy
-                </button>
-                <button
-                  onClick={() => {
-                    const aptId = confirmApt.id;
-                    setConfirmApt(null);
-                    navigate(`/doctor/appointments/${aptId}/assess`);
-                  }}
-                  className="flex-1 bg-primary hover:bg-primary-hover text-white py-2.5 rounded-xl font-bold transition-all text-xs shadow-md shadow-primary/10"
-                >
-                  Mở bàn khám
-                </button>
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-955/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="w-full max-w-md bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden p-6 relative">
+              <div className="flex flex-col items-center text-center space-y-4">
+                <div className={`size-12 rounded-full flex items-center justify-center ${isStarted ? 'bg-amber-50 dark:bg-amber-955/30 text-amber-500 animate-pulse' : 'bg-teal-50 dark:bg-teal-955/30 text-[#0D9488]'}`}>
+                  <CheckCircle2 size={24} />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-sm font-black text-secondary dark:text-zinc-100 uppercase">
+                    {isStarted ? 'Ca khám đang thực hiện' : 'Xác nhận vào ca'}
+                  </h3>
+                  <p className="text-xs text-zinc-555 dark:text-zinc-400 font-bold">
+                    Bệnh nhân: <span className="text-slate-800 dark:text-zinc-200">{confirmApt.ten_khach_hang}</span>
+                  </p>
+                  <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium">
+                    {confirmApt.ten_dich_vu}
+                  </p>
+                </div>
+                
+                <p className="text-xs font-bold text-secondary dark:text-zinc-355 leading-relaxed bg-zinc-50 dark:bg-zinc-800/50 p-3 rounded-2xl w-full border border-zinc-100 dark:border-zinc-800">
+                  {isStarted 
+                    ? `Ca khám này đã được mở trước đó. Dự kiến ca khám sẽ hoàn thành sau ${remaining} phút.`
+                    : 'Bạn đã sẵn sàng cho ca khám này chưa?'}
+                </p>
+
+                <div className="flex items-center gap-3 w-full pt-3">
+                  <button
+                    onClick={() => setConfirmApt(null)}
+                    className="flex-1 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-355 py-2.5 rounded-xl font-bold transition-all text-xs"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    onClick={() => {
+                      const aptId = confirmApt.id;
+                      setConfirmApt(null);
+                      navigate(`/doctor/appointments/${aptId}/assess`);
+                    }}
+                    className={`flex-1 text-white py-2.5 rounded-xl font-bold transition-all text-xs shadow-md ${isStarted ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/10' : 'bg-primary hover:bg-primary-hover shadow-primary/10'}`}
+                  >
+                    {isStarted ? 'Vào bàn khám' : 'Mở bàn khám'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
     </div>
   );

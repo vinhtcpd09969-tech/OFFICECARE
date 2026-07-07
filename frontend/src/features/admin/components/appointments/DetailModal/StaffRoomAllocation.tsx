@@ -13,6 +13,7 @@ interface StaffRoomAllocationProps {
   aptStartHourStr: string;
   aptEndHourStr: string;
   occupiedStaffIds: any[];
+  appointments?: any[];
 }
 
 export function StaffRoomAllocation({
@@ -22,14 +23,15 @@ export function StaffRoomAllocation({
   targetRole,
   assignStaffId,
   setAssignStaffId,
-  assignStatus,
+  assignStatus: _assignStatus,
   isReceptionist,
   staffList,
   schedulesList,
   aptDateStr,
   aptStartHourStr,
   aptEndHourStr,
-  occupiedStaffIds
+  occupiedStaffIds,
+  appointments = []
 }: StaffRoomAllocationProps) {
   const getStaffDutyStatus = (staff: any) => {
     if (!schedulesList || schedulesList.length === 0) {
@@ -68,19 +70,49 @@ export function StaffRoomAllocation({
     return name.slice(0, 2).toUpperCase();
   };
 
+  // Filter staff according to user business logic
+  const displayedStaff = staffList
+    .filter(s => s.vai_tro === targetRole)
+    .filter(staff => {
+      const assignedId = selectedAppointment.bac_si_id || selectedAppointment.chuyen_gia_id;
+      const isCurrentlyAssigned = assignedId && String(staff.id) === String(assignedId);
+      
+      // For Receptionist, only show the currently assigned KTV (no other KTVs can be chosen)
+      if (isReceptionist) {
+        return !!isCurrentlyAssigned;
+      }
+      
+      // Check if they have an active schedule today (i.e. they are working, not vacation/absent)
+      const staffSchedules = schedulesList.filter(s => 
+        String(s.nguoi_dung_id) === String(staff.id) && 
+        s.ngay === aptDateStr
+      );
+      const activeSchedule = staffSchedules.find(s => s.trang_thai === 'hoat_dong');
+      const isOnShift = activeSchedule !== undefined;
+
+      // Always show currently assigned staff
+      if (isCurrentlyAssigned) return true;
+
+      // Hide if they are not working today ( nghỉ / không trực )
+      if (!isOnShift) return false;
+
+      // Admin sees everyone who is on duty today
+      return true;
+    });
+
   return (
     <div className="space-y-5">
-      <h4 className="text-xs font-bold text-slate-400 dark:text-zinc-550 uppercase tracking-wider border-b border-slate-100 dark:border-zinc-800 pb-1.5">
+      <h4 className="text-xs font-bold text-slate-400 dark:text-zinc-555 uppercase tracking-wider border-b border-slate-100 dark:border-zinc-800 pb-1.5">
         Điều phối lâm sàng
       </h4>
 
-      {/* 1. NHÂN SỰ PHỤ TRÁCH (Đưa lên trước theo yêu cầu) */}
+      {/* 1. NHÂN SỰ PHỤ TRÁCH */}
       <div className="space-y-2">
         <div className="flex justify-between items-center">
           <label className="text-xs font-extrabold text-slate-700 dark:text-zinc-300 uppercase tracking-wider">
             {targetRole === 'Bác sĩ' ? 'Bác sĩ phụ trách' : 'Kỹ thuật viên phụ trách'}
           </label>
-          {assignStaffId && !isReceptionist && (
+          {assignStaffId && (
             <button 
               type="button" 
               onClick={() => setAssignStaffId('')} 
@@ -90,124 +122,92 @@ export function StaffRoomAllocation({
             </button>
           )}
         </div>
-        {!isReceptionist ? (
-          assignStatus === 'chua_xac_nhan' ? (
-            <div className="w-full px-4 py-8 bg-slate-50/50 dark:bg-zinc-800/10 border border-dashed border-slate-200 dark:border-zinc-800/80 rounded-2xl text-center select-none">
-              <div className="text-xl mb-1.5">🔒</div>
-              <p className="text-xs font-bold text-slate-500 dark:text-zinc-400">Khóa phân bổ Nhân sự</p>
-              <p className="text-[10px] text-slate-450 dark:text-zinc-555 mt-1 max-w-[280px] mx-auto leading-relaxed">
-                Lịch hẹn này chưa được xác nhận. Vui lòng cập nhật trạng thái lịch hẹn hoặc bấm nút "Xác nhận" ở bên dưới để mở khóa phân công.
-              </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[220px] overflow-y-auto pr-1 scrollbar-thin">
+          {displayedStaff.length === 0 ? (
+            <div className="col-span-full py-6 text-center text-xs font-bold text-slate-450 dark:text-zinc-500 border border-dashed border-slate-200 dark:border-zinc-800/80 rounded-2xl select-none">
+              📭 Không có nhân sự trực khả dụng
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[200px] overflow-y-auto pr-1 scrollbar-thin">
-              {(() => {
-                const assignedDocId = selectedAppointment.bac_si_id || selectedAppointment.chuyen_gia_id;
-                return staffList
-                  .filter(s => s.vai_tro === targetRole)
-                  .filter(staff => {
-                    const staffId = staff.id;
-                    const isCurrentlyAssigned = assignedDocId && String(staffId) === String(assignedDocId);
-                    
-                    if (isCurrentlyAssigned) {
-                      return true;
-                    }
-                    
-                    const isOccupied = occupiedStaffIds.includes(staffId);
-                    const duty = getStaffDutyStatus(staff);
-                    return duty.hasDuty && !isOccupied;
-                  })
-                  .map(staff => {
-                    const staffId = staff.id;
-                    const isCurrentlyAssigned = assignedDocId && String(staffId) === String(assignedDocId);
-                    const duty = getStaffDutyStatus(staff);
-                    const isOccupied = occupiedStaffIds.includes(staffId) && !isCurrentlyAssigned;
-                    const isAvailable = duty.hasDuty && !occupiedStaffIds.includes(staffId);
-                    const isSelected = String(assignStaffId) === String(staffId);
-                    const showWarning = isCurrentlyAssigned && !isAvailable;
+            displayedStaff.map(staff => {
+              const staffId = staff.id;
+              const duty = getStaffDutyStatus(staff);
+              const isAvailable = duty.hasDuty && !occupiedStaffIds.includes(staffId);
+              const isSelected = String(assignStaffId) === String(staffId);
 
-                    return (
-                      <div
-                        key={staff.id}
-                        onClick={() => (isAvailable || isCurrentlyAssigned) && setAssignStaffId(staffId)}
-                        className={`p-3 rounded-xl border-2 transition-all flex items-center gap-3 select-none cursor-pointer ${
-                          showWarning
-                            ? `${isSelected ? 'bg-rose-50/30 dark:bg-rose-955/10' : 'bg-white dark:bg-zinc-900'} border-dashed border-rose-500 dark:border-rose-600 animate-pulse ring-2 ring-rose-500/15`
-                            : !isAvailable
-                              ? 'bg-slate-50 dark:bg-zinc-800/20 border-slate-100 dark:border-zinc-800/50 opacity-50 cursor-not-allowed'
-                              : isSelected
-                                ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-500 dark:border-emerald-600 text-emerald-800 dark:text-emerald-355 ring-2 ring-emerald-500/10'
-                                : 'bg-white dark:bg-zinc-900 border-slate-150 dark:border-zinc-800 hover:border-slate-350 dark:hover:border-zinc-700'
-                        }`}
-                      >
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-[10px] shrink-0 border ${isSelected
-                            ? 'bg-emerald-600 dark:bg-emerald-700 text-white border-emerald-600'
-                            : 'bg-slate-100 dark:bg-zinc-800 text-slate-650 dark:text-zinc-450 border-slate-200 dark:border-zinc-750'
-                          }`}>
-                          {getAvatarInitials(staff.ho_ten)}
-                        </div>
+              // Calculate occupied count for this staff on the target date
+              const staffAptsCount = appointments.filter(apt => {
+                const assignedId = apt.bac_si_id || apt.chuyen_gia_id;
+                let aptDStr = '';
+                try {
+                  const d = new Date(apt.ngay_gio_bat_dau);
+                  aptDStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                } catch (e) {}
+                return String(assignedId) === String(staffId) &&
+                  aptDStr === aptDateStr &&
+                  apt.trang_thai !== 'da_huy' &&
+                  apt.trang_thai !== 'khong_den' &&
+                  apt.trang_thai !== 'giu_cho';
+              }).length;
 
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-black text-slate-800 dark:text-zinc-200 truncate">{staff.ho_ten}</p>
-                          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                            {showWarning ? (
-                              <span className="bg-rose-100 dark:bg-rose-955/30 text-rose-700 dark:text-rose-455 text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider animate-pulse">
-                                ⚠️ Đang bận / Sai ca trực - Đã gán
-                              </span>
-                            ) : (
-                              <>
-                                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider ${isOccupied
-                                    ? 'bg-rose-100 dark:bg-rose-955/30 text-rose-700 dark:text-rose-455'
-                                    : !duty.hasDuty
-                                      ? 'bg-slate-200 dark:bg-zinc-800 text-slate-650 dark:text-zinc-450'
-                                      : 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-450'
-                                  }`}>
-                                  {isOccupied
-                                    ? 'Trùng lịch'
-                                    : !duty.hasDuty
-                                      ? (['Đang nghỉ trưa', 'Đang nghỉ tối', 'Nghỉ phép cả ngày'].includes(duty.label) ? duty.label : 'Không trực')
-                                      : 'Sẵn sàng'}
-                                </span>
-                                {duty.label && duty.hasDuty && (
-                                  <span className="text-[9px] text-slate-400 dark:text-zinc-550 font-bold truncate">
-                                    {duty.label.replace('Trực ca ', '')}
-                                  </span>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })
-              })()}
-            </div>
-          )
-        ) : (
-          <div className="w-full px-4 py-3 bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-855 rounded-xl text-sm font-bold text-slate-800 dark:text-zinc-150 flex items-center justify-between">
-            <span>
-              {selectedAppointment.ten_ky_thuat_vien
-                ? (targetRole === 'Bác sĩ'
-                  ? `BS. ${selectedAppointment.ten_ky_thuat_vien}`
-                  : `KTV. ${selectedAppointment.ten_ky_thuat_vien}`)
-                : 'Chưa chỉ định'}
-            </span>
-            <span className="text-[10px] text-slate-400 dark:text-zinc-500 uppercase tracking-wider font-extrabold">Đã phân công</span>
-          </div>
-        )}
+              return (
+                <div
+                  key={staff.id}
+                  onClick={() => isAvailable && setAssignStaffId(String(staffId))}
+                  className={`p-3 rounded-xl border-2 transition-all flex items-center gap-3 select-none ${
+                    !isAvailable
+                      ? 'bg-slate-50 dark:bg-zinc-800/20 border-slate-100 dark:border-zinc-800/50 opacity-40 cursor-not-allowed'
+                      : isSelected
+                        ? 'bg-emerald-50/50 dark:bg-emerald-955/15 border-emerald-500 dark:border-emerald-600 text-emerald-800 dark:text-emerald-355 ring-2 ring-emerald-500/10 cursor-pointer'
+                        : 'bg-white dark:bg-zinc-900 border-slate-150 dark:border-zinc-800 hover:border-slate-350 dark:hover:border-zinc-700 cursor-pointer'
+                  }`}
+                >
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-[10px] shrink-0 border ${
+                    isSelected && isAvailable
+                      ? 'bg-emerald-600 dark:bg-emerald-700 text-white border-emerald-600'
+                      : 'bg-slate-100 dark:bg-zinc-800 text-slate-650 dark:text-zinc-450 border-slate-200 dark:border-zinc-750'
+                  }`}>
+                    {getAvatarInitials(staff.ho_ten)}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-black text-slate-800 dark:text-zinc-200 truncate flex items-center gap-1.5">
+                      <span>{staff.ho_ten}</span>
+                      <span className="text-[9px] text-slate-500 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800/80 px-1.5 py-0.2 rounded font-extrabold">{staffAptsCount} ca</span>
+                    </p>
+                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                      <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider ${
+                        !isAvailable
+                          ? 'bg-rose-100 dark:bg-rose-955/30 text-rose-700 dark:text-rose-455'
+                          : 'bg-emerald-100 dark:bg-emerald-955/20 text-emerald-700 dark:text-emerald-450'
+                      }`}>
+                        {isAvailable ? 'Sẵn sàng' : 'Không khả dụng'}
+                      </span>
+                      {duty.label && (
+                        <span className="text-[9px] text-slate-400 dark:text-zinc-555 font-bold truncate">
+                          {duty.label.replace('Trực ca ', '')}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
       </div>
 
-      {/* 2. PHÒNG THỰC HIỆN (Đưa xuống dưới nhân sự) */}
+      {/* 2. PHÒNG THỰC HIỆN */}
       <div className="space-y-2">
         <div className="flex justify-between items-center">
           <label className="text-xs font-extrabold text-slate-700 dark:text-zinc-300 uppercase tracking-wider">
             {selectedAppointment.loai_lich === 'kham_moi' ? 'Phòng khám lâm sàng' : 'Phòng trị liệu'}
           </label>
         </div>
-        <div className="w-full px-4 py-3.5 bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-850 rounded-xl text-sm font-bold text-slate-800 dark:text-zinc-150 flex flex-col gap-1">
+        <div className="w-full px-4 py-3.5 bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-855 rounded-xl text-sm font-bold text-slate-800 dark:text-zinc-150 flex flex-col gap-1">
           <div className="flex justify-between items-center">
             <span className="text-slate-800 dark:text-zinc-100">{resolvedRoomName}</span>
-            <span className="text-[10px] text-slate-400 dark:text-zinc-550 uppercase tracking-wider font-extrabold">
+            <span className="text-[10px] text-slate-400 dark:text-zinc-555 uppercase tracking-wider font-extrabold">
               {resolvedRoom 
                 ? (selectedAppointment.loai_lich === 'kham_moi' ? 'Tự động phân theo ca trực Bác sĩ' : 'Tự động phân theo ca trực KTV')
                 : 'Chưa phân phòng'}

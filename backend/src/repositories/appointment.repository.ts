@@ -94,6 +94,7 @@ class AppointmentRepository {
         hd.tong_tien_phai_tra as tong_tien_phai_tra_goi,
         hd.hinh_thuc_thanh_toan_goi as hinh_thuc_thanh_toan_goi,
         hd.id as hoa_don_goi_id,
+        pd.tong_so_buoi as tong_so_buoi_goi,
         COALESCE(
           (
             SELECT created_at 
@@ -104,8 +105,9 @@ class AppointmentRepository {
           ), 
           ch.ngay_gio_bat_dau
         ) as thoi_gian_tao,
-        ch.ghi_chu AS ly_do_kham,
-        ch.ly_do_huy
+        ch.ghi_chu_khach_hang AS ly_do_kham,
+        ch.ghi_chu_noi_bo as ghi_chu_noi_bo,
+        ch.ghi_chu_noi_bo as ly_do_huy
       FROM cuoc_hen ch
       LEFT JOIN khach_hang kh ON ch.khach_hang_id = kh.id
       LEFT JOIN goi_dich_vu g ON ch.goi_dich_vu_id = g.id
@@ -173,8 +175,10 @@ class AppointmentRepository {
         null as tong_tien_phai_tra_goi,
         null as hinh_thuc_thanh_toan_goi,
         null as hoa_don_goi_id,
+        null as tong_so_buoi_goi,
         t.thoi_gian_tao as thoi_gian_tao,
         'Giữ chỗ đang điền thông tin' as ly_do_kham,
+        null as ghi_chu_noi_bo,
         null as ly_do_huy
       FROM tam_giu_cho t
       LEFT JOIN khach_hang kh ON t.khach_hang_id = kh.id
@@ -217,7 +221,7 @@ class AppointmentRepository {
     }
 
     // Kiểm tra giới hạn lịch khám lâm sàng (1 lịch/ngày, tối đa 2 lịch/tuần)
-    if (loai_lich !== 'dieu_tri') {
+    if (loai_lich !== 'dieu_tri' && loai_lich !== 'DIEU_TRI') {
       let isExamService = false;
       if (finalGoiId) {
         const dvRes = await pool.query("SELECT loai_goi FROM goi_dich_vu WHERE id = $1", [finalGoiId]);
@@ -273,7 +277,7 @@ class AppointmentRepository {
       ? (bac_si_id ? 'da_xac_nhan' : 'cho_xac_nhan')
       : 'chua_xac_nhan';
     const trang_thai = data.trang_thai || defaultStatus;
-    const finalLoai = loai_lich === 'dieu_tri' ? 'DIEU_TRI' : (loai_lich === 'kham_moi' ? 'KHAM' : 'DICH_VU_LE');
+    const finalLoai = (loai_lich === 'dieu_tri' || loai_lich === 'DIEU_TRI') ? 'DIEU_TRI' : ((loai_lich === 'kham_moi' || loai_lich === 'KHAM') ? 'KHAM' : 'DICH_VU_LE');
 
     // Tự động phân phòng từ lịch trực của nhân sự nếu chưa gán
     let resolvedPhongId = phong_id ? Number(phong_id) : null;
@@ -293,7 +297,7 @@ class AppointmentRepository {
     }
 
     const query = `
-      INSERT INTO cuoc_hen (khach_hang_id, nhan_su_id, goi_dich_vu_id, phac_do_dieu_tri_id, so_thu_tu_buoi, ngay_gio_bat_dau, ngay_gio_ket_thuc, loai, trang_thai, ghi_chu, phong_id, nguoi_tao_id)
+      INSERT INTO cuoc_hen (khach_hang_id, nhan_su_id, goi_dich_vu_id, phac_do_dieu_tri_id, so_thu_tu_buoi, ngay_gio_bat_dau, ngay_gio_ket_thuc, loai, trang_thai, ghi_chu_khach_hang, phong_id, nguoi_tao_id)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING *
     `;
@@ -399,7 +403,7 @@ class AppointmentRepository {
     }
 
     const query = `
-      INSERT INTO cuoc_hen (khach_hang_id, goi_dich_vu_id, nhan_su_id, ngay_gio_bat_dau, ngay_gio_ket_thuc, loai, trang_thai, ghi_chu, phong_id)
+      INSERT INTO cuoc_hen (khach_hang_id, goi_dich_vu_id, nhan_su_id, ngay_gio_bat_dau, ngay_gio_ket_thuc, loai, trang_thai, ghi_chu_khach_hang, phong_id)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
     `;
@@ -637,87 +641,175 @@ class AppointmentRepository {
     ky_thuat_vien_id?: string | null; 
     ngay_gio_bat_dau?: string | null;
     ngay_gio_ket_thuc?: string | null;
-    ly_do_huy?: string | null;
+    ghi_chu_noi_bo?: string | null;
     phong_id?: string | number | null;
   }) {
-    const final_bac_si_id = data.bac_si_id !== undefined ? data.bac_si_id : (data.chuyen_gia_id !== undefined ? data.chuyen_gia_id : data.ky_thuat_vien_id);
+    let finalStatus = data.trang_thai;
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
 
-    if (data.trang_thai !== 'huy' && data.trang_thai !== 'khong_den') {
-      const ldRes = await pool.query('SELECT ngay_gio_bat_dau, ngay_gio_ket_thuc, nhan_su_id, goi_dich_vu_id, khach_hang_id, phac_do_dieu_tri_id FROM cuoc_hen WHERE id = $1', [id]);
-      if (ldRes.rows.length > 0) {
-        const aptTime = ldRes.rows[0];
-        const check_bac_si_id = final_bac_si_id !== undefined ? final_bac_si_id : aptTime.nhan_su_id;
-        const start = data.ngay_gio_bat_dau ? new Date(data.ngay_gio_bat_dau).toISOString() : new Date(aptTime.ngay_gio_bat_dau).toISOString();
-        const end = data.ngay_gio_ket_thuc ? new Date(data.ngay_gio_ket_thuc).toISOString() : new Date(new Date(start).getTime() + 30 * 60000).toISOString();
+      const apptRes = await client.query('SELECT * FROM cuoc_hen WHERE id = $1', [id]);
+      if (apptRes.rows.length === 0) {
+        throw new Error('Không tìm thấy cuộc hẹn');
+      }
+      const appt = apptRes.rows[0];
 
-        if (aptTime.khach_hang_id) {
-          const customerOverlap = await this.checkCustomerOverlap(aptTime.khach_hang_id, null, start, end, id);
-          if (customerOverlap) {
-            const err: any = new Error('Khách hàng đã có lịch hẹn hoặc ca điều trị khác trong khung giờ này.');
-            err.constraint = 'no_overlap_khach_hang';
-            throw err;
-          }
+      if (data.trang_thai === 'hoan_thanh') {
+        const paymentCheck = await client.query(`
+          SELECT trang_thai 
+          FROM hoa_don 
+          WHERE (phac_do_dieu_tri_id IS NOT NULL AND phac_do_dieu_tri_id = $1)
+             OR (phac_do_dieu_tri_id IS NULL AND cuoc_hen_id = $2)
+          LIMIT 1
+        `, [appt.phac_do_dieu_tri_id, id]);
+
+        const invoiceStatus = paymentCheck.rows[0]?.trang_thai;
+        if (!invoiceStatus || !['da_thanh_toan', 'dang_tra_gop', 'dang_tra_tung_buoi'].includes(invoiceStatus)) {
+          throw new Error('Cuộc hẹn chưa được thanh toán. Không thể chuyển sang trạng thái hoàn thành.');
         }
+      }
 
-        if (check_bac_si_id) {
-          const doctorOverlap = await this.checkDoctorOverlap(check_bac_si_id, start, end, id);
-          if (doctorOverlap) {
-            const err: any = new Error('Bác sĩ đã có lịch trong khung giờ này.');
-            err.constraint = 'no_overlap_ktv';
-            throw err;
+      // Handle Cancel / No-Show Logic
+      if (['da_huy', 'khong_den', 'khach_khong_den'].includes(data.trang_thai)) {
+        const isCancelAction = data.trang_thai === 'da_huy';
+        
+        if (appt.phac_do_dieu_tri_id && appt.so_thu_tu_buoi) {
+          // Count previous misses/cancellations for the same session index under this treatment plan
+          const missCountRes = await client.query(`
+            SELECT COUNT(*)::int as count FROM cuoc_hen 
+            WHERE phac_do_dieu_tri_id = $1 
+              AND so_thu_tu_buoi = $2 
+              AND id != $3 
+              AND trang_thai IN ('da_huy', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat', 'da_huy_phat')
+          `, [appt.phac_do_dieu_tri_id, appt.so_thu_tu_buoi, id]);
+          const previousMisses = missCountRes.rows[0].count || 0;
+
+          // Check payment type
+          const invoiceRes = await client.query(`
+            SELECT hinh_thuc_thanh_toan_goi FROM hoa_don 
+            WHERE phac_do_dieu_tri_id = $1 
+            LIMIT 1
+          `, [appt.phac_do_dieu_tri_id]);
+          const hinhThuc = invoiceRes.rows[0]?.hinh_thuc_thanh_toan_goi;
+
+          if (hinhThuc === 'tra_thang' || hinhThuc === 'tra_gop') {
+            if (previousMisses > 0) {
+              finalStatus = isCancelAction ? 'da_huy_phat' : 'khach_khong_den_phat';
+            } else {
+              finalStatus = isCancelAction ? 'da_huy' : 'khong_den';
+            }
+          } else {
+            finalStatus = isCancelAction ? 'da_huy' : 'khong_den';
+            await client.query(
+              'UPDATE khach_hang SET diem_uy_tin = GREATEST(0, diem_uy_tin - 10) WHERE id = $1',
+              [appt.khach_hang_id]
+            );
+          }
+        } else {
+          finalStatus = isCancelAction ? 'da_huy' : 'khong_den';
+          await client.query(
+            'UPDATE khach_hang SET diem_uy_tin = GREATEST(0, diem_uy_tin - 10) WHERE id = $1',
+            [appt.khach_hang_id]
+          );
+        }
+      }
+
+      const final_bac_si_id = data.bac_si_id !== undefined ? data.bac_si_id : (data.chuyen_gia_id !== undefined ? data.chuyen_gia_id : data.ky_thuat_vien_id);
+      const isCancelledOrNoShow = ['da_huy', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat', 'da_huy_phat'].includes(finalStatus);
+
+      if (!isCancelledOrNoShow) {
+        const ldRes = await client.query('SELECT ngay_gio_bat_dau, ngay_gio_ket_thuc, nhan_su_id, goi_dich_vu_id, khach_hang_id, phac_do_dieu_tri_id FROM cuoc_hen WHERE id = $1', [id]);
+        if (ldRes.rows.length > 0) {
+          const aptTime = ldRes.rows[0];
+          const check_bac_si_id = final_bac_si_id !== undefined ? final_bac_si_id : aptTime.nhan_su_id;
+          const start = data.ngay_gio_bat_dau ? new Date(data.ngay_gio_bat_dau).toISOString() : new Date(aptTime.ngay_gio_bat_dau).toISOString();
+          const end = data.ngay_gio_ket_thuc ? new Date(data.ngay_gio_ket_thuc).toISOString() : new Date(new Date(start).getTime() + 30 * 60000).toISOString();
+
+          if (aptTime.khach_hang_id) {
+            const customerOverlap = await this.checkCustomerOverlap(aptTime.khach_hang_id, null, start, end, id);
+            if (customerOverlap) {
+              const err: any = new Error('Khách hàng đã có lịch hẹn hoặc ca điều trị khác trong khung giờ này.');
+              err.constraint = 'no_overlap_khach_hang';
+              throw err;
+            }
+          }
+
+          if (check_bac_si_id) {
+            const doctorOverlap = await this.checkDoctorOverlap(check_bac_si_id, start, end, id);
+            if (doctorOverlap) {
+              const err: any = new Error('Bác sĩ đã có lịch trong khung giờ này.');
+              err.constraint = 'no_overlap_ktv';
+              throw err;
+            }
           }
         }
       }
-    }
 
-    const updates = ['trang_thai = $1'];
-    const values: any[] = [data.trang_thai];
-    let paramIndex = 2;
+      const updates = ['trang_thai = $1'];
+      const values: any[] = [finalStatus];
+      let paramIndex = 2;
 
-    if (final_bac_si_id !== undefined) {
-      updates.push(`nhan_su_id = $${paramIndex}`);
-      values.push(final_bac_si_id ? parseInt(final_bac_si_id, 10) : null);
-      paramIndex++;
-    }
-    if (data.ngay_gio_bat_dau !== undefined) {
-      updates.push(`ngay_gio_bat_dau = $${paramIndex}`);
-      values.push(data.ngay_gio_bat_dau);
-      paramIndex++;
-    }
-    if (data.ngay_gio_ket_thuc !== undefined) {
-      updates.push(`ngay_gio_ket_thuc = $${paramIndex}`);
-      values.push(data.ngay_gio_ket_thuc);
-      paramIndex++;
-    }
-
-    if (data.ly_do_huy !== undefined) {
-      updates.push(`ly_do_huy = $${paramIndex}`);
-      values.push(data.ly_do_huy);
-      paramIndex++;
-    }
-    if (data.phong_id !== undefined) {
-      updates.push(`phong_id = $${paramIndex}`);
-      values.push(data.phong_id ? parseInt(String(data.phong_id), 10) : null);
-      paramIndex++;
-    }
-
-    values.push(id);
-    const query = `
-      UPDATE cuoc_hen 
-      SET ${updates.join(', ')} 
-      WHERE id = $${paramIndex} 
-      RETURNING *
-    `;
-    const { rows } = await pool.query(query, values);
-
-    if (rows.length > 0) {
-      if (data.trang_thai === 'hoan_thanh' && rows[0].phac_do_dieu_tri_id) {
-        await this.updateCompletedSessionsCount(rows[0].phac_do_dieu_tri_id);
+      if (final_bac_si_id !== undefined && !isCancelledOrNoShow) {
+        updates.push(`nhan_su_id = $${paramIndex}`);
+        values.push(final_bac_si_id ? parseInt(final_bac_si_id, 10) : null);
+        paramIndex++;
+      } else if (isCancelledOrNoShow) {
+        updates.push(`nhan_su_id = NULL`);
       }
-      return rows[0];
-    }
 
-    return null;
+      if (data.ngay_gio_bat_dau !== undefined) {
+        updates.push(`ngay_gio_bat_dau = $${paramIndex}`);
+        values.push(data.ngay_gio_bat_dau);
+        paramIndex++;
+      }
+      if (data.ngay_gio_ket_thuc !== undefined) {
+        updates.push(`ngay_gio_ket_thuc = $${paramIndex}`);
+        values.push(data.ngay_gio_ket_thuc);
+        paramIndex++;
+      }
+
+      if (data.ghi_chu_noi_bo !== undefined) {
+        updates.push(`ghi_chu_noi_bo = $${paramIndex}`);
+        values.push(data.ghi_chu_noi_bo);
+        paramIndex++;
+      }
+
+      if (data.phong_id !== undefined && !isCancelledOrNoShow) {
+        updates.push(`phong_id = $${paramIndex}`);
+        values.push(data.phong_id ? parseInt(String(data.phong_id), 10) : null);
+        paramIndex++;
+      } else if (isCancelledOrNoShow) {
+        updates.push(`phong_id = NULL`);
+      }
+
+      if (['da_huy', 'da_huy_phat'].includes(finalStatus)) {
+        updates.push(`thoi_gian_huy = NOW()`);
+      }
+
+      values.push(id);
+      const query = `
+        UPDATE cuoc_hen 
+        SET ${updates.join(', ')} 
+        WHERE id = $${paramIndex} 
+        RETURNING *
+      `;
+      const { rows } = await client.query(query, values);
+
+      if (rows.length > 0) {
+        if (['hoan_thanh', 'khach_khong_den_phat', 'da_huy_phat'].includes(finalStatus) && rows[0].phac_do_dieu_tri_id) {
+          await this.updateCompletedSessionsCount(rows[0].phac_do_dieu_tri_id);
+        }
+      }
+
+      await client.query('COMMIT');
+      return rows[0] || null;
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
   }
 
   async saveDoctorRecommendation(id: string, data: { chan_doan?: string, chong_chi_dinh?: string, khuyen_nghi_dich_vu_id?: string | null, khuyen_nghi_goi_id?: string | null }) {
@@ -772,7 +864,7 @@ class AppointmentRepository {
   async updateCompletedSessionsCount(phac_do_dieu_tri_id: string) {
     // Đếm số buổi đã hoàn thành thực tế của phác đồ này trong cuoc_hen
     const countRes = await pool.query(
-      "SELECT COUNT(*)::int as count FROM cuoc_hen WHERE phac_do_dieu_tri_id = $1 AND trang_thai = 'hoan_thanh' AND loai = 'DIEU_TRI'",
+      "SELECT COUNT(*)::int as count FROM cuoc_hen WHERE phac_do_dieu_tri_id = $1 AND trang_thai IN ('hoan_thanh', 'khach_khong_den_phat', 'da_huy_phat') AND loai = 'DIEU_TRI'",
       [phac_do_dieu_tri_id]
     );
     const completedCount = countRes.rows[0].count || 0;
@@ -806,8 +898,9 @@ class AppointmentRepository {
         p.ten_phong as ten_phong,
         nk.chan_doan,
         nk.chong_chi_dinh,
-        ch.ghi_chu,
-        ch.ly_do_huy,
+        ch.ghi_chu_khach_hang as ghi_chu,
+        ch.ghi_chu_noi_bo as ghi_chu_noi_bo,
+        ch.ghi_chu_noi_bo as ly_do_huy,
         ch.ngay_gio_bat_dau as thoi_gian_tao,
         dg.id as rating_id,
         dg.so_sao as rating_stars,
@@ -854,25 +947,70 @@ class AppointmentRepository {
     return rows[0].count || 0;
   }
 
-  async cancelCustomerAppointment(id: string, customer_id: string, ly_do_huy: string) {
-    const checkQuery = 'SELECT id FROM cuoc_hen WHERE id = $1 AND khach_hang_id = $2';
+  async cancelCustomerAppointment(id: string, customer_id: string, ghi_chu_noi_bo: string) {
+    const checkQuery = 'SELECT * FROM cuoc_hen WHERE id = $1 AND khach_hang_id = $2';
     const checkRes = await pool.query(checkQuery, [id, customer_id]);
     if (checkRes.rows.length === 0) {
       throw new Error('Lịch hẹn không tồn tại hoặc không thuộc quyền quản lý của bạn.');
     }
+    const appt = checkRes.rows[0];
 
-    const cancelCount = await this.countCustomerCancellationsThisWeek(customer_id);
-    if (cancelCount >= 2) {
-      throw new Error('Bạn đã vượt quá giới hạn hủy tối đa 2 lịch hẹn trong 1 tuần.');
+    let finalStatus = 'da_huy';
+
+    if (appt.phac_do_dieu_tri_id && appt.so_thu_tu_buoi) {
+      // Count previous misses/cancellations for the same session index under this treatment plan
+      const missCountRes = await pool.query(`
+        SELECT COUNT(*)::int as count FROM cuoc_hen 
+        WHERE phac_do_dieu_tri_id = $1 
+          AND so_thu_tu_buoi = $2 
+          AND id != $3 
+          AND trang_thai IN ('da_huy', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat', 'da_huy_phat')
+      `, [appt.phac_do_dieu_tri_id, appt.so_thu_tu_buoi, id]);
+      const previousMisses = missCountRes.rows[0].count || 0;
+
+      // Check payment type
+      const invoiceRes = await pool.query(`
+        SELECT hinh_thuc_thanh_toan_goi FROM hoa_don 
+        WHERE phac_do_dieu_tri_id = $1 
+        LIMIT 1
+      `, [appt.phac_do_dieu_tri_id]);
+      const hinhThuc = invoiceRes.rows[0]?.hinh_thuc_thanh_toan_goi;
+
+      if (hinhThuc === 'tra_thang' || hinhThuc === 'tra_gop') {
+        if (previousMisses > 0) {
+          finalStatus = 'da_huy_phat';
+        } else {
+          finalStatus = 'da_huy';
+        }
+      } else {
+        // pay-per-session (tung_buoi): deduct reputation points
+        finalStatus = 'da_huy';
+        await pool.query(
+          'UPDATE khach_hang SET diem_uy_tin = GREATEST(0, diem_uy_tin - 10) WHERE id = $1',
+          [customer_id]
+        );
+      }
+    } else {
+      // Non-package session: deduct 10 reputation points
+      finalStatus = 'da_huy';
+      await pool.query(
+        'UPDATE khach_hang SET diem_uy_tin = GREATEST(0, diem_uy_tin - 10) WHERE id = $1',
+        [customer_id]
+      );
     }
 
     const query = `
       UPDATE cuoc_hen
-      SET trang_thai = 'da_huy', ly_do_huy = $1, thoi_gian_huy = NOW()
-      WHERE id = $2
+      SET trang_thai = $1, ghi_chu_noi_bo = $2, thoi_gian_huy = NOW(), nhan_su_id = NULL, phong_id = NULL
+      WHERE id = $3
       RETURNING *
     `;
-    const { rows } = await pool.query(query, [ly_do_huy, id]);
+    const { rows } = await pool.query(query, [finalStatus, ghi_chu_noi_bo, id]);
+
+    if (rows.length > 0 && finalStatus === 'da_huy_phat' && appt.phac_do_dieu_tri_id) {
+      await this.updateCompletedSessionsCount(appt.phac_do_dieu_tri_id);
+    }
+
     return rows[0];
   }
 
@@ -994,8 +1132,9 @@ class AppointmentRepository {
         p.ten_phong as ten_phong,
         nk.chan_doan,
         nk.chong_chi_dinh,
-        ch.ghi_chu as ghi_chu_dat_lich,
-        ch.ly_do_huy,
+        ch.ghi_chu_khach_hang as ghi_chu_dat_lich,
+        ch.ghi_chu_noi_bo as ghi_chu_noi_bo,
+        ch.ghi_chu_noi_bo as ly_do_huy,
         ch.thoi_gian_huy,
         ch.ngay_gio_bat_dau as thoi_gian_tao,
         (SELECT expires_at FROM otp_codes WHERE email = COALESCE(kh.email, (kh.so_dien_thoai || '@officecare.placeholder')) ORDER BY expires_at DESC LIMIT 1) as han_xac_nhan

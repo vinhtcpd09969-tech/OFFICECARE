@@ -107,8 +107,8 @@ export default function ManageMedicalRecords() {
       });
     });
 
-    // 2. Add ALL clinical exam appointments as separate rows (to support exam-only cases)
-    const examApts = p.appointments?.filter((ap: any) => ap.loai === 'KHAM') || [];
+    // 2. Add COMPLETED clinical exam appointments as separate rows
+    const examApts = p.appointments?.filter((ap: any) => ap.loai === 'KHAM' && ap.trang_thai === 'hoan_thanh') || [];
     examApts.forEach((ap: any) => {
       flatRecords.push({
         id: ap.id,
@@ -121,7 +121,7 @@ export default function ManageMedicalRecords() {
         type: 'exam',
         packageName: 'Khám lâm sàng & Lượng giá',
         loai_goi: 'LE',
-        so_buoi_da_dung: ap.trang_thai === 'hoan_thanh' ? 1 : 0,
+        so_buoi_da_dung: 1,
         tong_so_buoi: 1,
         latestSession: format(new Date(ap.ngay_gio_bat_dau), 'HH:mm dd/MM/yyyy'),
         staffName: ap.ten_nhan_su || 'Chưa phân công',
@@ -131,8 +131,8 @@ export default function ManageMedicalRecords() {
       });
     });
 
-    // 3. Add single treatment appointments (which do not have a phac_do_dieu_tri_id and are not exams)
-    const singleApts = p.appointments?.filter((ap: any) => !ap.phac_do_dieu_tri_id && ap.loai !== 'KHAM') || [];
+    // 3. Add COMPLETED single treatment appointments (which do not have a phac_do_dieu_tri_id and are not exams)
+    const singleApts = p.appointments?.filter((ap: any) => !ap.phac_do_dieu_tri_id && ap.loai !== 'KHAM' && ap.trang_thai === 'hoan_thanh') || [];
     singleApts.forEach((ap: any) => {
       flatRecords.push({
         id: ap.id,
@@ -145,7 +145,7 @@ export default function ManageMedicalRecords() {
         type: 'single',
         packageName: 'Trị liệu dịch vụ lẻ',
         loai_goi: 'LE',
-        so_buoi_da_dung: ap.trang_thai === 'hoan_thanh' ? 1 : 0,
+        so_buoi_da_dung: 1,
         tong_so_buoi: 1,
         latestSession: format(new Date(ap.ngay_gio_bat_dau), 'HH:mm dd/MM/yyyy'),
         staffName: ap.ten_nhan_su || 'Chưa phân công',

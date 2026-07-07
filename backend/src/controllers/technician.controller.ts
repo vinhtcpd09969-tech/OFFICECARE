@@ -42,13 +42,14 @@ export const getAppointments = async (req: AuthenticatedRequest, res: Response) 
 };
 
 // GET /api/technician/appointments/:id
-export const getAppointmentDetail = async (req: Request, res: Response) => {
+export const getAppointmentDetail = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params as { id: string };
+    const userId = req.user?.id;
     if (!id) {
       return res.status(400).json({ message: 'Thiếu ID lịch hẹn.' });
     }
-    const detail = await technicianService.getAppointmentDetail(id);
+    const detail = await technicianService.getAppointmentDetail(id, userId);
     res.json(detail);
   } catch (error: any) {
     console.error('Lỗi khi lấy chi tiết ca trị liệu KTV:', error);

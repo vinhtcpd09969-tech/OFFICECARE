@@ -31,7 +31,7 @@ pool.on('error', (err) => {
 // Dynamic migration block to ensure cuoc_hen has the required cancellation and internal notes columns
 pool.query(`
   ALTER TABLE cuoc_hen 
-  ADD COLUMN IF NOT EXISTS ly_do_huy TEXT,
+  ADD COLUMN IF NOT EXISTS ghi_chu_noi_bo TEXT,
   ADD COLUMN IF NOT EXISTS thoi_gian_huy TIMESTAMPTZ;
 `).then(() => {
   console.log('Database schema for cuoc_hen columns checked and updated successfully.');

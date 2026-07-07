@@ -128,7 +128,7 @@ export const cancelCustomerAppointment = async (req: Request, res: Response): Pr
   try {
     const id = req.params.id as string;
     const nguoi_dung_id = (req as any).user.id;
-    const ly_do_huy = req.body.ly_do_huy as string;
+    const ly_do_huy = (req.body.ghi_chu_noi_bo || req.body.ly_do_huy) as string;
 
     if (!ly_do_huy) {
       return res.status(400).json({ message: 'Vui lòng cung cấp lý do hủy lịch hẹn.' });

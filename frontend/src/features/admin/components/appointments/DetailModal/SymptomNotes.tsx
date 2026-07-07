@@ -6,8 +6,6 @@ interface SymptomNotesProps {
   isSendingEmail: boolean;
   handleResendEmail: () => void;
   appendCallLog: (logText: string) => void;
-  localGhiChuNoiBo: string;
-  setLocalGhiChuNoiBo: (val: string) => void;
 }
 
 export function SymptomNotes({
@@ -16,8 +14,6 @@ export function SymptomNotes({
   isSendingEmail: _isSendingEmail,
   handleResendEmail: _handleResendEmail,
   appendCallLog: _,
-  localGhiChuNoiBo,
-  setLocalGhiChuNoiBo
 }: SymptomNotesProps) {
   return (
     <div className="space-y-6">
@@ -28,7 +24,7 @@ export function SymptomNotes({
             <AlertCircle size={16} className="text-rose-600 animate-bounce" /> Khách hàng yêu cầu hủy lịch này
           </p>
           <p className="text-sm text-slate-800 font-semibold">
-            Lý do khách đưa ra: <span className="font-normal italic text-slate-600">"{selectedAppointment.ly_do_huy || 'Không có lý do chi tiết'}"</span>
+            Lý do khách đưa ra: <span className="font-normal italic text-slate-600">"{selectedAppointment.ghi_chu_noi_bo || selectedAppointment.ly_do_huy || 'Không có lý do chi tiết'}"</span>
           </p>
           <div className="text-xs text-rose-700 font-medium leading-relaxed bg-white/60 p-2.5 rounded border border-rose-100">
             ⚠️ <strong>Quy trình xử lý của Lễ tân:</strong>
@@ -74,16 +70,7 @@ export function SymptomNotes({
             </div>
           </div>
 
-          <div className="space-y-1.5 border-t border-slate-200/60 dark:border-zinc-700/50 pt-3">
-            <label className="text-xs font-extrabold text-slate-700 dark:text-zinc-300 uppercase tracking-wider block">Ghi chú nội bộ / Nhật ký cuộc gọi</label>
-            <textarea
-              rows={4}
-              value={localGhiChuNoiBo}
-              onChange={(e) => setLocalGhiChuNoiBo(e.target.value)}
-              placeholder="Nhập ghi chú cuộc gọi, lý do đổi lịch hoặc phản hồi của khách hàng tại đây..."
-              className="w-full px-3.5 py-2.5 bg-white dark:bg-zinc-900 border border-slate-250 dark:border-zinc-800 rounded-xl text-xs text-slate-800 dark:text-zinc-200 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-semibold font-mono leading-relaxed"
-            />
-          </div>
+
         </div>
       )}
     </div>

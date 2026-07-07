@@ -111,6 +111,8 @@ export function DoctorWorkloadPanel({
                           <>
                             <span className="size-1 bg-emerald-500 rounded-full animate-pulse" />
                             <span>Đang trực ca</span>
+                            <span className="text-slate-300 dark:text-zinc-700 font-normal">•</span>
+                            <span className="text-slate-600 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800/80 px-1.5 py-0.2 rounded-md font-extrabold">{doc.occupiedCount} ca</span>
                           </>
                         ) : (
                           <span>Nghỉ ca trực</span>
@@ -124,7 +126,7 @@ export function DoctorWorkloadPanel({
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-[9px] text-slate-400 dark:text-zinc-500 font-bold">
                       <span className="flex items-center gap-1 uppercase tracking-wide">
-                        Hiệu suất lấp đầy
+                        Hiệu suất lấp đầy ({doc.occupiedCount} ca)
                       </span>
                       {isNearOverload ? (
                         <span className="text-rose-500 font-extrabold flex items-center gap-0.5 animate-pulse bg-rose-50 dark:bg-rose-950/20 px-1.5 py-0.5 rounded border border-rose-200/30">

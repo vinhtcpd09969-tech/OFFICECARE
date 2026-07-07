@@ -414,7 +414,7 @@ function AppointmentCard({
       onDragStart={(e) => onDragStart(e, apt)}
       onClick={onClick}
       className={`p-3.5 bg-white dark:bg-zinc-900 border ${viewMode === 'doctor' ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'} transition-all duration-300 rounded-[18px] relative flex flex-col justify-between min-h-[110px] group/card hover:-translate-y-0.5 hover:shadow-lg select-none ${
-        ['da_huy', 'khong_den'].includes(apt.trang_thai)
+        ['da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(apt.trang_thai)
           ? 'opacity-85 border-slate-200 bg-slate-50/50 dark:bg-zinc-955/20 dark:border-zinc-850/80 cursor-pointer'
           : isCheckedIn
             ? 'border-teal-350 dark:border-teal-850 ring-2 ring-[#0D9488]/10 dark:ring-[#0D9488]/5 bg-[#0D9488]/2 dark:bg-[#0D9488]/2'
@@ -457,9 +457,9 @@ function AppointmentCard({
         </div>
         
         {/* Lý do hủy/không đến nếu có */}
-        {['da_huy', 'khong_den'].includes(apt.trang_thai) && apt.ly_do_huy && (
+        {['da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(apt.trang_thai) && (apt.ghi_chu_noi_bo || apt.ly_do_huy) && (
           <div className="mt-1 text-[8.5px] italic text-rose-500 dark:text-rose-455 font-bold line-clamp-1">
-            Lý do: {apt.ly_do_huy}
+            Lý do: {apt.ghi_chu_noi_bo || apt.ly_do_huy}
           </div>
         )}
         
@@ -472,12 +472,12 @@ function AppointmentCard({
               <span className="text-[8px] text-amber-600 bg-amber-50 px-1 py-0.2 rounded ml-1.5 font-black border border-amber-200 uppercase tracking-wide">Chưa xác nhận</span>
             )}
           </div>
-        ) : (
+        ) : !['da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(apt.trang_thai) ? (
           <div className="mt-1.5 inline-flex items-center gap-1.5 text-[9px] font-black text-rose-600 dark:text-rose-455 bg-rose-55/50 dark:bg-rose-955/20 px-2 py-0.5 rounded border border-rose-220/20 select-none">
             <span className="size-1 bg-rose-500 rounded-full animate-pulse" />
             <span>Chờ gán {apt.loai_lich === 'dich_vu_don' || apt.loai_lich === 'dieu_tri' ? 'kỹ thuật viên' : 'bác sĩ'}</span>
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Floating Detailed Hover Info Tooltip Panel */}
@@ -498,7 +498,7 @@ function AppointmentCard({
  
       {/* Footer Area - Static layout, no translation or hover-collapse */}
       <div className="mt-2.5 pt-2 border-t border-slate-50 dark:border-zinc-800/80 flex items-center justify-between gap-1 select-none">
-        {apt.ten_phong ? (
+        {apt.ten_phong && !['da_huy', 'khong_den'].includes(apt.trang_thai) ? (
           <div className="flex items-center gap-1 text-[9px] text-[#0d766e] dark:text-emerald-450 font-black bg-[#0D9488]/5 dark:bg-emerald-955/20 px-2 py-0.5 rounded border border-[#0D9488]/15 dark:border-teal-900/20">
             <MapPin size={9} className="text-[#0D9488]" />
             <span>{apt.ten_phong}</span>

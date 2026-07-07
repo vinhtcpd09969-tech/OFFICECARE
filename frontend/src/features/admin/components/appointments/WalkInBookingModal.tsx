@@ -18,6 +18,8 @@ interface WalkInBookingModalProps {
   activeType?: 'kham' | 'dieu_tri';
   isReceptionist?: boolean;
   selectedDateStr: string;
+  initialCustomerId?: string;
+  initialServiceId?: string;
 }
 
 
@@ -33,9 +35,12 @@ export default function WalkInBookingModal({
   initialTime = '',
   activeType = 'kham',
   isReceptionist = false,
-  selectedDateStr
+  selectedDateStr,
+  initialCustomerId,
+  initialServiceId
 }: WalkInBookingModalProps) {
   const [isNewCustomer, setIsNewCustomer] = useState(false);
+  const [showPlansList, setShowPlansList] = useState(false);
   
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -49,7 +54,10 @@ export default function WalkInBookingModal({
   const [gioiTinh, setGioiTinh] = useState('nam');
   const [email, setEmail] = useState('');
   const [lyDo, setLyDo] = useState('');
-  const selectedDate = selectedDateStr;
+  const [selectedDate, setSelectedDate] = useState(selectedDateStr);
+  useEffect(() => {
+    setSelectedDate(selectedDateStr);
+  }, [selectedDateStr]);
   const [selectedTime, setSelectedTime] = useState(initialTime);
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
   const [selectedRoomId, setSelectedRoomId] = useState('');
@@ -78,6 +86,50 @@ export default function WalkInBookingModal({
       setSelectedServiceId(filteredServices[0].id);
     }
   }, [filteredServices, selectedServiceId, selectedPlan]);
+
+  // Auto-expand phác đồ list if selectedPlan changes to true
+  useEffect(() => {
+    if (selectedPlan) {
+      setShowPlansList(true);
+    }
+  }, [selectedPlan]);
+
+  // Pre-fill initial customer and service from query parameters if provided
+  useEffect(() => {
+    if (initialCustomerId) {
+      const fetchAndSelectCustomer = async () => {
+        try {
+          const res = await axiosInstance.get('/admin/customers');
+          const list = res.data || [];
+          const found = list.find((c: any) => String(c.khach_hang_id || c.id) === String(initialCustomerId));
+          if (found) {
+            const normalized = {
+              ...found,
+              id: found.khach_hang_id || found.id,
+              ho_ten: found.ho_ten,
+              so_dien_thoai: found.so_dien_thoai,
+              gioi_tinh: found.gioi_tinh,
+              email: found.email
+            };
+            setSelectedCustomer(normalized);
+            setHoTen(normalized.ho_ten);
+            setSdt(normalized.so_dien_thoai || '');
+            setGioiTinh(normalized.gioi_tinh || 'nam');
+            setEmail(normalized.email || '');
+          }
+        } catch (err) {
+          console.error('Error pre-filling customer:', err);
+        }
+      };
+      fetchAndSelectCustomer();
+    }
+  }, [initialCustomerId]);
+
+  useEffect(() => {
+    if (initialServiceId) {
+      setSelectedServiceId(initialServiceId);
+    }
+  }, [initialServiceId]);
 
   useEffect(() => {
     setSelectedTime(initialTime);
@@ -292,11 +344,6 @@ export default function WalkInBookingModal({
       const occupiedStaffIds = overlappingApts.map(apt => apt.bac_si_id).filter(Boolean);
 
       const availableStaff = staffToFilter.filter(doc => {
-        // Nếu Quản lý chọn đích danh nhân viên, chỉ kiểm tra người này
-        if (!isReceptionist && selectedDoctorId && String(doc.id) !== String(selectedDoctorId)) {
-          return false;
-        }
-
         const docSchedules = schedulesList.filter(s => 
           String(s.nguoi_dung_id) === String(doc.id) && 
           s.ngay === selectedDate
@@ -370,18 +417,31 @@ export default function WalkInBookingModal({
       : staffList.filter(s => s.vai_tro === 'Kỹ thuật viên' || s.vai_tro === 'KTV');
 
     const filteredDocs = staffToFilter.map(doc => {
+      const docAptsCount = (appointments || []).filter(apt => {
+        const assignedId = apt.bac_si_id || apt.chuyen_gia_id;
+        let aptDateStr = '';
+        try {
+          aptDateStr = format(new Date(apt.ngay_gio_bat_dau || ''), 'yyyy-MM-dd');
+        } catch (e) {}
+        return String(assignedId) === String(doc.id) &&
+          aptDateStr === selectedDate &&
+          apt.trang_thai !== 'da_huy' &&
+          apt.trang_thai !== 'khong_den' &&
+          apt.trang_thai !== 'giu_cho';
+      }).length;
+
       const docSchedules = schedulesList.filter(s => 
         String(s.nguoi_dung_id) === String(doc.id) && 
         s.ngay === selectedDate
       );
 
       if (docSchedules.length === 0) {
-        return { ...doc, available: false, reason: 'Không trực hôm nay' };
+        return { ...doc, occupiedCount: docAptsCount, available: false, reason: 'Không trực hôm nay' };
       }
 
       const activeSchedule = docSchedules.find(s => s.trang_thai === 'hoat_dong');
       if (!activeSchedule) {
-        return { ...doc, available: false, reason: 'Nghỉ phép cả ngày' };
+        return { ...doc, occupiedCount: docAptsCount, available: false, reason: 'Nghỉ phép cả ngày' };
       }
 
       const dutyStart = activeSchedule.gio_bat_dau.substring(0, 5);
@@ -389,19 +449,27 @@ export default function WalkInBookingModal({
 
       const isCovered = dutyStart <= selectedTime && dutyEnd > selectedTime;
       if (!isCovered) {
-        return { ...doc, available: false, reason: `Trực ca ${dutyStart}-${dutyEnd}` };
+        return { ...doc, occupiedCount: docAptsCount, available: false, reason: `Trực ca ${dutyStart}-${dutyEnd}` };
       }
 
       const hasOverlap = occupiedDoctorIds.includes(doc.id);
       if (hasOverlap) {
-        return { ...doc, available: false, reason: 'Trùng lịch khám khác' };
+        return { ...doc, occupiedCount: docAptsCount, available: false, reason: 'Trùng lịch khám khác' };
       }
 
-      return { ...doc, available: true, reason: `Trực ca ${dutyStart}-${dutyEnd}` };
+      return { ...doc, occupiedCount: docAptsCount, available: true, reason: `Trực ca ${dutyStart}-${dutyEnd}` };
     });
 
     setAvailableDoctors(filteredDocs);
-  }, [selectedTime, selectedServiceId, appointments, schedulesList, staffList, selectedDate, isExam, selectedService]);
+
+    if (selectedDoctorId) {
+      const selectedDocObj = filteredDocs.find(d => String(d.id) === String(selectedDoctorId));
+      if (!selectedDocObj || !selectedDocObj.available) {
+        setSelectedDoctorId('');
+        setSelectedRoomId('');
+      }
+    }
+  }, [selectedTime, selectedServiceId, appointments, schedulesList, staffList, selectedDate, isExam, selectedService, selectedDoctorId]);
 
   const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -450,23 +518,26 @@ export default function WalkInBookingModal({
     const endTimeStr = `${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}`;
     const endUtcIso = convertToVietnamUtcIso(selectedDate, endTimeStr);
 
+    const isPlanRec = selectedPlan && selectedPlan.trang_thai === 'khuyen_nghi';
+    const activePlan = selectedPlan && !isPlanRec ? selectedPlan : null;
+
     const payload = {
       khach_hang_id: isNewCustomer ? null : selectedCustomer.id,
       ho_ten_khach: hoTen,
       so_dien_thoai: sdt,
       gioi_tinh_khach: gioiTinh,
       email: email || null,
-      ly_do_kham: lyDo || (selectedPlan ? `Điều trị buổi ${selectedPlan.so_buoi_da_dung + 1}` : 'Khám lượng giá'),
+      ly_do_kham: lyDo || (activePlan ? `Điều trị buổi ${activePlan.so_buoi_da_dung + 1}` : (isPlanRec ? `Trị liệu theo chỉ định: ${selectedPlan.ten_goi_dich_vu}` : 'Khám lượng giá')),
       goi_dich_vu_id: selectedServiceId,
       ngay_gio_bat_dau: startUtcIso,
       ngay_gio_ket_thuc: endUtcIso,
       bac_si_id: isReceptionist ? null : (selectedDoctorId ? Number(selectedDoctorId) : null),
       phong_id: isReceptionist ? null : (selectedRoomId ? Number(selectedRoomId) : null),
-      loai_lich: selectedPlan ? 'dieu_tri' : (isExam ? 'kham_moi' : 'dich_vu_don'),
-      phac_do_dieu_tri_id: selectedPlan ? selectedPlan.id : null,
-      so_thu_tu_buoi: selectedPlan ? selectedPlan.so_buoi_da_dung + 1 : null,
+      loai_lich: activePlan ? 'dieu_tri' : (isExam ? 'kham_moi' : 'dich_vu_don'),
+      phac_do_dieu_tri_id: activePlan ? activePlan.id : null,
+      so_thu_tu_buoi: activePlan ? activePlan.so_buoi_da_dung + 1 : null,
       trang_thai: (!isReceptionist && selectedDoctorId) ? bookingStatus : 'cho_xac_nhan',
-      ghi_chu_dat_lich: lyDo || (selectedPlan ? `Đặt lịch trị liệu theo gói ${selectedPlan.ten_goi_dich_vu}` : 'Lập lịch nhanh tại quầy lễ tân')
+      ghi_chu_dat_lich: lyDo || (activePlan ? `Đặt lịch trị liệu theo gói ${activePlan.ten_goi_dich_vu}` : (isPlanRec ? 'Đặt lịch trị liệu theo chỉ định y khoa' : 'Lập lịch nhanh tại quầy lễ tân'))
     };
 
     await onSubmitApi(payload);
@@ -666,52 +737,96 @@ export default function WalkInBookingModal({
           </div>
         )}
 
-        {/* GÓI LIỆU TRÌNH ĐANG HOẠT ĐỘNG (Chỉ hiện ở tab điều trị và khi có phác đồ) */}
+        {/* GÓI LIỆU TRÌNH ĐANG HOẠT ĐỘNG / CHỈ ĐỊNH (Chỉ hiện ở tab điều trị và khi có phác đồ/khuyến nghị) */}
         {activeType === 'dieu_tri' && selectedCustomer && treatmentPlans.length > 0 && (
-          <div className="space-y-3 bg-emerald-50/10 border border-emerald-100/60 p-4 rounded-2xl">
-            <h4 className="text-xs font-bold text-emerald-700 uppercase tracking-wider flex items-center gap-1.5">
-              <CalendarRange size={14} className="text-emerald-600" />
-              Gói liệu trình đang sở hữu của khách ({treatmentPlans.length})
-            </h4>
-            <p className="text-[10px] text-slate-450 font-semibold italic">Chọn gói bên dưới để tự động điền dịch vụ và tính số buổi:</p>
-            
-            <div className="grid grid-cols-1 gap-2 mt-2">
-              {treatmentPlans.map((plan) => {
-                const isSelected = selectedPlan?.id === plan.id;
-                const nextSession = plan.so_buoi_da_dung + 1;
-                return (
-                  <div
-                    key={plan.id}
-                    onClick={() => handleSelectPlan(plan)}
-                    className={`p-3 border rounded-xl flex items-center justify-between transition-all cursor-pointer ${
-                      isSelected 
-                        ? 'border-emerald-500 bg-emerald-50/50 ring-2 ring-emerald-500/10'
-                        : 'border-slate-150 bg-white hover:border-emerald-350'
-                    }`}
-                  >
-                    <div>
-                      <p className="text-xs font-black text-slate-800">{plan.ten_goi_dich_vu}</p>
-                      <p className="text-[10px] text-slate-400 font-semibold mt-0.5">
-                        Đã dùng: {plan.so_buoi_da_dung}/{plan.tong_so_buoi} buổi | Ca tiếp theo: <span className="font-bold text-emerald-600">Buổi {nextSession}</span>
-                      </p>
-                    </div>
-                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
-                      isSelected ? 'bg-emerald-600 text-white' : 'bg-emerald-100 text-emerald-700'
-                    }`}>
-                      {isSelected ? 'Đang chọn' : `Đặt buổi ${nextSession}`}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-            {selectedPlan && (
+          <div className="space-y-3">
+            {/* Sleek collapse-toggle banner */}
+            <div className="bg-emerald-50/65 border border-emerald-250/50 rounded-xl p-3 flex items-center justify-between text-left transition-all">
+              <div className="flex items-center gap-2.5">
+                <CalendarRange size={16} className="text-emerald-600 shrink-0" />
+                <div className="space-y-0.5">
+                  <h4 className="text-[11px] font-black text-emerald-950">
+                    {treatmentPlans.some(p => p.trang_thai === 'khuyen_nghi') 
+                      ? 'Khách có chỉ định dịch vụ từ Bác sĩ' 
+                      : `Khách có gói liệu trình đang hoạt động (${treatmentPlans.length})`}
+                  </h4>
+                  <p className="text-[10px] text-emerald-800/80 font-bold">
+                    👉 {treatmentPlans[0].ten_goi_dich_vu}
+                  </p>
+                </div>
+              </div>
               <button
                 type="button"
-                onClick={handleClearPlan}
-                className="text-[10px] font-bold text-rose-500 hover:text-rose-700 underline mt-1 block"
+                onClick={() => setShowPlansList(!showPlansList)}
+                className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all shadow-sm shrink-0 ${
+                  showPlansList 
+                    ? 'bg-zinc-200 hover:bg-zinc-300 text-secondary' 
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                }`}
               >
-                Hủy chọn gói (Đặt ca điều trị lẻ khác)
+                {showPlansList ? 'Thu gọn' : 'Xem & Chọn'}
               </button>
+            </div>
+
+            {/* List of plans, rendered conditionally */}
+            {showPlansList && (
+              <div className="space-y-3 bg-emerald-50/10 border border-emerald-100/50 p-4 rounded-xl mt-2 animate-in fade-in duration-200">
+                <p className="text-[10px] text-slate-455 font-semibold italic text-left">Chọn gói hoặc chỉ định để tự động điền dịch vụ:</p>
+                
+                <div className="grid grid-cols-1 gap-2">
+                  {treatmentPlans.map((plan) => {
+                    const isSelected = selectedPlan?.id === plan.id;
+                    const isRec = plan.trang_thai === 'khuyen_nghi';
+                    const nextSession = plan.so_buoi_da_dung + 1;
+                    return (
+                      <div
+                        key={plan.id}
+                        onClick={() => handleSelectPlan(plan)}
+                        className={`p-3 border rounded-xl flex items-center justify-between transition-all cursor-pointer text-left ${
+                          isSelected 
+                            ? 'border-emerald-500 bg-emerald-50/50 ring-2 ring-emerald-500/10'
+                            : isRec
+                              ? 'border-amber-200 bg-amber-50/10 hover:border-amber-400'
+                              : 'border-slate-150 bg-white hover:border-emerald-350'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-xs font-black text-slate-800">{plan.ten_goi_dich_vu}</p>
+                            {isRec && (
+                              <span className="text-[8px] font-bold bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded uppercase">Chỉ định</span>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-slate-400 font-semibold mt-0.5">
+                            {isRec 
+                              ? 'Dịch vụ lẻ/Gói được bác sĩ khuyên dùng' 
+                              : `Đã dùng: ${plan.so_buoi_da_dung}/${plan.tong_so_buoi} buổi | Ca tiếp theo: Buổi ${nextSession}`
+                            }
+                          </p>
+                        </div>
+                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                          isSelected 
+                            ? 'bg-emerald-600 text-white' 
+                            : isRec
+                              ? 'bg-amber-500 text-white'
+                              : 'bg-emerald-100 text-emerald-700'
+                        }`}>
+                          {isSelected ? 'Đang chọn' : isRec ? 'Chọn đặt lịch' : `Đặt buổi ${nextSession}`}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                {selectedPlan && (
+                  <button
+                    type="button"
+                    onClick={handleClearPlan}
+                    className="text-[10px] font-bold text-rose-500 hover:text-rose-700 underline block text-left"
+                  >
+                    Hủy chọn gói (Đặt ca điều trị lẻ khác)
+                  </button>
+                )}
+              </div>
             )}
           </div>
         )}
@@ -725,9 +840,15 @@ export default function WalkInBookingModal({
           {selectedPlan ? (
             <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl flex justify-between items-center select-none">
               <div>
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Gói đặt theo phác đồ</span>
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">
+                  {selectedPlan.trang_thai === 'khuyen_nghi' ? 'Dịch vụ lẻ chỉ định' : 'Gói đặt theo phác đồ'}
+                </span>
                 <span className="text-sm font-black text-slate-800 block mt-0.5">{selectedPlan.ten_goi_dich_vu}</span>
-                <span className="text-[10px] text-emerald-600 font-bold block mt-0.5">⏳ Buổi {selectedPlan.so_buoi_da_dung + 1} ({selectedPlan.thoi_luong_phut} phút)</span>
+                {selectedPlan.trang_thai !== 'khuyen_nghi' ? (
+                  <span className="text-[10px] text-emerald-600 font-bold block mt-0.5">⏳ Buổi {selectedPlan.so_buoi_da_dung + 1} ({selectedPlan.thoi_luong_phut} phút)</span>
+                ) : (
+                  <span className="text-[10px] text-amber-600 font-bold block mt-0.5">⏳ {selectedPlan.thoi_luong_phut} phút (Chỉ định)</span>
+                )}
               </div>
               <span className="text-xs font-bold text-slate-400 bg-slate-100 px-3 py-1 rounded-lg">Khóa dịch vụ</span>
             </div>
@@ -742,7 +863,8 @@ export default function WalkInBookingModal({
                   setSelectedRoomId('');
                 }}
                 required
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all font-semibold"
+                disabled={!!initialServiceId}
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all font-semibold disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
               >
                 <option value="">-- Chọn dịch vụ --</option>
                 {filteredServices.map((svc: any) => (
@@ -773,8 +895,19 @@ export default function WalkInBookingModal({
               <Clock size={14} className="text-slate-400" />
               Chọn khung giờ đặt lịch
             </h4>
-            <div className="px-3 py-1 bg-emerald-50 text-emerald-750 border border-emerald-100 rounded-lg text-xs font-black uppercase tracking-wide">
-              Ngày khám: {format(new Date(selectedDate), 'dd/MM/yyyy')}
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Ngày khám:</span>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={e => {
+                  setSelectedDate(e.target.value);
+                  setSelectedTime('');
+                  setSelectedDoctorId('');
+                  setSelectedRoomId('');
+                }}
+                className="px-3 py-1 bg-emerald-50 text-emerald-750 border border-emerald-150 rounded-lg text-xs font-black focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              />
             </div>
           </div>
           
@@ -901,7 +1034,10 @@ export default function WalkInBookingModal({
                           {isExam ? 'BS' : 'KTV'}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-black text-slate-800 truncate">{doc.ho_ten}</p>
+                          <p className="text-xs font-black text-slate-800 truncate flex items-center gap-1.5">
+                            <span>{doc.ho_ten}</span>
+                            <span className="text-[9px] text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded font-extrabold">{doc.occupiedCount} ca</span>
+                          </p>
                           <p className="text-[10px] font-semibold text-slate-450 mt-0.5">{doc.reason}</p>
                         </div>
                         {doc.available && (

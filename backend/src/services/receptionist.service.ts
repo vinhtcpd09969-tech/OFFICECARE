@@ -19,7 +19,7 @@ class ReceptionistService {
     const rows = await receptionistRepository.getTodayAppointments();
     const appointments = rows.map(r => {
       let frontendStatus = '';
-      if (r.loai_lich === 'kham_moi') {
+      if (r.loai_lich === 'KHAM' || r.loai_lich === 'kham_moi') {
         if (['cho_xac_nhan', 'da_xac_nhan', 'da_checkin'].includes(r.trang_thai)) {
           frontendStatus = 'Cho khao sat';
         } else if (r.trang_thai === 'hoan_thanh') {
@@ -65,7 +65,7 @@ class ReceptionistService {
     };
   }
 
-  async updateAppointmentStatus(id: string, trang_thai: string, ly_do_huy?: string) {
+  async updateAppointmentStatus(id: string, trang_thai: string, ghi_chu_noi_bo?: string) {
     if (trang_thai === 'da_checkin' || trang_thai === 'check_in') {
       const appt = await pool.query(
         'SELECT phac_do_dieu_tri_id, so_thu_tu_buoi, loai FROM cuoc_hen WHERE id = $1',
@@ -73,25 +73,31 @@ class ReceptionistService {
       );
       if (appt.rows.length > 0) {
         const { phac_do_dieu_tri_id, so_thu_tu_buoi, loai } = appt.rows[0];
-        if (loai === 'DIEU_TRI' && so_thu_tu_buoi === 5 && phac_do_dieu_tri_id) {
-          const hdRes = await pool.query(
-            'SELECT tong_tien_phai_tra, so_tien_da_tra, trang_thai FROM hoa_don WHERE phac_do_dieu_tri_id = $1',
-            [phac_do_dieu_tri_id]
-          );
-          if (hdRes.rows.length > 0) {
-            const hd = hdRes.rows[0];
-            const isFullyPaid = hd.trang_thai === 'da_thanh_toan' || Number(hd.so_tien_da_tra) >= Number(hd.tong_tien_phai_tra);
-            if (!isFullyPaid) {
-              const err = new Error('Khách hàng bắt buộc phải đóng nốt 50% còn lại của gói trước khi check-in Buổi 5.') as any;
-              err.statusCode = 400;
-              throw err;
+        if (loai === 'DIEU_TRI' && phac_do_dieu_tri_id) {
+          const pdRes = await pool.query('SELECT tong_so_buoi FROM phac_do_dieu_tri WHERE id = $1', [phac_do_dieu_tri_id]);
+          const tong_so_buoi = pdRes.rows[0]?.tong_so_buoi || 10;
+          const checkLimitSession = Math.floor(tong_so_buoi / 2);
+
+          if (so_thu_tu_buoi === checkLimitSession) {
+            const hdRes = await pool.query(
+              'SELECT tong_tien_phai_tra, so_tien_da_tra, trang_thai FROM hoa_don WHERE phac_do_dieu_tri_id = $1',
+              [phac_do_dieu_tri_id]
+            );
+            if (hdRes.rows.length > 0) {
+              const hd = hdRes.rows[0];
+              const isFullyPaid = hd.trang_thai === 'da_thanh_toan' || Number(hd.so_tien_da_tra) >= Number(hd.tong_tien_phai_tra);
+              if (!isFullyPaid) {
+                const err = new Error(`Khách hàng bắt buộc phải đóng nốt 50% còn lại của gói trước khi check-in Buổi ${checkLimitSession}.`) as any;
+                err.statusCode = 400;
+                throw err;
+              }
             }
           }
         }
       }
     }
 
-    const appointment = await receptionistRepository.updateAppointmentStatus(id, trang_thai, ly_do_huy);
+    const appointment = await receptionistRepository.updateAppointmentStatus(id, trang_thai, ghi_chu_noi_bo);
     if (!appointment) throw new Error('Không tìm thấy lịch hẹn');
 
     // Kích hoạt gửi thông báo tự động cho khách hàng
@@ -160,13 +166,25 @@ class ReceptionistService {
   }
 
   async calculateBilling(data: any) {
-    const { item_type, item_id, loai_thanh_toan, ma_voucher, lich_dat_id } = data;
+    let { item_type, item_id, loai_thanh_toan, ma_voucher, lich_dat_id } = data;
+
+    // Backward compatibility for old frontend payloads
+    if (!item_type) {
+      if (data.goi_id || data.goi_dich_vu_id) {
+        item_type = 'goi';
+        item_id = data.goi_id || data.goi_dich_vu_id;
+      } else {
+        item_type = 'dich_vu';
+        item_id = null;
+      }
+    }
 
     let gia_goc_goi = 0;
     let ten_item = '';
     let so_buoi_goi = 1;
     let phan_tram_giam_tra_thang = 10;
     let phan_tram_giam_tra_gop = 5;
+    let don_gia_theo_buoi = 0;
 
     if (item_type === 'goi') {
       const pkg = await receptionistRepository.getPackageById(item_id);
@@ -176,11 +194,17 @@ class ReceptionistService {
       so_buoi_goi = pkg.tong_so_buoi;
       phan_tram_giam_tra_thang = 10;
       phan_tram_giam_tra_gop = 5;
+      don_gia_theo_buoi = Number(pkg.don_gia_theo_buoi || 0);
     } else if (item_type === 'dich_vu') {
-      const svc = await receptionistRepository.getServiceById(item_id);
-      if (!svc) throw new Error('Không tìm thấy dịch vụ');
-      gia_goc_goi = Number(svc.don_gia);
-      ten_item = svc.ten_dich_vu;
+      if (item_id) {
+        const svc = await receptionistRepository.getServiceById(item_id);
+        if (!svc) throw new Error('Không tìm thấy dịch vụ');
+        gia_goc_goi = Number(svc.don_gia);
+        ten_item = svc.ten_dich_vu;
+      } else {
+        gia_goc_goi = 0;
+        ten_item = 'Khám lâm sàng';
+      }
     } else {
       throw new Error('Loại vật phẩm thanh toán không hợp lệ');
     }
@@ -328,6 +352,8 @@ class ReceptionistService {
 
     return {
       gia_goc,
+      gia_goc_goi,
+      tong_tien_goi_sau_giam,
       ten_item,
       so_buoi_goi,
       voucher_id,
@@ -340,7 +366,8 @@ class ReceptionistService {
       loai_thanh_toan,
       chi_phi_kham,
       giam_tru_kham_truoc_do,
-      mien_phi_kham_chua_dong
+      mien_phi_kham_chua_dong,
+      don_gia_theo_buoi
     };
   }
 
@@ -578,6 +605,23 @@ class ReceptionistService {
     if (hd.lich_dieu_tri_id && da_thanh_toan_truoc === 0) {
       const statusToSet = hd.loai_hoa_don === 'dich_vu_don' ? 'da_thanh_toan' : 'dang_dieu_tri';
       await receptionistRepository.updateTreatmentPlanStatus(hd.lich_dieu_tri_id, statusToSet);
+    }
+
+    // Cancel any pending original exam invoice for this appointment to avoid double billing/debts
+    if (hd.cuoc_hen_id && hd.phac_do_dieu_tri_id) {
+      const maHoaDonGoi = `HD-${hoa_don_id.substring(0, 6).toUpperCase()}`;
+      const cancelNote = Number(hd.tong_tien_goc) >= 1000000
+        ? `Hủy do được miễn phí khám theo hóa đơn gói ${maHoaDonGoi}.`
+        : `Hủy do đã gộp thanh toán khám vào hóa đơn gói ${maHoaDonGoi}.`;
+
+      await pool.query(`
+        UPDATE hoa_don
+        SET trang_thai = 'da_huy',
+            ghi_chu = $1
+        WHERE cuoc_hen_id = $2
+          AND phac_do_dieu_tri_id IS NULL
+          AND trang_thai = 'chua_thanh_toan'
+      `, [cancelNote, hd.cuoc_hen_id]);
     }
 
     return { success: true, trang_thai_moi, da_thanh_toan_moi };

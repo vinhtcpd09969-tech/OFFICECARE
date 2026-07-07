@@ -1,0 +1,142 @@
+import React from 'react';
+import { CalendarRange } from 'lucide-react';
+import { formatCurrency } from '../../../../../shared/utils';
+
+interface PaymentSuccessBoxProps {
+  paymentSuccessData: any;
+  phuongThuc: string;
+  user: any;
+
+  onComplete: () => void;
+  navigate: (path: string) => void;
+}
+
+export const PaymentSuccessBox: React.FC<PaymentSuccessBoxProps> = ({
+  paymentSuccessData,
+  phuongThuc,
+  user,
+
+  onComplete,
+  navigate,
+}) => {
+  if (!paymentSuccessData) return null;
+
+  return (
+    <div className="max-w-xl mx-auto my-12 bg-white rounded-3xl border border-zinc-150 shadow-lg p-8 text-center space-y-6 animate-in fade-in zoom-in duration-300">
+      <div className="size-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-3xl shadow-inner font-extrabold">
+        ✓
+      </div>
+      
+      <div className="space-y-2">
+        <h2 className="font-heading font-black text-secondary text-xl">Thanh Toán Thành Công!</h2>
+        <p className="text-zinc-500 text-xs font-semibold">
+          Hóa đơn cho khách hàng <span className="text-secondary font-bold">{paymentSuccessData.tenKhachHang}</span> đã được thanh toán.
+        </p>
+      </div>
+
+      <div className="bg-zinc-50 border border-zinc-200/80 rounded-2xl p-5 space-y-3.5 text-left text-xs font-semibold text-zinc-650">
+        <div className="flex justify-between border-b border-zinc-100 pb-2">
+          <span>Mã hóa đơn:</span>
+          <span className="text-secondary font-bold font-mono">
+            {paymentSuccessData.hoaDon?.ma_hoa_don || 'HD-' + paymentSuccessData.hoaDon?.id?.substring(0, 8)}
+          </span>
+        </div>
+        <div className="flex justify-between border-b border-zinc-100 pb-2">
+          <span>Tổng tiền đã thu:</span>
+          <span className="text-primary font-black text-sm">
+            {formatCurrency(Number(paymentSuccessData.hoaDon?.tong_tien_thanh_toan || paymentSuccessData.hoaDon?.so_tien_da_tra))}
+          </span>
+        </div>
+        <div className="flex justify-between">
+          <span>Hình thức thanh toán:</span>
+          <span className="text-secondary font-bold">
+            {phuongThuc === 'tien_mat' ? '💵 Tiền mặt' : phuongThuc === 'chuyen_khoan' ? '🏦 Chuyển khoản' : '💳 Thẻ/POS'}
+          </span>
+        </div>
+      </div>
+
+      {paymentSuccessData.khuyenNghiGoiId && paymentSuccessData.khuyenNghiLoaiGoi === 'LE' && (
+        <div className="bg-amber-50 border border-amber-200/85 rounded-2xl p-5 space-y-4 text-left animate-in slide-in-from-bottom duration-250">
+          <div className="flex items-start gap-3">
+            <span className="text-amber-500 text-xl shrink-0">💡</span>
+            <div className="space-y-1">
+              <h4 className="text-xs font-black text-amber-955">Chỉ định dịch vụ lẻ từ Bác sĩ</h4>
+              <p className="text-[11px] text-amber-800 leading-normal font-semibold">
+                Bác sĩ đã chỉ định khách hàng thực hiện thêm dịch vụ lẻ:
+              </p>
+              <p className="text-xs font-black text-amber-900 mt-1">
+                👉 {paymentSuccessData.khuyenNghiTenGoi || 'Dịch vụ lẻ chỉ định'}
+              </p>
+            </div>
+          </div>
+          
+          <button
+            type="button"
+            onClick={() => {
+              const calendarPath = Number(user?.vai_tro_id) === 2 ? '/receptionist/appointments' : '/admin/appointments';
+              navigate(`${calendarPath}?khach_hang_id=${paymentSuccessData.khachHangId}&goi_dich_vu_id=${paymentSuccessData.khuyenNghiGoiId}`);
+            }}
+            className="w-full py-3.5 bg-amber-500 hover:bg-amber-600 active:scale-[0.98] text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
+          >
+            <CalendarRange size={16} /> Đặt lịch hẹn ngay
+          </button>
+        </div>
+      )}
+
+      {paymentSuccessData.daDangKyGoiId && (
+        <div className="bg-emerald-50 border border-emerald-200/85 rounded-2xl p-5 space-y-4 text-left animate-in slide-in-from-bottom duration-250">
+          <div className="flex items-start gap-3">
+            <span className="text-emerald-600 text-xl shrink-0">📅</span>
+            <div className="space-y-1">
+              <h4 className="text-xs font-black text-emerald-955">
+                {paymentSuccessData.nextSessionNum && paymentSuccessData.nextSessionNum > 1
+                  ? `Đặt lịch hẹn Buổi ${paymentSuccessData.nextSessionNum} tiếp theo`
+                  : 'Đặt lịch hẹn Buổi 1 nhanh'}
+              </h4>
+              <p className="text-[11px] text-emerald-800 leading-normal font-semibold">
+                {paymentSuccessData.nextSessionNum && paymentSuccessData.nextSessionNum > 1
+                  ? `Thanh toán thành công! Bạn có muốn đặt lịch hẹn cho buổi điều trị tiếp theo (Buổi ${paymentSuccessData.nextSessionNum}) ngay bây giờ không?`
+                  : 'Đăng ký gói thành công! Bạn có muốn đặt lịch hẹn cho buổi điều trị đầu tiên (Buổi 1) ngay bây giờ không?'}
+              </p>
+              <p className="text-xs font-black text-emerald-900 mt-1">
+                👉 {paymentSuccessData.daDangKyGoiTen || 'Gói liệu trình chuyên sâu'}
+              </p>
+            </div>
+          </div>
+          
+          <button
+            type="button"
+            onClick={() => {
+              const calendarPath = Number(user?.vai_tro_id) === 2 ? '/receptionist/appointments' : '/admin/appointments';
+              navigate(`${calendarPath}?khach_hang_id=${paymentSuccessData.khachHangId}&goi_dich_vu_id=${paymentSuccessData.daDangKyGoiId}`);
+            }}
+            className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
+          >
+            <CalendarRange size={16} /> 
+            {paymentSuccessData.nextSessionNum && paymentSuccessData.nextSessionNum > 1
+              ? `Đặt lịch hẹn Buổi ${paymentSuccessData.nextSessionNum} ngay`
+              : 'Đặt lịch hẹn Buổi 1 ngay'}
+          </button>
+        </div>
+      )}
+
+      <div className="flex gap-3 pt-2">
+        <button
+          type="button"
+          onClick={onComplete}
+          className="flex-1 py-3.5 bg-zinc-100 hover:bg-zinc-200/80 active:scale-[0.98] text-secondary text-xs font-bold uppercase tracking-wider rounded-xl transition-all border border-zinc-200"
+        >
+          Hoàn tất
+        </button>
+        <button
+          type="button"
+          onClick={onComplete}
+          className="flex-1 py-3.5 bg-primary hover:bg-primary/90 active:scale-[0.98] text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-sm transition-all"
+        >
+          Quản lý tài chính
+        </button>
+      </div>
+    </div>
+  );
+};
+export default PaymentSuccessBox;

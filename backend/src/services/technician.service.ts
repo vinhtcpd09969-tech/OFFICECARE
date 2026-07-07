@@ -12,11 +12,18 @@ class TechnicianService {
   }
 
   // 3. Lấy chi tiết lịch trị liệu
-  async getAppointmentDetail(appointmentId: string) {
+  async getAppointmentDetail(appointmentId: string, userId?: string) {
     const detail = await technicianRepository.getAppointmentDetail(appointmentId);
     if (!detail) {
       throw new Error('Không tìm thấy chi tiết ca trị liệu.');
     }
+
+    // Tự động chuyển trạng thái sang 'dang_kham' nếu lịch đang ở 'da_checkin' hoặc 'cho_kham'
+    if (['da_checkin', 'cho_kham'].includes(detail.trang_thai) && userId) {
+      await technicianRepository.startSession(appointmentId, parseInt(userId, 10));
+      return await technicianRepository.getAppointmentDetail(appointmentId);
+    }
+
     return detail;
   }
 

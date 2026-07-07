@@ -91,13 +91,13 @@ class AppointmentService {
     return appointmentRepository.getCustomerAppointments(khach_hang_id);
   }
 
-  async cancelCustomerAppointment(id: string, khach_hang_id: string, ly_do_huy: string) {
-    const updated = await appointmentRepository.cancelCustomerAppointment(id, khach_hang_id, ly_do_huy);
+  async cancelCustomerAppointment(id: string, khach_hang_id: string, ghi_chu_noi_bo: string) {
+    const updated = await appointmentRepository.cancelCustomerAppointment(id, khach_hang_id, ghi_chu_noi_bo);
     
     // Trigger notification async
     if (updated) {
       const { default: notificationService } = require('./notification.service');
-      notificationService.triggerAppointmentNotification(updated.id, 'da_huy', updated).catch((err: any) => {
+      notificationService.triggerAppointmentNotification(updated.id, updated.trang_thai, updated).catch((err: any) => {
         console.error('Lỗi khi gửi thông báo hủy lịch:', err);
       });
     }

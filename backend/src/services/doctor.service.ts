@@ -38,11 +38,18 @@ class DoctorService {
   }
 
   // 4. Lấy thông tin chi tiết một ca khám cụ thể
-  async getAppointmentDetail(appointmentId: string) {
+  async getAppointmentDetail(appointmentId: string, userId?: string) {
     const detail = await doctorRepository.getAppointmentDetail(appointmentId);
     if (!detail) {
       throw new Error('Không tìm thấy chi tiết ca khám.');
     }
+    
+    // Tự động chuyển trạng thái sang 'dang_kham' nếu lịch đang ở 'da_checkin' hoặc 'cho_kham'
+    if (['da_checkin', 'cho_kham'].includes(detail.trang_thai) && userId) {
+      await doctorRepository.startSession(appointmentId, parseInt(userId, 10));
+      return await doctorRepository.getAppointmentDetail(appointmentId);
+    }
+    
     return detail;
   }
 

@@ -57,6 +57,7 @@ export function useAppointmentActions({
 
   // Time Rescheduling State
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>('');
+  const [rescheduleDate, setRescheduleDate] = useState<string>('');
 
   // Treatment Booking Form State
   const [treatmentType, setTreatmentType] = useState<'single' | 'package'>('single');
@@ -86,6 +87,7 @@ export function useAppointmentActions({
     const date = new Date(apt.ngay_gio_bat_dau);
     const startHourStr = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
     setSelectedTimeSlot(startHourStr);
+    setRescheduleDate(format(date, 'yyyy-MM-dd'));
     
     setIsWalkInModalOpen(false); // Close Walk-in Booking Form to show detail modal cleanly
     setIsDetailModalOpen(true);
@@ -104,7 +106,7 @@ export function useAppointmentActions({
     setIsTreatmentModalOpen(true);
   }, [selectedAppointment]);
 
-  const handleUpdateAppointment = useCallback(async (e?: React.FormEvent) => {
+  const handleUpdateAppointment = useCallback(async (e?: React.FormEvent, note?: string) => {
     if (e) e.preventDefault();
     if (!selectedAppointment) return;
 
@@ -137,7 +139,7 @@ export function useAppointmentActions({
         finalStatus = 'da_xac_nhan';
       }
 
-      // Construct new date strings if selectedTimeSlot has changed
+      // Construct new date strings if selectedTimeSlot or rescheduleDate has changed
       let finalNgayGioBatDau: string | null = null;
       let finalNgayGioKetThuc: string | null = null;
 
@@ -145,22 +147,28 @@ export function useAppointmentActions({
       const origEnd = new Date(selectedAppointment.ngay_gio_ket_thuc);
       const durationMs = origEnd.getTime() - origStart.getTime();
 
-      const [hours, minutes] = selectedTimeSlot.split(':').map(Number);
-      const newStart = new Date(origStart);
-      newStart.setHours(hours, minutes, 0, 0);
+      const baseDateStr = rescheduleDate || format(origStart, 'yyyy-MM-dd');
+      const newStart = new Date(`${baseDateStr}T${selectedTimeSlot}:00`);
       const newEnd = new Date(newStart.getTime() + durationMs);
 
-      if (newStart.getTime() !== origStart.getTime()) {
+      // Format comparison in minutes to avoid tiny timezone diffs
+      const formattedOrigStart = format(origStart, 'yyyy-MM-dd HH:mm');
+      const formattedNewStart = format(newStart, 'yyyy-MM-dd HH:mm');
+
+      if (formattedNewStart !== formattedOrigStart) {
         finalNgayGioBatDau = newStart.toISOString();
         finalNgayGioKetThuc = newEnd.toISOString();
       }
 
+      const isCancelled = ['da_huy', 'khong_den'].includes(finalStatus);
+
       await updateAppointmentStatus(String(selectedAppointment.id), {
         trang_thai: finalStatus,
-        bac_si_id: assignStaffId || null,
-        chuyen_gia_id: assignStaffId || null,
-        phong_id: assignRoomId || null,
-        ly_do_huy: finalStatus === 'da_huy' ? cancelReason : null,
+        bac_si_id: isCancelled ? null : (assignStaffId || null),
+        chuyen_gia_id: isCancelled ? null : (assignStaffId || null),
+        phong_id: isCancelled ? null : (assignRoomId || null),
+        ly_do_huy: isCancelled ? cancelReason : null,
+        ghi_chu_noi_bo: note || (isCancelled ? cancelReason : null),
         ...(finalNgayGioBatDau && { ngay_gio_bat_dau: finalNgayGioBatDau }),
         ...(finalNgayGioKetThuc && { ngay_gio_ket_thuc: finalNgayGioKetThuc })
       });
@@ -174,7 +182,7 @@ export function useAppointmentActions({
     } finally {
       setIsAssigning(false);
     }
-  }, [selectedAppointment, assignStatus, assignStaffId, assignRoomId, refetch, isDemoMode, setDemoApts, selectedTimeSlot, cancelReason]);
+  }, [selectedAppointment, assignStatus, assignStaffId, assignRoomId, refetch, isDemoMode, setDemoApts, selectedTimeSlot, rescheduleDate, cancelReason]);
 
   const handleBookTreatment = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -465,7 +473,9 @@ export function useAppointmentActions({
     cancelReason,
     setCancelReason,
     selectedTimeSlot,
-    setSelectedTimeSlot
+    setSelectedTimeSlot,
+    rescheduleDate,
+    setRescheduleDate
   };
 }
 

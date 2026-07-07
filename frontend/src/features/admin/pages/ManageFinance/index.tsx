@@ -1,470 +1,836 @@
-import { useEffect, useState } from 'react';
-import { Search } from 'lucide-react';
-import { toast } from 'react-hot-toast';
-import api from '../../../../api/axios';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuthStore } from '../../../../stores/authStore';
+import { 
+  Search, 
+  ArrowLeft, 
+  User, 
+  Coins, 
+  Receipt, 
+  ChevronRight, 
+  Filter, 
+  RotateCcw, 
+  Clock, 
+  CalendarDays,
+  DollarSign,
+  Activity
+} from 'lucide-react';
+import { formatCurrency } from '../../../../shared/utils';
 
-interface Invoice {
-  id: string;
-  ma_hoa_don: string;
-  ten_khach_hang: string;
-  so_dien_thoai?: string;
-  tong_tien_goc: number;
-  hinh_thuc_thanh_toan_goi?: string;
-  ti_le_giam_gia_goi?: number;
-  so_tien_giam_voucher?: number;
-  tong_tien_thanh_toan: number;
-  da_thanh_toan: number;
-  trang_thai: string;
-  ngay_tao: string;
-  ten_dich_vu?: string;
-  ghi_chu?: string;
-}
+// Hooks
+import { useCheckout } from './hooks/useCheckout';
+import { useFinanceDashboard } from './hooks/useFinanceDashboard';
+import type { Invoice } from './hooks/useFinanceDashboard';
 
-interface Payment {
-  id: string;
-  ma_giao_dich: string;
-  hoa_don_id: string;
-  ma_hoa_don: string;
-  ten_khach_hang: string;
-  so_tien: number;
-  phuong_thuc: string;
-  trang_thai: string;
-  thoi_gian_giao_dich: string;
-}
+// Components
+import FastPaymentModal from './components/FastPaymentModal';
+import InvoiceDetailModal from './components/InvoiceDetailModal';
+import ReceiptBreakdown from './components/ReceiptBreakdown';
+import PaymentSuccessBox from './components/PaymentSuccessBox';
 
-// Hoist Intl formatter
-const currencyFormatter = new Intl.NumberFormat('vi-VN', { 
-  style: 'currency', 
-  currency: 'VND' 
-});
+const getStatusBadge = (status: string) => {
+  const badges: Record<string, string> = {
+    da_thanh_toan: 'bg-emerald-50 text-emerald-700 border border-emerald-200/50',
+    thanh_cong: 'bg-emerald-50 text-emerald-700 border border-emerald-200/50',
+    chua_thanh_toan: 'bg-amber-50 text-amber-700 border border-amber-250/50',
+    da_hoan_tien: 'bg-rose-50 text-rose-700 border border-rose-200/50',
+    cho_xu_ly: 'bg-zinc-50 text-zinc-700 border border-zinc-200',
+  };
+  return badges[status] || 'bg-zinc-50 text-zinc-700 border border-zinc-200';
+};
 
 export default function ManageFinance() {
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
-  const [activeTab, setActiveTab] = useState<'invoices' | 'payments'>('invoices');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isClient, setIsClient] = useState(false);
+  const { user } = useAuthStore();
+  const isAdminOrManager = Number(user?.vai_tro_id) === 5 || Number(user?.vai_tro_id) === 6;
 
-  useEffect(() => {
-    setIsClient(true);
-    fetchData();
-  }, []);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const baseFinanceRoute = Number(user?.vai_tro_id) === 2 ? '/receptionist/billing' : '/admin/finance';
 
-  const fetchData = async () => {
-    try {
-      const [invRes, payRes] = await Promise.all([
-        api.get('/admin/invoices'),
-        api.get('/admin/payments')
-      ]);
-      setInvoices(Array.isArray(invRes.data) ? invRes.data : []);
-      setPayments(Array.isArray(payRes.data) ? payRes.data : []);
-    } catch (error) {
-      console.error('Lỗi khi tải dữ liệu tài chính:', error);
-      toast.error('Không thể kết nối API tải dữ liệu tài chính.');
-    }
-  };
+  // Parse Query Parameters
+  const params = new URLSearchParams(location.search);
+  const queryLichDatId = params.get('lich_dat_id');
+  const isCheckoutMode = !!queryLichDatId;
 
-  const handleRefund = async (paymentId: string) => {
-    if (!window.confirm('Bạn có chắc chắn muốn hoàn tiền cho giao dịch này?')) return;
-    try {
-      await api.post(`/admin/payments/${paymentId}/refund`, { ly_do_hoan_tien: 'Admin refund' });
-      toast.success('Hoàn tiền thành công!');
-      fetchData();
-    } catch (error) {
-      toast.error('Lỗi khi hoàn tiền.');
-    }
-  };
+  // Hooks
+  const checkout = useCheckout(queryLichDatId, isCheckoutMode);
+  const dashboard = useFinanceDashboard(isCheckoutMode);
 
-  const formatCurrency = (amount: number) => {
-    if (!isClient) return '0 ₫';
-    return currencyFormatter.format(amount);
-  };
+  const quickCashOptions = [200000, 500000, 1000000, 2000000, 5000000];
 
-  const getStatusBadge = (status: string) => {
-    const badges: Record<string, string> = {
-      da_thanh_toan: 'bg-emerald-100 text-emerald-700',
-      thanh_cong: 'bg-emerald-100 text-emerald-700',
-      chua_thanh_toan: 'bg-amber-100 text-amber-700',
-      da_hoan_tien: 'bg-rose-100 text-rose-700',
-      cho_xu_ly: 'bg-zinc-100 text-zinc-700',
-    };
-    return badges[status] || 'bg-zinc-100 text-zinc-700';
-  };
+  // Print invoice helper
+  const handlePrint = (inv: Invoice) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
 
-  const filteredInvoices = invoices.filter(inv =>
-    (inv.ma_hoa_don?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-    (inv.ten_khach_hang?.toLowerCase() || '').includes(searchTerm.toLowerCase())
-  );
-
-  const filteredPayments = payments.filter(pay =>
-    (pay.ma_giao_dich?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-    (pay.ten_khach_hang?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-    (pay.ma_hoa_don?.toLowerCase() || '').includes(searchTerm.toLowerCase())
-  );
-
-  return (
-    <div className="space-y-8">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold text-secondary tracking-tight">Quản lý Tài chính</h1>
-          <p className="text-zinc-500 mt-1">Theo dõi dòng tiền, hóa đơn và giao dịch hoàn tiền.</p>
-        </div>
-        <div className="relative w-full sm:w-72">
-          <Search className="size-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-zinc-400" />
-          <input
-            type="text"
-            placeholder="Tìm mã HĐ, mã GD, hoặc tên..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 w-full px-4 py-2.5 bg-white border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
-          />
-        </div>
-      </div>
-
-      <div className="flex flex-col lg:flex-row gap-8">
-        <div className="lg:w-1/4 space-y-6">
-          {/* Tabs Sidebar style */}
-          <div className="bg-white p-2 rounded-2xl border border-zinc-200 shadow-sm space-y-1">
-            <button
-              onClick={() => setActiveTab('invoices')}
-              className={`w-full text-left px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
-                activeTab === 'invoices' ? 'bg-primary/10 text-primary' : 'text-zinc-500 hover:bg-zinc-50'
-              }`}
-            >
-              Hóa đơn
-            </button>
-            <button
-              onClick={() => setActiveTab('payments')}
-              className={`w-full text-left px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
-                activeTab === 'payments' ? 'bg-primary/10 text-primary' : 'text-zinc-500 hover:bg-zinc-50'
-              }`}
-            >
-              Giao dịch thanh toán
-            </button>
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>In Hóa Đơn - ${inv.ma_hoa_don}</title>
+          <style>
+            body { font-family: sans-serif; padding: 40px; color: #333; line-height: 1.6; }
+            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #eee; padding-bottom: 20px; }
+            .logo { font-size: 24px; font-weight: bold; color: #0d9488; }
+            .invoice-title { font-size: 20px; margin-top: 10px; font-weight: bold; text-transform: uppercase; }
+            .meta-grid { display: grid; grid-template-cols: 1fr 1fr; margin-bottom: 30px; gap: 15px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+            th { background: #f8fafc; border-bottom: 2px solid #cbd5e1; padding: 12px; text-align: left; font-size: 14px; }
+            td { border-bottom: 1px solid #e2e8f0; padding: 12px; font-size: 14px; }
+            .total-section { text-align: right; font-size: 15px; font-weight: bold; }
+            .footer { text-align: center; margin-top: 50px; font-size: 12px; color: #666; border-top: 1px solid #eee; padding-top: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo">OFFICE CARE PHYSIOFLOW</div>
+            <div class="invoice-title">HÓA ĐƠN DỊCH VỤ TRỊ LIỆU</div>
+            <div>Mã số: ${inv.ma_hoa_don}</div>
           </div>
-
-          <div className="space-y-4">
-            <StatCard 
-              title="Tổng doanh thu" 
-              value={formatCurrency(invoices.reduce((acc, inv) => acc + Number(inv.da_thanh_toan || 0), 0))} 
-              variant="success"
-            />
-            <StatCard 
-              title="Đang chờ thanh toán" 
-              value={formatCurrency(invoices.reduce((acc, inv) => acc + (inv.trang_thai === 'chua_thanh_toan' ? Number(inv.tong_tien_thanh_toan || 0) : 0), 0))} 
-              variant="warning"
-            />
-            <StatCard 
-              title="Đã hoàn tiền" 
-              value={formatCurrency(payments.filter(p => p.trang_thai === 'da_hoan_tien').reduce((acc, p) => acc + Number(p.so_tien || 0), 0))} 
-              variant="error"
-            />
-          </div>
-        </div>
-
-        <div className="lg:w-3/4">
-          <div className="bg-white rounded-3xl shadow-sm border border-zinc-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              {activeTab === 'invoices' ? (
-                <table className="w-full text-left">
-                  <thead className="bg-zinc-50 border-b border-zinc-200">
-                    <tr>
-                      <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">Mã hóa đơn</th>
-                      <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">Khách hàng</th>
-                      <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">Tổng tiền</th>
-                      <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">Trạng thái</th>
-                      <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">Ngày tạo</th>
-                      <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider text-right">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-100">
-                    {filteredInvoices.map((inv) => (
-                      <tr key={inv.id} className="hover:bg-zinc-50/50 transition-colors">
-                        <td className="px-6 py-4 font-semibold text-secondary">{inv.ma_hoa_don}</td>
-                        <td className="px-6 py-4 text-zinc-600 text-sm">{inv.ten_khach_hang}</td>
-                        <td className="px-6 py-4 font-bold text-secondary">{formatCurrency(inv.tong_tien_thanh_toan)}</td>
-                        <td className="px-6 py-4">
-                          <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-tight ${getStatusBadge(inv.trang_thai)}`}>
-                            {(inv.trang_thai || '').replace(/_/g, ' ')}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-zinc-500">
-                          {isClient ? new Date(inv.ngay_tao).toLocaleDateString('vi-VN') : ''}
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <button
-                            onClick={() => setSelectedInvoice(inv)}
-                            className="text-xs font-bold text-indigo-600 hover:text-indigo-700 hover:underline"
-                          >
-                            Chi tiết
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <table className="w-full text-left">
-                  <thead className="bg-zinc-50 border-b border-zinc-200">
-                    <tr>
-                      <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">Mã GD</th>
-                      <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">Hóa đơn</th>
-                      <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">Số tiền</th>
-                      <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">Phương thức</th>
-                      <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">Trạng thái</th>
-                      <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider text-right">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-100">
-                    {filteredPayments.map((pay) => (
-                      <tr key={pay.id} className="hover:bg-zinc-50/50 transition-colors">
-                        <td className="px-6 py-4 text-sm font-mono text-zinc-400">{pay.ma_giao_dich}</td>
-                        <td className="px-6 py-4 text-zinc-600 text-sm">{pay.ma_hoa_don}</td>
-                        <td className="px-6 py-4 font-bold text-secondary">{formatCurrency(pay.so_tien)}</td>
-                        <td className="px-6 py-4 text-zinc-600 text-sm capitalize">{(pay.phuong_thuc || '').replace(/_/g, ' ')}</td>
-                        <td className="px-6 py-4">
-                          <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-tight ${getStatusBadge(pay.trang_thai)}`}>
-                            {(pay.trang_thai || '').replace(/_/g, ' ')}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          {pay.trang_thai === 'thanh_cong' && (
-                            <button
-                              onClick={() => handleRefund(pay.id)}
-                              className="text-xs font-bold text-rose-500 hover:text-rose-600 hover:underline"
-                            >
-                              Hoàn tiền
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+          <div class="meta-grid">
+            <div>
+              <strong>Khách hàng:</strong> ${inv.ten_khach_hang}<br/>
+              <strong>Điện thoại:</strong> ${inv.so_dien_thoai || 'N/A'}<br/>
+              <strong>Ngày tạo:</strong> ${new Date(inv.ngay_tao).toLocaleString('vi-VN')}
+            </div>
+            <div style="text-align: right;">
+              <strong>Hình thức thanh toán:</strong> ${inv.hinh_thuc_thanh_toan_goi ? inv.hinh_thuc_thanh_toan_goi.replace(/_/g, ' ').toUpperCase() : 'MẶC ĐỊNH'}<br/>
+              <strong>Trạng thái:</strong> ${inv.trang_thai.toUpperCase().replace(/_/g, ' ')}
             </div>
           </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Nội dung thanh toán</th>
+                <th style="text-align: right;">Thành tiền</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>${inv.ten_dich_vu || 'Phí khám lâm sàng/Buổi lẻ'}</td>
+                <td style="text-align: right;">${formatCurrency(Number(inv.tong_tien_goc))}</td>
+              </tr>
+              ${Number(inv.ti_le_giam_gia_goi) > 0 ? `
+              <tr style="color: #0d9488;">
+                <td>Giảm giá ưu đãi (${inv.ti_le_giam_gia_goi}%)</td>
+                <td style="text-align: right;">-${formatCurrency(Math.round(Number(inv.tong_tien_goc) * Number(inv.ti_le_giam_gia_goi) / 100))}</td>
+              </tr>` : ''}
+              ${Number(inv.so_tien_giam_voucher) > 0 ? `
+              <tr style="color: #0d9488;">
+                <td>Giảm giá voucher</td>
+                <td style="text-align: right;">-${formatCurrency(Number(inv.so_tien_giam_voucher))}</td>
+              </tr>` : ''}
+            </tbody>
+          </table>
+          <div class="total-section">
+            <div>Tổng số tiền phải thanh toán: ${formatCurrency(Number(inv.tong_tien_thanh_toan))}</div>
+            <div style="color: #10b981; margin-top: 5px;">Số tiền đã đóng: ${formatCurrency(Number(inv.da_thanh_toan))}</div>
+            <div style="color: #f59e0b; margin-top: 5px;">Còn nợ lại: ${formatCurrency(Math.max(0, Number(inv.tong_tien_thanh_toan) - Number(inv.da_thanh_toan)))}</div>
+          </div>
+          <div class="footer">
+            Cảm ơn quý khách đã tin tưởng và sử dụng dịch vụ phục hồi chức năng của chúng tôi!<br/>
+            <em>Bản in hóa đơn y khoa điện tử hợp lệ</em>
+          </div>
+          <script>window.print();</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  // ----------------------------------------------------
+  // RENDER CHECKOUT MODE
+  // ----------------------------------------------------
+  if (isCheckoutMode) {
+    if (checkout.paymentSuccessData) {
+      return (
+        <PaymentSuccessBox
+          paymentSuccessData={checkout.paymentSuccessData}
+          phuongThuc={checkout.state.phuongThuc}
+          user={user}
+          navigate={navigate}
+          onComplete={() => {
+            checkout.setPaymentSuccessData(null);
+            checkout.setFeedbackLyDo('');
+            checkout.setSelectedPackage(null);
+            checkout.dispatch({ type: 'RESET_HOA_DON' });
+            navigate(baseFinanceRoute);
+            dashboard.fetchDashboardData();
+          }}
+        />
+      );
+    }
+
+    return (
+      <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
+        {/* Header Banner */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border border-zinc-150/80 shadow-sm relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-48 h-48 bg-primary/5 rounded-bl-full pointer-events-none"></div>
+          <div className="space-y-1">
+            <span className="text-[10px] font-black text-primary bg-primary/10 border border-primary/20 px-3 py-1 rounded-full uppercase tracking-wider">
+              Quầy Thu Ngân & Tài Chính
+            </span>
+            <h2 className="text-2xl font-black text-secondary flex items-center gap-2.5">
+              <Coins className="text-primary" size={28} />
+              Thu Ngân & Lập Hóa Đơn Trị Liệu
+            </h2>
+            <p className="text-zinc-500 text-xs font-semibold">Thanh toán phí khám lâm sàng hoặc gói điều trị theo chỉ định của Bác sĩ.</p>
+          </div>
+          
+          <button
+            onClick={() => navigate(baseFinanceRoute)}
+            className="flex items-center gap-1.5 text-zinc-400 hover:text-primary transition-all text-xs font-bold uppercase tracking-wider z-10 relative"
+          >
+            <ArrowLeft size={16} /> Quay lại Tài chính
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left panel: Info & calculations */}
+          <div className="lg:col-span-2 space-y-6">
+            {checkout.selectedConsultation && (
+              <div className="bg-white rounded-3xl border border-zinc-150 shadow-sm p-6 space-y-5 text-left">
+                <div className="flex items-center gap-2 border-b border-zinc-100 pb-3">
+                  <User className="text-primary size-5" />
+                  <h3 className="font-heading font-black text-secondary text-sm">Bệnh nhân đang thanh toán</h3>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-semibold text-zinc-650">
+                  <div className="space-y-0.5">
+                    <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Họ và tên</p>
+                    <p className="text-secondary font-black text-sm">{checkout.selectedConsultation.ten_khach_hang}</p>
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Số điện thoại</p>
+                    <p className="text-secondary font-bold text-sm">{checkout.selectedConsultation.sdt_khach_hang}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Input controls form */}
+            <form 
+              onSubmit={checkout.dangKyGoi ? checkout.handleThanhToanPackage : checkout.handleThanhToanSingle}
+              className="bg-white rounded-2xl border border-zinc-150 p-6 space-y-6 shadow-sm"
+            >
+              <div className="space-y-5 text-left">
+                <div className="flex items-center gap-2 border-b border-zinc-100 pb-3">
+                  <Activity className="text-primary size-5" />
+                  <h3 className="font-heading font-black text-secondary text-sm">Bước 2: Thông tin giao dịch & Lập hóa đơn</h3>
+                </div>
+
+                {checkout.selectedConsultation?.loai_lich === 'kham_moi' && checkout.selectedConsultation?.khuyen_nghi_goi_id && (
+                  <div className="bg-emerald-50/50 border border-emerald-250/30 rounded-2xl p-4 flex items-center justify-between shadow-sm animate-in fade-in duration-200">
+                    <div className="space-y-1">
+                      <span className="text-xs font-black text-emerald-950 block">Đăng ký mua gói trị liệu được chỉ định</span>
+                      <span className="text-[10px] text-emerald-800 font-bold block">Chỉ định: {checkout.selectedConsultation.khuyen_nghi_ten_goi || 'Gói trị liệu'}</span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={checkout.dangKyGoi} 
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          checkout.setDangKyGoi(checked);
+                          checkout.setCheckoutTab(checked ? 'package' : 'single');
+                        }}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-zinc-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                    </label>
+                  </div>
+                )}
+
+                {checkout.checkoutTab === 'package' && (
+                  <div className="space-y-4 animate-in fade-in duration-200">
+                    {/* Select assigned medical package */}
+                    <div className="space-y-1.5">
+                      <label htmlFor="selectedPackage" className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Gói trị liệu được chỉ định *</label>
+                      <select 
+                        id="selectedPackage"
+                        value={checkout.selectedPackage?.id || ''} 
+                        onChange={(e) => {
+                          const matched = checkout.packages.find(p => String(p.id) === e.target.value);
+                          checkout.setSelectedPackage(matched || null);
+                        }}
+                        required
+                        disabled={!!checkout.selectedConsultation?.khuyen_nghi_goi_id}
+                        className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-xs font-bold text-secondary focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        <option value="">-- Chọn gói trị liệu --</option>
+                        {checkout.packages.map(pkg => (
+                          <option key={pkg.id} value={pkg.id}>
+                            {pkg.ten_goi} ({formatCurrency(pkg.don_gia)})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Payment type options */}
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Hình thức thanh toán gói</label>
+                      <div className="grid grid-cols-3 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => checkout.setLoaiThanhToan('tra_thang')}
+                          className={`py-3.5 px-4 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all ${
+                            checkout.loaiThanhToan === 'tra_thang'
+                              ? 'bg-primary/10 border-primary text-primary shadow-sm'
+                              : 'bg-zinc-50/50 border-zinc-200 text-zinc-500 hover:bg-zinc-50'
+                          }`}
+                        >
+                          Trả thẳng
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => checkout.setLoaiThanhToan('tra_gop')}
+                          className={`py-3.5 px-4 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all ${
+                            checkout.loaiThanhToan === 'tra_gop'
+                              ? 'bg-primary/10 border-primary text-primary shadow-sm'
+                              : 'bg-zinc-50/50 border-zinc-200 text-zinc-500 hover:bg-zinc-50'
+                          }`}
+                        >
+                          Trả góp 50%
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => checkout.setLoaiThanhToan('tung_buoi')}
+                          className={`py-3.5 px-4 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all ${
+                            checkout.loaiThanhToan === 'tung_buoi'
+                              ? 'bg-primary/10 border-primary text-primary shadow-sm'
+                              : 'bg-zinc-50/50 border-zinc-200 text-zinc-500 hover:bg-zinc-50'
+                          }`}
+                        >
+                          Từng buổi
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Vouchers application form */}
+                {checkout.checkoutTab === 'package' && (
+                  <div className="space-y-2">
+                    <label htmlFor="maVoucher" className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Mã giảm giá (Voucher)</label>
+                    <div className="flex gap-2">
+                      <input 
+                        id="maVoucher"
+                        type="text"
+                        placeholder="VD: MAGIAMGIA10"
+                        value={checkout.maVoucher}
+                        onChange={(e) => checkout.setMaVoucher(e.target.value)}
+                        disabled={!!checkout.appliedVoucher}
+                        className="flex-1 px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-xs font-bold text-secondary focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all disabled:bg-zinc-100 disabled:text-zinc-400"
+                      />
+                      {checkout.appliedVoucher ? (
+                        <button
+                          type="button"
+                          onClick={checkout.handleRemoveVoucher}
+                          className="px-5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 rounded-2xl text-xs font-black uppercase tracking-wider transition-all"
+                        >
+                          Hủy
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={checkout.handleApplyVoucher}
+                          className="px-5 bg-zinc-150 hover:bg-zinc-200 text-zinc-650 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all border border-zinc-200"
+                        >
+                          Áp dụng
+                        </button>
+                      )}
+                    </div>
+                    {checkout.appliedVoucher && (
+                      <p className="text-[10.5px] font-bold text-emerald-600 animate-in fade-in duration-200">
+                        ✓ Đã áp dụng Voucher: Giảm {checkout.appliedVoucher.gia_tri_giam}% (Tối đa {formatCurrency(checkout.appliedVoucher.giam_toi_da)})
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Payment method */}
+                <div className="space-y-1.5">
+                  <label htmlFor="phuongThuc" className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Hình thức nhận tiền</label>
+                  <select 
+                    id="phuongThuc"
+                    value={checkout.state.phuongThuc} 
+                    onChange={(e) => checkout.dispatch({ type: 'SET_FIELD', field: 'phuongThuc', value: e.target.value })}
+                    className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-xs font-bold text-secondary focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                  >
+                    <option value="tien_mat">💵 Tiền mặt</option>
+                    <option value="chuyen_khoan">🏦 Chuyển khoản ngân hàng</option>
+                    <option value="the">💳 Quẹt thẻ POS</option>
+                  </select>
+                </div>
+
+                {/* Cash payment specific fields */}
+                {checkout.state.phuongThuc === 'tien_mat' && (
+                  <div className="space-y-3 animate-in slide-in-from-top-3 duration-200">
+                    <div className="space-y-1.5">
+                      <label htmlFor="soTienNhan" className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Số tiền khách đưa (VND) *</label>
+                      <input 
+                        id="soTienNhan"
+                        type="number" 
+                        placeholder="VD: 500000"
+                        value={checkout.state.soTienNhan}
+                        onChange={(e) => checkout.dispatch({ type: 'SET_FIELD', field: 'soTienNhan', value: e.target.value })}
+                        required
+                        className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-xs font-bold text-secondary focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                      />
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {quickCashOptions.map(val => (
+                        <button 
+                          key={val} 
+                          type="button"
+                          onClick={() => checkout.dispatch({ type: 'SET_FIELD', field: 'soTienNhan', value: val.toString() })}
+                          className="px-3.5 py-2 bg-zinc-50 hover:bg-primary hover:text-white rounded-full text-[10px] font-black text-secondary transition-all border border-zinc-200"
+                        >
+                          {formatCurrency(val)}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Change calculator display */}
+                    {(() => {
+                      const totalRequired = checkout.dangKyGoi && checkout.calculatedData
+                        ? (checkout.loaiThanhToan === 'tra_gop' || checkout.loaiThanhToan === 'tung_buoi'
+                          ? Number(checkout.calculatedData.so_tien_dot_1)
+                          : Number(checkout.calculatedData.tong_tien_thanh_toan))
+                        : (checkout.state.hoaDon ? Number(checkout.state.hoaDon.tong_tien_thanh_toan) : 0);
+                      const received = Number(checkout.state.soTienNhan || 0);
+
+                      if (received > totalRequired) {
+                        return (
+                          <div className="bg-emerald-50 text-emerald-700 border border-emerald-200/40 rounded-2xl p-4 text-xs font-bold flex justify-between items-center">
+                            <span>Tiền thừa thối khách hàng:</span>
+                            <span className="text-base font-black">{formatCurrency(received - totalRequired)}</span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
+                )}
+
+                {/* Reason / Note input */}
+                <div className="space-y-1.5">
+                  <label htmlFor="feedbackLyDo" className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Ghi chú nội bộ phòng khám</label>
+                  <textarea 
+                    id="feedbackLyDo"
+                    placeholder="Ghi nhận phản hồi..."
+                    rows={2.5}
+                    value={checkout.feedbackLyDo}
+                    onChange={(e) => checkout.setFeedbackLyDo(e.target.value)}
+                    className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-xs font-bold text-secondary focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all resize-none"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={checkout.state.loading || (checkout.dangKyGoi ? checkout.calculating : !checkout.state.hoaDon)}
+                className="w-full py-4 bg-primary hover:bg-primary/95 text-white shadow-md hover:shadow-lg font-black text-xs uppercase tracking-wider rounded-2xl transition-all disabled:opacity-45 disabled:pointer-events-none"
+              >
+                {checkout.state.loading ? 'Đang xử lý...' : 'Xác nhận & Thu tiền'}
+              </button>
+            </form>
+          </div>
+
+          {/* Right panel: Live breakdown receipt */}
+          <div className="lg:col-span-1 space-y-6">
+            <ReceiptBreakdown
+              checkoutTab={checkout.checkoutTab}
+              hoaDon={checkout.state.hoaDon}
+              dangKyGoi={checkout.dangKyGoi}
+              selectedPackage={checkout.selectedPackage}
+              calculatedData={checkout.calculatedData}
+              loaiThanhToan={checkout.loaiThanhToan}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ----------------------------------------------------
+  // RENDER FINANCE DASHBOARD
+  // ----------------------------------------------------
+  const filteredInvoices = dashboard.getFilteredInvoices();
+  const filteredPayments = dashboard.payments.filter((pay) => {
+    const query = dashboard.searchTerm.toLowerCase();
+    const matchesSearch =
+      (pay.ma_giao_dich?.toLowerCase() || '').includes(query) ||
+      (pay.ma_hoa_don?.toLowerCase() || '').includes(query) ||
+      (pay.ten_khach_hang?.toLowerCase() || '').includes(query);
+    if (!matchesSearch) return false;
+
+    if (dashboard.statusFilter !== 'all' && pay.trang_thai !== dashboard.statusFilter) return false;
+
+    if (dashboard.methodFilter !== 'all' && pay.phuong_thuc !== dashboard.methodFilter) return false;
+
+    if (dashboard.dateFilter !== 'all') {
+      const date = new Date(pay.thoi_gian_giao_dich);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (dashboard.dateFilter === 'today') {
+        if (date < today) return false;
+      } else if (dashboard.dateFilter === '7days') {
+        const limit = new Date(today);
+        limit.setDate(limit.getDate() - 7);
+        if (date < limit) return false;
+      } else if (dashboard.dateFilter === 'thisMonth') {
+        if (date.getMonth() !== today.getMonth() || date.getFullYear() !== today.getFullYear()) return false;
+      }
+    }
+
+    return true;
+  });
+
+  return (
+    <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 text-left">
+      {/* Header Banner */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-3xl border border-zinc-150/80 shadow-sm relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-48 h-48 bg-primary/5 rounded-bl-full pointer-events-none"></div>
+        <div className="space-y-1.5 text-left">
+          <span className="text-[10px] font-black text-primary bg-primary/10 border border-primary/20 px-3 py-1 rounded-full uppercase tracking-wider">
+            Phân hệ Kế toán lâm sàng
+          </span>
+          <h1 className="text-2xl font-black text-secondary tracking-tight flex items-center gap-2">
+            <DollarSign className="text-primary size-7" />
+            Quản Lý Tài Chính & Hóa Đơn Y Khoa
+          </h1>
+          <p className="text-zinc-500 text-xs font-semibold">
+            Theo dõi dòng tiền, hóa đơn khám/gói trị liệu và xử lý các giao dịch hoàn tiền của hệ thống.
+          </p>
+        </div>
+
+        <button
+          onClick={() => navigate(isAdminOrManager ? '/admin/appointments' : '/receptionist/appointments')}
+          className="px-5 py-3.5 bg-primary hover:opacity-95 active:scale-[0.98] text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md flex items-center gap-2 shrink-0"
+        >
+          <CalendarDays size={16} /> Lập lịch thanh toán
+        </button>
+      </div>
+
+      {/* Stats Cards Workspace */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="p-6 rounded-3xl bg-white border border-zinc-150 shadow-sm hover:shadow-md transition-all hover:scale-[1.01] duration-200 text-left flex items-start gap-4">
+          <div className="p-3 bg-emerald-100 text-emerald-600 rounded-2xl shadow-inner">
+            <Coins size={22} />
+          </div>
+          <div>
+            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Doanh thu thực tế (Đã thu)</span>
+            <h3 className="text-xl font-black text-secondary mt-1">
+              {formatCurrency(dashboard.invoices.reduce((acc, inv) => acc + Number(inv.da_thanh_toan || 0), 0))}
+            </h3>
+          </div>
+        </div>
+
+        <div className="p-6 rounded-3xl bg-white border border-zinc-150 shadow-sm hover:shadow-md transition-all hover:scale-[1.01] duration-200 text-left flex items-start gap-4">
+          <div className="p-3 bg-amber-100 text-amber-600 rounded-2xl shadow-inner">
+            <Clock size={22} />
+          </div>
+          <div>
+            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Đang chờ thanh toán</span>
+            <h3 className="text-xl font-black text-secondary mt-1">
+              {formatCurrency(dashboard.invoices.reduce((acc, inv) => acc + (inv.trang_thai === 'chua_thanh_toan' ? Number(inv.tong_tien_thanh_toan || 0) : 0), 0))}
+            </h3>
+          </div>
+        </div>
+
+        <div className="p-6 rounded-3xl bg-white border border-zinc-150 shadow-sm hover:shadow-md transition-all hover:scale-[1.01] duration-200 text-left flex items-start gap-4">
+          <div className="p-3 bg-rose-100 text-rose-600 rounded-2xl shadow-inner">
+            <RotateCcw size={22} />
+          </div>
+          <div>
+            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Đã hoàn tiền (Hoàn trả)</span>
+            <h3 className="text-xl font-black text-secondary mt-1">
+              {formatCurrency(dashboard.payments.filter(p => p.trang_thai === 'da_hoan_tien').reduce((acc, p) => acc + Number(p.so_tien || 0), 0))}
+            </h3>
+          </div>
+        </div>
+
+        <div className="p-6 rounded-3xl bg-white border border-zinc-150 shadow-sm hover:shadow-md transition-all hover:scale-[1.01] duration-200 text-left flex items-start gap-4">
+          <div className="p-3 bg-zinc-100 text-zinc-500 rounded-2xl shadow-inner">
+            <Receipt size={22} />
+          </div>
+          <div>
+            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Tổng số hóa đơn y khoa</span>
+            <h3 className="text-xl font-black text-secondary mt-1">
+              {dashboard.invoices.length} HĐ
+            </h3>
+          </div>
         </div>
       </div>
 
-      {selectedInvoice && (
+      {/* Main Workspace Layout */}
+      <div className="flex flex-col lg:flex-row gap-8">
+        {/* Left column: Navigation Tabs */}
+        <div className="lg:w-1/4 space-y-6 text-left">
+          <div className="bg-white p-2.5 rounded-2xl border border-zinc-150 shadow-sm space-y-1">
+            <span className="text-[9px] font-black text-zinc-400 uppercase tracking-wider px-3.5 block mb-1">Lựa chọn phân mục</span>
+            <button
+              onClick={() => {
+                dashboard.setActiveTab('invoices');
+                dashboard.setStatusFilter('all');
+              }}
+              className={`w-full text-left px-4 py-3.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-between ${
+                dashboard.activeTab === 'invoices' ? 'bg-primary/10 text-primary' : 'text-zinc-500 hover:bg-zinc-50'
+              }`}
+            >
+              <span>🧾 Danh sách Hóa đơn</span>
+              <ChevronRight size={14} className={dashboard.activeTab === 'invoices' ? 'text-primary' : 'text-zinc-350'} />
+            </button>
+            <button
+              onClick={() => {
+                dashboard.setActiveTab('payments');
+                dashboard.setStatusFilter('all');
+              }}
+              className={`w-full text-left px-4 py-3.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-between ${
+                dashboard.activeTab === 'payments' ? 'bg-primary/10 text-primary' : 'text-zinc-500 hover:bg-zinc-50'
+              }`}
+            >
+              <span>🏦 Lịch sử giao dịch</span>
+              <ChevronRight size={14} className={dashboard.activeTab === 'payments' ? 'text-primary' : 'text-zinc-350'} />
+            </button>
+          </div>
+        </div>
+
+        {/* Right column: Filters and Interactive Table */}
+        <div className="lg:w-3/4 space-y-6 text-left">
+          {/* Advanced Filter Pane */}
+          <div className="bg-white p-6 rounded-3xl border border-zinc-150 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 border-b border-zinc-100 pb-2">
+              <Filter className="text-primary size-4" />
+              <h3 className="font-heading font-black text-secondary text-xs uppercase tracking-wider">Bộ lọc tài chính nâng cao</h3>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              <div className="space-y-1.5 md:col-span-2">
+                <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">Tìm kiếm</label>
+                <div className="relative">
+                  <Search className="size-4.5 absolute left-3 top-1/2 transform -translate-y-1/2 text-zinc-400" />
+                  <input
+                    type="text"
+                    placeholder="Mã HĐ, Mã giao dịch, tên khách hàng..."
+                    value={dashboard.searchTerm}
+                    onChange={(e) => dashboard.setSearchTerm(e.target.value)}
+                    className="pl-9 w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:border-primary transition-all text-xs font-semibold text-secondary"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">Trạng thái</label>
+                <select
+                  value={dashboard.statusFilter}
+                  onChange={(e) => dashboard.setStatusFilter(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:border-primary text-xs font-semibold text-secondary"
+                >
+                  <option value="all">Tất cả trạng thái</option>
+                  {dashboard.activeTab === 'invoices' ? (
+                    <>
+                      <option value="da_thanh_toan">Đã thanh toán</option>
+                      <option value="chua_thanh_toan">Chưa thanh toán</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="thanh_cong">Thành công</option>
+                      <option value="da_hoan_tien">Đã hoàn tiền</option>
+                    </>
+                  )}
+                </select>
+              </div>
+
+              {dashboard.activeTab === 'invoices' ? (
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">Loại hóa đơn</label>
+                  <select
+                    value={dashboard.itemTypeFilter}
+                    onChange={(e) => dashboard.setItemTypeFilter(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:border-primary text-xs font-semibold text-secondary"
+                  >
+                    <option value="all">Tất cả danh mục</option>
+                    <option value="goi">Gói điều trị</option>
+                    <option value="kham_lam_sang">Khám lâm sàng</option>
+                    <option value="buoi_le">Buổi trị liệu lẻ</option>
+                  </select>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">Phương thức</label>
+                  <select
+                    value={dashboard.methodFilter}
+                    onChange={(e) => dashboard.setMethodFilter(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:border-primary text-xs font-semibold text-secondary"
+                  >
+                    <option value="all">Tất cả phương thức</option>
+                    <option value="tien_mat">Tiền mặt</option>
+                    <option value="chuyen_khoan">Chuyển khoản</option>
+                    <option value="the">Thẻ / POS</option>
+                  </select>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">Thời gian tạo</label>
+                <select
+                  value={dashboard.dateFilter}
+                  onChange={(e) => dashboard.setDateFilter(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:border-primary text-xs font-semibold text-secondary"
+                >
+                  <option value="all">Tất cả thời gian</option>
+                  <option value="today">Hôm nay</option>
+                  <option value="7days">7 ngày qua</option>
+                  <option value="thisMonth">Tháng này</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Data List table card */}
+          <div className="bg-white rounded-3xl border border-zinc-150 shadow-sm overflow-hidden text-left">
+            {dashboard.dashboardLoading ? (
+              <div className="py-24 text-center space-y-3">
+                <div className="size-10 rounded-full border-4 border-t-primary border-zinc-200 animate-spin mx-auto" />
+                <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Đang tải dữ liệu tài chính...</p>
+              </div>
+            ) : dashboard.activeTab === 'invoices' ? (
+              filteredInvoices.length === 0 ? (
+                <div className="py-20 text-center text-zinc-400 text-xs italic">
+                  Không tìm thấy hóa đơn nào khớp với bộ lọc.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead className="bg-zinc-50 border-b border-zinc-100 text-zinc-500">
+                      <tr>
+                        <th className="px-6 py-4.5 text-[10px] font-black uppercase tracking-wider">Mã hóa đơn</th>
+                        <th className="px-6 py-4.5 text-[10px] font-black uppercase tracking-wider">Khách hàng</th>
+                        <th className="px-6 py-4.5 text-[10px] font-black uppercase tracking-wider">Tổng tiền</th>
+                        <th className="px-6 py-4.5 text-[10px] font-black uppercase tracking-wider">Đã đóng</th>
+                        <th className="px-6 py-4.5 text-[10px] font-black uppercase tracking-wider">Trạng thái</th>
+                        <th className="px-6 py-4.5 text-[10px] font-black uppercase tracking-wider text-right">Hành động</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-100">
+                      {filteredInvoices.map((inv) => (
+                        <tr key={inv.id} className="hover:bg-zinc-50/60 hover:scale-[1.002] transition-all duration-150">
+                          <td className="px-6 py-4 font-mono font-black text-secondary text-xs">{inv.ma_hoa_don}</td>
+                          <td className="px-6 py-4 text-xs font-bold text-secondary">
+                            <div>{inv.ten_khach_hang}</div>
+                            <div className="text-[9px] text-zinc-400 font-semibold mt-0.5">{inv.so_dien_thoai || 'N/A'}</div>
+                          </td>
+                          <td className="px-6 py-4 font-black text-secondary text-xs">{formatCurrency(inv.tong_tien_thanh_toan)}</td>
+                          <td className="px-6 py-4 font-bold text-emerald-600 text-xs">{formatCurrency(inv.da_thanh_toan)}</td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ${getStatusBadge(inv.trang_thai)}`}>
+                              {(inv.trang_thai || '').replace(/_/g, ' ')}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <button
+                              onClick={() => dashboard.setSelectedInvoice(inv)}
+                              className="px-3.5 py-1.5 bg-zinc-100 hover:bg-primary hover:text-white rounded-lg text-[10px] font-black uppercase tracking-wider text-zinc-500 transition-all"
+                            >
+                              Chi tiết
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            ) : (
+              filteredPayments.length === 0 ? (
+                <div className="py-20 text-center text-zinc-400 text-xs italic">
+                  Chưa ghi nhận giao dịch thanh toán nào khớp bộ lọc.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead className="bg-zinc-50 border-b border-zinc-100 text-zinc-500">
+                      <tr>
+                        <th className="px-6 py-4.5 text-[10px] font-black uppercase tracking-wider">Mã GD</th>
+                        <th className="px-6 py-4.5 text-[10px] font-black uppercase tracking-wider">Mã hóa đơn</th>
+                        <th className="px-6 py-4.5 text-[10px] font-black uppercase tracking-wider">Khách hàng</th>
+                        <th className="px-6 py-4.5 text-[10px] font-black uppercase tracking-wider">Số tiền</th>
+                        <th className="px-6 py-4.5 text-[10px] font-black uppercase tracking-wider">Phương thức</th>
+                        <th className="px-6 py-4.5 text-[10px] font-black uppercase tracking-wider">Trạng thái</th>
+                        {isAdminOrManager && <th className="px-6 py-4.5 text-[10px] font-black uppercase tracking-wider text-right">Hành động</th>}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-100">
+                      {filteredPayments.map((pay) => (
+                        <tr key={pay.id} className="hover:bg-zinc-50/60 hover:scale-[1.002] transition-all duration-150">
+                          <td className="px-6 py-4 font-mono text-zinc-400 text-xs">{pay.ma_giao_dich}</td>
+                          <td className="px-6 py-4 font-mono font-black text-secondary text-xs">{pay.ma_hoa_don}</td>
+                          <td className="px-6 py-4 text-xs font-bold text-secondary">{pay.ten_khach_hang}</td>
+                          <td className="px-6 py-4 font-black text-secondary text-xs">{formatCurrency(pay.so_tien)}</td>
+                          <td className="px-6 py-4 text-xs text-secondary capitalize font-bold">
+                            {pay.phuong_thuc === 'tien_mat' ? '💵 Tiền mặt' : pay.phuong_thuc === 'chuyen_khoan' ? '🏦 Chuyển khoản' : '💳 Thẻ / POS'}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ${getStatusBadge(pay.trang_thai)}`}>
+                              {(pay.trang_thai || '').replace(/_/g, ' ')}
+                            </span>
+                          </td>
+                          {isAdminOrManager && (
+                            <td className="px-6 py-4 text-right">
+                              {pay.trang_thai === 'thanh_cong' ? (
+                                <button
+                                  onClick={() => dashboard.handleRefund(pay.id)}
+                                  className="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-600 hover:text-white rounded-lg text-[10px] font-black uppercase tracking-wider text-rose-500 transition-all border border-rose-150/70"
+                                >
+                                  Hoàn tiền
+                                </button>
+                              ) : (
+                                <span className="text-[10px] text-zinc-400 font-semibold italic">Đã hoàn trả</span>
+                              )}
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Invoice Detail Modal Overlay */}
+      {dashboard.selectedInvoice && (
         <InvoiceDetailModal
-          invoice={selectedInvoice}
-          payments={payments}
-          onClose={() => setSelectedInvoice(null)}
-          formatCurrency={formatCurrency}
-          getStatusBadge={getStatusBadge}
+          invoice={dashboard.selectedInvoice}
+          payments={dashboard.payments}
+          isAdminOrManager={isAdminOrManager}
+          onClose={() => dashboard.setSelectedInvoice(null)}
+          onPrint={handlePrint}
+          onOpenFastPay={(inv) => dashboard.setFastPayInvoice(inv)}
+          onRefund={dashboard.handleRefund}
+        />
+      )}
+
+      {/* Fast Payment Sub-Modal Pop-up */}
+      {dashboard.fastPayInvoice && (
+        <FastPaymentModal
+          invoice={dashboard.fastPayInvoice}
+          onClose={() => dashboard.setFastPayInvoice(null)}
+          onSubmit={dashboard.handleFastPaySubmit}
+          method={dashboard.fastPayMethod}
+          setMethod={dashboard.setFastPayMethod}
+          received={dashboard.fastPayReceived}
+          setReceived={dashboard.setFastPayReceived}
+          note={dashboard.fastPayNote}
+          setNote={dashboard.setFastPayNote}
+          loading={dashboard.fastPayLoading}
         />
       )}
     </div>
   );
 }
-
-function StatCard({ title, value, variant }: { title: string, value: string, variant: 'success' | 'warning' | 'error' }) {
-  const styles = {
-    success: 'border-emerald-100 bg-emerald-50 text-emerald-700',
-    warning: 'border-amber-100 bg-amber-50 text-amber-700',
-    error: 'border-rose-100 bg-rose-50 text-rose-700'
-  };
-  
-  return (
-    <div className={`p-6 rounded-2xl border shadow-sm ${styles[variant]}`}>
-      <p className="text-xs font-bold uppercase tracking-wider opacity-70">{title}</p>
-      <h3 className="text-2xl font-bold mt-1">{value}</h3>
-    </div>
-  );
-}
-
-function InvoiceDetailModal({ 
-  invoice, 
-  payments, 
-  onClose, 
-  formatCurrency, 
-  getStatusBadge 
-}: { 
-  invoice: Invoice; 
-  payments: Payment[]; 
-  onClose: () => void; 
-  formatCurrency: (amount: number) => string; 
-  getStatusBadge: (status: string) => string; 
-}) {
-  const invoicePayments = payments.filter(p => p.hoa_don_id === invoice.id || p.ma_hoa_don === invoice.ma_hoa_don);
-
-  return (
-    <div className="fixed inset-0 bg-zinc-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl w-full max-w-2xl shadow-xl border border-zinc-150 overflow-hidden flex flex-col max-h-[90vh]">
-        {/* Header */}
-        <div className="px-6 py-4 bg-zinc-50 border-b border-zinc-100 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
-              <span className="font-bold text-xs">HĐ</span>
-            </span>
-            <div>
-              <h2 className="text-lg font-bold text-secondary flex items-center gap-2">
-                Chi tiết Hóa đơn {invoice.ma_hoa_don}
-              </h2>
-              <p className="text-[10px] text-zinc-500 font-medium">Tạo ngày {new Date(invoice.ngay_tao).toLocaleString('vi-VN')}</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-1.5 hover:bg-zinc-100 rounded-lg text-zinc-400 hover:text-zinc-600 transition-colors">
-            <span className="font-bold text-lg leading-none">&times;</span>
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="p-6 overflow-y-auto space-y-6">
-          {/* Status and Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-100 space-y-1">
-              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Trạng thái</span>
-              <div>
-                <span className={`inline-block px-2.5 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-tight ${getStatusBadge(invoice.trang_thai)}`}>
-                  {invoice.trang_thai.replace(/_/g, ' ')}
-                </span>
-              </div>
-            </div>
-            <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-100 space-y-1">
-              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Tổng phải trả</span>
-              <p className="text-lg font-extrabold text-secondary">{formatCurrency(Number(invoice.tong_tien_thanh_toan))}</p>
-            </div>
-            <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-100 space-y-1">
-              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Đã thanh toán</span>
-              <p className="text-lg font-extrabold text-emerald-600">{formatCurrency(Number(invoice.da_thanh_toan))}</p>
-            </div>
-          </div>
-
-          {/* Grid Information */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {/* Customer Details */}
-            <div className="space-y-3">
-              <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider pb-1 border-b border-zinc-100">
-                Thông tin khách hàng
-              </h3>
-              <div className="space-y-2 text-sm text-zinc-650">
-                <div className="flex justify-between">
-                  <span className="font-semibold text-zinc-400">Họ tên:</span>
-                  <span className="font-bold text-secondary">{invoice.ten_khach_hang}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-semibold text-zinc-400">Số điện thoại:</span>
-                  <span className="font-semibold text-secondary">{invoice.so_dien_thoai || 'N/A'}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Service & Payment Detail */}
-            <div className="space-y-3">
-              <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider pb-1 border-b border-zinc-100">
-                Gói dịch vụ & Thanh toán
-              </h3>
-              <div className="space-y-2 text-sm text-zinc-650">
-                <div className="flex justify-between">
-                  <span className="font-semibold text-zinc-400">Tên dịch vụ:</span>
-                  <span className="font-bold text-secondary text-right max-w-[180px] truncate" title={invoice.ten_dich_vu}>
-                    {invoice.ten_dich_vu || 'N/A'}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-semibold text-zinc-400">Hình thức đóng:</span>
-                  <span className="font-bold text-indigo-600 capitalize">
-                    {invoice.hinh_thuc_thanh_toan_goi ? invoice.hinh_thuc_thanh_toan_goi.replace(/_/g, ' ') : 'Mặc định'}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Financial Breakdown Table */}
-          <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-100 space-y-2">
-            <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Chi tiết tài chính</h3>
-            <div className="space-y-1.5 text-sm text-zinc-650">
-              <div className="flex justify-between">
-                <span>Nguyên giá gốc:</span>
-                <span className="font-semibold text-secondary">{formatCurrency(Number(invoice.tong_tien_goc))}</span>
-              </div>
-              {Number(invoice.ti_le_giam_gia_goi) > 0 && (
-                <div className="flex justify-between text-emerald-600 font-medium">
-                  <span>Ưu đãi phương thức ({invoice.ti_le_giam_gia_goi}%):</span>
-                  <span>-{formatCurrency(Math.round(Number(invoice.tong_tien_goc) * Number(invoice.ti_le_giam_gia_goi) / 100))}</span>
-                </div>
-              )}
-              {Number(invoice.so_tien_giam_voucher) > 0 && (
-                <div className="flex justify-between text-emerald-600 font-medium">
-                  <span>Ưu đãi Voucher:</span>
-                  <span>-{formatCurrency(Number(invoice.so_tien_giam_voucher))}</span>
-                </div>
-              )}
-              <div className="flex justify-between border-t border-zinc-200/60 pt-1.5 font-bold text-secondary">
-                <span>Tổng phải thu:</span>
-                <span>{formatCurrency(Number(invoice.tong_tien_thanh_toan))}</span>
-              </div>
-              <div className="flex justify-between text-zinc-500">
-                <span>Còn lại phải thu:</span>
-                <span className="font-bold text-amber-600">
-                  {formatCurrency(Math.max(0, Number(invoice.tong_tien_thanh_toan) - Number(invoice.da_thanh_toan)))}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Notes */}
-          {invoice.ghi_chu && (
-            <div className="p-3.5 rounded-2xl bg-amber-50/50 border border-amber-105 text-amber-850 text-xs leading-relaxed font-semibold">
-              📝 Ghi chú: {invoice.ghi_chu}
-            </div>
-          )}
-
-          {/* Transactions List */}
-          <div className="space-y-3">
-            <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider pb-1 border-b border-zinc-100">
-              Lịch sử giao dịch thanh toán
-            </h3>
-            {invoicePayments.length === 0 ? (
-              <p className="text-xs text-zinc-400 italic">Chưa có giao dịch thanh toán nào được thực hiện.</p>
-            ) : (
-              <div className="border border-zinc-100 rounded-2xl overflow-hidden bg-white">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-zinc-50 border-b border-zinc-100 text-zinc-500 font-bold">
-                    <tr>
-                      <th className="px-4 py-2">Mã GD</th>
-                      <th className="px-4 py-2">Số tiền</th>
-                      <th className="px-4 py-2">Phương thức</th>
-                      <th className="px-4 py-2">Thời gian</th>
-                      <th className="px-4 py-2">Trạng thái</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-100">
-                    {invoicePayments.map(p => (
-                      <tr key={p.id} className="text-zinc-650">
-                        <td className="px-4 py-2 font-mono text-zinc-400">{p.ma_giao_dich}</td>
-                        <td className="px-4 py-2 font-extrabold text-secondary">{formatCurrency(p.so_tien)}</td>
-                        <td className="px-4 py-2 capitalize">{(p.phuong_thuc || '').replace(/_/g, ' ')}</td>
-                        <td className="px-4 py-2">{new Date(p.thoi_gian_giao_dich).toLocaleString('vi-VN')}</td>
-                        <td className="px-4 py-2">
-                          <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-tight ${getStatusBadge(p.trang_thai)}`}>
-                            {(p.trang_thai || '').replace(/_/g, ' ')}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="px-6 py-4 bg-zinc-50 border-t border-zinc-100 flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-5 py-2 bg-zinc-200 hover:bg-zinc-300 text-zinc-700 text-xs font-bold rounded-xl transition-all"
-          >
-            Đóng
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+export { getStatusBadge };

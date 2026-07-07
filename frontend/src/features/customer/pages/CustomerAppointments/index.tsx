@@ -26,6 +26,7 @@ interface Appointment {
   chan_doan: string | null;
   chong_chi_dinh: string | null;
   ly_do_huy: string | null;
+  ghi_chu_noi_bo: string | null;
   thoi_gian_huy: string | null;
   ly_do_kham: string | null;
   thoi_gian_tao: string;
@@ -89,7 +90,7 @@ export default function CustomerAppointments() {
 
     const toastId = toast.loading('Đang gửi yêu cầu hủy lịch hẹn...');
     try {
-      await api.patch(`/client/appointments/${cancellingId}/cancel`, { ly_do_huy: lyDoHuy });
+      await api.patch(`/client/appointments/${cancellingId}/cancel`, { ghi_chu_noi_bo: lyDoHuy, ly_do_huy: lyDoHuy });
       toast.success('Đã gửi yêu cầu hủy lịch hẹn! Vui lòng chờ lễ tân liên hệ xác nhận.', { id: toastId });
       setCancellingId(null);
       setLyDoHuy('');
@@ -129,9 +130,18 @@ export default function CustomerAppointments() {
           </span>
         );
       case 'da_huy':
+      case 'da_huy_phat':
         return (
           <span className="text-[10px] font-black text-rose-600 bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
             Đã Hủy Lịch
+          </span>
+        );
+      case 'khong_den':
+      case 'khach_khong_den':
+      case 'khach_khong_den_phat':
+        return (
+          <span className="text-[10px] font-black text-rose-600 bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+            Vắng Mặt (No-Show)
           </span>
         );
       case 'hoan_thanh':
@@ -159,7 +169,11 @@ export default function CustomerAppointments() {
       case 'cho_huy':
         return 'bg-rose-500 animate-pulse';
       case 'da_huy':
-        return 'bg-zinc-400';
+      case 'da_huy_phat':
+      case 'khong_den':
+      case 'khach_khong_den':
+      case 'khach_khong_den_phat':
+        return 'bg-rose-500';
       case 'hoan_thanh':
         return 'bg-slate-400';
       default:
@@ -264,7 +278,7 @@ export default function CustomerAppointments() {
                   </div>
 
                   {/* Clinician and Room details if not cancelled */}
-                  {app.trang_thai !== 'da_huy' && (
+                  {!['da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(app.trang_thai) && (
                     <div className="space-y-2 pt-1.5 text-xs text-slate-650">
                       <div className="flex justify-between items-center border-b border-slate-50 pb-2">
                         <span className="text-slate-400 font-bold text-[9px] uppercase tracking-wider">Bác sĩ phụ trách:</span>
@@ -319,12 +333,30 @@ export default function CustomerAppointments() {
                     </div>
                   )}
 
-                  {app.trang_thai === 'da_huy' && (
-                    <div className="bg-rose-50/20 border border-rose-100 p-3.5 rounded-xl text-[11px] text-slate-500 font-semibold leading-relaxed">
-                      <p className="font-bold text-rose-600 flex items-center gap-1.5"><XCircle size={14} /> Đã hủy lịch hẹn</p>
-                      <p className="text-slate-400 mt-1 italic text-[10px]">"Lý do: {app.ly_do_huy || 'Không có lý do chi tiết'}"</p>
+                  {['da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(app.trang_thai) && (
+                    <div className="bg-rose-50/20 border border-rose-100 p-3.5 rounded-xl text-[11px] text-slate-505 font-semibold leading-relaxed">
+                      <p className="font-bold text-rose-600 flex items-center gap-1.5">
+                        <XCircle size={14} /> 
+                        {['da_huy', 'da_huy_phat'].includes(app.trang_thai) ? 'Đã hủy lịch hẹn' : 'Vắng mặt (No-Show)'}
+                      </p>
+                      <p className="text-slate-400 mt-1 italic text-[10px]">
+                        "Lý do: {app.ghi_chu_noi_bo || app.ly_do_huy || 'Không có lý do chi tiết'}"
+                      </p>
                     </div>
                   )}
+
+                  {/* Display internal note to customer if populated and not cancelled */}
+                  {!['da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(app.trang_thai) && app.ghi_chu_noi_bo && (
+                    <div className="bg-amber-50/30 border border-amber-150 p-3.5 rounded-xl text-[11px] text-slate-600 font-semibold leading-relaxed">
+                      <p className="font-bold text-amber-700">📌 Ghi chú từ phòng khám:</p>
+                      <p className="mt-1 text-slate-550 italic font-medium">"{app.ghi_chu_noi_bo}"</p>
+                    </div>
+                  )}
+
+                  {/* Fixed Hotline Warning Note */}
+                  <div className="bg-zinc-50 border border-zinc-200 p-3.5 rounded-xl text-[11px] text-slate-500 leading-relaxed font-medium">
+                    ⚠️ <strong>Lưu ý:</strong> Khách hàng có nhu cầu đổi lịch vui lòng liên hệ trước 8 tiếng để được hỗ trợ. <strong>Hotline: 1900 6868</strong>.
+                  </div>
                 </div>
 
                 {/* Actions */}

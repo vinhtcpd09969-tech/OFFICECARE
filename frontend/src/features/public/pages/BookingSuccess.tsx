@@ -20,7 +20,7 @@ interface AppointmentData {
   ma_lich_dat: string;
   ngay_gio_bat_dau: string;
   ngay_gio_ket_thuc: string;
-  trang_thai: 'chua_xac_nhan' | 'cho_xac_nhan' | 'da_xac_nhan' | 'da_checkin' | 'dang_kham' | 'hoan_thanh' | 'da_huy' | 'khong_den';
+  trang_thai: 'chua_xac_nhan' | 'cho_xac_nhan' | 'da_xac_nhan' | 'da_checkin' | 'dang_kham' | 'hoan_thanh' | 'da_huy' | 'khong_den' | 'da_huy_phat' | 'khach_khong_den_phat' | 'khach_khong_den';
   ho_ten_khach: string;
   so_dien_thoai: string;
   gioi_tinh_khach: string;
@@ -32,6 +32,7 @@ interface AppointmentData {
   chan_doan: string | null;
   chong_chi_dinh: string | null;
   ly_do_huy: string | null;
+  ghi_chu_noi_bo?: string | null;
   thoi_gian_huy: string | null;
   ly_do_kham: string | null;
   ghi_chu_dat_lich: string | null;
@@ -289,7 +290,7 @@ export default function BookingSuccess() {
   const isUnconfirmed = appointment.trang_thai === 'chua_xac_nhan';
   const isPending = appointment.trang_thai === 'cho_xac_nhan';
   const isConfirmed = ['da_xac_nhan', 'da_checkin', 'dang_kham', 'hoan_thanh'].includes(appointment.trang_thai);
-  const isCancelled = appointment.trang_thai === 'da_huy';
+  const isCancelled = ['da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(appointment.trang_thai);
 
   const isStep2Passed = ['da_xac_nhan', 'da_checkin', 'dang_kham', 'hoan_thanh'].includes(appointment.trang_thai);
   const isStep3Passed = ['da_checkin', 'dang_kham', 'hoan_thanh'].includes(appointment.trang_thai);
@@ -337,7 +338,7 @@ export default function BookingSuccess() {
             {isConfirmed 
               ? 'Lịch hẹn của bạn đã được tiếp nhận thành công. Mời bạn quét mã QR dưới đây tại quầy lễ tân để tiến hành check-in.'
               : isCancelled 
-                ? `Lịch hẹn này đã được hủy bỏ. Lý do: "${appointment.ly_do_huy || 'Hủy bởi hệ thống'}"`
+                ? `Lịch hẹn này đã được ghi nhận trạng thái hủy/vắng mặt. Lý do: "${appointment.ghi_chu_noi_bo || appointment.ly_do_huy || 'Hủy bởi hệ thống'}"`
                 : isUnconfirmed
                   ? 'Bạn đã đặt lịch thành công! Vui lòng nhập mã OTP được gửi tới email để hoàn tất xác thực lịch hẹn.'
                   : 'Lịch hẹn đã được xác thực OTP thành công. Lễ tân đang rà soát ca trực và sắp xếp phòng khám cho bạn.'}
@@ -598,7 +599,7 @@ export default function BookingSuccess() {
                   </div>
                   <div>
                     <h3 className="text-sm font-heading font-black text-rose-800 uppercase tracking-wider">
-                      Lịch Hẹn Đã Bị Hủy
+                      {['da_huy', 'da_huy_phat'].includes(appointment.trang_thai) ? 'Lịch Hẹn Đã Bị Hủy' : 'Vắng Mặt (No-Show)'}
                     </h3>
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
                       Trạng thái hiện tại
@@ -607,10 +608,10 @@ export default function BookingSuccess() {
                 </div>
                 <div className="p-4 bg-white rounded-xl border border-rose-100/50 space-y-2">
                   <p className="text-xs text-slate-650 font-semibold leading-relaxed">
-                    Lịch hẹn này đã bị hủy bỏ bởi hệ thống hoặc nhân sự phòng khám.
+                    Lịch hẹn này đã được ghi nhận trạng thái {['da_huy', 'da_huy_phat'].includes(appointment.trang_thai) ? 'hủy bỏ' : 'vắng mặt (no-show)'} trên hệ thống.
                   </p>
                   <p className="text-xs text-rose-900 font-bold leading-relaxed">
-                    Lý do hủy: <span className="font-semibold italic text-rose-700">"{appointment.ly_do_huy || 'Không có lý do cụ thể'}"</span>
+                    Lý do: <span className="font-semibold italic text-rose-700">"{appointment.ghi_chu_noi_bo || appointment.ly_do_huy || 'Không có ghi chú chi tiết'}"</span>
                   </p>
                 </div>
               </div>
@@ -711,11 +712,34 @@ export default function BookingSuccess() {
                   </div>
 
                 </div>
-
               </div>
             )}
 
+            {/* Display internal note to customer if populated and not cancelled */}
+            {!isCancelled && appointment.ghi_chu_noi_bo && (
+              <div className="bg-amber-50/30 border border-amber-150 p-6 sm:p-8 rounded-[24px] shadow-sm text-left space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="size-9 bg-amber-500 text-white rounded-full flex items-center justify-center font-black">
+                    📌
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-heading font-black text-amber-850 uppercase tracking-wider">
+                      Ghi chú từ phòng khám
+                    </h3>
+                  </div>
+                </div>
+                <div className="p-4 bg-white rounded-xl border border-amber-100/50">
+                  <p className="text-xs text-slate-650 font-semibold leading-relaxed italic">
+                    "{appointment.ghi_chu_noi_bo}"
+                  </p>
+                </div>
+              </div>
+            )}
 
+            {/* Fixed Hotline Warning Note */}
+            <div className="bg-zinc-50 border border-zinc-200 p-6 rounded-[24px] shadow-sm text-left text-xs text-slate-500 leading-relaxed font-medium">
+              ⚠️ <strong>Lưu ý:</strong> Khách hàng có nhu cầu đổi lịch vui lòng liên hệ trước 8 tiếng để được hỗ trợ. <strong>Hotline: 1900 6868</strong>.
+            </div>
 
             {/* Navigation and Actions */}
             <div className="flex flex-col sm:flex-row gap-4 pt-2">

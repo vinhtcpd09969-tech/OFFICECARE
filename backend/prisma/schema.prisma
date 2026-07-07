@@ -111,9 +111,9 @@ model cuoc_hen {
   ngay_gio_ket_thuc     DateTime               @db.Timestamptz(6)
   loai                  String                 @db.VarChar(20)
   trang_thai            String                 @default("cho_xac_nhan") @db.VarChar(20)
-  ghi_chu               String?
+  ghi_chu_khach_hang    String?
   phong_id              Int?
-  ly_do_huy             String?
+  ghi_chu_noi_bo        String?
   thoi_gian_huy         DateTime?              @db.Timestamptz(6)
   nguoi_tao_id          Int?
   goi_dich_vu           goi_dich_vu?           @relation(fields: [goi_dich_vu_id], references: [id], onDelete: NoAction, onUpdate: NoAction)

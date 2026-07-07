@@ -1,1416 +1,422 @@
---
--- PostgreSQL database dump
---
-
-\restrict scRfMZ32RBrpdgHUS3diRKnDDuGwYT4fLpwBGzZBmHk3iRVxZpcKxZhGCDJYGDP
-
--- Dumped from database version 15.17
--- Dumped by pg_dump version 15.17
-
-SET statement_timeout = 0;
-SET lock_timeout = 0;
-SET idle_in_transaction_session_timeout = 0;
-SET client_encoding = 'UTF8';
-SET standard_conforming_strings = on;
-SELECT pg_catalog.set_config('search_path', '', false);
-SET check_function_bodies = false;
-SET xmloption = content;
-SET client_min_messages = warning;
-SET row_security = off;
-
---
--- Name: public; Type: SCHEMA; Schema: -; Owner: postgres
---
-
--- *not* creating schema, since initdb creates it
-
-
-ALTER SCHEMA public OWNER TO postgres;
-
---
--- Name: SCHEMA public; Type: COMMENT; Schema: -; Owner: postgres
---
-
-COMMENT ON SCHEMA public IS '';
-
-
-SET default_tablespace = '';
-
-SET default_table_access_method = heap;
-
---
--- Name: chi_dinh_buoi; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.chi_dinh_buoi (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    nhat_ky_id uuid NOT NULL,
-    goi_dich_vu_id uuid,
-    ghi_chu text
-);
-
-
-ALTER TABLE public.chi_dinh_buoi OWNER TO postgres;
-
---
--- Name: cuoc_hen; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.cuoc_hen (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    khach_hang_id uuid NOT NULL,
-    nhan_su_id integer,
-    goi_dich_vu_id uuid,
-    phac_do_dieu_tri_id uuid,
-    so_thu_tu_buoi integer,
-    ngay_gio_bat_dau timestamp(6) with time zone NOT NULL,
-    ngay_gio_ket_thuc timestamp(6) with time zone NOT NULL,
-    loai character varying(20) NOT NULL,
-    trang_thai character varying(20) DEFAULT 'cho_xac_nhan'::character varying NOT NULL,
-    ghi_chu text,
-    phong_id integer,
-    ly_do_huy text,
-    thoi_gian_huy timestamp with time zone
-);
-
-
-ALTER TABLE public.cuoc_hen OWNER TO postgres;
-
---
--- Name: danh_gia_chat_luong; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.danh_gia_chat_luong (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    cuoc_hen_id uuid NOT NULL,
-    khach_hang_id uuid NOT NULL,
-    so_sao integer NOT NULL,
-    nhan_xet text
-);
-
-
-ALTER TABLE public.danh_gia_chat_luong OWNER TO postgres;
-
---
--- Name: danh_muc_goi; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.danh_muc_goi (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    ten_danh_muc character varying(150) NOT NULL,
-    mo_ta text,
-    loai_goi_ap_dung character varying(20) DEFAULT 'LIEU_TRINH'::character varying NOT NULL
-);
-
-
-ALTER TABLE public.danh_muc_goi OWNER TO postgres;
-
---
--- Name: giao_dich_thanh_toan; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.giao_dich_thanh_toan (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    hoa_don_id uuid NOT NULL,
-    so_tien bigint NOT NULL,
-    loai_giao_dich character varying(20) NOT NULL,
-    phuong_thuc character varying(20) NOT NULL,
-    ma_tham_chieu character varying(100),
-    nhan_vien_thuc_hien_id integer NOT NULL,
-    ngay_giao_dich timestamp(6) with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
-);
-
-
-ALTER TABLE public.giao_dich_thanh_toan OWNER TO postgres;
-
---
--- Name: goi_dich_vu; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.goi_dich_vu (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    ten_goi character varying(200) NOT NULL,
-    loai_goi character varying(20) NOT NULL,
-    tong_so_buoi integer DEFAULT 1 NOT NULL,
-    thoi_luong_phut integer DEFAULT 30 NOT NULL,
-    don_gia bigint NOT NULL,
-    don_gia_theo_buoi bigint NOT NULL,
-    trang_thai character varying(20) DEFAULT 'hoat_dong'::character varying NOT NULL,
-    anh_goi text,
-    danh_muc_goi_id uuid,
-    muc_tieu text,
-    quy_trinh text
-);
-
-
-ALTER TABLE public.goi_dich_vu OWNER TO postgres;
-
---
--- Name: ho_so_chuyen_gia; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.ho_so_chuyen_gia (
-    id integer NOT NULL,
-    nguoi_dung_id integer NOT NULL,
-    so_nam_kinh_nghiem integer,
-    bang_cap_chung_chi text,
-    mo_ta text
-);
-
-
-ALTER TABLE public.ho_so_chuyen_gia OWNER TO postgres;
-
---
--- Name: ho_so_chuyen_gia_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
---
-
-CREATE SEQUENCE public.ho_so_chuyen_gia_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER TABLE public.ho_so_chuyen_gia_id_seq OWNER TO postgres;
-
---
--- Name: ho_so_chuyen_gia_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
---
-
-ALTER SEQUENCE public.ho_so_chuyen_gia_id_seq OWNED BY public.ho_so_chuyen_gia.id;
-
-
---
--- Name: hoa_don; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.hoa_don (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    khach_hang_id uuid NOT NULL,
-    phac_do_dieu_tri_id uuid,
-    cuoc_hen_id uuid,
-    tong_tien_goc bigint DEFAULT 0 NOT NULL,
-    hinh_thuc_thanh_toan_goi character varying(20),
-    ti_le_giam_gia_goi integer DEFAULT 0,
-    voucher_id uuid,
-    so_tien_giam_voucher bigint DEFAULT 0,
-    tong_tien_phai_tra bigint NOT NULL,
-    so_tien_da_tra bigint DEFAULT 0 NOT NULL,
-    trang_thai character varying(30) DEFAULT 'chua_thanh_toan'::character varying NOT NULL,
-    ghi_chu text,
-    ngay_tao timestamp(6) with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
-);
-
-
-ALTER TABLE public.hoa_don OWNER TO postgres;
-
---
--- Name: khach_hang; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.khach_hang (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    ho_ten character varying(150) NOT NULL,
-    email character varying(255),
-    mat_khau_hash character varying(255),
-    so_dien_thoai character varying(20),
-    dia_chi text,
-    ngay_sinh date,
-    gioi_tinh character varying(10),
-    trang_thai character varying(20) DEFAULT 'hoat_dong'::character varying NOT NULL
-);
-
-
-ALTER TABLE public.khach_hang OWNER TO postgres;
-
---
--- Name: khuyen_mai_voucher; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.khuyen_mai_voucher (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    ma_code character varying(50) NOT NULL,
-    loai_giam_gia character varying(20) NOT NULL,
-    gia_tri_giam bigint NOT NULL,
-    giam_toi_da bigint,
-    don_hang_toi_thieu bigint DEFAULT 0 NOT NULL,
-    ngay_bat_dau timestamp(6) with time zone NOT NULL,
-    ngay_het_han timestamp(6) with time zone,
-    so_luong_gioi_han integer,
-    so_luong_da_dung integer DEFAULT 0 NOT NULL,
-    dang_kich_hoat boolean DEFAULT true NOT NULL
-);
-
-
-ALTER TABLE public.khuyen_mai_voucher OWNER TO postgres;
-
---
--- Name: lich_truc_nhan_su; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.lich_truc_nhan_su (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    nhan_su_id integer NOT NULL,
-    ngay_truc date NOT NULL,
-    ca_truc character varying(20) NOT NULL,
-    gio_bat_dau time(6) without time zone NOT NULL,
-    gio_ket_thuc time(6) without time zone NOT NULL,
-    trang_thai character varying(20) DEFAULT 'hoat_dong'::character varying NOT NULL,
-    phong_id integer
-);
-
-
-ALTER TABLE public.lich_truc_nhan_su OWNER TO postgres;
-
---
--- Name: nguoi_dung; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.nguoi_dung (
-    id integer NOT NULL,
-    ho_ten character varying(150) NOT NULL,
-    email character varying(255) NOT NULL,
-    so_dien_thoai character varying(20),
-    mat_khau_hash character varying(255) NOT NULL,
-    vai_tro_id smallint NOT NULL,
-    trang_thai character varying(20) DEFAULT 'hoat_dong'::character varying NOT NULL,
-    anh_dai_dien text
-);
-
-
-ALTER TABLE public.nguoi_dung OWNER TO postgres;
-
---
--- Name: nguoi_dung_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
---
-
-CREATE SEQUENCE public.nguoi_dung_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER TABLE public.nguoi_dung_id_seq OWNER TO postgres;
-
---
--- Name: nguoi_dung_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
---
-
-ALTER SEQUENCE public.nguoi_dung_id_seq OWNED BY public.nguoi_dung.id;
-
-
---
--- Name: nhat_ky_buoi_dieu_tri; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.nhat_ky_buoi_dieu_tri (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    cuoc_hen_id uuid NOT NULL,
-    nguoi_tao_id integer NOT NULL,
-    vas_truoc integer,
-    vas_sau integer,
-    chan_doan text,
-    chong_chi_dinh text,
-    ghi_chu text,
-    ngay_tao timestamp(6) with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
-);
-
-
-ALTER TABLE public.nhat_ky_buoi_dieu_tri OWNER TO postgres;
-
---
--- Name: otp_codes; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.otp_codes (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    email character varying(255) NOT NULL,
-    otp character varying(6) NOT NULL,
-    expires_at timestamp(6) with time zone NOT NULL,
-    created_at timestamp(6) with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
-);
-
-
-ALTER TABLE public.otp_codes OWNER TO postgres;
-
---
--- Name: phac_do_dieu_tri; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.phac_do_dieu_tri (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    khach_hang_id uuid NOT NULL,
-    goi_dich_vu_id uuid NOT NULL,
-    tong_so_buoi integer NOT NULL,
-    so_buoi_da_dung integer DEFAULT 0 NOT NULL,
-    trang_thai character varying(20) DEFAULT 'cho_kich_hoat'::character varying NOT NULL,
-    ngay_kich_hoat date,
-    han_su_dung date
-);
-
-
-ALTER TABLE public.phac_do_dieu_tri OWNER TO postgres;
-
---
--- Name: phong_lam_viec; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.phong_lam_viec (
-    id integer NOT NULL,
-    ten_phong character varying(100) NOT NULL,
-    ma_phong character varying(20),
-    loai_phong character varying(50) NOT NULL,
-    suc_chua integer DEFAULT 1 NOT NULL,
-    trang_thai character varying(20) DEFAULT 'san_sang'::character varying NOT NULL,
-    mo_ta text
-);
-
-
-ALTER TABLE public.phong_lam_viec OWNER TO postgres;
-
---
--- Name: phong_lam_viec_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
---
-
-CREATE SEQUENCE public.phong_lam_viec_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER TABLE public.phong_lam_viec_id_seq OWNER TO postgres;
-
---
--- Name: phong_lam_viec_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
---
-
-ALTER SEQUENCE public.phong_lam_viec_id_seq OWNED BY public.phong_lam_viec.id;
-
-
---
--- Name: refresh_tokens; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.refresh_tokens (
-    id integer NOT NULL,
-    nguoi_dung_id integer,
-    khach_hang_id uuid,
-    token text NOT NULL,
-    expires_at timestamp(6) without time zone NOT NULL,
-    created_at timestamp(6) without time zone DEFAULT CURRENT_TIMESTAMP
-);
-
-
-ALTER TABLE public.refresh_tokens OWNER TO postgres;
-
---
--- Name: refresh_tokens_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
---
-
-CREATE SEQUENCE public.refresh_tokens_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER TABLE public.refresh_tokens_id_seq OWNER TO postgres;
-
---
--- Name: refresh_tokens_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
---
-
-ALTER SEQUENCE public.refresh_tokens_id_seq OWNED BY public.refresh_tokens.id;
-
-
---
--- Name: tam_giu_cho; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.tam_giu_cho (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    session_id character varying(100) NOT NULL,
-    ngay_gio_bat_dau timestamp with time zone NOT NULL,
-    ngay_gio_ket_thuc timestamp with time zone NOT NULL,
-    nhan_su_id integer,
-    goi_dich_vu_id uuid,
-    thoi_gian_het_han timestamp with time zone NOT NULL,
-    thoi_gian_tao timestamp with time zone DEFAULT now(),
-    khach_hang_id uuid,
-    so_dien_thoai text
-);
-
-
-ALTER TABLE public.tam_giu_cho OWNER TO postgres;
-
---
--- Name: thiet_bi; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.thiet_bi (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    ma_thiet_bi character varying(50) NOT NULL,
-    ten_thiet_bi character varying(150) NOT NULL,
-    ngay_mua date,
-    trang_thai character varying(20) DEFAULT 'san_sang'::character varying NOT NULL,
-    ghi_chu text
-);
-
-
-ALTER TABLE public.thiet_bi OWNER TO postgres;
-
---
--- Name: thong_bao; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.thong_bao (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    nguoi_dung_id integer,
-    khach_hang_id uuid,
-    tieu_de character varying(200) NOT NULL,
-    noi_dung text NOT NULL,
-    loai character varying(30) DEFAULT 'he_thong'::character varying NOT NULL,
-    da_doc boolean DEFAULT false NOT NULL,
-    thoi_gian_tao timestamp(6) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
-);
-
-
-ALTER TABLE public.thong_bao OWNER TO postgres;
-
---
--- Name: vai_tro; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.vai_tro (
-    id smallint NOT NULL,
-    ma_vai_tro character varying(20) NOT NULL,
-    ten_vai_tro character varying(50) NOT NULL
-);
-
-
-ALTER TABLE public.vai_tro OWNER TO postgres;
-
---
--- Name: vai_tro_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
---
-
-CREATE SEQUENCE public.vai_tro_id_seq
-    AS smallint
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER TABLE public.vai_tro_id_seq OWNER TO postgres;
-
---
--- Name: vai_tro_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
---
-
-ALTER SEQUENCE public.vai_tro_id_seq OWNED BY public.vai_tro.id;
-
-
---
--- Name: ho_so_chuyen_gia id; Type: DEFAULT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.ho_so_chuyen_gia ALTER COLUMN id SET DEFAULT nextval('public.ho_so_chuyen_gia_id_seq'::regclass);
-
-
---
--- Name: nguoi_dung id; Type: DEFAULT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.nguoi_dung ALTER COLUMN id SET DEFAULT nextval('public.nguoi_dung_id_seq'::regclass);
-
-
---
--- Name: phong_lam_viec id; Type: DEFAULT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.phong_lam_viec ALTER COLUMN id SET DEFAULT nextval('public.phong_lam_viec_id_seq'::regclass);
-
-
---
--- Name: refresh_tokens id; Type: DEFAULT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.refresh_tokens ALTER COLUMN id SET DEFAULT nextval('public.refresh_tokens_id_seq'::regclass);
-
-
---
--- Name: vai_tro id; Type: DEFAULT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.vai_tro ALTER COLUMN id SET DEFAULT nextval('public.vai_tro_id_seq'::regclass);
-
-
---
--- Data for Name: chi_dinh_buoi; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.chi_dinh_buoi (id, nhat_ky_id, goi_dich_vu_id, ghi_chu) FROM stdin;
-1744055e-4300-4b17-850e-66483e2475b6	24cf2ca0-7ab8-4229-b605-63f5f35d9c7c	c1000000-0000-0000-0000-000000000001	\N
-\.
-
-
---
--- Data for Name: cuoc_hen; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.cuoc_hen (id, khach_hang_id, nhan_su_id, goi_dich_vu_id, phac_do_dieu_tri_id, so_thu_tu_buoi, ngay_gio_bat_dau, ngay_gio_ket_thuc, loai, trang_thai, ghi_chu, phong_id, ly_do_huy, thoi_gian_huy) FROM stdin;
-4f9a63fd-1763-4c9f-a783-d063b5840d04	d5d1baf4-628a-4622-ba35-95da33c19c16	5	c1000000-0000-0000-0000-000000000000	\N	\N	2026-07-04 10:00:00+07	2026-07-04 10:30:00+07	KHAM	hoan_thanh	Khám lượng giá ban đầu	1	\N	\N
-152b230c-d768-4bf6-b6d6-43046c5adda0	d5d1baf4-628a-4622-ba35-95da33c19c16	5	c1000000-0000-0000-0000-000000000000	\N	\N	2026-07-04 14:50:00+07	2026-07-04 15:20:00+07	KHAM	da_huy	Khám lượng giá ban đầu	1	\N	\N
-5a9bd1cd-a99c-458e-9bfd-9f2fd365a6ba	d5d1baf4-628a-4622-ba35-95da33c19c16	10	c1000000-0000-0000-0000-000000000102	\N	\N	2026-07-04 14:30:00+07	2026-07-04 14:50:00+07	DICH_VU_LE	da_xac_nhan	Trị liệu lẻ: Trị liệu sóng xung kích Focused Shockwave	4	\N	\N
-b40efd0d-9845-4e4a-8523-fb9f7fbcf426	d5d1baf4-628a-4622-ba35-95da33c19c16	5	c1000000-0000-0000-0000-000000000000	\N	\N	2026-07-04 15:30:00+07	2026-07-04 16:00:00+07	KHAM	da_xac_nhan	Khám lượng giá ban đầu	1	\N	\N
-8568a50c-9340-4368-a94f-f66cd2162c79	d5d1baf4-628a-4622-ba35-95da33c19c16	7	c1000000-0000-0000-0000-000000000101	\N	\N	2026-07-05 14:45:00+07	2026-07-05 15:00:00+07	DICH_VU_LE	da_xac_nhan	Trị liệu lẻ: Trị liệu Laser công suất cao giảm sưng viêm	2	\N	\N
-\.
-
-
---
--- Data for Name: danh_gia_chat_luong; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.danh_gia_chat_luong (id, cuoc_hen_id, khach_hang_id, so_sao, nhan_xet) FROM stdin;
-\.
-
-
---
--- Data for Name: danh_muc_goi; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.danh_muc_goi (id, ten_danh_muc, mo_ta, loai_goi_ap_dung) FROM stdin;
-d1000000-0000-0000-0000-000000000001	Khám & Lượng Giá Chuyên Sâu	Các gói khám và đánh giá ban đầu với Bác sĩ	KHAM
-d1000000-0000-0000-0000-000000000002	Trị Liệu Giải Quyết Cơn Đau	Các gói lẻ điện xung, laser, sóng xung kích điều trị triệu chứng	LE
-d1000000-0000-0000-0000-000000000003	Phục Hồi Chức Năng Chuyên Sâu	Các gói liệu trình chuyên sâu điều trị phục hồi cột sống, khớp xương gối	LIEU_TRINH
-7f5999ce-4791-406e-b9cd-772b2833bdee	Khám Lưng	\N	KHAM
-\.
-
-
---
--- Data for Name: giao_dich_thanh_toan; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.giao_dich_thanh_toan (id, hoa_don_id, so_tien, loai_giao_dich, phuong_thuc, ma_tham_chieu, nhan_vien_thuc_hien_id, ngay_giao_dich) FROM stdin;
-\.
-
-
---
--- Data for Name: goi_dich_vu; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.goi_dich_vu (id, ten_goi, loai_goi, tong_so_buoi, thoi_luong_phut, don_gia, don_gia_theo_buoi, trang_thai, anh_goi, danh_muc_goi_id, muc_tieu, quy_trinh) FROM stdin;
-c1000000-0000-0000-0000-000000000003	Gói Phục Hồi Chấn Thương Thể Thao & Viêm Gân Cấp	LIEU_TRINH	12	60	5400000	450000	hoat_dong	/goi/images/laser_tri_lieu.png	d1000000-0000-0000-0000-000000000003	\N	\N
-c1000000-0000-0000-0000-000000000000	Khám lâm sàng & Lượng giá chức năng cơ xương khớp	KHAM	1	30	200000	200000	hoat_dong	/goi/images/kham_sang_loc.png	d1000000-0000-0000-0000-000000000001	Biết Được Tình Trạng Đau Của Khách Hàng , Đưa Giải Phác Đồ Hợp Lý	Bác Sĩ Đo Chỉ Số Cơ Thể Và Khám Thăm Khám Vùng Đau
-c1000000-0000-0000-0000-000000000103	Giải cơ sâu & màng cơ chuyên sâu Myofascial Release	LE	1	60	350000	350000	hoat_dong	/goi/images/giai_co_sau.png	d1000000-0000-0000-0000-000000000002	123	123
-c1000000-0000-0000-0000-000000000001	Gói Phục Hồi Cột Sống & Đau Vai Gáy Chuyên Sâu	LIEU_TRINH	8	60	3200000	450000	hoat_dong	/goi/images/giai_co_sau.png	d1000000-0000-0000-0000-000000000003	123	123
-c1000000-0000-0000-0000-000000000101	Trị liệu Laser công suất cao giảm sưng viêm	LE	1	15	250000	250000	hoat_dong	/goi/images/laser_tri_lieu.png	\N	\N	\N
-c1000000-0000-0000-0000-000000000102	Trị liệu sóng xung kích Focused Shockwave	LE	1	20	300000	300000	hoat_dong	/goi/images/song_xung_kich.png	\N	\N	\N
-c1000000-0000-0000-0000-000000000002	Gói Trị Liệu Thoát Vị Đĩa Đệm Cột Sống Thắt Lưng	LIEU_TRINH	10	60	4500000	460000	hoat_dong	/goi/images/song_xung_kich.png	\N	123	123
-\.
-
-
---
--- Data for Name: ho_so_chuyen_gia; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.ho_so_chuyen_gia (id, nguoi_dung_id, so_nam_kinh_nghiem, bang_cap_chung_chi, mo_ta) FROM stdin;
-1	5	15	/nhan_su/images/cert_assess.png,/nhan_su/images/cert_physio.png	Bác sĩ Nguyễn Văn An là chuyên gia hàng đầu với hơn 15 năm kinh nghiệm trong lĩnh vực Phục hồi chức năng và Vật lý trị liệu cơ xương khớp. Ông từng tốt nghiệp thủ khoa Đại học Y Dược TP.HCM và tu nghiệp chuyên sâu tại Singapore. Bác sĩ An nổi tiếng với phương pháp lượng giá sinh học vận động toàn diện, giúp phát hiện nguồn gốc sâu xa của các chứng đau cột sống cổ, vai gáy và thắt lưng của dân văn phòng.
-2	6	10	/nhan_su/images/cert_assess.png,/nhan_su/images/cert_physio.png	Bác sĩ Trần Thị Bình có hơn 10 năm công tác chuyên sâu về Cơ Xương Khớp và Y học Thể thao. Bà chuyên điều trị phục hồi các chấn thương thể thao cấp tính, đứt dây chằng chéo trước, rách sụn chêm và viêm gân mãn tính. Bác sĩ Bình luôn áp dụng các công nghệ y khoa tiên tiến như sóng xung kích hội tụ và laser công suất cao kết hợp phác đồ vận động cá nhân hóa để đẩy nhanh tốc độ phục hồi.
-3	7	8	/nhan_su/images/cert_assess.png,/nhan_su/images/cert_physio.png	Kỹ thuật viên Lê Văn Cường có 8 năm kinh nghiệm thực hành trị liệu bằng tay chuyên sâu (Manual Therapy). Anh là chuyên gia về giải phóng cơ sâu (Myofascial Release) và di động khớp phục hồi biên độ vận động. Cường luôn tận tâm hướng dẫn bệnh nhân từng bài tập cốt lõi để duy trì hiệu quả trị liệu lâu dài.
-4	8	6	/nhan_su/images/cert_assess.png,/nhan_su/images/cert_physio.png	Kỹ thuật viên Phạm Thị Dung là nữ chuyên gia trị liệu có 6 năm kinh nghiệm về phục hồi chức năng sau phẫu thuật cột sống và thay khớp. Sự nhẹ nhàng, chu đáo cùng chuyên môn vững vàng của cô giúp bệnh nhân luôn cảm thấy an tâm và có động lực trong suốt hành trình tập luyện.
-5	9	5	/nhan_su/images/cert_assess.png,/nhan_su/images/cert_physio.png	Kỹ thuật viên Lê Văn Chiến có 5 năm kinh nghiệm về Vật lý trị liệu phục hồi thể thao, hỗ trợ các vận động viên phục hồi phong độ tối ưu sau chấn thương dây chằng và cơ bắp.
-6	10	4	/nhan_su/images/cert_assess.png,/nhan_su/images/cert_physio.png	Kỹ thuật viên Phạm Thị Đào có 4 năm kinh nghiệm trị liệu bằng tay và vận động trị liệu cột sống cổ - vai - gáy cho đối tượng nhân viên văn phòng.
-13	11	1	Bác sĩ Vật lý trị liệu	\N
-14	12	1	Bác sĩ Vật lý trị liệu	\N
-15	13	1	Kỹ thuật viên Vật lý trị liệu	\N
-\.
-
-
---
--- Data for Name: hoa_don; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.hoa_don (id, khach_hang_id, phac_do_dieu_tri_id, cuoc_hen_id, tong_tien_goc, hinh_thuc_thanh_toan_goi, ti_le_giam_gia_goi, voucher_id, so_tien_giam_voucher, tong_tien_phai_tra, so_tien_da_tra, trang_thai, ghi_chu, ngay_tao) FROM stdin;
-\.
-
-
---
--- Data for Name: khach_hang; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.khach_hang (id, ho_ten, email, mat_khau_hash, so_dien_thoai, dia_chi, ngay_sinh, gioi_tinh, trang_thai) FROM stdin;
-10000000-0000-0000-0000-000000000011	Nguyễn Văn An	kh1@gmail.com	$2b$10$Pa.Psa0yUMgFF/XBoLRC9enPa1ySh0dTrM9o8O7RmASsLRcK5.fsu	0912000011	12 Nguyễn Huệ, Q1, TP.HCM	1988-03-15	nam	hoat_dong
-10000000-0000-0000-0000-000000000012	Trần Thị Bảo	kh2@gmail.com	$2b$10$Pa.Psa0yUMgFF/XBoLRC9enPa1ySh0dTrM9o8O7RmASsLRcK5.fsu	0912000012	45 Lê Lợi, Q1, TP.HCM	1992-07-22	nu	hoat_dong
-10000000-0000-0000-0000-000000000013	Lê Quang Cường	kh3@gmail.com	$2b$10$Pa.Psa0yUMgFF/XBoLRC9enPa1ySh0dTrM9o8O7RmASsLRcK5.fsu	0912000013	78 Trần Hưng Đạo, Q5, TP.HCM	1985-11-08	nam	hoat_dong
-10000000-0000-0000-0000-000000000014	Phạm Thị Dung	kh4@gmail.com	$2b$10$Pa.Psa0yUMgFF/XBoLRC9enPa1ySh0dTrM9o8O7RmASsLRcK5.fsu	0912000014	23 Điện Biên Phủ, Q3, TP.HCM	1995-04-30	nu	hoat_dong
-d5d1baf4-628a-4622-ba35-95da33c19c16	Trần Vinh	vinhtcpd09969@gmail.com	$2b$10$OXLSw7p06oxu28UfM1j8p.ZlB26ojcWXkVtYkzKNPuvBsgCYNDNs2	\N	\N	\N	\N	hoat_dong
-f4a36fe7-4ef3-400c-9f28-5e96e52598a4	Trần Vinh	0398655532@officecare.placeholder	$2b$10$yy5u3Ip05ubzPaLqa493l.QMtX/XMYnUF6zRFxrIdpQpy5p88fxyW	0398655532	\N	\N	nam	hoat_dong
-\.
-
-
---
--- Data for Name: khuyen_mai_voucher; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.khuyen_mai_voucher (id, ma_code, loai_giam_gia, gia_tri_giam, giam_toi_da, don_hang_toi_thieu, ngay_bat_dau, ngay_het_han, so_luong_gioi_han, so_luong_da_dung, dang_kich_hoat) FROM stdin;
-50000000-0000-0000-0000-000000000001	WELCOME10	phan_tram	10	200000	500000	2026-06-29 07:00:00+07	2026-09-27 07:00:00+07	100	0	t
-50000000-0000-0000-0000-000000000002	SUMMER200	tien_mat	200000	200000	1000000	2026-06-29 07:00:00+07	2026-07-29 07:00:00+07	50	0	t
-\.
-
-
---
--- Data for Name: lich_truc_nhan_su; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.lich_truc_nhan_su (id, nhan_su_id, ngay_truc, ca_truc, gio_bat_dau, gio_ket_thuc, trang_thai, phong_id) FROM stdin;
-35c21c8a-4082-4f3a-b721-a58465242851	5	2026-07-03	SANG	07:00:00	16:00:00	hoat_dong	1
-fb2d1e0f-efb4-4fec-a7c1-1dcc5520bd6e	6	2026-07-03	SANG	07:00:00	16:00:00	hoat_dong	1
-43aa330c-f47f-40ba-ba8d-51b976583a2d	12	2026-07-03	SANG	07:00:00	16:00:00	hoat_dong	5
-452fcf26-7084-42da-8539-530620fe35bd	5	2026-07-04	SANG	07:00:00	16:00:00	hoat_dong	1
-f101f03e-a6ba-48a2-878a-a8a13b8442b1	6	2026-07-04	SANG	07:00:00	16:00:00	hoat_dong	1
-a5d266e7-c769-4605-8c1c-6268cf041db8	8	2026-07-02	SANG	11:00:00	20:00:00	hoat_dong	2
-31c4ee91-c4b1-4ee5-a16f-3951364570b2	9	2026-07-02	SANG	07:00:00	16:00:00	hoat_dong	2
-c44bd2b9-c060-471c-b431-b0128dd56b10	9	2026-07-03	SANG	07:00:00	16:00:00	hoat_dong	2
-8f1f5a26-f68e-4195-8345-746f0fec90d2	9	2026-07-04	SANG	07:00:00	16:00:00	hoat_dong	2
-65fa0dd0-f164-46c6-b9fd-ba1538f56b40	8	2026-07-04	SANG	07:00:00	16:00:00	hoat_dong	2
-cfe11e72-a41d-46bb-b4a7-a352259d43b7	10	2026-07-04	SANG	11:00:00	20:00:00	hoat_dong	4
-42a11380-468c-4cdd-914b-cda233f78fd5	5	2026-07-05	SANG	07:00:00	16:00:00	hoat_dong	1
-423cbe0f-f8e8-4872-a81c-e1f1e5593059	7	2026-07-04	SANG	07:00:00	16:00:00	hoat_dong	4
-6d80e147-a354-4474-a1de-4e4884378c4e	7	2026-07-05	SANG	07:00:00	16:00:00	hoat_dong	2
-\.
-
-
---
--- Data for Name: nguoi_dung; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.nguoi_dung (id, ho_ten, email, so_dien_thoai, mat_khau_hash, vai_tro_id, trang_thai, anh_dai_dien) FROM stdin;
-1	Nguyễn Admin Hệ Thống	admin@officecare.vn	0901000001	$2b$10$Pa.Psa0yUMgFF/XBoLRC9enPa1ySh0dTrM9o8O7RmASsLRcK5.fsu	5	hoat_dong	\N
-2	Trần Minh Quản Lý	quanly@officecare.vn	0901000002	$2b$10$Pa.Psa0yUMgFF/XBoLRC9enPa1ySh0dTrM9o8O7RmASsLRcK5.fsu	6	hoat_dong	\N
-3	Lê Thị Hoa	letan1@officecare.vn	0901000003	$2b$10$Pa.Psa0yUMgFF/XBoLRC9enPa1ySh0dTrM9o8O7RmASsLRcK5.fsu	2	hoat_dong	\N
-4	Phạm Ngọc Mai	letan2@officecare.vn	0901000004	$2b$10$Pa.Psa0yUMgFF/XBoLRC9enPa1ySh0dTrM9o8O7RmASsLRcK5.fsu	2	hoat_dong	\N
-5	BS. Nguyễn Văn Khoa	bacsi1@officecare.vn	0901000005	$2b$10$Pa.Psa0yUMgFF/XBoLRC9enPa1ySh0dTrM9o8O7RmASsLRcK5.fsu	4	hoat_dong	/nhan_su/images/dr_nguyen_van_a.png
-6	BS. Trần Thị Lan Anh	bacsi2@officecare.vn	0901000006	$2b$10$Pa.Psa0yUMgFF/XBoLRC9enPa1ySh0dTrM9o8O7RmASsLRcK5.fsu	4	hoat_dong	/nhan_su/images/dr_tran_thi_b.png
-7	KTV. Đỗ Thanh Tùng	ktv1@officecare.vn	0901000007	$2b$10$Pa.Psa0yUMgFF/XBoLRC9enPa1ySh0dTrM9o8O7RmASsLRcK5.fsu	3	hoat_dong	/nhan_su/images/ktv_le_van_c.png
-8	KTV. Nguyễn Thị Bích	ktv2@officecare.vn	0901000008	$2b$10$Pa.Psa0yUMgFF/XBoLRC9enPa1ySh0dTrM9o8O7RmASsLRcK5.fsu	3	hoat_dong	/nhan_su/images/ktv_pham_thi_d.png
-9	KTV. Hoàng Văn Minh	ktv3@officecare.vn	0901000009	$2b$10$Pa.Psa0yUMgFF/XBoLRC9enPa1ySh0dTrM9o8O7RmASsLRcK5.fsu	3	hoat_dong	/nhan_su/images/ktv_le_van_c.png
-10	KTV. Vũ Thị Thanh	ktv4@officecare.vn	0901000010	$2b$10$Pa.Psa0yUMgFF/XBoLRC9enPa1ySh0dTrM9o8O7RmASsLRcK5.fsu	3	hoat_dong	/nhan_su/images/ktv_pham_thi_d.png
-11	Phan Phú lâm	lam@gmail.com	0398655333	$2b$10$nXuSxfxvKsh.J5kcToJsNuaN3dH/vA9NYWxi0xKTqAvR5hUGwGv.S	4	vo_hieu	\N
-12	tiên trịnh	tien@gmail.com	0398655574	$2b$10$mnmTAfqcUVNgh47wSIioy.EwS0hy8VDxefrGQX8uUkMRzK0LJrWjS	4	hoat_dong	\N
-13	kindc	vinhtcpd9969@gmail.com	0269874532	$2b$10$XSOqfG/H7ChnM.MQeISLEOpk8yVNG4jIznUNdcOECzyUnPtWXjrW2	3	hoat_dong	\N
-\.
-
-
---
--- Data for Name: nhat_ky_buoi_dieu_tri; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.nhat_ky_buoi_dieu_tri (id, cuoc_hen_id, nguoi_tao_id, vas_truoc, vas_sau, chan_doan, chong_chi_dinh, ghi_chu, ngay_tao) FROM stdin;
-24cf2ca0-7ab8-4229-b605-63f5f35d9c7c	4f9a63fd-1763-4c9f-a783-d063b5840d04	5	\N	\N	thoái hóa	chống điện xung	không	2026-07-03 23:44:27.002684+07
-\.
-
-
---
--- Data for Name: otp_codes; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.otp_codes (id, email, otp, expires_at, created_at) FROM stdin;
-ef62aae8-3c29-4ce7-b059-0d8e3d9906cd	vinhtcpd09969@gmail.com	961509	2026-07-02 15:22:41.73+07	2026-07-02 15:12:41.732+07
-29125fd4-a3e4-4881-8a03-bddf8957802e	vinhtcpd09969@gmail.com	446778	2026-07-02 15:37:13.466+07	2026-07-02 15:27:13.489+07
-3a5c164d-34f7-4321-836e-dcac7db737ca	vinhtcpd09969@gmail.com	548296	2026-07-02 15:41:43.441+07	2026-07-02 15:31:43.445+07
-864d6ae5-7158-4fde-ae4b-375229be1965	vinhtcpd09969@gmail.com	742513	2026-07-02 22:48:26.677+07	2026-07-02 22:38:26.685+07
-99e6670b-ce7b-480c-9722-4040f58feb3a	vinhtcpd09969@gmail.com	903838	2026-07-03 20:14:11.79+07	2026-07-03 20:04:11.813+07
-\.
-
-
---
--- Data for Name: phac_do_dieu_tri; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.phac_do_dieu_tri (id, khach_hang_id, goi_dich_vu_id, tong_so_buoi, so_buoi_da_dung, trang_thai, ngay_kich_hoat, han_su_dung) FROM stdin;
-f0000000-0000-0000-0000-000000000001	10000000-0000-0000-0000-000000000011	c1000000-0000-0000-0000-000000000001	8	2	dang_dieu_tri	2026-06-25	\N
-f0000000-0000-0000-0000-000000000002	10000000-0000-0000-0000-000000000012	c1000000-0000-0000-0000-000000000002	10	0	dang_dieu_tri	2026-07-01	\N
-\.
-
-
---
--- Data for Name: phong_lam_viec; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.phong_lam_viec (id, ten_phong, ma_phong, loai_phong, suc_chua, trang_thai, mo_ta) FROM stdin;
-1	Phòng Khám Lâm Sàng 01	PK-01	phong_kham	2	san_sang	Phòng khám bệnh lâm sàng ban đầu
-2	Phòng Trị Liệu 01	TL-01	phong_tri_lieu	4	san_sang	Phòng trị liệu cơ bản
-3	Phòng Tập Phục Hồi Chức Năng	PHCN-01	phong_tap	6	san_sang	Phòng tập PHCN chuyên biệt
-4	Phòng Trị Liệu Đặc Biệt	TL-DB	phong_tri_lieu	2	san_sang	Phòng trị liệu cao cấp
-5	Khám 1	PK	phong_kham	2	san_sang	
-\.
-
-
---
--- Data for Name: refresh_tokens; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.refresh_tokens (id, nguoi_dung_id, khach_hang_id, token, expires_at, created_at) FROM stdin;
-1	1	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgyOTMxMTExLCJleHAiOjE3ODM1MzU5MTF9.EYzbXp15rk_HdI_QwHFWwRt_wR3g2iyf5UyHw7i-JQg	2026-07-08 18:38:31.688	2026-07-01 18:38:31.795
-2	3	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgyOTMxMTE4LCJleHAiOjE3ODM1MzU5MTh9.JtS0sn-YqMGHatnfTQskIVxtrC5iiM7NjUvpxKB2YF4	2026-07-08 18:38:38.404	2026-07-01 18:38:38.406
-3	7	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NywiaWF0IjoxNzgyOTMxMTY1LCJleHAiOjE3ODM1MzU5NjV9.9BAhXgRWqRlMq81vME3d2h5h9IKb_gLKlVw9iC6nGno	2026-07-08 18:39:25.873	2026-07-01 18:39:25.874
-4	5	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiaWF0IjoxNzgyOTMxMTcyLCJleHAiOjE3ODM1MzU5NzJ9.7mGfDmq8oI13S7EiYKTUgI3qz-BaHr0bvxhcm4_oycE	2026-07-08 18:39:32.153	2026-07-01 18:39:32.154
-5	7	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NywiaWF0IjoxNzgyOTMxMTgxLCJleHAiOjE3ODM1MzU5ODF9.Obqqz-0ckLBx_eV0nHogBt0RSbDRZzHdhea-CmUJf_0	2026-07-08 18:39:41.744	2026-07-01 18:39:41.746
-6	5	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiaWF0IjoxNzgyOTMxMTg1LCJleHAiOjE3ODM1MzU5ODV9.VJhlyEEgsT6BeokPf5dog9kg9r1CfrY-_E7KT629wTQ	2026-07-08 18:39:45.492	2026-07-01 18:39:45.492
-7	2	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MiwiaWF0IjoxNzgyOTMxMTk3LCJleHAiOjE3ODM1MzU5OTd9.G0k4mD6jQcloE7HLzQfGj8ktO6Mv_EAWJ8T-c2mvnXQ	2026-07-08 18:39:57.245	2026-07-01 18:39:57.246
-8	1	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgyOTMxMjIyLCJleHAiOjE3ODM1MzYwMjJ9.vJQZW4ODseOr5ilLcfBRq431NRu2G74nRx089UsWCQs	2026-07-08 18:40:22.769	2026-07-01 18:40:22.769
-9	2	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MiwiaWF0IjoxNzgyOTMxMjMxLCJleHAiOjE3ODM1MzYwMzF9.KIQlrZjOU0-N9O1xRmezvDupk30Spv4yhN0_5jHyO-s	2026-07-08 18:40:31.39	2026-07-01 18:40:31.39
-10	\N	10000000-0000-0000-0000-000000000011	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MjkzMTI0MCwiZXhwIjoxNzgzNTM2MDQwfQ.Yy2odZtNhwoAG9lXWRGpybOGvnXyZItI3SQtAzUhYdc	2026-07-08 18:40:40.788	2026-07-01 18:40:40.79
-11	1	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgyOTMzMjY5LCJleHAiOjE3ODM1MzgwNjl9.FkXipIHI0FUGlgvygBB84R535e1RwXo1Qu2VUsdnZbU	2026-07-08 19:14:29.231	2026-07-01 19:14:29.267
-12	\N	10000000-0000-0000-0000-000000000011	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MjkzMzI5NywiZXhwIjoxNzgzNTM4MDk3fQ.Oa4SWJ8mVB2Hue17VsxK_KgCH7y_PaMhME-BGkp2h1g	2026-07-08 19:14:57.739	2026-07-01 19:14:57.749
-13	1	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgyOTY5MzE1LCJleHAiOjE3ODM1NzQxMTV9.-17R7scV_QSA61DZNQre_WQcrttMDb_HrKyrzohmG1A	2026-07-09 05:15:15.426	2026-07-02 05:15:15.447
-14	\N	10000000-0000-0000-0000-000000000011	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4Mjk2OTMzMywiZXhwIjoxNzgzNTc0MTMzfQ.6C0CouOlJyTsSVMamXUk7JOX4ZE9WnGfDtlZyXwtsU0	2026-07-09 05:15:33.176	2026-07-02 05:15:33.181
-15	\N	10000000-0000-0000-0000-000000000011	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4Mjk3MDY5NywiZXhwIjoxNzgzNTc1NDk3fQ.tRzyjV8mFUIG06gEw-n2NeqsMrOFQ7dvxAFgCjgODLw	2026-07-09 05:38:17.726	2026-07-02 05:38:17.733
-16	1	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgyOTcwNzgzLCJleHAiOjE3ODM1NzU1ODN9.fQ-yRxLhfoTRjAJ0Lo66qVuzR-eIF0CxKZQRpwjho-U	2026-07-09 05:39:43.432	2026-07-02 05:39:43.442
-17	\N	10000000-0000-0000-0000-000000000011	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4Mjk3MTYyMiwiZXhwIjoxNzgzNTc2NDIyfQ.HjX6r7FVseNE04ThODFSbGprrqI1MTw7kU5WWIcinwo	2026-07-09 05:53:42.836	2026-07-02 05:53:42.866
-18	1	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgyOTc0MjU2LCJleHAiOjE3ODM1NzkwNTZ9.Cb3125DEgiLllbTd-pZinfIuwLr4m2L5zj_ufLZaMQA	2026-07-09 06:37:36.225	2026-07-02 06:37:36.247
-19	\N	10000000-0000-0000-0000-000000000011	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4Mjk3OTU3MSwiZXhwIjoxNzgzNTg0MzcxfQ.mdLgRoBXeRGXu7nzfoNbqzUIHSxGFZzjstMj6dPgv_8	2026-07-09 08:06:11.026	2026-07-02 08:06:11.046
-20	7	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NywiaWF0IjoxNzgyOTc5NzI2LCJleHAiOjE3ODM1ODQ1MjZ9.HZ3oGme2Lxq-mrtkdyclCFvh7SA3EPzrmCo2VoY3gwI	2026-07-09 08:08:46.349	2026-07-02 08:08:46.409
-21	\N	10000000-0000-0000-0000-000000000011	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4Mjk3OTcyOSwiZXhwIjoxNzgzNTg0NTI5fQ.eD6WWjHRm1dBwV8saHiTFSGgijwakMKfn_-lX3XvcmE	2026-07-09 08:08:49.655	2026-07-02 08:08:49.656
-22	1	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgyOTgwNDA1LCJleHAiOjE3ODM1ODUyMDV9.9S3E4xcVfWqO0K6ovKCQZWz0Mchw0b6LCjUVfq1DkmE	2026-07-09 08:20:05.418	2026-07-02 08:20:05.427
-23	\N	10000000-0000-0000-0000-000000000011	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4Mjk4ODY5NiwiZXhwIjoxNzgzNTkzNDk2fQ.5rKVOV9IlDsZmNVlX_iBtw9QYFDZl9TGRYmPqmQ30yQ	2026-07-09 10:38:16.581	2026-07-02 10:38:16.607
-24	1	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgyOTg4ODI1LCJleHAiOjE3ODM1OTM2MjV9.VTdVum5Pp0axt285ieefM7g7mfCwfpcCS1U464cDbHI	2026-07-09 10:40:25.75	2026-07-02 10:40:25.816
-25	\N	10000000-0000-0000-0000-000000000011	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4Mjk4OTEzOSwiZXhwIjoxNzgzNTkzOTM5fQ.miTeXX7_z0nIY0fnbBeJPBncqcGwmKOXkryRr5N5zS0	2026-07-09 10:45:39.064	2026-07-02 10:45:39.068
-26	1	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgyOTkwMTY2LCJleHAiOjE3ODM1OTQ5NjZ9.jgQvwUaksTLmcptV08M_2FkoD4OUQ_Vp_2KCdlhWsx8	2026-07-09 11:02:46.804	2026-07-02 11:02:46.849
-27	\N	10000000-0000-0000-0000-000000000011	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4Mjk5MDIxMSwiZXhwIjoxNzgzNTk1MDExfQ.KjQMzZVTEQK_qv0mmd9iMI9oHuaWGdBfXf35if8n90Y	2026-07-09 11:03:31.573	2026-07-02 11:03:31.578
-28	1	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgyOTkzMTY1LCJleHAiOjE3ODM1OTc5NjV9.yxmvGXZudkRC3RUEm6IA0LWaLZHG96Fco2J7ePLC9mw	2026-07-09 11:52:45.014	2026-07-02 11:52:45.019
-29	\N	10000000-0000-0000-0000-000000000011	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4Mjk5MzE3OSwiZXhwIjoxNzgzNTk3OTc5fQ.M_KAF4ylvF8n99D0EZlXG4_pWZDLGdetHw3TA72SYdo	2026-07-09 11:52:59.177	2026-07-02 11:52:59.178
-30	1	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgyOTk3NjY4LCJleHAiOjE3ODM2MDI0Njh9.9whYxVFTICCQ3y5jMcVkcz42ENDjdGtS_SuxZhIh4G0	2026-07-09 13:07:48.196	2026-07-02 13:07:48.272
-31	\N	10000000-0000-0000-0000-000000000011	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4Mjk5NzY3OCwiZXhwIjoxNzgzNjAyNDc4fQ.HynkYZDMb2qX0EjXi68VMsijldL4W0rE5HQLEc7hUvY	2026-07-09 13:07:58.239	2026-07-02 13:07:58.245
-32	\N	10000000-0000-0000-0000-000000000011	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4Mjk5ODQ2NCwiZXhwIjoxNzgzNjAzMjY0fQ.yl2HLCU9KIMgpjppcn7DyPMepG9uUScGMQmcyJpnRPo	2026-07-09 13:21:04.56	2026-07-02 13:21:04.576
-33	2	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MiwiaWF0IjoxNzgzMDAxNDg0LCJleHAiOjE3ODM2MDYyODR9.kupmMYTQ4CLXu_xKgNu9V8-RwnzWhunpvDQ7brpReGE	2026-07-09 14:11:24.231	2026-07-02 14:11:24.251
-34	\N	10000000-0000-0000-0000-000000000011	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MzAwMTU1OCwiZXhwIjoxNzgzNjA2MzU4fQ.UmEqzRvvokdNRf1hsy1GFQxxkdjqkCJua3TVcx9wxIo	2026-07-09 14:12:38.819	2026-07-02 14:12:38.821
-35	1	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMDA0MTIxLCJleHAiOjE3ODM2MDg5MjF9.j-HD_oPYIWfB2WBPDBYCt0dUd_Fg6AWu9o8Dmd4sq1U	2026-07-09 14:55:21.398	2026-07-02 14:55:21.427
-36	3	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzMDA0NTc2LCJleHAiOjE3ODM2MDkzNzZ9.AhyTubJUhVeBQ265w5UaNcdHhp-aP6ChT08za_QHI1M	2026-07-09 15:02:56.592	2026-07-02 15:02:56.595
-37	1	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMDA0NjQ1LCJleHAiOjE3ODM2MDk0NDV9.5smPiPv3AQVxmiDlrgrgAHdN2cU3FbHdwKalURatLx4	2026-07-09 15:04:05.815	2026-07-02 15:04:05.823
-38	\N	d5d1baf4-628a-4622-ba35-95da33c19c16	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzAwNTA0MiwiZXhwIjoxNzgzNjA5ODQyfQ.x75Swq2xPYNnT597sddUX7w5o_MR0xsO6HweIMVOLi0	2026-07-09 15:10:42.357	2026-07-02 15:10:42.371
-39	3	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzMDA2NjQ0LCJleHAiOjE3ODM2MTE0NDR9.qp9Z4b5tf6ahrB8mAVM-ALIiTniuM0JmTnKPfEGUAmo	2026-07-09 15:37:24.764	2026-07-02 15:37:24.787
-40	\N	10000000-0000-0000-0000-000000000011	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MzAwNzE2NiwiZXhwIjoxNzgzNjExOTY2fQ.IGgGszYWf8NsARaLWIOWfWeUI-3G8tWjDTiTN2hcpnE	2026-07-09 15:46:06.006	2026-07-02 15:46:06.029
-41	\N	d5d1baf4-628a-4622-ba35-95da33c19c16	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzAwNzE3NSwiZXhwIjoxNzgzNjExOTc1fQ.e4zwi1RDi8dYWNkatzGHpbVWE8ruqN4luFkuqQYtYxs	2026-07-09 15:46:15.452	2026-07-02 15:46:15.453
-42	1	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMDA3NDk0LCJleHAiOjE3ODM2MTIyOTR9.Xa3ILpLvFPpnOLZep7w4Z8BiSuZlC0VVr3zT_F7nBzk	2026-07-09 15:51:34.715	2026-07-02 15:51:34.727
-43	3	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzMDA3NTE0LCJleHAiOjE3ODM2MTIzMTR9.3YYDoWDCI6maDnnQAcovAuoC9j3gqW0QzNxdGMOopXY	2026-07-09 15:51:54.978	2026-07-02 15:51:54.981
-44	\N	d5d1baf4-628a-4622-ba35-95da33c19c16	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzAwNzYxMywiZXhwIjoxNzgzNjEyNDEzfQ.weYWWGL3KTaSQlki9Iiq80FFyxZmw17uu--zAV2MEoY	2026-07-09 15:53:33.003	2026-07-02 15:53:33.003
-45	1	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMDA4MDQ5LCJleHAiOjE3ODM2MTI4NDl9.Z1A2Ress-mUgl_Lh-9CWWM9wPWcHt-NGtCDVqxlwGUY	2026-07-09 16:00:49.124	2026-07-02 16:00:49.13
-46	3	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzMDA4ODEzLCJleHAiOjE3ODM2MTM2MTN9.BEcaUDcpymmH6jf7WabAws7_5VgEoJHYm90WA1ikQP0	2026-07-09 16:13:33.757	2026-07-02 16:13:33.83
-47	\N	10000000-0000-0000-0000-000000000011	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MzAwODgzNSwiZXhwIjoxNzgzNjEzNjM1fQ.rXtikq2pPDgbcjqa4qq7irKrIKS7f-vR0hn9Euc7HEg	2026-07-09 16:13:55.991	2026-07-02 16:13:55.996
-48	\N	d5d1baf4-628a-4622-ba35-95da33c19c16	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzAwODg0MywiZXhwIjoxNzgzNjEzNjQzfQ.6jjJpYrDP3qfSGdV5kBDauVhlofXazh6f_XzjyCrFdc	2026-07-09 16:14:03.641	2026-07-02 16:14:03.643
-49	1	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMDA5Mjc0LCJleHAiOjE3ODM2MTQwNzR9.zz5dZOP-KP3fdAilfInlUbKNADuxhHGrh3MLJ8AkieY	2026-07-09 16:21:14.133	2026-07-02 16:21:14.141
-50	\N	10000000-0000-0000-0000-000000000011	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MzAxMDI3NSwiZXhwIjoxNzgzNjE1MDc1fQ.DBXRVDbftd3rNPiLHaEi8URs4LUecie-58NW9tGsG5Q	2026-07-09 16:37:55.313	2026-07-02 16:37:55.342
-51	\N	d5d1baf4-628a-4622-ba35-95da33c19c16	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzAxMDI4MCwiZXhwIjoxNzgzNjE1MDgwfQ.plqSZ5Qh-txypYTfdEJgOxglHJ3r_YgfjEntRCA7ePg	2026-07-09 16:38:00.207	2026-07-02 16:38:00.21
-52	1	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMDExNTI2LCJleHAiOjE3ODM2MTYzMjZ9.6kk9-Ss0hZ-0rZDmz1EFJD8oTmtXmbzDbQ12XGBR0po	2026-07-09 16:58:46.269	2026-07-02 16:58:46.28
-53	3	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzMDExOTg4LCJleHAiOjE3ODM2MTY3ODh9.jhwMJ0bBO5Ooesm3p5t71-LgyN5gVRH_1Ad8c7qg3nc	2026-07-09 17:06:28.756	2026-07-02 17:06:28.814
-54	1	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMDEyMTQ0LCJleHAiOjE3ODM2MTY5NDR9.Lvj41LyEDEIFdSVFGSktgdsGGkHrGf1O07JOW5KHhgg	2026-07-09 17:09:04.525	2026-07-02 17:09:04.527
-55	7	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NywiaWF0IjoxNzgzMDc1MTkzLCJleHAiOjE3ODM2Nzk5OTN9.3F-mF7D_BUK8vV8y61UTRRkPLy3n5KjyfA4MLiZgqZY	2026-07-10 10:39:53.482	2026-07-03 10:39:53.508
-56	\N	d5d1baf4-628a-4622-ba35-95da33c19c16	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzA3NTIwMywiZXhwIjoxNzgzNjgwMDAzfQ.jXs0C2rV9jCZcqxB2hEOZuhNGLzNXkteCY7e75qF_2U	2026-07-10 10:40:03.883	2026-07-03 10:40:03.885
-57	1	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMDc1NTg0LCJleHAiOjE3ODM2ODAzODR9.mLe86r1-6p8K5PbBnX6slOXxDuJVJr8uYShohJbAS3Y	2026-07-10 10:46:24.303	2026-07-03 10:46:24.305
-58	\N	d5d1baf4-628a-4622-ba35-95da33c19c16	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzA3NTYxOCwiZXhwIjoxNzgzNjgwNDE4fQ.yUHV2l9V_lQXxuBAOR10qiRTR4j5qVxoIa4ylSjyMYY	2026-07-10 10:46:58.211	2026-07-03 10:46:58.212
-59	1	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMDc1NjU3LCJleHAiOjE3ODM2ODA0NTd9.7ybR7_GHKW5XIjW5k1hP6Z-J_aBP4qJHrQWGP6RLuc4	2026-07-10 10:47:37.304	2026-07-03 10:47:37.305
-60	\N	10000000-0000-0000-0000-000000000011	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MzA3NjQyNCwiZXhwIjoxNzgzNjgxMjI0fQ.dCxpkdqTG9aAUsox8xf5dM6XLfeaExy-rRa7Z-DrNBI	2026-07-10 11:00:24.529	2026-07-03 11:00:24.557
-61	\N	d5d1baf4-628a-4622-ba35-95da33c19c16	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzA3NjQzMCwiZXhwIjoxNzgzNjgxMjMwfQ.uY00Eo1UHtuOUxNlxpHRvlvtlm-OJoYZWjzHzm4aN30	2026-07-10 11:00:30.511	2026-07-03 11:00:30.512
-62	1	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMDc5MzI5LCJleHAiOjE3ODM2ODQxMjl9.dLH_XuBdIfql0RqvrCUTCBqptXHmhfDJhbK0-Dxwn0I	2026-07-10 11:48:49.692	2026-07-03 11:48:49.711
-63	\N	d5d1baf4-628a-4622-ba35-95da33c19c16	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzA3OTc1NiwiZXhwIjoxNzgzNjg0NTU2fQ.XTTRSDFZto__KwJjIXdmjKcvKKpyPQWAWLWI8L-4vzM	2026-07-10 11:55:56.456	2026-07-03 11:55:56.515
-64	7	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NywiaWF0IjoxNzgzMDc5ODMzLCJleHAiOjE3ODM2ODQ2MzN9.Tg15tV6pzPtPsma9IZcoV-HaVek_mIu4h06Y3AtzQZg	2026-07-10 11:57:13.814	2026-07-03 11:57:13.816
-65	\N	10000000-0000-0000-0000-000000000011	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MzA3OTgzNywiZXhwIjoxNzgzNjg0NjM3fQ.zCKZBmRxCoQJmdg5xSIc2vVuJaatk3x_bd099KPcVGc	2026-07-10 11:57:17.241	2026-07-03 11:57:17.242
-66	\N	10000000-0000-0000-0000-000000000011	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MzA4MDY4NiwiZXhwIjoxNzgzNjg1NDg2fQ.dp2MaPqRS18D4f5jXQgvhl7ws3YJVq0i9eQj2jN1xsw	2026-07-10 12:11:26.99	2026-07-03 12:11:27.013
-67	\N	d5d1baf4-628a-4622-ba35-95da33c19c16	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzA4MTIxNywiZXhwIjoxNzgzNjg2MDE3fQ.a7zV3XaIVBOH4-HZ1T240l4yFw8ePbZ_0CecKsL7_1M	2026-07-10 12:20:17.223	2026-07-03 12:20:17.236
-68	\N	10000000-0000-0000-0000-000000000011	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MzA4MTMwOCwiZXhwIjoxNzgzNjg2MTA4fQ._I3ZmNUppUOsqHNos0gOj8hLwAfEoDpF_-_51dmf6ts	2026-07-10 12:21:48.267	2026-07-03 12:21:48.271
-69	\N	d5d1baf4-628a-4622-ba35-95da33c19c16	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzA4Mzc2OCwiZXhwIjoxNzgzNjg4NTY4fQ.yfFVukv3ZdW-AOF_g8XMVfz36YFxYETLJakHn3BRdtc	2026-07-10 13:02:48.397	2026-07-03 13:02:48.399
-70	1	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMDg2ODI1LCJleHAiOjE3ODM2OTE2MjV9.8U2OgWfX527rZpmxU4nsCtl7lTNlkSEz2xPso932sIo	2026-07-10 13:53:45.014	2026-07-03 13:53:45.046
-71	3	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzMDg2ODQzLCJleHAiOjE3ODM2OTE2NDN9.6XHn3FhEhV9TvMWlJxD8pakdDb4oyZbpnHNztygyhGw	2026-07-10 13:54:03.828	2026-07-03 13:54:03.841
-72	\N	d5d1baf4-628a-4622-ba35-95da33c19c16	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzA4ODY4NiwiZXhwIjoxNzgzNjkzNDg2fQ.vijdpBdnLnWh1a9a6IHvoCv8Vph6OQEU9OkbMHSDR84	2026-07-10 14:24:46.245	2026-07-03 14:24:46.284
-73	3	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzMDkyNDgzLCJleHAiOjE3ODM2OTcyODN9.XwbvKhFBSL_NqurKe0i7Zox9B00m-ij54vOD-SthcnY	2026-07-10 15:28:03.257	2026-07-03 15:28:03.274
-74	5	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiaWF0IjoxNzgzMDkzMDM5LCJleHAiOjE3ODM2OTc4Mzl9.-sFVd2LbSFb_zSWM8wAb0zG4kSugt7RwezLfyv8n3LA	2026-07-10 15:37:19.244	2026-07-03 15:37:19.246
-75	\N	10000000-0000-0000-0000-000000000011	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MzA5MzU0OCwiZXhwIjoxNzgzNjk4MzQ4fQ.tqxLJmfFOFGyobpiaTmoHx4axRrDHWEBwusy_L1mpgM	2026-07-10 15:45:48.596	2026-07-03 15:45:48.621
-76	\N	d5d1baf4-628a-4622-ba35-95da33c19c16	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzA5MzU1NSwiZXhwIjoxNzgzNjk4MzU1fQ.yCrS97NBeOpkiZFob6-jz0zxsnhwSNH-tGzm6heu-00	2026-07-10 15:45:55.307	2026-07-03 15:45:55.307
-77	3	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzMDkzNTkyLCJleHAiOjE3ODM2OTgzOTJ9.PKlbiKaPB-CUKe1laHTcAC1Jrl4-6JuzmSg1R5EwI2k	2026-07-10 15:46:32.367	2026-07-03 15:46:32.369
-78	5	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiaWF0IjoxNzgzMDk1MzMwLCJleHAiOjE3ODM3MDAxMzB9.86xCuPGblQdB_j-sQghjGvlf7A1L4mdSj0RWU3fW-mo	2026-07-10 16:15:30.036	2026-07-03 16:15:30.073
-79	7	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NywiaWF0IjoxNzgzMDk1ODEyLCJleHAiOjE3ODM3MDA2MTJ9._fmAl0VE9S1gJlfEic5Bjfi3-eBeawePNhRRU7bNI-Q	2026-07-10 16:23:32.353	2026-07-03 16:23:32.362
-80	7	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NywiaWF0IjoxNzgzMDk2MDkzLCJleHAiOjE3ODM3MDA4OTN9.widpxVckvBeWebrvm9qUZihqHH19V35PQ8tVLKLosd8	2026-07-10 16:28:13.728	2026-07-03 16:28:13.729
-81	1	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMDk2MTE2LCJleHAiOjE3ODM3MDA5MTZ9.8RXkAXGI4TAb563q2ZGWU6XaU7tyk29swk59wo1UAl4	2026-07-10 16:28:36.131	2026-07-03 16:28:36.132
-82	7	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NywiaWF0IjoxNzgzMDk2MTM5LCJleHAiOjE3ODM3MDA5Mzl9.eGv7z3TRhsySfoJ6J3MUNCMWNXNma-9_39rI_uO_oBo	2026-07-10 16:28:59.035	2026-07-03 16:28:59.036
-83	3	\N	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzMDk3MTU0LCJleHAiOjE3ODM3MDE5NTR9.yizGlZ8siTrwfufaHjw-edVTdlkwYmC77IEbq6HRUjU	2026-07-10 16:45:54.98	2026-07-03 16:45:55.002
-\.
-
-
---
--- Data for Name: tam_giu_cho; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.tam_giu_cho (id, session_id, ngay_gio_bat_dau, ngay_gio_ket_thuc, nhan_su_id, goi_dich_vu_id, thoi_gian_het_han, thoi_gian_tao, khach_hang_id, so_dien_thoai) FROM stdin;
-470a2a1d-0708-41a6-bc77-39b14b9c3f44	d85363f6-6ddd-4589-83a9-d3ba15ad2959	2026-07-05 14:45:00+07	2026-07-05 15:00:00+07	7	c1000000-0000-0000-0000-000000000101	2026-07-03 23:32:19.397+07	2026-07-03 23:27:19.3984+07	d5d1baf4-628a-4622-ba35-95da33c19c16	\N
-\.
-
-
---
--- Data for Name: thiet_bi; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.thiet_bi (id, ma_thiet_bi, ten_thiet_bi, ngay_mua, trang_thai, ghi_chu) FROM stdin;
-90000000-0000-0000-0000-000000000001	LASER-01	Máy Laser trị liệu công suất cao	2025-01-10	san_sang	Máy điều trị viêm sưng
-90000000-0000-0000-0000-000000000002	SHOCK-01	Máy sóng xung kích hội tụ Focused Shockwave	2025-02-15	san_sang	Máy xung kích giảm đau điểm kích hoạt
-90000000-0000-0000-0000-000000000003	US-01	Máy siêu âm trị liệu	2024-11-20	san_sang	Siêu âm giảm co thắt
-90000000-0000-0000-0000-000000000004	TRACT-01	Giường kéo giãn cột sống áp lực âm	2024-12-05	san_sang	Giường kéo giãn cổ/thắt lưng
-90000000-0000-0000-0000-000000000005	BIO-01	Thiết bị phản hồi sinh học Biofeedback	2025-03-01	dang_bao_tri	Bảo trì định kỳ hàng tháng
-\.
-
-
---
--- Data for Name: thong_bao; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.thong_bao (id, nguoi_dung_id, khach_hang_id, tieu_de, noi_dung, loai, da_doc, thoi_gian_tao) FROM stdin;
-\.
-
-
---
--- Data for Name: vai_tro; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.vai_tro (id, ma_vai_tro, ten_vai_tro) FROM stdin;
-1	khach_hang	Khách hàng
-2	le_tan	Lễ tân
-3	ky_thuat_vien	Kỹ thuật viên
-4	bac_si	Bác sĩ
-5	admin	Quản trị viên
-6	quan_ly	Quản lý
-\.
-
-
---
--- Name: ho_so_chuyen_gia_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.ho_so_chuyen_gia_id_seq', 15, true);
-
-
---
--- Name: nguoi_dung_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.nguoi_dung_id_seq', 13, true);
-
-
---
--- Name: phong_lam_viec_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.phong_lam_viec_id_seq', 5, true);
-
-
---
--- Name: refresh_tokens_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.refresh_tokens_id_seq', 83, true);
-
-
---
--- Name: vai_tro_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.vai_tro_id_seq', 6, true);
-
-
---
--- Name: chi_dinh_buoi chi_dinh_buoi_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.chi_dinh_buoi
-    ADD CONSTRAINT chi_dinh_buoi_pkey PRIMARY KEY (id);
-
-
---
--- Name: cuoc_hen cuoc_hen_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.cuoc_hen
-    ADD CONSTRAINT cuoc_hen_pkey PRIMARY KEY (id);
-
-
---
--- Name: danh_gia_chat_luong danh_gia_chat_luong_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.danh_gia_chat_luong
-    ADD CONSTRAINT danh_gia_chat_luong_pkey PRIMARY KEY (id);
-
-
---
--- Name: danh_muc_goi danh_muc_goi_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.danh_muc_goi
-    ADD CONSTRAINT danh_muc_goi_pkey PRIMARY KEY (id);
-
-
---
--- Name: giao_dich_thanh_toan giao_dich_thanh_toan_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.giao_dich_thanh_toan
-    ADD CONSTRAINT giao_dich_thanh_toan_pkey PRIMARY KEY (id);
-
-
---
--- Name: goi_dich_vu goi_dich_vu_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.goi_dich_vu
-    ADD CONSTRAINT goi_dich_vu_pkey PRIMARY KEY (id);
-
-
---
--- Name: ho_so_chuyen_gia ho_so_chuyen_gia_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.ho_so_chuyen_gia
-    ADD CONSTRAINT ho_so_chuyen_gia_pkey PRIMARY KEY (id);
-
-
---
--- Name: hoa_don hoa_don_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.hoa_don
-    ADD CONSTRAINT hoa_don_pkey PRIMARY KEY (id);
-
-
---
--- Name: khach_hang khach_hang_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.khach_hang
-    ADD CONSTRAINT khach_hang_pkey PRIMARY KEY (id);
-
-
---
--- Name: khuyen_mai_voucher khuyen_mai_voucher_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.khuyen_mai_voucher
-    ADD CONSTRAINT khuyen_mai_voucher_pkey PRIMARY KEY (id);
-
-
---
--- Name: lich_truc_nhan_su lich_truc_nhan_su_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.lich_truc_nhan_su
-    ADD CONSTRAINT lich_truc_nhan_su_pkey PRIMARY KEY (id);
-
-
---
--- Name: nguoi_dung nguoi_dung_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.nguoi_dung
-    ADD CONSTRAINT nguoi_dung_pkey PRIMARY KEY (id);
-
-
---
--- Name: nhat_ky_buoi_dieu_tri nhat_ky_buoi_dieu_tri_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.nhat_ky_buoi_dieu_tri
-    ADD CONSTRAINT nhat_ky_buoi_dieu_tri_pkey PRIMARY KEY (id);
-
-
---
--- Name: otp_codes otp_codes_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.otp_codes
-    ADD CONSTRAINT otp_codes_pkey PRIMARY KEY (id);
-
-
---
--- Name: phac_do_dieu_tri phac_do_dieu_tri_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.phac_do_dieu_tri
-    ADD CONSTRAINT phac_do_dieu_tri_pkey PRIMARY KEY (id);
-
-
---
--- Name: phong_lam_viec phong_lam_viec_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.phong_lam_viec
-    ADD CONSTRAINT phong_lam_viec_pkey PRIMARY KEY (id);
-
-
---
--- Name: refresh_tokens refresh_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.refresh_tokens
-    ADD CONSTRAINT refresh_tokens_pkey PRIMARY KEY (id);
-
-
---
--- Name: tam_giu_cho tam_giu_cho_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.tam_giu_cho
-    ADD CONSTRAINT tam_giu_cho_pkey PRIMARY KEY (id);
-
-
---
--- Name: tam_giu_cho tam_giu_cho_session_id_key; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.tam_giu_cho
-    ADD CONSTRAINT tam_giu_cho_session_id_key UNIQUE (session_id);
-
-
---
--- Name: thiet_bi thiet_bi_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.thiet_bi
-    ADD CONSTRAINT thiet_bi_pkey PRIMARY KEY (id);
-
-
---
--- Name: thong_bao thong_bao_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.thong_bao
-    ADD CONSTRAINT thong_bao_pkey PRIMARY KEY (id);
-
-
---
--- Name: vai_tro vai_tro_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.vai_tro
-    ADD CONSTRAINT vai_tro_pkey PRIMARY KEY (id);
-
-
---
--- Name: danh_gia_chat_luong_cuoc_hen_id_key; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE UNIQUE INDEX danh_gia_chat_luong_cuoc_hen_id_key ON public.danh_gia_chat_luong USING btree (cuoc_hen_id);
-
-
---
--- Name: ho_so_chuyen_gia_nguoi_dung_id_key; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE UNIQUE INDEX ho_so_chuyen_gia_nguoi_dung_id_key ON public.ho_so_chuyen_gia USING btree (nguoi_dung_id);
-
-
---
--- Name: idx_tam_giu_cho_het_han; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE INDEX idx_tam_giu_cho_het_han ON public.tam_giu_cho USING btree (thoi_gian_het_han);
-
-
---
--- Name: khach_hang_email_key; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE UNIQUE INDEX khach_hang_email_key ON public.khach_hang USING btree (email);
-
-
---
--- Name: khuyen_mai_voucher_ma_code_key; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE UNIQUE INDEX khuyen_mai_voucher_ma_code_key ON public.khuyen_mai_voucher USING btree (ma_code);
-
-
---
--- Name: nguoi_dung_email_key; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE UNIQUE INDEX nguoi_dung_email_key ON public.nguoi_dung USING btree (email);
-
-
---
--- Name: nhat_ky_buoi_dieu_tri_cuoc_hen_id_key; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE UNIQUE INDEX nhat_ky_buoi_dieu_tri_cuoc_hen_id_key ON public.nhat_ky_buoi_dieu_tri USING btree (cuoc_hen_id);
-
-
---
--- Name: thiet_bi_ma_thiet_bi_key; Type: INDEX; Schema: public; Owner: postgres
---
-
-CREATE UNIQUE INDEX thiet_bi_ma_thiet_bi_key ON public.thiet_bi USING btree (ma_thiet_bi);
-
-
---
--- Name: chi_dinh_buoi chi_dinh_buoi_goi_dich_vu_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.chi_dinh_buoi
-    ADD CONSTRAINT chi_dinh_buoi_goi_dich_vu_id_fkey FOREIGN KEY (goi_dich_vu_id) REFERENCES public.goi_dich_vu(id);
-
-
---
--- Name: chi_dinh_buoi chi_dinh_buoi_nhat_ky_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.chi_dinh_buoi
-    ADD CONSTRAINT chi_dinh_buoi_nhat_ky_id_fkey FOREIGN KEY (nhat_ky_id) REFERENCES public.nhat_ky_buoi_dieu_tri(id) ON DELETE CASCADE;
-
-
---
--- Name: cuoc_hen cuoc_hen_goi_dich_vu_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.cuoc_hen
-    ADD CONSTRAINT cuoc_hen_goi_dich_vu_id_fkey FOREIGN KEY (goi_dich_vu_id) REFERENCES public.goi_dich_vu(id);
-
-
---
--- Name: cuoc_hen cuoc_hen_khach_hang_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.cuoc_hen
-    ADD CONSTRAINT cuoc_hen_khach_hang_id_fkey FOREIGN KEY (khach_hang_id) REFERENCES public.khach_hang(id) ON DELETE CASCADE;
-
-
---
--- Name: cuoc_hen cuoc_hen_nhan_su_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.cuoc_hen
-    ADD CONSTRAINT cuoc_hen_nhan_su_id_fkey FOREIGN KEY (nhan_su_id) REFERENCES public.nguoi_dung(id);
-
-
---
--- Name: cuoc_hen cuoc_hen_phac_do_dieu_tri_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.cuoc_hen
-    ADD CONSTRAINT cuoc_hen_phac_do_dieu_tri_id_fkey FOREIGN KEY (phac_do_dieu_tri_id) REFERENCES public.phac_do_dieu_tri(id);
-
-
---
--- Name: cuoc_hen cuoc_hen_phong_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.cuoc_hen
-    ADD CONSTRAINT cuoc_hen_phong_id_fkey FOREIGN KEY (phong_id) REFERENCES public.phong_lam_viec(id) ON DELETE SET NULL;
-
-
---
--- Name: danh_gia_chat_luong danh_gia_chat_luong_cuoc_hen_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.danh_gia_chat_luong
-    ADD CONSTRAINT danh_gia_chat_luong_cuoc_hen_id_fkey FOREIGN KEY (cuoc_hen_id) REFERENCES public.cuoc_hen(id) ON DELETE CASCADE;
-
-
---
--- Name: danh_gia_chat_luong danh_gia_chat_luong_khach_hang_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.danh_gia_chat_luong
-    ADD CONSTRAINT danh_gia_chat_luong_khach_hang_id_fkey FOREIGN KEY (khach_hang_id) REFERENCES public.khach_hang(id) ON DELETE CASCADE;
-
-
---
--- Name: giao_dich_thanh_toan giao_dich_thanh_toan_hoa_don_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.giao_dich_thanh_toan
-    ADD CONSTRAINT giao_dich_thanh_toan_hoa_don_id_fkey FOREIGN KEY (hoa_don_id) REFERENCES public.hoa_don(id) ON DELETE CASCADE;
-
-
---
--- Name: giao_dich_thanh_toan giao_dich_thanh_toan_nhan_vien_thuc_hien_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.giao_dich_thanh_toan
-    ADD CONSTRAINT giao_dich_thanh_toan_nhan_vien_thuc_hien_id_fkey FOREIGN KEY (nhan_vien_thuc_hien_id) REFERENCES public.nguoi_dung(id);
-
-
---
--- Name: goi_dich_vu goi_dich_vu_danh_muc_goi_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.goi_dich_vu
-    ADD CONSTRAINT goi_dich_vu_danh_muc_goi_id_fkey FOREIGN KEY (danh_muc_goi_id) REFERENCES public.danh_muc_goi(id) ON DELETE SET NULL;
-
-
---
--- Name: ho_so_chuyen_gia ho_so_chuyen_gia_nguoi_dung_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.ho_so_chuyen_gia
-    ADD CONSTRAINT ho_so_chuyen_gia_nguoi_dung_id_fkey FOREIGN KEY (nguoi_dung_id) REFERENCES public.nguoi_dung(id) ON DELETE CASCADE;
-
-
---
--- Name: hoa_don hoa_don_cuoc_hen_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.hoa_don
-    ADD CONSTRAINT hoa_don_cuoc_hen_id_fkey FOREIGN KEY (cuoc_hen_id) REFERENCES public.cuoc_hen(id) ON DELETE SET NULL;
-
-
---
--- Name: hoa_don hoa_don_khach_hang_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.hoa_don
-    ADD CONSTRAINT hoa_don_khach_hang_id_fkey FOREIGN KEY (khach_hang_id) REFERENCES public.khach_hang(id);
-
-
---
--- Name: hoa_don hoa_don_phac_do_dieu_tri_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.hoa_don
-    ADD CONSTRAINT hoa_don_phac_do_dieu_tri_id_fkey FOREIGN KEY (phac_do_dieu_tri_id) REFERENCES public.phac_do_dieu_tri(id) ON DELETE SET NULL;
-
-
---
--- Name: hoa_don hoa_don_voucher_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.hoa_don
-    ADD CONSTRAINT hoa_don_voucher_id_fkey FOREIGN KEY (voucher_id) REFERENCES public.khuyen_mai_voucher(id) ON DELETE SET NULL;
-
-
---
--- Name: lich_truc_nhan_su lich_truc_nhan_su_nhan_su_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.lich_truc_nhan_su
-    ADD CONSTRAINT lich_truc_nhan_su_nhan_su_id_fkey FOREIGN KEY (nhan_su_id) REFERENCES public.nguoi_dung(id) ON DELETE CASCADE;
-
-
---
--- Name: lich_truc_nhan_su lich_truc_nhan_su_phong_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.lich_truc_nhan_su
-    ADD CONSTRAINT lich_truc_nhan_su_phong_id_fkey FOREIGN KEY (phong_id) REFERENCES public.phong_lam_viec(id) ON DELETE SET NULL;
-
-
---
--- Name: nguoi_dung nguoi_dung_vai_tro_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.nguoi_dung
-    ADD CONSTRAINT nguoi_dung_vai_tro_id_fkey FOREIGN KEY (vai_tro_id) REFERENCES public.vai_tro(id);
-
-
---
--- Name: nhat_ky_buoi_dieu_tri nhat_ky_buoi_dieu_tri_cuoc_hen_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.nhat_ky_buoi_dieu_tri
-    ADD CONSTRAINT nhat_ky_buoi_dieu_tri_cuoc_hen_id_fkey FOREIGN KEY (cuoc_hen_id) REFERENCES public.cuoc_hen(id) ON DELETE CASCADE;
-
-
---
--- Name: nhat_ky_buoi_dieu_tri nhat_ky_buoi_dieu_tri_nguoi_tao_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.nhat_ky_buoi_dieu_tri
-    ADD CONSTRAINT nhat_ky_buoi_dieu_tri_nguoi_tao_id_fkey FOREIGN KEY (nguoi_tao_id) REFERENCES public.nguoi_dung(id);
-
-
---
--- Name: phac_do_dieu_tri phac_do_dieu_tri_goi_dich_vu_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.phac_do_dieu_tri
-    ADD CONSTRAINT phac_do_dieu_tri_goi_dich_vu_id_fkey FOREIGN KEY (goi_dich_vu_id) REFERENCES public.goi_dich_vu(id);
-
-
---
--- Name: phac_do_dieu_tri phac_do_dieu_tri_khach_hang_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.phac_do_dieu_tri
-    ADD CONSTRAINT phac_do_dieu_tri_khach_hang_id_fkey FOREIGN KEY (khach_hang_id) REFERENCES public.khach_hang(id) ON DELETE CASCADE;
-
-
---
--- Name: refresh_tokens refresh_tokens_khach_hang_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.refresh_tokens
-    ADD CONSTRAINT refresh_tokens_khach_hang_id_fkey FOREIGN KEY (khach_hang_id) REFERENCES public.khach_hang(id) ON DELETE CASCADE;
-
-
---
--- Name: refresh_tokens refresh_tokens_nguoi_dung_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.refresh_tokens
-    ADD CONSTRAINT refresh_tokens_nguoi_dung_id_fkey FOREIGN KEY (nguoi_dung_id) REFERENCES public.nguoi_dung(id) ON DELETE CASCADE;
-
-
---
--- Name: tam_giu_cho tam_giu_cho_goi_dich_vu_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.tam_giu_cho
-    ADD CONSTRAINT tam_giu_cho_goi_dich_vu_id_fkey FOREIGN KEY (goi_dich_vu_id) REFERENCES public.goi_dich_vu(id) ON DELETE CASCADE;
-
-
---
--- Name: tam_giu_cho tam_giu_cho_nhan_su_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.tam_giu_cho
-    ADD CONSTRAINT tam_giu_cho_nhan_su_id_fkey FOREIGN KEY (nhan_su_id) REFERENCES public.nguoi_dung(id) ON DELETE SET NULL;
-
-
---
--- Name: thong_bao thong_bao_khach_hang_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.thong_bao
-    ADD CONSTRAINT thong_bao_khach_hang_id_fkey FOREIGN KEY (khach_hang_id) REFERENCES public.khach_hang(id) ON DELETE CASCADE;
-
-
---
--- Name: thong_bao thong_bao_nguoi_dung_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.thong_bao
-    ADD CONSTRAINT thong_bao_nguoi_dung_id_fkey FOREIGN KEY (nguoi_dung_id) REFERENCES public.nguoi_dung(id) ON DELETE CASCADE;
-
-
---
--- Name: SCHEMA public; Type: ACL; Schema: -; Owner: postgres
---
-
-REVOKE USAGE ON SCHEMA public FROM PUBLIC;
-
-
---
--- PostgreSQL database dump complete
---
-
-\unrestrict scRfMZ32RBrpdgHUS3diRKnDDuGwYT4fLpwBGzZBmHk3iRVxZpcKxZhGCDJYGDP
-
+-- OfficeCare Database Backup
+-- Exported on: 2026-07-07T17:01:07.221Z
+
+SET session_replication_role = 'replica';
+
+-- Table: chi_dinh_buoi
+TRUNCATE TABLE "chi_dinh_buoi" CASCADE;
+
+INSERT INTO "chi_dinh_buoi" ("id", "nhat_ky_id", "goi_dich_vu_id", "ghi_chu") VALUES ('f57c8a9e-47f5-4d14-a724-efa60865a9fc', '7ef80edd-4a44-44dd-a437-37bdc2a61398', 'c1000000-0000-0000-0000-000000000001', NULL);
+
+-- Table: cuoc_hen
+TRUNCATE TABLE "cuoc_hen" CASCADE;
+
+INSERT INTO "cuoc_hen" ("id", "khach_hang_id", "nhan_su_id", "goi_dich_vu_id", "phac_do_dieu_tri_id", "so_thu_tu_buoi", "ngay_gio_bat_dau", "ngay_gio_ket_thuc", "loai", "trang_thai", "ghi_chu_khach_hang", "phong_id", "ghi_chu_noi_bo", "thoi_gian_huy", "nguoi_tao_id") VALUES ('82f88241-9abf-4efe-a52e-5902ae0cb9ec', 'd5d1baf4-628a-4622-ba35-95da33c19c16', 5, 'c1000000-0000-0000-0000-000000000000', '4656774e-0751-4bf9-8bfc-62207d253480', NULL, '2026-07-08T04:00:00.000Z', '2026-07-08T04:30:00.000Z', 'KHAM', 'hoan_thanh', 'Lập lịch nhanh tại quầy lễ tân', 1, NULL, NULL, 1);
+INSERT INTO "cuoc_hen" ("id", "khach_hang_id", "nhan_su_id", "goi_dich_vu_id", "phac_do_dieu_tri_id", "so_thu_tu_buoi", "ngay_gio_bat_dau", "ngay_gio_ket_thuc", "loai", "trang_thai", "ghi_chu_khach_hang", "phong_id", "ghi_chu_noi_bo", "thoi_gian_huy", "nguoi_tao_id") VALUES ('66e7486d-98c4-4128-bc3f-1125e8b34bc3', 'd5d1baf4-628a-4622-ba35-95da33c19c16', 7, 'c1000000-0000-0000-0000-000000000001', '4656774e-0751-4bf9-8bfc-62207d253480', 1, '2026-07-08T04:30:00.000Z', '2026-07-08T05:30:00.000Z', 'DIEU_TRI', 'hoan_thanh', 'Đặt lịch trị liệu theo gói Gói Phục Hồi Cột Sống & Đau Vai Gáy Chuyên Sâu', 2, NULL, NULL, 1);
+
+-- Table: danh_gia_chat_luong
+TRUNCATE TABLE "danh_gia_chat_luong" CASCADE;
+
+-- No data for danh_gia_chat_luong
+
+-- Table: danh_muc_goi
+TRUNCATE TABLE "danh_muc_goi" CASCADE;
+
+INSERT INTO "danh_muc_goi" ("id", "ten_danh_muc", "mo_ta", "loai_goi_ap_dung") VALUES ('d1000000-0000-0000-0000-000000000001', 'Khám & Lượng Giá Chuyên Sâu', 'Các gói khám và đánh giá ban đầu với Bác sĩ', 'KHAM');
+INSERT INTO "danh_muc_goi" ("id", "ten_danh_muc", "mo_ta", "loai_goi_ap_dung") VALUES ('d1000000-0000-0000-0000-000000000002', 'Trị Liệu Giải Quyết Cơn Đau', 'Các gói lẻ điện xung, laser, sóng xung kích điều trị triệu chứng', 'LE');
+INSERT INTO "danh_muc_goi" ("id", "ten_danh_muc", "mo_ta", "loai_goi_ap_dung") VALUES ('d1000000-0000-0000-0000-000000000003', 'Phục Hồi Chức Năng Chuyên Sâu', 'Các gói liệu trình chuyên sâu điều trị phục hồi cột sống, khớp xương gối', 'LIEU_TRINH');
+INSERT INTO "danh_muc_goi" ("id", "ten_danh_muc", "mo_ta", "loai_goi_ap_dung") VALUES ('7f5999ce-4791-406e-b9cd-772b2833bdee', 'Khám Lưng', NULL, 'KHAM');
+
+-- Table: giao_dich_thanh_toan
+TRUNCATE TABLE "giao_dich_thanh_toan" CASCADE;
+
+INSERT INTO "giao_dich_thanh_toan" ("id", "hoa_don_id", "so_tien", "loai_giao_dich", "phuong_thuc", "ma_tham_chieu", "nhan_vien_thuc_hien_id", "ngay_giao_dich") VALUES ('83ecd4c8-116d-4bec-a438-197c5065c401', 'b1860714-5b71-4818-9d44-2ae904a87a63', '2880000', 'THANH_TOAN', 'tien_mat', 'GD11265159', 1, '2026-07-07T16:58:20.769Z');
+
+-- Table: goi_dich_vu
+TRUNCATE TABLE "goi_dich_vu" CASCADE;
+
+INSERT INTO "goi_dich_vu" ("id", "ten_goi", "loai_goi", "tong_so_buoi", "thoi_luong_phut", "don_gia", "don_gia_theo_buoi", "trang_thai", "anh_goi", "danh_muc_goi_id", "muc_tieu", "quy_trinh") VALUES ('c1000000-0000-0000-0000-000000000003', 'Gói Phục Hồi Chấn Thương Thể Thao & Viêm Gân Cấp', 'LIEU_TRINH', 12, 60, '5400000', '450000', 'hoat_dong', '/goi/images/laser_tri_lieu.png', 'd1000000-0000-0000-0000-000000000003', NULL, NULL);
+INSERT INTO "goi_dich_vu" ("id", "ten_goi", "loai_goi", "tong_so_buoi", "thoi_luong_phut", "don_gia", "don_gia_theo_buoi", "trang_thai", "anh_goi", "danh_muc_goi_id", "muc_tieu", "quy_trinh") VALUES ('c1000000-0000-0000-0000-000000000000', 'Khám lâm sàng & Lượng giá chức năng cơ xương khớp', 'KHAM', 1, 30, '200000', '200000', 'hoat_dong', '/goi/images/kham_sang_loc.png', 'd1000000-0000-0000-0000-000000000001', 'Biết Được Tình Trạng Đau Của Khách Hàng , Đưa Giải Phác Đồ Hợp Lý', 'Bác Sĩ Đo Chỉ Số Cơ Thể Và Khám Thăm Khám Vùng Đau');
+INSERT INTO "goi_dich_vu" ("id", "ten_goi", "loai_goi", "tong_so_buoi", "thoi_luong_phut", "don_gia", "don_gia_theo_buoi", "trang_thai", "anh_goi", "danh_muc_goi_id", "muc_tieu", "quy_trinh") VALUES ('c1000000-0000-0000-0000-000000000001', 'Gói Phục Hồi Cột Sống & Đau Vai Gáy Chuyên Sâu', 'LIEU_TRINH', 8, 60, '3200000', '450000', 'hoat_dong', '/goi/images/giai_co_sau.png', 'd1000000-0000-0000-0000-000000000003', '123', '123');
+INSERT INTO "goi_dich_vu" ("id", "ten_goi", "loai_goi", "tong_so_buoi", "thoi_luong_phut", "don_gia", "don_gia_theo_buoi", "trang_thai", "anh_goi", "danh_muc_goi_id", "muc_tieu", "quy_trinh") VALUES ('c1000000-0000-0000-0000-000000000101', 'Trị liệu Laser công suất cao giảm sưng viêm', 'LE', 1, 15, '250000', '250000', 'hoat_dong', '/goi/images/laser_tri_lieu.png', NULL, NULL, NULL);
+INSERT INTO "goi_dich_vu" ("id", "ten_goi", "loai_goi", "tong_so_buoi", "thoi_luong_phut", "don_gia", "don_gia_theo_buoi", "trang_thai", "anh_goi", "danh_muc_goi_id", "muc_tieu", "quy_trinh") VALUES ('c1000000-0000-0000-0000-000000000002', 'Gói Trị Liệu Thoát Vị Đĩa Đệm Cột Sống Thắt Lưng', 'LIEU_TRINH', 10, 60, '4500000', '460000', 'hoat_dong', '/goi/images/song_xung_kich.png', NULL, '123', '123');
+INSERT INTO "goi_dich_vu" ("id", "ten_goi", "loai_goi", "tong_so_buoi", "thoi_luong_phut", "don_gia", "don_gia_theo_buoi", "trang_thai", "anh_goi", "danh_muc_goi_id", "muc_tieu", "quy_trinh") VALUES ('c1000000-0000-0000-0000-000000000103', 'Giải cơ sâu & màng cơ chuyên sâu Myofascial Release', 'LE', 1, 75, '350000', '350000', 'hoat_dong', '/goi/images/giai_co_sau.png', 'd1000000-0000-0000-0000-000000000002', '123', '123');
+INSERT INTO "goi_dich_vu" ("id", "ten_goi", "loai_goi", "tong_so_buoi", "thoi_luong_phut", "don_gia", "don_gia_theo_buoi", "trang_thai", "anh_goi", "danh_muc_goi_id", "muc_tieu", "quy_trinh") VALUES ('c1000000-0000-0000-0000-000000000102', 'Trị liệu sóng xung kích Focused Shockwave', 'LE', 1, 35, '300000', '300000', 'hoat_dong', '/goi/images/song_xung_kich.png', NULL, '123', '123');
+
+-- Table: ho_so_chuyen_gia
+TRUNCATE TABLE "ho_so_chuyen_gia" CASCADE;
+
+INSERT INTO "ho_so_chuyen_gia" ("id", "nguoi_dung_id", "so_nam_kinh_nghiem", "bang_cap_chung_chi", "mo_ta") VALUES (1, 5, 15, '/nhan_su/images/cert_assess.png,/nhan_su/images/cert_physio.png', 'Bác sĩ Nguyễn Văn An là chuyên gia hàng đầu với hơn 15 năm kinh nghiệm trong lĩnh vực Phục hồi chức năng và Vật lý trị liệu cơ xương khớp. Ông từng tốt nghiệp thủ khoa Đại học Y Dược TP.HCM và tu nghiệp chuyên sâu tại Singapore. Bác sĩ An nổi tiếng với phương pháp lượng giá sinh học vận động toàn diện, giúp phát hiện nguồn gốc sâu xa của các chứng đau cột sống cổ, vai gáy và thắt lưng của dân văn phòng.');
+INSERT INTO "ho_so_chuyen_gia" ("id", "nguoi_dung_id", "so_nam_kinh_nghiem", "bang_cap_chung_chi", "mo_ta") VALUES (2, 6, 10, '/nhan_su/images/cert_assess.png,/nhan_su/images/cert_physio.png', 'Bác sĩ Trần Thị Bình có hơn 10 năm công tác chuyên sâu về Cơ Xương Khớp và Y học Thể thao. Bà chuyên điều trị phục hồi các chấn thương thể thao cấp tính, đứt dây chằng chéo trước, rách sụn chêm và viêm gân mãn tính. Bác sĩ Bình luôn áp dụng các công nghệ y khoa tiên tiến như sóng xung kích hội tụ và laser công suất cao kết hợp phác đồ vận động cá nhân hóa để đẩy nhanh tốc độ phục hồi.');
+INSERT INTO "ho_so_chuyen_gia" ("id", "nguoi_dung_id", "so_nam_kinh_nghiem", "bang_cap_chung_chi", "mo_ta") VALUES (3, 7, 8, '/nhan_su/images/cert_assess.png,/nhan_su/images/cert_physio.png', 'Kỹ thuật viên Lê Văn Cường có 8 năm kinh nghiệm thực hành trị liệu bằng tay chuyên sâu (Manual Therapy). Anh là chuyên gia về giải phóng cơ sâu (Myofascial Release) và di động khớp phục hồi biên độ vận động. Cường luôn tận tâm hướng dẫn bệnh nhân từng bài tập cốt lõi để duy trì hiệu quả trị liệu lâu dài.');
+INSERT INTO "ho_so_chuyen_gia" ("id", "nguoi_dung_id", "so_nam_kinh_nghiem", "bang_cap_chung_chi", "mo_ta") VALUES (4, 8, 6, '/nhan_su/images/cert_assess.png,/nhan_su/images/cert_physio.png', 'Kỹ thuật viên Phạm Thị Dung là nữ chuyên gia trị liệu có 6 năm kinh nghiệm về phục hồi chức năng sau phẫu thuật cột sống và thay khớp. Sự nhẹ nhàng, chu đáo cùng chuyên môn vững vàng của cô giúp bệnh nhân luôn cảm thấy an tâm và có động lực trong suốt hành trình tập luyện.');
+INSERT INTO "ho_so_chuyen_gia" ("id", "nguoi_dung_id", "so_nam_kinh_nghiem", "bang_cap_chung_chi", "mo_ta") VALUES (5, 9, 5, '/nhan_su/images/cert_assess.png,/nhan_su/images/cert_physio.png', 'Kỹ thuật viên Lê Văn Chiến có 5 năm kinh nghiệm về Vật lý trị liệu phục hồi thể thao, hỗ trợ các vận động viên phục hồi phong độ tối ưu sau chấn thương dây chằng và cơ bắp.');
+INSERT INTO "ho_so_chuyen_gia" ("id", "nguoi_dung_id", "so_nam_kinh_nghiem", "bang_cap_chung_chi", "mo_ta") VALUES (6, 10, 4, '/nhan_su/images/cert_assess.png,/nhan_su/images/cert_physio.png', 'Kỹ thuật viên Phạm Thị Đào có 4 năm kinh nghiệm trị liệu bằng tay và vận động trị liệu cột sống cổ - vai - gáy cho đối tượng nhân viên văn phòng.');
+INSERT INTO "ho_so_chuyen_gia" ("id", "nguoi_dung_id", "so_nam_kinh_nghiem", "bang_cap_chung_chi", "mo_ta") VALUES (13, 11, 1, 'Bác sĩ Vật lý trị liệu', NULL);
+INSERT INTO "ho_so_chuyen_gia" ("id", "nguoi_dung_id", "so_nam_kinh_nghiem", "bang_cap_chung_chi", "mo_ta") VALUES (14, 12, 1, 'Bác sĩ Vật lý trị liệu', NULL);
+INSERT INTO "ho_so_chuyen_gia" ("id", "nguoi_dung_id", "so_nam_kinh_nghiem", "bang_cap_chung_chi", "mo_ta") VALUES (15, 13, 1, 'Kỹ thuật viên Vật lý trị liệu', NULL);
+
+-- Table: hoa_don
+TRUNCATE TABLE "hoa_don" CASCADE;
+
+INSERT INTO "hoa_don" ("id", "khach_hang_id", "phac_do_dieu_tri_id", "cuoc_hen_id", "tong_tien_goc", "hinh_thuc_thanh_toan_goi", "ti_le_giam_gia_goi", "voucher_id", "so_tien_giam_voucher", "tong_tien_phai_tra", "so_tien_da_tra", "trang_thai", "ghi_chu", "ngay_tao") VALUES ('b1860714-5b71-4818-9d44-2ae904a87a63', 'd5d1baf4-628a-4622-ba35-95da33c19c16', '4656774e-0751-4bf9-8bfc-62207d253480', '82f88241-9abf-4efe-a52e-5902ae0cb9ec', '3400000', 'tra_thang', 10, NULL, '0', '2880000', '2880000', 'da_thanh_toan', 'Được miễn phí khám lâm sàng (Ưu đãi mua gói trị liệu > 1.000.000đ).', '2026-07-07T16:58:20.748Z');
+INSERT INTO "hoa_don" ("id", "khach_hang_id", "phac_do_dieu_tri_id", "cuoc_hen_id", "tong_tien_goc", "hinh_thuc_thanh_toan_goi", "ti_le_giam_gia_goi", "voucher_id", "so_tien_giam_voucher", "tong_tien_phai_tra", "so_tien_da_tra", "trang_thai", "ghi_chu", "ngay_tao") VALUES ('5d482645-0cb9-4ae5-93d8-e424f6bc3670', 'd5d1baf4-628a-4622-ba35-95da33c19c16', NULL, '82f88241-9abf-4efe-a52e-5902ae0cb9ec', '0', NULL, 0, NULL, '0', '200000', '0', 'da_huy', 'Hủy do được miễn phí khám theo hóa đơn gói HD-B18607.', '2026-07-07T16:54:24.536Z');
+
+-- Table: khach_hang
+TRUNCATE TABLE "khach_hang" CASCADE;
+
+INSERT INTO "khach_hang" ("id", "ho_ten", "email", "mat_khau_hash", "so_dien_thoai", "dia_chi", "ngay_sinh", "gioi_tinh", "trang_thai", "diem_uy_tin") VALUES ('10000000-0000-0000-0000-000000000011', 'Nguyễn Văn An', 'kh1@gmail.com', '$2b$10$Pa.Psa0yUMgFF/XBoLRC9enPa1ySh0dTrM9o8O7RmASsLRcK5.fsu', '0912000011', '12 Nguyễn Huệ, Q1, TP.HCM', '1988-03-14T17:00:00.000Z', 'nam', 'hoat_dong', 100);
+INSERT INTO "khach_hang" ("id", "ho_ten", "email", "mat_khau_hash", "so_dien_thoai", "dia_chi", "ngay_sinh", "gioi_tinh", "trang_thai", "diem_uy_tin") VALUES ('10000000-0000-0000-0000-000000000012', 'Trần Thị Bảo', 'kh2@gmail.com', '$2b$10$Pa.Psa0yUMgFF/XBoLRC9enPa1ySh0dTrM9o8O7RmASsLRcK5.fsu', '0912000012', '45 Lê Lợi, Q1, TP.HCM', '1992-07-21T17:00:00.000Z', 'nu', 'hoat_dong', 100);
+INSERT INTO "khach_hang" ("id", "ho_ten", "email", "mat_khau_hash", "so_dien_thoai", "dia_chi", "ngay_sinh", "gioi_tinh", "trang_thai", "diem_uy_tin") VALUES ('10000000-0000-0000-0000-000000000013', 'Lê Quang Cường', 'kh3@gmail.com', '$2b$10$Pa.Psa0yUMgFF/XBoLRC9enPa1ySh0dTrM9o8O7RmASsLRcK5.fsu', '0912000013', '78 Trần Hưng Đạo, Q5, TP.HCM', '1985-11-07T17:00:00.000Z', 'nam', 'hoat_dong', 100);
+INSERT INTO "khach_hang" ("id", "ho_ten", "email", "mat_khau_hash", "so_dien_thoai", "dia_chi", "ngay_sinh", "gioi_tinh", "trang_thai", "diem_uy_tin") VALUES ('10000000-0000-0000-0000-000000000014', 'Phạm Thị Dung', 'kh4@gmail.com', '$2b$10$Pa.Psa0yUMgFF/XBoLRC9enPa1ySh0dTrM9o8O7RmASsLRcK5.fsu', '0912000014', '23 Điện Biên Phủ, Q3, TP.HCM', '1995-04-29T17:00:00.000Z', 'nu', 'hoat_dong', 100);
+INSERT INTO "khach_hang" ("id", "ho_ten", "email", "mat_khau_hash", "so_dien_thoai", "dia_chi", "ngay_sinh", "gioi_tinh", "trang_thai", "diem_uy_tin") VALUES ('65e5a742-bd47-4ebe-9e02-d3adc719a100', 'Vinh nguyễn', 'dinhvinhh2200@gmail.com', '$2b$10$rVhzq1RzbxSzy8eAtJXwi.Pl5unSj2S1QOjNPhuxP7r1GoHPnbKiO', '0258963147', NULL, NULL, NULL, 'hoat_dong', 100);
+INSERT INTO "khach_hang" ("id", "ho_ten", "email", "mat_khau_hash", "so_dien_thoai", "dia_chi", "ngay_sinh", "gioi_tinh", "trang_thai", "diem_uy_tin") VALUES ('d5d1baf4-628a-4622-ba35-95da33c19c16', 'Trần Vinh', 'vinhtcpd09969@gmail.com', '$2b$10$OXLSw7p06oxu28UfM1j8p.ZlB26ojcWXkVtYkzKNPuvBsgCYNDNs2', '0398655332', NULL, NULL, NULL, 'hoat_dong', 80);
+
+-- Table: khuyen_mai_voucher
+TRUNCATE TABLE "khuyen_mai_voucher" CASCADE;
+
+INSERT INTO "khuyen_mai_voucher" ("id", "ma_code", "loai_giam_gia", "gia_tri_giam", "giam_toi_da", "don_hang_toi_thieu", "ngay_bat_dau", "ngay_het_han", "so_luong_gioi_han", "so_luong_da_dung", "dang_kich_hoat") VALUES ('50000000-0000-0000-0000-000000000001', 'WELCOME10', 'phan_tram', '10', '200000', '500000', '2026-06-29T00:00:00.000Z', '2026-09-27T00:00:00.000Z', 100, 0, true);
+INSERT INTO "khuyen_mai_voucher" ("id", "ma_code", "loai_giam_gia", "gia_tri_giam", "giam_toi_da", "don_hang_toi_thieu", "ngay_bat_dau", "ngay_het_han", "so_luong_gioi_han", "so_luong_da_dung", "dang_kich_hoat") VALUES ('50000000-0000-0000-0000-000000000002', 'SUMMER200', 'tien_mat', '200000', '200000', '1000000', '2026-06-29T00:00:00.000Z', '2026-07-29T00:00:00.000Z', 50, 0, true);
+
+-- Table: lich_truc_nhan_su
+TRUNCATE TABLE "lich_truc_nhan_su" CASCADE;
+
+INSERT INTO "lich_truc_nhan_su" ("id", "nhan_su_id", "ngay_truc", "ca_truc", "gio_bat_dau", "gio_ket_thuc", "trang_thai", "phong_id") VALUES ('35c21c8a-4082-4f3a-b721-a58465242851', 5, '2026-07-02T17:00:00.000Z', 'SANG', '07:00:00', '16:00:00', 'hoat_dong', 1);
+INSERT INTO "lich_truc_nhan_su" ("id", "nhan_su_id", "ngay_truc", "ca_truc", "gio_bat_dau", "gio_ket_thuc", "trang_thai", "phong_id") VALUES ('fb2d1e0f-efb4-4fec-a7c1-1dcc5520bd6e', 6, '2026-07-02T17:00:00.000Z', 'SANG', '07:00:00', '16:00:00', 'hoat_dong', 1);
+INSERT INTO "lich_truc_nhan_su" ("id", "nhan_su_id", "ngay_truc", "ca_truc", "gio_bat_dau", "gio_ket_thuc", "trang_thai", "phong_id") VALUES ('43aa330c-f47f-40ba-ba8d-51b976583a2d', 12, '2026-07-02T17:00:00.000Z', 'SANG', '07:00:00', '16:00:00', 'hoat_dong', 5);
+INSERT INTO "lich_truc_nhan_su" ("id", "nhan_su_id", "ngay_truc", "ca_truc", "gio_bat_dau", "gio_ket_thuc", "trang_thai", "phong_id") VALUES ('452fcf26-7084-42da-8539-530620fe35bd', 5, '2026-07-03T17:00:00.000Z', 'SANG', '07:00:00', '16:00:00', 'hoat_dong', 1);
+INSERT INTO "lich_truc_nhan_su" ("id", "nhan_su_id", "ngay_truc", "ca_truc", "gio_bat_dau", "gio_ket_thuc", "trang_thai", "phong_id") VALUES ('f101f03e-a6ba-48a2-878a-a8a13b8442b1', 6, '2026-07-03T17:00:00.000Z', 'SANG', '07:00:00', '16:00:00', 'hoat_dong', 1);
+INSERT INTO "lich_truc_nhan_su" ("id", "nhan_su_id", "ngay_truc", "ca_truc", "gio_bat_dau", "gio_ket_thuc", "trang_thai", "phong_id") VALUES ('a5d266e7-c769-4605-8c1c-6268cf041db8', 8, '2026-07-01T17:00:00.000Z', 'SANG', '11:00:00', '20:00:00', 'hoat_dong', 2);
+INSERT INTO "lich_truc_nhan_su" ("id", "nhan_su_id", "ngay_truc", "ca_truc", "gio_bat_dau", "gio_ket_thuc", "trang_thai", "phong_id") VALUES ('31c4ee91-c4b1-4ee5-a16f-3951364570b2', 9, '2026-07-01T17:00:00.000Z', 'SANG', '07:00:00', '16:00:00', 'hoat_dong', 2);
+INSERT INTO "lich_truc_nhan_su" ("id", "nhan_su_id", "ngay_truc", "ca_truc", "gio_bat_dau", "gio_ket_thuc", "trang_thai", "phong_id") VALUES ('c44bd2b9-c060-471c-b431-b0128dd56b10', 9, '2026-07-02T17:00:00.000Z', 'SANG', '07:00:00', '16:00:00', 'hoat_dong', 2);
+INSERT INTO "lich_truc_nhan_su" ("id", "nhan_su_id", "ngay_truc", "ca_truc", "gio_bat_dau", "gio_ket_thuc", "trang_thai", "phong_id") VALUES ('8f1f5a26-f68e-4195-8345-746f0fec90d2', 9, '2026-07-03T17:00:00.000Z', 'SANG', '07:00:00', '16:00:00', 'hoat_dong', 2);
+INSERT INTO "lich_truc_nhan_su" ("id", "nhan_su_id", "ngay_truc", "ca_truc", "gio_bat_dau", "gio_ket_thuc", "trang_thai", "phong_id") VALUES ('65fa0dd0-f164-46c6-b9fd-ba1538f56b40', 8, '2026-07-03T17:00:00.000Z', 'SANG', '07:00:00', '16:00:00', 'hoat_dong', 2);
+INSERT INTO "lich_truc_nhan_su" ("id", "nhan_su_id", "ngay_truc", "ca_truc", "gio_bat_dau", "gio_ket_thuc", "trang_thai", "phong_id") VALUES ('cfe11e72-a41d-46bb-b4a7-a352259d43b7', 10, '2026-07-03T17:00:00.000Z', 'SANG', '11:00:00', '20:00:00', 'hoat_dong', 4);
+INSERT INTO "lich_truc_nhan_su" ("id", "nhan_su_id", "ngay_truc", "ca_truc", "gio_bat_dau", "gio_ket_thuc", "trang_thai", "phong_id") VALUES ('42a11380-468c-4cdd-914b-cda233f78fd5', 5, '2026-07-04T17:00:00.000Z', 'SANG', '07:00:00', '16:00:00', 'hoat_dong', 1);
+INSERT INTO "lich_truc_nhan_su" ("id", "nhan_su_id", "ngay_truc", "ca_truc", "gio_bat_dau", "gio_ket_thuc", "trang_thai", "phong_id") VALUES ('423cbe0f-f8e8-4872-a81c-e1f1e5593059', 7, '2026-07-03T17:00:00.000Z', 'SANG', '07:00:00', '16:00:00', 'hoat_dong', 4);
+INSERT INTO "lich_truc_nhan_su" ("id", "nhan_su_id", "ngay_truc", "ca_truc", "gio_bat_dau", "gio_ket_thuc", "trang_thai", "phong_id") VALUES ('6d80e147-a354-4474-a1de-4e4884378c4e', 7, '2026-07-04T17:00:00.000Z', 'SANG', '07:00:00', '16:00:00', 'hoat_dong', 2);
+INSERT INTO "lich_truc_nhan_su" ("id", "nhan_su_id", "ngay_truc", "ca_truc", "gio_bat_dau", "gio_ket_thuc", "trang_thai", "phong_id") VALUES ('e857413c-6101-43d7-9bb5-e85125f0ce75', 5, '2026-07-05T17:00:00.000Z', 'SANG', '07:00:00', '16:00:00', 'hoat_dong', 1);
+INSERT INTO "lich_truc_nhan_su" ("id", "nhan_su_id", "ngay_truc", "ca_truc", "gio_bat_dau", "gio_ket_thuc", "trang_thai", "phong_id") VALUES ('95281af4-ea92-44f0-a1d6-3e40a1c443e6', 10, '2026-07-05T17:00:00.000Z', 'SANG', '11:00:00', '20:00:00', 'hoat_dong', 2);
+INSERT INTO "lich_truc_nhan_su" ("id", "nhan_su_id", "ngay_truc", "ca_truc", "gio_bat_dau", "gio_ket_thuc", "trang_thai", "phong_id") VALUES ('11b73c4f-60f6-4b62-8fca-dd3312024eac', 7, '2026-07-05T17:00:00.000Z', 'SANG', '07:00:00', '16:00:00', 'hoat_dong', 2);
+INSERT INTO "lich_truc_nhan_su" ("id", "nhan_su_id", "ngay_truc", "ca_truc", "gio_bat_dau", "gio_ket_thuc", "trang_thai", "phong_id") VALUES ('3499825f-a8f8-4441-af7c-95b07c35a999', 6, '2026-07-05T17:00:00.000Z', 'SANG', '11:00:00', '20:00:00', 'hoat_dong', 1);
+INSERT INTO "lich_truc_nhan_su" ("id", "nhan_su_id", "ngay_truc", "ca_truc", "gio_bat_dau", "gio_ket_thuc", "trang_thai", "phong_id") VALUES ('394d7a5f-2f85-4e7c-8f24-f8c670b9f2c2', 5, '2026-07-06T17:00:00.000Z', 'SANG', '07:00:00', '16:00:00', 'hoat_dong', 1);
+INSERT INTO "lich_truc_nhan_su" ("id", "nhan_su_id", "ngay_truc", "ca_truc", "gio_bat_dau", "gio_ket_thuc", "trang_thai", "phong_id") VALUES ('b12bcc9c-6215-4a37-861c-3f3c4b4c30e6', 8, '2026-07-06T17:00:00.000Z', 'SANG', '07:00:00', '16:00:00', 'hoat_dong', 2);
+INSERT INTO "lich_truc_nhan_su" ("id", "nhan_su_id", "ngay_truc", "ca_truc", "gio_bat_dau", "gio_ket_thuc", "trang_thai", "phong_id") VALUES ('af218bcc-252a-425d-b05a-5502a0a649f4', 10, '2026-07-06T17:00:00.000Z', 'SANG', '11:00:00', '20:00:00', 'hoat_dong', 4);
+INSERT INTO "lich_truc_nhan_su" ("id", "nhan_su_id", "ngay_truc", "ca_truc", "gio_bat_dau", "gio_ket_thuc", "trang_thai", "phong_id") VALUES ('58966b38-04d4-4634-bb53-8c358cabd550', 9, '2026-07-06T17:00:00.000Z', 'SANG', '07:00:00', '16:00:00', 'hoat_dong', 2);
+INSERT INTO "lich_truc_nhan_su" ("id", "nhan_su_id", "ngay_truc", "ca_truc", "gio_bat_dau", "gio_ket_thuc", "trang_thai", "phong_id") VALUES ('6946bc64-f4e7-4125-8175-3efee07c2b14', 8, '2026-07-07T17:00:00.000Z', 'SANG', '07:00:00', '16:00:00', 'hoat_dong', 2);
+INSERT INTO "lich_truc_nhan_su" ("id", "nhan_su_id", "ngay_truc", "ca_truc", "gio_bat_dau", "gio_ket_thuc", "trang_thai", "phong_id") VALUES ('151dea42-9667-4242-8509-a7196ee8145c', 7, '2026-07-07T17:00:00.000Z', 'SANG', '07:00:00', '16:00:00', 'hoat_dong', 2);
+INSERT INTO "lich_truc_nhan_su" ("id", "nhan_su_id", "ngay_truc", "ca_truc", "gio_bat_dau", "gio_ket_thuc", "trang_thai", "phong_id") VALUES ('f46e7a75-f780-40b4-9ff2-a912938206c3', 5, '2026-07-07T17:00:00.000Z', 'SANG', '07:00:00', '16:00:00', 'hoat_dong', 1);
+INSERT INTO "lich_truc_nhan_su" ("id", "nhan_su_id", "ngay_truc", "ca_truc", "gio_bat_dau", "gio_ket_thuc", "trang_thai", "phong_id") VALUES ('32a556dd-6d38-41e4-a534-8a6f22d27d55', 6, '2026-07-07T17:00:00.000Z', 'SANG', '11:00:00', '20:00:00', 'hoat_dong', 1);
+
+-- Table: nguoi_dung
+TRUNCATE TABLE "nguoi_dung" CASCADE;
+
+INSERT INTO "nguoi_dung" ("id", "ho_ten", "email", "so_dien_thoai", "mat_khau_hash", "vai_tro_id", "trang_thai", "anh_dai_dien") VALUES (1, 'Nguyễn Admin Hệ Thống', 'admin@officecare.vn', '0901000001', '$2b$10$Pa.Psa0yUMgFF/XBoLRC9enPa1ySh0dTrM9o8O7RmASsLRcK5.fsu', 5, 'hoat_dong', NULL);
+INSERT INTO "nguoi_dung" ("id", "ho_ten", "email", "so_dien_thoai", "mat_khau_hash", "vai_tro_id", "trang_thai", "anh_dai_dien") VALUES (2, 'Trần Minh Quản Lý', 'quanly@officecare.vn', '0901000002', '$2b$10$Pa.Psa0yUMgFF/XBoLRC9enPa1ySh0dTrM9o8O7RmASsLRcK5.fsu', 6, 'hoat_dong', NULL);
+INSERT INTO "nguoi_dung" ("id", "ho_ten", "email", "so_dien_thoai", "mat_khau_hash", "vai_tro_id", "trang_thai", "anh_dai_dien") VALUES (3, 'Lê Thị Hoa', 'letan1@officecare.vn', '0901000003', '$2b$10$Pa.Psa0yUMgFF/XBoLRC9enPa1ySh0dTrM9o8O7RmASsLRcK5.fsu', 2, 'hoat_dong', NULL);
+INSERT INTO "nguoi_dung" ("id", "ho_ten", "email", "so_dien_thoai", "mat_khau_hash", "vai_tro_id", "trang_thai", "anh_dai_dien") VALUES (4, 'Phạm Ngọc Mai', 'letan2@officecare.vn', '0901000004', '$2b$10$Pa.Psa0yUMgFF/XBoLRC9enPa1ySh0dTrM9o8O7RmASsLRcK5.fsu', 2, 'hoat_dong', NULL);
+INSERT INTO "nguoi_dung" ("id", "ho_ten", "email", "so_dien_thoai", "mat_khau_hash", "vai_tro_id", "trang_thai", "anh_dai_dien") VALUES (5, 'BS. Nguyễn Văn Khoa', 'bacsi1@officecare.vn', '0901000005', '$2b$10$Pa.Psa0yUMgFF/XBoLRC9enPa1ySh0dTrM9o8O7RmASsLRcK5.fsu', 4, 'hoat_dong', '/nhan_su/images/dr_nguyen_van_a.png');
+INSERT INTO "nguoi_dung" ("id", "ho_ten", "email", "so_dien_thoai", "mat_khau_hash", "vai_tro_id", "trang_thai", "anh_dai_dien") VALUES (6, 'BS. Trần Thị Lan Anh', 'bacsi2@officecare.vn', '0901000006', '$2b$10$Pa.Psa0yUMgFF/XBoLRC9enPa1ySh0dTrM9o8O7RmASsLRcK5.fsu', 4, 'hoat_dong', '/nhan_su/images/dr_tran_thi_b.png');
+INSERT INTO "nguoi_dung" ("id", "ho_ten", "email", "so_dien_thoai", "mat_khau_hash", "vai_tro_id", "trang_thai", "anh_dai_dien") VALUES (7, 'KTV. Đỗ Thanh Tùng', 'ktv1@officecare.vn', '0901000007', '$2b$10$Pa.Psa0yUMgFF/XBoLRC9enPa1ySh0dTrM9o8O7RmASsLRcK5.fsu', 3, 'hoat_dong', '/nhan_su/images/ktv_le_van_c.png');
+INSERT INTO "nguoi_dung" ("id", "ho_ten", "email", "so_dien_thoai", "mat_khau_hash", "vai_tro_id", "trang_thai", "anh_dai_dien") VALUES (8, 'KTV. Nguyễn Thị Bích', 'ktv2@officecare.vn', '0901000008', '$2b$10$Pa.Psa0yUMgFF/XBoLRC9enPa1ySh0dTrM9o8O7RmASsLRcK5.fsu', 3, 'hoat_dong', '/nhan_su/images/ktv_pham_thi_d.png');
+INSERT INTO "nguoi_dung" ("id", "ho_ten", "email", "so_dien_thoai", "mat_khau_hash", "vai_tro_id", "trang_thai", "anh_dai_dien") VALUES (9, 'KTV. Hoàng Văn Minh', 'ktv3@officecare.vn', '0901000009', '$2b$10$Pa.Psa0yUMgFF/XBoLRC9enPa1ySh0dTrM9o8O7RmASsLRcK5.fsu', 3, 'hoat_dong', '/nhan_su/images/ktv_le_van_c.png');
+INSERT INTO "nguoi_dung" ("id", "ho_ten", "email", "so_dien_thoai", "mat_khau_hash", "vai_tro_id", "trang_thai", "anh_dai_dien") VALUES (10, 'KTV. Vũ Thị Thanh', 'ktv4@officecare.vn', '0901000010', '$2b$10$Pa.Psa0yUMgFF/XBoLRC9enPa1ySh0dTrM9o8O7RmASsLRcK5.fsu', 3, 'hoat_dong', '/nhan_su/images/ktv_pham_thi_d.png');
+INSERT INTO "nguoi_dung" ("id", "ho_ten", "email", "so_dien_thoai", "mat_khau_hash", "vai_tro_id", "trang_thai", "anh_dai_dien") VALUES (11, 'Phan Phú lâm', 'lam@gmail.com', '0398655333', '$2b$10$nXuSxfxvKsh.J5kcToJsNuaN3dH/vA9NYWxi0xKTqAvR5hUGwGv.S', 4, 'vo_hieu', NULL);
+INSERT INTO "nguoi_dung" ("id", "ho_ten", "email", "so_dien_thoai", "mat_khau_hash", "vai_tro_id", "trang_thai", "anh_dai_dien") VALUES (12, 'tiên trịnh', 'tien@gmail.com', '0398655574', '$2b$10$mnmTAfqcUVNgh47wSIioy.EwS0hy8VDxefrGQX8uUkMRzK0LJrWjS', 4, 'hoat_dong', NULL);
+INSERT INTO "nguoi_dung" ("id", "ho_ten", "email", "so_dien_thoai", "mat_khau_hash", "vai_tro_id", "trang_thai", "anh_dai_dien") VALUES (13, 'kindc', 'vinhtcpd9969@gmail.com', '0269874532', '$2b$10$XSOqfG/H7ChnM.MQeISLEOpk8yVNG4jIznUNdcOECzyUnPtWXjrW2', 3, 'hoat_dong', NULL);
+
+-- Table: nhat_ky_buoi_dieu_tri
+TRUNCATE TABLE "nhat_ky_buoi_dieu_tri" CASCADE;
+
+INSERT INTO "nhat_ky_buoi_dieu_tri" ("id", "cuoc_hen_id", "nguoi_tao_id", "vas_truoc", "vas_sau", "chan_doan", "chong_chi_dinh", "ghi_chu", "ngay_tao") VALUES ('7ef80edd-4a44-44dd-a437-37bdc2a61398', '82f88241-9abf-4efe-a52e-5902ae0cb9ec', 5, NULL, NULL, '1', '1', NULL, '2026-07-07T16:54:11.105Z');
+INSERT INTO "nhat_ky_buoi_dieu_tri" ("id", "cuoc_hen_id", "nguoi_tao_id", "vas_truoc", "vas_sau", "chan_doan", "chong_chi_dinh", "ghi_chu", "ngay_tao") VALUES ('b7d3a646-cad0-432f-9266-9e7ce6850c31', '66e7486d-98c4-4128-bc3f-1125e8b34bc3', 7, 4, 4, '', '', 'ok', '2026-07-07T16:59:30.400Z');
+
+-- Table: otp_codes
+TRUNCATE TABLE "otp_codes" CASCADE;
+
+INSERT INTO "otp_codes" ("id", "email", "otp", "expires_at", "created_at") VALUES ('ef62aae8-3c29-4ce7-b059-0d8e3d9906cd', 'vinhtcpd09969@gmail.com', '961509', '2026-07-02T08:22:41.730Z', '2026-07-02T08:12:41.732Z');
+INSERT INTO "otp_codes" ("id", "email", "otp", "expires_at", "created_at") VALUES ('29125fd4-a3e4-4881-8a03-bddf8957802e', 'vinhtcpd09969@gmail.com', '446778', '2026-07-02T08:37:13.466Z', '2026-07-02T08:27:13.489Z');
+INSERT INTO "otp_codes" ("id", "email", "otp", "expires_at", "created_at") VALUES ('3a5c164d-34f7-4321-836e-dcac7db737ca', 'vinhtcpd09969@gmail.com', '548296', '2026-07-02T08:41:43.441Z', '2026-07-02T08:31:43.445Z');
+INSERT INTO "otp_codes" ("id", "email", "otp", "expires_at", "created_at") VALUES ('864d6ae5-7158-4fde-ae4b-375229be1965', 'vinhtcpd09969@gmail.com', '742513', '2026-07-02T15:48:26.677Z', '2026-07-02T15:38:26.685Z');
+INSERT INTO "otp_codes" ("id", "email", "otp", "expires_at", "created_at") VALUES ('99e6670b-ce7b-480c-9722-4040f58feb3a', 'vinhtcpd09969@gmail.com', '903838', '2026-07-03T13:14:11.790Z', '2026-07-03T13:04:11.813Z');
+INSERT INTO "otp_codes" ("id", "email", "otp", "expires_at", "created_at") VALUES ('d060f1f1-d2f4-4193-9e5f-ec19a3a289de', 'vinhtcpd09969@gmail.com', '964280', '2026-07-04T18:47:11.121Z', '2026-07-04T18:37:11.130Z');
+INSERT INTO "otp_codes" ("id", "email", "otp", "expires_at", "created_at") VALUES ('f18160f9-b2eb-4e0b-ab3a-4f5a0f1978a1', 'kh1@gmail.com', '606595', '2026-07-05T02:18:15.884Z', '2026-07-05T02:08:15.889Z');
+INSERT INTO "otp_codes" ("id", "email", "otp", "expires_at", "created_at") VALUES ('c080aaba-02d5-4b21-929b-9df555ed5da9', 'kh1@gmail.com', '212593', '2026-07-05T02:21:51.158Z', '2026-07-05T02:11:51.159Z');
+INSERT INTO "otp_codes" ("id", "email", "otp", "expires_at", "created_at") VALUES ('4d4924fb-261b-41ff-bd40-5ea264cbef23', 'kh1@gmail.com', '942811', '2026-07-05T02:25:48.172Z', '2026-07-05T02:15:48.172Z');
+INSERT INTO "otp_codes" ("id", "email", "otp", "expires_at", "created_at") VALUES ('f98fad99-23ab-4395-89a3-b6c2d8e1694a', 'kh1@gmail.com', '988520', '2026-07-05T02:26:09.081Z', '2026-07-05T02:16:09.081Z');
+INSERT INTO "otp_codes" ("id", "email", "otp", "expires_at", "created_at") VALUES ('fd2f1db1-0824-40cc-ba05-a6d543f01382', 'kh1@gmail.com', '857703', '2026-07-05T02:49:03.557Z', '2026-07-05T02:39:03.560Z');
+INSERT INTO "otp_codes" ("id", "email", "otp", "expires_at", "created_at") VALUES ('732cf55c-4def-410e-9146-c4f6a586cbe2', 'kh1@gmail.com', '129536', '2026-07-05T03:49:10.789Z', '2026-07-05T03:39:10.790Z');
+INSERT INTO "otp_codes" ("id", "email", "otp", "expires_at", "created_at") VALUES ('7305fd19-35ab-44b2-8b51-65d7ad12851b', 'kh1@gmail.com', '268158', '2026-07-05T03:49:34.044Z', '2026-07-05T03:39:34.045Z');
+INSERT INTO "otp_codes" ("id", "email", "otp", "expires_at", "created_at") VALUES ('97f15a88-d6af-40d3-bc87-dcf2db03549b', 'kh1@gmail.com', '282956', '2026-07-05T03:50:47.592Z', '2026-07-05T03:40:47.592Z');
+INSERT INTO "otp_codes" ("id", "email", "otp", "expires_at", "created_at") VALUES ('dc331d9e-9bb6-408e-89fc-92f24c7c6446', 'kh1@gmail.com', '619930', '2026-07-05T03:55:24.533Z', '2026-07-05T03:45:24.534Z');
+INSERT INTO "otp_codes" ("id", "email", "otp", "expires_at", "created_at") VALUES ('fb51890a-bfbb-4e2e-8129-0b7f5166240f', 'kh1@gmail.com', '329115', '2026-07-05T03:59:27.855Z', '2026-07-05T03:49:27.856Z');
+INSERT INTO "otp_codes" ("id", "email", "otp", "expires_at", "created_at") VALUES ('165b4898-42d7-417b-8778-03390dc3f047', 'kh1@gmail.com', '896190', '2026-07-06T11:03:00.818Z', '2026-07-06T10:53:00.827Z');
+
+-- Table: phac_do_dieu_tri
+TRUNCATE TABLE "phac_do_dieu_tri" CASCADE;
+
+INSERT INTO "phac_do_dieu_tri" ("id", "khach_hang_id", "goi_dich_vu_id", "tong_so_buoi", "so_buoi_da_dung", "trang_thai", "ngay_kich_hoat", "han_su_dung") VALUES ('4656774e-0751-4bf9-8bfc-62207d253480', 'd5d1baf4-628a-4622-ba35-95da33c19c16', 'c1000000-0000-0000-0000-000000000001', 8, 1, 'dang_dieu_tri', '2026-07-06T17:00:00.000Z', NULL);
+
+-- Table: phong_lam_viec
+TRUNCATE TABLE "phong_lam_viec" CASCADE;
+
+INSERT INTO "phong_lam_viec" ("id", "ten_phong", "ma_phong", "loai_phong", "suc_chua", "trang_thai", "mo_ta") VALUES (1, 'Phòng Khám Lâm Sàng 01', 'PK-01', 'phong_kham', 2, 'san_sang', 'Phòng khám bệnh lâm sàng ban đầu');
+INSERT INTO "phong_lam_viec" ("id", "ten_phong", "ma_phong", "loai_phong", "suc_chua", "trang_thai", "mo_ta") VALUES (2, 'Phòng Trị Liệu 01', 'TL-01', 'phong_tri_lieu', 4, 'san_sang', 'Phòng trị liệu cơ bản');
+INSERT INTO "phong_lam_viec" ("id", "ten_phong", "ma_phong", "loai_phong", "suc_chua", "trang_thai", "mo_ta") VALUES (3, 'Phòng Tập Phục Hồi Chức Năng', 'PHCN-01', 'phong_tap', 6, 'san_sang', 'Phòng tập PHCN chuyên biệt');
+INSERT INTO "phong_lam_viec" ("id", "ten_phong", "ma_phong", "loai_phong", "suc_chua", "trang_thai", "mo_ta") VALUES (4, 'Phòng Trị Liệu Đặc Biệt', 'TL-DB', 'phong_tri_lieu', 2, 'san_sang', 'Phòng trị liệu cao cấp');
+INSERT INTO "phong_lam_viec" ("id", "ten_phong", "ma_phong", "loai_phong", "suc_chua", "trang_thai", "mo_ta") VALUES (5, 'Khám 1', 'PK', 'phong_kham', 2, 'san_sang', '');
+
+-- Table: refresh_tokens
+TRUNCATE TABLE "refresh_tokens" CASCADE;
+
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (1, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgyOTMxMTExLCJleHAiOjE3ODM1MzU5MTF9.EYzbXp15rk_HdI_QwHFWwRt_wR3g2iyf5UyHw7i-JQg', '2026-07-08T18:38:31.688Z', '2026-07-01T18:38:31.795Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (2, 3, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgyOTMxMTE4LCJleHAiOjE3ODM1MzU5MTh9.JtS0sn-YqMGHatnfTQskIVxtrC5iiM7NjUvpxKB2YF4', '2026-07-08T18:38:38.404Z', '2026-07-01T18:38:38.406Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (3, 7, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NywiaWF0IjoxNzgyOTMxMTY1LCJleHAiOjE3ODM1MzU5NjV9.9BAhXgRWqRlMq81vME3d2h5h9IKb_gLKlVw9iC6nGno', '2026-07-08T18:39:25.873Z', '2026-07-01T18:39:25.874Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (4, 5, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiaWF0IjoxNzgyOTMxMTcyLCJleHAiOjE3ODM1MzU5NzJ9.7mGfDmq8oI13S7EiYKTUgI3qz-BaHr0bvxhcm4_oycE', '2026-07-08T18:39:32.153Z', '2026-07-01T18:39:32.154Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (5, 7, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NywiaWF0IjoxNzgyOTMxMTgxLCJleHAiOjE3ODM1MzU5ODF9.Obqqz-0ckLBx_eV0nHogBt0RSbDRZzHdhea-CmUJf_0', '2026-07-08T18:39:41.744Z', '2026-07-01T18:39:41.746Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (6, 5, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiaWF0IjoxNzgyOTMxMTg1LCJleHAiOjE3ODM1MzU5ODV9.VJhlyEEgsT6BeokPf5dog9kg9r1CfrY-_E7KT629wTQ', '2026-07-08T18:39:45.492Z', '2026-07-01T18:39:45.492Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (7, 2, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MiwiaWF0IjoxNzgyOTMxMTk3LCJleHAiOjE3ODM1MzU5OTd9.G0k4mD6jQcloE7HLzQfGj8ktO6Mv_EAWJ8T-c2mvnXQ', '2026-07-08T18:39:57.245Z', '2026-07-01T18:39:57.246Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (8, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgyOTMxMjIyLCJleHAiOjE3ODM1MzYwMjJ9.vJQZW4ODseOr5ilLcfBRq431NRu2G74nRx089UsWCQs', '2026-07-08T18:40:22.769Z', '2026-07-01T18:40:22.769Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (9, 2, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MiwiaWF0IjoxNzgyOTMxMjMxLCJleHAiOjE3ODM1MzYwMzF9.KIQlrZjOU0-N9O1xRmezvDupk30Spv4yhN0_5jHyO-s', '2026-07-08T18:40:31.390Z', '2026-07-01T18:40:31.390Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (10, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MjkzMTI0MCwiZXhwIjoxNzgzNTM2MDQwfQ.Yy2odZtNhwoAG9lXWRGpybOGvnXyZItI3SQtAzUhYdc', '2026-07-08T18:40:40.788Z', '2026-07-01T18:40:40.790Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (11, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgyOTMzMjY5LCJleHAiOjE3ODM1MzgwNjl9.FkXipIHI0FUGlgvygBB84R535e1RwXo1Qu2VUsdnZbU', '2026-07-08T19:14:29.231Z', '2026-07-01T19:14:29.267Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (12, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MjkzMzI5NywiZXhwIjoxNzgzNTM4MDk3fQ.Oa4SWJ8mVB2Hue17VsxK_KgCH7y_PaMhME-BGkp2h1g', '2026-07-08T19:14:57.739Z', '2026-07-01T19:14:57.749Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (13, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgyOTY5MzE1LCJleHAiOjE3ODM1NzQxMTV9.-17R7scV_QSA61DZNQre_WQcrttMDb_HrKyrzohmG1A', '2026-07-09T05:15:15.426Z', '2026-07-02T05:15:15.447Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (14, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4Mjk2OTMzMywiZXhwIjoxNzgzNTc0MTMzfQ.6C0CouOlJyTsSVMamXUk7JOX4ZE9WnGfDtlZyXwtsU0', '2026-07-09T05:15:33.176Z', '2026-07-02T05:15:33.181Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (15, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4Mjk3MDY5NywiZXhwIjoxNzgzNTc1NDk3fQ.tRzyjV8mFUIG06gEw-n2NeqsMrOFQ7dvxAFgCjgODLw', '2026-07-09T05:38:17.726Z', '2026-07-02T05:38:17.733Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (16, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgyOTcwNzgzLCJleHAiOjE3ODM1NzU1ODN9.fQ-yRxLhfoTRjAJ0Lo66qVuzR-eIF0CxKZQRpwjho-U', '2026-07-09T05:39:43.432Z', '2026-07-02T05:39:43.442Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (17, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4Mjk3MTYyMiwiZXhwIjoxNzgzNTc2NDIyfQ.HjX6r7FVseNE04ThODFSbGprrqI1MTw7kU5WWIcinwo', '2026-07-09T05:53:42.836Z', '2026-07-02T05:53:42.866Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (18, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgyOTc0MjU2LCJleHAiOjE3ODM1NzkwNTZ9.Cb3125DEgiLllbTd-pZinfIuwLr4m2L5zj_ufLZaMQA', '2026-07-09T06:37:36.225Z', '2026-07-02T06:37:36.247Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (19, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4Mjk3OTU3MSwiZXhwIjoxNzgzNTg0MzcxfQ.mdLgRoBXeRGXu7nzfoNbqzUIHSxGFZzjstMj6dPgv_8', '2026-07-09T08:06:11.026Z', '2026-07-02T08:06:11.046Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (20, 7, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NywiaWF0IjoxNzgyOTc5NzI2LCJleHAiOjE3ODM1ODQ1MjZ9.HZ3oGme2Lxq-mrtkdyclCFvh7SA3EPzrmCo2VoY3gwI', '2026-07-09T08:08:46.349Z', '2026-07-02T08:08:46.409Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (21, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4Mjk3OTcyOSwiZXhwIjoxNzgzNTg0NTI5fQ.eD6WWjHRm1dBwV8saHiTFSGgijwakMKfn_-lX3XvcmE', '2026-07-09T08:08:49.655Z', '2026-07-02T08:08:49.656Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (22, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgyOTgwNDA1LCJleHAiOjE3ODM1ODUyMDV9.9S3E4xcVfWqO0K6ovKCQZWz0Mchw0b6LCjUVfq1DkmE', '2026-07-09T08:20:05.418Z', '2026-07-02T08:20:05.427Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (23, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4Mjk4ODY5NiwiZXhwIjoxNzgzNTkzNDk2fQ.5rKVOV9IlDsZmNVlX_iBtw9QYFDZl9TGRYmPqmQ30yQ', '2026-07-09T10:38:16.581Z', '2026-07-02T10:38:16.607Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (24, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgyOTg4ODI1LCJleHAiOjE3ODM1OTM2MjV9.VTdVum5Pp0axt285ieefM7g7mfCwfpcCS1U464cDbHI', '2026-07-09T10:40:25.750Z', '2026-07-02T10:40:25.816Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (25, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4Mjk4OTEzOSwiZXhwIjoxNzgzNTkzOTM5fQ.miTeXX7_z0nIY0fnbBeJPBncqcGwmKOXkryRr5N5zS0', '2026-07-09T10:45:39.064Z', '2026-07-02T10:45:39.068Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (26, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgyOTkwMTY2LCJleHAiOjE3ODM1OTQ5NjZ9.jgQvwUaksTLmcptV08M_2FkoD4OUQ_Vp_2KCdlhWsx8', '2026-07-09T11:02:46.804Z', '2026-07-02T11:02:46.849Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (27, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4Mjk5MDIxMSwiZXhwIjoxNzgzNTk1MDExfQ.KjQMzZVTEQK_qv0mmd9iMI9oHuaWGdBfXf35if8n90Y', '2026-07-09T11:03:31.573Z', '2026-07-02T11:03:31.578Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (28, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgyOTkzMTY1LCJleHAiOjE3ODM1OTc5NjV9.yxmvGXZudkRC3RUEm6IA0LWaLZHG96Fco2J7ePLC9mw', '2026-07-09T11:52:45.014Z', '2026-07-02T11:52:45.019Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (29, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4Mjk5MzE3OSwiZXhwIjoxNzgzNTk3OTc5fQ.M_KAF4ylvF8n99D0EZlXG4_pWZDLGdetHw3TA72SYdo', '2026-07-09T11:52:59.177Z', '2026-07-02T11:52:59.178Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (30, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgyOTk3NjY4LCJleHAiOjE3ODM2MDI0Njh9.9whYxVFTICCQ3y5jMcVkcz42ENDjdGtS_SuxZhIh4G0', '2026-07-09T13:07:48.196Z', '2026-07-02T13:07:48.272Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (31, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4Mjk5NzY3OCwiZXhwIjoxNzgzNjAyNDc4fQ.HynkYZDMb2qX0EjXi68VMsijldL4W0rE5HQLEc7hUvY', '2026-07-09T13:07:58.239Z', '2026-07-02T13:07:58.245Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (32, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4Mjk5ODQ2NCwiZXhwIjoxNzgzNjAzMjY0fQ.yl2HLCU9KIMgpjppcn7DyPMepG9uUScGMQmcyJpnRPo', '2026-07-09T13:21:04.560Z', '2026-07-02T13:21:04.576Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (33, 2, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MiwiaWF0IjoxNzgzMDAxNDg0LCJleHAiOjE3ODM2MDYyODR9.kupmMYTQ4CLXu_xKgNu9V8-RwnzWhunpvDQ7brpReGE', '2026-07-09T14:11:24.231Z', '2026-07-02T14:11:24.251Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (34, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MzAwMTU1OCwiZXhwIjoxNzgzNjA2MzU4fQ.UmEqzRvvokdNRf1hsy1GFQxxkdjqkCJua3TVcx9wxIo', '2026-07-09T14:12:38.819Z', '2026-07-02T14:12:38.821Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (35, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMDA0MTIxLCJleHAiOjE3ODM2MDg5MjF9.j-HD_oPYIWfB2WBPDBYCt0dUd_Fg6AWu9o8Dmd4sq1U', '2026-07-09T14:55:21.398Z', '2026-07-02T14:55:21.427Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (36, 3, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzMDA0NTc2LCJleHAiOjE3ODM2MDkzNzZ9.AhyTubJUhVeBQ265w5UaNcdHhp-aP6ChT08za_QHI1M', '2026-07-09T15:02:56.592Z', '2026-07-02T15:02:56.595Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (37, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMDA0NjQ1LCJleHAiOjE3ODM2MDk0NDV9.5smPiPv3AQVxmiDlrgrgAHdN2cU3FbHdwKalURatLx4', '2026-07-09T15:04:05.815Z', '2026-07-02T15:04:05.823Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (38, NULL, 'd5d1baf4-628a-4622-ba35-95da33c19c16', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzAwNTA0MiwiZXhwIjoxNzgzNjA5ODQyfQ.x75Swq2xPYNnT597sddUX7w5o_MR0xsO6HweIMVOLi0', '2026-07-09T15:10:42.357Z', '2026-07-02T15:10:42.371Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (39, 3, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzMDA2NjQ0LCJleHAiOjE3ODM2MTE0NDR9.qp9Z4b5tf6ahrB8mAVM-ALIiTniuM0JmTnKPfEGUAmo', '2026-07-09T15:37:24.764Z', '2026-07-02T15:37:24.787Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (40, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MzAwNzE2NiwiZXhwIjoxNzgzNjExOTY2fQ.IGgGszYWf8NsARaLWIOWfWeUI-3G8tWjDTiTN2hcpnE', '2026-07-09T15:46:06.006Z', '2026-07-02T15:46:06.029Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (41, NULL, 'd5d1baf4-628a-4622-ba35-95da33c19c16', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzAwNzE3NSwiZXhwIjoxNzgzNjExOTc1fQ.e4zwi1RDi8dYWNkatzGHpbVWE8ruqN4luFkuqQYtYxs', '2026-07-09T15:46:15.452Z', '2026-07-02T15:46:15.453Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (42, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMDA3NDk0LCJleHAiOjE3ODM2MTIyOTR9.Xa3ILpLvFPpnOLZep7w4Z8BiSuZlC0VVr3zT_F7nBzk', '2026-07-09T15:51:34.715Z', '2026-07-02T15:51:34.727Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (43, 3, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzMDA3NTE0LCJleHAiOjE3ODM2MTIzMTR9.3YYDoWDCI6maDnnQAcovAuoC9j3gqW0QzNxdGMOopXY', '2026-07-09T15:51:54.978Z', '2026-07-02T15:51:54.981Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (44, NULL, 'd5d1baf4-628a-4622-ba35-95da33c19c16', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzAwNzYxMywiZXhwIjoxNzgzNjEyNDEzfQ.weYWWGL3KTaSQlki9Iiq80FFyxZmw17uu--zAV2MEoY', '2026-07-09T15:53:33.003Z', '2026-07-02T15:53:33.003Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (45, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMDA4MDQ5LCJleHAiOjE3ODM2MTI4NDl9.Z1A2Ress-mUgl_Lh-9CWWM9wPWcHt-NGtCDVqxlwGUY', '2026-07-09T16:00:49.124Z', '2026-07-02T16:00:49.130Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (46, 3, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzMDA4ODEzLCJleHAiOjE3ODM2MTM2MTN9.BEcaUDcpymmH6jf7WabAws7_5VgEoJHYm90WA1ikQP0', '2026-07-09T16:13:33.757Z', '2026-07-02T16:13:33.830Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (47, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MzAwODgzNSwiZXhwIjoxNzgzNjEzNjM1fQ.rXtikq2pPDgbcjqa4qq7irKrIKS7f-vR0hn9Euc7HEg', '2026-07-09T16:13:55.991Z', '2026-07-02T16:13:55.996Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (48, NULL, 'd5d1baf4-628a-4622-ba35-95da33c19c16', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzAwODg0MywiZXhwIjoxNzgzNjEzNjQzfQ.6jjJpYrDP3qfSGdV5kBDauVhlofXazh6f_XzjyCrFdc', '2026-07-09T16:14:03.641Z', '2026-07-02T16:14:03.643Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (49, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMDA5Mjc0LCJleHAiOjE3ODM2MTQwNzR9.zz5dZOP-KP3fdAilfInlUbKNADuxhHGrh3MLJ8AkieY', '2026-07-09T16:21:14.133Z', '2026-07-02T16:21:14.141Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (50, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MzAxMDI3NSwiZXhwIjoxNzgzNjE1MDc1fQ.DBXRVDbftd3rNPiLHaEi8URs4LUecie-58NW9tGsG5Q', '2026-07-09T16:37:55.313Z', '2026-07-02T16:37:55.342Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (51, NULL, 'd5d1baf4-628a-4622-ba35-95da33c19c16', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzAxMDI4MCwiZXhwIjoxNzgzNjE1MDgwfQ.plqSZ5Qh-txypYTfdEJgOxglHJ3r_YgfjEntRCA7ePg', '2026-07-09T16:38:00.207Z', '2026-07-02T16:38:00.210Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (52, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMDExNTI2LCJleHAiOjE3ODM2MTYzMjZ9.6kk9-Ss0hZ-0rZDmz1EFJD8oTmtXmbzDbQ12XGBR0po', '2026-07-09T16:58:46.269Z', '2026-07-02T16:58:46.280Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (53, 3, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzMDExOTg4LCJleHAiOjE3ODM2MTY3ODh9.jhwMJ0bBO5Ooesm3p5t71-LgyN5gVRH_1Ad8c7qg3nc', '2026-07-09T17:06:28.756Z', '2026-07-02T17:06:28.814Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (54, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMDEyMTQ0LCJleHAiOjE3ODM2MTY5NDR9.Lvj41LyEDEIFdSVFGSktgdsGGkHrGf1O07JOW5KHhgg', '2026-07-09T17:09:04.525Z', '2026-07-02T17:09:04.527Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (55, 7, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NywiaWF0IjoxNzgzMDc1MTkzLCJleHAiOjE3ODM2Nzk5OTN9.3F-mF7D_BUK8vV8y61UTRRkPLy3n5KjyfA4MLiZgqZY', '2026-07-10T10:39:53.482Z', '2026-07-03T10:39:53.508Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (56, NULL, 'd5d1baf4-628a-4622-ba35-95da33c19c16', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzA3NTIwMywiZXhwIjoxNzgzNjgwMDAzfQ.jXs0C2rV9jCZcqxB2hEOZuhNGLzNXkteCY7e75qF_2U', '2026-07-10T10:40:03.883Z', '2026-07-03T10:40:03.885Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (57, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMDc1NTg0LCJleHAiOjE3ODM2ODAzODR9.mLe86r1-6p8K5PbBnX6slOXxDuJVJr8uYShohJbAS3Y', '2026-07-10T10:46:24.303Z', '2026-07-03T10:46:24.305Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (58, NULL, 'd5d1baf4-628a-4622-ba35-95da33c19c16', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzA3NTYxOCwiZXhwIjoxNzgzNjgwNDE4fQ.yUHV2l9V_lQXxuBAOR10qiRTR4j5qVxoIa4ylSjyMYY', '2026-07-10T10:46:58.211Z', '2026-07-03T10:46:58.212Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (59, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMDc1NjU3LCJleHAiOjE3ODM2ODA0NTd9.7ybR7_GHKW5XIjW5k1hP6Z-J_aBP4qJHrQWGP6RLuc4', '2026-07-10T10:47:37.304Z', '2026-07-03T10:47:37.305Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (60, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MzA3NjQyNCwiZXhwIjoxNzgzNjgxMjI0fQ.dCxpkdqTG9aAUsox8xf5dM6XLfeaExy-rRa7Z-DrNBI', '2026-07-10T11:00:24.529Z', '2026-07-03T11:00:24.557Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (61, NULL, 'd5d1baf4-628a-4622-ba35-95da33c19c16', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzA3NjQzMCwiZXhwIjoxNzgzNjgxMjMwfQ.uY00Eo1UHtuOUxNlxpHRvlvtlm-OJoYZWjzHzm4aN30', '2026-07-10T11:00:30.511Z', '2026-07-03T11:00:30.512Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (62, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMDc5MzI5LCJleHAiOjE3ODM2ODQxMjl9.dLH_XuBdIfql0RqvrCUTCBqptXHmhfDJhbK0-Dxwn0I', '2026-07-10T11:48:49.692Z', '2026-07-03T11:48:49.711Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (63, NULL, 'd5d1baf4-628a-4622-ba35-95da33c19c16', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzA3OTc1NiwiZXhwIjoxNzgzNjg0NTU2fQ.XTTRSDFZto__KwJjIXdmjKcvKKpyPQWAWLWI8L-4vzM', '2026-07-10T11:55:56.456Z', '2026-07-03T11:55:56.515Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (64, 7, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NywiaWF0IjoxNzgzMDc5ODMzLCJleHAiOjE3ODM2ODQ2MzN9.Tg15tV6pzPtPsma9IZcoV-HaVek_mIu4h06Y3AtzQZg', '2026-07-10T11:57:13.814Z', '2026-07-03T11:57:13.816Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (65, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MzA3OTgzNywiZXhwIjoxNzgzNjg0NjM3fQ.zCKZBmRxCoQJmdg5xSIc2vVuJaatk3x_bd099KPcVGc', '2026-07-10T11:57:17.241Z', '2026-07-03T11:57:17.242Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (66, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MzA4MDY4NiwiZXhwIjoxNzgzNjg1NDg2fQ.dp2MaPqRS18D4f5jXQgvhl7ws3YJVq0i9eQj2jN1xsw', '2026-07-10T12:11:26.990Z', '2026-07-03T12:11:27.013Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (67, NULL, 'd5d1baf4-628a-4622-ba35-95da33c19c16', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzA4MTIxNywiZXhwIjoxNzgzNjg2MDE3fQ.a7zV3XaIVBOH4-HZ1T240l4yFw8ePbZ_0CecKsL7_1M', '2026-07-10T12:20:17.223Z', '2026-07-03T12:20:17.236Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (68, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MzA4MTMwOCwiZXhwIjoxNzgzNjg2MTA4fQ._I3ZmNUppUOsqHNos0gOj8hLwAfEoDpF_-_51dmf6ts', '2026-07-10T12:21:48.267Z', '2026-07-03T12:21:48.271Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (69, NULL, 'd5d1baf4-628a-4622-ba35-95da33c19c16', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzA4Mzc2OCwiZXhwIjoxNzgzNjg4NTY4fQ.yfFVukv3ZdW-AOF_g8XMVfz36YFxYETLJakHn3BRdtc', '2026-07-10T13:02:48.397Z', '2026-07-03T13:02:48.399Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (70, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMDg2ODI1LCJleHAiOjE3ODM2OTE2MjV9.8U2OgWfX527rZpmxU4nsCtl7lTNlkSEz2xPso932sIo', '2026-07-10T13:53:45.014Z', '2026-07-03T13:53:45.046Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (71, 3, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzMDg2ODQzLCJleHAiOjE3ODM2OTE2NDN9.6XHn3FhEhV9TvMWlJxD8pakdDb4oyZbpnHNztygyhGw', '2026-07-10T13:54:03.828Z', '2026-07-03T13:54:03.841Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (72, NULL, 'd5d1baf4-628a-4622-ba35-95da33c19c16', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzA4ODY4NiwiZXhwIjoxNzgzNjkzNDg2fQ.vijdpBdnLnWh1a9a6IHvoCv8Vph6OQEU9OkbMHSDR84', '2026-07-10T14:24:46.245Z', '2026-07-03T14:24:46.284Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (73, 3, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzMDkyNDgzLCJleHAiOjE3ODM2OTcyODN9.XwbvKhFBSL_NqurKe0i7Zox9B00m-ij54vOD-SthcnY', '2026-07-10T15:28:03.257Z', '2026-07-03T15:28:03.274Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (74, 5, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiaWF0IjoxNzgzMDkzMDM5LCJleHAiOjE3ODM2OTc4Mzl9.-sFVd2LbSFb_zSWM8wAb0zG4kSugt7RwezLfyv8n3LA', '2026-07-10T15:37:19.244Z', '2026-07-03T15:37:19.246Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (75, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MzA5MzU0OCwiZXhwIjoxNzgzNjk4MzQ4fQ.tqxLJmfFOFGyobpiaTmoHx4axRrDHWEBwusy_L1mpgM', '2026-07-10T15:45:48.596Z', '2026-07-03T15:45:48.621Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (76, NULL, 'd5d1baf4-628a-4622-ba35-95da33c19c16', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzA5MzU1NSwiZXhwIjoxNzgzNjk4MzU1fQ.yCrS97NBeOpkiZFob6-jz0zxsnhwSNH-tGzm6heu-00', '2026-07-10T15:45:55.307Z', '2026-07-03T15:45:55.307Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (77, 3, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzMDkzNTkyLCJleHAiOjE3ODM2OTgzOTJ9.PKlbiKaPB-CUKe1laHTcAC1Jrl4-6JuzmSg1R5EwI2k', '2026-07-10T15:46:32.367Z', '2026-07-03T15:46:32.369Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (78, 5, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiaWF0IjoxNzgzMDk1MzMwLCJleHAiOjE3ODM3MDAxMzB9.86xCuPGblQdB_j-sQghjGvlf7A1L4mdSj0RWU3fW-mo', '2026-07-10T16:15:30.036Z', '2026-07-03T16:15:30.073Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (79, 7, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NywiaWF0IjoxNzgzMDk1ODEyLCJleHAiOjE3ODM3MDA2MTJ9._fmAl0VE9S1gJlfEic5Bjfi3-eBeawePNhRRU7bNI-Q', '2026-07-10T16:23:32.353Z', '2026-07-03T16:23:32.362Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (80, 7, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NywiaWF0IjoxNzgzMDk2MDkzLCJleHAiOjE3ODM3MDA4OTN9.widpxVckvBeWebrvm9qUZihqHH19V35PQ8tVLKLosd8', '2026-07-10T16:28:13.728Z', '2026-07-03T16:28:13.729Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (81, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMDk2MTE2LCJleHAiOjE3ODM3MDA5MTZ9.8RXkAXGI4TAb563q2ZGWU6XaU7tyk29swk59wo1UAl4', '2026-07-10T16:28:36.131Z', '2026-07-03T16:28:36.132Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (82, 7, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NywiaWF0IjoxNzgzMDk2MTM5LCJleHAiOjE3ODM3MDA5Mzl9.eGv7z3TRhsySfoJ6J3MUNCMWNXNma-9_39rI_uO_oBo', '2026-07-10T16:28:59.035Z', '2026-07-03T16:28:59.036Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (83, 3, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzMDk3MTU0LCJleHAiOjE3ODM3MDE5NTR9.yizGlZ8siTrwfufaHjw-edVTdlkwYmC77IEbq6HRUjU', '2026-07-10T16:45:54.980Z', '2026-07-03T16:45:55.002Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (84, NULL, '65e5a742-bd47-4ebe-9e02-d3adc719a100', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1ZTVhNzQyLWJkNDctNGViZS05ZTAyLWQzYWRjNzE5YTEwMCIsImlhdCI6MTc4MzE3MzQ5MCwiZXhwIjoxNzgzNzc4MjkwfQ.Bx5-5PTwJNuS8jxW4sVlwJBBOTM2xQYnYHyMKNM3j4Y', '2026-07-11T13:58:10.603Z', '2026-07-04T13:58:10.619Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (85, NULL, 'd5d1baf4-628a-4622-ba35-95da33c19c16', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzE3MzYwNiwiZXhwIjoxNzgzNzc4NDA2fQ.KYt9s3tEZeRGzlrMyJtaR0g83JT0LO10reN8058JI1w', '2026-07-11T14:00:06.663Z', '2026-07-04T14:00:06.665Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (86, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMTc0Nzg5LCJleHAiOjE3ODM3Nzk1ODl9.Rsjdzb0LcnVq2LY_4V6bBciI5PJqwx1racdznEAbCeQ', '2026-07-11T14:19:49.731Z', '2026-07-04T14:19:49.784Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (87, 7, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NywiaWF0IjoxNzgzMTc0OTU4LCJleHAiOjE3ODM3Nzk3NTh9.kYXWjqKoMSoMXGpofDFYgr4Ofi8DD43d84nq1nDVEww', '2026-07-11T14:22:38.379Z', '2026-07-04T14:22:38.379Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (88, NULL, '65e5a742-bd47-4ebe-9e02-d3adc719a100', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1ZTVhNzQyLWJkNDctNGViZS05ZTAyLWQzYWRjNzE5YTEwMCIsImlhdCI6MTc4MzE3NDk4NCwiZXhwIjoxNzgzNzc5Nzg0fQ.xDBxCqec5mYdO17RWKUlYK01BNP8MK67VTMqEax4aa4', '2026-07-11T14:23:04.829Z', '2026-07-04T14:23:04.834Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (89, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMTc1MDIwLCJleHAiOjE3ODM3Nzk4MjB9.iL7E6W3HU9daFwHaDeHaRTIt3MRj9V-pDcDQa9caQq0', '2026-07-11T14:23:40.100Z', '2026-07-04T14:23:40.106Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (90, 7, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NywiaWF0IjoxNzgzMTc1MDMwLCJleHAiOjE3ODM3Nzk4MzB9.Zxv7CI_qe7CgF6orD3fmFN9zagKhhjYLudnD25f0Xxk', '2026-07-11T14:23:50.618Z', '2026-07-04T14:23:50.620Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (91, 5, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiaWF0IjoxNzgzMTc1MDM3LCJleHAiOjE3ODM3Nzk4Mzd9.gZPNqZpxJ8UX0cbQ3MEPYT1N5-xKFgOfZ_4WgEqRghY', '2026-07-11T14:23:57.553Z', '2026-07-04T14:23:57.555Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (92, NULL, 'd5d1baf4-628a-4622-ba35-95da33c19c16', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzE3NzA4MiwiZXhwIjoxNzgzNzgxODgyfQ.t0b7lE8IcRIKaaLFbRnGIZZskc0n9PCCvqdCDGU9G54', '2026-07-11T14:58:02.359Z', '2026-07-04T14:58:02.364Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (93, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMTgxNzg0LCJleHAiOjE3ODM3ODY1ODR9.UBui34PyuoB9BUbKO48R2GB9xhw9r5CgFuHfRBZkh1o', '2026-07-11T16:16:24.081Z', '2026-07-04T16:16:24.130Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (94, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMTg4MTYwLCJleHAiOjE3ODM3OTI5NjB9.np-nW65nu6NNjjPy2qQDera0G0xxKeFVqF2TOamz6MY', '2026-07-11T18:02:40.605Z', '2026-07-04T18:02:40.617Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (95, NULL, 'd5d1baf4-628a-4622-ba35-95da33c19c16', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzE4OTE3MiwiZXhwIjoxNzgzNzkzOTcyfQ.alj2Pkbzvhp9scJIG97UzPH8j9zY1p2YEbbvKkgFQrw', '2026-07-11T18:19:32.933Z', '2026-07-04T18:19:32.965Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (96, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MzE4OTIwNywiZXhwIjoxNzgzNzk0MDA3fQ.uyVoZHGk8UXO7LRBI7m4zlf-OZNpgqKNVO0-AhUYiS0', '2026-07-11T18:20:07.198Z', '2026-07-04T18:20:07.199Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (97, 5, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiaWF0IjoxNzgzMTg5MzA3LCJleHAiOjE3ODM3OTQxMDd9.iqtNEBAOKJPh6yR_2Oo8XC2IPZG83Ea3t-RKa7mFE5c', '2026-07-11T18:21:47.446Z', '2026-07-04T18:21:47.447Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (98, 3, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzMTg5NTU2LCJleHAiOjE3ODM3OTQzNTZ9.LjvVqI3by8RSumcgN26LRTRr858IUtWs33nF8KWRbeY', '2026-07-11T18:25:56.319Z', '2026-07-04T18:25:56.322Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (99, 5, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiaWF0IjoxNzgzMTkwMzM4LCJleHAiOjE3ODM3OTUxMzh9.pw-Og158GKK2yG2SK_dJLfAcYO4bk_E98XVSdmmLmJo', '2026-07-11T18:38:58.550Z', '2026-07-04T18:38:58.560Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (100, 3, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzMTkwNDMxLCJleHAiOjE3ODM3OTUyMzF9.Kmi02Jbk-hg2gABJV87d8Z5-2f6GHsOkejip_nrcSdQ', '2026-07-11T18:40:31.939Z', '2026-07-04T18:40:31.940Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (101, 5, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiaWF0IjoxNzgzMTkwNjIzLCJleHAiOjE3ODM3OTU0MjN9.p_M6ntd97qRD-wWeIm_bz_fFXPP7R1R9e5UgnrgyeB8', '2026-07-11T18:43:43.084Z', '2026-07-04T18:43:43.085Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (102, 3, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzMTkxNTA0LCJleHAiOjE3ODM3OTYzMDR9.WlOy9ZcJb3K1v2PaKtMmyjwyiCNJ0q4cySNL2t-edUc', '2026-07-11T18:58:24.552Z', '2026-07-04T18:58:24.582Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (103, 5, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiaWF0IjoxNzgzMTkxNTU0LCJleHAiOjE3ODM3OTYzNTR9.thU5C9lawtrZG6KQ2Nd6tG9JdWKVk57INfwk0uHl1sE', '2026-07-11T18:59:14.905Z', '2026-07-04T18:59:14.981Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (104, 3, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzMTkxODMxLCJleHAiOjE3ODM3OTY2MzF9.VkrHTC6OT2Qx6lZbJ_rwXAVPUdUw6GsHO93q3quhKpc', '2026-07-11T19:03:51.420Z', '2026-07-04T19:03:51.432Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (105, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMTkxODUwLCJleHAiOjE3ODM3OTY2NTB9.r7_PiEbYTzofcFBxPtIATMULUJtiwmCneBMF9mR3z9w', '2026-07-11T19:04:10.991Z', '2026-07-04T19:04:10.995Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (106, 3, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzMjE2OTY1LCJleHAiOjE3ODM4MjE3NjV9.4niyejDyBW7zJUjia4faEXNTsHNyYQM1zvJ7Lgq6EcE', '2026-07-12T02:02:45.619Z', '2026-07-05T02:02:45.650Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (107, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MzIxNzIyOCwiZXhwIjoxNzgzODIyMDI4fQ.erEl9WSlxbc8_gIr2Ut96bSYGlnEjgjWgzt4JWvt2oU', '2026-07-12T02:07:08.342Z', '2026-07-05T02:07:08.347Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (108, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MzIxNzIzMiwiZXhwIjoxNzgzODIyMDMyfQ.7_lzJn2uAheV_PAMk5foM-wqPCmY_a87l9wnkFjTYug', '2026-07-12T02:07:12.751Z', '2026-07-05T02:07:12.752Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (109, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMjE3NTg5LCJleHAiOjE3ODM4MjIzODl9.P-7zqDXBFxOQznozxtV_wqCQzGULb5Mv9DH8M3T0ynA', '2026-07-12T02:13:09.365Z', '2026-07-05T02:13:09.366Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (110, 3, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzMjE4OTk1LCJleHAiOjE3ODM4MjM3OTV9.GskmapmwWCfPiBSOcMOKOY8oS000S62l4GQInOZzYyA', '2026-07-12T02:36:35.399Z', '2026-07-05T02:36:35.405Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (111, NULL, 'd5d1baf4-628a-4622-ba35-95da33c19c16', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzIxOTU0NSwiZXhwIjoxNzgzODI0MzQ1fQ.l9Sd5UMjg0ukaJnTlrpPG_IeSWX-WHeKb6HuuQ0uDNU', '2026-07-12T02:45:45.139Z', '2026-07-05T02:45:45.140Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (112, 3, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzMjIyMDMyLCJleHAiOjE3ODM4MjY4MzJ9.tTjJUGJuAxO0XjRkfru9cnPSjs3M0cVCRD2tMIPuxd8', '2026-07-12T03:27:12.343Z', '2026-07-05T03:27:12.355Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (113, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MzIyMjY0NiwiZXhwIjoxNzgzODI3NDQ2fQ.rRVxMeNRxew8B1DjwgRb3aKfHfhRnEywdNR7xtMEYfc', '2026-07-12T03:37:26.749Z', '2026-07-05T03:37:26.771Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (114, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMjIyNzg1LCJleHAiOjE3ODM4Mjc1ODV9.YB5UUkgSN5Oswfi4BCHY9OFhzS6_QXSTlxOZEY8ZTYE', '2026-07-12T03:39:45.105Z', '2026-07-05T03:39:45.109Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (115, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MzIyMzA1MiwiZXhwIjoxNzgzODI3ODUyfQ._MgsV-mHCarCTaBWlRYFv1vR_s-y1lk2wU_HGkl0Qmw', '2026-07-12T03:44:12.011Z', '2026-07-05T03:44:12.011Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (116, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MzIyMzM0MywiZXhwIjoxNzgzODI4MTQzfQ.3XuulMO_dgIyam7fg4KPlxRifeEx5smwQmr4QkH2_rs', '2026-07-12T03:49:03.100Z', '2026-07-05T03:49:03.103Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (117, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMjI0Mjk0LCJleHAiOjE3ODM4MjkwOTR9.-h9NmC9fIYm-kMsk6fFv28dyLachcC2PUVc5zwE9g9w', '2026-07-12T04:04:54.421Z', '2026-07-05T04:04:54.459Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (118, 3, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzMjI2NTU1LCJleHAiOjE3ODM4MzEzNTV9.xllwhA02Zcci-OHreIJCLL0q9E5a_KfiuUKXYlra5d4', '2026-07-12T04:42:35.994Z', '2026-07-05T04:42:36.020Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (119, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMjI3OTAwLCJleHAiOjE3ODM4MzI3MDB9.R6opGritiXRn5890mM9eVk7_x6NQ1_GIf3ehXs4b4TI', '2026-07-12T05:05:00.560Z', '2026-07-05T05:05:00.563Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (120, 7, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NywiaWF0IjoxNzgzMjI4MjcxLCJleHAiOjE3ODM4MzMwNzF9.007_VySMA4Hlj8H4FaSSboTz6AuQ9NDI2TDQsA25lY4', '2026-07-12T05:11:11.007Z', '2026-07-05T05:11:11.010Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (121, 3, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzMjI4MjczLCJleHAiOjE3ODM4MzMwNzN9.5G3Au1TgSR1BQ1IUzOWWuwYVGhORjsNGDHjUfNzIRFQ', '2026-07-12T05:11:13.599Z', '2026-07-05T05:11:13.602Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (122, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MzIyODM1OSwiZXhwIjoxNzgzODMzMTU5fQ.ebAPleRAX5lcpqwO68dH9iZcXC4yiA7UL6ZDCZogYjU', '2026-07-12T05:12:39.888Z', '2026-07-05T05:12:39.898Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (123, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMjI4NDQ4LCJleHAiOjE3ODM4MzMyNDh9.mBLjINPpsX-cpQ_NNfJmAm4j3nIGHqmm_6Xf-nxtVdM', '2026-07-12T05:14:08.060Z', '2026-07-05T05:14:08.061Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (124, 5, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiaWF0IjoxNzgzMjMwNTc0LCJleHAiOjE3ODM4MzUzNzR9.Iz2FvHaSM9oRPkF2yKyMAevTHZns03tdeArI7IpiUyM', '2026-07-12T05:49:34.801Z', '2026-07-05T05:49:34.826Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (125, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMjMwNzk0LCJleHAiOjE3ODM4MzU1OTR9.ZmIcjeLqzNN_AAjg-9pZg2YvmumP3n9byhGGlWEl098', '2026-07-12T05:53:14.365Z', '2026-07-05T05:53:14.368Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (126, 7, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NywiaWF0IjoxNzgzMjMxMzQ2LCJleHAiOjE3ODM4MzYxNDZ9.UGWJKATMWXihUFiQzGEwnqn5LhOSZrtHz_ICvJRdr8U', '2026-07-12T06:02:26.964Z', '2026-07-05T06:02:26.966Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (127, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMjMzOTM2LCJleHAiOjE3ODM4Mzg3MzZ9.tJ7R7iTMJFm1NMg8tMciERXpY7JpA8z6B5CRWdlKoAs', '2026-07-12T06:45:36.111Z', '2026-07-05T06:45:36.132Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (128, NULL, 'd5d1baf4-628a-4622-ba35-95da33c19c16', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzIzNTU0MCwiZXhwIjoxNzgzODQwMzQwfQ.fNDe6YXOIJC9LgMJ2RGSV6wnGi_vUMdSfwiPWjurBfI', '2026-07-12T07:12:20.941Z', '2026-07-05T07:12:20.963Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (129, 3, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzMjM1NzUwLCJleHAiOjE3ODM4NDA1NTB9.sZBynXli3Z986UM0WgmSwu1TBHJu2nh-eVaRdYUlaK4', '2026-07-12T07:15:50.048Z', '2026-07-05T07:15:50.050Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (130, 3, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzMjM1OTQ3LCJleHAiOjE3ODM4NDA3NDd9.pBsfqk8tUzGkWGil_4PfAAiqwkCrfbA5ts7rSOY6hXI', '2026-07-12T07:19:07.431Z', '2026-07-05T07:19:07.459Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (131, NULL, 'd5d1baf4-628a-4622-ba35-95da33c19c16', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzIzNTk4NywiZXhwIjoxNzgzODQwNzg3fQ.yPcVTUmW1eonfv5gHfXz2p_EAwevbrvkSlsLEhD8V6Q', '2026-07-12T07:19:47.309Z', '2026-07-05T07:19:47.317Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (132, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMjM2MDM5LCJleHAiOjE3ODM4NDA4Mzl9.KvMyJNEtqA_N0d4qaAv7GgTyeY-wrHRfXaz5Y_M1Wq0', '2026-07-12T07:20:39.264Z', '2026-07-05T07:20:39.265Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (133, 5, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiaWF0IjoxNzgzMjM2MDY0LCJleHAiOjE3ODM4NDA4NjR9.Ynv1LnX4JqUNUHRqyf7Egvi_V5pF50XTipKvbcB6EyE', '2026-07-12T07:21:04.475Z', '2026-07-05T07:21:04.476Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (134, 5, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiaWF0IjoxNzgzMjM2MTk2LCJleHAiOjE3ODM4NDA5OTZ9.eW64Qh1JGZ_Fx8huopZp0bZng_Ip5YfUtzElvb4pN0E', '2026-07-12T07:23:16.988Z', '2026-07-05T07:23:16.995Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (135, 7, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NywiaWF0IjoxNzgzMjM2MjA0LCJleHAiOjE3ODM4NDEwMDR9.6ExELfvHWJFtGVoRub6WXbSehLSh82hxXPhdZlE5JpY', '2026-07-12T07:23:24.847Z', '2026-07-05T07:23:24.848Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (136, 5, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiaWF0IjoxNzgzMjM2MjEyLCJleHAiOjE3ODM4NDEwMTJ9.efUDyJQ5Uflap0JRfjCLRq2HKM9QdXaunUe8stiyNtM', '2026-07-12T07:23:32.367Z', '2026-07-05T07:23:32.368Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (137, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMjM4MzcyLCJleHAiOjE3ODM4NDMxNzJ9.aFfnTDVOD_qOkKnYajuL3qw4ioDFgRyGzusaB0R0iiI', '2026-07-12T07:59:32.858Z', '2026-07-05T07:59:33.118Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (138, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MzIzODM3OSwiZXhwIjoxNzgzODQzMTc5fQ.0RNIpB_keY-Yy9LkH2Bcp73KAl4ixtBH4DRmIt5x2eY', '2026-07-12T07:59:39.160Z', '2026-07-05T07:59:39.166Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (139, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMjQwMzUxLCJleHAiOjE3ODM4NDUxNTF9.6r4KchHn7SPKVpc0wUIafOB-pufI9kJuy37M40Q7l9c', '2026-07-12T08:32:31.736Z', '2026-07-05T08:32:31.760Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (140, 5, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiaWF0IjoxNzgzMjU3Nzg5LCJleHAiOjE3ODM4NjI1ODl9.QOlgM3Ye68t_hmLhgQvtxBl_q4By_ts02xrkJuTgBJo', '2026-07-12T13:23:09.532Z', '2026-07-05T13:23:09.557Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (141, NULL, 'd5d1baf4-628a-4622-ba35-95da33c19c16', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzI1ODgwNSwiZXhwIjoxNzgzODYzNjA1fQ.aYtRfJbglqhEwS9kB5mw-sdRrWm--HYBO79L_lGS-1Y', '2026-07-12T13:40:05.059Z', '2026-07-05T13:40:05.085Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (142, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMjU4ODc0LCJleHAiOjE3ODM4NjM2NzR9.JzSjNBHnjedXr5iQYTFy5SMLXDGfkXmDyCJ9SoksVoM', '2026-07-12T13:41:14.299Z', '2026-07-05T13:41:14.304Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (143, 7, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NywiaWF0IjoxNzgzMjYwNzM0LCJleHAiOjE3ODM4NjU1MzR9.FyJZNCk76GpoyMtOUIutkVNZahZRyedZF_JbYRPg4MM', '2026-07-12T14:12:14.043Z', '2026-07-05T14:12:14.107Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (144, 7, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NywiaWF0IjoxNzgzMjYwOTAwLCJleHAiOjE3ODM4NjU3MDB9.Xf3Dqhd1G0MDulu5ZYTzwf0Y6QN6XLnwD5B5PQAR82M', '2026-07-12T14:15:00.630Z', '2026-07-05T14:15:00.635Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (145, NULL, 'd5d1baf4-628a-4622-ba35-95da33c19c16', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzI2NDY0NiwiZXhwIjoxNzgzODY5NDQ2fQ.yQguF7NDOwCzUDDRC_1G4pM4aENvJfunCyxZpGW2hj4', '2026-07-12T15:17:26.010Z', '2026-07-05T15:17:26.038Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (146, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMjY1MzA4LCJleHAiOjE3ODM4NzAxMDh9.GiU-np7HBiu0VYQwsLHoT4XF9LY6wdPHxkaSOj8XI2E', '2026-07-12T15:28:28.304Z', '2026-07-05T15:28:28.322Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (147, NULL, '65e5a742-bd47-4ebe-9e02-d3adc719a100', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1ZTVhNzQyLWJkNDctNGViZS05ZTAyLWQzYWRjNzE5YTEwMCIsImlhdCI6MTc4MzI2NTQwMywiZXhwIjoxNzgzODcwMjAzfQ.8rgcUzrz8kp1AGQlUHJnpzcjoO9s-KSlvaPCZligYJ8', '2026-07-12T15:30:03.538Z', '2026-07-05T15:30:03.545Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (148, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMjY1NjMyLCJleHAiOjE3ODM4NzA0MzJ9.Xyhg7sDZ_tzVjYXYAk1NmBTg0W_R0VGWbBEYEib1taw', '2026-07-12T15:33:52.002Z', '2026-07-05T15:33:52.168Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (149, 5, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiaWF0IjoxNzgzMjY1Njk1LCJleHAiOjE3ODM4NzA0OTV9.9az8SzqkGv_2wptTp1_3xubtqBWoIjEhJkwbX9vzWiE', '2026-07-12T15:34:55.874Z', '2026-07-05T15:34:55.875Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (150, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMjY2NDc3LCJleHAiOjE3ODM4NzEyNzd9.xLb0IHuDAmI0kOPuXmO7fy616i2X2i10LRN7TEbO0Ow', '2026-07-12T15:47:57.759Z', '2026-07-05T15:47:57.762Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (151, 7, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NywiaWF0IjoxNzgzMjY2NTU4LCJleHAiOjE3ODM4NzEzNTh9.WCKrQRBXLmTzRBRDDKcDrWb2eebENhP7fixvMByoroU', '2026-07-12T15:49:18.867Z', '2026-07-05T15:49:18.869Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (152, 3, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzMjY3NzA3LCJleHAiOjE3ODM4NzI1MDd9.ouK82ycwj9rhqjYQ0KvkD-lxKKBC-J53M0QzrD_QEgo', '2026-07-12T16:08:27.112Z', '2026-07-05T16:08:27.151Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (153, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMzM0Mjg3LCJleHAiOjE3ODM5MzkwODd9.5WNY1B0RTj4OlGM__OwvVmG9FNPC4S3la94h-ya59lg', '2026-07-13T10:38:07.727Z', '2026-07-06T10:38:07.747Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (154, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MzMzNDMwOCwiZXhwIjoxNzgzOTM5MTA4fQ.7KuwnY4zGNZlYWwBTTBnyD3FM07geFMmGN6wB-uFuKo', '2026-07-13T10:38:28.943Z', '2026-07-06T10:38:28.948Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (155, NULL, 'd5d1baf4-628a-4622-ba35-95da33c19c16', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzMzNDgwNSwiZXhwIjoxNzgzOTM5NjA1fQ.0zbkkxY8LbTyPsK_4fm0V1wE0B838YazmvGB9LZkKIA', '2026-07-13T10:46:45.078Z', '2026-07-06T10:46:45.112Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (156, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMzM0OTExLCJleHAiOjE3ODM5Mzk3MTF9.noZSXGkdFzuBe5aacBz9-nxsRUwc4O0EORvjDeqASpY', '2026-07-13T10:48:31.509Z', '2026-07-06T10:48:31.513Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (157, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MzM0MDE2NiwiZXhwIjoxNzgzOTQ0OTY2fQ.FK2HqgfWkBd9TLgDuvIbLyxIVjcEUgABcevDsrArAtU', '2026-07-13T12:16:06.252Z', '2026-07-06T12:16:06.267Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (158, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMzQwMzA0LCJleHAiOjE3ODM5NDUxMDR9.MJNUe218hQ1Zox4pbwONXhpwc6jFK8bAni8WySQRu5o', '2026-07-13T12:18:24.268Z', '2026-07-06T12:18:24.270Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (159, 3, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzMzQwODgwLCJleHAiOjE3ODM5NDU2ODB9.UM2n9e9_BQ1Ai18H4xZcMUn_V0ORtJ4kRJTM3ftWRk8', '2026-07-13T12:28:00.382Z', '2026-07-06T12:28:00.385Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (160, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMzQyMjI1LCJleHAiOjE3ODM5NDcwMjV9.N-s3GiGNSlExFIBumnWdnWuCN_25YfdTfL2uAJpTXx4', '2026-07-13T12:50:25.344Z', '2026-07-06T12:50:25.360Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (161, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MzM0NDQxNCwiZXhwIjoxNzgzOTQ5MjE0fQ.jmpctE0ZcYjFqW9wnW3v1IRd0ShTif8aiJmIHQv0-l4', '2026-07-13T13:26:54.795Z', '2026-07-06T13:26:54.800Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (162, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMzQ1MzQyLCJleHAiOjE3ODM5NTAxNDJ9.4SKxvfO8NmIsWx20jm1kK5ZNc2etGYQh82ZgsqwdP7o', '2026-07-13T13:42:22.159Z', '2026-07-06T13:42:22.165Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (163, NULL, 'd5d1baf4-628a-4622-ba35-95da33c19c16', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzM1MTQyMywiZXhwIjoxNzgzOTU2MjIzfQ.1u_hom7KKVnTAIkDmri_FiVx00HdiM-4LD3FTZ1jpNU', '2026-07-13T15:23:43.692Z', '2026-07-06T15:23:43.712Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (164, 5, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiaWF0IjoxNzgzMzUzMjU3LCJleHAiOjE3ODM5NTgwNTd9.OzX8nRPZ9C6hLIAabc1pzh910OFgrRsq_Pu1W50xHPE', '2026-07-13T15:54:17.798Z', '2026-07-06T15:54:17.849Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (165, NULL, 'd5d1baf4-628a-4622-ba35-95da33c19c16', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzM1NDcyNywiZXhwIjoxNzgzOTU5NTI3fQ.WeGy14TOm6asJMQXTxLBewNGQPsYJgqMii06uNgDzek', '2026-07-13T16:18:47.813Z', '2026-07-06T16:18:47.834Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (166, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzMzU2MTc4LCJleHAiOjE3ODM5NjA5Nzh9.8GSDXI8lk409CQwTaAtpjWjw33H2abR5jUlUCiEi-uc', '2026-07-13T16:42:58.215Z', '2026-07-06T16:42:58.261Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (167, 5, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiaWF0IjoxNzgzMzU2MjY0LCJleHAiOjE3ODM5NjEwNjR9.ckpRZLMdNg7Sm7spMYRjfSrzgbyXQxTTPbPaqUmjbYA', '2026-07-13T16:44:24.862Z', '2026-07-06T16:44:24.862Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (168, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzNDIwOTM1LCJleHAiOjE3ODQwMjU3MzV9.jPxme2REbc3z90eCXemlsP4HToQBn2vTsjhVbxCIKg0', '2026-07-14T10:42:15.405Z', '2026-07-07T10:42:15.425Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (169, 3, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzNDIyNjg1LCJleHAiOjE3ODQwMjc0ODV9.Qk2VY0imgAibo-2CcTP2ixGgUAo-4BqwoBMn9os0nLI', '2026-07-14T11:11:25.787Z', '2026-07-07T11:11:25.816Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (170, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzNDIyODkwLCJleHAiOjE3ODQwMjc2OTB9.lRECLRqWOPmCnV5P64z77YpYRTLWP6A55ARNZiUXUJY', '2026-07-14T11:14:50.140Z', '2026-07-07T11:14:50.141Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (171, NULL, 'd5d1baf4-628a-4622-ba35-95da33c19c16', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzQyMzg0MCwiZXhwIjoxNzg0MDI4NjQwfQ.TvjHoYhTm6OMYVHCCTKOw9f4qpmOZ6fXMXvSH0Wfikk', '2026-07-14T11:30:40.098Z', '2026-07-07T11:30:40.109Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (172, 3, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzNDI0MDg2LCJleHAiOjE3ODQwMjg4ODZ9.REVS9r8Byp1IHOUq0UkSLH-qRmlwY6ONR5sJOu_Pjqg', '2026-07-14T11:34:46.845Z', '2026-07-07T11:34:46.854Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (173, 3, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzNDI0NTc5LCJleHAiOjE3ODQwMjkzNzl9.PGFp3KhVrO-C2Ond_QfoW6O71HXGjCw3lP2j9NRFy1s', '2026-07-14T11:42:59.096Z', '2026-07-07T11:42:59.105Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (174, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzNDI1NDk5LCJleHAiOjE3ODQwMzAyOTl9.ehyjJkWbbySGgtt9nTyhK2-Z4EAYCGvD9G6MW45rBgI', '2026-07-14T11:58:19.211Z', '2026-07-07T11:58:19.229Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (175, NULL, '10000000-0000-0000-0000-000000000011', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAxMSIsImlhdCI6MTc4MzQyNjQ3MywiZXhwIjoxNzg0MDMxMjczfQ.hTc0oIJV3RWUXxlGrQmpEF3fuvk-KTI5kBGiuu5eyY0', '2026-07-14T12:14:33.555Z', '2026-07-07T12:14:33.570Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (176, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzNDI2NzMxLCJleHAiOjE3ODQwMzE1MzF9.3KnBnGTMFI628w2GUyu6eYY4PJZuXVdqaOapQoXBfIo', '2026-07-14T12:18:51.848Z', '2026-07-07T12:18:51.849Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (177, 7, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NywiaWF0IjoxNzgzNDI3NDU5LCJleHAiOjE3ODQwMzIyNTl9.x-LkPQ8qWW0gKlX3UBYuVzMmBXvU93tnGq7numniTbk', '2026-07-14T12:30:59.716Z', '2026-07-07T12:30:59.722Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (178, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzNDI4NjI2LCJleHAiOjE3ODQwMzM0MjZ9.Fgv8lvtmcT2qJ8_x_tdP40yqnEWbWcyOUv7_-tnjHD0', '2026-07-14T12:50:26.592Z', '2026-07-07T12:50:26.608Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (179, 7, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NywiaWF0IjoxNzgzNDI4NzY4LCJleHAiOjE3ODQwMzM1Njh9.FAEIjA4nraChcDpNtpa-tKky6a5QgzCRDgp31lQn1QI', '2026-07-14T12:52:48.359Z', '2026-07-07T12:52:48.377Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (180, 3, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzNDI4Nzc2LCJleHAiOjE3ODQwMzM1NzZ9.58fTkIGBhTMln1UdnGFTqHYbxS1WYUM1ccnVNiKjA5o', '2026-07-14T12:52:56.437Z', '2026-07-07T12:52:56.437Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (181, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzNDI4ODA3LCJleHAiOjE3ODQwMzM2MDd9.byHawhrSqmpgszKXuWV1euC7U2jFbR1T0MDH74DHBd4', '2026-07-14T12:53:27.442Z', '2026-07-07T12:53:27.443Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (182, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzNDI4ODUzLCJleHAiOjE3ODQwMzM2NTN9.54ORctcV4vdV4NCwvSRQwKaSuH2q6WRp4Ah26y8VgN8', '2026-07-14T12:54:13.268Z', '2026-07-07T12:54:13.293Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (183, 7, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NywiaWF0IjoxNzgzNDI4OTA0LCJleHAiOjE3ODQwMzM3MDR9.gnti2J56NDWTpTdzIjiFDn7jqs596ZBWGmXu259L880', '2026-07-14T12:55:04.281Z', '2026-07-07T12:55:04.282Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (184, 5, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiaWF0IjoxNzgzNDI4OTEyLCJleHAiOjE3ODQwMzM3MTJ9.50we8oyAoCl_hrhGnfm9TUhz12vAURMcDmV5pXG4vf4', '2026-07-14T12:55:12.050Z', '2026-07-07T12:55:12.051Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (185, 3, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzNDI4OTI2LCJleHAiOjE3ODQwMzM3MjZ9.CtcRFgtcnb1QDLq1YPwhfelw5dHsviYYaBFs2ZUoaTc', '2026-07-14T12:55:26.534Z', '2026-07-07T12:55:26.534Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (186, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzNDMxNzExLCJleHAiOjE3ODQwMzY1MTF9.C5kVf3Am7rWC4Vtz3SI5d__4uU5y5oJYXHLRmHwLYGw', '2026-07-14T13:41:51.263Z', '2026-07-07T13:41:51.379Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (187, 5, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiaWF0IjoxNzgzNDMxODI0LCJleHAiOjE3ODQwMzY2MjR9.TJVjSx6eLXlkZCpGevuO0ulMp0mcxxsHBBBIrHfUSe0', '2026-07-14T13:43:44.376Z', '2026-07-07T13:43:44.384Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (188, 3, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzNDMyMzgyLCJleHAiOjE3ODQwMzcxODJ9.AVFyW5N6R5yce71EbNbd2EamMUyVjIkFxucn69Oeh-w', '2026-07-14T13:53:02.341Z', '2026-07-07T13:53:02.368Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (189, NULL, '65e5a742-bd47-4ebe-9e02-d3adc719a100', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1ZTVhNzQyLWJkNDctNGViZS05ZTAyLWQzYWRjNzE5YTEwMCIsImlhdCI6MTc4MzQzMjgxNSwiZXhwIjoxNzg0MDM3NjE1fQ.cuHQgMkFK8Gd2XaGyCNFDcRjGay5YGEmHR_yUxZSbWU', '2026-07-14T14:00:15.220Z', '2026-07-07T14:00:15.235Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (190, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzNDM0MTc4LCJleHAiOjE3ODQwMzg5Nzh9.iqoA3QQo70jkQx4DubsmcjCRujbmFO-kKBIdUPi4V28', '2026-07-14T14:22:58.602Z', '2026-07-07T14:22:58.697Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (191, NULL, '65e5a742-bd47-4ebe-9e02-d3adc719a100', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1ZTVhNzQyLWJkNDctNGViZS05ZTAyLWQzYWRjNzE5YTEwMCIsImlhdCI6MTc4MzQzNDIzMCwiZXhwIjoxNzg0MDM5MDMwfQ.-7tbOflymSaJuxMecRSuy_xJE6NoKkDokxHFD5zwW9w', '2026-07-14T14:23:50.945Z', '2026-07-07T14:23:50.949Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (192, 5, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiaWF0IjoxNzgzNDM1MjIyLCJleHAiOjE3ODQwNDAwMjJ9.Tp39M8QKTPBwKBmiaUnxCoBZFv6_zjkHUKc-E-SuuSE', '2026-07-14T14:40:22.872Z', '2026-07-07T14:40:22.875Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (193, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzNDM1OTczLCJleHAiOjE3ODQwNDA3NzN9.Xt6yl8Eg25XsqdKA12yEiZ4cR3c7Oo8TNVYn3WtGecE', '2026-07-14T14:52:53.177Z', '2026-07-07T14:52:53.189Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (194, NULL, 'd5d1baf4-628a-4622-ba35-95da33c19c16', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQ1ZDFiYWY0LTYyOGEtNDYyMi1iYTM1LTk1ZGEzM2MxOWMxNiIsImlhdCI6MTc4MzQzNjE1NywiZXhwIjoxNzg0MDQwOTU3fQ.RywTf0S24wFb_D8MSOsbPhC29dTMb3jus8BBXE9vrZw', '2026-07-14T14:55:57.670Z', '2026-07-07T14:55:57.673Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (195, 7, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NywiaWF0IjoxNzgzNDM2MjE2LCJleHAiOjE3ODQwNDEwMTZ9.DEXoDeboH_SD6LQ5gWyHf9NO5lYwOWC2PrzejSfgccQ', '2026-07-14T14:56:56.312Z', '2026-07-07T14:56:56.313Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (196, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzNDM2MjE5LCJleHAiOjE3ODQwNDEwMTl9.jyUEFyGgaoUYQ6PAtNFbMvruErm3vmUuclSjtr9TTR4', '2026-07-14T14:56:59.524Z', '2026-07-07T14:56:59.525Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (197, 3, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzgzNDM2NjYyLCJleHAiOjE3ODQwNDE0NjJ9.Y49ZS_27tuVF0POo_GP9yBvQCQiVBgXbAqE_-Q-cs7g', '2026-07-14T15:04:22.888Z', '2026-07-07T15:04:22.890Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (198, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzNDM2ODMxLCJleHAiOjE3ODQwNDE2MzF9.PxMoxbpRBxeo9em-X9ILU0wVKvf5aVpkDiOghR6XOik', '2026-07-14T15:07:11.536Z', '2026-07-07T15:07:11.560Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (199, 7, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NywiaWF0IjoxNzgzNDM3NDQzLCJleHAiOjE3ODQwNDIyNDN9.5isz8mthYLRFeitNS1aI-06M_QLCjgv8Qj5tsy6x8xA', '2026-07-14T15:17:23.252Z', '2026-07-07T15:17:23.266Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (200, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzNDQxNTg3LCJleHAiOjE3ODQwNDYzODd9.W_VMwESDak73-r9JzWFCKd70ZAkTnmXZBKGOj30r3tw', '2026-07-14T16:26:27.937Z', '2026-07-07T16:26:27.955Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (201, 5, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiaWF0IjoxNzgzNDQzMDMzLCJleHAiOjE3ODQwNDc4MzN9.7GL5sX5wlRGyAPk8NmfVXd8oTp510kXhG9srEdglU24', '2026-07-14T16:50:33.221Z', '2026-07-07T16:50:33.258Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (202, 1, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNzgzNDQzMTExLCJleHAiOjE3ODQwNDc5MTF9.corvRQe9AqGrkiodsPZQ1MoJkLV_eI1iHJ-RjKsR24k', '2026-07-14T16:51:51.332Z', '2026-07-07T16:51:51.348Z');
+INSERT INTO "refresh_tokens" ("id", "nguoi_dung_id", "khach_hang_id", "token", "expires_at", "created_at") VALUES (203, 7, NULL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NywiaWF0IjoxNzgzNDQzNTYzLCJleHAiOjE3ODQwNDgzNjN9.omX-ihgDJTdXN8p3jsloXePcJ5ENHDhSGWc1SWM-3PA', '2026-07-14T16:59:23.391Z', '2026-07-07T16:59:23.393Z');
+
+-- Table: tam_giu_cho
+TRUNCATE TABLE "tam_giu_cho" CASCADE;
+
+-- No data for tam_giu_cho
+
+-- Table: thiet_bi
+TRUNCATE TABLE "thiet_bi" CASCADE;
+
+INSERT INTO "thiet_bi" ("id", "ma_thiet_bi", "ten_thiet_bi", "ngay_mua", "trang_thai", "ghi_chu") VALUES ('90000000-0000-0000-0000-000000000001', 'LASER-01', 'Máy Laser trị liệu công suất cao', '2025-01-09T17:00:00.000Z', 'san_sang', 'Máy điều trị viêm sưng');
+INSERT INTO "thiet_bi" ("id", "ma_thiet_bi", "ten_thiet_bi", "ngay_mua", "trang_thai", "ghi_chu") VALUES ('90000000-0000-0000-0000-000000000002', 'SHOCK-01', 'Máy sóng xung kích hội tụ Focused Shockwave', '2025-02-14T17:00:00.000Z', 'san_sang', 'Máy xung kích giảm đau điểm kích hoạt');
+INSERT INTO "thiet_bi" ("id", "ma_thiet_bi", "ten_thiet_bi", "ngay_mua", "trang_thai", "ghi_chu") VALUES ('90000000-0000-0000-0000-000000000003', 'US-01', 'Máy siêu âm trị liệu', '2024-11-19T17:00:00.000Z', 'san_sang', 'Siêu âm giảm co thắt');
+INSERT INTO "thiet_bi" ("id", "ma_thiet_bi", "ten_thiet_bi", "ngay_mua", "trang_thai", "ghi_chu") VALUES ('90000000-0000-0000-0000-000000000004', 'TRACT-01', 'Giường kéo giãn cột sống áp lực âm', '2024-12-04T17:00:00.000Z', 'san_sang', 'Giường kéo giãn cổ/thắt lưng');
+INSERT INTO "thiet_bi" ("id", "ma_thiet_bi", "ten_thiet_bi", "ngay_mua", "trang_thai", "ghi_chu") VALUES ('90000000-0000-0000-0000-000000000005', 'BIO-01', 'Thiết bị phản hồi sinh học Biofeedback', '2025-02-28T17:00:00.000Z', 'dang_bao_tri', 'Bảo trì định kỳ hàng tháng');
+
+-- Table: thong_bao
+TRUNCATE TABLE "thong_bao" CASCADE;
+
+INSERT INTO "thong_bao" ("id", "nguoi_dung_id", "khach_hang_id", "tieu_de", "noi_dung", "loai", "da_doc", "thoi_gian_tao") VALUES ('244a2b1a-7caf-4ae3-a3bc-7d3ea6b6c9d7', 5, NULL, 'Đồng bộ hồ sơ điều trị', 'Bệnh nhân Trần Vinh đã chuyển sang thanh toán lẻ 1 buổi sau buổi trải nghiệm.', 'he_thong', false, '2026-07-07T12:18:38.604Z');
+INSERT INTO "thong_bao" ("id", "nguoi_dung_id", "khach_hang_id", "tieu_de", "noi_dung", "loai", "da_doc", "thoi_gian_tao") VALUES ('7a31bc7e-e742-4a27-93d7-0b22b2071f9c', 5, NULL, 'Đồng bộ hồ sơ điều trị', 'Bệnh nhân Trần Vinh đã chuyển sang thanh toán lẻ 1 buổi sau buổi trải nghiệm.', 'he_thong', false, '2026-07-07T12:18:59.651Z');
+INSERT INTO "thong_bao" ("id", "nguoi_dung_id", "khach_hang_id", "tieu_de", "noi_dung", "loai", "da_doc", "thoi_gian_tao") VALUES ('a5ea2f6b-77e8-42e6-a495-612679f2a633', 5, NULL, 'Đồng bộ hồ sơ điều trị', 'Bệnh nhân Trần Vinh đã chuyển sang thanh toán lẻ 1 buổi sau buổi trải nghiệm.', 'he_thong', false, '2026-07-07T12:18:59.684Z');
+INSERT INTO "thong_bao" ("id", "nguoi_dung_id", "khach_hang_id", "tieu_de", "noi_dung", "loai", "da_doc", "thoi_gian_tao") VALUES ('607f5f4a-135c-445e-be93-c41a0a552a9b', 5, NULL, 'Đồng bộ hồ sơ điều trị', 'Bệnh nhân Trần Vinh đã chuyển sang thanh toán lẻ 1 buổi sau buổi trải nghiệm.', 'he_thong', false, '2026-07-07T14:40:56.567Z');
+INSERT INTO "thong_bao" ("id", "nguoi_dung_id", "khach_hang_id", "tieu_de", "noi_dung", "loai", "da_doc", "thoi_gian_tao") VALUES ('315be8b0-a330-4394-966d-df519ff84ce2', 5, NULL, 'Đồng bộ hồ sơ điều trị', 'Bệnh nhân Trần Vinh đã chuyển sang thanh toán lẻ 1 buổi sau buổi trải nghiệm.', 'he_thong', false, '2026-07-07T14:41:10.029Z');
+INSERT INTO "thong_bao" ("id", "nguoi_dung_id", "khach_hang_id", "tieu_de", "noi_dung", "loai", "da_doc", "thoi_gian_tao") VALUES ('a41f4282-b02c-46e1-af19-80f77e715eda', 5, NULL, 'Đồng bộ hồ sơ điều trị', 'Bệnh nhân Trần Vinh đã chuyển sang thanh toán lẻ 1 buổi sau buổi trải nghiệm.', 'he_thong', false, '2026-07-07T14:41:10.043Z');
+INSERT INTO "thong_bao" ("id", "nguoi_dung_id", "khach_hang_id", "tieu_de", "noi_dung", "loai", "da_doc", "thoi_gian_tao") VALUES ('16a0c77a-3a53-418c-a6b6-aaefb46293e5', 5, NULL, 'Đồng bộ hồ sơ điều trị', 'Bệnh nhân Trần Vinh đã chuyển sang thanh toán lẻ 1 buổi sau buổi trải nghiệm.', 'he_thong', false, '2026-07-07T14:41:24.859Z');
+INSERT INTO "thong_bao" ("id", "nguoi_dung_id", "khach_hang_id", "tieu_de", "noi_dung", "loai", "da_doc", "thoi_gian_tao") VALUES ('ed040a9b-6d21-4e53-add9-c21a3f55ca48', 5, NULL, 'Đồng bộ hồ sơ điều trị', 'Bệnh nhân Trần Vinh đã chuyển sang thanh toán lẻ 1 buổi sau buổi trải nghiệm.', 'he_thong', false, '2026-07-07T14:41:24.865Z');
+INSERT INTO "thong_bao" ("id", "nguoi_dung_id", "khach_hang_id", "tieu_de", "noi_dung", "loai", "da_doc", "thoi_gian_tao") VALUES ('1fffee71-9acb-4aac-9ee5-1831936a416a', 5, NULL, 'Đồng bộ hồ sơ điều trị', 'Bệnh nhân Vinh nguyễn đã chuyển sang thanh toán lẻ 1 buổi sau buổi trải nghiệm.', 'he_thong', false, '2026-07-07T15:15:39.400Z');
+INSERT INTO "thong_bao" ("id", "nguoi_dung_id", "khach_hang_id", "tieu_de", "noi_dung", "loai", "da_doc", "thoi_gian_tao") VALUES ('02a270a0-a98a-43f4-8868-11503154b9e7', 5, NULL, 'Đồng bộ hồ sơ điều trị', 'Bệnh nhân Vinh nguyễn đã chuyển sang thanh toán lẻ 1 buổi sau buổi trải nghiệm.', 'he_thong', false, '2026-07-07T15:16:30.852Z');
+INSERT INTO "thong_bao" ("id", "nguoi_dung_id", "khach_hang_id", "tieu_de", "noi_dung", "loai", "da_doc", "thoi_gian_tao") VALUES ('50bda2c7-e0e3-4517-ae26-8823bc788e56', 5, NULL, 'Đồng bộ hồ sơ điều trị', 'Bệnh nhân Vinh nguyễn đã chuyển sang thanh toán lẻ 1 buổi sau buổi trải nghiệm.', 'he_thong', false, '2026-07-07T15:18:23.801Z');
+INSERT INTO "thong_bao" ("id", "nguoi_dung_id", "khach_hang_id", "tieu_de", "noi_dung", "loai", "da_doc", "thoi_gian_tao") VALUES ('c7b8d2de-c683-4f9b-914e-ad597a0e9593', 5, NULL, 'Đồng bộ hồ sơ điều trị', 'Bệnh nhân Vinh nguyễn đã chuyển sang thanh toán lẻ 1 buổi sau buổi trải nghiệm.', 'he_thong', false, '2026-07-07T15:27:51.244Z');
+INSERT INTO "thong_bao" ("id", "nguoi_dung_id", "khach_hang_id", "tieu_de", "noi_dung", "loai", "da_doc", "thoi_gian_tao") VALUES ('3c53f6c3-7bab-419a-a9b9-35eb87445d50', 5, NULL, 'Đồng bộ hồ sơ điều trị', 'Bệnh nhân Vinh nguyễn đã chuyển sang thanh toán lẻ 1 buổi sau buổi trải nghiệm.', 'he_thong', false, '2026-07-07T15:29:44.091Z');
+INSERT INTO "thong_bao" ("id", "nguoi_dung_id", "khach_hang_id", "tieu_de", "noi_dung", "loai", "da_doc", "thoi_gian_tao") VALUES ('fab22cae-4ccb-48db-a971-6d639713d32e', 5, NULL, 'Đồng bộ hồ sơ điều trị', 'Bệnh nhân Vinh nguyễn đã chuyển sang thanh toán lẻ 1 buổi sau buổi trải nghiệm.', 'he_thong', false, '2026-07-07T15:37:06.726Z');
+INSERT INTO "thong_bao" ("id", "nguoi_dung_id", "khach_hang_id", "tieu_de", "noi_dung", "loai", "da_doc", "thoi_gian_tao") VALUES ('c13952bf-18d3-4df6-b649-86531c4a5de3', 5, NULL, 'Đồng bộ hồ sơ điều trị', 'Bệnh nhân Vinh nguyễn đã chuyển sang thanh toán lẻ 1 buổi sau buổi trải nghiệm.', 'he_thong', false, '2026-07-07T16:26:52.740Z');
+INSERT INTO "thong_bao" ("id", "nguoi_dung_id", "khach_hang_id", "tieu_de", "noi_dung", "loai", "da_doc", "thoi_gian_tao") VALUES ('b31586e7-f89f-47c1-aedf-3eabd02c4a5f', 5, NULL, 'Đồng bộ hồ sơ điều trị', 'Bệnh nhân Vinh nguyễn đã chuyển sang thanh toán lẻ 1 buổi sau buổi trải nghiệm.', 'he_thong', false, '2026-07-07T16:31:07.962Z');
+INSERT INTO "thong_bao" ("id", "nguoi_dung_id", "khach_hang_id", "tieu_de", "noi_dung", "loai", "da_doc", "thoi_gian_tao") VALUES ('97eb3e64-0c44-4c4a-8067-7798759148c4', 5, NULL, 'Đồng bộ hồ sơ điều trị', 'Bệnh nhân Trần Vinh đã chuyển sang thanh toán lẻ 1 buổi sau buổi trải nghiệm.', 'he_thong', false, '2026-07-07T16:57:22.263Z');
+INSERT INTO "thong_bao" ("id", "nguoi_dung_id", "khach_hang_id", "tieu_de", "noi_dung", "loai", "da_doc", "thoi_gian_tao") VALUES ('46d75d95-efef-469a-adb6-7fcbb6b1e78c', 5, NULL, 'Đồng bộ hồ sơ điều trị', 'Bệnh nhân Trần Vinh đã chuyển sang thanh toán lẻ 1 buổi sau buổi trải nghiệm.', 'he_thong', false, '2026-07-07T16:58:04.163Z');
+
+-- Table: vai_tro
+TRUNCATE TABLE "vai_tro" CASCADE;
+
+INSERT INTO "vai_tro" ("id", "ma_vai_tro", "ten_vai_tro") VALUES (1, 'khach_hang', 'Khách hàng');
+INSERT INTO "vai_tro" ("id", "ma_vai_tro", "ten_vai_tro") VALUES (2, 'le_tan', 'Lễ tân');
+INSERT INTO "vai_tro" ("id", "ma_vai_tro", "ten_vai_tro") VALUES (3, 'ky_thuat_vien', 'Kỹ thuật viên');
+INSERT INTO "vai_tro" ("id", "ma_vai_tro", "ten_vai_tro") VALUES (4, 'bac_si', 'Bác sĩ');
+INSERT INTO "vai_tro" ("id", "ma_vai_tro", "ten_vai_tro") VALUES (5, 'admin', 'Quản trị viên');
+INSERT INTO "vai_tro" ("id", "ma_vai_tro", "ten_vai_tro") VALUES (6, 'quan_ly', 'Quản lý');
+
+SET session_replication_role = 'origin';

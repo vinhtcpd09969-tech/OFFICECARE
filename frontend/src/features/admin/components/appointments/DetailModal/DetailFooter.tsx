@@ -36,12 +36,11 @@ export function DetailFooter({
 
   return (
     <div className="pt-6 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between gap-3">
-      {/* Left actions */}
-      {selectedAppointment.loai_lich === 'kham_moi' && selectedAppointment.trang_thai === 'hoan_thanh' ? (
+      {['kham_moi', 'dich_vu_don', 'KHAM', 'DICH_VU_LE'].includes(selectedAppointment.loai_lich) && selectedAppointment.trang_thai === 'hoan_thanh' ? (
         <div className="flex gap-2">
           {selectedAppointment.trang_thai_thanh_toan === 'da_thanh_toan' ? (
             <div className="px-4 py-2.5 bg-emerald-50 border border-emerald-250 text-emerald-600 text-xs font-black rounded-xl flex items-center gap-1.5 select-none uppercase tracking-wider">
-              🟢 Đã thanh toán khám
+              🟢 {['kham_moi', 'KHAM'].includes(selectedAppointment.loai_lich) ? 'Đã thanh toán khám' : 'Đã thanh toán dịch vụ lẻ'}
             </div>
           ) : (
             <button
@@ -53,18 +52,35 @@ export function DetailFooter({
               }}
               className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white shadow-sm text-xs font-black rounded-xl flex items-center gap-2 transition-all"
             >
-              💵 Thanh toán / Lập gói
+              {selectedAppointment.hoa_don_goi_id ? '💵 Chờ thanh toán' : '💵 Thanh toán ngay'}
             </button>
           )}
         </div>
-      ) : !hideBilling && selectedAppointment.loai_lich === 'dieu_tri' && selectedAppointment.trang_thai === 'hoan_thanh' ? (
+      ) : !hideBilling && ['dieu_tri', 'DIEU_TRI'].includes(selectedAppointment.loai_lich) && selectedAppointment.trang_thai === 'hoan_thanh' ? (
         <div className="flex gap-2">
-          {(selectedAppointment.trang_thai_hoa_don_goi === 'da_thanh_toan' || 
+          {(selectedAppointment.trang_thai_thanh_toan === 'da_thanh_toan' ||
+            selectedAppointment.trang_thai_hoa_don_goi === 'da_thanh_toan' || 
             Number(selectedAppointment.so_tien_da_tra_goi) >= Number(selectedAppointment.tong_tien_phai_tra_goi) ||
             selectedAppointment.hinh_thuc_thanh_toan_goi === 'tra_thang' ||
-            (selectedAppointment.hinh_thuc_thanh_toan_goi === 'tra_gop' && Number(selectedAppointment.so_thu_tu_buoi) !== 5)) ? (
-            <div className="px-4 py-2.5 bg-emerald-50 border border-emerald-250 text-emerald-600 text-xs font-black rounded-xl flex items-center gap-1.5 select-none uppercase tracking-wider">
-              🟢 Đã thanh toán liệu trình
+            (selectedAppointment.hinh_thuc_thanh_toan_goi === 'tra_gop' && 
+             Number(selectedAppointment.so_thu_tu_buoi) < Math.floor(Number(selectedAppointment.tong_so_buoi_goi || 10) / 2) - 1)) ? (
+            <div className="flex items-center gap-2">
+              <div className="px-4 py-2.5 bg-emerald-50 border border-emerald-250 text-emerald-600 text-xs font-black rounded-xl flex items-center gap-1.5 select-none uppercase tracking-wider">
+                🟢 Đã thanh toán liệu trình
+              </div>
+              {Number(selectedAppointment.so_thu_tu_buoi || 1) < Number(selectedAppointment.tong_so_buoi_goi || 10) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const calendarPath = isReceptionist ? '/receptionist/appointments' : '/admin/appointments';
+                    navigate(`${calendarPath}?khach_hang_id=${selectedAppointment.khach_hang_id}&goi_dich_vu_id=${selectedAppointment.pd_goi_dich_vu_id || selectedAppointment.goi_dich_vu_id}`);
+                    onClose();
+                  }}
+                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm text-xs font-black rounded-xl flex items-center gap-1.5 transition-all"
+                >
+                  📅 + Đặt lịch buổi {Number(selectedAppointment.so_thu_tu_buoi || 1) + 1} tiếp theo
+                </button>
+              )}
             </div>
           ) : (
             <button
@@ -80,7 +96,7 @@ export function DetailFooter({
             </button>
           )}
         </div>
-      ) : selectedAppointment.loai_lich === 'dieu_tri' && selectedAppointment.trang_thai === 'da_xac_nhan' && isReceptionist ? (
+      ) : ['dieu_tri', 'DIEU_TRI'].includes(selectedAppointment.loai_lich) && selectedAppointment.trang_thai === 'da_xac_nhan' && isReceptionist ? (
         <div className="flex gap-2">
           <button
             type="button"
@@ -137,8 +153,8 @@ export function DetailFooter({
                 const updateFn = isReceptionist ? updateAppointmentStatusRec : updateAppointmentStatusAdmin;
                 await updateFn(selectedAppointment.id, {
                   trang_thai: 'da_huy',
-                  ghi_chu_noi_bo: localGhiChuNoiBo,
-                  ly_do_huy: trimmedReason
+                  ghi_chu_noi_bo: trimmedReason || localGhiChuNoiBo,
+                  ly_do_huy: trimmedReason || localGhiChuNoiBo
                 });
                 toast.success('Đã hủy lịch hẹn thành công!', { id: toastId });
                 onClose();
@@ -153,7 +169,7 @@ export function DetailFooter({
             ❌ Hủy lịch
           </button>
         </div>
-      ) : selectedAppointment.loai_lich === 'kham_moi' && selectedAppointment.trang_thai === 'da_xac_nhan' && isReceptionist ? (
+      ) : ['kham_moi', 'KHAM'].includes(selectedAppointment.loai_lich) && selectedAppointment.trang_thai === 'da_xac_nhan' && isReceptionist ? (
         <div className="flex gap-2">
           <button
             type="button"
@@ -176,8 +192,8 @@ export function DetailFooter({
                 const updateFn = isReceptionist ? updateAppointmentStatusRec : updateAppointmentStatusAdmin;
                 await updateFn(selectedAppointment.id, {
                   trang_thai: 'da_huy',
-                  ghi_chu_noi_bo: localGhiChuNoiBo,
-                  ly_do_huy: trimmedReason
+                  ghi_chu_noi_bo: trimmedReason || localGhiChuNoiBo,
+                  ly_do_huy: trimmedReason || localGhiChuNoiBo
                 });
                 toast.success('Đã hủy lịch hẹn thành công!', { id: toastId });
                 onClose();
@@ -266,8 +282,8 @@ export function DetailFooter({
                 const updateFn = isReceptionist ? updateAppointmentStatusRec : updateAppointmentStatusAdmin;
                 await updateFn(selectedAppointment.id, {
                   trang_thai: 'da_huy',
-                  ghi_chu_noi_bo: localGhiChuNoiBo,
-                  ly_do_huy: trimmedReason
+                  ghi_chu_noi_bo: trimmedReason || localGhiChuNoiBo,
+                  ly_do_huy: trimmedReason || localGhiChuNoiBo
                 });
                 toast.success('Đã hủy lịch hẹn thành công!', { id: toastId });
                 onClose();
@@ -294,7 +310,7 @@ export function DetailFooter({
           Đóng
         </button>
         
-        {selectedAppointment.trang_thai === 'da_xac_nhan' && (selectedAppointment.loai_lich === 'kham_moi' || !isReceptionist) && (
+        {selectedAppointment.trang_thai === 'da_xac_nhan' && (['kham_moi', 'KHAM'].includes(selectedAppointment.loai_lich) || !isReceptionist) && (
           <button
             type="submit"
             onClick={() => setAssignStatus('da_checkin')}
@@ -305,7 +321,7 @@ export function DetailFooter({
           </button>
         )}
         
-        {(!isReceptionist || selectedAppointment.loai_lich === 'kham_moi') && (
+        {(!isReceptionist || ['kham_moi', 'KHAM'].includes(selectedAppointment.loai_lich)) && (
           <button
             type="submit"
             disabled={isAssigning || selectedAppointment.trang_thai === 'hoan_thanh'}
