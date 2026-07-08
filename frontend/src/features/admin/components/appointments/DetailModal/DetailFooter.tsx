@@ -58,43 +58,86 @@ export function DetailFooter({
         </div>
       ) : !hideBilling && ['dieu_tri', 'DIEU_TRI'].includes(selectedAppointment.loai_lich) && selectedAppointment.trang_thai === 'hoan_thanh' ? (
         <div className="flex gap-2">
-          {(selectedAppointment.trang_thai_thanh_toan === 'da_thanh_toan' ||
-            selectedAppointment.trang_thai_hoa_don_goi === 'da_thanh_toan' || 
-            Number(selectedAppointment.so_tien_da_tra_goi) >= Number(selectedAppointment.tong_tien_phai_tra_goi) ||
-            selectedAppointment.hinh_thuc_thanh_toan_goi === 'tra_thang' ||
-            (selectedAppointment.hinh_thuc_thanh_toan_goi === 'tra_gop' && 
-             Number(selectedAppointment.so_thu_tu_buoi) < Math.floor(Number(selectedAppointment.tong_so_buoi_goi || 10) / 2) - 1)) ? (
-            <div className="flex items-center gap-2">
-              <div className="px-4 py-2.5 bg-emerald-50 border border-emerald-250 text-emerald-600 text-xs font-black rounded-xl flex items-center gap-1.5 select-none uppercase tracking-wider">
-                🟢 Đã thanh toán liệu trình
-              </div>
-              {Number(selectedAppointment.so_thu_tu_buoi || 1) < Number(selectedAppointment.tong_so_buoi_goi || 10) && (
+          {(() => {
+            const isRetail = selectedAppointment.loai_goi === 'LE';
+            const isPayPerSession = selectedAppointment.hinh_thuc_thanh_toan_goi === 'tung_buoi';
+            
+            let isSessionPaid = false;
+            if (isRetail) {
+              isSessionPaid = selectedAppointment.trang_thai_thanh_toan === 'da_thanh_toan';
+            } else if (isPayPerSession) {
+              const N = Number(selectedAppointment.so_thu_tu_buoi || 1);
+              const totalRequired = Number(selectedAppointment.tong_tien_phai_tra_goi || 0);
+              const totalSessions = Number(selectedAppointment.tong_so_buoi_goi || 10);
+              const perSessionPrice = Number(selectedAppointment.pd_don_gia_theo_buoi) || Math.round(totalRequired / totalSessions);
+              const alreadyPaid = Number(selectedAppointment.so_tien_da_tra_goi || 0);
+              isSessionPaid = alreadyPaid >= (N * perSessionPrice - 1000);
+            } else {
+              isSessionPaid = 
+                selectedAppointment.trang_thai_thanh_toan === 'da_thanh_toan' ||
+                selectedAppointment.trang_thai_hoa_don_goi === 'da_thanh_toan' ||
+                (!!selectedAppointment.hoa_don_goi_id && (
+                  (selectedAppointment.hinh_thuc_thanh_toan_goi === 'tra_thang') ||
+                  (selectedAppointment.hinh_thuc_thanh_toan_goi === 'tra_gop' &&
+                   Number(selectedAppointment.so_thu_tu_buoi || 0) < Math.floor(Number(selectedAppointment.tong_so_buoi_goi || 10) / 2) - 1)
+                ));
+            }
+
+            if (isSessionPaid) {
+              return (
+                <div className="flex items-center gap-2">
+                  <div className="px-4 py-2.5 bg-emerald-50 border border-emerald-250 text-emerald-600 text-xs font-black rounded-xl flex items-center gap-1.5 select-none uppercase tracking-wider">
+                    🟢 {isRetail ? 'Đã thanh toán dịch vụ lẻ' : 'Đã thanh toán liệu trình'}
+                  </div>
+                  {!isRetail && Number(selectedAppointment.so_thu_tu_buoi || 1) < Number(selectedAppointment.tong_so_buoi_goi || 10) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const calendarPath = isReceptionist ? '/receptionist/appointments' : '/admin/appointments';
+                        navigate(`${calendarPath}?khach_hang_id=${selectedAppointment.khach_hang_id}&goi_dich_vu_id=${selectedAppointment.pd_goi_dich_vu_id || selectedAppointment.goi_dich_vu_id}`);
+                        onClose();
+                      }}
+                      className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm text-xs font-black rounded-xl flex items-center gap-1.5 transition-all"
+                    >
+                      📅 + Đặt lịch buổi {Number(selectedAppointment.so_thu_tu_buoi || 1) + 1} tiếp theo
+                    </button>
+                  )}
+                </div>
+              );
+            } else {
+              return (
                 <button
                   type="button"
-                  onClick={() => {
-                    const calendarPath = isReceptionist ? '/receptionist/appointments' : '/admin/appointments';
-                    navigate(`${calendarPath}?khach_hang_id=${selectedAppointment.khach_hang_id}&goi_dich_vu_id=${selectedAppointment.pd_goi_dich_vu_id || selectedAppointment.goi_dich_vu_id}`);
-                    onClose();
+                  onClick={async () => {
+                    try {
+                      const updateFn = isReceptionist ? updateAppointmentStatusRec : updateAppointmentStatusAdmin;
+                      await updateFn(selectedAppointment.id, {
+                        trang_thai: 'hoan_thanh',
+                        bac_si_id: assignStaffId || null,
+                        chuyen_gia_id: assignStaffId || null,
+                        ky_thuat_vien_id: assignStaffId || null,
+                        phong_id: assignRoomId || null,
+                        ghi_chu_noi_bo: localGhiChuNoiBo || null
+                      });
+                      
+                      const dest = isReceptionist ? '/receptionist/billing' : '/admin/quick-billing';
+                      navigate(`${dest}?lich_dat_id=${selectedAppointment.id}`);
+                      onClose();
+                      if (onSuccess) {
+                        onSuccess();
+                      }
+                    } catch (err: any) {
+                      console.error(err);
+                      toast.error(err.response?.data?.message || 'Không thể cập nhật trạng thái hẹn trước khi thanh toán');
+                    }
                   }}
-                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm text-xs font-black rounded-xl flex items-center gap-1.5 transition-all"
+                  className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white shadow-sm text-xs font-black rounded-xl flex items-center gap-2 transition-all"
                 >
-                  📅 + Đặt lịch buổi {Number(selectedAppointment.so_thu_tu_buoi || 1) + 1} tiếp theo
+                  💵 Thanh toán ngay {isRetail ? '' : `(Buổi ${selectedAppointment.so_thu_tu_buoi || 1})`}
                 </button>
-              )}
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                const dest = isReceptionist ? '/receptionist/billing' : '/admin/quick-billing';
-                navigate(`${dest}?lich_dat_id=${selectedAppointment.id}`);
-                onClose();
-              }}
-              className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white shadow-sm text-xs font-black rounded-xl flex items-center gap-2 transition-all"
-            >
-              💵 Thanh toán ngay (Buổi {selectedAppointment.so_thu_tu_buoi || 1})
-            </button>
-          )}
+              );
+            }
+          })()}
         </div>
       ) : ['dieu_tri', 'DIEU_TRI'].includes(selectedAppointment.loai_lich) && selectedAppointment.trang_thai === 'da_xac_nhan' && isReceptionist ? (
         <div className="flex gap-2">

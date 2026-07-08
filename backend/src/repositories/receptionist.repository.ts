@@ -73,17 +73,33 @@ class ReceptionistRepository {
       const appt = apptRes.rows[0];
 
       if (trang_thai === 'hoan_thanh') {
-        const paymentCheck = await client.query(`
-          SELECT trang_thai 
-          FROM hoa_don 
-          WHERE (phac_do_dieu_tri_id IS NOT NULL AND phac_do_dieu_tri_id = $1)
-             OR (phac_do_dieu_tri_id IS NULL AND cuoc_hen_id = $2)
-          LIMIT 1
-        `, [appt.phac_do_dieu_tri_id, id]);
+        if (appt.phac_do_dieu_tri_id) {
+          const planInfo = await client.query(`
+            SELECT gdv.loai_goi
+            FROM phac_do_dieu_tri pd
+            JOIN goi_dich_vu gdv ON pd.goi_dich_vu_id = gdv.id
+            WHERE pd.id = $1
+          `, [appt.phac_do_dieu_tri_id]);
 
-        const invoiceStatus = paymentCheck.rows[0]?.trang_thai;
-        if (!invoiceStatus || !['da_thanh_toan', 'dang_tra_gop', 'dang_tra_tung_buoi'].includes(invoiceStatus)) {
-          throw new Error('Cuộc hẹn chưa được thanh toán. Không thể chuyển sang trạng thái hoàn thành.');
+          if (planInfo.rows.length > 0 && planInfo.rows[0].loai_goi === 'LIEU_TRINH') {
+            const paymentCheck = await client.query(`
+              SELECT hd.trang_thai, hd.hinh_thuc_thanh_toan_goi
+              FROM hoa_don hd
+              WHERE hd.phac_do_dieu_tri_id = $1
+              LIMIT 1
+            `, [appt.phac_do_dieu_tri_id]);
+            
+            if (paymentCheck.rows.length > 0) {
+              const { trang_thai: invoiceStatus, hinh_thuc_thanh_toan_goi } = paymentCheck.rows[0];
+              if (hinh_thuc_thanh_toan_goi !== 'tung_buoi') {
+                if (!invoiceStatus || !['da_thanh_toan', 'dang_tra_gop'].includes(invoiceStatus)) {
+                  throw new Error('Gói trị liệu liên kết chưa được thanh toán (đối với trả thẳng/trả góp). Không thể hoàn thành ca điều trị.');
+                }
+              }
+            } else {
+              throw new Error('Gói trị liệu liên kết chưa được đăng ký/thành lập hóa đơn.');
+            }
+          }
         }
       }
 
@@ -320,7 +336,7 @@ class ReceptionistRepository {
         // Cập nhật phác đồ
         await client.query(`
           UPDATE phac_do_dieu_tri 
-          SET trang_thai = 'huy', tong_so_buoi = 1, goi_dich_vu_id = NULL 
+          SET trang_thai = 'huy', tong_so_buoi = 1 
           WHERE id = $1
         `, [phacDoId]);
 
@@ -408,6 +424,8 @@ class ReceptionistRepository {
   async getInvoiceById(id: string) {
     const { rows } = await pool.query(`
       SELECT 
+        hd.id,
+        hd.trang_thai,
         hd.tong_tien_phai_tra as tong_tien_thanh_toan, 
         hd.so_tien_da_tra as da_thanh_toan, 
         CASE WHEN hd.phac_do_dieu_tri_id IS NOT NULL THEN 'goi_dich_vu' ELSE 'dich_vu_don' END as loai_hoa_don, 
@@ -416,7 +434,21 @@ class ReceptionistRepository {
         hd.cuoc_hen_id,
         hd.tong_tien_goc,
         hd.hinh_thuc_thanh_toan_goi as loai_thanh_toan,
-        COALESCE(pd.tong_so_buoi, 1) as so_buoi_goi
+        hd.hinh_thuc_thanh_toan_goi,
+        hd.ti_le_giam_gia_goi,
+        hd.so_tien_giam_voucher,
+        hd.ngay_tao,
+        COALESCE(pd.tong_so_buoi, 1) as so_buoi_goi,
+        CASE 
+          WHEN hd.hinh_thuc_thanh_toan_goi = 'tung_buoi' AND EXISTS (
+            SELECT 1 FROM hoa_don exam_hd 
+            WHERE exam_hd.cuoc_hen_id = hd.cuoc_hen_id 
+              AND exam_hd.phac_do_dieu_tri_id IS NULL 
+              AND exam_hd.trang_thai = 'da_thanh_toan'
+          ) THEN 0
+          WHEN hd.cuoc_hen_id IS NOT NULL THEN 200000
+          ELSE 0
+        END as chi_phi_kham
       FROM hoa_don hd
       LEFT JOIN phac_do_dieu_tri pd ON hd.phac_do_dieu_tri_id = pd.id
       WHERE hd.id = $1
@@ -884,7 +916,8 @@ class ReceptionistRepository {
   async getCustomerTreatmentPlans(customerId: string) {
     const { rows } = await pool.query(`
       SELECT pd.id::text, pd.goi_dich_vu_id, pd.tong_so_buoi, pd.so_buoi_da_dung, pd.trang_thai,
-             gdv.ten_goi as ten_goi_dich_vu, gdv.thoi_luong_phut
+             gdv.ten_goi as ten_goi_dich_vu, gdv.thoi_luong_phut,
+             NULL::uuid as cuoc_hen_id
       FROM phac_do_dieu_tri pd
       JOIN goi_dich_vu gdv ON pd.goi_dich_vu_id = gdv.id
       WHERE pd.khach_hang_id = $1 
@@ -900,7 +933,8 @@ class ReceptionistRepository {
         0 as so_buoi_da_dung,
         'khuyen_nghi' as trang_thai,
         gdv.ten_goi as ten_goi_dich_vu,
-        gdv.thoi_luong_phut
+        gdv.thoi_luong_phut,
+        ch.id as cuoc_hen_id
       FROM chi_dinh_buoi cd
       JOIN nhat_ky_buoi_dieu_tri nk ON cd.nhat_ky_id = nk.id
       JOIN cuoc_hen ch ON nk.cuoc_hen_id = ch.id
@@ -926,6 +960,18 @@ class ReceptionistRepository {
     const { rows } = await pool.query(`
       SELECT 
         ch.id, 
+        (
+          SELECT hd.ngay_tao 
+          FROM hoa_don hd 
+          WHERE hd.cuoc_hen_id = ch.id AND hd.trang_thai = 'da_thanh_toan' 
+          LIMIT 1
+        ) as ngay_thanh_toan_kham,
+        (
+          SELECT hd.tong_tien_phai_tra 
+          FROM hoa_don hd 
+          WHERE hd.cuoc_hen_id = ch.id AND hd.trang_thai = 'da_thanh_toan' 
+          LIMIT 1
+        ) as so_tien_da_thanh_toan_kham,
         'LH-' || UPPER(SUBSTRING(ch.id::text FROM 1 FOR 6)) as ma_lich_dat, 
         ch.ngay_gio_bat_dau, 
         ch.ngay_gio_ket_thuc, 

@@ -7,8 +7,6 @@ import LoadingScreen from '../components/LoadingScreen';
 import LandingLayout from '../layouts/LandingLayout';
 import DashboardLayout from '../layouts/DashboardLayout';
 import AdminLayout from '../layouts/AdminLayout';
-import ReceptionistLayout from '../layouts/ReceptionistLayout';
-import DoctorLayout from '../layouts/DoctorLayout';
 
 // --- Lazy Loaded Feature Pages (Implements Code Splitting for optimal initial page load) ---
 
@@ -52,7 +50,6 @@ const ViewFeedback = lazy(() => import('../features/admin/pages/ViewFeedback'));
 // Receptionist Feature
 const ReceptionistDashboard = lazy(() => import('../features/receptionist/pages/ReceptionistDashboard/index'));
 const ReceptionistAppointments = lazy(() => import('../features/receptionist/pages/ReceptionistAppointments/index'));
-const WalkInBooking = lazy(() => import('../features/receptionist/pages/WalkInBooking/index'));
 const QuickBilling = lazy(() => import('../features/receptionist/pages/QuickBilling/index'));
 
 // Technician Feature
@@ -122,11 +119,12 @@ export default function AppRoutes() {
 
         {/* Receptionist Protected Routes */}
         <Route element={<ProtectedRoute allowedRoles={[2]} />}>
-          <Route element={<ReceptionistLayout />}>
+          <Route element={<AdminLayout />}>
             <Route path="/receptionist" element={<ReceptionistDashboard />} />
             <Route path="/receptionist/appointments" element={<ReceptionistAppointments />} />
-            <Route path="/receptionist/walk-in" element={<WalkInBooking />} />
             <Route path="/receptionist/billing" element={<QuickBilling />} />
+            <Route path="/receptionist/schedules" element={<DoctorSchedules />} />
+            <Route path="/receptionist/settings" element={<CustomerSettings />} />
           </Route>
         </Route>
 
@@ -135,17 +133,21 @@ export default function AppRoutes() {
           <Route element={<AdminLayout />}>
             <Route path="/technician/appointments" element={<TechnicianAppointments />} />
             <Route path="/technician/appointments/:id/assess" element={<ClinicalAssessment />} />
+            <Route path="/technician/medical-records" element={<DoctorMedicalRecords />} />
+            <Route path="/technician/schedules" element={<DoctorSchedules />} />
+            <Route path="/technician/settings" element={<CustomerSettings />} />
           </Route>
         </Route>
 
         {/* Doctor Protected Routes */}
         <Route element={<ProtectedRoute allowedRoles={[4]} />}>
-          <Route element={<DoctorLayout />}>
+          <Route element={<AdminLayout />}>
             <Route path="/doctor" element={<DoctorDashboard />} />
             <Route path="/doctor/appointments" element={<DoctorAppointments />} />
             <Route path="/doctor/appointments/:id/assess" element={<ClinicalAssessment />} />
             <Route path="/doctor/medical-records" element={<DoctorMedicalRecords />} />
             <Route path="/doctor/schedules" element={<DoctorSchedules />} />
+            <Route path="/doctor/settings" element={<CustomerSettings />} />
           </Route>
         </Route>
       </Routes>

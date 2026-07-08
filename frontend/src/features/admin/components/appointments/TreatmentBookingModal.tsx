@@ -54,6 +54,53 @@ export default function TreatmentBookingModal({
 }: TreatmentBookingModalProps) {
   const [availableStaff, setAvailableStaff] = useState<any[] | null>(null);
   const [loadingAvailable, setLoadingAvailable] = useState(false);
+  const [hasReachedLimit, setHasReachedLimit] = useState(false);
+  const [isPackageUnpaid, setIsPackageUnpaid] = useState(false);
+  const [packageWarning, setPackageWarning] = useState('');
+
+  useEffect(() => {
+    if (!selectedAppointment?.khach_hang_id || !selectedPackageId || treatmentType !== 'package') {
+      setIsPackageUnpaid(false);
+      setPackageWarning('');
+      return;
+    }
+
+    const checkPayment = async () => {
+      try {
+        const res = await axiosInstance.get(`/receptionist/customers/${selectedAppointment.khach_hang_id}/check-package-payment?package_id=${selectedPackageId}`);
+        if (!res.data.paid) {
+          setIsPackageUnpaid(true);
+          setPackageWarning(res.data.message || 'Gói trị liệu này chưa được thanh toán.');
+        } else {
+          setIsPackageUnpaid(false);
+          setPackageWarning('');
+        }
+      } catch (err) {
+        console.error('Error checking package payment:', err);
+        setIsPackageUnpaid(false);
+        setPackageWarning('');
+      }
+    };
+
+    checkPayment();
+  }, [selectedAppointment, selectedPackageId, treatmentType]);
+
+  useEffect(() => {
+    if (!selectedAppointment?.khach_hang_id || !treatmentDate) {
+      setHasReachedLimit(false);
+      return;
+    }
+    const checkLimit = async () => {
+      try {
+        const res = await axiosInstance.get(`/receptionist/customers/${selectedAppointment.khach_hang_id}/check-limit?date=${treatmentDate}`);
+        setHasReachedLimit(!!res.data.limitReached);
+      } catch (err) {
+        console.error('Error checking treatment booking limit:', err);
+        setHasReachedLimit(false);
+      }
+    };
+    checkLimit();
+  }, [selectedAppointment, treatmentDate]);
 
   const getPackageSessionDuration = (pkg: any) => {
     if (!pkg) return 0;
@@ -136,6 +183,13 @@ export default function TreatmentBookingModal({
             <span className="text-base font-bold text-slate-800">{selectedAppointment.ten_khach_hang}</span>
           </div>
 
+          {hasReachedLimit && (
+            <div className="bg-rose-55 border border-rose-200 p-3.5 rounded-xl text-xs font-semibold text-rose-700 flex items-center gap-2 animate-in fade-in duration-200">
+              <span>⚠️</span>
+              <span>Khách đã đặt tối đa 3 dịch vụ 1 ngày. Vui lòng đặt dịch vụ vào 1 ngày khác.</span>
+            </div>
+          )}
+
           <div className="space-y-2">
             <label className="text-sm font-bold text-slate-700">Loại hình điều trị</label>
             <div className="flex p-1 bg-slate-100 rounded-lg">
@@ -167,6 +221,20 @@ export default function TreatmentBookingModal({
                   </option>
                 ))}
               </select>
+              {isPackageUnpaid && (
+                <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl text-xs font-semibold text-amber-800 space-y-2 mt-2 animate-in fade-in duration-200">
+                  <p>⚠️ {packageWarning}</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.location.href = `/admin/quick-billing?lich_dat_id=${selectedAppointment.id}`;
+                    }}
+                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold transition-all shadow-sm block text-center"
+                  >
+                    💵 Đi đến Thanh toán & Kích hoạt gói
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -231,7 +299,7 @@ export default function TreatmentBookingModal({
 
           <div className="pt-6 border-t border-slate-100 flex items-center justify-end gap-3">
             <button type="button" onClick={onClose} className="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 text-sm font-semibold rounded-xl hover:bg-slate-50 transition-all">Hủy bỏ</button>
-            <button type="submit" disabled={bookingLoading || (availableStaff !== null && availableStaff.length === 0)} className="px-6 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-all disabled:opacity-50">
+            <button type="submit" disabled={bookingLoading || (availableStaff !== null && availableStaff.length === 0) || hasReachedLimit || isPackageUnpaid} className="px-6 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-all disabled:opacity-50">
               {bookingLoading ? 'Đang tạo...' : 'Xác nhận tạo lịch'}
             </button>
           </div>

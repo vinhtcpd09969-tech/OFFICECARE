@@ -51,6 +51,12 @@ export const useCheckout = (
   const [selectedPackage, setSelectedPackage] = useState<any | null>(null);
   const [loaiThanhToan, setLoaiThanhToan] = useState<'tra_thang' | 'tra_gop' | 'tung_buoi'>('tra_thang');
   const [dangKyGoi, setDangKyGoi] = useState<boolean>(true);
+  
+  useEffect(() => {
+    if (selectedPackage?.loai_goi === 'LE') {
+      setLoaiThanhToan('tra_thang');
+    }
+  }, [selectedPackage]);
   const [maVoucher, setMaVoucher] = useState('');
   const [appliedVoucher, setAppliedVoucher] = useState<any | null>(null);
   const [calculatedData, setCalculatedData] = useState<any | null>(null);
@@ -76,14 +82,14 @@ export const useCheckout = (
         const appt = billInfoRes.data;
         setSelectedConsultation(appt);
 
-        if (appt.loai_lich === 'dieu_tri') {
+        if (appt.loai_lich === 'dieu_tri' && appt.hoa_don_goi_id) {
           let sessionPrice = 0;
           const hinhThuc = appt.hinh_thuc_thanh_toan_goi;
           const alreadyPaid = Number(appt.so_tien_da_tra_goi || 0);
           const totalRequired = Number(appt.tong_tien_phai_tra_goi || 0);
           const soThuTu = Number(appt.so_thu_tu_buoi || 1);
           const totalSessions = Number(appt.pd_tong_so_buoi || 10);
-
+ 
           if (hinhThuc === 'tra_thang') {
             sessionPrice = 0;
           } else if (hinhThuc === 'tra_gop') {
@@ -100,7 +106,7 @@ export const useCheckout = (
             const totalPackageCost = totalRequired - Number(appt.don_gia_dich_vu || 200000);
             sessionPrice = Math.round(totalPackageCost / totalSessions);
           }
-
+ 
           const mockHoaDon = {
             id: appt.hoa_don_goi_id,
             ma_hoa_don: appt.hoa_don_goi_ma,
@@ -116,20 +122,22 @@ export const useCheckout = (
             so_dien_thoai: appt.sdt_khach_hang,
           };
           dispatch({ type: 'SET_HOA_DON', hoaDon: mockHoaDon });
+          setCheckoutTab('single');
+          setDangKyGoi(false);
         } else {
-          // Clinical Exam / Retail service checkout
-          if (appt.loai_lich === 'dich_vu_don') {
-            setCheckoutTab('single');
-            setDangKyGoi(false);
-          } else if (appt.khuyen_nghi_goi_id) {
-            const isRetail = appt.khuyen_nghi_loai_goi === 'LE';
-            // Default to NOT purchasing the package immediately (so they only pay exam fee)
-            setDangKyGoi(false);
-            setCheckoutTab('single');
-            
-            if (!isRetail) {
-              const matchedPkg = pkgs.find((p: any) => String(p.id) === String(appt.khuyen_nghi_goi_id));
-              if (matchedPkg) setSelectedPackage(matchedPkg);
+          // If loai_lich is exam/consultation, OR loai_lich === 'dieu_tri' but no package invoice (retail service session)
+          const targetGoiId = appt.khuyen_nghi_goi_id || appt.goi_dich_vu_id;
+          if (targetGoiId) {
+            const matchedPkg = pkgs.find((p: any) => String(p.id) === String(targetGoiId));
+            if (matchedPkg) {
+              setSelectedPackage(matchedPkg);
+              if (matchedPkg.loai_goi === 'LIEU_TRINH') {
+                setCheckoutTab('package');
+                setDangKyGoi(true);
+              } else {
+                setCheckoutTab('single');
+                setDangKyGoi(false);
+              }
             }
           } else {
             setCheckoutTab('single');
@@ -153,7 +161,7 @@ export const useCheckout = (
       !selectedConsultation ||
       state.hoaDon ||
       state.loading ||
-      selectedConsultation.loai_lich === 'dieu_tri'
+      (selectedConsultation.loai_lich === 'dieu_tri' && selectedConsultation.hoa_don_goi_id)
     )
       return;
 
@@ -277,7 +285,8 @@ export const useCheckout = (
     if (!state.hoaDon) return;
 
     const totalAmount = Number(state.hoaDon.tong_tien_thanh_toan);
-    const receivedAmount = Number(state.soTienNhan);
+    const cleanReceived = state.soTienNhan.replace(/\D/g, '');
+    const receivedAmount = Number(cleanReceived);
     if (state.phuongThuc === 'tien_mat' && receivedAmount < totalAmount) {
       toast.error('Số tiền nhận của khách hàng chưa đủ để thanh toán!');
       return;
@@ -288,7 +297,7 @@ export const useCheckout = (
     try {
       const res = await axiosInstance.post('/receptionist/payment', {
         hoa_don_id: state.hoaDon.id,
-        so_tien_nhan: state.phuongThuc === 'tien_mat' ? state.soTienNhan : totalAmount.toString(),
+        so_tien_nhan: state.phuongThuc === 'tien_mat' ? cleanReceived : totalAmount.toString(),
         phuong_thuc: state.phuongThuc,
         ghi_chu: feedbackLyDo || undefined,
       });
@@ -326,7 +335,8 @@ export const useCheckout = (
     const tongCanThu = loaiThanhToan === 'tra_gop' || loaiThanhToan === 'tung_buoi'
       ? Number(calculatedData.so_tien_dot_1)
       : Number(calculatedData.tong_tien_thanh_toan);
-    const receivedAmount = Number(state.soTienNhan);
+    const cleanReceived = state.soTienNhan.replace(/\D/g, '');
+    const receivedAmount = tongCanThu === 0 ? 0 : Number(cleanReceived);
 
     if (state.phuongThuc === 'tien_mat' && receivedAmount < tongCanThu) {
       const formattedValue = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(tongCanThu);
@@ -353,7 +363,7 @@ export const useCheckout = (
 
       await axiosInstance.post('/receptionist/payment', {
         hoa_don_id: hoaDonMoi.id,
-        so_tien_nhan: state.phuongThuc === 'tien_mat' ? state.soTienNhan : tongCanThu.toString(),
+        so_tien_nhan: state.phuongThuc === 'tien_mat' ? (tongCanThu === 0 ? '0' : cleanReceived) : tongCanThu.toString(),
         phuong_thuc: state.phuongThuc,
       });
 
@@ -371,13 +381,14 @@ export const useCheckout = (
         khuyenNghiLoaiGoi: null,
         daDangKyGoiId: selectedConsultation?.pd_goi_dich_vu_id || selectedPackage?.id || selectedPackage?.goi_dich_vu_id || hoaDonMoi.goi_dich_vu_id,
         daDangKyGoiTen: selectedConsultation?.pd_ten_goi || selectedPackage?.ten_goi || hoaDonMoi.ten_item,
+        daDangKyGoiLoai: selectedPackage?.loai_goi || null,
         nextSessionNum: nextSessionNum && nextSessionNum <= totalSessions ? nextSessionNum : null,
         totalSessions,
       });
 
       toast.success(
         dangKyGoi
-          ? 'Đăng ký & Thanh toán gói trị liệu thành công!'
+          ? (selectedPackage?.loai_goi === 'LE' ? 'Đăng ký & Thanh toán dịch vụ thành công!' : 'Đăng ký & Thanh toán gói trị liệu thành công!')
           : 'Đã lập hóa đơn & thanh toán phí khám thành công!',
         { id: toastId }
       );

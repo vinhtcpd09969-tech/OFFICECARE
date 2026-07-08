@@ -66,7 +66,7 @@ class DoctorRepository {
       LEFT JOIN chi_dinh_buoi cd ON cd.nhat_ky_id = nk.id
       LEFT JOIN nguoi_dung nd_bs ON ch.nhan_su_id = nd_bs.id
       LEFT JOIN goi_dich_vu goi ON cd.goi_dich_vu_id = goi.id
-      WHERE khach_hang_id = $1::uuid AND ch.loai = 'KHAM'
+      WHERE khach_hang_id = $1::uuid AND ch.loai = 'KHAM' AND ch.trang_thai = 'hoan_thanh'
       ORDER BY nk.ngay_tao DESC;
     `;
     const { rows } = await pool.query(queryStr, [patientId]);

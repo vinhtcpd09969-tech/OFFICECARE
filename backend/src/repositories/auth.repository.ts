@@ -162,6 +162,14 @@ class AuthRepository {
           so_dien_thoai: true,
           vai_tro_id: true,
           trang_thai: true,
+          anh_dai_dien: true,
+          ho_so_chuyen_gia: {
+            select: {
+              so_nam_kinh_nghiem: true,
+              bang_cap_chung_chi: true,
+              mo_ta: true
+            }
+          }
         }
       });
       if (staff) return staff;
@@ -225,15 +233,24 @@ class AuthRepository {
     return null;
   }
 
-  async updateProfile(userId: string | number, data: { ho_ten: string; so_dien_thoai: string }) {
+  async updateProfile(userId: string | number, data: { 
+    ho_ten: string; 
+    so_dien_thoai: string;
+    anh_dai_dien?: string;
+    so_nam_kinh_nghiem?: number;
+    bang_cap_chung_chi?: string;
+    mo_ta?: string;
+  }) {
     const isNguoiDung = typeof userId === 'number' || (typeof userId === 'string' && /^\d+$/.test(userId));
     if (isNguoiDung) {
       const parsedId = typeof userId === 'number' ? userId : parseInt(userId, 10);
-      return prisma.nguoi_dung.update({
+      
+      const updatedUser = await prisma.nguoi_dung.update({
         where: { id: parsedId },
         data: {
           ho_ten: data.ho_ten,
-          so_dien_thoai: data.so_dien_thoai
+          so_dien_thoai: data.so_dien_thoai,
+          anh_dai_dien: data.anh_dai_dien !== undefined ? data.anh_dai_dien : undefined
         },
         select: {
           id: true,
@@ -241,9 +258,48 @@ class AuthRepository {
           email: true,
           so_dien_thoai: true,
           vai_tro_id: true,
-          trang_thai: true
+          trang_thai: true,
+          anh_dai_dien: true
         }
       });
+
+      const isExpertRole = [3, 4].includes(updatedUser.vai_tro_id);
+      let hoSoChuyenGia = null;
+      if (isExpertRole && (data.so_nam_kinh_nghiem !== undefined || data.bang_cap_chung_chi !== undefined || data.mo_ta !== undefined)) {
+        hoSoChuyenGia = await prisma.ho_so_chuyen_gia.upsert({
+          where: { nguoi_dung_id: parsedId },
+          create: {
+            nguoi_dung_id: parsedId,
+            so_nam_kinh_nghiem: data.so_nam_kinh_nghiem || 0,
+            bang_cap_chung_chi: data.bang_cap_chung_chi || '',
+            mo_ta: data.mo_ta || ''
+          },
+          update: {
+            so_nam_kinh_nghiem: data.so_nam_kinh_nghiem !== undefined ? data.so_nam_kinh_nghiem : undefined,
+            bang_cap_chung_chi: data.bang_cap_chung_chi !== undefined ? data.bang_cap_chung_chi : undefined,
+            mo_ta: data.mo_ta !== undefined ? data.mo_ta : undefined
+          },
+          select: {
+            so_nam_kinh_nghiem: true,
+            bang_cap_chung_chi: true,
+            mo_ta: true
+          }
+        });
+      } else {
+        hoSoChuyenGia = await prisma.ho_so_chuyen_gia.findUnique({
+          where: { nguoi_dung_id: parsedId },
+          select: {
+            so_nam_kinh_nghiem: true,
+            bang_cap_chung_chi: true,
+            mo_ta: true
+          }
+        });
+      }
+
+      return {
+        ...updatedUser,
+        ho_so_chuyen_gia: hoSoChuyenGia
+      };
     } else {
       const customer = await prisma.khach_hang.update({
         where: { id: String(userId) },
@@ -263,6 +319,40 @@ class AuthRepository {
         ...customer,
         vai_tro_id: 1
       };
+    }
+  }
+
+  async findPasswordHashById(userId: string | number) {
+    const isNguoiDung = typeof userId === 'number' || (typeof userId === 'string' && /^\d+$/.test(userId));
+    if (isNguoiDung) {
+      const parsedId = typeof userId === 'number' ? userId : parseInt(userId, 10);
+      const staff = await prisma.nguoi_dung.findUnique({
+        where: { id: parsedId },
+        select: { mat_khau_hash: true }
+      });
+      return staff?.mat_khau_hash || null;
+    } else {
+      const customer = await prisma.khach_hang.findUnique({
+        where: { id: String(userId) },
+        select: { mat_khau_hash: true }
+      });
+      return customer?.mat_khau_hash || null;
+    }
+  }
+
+  async changePassword(userId: string | number, newHash: string) {
+    const isNguoiDung = typeof userId === 'number' || (typeof userId === 'string' && /^\d+$/.test(userId));
+    if (isNguoiDung) {
+      const parsedId = typeof userId === 'number' ? userId : parseInt(userId, 10);
+      return prisma.nguoi_dung.update({
+        where: { id: parsedId },
+        data: { mat_khau_hash: newHash }
+      });
+    } else {
+      return prisma.khach_hang.update({
+        where: { id: String(userId) },
+        data: { mat_khau_hash: newHash }
+      });
     }
   }
 }

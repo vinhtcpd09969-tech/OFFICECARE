@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { HeartHandshake } from 'lucide-react';
+import { HeartHandshake, History, FileSpreadsheet } from 'lucide-react';
 import { getPatients, getPatientProfile, PatientInfo, PatientProfile } from '../../api/doctor.api';
 import { PatientSidebar } from './components/PatientSidebar';
 import { PatientHeader } from './components/PatientHeader';
@@ -74,25 +74,27 @@ export default function DoctorMedicalRecords() {
             />
 
             {/* Thanh Tab điều hướng chính (Chẩn đoán lâm sàng vs Tiến trình trị liệu thực tế) */}
-            <div className="border-b border-zinc-150 dark:border-zinc-800 flex bg-white dark:bg-zinc-900 shrink-0">
+            <div className="bg-zinc-50 dark:bg-zinc-950 p-1.5 rounded-t-3xl flex gap-1 border-b border-zinc-200/50 dark:border-zinc-800/80 shrink-0">
               <button
                 onClick={() => setActiveTab('history')}
-                className={`flex-1 py-3.5 text-xs font-bold uppercase tracking-wider border-b-2 text-center transition-all ${
+                className={`flex-1 py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-all duration-300 flex items-center justify-center gap-2 ${
                   activeTab === 'history'
-                    ? 'border-primary text-primary bg-primary/5 dark:bg-primary/10'
-                    : 'border-transparent text-zinc-400 dark:text-zinc-550 hover:text-zinc-700 dark:hover:text-zinc-300'
+                    ? 'bg-white dark:bg-zinc-900 text-primary shadow-sm border border-zinc-200/20 dark:border-zinc-800/40 scale-102'
+                    : 'text-zinc-400 dark:text-zinc-555 hover:text-zinc-700 dark:hover:text-zinc-300'
                 }`}
               >
+                <History size={14} />
                 Lịch sử chẩn đoán ({profile?.medicalRecords?.length || 0})
               </button>
               <button
                 onClick={() => setActiveTab('treatments')}
-                className={`flex-1 py-3.5 text-xs font-bold uppercase tracking-wider border-b-2 text-center transition-all ${
+                className={`flex-1 py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-all duration-300 flex items-center justify-center gap-2 ${
                   activeTab === 'treatments'
-                    ? 'border-primary text-primary bg-primary/5 dark:bg-primary/10'
-                    : 'border-transparent text-zinc-400 dark:text-zinc-555 hover:text-zinc-700 dark:hover:text-zinc-300'
+                    ? 'bg-white dark:bg-zinc-900 text-primary shadow-sm border border-zinc-200/20 dark:border-zinc-800/40 scale-102'
+                    : 'text-zinc-400 dark:text-zinc-555 hover:text-zinc-700 dark:hover:text-zinc-300'
                 }`}
               >
+                <FileSpreadsheet size={14} />
                 Tiến trình trị liệu thực tế ({profile?.treatmentPlans?.length || 0})
               </button>
             </div>

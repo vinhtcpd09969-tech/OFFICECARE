@@ -170,6 +170,25 @@ export default function WalkInBookingModal({
     return () => clearTimeout(delayDebounce);
   }, [searchQuery, isNewCustomer]);
 
+  const [hasReachedLimit, setHasReachedLimit] = useState(false);
+
+  useEffect(() => {
+    if (isNewCustomer || !selectedCustomer || !selectedDate) {
+      setHasReachedLimit(false);
+      return;
+    }
+    const checkCustomerBookingLimit = async () => {
+      try {
+        const res = await axiosInstance.get(`/receptionist/customers/${selectedCustomer.id}/check-limit?date=${selectedDate}`);
+        setHasReachedLimit(!!res.data.limitReached);
+      } catch (err) {
+        console.error('Error checking customer booking limit:', err);
+        setHasReachedLimit(false);
+      }
+    };
+    checkCustomerBookingLimit();
+  }, [selectedCustomer, selectedDate, isNewCustomer]);
+
   // 3. Fetch Treatment Plans for Selected Customer
   useEffect(() => {
     if (isNewCustomer || !selectedCustomer) {
@@ -647,24 +666,32 @@ export default function WalkInBookingModal({
                 </div>
               ) : (
                 /* Đã chọn khách hàng profile card */
-                <div className="bg-emerald-50/30 border border-emerald-100 p-4 rounded-2xl flex justify-between items-center animate-in fade-in duration-200">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2.5 bg-emerald-600 text-white rounded-2xl">
-                      <User size={18} />
+                <div className="flex flex-col gap-3">
+                  <div className="bg-emerald-50/30 border border-emerald-100 p-4 rounded-2xl flex justify-between items-center animate-in fade-in duration-200">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 bg-emerald-600 text-white rounded-2xl">
+                        <User size={18} />
+                      </div>
+                      <div>
+                        <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest block">Bệnh nhân liên kết</span>
+                        <span className="text-sm font-black text-slate-800 block mt-0.5">{hoTen}</span>
+                        <span className="text-[10px] text-slate-450 font-semibold block mt-0.5">SĐT liên hệ: {sdt}</span>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest block">Bệnh nhân liên kết</span>
-                      <span className="text-sm font-black text-slate-800 block mt-0.5">{hoTen}</span>
-                      <span className="text-[10px] text-slate-450 font-semibold block mt-0.5">SĐT liên hệ: {sdt}</span>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={handleClearCustomer}
+                      className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-650 rounded-lg transition-all"
+                    >
+                      Chọn khách hàng khác
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleClearCustomer}
-                    className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-650 rounded-lg transition-all"
-                  >
-                    Chọn khách hàng khác
-                  </button>
+                  {hasReachedLimit && (
+                    <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold p-3.5 rounded-2xl flex items-center gap-2 animate-in fade-in duration-200">
+                      <span>⚠️</span>
+                      <span>Khách đã đặt tối đa 3 dịch vụ 1 ngày. Vui lòng đặt dịch vụ vào 1 ngày khác.</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -818,13 +845,33 @@ export default function WalkInBookingModal({
                   })}
                 </div>
                 {selectedPlan && (
-                  <button
-                    type="button"
-                    onClick={handleClearPlan}
-                    className="text-[10px] font-bold text-rose-500 hover:text-rose-700 underline block text-left"
-                  >
-                    Hủy chọn gói (Đặt ca điều trị lẻ khác)
-                  </button>
+                  <div className="flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={handleClearPlan}
+                      className="text-[10px] font-bold text-rose-500 hover:text-rose-700 underline block text-left"
+                    >
+                      Hủy chọn gói (Đặt ca điều trị lẻ khác)
+                    </button>
+                    {selectedPlan.trang_thai === 'khuyen_nghi' && (
+                      <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl text-xs font-semibold text-amber-850 space-y-2 mt-2 animate-in fade-in duration-200">
+                        <p>⚠️ Chỉ định này chưa được thanh toán. Bạn cần thanh toán tối thiểu 50% hoặc 100% gói để có thể bắt đầu đặt lịch trị liệu.</p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (selectedPlan.cuoc_hen_id) {
+                              window.location.href = `/admin/quick-billing?lich_dat_id=${selectedPlan.cuoc_hen_id}`;
+                            } else {
+                              window.location.href = `/admin/quick-billing?customer_id=${selectedCustomer.id}&goi_dich_vu_id=${selectedPlan.goi_dich_vu_id}`;
+                            }
+                          }}
+                          className="px-3 py-1.5 bg-amber-600 hover:bg-amber-750 text-white rounded-lg font-bold transition-all shadow-sm block text-center"
+                        >
+                          💵 Đi đến Thanh toán & Kích hoạt gói
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             )}
@@ -1098,7 +1145,7 @@ export default function WalkInBookingModal({
         </button>
         <button
           type="button"
-          disabled={bookingLoading || !selectedTime || !selectedServiceId || (!isNewCustomer && !selectedCustomer) || (!isReceptionist && !selectedDoctorId)}
+          disabled={bookingLoading || !selectedTime || !selectedServiceId || (!isNewCustomer && !selectedCustomer) || (!isReceptionist && !selectedDoctorId) || hasReachedLimit || (selectedPlan && selectedPlan.trang_thai === 'khuyen_nghi')}
           onClick={() => {
             const form = document.querySelector('form');
             if (form) form.requestSubmit();

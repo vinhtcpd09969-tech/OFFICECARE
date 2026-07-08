@@ -59,15 +59,17 @@ export const ReceiptBreakdown: React.FC<ReceiptBreakdownProps> = ({
         dangKyGoi && selectedPackage && calculatedData ? (
           <div className="space-y-5">
             <div className="space-y-1 bg-zinc-50 p-4 rounded-2xl border border-zinc-200/60">
-              <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Gói điều trị đăng ký</p>
+              <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">
+                {selectedPackage.loai_goi === 'LE' ? 'Dịch vụ lẻ đăng ký' : 'Gói điều trị đăng ký'}
+              </p>
               <p className="text-secondary font-black text-xs leading-normal">
-                {selectedPackage.ten_goi} ({tongSoBuoi} buổi)
+                {selectedPackage.ten_goi}{selectedPackage.loai_goi === 'LE' ? '' : ` (${tongSoBuoi} buổi)`}
               </p>
             </div>
 
             <div className="space-y-3.5 text-xs font-semibold text-zinc-650">
               <div className="flex justify-between border-b border-zinc-100 pb-2">
-                <span>Giá gốc gói:</span>
+                <span>{selectedPackage.loai_goi === 'LE' ? 'Giá gốc dịch vụ:' : 'Giá gốc gói:'}</span>
                 <span className="text-secondary font-bold">
                   {formatCurrency(Number(calculatedData.gia_goc_goi || selectedPackage.don_gia || selectedPackage.gia_goi || 0))}
                 </span>
@@ -81,7 +83,7 @@ export const ReceiptBreakdown: React.FC<ReceiptBreakdownProps> = ({
               )}
 
               <div className="flex justify-between border-b border-zinc-100 pb-2 font-bold text-secondary bg-zinc-50/50 p-2 rounded-xl">
-                <span>Tổng giá trị gốc (Gói + Khám):</span>
+                <span>{selectedPackage.loai_goi === 'LE' ? 'Tổng giá trị gốc (Dịch vụ + Khám):' : 'Tổng giá trị gốc (Gói + Khám):'}</span>
                 <span>{formatCurrency(Number(calculatedData.gia_goc))}</span>
               </div>
 
@@ -101,7 +103,9 @@ export const ReceiptBreakdown: React.FC<ReceiptBreakdownProps> = ({
 
               {Number(calculatedData.giam_tru_kham_truoc_do || 0) > 0 && (
                 <div className="flex justify-between border-b border-zinc-100 pb-2 text-emerald-600 font-medium bg-emerald-50/20 p-2 rounded-xl border border-emerald-100/50">
-                  <span>Khấu trừ phí khám đã đóng:</span>
+                  <span>
+                    Khấu trừ phí khám đã đóng{calculatedData.ngay_thanh_toan_kham ? ` ngày ${calculatedData.ngay_thanh_toan_kham}` : ''}:
+                  </span>
                   <span>-{formatCurrency(Number(calculatedData.giam_tru_kham_truoc_do))}</span>
                 </div>
               )}
@@ -115,9 +119,9 @@ export const ReceiptBreakdown: React.FC<ReceiptBreakdownProps> = ({
 
               <div className="flex justify-between border-b border-zinc-100 pb-2 text-secondary font-semibold">
                 {Number(calculatedData.so_tien_giam_phuong_thuc || 0) > 0 || Number(calculatedData.so_tien_giam_voucher || 0) > 0 ? (
-                  <span>Giá gói trị liệu sau giảm:</span>
+                  <span>{selectedPackage.loai_goi === 'LE' ? 'Giá dịch vụ sau giảm:' : 'Giá gói trị liệu sau giảm:'}</span>
                 ) : (
-                  <span>Giá gói trị liệu:</span>
+                  <span>{selectedPackage.loai_goi === 'LE' ? 'Giá dịch vụ:' : 'Giá gói trị liệu:'}</span>
                 )}
                 <span className="text-secondary font-bold">
                   {formatCurrency(Number(calculatedData.tong_tien_goi_sau_giam || 0))}
@@ -159,7 +163,9 @@ export const ReceiptBreakdown: React.FC<ReceiptBreakdownProps> = ({
                   <p className="text-[10px] text-amber-700 leading-normal font-semibold">
                     {loaiThanhToan === 'tra_gop' 
                       ? `* Đợt 1 đóng 50% khi đăng ký + phí khám (nếu có). Đợt 2 đóng 50% còn lại ở buổi trị liệu số ${buoiDongDot2}.`
-                      : '* Hôm nay chỉ thanh toán phí khám lâm sàng. Chi phí gói trị liệu sẽ đóng lẻ từng buổi khi khách đến thực hiện điều trị.'}
+                      : (calculatedData.ngay_thanh_toan_kham 
+                          ? `* Đã thanh toán khám ngày ${calculatedData.ngay_thanh_toan_kham}. Đã chọn phương thức thanh toán từng buổi, bạn sẽ thanh toán số tiền ${formatCurrency(Number(calculatedData.don_gia_theo_buoi || 0))} trong từng buổi thực tế.`
+                          : '* Hôm nay chỉ thanh toán phí khám lâm sàng. Chi phí gói trị liệu sẽ đóng lẻ từng buổi khi khách đến thực hiện điều trị.')}
                   </p>
                 </div>
               )}

@@ -23,6 +23,7 @@ export interface Appointment {
   ten_dich_vu?: string;
   dich_vu_id?: string | number | null;
   loai_lich?: string;
+  loai_goi?: string;
 }
 
 export interface Staff {

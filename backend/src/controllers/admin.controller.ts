@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { ZodError } from 'zod';
 import adminService from '../services/admin.service';
 import { packageSchema, staffSchema, roomSchema, equipmentSchema } from '../schemas/admin.schema';
-import { refundSchema } from '../schemas/finance.schema';
+import { refundSchema, packageRefundSchema } from '../schemas/finance.schema';
 import { voucherSchema } from '../schemas/marketing.schema';
 
 // --- QUẢN LÝ PHÒNG KHÁM ---
@@ -326,8 +326,33 @@ export const handleRefund = async (req: Request, res: Response): Promise<any> =>
     res.json({ message: 'Hoàn tiền thành công', invoice: result.invoice });
   } catch (error: any) {
     if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
-    if (error.code) return res.status(error.code).json({ message: error.message });
-    res.status(500).json({ message: 'Lỗi server khi xử lý hoàn tiền' });
+    if (error.code && typeof error.code === 'number' && error.code >= 100 && error.code < 600) {
+      return res.status(error.code).json({ message: error.message });
+    }
+    res.status(500).json({ message: error.message || 'Lỗi server khi xử lý hoàn tiền' });
+  }
+};
+
+export const handlePackageRefund = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params as { id: string };
+    const { body } = packageRefundSchema.parse({ body: req.body });
+    const user = (req as any).user;
+    const userId = user ? Number(user.id) : 1;
+
+    const result = await adminService.handlePackageRefund(id, body, userId);
+
+    res.json({ 
+      message: 'Hủy gói và hoàn tiền thành công', 
+      invoice: result.invoice,
+      so_tien_hoan_tra: result.so_tien_hoan_tra 
+    });
+  } catch (error: any) {
+    if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
+    if (error.code && typeof error.code === 'number' && error.code >= 100 && error.code < 600) {
+      return res.status(error.code).json({ message: error.message });
+    }
+    res.status(500).json({ message: error.message || 'Lỗi server khi xử lý hủy gói và hoàn tiền' });
   }
 };
 

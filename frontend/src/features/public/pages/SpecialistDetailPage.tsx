@@ -54,7 +54,24 @@ export default function SpecialistDetailPage() {
   }
 
   const isDoctor = specialist.vai_tro.toLowerCase().includes('bác sĩ') || specialist.vai_tro.toLowerCase().includes('doctor');
-  const certificates = specialist.bang_cap_chung_chi ? specialist.bang_cap_chung_chi.split(',').filter(Boolean) : [];
+  
+  let certText = '';
+  let certificates: string[] = [];
+  
+  if (specialist.bang_cap_chung_chi) {
+    try {
+      const parsed = JSON.parse(specialist.bang_cap_chung_chi);
+      certText = parsed.text || '';
+      if (Array.isArray(parsed.images)) {
+        certificates = parsed.images;
+      } else if (parsed.image) {
+        certificates = [parsed.image];
+      }
+    } catch {
+      certText = specialist.bang_cap_chung_chi;
+      certificates = specialist.bang_cap_chung_chi.split(',').filter(Boolean);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-slate-50/50 pb-20 pt-28 font-jakarta">
@@ -121,31 +138,38 @@ export default function SpecialistDetailPage() {
             </div>
 
             {/* Credentials / Certificates Images Grid */}
-            {certificates.length > 0 && (
+            {(certificates.length > 0 || certText) && (
               <div className="bg-white rounded-[32px] p-6 md:p-8 border border-slate-100 shadow-[0_15px_40px_rgba(15,23,42,0.015)]">
                 <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-5">
                   📋 Bằng Cấp & Chứng Chỉ Hành Nghề
                 </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  {certificates.map((certPath, idx) => (
-                    <div
-                      key={idx}
-                      onClick={() => setActiveCert(certPath)}
-                      className="aspect-[4/3] rounded-2xl overflow-hidden border border-slate-200 bg-slate-50 hover:border-[#14B8A6] cursor-pointer group relative shadow-xs"
-                    >
-                      <img
-                        src={certPath}
-                        alt={`Bằng cấp chứng chỉ ${idx + 1}`}
-                        className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
-                      />
-                      <div className="absolute inset-0 bg-slate-950/0 group-hover:bg-slate-950/20 flex items-center justify-center transition-all">
-                        <span className="opacity-0 group-hover:opacity-100 bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider text-[#0D9488] shadow-md transition-all">
-                          🔍 Phóng to
-                        </span>
+                {certText && (
+                  <p className="text-slate-700 text-xs font-semibold leading-relaxed mb-5 bg-slate-50 p-4 rounded-2xl border border-slate-100 whitespace-pre-line">
+                    {certText}
+                  </p>
+                )}
+                {certificates.length > 0 && (
+                  <div className="grid grid-cols-2 gap-4">
+                    {certificates.map((certPath, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => setActiveCert(certPath)}
+                        className="aspect-[4/3] rounded-2xl overflow-hidden border border-slate-200 bg-slate-50 hover:border-[#14B8A6] cursor-pointer group relative shadow-xs"
+                      >
+                        <img
+                          src={certPath}
+                          alt={`Bằng cấp chứng chỉ ${idx + 1}`}
+                          className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
+                        />
+                        <div className="absolute inset-0 bg-slate-950/0 group-hover:bg-slate-950/20 flex items-center justify-center transition-all">
+                          <span className="opacity-0 group-hover:opacity-100 bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider text-[#0D9488] shadow-md transition-all">
+                            🔍 Phóng to
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

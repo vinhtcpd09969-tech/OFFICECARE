@@ -13,3 +13,11 @@ export const updateInvoiceStatusSchema = z.object({
     ghi_chu: z.string().optional()
   })
 });
+
+export const packageRefundSchema = z.object({
+  body: z.object({
+    so_buoi_dung: z.number().min(0, 'Số buổi dùng phải lớn hơn hoặc bằng 0'),
+    phi_phat: z.number().min(0, 'Phí phạt phải lớn hơn hoặc bằng 0'),
+    ly_do: z.string().optional()
+  })
+});

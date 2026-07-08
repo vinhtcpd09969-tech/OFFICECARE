@@ -6,7 +6,7 @@ const router = Router();
 
 // Tất cả các route của Bác sĩ đều yêu cầu đăng nhập và có vai trò Bác sĩ (4) hoặc Admin (5)
 router.use(verifyToken);
-router.use(authorizeRoles(3, 4, 5));
+router.use(authorizeRoles(2, 3, 4, 5));
 
 router.get('/queue', doctorController.getQueue);
 router.get('/appointments', doctorController.getAppointments);

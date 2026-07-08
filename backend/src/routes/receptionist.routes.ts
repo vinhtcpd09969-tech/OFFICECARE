@@ -19,7 +19,9 @@ import {
   confirmTreatmentPlan,
   searchCustomers,
   getCustomerTreatmentPlans,
-  getAppointmentBillingInfo
+  getAppointmentBillingInfo,
+  checkCustomerLimit,
+  checkPackagePayment
 } from '../controllers/receptionist.controller';
 
 const router = Router();
@@ -47,5 +49,7 @@ router.get('/auto-vouchers', getAutoVouchers);
 router.get('/customers/search', searchCustomers);
 router.get('/customers/:id/treatment-plans', getCustomerTreatmentPlans);
 router.get('/appointments/:id/billing-info', getAppointmentBillingInfo);
+router.get('/customers/:id/check-limit', checkCustomerLimit);
+router.get('/customers/:id/check-package-payment', checkPackagePayment);
 
 export default router;

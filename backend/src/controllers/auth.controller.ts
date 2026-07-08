@@ -150,8 +150,16 @@ export const resetPassword = asyncHandler(async (req: Request, res: Response) =>
 
 export const updateProfile = asyncHandler(async (req: Request, res: Response) => {
   try {
-    const { ho_ten, so_dien_thoai } = req.body;
-    const updatedUser = await authService.updateProfile(req.user.id, { ho_ten, so_dien_thoai });
+    const { ho_ten, so_dien_thoai, anh_dai_dien, so_nam_kinh_nghiem, bang_cap_chung_chi, mo_ta } = req.body;
+    const parsedExp = so_nam_kinh_nghiem !== undefined ? parseInt(so_nam_kinh_nghiem, 10) : undefined;
+    const updatedUser = await authService.updateProfile(req.user.id, { 
+      ho_ten, 
+      so_dien_thoai,
+      anh_dai_dien,
+      so_nam_kinh_nghiem: isNaN(parsedExp as number) ? undefined : parsedExp,
+      bang_cap_chung_chi,
+      mo_ta
+    });
     res.json({
       success: true,
       message: 'Cập nhật thông tin thành công',
@@ -159,5 +167,21 @@ export const updateProfile = asyncHandler(async (req: Request, res: Response) =>
     });
   } catch (error: any) {
     throw new BadRequestError(error.message || 'Lỗi khi cập nhật thông tin');
+  }
+});
+
+export const changePassword = asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    if (!oldPassword || !newPassword) {
+      throw new BadRequestError('Vui lòng nhập đầy đủ mật khẩu cũ và mới');
+    }
+    const result = await authService.changePassword(req.user.id, { oldPassword, newPassword });
+    res.json({
+      success: true,
+      ...result
+    });
+  } catch (error: any) {
+    throw new BadRequestError(error.message || 'Lỗi khi đổi mật khẩu');
   }
 });

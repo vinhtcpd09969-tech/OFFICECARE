@@ -234,3 +234,67 @@ export const getAppointmentBillingInfo = async (req: Request, res: Response): Pr
     res.status(500).json({ message: 'Lỗi server' });
   }
 };
+
+// GET /api/receptionist/customers/:id/check-limit
+export const checkCustomerLimit = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params;
+    const { date } = req.query;
+    if (!date || typeof date !== 'string') {
+      return res.status(400).json({ message: 'Thiếu tham số date (YYYY-MM-DD)' });
+    }
+    
+    const appointmentRepository = require('../repositories/appointment.repository').default;
+    const limitReached = await appointmentRepository.checkCustomerHasClinicalExamOnDate(id, null, date);
+    
+    return res.json({ limitReached });
+  } catch (error: any) {
+    console.error('Lỗi khi kiểm tra giới hạn đặt lịch của khách hàng:', error);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+};
+
+// GET /api/receptionist/customers/:id/check-package-payment
+export const checkPackagePayment = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id: customerId } = req.params;
+    const { package_id: packageId } = req.query;
+    if (!packageId || typeof packageId !== 'string') {
+      return res.status(400).json({ message: 'Thiếu tham số package_id' });
+    }
+
+    const { pool } = require('../config/db');
+    const { rows } = await pool.query(`
+      SELECT hd.tong_tien_phai_tra, hd.so_tien_da_tra, hd.hinh_thuc_thanh_toan_goi, hd.trang_thai
+      FROM phac_do_dieu_tri pd
+      JOIN hoa_don hd ON hd.phac_do_dieu_tri_id = pd.id
+      WHERE pd.khach_hang_id = $1 AND pd.goi_dich_vu_id = $2
+      ORDER BY hd.ngay_tao DESC LIMIT 1
+    `, [customerId, packageId]);
+
+    if (rows.length === 0) {
+      return res.json({ paid: false, message: 'Chưa thanh toán/đăng ký gói trị liệu này.' });
+    }
+
+    const invoiceObj = rows[0];
+    const tongTien = Number(invoiceObj.tong_tien_phai_tra || 0);
+    const daThanhToan = Number(invoiceObj.so_tien_da_tra || 0);
+    const hinhThuc = invoiceObj.hinh_thuc_thanh_toan_goi || 'tra_thang';
+
+    if (hinhThuc === 'tra_thang') {
+      if (daThanhToan < tongTien) {
+        return res.json({ paid: false, message: 'Gói trị liệu yêu cầu hoàn tất thanh toán 100% trước khi đặt lịch.' });
+      }
+    } else if (hinhThuc === 'tra_gop') {
+      const target50 = Math.round(tongTien * 0.5);
+      if (daThanhToan < target50) {
+        return res.json({ paid: false, message: 'Gói trị liệu (Trả góp) yêu cầu thanh toán Đợt 1 (tối thiểu 50%) trước khi đặt lịch.' });
+      }
+    }
+
+    return res.json({ paid: true });
+  } catch (error: any) {
+    console.error('Lỗi khi kiểm tra thanh toán gói của khách hàng:', error);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+};

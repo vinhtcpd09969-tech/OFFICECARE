@@ -28,7 +28,7 @@ export const createAppointment = async (req: Request, res: Response): Promise<an
     if (error instanceof ZodError) {
       return res.status(400).json({ message: error.errors[0].message });
     }
-    if (error.message && (error.message.includes('dùng thử') || error.message.includes('trải nghiệm'))) {
+    if (error.message && (error.message.includes('dùng thử') || error.message.includes('trải nghiệm') || error.message.includes('giới hạn') || error.message.includes('tối đa') || error.message.includes('đạt giới hạn'))) {
       return res.status(400).json({ message: error.message });
     }
     if (error.constraint === 'no_overlap_ktv') {

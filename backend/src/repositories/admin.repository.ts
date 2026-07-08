@@ -573,7 +573,20 @@ class AdminRepository {
         'HD-' || UPPER(SUBSTRING(hd.id::text FROM 1 FOR 6)) as ma_hoa_don, 
         kh.ho_ten as ten_khach_hang, 
         kh.so_dien_thoai,
-        COALESCE(gdv.ten_goi, dv.ten_goi, 'Phí khám lâm sàng & Lượng giá') as ten_dich_vu
+        pd.so_buoi_da_dung,
+        pd.tong_so_buoi,
+        COALESCE(gdv.loai_goi, dv.loai_goi) as loai_goi,
+        COALESCE(gdv.ten_goi, dv.ten_goi, 'Phí khám lâm sàng & Lượng giá') as ten_dich_vu,
+        CASE 
+          WHEN hd.hinh_thuc_thanh_toan_goi = 'tung_buoi' AND EXISTS (
+            SELECT 1 FROM hoa_don exam_hd 
+            WHERE exam_hd.cuoc_hen_id = hd.cuoc_hen_id 
+              AND exam_hd.phac_do_dieu_tri_id IS NULL 
+              AND exam_hd.trang_thai = 'da_thanh_toan'
+          ) THEN 0
+          WHEN hd.cuoc_hen_id IS NOT NULL THEN 200000
+          ELSE 0
+        END as chi_phi_kham
       FROM hoa_don hd
       JOIN khach_hang kh ON hd.khach_hang_id = kh.id
       LEFT JOIN phac_do_dieu_tri pd ON hd.phac_do_dieu_tri_id = pd.id
@@ -616,7 +629,8 @@ class AdminRepository {
         return { error: 'Giao dịch này đã được hoàn tiền trước đó', code: 400 };
       }
 
-      // Tạo giao dịch hoàn tiền số âm
+      // Tạo giao dịch hoàn tiền số âm với mã tham chiếu ngắn gọn sạch sẽ
+      const maRefund = `REF${Math.floor(10000000 + Math.random() * 90000000)}`;
       await client.query(
         `INSERT INTO giao_dich_thanh_toan (hoa_don_id, so_tien, loai_giao_dich, phuong_thuc, ma_tham_chieu, nhan_vien_thuc_hien_id, ngay_giao_dich)
          VALUES ($1, $2, 'HOAN_TIEN', $3, $4, $5, NOW())`,
@@ -624,7 +638,7 @@ class AdminRepository {
           originalPayment.hoa_don_id,
           -BigInt(originalPayment.so_tien),
           originalPayment.phuong_thuc,
-          `Hoàn tiền: ${ly_do}`,
+          maRefund,
           originalPayment.nhan_vien_thuc_hien_id
         ]
       );
@@ -742,7 +756,7 @@ class AdminRepository {
     const queries = [
       pool.query('SELECT COUNT(*) FROM khach_hang'),
       pool.query('SELECT COUNT(*) FROM cuoc_hen WHERE trang_thai = \'cho_xac_nhan\''),
-      pool.query('SELECT SUM(tong_tien_phai_tra) FROM hoa_don'),
+      pool.query('SELECT COALESCE(SUM(so_tien), 0) AS sum FROM giao_dich_thanh_toan'),
       pool.query('SELECT COUNT(*) FROM nguoi_dung WHERE trang_thai = \'hoat_dong\''),
       pool.query('SELECT COUNT(*) FROM cuoc_hen WHERE nhan_su_id IS NULL AND trang_thai IN (\'cho_xac_nhan\', \'da_xac_nhan\')'),
       pool.query('SELECT COUNT(*) FROM cuoc_hen WHERE phac_do_dieu_tri_id IS NOT NULL AND nhan_su_id IS NULL AND trang_thai NOT IN (\'hoan_thanh\', \'huy\')'),
@@ -784,8 +798,7 @@ class AdminRepository {
         TO_CHAR(ngay_giao_dich, 'YYYY-MM') as month,
         SUM(so_tien) as revenue
       FROM giao_dich_thanh_toan
-      WHERE loai_giao_dich = 'THANH_TOAN'
-        AND ngay_giao_dich >= NOW() - INTERVAL '6 months'
+      WHERE ngay_giao_dich >= NOW() - INTERVAL '6 months'
       GROUP BY month
       ORDER BY month ASC
     `);
@@ -969,6 +982,149 @@ class AdminRepository {
   async deleteCategory(id: string) {
     const { rows } = await pool.query('DELETE FROM danh_muc_goi WHERE id = $1 RETURNING *', [id]);
     return rows[0];
+  }
+
+  async handlePackageRefund(
+    hoa_don_id: string,
+    so_buoi_dung: number,
+    phi_phat_percent: number,
+    ly_do: string,
+    nhan_vien_id: number
+  ) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // 1. Get the package invoice details
+      const { rows: hdRows } = await client.query(
+        'SELECT * FROM hoa_don WHERE id = $1',
+        [hoa_don_id]
+      );
+      if (hdRows.length === 0) {
+        await client.query('ROLLBACK');
+        return { error: 'Không tìm thấy hóa đơn', code: 404 };
+      }
+      const hd = hdRows[0];
+
+      if (hd.trang_thai === 'da_hoan_tien') {
+        await client.query('ROLLBACK');
+        return { error: 'Hóa đơn này đã được hoàn tiền trước đó', code: 400 };
+      }
+
+      // 2. Fetch the associated treatment plan to know the total sessions and verify
+      let totalSessions = 10; // fallback
+      let ldtId = hd.phac_do_dieu_tri_id;
+      if (ldtId) {
+        const { rows: pdRows } = await client.query(
+          'SELECT tong_so_buoi, goi_dich_vu_id FROM phac_do_dieu_tri WHERE id = $1',
+          [ldtId]
+        );
+        if (pdRows.length > 0) {
+          totalSessions = pdRows[0].tong_so_buoi || 10;
+        }
+      }
+
+      // 3. Perform calculations:
+      const hasExam = !!hd.cuoc_hen_id;
+      const chi_phi_kham = hasExam ? 200000 : 0;
+      const tong_tien_goc = Number(hd.tong_tien_goc);
+      const gia_goc_goi = tong_tien_goc - chi_phi_kham;
+
+      // check if they were eligible for free exam:
+      const isExamWaived = (gia_goc_goi >= 1000000) && ['tra_thang', 'tra_gop'].includes(hd.hinh_thuc_thanh_toan_goi);
+      const mien_phi_kham = isExamWaived ? chi_phi_kham : 0;
+
+      // Package discount calculation:
+      const ti_le_giam = Number(hd.ti_le_giam_gia_goi || 0);
+      const giam_gia_goi = Math.round((gia_goc_goi * ti_le_giam) / 100);
+      const gia_thanh_toan_goi = gia_goc_goi - giam_gia_goi;
+
+      // Used sessions cost: (gia_thanh_toan_goi * so_buoi_dung) / totalSessions
+      const chi_phi_buoi_dung = Math.round((gia_thanh_toan_goi * so_buoi_dung) / totalSessions);
+
+      // Penalty fee is calculated based on the actual paid package price (gia_thanh_toan_goi):
+      const phi_phat_thuc_te = Math.round((gia_thanh_toan_goi * phi_phat_percent) / 100);
+
+      // Refund calculation:
+      const so_tien_da_dong = Number(hd.so_tien_da_tra);
+
+      // If package is cancelled, they must pay for the exam (revoke waiver/free promotion)
+      const examFeeToCharge = mien_phi_kham; // 200.000đ if they got it free, otherwise 0đ.
+      
+      const tong_khau_tru = examFeeToCharge + chi_phi_buoi_dung + phi_phat_thuc_te;
+      const so_tien_hoan_tra = Math.max(0, so_tien_da_dong - tong_khau_tru);
+
+      // 4. Create a negative transaction log for the refund
+      const maRefund = `REF${Math.floor(10000000 + Math.random() * 90000000)}`;
+
+      await client.query(
+        `INSERT INTO giao_dich_thanh_toan (hoa_don_id, so_tien, loai_giao_dich, phuong_thuc, ma_tham_chieu, ngay_giao_dich, nhan_vien_thuc_hien_id)
+         VALUES ($1, $2, 'HOAN_TIEN', 'tien_mat', $3, NOW(), $4)`,
+        [
+          hoa_don_id,
+          -BigInt(so_tien_hoan_tra),
+          maRefund,
+          nhan_vien_id
+        ]
+      );
+
+      // 5. Update package invoice status and so_tien_da_tra to reflect the kept revenue
+      const keptRevenuePackage = so_tien_da_dong - so_tien_hoan_tra - examFeeToCharge;
+      
+      await client.query(
+        `UPDATE hoa_don 
+         SET trang_thai = 'da_hoan_tien', 
+             so_tien_da_tra = $1, 
+             ghi_chu = $2 
+         WHERE id = $3`,
+        [
+          Math.max(0, keptRevenuePackage),
+          `Đã hủy gói giữa chừng. Hoàn trả: ${so_tien_hoan_tra.toLocaleString()}đ. Giữ lại doanh thu gói: ${Math.max(0, keptRevenuePackage).toLocaleString()}đ (gồm ${chi_phi_buoi_dung.toLocaleString()}đ dùng và ${phi_phat_thuc_te.toLocaleString()}đ phạt).`,
+          hoa_don_id
+        ]
+      );
+
+      // 6. Restore clinical exam invoice if it was waived/included
+      if (hasExam && isExamWaived) {
+        const maHoaDonGoi = `HD-${hoa_don_id.substring(0, 6).toUpperCase()}`;
+        await client.query(
+          `UPDATE hoa_don
+           SET trang_thai = 'da_thanh_toan',
+               tong_tien_phai_tra = $1,
+               so_tien_da_tra = $2,
+               ghi_chu = $3
+           WHERE cuoc_hen_id = $4
+             AND phac_do_dieu_tri_id IS NULL`,
+          [
+            chi_phi_kham,
+            chi_phi_kham, // marked as fully paid now!
+            `Thu phí khám từ cấn trừ hoàn trả của hóa đơn gói ${maHoaDonGoi} khi hủy gói.`,
+            hd.cuoc_hen_id
+          ]
+        );
+      }
+
+      // 7. Update the associated treatment plan status
+      if (ldtId) {
+        await client.query(
+          `UPDATE phac_do_dieu_tri 
+           SET trang_thai = 'da_tam_dung'
+           WHERE id = $1`,
+          [ldtId]
+        );
+      }
+
+      await client.query('COMMIT');
+      
+      // Fetch updated invoice to return
+      const { rows: updatedHd } = await client.query('SELECT * FROM hoa_don WHERE id = $1', [hoa_don_id]);
+      return { success: true, invoice: updatedHd[0], so_tien_hoan_tra };
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
   }
 }
 

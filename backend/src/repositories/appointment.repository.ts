@@ -95,6 +95,7 @@ class AppointmentRepository {
         hd.hinh_thuc_thanh_toan_goi as hinh_thuc_thanh_toan_goi,
         hd.id as hoa_don_goi_id,
         pd.tong_so_buoi as tong_so_buoi_goi,
+        COALESCE(g.loai_goi, gpd.loai_goi) as loai_goi,
         COALESCE(
           (
             SELECT created_at 
@@ -269,6 +270,75 @@ class AppointmentRepository {
           VALUES ($1, $2, $3, $4, $5) RETURNING id
         `, [ho_ten_khach || 'Khách vãng lai', so_dien_thoai || null, targetEmail, hash, gioi_tinh_khach || 'khac']);
         final_khach_hang_id = newKh[0].id;
+      }
+    }
+
+    // Validate package payment check for treatment appointments (DIEU_TRI) or when the service is a package (LIEU_TRINH)
+    const targetGoiId = dang_ky_goi_id || phac_do_dieu_tri_id || finalGoiId;
+    
+    if (final_khach_hang_id && targetGoiId) {
+      let loaiGoi = null;
+      let tenGoi = 'Gói dịch vụ';
+      
+      let resolvedPdId = phac_do_dieu_tri_id || null;
+      if (resolvedPdId) {
+        const pdInfo = await pool.query(`
+          SELECT pd.goi_dich_vu_id, gdv.loai_goi, gdv.ten_goi 
+          FROM phac_do_dieu_tri pd
+          JOIN goi_dich_vu gdv ON pd.goi_dich_vu_id = gdv.id
+          WHERE pd.id = $1
+        `, [resolvedPdId]);
+        if (pdInfo.rows.length > 0) {
+          loaiGoi = pdInfo.rows[0].loai_goi;
+          tenGoi = pdInfo.rows[0].ten_goi;
+        }
+      } else {
+        const gdvInfo = await pool.query('SELECT loai_goi, ten_goi FROM goi_dich_vu WHERE id = $1', [targetGoiId]);
+        if (gdvInfo.rows.length > 0) {
+          loaiGoi = gdvInfo.rows[0].loai_goi;
+          tenGoi = gdvInfo.rows[0].ten_goi;
+        }
+      }
+
+      const isTreatment = loai_lich === 'dieu_tri' || loai_lich === 'DIEU_TRI' || loaiGoi === 'LIEU_TRINH';
+
+      if (isTreatment && loaiGoi === 'LIEU_TRINH') {
+        const invoiceQuery = `
+          SELECT hd.tong_tien_phai_tra, hd.so_tien_da_tra, hd.hinh_thuc_thanh_toan_goi, hd.trang_thai, pd.id as phac_do_id
+          FROM phac_do_dieu_tri pd
+          JOIN hoa_don hd ON hd.phac_do_dieu_tri_id = pd.id
+          WHERE pd.khach_hang_id = $1 AND (pd.id = $2 OR pd.goi_dich_vu_id = $3)
+          ORDER BY hd.ngay_tao DESC LIMIT 1
+        `;
+        const invRes = await pool.query(invoiceQuery, [final_khach_hang_id, resolvedPdId, targetGoiId]);
+        
+        if (invRes.rows.length === 0) {
+          throw new Error(`Bệnh nhân chưa thanh toán/đăng ký gói trị liệu "${tenGoi}". Vui lòng thanh toán trước khi lên lịch hẹn!`);
+        }
+        
+        const invoiceObj = invRes.rows[0];
+        const tongTien = Number(invoiceObj.tong_tien_phai_tra || 0);
+        const daThanhToan = Number(invoiceObj.so_tien_da_tra || 0);
+        const hinhThuc = invoiceObj.hinh_thuc_thanh_toan_goi || 'tra_thang';
+        
+        if (hinhThuc === 'tra_thang') {
+          if (daThanhToan < tongTien) {
+            const formattedPaid = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(daThanhToan);
+            const formattedTotal = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(tongTien);
+            throw new Error(`Gói trị liệu "${tenGoi}" (Trả thẳng 100%) yêu cầu hoàn tất thanh toán trước khi đặt lịch. Bệnh nhân mới đóng ${formattedPaid} / ${formattedTotal}.`);
+          }
+        } else if (hinhThuc === 'tra_gop') {
+          const target50 = Math.round(tongTien * 0.5);
+          if (daThanhToan < target50) {
+            const formattedPaid = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(daThanhToan);
+            const formattedTarget = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(target50);
+            throw new Error(`Gói trị liệu "${tenGoi}" (Trả góp) yêu cầu thanh toán Đợt 1 (tối thiểu 50%) trước khi đặt lịch. Bệnh nhân mới đóng ${formattedPaid} / ${formattedTarget}.`);
+          }
+        }
+        
+        if (!phac_do_dieu_tri_id && invoiceObj.phac_do_id) {
+          data.phac_do_dieu_tri_id = invoiceObj.phac_do_id;
+        }
       }
     }
 
@@ -656,17 +726,33 @@ class AppointmentRepository {
       const appt = apptRes.rows[0];
 
       if (data.trang_thai === 'hoan_thanh') {
-        const paymentCheck = await client.query(`
-          SELECT trang_thai 
-          FROM hoa_don 
-          WHERE (phac_do_dieu_tri_id IS NOT NULL AND phac_do_dieu_tri_id = $1)
-             OR (phac_do_dieu_tri_id IS NULL AND cuoc_hen_id = $2)
-          LIMIT 1
-        `, [appt.phac_do_dieu_tri_id, id]);
+        if (appt.phac_do_dieu_tri_id) {
+          const planInfo = await client.query(`
+            SELECT gdv.loai_goi
+            FROM phac_do_dieu_tri pd
+            JOIN goi_dich_vu gdv ON pd.goi_dich_vu_id = gdv.id
+            WHERE pd.id = $1
+          `, [appt.phac_do_dieu_tri_id]);
 
-        const invoiceStatus = paymentCheck.rows[0]?.trang_thai;
-        if (!invoiceStatus || !['da_thanh_toan', 'dang_tra_gop', 'dang_tra_tung_buoi'].includes(invoiceStatus)) {
-          throw new Error('Cuộc hẹn chưa được thanh toán. Không thể chuyển sang trạng thái hoàn thành.');
+          if (planInfo.rows.length > 0 && planInfo.rows[0].loai_goi === 'LIEU_TRINH') {
+            const paymentCheck = await client.query(`
+              SELECT hd.trang_thai, hd.hinh_thuc_thanh_toan_goi
+              FROM hoa_don hd
+              WHERE hd.phac_do_dieu_tri_id = $1
+              LIMIT 1
+            `, [appt.phac_do_dieu_tri_id]);
+            
+            if (paymentCheck.rows.length > 0) {
+              const { trang_thai: invoiceStatus, hinh_thuc_thanh_toan_goi } = paymentCheck.rows[0];
+              if (hinh_thuc_thanh_toan_goi !== 'tung_buoi') {
+                if (!invoiceStatus || !['da_thanh_toan', 'dang_tra_gop'].includes(invoiceStatus)) {
+                  throw new Error('Gói trị liệu liên kết chưa được thanh toán (đối với trả thẳng/trả góp). Không thể hoàn thành ca điều trị.');
+                }
+              }
+            } else {
+              throw new Error('Gói trị liệu liên kết chưa được đăng ký/thành lập hóa đơn.');
+            }
+          }
         }
       }
 

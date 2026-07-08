@@ -88,39 +88,75 @@ export const FastPaymentModal: React.FC<FastPaymentModalProps> = ({
           {/* Received cash only if cash payment */}
           {method === 'tien_mat' && (
             <div className="space-y-2.5">
-              <div className="space-y-1.5">
-                <label htmlFor="fastPayReceived" className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Số tiền khách đưa (VND) *</label>
-                <input 
-                  id="fastPayReceived"
-                  type="number" 
-                  value={received}
-                  onChange={(e) => setReceived(e.target.value)}
-                  placeholder="VD: 500000"
-                  required
-                  className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-xs font-bold text-secondary focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                />
-              </div>
+            {(() => {
+              const receivedNum = Number(received.replace(/\D/g, '') || 0);
+              const isShortage = receivedNum > 0 && receivedNum < requiredAmount;
+              const currentQuickOptions = Array.from(new Set([requiredAmount, ...quickCashOptions]))
+                .filter(val => val > 0)
+                .sort((a, b) => a - b);
 
-              {/* Quick options for received money */}
-              <div className="flex flex-wrap gap-2">
-                {quickCashOptions.map(val => (
-                  <button 
-                    key={val} 
-                    type="button"
-                    onClick={() => setReceived(val.toString())}
-                    className="px-3 py-1.5 bg-zinc-100 hover:bg-primary hover:text-white rounded-full text-[10px] font-black text-secondary transition-all border border-zinc-200"
-                  >
-                    {formatCurrency(val)}
-                  </button>
-                ))}
-              </div>
+              return (
+                <div className="space-y-2.5">
+                  <div className="space-y-1.5">
+                    <label htmlFor="fastPayReceived" className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Số tiền khách đưa (VND) *</label>
+                    <input 
+                      id="fastPayReceived"
+                      type="text" 
+                      value={received ? Number(received.replace(/\D/g, '')).toLocaleString('vi-VN') : ''}
+                      onChange={(e) => setReceived(e.target.value.replace(/\D/g, ''))}
+                      placeholder="VD: 500.000"
+                      required
+                      className={`w-full px-4 py-3 rounded-2xl text-xs font-bold transition-all outline-none ${
+                        isShortage 
+                          ? 'bg-rose-50/20 border-rose-350 text-rose-900 focus:bg-white focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20' 
+                          : 'bg-zinc-50 border-zinc-200 text-secondary focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20'
+                      }`}
+                    />
+                    {isShortage && (
+                      <p className="text-[10.5px] text-rose-600 font-extrabold flex items-center gap-1 mt-1">
+                        ⚠️ Còn thiếu {formatCurrency(requiredAmount - receivedNum)} để hoàn thành thanh toán
+                      </p>
+                    )}
+                  </div>
 
-              {Number(received) > requiredAmount && (
-                <div className="bg-emerald-50 text-emerald-700 border border-emerald-200/40 rounded-xl p-3 text-[10.5px] font-bold flex justify-between">
-                  <span>Tiền thừa thối khách:</span>
-                  <span>{formatCurrency(Number(received) - requiredAmount)}</span>
+                  {/* Quick options for received money */}
+                  <div className="flex flex-wrap gap-2">
+                    {currentQuickOptions.map(val => {
+                      const isActive = val === receivedNum;
+                      const isExact = val === requiredAmount;
+                      
+                      let btnStyle = '';
+                      if (isActive) {
+                        btnStyle = 'bg-primary border-primary text-white scale-105 shadow-sm';
+                      } else if (isExact) {
+                        btnStyle = 'bg-primary/5 border-primary/50 text-primary hover:bg-primary hover:text-white';
+                      } else {
+                        btnStyle = 'bg-zinc-50 border-zinc-200 text-zinc-500 hover:bg-primary hover:text-white';
+                      }
+
+                      return (
+                        <button 
+                          key={val} 
+                          type="button"
+                          onClick={() => setReceived(val.toString())}
+                          className={`px-3 py-1.5 rounded-full text-[10px] font-black transition-all border ${btnStyle}`}
+                        >
+                          {formatCurrency(val)}
+                          {isExact && !isActive && <span className="text-[8px] font-bold ml-1 opacity-80">(Cần thu)</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {receivedNum > requiredAmount && (
+                    <div className="bg-emerald-50 text-emerald-700 border border-emerald-200/40 rounded-xl p-3 text-[10.5px] font-bold flex justify-between">
+                      <span>Tiền thừa thối khách:</span>
+                      <span>{formatCurrency(receivedNum - requiredAmount)}</span>
+                    </div>
+                  )}
                 </div>
-              )}
+              );
+            })()}
             </div>
           )}
 

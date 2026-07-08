@@ -1,4 +1,4 @@
-import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import api from '../api/axios';
 import { useState, useEffect } from 'react';
@@ -21,7 +21,9 @@ import {
   HelpCircle,
   Sun,
   Moon,
-  Cpu
+  Cpu,
+  Settings,
+  Search
 } from 'lucide-react';
 
 export default function AdminLayout() {
@@ -31,6 +33,24 @@ export default function AdminLayout() {
   const user = useAuthStore(state => state.user);
   
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
+
+  // Search parameters synchronization
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchValue, setSearchValue] = useState(searchParams.get('q') || '');
+
+  useEffect(() => {
+    setSearchValue(searchParams.get('q') || '');
+  }, [searchParams]);
+
+  const handleSearchChange = (val: string) => {
+    setSearchValue(val);
+    if (val.trim()) {
+      setSearchParams({ q: val });
+    } else {
+      searchParams.delete('q');
+      setSearchParams(searchParams);
+    }
+  };
 
   // State và Effect cho thông báo gán Bác sĩ & KTV (Alarm & Bouncing notification)
   const [pendingAppointmentsCount, setPendingAppointmentsCount] = useState<number>(0);
@@ -42,11 +62,49 @@ export default function AdminLayout() {
 
   const [activeCheckIn, setActiveCheckIn] = useState<any>(null);
 
-  // Auto-acknowledge KTV when they open the assess page
+  // State cho Lễ tân (role 2) để phát hiện ca chưa xác nhận cần liên hệ
+  const [pendingContactCount, setPendingContactCount] = useState<number>(0);
+  const [earliestPendingId, setEarliestPendingId] = useState<string | null>(null);
+  const [earliestPendingDate, setEarliestPendingDate] = useState<string | null>(null);
+
   useEffect(() => {
-    const match = location.pathname.match(/\/technician\/appointments\/([a-f\d-]+)\/assess/);
-    if (match && match[1]) {
-      const aptId = match[1];
+    if (!user || Number(user.vai_tro_id) !== 2) return;
+
+    const fetchPending = async () => {
+      try {
+        const res = await api.get('/admin/appointments');
+        const appointments = res.data || [];
+        const graceTimeMs = 10 * 60 * 1000;
+        const pendingApts = appointments.filter((apt: any) => {
+          const createdAt = apt.thoi_gian_tao ? new Date(apt.thoi_gian_tao).getTime() : 0;
+          const isGracePassed = createdAt > 0 && (createdAt + graceTimeMs <= Date.now());
+          return apt.trang_thai === 'chua_xac_nhan' && isGracePassed;
+        });
+        setPendingContactCount(pendingApts.length);
+        if (pendingApts.length > 0) {
+          pendingApts.sort((a: any, b: any) => new Date(a.ngay_gio_bat_dau || '').getTime() - new Date(b.ngay_gio_bat_dau || '').getTime());
+          setEarliestPendingId(pendingApts[0].id);
+          const targetDate = pendingApts[0].ngay_gio_bat_dau ? pendingApts[0].ngay_gio_bat_dau.match(/^\d{4}-\d{2}-\d{2}/)?.[0] || '' : '';
+          setEarliestPendingDate(targetDate);
+        } else {
+          setEarliestPendingId(null);
+          setEarliestPendingDate(null);
+        }
+      } catch (err) {
+        console.error('Lỗi khi tải danh sách ca cần liên hệ:', err);
+      }
+    };
+
+    fetchPending();
+    const interval = setInterval(fetchPending, 10000);
+    return () => clearInterval(interval);
+  }, [user]);
+
+  // Auto-acknowledge KTV/Doctor when they open the assess page
+  useEffect(() => {
+    const match = location.pathname.match(/\/(technician|doctor)\/appointments\/([a-f\d-]+)\/assess/);
+    if (match && match[2]) {
+      const aptId = match[2];
       const ackStr = localStorage.getItem('ack-checkins') || '[]';
       try {
         const acks = JSON.parse(ackStr);
@@ -63,13 +121,14 @@ export default function AdminLayout() {
     }
   }, [location.pathname, activeCheckIn]);
 
-  // Poll queue for KTV (role 3) checked-in appointments and play alert sound
+  // Poll queue for KTV (role 3) or Doctor (role 4) checked-in appointments and play alert sound
   useEffect(() => {
-    if (!user || Number(user.vai_tro_id) !== 3) return;
+    if (!user || (Number(user.vai_tro_id) !== 3 && Number(user.vai_tro_id) !== 4)) return;
 
     const checkQueue = async () => {
       try {
-        const res = await api.get('/technician/queue');
+        const endpoint = Number(user.vai_tro_id) === 4 ? '/doctor/queue' : '/technician/queue';
+        const res = await api.get(endpoint);
         const checkedInApts = res.data.filter((apt: any) => 
           (apt.trang_thai === 'da_checkin' || apt.trang_thai === 'check_in' || apt.trang_thai === 'cho_kham')
         );
@@ -108,7 +167,7 @@ export default function AdminLayout() {
         }
         setActiveCheckIn(null);
       } catch (err) {
-        console.error('Error fetching technician queue for notifications:', err);
+        console.error('Error fetching queue for notifications:', err);
       }
     };
 
@@ -236,23 +295,71 @@ export default function AdminLayout() {
 
   const isDoctor = user?.vai_tro_id === 4;
   const isTechnician = user?.vai_tro_id === 3;
+  const isReceptionist = user?.vai_tro_id === 2;
 
   const rawNavItems = [
-    { name: 'Tổng quan', path: isDoctor ? '/doctor/appointments' : (isTechnician ? '/technician/appointments' : '/admin'), icon: <LayoutDashboard size={18} />, roles: [3, 4, 5, 6] },
+    { 
+      name: 'Tổng quan', 
+      path: isDoctor 
+        ? '/doctor' 
+        : (isReceptionist 
+          ? '/receptionist' 
+          : (isTechnician ? '/technician/appointments' : '/admin')), 
+      icon: <LayoutDashboard size={18} />, 
+      roles: [2, 3, 4, 5, 6] 
+    },
     { 
       name: 'Lịch hẹn', 
       path: isDoctor 
         ? '/doctor/appointments' 
-        : (isTechnician 
-          ? '/technician/appointments' 
-          : '/admin/appointments'), 
+        : (isReceptionist 
+          ? '/receptionist/appointments' 
+          : (isTechnician 
+            ? '/technician/appointments' 
+            : '/admin/appointments')), 
       icon: <Calendar size={18} />, 
-      searchPlaceholder: 'Tìm kiếm lịch hẹn...', 
-      roles: [3, 4, 5, 6] 
+      searchPlaceholder: isDoctor ? 'Tìm kiếm ca khám...' : 'Tìm kiếm lịch hẹn...', 
+      roles: [2, 3, 4, 5, 6] 
     },
     { name: 'Ca làm việc', path: '/admin/schedules', icon: <Clock size={18} />, roles: [5, 6] },
+    { 
+      name: 'Lịch trực cá nhân', 
+      path: isReceptionist 
+        ? '/receptionist/schedules' 
+        : (isDoctor 
+          ? '/doctor/schedules' 
+          : '/technician/schedules'), 
+      icon: <Clock size={18} />, 
+      roles: [2, 3, 4] 
+    },
     { name: 'Khách hàng', path: '/admin/customers', icon: <User size={18} />, searchPlaceholder: 'Tìm kiếm khách hàng...', roles: [5, 6] },
-    { name: 'Hồ sơ điều trị', path: '/admin/medical-records', icon: <FileText size={18} />, searchPlaceholder: 'Tìm kiếm hồ sơ...', roles: [3, 4, 5, 6] },
+    { 
+      name: 'Hồ sơ điều trị', 
+      path: isTechnician 
+        ? '/technician/medical-records' 
+        : (isDoctor 
+          ? '/doctor/medical-records' 
+          : '/admin/medical-records'), 
+      icon: <FileText size={18} />, 
+      searchPlaceholder: isDoctor ? 'Tìm kiếm hồ sơ bệnh nhân...' : 'Tìm kiếm hồ sơ...', 
+      roles: [3, 4, 5, 6] 
+    },
+    { 
+      name: 'Hóa đơn & Thanh toán', 
+      path: '/receptionist/billing', 
+      icon: <DollarSign size={18} />, 
+      roles: [2] 
+    },
+    { 
+      name: 'Cài đặt tài khoản', 
+      path: isReceptionist 
+        ? '/receptionist/settings' 
+        : (isDoctor 
+          ? '/doctor/settings' 
+          : '/technician/settings'), 
+      icon: <Settings size={18} />, 
+      roles: [2, 3, 4] 
+    },
     { name: 'Nhân sự', path: '/admin/staff', icon: <Users size={18} />, searchPlaceholder: 'Tìm kiếm nhân sự...', roles: [5] },
     { name: 'Gói Dịch Vụ', path: '/admin/packages', icon: <Package size={18} />, searchPlaceholder: 'Tìm kiếm gói...', roles: [5, 6] },
     { name: 'Phòng trị liệu', path: '/admin/rooms', icon: <Key size={18} />, searchPlaceholder: 'Tìm kiếm phòng...', roles: [5, 6] },
@@ -264,7 +371,7 @@ export default function AdminLayout() {
 
   const navItems = rawNavItems.filter(item => item.roles.includes(user?.vai_tro_id || 5));
 
-  const currentItem = navItems.find(item => item.path === location.pathname);
+  const currentItem = navItems.find(item => item.path === location.pathname || (item.path !== '/admin' && item.path !== '/receptionist' && item.path !== '/doctor' && location.pathname.startsWith(item.path + '/')));
 
   return (
     <div className="h-screen overflow-hidden bg-background dark:bg-zinc-950 flex font-body text-secondary dark:text-zinc-100 transition-colors duration-300">
@@ -285,21 +392,28 @@ export default function AdminLayout() {
         <nav className="flex-1 py-4 overflow-y-auto pr-1 scrollbar-thin">
           <ul className="space-y-1 px-3">
             {navItems.map((item) => {
-              const isActive = location.pathname === item.path;
+              const isActive = location.pathname === item.path || (item.path !== '/admin' && item.path !== '/receptionist' && item.path !== '/doctor' && location.pathname.startsWith(item.path + '/'));
               return (
                 <li key={item.name}>
                   <Link
                     to={item.path}
-                    className={`flex items-center px-4 py-2.5 rounded-[14px] transition-all duration-200 group border-l-4 ${
+                    className={`flex items-center justify-between px-4 py-2.5 rounded-[14px] transition-all duration-200 group border-l-4 ${
                       isActive 
                         ? 'bg-primary/5 dark:bg-primary/10 text-primary font-bold border-primary shadow-sm' 
                         : 'border-transparent hover:bg-zinc-50 dark:hover:bg-zinc-800 hover:text-secondary dark:hover:text-zinc-100'
                     }`}
                   >
-                    <span className={`mr-3 transition-transform group-hover:scale-110 duration-200 ${isActive ? 'text-primary' : 'text-zinc-400 dark:text-zinc-500 group-hover:text-secondary dark:group-hover:text-zinc-100'}`}>
-                      {item.icon}
-                    </span>
-                    <span className="text-[11px] font-bold tracking-wide uppercase">{item.name}</span>
+                    <div className="flex items-center">
+                      <span className={`mr-3 transition-transform group-hover:scale-110 duration-200 ${isActive ? 'text-primary' : 'text-zinc-400 dark:text-zinc-500 group-hover:text-secondary dark:group-hover:text-zinc-100'}`}>
+                        {item.icon}
+                      </span>
+                      <span className="text-[11px] font-bold tracking-wide uppercase">{item.name}</span>
+                    </div>
+                    {item.path === '/receptionist/appointments' && pendingContactCount > 0 && (
+                      <span className="animate-bounce inline-flex items-center justify-center w-5 h-5 text-[9px] font-black text-white bg-rose-500 rounded-full border border-rose-455">
+                        {pendingContactCount}
+                      </span>
+                    )}
                   </Link>
                 </li>
               );
@@ -309,13 +423,15 @@ export default function AdminLayout() {
         
         <div className="p-4 border-t border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 transition-colors duration-300">
           <div className="flex items-center gap-3 mb-4">
-            <div className="size-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold shadow-inner">
-              {user?.email?.charAt(0).toUpperCase() || 'A'}
-            </div>
+            <img 
+              src={user?.anh_dai_dien || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user?.ho_ten || 'Staff')}&backgroundType=gradientLinear&fontSize=45`} 
+              alt="Avatar" 
+              className="size-10 rounded-full object-cover border border-primary/20 shadow-inner shrink-0" 
+            />
             <div className="flex-1 min-w-0">
               <p className="text-xs font-bold text-secondary dark:text-zinc-100 truncate">{user?.ho_ten || user?.email || 'admin@officecare.com'}</p>
-              <p className="text-[9px] text-zinc-400 dark:text-zinc-500 font-bold uppercase tracking-wider mt-0.5">
-                {user?.vai_tro_id === 4 ? 'Bác sĩ chuyên khoa' : user?.vai_tro_id === 6 ? 'Quản lý' : 'Quản trị viên'}
+              <p className="text-[9px] text-zinc-400 dark:text-zinc-550 font-bold uppercase tracking-wider mt-0.5">
+                {user?.vai_tro_id === 4 ? 'Bác sĩ chuyên khoa' : user?.vai_tro_id === 3 ? 'Kỹ thuật viên' : user?.vai_tro_id === 2 ? 'Lễ tân' : user?.vai_tro_id === 6 ? 'Quản lý' : 'Quản trị viên'}
               </p>
             </div>
           </div>
@@ -337,6 +453,21 @@ export default function AdminLayout() {
               {currentItem?.name || 'Tổng quan'}
             </h2>
             
+            {/* Dynamic Search Bar */}
+            {currentItem?.searchPlaceholder && (
+              <div className="relative max-w-md w-full hidden md:block group animate-fade-in">
+                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400 dark:text-zinc-550 group-focus-within:text-primary transition-colors">
+                  <Search size={14} />
+                </span>
+                <input 
+                  type="text" 
+                  value={searchValue}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  placeholder={currentItem.searchPlaceholder}
+                  className="w-full pl-10 pr-4 py-2 text-xs bg-zinc-50 dark:bg-zinc-855 border border-zinc-200 dark:border-zinc-800 rounded-full focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white dark:focus:bg-zinc-900 outline-none transition-all font-semibold text-secondary dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-550"
+                />
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-6 shrink-0">
@@ -410,12 +541,12 @@ export default function AdminLayout() {
             <div className="flex items-center gap-3 pl-2">
               <div className="text-right hidden sm:block">
                 <p className="text-xs font-bold text-secondary dark:text-zinc-100">{user?.ho_ten || 'Admin Physio'}</p>
-                <p className="text-[9px] text-zinc-400 dark:text-zinc-500 font-bold uppercase tracking-wider mt-0.5">
-                  {user?.vai_tro_id === 4 ? 'Bác sĩ' : user?.vai_tro_id === 6 ? 'Quản lý' : 'Quản trị viên'}
+                <p className="text-[9px] text-zinc-400 dark:text-zinc-555 font-bold uppercase tracking-wider mt-0.5">
+                  {user?.vai_tro_id === 4 ? 'Bác sĩ' : user?.vai_tro_id === 3 ? 'Kỹ thuật viên' : user?.vai_tro_id === 2 ? 'Lễ tân' : user?.vai_tro_id === 6 ? 'Quản lý' : 'Quản trị viên'}
                 </p>
               </div>
               <img 
-                src="https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=120&h=120"
+                src={user?.anh_dai_dien || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user?.ho_ten || 'Staff')}&backgroundType=gradientLinear&fontSize=45`}
                 alt="Admin Avatar"
                 className="w-9 h-9 rounded-full object-cover border border-primary/20 shadow-sm"
               />
@@ -458,7 +589,7 @@ export default function AdminLayout() {
         </div>
       </main>
  
-      {/* Floating Mascot Widget for all Admin pages */}
+      {/* Floating Mascot Widget for all Admin/Manager pages */}
       {(user?.vai_tro_id === 5 || user?.vai_tro_id === 6) && (
         <MascotWidget
           count={pendingAssignCount}
@@ -475,6 +606,22 @@ export default function AdminLayout() {
           }}
           tooltipText={tooltipText}
           badgeColor="emerald"
+        />
+      )}
+
+      {/* Floating Mascot Widget for Receptionist */}
+      {user?.vai_tro_id === 2 && (
+        <MascotWidget
+          count={pendingContactCount}
+          onClick={() => {
+            if (earliestPendingId && earliestPendingDate) {
+              navigate(`/receptionist/appointments?date=${earliestPendingDate}&range=today&view=timeline&appointmentId=${earliestPendingId}&triggerFocus=true`);
+            } else {
+              navigate('/receptionist/appointments?triggerFocus=true');
+            }
+          }}
+          tooltipText={`Có ${pendingContactCount} ca khám chưa xác nhận quá 10 phút cần liên hệ!`}
+          badgeColor="rose"
         />
       )}
     </div>

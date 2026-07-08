@@ -185,6 +185,7 @@ class ReceptionistService {
     let phan_tram_giam_tra_thang = 10;
     let phan_tram_giam_tra_gop = 5;
     let don_gia_theo_buoi = 0;
+    let loai_goi_db = '';
 
     if (item_type === 'goi') {
       const pkg = await receptionistRepository.getPackageById(item_id);
@@ -195,6 +196,7 @@ class ReceptionistService {
       phan_tram_giam_tra_thang = 10;
       phan_tram_giam_tra_gop = 5;
       don_gia_theo_buoi = Number(pkg.don_gia_theo_buoi || 0);
+      loai_goi_db = pkg.loai_goi || '';
     } else if (item_type === 'dich_vu') {
       if (item_id) {
         const svc = await receptionistRepository.getServiceById(item_id);
@@ -209,9 +211,9 @@ class ReceptionistService {
       throw new Error('Loại vật phẩm thanh toán không hợp lệ');
     }
 
-    // 1. Calculate payment method discount (so_tien_giam_phuong_thuc) on package price only
+    // 1. Calculate payment method discount (so_tien_giam_phuong_thuc) on package price only (not for single services)
     let so_tien_giam_phuong_thuc = 0;
-    if (item_type === 'goi') {
+    if (item_type === 'goi' && loai_goi_db === 'LIEU_TRINH') {
       if (loai_thanh_toan === 'tra_thang') {
         so_tien_giam_phuong_thuc = Math.round(gia_goc_goi * phan_tram_giam_tra_thang / 100);
       } else if (loai_thanh_toan === 'tra_gop') {
@@ -297,27 +299,51 @@ class ReceptionistService {
     let mien_phi_kham_chua_dong = 0;
     let mien_phi_kham = false;
 
+    let ngay_thanh_toan_kham_str = '';
+
     if (lich_dat_id) {
       const appt = await receptionistRepository.getAppointmentWithServicePrice(lich_dat_id);
       if (appt) {
         chi_phi_kham = Number(appt.don_gia);
       }
 
-      // Check if they are eligible for the free exam waiver:
-      // payment mode tra_thang or tra_gop, and unit price >= 1.000.000đ
-      if (['tra_thang', 'tra_gop'].includes(loai_thanh_toan) && gia_goc_goi >= 1000000) {
-        mien_phi_kham = true;
+      const paidAmount = await receptionistRepository.getPaidInvoiceAmountForAppointment(lich_dat_id);
+      if (paidAmount > 0) {
+        const paidInvoice = await pool.query(
+          "SELECT ngay_tao FROM hoa_don WHERE cuoc_hen_id = $1 AND trang_thai = 'da_thanh_toan' LIMIT 1",
+          [lich_dat_id]
+        );
+        if (paidInvoice.rows.length > 0 && paidInvoice.rows[0].ngay_tao) {
+          const d = new Date(paidInvoice.rows[0].ngay_tao);
+          const day = String(d.getDate()).padStart(2, '0');
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const year = d.getFullYear();
+          ngay_thanh_toan_kham_str = `${day}/${month}/${year}`;
+        }
       }
 
-      if (mien_phi_kham) {
-        // If eligible for free exam, check if they already paid the exam fee!
-        const paidAmount = await receptionistRepository.getPaidInvoiceAmountForAppointment(lich_dat_id);
-        if (paidAmount > 0) {
-          // They already paid, so we deduct this from the package payment
-          giam_tru_kham_truoc_do = paidAmount;
-        } else {
-          // They haven't paid, so we waive it (deduct from this bill)
+      if (loai_thanh_toan === 'tung_buoi' && paidAmount > 0) {
+        // Special case: Pay-per-session with already paid exam fee.
+        // We do not add exam fee to this package invoice, nor show deduction. First payment is 0đ.
+        chi_phi_kham = 0;
+        giam_tru_kham_truoc_do = 0;
+        mien_phi_kham_chua_dong = 0;
+      } else {
+        // Check if they are eligible for the free exam waiver:
+        // payment mode tra_thang or tra_gop, and unit price >= 1.000.000đ
+        if (['tra_thang', 'tra_gop'].includes(loai_thanh_toan) && gia_goc_goi >= 1000000) {
+          mien_phi_kham = true;
+        }
+
+        if (mien_phi_kham) {
           mien_phi_kham_chua_dong = chi_phi_kham;
+          if (paidAmount > 0) {
+            giam_tru_kham_truoc_do = paidAmount;
+          }
+        } else {
+          if (paidAmount > 0) {
+            giam_tru_kham_truoc_do = paidAmount;
+          }
         }
       }
     }
@@ -345,8 +371,11 @@ class ReceptionistService {
         so_tien_dot_1 = Math.max(0, packageDot1 + chi_phi_kham - giam_tru_kham_truoc_do - mien_phi_kham_chua_dong);
         so_tien_dot_2 = tong_tien_goi_sau_giam - packageDot1;
       } else if (loai_thanh_toan === 'tung_buoi') {
-        so_tien_dot_1 = chi_phi_kham;
+        so_tien_dot_1 = Math.max(0, chi_phi_kham - giam_tru_kham_truoc_do);
         so_tien_dot_2 = tong_tien_goi_sau_giam;
+      }
+      if (!don_gia_theo_buoi) {
+        don_gia_theo_buoi = Math.round(tong_tien_goi_sau_giam / so_buoi_goi);
       }
     }
 
@@ -367,7 +396,8 @@ class ReceptionistService {
       chi_phi_kham,
       giam_tru_kham_truoc_do,
       mien_phi_kham_chua_dong,
-      don_gia_theo_buoi
+      don_gia_theo_buoi,
+      ngay_thanh_toan_kham: ngay_thanh_toan_kham_str
     };
   }
 
@@ -534,7 +564,7 @@ class ReceptionistService {
       }
     }
 
-    if (da_thanh_toan_truoc === 0) {
+    if (hd.trang_thai === 'chua_thanh_toan') {
       // First payment
       if (loai_thanh_toan === 'tra_gop') {
         const totalPackage = tong_tien + giam_tru;
@@ -544,30 +574,31 @@ class ReceptionistService {
         }
         
         if (tien_nhan >= tong_tien) {
-          da_thanh_toan_moi = tien_nhan;
+          da_thanh_toan_moi = tong_tien;
           trang_thai_moi = 'da_thanh_toan';
         } else {
-          da_thanh_toan_moi = tien_nhan;
+          da_thanh_toan_moi = requiredDot1;
           trang_thai_moi = 'dang_tra_gop';
         }
       } else if (loai_thanh_toan === 'tung_buoi') {
-        const requiredDot1 = chi_phi_kham;
+        const paidExam = await receptionistRepository.getPaidInvoiceAmountForAppointment(hd.cuoc_hen_id);
+        const requiredDot1 = paidExam > 0 ? 0 : chi_phi_kham;
         if (tien_nhan < requiredDot1) {
           throw new Error(`Số tiền nhận không đủ cho buổi khám lâm sàng (tối thiểu ${requiredDot1.toLocaleString()}đ)`);
         }
 
         if (tien_nhan >= tong_tien) {
-          da_thanh_toan_moi = tien_nhan;
+          da_thanh_toan_moi = tong_tien;
           trang_thai_moi = 'da_thanh_toan';
         } else {
-          da_thanh_toan_moi = tien_nhan;
+          da_thanh_toan_moi = requiredDot1;
           trang_thai_moi = 'dang_tra_tung_buoi';
         }
       } else {
         if (tien_nhan < tong_tien) {
           throw new Error(`Số tiền nhận không đủ (yêu cầu ${tong_tien.toLocaleString()}đ)`);
         }
-        da_thanh_toan_moi = tien_nhan;
+        da_thanh_toan_moi = tong_tien;
         trang_thai_moi = 'da_thanh_toan';
       }
     } else {
@@ -579,22 +610,24 @@ class ReceptionistService {
         if (tien_nhan < requiredAmount) {
           throw new Error(`Số tiền nhận không đủ thanh toán cho buổi tiếp theo (yêu cầu tối thiểu ${requiredAmount.toLocaleString()}đ)`);
         }
-        da_thanh_toan_moi = da_thanh_toan_truoc + tien_nhan;
+        da_thanh_toan_moi = da_thanh_toan_truoc + requiredAmount;
         trang_thai_moi = da_thanh_toan_moi >= tong_tien ? 'da_thanh_toan' : 'dang_tra_tung_buoi';
       } else {
         if (tien_nhan < remaining) {
           throw new Error(`Số tiền nhận không đủ thanh toán nợ (yêu cầu ${remaining.toLocaleString()}đ)`);
         }
-        da_thanh_toan_moi = da_thanh_toan_truoc + tien_nhan;
+        da_thanh_toan_moi = da_thanh_toan_truoc + remaining;
         trang_thai_moi = 'da_thanh_toan';
       }
     }
+
+    const actualPaymentAmount = da_thanh_toan_moi - da_thanh_toan_truoc;
 
     const maGiaoDich = `GD${Math.floor(10000000 + Math.random() * 90000000)}`;
     await receptionistRepository.processPaymentPartial(
       hoa_don_id, 
       maGiaoDich, 
-      tien_nhan, 
+      actualPaymentAmount, 
       da_thanh_toan_moi, 
       trang_thai_moi, 
       phuong_thuc,
@@ -607,24 +640,32 @@ class ReceptionistService {
       await receptionistRepository.updateTreatmentPlanStatus(hd.lich_dieu_tri_id, statusToSet);
     }
 
-    // Cancel any pending original exam invoice for this appointment to avoid double billing/debts
+    // Mark any pending original exam invoice for this appointment as Paid (0đ due) to link it to the package promotion
     if (hd.cuoc_hen_id && hd.phac_do_dieu_tri_id) {
       const maHoaDonGoi = `HD-${hoa_don_id.substring(0, 6).toUpperCase()}`;
-      const cancelNote = Number(hd.tong_tien_goc) >= 1000000
-        ? `Hủy do được miễn phí khám theo hóa đơn gói ${maHoaDonGoi}.`
-        : `Hủy do đã gộp thanh toán khám vào hóa đơn gói ${maHoaDonGoi}.`;
+      const promoNote = Number(hd.tong_tien_goc) >= 1000000
+        ? `Được miễn phí khám lâm sàng theo chương trình ưu đãi của hóa đơn gói ${maHoaDonGoi}.`
+        : `Phí khám lâm sàng được gộp thanh toán vào hóa đơn gói ${maHoaDonGoi}.`;
 
       await pool.query(`
         UPDATE hoa_don
-        SET trang_thai = 'da_huy',
+        SET trang_thai = 'da_thanh_toan',
+            tong_tien_phai_tra = 0,
+            so_tien_da_tra = 0,
             ghi_chu = $1
         WHERE cuoc_hen_id = $2
           AND phac_do_dieu_tri_id IS NULL
           AND trang_thai = 'chua_thanh_toan'
-      `, [cancelNote, hd.cuoc_hen_id]);
+      `, [promoNote, hd.cuoc_hen_id]);
     }
 
-    return { success: true, trang_thai_moi, da_thanh_toan_moi };
+    return { 
+      success: true, 
+      trang_thai_moi, 
+      da_thanh_toan_moi,
+      actualPaymentAmount,
+      changeAmount: phuong_thuc === 'tien_mat' ? Math.max(0, tien_nhan - actualPaymentAmount) : 0
+    };
   }
 
   async updateSessionServices(buoi_tri_lieu_id: string, services: any[]) {

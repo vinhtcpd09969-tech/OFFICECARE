@@ -138,6 +138,22 @@ class AdminService {
     return result;
   }
 
+  async handlePackageRefund(id: string, data: any, userId: number) {
+    const result = await adminRepository.handlePackageRefund(
+      id,
+      Number(data.so_buoi_dung || 0),
+      Number(data.phi_phat || 0),
+      data.ly_do || 'Hủy gói theo yêu cầu của Admin',
+      userId
+    );
+    if (result.error) {
+      const err = new Error(result.error) as any;
+      err.code = result.code;
+      throw err;
+    }
+    return result;
+  }
+
   // --- QUẢN LÝ MARKETING ---
   async getVouchers() {
     return adminRepository.getVouchers();

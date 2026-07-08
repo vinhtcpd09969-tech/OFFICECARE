@@ -89,14 +89,18 @@ export const PaymentSuccessBox: React.FC<PaymentSuccessBoxProps> = ({
             <span className="text-emerald-600 text-xl shrink-0">📅</span>
             <div className="space-y-1">
               <h4 className="text-xs font-black text-emerald-955">
-                {paymentSuccessData.nextSessionNum && paymentSuccessData.nextSessionNum > 1
-                  ? `Đặt lịch hẹn Buổi ${paymentSuccessData.nextSessionNum} tiếp theo`
-                  : 'Đặt lịch hẹn Buổi 1 nhanh'}
+                {paymentSuccessData.daDangKyGoiLoai === 'LE'
+                  ? 'Đặt lịch hẹn dịch vụ ngay'
+                  : (paymentSuccessData.nextSessionNum && paymentSuccessData.nextSessionNum > 1
+                      ? `Đặt lịch hẹn Buổi ${paymentSuccessData.nextSessionNum} tiếp theo`
+                      : 'Đặt lịch hẹn Buổi 1 nhanh')}
               </h4>
               <p className="text-[11px] text-emerald-800 leading-normal font-semibold">
-                {paymentSuccessData.nextSessionNum && paymentSuccessData.nextSessionNum > 1
-                  ? `Thanh toán thành công! Bạn có muốn đặt lịch hẹn cho buổi điều trị tiếp theo (Buổi ${paymentSuccessData.nextSessionNum}) ngay bây giờ không?`
-                  : 'Đăng ký gói thành công! Bạn có muốn đặt lịch hẹn cho buổi điều trị đầu tiên (Buổi 1) ngay bây giờ không?'}
+                {paymentSuccessData.daDangKyGoiLoai === 'LE'
+                  ? 'Đăng ký dịch vụ thành công! Bạn có muốn đặt lịch hẹn thực hiện dịch vụ ngay bây giờ không?'
+                  : (paymentSuccessData.nextSessionNum && paymentSuccessData.nextSessionNum > 1
+                      ? `Thanh toán thành công! Bạn có muốn đặt lịch hẹn cho buổi điều trị tiếp theo (Buổi ${paymentSuccessData.nextSessionNum}) ngay bây giờ không?`
+                      : 'Đăng ký gói thành công! Bạn có muốn đặt lịch hẹn cho buổi điều trị đầu tiên (Buổi 1) ngay bây giờ không?')}
               </p>
               <p className="text-xs font-black text-emerald-900 mt-1">
                 👉 {paymentSuccessData.daDangKyGoiTen || 'Gói liệu trình chuyên sâu'}
@@ -113,9 +117,11 @@ export const PaymentSuccessBox: React.FC<PaymentSuccessBoxProps> = ({
             className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
           >
             <CalendarRange size={16} /> 
-            {paymentSuccessData.nextSessionNum && paymentSuccessData.nextSessionNum > 1
-              ? `Đặt lịch hẹn Buổi ${paymentSuccessData.nextSessionNum} ngay`
-              : 'Đặt lịch hẹn Buổi 1 ngay'}
+            {paymentSuccessData.daDangKyGoiLoai === 'LE'
+              ? 'Đặt lịch hẹn ngay'
+              : (paymentSuccessData.nextSessionNum && paymentSuccessData.nextSessionNum > 1
+                  ? `Đặt lịch hẹn Buổi ${paymentSuccessData.nextSessionNum} ngay`
+                  : 'Đặt lịch hẹn Buổi 1 ngay')}
           </button>
         </div>
       )}

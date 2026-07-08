@@ -207,233 +207,317 @@ export default function ManageFinance() {
             )}
 
             {/* Input controls form */}
-            <form 
-              onSubmit={checkout.dangKyGoi ? checkout.handleThanhToanPackage : checkout.handleThanhToanSingle}
-              className="bg-white rounded-2xl border border-zinc-150 p-6 space-y-6 shadow-sm"
-            >
-              <div className="space-y-5 text-left">
-                <div className="flex items-center gap-2 border-b border-zinc-100 pb-3">
-                  <Activity className="text-primary size-5" />
-                  <h3 className="font-heading font-black text-secondary text-sm">Bước 2: Thông tin giao dịch & Lập hóa đơn</h3>
-                </div>
+            {(() => {
+              const totalRequired = checkout.dangKyGoi && checkout.calculatedData
+                ? (checkout.loaiThanhToan === 'tra_gop' || checkout.loaiThanhToan === 'tung_buoi'
+                  ? Number(checkout.calculatedData.so_tien_dot_1)
+                  : Number(checkout.calculatedData.tong_tien_thanh_toan))
+                : (checkout.state.hoaDon ? Number(checkout.state.hoaDon.tong_tien_thanh_toan) : 0);
+              
+              const isTungBuoiWithPaidExam = checkout.dangKyGoi && 
+                checkout.loaiThanhToan === 'tung_buoi' && 
+                checkout.selectedConsultation?.ngay_thanh_toan_kham;
 
-                {checkout.selectedConsultation?.loai_lich === 'kham_moi' && checkout.selectedConsultation?.khuyen_nghi_goi_id && (
-                  <div className="bg-emerald-50/50 border border-emerald-250/30 rounded-2xl p-4 flex items-center justify-between shadow-sm animate-in fade-in duration-200">
-                    <div className="space-y-1">
-                      <span className="text-xs font-black text-emerald-950 block">Đăng ký mua gói trị liệu được chỉ định</span>
-                      <span className="text-[10px] text-emerald-800 font-bold block">Chỉ định: {checkout.selectedConsultation.khuyen_nghi_ten_goi || 'Gói trị liệu'}</span>
+              return (
+                <form 
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (totalRequired === 0) {
+                      checkout.dispatch({ type: 'SET_FIELD', field: 'soTienNhan', value: '0' });
+                    }
+                    if (checkout.dangKyGoi) {
+                      checkout.handleThanhToanPackage(e);
+                    } else {
+                      checkout.handleThanhToanSingle(e);
+                    }
+                  }}
+                  className="bg-white rounded-2xl border border-zinc-150 p-6 space-y-6 shadow-sm"
+                >
+                  <div className="space-y-5 text-left">
+                    <div className="flex items-center gap-2 border-b border-zinc-100 pb-3">
+                      <Activity className="text-primary size-5" />
+                      <h3 className="font-heading font-black text-secondary text-sm">Bước 2: Thông tin giao dịch & Lập hóa đơn</h3>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        checked={checkout.dangKyGoi} 
-                        onChange={(e) => {
-                          const checked = e.target.checked;
-                          checkout.setDangKyGoi(checked);
-                          checkout.setCheckoutTab(checked ? 'package' : 'single');
-                        }}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-zinc-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                    </label>
-                  </div>
-                )}
 
-                {checkout.checkoutTab === 'package' && (
-                  <div className="space-y-4 animate-in fade-in duration-200">
-                    {/* Select assigned medical package */}
+                    {checkout.selectedConsultation?.loai_lich === 'kham_moi' && checkout.selectedConsultation?.khuyen_nghi_goi_id && (
+                      checkout.selectedConsultation.khuyen_nghi_loai_goi === 'LE' ? (
+                        <div className="bg-blue-50/40 border border-blue-200/30 rounded-2xl p-4 shadow-sm space-y-1 animate-in fade-in duration-200">
+                          <span className="text-xs font-black text-blue-950 flex items-center gap-1.5">
+                            <span>💡</span> Chỉ định dịch vụ lẻ tiếp theo
+                          </span>
+                          <span className="text-[10.5px] text-blue-800 font-bold block">
+                            Dịch vụ: {checkout.selectedConsultation.khuyen_nghi_ten_goi || 'Dịch vụ lẻ'} (Khách hàng sẽ thanh toán sau khi thực hiện dịch vụ)
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="bg-emerald-50/50 border border-emerald-200/40 rounded-2xl p-4 flex items-center justify-between shadow-sm animate-in fade-in duration-200">
+                          <div className="space-y-1 text-left">
+                            <span className="text-xs font-black text-emerald-950 block">Đăng ký mua gói trị liệu được chỉ định</span>
+                            <span className="text-[10px] text-emerald-800 font-bold block">Chỉ định: {checkout.selectedConsultation.khuyen_nghi_ten_goi || 'Gói trị liệu'}</span>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input 
+                              type="checkbox" 
+                              checked={checkout.dangKyGoi} 
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                checkout.setDangKyGoi(checked);
+                                checkout.setCheckoutTab(checked ? 'package' : 'single');
+                              }}
+                              disabled={isTungBuoiWithPaidExam}
+                              className="sr-only peer"
+                            />
+                            <div className="w-11 h-6 bg-zinc-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                          </label>
+                        </div>
+                      )
+                    )}
+
+                    {checkout.checkoutTab === 'package' && (
+                      <div className="space-y-4 animate-in fade-in duration-200">
+                        {/* Select assigned medical package */}
+                        <div className="space-y-1.5">
+                          <label htmlFor="selectedPackage" className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                            {checkout.selectedPackage?.loai_goi === 'LE' ? 'Dịch vụ lẻ được chỉ định *' : 'Gói trị liệu được chỉ định *'}
+                          </label>
+                          <select 
+                            id="selectedPackage"
+                            value={checkout.selectedPackage?.id || ''} 
+                            onChange={(e) => {
+                              const matched = checkout.packages.find(p => String(p.id) === e.target.value);
+                              checkout.setSelectedPackage(matched || null);
+                            }}
+                            required
+                            disabled={!!checkout.selectedConsultation?.khuyen_nghi_goi_id || isTungBuoiWithPaidExam}
+                            className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-xs font-bold text-secondary focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                          >
+                            <option value="">-- Chọn gói trị liệu --</option>
+                            {checkout.packages.map(pkg => (
+                              <option key={pkg.id} value={pkg.id}>
+                                {pkg.ten_goi} ({formatCurrency(pkg.don_gia)})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Payment type options */}
+                        {checkout.selectedPackage?.loai_goi !== 'LE' && (
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Hình thức thanh toán gói</label>
+                            <div className="grid grid-cols-3 gap-3">
+                              <button
+                                type="button"
+                                onClick={() => checkout.setLoaiThanhToan('tra_thang')}
+                                disabled={isTungBuoiWithPaidExam}
+                                className={`py-3.5 px-4 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all ${
+                                  checkout.loaiThanhToan === 'tra_thang'
+                                    ? 'bg-primary/10 border-primary text-primary shadow-sm'
+                                    : 'bg-zinc-50/50 border-zinc-200 text-zinc-500 hover:bg-zinc-50'
+                                }`}
+                              >
+                                Trả thẳng
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => checkout.setLoaiThanhToan('tra_gop')}
+                                disabled={isTungBuoiWithPaidExam}
+                                className={`py-3.5 px-4 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all ${
+                                  checkout.loaiThanhToan === 'tra_gop'
+                                    ? 'bg-primary/10 border-primary text-primary shadow-sm'
+                                    : 'bg-zinc-50/50 border-zinc-200 text-zinc-500 hover:bg-zinc-50'
+                                }`}
+                              >
+                                Trả góp 50%
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => checkout.setLoaiThanhToan('tung_buoi')}
+                                disabled={isTungBuoiWithPaidExam}
+                                className={`py-3.5 px-4 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all ${
+                                  checkout.loaiThanhToan === 'tung_buoi'
+                                    ? 'bg-primary/10 border-primary text-primary shadow-sm'
+                                    : 'bg-zinc-50/50 border-zinc-200 text-zinc-500 hover:bg-zinc-50'
+                                }`}
+                              >
+                                Từng buổi
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Vouchers application form */}
+                    {checkout.checkoutTab === 'package' && (
+                      <div className="space-y-2">
+                        <label htmlFor="maVoucher" className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Mã giảm giá (Voucher)</label>
+                        <div className="flex gap-2">
+                          <input 
+                            id="maVoucher"
+                            type="text"
+                            placeholder="VD: MAGIAMGIA10"
+                            value={checkout.maVoucher}
+                            onChange={(e) => checkout.setMaVoucher(e.target.value)}
+                            disabled={!!checkout.appliedVoucher || isTungBuoiWithPaidExam}
+                            className="flex-1 px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-xs font-bold text-secondary focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all disabled:bg-zinc-100 disabled:text-zinc-400"
+                          />
+                          {checkout.appliedVoucher ? (
+                            <button
+                              type="button"
+                              onClick={checkout.handleRemoveVoucher}
+                              disabled={isTungBuoiWithPaidExam}
+                              className="px-5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 rounded-2xl text-xs font-black uppercase tracking-wider transition-all disabled:opacity-50"
+                            >
+                              Hủy
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={checkout.handleApplyVoucher}
+                              disabled={isTungBuoiWithPaidExam}
+                              className="px-5 bg-zinc-150 hover:bg-zinc-200 text-zinc-650 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all border border-zinc-200 disabled:opacity-50"
+                            >
+                              Áp dụng
+                            </button>
+                          )}
+                        </div>
+                        {checkout.appliedVoucher && (
+                          <p className="text-[10.5px] font-bold text-emerald-600 animate-in fade-in duration-200">
+                            ✓ Đã áp dụng Voucher: Giảm {checkout.appliedVoucher.gia_tri_giam}% (Tối đa {formatCurrency(checkout.appliedVoucher.giam_toi_da)})
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Payment method */}
                     <div className="space-y-1.5">
-                      <label htmlFor="selectedPackage" className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Gói trị liệu được chỉ định *</label>
+                      <label htmlFor="phuongThuc" className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Hình thức nhận tiền</label>
                       <select 
-                        id="selectedPackage"
-                        value={checkout.selectedPackage?.id || ''} 
-                        onChange={(e) => {
-                          const matched = checkout.packages.find(p => String(p.id) === e.target.value);
-                          checkout.setSelectedPackage(matched || null);
-                        }}
-                        required
-                        disabled={!!checkout.selectedConsultation?.khuyen_nghi_goi_id}
+                        id="phuongThuc"
+                        value={checkout.state.phuongThuc} 
+                        onChange={(e) => checkout.dispatch({ type: 'SET_FIELD', field: 'phuongThuc', value: e.target.value })}
+                        disabled={isTungBuoiWithPaidExam}
                         className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-xs font-bold text-secondary focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                       >
-                        <option value="">-- Chọn gói trị liệu --</option>
-                        {checkout.packages.map(pkg => (
-                          <option key={pkg.id} value={pkg.id}>
-                            {pkg.ten_goi} ({formatCurrency(pkg.don_gia)})
-                          </option>
-                        ))}
+                        <option value="tien_mat">💵 Tiền mặt</option>
+                        <option value="chuyen_khoan">🏦 Chuyển khoản ngân hàng</option>
+                        <option value="the">💳 Quẹt thẻ POS</option>
                       </select>
                     </div>
 
-                    {/* Payment type options */}
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Hình thức thanh toán gói</label>
-                      <div className="grid grid-cols-3 gap-3">
-                        <button
-                          type="button"
-                          onClick={() => checkout.setLoaiThanhToan('tra_thang')}
-                          className={`py-3.5 px-4 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all ${
-                            checkout.loaiThanhToan === 'tra_thang'
-                              ? 'bg-primary/10 border-primary text-primary shadow-sm'
-                              : 'bg-zinc-50/50 border-zinc-200 text-zinc-500 hover:bg-zinc-50'
-                          }`}
-                        >
-                          Trả thẳng
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => checkout.setLoaiThanhToan('tra_gop')}
-                          className={`py-3.5 px-4 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all ${
-                            checkout.loaiThanhToan === 'tra_gop'
-                              ? 'bg-primary/10 border-primary text-primary shadow-sm'
-                              : 'bg-zinc-50/50 border-zinc-200 text-zinc-500 hover:bg-zinc-50'
-                          }`}
-                        >
-                          Trả góp 50%
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => checkout.setLoaiThanhToan('tung_buoi')}
-                          className={`py-3.5 px-4 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all ${
-                            checkout.loaiThanhToan === 'tung_buoi'
-                              ? 'bg-primary/10 border-primary text-primary shadow-sm'
-                              : 'bg-zinc-50/50 border-zinc-200 text-zinc-500 hover:bg-zinc-50'
-                          }`}
-                        >
-                          Từng buổi
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Vouchers application form */}
-                {checkout.checkoutTab === 'package' && (
-                  <div className="space-y-2">
-                    <label htmlFor="maVoucher" className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Mã giảm giá (Voucher)</label>
-                    <div className="flex gap-2">
-                      <input 
-                        id="maVoucher"
-                        type="text"
-                        placeholder="VD: MAGIAMGIA10"
-                        value={checkout.maVoucher}
-                        onChange={(e) => checkout.setMaVoucher(e.target.value)}
-                        disabled={!!checkout.appliedVoucher}
-                        className="flex-1 px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-xs font-bold text-secondary focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all disabled:bg-zinc-100 disabled:text-zinc-400"
-                      />
-                      {checkout.appliedVoucher ? (
-                        <button
-                          type="button"
-                          onClick={checkout.handleRemoveVoucher}
-                          className="px-5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 rounded-2xl text-xs font-black uppercase tracking-wider transition-all"
-                        >
-                          Hủy
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={checkout.handleApplyVoucher}
-                          className="px-5 bg-zinc-150 hover:bg-zinc-200 text-zinc-650 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all border border-zinc-200"
-                        >
-                          Áp dụng
-                        </button>
-                      )}
-                    </div>
-                    {checkout.appliedVoucher && (
-                      <p className="text-[10.5px] font-bold text-emerald-600 animate-in fade-in duration-200">
-                        ✓ Đã áp dụng Voucher: Giảm {checkout.appliedVoucher.gia_tri_giam}% (Tối đa {formatCurrency(checkout.appliedVoucher.giam_toi_da)})
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {/* Payment method */}
-                <div className="space-y-1.5">
-                  <label htmlFor="phuongThuc" className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Hình thức nhận tiền</label>
-                  <select 
-                    id="phuongThuc"
-                    value={checkout.state.phuongThuc} 
-                    onChange={(e) => checkout.dispatch({ type: 'SET_FIELD', field: 'phuongThuc', value: e.target.value })}
-                    className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-xs font-bold text-secondary focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                  >
-                    <option value="tien_mat">💵 Tiền mặt</option>
-                    <option value="chuyen_khoan">🏦 Chuyển khoản ngân hàng</option>
-                    <option value="the">💳 Quẹt thẻ POS</option>
-                  </select>
-                </div>
-
-                {/* Cash payment specific fields */}
-                {checkout.state.phuongThuc === 'tien_mat' && (
-                  <div className="space-y-3 animate-in slide-in-from-top-3 duration-200">
-                    <div className="space-y-1.5">
-                      <label htmlFor="soTienNhan" className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Số tiền khách đưa (VND) *</label>
-                      <input 
-                        id="soTienNhan"
-                        type="number" 
-                        placeholder="VD: 500000"
-                        value={checkout.state.soTienNhan}
-                        onChange={(e) => checkout.dispatch({ type: 'SET_FIELD', field: 'soTienNhan', value: e.target.value })}
-                        required
-                        className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-xs font-bold text-secondary focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                      />
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      {quickCashOptions.map(val => (
-                        <button 
-                          key={val} 
-                          type="button"
-                          onClick={() => checkout.dispatch({ type: 'SET_FIELD', field: 'soTienNhan', value: val.toString() })}
-                          className="px-3.5 py-2 bg-zinc-50 hover:bg-primary hover:text-white rounded-full text-[10px] font-black text-secondary transition-all border border-zinc-200"
-                        >
-                          {formatCurrency(val)}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Change calculator display */}
-                    {(() => {
-                      const totalRequired = checkout.dangKyGoi && checkout.calculatedData
-                        ? (checkout.loaiThanhToan === 'tra_gop' || checkout.loaiThanhToan === 'tung_buoi'
-                          ? Number(checkout.calculatedData.so_tien_dot_1)
-                          : Number(checkout.calculatedData.tong_tien_thanh_toan))
-                        : (checkout.state.hoaDon ? Number(checkout.state.hoaDon.tong_tien_thanh_toan) : 0);
+                    {/* Cash payment specific fields */}
+                    {checkout.state.phuongThuc === 'tien_mat' && totalRequired > 0 && (() => {
                       const received = Number(checkout.state.soTienNhan || 0);
+                      const isShortage = received > 0 && received < totalRequired;
 
-                      if (received > totalRequired) {
-                        return (
-                          <div className="bg-emerald-50 text-emerald-700 border border-emerald-200/40 rounded-2xl p-4 text-xs font-bold flex justify-between items-center">
-                            <span>Tiền thừa thối khách hàng:</span>
-                            <span className="text-base font-black">{formatCurrency(received - totalRequired)}</span>
+                      const currentQuickCashOptions = Array.from(new Set([totalRequired, ...quickCashOptions]))
+                        .filter(val => val > 0)
+                        .sort((a, b) => a - b);
+
+                      return (
+                        <div className="space-y-3 animate-in slide-in-from-top-3 duration-200">
+                          <div className="space-y-1.5">
+                            <label htmlFor="soTienNhan" className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Số tiền khách đưa (VND) *</label>
+                            <input 
+                              id="soTienNhan"
+                              type="text" 
+                              placeholder="VD: 500.000"
+                              value={checkout.state.soTienNhan ? Number(checkout.state.soTienNhan.replace(/\D/g, '')).toLocaleString('vi-VN') : ''}
+                              onChange={(e) => {
+                                const raw = e.target.value.replace(/\D/g, '');
+                                checkout.dispatch({ type: 'SET_FIELD', field: 'soTienNhan', value: raw });
+                              }}
+                              required
+                              className={`w-full px-4 py-3 rounded-2xl text-xs font-bold transition-all outline-none ${
+                                isShortage 
+                                  ? 'bg-rose-50/20 border-rose-350 text-rose-900 focus:bg-white focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20' 
+                                  : 'bg-zinc-50 border-zinc-200 text-secondary focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20'
+                              }`}
+                            />
+                            {isShortage && (
+                              <p className="text-[10.5px] text-rose-600 font-extrabold flex items-center gap-1 mt-1 animate-in fade-in slide-in-from-top-1 duration-150">
+                                ⚠️ Còn thiếu {formatCurrency(totalRequired - received)} để hoàn thành thanh toán
+                              </p>
+                            )}
                           </div>
-                        );
-                      }
-                      return null;
+
+                          <div className="flex flex-wrap gap-2">
+                            {currentQuickCashOptions.map(val => {
+                              const isActive = val === received;
+                              const isExact = val === totalRequired;
+                              
+                              let btnStyle = '';
+                              if (isActive) {
+                                btnStyle = 'bg-primary border-primary text-white shadow-sm scale-105';
+                              } else if (isExact) {
+                                btnStyle = 'bg-primary/5 border-primary/50 text-primary hover:bg-primary hover:text-white';
+                              } else {
+                                btnStyle = 'bg-zinc-50 border-zinc-200 text-zinc-500 hover:bg-primary hover:text-white';
+                              }
+
+                              return (
+                                <button 
+                                  key={val} 
+                                  type="button"
+                                  onClick={() => checkout.dispatch({ type: 'SET_FIELD', field: 'soTienNhan', value: val.toString() })}
+                                  className={`px-3.5 py-2 rounded-full text-[10px] font-black transition-all border ${btnStyle}`}
+                                >
+                                  {formatCurrency(val)}
+                                  {isExact && !isActive && <span className="text-[8px] font-bold ml-1 opacity-80">(Cần thu)</span>}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {received > totalRequired && (
+                            <div className="bg-emerald-50 text-emerald-700 border border-emerald-200/40 rounded-2xl p-4 text-xs font-bold flex justify-between items-center">
+                              <span>Tiền thừa thối khách hàng:</span>
+                              <span className="text-base font-black">{formatCurrency(received - totalRequired)}</span>
+                            </div>
+                          )}
+                        </div>
+                      );
                     })()}
+
+                    {/* Friendly message if totalRequired is 0 (Tung buoi with paid exam) */}
+                    {isTungBuoiWithPaidExam && (
+                      <div className="bg-emerald-50/65 border border-emerald-200/80 p-4.5 rounded-2xl text-xs font-bold text-emerald-800 space-y-2 animate-in fade-in duration-200 border-dashed">
+                        <p className="flex items-center gap-1.5 text-emerald-950 font-black">
+                          <span>✓</span> Đã thanh toán khám ngày {checkout.selectedConsultation?.ngay_thanh_toan_kham}
+                        </p>
+                        <p className="flex items-center gap-1.5 text-emerald-950 font-black">
+                          <span>✓</span> Đã chọn phương thức thanh toán từng buổi.
+                        </p>
+                        <p className="text-emerald-900 leading-relaxed font-semibold">
+                          💵 Khách hàng không cần thanh toán thêm tại quầy hôm nay. Phác đồ sẽ được kích hoạt ngay lập tức. Số tiền thanh toán mỗi buổi thực tế sau này là: <span className="text-emerald-950 font-black">{formatCurrency(Number(checkout.calculatedData?.don_gia_theo_buoi || 0))}/buổi</span> (bắt đầu từ buổi số 1).
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Reason / Note input */}
+                    <div className="space-y-1.5">
+                      <label htmlFor="feedbackLyDo" className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Ghi chú nội bộ phòng khám</label>
+                      <textarea 
+                        id="feedbackLyDo"
+                        placeholder="Ghi nhận phản hồi..."
+                        rows={2.5}
+                        value={checkout.feedbackLyDo}
+                        onChange={(e) => checkout.setFeedbackLyDo(e.target.value)}
+                        className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-xs font-bold text-secondary focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all resize-none"
+                      />
+                    </div>
                   </div>
-                )}
 
-                {/* Reason / Note input */}
-                <div className="space-y-1.5">
-                  <label htmlFor="feedbackLyDo" className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Ghi chú nội bộ phòng khám</label>
-                  <textarea 
-                    id="feedbackLyDo"
-                    placeholder="Ghi nhận phản hồi..."
-                    rows={2.5}
-                    value={checkout.feedbackLyDo}
-                    onChange={(e) => checkout.setFeedbackLyDo(e.target.value)}
-                    className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-xs font-bold text-secondary focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all resize-none"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={checkout.state.loading || (checkout.dangKyGoi ? checkout.calculating : !checkout.state.hoaDon)}
-                className="w-full py-4 bg-primary hover:bg-primary/95 text-white shadow-md hover:shadow-lg font-black text-xs uppercase tracking-wider rounded-2xl transition-all disabled:opacity-45 disabled:pointer-events-none"
-              >
-                {checkout.state.loading ? 'Đang xử lý...' : 'Xác nhận & Thu tiền'}
-              </button>
-            </form>
+                  <button
+                    type="submit"
+                    disabled={checkout.state.loading || (checkout.dangKyGoi ? checkout.calculating : !checkout.state.hoaDon)}
+                    className="w-full py-4 bg-primary hover:bg-primary/95 text-white shadow-md hover:shadow-lg font-black text-xs uppercase tracking-wider rounded-2xl transition-all disabled:opacity-45 disabled:pointer-events-none"
+                  >
+                    {checkout.state.loading ? 'Đang xử lý...' : (totalRequired === 0 ? 'Kích hoạt phác đồ & Đặt lịch' : 'Xác nhận & Thu tiền')}
+                  </button>
+                </form>
+              );
+            })()}
           </div>
 
           {/* Right panel: Live breakdown receipt */}
@@ -546,7 +630,7 @@ export default function ManageFinance() {
           <div>
             <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Đã hoàn tiền (Hoàn trả)</span>
             <h3 className="text-xl font-black text-secondary mt-1">
-              {formatCurrency(dashboard.payments.filter(p => p.trang_thai === 'da_hoan_tien').reduce((acc, p) => acc + Number(p.so_tien || 0), 0))}
+              {formatCurrency(dashboard.payments.filter(p => p.loai_giao_dich === 'HOAN_TIEN').reduce((acc, p) => acc + Math.abs(Number(p.so_tien || 0)), 0))}
             </h3>
           </div>
         </div>
@@ -812,6 +896,7 @@ export default function ManageFinance() {
           onPrint={handlePrint}
           onOpenFastPay={(inv) => dashboard.setFastPayInvoice(inv)}
           onRefund={dashboard.handleRefund}
+          onPackageRefund={dashboard.handlePackageRefund}
         />
       )}
 

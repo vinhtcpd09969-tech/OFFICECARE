@@ -54,6 +54,7 @@ router.get('/medical-records', authorizeRoles(2, 4, 5, 6), adminController.getMe
 router.get('/invoices', authorizeRoles(2, 5, 6), adminController.getInvoices);
 router.get('/payments', authorizeRoles(2, 5, 6), adminController.getPayments);
 router.post('/payments/:id/refund', authorizeRoles(5, 6), adminController.handleRefund);
+router.post('/invoices/:id/refund-package', authorizeRoles(5, 6), adminController.handlePackageRefund);
 
 // ─── MARKETING ─────────────────────────────────────────────────────────────────
 router.get('/vouchers', authorizeRoles(2, 5, 6), adminController.getVouchers);

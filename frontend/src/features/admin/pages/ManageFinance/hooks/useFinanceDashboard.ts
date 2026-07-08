@@ -17,6 +17,12 @@ interface Invoice {
   ngay_tao: string;
   ten_dich_vu?: string;
   ghi_chu?: string;
+  phac_do_dieu_tri_id?: string | null;
+  cuoc_hen_id?: string | null;
+  loai_goi?: string;
+  so_buoi_goi?: number;
+  so_buoi_da_dung?: number;
+  tong_so_buoi?: number;
 }
 
 interface Payment {
@@ -29,6 +35,7 @@ interface Payment {
   phuong_thuc: string;
   trang_thai: string;
   thoi_gian_giao_dich: string;
+  loai_giao_dich: string;
 }
 
 export const useFinanceDashboard = (isCheckoutMode: boolean) => {
@@ -94,11 +101,34 @@ export const useFinanceDashboard = (isCheckoutMode: boolean) => {
     }
   };
 
+  const handlePackageRefund = async (
+    invoiceId: string,
+    usedSessions: number,
+    penalty: number,
+    reason: string
+  ) => {
+    const toastId = toast.loading('Đang xử lý hủy gói và hoàn tiền...');
+    try {
+      await axiosInstance.post(`/admin/invoices/${invoiceId}/refund-package`, {
+        so_buoi_dung: usedSessions,
+        phi_phat: penalty,
+        ly_do: reason
+      });
+      toast.success('Hủy gói và hoàn tiền thành công!', { id: toastId });
+      fetchDashboardData();
+      setSelectedInvoice(null);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Lỗi khi hủy gói hoàn tiền.', { id: toastId });
+      throw error;
+    }
+  };
+
   const handleFastPaySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fastPayInvoice) return;
     const requiredAmount = Number(fastPayInvoice.tong_tien_thanh_toan) - Number(fastPayInvoice.da_thanh_toan);
-    const entered = Number(fastPayReceived);
+    const cleanReceived = fastPayReceived.replace(/\D/g, '');
+    const entered = Number(cleanReceived);
 
     if (fastPayMethod === 'tien_mat' && entered < requiredAmount) {
       const formattedAmount = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(requiredAmount);
@@ -111,7 +141,7 @@ export const useFinanceDashboard = (isCheckoutMode: boolean) => {
     try {
       const res = await axiosInstance.post('/receptionist/payment', {
         hoa_don_id: fastPayInvoice.id,
-        so_tien_nhan: fastPayMethod === 'tien_mat' ? fastPayReceived : requiredAmount.toString(),
+        so_tien_nhan: fastPayMethod === 'tien_mat' ? cleanReceived : requiredAmount.toString(),
         phuong_thuc: fastPayMethod,
         ghi_chu: fastPayNote || undefined,
       });
@@ -210,6 +240,7 @@ export const useFinanceDashboard = (isCheckoutMode: boolean) => {
     fastPayLoading,
     fetchDashboardData,
     handleRefund,
+    handlePackageRefund,
     handleFastPaySubmit,
     getFilteredInvoices,
   };
