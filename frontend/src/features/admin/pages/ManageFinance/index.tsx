@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../../../stores/authStore';
 import { 
@@ -26,6 +27,7 @@ import FastPaymentModal from './components/FastPaymentModal';
 import InvoiceDetailModal from './components/InvoiceDetailModal';
 import ReceiptBreakdown from './components/ReceiptBreakdown';
 import PaymentSuccessBox from './components/PaymentSuccessBox';
+import ConfirmPaymentModal from './components/ConfirmPaymentModal';
 
 const getStatusBadge = (status: string) => {
   const badges: Record<string, string> = {
@@ -54,6 +56,18 @@ export default function ManageFinance() {
   // Hooks
   const checkout = useCheckout(queryLichDatId, isCheckoutMode);
   const dashboard = useFinanceDashboard(isCheckoutMode);
+
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+
+  const handleConfirmSubmit = () => {
+    setShowConfirmModal(false);
+    const dummyEvent = { preventDefault: () => {} } as React.FormEvent;
+    if (checkout.dangKyGoi) {
+      checkout.handleThanhToanPackage(dummyEvent);
+    } else {
+      checkout.handleThanhToanSingle(dummyEvent);
+    }
+  };
 
   const quickCashOptions = [200000, 500000, 1000000, 2000000, 5000000];
 
@@ -225,11 +239,7 @@ export default function ManageFinance() {
                     if (totalRequired === 0) {
                       checkout.dispatch({ type: 'SET_FIELD', field: 'soTienNhan', value: '0' });
                     }
-                    if (checkout.dangKyGoi) {
-                      checkout.handleThanhToanPackage(e);
-                    } else {
-                      checkout.handleThanhToanSingle(e);
-                    }
+                    setShowConfirmModal(true);
                   }}
                   className="bg-white rounded-2xl border border-zinc-150 p-6 space-y-6 shadow-sm"
                 >
@@ -532,6 +542,37 @@ export default function ManageFinance() {
             />
           </div>
         </div>
+
+        {(() => {
+          const totalRequired = checkout.dangKyGoi && checkout.calculatedData
+            ? (checkout.loaiThanhToan === 'tra_gop' || checkout.loaiThanhToan === 'tung_buoi'
+              ? Number(checkout.calculatedData.so_tien_dot_1)
+              : Number(checkout.calculatedData.tong_tien_thanh_toan))
+            : (checkout.state.hoaDon ? Number(checkout.state.hoaDon.tong_tien_thanh_toan) : 0);
+
+          const received = Number(checkout.state.soTienNhan || 0);
+
+          return (
+            <ConfirmPaymentModal
+              isOpen={showConfirmModal}
+              onClose={() => setShowConfirmModal(false)}
+              onConfirm={handleConfirmSubmit}
+              patientName={checkout.selectedConsultation?.ten_khach_hang || ''}
+              itemName={
+                checkout.dangKyGoi
+                  ? (checkout.selectedPackage?.ten_goi || 'Gói trị liệu')
+                  : (checkout.state.hoaDon?.ten_dich_vu || 'Phí khám/Buổi trị liệu')
+              }
+              totalAmount={totalRequired}
+              paymentMethod={checkout.state.phuongThuc}
+              receivedAmount={received}
+              changeAmount={received > totalRequired ? (received - totalRequired) : 0}
+              note={checkout.feedbackLyDo}
+              loading={checkout.state.loading}
+              actionText={totalRequired === 0 ? 'Kích hoạt phác đồ & Đặt lịch' : 'Xác nhận & Thu tiền'}
+            />
+          );
+        })()}
       </div>
     );
   }
