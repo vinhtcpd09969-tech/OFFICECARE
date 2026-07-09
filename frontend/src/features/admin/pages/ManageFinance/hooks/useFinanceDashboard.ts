@@ -23,6 +23,8 @@ interface Invoice {
   so_buoi_goi?: number;
   so_buoi_da_dung?: number;
   tong_so_buoi?: number;
+  ngay_kham?: string;
+  ngay_kham_ket_thuc?: string;
 }
 
 interface Payment {
@@ -126,7 +128,9 @@ export const useFinanceDashboard = (isCheckoutMode: boolean) => {
   const handleFastPaySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fastPayInvoice) return;
-    const requiredAmount = Number(fastPayInvoice.tong_tien_thanh_toan) - Number(fastPayInvoice.da_thanh_toan);
+    const requiredAmount = fastPayInvoice.trang_thai === 'da_hoan_tien' || fastPayInvoice.trang_thai === 'da_huy'
+      ? 0
+      : Number(fastPayInvoice.tong_tien_thanh_toan) - Number(fastPayInvoice.da_thanh_toan);
     const cleanReceived = fastPayReceived.replace(/\D/g, '');
     const entered = Number(cleanReceived);
 

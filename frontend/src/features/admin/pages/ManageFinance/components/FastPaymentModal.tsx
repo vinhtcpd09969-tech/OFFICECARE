@@ -30,7 +30,9 @@ export const FastPaymentModal: React.FC<FastPaymentModalProps> = ({
 }) => {
   if (!invoice) return null;
 
-  const requiredAmount = Number(invoice.tong_tien_thanh_toan) - Number(invoice.da_thanh_toan);
+  const requiredAmount = invoice.trang_thai === 'da_hoan_tien' || invoice.trang_thai === 'da_huy'
+    ? 0
+    : Number(invoice.tong_tien_thanh_toan) - Number(invoice.da_thanh_toan);
   const quickCashOptions = [200000, 500000, 1000000, 2000000, 5000000];
 
   return (

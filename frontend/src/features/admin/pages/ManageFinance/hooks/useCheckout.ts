@@ -64,6 +64,7 @@ export const useCheckout = (
   const [feedbackLyDo, setFeedbackLyDo] = useState('');
   const [paymentSuccessData, setPaymentSuccessData] = useState<any | null>(null);
   const [checkoutTab, setCheckoutTab] = useState<'single' | 'package'>('package');
+  const [durationDays, setDurationDays] = useState<number>(60);
 
   // Load checkout details
   useEffect(() => {
@@ -357,6 +358,7 @@ export const useCheckout = (
         ho_ten_khach: selectedConsultation.ten_khach_hang,
         so_dien_thoai: selectedConsultation.sdt_khach_hang,
         dang_ky_goi: dangKyGoi,
+        so_ngay_hieu_luc: (dangKyGoi && ['tra_thang', 'tra_gop'].includes(loaiThanhToan)) ? durationDays : null,
       });
 
       const hoaDonMoi = invoiceRes.data.hoa_don;
@@ -421,6 +423,8 @@ export const useCheckout = (
     setPaymentSuccessData,
     checkoutTab,
     setCheckoutTab,
+    durationDays,
+    setDurationDays,
     handleApplyVoucher,
     handleRemoveVoucher,
     handleThanhToanSingle,

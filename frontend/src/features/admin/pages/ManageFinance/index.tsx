@@ -312,46 +312,70 @@ export default function ManageFinance() {
 
                         {/* Payment type options */}
                         {checkout.selectedPackage?.loai_goi !== 'LE' && (
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Hình thức thanh toán gói</label>
-                            <div className="grid grid-cols-3 gap-3">
-                              <button
-                                type="button"
-                                onClick={() => checkout.setLoaiThanhToan('tra_thang')}
-                                disabled={isTungBuoiWithPaidExam}
-                                className={`py-3.5 px-4 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all ${
-                                  checkout.loaiThanhToan === 'tra_thang'
-                                    ? 'bg-primary/10 border-primary text-primary shadow-sm'
-                                    : 'bg-zinc-50/50 border-zinc-200 text-zinc-500 hover:bg-zinc-50'
-                                }`}
-                              >
-                                Trả thẳng
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => checkout.setLoaiThanhToan('tra_gop')}
-                                disabled={isTungBuoiWithPaidExam}
-                                className={`py-3.5 px-4 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all ${
-                                  checkout.loaiThanhToan === 'tra_gop'
-                                    ? 'bg-primary/10 border-primary text-primary shadow-sm'
-                                    : 'bg-zinc-50/50 border-zinc-200 text-zinc-500 hover:bg-zinc-50'
-                                }`}
-                              >
-                                Trả góp 50%
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => checkout.setLoaiThanhToan('tung_buoi')}
-                                disabled={isTungBuoiWithPaidExam}
-                                className={`py-3.5 px-4 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all ${
-                                  checkout.loaiThanhToan === 'tung_buoi'
-                                    ? 'bg-primary/10 border-primary text-primary shadow-sm'
-                                    : 'bg-zinc-50/50 border-zinc-200 text-zinc-500 hover:bg-zinc-50'
-                                }`}
-                              >
-                                Từng buổi
-                              </button>
+                          <div className="space-y-3">
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Hình thức thanh toán gói</label>
+                              <div className="grid grid-cols-3 gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => checkout.setLoaiThanhToan('tra_thang')}
+                                  disabled={isTungBuoiWithPaidExam}
+                                  className={`py-3.5 px-4 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all ${
+                                    checkout.loaiThanhToan === 'tra_thang'
+                                      ? 'bg-primary/10 border-primary text-primary shadow-sm'
+                                      : 'bg-zinc-50/50 border-zinc-200 text-zinc-500 hover:bg-zinc-50'
+                                  }`}
+                                >
+                                  Trả thẳng
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => checkout.setLoaiThanhToan('tra_gop')}
+                                  disabled={isTungBuoiWithPaidExam}
+                                  className={`py-3.5 px-4 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all ${
+                                    checkout.loaiThanhToan === 'tra_gop'
+                                      ? 'bg-primary/10 border-primary text-primary shadow-sm'
+                                      : 'bg-zinc-50/50 border-zinc-200 text-zinc-500 hover:bg-zinc-50'
+                                  }`}
+                                >
+                                  Trả góp 50%
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => checkout.setLoaiThanhToan('tung_buoi')}
+                                  disabled={isTungBuoiWithPaidExam}
+                                  className={`py-3.5 px-4 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all ${
+                                    checkout.loaiThanhToan === 'tung_buoi'
+                                      ? 'bg-primary/10 border-primary text-primary shadow-sm'
+                                      : 'bg-zinc-50/50 border-zinc-200 text-zinc-500 hover:bg-zinc-50'
+                                  }`}
+                                >
+                                  Từng buổi
+                                </button>
+                              </div>
                             </div>
+
+                            {['tra_thang', 'tra_gop'].includes(checkout.loaiThanhToan) && (
+                              <div className="space-y-1.5 animate-in fade-in duration-200 text-left">
+                                <label htmlFor="durationDays" className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">
+                                  Hạn sử dụng gói (ngày) *
+                                </label>
+                                <div className="relative">
+                                  <input
+                                    type="number"
+                                    id="durationDays"
+                                    min="1"
+                                    value={checkout.durationDays}
+                                    onChange={(e) => checkout.setDurationDays(Math.max(1, Number(e.target.value)))}
+                                    className="w-full pl-4 pr-32 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-xs font-bold text-secondary focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                                    required
+                                  />
+                                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[9px] text-zinc-400 font-bold uppercase tracking-wider">
+                                    ngày kể từ ngày kích hoạt
+                                  </span>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

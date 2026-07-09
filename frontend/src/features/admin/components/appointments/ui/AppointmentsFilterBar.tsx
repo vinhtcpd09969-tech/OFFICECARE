@@ -104,11 +104,22 @@ export function AppointmentsFilterBar({
             <div className="flex bg-slate-50 dark:bg-zinc-850 p-1 rounded-xl border border-slate-200/60 dark:border-zinc-800 select-none shrink-0">
               <button
                 type="button"
+                onClick={() => setTimeRange('today')}
+                className={`px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all ${
+                  timeRange === 'today'
+                    ? 'bg-white dark:bg-zinc-700 text-[#0d9488] dark:text-teal-400 shadow-sm border border-slate-200/20'
+                    : 'text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200'
+                }`}
+              >
+                Ngày
+              </button>
+              <button
+                type="button"
                 onClick={() => setTimeRange('7days')}
                 className={`px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all ${
                   timeRange === '7days'
-                    ? 'bg-white dark:bg-zinc-700 text-[#0d9488] dark:text-teal-400 shadow-sm border border-slate-200/20'
-                    : 'text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200'
+                    ? 'bg-white dark:bg-zinc-700 text-[#0d9488] dark:text-teal-450 shadow-sm border border-slate-200/20'
+                    : 'text-slate-550 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200'
                 }`}
               >
                 Tuần
@@ -159,7 +170,7 @@ export function AppointmentsFilterBar({
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
                     </span>
                   )}
-                  {viewMode === 'timeline' ? (
+                  {(viewMode === 'timeline' || timeRange === 'today') ? (
                     <span className="lowercase first-letter:uppercase">Ngày: {format(selectedDate, 'eeee, dd/MM/yyyy', { locale: vi })}</span>
                   ) : timeRange === 'month' ? (
                     <span>Tháng: {format(startDateOfWeek, 'MM/yyyy')}</span>
@@ -168,7 +179,7 @@ export function AppointmentsFilterBar({
                   )}
                   {showActiveIndicator && (
                     <span className="text-[9px] font-black uppercase text-[#0d9488] dark:text-teal-400 bg-[#0d9488]/10 dark:bg-teal-950/40 px-1.5 py-0.5 rounded border border-teal-500/20">
-                      {viewMode === 'timeline' ? 'Hôm nay' : timeRange === 'month' ? 'Tháng này' : 'Tuần này'}
+                      {(viewMode === 'timeline' || timeRange === 'today') ? 'Hôm nay' : timeRange === 'month' ? 'Tháng này' : 'Tuần này'}
                     </span>
                   )}
                 </div>

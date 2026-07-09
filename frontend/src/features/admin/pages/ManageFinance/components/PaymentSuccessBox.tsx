@@ -74,7 +74,7 @@ export const PaymentSuccessBox: React.FC<PaymentSuccessBoxProps> = ({
             type="button"
             onClick={() => {
               const calendarPath = Number(user?.vai_tro_id) === 2 ? '/receptionist/appointments' : '/admin/appointments';
-              navigate(`${calendarPath}?khach_hang_id=${paymentSuccessData.khachHangId}&goi_dich_vu_id=${paymentSuccessData.khuyenNghiGoiId}`);
+              navigate(`${calendarPath}?khach_hang_id=${paymentSuccessData.khachHangId}&goi_dich_vu_id=${paymentSuccessData.khuyenNghiGoiId}&range=today&view=timeline`);
             }}
             className="w-full py-3.5 bg-amber-500 hover:bg-amber-600 active:scale-[0.98] text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
           >
@@ -112,7 +112,7 @@ export const PaymentSuccessBox: React.FC<PaymentSuccessBoxProps> = ({
             type="button"
             onClick={() => {
               const calendarPath = Number(user?.vai_tro_id) === 2 ? '/receptionist/appointments' : '/admin/appointments';
-              navigate(`${calendarPath}?khach_hang_id=${paymentSuccessData.khachHangId}&goi_dich_vu_id=${paymentSuccessData.daDangKyGoiId}`);
+              navigate(`${calendarPath}?khach_hang_id=${paymentSuccessData.khachHangId}&goi_dich_vu_id=${paymentSuccessData.daDangKyGoiId}&range=today&view=timeline`);
             }}
             className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
           >

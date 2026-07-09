@@ -205,7 +205,7 @@ export default function ManageMedicalRecords() {
   if (selectedPlan) {
     for (let i = 1; i <= selectedPlan.tong_so_buoi; i++) {
       const apptExists = selectedPlanSessions.some((ap: any) => 
-        ap.so_thu_tu_buoi === i || (i === 1 && ap.loai === 'KHAM')
+        ap.so_thu_tu_buoi === i && ap.loai !== 'KHAM'
       );
       if (!apptExists) {
         firstEmptySessionNum = i;
@@ -619,8 +619,7 @@ export default function ManageMedicalRecords() {
                   {Array.from({ length: selectedPlan.tong_so_buoi }).map((_, index) => {
                     const sessionNum = index + 1;
                     // Check if appointment exists
-                    const appt = selectedPlanSessions.find((ap: any) => ap.so_thu_tu_buoi === sessionNum) || 
-                      (sessionNum === 1 ? selectedPlanSessions.find((ap: any) => ap.loai === 'KHAM') : null);
+                    const appt = selectedPlanSessions.find((ap: any) => ap.so_thu_tu_buoi === sessionNum && ap.loai !== 'KHAM');
 
                     const isUnbooked = !appt && sessionNum === firstEmptySessionNum;
                     const isFinished = appt?.trang_thai === 'hoan_thanh';
@@ -637,7 +636,7 @@ export default function ManageMedicalRecords() {
                                   {isFinished ? 'Hoàn thành' : 'Đã đặt lịch'}
                                 </span>
                                 <strong className="text-xs font-black text-slate-800">
-                                  Buổi {sessionNum} • {appt.loai === 'KHAM' ? 'Khám lâm sàng & Lượng giá' : 'Trị liệu phục hồi'}
+                                  Buổi {sessionNum} • Trị liệu phục hồi
                                 </strong>
                               </div>
                               <p className="text-[10px] text-slate-400 font-semibold mt-1">

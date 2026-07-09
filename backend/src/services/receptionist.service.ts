@@ -301,7 +301,11 @@ class ReceptionistService {
 
     let ngay_thanh_toan_kham_str = '';
 
-    if (lich_dat_id) {
+    const isSingleService = item_type === 'goi' && loai_goi_db === 'LE';
+    const isTungBuoi = loai_thanh_toan === 'tung_buoi';
+    const isExcludeExam = isSingleService || isTungBuoi;
+
+    if (lich_dat_id && !isExcludeExam) {
       const appt = await receptionistRepository.getAppointmentWithServicePrice(lich_dat_id);
       if (appt) {
         chi_phi_kham = Number(appt.don_gia);
@@ -322,28 +326,20 @@ class ReceptionistService {
         }
       }
 
-      if (loai_thanh_toan === 'tung_buoi' && paidAmount > 0) {
-        // Special case: Pay-per-session with already paid exam fee.
-        // We do not add exam fee to this package invoice, nor show deduction. First payment is 0đ.
-        chi_phi_kham = 0;
-        giam_tru_kham_truoc_do = 0;
-        mien_phi_kham_chua_dong = 0;
-      } else {
-        // Check if they are eligible for the free exam waiver:
-        // payment mode tra_thang or tra_gop, and unit price >= 1.000.000đ
-        if (['tra_thang', 'tra_gop'].includes(loai_thanh_toan) && gia_goc_goi >= 1000000) {
-          mien_phi_kham = true;
-        }
+      // Check if they are eligible for the free exam waiver:
+      // payment mode tra_thang or tra_gop, and unit price >= 1.000.000đ
+      if (['tra_thang', 'tra_gop'].includes(loai_thanh_toan) && gia_goc_goi >= 1000000) {
+        mien_phi_kham = true;
+      }
 
-        if (mien_phi_kham) {
-          mien_phi_kham_chua_dong = chi_phi_kham;
-          if (paidAmount > 0) {
-            giam_tru_kham_truoc_do = paidAmount;
-          }
-        } else {
-          if (paidAmount > 0) {
-            giam_tru_kham_truoc_do = paidAmount;
-          }
+      if (mien_phi_kham) {
+        mien_phi_kham_chua_dong = chi_phi_kham;
+        if (paidAmount > 0) {
+          giam_tru_kham_truoc_do = paidAmount;
+        }
+      } else {
+        if (paidAmount > 0) {
+          giam_tru_kham_truoc_do = paidAmount;
         }
       }
     }
@@ -459,6 +455,17 @@ class ReceptionistService {
     if (finalLdtId && dang_ky_goi !== false) {
       const ldt = await receptionistRepository.getTreatmentPlanById(finalLdtId);
       if (!ldt) throw new Error('Không tìm thấy lịch điều trị');
+
+      // Update package expiration date if custom validity duration is supplied
+      const so_ngay_hieu_luc = data.so_ngay_hieu_luc;
+      if (so_ngay_hieu_luc && ['tra_thang', 'tra_gop'].includes(loai_thanh_toan)) {
+        await pool.query(
+          `UPDATE phac_do_dieu_tri 
+           SET han_su_dung = CURRENT_DATE + $1 * INTERVAL '1 day'
+           WHERE id = $2`,
+          [Number(so_ngay_hieu_luc), finalLdtId]
+        );
+      }
 
       const calc = await this.calculateBilling({ 
         item_type: 'goi', 
@@ -640,23 +647,36 @@ class ReceptionistService {
       await receptionistRepository.updateTreatmentPlanStatus(hd.lich_dieu_tri_id, statusToSet);
     }
 
-    // Mark any pending original exam invoice for this appointment as Paid (0đ due) to link it to the package promotion
-    if (hd.cuoc_hen_id && hd.phac_do_dieu_tri_id) {
+    // Mark any pending original exam invoice for this client/appointment as Paid (0đ due) to link it to the package promotion
+    if (hd.phac_do_dieu_tri_id) {
       const maHoaDonGoi = `HD-${hoa_don_id.substring(0, 6).toUpperCase()}`;
       const promoNote = Number(hd.tong_tien_goc) >= 1000000
         ? `Được miễn phí khám lâm sàng theo chương trình ưu đãi của hóa đơn gói ${maHoaDonGoi}.`
         : `Phí khám lâm sàng được gộp thanh toán vào hóa đơn gói ${maHoaDonGoi}.`;
 
-      await pool.query(`
-        UPDATE hoa_don
-        SET trang_thai = 'da_thanh_toan',
-            tong_tien_phai_tra = 0,
-            so_tien_da_tra = 0,
-            ghi_chu = $1
-        WHERE cuoc_hen_id = $2
-          AND phac_do_dieu_tri_id IS NULL
-          AND trang_thai = 'chua_thanh_toan'
-      `, [promoNote, hd.cuoc_hen_id]);
+      if (hd.cuoc_hen_id) {
+        await pool.query(`
+          UPDATE hoa_don
+          SET trang_thai = 'da_thanh_toan',
+              tong_tien_phai_tra = 0,
+              so_tien_da_tra = 0,
+              ghi_chu = $1
+          WHERE (cuoc_hen_id = $2 OR (khach_hang_id = $3 AND phac_do_dieu_tri_id IS NULL AND tong_tien_phai_tra = (SELECT don_gia FROM goi_dich_vu WHERE loai_goi = 'KHAM' LIMIT 1)))
+            AND trang_thai = 'chua_thanh_toan'
+        `, [promoNote, hd.cuoc_hen_id, hd.khach_hang_id]);
+      } else {
+        await pool.query(`
+          UPDATE hoa_don
+          SET trang_thai = 'da_thanh_toan',
+              tong_tien_phai_tra = 0,
+              so_tien_da_tra = 0,
+              ghi_chu = $1
+          WHERE khach_hang_id = $2 
+            AND phac_do_dieu_tri_id IS NULL 
+            AND tong_tien_phai_tra = (SELECT don_gia FROM goi_dich_vu WHERE loai_goi = 'KHAM' LIMIT 1)
+            AND trang_thai = 'chua_thanh_toan'
+        `, [promoNote, hd.khach_hang_id]);
+      }
     }
 
     return { 

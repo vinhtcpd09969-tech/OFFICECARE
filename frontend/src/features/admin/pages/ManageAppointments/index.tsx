@@ -313,7 +313,7 @@ export default function ManageAppointments() {
       setSelectedDate(new Date());
     } else if (direction === 'next') {
       setSelectedDate(prev => 
-        viewMode === 'timeline'
+        (viewMode === 'timeline' || timeRange === 'today')
           ? addDays(prev, 1)
           : timeRange === 'month'
             ? addMonths(prev, 1)
@@ -321,7 +321,7 @@ export default function ManageAppointments() {
       );
     } else {
       setSelectedDate(prev => 
-        viewMode === 'timeline'
+        (viewMode === 'timeline' || timeRange === 'today')
           ? subDays(prev, 1)
           : timeRange === 'month'
             ? subMonths(prev, 1)
@@ -677,6 +677,7 @@ export default function ManageAppointments() {
                   selectedDateStr={formattedSelectedDate}
                   initialCustomerId={new URLSearchParams(location.search).get('khach_hang_id') || undefined}
                   initialServiceId={new URLSearchParams(location.search).get('goi_dich_vu_id') || undefined}
+                  onDateChange={setSelectedDate}
                 />
               ) : (
                 <>

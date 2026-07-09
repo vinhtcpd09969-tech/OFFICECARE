@@ -38,7 +38,9 @@ export function DetailFooter({
     <div className="pt-6 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between gap-3">
       {['kham_moi', 'dich_vu_don', 'KHAM', 'DICH_VU_LE'].includes(selectedAppointment.loai_lich) && selectedAppointment.trang_thai === 'hoan_thanh' ? (
         <div className="flex gap-2">
-          {selectedAppointment.trang_thai_thanh_toan === 'da_thanh_toan' ? (
+          {selectedAppointment.trang_thai_thanh_toan === 'da_thanh_toan' || 
+           (!!selectedAppointment.hoa_don_goi_id && 
+            ['tra_thang', 'tra_gop'].includes(selectedAppointment.hinh_thuc_thanh_toan_goi)) ? (
             <div className="px-4 py-2.5 bg-emerald-50 border border-emerald-250 text-emerald-600 text-xs font-black rounded-xl flex items-center gap-1.5 select-none uppercase tracking-wider">
               🟢 {['kham_moi', 'KHAM'].includes(selectedAppointment.loai_lich) ? 'Đã thanh toán khám' : 'Đã thanh toán dịch vụ lẻ'}
             </div>

@@ -425,6 +425,7 @@ class ReceptionistRepository {
     const { rows } = await pool.query(`
       SELECT 
         hd.id,
+        hd.khach_hang_id,
         hd.trang_thai,
         hd.tong_tien_phai_tra as tong_tien_thanh_toan, 
         hd.so_tien_da_tra as da_thanh_toan, 
@@ -433,12 +434,15 @@ class ReceptionistRepository {
         hd.phac_do_dieu_tri_id as lich_dieu_tri_id,
         hd.cuoc_hen_id,
         hd.tong_tien_goc,
+        hd.ghi_chu,
         hd.hinh_thuc_thanh_toan_goi as loai_thanh_toan,
         hd.hinh_thuc_thanh_toan_goi,
         hd.ti_le_giam_gia_goi,
         hd.so_tien_giam_voucher,
         hd.ngay_tao,
         COALESCE(pd.tong_so_buoi, 1) as so_buoi_goi,
+        ch.ngay_gio_bat_dau as ngay_kham,
+        ch.ngay_gio_ket_thuc as ngay_kham_ket_thuc,
         CASE 
           WHEN hd.hinh_thuc_thanh_toan_goi = 'tung_buoi' AND EXISTS (
             SELECT 1 FROM hoa_don exam_hd 
@@ -446,11 +450,14 @@ class ReceptionistRepository {
               AND exam_hd.phac_do_dieu_tri_id IS NULL 
               AND exam_hd.trang_thai = 'da_thanh_toan'
           ) THEN 0
-          WHEN hd.cuoc_hen_id IS NOT NULL THEN 200000
+          WHEN hd.phac_do_dieu_tri_id IS NULL AND hd.tong_tien_goc > COALESCE(dv.don_gia, 200000) THEN 0
+          WHEN hd.cuoc_hen_id IS NOT NULL THEN COALESCE(dv.don_gia, 200000)
           ELSE 0
         END as chi_phi_kham
       FROM hoa_don hd
       LEFT JOIN phac_do_dieu_tri pd ON hd.phac_do_dieu_tri_id = pd.id
+      LEFT JOIN cuoc_hen ch ON hd.cuoc_hen_id = ch.id
+      LEFT JOIN goi_dich_vu dv ON ch.goi_dich_vu_id = dv.id
       WHERE hd.id = $1
     `, [id]);
     return rows[0];
@@ -917,7 +924,7 @@ class ReceptionistRepository {
     const { rows } = await pool.query(`
       SELECT pd.id::text, pd.goi_dich_vu_id, pd.tong_so_buoi, pd.so_buoi_da_dung, pd.trang_thai,
              gdv.ten_goi as ten_goi_dich_vu, gdv.thoi_luong_phut,
-             NULL::uuid as cuoc_hen_id
+             NULL::uuid as cuoc_hen_id, gdv.loai_goi
       FROM phac_do_dieu_tri pd
       JOIN goi_dich_vu gdv ON pd.goi_dich_vu_id = gdv.id
       WHERE pd.khach_hang_id = $1 
@@ -934,7 +941,8 @@ class ReceptionistRepository {
         'khuyen_nghi' as trang_thai,
         gdv.ten_goi as ten_goi_dich_vu,
         gdv.thoi_luong_phut,
-        ch.id as cuoc_hen_id
+        ch.id as cuoc_hen_id,
+        gdv.loai_goi
       FROM chi_dinh_buoi cd
       JOIN nhat_ky_buoi_dieu_tri nk ON cd.nhat_ky_id = nk.id
       JOIN cuoc_hen ch ON nk.cuoc_hen_id = ch.id

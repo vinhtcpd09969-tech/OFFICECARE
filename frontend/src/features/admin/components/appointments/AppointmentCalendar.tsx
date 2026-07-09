@@ -407,6 +407,14 @@ function AppointmentCard({
   
   const showCountdown = false;
 
+  const isInstallmentWarning = 
+    apt.loai_lich?.toUpperCase() === 'DIEU_TRI' &&
+    apt.hinh_thuc_thanh_toan_goi === 'tra_gop' &&
+    apt.trang_thai_hoa_don_goi !== 'da_thanh_toan' &&
+    !['da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(apt.trang_thai) &&
+    Number(apt.so_tien_da_tra_goi) < Number(apt.tong_tien_phai_tra_goi) &&
+    Number(apt.so_thu_tu_buoi) >= Math.floor(Number(apt.tong_so_buoi_goi || 10) / 2) - 1;
+
   return (
     <div
       id={`appointment-card-${apt.id}`}
@@ -418,11 +426,13 @@ function AppointmentCard({
           ? 'opacity-85 border-slate-200 bg-slate-50/50 dark:bg-zinc-955/20 dark:border-zinc-850/80 cursor-pointer'
           : isCheckedIn
             ? 'border-teal-350 dark:border-teal-850 ring-2 ring-[#0D9488]/10 dark:ring-[#0D9488]/5 bg-[#0D9488]/2 dark:bg-[#0D9488]/2'
-            : (isUnassigned || isDocUnavailable) && !isPending
-              ? 'border-rose-500 ring-2 ring-rose-500/10 dark:ring-rose-500/5 bg-rose-55/10 dark:bg-rose-955/5 animate-pulse'
-              : isUnassigned && isPending
-                ? 'border-rose-100 dark:border-rose-900/30 hover:border-rose-300' 
-                : 'border-slate-100 dark:border-zinc-800 hover:border-[#14B8A6]/30'
+            : isInstallmentWarning
+              ? 'border-amber-500 ring-2 ring-amber-500/10 dark:ring-amber-500/5 bg-amber-50/10 dark:bg-amber-955/5'
+              : (isUnassigned || isDocUnavailable) && !isPending
+                ? 'border-rose-500 ring-2 ring-rose-500/10 dark:ring-rose-500/5 bg-rose-55/10 dark:bg-rose-955/5 animate-pulse'
+                : isUnassigned && isPending
+                  ? 'border-rose-100 dark:border-rose-900/30 hover:border-rose-300' 
+                  : 'border-slate-100 dark:border-zinc-800 hover:border-[#14B8A6]/30'
       }`}
     >
       <div>
@@ -431,6 +441,11 @@ function AppointmentCard({
             {apt.ma_lich_dat}
           </span>
           <div className="flex items-center gap-1.5">
+            {isInstallmentWarning && (
+              <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-amber-500 text-white animate-pulse flex items-center gap-0.5 shadow-sm">
+                ⚠️ Nợ Đợt 2
+              </span>
+            )}
             {isCheckedIn && (
               <span className="flex h-1.5 w-1.5 relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#0D9488] opacity-75"></span>
@@ -455,6 +470,12 @@ function AppointmentCard({
         <div className="text-[9.5px] text-slate-405 dark:text-zinc-550 line-clamp-1 font-bold mt-0.5">
           {apt.ten_dich_vu}
         </div>
+
+        {isInstallmentWarning && (
+          <div className="mt-1.5 bg-amber-50 dark:bg-amber-955/30 border border-amber-200 dark:border-amber-900/40 text-amber-700 dark:text-amber-300 text-[8.5px] font-bold px-2 py-0.8 rounded-lg flex items-center gap-1 leading-normal select-none">
+            <span>⚠️ Hôm nay hạn đóng Đợt 2</span>
+          </div>
+        )}
         
         {/* Lý do hủy/không đến nếu có */}
         {['da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(apt.trang_thai) && (apt.ghi_chu_noi_bo || apt.ly_do_huy) && (
@@ -492,6 +513,11 @@ function AppointmentCard({
         {apt.ly_do_kham && (
           <p className="text-[10px] text-slate-450 italic mt-1 bg-slate-950/40 p-1.5 rounded-lg border border-slate-800/20 line-clamp-2">
             "{apt.ly_do_kham}"
+          </p>
+        )}
+        {isInstallmentWarning && (
+          <p className="font-bold text-[10px] text-amber-400 mt-1.5 bg-amber-950/40 p-1.5 rounded-lg border border-amber-900/35 leading-relaxed">
+            ⚠️ Hạn đóng tiền Đợt 2 (Buổi {apt.so_thu_tu_buoi}/{apt.tong_so_buoi_goi}). Cần hoàn tất thanh toán trước khi đặt buổi tiếp theo.
           </p>
         )}
       </div>

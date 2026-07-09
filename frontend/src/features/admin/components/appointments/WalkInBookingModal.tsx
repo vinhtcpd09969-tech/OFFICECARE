@@ -20,6 +20,7 @@ interface WalkInBookingModalProps {
   selectedDateStr: string;
   initialCustomerId?: string;
   initialServiceId?: string;
+  onDateChange?: (date: Date) => void;
 }
 
 
@@ -37,7 +38,8 @@ export default function WalkInBookingModal({
   isReceptionist = false,
   selectedDateStr,
   initialCustomerId,
-  initialServiceId
+  initialServiceId,
+  onDateChange
 }: WalkInBookingModalProps) {
   const [isNewCustomer, setIsNewCustomer] = useState(false);
   const [showPlansList, setShowPlansList] = useState(false);
@@ -853,7 +855,7 @@ export default function WalkInBookingModal({
                     >
                       Hủy chọn gói (Đặt ca điều trị lẻ khác)
                     </button>
-                    {selectedPlan.trang_thai === 'khuyen_nghi' && (
+                    {selectedPlan.trang_thai === 'khuyen_nghi' && selectedPlan.loai_goi !== 'LE' && (
                       <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl text-xs font-semibold text-amber-850 space-y-2 mt-2 animate-in fade-in duration-200">
                         <p>⚠️ Chỉ định này chưa được thanh toán. Bạn cần thanh toán tối thiểu 50% hoặc 100% gói để có thể bắt đầu đặt lịch trị liệu.</p>
                         <button
@@ -948,10 +950,14 @@ export default function WalkInBookingModal({
                 type="date"
                 value={selectedDate}
                 onChange={e => {
-                  setSelectedDate(e.target.value);
+                  const val = e.target.value;
+                  setSelectedDate(val);
                   setSelectedTime('');
                   setSelectedDoctorId('');
                   setSelectedRoomId('');
+                  if (val && onDateChange) {
+                    onDateChange(new Date(val));
+                  }
                 }}
                 className="px-3 py-1 bg-emerald-50 text-emerald-750 border border-emerald-150 rounded-lg text-xs font-black focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
               />
@@ -1145,7 +1151,7 @@ export default function WalkInBookingModal({
         </button>
         <button
           type="button"
-          disabled={bookingLoading || !selectedTime || !selectedServiceId || (!isNewCustomer && !selectedCustomer) || (!isReceptionist && !selectedDoctorId) || hasReachedLimit || (selectedPlan && selectedPlan.trang_thai === 'khuyen_nghi')}
+          disabled={bookingLoading || !selectedTime || !selectedServiceId || (!isNewCustomer && !selectedCustomer) || (!isReceptionist && !selectedDoctorId) || hasReachedLimit || (selectedPlan && selectedPlan.trang_thai === 'khuyen_nghi' && selectedPlan.loai_goi !== 'LE')}
           onClick={() => {
             const form = document.querySelector('form');
             if (form) form.requestSubmit();

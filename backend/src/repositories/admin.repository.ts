@@ -568,8 +568,10 @@ class AdminRepository {
         hd.tong_tien_phai_tra as tong_tien_thanh_toan, 
         hd.so_tien_da_tra as da_thanh_toan, 
         hd.trang_thai, 
-        hd.ghi_chu, 
+        hd.ghi_chu,
         hd.ngay_tao, 
+        ch.ngay_gio_bat_dau as ngay_kham,
+        ch.ngay_gio_ket_thuc as ngay_kham_ket_thuc,
         'HD-' || UPPER(SUBSTRING(hd.id::text FROM 1 FOR 6)) as ma_hoa_don, 
         kh.ho_ten as ten_khach_hang, 
         kh.so_dien_thoai,
@@ -584,7 +586,8 @@ class AdminRepository {
               AND exam_hd.phac_do_dieu_tri_id IS NULL 
               AND exam_hd.trang_thai = 'da_thanh_toan'
           ) THEN 0
-          WHEN hd.cuoc_hen_id IS NOT NULL THEN 200000
+          WHEN hd.phac_do_dieu_tri_id IS NULL AND hd.tong_tien_goc > COALESCE(dv.don_gia, 200000) THEN 0
+          WHEN hd.cuoc_hen_id IS NOT NULL THEN COALESCE(dv.don_gia, 200000)
           ELSE 0
         END as chi_phi_kham
       FROM hoa_don hd
@@ -1026,7 +1029,21 @@ class AdminRepository {
 
       // 3. Perform calculations:
       const hasExam = !!hd.cuoc_hen_id;
-      const chi_phi_kham = hasExam ? 200000 : 0;
+      let chi_phi_kham = 0;
+      if (hasExam && hd.cuoc_hen_id) {
+        const examServiceRes = await client.query(
+          `SELECT dv.don_gia 
+           FROM cuoc_hen ch
+           JOIN goi_dich_vu dv ON ch.goi_dich_vu_id = dv.id
+           WHERE ch.id = $1`,
+          [hd.cuoc_hen_id]
+        );
+        if (examServiceRes.rows && examServiceRes.rows.length > 0) {
+          chi_phi_kham = Number(examServiceRes.rows[0].don_gia);
+        } else {
+          chi_phi_kham = 200000;
+        }
+      }
       const tong_tien_goc = Number(hd.tong_tien_goc);
       const gia_goc_goi = tong_tien_goc - chi_phi_kham;
 
@@ -1042,14 +1059,14 @@ class AdminRepository {
       // Used sessions cost: (gia_thanh_toan_goi * so_buoi_dung) / totalSessions
       const chi_phi_buoi_dung = Math.round((gia_thanh_toan_goi * so_buoi_dung) / totalSessions);
 
-      // Penalty fee is calculated based on the actual paid package price (gia_thanh_toan_goi):
-      const phi_phat_thuc_te = Math.round((gia_thanh_toan_goi * phi_phat_percent) / 100);
-
       // Refund calculation:
       const so_tien_da_dong = Number(hd.so_tien_da_tra);
 
+      // Penalty fee is calculated based on the actual paid amount (so_tien_da_dong):
+      const phi_phat_thuc_te = Math.round((so_tien_da_dong * phi_phat_percent) / 100);
+
       // If package is cancelled, they must pay for the exam (revoke waiver/free promotion)
-      const examFeeToCharge = mien_phi_kham; // 200.000đ if they got it free, otherwise 0đ.
+      const examFeeToCharge = hasExam ? chi_phi_kham : 0; // always charge the 200k exam fee if they did an exam
       
       const tong_khau_tru = examFeeToCharge + chi_phi_buoi_dung + phi_phat_thuc_te;
       const so_tien_hoan_tra = Math.max(0, so_tien_da_dong - tong_khau_tru);
@@ -1071,6 +1088,59 @@ class AdminRepository {
       // 5. Update package invoice status and so_tien_da_tra to reflect the kept revenue
       const keptRevenuePackage = so_tien_da_dong - so_tien_hoan_tra - examFeeToCharge;
       
+      let examTraceInfo = {
+        has_separate_invoice: false,
+        invoice_code: null as string | null,
+        invoice_date: null as string | null,
+        appointment_date: null as string | null,
+        time_range: null as string | null
+      };
+
+      if (hd.cuoc_hen_id) {
+        const apptRes = await client.query(
+          `SELECT ngay_gio_bat_dau, ngay_gio_ket_thuc FROM cuoc_hen WHERE id = $1`,
+          [hd.cuoc_hen_id]
+        );
+        if (apptRes.rows && apptRes.rows.length > 0) {
+          const startVal = new Date(apptRes.rows[0].ngay_gio_bat_dau);
+          const endVal = new Date(apptRes.rows[0].ngay_gio_ket_thuc);
+          
+          const startH = String(startVal.getHours()).padStart(2, '0');
+          const startM = String(startVal.getMinutes()).padStart(2, '0');
+          const endH = String(endVal.getHours()).padStart(2, '0');
+          const endM = String(endVal.getMinutes()).padStart(2, '0');
+          
+          examTraceInfo.appointment_date = `${String(startVal.getDate()).padStart(2, '0')}/${String(startVal.getMonth() + 1).padStart(2, '0')}/${startVal.getFullYear()}`;
+          examTraceInfo.time_range = `${startH}:${startM} - ${endH}:${endM}`;
+        }
+
+        const separateInvoiceRes = await client.query(
+          `SELECT id, ngay_tao FROM hoa_don 
+           WHERE cuoc_hen_id = $1 AND phac_do_dieu_tri_id IS NULL AND id != $2`,
+          [hd.cuoc_hen_id, hoa_don_id]
+        );
+        if (separateInvoiceRes.rows && separateInvoiceRes.rows.length > 0) {
+          const inv = separateInvoiceRes.rows[0];
+          examTraceInfo.has_separate_invoice = true;
+          examTraceInfo.invoice_code = `HD-${inv.id.substring(0, 6).toUpperCase()}`;
+          const invDate = new Date(inv.ngay_tao);
+          examTraceInfo.invoice_date = `${String(invDate.getDate()).padStart(2, '0')}/${String(invDate.getMonth() + 1).padStart(2, '0')}/${invDate.getFullYear()}`;
+        }
+      }
+
+      const refundAnalysis = {
+        type: 'refund_analysis',
+        so_tien_da_dong,
+        so_buoi_dung,
+        tong_so_buoi: totalSessions,
+        chi_phi_buoi_dung,
+        phi_phat_percent,
+        phi_phat_thuc_te,
+        examFeeToCharge,
+        exam_trace: examTraceInfo,
+        so_tien_hoan_tra
+      };
+
       await client.query(
         `UPDATE hoa_don 
          SET trang_thai = 'da_hoan_tien', 
@@ -1079,29 +1149,75 @@ class AdminRepository {
          WHERE id = $3`,
         [
           Math.max(0, keptRevenuePackage),
-          `Đã hủy gói giữa chừng. Hoàn trả: ${so_tien_hoan_tra.toLocaleString()}đ. Giữ lại doanh thu gói: ${Math.max(0, keptRevenuePackage).toLocaleString()}đ (gồm ${chi_phi_buoi_dung.toLocaleString()}đ dùng và ${phi_phat_thuc_te.toLocaleString()}đ phạt).`,
+          JSON.stringify(refundAnalysis),
           hoa_don_id
         ]
       );
 
-      // 6. Restore clinical exam invoice if it was waived/included
-      if (hasExam && isExamWaived) {
+      // 6. Restore/Create clinical exam invoice if it was waived/included
+      if (hasExam) {
         const maHoaDonGoi = `HD-${hoa_don_id.substring(0, 6).toUpperCase()}`;
-        await client.query(
-          `UPDATE hoa_don
-           SET trang_thai = 'da_thanh_toan',
-               tong_tien_phai_tra = $1,
-               so_tien_da_tra = $2,
-               ghi_chu = $3
-           WHERE cuoc_hen_id = $4
-             AND phac_do_dieu_tri_id IS NULL`,
-          [
-            chi_phi_kham,
-            chi_phi_kham, // marked as fully paid now!
-            `Thu phí khám từ cấn trừ hoàn trả của hóa đơn gói ${maHoaDonGoi} khi hủy gói.`,
-            hd.cuoc_hen_id
-          ]
-        );
+        
+        let updateRes;
+        if (hd.cuoc_hen_id) {
+          updateRes = await client.query(
+            `UPDATE hoa_don
+             SET trang_thai = 'da_thanh_toan',
+                 tong_tien_phai_tra = $1,
+                 so_tien_da_tra = $2,
+                 ghi_chu = $3
+             WHERE (cuoc_hen_id = $4 OR (khach_hang_id = $5 AND phac_do_dieu_tri_id IS NULL AND tong_tien_phai_tra = (SELECT don_gia FROM goi_dich_vu WHERE loai_goi = 'KHAM' LIMIT 1)))
+               AND phac_do_dieu_tri_id IS NULL
+             RETURNING id`,
+            [
+              chi_phi_kham,
+              chi_phi_kham, // marked as fully paid now!
+              `Thu phí khám từ cấn trừ hoàn trả của hóa đơn gói ${maHoaDonGoi} khi hủy gói.`,
+              hd.cuoc_hen_id,
+              hd.khach_hang_id
+            ]
+          );
+        } else {
+          updateRes = await client.query(
+            `UPDATE hoa_don
+             SET trang_thai = 'da_thanh_toan',
+                 tong_tien_phai_tra = $1,
+                 so_tien_da_tra = $2,
+                 ghi_chu = $3
+             WHERE khach_hang_id = $4
+               AND phac_do_dieu_tri_id IS NULL
+               AND tong_tien_phai_tra = (SELECT don_gia FROM goi_dich_vu WHERE loai_goi = 'KHAM' LIMIT 1)
+             RETURNING id`,
+            [
+              chi_phi_kham,
+              chi_phi_kham, // marked as fully paid now!
+              `Thu phí khám từ cấn trừ hoàn trả của hóa đơn gói ${maHoaDonGoi} khi hủy gói.`,
+              hd.khach_hang_id
+            ]
+          );
+        }
+
+        // If no exam invoice was found, create one automatically
+        if (updateRes.rowCount === 0) {
+          const maHoaDonKhamNew = `HD${Math.floor(100000 + Math.random() * 900000)}`;
+          await client.query(
+            `INSERT INTO hoa_don (
+              id, khach_hang_id, cuoc_hen_id, phac_do_dieu_tri_id,
+              tong_tien_goc, tong_tien_phai_tra, so_tien_da_tra, 
+              trang_thai, ghi_chu, ngay_tao
+            ) VALUES (
+              gen_random_uuid(), $1, $2, NULL, 
+              $3, $3, $3, 
+              'da_thanh_toan', $4, NOW()
+            )`,
+            [
+              hd.khach_hang_id,
+              hd.cuoc_hen_id || null,
+              chi_phi_kham,
+              `Thu phí khám từ cấn trừ hoàn trả của hóa đơn gói ${maHoaDonGoi} khi hủy gói.`
+            ]
+          );
+        }
       }
 
       // 7. Update the associated treatment plan status
