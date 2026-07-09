@@ -1066,7 +1066,25 @@ class AdminRepository {
       const phi_phat_thuc_te = Math.round((so_tien_da_dong * phi_phat_percent) / 100);
 
       // If package is cancelled, they must pay for the exam (revoke waiver/free promotion)
-      const examFeeToCharge = hasExam ? chi_phi_kham : 0; // always charge the 200k exam fee if they did an exam
+      let examFeeToCharge = 0;
+      let hasPaidSeparateExam = false;
+      if (hasExam && hd.cuoc_hen_id) {
+        const separatePaidExamRes = await client.query(
+          `SELECT id FROM hoa_don 
+           WHERE cuoc_hen_id = $1 
+             AND phac_do_dieu_tri_id IS NULL 
+             AND trang_thai = 'da_thanh_toan' 
+             AND id != $2`,
+          [hd.cuoc_hen_id, hoa_don_id]
+        );
+        if (separatePaidExamRes.rows && separatePaidExamRes.rows.length > 0) {
+          hasPaidSeparateExam = true;
+        }
+      }
+
+      if (hasExam && !hasPaidSeparateExam) {
+        examFeeToCharge = chi_phi_kham;
+      }
       
       const tong_khau_tru = examFeeToCharge + chi_phi_buoi_dung + phi_phat_thuc_te;
       const so_tien_hoan_tra = Math.max(0, so_tien_da_dong - tong_khau_tru);
@@ -1155,7 +1173,7 @@ class AdminRepository {
       );
 
       // 6. Restore/Create clinical exam invoice if it was waived/included
-      if (hasExam) {
+      if (hasExam && !hasPaidSeparateExam) {
         const maHoaDonGoi = `HD-${hoa_don_id.substring(0, 6).toUpperCase()}`;
         
         let updateRes;
