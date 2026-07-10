@@ -838,14 +838,14 @@ export default function AppointmentDetailModal({
                 selectedAppointment.hinh_thuc_thanh_toan_goi === 'tra_gop' &&
                 selectedAppointment.trang_thai_hoa_don_goi !== 'da_thanh_toan' &&
                 Number(selectedAppointment.so_tien_da_tra_goi) < Number(selectedAppointment.tong_tien_phai_tra_goi) &&
-                Number(selectedAppointment.so_thu_tu_buoi) >= Math.floor(Number(selectedAppointment.tong_so_buoi_goi || 10) / 2) - 1 && (
+                Number(selectedAppointment.so_thu_tu_buoi) >= Math.floor(Number(selectedAppointment.tong_so_buoi_goi || 10) / 2) && (
                   <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 p-4 rounded-2xl flex items-start gap-3 text-left animate-in fade-in slide-in-from-top-2">
                     <span className="text-amber-500 shrink-0 text-base">⚠️</span>
                     <div className="text-xs text-amber-800 dark:text-amber-300">
                       <p className="font-bold uppercase tracking-wider">Cảnh báo thanh toán Đợt 2 (Trả Góp 50%)</p>
                       <p className="mt-1 font-semibold leading-relaxed">
                         Bệnh nhân đã hoàn thành <strong>{Number(selectedAppointment.so_thu_tu_buoi || 1) - 1} / {selectedAppointment.tong_so_buoi_goi}</strong> buổi điều trị. 
-                        Theo quy định bảo vệ dòng tiền, khách hàng <strong>bắt buộc phải đóng 50% còn lại</strong> trước khi tiến hành trị liệu buổi số {Math.floor(Number(selectedAppointment.tong_so_buoi_goi || 10) / 2)}.
+                        Theo quy định bảo vệ dòng tiền, khách hàng <strong>bắt buộc phải đóng 50% còn lại</strong> trước khi tiến hành trị liệu buổi số {selectedAppointment.so_thu_tu_buoi}.
                       </p>
                       <div className="mt-2.5">
                         <button

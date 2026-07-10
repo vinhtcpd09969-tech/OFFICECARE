@@ -51,10 +51,12 @@ export default function ManageFinance() {
   // Parse Query Parameters
   const params = new URLSearchParams(location.search);
   const queryLichDatId = params.get('lich_dat_id');
-  const isCheckoutMode = !!queryLichDatId;
+  const queryCustomerId = params.get('customer_id');
+  const queryGoiDichVuId = params.get('goi_dich_vu_id');
+  const isCheckoutMode = !!queryLichDatId || (!!queryCustomerId && !!queryGoiDichVuId);
 
   // Hooks
-  const checkout = useCheckout(queryLichDatId, isCheckoutMode);
+  const checkout = useCheckout(queryLichDatId, isCheckoutMode, queryCustomerId, queryGoiDichVuId);
   const dashboard = useFinanceDashboard(isCheckoutMode);
 
   const [showConfirmModal, setShowConfirmModal] = useState(false);

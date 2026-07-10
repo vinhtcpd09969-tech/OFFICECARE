@@ -40,6 +40,9 @@ export const createAppointment = async (req: Request, res: Response): Promise<an
     if (error.constraint === 'no_overlap_khach_hang') {
       return res.status(400).json({ message: 'Khách hàng đã có lịch hẹn hoặc ca điều trị khác trong khung giờ này.' });
     }
+    if (error.message && !error.stack?.includes('pg') && !error.stack?.includes('Prisma') && !error.message.includes('connection') && !error.message.includes('database')) {
+      return res.status(400).json({ message: error.message });
+    }
     return res.status(500).json({ message: 'Lỗi server' });
   }
 };

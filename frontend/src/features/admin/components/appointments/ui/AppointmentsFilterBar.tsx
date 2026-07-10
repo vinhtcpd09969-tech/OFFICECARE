@@ -15,6 +15,7 @@ interface AppointmentsFilterBarProps {
   selectedDate: Date;
   activeType: 'kham' | 'dieu_tri';
   onToggleType: () => void;
+  isWalkInModalOpen?: boolean;
 }
 
 export function AppointmentsFilterBar({
@@ -28,7 +29,8 @@ export function AppointmentsFilterBar({
   viewMode,
   selectedDate,
   activeType,
-  onToggleType
+  onToggleType,
+  isWalkInModalOpen = false
 }: AppointmentsFilterBarProps) {
   
   return (
@@ -99,8 +101,8 @@ export function AppointmentsFilterBar({
         {/* Right Section: Toggle buttons & Date navigation */}
         <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 shrink-0 justify-start lg:justify-end">
           
-          {/* Selector for Tuần / Tháng - Hidden in timeline view */}
-          {viewMode !== 'timeline' && (
+          {/* Selector for Tuần / Tháng - Hidden in timeline view unless booking form is open */}
+          {(viewMode !== 'timeline' || isWalkInModalOpen) && (
             <div className="flex bg-slate-50 dark:bg-zinc-850 p-1 rounded-xl border border-slate-200/60 dark:border-zinc-800 select-none shrink-0">
               <button
                 type="button"

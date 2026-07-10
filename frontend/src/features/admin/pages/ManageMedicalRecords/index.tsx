@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Search, Printer, ChevronLeft, FileText, AlertTriangle } from 'lucide-react';
+import { Search, Printer, ChevronLeft, FileText, AlertTriangle, Stethoscope, Activity, Clock, UserCheck } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { getMedicalRecords, getRooms, createAppointment, getAvailableStaff } from '../../api/admin.api';
+import { getMedicalRecords } from '../../api/admin.api';
 import { format } from 'date-fns';
 
 export default function ManageMedicalRecords() {
   const [patients, setPatients] = useState<any[]>([]);
-  const [roomsList, setRoomsList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Navigation State
@@ -21,26 +20,13 @@ export default function ManageMedicalRecords() {
   const [filterStatus, setFilterStatus] = useState('all'); // all, dang_dieu_tri, hoan_thanh
   const [filterStaff, setFilterStaff] = useState('all');
 
-  // Booking Modal State
-  const [isBookingOpen, setIsBookingOpen] = useState(false);
-  const [bookingSessionNum, setBookingSessionNum] = useState<number | null>(null);
-  const [bookingDate, setBookingDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [bookingTime, setBookingTime] = useState('09:00');
-  const [bookingKtvId, setBookingKtvId] = useState('');
-  const [bookingRoomId, setBookingRoomId] = useState('');
-  const [bookingLoading, setBookingLoading] = useState(false);
-  const [availableStaff, setAvailableStaff] = useState<any[] | null>(null);
-  const [loadingAvailable, setLoadingAvailable] = useState(false);
+
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [recordsRes, roomsRes] = await Promise.all([
-        getMedicalRecords(),
-        getRooms()
-      ]);
+      const recordsRes = await getMedicalRecords();
       setPatients(recordsRes.data || []);
-      setRoomsList(roomsRes.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Không thể kết nối API hồ sơ điều trị.');
@@ -79,6 +65,8 @@ export default function ManageMedicalRecords() {
   patients.forEach(p => {
     // 1. Add treatment packages
     p.plans?.forEach((pl: any) => {
+      if (pl.trang_thai === 'cho_kich_hoat') return;
+
       // Find latest completed treatment session
       const completedApts = p.appointments
         ?.filter((ap: any) => ap.phac_do_dieu_tri_id === pl.id && ap.trang_thai === 'hoan_thanh' && ap.loai !== 'KHAM')
@@ -214,112 +202,20 @@ export default function ManageMedicalRecords() {
     }
   }
 
-  useEffect(() => {
-    let active = true;
-    const fetchAvailable = async () => {
-      if (!selectedPlan || !bookingDate || !bookingTime) {
-        setAvailableStaff(null);
-        return;
-      }
-      try {
-        setLoadingAvailable(true);
-        const res = await getAvailableStaff({
-          ngay: bookingDate,
-          gio_bat_dau: bookingTime,
-          dang_ky_goi_id: selectedPlan.goi_dich_vu_id
-        });
-        if (active) {
-          const staff = res.data || [];
-          setAvailableStaff(staff);
-          if (staff.length === 1) {
-            setBookingKtvId(String(staff[0].nguoi_dung_id));
-          } else if (bookingKtvId && !staff.some((s: any) => String(s.nguoi_dung_id) === String(bookingKtvId))) {
-            setBookingKtvId('');
-          }
-        }
-      } catch (err) {
-        console.error('Error checking KTV availability:', err);
-        if (active) {
-          setAvailableStaff(null);
-        }
-      } finally {
-        if (active) {
-          setLoadingAvailable(false);
-        }
-      }
-    };
 
-    fetchAvailable();
-    return () => {
-      active = false;
-    };
-  }, [bookingDate, bookingTime, selectedPlanId]);
 
   // Selected appointment details (for exam/single detail view)
   const selectedApt = selectedPatient?.appointments?.find((ap: any) => ap.id === selectedAptId);
+  const prescribedPlan = selectedApt ? selectedPatient?.plans?.find((p: any) => 
+    p.cuoc_hen_id === selectedApt.id || 
+    (p.trang_thai === 'cho_kich_hoat' && selectedPatient?.plans?.length === 1)
+  ) : null;
 
   const handlePrint = () => {
     window.print();
   };
 
-  const convertToVietnamUtcIso = (dateStr: string, timeStr: string) => {
-    const [year, month, day] = dateStr.split('-').map(Number);
-    const [hour, minute] = timeStr.split(':').map(Number);
-    const date = new Date(year, month - 1, day, hour, minute);
-    return date.toISOString();
-  };
 
-  const getEndTime = (timeStr: string, durationMin: number) => {
-    const [h, m] = timeStr.split(':').map(Number);
-    const totalMins = h * 60 + m + durationMin;
-    const endH = Math.floor(totalMins / 60) % 24;
-    const endM = totalMins % 60;
-    return `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
-  };
-
-  const handleBookingSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedPatient || !selectedPlan || !bookingSessionNum) return;
-    if (!bookingKtvId) {
-      toast.error('Vui lòng chọn kỹ thuật viên');
-      return;
-    }
-
-    try {
-      setBookingLoading(true);
-      const startIso = convertToVietnamUtcIso(bookingDate, bookingTime);
-      const endIso = convertToVietnamUtcIso(bookingDate, getEndTime(bookingTime, 60));
-
-      const payload = {
-        khach_hang_id: selectedPatient.id,
-        dich_vu_id: null,
-        ky_thuat_vien_id: bookingKtvId,
-        phong_id: bookingRoomId || null,
-        ghi_chu_dat_lich: `Đặt lịch Buổi ${bookingSessionNum} của phác đồ: ${selectedPlan.ten_goi}`,
-        ngay_gio_bat_dau: startIso,
-        ngay_gio_ket_thuc: endIso,
-        loai_lich: 'dieu_tri',
-        dang_ky_goi_id: selectedPlan.goi_dich_vu_id,
-        phac_do_dieu_tri_id: selectedPlan.id,
-        so_thu_tu_buoi: bookingSessionNum
-      };
-
-      await createAppointment(payload);
-      toast.success(`Đặt lịch Buổi số ${bookingSessionNum} thành công!`);
-      setIsBookingOpen(false);
-      await fetchData(); // Refresh data
-      // Keep selected patient updated
-      const updatedPatient = patients.find(p => p.id === selectedPatient.id);
-      if (updatedPatient) {
-        setSelectedPatient(updatedPatient);
-      }
-    } catch (err: any) {
-      console.error(err);
-      toast.error(err.response?.data?.message || 'Không thể tạo cuộc hẹn.');
-    } finally {
-      setBookingLoading(false);
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -384,17 +280,34 @@ export default function ManageMedicalRecords() {
 
           {/* Stats KPI Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm flex flex-col justify-between">
-              <span className="text-xs font-bold text-slate-450 uppercase tracking-wider block">Đang điều trị</span>
-              <span className="text-3xl font-black text-slate-800 mt-2 block">{activePatientsCount}</span>
+            <div className="bg-gradient-to-br from-teal-500/5 to-teal-500/10 border border-teal-100/50 p-6 rounded-2xl shadow-sm flex items-center justify-between transition-all hover:shadow-md hover:shadow-teal-500/5">
+              <div>
+                <span className="text-[10px] font-black text-teal-850 uppercase tracking-widest block">Đang điều trị</span>
+                <span className="text-3xl font-black text-teal-950 mt-2 block">{activePatientsCount}</span>
+              </div>
+              <div className="size-12 rounded-xl bg-teal-500/10 border border-teal-200/20 flex items-center justify-center text-teal-600">
+                <Activity size={22} className="stroke-[2.5]" />
+              </div>
             </div>
-            <div className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm flex flex-col justify-between">
-              <span className="text-xs font-bold text-slate-450 uppercase tracking-wider block">Gói liệu trình</span>
-              <span className="text-3xl font-black text-slate-800 mt-2 block">{activePackagesCount}</span>
+
+            <div className="bg-gradient-to-br from-indigo-500/5 to-indigo-500/10 border border-indigo-100/50 p-6 rounded-2xl shadow-sm flex items-center justify-between transition-all hover:shadow-md hover:shadow-indigo-500/5">
+              <div>
+                <span className="text-[10px] font-black text-indigo-850 uppercase tracking-widest block">Gói liệu trình hoạt động</span>
+                <span className="text-3xl font-black text-indigo-950 mt-2 block">{activePackagesCount}</span>
+              </div>
+              <div className="size-12 rounded-xl bg-indigo-500/10 border border-indigo-200/20 flex items-center justify-center text-indigo-600">
+                <UserCheck size={22} className="stroke-[2.5]" />
+              </div>
             </div>
-            <div className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm flex flex-col justify-between">
-              <span className="text-xs font-bold text-slate-450 uppercase tracking-wider block">Dịch vụ lẻ hôm nay</span>
-              <span className="text-3xl font-black text-slate-800 mt-2 block">{todaySingleTreatmentsCount}</span>
+
+            <div className="bg-gradient-to-br from-sky-500/5 to-sky-500/10 border border-sky-100/50 p-6 rounded-2xl shadow-sm flex items-center justify-between transition-all hover:shadow-md hover:shadow-sky-500/5">
+              <div>
+                <span className="text-[10px] font-black text-sky-850 uppercase tracking-widest block">Dịch vụ lẻ hôm nay</span>
+                <span className="text-3xl font-black text-sky-950 mt-2 block">{todaySingleTreatmentsCount}</span>
+              </div>
+              <div className="size-12 rounded-xl bg-sky-500/10 border border-sky-200/20 flex items-center justify-center text-sky-600">
+                <Clock size={22} className="stroke-[2.5]" />
+              </div>
             </div>
           </div>
 
@@ -459,9 +372,15 @@ export default function ManageMedicalRecords() {
                           <span className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${
                             rec.status === 'hoan_thanh' 
                               ? 'bg-emerald-50 text-emerald-600 border border-emerald-100/50' 
-                              : 'bg-teal-50 text-teal-700 border border-teal-100/50'
+                              : rec.status === 'da_tam_dung'
+                                ? 'bg-amber-50 text-amber-700 border border-amber-100/50'
+                                : 'bg-teal-50 text-teal-700 border border-teal-100/50'
                           }`}>
-                            {rec.status === 'hoan_thanh' ? 'Hoàn thành' : 'Đang điều trị'}
+                            {rec.status === 'hoan_thanh' 
+                              ? 'Hoàn thành' 
+                              : rec.status === 'da_tam_dung'
+                                ? 'Tạm dừng'
+                                : 'Đang điều trị'}
                           </span>
                         </td>
                         <td className="p-4 text-center">
@@ -494,13 +413,14 @@ export default function ManageMedicalRecords() {
               </button>
               
               {/* Patient Banner */}
-              <div className="flex items-center gap-3">
-                <div className="size-11 rounded-full bg-slate-900 text-white flex items-center justify-center font-black text-sm uppercase">
+              <div className="flex items-center gap-3.5">
+                <div className="size-12 rounded-xl bg-gradient-to-br from-slate-800 to-slate-950 text-white flex items-center justify-center font-black text-sm uppercase shadow-md shadow-slate-950/15 border border-slate-700/10 shrink-0">
                   {selectedPatient?.ho_ten?.charAt(0) || 'K'}
                 </div>
                 <div>
                   <h3 className="text-base font-black text-slate-900 leading-tight">{selectedPatient.ho_ten}</h3>
                   <p className="text-[10px] text-slate-500 font-semibold mt-0.5">
+                    <span className="font-extrabold font-mono text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded mr-1.5">{'KH-' + selectedPatient.id.substring(0, 8).toUpperCase()}</span>
                     {selectedPatient.so_dien_thoai} • {selectedPlanId ? (
                       <>BS chỉ định: {selectedPlan?.ten_bac_si || 'N/A'} • KTV thực hiện: {selectedPlanKtvsDisplay}</>
                     ) : (
@@ -512,7 +432,7 @@ export default function ManageMedicalRecords() {
             </div>
 
             <div className="flex items-center gap-2.5 self-end sm:self-center">
-              {selectedApt && selectedApt.loai === 'KHAM' && selectedApt.phac_do_dieu_tri_id && (
+              {selectedApt && selectedApt.loai === 'KHAM' && selectedApt.phac_do_dieu_tri_id && selectedPatient?.plans?.some((p: any) => p.id === selectedApt.phac_do_dieu_tri_id && p.trang_thai === 'dang_dieu_tri') && (
                 <button
                   onClick={() => {
                     setSelectedPlanId(selectedApt.phac_do_dieu_tri_id);
@@ -545,13 +465,36 @@ export default function ManageMedicalRecords() {
                     <span className="text-[9px] font-black text-slate-400 uppercase block tracking-wider">Phác đồ điều trị</span>
                     <h3 className="text-base font-black text-slate-800 mt-0.5">{selectedPlan.ten_goi}</h3>
                   </div>
-                  <span className={`inline-flex px-3 py-1 rounded-full text-[10px] font-black uppercase ${
-                    selectedPlan.trang_thai === 'dang_dieu_tri' 
-                      ? 'bg-teal-100 text-teal-800' 
-                      : 'bg-slate-100 text-slate-800'
-                  }`}>
-                    {selectedPlan.trang_thai === 'dang_dieu_tri' ? 'Đang chạy' : 'Hoàn thành'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-flex px-3 py-1 rounded-full text-[10px] font-black uppercase ${
+                      selectedPlan.trang_thai === 'dang_dieu_tri' 
+                        ? 'bg-teal-100 text-teal-800' 
+                        : selectedPlan.trang_thai === 'cho_kich_hoat'
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-slate-100 text-slate-800'
+                    }`}>
+                      {selectedPlan.trang_thai === 'dang_dieu_tri' 
+                        ? 'Đang chạy' 
+                        : selectedPlan.trang_thai === 'cho_kich_hoat'
+                          ? 'Chờ kích hoạt'
+                          : 'Hoàn thành'}
+                    </span>
+                    {selectedPlan.trang_thai === 'cho_kich_hoat' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (selectedPlan.cuoc_hen_id) {
+                            window.location.href = `/admin/quick-billing?lich_dat_id=${selectedPlan.cuoc_hen_id}`;
+                          } else {
+                            window.location.href = `/admin/quick-billing?customer_id=${selectedPatient.id}&goi_dich_vu_id=${selectedPlan.goi_dich_vu_id}&lich_dieu_tri_id=${selectedPlan.id}`;
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-bold text-[11px] transition-all shadow-sm flex items-center gap-1 active:scale-95 cursor-pointer"
+                      >
+                        <span>💵 Thanh toán & Kích hoạt</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 text-xs">
@@ -657,29 +600,86 @@ export default function ManageMedicalRecords() {
                         </div>
                       );
                     } else if (isUnbooked) {
+                      const isUnpaid = selectedPlan.trang_thai === 'cho_kich_hoat';
+                      
+                      // Check if previous session is completed
+                      const prevAppt = sessionNum > 1 
+                        ? selectedPlanSessions.find((ap: any) => ap.so_thu_tu_buoi === sessionNum - 1 && ap.loai !== 'KHAM')
+                        : null;
+                      const isPrevFinished = sessionNum === 1 || (prevAppt && prevAppt.trang_thai === 'hoan_thanh');
+                      
+                      // Check if previous sessions are paid (for tung_buoi)
+                      let isPaymentBlocked = false;
+                      if (selectedPlan.hinh_thuc_thanh_toan_goi === 'tung_buoi') {
+                        const perSessionPrice = Math.round(Number(selectedPlan.tong_tien_phai_tra || 0) / Number(selectedPlan.tong_so_buoi || 1));
+                        const requiredPaid = (sessionNum - 1) * perSessionPrice;
+                        const soTienDaTra = Number(selectedPlan.so_tien_da_tra || 0);
+                        if (soTienDaTra < requiredPaid) {
+                          isPaymentBlocked = true;
+                        }
+                      }
+
+                      const isBlocked = !isPrevFinished || isPaymentBlocked;
+                      const blockMessage = !isPrevFinished 
+                        ? `⚠️ Vui lòng hoàn thành buổi điều trị số ${sessionNum - 1} để đặt lịch buổi này.`
+                        : `⚠️ Vui lòng thanh toán buổi trước đó để đặt lịch buổi này.`;
+
                       return (
-                        <div key={sessionNum} className="border border-sky-100 bg-sky-50/30 rounded-xl p-4 flex justify-between items-center gap-4 animate-pulse">
+                        <div key={sessionNum} className={`border rounded-xl p-4 flex justify-between items-center gap-4 ${
+                          isUnpaid || isBlocked
+                            ? 'border-amber-100 bg-amber-50/10 opacity-80' 
+                            : 'border-sky-100 bg-sky-50/30'
+                        }`}>
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-sky-100 text-sky-850">
-                                Chưa đặt lịch
+                              <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
+                                isUnpaid ? 'bg-amber-105 text-amber-800 border border-amber-200' : (isBlocked ? 'bg-slate-100 text-slate-500 border border-slate-200' : 'bg-sky-100 text-sky-850')
+                              }`}>
+                                {isUnpaid ? 'Chờ kích hoạt' : (isBlocked ? 'Chưa đủ điều kiện' : 'Chưa đặt lịch')}
                               </span>
                               <strong className="text-xs font-black text-slate-800">
                                 Buổi {sessionNum} • Trị liệu phục hồi
                               </strong>
                             </div>
-                            <p className="text-[10px] text-sky-700 font-semibold mt-1">Sẵn sàng để lên lịch đặt chỗ.</p>
+                            <p className="text-[10px] text-slate-500 font-semibold mt-1">
+                              {isUnpaid 
+                                ? '⚠️ Vui lòng kích hoạt và thanh toán gói để bắt đầu đặt lịch.' 
+                                : (isBlocked ? blockMessage : 'Sẵn sàng để lên lịch đặt chỗ.')}
+                            </p>
                           </div>
                           
-                          <button
-                            onClick={() => {
-                              setBookingSessionNum(sessionNum);
-                              setIsBookingOpen(true);
-                            }}
-                            className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95"
-                          >
-                            Đặt lịch
-                          </button>
+                          {isUnpaid ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (selectedPlan.cuoc_hen_id) {
+                                  window.location.href = `/admin/quick-billing?lich_dat_id=${selectedPlan.cuoc_hen_id}`;
+                                } else {
+                                  window.location.href = `/admin/quick-billing?customer_id=${selectedPatient.id}&goi_dich_vu_id=${selectedPlan.goi_dich_vu_id}&lich_dieu_tri_id=${selectedPlan.id}`;
+                                }
+                              }}
+                              className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95 cursor-pointer shrink-0"
+                            >
+                              Kích hoạt ngay
+                            </button>
+                          ) : isBlocked ? (
+                            <button
+                              disabled
+                              className="px-4 py-2 bg-slate-200 text-slate-400 rounded-xl text-xs font-bold cursor-not-allowed shrink-0"
+                            >
+                              Đặt lịch
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                const basePath = window.location.pathname.startsWith('/receptionist') ? '/receptionist' : '/admin';
+                                window.location.href = `${basePath}/appointments?khach_hang_id=${selectedPatient.id}&goi_dich_vu_id=${selectedPlan.goi_dich_vu_id}`;
+                              }}
+                              className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95 cursor-pointer"
+                            >
+                              Đặt lịch
+                            </button>
+                          )}
                         </div>
                       );
                     } else {
@@ -705,6 +705,55 @@ export default function ManageMedicalRecords() {
           ) : selectedApt ? (
             // Render 2: Single Service or Exam Detail View
             <div className="space-y-6">
+              {/* Gói chỉ định từ ca khám */}
+              {prescribedPlan && prescribedPlan.trang_thai === 'cho_kich_hoat' && (
+                <div className="border border-amber-200 bg-gradient-to-r from-amber-50/70 via-amber-50/30 to-white text-amber-900 rounded-2xl p-5 shadow-sm shadow-amber-500/5 transition-all duration-300">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div className="flex items-start gap-3">
+                      <div className={`size-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${
+                        prescribedPlan.trang_thai === 'cho_kich_hoat'
+                          ? 'bg-amber-100 text-amber-700'
+                          : 'bg-teal-100 text-teal-700'
+                      }`}>
+                        <Stethoscope size={18} className="stroke-[2.5]" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">
+                            Gói chỉ định từ ca khám này
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${
+                            prescribedPlan.trang_thai === 'cho_kich_hoat'
+                              ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                              : 'bg-teal-100 text-teal-800 border border-teal-200'
+                          }`}>
+                            {prescribedPlan.trang_thai === 'cho_kich_hoat' ? 'Chờ kích hoạt' : 'Đang điều trị'}
+                          </span>
+                        </div>
+                        <h4 className="text-sm font-black text-slate-800 mt-1">
+                          {prescribedPlan.ten_goi} ({prescribedPlan.tong_so_buoi} buổi)
+                        </h4>
+                        <p className="text-[10px] text-slate-500 font-semibold mt-0.5">
+                          {prescribedPlan.trang_thai === 'cho_kich_hoat'
+                            ? 'Bác sĩ đã chỉ định phác đồ điều trị này. Vui lòng thanh toán để kích hoạt và bắt đầu buổi trị liệu.'
+                            : 'Gói trị liệu được chỉ định đã thanh toán và kích hoạt thành công.'}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <button
+                      type="button"
+                      onClick={() => {
+                        window.location.href = `/admin/quick-billing?lich_dat_id=${selectedApt.id}`;
+                      }}
+                      className="px-4.5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black shadow-md shadow-amber-500/10 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer shrink-0"
+                    >
+                      <span>💵 Thanh toán & Kích hoạt gói</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4">
                 <div className="flex justify-between items-center border-b border-slate-50 pb-3">
                   <div>
@@ -811,122 +860,6 @@ export default function ManageMedicalRecords() {
               <h4 className="text-sm font-black text-slate-800">Không tìm thấy thông tin ca lịch hẹn</h4>
             </div>
           )}
-        </div>
-      )}
-
-      {/* QUICK BOOKING DIALOG MODAL */}
-      {isBookingOpen && selectedPatient && selectedPlan && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="px-6 py-5 border-b border-slate-100 bg-white flex justify-between items-center">
-              <div>
-                <h3 className="text-base font-black text-slate-800">Đặt lịch Buổi {bookingSessionNum}</h3>
-                <p className="text-[10px] text-slate-450 font-bold uppercase mt-0.5">{selectedPlan.ten_goi}</p>
-              </div>
-              <button 
-                type="button" 
-                onClick={() => setIsBookingOpen(false)} 
-                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <form onSubmit={handleBookingSubmit} className="p-6 space-y-4 text-xs">
-              {/* Date & Time Picker first */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-450 uppercase block">Ngày điều trị *</label>
-                  <input 
-                    type="date" 
-                    value={bookingDate} 
-                    onChange={(e) => setBookingDate(e.target.value)} 
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-teal-500/20 font-bold" 
-                    required 
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-450 uppercase block">Giờ bắt đầu *</label>
-                  <input 
-                    type="time" 
-                    value={bookingTime} 
-                    onChange={(e) => setBookingTime(e.target.value)} 
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-teal-500/20 font-bold" 
-                    required 
-                  />
-                </div>
-              </div>
-
-              {/* KTV Selection dynamically loaded */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-450 uppercase block">Kỹ thuật viên phụ trách *</label>
-                <select 
-                  value={bookingKtvId} 
-                  onChange={(e) => setBookingKtvId(e.target.value)} 
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-teal-500/20 font-bold disabled:opacity-75" 
-                  required
-                  disabled={loadingAvailable || !availableStaff}
-                >
-                  {loadingAvailable ? (
-                    <option value="">-- Đang kiểm tra lịch trống KTV... --</option>
-                  ) : !availableStaff ? (
-                    <option value="">-- Vui lòng chọn Ngày & Giờ --</option>
-                  ) : availableStaff.length === 0 ? (
-                    <option value="">-- Không có KTV nào trống lịch --</option>
-                  ) : (
-                    <>
-                      <option value="">-- Lựa chọn KTV ({availableStaff.length} sẵn sàng) --</option>
-                      {availableStaff.map(s => (
-                        <option key={s.nguoi_dung_id} value={String(s.nguoi_dung_id)}>
-                          {s.ho_ten}
-                        </option>
-                      ))}
-                    </>
-                  )}
-                </select>
-                {availableStaff !== null && availableStaff.length === 0 && !loadingAvailable && (
-                  <p className="text-[10px] font-extrabold text-rose-500 mt-1">
-                    ⚠️ Tất cả kỹ thuật viên đã bận hoặc không có ca trực trong khung giờ này. Vui lòng chọn Ngày/Giờ khác.
-                  </p>
-                )}
-              </div>
-
-              {/* Room Selection */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-450 uppercase block">Phòng trị liệu</label>
-                <select 
-                  value={bookingRoomId} 
-                  onChange={(e) => setBookingRoomId(e.target.value)} 
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-teal-500/20 font-bold" 
-                  required
-                >
-                  <option value="">-- Lựa chọn phòng --</option>
-                  {roomsList.filter(r => r.loai_phong === 'phong_tri_lieu' || r.loai_phong === 'tri_lieu').map(r => (
-                    <option key={r.id} value={r.id}>{r.ten_phong}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
-                <button 
-                  type="button" 
-                  onClick={() => setIsBookingOpen(false)} 
-                  className="px-4 py-2 bg-white border border-slate-200 text-slate-650 font-bold rounded-xl hover:bg-slate-50 transition-all"
-                >
-                  Hủy bỏ
-                </button>
-                <button 
-                  type="submit" 
-                  disabled={bookingLoading || loadingAvailable || (availableStaff !== null && availableStaff.length === 0)} 
-                  className="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl shadow-md shadow-teal-500/10 transition-all disabled:opacity-50"
-                >
-                  {bookingLoading ? 'Đang đặt...' : 'Xác nhận tạo lịch'}
-                </button>
-              </div>
-            </form>
-          </div>
         </div>
       )}
     </div>

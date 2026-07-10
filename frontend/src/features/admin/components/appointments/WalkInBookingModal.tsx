@@ -70,6 +70,7 @@ export default function WalkInBookingModal({
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [selectedServiceId, setSelectedServiceId] = useState('');
 
+
   // 1. Filter services based on activeType (Kham vs Lieu Trinh Le)
   const filteredServices = React.useMemo(() => {
     return servicesList.filter((svc: any) => {
@@ -201,13 +202,23 @@ export default function WalkInBookingModal({
     const fetchPlans = async () => {
       try {
         const res = await axiosInstance.get(`/receptionist/customers/${selectedCustomer.id}/treatment-plans`);
-        setTreatmentPlans(res.data || []);
+        const list = res.data || [];
+        setTreatmentPlans(list);
+        if (initialServiceId) {
+          const matched = list.find((p: any) => String(p.goi_dich_vu_id) === String(initialServiceId));
+          if (matched) {
+            setSelectedPlan(matched);
+            setSelectedServiceId(matched.goi_dich_vu_id);
+          }
+        }
       } catch (err) {
         console.error('Error fetching treatment plans:', err);
       }
     };
     fetchPlans();
   }, [selectedCustomer, isNewCustomer]);
+
+
 
   const handleSelectCustomer = (customer: any) => {
     setSelectedCustomer(customer);
@@ -602,28 +613,30 @@ export default function WalkInBookingModal({
             <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
               Hành chính bệnh nhân
             </h4>
-            <div className="flex bg-slate-100 p-0.5 rounded-lg text-xs font-bold">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsNewCustomer(false);
-                  handleClearCustomer();
-                }}
-                className={`px-3 py-1 rounded-md transition-all ${!isNewCustomer ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
-              >
-                Khách đã có hồ sơ
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsNewCustomer(true);
-                  handleClearCustomer();
-                }}
-                className={`px-3 py-1 rounded-md transition-all ${isNewCustomer ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
-              >
-                + Khách mới (Tạo hồ sơ)
-              </button>
-            </div>
+            {!initialCustomerId && (
+              <div className="flex bg-slate-100 p-0.5 rounded-lg text-xs font-bold">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsNewCustomer(false);
+                    handleClearCustomer();
+                  }}
+                  className={`px-3 py-1 rounded-md transition-all ${!isNewCustomer ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                >
+                  Khách đã có hồ sơ
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsNewCustomer(true);
+                    handleClearCustomer();
+                  }}
+                  className={`px-3 py-1 rounded-md transition-all ${isNewCustomer ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                >
+                  + Khách mới (Tạo hồ sơ)
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Khách hàng đã có hồ sơ - Tìm kiếm Autocomplete */}
@@ -680,13 +693,15 @@ export default function WalkInBookingModal({
                         <span className="text-[10px] text-slate-450 font-semibold block mt-0.5">SĐT liên hệ: {sdt}</span>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleClearCustomer}
-                      className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-650 rounded-lg transition-all"
-                    >
-                      Chọn khách hàng khác
-                    </button>
+                    {!initialCustomerId && (
+                      <button
+                        type="button"
+                        onClick={handleClearCustomer}
+                        className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-650 rounded-lg transition-all"
+                      >
+                        Chọn khách hàng khác
+                      </button>
+                    )}
                   </div>
                   {hasReachedLimit && (
                     <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold p-3.5 rounded-2xl flex items-center gap-2 animate-in fade-in duration-200">
@@ -846,7 +861,7 @@ export default function WalkInBookingModal({
                     );
                   })}
                 </div>
-                {selectedPlan && (
+                {selectedPlan && !initialServiceId && (
                   <div className="flex flex-col gap-2">
                     <button
                       type="button"
@@ -855,24 +870,6 @@ export default function WalkInBookingModal({
                     >
                       Hủy chọn gói (Đặt ca điều trị lẻ khác)
                     </button>
-                    {selectedPlan.trang_thai === 'khuyen_nghi' && selectedPlan.loai_goi !== 'LE' && (
-                      <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl text-xs font-semibold text-amber-850 space-y-2 mt-2 animate-in fade-in duration-200">
-                        <p>⚠️ Chỉ định này chưa được thanh toán. Bạn cần thanh toán tối thiểu 50% hoặc 100% gói để có thể bắt đầu đặt lịch trị liệu.</p>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (selectedPlan.cuoc_hen_id) {
-                              window.location.href = `/admin/quick-billing?lich_dat_id=${selectedPlan.cuoc_hen_id}`;
-                            } else {
-                              window.location.href = `/admin/quick-billing?customer_id=${selectedCustomer.id}&goi_dich_vu_id=${selectedPlan.goi_dich_vu_id}`;
-                            }
-                          }}
-                          className="px-3 py-1.5 bg-amber-600 hover:bg-amber-750 text-white rounded-lg font-bold transition-all shadow-sm block text-center"
-                        >
-                          💵 Đi đến Thanh toán & Kích hoạt gói
-                        </button>
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
@@ -1151,7 +1148,7 @@ export default function WalkInBookingModal({
         </button>
         <button
           type="button"
-          disabled={bookingLoading || !selectedTime || !selectedServiceId || (!isNewCustomer && !selectedCustomer) || (!isReceptionist && !selectedDoctorId) || hasReachedLimit || (selectedPlan && selectedPlan.trang_thai === 'khuyen_nghi' && selectedPlan.loai_goi !== 'LE')}
+          disabled={bookingLoading || !selectedTime || !selectedServiceId || (!isNewCustomer && !selectedCustomer) || (!isReceptionist && !selectedDoctorId) || hasReachedLimit}
           onClick={() => {
             const form = document.querySelector('form');
             if (form) form.requestSubmit();

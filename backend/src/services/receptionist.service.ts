@@ -294,28 +294,43 @@ class ReceptionistService {
     const tong_tien_goi_sau_giam = Math.max(0, gia_goc_goi - so_tien_giam_phuong_thuc - so_tien_giam_voucher);
 
     // Fetch clinical assessment fee from DB dynamically if appointment is selected
-    let chi_phi_kham = 0;
+    let chi_phi_kham = 0; // In the new design, chi_phi_kham is always 0 on the package invoice
     let giam_tru_kham_truoc_do = 0;
     let mien_phi_kham_chua_dong = 0;
-    let mien_phi_kham = false;
-
     let ngay_thanh_toan_kham_str = '';
+    let hasPaidExam = true;
+    let appt_price = 150000;
 
     const isSingleService = item_type === 'goi' && loai_goi_db === 'LE';
-    const isTungBuoi = loai_thanh_toan === 'tung_buoi';
-    const isExcludeExam = isSingleService || isTungBuoi;
+    const isExcludeExam = isSingleService;
 
-    if (lich_dat_id && !isExcludeExam) {
-      const appt = await receptionistRepository.getAppointmentWithServicePrice(lich_dat_id);
-      if (appt) {
-        chi_phi_kham = Number(appt.don_gia);
+    let targetLichDatId = lich_dat_id;
+    if (!targetLichDatId && data.khach_hang_id && !isExcludeExam) {
+      // Find the last clinical exam appointment for this customer that has a paid invoice!
+      const { rows: apptRows } = await pool.query(`
+        SELECT ch.id 
+        FROM cuoc_hen ch
+        JOIN hoa_don hd ON hd.cuoc_hen_id = ch.id
+        WHERE ch.khach_hang_id = $1 
+          AND ch.loai IN ('KHAM', 'KHAM_MOI') 
+          AND hd.trang_thai = 'da_thanh_toan'
+        ORDER BY ch.ngay_gio_bat_dau DESC LIMIT 1
+      `, [data.khach_hang_id]);
+      if (apptRows.length > 0) {
+        targetLichDatId = apptRows[0].id;
       }
+    }
 
-      const paidAmount = await receptionistRepository.getPaidInvoiceAmountForAppointment(lich_dat_id);
-      if (paidAmount > 0) {
+    if (targetLichDatId && !isExcludeExam) {
+      const appt = await receptionistRepository.getAppointmentWithServicePrice(targetLichDatId);
+      appt_price = appt ? Number(appt.don_gia) : 150000;
+
+      const paidAmount = await receptionistRepository.getPaidInvoiceAmountForAppointment(targetLichDatId);
+      hasPaidExam = paidAmount > 0;
+      if (hasPaidExam) {
         const paidInvoice = await pool.query(
           "SELECT ngay_tao FROM hoa_don WHERE cuoc_hen_id = $1 AND trang_thai = 'da_thanh_toan' LIMIT 1",
-          [lich_dat_id]
+          [targetLichDatId]
         );
         if (paidInvoice.rows.length > 0 && paidInvoice.rows[0].ngay_tao) {
           const d = new Date(paidInvoice.rows[0].ngay_tao);
@@ -327,34 +342,34 @@ class ReceptionistService {
       }
 
       // Check if they are eligible for the free exam waiver:
-      // payment mode tra_thang or tra_gop, and unit price >= 1.000.000đ
-      if (['tra_thang', 'tra_gop'].includes(loai_thanh_toan) && gia_goc_goi >= 1000000) {
-        mien_phi_kham = true;
-      }
+      // package >= 1.000.000đ, paid tra_thang or tra_gop
+      const isExamWaived = ['tra_thang', 'tra_gop'].includes(loai_thanh_toan) && gia_goc_goi >= 1000000;
 
-      if (mien_phi_kham) {
-        mien_phi_kham_chua_dong = chi_phi_kham;
-        if (paidAmount > 0) {
-          giam_tru_kham_truoc_do = paidAmount;
+      if (isExamWaived) {
+        if (hasPaidExam) {
+          // Exam already paid separately
+          giam_tru_kham_truoc_do = appt_price;
+          mien_phi_kham_chua_dong = 0;
+        } else {
+          // Exam not paid separately yet (will be marked paid with 0đ at checkout)
+          giam_tru_kham_truoc_do = 0;
+          mien_phi_kham_chua_dong = appt_price;
         }
       } else {
-        if (paidAmount > 0) {
-          giam_tru_kham_truoc_do = paidAmount;
+        if (!hasPaidExam) {
+          chi_phi_kham = appt_price;
         }
       }
     }
 
-    // Total display values
-    const gia_goc = gia_goc_goi + chi_phi_kham;
+    // Total display values (gia_goc on package invoice is always gia_goc_goi)
+    const gia_goc = gia_goc_goi;
     // Total to pay before deduction
-    let tong_tien_thanh_toan = tong_tien_goi_sau_giam + chi_phi_kham;
+    let tong_tien_thanh_toan = tong_tien_goi_sau_giam;
 
-    // Apply the deduction / waiver if applicable
+    // Apply the deduction if applicable
     if (giam_tru_kham_truoc_do > 0) {
       tong_tien_thanh_toan = Math.max(0, tong_tien_thanh_toan - giam_tru_kham_truoc_do);
-    }
-    if (mien_phi_kham_chua_dong > 0) {
-      tong_tien_thanh_toan = Math.max(0, tong_tien_thanh_toan - mien_phi_kham_chua_dong);
     }
 
     let so_tien_dot_1 = tong_tien_thanh_toan;
@@ -363,16 +378,22 @@ class ReceptionistService {
     if (item_type === 'goi') {
       if (loai_thanh_toan === 'tra_gop') {
         const packageDot1 = Math.round(tong_tien_goi_sau_giam / 2);
-        // Note: For tra_gop, first payment is: (50% of package) + (exam fee) - (deduction or waiver)
-        so_tien_dot_1 = Math.max(0, packageDot1 + chi_phi_kham - giam_tru_kham_truoc_do - mien_phi_kham_chua_dong);
+        // Note: For tra_gop, first payment is: (50% of package) - (deduction if prepaid exam)
+        so_tien_dot_1 = Math.max(0, packageDot1 - giam_tru_kham_truoc_do);
+        if (!hasPaidExam && mien_phi_kham_chua_dong === 0) {
+          so_tien_dot_1 += appt_price;
+        }
         so_tien_dot_2 = tong_tien_goi_sau_giam - packageDot1;
       } else if (loai_thanh_toan === 'tung_buoi') {
-        so_tien_dot_1 = Math.max(0, chi_phi_kham - giam_tru_kham_truoc_do);
+        so_tien_dot_1 = hasPaidExam ? 0 : appt_price;
         so_tien_dot_2 = tong_tien_goi_sau_giam;
+      } else { // tra_thang
+        if (!hasPaidExam && mien_phi_kham_chua_dong === 0) {
+          so_tien_dot_1 += appt_price;
+        }
       }
-      if (!don_gia_theo_buoi) {
-        don_gia_theo_buoi = Math.round(tong_tien_goi_sau_giam / so_buoi_goi);
-      }
+      // Always calculate don_gia_theo_buoi dynamically from the package value to ensure consistency:
+      don_gia_theo_buoi = Math.round(tong_tien_goi_sau_giam / so_buoi_goi);
     }
 
     return {
@@ -488,10 +509,10 @@ class ReceptionistService {
         voucher_id: calc.voucher_id,
         cuoc_hen_id: lich_dat_id || null,
         ghi_chu: calc.giam_tru_kham_truoc_do > 0 
-          ? `Đã khấu trừ ${calc.giam_tru_kham_truoc_do.toLocaleString()}đ phí khám lâm sàng đã đóng trước đó.` 
+          ? `Gói trị liệu chỉ định từ ca khám ngày ${calc.ngay_thanh_toan_kham || ''} đã thanh toán. Miễn phí khám được khấu trừ vào gói.` 
           : (calc.mien_phi_kham_chua_dong > 0 
-              ? `Được miễn phí khám lâm sàng (Ưu đãi mua gói trị liệu > 1.000.000đ).` 
-              : null)
+              ? `Gói trị liệu chỉ định từ ca khám. Được miễn phí khám lâm sàng (Ưu đãi mua gói trị liệu > 1.000.000đ).` 
+              : `Gói trị liệu chỉ định từ ca khám.`)
       };
 
       const invoice = await receptionistRepository.createInvoiceForTreatmentPlan(invoiceData);
@@ -557,6 +578,7 @@ class ReceptionistService {
     let trang_thai_moi = '';
     let chi_phi_kham = 0;
     let giam_tru = 0;
+    let requiredDot1 = 0;
 
     if (hd.cuoc_hen_id) {
       const appt = await receptionistRepository.getAppointmentWithServicePrice(hd.cuoc_hen_id);
@@ -575,7 +597,7 @@ class ReceptionistService {
       // First payment
       if (loai_thanh_toan === 'tra_gop') {
         const totalPackage = tong_tien + giam_tru;
-        const requiredDot1 = Math.round(totalPackage / 2) - giam_tru;
+        requiredDot1 = Math.round(totalPackage / 2) - giam_tru;
         if (tien_nhan < requiredDot1) {
           throw new Error(`Số tiền nhận không đủ cho đợt 1 (tối thiểu ${requiredDot1.toLocaleString()}đ)`);
         }
@@ -589,7 +611,7 @@ class ReceptionistService {
         }
       } else if (loai_thanh_toan === 'tung_buoi') {
         const paidExam = await receptionistRepository.getPaidInvoiceAmountForAppointment(hd.cuoc_hen_id);
-        const requiredDot1 = paidExam > 0 ? 0 : chi_phi_kham;
+        requiredDot1 = paidExam > 0 ? 0 : chi_phi_kham;
         if (tien_nhan < requiredDot1) {
           throw new Error(`Số tiền nhận không đủ cho buổi khám lâm sàng (tối thiểu ${requiredDot1.toLocaleString()}đ)`);
         }
@@ -598,10 +620,13 @@ class ReceptionistService {
           da_thanh_toan_moi = tong_tien;
           trang_thai_moi = 'da_thanh_toan';
         } else {
-          da_thanh_toan_moi = requiredDot1;
+          // Under tung_buoi, the initial payment at checkout (requiredDot1) pays for the exam invoice,
+          // so the package invoice itself receives 0đ today.
+          da_thanh_toan_moi = 0;
           trang_thai_moi = 'dang_tra_tung_buoi';
         }
       } else {
+        requiredDot1 = tong_tien;
         if (tien_nhan < tong_tien) {
           throw new Error(`Số tiền nhận không đủ (yêu cầu ${tong_tien.toLocaleString()}đ)`);
         }
@@ -612,7 +637,7 @@ class ReceptionistService {
       // Subsequent payment (e.g. paying remaining/installment 2 or subsequent sessions)
       const remaining = tong_tien - da_thanh_toan_truoc;
       if (loai_thanh_toan === 'tung_buoi') {
-        const perSessionPrice = Math.round((tong_tien - chi_phi_kham) / so_buoi_goi);
+        const perSessionPrice = Math.round(tong_tien / so_buoi_goi);
         const requiredAmount = Math.min(perSessionPrice, remaining);
         if (tien_nhan < requiredAmount) {
           throw new Error(`Số tiền nhận không đủ thanh toán cho buổi tiếp theo (yêu cầu tối thiểu ${requiredAmount.toLocaleString()}đ)`);
@@ -648,11 +673,10 @@ class ReceptionistService {
     }
 
     // Mark any pending original exam invoice for this client/appointment as Paid (0đ due) to link it to the package promotion
-    if (hd.phac_do_dieu_tri_id) {
+    const isExamWaived = hd.phac_do_dieu_tri_id && ['tra_thang', 'tra_gop'].includes(hd.loai_thanh_toan || '') && Number(hd.tong_tien_goc || 0) >= 1000000;
+    if (isExamWaived) {
       const maHoaDonGoi = `HD-${hoa_don_id.substring(0, 6).toUpperCase()}`;
-      const promoNote = Number(hd.tong_tien_goc) >= 1000000
-        ? `Được miễn phí khám lâm sàng theo chương trình ưu đãi của hóa đơn gói ${maHoaDonGoi}.`
-        : `Phí khám lâm sàng được gộp thanh toán vào hóa đơn gói ${maHoaDonGoi}.`;
+      const promoNote = `Được miễn phí khám lâm sàng theo chương trình ưu đãi của hóa đơn gói ${maHoaDonGoi}.`;
 
       if (hd.cuoc_hen_id) {
         await pool.query(`
@@ -679,12 +703,48 @@ class ReceptionistService {
       }
     }
 
+    // Mark the original exam invoice as Paid if it is paid now under tung_buoi
+    if (hd.loai_thanh_toan === 'tung_buoi' && hd.cuoc_hen_id) {
+      const paidExam = await receptionistRepository.getPaidInvoiceAmountForAppointment(hd.cuoc_hen_id);
+      if (paidExam === 0) {
+        const examInvRes = await pool.query(`
+          SELECT id, tong_tien_phai_tra 
+          FROM hoa_don 
+          WHERE cuoc_hen_id = $1 
+            AND phac_do_dieu_tri_id IS NULL 
+            AND trang_thai = 'chua_thanh_toan' 
+          LIMIT 1
+        `, [hd.cuoc_hen_id]);
+        if (examInvRes.rows.length > 0) {
+          const examInv = examInvRes.rows[0];
+          
+          await pool.query(`
+            UPDATE hoa_don
+            SET trang_thai = 'da_thanh_toan',
+                so_tien_da_tra = tong_tien_phai_tra,
+                ghi_chu = $1
+            WHERE id = $2
+          `, [`Đã thanh toán cùng lúc với đăng ký gói trả theo từng buổi.`, examInv.id]);
+
+          // Create payment transaction for the exam invoice
+          const maGiaoDichExam = `GD${Math.floor(10000000 + Math.random() * 90000000)}`;
+          await pool.query(`
+            INSERT INTO giao_dich_thanh_toan (hoa_don_id, so_tien, loai_giao_dich, phuong_thuc, ma_tham_chieu, nhan_vien_thuc_hien_id, ngay_giao_dich)
+            VALUES ($1, $2, 'THANH_TOAN', $3, $4, 1, NOW())
+          `, [examInv.id, Number(examInv.tong_tien_phai_tra), phuong_thuc || 'tien_mat', maGiaoDichExam]);
+        }
+      }
+    }
+    const displayPaymentAmount = (hd.loai_thanh_toan === 'tung_buoi' && da_thanh_toan_truoc === 0 && actualPaymentAmount === 0)
+      ? requiredDot1
+      : actualPaymentAmount;
+
     return { 
       success: true, 
       trang_thai_moi, 
       da_thanh_toan_moi,
-      actualPaymentAmount,
-      changeAmount: phuong_thuc === 'tien_mat' ? Math.max(0, tien_nhan - actualPaymentAmount) : 0
+      actualPaymentAmount: displayPaymentAmount,
+      changeAmount: phuong_thuc === 'tien_mat' ? Math.max(0, tien_nhan - displayPaymentAmount) : 0
     };
   }
 
@@ -711,6 +771,10 @@ class ReceptionistService {
 
   async getCustomerTreatmentPlans(customerId: string) {
     return receptionistRepository.getCustomerTreatmentPlans(customerId);
+  }
+
+  async getBillingInfoByPackage(customerId: string, packageId: string) {
+    return receptionistRepository.getBillingInfoByPackage(customerId, packageId);
   }
 
   async getCompletedAppointments() {

@@ -192,10 +192,15 @@ class ReceptionistRepository {
             [updatedAppt.phac_do_dieu_tri_id]
           );
           const completedCount = countRes.rows[0].count || 0;
-          await client.query(
-            'UPDATE phac_do_dieu_tri SET so_buoi_da_dung = $1 WHERE id = $2',
-            [completedCount, updatedAppt.phac_do_dieu_tri_id]
-          );
+          const pdRes = await client.query('SELECT tong_so_buoi, trang_thai FROM phac_do_dieu_tri WHERE id = $1', [updatedAppt.phac_do_dieu_tri_id]);
+          if (pdRes.rows.length > 0) {
+            const { tong_so_buoi, trang_thai } = pdRes.rows[0];
+            const statusToSet = completedCount >= tong_so_buoi ? 'hoan_thanh' : (trang_thai === 'hoan_thanh' ? 'dang_dieu_tri' : trang_thai);
+            await client.query(
+              'UPDATE phac_do_dieu_tri SET so_buoi_da_dung = $1, trang_thai = $2 WHERE id = $3',
+              [completedCount, statusToSet, updatedAppt.phac_do_dieu_tri_id]
+            );
+          }
         }
       }
 
@@ -914,7 +919,7 @@ class ReceptionistRepository {
     const { rows } = await pool.query(`
       SELECT id, ho_ten, so_dien_thoai, email, gioi_tinh, ngay_sinh, diem_uy_tin 
       FROM khach_hang 
-      WHERE (ho_ten ILIKE $1 OR so_dien_thoai ILIKE $1) AND trang_thai = 'hoat_dong'
+      WHERE (unaccent(ho_ten) ILIKE unaccent($1) OR so_dien_thoai ILIKE $1) AND trang_thai = 'hoat_dong'
       LIMIT 20
     `, [`%${queryText}%`]);
     return rows;
@@ -922,39 +927,28 @@ class ReceptionistRepository {
 
   async getCustomerTreatmentPlans(customerId: string) {
     const { rows } = await pool.query(`
-      SELECT pd.id::text, pd.goi_dich_vu_id, pd.tong_so_buoi, pd.so_buoi_da_dung, pd.trang_thai,
+      SELECT pd.id::text, pd.goi_dich_vu_id, pd.tong_so_buoi, 
+             (
+               SELECT COUNT(*)::int 
+               FROM cuoc_hen 
+               WHERE phac_do_dieu_tri_id = pd.id 
+                 AND trang_thai = 'hoan_thanh' 
+                 AND loai = 'DIEU_TRI'
+             ) as so_buoi_da_dung,
+             pd.trang_thai,
              gdv.ten_goi as ten_goi_dich_vu, gdv.thoi_luong_phut,
              NULL::uuid as cuoc_hen_id, gdv.loai_goi
       FROM phac_do_dieu_tri pd
       JOIN goi_dich_vu gdv ON pd.goi_dich_vu_id = gdv.id
       WHERE pd.khach_hang_id = $1 
-        AND pd.so_buoi_da_dung < pd.tong_so_buoi 
-        AND pd.trang_thai IN ('dang_dieu_tri', 'cho_kich_hoat')
-      
-      UNION ALL
-      
-      SELECT 
-        'rec-' || cd.id::text as id,
-        gdv.id as goi_dich_vu_id,
-        COALESCE(gdv.tong_so_buoi, 1) as tong_so_buoi,
-        0 as so_buoi_da_dung,
-        'khuyen_nghi' as trang_thai,
-        gdv.ten_goi as ten_goi_dich_vu,
-        gdv.thoi_luong_phut,
-        ch.id as cuoc_hen_id,
-        gdv.loai_goi
-      FROM chi_dinh_buoi cd
-      JOIN nhat_ky_buoi_dieu_tri nk ON cd.nhat_ky_id = nk.id
-      JOIN cuoc_hen ch ON nk.cuoc_hen_id = ch.id
-      JOIN goi_dich_vu gdv ON cd.goi_dich_vu_id = gdv.id
-      WHERE ch.khach_hang_id = $1
-        AND NOT EXISTS (
-          SELECT 1 
-          FROM phac_do_dieu_tri pd
-          WHERE pd.khach_hang_id = ch.khach_hang_id
-            AND pd.goi_dich_vu_id = gdv.id
-            AND pd.trang_thai IN ('dang_dieu_tri', 'cho_kich_hoat')
-        )
+        AND (
+          SELECT COUNT(*)::int 
+          FROM cuoc_hen 
+          WHERE phac_do_dieu_tri_id = pd.id 
+            AND trang_thai = 'hoan_thanh' 
+            AND loai = 'DIEU_TRI'
+        ) < pd.tong_so_buoi 
+        AND pd.trang_thai = 'dang_dieu_tri'
     `, [customerId]);
     return rows;
   }
@@ -1044,6 +1038,84 @@ class ReceptionistRepository {
       WHERE ch.id = $1
     `, [id]);
     return rows[0];
+  }
+
+  async getBillingInfoByPackage(customerId: string, packageId: string) {
+    // 1. Get customer info
+    const { rows: custRows } = await pool.query(`
+      SELECT id as khach_hang_id, ho_ten as ten_khach_hang, so_dien_thoai as sdt_khach_hang
+      FROM khach_hang WHERE id = $1
+    `, [customerId]);
+    if (custRows.length === 0) return null;
+
+    const customer = custRows[0];
+
+    // 2. Get package info
+    const { rows: pkgRows } = await pool.query(`
+      SELECT id, ten_goi, loai_goi FROM goi_dich_vu WHERE id = $1
+    `, [packageId]);
+    if (pkgRows.length === 0) return null;
+
+    const pkg = pkgRows[0];
+
+    // 3. Check for any paid clinical exam invoice for this customer
+    const { rows: examRows } = await pool.query(`
+      SELECT hd.ngay_tao as ngay_thanh_toan_kham, hd.tong_tien_phai_tra as so_tien_da_thanh_toan_kham
+      FROM hoa_don hd
+      WHERE hd.khach_hang_id = $1 
+        AND hd.trang_thai = 'da_thanh_toan' 
+        AND hd.cuoc_hen_id IS NOT NULL 
+        AND hd.cuoc_hen_id IN (SELECT id FROM cuoc_hen WHERE loai IN ('KHAM', 'KHAM_MOI'))
+      ORDER BY hd.ngay_tao DESC LIMIT 1
+    `, [customerId]);
+
+    const examInfo = examRows[0] || {};
+
+    // 4. Check if there is an existing phac_do_dieu_tri for this customer and package
+    const { rows: pdRows } = await pool.query(`
+      SELECT pd.id as phac_do_dieu_tri_id, pd.tong_so_buoi as pd_tong_so_buoi, pd.trang_thai as pd_trang_thai,
+             hd.id as hoa_don_goi_id, hd.so_tien_da_tra as so_tien_da_tra_goi, hd.tong_tien_phai_tra as tong_tien_phai_tra_goi,
+             hd.hinh_thuc_thanh_toan_goi
+      FROM phac_do_dieu_tri pd
+      LEFT JOIN hoa_don hd ON hd.phac_do_dieu_tri_id = pd.id
+      WHERE pd.khach_hang_id = $1 AND pd.goi_dich_vu_id = $2
+      ORDER BY pd.ngay_kich_hoat DESC LIMIT 1
+    `, [customerId, packageId]);
+
+    const pdInfo = pdRows[0] || {};
+
+    return {
+      id: null,
+      ngay_thanh_toan_kham: examInfo.ngay_thanh_toan_kham || null,
+      so_tien_da_thanh_toan_kham: examInfo.so_tien_da_thanh_toan_kham ? Number(examInfo.so_tien_da_thanh_toan_kham) : 0,
+      ma_lich_dat: null,
+      ngay_gio_bat_dau: null,
+      ngay_gio_ket_thuc: null,
+      trang_thai: null,
+      phac_do_dieu_tri_id: pdInfo.phac_do_dieu_tri_id || null,
+      so_thu_tu_buoi: 1,
+      goi_dich_vu_id: null,
+      loai_lich: 'dieu_tri',
+      khach_hang_id: customer.khach_hang_id,
+      ten_khach_hang: customer.ten_khach_hang,
+      sdt_khach_hang: customer.sdt_khach_hang,
+      ten_dich_vu: null,
+      don_gia_dich_vu: 0,
+      khuyen_nghi_goi_id: pkg.id,
+      khuyen_nghi_loai_goi: pkg.loai_goi,
+      khuyen_nghi_ten_goi: pkg.ten_goi,
+      pd_goi_dich_vu_id: pkg.id,
+      pd_tong_so_buoi: pdInfo.pd_tong_so_buoi || null,
+      pd_trang_thai: pdInfo.pd_trang_thai || null,
+      pd_ten_goi: pkg.ten_goi,
+      pd_don_gia_theo_buoi: null,
+      hoa_don_goi_id: pdInfo.hoa_don_goi_id || null,
+      hoa_don_goi_ma: pdInfo.hoa_don_goi_id ? `HD-${pdInfo.hoa_don_goi_id.substring(0,6).toUpperCase()}` : null,
+      trang_thai_hoa_don_goi: pdInfo.hoa_don_goi_id ? 'chua_thanh_toan' : null,
+      so_tien_da_tra_goi: pdInfo.so_tien_da_tra_goi ? Number(pdInfo.so_tien_da_tra_goi) : 0,
+      tong_tien_phai_tra_goi: pdInfo.tong_tien_phai_tra_goi ? Number(pdInfo.tong_tien_phai_tra_goi) : 0,
+      hinh_thuc_thanh_toan_goi: pdInfo.hinh_thuc_thanh_toan_goi || null
+    };
   }
 
   async getPaidInvoiceAmountForAppointment(lich_dat_id: string): Promise<number> {

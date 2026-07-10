@@ -333,6 +333,10 @@ export default function ManageAppointments() {
   const activeRole = activeType === 'kham' ? 'Bác sĩ' : 'Kỹ thuật viên';
   const formattedSelectedDate = format(selectedDate, 'yyyy-MM-dd');
 
+  const removeAccents = (str: string) => {
+    return (str || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  };
+
   const filteredAppointments = appointmentsToUse.filter(apt => {
     const aptDate = new Date(apt.ngay_gio_bat_dau || '');
     let matchDate = false;
@@ -348,9 +352,10 @@ export default function ManageAppointments() {
       ? apt.loai_lich === 'kham_moi'
       : (apt.loai_lich === 'dieu_tri' || apt.loai_lich === 'dich_vu_don');
     
+    const cleanSearch = removeAccents(searchTerm);
     const matchSearch = searchTerm === '' ||
-      apt.ma_lich_dat.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      apt.ten_khach_hang.toLowerCase().includes(searchTerm.toLowerCase());
+      removeAccents(apt.ma_lich_dat).includes(cleanSearch) ||
+      removeAccents(apt.ten_khach_hang).includes(cleanSearch);
 
     const matchStaff = !selectedStaffFilter || String(apt.bac_si_id) === String(selectedStaffFilter);
 
@@ -604,6 +609,7 @@ export default function ManageAppointments() {
             selectedDate={selectedDate}
             activeType={activeType}
             onToggleType={() => setActiveType(prev => prev === 'kham' ? 'dieu_tri' : 'kham')}
+            isWalkInModalOpen={isWalkInModalOpen}
           />
 
           {/* DYNAMIC HEADER & BACK NAVIGATION */}
@@ -719,7 +725,7 @@ export default function ManageAppointments() {
             </div>
 
             {/* Right Sidebar (Collapsible) */}
-            {viewMode === 'timeline' && (
+            {viewMode === 'timeline' && !isWalkInModalOpen && (
               <div className="relative shrink-0 flex items-stretch min-h-[400px]">
                 <button
                   type="button"

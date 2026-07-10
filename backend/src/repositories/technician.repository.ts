@@ -157,10 +157,15 @@ class TechnicianRepository {
         );
         const completedCount = countRes.rows[0].count || 0;
 
-        await client.query(
-          'UPDATE phac_do_dieu_tri SET so_buoi_da_dung = $1 WHERE id = $2',
-          [completedCount, phacDoId]
-        );
+        const pdRes = await client.query('SELECT tong_so_buoi, trang_thai FROM phac_do_dieu_tri WHERE id = $1', [phacDoId]);
+        if (pdRes.rows.length > 0) {
+          const { tong_so_buoi, trang_thai } = pdRes.rows[0];
+          const statusToSet = completedCount >= tong_so_buoi ? 'hoan_thanh' : (trang_thai === 'hoan_thanh' ? 'dang_dieu_tri' : trang_thai);
+          await client.query(
+            'UPDATE phac_do_dieu_tri SET so_buoi_da_dung = $1, trang_thai = $2 WHERE id = $3',
+            [completedCount, statusToSet, phacDoId]
+          );
+        }
       }
 
       await client.query('COMMIT');

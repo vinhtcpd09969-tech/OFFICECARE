@@ -81,7 +81,7 @@ export function DetailFooter({
                 (!!selectedAppointment.hoa_don_goi_id && (
                   (selectedAppointment.hinh_thuc_thanh_toan_goi === 'tra_thang') ||
                   (selectedAppointment.hinh_thuc_thanh_toan_goi === 'tra_gop' &&
-                   Number(selectedAppointment.so_thu_tu_buoi || 0) < Math.floor(Number(selectedAppointment.tong_so_buoi_goi || 10) / 2) - 1)
+                   Number(selectedAppointment.so_thu_tu_buoi || 0) < Math.floor(Number(selectedAppointment.tong_so_buoi_goi || 10) / 2))
                 ));
             }
 
@@ -135,7 +135,7 @@ export function DetailFooter({
                   }}
                   className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white shadow-sm text-xs font-black rounded-xl flex items-center gap-2 transition-all"
                 >
-                  💵 Thanh toán ngay {isRetail ? '' : `(Buổi ${selectedAppointment.so_thu_tu_buoi || 1})`}
+                  💵 {isRetail ? 'Thanh toán ngay' : 'Vui lòng thanh toán liệu trình'}
                 </button>
               );
             }

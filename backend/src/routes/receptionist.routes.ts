@@ -21,7 +21,8 @@ import {
   getCustomerTreatmentPlans,
   getAppointmentBillingInfo,
   checkCustomerLimit,
-  checkPackagePayment
+  checkPackagePayment,
+  getBillingInfoByPackage
 } from '../controllers/receptionist.controller';
 
 const router = Router();
@@ -51,5 +52,6 @@ router.get('/customers/:id/treatment-plans', getCustomerTreatmentPlans);
 router.get('/appointments/:id/billing-info', getAppointmentBillingInfo);
 router.get('/customers/:id/check-limit', checkCustomerLimit);
 router.get('/customers/:id/check-package-payment', checkPackagePayment);
+router.get('/customers/:id/billing-info-by-package', getBillingInfoByPackage);
 
 export default router;

@@ -496,6 +496,20 @@ class AdminRepository {
 
   // --- QUẢN LÝ HỒ SƠ ĐIỀU TRỊ (MAPPED TO PHAC DO DIEU TRI) ---
   async getMedicalRecords() {
+    // Sync completed treatment plans whose actual completed count >= tong_so_buoi
+    await pool.query(`
+      UPDATE phac_do_dieu_tri 
+      SET trang_thai = 'hoan_thanh' 
+      WHERE trang_thai = 'dang_dieu_tri' 
+        AND (
+          SELECT COUNT(*)::int 
+          FROM cuoc_hen 
+          WHERE phac_do_dieu_tri_id = phac_do_dieu_tri.id 
+            AND trang_thai = 'hoan_thanh' 
+            AND loai = 'DIEU_TRI'
+        ) >= tong_so_buoi
+    `);
+
     // 1. Lấy danh sách khách hàng
     const { rows: patients } = await pool.query(`
       SELECT id, ho_ten, so_dien_thoai, email, trang_thai, diem_uy_tin
@@ -503,23 +517,80 @@ class AdminRepository {
       ORDER BY ho_ten ASC
     `);
 
-    // 2. Lấy danh sách phác đồ điều trị kèm chẩn đoán ban đầu của Bác sĩ
     const { rows: plans } = await pool.query(`
       SELECT 
-        pd.id, pd.khach_hang_id, pd.goi_dich_vu_id, pd.tong_so_buoi, pd.so_buoi_da_dung, pd.trang_thai, pd.ngay_kich_hoat,
+        pd.id, pd.khach_hang_id, pd.goi_dich_vu_id, pd.tong_so_buoi, 
+        (
+          SELECT COUNT(*)::int 
+          FROM cuoc_hen 
+          WHERE phac_do_dieu_tri_id = pd.id 
+            AND trang_thai = 'hoan_thanh' 
+            AND loai = 'DIEU_TRI'
+        ) as so_buoi_da_dung, 
+        pd.trang_thai, pd.ngay_kich_hoat,
         g.ten_goi, g.loai_goi, g.don_gia as gia_tien,
         nk_kham.chan_doan, nk_kham.chong_chi_dinh, nk_kham.ghi_chu as ghi_chu_kham,
         nd_bs.ho_ten as ten_bac_si,
-        p_kham.ten_phong as ten_phong_kham
+        p_kham.ten_phong as ten_phong_kham,
+        ch_kham.id as cuoc_hen_id,
+        hd.hinh_thuc_thanh_toan_goi,
+        hd.tong_tien_phai_tra,
+        hd.so_tien_da_tra
       FROM phac_do_dieu_tri pd
       JOIN goi_dich_vu g ON pd.goi_dich_vu_id = g.id
-      JOIN hoa_don hd ON hd.phac_do_dieu_tri_id = pd.id
+      LEFT JOIN hoa_don hd ON hd.phac_do_dieu_tri_id = pd.id
       LEFT JOIN cuoc_hen ch_kham ON ch_kham.phac_do_dieu_tri_id = pd.id AND ch_kham.loai = 'KHAM'
       LEFT JOIN nhat_ky_buoi_dieu_tri nk_kham ON nk_kham.cuoc_hen_id = ch_kham.id
       LEFT JOIN nguoi_dung nd_bs ON ch_kham.nhan_su_id = nd_bs.id
       LEFT JOIN phong_lam_viec p_kham ON ch_kham.phong_id = p_kham.id
       ORDER BY pd.ngay_kich_hoat DESC
     `);
+
+    // 2.2. Lấy danh sách gói chỉ định từ ca khám nhưng chưa thanh toán/kích hoạt (chưa có phác đồ điều trị)
+    const { rows: prescribedUnpaid } = await pool.query(`
+      SELECT 
+        ch.khach_hang_id,
+        cd.goi_dich_vu_id,
+        g.ten_goi,
+        g.loai_goi,
+        g.don_gia as gia_tien,
+        g.tong_so_buoi,
+        nk.chan_doan,
+        nk.chong_chi_dinh,
+        nk.ghi_chu as ghi_chu_kham,
+        nd_bs.ho_ten as ten_bac_si,
+        p_kham.ten_phong as ten_phong_kham,
+        ch.id as cuoc_hen_id
+      FROM chi_dinh_buoi cd
+      JOIN nhat_ky_buoi_dieu_tri nk ON cd.nhat_ky_id = nk.id
+      JOIN cuoc_hen ch ON nk.cuoc_hen_id = ch.id
+      JOIN goi_dich_vu g ON cd.goi_dich_vu_id = g.id
+      LEFT JOIN nguoi_dung nd_bs ON ch.nhan_su_id = nd_bs.id
+      LEFT JOIN phong_lam_viec p_kham ON ch.phong_id = p_kham.id
+      WHERE ch.loai = 'KHAM' 
+        AND ch.phac_do_dieu_tri_id IS NULL
+    `);
+
+    const virtualPlans = prescribedUnpaid.map((item: any) => ({
+      id: `virtual-${item.cuoc_hen_id}`,
+      khach_hang_id: item.khach_hang_id,
+      goi_dich_vu_id: item.goi_dich_vu_id,
+      tong_so_buoi: item.tong_so_buoi,
+      so_buoi_da_dung: 0,
+      trang_thai: 'cho_kich_hoat',
+      ngay_kich_hoat: null,
+      ten_goi: item.ten_goi,
+      loai_goi: item.loai_goi,
+      gia_tien: item.gia_tien,
+      chan_doan: item.chan_doan,
+      chong_chi_dinh: item.chong_chi_dinh,
+      ghi_chu_kham: item.ghi_chu_kham,
+      ten_bac_si: item.ten_bac_si,
+      ten_phong_kham: item.ten_phong_kham,
+      cuoc_hen_id: item.cuoc_hen_id
+    }));
+
+    const allPlans = [...plans, ...virtualPlans];
 
     // 3. Lấy toàn bộ lịch sử cuộc hẹn/buổi điều trị kèm nhật ký chi tiết
     const { rows: appointments } = await pool.query(`
@@ -538,7 +609,7 @@ class AdminRepository {
 
     // Ghép dữ liệu dạng lồng nhau
     const results = patients.map((p: any) => {
-      const patientPlans = plans.filter((pl: any) => pl.khach_hang_id === p.id);
+      const patientPlans = allPlans.filter((pl: any) => pl.khach_hang_id === p.id);
       const patientApts = appointments.filter((ap: any) => ap.khach_hang_id === p.id);
 
       return {
@@ -575,7 +646,13 @@ class AdminRepository {
         'HD-' || UPPER(SUBSTRING(hd.id::text FROM 1 FOR 6)) as ma_hoa_don, 
         kh.ho_ten as ten_khach_hang, 
         kh.so_dien_thoai,
-        pd.so_buoi_da_dung,
+        (
+          SELECT COUNT(*)::int 
+          FROM cuoc_hen 
+          WHERE phac_do_dieu_tri_id = pd.id 
+            AND trang_thai = 'hoan_thanh' 
+            AND loai = 'DIEU_TRI'
+        ) as so_buoi_da_dung,
         pd.tong_so_buoi,
         COALESCE(gdv.loai_goi, dv.loai_goi) as loai_goi,
         COALESCE(gdv.ten_goi, dv.ten_goi, 'Phí khám lâm sàng & Lượng giá') as ten_dich_vu,
@@ -1044,8 +1121,25 @@ class AdminRepository {
           chi_phi_kham = 200000;
         }
       }
+
+      // Check if separate exam was paid
+      let hasPaidSeparateExam = false;
+      if (hasExam && hd.cuoc_hen_id) {
+        const separatePaidExamRes = await client.query(
+          `SELECT id FROM hoa_don 
+           WHERE cuoc_hen_id = $1 
+             AND phac_do_dieu_tri_id IS NULL 
+             AND trang_thai = 'da_thanh_toan' 
+             AND id != $2`,
+          [hd.cuoc_hen_id, hoa_don_id]
+        );
+        if (separatePaidExamRes.rows && separatePaidExamRes.rows.length > 0) {
+          hasPaidSeparateExam = true;
+        }
+      }
+
       const tong_tien_goc = Number(hd.tong_tien_goc);
-      const gia_goc_goi = tong_tien_goc - chi_phi_kham;
+      const gia_goc_goi = hasPaidSeparateExam ? tong_tien_goc : (tong_tien_goc - chi_phi_kham);
 
       // check if they were eligible for free exam:
       const isExamWaived = (gia_goc_goi >= 1000000) && ['tra_thang', 'tra_gop'].includes(hd.hinh_thuc_thanh_toan_goi);
@@ -1067,21 +1161,6 @@ class AdminRepository {
 
       // If package is cancelled, they must pay for the exam (revoke waiver/free promotion)
       let examFeeToCharge = 0;
-      let hasPaidSeparateExam = false;
-      if (hasExam && hd.cuoc_hen_id) {
-        const separatePaidExamRes = await client.query(
-          `SELECT id FROM hoa_don 
-           WHERE cuoc_hen_id = $1 
-             AND phac_do_dieu_tri_id IS NULL 
-             AND trang_thai = 'da_thanh_toan' 
-             AND id != $2`,
-          [hd.cuoc_hen_id, hoa_don_id]
-        );
-        if (separatePaidExamRes.rows && separatePaidExamRes.rows.length > 0) {
-          hasPaidSeparateExam = true;
-        }
-      }
-
       if (hasExam && !hasPaidSeparateExam) {
         examFeeToCharge = chi_phi_kham;
       }
@@ -1103,49 +1182,8 @@ class AdminRepository {
         ]
       );
 
-      // 5. Update package invoice status and so_tien_da_tra to reflect the kept revenue
       const keptRevenuePackage = so_tien_da_dong - so_tien_hoan_tra - examFeeToCharge;
       
-      let examTraceInfo = {
-        has_separate_invoice: false,
-        invoice_code: null as string | null,
-        invoice_date: null as string | null,
-        appointment_date: null as string | null,
-        time_range: null as string | null
-      };
-
-      if (hd.cuoc_hen_id) {
-        const apptRes = await client.query(
-          `SELECT ngay_gio_bat_dau, ngay_gio_ket_thuc FROM cuoc_hen WHERE id = $1`,
-          [hd.cuoc_hen_id]
-        );
-        if (apptRes.rows && apptRes.rows.length > 0) {
-          const startVal = new Date(apptRes.rows[0].ngay_gio_bat_dau);
-          const endVal = new Date(apptRes.rows[0].ngay_gio_ket_thuc);
-          
-          const startH = String(startVal.getHours()).padStart(2, '0');
-          const startM = String(startVal.getMinutes()).padStart(2, '0');
-          const endH = String(endVal.getHours()).padStart(2, '0');
-          const endM = String(endVal.getMinutes()).padStart(2, '0');
-          
-          examTraceInfo.appointment_date = `${String(startVal.getDate()).padStart(2, '0')}/${String(startVal.getMonth() + 1).padStart(2, '0')}/${startVal.getFullYear()}`;
-          examTraceInfo.time_range = `${startH}:${startM} - ${endH}:${endM}`;
-        }
-
-        const separateInvoiceRes = await client.query(
-          `SELECT id, ngay_tao FROM hoa_don 
-           WHERE cuoc_hen_id = $1 AND phac_do_dieu_tri_id IS NULL AND id != $2`,
-          [hd.cuoc_hen_id, hoa_don_id]
-        );
-        if (separateInvoiceRes.rows && separateInvoiceRes.rows.length > 0) {
-          const inv = separateInvoiceRes.rows[0];
-          examTraceInfo.has_separate_invoice = true;
-          examTraceInfo.invoice_code = `HD-${inv.id.substring(0, 6).toUpperCase()}`;
-          const invDate = new Date(inv.ngay_tao);
-          examTraceInfo.invoice_date = `${String(invDate.getDate()).padStart(2, '0')}/${String(invDate.getMonth() + 1).padStart(2, '0')}/${invDate.getFullYear()}`;
-        }
-      }
-
       const refundAnalysis = {
         type: 'refund_analysis',
         so_tien_da_dong,
@@ -1155,7 +1193,6 @@ class AdminRepository {
         phi_phat_percent,
         phi_phat_thuc_te,
         examFeeToCharge,
-        exam_trace: examTraceInfo,
         so_tien_hoan_tra
       };
 
@@ -1172,73 +1209,7 @@ class AdminRepository {
         ]
       );
 
-      // 6. Restore/Create clinical exam invoice if it was waived/included
-      if (hasExam && !hasPaidSeparateExam) {
-        const maHoaDonGoi = `HD-${hoa_don_id.substring(0, 6).toUpperCase()}`;
-        
-        let updateRes;
-        if (hd.cuoc_hen_id) {
-          updateRes = await client.query(
-            `UPDATE hoa_don
-             SET trang_thai = 'da_thanh_toan',
-                 tong_tien_phai_tra = $1,
-                 so_tien_da_tra = $2,
-                 ghi_chu = $3
-             WHERE (cuoc_hen_id = $4 OR (khach_hang_id = $5 AND phac_do_dieu_tri_id IS NULL AND tong_tien_phai_tra = (SELECT don_gia FROM goi_dich_vu WHERE loai_goi = 'KHAM' LIMIT 1)))
-               AND phac_do_dieu_tri_id IS NULL
-             RETURNING id`,
-            [
-              chi_phi_kham,
-              chi_phi_kham, // marked as fully paid now!
-              `Thu phí khám từ cấn trừ hoàn trả của hóa đơn gói ${maHoaDonGoi} khi hủy gói.`,
-              hd.cuoc_hen_id,
-              hd.khach_hang_id
-            ]
-          );
-        } else {
-          updateRes = await client.query(
-            `UPDATE hoa_don
-             SET trang_thai = 'da_thanh_toan',
-                 tong_tien_phai_tra = $1,
-                 so_tien_da_tra = $2,
-                 ghi_chu = $3
-             WHERE khach_hang_id = $4
-               AND phac_do_dieu_tri_id IS NULL
-               AND tong_tien_phai_tra = (SELECT don_gia FROM goi_dich_vu WHERE loai_goi = 'KHAM' LIMIT 1)
-             RETURNING id`,
-            [
-              chi_phi_kham,
-              chi_phi_kham, // marked as fully paid now!
-              `Thu phí khám từ cấn trừ hoàn trả của hóa đơn gói ${maHoaDonGoi} khi hủy gói.`,
-              hd.khach_hang_id
-            ]
-          );
-        }
-
-        // If no exam invoice was found, create one automatically
-        if (updateRes.rowCount === 0) {
-          const maHoaDonKhamNew = `HD${Math.floor(100000 + Math.random() * 900000)}`;
-          await client.query(
-            `INSERT INTO hoa_don (
-              id, khach_hang_id, cuoc_hen_id, phac_do_dieu_tri_id,
-              tong_tien_goc, tong_tien_phai_tra, so_tien_da_tra, 
-              trang_thai, ghi_chu, ngay_tao
-            ) VALUES (
-              gen_random_uuid(), $1, $2, NULL, 
-              $3, $3, $3, 
-              'da_thanh_toan', $4, NOW()
-            )`,
-            [
-              hd.khach_hang_id,
-              hd.cuoc_hen_id || null,
-              chi_phi_kham,
-              `Thu phí khám từ cấn trừ hoàn trả của hóa đơn gói ${maHoaDonGoi} khi hủy gói.`
-            ]
-          );
-        }
-      }
-
-      // 7. Update the associated treatment plan status
+      // 6. Update the associated treatment plan status
       if (ldtId) {
         await client.query(
           `UPDATE phac_do_dieu_tri 

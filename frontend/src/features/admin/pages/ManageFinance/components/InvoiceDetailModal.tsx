@@ -129,12 +129,26 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
   // Dynamic calculations based on DB values (not hardcoded!)
   const isPackage = !!invoice.phac_do_dieu_tri_id;
   const hasExam = !!invoice.cuoc_hen_id;
-  const chi_phi_kham = (invoice as any).chi_phi_kham !== undefined ? Number((invoice as any).chi_phi_kham) : (hasExam ? 200000 : 0);
+
+  // Check if clinical exam was paid separately (e.g. from the invoice notes)
+  const isExamPaidSeparately = !!(invoice.ghi_chu && (
+    invoice.ghi_chu.toLowerCase().includes('đã thanh toán') || 
+    invoice.ghi_chu.toLowerCase().includes('đã khấu trừ')
+  ));
+
+  const chi_phi_kham = hasExam ? 150000 : 0;
+
   const tong_tien_goc = Number(invoice.tong_tien_goc);
-  const gia_goc_goi = isPackage ? (tong_tien_goc - chi_phi_kham) : tong_tien_goc;
+  // Detect if exam fee was added to tong_tien_goc (old system format: e.g. 3350000)
+  const hasExamAdded = !isExamPaidSeparately && (tong_tien_goc % 100000 === 50000);
+  const gia_goc_goi = isPackage 
+    ? (hasExamAdded ? (tong_tien_goc - chi_phi_kham) : tong_tien_goc)
+    : tong_tien_goc;
   const ti_le_giam = Number(invoice.ti_le_giam_gia_goi || 0);
   const giam_gia_goi = isPackage ? Math.round((gia_goc_goi * ti_le_giam) / 100) : 0;
-  const giam_voucher = Number(invoice.so_tien_giam_voucher || 0);
+
+  // Deduct exam fee if paid separately
+  const giam_tru_kham_truoc_do = isExamPaidSeparately ? chi_phi_kham : 0;
 
   // Free clinical exam check: package >= 1M & payment method is tra_thang / tra_gop
   const isExamWaived = isPackage && (gia_goc_goi >= 1000000) && ['tra_thang', 'tra_gop'].includes(invoice.hinh_thuc_thanh_toan_goi || '');
@@ -204,16 +218,16 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
 
         {/* Content */}
         <div className="p-6 overflow-y-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* Left Column: Customer & Service Info + Financial Breakdown */}
-            <div className="lg:col-span-5 space-y-5">
+          <div className="space-y-5">
+            {/* Top 3 Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Customer block */}
-              <div className="p-4 bg-zinc-50/50 border border-zinc-150 rounded-2xl space-y-3">
+              <div className="p-4 bg-zinc-50/50 border border-zinc-150 rounded-2xl space-y-2.5">
                 <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-wider pb-1 border-b border-zinc-100 flex items-center gap-1.5">
                   <User size={13} className="text-primary" />
                   Thông tin khách hàng
                 </h3>
-                <div className="space-y-2 text-xs font-semibold text-zinc-650">
+                <div className="space-y-1.5 text-xs font-semibold text-zinc-650">
                   <div className="flex justify-between">
                     <span className="text-zinc-400">Họ và tên:</span>
                     <span className="text-secondary font-black">{invoice.ten_khach_hang}</span>
@@ -226,16 +240,17 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
               </div>
 
               {/* Service block */}
-              <div className="p-4 bg-zinc-50/50 border border-zinc-150 rounded-2xl space-y-3">
+              <div className="p-4 bg-zinc-50/50 border border-zinc-150 rounded-2xl space-y-2.5">
                 <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-wider pb-1 border-b border-zinc-100 flex items-center gap-1.5">
                   <Building size={13} className="text-primary" />
                   Sản phẩm điều trị
                 </h3>
-                <div className="space-y-2 text-xs font-semibold text-zinc-650">
-                  <div className="flex justify-between items-start">
+                <div className="space-y-1.5 text-xs font-semibold text-zinc-650">
+                  <div className="flex justify-between items-start gap-2">
                     <span className="text-zinc-400 shrink-0">Chi tiết:</span>
-                    <span className="text-secondary font-black text-right max-w-[170px]" title={invoice.ten_dich_vu}>
+                    <span className="text-secondary font-black text-right leading-snug" title={invoice.ten_dich_vu}>
                       {invoice.ten_dich_vu || 'Phí khám lâm sàng/Buổi lẻ'}
+                      {isPackage && ` (${totalSessions} buổi)`}
                     </span>
                   </div>
                   {invoice.hinh_thuc_thanh_toan_goi && (
@@ -249,97 +264,42 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                 </div>
               </div>
 
-              {/* Pricing calculation breakdown */}
-              <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-200/60 space-y-3">
-                <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-wider flex items-center gap-1.5 pb-1 border-b border-zinc-150">
+              {/* Financial Status Summary block */}
+              <div className="p-4 bg-zinc-50/50 border border-zinc-150 rounded-2xl space-y-2.5">
+                <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-wider pb-1 border-b border-zinc-100 flex items-center gap-1.5">
                   <Activity size={13} className="text-primary" />
-                  Chi tiết phân tích tài chính
+                  Trạng thái tài chính
                 </h3>
-                <div className="space-y-2 text-xs font-semibold text-zinc-650">
-                  {isPackage ? (
-                    <>
-                      <div className="flex justify-between">
-                        <span>Giá gốc gói trị liệu:</span>
-                        <span className="text-secondary font-bold">{formatCurrency(gia_goc_goi)}</span>
-                      </div>
-                      {chi_phi_kham > 0 && (
-                        <div className="flex justify-between">
-                          <span>Phí khám lâm sàng & Lượng giá:</span>
-                          <span className="text-secondary font-bold">{formatCurrency(chi_phi_kham)}</span>
-                        </div>
-                      )}
-                      {giam_gia_goi > 0 && (
-                        <div className="flex justify-between text-emerald-600 font-bold">
-                          <span>Ưu đãi hình thức ({ti_le_giam}%):</span>
-                          <span>-{formatCurrency(giam_gia_goi)}</span>
-                        </div>
-                      )}
-                      {mien_phi_kham > 0 && (
-                        <div className="flex justify-between text-emerald-600 font-bold">
-                          <span>Miễn phí khám (Ưu đãi mua gói):</span>
-                          <span>-{formatCurrency(mien_phi_kham)}</span>
-                        </div>
-                      )}
-                      {giam_voucher > 0 && (
-                        <div className="flex justify-between text-emerald-600 font-bold">
-                          <span>Ưu đãi Voucher giảm giá:</span>
-                          <span>-{formatCurrency(giam_voucher)}</span>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <div className="flex justify-between">
-                        <span>{invoice.loai_goi === 'LE' ? 'Giá gốc dịch vụ lẻ:' : 'Phí khám lâm sàng & Lượng giá:'}</span>
-                        <span className="text-secondary font-bold">{formatCurrency(tong_tien_goc)}</span>
-                      </div>
-                      {invoice.trang_thai === 'da_thanh_toan' && Number(invoice.tong_tien_thanh_toan) === 0 && (
-                        <div className="flex justify-between text-emerald-600 font-bold">
-                          <span>Khấu trừ/Miễn phí theo hóa đơn gói:</span>
-                          <span>-{formatCurrency(tong_tien_goc || 200000)}</span>
-                        </div>
-                      )}
-                      {giam_voucher > 0 && (
-                        <div className="flex justify-between text-emerald-600 font-bold">
-                          <span>Ưu đãi Voucher giảm giá:</span>
-                          <span>-{formatCurrency(giam_voucher)}</span>
-                        </div>
-                      )}
-                    </>
-                  )}
-                  <div className="flex justify-between border-t border-zinc-200 pt-2 font-bold text-secondary">
-                    <span>Tổng chi phí cần thu:</span>
+                <div className="space-y-1.5 text-xs font-semibold text-zinc-650">
+                  <div className="flex justify-between">
+                    <span className="text-zinc-400">Tổng cần thu:</span>
                     <span className="text-secondary font-black">{formatCurrency(Number(invoice.tong_tien_thanh_toan))}</span>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="text-zinc-400">Đã thanh toán:</span>
+                    <span className="text-emerald-700 font-bold">{formatCurrency(Number(invoice.da_thanh_toan))}</span>
+                  </div>
                   {remainingDebt > 0 && (
-                    <div className="flex justify-between border-t border-dashed border-zinc-200/60 pt-2 text-amber-600 font-bold">
-                      <span>Dư nợ còn lại phải thu:</span>
-                      <span className="text-sm font-black">{formatCurrency(remainingDebt)}</span>
+                    <div className="flex justify-between text-amber-600 font-bold">
+                      <span>Dư nợ còn lại:</span>
+                      <span>{formatCurrency(remainingDebt)}</span>
                     </div>
                   )}
                 </div>
               </div>
-
-              {invoice.ghi_chu && !invoice.ghi_chu.trim().startsWith('{') && (
-                <div className={`p-4 rounded-2xl border text-xs font-black leading-relaxed space-y-1.5 shadow-sm ${
-                  invoice.trang_thai === 'da_hoan_tien'
-                    ? 'bg-rose-50 border-rose-200 text-rose-950'
-                    : 'bg-emerald-50 border-emerald-200 text-emerald-950'
-                }`}>
-                  <span className={`text-[10px] font-black uppercase tracking-widest block flex items-center gap-1 ${
-                    invoice.trang_thai === 'da_hoan_tien' ? 'text-rose-600' : 'text-emerald-600'
-                  }`}>
-                    {invoice.trang_thai === 'da_hoan_tien' 
-                      ? '⚠️ Chi tiết tự động ghi nhận hoàn tiền' 
-                      : '💡 Ghi chú ưu đãi / Khuyến mãi'}
-                  </span>
-                  <p>{invoice.ghi_chu}</p>
-                </div>
-              )}
             </div>
 
-            {/* Right Column: Transaction History & Refund Panel */}
-            <div className="lg:col-span-7 space-y-5">
+            {invoice.ghi_chu && !invoice.ghi_chu.trim().startsWith('{') && (
+              <div className={`p-4 rounded-2xl border text-xs font-black leading-relaxed space-y-1.5 shadow-sm bg-emerald-50 border-emerald-200 text-emerald-950`}>
+                <span className="text-[10px] font-black uppercase tracking-widest block flex items-center gap-1 text-emerald-600">
+                  💡 Ghi chú ưu đãi / Khuyến mãi
+                </span>
+                <p>{invoice.ghi_chu}</p>
+              </div>
+            )}
+
+            {/* Transaction History & Refund Panel (Full width) */}
+            <div className="space-y-4">
               {/* Lịch sử ghi nhận giao dịch thanh toán */}
               <div className="space-y-3">
                 <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-wider pb-1 border-b border-zinc-100 flex items-center gap-1.5">
@@ -500,8 +460,25 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                         );
                       } else {
                         // THANH_TOAN transaction
-                        const isDot1 = Number(selectedTx.so_tien) === Math.round(Number(invoice.tong_tien_thanh_toan) / 2);
-                        const percentPaid = isDot1 ? '50% (Tạm ứng Đợt 1)' : '100% (Trả thẳng)';
+                        const sortedPayments = [...invoicePayments]
+                          .filter(tx => tx.loai_giao_dich === 'THANH_TOAN')
+                          .sort((a, b) => new Date(a.thoi_gian_giao_dich).getTime() - new Date(b.thoi_gian_giao_dich).getTime());
+                        const txIndex = sortedPayments.findIndex(tx => tx.id === selectedTx.id);
+
+                        let txContent = 'Đóng tiền Trực tiếp cho gói dịch vụ';
+                        let percentPaid = '100% (Trả thẳng)';
+
+                        if (invoice.hinh_thuc_thanh_toan_goi === 'tung_buoi') {
+                          txContent = `Thanh toán cho buổi trị liệu số ${txIndex + 1}`;
+                          const pct = Math.round(100 / (Number(invoice.tong_so_buoi) || 1));
+                          percentPaid = `1 buổi / ${invoice.tong_so_buoi} buổi (${pct}% giá trị gói)`;
+                        } else if (invoice.hinh_thuc_thanh_toan_goi === 'tra_gop') {
+                          txContent = txIndex === 0 ? 'Đóng tiền Đợt 1 (Tạm ứng 50% gói)' : 'Thanh toán Đợt 2 (Hoàn tất 50% còn lại)';
+                          percentPaid = txIndex === 0 ? '50% (Tạm ứng Đợt 1)' : '50% (Hoàn tất Đợt 2)';
+                        } else {
+                          txContent = 'Thanh toán trọn gói 100%';
+                          percentPaid = '100% (Trả thẳng)';
+                        }
                         
                         return (
                           <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-250 text-emerald-950 text-xs font-semibold space-y-3 shadow-sm animate-in fade-in duration-200">
@@ -519,7 +496,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                               </div>
                               <div className="flex justify-between">
                                 <span className="text-zinc-500">2. Nội dung giao dịch:</span>
-                                <span className="font-semibold text-zinc-800">Đóng tiền {isDot1 ? 'Đợt 1 (Tạm ứng 50%)' : 'Trực tiếp'} cho gói dịch vụ</span>
+                                <span className="font-semibold text-zinc-800">{txContent}</span>
                               </div>
                               <div className="flex justify-between">
                                 <span className="text-zinc-500">3. Tỷ lệ thanh toán đợt này:</span>
@@ -535,6 +512,62 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                                     : 'Thẻ / POS'}
                                 </span>
                               </div>
+
+                              {/* Billing Calculation Details */}
+                              <div className="mt-3 pt-3 border-t border-emerald-100/65 space-y-1.5 text-[11px] text-zinc-650">
+                                <div className="font-black text-emerald-850 uppercase tracking-wider text-[9px] mb-1">
+                                  🔍 Phân tích chi tiết hóa đơn lúc mua:
+                                </div>
+                                {isPackage ? (
+                                  <>
+                                    <div className="flex justify-between">
+                                      <span className="text-zinc-500">Giá gốc gói trị liệu:</span>
+                                      <span className="font-semibold">{formatCurrency(gia_goc_goi)}</span>
+                                    </div>
+                                    {!isExamPaidSeparately && chi_phi_kham > 0 && (
+                                      <div className="flex justify-between">
+                                        <span className="text-zinc-500">Phí khám lâm sàng & Lượng giá:</span>
+                                        <span className="font-semibold">{formatCurrency(chi_phi_kham)}</span>
+                                      </div>
+                                    )}
+                                    {giam_gia_goi > 0 && (
+                                      <div className="flex justify-between text-emerald-700">
+                                        <span>Ưu đãi hình thức ({ti_le_giam}%):</span>
+                                        <span className="font-semibold">-{formatCurrency(giam_gia_goi)}</span>
+                                      </div>
+                                    )}
+                                    {isExamPaidSeparately && giam_tru_kham_truoc_do > 0 && (
+                                      <div className="flex justify-between text-emerald-700 font-medium">
+                                        <span>{invoice.ngay_kham ? `Khấu trừ phí khám ngày ${formatLongDate(invoice.ngay_kham)}:` : 'Khấu trừ phí khám đã đóng trước đó:'}</span>
+                                        <span className="font-semibold">-{formatCurrency(giam_tru_kham_truoc_do)}</span>
+                                      </div>
+                                    )}
+                                    {!isExamPaidSeparately && mien_phi_kham > 0 && (
+                                      <div className="flex justify-between text-emerald-700">
+                                        <span>Miễn phí khám (Ưu đãi mua gói):</span>
+                                        <span className="font-semibold">-{formatCurrency(mien_phi_kham)}</span>
+                                      </div>
+                                    )}
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="flex justify-between">
+                                      <span className="text-zinc-500">{invoice.loai_goi === 'LE' ? 'Giá gốc dịch vụ lẻ:' : 'Phí khám lâm sàng & Lượng giá:'}</span>
+                                      <span className="font-semibold">{formatCurrency(tong_tien_goc)}</span>
+                                    </div>
+                                    {invoice.trang_thai === 'da_thanh_toan' && Number(invoice.tong_tien_thanh_toan) === 0 && (
+                                      <div className="flex justify-between text-emerald-700">
+                                        <span>Khấu trừ/Miễn phí theo hóa đơn gói:</span>
+                                        <span className="font-semibold">-{formatCurrency(tong_tien_goc || 200000)}</span>
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+                                <div className="flex justify-between border-t border-dashed border-emerald-250/60 pt-1.5 font-bold text-zinc-800">
+                                  <span>Tổng chi phí cần thu:</span>
+                                  <span>{formatCurrency(Number(invoice.tong_tien_thanh_toan))}</span>
+                                </div>
+                              </div>
                             </div>
                           </div>
                         );
@@ -546,15 +579,15 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
 
               {/* Advanced Package Refund Panel (rendered inline inside Right Column when triggered) */}
               {isRefundPanelOpen && isAdminOrManager && isPackage && canRefund && (
-                <div className="border border-red-200 bg-red-50/20 rounded-2xl p-4.5 space-y-4 animate-in fade-in duration-200">
-                  <div className="flex items-center justify-between border-b border-red-100 pb-2">
-                    <div className="flex items-center gap-2 text-rose-700 font-bold text-xs">
-                      <ShieldAlert size={16} />
+                <div className="border border-slate-200 bg-slate-50/40 rounded-2xl p-6 space-y-4 animate-in fade-in duration-200 shadow-sm">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div className="flex items-center gap-2 text-slate-800 font-black text-xs uppercase tracking-wider">
+                      <ShieldAlert size={16} className="text-amber-500 stroke-[2.5]" />
                       <span>Nghiệp vụ Hủy gói & Hoàn tiền chuyên sâu</span>
                     </div>
                     <button
                       onClick={() => setIsRefundPanelOpen(false)}
-                      className="text-[10px] font-bold text-zinc-400 hover:text-zinc-650 uppercase tracking-wider"
+                      className="text-[10px] font-black text-zinc-400 hover:text-zinc-650 uppercase tracking-widest"
                     >
                       Đóng
                     </button>
@@ -568,7 +601,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                           type="number"
                           value={usedSessions}
                           disabled
-                          className="w-full px-3 py-1.5 text-xs border border-zinc-200 bg-zinc-50 rounded-lg text-zinc-400 font-bold cursor-not-allowed outline-none"
+                          className="w-full px-3.5 py-2 text-xs border border-zinc-200 bg-zinc-50 rounded-lg text-zinc-400 font-bold cursor-not-allowed outline-none"
                         />
                       </div>
                       <div className="space-y-1">
@@ -577,7 +610,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                           type="number"
                           value={penaltyPercent}
                           disabled
-                          className="w-full px-3 py-1.5 text-xs border border-zinc-200 bg-zinc-50 rounded-lg text-zinc-400 font-bold cursor-not-allowed outline-none"
+                          className="w-full px-3.5 py-2 text-xs border border-zinc-200 bg-zinc-50 rounded-lg text-zinc-400 font-bold cursor-not-allowed outline-none"
                         />
                       </div>
                     </div>
@@ -589,12 +622,12 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                         value={refundReason}
                         onChange={(e) => setRefundReason(e.target.value)}
                         placeholder="Nhập lý do hoàn trả..."
-                        className="w-full px-3 py-1.5 text-xs border border-zinc-200 rounded-lg focus:ring-1 focus:ring-rose-500 focus:border-rose-500 outline-none font-semibold"
+                        className="w-full px-3.5 py-2 text-xs border border-zinc-200 rounded-lg focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none font-bold"
                       />
                     </div>
 
                     {/* Calculator Breakdown Live Preview */}
-                    <div className="p-3.5 bg-white border border-rose-100 rounded-xl space-y-2 text-xs font-semibold text-zinc-650">
+                    <div className="p-4 bg-white border border-slate-150 rounded-xl space-y-2.5 text-xs font-semibold text-zinc-650">
                       <div className="flex justify-between">
                         <span>Tổng tiền khách hàng đã đóng:</span>
                         <span className="text-secondary font-bold">{formatCurrency(totalPaid)}</span>
@@ -611,7 +644,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                         <span>Khấu trừ phí phạt hủy gói ({penaltyPercent}%):</span>
                         <span>+{formatCurrency(penaltyAmount)}</span>
                       </div>
-                      <div className="flex justify-between border-t border-zinc-100 pt-2 text-rose-600 font-bold">
+                      <div className="flex justify-between border-t border-zinc-100 pt-2 text-slate-800 font-bold">
                         <span>Tổng số tiền khấu trừ:</span>
                         <span>{formatCurrency(totalDeduction)}</span>
                       </div>
@@ -625,17 +658,24 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                       </div>
                     </div>
 
+                    {estimatedRefund === 0 && (
+                      <div className="p-3.5 bg-rose-50/50 border border-rose-100 rounded-xl text-rose-700 text-xs font-bold flex items-center gap-2 animate-in fade-in duration-200">
+                        <span className="text-sm">⚠️</span>
+                        <span>Quý khách hàng không còn đủ điều kiện hoàn tiền</span>
+                      </div>
+                    )}
+
                     <div className="flex justify-end gap-2 pt-2">
                       <button
                         onClick={() => setIsRefundPanelOpen(false)}
-                        className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-650 rounded-xl text-xs font-bold transition-colors"
+                        className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-650 rounded-xl text-xs font-bold transition-colors cursor-pointer"
                       >
                         Hủy bỏ
                       </button>
                       <button
                         onClick={handleRefundSubmit}
-                        disabled={submittingRefund}
-                        className="px-4 py-2 bg-rose-50 hover:bg-rose-600 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-colors shadow-md disabled:opacity-50"
+                        disabled={submittingRefund || estimatedRefund === 0}
+                        className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                       >
                         {submittingRefund ? 'Đang xử lý...' : 'Xác nhận hủy & Hoàn tiền'}
                       </button>

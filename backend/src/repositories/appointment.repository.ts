@@ -197,9 +197,48 @@ class AppointmentRepository {
   }
 
   async createAppointment(ma_lich_dat: string, data: any) {
-    const { khach_hang_id, ho_ten_khach, so_dien_thoai, gioi_tinh_khach, email, goi_dich_vu_id, ngay_gio_bat_dau, ngay_gio_ket_thuc, ghi_chu_dat_lich, ly_do_kham, loai_lich, dang_ky_goi_id, phac_do_dieu_tri_id, so_thu_tu_buoi, phong_id } = data;
+    const { khach_hang_id, ho_ten_khach, so_dien_thoai, gioi_tinh_khach, email, goi_dich_vu_id, ngay_gio_bat_dau, ngay_gio_ket_thuc, ghi_chu_dat_lich, ly_do_kham, loai_lich, dang_ky_goi_id, phong_id } = data;
+    let phac_do_dieu_tri_id = data.phac_do_dieu_tri_id;
+    let so_thu_tu_buoi = data.so_thu_tu_buoi;
     const bac_si_id = data.bac_si_id || data.chuyen_gia_id || data.ky_thuat_vien_id;
     const finalGoiId = goi_dich_vu_id || data.dich_vu_id;
+
+    // Kiểm tra chặn đặt lịch tiếp theo khi buổi trước đó chưa hoàn thành
+    if (phac_do_dieu_tri_id) {
+      const activeApptRes = await pool.query(
+        `SELECT id, so_thu_tu_buoi, trang_thai 
+         FROM cuoc_hen 
+         WHERE phac_do_dieu_tri_id = $1 
+           AND trang_thai IN ('chua_xac_nhan', 'cho_xac_nhan', 'da_xac_nhan', 'da_checkin', 'dang_kham')
+         LIMIT 1`,
+        [phac_do_dieu_tri_id]
+      );
+      if (activeApptRes.rows.length > 0) {
+        const activeAppt = activeApptRes.rows[0];
+        throw new Error(`Khách hàng đã có lịch đặt cho buổi số ${activeAppt.so_thu_tu_buoi} đang hoạt động. Vui lòng hoàn thành hoặc hủy lịch hẹn cũ trước khi đặt buổi tiếp theo.`);
+      }
+
+      // Kiểm tra điều kiện hoàn tất thanh toán của buổi trước khi đặt lịch cho buổi tiếp theo (trả từng buổi)
+      const invRes = await pool.query(
+        `SELECT hd.hinh_thuc_thanh_toan_goi, hd.tong_tien_phai_tra, hd.so_tien_da_tra, pd.tong_so_buoi
+         FROM hoa_don hd
+         JOIN phac_do_dieu_tri pd ON pd.id = hd.phac_do_dieu_tri_id
+         WHERE hd.phac_do_dieu_tri_id = $1
+         LIMIT 1`,
+        [phac_do_dieu_tri_id]
+      );
+      if (invRes.rows.length > 0) {
+        const { hinh_thuc_thanh_toan_goi, tong_tien_phai_tra, so_tien_da_tra, tong_so_buoi } = invRes.rows[0];
+        if (hinh_thuc_thanh_toan_goi === 'tung_buoi') {
+          const M = Number(so_thu_tu_buoi) || 1;
+          const perSessionPrice = Math.round(Number(tong_tien_phai_tra) / Number(tong_so_buoi));
+          const requiredPaid = (M - 1) * perSessionPrice;
+          if (Number(so_tien_da_tra) < requiredPaid) {
+            throw new Error(`Khách hàng chưa hoàn tất thanh toán cho buổi điều trị trước đó. Vui lòng thanh toán trước khi đặt lịch cho buổi số ${M}!`);
+          }
+        }
+      }
+    }
 
     // Kiểm tra trùng lịch bác sĩ
     if (bac_si_id) {
@@ -337,7 +376,57 @@ class AppointmentRepository {
         }
         
         if (!phac_do_dieu_tri_id && invoiceObj.phac_do_id) {
+          phac_do_dieu_tri_id = invoiceObj.phac_do_id;
           data.phac_do_dieu_tri_id = invoiceObj.phac_do_id;
+        }
+      }
+    }
+
+    const finalPhacDoId = phac_do_dieu_tri_id || data.phac_do_dieu_tri_id;
+    if (finalPhacDoId) {
+      if (!phac_do_dieu_tri_id) {
+        phac_do_dieu_tri_id = finalPhacDoId;
+      }
+      if (!so_thu_tu_buoi) {
+        const countRes = await pool.query(
+          "SELECT COUNT(*)::int as count FROM cuoc_hen WHERE phac_do_dieu_tri_id = $1 AND loai = 'DIEU_TRI'",
+          [finalPhacDoId]
+        );
+        so_thu_tu_buoi = (countRes.rows[0].count || 0) + 1;
+        data.so_thu_tu_buoi = so_thu_tu_buoi;
+      }
+
+      const activeApptRes = await pool.query(
+        `SELECT id, so_thu_tu_buoi, trang_thai 
+         FROM cuoc_hen 
+         WHERE phac_do_dieu_tri_id = $1 
+           AND trang_thai IN ('chua_xac_nhan', 'cho_xac_nhan', 'da_xac_nhan', 'da_checkin', 'dang_kham')
+         LIMIT 1`,
+        [finalPhacDoId]
+      );
+      if (activeApptRes.rows.length > 0) {
+        const activeAppt = activeApptRes.rows[0];
+        throw new Error(`Khách hàng đã có lịch đặt cho buổi số ${activeAppt.so_thu_tu_buoi} đang hoạt động. Vui lòng hoàn thành hoặc hủy lịch hẹn cũ trước khi đặt buổi tiếp theo.`);
+      }
+
+      // Kiểm tra điều kiện hoàn tất thanh toán của buổi trước khi đặt lịch cho buổi tiếp theo (trả từng buổi)
+      const invRes = await pool.query(
+        `SELECT hd.hinh_thuc_thanh_toan_goi, hd.tong_tien_phai_tra, hd.so_tien_da_tra, pd.tong_so_buoi
+         FROM hoa_don hd
+         JOIN phac_do_dieu_tri pd ON pd.id = hd.phac_do_dieu_tri_id
+         WHERE hd.phac_do_dieu_tri_id = $1
+         LIMIT 1`,
+        [finalPhacDoId]
+      );
+      if (invRes.rows.length > 0) {
+        const { hinh_thuc_thanh_toan_goi, tong_tien_phai_tra, so_tien_da_tra, tong_so_buoi } = invRes.rows[0];
+        if (hinh_thuc_thanh_toan_goi === 'tung_buoi') {
+          const M = Number(so_thu_tu_buoi) || 1;
+          const perSessionPrice = Math.round(Number(tong_tien_phai_tra) / Number(tong_so_buoi));
+          const requiredPaid = (M - 1) * perSessionPrice;
+          if (Number(so_tien_da_tra) < requiredPaid) {
+            throw new Error(`Khách hàng chưa hoàn tất thanh toán cho buổi điều trị trước đó. Vui lòng thanh toán trước khi đặt lịch cho buổi số ${M}!`);
+          }
         }
       }
     }
@@ -955,10 +1044,15 @@ class AppointmentRepository {
     );
     const completedCount = countRes.rows[0].count || 0;
 
-    await pool.query(
-      'UPDATE phac_do_dieu_tri SET so_buoi_da_dung = $1 WHERE id = $2',
-      [completedCount, phac_do_dieu_tri_id]
-    );
+    const pdRes = await pool.query('SELECT tong_so_buoi, trang_thai FROM phac_do_dieu_tri WHERE id = $1', [phac_do_dieu_tri_id]);
+    if (pdRes.rows.length > 0) {
+      const { tong_so_buoi, trang_thai } = pdRes.rows[0];
+      const statusToSet = completedCount >= tong_so_buoi ? 'hoan_thanh' : (trang_thai === 'hoan_thanh' ? 'dang_dieu_tri' : trang_thai);
+      await pool.query(
+        'UPDATE phac_do_dieu_tri SET so_buoi_da_dung = $1, trang_thai = $2 WHERE id = $3',
+        [completedCount, statusToSet, phac_do_dieu_tri_id]
+      );
+    }
   }
 
   async getCustomerAppointments(customer_id: string) {

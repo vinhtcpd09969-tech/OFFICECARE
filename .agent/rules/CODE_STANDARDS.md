@@ -78,3 +78,34 @@ Không được phép gộp chung các luồng giao diện, logic hiển thị h
   * **Ưu điểm (Pros):** Khả năng tái sử dụng, hiệu năng tải trang, tính dễ bảo trì.
   * **Nhược điểm (Cons) / Đánh đổi (Trade-offs):** Mức độ phức tạp, tác động tới các phần code cũ, hoặc rủi ro phát sinh lỗi.
 * Chỉ khi người dùng đồng ý với phương án đề xuất thì mới tiến hành thực thi code.
+
+---
+
+## 🚦 7. Quy chuẩn Nghiệp vụ Đặt lịch & Thanh toán Gói trị liệu (Package Booking & Installment Rules)
+
+### 1. Nguyên tắc Đặt lịch Theo Thứ Tự (Sequential Session Booking):
+* **Ràng buộc**: Bệnh nhân bắt buộc phải hoàn thành buổi trị liệu số $M - 1$ (`trang_thai = 'hoan_thanh'`) mới được đặt lịch hẹn cho buổi số $M$.
+* **Frontend**: Nút "Đặt lịch" của buổi số $M$ phải bị vô hiệu hóa (disabled) và hiển thị cảnh báo yêu cầu hoàn thành buổi trước đó nếu buổi $M - 1$ chưa ở trạng thái hoàn thành.
+* **Backend**: Kiểm tra chặn không cho đặt lịch buổi tiếp theo nếu khách hàng đang có lịch đặt hoạt động (`chua_xac_nhan`, `cho_xac_nhan`, `da_xac_nhan`, `da_checkin`, `dang_kham`) của phác đồ này.
+
+### 2. Quy tắc Thanh toán Trả góp Đợt 2 (Installment Plan Cutoff Rule):
+* **Nguyên tắc**: Để bảo vệ dòng tiền phòng khám và tránh thất thoát doanh thu, bệnh nhân thanh toán theo hình thức Trả góp 50% (`tra_gop`) bắt buộc phải thanh toán 50% còn lại (Đợt 2) trước khi bắt đầu thực hiện buổi trị liệu số $H$ (với $H = N / 2$, trong đó $N$ là tổng số buổi của gói).
+* **Ví dụ cụ thể**:
+  * Gói 10 buổi ($N=10, H=5$): Yêu cầu đóng tiền Đợt 2 ngay tại buổi số 5 (khi đã hoàn thành 4 buổi đầu).
+  * Gói 8 buổi ($N=8, H=4$): Yêu cầu đóng tiền Đợt 2 ngay tại buổi số 4 (khi đã hoàn thành 3 buổi đầu).
+  * Gói 12 buổi ($N=12, H=6$): Yêu cầu đóng tiền Đợt 2 ngay tại buổi số 6 (khi đã hoàn thành 5 buổi đầu).
+* **Frontend**: 
+  * Cảnh báo đóng tiền Đợt 2 sẽ xuất hiện ở bảng lịch hẹn và modal chi tiết khi buổi hẹn có thứ tự `so_thu_tu_buoi >= Math.floor(tong_so_buoi_goi / 2)`.
+  * Nút bấm xác nhận trạng thái "Hoàn thành" của buổi đó sẽ bị chặn cho đến khi hóa đơn gói được thanh toán đầy đủ (`da_thanh_toan`).
+  * Nhãn nút bấm thanh toán dưới chân modal chi tiết lịch hẹn của gói phải hiển thị rõ ràng: **"Vui lòng thanh toán liệu trình"** thay vì các từ dễ gây hiểu lầm là thanh toán lẻ.
+
+### 3. Quy tắc Thanh toán Từng buổi (Pay-Per-Session Plan Rules):
+* **Ràng buộc**: Bệnh nhân trả tiền theo từng buổi (`tung_buoi`) phải hoàn tất thanh toán cho buổi hiện tại mới được phép đặt lịch hẹn cho buổi kế tiếp.
+* **Frontend**: 
+  * Khi bệnh nhân hoàn tất thanh toán đợt đóng tiền của buổi trị liệu hiện tại (ví dụ buổi 4), màn hình thanh toán thành công phải hiển thị nút hành động nhanh **"Đặt lịch hẹn Buổi 5 ngay"** (truyền tham số `daDangKyGoiId` và `nextSessionNum` vào `paymentSuccessData`).
+  * Danh sách hồ sơ điều trị sẽ chặn đặt lịch buổi tiếp theo (ví dụ Buổi 5) nếu số tiền đã trả thực tế tích lũy nhỏ hơn số tiền tích lũy của các buổi đã dùng.
+
+### 4. Quy chuẩn Báo lỗi và Phản hồi Khách hàng (Client-Safe Error Propagation):
+* **Backend**: 
+  * Mọi lỗi ràng buộc nghiệp vụ (chưa thanh toán buổi trước, trùng lịch nhân sự, đã có lịch đặt đang hoạt động...) được ném ra từ Repository/Service dưới dạng `Error` phải được Controller kiểm tra và trả về dưới dạng mã `400 Bad Request` kèm theo thông điệp lỗi gốc (nếu là lỗi nghiệp vụ do em tự ném ra).
+  * Không được phép nuốt lỗi nghiệp vụ rồi trả về lỗi chung chung `500 Lỗi server`.

@@ -237,6 +237,10 @@ export default function ReceptionistAppointments() {
     }
   };
 
+  const removeAccents = (str: string) => {
+    return (str || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  };
+
   const formattedSelectedDate = format(selectedDate, 'yyyy-MM-dd');
 
   // Filtered appointments list for the main daily schedule view
@@ -255,9 +259,10 @@ export default function ReceptionistAppointments() {
       ? apt.loai_lich === 'kham_moi'
       : (apt.loai_lich === 'dieu_tri' || apt.loai_lich === 'dich_vu_don');
     
+    const cleanSearch = removeAccents(searchTerm);
     const matchSearch = searchTerm === '' ||
-      apt.ma_lich_dat.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      apt.ten_khach_hang.toLowerCase().includes(searchTerm.toLowerCase());
+      removeAccents(apt.ma_lich_dat).includes(cleanSearch) ||
+      removeAccents(apt.ten_khach_hang).includes(cleanSearch);
 
     const allowedStatuses = ['chua_xac_nhan', 'cho_xac_nhan', 'da_xac_nhan', 'da_checkin', 'dang_kham', 'hoan_thanh', 'da_huy', 'khong_den'];
     
@@ -400,6 +405,7 @@ export default function ReceptionistAppointments() {
             selectedDate={selectedDate}
             activeType={activeType}
             onToggleType={() => setActiveType(prev => prev === 'kham' ? 'dieu_tri' : 'kham')}
+            isWalkInModalOpen={isWalkInModalOpen}
           />
 
           {/* DYNAMIC HEADER & BACK NAVIGATION */}

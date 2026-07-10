@@ -33,7 +33,9 @@ const checkoutReducer = (state: CheckoutState, action: CheckoutAction): Checkout
 
 export const useCheckout = (
   queryLichDatId: string | null,
-  isCheckoutMode: boolean
+  isCheckoutMode: boolean,
+  queryCustomerId?: string | null,
+  queryGoiDichVuId?: string | null
 ) => {
   const loadedConsultationIdRef = useRef<string | null>(null);
   const lastCalcParamsRef = useRef<string>('');
@@ -73,14 +75,21 @@ export const useCheckout = (
     const loadCheckoutInfo = async () => {
       dispatch({ type: 'SET_LOADING', loading: true });
       try {
-        const [pkgRes, billInfoRes] = await Promise.all([
-          axiosInstance.get('/receptionist/packages'),
-          axiosInstance.get(`/receptionist/appointments/${queryLichDatId}/billing-info`),
-        ]);
+        const pkgRes = await axiosInstance.get('/receptionist/packages');
         const pkgs = Array.isArray(pkgRes.data) ? pkgRes.data : [];
         setPackages(pkgs);
 
-        const appt = billInfoRes.data;
+        let appt;
+        if (queryLichDatId) {
+          const billInfoRes = await axiosInstance.get(`/receptionist/appointments/${queryLichDatId}/billing-info`);
+          appt = billInfoRes.data;
+        } else if (queryCustomerId && queryGoiDichVuId) {
+          const billInfoRes = await axiosInstance.get(`/receptionist/customers/${queryCustomerId}/billing-info-by-package?package_id=${queryGoiDichVuId}`);
+          appt = billInfoRes.data;
+        } else {
+          throw new Error('Thiếu thông tin thanh toán');
+        }
+
         setSelectedConsultation(appt);
 
         if (appt.loai_lich === 'dieu_tri' && appt.hoa_don_goi_id) {
@@ -153,7 +162,7 @@ export const useCheckout = (
     };
 
     loadCheckoutInfo();
-  }, [queryLichDatId, isCheckoutMode]);
+  }, [queryLichDatId, isCheckoutMode, queryCustomerId, queryGoiDichVuId]);
 
   // Load single invoice automatically
   useEffect(() => {
@@ -307,6 +316,12 @@ export const useCheckout = (
         ? packages.find((p) => String(p.id) === String(selectedConsultation.khuyen_nghi_goi_id))
         : null;
 
+      const nextSessionNum = selectedConsultation?.loai_lich === 'dieu_tri' && selectedConsultation?.hinh_thuc_thanh_toan_goi === 'tung_buoi'
+        ? Number(selectedConsultation.so_thu_tu_buoi || 1) + 1
+        : null;
+      const totalSessions = selectedConsultation?.pd_tong_so_buoi ? Number(selectedConsultation.pd_tong_so_buoi) : 10;
+      const isTungBuoi = selectedConsultation?.loai_lich === 'dieu_tri' && selectedConsultation?.hinh_thuc_thanh_toan_goi === 'tung_buoi';
+
       setPaymentSuccessData({
         hoaDon: res.data?.hoa_don || state.hoaDon,
         khachHangId: selectedConsultation?.khach_hang_id,
@@ -314,6 +329,11 @@ export const useCheckout = (
         khuyenNghiGoiId: selectedConsultation?.khuyen_nghi_goi_id,
         khuyenNghiTenGoi: matchedPkg ? matchedPkg.ten_goi : null,
         khuyenNghiLoaiGoi: selectedConsultation?.khuyen_nghi_loai_goi,
+        daDangKyGoiId: isTungBuoi ? selectedConsultation?.pd_goi_dich_vu_id : null,
+        daDangKyGoiTen: isTungBuoi ? selectedConsultation?.pd_ten_goi : null,
+        daDangKyGoiLoai: isTungBuoi ? 'LIEU_TRINH' : null,
+        nextSessionNum: isTungBuoi && nextSessionNum && nextSessionNum <= totalSessions ? nextSessionNum : null,
+        totalSessions: isTungBuoi ? totalSessions : null,
       });
 
       toast.success('Giao dịch thanh toán y khoa đã hoàn tất thành công!', { id: toastId });
@@ -355,6 +375,7 @@ export const useCheckout = (
         loai_thanh_toan: dangKyGoi ? loaiThanhToan : 'tra_thang',
         ma_voucher: dangKyGoi && appliedVoucher ? appliedVoucher.ma_voucher : null,
         lich_dat_id: selectedConsultation.id,
+        lich_dieu_tri_id: selectedConsultation.phac_do_dieu_tri_id || null,
         ho_ten_khach: selectedConsultation.ten_khach_hang,
         so_dien_thoai: selectedConsultation.sdt_khach_hang,
         dang_ky_goi: dangKyGoi,

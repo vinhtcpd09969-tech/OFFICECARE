@@ -235,6 +235,25 @@ export const getAppointmentBillingInfo = async (req: Request, res: Response): Pr
   }
 };
 
+// GET /api/receptionist/customers/:id/billing-info-by-package
+export const getBillingInfoByPackage = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id: customerId } = req.params;
+    const { package_id } = req.query;
+    if (!package_id || typeof package_id !== 'string') {
+      return res.status(400).json({ message: 'Thiếu tham số package_id' });
+    }
+    const result = await receptionistService.getBillingInfoByPackage(customerId as string, package_id as string);
+    if (!result) {
+      return res.status(444).json({ message: 'Không tìm thấy thông tin' });
+    }
+    res.json(result);
+  } catch (error) {
+    console.error('Lỗi lấy thông tin thanh toán gói:', error);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+};
+
 // GET /api/receptionist/customers/:id/check-limit
 export const checkCustomerLimit = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -245,7 +264,7 @@ export const checkCustomerLimit = async (req: Request, res: Response): Promise<a
     }
     
     const appointmentRepository = require('../repositories/appointment.repository').default;
-    const limitReached = await appointmentRepository.checkCustomerHasClinicalExamOnDate(id, null, date);
+    const limitReached = await appointmentRepository.checkCustomerHasClinicalExamOnDate(id, null, date as string);
     
     return res.json({ limitReached });
   } catch (error: any) {

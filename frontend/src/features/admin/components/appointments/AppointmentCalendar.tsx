@@ -413,7 +413,7 @@ function AppointmentCard({
     apt.trang_thai_hoa_don_goi !== 'da_thanh_toan' &&
     !['da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(apt.trang_thai) &&
     Number(apt.so_tien_da_tra_goi) < Number(apt.tong_tien_phai_tra_goi) &&
-    Number(apt.so_thu_tu_buoi) >= Math.floor(Number(apt.tong_so_buoi_goi || 10) / 2) - 1;
+    Number(apt.so_thu_tu_buoi) >= Math.floor(Number(apt.tong_so_buoi_goi || 10) / 2);
 
   return (
     <div
