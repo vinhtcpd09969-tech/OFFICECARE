@@ -1062,8 +1062,8 @@ class AdminRepository {
       // Refund calculation:
       const so_tien_da_dong = Number(hd.so_tien_da_tra);
 
-      // Penalty fee is calculated based on the actual paid amount (so_tien_da_dong):
-      const phi_phat_thuc_te = Math.round((so_tien_da_dong * phi_phat_percent) / 100);
+      // Penalty fee is calculated based on the total discounted package value (gia_thanh_toan_goi):
+      const phi_phat_thuc_te = Math.round((gia_thanh_toan_goi * phi_phat_percent) / 100);
 
       // If package is cancelled, they must pay for the exam (revoke waiver/free promotion)
       let examFeeToCharge = 0;

@@ -148,7 +148,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
   // Refund values:
   const totalPaid = Number(invoice.da_thanh_toan);
   const gia_thanh_toan_goi = gia_goc_goi - giam_gia_goi;
-  const penaltyAmount = Math.round((totalPaid * penaltyPercent) / 100);
+  const penaltyAmount = Math.round((gia_thanh_toan_goi * penaltyPercent) / 100);
   const totalSessions = Number(invoice.tong_so_buoi || 10);
   const usedSessionsCost = Math.round((gia_thanh_toan_goi * usedSessions) / totalSessions);
   const examFeeToCharge = mien_phi_kham; // revoke waiver
