@@ -320,7 +320,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                 </div>
               </div>
 
-              {invoice.ghi_chu && (
+              {invoice.ghi_chu && !invoice.ghi_chu.trim().startsWith('{') && (
                 <div className={`p-4 rounded-2xl border text-xs font-black leading-relaxed space-y-1.5 shadow-sm ${
                   invoice.trang_thai === 'da_hoan_tien'
                     ? 'bg-rose-50 border-rose-200 text-rose-950'
@@ -455,7 +455,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                                   <span>-{formatCurrency(analysis.chi_phi_buoi_dung)}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                  <span className="text-zinc-500">2.2. Phí phạt hủy gói ({analysis.phi_phat_percent}% trên tiền thực đóng):</span>
+                                  <span className="text-zinc-500">2.2. Phí phạt hủy gói ({analysis.phi_phat_percent}% trên giá trị gói):</span>
                                   <span>-{formatCurrency(analysis.phi_phat_thuc_te)}</span>
                                 </div>
                                 <div className="flex justify-between items-start">
