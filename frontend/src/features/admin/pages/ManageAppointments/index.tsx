@@ -355,7 +355,8 @@ export default function ManageAppointments() {
     const cleanSearch = removeAccents(searchTerm);
     const matchSearch = searchTerm === '' ||
       removeAccents(apt.ma_lich_dat).includes(cleanSearch) ||
-      removeAccents(apt.ten_khach_hang).includes(cleanSearch);
+      removeAccents(apt.ten_khach_hang).includes(cleanSearch) ||
+      (apt.so_dien_thoai || '').includes(searchTerm.trim());
 
     const matchStaff = !selectedStaffFilter || String(apt.bac_si_id) === String(selectedStaffFilter);
 
@@ -711,13 +712,15 @@ export default function ManageAppointments() {
                       selectedDate={selectedDate}
                       setSelectedDate={setSelectedDate}
                       setViewMode={setViewMode}
-                      appointments={appointmentsToUse.filter(apt => 
+                      appointments={appointmentsToUse.filter(apt =>
                         activeType === 'kham'
                           ? apt.loai_lich === 'kham_moi'
                           : (apt.loai_lich === 'dieu_tri' || apt.loai_lich === 'dich_vu_don')
                       )}
                       timeRange={timeRange}
                       activeType={activeType}
+                      searchTerm={searchTerm}
+                      onSelectAppointment={scrollToAppointment}
                     />
                   )}
                 </>

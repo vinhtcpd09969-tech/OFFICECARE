@@ -586,25 +586,6 @@
 
 /**
  * @swagger
- * /admin/appointments/{id}/medical-record:
- *   put:
- *     summary: Cập nhật hồ sơ bệnh án cho lịch hẹn (KTV/Bác sĩ)
- *     tags: [Admin - Lịch hẹn]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Hồ sơ bệnh án đã được cập nhật
- */
-
-/**
- * @swagger
  * /admin/appointments/break-time:
  *   delete:
  *     summary: Xóa các lịch giữ chỗ break-time không còn cần thiết
@@ -614,32 +595,6 @@
  *     responses:
  *       200:
  *         description: Lịch break-time đã được dọn dẹp
- */
-
-/**
- * @swagger
- * /admin/appointments/watchdog/status:
- *   get:
- *     summary: Kiểm tra trạng thái watchdog tự động hủy lịch hẹn quá hạn
- *     tags: [Admin - Lịch hẹn]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Trạng thái watchdog (running / stopped, lần chạy cuối)
- */
-
-/**
- * @swagger
- * /admin/appointments/watchdog/run:
- *   post:
- *     summary: Chạy thủ công watchdog để xử lý lịch hẹn quá hạn ngay lập tức
- *     tags: [Admin - Lịch hẹn]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Watchdog đã được chạy, kết quả xử lý được trả về
  */
 
 /**
@@ -661,42 +616,3 @@
  *         description: Lịch hẹn đã được gia hạn
  */
 
-/**
- * @swagger
- * /admin/treatment-records:
- *   get:
- *     summary: Lấy danh sách hồ sơ điều trị
- *     tags: [Admin - Lịch hẹn]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Danh sách hồ sơ điều trị toàn hệ thống
- *   post:
- *     summary: Tạo hồ sơ điều trị mới cho bệnh nhân
- *     tags: [Admin - Lịch hẹn]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       201:
- *         description: Hồ sơ điều trị được tạo thành công
- */
-
-/**
- * @swagger
- * /admin/treatment-records/{id}/assign:
- *   patch:
- *     summary: Phân công KTV/Bác sĩ cho hồ sơ điều trị
- *     tags: [Admin - Lịch hẹn]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Phân công thành công
- */

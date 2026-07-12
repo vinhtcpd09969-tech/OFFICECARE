@@ -2,7 +2,6 @@ import { Router } from 'express';
 import { verifyToken, authorizeRoles } from '../middlewares/auth.middleware';
 import * as adminController from '../controllers/admin.controller';
 import * as appointmentController from '../controllers/appointment.controller';
-import * as treatmentRecordController from '../controllers/treatment-record.controller';
 
 const router = Router();
 
@@ -48,7 +47,7 @@ router.delete('/schedules/:id', authorizeRoles(5, 6), adminController.deleteSche
 router.get('/customers', authorizeRoles(2, 4, 5, 6), adminController.getCustomers);
 
 // ─── HỒ SƠ ĐIỀU TRỊ ───────────────────────────────────────────────────────────
-router.get('/medical-records', authorizeRoles(2, 4, 5, 6), adminController.getMedicalRecords);
+router.get('/medical-records', authorizeRoles(4, 5, 6), adminController.getMedicalRecords);
 
 // ─── TÀI CHÍNH ────────────────────────────────────────────────────────────────
 router.get('/invoices', authorizeRoles(2, 5, 6), adminController.getInvoices);
@@ -73,15 +72,7 @@ router.get('/analytics/performance', authorizeRoles(5, 6), adminController.getSt
 router.get('/appointments', authorizeRoles(2, 4, 5, 6), appointmentController.getAllAppointments);
 router.post('/appointments', authorizeRoles(2, 5, 6), appointmentController.createAppointment);
 router.patch('/appointments/:id/status', authorizeRoles(2, 4, 5, 6), appointmentController.updateAppointmentStatus);
-router.put('/appointments/:id/medical-record', authorizeRoles(4, 5, 6), appointmentController.updateMedicalRecord);
 router.delete('/appointments/break-time', authorizeRoles(5, 6), appointmentController.cancelBreakTimeAppointments);
-router.get('/appointments/watchdog/status', authorizeRoles(5, 6), appointmentController.getWatchdogStatus);
-router.post('/appointments/watchdog/run', authorizeRoles(5, 6), appointmentController.runWatchdogManually);
 router.post('/appointments/:id/keep-alive', authorizeRoles(2, 5, 6), appointmentController.keepAliveAppointment);
-
-// ─── HỒ SƠ ĐIỀU TRỊ (NEW WORKFLOW) ────────────────────────────────────────────
-router.get('/treatment-records', authorizeRoles(2, 3, 4, 5, 6), treatmentRecordController.getTreatmentRecords);
-router.post('/treatment-records', authorizeRoles(4, 5, 6), treatmentRecordController.createTreatmentRecord);
-router.patch('/treatment-records/:id/assign', authorizeRoles(2, 5, 6), treatmentRecordController.assignTreatmentRecord);
 
 export default router;

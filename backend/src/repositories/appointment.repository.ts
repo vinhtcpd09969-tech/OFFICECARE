@@ -1,9 +1,11 @@
 import { pool } from '../config/db';
 import bcrypt from 'bcryptjs';
+import { getMinPaymentRequired, resolveNoShowOutcome } from '../domain/billing';
+import { HinhThucThanhToanGoi, NoShowAction } from '../domain/types';
 
 function calculateConfirmationDeadline(now: Date, appointmentStart: Date): Date {
   const durationMs = 30 * 60 * 1000;
-  
+
   // Get local hour in Vietnam (UTC+7)
   const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone: 'Asia/Ho_Chi_Minh',
@@ -51,7 +53,7 @@ function getVnDateString(date: Date, hour: number, minute: number, second: numbe
   const year = parts.find(p => p.type === 'year')!.value;
   const month = parts.find(p => p.type === 'month')!.value;
   const day = parts.find(p => p.type === 'day')!.value;
-  
+
   const h = String(hour).padStart(2, '0');
   const m = String(minute).padStart(2, '0');
   const s = String(second).padStart(2, '0');
@@ -218,23 +220,36 @@ class AppointmentRepository {
         throw new Error(`Khách hàng đã có lịch đặt cho buổi số ${activeAppt.so_thu_tu_buoi} đang hoạt động. Vui lòng hoàn thành hoặc hủy lịch hẹn cũ trước khi đặt buổi tiếp theo.`);
       }
 
-      // Kiểm tra điều kiện hoàn tất thanh toán của buổi trước khi đặt lịch cho buổi tiếp theo (trả từng buổi)
+      // Kiểm tra điều kiện hoàn tất thanh toán của buổi trước khi đặt lịch cho buổi tiếp theo (Thống nhất 3 hình thức)
       const invRes = await pool.query(
-        `SELECT hd.hinh_thuc_thanh_toan_goi, hd.tong_tien_phai_tra, hd.so_tien_da_tra, pd.tong_so_buoi
+        `SELECT hd.hinh_thuc_thanh_toan_goi, hd.tong_tien_phai_tra, hd.so_tien_da_tra, pd.tong_so_buoi, g.loai_goi
          FROM hoa_don hd
          JOIN phac_do_dieu_tri pd ON pd.id = hd.phac_do_dieu_tri_id
+         JOIN goi_dich_vu g ON pd.goi_dich_vu_id = g.id
          WHERE hd.phac_do_dieu_tri_id = $1
          LIMIT 1`,
         [phac_do_dieu_tri_id]
       );
       if (invRes.rows.length > 0) {
-        const { hinh_thuc_thanh_toan_goi, tong_tien_phai_tra, so_tien_da_tra, tong_so_buoi } = invRes.rows[0];
-        if (hinh_thuc_thanh_toan_goi === 'tung_buoi') {
+        const { hinh_thuc_thanh_toan_goi, tong_tien_phai_tra, so_tien_da_tra, tong_so_buoi, loai_goi } = invRes.rows[0];
+
+        // Gói lẻ LE không bị chặn đặt lịch trước thanh toán
+        if (loai_goi !== 'LE') {
           const M = Number(so_thu_tu_buoi) || 1;
-          const perSessionPrice = Math.round(Number(tong_tien_phai_tra) / Number(tong_so_buoi));
-          const requiredPaid = (M - 1) * perSessionPrice;
-          if (Number(so_tien_da_tra) < requiredPaid) {
-            throw new Error(`Khách hàng chưa hoàn tất thanh toán cho buổi điều trị trước đó. Vui lòng thanh toán trước khi đặt lịch cho buổi số ${M}!`);
+          const minRequired = getMinPaymentRequired(
+            hinh_thuc_thanh_toan_goi,
+            Number(tong_tien_phai_tra),
+            Number(tong_so_buoi || 10),
+            M
+          );
+          if (Number(so_tien_da_tra) < minRequired) {
+            if (hinh_thuc_thanh_toan_goi === 'tra_gop') {
+              throw new Error(`Khách hàng chưa thanh toán Đợt 2 của gói trả góp. Vui lòng thanh toán trước khi thực hiện buổi trị liệu số ${M}!`);
+            } else if (hinh_thuc_thanh_toan_goi === 'tra_thang') {
+              throw new Error(`Khách hàng chưa hoàn tất thanh toán cho gói trị liệu này. Vui lòng thanh toán trước khi thực hiện buổi số ${M}!`);
+            } else {
+              throw new Error(`Khách hàng chưa hoàn tất thanh toán cho buổi điều trị trước đó. Vui lòng thanh toán trước khi đặt lịch cho buổi số ${M}!`);
+            }
           }
         }
       }
@@ -273,7 +288,7 @@ class AppointmentRepository {
       if (khach_hang_id || so_dien_thoai) {
         const startLocal = new Date(new Date(ngay_gio_bat_dau).getTime() + 7 * 60 * 60000);
         const dateStr = `${startLocal.getUTCFullYear()}-${String(startLocal.getUTCMonth() + 1).padStart(2, '0')}-${String(startLocal.getUTCDate()).padStart(2, '0')}`;
-        
+
         const hasClinicalExam = await this.checkCustomerHasClinicalExamOnDate(khach_hang_id, so_dien_thoai || null, dateStr);
         if (hasClinicalExam) {
           throw new Error('Khách hàng đã đạt giới hạn tối đa 3 dịch vụ trong ngày này.');
@@ -314,11 +329,11 @@ class AppointmentRepository {
 
     // Validate package payment check for treatment appointments (DIEU_TRI) or when the service is a package (LIEU_TRINH)
     const targetGoiId = dang_ky_goi_id || phac_do_dieu_tri_id || finalGoiId;
-    
+
     if (final_khach_hang_id && targetGoiId) {
       let loaiGoi = null;
       let tenGoi = 'Gói dịch vụ';
-      
+
       let resolvedPdId = phac_do_dieu_tri_id || null;
       if (resolvedPdId) {
         const pdInfo = await pool.query(`
@@ -343,38 +358,33 @@ class AppointmentRepository {
 
       if (isTreatment && loaiGoi === 'LIEU_TRINH') {
         const invoiceQuery = `
-          SELECT hd.tong_tien_phai_tra, hd.so_tien_da_tra, hd.hinh_thuc_thanh_toan_goi, hd.trang_thai, pd.id as phac_do_id
+          SELECT hd.tong_tien_phai_tra, hd.so_tien_da_tra, hd.hinh_thuc_thanh_toan_goi, hd.trang_thai, pd.id as phac_do_id, pd.tong_so_buoi
           FROM phac_do_dieu_tri pd
           JOIN hoa_don hd ON hd.phac_do_dieu_tri_id = pd.id
           WHERE pd.khach_hang_id = $1 AND (pd.id = $2 OR pd.goi_dich_vu_id = $3)
           ORDER BY hd.ngay_tao DESC LIMIT 1
         `;
         const invRes = await pool.query(invoiceQuery, [final_khach_hang_id, resolvedPdId, targetGoiId]);
-        
+
         if (invRes.rows.length === 0) {
           throw new Error(`Bệnh nhân chưa thanh toán/đăng ký gói trị liệu "${tenGoi}". Vui lòng thanh toán trước khi lên lịch hẹn!`);
         }
-        
+
         const invoiceObj = invRes.rows[0];
         const tongTien = Number(invoiceObj.tong_tien_phai_tra || 0);
         const daThanhToan = Number(invoiceObj.so_tien_da_tra || 0);
-        const hinhThuc = invoiceObj.hinh_thuc_thanh_toan_goi || 'tra_thang';
-        
-        if (hinhThuc === 'tra_thang') {
-          if (daThanhToan < tongTien) {
-            const formattedPaid = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(daThanhToan);
-            const formattedTotal = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(tongTien);
-            throw new Error(`Gói trị liệu "${tenGoi}" (Trả thẳng 100%) yêu cầu hoàn tất thanh toán trước khi đặt lịch. Bệnh nhân mới đóng ${formattedPaid} / ${formattedTotal}.`);
-          }
-        } else if (hinhThuc === 'tra_gop') {
-          const target50 = Math.round(tongTien * 0.5);
-          if (daThanhToan < target50) {
-            const formattedPaid = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(daThanhToan);
-            const formattedTarget = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(target50);
-            throw new Error(`Gói trị liệu "${tenGoi}" (Trả góp) yêu cầu thanh toán Đợt 1 (tối thiểu 50%) trước khi đặt lịch. Bệnh nhân mới đóng ${formattedPaid} / ${formattedTarget}.`);
-          }
+        const hinhThuc: HinhThucThanhToanGoi = invoiceObj.hinh_thuc_thanh_toan_goi || 'tra_thang';
+        const tongSoBuoiGoi = Number(invoiceObj.tong_so_buoi || 10);
+        const sessionNumForCheck = Number(so_thu_tu_buoi) || 1;
+
+        const minRequired = getMinPaymentRequired(hinhThuc, tongTien, tongSoBuoiGoi, sessionNumForCheck);
+        if (daThanhToan < minRequired) {
+          const formattedPaid = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(daThanhToan);
+          const formattedRequired = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(minRequired);
+          const label = hinhThuc === 'tra_gop' ? 'Trả góp' : hinhThuc === 'tung_buoi' ? 'Trả từng buổi' : 'Trả thẳng 100%';
+          throw new Error(`Gói trị liệu "${tenGoi}" (${label}) yêu cầu thanh toán tối thiểu trước khi đặt lịch. Bệnh nhân mới đóng ${formattedPaid} / ${formattedRequired}.`);
         }
-        
+
         if (!phac_do_dieu_tri_id && invoiceObj.phac_do_id) {
           phac_do_dieu_tri_id = invoiceObj.phac_do_id;
           data.phac_do_dieu_tri_id = invoiceObj.phac_do_id;
@@ -409,30 +419,43 @@ class AppointmentRepository {
         throw new Error(`Khách hàng đã có lịch đặt cho buổi số ${activeAppt.so_thu_tu_buoi} đang hoạt động. Vui lòng hoàn thành hoặc hủy lịch hẹn cũ trước khi đặt buổi tiếp theo.`);
       }
 
-      // Kiểm tra điều kiện hoàn tất thanh toán của buổi trước khi đặt lịch cho buổi tiếp theo (trả từng buổi)
+      // Kiểm tra điều kiện hoàn tất thanh toán của buổi trước khi đặt lịch cho buổi tiếp theo (Thống nhất 3 hình thức)
       const invRes = await pool.query(
-        `SELECT hd.hinh_thuc_thanh_toan_goi, hd.tong_tien_phai_tra, hd.so_tien_da_tra, pd.tong_so_buoi
+        `SELECT hd.hinh_thuc_thanh_toan_goi, hd.tong_tien_phai_tra, hd.so_tien_da_tra, pd.tong_so_buoi, g.loai_goi
          FROM hoa_don hd
          JOIN phac_do_dieu_tri pd ON pd.id = hd.phac_do_dieu_tri_id
+         JOIN goi_dich_vu g ON pd.goi_dich_vu_id = g.id
          WHERE hd.phac_do_dieu_tri_id = $1
          LIMIT 1`,
         [finalPhacDoId]
       );
       if (invRes.rows.length > 0) {
-        const { hinh_thuc_thanh_toan_goi, tong_tien_phai_tra, so_tien_da_tra, tong_so_buoi } = invRes.rows[0];
-        if (hinh_thuc_thanh_toan_goi === 'tung_buoi') {
+        const { hinh_thuc_thanh_toan_goi, tong_tien_phai_tra, so_tien_da_tra, tong_so_buoi, loai_goi } = invRes.rows[0];
+
+        // Gói lẻ LE không bị chặn đặt lịch trước thanh toán
+        if (loai_goi !== 'LE') {
           const M = Number(so_thu_tu_buoi) || 1;
-          const perSessionPrice = Math.round(Number(tong_tien_phai_tra) / Number(tong_so_buoi));
-          const requiredPaid = (M - 1) * perSessionPrice;
-          if (Number(so_tien_da_tra) < requiredPaid) {
-            throw new Error(`Khách hàng chưa hoàn tất thanh toán cho buổi điều trị trước đó. Vui lòng thanh toán trước khi đặt lịch cho buổi số ${M}!`);
+          const minRequired = getMinPaymentRequired(
+            hinh_thuc_thanh_toan_goi,
+            Number(tong_tien_phai_tra),
+            Number(tong_so_buoi || 10),
+            M
+          );
+          if (Number(so_tien_da_tra) < minRequired) {
+            if (hinh_thuc_thanh_toan_goi === 'tra_gop') {
+              throw new Error(`Khách hàng chưa thanh toán Đợt 2 của gói trả góp. Vui lòng thanh toán trước khi thực hiện buổi trị liệu số ${M}!`);
+            } else if (hinh_thuc_thanh_toan_goi === 'tra_thang') {
+              throw new Error(`Khách hàng chưa hoàn tất thanh toán cho gói trị liệu này. Vui lòng thanh toán trước khi thực hiện buổi số ${M}!`);
+            } else {
+              throw new Error(`Khách hàng chưa hoàn tất thanh toán cho buổi điều trị trước đó. Vui lòng thanh toán trước khi đặt lịch cho buổi số ${M}!`);
+            }
           }
         }
       }
     }
 
     const isCreatedByStaff = !!data.nguoi_tao_id;
-    const defaultStatus = isCreatedByStaff 
+    const defaultStatus = isCreatedByStaff
       ? (bac_si_id ? 'da_xac_nhan' : 'cho_xac_nhan')
       : 'chua_xac_nhan';
     const trang_thai = data.trang_thai || defaultStatus;
@@ -577,7 +600,7 @@ class AppointmentRepository {
       trieu_chung || ly_do_kham || null,
       resolvedPhongId
     ]);
-    
+
     if (data.temp_hold_id) {
       await pool.query("DELETE FROM tam_giu_cho WHERE session_id = $1", [data.temp_hold_id]);
     }
@@ -716,7 +739,7 @@ class AppointmentRepository {
       ...generateSlots(18, 0, 20, 0)
     ];
 
-    const scheduledSpecialistsForDay = doctors.filter(doc => 
+    const scheduledSpecialistsForDay = doctors.filter(doc =>
       schedules.some(s => s.nguoi_dung_id === doc.nguoi_dung_id)
     );
 
@@ -760,7 +783,7 @@ class AppointmentRepository {
       const scheduledDoctors = doctors.filter(doc => {
         const docScheds = schedules.filter(s => s.nguoi_dung_id === doc.nguoi_dung_id);
         if (docScheds.length === 0) return false;
-        
+
         return docScheds.some(s => {
           const dutyStart = s.gio_bat_dau.substring(0, 5);
           const dutyEnd = s.gio_ket_thuc.substring(0, 5);
@@ -774,7 +797,7 @@ class AppointmentRepository {
 
       const unassignedAptsCount = slotApts.filter(a => a.bac_si_id === null).length;
       let slotFreeDoctorIds = freeDoctors.map(doc => doc.nguoi_dung_id);
-      
+
       if (unassignedAptsCount > 0) {
         slotFreeDoctorIds = slotFreeDoctorIds.slice(unassignedAptsCount);
       }
@@ -793,11 +816,11 @@ class AppointmentRepository {
     };
   }
 
-  async updateAppointmentStatus(id: string, data: { 
-    trang_thai: string; 
-    bac_si_id?: string | null; 
-    chuyen_gia_id?: string | null; 
-    ky_thuat_vien_id?: string | null; 
+  async updateAppointmentStatus(id: string, data: {
+    trang_thai: string;
+    bac_si_id?: string | null;
+    chuyen_gia_id?: string | null;
+    ky_thuat_vien_id?: string | null;
     ngay_gio_bat_dau?: string | null;
     ngay_gio_ket_thuc?: string | null;
     ghi_chu_noi_bo?: string | null;
@@ -830,7 +853,7 @@ class AppointmentRepository {
               WHERE hd.phac_do_dieu_tri_id = $1
               LIMIT 1
             `, [appt.phac_do_dieu_tri_id]);
-            
+
             if (paymentCheck.rows.length > 0) {
               const { trang_thai: invoiceStatus, hinh_thuc_thanh_toan_goi } = paymentCheck.rows[0];
               if (hinh_thuc_thanh_toan_goi !== 'tung_buoi') {
@@ -847,42 +870,31 @@ class AppointmentRepository {
 
       // Handle Cancel / No-Show Logic
       if (['da_huy', 'khong_den', 'khach_khong_den'].includes(data.trang_thai)) {
-        const isCancelAction = data.trang_thai === 'da_huy';
-        
-        if (appt.phac_do_dieu_tri_id && appt.so_thu_tu_buoi) {
-          // Count previous misses/cancellations for the same session index under this treatment plan
+        const isPackageSession = !!(appt.phac_do_dieu_tri_id && appt.so_thu_tu_buoi);
+        let hinhThuc: HinhThucThanhToanGoi | null = null;
+        let previousMisses = 0;
+
+        if (isPackageSession) {
           const missCountRes = await client.query(`
-            SELECT COUNT(*)::int as count FROM cuoc_hen 
-            WHERE phac_do_dieu_tri_id = $1 
-              AND so_thu_tu_buoi = $2 
-              AND id != $3 
+            SELECT COUNT(*)::int as count FROM cuoc_hen
+            WHERE phac_do_dieu_tri_id = $1
+              AND so_thu_tu_buoi = $2
+              AND id != $3
               AND trang_thai IN ('da_huy', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat', 'da_huy_phat')
           `, [appt.phac_do_dieu_tri_id, appt.so_thu_tu_buoi, id]);
-          const previousMisses = missCountRes.rows[0].count || 0;
+          previousMisses = missCountRes.rows[0].count || 0;
 
-          // Check payment type
           const invoiceRes = await client.query(`
-            SELECT hinh_thuc_thanh_toan_goi FROM hoa_don 
-            WHERE phac_do_dieu_tri_id = $1 
+            SELECT hinh_thuc_thanh_toan_goi FROM hoa_don
+            WHERE phac_do_dieu_tri_id = $1
             LIMIT 1
           `, [appt.phac_do_dieu_tri_id]);
-          const hinhThuc = invoiceRes.rows[0]?.hinh_thuc_thanh_toan_goi;
+          hinhThuc = invoiceRes.rows[0]?.hinh_thuc_thanh_toan_goi || null;
+        }
 
-          if (hinhThuc === 'tra_thang' || hinhThuc === 'tra_gop') {
-            if (previousMisses > 0) {
-              finalStatus = isCancelAction ? 'da_huy_phat' : 'khach_khong_den_phat';
-            } else {
-              finalStatus = isCancelAction ? 'da_huy' : 'khong_den';
-            }
-          } else {
-            finalStatus = isCancelAction ? 'da_huy' : 'khong_den';
-            await client.query(
-              'UPDATE khach_hang SET diem_uy_tin = GREATEST(0, diem_uy_tin - 10) WHERE id = $1',
-              [appt.khach_hang_id]
-            );
-          }
-        } else {
-          finalStatus = isCancelAction ? 'da_huy' : 'khong_den';
+        const outcome = resolveNoShowOutcome(data.trang_thai as NoShowAction, hinhThuc, previousMisses, isPackageSession);
+        finalStatus = outcome.finalStatus;
+        if (outcome.shouldDeductReputation) {
           await client.query(
             'UPDATE khach_hang SET diem_uy_tin = GREATEST(0, diem_uy_tin - 10) WHERE id = $1',
             [appt.khach_hang_id]
@@ -987,54 +999,6 @@ class AppointmentRepository {
     }
   }
 
-  async saveDoctorRecommendation(id: string, data: { chan_doan?: string, chong_chi_dinh?: string, khuyen_nghi_dich_vu_id?: string | null, khuyen_nghi_goi_id?: string | null }) {
-    // Lưu chẩn đoán bác sĩ vào nhật ký khám (Buổi 0) và bảng chỉ định chi_dinh_buoi
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-
-      const apptRes = await client.query('SELECT nhan_su_id FROM cuoc_hen WHERE id = $1', [id]);
-      if (apptRes.rows.length === 0) throw new Error('Không tìm thấy cuộc hẹn');
-      const doctorId = apptRes.rows[0].nhan_su_id || 1;
-
-      // 1. Tạo hoặc cập nhật nhật ký khám y khoa
-      const nhatKyRes = await client.query(`
-        INSERT INTO nhat_ky_buoi_dieu_tri (cuoc_hen_id, nguoi_tao_id, chan_doan, chong_chi_dinh)
-        VALUES ($1, $2, $3, $4)
-        ON CONFLICT (cuoc_hen_id) DO UPDATE
-        SET chan_doan = EXCLUDED.chan_doan, chong_chi_dinh = EXCLUDED.chong_chi_dinh
-        RETURNING id
-      `, [id, doctorId, data.chan_doan || null, data.chong_chi_dinh || null]);
-      const nhatKyId = nhatKyRes.rows[0].id;
-
-      // 2. Tạo chỉ định mua gói hoặc dịch vụ lẻ
-      await client.query('DELETE FROM chi_dinh_buoi WHERE nhat_ky_id = $1', [nhatKyId]);
-      if (data.khuyen_nghi_goi_id || data.khuyen_nghi_dich_vu_id) {
-        await client.query(`
-          INSERT INTO chi_dinh_buoi (nhat_ky_id, goi_dich_vu_id, dich_vu_id)
-          VALUES ($1, $2, $3)
-        `, [nhatKyId, data.khuyen_nghi_goi_id || null, data.khuyen_nghi_dich_vu_id || null]);
-      }
-
-      await client.query('COMMIT');
-      return {
-        id,
-        chan_doan: data.chan_doan,
-        chong_chi_dinh: data.chong_chi_dinh,
-        khuyen_nghi_dich_vu_id: data.khuyen_nghi_dich_vu_id,
-        khuyen_nghi_goi_id: data.khuyen_nghi_goi_id
-      };
-    } catch (e) {
-      await client.query('ROLLBACK');
-      throw e;
-    } finally {
-      client.release();
-    }
-  }
-
-  async updateMedicalRecord(id: string, data: { chan_doan?: string, chong_chi_dinh?: string, khuyen_nghi_dich_vu_id?: string | null, khuyen_nghi_goi_id?: string | null }) {
-    return this.saveDoctorRecommendation(id, data);
-  }
 
   async updateCompletedSessionsCount(phac_do_dieu_tri_id: string) {
     // Đếm số buổi đã hoàn thành thực tế của phác đồ này trong cuoc_hen
@@ -1104,15 +1068,15 @@ class AppointmentRepository {
     const vnNow = new Date(now.getTime() + 7 * 60 * 60000);
     const day = vnNow.getUTCDay();
     const diffToMonday = day === 0 ? -6 : 1 - day;
-    
+
     const monday = new Date(vnNow);
     monday.setUTCDate(vnNow.getUTCDate() + diffToMonday);
     monday.setUTCHours(0, 0, 0, 0);
-    
+
     const sunday = new Date(monday);
     sunday.setUTCDate(monday.getUTCDate() + 6);
     sunday.setUTCHours(23, 59, 59, 999);
-    
+
     const startOfWeekUTC = new Date(monday.getTime() - 7 * 60 * 60000).toISOString();
     const endOfWeekUTC = new Date(sunday.getTime() - 7 * 60 * 60000).toISOString();
 
@@ -1135,44 +1099,31 @@ class AppointmentRepository {
     }
     const appt = checkRes.rows[0];
 
-    let finalStatus = 'da_huy';
+    const isPackageSession = !!(appt.phac_do_dieu_tri_id && appt.so_thu_tu_buoi);
+    let hinhThuc: HinhThucThanhToanGoi | null = null;
+    let previousMisses = 0;
 
-    if (appt.phac_do_dieu_tri_id && appt.so_thu_tu_buoi) {
-      // Count previous misses/cancellations for the same session index under this treatment plan
+    if (isPackageSession) {
       const missCountRes = await pool.query(`
-        SELECT COUNT(*)::int as count FROM cuoc_hen 
-        WHERE phac_do_dieu_tri_id = $1 
-          AND so_thu_tu_buoi = $2 
-          AND id != $3 
+        SELECT COUNT(*)::int as count FROM cuoc_hen
+        WHERE phac_do_dieu_tri_id = $1
+          AND so_thu_tu_buoi = $2
+          AND id != $3
           AND trang_thai IN ('da_huy', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat', 'da_huy_phat')
       `, [appt.phac_do_dieu_tri_id, appt.so_thu_tu_buoi, id]);
-      const previousMisses = missCountRes.rows[0].count || 0;
+      previousMisses = missCountRes.rows[0].count || 0;
 
-      // Check payment type
       const invoiceRes = await pool.query(`
-        SELECT hinh_thuc_thanh_toan_goi FROM hoa_don 
-        WHERE phac_do_dieu_tri_id = $1 
+        SELECT hinh_thuc_thanh_toan_goi FROM hoa_don
+        WHERE phac_do_dieu_tri_id = $1
         LIMIT 1
       `, [appt.phac_do_dieu_tri_id]);
-      const hinhThuc = invoiceRes.rows[0]?.hinh_thuc_thanh_toan_goi;
+      hinhThuc = invoiceRes.rows[0]?.hinh_thuc_thanh_toan_goi || null;
+    }
 
-      if (hinhThuc === 'tra_thang' || hinhThuc === 'tra_gop') {
-        if (previousMisses > 0) {
-          finalStatus = 'da_huy_phat';
-        } else {
-          finalStatus = 'da_huy';
-        }
-      } else {
-        // pay-per-session (tung_buoi): deduct reputation points
-        finalStatus = 'da_huy';
-        await pool.query(
-          'UPDATE khach_hang SET diem_uy_tin = GREATEST(0, diem_uy_tin - 10) WHERE id = $1',
-          [customer_id]
-        );
-      }
-    } else {
-      // Non-package session: deduct 10 reputation points
-      finalStatus = 'da_huy';
+    const outcome = resolveNoShowOutcome('da_huy', hinhThuc, previousMisses, isPackageSession);
+    const finalStatus = outcome.finalStatus;
+    if (outcome.shouldDeductReputation) {
       await pool.query(
         'UPDATE khach_hang SET diem_uy_tin = GREATEST(0, diem_uy_tin - 10) WHERE id = $1',
         [customer_id]
@@ -1394,21 +1345,21 @@ class AppointmentRepository {
     const startLoc = new Date(new Date(ngay_gio_bat_dau).getTime() + 7 * 60 * 60000);
     const day = startLoc.getUTCDay();
     const diffToMonday = day === 0 ? -6 : 1 - day;
-    
+
     const monday = new Date(startLoc);
     monday.setUTCDate(startLoc.getUTCDate() + diffToMonday);
     monday.setUTCHours(0, 0, 0, 0);
-    
+
     const sunday = new Date(monday);
     sunday.setUTCDate(monday.getUTCDate() + 6);
     sunday.setUTCHours(23, 59, 59, 999);
-    
+
     const startOfWeekUTC = new Date(monday.getTime() - 7 * 60 * 60000).toISOString();
     const endOfWeekUTC = new Date(sunday.getTime() - 7 * 60 * 60000).toISOString();
-    
+
     let conditions = [];
     let params = [];
-    
+
     if (customer_id) {
       conditions.push('ch.khach_hang_id = $1');
       params.push(customer_id);
@@ -1418,11 +1369,11 @@ class AppointmentRepository {
     } else {
       return false;
     }
-    
+
     const index1 = params.length + 1;
     const index2 = params.length + 2;
     params.push(startOfWeekUTC, endOfWeekUTC);
-    
+
     const query = `
       SELECT ch.id 
       FROM cuoc_hen ch
@@ -1452,7 +1403,7 @@ class AppointmentRepository {
     const startVn = new Date(new Date(start).getTime() + 7 * 60 * 60000);
     const dateStr = startVn.toISOString().substring(0, 10);
     const startSlotTime = startVn.toISOString().substring(11, 16);
-    
+
     const endVn = new Date(new Date(end).getTime() + 7 * 60 * 60000);
     const endSlotTime = endVn.toISOString().substring(11, 16);
 
@@ -1550,3 +1501,4 @@ class AppointmentRepository {
 }
 
 export default new AppointmentRepository();
+

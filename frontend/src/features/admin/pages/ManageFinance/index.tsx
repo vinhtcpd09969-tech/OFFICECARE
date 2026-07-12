@@ -258,7 +258,7 @@ export default function ManageFinance() {
                             <span>💡</span> Chỉ định dịch vụ lẻ tiếp theo
                           </span>
                           <span className="text-[10.5px] text-blue-800 font-bold block">
-                            Dịch vụ: {checkout.selectedConsultation.khuyen_nghi_ten_goi || 'Dịch vụ lẻ'} (Khách hàng sẽ thanh toán sau khi thực hiện dịch vụ)
+                            Dịch vụ: {checkout.selectedConsultation.khuyen_nghi_ten_goi || 'Dịch vụ lẻ'}
                           </span>
                         </div>
                       ) : (

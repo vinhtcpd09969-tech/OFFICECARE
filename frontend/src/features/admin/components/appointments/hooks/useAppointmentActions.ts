@@ -315,16 +315,26 @@ export function useAppointmentActions({
 
     try {
       setBookingLoading(true);
-      await createAppointment(payload);
+      const res = await createAppointment(payload);
+      const newAptId = res?.data?.id;
       toast.success(`Đăng ký lịch hẹn thành công (Trạng thái: ${statusLabel})!`);
       setIsWalkInModalOpen(false);
       await refetch();
+
+      if (navigate && newAptId) {
+        const params = new URLSearchParams(window.location.search);
+        params.delete('khach_hang_id');
+        params.delete('goi_dich_vu_id');
+        params.set('triggerFocus', 'true');
+        params.set('appointmentId', String(newAptId));
+        navigate(`${window.location.pathname}?${params.toString()}`);
+      }
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Không thể đăng ký lịch hẹn');
     } finally {
       setBookingLoading(false);
     }
-  }, [refetch, isDemoMode, setDemoApts, services]);
+  }, [refetch, isDemoMode, setDemoApts, services, navigate]);
 
   const handleUpdateAppointmentFields = useCallback(async (appointmentId: string, updatedFields: any) => {
     if (isDemoMode && setDemoApts) {

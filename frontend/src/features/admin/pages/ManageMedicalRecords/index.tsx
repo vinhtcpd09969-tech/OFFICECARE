@@ -1,8 +1,32 @@
 import { useState, useEffect } from 'react';
-import { Search, Printer, ChevronLeft, FileText, AlertTriangle, Stethoscope, Activity, Clock, UserCheck } from 'lucide-react';
+import { Search, Printer, ChevronLeft, FileText, AlertTriangle, Stethoscope, Activity, Clock, UserCheck, CalendarCheck } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { getMedicalRecords } from '../../api/admin.api';
 import { format } from 'date-fns';
+
+function getMinPaymentRequired(
+  hinhThuc: string,
+  packageTotal: number,
+  totalSessions: number,
+  sessionNum: number
+): number {
+  if (hinhThuc === 'tra_thang') {
+    return packageTotal;
+  }
+  if (hinhThuc === 'tra_gop') {
+    const cutoff = Math.floor(totalSessions / 2);
+    if (sessionNum >= cutoff) {
+      return packageTotal;
+    } else {
+      return Math.round(packageTotal / 2);
+    }
+  }
+  if (hinhThuc === 'tung_buoi') {
+    const sessionPrice = Math.round(packageTotal / totalSessions);
+    return (sessionNum - 1) * sessionPrice;
+  }
+  return 0;
+}
 
 export default function ManageMedicalRecords() {
   const [patients, setPatients] = useState<any[]>([]);
@@ -209,6 +233,11 @@ export default function ManageMedicalRecords() {
   const prescribedPlan = selectedApt ? selectedPatient?.plans?.find((p: any) => 
     p.cuoc_hen_id === selectedApt.id || 
     (p.trang_thai === 'cho_kich_hoat' && selectedPatient?.plans?.length === 1)
+  ) : null;
+  const bookedApt = prescribedPlan ? selectedPatient?.appointments?.find((ap: any) => 
+    String(ap.goi_dich_vu_id) === String(prescribedPlan.goi_dich_vu_id) && 
+    ap.loai !== 'KHAM' && 
+    ap.trang_thai !== 'da_huy'
   ) : null;
 
   const handlePrint = () => {
@@ -479,7 +508,7 @@ export default function ManageMedicalRecords() {
                           ? 'Chờ kích hoạt'
                           : 'Hoàn thành'}
                     </span>
-                    {selectedPlan.trang_thai === 'cho_kich_hoat' && (
+                    {selectedPlan.trang_thai === 'cho_kich_hoat' && selectedPlan.loai_goi !== 'LE' && (
                       <button
                         type="button"
                         onClick={() => {
@@ -600,69 +629,67 @@ export default function ManageMedicalRecords() {
                         </div>
                       );
                     } else if (isUnbooked) {
-                      const isUnpaid = selectedPlan.trang_thai === 'cho_kich_hoat';
-                      
-                      // Check if previous session is completed
-                      const prevAppt = sessionNum > 1 
-                        ? selectedPlanSessions.find((ap: any) => ap.so_thu_tu_buoi === sessionNum - 1 && ap.loai !== 'KHAM')
-                        : null;
-                      const isPrevFinished = sessionNum === 1 || (prevAppt && prevAppt.trang_thai === 'hoan_thanh');
-                      
-                      // Check if previous sessions are paid (for tung_buoi)
-                      let isPaymentBlocked = false;
-                      if (selectedPlan.hinh_thuc_thanh_toan_goi === 'tung_buoi') {
-                        const perSessionPrice = Math.round(Number(selectedPlan.tong_tien_phai_tra || 0) / Number(selectedPlan.tong_so_buoi || 1));
-                        const requiredPaid = (sessionNum - 1) * perSessionPrice;
-                        const soTienDaTra = Number(selectedPlan.so_tien_da_tra || 0);
-                        if (soTienDaTra < requiredPaid) {
-                          isPaymentBlocked = true;
-                        }
-                      }
+                       const isUnpaid = selectedPlan.trang_thai === 'cho_kich_hoat' && selectedPlan.loai_goi !== 'LE';
+                       
+                       // Check if previous session is completed
+                       const prevAppt = sessionNum > 1 
+                         ? selectedPlanSessions.find((ap: any) => ap.so_thu_tu_buoi === sessionNum - 1 && ap.loai !== 'KHAM')
+                         : null;
+                       const isPrevFinished = sessionNum === 1 || (prevAppt && prevAppt.trang_thai === 'hoan_thanh');
+                       
+                       // Check if previous sessions are paid (Unified mathematical check)
+                       const minRequired = getMinPaymentRequired(
+                         selectedPlan.hinh_thuc_thanh_toan_goi || 'tra_thang',
+                         Number(selectedPlan.tong_tien_phai_tra || 0),
+                         Number(selectedPlan.tong_so_buoi || 10),
+                         sessionNum
+                       );
+                       const soTienDaTra = Number(selectedPlan.so_tien_da_tra || 0);
+                       const isPaymentBlocked = selectedPlan.loai_goi !== 'LE' && soTienDaTra < minRequired;
 
-                      const isBlocked = !isPrevFinished || isPaymentBlocked;
-                      const blockMessage = !isPrevFinished 
-                        ? `⚠️ Vui lòng hoàn thành buổi điều trị số ${sessionNum - 1} để đặt lịch buổi này.`
-                        : `⚠️ Vui lòng thanh toán buổi trước đó để đặt lịch buổi này.`;
+                       const isBlocked = !isPrevFinished || isPaymentBlocked;
+                       const blockMessage = !isPrevFinished 
+                         ? `⚠️ Vui lòng hoàn thành buổi điều trị số ${sessionNum - 1} để đặt lịch buổi này.`
+                         : (selectedPlan.hinh_thuc_thanh_toan_goi === 'tra_gop' 
+                             ? `⚠️ Vui lòng thanh toán Đợt 2 của gói trả góp để đặt lịch buổi này.`
+                             : `⚠️ Vui lòng thanh toán liệu trình để đặt lịch buổi này.`);
 
-                      return (
-                        <div key={sessionNum} className={`border rounded-xl p-4 flex justify-between items-center gap-4 ${
-                          isUnpaid || isBlocked
-                            ? 'border-amber-100 bg-amber-50/10 opacity-80' 
-                            : 'border-sky-100 bg-sky-50/30'
-                        }`}>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
-                                isUnpaid ? 'bg-amber-105 text-amber-800 border border-amber-200' : (isBlocked ? 'bg-slate-100 text-slate-500 border border-slate-200' : 'bg-sky-100 text-sky-850')
-                              }`}>
-                                {isUnpaid ? 'Chờ kích hoạt' : (isBlocked ? 'Chưa đủ điều kiện' : 'Chưa đặt lịch')}
-                              </span>
-                              <strong className="text-xs font-black text-slate-800">
-                                Buổi {sessionNum} • Trị liệu phục hồi
-                              </strong>
-                            </div>
-                            <p className="text-[10px] text-slate-500 font-semibold mt-1">
-                              {isUnpaid 
-                                ? '⚠️ Vui lòng kích hoạt và thanh toán gói để bắt đầu đặt lịch.' 
-                                : (isBlocked ? blockMessage : 'Sẵn sàng để lên lịch đặt chỗ.')}
-                            </p>
-                          </div>
-                          
-                          {isUnpaid ? (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (selectedPlan.cuoc_hen_id) {
-                                  window.location.href = `/admin/quick-billing?lich_dat_id=${selectedPlan.cuoc_hen_id}`;
-                                } else {
-                                  window.location.href = `/admin/quick-billing?customer_id=${selectedPatient.id}&goi_dich_vu_id=${selectedPlan.goi_dich_vu_id}&lich_dieu_tri_id=${selectedPlan.id}`;
-                                }
-                              }}
-                              className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95 cursor-pointer shrink-0"
-                            >
-                              Kích hoạt ngay
-                            </button>
-                          ) : isBlocked ? (
+                       return (
+                         <div key={sessionNum} className={`border rounded-xl p-4 flex justify-between items-center gap-4 ${
+                           isUnpaid || isBlocked
+                             ? 'border-amber-100 bg-amber-50/10 opacity-80' 
+                             : 'border-sky-100 bg-sky-50/30'
+                         }`}>
+                           <div>
+                             <div className="flex items-center gap-2">
+                               <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
+                                 isUnpaid ? 'bg-amber-105 text-amber-800 border border-amber-200' : (isBlocked ? 'bg-slate-100 text-slate-500 border border-slate-200' : 'bg-sky-100 text-sky-850')
+                               }`}>
+                                 {isUnpaid ? 'Chờ kích hoạt' : (isBlocked ? 'Chưa đủ điều kiện' : 'Chưa đặt lịch')}
+                               </span>
+                               <strong className="text-xs font-black text-slate-800">
+                                 Buổi {sessionNum} • Trị liệu phục hồi
+                               </strong>
+                             </div>
+                             <p className="text-[10px] text-slate-500 font-semibold mt-1">
+                               {isUnpaid 
+                                 ? '⚠️ Vui lòng kích hoạt và thanh toán gói để bắt đầu đặt lịch.' 
+                                 : (isBlocked ? blockMessage : 'Sẵn sàng để lên lịch đặt chỗ.')}
+                             </p>
+                           </div>
+                           
+                           {isUnpaid ? (
+                             <button
+                               type="button"
+                               onClick={() => {
+                                 const basePath = window.location.pathname.startsWith('/receptionist') ? '/receptionist' : '/admin';
+                                 window.location.href = `${basePath}/quick-billing?customer_id=${selectedPatient.id}&goi_dich_vu_id=${selectedPlan.goi_dich_vu_id}&dang_ky_goi=true`;
+                               }}
+                               className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95 cursor-pointer shrink-0"
+                             >
+                               Kích hoạt ngay
+                             </button>
+                           ) : isBlocked ? (
                             <button
                               disabled
                               className="px-4 py-2 bg-slate-200 text-slate-400 rounded-xl text-xs font-bold cursor-not-allowed shrink-0"
@@ -707,51 +734,101 @@ export default function ManageMedicalRecords() {
             <div className="space-y-6">
               {/* Gói chỉ định từ ca khám */}
               {prescribedPlan && prescribedPlan.trang_thai === 'cho_kich_hoat' && (
-                <div className="border border-amber-200 bg-gradient-to-r from-amber-50/70 via-amber-50/30 to-white text-amber-900 rounded-2xl p-5 shadow-sm shadow-amber-500/5 transition-all duration-300">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div className="flex items-start gap-3">
-                      <div className={`size-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${
-                        prescribedPlan.trang_thai === 'cho_kich_hoat'
-                          ? 'bg-amber-100 text-amber-700'
-                          : 'bg-teal-100 text-teal-700'
-                      }`}>
-                        <Stethoscope size={18} className="stroke-[2.5]" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">
-                            Gói chỉ định từ ca khám này
-                          </span>
-                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${
-                            prescribedPlan.trang_thai === 'cho_kich_hoat'
-                              ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                              : 'bg-teal-100 text-teal-800 border border-teal-200'
-                          }`}>
-                            {prescribedPlan.trang_thai === 'cho_kich_hoat' ? 'Chờ kích hoạt' : 'Đang điều trị'}
-                          </span>
+                prescribedPlan.loai_goi === 'LE' ? (
+                  <div className="border border-sky-200 bg-gradient-to-r from-sky-50/70 via-sky-50/30 to-white text-sky-900 rounded-2xl p-5 shadow-sm shadow-sky-500/5 transition-all duration-300">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                      <div className="flex items-start gap-3">
+                        <div className="size-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm bg-sky-100 text-sky-700">
+                          <Stethoscope size={18} className="stroke-[2.5]" />
                         </div>
-                        <h4 className="text-sm font-black text-slate-800 mt-1">
-                          {prescribedPlan.ten_goi} ({prescribedPlan.tong_so_buoi} buổi)
-                        </h4>
-                        <p className="text-[10px] text-slate-500 font-semibold mt-0.5">
-                          {prescribedPlan.trang_thai === 'cho_kich_hoat'
-                            ? 'Bác sĩ đã chỉ định phác đồ điều trị này. Vui lòng thanh toán để kích hoạt và bắt đầu buổi trị liệu.'
-                            : 'Gói trị liệu được chỉ định đã thanh toán và kích hoạt thành công.'}
-                        </p>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">
+                              Dịch vụ lẻ chỉ định từ ca khám
+                            </span>
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase border ${
+                              !bookedApt
+                                ? 'bg-sky-100 text-sky-800 border-sky-200'
+                                : bookedApt.trang_thai === 'hoan_thanh'
+                                  ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                                  : 'bg-amber-100 text-amber-800 border-amber-200'
+                            }`}>
+                              {!bookedApt ? 'Chưa đặt lịch' : bookedApt.trang_thai === 'hoan_thanh' ? 'Đã hoàn thành' : 'Đã đặt lịch'}
+                            </span>
+                          </div>
+                          <h4 className="text-sm font-black text-slate-800 mt-1">
+                            {prescribedPlan.ten_goi} ({prescribedPlan.tong_so_buoi} buổi)
+                          </h4>
+                          <p className="text-[10px] text-slate-500 font-semibold mt-0.5">
+                            {bookedApt
+                              ? `Lịch hẹn: ${format(new Date(bookedApt.ngay_gio_bat_dau), 'dd/MM/yyyy HH:mm')} • KTV ${bookedApt.ten_nhan_su || 'Chưa phân công'}`
+                              : 'Bác sĩ đã chỉ định dịch vụ lẻ này. Khách hàng sẽ thanh toán sau khi thực hiện dịch vụ.'}
+                          </p>
+                        </div>
                       </div>
+
+                      {!bookedApt && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const basePath = window.location.pathname.startsWith('/receptionist') ? '/receptionist' : '/admin';
+                            window.location.href = `${basePath}/appointments?khach_hang_id=${selectedPatient.id}&goi_dich_vu_id=${prescribedPlan.goi_dich_vu_id}`;
+                          }}
+                          className="px-4.5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-black shadow-md shadow-sky-500/10 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer shrink-0"
+                        >
+                          <span>📅 Đặt lịch hẹn</span>
+                        </button>
+                      )}
                     </div>
-                    
-                    <button
-                      type="button"
-                      onClick={() => {
-                        window.location.href = `/admin/quick-billing?lich_dat_id=${selectedApt.id}`;
-                      }}
-                      className="px-4.5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black shadow-md shadow-amber-500/10 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer shrink-0"
-                    >
-                      <span>💵 Thanh toán & Kích hoạt gói</span>
-                    </button>
                   </div>
-                </div>
+                ) : (
+                  <div className="border border-amber-200 bg-gradient-to-r from-amber-50/70 via-amber-50/30 to-white text-amber-900 rounded-2xl p-5 shadow-sm shadow-amber-500/5 transition-all duration-300">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                      <div className="flex items-start gap-3">
+                        <div className={`size-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm bg-amber-100 text-amber-700`}>
+                          <Stethoscope size={18} className="stroke-[2.5]" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">
+                              Gói chỉ định từ ca khám này
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-amber-100 text-amber-800 border border-amber-200">
+                              Chờ kích hoạt
+                            </span>
+                          </div>
+                          <h4 className="text-sm font-black text-slate-800 mt-1">
+                            {prescribedPlan.ten_goi} ({prescribedPlan.tong_so_buoi} buổi)
+                          </h4>
+                          <p className="text-[10px] text-slate-500 font-semibold mt-0.5">
+                            Bác sĩ đã chỉ định phác đồ điều trị này. Vui lòng thanh toán để kích hoạt và bắt đầu buổi trị liệu.
+                          </p>
+                          {prescribedPlan.han_kich_hoat && (() => {
+                            const daysLeft = Math.ceil(
+                              (new Date(prescribedPlan.han_kich_hoat).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+                            );
+                            return (
+                              <p className={`text-[10px] font-bold mt-1 ${daysLeft <= 3 ? 'text-red-600' : 'text-amber-700'}`}>
+                                ⏱ {daysLeft > 0 ? `Còn ${daysLeft} ngày để kích hoạt` : 'Hết hạn hôm nay'}
+                              </p>
+                            );
+                          })()}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const basePath = window.location.pathname.startsWith('/receptionist') ? '/receptionist' : '/admin';
+                          window.location.href = `${basePath}/quick-billing?lich_dat_id=${prescribedPlan.cuoc_hen_id}&dang_ky_goi=true`;
+                        }}
+                        className="px-4.5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black shadow-md shadow-amber-500/10 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer shrink-0"
+                      >
+                        <span>💵 Thanh toán & Kích hoạt gói</span>
+                      </button>
+                    </div>
+                  </div>
+                )
               )}
 
               <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4">

@@ -17,6 +17,59 @@ interface DetailFooterProps {
   setAssignStatus: (status: string) => void;
   setCancelReason?: (reason: string) => void;
   setShowConfirmType?: (val: 'save' | 'cancel' | 'receptionist_confirm' | null) => void;
+  appointments?: any[];
+}
+
+function NoShowButton({
+  appointmentId,
+  isReceptionist,
+  localGhiChuNoiBo,
+  onClose,
+  onSuccess
+}: {
+  appointmentId: string;
+  isReceptionist: boolean;
+  localGhiChuNoiBo: string;
+  onClose: () => void;
+  onSuccess?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        const confirmNoShow = window.confirm('Xác nhận khách hàng không đến lịch hẹn này?');
+        if (!confirmNoShow) return;
+
+        const reason = window.prompt('Vui lòng nhập ghi chú (vd: đã gọi nhưng khách không nghe máy):');
+        if (reason === null) return;
+
+        const trimmedReason = reason.trim();
+        if (!trimmedReason) {
+          toast.error('Vui lòng nhập ghi chú!');
+          return;
+        }
+
+        const toastId = toast.loading('Đang cập nhật trạng thái...');
+        try {
+          const updateFn = isReceptionist ? updateAppointmentStatusRec : updateAppointmentStatusAdmin;
+          await updateFn(appointmentId, {
+            trang_thai: 'khong_den',
+            ghi_chu_noi_bo: trimmedReason || localGhiChuNoiBo,
+            ly_do_huy: trimmedReason || localGhiChuNoiBo
+          });
+          toast.success('Đã đánh dấu khách không đến!', { id: toastId });
+          onClose();
+          if (onSuccess) onSuccess();
+        } catch (error: any) {
+          console.error(error);
+          toast.error(error.response?.data?.message || 'Lỗi khi cập nhật trạng thái', { id: toastId });
+        }
+      }}
+      className="px-4 py-2.5 bg-slate-700 hover:bg-slate-800 text-white shadow-sm text-xs font-black rounded-xl flex items-center gap-2 transition-all active:scale-95 text-center justify-center flex-1 sm:flex-none"
+    >
+      🚫 Không đến
+    </button>
+  );
 }
 
 export function DetailFooter({
@@ -30,7 +83,8 @@ export function DetailFooter({
   assignRoomId,
   localGhiChuNoiBo,
   isUnconfirmedState,
-  setAssignStatus
+  setAssignStatus,
+  appointments = []
 }: DetailFooterProps) {
   const navigate = useNavigate();
 
@@ -91,19 +145,35 @@ export function DetailFooter({
                   <div className="px-4 py-2.5 bg-emerald-50 border border-emerald-250 text-emerald-600 text-xs font-black rounded-xl flex items-center gap-1.5 select-none uppercase tracking-wider">
                     🟢 {isRetail ? 'Đã thanh toán dịch vụ lẻ' : 'Đã thanh toán liệu trình'}
                   </div>
-                  {!isRetail && Number(selectedAppointment.so_thu_tu_buoi || 1) < Number(selectedAppointment.tong_so_buoi_goi || 10) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const calendarPath = isReceptionist ? '/receptionist/appointments' : '/admin/appointments';
-                        navigate(`${calendarPath}?khach_hang_id=${selectedAppointment.khach_hang_id}&goi_dich_vu_id=${selectedAppointment.pd_goi_dich_vu_id || selectedAppointment.goi_dich_vu_id}`);
-                        onClose();
-                      }}
-                      className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm text-xs font-black rounded-xl flex items-center gap-1.5 transition-all"
-                    >
-                      📅 + Đặt lịch buổi {Number(selectedAppointment.so_thu_tu_buoi || 1) + 1} tiếp theo
-                    </button>
-                  )}
+                  {(() => {
+                    const nextSessionNum = Number(selectedAppointment.so_thu_tu_buoi || 1) + 1;
+                    const hasMoreSessions = nextSessionNum <= Number(selectedAppointment.tong_so_buoi_goi || 10);
+                    // Buổi tiếp theo đã được đặt (bất kỳ trạng thái nào ngoài đã hủy) thì không cho đặt trùng nữa.
+                    const nextSessionAlreadyBooked = appointments.some((apt) =>
+                      apt.phac_do_dieu_tri_id &&
+                      selectedAppointment.phac_do_dieu_tri_id &&
+                      apt.phac_do_dieu_tri_id === selectedAppointment.phac_do_dieu_tri_id &&
+                      Number(apt.so_thu_tu_buoi) === nextSessionNum &&
+                      apt.trang_thai !== 'da_huy'
+                    );
+
+                    if (!isRetail && hasMoreSessions && !nextSessionAlreadyBooked) {
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const calendarPath = isReceptionist ? '/receptionist/appointments' : '/admin/appointments';
+                            navigate(`${calendarPath}?khach_hang_id=${selectedAppointment.khach_hang_id}&goi_dich_vu_id=${selectedAppointment.pd_goi_dich_vu_id || selectedAppointment.goi_dich_vu_id}`);
+                            onClose();
+                          }}
+                          className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm text-xs font-black rounded-xl flex items-center gap-1.5 transition-all"
+                        >
+                          📅 + Đặt lịch buổi {nextSessionNum} tiếp theo
+                        </button>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
               );
             } else {
@@ -213,8 +283,15 @@ export function DetailFooter({
           >
             ❌ Hủy lịch
           </button>
+          <NoShowButton
+            appointmentId={selectedAppointment.id}
+            isReceptionist={isReceptionist}
+            localGhiChuNoiBo={localGhiChuNoiBo}
+            onClose={onClose}
+            onSuccess={onSuccess}
+          />
         </div>
-      ) : ['kham_moi', 'KHAM'].includes(selectedAppointment.loai_lich) && selectedAppointment.trang_thai === 'da_xac_nhan' && isReceptionist ? (
+      ) : ['kham_moi', 'KHAM', 'dich_vu_don', 'DICH_VU_LE'].includes(selectedAppointment.loai_lich) && selectedAppointment.trang_thai === 'da_xac_nhan' && isReceptionist ? (
         <div className="flex gap-2">
           <button
             type="button"
@@ -222,10 +299,10 @@ export function DetailFooter({
             onClick={async () => {
               const confirmCancel = window.confirm('Bạn có chắc chắn muốn hủy lịch hẹn này không?');
               if (!confirmCancel) return;
-              
+
               const reason = window.prompt('Vui lòng nhập lý do hủy lịch hẹn:');
               if (reason === null) return;
-              
+
               const trimmedReason = reason.trim();
               if (!trimmedReason) {
                 toast.error('Vui lòng nhập lý do hủy lịch!');
@@ -252,6 +329,13 @@ export function DetailFooter({
           >
             ❌ Hủy lịch
           </button>
+          <NoShowButton
+            appointmentId={selectedAppointment.id}
+            isReceptionist={isReceptionist}
+            localGhiChuNoiBo={localGhiChuNoiBo}
+            onClose={onClose}
+            onSuccess={onSuccess}
+          />
         </div>
       ) : isUnconfirmedState ? (
         <div className="flex gap-2 flex-wrap sm:flex-nowrap">
@@ -355,7 +439,7 @@ export function DetailFooter({
           Đóng
         </button>
         
-        {selectedAppointment.trang_thai === 'da_xac_nhan' && (['kham_moi', 'KHAM'].includes(selectedAppointment.loai_lich) || !isReceptionist) && (
+        {selectedAppointment.trang_thai === 'da_xac_nhan' && (['kham_moi', 'KHAM', 'dich_vu_don', 'DICH_VU_LE'].includes(selectedAppointment.loai_lich) || !isReceptionist) && (
           <button
             type="submit"
             onClick={() => setAssignStatus('da_checkin')}

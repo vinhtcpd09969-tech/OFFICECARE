@@ -1071,6 +1071,7 @@ export default function AppointmentDetailModal({
               setAssignStatus={setAssignStatus}
               setCancelReason={setCancelReason}
               setShowConfirmType={setShowConfirmType}
+              appointments={appointments}
             />
           </div>
         </form>

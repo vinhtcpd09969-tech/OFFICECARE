@@ -141,7 +141,7 @@ export const useCheckout = (
             const matchedPkg = pkgs.find((p: any) => String(p.id) === String(targetGoiId));
             if (matchedPkg) {
               setSelectedPackage(matchedPkg);
-              if (matchedPkg.loai_goi === 'LIEU_TRINH') {
+              if (matchedPkg.loai_goi === 'LIEU_TRINH' || matchedPkg.loai_goi === 'LE') {
                 setCheckoutTab('package');
                 setDangKyGoi(true);
               } else {

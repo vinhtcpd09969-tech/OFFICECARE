@@ -8,10 +8,10 @@ const staffIdSchema = z.union([
 export const createAppointmentSchema = z.object({
   body: z.object({
     khach_hang_id: z.string().uuid('ID Khách hàng không hợp lệ').optional().nullable(),
-    ho_ten_khach: z.string().optional(),
-    so_dien_thoai: z.string().optional(),
-    gioi_tinh_khach: z.string().optional(),
-    email: z.string().optional(),
+    ho_ten_khach: z.string().optional().nullable(),
+    so_dien_thoai: z.string().optional().nullable(),
+    gioi_tinh_khach: z.string().optional().nullable(),
+    email: z.string().optional().nullable(),
     goi_dich_vu_id: z.string().uuid().optional().nullable(),
     dich_vu_id: z.string().uuid().optional().nullable(),
     bac_si_id: staffIdSchema,
@@ -20,14 +20,14 @@ export const createAppointmentSchema = z.object({
     phong_id: z.union([z.string(), z.number()]).optional().nullable(),
     ngay_gio_bat_dau: z.string().datetime({ message: 'Ngày giờ bắt đầu không hợp lệ' }),
     ngay_gio_ket_thuc: z.string().datetime({ message: 'Ngày giờ kết thúc không hợp lệ' }),
-    ghi_chu_dat_lich: z.string().optional(),
-    ly_do_kham: z.string().optional(),
-    loai_lich: z.string().optional(),
+    ghi_chu_dat_lich: z.string().optional().nullable(),
+    ly_do_kham: z.string().optional().nullable(),
+    loai_lich: z.string().optional().nullable(),
     dang_ky_goi_id: z.string().optional().nullable(),
     phac_do_dieu_tri_id: z.string().uuid().optional().nullable(),
     so_thu_tu_buoi: z.number().optional().nullable(),
     lich_dat_id: z.string().uuid().optional().nullable(),
-    trang_thai: z.string().optional(),
+    trang_thai: z.string().optional().nullable(),
   }).refine(data => data.khach_hang_id || (data.ho_ten_khach && data.so_dien_thoai), {
     message: 'Phải cung cấp ID khách hàng hoặc thông tin khách vãng lai (họ tên, sđt)'
   })
@@ -87,15 +87,4 @@ export const updateAppointmentStatusSchema = z.object({
 }, {
   message: 'Ghi chú nội bộ (Lý do hủy/vắng mặt) là bắt buộc.',
   path: ['body', 'ghi_chu_noi_bo']
-});
-
-export const updateMedicalRecordSchema = z.object({
-  params: z.object({
-    id: z.string().uuid('ID Lịch khám không hợp lệ'),
-  }),
-  body: z.object({
-    chan_doan: z.string().optional(),
-    chong_chi_dinh: z.string().optional(),
-    khuyen_nghi_goi_id: z.string().uuid().optional().nullable(),
-  })
 });

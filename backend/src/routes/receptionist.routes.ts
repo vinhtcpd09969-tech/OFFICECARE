@@ -11,18 +11,14 @@ import {
   processPayment,
   calculateBilling,
   createBillingDirect,
-  updateSessionServices,
-  getSessionServices,
   getPackagesForReceptionist,
-  getCompletedConsultations,
-  getAutoVouchers,
-  confirmTreatmentPlan,
   searchCustomers,
   getCustomerTreatmentPlans,
   getAppointmentBillingInfo,
   checkCustomerLimit,
   checkPackagePayment,
-  getBillingInfoByPackage
+  getBillingInfoByPackage,
+  getPendingPackageActivations
 } from '../controllers/receptionist.controller';
 
 const router = Router();
@@ -39,19 +35,15 @@ router.get('/stats', getReceptionistStats);
 router.post('/walk-in', handleWalkInBooking);
 router.post('/billing', createBillingFromAppointment);
 router.post('/payment', processPayment);
-router.post('/treatment-plans/confirm', confirmTreatmentPlan);
 router.post('/billing/calculate', calculateBilling);
 router.post('/billing/create', createBillingDirect);
-router.post('/sessions/:id/services', updateSessionServices);
-router.get('/sessions/:id/services', getSessionServices);
 router.get('/packages', getPackagesForReceptionist);
-router.get('/completed-consultations', getCompletedConsultations);
-router.get('/auto-vouchers', getAutoVouchers);
 router.get('/customers/search', searchCustomers);
 router.get('/customers/:id/treatment-plans', getCustomerTreatmentPlans);
 router.get('/appointments/:id/billing-info', getAppointmentBillingInfo);
 router.get('/customers/:id/check-limit', checkCustomerLimit);
 router.get('/customers/:id/check-package-payment', checkPackagePayment);
 router.get('/customers/:id/billing-info-by-package', getBillingInfoByPackage);
+router.get('/customers/:id/pending-package-activations', getPendingPackageActivations);
 
 export default router;

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, Clock, Plus, Coffee, Stethoscope } from 'lucide-react';
 import { format } from 'date-fns';
+import { getCheckinTimingInfo } from '../../../../utils/appointmentCheckin';
 
 interface AppointmentCalendarProps {
   timeSlots: string[];
@@ -375,6 +376,39 @@ function CountdownTimer({ hanXacNhan, onExpire }: { hanXacNhan: string; onExpire
   );
 }
 
+// Subcomponent: Check-in timing badge — chỉ dùng cho lịch đã xác nhận (da_xac_nhan), đang chờ khách đến
+function CheckinTimingBadge({ startIso }: { startIso: string }) {
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const { state, label } = getCheckinTimingInfo(startIso, now);
+
+  const styleByState: Record<string, string> = {
+    upcoming: 'text-slate-500 dark:text-zinc-400 bg-slate-50 dark:bg-zinc-800/50 border border-slate-150 dark:border-zinc-800',
+    due_soon: 'text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-955/20 border border-amber-250 font-black animate-pulse',
+    overdue: 'text-orange-700 dark:text-orange-400 bg-orange-50 dark:bg-orange-955/20 border border-orange-250 font-black',
+    overdue_critical: 'text-white bg-rose-600 border border-rose-700 font-black animate-pulse'
+  };
+
+  const iconByState: Record<string, string> = {
+    upcoming: '⏳',
+    due_soon: '🔔',
+    overdue: '⚠️',
+    overdue_critical: '⚠️'
+  };
+
+  return (
+    <span className={`text-[8.5px] px-1.5 py-0.5 rounded-md inline-flex items-center gap-1 font-mono select-none ${styleByState[state]}`}>
+      <span>{iconByState[state]}</span>
+      <span>{label}</span>
+    </span>
+  );
+}
+
 // Subcomponent: Appointment Card (Premium Glassmorphic card styling, simplified - removed quick action buttons)
 function AppointmentCard({
   apt,
@@ -470,6 +504,12 @@ function AppointmentCard({
         <div className="text-[9.5px] text-slate-405 dark:text-zinc-550 line-clamp-1 font-bold mt-0.5">
           {apt.ten_dich_vu}
         </div>
+
+        {apt.trang_thai === 'da_xac_nhan' && (
+          <div className="mt-1.5">
+            <CheckinTimingBadge startIso={apt.ngay_gio_bat_dau} />
+          </div>
+        )}
 
         {isInstallmentWarning && (
           <div className="mt-1.5 bg-amber-50 dark:bg-amber-955/30 border border-amber-200 dark:border-amber-900/40 text-amber-700 dark:text-amber-300 text-[8.5px] font-bold px-2 py-0.8 rounded-lg flex items-center gap-1 leading-normal select-none">

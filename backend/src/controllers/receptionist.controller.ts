@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import receptionistService from '../services/receptionist.service';
+import { getMinPaymentRequired } from '../domain/billing';
+import { HinhThucThanhToanGoi } from '../domain/types';
 
 // GET /api/receptionist/today-appointments
 export const getTodayAppointments = async (req: Request, res: Response) => {
@@ -127,42 +129,6 @@ export const createBillingDirect = async (req: Request, res: Response): Promise<
   }
 };
 
-// POST /api/receptionist/treatment-plans/confirm
-export const confirmTreatmentPlan = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const result = await receptionistService.confirmTreatmentPlan(req.body);
-    res.json({ message: 'Chốt gói trị liệu thành công', lich_dieu_tri: result });
-  } catch (error: any) {
-    console.error('Lỗi chốt gói trị liệu:', error);
-    res.status(400).json({ message: error.message || 'Lỗi server' });
-  }
-};
-
-// POST /api/receptionist/sessions/:id/services
-export const updateSessionServices = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const { id } = req.params as { id: string };
-    const { services } = req.body;
-    const result = await receptionistService.updateSessionServices(id, services);
-    res.json(result);
-  } catch (error: any) {
-    console.error('Lỗi cập nhật dịch vụ buổi trị liệu:', error);
-    res.status(500).json({ message: 'Lỗi server' });
-  }
-};
-
-// GET /api/receptionist/sessions/:id/services
-export const getSessionServices = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const { id } = req.params as { id: string };
-    const result = await receptionistService.getSessionServices(id);
-    res.json(result);
-  } catch (error: any) {
-    console.error('Lỗi lấy dịch vụ buổi trị liệu:', error);
-    res.status(500).json({ message: 'Lỗi server' });
-  }
-};
-
 // GET /api/receptionist/packages
 export const getPackagesForReceptionist = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -170,28 +136,6 @@ export const getPackagesForReceptionist = async (req: Request, res: Response): P
     res.json(result);
   } catch (error: any) {
     console.error('Lỗi lấy danh sách gói trị liệu:', error);
-    res.status(500).json({ message: 'Lỗi server' });
-  }
-};
-
-// GET /api/receptionist/completed-consultations
-export const getCompletedConsultations = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const result = await receptionistService.getCompletedAppointments();
-    res.json(result);
-  } catch (error: any) {
-    console.error('Lỗi lấy danh sách khám hoàn thành:', error);
-    res.status(500).json({ message: 'Lỗi server' });
-  }
-};
-
-// GET /api/receptionist/auto-vouchers
-export const getAutoVouchers = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const result = await receptionistService.getAutoVouchers();
-    res.json(result);
-  } catch (error: any) {
-    console.error('Lỗi lấy danh sách voucher tự động:', error);
     res.status(500).json({ message: 'Lỗi server' });
   }
 };
@@ -254,6 +198,18 @@ export const getBillingInfoByPackage = async (req: Request, res: Response): Prom
   }
 };
 
+// GET /api/receptionist/customers/:id/pending-package-activations
+export const getPendingPackageActivations = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const id = String(req.params.id);
+    const result = await receptionistService.getPendingPackageActivations(id);
+    res.json(result);
+  } catch (error: any) {
+    console.error('Lỗi lấy danh sách gói chỉ định chờ kích hoạt:', error);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+};
+
 // GET /api/receptionist/customers/:id/check-limit
 export const checkCustomerLimit = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -283,8 +239,13 @@ export const checkPackagePayment = async (req: Request, res: Response): Promise<
     }
 
     const { pool } = require('../config/db');
+    const gdvRes = await pool.query('SELECT loai_goi FROM goi_dich_vu WHERE id = $1', [packageId]);
+    if (gdvRes.rows.length > 0 && gdvRes.rows[0].loai_goi === 'LE') {
+      return res.json({ paid: true });
+    }
+
     const { rows } = await pool.query(`
-      SELECT hd.tong_tien_phai_tra, hd.so_tien_da_tra, hd.hinh_thuc_thanh_toan_goi, hd.trang_thai
+      SELECT hd.tong_tien_phai_tra, hd.so_tien_da_tra, hd.hinh_thuc_thanh_toan_goi, hd.trang_thai, pd.tong_so_buoi
       FROM phac_do_dieu_tri pd
       JOIN hoa_don hd ON hd.phac_do_dieu_tri_id = pd.id
       WHERE pd.khach_hang_id = $1 AND pd.goi_dich_vu_id = $2
@@ -298,17 +259,15 @@ export const checkPackagePayment = async (req: Request, res: Response): Promise<
     const invoiceObj = rows[0];
     const tongTien = Number(invoiceObj.tong_tien_phai_tra || 0);
     const daThanhToan = Number(invoiceObj.so_tien_da_tra || 0);
-    const hinhThuc = invoiceObj.hinh_thuc_thanh_toan_goi || 'tra_thang';
+    const hinhThuc: HinhThucThanhToanGoi = invoiceObj.hinh_thuc_thanh_toan_goi || 'tra_thang';
+    const tongSoBuoi = Number(invoiceObj.tong_so_buoi || 10);
 
-    if (hinhThuc === 'tra_thang') {
-      if (daThanhToan < tongTien) {
-        return res.json({ paid: false, message: 'Gói trị liệu yêu cầu hoàn tất thanh toán 100% trước khi đặt lịch.' });
-      }
-    } else if (hinhThuc === 'tra_gop') {
-      const target50 = Math.round(tongTien * 0.5);
-      if (daThanhToan < target50) {
-        return res.json({ paid: false, message: 'Gói trị liệu (Trả góp) yêu cầu thanh toán Đợt 1 (tối thiểu 50%) trước khi đặt lịch.' });
-      }
+    // Chưa biết chính xác buổi thứ mấy đang được đặt ở bước này, mặc định buổi 1
+    // (mốc gate đầu tiên) — đúng bằng ngưỡng mà appointment.repository.ts dùng trước khi resolve so_thu_tu_buoi thật.
+    const minRequired = getMinPaymentRequired(hinhThuc, tongTien, tongSoBuoi, 1);
+    if (daThanhToan < minRequired) {
+      const label = hinhThuc === 'tra_gop' ? 'Trả góp' : hinhThuc === 'tung_buoi' ? 'Trả từng buổi' : 'Trả thẳng 100%';
+      return res.json({ paid: false, message: `Gói trị liệu (${label}) yêu cầu thanh toán tối thiểu trước khi đặt lịch.` });
     }
 
     return res.json({ paid: true });

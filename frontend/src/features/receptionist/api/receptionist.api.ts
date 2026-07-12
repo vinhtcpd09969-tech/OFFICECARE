@@ -21,4 +21,8 @@ export const getPackages = () => api.get('/admin/packages');
 export const getRooms = () => api.get('/admin/rooms');
 export const getSchedules = () => api.get('/admin/schedules');
 export const getCustomers = () => api.get('/admin/customers');
-export const getMedicalRecords = () => api.get('/admin/medical-records');
+
+// Chỉ định gói chờ kích hoạt (chỉ dữ liệu vận hành, không có chẩn đoán/ghi chú lâm sàng)
+export const searchCustomers = (q: string) => api.get(`/receptionist/customers/search?q=${encodeURIComponent(q)}`);
+export const getPendingPackageActivations = (customerId: string) =>
+  api.get(`/receptionist/customers/${customerId}/pending-package-activations`);

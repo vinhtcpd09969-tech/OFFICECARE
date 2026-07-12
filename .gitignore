@@ -28,7 +28,13 @@ lerna-debug.log*
 .env.*
 !.env.example
 
+# MCP local config (may contain local DB connection string)
+.mcp.json
+
 # Docker
 .docker/data/
 docker/data/
 pgdata/
+
+# Playwright MCP session artifacts
+.playwright-mcp/

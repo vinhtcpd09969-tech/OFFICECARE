@@ -1,6 +1,5 @@
 import prisma from '../config/prisma';
 import appointmentRepository from '../repositories/appointment.repository';
-import appointmentWatchdog from './appointment-watchdog.service';
 
 class AppointmentService {
   async getAllAppointments(userRole?: number) {
@@ -71,10 +70,6 @@ class AppointmentService {
     return updated;
   }
 
-  async saveDoctorRecommendation(id: string, data: any) {
-    return appointmentRepository.saveDoctorRecommendation(id, data);
-  }
-
   async getPublicServices() {
     return appointmentRepository.getPublicServices();
   }
@@ -113,10 +108,6 @@ class AppointmentService {
     return appointmentRepository.getCustomerTreatmentSessions(nguoi_dung_id);
   }
 
-  async updateMedicalRecord(id: string, data: any) {
-    return appointmentRepository.updateMedicalRecord(id, data);
-  }
-
   async cancelBreakTimeAppointments() {
     return appointmentRepository.cancelBreakTimeAppointments();
   }
@@ -127,29 +118,6 @@ class AppointmentService {
 
   async getPublicAppointmentById(id: string) {
     return appointmentRepository.getPublicAppointmentById(id);
-  }
-
-  async getWatchdogStatus() {
-    const now = new Date();
-    const expiredCount = await prisma.cuoc_hen.count({
-      where: {
-        trang_thai: { in: ['cho_xac_nhan', 'chua_xac_nhan'] },
-        nhan_su_id: null,
-        ngay_gio_bat_dau: { lt: now }
-      }
-    });
-    const pendingCount = await prisma.cuoc_hen.count({
-      where: {
-        trang_thai: { in: ['cho_xac_nhan', 'chua_xac_nhan'] },
-        nhan_su_id: null
-      }
-    });
-    return { expiredCount, pendingCount };
-  }
-
-  async runWatchdogManually() {
-    await appointmentWatchdog.runWatchdog();
-    return { success: true };
   }
 
   async keepAliveAppointment(id: string) {

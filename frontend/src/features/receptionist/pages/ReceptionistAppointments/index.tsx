@@ -262,7 +262,8 @@ export default function ReceptionistAppointments() {
     const cleanSearch = removeAccents(searchTerm);
     const matchSearch = searchTerm === '' ||
       removeAccents(apt.ma_lich_dat).includes(cleanSearch) ||
-      removeAccents(apt.ten_khach_hang).includes(cleanSearch);
+      removeAccents(apt.ten_khach_hang).includes(cleanSearch) ||
+      (apt.so_dien_thoai || '').includes(searchTerm.trim());
 
     const allowedStatuses = ['chua_xac_nhan', 'cho_xac_nhan', 'da_xac_nhan', 'da_checkin', 'dang_kham', 'hoan_thanh', 'da_huy', 'khong_den'];
     
@@ -484,13 +485,15 @@ export default function ReceptionistAppointments() {
                       selectedDate={selectedDate}
                       setSelectedDate={setSelectedDate}
                       setViewMode={setViewMode}
-                      appointments={appointments.filter(apt => 
+                      appointments={appointments.filter(apt =>
                         activeType === 'kham'
                           ? apt.loai_lich === 'kham_moi'
                           : (apt.loai_lich === 'dieu_tri' || apt.loai_lich === 'dich_vu_don')
                       )}
                       timeRange={timeRange}
                       activeType={activeType}
+                      searchTerm={searchTerm}
+                      onSelectAppointment={scrollToAppointment}
                     />
                   )}
                 </>

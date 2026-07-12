@@ -25,6 +25,15 @@ interface Invoice {
   tong_so_buoi?: number;
   ngay_kham?: string;
   ngay_kham_ket_thuc?: string;
+  chi_phi_kham?: number;
+  da_thanh_toan_kham_rieng?: boolean;
+}
+
+/** Xem backend/src/domain/billing.ts PaymentTransactionDetail (THANH_TOAN) và
+ * admin.repository.ts handlePackageRefund (HOAN_TIEN) để biết đúng hình dạng theo loai_giao_dich. */
+interface PaymentTransactionDetail {
+  v: 1;
+  [key: string]: any;
 }
 
 interface Payment {
@@ -38,6 +47,7 @@ interface Payment {
   trang_thai: string;
   thoi_gian_giao_dich: string;
   loai_giao_dich: string;
+  chi_tiet?: PaymentTransactionDetail | null;
 }
 
 export const useFinanceDashboard = (isCheckoutMode: boolean) => {

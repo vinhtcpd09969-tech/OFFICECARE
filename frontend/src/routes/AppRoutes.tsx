@@ -51,6 +51,7 @@ const ViewFeedback = lazy(() => import('../features/admin/pages/ViewFeedback'));
 const ReceptionistDashboard = lazy(() => import('../features/receptionist/pages/ReceptionistDashboard/index'));
 const ReceptionistAppointments = lazy(() => import('../features/receptionist/pages/ReceptionistAppointments/index'));
 const QuickBilling = lazy(() => import('../features/receptionist/pages/QuickBilling/index'));
+const PendingPackageActivations = lazy(() => import('../features/receptionist/pages/PendingPackageActivations/index'));
 
 // Technician Feature
 const TechnicianAppointments = lazy(() => import('../features/technician/pages/TechnicianAppointments/index'));
@@ -123,6 +124,7 @@ export default function AppRoutes() {
             <Route path="/receptionist" element={<ReceptionistDashboard />} />
             <Route path="/receptionist/appointments" element={<ReceptionistAppointments />} />
             <Route path="/receptionist/billing" element={<QuickBilling />} />
+            <Route path="/receptionist/pending-activations" element={<PendingPackageActivations />} />
             <Route path="/receptionist/schedules" element={<DoctorSchedules />} />
             <Route path="/receptionist/settings" element={<CustomerSettings />} />
           </Route>

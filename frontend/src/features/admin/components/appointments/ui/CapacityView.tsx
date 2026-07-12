@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { format, startOfWeek, addDays, isSameDay, isToday } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { motion } from 'framer-motion';
-import { User, MapPin, ChevronRight, Calendar } from 'lucide-react';
+import { User, MapPin, ChevronRight, Calendar, Search } from 'lucide-react';
 
 interface CapacityViewProps {
   selectedDate: Date;
@@ -11,7 +11,14 @@ interface CapacityViewProps {
   appointments: any[];
   timeRange: 'today' | '7days' | 'month' | 'custom';
   activeType: 'kham' | 'dieu_tri';
+  searchTerm?: string;
+  onSelectAppointment?: (aptId: string) => void;
 }
+
+const removeAccents = (str: string) => {
+  const combiningMarks = new RegExp('[' + String.fromCharCode(0x300) + '-' + String.fromCharCode(0x36f) + ']', 'g');
+  return (str || '').normalize('NFD').replace(combiningMarks, '').toLowerCase();
+};
 
 export function CapacityView({
   selectedDate,
@@ -19,7 +26,9 @@ export function CapacityView({
   setViewMode,
   appointments,
   timeRange,
-  activeType
+  activeType,
+  searchTerm = '',
+  onSelectAppointment
 }: CapacityViewProps) {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const pageSize = 7;
@@ -119,6 +128,68 @@ export function CapacityView({
     setSelectedDate(day);
     setViewMode('timeline');
   };
+
+  // Tìm kiếm xuyên suốt toàn bộ khoảng thời gian đang tải (không giới hạn theo tuần/tháng đang xem)
+  const cleanSearch = removeAccents(searchTerm.trim());
+  const searchResults = cleanSearch
+    ? appointments
+        .filter(apt =>
+          removeAccents(apt.ten_khach_hang).includes(cleanSearch) ||
+          removeAccents(apt.ma_lich_dat).includes(cleanSearch) ||
+          (apt.so_dien_thoai || '').includes(searchTerm.trim())
+        )
+        .sort((a, b) => new Date(a.ngay_gio_bat_dau || '').getTime() - new Date(b.ngay_gio_bat_dau || '').getTime())
+        .slice(0, 30)
+    : [];
+
+  if (cleanSearch) {
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-zinc-400 px-1">
+          <Search size={13} />
+          <span>
+            {searchResults.length > 0
+              ? `Tìm thấy ${searchResults.length} lịch hẹn khớp "${searchTerm.trim()}"`
+              : `Không tìm thấy lịch hẹn nào khớp "${searchTerm.trim()}"`}
+          </span>
+        </div>
+
+        {searchResults.map((apt) => {
+          const aptDate = new Date(apt.ngay_gio_bat_dau || '');
+          return (
+            <motion.div
+              key={apt.id}
+              whileHover={{ x: 4, scale: 1.005 }}
+              transition={{ type: 'spring', stiffness: 350, damping: 25 }}
+              onClick={() => onSelectAppointment && onSelectAppointment(String(apt.id))}
+              className="p-4 bg-white dark:bg-zinc-900 border border-slate-150/80 dark:border-zinc-800/80 rounded-2xl shadow-sm hover:border-[#0D9488]/30 transition-all duration-200 cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-3"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-zinc-850 text-slate-500 dark:text-zinc-400 shrink-0">
+                  <Calendar size={16} />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-sm font-bold text-slate-800 dark:text-zinc-150 truncate">{apt.ten_khach_hang}</div>
+                  <div className="text-[10px] text-slate-500 dark:text-zinc-400 font-semibold">
+                    {format(aptDate, 'eeee, dd/MM/yyyy', { locale: vi })} · {format(aptDate, 'HH:mm')}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <span className="font-mono text-[10px] font-black text-slate-400 dark:text-zinc-550 bg-slate-50 dark:bg-zinc-800/80 px-2 py-0.5 rounded border border-slate-100 dark:border-zinc-800/50">
+                  {apt.ma_lich_dat}
+                </span>
+                <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400">{apt.so_dien_thoai}</span>
+                <div className="size-8 rounded-full bg-slate-55/50 dark:bg-zinc-800/80 flex items-center justify-center text-slate-400 shrink-0">
+                  <ChevronRight size={14} className="stroke-[3]" />
+                </div>
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

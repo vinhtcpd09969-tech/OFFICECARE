@@ -344,11 +344,17 @@ export default function AdminLayout() {
       searchPlaceholder: isDoctor ? 'Tìm kiếm hồ sơ bệnh nhân...' : 'Tìm kiếm hồ sơ...', 
       roles: [3, 4, 5, 6] 
     },
-    { 
-      name: 'Hóa đơn & Thanh toán', 
-      path: '/receptionist/billing', 
-      icon: <DollarSign size={18} />, 
-      roles: [2] 
+    {
+      name: 'Hóa đơn & Thanh toán',
+      path: '/receptionist/billing',
+      icon: <DollarSign size={18} />,
+      roles: [2]
+    },
+    {
+      name: 'Chỉ định gói chờ kích hoạt',
+      path: '/receptionist/pending-activations',
+      icon: <Package size={18} />,
+      roles: [2]
     },
     { 
       name: 'Cài đặt tài khoản', 

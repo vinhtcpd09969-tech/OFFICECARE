@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { ZodError } from 'zod';
 import appointmentService from '../services/appointment.service';
-import { createAppointmentSchema, updateAppointmentStatusSchema, createPublicAppointmentSchema, updateMedicalRecordSchema } from '../schemas/appointment.schema';
+import { createAppointmentSchema, updateAppointmentStatusSchema, createPublicAppointmentSchema } from '../schemas/appointment.schema';
 
 // Lấy danh sách lịch hẹn
 export const getAllAppointments = async (req: Request, res: Response) => {
@@ -89,26 +89,6 @@ export const updateAppointmentStatus = async (req: Request, res: Response): Prom
     }
     if (error.constraint === 'no_overlap_khach_hang') {
       return res.status(400).json({ message: 'Khách hàng đã có lịch hẹn hoặc ca điều trị khác trong khung giờ này.' });
-    }
-    return res.status(500).json({ message: 'Lỗi server' });
-  }
-};
-
-// Cập nhật hồ sơ bệnh án (Bác sĩ)
-export const updateMedicalRecord = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const validated = updateMedicalRecordSchema.parse({ params: req.params, body: req.body });
-    const { id } = validated.params;
-
-    const appointment = await appointmentService.updateMedicalRecord(id, validated.body);
-    return res.json(appointment);
-  } catch (error: any) {
-    console.error('Lỗi khi cập nhật hồ sơ bệnh án:', error);
-    if (error instanceof ZodError) {
-      return res.status(400).json({ message: error.errors[0].message });
-    }
-    if (error.message === 'Không tìm thấy lịch khám để cập nhật hồ sơ') {
-      return res.status(404).json({ message: error.message });
     }
     return res.status(500).json({ message: 'Lỗi server' });
   }
@@ -267,26 +247,6 @@ export const getCustomerTreatmentSessions = async (req: Request, res: Response):
   } catch (error) {
     console.error('Lỗi khi lấy ca điều trị khách hàng:', error);
     return res.status(500).json({ message: 'Lỗi server khi truy vấn ca điều trị.' });
-  }
-};
-
-export const getWatchdogStatus = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const status = await appointmentService.getWatchdogStatus();
-    return res.json(status);
-  } catch (error: any) {
-    console.error('Lỗi khi lấy trạng thái watchdog:', error);
-    return res.status(500).json({ message: error.message || 'Lỗi server' });
-  }
-};
-
-export const runWatchdogManually = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const result = await appointmentService.runWatchdogManually();
-    return res.json(result);
-  } catch (error: any) {
-    console.error('Lỗi khi chạy watchdog thủ công:', error);
-    return res.status(500).json({ message: error.message || 'Lỗi server' });
   }
 };
 

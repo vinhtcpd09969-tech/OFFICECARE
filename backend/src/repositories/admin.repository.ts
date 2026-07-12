@@ -1,4 +1,5 @@
 import { pool } from '../config/db';
+import { calculatePackageCancellationRefund, PACKAGE_ACTIVATION_WINDOW_DAYS } from '../domain/billing';
 
 class AdminRepository {
   constructor() {
@@ -548,7 +549,7 @@ class AdminRepository {
 
     // 2.2. Lấy danh sách gói chỉ định từ ca khám nhưng chưa thanh toán/kích hoạt (chưa có phác đồ điều trị)
     const { rows: prescribedUnpaid } = await pool.query(`
-      SELECT 
+      SELECT
         ch.khach_hang_id,
         cd.goi_dich_vu_id,
         g.ten_goi,
@@ -560,16 +561,19 @@ class AdminRepository {
         nk.ghi_chu as ghi_chu_kham,
         nd_bs.ho_ten as ten_bac_si,
         p_kham.ten_phong as ten_phong_kham,
-        ch.id as cuoc_hen_id
+        ch.id as cuoc_hen_id,
+        ch.ngay_gio_bat_dau as ngay_kham,
+        ch.ngay_gio_bat_dau + $1 * INTERVAL '1 day' as han_kich_hoat
       FROM chi_dinh_buoi cd
       JOIN nhat_ky_buoi_dieu_tri nk ON cd.nhat_ky_id = nk.id
       JOIN cuoc_hen ch ON nk.cuoc_hen_id = ch.id
       JOIN goi_dich_vu g ON cd.goi_dich_vu_id = g.id
       LEFT JOIN nguoi_dung nd_bs ON ch.nhan_su_id = nd_bs.id
       LEFT JOIN phong_lam_viec p_kham ON ch.phong_id = p_kham.id
-      WHERE ch.loai = 'KHAM' 
+      WHERE ch.loai = 'KHAM'
         AND ch.phac_do_dieu_tri_id IS NULL
-    `);
+        AND ch.ngay_gio_bat_dau >= NOW() - $1 * INTERVAL '1 day'
+    `, [PACKAGE_ACTIVATION_WINDOW_DAYS]);
 
     const virtualPlans = prescribedUnpaid.map((item: any) => ({
       id: `virtual-${item.cuoc_hen_id}`,
@@ -587,15 +591,16 @@ class AdminRepository {
       ghi_chu_kham: item.ghi_chu_kham,
       ten_bac_si: item.ten_bac_si,
       ten_phong_kham: item.ten_phong_kham,
-      cuoc_hen_id: item.cuoc_hen_id
+      cuoc_hen_id: item.cuoc_hen_id,
+      han_kich_hoat: item.han_kich_hoat
     }));
 
     const allPlans = [...plans, ...virtualPlans];
 
     // 3. Lấy toàn bộ lịch sử cuộc hẹn/buổi điều trị kèm nhật ký chi tiết
     const { rows: appointments } = await pool.query(`
-      SELECT 
-        ch.id, ch.khach_hang_id, ch.phac_do_dieu_tri_id, ch.so_thu_tu_buoi, 
+      SELECT
+        ch.id, ch.khach_hang_id, ch.phac_do_dieu_tri_id, ch.so_thu_tu_buoi, ch.goi_dich_vu_id,
         ch.ngay_gio_bat_dau, ch.ngay_gio_ket_thuc, ch.loai, ch.trang_thai, ch.ghi_chu_khach_hang as ghi_chu,
         nd.ho_ten as ten_nhan_su, nd.vai_tro_id,
         p.ten_phong as ten_phong,
@@ -666,7 +671,15 @@ class AdminRepository {
           WHEN hd.phac_do_dieu_tri_id IS NULL AND hd.tong_tien_goc > COALESCE(dv.don_gia, 200000) THEN 0
           WHEN hd.cuoc_hen_id IS NOT NULL THEN COALESCE(dv.don_gia, 200000)
           ELSE 0
-        END as chi_phi_kham
+        END as chi_phi_kham,
+        EXISTS (
+          SELECT 1 FROM hoa_don sep_hd
+          WHERE sep_hd.cuoc_hen_id = hd.cuoc_hen_id
+            AND sep_hd.phac_do_dieu_tri_id IS NULL
+            AND sep_hd.trang_thai = 'da_thanh_toan'
+            AND sep_hd.tong_tien_phai_tra > 0
+            AND sep_hd.id != hd.id
+        ) as da_thanh_toan_kham_rieng
       FROM hoa_don hd
       JOIN khach_hang kh ON hd.khach_hang_id = kh.id
       LEFT JOIN phac_do_dieu_tri pd ON hd.phac_do_dieu_tri_id = pd.id
@@ -680,10 +693,11 @@ class AdminRepository {
 
   async getPayments() {
     const { rows } = await pool.query(`
-      SELECT 
+      SELECT
         gt.id, gt.hoa_don_id, gt.so_tien, gt.loai_giao_dich, gt.phuong_thuc, gt.ma_tham_chieu,
         gt.ma_tham_chieu as ma_giao_dich,
         gt.ngay_giao_dich as thoi_gian_giao_dich,
+        gt.chi_tiet,
         'HD-' || UPPER(SUBSTRING(hd.id::text FROM 1 FOR 6)) as ma_hoa_don, kh.ho_ten as ten_khach_hang
       FROM giao_dich_thanh_toan gt
       JOIN hoa_don hd ON gt.hoa_don_id = hd.id
@@ -711,15 +725,23 @@ class AdminRepository {
 
       // Tạo giao dịch hoàn tiền số âm với mã tham chiếu ngắn gọn sạch sẽ
       const maRefund = `REF${Math.floor(10000000 + Math.random() * 90000000)}`;
+      const chiTietHoanTien = {
+        v: 1,
+        loai: 'hoan_tien_don_gian',
+        giao_dich_goc: originalPayment.ma_tham_chieu,
+        so_tien: Number(originalPayment.so_tien),
+        ly_do,
+      };
       await client.query(
-        `INSERT INTO giao_dich_thanh_toan (hoa_don_id, so_tien, loai_giao_dich, phuong_thuc, ma_tham_chieu, nhan_vien_thuc_hien_id, ngay_giao_dich)
-         VALUES ($1, $2, 'HOAN_TIEN', $3, $4, $5, NOW())`,
+        `INSERT INTO giao_dich_thanh_toan (hoa_don_id, so_tien, loai_giao_dich, phuong_thuc, ma_tham_chieu, nhan_vien_thuc_hien_id, ngay_giao_dich, chi_tiet)
+         VALUES ($1, $2, 'HOAN_TIEN', $3, $4, $5, NOW(), $6)`,
         [
           originalPayment.hoa_don_id,
           -BigInt(originalPayment.so_tien),
           originalPayment.phuong_thuc,
           maRefund,
-          originalPayment.nhan_vien_thuc_hien_id
+          originalPayment.nhan_vien_thuc_hien_id,
+          JSON.stringify(chiTietHoanTien)
         ]
       );
 
@@ -1091,12 +1113,14 @@ class AdminRepository {
         return { error: 'Hóa đơn này đã được hoàn tiền trước đó', code: 400 };
       }
 
-      // 2. Fetch the associated treatment plan to know the total sessions and verify
+      // 2. Fetch the associated treatment plan to know the total sessions
       let totalSessions = 10; // fallback
       let ldtId = hd.phac_do_dieu_tri_id;
       if (ldtId) {
         const { rows: pdRows } = await client.query(
-          'SELECT tong_so_buoi, goi_dich_vu_id FROM phac_do_dieu_tri WHERE id = $1',
+          `SELECT pd.tong_so_buoi
+           FROM phac_do_dieu_tri pd
+           WHERE pd.id = $1`,
           [ldtId]
         );
         if (pdRows.length > 0) {
@@ -1107,9 +1131,10 @@ class AdminRepository {
       // 3. Perform calculations:
       const hasExam = !!hd.cuoc_hen_id;
       let chi_phi_kham = 0;
+      let examAppointment: { ngay_gio_bat_dau: Date; ngay_gio_ket_thuc: Date } | null = null;
       if (hasExam && hd.cuoc_hen_id) {
         const examServiceRes = await client.query(
-          `SELECT dv.don_gia 
+          `SELECT dv.don_gia, ch.ngay_gio_bat_dau, ch.ngay_gio_ket_thuc
            FROM cuoc_hen ch
            JOIN goi_dich_vu dv ON ch.goi_dich_vu_id = dv.id
            WHERE ch.id = $1`,
@@ -1117,6 +1142,10 @@ class AdminRepository {
         );
         if (examServiceRes.rows && examServiceRes.rows.length > 0) {
           chi_phi_kham = Number(examServiceRes.rows[0].don_gia);
+          examAppointment = {
+            ngay_gio_bat_dau: examServiceRes.rows[0].ngay_gio_bat_dau,
+            ngay_gio_ket_thuc: examServiceRes.rows[0].ngay_gio_ket_thuc,
+          };
         } else {
           chi_phi_kham = 200000;
         }
@@ -1124,87 +1153,96 @@ class AdminRepository {
 
       // Check if separate exam was paid
       let hasPaidSeparateExam = false;
+      let separateExamInvoice: { id: string; ngay_tao: Date } | null = null;
       if (hasExam && hd.cuoc_hen_id) {
+        // tong_tien_phai_tra > 0: chỉ tính là "đã thanh toán riêng" nếu hóa đơn khám đó thực sự
+        // thu tiền. Hóa đơn khám 0đ (miễn phí, đánh dấu "đã thanh toán" chỉ để lưu vết) KHÔNG
+        // tính — trường hợp đó phải thu hồi ưu đãi qua examFeeToCharge bên dưới.
         const separatePaidExamRes = await client.query(
-          `SELECT id FROM hoa_don 
-           WHERE cuoc_hen_id = $1 
-             AND phac_do_dieu_tri_id IS NULL 
-             AND trang_thai = 'da_thanh_toan' 
+          `SELECT id, ngay_tao FROM hoa_don
+           WHERE cuoc_hen_id = $1
+             AND phac_do_dieu_tri_id IS NULL
+             AND trang_thai = 'da_thanh_toan'
+             AND tong_tien_phai_tra > 0
              AND id != $2`,
           [hd.cuoc_hen_id, hoa_don_id]
         );
         if (separatePaidExamRes.rows && separatePaidExamRes.rows.length > 0) {
           hasPaidSeparateExam = true;
+          separateExamInvoice = separatePaidExamRes.rows[0];
         }
       }
 
+      const examTrace = hasExam ? {
+        has_separate_invoice: hasPaidSeparateExam,
+        invoice_code: separateExamInvoice ? `HD-${separateExamInvoice.id.substring(0, 6).toUpperCase()}` : null,
+        invoice_date: separateExamInvoice ? separateExamInvoice.ngay_tao : null,
+        appointment_date: examAppointment ? examAppointment.ngay_gio_bat_dau : null,
+        appointment_end: examAppointment ? examAppointment.ngay_gio_ket_thuc : null,
+      } : null;
+
       const tong_tien_goc = Number(hd.tong_tien_goc);
-      const gia_goc_goi = hasPaidSeparateExam ? tong_tien_goc : (tong_tien_goc - chi_phi_kham);
-
-      // check if they were eligible for free exam:
-      const isExamWaived = (gia_goc_goi >= 1000000) && ['tra_thang', 'tra_gop'].includes(hd.hinh_thuc_thanh_toan_goi);
-      const mien_phi_kham = isExamWaived ? chi_phi_kham : 0;
-
-      // Package discount calculation:
       const ti_le_giam = Number(hd.ti_le_giam_gia_goi || 0);
-      const giam_gia_goi = Math.round((gia_goc_goi * ti_le_giam) / 100);
-      const gia_thanh_toan_goi = gia_goc_goi - giam_gia_goi;
-
-      // Used sessions cost: (gia_thanh_toan_goi * so_buoi_dung) / totalSessions
-      const chi_phi_buoi_dung = Math.round((gia_thanh_toan_goi * so_buoi_dung) / totalSessions);
-
-      // Refund calculation:
       const so_tien_da_dong = Number(hd.so_tien_da_tra);
 
-      // Penalty fee is calculated based on the total discounted package value (gia_thanh_toan_goi):
-      const phi_phat_thuc_te = Math.round((gia_thanh_toan_goi * phi_phat_percent) / 100);
+      // Công thức chuẩn: docs/BUSINESS_RULES.md mục 5-6 / backend/src/domain/billing.ts
+      const refundCalc = calculatePackageCancellationRefund({
+        tongTienGoc: tong_tien_goc,
+        soTienDaDong: so_tien_da_dong,
+        tiLeGiam: ti_le_giam,
+        soBuoiDung: so_buoi_dung,
+        tongSoBuoi: totalSessions,
+        chiPhiKham: chi_phi_kham,
+        hasExam,
+        hasPaidSeparateExam,
+        phiPhatPercent: phi_phat_percent,
+      });
 
-      // If package is cancelled, they must pay for the exam (revoke waiver/free promotion)
-      let examFeeToCharge = 0;
-      if (hasExam && !hasPaidSeparateExam) {
-        examFeeToCharge = chi_phi_kham;
-      }
-      
-      const tong_khau_tru = examFeeToCharge + chi_phi_buoi_dung + phi_phat_thuc_te;
-      const so_tien_hoan_tra = Math.max(0, so_tien_da_dong - tong_khau_tru);
+      const chi_phi_buoi_dung = refundCalc.chiPhiBuoiDung;
+      const phi_phat_thuc_te = refundCalc.phiPhatThucTe;
+      const examFeeToCharge = refundCalc.examFeeToCharge;
+      const so_tien_hoan_tra = refundCalc.soTienHoanTra;
 
       // 4. Create a negative transaction log for the refund
       const maRefund = `REF${Math.floor(10000000 + Math.random() * 90000000)}`;
 
+      const chiTietHoanTien = {
+        v: 1,
+        so_tien_da_dong,
+        gia_goc_goi: refundCalc.giaGocGoi,
+        gia_thanh_toan_goi: refundCalc.giaThanhToanGoi,
+        chi_phi_buoi_dung,
+        so_buoi_dung,
+        tong_so_buoi: totalSessions,
+        phi_phat_percent,
+        phi_phat_thuc_te,
+        exam_fee_to_charge: examFeeToCharge,
+        exam_trace: examTrace,
+        so_tien_hoan_tra,
+        ly_do,
+      };
+
       await client.query(
-        `INSERT INTO giao_dich_thanh_toan (hoa_don_id, so_tien, loai_giao_dich, phuong_thuc, ma_tham_chieu, ngay_giao_dich, nhan_vien_thuc_hien_id)
-         VALUES ($1, $2, 'HOAN_TIEN', 'tien_mat', $3, NOW(), $4)`,
+        `INSERT INTO giao_dich_thanh_toan (hoa_don_id, so_tien, loai_giao_dich, phuong_thuc, ma_tham_chieu, ngay_giao_dich, nhan_vien_thuc_hien_id, chi_tiet)
+         VALUES ($1, $2, 'HOAN_TIEN', 'tien_mat', $3, NOW(), $4, $5)`,
         [
           hoa_don_id,
           -BigInt(so_tien_hoan_tra),
           maRefund,
-          nhan_vien_id
+          nhan_vien_id,
+          JSON.stringify(chiTietHoanTien)
         ]
       );
 
-      const keptRevenuePackage = so_tien_da_dong - so_tien_hoan_tra - examFeeToCharge;
-      
-      const refundAnalysis = {
-        type: 'refund_analysis',
-        so_tien_da_dong,
-        so_buoi_dung,
-        tong_so_buoi: totalSessions,
-        chi_phi_buoi_dung,
-        phi_phat_percent,
-        phi_phat_thuc_te,
-        examFeeToCharge,
-        so_tien_hoan_tra
-      };
+      const keptRevenuePackage = refundCalc.keptRevenuePackage;
 
       await client.query(
-        `UPDATE hoa_don 
-         SET trang_thai = 'da_hoan_tien', 
-             so_tien_da_tra = $1, 
-             ghi_chu = $2 
-         WHERE id = $3`,
+        `UPDATE hoa_don
+         SET trang_thai = 'da_hoan_tien',
+             so_tien_da_tra = $1
+         WHERE id = $2`,
         [
           Math.max(0, keptRevenuePackage),
-          JSON.stringify(refundAnalysis),
           hoa_don_id
         ]
       );
