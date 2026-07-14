@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, AlertTriangle, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Clock, AlertTriangle, X, Stethoscope, Zap, Hand, Dumbbell, ShieldCheck, Activity, Flame } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { getPublicServices, getPublicPackages, getPublicCategories } from '../api/public.api';
 import LoadingScreen from '../../../components/LoadingScreen';
+import ScrollReveal from '../components/shared/ScrollReveal';
 
 interface UnifiedService {
   id: string;
@@ -25,6 +27,22 @@ interface Category {
   loai_goi_ap_dung: 'KHAM' | 'LE' | 'LIEU_TRINH';
 }
 
+const TAB_OPTIONS: { key: 'KHAM' | 'LE' | 'LIEU_TRINH'; label: string; icon: typeof Stethoscope }[] = [
+  { key: 'KHAM', label: 'Khám Lâm Sàng', icon: Stethoscope },
+  { key: 'LE', label: 'Trị Liệu Đơn Buổi', icon: Zap },
+  { key: 'LIEU_TRINH', label: 'Liệu Trình Chuyên Sâu', icon: ShieldCheck },
+];
+
+function getCategoryIcon(tenDanhMuc: string) {
+  const name = tenDanhMuc.toLowerCase();
+  if (name.includes('công nghệ')) return Zap;
+  if (name.includes('thủ công')) return Hand;
+  if (name.includes('thể thao')) return Dumbbell;
+  if (name.includes('phòng ngừa') || name.includes('duy trì')) return ShieldCheck;
+  if (name.includes('khám')) return Stethoscope;
+  return Activity;
+}
+
 export default function ServicesPage() {
   const navigate = useNavigate();
   const [items, setItems] = useState<UnifiedService[]>([]);
@@ -34,18 +52,6 @@ export default function ServicesPage() {
   const [activeTab, setActiveTab] = useState<'KHAM' | 'LE' | 'LIEU_TRINH'>('KHAM');
   const [showLieuTrinhWarning, setShowLieuTrinhWarning] = useState(false);
 
-  const sliderRef = useRef<HTMLDivElement>(null);
-
-  const handleScroll = (direction: 'left' | 'right') => {
-    if (sliderRef.current) {
-      const container = sliderRef.current;
-      const cardWidth = container.firstElementChild?.getBoundingClientRect().width || 400;
-      const scrollAmount = direction === 'left' ? -(cardWidth + 24) : (cardWidth + 24);
-      container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-    }
-  };
-
-  // Reset category filter when changing tab
   const handleTabChange = (tab: 'KHAM' | 'LE' | 'LIEU_TRINH') => {
     setActiveTab(tab);
     setSelectedCategoryId('ALL');
@@ -60,7 +66,7 @@ export default function ServicesPage() {
           getPublicCategories()
         ]);
         setCategories(categoriesRes.data);
-        
+
         // Map services (KHAM and LE)
         const servicesMapped = servicesRes.data.map((s: any) => ({
           id: s.id.toString(),
@@ -117,22 +123,17 @@ export default function ServicesPage() {
     return true;
   });
 
-
-
-  // Dynamic counts for sidebar indicators
   const khamCount = items.filter(item => item.loai_goi === 'KHAM').length;
   const leCount = items.filter(item => item.loai_goi === 'LE').length;
   const lieuTrinhCount = items.filter(item => item.loai_goi === 'LIEU_TRINH').length;
+  const countByTab = { KHAM: khamCount, LE: leCount, LIEU_TRINH: lieuTrinhCount };
 
   return (
     <div className="min-h-screen bg-slate-50/50 pb-20 pt-28 font-jakarta">
-      {/* HUD High-tech Grid Background */}
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(20,184,166,0.01)_1px,transparent_1px),linear-gradient(90deg,rgba(20,184,166,0.01)_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none opacity-60 z-0"></div>
+      <div className="max-w-7xl mx-auto px-6">
 
-      <div className="max-w-7xl mx-auto px-6 relative z-10">
-        
         {/* Centered Header */}
-        <div className="mb-12 max-w-3xl mx-auto text-center">
+        <div className="mb-10 max-w-3xl mx-auto text-center">
           <span className="bg-[#14B8A6]/10 text-[#0D9488] border border-[#14B8A6]/20 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full inline-block mb-3 shadow-sm">
             ✨ DỊCH VỤ & LIỆU TRÌNH Y KHOA
           </span>
@@ -140,172 +141,110 @@ export default function ServicesPage() {
             Giải Pháp <span className="bg-gradient-to-r from-[#0D9488] to-[#14B8A6] bg-clip-text text-transparent">Trị Liệu & Phục Hồi</span>
           </h1>
           <p className="text-slate-500 font-semibold text-xs md:text-sm leading-relaxed max-w-2xl mx-auto">
-            Tất cả dịch vụ được chuẩn hóa y khoa với các thiết bị vật lý trị liệu tân tiến nhập khẩu từ Châu Âu cùng phác đồ cá nhân hóa từ chuyên gia.
+            Tất cả dịch vụ được chuẩn hóa y khoa với các thiết bị vật lý trị liệu tân tiến cùng phác đồ cá nhân hóa từ chuyên gia.
           </p>
         </div>
 
-        {/* Two-Column Responsive Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          
-          {/* Left Column: Sidebar Filters */}
-          <div className="lg:col-span-3 bg-white/80 backdrop-blur-md p-5 border border-slate-200/50 rounded-3xl shadow-[0_15px_35px_rgba(15,23,42,0.02)] space-y-4">
-            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-1">
-              📂 PHÂN LOẠI DỊCH VỤ
-            </span>
-            
-            <div className="flex flex-col gap-2">
+        {/* Primary Pill Filter Row: Loại dịch vụ */}
+        <div className="flex flex-wrap items-center justify-center gap-2.5 mb-4">
+          {TAB_OPTIONS.map(tab => {
+            const Icon = tab.icon;
+            return (
               <button
+                key={tab.key}
                 type="button"
-                onClick={() => handleTabChange('KHAM')}
-                className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all duration-300 ${
-                  activeTab === 'KHAM'
-                    ? 'bg-[#14B8A6] text-white shadow-md shadow-teal-500/10'
-                    : 'text-slate-600 hover:text-slate-800 hover:bg-slate-100/50'
+                onClick={() => handleTabChange(tab.key)}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold transition-all duration-200 border ${
+                  activeTab === tab.key
+                    ? 'bg-[#0D9488] border-[#0D9488] text-white shadow-sm shadow-teal-500/20'
+                    : 'bg-white border-slate-200 text-slate-600 hover:border-[#14B8A6]/40'
                 }`}
               >
-                <span className="flex items-center gap-2">
-                  <span>🩺</span> Khám Lâm Sàng
-                </span>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                  activeTab === 'KHAM' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
-                }`}>{khamCount}</span>
+                <Icon size={13} />
+                {tab.label}
+                <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${
+                  activeTab === tab.key ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                }`}>{countByTab[tab.key]}</span>
               </button>
+            );
+          })}
+        </div>
 
-              <button
-                type="button"
-                onClick={() => handleTabChange('LE')}
-                className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all duration-300 ${
-                  activeTab === 'LE'
-                    ? 'bg-[#14B8A6] text-white shadow-md shadow-teal-500/10'
-                    : 'text-slate-600 hover:text-slate-800 hover:bg-slate-100/50'
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <span>⚡</span> Trị Liệu Đơn Buổi
-                </span>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                  activeTab === 'LE' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
-                }`}>{leCount}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleTabChange('LIEU_TRINH')}
-                className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all duration-300 ${
-                  activeTab === 'LIEU_TRINH'
-                    ? 'bg-[#14B8A6] text-white shadow-md shadow-teal-500/10'
-                    : 'text-slate-600 hover:text-slate-800 hover:bg-slate-100/50'
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <span>💎</span> Liệu Trình Chuyên Sâu
-                </span>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                  activeTab === 'LIEU_TRINH' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
-                }`}>{lieuTrinhCount}</span>
-              </button>
-            </div>
-
-            {activeCategories.length > 0 && (
-              <div className="border-t border-slate-150/80 pt-4 space-y-2">
-                <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest block mb-2">
-                  🔍 Chuyên khoa / Danh mục
-                </span>
-                <div className="flex flex-col gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedCategoryId('ALL');
-                    }}
-                    className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                      selectedCategoryId === 'ALL'
-                        ? 'bg-slate-100 text-slate-900 border border-slate-200'
-                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
-                    }`}
-                  >
-                    👉 Tất cả danh mục
-                  </button>
-                  {activeCategories.map((cat) => (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedCategoryId(cat.id);
-                      }}
-                      className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                        selectedCategoryId === cat.id
-                          ? 'bg-primary/10 text-primary border border-primary/20'
-                          : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
-                      }`}
-                    >
-                      • {cat.ten_danh_muc}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="border-t border-slate-100 pt-4 text-[10px] text-slate-400 font-bold leading-normal">
-              💡 Bệnh nhân được khuyến nghị khám sàng lọc trước khi tham gia các liệu trình.
-            </div>
-          </div>
-
-          {/* Right Column: Services Slider */}
-          <div className="lg:col-span-9 relative group/slider">
-            
-            {/* Navigation buttons at the top right of the section */}
-            {filteredItems.length > 2 && (
-              <div className="absolute right-4 top-[-48px] flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleScroll('left')}
-                  className="size-9 rounded-xl bg-white border border-slate-200 shadow-xs hover:bg-slate-50 flex items-center justify-center text-slate-600 active:scale-95 transition-all cursor-pointer"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleScroll('right')}
-                  className="size-9 rounded-xl bg-white border border-slate-200 shadow-xs hover:bg-slate-50 flex items-center justify-center text-slate-600 active:scale-95 transition-all cursor-pointer"
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-            )}
-
-            <div 
-              ref={sliderRef}
-              className="flex gap-6 overflow-x-auto hide-scrollbar snap-x snap-mandatory scroll-smooth pb-4 pr-1"
+        {/* Secondary Pill Filter Row: Danh mục trong loại đang chọn */}
+        {activeCategories.length > 0 && (
+          <div className="flex flex-wrap items-center justify-center gap-2 mb-12">
+            <button
+              type="button"
+              onClick={() => setSelectedCategoryId('ALL')}
+              className={`px-4 py-2 rounded-full text-[11px] font-bold transition-all border ${
+                selectedCategoryId === 'ALL'
+                  ? 'bg-slate-900 border-slate-900 text-white'
+                  : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
+              }`}
             >
-              {filteredItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="min-w-full md:min-w-[calc(50%-12px)] max-w-full md:max-w-[calc(50%-12px)] snap-start bg-white rounded-[24px] p-4 border border-slate-100/80 shadow-[0_8px_25px_rgba(15,23,42,0.01)] hover:shadow-[0_15px_35px_rgba(15,23,42,0.04)] hover:-translate-y-0.5 transition-all duration-300 flex flex-col justify-between overflow-hidden relative group"
+              Tất cả danh mục
+            </button>
+            {activeCategories.map((cat) => {
+              const Icon = getCategoryIcon(cat.ten_danh_muc);
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setSelectedCategoryId(cat.id)}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[11px] font-bold transition-all border ${
+                    selectedCategoryId === cat.id
+                      ? 'bg-primary/10 border-primary/30 text-primary'
+                      : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
+                  }`}
+                >
+                  <Icon size={12} />
+                  {cat.ten_danh_muc}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* 3-Column Responsive Grid */}
+        {filteredItems.length === 0 ? (
+          <div className="text-center py-20 text-slate-400 font-semibold text-sm">
+            Không có dịch vụ nào trong mục này.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            {filteredItems.map((item, idx) => (
+              <ScrollReveal key={item.id} delay={(idx % 3) * 100}>
+                <motion.div
+                  whileHover={{ y: -6, boxShadow: '0 20px 45px -15px rgba(15,23,42,0.08)' }}
+                  className="bg-white rounded-[32px] p-5 border border-slate-100 shadow-sm transition-all duration-300 flex flex-col h-full overflow-hidden"
                 >
                   <div>
                     {/* Visual Thumbnail */}
-                    <div className="aspect-[16/9] w-full rounded-xl overflow-hidden bg-slate-100 relative mb-3">
+                    <div className="aspect-[16/10] w-full rounded-2xl overflow-hidden bg-slate-100 relative mb-4">
                       <img
                         src={item.anh_goi || '/goi/images/giai_co_sau.png'}
                         alt={item.ten_goi}
-                        className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-slate-950/15 to-transparent"></div>
-                      
+
                       {item.thoi_luong_phut && (
-                        <div className="absolute bottom-2 left-2 bg-slate-900/60 backdrop-blur-md px-2 py-0.5 rounded-lg flex items-center gap-1 text-[9px] font-bold text-white shadow-sm border border-white/5">
+                        <div className="absolute bottom-2.5 left-2.5 bg-slate-900/60 backdrop-blur-md px-2.5 py-1 rounded-lg flex items-center gap-1 text-[9px] font-bold text-white shadow-sm border border-white/5">
                           <Clock size={10} className="text-[#14B8A6]" />
                           <span>{item.thoi_luong_phut} phút</span>
                         </div>
                       )}
 
-                      <div className="absolute top-2 right-2 bg-slate-900/60 backdrop-blur-md px-2 py-0.5 rounded-lg flex items-center gap-0.5 text-[9px] font-black text-white shadow-sm border border-white/5">
-                        <span>🔥 {item.luot_dung || 12} lượt đặt</span>
-                      </div>
+                      {item.luot_dung > 0 && (
+                        <div className="absolute top-2.5 right-2.5 bg-slate-900/60 backdrop-blur-md px-2.5 py-1 rounded-lg flex items-center gap-1 text-[9px] font-black text-white shadow-sm border border-white/5">
+                          <Flame size={10} className="text-amber-400" />
+                          <span>{item.luot_dung} lượt đặt</span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Title */}
-                    <h3 className="font-heading font-black text-sm text-slate-800 group-hover:text-[#0D9488] transition-colors leading-snug mb-2.5 min-h-[40px] line-clamp-2">
+                    <h3 className="font-heading font-black text-sm text-slate-800 leading-snug mb-2.5 min-h-[40px] line-clamp-2">
                       {item.ten_goi}
                     </h3>
 
@@ -314,21 +253,16 @@ export default function ServicesPage() {
                       <span className="text-base font-black text-slate-900">
                         {item.gia_tien === 0 ? 'Liên hệ' : item.gia_tien.toLocaleString('vi-VN') + ' đ'}
                       </span>
-                      {item.loai_goi === 'LIEU_TRINH' && (
-                        <span className="text-[10px] text-slate-400 font-bold">
-                          / {item.tong_so_buoi} buổi
-                        </span>
-                      )}
-                      {item.loai_goi !== 'LIEU_TRINH' && (
-                        <span className="text-[10px] text-slate-400 font-bold">
-                          / buổi
-                        </span>
+                      {item.loai_goi === 'LIEU_TRINH' ? (
+                        <span className="text-[10px] text-slate-400 font-bold">/ {item.tong_so_buoi} buổi</span>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 font-bold">/ buổi</span>
                       )}
                     </div>
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="grid grid-cols-2 gap-2.5 mt-2">
+                  <div className="grid grid-cols-2 gap-2.5 mt-auto">
                     <button
                       type="button"
                       onClick={() => {
@@ -342,18 +276,18 @@ export default function ServicesPage() {
                     >
                       Chi Tiết
                     </button>
-                    
+
                     <button
                       type="button"
                       onClick={() => {
                         if (item.loai_goi === 'LIEU_TRINH') {
                           setShowLieuTrinhWarning(true);
                         } else {
-                          navigate('/booking', { 
-                            state: { 
+                          navigate('/booking', {
+                            state: {
                               bookingType: item.loai_goi === 'KHAM' ? 'kham' : 'le',
-                              selectedServiceId: item.id 
-                            } 
+                              selectedServiceId: item.id
+                            }
                           });
                         }
                       }}
@@ -362,17 +296,11 @@ export default function ServicesPage() {
                       Đặt Lịch
                     </button>
                   </div>
-                </div>
-              ))}
-              {filteredItems.length === 0 && (
-                <div className="w-full text-center py-12 text-slate-400 font-bold">
-                  Không có dịch vụ nào trong mục này.
-                </div>
-              )}
-            </div>
+                </motion.div>
+              </ScrollReveal>
+            ))}
           </div>
-
-        </div>
+        )}
 
       </div>
 

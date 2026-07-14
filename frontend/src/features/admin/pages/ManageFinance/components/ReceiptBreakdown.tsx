@@ -1,6 +1,7 @@
 import React from 'react';
 import { Receipt } from 'lucide-react';
 import { formatCurrency } from '../../../../../shared/utils';
+import { getInstallmentCutoffSession } from '../../../../../utils/billing';
 
 interface ReceiptBreakdownProps {
   checkoutTab: 'single' | 'package';
@@ -20,7 +21,9 @@ export const ReceiptBreakdown: React.FC<ReceiptBreakdownProps> = ({
   loaiThanhToan,
 }) => {
   const tongSoBuoi = calculatedData?.so_buoi_goi || selectedPackage?.tong_so_buoi || 10;
-  const buoiDongDot2 = Math.floor(Number(tongSoBuoi) / 2);
+  // Mốc bắt buộc đóng Đợt 2 — dùng đúng công thức khóa ở backend/src/domain/billing.ts,
+  // KHÔNG phải floor(N/2) (hai giá trị này lệch nhau ở gói 12/16 buổi).
+  const buoiDongDot2 = getInstallmentCutoffSession(Number(tongSoBuoi));
 
   return (
     <div className="bg-white rounded-3xl border border-zinc-150 shadow-sm p-6 space-y-6 sticky top-6 text-left">
@@ -77,15 +80,10 @@ export const ReceiptBreakdown: React.FC<ReceiptBreakdownProps> = ({
 
               {Number(calculatedData.chi_phi_kham || 0) > 0 && (
                 <div className="flex justify-between border-b border-zinc-100 pb-2">
-                  <span>Phí khám lâm sàng:</span>
+                  <span>Phí khám lâm sàng (cộng thêm):</span>
                   <span className="text-secondary font-bold">+{formatCurrency(Number(calculatedData.chi_phi_kham))}</span>
                 </div>
               )}
-
-              <div className="flex justify-between border-b border-zinc-100 pb-2 font-bold text-secondary bg-zinc-50/50 p-2 rounded-xl">
-                <span>{selectedPackage.loai_goi === 'LE' ? 'Tổng giá trị gốc (Dịch vụ + Khám):' : 'Tổng giá trị gốc (Gói + Khám):'}</span>
-                <span>{formatCurrency(Number(calculatedData.gia_goc))}</span>
-              </div>
 
               {Number(calculatedData.so_tien_giam_phuong_thuc || 0) > 0 && (
                 <div className="flex justify-between border-b border-zinc-100 pb-2 text-emerald-600 font-medium">
@@ -101,10 +99,20 @@ export const ReceiptBreakdown: React.FC<ReceiptBreakdownProps> = ({
                 </div>
               )}
 
+              {(Number(calculatedData.so_tien_giam_phuong_thuc || 0) > 0 || Number(calculatedData.so_tien_giam_voucher || 0) > 0) && (
+                <div className="flex justify-between border-b border-zinc-100 pb-2 text-secondary font-semibold">
+                  <span>{selectedPackage.loai_goi === 'LE' ? 'Giá dịch vụ sau giảm:' : 'Giá gói trị liệu sau giảm:'}</span>
+                  <span className="text-secondary font-bold">
+                    {formatCurrency(Number(calculatedData.tong_tien_goi_sau_giam || 0))}
+                  </span>
+                </div>
+              )}
+
               {Number(calculatedData.giam_tru_kham_truoc_do || 0) > 0 && (
                 <div className="flex justify-between border-b border-zinc-100 pb-2 text-emerald-600 font-medium bg-emerald-50/20 p-2 rounded-xl border border-emerald-100/50">
                   <span>
-                    Khấu trừ phí khám đã đóng{calculatedData.ngay_thanh_toan_kham ? ` ngày ${calculatedData.ngay_thanh_toan_kham}` : ''}:
+                    Khấu trừ phí khám đã đóng{calculatedData.ngay_thanh_toan_kham ? ` ngày ${calculatedData.ngay_thanh_toan_kham}` : ''}
+                    {calculatedData.ma_hoa_don_kham ? ` (HĐ ${calculatedData.ma_hoa_don_kham})` : ''}:
                   </span>
                   <span>-{formatCurrency(Number(calculatedData.giam_tru_kham_truoc_do))}</span>
                 </div>
@@ -117,23 +125,13 @@ export const ReceiptBreakdown: React.FC<ReceiptBreakdownProps> = ({
                 </div>
               )}
 
-              <div className="flex justify-between border-b border-zinc-100 pb-2 text-secondary font-semibold">
-                {Number(calculatedData.so_tien_giam_phuong_thuc || 0) > 0 || Number(calculatedData.so_tien_giam_voucher || 0) > 0 ? (
-                  <span>{selectedPackage.loai_goi === 'LE' ? 'Giá dịch vụ sau giảm:' : 'Giá gói trị liệu sau giảm:'}</span>
-                ) : (
-                  <span>{selectedPackage.loai_goi === 'LE' ? 'Giá dịch vụ:' : 'Giá gói trị liệu:'}</span>
-                )}
-                <span className="text-secondary font-bold">
-                  {formatCurrency(Number(calculatedData.tong_tien_goi_sau_giam || 0))}
-                </span>
-              </div>
-
               <div className="flex justify-between border-b border-zinc-100 pb-2 font-bold text-secondary bg-primary/5 p-3 rounded-2xl border border-primary/10">
                 <span className="text-secondary">Số tiền cần thanh toán bây giờ:</span>
                 <span className="text-primary font-black text-sm">{formatCurrency(Number(calculatedData.so_tien_dot_1))}</span>
               </div>
 
-              {Number(calculatedData.so_tien_dot_2 || 0) > 0 && (
+              {/* Trả góp: số tiền còn lại chính là Đợt 2 — đã nêu trong ô vàng bên dưới, không lặp lại ở đây. */}
+              {loaiThanhToan !== 'tra_gop' && Number(calculatedData.so_tien_dot_2 || 0) > 0 && (
                 <div className="flex justify-between border-b border-zinc-100 pb-2 text-zinc-650 font-bold bg-zinc-50/40 p-2 rounded-xl border border-zinc-150">
                   <span>Số tiền còn lại:</span>
                   <span className="text-secondary font-black">{formatCurrency(Number(calculatedData.so_tien_dot_2))}</span>
@@ -147,25 +145,42 @@ export const ReceiptBreakdown: React.FC<ReceiptBreakdownProps> = ({
                 </div>
               )}
 
-              {(loaiThanhToan === 'tra_gop' || loaiThanhToan === 'tung_buoi') && (
-                <div className="space-y-2 bg-amber-50/70 p-4 border border-amber-100 rounded-2xl">
-                  {loaiThanhToan === 'tra_gop' ? (
-                    <div className="flex justify-between text-amber-800 font-bold text-[10px]">
-                      <span>Đợt 2 (Thanh toán ở buổi {buoiDongDot2}):</span>
-                      <span>{formatCurrency(Number(calculatedData.so_tien_dot_2))}</span>
-                    </div>
-                  ) : (
-                    <div className="flex justify-between text-amber-800 font-bold text-[10px]">
-                      <span>Phần còn lại (Đóng theo buổi):</span>
-                      <span>{formatCurrency(Number(calculatedData.so_tien_dot_2))}</span>
-                    </div>
-                  )}
+              {loaiThanhToan === 'tra_gop' && (
+                <div className="space-y-2.5 bg-amber-50/70 p-4 border border-amber-150 rounded-2xl">
+                  <div className="flex justify-between items-center text-amber-900 font-black text-xs pb-2 border-b border-amber-150/70">
+                    <span>Đợt 2:</span>
+                    <span>{formatCurrency(Number(calculatedData.so_tien_dot_2))}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center text-amber-800 font-bold text-[10px]">
+                    <span>Số buổi được dùng ở Đợt 1:</span>
+                    <span className="font-black">{Math.max(1, buoiDongDot2 - 1)} / {tongSoBuoi} buổi</span>
+                  </div>
+
+                  <div className="flex justify-between items-center gap-2 text-amber-800 font-bold text-[10px]">
+                    <span>Đóng Đợt 2 khi hoàn thành buổi số:</span>
+                    <span className="font-black bg-amber-200/60 px-2 py-0.5 rounded-lg shrink-0">
+                      Buổi {Math.max(1, buoiDongDot2 - 1)}
+                    </span>
+                  </div>
+
+                  <p className="text-[10px] text-amber-800 leading-relaxed font-semibold pt-1.5 border-t border-amber-150/70">
+                    📢 Vui lòng trao đổi rõ với khách hàng: Đợt 1 đóng 50% khi đăng ký (kèm phí khám nếu có).
+                    Khách <span className="font-black">bắt buộc đóng xong Đợt 2 mới đặt được buổi số {buoiDongDot2}</span>.
+                  </p>
+                </div>
+              )}
+
+              {loaiThanhToan === 'tung_buoi' && (
+                <div className="bg-amber-50/70 p-4 border border-amber-100 rounded-2xl space-y-2">
+                  <div className="flex justify-between text-amber-800 font-bold text-[10px]">
+                    <span>Phần còn lại (Đóng theo buổi):</span>
+                    <span>{formatCurrency(Number(calculatedData.so_tien_dot_2))}</span>
+                  </div>
                   <p className="text-[10px] text-amber-700 leading-normal font-semibold">
-                    {loaiThanhToan === 'tra_gop' 
-                      ? `* Đợt 1 đóng 50% khi đăng ký + phí khám (nếu có). Đợt 2 đóng 50% còn lại ở buổi trị liệu số ${buoiDongDot2}.`
-                      : (calculatedData.ngay_thanh_toan_kham 
-                          ? `* Đã thanh toán khám ngày ${calculatedData.ngay_thanh_toan_kham}. Đã chọn phương thức thanh toán từng buổi, bạn sẽ thanh toán số tiền ${formatCurrency(Number(calculatedData.don_gia_theo_buoi || 0))} trong từng buổi thực tế.`
-                          : '* Hôm nay chỉ thanh toán phí khám lâm sàng. Chi phí gói trị liệu sẽ đóng lẻ từng buổi khi khách đến thực hiện điều trị.')}
+                    {calculatedData.ngay_thanh_toan_kham
+                      ? `* Đã thanh toán khám ngày ${calculatedData.ngay_thanh_toan_kham}. Đã chọn phương thức thanh toán từng buổi, bạn sẽ thanh toán số tiền ${formatCurrency(Number(calculatedData.don_gia_theo_buoi || 0))} trong từng buổi thực tế.`
+                      : '* Hôm nay chỉ thanh toán phí khám lâm sàng. Chi phí gói trị liệu sẽ đóng lẻ từng buổi khi khách đến thực hiện điều trị.'}
                   </p>
                 </div>
               )}

@@ -96,7 +96,11 @@ class AppointmentRepository {
         hd.tong_tien_phai_tra as tong_tien_phai_tra_goi,
         hd.hinh_thuc_thanh_toan_goi as hinh_thuc_thanh_toan_goi,
         hd.id as hoa_don_goi_id,
+        hd.tong_tien_goc as tong_tien_goc_goi,
+        hd.ti_le_giam_gia_goi as ti_le_giam_gia_goi,
+        hd.so_tien_giam_voucher as so_tien_giam_voucher_goi,
         pd.tong_so_buoi as tong_so_buoi_goi,
+        pd.goi_dich_vu_id as pd_goi_dich_vu_id,
         COALESCE(g.loai_goi, gpd.loai_goi) as loai_goi,
         COALESCE(
           (
@@ -119,10 +123,11 @@ class AppointmentRepository {
       LEFT JOIN nguoi_dung nd_ktv ON ch.nhan_su_id = nd_ktv.id
       LEFT JOIN nhat_ky_buoi_dieu_tri nk ON nk.cuoc_hen_id = ch.id
       LEFT JOIN LATERAL (
-        SELECT 
-          id, trang_thai, so_tien_da_tra, tong_tien_phai_tra, hinh_thuc_thanh_toan_goi
+        SELECT
+          id, trang_thai, so_tien_da_tra, tong_tien_phai_tra, hinh_thuc_thanh_toan_goi,
+          tong_tien_goc, ti_le_giam_gia_goi, so_tien_giam_voucher
         FROM hoa_don
-        WHERE 
+        WHERE
           (ch.phac_do_dieu_tri_id IS NOT NULL AND phac_do_dieu_tri_id = ch.phac_do_dieu_tri_id)
           OR
           (ch.phac_do_dieu_tri_id IS NULL AND cuoc_hen_id = ch.id)
@@ -178,7 +183,11 @@ class AppointmentRepository {
         null as tong_tien_phai_tra_goi,
         null as hinh_thuc_thanh_toan_goi,
         null as hoa_don_goi_id,
+        null as tong_tien_goc_goi,
+        null as ti_le_giam_gia_goi,
+        null as so_tien_giam_voucher_goi,
         null as tong_so_buoi_goi,
+        null as pd_goi_dich_vu_id,
         t.thoi_gian_tao as thoi_gian_tao,
         'Giữ chỗ đang điền thông tin' as ly_do_kham,
         null as ghi_chu_noi_bo,
@@ -222,7 +231,8 @@ class AppointmentRepository {
 
       // Kiểm tra điều kiện hoàn tất thanh toán của buổi trước khi đặt lịch cho buổi tiếp theo (Thống nhất 3 hình thức)
       const invRes = await pool.query(
-        `SELECT hd.hinh_thuc_thanh_toan_goi, hd.tong_tien_phai_tra, hd.so_tien_da_tra, pd.tong_so_buoi, g.loai_goi
+        `SELECT hd.hinh_thuc_thanh_toan_goi, hd.tong_tien_phai_tra, hd.so_tien_da_tra, hd.tong_tien_goc,
+                hd.ti_le_giam_gia_goi, hd.so_tien_giam_voucher, pd.tong_so_buoi, g.loai_goi
          FROM hoa_don hd
          JOIN phac_do_dieu_tri pd ON pd.id = hd.phac_do_dieu_tri_id
          JOIN goi_dich_vu g ON pd.goi_dich_vu_id = g.id
@@ -231,16 +241,21 @@ class AppointmentRepository {
         [phac_do_dieu_tri_id]
       );
       if (invRes.rows.length > 0) {
-        const { hinh_thuc_thanh_toan_goi, tong_tien_phai_tra, so_tien_da_tra, tong_so_buoi, loai_goi } = invRes.rows[0];
+        const { hinh_thuc_thanh_toan_goi, tong_tien_phai_tra, so_tien_da_tra, tong_so_buoi, loai_goi,
+                tong_tien_goc, ti_le_giam_gia_goi, so_tien_giam_voucher } = invRes.rows[0];
 
         // Gói lẻ LE không bị chặn đặt lịch trước thanh toán
         if (loai_goi !== 'LE') {
           const M = Number(so_thu_tu_buoi) || 1;
+          const grossBeforeExamDeduction = Number(tong_tien_goc || 0)
+            - Math.round(Number(tong_tien_goc || 0) * Number(ti_le_giam_gia_goi || 0) / 100)
+            - Number(so_tien_giam_voucher || 0);
           const minRequired = getMinPaymentRequired(
             hinh_thuc_thanh_toan_goi,
             Number(tong_tien_phai_tra),
             Number(tong_so_buoi || 10),
-            M
+            M,
+            grossBeforeExamDeduction
           );
           if (Number(so_tien_da_tra) < minRequired) {
             if (hinh_thuc_thanh_toan_goi === 'tra_gop') {
@@ -358,7 +373,8 @@ class AppointmentRepository {
 
       if (isTreatment && loaiGoi === 'LIEU_TRINH') {
         const invoiceQuery = `
-          SELECT hd.tong_tien_phai_tra, hd.so_tien_da_tra, hd.hinh_thuc_thanh_toan_goi, hd.trang_thai, pd.id as phac_do_id, pd.tong_so_buoi
+          SELECT hd.tong_tien_phai_tra, hd.so_tien_da_tra, hd.hinh_thuc_thanh_toan_goi, hd.trang_thai, pd.id as phac_do_id, pd.tong_so_buoi,
+                 hd.tong_tien_goc, hd.ti_le_giam_gia_goi, hd.so_tien_giam_voucher
           FROM phac_do_dieu_tri pd
           JOIN hoa_don hd ON hd.phac_do_dieu_tri_id = pd.id
           WHERE pd.khach_hang_id = $1 AND (pd.id = $2 OR pd.goi_dich_vu_id = $3)
@@ -376,8 +392,11 @@ class AppointmentRepository {
         const hinhThuc: HinhThucThanhToanGoi = invoiceObj.hinh_thuc_thanh_toan_goi || 'tra_thang';
         const tongSoBuoiGoi = Number(invoiceObj.tong_so_buoi || 10);
         const sessionNumForCheck = Number(so_thu_tu_buoi) || 1;
+        const grossBeforeExamDeduction = Number(invoiceObj.tong_tien_goc || 0)
+          - Math.round(Number(invoiceObj.tong_tien_goc || 0) * Number(invoiceObj.ti_le_giam_gia_goi || 0) / 100)
+          - Number(invoiceObj.so_tien_giam_voucher || 0);
 
-        const minRequired = getMinPaymentRequired(hinhThuc, tongTien, tongSoBuoiGoi, sessionNumForCheck);
+        const minRequired = getMinPaymentRequired(hinhThuc, tongTien, tongSoBuoiGoi, sessionNumForCheck, grossBeforeExamDeduction);
         if (daThanhToan < minRequired) {
           const formattedPaid = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(daThanhToan);
           const formattedRequired = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(minRequired);
@@ -421,7 +440,8 @@ class AppointmentRepository {
 
       // Kiểm tra điều kiện hoàn tất thanh toán của buổi trước khi đặt lịch cho buổi tiếp theo (Thống nhất 3 hình thức)
       const invRes = await pool.query(
-        `SELECT hd.hinh_thuc_thanh_toan_goi, hd.tong_tien_phai_tra, hd.so_tien_da_tra, pd.tong_so_buoi, g.loai_goi
+        `SELECT hd.hinh_thuc_thanh_toan_goi, hd.tong_tien_phai_tra, hd.so_tien_da_tra, hd.tong_tien_goc,
+                hd.ti_le_giam_gia_goi, hd.so_tien_giam_voucher, pd.tong_so_buoi, g.loai_goi
          FROM hoa_don hd
          JOIN phac_do_dieu_tri pd ON pd.id = hd.phac_do_dieu_tri_id
          JOIN goi_dich_vu g ON pd.goi_dich_vu_id = g.id
@@ -430,16 +450,21 @@ class AppointmentRepository {
         [finalPhacDoId]
       );
       if (invRes.rows.length > 0) {
-        const { hinh_thuc_thanh_toan_goi, tong_tien_phai_tra, so_tien_da_tra, tong_so_buoi, loai_goi } = invRes.rows[0];
+        const { hinh_thuc_thanh_toan_goi, tong_tien_phai_tra, so_tien_da_tra, tong_so_buoi, loai_goi,
+                tong_tien_goc, ti_le_giam_gia_goi, so_tien_giam_voucher } = invRes.rows[0];
 
         // Gói lẻ LE không bị chặn đặt lịch trước thanh toán
         if (loai_goi !== 'LE') {
           const M = Number(so_thu_tu_buoi) || 1;
+          const grossBeforeExamDeduction = Number(tong_tien_goc || 0)
+            - Math.round(Number(tong_tien_goc || 0) * Number(ti_le_giam_gia_goi || 0) / 100)
+            - Number(so_tien_giam_voucher || 0);
           const minRequired = getMinPaymentRequired(
             hinh_thuc_thanh_toan_goi,
             Number(tong_tien_phai_tra),
             Number(tong_so_buoi || 10),
-            M
+            M,
+            grossBeforeExamDeduction
           );
           if (Number(so_tien_da_tra) < minRequired) {
             if (hinh_thuc_thanh_toan_goi === 'tra_gop') {

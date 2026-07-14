@@ -47,12 +47,21 @@ export function isExamWaived(hinhThuc: HinhThucThanhToanGoi, giaGocGoi: number):
  * Số tiền tối thiểu phải trả trước khi đặt/thực hiện buổi thứ `sessionNum`.
  * Thay thế cho `appointment.repository.ts:1615-1637` (bản đúng) và 2 bản "cứng 50%" sai
  * ở `appointment.repository.ts:374-389` và `receptionist.controller.ts:306-317`.
+ *
+ * `grossBeforeExamDeduction` (tùy chọn) = giá gói sau giảm hình thức/voucher nhưng TRƯỚC khi trừ
+ * phí khám đã đóng riêng (= tong_tien_goc - so_tien_giam_phuong_thuc - so_tien_giam_voucher).
+ * Khi bỏ qua, mặc định bằng `packageTotal` (coi như không có khấu trừ khám — giữ đúng hành vi cũ).
+ * Cần tham số này vì Đợt 1 của trả góp bị trừ thẳng phí khám đã đóng riêng
+ * (xem `receptionist.service.ts:calculateBilling`, `so_tien_dot_1 = packageDot1 - giam_tru_kham_truoc_do`),
+ * trong khi `packageTotal` (= hoa_don.tong_tien_phai_tra) đã là số NET sau khấu trừ đó — nếu lấy
+ * thẳng packageTotal/2 làm mốc Đợt 1 sẽ đòi hỏi nhiều hơn số tiền Đợt 1 thực tế đã thu đúng.
  */
 export function getMinPaymentRequired(
   hinhThuc: HinhThucThanhToanGoi,
   packageTotal: number,
   totalSessions: number,
-  sessionNum: number
+  sessionNum: number,
+  grossBeforeExamDeduction: number = packageTotal
 ): number {
   if (hinhThuc === 'tra_thang') {
     return packageTotal;
@@ -67,7 +76,8 @@ export function getMinPaymentRequired(
     if (sessionNum >= cutoff) {
       return packageTotal;
     }
-    return Math.round(packageTotal / 2);
+    const examDeductionInDot1 = Math.max(0, grossBeforeExamDeduction - packageTotal);
+    return Math.max(0, Math.round(grossBeforeExamDeduction / 2) - examDeductionInDot1);
   }
   if (hinhThuc === 'tung_buoi') {
     const sessionPrice = Math.round(packageTotal / totalSessions);

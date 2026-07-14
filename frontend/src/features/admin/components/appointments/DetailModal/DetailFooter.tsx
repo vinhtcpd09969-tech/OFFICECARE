@@ -2,6 +2,21 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { updateAppointmentStatus as updateAppointmentStatusAdmin } from '../../../api/admin.api';
 import { updateAppointmentStatus as updateAppointmentStatusRec } from '../../../../receptionist/api/receptionist.api';
+import { isSessionPaymentSatisfied } from '../../../../../utils/billing';
+
+/** Gom dữ liệu hóa đơn gói từ 1 lịch hẹn về đúng shape mà utils/billing mong đợi. */
+function toPlanShape(apt: any) {
+  return {
+    loai_goi: apt.loai_goi,
+    hinh_thuc_thanh_toan_goi: apt.hinh_thuc_thanh_toan_goi,
+    tong_tien_phai_tra: apt.tong_tien_phai_tra_goi,
+    so_tien_da_tra: apt.so_tien_da_tra_goi,
+    tong_so_buoi: apt.tong_so_buoi_goi,
+    tong_tien_goc: apt.tong_tien_goc_goi,
+    ti_le_giam_gia_goi: apt.ti_le_giam_gia_goi,
+    so_tien_giam_voucher: apt.so_tien_giam_voucher_goi,
+  };
+}
 
 interface DetailFooterProps {
   selectedAppointment: any;
@@ -118,62 +133,82 @@ export function DetailFooter({
             const isRetail = selectedAppointment.loai_goi === 'LE';
             const isPayPerSession = selectedAppointment.hinh_thuc_thanh_toan_goi === 'tung_buoi';
             
+            const currentSessionNum = Number(selectedAppointment.so_thu_tu_buoi || 1);
+
             let isSessionPaid = false;
             if (isRetail) {
               isSessionPaid = selectedAppointment.trang_thai_thanh_toan === 'da_thanh_toan';
             } else if (isPayPerSession) {
-              const N = Number(selectedAppointment.so_thu_tu_buoi || 1);
               const totalRequired = Number(selectedAppointment.tong_tien_phai_tra_goi || 0);
               const totalSessions = Number(selectedAppointment.tong_so_buoi_goi || 10);
               const perSessionPrice = Number(selectedAppointment.pd_don_gia_theo_buoi) || Math.round(totalRequired / totalSessions);
               const alreadyPaid = Number(selectedAppointment.so_tien_da_tra_goi || 0);
-              isSessionPaid = alreadyPaid >= (N * perSessionPrice - 1000);
+              isSessionPaid = alreadyPaid >= (currentSessionNum * perSessionPrice - 1000);
             } else {
-              isSessionPaid = 
+              isSessionPaid =
                 selectedAppointment.trang_thai_thanh_toan === 'da_thanh_toan' ||
                 selectedAppointment.trang_thai_hoa_don_goi === 'da_thanh_toan' ||
-                (!!selectedAppointment.hoa_don_goi_id && (
-                  (selectedAppointment.hinh_thuc_thanh_toan_goi === 'tra_thang') ||
-                  (selectedAppointment.hinh_thuc_thanh_toan_goi === 'tra_gop' &&
-                   Number(selectedAppointment.so_thu_tu_buoi || 0) < Math.floor(Number(selectedAppointment.tong_so_buoi_goi || 10) / 2))
-                ));
+                (!!selectedAppointment.hoa_don_goi_id &&
+                  isSessionPaymentSatisfied(toPlanShape(selectedAppointment), currentSessionNum));
             }
 
             if (isSessionPaid) {
+              const nextSessionNum = currentSessionNum + 1;
+              const hasMoreSessions = nextSessionNum <= Number(selectedAppointment.tong_so_buoi_goi || 10);
+              // Buổi tiếp theo đã được đặt (bất kỳ trạng thái nào ngoài đã hủy) thì không cho đặt trùng nữa.
+              const nextSessionAlreadyBooked = appointments.some((apt) =>
+                apt.phac_do_dieu_tri_id &&
+                selectedAppointment.phac_do_dieu_tri_id &&
+                apt.phac_do_dieu_tri_id === selectedAppointment.phac_do_dieu_tri_id &&
+                Number(apt.so_thu_tu_buoi) === nextSessionNum &&
+                apt.trang_thai !== 'da_huy'
+              );
+              const showNextSessionAction = !isRetail && hasMoreSessions && !nextSessionAlreadyBooked;
+
+              // Buổi hiện tại đã trả đủ KHÔNG có nghĩa buổi kế tiếp được phép đặt: gói trả góp
+              // phải đóng xong Đợt 2 trước mốc quy định (docs/BUSINESS_RULES.md mục 3). Nếu chưa
+              // đủ, backend sẽ chặn ở createAppointment — nên ở đây phải mời đóng Đợt 2 thay vì
+              // mời đặt lịch rồi mới báo lỗi.
+              const needsInstallment2 =
+                showNextSessionAction &&
+                !isSessionPaymentSatisfied(toPlanShape(selectedAppointment), nextSessionNum);
+
               return (
                 <div className="flex items-center gap-2">
-                  <div className="px-4 py-2.5 bg-emerald-50 border border-emerald-250 text-emerald-600 text-xs font-black rounded-xl flex items-center gap-1.5 select-none uppercase tracking-wider">
-                    🟢 {isRetail ? 'Đã thanh toán dịch vụ lẻ' : 'Đã thanh toán liệu trình'}
-                  </div>
-                  {(() => {
-                    const nextSessionNum = Number(selectedAppointment.so_thu_tu_buoi || 1) + 1;
-                    const hasMoreSessions = nextSessionNum <= Number(selectedAppointment.tong_so_buoi_goi || 10);
-                    // Buổi tiếp theo đã được đặt (bất kỳ trạng thái nào ngoài đã hủy) thì không cho đặt trùng nữa.
-                    const nextSessionAlreadyBooked = appointments.some((apt) =>
-                      apt.phac_do_dieu_tri_id &&
-                      selectedAppointment.phac_do_dieu_tri_id &&
-                      apt.phac_do_dieu_tri_id === selectedAppointment.phac_do_dieu_tri_id &&
-                      Number(apt.so_thu_tu_buoi) === nextSessionNum &&
-                      apt.trang_thai !== 'da_huy'
-                    );
+                  {/* Khi đã phải đòi Đợt 2 thì ẩn nhãn "đã thanh toán" đi cho gọn — hai thứ cạnh nhau gây rối. */}
+                  {!needsInstallment2 && (
+                    <div className="px-4 py-2.5 bg-emerald-50 border border-emerald-250 text-emerald-600 text-xs font-black rounded-xl flex items-center gap-1.5 select-none uppercase tracking-wider">
+                      🟢 {isRetail ? 'Đã thanh toán dịch vụ lẻ' : 'Đã thanh toán liệu trình'}
+                    </div>
+                  )}
 
-                    if (!isRetail && hasMoreSessions && !nextSessionAlreadyBooked) {
-                      return (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const calendarPath = isReceptionist ? '/receptionist/appointments' : '/admin/appointments';
-                            navigate(`${calendarPath}?khach_hang_id=${selectedAppointment.khach_hang_id}&goi_dich_vu_id=${selectedAppointment.pd_goi_dich_vu_id || selectedAppointment.goi_dich_vu_id}`);
-                            onClose();
-                          }}
-                          className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm text-xs font-black rounded-xl flex items-center gap-1.5 transition-all"
-                        >
-                          📅 + Đặt lịch buổi {nextSessionNum} tiếp theo
-                        </button>
-                      );
-                    }
-                    return null;
-                  })()}
+                  {needsInstallment2 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const dest = isReceptionist ? '/receptionist/billing' : '/admin/finance';
+                        navigate(`${dest}?hoa_don_id=${selectedAppointment.hoa_don_goi_id}`);
+                        onClose();
+                      }}
+                      className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white shadow-sm text-xs font-black rounded-xl flex items-center gap-1.5 transition-all"
+                    >
+                      💵 Thanh toán Đợt 2
+                    </button>
+                  )}
+
+                  {showNextSessionAction && !needsInstallment2 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const calendarPath = isReceptionist ? '/receptionist/appointments' : '/admin/appointments';
+                        navigate(`${calendarPath}?khach_hang_id=${selectedAppointment.khach_hang_id}&goi_dich_vu_id=${selectedAppointment.pd_goi_dich_vu_id || selectedAppointment.goi_dich_vu_id}`);
+                        onClose();
+                      }}
+                      className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm text-xs font-black rounded-xl flex items-center gap-1.5 transition-all"
+                    >
+                      📅 + Đặt lịch buổi {nextSessionNum} tiếp theo
+                    </button>
+                  )}
                 </div>
               );
             } else {

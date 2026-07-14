@@ -2,6 +2,9 @@ import { Router } from 'express';
 import { verifyToken, authorizeRoles } from '../middlewares/auth.middleware';
 import * as adminController from '../controllers/admin.controller';
 import * as appointmentController from '../controllers/appointment.controller';
+import * as articleController from '../controllers/article.controller';
+import { uploadImage } from '../controllers/upload.controller';
+import { uploadMiddleware } from '../middlewares/upload.middleware';
 
 const router = Router();
 
@@ -54,6 +57,16 @@ router.get('/invoices', authorizeRoles(2, 5, 6), adminController.getInvoices);
 router.get('/payments', authorizeRoles(2, 5, 6), adminController.getPayments);
 router.post('/payments/:id/refund', authorizeRoles(5, 6), adminController.handleRefund);
 router.post('/invoices/:id/refund-package', authorizeRoles(5, 6), adminController.handlePackageRefund);
+
+// ─── BÀI VIẾT (BLOG) ──────────────────────────────────────────────────────────
+router.get('/articles', authorizeRoles(5, 6), articleController.getArticles);
+router.get('/articles/:id', authorizeRoles(5, 6), articleController.getArticleById);
+router.post('/articles', authorizeRoles(5, 6), articleController.createArticle);
+router.put('/articles/:id', authorizeRoles(5, 6), articleController.updateArticle);
+router.delete('/articles/:id', authorizeRoles(5, 6), articleController.deleteArticle);
+
+// ─── UPLOAD ẢNH ────────────────────────────────────────────────────────────────
+router.post('/uploads/image', authorizeRoles(5, 6), uploadMiddleware.single('image'), uploadImage);
 
 // ─── MARKETING ─────────────────────────────────────────────────────────────────
 router.get('/vouchers', authorizeRoles(2, 5, 6), adminController.getVouchers);

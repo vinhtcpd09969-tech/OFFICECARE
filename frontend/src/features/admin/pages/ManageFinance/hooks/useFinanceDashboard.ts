@@ -26,7 +26,8 @@ interface Invoice {
   ngay_kham?: string;
   ngay_kham_ket_thuc?: string;
   chi_phi_kham?: number;
-  da_thanh_toan_kham_rieng?: boolean;
+  ma_hoa_don_kham_rieng?: string | null;
+  ngay_thanh_toan_kham_rieng?: string | null;
 }
 
 /** Xem backend/src/domain/billing.ts PaymentTransactionDetail (THANH_TOAN) và

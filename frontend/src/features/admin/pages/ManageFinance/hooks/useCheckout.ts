@@ -136,7 +136,11 @@ export const useCheckout = (
           setDangKyGoi(false);
         } else {
           // If loai_lich is exam/consultation, OR loai_lich === 'dieu_tri' but no package invoice (retail service session)
-          const targetGoiId = appt.khuyen_nghi_goi_id || appt.goi_dich_vu_id;
+          // A kham_moi's own LE chỉ định is informational only (paid later, when that session happens) —
+          // it must never hijack this checkout into charging for the LE service instead of the exam fee.
+          const targetGoiId = (appt.loai_lich === 'kham_moi' && appt.khuyen_nghi_loai_goi === 'LE')
+            ? appt.goi_dich_vu_id
+            : (appt.khuyen_nghi_goi_id || appt.goi_dich_vu_id);
           if (targetGoiId) {
             const matchedPkg = pkgs.find((p: any) => String(p.id) === String(targetGoiId));
             if (matchedPkg) {

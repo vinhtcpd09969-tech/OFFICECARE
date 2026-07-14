@@ -30,6 +30,7 @@ export interface Staff {
   id: string | number;
   ho_ten: string;
   vai_tro: string;
+  anh_dai_dien?: string | null;
 }
 
 export interface Room {

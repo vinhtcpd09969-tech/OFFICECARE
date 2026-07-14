@@ -5,6 +5,7 @@ import { pool } from '../config/db';
 import {
   DEFAULT_DISCOUNT_PERCENT,
   describePaymentTransaction,
+  EXAM_WAIVER_THRESHOLD,
   isExamWaived as isExamWaivedDomain,
   resolvePackageBasePrice,
 } from '../domain/billing';
@@ -315,22 +316,30 @@ class ReceptionistService {
     let giam_tru_kham_truoc_do = 0;
     let mien_phi_kham_chua_dong = 0;
     let ngay_thanh_toan_kham_str = '';
+    let ma_hoa_don_kham_str = '';
     let ngay_kham_str = '';
     let hasPaidExam = true;
     let appt_price = 150000;
 
     const isSingleService = item_type === 'goi' && loai_goi_db === 'LE';
-    const isExcludeExam = isSingleService;
+    // Dịch vụ lẻ (LE) giá cao (≥ ngưỡng miễn phí khám) được bác sĩ chỉ định trong ca khám cũng được
+    // trừ phí khám đã trả riêng trước đó — xem docs/BUSINESS_RULES.md mục 5, dò ngược qua chi_dinh_buoi
+    // (getPrescribingExamForLeSession) để tránh trừ lặp nếu khách mua lại cùng gói LE nhiều lần.
+    const qualifiesForLeExamDeduction = isSingleService && gia_goc_goi >= EXAM_WAIVER_THRESHOLD;
+    const isExcludeExam = isSingleService && !qualifiesForLeExamDeduction;
 
     let targetLichDatId = lich_dat_id;
-    if (!targetLichDatId && data.khach_hang_id && !isExcludeExam) {
+    if (qualifiesForLeExamDeduction && lich_dat_id) {
+      const prescribingExam = await receptionistRepository.getPrescribingExamForLeSession(item_id, lich_dat_id);
+      targetLichDatId = prescribingExam ? prescribingExam.id : null;
+    } else if (!targetLichDatId && data.khach_hang_id && !isExcludeExam) {
       // Find the last clinical exam appointment for this customer that has a paid invoice!
       const { rows: apptRows } = await pool.query(`
-        SELECT ch.id 
+        SELECT ch.id
         FROM cuoc_hen ch
         JOIN hoa_don hd ON hd.cuoc_hen_id = ch.id
-        WHERE ch.khach_hang_id = $1 
-          AND ch.loai IN ('KHAM', 'KHAM_MOI') 
+        WHERE ch.khach_hang_id = $1
+          AND ch.loai IN ('KHAM', 'KHAM_MOI')
           AND hd.trang_thai = 'da_thanh_toan'
         ORDER BY ch.ngay_gio_bat_dau DESC LIMIT 1
       `, [data.khach_hang_id]);
@@ -351,7 +360,7 @@ class ReceptionistService {
       hasPaidExam = paidAmount > 0;
       if (hasPaidExam) {
         const paidInvoice = await pool.query(
-          "SELECT ngay_tao FROM hoa_don WHERE cuoc_hen_id = $1 AND trang_thai = 'da_thanh_toan' LIMIT 1",
+          "SELECT ngay_tao, 'HD-' || UPPER(SUBSTRING(id::text FROM 1 FOR 6)) as ma_hoa_don FROM hoa_don WHERE cuoc_hen_id = $1 AND trang_thai = 'da_thanh_toan' LIMIT 1",
           [targetLichDatId]
         );
         if (paidInvoice.rows.length > 0 && paidInvoice.rows[0].ngay_tao) {
@@ -360,6 +369,7 @@ class ReceptionistService {
           const month = String(d.getMonth() + 1).padStart(2, '0');
           const year = d.getFullYear();
           ngay_thanh_toan_kham_str = `${day}/${month}/${year}`;
+          ma_hoa_don_kham_str = paidInvoice.rows[0].ma_hoa_don || '';
         }
       }
 
@@ -436,6 +446,7 @@ class ReceptionistService {
       mien_phi_kham_chua_dong,
       don_gia_theo_buoi,
       ngay_thanh_toan_kham: ngay_thanh_toan_kham_str,
+      ma_hoa_don_kham: ma_hoa_don_kham_str,
       ngay_kham: ngay_kham_str
     };
   }

@@ -10,6 +10,9 @@ interface DetailHeaderProps {
   aptEndHourStr: string;
   durationMs: number;
   tenDichVu?: string;
+  soThuTuBuoi?: number | null;
+  tongSoBuoiGoi?: number | null;
+  loaiGoi?: string | null;
   isRescheduling: boolean;
   setIsRescheduling: (val: boolean) => void;
   selectedTimeSlot?: string;
@@ -24,11 +27,16 @@ export function DetailHeader({
   aptEndHourStr,
   durationMs,
   tenDichVu,
+  soThuTuBuoi,
+  tongSoBuoiGoi,
+  loaiGoi,
   isRescheduling,
   setIsRescheduling,
   selectedTimeSlot,
   rescheduleDate
 }: DetailHeaderProps) {
+  // Gói liệu trình: nêu rõ đang là buổi thứ mấy / tổng số buổi, thay vì chỉ tên gói trơ trọi.
+  const isPackageSession = loaiGoi === 'LIEU_TRINH' && !!soThuTuBuoi;
   return (
     <div className="bg-slate-50/70 dark:bg-zinc-800/30 p-5 rounded-2xl border border-slate-150 dark:border-zinc-800/80 space-y-3.5 select-none shadow-sm">
       {/* Row 1: Khách hàng */}
@@ -67,9 +75,16 @@ export function DetailHeader({
           <span className="text-xs font-extrabold text-slate-800 dark:text-zinc-150 block mt-0.5 leading-relaxed whitespace-pre-wrap">
             {tenDichVu || 'Khám y tế mới'}
           </span>
-          <span className="inline-flex items-center gap-1 text-[10px] text-slate-555 dark:text-zinc-500 font-bold mt-1">
-            ⏳ {Math.round(durationMs / 60000)} phút
-          </span>
+          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+            {isPackageSession && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-black text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/25 border border-teal-100 dark:border-teal-900/40 px-2 py-0.5 rounded-lg">
+                Buổi {soThuTuBuoi}{tongSoBuoiGoi ? `/${tongSoBuoiGoi}` : ''}
+              </span>
+            )}
+            <span className="inline-flex items-center gap-1 text-[10px] text-slate-555 dark:text-zinc-500 font-bold">
+              ⏳ {Math.round(durationMs / 60000)} phút
+            </span>
+          </div>
         </div>
       </div>
 

@@ -13,6 +13,7 @@ interface User {
     so_nam_kinh_nghiem: number;
     bang_cap_chung_chi: string;
     mo_ta: string;
+    the_manh?: string[];
   } | null;
 }
 

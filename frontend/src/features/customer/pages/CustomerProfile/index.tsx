@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuthStore } from '../../../../stores/authStore';
 import api from '../../../../api/axios';
 import { 
@@ -71,6 +72,9 @@ export default function CustomerProfile() {
             Hồ sơ Sức khỏe & Điều trị
           </h1>
           <p className="text-gray-500 text-sm mt-1">Hồ sơ điều trị điện tử và lịch trình phục hồi chi tiết của bạn tại Office Care.</p>
+          <Link to="/dieu-khoan-dich-vu" target="_blank" className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline mt-2">
+            <FileText size={13} /> Xem Điều khoản dịch vụ
+          </Link>
         </div>
         
         {/* Quick Identity Card */}

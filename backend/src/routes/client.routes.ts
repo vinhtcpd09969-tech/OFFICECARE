@@ -16,6 +16,7 @@ import {
   releaseTempHold
 } from '../controllers/appointment.controller';
 import { getNotifications, markAsRead, markAllAsRead } from '../controllers/notification.controller';
+import { getPublicArticles, getPublicArticleBySlug } from '../controllers/article.controller';
 import { verifyToken } from '../middlewares/auth.middleware';
 import adminService from '../services/admin.service';
 import { pool } from '../config/db';
@@ -50,6 +51,7 @@ router.get('/services', async (req, res) => {
         quy_trinh: pkg.quy_trinh,
         muc_tieu: pkg.muc_tieu,
         anh_goi: pkg.anh_goi,
+        anh_gallery: pkg.anh_gallery || [],
         danh_muc_goi_id: pkg.danh_muc_id,
         danh_muc_id: pkg.danh_muc_id, // backward compatibility
         luot_dung: Number(pkg.luot_dung || 0),
@@ -114,7 +116,7 @@ router.get('/specialists', async (req, res) => {
   try {
     const queryStr = `
       SELECT nd.id, nd.ho_ten, nd.email, nd.so_dien_thoai, nd.anh_dai_dien, vt.ten_vai_tro as vai_tro,
-             hs.so_nam_kinh_nghiem, hs.bang_cap_chung_chi, hs.mo_ta,
+             hs.so_nam_kinh_nghiem, hs.bang_cap_chung_chi, hs.mo_ta, hs.the_manh,
              COALESCE(AVG(dg.so_sao)::numeric(3,1), 5.0) as trung_binh_sao,
              COUNT(dg.id)::int as tong_danh_gia
       FROM nguoi_dung nd
@@ -123,7 +125,7 @@ router.get('/specialists', async (req, res) => {
       LEFT JOIN cuoc_hen ch ON nd.id = ch.nhan_su_id
       LEFT JOIN danh_gia_chat_luong dg ON ch.id = dg.cuoc_hen_id
       WHERE nd.vai_tro_id IN (3, 4) AND nd.trang_thai = 'hoat_dong'
-      GROUP BY nd.id, nd.ho_ten, nd.email, nd.so_dien_thoai, nd.anh_dai_dien, vt.ten_vai_tro, hs.so_nam_kinh_nghiem, hs.bang_cap_chung_chi, hs.mo_ta
+      GROUP BY nd.id, nd.ho_ten, nd.email, nd.so_dien_thoai, nd.anh_dai_dien, vt.ten_vai_tro, hs.so_nam_kinh_nghiem, hs.bang_cap_chung_chi, hs.mo_ta, hs.the_manh
       ORDER BY nd.vai_tro_id DESC, nd.ho_ten ASC
     `;
     const { rows } = await pool.query(queryStr);
@@ -137,7 +139,7 @@ router.get('/specialists/:id', async (req, res) => {
   try {
     const queryStr = `
       SELECT nd.id, nd.ho_ten, nd.email, nd.so_dien_thoai, nd.anh_dai_dien, vt.ten_vai_tro as vai_tro,
-             hs.so_nam_kinh_nghiem, hs.bang_cap_chung_chi, hs.mo_ta,
+             hs.so_nam_kinh_nghiem, hs.bang_cap_chung_chi, hs.mo_ta, hs.the_manh,
              COALESCE(AVG(dg.so_sao)::numeric(3,1), 5.0) as trung_binh_sao,
              COUNT(dg.id)::int as tong_danh_gia
       FROM nguoi_dung nd
@@ -146,7 +148,7 @@ router.get('/specialists/:id', async (req, res) => {
       LEFT JOIN cuoc_hen ch ON nd.id = ch.nhan_su_id
       LEFT JOIN danh_gia_chat_luong dg ON ch.id = dg.cuoc_hen_id
       WHERE nd.id = $1 AND nd.vai_tro_id IN (3, 4)
-      GROUP BY nd.id, nd.ho_ten, nd.email, nd.so_dien_thoai, nd.anh_dai_dien, vt.ten_vai_tro, hs.so_nam_kinh_nghiem, hs.bang_cap_chung_chi, hs.mo_ta
+      GROUP BY nd.id, nd.ho_ten, nd.email, nd.so_dien_thoai, nd.anh_dai_dien, vt.ten_vai_tro, hs.so_nam_kinh_nghiem, hs.bang_cap_chung_chi, hs.mo_ta, hs.the_manh
     `;
     const { rows } = await pool.query(queryStr, [req.params.id]);
     if (rows.length === 0) {
@@ -172,6 +174,9 @@ router.get('/testimonials', async (req, res) => {
     res.status(500).json({ message: 'Lỗi server khi lấy đánh giá' });
   }
 });
+
+router.get('/articles', getPublicArticles);
+router.get('/articles/:slug', getPublicArticleBySlug);
 
 router.get('/appointments/booked-slots', getBookedSlots);
 router.get('/appointments/active-doctor-dates', getActiveDoctorDates);

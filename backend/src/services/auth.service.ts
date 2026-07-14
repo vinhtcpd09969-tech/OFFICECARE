@@ -35,7 +35,8 @@ class AuthService {
     const newUser = await authRepository.createUser({
       ho_ten: data.ho_ten,
       email: data.email,
-      mat_khau_hash: hash
+      mat_khau_hash: hash,
+      ngay_dong_y_dieu_khoan: new Date()
     });
 
     // 4. Generate & Save OTP code
@@ -221,13 +222,14 @@ class AuthService {
     return { message: 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập bằng mật khẩu mới.' };
   }
 
-  async updateProfile(userId: string | number, data: { 
-    ho_ten: string; 
+  async updateProfile(userId: string | number, data: {
+    ho_ten: string;
     so_dien_thoai: string;
     anh_dai_dien?: string;
     so_nam_kinh_nghiem?: number;
     bang_cap_chung_chi?: string;
     mo_ta?: string;
+    the_manh?: string[];
   }) {
     if (!data.ho_ten) throw new Error('Họ tên không được để trống');
     return authRepository.updateProfile(userId, data);

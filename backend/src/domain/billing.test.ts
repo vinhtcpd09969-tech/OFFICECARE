@@ -75,6 +75,22 @@ describe('getMinPaymentRequired', () => {
     expect(getMinPaymentRequired('tung_buoi', packageTotal, 10, 1)).toBe(0);
     expect(getMinPaymentRequired('tung_buoi', packageTotal, 10, 4)).toBe(3 * sessionPrice);
   });
+
+  it('trả góp có khấu trừ phí khám đã đóng riêng trong Đợt 1 -> mốc Đợt 1 phải trừ đúng phần đó (không phải nửa tổng net)', () => {
+    // Ca thật: gói 8 buổi, giá gốc 3.600.000đ, giảm hình thức trả góp 5% -> gross sau giảm 3.420.000đ.
+    // Phí khám 150.000đ đã đóng riêng trước đó -> khấu trừ thẳng vào Đợt 1 -> tong_tien_phai_tra (net) = 3.270.000đ.
+    // Đợt 1 đúng phải thu = round(3.420.000/2) - 150.000 = 1.560.000đ, KHÔNG phải round(3.270.000/2) = 1.635.000đ.
+    const grossBeforeExamDeduction = 3_420_000;
+    const packageTotal = 3_270_000; // tong_tien_phai_tra (net, đã trừ phí khám)
+    const minRequired = getMinPaymentRequired('tra_gop', packageTotal, 8, 1, grossBeforeExamDeduction);
+    expect(minRequired).toBe(1_560_000);
+    expect(1_560_000).toBeGreaterThanOrEqual(minRequired); // số tiền khách đã đóng thực tế không còn bị chặn nhầm
+  });
+
+  it('không truyền grossBeforeExamDeduction -> hành vi giữ nguyên như trước (không có khấu trừ)', () => {
+    const packageTotal = 4_000_000;
+    expect(getMinPaymentRequired('tra_gop', packageTotal, 8, 3)).toBe(Math.round(packageTotal / 2));
+  });
 });
 
 describe('calculateDiscountPercent', () => {

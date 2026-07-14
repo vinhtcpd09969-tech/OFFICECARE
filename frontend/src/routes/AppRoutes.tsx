@@ -19,6 +19,10 @@ const Booking = lazy(() => import('../features/public/pages/Booking'));
 const BookingSuccess = lazy(() => import('../features/public/pages/BookingSuccess'));
 const Specialists = lazy(() => import('../features/public/pages/Specialists'));
 const SpecialistDetailPage = lazy(() => import('../features/public/pages/SpecialistDetailPage'));
+const Articles = lazy(() => import('../features/public/pages/Articles'));
+const ArticleDetailPage = lazy(() => import('../features/public/pages/ArticleDetailPage'));
+const AboutUs = lazy(() => import('../features/public/pages/AboutUs'));
+const TermsOfService = lazy(() => import('../features/public/pages/TermsOfService'));
 
 // Auth Feature
 const Login = lazy(() => import('../features/auth/pages/Login'));
@@ -46,6 +50,7 @@ const ManagePackages = lazy(() => import('../features/admin/pages/ManagePackages
 const ManageFinance = lazy(() => import('../features/admin/pages/ManageFinance'));
 const ManageVouchers = lazy(() => import('../features/admin/pages/ManageVouchers'));
 const ViewFeedback = lazy(() => import('../features/admin/pages/ViewFeedback'));
+const ManageArticles = lazy(() => import('../features/admin/pages/ManageArticles'));
 
 // Receptionist Feature
 const ReceptionistDashboard = lazy(() => import('../features/receptionist/pages/ReceptionistDashboard/index'));
@@ -76,6 +81,10 @@ export default function AppRoutes() {
           <Route path="/booking/success/:id" element={<BookingSuccess />} />
           <Route path="/specialists" element={<Specialists />} />
           <Route path="/specialists/:id" element={<SpecialistDetailPage />} />
+          <Route path="/tin-tuc" element={<Articles />} />
+          <Route path="/tin-tuc/:slug" element={<ArticleDetailPage />} />
+          <Route path="/gioi-thieu" element={<AboutUs />} />
+          <Route path="/dieu-khoan-dich-vu" element={<TermsOfService />} />
         </Route>
         
         <Route path="/login" element={<Login />} />
@@ -114,6 +123,7 @@ export default function AppRoutes() {
             <Route path="/admin/finance" element={<ManageFinance />} />
             <Route path="/admin/quick-billing" element={<QuickBilling />} />
             <Route path="/admin/marketing" element={<ManageVouchers />} />
+            <Route path="/admin/articles" element={<ManageArticles />} />
             <Route path="/admin/feedback" element={<ViewFeedback />} />
           </Route>
         </Route>

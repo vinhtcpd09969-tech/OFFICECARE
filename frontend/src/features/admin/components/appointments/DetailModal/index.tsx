@@ -16,6 +16,8 @@ import {
 } from '../../../../receptionist/api/receptionist.api';
 
 
+import { getInstallmentCutoffSession } from '../../../../../utils/billing';
+
 // Import subcomponents
 import { DetailHeader } from './DetailHeader';
 import { TreatmentHistory } from './TreatmentHistory';
@@ -827,6 +829,9 @@ export default function AppointmentDetailModal({
                 aptEndHourStr={aptEndHourStr}
                 durationMs={durationMs}
                 tenDichVu={selectedAppointment.ten_dich_vu}
+                soThuTuBuoi={selectedAppointment.so_thu_tu_buoi}
+                tongSoBuoiGoi={selectedAppointment.tong_so_buoi_goi}
+                loaiGoi={selectedAppointment.loai_goi}
                 isRescheduling={isRescheduling}
                 setIsRescheduling={setIsRescheduling}
                 selectedTimeSlot={selectedTimeSlot}
@@ -838,7 +843,7 @@ export default function AppointmentDetailModal({
                 selectedAppointment.hinh_thuc_thanh_toan_goi === 'tra_gop' &&
                 selectedAppointment.trang_thai_hoa_don_goi !== 'da_thanh_toan' &&
                 Number(selectedAppointment.so_tien_da_tra_goi) < Number(selectedAppointment.tong_tien_phai_tra_goi) &&
-                Number(selectedAppointment.so_thu_tu_buoi) >= Math.floor(Number(selectedAppointment.tong_so_buoi_goi || 10) / 2) && (
+                Number(selectedAppointment.so_thu_tu_buoi) >= getInstallmentCutoffSession(Number(selectedAppointment.tong_so_buoi_goi || 10)) && (
                   <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 p-4 rounded-2xl flex items-start gap-3 text-left animate-in fade-in slide-in-from-top-2">
                     <span className="text-amber-500 shrink-0 text-base">⚠️</span>
                     <div className="text-xs text-amber-800 dark:text-amber-300">

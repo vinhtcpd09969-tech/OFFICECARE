@@ -88,8 +88,10 @@ export default function LandingLayout() {
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-8">
             <Link to="/" className="text-sm font-jakarta font-bold text-secondary hover:text-primary transition-colors relative py-1 after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-primary hover:after:w-full after:transition-all">Trang chủ</Link>
+            <Link to="/gioi-thieu" className="text-sm font-jakarta font-bold text-secondary hover:text-primary transition-colors relative py-1 after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-primary hover:after:w-full after:transition-all">Giới thiệu</Link>
             <Link to="/services" className="text-sm font-jakarta font-bold text-secondary hover:text-primary transition-colors relative py-1 after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-primary hover:after:w-full after:transition-all">Dịch vụ</Link>
             <Link to="/specialists" className="text-sm font-jakarta font-bold text-secondary hover:text-primary transition-colors relative py-1 after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-primary hover:after:w-full after:transition-all">Chuyên gia</Link>
+            <Link to="/tin-tuc" className="text-sm font-jakarta font-bold text-secondary hover:text-primary transition-colors relative py-1 after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-primary hover:after:w-full after:transition-all">Bài viết</Link>
           </nav>
 
           {/* Auth Actions (Desktop) */}
@@ -165,8 +167,10 @@ export default function LandingLayout() {
         {isMobileMenuOpen && (
           <div className="md:hidden w-full mt-2 bg-white/95 backdrop-blur-md rounded-[24px] border border-slate-100 shadow-lg px-6 py-6 flex flex-col gap-3 animate-slide-up">
             <Link to="/" className="text-sm font-jakarta font-bold text-secondary py-2.5 border-b border-slate-50" onClick={() => setIsMobileMenuOpen(false)}>Trang chủ</Link>
+            <Link to="/gioi-thieu" className="text-sm font-jakarta font-bold text-secondary py-2.5 border-b border-slate-50" onClick={() => setIsMobileMenuOpen(false)}>Giới thiệu</Link>
             <Link to="/services" className="text-sm font-jakarta font-bold text-secondary py-2.5 border-b border-slate-50" onClick={() => setIsMobileMenuOpen(false)}>Dịch vụ</Link>
             <Link to="/specialists" className="text-sm font-jakarta font-bold text-secondary py-2.5 border-b border-slate-50" onClick={() => setIsMobileMenuOpen(false)}>Chuyên gia</Link>
+            <Link to="/tin-tuc" className="text-sm font-jakarta font-bold text-secondary py-2.5 border-b border-slate-50" onClick={() => setIsMobileMenuOpen(false)}>Bài viết</Link>
             
             <div className="mt-4 flex flex-col gap-2.5">
               <Link 
@@ -246,6 +250,7 @@ export default function LandingLayout() {
             <div className="space-y-3">
               <h4 className="font-jakarta font-bold text-xs tracking-wider text-slate-800 uppercase">Hỗ Trợ</h4>
               <ul className="space-y-2 text-slate-500">
+                <li><Link to="/gioi-thieu" className="hover:text-primary transition-colors">Giới thiệu</Link></li>
                 <li><a href="#" className="hover:text-primary transition-colors">Chính sách bảo mật</a></li>
                 <li><a href="#" className="hover:text-primary transition-colors">Điều khoản sử dụng</a></li>
                 <li><a href="#" className="hover:text-primary transition-colors">Câu hỏi thường gặp</a></li>

@@ -68,6 +68,7 @@ export const createPackage = async (req: Request, res: Response): Promise<any> =
     res.status(201).json(packageData);
   } catch (error) {
     if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
+    if (error instanceof Error) return res.status(400).json({ message: error.message });
     res.status(500).json({ message: 'Lỗi server' });
   }
 };
@@ -81,6 +82,7 @@ export const updatePackage = async (req: Request, res: Response): Promise<any> =
     res.json(packageData);
   } catch (error) {
     if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
+    if (error instanceof Error) return res.status(400).json({ message: error.message });
     res.status(500).json({ message: 'Lỗi server' });
   }
 };

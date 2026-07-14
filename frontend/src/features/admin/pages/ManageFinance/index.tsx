@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../../../stores/authStore';
 import { 
@@ -53,6 +53,7 @@ export default function ManageFinance() {
   const queryLichDatId = params.get('lich_dat_id');
   const queryCustomerId = params.get('customer_id');
   const queryGoiDichVuId = params.get('goi_dich_vu_id');
+  const queryHoaDonId = params.get('hoa_don_id');
   const isCheckoutMode = !!queryLichDatId || (!!queryCustomerId && !!queryGoiDichVuId);
 
   // Hooks
@@ -60,6 +61,19 @@ export default function ManageFinance() {
   const dashboard = useFinanceDashboard(isCheckoutMode);
 
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+
+  // Deep-link ?hoa_don_id=... — mở thẳng chi tiết hóa đơn (dùng cho nút "Đóng Đợt 2" từ
+  // Hồ sơ điều trị / chi tiết lịch hẹn, vì Đợt 2 chỉ thu được trên hóa đơn gói đã tồn tại).
+  const openedInvoiceRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!queryHoaDonId || dashboard.invoices.length === 0) return;
+    if (openedInvoiceRef.current === queryHoaDonId) return;
+    const matched = dashboard.invoices.find((inv) => inv.id === queryHoaDonId);
+    if (matched) {
+      openedInvoiceRef.current = queryHoaDonId;
+      dashboard.setSelectedInvoice(matched);
+    }
+  }, [queryHoaDonId, dashboard.invoices]);
 
   const handleConfirmSubmit = () => {
     setShowConfirmModal(false);
@@ -321,7 +335,6 @@ export default function ManageFinance() {
                                 <button
                                   type="button"
                                   onClick={() => checkout.setLoaiThanhToan('tra_thang')}
-                                  disabled={isTungBuoiWithPaidExam}
                                   className={`py-3.5 px-4 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all ${
                                     checkout.loaiThanhToan === 'tra_thang'
                                       ? 'bg-primary/10 border-primary text-primary shadow-sm'
@@ -333,7 +346,6 @@ export default function ManageFinance() {
                                 <button
                                   type="button"
                                   onClick={() => checkout.setLoaiThanhToan('tra_gop')}
-                                  disabled={isTungBuoiWithPaidExam}
                                   className={`py-3.5 px-4 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all ${
                                     checkout.loaiThanhToan === 'tra_gop'
                                       ? 'bg-primary/10 border-primary text-primary shadow-sm'
@@ -345,7 +357,6 @@ export default function ManageFinance() {
                                 <button
                                   type="button"
                                   onClick={() => checkout.setLoaiThanhToan('tung_buoi')}
-                                  disabled={isTungBuoiWithPaidExam}
                                   className={`py-3.5 px-4 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all ${
                                     checkout.loaiThanhToan === 'tung_buoi'
                                       ? 'bg-primary/10 border-primary text-primary shadow-sm'

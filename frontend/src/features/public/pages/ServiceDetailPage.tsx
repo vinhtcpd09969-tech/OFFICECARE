@@ -1,8 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowRight, Clock, Phone, Loader2, Info } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { ArrowRight, Clock, Phone, Loader2, Info, ShieldCheck, HeartPulse, Award } from 'lucide-react';
 import { getPublicServices, getPublicCategories } from '../api/public.api';
+import { resolveImageUrl } from '../../../utils/imageUrl';
+import ScrollReveal from '../components/shared/ScrollReveal';
 import toast from 'react-hot-toast';
+
+const TRUST_BADGES = [
+  { icon: ShieldCheck, title: 'An toàn chuẩn y khoa', desc: 'Phác đồ được bác sĩ chuyên khoa xây dựng và giám sát.' },
+  { icon: HeartPulse, title: 'Cá nhân hóa phác đồ', desc: 'Không rập khuôn — lộ trình riêng theo cơ địa từng khách hàng.' },
+  { icon: Award, title: 'Chuyên gia giàu kinh nghiệm', desc: 'Đội ngũ bác sĩ, KTV được đào tạo bài bản, tận tâm.' },
+];
 
 interface Service {
   id: string;
@@ -13,6 +22,7 @@ interface Service {
   thoi_luong_phut: number;
   don_gia: number | string;
   anh_goi?: string;
+  anh_gallery?: string[];
   trang_thai: string;
 }
 
@@ -30,6 +40,8 @@ export default function ServiceDetailPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [service, setService] = useState<Service | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [relatedServices, setRelatedServices] = useState<Service[]>([]);
+  const [activeGalleryImage, setActiveGalleryImage] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -47,6 +59,11 @@ export default function ServiceDetailPage() {
         const foundService = fetchedServices.find(s => s.id.toString() === id?.toString());
         if (foundService) {
           setService(foundService);
+          setRelatedServices(
+            fetchedServices
+              .filter(s => s.id.toString() !== foundService.id.toString() && s.danh_muc_goi_id === foundService.danh_muc_goi_id)
+              .slice(0, 3)
+          );
         } else {
           toast.error('Không tìm thấy dịch vụ trị liệu này.');
           navigate('/services');
@@ -264,6 +281,21 @@ export default function ServiceDetailPage() {
           </div>
         </div>
 
+        {/* Trust Badge Row */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-12">
+          {TRUST_BADGES.map((badge) => (
+            <div key={badge.title} className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex items-start gap-3">
+              <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                <badge.icon size={18} />
+              </div>
+              <div>
+                <h4 className="font-heading font-black text-xs text-secondary mb-1">{badge.title}</h4>
+                <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">{badge.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
         {/* Section 2: Quy trình & Mục tiêu trị liệu (2-column layout in a single card) */}
         <div className="bg-white rounded-[24px] border border-slate-100/80 shadow-[0_8px_30px_rgba(15,23,42,0.015)] p-6 md:p-10 mb-12">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 divide-y md:divide-y-0 md:divide-x divide-slate-100">
@@ -331,7 +363,102 @@ export default function ServiceDetailPage() {
           </div>
         </div>
 
+        {/* Section 3: Hình ảnh thực tế (Gallery) */}
+        {service.anh_gallery && service.anh_gallery.length > 0 && (
+          <div className="bg-white rounded-[24px] border border-slate-100/80 shadow-[0_8px_30px_rgba(15,23,42,0.015)] p-6 md:p-10 mb-12">
+            <div className="flex items-center gap-2 mb-6">
+              <span className="text-[10px] font-black uppercase tracking-widest text-[#0D9488] bg-[#14B8A6]/10 px-3 py-1 rounded-full">
+                📸 Hình ảnh
+              </span>
+              <h3 className="font-heading font-black text-secondary text-sm md:text-base uppercase tracking-tight">
+                Hình ảnh thực tế
+              </h3>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              {service.anh_gallery.map((img, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => setActiveGalleryImage(resolveImageUrl(img))}
+                  className="aspect-square rounded-2xl overflow-hidden border border-slate-200 bg-slate-50 hover:border-[#14B8A6] cursor-pointer group relative shadow-xs"
+                >
+                  <img
+                    src={resolveImageUrl(img)}
+                    alt={`${service.ten_goi} - ảnh ${idx + 1}`}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-slate-950/0 group-hover:bg-slate-950/20 flex items-center justify-center transition-all">
+                    <span className="opacity-0 group-hover:opacity-100 bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider text-[#0D9488] shadow-md transition-all">
+                      🔍 Phóng to
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Section 4: Dịch vụ liên quan */}
+        {relatedServices.length > 0 && (
+          <ScrollReveal>
+            <div className="mb-4">
+              <div className="flex items-center gap-2 mb-6">
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#0D9488] bg-[#14B8A6]/10 px-3 py-1 rounded-full">
+                  🔗 Liên quan
+                </span>
+                <h3 className="font-heading font-black text-secondary text-sm md:text-base uppercase tracking-tight">
+                  Dịch vụ liên quan
+                </h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {relatedServices.map((rs) => (
+                  <motion.div
+                    key={rs.id}
+                    whileHover={{ y: -5 }}
+                    onClick={() => navigate(`/services/${rs.id}`)}
+                    className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden cursor-pointer"
+                  >
+                    <div className="aspect-[16/10] bg-slate-100 overflow-hidden">
+                      <img
+                        src={rs.anh_goi || '/images/packages/wellness_hero.png'}
+                        alt={rs.ten_goi}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="p-4">
+                      <h4 className="font-heading font-black text-xs text-secondary line-clamp-2 mb-2">{rs.ten_goi}</h4>
+                      <p className="text-sm font-black text-slate-900">{formatPrice(rs.don_gia)} <span className="text-[10px] font-bold text-slate-400">/ buổi</span></p>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </ScrollReveal>
+        )}
+
       </div>
+
+      {/* Lightbox Gallery Modal */}
+      {activeGalleryImage && (
+        <div
+          className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in"
+          onClick={() => setActiveGalleryImage(null)}
+        >
+          <div className="max-w-4xl max-h-[85vh] relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl flex items-center justify-center">
+            <img
+              src={activeGalleryImage}
+              alt="Hình ảnh thực tế phóng to"
+              className="max-w-full max-h-[80vh] object-contain"
+            />
+            <button
+              onClick={() => setActiveGalleryImage(null)}
+              className="absolute top-4 right-4 bg-slate-950/60 hover:bg-slate-950 text-white rounded-full p-2 border border-slate-800 hover:scale-105 transition-all text-xs font-black uppercase"
+            >
+              Đóng ✕
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   );

@@ -318,6 +318,30 @@ export default function Register() {
                       </div>
                       {errors.confirmPassword && <p className="text-red-500 text-xs font-semibold mt-1">{errors.confirmPassword.message}</p>}
                     </div>
+
+                    {/* Terms of Service consent checkbox */}
+                    <div className="space-y-1.5">
+                      <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                        <input
+                          {...register('dong_y_dieu_khoan')}
+                          type="checkbox"
+                          className="mt-0.5 size-4 rounded border-slate-300 text-[#0D9488] focus:ring-[#14B8A6]/30 cursor-pointer"
+                        />
+                        <span className="text-xs text-slate-500 font-semibold leading-relaxed">
+                          Tôi đã đọc và đồng ý với{' '}
+                          <Link
+                            to="/dieu-khoan-dich-vu"
+                            target="_blank"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-[#0D9488] font-bold hover:underline"
+                          >
+                            Điều khoản dịch vụ
+                          </Link>{' '}
+                          của Office Care.
+                        </span>
+                      </label>
+                      {errors.dong_y_dieu_khoan && <p className="text-red-500 text-xs font-semibold">{errors.dong_y_dieu_khoan.message}</p>}
+                    </div>
                   </div>
 
                   <motion.button

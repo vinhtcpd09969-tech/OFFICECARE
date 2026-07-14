@@ -760,20 +760,24 @@ class ReceptionistRepository {
 
   async getCustomerTreatmentPlans(customerId: string) {
     const { rows } = await pool.query(`
-      SELECT pd.id::text, pd.goi_dich_vu_id, pd.tong_so_buoi, 
+      SELECT pd.id::text, pd.goi_dich_vu_id, pd.tong_so_buoi,
              (
-               SELECT COUNT(*)::int 
-               FROM cuoc_hen 
-               WHERE phac_do_dieu_tri_id = pd.id 
-                 AND trang_thai = 'hoan_thanh' 
+               SELECT COUNT(*)::int
+               FROM cuoc_hen
+               WHERE phac_do_dieu_tri_id = pd.id
+                 AND trang_thai = 'hoan_thanh'
                  AND loai = 'DIEU_TRI'
              ) as so_buoi_da_dung,
              pd.trang_thai,
              gdv.ten_goi as ten_goi_dich_vu, gdv.thoi_luong_phut,
-             NULL::uuid as cuoc_hen_id, gdv.loai_goi
+             NULL::uuid as cuoc_hen_id, gdv.loai_goi,
+             hd.id as hoa_don_id,
+             hd.hinh_thuc_thanh_toan_goi, hd.tong_tien_phai_tra, hd.so_tien_da_tra,
+             hd.tong_tien_goc, hd.ti_le_giam_gia_goi, hd.so_tien_giam_voucher
       FROM phac_do_dieu_tri pd
       JOIN goi_dich_vu gdv ON pd.goi_dich_vu_id = gdv.id
-      WHERE pd.khach_hang_id = $1 
+      LEFT JOIN hoa_don hd ON hd.phac_do_dieu_tri_id = pd.id
+      WHERE pd.khach_hang_id = $1
         AND (
           SELECT COUNT(*)::int 
           FROM cuoc_hen 
@@ -957,6 +961,37 @@ class ReceptionistRepository {
       [lich_dat_id]
     );
     return rows[0] ? Number(rows[0].tong_tien_phai_tra) : 0;
+  }
+
+  /**
+   * Dò ngược ca khám gốc đã chỉ định (chi_dinh_buoi) đúng gói dịch vụ lẻ (LE) đang thanh toán,
+   * chỉ trả về khi: ca khám đó đã có hóa đơn thanh toán riêng, VÀ buổi lẻ đang thanh toán (le_lich_dat_id)
+   * là buổi ĐẦU TIÊN của gói này (cùng khách) được thanh toán kể từ sau ca khám đó — tránh trừ phí khám
+   * lặp lại nếu khách mua lại đúng gói LE này nhiều lần sau cùng 1 ca khám.
+   */
+  async getPrescribingExamForLeSession(goiDichVuId: string, leLichDatId: string) {
+    const { rows } = await pool.query(`
+      SELECT ch_kham.id, ch_kham.ngay_gio_bat_dau
+      FROM cuoc_hen ch_le
+      JOIN chi_dinh_buoi cdb ON cdb.goi_dich_vu_id = $1
+      JOIN nhat_ky_buoi_dieu_tri nk ON cdb.nhat_ky_id = nk.id
+      JOIN cuoc_hen ch_kham ON nk.cuoc_hen_id = ch_kham.id AND ch_kham.loai IN ('KHAM', 'KHAM_MOI')
+      JOIN hoa_don hd_kham ON hd_kham.cuoc_hen_id = ch_kham.id AND hd_kham.trang_thai = 'da_thanh_toan'
+      WHERE ch_le.id = $2
+        AND ch_kham.khach_hang_id = ch_le.khach_hang_id
+        AND NOT EXISTS (
+          SELECT 1 FROM cuoc_hen ch_other
+          JOIN hoa_don hd_other ON hd_other.cuoc_hen_id = ch_other.id AND hd_other.trang_thai = 'da_thanh_toan'
+          WHERE ch_other.khach_hang_id = ch_kham.khach_hang_id
+            AND ch_other.goi_dich_vu_id = $1
+            AND ch_other.loai = 'DIEU_TRI'
+            AND ch_other.id != ch_le.id
+            AND hd_other.ngay_tao > hd_kham.ngay_tao
+        )
+      ORDER BY ch_kham.ngay_gio_bat_dau DESC
+      LIMIT 1
+    `, [goiDichVuId, leLichDatId]);
+    return rows[0] || null;
   }
 
   /**

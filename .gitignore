@@ -38,3 +38,7 @@ pgdata/
 
 # Playwright MCP session artifacts
 .playwright-mcp/
+
+# Uploaded images (keep folder structure via .gitkeep, not the actual files)
+backend/uploads/**/*
+!backend/uploads/**/.gitkeep

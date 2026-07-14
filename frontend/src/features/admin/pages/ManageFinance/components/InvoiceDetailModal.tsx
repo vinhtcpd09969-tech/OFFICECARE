@@ -83,7 +83,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
   // riêng, miễn phí, hay chưa đóng) — khớp đúng calculatePackageCancellationRefund() ở
   // backend/src/domain/billing.ts. Phí khám là khoản tách biệt hoàn toàn, không được phép
   // làm lệch giá gốc/gốc tính phạt.
-  const hasPaidSeparateExam = !!invoice.da_thanh_toan_kham_rieng;
+  const hasPaidSeparateExam = !!invoice.ma_hoa_don_kham_rieng;
   const gia_goc_goi = tong_tien_goc;
   const ti_le_giam = Number(invoice.ti_le_giam_gia_goi || 0);
   const giam_gia_goi = isPackage ? Math.round((gia_goc_goi * ti_le_giam) / 100) : 0;
@@ -463,8 +463,18 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                                     {mien_phi_kham > 0 && (
                                       <div className="flex justify-between text-emerald-700">
                                         <span>
-                                          Miễn phí khám (Ưu đãi mua gói)
-                                          {invoice.ngay_kham ? ` (${formatLongDate(invoice.ngay_kham)})` : ''}:
+                                          {hasPaidSeparateExam ? (
+                                            <>
+                                              Khấu trừ phí khám đã đóng riêng
+                                              {invoice.ngay_thanh_toan_kham_rieng ? ` ngày ${formatLongDate(invoice.ngay_thanh_toan_kham_rieng)}` : ''}
+                                              {invoice.ma_hoa_don_kham_rieng ? ` (HĐ ${invoice.ma_hoa_don_kham_rieng})` : ''}:
+                                            </>
+                                          ) : (
+                                            <>
+                                              Miễn phí khám (Ưu đãi mua gói)
+                                              {invoice.ngay_kham ? ` (${formatLongDate(invoice.ngay_kham)})` : ''}:
+                                            </>
+                                          )}
                                         </span>
                                         <span className="font-semibold">-{formatCurrency(mien_phi_kham)}</span>
                                       </div>

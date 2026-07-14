@@ -3,9 +3,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { createPackage, updatePackage, getCategories } from '../../api/admin.api';
 import { useEffect, useState, useRef } from 'react';
-import { UploadCloud, X, Sparkles, Coins, Layers, Lock } from 'lucide-react';
+import { X, Sparkles, Coins, Layers, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { ConfirmDialog } from '../../../../components/ConfirmDialog';
+import { ImageUploadZone } from '../shared/ImageUploadZone';
+import { GalleryUploadZone } from '../shared/GalleryUploadZone';
 
 const packageSchema = z.object({
   ten_goi: z.string().min(1, 'Tên gói dịch vụ là bắt buộc'),
@@ -18,6 +20,7 @@ const packageSchema = z.object({
   don_gia: z.number().min(0, 'Giá bán không hợp lệ'),
   don_gia_theo_buoi: z.number().min(0, 'Giá từng buổi không hợp lệ').optional().nullable(),
   anh_goi: z.string().optional().nullable(),
+  anh_gallery: z.array(z.string()).optional().default([]),
   trang_thai: z.enum(['hoat_dong', 'tam_ngung']).default('hoat_dong'),
 }).refine(data => {
   if (data.loai_goi === 'LIEU_TRINH' && data.don_gia_theo_buoi) {
@@ -40,10 +43,7 @@ interface PackageModalProps {
 }
 
 export default function PackageModal({ onClose, onSuccess, editingPackage, existingPackages }: PackageModalProps) {
-  const [dragActive, setDragActive] = useState(false);
-  const [imagePreview, setImagePreview] = useState<string | null>(editingPackage?.anh_goi || null);
   const [categories, setCategories] = useState<any[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [confirmConfig, setConfirmConfig] = useState<{
     isOpen: boolean;
     title: string;
@@ -64,6 +64,7 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
       don_gia: typeof editingPackage.don_gia === 'string' ? parseInt(editingPackage.don_gia) : (editingPackage.don_gia || Number(editingPackage.gia_tien) || 0),
       don_gia_theo_buoi: editingPackage.don_gia_theo_buoi ? (typeof editingPackage.don_gia_theo_buoi === 'string' ? parseInt(editingPackage.don_gia_theo_buoi) : editingPackage.don_gia_theo_buoi) : undefined,
       anh_goi: editingPackage.anh_goi || null,
+      anh_gallery: editingPackage.anh_gallery || [],
       trang_thai: editingPackage.trang_thai || 'hoat_dong',
     } : {
       trang_thai: 'hoat_dong',
@@ -76,6 +77,7 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
       don_gia: 0,
       don_gia_theo_buoi: undefined,
       anh_goi: null,
+      anh_gallery: [],
     }
   });
 
@@ -146,54 +148,6 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
     loadCats();
   }, [editingPackage, setValue]);
 
-  // Image Upload helper functions
-  const handleImageFile = (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      toast.error('Vui lòng tải lên tệp tin định dạng ảnh (PNG, JPG, JPEG)');
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const base64 = e.target?.result as string;
-      setImagePreview(base64);
-      setValue('anh_goi', base64);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true);
-    } else if (e.type === 'dragleave') {
-      setDragActive(false);
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleImageFile(e.dataTransfer.files[0]);
-    }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      handleImageFile(e.target.files[0]);
-    }
-  };
-
-  const removeImage = () => {
-    setImagePreview(null);
-    setValue('anh_goi', null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
   const executeSave = async (data: PackageFormValues) => {
     try {
       const isEdit = !!(editingPackage && editingPackage.id);
@@ -209,6 +163,7 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
         don_gia: data.don_gia,
         don_gia_theo_buoi,
         anh_goi: data.anh_goi || null,
+        anh_gallery: data.anh_gallery || [],
         danh_muc_goi_id: data.danh_muc_goi_id || null,
         quy_trinh: data.quy_trinh || '',
         muc_tieu: data.muc_tieu || '',
@@ -317,73 +272,20 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
             {/* LEFT PANEL (33% width) - Interactive Image Upload & Dynamic Guide */}
             <div className="col-span-1 p-8 bg-slate-50/40 flex flex-col justify-between space-y-6">
               <div className="space-y-6">
-                <div>
-                  <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Ảnh Đại Diện Gói *</h4>
-                  
-                  {/* Drag and Drop Zone */}
-                  <div 
-                    onDragEnter={handleDrag}
-                    onDragOver={handleDrag}
-                    onDragLeave={handleDrag}
-                    onDrop={handleDrop}
-                    onClick={() => fileInputRef.current?.click()}
-                    className={`relative w-full aspect-[4/3] rounded-2xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all duration-300 overflow-hidden ${
-                      dragActive 
-                        ? 'border-emerald-600 bg-emerald-50/30 shadow-lg scale-98' 
-                        : imagePreview 
-                          ? 'border-zinc-200 hover:border-emerald-600' 
-                          : 'border-zinc-250 bg-white hover:bg-slate-50/50 hover:border-zinc-350'
-                    }`}
-                  >
-                    <input 
-                      type="file" 
-                      ref={fileInputRef}
-                      onChange={handleFileChange}
-                      accept="image/*"
-                      className="hidden" 
-                    />
-                    
-                    {imagePreview ? (
-                      <div className="group relative w-full h-full">
-                        <img 
-                          src={imagePreview} 
-                          alt="Gói Dịch Vụ" 
-                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
-                        />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              fileInputRef.current?.click();
-                            }}
-                            className="bg-white hover:bg-slate-100 text-slate-700 text-[10px] font-bold px-3 py-1.5 rounded-xl shadow transition-all"
-                          >
-                            Đổi Ảnh
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              removeImage();
-                            }}
-                            className="bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-xl shadow transition-all"
-                          >
-                            Xóa
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="p-6 text-center space-y-2 pointer-events-none">
-                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
-                          <UploadCloud className="w-5 h-5" />
-                        </div>
-                        <p className="text-[11px] font-bold text-slate-600">Tải ảnh đại diện gói</p>
-                        <p className="text-[9px] text-slate-400">Kéo thả hoặc nhấn để duyệt file ảnh</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <ImageUploadZone
+                  value={watch('anh_goi') || null}
+                  onChange={(url) => setValue('anh_goi', url)}
+                  uploadType="package"
+                  aspectClass="aspect-[4/3]"
+                  label="Ảnh Đại Diện Gói *"
+                />
+
+                <GalleryUploadZone
+                  value={watch('anh_gallery') || []}
+                  onChange={(urls) => setValue('anh_gallery', urls)}
+                  uploadType="package"
+                  label="Thư viện ảnh thực tế"
+                />
 
                 {/* Badge Type Indicator */}
                 {isTypeSelected && (

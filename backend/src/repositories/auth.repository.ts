@@ -53,13 +53,14 @@ class AuthRepository {
     return null;
   }
 
-  async createUser(data: { ho_ten: string, email: string, mat_khau_hash: string }) {
+  async createUser(data: { ho_ten: string, email: string, mat_khau_hash: string, ngay_dong_y_dieu_khoan: Date }) {
     return prisma.khach_hang.create({
       data: {
         ho_ten: data.ho_ten,
         email: data.email,
         mat_khau_hash: data.mat_khau_hash,
         trang_thai: 'hoat_dong',
+        ngay_dong_y_dieu_khoan: data.ngay_dong_y_dieu_khoan,
       },
       select: {
         id: true,
@@ -167,7 +168,8 @@ class AuthRepository {
             select: {
               so_nam_kinh_nghiem: true,
               bang_cap_chung_chi: true,
-              mo_ta: true
+              mo_ta: true,
+              the_manh: true
             }
           }
         }
@@ -233,13 +235,14 @@ class AuthRepository {
     return null;
   }
 
-  async updateProfile(userId: string | number, data: { 
-    ho_ten: string; 
+  async updateProfile(userId: string | number, data: {
+    ho_ten: string;
     so_dien_thoai: string;
     anh_dai_dien?: string;
     so_nam_kinh_nghiem?: number;
     bang_cap_chung_chi?: string;
     mo_ta?: string;
+    the_manh?: string[];
   }) {
     const isNguoiDung = typeof userId === 'number' || (typeof userId === 'string' && /^\d+$/.test(userId));
     if (isNguoiDung) {
@@ -265,24 +268,27 @@ class AuthRepository {
 
       const isExpertRole = [3, 4].includes(updatedUser.vai_tro_id);
       let hoSoChuyenGia = null;
-      if (isExpertRole && (data.so_nam_kinh_nghiem !== undefined || data.bang_cap_chung_chi !== undefined || data.mo_ta !== undefined)) {
+      if (isExpertRole && (data.so_nam_kinh_nghiem !== undefined || data.bang_cap_chung_chi !== undefined || data.mo_ta !== undefined || data.the_manh !== undefined)) {
         hoSoChuyenGia = await prisma.ho_so_chuyen_gia.upsert({
           where: { nguoi_dung_id: parsedId },
           create: {
             nguoi_dung_id: parsedId,
             so_nam_kinh_nghiem: data.so_nam_kinh_nghiem || 0,
             bang_cap_chung_chi: data.bang_cap_chung_chi || '',
-            mo_ta: data.mo_ta || ''
+            mo_ta: data.mo_ta || '',
+            the_manh: data.the_manh || []
           },
           update: {
             so_nam_kinh_nghiem: data.so_nam_kinh_nghiem !== undefined ? data.so_nam_kinh_nghiem : undefined,
             bang_cap_chung_chi: data.bang_cap_chung_chi !== undefined ? data.bang_cap_chung_chi : undefined,
-            mo_ta: data.mo_ta !== undefined ? data.mo_ta : undefined
+            mo_ta: data.mo_ta !== undefined ? data.mo_ta : undefined,
+            the_manh: data.the_manh !== undefined ? data.the_manh : undefined
           },
           select: {
             so_nam_kinh_nghiem: true,
             bang_cap_chung_chi: true,
-            mo_ta: true
+            mo_ta: true,
+            the_manh: true
           }
         });
       } else {
@@ -291,7 +297,8 @@ class AuthRepository {
           select: {
             so_nam_kinh_nghiem: true,
             bang_cap_chung_chi: true,
-            mo_ta: true
+            mo_ta: true,
+            the_manh: true
           }
         });
       }

@@ -13,7 +13,8 @@ export const packageSchema = z.object({
     quy_trinh: z.string().min(1, 'Quy trình trị liệu là bắt buộc'),
     muc_tieu: z.string().min(1, 'Mục tiêu trị liệu là bắt buộc'),
     trang_thai: z.enum(['hoat_dong', 'tam_ngung']).default('hoat_dong'),
-    anh_goi: z.string().optional().nullable()
+    anh_goi: z.string().optional().nullable(),
+    anh_gallery: z.array(z.string()).optional().default([])
   })
 });
 

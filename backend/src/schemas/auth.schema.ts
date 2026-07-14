@@ -12,6 +12,9 @@ export const registerSchema = z.object({
     ho_ten: z.string({ required_error: 'Họ tên là bắt buộc' }).min(2, 'Họ tên phải có ít nhất 2 ký tự'),
     email: z.string({ required_error: 'Email là bắt buộc' }).email('Email không hợp lệ'),
     password: z.string({ required_error: 'Mật khẩu là bắt buộc' }).min(6, 'Mật khẩu phải có ít nhất 6 ký tự'),
+    dong_y_dieu_khoan: z.literal(true, {
+      errorMap: () => ({ message: 'Bạn cần đồng ý với Điều khoản dịch vụ để đăng ký tài khoản' })
+    })
   })
 });
 

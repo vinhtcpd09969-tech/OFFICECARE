@@ -33,6 +33,7 @@ model nguoi_dung {
   refresh_tokens        refresh_tokens[]
   tam_giu_cho           tam_giu_cho[]
   thong_bao             thong_bao[]
+  bai_viet              bai_viet[]
 }
 
 model ho_so_chuyen_gia {
@@ -41,6 +42,7 @@ model ho_so_chuyen_gia {
   so_nam_kinh_nghiem Int?
   bang_cap_chung_chi String?
   mo_ta              String?
+  the_manh           String[]   @default([])
   nguoi_dung         nguoi_dung @relation(fields: [nguoi_dung_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
@@ -68,6 +70,7 @@ model khach_hang {
   gioi_tinh           String?               @db.VarChar(10)
   trang_thai          String                @default("hoat_dong") @db.VarChar(20)
   diem_uy_tin         Int                   @default(100)
+  ngay_dong_y_dieu_khoan DateTime?          @db.Timestamptz(6)
   cuoc_hen            cuoc_hen[]
   danh_gia_chat_luong danh_gia_chat_luong[]
   hoa_don             hoa_don[]
@@ -137,6 +140,7 @@ model goi_dich_vu {
   don_gia_theo_buoi BigInt
   trang_thai        String             @default("hoat_dong") @db.VarChar(20)
   anh_goi           String?
+  anh_gallery       String[]           @default([])
   danh_muc_goi_id   String?            @db.Uuid
   muc_tieu          String?
   quy_trinh         String?
@@ -299,4 +303,27 @@ model tam_giu_cho {
   nguoi_dung        nguoi_dung?  @relation(fields: [nhan_su_id], references: [id], onUpdate: NoAction)
 
   @@index([thoi_gian_het_han], map: "idx_tam_giu_cho_het_han")
+}
+
+model bai_viet {
+  id               String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tieu_de          String     @db.VarChar(200)
+  slug             String     @unique @db.VarChar(255)
+  tom_tat          String     @db.Text
+  noi_dung         String     @db.Text
+  anh_bia          String?    @db.Text
+  danh_muc         String     @db.VarChar(30)
+  trang_thai       String     @default("nhap") @db.VarChar(20)
+  meta_title       String?    @db.VarChar(70)
+  meta_description String?    @db.VarChar(160)
+  meta_keywords    String?    @db.VarChar(255)
+  luot_xem         Int        @default(0)
+  nguoi_viet_id    Int
+  ngay_dang        DateTime?  @db.Timestamptz(6)
+  ngay_tao         DateTime   @default(now()) @db.Timestamptz(6)
+  ngay_cap_nhat    DateTime   @default(now()) @updatedAt @db.Timestamptz(6)
+  nguoi_dung       nguoi_dung @relation(fields: [nguoi_viet_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([trang_thai, ngay_dang])
+  @@index([danh_muc])
 }

@@ -64,3 +64,20 @@ export const getFeedback = () => api.get('/admin/feedback');
 export const getDashboardSummary = () => api.get('/admin/analytics/summary');
 export const getRevenueStats = () => api.get('/admin/analytics/revenue');
 export const getStaffPerformance = () => api.get('/admin/analytics/performance');
+
+// Articles (Blog)
+export const getArticles = (params?: { danh_muc?: string; trang_thai?: string; search?: string }) =>
+  api.get('/admin/articles', { params });
+export const getArticleById = (id: string) => api.get(`/admin/articles/${id}`);
+export const createArticle = (data: any) => api.post('/admin/articles', data);
+export const updateArticle = (id: string, data: any) => api.put(`/admin/articles/${id}`, data);
+export const deleteArticle = (id: string) => api.delete(`/admin/articles/${id}`);
+
+// Upload ảnh dùng chung (blog | package | specialist)
+export const uploadImage = (file: File, type: 'blog' | 'package' | 'specialist' = 'blog') => {
+  const formData = new FormData();
+  formData.append('image', file);
+  return api.post(`/admin/uploads/image?type=${type}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+};

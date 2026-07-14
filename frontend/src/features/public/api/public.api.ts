@@ -8,3 +8,8 @@ export const getPublicSpecialists = () => api.get('/client/specialists');
 export const getPublicSpecialistById = (id: string | number) => api.get(`/client/specialists/${id}`);
 export const getPublicTestimonials = () => api.get('/client/testimonials');
 export const getPublicTopServices = () => api.get('/client/top-services');
+
+// Public Articles (Blog)
+export const getPublicArticles = (danhMuc?: string) =>
+  api.get('/client/articles', { params: danhMuc ? { danh_muc: danhMuc } : undefined });
+export const getPublicArticleBySlug = (slug: string) => api.get(`/client/articles/${slug}`);

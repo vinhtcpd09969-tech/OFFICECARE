@@ -1,3 +1,5 @@
+import { resolveImageUrl } from '../../../../../utils/imageUrl';
+
 interface StaffRoomAllocationProps {
   selectedAppointment: any;
   resolvedRoomName: string;
@@ -162,13 +164,25 @@ export function StaffRoomAllocation({
                         : 'bg-white dark:bg-zinc-900 border-slate-150 dark:border-zinc-800 hover:border-slate-350 dark:hover:border-zinc-700 cursor-pointer'
                   }`}
                 >
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-[10px] shrink-0 border ${
-                    isSelected && isAvailable
-                      ? 'bg-emerald-600 dark:bg-emerald-700 text-white border-emerald-600'
-                      : 'bg-slate-100 dark:bg-zinc-800 text-slate-650 dark:text-zinc-450 border-slate-200 dark:border-zinc-750'
-                  }`}>
-                    {getAvatarInitials(staff.ho_ten)}
-                  </div>
+                  {staff.anh_dai_dien ? (
+                    <img
+                      src={resolveImageUrl(staff.anh_dai_dien)}
+                      alt={staff.ho_ten}
+                      className={`w-8 h-8 rounded-full object-cover shrink-0 border-2 ${
+                        isSelected && isAvailable
+                          ? 'border-emerald-600'
+                          : 'border-slate-200 dark:border-zinc-750'
+                      }`}
+                    />
+                  ) : (
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-[10px] shrink-0 border ${
+                      isSelected && isAvailable
+                        ? 'bg-emerald-600 dark:bg-emerald-700 text-white border-emerald-600'
+                        : 'bg-slate-100 dark:bg-zinc-800 text-slate-650 dark:text-zinc-450 border-slate-200 dark:border-zinc-750'
+                    }`}>
+                      {getAvatarInitials(staff.ho_ten)}
+                    </div>
+                  )}
 
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-black text-slate-800 dark:text-zinc-200 truncate flex items-center gap-1.5">

@@ -13,13 +13,14 @@ export const getPendingRatingAppointments = () =>
 export const rateAppointment = (id: string, data: { so_sao: number; nhan_xet?: string }) => 
   api.post(`/client/appointments/${id}/rate`, data);
 
-export const updateProfile = (data: { 
-  ho_ten: string; 
-  so_dien_thoai: string; 
+export const updateProfile = (data: {
+  ho_ten: string;
+  so_dien_thoai: string;
   anh_dai_dien?: string;
   so_nam_kinh_nghiem?: number;
   bang_cap_chung_chi?: string;
   mo_ta?: string;
+  the_manh?: string[];
 }) => api.put('/auth/profile', data);
 
 export const changePassword = (data: { oldPassword: string; newPassword: string }) =>

@@ -20,7 +20,8 @@ import {
   FileText,
   BadgeCheck,
   Upload,
-  Trash2
+  Trash2,
+  Tag
 } from 'lucide-react';
 
 export default function CustomerSettings() {
@@ -44,6 +45,8 @@ export default function CustomerSettings() {
   const [bangCapChungChi, setBangCapChungChi] = useState('');
   const [anhChungChiList, setAnhChungChiList] = useState<string[]>([]);
   const [moTa, setMoTa] = useState(user?.ho_so_chuyen_gia?.mo_ta || '');
+  const [theManh, setTheManh] = useState<string[]>(user?.ho_so_chuyen_gia?.the_manh || []);
+  const [theManhInput, setTheManhInput] = useState('');
 
   // Password states
   const [oldPassword, setOldPassword] = useState('');
@@ -81,28 +84,19 @@ export default function CustomerSettings() {
       setAnhDaiDien(user.anh_dai_dien || '');
       setSoNamKinhNghiem(user.ho_so_chuyen_gia?.so_nam_kinh_nghiem || 0);
       setMoTa(user.ho_so_chuyen_gia?.mo_ta || '');
-      
+      setTheManh(user.ho_so_chuyen_gia?.the_manh || []);
+
+      // Định dạng chuẩn: chuỗi JSON { text: string, images: string[] } (đã chuẩn hóa toàn bộ dữ liệu DB).
+      // Vẫn giữ try/catch phòng hờ dữ liệu chỉnh sửa tay không đúng định dạng.
       const rawCert = user.ho_so_chuyen_gia?.bang_cap_chung_chi || '';
       if (rawCert) {
         try {
           const parsed = JSON.parse(rawCert);
           setBangCapChungChi(parsed.text || '');
-          if (Array.isArray(parsed.images)) {
-            setAnhChungChiList(parsed.images);
-          } else if (parsed.image) {
-            setAnhChungChiList([parsed.image]);
-          } else {
-            setAnhChungChiList([]);
-          }
+          setAnhChungChiList(Array.isArray(parsed.images) ? parsed.images : []);
         } catch {
-          // Check if it's a list of image paths
-          if (rawCert.includes('/') || rawCert.includes('data:image')) {
-            setAnhChungChiList(rawCert.split(',').filter(Boolean));
-            setBangCapChungChi('');
-          } else {
-            setBangCapChungChi(rawCert);
-            setAnhChungChiList([]);
-          }
+          setBangCapChungChi(rawCert);
+          setAnhChungChiList([]);
         }
       } else {
         setBangCapChungChi('');
@@ -145,6 +139,25 @@ export default function CustomerSettings() {
 
   const removeCertImage = (index: number) => {
     setAnhChungChiList(prev => prev.filter((_, idx) => idx !== index));
+  };
+
+  const addTheManh = () => {
+    const value = theManhInput.trim();
+    if (!value) return;
+    if (theManh.length >= 6) {
+      toast.error('Chỉ được thêm tối đa 6 thế mạnh chuyên sâu');
+      return;
+    }
+    if (theManh.includes(value)) {
+      toast.error('Thế mạnh này đã được thêm rồi');
+      return;
+    }
+    setTheManh(prev => [...prev, value]);
+    setTheManhInput('');
+  };
+
+  const removeTheManh = (index: number) => {
+    setTheManh(prev => prev.filter((_, idx) => idx !== index));
   };
 
   // Dynamic Avatar preview
@@ -204,6 +217,7 @@ export default function CustomerSettings() {
         payload.so_nam_kinh_nghiem = soNamKinhNghiem;
         payload.bang_cap_chung_chi = certValue;
         payload.mo_ta = moTa;
+        payload.the_manh = theManh;
       }
 
       await updateProfile(payload);
@@ -216,7 +230,8 @@ export default function CustomerSettings() {
         ho_so_chuyen_gia: isExpert ? {
           so_nam_kinh_nghiem: soNamKinhNghiem,
           bang_cap_chung_chi: certValue,
-          mo_ta: moTa
+          mo_ta: moTa,
+          the_manh: theManh
         } : null
       });
 
@@ -551,6 +566,57 @@ export default function CustomerSettings() {
                         rows={10}
                         className="w-full bg-zinc-50 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded-2xl px-4 py-3.5 text-xs text-secondary dark:text-zinc-200 font-semibold outline-none resize-y leading-relaxed focus:ring-2 focus:ring-primary/20"
                       />
+                    </div>
+
+                    {/* Row 2.5: Thế mạnh chuyên sâu (tag list) */}
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block flex items-center gap-1">
+                        <Tag size={13} className="text-primary" />
+                        Thế mạnh chuyên sâu (tối đa 6 thẻ, hiển thị công khai trên hồ sơ)
+                      </label>
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {theManh.map((tag, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center gap-1.5 bg-primary/5 text-primary border border-primary/10 px-3 py-1.5 rounded-xl text-xs font-bold"
+                          >
+                            {tag}
+                            <button
+                              type="button"
+                              onClick={() => removeTheManh(idx)}
+                              className="text-primary/60 hover:text-rose-600 transition-colors"
+                              title="Xóa thế mạnh này"
+                            >
+                              <Trash2 size={11} />
+                            </button>
+                          </span>
+                        ))}
+                        {theManh.length === 0 && (
+                          <span className="text-[10px] text-zinc-400 font-semibold">Chưa có thế mạnh nào được thêm.</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={theManhInput}
+                          onChange={(e) => setTheManhInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              addTheManh();
+                            }
+                          }}
+                          placeholder="Ví dụ: Trị liệu bằng tay (Manual Therapy)..."
+                          className="flex-1 bg-zinc-50 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded-xl px-3.5 py-2.5 text-xs text-secondary dark:text-zinc-200 font-semibold outline-none focus:ring-2 focus:ring-primary/20"
+                        />
+                        <button
+                          type="button"
+                          onClick={addTheManh}
+                          className="shrink-0 bg-primary/10 hover:bg-primary/20 text-primary font-bold text-xs px-4 py-2.5 rounded-xl transition-colors"
+                        >
+                          Thêm
+                        </button>
+                      </div>
                     </div>
 
                     {/* Row 3: Credentials & Uploads */}

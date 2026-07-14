@@ -23,7 +23,8 @@ import {
   Moon,
   Cpu,
   Settings,
-  Search
+  Search,
+  Newspaper
 } from 'lucide-react';
 
 export default function AdminLayout() {
@@ -372,6 +373,7 @@ export default function AdminLayout() {
     { name: 'Thiết bị y tế', path: '/admin/equipment', icon: <Cpu size={18} />, searchPlaceholder: 'Tìm kiếm thiết bị...', roles: [5, 6] },
     { name: 'Tài chính', path: '/admin/finance', icon: <DollarSign size={18} />, roles: [5, 6] },
     { name: 'Marketing', path: '/admin/marketing', icon: <Megaphone size={18} />, roles: [5, 6] },
+    { name: 'Bài viết', path: '/admin/articles', icon: <Newspaper size={18} />, searchPlaceholder: 'Tìm kiếm bài viết...', roles: [5, 6] },
     { name: 'Đánh giá', path: '/admin/feedback', icon: <Star size={18} />, roles: [5, 6] },
   ];
 

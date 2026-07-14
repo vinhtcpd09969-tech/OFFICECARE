@@ -1,31 +1,28 @@
 import { useState, useEffect } from 'react';
-import { Search, Printer, ChevronLeft, FileText, AlertTriangle, Stethoscope, Activity, Clock, UserCheck, CalendarCheck } from 'lucide-react';
+import { Search, Printer, ChevronLeft, FileText, AlertTriangle, Stethoscope, Sparkles, Activity, Clock, UserCheck } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { getMedicalRecords } from '../../api/admin.api';
 import { format } from 'date-fns';
+import { resolveImageUrl } from '../../../../utils/imageUrl';
+import { getMinPaymentRequired, resolveGrossBeforeExamDeduction } from '../../../../utils/billing';
 
-function getMinPaymentRequired(
-  hinhThuc: string,
-  packageTotal: number,
-  totalSessions: number,
-  sessionNum: number
-): number {
-  if (hinhThuc === 'tra_thang') {
-    return packageTotal;
+function StaffAvatar({ name, photo, size = 'sm' }: { name?: string | null; photo?: string | null; size?: 'sm' | 'md' }) {
+  const dimension = size === 'md' ? 'size-10 text-xs' : 'size-6 text-[9px]';
+  const initial = name?.trim()?.charAt(0)?.toUpperCase() || '?';
+  if (photo) {
+    return (
+      <img
+        src={resolveImageUrl(photo)}
+        alt={name || 'Nhân sự'}
+        className={`${dimension} rounded-full object-cover border-2 border-white shadow-sm shrink-0`}
+      />
+    );
   }
-  if (hinhThuc === 'tra_gop') {
-    const cutoff = Math.floor(totalSessions / 2);
-    if (sessionNum >= cutoff) {
-      return packageTotal;
-    } else {
-      return Math.round(packageTotal / 2);
-    }
-  }
-  if (hinhThuc === 'tung_buoi') {
-    const sessionPrice = Math.round(packageTotal / totalSessions);
-    return (sessionNum - 1) * sessionPrice;
-  }
-  return 0;
+  return (
+    <div className={`${dimension} rounded-full bg-gradient-to-br from-slate-700 to-slate-900 text-white flex items-center justify-center font-black border-2 border-white shadow-sm shrink-0`}>
+      {initial}
+    </div>
+  );
 }
 
 export default function ManageMedicalRecords() {
@@ -131,12 +128,13 @@ export default function ManageMedicalRecords() {
         patientCode: p.ma_khach_hang,
         diem_uy_tin: p.diem_uy_tin,
         type: 'exam',
-        packageName: 'Khám lâm sàng & Lượng giá',
+        packageName: ap.ten_dich_vu || 'Khám lâm sàng & Lượng giá',
         loai_goi: 'LE',
         so_buoi_da_dung: 1,
         tong_so_buoi: 1,
         latestSession: format(new Date(ap.ngay_gio_bat_dau), 'HH:mm dd/MM/yyyy'),
         staffName: ap.ten_nhan_su || 'Chưa phân công',
+        staffPhoto: ap.anh_nhan_su,
         status: ap.trang_thai,
         phac_do_dieu_tri_id: ap.phac_do_dieu_tri_id,
         originalRecord: p
@@ -155,12 +153,13 @@ export default function ManageMedicalRecords() {
         patientCode: p.ma_khach_hang,
         diem_uy_tin: p.diem_uy_tin,
         type: 'single',
-        packageName: 'Trị liệu dịch vụ lẻ',
+        packageName: ap.ten_dich_vu || 'Trị liệu dịch vụ lẻ',
         loai_goi: 'LE',
         so_buoi_da_dung: 1,
         tong_so_buoi: 1,
         latestSession: format(new Date(ap.ngay_gio_bat_dau), 'HH:mm dd/MM/yyyy'),
         staffName: ap.ten_nhan_su || 'Chưa phân công',
+        staffPhoto: ap.anh_nhan_su,
         status: ap.trang_thai,
         originalRecord: p
       });
@@ -230,10 +229,9 @@ export default function ManageMedicalRecords() {
 
   // Selected appointment details (for exam/single detail view)
   const selectedApt = selectedPatient?.appointments?.find((ap: any) => ap.id === selectedAptId);
-  const prescribedPlan = selectedApt ? selectedPatient?.plans?.find((p: any) => 
-    p.cuoc_hen_id === selectedApt.id || 
-    (p.trang_thai === 'cho_kich_hoat' && selectedPatient?.plans?.length === 1)
-  ) : null;
+  const prescribedPlan = selectedApt
+    ? selectedPatient?.plans?.find((p: any) => p.cuoc_hen_id === selectedApt.id)
+    : null;
   const bookedApt = prescribedPlan ? selectedPatient?.appointments?.find((ap: any) => 
     String(ap.goi_dich_vu_id) === String(prescribedPlan.goi_dich_vu_id) && 
     ap.loai !== 'KHAM' && 
@@ -396,7 +394,12 @@ export default function ManageMedicalRecords() {
                             {rec.latestSession}
                           </span>
                         </td>
-                        <td className="p-4 font-bold text-slate-700">{rec.staffName}</td>
+                        <td className="p-4 font-bold text-slate-700">
+                          <div className="flex items-center gap-2">
+                            <StaffAvatar name={rec.staffName} photo={rec.staffPhoto} />
+                            <span>{rec.staffName}</span>
+                          </div>
+                        </td>
                         <td className="p-4 text-center">
                           <span className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${
                             rec.status === 'hoan_thanh' 
@@ -638,11 +641,13 @@ export default function ManageMedicalRecords() {
                        const isPrevFinished = sessionNum === 1 || (prevAppt && prevAppt.trang_thai === 'hoan_thanh');
                        
                        // Check if previous sessions are paid (Unified mathematical check)
+                       const grossBeforeExamDeduction = resolveGrossBeforeExamDeduction(selectedPlan);
                        const minRequired = getMinPaymentRequired(
                          selectedPlan.hinh_thuc_thanh_toan_goi || 'tra_thang',
                          Number(selectedPlan.tong_tien_phai_tra || 0),
                          Number(selectedPlan.tong_so_buoi || 10),
-                         sessionNum
+                         sessionNum,
+                         grossBeforeExamDeduction
                        );
                        const soTienDaTra = Number(selectedPlan.so_tien_da_tra || 0);
                        const isPaymentBlocked = selectedPlan.loai_goi !== 'LE' && soTienDaTra < minRequired;
@@ -689,7 +694,20 @@ export default function ManageMedicalRecords() {
                              >
                                Kích hoạt ngay
                              </button>
-                           ) : isBlocked ? (
+                           ) : isPaymentBlocked && isPrevFinished && selectedPlan.hoa_don_id ? (
+                            // Bị chặn vì chưa đóng đủ tiền (không phải vì buổi trước chưa xong) —
+                            // mở thẳng hóa đơn gói để thu Đợt 2, thay vì để nút chết không lối thoát.
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const basePath = window.location.pathname.startsWith('/receptionist') ? '/receptionist/billing' : '/admin/finance';
+                                window.location.href = `${basePath}?hoa_don_id=${selectedPlan.hoa_don_id}`;
+                              }}
+                              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95 cursor-pointer shrink-0"
+                            >
+                              💵 Thanh toán Đợt 2
+                            </button>
+                          ) : isBlocked ? (
                             <button
                               disabled
                               className="px-4 py-2 bg-slate-200 text-slate-400 rounded-xl text-xs font-bold cursor-not-allowed shrink-0"
@@ -831,37 +849,59 @@ export default function ManageMedicalRecords() {
                 )
               )}
 
-              <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4">
-                <div className="flex justify-between items-center border-b border-slate-50 pb-3">
-                  <div>
-                    <span className="text-[9px] font-black text-slate-400 uppercase block tracking-wider">Thông tin ca lịch lẻ</span>
-                    <h3 className="text-base font-black text-slate-800 mt-0.5">
-                      {selectedApt.loai === 'KHAM' ? 'Khám lâm sàng & Lượng giá' : 'Trị liệu dịch vụ lẻ'}
-                    </h3>
+              <div className={`rounded-2xl p-6 shadow-sm border overflow-hidden relative ${
+                selectedApt.loai === 'KHAM'
+                  ? 'bg-gradient-to-br from-indigo-950 via-indigo-900 to-slate-900 border-indigo-900/50'
+                  : 'bg-gradient-to-br from-sky-950 via-sky-900 to-slate-900 border-sky-900/50'
+              }`}>
+                <div className="absolute -right-8 -top-8 size-40 rounded-full bg-white/5 blur-2xl" />
+                <div className="relative flex flex-col sm:flex-row justify-between items-start sm:items-center gap-5">
+                  <div className="flex items-start gap-4">
+                    <div className={`size-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${
+                      selectedApt.loai === 'KHAM' ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-400/20' : 'bg-sky-500/15 text-sky-300 border border-sky-400/20'
+                    }`}>
+                      {selectedApt.loai === 'KHAM' ? <Stethoscope size={24} className="stroke-[2.25]" /> : <Sparkles size={24} className="stroke-[2.25]" />}
+                    </div>
+                    <div className="space-y-1.5">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-white/40 block">
+                        {selectedApt.loai === 'KHAM' ? 'Ca khám lâm sàng' : 'Ca trị liệu dịch vụ lẻ'}
+                      </span>
+                      <h3 className="text-lg font-black text-white leading-tight">
+                        {selectedApt.ten_dich_vu || (selectedApt.loai === 'KHAM' ? 'Khám lâm sàng & Lượng giá' : 'Trị liệu dịch vụ lẻ')}
+                      </h3>
+                      {selectedApt.gia_dich_vu != null && (
+                        <span className="text-xs font-bold text-emerald-300">
+                          {Number(selectedApt.gia_dich_vu).toLocaleString('vi-VN')}đ
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <span className={`inline-flex px-3 py-1 rounded-full text-[10px] font-black uppercase ${
-                    selectedApt.trang_thai === 'hoan_thanh' 
-                      ? 'bg-emerald-100 text-emerald-800' 
-                      : 'bg-amber-100 text-amber-850'
+                  <span className={`inline-flex px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase shrink-0 ${
+                    selectedApt.trang_thai === 'hoan_thanh'
+                      ? 'bg-emerald-400/15 text-emerald-300 border border-emerald-400/25'
+                      : 'bg-amber-400/15 text-amber-300 border border-amber-400/25'
                   }`}>
-                    {selectedApt.trang_thai === 'hoan_thanh' ? 'Hoàn thành' : 'Đã đặt'}
+                    {selectedApt.trang_thai === 'hoan_thanh' ? '✓ Hoàn thành' : 'Đã đặt lịch'}
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                <div className="relative grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs mt-6 pt-5 border-t border-white/10">
                   <div>
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Chuyên viên phụ trách</span>
-                    <strong className="text-slate-800 block mt-1">{selectedApt.ten_nhan_su || 'Chưa phân công'}</strong>
+                    <span className="text-[9px] font-bold text-white/40 uppercase tracking-wider block mb-1.5">Chuyên viên phụ trách</span>
+                    <div className="flex items-center gap-2">
+                      <StaffAvatar name={selectedApt.ten_nhan_su} photo={selectedApt.anh_nhan_su} size="md" />
+                      <strong className="text-white block">{selectedApt.ten_nhan_su || 'Chưa phân công'}</strong>
+                    </div>
                   </div>
                   <div>
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Ngày thực hiện</span>
-                    <strong className="text-slate-800 block mt-1">
+                    <span className="text-[9px] font-bold text-white/40 uppercase tracking-wider block">Ngày thực hiện</span>
+                    <strong className="text-white block mt-1">
                       {format(new Date(selectedApt.ngay_gio_bat_dau), 'HH:mm dd/MM/yyyy')}
                     </strong>
                   </div>
                   <div>
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Phòng làm việc</span>
-                    <strong className="text-slate-800 block mt-1">{selectedApt.ten_phong || 'Chưa phân công'}</strong>
+                    <span className="text-[9px] font-bold text-white/40 uppercase tracking-wider block">Phòng làm việc</span>
+                    <strong className="text-white block mt-1">{selectedApt.ten_phong || 'Chưa phân công'}</strong>
                   </div>
                 </div>
               </div>

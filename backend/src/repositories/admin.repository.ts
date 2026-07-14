@@ -1,4 +1,5 @@
 import { pool } from '../config/db';
+import prisma from '../config/prisma';
 import { calculatePackageCancellationRefund, PACKAGE_ACTIVATION_WINDOW_DAYS } from '../domain/billing';
 
 class AdminRepository {
@@ -53,19 +54,34 @@ class AdminRepository {
   }
 
   // --- QUẢN LÝ GÓI DỊCH VỤ / KHÁM / LIỆU TRÌNH ────────────────────────────────
+  // Dùng Prisma (không phải raw SQL) — khối này không có join phức tạp, và đang phải
+  // sửa tay tham số $N để thêm anh_gallery nên tiện thể bỏ luôn kiểu tham số vị trí dễ đếm nhầm.
   async getPackages() {
-    const { rows } = await pool.query(`
-      SELECT id, ten_goi, loai_goi, tong_so_buoi, thoi_luong_phut, 
-             don_gia, don_gia_theo_buoi, quy_trinh, muc_tieu, trang_thai, anh_goi,
-             danh_muc_goi_id as danh_muc_id,
-             don_gia as gia_tien, don_gia as gia_goi, don_gia as gia_goc,
-             thoi_luong_phut as thoi_luong_buoi_phut,
-             (SELECT COUNT(ch.id) FROM cuoc_hen ch WHERE ch.goi_dich_vu_id = goi_dich_vu.id) as luot_dung
-      FROM goi_dich_vu
-      WHERE trang_thai != 'da_xoa'
-      ORDER BY ten_goi ASC
-    `);
-    return rows;
+    const packages = await prisma.goi_dich_vu.findMany({
+      where: { trang_thai: { not: 'da_xoa' } },
+      orderBy: { ten_goi: 'asc' },
+      include: { _count: { select: { cuoc_hen: true } } }
+    });
+
+    return packages.map(({ _count, ...pkg }) => ({
+      ...pkg,
+      danh_muc_id: pkg.danh_muc_goi_id,
+      gia_tien: pkg.don_gia,
+      gia_goi: pkg.don_gia,
+      gia_goc: pkg.don_gia,
+      thoi_luong_buoi_phut: pkg.thoi_luong_phut,
+      luot_dung: _count.cuoc_hen
+    }));
+  }
+
+  private async assertDanhMucCompatible(danhMucGoiId: string, loaiGoi: string) {
+    const category = await prisma.danh_muc_goi.findUnique({
+      where: { id: danhMucGoiId },
+      select: { loai_goi_ap_dung: true }
+    });
+    if (category && category.loai_goi_ap_dung !== loaiGoi) {
+      throw new Error('Danh mục chuyên khoa đã chọn không tương thích với loại gói này!');
+    }
   }
 
   async createPackage(data: any) {
@@ -75,34 +91,32 @@ class AdminRepository {
     const donGiaTheoBuoi = data.don_gia_theo_buoi ? BigInt(data.don_gia_theo_buoi) : BigInt(Math.round(Number(donGia) / tongSoBuoi));
 
     if (data.danh_muc_goi_id) {
-      const { rows: catRows } = await pool.query('SELECT loai_goi_ap_dung FROM danh_muc_goi WHERE id = $1', [data.danh_muc_goi_id]);
-      if (catRows.length > 0) {
-        const cat = catRows[0];
-        if (cat.loai_goi_ap_dung !== data.loai_goi) {
-          throw new Error('Danh mục chuyên khoa đã chọn không tương thích với loại gói này!');
-        }
-      }
+      await this.assertDanhMucCompatible(data.danh_muc_goi_id, data.loai_goi);
     }
 
-    const { rows } = await pool.query(
-      `INSERT INTO goi_dich_vu (ten_goi, loai_goi, tong_so_buoi, thoi_luong_phut, don_gia, don_gia_theo_buoi, quy_trinh, muc_tieu, trang_thai, anh_goi, danh_muc_goi_id) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) 
-       RETURNING *, don_gia as gia_tien, thoi_luong_phut as thoi_luong_buoi_phut, danh_muc_goi_id as danh_muc_id`,
-      [
-        data.ten_goi,
-        data.loai_goi || 'KHAM',
-        tongSoBuoi,
-        data.thoi_luong_phut || 30,
-        donGia,
-        donGiaTheoBuoi,
-        data.quy_trinh || null,
-        data.muc_tieu || null,
-        isAct,
-        data.anh_goi || null,
-        data.danh_muc_goi_id || null
-      ]
-    );
-    return rows[0];
+    const pkg = await prisma.goi_dich_vu.create({
+      data: {
+        ten_goi: data.ten_goi,
+        loai_goi: data.loai_goi || 'KHAM',
+        tong_so_buoi: tongSoBuoi,
+        thoi_luong_phut: data.thoi_luong_phut || 30,
+        don_gia: donGia,
+        don_gia_theo_buoi: donGiaTheoBuoi,
+        quy_trinh: data.quy_trinh || null,
+        muc_tieu: data.muc_tieu || null,
+        trang_thai: isAct,
+        anh_goi: data.anh_goi || null,
+        anh_gallery: data.anh_gallery || [],
+        danh_muc_goi_id: data.danh_muc_goi_id || null
+      }
+    });
+
+    return {
+      ...pkg,
+      gia_tien: pkg.don_gia,
+      thoi_luong_buoi_phut: pkg.thoi_luong_phut,
+      danh_muc_id: pkg.danh_muc_goi_id
+    };
   }
 
   async updatePackage(id: string, data: any) {
@@ -112,48 +126,46 @@ class AdminRepository {
     const donGiaTheoBuoi = data.don_gia_theo_buoi ? BigInt(data.don_gia_theo_buoi) : BigInt(Math.round(Number(donGia) / tongSoBuoi));
 
     if (data.danh_muc_goi_id) {
-      const { rows: catRows } = await pool.query('SELECT loai_goi_ap_dung FROM danh_muc_goi WHERE id = $1', [data.danh_muc_goi_id]);
-      if (catRows.length > 0) {
-        const cat = catRows[0];
-        if (cat.loai_goi_ap_dung !== data.loai_goi) {
-          throw new Error('Danh mục chuyên khoa đã chọn không tương thích với loại gói này!');
-        }
-      }
+      await this.assertDanhMucCompatible(data.danh_muc_goi_id, data.loai_goi);
     }
 
-    const { rows } = await pool.query(
-      `UPDATE goi_dich_vu 
-       SET ten_goi = $1, loai_goi = $2, tong_so_buoi = $3, thoi_luong_phut = $4, 
-           don_gia = $5, don_gia_theo_buoi = $6, quy_trinh = $7, muc_tieu = $8, trang_thai = $9, anh_goi = $10, danh_muc_goi_id = $11
-       WHERE id = $12 
-       RETURNING *, don_gia as gia_tien, thoi_luong_phut as thoi_luong_buoi_phut, danh_muc_goi_id as danh_muc_id`,
-      [
-        data.ten_goi,
-        data.loai_goi,
-        tongSoBuoi,
-        data.thoi_luong_phut || 30,
-        donGia,
-        donGiaTheoBuoi,
-        data.quy_trinh || null,
-        data.muc_tieu || null,
-        isAct,
-        data.anh_goi || null,
-        data.danh_muc_goi_id || null,
-        id
-      ]
-    );
-    return rows[0];
+    const pkg = await prisma.goi_dich_vu.update({
+      where: { id },
+      data: {
+        ten_goi: data.ten_goi,
+        loai_goi: data.loai_goi,
+        tong_so_buoi: tongSoBuoi,
+        thoi_luong_phut: data.thoi_luong_phut || 30,
+        don_gia: donGia,
+        don_gia_theo_buoi: donGiaTheoBuoi,
+        quy_trinh: data.quy_trinh || null,
+        muc_tieu: data.muc_tieu || null,
+        trang_thai: isAct,
+        anh_goi: data.anh_goi || null,
+        anh_gallery: data.anh_gallery || [],
+        danh_muc_goi_id: data.danh_muc_goi_id || null
+      }
+    });
+
+    return {
+      ...pkg,
+      gia_tien: pkg.don_gia,
+      thoi_luong_buoi_phut: pkg.thoi_luong_phut,
+      danh_muc_id: pkg.danh_muc_goi_id
+    };
   }
 
   async deletePackage(id: string) {
-    const { rows } = await pool.query("UPDATE goi_dich_vu SET trang_thai = 'da_xoa' WHERE id = $1 RETURNING *", [id]);
-    return rows[0];
+    return prisma.goi_dich_vu.update({
+      where: { id },
+      data: { trang_thai: 'da_xoa' }
+    });
   }
 
   // --- QUẢN LÝ NHÂN SỰ ---
   async getStaff() {
     const { rows } = await pool.query(`
-      SELECT nd.id, nd.ho_ten, nd.email, nd.so_dien_thoai, nd.trang_thai, vt.ten_vai_tro as vai_tro, ktv.id as chuyen_gia_id
+      SELECT nd.id, nd.ho_ten, nd.email, nd.so_dien_thoai, nd.trang_thai, nd.anh_dai_dien, vt.ten_vai_tro as vai_tro, ktv.id as chuyen_gia_id
       FROM nguoi_dung nd
       JOIN vai_tro vt ON nd.vai_tro_id = vt.id
       LEFT JOIN ho_so_chuyen_gia ktv ON nd.id = ktv.nguoi_dung_id
@@ -534,9 +546,13 @@ class AdminRepository {
         nd_bs.ho_ten as ten_bac_si,
         p_kham.ten_phong as ten_phong_kham,
         ch_kham.id as cuoc_hen_id,
+        hd.id as hoa_don_id,
         hd.hinh_thuc_thanh_toan_goi,
         hd.tong_tien_phai_tra,
-        hd.so_tien_da_tra
+        hd.so_tien_da_tra,
+        hd.tong_tien_goc,
+        hd.ti_le_giam_gia_goi,
+        hd.so_tien_giam_voucher
       FROM phac_do_dieu_tri pd
       JOIN goi_dich_vu g ON pd.goi_dich_vu_id = g.id
       LEFT JOIN hoa_don hd ON hd.phac_do_dieu_tri_id = pd.id
@@ -602,12 +618,14 @@ class AdminRepository {
       SELECT
         ch.id, ch.khach_hang_id, ch.phac_do_dieu_tri_id, ch.so_thu_tu_buoi, ch.goi_dich_vu_id,
         ch.ngay_gio_bat_dau, ch.ngay_gio_ket_thuc, ch.loai, ch.trang_thai, ch.ghi_chu_khach_hang as ghi_chu,
-        nd.ho_ten as ten_nhan_su, nd.vai_tro_id,
+        nd.ho_ten as ten_nhan_su, nd.vai_tro_id, nd.anh_dai_dien as anh_nhan_su,
         p.ten_phong as ten_phong,
+        dv.ten_goi as ten_dich_vu, dv.don_gia as gia_dich_vu,
         nk.vas_truoc, nk.vas_sau, nk.ghi_chu as ghi_chu_tri_lieu, nk.chan_doan as chan_doan_tri_lieu, nk.chong_chi_dinh as chong_chi_dinh_tri_lieu
       FROM cuoc_hen ch
       LEFT JOIN nguoi_dung nd ON ch.nhan_su_id = nd.id
       LEFT JOIN phong_lam_viec p ON ch.phong_id = p.id
+      LEFT JOIN goi_dich_vu dv ON ch.goi_dich_vu_id = dv.id
       LEFT JOIN nhat_ky_buoi_dieu_tri nk ON nk.cuoc_hen_id = ch.id
       ORDER BY ch.ngay_gio_bat_dau DESC
     `);
@@ -672,14 +690,26 @@ class AdminRepository {
           WHEN hd.cuoc_hen_id IS NOT NULL THEN COALESCE(dv.don_gia, 200000)
           ELSE 0
         END as chi_phi_kham,
-        EXISTS (
-          SELECT 1 FROM hoa_don sep_hd
+        (
+          SELECT 'HD-' || UPPER(SUBSTRING(sep_hd.id::text FROM 1 FOR 6))
+          FROM hoa_don sep_hd
           WHERE sep_hd.cuoc_hen_id = hd.cuoc_hen_id
             AND sep_hd.phac_do_dieu_tri_id IS NULL
             AND sep_hd.trang_thai = 'da_thanh_toan'
             AND sep_hd.tong_tien_phai_tra > 0
             AND sep_hd.id != hd.id
-        ) as da_thanh_toan_kham_rieng
+          LIMIT 1
+        ) as ma_hoa_don_kham_rieng,
+        (
+          SELECT sep_hd.ngay_tao
+          FROM hoa_don sep_hd
+          WHERE sep_hd.cuoc_hen_id = hd.cuoc_hen_id
+            AND sep_hd.phac_do_dieu_tri_id IS NULL
+            AND sep_hd.trang_thai = 'da_thanh_toan'
+            AND sep_hd.tong_tien_phai_tra > 0
+            AND sep_hd.id != hd.id
+          LIMIT 1
+        ) as ngay_thanh_toan_kham_rieng
       FROM hoa_don hd
       JOIN khach_hang kh ON hd.khach_hang_id = kh.id
       LEFT JOIN phac_do_dieu_tri pd ON hd.phac_do_dieu_tri_id = pd.id

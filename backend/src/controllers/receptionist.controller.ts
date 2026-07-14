@@ -245,7 +245,13 @@ export const checkPackagePayment = async (req: Request, res: Response): Promise<
     }
 
     const { rows } = await pool.query(`
-      SELECT hd.tong_tien_phai_tra, hd.so_tien_da_tra, hd.hinh_thuc_thanh_toan_goi, hd.trang_thai, pd.tong_so_buoi
+      SELECT hd.tong_tien_phai_tra, hd.so_tien_da_tra, hd.hinh_thuc_thanh_toan_goi, hd.trang_thai, pd.tong_so_buoi,
+             hd.tong_tien_goc, hd.ti_le_giam_gia_goi, hd.so_tien_giam_voucher,
+             (
+               SELECT COUNT(*)::int
+               FROM cuoc_hen
+               WHERE phac_do_dieu_tri_id = pd.id AND loai = 'DIEU_TRI'
+             ) as so_buoi_da_dat
       FROM phac_do_dieu_tri pd
       JOIN hoa_don hd ON hd.phac_do_dieu_tri_id = pd.id
       WHERE pd.khach_hang_id = $1 AND pd.goi_dich_vu_id = $2
@@ -261,16 +267,29 @@ export const checkPackagePayment = async (req: Request, res: Response): Promise<
     const daThanhToan = Number(invoiceObj.so_tien_da_tra || 0);
     const hinhThuc: HinhThucThanhToanGoi = invoiceObj.hinh_thuc_thanh_toan_goi || 'tra_thang';
     const tongSoBuoi = Number(invoiceObj.tong_so_buoi || 10);
+    const grossBeforeExamDeduction = Number(invoiceObj.tong_tien_goc || 0)
+      - Math.round(Number(invoiceObj.tong_tien_goc || 0) * Number(invoiceObj.ti_le_giam_gia_goi || 0) / 100)
+      - Number(invoiceObj.so_tien_giam_voucher || 0);
 
-    // Chưa biết chính xác buổi thứ mấy đang được đặt ở bước này, mặc định buổi 1
-    // (mốc gate đầu tiên) — đúng bằng ngưỡng mà appointment.repository.ts dùng trước khi resolve so_thu_tu_buoi thật.
-    const minRequired = getMinPaymentRequired(hinhThuc, tongTien, tongSoBuoi, 1);
+    // Buổi sắp được đặt = số buổi DIEU_TRI đã tạo + 1 — khớp đúng cách appointment.repository.ts
+    // resolve so_thu_tu_buoi khi tạo lịch, để pre-check này không báo "đã đủ tiền" rồi backend lại chặn ở submit.
+    const nextSessionNum = Number(invoiceObj.so_buoi_da_dat || 0) + 1;
+
+    const minRequired = getMinPaymentRequired(hinhThuc, tongTien, tongSoBuoi, nextSessionNum, grossBeforeExamDeduction);
     if (daThanhToan < minRequired) {
       const label = hinhThuc === 'tra_gop' ? 'Trả góp' : hinhThuc === 'tung_buoi' ? 'Trả từng buổi' : 'Trả thẳng 100%';
-      return res.json({ paid: false, message: `Gói trị liệu (${label}) yêu cầu thanh toán tối thiểu trước khi đặt lịch.` });
+      const conThieu = minRequired - daThanhToan;
+      return res.json({
+        paid: false,
+        nextSessionNum,
+        soTienConThieu: conThieu,
+        message: hinhThuc === 'tra_gop'
+          ? `Gói trả góp: cần đóng Đợt 2 (còn thiếu ${conThieu.toLocaleString('vi-VN')}đ) trước khi đặt buổi số ${nextSessionNum}.`
+          : `Gói trị liệu (${label}) yêu cầu thanh toán tối thiểu trước khi đặt buổi số ${nextSessionNum}.`
+      });
     }
 
-    return res.json({ paid: true });
+    return res.json({ paid: true, nextSessionNum });
   } catch (error: any) {
     console.error('Lỗi khi kiểm tra thanh toán gói của khách hàng:', error);
     res.status(500).json({ message: 'Lỗi server' });
