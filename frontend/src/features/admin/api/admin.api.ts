@@ -25,6 +25,8 @@ export const getStaff = () => api.get('/admin/staff');
 export const createStaff = (data: any) => api.post('/admin/staff', data);
 export const updateStaffStatus = (id: string, trang_thai: string) => api.patch(`/admin/staff/${id}/status`, { trang_thai });
 export const getCustomers = () => api.get('/admin/customers');
+export const updateCustomer = (id: string, data: any) => api.put(`/admin/customers/${id}`, data);
+export const toggleCustomerLock = (id: string, isLocked: boolean) => api.patch(`/admin/customers/${id}/toggle-lock`, { isLocked });
 export const getAvailableStaff = (params: any) => api.get('/admin/staff/available', { params });
 
 // Rooms & Equipment

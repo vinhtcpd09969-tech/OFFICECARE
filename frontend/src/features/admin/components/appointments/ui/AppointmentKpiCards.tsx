@@ -5,38 +5,25 @@ interface KpiData {
   total: number;
   waiting: number;
   completed: number;
-  cancelled: number;
-}
-
-interface ReceptionistKpiData {
-  total: number;
-  pendingContact: number;
-  assigned: number;
-  checkedIn: number;
+  secondary: number;
 }
 
 interface AppointmentKpiCardsProps {
-  isReceptionist: boolean;
+  role: 'admin' | 'receptionist' | 'doctor' | 'technician';
   kpis: KpiData;
-  receptionistKpis: ReceptionistKpiData;
   viewMode: 'timeline' | 'capacity';
   timeRange: 'today' | '7days' | 'month' | 'custom';
   activeType: 'kham' | 'dieu_tri';
 }
 
 export function AppointmentKpiCards({
-  isReceptionist,
+  role,
   kpis,
-  receptionistKpis,
   viewMode,
   timeRange,
   activeType
 }: AppointmentKpiCardsProps) {
-  // Determine displayed values
-  const total = isReceptionist ? receptionistKpis.total : kpis.total;
-  const waiting = isReceptionist ? receptionistKpis.pendingContact : kpis.waiting;
-  const completed = isReceptionist ? receptionistKpis.assigned : kpis.completed;
-  const secondary = isReceptionist ? receptionistKpis.checkedIn : kpis.cancelled;
+  const { total, waiting, completed, secondary } = kpis;
 
   // Calculate percentages for circular rings
   const getPercentage = (value: number, base: number) => {
@@ -76,52 +63,152 @@ export function AppointmentKpiCards({
 
   const isKham = activeType === 'kham';
 
-  const stats = [
-    {
-      title: isKham ? "Tổng ca khám" : "Tổng ca điều trị",
-      value: total,
-      subtext: isReceptionist ? `Tổng ca đặt lịch ${rangeLabel}` : (isKham ? `+14.2% ${rangeLabel}` : `+8.5% ${rangeLabel}`),
-      subtextColor: "text-[#0D9488]",
-      pct: 100,
-      color: "from-[#0D9488] to-[#14B8A6]",
-      trackColor: "stroke-teal-500/10",
-      ringColor: "stroke-[#0D9488]",
-      icon: <Calendar className="text-[#0D9488]" size={18} />
-    },
-    {
-      title: "Chưa xác nhận",
-      value: waiting,
-      subtext: isReceptionist ? "Cần gọi hoặc gán nhân sự" : "Cần gán hoặc xác thực",
-      subtextColor: "text-amber-500",
-      pct: waitingPct,
-      color: "from-[#F59E0B] to-[#FBBF24]",
-      trackColor: "stroke-amber-500/10",
-      ringColor: "stroke-[#F59E0B]",
-      icon: <AlertCircle className="text-[#F59E0B]" size={18} />
-    },
-    {
-      title: "Đã hoàn thành",
-      value: completed,
-      subtext: isKham ? `Khám xong ${rangeLabel}` : `Trị liệu xong ${rangeLabel}`,
-      subtextColor: "text-emerald-500",
-      pct: completedPct,
-      color: "from-[#22C55E] to-[#4ADE80]",
-      trackColor: "stroke-emerald-500/10",
-      ringColor: "stroke-[#22C55E]",
-      icon: <CheckCircle2 className="text-[#22C55E]" size={18} />
-    },
-    {
-      title: isReceptionist ? "Đã hủy" : "Hủy / Vắng mặt",
-      value: secondary,
-      subtext: isReceptionist ? `Ca đặt đã hủy ${rangeLabel}` : `Hủy / Vắng ${rangeLabel}`,
-      subtextColor: "text-rose-500",
-      pct: secondaryPct,
-      color: "from-[#EF4444] to-[#F87171]",
-      trackColor: "stroke-rose-500/10",
-      ringColor: "stroke-[#EF4444]",
-      icon: <HelpCircle className="text-[#EF4444]" size={18} />
-    }
-  ];
+  // Build stats config based on role
+  let stats: any[] = [];
+
+  if (role === 'admin') {
+    stats = [
+      {
+        title: isKham ? "Tổng ca khám" : "Tổng ca điều trị",
+        value: total,
+        subtext: isKham ? `Tổng ca khám ${rangeLabel}` : `Tổng ca điều trị ${rangeLabel}`,
+        subtextColor: "text-[#0D9488]",
+        pct: 100,
+        color: "from-[#0D9488] to-[#14B8A6]",
+        trackColor: "stroke-teal-500/10",
+        ringColor: "stroke-[#0D9488]",
+        icon: <Calendar className="text-[#0D9488]" size={18} />
+      },
+      {
+        title: "Chưa xác nhận",
+        value: waiting,
+        subtext: "Chờ xác thực OTP hoặc duyệt",
+        subtextColor: "text-amber-500",
+        pct: waitingPct,
+        color: "from-[#F59E0B] to-[#FBBF24]",
+        trackColor: "stroke-amber-500/10",
+        ringColor: "stroke-[#F59E0B]",
+        icon: <AlertCircle className="text-[#F59E0B]" size={18} />
+      },
+      {
+        title: "Đã hoàn thành",
+        value: completed,
+        subtext: isKham ? "Khám xong" : "Trị liệu xong",
+        subtextColor: "text-emerald-500",
+        pct: completedPct,
+        color: "from-[#22C55E] to-[#4ADE80]",
+        trackColor: "stroke-emerald-500/10",
+        ringColor: "stroke-[#22C55E]",
+        icon: <CheckCircle2 className="text-[#22C55E]" size={18} />
+      },
+      {
+        title: "Hủy / Vắng mặt",
+        value: secondary,
+        subtext: "Ca đã hủy hoặc không đến",
+        subtextColor: "text-rose-500",
+        pct: secondaryPct,
+        color: "from-[#EF4444] to-[#F87171]",
+        trackColor: "stroke-rose-500/10",
+        ringColor: "stroke-[#EF4444]",
+        icon: <HelpCircle className="text-[#EF4444]" size={18} />
+      }
+    ];
+  } else if (role === 'receptionist') {
+    stats = [
+      {
+        title: isKham ? "Tổng ca khám" : "Tổng ca điều trị",
+        value: total,
+        subtext: `Tổng ca đặt lịch ${rangeLabel}`,
+        subtextColor: "text-[#0D9488]",
+        pct: 100,
+        color: "from-[#0D9488] to-[#14B8A6]",
+        trackColor: "stroke-teal-500/10",
+        ringColor: "stroke-[#0D9488]",
+        icon: <Calendar className="text-[#0D9488]" size={18} />
+      },
+      {
+        title: "Chưa xác nhận",
+        value: waiting,
+        subtext: "Chờ liên hệ hoặc duyệt OTP",
+        subtextColor: "text-amber-500",
+        pct: waitingPct,
+        color: "from-[#F59E0B] to-[#FBBF24]",
+        trackColor: "stroke-amber-500/10",
+        ringColor: "stroke-[#F59E0B]",
+        icon: <AlertCircle className="text-[#F59E0B]" size={18} />
+      },
+      {
+        title: "Chờ thanh toán",
+        value: completed,
+        subtext: "Ca hoàn thành chờ thu tiền",
+        subtextColor: "text-blue-500",
+        pct: completedPct,
+        color: "from-[#3B82F6] to-[#60A5FA]",
+        trackColor: "stroke-blue-500/10",
+        ringColor: "stroke-[#3B82F6]",
+        icon: <CheckCircle2 className="text-[#3B82F6]" size={18} />
+      },
+      {
+        title: "Hủy / Không đến",
+        value: secondary,
+        subtext: "Ca bị hủy hoặc vắng mặt",
+        subtextColor: "text-rose-500",
+        pct: secondaryPct,
+        color: "from-[#EF4444] to-[#F87171]",
+        trackColor: "stroke-rose-500/10",
+        ringColor: "stroke-[#EF4444]",
+        icon: <HelpCircle className="text-[#EF4444]" size={18} />
+      }
+    ];
+  } else {
+    // doctor / technician
+    stats = [
+      {
+        title: isKham ? "Tổng ca khám phụ trách" : "Tổng ca điều trị phụ trách",
+        value: total,
+        subtext: `Tổng ca được giao ${rangeLabel}`,
+        subtextColor: "text-[#0D9488]",
+        pct: 100,
+        color: "from-[#0D9488] to-[#14B8A6]",
+        trackColor: "stroke-teal-500/10",
+        ringColor: "stroke-[#0D9488]",
+        icon: <Calendar className="text-[#0D9488]" size={18} />
+      },
+      {
+        title: "Chờ thực hiện",
+        value: waiting,
+        subtext: "Khách đã check-in / Đang chờ",
+        subtextColor: "text-amber-500",
+        pct: waitingPct,
+        color: "from-[#F59E0B] to-[#FBBF24]",
+        trackColor: "stroke-amber-500/10",
+        ringColor: "stroke-[#F59E0B]",
+        icon: <AlertCircle className="text-[#F59E0B]" size={18} />
+      },
+      {
+        title: "Đang thực hiện",
+        value: completed,
+        subtext: "Đang trong phòng trị liệu",
+        subtextColor: "text-emerald-500",
+        pct: completedPct,
+        color: "from-[#22C55E] to-[#4ADE80]",
+        trackColor: "stroke-emerald-500/10",
+        ringColor: "stroke-[#22C55E]",
+        icon: <CheckCircle2 className="text-[#22C55E]" size={18} />
+      },
+      {
+        title: "Ca trễ hẹn / Quá giờ",
+        value: secondary,
+        subtext: "Quá giờ bắt đầu nhưng chưa xong",
+        subtextColor: "text-rose-500",
+        pct: secondaryPct,
+        color: "from-[#EF4444] to-[#F87171]",
+        trackColor: "stroke-rose-500/10",
+        ringColor: "stroke-[#EF4444]",
+        icon: <HelpCircle className="text-[#EF4444]" size={18} />
+      }
+    ];
+  }
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -132,8 +219,8 @@ export function AppointmentKpiCards({
           <motion.div
             key={idx}
             custom={idx}
-            initial="hidden"
-            animate="visible"
+            initial="initial"
+            animate="animate"
             variants={cardVariants}
             whileHover={{ y: -5, scale: 1.015 }}
             className="p-[1px] bg-gradient-to-br from-slate-200/60 dark:from-zinc-800 to-transparent hover:from-[#14B8A6]/30 dark:hover:from-[#14B8A6]/20 rounded-[24px] shadow-[0_4px_20px_-4px_rgba(15,23,42,0.02)] hover:shadow-[0_20px_35px_-8px_rgba(15,23,42,0.06)] transition-all duration-300"

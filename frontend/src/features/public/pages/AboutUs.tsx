@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
-import { ArrowRight, ShieldCheck, HeartPulse, Lock, Users, Calendar } from 'lucide-react';
+import { ArrowRight, ShieldCheck, HeartPulse, Lock, Users } from 'lucide-react';
 import LazyImage from '../../../components/LazyImage';
 import ScrollReveal from '../components/shared/ScrollReveal';
 
@@ -63,34 +63,62 @@ export default function AboutUs() {
         </div>
       </section>
 
-      {/* Sứ mệnh / Câu chuyện */}
-      <section className="py-16 md:py-20">
-        <div className="max-w-6xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+      {/* Sứ mệnh / Câu chuyện sáng lập */}
+      <section className="py-16 md:py-24 bg-white">
+        <div className="max-w-6xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
           <ScrollReveal direction="right">
-            <div className="rounded-[32px] overflow-hidden shadow-lg border border-primary/10 aspect-[4/3]">
+            <div className="rounded-[32px] overflow-hidden shadow-lg border border-teal-500/10 aspect-[4/3] relative group">
               <LazyImage
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuChY7AW6ev6J87eZLl2o4MoOD8BnBBtnPFSB4sYKHKTosht_wFuKieK_jt9CtkyD3kA167GUk8Yv-tUkVT4HN7Y30l1-IvGzK21MPHz2SivO1OybUi6n3NCCiMObQuKtnx2j3jPLLy02O1zGNlbH6Q2vUq-MIs7udDukLlJ6rq88bk56Zx9KQdrvKpHKuGS5t8GE28Cpn03TTkqWiO84_J2E0tCuwpNunaAl4gqM19_WXyeqvQDPUdzHpThmQ9l73Ch6AY7CGkNuv8"
-                alt="Không gian điều trị Office Care"
-                className="size-full object-cover"
+                src="/images/physio_clinic_villa.png"
+                alt="Không gian điều trị biệt thự sang trọng tại Office Care"
+                className="size-full object-cover group-hover:scale-102 transition-transform duration-700"
                 wrapperClassName="size-full"
               />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-900/30 to-transparent pointer-events-none"></div>
             </div>
           </ScrollReveal>
           <ScrollReveal direction="left" delay={100}>
-            <div className="space-y-4">
-              <h2 className="font-heading font-black text-2xl md:text-3xl text-secondary tracking-tight">Sứ mệnh của chúng tôi</h2>
-              <p className="text-slate-500 text-sm leading-relaxed font-semibold">
-                Chúng tôi tin rằng phục hồi chức năng hiệu quả không đến từ những bài tập đại trà, mà từ phác đồ được cá nhân hóa, theo sát bởi đội ngũ chuyên môn thật sự hiểu cơ thể bạn.
+            <div className="space-y-6">
+              <span className="text-[10px] font-black uppercase tracking-widest text-[#0D9488] bg-[#14B8A6]/10 px-3 py-1 rounded-full inline-block">
+                Câu chuyện sáng lập
+              </span>
+              <h2 className="font-heading font-black text-2xl md:text-3xl lg:text-4xl text-secondary tracking-tight">
+                Giải cứu cột sống khỏi áp lực của "8 tiếng ngồi văn phòng"
+              </h2>
+              <p className="text-slate-500 text-xs md:text-sm leading-relaxed font-semibold">
+                Tại các đô thị hiện đại, giới văn phòng công sở đang phải đối mặt với một cuộc khủng hoảng sức khỏe âm thầm. Ngồi liên tục 8-10 tiếng mỗi ngày, gõ máy tính sai tư thế, ít vận động... tích lũy qua từng năm tháng đã tàn phá trục cột sống tự nhiên, sinh ra các bệnh lý cơ xương khớp mạn tính từ rất sớm.
               </p>
-              <p className="text-slate-500 text-sm leading-relaxed font-semibold">
-                Từ phòng khám đầu tiên, OfficeCare tập trung giải quyết đúng vấn đề của người làm văn phòng: đau mỏi tích lũy do tư thế ngồi sai và ít vận động — kết hợp công nghệ trị liệu hiện đại với sự theo dõi tận tâm suốt hành trình điều trị.
+              <p className="text-slate-500 text-xs md:text-sm leading-relaxed font-semibold">
+                OfficeCare ra đời từ sự thấu hiểu sâu sắc đó. Chúng tôi không chỉ xây dựng một phòng khám y khoa đơn thuần, mà kiến tạo nên một không gian phục hồi chức năng và trị liệu cột sống chuyên biệt, cao cấp dành riêng cho dân công sở. Nơi các phương pháp trị liệu bằng tay Manual Therapy tinh tế kết hợp hoàn hảo cùng công nghệ y học vật lý tối tân nhất để đẩy lùi cơn đau mạn tính tận gốc.
               </p>
-              <Link
-                to="/services"
-                className="inline-flex items-center gap-1.5 text-xs font-jakarta font-extrabold text-[#0D9488] hover:gap-2.5 transition-all pt-2"
-              >
-                Khám phá dịch vụ của chúng tôi <ArrowRight size={13} />
-              </Link>
+            </div>
+          </ScrollReveal>
+        </div>
+      </section>
+
+      {/* Sứ mệnh & Tầm nhìn (Mới) */}
+      <section className="py-16 md:py-24 bg-slate-50/50 border-t border-slate-100">
+        <div className="max-w-6xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-10">
+          <ScrollReveal direction="up">
+            <div className="bg-white rounded-[32px] p-8 md:p-10 border border-slate-100 shadow-[0_15px_40px_rgba(15,23,42,0.015)] space-y-4 h-full relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500/5 rounded-full blur-2xl pointer-events-none"></div>
+              <h3 className="font-heading font-black text-lg md:text-xl text-secondary flex items-center gap-2">
+                <span className="text-[#0D9488] text-2xl">🎯</span> Sứ Mệnh Của Chúng Tôi
+              </h3>
+              <p className="text-slate-500 text-xs md:text-sm leading-relaxed font-semibold">
+                Cung cấp các giải pháp phục hồi chức năng và trị liệu cơ xương khớp cột sống chủ động, an toàn và cá nhân hóa. Chúng tôi cam kết giúp giới văn phòng Việt Nam chấm dứt các cơn đau cơ khớp mạn tính mà không lạm dụng thuốc giảm đau hay can thiệp phẫu thuật không cần thiết.
+              </p>
+            </div>
+          </ScrollReveal>
+          <ScrollReveal direction="up" delay={100}>
+            <div className="bg-white rounded-[32px] p-8 md:p-10 border border-slate-100 shadow-[0_15px_40px_rgba(15,23,42,0.015)] space-y-4 h-full relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none"></div>
+              <h3 className="font-heading font-black text-lg md:text-xl text-secondary flex items-center gap-2">
+                <span className="text-emerald-600 text-2xl">👁️</span> Tầm Nhìn Chiến Lược
+              </h3>
+              <p className="text-slate-500 text-xs md:text-sm leading-relaxed font-semibold">
+                Trở thành hệ thống phòng khám Premium Rehab dẫn đầu tại Việt Nam trong lĩnh vực trị liệu bảo tồn cột sống văn phòng, đồng hành cùng các doanh nghiệp công nghệ và tài chính kiến tạo nên môi trường làm việc khỏe mạnh, tối ưu hiệu suất lao động.
+              </p>
             </div>
           </ScrollReveal>
         </div>
@@ -100,13 +128,13 @@ export default function AboutUs() {
       <section className="py-12 bg-white border-y border-slate-100">
         <div className="max-w-5xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
           {[
-            { value: '10+', label: 'Năm kinh nghiệm' },
-            { value: '1.200+', label: 'Bệnh nhân phục hồi' },
-            { value: '4.9/5', label: 'Đánh giá hài lòng' },
-            { value: '7:30–20:30', label: 'Giờ hoạt động mỗi ngày' }
+            { value: '12+', valueColor: 'text-[#0D9488]', label: 'Chuyên gia y tế' },
+            { value: '2.500+', valueColor: 'text-[#0D9488]', label: 'Khách hàng phục hồi thành công' },
+            { value: '4.95 / 5', valueColor: 'text-amber-500', label: 'Đánh giá hài lòng y khoa' },
+            { value: '07:30–20:30', valueColor: 'text-[#0D9488]', label: 'Giờ mở cửa phục vụ' }
           ].map((stat, idx) => (
             <ScrollReveal key={stat.label} delay={idx * 80}>
-              <p className="font-heading font-black text-2xl md:text-3xl text-primary">{stat.value}</p>
+              <p className={`font-heading font-black text-2xl md:text-3xl ${stat.valueColor}`}>{stat.value}</p>
               <p className="text-[11px] md:text-xs text-slate-450 font-bold uppercase tracking-wide mt-1">{stat.label}</p>
             </ScrollReveal>
           ))}
@@ -114,15 +142,15 @@ export default function AboutUs() {
       </section>
 
       {/* Giá trị cốt lõi */}
-      <section className="py-16 md:py-20">
+      <section className="py-16 md:py-24 bg-slate-50/50">
         <div className="max-w-6xl mx-auto px-6">
           <ScrollReveal>
             <div className="text-center max-w-2xl mx-auto mb-14">
-              <h2 className="text-primary font-black tracking-widest uppercase text-xs mb-3">Giá trị cốt lõi</h2>
-              <h3 className="font-heading text-2xl md:text-3xl font-black text-secondary tracking-tight">Điều làm nên sự khác biệt</h3>
+              <h2 className="text-[#0D9488] font-black tracking-widest uppercase text-xs mb-3">Quy chuẩn y đức</h2>
+              <h3 className="font-heading text-2xl md:text-3xl font-black text-secondary tracking-tight">Giá Trị Cốt Lõi Tại OfficeCare</h3>
             </div>
           </ScrollReveal>
-
+ 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {CORE_VALUES.map((item, idx) => (
               <ScrollReveal key={item.title} delay={idx * 100}>
@@ -142,13 +170,54 @@ export default function AboutUs() {
         </div>
       </section>
 
+      {/* Không gian trị liệu Premium Gallery (Mới) */}
+      <section className="py-16 md:py-24 bg-white border-t border-slate-100">
+        <div className="max-w-6xl mx-auto px-6">
+          <ScrollReveal>
+            <div className="text-center max-w-2xl mx-auto mb-14">
+              <span className="bg-[#14B8A6]/10 text-[#0D9488] border border-[#14B8A6]/20 text-[9px] font-black uppercase tracking-widest px-3.5 py-1.5 rounded-full inline-block mb-3 shadow-sm">
+                Cơ sở vật chất
+              </span>
+              <h2 className="font-heading text-2xl md:text-3xl font-black text-secondary tracking-tight">
+                Không Gian Trị Liệu Chuẩn Premium Clinic
+              </h2>
+              <p className="text-slate-500 text-xs md:text-sm font-semibold mt-2">
+                Không gian thiết kế theo phong cách villa nghỉ dưỡng biệt lập, mang lại sự riêng tư và cảm giác thư thái tối đa cho khách hàng trong suốt thời gian trị liệu.
+              </p>
+            </div>
+          </ScrollReveal>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              { src: '/images/physio_clinic_villa.png', title: 'Khuôn viên ngoài trời biệt lập' },
+              { src: '/images/physio_premium_facility.png', title: 'Phòng tập PHCN Kinetic Rehab' },
+              { src: '/images/physio_treatment_room.png', title: 'Phòng trị liệu công nghệ cao' },
+              { src: '/images/therapist_treatment_banner.png', title: 'Phòng nắn chỉnh cột sống chuyên biệt' }
+            ].map((facility, idx) => (
+              <ScrollReveal key={facility.title} delay={idx * 100}>
+                <div className="group rounded-2xl overflow-hidden border border-slate-100 shadow-sm relative aspect-[4/3] cursor-pointer">
+                  <img
+                    src={facility.src}
+                    alt={facility.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                  <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
+                    <p className="text-white text-xs font-black uppercase tracking-wider">{facility.title}</p>
+                  </div>
+                </div>
+              </ScrollReveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Đội ngũ teaser */}
-      <section className="py-16 md:py-20 bg-white border-y border-slate-100">
+      <section className="py-16 md:py-24 bg-slate-50/50 border-t border-slate-100">
         <div className="max-w-4xl mx-auto px-6 text-center">
           <ScrollReveal>
             <h2 className="font-heading font-black text-2xl md:text-3xl text-secondary tracking-tight mb-4">Đội ngũ chuyên gia đồng hành cùng bạn</h2>
             <p className="text-slate-500 text-sm leading-relaxed font-semibold max-w-xl mx-auto mb-7">
-              Đội ngũ bác sĩ và kỹ thuật viên vật lý trị liệu có bằng cấp chuyên môn cao, hơn 10 năm kinh nghiệm điều trị các hội chứng cơ xương khớp văn phòng.
+              Đội ngũ bác sĩ chuyên khoa I PHCN và kỹ thuật viên y học thể thao được đào tạo bài bản từ Đại học Y Dược, có hơn 10 năm kinh nghiệm xử lý đau vai gáy cột sống văn phòng.
             </p>
             <Link
               to="/specialists"
@@ -160,23 +229,59 @@ export default function AboutUs() {
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="py-16 md:py-20">
-        <div className="max-w-4xl mx-auto px-6">
-          <ScrollReveal>
-            <div className="bg-gradient-to-br from-[#0D9488] to-[#14B8A6] rounded-3xl p-10 text-center shadow-lg">
-              <h3 className="font-heading font-black text-lg md:text-xl text-white mb-2">Sẵn sàng bắt đầu hành trình phục hồi?</h3>
-              <p className="text-teal-50 text-xs md:text-sm font-semibold mb-6 max-w-md mx-auto">
-                Đặt lịch khám ngay hôm nay để được chuyên gia OfficeCare tư vấn phác đồ phù hợp với bạn.
-              </p>
+      {/* Bản đồ Google Map & Thẻ thông tin liên hệ nổi (Mới) */}
+      <section className="relative w-full h-[480px] bg-slate-100 border-t border-slate-150">
+        {/* Google Maps Iframe */}
+        <iframe
+          src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3919.2217631388835!2d106.70617309999999!3d10.7943265!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3919221763138883%3A0x123456789abcdef!2sVinhomes%20Golden%20River!5e0!3m2!1svi!2s!4v1700000000000!5m2!1svi!2s"
+          width="100%"
+          height="100%"
+          style={{ border: 0 }}
+          allowFullScreen={true}
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+          title="Google Map OfficeCare"
+          className="absolute inset-0 z-0"
+        ></iframe>
+
+        {/* Floating Contact Card overlay */}
+        <div className="absolute top-1/2 left-4 md:left-20 -translate-y-1/2 z-10 w-full max-w-sm px-4 md:px-0">
+          <div className="bg-white/95 backdrop-blur-md rounded-[32px] p-8 shadow-2xl border border-slate-150/80 space-y-5 animate-float">
+            <div className="space-y-1">
+              <span className="bg-[#14B8A6]/10 text-[#0D9488] border border-[#14B8A6]/20 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full inline-block">
+                📍 Vị trí & Liên hệ
+              </span>
+              <h3 className="font-heading font-black text-lg text-slate-900 pt-1">Phòng Khám OfficeCare</h3>
+            </div>
+            
+            <div className="space-y-3.5 text-xs text-slate-600 font-semibold leading-relaxed">
+              <div className="flex items-start gap-3">
+                <span className="text-[#0D9488] shrink-0 mt-0.5">🏢</span>
+                <p>Khu đô thị Vinhomes Golden River, Bến Nghé, Quận 1, TP. Hồ Chí Minh</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-[#0D9488] shrink-0">📞</span>
+                <p>Hotline: 1900 1234</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-[#0D9488] shrink-0">✉️</span>
+                <p>Email: hello@officecare.vn</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-[#0D9488] shrink-0">🕒</span>
+                <p>Thời gian mở cửa: 07:30 - 20:30 (Thứ 2 - Chủ Nhật)</p>
+              </div>
+            </div>
+
+            <div className="pt-2">
               <Link
                 to="/booking"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-white text-[#0D9488] font-black text-xs rounded-xl shadow-md hover:shadow-xl hover:-translate-y-0.5 transition-all"
+                className="w-full bg-[#2EC4B6] hover:bg-[#25A89C] text-white text-center font-black py-3.5 rounded-xl text-xs uppercase tracking-widest transition-all duration-300 block shadow-md shadow-[#2EC4B6]/25 active:scale-98"
               >
-                <Calendar size={14} /> Đặt lịch ngay <ArrowRight size={14} />
+                Đặt Lịch Hẹn Khám Ngay
               </Link>
             </div>
-          </ScrollReveal>
+          </div>
         </div>
       </section>
     </div>

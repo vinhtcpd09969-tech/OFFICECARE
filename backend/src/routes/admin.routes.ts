@@ -48,6 +48,8 @@ router.delete('/schedules/:id', authorizeRoles(5, 6), adminController.deleteSche
 
 // ─── KHÁCH HÀNG ────────────────────────────────────────────────────────────────
 router.get('/customers', authorizeRoles(2, 4, 5, 6), adminController.getCustomers);
+router.put('/customers/:id', authorizeRoles(5, 6), adminController.updateCustomer);
+router.patch('/customers/:id/toggle-lock', authorizeRoles(5, 6), adminController.toggleCustomerLock);
 
 // ─── HỒ SƠ ĐIỀU TRỊ ───────────────────────────────────────────────────────────
 router.get('/medical-records', authorizeRoles(4, 5, 6), adminController.getMedicalRecords);
@@ -57,6 +59,7 @@ router.get('/invoices', authorizeRoles(2, 5, 6), adminController.getInvoices);
 router.get('/payments', authorizeRoles(2, 5, 6), adminController.getPayments);
 router.post('/payments/:id/refund', authorizeRoles(5, 6), adminController.handleRefund);
 router.post('/invoices/:id/refund-package', authorizeRoles(5, 6), adminController.handlePackageRefund);
+router.post('/invoices/:id/expire-no-refund', authorizeRoles(5, 6), adminController.handleExpirePackageNoRefund);
 
 // ─── BÀI VIẾT (BLOG) ──────────────────────────────────────────────────────────
 router.get('/articles', authorizeRoles(5, 6), articleController.getArticles);
@@ -80,6 +83,9 @@ router.get('/feedback', authorizeRoles(5, 6), adminController.getFeedback);
 router.get('/analytics/summary', authorizeRoles(2, 5, 6), adminController.getDashboardSummary);
 router.get('/analytics/revenue', authorizeRoles(5, 6), adminController.getRevenueStats);
 router.get('/analytics/performance', authorizeRoles(5, 6), adminController.getStaffPerformance);
+router.get('/analytics/top-packages', authorizeRoles(5, 6), adminController.getTopPackages);
+router.get('/analytics/top-vip-customers', authorizeRoles(5, 6), adminController.getTopVipCustomers);
+router.get('/analytics/reviews', authorizeRoles(5, 6), adminController.getReviews);
 
 // ─── LỊCH HẸN (ADMIN MASTER VIEW) ─────────────────────────────────────────────
 router.get('/appointments', authorizeRoles(2, 4, 5, 6), appointmentController.getAllAppointments);

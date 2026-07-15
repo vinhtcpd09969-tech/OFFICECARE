@@ -99,6 +99,10 @@ model chi_dinh_buoi {
   nhat_ky_id            String                @db.Uuid
   goi_dich_vu_id        String?               @db.Uuid
   ghi_chu               String?
+  // Snapshot cấu hình gói tại đúng thời điểm bác sĩ chỉ định — số buổi là một chỉ định lâm sàng,
+  // admin sửa gói về sau không được phép âm thầm đổi liệu trình/giá đã tư vấn cho khách.
+  tong_so_buoi_tu_van   Int?
+  don_gia_tu_van        BigInt?
   goi_dich_vu           goi_dich_vu?          @relation(fields: [goi_dich_vu_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   nhat_ky_buoi_dieu_tri nhat_ky_buoi_dieu_tri @relation(fields: [nhat_ky_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
@@ -144,6 +148,7 @@ model goi_dich_vu {
   danh_muc_goi_id   String?            @db.Uuid
   muc_tieu          String?
   quy_trinh         String?
+  han_su_dung_mac_dinh_ngay Int?
   chi_dinh_buoi     chi_dinh_buoi[]
   cuoc_hen          cuoc_hen[]
   danh_muc_goi      danh_muc_goi?      @relation(fields: [danh_muc_goi_id], references: [id], onUpdate: NoAction)
@@ -188,6 +193,10 @@ model hoa_don {
   so_tien_da_tra           BigInt                 @default(0)
   trang_thai               String                 @default("chua_thanh_toan") @db.VarChar(30)
   ghi_chu                  String?
+  // Phí khám lâm sàng tại đúng thời điểm chốt hóa đơn gói (được miễn hoặc khấu trừ vào gói).
+  // Bắt buộc snapshot: hóa đơn khám được miễn bị ghi đè tong_tien_phai_tra = 0, nên nếu không lưu
+  // ở đây thì lúc hủy gói không còn cách nào biết đã miễn cho khách bao nhiêu để truy thu lại.
+  phi_kham_ap_dung         BigInt                 @default(0)
   ngay_tao                 DateTime               @default(now()) @db.Timestamptz(6)
   giao_dich_thanh_toan     giao_dich_thanh_toan[]
   cuoc_hen                 cuoc_hen?              @relation(fields: [cuoc_hen_id], references: [id], onUpdate: NoAction)
@@ -213,6 +222,7 @@ model giao_dich_thanh_toan {
 model khuyen_mai_voucher {
   id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   ma_code            String    @unique @db.VarChar(50)
+  ten_chien_dich     String    @default("") @db.VarChar(150)
   loai_giam_gia      String    @db.VarChar(20)
   gia_tri_giam       BigInt
   giam_toi_da        BigInt?
@@ -220,8 +230,8 @@ model khuyen_mai_voucher {
   ngay_bat_dau       DateTime  @db.Timestamptz(6)
   ngay_het_han       DateTime? @db.Timestamptz(6)
   so_luong_gioi_han  Int?
-  so_luong_da_dung   Int       @default(0)
   dang_kich_hoat     Boolean   @default(true)
+  yeu_cau_thanh_toan String[] @default(["tat_ca"])
   hoa_don            hoa_don[]
 }
 
@@ -255,16 +265,19 @@ model refresh_tokens {
 }
 
 model thong_bao {
-  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  nguoi_dung_id Int?
-  khach_hang_id String?     @db.Uuid
-  tieu_de       String      @db.VarChar(200)
-  noi_dung      String
-  loai          String      @default("he_thong") @db.VarChar(30)
-  da_doc        Boolean     @default(false)
-  thoi_gian_tao DateTime    @default(now()) @db.Timestamp(6)
-  khach_hang    khach_hang? @relation(fields: [khach_hang_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  nguoi_dung    nguoi_dung? @relation(fields: [nguoi_dung_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nguoi_dung_id   Int?
+  khach_hang_id   String?     @db.Uuid
+  tieu_de         String      @db.VarChar(200)
+  noi_dung        String
+  loai            String      @default("he_thong") @db.VarChar(30)
+  da_doc          Boolean     @default(false)
+  thoi_gian_tao   DateTime    @default(now()) @db.Timestamp(6)
+  lien_ket        String?     @db.VarChar(255)
+  tham_chieu_id   String?     @db.VarChar(50)
+  tham_chieu_loai String?     @db.VarChar(50)
+  khach_hang      khach_hang? @relation(fields: [khach_hang_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  nguoi_dung      nguoi_dung? @relation(fields: [nguoi_dung_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
 model phong_lam_viec {

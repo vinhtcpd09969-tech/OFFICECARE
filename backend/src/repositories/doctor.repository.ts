@@ -13,10 +13,28 @@ class DoctorRepository {
         kh.id as khach_hang_id, kh.ngay_sinh, kh.gioi_tinh,
         kh.ho_ten as ten_khach_hang, kh.so_dien_thoai as sdt_khach_hang, NULL::text as avatar_url,
         ch.nhan_su_id as bac_si_id, ch.nhan_su_id as ky_thuat_vien_id,
-        nk.ngay_tao as nhat_ky_ngay_tao
+        nk.ngay_tao as nhat_ky_ngay_tao,
+        COALESCE(g.ten_goi, gpd.ten_goi) as ten_dich_vu,
+        COALESCE(shift_room.phong_id, ch.phong_id) as phong_id,
+        COALESCE(shift_room.ten_phong, p.ten_phong) as ten_phong
       FROM cuoc_hen ch
       JOIN khach_hang kh ON ch.khach_hang_id = kh.id
+      LEFT JOIN goi_dich_vu g ON ch.goi_dich_vu_id = g.id
+      LEFT JOIN phac_do_dieu_tri pd ON ch.phac_do_dieu_tri_id = pd.id
+      LEFT JOIN goi_dich_vu gpd ON pd.goi_dich_vu_id = gpd.id
+      LEFT JOIN phong_lam_viec p ON ch.phong_id = p.id
       LEFT JOIN nhat_ky_buoi_dieu_tri nk ON nk.cuoc_hen_id = ch.id
+      LEFT JOIN LATERAL (
+        SELECT lt.phong_id, p_lt.ten_phong
+        FROM lich_truc_nhan_su lt
+        JOIN phong_lam_viec p_lt ON lt.phong_id = p_lt.id
+        WHERE lt.nhan_su_id = ch.nhan_su_id
+          AND lt.ngay_truc = DATE(ch.ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh')
+          AND lt.trang_thai = 'hoat_dong'
+          AND lt.gio_bat_dau <= (ch.ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh')::time
+          AND lt.gio_ket_thuc >= (ch.ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh')::time
+        LIMIT 1
+      ) shift_room ON TRUE
       WHERE ch.nhan_su_id = $1::integer 
         AND ${loaiCondition}
         AND ch.trang_thai IN ('cho_kham', 'dang_kham', 'check_in', 'cho_xac_nhan', 'da_xac_nhan', 'da_checkin')
@@ -39,10 +57,28 @@ class DoctorRepository {
         kh.so_dien_thoai as so_dien_thoai,
         nk.id as ho_so_dieu_tri_id, nk.id as ho_so_benh_an_id, nk.chan_doan, nk.chong_chi_dinh,
         ch.nhan_su_id as bac_si_id, ch.nhan_su_id as ky_thuat_vien_id,
-        nk.ngay_tao as nhat_ky_ngay_tao
+        nk.ngay_tao as nhat_ky_ngay_tao,
+        COALESCE(g.ten_goi, gpd.ten_goi) as ten_dich_vu,
+        COALESCE(shift_room.phong_id, ch.phong_id) as phong_id,
+        COALESCE(shift_room.ten_phong, p.ten_phong) as ten_phong
       FROM cuoc_hen ch
       JOIN khach_hang kh ON ch.khach_hang_id = kh.id
+      LEFT JOIN goi_dich_vu g ON ch.goi_dich_vu_id = g.id
+      LEFT JOIN phac_do_dieu_tri pd ON ch.phac_do_dieu_tri_id = pd.id
+      LEFT JOIN goi_dich_vu gpd ON pd.goi_dich_vu_id = gpd.id
+      LEFT JOIN phong_lam_viec p ON ch.phong_id = p.id
       LEFT JOIN nhat_ky_buoi_dieu_tri nk ON nk.cuoc_hen_id = ch.id
+      LEFT JOIN LATERAL (
+        SELECT lt.phong_id, p_lt.ten_phong
+        FROM lich_truc_nhan_su lt
+        JOIN phong_lam_viec p_lt ON lt.phong_id = p_lt.id
+        WHERE lt.nhan_su_id = ch.nhan_su_id
+          AND lt.ngay_truc = DATE(ch.ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh')
+          AND lt.trang_thai = 'hoat_dong'
+          AND lt.gio_bat_dau <= (ch.ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh')::time
+          AND lt.gio_ket_thuc >= (ch.ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh')::time
+        LIMIT 1
+      ) shift_room ON TRUE
       WHERE ch.nhan_su_id = $1::integer
         AND ${loaiCondition}
         AND ($2::timestamp IS NULL OR ch.ngay_gio_bat_dau >= $2::timestamp)
@@ -145,12 +181,16 @@ class DoctorRepository {
       ]);
       const nhatKyId = nkRes.rows[0].id;
 
-      // 2. Thêm chỉ định gói/dịch vụ
+      // 2. Thêm chỉ định gói/dịch vụ, kèm snapshot cấu hình gói tại đúng thời điểm chỉ định.
+      // Số buổi bác sĩ kê là chỉ định lâm sàng: nếu admin sửa gói sau đó, lễ tân vẫn phải chốt
+      // được đúng liệu trình + giá đã tư vấn cho khách (xem receptionist.service.calculateBilling).
       await client.query('DELETE FROM chi_dinh_buoi WHERE nhat_ky_id = $1', [nhatKyId]);
       if (data.goi_dich_vu_id) {
         await client.query(`
-          INSERT INTO chi_dinh_buoi (nhat_ky_id, goi_dich_vu_id)
-          VALUES ($1, $2)
+          INSERT INTO chi_dinh_buoi (nhat_ky_id, goi_dich_vu_id, tong_so_buoi_tu_van, don_gia_tu_van)
+          SELECT $1, g.id, g.tong_so_buoi, g.don_gia
+          FROM goi_dich_vu g
+          WHERE g.id = $2
         `, [
           nhatKyId,
           data.goi_dich_vu_id

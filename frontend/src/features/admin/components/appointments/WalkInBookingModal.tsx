@@ -5,12 +5,14 @@ import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../../../../api/axios';
 import { convertToVietnamUtcIso } from '../../../../utils/date';
-import { isSessionPaymentSatisfied } from '../../../../utils/billing';
+import { isPlanCancelled, isSessionPaymentSatisfied } from '../../../../utils/billing';
 import { resolveImageUrl } from '../../../../utils/imageUrl';
 
 /** Buổi kế tiếp của phác đồ đã đủ điều kiện thanh toán để đặt lịch chưa (xem docs/BUSINESS_RULES.md mục 3). */
 function isPlanBookable(plan: any): boolean {
   if (!plan || plan.trang_thai === 'khuyen_nghi') return true;
+  // Gói đã hủy + hoàn tiền thì chấm dứt hẳn — không phải "thiếu tiền" để thu thêm.
+  if (isPlanCancelled(plan)) return false;
   return isSessionPaymentSatisfied(plan, Number(plan.so_buoi_da_dung || 0) + 1);
 }
 
@@ -1003,7 +1005,7 @@ export default function WalkInBookingModal({
                               }}
                               className="text-[10px] font-black px-3 py-2 rounded-lg shrink-0 bg-amber-500 hover:bg-amber-600 text-white shadow-sm transition-all active:scale-95 cursor-pointer"
                             >
-                              💵 Thanh toán Đợt 2
+                              💵 {plan.hinh_thuc_thanh_toan_goi === 'tra_gop' ? 'Thanh toán Đợt 2' : 'Thanh toán gói'}
                             </button>
                           ) : (
                             <span className="text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 bg-rose-500 text-white">

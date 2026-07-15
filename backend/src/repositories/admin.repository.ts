@@ -107,7 +107,10 @@ class AdminRepository {
         trang_thai: isAct,
         anh_goi: data.anh_goi || null,
         anh_gallery: data.anh_gallery || [],
-        danh_muc_goi_id: data.danh_muc_goi_id || null
+        danh_muc_goi_id: data.danh_muc_goi_id || null,
+        han_su_dung_mac_dinh_ngay: data.loai_goi === 'LIEU_TRINH' && data.han_su_dung_mac_dinh_ngay
+          ? Number(data.han_su_dung_mac_dinh_ngay)
+          : null
       }
     });
 
@@ -143,7 +146,10 @@ class AdminRepository {
         trang_thai: isAct,
         anh_goi: data.anh_goi || null,
         anh_gallery: data.anh_gallery || [],
-        danh_muc_goi_id: data.danh_muc_goi_id || null
+        danh_muc_goi_id: data.danh_muc_goi_id || null,
+        han_su_dung_mac_dinh_ngay: data.loai_goi === 'LIEU_TRINH' && data.han_su_dung_mac_dinh_ngay
+          ? Number(data.han_su_dung_mac_dinh_ngay)
+          : null
       }
     });
 
@@ -232,6 +238,34 @@ class AdminRepository {
     return rows;
   }
 
+  async updateCustomer(id: string, data: any) {
+    const { ho_ten, so_dien_thoai, email, gioi_tinh, dia_chi, ngay_sinh, diem_uy_tin } = data;
+    const { rows } = await pool.query(`
+      UPDATE khach_hang
+      SET ho_ten = $1, so_dien_thoai = $2, email = $3, gioi_tinh = $4, dia_chi = $5, ngay_sinh = $6, diem_uy_tin = $7
+      WHERE id = $8
+      RETURNING *
+    `, [ho_ten, so_dien_thoai, email, gioi_tinh, dia_chi, ngay_sinh || null, diem_uy_tin || 0, id]);
+    return rows[0];
+  }
+
+  async updateCustomerLock(id: string, isLocked: boolean) {
+    const status = isLocked ? 'vo_hieu' : 'hoat_dong';
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('UPDATE nguoi_dung SET trang_thai = $1 WHERE id = $2', [status, id]);
+      const { rows } = await client.query('UPDATE khach_hang SET trang_thai = $1 WHERE id = $2 RETURNING *', [status, id]);
+      await client.query('COMMIT');
+      return rows[0];
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+
   // --- QUẢN LÝ THIẾT BỊ Y TẾ ---
   async getEquipment(): Promise<any[]> {
     const { rows } = await pool.query(`
@@ -268,9 +302,10 @@ class AdminRepository {
 
   async deleteEquipment(id: string): Promise<any> {
     const { rows } = await pool.query(`
-      DELETE FROM thiet_bi
+      UPDATE thiet_bi
+      SET trang_thai = 'ngung_su_dung'
       WHERE id = $1::uuid
-      RETURNING id, ma_thiet_bi, ten_thiet_bi
+      RETURNING id, ma_thiet_bi, ten_thiet_bi, trang_thai
     `, [id]);
     return rows[0];
   }
@@ -312,7 +347,7 @@ class AdminRepository {
     if (isDoc && data.trang_thai !== 'tam_nghi') {
       const hour = parseInt(data.gio_bat_dau.split(':')[0]);
       const isMorning = hour < 11;
-      
+
       const checkQuery = `
         SELECT lt.*, nd.ho_ten 
         FROM lich_truc_nhan_su lt
@@ -335,10 +370,10 @@ class AdminRepository {
       if (roomRes.rows.length > 0) {
         const room = roomRes.rows[0];
         const capacity = room.suc_chua || 1;
-        
+
         const startHour = parseInt(data.gio_bat_dau.split(':')[0]);
         const isMorning = startHour < 11;
-        
+
         const countRes = await pool.query(`
           SELECT COUNT(*) as count 
           FROM lich_truc_nhan_su 
@@ -350,7 +385,7 @@ class AdminRepository {
               ($3::boolean = false AND gio_bat_dau >= '11:00')
             )
         `, [Number(data.phong_id), data.ngay, isMorning]);
-        
+
         const count = parseInt(countRes.rows[0].count) || 0;
         if (count >= capacity) {
           throw new Error(`Phòng ${room.ten_phong} (${room.ma_phong}) đã đạt sức chứa tối đa (${capacity} người) trong ca trực này.`);
@@ -401,7 +436,7 @@ class AdminRepository {
     if (isDoc && data.trang_thai !== 'tam_nghi') {
       const hour = parseInt(data.gio_bat_dau.split(':')[0]);
       const isMorning = hour < 11;
-      
+
       const checkQuery = `
         SELECT lt.*, nd.ho_ten 
         FROM lich_truc_nhan_su lt
@@ -425,10 +460,10 @@ class AdminRepository {
       if (roomRes.rows.length > 0) {
         const room = roomRes.rows[0];
         const capacity = room.suc_chua || 1;
-        
+
         const startHour = parseInt(data.gio_bat_dau.split(':')[0]);
         const isMorning = startHour < 11;
-        
+
         const countRes = await pool.query(`
           SELECT COUNT(*) as count 
           FROM lich_truc_nhan_su 
@@ -441,7 +476,7 @@ class AdminRepository {
               ($3::boolean = false AND gio_bat_dau >= '11:00')
             )
         `, [Number(data.phong_id), data.ngay, isMorning, id]);
-        
+
         const count = parseInt(countRes.rows[0].count) || 0;
         if (count >= capacity) {
           throw new Error(`Phòng ${room.ten_phong} (${room.ma_phong}) đã đạt sức chứa tối đa (${capacity} người) trong ca trực này.`);
@@ -525,7 +560,7 @@ class AdminRepository {
 
     // 1. Lấy danh sách khách hàng
     const { rows: patients } = await pool.query(`
-      SELECT id, ho_ten, so_dien_thoai, email, trang_thai, diem_uy_tin
+      SELECT id, ho_ten, so_dien_thoai, email, trang_thai, diem_uy_tin, ngay_sinh, gioi_tinh, dia_chi
       FROM khach_hang
       ORDER BY ho_ten ASC
     `);
@@ -552,10 +587,20 @@ class AdminRepository {
         hd.so_tien_da_tra,
         hd.tong_tien_goc,
         hd.ti_le_giam_gia_goi,
-        hd.so_tien_giam_voucher
+        hd.so_tien_giam_voucher,
+        hd.trang_thai as hoa_don_trang_thai
       FROM phac_do_dieu_tri pd
       JOIN goi_dich_vu g ON pd.goi_dich_vu_id = g.id
-      LEFT JOIN hoa_don hd ON hd.phac_do_dieu_tri_id = pd.id
+      -- LATERAL + LIMIT 1: một phác đồ có thể dính nhiều hóa đơn (vd lễ tân lập lại hóa đơn gói).
+      -- LEFT JOIN thẳng sẽ nhân bản hàng -> cùng một gói hiện 2 dòng trong danh sách hồ sơ.
+      -- Ưu tiên hóa đơn gói THỰC (còn giá trị tiền), mới nhất.
+      LEFT JOIN LATERAL (
+        SELECT hd_inner.*
+        FROM hoa_don hd_inner
+        WHERE hd_inner.phac_do_dieu_tri_id = pd.id
+        ORDER BY (hd_inner.tong_tien_phai_tra > 0) DESC, hd_inner.ngay_tao DESC
+        LIMIT 1
+      ) hd ON TRUE
       LEFT JOIN cuoc_hen ch_kham ON ch_kham.phac_do_dieu_tri_id = pd.id AND ch_kham.loai = 'KHAM'
       LEFT JOIN nhat_ky_buoi_dieu_tri nk_kham ON nk_kham.cuoc_hen_id = ch_kham.id
       LEFT JOIN nguoi_dung nd_bs ON ch_kham.nhan_su_id = nd_bs.id
@@ -627,6 +672,7 @@ class AdminRepository {
       LEFT JOIN phong_lam_viec p ON ch.phong_id = p.id
       LEFT JOIN goi_dich_vu dv ON ch.goi_dich_vu_id = dv.id
       LEFT JOIN nhat_ky_buoi_dieu_tri nk ON nk.cuoc_hen_id = ch.id
+      WHERE ch.trang_thai NOT IN ('da_huy', 'huy', 'khong_den')
       ORDER BY ch.ngay_gio_bat_dau DESC
     `);
 
@@ -641,7 +687,7 @@ class AdminRepository {
         plans: patientPlans,
         appointments: patientApts
       };
-    }).filter((p: any) => p.plans.length > 0 || p.appointments.length > 0);
+    });
 
     return results;
   }
@@ -657,8 +703,10 @@ class AdminRepository {
         hd.tong_tien_goc, 
         hd.hinh_thuc_thanh_toan_goi, 
         hd.ti_le_giam_gia_goi, 
-        hd.voucher_id, 
-        hd.so_tien_giam_voucher, 
+        hd.voucher_id,
+        hd.so_tien_giam_voucher,
+        v.ma_code as ma_voucher_ap_dung,
+        v.ten_chien_dich as ten_voucher_ap_dung,
         hd.tong_tien_phai_tra as tong_tien_thanh_toan, 
         hd.so_tien_da_tra as da_thanh_toan, 
         hd.trang_thai, 
@@ -677,17 +725,23 @@ class AdminRepository {
             AND loai = 'DIEU_TRI'
         ) as so_buoi_da_dung,
         pd.tong_so_buoi,
+        pd.han_su_dung,
+        pd.trang_thai as trang_thai_phac_do,
         COALESCE(gdv.loai_goi, dv.loai_goi) as loai_goi,
         COALESCE(gdv.ten_goi, dv.ten_goi, 'Phí khám lâm sàng & Lượng giá') as ten_dich_vu,
-        CASE 
+        -- Phí khám của hóa đơn này = số đã snapshot lúc bán gói (hd.phi_kham_ap_dung).
+        -- dv.don_gia là giá khám HIỆN HÀNH, chỉ dùng làm fallback cho hóa đơn cũ tạo trước khi có
+        -- cột snapshot — nếu lấy giá hiện hành thì admin đổi giá khám sẽ làm lệch cả màn hình xem
+        -- trước hoàn tiền lẫn số tiền thực truy thu (xem handlePackageRefund + examFeeToCharge).
+        CASE
           WHEN hd.hinh_thuc_thanh_toan_goi = 'tung_buoi' AND EXISTS (
-            SELECT 1 FROM hoa_don exam_hd 
-            WHERE exam_hd.cuoc_hen_id = hd.cuoc_hen_id 
-              AND exam_hd.phac_do_dieu_tri_id IS NULL 
+            SELECT 1 FROM hoa_don exam_hd
+            WHERE exam_hd.cuoc_hen_id = hd.cuoc_hen_id
+              AND exam_hd.phac_do_dieu_tri_id IS NULL
               AND exam_hd.trang_thai = 'da_thanh_toan'
           ) THEN 0
-          WHEN hd.phac_do_dieu_tri_id IS NULL AND hd.tong_tien_goc > COALESCE(dv.don_gia, 200000) THEN 0
-          WHEN hd.cuoc_hen_id IS NOT NULL THEN COALESCE(dv.don_gia, 200000)
+          WHEN hd.phac_do_dieu_tri_id IS NULL AND hd.tong_tien_goc > COALESCE(NULLIF(hd.phi_kham_ap_dung, 0), dv.don_gia, 0) THEN 0
+          WHEN hd.cuoc_hen_id IS NOT NULL THEN COALESCE(NULLIF(hd.phi_kham_ap_dung, 0), dv.don_gia, 0)
           ELSE 0
         END as chi_phi_kham,
         (
@@ -716,6 +770,7 @@ class AdminRepository {
       LEFT JOIN goi_dich_vu gdv ON pd.goi_dich_vu_id = gdv.id
       LEFT JOIN cuoc_hen ch ON hd.cuoc_hen_id = ch.id
       LEFT JOIN goi_dich_vu dv ON ch.goi_dich_vu_id = dv.id
+      LEFT JOIN khuyen_mai_voucher v ON hd.voucher_id = v.id
       ORDER BY hd.ngay_tao DESC
     `);
     return rows;
@@ -794,9 +849,9 @@ class AdminRepository {
   // --- QUẢN LÝ MARKETING (VOUCHERS) ---
   async getVouchers() {
     const { rows } = await pool.query(`
-      SELECT id, ma_code as ma_voucher, loai_giam_gia as loai_giam, gia_tri_giam, giam_toi_da, 
-             don_hang_toi_thieu, so_luong_gioi_han as so_luong_toi_da, so_luong_da_dung,
-             ngay_bat_dau, ngay_het_han, dang_kich_hoat,
+      SELECT id, ma_code as ma_voucher, ten_chien_dich, loai_giam_gia as loai_giam, gia_tri_giam, giam_toi_da,
+             don_hang_toi_thieu, so_luong_gioi_han as so_luong_toi_da,
+             ngay_bat_dau, ngay_het_han, dang_kich_hoat, yeu_cau_thanh_toan,
              CASE WHEN dang_kich_hoat = true THEN 'hoat_dong' ELSE 'vo_hieu' END as trang_thai
       FROM khuyen_mai_voucher
       ORDER BY ngay_bat_dau DESC
@@ -806,9 +861,9 @@ class AdminRepository {
 
   async getVoucherByCode(code: string) {
     const { rows } = await pool.query(`
-      SELECT id, ma_code as ma_voucher, loai_giam_gia as loai_giam, gia_tri_giam, giam_toi_da, 
-             don_hang_toi_thieu, so_luong_gioi_han as so_luong_toi_da, so_luong_da_dung,
-             ngay_bat_dau, ngay_het_han, dang_kich_hoat,
+      SELECT id, ma_code as ma_voucher, ten_chien_dich, loai_giam_gia as loai_giam, gia_tri_giam, giam_toi_da,
+             don_hang_toi_thieu, so_luong_gioi_han as so_luong_toi_da,
+             ngay_bat_dau, ngay_het_han, dang_kich_hoat, yeu_cau_thanh_toan,
              CASE WHEN dang_kich_hoat = true THEN 'hoat_dong' ELSE 'vo_hieu' END as trang_thai
       FROM khuyen_mai_voucher
       WHERE ma_code = $1
@@ -819,19 +874,21 @@ class AdminRepository {
   async createVoucher(data: any, userId: string) {
     const isAct = data.trang_thai === 'hoat_dong' || data.trang_thai === 'kich_hoat' || data.trang_thai === true;
     const { rows } = await pool.query(
-      `INSERT INTO khuyen_mai_voucher (ma_code, loai_giam_gia, gia_tri_giam, giam_toi_da, don_hang_toi_thieu, so_luong_gioi_han, ngay_bat_dau, ngay_het_han, dang_kich_hoat) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
-       RETURNING id, ma_code as ma_voucher, loai_giam_gia as loai_giam, gia_tri_giam, giam_toi_da, don_hang_toi_thieu, so_luong_gioi_han as so_luong_toi_da, dang_kich_hoat`,
+      `INSERT INTO khuyen_mai_voucher (ma_code, ten_chien_dich, loai_giam_gia, gia_tri_giam, giam_toi_da, don_hang_toi_thieu, so_luong_gioi_han, ngay_bat_dau, ngay_het_han, dang_kich_hoat, yeu_cau_thanh_toan)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       RETURNING id, ma_code as ma_voucher, ten_chien_dich, loai_giam_gia as loai_giam, gia_tri_giam, giam_toi_da, don_hang_toi_thieu, so_luong_gioi_han as so_luong_toi_da, dang_kich_hoat, yeu_cau_thanh_toan`,
       [
-        data.ma_voucher, 
-        data.loai_giam, 
-        data.gia_tri_giam ? BigInt(data.gia_tri_giam) : BigInt(0), 
-        data.giam_toi_da ? BigInt(data.giam_toi_da) : null, 
-        data.don_hang_toi_thieu ? BigInt(data.don_hang_toi_thieu) : BigInt(0), 
-        data.so_luong_toi_da ? Number(data.so_luong_toi_da) : null, 
-        data.ngay_bat_dau, 
-        data.ngay_het_han || null, 
-        isAct
+        data.ma_voucher,
+        data.ten_chien_dich || '',
+        data.loai_giam,
+        data.gia_tri_giam ? BigInt(data.gia_tri_giam) : BigInt(0),
+        data.giam_toi_da ? BigInt(data.giam_toi_da) : null,
+        data.don_hang_toi_thieu ? BigInt(data.don_hang_toi_thieu) : BigInt(0),
+        data.so_luong_toi_da ? Number(data.so_luong_toi_da) : null,
+        data.ngay_bat_dau,
+        data.ngay_het_han || null,
+        isAct,
+        data.yeu_cau_thanh_toan?.length ? data.yeu_cau_thanh_toan : ['tat_ca']
       ]
     );
     return rows[0];
@@ -840,22 +897,24 @@ class AdminRepository {
   async updateVoucher(id: string, data: any) {
     const isAct = data.trang_thai === 'hoat_dong' || data.trang_thai === 'kich_hoat' || data.trang_thai === true;
     const { rows } = await pool.query(
-      `UPDATE khuyen_mai_voucher SET 
-        ma_code = $1, loai_giam_gia = $2, gia_tri_giam = $3, giam_toi_da = $4, 
-        don_hang_toi_thieu = $5, so_luong_gioi_han = $6, 
-        ngay_bat_dau = $7, ngay_het_han = $8, dang_kich_hoat = $9
-       WHERE id = $10 
-       RETURNING id, ma_code as ma_voucher, loai_giam_gia as loai_giam, gia_tri_giam, giam_toi_da, don_hang_toi_thieu, so_luong_gioi_han as so_luong_toi_da, dang_kich_hoat`,
+      `UPDATE khuyen_mai_voucher SET
+        ma_code = $1, ten_chien_dich = $2, loai_giam_gia = $3, gia_tri_giam = $4, giam_toi_da = $5,
+        don_hang_toi_thieu = $6, so_luong_gioi_han = $7,
+        ngay_bat_dau = $8, ngay_het_han = $9, dang_kich_hoat = $10, yeu_cau_thanh_toan = $11
+       WHERE id = $12
+       RETURNING id, ma_code as ma_voucher, ten_chien_dich, loai_giam_gia as loai_giam, gia_tri_giam, giam_toi_da, don_hang_toi_thieu, so_luong_gioi_han as so_luong_toi_da, dang_kich_hoat, yeu_cau_thanh_toan`,
       [
         data.ma_voucher,
-        data.loai_giam, 
-        data.gia_tri_giam ? BigInt(data.gia_tri_giam) : BigInt(0), 
-        data.giam_toi_da ? BigInt(data.giam_toi_da) : null, 
-        data.don_hang_toi_thieu ? BigInt(data.don_hang_toi_thieu) : BigInt(0), 
-        data.so_luong_toi_da ? Number(data.so_luong_toi_da) : null, 
-        data.ngay_bat_dau, 
-        data.ngay_het_han || null, 
+        data.ten_chien_dich || '',
+        data.loai_giam,
+        data.gia_tri_giam ? BigInt(data.gia_tri_giam) : BigInt(0),
+        data.giam_toi_da ? BigInt(data.giam_toi_da) : null,
+        data.don_hang_toi_thieu ? BigInt(data.don_hang_toi_thieu) : BigInt(0),
+        data.so_luong_toi_da ? Number(data.so_luong_toi_da) : null,
+        data.ngay_bat_dau,
+        data.ngay_het_han || null,
         isAct,
+        data.yeu_cau_thanh_toan?.length ? data.yeu_cau_thanh_toan : ['tat_ca'],
         id
       ]
     );
@@ -893,7 +952,11 @@ class AdminRepository {
       pool.query('SELECT COUNT(*) FROM cuoc_hen WHERE nhan_su_id IS NULL AND trang_thai IN (\'cho_xac_nhan\', \'da_xac_nhan\')'),
       pool.query('SELECT COUNT(*) FROM cuoc_hen WHERE phac_do_dieu_tri_id IS NOT NULL AND nhan_su_id IS NULL AND trang_thai NOT IN (\'hoan_thanh\', \'huy\')'),
       pool.query('SELECT id, ngay_gio_bat_dau AS start_time FROM cuoc_hen WHERE nhan_su_id IS NULL AND trang_thai IN (\'cho_xac_nhan\', \'da_xac_nhan\') ORDER BY ngay_gio_bat_dau ASC LIMIT 1'),
-      pool.query('SELECT id, ngay_gio_bat_dau AS start_time FROM cuoc_hen WHERE phac_do_dieu_tri_id IS NOT NULL AND nhan_su_id IS NULL AND trang_thai NOT IN (\'hoan_thanh\', \'huy\') ORDER BY ngay_gio_bat_dau ASC LIMIT 1')
+      pool.query('SELECT id, ngay_gio_bat_dau AS start_time FROM cuoc_hen WHERE phac_do_dieu_tri_id IS NOT NULL AND nhan_su_id IS NULL AND trang_thai NOT IN (\'hoan_thanh\', \'huy\') ORDER BY ngay_gio_bat_dau ASC LIMIT 1'),
+      pool.query(`SELECT COUNT(*)::integer FROM khach_hang WHERE ngay_dong_y_dieu_khoan >= DATE_TRUNC('month', NOW())`),
+      pool.query(`SELECT COUNT(*)::integer FROM khach_hang WHERE ngay_dong_y_dieu_khoan >= DATE_TRUNC('month', NOW() - INTERVAL '1 month') AND ngay_dong_y_dieu_khoan < DATE_TRUNC('month', NOW())`),
+      pool.query(`SELECT (COUNT(CASE WHEN trang_thai = 'huy' THEN 1 END)::float / GREATEST(COUNT(*), 1) * 100)::numeric(5,2) as rate FROM cuoc_hen`),
+      pool.query(`SELECT COUNT(*)::integer FROM cuoc_hen WHERE trang_thai = 'hoan_thanh'`)
     ];
     const results = await Promise.all(queries);
 
@@ -920,35 +983,118 @@ class AdminRepository {
       active_staff: results[3].rows[0].count,
       pending_appointments_need_assign: results[4].rows[0].count,
       pending_treatments: results[5].rows[0].count,
-      earliest_pending: earliestPending
+      earliest_pending: earliestPending,
+      customers_this_month: results[8].rows[0].count || 0,
+      customers_prev_month: results[9].rows[0].count || 0,
+      cancellation_rate: parseFloat(results[10].rows[0].rate || '0'),
+      completed_appointments: results[11].rows[0].count || 0
     };
   }
 
-  async getRevenueStats() {
-    const { rows } = await pool.query(`
+  async getRevenueStats(type?: string, startDate?: string, endDate?: string) {
+    let formatStr = 'YYYY-MM';
+    if (type === 'day') {
+      formatStr = 'YYYY-MM-DD';
+    } else if (type === 'year') {
+      formatStr = 'YYYY';
+    }
+
+    let query = `
       SELECT 
-        TO_CHAR(ngay_giao_dich, 'YYYY-MM') as month,
+        TO_CHAR(ngay_giao_dich, '${formatStr}') as label,
         SUM(so_tien) as revenue
       FROM giao_dich_thanh_toan
-      WHERE ngay_giao_dich >= NOW() - INTERVAL '6 months'
-      GROUP BY month
-      ORDER BY month ASC
-    `);
-    return rows;
+    `;
+    const params: any[] = [];
+
+    if (startDate && endDate) {
+      query += ` WHERE ngay_giao_dich::date >= $1::date AND ngay_giao_dich::date <= $2::date `;
+      params.push(startDate, endDate);
+    } else {
+      query += ` WHERE ngay_giao_dich >= NOW() - INTERVAL '6 months' `;
+    }
+
+    query += `
+      GROUP BY label
+      ORDER BY label ASC
+    `;
+
+    const { rows } = await pool.query(query, params);
+    return rows.map(r => ({
+      label: r.label,
+      revenue: Number(r.revenue || 0)
+    }));
   }
 
   async getStaffPerformance() {
     const { rows } = await pool.query(`
       SELECT 
         nd.ho_ten as name,
-        COUNT(ch.id) as sessions
+        nd.anh_dai_dien as avatar,
+        vt.ten_vai_tro as role,
+        COUNT(ch.id)::integer as sessions
       FROM cuoc_hen ch
       JOIN nguoi_dung nd ON ch.nhan_su_id = nd.id
+      JOIN vai_tro vt ON nd.vai_tro_id = vt.id
       WHERE ch.trang_thai = 'hoan_thanh'
         AND ch.ngay_gio_bat_dau >= DATE_TRUNC('month', NOW())
-      GROUP BY nd.ho_ten
+      GROUP BY nd.ho_ten, nd.anh_dai_dien, vt.ten_vai_tro
       ORDER BY sessions DESC
       LIMIT 5
+    `);
+    return rows;
+  }
+
+  async getTopPackages() {
+    const { rows } = await pool.query(`
+      SELECT name, COUNT(*)::integer as count
+      FROM (
+        SELECT gdv.ten_goi as name, pddt.khach_hang_id
+        FROM phac_do_dieu_tri pddt
+        JOIN goi_dich_vu gdv ON pddt.goi_dich_vu_id = gdv.id
+        UNION ALL
+        SELECT gdv.ten_goi as name, ch.khach_hang_id
+        FROM cuoc_hen ch
+        JOIN goi_dich_vu gdv ON ch.goi_dich_vu_id = gdv.id
+        WHERE ch.phac_do_dieu_tri_id IS NULL
+      ) combined
+      GROUP BY name
+      ORDER BY count DESC
+      LIMIT 5
+    `);
+    return rows;
+  }
+
+  async getTopVipCustomers() {
+    const { rows } = await pool.query(`
+      SELECT 
+        kh.id,
+        kh.ho_ten as name,
+        kh.so_dien_thoai as phone,
+        COALESCE(SUM(gd.so_tien), 0)::bigint as total_paid
+      FROM khach_hang kh
+      LEFT JOIN hoa_don hd ON kh.id = hd.khach_hang_id
+      LEFT JOIN giao_dich_thanh_toan gd ON hd.id = gd.hoa_don_id
+      GROUP BY kh.id, kh.ho_ten, kh.so_dien_thoai
+      ORDER BY total_paid DESC
+      LIMIT 5
+    `);
+    return rows.map(r => ({
+      ...r,
+      total_paid: Number(r.total_paid || 0)
+    }));
+  }
+
+  async getReviews() {
+    const { rows } = await pool.query(`
+      SELECT 
+        dg.id,
+        kh.ho_ten as name,
+        dg.so_sao as rating,
+        dg.nhan_xet as comment
+      FROM danh_gia_chat_luong dg
+      JOIN khach_hang kh ON dg.khach_hang_id = kh.id
+      ORDER BY dg.id DESC
     `);
     return rows;
   }
@@ -1171,13 +1317,19 @@ class AdminRepository {
           [hd.cuoc_hen_id]
         );
         if (examServiceRes.rows && examServiceRes.rows.length > 0) {
-          chi_phi_kham = Number(examServiceRes.rows[0].don_gia);
           examAppointment = {
             ngay_gio_bat_dau: examServiceRes.rows[0].ngay_gio_bat_dau,
             ngay_gio_ket_thuc: examServiceRes.rows[0].ngay_gio_ket_thuc,
           };
-        } else {
-          chi_phi_kham = 200000;
+        }
+
+        // Ưu tiên tuyệt đối phí khám đã snapshot vào hóa đơn lúc bán gói: đó mới là số tiền thực sự
+        // đã miễn cho khách. `goi_dich_vu.don_gia` là giá khám HIỆN HÀNH — admin đổi giá khám sau đó
+        // sẽ khiến truy thu sai (hụt hoặc quá tay). Chỉ fallback về giá hiện hành cho hóa đơn cũ
+        // tạo trước khi có cột snapshot; không tìm thấy dịch vụ thì để 0, không truy thu số tự bịa.
+        chi_phi_kham = Number(hd.phi_kham_ap_dung || 0);
+        if (chi_phi_kham === 0 && examServiceRes.rows && examServiceRes.rows.length > 0) {
+          chi_phi_kham = Number(examServiceRes.rows[0].don_gia);
         }
       }
 
@@ -1278,20 +1430,112 @@ class AdminRepository {
       );
 
       // 6. Update the associated treatment plan status
+      // Hủy gói + hoàn tiền là hành động KHÔNG đảo ngược -> phác đồ phải là 'huy' (giá trị dùng
+      // thống nhất ở receptionist.repository), không phải 'da_tam_dung' (tạm dừng, còn tiếp tục được).
       if (ldtId) {
         await client.query(
-          `UPDATE phac_do_dieu_tri 
-           SET trang_thai = 'da_tam_dung'
+          `UPDATE phac_do_dieu_tri
+           SET trang_thai = 'huy'
            WHERE id = $1`,
           [ldtId]
         );
       }
 
       await client.query('COMMIT');
-      
+
       // Fetch updated invoice to return
       const { rows: updatedHd } = await client.query('SELECT * FROM hoa_don WHERE id = $1', [hoa_don_id]);
       return { success: true, invoice: updatedHd[0], so_tien_hoan_tra };
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Hủy gói KHÔNG hoàn tiền khi phác đồ đã quá hạn sử dụng và khách không còn liên lạc được —
+   * khác hẳn `handlePackageRefund` (hủy chủ động, có công thức phạt 10% + hoàn phần dư).
+   * Giữ nguyên toàn bộ `so_tien_da_tra` vào doanh thu, không hoàn, không thu thêm, không phân biệt
+   * hình thức thanh toán (xem docs/BUSINESS_RULES.md).
+   */
+  async expirePackageNoRefund(hoa_don_id: string, ly_do: string | undefined, nhan_vien_id: number) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // FOR UPDATE: khóa dòng hóa đơn ngay từ đầu — tránh race condition với 1 lần thu tiền
+      // (processPaymentPartial) chạy song song vừa lúc admin bấm xác nhận hủy.
+      const { rows: hdRows } = await client.query('SELECT * FROM hoa_don WHERE id = $1 FOR UPDATE', [hoa_don_id]);
+      if (hdRows.length === 0) {
+        await client.query('ROLLBACK');
+        return { error: 'Không tìm thấy hóa đơn', code: 404 };
+      }
+      const hd = hdRows[0];
+
+      if (['da_hoan_tien', 'da_huy'].includes(hd.trang_thai)) {
+        await client.query('ROLLBACK');
+        return { error: 'Hóa đơn này đã được xử lý (hủy/hoàn tiền) trước đó', code: 400 };
+      }
+
+      if (!hd.phac_do_dieu_tri_id) {
+        await client.query('ROLLBACK');
+        return { error: 'Hóa đơn này không gắn với gói liệu trình nào', code: 400 };
+      }
+
+      const { rows: pdRows } = await client.query(
+        `SELECT id, han_su_dung, trang_thai,
+                (han_su_dung IS NOT NULL AND han_su_dung < CURRENT_DATE) as qua_han
+         FROM phac_do_dieu_tri WHERE id = $1 FOR UPDATE`,
+        [hd.phac_do_dieu_tri_id]
+      );
+      if (pdRows.length === 0) {
+        await client.query('ROLLBACK');
+        return { error: 'Không tìm thấy phác đồ điều trị liên kết', code: 404 };
+      }
+      const pd = pdRows[0];
+
+      // Backend tự re-validate, không tin tuyệt đối vào việc frontend chỉ hiện nút đúng lúc.
+      if (!pd.qua_han) {
+        await client.query('ROLLBACK');
+        return { error: 'Gói chưa quá hạn sử dụng, không thể hủy theo hình thức này.', code: 400 };
+      }
+
+      // Gói đã hoàn thành/hủy trước đó (dù han_su_dung đã trôi qua) KHÔNG được coi là "quá hạn
+      // mất liên lạc" — tránh biến 1 hồ sơ điều trị THÀNH CÔNG thành "hủy do mất liên lạc".
+      if (['hoan_thanh', 'huy'].includes(pd.trang_thai)) {
+        await client.query('ROLLBACK');
+        return { error: 'Phác đồ đã hoàn thành hoặc đã hủy trước đó, không thể hủy theo hình thức quá hạn sử dụng.', code: 400 };
+      }
+
+      const soTienGiuLai = Number(hd.so_tien_da_tra);
+      const hanStr = new Date(pd.han_su_dung).toLocaleDateString('vi-VN');
+      const { rows: nvRows } = await client.query('SELECT ho_ten FROM nguoi_dung WHERE id = $1', [nhan_vien_id]);
+      const tenNhanVien = nvRows[0]?.ho_ten || `NV#${nhan_vien_id}`;
+      const ghiChuMoi = `Hủy do quá hạn sử dụng gói (hạn ${hanStr}), khách không phản hồi. ${tenNhanVien} xác nhận, chốt sổ tại số tiền đã thu (${soTienGiuLai.toLocaleString('vi-VN')}đ), không hoàn/không thu thêm.${ly_do ? ` Lý do: ${ly_do}` : ''}`;
+
+      // Không tạo giao_dich_thanh_toan — không có tiền di chuyển (không hoàn, không thu thêm),
+      // và nhan_vien_thuc_hien_id là NOT NULL trong khi hành động này không cần gắn giao dịch tiền.
+      await client.query(
+        `UPDATE hoa_don
+         SET trang_thai = 'da_huy',
+             tong_tien_phai_tra = so_tien_da_tra,
+             ghi_chu = COALESCE(ghi_chu || ' | ', '') || $1
+         WHERE id = $2`,
+        [ghiChuMoi, hoa_don_id]
+      );
+
+      // Hủy do quá hạn cũng KHÔNG đảo ngược -> 'huy' (giống hủy hoàn tiền), không phải 'da_tam_dung'.
+      await client.query(
+        `UPDATE phac_do_dieu_tri SET trang_thai = 'huy' WHERE id = $1`,
+        [pd.id]
+      );
+
+      await client.query('COMMIT');
+
+      const { rows: updatedHd } = await pool.query('SELECT * FROM hoa_don WHERE id = $1', [hoa_don_id]);
+      return { success: true, invoice: updatedHd[0], so_tien_giu_lai: soTienGiuLai };
     } catch (e) {
       await client.query('ROLLBACK');
       throw e;

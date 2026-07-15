@@ -25,9 +25,13 @@ import type { Invoice } from './hooks/useFinanceDashboard';
 // Components
 import FastPaymentModal from './components/FastPaymentModal';
 import InvoiceDetailModal from './components/InvoiceDetailModal';
+import OverduePackagePanel from './components/OverduePackagePanel';
 import ReceiptBreakdown from './components/ReceiptBreakdown';
 import PaymentSuccessBox from './components/PaymentSuccessBox';
 import ConfirmPaymentModal from './components/ConfirmPaymentModal';
+import QRWebhookModal from './components/QRWebhookModal';
+import VoucherPicker from './components/VoucherPicker';
+
 
 const getStatusBadge = (status: string) => {
   const badges: Record<string, string> = {
@@ -78,7 +82,7 @@ export default function ManageFinance() {
   const handleConfirmSubmit = () => {
     setShowConfirmModal(false);
     const dummyEvent = { preventDefault: () => {} } as React.FormEvent;
-    if (checkout.dangKyGoi) {
+    if (checkout.checkoutTab === 'package') {
       checkout.handleThanhToanPackage(dummyEvent);
     } else {
       checkout.handleThanhToanSingle(dummyEvent);
@@ -238,8 +242,8 @@ export default function ManageFinance() {
 
             {/* Input controls form */}
             {(() => {
-              const totalRequired = checkout.dangKyGoi && checkout.calculatedData
-                ? (checkout.loaiThanhToan === 'tra_gop' || checkout.loaiThanhToan === 'tung_buoi'
+              const totalRequired = checkout.checkoutTab === 'package' && checkout.calculatedData
+                ? (checkout.dangKyGoi && (checkout.loaiThanhToan === 'tra_gop' || checkout.loaiThanhToan === 'tung_buoi')
                   ? Number(checkout.calculatedData.so_tien_dot_1)
                   : Number(checkout.calculatedData.tong_tien_thanh_toan))
                 : (checkout.state.hoaDon ? Number(checkout.state.hoaDon.tong_tien_thanh_toan) : 0);
@@ -288,7 +292,9 @@ export default function ManageFinance() {
                               onChange={(e) => {
                                 const checked = e.target.checked;
                                 checkout.setDangKyGoi(checked);
-                                checkout.setCheckoutTab(checked ? 'package' : 'single');
+                                // Luôn ở tab 'package' dù có đăng ký gói hay không — tab 'single' là
+                                // luồng tạo hóa đơn ngay, không có chỗ áp mã giảm giá.
+                                checkout.setCheckoutTab('package');
                               }}
                               disabled={isTungBuoiWithPaidExam}
                               className="sr-only peer"
@@ -301,33 +307,90 @@ export default function ManageFinance() {
 
                     {checkout.checkoutTab === 'package' && (
                       <div className="space-y-4 animate-in fade-in duration-200">
-                        {/* Select assigned medical package */}
-                        <div className="space-y-1.5">
-                          <label htmlFor="selectedPackage" className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
-                            {checkout.selectedPackage?.loai_goi === 'LE' ? 'Dịch vụ lẻ được chỉ định *' : 'Gói trị liệu được chỉ định *'}
-                          </label>
-                          <select 
-                            id="selectedPackage"
-                            value={checkout.selectedPackage?.id || ''} 
-                            onChange={(e) => {
-                              const matched = checkout.packages.find(p => String(p.id) === e.target.value);
-                              checkout.setSelectedPackage(matched || null);
-                            }}
-                            required
-                            disabled={!!checkout.selectedConsultation?.khuyen_nghi_goi_id || isTungBuoiWithPaidExam}
-                            className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-xs font-bold text-secondary focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-                          >
-                            <option value="">-- Chọn gói trị liệu --</option>
-                            {checkout.packages.map(pkg => (
-                              <option key={pkg.id} value={pkg.id}>
-                                {pkg.ten_goi} ({formatCurrency(pkg.don_gia)})
-                              </option>
-                            ))}
-                          </select>
-                        </div>
+                        {/* Select assigned medical package (chỉ khi có đăng ký gói — khám thường không chọn gói) */}
+                        {checkout.dangKyGoi && (
+                          <div className="space-y-1.5">
+                            <label htmlFor="selectedPackage" className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                              {checkout.selectedPackage?.loai_goi === 'LE' ? 'Dịch vụ lẻ được chỉ định *' : 'Gói trị liệu được chỉ định *'}
+                            </label>
+                            <select
+                              id="selectedPackage"
+                              value={checkout.selectedPackage?.id || ''}
+                              onChange={(e) => {
+                                const matched = checkout.packages.find(p => String(p.id) === e.target.value);
+                                checkout.setSelectedPackage(matched || null);
+                              }}
+                              required
+                              disabled={!!checkout.selectedConsultation?.khuyen_nghi_goi_id || isTungBuoiWithPaidExam}
+                              className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-xs font-bold text-secondary focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                            >
+                              <option value="">-- Chọn gói trị liệu --</option>
+                              {checkout.packages.map(pkg => (
+                                <option key={pkg.id} value={pkg.id}>
+                                  {pkg.ten_goi} ({formatCurrency(pkg.don_gia)})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
 
-                        {/* Payment type options */}
-                        {checkout.selectedPackage?.loai_goi !== 'LE' && (
+                        {/* Cảnh báo bất thường: admin sửa cấu hình gói SAU khi bác sĩ đã chỉ định.
+                            Chỉ hiện khi thực sự lệch — ca bình thường không thấy gì. */}
+                        {checkout.canhBaoLechCauHinh && (
+                          <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 space-y-3 shadow-sm animate-in fade-in duration-200">
+                            <div className="space-y-1">
+                              <span className="text-xs font-black text-amber-900 flex items-center gap-1.5">
+                                <span>⚠️</span> Gói đã được cấu hình lại sau khi bác sĩ chỉ định
+                              </span>
+                              <span className="text-[10.5px] text-amber-800 font-bold block leading-relaxed">
+                                Bác sĩ tư vấn cho khách:{' '}
+                                <span className="font-black">
+                                  {checkout.canhBaoLechCauHinh.tu_van.tong_so_buoi} buổi ·{' '}
+                                  {formatCurrency(checkout.canhBaoLechCauHinh.tu_van.don_gia)}
+                                </span>
+                                {' → '}
+                                Cấu hình hiện tại:{' '}
+                                <span className="font-black">
+                                  {checkout.canhBaoLechCauHinh.hien_tai.tong_so_buoi} buổi ·{' '}
+                                  {formatCurrency(checkout.canhBaoLechCauHinh.hien_tai.don_gia)}
+                                </span>
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2.5">
+                              <button
+                                type="button"
+                                onClick={() => checkout.setGiuTheoTuVan(true)}
+                                className={`py-2.5 px-3 rounded-xl border text-[10.5px] font-black uppercase tracking-wider transition-all ${
+                                  checkout.giuTheoTuVan
+                                    ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
+                                    : 'bg-white border-amber-200 text-amber-800 hover:bg-amber-50'
+                                }`}
+                              >
+                                Giữ theo tư vấn ({checkout.canhBaoLechCauHinh.tu_van.tong_so_buoi} buổi)
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => checkout.setGiuTheoTuVan(false)}
+                                className={`py-2.5 px-3 rounded-xl border text-[10.5px] font-black uppercase tracking-wider transition-all ${
+                                  !checkout.giuTheoTuVan
+                                    ? 'bg-secondary border-secondary text-white shadow-sm'
+                                    : 'bg-white border-amber-200 text-amber-800 hover:bg-amber-50'
+                                }`}
+                              >
+                                Áp cấu hình mới ({checkout.canhBaoLechCauHinh.hien_tai.tong_so_buoi} buổi)
+                              </button>
+                            </div>
+
+                            <p className="text-[10px] text-amber-800 leading-relaxed font-semibold border-t border-amber-200/70 pt-2">
+                              📢 Mặc định giữ đúng liệu trình + giá bác sĩ đã tư vấn cho khách. Chỉ áp cấu hình mới
+                              nếu gói cũ bị cấu hình sai — và nhớ trao đổi lại với khách trước khi thu tiền.
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Payment type options (chỉ khi có đăng ký gói) */}
+                        {checkout.dangKyGoi && checkout.selectedPackage?.loai_goi !== 'LE' && (
                           <div className="space-y-3">
                             <div className="space-y-2">
                               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Hình thức thanh toán gói</label>
@@ -368,7 +431,7 @@ export default function ManageFinance() {
                               </div>
                             </div>
 
-                            {['tra_thang', 'tra_gop'].includes(checkout.loaiThanhToan) && (
+                            {['tra_thang', 'tra_gop', 'tung_buoi'].includes(checkout.loaiThanhToan) && (
                               <div className="space-y-1.5 animate-in fade-in duration-200 text-left">
                                 <label htmlFor="durationDays" className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">
                                   Hạn sử dụng gói (ngày) *
@@ -396,44 +459,15 @@ export default function ManageFinance() {
 
                     {/* Vouchers application form */}
                     {checkout.checkoutTab === 'package' && (
-                      <div className="space-y-2">
-                        <label htmlFor="maVoucher" className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Mã giảm giá (Voucher)</label>
-                        <div className="flex gap-2">
-                          <input 
-                            id="maVoucher"
-                            type="text"
-                            placeholder="VD: MAGIAMGIA10"
-                            value={checkout.maVoucher}
-                            onChange={(e) => checkout.setMaVoucher(e.target.value)}
-                            disabled={!!checkout.appliedVoucher || isTungBuoiWithPaidExam}
-                            className="flex-1 px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-xs font-bold text-secondary focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all disabled:bg-zinc-100 disabled:text-zinc-400"
-                          />
-                          {checkout.appliedVoucher ? (
-                            <button
-                              type="button"
-                              onClick={checkout.handleRemoveVoucher}
-                              disabled={isTungBuoiWithPaidExam}
-                              className="px-5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 rounded-2xl text-xs font-black uppercase tracking-wider transition-all disabled:opacity-50"
-                            >
-                              Hủy
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={checkout.handleApplyVoucher}
-                              disabled={isTungBuoiWithPaidExam}
-                              className="px-5 bg-zinc-150 hover:bg-zinc-200 text-zinc-650 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all border border-zinc-200 disabled:opacity-50"
-                            >
-                              Áp dụng
-                            </button>
-                          )}
-                        </div>
-                        {checkout.appliedVoucher && (
-                          <p className="text-[10.5px] font-bold text-emerald-600 animate-in fade-in duration-200">
-                            ✓ Đã áp dụng Voucher: Giảm {checkout.appliedVoucher.gia_tri_giam}% (Tối đa {formatCurrency(checkout.appliedVoucher.giam_toi_da)})
-                          </p>
-                        )}
-                      </div>
+                      <VoucherPicker
+                        appliedVoucher={checkout.appliedVoucher}
+                        onApply={checkout.handleApplyVoucher}
+                        onRemove={checkout.handleRemoveVoucher}
+                        disabled={isTungBuoiWithPaidExam}
+                        orderValue={Number(checkout.calculatedData?.gia_goc_goi || 0)}
+                        loaiThanhToan={checkout.dangKyGoi ? checkout.loaiThanhToan : 'tra_thang'}
+                        khachHangId={checkout.selectedConsultation?.khach_hang_id}
+                      />
                     )}
 
                     {/* Payment method */}
@@ -448,7 +482,6 @@ export default function ManageFinance() {
                       >
                         <option value="tien_mat">💵 Tiền mặt</option>
                         <option value="chuyen_khoan">🏦 Chuyển khoản ngân hàng</option>
-                        <option value="the">💳 Quẹt thẻ POS</option>
                       </select>
                     </div>
 
@@ -557,7 +590,7 @@ export default function ManageFinance() {
 
                   <button
                     type="submit"
-                    disabled={checkout.state.loading || (checkout.dangKyGoi ? checkout.calculating : !checkout.state.hoaDon)}
+                    disabled={checkout.state.loading || (checkout.checkoutTab === 'package' ? (checkout.calculating || !checkout.calculatedData) : !checkout.state.hoaDon)}
                     className="w-full py-4 bg-primary hover:bg-primary/95 text-white shadow-md hover:shadow-lg font-black text-xs uppercase tracking-wider rounded-2xl transition-all disabled:opacity-45 disabled:pointer-events-none"
                   >
                     {checkout.state.loading ? 'Đang xử lý...' : (totalRequired === 0 ? 'Kích hoạt phác đồ & Đặt lịch' : 'Xác nhận & Thu tiền')}
@@ -581,8 +614,8 @@ export default function ManageFinance() {
         </div>
 
         {(() => {
-          const totalRequired = checkout.dangKyGoi && checkout.calculatedData
-            ? (checkout.loaiThanhToan === 'tra_gop' || checkout.loaiThanhToan === 'tung_buoi'
+          const totalRequired = checkout.checkoutTab === 'package' && checkout.calculatedData
+            ? (checkout.dangKyGoi && (checkout.loaiThanhToan === 'tra_gop' || checkout.loaiThanhToan === 'tung_buoi')
               ? Number(checkout.calculatedData.so_tien_dot_1)
               : Number(checkout.calculatedData.tong_tien_thanh_toan))
             : (checkout.state.hoaDon ? Number(checkout.state.hoaDon.tong_tien_thanh_toan) : 0);
@@ -590,24 +623,37 @@ export default function ManageFinance() {
           const received = Number(checkout.state.soTienNhan || 0);
 
           return (
-            <ConfirmPaymentModal
-              isOpen={showConfirmModal}
-              onClose={() => setShowConfirmModal(false)}
-              onConfirm={handleConfirmSubmit}
-              patientName={checkout.selectedConsultation?.ten_khach_hang || ''}
-              itemName={
-                checkout.dangKyGoi
-                  ? (checkout.selectedPackage?.ten_goi || 'Gói trị liệu')
-                  : (checkout.state.hoaDon?.ten_dich_vu || 'Phí khám/Buổi trị liệu')
-              }
-              totalAmount={totalRequired}
-              paymentMethod={checkout.state.phuongThuc}
-              receivedAmount={received}
-              changeAmount={received > totalRequired ? (received - totalRequired) : 0}
-              note={checkout.feedbackLyDo}
-              loading={checkout.state.loading}
-              actionText={totalRequired === 0 ? 'Kích hoạt phác đồ & Đặt lịch' : 'Xác nhận & Thu tiền'}
-            />
+            <>
+              <ConfirmPaymentModal
+                isOpen={showConfirmModal}
+                onClose={() => setShowConfirmModal(false)}
+                onConfirm={handleConfirmSubmit}
+                patientName={checkout.selectedConsultation?.ten_khach_hang || ''}
+                itemName={
+                  checkout.checkoutTab === 'package'
+                    ? (checkout.dangKyGoi
+                      ? (checkout.selectedPackage?.ten_goi || 'Gói trị liệu')
+                      : (checkout.calculatedData?.ten_item || 'Phí khám'))
+                    : (checkout.state.hoaDon?.ten_dich_vu || 'Phí khám/Buổi trị liệu')
+                }
+                totalAmount={totalRequired}
+                paymentMethod={checkout.state.phuongThuc}
+                receivedAmount={received}
+                changeAmount={received > totalRequired ? (received - totalRequired) : 0}
+                note={checkout.feedbackLyDo}
+                loading={checkout.state.loading}
+                actionText={totalRequired === 0 ? 'Kích hoạt phác đồ & Đặt lịch' : 'Xác nhận & Thu tiền'}
+              />
+              {checkout.activePayOSInvoice && (
+                <QRWebhookModal
+                  hoaDonId={checkout.activePayOSInvoice.invoice.id}
+                  amount={checkout.activePayOSInvoice.amount}
+                  soThuTuBuoi={checkout.activePayOSInvoice.so_thu_tu_buoi}
+                  onClose={() => checkout.setActivePayOSInvoice(null)}
+                  onSuccess={(paidInvoice) => checkout.handlePayOSSuccess(paidInvoice)}
+                />
+              )}
+            </>
           );
         })()}
       </div>
@@ -618,6 +664,16 @@ export default function ManageFinance() {
   // RENDER FINANCE DASHBOARD
   // ----------------------------------------------------
   const filteredInvoices = dashboard.getFilteredInvoices();
+  // Gói liệu trình đã quá hạn sử dụng, khách không phản hồi — xem docs/BUSINESS_RULES.md mục
+  // "Hủy gói quá hạn sử dụng (không hoàn tiền)". Cả admin lẫn lễ tân đều thấy để dễ liên lạc thử
+  // trước, nhưng chỉ Admin thấy/bấm được nút hủy trong InvoiceDetailModal.
+  const overdueInvoices = dashboard.invoices.filter((inv) =>
+    !!inv.phac_do_dieu_tri_id &&
+    !!inv.han_su_dung &&
+    new Date(inv.han_su_dung) < new Date() &&
+    !['da_hoan_tien', 'da_huy'].includes(inv.trang_thai) &&
+    !['huy', 'hoan_thanh'].includes(inv.trang_thai_phac_do || '')
+  );
   const filteredPayments = dashboard.payments.filter((pay) => {
     const query = dashboard.searchTerm.toLowerCase();
     const matchesSearch =
@@ -674,6 +730,8 @@ export default function ManageFinance() {
           <CalendarDays size={16} /> Lập lịch thanh toán
         </button>
       </div>
+
+      <OverduePackagePanel invoices={overdueInvoices} onOpenDetail={(inv) => dashboard.setSelectedInvoice(inv)} />
 
       {/* Stats Cards Workspace */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -975,6 +1033,7 @@ export default function ManageFinance() {
           onOpenFastPay={(inv) => dashboard.setFastPayInvoice(inv)}
           onRefund={dashboard.handleRefund}
           onPackageRefund={dashboard.handlePackageRefund}
+          onExpireNoRefund={dashboard.handleExpireNoRefund}
         />
       )}
 
@@ -991,6 +1050,14 @@ export default function ManageFinance() {
           note={dashboard.fastPayNote}
           setNote={dashboard.setFastPayNote}
           loading={dashboard.fastPayLoading}
+        />
+      )}
+      {checkout.activePayOSInvoice && (
+        <QRWebhookModal
+          hoaDonId={checkout.activePayOSInvoice.invoice.id}
+          amount={checkout.activePayOSInvoice.amount}
+          onClose={() => checkout.setActivePayOSInvoice(null)}
+          onSuccess={(paidInvoice) => checkout.handlePayOSSuccess(paidInvoice)}
         />
       )}
     </div>

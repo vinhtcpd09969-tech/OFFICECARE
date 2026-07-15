@@ -190,14 +190,14 @@ export default function PackageDetailPage() {
             </div>
 
             {/* Hero Photo */}
-            <div className="lg:col-span-5 relative">
-              <div className="aspect-4/3 md:aspect-video lg:aspect-square rounded-[36px] overflow-hidden shadow-xl border border-white relative group">
+            <div className="lg:col-span-5 relative flex justify-center">
+              <div className="w-full max-w-md aspect-[4/3] rounded-[24px] overflow-hidden shadow-md border-4 border-white relative group">
                 <img
                   src={pkg.anh_goi || '/images/packages/wellness_hero.png'}
                   alt={pkg.ten_goi}
                   className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-secondary/20 via-transparent to-transparent pointer-events-none"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-secondary/10 via-transparent to-transparent pointer-events-none"></div>
               </div>
             </div>
             
@@ -205,8 +205,8 @@ export default function PackageDetailPage() {
         </div>
 
         {/* Section 2: Quy trình & Mục tiêu trị liệu (2-column layout in a single card) */}
-        <div className="bg-white rounded-[24px] border border-slate-100/80 shadow-[0_8px_30px_rgba(15,23,42,0.015)] p-6 md:p-10 mb-12">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 divide-y md:divide-y-0 md:divide-x divide-slate-100">
+        <div className="bg-white rounded-[32px] border border-slate-100/80 shadow-[0_15px_40px_rgba(15,23,42,0.015)] p-8 md:p-12 mb-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 divide-y md:divide-y-0 md:divide-x divide-slate-100">
             
             {/* Left Column: Quy trình trị liệu */}
             <div className="space-y-6">
@@ -219,13 +219,13 @@ export default function PackageDetailPage() {
                 </h3>
               </div>
               
-              <div className="space-y-3.5 max-h-[350px] overflow-y-auto pr-2">
+              <div className="space-y-4">
                 {quyTrinhSteps.map((step: string, idx: number) => (
-                  <div key={idx} className="flex gap-3 items-start">
-                    <div className="size-5 rounded-full bg-[#14B8A6] text-white flex items-center justify-center font-black text-[9px] shrink-0 mt-0.5">
+                  <div key={idx} className="flex gap-3.5 items-start">
+                    <div className="size-6 rounded-full bg-[#14B8A6] text-white flex items-center justify-center font-black text-[10px] shrink-0 mt-0.5 shadow-sm">
                       {idx + 1}
                     </div>
-                    <p className="text-slate-600 text-xs font-semibold leading-relaxed">
+                    <p className="text-slate-600 text-xs md:text-sm font-semibold leading-relaxed">
                       {step}
                     </p>
                   </div>
@@ -239,7 +239,7 @@ export default function PackageDetailPage() {
             </div>
 
             {/* Right Column: Mục tiêu trị liệu */}
-            <div className="pt-6 md:pt-0 md:pl-8 space-y-6">
+            <div className="pt-8 md:pt-0 md:pl-10 space-y-6">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 bg-emerald-500/10 px-3 py-1 rounded-full">
                   🎯 Mục tiêu
@@ -249,13 +249,13 @@ export default function PackageDetailPage() {
                 </h3>
               </div>
               
-              <div className="space-y-3.5 max-h-[350px] overflow-y-auto pr-2">
+              <div className="space-y-4">
                 {mucTieuPoints.map((point: string, idx: number) => (
-                  <div key={idx} className="flex gap-3 items-start">
-                    <div className="size-5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center font-bold text-[9px] shrink-0 mt-0.5">
+                  <div key={idx} className="flex gap-3.5 items-start">
+                    <div className="size-6 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5 shadow-xs">
                       ✓
                     </div>
-                    <p className="text-slate-600 text-xs font-semibold leading-relaxed">
+                    <p className="text-slate-600 text-xs md:text-sm font-semibold leading-relaxed">
                       {point}
                     </p>
                   </div>

@@ -1,12 +1,6 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import {
-  Calendar as CalendarIcon,
-  ChevronLeft,
-  CheckCircle2,
-  Eye,
-  EyeOff
-} from 'lucide-react';
+
 import { format, addDays, subDays, startOfWeek, addMonths, subMonths } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -23,6 +17,9 @@ import { useAppointmentActions } from '../../../admin/components/appointments/ho
 import { AppointmentKpiCards } from '../../../admin/components/appointments/ui/AppointmentKpiCards';
 import { AppointmentsFilterBar } from '../../../admin/components/appointments/ui/AppointmentsFilterBar';
 import { PendingContactPanel } from '../../../admin/components/appointments/ui/PendingContactPanel';
+import { OverdueCheckinPanel } from '../../../admin/components/appointments/ui/OverdueCheckinPanel';
+import { PendingPaymentPanel } from '../../../admin/components/appointments/ui/PendingPaymentPanel';
+import { isAwaitingPaymentForList } from '../../../../utils/billing';
 import { CapacityView } from '../../../admin/components/appointments/ui/CapacityView';
 import { standardTimeSlots, statusConfig } from '../../../admin/components/appointments/constants';
 import { ViewMode, TimeRange } from '../../../admin/components/appointments/types';
@@ -35,7 +32,6 @@ export default function ReceptionistAppointments() {
   const [timeRange, setTimeRange] = useState<TimeRange>('today');
   const [viewMode, setViewMode] = useState<ViewMode>('timeline');
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [showGuide, setShowGuide] = useState<boolean>(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
   const [activeType, setActiveType] = useState<'kham' | 'dieu_tri'>('kham');
 
@@ -285,6 +281,25 @@ export default function ReceptionistAppointments() {
     return apt.trang_thai === 'chua_xac_nhan' && isGracePassed;
   });
 
+  // Danh sách các ca quá giờ chưa check-in (chỉ tính ngày hôm nay và trạng thái chưa check-in)
+  const overdueCheckinAppointments = useMemo(() => {
+    const now = new Date();
+    const todayStr = now.toDateString();
+    return appointments.filter(apt => {
+      if (!['da_xac_nhan', 'cho_xac_nhan'].includes(apt.trang_thai)) {
+        return false;
+      }
+      const start = new Date(apt.ngay_gio_bat_dau);
+      const isToday = start.toDateString() === todayStr;
+      return isToday && start.getTime() <= now.getTime();
+    });
+  }, [appointments]);
+
+  // Danh sách các ca cần thanh toán (cho toàn bộ các ngày, theo loại dịch vụ đang chọn)
+  const pendingPaymentAppointments = useMemo(() => {
+    return appointments.filter(isAwaitingPaymentForList);
+  }, [appointments]);
+
   const getKpiAppointments = () => {
     const matchType = (apt: any) => activeType === 'kham'
       ? apt.loai_lich === 'kham_moi'
@@ -303,11 +318,11 @@ export default function ReceptionistAppointments() {
   };
   const kpiAppointments = getKpiAppointments();
 
-  const receptionistKpis = {
+  const kpis = {
     total: kpiAppointments.length,
-    pendingContact: kpiAppointments.filter(a => ['chua_xac_nhan', 'cho_xac_nhan'].includes(a.trang_thai)).length,
-    assigned: kpiAppointments.filter(a => a.trang_thai === 'hoan_thanh').length,
-    checkedIn: kpiAppointments.filter(a => a.trang_thai === 'da_huy').length,
+    waiting: kpiAppointments.filter(a => ['chua_xac_nhan', 'cho_xac_nhan'].includes(a.trang_thai)).length,
+    completed: pendingPaymentAppointments.length,
+    secondary: kpiAppointments.filter(a => ['da_huy', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(a.trang_thai)).length,
   };
 
   return (
@@ -322,77 +337,14 @@ export default function ReceptionistAppointments() {
         >
           {/* KPI METRIC CARDS */}
           <AppointmentKpiCards
-            isReceptionist={true}
-            kpis={{ total: 0, waiting: 0, completed: 0, cancelled: 0 }}
-            receptionistKpis={receptionistKpis}
+            role="receptionist"
+            kpis={kpis}
             viewMode={viewMode}
             timeRange={timeRange}
             activeType={activeType}
           />
 
-          {/* GUIDE BANNER */}
-          <AnimatePresence mode="wait">
-            {showGuide ? (
-              <motion.div
-                key="guide-visible"
-                initial={{ height: 0, opacity: 0, marginBottom: 0 }}
-                animate={{ height: 'auto', opacity: 1, marginBottom: 20 }}
-                exit={{ height: 0, opacity: 0, marginBottom: 0 }}
-                transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-                className="overflow-hidden"
-              >
-                <div className="bg-gradient-to-br from-slate-50/80 via-white/80 to-transparent dark:from-zinc-900/60 dark:via-zinc-900/40 dark:to-transparent border border-slate-100 dark:border-zinc-800/80 p-5 rounded-[24px] shadow-[0_4px_20px_rgba(0,0,0,0.01)] relative overflow-hidden transition-all duration-300">
-                  <div className="absolute top-0 right-0 w-36 h-36 bg-[#0D9488]/4 rounded-full blur-3xl pointer-events-none" />
-                  <div className="flex items-center justify-between gap-4 border-b border-slate-100/80 dark:border-zinc-800/60 pb-3">
-                    <div className="flex items-center gap-2.5">
-                      <span className="p-1.5 bg-[#0D9488]/10 text-[#0D9488] rounded-xl border border-[#0D9488]/15 dark:bg-teal-950/30 dark:border-teal-900/30">
-                        <CalendarIcon size={16} className="animate-pulse" />
-                      </span>
-                      <h3 className="text-sm font-black uppercase text-slate-800 dark:text-zinc-200 tracking-wider flex items-center gap-2">
-                        Quy trình đón tiếp & xác nhận
-                        <span className="text-[9px] font-bold px-2 py-0.5 rounded uppercase border text-slate-400 bg-slate-55 border-slate-150 dark:text-zinc-400 dark:bg-zinc-800/50 dark:border-zinc-700/50">
-                          Lễ tân
-                        </span>
-                      </h3>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowGuide(false)}
-                      className="flex items-center gap-1.5 py-1 px-3 text-[10px] font-bold uppercase tracking-wider text-slate-455 hover:text-rose-500 dark:text-zinc-450 dark:hover:text-rose-455 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-lg border border-slate-100 dark:border-zinc-800 hover:border-rose-100 dark:hover:border-rose-950/40 transition-all duration-200 cursor-pointer"
-                    >
-                      <EyeOff size={11} />
-                      <span>Ẩn hướng dẫn</span>
-                    </button>
-                  </div>
-                  <div className="mt-4 flex gap-4 items-start">
-                    <div className="p-3 bg-teal-500/10 text-teal-600 dark:text-teal-400 rounded-2xl border border-teal-500/10 shrink-0">
-                      <CheckCircle2 size={20} />
-                    </div>
-                    <p className="text-xs text-slate-655 dark:text-zinc-400 leading-relaxed font-semibold text-left">
-                      Lễ tân là trạm liên lạc chính: Theo dõi lịch đặt và tình hình hoạt động của phòng khám, điều phối ca bệnh nhanh, check-in khi khách đến và phân bổ phòng khám phù hợp. Các ca khám cần liên hệ xác nhận sẽ hiển thị ở cột bên phải nếu khách chưa xác nhận email sau 10 phút.
-                    </p>
-                  </div>
-                </div>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="guide-hidden"
-                initial={{ opacity: 0, scale: 0.95, y: -5 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: -5 }}
-                className="flex justify-end mb-4 pr-1"
-              >
-                <button
-                  type="button"
-                  onClick={() => setShowGuide(true)}
-                  className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-500 hover:text-[#0D9488] dark:text-zinc-455 dark:hover:text-teal-450 bg-white/60 hover:bg-[#0D9488]/5 dark:bg-zinc-900/60 dark:hover:bg-teal-950/20 rounded-xl border border-slate-100 dark:border-zinc-800/80 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-[0_2px_10px_rgba(0,0,0,0.01)] cursor-pointer"
-                >
-                  <Eye size={13.5} className="text-[#0D9488] animate-pulse" />
-                  <span>Hiện quy trình hướng dẫn</span>
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
+
 
           <AppointmentsFilterBar
             timeRange={timeRange}
@@ -406,25 +358,13 @@ export default function ReceptionistAppointments() {
             selectedDate={selectedDate}
             activeType={activeType}
             onToggleType={() => setActiveType(prev => prev === 'kham' ? 'dieu_tri' : 'kham')}
-            isWalkInModalOpen={isWalkInModalOpen}
+            canToggleType={true}
+            setViewMode={setViewMode}
           />
 
-          {/* DYNAMIC HEADER & BACK NAVIGATION */}
           {viewMode === 'timeline' && (
-            <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between bg-slate-55/40 dark:bg-zinc-900/40 border border-slate-100 dark:border-zinc-800/80 p-3 rounded-[20px] backdrop-blur-md">
-              <button
-                type="button"
-                onClick={() => {
-                  setTimeRange('7days');
-                  setViewMode('capacity');
-                }}
-                className="flex items-center gap-2 px-4 py-2 text-xs font-black uppercase tracking-wider text-[#0D9488] bg-[#0D9488]/10 hover:bg-[#0D9488]/15 rounded-xl border border-[#0D9488]/20 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-              >
-                <ChevronLeft size={14} className="stroke-[3]" />
-                <span>Quay lại Bảng công suất</span>
-              </button>
-
-              <div className="text-xs font-bold text-slate-500 dark:text-zinc-400 flex items-center gap-2 self-end sm:self-center">
+            <div className="flex items-center justify-center bg-slate-55/40 dark:bg-zinc-900/40 border border-slate-100 dark:border-zinc-800/80 p-3 rounded-[20px] backdrop-blur-md">
+              <div className="text-xs font-bold text-slate-500 dark:text-zinc-400 flex items-center gap-2">
                 <span>Đang xem lịch ngày:</span>
                 <span className="font-extrabold text-[#0D9488] uppercase tracking-wide bg-[#0D9488]/5 dark:bg-teal-950/20 px-3 py-1 rounded-lg border border-[#0D9488]/15">
                   {format(selectedDate, 'eeee, dd/MM/yyyy', { locale: vi })}
@@ -501,28 +441,46 @@ export default function ReceptionistAppointments() {
             </div>
 
             {/* Right Sidebar (Collapsible) */}
-            {viewMode === 'timeline' && (
-              <div className="relative shrink-0 flex items-stretch min-h-[400px]">
-                <button
-                  type="button"
-                  onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                  className="absolute -left-3 top-1/2 -translate-y-1/2 z-20 w-6 h-12 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 hover:border-teal-500 rounded-full flex items-center justify-center text-slate-500 hover:text-teal-600 shadow-sm transition-all focus:outline-none"
-                >
-                  <span className="text-[10px] font-black">{isSidebarOpen ? '❯' : '❮'}</span>
-                </button>
+            <div className="relative shrink-0 flex items-stretch min-h-[400px]">
+              <button
+                type="button"
+                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                className="absolute -left-3 top-1/2 -translate-y-1/2 z-20 w-6 h-12 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 hover:border-teal-500 rounded-full flex items-center justify-center text-slate-500 hover:text-teal-600 shadow-sm transition-all focus:outline-none"
+              >
+                <span className="text-[10px] font-black">{isSidebarOpen ? '❯' : '❮'}</span>
+              </button>
 
-                {isSidebarOpen ? (
-                  <div className="w-80 border-l border-slate-100 dark:border-zinc-800 pl-6 space-y-6 overflow-y-auto animate-in slide-in-from-right-3 duration-200">
-                    <PendingContactPanel
-                      pendingAppointments={pendingContactAppointments}
-                      onOpenDetailModal={handleOpenDetailModal}
-                    />
-                  </div>
-                ) : (
-                  <div className="w-4 bg-slate-50/50 dark:bg-zinc-800/10 border-l border-slate-100 dark:border-zinc-800 rounded-r-2xl" />
-                )}
-              </div>
-            )}
+              {isSidebarOpen ? (
+                <div className="w-80 border-l border-slate-100 dark:border-zinc-800 pl-6 space-y-6 overflow-y-auto animate-in slide-in-from-right-3 duration-200">
+                  {pendingContactAppointments.length === 0 &&
+                   overdueCheckinAppointments.length === 0 &&
+                   pendingPaymentAppointments.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center p-8 bg-slate-50/50 dark:bg-zinc-800/20 border border-dashed border-slate-200 dark:border-zinc-800 rounded-3xl text-center text-slate-400 dark:text-zinc-550 gap-2.5">
+                      <span className="text-2xl">🎉</span>
+                      <p className="text-xs font-black uppercase tracking-wider text-slate-500">Mọi việc đã hoàn tất!</p>
+                      <p className="text-[10px] text-slate-400">Không có lịch hẹn cần liên hệ, quá giờ chưa check-in, hay ca chờ thanh toán.</p>
+                    </div>
+                  ) : (
+                    <>
+                      <PendingContactPanel
+                        pendingAppointments={pendingContactAppointments}
+                        onOpenDetailModal={handleOpenDetailModal}
+                      />
+                      <OverdueCheckinPanel
+                        appointments={overdueCheckinAppointments}
+                        onOpenDetailModal={handleOpenDetailModal}
+                      />
+                      <PendingPaymentPanel
+                        appointments={pendingPaymentAppointments}
+                        onOpenDetailModal={handleOpenDetailModal}
+                      />
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div className="w-4 bg-slate-50/50 dark:bg-zinc-800/10 border-l border-slate-100 dark:border-zinc-800 rounded-r-2xl" />
+              )}
+            </div>
           </div>
         </motion.div>
       </AnimatePresence>

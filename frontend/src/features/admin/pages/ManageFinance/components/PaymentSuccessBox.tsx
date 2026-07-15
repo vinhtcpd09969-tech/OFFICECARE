@@ -41,12 +41,24 @@ export const PaymentSuccessBox: React.FC<PaymentSuccessBoxProps> = ({
             {paymentSuccessData.hoaDon?.ma_hoa_don || 'HD-' + paymentSuccessData.hoaDon?.id?.substring(0, 8)}
           </span>
         </div>
+        {/* Số tiền THỰC THU của giao dịch này (Đợt 1 của trả góp chỉ là 50%), không phải tổng
+            giá trị hóa đơn — hai con số này khác nhau ở trả góp và trả từng buổi. */}
         <div className="flex justify-between border-b border-zinc-100 pb-2">
-          <span>Tổng tiền đã thu:</span>
+          <span>Số tiền đã thu:</span>
           <span className="text-primary font-black text-sm">
-            {formatCurrency(Number(paymentSuccessData.hoaDon?.tong_tien_thanh_toan || paymentSuccessData.hoaDon?.so_tien_da_tra))}
+            {formatCurrency(Number(paymentSuccessData.soTienDaThu ?? paymentSuccessData.hoaDon?.so_tien_da_tra ?? 0))}
           </span>
         </div>
+
+        {Number(paymentSuccessData.soTienConLai || 0) > 0 && (
+          <div className="flex justify-between border-b border-zinc-100 pb-2">
+            <span>Còn lại của hóa đơn:</span>
+            <span className="text-amber-700 font-black text-sm">
+              {formatCurrency(Number(paymentSuccessData.soTienConLai))}
+            </span>
+          </div>
+        )}
+
         <div className="flex justify-between">
           <span>Hình thức thanh toán:</span>
           <span className="text-secondary font-bold">

@@ -36,6 +36,9 @@ class AuthService {
       ho_ten: data.ho_ten,
       email: data.email,
       mat_khau_hash: hash,
+      gioi_tinh: data.gioi_tinh,
+      ngay_sinh: new Date(data.ngay_sinh),
+      dia_chi: data.dia_chi,
       ngay_dong_y_dieu_khoan: new Date()
     });
 

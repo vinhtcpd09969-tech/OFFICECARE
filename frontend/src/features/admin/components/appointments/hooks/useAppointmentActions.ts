@@ -176,9 +176,9 @@ export function useAppointmentActions({
       toast.success('Cập nhật thông tin ca trực thành công');
       setIsDetailModalOpen(false);
       await refetch();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to update:', error);
-      toast.error('Lỗi cập nhật ca trực');
+      toast.error(error.response?.data?.message || 'Lỗi cập nhật ca trực');
     } finally {
       setIsAssigning(false);
     }

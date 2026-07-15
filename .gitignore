@@ -42,3 +42,11 @@ pgdata/
 # Uploaded images (keep folder structure via .gitkeep, not the actual files)
 backend/uploads/**/*
 !backend/uploads/**/.gitkeep
+
+# Claude Code local settings (per-machine, not shared)
+.claude/settings.local.json
+
+# Backup/scratch files not meant for version control
+*.bak
+database/backup_before_docker_move_20260713_000340.sql
+docs/Download.mp4

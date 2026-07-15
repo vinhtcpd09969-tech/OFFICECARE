@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { ZodError } from 'zod';
 import adminService from '../services/admin.service';
 import { packageSchema, staffSchema, roomSchema, equipmentSchema } from '../schemas/admin.schema';
-import { refundSchema, packageRefundSchema } from '../schemas/finance.schema';
+import { refundSchema, packageRefundSchema, expirePackageNoRefundSchema } from '../schemas/finance.schema';
 import { voucherSchema } from '../schemas/marketing.schema';
 
 // --- QUẢN LÝ PHÒNG KHÁM ---
@@ -193,6 +193,28 @@ export const getCustomers = async (req: Request, res: Response) => {
   }
 };
 
+
+export const updateCustomer = async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const updated = await adminService.updateCustomer(id, req.body);
+    res.json({ message: 'Cập nhật khách hàng thành công', data: updated });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi cập nhật khách hàng' });
+  }
+};
+
+export const toggleCustomerLock = async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const { isLocked } = req.body;
+    const updated = await adminService.updateCustomerLock(id, isLocked);
+    res.json({ message: isLocked ? 'Khóa tài khoản thành công' : 'Mở khóa tài khoản thành công', data: updated });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi khóa/mở khóa tài khoản khách hàng' });
+  }
+};
+
 // --- QUẢN LÝ THIẾT BỊ Y TẾ ---
 
 export const getEquipment = async (req: Request, res: Response) => {
@@ -344,10 +366,10 @@ export const handlePackageRefund = async (req: Request, res: Response): Promise<
 
     const result = await adminService.handlePackageRefund(id, body, userId);
 
-    res.json({ 
-      message: 'Hủy gói và hoàn tiền thành công', 
+    res.json({
+      message: 'Hủy gói và hoàn tiền thành công',
       invoice: result.invoice,
-      so_tien_hoan_tra: result.so_tien_hoan_tra 
+      so_tien_hoan_tra: result.so_tien_hoan_tra
     });
   } catch (error: any) {
     if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
@@ -355,6 +377,29 @@ export const handlePackageRefund = async (req: Request, res: Response): Promise<
       return res.status(error.code).json({ message: error.message });
     }
     res.status(500).json({ message: error.message || 'Lỗi server khi xử lý hủy gói và hoàn tiền' });
+  }
+};
+
+export const handleExpirePackageNoRefund = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params as { id: string };
+    const { body } = expirePackageNoRefundSchema.parse({ body: req.body });
+    const user = (req as any).user;
+    const userId = user ? Number(user.id) : 1;
+
+    const result = await adminService.expirePackageNoRefund(id, body, userId);
+
+    res.json({
+      message: 'Đã hủy gói do quá hạn sử dụng (không hoàn tiền)',
+      invoice: result.invoice,
+      so_tien_giu_lai: result.so_tien_giu_lai
+    });
+  } catch (error: any) {
+    if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
+    if (error.code && typeof error.code === 'number' && error.code >= 100 && error.code < 600) {
+      return res.status(error.code).json({ message: error.message });
+    }
+    res.status(500).json({ message: error.message || 'Lỗi server khi xử lý hủy gói quá hạn' });
   }
 };
 
@@ -436,7 +481,12 @@ export const getDashboardSummary = async (req: Request, res: Response) => {
 
 export const getRevenueStats = async (req: Request, res: Response) => {
   try {
-    const stats = await adminService.getRevenueStats();
+    const { type, startDate, endDate } = req.query as {
+      type?: string;
+      startDate?: string;
+      endDate?: string;
+    };
+    const stats = await adminService.getRevenueStats(type, startDate, endDate);
     res.json(stats);
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server khi lấy thống kê doanh thu' });
@@ -449,6 +499,33 @@ export const getStaffPerformance = async (req: Request, res: Response) => {
     res.json(stats);
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server khi lấy hiệu suất nhân viên' });
+  }
+};
+
+export const getTopPackages = async (req: Request, res: Response) => {
+  try {
+    const stats = await adminService.getTopPackages();
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi lấy top gói dịch vụ' });
+  }
+};
+
+export const getTopVipCustomers = async (req: Request, res: Response) => {
+  try {
+    const stats = await adminService.getTopVipCustomers();
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi lấy top khách hàng VIP' });
+  }
+};
+
+export const getReviews = async (req: Request, res: Response) => {
+  try {
+    const stats = await adminService.getReviews();
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi lấy danh sách đánh giá' });
   }
 };
 

@@ -1,4 +1,5 @@
-import { Calendar, Check, Copy, Edit3, Trash2 } from 'lucide-react';
+import { Calendar, Check, Copy, Edit3 } from 'lucide-react';
+import { formatVoucherPaymentMethods } from '../../../../utils/voucherPaymentMethod';
 
 export interface Voucher {
   id: string;
@@ -9,11 +10,10 @@ export interface Voucher {
   giam_toi_da: number | null;
   don_hang_toi_thieu: number;
   so_luong_toi_da: number | null;
-  so_luong_da_dung: number;
   ngay_bat_dau: string;
   ngay_het_han: string | null;
   trang_thai: 'hoat_dong' | 'tam_dung' | 'sap_ra_mat' | 'het_han';
-  yeu_cau_thanh_toan: 'tat_ca' | 'tra_thang' | 'tra_gop';
+  yeu_cau_thanh_toan: string[];
 }
 
 interface VoucherCardProps {
@@ -22,7 +22,6 @@ interface VoucherCardProps {
   handleCopyCode: (code: string, id: string) => void;
   handleToggleVoucherStatus: (v: Voucher) => void;
   onEdit: (v: Voucher) => void;
-  onDelete: (id: string) => void;
   formatCurrency: (amount: number) => string;
   formatCurrencyShort: (amount: number) => string;
   formatDate: (dateStr: string) => string;
@@ -34,12 +33,11 @@ export function VoucherCard({
   handleCopyCode,
   handleToggleVoucherStatus,
   onEdit,
-  onDelete,
   formatCurrency,
   formatCurrencyShort,
   formatDate
 }: VoucherCardProps) {
-  const capacityPercent = v.so_luong_toi_da ? (v.so_luong_da_dung / v.so_luong_toi_da) * 100 : 0;
+  const paymentMethodLabel = formatVoucherPaymentMethods(v.yeu_cau_thanh_toan);
   const isExpired = v.ngay_het_han && new Date(v.ngay_het_han) < new Date();
   const isUpcoming = new Date(v.ngay_bat_dau) > new Date();
   
@@ -98,36 +96,35 @@ export function VoucherCard({
             <div className="flex flex-wrap items-center gap-1.5">
               <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-lg border ${
                 computedStatus === 'hoat_dong' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                computedStatus === 'tam_dung' ? 'bg-amber-50 text-amber-700 border-amber-100' :
                 computedStatus === 'sap_ra_mat' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                'bg-slate-55 text-slate-500 border-slate-200'
+                'bg-slate-100 text-slate-500 border-slate-200'
               }`}>
+                {/* "Tạm dừng" (admin tự tắt) và "Hết hạn" (tự động tính theo ngày) gộp chung 1 nhãn
+                    "Ngưng sử dụng" cho dễ nhìn — cả 2 đều nghĩa là mã không dùng được lúc này, chi
+                    tiết lý do đã có ở nút bật/tắt và ngày hết hạn bên dưới. */}
                 {computedStatus === 'hoat_dong' ? 'Đang chạy' :
-                 computedStatus === 'tam_dung' ? 'Tạm dừng' :
-                 computedStatus === 'sap_ra_mat' ? 'Sắp hoạt động' : 'Hết hạn'}
+                 computedStatus === 'sap_ra_mat' ? 'Sắp hoạt động' : 'Ngưng sử dụng'}
               </span>
 
-              {v.yeu_cau_thanh_toan !== 'tat_ca' && (
-                <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-lg border ${
-                  v.yeu_cau_thanh_toan === 'tra_thang' 
-                    ? 'bg-indigo-50 text-indigo-700 border-indigo-100' 
-                    : 'bg-amber-50 text-amber-700 border-amber-100'
-                }`}>
-                  {v.yeu_cau_thanh_toan === 'tra_thang' ? 'Chỉ Trả thẳng 100%' : 'Chỉ Trả góp'}
+              {paymentMethodLabel && (
+                <span className="text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-lg border bg-indigo-50 text-indigo-700 border-indigo-100">
+                  Chỉ {paymentMethodLabel}
                 </span>
               )}
             </div>
 
-            {/* Toggle status */}
+            {/* Toggle status — vị trí bật/tắt theo trạng thái THỰC TẾ (computedStatus), không chỉ
+                theo trang_thai lưu DB, vì 1 mã "hoat_dong" nhưng đã hết hạn vẫn phải hiện là tắt. */}
             <button
               onClick={() => handleToggleVoucherStatus(v)}
+              title={computedStatus === 'hoat_dong' ? 'Ngưng sử dụng mã giảm giá' : 'Kích hoạt lại mã giảm giá'}
               className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                v.trang_thai === 'hoat_dong' ? 'bg-teal-500' : 'bg-slate-200'
+                computedStatus === 'hoat_dong' || computedStatus === 'sap_ra_mat' ? 'bg-teal-500' : 'bg-slate-200'
               }`}
             >
               <span
                 className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                  v.trang_thai === 'hoat_dong' ? 'translate-x-5' : 'translate-x-0'
+                  computedStatus === 'hoat_dong' || computedStatus === 'sap_ra_mat' ? 'translate-x-5' : 'translate-x-0'
                 }`}
               />
             </button>
@@ -145,23 +142,13 @@ export function VoucherCard({
           </div>
         </div>
 
-        {/* Progress Bar & Details */}
+        {/* Details */}
         <div className="mt-4 pt-4 border-t border-slate-100/80 space-y-3">
-          <div>
-            <div className="flex justify-between text-[11px] text-slate-550 mb-1">
-              <span>Lượt đã dùng:</span>
-              <span className="font-semibold text-slate-707">
-                {v.so_luong_da_dung} / {v.so_luong_toi_da || '∞'}
-              </span>
-            </div>
-            <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-              <div 
-                className={`h-full rounded-full transition-all duration-500 ${
-                  v.trang_thai === 'hoat_dong' ? 'bg-primary' : 'bg-slate-300'
-                }`}
-                style={{ width: `${v.so_luong_toi_da ? Math.min(capacityPercent, 100) : 0}%` }}
-              />
-            </div>
+          <div className="flex justify-between text-[11px] text-slate-550">
+            <span>Giới hạn lượt dùng:</span>
+            <span className="font-semibold text-slate-707">
+              {v.so_luong_toi_da ? `${v.so_luong_toi_da} lượt / khách hàng` : 'Không giới hạn'}
+            </span>
           </div>
 
           <div className="flex items-center justify-between">
@@ -177,12 +164,6 @@ export function VoucherCard({
                 className="p-1.5 text-slate-400 hover:text-primary hover:bg-slate-100 rounded-lg transition-colors"
               >
                 <Edit3 className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => onDelete(v.id)}
-                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-slate-100 rounded-lg transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
               </button>
             </div>
           </div>

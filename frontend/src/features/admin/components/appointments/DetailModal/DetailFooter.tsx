@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { updateAppointmentStatus as updateAppointmentStatusAdmin } from '../../../api/admin.api';
 import { updateAppointmentStatus as updateAppointmentStatusRec } from '../../../../receptionist/api/receptionist.api';
-import { isSessionPaymentSatisfied } from '../../../../../utils/billing';
+import { isPlanCancelled, isSessionPaymentSatisfied } from '../../../../../utils/billing';
 
 /** Gom dữ liệu hóa đơn gói từ 1 lịch hẹn về đúng shape mà utils/billing mong đợi. */
 function toPlanShape(apt: any) {
@@ -15,6 +15,8 @@ function toPlanShape(apt: any) {
     tong_tien_goc: apt.tong_tien_goc_goi,
     ti_le_giam_gia_goi: apt.ti_le_giam_gia_goi,
     so_tien_giam_voucher: apt.so_tien_giam_voucher_goi,
+    // Cần cho isPlanCancelled: gói đã hoàn tiền thì không đòi tiền, không mời đặt buổi tiếp.
+    trang_thai_hoa_don_goi: apt.trang_thai_hoa_don_goi,
   };
 }
 
@@ -35,57 +37,7 @@ interface DetailFooterProps {
   appointments?: any[];
 }
 
-function NoShowButton({
-  appointmentId,
-  isReceptionist,
-  localGhiChuNoiBo,
-  onClose,
-  onSuccess
-}: {
-  appointmentId: string;
-  isReceptionist: boolean;
-  localGhiChuNoiBo: string;
-  onClose: () => void;
-  onSuccess?: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={async () => {
-        const confirmNoShow = window.confirm('Xác nhận khách hàng không đến lịch hẹn này?');
-        if (!confirmNoShow) return;
 
-        const reason = window.prompt('Vui lòng nhập ghi chú (vd: đã gọi nhưng khách không nghe máy):');
-        if (reason === null) return;
-
-        const trimmedReason = reason.trim();
-        if (!trimmedReason) {
-          toast.error('Vui lòng nhập ghi chú!');
-          return;
-        }
-
-        const toastId = toast.loading('Đang cập nhật trạng thái...');
-        try {
-          const updateFn = isReceptionist ? updateAppointmentStatusRec : updateAppointmentStatusAdmin;
-          await updateFn(appointmentId, {
-            trang_thai: 'khong_den',
-            ghi_chu_noi_bo: trimmedReason || localGhiChuNoiBo,
-            ly_do_huy: trimmedReason || localGhiChuNoiBo
-          });
-          toast.success('Đã đánh dấu khách không đến!', { id: toastId });
-          onClose();
-          if (onSuccess) onSuccess();
-        } catch (error: any) {
-          console.error(error);
-          toast.error(error.response?.data?.message || 'Lỗi khi cập nhật trạng thái', { id: toastId });
-        }
-      }}
-      className="px-4 py-2.5 bg-slate-700 hover:bg-slate-800 text-white shadow-sm text-xs font-black rounded-xl flex items-center gap-2 transition-all active:scale-95 text-center justify-center flex-1 sm:flex-none"
-    >
-      🚫 Không đến
-    </button>
-  );
-}
 
 export function DetailFooter({
   selectedAppointment,
@@ -97,7 +49,6 @@ export function DetailFooter({
   assignStaffId,
   assignRoomId,
   localGhiChuNoiBo,
-  isUnconfirmedState,
   setAssignStatus,
   appointments = []
 }: DetailFooterProps) {
@@ -139,11 +90,13 @@ export function DetailFooter({
             if (isRetail) {
               isSessionPaid = selectedAppointment.trang_thai_thanh_toan === 'da_thanh_toan';
             } else if (isPayPerSession) {
-              const totalRequired = Number(selectedAppointment.tong_tien_phai_tra_goi || 0);
-              const totalSessions = Number(selectedAppointment.tong_so_buoi_goi || 10);
-              const perSessionPrice = Number(selectedAppointment.pd_don_gia_theo_buoi) || Math.round(totalRequired / totalSessions);
-              const alreadyPaid = Number(selectedAppointment.so_tien_da_tra_goi || 0);
-              isSessionPaid = alreadyPaid >= (currentSessionNum * perSessionPrice - 1000);
+              // Buổi HIỆN TẠI (đã hoàn thành) coi là đã trả xong khi số đã đóng đủ cho các buổi
+              // 1..N — tức ngưỡng "trước buổi N+1" của getMinPaymentRequired (nguồn chung, đã net
+              // hóa voucher). Không dùng đơn giá/buổi tĩnh của gói mẫu (pd_don_gia_theo_buoi) —
+              // giá đó bỏ qua voucher đã áp cho hóa đơn này.
+              isSessionPaid =
+                !!selectedAppointment.hoa_don_goi_id &&
+                isSessionPaymentSatisfied(toPlanShape(selectedAppointment), currentSessionNum + 1);
             } else {
               isSessionPaid =
                 selectedAppointment.trang_thai_thanh_toan === 'da_thanh_toan' ||
@@ -169,8 +122,10 @@ export function DetailFooter({
               // phải đóng xong Đợt 2 trước mốc quy định (docs/BUSINESS_RULES.md mục 3). Nếu chưa
               // đủ, backend sẽ chặn ở createAppointment — nên ở đây phải mời đóng Đợt 2 thay vì
               // mời đặt lịch rồi mới báo lỗi.
+              const isCancelledPlan = isPlanCancelled(toPlanShape(selectedAppointment));
               const needsInstallment2 =
                 showNextSessionAction &&
+                !isCancelledPlan &&
                 !isSessionPaymentSatisfied(toPlanShape(selectedAppointment), nextSessionNum);
 
               return (
@@ -192,11 +147,11 @@ export function DetailFooter({
                       }}
                       className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white shadow-sm text-xs font-black rounded-xl flex items-center gap-1.5 transition-all"
                     >
-                      💵 Thanh toán Đợt 2
+                      💵 {selectedAppointment.hinh_thuc_thanh_toan_goi === 'tra_gop' ? 'Thanh toán Đợt 2' : 'Thanh toán gói'}
                     </button>
                   )}
 
-                  {showNextSessionAction && !needsInstallment2 && (
+                  {showNextSessionAction && !needsInstallment2 && !isCancelledPlan && (
                     <button
                       type="button"
                       onClick={() => {
@@ -246,234 +201,12 @@ export function DetailFooter({
             }
           })()}
         </div>
-      ) : ['dieu_tri', 'DIEU_TRI'].includes(selectedAppointment.loai_lich) && selectedAppointment.trang_thai === 'da_xac_nhan' && isReceptionist ? (
-        <div className="flex gap-2">
-          <button
-            type="button"
-            disabled={isAssigning}
-            onClick={async () => {
-              if (!assignRoomId) {
-                toast.error('Vui lòng chọn phòng thực hiện!');
-                return;
-              }
-              if (!assignStaffId) {
-                toast.error('Vui lòng chọn kỹ thuật viên phụ trách!');
-                return;
-              }
-
-              const toastId = toast.loading('Đang xác thực lịch trực và gửi thông báo...');
-              try {
-                const updateFn = isReceptionist ? updateAppointmentStatusRec : updateAppointmentStatusAdmin;
-                await updateFn(selectedAppointment.id, {
-                  trang_thai: 'da_checkin',
-                  bac_si_id: assignStaffId || null,
-                  chuyen_gia_id: assignStaffId || null,
-                  phong_id: assignRoomId || null
-                });
-                toast.success('Xác thực lịch và gửi thông báo thành công!', { id: toastId });
-                onClose();
-                if (onSuccess) onSuccess();
-              } catch (error: any) {
-                console.error(error);
-                toast.error(error.response?.data?.message || 'Lỗi xác thực lịch trực', { id: toastId });
-              }
-            }}
-            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm text-xs font-black rounded-xl flex items-center gap-2 transition-all animate-pulse"
-          >
-            💵 Xác thực & Gửi thông báo
-          </button>
-          <button
-            type="button"
-            disabled={isAssigning}
-            onClick={async () => {
-              const confirmCancel = window.confirm('Bạn có chắc chắn muốn hủy lịch hẹn này không?');
-              if (!confirmCancel) return;
-              
-              const reason = window.prompt('Vui lòng nhập lý do hủy lịch hẹn:');
-              if (reason === null) return;
-              
-              const trimmedReason = reason.trim();
-              if (!trimmedReason) {
-                toast.error('Vui lòng nhập lý do hủy lịch!');
-                return;
-              }
-
-              const toastId = toast.loading('Đang hủy lịch...');
-              try {
-                const updateFn = isReceptionist ? updateAppointmentStatusRec : updateAppointmentStatusAdmin;
-                await updateFn(selectedAppointment.id, {
-                  trang_thai: 'da_huy',
-                  ghi_chu_noi_bo: trimmedReason || localGhiChuNoiBo,
-                  ly_do_huy: trimmedReason || localGhiChuNoiBo
-                });
-                toast.success('Đã hủy lịch hẹn thành công!', { id: toastId });
-                onClose();
-                if (onSuccess) onSuccess();
-              } catch (error: any) {
-                console.error(error);
-                toast.error(error.response?.data?.message || 'Lỗi khi hủy lịch hẹn', { id: toastId });
-              }
-            }}
-            className="px-4 py-2.5 bg-rose-600 hover:bg-rose-750 text-white shadow-sm text-xs font-black rounded-xl flex items-center gap-2 transition-all active:scale-95 text-center justify-center flex-1 sm:flex-none"
-          >
-            ❌ Hủy lịch
-          </button>
-          <NoShowButton
-            appointmentId={selectedAppointment.id}
-            isReceptionist={isReceptionist}
-            localGhiChuNoiBo={localGhiChuNoiBo}
-            onClose={onClose}
-            onSuccess={onSuccess}
-          />
-        </div>
-      ) : ['kham_moi', 'KHAM', 'dich_vu_don', 'DICH_VU_LE'].includes(selectedAppointment.loai_lich) && selectedAppointment.trang_thai === 'da_xac_nhan' && isReceptionist ? (
-        <div className="flex gap-2">
-          <button
-            type="button"
-            disabled={isAssigning}
-            onClick={async () => {
-              const confirmCancel = window.confirm('Bạn có chắc chắn muốn hủy lịch hẹn này không?');
-              if (!confirmCancel) return;
-
-              const reason = window.prompt('Vui lòng nhập lý do hủy lịch hẹn:');
-              if (reason === null) return;
-
-              const trimmedReason = reason.trim();
-              if (!trimmedReason) {
-                toast.error('Vui lòng nhập lý do hủy lịch!');
-                return;
-              }
-
-              const toastId = toast.loading('Đang hủy lịch...');
-              try {
-                const updateFn = isReceptionist ? updateAppointmentStatusRec : updateAppointmentStatusAdmin;
-                await updateFn(selectedAppointment.id, {
-                  trang_thai: 'da_huy',
-                  ghi_chu_noi_bo: trimmedReason || localGhiChuNoiBo,
-                  ly_do_huy: trimmedReason || localGhiChuNoiBo
-                });
-                toast.success('Đã hủy lịch hẹn thành công!', { id: toastId });
-                onClose();
-                if (onSuccess) onSuccess();
-              } catch (error: any) {
-                console.error(error);
-                toast.error(error.response?.data?.message || 'Lỗi khi hủy lịch hẹn', { id: toastId });
-              }
-            }}
-            className="px-4 py-2.5 bg-rose-600 hover:bg-rose-750 text-white shadow-sm text-xs font-black rounded-xl flex items-center gap-2 transition-all active:scale-95 text-center justify-center flex-1 sm:flex-none"
-          >
-            ❌ Hủy lịch
-          </button>
-          <NoShowButton
-            appointmentId={selectedAppointment.id}
-            isReceptionist={isReceptionist}
-            localGhiChuNoiBo={localGhiChuNoiBo}
-            onClose={onClose}
-            onSuccess={onSuccess}
-          />
-        </div>
-      ) : isUnconfirmedState ? (
-        <div className="flex gap-2 flex-wrap sm:flex-nowrap">
-          <button
-            type="button"
-            disabled={isAssigning}
-            onClick={async () => {
-              const confirmForward = window.confirm('Bạn có chắc chắn muốn xác nhận liên hệ và chuyển tiếp cho Quản lý không?');
-              if (!confirmForward) return;
-              
-              const toastId = toast.loading('Đang cập nhật trạng thái...');
-              try {
-                const updateFn = isReceptionist ? updateAppointmentStatusRec : updateAppointmentStatusAdmin;
-                await updateFn(selectedAppointment.id, {
-                  trang_thai: 'cho_xac_nhan',
-                  ghi_chu_noi_bo: localGhiChuNoiBo
-                });
-                toast.success('Đã xác nhận liên hệ và chuyển tiếp cho Quản lý!', { id: toastId });
-                onClose();
-                if (onSuccess) onSuccess();
-              } catch (error: any) {
-                console.error(error);
-                toast.error(error.response?.data?.message || 'Lỗi khi cập nhật trạng thái', { id: toastId });
-              }
-            }}
-            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm text-xs font-black rounded-xl flex items-center gap-2 transition-all active:scale-95 text-center justify-center flex-1 sm:flex-none"
-          >
-            📞 Xác nhận & Chuyển Quản lý
-          </button>
-          <button
-            type="button"
-            disabled={isAssigning}
-            onClick={async () => {
-              const confirmSaveNote = window.confirm('Bạn có chắc chắn muốn lưu ghi chú cuộc gọi không?');
-              if (!confirmSaveNote) return;
-              
-              const toastId = toast.loading('Đang lưu ghi chú cuộc gọi...');
-              try {
-                const updateFn = isReceptionist ? updateAppointmentStatusRec : updateAppointmentStatusAdmin;
-                await updateFn(selectedAppointment.id, {
-                  trang_thai: selectedAppointment.trang_thai,
-                  ghi_chu_noi_bo: localGhiChuNoiBo
-                });
-                toast.success('Đã lưu ghi chú cuộc gọi thành công!', { id: toastId });
-                if (onSuccess) onSuccess();
-              } catch (error: any) {
-                console.error(error);
-                toast.error(error.response?.data?.message || 'Lỗi khi lưu ghi chú cuộc gọi', { id: toastId });
-              }
-            }}
-            className="px-4 py-2.5 bg-slate-500 hover:bg-slate-650 text-white shadow-sm text-xs font-black rounded-xl flex items-center gap-2 transition-all active:scale-95 text-center justify-center flex-1 sm:flex-none"
-          >
-            💾 Lưu ghi chú cuộc gọi
-          </button>
-          <button
-            type="button"
-            disabled={isAssigning}
-            onClick={async () => {
-              const confirmCancel = window.confirm('Bạn có chắc chắn muốn hủy lịch hẹn này không?');
-              if (!confirmCancel) return;
-              
-              const reason = window.prompt('Vui lòng nhập lý do hủy lịch hẹn:');
-              if (reason === null) return;
-              
-              const trimmedReason = reason.trim();
-              if (!trimmedReason) {
-                toast.error('Vui lòng nhập lý do hủy lịch!');
-                return;
-              }
-
-              const toastId = toast.loading('Đang hủy lịch...');
-              try {
-                const updateFn = isReceptionist ? updateAppointmentStatusRec : updateAppointmentStatusAdmin;
-                await updateFn(selectedAppointment.id, {
-                  trang_thai: 'da_huy',
-                  ghi_chu_noi_bo: trimmedReason || localGhiChuNoiBo,
-                  ly_do_huy: trimmedReason || localGhiChuNoiBo
-                });
-                toast.success('Đã hủy lịch hẹn thành công!', { id: toastId });
-                onClose();
-                if (onSuccess) onSuccess();
-              } catch (error: any) {
-                console.error(error);
-                toast.error(error.response?.data?.message || 'Lỗi khi hủy lịch hẹn', { id: toastId });
-              }
-            }}
-            className="px-4 py-2.5 bg-rose-600 hover:bg-rose-750 text-white shadow-sm text-xs font-black rounded-xl flex items-center gap-2 transition-all active:scale-95 text-center justify-center flex-1 sm:flex-none"
-          >
-            ❌ Hủy lịch
-          </button>
-        </div>
-      ) : <div />}
+      ) : (
+        <div />
+      )}
 
       {/* Right actions */}
       <div className="flex gap-2 ml-auto">
-        <button
-          type="button"
-          onClick={onClose}
-          className="px-5 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-650 dark:text-zinc-400 text-xs font-bold rounded-xl hover:bg-slate-50 dark:hover:bg-zinc-850 transition-all"
-        >
-          Đóng
-        </button>
-        
         {selectedAppointment.trang_thai === 'da_xac_nhan' && (['kham_moi', 'KHAM', 'dich_vu_don', 'DICH_VU_LE'].includes(selectedAppointment.loai_lich) || !isReceptionist) && (
           <button
             type="submit"
@@ -485,15 +218,13 @@ export function DetailFooter({
           </button>
         )}
         
-        {(!isReceptionist || ['kham_moi', 'KHAM'].includes(selectedAppointment.loai_lich)) && (
-          <button
-            type="submit"
-            disabled={isAssigning || selectedAppointment.trang_thai === 'hoan_thanh'}
-            className="px-6 py-2.5 bg-emerald-600 text-white text-xs font-bold rounded-xl hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isAssigning ? 'Đang lưu...' : 'Lưu cập nhật'}
-          </button>
-        )}
+        <button
+          type="submit"
+          disabled={isAssigning || selectedAppointment.trang_thai === 'hoan_thanh'}
+          className="px-6 py-2.5 bg-emerald-600 text-white text-xs font-bold rounded-xl hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isAssigning ? 'Đang lưu...' : 'Lưu cập nhật'}
+        </button>
       </div>
     </div>
   );

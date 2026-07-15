@@ -79,6 +79,14 @@ class AdminService {
     return adminRepository.getCustomers();
   }
 
+  async updateCustomer(id: string, data: any) {
+    return adminRepository.updateCustomer(id, data);
+  }
+
+  async updateCustomerLock(id: string, isLocked: boolean) {
+    return adminRepository.updateCustomerLock(id, isLocked);
+  }
+
   // --- QUẢN LÝ THIẾT BỊ Y TẾ ---
   async getEquipment() {
     return adminRepository.getEquipment();
@@ -154,6 +162,16 @@ class AdminService {
     return result;
   }
 
+  async expirePackageNoRefund(id: string, data: any, userId: number) {
+    const result = await adminRepository.expirePackageNoRefund(id, data.ly_do, userId);
+    if (result.error) {
+      const err = new Error(result.error) as any;
+      err.code = result.code;
+      throw err;
+    }
+    return result;
+  }
+
   // --- QUẢN LÝ MARKETING ---
   async getVouchers() {
     return adminRepository.getVouchers();
@@ -188,12 +206,24 @@ class AdminService {
     return adminRepository.getDashboardSummary();
   }
 
-  async getRevenueStats() {
-    return adminRepository.getRevenueStats();
+  async getRevenueStats(type?: string, startDate?: string, endDate?: string) {
+    return adminRepository.getRevenueStats(type, startDate, endDate);
   }
 
   async getStaffPerformance() {
     return adminRepository.getStaffPerformance();
+  }
+
+  async getTopPackages() {
+    return adminRepository.getTopPackages();
+  }
+
+  async getTopVipCustomers() {
+    return adminRepository.getTopVipCustomers();
+  }
+
+  async getReviews() {
+    return adminRepository.getReviews();
   }
 
   async getAvailableStaff(dich_vu_id: string | null, dang_ky_goi_id: string | null, ngay: string, gio_bat_dau: string) {

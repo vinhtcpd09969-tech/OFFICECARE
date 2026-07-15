@@ -26,7 +26,7 @@ export function StaffRoomAllocation({
   assignStaffId,
   setAssignStaffId,
   assignStatus: _assignStatus,
-  isReceptionist,
+  isReceptionist: _isReceptionist,
   staffList,
   schedulesList,
   aptDateStr,
@@ -35,6 +35,25 @@ export function StaffRoomAllocation({
   occupiedStaffIds,
   appointments = []
 }: StaffRoomAllocationProps) {
+  const hasAssignedStaff = !!selectedAppointment?.bac_si_id || !!selectedAppointment?.chuyen_gia_id;
+  const isEditable = !(_isReceptionist && hasAssignedStaff);
+
+  // Lễ tân không có quyền chọn nhân sự — khi ca chưa được Quản lý phân bổ, ẩn hẳn phần
+  // nhân sự + phòng thay vì hiển thị dạng thẻ chọn được. Khi đã có nhân sự (dù khách tự
+  // chọn lúc đặt online hay Quản lý gán tay), phần dưới vẫn hiển thị nhưng chỉ đọc (isEditable=false).
+  if (_isReceptionist && !hasAssignedStaff) {
+    return (
+      <div className="space-y-3">
+        <h4 className="text-xs font-bold text-slate-400 dark:text-zinc-555 uppercase tracking-wider border-b border-slate-100 dark:border-zinc-800 pb-1.5">
+          Điều phối lâm sàng
+        </h4>
+        <div className="py-6 text-center text-xs font-bold text-slate-450 dark:text-zinc-500 border border-dashed border-slate-200 dark:border-zinc-800/80 rounded-2xl select-none">
+          🕓 Nhân sự &amp; phòng sẽ hiển thị sau khi Quản lý phân bổ
+        </div>
+      </div>
+    );
+  }
+
   const getStaffDutyStatus = (staff: any) => {
     if (!schedulesList || schedulesList.length === 0) {
       return { hasDuty: true, label: '' };
@@ -79,11 +98,6 @@ export function StaffRoomAllocation({
       const assignedId = selectedAppointment.bac_si_id || selectedAppointment.chuyen_gia_id;
       const isCurrentlyAssigned = assignedId && String(staff.id) === String(assignedId);
       
-      // For Receptionist, only show the currently assigned KTV (no other KTVs can be chosen)
-      if (isReceptionist) {
-        return !!isCurrentlyAssigned;
-      }
-      
       // Check if they have an active schedule today (i.e. they are working, not vacation/absent)
       const staffSchedules = schedulesList.filter(s => 
         String(s.nguoi_dung_id) === String(staff.id) && 
@@ -98,7 +112,7 @@ export function StaffRoomAllocation({
       // Hide if they are not working today ( nghỉ / không trực )
       if (!isOnShift) return false;
 
-      // Admin sees everyone who is on duty today
+      // Admin/Receptionist sees everyone who is on duty today
       return true;
     });
 
@@ -114,7 +128,7 @@ export function StaffRoomAllocation({
           <label className="text-xs font-extrabold text-slate-700 dark:text-zinc-300 uppercase tracking-wider">
             {targetRole === 'Bác sĩ' ? 'Bác sĩ phụ trách' : 'Kỹ thuật viên phụ trách'}
           </label>
-          {assignStaffId && (
+          {isEditable && assignStaffId && (
             <button 
               type="button" 
               onClick={() => setAssignStaffId('')} 
@@ -155,13 +169,17 @@ export function StaffRoomAllocation({
               return (
                 <div
                   key={staff.id}
-                  onClick={() => isAvailable && setAssignStaffId(String(staffId))}
+                  onClick={() => isEditable && isAvailable && setAssignStaffId(String(staffId))}
                   className={`p-3 rounded-xl border-2 transition-all flex items-center gap-3 select-none ${
-                    !isAvailable
-                      ? 'bg-slate-50 dark:bg-zinc-800/20 border-slate-100 dark:border-zinc-800/50 opacity-40 cursor-not-allowed'
-                      : isSelected
-                        ? 'bg-emerald-50/50 dark:bg-emerald-955/15 border-emerald-500 dark:border-emerald-600 text-emerald-800 dark:text-emerald-355 ring-2 ring-emerald-500/10 cursor-pointer'
-                        : 'bg-white dark:bg-zinc-900 border-slate-150 dark:border-zinc-800 hover:border-slate-350 dark:hover:border-zinc-700 cursor-pointer'
+                    !isEditable
+                      ? isSelected
+                        ? 'bg-emerald-50/30 dark:bg-emerald-955/10 border-emerald-500/80 dark:border-emerald-600/80 text-emerald-800 dark:text-emerald-355 cursor-default'
+                        : 'bg-slate-50/50 dark:bg-zinc-800/10 border-slate-100 dark:border-zinc-800/30 opacity-40 cursor-not-allowed'
+                      : !isAvailable
+                        ? 'bg-slate-50 dark:bg-zinc-800/20 border-slate-100 dark:border-zinc-800/50 opacity-40 cursor-not-allowed'
+                        : isSelected
+                          ? 'bg-emerald-50/50 dark:bg-emerald-955/15 border-emerald-500 dark:border-emerald-600 text-emerald-800 dark:text-emerald-355 ring-2 ring-emerald-500/10 cursor-pointer'
+                          : 'bg-white dark:bg-zinc-900 border-slate-150 dark:border-zinc-800 hover:border-slate-350 dark:hover:border-zinc-700 cursor-pointer'
                   }`}
                 >
                   {staff.anh_dai_dien ? (

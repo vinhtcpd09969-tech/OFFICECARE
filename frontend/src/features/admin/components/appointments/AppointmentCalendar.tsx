@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { MapPin, Clock, Plus, Coffee, Stethoscope } from 'lucide-react';
 import { format } from 'date-fns';
 import { getCheckinTimingInfo } from '../../../../utils/appointmentCheckin';
+import { isPaymentDue, getInstallmentCutoffSession } from '../../../../utils/billing';
 
 interface AppointmentCalendarProps {
   timeSlots: string[];
@@ -428,26 +429,43 @@ function AppointmentCard({
   assignedDoc?: any;
   isDocUnavailable?: boolean;
 }) {
+  const [nowTime, setNowTime] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNowTime(Date.now()), 15000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const isCheckedInButNotStarted = ['da_checkin', 'cho_kham'].includes(apt.trang_thai);
+  const isCheckinOverdue = ['da_xac_nhan', 'cho_xac_nhan'].includes(apt.trang_thai);
+  const startMs = apt.ngay_gio_bat_dau ? new Date(apt.ngay_gio_bat_dau).getTime() : 0;
+  const isOverdue = (isCheckedInButNotStarted || isCheckinOverdue) && startMs > 0 && nowTime > startMs;
+  const delayMins = isOverdue ? Math.floor((nowTime - startMs) / 60000) : 0;
+
   const rawStatus = statusConfig[apt.trang_thai] || statusConfig.cho_xac_nhan;
+  const hasStaff = apt.loai_lich === 'dich_vu_don' ? !!apt.chuyen_gia_id : (!!apt.bac_si_id || !!apt.chuyen_gia_id);
   const status = {
     ...rawStatus,
-    label: apt.trang_thai === 'cho_xac_nhan' 
+    label: (apt.trang_thai === 'cho_xac_nhan' && !hasStaff)
       ? (apt.loai_lich === 'dich_vu_don' ? 'Chờ gán KTV' : 'Chờ gán Bác sĩ')
       : rawStatus.label
   };
-  const isUnassigned = !apt.bac_si_id;
+  const isUnassigned = !hasStaff;
   const isCheckedIn = apt.trang_thai === 'da_checkin';
   const isPending = ['cho_xac_nhan', 'chua_xac_nhan'].includes(apt.trang_thai);
   
   const showCountdown = false;
 
-  const isInstallmentWarning = 
+  const isInstallmentWarning =
     apt.loai_lich?.toUpperCase() === 'DIEU_TRI' &&
     apt.hinh_thuc_thanh_toan_goi === 'tra_gop' &&
     apt.trang_thai_hoa_don_goi !== 'da_thanh_toan' &&
     !['da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(apt.trang_thai) &&
     Number(apt.so_tien_da_tra_goi) < Number(apt.tong_tien_phai_tra_goi) &&
-    Number(apt.so_thu_tu_buoi) >= Math.floor(Number(apt.tong_so_buoi_goi || 10) / 2);
+    Number(apt.so_thu_tu_buoi) >= getInstallmentCutoffSession(Number(apt.tong_so_buoi_goi || 10));
+
+  // Chỉ Lễ tân/Admin (viewMode='admin', dùng chung cho cả 2 vai trò) cần thấy dấu hiệu ca đã
+  // hoàn thành nhưng chưa thu tiền — Bác sĩ/KTV (viewMode='doctor') không cần quản lý thu ngân.
+  const showPaymentDueBadge = viewMode === 'admin' && apt.trang_thai === 'hoan_thanh' && isPaymentDue(apt);
 
   return (
     <div
@@ -458,29 +476,36 @@ function AppointmentCard({
       className={`p-3.5 bg-white dark:bg-zinc-900 border ${viewMode === 'doctor' ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'} transition-all duration-300 rounded-[18px] relative flex flex-col justify-between min-h-[110px] group/card hover:-translate-y-0.5 hover:shadow-lg select-none ${
         ['da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(apt.trang_thai)
           ? 'opacity-85 border-slate-200 bg-slate-50/50 dark:bg-zinc-955/20 dark:border-zinc-850/80 cursor-pointer'
-          : isCheckedIn
-            ? 'border-teal-350 dark:border-teal-850 ring-2 ring-[#0D9488]/10 dark:ring-[#0D9488]/5 bg-[#0D9488]/2 dark:bg-[#0D9488]/2'
-            : isInstallmentWarning
-              ? 'border-amber-500 ring-2 ring-amber-500/10 dark:ring-amber-500/5 bg-amber-50/10 dark:bg-amber-955/5'
-              : (isUnassigned || isDocUnavailable) && !isPending
-                ? 'border-rose-500 ring-2 ring-rose-500/10 dark:ring-rose-500/5 bg-rose-55/10 dark:bg-rose-955/5 animate-pulse'
-                : isUnassigned && isPending
-                  ? 'border-rose-100 dark:border-rose-900/30 hover:border-rose-300' 
-                  : 'border-slate-100 dark:border-zinc-800 hover:border-[#14B8A6]/30'
+          : isOverdue && delayMins > 0
+            ? 'border-rose-500 dark:border-rose-600 ring-4 ring-rose-500/25 dark:ring-rose-500/15 bg-rose-50/15 dark:bg-rose-955/10 shadow-[0_0_12px_rgba(239,68,68,0.15)] animate-pulse'
+            : isCheckedIn
+              ? 'border-teal-350 dark:border-teal-850 ring-2 ring-[#0D9488]/10 dark:ring-[#0D9488]/5 bg-[#0D9488]/2 dark:bg-[#0D9488]/2'
+              : isInstallmentWarning
+                ? 'border-amber-500 ring-2 ring-amber-500/10 dark:ring-amber-500/5 bg-amber-50/10 dark:bg-amber-955/5'
+                : (isUnassigned || isDocUnavailable) && !isPending
+                  ? 'border-rose-500 ring-2 ring-rose-500/10 dark:ring-rose-500/5 bg-rose-55/10 dark:bg-rose-955/5 animate-pulse'
+                  : isUnassigned && isPending
+                    ? 'border-rose-100 dark:border-rose-900/30 hover:border-rose-300' 
+                    : 'border-slate-100 dark:border-zinc-800 hover:border-[#14B8A6]/30'
       }`}
     >
       <div>
         <div className="flex justify-between items-center mb-1.5">
-          <span className="font-mono text-[9px] font-black text-slate-400 dark:text-zinc-550 bg-slate-50 dark:bg-zinc-800/80 px-2 py-0.5 rounded border border-slate-100 dark:border-zinc-800/50">
+          <span className="font-mono text-[9px] font-black text-slate-400 dark:text-zinc-555 bg-slate-50 dark:bg-zinc-800/80 px-2 py-0.5 rounded border border-slate-100 dark:border-zinc-800/50">
             {apt.ma_lich_dat}
           </span>
           <div className="flex items-center gap-1.5">
+            {isCheckedInButNotStarted && isOverdue && delayMins > 0 && (
+              <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-rose-600 text-white animate-pulse flex items-center gap-0.5 shadow-sm border border-rose-500">
+                ⚠️ Trễ {delayMins} phút
+              </span>
+            )}
             {isInstallmentWarning && (
               <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-amber-500 text-white animate-pulse flex items-center gap-0.5 shadow-sm">
                 ⚠️ Nợ Đợt 2
               </span>
             )}
-            {isCheckedIn && (
+            {isCheckedIn && !isOverdue && (
               <span className="flex h-1.5 w-1.5 relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#0D9488] opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#0D9488]"></span>
@@ -489,6 +514,14 @@ function AppointmentCard({
             {apt.trang_thai === 'dang_kham' && (
               <span className="flex items-center justify-center text-emerald-600 dark:text-emerald-455 bg-emerald-100/50 dark:bg-emerald-955/40 p-1 rounded-full border border-emerald-250 ring-2 ring-emerald-500/15 animate-pulse">
                 <Stethoscope size={10} className="stroke-[2.5]" />
+              </span>
+            )}
+            {showPaymentDueBadge && (
+              <span
+                title="Đã hoàn thành, chưa thanh toán"
+                className="flex items-center justify-center size-4 rounded-full bg-amber-500 text-white text-[9.5px] font-black shadow-sm animate-pulse shrink-0"
+              >
+                $
               </span>
             )}
             <span className={`text-[8.5px] font-black px-2 py-0.5 rounded-full border ${status.color}`}>

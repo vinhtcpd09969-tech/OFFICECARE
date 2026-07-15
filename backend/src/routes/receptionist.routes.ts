@@ -10,6 +10,8 @@ import {
   createBillingFromAppointment,
   processPayment,
   calculateBilling,
+  getActiveVouchers,
+  applyVoucher,
   createBillingDirect,
   getPackagesForReceptionist,
   searchCustomers,
@@ -18,7 +20,10 @@ import {
   checkCustomerLimit,
   checkPackagePayment,
   getBillingInfoByPackage,
-  getPendingPackageActivations
+  getPendingPackageActivations,
+  createPayOSPaymentLink,
+  cancelPayOSPaymentLink,
+  getInvoiceStatus
 } from '../controllers/receptionist.controller';
 
 const router = Router();
@@ -36,6 +41,8 @@ router.post('/walk-in', handleWalkInBooking);
 router.post('/billing', createBillingFromAppointment);
 router.post('/payment', processPayment);
 router.post('/billing/calculate', calculateBilling);
+router.get('/vouchers/active', getActiveVouchers);
+router.post('/vouchers/apply', applyVoucher);
 router.post('/billing/create', createBillingDirect);
 router.get('/packages', getPackagesForReceptionist);
 router.get('/customers/search', searchCustomers);
@@ -45,5 +52,10 @@ router.get('/customers/:id/check-limit', checkCustomerLimit);
 router.get('/customers/:id/check-package-payment', checkPackagePayment);
 router.get('/customers/:id/billing-info-by-package', getBillingInfoByPackage);
 router.get('/customers/:id/pending-package-activations', getPendingPackageActivations);
+
+// PayOS integration routes
+router.post('/payment/create-payos-link', createPayOSPaymentLink);
+router.post('/payment/cancel-payos-link', cancelPayOSPaymentLink);
+router.get('/payment/status/:id', getInvoiceStatus);
 
 export default router;

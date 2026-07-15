@@ -81,9 +81,33 @@ export function getMinPaymentRequired(
   }
   if (hinhThuc === 'tung_buoi') {
     const sessionPrice = Math.round(packageTotal / totalSessions);
-    return (sessionNum - 1) * sessionPrice;
+    // Kẹp trần ở packageTotal: khi packageTotal không chia hết cho totalSessions và làm tròn LÊN,
+    // totalSessions*sessionPrice có thể vượt packageTotal — nếu không kẹp, ngưỡng "đã trả đủ buổi
+    // cuối" sẽ cao hơn số tiền thật khách cần đóng (100% = packageTotal), khiến badge "đã thanh
+    // toán" không bao giờ lên dù hóa đơn đã đúng trạng thái da_thanh_toan.
+    return Math.min(packageTotal, (sessionNum - 1) * sessionPrice);
   }
   return 0;
+}
+
+/**
+ * Số tiền CẦN THU THÊM cho buổi thứ `sessionNum` của gói trả từng buổi (tung_buoi), tính từ số
+ * đã đóng thực tế thay vì áp thẳng đơn giá/buổi tĩnh — tự sửa sai số làm tròn qua từng buổi, buổi
+ * CUỐI luôn đòi đúng phần còn thiếu để tổng thu khớp chính xác `packageTotal`, không dư không thiếu.
+ * Nguồn duy nhất cho cả hiển thị (frontend) lẫn ghi sổ thanh toán (backend) — 2 nơi PHẢI dùng chung
+ * hàm này, nếu không sẽ lệch số tiền yêu cầu giữa 2 phía (xem lịch sử: 2 công thức tách rời từng
+ * gây hóa đơn treo vĩnh viễn ở vài đồng do làm tròn khác nhau).
+ * `packageTotal` = hoa_don.tong_tien_thanh_toan (đã net hóa giảm giá/voucher).
+ */
+export function getTungBuoiSessionDue(
+  packageTotal: number,
+  totalSessions: number,
+  sessionNum: number,
+  alreadyPaid: number
+): number {
+  const sessionPrice = totalSessions > 0 ? Math.round(packageTotal / totalSessions) : packageTotal;
+  const cumulativeRequired = sessionNum >= totalSessions ? packageTotal : sessionNum * sessionPrice;
+  return Math.max(0, cumulativeRequired - alreadyPaid);
 }
 
 /**
@@ -179,15 +203,14 @@ export function calculatePackageCancellationRefund(
 
 export interface NoShowOutcome {
   finalStatus: string;
-  shouldDeductReputation: boolean;
+  reputationPenalty: number;
 }
 
 /**
- * Quyết định trạng thái cuối cùng + có trừ điểm uy tín không khi khách hủy/không đến.
- * Thay thế cho `receptionist.repository.ts:106-155`, `appointment.repository.ts` (2 bản
- * gần như giống hệt của `updateAppointmentStatus` và hàm hủy lịch khác).
- * Quy tắc: gói trả_thẳng/trả_góp được ân xá lần vi phạm đầu (không trừ điểm); từ lần 2
- * chuyển trạng thái "_phat". Gói trả_từng_buổi hoặc không thuộc gói luôn trừ 10 điểm uy tín.
+ * Quyết định trạng thái cuối cùng và số điểm uy tín bị phạt khi khách hủy/không đến.
+ * Quy tắc:
+ * - Gói trả thẳng/trả góp: vi phạm lần đầu được ân xá (phạt = 0). Từ lần thứ 2 phạt 10đ (hủy) hoặc 20đ (không đến).
+ * - Các gói khác/buổi lẻ: không có ân xá, phạt 10đ (hủy) hoặc 20đ (không đến) ngay từ đầu.
  */
 export function resolveNoShowOutcome(
   action: NoShowAction,
@@ -201,18 +224,18 @@ export function resolveNoShowOutcome(
     if (previousMisses > 0) {
       return {
         finalStatus: isCancelAction ? 'da_huy_phat' : 'khach_khong_den_phat',
-        shouldDeductReputation: false,
+        reputationPenalty: isCancelAction ? 10 : 20,
       };
     }
     return {
       finalStatus: isCancelAction ? 'da_huy' : 'khong_den',
-      shouldDeductReputation: false,
+      reputationPenalty: 0,
     };
   }
 
   return {
     finalStatus: isCancelAction ? 'da_huy' : 'khong_den',
-    shouldDeductReputation: true,
+    reputationPenalty: isCancelAction ? 10 : 20,
   };
 }
 

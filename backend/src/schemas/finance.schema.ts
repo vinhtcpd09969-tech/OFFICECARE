@@ -21,3 +21,9 @@ export const packageRefundSchema = z.object({
     ly_do: z.string().optional()
   })
 });
+
+export const expirePackageNoRefundSchema = z.object({
+  body: z.object({
+    ly_do: z.string().optional()
+  })
+});

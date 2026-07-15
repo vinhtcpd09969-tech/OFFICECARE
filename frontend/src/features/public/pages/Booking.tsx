@@ -250,7 +250,11 @@ export default function Booking() {
         const appt = await response.json();
         sessionStorage.removeItem('booking_temp_hold_id'); // Prevent release on unmount since it is finalized
         toast.success(bookingType === 'dich_vu' ? 'Đăng ký lịch dịch vụ lẻ thành công!' : 'Đăng ký lịch khám lượng giá thành công!', { id: toastId });
-        navigate(`/booking/success/${appt.id}`);
+        if (user) {
+          navigate('/appointments');
+        } else {
+          navigate(`/booking/success/${appt.id}`);
+        }
       } else {
         const error = await response.json();
         toast.error(error.message || 'Không thể tạo lịch hẹn. Hãy thử lại.', { id: toastId });

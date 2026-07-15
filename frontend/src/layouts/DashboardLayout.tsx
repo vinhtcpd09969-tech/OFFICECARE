@@ -5,17 +5,15 @@ import api from '../api/axios';
 import { toast } from 'react-hot-toast';
 import { getPendingRatingAppointments, rateAppointment } from '../features/customer/api/customer.api';
 import { 
-  LayoutDashboard, 
   Calendar, 
-  Package, 
-  FileText, 
   Settings, 
   LogOut, 
   Bell, 
   Search,
   Menu,
   X,
-  Star
+  Star,
+  FileText
 } from 'lucide-react';
 
 export default function DashboardLayout() {
@@ -147,10 +145,8 @@ export default function DashboardLayout() {
   };
 
   const navItems = [
-    { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={20} />, roles: [1, 2, 3, 4] },
     { name: 'Lịch hẹn', path: '/appointments', icon: <Calendar size={20} />, roles: [1, 2, 4] },
-    { name: 'Gói điều trị', path: '/packages', icon: <Package size={20} />, roles: [1, 2, 4] },
-    { name: 'Hồ sơ', path: '/profile', icon: <FileText size={20} />, roles: [1, 2, 3, 4] },
+    { name: 'Hồ sơ trị liệu', path: '/medical-record', icon: <FileText size={20} />, roles: [1] },
     { name: 'Cài đặt', path: '/settings', icon: <Settings size={20} />, roles: [1, 2, 3, 4] },
   ];
 

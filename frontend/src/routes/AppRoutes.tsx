@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from '../layouts/ProtectedRoute';
+import { RootRedirect } from '../layouts/RootRedirect';
 import LoadingScreen from '../components/LoadingScreen';
 
 // --- Shared Layouts (Kept synchronous to avoid unnecessary flashes/unmounts during transition) ---
@@ -30,11 +31,9 @@ const Register = lazy(() => import('../features/auth/pages/Register'));
 const VerifyEmail = lazy(() => import('../features/auth/pages/VerifyEmail'));
 
 // Customer Feature
-const Dashboard = lazy(() => import('../features/customer/pages/Dashboard/index'));
 const CustomerAppointments = lazy(() => import('../features/customer/pages/CustomerAppointments/index'));
-const CustomerPackages = lazy(() => import('../features/customer/pages/CustomerPackages/index'));
-const CustomerProfile = lazy(() => import('../features/customer/pages/CustomerProfile/index'));
 const CustomerSettings = lazy(() => import('../features/customer/pages/CustomerSettings/index'));
+const CustomerMedicalRecord = lazy(() => import('../features/customer/pages/CustomerMedicalRecord/index'));
 
 // Admin Feature
 const AdminDashboard = lazy(() => import('../features/admin/pages/AdminDashboard'));
@@ -42,7 +41,6 @@ const ManageCustomers = lazy(() => import('../features/admin/pages/ManageCustome
 const ManageStaff = lazy(() => import('../features/admin/pages/ManageStaff'));
 const ManageSchedules = lazy(() => import('../features/admin/pages/ManageSchedules'));
 const ManageAppointments = lazy(() => import('../features/admin/pages/ManageAppointments'));
-const ManageMedicalRecords = lazy(() => import('../features/admin/pages/ManageMedicalRecords'));
 const ManageRooms = lazy(() => import('../features/admin/pages/ManageRooms'));
 const RoomDetail = lazy(() => import('../features/admin/pages/ManageRooms/RoomDetail'));
 const ManageEquipment = lazy(() => import('../features/admin/pages/ManageEquipment'));
@@ -73,7 +71,7 @@ export default function AppRoutes() {
     <Suspense fallback={<LoadingScreen />}>
       <Routes>
         <Route element={<LandingLayout />}>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<RootRedirect><Home /></RootRedirect>} />
           <Route path="/services" element={<Services />} />
           <Route path="/services/:id" element={<ServiceDetailPage />} />
           <Route path="/packages/:id" element={<PackageDetailPage />} />
@@ -91,13 +89,13 @@ export default function AppRoutes() {
         <Route path="/register" element={<Register />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
         
-        {/* Protected Routes */}
         <Route element={<ProtectedRoute allowedRoles={[1, 0]} />}>
           <Route element={<DashboardLayout />}>
-            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/dashboard" element={<Navigate to="/appointments" replace />} />
             <Route path="/appointments" element={<CustomerAppointments />} />
-            <Route path="/packages" element={<CustomerPackages />} />
-            <Route path="/profile" element={<CustomerProfile />} />
+            <Route path="/medical-record" element={<CustomerMedicalRecord />} />
+            <Route path="/packages" element={<Navigate to="/appointments" replace />} />
+            <Route path="/profile" element={<Navigate to="/appointments" replace />} />
             <Route path="/settings" element={<CustomerSettings />} />
           </Route>
         </Route>
@@ -106,15 +104,16 @@ export default function AppRoutes() {
         <Route element={<ProtectedRoute allowedRoles={[5, 6]} />}>
           <Route element={<AdminLayout />}>
             <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/admin/appointments" element={<ManageAppointments />} />
-            <Route path="/admin/customers" element={<ManageCustomers />} />
-            <Route path="/admin/medical-records" element={<ManageMedicalRecords />} />
-            
+
             {/* Staff Management is strictly Admin only (role 5) */}
             <Route element={<ProtectedRoute allowedRoles={[5]} />}>
               <Route path="/admin/staff" element={<ManageStaff />} />
             </Route>
 
+
+            <Route path="/admin/appointments" element={<ManageAppointments />} />
+            <Route path="/admin/customers" element={<ManageCustomers />} />
+            <Route path="/admin/medical-records" element={<Navigate to="/admin/customers" replace />} />
             <Route path="/admin/schedules" element={<ManageSchedules />} />
             <Route path="/admin/rooms" element={<ManageRooms />} />
             <Route path="/admin/rooms/:id" element={<RoomDetail />} />

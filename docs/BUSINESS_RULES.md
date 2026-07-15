@@ -55,19 +55,45 @@
 - Nếu khách đã thanh toán hóa đơn khám riêng trước đó: chỉ trừ phí khám **đúng 1 lần**, không trừ lặp trong hoàn tiền gói.
 - Khi truy vấn danh sách/chi tiết hóa đơn, cột chi phí khám phải tính động qua join với bảng dịch vụ, không trả cứng một con số.
 
+### 6b. Hủy gói quá hạn sử dụng — không hoàn tiền (Expired Package — No Refund)
+
+Quy tắc **riêng biệt**, khác hẳn mục 6 ở trên — áp dụng khi khách mua gói liệu trình rồi **mất liên lạc hoàn toàn** cho tới khi gói quá `phac_do_dieu_tri.han_su_dung`.
+
+- Mỗi gói `LIEU_TRINH` được cấu hình "Hạn sử dụng mặc định (ngày)" tại màn Quản lý gói dịch vụ (`goi_dich_vu.han_su_dung_mac_dinh_ngay`) — áp dụng cho **cả 3 hình thức thanh toán** (trả thẳng/trả góp/từng buổi). Giá trị này chỉ là gợi ý mặc định tại thời điểm **đăng ký gói mới**; hạn sử dụng thật được **chốt cứng (snapshot)** vào `phac_do_dieu_tri.han_su_dung` = ngày kích hoạt + N ngày — đổi cấu hình gói sau này **không** ảnh hưởng các khách đã đăng ký trước đó.
+- Khi gói đã quá hạn sử dụng, **Admin** (không phải lễ tân) có thể chủ động bấm "Hủy do quá hạn sử dụng" — **KHÔNG có cơ chế tự động chạy ngầm** (không cron/sweep), tránh hủy nhầm khách chỉ trễ hẹn.
+- Kết quả: **giữ nguyên toàn bộ** số tiền khách đã đóng (`so_tien_da_tra`) vào doanh thu — **không hoàn, không thu thêm** — bất kể hình thức thanh toán nào (kể cả từng buổi, dù bản chất số đã thu ở từng buổi vốn không có phần dư để giữ thêm). **Không áp dụng công thức phạt 10% + hoàn phần dư của mục 6.**
+- Backend tự re-validate `han_su_dung < CURRENT_DATE` trước khi cho hủy (không tin tuyệt đối vào UI), chặn 400 nếu gói chưa thực sự quá hạn.
+- Cài đặt: `expirePackageNoRefund()` trong `backend/src/repositories/admin.repository.ts`, endpoint `POST /admin/invoices/:id/expire-no-refund` (roles Admin/Quản lý).
+
+## 6c. Mã giảm giá (Voucher) — giới hạn theo hình thức thanh toán & lượt dùng
+
+- `yeu_cau_thanh_toan` là **tập hợp nhiều lựa chọn** (mảng Postgres `text[]`), không phải 1 giá trị đơn — 1 voucher có thể áp dụng đồng thời cho nhiều hình thức thanh toán (vd Trả thẳng + Trả góp, loại trừ Từng buổi). Mảng rỗng hoặc chứa `'tat_ca'` nghĩa là không giới hạn.
+- `so_luong_toi_da` (cột DB `so_luong_gioi_han`) giới hạn số lượt dùng **tính riêng theo từng khách hàng**, không phải tổng số lượt dùng gộp toàn hệ thống — mỗi khách được dùng mã tối đa bấy nhiêu lần, không giới hạn tổng số khách khác nhau. Đếm động qua `COUNT(hoa_don WHERE voucher_id = ... AND khach_hang_id = ...)`, không dùng cột đếm sẵn (cột `so_luong_da_dung` cũ đã bị xóa vì không bao giờ được cập nhật).
+- Giá trị giảm loại % chỉ hợp lệ trong khoảng `(0, 100]`; loại số tiền cố định không có "giảm tối đa" (field đó chỉ áp dụng cho %).
+- Cài đặt: `assertVoucherUsable()`/`countVoucherUsage()` trong `backend/src/services/receptionist.service.ts` + `backend/src/repositories/receptionist.repository.ts`.
+
 ## 7. Phạt điểm uy tín khi hủy/không đến (No-Show Penalty)
 
-- Gói `tra_thang`/`tra_gop`: vi phạm lần đầu (hủy hoặc không đến) được **ân xá**, không trừ điểm. Từ lần vi phạm thứ 2 trở đi, chuyển trạng thái sang `da_huy_phat`/`khach_khong_den_phat`.
-- Gói `tung_buoi` hoặc buổi lẻ không thuộc gói: **luôn trừ 10 điểm uy tín** mỗi lần vi phạm, không có "ân xá" lần đầu.
+- Gói `tra_thang`/`tra_gop`: vi phạm lần đầu (hủy hoặc không đến) được **ân xá**, không trừ điểm. Từ lần vi phạm thứ 2 trở đi, áp dụng mức trừ điểm theo loại vi phạm.
+- Gói `tung_buoi` hoặc buổi lẻ không thuộc gói: **luôn trừ điểm uy tín** mỗi lần vi phạm, không có "ân xá" lần đầu.
+- Điểm uy tín bị trừ cụ thể:
+  - Nếu khách **chủ động hủy lịch** trên hệ thống hoặc **báo trước cho Lễ tân**: trừ **10 điểm uy tín**.
+  - Nếu khách **vắng mặt không báo trước (No-show)**: trừ **20 điểm uy tín**.
+- Quyền khóa tài khoản: Nếu điểm uy tín xuống quá thấp, OfficeCare có quyền chủ động khóa hoặc tạm khóa tài khoản của bệnh nhân thông qua bộ phận kiểm duyệt định kỳ (không khóa tự động).
 - Cài đặt chuẩn: `resolveNoShowOutcome()` trong `backend/src/domain/billing.ts`.
 
-## 8. Quy trình tiếp đón của Lễ tân (Receptionist Confirmation Flow)
+## 8. Đổi lịch hẹn (Rescheduling Policy)
+
+- Khách hàng được phép đổi lịch hẹn bằng cách liên hệ hotline trước ít nhất **8 tiếng** trước giờ bắt đầu của ca hẹn.
+- Trong vòng 8 tiếng trước giờ hẹn, khách không được đổi lịch mà chỉ được hủy lịch hoặc vắng mặt.
+
+## 9. Quy trình tiếp đón của Lễ tân (Receptionist Confirmation Flow)
 
 - Trạng thái mặc định khi khách đặt lịch: `Chưa xác nhận`.
-- Lễ tân gọi điện xác nhận. Nếu khách không nghe máy **≥ 3 cuộc**, Lễ tân hủy lịch **bằng tay**.
+- Lễ tân liên hệ điện thoại xác nhận trực tiếp. Nếu không liên lạc được, Lễ tân hủy lịch **bằng tay**.
 - Hệ thống **không tự động hủy** lịch chưa xác nhận — giữ tính nhân văn và linh hoạt cho nghiệp vụ phòng khám.
 
-## 9. Báo lỗi nghiệp vụ an toàn cho client
+## 10. Báo lỗi nghiệp vụ an toàn cho client
 
 - Mọi lỗi ràng buộc nghiệp vụ (chưa thanh toán buổi trước, trùng lịch nhân sự, đã có lịch đang hoạt động...) ném ra từ Repository/Service dưới dạng `Error` phải được Controller bắt và trả về `400 Bad Request` kèm message gốc.
 - **Cấm** nuốt lỗi nghiệp vụ rồi trả về `500 Lỗi server` chung chung — khách/nhân viên cần thấy đúng lý do bị chặn.

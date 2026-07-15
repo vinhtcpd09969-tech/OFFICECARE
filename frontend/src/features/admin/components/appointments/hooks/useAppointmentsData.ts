@@ -102,7 +102,7 @@ export function useAppointmentsData(isReceptionist: boolean) {
 
   // Monitor changes in check-ins and trigger chime sound for new entries
   useEffect(() => {
-    if (appointments.length === 0) return;
+    if (appointments.length === 0 || isReceptionist) return;
 
     const currentCheckedInIds = appointments
       .filter(apt => apt.trang_thai === 'da_checkin')
@@ -133,11 +133,11 @@ export function useAppointmentsData(isReceptionist: boolean) {
         });
       }
     }
-  }, [appointments, playNotificationSound]);
+  }, [appointments, isReceptionist, playNotificationSound]);
 
   // Monitor changes in unconfirmed appointments (>10 min grace period)
   useEffect(() => {
-    if (appointments.length === 0) return;
+    if (appointments.length === 0 || isReceptionist) return;
 
     const checkNewUnconfirmed = () => {
       const graceTimeMs = 10 * 60 * 1000;

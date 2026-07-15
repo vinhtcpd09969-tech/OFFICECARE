@@ -230,27 +230,27 @@ describe('calculatePackageCancellationRefund', () => {
 describe('resolveNoShowOutcome', () => {
   it('gói trả góp, vi phạm lần đầu -> ân xá, không trừ điểm', () => {
     const result = resolveNoShowOutcome('khong_den', 'tra_gop', 0, true);
-    expect(result).toEqual({ finalStatus: 'khong_den', shouldDeductReputation: false });
+    expect(result).toEqual({ finalStatus: 'khong_den', reputationPenalty: 0 });
   });
 
-  it('gói trả góp, vi phạm lần 2 -> chuyển trạng thái phạt', () => {
+  it('gói trả góp, vi phạm lần 2 -> chuyển trạng thái phạt, trừ 20 điểm', () => {
     const result = resolveNoShowOutcome('khong_den', 'tra_gop', 1, true);
-    expect(result).toEqual({ finalStatus: 'khach_khong_den_phat', shouldDeductReputation: false });
+    expect(result).toEqual({ finalStatus: 'khach_khong_den_phat', reputationPenalty: 20 });
   });
 
-  it('hủy chủ động lần 2 với gói trả thẳng -> da_huy_phat', () => {
+  it('hủy chủ động lần 2 với gói trả thẳng -> da_huy_phat, trừ 10 điểm', () => {
     const result = resolveNoShowOutcome('da_huy', 'tra_thang', 2, true);
-    expect(result).toEqual({ finalStatus: 'da_huy_phat', shouldDeductReputation: false });
+    expect(result).toEqual({ finalStatus: 'da_huy_phat', reputationPenalty: 10 });
   });
 
   it('gói trả từng buổi -> luôn trừ điểm uy tín, không có trạng thái _phat', () => {
     const result = resolveNoShowOutcome('khong_den', 'tung_buoi', 0, true);
-    expect(result).toEqual({ finalStatus: 'khong_den', shouldDeductReputation: true });
+    expect(result).toEqual({ finalStatus: 'khong_den', reputationPenalty: 20 });
   });
 
   it('không thuộc gói (buổi lẻ) -> luôn trừ điểm uy tín', () => {
     const result = resolveNoShowOutcome('da_huy', null, 0, false);
-    expect(result).toEqual({ finalStatus: 'da_huy', shouldDeductReputation: true });
+    expect(result).toEqual({ finalStatus: 'da_huy', reputationPenalty: 10 });
   });
 });
 

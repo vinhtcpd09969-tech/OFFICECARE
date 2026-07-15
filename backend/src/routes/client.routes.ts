@@ -247,6 +247,18 @@ router.post('/appointments/:id/rate', verifyToken, async (req, res) => {
       [cuoc_hen_id, khach_hang_id, Number(so_sao), nhan_xet]
     );
 
+    // Nếu đánh giá thấp (1-2 sao), trigger thông báo gửi Admin/Manager
+    if (Number(so_sao) <= 2) {
+      try {
+        const { default: notificationService } = require('../services/notification.service');
+        notificationService.triggerLowRatingToAdmins(cuoc_hen_id, Number(so_sao), nhan_xet).catch((err: any) => {
+          console.error('Lỗi khi gửi thông báo đánh giá tệ:', err);
+        });
+      } catch (err) {
+        console.error('Lỗi nạp notificationService:', err);
+      }
+    }
+
     res.status(201).json(newReview[0]);
   } catch (error) {
     console.error('Lỗi khi lưu đánh giá:', error);

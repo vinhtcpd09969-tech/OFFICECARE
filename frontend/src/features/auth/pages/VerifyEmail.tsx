@@ -167,7 +167,7 @@ export default function VerifyEmail() {
       // Custom Premium Welcome Toast
       toast.custom((t) => <WelcomeToast t={t} user={user} />, { duration: 6000 });
       
-      const from = (location.state as any)?.from || '/dashboard';
+      const from = (location.state as any)?.from || '/appointments';
       navigate(from, { replace: true });
     } catch (err: any) {
       if (err.response?.data?.message) {

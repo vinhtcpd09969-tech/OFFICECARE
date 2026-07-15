@@ -8,7 +8,7 @@ export interface RatePayload {
 
 // Logged-in Customer APIs
 export const getPendingRatingAppointments = () => 
-  api.get('/client/pending-ratings');
+  api.get('/client/appointments/pending-rating');
 
 export const rateAppointment = (id: string, data: { so_sao: number; nhan_xet?: string }) => 
   api.post(`/client/appointments/${id}/rate`, data);
@@ -27,3 +27,6 @@ export const changePassword = (data: { oldPassword: string; newPassword: string 
   api.put('/auth/change-password', data);
 
 export const getMe = () => api.get('/auth/me');
+
+export const getCustomerMedicalRecord = () => 
+  api.get('/client/medical-record');

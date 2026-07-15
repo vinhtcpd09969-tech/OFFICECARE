@@ -53,12 +53,15 @@ class AuthRepository {
     return null;
   }
 
-  async createUser(data: { ho_ten: string, email: string, mat_khau_hash: string, ngay_dong_y_dieu_khoan: Date }) {
+  async createUser(data: { ho_ten: string, email: string, mat_khau_hash: string, gioi_tinh: string, ngay_sinh: Date, dia_chi?: string, ngay_dong_y_dieu_khoan: Date }) {
     return prisma.khach_hang.create({
       data: {
         ho_ten: data.ho_ten,
         email: data.email,
         mat_khau_hash: data.mat_khau_hash,
+        gioi_tinh: data.gioi_tinh,
+        ngay_sinh: data.ngay_sinh,
+        dia_chi: data.dia_chi,
         trang_thai: 'hoat_dong',
         ngay_dong_y_dieu_khoan: data.ngay_dong_y_dieu_khoan,
       },

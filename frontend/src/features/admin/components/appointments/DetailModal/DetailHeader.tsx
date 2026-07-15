@@ -1,10 +1,9 @@
-import { Calendar, Clock, Edit2, User, Phone, Activity } from 'lucide-react';
+import { Calendar, Clock, Edit2, User, Activity } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 
 interface DetailHeaderProps {
   maLichDat: string;
   tenKhachHang: string;
-  soDienThoai: string;
   ngayGioBatDau: string;
   aptStartHourStr: string;
   aptEndHourStr: string;
@@ -17,11 +16,11 @@ interface DetailHeaderProps {
   setIsRescheduling: (val: boolean) => void;
   selectedTimeSlot?: string;
   rescheduleDate?: string;
+  trangThai?: string;
 }
 
 export function DetailHeader({
   tenKhachHang,
-  soDienThoai,
   ngayGioBatDau,
   aptStartHourStr,
   aptEndHourStr,
@@ -33,10 +32,32 @@ export function DetailHeader({
   isRescheduling,
   setIsRescheduling,
   selectedTimeSlot,
-  rescheduleDate
+  rescheduleDate,
+  trangThai
 }: DetailHeaderProps) {
   // Gói liệu trình: nêu rõ đang là buổi thứ mấy / tổng số buổi, thay vì chỉ tên gói trơ trọi.
   const isPackageSession = loaiGoi === 'LIEU_TRINH' && !!soThuTuBuoi;
+
+  // Check if status is checked-in, completed, or cancelled
+  const isCheckedInOrFinished = [
+    'da_checkin', 'cho_kham', 'dang_kham', 'hoan_thanh', 
+    'da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'
+  ].includes(trangThai || '');
+
+  // Check if current time is less than 8 hours before start time
+  const startMs = ngayGioBatDau ? new Date(ngayGioBatDau).getTime() : 0;
+  const diffHours = startMs > 0 ? (startMs - Date.now()) / (1000 * 60 * 60) : 0;
+  const isWithin8Hours = diffHours < 8;
+
+  const isRescheduleDisabled = isCheckedInOrFinished || isWithin8Hours;
+
+  let disableReason = '';
+  if (isCheckedInOrFinished) {
+    disableReason = 'Không thể đổi lịch của ca đã check-in hoặc hoàn tất/hủy.';
+  } else if (isWithin8Hours) {
+    disableReason = 'Không thể đổi lịch trước giờ hẹn dưới 8 tiếng.';
+  }
+
   return (
     <div className="bg-slate-50/70 dark:bg-zinc-800/30 p-5 rounded-2xl border border-slate-150 dark:border-zinc-800/80 space-y-3.5 select-none shadow-sm">
       {/* Row 1: Khách hàng */}
@@ -45,63 +66,47 @@ export function DetailHeader({
           <User size={14} />
         </div>
         <div className="flex-1 min-w-0">
-          <label className="text-[10px] font-bold text-slate-450 dark:text-zinc-550 uppercase tracking-widest block">Khách hàng</label>
+          <label className="text-[10px] font-bold text-slate-455 dark:text-zinc-555 uppercase tracking-widest block">Khách hàng</label>
           <span className="text-sm font-black text-slate-800 dark:text-zinc-100 block mt-0.5">{tenKhachHang}</span>
         </div>
       </div>
 
-      <div className="h-px bg-slate-100 dark:bg-zinc-800/50" />
-
-      {/* Row 2: Số điện thoại */}
-      <div className="flex items-start gap-3">
-        <div className="p-1.5 rounded-lg bg-slate-105 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 shrink-0 mt-0.5">
-          <Phone size={14} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <label className="text-[10px] font-bold text-slate-450 dark:text-zinc-555 uppercase tracking-widest block">Số điện thoại</label>
-          <span className="text-sm font-bold text-slate-800 dark:text-zinc-200 block mt-0.5">{soDienThoai}</span>
-        </div>
-      </div>
-
-      <div className="h-px bg-slate-100 dark:bg-zinc-800/50" />
-
-      {/* Row 3: Dịch vụ đặt */}
+      {/* Row 2: Chi tiết dịch vụ */}
       <div className="flex items-start gap-3">
         <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 shrink-0 mt-0.5">
           <Activity size={14} />
         </div>
         <div className="flex-1 min-w-0">
-          <label className="text-[10px] font-bold text-slate-455 dark:text-zinc-500 uppercase tracking-widest block">Dịch vụ đặt</label>
-          <span className="text-xs font-extrabold text-slate-800 dark:text-zinc-150 block mt-0.5 leading-relaxed whitespace-pre-wrap">
-            {tenDichVu || 'Khám y tế mới'}
-          </span>
-          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+          <label className="text-[10px] font-bold text-slate-455 dark:text-zinc-555 uppercase tracking-widest block">Chi tiết dịch vụ</label>
+          <span className="text-xs font-bold text-slate-700 dark:text-zinc-200 block mt-1 leading-relaxed">
+            {tenDichVu}
             {isPackageSession && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-black text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/25 border border-teal-100 dark:border-teal-900/40 px-2 py-0.5 rounded-lg">
-                Buổi {soThuTuBuoi}{tongSoBuoiGoi ? `/${tongSoBuoiGoi}` : ''}
+              <span className="ml-2 inline-flex items-center text-[10px] font-black text-[#0d766e] dark:text-emerald-450 bg-[#0d9488]/10 dark:bg-emerald-950/20 px-2 py-0.5 rounded border border-[#0d9488]/15 dark:border-teal-900/20">
+                Buổi {soThuTuBuoi} / {tongSoBuoiGoi}
               </span>
             )}
-            <span className="inline-flex items-center gap-1 text-[10px] text-slate-555 dark:text-zinc-500 font-bold">
-              ⏳ {Math.round(durationMs / 60000)} phút
-            </span>
-          </div>
+          </span>
         </div>
       </div>
 
-      <div className="h-px bg-slate-100 dark:bg-zinc-800/50" />
-
-      {/* Row 4: Khung giờ hẹn */}
+      {/* Row 3: Thời gian */}
       <div className="flex items-start gap-3">
         <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 shrink-0 mt-0.5">
           <Clock size={14} />
         </div>
         <div className="flex-1 min-w-0">
-          <label className="text-[10px] font-bold text-slate-450 dark:text-zinc-550 uppercase tracking-widest block">Khung giờ hẹn</label>
-          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-            <span className="inline-flex items-center gap-1 text-xs font-mono font-black text-emerald-700 dark:text-emerald-455 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 px-2 py-0.5 rounded-lg">
-              {aptStartHourStr} - {aptEndHourStr}
-            </span>
-            
+          <label className="text-[10px] font-bold text-slate-455 dark:text-zinc-555 uppercase tracking-widest block">Khung giờ hẹn</label>
+          <div className="flex items-center justify-between gap-3 mt-1 flex-wrap sm:flex-nowrap">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-black text-slate-700 dark:text-zinc-200">
+                {aptStartHourStr} - {aptEndHourStr}
+              </span>
+              <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-semibold">
+                ({Math.round(durationMs / 60000)} phút)
+              </span>
+            </div>
+
+            {/* Hiển thị ngày bắt đầu */}
             {(() => {
               const dateObj = new Date(ngayGioBatDau);
               if (isValid(dateObj)) {
@@ -117,13 +122,16 @@ export function DetailHeader({
 
              <button
               type="button"
+              disabled={isRescheduleDisabled}
               onClick={() => setIsRescheduling(!isRescheduling)}
-              className={`p-1.5 rounded-lg border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+              className={`p-1.5 rounded-lg border transition-all flex items-center justify-center gap-1.5 ${
                 isRescheduling
                   ? 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700 shadow-sm'
-                  : 'bg-emerald-50 dark:bg-emerald-955/40 border-emerald-100 dark:border-emerald-900/30 text-emerald-600 dark:text-emerald-450 hover:bg-emerald-100/70 dark:hover:bg-emerald-950/70'
+                  : isRescheduleDisabled
+                    ? 'bg-slate-100 dark:bg-zinc-800/40 border-slate-200 dark:border-zinc-800 text-slate-400 dark:text-zinc-500 cursor-not-allowed opacity-50'
+                    : 'bg-emerald-50 dark:bg-emerald-955/40 border-emerald-100 dark:border-emerald-900/30 text-emerald-600 dark:text-emerald-450 hover:bg-emerald-100/70 dark:hover:bg-emerald-950/70 cursor-pointer'
               }`}
-              title="Thay đổi ngày/giờ hẹn"
+              title={disableReason || "Thay đổi ngày/giờ hẹn"}
             >
               <Edit2 size={11} />
               <span className="text-[9px] font-extrabold uppercase tracking-wider">Đổi lịch</span>

@@ -1,6 +1,7 @@
 import { useEffect, useState, useReducer, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import axiosInstance from '../../../../../api/axios';
+import { getInstallmentCutoffSession, getTungBuoiSessionDue } from '../../../../../utils/billing';
 
 interface CheckoutState {
   lichDatId: string;
@@ -59,6 +60,14 @@ export const useCheckout = (
       setLoaiThanhToan('tra_thang');
     }
   }, [selectedPackage]);
+
+  // Hạn sử dụng gói tự điền từ cấu hình gói (han_su_dung_mac_dinh_ngay) — lễ tân vẫn sửa tay được
+  // ở ô input, đây chỉ là giá trị gợi ý ban đầu mỗi khi đổi gói.
+  useEffect(() => {
+    if (selectedPackage?.loai_goi === 'LIEU_TRINH') {
+      setDurationDays(Number(selectedPackage.han_su_dung_mac_dinh_ngay) || 60);
+    }
+  }, [selectedPackage]);
   const [maVoucher, setMaVoucher] = useState('');
   const [appliedVoucher, setAppliedVoucher] = useState<any | null>(null);
   const [calculatedData, setCalculatedData] = useState<any | null>(null);
@@ -66,7 +75,13 @@ export const useCheckout = (
   const [feedbackLyDo, setFeedbackLyDo] = useState('');
   const [paymentSuccessData, setPaymentSuccessData] = useState<any | null>(null);
   const [checkoutTab, setCheckoutTab] = useState<'single' | 'package'>('package');
+  // Admin sửa cấu hình gói SAU khi bác sĩ đã chỉ định: mặc định chốt theo đúng liệu trình + giá đã
+  // tư vấn cho khách. Backend chỉ trả `canh_bao_lech_cau_hinh` khi thực sự có lệch, nên bình thường
+  // cờ này không tác động gì tới màn hình.
+  const [giuTheoTuVan, setGiuTheoTuVan] = useState<boolean>(true);
   const [durationDays, setDurationDays] = useState<number>(60);
+  const [activePayOSInvoice, setActivePayOSInvoice] = useState<{ invoice: any; amount: number; so_thu_tu_buoi?: number } | null>(null);
+
 
   // Load checkout details
   useEffect(() => {
@@ -103,15 +118,22 @@ export const useCheckout = (
           if (hinhThuc === 'tra_thang') {
             sessionPrice = 0;
           } else if (hinhThuc === 'tra_gop') {
+            // Mốc đóng Đợt 2 lấy từ công thức khóa (domain/billing.ts), không phải floor(N/2):
+            // hai giá trị này lệch nhau ở gói 12/16 buổi. Dùng `>=` để buổi sau mốc vẫn đòi nốt tiền.
             if (alreadyPaid >= totalRequired) {
               sessionPrice = 0;
-            } else if (soThuTu === Math.floor(totalSessions / 2)) {
+            } else if (soThuTu >= getInstallmentCutoffSession(totalSessions)) {
               sessionPrice = totalRequired - alreadyPaid;
             } else {
               sessionPrice = 0;
             }
           } else if (hinhThuc === 'tung_buoi') {
-            sessionPrice = Number(appt.pd_don_gia_theo_buoi || Math.round(totalRequired / totalSessions));
+            // Nguồn chung duy nhất cho số tiền/buổi — PHẢI khớp đúng công thức backend dùng để ghi
+            // sổ (receptionist.service.ts:processPayment), không tự chế công thức khác ở đây, nếu
+            // không sẽ lệch số tiền hiển thị vs số tiền thực ghi nhận do làm tròn khác nhau, khiến
+            // hóa đơn không bao giờ lên đúng trạng thái "đã thanh toán". Không dùng đơn giá/buổi
+            // tĩnh của gói mẫu (pd_don_gia_theo_buoi) vì không phản ánh voucher đã áp cho hóa đơn này.
+            sessionPrice = getTungBuoiSessionDue(totalRequired, totalSessions, soThuTu, alreadyPaid);
           } else {
             const totalPackageCost = totalRequired - Number(appt.don_gia_dich_vu || 200000);
             sessionPrice = Math.round(totalPackageCost / totalSessions);
@@ -149,12 +171,15 @@ export const useCheckout = (
                 setCheckoutTab('package');
                 setDangKyGoi(true);
               } else {
-                setCheckoutTab('single');
+                // Khám thường (không chỉ định gói) — vẫn đi qua tab 'package' để dùng chung
+                // pipeline calculateBilling/createBillingDirect đã hỗ trợ mã giảm giá, thay vì
+                // luồng 'single' tạo hóa đơn ngay không có chỗ áp voucher.
+                setCheckoutTab('package');
                 setDangKyGoi(false);
               }
             }
           } else {
-            setCheckoutTab('single');
+            setCheckoutTab('package');
             setDangKyGoi(false);
           }
         }
@@ -217,6 +242,7 @@ export const useCheckout = (
       loaiThanhToan,
       ma_voucher: appliedVoucher?.ma_voucher || null,
       dangKyGoi,
+      giuTheoTuVan,
       consultationId: selectedConsultation?.id || null
     });
 
@@ -233,6 +259,7 @@ export const useCheckout = (
             ma_voucher: appliedVoucher ? appliedVoucher.ma_voucher : null,
             khach_hang_id: selectedConsultation.khach_hang_id,
             lich_dat_id: selectedConsultation.id,
+            giu_theo_tu_van: giuTheoTuVan,
           });
           setCalculatedData(res.data);
         } catch (error: any) {
@@ -250,7 +277,7 @@ export const useCheckout = (
           const res = await axiosInstance.post('/receptionist/billing/calculate', {
             goi_id: null,
             loai_thanh_toan: 'tra_thang',
-            ma_voucher: null,
+            ma_voucher: appliedVoucher ? appliedVoucher.ma_voucher : null,
             khach_hang_id: selectedConsultation.khach_hang_id,
             lich_dat_id: selectedConsultation.id,
           });
@@ -270,18 +297,22 @@ export const useCheckout = (
     loaiThanhToan,
     appliedVoucher,
     dangKyGoi,
+    giuTheoTuVan,
     selectedConsultation,
     isCheckoutMode,
   ]);
 
-  const handleApplyVoucher = async () => {
-    if (!maVoucher.trim() || !selectedConsultation) return;
+  const handleApplyVoucher = async (codeOverride?: string) => {
+    const code = codeOverride ?? maVoucher;
+    if (!code.trim() || !selectedConsultation) return;
     const toastId = toast.loading('Đang áp dụng voucher...');
     try {
       const res = await axiosInstance.post('/receptionist/vouchers/apply', {
-        ma_voucher: maVoucher,
+        ma_voucher: code,
         khach_hang_id: selectedConsultation.khach_hang_id,
+        loai_thanh_toan: dangKyGoi ? loaiThanhToan : 'tra_thang',
       });
+      setMaVoucher(code);
       setAppliedVoucher(res.data.voucher);
       toast.success('Đã áp dụng voucher thành công!', { id: toastId });
     } catch (error: any) {
@@ -306,14 +337,24 @@ export const useCheckout = (
       return;
     }
 
+    if (state.phuongThuc === 'chuyen_khoan') {
+      setActivePayOSInvoice({
+        invoice: state.hoaDon,
+        amount: totalAmount,
+        so_thu_tu_buoi: selectedConsultation?.loai_lich === 'dieu_tri' ? selectedConsultation?.so_thu_tu_buoi : undefined,
+      });
+      return;
+    }
+
     const toastId = toast.loading('Đang ghi nhận giao dịch thanh toán...');
     dispatch({ type: 'SET_LOADING', loading: true });
     try {
       const res = await axiosInstance.post('/receptionist/payment', {
         hoa_don_id: state.hoaDon.id,
-        so_tien_nhan: state.phuongThuc === 'tien_mat' ? cleanReceived : totalAmount.toString(),
+        so_tien_nhan: cleanReceived,
         phuong_thuc: state.phuongThuc,
         ghi_chu: feedbackLyDo || undefined,
+        so_thu_tu_buoi: selectedConsultation?.loai_lich === 'dieu_tri' ? selectedConsultation?.so_thu_tu_buoi : undefined,
       });
 
       const matchedPkg = selectedConsultation?.khuyen_nghi_goi_id
@@ -328,6 +369,8 @@ export const useCheckout = (
 
       setPaymentSuccessData({
         hoaDon: res.data?.hoa_don || state.hoaDon,
+        soTienDaThu: Number(res.data?.actualPaymentAmount ?? totalAmount),
+        soTienConLai: Math.max(0, totalAmount - Number(res.data?.da_thanh_toan_moi ?? totalAmount)),
         khachHangId: selectedConsultation?.khach_hang_id,
         tenKhachHang: selectedConsultation?.ten_khach_hang,
         khuyenNghiGoiId: selectedConsultation?.khuyen_nghi_goi_id,
@@ -357,7 +400,7 @@ export const useCheckout = (
     }
     if (!calculatedData) return;
 
-    const tongCanThu = loaiThanhToan === 'tra_gop' || loaiThanhToan === 'tung_buoi'
+    const tongCanThu = dangKyGoi && (loaiThanhToan === 'tra_gop' || loaiThanhToan === 'tung_buoi')
       ? Number(calculatedData.so_tien_dot_1)
       : Number(calculatedData.tong_tien_thanh_toan);
     const cleanReceived = state.soTienNhan.replace(/\D/g, '');
@@ -377,38 +420,65 @@ export const useCheckout = (
         item_type: dangKyGoi ? 'goi' : 'dich_vu',
         item_id: dangKyGoi ? selectedPackage.id : selectedConsultation.goi_dich_vu_id || selectedConsultation.id,
         loai_thanh_toan: dangKyGoi ? loaiThanhToan : 'tra_thang',
-        ma_voucher: dangKyGoi && appliedVoucher ? appliedVoucher.ma_voucher : null,
+        ma_voucher: appliedVoucher ? appliedVoucher.ma_voucher : null,
         lich_dat_id: selectedConsultation.id,
         lich_dieu_tri_id: selectedConsultation.phac_do_dieu_tri_id || null,
         ho_ten_khach: selectedConsultation.ten_khach_hang,
         so_dien_thoai: selectedConsultation.sdt_khach_hang,
         dang_ky_goi: dangKyGoi,
-        so_ngay_hieu_luc: (dangKyGoi && ['tra_thang', 'tra_gop'].includes(loaiThanhToan)) ? durationDays : null,
+        giu_theo_tu_van: giuTheoTuVan,
+        so_ngay_hieu_luc: (dangKyGoi && ['tra_thang', 'tra_gop', 'tung_buoi'].includes(loaiThanhToan)) ? durationDays : null,
       });
 
       const hoaDonMoi = invoiceRes.data.hoa_don;
 
-      await axiosInstance.post('/receptionist/payment', {
+      if (state.phuongThuc === 'chuyen_khoan') {
+        toast.dismiss(toastId);
+        dispatch({ type: 'SET_LOADING', loading: false });
+        setActivePayOSInvoice({
+          invoice: hoaDonMoi,
+          amount: tongCanThu,
+        });
+        return;
+      }
+
+      const payRes = await axiosInstance.post('/receptionist/payment', {
         hoa_don_id: hoaDonMoi.id,
         so_tien_nhan: state.phuongThuc === 'tien_mat' ? (tongCanThu === 0 ? '0' : cleanReceived) : tongCanThu.toString(),
         phuong_thuc: state.phuongThuc,
       });
 
+      // Thực thu của giao dịch này (trả góp Đợt 1 = 50%), KHÔNG phải tổng giá trị hóa đơn.
+      const soTienDaThu = Number(payRes.data?.actualPaymentAmount ?? tongCanThu);
+      const soTienConLai = Math.max(0, Number(hoaDonMoi.tong_tien_thanh_toan || 0) - Number(payRes.data?.da_thanh_toan_moi ?? soTienDaThu));
+
       const totalSessions = Number(selectedConsultation?.pd_tong_so_buoi || selectedPackage?.tong_so_buoi || 10);
-      const nextSessionNum = selectedConsultation?.loai_lich === 'dieu_tri' 
+      const nextSessionNum = selectedConsultation?.loai_lich === 'dieu_tri'
         ? Number(selectedConsultation.so_thu_tu_buoi || 1) + 1
         : (dangKyGoi ? 1 : null);
+      // Chỉ gợi ý "đặt buổi tiếp theo" khi đây thực sự là buổi điều trị thuộc phác đồ có sẵn,
+      // hoặc vừa đăng ký gói mới — KHÔNG fallback lấy hoaDonMoi.goi_dich_vu_id một cách mù quáng,
+      // vì dịch vụ khám lẻ (kham_moi/dich_vu_don, dangKyGoi=false) cũng được lưu như 1 hàng
+      // goi_dich_vu, dễ khiến 1 ca khám không hề có chỉ định điều trị bị hiểu nhầm là "vừa đăng
+      // ký gói" và gợi ý đặt Buổi 1.
+      const isPackageFlow = selectedConsultation?.loai_lich === 'dieu_tri' || dangKyGoi;
 
       setPaymentSuccessData({
         hoaDon: hoaDonMoi,
+        soTienDaThu,
+        soTienConLai,
         khachHangId: selectedConsultation.khach_hang_id,
         tenKhachHang: selectedConsultation.ten_khach_hang,
         khuyenNghiGoiId: null,
         khuyenNghiTenGoi: null,
         khuyenNghiLoaiGoi: null,
-        daDangKyGoiId: selectedConsultation?.pd_goi_dich_vu_id || selectedPackage?.id || selectedPackage?.goi_dich_vu_id || hoaDonMoi.goi_dich_vu_id,
-        daDangKyGoiTen: selectedConsultation?.pd_ten_goi || selectedPackage?.ten_goi || hoaDonMoi.ten_item,
-        daDangKyGoiLoai: selectedPackage?.loai_goi || null,
+        daDangKyGoiId: isPackageFlow
+          ? (selectedConsultation?.pd_goi_dich_vu_id || selectedPackage?.id || selectedPackage?.goi_dich_vu_id || hoaDonMoi.goi_dich_vu_id)
+          : null,
+        daDangKyGoiTen: isPackageFlow
+          ? (selectedConsultation?.pd_ten_goi || selectedPackage?.ten_goi || hoaDonMoi.ten_item)
+          : null,
+        daDangKyGoiLoai: isPackageFlow ? (selectedPackage?.loai_goi || null) : null,
         nextSessionNum: nextSessionNum && nextSessionNum <= totalSessions ? nextSessionNum : null,
         totalSessions,
       });
@@ -424,6 +494,65 @@ export const useCheckout = (
     } finally {
       dispatch({ type: 'SET_LOADING', loading: false });
     }
+  };
+
+  const handlePayOSSuccess = (paidInvoice: any) => {
+    const totalSessions = Number(selectedConsultation?.pd_tong_so_buoi || selectedPackage?.tong_so_buoi || 10);
+    const nextSessionNum = selectedConsultation?.loai_lich === 'dieu_tri'
+      ? Number(selectedConsultation.so_thu_tu_buoi || 1) + 1
+      : (dangKyGoi ? 1 : null);
+
+    // Số tiền thực chuyển khoản của giao dịch này (Đợt 1 nếu trả góp), không phải tổng hóa đơn.
+    const soTienDaThuPayOS = Number(activePayOSInvoice?.amount ?? paidInvoice?.tong_tien_thanh_toan ?? 0);
+    const soTienConLaiPayOS = Math.max(0, Number(paidInvoice?.tong_tien_thanh_toan || 0) - soTienDaThuPayOS);
+
+    if (dangKyGoi) {
+      setPaymentSuccessData({
+        hoaDon: paidInvoice,
+        soTienDaThu: soTienDaThuPayOS,
+        soTienConLai: soTienConLaiPayOS,
+        khachHangId: selectedConsultation!.khach_hang_id,
+        tenKhachHang: selectedConsultation!.ten_khach_hang,
+        khuyenNghiGoiId: null,
+        khuyenNghiTenGoi: null,
+        khuyenNghiLoaiGoi: null,
+        daDangKyGoiId: selectedConsultation?.pd_goi_dich_vu_id || selectedPackage?.id || selectedPackage?.goi_dich_vu_id || paidInvoice.goi_dich_vu_id,
+        daDangKyGoiTen: selectedConsultation?.pd_ten_goi || selectedPackage?.ten_goi || paidInvoice.ten_item,
+        daDangKyGoiLoai: selectedPackage?.loai_goi || null,
+        nextSessionNum: nextSessionNum && nextSessionNum <= totalSessions ? nextSessionNum : null,
+        totalSessions,
+      });
+      toast.success(
+        selectedPackage?.loai_goi === 'LE' ? 'Đăng ký & Thanh toán dịch vụ thành công!' : 'Đăng ký & Thanh toán gói trị liệu thành công!'
+      );
+    } else {
+      const matchedPkg = selectedConsultation?.khuyen_nghi_goi_id
+        ? packages.find((p) => String(p.id) === String(selectedConsultation.khuyen_nghi_goi_id))
+        : null;
+      const nextSessionNumSingle = selectedConsultation?.loai_lich === 'dieu_tri' && selectedConsultation?.hinh_thuc_thanh_toan_goi === 'tung_buoi'
+        ? Number(selectedConsultation.so_thu_tu_buoi || 1) + 1
+        : null;
+      const totalSessionsSingle = selectedConsultation?.pd_tong_so_buoi ? Number(selectedConsultation.pd_tong_so_buoi) : 10;
+      const isTungBuoi = selectedConsultation?.loai_lich === 'dieu_tri' && selectedConsultation?.hinh_thuc_thanh_toan_goi === 'tung_buoi';
+
+      setPaymentSuccessData({
+        hoaDon: paidInvoice,
+        soTienDaThu: soTienDaThuPayOS,
+        soTienConLai: soTienConLaiPayOS,
+        khachHangId: selectedConsultation?.khach_hang_id,
+        tenKhachHang: selectedConsultation?.ten_khach_hang,
+        khuyenNghiGoiId: selectedConsultation?.khuyen_nghi_goi_id,
+        khuyenNghiTenGoi: matchedPkg ? matchedPkg.ten_goi : null,
+        khuyenNghiLoaiGoi: selectedConsultation?.khuyen_nghi_loai_goi,
+        daDangKyGoiId: isTungBuoi ? selectedConsultation?.pd_goi_dich_vu_id : null,
+        daDangKyGoiTen: isTungBuoi ? selectedConsultation?.pd_ten_goi : null,
+        daDangKyGoiLoai: isTungBuoi ? 'LIEU_TRINH' : null,
+        nextSessionNum: isTungBuoi && nextSessionNumSingle && nextSessionNumSingle <= totalSessionsSingle ? nextSessionNumSingle : null,
+        totalSessions: isTungBuoi ? totalSessionsSingle : null,
+      });
+      toast.success('Giao dịch thanh toán y khoa đã hoàn tất thành công!');
+    }
+    setActivePayOSInvoice(null);
   };
 
   return {
@@ -448,11 +577,17 @@ export const useCheckout = (
     setPaymentSuccessData,
     checkoutTab,
     setCheckoutTab,
+    giuTheoTuVan,
+    setGiuTheoTuVan,
+    canhBaoLechCauHinh: calculatedData?.canh_bao_lech_cau_hinh || null,
     durationDays,
     setDurationDays,
     handleApplyVoucher,
     handleRemoveVoucher,
     handleThanhToanSingle,
     handleThanhToanPackage,
+    activePayOSInvoice,
+    setActivePayOSInvoice,
+    handlePayOSSuccess,
   };
 };

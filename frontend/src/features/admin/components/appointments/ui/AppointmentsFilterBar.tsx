@@ -1,7 +1,6 @@
 import { ChevronLeft, ChevronRight, Search, Stethoscope, Zap } from 'lucide-react';
 import { format, startOfWeek, isSameDay } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { motion } from 'framer-motion';
 
 interface AppointmentsFilterBarProps {
   timeRange: 'today' | '7days' | 'month' | 'custom';
@@ -15,7 +14,8 @@ interface AppointmentsFilterBarProps {
   selectedDate: Date;
   activeType: 'kham' | 'dieu_tri';
   onToggleType: () => void;
-  isWalkInModalOpen?: boolean;
+  canToggleType?: boolean;
+  setViewMode?: (mode: 'timeline' | 'capacity') => void;
 }
 
 export function AppointmentsFilterBar({
@@ -30,7 +30,8 @@ export function AppointmentsFilterBar({
   selectedDate,
   activeType,
   onToggleType,
-  isWalkInModalOpen = false
+  canToggleType = false,
+  setViewMode
 }: AppointmentsFilterBarProps) {
   
   return (
@@ -40,50 +41,64 @@ export function AppointmentsFilterBar({
         {/* Left Section: Icon, Title, and Search bar combined in a clean row/group */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-4 flex-1 min-w-0">
           
-          {/* Title block with interactive toggle button */}
+          {/* Title block / Tab Selector for Lịch Khám vs Lịch Điều Trị */}
           <div className="flex items-center gap-3 shrink-0">
-            <button
-              onClick={onToggleType}
-              title="Click để hoán đổi chế độ Khám / Điều trị"
-              className={`p-2.5 rounded-2xl border transition-all duration-300 active:scale-95 group select-none ${
-                activeType === 'kham'
-                  ? 'bg-[#0D9488]/10 hover:bg-[#0D9488]/20 text-[#0D9488] dark:text-teal-400 border-[#0D9488]/20'
-                  : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/20'
-              }`}
-            >
-              {activeType === 'kham' ? (
-                <motion.div
-                  initial={{ rotate: 0 }}
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 0.5 }}
+            {canToggleType ? (
+              <div className="flex bg-slate-100 dark:bg-zinc-800/80 p-1 rounded-2xl border border-slate-200/40 dark:border-zinc-800 select-none shrink-0">
+                <button
+                  type="button"
+                  onClick={() => { if (activeType !== 'kham') onToggleType(); }}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-black uppercase tracking-wider rounded-xl transition-all active:scale-95 ${
+                    activeType === 'kham'
+                      ? 'bg-white dark:bg-zinc-700 text-[#0d9488] dark:text-teal-400 shadow-sm border border-slate-200/20'
+                      : 'text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200'
+                  }`}
                 >
-                  <Stethoscope className="size-4 shrink-0" />
-                </motion.div>
-              ) : (
-                <motion.div
-                  initial={{ rotate: 0 }}
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 0.5 }}
+                  <Stethoscope size={13} className="shrink-0 text-[#0d9488]" />
+                  <span>Lịch Khám</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { if (activeType !== 'dieu_tri') onToggleType(); }}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-black uppercase tracking-wider rounded-xl transition-all active:scale-95 ${
+                    activeType === 'dieu_tri'
+                      ? 'bg-white dark:bg-zinc-700 text-amber-600 dark:text-amber-400 shadow-sm border border-slate-200/20'
+                      : 'text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200'
+                  }`}
                 >
-                  <Zap className="size-4 shrink-0" />
-                </motion.div>
-              )}
-            </button>
-            <div className="flex flex-col text-left">
-              <span className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-zinc-200">
-                {activeType === 'kham' ? 'Quản lý lịch khám' : 'Quản lý lịch điều trị'}
-              </span>
-              <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-semibold mt-0.5 whitespace-nowrap">
+                  <Zap size={13} className="shrink-0 text-amber-500" />
+                  <span>Lịch Điều Trị</span>
+                </button>
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-zinc-850/60 text-slate-800 dark:text-zinc-200 border border-slate-200/60 dark:border-zinc-800 rounded-2xl text-xs font-black uppercase tracking-wider select-none shrink-0">
+                {activeType === 'kham' ? (
+                  <>
+                    <Stethoscope size={14} className="text-[#0d9488] shrink-0" />
+                    <span>Lịch Khám Chuyên Khoa</span>
+                  </>
+                ) : (
+                  <>
+                    <Zap size={14} className="text-amber-500 shrink-0" />
+                    <span>Lịch Điều Trị Vật Lý</span>
+                  </>
+                )}
+              </div>
+            )}
+            
+            {/* Helper label for view type */}
+            <div className="hidden xl:flex flex-col text-left">
+              <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-bold tracking-wide uppercase">
                 {viewMode === 'timeline' 
-                  ? "Xem chi tiết trình tự ngày hẹn" 
-                  : "Tổng quan công suất hoạt động"}
+                  ? "Trình tự ngày" 
+                  : "Công suất tuần/tháng"}
               </p>
             </div>
           </div>
-
+ 
           {/* Vertical divider on screens >= sm */}
           <div className="hidden sm:block w-[1px] h-8 bg-slate-150 dark:bg-zinc-800 shrink-0" />
-
+ 
           {/* Search Patient Box */}
           <div className="relative w-full sm:max-w-xs">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-555 pointer-events-none" size={13} />
@@ -95,50 +110,57 @@ export function AppointmentsFilterBar({
               className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-zinc-850/60 border border-slate-200/80 dark:border-zinc-800 text-slate-850 dark:text-zinc-200 text-xs font-bold rounded-xl outline-none focus:ring-2 focus:ring-teal-500/10 focus:border-teal-500 dark:focus:border-teal-500/50 transition-all placeholder-slate-400 dark:placeholder-zinc-555"
             />
           </div>
-
+ 
         </div>
-
+ 
         {/* Right Section: Toggle buttons & Date navigation */}
         <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 shrink-0 justify-start lg:justify-end">
           
-          {/* Selector for Tuần / Tháng - Hidden in timeline view unless booking form is open */}
-          {(viewMode !== 'timeline' || isWalkInModalOpen) && (
-            <div className="flex bg-slate-50 dark:bg-zinc-850 p-1 rounded-xl border border-slate-200/60 dark:border-zinc-800 select-none shrink-0">
-              <button
-                type="button"
-                onClick={() => setTimeRange('today')}
-                className={`px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all ${
-                  timeRange === 'today'
-                    ? 'bg-white dark:bg-zinc-700 text-[#0d9488] dark:text-teal-400 shadow-sm border border-slate-200/20'
-                    : 'text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200'
-                }`}
-              >
-                Ngày
-              </button>
-              <button
-                type="button"
-                onClick={() => setTimeRange('7days')}
-                className={`px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all ${
-                  timeRange === '7days'
-                    ? 'bg-white dark:bg-zinc-700 text-[#0d9488] dark:text-teal-450 shadow-sm border border-slate-200/20'
-                    : 'text-slate-550 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200'
-                }`}
-              >
-                Tuần
-              </button>
-              <button
-                type="button"
-                onClick={() => setTimeRange('month')}
-                className={`px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all ${
-                  timeRange === 'month'
-                    ? 'bg-white dark:bg-zinc-700 text-[#0d9488] dark:text-teal-450 shadow-sm border border-slate-200/20'
-                    : 'text-slate-550 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200'
-                }`}
-              >
-                Tháng
-              </button>
-            </div>
-          )}
+          {/* Selector for Ngày / Tuần / Tháng - Always visible */}
+          <div className="flex bg-slate-50 dark:bg-zinc-850 p-1 rounded-xl border border-slate-200/60 dark:border-zinc-800 select-none shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setTimeRange('today');
+                setViewMode?.('timeline');
+              }}
+              className={`px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all ${
+                timeRange === 'today'
+                  ? 'bg-white dark:bg-zinc-700 text-[#0d9488] dark:text-teal-400 shadow-sm border border-slate-200/20'
+                  : 'text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200'
+              }`}
+            >
+              Ngày
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setTimeRange('7days');
+                setViewMode?.('capacity');
+              }}
+              className={`px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all ${
+                timeRange === '7days'
+                  ? 'bg-white dark:bg-zinc-700 text-[#0d9488] dark:text-teal-450 shadow-sm border border-slate-200/20'
+                  : 'text-slate-550 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200'
+              }`}
+            >
+              Tuần
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setTimeRange('month');
+                setViewMode?.('capacity');
+              }}
+              className={`px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all ${
+                timeRange === 'month'
+                  ? 'bg-white dark:bg-zinc-700 text-[#0d9488] dark:text-teal-450 shadow-sm border border-slate-200/20'
+                  : 'text-slate-550 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200'
+              }`}
+            >
+              Tháng
+            </button>
+          </div>
 
           {/* Date Navigator Card */}
           {(() => {

@@ -298,7 +298,7 @@ export default function Login() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleQuickLogin('ktv1@officecare.vn')}
+                        onClick={() => handleQuickLogin('duong.le@officecare.vn')}
                         disabled={isSubmitting}
                         className="px-2 py-2.5 rounded-xl text-[10px] font-black bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200/50 active:scale-95 transition-all text-center cursor-pointer disabled:opacity-50"
                       >
@@ -306,7 +306,7 @@ export default function Login() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleQuickLogin('bacsi1@officecare.vn')}
+                        onClick={() => handleQuickLogin('duc.nguyen@officecare.vn')}
                         disabled={isSubmitting}
                         className="px-2 py-2.5 rounded-xl text-[10px] font-black bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200/50 active:scale-95 transition-all text-center cursor-pointer disabled:opacity-50"
                       >

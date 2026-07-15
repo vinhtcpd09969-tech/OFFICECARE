@@ -24,6 +24,13 @@ export interface Appointment {
   dich_vu_id?: string | number | null;
   loai_lich?: string;
   loai_goi?: string;
+  trang_thai_thanh_toan?: string;
+  trang_thai_hoa_don_goi?: string;
+  hinh_thuc_thanh_toan_goi?: string;
+  so_thu_tu_buoi?: number;
+  tong_so_buoi_goi?: number;
+  so_tien_da_tra_goi?: number;
+  tong_tien_phai_tra_goi?: number;
 }
 
 export interface Staff {

@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
+import { getDefaultRouteByRole } from '../utils/roleRedirect';
 
 interface ProtectedRouteProps {
   allowedRoles?: number[];
@@ -8,17 +9,6 @@ interface ProtectedRouteProps {
 export const ProtectedRoute = ({ allowedRoles }: ProtectedRouteProps) => {
   const { isAuthenticated, user } = useAuthStore((state) => state);
   const location = useLocation();
-
-  const getDefaultRouteByRole = (roleId: number) => {
-    switch (roleId) {
-      case 5:
-      case 6: return '/admin';
-      case 2: return '/receptionist';
-      case 3: return '/technician/appointments';
-      case 4: return '/doctor';
-      default: return '/dashboard';
-    }
-  };
 
   if (!isAuthenticated()) {
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;

@@ -57,9 +57,42 @@ export const ReceiptBreakdown: React.FC<ReceiptBreakdownProps> = ({
             Vui lòng chọn khách hàng có lịch khám/điều trị...
           </div>
         )
+      ) : !dangKyGoi ? (
+        // Khám lẻ / dịch vụ lẻ trong tab 'package' (không đăng ký gói) — vẫn có thể áp voucher
+        calculatedData ? (
+          <div className="space-y-5">
+            <div className="space-y-1 bg-zinc-50 p-4 rounded-2xl border border-zinc-200/60">
+              <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Nội dung thanh toán</p>
+              <p className="text-secondary font-black text-xs leading-normal">{calculatedData.ten_item || 'Khám lâm sàng'}</p>
+            </div>
+
+            <div className="space-y-3.5 text-xs font-semibold text-zinc-650">
+              <div className="flex justify-between border-b border-zinc-100 pb-2">
+                <span>Giá trị buổi:</span>
+                <span className="text-secondary font-bold">{formatCurrency(Number(calculatedData.gia_goc || 0))}</span>
+              </div>
+
+              {Number(calculatedData.so_tien_giam_voucher || 0) > 0 && (
+                <div className="flex justify-between border-b border-zinc-100 pb-2 text-emerald-600 font-medium">
+                  <span>Mã giảm giá (Voucher):</span>
+                  <span>-{formatCurrency(Number(calculatedData.so_tien_giam_voucher))}</span>
+                </div>
+              )}
+
+              <div className="flex justify-between border-b border-zinc-100 pb-2 font-bold text-secondary">
+                <span>Tổng phải thu:</span>
+                <span className="text-primary font-black text-sm">{formatCurrency(Number(calculatedData.tong_tien_thanh_toan))}</span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="py-8 text-center text-zinc-400 text-xs italic">
+            Đang tính toán giá...
+          </div>
+        )
       ) : (
         // Package layout checkout breakdown
-        dangKyGoi && selectedPackage && calculatedData ? (
+        selectedPackage && calculatedData ? (
           <div className="space-y-5">
             <div className="space-y-1 bg-zinc-50 p-4 rounded-2xl border border-zinc-200/60">
               <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">

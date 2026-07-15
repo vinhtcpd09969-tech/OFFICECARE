@@ -19,6 +19,7 @@ const packageSchema = z.object({
   thoi_luong_phut: z.number().min(1, 'Thời lượng buổi phải lớn hơn 0').default(60),
   don_gia: z.number().min(0, 'Giá bán không hợp lệ'),
   don_gia_theo_buoi: z.number().min(0, 'Giá từng buổi không hợp lệ').optional().nullable(),
+  han_su_dung_mac_dinh_ngay: z.number().min(1, 'Hạn sử dụng phải lớn hơn 0 ngày').optional().nullable(),
   anh_goi: z.string().optional().nullable(),
   anh_gallery: z.array(z.string()).optional().default([]),
   trang_thai: z.enum(['hoat_dong', 'tam_ngung']).default('hoat_dong'),
@@ -63,6 +64,7 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
       thoi_luong_phut: editingPackage.thoi_luong_phut || editingPackage.thoi_luong_buoi_phut || 60,
       don_gia: typeof editingPackage.don_gia === 'string' ? parseInt(editingPackage.don_gia) : (editingPackage.don_gia || Number(editingPackage.gia_tien) || 0),
       don_gia_theo_buoi: editingPackage.don_gia_theo_buoi ? (typeof editingPackage.don_gia_theo_buoi === 'string' ? parseInt(editingPackage.don_gia_theo_buoi) : editingPackage.don_gia_theo_buoi) : undefined,
+      han_su_dung_mac_dinh_ngay: editingPackage.han_su_dung_mac_dinh_ngay || 60,
       anh_goi: editingPackage.anh_goi || null,
       anh_gallery: editingPackage.anh_gallery || [],
       trang_thai: editingPackage.trang_thai || 'hoat_dong',
@@ -76,6 +78,7 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
       thoi_luong_phut: 60,
       don_gia: 0,
       don_gia_theo_buoi: undefined,
+      han_su_dung_mac_dinh_ngay: 60,
       anh_goi: null,
       anh_gallery: [],
     }
@@ -90,6 +93,16 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
   const averageCost = watchLoaiGoi === 'LIEU_TRINH' && watchDonGia > 0 && watchTongSoBuoi > 0
     ? Math.round(watchDonGia / watchTongSoBuoi)
     : 0;
+
+  // `don_gia` (giá trọn gói) và `tong_so_buoi` là hai trường độc lập: đổi số buổi KHÔNG tự tính lại
+  // giá, nên đơn giá thực mỗi buổi âm thầm nhảy. So với cấu hình gốc để cảnh báo ngay lúc gõ.
+  const originalPerSession = (() => {
+    const goc = Number(editingPackage?.don_gia) || 0;
+    const buoi = Number(editingPackage?.tong_so_buoi) || 0;
+    return goc > 0 && buoi > 0 ? Math.round(goc / buoi) : 0;
+  })();
+  const perSessionShifted =
+    watchLoaiGoi === 'LIEU_TRINH' && originalPerSession > 0 && averageCost > 0 && averageCost !== originalPerSession;
 
   const prevLoaiGoiRef = useRef<string | undefined>(editingPackage?.loai_goi);
 
@@ -162,6 +175,7 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
         thoi_luong_phut: data.thoi_luong_phut,
         don_gia: data.don_gia,
         don_gia_theo_buoi,
+        han_su_dung_mac_dinh_ngay: data.loai_goi === 'LIEU_TRINH' ? (data.han_su_dung_mac_dinh_ngay || 60) : null,
         anh_goi: data.anh_goi || null,
         anh_gallery: data.anh_gallery || [],
         danh_muc_goi_id: data.danh_muc_goi_id || null,
@@ -469,6 +483,28 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                           {errors.tong_so_buoi && (
                             <span className="text-rose-500 text-[10px] mt-1 block">{errors.tong_so_buoi.message}</span>
                           )}
+
+                          {watchLoaiGoi === 'LIEU_TRINH' && averageCost > 0 && !errors.tong_so_buoi && (
+                            <p className="text-[10px] text-slate-400 mt-1 font-medium">
+                              Đơn giá thực tế:{' '}
+                              <span className={`font-bold ${perSessionShifted ? 'text-amber-600' : 'text-emerald-600'}`}>
+                                {averageCost.toLocaleString()}đ / buổi
+                              </span>
+                            </p>
+                          )}
+
+                          {perSessionShifted && (
+                            <div className="mt-2 bg-amber-50/70 border border-amber-200 rounded-xl p-2.5 space-y-1 animate-slide-down">
+                              <span className="text-[10px] font-black text-amber-900 block">
+                                ⚠️ Đơn giá mỗi buổi đổi: {originalPerSession.toLocaleString()}đ → {averageCost.toLocaleString()}đ
+                              </span>
+                              <span className="text-[10px] text-amber-800 font-semibold block leading-relaxed">
+                                Giá bán trọn gói giữ nguyên nên khách vẫn trả cùng số tiền cho số buổi khác đi. Sửa lại
+                                “Giá bán trọn gói” nếu muốn giữ đơn giá {originalPerSession.toLocaleString()}đ/buổi
+                                (= {(originalPerSession * watchTongSoBuoi).toLocaleString()}đ).
+                              </span>
+                            </div>
+                          )}
                         </div>
 
                         <div>
@@ -527,6 +563,29 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                                   Đơn giá trung bình trọn gói: <span className="font-bold text-emerald-600">{averageCost.toLocaleString()}đ / buổi</span>.
                                 </p>
                               )
+                            )}
+                          </div>
+                        )}
+
+                        {/* DYNAMIC FIELD: Display ONLY for LIEU_TRINH */}
+                        {watchLoaiGoi === 'LIEU_TRINH' && (
+                          <div className="animate-slide-down">
+                            <label className="block font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Hạn sử dụng mặc định (ngày) *</label>
+                            <div className="relative">
+                              <input
+                                type="number"
+                                {...register('han_su_dung_mac_dinh_ngay', { valueAsNumber: true })}
+                                placeholder="60"
+                                className="w-full px-4 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 outline-none transition-all font-semibold text-secondary shadow-sm text-sm pr-14"
+                              />
+                              <span className="absolute right-3 top-2.5 text-[10px] font-bold text-slate-400">Ngày</span>
+                            </div>
+                            {errors.han_su_dung_mac_dinh_ngay ? (
+                              <span className="text-rose-500 text-[10px] mt-1 block">{errors.han_su_dung_mac_dinh_ngay.message}</span>
+                            ) : (
+                              <p className="text-[10px] text-slate-400 mt-1 font-medium">
+                                Tính từ ngày kích hoạt gói — tự điền khi lễ tân lập hóa đơn, có thể sửa tay từng ca nếu cần.
+                              </p>
                             )}
                           </div>
                         )}
