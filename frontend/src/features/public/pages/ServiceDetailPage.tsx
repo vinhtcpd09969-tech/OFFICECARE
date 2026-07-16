@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowRight, Clock, Phone, Loader2, Info, ShieldCheck, HeartPulse, Award } from 'lucide-react';
-import { getPublicServices, getPublicCategories } from '../api/public.api';
+import { ArrowRight, Clock, Phone, Loader2, Info, ShieldCheck, HeartPulse, Award, Star } from 'lucide-react';
+import { getPublicServices, getPublicCategories, getPublicServiceReviews } from '../api/public.api';
 import { resolveImageUrl } from '../../../utils/imageUrl';
 import ScrollReveal from '../components/shared/ScrollReveal';
 import toast from 'react-hot-toast';
@@ -17,6 +17,7 @@ interface Service {
   id: string;
   danh_muc_goi_id: string;
   ten_goi: string;
+  loai_goi: 'KHAM' | 'LE';
   quy_trinh?: string;
   muc_tieu?: string;
   thoi_luong_phut: number;
@@ -42,6 +43,8 @@ export default function ServiceDetailPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [relatedServices, setRelatedServices] = useState<Service[]>([]);
   const [activeGalleryImage, setActiveGalleryImage] = useState<string | null>(null);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -78,6 +81,23 @@ export default function ServiceDetailPage() {
 
     fetchData();
   }, [id, navigate]);
+
+  useEffect(() => {
+    const fetchReviewsData = async () => {
+      try {
+        if (id) {
+          setReviewsLoading(true);
+          const res = await getPublicServiceReviews(id);
+          setReviews(res.data || []);
+        }
+      } catch (error) {
+        console.error('Error fetching service reviews:', error);
+      } finally {
+        setReviewsLoading(false);
+      }
+    };
+    fetchReviewsData();
+  }, [id]);
 
   // Set Document Title for SEO
   useEffect(() => {
@@ -157,7 +177,12 @@ export default function ServiceDetailPage() {
   };
 
   const handleBooking = () => {
-    navigate('/booking');
+    navigate('/booking', {
+      state: {
+        bookingType: service?.loai_goi === 'KHAM' ? 'kham' : 'dich_vu',
+        selectedServiceId: service?.id
+      }
+    });
   };
 
   return (
@@ -397,6 +422,63 @@ export default function ServiceDetailPage() {
             </div>
           </div>
         )}
+
+        {/* Section: Đánh giá khách hàng */}
+        <div className="bg-white rounded-[24px] border border-slate-100/80 shadow-[0_8px_30px_rgba(15,23,42,0.015)] p-6 md:p-10 mb-12">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black uppercase tracking-widest text-[#0D9488] bg-[#14B8A6]/10 px-3 py-1 rounded-full">
+                💬 Đánh giá
+              </span>
+              <h3 className="font-heading font-black text-secondary text-sm md:text-base uppercase tracking-tight">
+                Phản hồi từ bệnh nhân
+              </h3>
+            </div>
+            <span className="text-xs font-bold text-slate-500">
+              {reviews.length} nhận xét
+            </span>
+          </div>
+
+          {reviewsLoading ? (
+            <div className="text-center py-6 text-xs font-bold text-slate-400 animate-pulse">
+              Đang tải nhận xét...
+            </div>
+          ) : reviews.length === 0 ? (
+            <p className="text-slate-400 text-xs font-semibold py-4">Chưa có đánh giá nào cho gói trị liệu này.</p>
+          ) : (
+            <div className="space-y-6 divide-y divide-slate-100">
+              {reviews.map((rev) => (
+                <div key={rev.id} className="pt-6 first:pt-0 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="size-9 rounded-xl bg-teal-50 flex items-center justify-center text-teal-650 font-black text-xs">
+                        {rev.name?.charAt(0) || 'K'}
+                      </div>
+                      <div>
+                        <p className="font-extrabold text-slate-800 text-xs">{rev.name}</p>
+                        <p className="text-[9px] text-slate-400 font-bold">
+                          Đã trị liệu ngày {new Date(rev.date).toLocaleDateString('vi-VN')}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-0.5 text-amber-400">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <Star 
+                          key={i} 
+                          size={14} 
+                          className={i < rev.rating ? 'fill-amber-400 stroke-none' : 'text-zinc-200 fill-zinc-200 stroke-none'} 
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-slate-650 text-xs font-semibold leading-relaxed italic bg-slate-50/50 p-5 rounded-2xl border border-slate-100 max-w-3xl">
+                    "{rev.comment}"
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Section 4: Dịch vụ liên quan */}
         {relatedServices.length > 0 && (

@@ -111,18 +111,8 @@ class ReceptionistRepository {
       if (['da_huy', 'khong_den', 'khach_khong_den'].includes(trang_thai)) {
         const isPackageSession = !!(appt.phac_do_dieu_tri_id && appt.so_thu_tu_buoi);
         let hinhThuc: HinhThucThanhToanGoi | null = null;
-        let previousMisses = 0;
 
         if (isPackageSession) {
-          const missCountRes = await client.query(`
-            SELECT COUNT(*)::int as count FROM cuoc_hen
-            WHERE phac_do_dieu_tri_id = $1
-              AND so_thu_tu_buoi = $2
-              AND id != $3
-              AND trang_thai IN ('da_huy', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat', 'da_huy_phat')
-          `, [appt.phac_do_dieu_tri_id, appt.so_thu_tu_buoi, id]);
-          previousMisses = missCountRes.rows[0].count || 0;
-
           const invoiceRes = await client.query(`
             SELECT hinh_thuc_thanh_toan_goi FROM hoa_don
             WHERE phac_do_dieu_tri_id = $1
@@ -131,7 +121,7 @@ class ReceptionistRepository {
           hinhThuc = invoiceRes.rows[0]?.hinh_thuc_thanh_toan_goi || null;
         }
 
-        const outcome = resolveNoShowOutcome(trang_thai as 'da_huy' | 'khong_den' | 'khach_khong_den', hinhThuc, previousMisses, isPackageSession);
+        const outcome = resolveNoShowOutcome(trang_thai as 'da_huy' | 'khong_den' | 'khach_khong_den', hinhThuc, isPackageSession);
         finalStatus = outcome.finalStatus;
         if (outcome.reputationPenalty > 0) {
           await client.query(
@@ -172,10 +162,23 @@ class ReceptionistRepository {
 
       if (rows.length > 0) {
         const updatedAppt = rows[0];
-        if (['hoan_thanh', 'khach_khong_den_phat', 'da_huy_phat'].includes(finalStatus) && updatedAppt.phac_do_dieu_tri_id) {
-          // Cập nhật số buổi đã dùng của phác đồ
+        // Buổi "không đến" cũng có thể tiêu thụ 1 buổi (Nhóm B) — gọi lại cả khi finalStatus='khong_den',
+        // không chỉ hoan_thanh. Công thức đếm bên dưới tự quyết định có tính buổi đó hay không.
+        if (['hoan_thanh', 'khong_den', 'khach_khong_den'].includes(finalStatus) && updatedAppt.phac_do_dieu_tri_id) {
+          // Đếm buổi đã TIÊU THỤ: hoan_thanh luôn tính; "không đến" CHỈ tính khi gói Nhóm B (trả
+          // thẳng/trả góp). Hủy không bao giờ tính. Xem updateCompletedSessionsCount ở appointment.repository.ts.
           const countRes = await client.query(
-            "SELECT COUNT(*)::int as count FROM cuoc_hen WHERE phac_do_dieu_tri_id = $1 AND trang_thai IN ('hoan_thanh', 'khach_khong_den_phat', 'da_huy_phat') AND loai = 'DIEU_TRI'",
+            `SELECT COUNT(*)::int as count FROM cuoc_hen
+             WHERE phac_do_dieu_tri_id = $1
+               AND loai = 'DIEU_TRI'
+               AND (
+                 trang_thai = 'hoan_thanh'
+                 OR (
+                   trang_thai IN ('khong_den', 'khach_khong_den', 'khach_khong_den_phat')
+                   AND (SELECT hinh_thuc_thanh_toan_goi FROM hoa_don WHERE phac_do_dieu_tri_id = $1 LIMIT 1)
+                       IN ('tra_thang', 'tra_gop')
+                 )
+               )`,
             [updatedAppt.phac_do_dieu_tri_id]
           );
           const completedCount = countRes.rows[0].count || 0;
@@ -595,7 +598,15 @@ class ReceptionistRepository {
       const maHoaDon = `HD${Math.floor(100000 + Math.random() * 900000)}`;
 
       let phacDoId = null;
-      let shouldCreatePhacDo = (item_type === 'goi');
+      // item_type 'goi' KHÔNG đồng nghĩa "là 1 liệu trình nhiều buổi" — frontend route cả dịch vụ
+      // lẻ (LE) qua item_type='goi' chỉ để dùng chung pipeline áp voucher (tab 'single' không hỗ
+      // trợ voucher). Chỉ tạo phác đồ khi item thực sự là gói LIỆU_TRÌNH (cần theo dõi nhiều buổi
+      // sau này) — dịch vụ lẻ tự đủ trong chính 1 lượt khám/trị liệu, không cần phác đồ.
+      let shouldCreatePhacDo = false;
+      if (item_type === 'goi' && item_id) {
+        const { rows: goiRows } = await client.query('SELECT loai_goi FROM goi_dich_vu WHERE id = $1', [item_id]);
+        shouldCreatePhacDo = goiRows[0]?.loai_goi === 'LIEU_TRINH';
+      }
 
       if (lich_dat_id) {
         const { rows: apptRows } = await client.query(`
@@ -603,8 +614,10 @@ class ReceptionistRepository {
         `, [lich_dat_id]);
         if (apptRows.length > 0) {
           phacDoId = apptRows[0].phac_do_dieu_tri_id;
-          const loaiLich = apptRows[0].loai;
-          if (loaiLich && !['KHAM', 'KHAM_MOI'].includes(loaiLich.toUpperCase())) {
+          const loaiLich = (apptRows[0].loai || '').toUpperCase();
+          // Buổi thuộc 1 liệu trình đang chạy (DIEU_TRI) luôn cần gắn/tạo phác đồ để theo dõi tiến
+          // độ nhiều buổi — không tính dịch vụ lẻ (DICH_VU_LE, 1 lượt độc lập) hay khám (KHAM/KHAM_MOI).
+          if (loaiLich === 'DIEU_TRI') {
             shouldCreatePhacDo = true;
           }
         }
@@ -829,13 +842,19 @@ class ReceptionistRepository {
   }
 
   async getCustomerTreatmentPlans(customerId: string) {
+    // so_buoi_da_dung: đếm hoan_thanh luôn; đếm thêm khong_den chỉ khi gói Nhóm B
+    // (tra_thang/tra_gop — đã trả trước nên buổi không đến vẫn bị tính tiêu thụ) — khớp
+    // công thức ở updateCompletedSessionsCount (appointment.repository.ts).
     const { rows } = await pool.query(`
       SELECT pd.id::text, pd.goi_dich_vu_id, pd.tong_so_buoi,
              (
                SELECT COUNT(*)::int
                FROM cuoc_hen
                WHERE phac_do_dieu_tri_id = pd.id
-                 AND trang_thai = 'hoan_thanh'
+                 AND (
+                   trang_thai = 'hoan_thanh'
+                   OR (trang_thai IN ('khong_den', 'khach_khong_den', 'khach_khong_den_phat') AND hd.hinh_thuc_thanh_toan_goi IN ('tra_thang', 'tra_gop'))
+                 )
                  AND loai = 'DIEU_TRI'
              ) as so_buoi_da_dung,
              pd.trang_thai,
@@ -844,7 +863,18 @@ class ReceptionistRepository {
              hd.id as hoa_don_id,
              hd.hinh_thuc_thanh_toan_goi, hd.tong_tien_phai_tra, hd.so_tien_da_tra,
              hd.tong_tien_goc, hd.ti_le_giam_gia_goi, hd.so_tien_giam_voucher,
-             hd.trang_thai as hoa_don_trang_thai
+             hd.trang_thai as hoa_don_trang_thai,
+             (
+               SELECT jsonb_build_object(
+                 'so_thu_tu_buoi', ch_active.so_thu_tu_buoi,
+                 'ngay_gio_bat_dau', ch_active.ngay_gio_bat_dau,
+                 'trang_thai', ch_active.trang_thai
+               )
+               FROM cuoc_hen ch_active
+               WHERE ch_active.phac_do_dieu_tri_id = pd.id
+                 AND ch_active.trang_thai IN ('chua_xac_nhan', 'cho_xac_nhan', 'da_xac_nhan', 'da_checkin', 'dang_kham')
+               LIMIT 1
+             ) as lich_dang_hoat_dong
       FROM phac_do_dieu_tri pd
       JOIN goi_dich_vu gdv ON pd.goi_dich_vu_id = gdv.id
       LEFT JOIN hoa_don hd ON hd.phac_do_dieu_tri_id = pd.id
@@ -853,7 +883,10 @@ class ReceptionistRepository {
           SELECT COUNT(*)::int
           FROM cuoc_hen
           WHERE phac_do_dieu_tri_id = pd.id
-            AND trang_thai = 'hoan_thanh'
+            AND (
+              trang_thai = 'hoan_thanh'
+              OR (trang_thai IN ('khong_den', 'khach_khong_den', 'khach_khong_den_phat') AND hd.hinh_thuc_thanh_toan_goi IN ('tra_thang', 'tra_gop'))
+            )
             AND loai = 'DIEU_TRI'
         ) < pd.tong_so_buoi
         AND pd.trang_thai = 'dang_dieu_tri'

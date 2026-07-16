@@ -69,8 +69,8 @@ class AppointmentService {
     return appointmentRepository.getPublicAppointmentById(id);
   }
 
-  async updateAppointmentStatus(id: string, data: any) {
-    const updated = await appointmentRepository.updateAppointmentStatus(id, data);
+  async updateAppointmentStatus(id: string, data: any, actorRoleId?: number) {
+    const updated = await appointmentRepository.updateAppointmentStatus(id, data, actorRoleId);
     
     // Trigger notification async
     if (updated) {

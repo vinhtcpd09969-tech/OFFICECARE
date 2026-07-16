@@ -14,7 +14,8 @@ export const packageSchema = z.object({
     muc_tieu: z.string().min(1, 'Mục tiêu trị liệu là bắt buộc'),
     trang_thai: z.enum(['hoat_dong', 'tam_ngung']).default('hoat_dong'),
     anh_goi: z.string().optional().nullable(),
-    anh_gallery: z.array(z.string()).optional().default([])
+    anh_gallery: z.array(z.string()).optional().default([]),
+    han_su_dung_mac_dinh_ngay: z.number().int().min(1, 'Hạn sử dụng tối thiểu là 1 ngày').optional().nullable()
   })
 });
 

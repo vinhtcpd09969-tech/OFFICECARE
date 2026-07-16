@@ -15,7 +15,9 @@ router.use(verifyToken);
 router.get('/staff/available', authorizeRoles(2, 3, 4, 5, 6), adminController.getAvailableStaff);
 router.get('/staff', authorizeRoles(2, 3, 4, 5, 6), adminController.getStaff);
 router.post('/staff', authorizeRoles(5), adminController.createStaff);
+router.put('/staff/:id', authorizeRoles(5), adminController.updateStaff);
 router.patch('/staff/:id/status', authorizeRoles(5), adminController.updateStaffStatus);
+router.post('/staff/:id/reset-password', authorizeRoles(5), adminController.resetStaffPassword);
 
 // ─── GÓI ĐIỀU TRỊ ─────────────────────────────────────────────────────────────
 router.get('/packages', authorizeRoles(2, 3, 4, 5, 6), adminController.getPackages);

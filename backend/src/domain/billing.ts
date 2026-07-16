@@ -208,35 +208,38 @@ export interface NoShowOutcome {
 
 /**
  * Quyết định trạng thái cuối cùng và số điểm uy tín bị phạt khi khách hủy/không đến.
- * Quy tắc:
- * - Gói trả thẳng/trả góp: vi phạm lần đầu được ân xá (phạt = 0). Từ lần thứ 2 phạt 10đ (hủy) hoặc 20đ (không đến).
- * - Các gói khác/buổi lẻ: không có ân xá, phạt 10đ (hủy) hoặc 20đ (không đến) ngay từ đầu.
+ * Không còn khái niệm "ân xá lần đầu"/đếm số lần vi phạm — hậu quả chỉ phụ thuộc hành động và nhóm gói.
+ *
+ * Nhóm A (chưa trả trước: KHAM, LE, LIEU_TRINH trả từng buổi):
+ * - Hủy → trừ 10đ uy tín. Không đến → trừ 20đ uy tín. Không mất buổi (xử lý ở formula so_buoi_da_dung).
+ * Nhóm B (đã trả trước: LIEU_TRINH trả thẳng/trả góp):
+ * - Hủy → trừ 10đ uy tín, KHÔNG mất buổi. Không đến → KHÔNG trừ điểm (tránh phạt kép vì đã mất tiền
+ *   buổi đó), MẤT buổi (xử lý ở formula so_buoi_da_dung).
+ *
+ * Hàm này KHÔNG biết ai gọi (khách tự hủy / lễ tân hủy giúp) và không có khái niệm mốc 8 tiếng —
+ * gate 8 tiếng nằm tách biệt ở cancelCustomerAppointment (chỉ áp cho khách tự hủy qua trang client).
+ * Không còn bắn ra trạng thái escalated da_huy_phat/khach_khong_den_phat.
  */
 export function resolveNoShowOutcome(
   action: NoShowAction,
   hinhThuc: HinhThucThanhToanGoi | null,
-  previousMisses: number,
   isPackageSession: boolean
 ): NoShowOutcome {
   const isCancelAction = action === 'da_huy';
+  const isPrepaidPackage = isPackageSession && (hinhThuc === 'tra_thang' || hinhThuc === 'tra_gop');
 
-  if (isPackageSession && (hinhThuc === 'tra_thang' || hinhThuc === 'tra_gop')) {
-    if (previousMisses > 0) {
-      return {
-        finalStatus: isCancelAction ? 'da_huy_phat' : 'khach_khong_den_phat',
-        reputationPenalty: isCancelAction ? 10 : 20,
-      };
-    }
-    return {
-      finalStatus: isCancelAction ? 'da_huy' : 'khong_den',
-      reputationPenalty: 0,
-    };
+  if (isCancelAction) {
+    // Hủy: Nhóm A và Nhóm B đều trừ 10đ như nhau, KHÔNG bao giờ mất buổi.
+    return { finalStatus: 'da_huy', reputationPenalty: 10 };
   }
 
-  return {
-    finalStatus: isCancelAction ? 'da_huy' : 'khong_den',
-    reputationPenalty: isCancelAction ? 10 : 20,
-  };
+  // Không đến (chuẩn hóa alias khach_khong_den về khong_den).
+  if (isPrepaidPackage) {
+    // Nhóm B: đã trả trước → không phạt điểm (tránh phạt kép), MẤT buổi (tính ở formula riêng).
+    return { finalStatus: 'khong_den', reputationPenalty: 0 };
+  }
+  // Nhóm A (KHAM/LE/tung_buoi), hoặc gói không xác định được hình thức → phạt 20đ, không mất buổi.
+  return { finalStatus: 'khong_den', reputationPenalty: 20 };
 }
 
 export interface PaymentTransactionDetail {

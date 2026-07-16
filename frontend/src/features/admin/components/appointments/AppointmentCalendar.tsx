@@ -442,12 +442,17 @@ function AppointmentCard({
   const delayMins = isOverdue ? Math.floor((nowTime - startMs) / 60000) : 0;
 
   const rawStatus = statusConfig[apt.trang_thai] || statusConfig.cho_xac_nhan;
-  const hasStaff = apt.loai_lich === 'dich_vu_don' ? !!apt.chuyen_gia_id : (!!apt.bac_si_id || !!apt.chuyen_gia_id);
+  // Lịch hẹn chỉ có 1 cột nhân sự duy nhất ở DB (nhan_su_id) — API danh sách lịch hẹn luôn trả nó
+  // qua field `bac_si_id` (dùng chung cho cả bác sĩ lẫn KTV), `chuyen_gia_id` không được API này trả
+  // về nên luôn undefined. Trước đây dịch vụ lẻ/trị liệu chỉ xét `chuyen_gia_id` nên luôn hiện "Chờ
+  // gán KTV" dù đã gán — giờ xét cả 2 field để không phụ thuộc field nào thực sự có dữ liệu.
+  const hasStaff = !!apt.bac_si_id || !!apt.chuyen_gia_id;
   const status = {
     ...rawStatus,
-    label: (apt.trang_thai === 'cho_xac_nhan' && !hasStaff)
-      ? (apt.loai_lich === 'dich_vu_don' ? 'Chờ gán KTV' : 'Chờ gán Bác sĩ')
-      : rawStatus.label
+    // Badge trạng thái chỉ nói đúng trạng thái lịch hẹn ("Chờ xác nhận") — việc "còn thiếu nhân sự"
+    // đã có riêng 1 dấu hiệu khác bên dưới card (badge đỏ "Chờ gán KTV/Bác sĩ" + mascot của Admin),
+    // không cần nhồi vào badge trạng thái chính gây trùng lặp/khó hiểu.
+    label: (apt.trang_thai === 'cho_xac_nhan' && !hasStaff) ? 'Chờ xác nhận' : rawStatus.label
   };
   const isUnassigned = !hasStaff;
   const isCheckedIn = apt.trang_thai === 'da_checkin';
@@ -557,14 +562,12 @@ function AppointmentCard({
           </div>
         )}
         
-        {/* Doctor/KTV badge inside the card if assigned or locked */}
+        {/* Doctor/KTV badge inside the card if assigned or locked — trạng thái xác nhận đã có sẵn
+            ở badge chính đầu card, không lặp lại ở đây nữa cho đỡ rối. */}
         {assignedDoc && !isDocUnavailable ? (
           <div className="mt-1.5 inline-flex items-center gap-1.5 text-[9px] font-black text-[#0D9488] dark:text-teal-400 bg-[#0D9488]/5 dark:bg-teal-950/20 px-2 py-0.5 rounded border border-[#0D9488]/15 dark:border-teal-900/20 select-none">
             <span className="size-1 bg-[#0D9488] rounded-full" />
             <span>{apt.loai_lich === 'dich_vu_don' || apt.loai_lich === 'dieu_tri' ? 'KTV.' : 'BS.'} {assignedDoc.ho_ten}</span>
-            {['chua_xac_nhan', 'cho_xac_nhan'].includes(apt.trang_thai) && (
-              <span className="text-[8px] text-amber-600 bg-amber-50 px-1 py-0.2 rounded ml-1.5 font-black border border-amber-200 uppercase tracking-wide">Chưa xác nhận</span>
-            )}
           </div>
         ) : !['da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(apt.trang_thai) ? (
           <div className="mt-1.5 inline-flex items-center gap-1.5 text-[9px] font-black text-rose-600 dark:text-rose-455 bg-rose-55/50 dark:bg-rose-955/20 px-2 py-0.5 rounded border border-rose-220/20 select-none">

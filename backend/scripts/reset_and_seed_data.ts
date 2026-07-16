@@ -27,7 +27,8 @@ async function main() {
     console.log('Phase 1: Đang dọn dẹp các bảng giao dịch cũ...');
     await prisma.giao_dich_thanh_toan.deleteMany();
     await prisma.hoa_don.deleteMany();
-    await prisma.danh_gia_chat_luong.deleteMany();
+    await prisma.danh_gia_goi_dich_vu.deleteMany();
+    await prisma.danh_gia_nhan_su.deleteMany();
     await prisma.chi_dinh_buoi.deleteMany();
     await prisma.nhat_ky_buoi_dieu_tri.deleteMany();
     await prisma.cuoc_hen.deleteMany();

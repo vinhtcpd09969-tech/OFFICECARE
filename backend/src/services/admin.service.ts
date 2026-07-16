@@ -74,6 +74,20 @@ class AdminService {
     return user;
   }
 
+  async updateStaffDetails(id: string, data: any) {
+    const user = await adminRepository.updateStaffDetails(id, data);
+    if (!user) throw new Error('Không tìm thấy nhân sự');
+    return user;
+  }
+
+  async resetStaffPassword(id: string) {
+    const salt = await bcrypt.genSalt(10);
+    const hash = await bcrypt.hash('123456', salt);
+    const user = await adminRepository.updateStaffPassword(id, hash);
+    if (!user) throw new Error('Không tìm thấy nhân sự');
+    return user;
+  }
+
   // --- QUẢN LÝ KHÁCH HÀNG ---
   async getCustomers() {
     return adminRepository.getCustomers();

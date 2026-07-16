@@ -164,14 +164,15 @@ class AdminRepository {
   async deletePackage(id: string) {
     return prisma.goi_dich_vu.update({
       where: { id },
-      data: { trang_thai: 'da_xoa' }
+      data: { trang_thai: 'ngung_hoat_dong' }
     });
   }
 
   // --- QUẢN LÝ NHÂN SỰ ---
   async getStaff() {
     const { rows } = await pool.query(`
-      SELECT nd.id, nd.ho_ten, nd.email, nd.so_dien_thoai, nd.trang_thai, nd.anh_dai_dien, vt.ten_vai_tro as vai_tro, ktv.id as chuyen_gia_id
+      SELECT nd.id, nd.ho_ten, nd.email, nd.so_dien_thoai, nd.trang_thai, nd.anh_dai_dien, nd.vai_tro_id, vt.ten_vai_tro as vai_tro,
+             ktv.id as chuyen_gia_id, ktv.so_nam_kinh_nghiem, ktv.bang_cap_chung_chi, ktv.mo_ta, ktv.the_manh
       FROM nguoi_dung nd
       JOIN vai_tro vt ON nd.vai_tro_id = vt.id
       LEFT JOIN ho_so_chuyen_gia ktv ON nd.id = ktv.nguoi_dung_id
@@ -218,6 +219,61 @@ class AdminRepository {
     const { rows } = await pool.query(
       'UPDATE nguoi_dung SET trang_thai = $1 WHERE id = $2 RETURNING *',
       [status, id]
+    );
+    return rows[0];
+  }
+
+  async updateStaffDetails(id: string, data: any) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      // Update basic fields in nguoi_dung
+      const { rows: userRows } = await client.query(
+        `UPDATE nguoi_dung 
+         SET ho_ten = $1, so_dien_thoai = $2, vai_tro_id = $3
+         WHERE id = $4 RETURNING id, ho_ten, email`,
+        [data.ho_ten, data.so_dien_thoai || null, Number(data.vai_tro_id), Number(id)]
+      );
+
+      const isExpertRole = [3, 4].includes(Number(data.vai_tro_id));
+      if (isExpertRole) {
+        // Upsert specialist profile
+        await client.query(
+          `INSERT INTO ho_so_chuyen_gia (nguoi_dung_id, so_nam_kinh_nghiem, bang_cap_chung_chi, mo_ta, the_manh)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (nguoi_dung_id) DO UPDATE 
+           SET so_nam_kinh_nghiem = EXCLUDED.so_nam_kinh_nghiem,
+               bang_cap_chung_chi = EXCLUDED.bang_cap_chung_chi,
+               mo_ta = EXCLUDED.mo_ta,
+               the_manh = EXCLUDED.the_manh`,
+          [
+            Number(id),
+            Number(data.so_nam_kinh_nghiem) || 0,
+            data.bang_cap_chung_chi || '',
+            data.mo_ta || '',
+            data.the_manh || []
+          ]
+        );
+      } else {
+        // If role was changed and is no longer doctor or technician, delete ho_so_chuyen_gia
+        await client.query('DELETE FROM ho_so_chuyen_gia WHERE nguoi_dung_id = $1', [Number(id)]);
+      }
+
+      await client.query('COMMIT');
+      return userRows[0];
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+
+  async updateStaffPassword(id: string, hash: string) {
+    const { rows } = await pool.query(
+      'UPDATE nguoi_dung SET mat_khau_hash = $1 WHERE id = $2 RETURNING id, ho_ten, email',
+      [hash, Number(id)]
     );
     return rows[0];
   }
@@ -544,16 +600,25 @@ class AdminRepository {
 
   // --- QUẢN LÝ HỒ SƠ ĐIỀU TRỊ (MAPPED TO PHAC DO DIEU TRI) ---
   async getMedicalRecords() {
-    // Sync completed treatment plans whose actual completed count >= tong_so_buoi
+    // Sync completed treatment plans whose actual completed count >= tong_so_buoi.
+    // "Không đến" cũng tính là buổi đã tiêu thụ đối với gói Nhóm B (trả thẳng/trả góp — đã trả
+    // trước) — khớp công thức so_buoi_da_dung ở updateCompletedSessionsCount (appointment.repository.ts).
     await pool.query(`
-      UPDATE phac_do_dieu_tri 
-      SET trang_thai = 'hoan_thanh' 
-      WHERE trang_thai = 'dang_dieu_tri' 
+      UPDATE phac_do_dieu_tri
+      SET trang_thai = 'hoan_thanh'
+      WHERE trang_thai = 'dang_dieu_tri'
         AND (
-          SELECT COUNT(*)::int 
-          FROM cuoc_hen 
-          WHERE phac_do_dieu_tri_id = phac_do_dieu_tri.id 
-            AND trang_thai = 'hoan_thanh' 
+          SELECT COUNT(*)::int
+          FROM cuoc_hen
+          WHERE phac_do_dieu_tri_id = phac_do_dieu_tri.id
+            AND (
+              trang_thai = 'hoan_thanh'
+              OR (
+                trang_thai IN ('khong_den', 'khach_khong_den', 'khach_khong_den_phat')
+                AND (SELECT hinh_thuc_thanh_toan_goi FROM hoa_don WHERE phac_do_dieu_tri_id = phac_do_dieu_tri.id LIMIT 1)
+                    IN ('tra_thang', 'tra_gop')
+              )
+            )
             AND loai = 'DIEU_TRI'
         ) >= tong_so_buoi
     `);
@@ -567,14 +632,17 @@ class AdminRepository {
 
     const { rows: plans } = await pool.query(`
       SELECT 
-        pd.id, pd.khach_hang_id, pd.goi_dich_vu_id, pd.tong_so_buoi, 
+        pd.id, pd.khach_hang_id, pd.goi_dich_vu_id, pd.tong_so_buoi,
         (
-          SELECT COUNT(*)::int 
-          FROM cuoc_hen 
-          WHERE phac_do_dieu_tri_id = pd.id 
-            AND trang_thai = 'hoan_thanh' 
+          SELECT COUNT(*)::int
+          FROM cuoc_hen
+          WHERE phac_do_dieu_tri_id = pd.id
+            AND (
+              trang_thai = 'hoan_thanh'
+              OR (trang_thai IN ('khong_den', 'khach_khong_den', 'khach_khong_den_phat') AND hd.hinh_thuc_thanh_toan_goi IN ('tra_thang', 'tra_gop'))
+            )
             AND loai = 'DIEU_TRI'
-        ) as so_buoi_da_dung, 
+        ) as so_buoi_da_dung,
         pd.trang_thai, pd.ngay_kich_hoat,
         g.ten_goi, g.loai_goi, g.don_gia as gia_tien,
         nk_kham.chan_doan, nk_kham.chong_chi_dinh, nk_kham.ghi_chu as ghi_chu_kham,
@@ -672,7 +740,10 @@ class AdminRepository {
       LEFT JOIN phong_lam_viec p ON ch.phong_id = p.id
       LEFT JOIN goi_dich_vu dv ON ch.goi_dich_vu_id = dv.id
       LEFT JOIN nhat_ky_buoi_dieu_tri nk ON nk.cuoc_hen_id = ch.id
-      WHERE ch.trang_thai NOT IN ('da_huy', 'huy', 'khong_den')
+      -- Giữ lại 'khong_den' (khác 'da_huy'/'huy'): buổi không đến vẫn phải xuất hiện trong danh
+      -- sách buổi điều trị của phác đồ để "Các buổi điều trị" (PatientEmrDetail.tsx) khóa/không
+      -- cho đặt lại đúng buổi đó với gói Nhóm B đã trả trước — xem resolveNoShowOutcome().
+      WHERE ch.trang_thai NOT IN ('da_huy', 'huy')
       ORDER BY ch.ngay_gio_bat_dau DESC
     `);
 
@@ -718,10 +789,13 @@ class AdminRepository {
         kh.ho_ten as ten_khach_hang, 
         kh.so_dien_thoai,
         (
-          SELECT COUNT(*)::int 
-          FROM cuoc_hen 
-          WHERE phac_do_dieu_tri_id = pd.id 
-            AND trang_thai = 'hoan_thanh' 
+          SELECT COUNT(*)::int
+          FROM cuoc_hen
+          WHERE phac_do_dieu_tri_id = pd.id
+            AND (
+              trang_thai = 'hoan_thanh'
+              OR (trang_thai IN ('khong_den', 'khach_khong_den', 'khach_khong_den_phat') AND hd.hinh_thuc_thanh_toan_goi IN ('tra_thang', 'tra_gop'))
+            )
             AND loai = 'DIEU_TRI'
         ) as so_buoi_da_dung,
         pd.tong_so_buoi,
@@ -929,15 +1003,49 @@ class AdminRepository {
   // --- QUẢN LÝ ĐÁNH GIÁ ---
   async getFeedback() {
     const { rows } = await pool.query(`
-      SELECT dg.id, dg.so_sao, dg.nhan_xet, kh.ho_ten as ten_khach_hang, 
-             nd_ktv.ho_ten as ten_ky_thuat_vien, g.ten_goi as ten_dich_vu,
-             now() as thoi_gian_danh_gia
-      FROM danh_gia_chat_luong dg
-      JOIN cuoc_hen ch ON dg.cuoc_hen_id = ch.id
-      LEFT JOIN goi_dich_vu g ON ch.goi_dich_vu_id = g.id
-      JOIN khach_hang kh ON dg.khach_hang_id = kh.id
-      LEFT JOIN nguoi_dung nd_ktv ON ch.nhan_su_id = nd_ktv.id
-      ORDER BY dg.so_sao DESC
+      SELECT 
+        id,
+        so_sao_tong,
+        so_sao_ktv,
+        nhan_xet,
+        ten_khach_hang,
+        ten_ky_thuat_vien,
+        ten_dich_vu,
+        thoi_gian_danh_gia
+      FROM (
+        SELECT 
+          dg.id,
+          dg.so_sao as so_sao_tong,
+          NULL::integer as so_sao_ktv,
+          dg.nhan_xet,
+          kh.ho_ten as ten_khach_hang,
+          COALESCE(nd_ktv.ho_ten, '-') as ten_ky_thuat_vien,
+          g.ten_goi as ten_dich_vu,
+          dg.ngay_cap_nhat as thoi_gian_danh_gia
+        FROM danh_gia_goi_dich_vu dg
+        JOIN khach_hang kh ON dg.khach_hang_id = kh.id
+        LEFT JOIN goi_dich_vu g ON dg.goi_dich_vu_id = g.id
+        LEFT JOIN cuoc_hen ch ON dg.cuoc_hen_id = ch.id
+        LEFT JOIN nguoi_dung nd_ktv ON ch.nhan_su_id = nd_ktv.id
+
+        UNION ALL
+
+        SELECT 
+          dg.id,
+          NULL::integer as so_sao_tong,
+          dg.so_sao as so_sao_ktv,
+          dg.nhan_xet,
+          kh.ho_ten as ten_khach_hang,
+          nd_ktv.ho_ten as ten_ky_thuat_vien,
+          COALESCE(g.ten_goi, '-') as ten_dich_vu,
+          dg.ngay_cap_nhat as thoi_gian_danh_gia
+        FROM danh_gia_nhan_su dg
+        JOIN khach_hang kh ON dg.khach_hang_id = kh.id
+        JOIN nguoi_dung nd_ktv ON dg.nhan_su_id = nd_ktv.id
+        LEFT JOIN cuoc_hen ch ON dg.cuoc_hen_id = ch.id
+        LEFT JOIN goi_dich_vu g ON ch.goi_dich_vu_id = g.id
+      ) combined
+      ORDER BY thoi_gian_danh_gia DESC
     `);
     return rows;
   }
@@ -950,9 +1058,9 @@ class AdminRepository {
       pool.query('SELECT COALESCE(SUM(so_tien), 0) AS sum FROM giao_dich_thanh_toan'),
       pool.query('SELECT COUNT(*) FROM nguoi_dung WHERE trang_thai = \'hoat_dong\''),
       pool.query('SELECT COUNT(*) FROM cuoc_hen WHERE nhan_su_id IS NULL AND trang_thai IN (\'cho_xac_nhan\', \'da_xac_nhan\')'),
-      pool.query('SELECT COUNT(*) FROM cuoc_hen WHERE phac_do_dieu_tri_id IS NOT NULL AND nhan_su_id IS NULL AND trang_thai NOT IN (\'hoan_thanh\', \'huy\')'),
+      pool.query('SELECT COUNT(*) FROM cuoc_hen WHERE phac_do_dieu_tri_id IS NOT NULL AND nhan_su_id IS NULL AND trang_thai NOT IN (\'hoan_thanh\', \'huy\', \'da_huy\', \'khong_den\', \'khach_khong_den\', \'khach_khong_den_phat\', \'da_huy_phat\')'),
       pool.query('SELECT id, ngay_gio_bat_dau AS start_time FROM cuoc_hen WHERE nhan_su_id IS NULL AND trang_thai IN (\'cho_xac_nhan\', \'da_xac_nhan\') ORDER BY ngay_gio_bat_dau ASC LIMIT 1'),
-      pool.query('SELECT id, ngay_gio_bat_dau AS start_time FROM cuoc_hen WHERE phac_do_dieu_tri_id IS NOT NULL AND nhan_su_id IS NULL AND trang_thai NOT IN (\'hoan_thanh\', \'huy\') ORDER BY ngay_gio_bat_dau ASC LIMIT 1'),
+      pool.query('SELECT id, ngay_gio_bat_dau AS start_time FROM cuoc_hen WHERE phac_do_dieu_tri_id IS NOT NULL AND nhan_su_id IS NULL AND trang_thai NOT IN (\'hoan_thanh\', \'huy\', \'da_huy\', \'khong_den\', \'khach_khong_den\', \'khach_khong_den_phat\', \'da_huy_phat\') ORDER BY ngay_gio_bat_dau ASC LIMIT 1'),
       pool.query(`SELECT COUNT(*)::integer FROM khach_hang WHERE ngay_dong_y_dieu_khoan >= DATE_TRUNC('month', NOW())`),
       pool.query(`SELECT COUNT(*)::integer FROM khach_hang WHERE ngay_dong_y_dieu_khoan >= DATE_TRUNC('month', NOW() - INTERVAL '1 month') AND ngay_dong_y_dieu_khoan < DATE_TRUNC('month', NOW())`),
       pool.query(`SELECT (COUNT(CASE WHEN trang_thai = 'huy' THEN 1 END)::float / GREATEST(COUNT(*), 1) * 100)::numeric(5,2) as rate FROM cuoc_hen`),
@@ -1088,13 +1196,34 @@ class AdminRepository {
   async getReviews() {
     const { rows } = await pool.query(`
       SELECT 
-        dg.id,
-        kh.ho_ten as name,
-        dg.so_sao as rating,
-        dg.nhan_xet as comment
-      FROM danh_gia_chat_luong dg
-      JOIN khach_hang kh ON dg.khach_hang_id = kh.id
-      ORDER BY dg.id DESC
+        id,
+        name,
+        rating,
+        comment,
+        type,
+        date
+      FROM (
+        SELECT 
+          dg.id,
+          kh.ho_ten as name,
+          dg.so_sao as rating,
+          dg.nhan_xet as comment,
+          'dich_vu' as type,
+          dg.ngay_cap_nhat as date
+        FROM danh_gia_goi_dich_vu dg
+        JOIN khach_hang kh ON dg.khach_hang_id = kh.id
+        UNION ALL
+        SELECT 
+          dg.id,
+          kh.ho_ten as name,
+          dg.so_sao as rating,
+          dg.nhan_xet as comment,
+          'nhan_su' as type,
+          dg.ngay_cap_nhat as date
+        FROM danh_gia_nhan_su dg
+        JOIN khach_hang kh ON dg.khach_hang_id = kh.id
+      ) combined
+      ORDER BY date DESC
     `);
     return rows;
   }
@@ -1384,6 +1513,47 @@ class AdminRepository {
       const phi_phat_thuc_te = refundCalc.phiPhatThucTe;
       const examFeeToCharge = refundCalc.examFeeToCharge;
       const so_tien_hoan_tra = refundCalc.soTienHoanTra;
+
+      // examFeeToCharge > 0 nghĩa là khám được miễn phí gộp vào giá gói (chưa từng có hóa đơn
+      // khám riêng) và giờ gói bị hủy giữa chừng — phải tách thành 1 hóa đơn khám riêng biệt (đã
+      // thanh toán) để giá trị này không biến mất khỏi hoa_don: trước đây chỉ trừ vào tiền hoàn
+      // cho khách mà không ghi nhận doanh thu ở đâu cả (xem docs/BUSINESS_RULES.md).
+      if (examFeeToCharge > 0) {
+        const { rows: examHdRows } = await client.query(
+          `INSERT INTO hoa_don (khach_hang_id, cuoc_hen_id, tong_tien_goc, tong_tien_phai_tra, so_tien_da_tra, trang_thai, ghi_chu)
+           VALUES ($1, $2, $3, $3, $3, 'da_thanh_toan', $4)
+           RETURNING id, 'HD-' || UPPER(SUBSTRING(id::text FROM 1 FOR 6)) as ma_hoa_don, ngay_tao`,
+          [
+            hd.khach_hang_id,
+            hd.cuoc_hen_id,
+            examFeeToCharge,
+            `Tự động tách khi hủy gói HD-${String(hd.id).substring(0, 6).toUpperCase()} — phí khám lâm sàng đã miễn (gộp vào giá gói), thu hồi khi gói bị hủy giữa chừng.`
+          ]
+        );
+        const examHd = examHdRows[0];
+
+        await client.query(
+          `INSERT INTO giao_dich_thanh_toan (hoa_don_id, so_tien, loai_giao_dich, phuong_thuc, ma_tham_chieu, ngay_giao_dich, nhan_vien_thuc_hien_id, chi_tiet)
+           VALUES ($1, $2, 'THANH_TOAN', 'tien_mat', $3, NOW(), $4, $5)`,
+          [
+            examHd.id,
+            examFeeToCharge,
+            `EX${Math.floor(10000000 + Math.random() * 90000000)}`,
+            nhan_vien_id,
+            JSON.stringify({
+              v: 1,
+              dien_giai: `Phí khám lâm sàng thu hồi từ hủy gói HD-${String(hd.id).substring(0, 6).toUpperCase()}`,
+              ty_le_phan_tram: 100,
+            })
+          ]
+        );
+
+        if (examTrace) {
+          examTrace.has_separate_invoice = true;
+          examTrace.invoice_code = examHd.ma_hoa_don;
+          examTrace.invoice_date = examHd.ngay_tao;
+        }
+      }
 
       // 4. Create a negative transaction log for the refund
       const maRefund = `REF${Math.floor(10000000 + Math.random() * 90000000)}`;

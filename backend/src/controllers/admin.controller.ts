@@ -182,6 +182,46 @@ export const updateStaffStatus = async (req: Request, res: Response): Promise<an
   }
 };
 
+export const updateStaff = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params as { id: string };
+    const { ho_ten, so_dien_thoai, vai_tro_id, so_nam_kinh_nghiem, bang_cap_chung_chi, mo_ta, the_manh } = req.body;
+    
+    if (!ho_ten) {
+      return res.status(400).json({ message: 'Họ tên là bắt buộc' });
+    }
+    if (!vai_tro_id || ![2, 3, 4, 5, 6].includes(Number(vai_tro_id))) {
+      return res.status(400).json({ message: 'Vai trò không hợp lệ' });
+    }
+
+    const staff = await adminService.updateStaffDetails(id, {
+      ho_ten,
+      so_dien_thoai,
+      vai_tro_id,
+      so_nam_kinh_nghiem,
+      bang_cap_chung_chi,
+      mo_ta,
+      the_manh
+    });
+
+    res.json(staff);
+  } catch (error: any) {
+    if (error.message === 'Không tìm thấy nhân sự') return res.status(404).json({ message: error.message });
+    res.status(500).json({ message: 'Lỗi server khi cập nhật nhân sự' });
+  }
+};
+
+export const resetStaffPassword = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params as { id: string };
+    const staff = await adminService.resetStaffPassword(id);
+    res.json({ message: 'Reset mật khẩu thành công về 123456', staff });
+  } catch (error: any) {
+    if (error.message === 'Không tìm thấy nhân sự') return res.status(404).json({ message: error.message });
+    res.status(500).json({ message: 'Lỗi server khi reset mật khẩu' });
+  }
+};
+
 // --- QUẢN LÝ KHÁCH HÀNG ---
 
 export const getCustomers = async (req: Request, res: Response) => {

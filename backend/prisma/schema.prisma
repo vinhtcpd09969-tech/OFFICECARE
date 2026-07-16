@@ -34,6 +34,7 @@ model nguoi_dung {
   tam_giu_cho           tam_giu_cho[]
   thong_bao             thong_bao[]
   bai_viet              bai_viet[]
+  danh_gia_nhan_su      danh_gia_nhan_su[]
 }
 
 model ho_so_chuyen_gia {
@@ -72,7 +73,8 @@ model khach_hang {
   diem_uy_tin         Int                   @default(100)
   ngay_dong_y_dieu_khoan DateTime?          @db.Timestamptz(6)
   cuoc_hen            cuoc_hen[]
-  danh_gia_chat_luong danh_gia_chat_luong[]
+  danh_gia_goi_dich_vu danh_gia_goi_dich_vu[]
+  danh_gia_nhan_su    danh_gia_nhan_su[]
   hoa_don             hoa_don[]
   phac_do_dieu_tri    phac_do_dieu_tri[]
   refresh_tokens      refresh_tokens[]
@@ -129,7 +131,8 @@ model cuoc_hen {
   nguoi_dung_tao        nguoi_dung?            @relation("cuoc_hen_nguoi_tao", fields: [nguoi_tao_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   phac_do_dieu_tri      phac_do_dieu_tri?      @relation(fields: [phac_do_dieu_tri_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   phong                 phong_lam_viec?        @relation(fields: [phong_id], references: [id], onUpdate: NoAction)
-  danh_gia_chat_luong   danh_gia_chat_luong?
+  danh_gia_goi_dich_vu danh_gia_goi_dich_vu[]
+  danh_gia_nhan_su    danh_gia_nhan_su[]
   hoa_don               hoa_don[]
   nhat_ky_buoi_dieu_tri nhat_ky_buoi_dieu_tri?
 }
@@ -154,6 +157,7 @@ model goi_dich_vu {
   danh_muc_goi      danh_muc_goi?      @relation(fields: [danh_muc_goi_id], references: [id], onUpdate: NoAction)
   phac_do_dieu_tri  phac_do_dieu_tri[]
   tam_giu_cho       tam_giu_cho[]
+  danh_gia_goi_dich_vu danh_gia_goi_dich_vu[]
 }
 
 model danh_muc_goi {
@@ -235,14 +239,36 @@ model khuyen_mai_voucher {
   hoa_don            hoa_don[]
 }
 
-model danh_gia_chat_luong {
+model danh_gia_goi_dich_vu {
+  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  khach_hang_id  String      @db.Uuid
+  goi_dich_vu_id String      @db.Uuid
+  cuoc_hen_id    String?     @db.Uuid
+  so_sao         Int
+  nhan_xet       String?
+  ngay_tao       DateTime    @default(now()) @db.Timestamptz(6)
+  ngay_cap_nhat  DateTime    @default(now()) @db.Timestamptz(6)
+  khach_hang     khach_hang  @relation(fields: [khach_hang_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  goi_dich_vu    goi_dich_vu @relation(fields: [goi_dich_vu_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  cuoc_hen       cuoc_hen?   @relation(fields: [cuoc_hen_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@unique([khach_hang_id, goi_dich_vu_id])
+}
+
+model danh_gia_nhan_su {
   id            String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  cuoc_hen_id   String     @unique @db.Uuid
   khach_hang_id String     @db.Uuid
+  nhan_su_id    Int
+  cuoc_hen_id   String?    @db.Uuid
   so_sao        Int
   nhan_xet      String?
-  cuoc_hen      cuoc_hen   @relation(fields: [cuoc_hen_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  ngay_tao      DateTime   @default(now()) @db.Timestamptz(6)
+  ngay_cap_nhat DateTime   @default(now()) @db.Timestamptz(6)
   khach_hang    khach_hang @relation(fields: [khach_hang_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  nguoi_dung    nguoi_dung @relation(fields: [nhan_su_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  cuoc_hen      cuoc_hen?  @relation(fields: [cuoc_hen_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@unique([khach_hang_id, nhan_su_id])
 }
 
 model otp_codes {

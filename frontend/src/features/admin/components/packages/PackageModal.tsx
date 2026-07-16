@@ -36,9 +36,16 @@ const packageSchema = z.object({
 
 export type PackageFormValues = z.infer<typeof packageSchema>;
 
+const formatNumberWithCommas = (val: any): string => {
+  if (val === undefined || val === null || val === '') return '';
+  const num = String(val).replace(/\D/g, '');
+  if (!num) return '';
+  return Number(num).toLocaleString('vi-VN');
+};
+
 interface PackageModalProps {
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (newOrUpdatedId?: string) => void;
   editingPackage?: any;
   existingPackages: any[];
 }
@@ -105,6 +112,12 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
     watchLoaiGoi === 'LIEU_TRINH' && originalPerSession > 0 && averageCost > 0 && averageCost !== originalPerSession;
 
   const prevLoaiGoiRef = useRef<string | undefined>(editingPackage?.loai_goi);
+
+  // Register don_gia and don_gia_theo_buoi fields manually for custom text inputs
+  useEffect(() => {
+    register('don_gia');
+    register('don_gia_theo_buoi');
+  }, [register]);
 
   // Enforce session count defaults when package type changes
   useEffect(() => {
@@ -184,14 +197,16 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
         trang_thai: 'hoat_dong',
       };
 
+      let savedId = editingPackage?.id;
       if (isEdit) {
         await updatePackage(editingPackage.id, payload);
         toast.success(`Cập nhật gói dịch vụ "${data.ten_goi}" thành công!`);
       } else {
-        await createPackage(payload);
+        const res = await createPackage(payload);
+        savedId = res.data?.id;
         toast.success(`Tạo mới gói dịch vụ "${data.ten_goi}" thành công!`);
       }
-      onSuccess();
+      onSuccess(savedId);
     } catch (error: any) {
       console.error('Error saving package:', error);
       const msg = error.response?.data?.message || 'Có lỗi xảy ra khi lưu gói dịch vụ.';
@@ -431,8 +446,8 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                           <label className="block font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Quy trình trị liệu *</label>
                           <textarea 
                             {...register('quy_trinh')} 
-                            rows={3}
-                            className="w-full px-4 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 outline-none transition-all text-secondary placeholder-zinc-400 resize-none font-medium text-xs shadow-sm"
+                            rows={6}
+                            className="w-full px-4 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 outline-none transition-all text-secondary placeholder-zinc-400 resize-y min-h-[140px] font-medium text-xs shadow-sm leading-relaxed"
                             placeholder="Nhập chi tiết các bước trong quy trình trị liệu chuẩn y khoa..."
                           ></textarea>
                           {errors.quy_trinh && (
@@ -444,8 +459,8 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                           <label className="block font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Mục tiêu trị liệu *</label>
                           <textarea 
                             {...register('muc_tieu')} 
-                            rows={3}
-                            className="w-full px-4 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 outline-none transition-all text-secondary placeholder-zinc-400 resize-none font-medium text-xs shadow-sm"
+                            rows={6}
+                            className="w-full px-4 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 outline-none transition-all text-secondary placeholder-zinc-400 resize-y min-h-[140px] font-medium text-xs shadow-sm leading-relaxed"
                             placeholder="Nhập mục tiêu và lợi ích cam kết đạt được sau khi kết thúc đợt trị liệu..."
                           ></textarea>
                           {errors.muc_tieu && (
@@ -518,8 +533,12 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                             />
                             <span className="absolute right-3 top-2.5 text-[10px] font-bold text-slate-400">Phút</span>
                           </div>
-                          {errors.thoi_luong_phut && (
+                          {errors.thoi_luong_phut ? (
                             <span className="text-rose-500 text-[10px] mt-1 block">{errors.thoi_luong_phut.message}</span>
+                          ) : (
+                            <p className="text-[10px] text-amber-600 mt-1 font-medium leading-relaxed flex items-center gap-1">
+                              <span>ℹ️ Vui lòng chủ động thêm thời gian cho nhân sự chuẩn bị</span>
+                            </p>
                           )}
                         </div>
 
@@ -529,9 +548,13 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                           </label>
                           <div className="relative">
                             <input 
-                              type="number"
-                              {...register('don_gia', { valueAsNumber: true })} 
-                              placeholder="6000000"
+                              type="text"
+                              value={formatNumberWithCommas(watchDonGia)}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/\D/g, '');
+                                setValue('don_gia', val ? parseInt(val) : 0, { shouldValidate: true });
+                              }}
+                              placeholder="6.000.000"
                               className="w-full px-4 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 outline-none transition-all font-semibold text-secondary shadow-sm text-sm pr-12"
                             />
                             <span className="absolute right-3 top-2.5 text-[10px] font-bold text-slate-400">VND</span>
@@ -547,10 +570,10 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                             <label className="block font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Giá thanh toán lẻ từng buổi (VND) *</label>
                             <div className="relative">
                               <input 
-                                type="number"
+                                type="text"
                                 readOnly
-                                {...register('don_gia_theo_buoi', { valueAsNumber: true })} 
-                                placeholder={averageCost ? String(averageCost) : "60000"}
+                                value={formatNumberWithCommas(watch('don_gia_theo_buoi'))}
+                                placeholder={averageCost ? formatNumberWithCommas(averageCost) : "60.000"}
                                 className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl outline-none font-semibold text-secondary shadow-sm text-sm pr-12 cursor-not-allowed"
                               />
                               <span className="absolute right-3 top-2.5 text-[10px] font-bold text-slate-400">VND</span>

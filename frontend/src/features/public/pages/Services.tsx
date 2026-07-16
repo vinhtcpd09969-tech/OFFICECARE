@@ -285,7 +285,7 @@ export default function ServicesPage() {
                         } else {
                           navigate('/booking', {
                             state: {
-                              bookingType: item.loai_goi === 'KHAM' ? 'kham' : 'le',
+                              bookingType: item.loai_goi === 'KHAM' ? 'kham' : 'dich_vu',
                               selectedServiceId: item.id
                             }
                           });

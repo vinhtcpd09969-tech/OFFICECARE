@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Mail, Phone, Award, Calendar, Star, CheckCircle2, ShieldCheck, Newspaper, User } from 'lucide-react';
-import { getPublicSpecialistById, getPublicSpecialists, getPublicArticles } from '../api/public.api';
+import { getPublicSpecialistById, getPublicSpecialists, getPublicArticles, getPublicSpecialistReviews } from '../api/public.api';
 import LoadingScreen from '../../../components/LoadingScreen';
 import ScrollReveal from '../components/shared/ScrollReveal';
 import { resolveImageUrl } from '../../../utils/imageUrl';
@@ -41,6 +41,8 @@ export default function SpecialistDetailPage() {
   const [activeCert, setActiveCert] = useState<string | null>(null);
   const [otherSpecialists, setOtherSpecialists] = useState<Specialist[]>([]);
   const [latestArticles, setLatestArticles] = useState<ArticleSummary[]>([]);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
 
   useEffect(() => {
     async function fetchDetails() {
@@ -56,6 +58,23 @@ export default function SpecialistDetailPage() {
       }
     }
     fetchDetails();
+  }, [id]);
+
+  useEffect(() => {
+    async function fetchReviews() {
+      try {
+        if (id) {
+          setReviewsLoading(true);
+          const response = await getPublicSpecialistReviews(id);
+          setReviews(response.data || []);
+        }
+      } catch (err) {
+        console.error('Lỗi khi lấy đánh giá:', err);
+      } finally {
+        setReviewsLoading(false);
+      }
+    }
+    fetchReviews();
   }, [id]);
 
   useEffect(() => {
@@ -261,6 +280,58 @@ export default function SpecialistDetailPage() {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+            </div>
+
+            {/* Reviews Section */}
+            <div className="bg-white rounded-[32px] p-6 md:p-8 border border-slate-100 shadow-[0_15px_40px_rgba(15,23,42,0.015)] space-y-6">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#14B8A6] bg-[#14B8A6]/10 px-3 py-1 rounded-full">
+                  💬 Phản Hồi Từ Bệnh Nhân
+                </span>
+                <span className="text-xs font-bold text-slate-500">
+                  {reviews.length} đánh giá
+                </span>
+              </div>
+
+              {reviewsLoading ? (
+                <div className="text-center py-6 text-xs font-bold text-slate-400 animate-pulse">
+                  Đang tải đánh giá...
+                </div>
+              ) : reviews.length === 0 ? (
+                <p className="text-slate-400 text-xs font-semibold py-4">Chưa có phản hồi nào cho chuyên gia này.</p>
+              ) : (
+                <div className="space-y-4 divide-y divide-slate-100">
+                  {reviews.map((rev) => (
+                    <div key={rev.id} className="pt-4 first:pt-0 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="size-8 rounded-lg bg-teal-50 flex items-center justify-center text-teal-650 font-black text-xs">
+                            {rev.name?.charAt(0) || 'K'}
+                          </div>
+                          <div>
+                            <p className="font-extrabold text-slate-800 text-xs">{rev.name}</p>
+                            <p className="text-[9px] text-slate-400 font-bold">
+                              {new Date(rev.date).toLocaleDateString('vi-VN')}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex gap-0.5 text-amber-400">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <Star 
+                              key={i} 
+                              size={12} 
+                              className={i < rev.rating ? 'fill-amber-400 stroke-none' : 'text-zinc-200 fill-zinc-200 stroke-none'} 
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      <p className="text-slate-650 text-xs font-medium leading-relaxed italic bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        "{rev.comment}"
+                      </p>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

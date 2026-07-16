@@ -24,7 +24,7 @@ allowed-tools: Read, Grep, Glob
 - Trả góp: đợt 2 phải đóng trước buổi `H = floor(N × 40 / 100) + 1` (biên độ an toàn: cọc 50% luôn dư ít nhất bằng % phạt hủy gói, không cố định `floor(N/2)`) → `getMinPaymentRequired()`.
 - Miễn phí khám: gói `tra_thang`/`tra_gop` và giá gói ≥ 1.000.000đ (không phân biệt loại gói) → `isExamWaived()`.
 - Hủy gói: phạt **10% trên giá gói đã chốt theo hình thức thanh toán** (`gia_thanh_toan_goi`) — cố định theo hợp đồng, KHÔNG đổi theo số tiền đã đóng thực tế hay cách xử lý phí khám → `calculatePackageCancellationRefund()`. Phí khám lâm sàng trừ trong hoàn tiền lấy giá **động** từ `goi_dich_vu.don_gia`, không hardcode, không trừ 2 lần nếu đã thanh toán riêng.
-- Hủy/không đến: gói `tra_thang`/`tra_gop` ân xá lần vi phạm đầu; `tung_buoi` luôn trừ 10 điểm uy tín → `resolveNoShowOutcome()`.
+- Hủy/không đến (KHÔNG còn ân xá lần đầu) → `resolveNoShowOutcome()`. Nhóm A (KHAM/LE/`tung_buoi`): hủy −10đ, không đến −20đ, không mất buổi. Nhóm B (`tra_thang`/`tra_gop`): hủy −10đ không mất buổi, không đến −0đ nhưng MẤT buổi. Khách tự hủy qua client chỉ được khi còn ≥8h trước giờ hẹn (gate ở `cancelCustomerAppointment`); Lễ tân/Admin hủy giúp không giới hạn thời gian.
 - Lịch mặc định `Chưa xác nhận`; Lễ tân hủy tay sau ≥3 cuộc không nghe máy — hệ thống không tự hủy.
 - Lỗi nghiệp vụ ném từ service/repository → controller trả `400` kèm message gốc, không nuốt thành `500`.
 

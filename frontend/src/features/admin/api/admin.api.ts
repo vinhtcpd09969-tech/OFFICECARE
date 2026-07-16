@@ -23,7 +23,9 @@ export const deletePackage = (id: string) => api.delete(`/admin/packages/${id}`)
 // Staff & Customers
 export const getStaff = () => api.get('/admin/staff');
 export const createStaff = (data: any) => api.post('/admin/staff', data);
+export const updateStaff = (id: string, data: any) => api.put(`/admin/staff/${id}`, data);
 export const updateStaffStatus = (id: string, trang_thai: string) => api.patch(`/admin/staff/${id}/status`, { trang_thai });
+export const resetStaffPassword = (id: string) => api.post(`/admin/staff/${id}/reset-password`);
 export const getCustomers = () => api.get('/admin/customers');
 export const updateCustomer = (id: string, data: any) => api.put(`/admin/customers/${id}`, data);
 export const toggleCustomerLock = (id: string, isLocked: boolean) => api.patch(`/admin/customers/${id}/toggle-lock`, { isLocked });

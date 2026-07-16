@@ -51,6 +51,21 @@ class TechnicianRepository {
     return rows;
   }
 
+  // 2.4. Kiểm tra nhân sự có ca trị liệu khác đang mở dở (trang_thai='dang_kham') hay không — 1 nhân
+  // sự chỉ được mở 1 "bàn trị liệu" tại 1 thời điểm, tránh quên bấm hoàn thành ca cũ rồi mở ca mới
+  // chồng lấn.
+  async getActiveSessionForStaff(staffId: number, excludeAppointmentId: string) {
+    const { rows } = await pool.query(
+      `SELECT ch.id, 'LH-' || UPPER(SUBSTRING(ch.id::text FROM 1 FOR 6)) as ma_lich_dat, kh.ho_ten as ten_khach_hang
+       FROM cuoc_hen ch
+       LEFT JOIN khach_hang kh ON ch.khach_hang_id = kh.id
+       WHERE ch.nhan_su_id = $1 AND ch.trang_thai = 'dang_kham' AND ch.id != $2::uuid
+       LIMIT 1`,
+      [staffId, excludeAppointmentId]
+    );
+    return rows[0] || null;
+  }
+
   // 2.5. Bắt đầu ca khám / điều trị (Cập nhật trạng thái đang khám và tạo nhật ký)
   async startSession(appointmentId: string, staffId: number) {
     const client = await pool.connect();
@@ -93,6 +108,7 @@ class TechnicianRepository {
         nk.id as ho_so_dieu_tri_id, nk.id as ho_so_benh_an_id, nk.chan_doan, nk.chong_chi_dinh, nk.ghi_chu,
         nk.vas_truoc, nk.vas_sau,
         cd.goi_dich_vu_id,
+        ch.phac_do_dieu_tri_id,
         nk.ngay_tao as nhat_ky_ngay_tao
       FROM cuoc_hen ch
       JOIN khach_hang kh ON ch.khach_hang_id = kh.id

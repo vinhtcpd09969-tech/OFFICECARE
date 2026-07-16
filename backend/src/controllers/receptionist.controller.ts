@@ -49,6 +49,9 @@ export const updateAppointmentStatus = async (req: Request, res: Response): Prom
     if (error.message === 'ROOM_UNAVAILABLE') {
       return res.status(400).json({ message: 'Không có phòng trống cho dịch vụ này tại thời điểm hiện tại.' });
     }
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ message: error.message });
+    }
     res.status(500).json({ message: 'Lỗi server' });
   }
 };

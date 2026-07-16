@@ -110,12 +110,22 @@ export function useAppointmentActions({
     if (e) e.preventDefault();
     if (!selectedAppointment) return;
 
+    // Chỉ tự chuyển "Đã xác nhận" khi thực sự VỪA gán xong nhân sự+phòng còn thiếu ở lần lưu này —
+    // không dựa vào giá trị đã có sẵn từ trước, nếu không mọi lần bấm "Lưu cập nhật" (kể cả không
+    // đổi gì) đều bị tự nhảy trạng thái do nhân sự/phòng vốn đã được gán từ lúc đặt lịch.
+    const origStaffIdForAutoConfirm = selectedAppointment ? (selectedAppointment.bac_si_id || (selectedAppointment as any).chuyen_gia_id) : null;
+    const isFreshStaffRoomAssignment = (!origStaffIdForAutoConfirm || !selectedAppointment?.phong_id) && !!assignStaffId && !!assignRoomId;
+
     if (isDemoMode && setDemoApts) {
       let finalStatus = assignStatus;
-      if (['chua_xac_nhan', 'cho_xac_nhan'].includes(selectedAppointment.trang_thai) && assignStaffId && assignRoomId) {
+      if (
+        ['chua_xac_nhan', 'cho_xac_nhan'].includes(selectedAppointment.trang_thai) &&
+        ['chua_xac_nhan', 'cho_xac_nhan'].includes(assignStatus) &&
+        isFreshStaffRoomAssignment
+      ) {
         finalStatus = 'da_xac_nhan';
       }
-      setDemoApts(prev => prev.map(apt => 
+      setDemoApts(prev => prev.map(apt =>
         String(apt.id) === String(selectedAppointment.id)
           ? { 
               ...apt, 
@@ -135,7 +145,11 @@ export function useAppointmentActions({
       setIsAssigning(true);
 
       let finalStatus = assignStatus;
-      if (['chua_xac_nhan', 'cho_xac_nhan'].includes(selectedAppointment.trang_thai) && assignStaffId && assignRoomId) {
+      if (
+        ['chua_xac_nhan', 'cho_xac_nhan'].includes(selectedAppointment.trang_thai) &&
+        ['chua_xac_nhan', 'cho_xac_nhan'].includes(assignStatus) &&
+        isFreshStaffRoomAssignment
+      ) {
         finalStatus = 'da_xac_nhan';
       }
 

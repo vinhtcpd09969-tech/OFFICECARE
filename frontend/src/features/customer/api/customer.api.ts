@@ -10,8 +10,29 @@ export interface RatePayload {
 export const getPendingRatingAppointments = () => 
   api.get('/client/appointments/pending-rating');
 
-export const rateAppointment = (id: string, data: { so_sao: number; nhan_xet?: string }) => 
+export const rateAppointment = (id: string, data: { 
+  so_sao?: number; 
+  nhan_xet?: string;
+  rating_dich_vu?: number; 
+  comment_dich_vu?: string; 
+  rating_ktv?: number; 
+  comment_ktv?: string; 
+}) => 
   api.post(`/client/appointments/${id}/rate`, data);
+
+export const getMyReviews = () => api.get('/client/reviews/my-reviews');
+
+export const updateServiceReview = (id: string, data: { rating: number; comment?: string }) => 
+  api.put(`/client/reviews/service/${id}`, data);
+
+export const updateStaffReview = (id: string, data: { rating: number; comment?: string }) => 
+  api.put(`/client/reviews/staff/${id}`, data);
+
+export const deleteServiceReview = (id: string) => 
+  api.delete(`/client/reviews/service/${id}`);
+
+export const deleteStaffReview = (id: string) => 
+  api.delete(`/client/reviews/staff/${id}`);
 
 export const updateProfile = (data: {
   ho_ten: string;

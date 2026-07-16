@@ -160,7 +160,12 @@ export function isPaymentDue(apt: {
   tong_tien_phai_tra_goi?: number | string | null;
   tong_tien_goc_goi?: number | string | null;
 }): boolean {
-  if (apt.trang_thai_thanh_toan === 'da_thanh_toan' || apt.trang_thai_hoa_don_goi === 'da_thanh_toan') {
+  // Hóa đơn đã hoàn tiền (gói bị admin hủy giữa chừng) thì không còn khoản nào để đòi thêm nữa —
+  // so_tien_da_tra sau hoàn tiền luôn < tong_tien_phai_tra (đại diện doanh thu giữ lại sau phạt
+  // hủy, KHÔNG phải "còn nợ"), nếu không loại trừ ở đây công thức tra_thang/tra_gop bên dưới sẽ
+  // hiểu nhầm thành còn nợ tiền và báo "cần thanh toán" cho buổi đã xong trước khi gói bị hủy.
+  const DONE_INVOICE_STATUSES = ['da_thanh_toan', 'da_hoan_tien'];
+  if (DONE_INVOICE_STATUSES.includes(apt.trang_thai_thanh_toan || '') || DONE_INVOICE_STATUSES.includes(apt.trang_thai_hoa_don_goi || '')) {
     return false;
   }
 
@@ -214,16 +219,18 @@ export function isPaymentDue(apt: {
 /**
  * Danh sách "ca cần thanh toán" hiển thị cho lễ tân (mascot ở AdminLayout.tsx, PendingPaymentPanel)
  * — khác `isPaymentDue()` ở chỗ hàm này gồm luôn điều kiện trạng thái lịch hẹn: khám/dịch vụ lẻ,
- * từng buổi, và trả góp (đợt 2) chỉ tính từ lúc đã check-in trở đi — "sau khi làm xong buổi đó"
- * (chưa điểm danh thì chưa có gì để báo, dù buổi tiếp theo có chạm mốc đóng đợt 2 hay không).
+ * từng buổi, và trả góp (đợt 2) chỉ tính khi buổi đã THỰC SỰ xong (`hoan_thanh`) — mới check-in/
+ * đang chờ khám thì chưa có gì để báo, dù buổi tiếp theo có chạm mốc đóng đợt 2 hay không.
+ * Đang khám (`dang_kham`) cũng không hiện — kéo lễ tân vào thu tiền giữa lúc bác sĩ/KTV đang làm
+ * việc với khách là không thực tế; đợi tới khi buổi xong (`hoan_thanh`) mới nhắc.
  */
 export function isAwaitingPaymentForList(apt: Parameters<typeof isPaymentDue>[0] & {
   trang_thai?: string | null;
 }): boolean {
-  if (['da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat', 'giu_cho', 'chua_xac_nhan'].includes(apt.trang_thai || '')) return false;
+  if (['da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat', 'giu_cho', 'chua_xac_nhan', 'dang_kham'].includes(apt.trang_thai || '')) return false;
 
   const isRetailOrExam = ['kham_moi', 'KHAM', 'dich_vu_don', 'DICH_VU_LE'].includes(apt.loai_lich || '') || apt.loai_goi === 'LE';
-  const isSessionStarted = ['da_checkin', 'cho_kham', 'dang_kham', 'hoan_thanh'].includes(apt.trang_thai || '');
+  const isSessionStarted = apt.trang_thai === 'hoan_thanh';
   const isTraGop = !isRetailOrExam && apt.hinh_thuc_thanh_toan_goi === 'tra_gop';
 
   if ((isRetailOrExam || apt.hinh_thuc_thanh_toan_goi === 'tung_buoi' || isTraGop) && !isSessionStarted) {

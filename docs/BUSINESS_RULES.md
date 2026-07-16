@@ -72,15 +72,23 @@ Quy tắc **riêng biệt**, khác hẳn mục 6 ở trên — áp dụng khi kh
 - Giá trị giảm loại % chỉ hợp lệ trong khoảng `(0, 100]`; loại số tiền cố định không có "giảm tối đa" (field đó chỉ áp dụng cho %).
 - Cài đặt: `assertVoucherUsable()`/`countVoucherUsage()` trong `backend/src/services/receptionist.service.ts` + `backend/src/repositories/receptionist.repository.ts`.
 
-## 7. Phạt điểm uy tín khi hủy/không đến (No-Show Penalty)
+## 7. Phạt điểm uy tín & mất buổi khi hủy/không đến (No-Show Penalty)
 
-- Gói `tra_thang`/`tra_gop`: vi phạm lần đầu (hủy hoặc không đến) được **ân xá**, không trừ điểm. Từ lần vi phạm thứ 2 trở đi, áp dụng mức trừ điểm theo loại vi phạm.
-- Gói `tung_buoi` hoặc buổi lẻ không thuộc gói: **luôn trừ điểm uy tín** mỗi lần vi phạm, không có "ân xá" lần đầu.
-- Điểm uy tín bị trừ cụ thể:
-  - Nếu khách **chủ động hủy lịch** trên hệ thống hoặc **báo trước cho Lễ tân**: trừ **10 điểm uy tín**.
-  - Nếu khách **vắng mặt không báo trước (No-show)**: trừ **20 điểm uy tín**.
-- Quyền khóa tài khoản: Nếu điểm uy tín xuống quá thấp, OfficeCare có quyền chủ động khóa hoặc tạm khóa tài khoản của bệnh nhân thông qua bộ phận kiểm duyệt định kỳ (không khóa tự động).
-- Cài đặt chuẩn: `resolveNoShowOutcome()` trong `backend/src/domain/billing.ts`.
+Không còn khái niệm "ân xá lần đầu"/đếm số lần vi phạm. Hậu quả chỉ phụ thuộc **hành động** (hủy vs không đến) và **nhóm gói**:
+
+- **Nhóm A** (chưa thanh toán trước, trả sau khi hoàn thành): gói `KHAM`, `LE`, và `LIEU_TRINH` trả `tung_buoi`.
+- **Nhóm B** (đã thanh toán trước): gói `LIEU_TRINH` trả `tra_thang` hoặc `tra_gop`.
+
+| Hành động | Nhóm A | Nhóm B |
+|---|---|---|
+| **Hủy** (`da_huy`) | Trừ **10 điểm uy tín**. Không mất buổi. | Trừ **10 điểm uy tín**, **không mất buổi** (đặt lại đúng buổi đó được). |
+| **Không đến** (`khong_den`) | Trừ **20 điểm uy tín**. **Không mất buổi** (đặt lại được — chưa mất tiền gì). | **Không trừ điểm** (đã mất tiền buổi đó = đủ hậu quả, tránh phạt kép). **Mất buổi** (tính vào `so_buoi_da_dung`, tiến sang buổi tiếp theo). |
+
+- **Mốc 8 tiếng — chỉ áp cho khách tự hủy qua trang client:** khách chỉ được tự hủy khi còn ≥ 8 tiếng trước giờ hẹn; dưới mốc đó nút/API bị chặn (chặn cả FE lẫn BE tại `cancelCustomerAppointment`), buộc khách gọi Lễ tân. **Lễ tân/Admin hủy giúp không bị giới hạn 8 tiếng** — hủy được bất kỳ lúc nào, luôn cho ra hậu quả "hủy" (trừ 10đ, không mất buổi).
+- Không còn bắn ra trạng thái escalated `da_huy_phat`/`khach_khong_den_phat` (giữ trong enum DB cho dữ liệu lịch sử, không gán mới).
+- `so_buoi_da_dung` (buổi đã tiêu thụ) = đếm `hoan_thanh` luôn luôn + `khong_den` **chỉ khi** gói Nhóm B; `da_huy` không bao giờ tính (`updateCompletedSessionsCount` trong `appointment.repository.ts`).
+- Quyền khóa tài khoản: Nếu điểm uy tín xuống quá thấp, OfficeCare có quyền chủ động khóa/tạm khóa tài khoản qua bộ phận kiểm duyệt định kỳ (không khóa tự động).
+- Cài đặt chuẩn: `resolveNoShowOutcome()` trong `backend/src/domain/billing.ts` (hàm thuần, không biết mốc 8 tiếng — gate 8h nằm tách biệt ở `cancelCustomerAppointment`).
 
 ## 8. Đổi lịch hẹn (Rescheduling Policy)
 

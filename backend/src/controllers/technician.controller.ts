@@ -53,7 +53,7 @@ export const getAppointmentDetail = async (req: AuthenticatedRequest, res: Respo
     res.json(detail);
   } catch (error: any) {
     console.error('Lỗi khi lấy chi tiết ca trị liệu KTV:', error);
-    res.status(500).json({ message: error.message || 'Lỗi server' });
+    res.status(400).json({ message: error.message || 'Lỗi server' });
   }
 };
 

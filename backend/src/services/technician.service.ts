@@ -20,7 +20,14 @@ class TechnicianService {
 
     // Tự động chuyển trạng thái sang 'dang_kham' nếu lịch đang ở 'da_checkin' hoặc 'cho_kham'
     if (['da_checkin', 'cho_kham'].includes(detail.trang_thai) && userId) {
-      await technicianRepository.startSession(appointmentId, parseInt(userId, 10));
+      const staffId = parseInt(userId, 10);
+      // 1 KTV chỉ được mở 1 "bàn trị liệu" tại 1 thời điểm — chặn nếu còn ca khác đang dang_kham
+      // (vd quên bấm hoàn thành ca trước).
+      const otherOpenSession = await technicianRepository.getActiveSessionForStaff(staffId, appointmentId);
+      if (otherOpenSession) {
+        throw new Error(`Bạn đang có ca trị liệu ${otherOpenSession.ma_lich_dat} (${otherOpenSession.ten_khach_hang}) chưa hoàn thành. Vui lòng hoàn thành ca đó trước khi mở ca trị liệu mới.`);
+      }
+      await technicianRepository.startSession(appointmentId, staffId);
       return await technicianRepository.getAppointmentDetail(appointmentId);
     }
 

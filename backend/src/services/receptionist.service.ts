@@ -1,5 +1,5 @@
 import receptionistRepository from '../repositories/receptionist.repository';
-import appointmentRepository from '../repositories/appointment.repository';
+import appointmentRepository, { assertTraGopDot2PaidBeforeCheckin } from '../repositories/appointment.repository';
 import notificationService from './notification.service';
 import { pool } from '../config/db';
 import {
@@ -11,6 +11,7 @@ import {
   isExamWaived as isExamWaivedDomain,
   resolvePackageBasePrice,
 } from '../domain/billing';
+import { checkReceptionistTransition, isReceptionistLockedStatus } from '../domain/appointmentStatus';
 import { HinhThucThanhToanGoi, LoaiGoi } from '../domain/types';
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
@@ -81,89 +82,32 @@ class ReceptionistService {
   }
 
   async updateAppointmentStatus(id: string, trang_thai: string, ghi_chu_noi_bo?: string) {
-    const currentApt = await pool.query('SELECT trang_thai FROM cuoc_hen WHERE id = $1', [id]);
+    const currentApt = await pool.query('SELECT trang_thai, nhan_su_id FROM cuoc_hen WHERE id = $1', [id]);
     if (currentApt.rows.length === 0) throw new Error('Không tìm thấy lịch hẹn');
     const currentStatus = currentApt.rows[0].trang_thai;
 
+    // "Khóa toàn bộ form" phải là bất biến ở SERVER — nếu không, gửi thẳng đúng trang_thai hiện
+    // tại (không đổi) kèm ghi_chu_noi_bo mới vẫn lọt qua nhánh dưới và sửa được ghi chú của 1
+    // lịch đã check-in/hoàn thành/hủy.
+    if (isReceptionistLockedStatus(currentStatus)) {
+      const err = new Error(
+        'Không thể thay đổi lịch hẹn đang tiến hành, đã hoàn thành, đã hủy hoặc đã kết thúc.'
+      ) as any;
+      err.statusCode = 403;
+      throw err;
+    }
+
     if (trang_thai !== currentStatus) {
-      if (trang_thai === 'dang_kham') {
-        const err = new Error('Lễ tân không có quyền đưa trạng thái lịch về đang khám.') as any;
-        err.statusCode = 403;
-        throw err;
-      }
-      if (trang_thai === 'hoan_thanh') {
-        const err = new Error('Lễ tân không có quyền đưa trạng thái lịch về hoàn thành.') as any;
-        err.statusCode = 403;
-        throw err;
-      }
-      if ((trang_thai === 'da_checkin' || trang_thai === 'check_in') && currentStatus !== 'da_xac_nhan') {
-        const err = new Error('Lễ tân không có quyền đưa trạng thái lịch về check-in.') as any;
-        err.statusCode = 403;
-        throw err;
-      }
-      if (['dang_kham', 'hoan_thanh'].includes(currentStatus)) {
-        const err = new Error('Không thể thay đổi trạng thái của ca hẹn đang tiến hành hoặc đã hoàn thành.') as any;
+      const check = checkReceptionistTransition(currentStatus, trang_thai, !!currentApt.rows[0].nhan_su_id);
+      if (!check.allowed) {
+        const err = new Error(check.reason) as any;
         err.statusCode = 403;
         throw err;
       }
     }
 
     if (trang_thai === 'da_checkin' || trang_thai === 'check_in') {
-      const appt = await pool.query(
-        'SELECT phac_do_dieu_tri_id, so_thu_tu_buoi, loai FROM cuoc_hen WHERE id = $1',
-        [id]
-      );
-      if (appt.rows.length > 0) {
-        const { phac_do_dieu_tri_id, so_thu_tu_buoi, loai } = appt.rows[0];
-        if (loai === 'DIEU_TRI' && phac_do_dieu_tri_id && so_thu_tu_buoi) {
-          // Dùng đúng công thức khóa ở domain/billing.ts — trước đây chốt bằng Math.floor(N/2) và so
-          // sánh `===`, vừa lệch mốc chặn của khâu đặt lịch (gói 12 buổi: check-in chặn buổi 6 trong
-          // khi đặt lịch chặn buổi 5), vừa bỏ lọt các buổi sau đó, vừa chặn nhầm gói trả từng buổi
-          // (hóa đơn từng buổi luôn còn nợ nên bị coi là "chưa đóng đủ").
-          const pdRes = await pool.query(
-            `SELECT pd.tong_so_buoi, hd.hinh_thuc_thanh_toan_goi, hd.tong_tien_phai_tra, hd.so_tien_da_tra,
-                    hd.tong_tien_goc, hd.ti_le_giam_gia_goi
-             FROM phac_do_dieu_tri pd
-             LEFT JOIN hoa_don hd ON hd.phac_do_dieu_tri_id = pd.id
-             WHERE pd.id = $1`,
-            [phac_do_dieu_tri_id]
-          );
-          const row = pdRes.rows[0];
-
-          if (row && row.hinh_thuc_thanh_toan_goi === 'tra_gop') {
-            const tongSoBuoi = Number(row.tong_so_buoi || 10);
-            const packageTotal = Number(row.tong_tien_phai_tra || 0);
-            const daTra = Number(row.so_tien_da_tra || 0);
-
-            // Giá gói sau giảm nhưng TRƯỚC khấu trừ phí khám đã đóng riêng (xem getMinPaymentRequired).
-            // ti_le_giam_gia_goi đã là % GỘP của (ưu đãi hình thức thanh toán + voucher) — xem
-            // calculateDiscountPercent ở receptionist.repository.ts — nên KHÔNG được trừ thêm
-            // so_tien_giam_voucher lần nữa, kẻo trừ giảm giá voucher 2 lần.
-            const tongTienGoc = Number(row.tong_tien_goc || 0);
-            const tiLeGiam = Number(row.ti_le_giam_gia_goi || 0);
-            const grossBeforeExamDeduction = tongTienGoc > 0
-              ? tongTienGoc - Math.round((tongTienGoc * tiLeGiam) / 100)
-              : packageTotal;
-
-            const minRequired = getMinPaymentRequired(
-              row.hinh_thuc_thanh_toan_goi as HinhThucThanhToanGoi,
-              packageTotal,
-              tongSoBuoi,
-              Number(so_thu_tu_buoi),
-              grossBeforeExamDeduction
-            );
-
-            if (daTra < minRequired) {
-              const conThieu = minRequired - daTra;
-              const err = new Error(
-                `Khách hàng bắt buộc phải đóng nốt Đợt 2 (còn thiếu ${conThieu.toLocaleString('vi-VN')}đ) trước khi check-in Buổi ${so_thu_tu_buoi}.`
-              ) as any;
-              err.statusCode = 400;
-              throw err;
-            }
-          }
-        }
-      }
+      await assertTraGopDot2PaidBeforeCheckin(pool, id);
     }
 
     const appointment = await receptionistRepository.updateAppointmentStatus(id, trang_thai, ghi_chu_noi_bo);
@@ -1001,16 +945,22 @@ class ReceptionistService {
       const paidExam = await receptionistRepository.getPaidInvoiceAmountForAppointment(hd.cuoc_hen_id);
       if (paidExam === 0) {
         const examInvRes = await pool.query(`
-          SELECT id, tong_tien_phai_tra 
-          FROM hoa_don 
-          WHERE cuoc_hen_id = $1 
-            AND phac_do_dieu_tri_id IS NULL 
-            AND trang_thai = 'chua_thanh_toan' 
+          SELECT id, tong_tien_phai_tra
+          FROM hoa_don
+          WHERE cuoc_hen_id = $1
+            AND phac_do_dieu_tri_id IS NULL
+            AND trang_thai = 'chua_thanh_toan'
           LIMIT 1
         `, [hd.cuoc_hen_id]);
+
+        let examInvId: string | null = null;
+        let examInvAmount = 0;
+
         if (examInvRes.rows.length > 0) {
           const examInv = examInvRes.rows[0];
-          
+          examInvId = examInv.id;
+          examInvAmount = Number(examInv.tong_tien_phai_tra);
+
           await pool.query(`
             UPDATE hoa_don
             SET trang_thai = 'da_thanh_toan',
@@ -1018,14 +968,34 @@ class ReceptionistService {
                 ghi_chu = $1
             WHERE id = $2
           `, [`Đã thanh toán cùng lúc với đăng ký gói trả theo từng buổi.`, examInv.id]);
+        } else {
+          // Chưa từng có hóa đơn khám riêng nào được tạo trước (lễ tân đăng ký gói trả từng buổi
+          // ngay từ đầu, thu phí khám trong CHÍNH lần thanh toán này) — trước đây code chỉ biết
+          // CẬP NHẬT hóa đơn khám có sẵn, không tạo mới khi không tìm thấy, nên tiền phí khám đã
+          // thu (yêu cầu tối thiểu = requiredDot1 ở nhánh tung_buoi phía trên) bị "biến mất" hoàn
+          // toàn: không hóa đơn, không giao dịch, khiến lịch hẹn vẫn hiện "chưa thanh toán". Giờ
+          // tạo thật 1 hóa đơn khám mới, đánh dấu đã thanh toán ngay.
+          const appt = await receptionistRepository.getAppointmentWithServicePrice(hd.cuoc_hen_id);
+          const chiPhiKham = appt ? Number(appt.don_gia) : 0;
+          if (chiPhiKham > 0) {
+            const { rows: newExamRows } = await pool.query(`
+              INSERT INTO hoa_don (khach_hang_id, cuoc_hen_id, tong_tien_goc, tong_tien_phai_tra, so_tien_da_tra, trang_thai, ghi_chu)
+              VALUES ($1, $2, $3, $3, $3, 'da_thanh_toan', $4)
+              RETURNING id
+            `, [hd.khach_hang_id, hd.cuoc_hen_id, chiPhiKham, 'Phí khám lâm sàng — thu cùng lúc đăng ký gói trả theo từng buổi.']);
+            examInvId = newExamRows[0].id;
+            examInvAmount = chiPhiKham;
+          }
+        }
 
+        if (examInvId && examInvAmount > 0) {
           // Create payment transaction for the exam invoice
           const maGiaoDichExam = `GD${Math.floor(10000000 + Math.random() * 90000000)}`;
           const chiTietExam = describePaymentTransaction({ loaiHoaDon: 'KHAM', hinhThuc: null, dot: 'phi_kham' });
           await pool.query(`
             INSERT INTO giao_dich_thanh_toan (hoa_don_id, so_tien, loai_giao_dich, phuong_thuc, ma_tham_chieu, nhan_vien_thuc_hien_id, ngay_giao_dich, chi_tiet)
             VALUES ($1, $2, 'THANH_TOAN', $3, $4, 1, NOW(), $5)
-          `, [examInv.id, Number(examInv.tong_tien_phai_tra), phuong_thuc || 'tien_mat', maGiaoDichExam, JSON.stringify(chiTietExam)]);
+          `, [examInvId, examInvAmount, phuong_thuc || 'tien_mat', maGiaoDichExam, JSON.stringify(chiTietExam)]);
         }
       }
     }

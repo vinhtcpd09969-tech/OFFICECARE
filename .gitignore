@@ -50,3 +50,6 @@ backend/uploads/**/*
 *.bak
 database/backup_before_docker_move_20260713_000340.sql
 docs/Download.mp4
+
+# Non-code personal files dropped in repo root
+document/

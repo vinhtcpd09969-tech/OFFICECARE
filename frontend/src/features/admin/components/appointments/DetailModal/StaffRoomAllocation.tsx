@@ -9,6 +9,7 @@ interface StaffRoomAllocationProps {
   setAssignStaffId: (val: string) => void;
   assignStatus: string;
   isReceptionist: boolean;
+  isLocked?: boolean;
   staffList: any[];
   schedulesList: any[];
   aptDateStr: string;
@@ -27,6 +28,7 @@ export function StaffRoomAllocation({
   setAssignStaffId,
   assignStatus: _assignStatus,
   isReceptionist: _isReceptionist,
+  isLocked = false,
   staffList,
   schedulesList,
   aptDateStr,
@@ -36,7 +38,26 @@ export function StaffRoomAllocation({
   appointments = []
 }: StaffRoomAllocationProps) {
   const hasAssignedStaff = !!selectedAppointment?.bac_si_id || !!selectedAppointment?.chuyen_gia_id;
-  const isEditable = !(_isReceptionist && hasAssignedStaff);
+  // Lịch còn "chưa xác nhận" nghĩa là CHƯA có tín hiệu xác thực nào (khách chưa OTP, Lễ tân chưa
+  // gọi) — khớp đúng quy tắc đối xứng ở appointment.service.ts::confirmOTPAppointment (targetStatus
+  // = nhan_su_id ? da_xac_nhan : cho_xac_nhan). Nếu cho phép phân bổ nhân sự ngay từ lúc này, chỉ
+  // riêng thao tác gán nhân sự (không kèm xác thực gì) có thể vô tình đẩy lịch lên "Đã xác nhận"
+  // trong khi khách chưa hề xác nhận sẽ đến. Khóa hẳn cho tới khi trạng thái rời khỏi chua_xac_nhan.
+  const isUnverified = selectedAppointment?.trang_thai === 'chua_xac_nhan';
+  const isEditable = !isUnverified && !(_isReceptionist && (hasAssignedStaff || isLocked));
+
+  if (!_isReceptionist && isUnverified && !hasAssignedStaff) {
+    return (
+      <div className="space-y-3">
+        <h4 className="text-xs font-bold text-slate-400 dark:text-zinc-555 uppercase tracking-wider border-b border-slate-100 dark:border-zinc-800 pb-1.5">
+          Điều phối lâm sàng
+        </h4>
+        <div className="py-6 px-4 text-center text-xs font-bold text-slate-450 dark:text-zinc-500 border border-dashed border-slate-200 dark:border-zinc-800/80 rounded-2xl select-none leading-relaxed">
+          🔒 Chờ khách xác thực OTP hoặc Lễ tân liên hệ xác nhận trước khi phân bổ nhân sự.
+        </div>
+      </div>
+    );
+  }
 
   // Lễ tân không có quyền chọn nhân sự — khi ca chưa được Quản lý phân bổ, ẩn hẳn phần
   // nhân sự + phòng thay vì hiển thị dạng thẻ chọn được. Khi đã có nhân sự (dù khách tự

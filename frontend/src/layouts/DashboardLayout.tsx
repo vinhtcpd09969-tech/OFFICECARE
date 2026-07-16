@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import api from '../api/axios';
-import { toast } from 'react-hot-toast';
-import { getPendingRatingAppointments, rateAppointment } from '../features/customer/api/customer.api';
 import { 
   Calendar, 
   Settings, 
@@ -12,7 +10,6 @@ import {
   Search,
   Menu,
   X,
-  Star,
   FileText
 } from 'lucide-react';
 
@@ -20,61 +17,6 @@ export default function DashboardLayout() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  // Rating states
-  const [showRatingModal, setShowRatingModal] = useState(false);
-  const [selectedRatingAppt, setSelectedRatingAppt] = useState<any | null>(null);
-  const [ratingStars, setRatingStars] = useState(5);
-  const [ratingComment, setRatingComment] = useState('');
-  const [submittingRating, setSubmittingRating] = useState(false);
-
-  const checkPendingRatings = async () => {
-    try {
-      if (user && Number(user.vai_tro_id) === 1) {
-        const res = await getPendingRatingAppointments();
-        if (res.data && res.data.length > 0) {
-          setSelectedRatingAppt(res.data[0]);
-          setShowRatingModal(true);
-        }
-      }
-    } catch (err) {
-      console.error('Lỗi khi tải lịch hẹn chưa đánh giá:', err);
-    }
-  };
-
-  const handleSubmitRating = async () => {
-    if (!selectedRatingAppt) return;
-    setSubmittingRating(true);
-    try {
-      await rateAppointment(selectedRatingAppt.id, {
-        so_sao: ratingStars,
-        nhan_xet: ratingComment
-      });
-      toast.success('Cảm ơn bạn đã gửi đánh giá!');
-      setShowRatingModal(false);
-      setRatingComment('');
-      setRatingStars(5);
-      // Check for any other pending ratings
-      const res = await getPendingRatingAppointments();
-      if (res.data && res.data.length > 0) {
-        setSelectedRatingAppt(res.data[0]);
-        setShowRatingModal(true);
-      } else {
-        setSelectedRatingAppt(null);
-      }
-    } catch (err: any) {
-      console.error('Lỗi khi gửi đánh giá:', err);
-      toast.error(err.response?.data?.message || 'Không thể lưu đánh giá.');
-    } finally {
-      setSubmittingRating(false);
-    }
-  };
-
-  const handleSkipRating = () => {
-    setShowRatingModal(false);
-    setRatingComment('');
-    setRatingStars(5);
-  };
 
   // Notification states
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -131,7 +73,6 @@ export default function DashboardLayout() {
   useEffect(() => {
     if (user && Number(user.vai_tro_id) === 1) {
       fetchNotifications();
-      checkPendingRatings();
       const interval = setInterval(fetchNotifications, 30000);
       return () => clearInterval(interval);
     }
@@ -406,95 +347,7 @@ export default function DashboardLayout() {
         </main>
       </div>
 
-      {/* Premium Glassmorphic Rating Modal */}
-      {showRatingModal && selectedRatingAppt && (
-        <div className="fixed inset-0 bg-slate-950/45 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white text-slate-800 rounded-[28px] border border-slate-100 max-w-md w-full p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
-            <button
-              onClick={handleSkipRating}
-              className="absolute top-5 right-5 p-1.5 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors"
-            >
-              <X size={18} />
-            </button>
 
-            <div className="text-center space-y-4">
-              <div className="size-14 bg-teal-50 text-[#2EC4B6] rounded-2xl flex items-center justify-center mx-auto border border-teal-100">
-                <Star className="size-8 fill-[#2EC4B6] text-[#2EC4B6] animate-pulse" />
-              </div>
-              
-              <div className="space-y-2">
-                <h3 className="text-lg font-heading font-black text-slate-900 uppercase tracking-wide">
-                  Đánh Giá Trị Liệu
-                </h3>
-                <p className="text-xs text-slate-500 font-semibold leading-relaxed">
-                  Cảm ơn bạn đã tin tưởng sử dụng dịch vụ tại <span className="text-[#2EC4B6] font-bold">PhysioFlow</span>!
-                  <br />
-                  Bạn vừa hoàn thành buổi <span className="font-extrabold text-slate-800">{selectedRatingAppt.ten_dich_vu}</span>
-                  {selectedRatingAppt.ten_bac_si && (
-                    <> cùng <span className="font-extrabold text-slate-800">Bác sĩ / KTV {selectedRatingAppt.ten_bac_si}</span></>
-                  )}
-                  . Hãy để lại đánh giá của bạn nhé!
-                </p>
-              </div>
-
-              {/* Star Selector */}
-              <div className="flex items-center justify-center gap-1.5 py-3">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    type="button"
-                    onClick={() => setRatingStars(star)}
-                    className="p-1 hover:scale-110 active:scale-95 transition-all"
-                  >
-                    <Star
-                      size={28}
-                      className={`transition-colors duration-200 ${
-                        star <= ratingStars
-                          ? 'fill-amber-400 text-amber-400'
-                          : 'text-slate-200 fill-slate-100'
-                      }`}
-                    />
-                  </button>
-                ))}
-              </div>
-
-              {/* Comment Input */}
-              <div className="space-y-1 text-left">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
-                  Ý kiến đóng góp (Không bắt buộc)
-                </label>
-                <textarea
-                  value={ratingComment}
-                  onChange={(e) => setRatingComment(e.target.value)}
-                  placeholder="Nhập cảm nhận của bạn về chất lượng điều trị, thái độ phục vụ..."
-                  rows={3}
-                  className="w-full text-xs font-semibold p-3 bg-slate-50 rounded-xl border border-slate-200 focus:outline-none focus:border-primary focus:bg-white resize-none"
-                />
-              </div>
-
-              {/* Actions */}
-              <div className="grid grid-cols-2 gap-3 pt-3">
-                <button
-                  type="button"
-                  onClick={handleSkipRating}
-                  className="bg-slate-50 hover:bg-slate-100 text-slate-500 font-bold text-xs uppercase tracking-wider py-3.5 rounded-xl border border-slate-200 transition-all"
-                >
-                  Để sau
-                </button>
-                
-                <button
-                  type="button"
-                  onClick={handleSubmitRating}
-                  disabled={submittingRating}
-                  className="bg-[#2EC4B6] hover:bg-[#25A89C] text-white font-extrabold text-xs uppercase tracking-wider py-3.5 rounded-xl shadow-sm transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
-                >
-                  {submittingRating ? 'Đang gửi...' : 'Gửi đánh giá'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

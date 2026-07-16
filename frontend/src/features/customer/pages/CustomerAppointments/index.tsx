@@ -44,6 +44,14 @@ interface Appointment {
   rating_id?: string | null;
   rating_stars?: number | null;
   rating_comment?: string | null;
+  rating_service_id?: string | null;
+  rating_service_stars?: number | null;
+  rating_service_comment?: string | null;
+  rating_staff_id?: string | null;
+  rating_staff_stars?: number | null;
+  rating_staff_comment?: string | null;
+  loai_goi?: string;
+  phac_do_status?: string;
   diem_uy_tin?: number;
   anh_bac_si?: string | null;
 }
@@ -55,8 +63,24 @@ export default function CustomerAppointments() {
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [lyDoHuy, setLyDoHuy] = useState<string>('');
   const [ratingApptId, setRatingApptId] = useState<string | null>(null);
-  const [ratingStars, setRatingStars] = useState<number>(5);
-  const [ratingComment, setRatingComment] = useState<string>('');
+  
+  // Separate rating states
+  const [ratingStarsService, setRatingStarsService] = useState<number>(5);
+  const [ratingCommentService, setRatingCommentService] = useState<string>('');
+  const [ratingStarsStaff, setRatingStarsStaff] = useState<number>(5);
+  const [ratingCommentStaff, setRatingCommentStaff] = useState<string>('');
+
+  // Pending ratings list for top notification banner
+  const [pendingRatingAppts, setPendingRatingAppts] = useState<any[]>([]);
+
+  const fetchPendingRatings = async () => {
+    try {
+      const res = await api.get('/client/appointments/pending-rating');
+      setPendingRatingAppts(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error('Lỗi nạp danh sách chưa đánh giá:', err);
+    }
+  };
 
   // Filtering States
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -93,21 +117,32 @@ export default function CustomerAppointments() {
 
   useEffect(() => {
     fetchAppointments();
+    fetchPendingRatings();
   }, []);
 
   const handleRatingSubmit = async () => {
     if (!ratingApptId) return;
     const toastId = toast.loading('Đang gửi đánh giá...');
     try {
+      const appt = appointments.find(a => a.id === ratingApptId) || pendingRatingAppts.find(a => a.id === ratingApptId);
+      const isPackage = appt?.loai_goi === 'LIEU_TRINH';
+      const isPackageFinished = appt?.phac_do_status === 'hoan_thanh' || appt?.phac_do_status === 'huy_ngang';
+      const canRateService = !isPackage || isPackageFinished;
+
       await api.post(`/client/appointments/${ratingApptId}/rate`, {
-        so_sao: ratingStars,
-        nhan_xet: ratingComment
+        rating_dich_vu: canRateService ? ratingStarsService : undefined,
+        comment_dich_vu: canRateService ? ratingCommentService : undefined,
+        rating_ktv: ratingStarsStaff,
+        comment_ktv: ratingCommentStaff
       });
-      toast.success('Cảm ơn bạn đã gửi đánh giá cho dịch vụ!', { id: toastId });
+      toast.success('Cảm ơn bạn đã gửi đánh giá cho dịch vụ và kỹ thuật viên!', { id: toastId });
       setRatingApptId(null);
-      setRatingStars(5);
-      setRatingComment('');
+      setRatingStarsService(5);
+      setRatingCommentService('');
+      setRatingStarsStaff(5);
+      setRatingCommentStaff('');
       fetchAppointments();
+      fetchPendingRatings();
     } catch (error: any) {
       console.error('Lỗi khi gửi đánh giá:', error);
       toast.error(error.response?.data?.message || 'Không thể gửi đánh giá.', { id: toastId });
@@ -271,6 +306,18 @@ export default function CustomerAppointments() {
             Đã Xác Nhận
           </span>
         );
+      case 'da_checkin':
+        return (
+          <span className="text-[9px] font-black text-teal-700 bg-teal-50 border border-teal-200/50 px-2 py-0.5 rounded uppercase tracking-wider">
+            Đã Check-in
+          </span>
+        );
+      case 'dang_kham':
+        return (
+          <span className="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200/50 px-2 py-0.5 rounded uppercase tracking-wider animate-pulse">
+            Đang Khám / Trị Liệu
+          </span>
+        );
       case 'cho_huy':
         return (
           <span className="text-[9px] font-black text-rose-600 bg-rose-50 border border-rose-200/50 px-2 py-0.5 rounded uppercase tracking-wider animate-pulse">
@@ -314,6 +361,10 @@ export default function CustomerAppointments() {
         return 'from-amber-400 to-yellow-300';
       case 'da_xac_nhan':
         return 'from-[#0D9488] to-[#14B8A6]';
+      case 'da_checkin':
+        return 'from-teal-500 to-cyan-400';
+      case 'dang_kham':
+        return 'from-emerald-500 to-teal-400';
       case 'cho_huy':
         return 'from-rose-500 to-pink-500';
       case 'da_huy':
@@ -534,6 +585,41 @@ export default function CustomerAppointments() {
         {/* RIGHT COLUMN: Appointments & Filters (col-span-8) */}
         <div className="lg:col-span-8 space-y-5">
           
+          {/* Pending Reviews Notification Banner */}
+          {pendingRatingAppts.length > 0 && (() => {
+            const app = pendingRatingAppts[0];
+            return (
+              <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/60 rounded-[28px] p-5 shadow-xs flex items-center justify-between gap-4 animate-in slide-in-from-top-3 duration-300">
+                <div className="flex items-start gap-3.5">
+                  <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center shrink-0 border border-amber-200 shadow-2xs">
+                    <Star className="fill-amber-500 text-amber-500" size={20} />
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-xs text-secondary leading-tight flex items-center gap-1.5">
+                      🔔 Góp ý chất lượng y khoa
+                    </h4>
+                    <p className="text-[10px] text-slate-500 font-semibold leading-relaxed mt-1">
+                      Bạn vừa hoàn thành trị liệu <strong>{app.ten_dich_vu}</strong>{app.ten_bac_si ? ` cùng KTV ${app.ten_bac_si}` : ''}. Hãy dành 1 phút đóng góp ý kiến nhé!
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRatingApptId(app.id);
+                    setRatingStarsService(app.rating_service_stars || 5);
+                    setRatingCommentService(app.rating_service_comment || '');
+                    setRatingStarsStaff(app.rating_staff_stars || 5);
+                    setRatingCommentStaff(app.rating_staff_comment || '');
+                  }}
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-[10px] uppercase tracking-wider rounded-xl transition-all shadow-xs shrink-0 cursor-pointer"
+                >
+                  Đánh giá ngay
+                </button>
+              </div>
+            );
+          })()}
+
           {/* Filters Bar */}
           <div className="bg-white rounded-[28px] border border-slate-100 p-4.5 shadow-sm space-y-4">
             
@@ -650,8 +736,17 @@ export default function CustomerAppointments() {
                   const isUnconfirmed = app.trang_thai === 'chua_xac_nhan';
                   const isPending = app.trang_thai === 'cho_xac_nhan';
                   const isConfirmed = app.trang_thai === 'da_xac_nhan';
+                  // Đã check-in / đang khám-trị liệu: đã qua bước Xác nhận từ lâu, chỉ còn thiếu bước
+                  // Hoàn thành — dùng chung nhánh hiển thị với isConfirmed cho thanh tiến trình 3 bước
+                  // (Đăng ký/Xác nhận/Hoàn thành) để không bị tụt về 0% như khi mới đăng ký.
+                  const isCheckedInOrInSession = ['da_checkin', 'dang_kham'].includes(app.trang_thai);
                   const isCompleted = app.trang_thai === 'hoan_thanh';
                   const isCancelled = ['da_huy', 'da_huy_phat', 'cho_huy', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(app.trang_thai);
+
+                  // Khách chỉ được tự hủy khi còn ≥ 8 tiếng trước giờ hẹn (khớp gate ở backend
+                  // cancelCustomerAppointment). Dưới mốc đó phải gọi Lễ tân hủy giúp.
+                  const hoursUntilStart = (new Date(app.ngay_gio_bat_dau).getTime() - currentTime.getTime()) / (1000 * 60 * 60);
+                  const canSelfCancel = hoursUntilStart >= 8;
 
                   const showWarningNotice = ['da_xac_nhan', 'cho_xac_nhan', 'chua_xac_nhan'].includes(app.trang_thai);
                   
@@ -773,10 +868,10 @@ export default function CustomerAppointments() {
                               <div className="absolute left-4 right-4 top-2 h-0.5 bg-slate-200 -translate-y-1/2 z-0" />
                               
                               {/* Active Track Line fill */}
-                              <div 
-                                className="absolute left-4 top-2 h-0.5 bg-gradient-to-r from-teal-500 to-emerald-500 -translate-y-1/2 z-0 transition-all duration-500" 
-                                style={{ 
-                                  width: isCompleted ? '100%' : isConfirmed ? '50%' : '0%' 
+                              <div
+                                className="absolute left-4 top-2 h-0.5 bg-gradient-to-r from-teal-500 to-emerald-500 -translate-y-1/2 z-0 transition-all duration-500"
+                                style={{
+                                  width: isCompleted ? '100%' : (isConfirmed || isCheckedInOrInSession) ? '50%' : '0%'
                                 }}
                               />
 
@@ -791,17 +886,17 @@ export default function CustomerAppointments() {
                               {/* Step 2: Xác nhận */}
                               <div className="flex flex-col items-center z-10">
                                 <div className={`size-4 rounded-full border-2 border-white shadow-xs flex items-center justify-center transition-all ${
-                                  isConfirmed || isCompleted 
-                                    ? 'bg-emerald-500' 
-                                    : isPending || isUnconfirmed 
-                                      ? 'bg-amber-500 animate-pulse' 
+                                  isConfirmed || isCheckedInOrInSession || isCompleted
+                                    ? 'bg-emerald-500'
+                                    : isPending || isUnconfirmed
+                                      ? 'bg-amber-500 animate-pulse'
                                       : 'bg-slate-250'
                                 }`}>
-                                  {(isConfirmed || isCompleted) && <span className="w-1.5 h-1.5 rounded-full bg-white"></span>}
+                                  {(isConfirmed || isCheckedInOrInSession || isCompleted) && <span className="w-1.5 h-1.5 rounded-full bg-white"></span>}
                                 </div>
                                 <span className={`text-[9px] font-black mt-1 uppercase tracking-wide ${
-                                  isConfirmed || isCompleted || isPending || isUnconfirmed 
-                                    ? 'text-slate-800' 
+                                  isConfirmed || isCheckedInOrInSession || isCompleted || isPending || isUnconfirmed
+                                    ? 'text-slate-800'
                                     : 'text-slate-400'
                                 }`}>Xác nhận</span>
                               </div>
@@ -910,43 +1005,51 @@ export default function CustomerAppointments() {
                           app.rating_id ? (
                             <div className="border border-slate-200/80 p-2.5 rounded-xl text-[11px] font-bold text-slate-500 space-y-1 bg-white shadow-inner text-center">
                               <div className="flex items-center justify-center gap-1 text-amber-500 font-bold">
-                                ⭐⭐⭐⭐⭐ <span className="text-slate-700 font-extrabold">{app.rating_stars} / 5</span>
+                                {Array.from({ length: 5 }).map((_, i) => (
+                                  <Star 
+                                    key={i} 
+                                    size={12} 
+                                    className={i < (app.rating_stars || 5) ? 'fill-amber-400 stroke-none' : 'text-zinc-200 fill-zinc-200 stroke-none'} 
+                                  />
+                                ))}
+                                <span className="text-slate-700 font-extrabold ml-1">{app.rating_stars || 5} / 5</span>
                               </div>
                               {app.rating_comment && <p className="text-[10px] text-slate-400 italic">"{app.rating_comment}"</p>}
                             </div>
                           ) : (
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="w-full">
                               <motion.button
                                 whileHover={{ scale: 1.02 }}
                                 whileTap={{ scale: 0.98 }}
                                 onClick={handleViewTreatmentDetail}
-                                className="bg-[#0F172A] hover:bg-slate-900 text-white font-extrabold text-[10px] uppercase tracking-wider py-2.5 rounded-xl transition-all text-center cursor-pointer shadow-xs"
+                                className="w-full bg-[#0F172A] hover:bg-slate-900 text-white font-extrabold text-[10px] uppercase tracking-wider py-2.5 rounded-xl transition-all text-center cursor-pointer shadow-xs"
                               >
                                 Chi tiết buổi
-                              </motion.button>
-                              
-                              <motion.button
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                                onClick={() => setRatingApptId(app.id)}
-                                className="bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-[10px] uppercase tracking-wider py-2.5 rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
-                              >
-                                <Star size={11} fill="currentColor" />
-                                Đánh giá
                               </motion.button>
                             </div>
                           )
                         )}
 
                         {(app.trang_thai === 'cho_xac_nhan' || app.trang_thai === 'da_xac_nhan') && (
-                          <motion.button
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                            onClick={() => setCancellingId(app.id)}
-                            className="w-full bg-white hover:bg-rose-50 hover:text-rose-600 border border-slate-200 hover:border-rose-200 text-slate-650 font-extrabold text-[10px] uppercase tracking-wider py-2.5 rounded-xl transition-all cursor-pointer shadow-xs"
-                          >
-                            Yêu cầu hủy lịch
-                          </motion.button>
+                          canSelfCancel ? (
+                            <motion.button
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => setCancellingId(app.id)}
+                              className="w-full bg-white hover:bg-rose-50 hover:text-rose-600 border border-slate-200 hover:border-rose-200 text-slate-650 font-extrabold text-[10px] uppercase tracking-wider py-2.5 rounded-xl transition-all cursor-pointer shadow-xs"
+                            >
+                              Yêu cầu hủy lịch
+                            </motion.button>
+                          ) : (
+                            <div className="w-full bg-slate-50 border border-slate-150 rounded-xl py-2.5 px-3 text-center space-y-0.5">
+                              <p className="text-[9px] font-black text-slate-450 uppercase tracking-wider flex items-center justify-center gap-1">
+                                <Clock size={11} /> Đã quá mốc tự hủy (dưới 8 tiếng)
+                              </p>
+                              <p className="text-[9px] text-slate-400 font-semibold leading-snug">
+                                Vui lòng gọi Hotline để Lễ tân hỗ trợ hủy/đổi lịch.
+                              </p>
+                            </div>
+                          )
                         )}
                       </div>
                     </motion.div>
@@ -1028,87 +1131,162 @@ export default function CustomerAppointments() {
 
       {/* RATING MODAL */}
       <AnimatePresence>
-        {ratingApptId && (
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setRatingApptId(null)}
-              className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs"
-            />
+        {ratingApptId && (() => {
+          const activeAppt = appointments.find(a => a.id === ratingApptId);
+          const isPackage = activeAppt?.loai_goi === 'LIEU_TRINH';
+          const isPackageFinished = activeAppt?.phac_do_status === 'hoan_thanh' || activeAppt?.phac_do_status === 'huy_ngang';
+          const canRateService = !isPackage || isPackageFinished;
 
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="bg-white text-slate-800 rounded-[24px] border border-slate-100 max-w-sm w-full p-6 shadow-xl relative z-10 font-jakarta"
-            >
-              <div className="text-center space-y-2">
-                <div className="w-12 h-12 bg-amber-50 text-amber-500 rounded-xl flex items-center justify-center mx-auto border border-amber-100 shadow-xs">
-                  <Star size={24} fill="currentColor" />
+          return (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setRatingApptId(null)}
+                className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs"
+              />
+
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                className="bg-white text-slate-800 rounded-[28px] border border-slate-100 max-w-md w-full p-6 md:p-8 shadow-2xl relative z-10 font-jakarta max-h-[90vh] overflow-y-auto space-y-6"
+              >
+                <div className="text-center space-y-2">
+                  <div className="w-12 h-12 bg-amber-50 text-amber-500 rounded-xl flex items-center justify-center mx-auto border border-amber-100 shadow-xs">
+                    <Star size={24} fill="currentColor" />
+                  </div>
+                  <h3 className="text-lg font-black text-slate-900 uppercase tracking-wide">Đánh giá trị liệu</h3>
+                  <p className="text-[11px] text-slate-400 font-semibold leading-relaxed px-2">
+                    Ý kiến khách quan giúp chúng tôi liên tục tối ưu hóa phác đồ điều trị và nâng cao tay nghề nhân sự.
+                  </p>
                 </div>
-                <h3 className="text-lg font-black text-slate-900 uppercase tracking-wide">Đánh giá trị liệu</h3>
-                <p className="text-[11px] text-slate-400 font-semibold leading-relaxed px-2">
-                  Trải nghiệm thực tế của bạn giúp OfficeCare liên tục tối ưu hóa chuyên môn kỹ thuật và phục vụ tốt hơn.
-                </p>
-              </div>
 
-              <div className="my-5 space-y-4">
-                <div className="flex justify-center gap-1.5">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button
-                      key={star}
-                      type="button"
-                      onClick={() => setRatingStars(star)}
-                      className="p-1 hover:scale-110 active:scale-95 transition-all text-amber-400 cursor-pointer"
-                    >
-                      <Star
-                        size={32}
-                        fill={star <= ratingStars ? "#FF9F1C" : "none"}
-                        stroke={star <= ratingStars ? "#FF9F1C" : "currentColor"}
-                        className="stroke-[1.5]"
+                <div className="space-y-6 divide-y divide-slate-100">
+                  {/* 1. SERVICE QUALITY RATING */}
+                  <div className="space-y-4 pt-4 first:pt-0">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-[11px] font-black text-secondary uppercase tracking-wider">
+                        1. Chất lượng Dịch vụ
+                      </h4>
+                      {!canRateService && (
+                        <span className="text-[8px] bg-slate-100 text-slate-500 font-black px-2 py-0.5 rounded-md uppercase">
+                          Khóa
+                        </span>
+                      )}
+                    </div>
+
+                    {!canRateService ? (
+                      <div className="bg-slate-50 p-4 rounded-2xl border border-slate-150 text-center space-y-2">
+                        <div className="flex justify-center gap-1 opacity-40">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star key={star} size={20} className="text-zinc-300 fill-zinc-200" />
+                          ))}
+                        </div>
+                        <p className="text-[10px] text-slate-400 font-extrabold leading-normal">
+                          🔒 Bạn có thể đánh giá gói liệu trình này khi hoàn thành toàn bộ lộ trình trị liệu.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="flex justify-center gap-1.5">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <button
+                              key={star}
+                              type="button"
+                              onClick={() => setRatingStarsService(star)}
+                              className="p-1 hover:scale-110 active:scale-95 transition-all text-amber-400 cursor-pointer"
+                            >
+                              <Star
+                                size={26}
+                                fill={star <= ratingStarsService ? "#FF9F1C" : "none"}
+                                stroke={star <= ratingStarsService ? "#FF9F1C" : "currentColor"}
+                                className="stroke-[1.5]"
+                              />
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="space-y-1.5 text-left">
+                          <label htmlFor="nhanXetService" className="text-[9px] font-black text-slate-455 uppercase block tracking-wider">Nhận xét về gói dịch vụ</label>
+                          <textarea
+                            id="nhanXetService"
+                            rows={2}
+                            value={ratingCommentService}
+                            onChange={(e) => setRatingCommentService(e.target.value)}
+                            placeholder="Mức độ phục hồi, cơ sở vật chất, thiết bị y khoa..."
+                            className="w-full bg-slate-50 border border-slate-150 focus:border-[#14B8A6]/60 p-3 rounded-lg text-xs font-bold resize-none outline-none text-slate-800 transition-colors"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 2. STAFF QUALITY RATING */}
+                  <div className="space-y-4 pt-5">
+                    <h4 className="text-[11px] font-black text-secondary uppercase tracking-wider text-left">
+                      2. Kỹ thuật viên / Bác sĩ ({activeAppt?.ten_ky_thuat_vien || 'Phụ trách'})
+                    </h4>
+
+                    <div className="flex justify-center gap-1.5">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setRatingStarsStaff(star)}
+                          className="p-1 hover:scale-110 active:scale-95 transition-all text-amber-400 cursor-pointer"
+                        >
+                          <Star
+                            size={26}
+                            fill={star <= ratingStarsStaff ? "#FF9F1C" : "none"}
+                            stroke={star <= ratingStarsStaff ? "#FF9F1C" : "currentColor"}
+                            className="stroke-[1.5]"
+                          />
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="space-y-1.5 text-left">
+                      <label htmlFor="nhanXetStaff" className="text-[9px] font-black text-slate-455 uppercase block tracking-wider">Nhận xét về KTV / Bác sĩ</label>
+                      <textarea
+                        id="nhanXetStaff"
+                        rows={2}
+                        value={ratingCommentStaff}
+                        onChange={(e) => setRatingCommentStaff(e.target.value)}
+                        placeholder="Tay nghề, thái độ phục vụ chu đáo tận tâm..."
+                        className="w-full bg-slate-50 border border-slate-150 focus:border-[#14B8A6]/60 p-3 rounded-lg text-xs font-bold resize-none outline-none text-slate-800 transition-colors"
                       />
-                    </button>
-                  ))}
+                    </div>
+                  </div>
                 </div>
 
-                <div className="space-y-1.5 text-left">
-                  <label htmlFor="nhanXetInput" className="text-[9px] font-black text-slate-455 uppercase block tracking-wider">Lời nhắn gửi Bác sĩ / KTV</label>
-                  <textarea
-                    id="nhanXetInput"
-                    rows={3}
-                    value={ratingComment}
-                    onChange={(e) => setRatingComment(e.target.value)}
-                    placeholder="Viết nhận xét của bạn về chuyên môn y khoa, thái độ..."
-                    className="w-full bg-slate-50 border border-slate-150 focus:border-[#14B8A6]/60 p-3 rounded-lg text-xs font-bold resize-none outline-none text-slate-800 transition-colors"
-                  />
+                <div className="grid grid-cols-2 gap-3 pt-3">
+                  <button
+                    type="button"
+                    onClick={handleRatingSubmit}
+                    className="bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-[11px] uppercase tracking-wider py-3 rounded-xl shadow-xs cursor-pointer flex items-center justify-center"
+                  >
+                    Gửi đánh giá
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRatingApptId(null);
+                      setRatingStarsService(5);
+                      setRatingCommentService('');
+                      setRatingStarsStaff(5);
+                      setRatingCommentStaff('');
+                    }}
+                    className="bg-slate-50 hover:bg-slate-100 text-slate-500 font-extrabold text-[11px] uppercase tracking-wider py-3 rounded-xl border border-slate-200 transition-all cursor-pointer flex items-center justify-center"
+                  >
+                    Hủy bỏ
+                  </button>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 pt-1">
-                <button
-                  type="button"
-                  onClick={handleRatingSubmit}
-                  className="bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-[11px] uppercase tracking-wider py-3 rounded-xl shadow-xs cursor-pointer"
-                >
-                  Gửi đánh giá
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRatingApptId(null);
-                    setRatingStars(5);
-                    setRatingComment('');
-                  }}
-                  className="bg-slate-50 hover:bg-slate-100 text-slate-500 font-extrabold text-[11px] uppercase tracking-wider py-3 rounded-xl border border-slate-200 transition-all cursor-pointer"
-                >
-                  Hủy bỏ
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
+              </motion.div>
+            </div>
+          );
+        })()}
       </AnimatePresence>
 
     </div>

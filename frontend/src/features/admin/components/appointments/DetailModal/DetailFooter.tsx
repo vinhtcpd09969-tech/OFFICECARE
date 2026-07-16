@@ -23,6 +23,7 @@ function toPlanShape(apt: any) {
 interface DetailFooterProps {
   selectedAppointment: any;
   isReceptionist: boolean;
+  isReceptionistLocked?: boolean;
   hideBilling: boolean;
   isAssigning: boolean;
   onClose: () => void;
@@ -42,6 +43,7 @@ interface DetailFooterProps {
 export function DetailFooter({
   selectedAppointment,
   isReceptionist,
+  isReceptionistLocked = false,
   hideBilling,
   isAssigning,
   onClose,
@@ -220,7 +222,7 @@ export function DetailFooter({
         
         <button
           type="submit"
-          disabled={isAssigning || selectedAppointment.trang_thai === 'hoan_thanh'}
+          disabled={isAssigning || selectedAppointment.trang_thai === 'hoan_thanh' || isReceptionistLocked}
           className="px-6 py-2.5 bg-emerald-600 text-white text-xs font-bold rounded-xl hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isAssigning ? 'Đang lưu...' : 'Lưu cập nhật'}

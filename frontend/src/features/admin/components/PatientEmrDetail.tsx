@@ -34,10 +34,18 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
   }, [patient, selectedPlanId]);
 
   const selectedPlanSessions = useMemo(() => {
-    return patient?.appointments?.filter(
+    const isPrepaidPackage = selectedPlan?.hinh_thuc_thanh_toan_goi === 'tra_thang' || selectedPlan?.hinh_thuc_thanh_toan_goi === 'tra_gop';
+    const raw = patient?.appointments?.filter(
       (ap: any) => ap.phac_do_dieu_tri_id === selectedPlanId
     ) || [];
-  }, [patient, selectedPlanId]);
+    // Buổi "không đến" của gói trả từng buổi (Nhóm A) không mất buổi — coi slot như chưa từng
+    // đặt để cho đặt lại đúng buổi đó. Gói đã trả trước (Nhóm B) thì buổi không đến vẫn bị tính
+    // tiêu thụ nên giữ lại để khóa slot (resolveNoShowOutcome, docs/BUSINESS_RULES.md).
+    return raw.filter((ap: any) => {
+      const isNoShow = ['khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(ap.trang_thai);
+      return !isNoShow || isPrepaidPackage;
+    });
+  }, [patient, selectedPlanId, selectedPlan]);
 
   const selectedPlanKtvs = useMemo(() => {
     return patient?.appointments
@@ -456,6 +464,9 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
                 const appt = selectedPlanSessions.find((ap: any) => ap.so_thu_tu_buoi === sessionNum && ap.loai !== 'KHAM');
                 const isUnbooked = !appt && sessionNum === firstEmptySessionNum;
                 const isFinished = appt?.trang_thai === 'hoan_thanh';
+                // Sau khi lọc ở selectedPlanSessions, appt không đến còn sót lại luôn thuộc gói
+                // Nhóm B (đã trả trước) — buổi đã bị tính tiêu thụ, không cho đặt lại.
+                const isNoShowForfeited = ['khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(appt?.trang_thai);
 
                 if (appt) {
                   const isExpanded = expandedSessionId === appt.id;
@@ -474,16 +485,16 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
                       >
                         <div className="flex items-center gap-3">
                           <div className={`size-8 rounded-xl flex items-center justify-center shrink-0 font-black text-[11px] border shadow-sm ${
-                            isFinished ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'
+                            isFinished ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : isNoShowForfeited ? 'bg-slate-100 text-slate-400 border-slate-200/50' : 'bg-amber-50 text-amber-700 border-amber-100'
                           }`}>
                             {sessionNum}
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
                               <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
-                                isFinished ? 'bg-emerald-50 text-emerald-700 border border-emerald-100/50' : 'bg-amber-50 text-amber-700 border border-amber-100/50'
+                                isFinished ? 'bg-emerald-50 text-emerald-700 border border-emerald-100/50' : isNoShowForfeited ? 'bg-slate-100 text-slate-400 border border-slate-200/50' : 'bg-amber-50 text-amber-700 border border-amber-100/50'
                               }`}>
-                                {isFinished ? 'Hoàn thành' : 'Đã đặt lịch'}
+                                {isFinished ? 'Hoàn thành' : isNoShowForfeited ? 'Không đến (đã tính phí)' : 'Đã đặt lịch'}
                               </span>
                               <strong className="text-xs font-black text-slate-800">
                                 Buổi {sessionNum} • Trị liệu phục hồi
@@ -611,7 +622,10 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
                    const prevAppt = sessionNum > 1
                      ? selectedPlanSessions.find((ap: any) => ap.so_thu_tu_buoi === sessionNum - 1 && ap.loai !== 'KHAM')
                      : null;
-                   const isPrevFinished = sessionNum === 1 || (prevAppt && prevAppt.trang_thai === 'hoan_thanh');
+                   // prevAppt không đến còn sót lại (sau filter ở selectedPlanSessions) luôn thuộc
+                   // gói Nhóm B — buổi đã bị tính tiêu thụ nên vẫn coi là "xong" để mở buổi kế tiếp.
+                   const isPrevNoShowForfeited = ['khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(prevAppt?.trang_thai);
+                   const isPrevFinished = sessionNum === 1 || (prevAppt && (prevAppt.trang_thai === 'hoan_thanh' || isPrevNoShowForfeited));
 
                    const grossBeforeExamDeduction = resolveGrossBeforeExamDeduction(selectedPlan);
                    const minRequired = getMinPaymentRequired(

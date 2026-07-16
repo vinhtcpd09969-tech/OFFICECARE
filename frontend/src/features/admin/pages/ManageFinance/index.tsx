@@ -248,9 +248,15 @@ export default function ManageFinance() {
                   : Number(checkout.calculatedData.tong_tien_thanh_toan))
                 : (checkout.state.hoaDon ? Number(checkout.state.hoaDon.tong_tien_thanh_toan) : 0);
               
-              const isTungBuoiWithPaidExam = checkout.dangKyGoi && 
-                checkout.loaiThanhToan === 'tung_buoi' && 
+              const isTungBuoiWithPaidExam = checkout.dangKyGoi &&
+                checkout.loaiThanhToan === 'tung_buoi' &&
                 checkout.selectedConsultation?.ngay_thanh_toan_kham;
+
+              // Lịch hẹn đã tự mang sẵn dịch vụ/gói cụ thể (chỉ định từ bác sĩ HOẶC dịch vụ lẻ đặt
+              // trực tiếp) — khóa dropdown, KHÔNG cho đổi sang gói khác trong lúc đang thanh toán
+              // đúng 1 lịch hẹn cụ thể (đổi lung tung sẽ tạo hóa đơn/kích hoạt phác đồ sai lịch hẹn).
+              const hasLockedTarget = !!checkout.selectedConsultation?.khuyen_nghi_goi_id ||
+                !!checkout.selectedConsultation?.goi_dich_vu_id;
 
               return (
                 <form 
@@ -321,7 +327,7 @@ export default function ManageFinance() {
                                 checkout.setSelectedPackage(matched || null);
                               }}
                               required
-                              disabled={!!checkout.selectedConsultation?.khuyen_nghi_goi_id || isTungBuoiWithPaidExam}
+                              disabled={hasLockedTarget || isTungBuoiWithPaidExam}
                               className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-xs font-bold text-secondary focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                             >
                               <option value="">-- Chọn gói trị liệu --</option>

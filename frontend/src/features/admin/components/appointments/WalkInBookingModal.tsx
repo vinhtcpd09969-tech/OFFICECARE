@@ -7,12 +7,17 @@ import axiosInstance from '../../../../api/axios';
 import { convertToVietnamUtcIso } from '../../../../utils/date';
 import { isPlanCancelled, isSessionPaymentSatisfied } from '../../../../utils/billing';
 import { resolveImageUrl } from '../../../../utils/imageUrl';
+import { statusConfig } from './constants';
 
 /** Buổi kế tiếp của phác đồ đã đủ điều kiện thanh toán để đặt lịch chưa (xem docs/BUSINESS_RULES.md mục 3). */
 function isPlanBookable(plan: any): boolean {
   if (!plan || plan.trang_thai === 'khuyen_nghi') return true;
   // Gói đã hủy + hoàn tiền thì chấm dứt hẳn — không phải "thiếu tiền" để thu thêm.
   if (isPlanCancelled(plan)) return false;
+  // Đã có buổi đang hoạt động (chưa xác nhận/đã xác nhận/đã check-in/đang khám) — backend
+  // (appointment.repository.ts::createAppointment) chặn cứng đặt thêm cho tới khi buổi này
+  // xong/hủy, nên chặn ngay từ đây thay vì để lễ tân điền hết form rồi mới báo lỗi.
+  if (plan.lich_dang_hoat_dong) return false;
   return isSessionPaymentSatisfied(plan, Number(plan.so_buoi_da_dung || 0) + 1);
 }
 
@@ -651,9 +656,11 @@ export default function WalkInBookingModal({
     if (selectedPlan && !isPlanBookable(selectedPlan)) {
       const nextSession = Number(selectedPlan.so_buoi_da_dung || 0) + 1;
       toast.error(
-        selectedPlan.hinh_thuc_thanh_toan_goi === 'tra_gop'
-          ? `Gói trả góp chưa đóng Đợt 2. Vui lòng thu Đợt 2 trước khi đặt buổi số ${nextSession}!`
-          : `Gói chưa thanh toán đủ. Vui lòng thu tiền trước khi đặt buổi số ${nextSession}!`
+        selectedPlan.lich_dang_hoat_dong
+          ? `Buổi ${selectedPlan.lich_dang_hoat_dong.so_thu_tu_buoi} của gói này đang có lịch hoạt động. Vui lòng hoàn thành hoặc hủy lịch cũ trước khi đặt buổi tiếp theo!`
+          : selectedPlan.hinh_thuc_thanh_toan_goi === 'tra_gop'
+            ? `Gói trả góp chưa đóng Đợt 2. Vui lòng thu Đợt 2 trước khi đặt buổi số ${nextSession}!`
+            : `Gói chưa thanh toán đủ. Vui lòng thu tiền trước khi đặt buổi số ${nextSession}!`
       );
       return;
     }
@@ -958,6 +965,7 @@ export default function WalkInBookingModal({
                     const isSelected = selectedPlan?.id === plan.id;
                     const isRec = plan.trang_thai === 'khuyen_nghi';
                     const nextSession = plan.so_buoi_da_dung + 1;
+                    const hasActiveAppt = !!plan.lich_dang_hoat_dong;
                     const isBlocked = !isPlanBookable(plan);
                     return (
                       <div
@@ -983,20 +991,28 @@ export default function WalkInBookingModal({
                           <p className="text-[10px] text-slate-400 font-semibold mt-0.5">
                             {isRec
                               ? 'Dịch vụ lẻ/Gói được bác sĩ khuyên dùng'
-                              : `Đã dùng: ${plan.so_buoi_da_dung}/${plan.tong_so_buoi} buổi | Ca tiếp theo: Buổi ${nextSession}`
+                              : hasActiveAppt
+                                ? `Đã dùng: ${plan.so_buoi_da_dung}/${plan.tong_so_buoi} buổi | Buổi ${plan.lich_dang_hoat_dong.so_thu_tu_buoi} đã có lịch`
+                                : `Đã dùng: ${plan.so_buoi_da_dung}/${plan.tong_so_buoi} buổi | Ca tiếp theo: Buổi ${nextSession}`
                             }
                           </p>
                           {isBlocked && (
                             <p className="text-[10px] text-rose-600 font-bold mt-1">
-                              ⚠️ {plan.hinh_thuc_thanh_toan_goi === 'tra_gop'
-                                ? `Chưa đóng Đợt 2 — không thể đặt buổi ${nextSession}.`
-                                : `Chưa thanh toán đủ — không thể đặt buổi ${nextSession}.`}
+                              {hasActiveAppt
+                                ? `📅 Buổi ${plan.lich_dang_hoat_dong.so_thu_tu_buoi}: ${format(new Date(plan.lich_dang_hoat_dong.ngay_gio_bat_dau), 'dd/MM/yyyy HH:mm')} (${statusConfig[plan.lich_dang_hoat_dong.trang_thai]?.label || plan.lich_dang_hoat_dong.trang_thai}) — hoàn thành/hủy buổi này trước khi đặt tiếp.`
+                                : `⚠️ ${plan.hinh_thuc_thanh_toan_goi === 'tra_gop'
+                                    ? `Chưa đóng Đợt 2 — không thể đặt buổi ${nextSession}.`
+                                    : `Chưa thanh toán đủ — không thể đặt buổi ${nextSession}.`}`}
                             </p>
                           )}
                         </div>
 
                         {isBlocked ? (
-                          plan.hoa_don_id ? (
+                          hasActiveAppt ? (
+                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 bg-blue-500 text-white">
+                              Đã đặt lịch
+                            </span>
+                          ) : plan.hoa_don_id ? (
                             <button
                               type="button"
                               onClick={(e) => {

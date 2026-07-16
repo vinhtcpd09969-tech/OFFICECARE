@@ -4,7 +4,6 @@ interface HUDHeaderProps {
   khamCount: number;
   leCount: number;
   lieuTrinhCount: number;
-  avgSessions: number;
   onOpenCategory: () => void;
   onOpenAddPackage: () => void;
 }
@@ -15,7 +14,6 @@ export function HUDHeader({
   khamCount,
   leCount,
   lieuTrinhCount,
-  avgSessions,
   onOpenCategory,
   onOpenAddPackage
 }: HUDHeaderProps) {
@@ -50,8 +48,8 @@ export function HUDHeader({
         </div>
       </div>
 
-      {/* KPI HUD Panel - Premium 5-Card Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+      {/* KPI HUD Panel - Premium 4-Card Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="bg-gradient-to-br from-white to-teal-50/10 p-5 rounded-2xl border border-zinc-200 shadow-sm flex flex-col justify-between transition-all hover:border-primary/30 hover:shadow-md">
           <div className="flex justify-between items-start mb-2">
             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">TỔNG THIẾT LẬP</p>
@@ -93,17 +91,6 @@ export function HUDHeader({
           <div className="flex items-baseline gap-2">
             <h3 className="text-2xl font-black text-secondary">{lieuTrinhCount}</h3>
             <span className="text-[9px] text-emerald-800 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-150">Đa buổi</span>
-          </div>
-        </div>
-
-        <div className="col-span-2 sm:col-span-1 bg-gradient-to-br from-white to-amber-50/10 p-5 rounded-2xl border border-zinc-200 shadow-sm flex flex-col justify-between transition-all hover:border-amber-300/50 hover:shadow-md">
-          <div className="flex justify-between items-start mb-2">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">SỐ BUỔI TRUNG BÌNH</p>
-            <span className="p-1.5 rounded-lg bg-amber-50 text-amber-600 border border-amber-100 text-[10px] font-bold">Session</span>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <h3 className="text-2xl font-black text-secondary">{avgSessions}</h3>
-            <span className="text-[9px] text-amber-700 font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-150">Buổi / Gói</span>
           </div>
         </div>
       </div>
