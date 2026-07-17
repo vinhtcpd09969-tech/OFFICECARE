@@ -167,7 +167,7 @@ export default function VerifyEmail() {
       // Custom Premium Welcome Toast
       toast.custom((t) => <WelcomeToast t={t} user={user} />, { duration: 6000 });
       
-      const from = (location.state as any)?.from || '/dashboard';
+      const from = (location.state as any)?.from || '/appointments';
       navigate(from, { replace: true });
     } catch (err: any) {
       if (err.response?.data?.message) {
@@ -261,9 +261,10 @@ export default function VerifyEmail() {
             <button
               type="button"
               onClick={() => navigate('/register')}
-              className="text-xs text-zinc-400 hover:text-[#0D9488] font-bold transition-colors focus:outline-none font-sans"
+              className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-[#0D9488] font-bold transition-colors focus:outline-none font-sans"
             >
-              Đăng ký mới
+              <ArrowLeft size={13} className="text-[#0D9488]" />
+              <span>Quay lại trang Đăng ký</span>
             </button>
           </div>
 

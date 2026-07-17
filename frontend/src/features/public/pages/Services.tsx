@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, AlertTriangle, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Clock, AlertTriangle, X, Stethoscope, Zap, Hand, Dumbbell, ShieldCheck, Activity, Flame, Search } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { getPublicServices, getPublicPackages, getPublicCategories } from '../api/public.api';
 import LoadingScreen from '../../../components/LoadingScreen';
+import ScrollReveal from '../components/shared/ScrollReveal';
 
 interface UnifiedService {
   id: string;
@@ -25,28 +27,98 @@ interface Category {
   loai_goi_ap_dung: 'KHAM' | 'LE' | 'LIEU_TRINH';
 }
 
+const TAB_OPTIONS: { key: 'ALL' | 'KHAM' | 'LE' | 'LIEU_TRINH'; label: string; icon: typeof Stethoscope }[] = [
+  { key: 'ALL', label: 'Tất Cả', icon: Activity },
+  { key: 'KHAM', label: 'Khám Lâm Sàng', icon: Stethoscope },
+  { key: 'LE', label: 'Trị Liệu Đơn Buổi', icon: Zap },
+  { key: 'LIEU_TRINH', label: 'Liệu Trình Chuyên Sâu', icon: ShieldCheck },
+];
+
+function getCategoryIcon(tenDanhMuc: string) {
+  const name = tenDanhMuc.toLowerCase();
+  if (name.includes('công nghệ')) return Zap;
+  if (name.includes('thủ công')) return Hand;
+  if (name.includes('thể thao')) return Dumbbell;
+  if (name.includes('phòng ngừa') || name.includes('duy trì')) return ShieldCheck;
+  if (name.includes('khám')) return Stethoscope;
+  return Activity;
+}
+
+const TREATMENT_STEPS = [
+  {
+    step: '01',
+    title: 'Khám & Lượng Giá',
+    desc: 'Bác sĩ chuyên khoa khám lâm sàng, đánh giá tầm vận động khớp và thực hiện siêu âm chẩn đoán để định vị chính xác vùng cơ xương khớp tổn thương.'
+  },
+  {
+    step: '02',
+    title: 'Thiết Lập Phác Đồ',
+    desc: 'Xây dựng lộ trình cá nhân hóa dựa trên tính chất công việc, cơ địa và ngưỡng chịu đau của bệnh nhân, không áp dụng rập khuôn mẫu số chung.'
+  },
+  {
+    step: '03',
+    title: 'Trị Liệu & Tái Đánh Giá',
+    desc: 'Kết hợp công nghệ cao với kỹ thuật giải phóng cơ thủ công. Tái đánh giá mức độ giảm đau và biên độ khớp sau mỗi buổi để tinh chỉnh phác đồ kịp thời.'
+  }
+];
+
+const MEDICAL_TECHS = [
+  {
+    name: 'Sóng xung kích Shockwave',
+    desc: 'Công nghệ tạo sóng âm năng lượng cao, phá vỡ xơ hóa cơ, kích thích tái tạo mạch máu và đẩy nhanh tiến trình tự chữa lành.',
+    efficacy: 'Giảm viêm sâu 85%',
+    tag: 'Đạt chuẩn FDA'
+  },
+  {
+    name: 'Laser cường độ cao 30W',
+    desc: 'Tác động quang sinh học sâu vào mô, tăng cường tuần hoàn và ATP tế bào, giúp giảm đau cấp tính tức thì chỉ sau vài phút.',
+    efficacy: 'Cắt cơn đau 90%',
+    tag: 'Nhập khẩu Ý'
+  },
+  {
+    name: 'Điện xung trị liệu EMS',
+    desc: 'Kích thích thần kinh - cơ qua da, giảm co thắt, hỗ trợ phục hồi sức mạnh và tầm vận động của các nhóm cơ bị tổn thương.',
+    efficacy: 'Khôi phục vận động 80%',
+    tag: 'Chuẩn Châu Âu'
+  },
+  {
+    name: 'Giải phóng cơ thủ công (Manual Release)',
+    desc: 'Kỹ thuật di động mô mềm chuyên sâu kết hợp kéo giãn cơ học bằng tay do chuyên viên thực hiện giúp giải phóng các điểm kích hoạt đau.',
+    efficacy: 'Nới lỏng khớp 95%',
+    tag: 'Kỹ thuật độc quyền'
+  }
+];
+
+const MEDICAL_FAQS = [
+  {
+    q: 'Tần suất thực hiện trị liệu vật lý là bao nhiêu lần một tuần?',
+    a: 'Tùy thuộc vào tình trạng cấp tính hay mãn tính, bác sĩ sẽ chỉ định tần suất phù hợp. Thông thường từ 2 - 3 buổi/tuần để đảm bảo cơ thể có thời gian phục hồi và đáp ứng tốt với các kích thích vật lý.'
+  },
+  {
+    q: 'Tôi có cần đặt lịch khám trước khi làm liệu trình chuyên sâu không?',
+    a: 'Có. Để đảm bảo an toàn và đạt hiệu quả tối ưu, khách hàng bắt buộc phải được lượng giá lâm sàng và siêu âm chẩn đoán bởi Bác sĩ chuyên khoa trước khi bắt đầu bất kỳ liệu trình chuyên sâu nào.'
+  },
+  {
+    q: 'Trị liệu bằng sóng xung kích hay laser công suất cao có đau không?',
+    a: 'Các công nghệ này có thể gây cảm giác châm chích nhẹ hoặc mỏi cơ tại vùng đau trong vài phút đầu. Kỹ thuật viên sẽ luôn điều chỉnh mức năng lượng phù hợp với ngưỡng chịu đựng của bạn.'
+  },
+  {
+    q: 'Chính sách bảo hiểm y tế tại OfficeCare như thế nào?',
+    a: 'OfficeCare hỗ trợ xuất hóa đơn đỏ VAT và hồ sơ bệnh án chuẩn y khoa để khách hàng thực hiện thanh toán với các đơn vị bảo hiểm bảo lãnh hoặc bảo hiểm tư nhân.'
+  }
+];
+
 export default function ServicesPage() {
   const navigate = useNavigate();
   const [items, setItems] = useState<UnifiedService[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('ALL');
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'KHAM' | 'LE' | 'LIEU_TRINH'>('KHAM');
+  const [activeTab, setActiveTab] = useState<'ALL' | 'KHAM' | 'LE' | 'LIEU_TRINH'>('ALL');
   const [showLieuTrinhWarning, setShowLieuTrinhWarning] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const sliderRef = useRef<HTMLDivElement>(null);
-
-  const handleScroll = (direction: 'left' | 'right') => {
-    if (sliderRef.current) {
-      const container = sliderRef.current;
-      const cardWidth = container.firstElementChild?.getBoundingClientRect().width || 400;
-      const scrollAmount = direction === 'left' ? -(cardWidth + 24) : (cardWidth + 24);
-      container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-    }
-  };
-
-  // Reset category filter when changing tab
-  const handleTabChange = (tab: 'KHAM' | 'LE' | 'LIEU_TRINH') => {
+  const handleTabChange = (tab: 'ALL' | 'KHAM' | 'LE' | 'LIEU_TRINH') => {
     setActiveTab(tab);
     setSelectedCategoryId('ALL');
   };
@@ -60,7 +132,7 @@ export default function ServicesPage() {
           getPublicCategories()
         ]);
         setCategories(categoriesRes.data);
-        
+
         // Map services (KHAM and LE)
         const servicesMapped = servicesRes.data.map((s: any) => ({
           id: s.id.toString(),
@@ -109,269 +181,357 @@ export default function ServicesPage() {
     return <LoadingScreen />;
   }
 
-  const activeCategories = categories.filter(cat => cat.loai_goi_ap_dung === activeTab);
+  const activeCategories = activeTab === 'ALL'
+    ? categories
+    : categories.filter((cat: Category) => cat.loai_goi_ap_dung === activeTab);
 
-  const filteredItems = items.filter(item => {
-    if (item.loai_goi !== activeTab) return false;
+  const filteredItems = items.filter((item: UnifiedService) => {
+    if (activeTab !== 'ALL' && item.loai_goi !== activeTab) return false;
     if (selectedCategoryId !== 'ALL' && item.danh_muc_id !== selectedCategoryId) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      return item.ten_goi.toLowerCase().includes(q) || (item.mo_ta && item.mo_ta.toLowerCase().includes(q));
+    }
     return true;
   });
 
-
-
-  // Dynamic counts for sidebar indicators
-  const khamCount = items.filter(item => item.loai_goi === 'KHAM').length;
-  const leCount = items.filter(item => item.loai_goi === 'LE').length;
-  const lieuTrinhCount = items.filter(item => item.loai_goi === 'LIEU_TRINH').length;
+  const allCount = items.length;
+  const khamCount = items.filter((item: UnifiedService) => item.loai_goi === 'KHAM').length;
+  const leCount = items.filter((item: UnifiedService) => item.loai_goi === 'LE').length;
+  const lieuTrinhCount = items.filter((item: UnifiedService) => item.loai_goi === 'LIEU_TRINH').length;
+  const countByTab = { ALL: allCount, KHAM: khamCount, LE: leCount, LIEU_TRINH: lieuTrinhCount };
 
   return (
     <div className="min-h-screen bg-slate-50/50 pb-20 pt-28 font-jakarta">
-      {/* HUD High-tech Grid Background */}
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(20,184,166,0.01)_1px,transparent_1px),linear-gradient(90deg,rgba(20,184,166,0.01)_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none opacity-60 z-0"></div>
+      <div className="max-w-7xl mx-auto px-6">
 
-      <div className="max-w-7xl mx-auto px-6 relative z-10">
-        
-        {/* Centered Header */}
-        <div className="mb-12 max-w-3xl mx-auto text-center">
-          <span className="bg-[#14B8A6]/10 text-[#0D9488] border border-[#14B8A6]/20 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full inline-block mb-3 shadow-sm">
-            ✨ DỊCH VỤ & LIỆU TRÌNH Y KHOA
-          </span>
-          <h1 className="font-heading font-black text-2xl md:text-3xl text-slate-900 tracking-tight leading-tight mb-3">
-            Giải Pháp <span className="bg-gradient-to-r from-[#0D9488] to-[#14B8A6] bg-clip-text text-transparent">Trị Liệu & Phục Hồi</span>
-          </h1>
-          <p className="text-slate-500 font-semibold text-xs md:text-sm leading-relaxed max-w-2xl mx-auto">
-            Tất cả dịch vụ được chuẩn hóa y khoa với các thiết bị vật lý trị liệu tân tiến nhập khẩu từ Châu Âu cùng phác đồ cá nhân hóa từ chuyên gia.
-          </p>
+        {/* Asymmetric Header */}
+        <div className="mb-14 grid grid-cols-1 lg:grid-cols-12 gap-8 items-end border-b border-slate-200 pb-10">
+          <div className="lg:col-span-7 space-y-4">
+            <span className="bg-[#14B8A6]/10 text-[#0D9488] border border-[#14B8A6]/20 text-[9px] font-black uppercase tracking-widest px-3.5 py-1 rounded-full inline-flex items-center gap-1.5 shadow-inner">
+              ⚡ DỊCH VỤ & LIỆU TRÌNH Y KHOA
+            </span>
+            <h1 className="font-heading font-black text-4xl md:text-5xl text-slate-900 tracking-tight leading-[1.05] uppercase">
+              Giải Pháp <span className="text-[#0D9488]">Trị Liệu</span> <br className="hidden md:inline" />
+              & Phục Hồi Chuyên Sâu
+            </h1>
+          </div>
+          <div className="lg:col-span-5 space-y-4">
+            <p className="text-slate-500 font-semibold text-xs leading-relaxed">
+              Tất cả dịch vụ tại OfficeCare được chuẩn hóa y học quốc tế, kết hợp máy móc công nghệ cao châu Âu và phác đồ chuyên biệt từ hội đồng chuyên môn nhằm tối ưu thời gian lành thương cơ xương khớp.
+            </p>
+            {/* Quick trust metrics */}
+            <div className="grid grid-cols-3 gap-4 pt-2 border-t border-slate-100">
+              <div>
+                <p className="text-base font-black text-slate-900">+15k</p>
+                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Ca phục hồi</p>
+              </div>
+              <div>
+                <p className="text-base font-black text-[#0D9488]">100%</p>
+                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Cá nhân hóa</p>
+              </div>
+              <div>
+                <p className="text-base font-black text-secondary">FDA</p>
+                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Đạt chuẩn y tế</p>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Two-Column Responsive Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          
-          {/* Left Column: Sidebar Filters */}
-          <div className="lg:col-span-3 bg-white/80 backdrop-blur-md p-5 border border-slate-200/50 rounded-3xl shadow-[0_15px_35px_rgba(15,23,42,0.02)] space-y-4">
-            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-1">
-              📂 PHÂN LOẠI DỊCH VỤ
-            </span>
-            
-            <div className="flex flex-col gap-2">
-              <button
-                type="button"
-                onClick={() => handleTabChange('KHAM')}
-                className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all duration-300 ${
-                  activeTab === 'KHAM'
-                    ? 'bg-[#14B8A6] text-white shadow-md shadow-teal-500/10'
-                    : 'text-slate-600 hover:text-slate-800 hover:bg-slate-100/50'
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <span>🩺</span> Khám Lâm Sàng
-                </span>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                  activeTab === 'KHAM' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
-                }`}>{khamCount}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleTabChange('LE')}
-                className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all duration-300 ${
-                  activeTab === 'LE'
-                    ? 'bg-[#14B8A6] text-white shadow-md shadow-teal-500/10'
-                    : 'text-slate-600 hover:text-slate-800 hover:bg-slate-100/50'
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <span>⚡</span> Trị Liệu Đơn Buổi
-                </span>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                  activeTab === 'LE' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
-                }`}>{leCount}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleTabChange('LIEU_TRINH')}
-                className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all duration-300 ${
-                  activeTab === 'LIEU_TRINH'
-                    ? 'bg-[#14B8A6] text-white shadow-md shadow-teal-500/10'
-                    : 'text-slate-600 hover:text-slate-800 hover:bg-slate-100/50'
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <span>💎</span> Liệu Trình Chuyên Sâu
-                </span>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                  activeTab === 'LIEU_TRINH' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
-                }`}>{lieuTrinhCount}</span>
-              </button>
+        {/* Search & Filter Hub */}
+        <div className="bg-white rounded-[24px] border border-slate-150 p-4 md:p-6 mb-12 shadow-[0_8px_30px_rgba(15,23,42,0.015)] space-y-4">
+          <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
+            {/* Search Input */}
+            <div className="relative w-full lg:max-w-md">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-450" size={15} />
+              <input
+                type="text"
+                placeholder="Tìm kiếm dịch vụ, triệu chứng đau..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full pl-11 pr-10 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-secondary font-bold placeholder-slate-400 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-650"
+                >
+                  <X size={14} />
+                </button>
+              )}
             </div>
 
-            {activeCategories.length > 0 && (
-              <div className="border-t border-slate-150/80 pt-4 space-y-2">
-                <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest block mb-2">
-                  🔍 Chuyên khoa / Danh mục
-                </span>
-                <div className="flex flex-col gap-1.5">
+            {/* Main Tabs */}
+            <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-end">
+              {TAB_OPTIONS.map(tab => {
+                const Icon = tab.icon;
+                return (
                   <button
+                    key={tab.key}
                     type="button"
-                    onClick={() => {
-                      setSelectedCategoryId('ALL');
-                    }}
-                    className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                      selectedCategoryId === 'ALL'
-                        ? 'bg-slate-100 text-slate-900 border border-slate-200'
-                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+                    onClick={() => handleTabChange(tab.key)}
+                    className={`flex items-center gap-2 px-5 py-3 rounded-xl text-xs font-bold transition-all duration-200 border cursor-pointer active:scale-98 ${
+                      activeTab === tab.key
+                        ? 'bg-[#0D9488] border-[#0D9488] text-white shadow-md shadow-teal-500/10'
+                        : 'bg-white border-slate-200 text-slate-600 hover:border-[#14B8A6]/40'
                     }`}
                   >
-                    👉 Tất cả danh mục
+                    <Icon size={13} />
+                    {tab.label}
+                    <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-md ${
+                      activeTab === tab.key ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                    }`}>{countByTab[tab.key]}</span>
                   </button>
-                  {activeCategories.map((cat) => (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedCategoryId(cat.id);
-                      }}
-                      className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                        selectedCategoryId === cat.id
-                          ? 'bg-primary/10 text-primary border border-primary/20'
-                          : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
-                      }`}
-                    >
-                      • {cat.ten_danh_muc}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="border-t border-slate-100 pt-4 text-[10px] text-slate-400 font-bold leading-normal">
-              💡 Bệnh nhân được khuyến nghị khám sàng lọc trước khi tham gia các liệu trình.
+                );
+              })}
             </div>
           </div>
 
-          {/* Right Column: Services Slider */}
-          <div className="lg:col-span-9 relative group/slider">
-            
-            {/* Navigation buttons at the top right of the section */}
-            {filteredItems.length > 2 && (
-              <div className="absolute right-4 top-[-48px] flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleScroll('left')}
-                  className="size-9 rounded-xl bg-white border border-slate-200 shadow-xs hover:bg-slate-50 flex items-center justify-center text-slate-600 active:scale-95 transition-all cursor-pointer"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleScroll('right')}
-                  className="size-9 rounded-xl bg-white border border-slate-200 shadow-xs hover:bg-slate-50 flex items-center justify-center text-slate-600 active:scale-95 transition-all cursor-pointer"
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-            )}
+          {/* Secondary Category Pills */}
+          {activeCategories.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 pt-4 border-t border-slate-100">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider mr-2">Bộ lọc:</span>
+              <button
+                type="button"
+                onClick={() => setSelectedCategoryId('ALL')}
+                className={`px-4.5 py-2 rounded-xl text-[10px] font-bold transition-all border cursor-pointer ${
+                  selectedCategoryId === 'ALL'
+                    ? 'bg-slate-900 border-slate-900 text-white'
+                    : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-350'
+                }`}
+              >
+                Tất cả danh mục
+              </button>
+              {activeCategories.map((cat: Category) => {
+                const Icon = getCategoryIcon(cat.ten_danh_muc);
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setSelectedCategoryId(cat.id)}
+                    className={`flex items-center gap-1.5 px-4.5 py-2 rounded-xl text-[10px] font-bold transition-all border cursor-pointer ${
+                      selectedCategoryId === cat.id
+                        ? 'bg-primary/10 border-primary/30 text-primary'
+                        : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-350'
+                    }`}
+                  >
+                    <Icon size={11} />
+                    {cat.ten_danh_muc}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
-            <div 
-              ref={sliderRef}
-              className="flex gap-6 overflow-x-auto hide-scrollbar snap-x snap-mandatory scroll-smooth pb-4 pr-1"
-            >
-              {filteredItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="min-w-full md:min-w-[calc(50%-12px)] max-w-full md:max-w-[calc(50%-12px)] snap-start bg-white rounded-[24px] p-4 border border-slate-100/80 shadow-[0_8px_25px_rgba(15,23,42,0.01)] hover:shadow-[0_15px_35px_rgba(15,23,42,0.04)] hover:-translate-y-0.5 transition-all duration-300 flex flex-col justify-between overflow-hidden relative group"
+        {/* 3-Column Responsive Grid */}
+        {filteredItems.length === 0 ? (
+          <div className="text-center py-20 text-slate-400 font-bold text-xs bg-white rounded-[24px] border border-slate-150 shadow-xs">
+            Không tìm thấy dịch vụ nào phù hợp với bộ lọc và từ khóa tìm kiếm.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            {filteredItems.map((item: UnifiedService, idx: number) => (
+              <ScrollReveal key={item.id} delay={(idx % 3) * 100}>
+                <motion.div
+                  whileHover={{ y: -6 }}
+                  className="bg-white rounded-[24px] p-5 border border-slate-150 shadow-[0_4px_20px_rgba(15,23,42,0.01)] transition-all duration-300 flex flex-col h-full overflow-hidden hover:border-[#14B8A6]/40 hover:shadow-[0_15px_40px_-15px_rgba(15,23,42,0.05)] group"
                 >
                   <div>
                     {/* Visual Thumbnail */}
-                    <div className="aspect-[16/9] w-full rounded-xl overflow-hidden bg-slate-100 relative mb-3">
+                    <div className="aspect-[16/10] w-full rounded-[16px] overflow-hidden bg-slate-100 relative mb-4">
                       <img
                         src={item.anh_goi || '/goi/images/giai_co_sau.png'}
                         alt={item.ten_goi}
-                        className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500"
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/15 to-transparent"></div>
-                      
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/20 to-transparent"></div>
+
                       {item.thoi_luong_phut && (
-                        <div className="absolute bottom-2 left-2 bg-slate-900/60 backdrop-blur-md px-2 py-0.5 rounded-lg flex items-center gap-1 text-[9px] font-bold text-white shadow-sm border border-white/5">
+                        <div className="absolute bottom-3 left-3 bg-slate-900/75 backdrop-blur-md px-2.5 py-1 rounded-lg flex items-center gap-1.5 text-[9px] font-black text-white shadow-sm border border-white/5 uppercase tracking-wider">
                           <Clock size={10} className="text-[#14B8A6]" />
                           <span>{item.thoi_luong_phut} phút</span>
                         </div>
                       )}
 
-                      <div className="absolute top-2 right-2 bg-slate-900/60 backdrop-blur-md px-2 py-0.5 rounded-lg flex items-center gap-0.5 text-[9px] font-black text-white shadow-sm border border-white/5">
-                        <span>🔥 {item.luot_dung || 12} lượt đặt</span>
-                      </div>
+                      {item.luot_dung > 0 && (
+                        <div className="absolute top-3 right-3 bg-slate-900/75 backdrop-blur-md px-2.5 py-1 rounded-lg flex items-center gap-1.5 text-[9px] font-black text-white shadow-sm border border-white/5 uppercase tracking-wider">
+                          <Flame size={10} className="text-amber-400" />
+                          <span>{item.luot_dung} lượt đặt</span>
+                        </div>
+                      )}
                     </div>
 
+                    {/* Service Category Tag */}
+                    <span className="text-[9px] font-extrabold uppercase tracking-widest text-[#0D9488] mb-1.5 block">
+                      {item.loai_goi === 'KHAM' ? 'Khám chuyên khoa' : item.loai_goi === 'LE' ? 'Trị liệu đơn' : 'Liệu trình phục hồi'}
+                    </span>
+
                     {/* Title */}
-                    <h3 className="font-heading font-black text-sm text-slate-800 group-hover:text-[#0D9488] transition-colors leading-snug mb-2.5 min-h-[40px] line-clamp-2">
+                    <h3 className="font-heading font-black text-sm text-slate-900 leading-snug mb-2.5 line-clamp-2 min-h-[40px] uppercase tracking-tight">
                       {item.ten_goi}
                     </h3>
 
-                    {/* Price and Session info */}
-                    <div className="flex items-baseline gap-1 mb-4">
-                      <span className="text-base font-black text-slate-900">
-                        {item.gia_tien === 0 ? 'Liên hệ' : item.gia_tien.toLocaleString('vi-VN') + ' đ'}
-                      </span>
-                      {item.loai_goi === 'LIEU_TRINH' && (
-                        <span className="text-[10px] text-slate-400 font-bold">
-                          / {item.tong_so_buoi} buổi
-                        </span>
-                      )}
-                      {item.loai_goi !== 'LIEU_TRINH' && (
-                        <span className="text-[10px] text-slate-400 font-bold">
-                          / buổi
-                        </span>
-                      )}
+                    {/* Short Description */}
+                    <p className="text-slate-500 text-[11px] font-semibold leading-relaxed line-clamp-3 mb-4 min-h-[48px]">
+                      {item.mo_ta}
+                    </p>
+
+                    {/* Bullet Highlights */}
+                    <div className="border-t border-slate-100 pt-3.5 mb-5 space-y-2">
+                      <div className="flex items-center gap-2 text-[10px] text-slate-650 font-bold">
+                        <span className="size-1 bg-[#14B8A6] rounded-full shrink-0"></span>
+                        <span>Đạt chuẩn an toàn y học</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-[10px] text-slate-650 font-bold">
+                        <span className="size-1 bg-[#14B8A6] rounded-full shrink-0"></span>
+                        <span>KTV chính quy đứng máy</span>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Action Buttons */}
-                  <div className="grid grid-cols-2 gap-2.5 mt-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (item.loai_goi === 'LIEU_TRINH') {
-                          navigate(`/packages/${item.id}`);
-                        } else {
-                          navigate(`/services/${item.id}`);
-                        }
-                      }}
-                      className="bg-slate-50 hover:bg-slate-100 text-slate-600 text-center font-bold py-2.5 rounded-xl text-[10px] uppercase tracking-wider transition-all duration-300 border border-slate-200/60 cursor-pointer active:scale-98"
-                    >
-                      Chi Tiết
-                    </button>
-                    
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (item.loai_goi === 'LIEU_TRINH') {
-                          setShowLieuTrinhWarning(true);
-                        } else {
-                          navigate('/booking', { 
-                            state: { 
-                              bookingType: item.loai_goi === 'KHAM' ? 'kham' : 'le',
-                              selectedServiceId: item.id 
-                            } 
-                          });
-                        }
-                      }}
-                      className="bg-[#2EC4B6] hover:bg-[#25A89C] text-white text-center font-black py-2.5 rounded-xl text-[10px] uppercase tracking-wider transition-all duration-300 cursor-pointer active:scale-98 shadow-sm shadow-[#2EC4B6]/15"
-                    >
-                      Đặt Lịch
-                    </button>
+                  {/* Price and Action Buttons */}
+                  <div className="mt-auto space-y-4">
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-base font-black text-slate-900">
+                        {item.gia_tien === 0 ? 'Liên hệ' : item.gia_tien.toLocaleString('vi-VN') + ' đ'}
+                      </span>
+                      {item.loai_goi === 'LIEU_TRINH' ? (
+                        <span className="text-[10px] text-slate-400 font-bold">/ {item.tong_so_buoi} buổi</span>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 font-bold">/ buổi</span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (item.loai_goi === 'LIEU_TRINH') {
+                            navigate(`/packages/${item.id}`);
+                          } else {
+                            navigate(`/services/${item.id}`);
+                          }
+                        }}
+                        className="bg-slate-50 hover:bg-slate-100 text-slate-600 text-center font-extrabold py-3 rounded-xl text-[10px] uppercase tracking-widest transition-all duration-300 border border-slate-200/60 cursor-pointer active:scale-98"
+                      >
+                        Chi Tiết
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (item.loai_goi === 'LIEU_TRINH') {
+                            setShowLieuTrinhWarning(true);
+                          } else {
+                            navigate('/booking', {
+                              state: {
+                                bookingType: item.loai_goi === 'KHAM' ? 'kham' : 'dich_vu',
+                                selectedServiceId: item.id
+                              }
+                            });
+                          }
+                        }}
+                        className="bg-[#2EC4B6] hover:bg-[#25A89C] text-white text-center font-black py-3 rounded-xl text-[10px] uppercase tracking-widest transition-all duration-300 cursor-pointer active:scale-98 shadow-sm shadow-[#2EC4B6]/15"
+                      >
+                        Đặt Lịch
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
-              {filteredItems.length === 0 && (
-                <div className="w-full text-center py-12 text-slate-400 font-bold">
-                  Không có dịch vụ nào trong mục này.
-                </div>
-              )}
-            </div>
+                </motion.div>
+              </ScrollReveal>
+            ))}
+          </div>
+        )}
+
+        {/* SECTION 2: 3-STEP TREATMENT JOURNEY */}
+        <div className="mt-24 pt-16 border-t border-slate-200 space-y-12">
+          <div className="max-w-2xl text-left space-y-3">
+            <span className="bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full inline-block">
+              🩺 HÀNH TRÌNH KHÁM CHỮA BỆNH
+            </span>
+            <h2 className="font-heading font-black text-2xl md:text-3xl text-slate-900 tracking-tight leading-tight uppercase">
+              Quy Trình Trị Liệu Khoa Học Tại OfficeCare
+            </h2>
+            <p className="text-slate-500 font-semibold text-xs leading-relaxed">
+              Mỗi bệnh nhân tại trung tâm được dẫn dắt bởi một quy trình nghiêm ngặt từ khâu chẩn đoán đến khi phục hồi hoàn toàn chức năng vận động.
+            </p>
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {TREATMENT_STEPS.map((step) => (
+              <div key={step.step} className="bg-white rounded-2xl border border-slate-150 p-6 md:p-8 space-y-4 hover:border-[#14B8A6]/40 transition-all duration-300">
+                <span className="text-3xl font-black text-[#14B8A6]/30 font-heading block">{step.step}</span>
+                <h3 className="font-heading font-black text-sm text-slate-950 uppercase tracking-tight">{step.title}</h3>
+                <p className="text-slate-500 text-[11px] font-semibold leading-relaxed">{step.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* SECTION 3: MEDICAL TECHNOLOGY SHOWCASE */}
+        <div className="mt-24 pt-16 border-t border-slate-200 space-y-12">
+          <div className="max-w-2xl text-left space-y-3">
+            <span className="bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full inline-block">
+              ⚡ THIẾT BỊ CÔNG NGHỆ CAO
+            </span>
+            <h2 className="font-heading font-black text-2xl md:text-3xl text-slate-900 tracking-tight leading-tight uppercase">
+              Hệ Thống Thiết Bị Đạt Chuẩn Y Khoa
+            </h2>
+            <p className="text-slate-500 font-semibold text-xs leading-relaxed">
+              Chúng tôi đầu tư đồng bộ hệ thống máy móc tân tiến nhập khẩu từ Châu Âu, hỗ trợ đẩy nhanh thời gian lành thương gấp 2 lần.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {MEDICAL_TECHS.map((tech) => (
+              <div key={tech.name} className="bg-white rounded-2xl border border-slate-150 p-6 flex flex-col justify-between gap-4 hover:border-[#14B8A6]/40 transition-all duration-300">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="font-heading font-black text-xs text-slate-950 uppercase tracking-tight">{tech.name}</h3>
+                    <span className="bg-teal-500/10 text-[#0D9488] text-[8px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border border-teal-500/15 shrink-0">
+                      {tech.tag}
+                    </span>
+                  </div>
+                  <p className="text-slate-500 text-[11px] font-semibold leading-relaxed">{tech.desc}</p>
+                </div>
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Hiệu quả lâm sàng:</span>
+                  <span className="text-xs font-black text-[#0D9488]">{tech.efficacy}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* SECTION 4: FAQ SECTION */}
+        <div className="mt-24 pt-16 border-t border-slate-200 space-y-12">
+          <div className="max-w-2xl text-left space-y-3">
+            <span className="bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full inline-block">
+              💬 HỎI ĐÁP Y KHOA
+            </span>
+            <h2 className="font-heading font-black text-2xl md:text-3xl text-slate-900 tracking-tight leading-tight uppercase">
+              Giải Đáp Thắc Mắc Thường Gặp
+            </h2>
+            <p className="text-slate-500 font-semibold text-xs leading-relaxed">
+              Các câu hỏi đáp nhanh từ bác sĩ chuyên khoa giúp quý khách hiểu rõ hơn về lộ trình trị liệu cơ xương khớp.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {MEDICAL_FAQS.map((faq, idx) => (
+              <div key={idx} className="bg-white rounded-2xl border border-slate-150 p-6 space-y-2 hover:border-[#14B8A6]/45 transition-all duration-300">
+                <h3 className="font-heading font-black text-xs text-slate-900 leading-snug flex items-start gap-2">
+                  <span className="text-[#0D9488] shrink-0 font-black">Q.</span>
+                  <span>{faq.q}</span>
+                </h3>
+                <p className="text-slate-550 text-[11px] font-semibold leading-relaxed pl-4 border-l-2 border-slate-100">
+                  {faq.a}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
 
       </div>
@@ -379,7 +539,7 @@ export default function ServicesPage() {
       {/* Gói Liệu Trình Warning Modal */}
       {showLieuTrinhWarning && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white text-slate-800 rounded-[32px] border border-slate-100 max-w-md w-full p-8 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white text-slate-800 rounded-[32px] border border-slate-100 max-w-md w-full p-8 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200 text-center">
             <button
               onClick={() => setShowLieuTrinhWarning(false)}
               className="absolute top-6 right-6 p-1.5 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors"
@@ -403,14 +563,14 @@ export default function ServicesPage() {
                   setShowLieuTrinhWarning(false);
                   navigate('/booking', { state: { bookingType: 'kham' } });
                 }}
-                className="bg-primary hover:bg-[#25A89C] text-white font-extrabold text-xs uppercase tracking-wider py-3.5 rounded-xl shadow-sm transition-all"
+                className="bg-primary hover:bg-[#25A89C] text-white font-extrabold text-xs uppercase tracking-wider py-3.5 rounded-xl shadow-sm transition-all cursor-pointer"
               >
                 Tiếp tục đặt lịch khám
               </button>
               <button
                 type="button"
                 onClick={() => setShowLieuTrinhWarning(false)}
-                className="bg-zinc-50 hover:bg-zinc-100 text-slate-650 font-bold text-xs uppercase tracking-wider py-3.5 rounded-xl border border-zinc-200 transition-all"
+                className="bg-zinc-50 hover:bg-zinc-100 text-slate-650 font-bold text-xs uppercase tracking-wider py-3.5 rounded-xl border border-zinc-200 transition-all cursor-pointer"
               >
                 Hủy bỏ
               </button>

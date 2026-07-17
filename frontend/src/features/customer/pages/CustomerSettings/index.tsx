@@ -1,6 +1,16 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuthStore, useAuthActions } from '../../../../stores/authStore';
-import { updateProfile, changePassword, getMe } from '../../api/customer.api';
+import { ConfirmDialog } from '../../../../components/ConfirmDialog';
+import { 
+  updateProfile, 
+  changePassword, 
+  getMe, 
+  getMyReviews, 
+  updateServiceReview, 
+  updateStaffReview, 
+  deleteServiceReview, 
+  deleteStaffReview 
+} from '../../api/customer.api';
 import toast from 'react-hot-toast';
 import { 
   Settings, 
@@ -20,13 +30,17 @@ import {
   FileText,
   BadgeCheck,
   Upload,
-  Trash2
+  Trash2,
+  Tag,
+  Star,
+  MessageSquare,
+  Edit2
 } from 'lucide-react';
 
 export default function CustomerSettings() {
   const { user } = useAuthStore();
   const { updateUser } = useAuthActions();
-  const [activeSection, setActiveSection] = useState<'general' | 'notifications'>('general');
+  const [activeSection, setActiveSection] = useState<'general' | 'notifications' | 'reviews'>('general');
   const [savedSuccess, setSavedSuccess] = useState<boolean>(false);
   const [loading, setLoading] = useState(false);
 
@@ -34,16 +48,90 @@ export default function CustomerSettings() {
   const [showExpertForm, setShowExpertForm] = useState(false);
 
   const isExpert = [3, 4].includes(Number(user?.vai_tro_id));
-
-  // Form states
+  const isCustomer = user?.vai_tro_id === 1 || user?.vai_tro_id === 0 || !user?.vai_tro_id; // Default to true if user role is not loaded yet to prevent flashing
   const [hoTen, setHoTen] = useState(user?.ho_ten || '');
   const email = user?.email || '';
   const [soDienThoai, setSoDienThoai] = useState(user?.so_dien_thoai || '');
+  const [gioiTinh, setGioiTinh] = useState(user?.gioi_tinh || 'nam');
+  const [diaChi, setDiaChi] = useState(user?.dia_chi || '');
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [anhDaiDien, setAnhDaiDien] = useState(user?.anh_dai_dien || '');
   const [soNamKinhNghiem, setSoNamKinhNghiem] = useState(user?.ho_so_chuyen_gia?.so_nam_kinh_nghiem || 0);
   const [bangCapChungChi, setBangCapChungChi] = useState('');
   const [anhChungChiList, setAnhChungChiList] = useState<string[]>([]);
   const [moTa, setMoTa] = useState(user?.ho_so_chuyen_gia?.mo_ta || '');
+  const [theManh, setTheManh] = useState<string[]>(user?.ho_so_chuyen_gia?.the_manh || []);
+  const [theManhInput, setTheManhInput] = useState('');
+
+  // Reviews states
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [serviceReviews, setServiceReviews] = useState<any[]>([]);
+  const [staffReviews, setStaffReviews] = useState<any[]>([]);
+  const [editingReview, setEditingReview] = useState<{ id: string; rating: number; comment: string; type: 'service' | 'staff'; name: string } | null>(null);
+  const [deletingReview, setDeletingReview] = useState<{ id: string; type: 'service' | 'staff'; name: string } | null>(null);
+  const [savingReview, setSavingReview] = useState(false);
+
+  const loadMyReviews = async () => {
+    try {
+      setReviewsLoading(true);
+      const res = await getMyReviews();
+      setServiceReviews(res.data.serviceReviews || []);
+      setStaffReviews(res.data.staffReviews || []);
+    } catch (err) {
+      console.error('Lỗi nạp đánh giá:', err);
+      toast.error('Không thể tải danh sách đánh giá.');
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeSection === 'reviews' && isCustomer) {
+      loadMyReviews();
+    }
+  }, [activeSection, isCustomer]);
+
+  const handleSaveEditReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingReview) return;
+    try {
+      setSavingReview(true);
+      const payload = { rating: editingReview.rating, comment: editingReview.comment };
+      if (editingReview.type === 'service') {
+        await updateServiceReview(editingReview.id, payload);
+      } else {
+        await updateStaffReview(editingReview.id, payload);
+      }
+      toast.success('Đã cập nhật đánh giá thành công!');
+      setEditingReview(null);
+      loadMyReviews();
+    } catch (err) {
+      console.error(err);
+      toast.error('Không thể cập nhật đánh giá.');
+    } finally {
+      setSavingReview(false);
+    }
+  };
+
+  const handleConfirmDeleteReview = async () => {
+    if (!deletingReview) return;
+    try {
+      setSavingReview(true);
+      if (deletingReview.type === 'service') {
+        await deleteServiceReview(deletingReview.id);
+      } else {
+        await deleteStaffReview(deletingReview.id);
+      }
+      toast.success('Đã xóa đánh giá thành công!');
+      setDeletingReview(null);
+      loadMyReviews();
+    } catch (err) {
+      console.error(err);
+      toast.error('Không thể xóa đánh giá.');
+    } finally {
+      setSavingReview(false);
+    }
+  };
 
   // Password states
   const [oldPassword, setOldPassword] = useState('');
@@ -78,31 +166,24 @@ export default function CustomerSettings() {
     if (user) {
       setHoTen(user.ho_ten);
       setSoDienThoai(user.so_dien_thoai || '');
+      setGioiTinh(user.gioi_tinh || 'nam');
+      setDiaChi(user.dia_chi || '');
       setAnhDaiDien(user.anh_dai_dien || '');
       setSoNamKinhNghiem(user.ho_so_chuyen_gia?.so_nam_kinh_nghiem || 0);
       setMoTa(user.ho_so_chuyen_gia?.mo_ta || '');
-      
+      setTheManh(user.ho_so_chuyen_gia?.the_manh || []);
+
+      // Định dạng chuẩn: chuỗi JSON { text: string, images: string[] } (đã chuẩn hóa toàn bộ dữ liệu DB).
+      // Vẫn giữ try/catch phòng hờ dữ liệu chỉnh sửa tay không đúng định dạng.
       const rawCert = user.ho_so_chuyen_gia?.bang_cap_chung_chi || '';
       if (rawCert) {
         try {
           const parsed = JSON.parse(rawCert);
           setBangCapChungChi(parsed.text || '');
-          if (Array.isArray(parsed.images)) {
-            setAnhChungChiList(parsed.images);
-          } else if (parsed.image) {
-            setAnhChungChiList([parsed.image]);
-          } else {
-            setAnhChungChiList([]);
-          }
+          setAnhChungChiList(Array.isArray(parsed.images) ? parsed.images : []);
         } catch {
-          // Check if it's a list of image paths
-          if (rawCert.includes('/') || rawCert.includes('data:image')) {
-            setAnhChungChiList(rawCert.split(',').filter(Boolean));
-            setBangCapChungChi('');
-          } else {
-            setBangCapChungChi(rawCert);
-            setAnhChungChiList([]);
-          }
+          setBangCapChungChi(rawCert);
+          setAnhChungChiList([]);
         }
       } else {
         setBangCapChungChi('');
@@ -147,6 +228,25 @@ export default function CustomerSettings() {
     setAnhChungChiList(prev => prev.filter((_, idx) => idx !== index));
   };
 
+  const addTheManh = () => {
+    const value = theManhInput.trim();
+    if (!value) return;
+    if (theManh.length >= 6) {
+      toast.error('Chỉ được thêm tối đa 6 thế mạnh chuyên sâu');
+      return;
+    }
+    if (theManh.includes(value)) {
+      toast.error('Thế mạnh này đã được thêm rồi');
+      return;
+    }
+    setTheManh(prev => [...prev, value]);
+    setTheManhInput('');
+  };
+
+  const removeTheManh = (index: number) => {
+    setTheManh(prev => prev.filter((_, idx) => idx !== index));
+  };
+
   // Dynamic Avatar preview
   const avatarSrc = useMemo(() => {
     if (anhDaiDien) return anhDaiDien;
@@ -159,7 +259,21 @@ export default function CustomerSettings() {
       toast.error('Họ và tên không được để trống');
       return;
     }
+    if (!soDienThoai.trim()) {
+      toast.error('Số điện thoại không được để trống');
+      return;
+    }
+    const phoneRegex = /^(0|\+84)(3|5|7|8|9)\d{8}$/;
+    if (!phoneRegex.test(soDienThoai.trim())) {
+      toast.error('Số điện thoại không hợp lệ (Ví dụ: 0987654321 hoặc +84987654321)');
+      return;
+    }
 
+    setShowConfirmDialog(true);
+  };
+
+  const executeSaveGeneral = async () => {
+    setShowConfirmDialog(false);
     setLoading(true);
     try {
       // 1. Nếu có điền thay đổi mật khẩu
@@ -197,13 +311,16 @@ export default function CustomerSettings() {
       const payload: any = {
         ho_ten: hoTen,
         so_dien_thoai: soDienThoai,
-        anh_dai_dien: anhDaiDien || null
+        anh_dai_dien: anhDaiDien || null,
+        gioi_tinh: gioiTinh,
+        dia_chi: diaChi
       };
 
       if (isExpert) {
         payload.so_nam_kinh_nghiem = soNamKinhNghiem;
         payload.bang_cap_chung_chi = certValue;
         payload.mo_ta = moTa;
+        payload.the_manh = theManh;
       }
 
       await updateProfile(payload);
@@ -213,10 +330,13 @@ export default function CustomerSettings() {
         ho_ten: hoTen,
         so_dien_thoai: soDienThoai,
         anh_dai_dien: anhDaiDien || null,
+        gioi_tinh: gioiTinh,
+        dia_chi: diaChi,
         ho_so_chuyen_gia: isExpert ? {
           so_nam_kinh_nghiem: soNamKinhNghiem,
           bang_cap_chung_chi: certValue,
-          mo_ta: moTa
+          mo_ta: moTa,
+          the_manh: theManh
         } : null
       });
 
@@ -289,6 +409,19 @@ export default function CustomerSettings() {
             <Bell size={14} />
             Cài đặt thông báo
           </button>
+          {isCustomer && (
+            <button
+              onClick={() => setActiveSection('reviews')}
+              className={`px-4 py-2 text-xs font-black uppercase tracking-wider rounded-xl transition-all duration-300 flex items-center gap-2 ${
+                activeSection === 'reviews'
+                  ? 'bg-white dark:bg-zinc-900 text-primary shadow-sm scale-102 font-bold border border-zinc-200/20'
+                  : 'text-zinc-450 dark:text-zinc-550 hover:text-zinc-700 dark:hover:text-zinc-300'
+              }`}
+            >
+              <MessageSquare size={14} />
+              Đánh giá của tôi
+            </button>
+          )}
         </div>
       </div>
 
@@ -322,9 +455,16 @@ export default function CustomerSettings() {
                 <div>
                   <h3 className="text-base font-black text-secondary dark:text-zinc-100 tracking-tight">{hoTen || 'Chưa cập nhật'}</h3>
                   <p className="text-zinc-450 dark:text-zinc-500 text-xs font-semibold">{email}</p>
-                  <span className="text-[9px] font-extrabold text-primary bg-primary/10 border border-primary/20 px-2.5 py-0.5 rounded-full inline-block mt-1.5 uppercase tracking-wider">
-                    {getRoleBadge(user?.vai_tro_id)}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                    <span className="text-[9px] font-extrabold text-primary bg-primary/10 border border-primary/20 px-2.5 py-0.5 rounded-full inline-block uppercase tracking-wider">
+                      {getRoleBadge(user?.vai_tro_id)}
+                    </span>
+                    {(Number(user?.vai_tro_id) === 1 || Number(user?.vai_tro_id) === 0) && (
+                      <span className="text-[9px] font-extrabold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/30 border border-teal-250 dark:border-teal-900/40 px-2.5 py-0.5 rounded-full inline-block uppercase tracking-wider">
+                        ★ Điểm uy tín: {user?.diem_uy_tin ?? 100}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -380,6 +520,54 @@ export default function CustomerSettings() {
                         onChange={(e) => setSoDienThoai(e.target.value)}
                         className="w-full bg-zinc-50 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded-xl px-4 py-3 text-xs text-secondary dark:text-zinc-200 font-bold outline-none focus:ring-2 focus:ring-primary/20"
                         required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">Giới tính</label>
+                      <select
+                        value={gioiTinh}
+                        onChange={(e) => setGioiTinh(e.target.value)}
+                        className="w-full bg-zinc-50 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded-xl px-4 py-3 text-xs text-secondary dark:text-zinc-200 font-bold outline-none focus:ring-2 focus:ring-primary/20"
+                      >
+                        <option value="nam">Nam</option>
+                        <option value="nu">Nữ</option>
+                        <option value="khac">Khác</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">Địa chỉ</label>
+                      <input 
+                        type="text" 
+                        value={diaChi}
+                        onChange={(e) => setDiaChi(e.target.value)}
+                        placeholder="Số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành phố"
+                        className="w-full bg-zinc-50 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded-xl px-4 py-3 text-xs text-secondary dark:text-zinc-200 font-bold outline-none focus:ring-2 focus:ring-primary/20"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">Địa chỉ email</label>
+                      <input 
+                        type="email" 
+                        value={email}
+                        disabled
+                        className="w-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-xs text-zinc-500 dark:text-zinc-400 font-bold outline-none cursor-not-allowed"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">Vai trò hệ thống</label>
+                      <input 
+                        type="text" 
+                        value={getRoleBadge(user?.vai_tro_id)}
+                        disabled
+                        className="w-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-xs text-zinc-500 dark:text-zinc-400 font-bold outline-none cursor-not-allowed"
                       />
                     </div>
                   </div>
@@ -553,6 +741,57 @@ export default function CustomerSettings() {
                       />
                     </div>
 
+                    {/* Row 2.5: Thế mạnh chuyên sâu (tag list) */}
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block flex items-center gap-1">
+                        <Tag size={13} className="text-primary" />
+                        Thế mạnh chuyên sâu (tối đa 6 thẻ, hiển thị công khai trên hồ sơ)
+                      </label>
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {theManh.map((tag, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center gap-1.5 bg-primary/5 text-primary border border-primary/10 px-3 py-1.5 rounded-xl text-xs font-bold"
+                          >
+                            {tag}
+                            <button
+                              type="button"
+                              onClick={() => removeTheManh(idx)}
+                              className="text-primary/60 hover:text-rose-600 transition-colors"
+                              title="Xóa thế mạnh này"
+                            >
+                              <Trash2 size={11} />
+                            </button>
+                          </span>
+                        ))}
+                        {theManh.length === 0 && (
+                          <span className="text-[10px] text-zinc-400 font-semibold">Chưa có thế mạnh nào được thêm.</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={theManhInput}
+                          onChange={(e) => setTheManhInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              addTheManh();
+                            }
+                          }}
+                          placeholder="Ví dụ: Trị liệu bằng tay (Manual Therapy)..."
+                          className="flex-1 bg-zinc-50 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded-xl px-3.5 py-2.5 text-xs text-secondary dark:text-zinc-200 font-semibold outline-none focus:ring-2 focus:ring-primary/20"
+                        />
+                        <button
+                          type="button"
+                          onClick={addTheManh}
+                          className="shrink-0 bg-primary/10 hover:bg-primary/20 text-primary font-bold text-xs px-4 py-2.5 rounded-xl transition-colors"
+                        >
+                          Thêm
+                        </button>
+                      </div>
+                    </div>
+
                     {/* Row 3: Credentials & Uploads */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       
@@ -697,8 +936,290 @@ export default function CustomerSettings() {
           </form>
         )}
 
+        {activeSection === 'reviews' && isCustomer && (
+          <div className="space-y-8 animate-in fade-in duration-300">
+            {/* Header Description */}
+            <div className="bg-white dark:bg-zinc-900 rounded-[28px] border border-zinc-150/60 dark:border-zinc-800 p-6 md:p-8 shadow-sm">
+              <h2 className="text-sm font-black text-secondary dark:text-zinc-100 uppercase tracking-wider flex items-center gap-2 mb-2">
+                <MessageSquare size={16} className="text-primary" />
+                Quản lý các đánh giá của tôi
+              </h2>
+              <p className="text-[10px] text-zinc-400 dark:text-zinc-550 font-bold uppercase tracking-wider">
+                Mỗi dịch vụ trị liệu hoặc kỹ thuật viên chỉ được phép đánh giá một lần duy nhất. Bạn có thể thay đổi hoặc cập nhật nhận xét tại đây bất cứ lúc nào.
+              </p>
+            </div>
+
+            {reviewsLoading ? (
+              <div className="flex flex-col items-center justify-center py-16 bg-white dark:bg-zinc-900 border border-zinc-150/60 dark:border-zinc-800 rounded-[28px]">
+                <Loader2 className="animate-spin text-primary mb-3" size={24} />
+                <p className="text-xs font-bold text-slate-400">Đang tải danh sách đánh giá...</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Column 1: Service Reviews */}
+                <div className="space-y-4">
+                  <h3 className="text-xs font-black text-secondary dark:text-zinc-100 uppercase tracking-wider px-2">
+                    📦 Đánh giá dịch vụ & khám lẻ ({serviceReviews.length})
+                  </h3>
+                  
+                  {serviceReviews.length === 0 ? (
+                    <div className="p-8 text-center bg-white dark:bg-zinc-900 border border-zinc-150/60 dark:border-zinc-800 rounded-[28px] text-xs font-semibold text-slate-450 italic">
+                      Bạn chưa gửi đánh giá chất lượng dịch vụ nào.
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {serviceReviews.map((rev) => (
+                        <div key={rev.id} className="bg-white dark:bg-zinc-900 rounded-[24px] border border-zinc-150/60 dark:border-zinc-800 p-5 shadow-sm space-y-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <h4 className="font-extrabold text-xs text-secondary dark:text-zinc-200 leading-tight">
+                                {rev.service_name}
+                              </h4>
+                              <p className="text-[9px] text-zinc-400 font-bold uppercase mt-1">
+                                Cập nhật: {new Date(rev.date).toLocaleDateString('vi-VN')}
+                              </p>
+                            </div>
+                            <div className="flex gap-0.5 text-amber-400 shrink-0">
+                              {Array.from({ length: 5 }).map((_, i) => (
+                                <Star 
+                                  key={i} 
+                                  size={11} 
+                                  className={i < rev.rating ? 'fill-amber-400 stroke-none' : 'text-zinc-200 fill-zinc-250 stroke-none'} 
+                                />
+                              ))}
+                            </div>
+                          </div>
+                          
+                          <p className="text-xs font-semibold text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100 italic">
+                            "{rev.comment || 'Không có nhận xét bằng chữ.'}"
+                          </p>
+
+                          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                            <button
+                              type="button"
+                              onClick={() => setEditingReview({
+                                id: rev.id,
+                                rating: rev.rating,
+                                comment: rev.comment || '',
+                                type: 'service',
+                                name: rev.service_name
+                              })}
+                              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-[9px] uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer"
+                            >
+                              <Edit2 size={10} /> Chỉnh sửa
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeletingReview({
+                                id: rev.id,
+                                type: 'service',
+                                name: rev.service_name
+                              })}
+                              className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-650 font-bold rounded-lg text-[9px] uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer"
+                            >
+                              <Trash2 size={10} /> Xóa
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Column 2: Staff Reviews */}
+                <div className="space-y-4">
+                  <h3 className="text-xs font-black text-secondary dark:text-zinc-100 uppercase tracking-wider px-2">
+                    🩺 Đánh giá kỹ thuật viên & Bác sĩ ({staffReviews.length})
+                  </h3>
+                  
+                  {staffReviews.length === 0 ? (
+                    <div className="p-8 text-center bg-white dark:bg-zinc-900 border border-zinc-150/60 dark:border-zinc-800 rounded-[28px] text-xs font-semibold text-slate-450 italic">
+                      Bạn chưa gửi đánh giá nhân viên trị liệu nào.
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {staffReviews.map((rev) => (
+                        <div key={rev.id} className="bg-white dark:bg-zinc-900 rounded-[24px] border border-zinc-150/60 dark:border-zinc-800 p-5 shadow-sm space-y-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <h4 className="font-extrabold text-xs text-secondary dark:text-zinc-200 leading-tight">
+                                {rev.staff_name}
+                              </h4>
+                              <p className="text-[9px] text-zinc-400 font-bold uppercase mt-1">
+                                Cập nhật: {new Date(rev.date).toLocaleDateString('vi-VN')}
+                              </p>
+                            </div>
+                            <div className="flex gap-0.5 text-amber-400 shrink-0">
+                              {Array.from({ length: 5 }).map((_, i) => (
+                                <Star 
+                                  key={i} 
+                                  size={11} 
+                                  className={i < rev.rating ? 'fill-amber-400 stroke-none' : 'text-zinc-200 fill-zinc-250 stroke-none'} 
+                                />
+                              ))}
+                            </div>
+                          </div>
+                          
+                          <p className="text-xs font-semibold text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100 italic">
+                            "{rev.comment || 'Không có nhận xét bằng chữ.'}"
+                          </p>
+
+                          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                            <button
+                              type="button"
+                              onClick={() => setEditingReview({
+                                id: rev.id,
+                                rating: rev.rating,
+                                comment: rev.comment || '',
+                                type: 'staff',
+                                name: rev.staff_name
+                              })}
+                              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-[9px] uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer"
+                            >
+                              <Edit2 size={10} /> Chỉnh sửa
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeletingReview({
+                                id: rev.id,
+                                type: 'staff',
+                                name: rev.staff_name
+                              })}
+                              className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-650 font-bold rounded-lg text-[9px] uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer"
+                            >
+                              <Trash2 size={10} /> Xóa
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
 
+      {/* Edit Review Modal */}
+      {editingReview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-[32px] border border-slate-100 shadow-2xl p-6 md:p-8 max-w-md w-full space-y-6 animate-in zoom-in-95 duration-200">
+            <div>
+              <h3 className="font-heading font-black text-secondary text-sm md:text-base uppercase tracking-tight">
+                Chỉnh sửa đánh giá
+              </h3>
+              <p className="text-[10px] text-zinc-400 font-bold uppercase mt-1">
+                Đối tượng: {editingReview.name}
+              </p>
+            </div>
+
+            <form onSubmit={handleSaveEditReview} className="space-y-4">
+              {/* Star Rating Select */}
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-wider block">
+                  Điểm số chất lượng
+                </label>
+                <div className="flex gap-1">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setEditingReview({ ...editingReview, rating: i + 1 })}
+                      className="text-amber-400 hover:scale-110 transition-transform outline-none cursor-pointer"
+                    >
+                      <Star 
+                        size={28} 
+                        className={i < editingReview.rating ? 'fill-amber-400 stroke-none' : 'text-zinc-200 fill-zinc-200 stroke-none'} 
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Comment Textarea */}
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-wider block">
+                  Ý kiến đóng góp
+                </label>
+                <textarea
+                  value={editingReview.comment}
+                  onChange={(e) => setEditingReview({ ...editingReview, comment: e.target.value })}
+                  placeholder="Chia sẻ ý kiến đóng góp của bạn để chúng tôi phục vụ tốt hơn..."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs font-semibold text-slate-700 outline-none focus:border-[#14B8A6] focus:ring-2 focus:ring-[#14B8A6]/10 min-h-[100px]"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingReview(null)}
+                  className="flex-1 py-3 border border-slate-200 hover:bg-slate-50 text-slate-700 font-extrabold rounded-xl text-[10px] uppercase tracking-wider transition-all cursor-pointer text-center"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingReview}
+                  className="flex-1 py-3 bg-[#0D9488] hover:bg-[#0D9488]/95 text-white font-extrabold rounded-xl text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-teal-500/10 cursor-pointer disabled:opacity-50"
+                >
+                  {savingReview ? <Loader2 className="animate-spin" size={12} /> : 'Lưu thay đổi'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Review Modal */}
+      {deletingReview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-[32px] border border-slate-100 shadow-2xl p-6 md:p-8 max-w-sm w-full space-y-6 animate-in zoom-in-95 duration-200 text-center">
+            <div className="size-12 rounded-full bg-rose-50 flex items-center justify-center text-rose-600 mx-auto">
+              <Trash2 size={24} />
+            </div>
+
+            <div>
+              <h3 className="font-heading font-black text-rose-700 text-sm uppercase tracking-tight">
+                Xóa nhận xét này?
+              </h3>
+              <p className="text-xs text-slate-500 font-semibold leading-relaxed mt-2">
+                Bạn có chắc chắn muốn xóa vĩnh viễn đánh giá của <strong>{deletingReview.name}</strong>? Buổi khám/trị liệu này sẽ quay về trạng thái chưa đánh giá.
+              </p>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeletingReview(null)}
+                className="flex-1 py-3 border border-slate-200 hover:bg-slate-50 text-slate-700 font-extrabold rounded-xl text-[10px] uppercase tracking-wider transition-all cursor-pointer text-center"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                disabled={savingReview}
+                onClick={handleConfirmDeleteReview}
+                className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white font-extrabold rounded-xl text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-rose-500/10 cursor-pointer disabled:opacity-50"
+              >
+                {savingReview ? <Loader2 className="animate-spin" size={12} /> : 'Xác nhận xóa'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Save Settings Confirm Modal */}
+      <ConfirmDialog
+        isOpen={showConfirmDialog}
+        title="Lưu thay đổi cài đặt?"
+        message="Bạn có chắc chắn muốn lưu lại toàn bộ thay đổi đối với cài đặt tài khoản này không?"
+        confirmLabel="Lưu thay đổi"
+        cancelLabel="Hủy bỏ"
+        type="warning"
+        onConfirm={executeSaveGeneral}
+        onCancel={() => setShowConfirmDialog(false)}
+      />
     </div>
   );
 }

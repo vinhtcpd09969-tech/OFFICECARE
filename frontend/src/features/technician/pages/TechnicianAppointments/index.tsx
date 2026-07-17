@@ -1,19 +1,14 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../../../stores/authStore';
-import { motion } from 'framer-motion';
-import { 
-  ChevronLeft, 
-  Calendar, 
-  AlertCircle, 
-  CheckCircle2, 
-  HelpCircle 
-} from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 import { format, startOfWeek, addDays, subDays, addMonths, subMonths } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
 import AppointmentCalendar from '../../../admin/components/appointments/AppointmentCalendar';
+import AppointmentInfoModal from '../../../admin/components/appointments/AppointmentInfoModal';
 import { AppointmentsFilterBar } from '../../../admin/components/appointments/ui/AppointmentsFilterBar';
+import { AppointmentKpiCards } from '../../../admin/components/appointments/ui/AppointmentKpiCards';
 import { CapacityView } from '../../../admin/components/appointments/ui/CapacityView';
 import { getAppointments, getDoctorSchedules, DoctorAppointment, DoctorSchedule } from '../../../doctor/api/doctor.api';
 
@@ -42,6 +37,9 @@ export default function TechnicianAppointments() {
   const [appointments, setAppointments] = useState<DoctorAppointment[]>([]);
   const [schedules, setSchedules] = useState<DoctorSchedule[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Modal state for viewing finished/cancelled appointments
+  const [selectedApt, setSelectedApt] = useState<any>(null);
 
   // Confirm Modal state for Checked-in ca
   const [confirmApt, setConfirmApt] = useState<any>(null);
@@ -139,29 +137,20 @@ export default function TechnicianAppointments() {
 
   // Tính toán số liệu thống kê ca điều trị cho KTV dựa trên activeInterval
   const kpiStats = useMemo(() => {
-    // Total Confirmed counts everything except unconfirmed (cho_xac_nhan, chua_xac_nhan) and cancelled (da_huy)
-    const totalConfirmed = appointments.filter(a => 
-      ['da_xac_nhan', 'da_checkin', 'cho_kham', 'dang_kham', 'hoan_thanh', 'khong_den'].includes(a.trang_thai)
-    ).length;
-    // Waiting is "da_checkin" and "cho_kham"
+    const total = appointments.length;
     const waiting = appointments.filter(a => ['da_checkin', 'cho_kham'].includes(a.trang_thai)).length;
-    const completed = appointments.filter(a => a.trang_thai === 'hoan_thanh').length;
-    const cancelled = appointments.filter(a => ['da_huy', 'khong_den'].includes(a.trang_thai)).length;
-
-    const baseCount = appointments.length;
-    const getPercentage = (val: number) => {
-      if (baseCount <= 0) return 0;
-      return Math.min(Math.round((val / baseCount) * 100), 100);
-    };
+    const completed = appointments.filter(a => a.trang_thai === 'dang_kham').length;
+    const now = Date.now();
+    const secondary = appointments.filter(a => 
+      ['da_xac_nhan', 'da_checkin', 'cho_kham'].includes(a.trang_thai) &&
+      new Date(a.ngay_gio_bat_dau).getTime() < now
+    ).length;
 
     return {
-      total: totalConfirmed,
+      total,
       waiting,
       completed,
-      cancelled,
-      waitingPct: getPercentage(waiting),
-      completedPct: getPercentage(completed),
-      cancelledPct: getPercentage(cancelled)
+      secondary
     };
   }, [appointments]);
 
@@ -199,12 +188,23 @@ export default function TechnicianAppointments() {
   const handleOpenDetailModal = useCallback((apt: any) => {
     if (['cho_kham', 'dang_kham', 'da_checkin'].includes(apt.trang_thai)) {
       setConfirmApt(apt);
+    } else {
+      setSelectedApt(apt);
     }
   }, []);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       
+      {/* KPI METRIC CARDS */}
+      <AppointmentKpiCards
+        role="technician"
+        kpis={kpiStats}
+        viewMode={viewMode}
+        timeRange={timeRange}
+        activeType="dieu_tri"
+      />
+
       {/* Top filter bar inherited from Admin style */}
       <AppointmentsFilterBar
         timeRange={timeRange}
@@ -225,163 +225,14 @@ export default function TechnicianAppointments() {
         selectedDate={selectedDate}
         activeType="dieu_tri"
         onToggleType={() => {}}
+        canToggleType={false}
+        setViewMode={setViewMode}
       />
-
-      {/* KPI METRIC CARDS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {/* Card 1: Tổng ca điều trị (Đã xác nhận) */}
-        <motion.div
-          whileHover={{ y: -3, scale: 1.01 }}
-          className="p-[1px] bg-gradient-to-br from-slate-200/60 dark:from-zinc-800 to-transparent hover:from-[#14B8A6]/30 dark:hover:from-[#14B8A6]/20 rounded-[24px] shadow-[0_4px_20px_-4px_rgba(15,23,42,0.02)] transition-all duration-300"
-        >
-          <div className="bg-white dark:bg-zinc-900 rounded-[23px] p-5 h-full flex flex-col justify-between relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-[#14B8A6]/2 rounded-full blur-2xl group-hover:bg-[#14B8A6]/5 transition-all duration-300 pointer-events-none" />
-            <div className="flex justify-between items-start">
-              <div className="space-y-1">
-                <span className="text-slate-400 dark:text-zinc-500 text-[10px] font-black uppercase tracking-wider block">
-                  Tổng ca điều trị
-                </span>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-3xl xl:text-4xl font-jakarta font-black text-slate-800 dark:text-zinc-100">
-                    {kpiStats.total}
-                  </span>
-                  <span className="text-[10px] text-slate-400 dark:text-zinc-555 font-bold">ca</span>
-                </div>
-              </div>
-              <div className="relative size-10 flex items-center justify-center shrink-0 bg-[#0D9488]/10 rounded-full">
-                <Calendar className="text-[#0D9488]" size={18} />
-              </div>
-            </div>
-            <div className="mt-4 pt-3 border-t border-slate-50 dark:border-zinc-800/80 flex items-center justify-between">
-              <span className="text-[10px] font-black text-[#0D9488] uppercase tracking-wide">
-                Tổng ca đã xác nhận
-              </span>
-              <span className="text-[9px] font-mono text-slate-400 dark:text-zinc-555 bg-slate-50 dark:bg-zinc-800/60 px-2 py-0.5 rounded border border-slate-100 dark:border-zinc-800/50">
-                100% đạt
-              </span>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Card 2: Chờ điều trị */}
-        <motion.div
-          whileHover={{ y: -3, scale: 1.01 }}
-          className="p-[1px] bg-gradient-to-br from-slate-200/60 dark:from-zinc-800 to-transparent hover:from-[#14B8A6]/30 dark:hover:from-[#14B8A6]/20 rounded-[24px] shadow-[0_4px_20px_-4px_rgba(15,23,42,0.02)] transition-all duration-300"
-        >
-          <div className="bg-white dark:bg-zinc-900 rounded-[23px] p-5 h-full flex flex-col justify-between relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-[#14B8A6]/2 rounded-full blur-2xl group-hover:bg-[#14B8A6]/5 transition-all duration-300 pointer-events-none" />
-            <div className="flex justify-between items-start">
-              <div className="space-y-1">
-                <span className="text-slate-400 dark:text-zinc-500 text-[10px] font-black uppercase tracking-wider block">
-                  Chờ điều trị
-                </span>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-3xl xl:text-4xl font-jakarta font-black text-slate-800 dark:text-zinc-100">
-                    {kpiStats.waiting}
-                  </span>
-                  <span className="text-[10px] text-slate-400 dark:text-zinc-555 font-bold">ca</span>
-                </div>
-              </div>
-              <div className="relative size-10 flex items-center justify-center shrink-0 bg-amber-500/10 rounded-full">
-                <AlertCircle className="text-amber-500" size={18} />
-              </div>
-            </div>
-            <div className="mt-4 pt-3 border-t border-slate-50 dark:border-zinc-800/80 flex items-center justify-between">
-              <span className="text-[10px] font-black text-amber-500 uppercase tracking-wide">
-                Bệnh nhân đã check-in chờ điều trị
-              </span>
-              <span className="text-[9px] font-mono text-slate-400 dark:text-zinc-555 bg-slate-50 dark:bg-zinc-800/60 px-2 py-0.5 rounded border border-slate-100 dark:border-zinc-800/50">
-                {kpiStats.waitingPct}% đạt
-              </span>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Card 3: Đã hoàn thành */}
-        <motion.div
-          whileHover={{ y: -3, scale: 1.01 }}
-          className="p-[1px] bg-gradient-to-br from-slate-200/60 dark:from-zinc-800 to-transparent hover:from-[#14B8A6]/30 dark:hover:from-[#14B8A6]/20 rounded-[24px] shadow-[0_4px_20px_-4px_rgba(15,23,42,0.02)] transition-all duration-300"
-        >
-          <div className="bg-white dark:bg-zinc-900 rounded-[23px] p-5 h-full flex flex-col justify-between relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-[#14B8A6]/2 rounded-full blur-2xl group-hover:bg-[#14B8A6]/5 transition-all duration-300 pointer-events-none" />
-            <div className="flex justify-between items-start">
-              <div className="space-y-1">
-                <span className="text-slate-400 dark:text-zinc-500 text-[10px] font-black uppercase tracking-wider block">
-                  Đã hoàn thành
-                </span>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-3xl xl:text-4xl font-jakarta font-black text-slate-800 dark:text-zinc-100">
-                    {kpiStats.completed}
-                  </span>
-                  <span className="text-[10px] text-slate-400 dark:text-zinc-555 font-bold">ca</span>
-                </div>
-              </div>
-              <div className="relative size-10 flex items-center justify-center shrink-0 bg-emerald-500/10 rounded-full">
-                <CheckCircle2 className="text-emerald-500" size={18} />
-              </div>
-            </div>
-            <div className="mt-4 pt-3 border-t border-slate-50 dark:border-zinc-800/80 flex items-center justify-between">
-              <span className="text-[10px] font-black text-emerald-500 uppercase tracking-wide">
-                Đã hoàn thành trị liệu
-              </span>
-              <span className="text-[9px] font-mono text-slate-400 dark:text-zinc-555 bg-slate-55 dark:bg-zinc-800/60 px-2 py-0.5 rounded border border-slate-100 dark:border-zinc-800/50">
-                {kpiStats.completedPct}% đạt
-              </span>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Card 4: Hủy / Vắng mặt */}
-        <motion.div
-          whileHover={{ y: -3, scale: 1.01 }}
-          className="p-[1px] bg-gradient-to-br from-slate-200/60 dark:from-zinc-800 to-transparent hover:from-[#14B8A6]/30 dark:hover:from-[#14B8A6]/20 rounded-[24px] shadow-[0_4px_20px_-4px_rgba(15,23,42,0.02)] transition-all duration-300"
-        >
-          <div className="bg-white dark:bg-zinc-900 rounded-[23px] p-5 h-full flex flex-col justify-between relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-[#14B8A6]/2 rounded-full blur-2xl group-hover:bg-[#14B8A6]/5 transition-all duration-300 pointer-events-none" />
-            <div className="flex justify-between items-start">
-              <div className="space-y-1">
-                <span className="text-slate-400 dark:text-zinc-500 text-[10px] font-black uppercase tracking-wider block">
-                  Hủy / Vắng mặt
-                </span>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-3xl xl:text-4xl font-jakarta font-black text-slate-800 dark:text-zinc-100">
-                    {kpiStats.cancelled}
-                  </span>
-                  <span className="text-[10px] text-slate-400 dark:text-zinc-555 font-bold">ca</span>
-                </div>
-              </div>
-              <div className="relative size-10 flex items-center justify-center shrink-0 bg-rose-500/10 rounded-full">
-                <HelpCircle className="text-rose-500" size={18} />
-              </div>
-            </div>
-            <div className="mt-4 pt-3 border-t border-slate-50 dark:border-zinc-800/80 flex items-center justify-between">
-              <span className="text-[10px] font-black text-rose-500 uppercase tracking-wide">
-                Hủy hoặc vắng mặt
-              </span>
-              <span className="text-[9px] font-mono text-slate-400 dark:text-zinc-555 bg-slate-55 dark:bg-zinc-800/60 px-2 py-0.5 rounded border border-slate-100 dark:border-zinc-800/50">
-                {kpiStats.cancelledPct}% đạt
-              </span>
-            </div>
-          </div>
-        </motion.div>
-      </div>
 
       {/* Dynamic Navigation Indicator for Timeline view */}
       {viewMode === 'timeline' && (
-        <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between bg-slate-55/40 dark:bg-zinc-900/40 border border-slate-100 dark:border-zinc-800/80 p-3 rounded-[20px] backdrop-blur-md">
-          <button
-            type="button"
-            onClick={() => {
-              setTimeRange('7days');
-              setViewMode('capacity');
-            }}
-            className="flex items-center gap-2 px-4 py-2 text-xs font-black uppercase tracking-wider text-[#0D9488] bg-[#0D9488]/10 hover:bg-[#0D9488]/15 rounded-xl border border-[#0D9488]/20 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-          >
-            <ChevronLeft size={14} className="stroke-[3]" />
-            <span>Xem Bảng công suất tuần/tháng</span>
-          </button>
-
-          <div className="text-xs font-bold text-slate-555 dark:text-zinc-400 flex items-center gap-2 self-end sm:self-center">
+        <div className="flex items-center justify-center bg-slate-55/40 dark:bg-zinc-900/40 border border-slate-100 dark:border-zinc-800/80 p-3 rounded-[20px] backdrop-blur-md">
+          <div className="text-xs font-bold text-slate-555 dark:text-zinc-400 flex items-center gap-2">
             <span>Đang xem lịch điều trị ngày:</span>
             <span className="bg-teal-55 dark:bg-teal-955/20 text-[#0d9488] dark:text-teal-450 px-2.5 py-1 rounded-xl border border-teal-100/30 font-black uppercase tracking-wide">
               {format(selectedDate, 'eeee, dd/MM/yyyy', { locale: vi })}
@@ -419,10 +270,19 @@ export default function TechnicianAppointments() {
               appointments={mappedAppointments}
               timeRange={timeRange}
               activeType="dieu_tri"
+              searchTerm={searchTerm}
+              onSelectAppointment={(id) => {
+                const apt = appointments.find(a => String(a.id) === String(id));
+                // Technicians can confirm the appointment just like clicking it on the timeline
+                if (apt) handleOpenDetailModal(apt);
+              }}
             />
           )}
         </>
       )}
+
+      {/* Detail Modal for Finished/Cancelled Appointments */}
+      <AppointmentInfoModal appointment={selectedApt} onClose={() => setSelectedApt(null)} />
 
       {/* Confirmation Modal for Checked-in Appointments */}
       {confirmApt && (() => {

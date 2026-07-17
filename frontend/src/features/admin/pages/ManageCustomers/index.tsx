@@ -1,134 +1,99 @@
-import { useState, useEffect } from 'react';
-import { Search } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { toast } from 'react-hot-toast';
-import { getCustomers } from '../../api/admin.api';
-import { format } from 'date-fns';
-import ShortId from '../../../../components/ShortId';
+import { ConfirmDialog } from '../../../../components/ConfirmDialog';
+import PatientEmrDetail from '../../components/PatientEmrDetail';
+import { CustomerJourneyArc } from '../../components/customers/ui/CustomerJourneyArc';
+import { CustomerFilterToolbar } from '../../components/customers/ui/CustomerFilterToolbar';
+import { CustomerTable } from '../../components/customers/ui/CustomerTable';
+import { EditCustomerModal } from '../../components/customers/ui/EditCustomerModal';
+import { useCustomerFilters } from '../../components/customers/hooks/useCustomerFilters';
+import { useCustomerListData } from '../../components/customers/hooks/useCustomerListData';
+import { useCustomerActions } from '../../components/customers/hooks/useCustomerActions';
+import { useCustomerEmr } from '../../components/customers/hooks/useCustomerEmr';
+import type { CustomerOverviewItem } from '../../components/customers/types';
+import './recovery-arc-theme.css';
 
 export default function ManageCustomers() {
-  const [customers, setCustomers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isClient, setIsClient] = useState(false);
+  const filters = useCustomerFilters();
+  const list = useCustomerListData({
+    activeTier: filters.activeTier, showLockedOnly: filters.showLockedOnly,
+    repTier: filters.repTier, search: filters.debouncedSearch
+  });
+  const actions = useCustomerActions(list.refetch);
+  const emr = useCustomerEmr();
 
-  const fetchCustomers = async () => {
-    try {
-      setLoading(true);
-      const res = await getCustomers();
-      setCustomers(Array.isArray(res.data) ? res.data : []);
-    } catch (error) {
-      console.error('Error fetching customers:', error);
-      toast.error('Không thể kết nối API danh sách khách hàng.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    setIsClient(true);
-    fetchCustomers();
-  }, []);
-
-  const filteredCustomers = customers.filter(c => 
-    (c.ho_ten?.toLowerCase() || '').includes(searchTerm.toLowerCase()) || 
-    (c.so_dien_thoai || '').includes(searchTerm)
-  );
-
-  const handleResetPassword = (hoTen: string) => {
-    if (window.confirm(`Bạn có chắc chắn muốn đặt lại mật khẩu cho khách hàng ${hoTen}? Mật khẩu tạm thời sẽ được gửi đến email/SĐT đã đăng ký.`)) {
-      toast.success(`Đã đặt lại mật khẩu cho ${hoTen} thành công!`);
-    }
-  };
+  const handleViewProfile = (customer: CustomerOverviewItem) => emr.openCustomer(customer.id);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h2 className="text-2xl font-semibold text-secondary">Quản lý Khách hàng</h2>
-          <p className="text-zinc-500 mt-1">Danh sách toàn bộ khách hàng và lịch sử tài khoản.</p>
-        </div>
-        <div className="relative w-full sm:w-64">
-          <Search className="size-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-zinc-400" />
-          <input 
-            type="text" 
-            placeholder="Tìm theo tên hoặc SĐT..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 w-full px-4 py-2 bg-white border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
+    <div className="recovery-arc-scope space-y-6">
+      {!emr.patient ? (
+        <div className="space-y-6 animate-fade-in">
+          <div>
+            <h2 className="rc-display text-2xl font-semibold tracking-tight" style={{ color: 'var(--rc-ink)' }}>Quản lý Khách hàng</h2>
+            <p className="text-xs font-semibold mt-1" style={{ color: 'var(--rc-taupe)' }}>
+              Theo dõi khách hàng theo đúng hành trình phục hồi thực tế — từ buổi khám đầu tiên đến khi hoàn thành liệu trình.
+            </p>
+          </div>
+
+          <CustomerJourneyArc
+            totalCustomers={list.totalCustomers}
+            newThisMonth={list.newThisMonth}
+            tierCounts={list.emrStats?.customer_tiers || { pending: 0, progress: 0, le: 0, cancel: 0, done: 0, none: 0 }}
+            khamHoanThanh={list.emrStats?.kham_hoan_thanh || 0}
+            dichVuLeHoanThanh={list.emrStats?.dich_vu_le_hoan_thanh || 0}
+            totalRevenue={list.totalRevenue}
+            activeTier={filters.activeTier}
+            onFilterChange={filters.setActiveTier}
+          />
+
+          <CustomerFilterToolbar
+            repTier={filters.repTier}
+            onRepTierChange={filters.setRepTier}
+            search={filters.searchInput}
+            onSearchChange={filters.setSearchInput}
+            showLockedOnly={filters.showLockedOnly}
+            onToggleLockedOnly={filters.toggleLockedOnly}
+          />
+
+          <CustomerTable
+            data={list.data}
+            loading={list.loading}
+            meta={list.meta}
+            onPageChange={list.setPage}
+            onViewProfile={handleViewProfile}
+            onEdit={actions.startEdit}
+            onToggleLock={actions.requestToggleLock}
           />
         </div>
-      </div>
-
-      <div className="bg-white rounded-2xl shadow-sm border border-zinc-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-zinc-50 border-b border-zinc-200 text-zinc-600 text-sm">
-                <th className="p-4 font-semibold">Mã KH</th>
-                <th className="p-4 font-semibold">Họ Tên</th>
-                <th className="p-4 font-semibold">Số điện thoại</th>
-                <th className="p-4 font-semibold">Email</th>
-                <th className="p-4 font-semibold text-center">Giới tính</th>
-                <th className="p-4 font-semibold text-center">Ngày tạo</th>
-                <th className="p-4 font-semibold text-center">Hành động</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-200">
-              {loading ? (
-                <tr>
-                  <td colSpan={7} className="p-8 text-center text-zinc-500">Đang tải dữ liệu...</td>
-                </tr>
-              ) : filteredCustomers.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="p-8 text-center text-zinc-500">Không tìm thấy khách hàng nào.</td>
-                </tr>
-              ) : (
-                filteredCustomers.map((cust) => (
-                  <tr key={cust.khach_hang_id} className="hover:bg-zinc-50 transition-colors">
-                    <td className="p-4">
-                      <div className="flex flex-col gap-1">
-                        <span className="font-medium text-secondary">{cust.ma_khach_hang || '-'}</span>
-                        {cust.khach_hang_id && <ShortId id={cust.khach_hang_id} />}
-                      </div>
-                    </td>
-                    <td className="p-4 font-medium text-secondary">
-                      <div className="flex items-center gap-3">
-                        <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
-                          {cust.ho_ten ? cust.ho_ten.charAt(0) : '?'}
-                        </div>
-                        {cust.ho_ten}
-                      </div>
-                    </td>
-                    <td className="p-4 text-zinc-600 font-mono text-sm">{cust.so_dien_thoai || '-'}</td>
-                    <td className="p-4 text-zinc-600 text-sm">{cust.email || '-'}</td>
-                    <td className="p-4 text-center text-zinc-600 text-sm capitalize">
-                      {cust.gioi_tinh === 'nam' ? 'Nam' : cust.gioi_tinh === 'nu' ? 'Nữ' : 'Khác'}
-                    </td>
-                    <td className="p-4 text-center text-zinc-600 text-sm">
-                      {isClient && cust.created_at ? format(new Date(cust.created_at), 'dd/MM/yyyy') : '-'}
-                    </td>
-                    <td className="p-4 text-center">
-                      <Link 
-                        to={`/admin/medical-records?customer=${cust.khach_hang_id}`} 
-                        className="text-primary hover:underline text-sm font-semibold mr-3"
-                      >
-                        Chi tiết
-                      </Link>
-                      <button 
-                        onClick={() => handleResetPassword(cust.ho_ten)}
-                        className="text-accent hover:underline text-sm font-semibold"
-                      >
-                        Reset Pass
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+      ) : (
+        <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm animate-fade-in">
+          {emr.loading ? (
+            <div className="py-20 text-center text-slate-400 font-semibold text-xs animate-pulse">Đang tải hồ sơ khách hàng...</div>
+          ) : (
+            <PatientEmrDetail patient={emr.patient} onBack={emr.closeCustomer} showAdminInfo={false} />
+          )}
         </div>
-      </div>
+      )}
+
+      <EditCustomerModal
+        isOpen={!!actions.editingCustomerId}
+        form={actions.editForm}
+        onChange={actions.setEditForm}
+        onSave={actions.saveProfile}
+        onCancel={actions.cancelEdit}
+      />
+
+      <ConfirmDialog
+        isOpen={!!actions.lockTarget}
+        type={actions.lockTarget?.isLocked ? 'danger' : 'success'}
+        title={actions.lockTarget?.isLocked ? 'Khóa tài khoản khách hàng?' : 'Mở khóa tài khoản khách hàng?'}
+        message={
+          actions.lockTarget?.isLocked
+            ? `Khách hàng "${actions.lockTarget?.ho_ten}" sẽ không thể đăng nhập vào hệ thống nữa.`
+            : `Khách hàng "${actions.lockTarget?.ho_ten}" sẽ có thể đăng nhập lại bình thường.`
+        }
+        confirmLabel={actions.lockTarget?.isLocked ? 'Khóa tài khoản' : 'Mở khóa'}
+        onConfirm={actions.confirmToggleLock}
+        onCancel={actions.cancelToggleLock}
+      />
     </div>
   );
 }

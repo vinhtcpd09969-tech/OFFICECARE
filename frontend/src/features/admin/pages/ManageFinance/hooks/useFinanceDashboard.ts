@@ -11,6 +11,8 @@ interface Invoice {
   hinh_thuc_thanh_toan_goi?: string;
   ti_le_giam_gia_goi?: number;
   so_tien_giam_voucher?: number;
+  ma_voucher_ap_dung?: string | null;
+  ten_voucher_ap_dung?: string | null;
   tong_tien_thanh_toan: number;
   da_thanh_toan: number;
   trang_thai: string;
@@ -26,7 +28,10 @@ interface Invoice {
   ngay_kham?: string;
   ngay_kham_ket_thuc?: string;
   chi_phi_kham?: number;
-  da_thanh_toan_kham_rieng?: boolean;
+  ma_hoa_don_kham_rieng?: string | null;
+  ngay_thanh_toan_kham_rieng?: string | null;
+  han_su_dung?: string | null;
+  trang_thai_phac_do?: string | null;
 }
 
 /** Xem backend/src/domain/billing.ts PaymentTransactionDetail (THANH_TOAN) và
@@ -131,6 +136,21 @@ export const useFinanceDashboard = (isCheckoutMode: boolean) => {
       setSelectedInvoice(null);
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Lỗi khi hủy gói hoàn tiền.', { id: toastId });
+      throw error;
+    }
+  };
+
+  const handleExpireNoRefund = async (invoiceId: string, reason: string) => {
+    const toastId = toast.loading('Đang xử lý hủy gói quá hạn...');
+    try {
+      await axiosInstance.post(`/admin/invoices/${invoiceId}/expire-no-refund`, {
+        ly_do: reason || undefined
+      });
+      toast.success('Đã hủy gói do quá hạn sử dụng (không hoàn tiền)!', { id: toastId });
+      fetchDashboardData();
+      setSelectedInvoice(null);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Lỗi khi hủy gói quá hạn.', { id: toastId });
       throw error;
     }
   };
@@ -255,6 +275,7 @@ export const useFinanceDashboard = (isCheckoutMode: boolean) => {
     fetchDashboardData,
     handleRefund,
     handlePackageRefund,
+    handleExpireNoRefund,
     handleFastPaySubmit,
     getFilteredInvoices,
   };

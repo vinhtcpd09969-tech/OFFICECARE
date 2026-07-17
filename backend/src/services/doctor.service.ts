@@ -22,7 +22,7 @@ class DoctorService {
     const rawTreatments = await doctorRepository.getPatientTreatments(patientId);
 
     // Ghép chi tiết từng buổi trị liệu vào các lịch điều trị tương ứng
-    const treatmentPlans = [];
+    const treatmentPlans: any[] = [];
     for (const treatment of rawTreatments) {
       const sessions = await doctorRepository.getTreatmentSessions(treatment.id);
       treatmentPlans.push({
@@ -30,6 +30,44 @@ class DoctorService {
         sessions,
       });
     }
+
+    // Dịch vụ lẻ độc lập (không có phác đồ) — mỗi cuoc_hen tự nó là 1 "phác đồ 1 buổi" hoàn chỉnh,
+    // không cần gọi getTreatmentSessions vì dòng trả về đã mang sẵn đủ dữ liệu buổi đó.
+    const standaloneVisits = await doctorRepository.getStandaloneServiceVisits(patientId);
+    for (const visit of standaloneVisits) {
+      treatmentPlans.push({
+        id: visit.id,
+        loai_dieu_tri: visit.loai_dieu_tri,
+        tong_so_buoi: visit.tong_so_buoi,
+        so_buoi_da_dung: visit.so_buoi_da_dung,
+        trang_thai: visit.trang_thai,
+        thoi_gian_tao: visit.thoi_gian_tao,
+        ma_lich_dieu_tri: visit.ma_lich_dieu_tri,
+        ten_dich_vu: visit.ten_dich_vu,
+        ten_goi: visit.ten_goi,
+        chan_doan: visit.chan_doan,
+        sessions: [{
+          id: visit.id,
+          so_thu_tu_buoi: visit.so_thu_tu_buoi,
+          trang_thai: visit.session_trang_thai,
+          thoi_gian_bat_dau: visit.thoi_gian_bat_dau,
+          thoi_gian_ket_thuc: visit.thoi_gian_ket_thuc,
+          danh_gia_truoc_buoi: visit.danh_gia_truoc_buoi,
+          danh_gia_sau_buoi: visit.danh_gia_sau_buoi,
+          danh_gia_hieu_qua: visit.danh_gia_hieu_qua,
+          canh_bao_dac_biet: visit.canh_bao_dac_biet,
+          ten_ky_thuat_vien: visit.ten_ky_thuat_vien,
+          anh_ky_thuat_vien: visit.anh_ky_thuat_vien,
+        }],
+      });
+    }
+
+    // Gói/dịch vụ gần nhất lên đầu — frontend mặc định chọn phần tử đầu tiên trong dải chip.
+    treatmentPlans.sort((a, b) => {
+      const timeA = a.thoi_gian_tao ? new Date(a.thoi_gian_tao).getTime() : 0;
+      const timeB = b.thoi_gian_tao ? new Date(b.thoi_gian_tao).getTime() : 0;
+      return timeB - timeA;
+    });
 
     return {
       medicalRecords,
@@ -46,10 +84,17 @@ class DoctorService {
     
     // Tự động chuyển trạng thái sang 'dang_kham' nếu lịch đang ở 'da_checkin' hoặc 'cho_kham'
     if (['da_checkin', 'cho_kham'].includes(detail.trang_thai) && userId) {
-      await doctorRepository.startSession(appointmentId, parseInt(userId, 10));
+      const staffId = parseInt(userId, 10);
+      // 1 bác sĩ chỉ được mở 1 "bàn khám" tại 1 thời điểm — chặn nếu còn ca khác đang dang_kham
+      // (vd quên bấm hoàn thành ca trước).
+      const otherOpenSession = await doctorRepository.getActiveSessionForStaff(staffId, appointmentId);
+      if (otherOpenSession) {
+        throw new Error(`Bạn đang có ca khám ${otherOpenSession.ma_lich_dat} (${otherOpenSession.ten_khach_hang}) chưa hoàn thành. Vui lòng hoàn thành ca đó trước khi mở ca khám mới.`);
+      }
+      await doctorRepository.startSession(appointmentId, staffId);
       return await doctorRepository.getAppointmentDetail(appointmentId);
     }
-    
+
     return detail;
   }
 
@@ -64,6 +109,20 @@ class DoctorService {
       ghi_chu?: string | null;
     }
   ) {
+    // Chỉ còn 1 loại chỉ định duy nhất: gói liệu trình — chặn cứng ở server (không chỉ ẩn UI)
+    // trường hợp lọt lên 1 gói lẻ, và 1 khách tối đa 1 liệu trình tại 1 thời điểm nên phải kiểm
+    // tra trước khi cho chỉ định thêm (xem getBlockingLieuTrinh).
+    if (data.goi_dich_vu_id) {
+      const isLieuTrinh = await doctorRepository.isPackageLieuTrinh(data.goi_dich_vu_id);
+      if (!isLieuTrinh) {
+        throw new Error('Bác sĩ chỉ được chỉ định gói liệu trình, không được chỉ định dịch vụ lẻ.');
+      }
+      const blockCheck = await doctorRepository.getBlockingLieuTrinh(data.lich_dat_id);
+      if (blockCheck.blocked) {
+        throw new Error(blockCheck.reason);
+      }
+    }
+
     // Gọi repository để thực hiện transaction lưu bệnh án và đóng lịch hẹn
     const result = await doctorRepository.saveClinicalAssessment({
       lich_dat_id: data.lich_dat_id,

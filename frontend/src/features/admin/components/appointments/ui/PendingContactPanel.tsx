@@ -6,6 +6,20 @@ interface PendingContactPanelProps {
   onOpenDetailModal: (apt: any) => void;
 }
 
+function getFormattedService(apt: any) {
+  const serviceName = apt.ten_dich_vu || 'Chưa xác định';
+  const isExam = ['kham_moi', 'KHAM'].includes(apt.loai_lich || '');
+  const isRetail = ['dich_vu_don', 'DICH_VU_LE'].includes(apt.loai_lich || '') || apt.loai_goi === 'LE';
+  
+  if (isExam) {
+    return `Khám: ${serviceName}`;
+  }
+  if (isRetail) {
+    return `Dịch vụ lẻ: ${serviceName}`;
+  }
+  return `Liệu trình: ${serviceName} (Buổi ${apt.so_thu_tu_buoi || 1})`;
+}
+
 export function PendingContactPanel({ pendingAppointments, onOpenDetailModal }: PendingContactPanelProps) {
   if (pendingAppointments.length === 0) return null;
 
@@ -22,10 +36,6 @@ export function PendingContactPanel({ pendingAppointments, onOpenDetailModal }: 
 
       <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
         {pendingAppointments.map((apt) => {
-          // Tính số phút trễ kể từ thời điểm tạo
-          const createdTime = apt.thoi_gian_tao ? new Date(apt.thoi_gian_tao).getTime() : 0;
-          const minsPassed = createdTime > 0 ? Math.floor((Date.now() - createdTime) / 60000) : 0;
-
           return (
             <div
               key={apt.id}
@@ -45,14 +55,17 @@ export function PendingContactPanel({ pendingAppointments, onOpenDetailModal }: 
               </div>
 
               <div className="space-y-0.5">
-                <p className="text-[10px] text-slate-600 dark:text-zinc-450 font-bold">
-                  📞 SĐT: <span className="font-black text-slate-800 dark:text-zinc-200">{apt.so_dien_thoai || 'Không có'}</span>
+                <p className="text-[10px] text-slate-650 dark:text-zinc-450 font-bold">
+                  SĐT: <span className="font-black text-slate-800 dark:text-zinc-200">{apt.so_dien_thoai || 'Không có'}</span>
+                </p>
+                <p className="text-[10px] text-slate-500 dark:text-zinc-500 font-bold truncate">
+                  Dịch vụ: <span className="text-slate-700 dark:text-zinc-300">{getFormattedService(apt)}</span>
                 </p>
                 <p className="text-[10px] text-slate-500 dark:text-zinc-500 font-semibold flex justify-between">
-                  <span>📅 Ngày: {format(new Date(apt.ngay_gio_bat_dau), 'dd/MM/yyyy')} ({format(new Date(apt.ngay_gio_bat_dau), 'HH:mm')})</span>
+                  <span>📅 Lịch hẹn: {format(new Date(apt.ngay_gio_bat_dau), 'dd/MM/yyyy (HH:mm)')}</span>
                 </p>
                 <div className="flex justify-between items-center text-[9px] font-bold mt-1 text-rose-500 dark:text-rose-455">
-                  <span>Trễ: {minsPassed} phút</span>
+                  <span>Khách hàng chưa xác thực lịch hẹn</span>
                   <span className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 font-black uppercase text-[8px] tracking-wider bg-rose-50 dark:bg-rose-955/20 px-1.5 py-0.5 rounded border border-rose-100/30">
                     Chi tiết ➜
                   </span>

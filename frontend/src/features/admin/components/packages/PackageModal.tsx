@@ -3,9 +3,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { createPackage, updatePackage, getCategories } from '../../api/admin.api';
 import { useEffect, useState, useRef } from 'react';
-import { UploadCloud, X, Sparkles, Coins, Layers, Lock } from 'lucide-react';
+import { X, Sparkles, Coins, Layers, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { ConfirmDialog } from '../../../../components/ConfirmDialog';
+import { ImageUploadZone } from '../shared/ImageUploadZone';
+import { GalleryUploadZone } from '../shared/GalleryUploadZone';
 
 const packageSchema = z.object({
   ten_goi: z.string().min(1, 'Tên gói dịch vụ là bắt buộc'),
@@ -17,7 +19,9 @@ const packageSchema = z.object({
   thoi_luong_phut: z.number().min(1, 'Thời lượng buổi phải lớn hơn 0').default(60),
   don_gia: z.number().min(0, 'Giá bán không hợp lệ'),
   don_gia_theo_buoi: z.number().min(0, 'Giá từng buổi không hợp lệ').optional().nullable(),
+  han_su_dung_mac_dinh_ngay: z.number().min(1, 'Hạn sử dụng phải lớn hơn 0 ngày').optional().nullable(),
   anh_goi: z.string().optional().nullable(),
+  anh_gallery: z.array(z.string()).optional().default([]),
   trang_thai: z.enum(['hoat_dong', 'tam_ngung']).default('hoat_dong'),
 }).refine(data => {
   if (data.loai_goi === 'LIEU_TRINH' && data.don_gia_theo_buoi) {
@@ -32,18 +36,22 @@ const packageSchema = z.object({
 
 export type PackageFormValues = z.infer<typeof packageSchema>;
 
+const formatNumberWithCommas = (val: any): string => {
+  if (val === undefined || val === null || val === '') return '';
+  const num = String(val).replace(/\D/g, '');
+  if (!num) return '';
+  return Number(num).toLocaleString('vi-VN');
+};
+
 interface PackageModalProps {
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (newOrUpdatedId?: string) => void;
   editingPackage?: any;
   existingPackages: any[];
 }
 
 export default function PackageModal({ onClose, onSuccess, editingPackage, existingPackages }: PackageModalProps) {
-  const [dragActive, setDragActive] = useState(false);
-  const [imagePreview, setImagePreview] = useState<string | null>(editingPackage?.anh_goi || null);
   const [categories, setCategories] = useState<any[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [confirmConfig, setConfirmConfig] = useState<{
     isOpen: boolean;
     title: string;
@@ -63,7 +71,9 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
       thoi_luong_phut: editingPackage.thoi_luong_phut || editingPackage.thoi_luong_buoi_phut || 60,
       don_gia: typeof editingPackage.don_gia === 'string' ? parseInt(editingPackage.don_gia) : (editingPackage.don_gia || Number(editingPackage.gia_tien) || 0),
       don_gia_theo_buoi: editingPackage.don_gia_theo_buoi ? (typeof editingPackage.don_gia_theo_buoi === 'string' ? parseInt(editingPackage.don_gia_theo_buoi) : editingPackage.don_gia_theo_buoi) : undefined,
+      han_su_dung_mac_dinh_ngay: editingPackage.han_su_dung_mac_dinh_ngay || 60,
       anh_goi: editingPackage.anh_goi || null,
+      anh_gallery: editingPackage.anh_gallery || [],
       trang_thai: editingPackage.trang_thai || 'hoat_dong',
     } : {
       trang_thai: 'hoat_dong',
@@ -75,7 +85,9 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
       thoi_luong_phut: 60,
       don_gia: 0,
       don_gia_theo_buoi: undefined,
+      han_su_dung_mac_dinh_ngay: 60,
       anh_goi: null,
+      anh_gallery: [],
     }
   });
 
@@ -89,7 +101,23 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
     ? Math.round(watchDonGia / watchTongSoBuoi)
     : 0;
 
+  // `don_gia` (giá trọn gói) và `tong_so_buoi` là hai trường độc lập: đổi số buổi KHÔNG tự tính lại
+  // giá, nên đơn giá thực mỗi buổi âm thầm nhảy. So với cấu hình gốc để cảnh báo ngay lúc gõ.
+  const originalPerSession = (() => {
+    const goc = Number(editingPackage?.don_gia) || 0;
+    const buoi = Number(editingPackage?.tong_so_buoi) || 0;
+    return goc > 0 && buoi > 0 ? Math.round(goc / buoi) : 0;
+  })();
+  const perSessionShifted =
+    watchLoaiGoi === 'LIEU_TRINH' && originalPerSession > 0 && averageCost > 0 && averageCost !== originalPerSession;
+
   const prevLoaiGoiRef = useRef<string | undefined>(editingPackage?.loai_goi);
+
+  // Register don_gia and don_gia_theo_buoi fields manually for custom text inputs
+  useEffect(() => {
+    register('don_gia');
+    register('don_gia_theo_buoi');
+  }, [register]);
 
   // Enforce session count defaults when package type changes
   useEffect(() => {
@@ -146,54 +174,6 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
     loadCats();
   }, [editingPackage, setValue]);
 
-  // Image Upload helper functions
-  const handleImageFile = (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      toast.error('Vui lòng tải lên tệp tin định dạng ảnh (PNG, JPG, JPEG)');
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const base64 = e.target?.result as string;
-      setImagePreview(base64);
-      setValue('anh_goi', base64);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true);
-    } else if (e.type === 'dragleave') {
-      setDragActive(false);
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleImageFile(e.dataTransfer.files[0]);
-    }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      handleImageFile(e.target.files[0]);
-    }
-  };
-
-  const removeImage = () => {
-    setImagePreview(null);
-    setValue('anh_goi', null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
   const executeSave = async (data: PackageFormValues) => {
     try {
       const isEdit = !!(editingPackage && editingPackage.id);
@@ -208,21 +188,25 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
         thoi_luong_phut: data.thoi_luong_phut,
         don_gia: data.don_gia,
         don_gia_theo_buoi,
+        han_su_dung_mac_dinh_ngay: data.loai_goi === 'LIEU_TRINH' ? (data.han_su_dung_mac_dinh_ngay || 60) : null,
         anh_goi: data.anh_goi || null,
+        anh_gallery: data.anh_gallery || [],
         danh_muc_goi_id: data.danh_muc_goi_id || null,
         quy_trinh: data.quy_trinh || '',
         muc_tieu: data.muc_tieu || '',
         trang_thai: 'hoat_dong',
       };
 
+      let savedId = editingPackage?.id;
       if (isEdit) {
         await updatePackage(editingPackage.id, payload);
         toast.success(`Cập nhật gói dịch vụ "${data.ten_goi}" thành công!`);
       } else {
-        await createPackage(payload);
+        const res = await createPackage(payload);
+        savedId = res.data?.id;
         toast.success(`Tạo mới gói dịch vụ "${data.ten_goi}" thành công!`);
       }
-      onSuccess();
+      onSuccess(savedId);
     } catch (error: any) {
       console.error('Error saving package:', error);
       const msg = error.response?.data?.message || 'Có lỗi xảy ra khi lưu gói dịch vụ.';
@@ -317,73 +301,20 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
             {/* LEFT PANEL (33% width) - Interactive Image Upload & Dynamic Guide */}
             <div className="col-span-1 p-8 bg-slate-50/40 flex flex-col justify-between space-y-6">
               <div className="space-y-6">
-                <div>
-                  <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Ảnh Đại Diện Gói *</h4>
-                  
-                  {/* Drag and Drop Zone */}
-                  <div 
-                    onDragEnter={handleDrag}
-                    onDragOver={handleDrag}
-                    onDragLeave={handleDrag}
-                    onDrop={handleDrop}
-                    onClick={() => fileInputRef.current?.click()}
-                    className={`relative w-full aspect-[4/3] rounded-2xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all duration-300 overflow-hidden ${
-                      dragActive 
-                        ? 'border-emerald-600 bg-emerald-50/30 shadow-lg scale-98' 
-                        : imagePreview 
-                          ? 'border-zinc-200 hover:border-emerald-600' 
-                          : 'border-zinc-250 bg-white hover:bg-slate-50/50 hover:border-zinc-350'
-                    }`}
-                  >
-                    <input 
-                      type="file" 
-                      ref={fileInputRef}
-                      onChange={handleFileChange}
-                      accept="image/*"
-                      className="hidden" 
-                    />
-                    
-                    {imagePreview ? (
-                      <div className="group relative w-full h-full">
-                        <img 
-                          src={imagePreview} 
-                          alt="Gói Dịch Vụ" 
-                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
-                        />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              fileInputRef.current?.click();
-                            }}
-                            className="bg-white hover:bg-slate-100 text-slate-700 text-[10px] font-bold px-3 py-1.5 rounded-xl shadow transition-all"
-                          >
-                            Đổi Ảnh
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              removeImage();
-                            }}
-                            className="bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-xl shadow transition-all"
-                          >
-                            Xóa
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="p-6 text-center space-y-2 pointer-events-none">
-                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
-                          <UploadCloud className="w-5 h-5" />
-                        </div>
-                        <p className="text-[11px] font-bold text-slate-600">Tải ảnh đại diện gói</p>
-                        <p className="text-[9px] text-slate-400">Kéo thả hoặc nhấn để duyệt file ảnh</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <ImageUploadZone
+                  value={watch('anh_goi') || null}
+                  onChange={(url) => setValue('anh_goi', url)}
+                  uploadType="package"
+                  aspectClass="aspect-[4/3]"
+                  label="Ảnh Đại Diện Gói *"
+                />
+
+                <GalleryUploadZone
+                  value={watch('anh_gallery') || []}
+                  onChange={(urls) => setValue('anh_gallery', urls)}
+                  uploadType="package"
+                  label="Thư viện ảnh thực tế"
+                />
 
                 {/* Badge Type Indicator */}
                 {isTypeSelected && (
@@ -515,8 +446,8 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                           <label className="block font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Quy trình trị liệu *</label>
                           <textarea 
                             {...register('quy_trinh')} 
-                            rows={3}
-                            className="w-full px-4 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 outline-none transition-all text-secondary placeholder-zinc-400 resize-none font-medium text-xs shadow-sm"
+                            rows={6}
+                            className="w-full px-4 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 outline-none transition-all text-secondary placeholder-zinc-400 resize-y min-h-[140px] font-medium text-xs shadow-sm leading-relaxed"
                             placeholder="Nhập chi tiết các bước trong quy trình trị liệu chuẩn y khoa..."
                           ></textarea>
                           {errors.quy_trinh && (
@@ -528,8 +459,8 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                           <label className="block font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Mục tiêu trị liệu *</label>
                           <textarea 
                             {...register('muc_tieu')} 
-                            rows={3}
-                            className="w-full px-4 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 outline-none transition-all text-secondary placeholder-zinc-400 resize-none font-medium text-xs shadow-sm"
+                            rows={6}
+                            className="w-full px-4 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 outline-none transition-all text-secondary placeholder-zinc-400 resize-y min-h-[140px] font-medium text-xs shadow-sm leading-relaxed"
                             placeholder="Nhập mục tiêu và lợi ích cam kết đạt được sau khi kết thúc đợt trị liệu..."
                           ></textarea>
                           {errors.muc_tieu && (
@@ -567,6 +498,28 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                           {errors.tong_so_buoi && (
                             <span className="text-rose-500 text-[10px] mt-1 block">{errors.tong_so_buoi.message}</span>
                           )}
+
+                          {watchLoaiGoi === 'LIEU_TRINH' && averageCost > 0 && !errors.tong_so_buoi && (
+                            <p className="text-[10px] text-slate-400 mt-1 font-medium">
+                              Đơn giá thực tế:{' '}
+                              <span className={`font-bold ${perSessionShifted ? 'text-amber-600' : 'text-emerald-600'}`}>
+                                {averageCost.toLocaleString()}đ / buổi
+                              </span>
+                            </p>
+                          )}
+
+                          {perSessionShifted && (
+                            <div className="mt-2 bg-amber-50/70 border border-amber-200 rounded-xl p-2.5 space-y-1 animate-slide-down">
+                              <span className="text-[10px] font-black text-amber-900 block">
+                                ⚠️ Đơn giá mỗi buổi đổi: {originalPerSession.toLocaleString()}đ → {averageCost.toLocaleString()}đ
+                              </span>
+                              <span className="text-[10px] text-amber-800 font-semibold block leading-relaxed">
+                                Giá bán trọn gói giữ nguyên nên khách vẫn trả cùng số tiền cho số buổi khác đi. Sửa lại
+                                “Giá bán trọn gói” nếu muốn giữ đơn giá {originalPerSession.toLocaleString()}đ/buổi
+                                (= {(originalPerSession * watchTongSoBuoi).toLocaleString()}đ).
+                              </span>
+                            </div>
+                          )}
                         </div>
 
                         <div>
@@ -580,8 +533,12 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                             />
                             <span className="absolute right-3 top-2.5 text-[10px] font-bold text-slate-400">Phút</span>
                           </div>
-                          {errors.thoi_luong_phut && (
+                          {errors.thoi_luong_phut ? (
                             <span className="text-rose-500 text-[10px] mt-1 block">{errors.thoi_luong_phut.message}</span>
+                          ) : (
+                            <p className="text-[10px] text-amber-600 mt-1 font-medium leading-relaxed flex items-center gap-1">
+                              <span>ℹ️ Vui lòng chủ động thêm thời gian cho nhân sự chuẩn bị</span>
+                            </p>
                           )}
                         </div>
 
@@ -591,9 +548,13 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                           </label>
                           <div className="relative">
                             <input 
-                              type="number"
-                              {...register('don_gia', { valueAsNumber: true })} 
-                              placeholder="6000000"
+                              type="text"
+                              value={formatNumberWithCommas(watchDonGia)}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/\D/g, '');
+                                setValue('don_gia', val ? parseInt(val) : 0, { shouldValidate: true });
+                              }}
+                              placeholder="6.000.000"
                               className="w-full px-4 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 outline-none transition-all font-semibold text-secondary shadow-sm text-sm pr-12"
                             />
                             <span className="absolute right-3 top-2.5 text-[10px] font-bold text-slate-400">VND</span>
@@ -609,10 +570,10 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                             <label className="block font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Giá thanh toán lẻ từng buổi (VND) *</label>
                             <div className="relative">
                               <input 
-                                type="number"
+                                type="text"
                                 readOnly
-                                {...register('don_gia_theo_buoi', { valueAsNumber: true })} 
-                                placeholder={averageCost ? String(averageCost) : "60000"}
+                                value={formatNumberWithCommas(watch('don_gia_theo_buoi'))}
+                                placeholder={averageCost ? formatNumberWithCommas(averageCost) : "60.000"}
                                 className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl outline-none font-semibold text-secondary shadow-sm text-sm pr-12 cursor-not-allowed"
                               />
                               <span className="absolute right-3 top-2.5 text-[10px] font-bold text-slate-400">VND</span>
@@ -625,6 +586,29 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                                   Đơn giá trung bình trọn gói: <span className="font-bold text-emerald-600">{averageCost.toLocaleString()}đ / buổi</span>.
                                 </p>
                               )
+                            )}
+                          </div>
+                        )}
+
+                        {/* DYNAMIC FIELD: Display ONLY for LIEU_TRINH */}
+                        {watchLoaiGoi === 'LIEU_TRINH' && (
+                          <div className="animate-slide-down">
+                            <label className="block font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Hạn sử dụng mặc định (ngày) *</label>
+                            <div className="relative">
+                              <input
+                                type="number"
+                                {...register('han_su_dung_mac_dinh_ngay', { valueAsNumber: true })}
+                                placeholder="60"
+                                className="w-full px-4 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 outline-none transition-all font-semibold text-secondary shadow-sm text-sm pr-14"
+                              />
+                              <span className="absolute right-3 top-2.5 text-[10px] font-bold text-slate-400">Ngày</span>
+                            </div>
+                            {errors.han_su_dung_mac_dinh_ngay ? (
+                              <span className="text-rose-500 text-[10px] mt-1 block">{errors.han_su_dung_mac_dinh_ngay.message}</span>
+                            ) : (
+                              <p className="text-[10px] text-slate-400 mt-1 font-medium">
+                                Tính từ ngày kích hoạt gói — tự điền khi lễ tân lập hóa đơn, có thể sửa tay từng ca nếu cần.
+                              </p>
                             )}
                           </div>
                         )}

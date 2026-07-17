@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { 
   getPackages, 
   deletePackage, 
+  updatePackage,
   getCategories
 } from '../../api/admin.api';
 
@@ -27,6 +28,7 @@ export default function ManagePackages() {
   const [editingPackage, setEditingPackage] = useState<any>(null);
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [lastModifiedId, setLastModifiedId] = useState<string | null>(null);
 
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
 
@@ -51,7 +53,7 @@ export default function ManagePackages() {
   };
 
   const filteredPackages = useMemo(() => {
-    return packages.filter((pkg: any) => {
+    const filtered = packages.filter((pkg: any) => {
       const normName = normalizeString(pkg.ten_goi);
       const normQuery = normalizeString(searchQuery);
       const matchesSearch = normName.includes(normQuery);
@@ -61,7 +63,24 @@ export default function ManagePackages() {
       
       return matchesSearch && matchesCategory && matchesType;
     });
-  }, [packages, searchQuery, selectedCategory, selectedTypeFilter]);
+
+    return [...filtered].sort((a, b) => {
+      // 1. Group active first, non-active last
+      const aActive = a.trang_thai === 'hoat_dong';
+      const bActive = b.trang_thai === 'hoat_dong';
+      if (aActive && !bActive) return -1;
+      if (!aActive && bActive) return 1;
+
+      // 2. Place lastModifiedId at the top of its group
+      if (lastModifiedId) {
+        if (a.id === lastModifiedId) return -1;
+        if (b.id === lastModifiedId) return 1;
+      }
+
+      // 3. Fallback to alphabetical sorting by ten_goi
+      return a.ten_goi.localeCompare(b.ten_goi);
+    });
+  }, [packages, searchQuery, selectedCategory, selectedTypeFilter, lastModifiedId]);
 
   const visibleCategories = useMemo(() => {
     if (selectedTypeFilter === 'all') return categories;
@@ -110,10 +129,48 @@ export default function ManagePackages() {
         try {
           await deletePackage(pkg.id);
           toast.success(`Đã ngừng kích hoạt gói dịch vụ "${confirmName}" thành công!`);
+          setLastModifiedId(pkg.id);
           fetchData();
         } catch (error) {
           console.error('Error deleting package:', error);
           toast.error('Không thể ngưng sử dụng gói dịch vụ này. Rất có thể gói này đang được liên kết trong lịch đặt hoặc hóa đơn.');
+        }
+      }
+    });
+  };
+
+  const handleRestore = (pkg: any) => {
+    const confirmName = pkg.ten_goi;
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Khôi phục Gói dịch vụ',
+      message: `Bạn có chắc chắn muốn khôi phục hoạt động cho gói dịch vụ "${confirmName}" không?`,
+      type: 'success',
+      onConfirm: async () => {
+        setConfirmConfig(null);
+        try {
+          const payload = {
+            ten_goi: pkg.ten_goi,
+            loai_goi: pkg.loai_goi,
+            tong_so_buoi: pkg.tong_so_buoi,
+            thoi_luong_phut: pkg.thoi_luong_buoi_phut || pkg.thoi_luong_phut || 60,
+            don_gia: Number(pkg.gia_tien || pkg.don_gia || 0),
+            don_gia_theo_buoi: pkg.don_gia_theo_buoi ? Number(pkg.don_gia_theo_buoi) : undefined,
+            quy_trinh: pkg.quy_trinh || '',
+            muc_tieu: pkg.muc_tieu || '',
+            anh_goi: pkg.anh_goi,
+            anh_gallery: pkg.anh_gallery || [],
+            danh_muc_goi_id: pkg.danh_muc_id || pkg.danh_muc_goi_id,
+            han_su_dung_mac_dinh_ngay: pkg.han_su_dung_mac_dinh_ngay,
+            trang_thai: 'hoat_dong'
+          };
+          await updatePackage(pkg.id, payload);
+          toast.success(`Đã khôi phục gói dịch vụ "${confirmName}" hoạt động trở lại!`);
+          setLastModifiedId(pkg.id);
+          fetchData();
+        } catch (error) {
+          console.error('Error restoring package:', error);
+          toast.error('Không thể khôi phục gói dịch vụ này.');
         }
       }
     });
@@ -139,12 +196,7 @@ export default function ManagePackages() {
     return packages.filter((p: any) => p.loai_goi === 'LIEU_TRINH').length;
   }, [packages]);
 
-  const avgSessions = useMemo(() => {
-    const lieuTrinhPkgs = packages.filter((p: any) => p.loai_goi === 'LIEU_TRINH');
-    return lieuTrinhPkgs.length 
-      ? Math.round(lieuTrinhPkgs.reduce((acc: number, p: any) => acc + p.tong_so_buoi, 0) / lieuTrinhPkgs.length)
-      : 0;
-  }, [packages]);
+
 
   return (
     <div className="space-y-6 pb-8 text-zinc-800 font-sans text-sm min-h-[600px]">
@@ -164,7 +216,6 @@ export default function ManagePackages() {
               khamCount={khamCount}
               leCount={leCount}
               lieuTrinhCount={lieuTrinhCount}
-              avgSessions={avgSessions}
               onOpenCategory={() => setIsCategoryOpen(true)}
               onOpenAddPackage={() => {
                 setEditingPackage(null);
@@ -319,6 +370,7 @@ export default function ManagePackages() {
                         setIsModalOpen(true);
                       }}
                       onDelete={handleDelete}
+                      onRestore={handleRestore}
                     />
                   ))}
                 </>
@@ -341,9 +393,12 @@ export default function ManagePackages() {
                 setIsModalOpen(false);
                 setEditingPackage(null);
               }}
-              onSuccess={() => {
+              onSuccess={(savedId) => {
                 setIsModalOpen(false);
                 setEditingPackage(null);
+                if (savedId) {
+                  setLastModifiedId(savedId);
+                }
                 fetchData();
               }}
             />

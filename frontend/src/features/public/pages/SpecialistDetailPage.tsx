@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Mail, Phone, Award, Calendar } from 'lucide-react';
-import { getPublicSpecialistById } from '../api/public.api';
+import { motion } from 'framer-motion';
+import { ArrowLeft, ArrowRight, Mail, Phone, Award, Calendar, Star, CheckCircle2, ShieldCheck, Newspaper, User } from 'lucide-react';
+import { getPublicSpecialistById, getPublicSpecialists, getPublicArticles, getPublicSpecialistReviews } from '../api/public.api';
 import LoadingScreen from '../../../components/LoadingScreen';
+import ScrollReveal from '../components/shared/ScrollReveal';
+import { resolveImageUrl } from '../../../utils/imageUrl';
 
 interface Specialist {
   id: number;
@@ -14,13 +17,32 @@ interface Specialist {
   so_nam_kinh_nghiem: number | null;
   bang_cap_chung_chi: string | null;
   mo_ta: string | null;
+  the_manh: string[] | null;
+  trung_binh_sao?: number | string;
+  tong_danh_gia?: number;
 }
+
+interface ArticleSummary {
+  id: string;
+  slug: string;
+  tieu_de: string;
+  tom_tat: string;
+  anh_bia: string | null;
+  ngay_dang: string | null;
+}
+
+const isDoctorRole = (vaiTro: string) =>
+  vaiTro.toLowerCase().includes('bác sĩ') || vaiTro.toLowerCase().includes('doctor');
 
 export default function SpecialistDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [specialist, setSpecialist] = useState<Specialist | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeCert, setActiveCert] = useState<string | null>(null);
+  const [otherSpecialists, setOtherSpecialists] = useState<Specialist[]>([]);
+  const [latestArticles, setLatestArticles] = useState<ArticleSummary[]>([]);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
 
   useEffect(() => {
     async function fetchDetails() {
@@ -38,6 +60,39 @@ export default function SpecialistDetailPage() {
     fetchDetails();
   }, [id]);
 
+  useEffect(() => {
+    async function fetchReviews() {
+      try {
+        if (id) {
+          setReviewsLoading(true);
+          const response = await getPublicSpecialistReviews(id);
+          setReviews(response.data || []);
+        }
+      } catch (err) {
+        console.error('Lỗi khi lấy đánh giá:', err);
+      } finally {
+        setReviewsLoading(false);
+      }
+    }
+    fetchReviews();
+  }, [id]);
+
+  useEffect(() => {
+    async function fetchExtras() {
+      try {
+        const [specRes, articleRes] = await Promise.all([
+          getPublicSpecialists(),
+          getPublicArticles(),
+        ]);
+        setOtherSpecialists((specRes.data || []).filter((s: Specialist) => s.id.toString() !== id?.toString()).slice(0, 4));
+        setLatestArticles((articleRes.data || []).slice(0, 3));
+      } catch (err) {
+        console.error('Lỗi khi lấy dữ liệu liên quan:', err);
+      }
+    }
+    fetchExtras();
+  }, [id]);
+
   if (loading) {
     return <LoadingScreen />;
   }
@@ -53,31 +108,28 @@ export default function SpecialistDetailPage() {
     );
   }
 
-  const isDoctor = specialist.vai_tro.toLowerCase().includes('bác sĩ') || specialist.vai_tro.toLowerCase().includes('doctor');
-  
+  const isDoctor = isDoctorRole(specialist.vai_tro);
+
+  // Định dạng chuẩn: chuỗi JSON { text: string, images: string[] } (đã chuẩn hóa toàn bộ dữ liệu DB).
+  // Vẫn giữ try/catch phòng hờ dữ liệu chỉnh sửa tay không đúng định dạng.
   let certText = '';
   let certificates: string[] = [];
-  
+
   if (specialist.bang_cap_chung_chi) {
     try {
       const parsed = JSON.parse(specialist.bang_cap_chung_chi);
       certText = parsed.text || '';
-      if (Array.isArray(parsed.images)) {
-        certificates = parsed.images;
-      } else if (parsed.image) {
-        certificates = [parsed.image];
-      }
+      certificates = Array.isArray(parsed.images) ? parsed.images : [];
     } catch {
       certText = specialist.bang_cap_chung_chi;
-      certificates = specialist.bang_cap_chung_chi.split(',').filter(Boolean);
     }
   }
 
+  const certItems = certText.split('\n').map(s => s.trim()).filter(Boolean);
+  const specializations = specialist.the_manh && specialist.the_manh.length > 0 ? specialist.the_manh : [];
+
   return (
     <div className="min-h-screen bg-slate-50/50 pb-20 pt-28 font-jakarta">
-      {/* HUD High-tech Grid Background */}
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(20,184,166,0.01)_1px,transparent_1px),linear-gradient(90deg,rgba(20,184,166,0.01)_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none opacity-60 z-0"></div>
-
       <div className="max-w-6xl mx-auto px-6 relative z-10">
         {/* Back Link */}
         <Link
@@ -87,173 +139,354 @@ export default function SpecialistDetailPage() {
           <ArrowLeft size={16} /> Quay lại danh sách chuyên gia
         </Link>
 
-        {/* Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          
-          {/* Left Column: Portrait & Credentials */}
-          <div className="lg:col-span-5 space-y-6">
+        {/* Split Hero Header Card */}
+        <div className="bg-white rounded-[32px] border border-slate-100/80 shadow-[0_15px_40px_rgba(15,23,42,0.015)] p-6 md:p-8 mb-10 overflow-hidden relative">
+          <div className="absolute top-0 right-0 w-80 h-80 bg-teal-500/5 rounded-full blur-3xl pointer-events-none"></div>
+          <div className="flex flex-col md:flex-row gap-8 items-center md:items-start relative z-10">
             
-            {/* Portrait Card */}
-            <div className="bg-white rounded-[32px] p-5 border border-slate-100 shadow-[0_15px_40px_rgba(15,23,42,0.015)]">
-              <div className="aspect-[4/5] w-full rounded-[24px] overflow-hidden bg-slate-100 relative mb-6">
+            {/* Portrait Container */}
+            <div className="w-64 h-80 rounded-2xl overflow-hidden bg-slate-100 shrink-0 shadow-sm border border-slate-150 relative">
+              {specialist.anh_dai_dien ? (
                 <img
-                  src={specialist.anh_dai_dien || '/images/default_avatar.png'}
+                  src={specialist.anh_dai_dien}
                   alt={specialist.ho_ten}
                   className="w-full h-full object-cover object-center"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 to-transparent"></div>
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-slate-100 text-slate-300">
+                  <User size={64} strokeWidth={1.5} />
+                </div>
+              )}
+            </div>
+
+            {/* Core Info */}
+            <div className="flex-1 space-y-5 text-center md:text-left">
+              <div>
+                <span className={`text-[9px] font-black uppercase tracking-wider px-3.5 py-1.5 rounded-full border inline-block mb-3 ${
+                  isDoctor
+                    ? 'bg-[#14B8A6]/10 text-[#0D9488] border-teal-200'
+                    : 'bg-[#FF9F1C]/10 text-[#D97706] border-amber-200'
+                }`}>
+                  {specialist.vai_tro}
+                </span>
+                <h1 className="font-heading font-black text-3xl md:text-4xl text-slate-900 leading-tight">
+                  {specialist.ho_ten}
+                </h1>
               </div>
 
-              <div className="space-y-4">
-                <div>
-                  <span className={`text-[9px] font-black uppercase tracking-wider px-3 py-1 rounded-full border inline-block mb-2.5 ${
-                    isDoctor
-                      ? 'bg-[#14B8A6]/10 text-[#0D9488] border-teal-200'
-                      : 'bg-[#FF9F1C]/10 text-[#D97706] border-amber-200'
-                  }`}>
-                    {specialist.vai_tro}
-                  </span>
-                  <h1 className="font-heading font-black text-2xl md:text-3xl text-slate-900 leading-tight">
-                    {specialist.ho_ten}
-                  </h1>
+              {/* Stats */}
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-4">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-600 bg-slate-50 px-4 py-2.5 rounded-xl border border-slate-100">
+                  <Award size={16} className="text-[#14B8A6] shrink-0" />
+                  <span>{specialist.so_nam_kinh_nghiem || 1} năm kinh nghiệm</span>
                 </div>
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-600 bg-slate-50 px-4 py-2.5 rounded-xl border border-slate-100">
+                  <Star size={16} className="fill-amber-400 text-amber-400 shrink-0" />
+                  <span>{Number(specialist.trung_binh_sao || 5).toFixed(1)} ({specialist.tong_danh_gia || 0} đánh giá)</span>
+                </div>
+              </div>
 
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-600 bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                  <Award size={18} className="text-[#14B8A6]" />
-                  <span>{specialist.so_nam_kinh_nghiem || 5} năm kinh nghiệm lâm sàng</span>
+              {/* Contacts */}
+              <div className="space-y-2 text-xs font-semibold text-slate-500 max-w-sm mx-auto md:mx-0">
+                <div className="flex items-center justify-center md:justify-start gap-2.5">
+                  <Mail size={15} className="text-slate-400" />
+                  <span>{specialist.email}</span>
                 </div>
+                <div className="flex items-center justify-center md:justify-start gap-2.5">
+                  <Phone size={15} className="text-slate-400" />
+                  <span>{specialist.so_dien_thoai || '090 123 4567'}</span>
+                </div>
+              </div>
 
-                {/* Contact Info */}
-                <div className="space-y-2 pt-2 text-xs font-semibold text-slate-500">
-                  <div className="flex items-center gap-2.5">
-                    <Mail size={15} className="text-slate-400" />
-                    <span>{specialist.email}</span>
-                  </div>
-                  <div className="flex items-center gap-2.5">
-                    <Phone size={15} className="text-slate-400" />
-                    <span>{specialist.so_dien_thoai || '090 123 4567'}</span>
-                  </div>
-                </div>
+              {/* Action Buttons */}
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 pt-2">
+                <a
+                  href={`tel:${specialist.so_dien_thoai || '19001234'}`}
+                  className="border border-slate-200 hover:border-[#14B8A6] text-slate-700 hover:text-[#0D9488] px-6 py-3 rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all duration-300 flex items-center gap-2 bg-white"
+                >
+                  <Phone size={14} /> Gọi tư vấn
+                </a>
+                <Link
+                  to="/booking"
+                  state={{ selectedDoctorId: specialist.id, isKtv: !isDoctor }}
+                  className="bg-[#2EC4B6] hover:bg-[#25A89C] text-white px-8 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-300 shadow-md shadow-[#2EC4B6]/25 flex items-center gap-2"
+                >
+                  <Calendar size={14} /> Đặt lịch hẹn ngay
+                </Link>
               </div>
             </div>
 
-            {/* Credentials / Certificates Images Grid */}
-            {(certificates.length > 0 || certText) && (
-              <div className="bg-white rounded-[32px] p-6 md:p-8 border border-slate-100 shadow-[0_15px_40px_rgba(15,23,42,0.015)]">
-                <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-5">
-                  📋 Bằng Cấp & Chứng Chỉ Hành Nghề
-                </h3>
-                {certText && (
-                  <p className="text-slate-700 text-xs font-semibold leading-relaxed mb-5 bg-slate-50 p-4 rounded-2xl border border-slate-100 whitespace-pre-line">
-                    {certText}
-                  </p>
-                )}
-                {certificates.length > 0 && (
-                  <div className="grid grid-cols-2 gap-4">
+          </div>
+        </div>
+
+        {/* Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* Left Column: Bio & Certifications (col-span 8) */}
+          <div className="lg:col-span-8 space-y-6">
+            {/* Bio */}
+            <div className="bg-white rounded-[32px] p-6 md:p-8 border border-slate-100 shadow-[0_15px_40px_rgba(15,23,42,0.015)]">
+              <h2 className="text-sm font-black uppercase tracking-widest text-[#14B8A6] mb-4">
+                🔬 Hồ Sơ Chuyên Môn
+              </h2>
+              <p className="text-slate-700 text-sm md:text-base font-semibold leading-relaxed whitespace-pre-line">
+                {specialist.mo_ta || 'Thông tin chi tiết đang được cập nhật...'}
+              </p>
+            </div>
+
+            {/* Certifications & Degrees Card */}
+            <div className="bg-white rounded-[32px] p-6 md:p-8 border border-slate-100 shadow-[0_15px_40px_rgba(15,23,42,0.015)] space-y-6">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 bg-emerald-500/10 px-3 py-1 rounded-full">
+                  🩺 Bằng Cấp & Chứng Chỉ
+                </span>
+              </div>
+              
+              {certItems.length > 0 ? (
+                <div className="space-y-3">
+                  {certItems.map((item, idx) => (
+                    <div key={idx} className="flex gap-2.5 items-start">
+                      <CheckCircle2 size={18} className="text-emerald-500 shrink-0 mt-0.5" />
+                      <p className="text-slate-650 text-xs md:text-sm font-semibold leading-relaxed">{item}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-slate-400 text-xs font-semibold">Chưa cập nhật bằng cấp chứng chỉ.</p>
+              )}
+
+              {/* Certificate Images Gallery */}
+              {certificates.length > 0 && (
+                <div className="border-t border-slate-100 pt-6 mt-6">
+                  <h3 className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-4">
+                    📋 Hình ảnh chứng nhận thực tế
+                  </h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                     {certificates.map((certPath, idx) => (
                       <div
                         key={idx}
-                        onClick={() => setActiveCert(certPath)}
-                        className="aspect-[4/3] rounded-2xl overflow-hidden border border-slate-200 bg-slate-50 hover:border-[#14B8A6] cursor-pointer group relative shadow-xs"
+                        onClick={() => setActiveCert(resolveImageUrl(certPath))}
+                        className="aspect-[4/3] rounded-xl overflow-hidden border border-slate-200 bg-slate-50 hover:border-[#14B8A6] cursor-pointer group relative shadow-xs transition-all duration-300"
                       >
                         <img
-                          src={certPath}
+                          src={resolveImageUrl(certPath)}
                           alt={`Bằng cấp chứng chỉ ${idx + 1}`}
-                          className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
-                        <div className="absolute inset-0 bg-slate-950/0 group-hover:bg-slate-950/20 flex items-center justify-center transition-all">
+                        <div className="absolute inset-0 bg-slate-950/0 group-hover:bg-slate-950/25 flex items-center justify-center transition-all">
                           <span className="opacity-0 group-hover:opacity-100 bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider text-[#0D9488] shadow-md transition-all">
-                            🔍 Phóng to
+                            🔍 Xem ảnh lớn
                           </span>
                         </div>
                       </div>
                     ))}
                   </div>
-                )}
+                </div>
+              )}
+            </div>
+
+            {/* Reviews Section */}
+            <div className="bg-white rounded-[32px] p-6 md:p-8 border border-slate-100 shadow-[0_15px_40px_rgba(15,23,42,0.015)] space-y-6">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#14B8A6] bg-[#14B8A6]/10 px-3 py-1 rounded-full">
+                  💬 Phản Hồi Từ Bệnh Nhân
+                </span>
+                <span className="text-xs font-bold text-slate-500">
+                  {reviews.length} đánh giá
+                </span>
               </div>
-            )}
+
+              {reviewsLoading ? (
+                <div className="text-center py-6 text-xs font-bold text-slate-400 animate-pulse">
+                  Đang tải đánh giá...
+                </div>
+              ) : reviews.length === 0 ? (
+                <p className="text-slate-400 text-xs font-semibold py-4">Chưa có phản hồi nào cho chuyên gia này.</p>
+              ) : (
+                <div className="space-y-4 divide-y divide-slate-100">
+                  {reviews.map((rev) => (
+                    <div key={rev.id} className="pt-4 first:pt-0 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="size-8 rounded-lg bg-teal-50 flex items-center justify-center text-teal-650 font-black text-xs">
+                            {rev.name?.charAt(0) || 'K'}
+                          </div>
+                          <div>
+                            <p className="font-extrabold text-slate-800 text-xs">{rev.name}</p>
+                            <p className="text-[9px] text-slate-400 font-bold">
+                              {new Date(rev.date).toLocaleDateString('vi-VN')}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex gap-0.5 text-amber-400">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <Star 
+                              key={i} 
+                              size={12} 
+                              className={i < rev.rating ? 'fill-amber-400 stroke-none' : 'text-zinc-200 fill-zinc-200 stroke-none'} 
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      <p className="text-slate-650 text-xs font-medium leading-relaxed italic bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        "{rev.comment}"
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Right Column: Bio details & CTA */}
-          <div className="lg:col-span-7 space-y-6">
-            
-            {/* Bio & Details */}
-            <div className="bg-white rounded-[32px] p-6 md:p-8 border border-slate-100 shadow-[0_15px_40px_rgba(15,23,42,0.015)]">
-              <h2 className="text-sm font-black uppercase tracking-widest text-[#14B8A6] mb-4">
-                🔬 Hồ Sơ Chuyên Môn
-              </h2>
-              <p className="text-slate-700 text-sm md:text-base font-semibold leading-relaxed mb-6 whitespace-pre-line">
-                {specialist.mo_ta || 'Thông tin chi tiết đang được cập nhật...'}
-              </p>
+          {/* Right Column: Specializations & Working Schedule (col-span 4) */}
+          <div className="lg:col-span-4 space-y-6">
+            {/* Specializations */}
+            <div className="bg-white rounded-[32px] p-6 md:p-8 border border-slate-100 shadow-[0_15px_40px_rgba(15,23,42,0.015)] space-y-4">
+              <span className="text-[10px] font-black uppercase tracking-widest text-[#0D9488] bg-[#14B8A6]/10 px-3 py-1 rounded-full inline-block">
+                🛡️ Thế mạnh chuyên sâu
+              </span>
+              {specializations.length > 0 ? (
+                <div className="flex flex-wrap gap-2 pt-2">
+                  {specializations.map((tag, idx) => (
+                    <span key={idx} className="bg-[#14B8A6]/5 text-[#0D9488] border border-[#14B8A6]/10 px-3 py-1.5 rounded-xl text-xs font-bold">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-slate-400 text-xs font-semibold">Chưa cập nhật thế mạnh chuyên sâu.</p>
+              )}
+            </div>
 
-              <div className="border-t border-slate-100 pt-6">
-                <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-4">
-                  ⭐ Thế Mạnh Chuyên Sâu
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {isDoctor ? (
-                    <>
-                      <span className="bg-[#14B8A6]/5 text-[#0D9488] border border-[#14B8A6]/10 px-3.5 py-2 rounded-xl text-xs font-bold">
-                        Chẩn đoán lâm sàng & Khám chuyên sâu
-                      </span>
-                      <span className="bg-[#14B8A6]/5 text-[#0D9488] border border-[#14B8A6]/10 px-3.5 py-2 rounded-xl text-xs font-bold">
-                        Thiết lập phác đồ phục hồi cột sống cổ & lưng
-                      </span>
-                      <span className="bg-[#14B8A6]/5 text-[#0D9488] border border-[#14B8A6]/10 px-3.5 py-2 rounded-xl text-xs font-bold">
-                        Đánh giá chức năng vận động khớp
-                      </span>
-                      <span className="bg-[#14B8A6]/5 text-[#0D9488] border border-[#14B8A6]/10 px-3.5 py-2 rounded-xl text-xs font-bold">
-                        Phục hồi chức năng sau chấn thương
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="bg-[#14B8A6]/5 text-[#0D9488] border border-[#14B8A6]/10 px-3.5 py-2 rounded-xl text-xs font-bold">
-                        Trị liệu bằng tay (Manual Therapy)
-                      </span>
-                      <span className="bg-[#14B8A6]/5 text-[#0D9488] border border-[#14B8A6]/10 px-3.5 py-2 rounded-xl text-xs font-bold">
-                        Giải phóng cơ sâu (Myofascial Release)
-                      </span>
-                      <span className="bg-[#14B8A6]/5 text-[#0D9488] border border-[#14B8A6]/10 px-3.5 py-2 rounded-xl text-xs font-bold">
-                        Kéo giãn cơ thụ động (Stretching)
-                      </span>
-                      <span className="bg-[#14B8A6]/5 text-[#0D9488] border border-[#14B8A6]/10 px-3.5 py-2 rounded-xl text-xs font-bold">
-                        Trị liệu công nghệ cao (Laser/Siêu âm)
-                      </span>
-                    </>
-                  )}
+            {/* Availability / Working Hours */}
+            <div className="bg-white rounded-[32px] p-6 md:p-8 border border-slate-100 shadow-[0_15px_40px_rgba(15,23,42,0.015)] space-y-4">
+              <span className="text-[10px] font-black uppercase tracking-widest text-secondary bg-slate-100 px-3 py-1 rounded-full inline-block">
+                🕒 Lịch làm việc
+              </span>
+              <div className="space-y-2 pt-2">
+                <div className="flex justify-between items-center text-xs font-semibold">
+                  <span className="text-slate-500">Thứ Hai - Thứ Bảy:</span>
+                  <span className="text-slate-800 font-extrabold">07:30 - 20:30</span>
+                </div>
+                <div className="flex justify-between items-center text-xs font-semibold">
+                  <span className="text-slate-500">Chủ Nhật:</span>
+                  <span className="text-slate-800 font-extrabold">08:00 - 17:00</span>
+                </div>
+                <div className="flex justify-between items-center text-xs font-semibold border-t border-slate-100 pt-2 mt-2">
+                  <span className="text-slate-500">Trạng thái:</span>
+                  <span className="bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 px-2.5 py-0.5 rounded-md font-bold text-[10px]">Đang mở cửa</span>
                 </div>
               </div>
             </div>
+          </div>
+        </div>
 
-            {/* Quick Booking Widget */}
-            <div className="bg-gradient-to-br from-[#0D9488] to-[#14B8A6] rounded-[32px] p-8 text-white shadow-xl shadow-teal-500/10 hover:shadow-[0_20px_50px_rgba(20,184,166,0.25)] transition-all">
-              <div className="flex items-start justify-between gap-4 mb-6">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-teal-100 mb-1">
-                    🗓️ Đặt Lịch Trực Tiếp
-                  </p>
-                  <h3 className="text-xl md:text-2xl font-black font-heading leading-tight">
-                    Đặt Lịch Hẹn Ngay Với {specialist.ho_ten}
-                  </h3>
-                </div>
-                <Calendar size={32} className="text-teal-200 shrink-0" />
-              </div>
-              
-              <p className="text-teal-50 text-xs font-semibold leading-relaxed mb-6">
-                Chọn bác sĩ/KTV trị liệu trực tiếp giúp tối ưu hóa phác đồ điều trị và đẩy nhanh tốc độ phục hồi cơ xương khớp của bạn.
-              </p>
-
+        {/* Full-width CTA booking banner */}
+        <div className="mt-12 bg-gradient-to-br from-[#0D9488] to-[#14B8A6] rounded-[32px] p-10 md:p-14 text-white text-center shadow-xl shadow-teal-500/10 relative overflow-hidden">
+          <div className="absolute -top-24 -left-24 w-64 h-64 bg-white/5 rounded-full pointer-events-none"></div>
+          <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-white/5 rounded-full pointer-events-none"></div>
+          <div className="relative z-10 max-w-2xl mx-auto space-y-4">
+            <span className="text-[10px] font-black uppercase tracking-widest text-teal-100 bg-white/10 px-4 py-1.5 rounded-full inline-block">
+              🗓️ Đăng ký khám chủ động
+            </span>
+            <h2 className="text-2xl md:text-4xl font-black font-heading leading-tight">
+              Đăng ký lịch hẹn trực tiếp với {specialist.ho_ten}
+            </h2>
+            <p className="text-teal-50 text-xs md:text-sm font-semibold leading-relaxed max-w-lg mx-auto">
+              Chỉ mất 1 phút để chọn lịch hẹn phù hợp nhất. Chuyên gia sẽ trực tiếp lượng giá và điều trị theo phác đồ cá nhân hóa tối ưu cho riêng bạn.
+            </p>
+            <div className="pt-4">
               <Link
                 to="/booking"
                 state={{ selectedDoctorId: specialist.id, isKtv: !isDoctor }}
-                className="w-full bg-white hover:bg-slate-50 text-[#0D9488] text-center font-extrabold py-4 rounded-2xl text-xs uppercase tracking-widest transition-all duration-300 block shadow-md shadow-slate-900/10 cursor-pointer active:scale-99"
+                className="inline-flex items-center gap-2 px-8 py-4 bg-white text-[#0D9488] font-black text-xs md:text-sm rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 active:scale-98 transition-all"
               >
-                Đặt Lịch Khám / Trị Liệu Ngay
+                <Calendar size={16} /> ĐẶT LỊCH HẸN TRỊ LIỆU NGAY <ArrowRight size={16} />
               </Link>
             </div>
           </div>
         </div>
+
+        {/* Chuyên gia nổi bật */}
+        {otherSpecialists.length > 0 && (
+          <ScrollReveal>
+            <div className="mt-16">
+              <div className="flex items-center gap-2 mb-6">
+                <ShieldCheck size={18} className="text-[#0D9488]" />
+                <h2 className="font-heading font-black text-lg md:text-xl text-slate-900">Chuyên Gia Nổi Bật Khác</h2>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                {otherSpecialists.map((spec) => {
+                  const specIsDoctor = isDoctorRole(spec.vai_tro);
+                  return (
+                    <motion.div
+                      key={spec.id}
+                      whileHover={{ y: -5 }}
+                      className="bg-white rounded-[28px] border border-slate-100 p-4 shadow-sm transition-all duration-300"
+                    >
+                      <div className="aspect-square w-full rounded-2xl overflow-hidden border-2 border-[#14B8A6]/15 bg-slate-100 mb-3">
+                        {spec.anh_dai_dien ? (
+                          <img
+                            src={spec.anh_dai_dien}
+                            alt={spec.ho_ten}
+                            className="w-full h-full object-cover object-center"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-slate-100 text-slate-300">
+                            <User size={32} strokeWidth={1.5} />
+                          </div>
+                        )}
+                      </div>
+                      <span className={`text-[8px] font-black uppercase tracking-widest ${specIsDoctor ? 'text-[#0D9488]' : 'text-[#D97706]'}`}>
+                        {spec.vai_tro}
+                      </span>
+                      <h3 className="font-heading font-black text-sm text-slate-900 leading-tight mb-3">{spec.ho_ten}</h3>
+                      <Link
+                        to={`/specialists/${spec.id}`}
+                        className="block text-center border border-slate-200 hover:border-[#14B8A6] text-slate-700 hover:text-[#0D9488] font-bold py-2 rounded-xl text-[9px] uppercase tracking-wider transition-all duration-300"
+                      >
+                        Xem hồ sơ
+                      </Link>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </div>
+          </ScrollReveal>
+        )}
+
+        {/* Nghiên cứu & Bài viết mới */}
+        {latestArticles.length > 0 && (
+          <ScrollReveal>
+            <div className="mt-16">
+              <div className="flex items-center gap-2 mb-6">
+                <Newspaper size={18} className="text-[#0D9488]" />
+                <h2 className="font-heading font-black text-lg md:text-xl text-slate-900">Nghiên Cứu & Bài Viết Mới</h2>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                {latestArticles.map((article) => (
+                  <Link
+                    key={article.id}
+                    to={`/tin-tuc/${article.slug}`}
+                    className="group bg-white border border-slate-150 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
+                  >
+                    <div className="aspect-[16/9] bg-slate-100 overflow-hidden">
+                      {article.anh_bia ? (
+                        <img src={resolveImageUrl(article.anh_bia)} alt={article.tieu_de} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-slate-300 text-xs font-bold">OfficeCare</div>
+                      )}
+                    </div>
+                    <div className="p-4">
+                      <h3 className="font-heading font-black text-xs text-slate-900 line-clamp-2 group-hover:text-[#0D9488] transition-colors">
+                        {article.tieu_de}
+                      </h3>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </ScrollReveal>
+        )}
       </div>
 
       {/* Lightbox Certificate Modal */}

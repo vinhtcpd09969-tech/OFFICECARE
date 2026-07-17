@@ -32,6 +32,7 @@ export interface DoctorAppointment {
   ho_so_benh_an_id?: string;
   chan_doan?: string;
   chong_chi_dinh?: string;
+  anh_dinh_kem_url?: string | null;
 }
 
 export interface PatientMedicalRecord {
@@ -43,6 +44,7 @@ export interface PatientMedicalRecord {
   lich_dat_id: string;
   ma_lich_dat: string;
   ten_bac_si: string;
+  anh_bac_si?: string;
   khuyen_nghi_dich_vu?: string;
   khuyen_nghi_goi?: string;
 }
@@ -50,7 +52,10 @@ export interface PatientMedicalRecord {
 export interface TreatmentSession {
   id: string;
   so_thu_tu_buoi: number;
-  trang_thai: 'cho_tri_lieu' | 'dang_tri_lieu' | 'hoan_thanh' | 'vang_mat';
+  // Giá trị thật của cuoc_hen.trang_thai (chua_xac_nhan/cho_xac_nhan/da_xac_nhan/da_checkin/dang_kham/
+  // hoan_thanh/khong_den/da_huy...) — dùng string thay vì union cứng vì còn vài biến thể lịch sử
+  // (khach_khong_den, da_huy_phat...) không đáng liệt kê hết.
+  trang_thai: string;
   thoi_gian_bat_dau?: string;
   thoi_gian_ket_thuc?: string;
   danh_gia_truoc_buoi?: string;
@@ -59,6 +64,7 @@ export interface TreatmentSession {
   canh_bao_dac_biet?: string;
   ai_tom_tat_ngan?: string;
   ten_ky_thuat_vien?: string;
+  anh_ky_thuat_vien?: string;
 }
 
 export interface TreatmentPlan {
@@ -67,7 +73,7 @@ export interface TreatmentPlan {
   loai_dieu_tri: 'dich_vu' | 'goi';
   tong_so_buoi: number;
   so_buoi_da_dung: number;
-  trang_thai: 'dang_dieu_tri' | 'hoan_thanh' | 'tam_dung';
+  trang_thai: 'dang_dieu_tri' | 'hoan_thanh' | 'huy' | 'cho_kich_hoat' | 'tam_dung';
   thoi_gian_tao: string;
   ten_dich_vu?: string;
   ten_goi?: string;
@@ -78,13 +84,6 @@ export interface TreatmentPlan {
 export interface PatientProfile {
   medicalRecords: PatientMedicalRecord[];
   treatmentPlans: TreatmentPlan[];
-}
-
-export interface ServiceItem {
-  id: string;
-  ten_dich_vu: string;
-  mo_ta?: string;
-  gia_hien_tai: number;
 }
 
 export interface PackageItem {
@@ -99,7 +98,6 @@ export interface ClinicalAssessmentPayload {
   chan_doan: string;
   chong_chi_dinh: string;
   goi_dich_vu_id?: string | null;
-  dich_vu_id?: string | null;
   ghi_chu?: string | null;
 }
 
@@ -109,22 +107,23 @@ export const getQueue = () => api.get<DoctorQueueItem[]>('/doctor/queue');
 export const getAppointments = (startDate?: string, endDate?: string) => 
   api.get<DoctorAppointment[]>('/doctor/appointments', { params: { startDate, endDate } });
 
-export const getAppointmentDetail = (id: string) => 
-  api.get<DoctorQueueItem & { 
-    ho_so_benh_an_id?: string; 
-    chan_doan?: string; 
-    chong_chi_dinh?: string; 
-    ghi_chu?: string; 
-    goi_dich_vu_id?: string; 
-    dich_vu_id?: string;
+export const getAppointmentDetail = (id: string) =>
+  api.get<DoctorQueueItem & {
+    ho_so_benh_an_id?: string;
+    chan_doan?: string;
+    chong_chi_dinh?: string;
+    ghi_chu?: string;
+    goi_dich_vu_id?: string;
     vas_truoc?: number;
     vas_sau?: number;
+    phac_do_dieu_tri_id?: string | null;
+    so_thu_tu_buoi?: number | null;
+    ten_dich_vu?: string | null;
+    pd_tong_so_buoi?: number | null;
   }>(`/doctor/appointments/${id}`);
 
 export const getPatientProfile = (patientId: string) => 
   api.get<PatientProfile>(`/doctor/patients/${patientId}/profile`);
-
-export const getServices = () => api.get<ServiceItem[]>('/doctor/services');
 
 export const getPackages = () => api.get<PackageItem[]>('/doctor/packages');
 

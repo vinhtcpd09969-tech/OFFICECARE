@@ -55,19 +55,53 @@
 - Nếu khách đã thanh toán hóa đơn khám riêng trước đó: chỉ trừ phí khám **đúng 1 lần**, không trừ lặp trong hoàn tiền gói.
 - Khi truy vấn danh sách/chi tiết hóa đơn, cột chi phí khám phải tính động qua join với bảng dịch vụ, không trả cứng một con số.
 
-## 7. Phạt điểm uy tín khi hủy/không đến (No-Show Penalty)
+### 6b. Hủy gói quá hạn sử dụng — không hoàn tiền (Expired Package — No Refund)
 
-- Gói `tra_thang`/`tra_gop`: vi phạm lần đầu (hủy hoặc không đến) được **ân xá**, không trừ điểm. Từ lần vi phạm thứ 2 trở đi, chuyển trạng thái sang `da_huy_phat`/`khach_khong_den_phat`.
-- Gói `tung_buoi` hoặc buổi lẻ không thuộc gói: **luôn trừ 10 điểm uy tín** mỗi lần vi phạm, không có "ân xá" lần đầu.
-- Cài đặt chuẩn: `resolveNoShowOutcome()` trong `backend/src/domain/billing.ts`.
+Quy tắc **riêng biệt**, khác hẳn mục 6 ở trên — áp dụng khi khách mua gói liệu trình rồi **mất liên lạc hoàn toàn** cho tới khi gói quá `phac_do_dieu_tri.han_su_dung`.
 
-## 8. Quy trình tiếp đón của Lễ tân (Receptionist Confirmation Flow)
+- Mỗi gói `LIEU_TRINH` được cấu hình "Hạn sử dụng mặc định (ngày)" tại màn Quản lý gói dịch vụ (`goi_dich_vu.han_su_dung_mac_dinh_ngay`) — áp dụng cho **cả 3 hình thức thanh toán** (trả thẳng/trả góp/từng buổi). Giá trị này chỉ là gợi ý mặc định tại thời điểm **đăng ký gói mới**; hạn sử dụng thật được **chốt cứng (snapshot)** vào `phac_do_dieu_tri.han_su_dung` = ngày kích hoạt + N ngày — đổi cấu hình gói sau này **không** ảnh hưởng các khách đã đăng ký trước đó.
+- Khi gói đã quá hạn sử dụng, **Admin** (không phải lễ tân) có thể chủ động bấm "Hủy do quá hạn sử dụng" — **KHÔNG có cơ chế tự động chạy ngầm** (không cron/sweep), tránh hủy nhầm khách chỉ trễ hẹn.
+- Kết quả: **giữ nguyên toàn bộ** số tiền khách đã đóng (`so_tien_da_tra`) vào doanh thu — **không hoàn, không thu thêm** — bất kể hình thức thanh toán nào (kể cả từng buổi, dù bản chất số đã thu ở từng buổi vốn không có phần dư để giữ thêm). **Không áp dụng công thức phạt 10% + hoàn phần dư của mục 6.**
+- Backend tự re-validate `han_su_dung < CURRENT_DATE` trước khi cho hủy (không tin tuyệt đối vào UI), chặn 400 nếu gói chưa thực sự quá hạn.
+- Cài đặt: `expirePackageNoRefund()` trong `backend/src/repositories/admin.repository.ts`, endpoint `POST /admin/invoices/:id/expire-no-refund` (roles Admin/Quản lý).
+
+## 6c. Mã giảm giá (Voucher) — giới hạn theo hình thức thanh toán & lượt dùng
+
+- `yeu_cau_thanh_toan` là **tập hợp nhiều lựa chọn** (mảng Postgres `text[]`), không phải 1 giá trị đơn — 1 voucher có thể áp dụng đồng thời cho nhiều hình thức thanh toán (vd Trả thẳng + Trả góp, loại trừ Từng buổi). Mảng rỗng hoặc chứa `'tat_ca'` nghĩa là không giới hạn.
+- `so_luong_toi_da` (cột DB `so_luong_gioi_han`) giới hạn số lượt dùng **tính riêng theo từng khách hàng**, không phải tổng số lượt dùng gộp toàn hệ thống — mỗi khách được dùng mã tối đa bấy nhiêu lần, không giới hạn tổng số khách khác nhau. Đếm động qua `COUNT(hoa_don WHERE voucher_id = ... AND khach_hang_id = ...)`, không dùng cột đếm sẵn (cột `so_luong_da_dung` cũ đã bị xóa vì không bao giờ được cập nhật).
+- Giá trị giảm loại % chỉ hợp lệ trong khoảng `(0, 100]`; loại số tiền cố định không có "giảm tối đa" (field đó chỉ áp dụng cho %).
+- Cài đặt: `assertVoucherUsable()`/`countVoucherUsage()` trong `backend/src/services/receptionist.service.ts` + `backend/src/repositories/receptionist.repository.ts`.
+
+## 7. Phạt điểm uy tín & mất buổi khi hủy/không đến (No-Show Penalty)
+
+Không còn khái niệm "ân xá lần đầu"/đếm số lần vi phạm. Hậu quả chỉ phụ thuộc **hành động** (hủy vs không đến) và **nhóm gói**:
+
+- **Nhóm A** (chưa thanh toán trước, trả sau khi hoàn thành): gói `KHAM`, `LE`, và `LIEU_TRINH` trả `tung_buoi`.
+- **Nhóm B** (đã thanh toán trước): gói `LIEU_TRINH` trả `tra_thang` hoặc `tra_gop`.
+
+| Hành động | Nhóm A | Nhóm B |
+|---|---|---|
+| **Hủy** (`da_huy`) | Trừ **10 điểm uy tín**. Không mất buổi. | Trừ **10 điểm uy tín**, **không mất buổi** (đặt lại đúng buổi đó được). |
+| **Không đến** (`khong_den`) | Trừ **20 điểm uy tín**. **Không mất buổi** (đặt lại được — chưa mất tiền gì). | **Không trừ điểm** (đã mất tiền buổi đó = đủ hậu quả, tránh phạt kép). **Mất buổi** (tính vào `so_buoi_da_dung`, tiến sang buổi tiếp theo). |
+
+- **Mốc 8 tiếng — chỉ áp cho khách tự hủy qua trang client:** khách chỉ được tự hủy khi còn ≥ 8 tiếng trước giờ hẹn; dưới mốc đó nút/API bị chặn (chặn cả FE lẫn BE tại `cancelCustomerAppointment`), buộc khách gọi Lễ tân. **Lễ tân/Admin hủy giúp không bị giới hạn 8 tiếng** — hủy được bất kỳ lúc nào, luôn cho ra hậu quả "hủy" (trừ 10đ, không mất buổi).
+- Không còn bắn ra trạng thái escalated `da_huy_phat`/`khach_khong_den_phat` (giữ trong enum DB cho dữ liệu lịch sử, không gán mới).
+- `so_buoi_da_dung` (buổi đã tiêu thụ) = đếm `hoan_thanh` luôn luôn + `khong_den` **chỉ khi** gói Nhóm B; `da_huy` không bao giờ tính (`updateCompletedSessionsCount` trong `appointment.repository.ts`).
+- Quyền khóa tài khoản: Nếu điểm uy tín xuống quá thấp, OfficeCare có quyền chủ động khóa/tạm khóa tài khoản qua bộ phận kiểm duyệt định kỳ (không khóa tự động).
+- Cài đặt chuẩn: `resolveNoShowOutcome()` trong `backend/src/domain/billing.ts` (hàm thuần, không biết mốc 8 tiếng — gate 8h nằm tách biệt ở `cancelCustomerAppointment`).
+
+## 8. Đổi lịch hẹn (Rescheduling Policy)
+
+- Khách hàng được phép đổi lịch hẹn bằng cách liên hệ hotline trước ít nhất **8 tiếng** trước giờ bắt đầu của ca hẹn.
+- Trong vòng 8 tiếng trước giờ hẹn, khách không được đổi lịch mà chỉ được hủy lịch hoặc vắng mặt.
+
+## 9. Quy trình tiếp đón của Lễ tân (Receptionist Confirmation Flow)
 
 - Trạng thái mặc định khi khách đặt lịch: `Chưa xác nhận`.
-- Lễ tân gọi điện xác nhận. Nếu khách không nghe máy **≥ 3 cuộc**, Lễ tân hủy lịch **bằng tay**.
+- Lễ tân liên hệ điện thoại xác nhận trực tiếp. Nếu không liên lạc được, Lễ tân hủy lịch **bằng tay**.
 - Hệ thống **không tự động hủy** lịch chưa xác nhận — giữ tính nhân văn và linh hoạt cho nghiệp vụ phòng khám.
 
-## 9. Báo lỗi nghiệp vụ an toàn cho client
+## 10. Báo lỗi nghiệp vụ an toàn cho client
 
 - Mọi lỗi ràng buộc nghiệp vụ (chưa thanh toán buổi trước, trùng lịch nhân sự, đã có lịch đang hoạt động...) ném ra từ Repository/Service dưới dạng `Error` phải được Controller bắt và trả về `400 Bad Request` kèm message gốc.
 - **Cấm** nuốt lỗi nghiệp vụ rồi trả về `500 Lỗi server` chung chung — khách/nhân viên cần thấy đúng lý do bị chặn.

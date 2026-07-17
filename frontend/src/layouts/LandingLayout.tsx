@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
-import { LogOut, LayoutDashboard, ChevronDown, Menu, X, Calendar, Facebook, Instagram, Youtube, Mail, Phone, MapPin } from 'lucide-react';
+import { LogOut, ChevronDown, Menu, X, Calendar, Facebook, Instagram, Youtube, Mail, Phone, MapPin, Bell } from 'lucide-react';
+import api from '../api/axios';
 import GlobalAuthModal from '../components/GlobalAuthModal';
 
 export default function LandingLayout() {
@@ -40,8 +41,72 @@ export default function LandingLayout() {
     };
 
     window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Notifications states for logged-in user in landing header
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [isNotifDropdownOpen, setIsNotifDropdownOpen] = useState(false);
+
+  const fetchNotifications = async () => {
+    try {
+      const res = await api.get('/client/notifications');
+      setNotifications(res.data || []);
+    } catch (err) {
+      console.error('Lỗi tải thông báo public header:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (isAuthenticated() && user) {
+      fetchNotifications();
+      const interval = setInterval(fetchNotifications, 15000);
+      return () => clearInterval(interval);
+    }
+  }, [user]);
+
+  const unreadCount = notifications.filter(n => !n.da_doc).length;
+
+  const handleMarkAsRead = async (id: string) => {
+    try {
+      await api.patch(`/client/notifications/${id}/read`);
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, da_doc: true } : n));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      await api.patch('/client/notifications/read-all');
+      setNotifications(prev => prev.map(n => ({ ...n, da_doc: true })));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleNotifClick = async (notif: any) => {
+    await handleMarkAsRead(notif.id);
+    setIsNotifDropdownOpen(false);
+    if (notif.lien_ket) {
+      navigate(notif.lien_ket);
+    }
+  };
+
+  const formatNotifTime = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr);
+      const now = new Date();
+      const diffMs = now.getTime() - d.getTime();
+      const diffMin = Math.floor(diffMs / 60000);
+      if (diffMin < 1) return 'Vừa xong';
+      if (diffMin < 60) return `${diffMin} phút trước`;
+      const diffHours = Math.floor(diffMin / 60);
+      if (diffHours < 24) return `${diffHours} giờ trước`;
+      return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+    } catch (e) {
+      return '';
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -88,8 +153,10 @@ export default function LandingLayout() {
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-8">
             <Link to="/" className="text-sm font-jakarta font-bold text-secondary hover:text-primary transition-colors relative py-1 after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-primary hover:after:w-full after:transition-all">Trang chủ</Link>
+            <Link to="/gioi-thieu" className="text-sm font-jakarta font-bold text-secondary hover:text-primary transition-colors relative py-1 after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-primary hover:after:w-full after:transition-all">Giới thiệu</Link>
             <Link to="/services" className="text-sm font-jakarta font-bold text-secondary hover:text-primary transition-colors relative py-1 after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-primary hover:after:w-full after:transition-all">Dịch vụ</Link>
             <Link to="/specialists" className="text-sm font-jakarta font-bold text-secondary hover:text-primary transition-colors relative py-1 after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-primary hover:after:w-full after:transition-all">Chuyên gia</Link>
+            <Link to="/tin-tuc" className="text-sm font-jakarta font-bold text-secondary hover:text-primary transition-colors relative py-1 after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-primary hover:after:w-full after:transition-all">Bài viết</Link>
           </nav>
 
           {/* Auth Actions (Desktop) */}
@@ -102,6 +169,64 @@ export default function LandingLayout() {
               <Calendar size={14} />
               Đặt lịch
             </Link>
+
+            {isAuthenticated() && user && (
+              <div className="relative mr-1">
+                <button 
+                  onClick={() => setIsNotifDropdownOpen(!isNotifDropdownOpen)}
+                  className="relative text-secondary hover:text-primary transition-colors p-2 rounded-full hover:bg-slate-100/50 flex items-center justify-center"
+                >
+                  <Bell size={18} />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-1 right-1 bg-rose-600 text-white text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center border border-white shadow-xs select-none">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {isNotifDropdownOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setIsNotifDropdownOpen(false)} />
+                    <div className="absolute right-0 mt-3 w-80 bg-white border border-slate-100 rounded-[20px] shadow-lg py-3 z-50 animate-slide-up">
+                      <div className="px-4 pb-2 border-b border-slate-100 flex items-center justify-between">
+                        <h3 className="text-[10px] font-black text-secondary uppercase tracking-wider">Thông báo ({unreadCount})</h3>
+                        {unreadCount > 0 && (
+                          <button 
+                            onClick={handleMarkAllAsRead}
+                            className="text-[10px] text-primary hover:underline font-bold"
+                          >
+                            Đọc tất cả
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="max-h-64 overflow-y-auto divide-y divide-slate-50">
+                        {notifications.length === 0 ? (
+                          <div className="px-4 py-8 text-center text-slate-400 text-xs font-semibold">
+                            Không có thông báo mới
+                          </div>
+                        ) : (
+                          notifications.map(notif => (
+                            <button 
+                              key={notif.id}
+                              onClick={() => handleNotifClick(notif)}
+                              className={`w-full px-4 py-2.5 text-left flex gap-3 transition-colors ${notif.da_doc ? 'hover:bg-slate-50/50' : 'bg-primary/5 hover:bg-primary/10'}`}
+                            >
+                              <div className="size-2 bg-primary rounded-full mt-1.5 flex-shrink-0" style={{ visibility: notif.da_doc ? 'hidden' : 'visible' }} />
+                              <div className="flex-1 space-y-0.5">
+                                <p className="text-xs font-black text-secondary leading-tight">{notif.tieu_de}</p>
+                                <p className="text-[10px] text-slate-500 font-semibold leading-relaxed">{notif.noi_dung}</p>
+                                <p className="text-[9px] text-slate-400 font-bold mt-1">{formatNotifTime(notif.thoi_gian_tao)}</p>
+                              </div>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
 
             {isAuthenticated() && user ? (
               <div className="relative">
@@ -127,11 +252,11 @@ export default function LandingLayout() {
                 {isMenuOpen && (
                   <div className="absolute right-0 mt-2 w-56 bg-white rounded-[24px] shadow-soft-ui border border-slate-100 py-2 animate-slide-up">
                     <Link 
-                      to="/dashboard" 
+                      to="/appointments" 
                       className="flex items-center gap-3 px-4 py-3 text-sm font-jakarta font-bold text-secondary hover:bg-slate-50 transition-colors"
                       onClick={() => setIsMenuOpen(false)}
                     >
-                      <LayoutDashboard size={18} className="text-primary" />
+                      <Calendar size={18} className="text-primary" />
                       Quản lý tài khoản
                     </Link>
                     <div className="h-px bg-slate-100 my-1"></div>
@@ -165,8 +290,10 @@ export default function LandingLayout() {
         {isMobileMenuOpen && (
           <div className="md:hidden w-full mt-2 bg-white/95 backdrop-blur-md rounded-[24px] border border-slate-100 shadow-lg px-6 py-6 flex flex-col gap-3 animate-slide-up">
             <Link to="/" className="text-sm font-jakarta font-bold text-secondary py-2.5 border-b border-slate-50" onClick={() => setIsMobileMenuOpen(false)}>Trang chủ</Link>
+            <Link to="/gioi-thieu" className="text-sm font-jakarta font-bold text-secondary py-2.5 border-b border-slate-50" onClick={() => setIsMobileMenuOpen(false)}>Giới thiệu</Link>
             <Link to="/services" className="text-sm font-jakarta font-bold text-secondary py-2.5 border-b border-slate-50" onClick={() => setIsMobileMenuOpen(false)}>Dịch vụ</Link>
             <Link to="/specialists" className="text-sm font-jakarta font-bold text-secondary py-2.5 border-b border-slate-50" onClick={() => setIsMobileMenuOpen(false)}>Chuyên gia</Link>
+            <Link to="/tin-tuc" className="text-sm font-jakarta font-bold text-secondary py-2.5 border-b border-slate-50" onClick={() => setIsMobileMenuOpen(false)}>Bài viết</Link>
             
             <div className="mt-4 flex flex-col gap-2.5">
               <Link 
@@ -178,8 +305,8 @@ export default function LandingLayout() {
               </Link>
               {isAuthenticated() && user ? (
                 <>
-                  <Link to="/dashboard" className="flex items-center justify-center gap-2 bg-slate-50 hover:bg-slate-100 text-secondary text-sm font-jakarta font-bold px-6 py-3 rounded-[16px] transition-all" onClick={() => setIsMobileMenuOpen(false)}>
-                    <LayoutDashboard size={18} /> Quản lý tài khoản
+                  <Link to="/appointments" className="flex items-center justify-center gap-2 bg-slate-50 hover:bg-slate-100 text-secondary text-sm font-jakarta font-bold px-6 py-3 rounded-[16px] transition-all" onClick={() => setIsMobileMenuOpen(false)}>
+                    <Calendar size={18} /> Quản lý tài khoản
                   </Link>
                   <button onClick={handleLogout} className="flex items-center justify-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 text-sm font-jakarta font-bold px-6 py-3 rounded-[16px] transition-all">
                     <LogOut size={18} /> Đăng xuất
@@ -246,6 +373,7 @@ export default function LandingLayout() {
             <div className="space-y-3">
               <h4 className="font-jakarta font-bold text-xs tracking-wider text-slate-800 uppercase">Hỗ Trợ</h4>
               <ul className="space-y-2 text-slate-500">
+                <li><Link to="/gioi-thieu" className="hover:text-primary transition-colors">Giới thiệu</Link></li>
                 <li><a href="#" className="hover:text-primary transition-colors">Chính sách bảo mật</a></li>
                 <li><a href="#" className="hover:text-primary transition-colors">Điều khoản sử dụng</a></li>
                 <li><a href="#" className="hover:text-primary transition-colors">Câu hỏi thường gặp</a></li>

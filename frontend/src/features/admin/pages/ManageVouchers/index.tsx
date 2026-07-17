@@ -38,14 +38,16 @@ export default function ManageVouchers() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   
-  // Payment requirements states inside Modal
-  const [yeuCauThanhToan, setYeuCauThanhToan] = useState<'tat_ca' | 'tra_thang' | 'tra_gop'>('tat_ca');
+  // Loại giảm trừ + Payment requirements states inside Modal
+  const [loaiGiam, setLoaiGiam] = useState<'phan_tram' | 'so_tien_co_dinh'>('phan_tram');
+  const [yeuCauThanhToan, setYeuCauThanhToan] = useState<string[]>(['tat_ca']);
 
   // Modal confirm state
   const [confirmModalData, setConfirmModalData] = useState<{
     isOpen: boolean;
     title: string;
     message: string;
+    confirmLabel?: string;
     onConfirm: () => void;
   } | null>(null);
 
@@ -55,7 +57,10 @@ export default function ManageVouchers() {
 
   useEffect(() => {
     if (editingVoucher) {
-      setYeuCauThanhToan(editingVoucher.yeu_cau_thanh_toan || 'tat_ca');
+      setLoaiGiam(editingVoucher.loai_giam || 'phan_tram');
+      setYeuCauThanhToan(
+        editingVoucher.yeu_cau_thanh_toan?.length ? editingVoucher.yeu_cau_thanh_toan : ['tat_ca']
+      );
     }
   }, [editingVoucher]);
 
@@ -86,10 +91,14 @@ export default function ManageVouchers() {
     const payload = {
       ...data,
       gia_tri_giam: Number(data.gia_tri_giam),
-      giam_toi_da: data.giam_toi_da ? Number(data.giam_toi_da) : null,
+      giam_toi_da: data.loai_giam === 'so_tien_co_dinh' ? null : (data.giam_toi_da ? Number(data.giam_toi_da) : null),
       don_hang_toi_thieu: Number(data.don_hang_toi_thieu),
       so_luong_toi_da: data.so_luong_toi_da ? Number(data.so_luong_toi_da) : null,
-      yeu_cau_thanh_toan: yeuCauThanhToan,
+      yeu_cau_thanh_toan: yeuCauThanhToan.length ? yeuCauThanhToan : ['tat_ca'],
+      // Form không còn ô "Trạng thái hoạt động" (không ai tạo mã mà để tạm dừng ngay) — khi sửa,
+      // giữ nguyên trạng thái đang có (vd đã bị ngưng) thay vì mặc định bật lại; khi tạo mới thì
+      // luôn kích hoạt.
+      trang_thai: editingVoucher?.id ? (editingVoucher.trang_thai || 'hoat_dong') : 'hoat_dong',
     };
 
     const message = 'Chiến dịch ưu đãi này sẽ áp dụng toàn cục cho tất cả hóa đơn thanh toán.';
@@ -119,28 +128,49 @@ export default function ManageVouchers() {
     });
   };
 
-  const handleToggleVoucherStatus = async (v: Voucher) => {
-    const nextStatus = v.trang_thai === 'hoat_dong' ? 'tam_dung' : 'hoat_dong';
-    try {
-      await api.put(`/admin/vouchers/${v.id}`, {
-        ...v,
-        trang_thai: nextStatus
-      });
-      toast.success(`Đã chuyển trạng thái sang ${nextStatus === 'hoat_dong' ? 'Hoạt động' : 'Tạm dừng'}`);
-      fetchVouchers();
-    } catch (error) {
-      toast.error('Lỗi khi cập nhật trạng thái chiến dịch');
-    }
-  };
+  // Bật/tắt mã giảm giá — đây cũng chính là hành động "xóa mềm" duy nhất trong màn này (không có
+  // nút xóa cứng riêng): voucher đã từng được dùng trong hóa đơn (hoa_don.voucher_id) không thể
+  // xóa cứng vì vướng ràng buộc khóa ngoại, và xóa cứng cũng làm mất dấu vết cho các hóa đơn cũ.
+  //
+  // "Tạm dừng" (admin tự tắt) và "Hết hạn" (ngay_het_han đã qua) đều coi là đang TẮT — bấm nút
+  // bật lại ở cả 2 trường hợp đều hỏi xác nhận, nhưng nếu mã đã hết hạn thì chặn lại và yêu cầu
+  // gia hạn trước, không cho bật ngầm một mã đã hết hạn sử dụng.
+  const handleToggleVoucherStatus = (v: Voucher) => {
+    const isExpired = !!(v.ngay_het_han && new Date(v.ngay_het_han) < new Date());
+    const isEffectivelyOn = v.trang_thai === 'hoat_dong' && !isExpired;
 
-  const handleVoucherDelete = async (id: string) => {
-    if (!window.confirm('Bạn có chắc chắn muốn xóa chiến dịch ưu đãi này không?')) return;
-    try {
-      await api.delete(`/admin/vouchers/${id}`);
-      toast.success('Đã xóa ưu đãi thành công');
-      fetchVouchers();
-    } catch (error) {
-      toast.error('Lỗi khi xóa ưu đãi');
+    const applyStatusChange = async (nextStatus: 'hoat_dong' | 'tam_dung') => {
+      try {
+        await api.put(`/admin/vouchers/${v.id}`, { ...v, trang_thai: nextStatus });
+        toast.success(nextStatus === 'hoat_dong' ? 'Đã kích hoạt lại mã giảm giá' : 'Đã ngưng sử dụng mã giảm giá');
+        fetchVouchers();
+      } catch (error) {
+        toast.error('Lỗi khi cập nhật trạng thái chiến dịch');
+      }
+    };
+
+    if (isEffectivelyOn) {
+      setConfirmModalData({
+        isOpen: true,
+        title: 'Ngưng sử dụng mã giảm giá',
+        message: 'Bạn có chắc chắn muốn ngưng sử dụng mã giảm giá này không?',
+        confirmLabel: 'Ngưng sử dụng',
+        onConfirm: () => applyStatusChange('tam_dung'),
+      });
+    } else {
+      setConfirmModalData({
+        isOpen: true,
+        title: 'Kích hoạt lại mã giảm giá',
+        message: 'Bạn có muốn kích hoạt lại mã giảm giá này không?',
+        confirmLabel: 'Kích hoạt lại',
+        onConfirm: () => {
+          if (isExpired) {
+            toast.error('Mã giảm giá đã hết hạn sử dụng. Vui lòng tăng thời hạn (ngày hết hạn) trước khi kích hoạt lại.');
+            return;
+          }
+          applyStatusChange('hoat_dong');
+        },
+      });
     }
   };
 
@@ -183,7 +213,6 @@ export default function ManageVouchers() {
   // Calculate statistics
   const activeVouchersCount = vouchers.filter(v => v.trang_thai === 'hoat_dong').length;
   const pausedVouchersCount = vouchers.filter(v => v.trang_thai === 'tam_dung').length;
-  const totalUsedCount = vouchers.reduce((acc, v) => acc + (v.so_luong_da_dung || 0), 0);
 
   return (
     <div className="space-y-6">
@@ -199,11 +228,12 @@ export default function ManageVouchers() {
           </div>
         </div>
         
-        <button 
-          onClick={() => { 
-            setEditingVoucher({}); 
-            setYeuCauThanhToan('tat_ca');
-            setIsVoucherModalOpen(true); 
+        <button
+          onClick={() => {
+            setEditingVoucher({});
+            setLoaiGiam('phan_tram');
+            setYeuCauThanhToan(['tat_ca']);
+            setIsVoucherModalOpen(true);
           }}
           className="bg-primary text-white px-5 py-2.5 rounded-xl font-semibold shadow-soft-button hover:-translate-y-0.5 transition-all duration-200 flex items-center gap-2 text-sm self-start md:self-auto"
         >
@@ -212,7 +242,7 @@ export default function ManageVouchers() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-soft-ui flex items-center gap-4">
           <div className="bg-teal-50 text-teal-600 p-3 rounded-xl">
             <Ticket className="w-5 h-5" />
@@ -229,15 +259,6 @@ export default function ManageVouchers() {
           <div>
             <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Mã Voucher tạm dừng</span>
             <span className="text-2xl font-extrabold text-secondary mt-0.5 block">{pausedVouchersCount} Mã</span>
-          </div>
-        </div>
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-soft-ui flex items-center gap-4">
-          <div className="bg-emerald-50 text-emerald-600 p-3 rounded-xl">
-            <Ticket className="w-5 h-5" />
-          </div>
-          <div>
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Tổng lượt đã áp dụng</span>
-            <span className="text-2xl font-extrabold text-secondary mt-0.5 block">{totalUsedCount} Lượt</span>
           </div>
         </div>
       </div>
@@ -289,7 +310,6 @@ export default function ManageVouchers() {
                 setEditingVoucher(voucher);
                 setIsVoucherModalOpen(true);
               }}
-              onDelete={handleVoucherDelete}
               formatCurrency={formatCurrency}
               formatCurrencyShort={formatCurrencyShort}
               formatDate={formatDate}
@@ -310,6 +330,8 @@ export default function ManageVouchers() {
         onClose={() => setIsVoucherModalOpen(false)}
         onSubmit={handleVoucherSubmit}
         editingVoucher={editingVoucher}
+        loaiGiam={loaiGiam}
+        setLoaiGiam={setLoaiGiam}
         yeuCauThanhToan={yeuCauThanhToan}
         setYeuCauThanhToan={setYeuCauThanhToan}
         formatLocalDate={formatLocalDate}
@@ -340,7 +362,7 @@ export default function ManageVouchers() {
                 }}
                 className="px-5 py-2.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary/95 shadow-md shadow-teal-500/10 transition-colors text-sm"
               >
-                Xác nhận lưu
+                {confirmModalData.confirmLabel || 'Xác nhận lưu'}
               </button>
             </div>
           </div>

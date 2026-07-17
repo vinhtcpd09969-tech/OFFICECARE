@@ -44,8 +44,12 @@ erDiagram
   hoa_don ||--o{ giao_dich_thanh_toan : "hoa_don_id (phieu thu dong tien)"
   nguoi_dung ||--o{ giao_dich_thanh_toan : "nhan_vien_thuc_hien_id (le tan thu tien)"
   
-  cuoc_hen ||--|| danh_gia_chat_luong : "cuoc_hen_id (1-1 khach danh gia ca hen)"
-  khach_hang ||--o{ danh_gia_chat_luong : "khach_hang_id"
+  khach_hang ||--o{ danh_gia_goi_dich_vu : "khach_hang_id"
+  goi_dich_vu ||--o{ danh_gia_goi_dich_vu : "goi_dich_vu_id"
+  cuoc_hen ||--o{ danh_gia_goi_dich_vu : "cuoc_hen_id"
+  khach_hang ||--o{ danh_gia_nhan_su : "khach_hang_id"
+  nguoi_dung ||--o{ danh_gia_nhan_su : "nhan_su_id"
+  cuoc_hen ||--o{ danh_gia_nhan_su : "cuoc_hen_id"
 ```
 
 ---
@@ -223,12 +227,26 @@ Table khuyen_mai_voucher {
   dang_kich_hoat boolean
 }
 
-Table danh_gia_chat_luong {
+Table danh_gia_goi_dich_vu {
   id uuid [pk]
-  cuoc_hen_id uuid
   khach_hang_id uuid
+  goi_dich_vu_id uuid
+  cuoc_hen_id uuid
   so_sao integer
   nhan_xet text
+  ngay_tao timestamptz
+  ngay_cap_nhat timestamptz
+}
+
+Table danh_gia_nhan_su {
+  id uuid [pk]
+  khach_hang_id uuid
+  nhan_su_id integer
+  cuoc_hen_id uuid
+  so_sao integer
+  nhan_xet text
+  ngay_tao timestamptz
+  ngay_cap_nhat timestamptz
 }
 
 // KHÓA NGOẠI & QUAN HỆ GIỮA CÁC BẢNG
@@ -268,6 +286,11 @@ Ref: hoa_don.voucher_id > khuyen_mai_voucher.id
 Ref: giao_dich_thanh_toan.hoa_don_id > hoa_don.id
 Ref: giao_dich_thanh_toan.nhan_vien_thuc_hien_id > nguoi_dung.id
 
-Ref: danh_gia_chat_luong.cuoc_hen_id - cuoc_hen.id
-Ref: danh_gia_chat_luong.khach_hang_id > khach_hang.id
+Ref: danh_gia_goi_dich_vu.khach_hang_id > khach_hang.id
+Ref: danh_gia_goi_dich_vu.goi_dich_vu_id > goi_dich_vu.id
+Ref: danh_gia_goi_dich_vu.cuoc_hen_id - cuoc_hen.id
+
+Ref: danh_gia_nhan_su.khach_hang_id > khach_hang.id
+Ref: danh_gia_nhan_su.nhan_su_id > nguoi_dung.id
+Ref: danh_gia_nhan_su.cuoc_hen_id - cuoc_hen.id
 ```

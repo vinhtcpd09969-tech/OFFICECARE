@@ -4,6 +4,7 @@ interface PackageRowProps {
   currencyFormatter: Intl.NumberFormat;
   onEdit: (pkg: any) => void;
   onDelete: (pkg: any) => void;
+  onRestore: (pkg: any) => void;
 }
 
 export function PackageRow({
@@ -11,7 +12,8 @@ export function PackageRow({
   categories,
   currencyFormatter,
   onEdit,
-  onDelete
+  onDelete,
+  onRestore
 }: PackageRowProps) {
   const isInactive = pkg.trang_thai !== 'hoat_dong';
 
@@ -111,15 +113,27 @@ export function PackageRow({
             SỬA ĐỔI
           </button>
 
-          <button
-            onClick={() => onDelete(pkg)}
-            className="p-2 border border-zinc-200 hover:border-amber-300 hover:bg-amber-50/50 text-zinc-400 hover:text-amber-500 rounded-xl transition-all duration-200 active:scale-95 bg-white shadow-2xs"
-            title="Ngưng sử dụng gói"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636" />
-            </svg>
-          </button>
+          {pkg.trang_thai === 'hoat_dong' ? (
+            <button
+              onClick={() => onDelete(pkg)}
+              className="p-2 border border-zinc-200 hover:border-amber-300 hover:bg-amber-50/50 text-zinc-400 hover:text-amber-500 rounded-xl transition-all duration-200 active:scale-95 bg-white shadow-2xs"
+              title="Ngưng sử dụng gói"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636" />
+              </svg>
+            </button>
+          ) : (
+            <button
+              onClick={() => onRestore(pkg)}
+              className="p-2 border border-zinc-200 hover:border-emerald-300 hover:bg-emerald-50/50 text-zinc-400 hover:text-emerald-600 rounded-xl transition-all duration-200 active:scale-95 bg-white shadow-2xs"
+              title="Khôi phục sử dụng gói"
+            >
+              <svg className="w-3.5 h-3.5 text-emerald-650" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 6.578M3.9 9h6.1" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
     </div>

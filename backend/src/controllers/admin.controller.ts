@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { ZodError } from 'zod';
 import adminService from '../services/admin.service';
 import { packageSchema, staffSchema, roomSchema, equipmentSchema } from '../schemas/admin.schema';
-import { refundSchema, packageRefundSchema } from '../schemas/finance.schema';
+import { refundSchema, packageRefundSchema, expirePackageNoRefundSchema } from '../schemas/finance.schema';
 import { voucherSchema } from '../schemas/marketing.schema';
 
 // --- QUẢN LÝ PHÒNG KHÁM ---
@@ -68,6 +68,7 @@ export const createPackage = async (req: Request, res: Response): Promise<any> =
     res.status(201).json(packageData);
   } catch (error) {
     if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
+    if (error instanceof Error) return res.status(400).json({ message: error.message });
     res.status(500).json({ message: 'Lỗi server' });
   }
 };
@@ -81,6 +82,7 @@ export const updatePackage = async (req: Request, res: Response): Promise<any> =
     res.json(packageData);
   } catch (error) {
     if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
+    if (error instanceof Error) return res.status(400).json({ message: error.message });
     res.status(500).json({ message: 'Lỗi server' });
   }
 };
@@ -180,6 +182,46 @@ export const updateStaffStatus = async (req: Request, res: Response): Promise<an
   }
 };
 
+export const updateStaff = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params as { id: string };
+    const { ho_ten, so_dien_thoai, vai_tro_id, so_nam_kinh_nghiem, bang_cap_chung_chi, mo_ta, the_manh } = req.body;
+    
+    if (!ho_ten) {
+      return res.status(400).json({ message: 'Họ tên là bắt buộc' });
+    }
+    if (!vai_tro_id || ![2, 3, 4, 5, 6].includes(Number(vai_tro_id))) {
+      return res.status(400).json({ message: 'Vai trò không hợp lệ' });
+    }
+
+    const staff = await adminService.updateStaffDetails(id, {
+      ho_ten,
+      so_dien_thoai,
+      vai_tro_id,
+      so_nam_kinh_nghiem,
+      bang_cap_chung_chi,
+      mo_ta,
+      the_manh
+    });
+
+    res.json(staff);
+  } catch (error: any) {
+    if (error.message === 'Không tìm thấy nhân sự') return res.status(404).json({ message: error.message });
+    res.status(500).json({ message: 'Lỗi server khi cập nhật nhân sự' });
+  }
+};
+
+export const resetStaffPassword = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params as { id: string };
+    const staff = await adminService.resetStaffPassword(id);
+    res.json({ message: 'Reset mật khẩu thành công về 123456', staff });
+  } catch (error: any) {
+    if (error.message === 'Không tìm thấy nhân sự') return res.status(404).json({ message: error.message });
+    res.status(500).json({ message: 'Lỗi server khi reset mật khẩu' });
+  }
+};
+
 // --- QUẢN LÝ KHÁCH HÀNG ---
 
 export const getCustomers = async (req: Request, res: Response) => {
@@ -188,6 +230,59 @@ export const getCustomers = async (req: Request, res: Response) => {
     res.json(customers);
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server khi lấy danh sách khách hàng' });
+  }
+};
+
+
+export const updateCustomer = async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const updated = await adminService.updateCustomer(id, req.body);
+    res.json({ message: 'Cập nhật khách hàng thành công', data: updated });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi cập nhật khách hàng' });
+  }
+};
+
+export const toggleCustomerLock = async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const { isLocked } = req.body;
+    const updated = await adminService.updateCustomerLock(id, isLocked);
+    res.json({ message: isLocked ? 'Khóa tài khoản thành công' : 'Mở khóa tài khoản thành công', data: updated });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi khóa/mở khóa tài khoản khách hàng' });
+  }
+};
+
+const VALID_CUSTOMER_STATUS_FILTERS = ['none', 'le', 'pending', 'progress', 'done', 'cancel', 'any_plan', 'locked'];
+
+export const getCustomersOverview = async (req: Request, res: Response) => {
+  try {
+    const page = Math.max(1, parseInt(String(req.query.page ?? '1'), 10) || 1);
+    const pageSize = Math.min(100, Math.max(1, parseInt(String(req.query.pageSize ?? '20'), 10) || 20));
+    const search = String(req.query.search ?? '').trim();
+    const status = String(req.query.status ?? '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(s => VALID_CUSTOMER_STATUS_FILTERS.includes(s));
+    const repTierRaw = String(req.query.repTier ?? '');
+    const repTier = (['low', 'mid', 'high'] as const).includes(repTierRaw as any) ? (repTierRaw as 'low' | 'mid' | 'high') : undefined;
+    const result = await adminService.getCustomersOverview({ page, pageSize, search, status, repTier });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi lấy danh sách khách hàng' });
+  }
+};
+
+export const getCustomerEmr = async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const record = await adminService.getCustomerEmr(id);
+    res.json(record);
+  } catch (error: any) {
+    if (error.message === 'Không tìm thấy khách hàng') return res.status(404).json({ message: error.message });
+    res.status(500).json({ message: 'Lỗi server khi lấy hồ sơ khách hàng' });
   }
 };
 
@@ -342,10 +437,10 @@ export const handlePackageRefund = async (req: Request, res: Response): Promise<
 
     const result = await adminService.handlePackageRefund(id, body, userId);
 
-    res.json({ 
-      message: 'Hủy gói và hoàn tiền thành công', 
+    res.json({
+      message: 'Hủy gói và hoàn tiền thành công',
       invoice: result.invoice,
-      so_tien_hoan_tra: result.so_tien_hoan_tra 
+      so_tien_hoan_tra: result.so_tien_hoan_tra
     });
   } catch (error: any) {
     if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
@@ -353,6 +448,29 @@ export const handlePackageRefund = async (req: Request, res: Response): Promise<
       return res.status(error.code).json({ message: error.message });
     }
     res.status(500).json({ message: error.message || 'Lỗi server khi xử lý hủy gói và hoàn tiền' });
+  }
+};
+
+export const handleExpirePackageNoRefund = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params as { id: string };
+    const { body } = expirePackageNoRefundSchema.parse({ body: req.body });
+    const user = (req as any).user;
+    const userId = user ? Number(user.id) : 1;
+
+    const result = await adminService.expirePackageNoRefund(id, body, userId);
+
+    res.json({
+      message: 'Đã hủy gói do quá hạn sử dụng (không hoàn tiền)',
+      invoice: result.invoice,
+      so_tien_giu_lai: result.so_tien_giu_lai
+    });
+  } catch (error: any) {
+    if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
+    if (error.code && typeof error.code === 'number' && error.code >= 100 && error.code < 600) {
+      return res.status(error.code).json({ message: error.message });
+    }
+    res.status(500).json({ message: error.message || 'Lỗi server khi xử lý hủy gói quá hạn' });
   }
 };
 
@@ -434,7 +552,12 @@ export const getDashboardSummary = async (req: Request, res: Response) => {
 
 export const getRevenueStats = async (req: Request, res: Response) => {
   try {
-    const stats = await adminService.getRevenueStats();
+    const { type, startDate, endDate } = req.query as {
+      type?: string;
+      startDate?: string;
+      endDate?: string;
+    };
+    const stats = await adminService.getRevenueStats(type, startDate, endDate);
     res.json(stats);
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server khi lấy thống kê doanh thu' });
@@ -447,6 +570,33 @@ export const getStaffPerformance = async (req: Request, res: Response) => {
     res.json(stats);
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server khi lấy hiệu suất nhân viên' });
+  }
+};
+
+export const getTopPackages = async (req: Request, res: Response) => {
+  try {
+    const stats = await adminService.getTopPackages();
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi lấy top gói dịch vụ' });
+  }
+};
+
+export const getTopVipCustomers = async (req: Request, res: Response) => {
+  try {
+    const stats = await adminService.getTopVipCustomers();
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi lấy top khách hàng VIP' });
+  }
+};
+
+export const getReviews = async (req: Request, res: Response) => {
+  try {
+    const stats = await adminService.getReviews();
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi lấy danh sách đánh giá' });
   }
 };
 

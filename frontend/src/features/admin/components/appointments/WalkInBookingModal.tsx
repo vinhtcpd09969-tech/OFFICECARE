@@ -1,9 +1,135 @@
-import React, { useState, useEffect } from 'react';
-import { Clock, MapPin, User, Stethoscope, Search, Loader2, CalendarRange, ArrowLeft } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Clock, MapPin, User, Stethoscope, Search, Loader2, CalendarRange, ArrowLeft, X, ChevronDown, Check } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../../../../api/axios';
 import { convertToVietnamUtcIso } from '../../../../utils/date';
+import { isPlanCancelled, isSessionPaymentSatisfied } from '../../../../utils/billing';
+import { resolveImageUrl } from '../../../../utils/imageUrl';
+import { statusConfig } from './constants';
+
+/** Buổi kế tiếp của phác đồ đã đủ điều kiện thanh toán để đặt lịch chưa (xem docs/BUSINESS_RULES.md mục 3). */
+function isPlanBookable(plan: any): boolean {
+  if (!plan || plan.trang_thai === 'khuyen_nghi') return true;
+  // Gói đã hủy + hoàn tiền thì chấm dứt hẳn — không phải "thiếu tiền" để thu thêm.
+  if (isPlanCancelled(plan)) return false;
+  // Đã có buổi đang hoạt động (chưa xác nhận/đã xác nhận/đã check-in/đang khám) — backend
+  // (appointment.repository.ts::createAppointment) chặn cứng đặt thêm cho tới khi buổi này
+  // xong/hủy, nên chặn ngay từ đây thay vì để lễ tân điền hết form rồi mới báo lỗi.
+  if (plan.lich_dang_hoat_dong) return false;
+  return isSessionPaymentSatisfied(plan, Number(plan.so_buoi_da_dung || 0) + 1);
+}
+
+/**
+ * Dropdown chọn dịch vụ — thay cho <select> gốc của trình duyệt (không style được, hiện thô).
+ * Mỗi dòng là 1 thẻ: tên dịch vụ + chip thời lượng + giá, có trạng thái chọn rõ ràng.
+ */
+function ServiceSelect({
+  services,
+  value,
+  onChange,
+  disabled,
+}: {
+  services: any[];
+  value: string;
+  onChange: (id: string) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const selected = services.find((s: any) => String(s.id) === String(value));
+
+  useEffect(() => {
+    if (!open) return;
+    const onClickOutside = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onClickOutside);
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      document.removeEventListener('mousedown', onClickOutside);
+      document.removeEventListener('keydown', onEsc);
+    };
+  }, [open]);
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen((v) => !v)}
+        className={`w-full px-4 py-3 border rounded-xl text-sm text-left flex items-center justify-between gap-3 transition-all outline-none ${
+          disabled
+            ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
+            : open
+              ? 'bg-white border-emerald-500 ring-2 ring-emerald-500/15 cursor-pointer'
+              : 'bg-slate-50 border-slate-200 hover:border-slate-300 cursor-pointer'
+        }`}
+      >
+        {selected ? (
+          <span className="min-w-0 flex items-center gap-2">
+            <span className="font-bold text-slate-800 truncate">{selected.ten_goi}</span>
+            <span className="text-[10px] font-bold text-slate-500 bg-slate-150 px-1.5 py-0.5 rounded shrink-0">
+              {selected.thoi_luong_phut}p
+            </span>
+            <span className="text-[10px] font-black text-emerald-700 shrink-0">
+              {Number(selected.don_gia).toLocaleString('vi-VN')}đ
+            </span>
+          </span>
+        ) : (
+          <span className="font-semibold text-slate-400">Vui lòng chọn dịch vụ...</span>
+        )}
+        <ChevronDown
+          size={16}
+          className={`shrink-0 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+
+      {open && !disabled && (
+        <div className="absolute z-30 mt-2 w-full max-h-72 overflow-y-auto bg-white border border-slate-200 rounded-2xl shadow-xl shadow-slate-900/5 p-1.5 space-y-1 animate-in fade-in slide-in-from-top-1 duration-150">
+          {services.length === 0 && (
+            <p className="text-xs font-semibold text-slate-400 text-center py-6">Không có dịch vụ phù hợp.</p>
+          )}
+          {services.map((svc: any) => {
+            const isActive = String(svc.id) === String(value);
+            return (
+              <button
+                key={svc.id}
+                type="button"
+                onClick={() => {
+                  onChange(String(svc.id));
+                  setOpen(false);
+                }}
+                className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between gap-3 transition-all ${
+                  isActive ? 'bg-emerald-50 ring-1 ring-emerald-500/25' : 'hover:bg-slate-50'
+                }`}
+              >
+                <div className="min-w-0">
+                  <p className={`text-xs font-black truncate ${isActive ? 'text-emerald-800' : 'text-slate-800'}`}>
+                    {svc.ten_goi}
+                  </p>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                      ⏳ {svc.thoi_luong_phut} phút
+                    </span>
+                    <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
+                      {Number(svc.don_gia).toLocaleString('vi-VN')}đ
+                    </span>
+                  </div>
+                </div>
+                {isActive && <Check size={15} className="text-emerald-600 shrink-0 stroke-[3]" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface WalkInBookingModalProps {
   roomsList: any[];
@@ -41,9 +167,10 @@ export default function WalkInBookingModal({
   initialServiceId,
   onDateChange
 }: WalkInBookingModalProps) {
+  const navigate = useNavigate();
   const [isNewCustomer, setIsNewCustomer] = useState(false);
   const [showPlansList, setShowPlansList] = useState(false);
-  
+
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -69,6 +196,7 @@ export default function WalkInBookingModal({
   const [treatmentPlans, setTreatmentPlans] = useState<any[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [selectedServiceId, setSelectedServiceId] = useState('');
+  const [packageManuallyCleared, setPackageManuallyCleared] = useState(false);
 
 
   // 1. Filter services based on activeType (Kham vs Lieu Trinh Le)
@@ -83,12 +211,8 @@ export default function WalkInBookingModal({
     });
   }, [servicesList, activeType]);
 
-  // Set default service
-  useEffect(() => {
-    if (filteredServices.length > 0 && !selectedServiceId && !selectedPlan) {
-      setSelectedServiceId(filteredServices[0].id);
-    }
-  }, [filteredServices, selectedServiceId, selectedPlan]);
+  // Cố ý KHÔNG auto-chọn dịch vụ đầu danh sách: lễ tân phải chủ động chọn, tránh lỡ tay
+  // đặt nhầm dịch vụ chỉ vì nó tình cờ đứng đầu bảng chữ cái.
 
   // Auto-expand phác đồ list if selectedPlan changes to true
   useEffect(() => {
@@ -204,9 +328,12 @@ export default function WalkInBookingModal({
         const res = await axiosInstance.get(`/receptionist/customers/${selectedCustomer.id}/treatment-plans`);
         const list = res.data || [];
         setTreatmentPlans(list);
+        setPackageManuallyCleared(false);
         if (initialServiceId) {
           const matched = list.find((p: any) => String(p.goi_dich_vu_id) === String(initialServiceId));
-          if (matched) {
+          // Không auto-chọn gói đang bị chặn thanh toán (vd trả góp chưa đóng Đợt 2) — lễ tân
+          // sẽ thấy nút "Thanh toán Đợt 2" trong danh sách thay vì một form đặt lịch đặt không được.
+          if (matched && isPlanBookable(matched)) {
             setSelectedPlan(matched);
             setSelectedServiceId(matched.goi_dich_vu_id);
           }
@@ -238,12 +365,13 @@ export default function WalkInBookingModal({
     setEmail('');
     setTreatmentPlans([]);
     setSelectedPlan(null);
-    if (filteredServices.length > 0) {
-      setSelectedServiceId(filteredServices[0].id);
-    }
+    setSelectedServiceId('');
   };
 
   const handleSelectPlan = (plan: any) => {
+    // Gói chưa đủ điều kiện thanh toán thì không cho chọn — backend sẽ chặn ở createAppointment,
+    // nên chặn ngay từ đây thay vì để lễ tân điền hết form rồi mới báo lỗi.
+    if (!isPlanBookable(plan)) return;
     setSelectedPlan(plan);
     setSelectedServiceId(plan.goi_dich_vu_id);
     setSelectedDoctorId('');
@@ -252,9 +380,33 @@ export default function WalkInBookingModal({
 
   const handleClearPlan = () => {
     setSelectedPlan(null);
-    if (filteredServices.length > 0) {
-      setSelectedServiceId(filteredServices[0].id);
+    setPackageManuallyCleared(true);
+    setSelectedServiceId('');
+  };
+
+  const goToInstallmentPayment = (plan: any) => {
+    // Đợt 2 của trả góp thu hết đúng phần còn lại của hóa đơn — deep-link ?hoa_don_id= (mở thẳng
+    // modal chi tiết hóa đơn, "Thu tiền ngay" = đúng dư nợ hiện tại) là chính xác cho trường hợp
+    // này. NHƯNG với từng buổi, số cần thu là số tiền CỦA ĐÚNG BUỔI TIẾP THEO, không phải cả dư nợ
+    // còn lại của hóa đơn (dư nợ gồm cả các buổi tương lai chưa tới) — phải đi qua đúng luồng
+    // checkout theo customer_id + goi_dich_vu_id (cùng nguồn getTungBuoiSessionDue mà backend
+    // dùng để ghi sổ), nếu không sẽ bắt thu nhầm nguyên giá trị gói còn lại.
+    const dest = isReceptionist ? '/receptionist/billing' : '/admin/finance';
+    if (plan.hinh_thuc_thanh_toan_goi === 'tung_buoi' && selectedCustomer) {
+      const checkoutDest = isReceptionist ? '/receptionist/billing' : '/admin/quick-billing';
+      navigate(`${checkoutDest}?customer_id=${selectedCustomer.id}&goi_dich_vu_id=${plan.goi_dich_vu_id}`);
+      return;
     }
+    navigate(`${dest}?hoa_don_id=${plan.hoa_don_id}`);
+  };
+
+  // Chỉ định liệu trình (trang_thai='khuyen_nghi') chưa hề được thanh toán/kích hoạt — CHƯA có gì
+  // để "đặt lịch buổi 1" cả (phác đồ còn chưa tồn tại). Phải đưa lễ tân qua đúng luồng thanh toán
+  // để chọn hình thức (trả thẳng/trả góp/từng buổi) và kích hoạt phác đồ trước, không cho phép tạo
+  // thẳng 1 cuộc hẹn rời rạc gắn với gói chưa tồn tại.
+  const goToPackageActivation = (plan: any) => {
+    const dest = isReceptionist ? '/receptionist/billing' : '/admin/quick-billing';
+    navigate(`${dest}?lich_dat_id=${plan.cuoc_hen_id}`);
   };
 
   // Determine active service details
@@ -521,6 +673,17 @@ export default function WalkInBookingModal({
       toast.error('Vui lòng tìm và chọn khách hàng!');
       return;
     }
+    if (selectedPlan && !isPlanBookable(selectedPlan)) {
+      const nextSession = Number(selectedPlan.so_buoi_da_dung || 0) + 1;
+      toast.error(
+        selectedPlan.lich_dang_hoat_dong
+          ? `Buổi ${selectedPlan.lich_dang_hoat_dong.so_thu_tu_buoi} của gói này đang có lịch hoạt động. Vui lòng hoàn thành hoặc hủy lịch cũ trước khi đặt buổi tiếp theo!`
+          : selectedPlan.hinh_thuc_thanh_toan_goi === 'tra_gop'
+            ? `Gói trả góp chưa đóng Đợt 2. Vui lòng thu Đợt 2 trước khi đặt buổi số ${nextSession}!`
+            : `Gói chưa thanh toán đủ. Vui lòng thu tiền trước khi đặt buổi số ${nextSession}!`
+      );
+      return;
+    }
 
     // Kiểm tra nếu ngày chọn thuộc về quá khứ
     const now = new Date();
@@ -762,6 +925,12 @@ export default function WalkInBookingModal({
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all font-semibold"
                 />
               </div>
+              <div className="space-y-1 col-span-1 md:col-span-2">
+                <div className="text-[10px] text-amber-700 bg-amber-50/80 border border-amber-200 p-3 rounded-xl font-bold flex items-start gap-2">
+                  <span className="mt-0.5">ℹ️</span>
+                  <span>Mật khẩu mặc định là <strong>123456</strong>. Các trường khác như địa chỉ khách hàng có thể tự cập nhật sau.</span>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -822,19 +991,23 @@ export default function WalkInBookingModal({
                     const isSelected = selectedPlan?.id === plan.id;
                     const isRec = plan.trang_thai === 'khuyen_nghi';
                     const nextSession = plan.so_buoi_da_dung + 1;
+                    const hasActiveAppt = !!plan.lich_dang_hoat_dong;
+                    const isBlocked = !isPlanBookable(plan);
                     return (
                       <div
                         key={plan.id}
-                        onClick={() => handleSelectPlan(plan)}
-                        className={`p-3 border rounded-xl flex items-center justify-between transition-all cursor-pointer text-left ${
-                          isSelected 
-                            ? 'border-emerald-500 bg-emerald-50/50 ring-2 ring-emerald-500/10'
-                            : isRec
-                              ? 'border-amber-200 bg-amber-50/10 hover:border-amber-400'
-                              : 'border-slate-150 bg-white hover:border-emerald-350'
+                        onClick={() => (isRec ? goToPackageActivation(plan) : handleSelectPlan(plan))}
+                        className={`p-3 border rounded-xl flex items-center justify-between gap-3 transition-all text-left ${
+                          isBlocked
+                            ? 'border-rose-200 bg-rose-50/25 cursor-not-allowed'
+                            : isSelected
+                              ? 'border-emerald-500 bg-emerald-50/50 ring-2 ring-emerald-500/10 cursor-pointer'
+                              : isRec
+                                ? 'border-amber-200 bg-amber-50/10 hover:border-amber-400 cursor-pointer'
+                                : 'border-slate-150 bg-white hover:border-emerald-350 cursor-pointer'
                         }`}
                       >
-                        <div>
+                        <div className={isBlocked ? 'opacity-70' : ''}>
                           <div className="flex items-center gap-1.5">
                             <p className="text-xs font-black text-slate-800">{plan.ten_goi_dich_vu}</p>
                             {isRec && (
@@ -842,21 +1015,56 @@ export default function WalkInBookingModal({
                             )}
                           </div>
                           <p className="text-[10px] text-slate-400 font-semibold mt-0.5">
-                            {isRec 
-                              ? 'Dịch vụ lẻ/Gói được bác sĩ khuyên dùng' 
-                              : `Đã dùng: ${plan.so_buoi_da_dung}/${plan.tong_so_buoi} buổi | Ca tiếp theo: Buổi ${nextSession}`
+                            {isRec
+                              ? 'Bác sĩ chỉ định — chưa thanh toán/kích hoạt'
+                              : hasActiveAppt
+                                ? `Đã dùng: ${plan.so_buoi_da_dung}/${plan.tong_so_buoi} buổi | Buổi ${plan.lich_dang_hoat_dong.so_thu_tu_buoi} đã có lịch`
+                                : `Đã dùng: ${plan.so_buoi_da_dung}/${plan.tong_so_buoi} buổi | Ca tiếp theo: Buổi ${nextSession}`
                             }
                           </p>
+                          {isBlocked && (
+                            <p className="text-[10px] text-rose-600 font-bold mt-1">
+                              {hasActiveAppt
+                                ? `📅 Buổi ${plan.lich_dang_hoat_dong.so_thu_tu_buoi}: ${format(new Date(plan.lich_dang_hoat_dong.ngay_gio_bat_dau), 'dd/MM/yyyy HH:mm')} (${statusConfig[plan.lich_dang_hoat_dong.trang_thai]?.label || plan.lich_dang_hoat_dong.trang_thai}) — hoàn thành/hủy buổi này trước khi đặt tiếp.`
+                                : `⚠️ ${plan.hinh_thuc_thanh_toan_goi === 'tra_gop'
+                                    ? `Chưa đóng Đợt 2 — không thể đặt buổi ${nextSession}.`
+                                    : `Chưa thanh toán đủ — không thể đặt buổi ${nextSession}.`}`}
+                            </p>
+                          )}
                         </div>
-                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
-                          isSelected 
-                            ? 'bg-emerald-600 text-white' 
-                            : isRec
-                              ? 'bg-amber-500 text-white'
-                              : 'bg-emerald-100 text-emerald-700'
-                        }`}>
-                          {isSelected ? 'Đang chọn' : isRec ? 'Chọn đặt lịch' : `Đặt buổi ${nextSession}`}
-                        </span>
+
+                        {isBlocked ? (
+                          hasActiveAppt ? (
+                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 bg-blue-500 text-white">
+                              Đã đặt lịch
+                            </span>
+                          ) : plan.hoa_don_id ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                goToInstallmentPayment(plan);
+                              }}
+                              className="text-[10px] font-black px-3 py-2 rounded-lg shrink-0 bg-amber-500 hover:bg-amber-600 text-white shadow-sm transition-all active:scale-95 cursor-pointer"
+                            >
+                              💵 {plan.hinh_thuc_thanh_toan_goi === 'tra_gop' ? 'Thanh toán Đợt 2' : 'Thanh toán'}
+                            </button>
+                          ) : (
+                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 bg-rose-500 text-white">
+                              Chưa đủ điều kiện
+                            </span>
+                          )
+                        ) : (
+                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                            isSelected
+                              ? 'bg-emerald-600 text-white'
+                              : isRec
+                                ? 'bg-amber-500 text-white'
+                                : 'bg-emerald-100 text-emerald-700'
+                          }`}>
+                            {isSelected ? 'Đang chọn' : isRec ? '💵 Thanh toán & Kích hoạt' : `Đặt buổi ${nextSession}`}
+                          </span>
+                        )}
                       </div>
                     );
                   })}
@@ -884,41 +1092,38 @@ export default function WalkInBookingModal({
           </h4>
           
           {selectedPlan ? (
-            <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl flex justify-between items-center select-none">
-              <div>
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">
-                  {selectedPlan.trang_thai === 'khuyen_nghi' ? 'Dịch vụ lẻ chỉ định' : 'Gói đặt theo phác đồ'}
-                </span>
-                <span className="text-sm font-black text-slate-800 block mt-0.5">{selectedPlan.ten_goi_dich_vu}</span>
-                {selectedPlan.trang_thai !== 'khuyen_nghi' ? (
-                  <span className="text-[10px] text-emerald-600 font-bold block mt-0.5">⏳ Buổi {selectedPlan.so_buoi_da_dung + 1} ({selectedPlan.thoi_luong_phut} phút)</span>
-                ) : (
-                  <span className="text-[10px] text-amber-600 font-bold block mt-0.5">⏳ {selectedPlan.thoi_luong_phut} phút (Chỉ định)</span>
-                )}
-              </div>
-              <span className="text-xs font-bold text-slate-400 bg-slate-100 px-3 py-1 rounded-lg">Khóa dịch vụ</span>
+            <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl relative select-none">
+              <button
+                type="button"
+                onClick={handleClearPlan}
+                title="Hủy khóa dịch vụ này, chọn dịch vụ khác"
+                className="absolute top-3 right-3 size-6 rounded-full bg-slate-200 hover:bg-rose-100 hover:text-rose-600 text-slate-500 flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X size={13} />
+              </button>
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block pr-8">
+                {selectedPlan.trang_thai === 'khuyen_nghi' ? 'Dịch vụ lẻ chỉ định' : 'Gói đặt theo phác đồ'}
+              </span>
+              <span className="text-sm font-black text-slate-800 block mt-0.5 pr-8">{selectedPlan.ten_goi_dich_vu}</span>
+              {selectedPlan.trang_thai !== 'khuyen_nghi' ? (
+                <span className="text-[10px] text-emerald-600 font-bold block mt-0.5">⏳ Buổi {selectedPlan.so_buoi_da_dung + 1} ({selectedPlan.thoi_luong_phut} phút)</span>
+              ) : (
+                <span className="text-[10px] text-amber-600 font-bold block mt-0.5">⏳ {selectedPlan.thoi_luong_phut} phút (Chỉ định)</span>
+              )}
             </div>
           ) : (
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-500">Chọn dịch vụ lẻ *</label>
-              <select
+              <ServiceSelect
+                services={filteredServices}
                 value={selectedServiceId}
-                onChange={e => {
-                  setSelectedServiceId(e.target.value);
+                onChange={(id) => {
+                  setSelectedServiceId(id);
                   setSelectedDoctorId('');
                   setSelectedRoomId('');
                 }}
-                required
-                disabled={!!initialServiceId}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all font-semibold disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
-              >
-                <option value="">-- Chọn dịch vụ --</option>
-                {filteredServices.map((svc: any) => (
-                  <option key={svc.id} value={svc.id}>
-                    {svc.ten_goi} ({svc.thoi_luong_phut} phút - {Number(svc.don_gia).toLocaleString()}đ)
-                  </option>
-                ))}
-              </select>
+                disabled={!!initialServiceId && !packageManuallyCleared}
+              />
             </div>
           )}
 
@@ -1078,11 +1283,21 @@ export default function WalkInBookingModal({
                             : 'border-slate-100 bg-slate-50/50 opacity-60 cursor-not-allowed'
                         }`}
                       >
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${
-                          doc.available ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-555'
-                        }`}>
-                          {isExam ? 'BS' : 'KTV'}
-                        </div>
+                        {doc.anh_dai_dien ? (
+                          <img
+                            src={resolveImageUrl(doc.anh_dai_dien)}
+                            alt={doc.ho_ten}
+                            className={`w-9 h-9 rounded-full object-cover shrink-0 border-2 ${
+                              isSelected && doc.available ? 'border-emerald-500' : 'border-slate-200'
+                            } ${doc.available ? '' : 'grayscale'}`}
+                          />
+                        ) : (
+                          <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+                            doc.available ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-555'
+                          }`}>
+                            {isExam ? 'BS' : 'KTV'}
+                          </div>
+                        )}
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-black text-slate-800 truncate flex items-center gap-1.5">
                             <span>{doc.ho_ten}</span>
@@ -1148,7 +1363,7 @@ export default function WalkInBookingModal({
         </button>
         <button
           type="button"
-          disabled={bookingLoading || !selectedTime || !selectedServiceId || (!isNewCustomer && !selectedCustomer) || (!isReceptionist && !selectedDoctorId) || hasReachedLimit}
+          disabled={bookingLoading || !selectedTime || !selectedServiceId || (!isNewCustomer && !selectedCustomer) || (!isReceptionist && !selectedDoctorId) || hasReachedLimit || (!!selectedPlan && !isPlanBookable(selectedPlan))}
           onClick={() => {
             const form = document.querySelector('form');
             if (form) form.requestSubmit();

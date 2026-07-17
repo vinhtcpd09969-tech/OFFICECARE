@@ -388,7 +388,7 @@ export default function ManageAppointments() {
     total: kpiAppointments.length,
     waiting: kpiAppointments.filter(a => a.trang_thai === 'chua_xac_nhan' || a.trang_thai === 'cho_xac_nhan').length,
     completed: kpiAppointments.filter(a => a.trang_thai === 'hoan_thanh').length,
-    cancelled: kpiAppointments.filter(a => a.trang_thai === 'da_huy' || a.trang_thai === 'khong_den').length,
+    secondary: kpiAppointments.filter(a => a.trang_thai === 'da_huy' || a.trang_thai === 'khong_den').length,
   };
 
   const unassignedAppointments = appointmentsToUse
@@ -590,9 +590,8 @@ export default function ManageAppointments() {
         >
           {/* KPI METRIC CARDS */}
           <AppointmentKpiCards
-            isReceptionist={false}
+            role="admin"
             kpis={kpis}
-            receptionistKpis={{ total: 0, pendingContact: 0, assigned: 0, checkedIn: 0 }}
             viewMode={viewMode}
             timeRange={timeRange}
             activeType={activeType}
@@ -610,7 +609,8 @@ export default function ManageAppointments() {
             selectedDate={selectedDate}
             activeType={activeType}
             onToggleType={() => setActiveType(prev => prev === 'kham' ? 'dieu_tri' : 'kham')}
-            isWalkInModalOpen={isWalkInModalOpen}
+            canToggleType={true}
+            setViewMode={setViewMode}
           />
 
           {/* DYNAMIC HEADER & BACK NAVIGATION */}

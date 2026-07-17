@@ -1,7 +1,10 @@
 import { Request, Response } from 'express';
 import receptionistService from '../services/receptionist.service';
+import receptionistRepository from '../repositories/receptionist.repository';
 import { getMinPaymentRequired } from '../domain/billing';
 import { HinhThucThanhToanGoi } from '../domain/types';
+import { payos } from '../config/payos';
+import { pool } from '../config/db';
 
 // GET /api/receptionist/today-appointments
 export const getTodayAppointments = async (req: Request, res: Response) => {
@@ -45,6 +48,9 @@ export const updateAppointmentStatus = async (req: Request, res: Response): Prom
     }
     if (error.message === 'ROOM_UNAVAILABLE') {
       return res.status(400).json({ message: 'Không có phòng trống cho dịch vụ này tại thời điểm hiện tại.' });
+    }
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ message: error.message });
     }
     res.status(500).json({ message: 'Lỗi server' });
   }
@@ -114,6 +120,36 @@ export const calculateBilling = async (req: Request, res: Response): Promise<any
     res.json(result);
   } catch (error: any) {
     console.error('Lỗi tính hóa đơn:', error);
+    res.status(400).json({ message: error.message || 'Lỗi server' });
+  }
+};
+
+// GET /api/receptionist/vouchers/active
+export const getActiveVouchers = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { khach_hang_id } = req.query;
+    if (!khach_hang_id || typeof khach_hang_id !== 'string') {
+      return res.status(400).json({ message: 'Thiếu khach_hang_id để kiểm tra lượt dùng voucher' });
+    }
+    const vouchers = await receptionistService.getActiveVouchers(khach_hang_id);
+    res.json({ vouchers });
+  } catch (error: any) {
+    console.error('Lỗi lấy danh sách voucher khả dụng:', error);
+    res.status(400).json({ message: error.message || 'Lỗi server' });
+  }
+};
+
+// POST /api/receptionist/vouchers/apply
+export const applyVoucher = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { ma_voucher, loai_thanh_toan, khach_hang_id } = req.body;
+    if (!ma_voucher || !String(ma_voucher).trim()) {
+      return res.status(400).json({ message: 'Vui lòng nhập mã giảm giá' });
+    }
+    const voucher = await receptionistService.applyVoucher(ma_voucher, loai_thanh_toan, khach_hang_id);
+    res.json({ voucher });
+  } catch (error: any) {
+    console.error('Lỗi áp dụng voucher:', error);
     res.status(400).json({ message: error.message || 'Lỗi server' });
   }
 };
@@ -198,18 +234,6 @@ export const getBillingInfoByPackage = async (req: Request, res: Response): Prom
   }
 };
 
-// GET /api/receptionist/customers/:id/pending-package-activations
-export const getPendingPackageActivations = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const id = String(req.params.id);
-    const result = await receptionistService.getPendingPackageActivations(id);
-    res.json(result);
-  } catch (error: any) {
-    console.error('Lỗi lấy danh sách gói chỉ định chờ kích hoạt:', error);
-    res.status(500).json({ message: 'Lỗi server' });
-  }
-};
-
 // GET /api/receptionist/customers/:id/check-limit
 export const checkCustomerLimit = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -245,7 +269,13 @@ export const checkPackagePayment = async (req: Request, res: Response): Promise<
     }
 
     const { rows } = await pool.query(`
-      SELECT hd.tong_tien_phai_tra, hd.so_tien_da_tra, hd.hinh_thuc_thanh_toan_goi, hd.trang_thai, pd.tong_so_buoi
+      SELECT hd.tong_tien_phai_tra, hd.so_tien_da_tra, hd.hinh_thuc_thanh_toan_goi, hd.trang_thai, pd.tong_so_buoi,
+             hd.tong_tien_goc, hd.ti_le_giam_gia_goi, hd.so_tien_giam_voucher,
+             (
+               SELECT COUNT(*)::int
+               FROM cuoc_hen
+               WHERE phac_do_dieu_tri_id = pd.id AND loai = 'DIEU_TRI'
+             ) as so_buoi_da_dat
       FROM phac_do_dieu_tri pd
       JOIN hoa_don hd ON hd.phac_do_dieu_tri_id = pd.id
       WHERE pd.khach_hang_id = $1 AND pd.goi_dich_vu_id = $2
@@ -261,18 +291,152 @@ export const checkPackagePayment = async (req: Request, res: Response): Promise<
     const daThanhToan = Number(invoiceObj.so_tien_da_tra || 0);
     const hinhThuc: HinhThucThanhToanGoi = invoiceObj.hinh_thuc_thanh_toan_goi || 'tra_thang';
     const tongSoBuoi = Number(invoiceObj.tong_so_buoi || 10);
+    const grossBeforeExamDeduction = Number(invoiceObj.tong_tien_goc || 0)
+      - Math.round(Number(invoiceObj.tong_tien_goc || 0) * Number(invoiceObj.ti_le_giam_gia_goi || 0) / 100)
+      - Number(invoiceObj.so_tien_giam_voucher || 0);
 
-    // Chưa biết chính xác buổi thứ mấy đang được đặt ở bước này, mặc định buổi 1
-    // (mốc gate đầu tiên) — đúng bằng ngưỡng mà appointment.repository.ts dùng trước khi resolve so_thu_tu_buoi thật.
-    const minRequired = getMinPaymentRequired(hinhThuc, tongTien, tongSoBuoi, 1);
+    // Buổi sắp được đặt = số buổi DIEU_TRI đã tạo + 1 — khớp đúng cách appointment.repository.ts
+    // resolve so_thu_tu_buoi khi tạo lịch, để pre-check này không báo "đã đủ tiền" rồi backend lại chặn ở submit.
+    const nextSessionNum = Number(invoiceObj.so_buoi_da_dat || 0) + 1;
+
+    const minRequired = getMinPaymentRequired(hinhThuc, tongTien, tongSoBuoi, nextSessionNum, grossBeforeExamDeduction);
     if (daThanhToan < minRequired) {
       const label = hinhThuc === 'tra_gop' ? 'Trả góp' : hinhThuc === 'tung_buoi' ? 'Trả từng buổi' : 'Trả thẳng 100%';
-      return res.json({ paid: false, message: `Gói trị liệu (${label}) yêu cầu thanh toán tối thiểu trước khi đặt lịch.` });
+      const conThieu = minRequired - daThanhToan;
+      return res.json({
+        paid: false,
+        nextSessionNum,
+        soTienConThieu: conThieu,
+        message: hinhThuc === 'tra_gop'
+          ? `Gói trả góp: cần đóng Đợt 2 (còn thiếu ${conThieu.toLocaleString('vi-VN')}đ) trước khi đặt buổi số ${nextSessionNum}.`
+          : `Gói trị liệu (${label}) yêu cầu thanh toán tối thiểu trước khi đặt buổi số ${nextSessionNum}.`
+      });
     }
 
-    return res.json({ paid: true });
+    return res.json({ paid: true, nextSessionNum });
   } catch (error: any) {
     console.error('Lỗi khi kiểm tra thanh toán gói của khách hàng:', error);
     res.status(500).json({ message: 'Lỗi server' });
   }
 };
+
+// POST /api/receptionist/payment/create-payos-link
+export const createPayOSPaymentLink = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { hoa_don_id, so_thu_tu_buoi } = req.body;
+    // Dùng chung đúng công thức với processPayment (tiền mặt) — KHÔNG tự tính
+    // tong_tien_thanh_toan - da_thanh_toan ở đây nữa, vì với gói trả từng buổi con số đó là cả
+    // số dư còn lại của gói, không phải đúng phần của buổi/đợt đang thu.
+    const { hd, requiredAmount: amount } = await receptionistService.getRequiredPaymentAmount(hoa_don_id, so_thu_tu_buoi);
+    if (amount <= 0) {
+      return res.status(400).json({ message: 'Hóa đơn đã được thanh toán đầy đủ' });
+    }
+
+    const khRes = await pool.query('SELECT ho_ten FROM khach_hang WHERE id = $1', [hd.khach_hang_id]);
+    const hoTen = khRes.rows[0]?.ho_ten || '';
+    const removeAccents = (str: string) => {
+      return str
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'D')
+        .replace(/[^a-zA-Z0-9 ]/g, '');
+    };
+    const cleanName = removeAccents(hoTen).replace(/\s+/g, '').toUpperCase().substring(0, 10);
+
+    const cleanUuid = hoa_don_id.replace(/-/g, '');
+    const orderCode = Date.now() % 2000000000;
+    const description = `TTHD ${cleanUuid.substring(0, 8).toUpperCase()} ${cleanName}`.substring(0, 25).trim();
+
+    const cancelUrl = `http://localhost:3000/admin/quick-billing`;
+    const returnUrl = `http://localhost:3000/admin/quick-billing`;
+
+    const paymentData = {
+      orderCode,
+      amount,
+      description,
+      cancelUrl,
+      returnUrl,
+      expiredAt: Math.floor(Date.now() / 1000) + 600, // 10 minutes
+    };
+
+    const paymentLinkRes = await payos.paymentRequests.create(paymentData);
+    return res.json({
+      ...paymentLinkRes,
+      orderCode,
+      amount
+    });
+  } catch (error: any) {
+    console.error('Lỗi khi tạo link thanh toán PayOS:', error);
+    res.status(500).json({ message: 'Lỗi server khi tạo link thanh toán', error: error.message });
+  }
+};
+
+// POST /api/receptionist/payment/cancel-payos-link
+export const cancelPayOSPaymentLink = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { hoa_don_id, orderCode, order_code } = req.body;
+    let targetOrderCode = orderCode || order_code;
+
+    if (!targetOrderCode) {
+      const cleanUuid = hoa_don_id.replace(/-/g, '');
+      targetOrderCode = parseInt(cleanUuid.substring(0, 7), 16);
+    }
+
+    try {
+      await payos.paymentRequests.cancel(Number(targetOrderCode));
+    } catch (payosError: any) {
+      console.warn('Lỗi từ PayOS khi hủy link (có thể đã hủy trước đó):', payosError.message);
+    }
+
+    res.json({ message: 'Đã hủy link thanh toán thành công' });
+  } catch (error: any) {
+    console.error('Lỗi khi hủy link thanh toán PayOS:', error);
+    res.status(500).json({ message: 'Lỗi server khi hủy link thanh toán' });
+  }
+};
+
+// GET /api/receptionist/payment/status/:id
+export const getInvoiceStatus = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params;
+    const { orderCode } = req.query;
+
+    let hd = await receptionistRepository.getInvoiceById(id as string);
+    if (!hd) {
+      return res.status(404).json({ message: 'Không tìm thấy hóa đơn' });
+    }
+
+    // Backup check via PayOS API if database is unpaid and orderCode is provided
+    if (hd.trang_thai === 'chua_thanh_toan' && orderCode) {
+      try {
+        const paymentLinkInfo = await payos.paymentRequests.get(Number(orderCode));
+        if (paymentLinkInfo.status === 'PAID') {
+          console.log(`Polling phát hiện hóa đơn ${hd.id} đã thanh toán trên PayOS. Cập nhật DB...`);
+          await receptionistService.processPayment({
+            hoa_don_id: hd.id,
+            phuong_thuc: 'chuyen_khoan',
+            so_tien_nhan: paymentLinkInfo.amountPaid.toString()
+          });
+          // Re-query database to get updated status
+          hd = await receptionistRepository.getInvoiceById(id as string);
+        }
+      } catch (payosErr: any) {
+        console.warn('Lỗi khi check status từ PayOS API:', payosErr.message);
+      }
+    }
+
+    res.json({
+      trang_thai: hd.trang_thai,
+      so_tien_da_tra: hd.da_thanh_toan,
+      da_thanh_toan: hd.da_thanh_toan,
+      tong_tien_phai_tra: hd.tong_tien_thanh_toan,
+      tong_tien_thanh_toan: hd.tong_tien_thanh_toan,
+      id: hd.id
+    });
+  } catch (error: any) {
+    console.error('Lỗi khi lấy trạng thái hóa đơn:', error);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+};
+

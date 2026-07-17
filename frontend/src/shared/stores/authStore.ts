@@ -13,7 +13,13 @@ interface User {
     so_nam_kinh_nghiem: number;
     bang_cap_chung_chi: string;
     mo_ta: string;
+    the_manh?: string[];
   } | null;
+  gioi_tinh?: string | null;
+  diem_uy_tin?: number;
+  ngay_dong_y_dieu_khoan?: string | null;
+  dia_chi?: string | null;
+  isDefaultPassword?: boolean;
 }
 
 interface AuthState {

@@ -49,17 +49,17 @@ export function useLoginState(WelcomeToastComponent: React.ComponentType<{ t: an
       // Custom Premium Welcome Toast using React.createElement for class/function component compatibility
       toast.custom((t) => React.createElement(WelcomeToastComponent, { t, user }), { duration: 5000 });
 
-      const from = (location.state as any)?.from || '/dashboard';
+      const from = (location.state as any)?.from || '/appointments';
       const roleId = Number(user.vai_tro_id);
 
       if (roleId === 5) {
-        navigate(from === '/dashboard' ? '/admin' : from);
+        navigate(from === '/appointments' || from === '/dashboard' ? '/admin' : from);
       } else if (roleId === 2) {
-        navigate(from === '/dashboard' ? '/receptionist' : from);
+        navigate(from === '/appointments' || from === '/dashboard' ? '/receptionist' : from);
       } else if (roleId === 3) {
-        navigate(from === '/dashboard' ? '/technician/appointments' : from);
+        navigate(from === '/appointments' || from === '/dashboard' ? '/technician/appointments' : from);
       } else if (roleId === 4) {
-        navigate(from === '/dashboard' ? '/doctor' : from);
+        navigate(from === '/appointments' || from === '/dashboard' ? '/doctor' : from);
       } else {
         navigate(from);
       }

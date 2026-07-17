@@ -1,3 +1,5 @@
+import { resolveImageUrl } from '../../../../../utils/imageUrl';
+
 interface StaffRoomAllocationProps {
   selectedAppointment: any;
   resolvedRoomName: string;
@@ -7,6 +9,7 @@ interface StaffRoomAllocationProps {
   setAssignStaffId: (val: string) => void;
   assignStatus: string;
   isReceptionist: boolean;
+  isLocked?: boolean;
   staffList: any[];
   schedulesList: any[];
   aptDateStr: string;
@@ -24,7 +27,8 @@ export function StaffRoomAllocation({
   assignStaffId,
   setAssignStaffId,
   assignStatus: _assignStatus,
-  isReceptionist,
+  isReceptionist: _isReceptionist,
+  isLocked = false,
   staffList,
   schedulesList,
   aptDateStr,
@@ -33,6 +37,44 @@ export function StaffRoomAllocation({
   occupiedStaffIds,
   appointments = []
 }: StaffRoomAllocationProps) {
+  const hasAssignedStaff = !!selectedAppointment?.bac_si_id || !!selectedAppointment?.chuyen_gia_id;
+  // Lịch còn "chưa xác nhận" nghĩa là CHƯA có tín hiệu xác thực nào (khách chưa OTP, Lễ tân chưa
+  // gọi) — khớp đúng quy tắc đối xứng ở appointment.service.ts::confirmOTPAppointment (targetStatus
+  // = nhan_su_id ? da_xac_nhan : cho_xac_nhan). Nếu cho phép phân bổ nhân sự ngay từ lúc này, chỉ
+  // riêng thao tác gán nhân sự (không kèm xác thực gì) có thể vô tình đẩy lịch lên "Đã xác nhận"
+  // trong khi khách chưa hề xác nhận sẽ đến. Khóa hẳn cho tới khi trạng thái rời khỏi chua_xac_nhan.
+  const isUnverified = selectedAppointment?.trang_thai === 'chua_xac_nhan';
+  const isEditable = !isUnverified && !(_isReceptionist && (hasAssignedStaff || isLocked));
+
+  if (!_isReceptionist && isUnverified && !hasAssignedStaff) {
+    return (
+      <div className="space-y-3">
+        <h4 className="text-xs font-bold text-slate-400 dark:text-zinc-555 uppercase tracking-wider border-b border-slate-100 dark:border-zinc-800 pb-1.5">
+          Điều phối lâm sàng
+        </h4>
+        <div className="py-6 px-4 text-center text-xs font-bold text-slate-450 dark:text-zinc-500 border border-dashed border-slate-200 dark:border-zinc-800/80 rounded-2xl select-none leading-relaxed">
+          🔒 Chờ khách xác thực OTP hoặc Lễ tân liên hệ xác nhận trước khi phân bổ nhân sự.
+        </div>
+      </div>
+    );
+  }
+
+  // Lễ tân không có quyền chọn nhân sự — khi ca chưa được Quản lý phân bổ, ẩn hẳn phần
+  // nhân sự + phòng thay vì hiển thị dạng thẻ chọn được. Khi đã có nhân sự (dù khách tự
+  // chọn lúc đặt online hay Quản lý gán tay), phần dưới vẫn hiển thị nhưng chỉ đọc (isEditable=false).
+  if (_isReceptionist && !hasAssignedStaff) {
+    return (
+      <div className="space-y-3">
+        <h4 className="text-xs font-bold text-slate-400 dark:text-zinc-555 uppercase tracking-wider border-b border-slate-100 dark:border-zinc-800 pb-1.5">
+          Điều phối lâm sàng
+        </h4>
+        <div className="py-6 text-center text-xs font-bold text-slate-450 dark:text-zinc-500 border border-dashed border-slate-200 dark:border-zinc-800/80 rounded-2xl select-none">
+          🕓 Nhân sự &amp; phòng sẽ hiển thị sau khi Quản lý phân bổ
+        </div>
+      </div>
+    );
+  }
+
   const getStaffDutyStatus = (staff: any) => {
     if (!schedulesList || schedulesList.length === 0) {
       return { hasDuty: true, label: '' };
@@ -77,11 +119,6 @@ export function StaffRoomAllocation({
       const assignedId = selectedAppointment.bac_si_id || selectedAppointment.chuyen_gia_id;
       const isCurrentlyAssigned = assignedId && String(staff.id) === String(assignedId);
       
-      // For Receptionist, only show the currently assigned KTV (no other KTVs can be chosen)
-      if (isReceptionist) {
-        return !!isCurrentlyAssigned;
-      }
-      
       // Check if they have an active schedule today (i.e. they are working, not vacation/absent)
       const staffSchedules = schedulesList.filter(s => 
         String(s.nguoi_dung_id) === String(staff.id) && 
@@ -96,7 +133,7 @@ export function StaffRoomAllocation({
       // Hide if they are not working today ( nghỉ / không trực )
       if (!isOnShift) return false;
 
-      // Admin sees everyone who is on duty today
+      // Admin/Receptionist sees everyone who is on duty today
       return true;
     });
 
@@ -112,7 +149,7 @@ export function StaffRoomAllocation({
           <label className="text-xs font-extrabold text-slate-700 dark:text-zinc-300 uppercase tracking-wider">
             {targetRole === 'Bác sĩ' ? 'Bác sĩ phụ trách' : 'Kỹ thuật viên phụ trách'}
           </label>
-          {assignStaffId && (
+          {isEditable && assignStaffId && (
             <button 
               type="button" 
               onClick={() => setAssignStaffId('')} 
@@ -153,22 +190,38 @@ export function StaffRoomAllocation({
               return (
                 <div
                   key={staff.id}
-                  onClick={() => isAvailable && setAssignStaffId(String(staffId))}
+                  onClick={() => isEditable && isAvailable && setAssignStaffId(String(staffId))}
                   className={`p-3 rounded-xl border-2 transition-all flex items-center gap-3 select-none ${
-                    !isAvailable
-                      ? 'bg-slate-50 dark:bg-zinc-800/20 border-slate-100 dark:border-zinc-800/50 opacity-40 cursor-not-allowed'
-                      : isSelected
-                        ? 'bg-emerald-50/50 dark:bg-emerald-955/15 border-emerald-500 dark:border-emerald-600 text-emerald-800 dark:text-emerald-355 ring-2 ring-emerald-500/10 cursor-pointer'
-                        : 'bg-white dark:bg-zinc-900 border-slate-150 dark:border-zinc-800 hover:border-slate-350 dark:hover:border-zinc-700 cursor-pointer'
+                    !isEditable
+                      ? isSelected
+                        ? 'bg-emerald-50/30 dark:bg-emerald-955/10 border-emerald-500/80 dark:border-emerald-600/80 text-emerald-800 dark:text-emerald-355 cursor-default'
+                        : 'bg-slate-50/50 dark:bg-zinc-800/10 border-slate-100 dark:border-zinc-800/30 opacity-40 cursor-not-allowed'
+                      : !isAvailable
+                        ? 'bg-slate-50 dark:bg-zinc-800/20 border-slate-100 dark:border-zinc-800/50 opacity-40 cursor-not-allowed'
+                        : isSelected
+                          ? 'bg-emerald-50/50 dark:bg-emerald-955/15 border-emerald-500 dark:border-emerald-600 text-emerald-800 dark:text-emerald-355 ring-2 ring-emerald-500/10 cursor-pointer'
+                          : 'bg-white dark:bg-zinc-900 border-slate-150 dark:border-zinc-800 hover:border-slate-350 dark:hover:border-zinc-700 cursor-pointer'
                   }`}
                 >
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-[10px] shrink-0 border ${
-                    isSelected && isAvailable
-                      ? 'bg-emerald-600 dark:bg-emerald-700 text-white border-emerald-600'
-                      : 'bg-slate-100 dark:bg-zinc-800 text-slate-650 dark:text-zinc-450 border-slate-200 dark:border-zinc-750'
-                  }`}>
-                    {getAvatarInitials(staff.ho_ten)}
-                  </div>
+                  {staff.anh_dai_dien ? (
+                    <img
+                      src={resolveImageUrl(staff.anh_dai_dien)}
+                      alt={staff.ho_ten}
+                      className={`w-8 h-8 rounded-full object-cover shrink-0 border-2 ${
+                        isSelected && isAvailable
+                          ? 'border-emerald-600'
+                          : 'border-slate-200 dark:border-zinc-750'
+                      }`}
+                    />
+                  ) : (
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-[10px] shrink-0 border ${
+                      isSelected && isAvailable
+                        ? 'bg-emerald-600 dark:bg-emerald-700 text-white border-emerald-600'
+                        : 'bg-slate-100 dark:bg-zinc-800 text-slate-650 dark:text-zinc-450 border-slate-200 dark:border-zinc-750'
+                    }`}>
+                      {getAvatarInitials(staff.ho_ten)}
+                    </div>
+                  )}
 
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-black text-slate-800 dark:text-zinc-200 truncate flex items-center gap-1.5">

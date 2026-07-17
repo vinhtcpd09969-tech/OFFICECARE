@@ -1,9 +1,11 @@
-import { Link, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import api from '../api/axios';
-import { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { format } from 'date-fns';
 import { MascotWidget } from '../components/MascotWidget';
+import { isAwaitingPaymentForList } from '../utils/billing';
 import { 
   LayoutDashboard, 
   Calendar, 
@@ -23,7 +25,7 @@ import {
   Moon,
   Cpu,
   Settings,
-  Search
+  Newspaper
 } from 'lucide-react';
 
 export default function AdminLayout() {
@@ -33,24 +35,6 @@ export default function AdminLayout() {
   const user = useAuthStore(state => state.user);
   
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
-
-  // Search parameters synchronization
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [searchValue, setSearchValue] = useState(searchParams.get('q') || '');
-
-  useEffect(() => {
-    setSearchValue(searchParams.get('q') || '');
-  }, [searchParams]);
-
-  const handleSearchChange = (val: string) => {
-    setSearchValue(val);
-    if (val.trim()) {
-      setSearchParams({ q: val });
-    } else {
-      searchParams.delete('q');
-      setSearchParams(searchParams);
-    }
-  };
 
   // State và Effect cho thông báo gán Bác sĩ & KTV (Alarm & Bouncing notification)
   const [pendingAppointmentsCount, setPendingAppointmentsCount] = useState<number>(0);
@@ -62,10 +46,131 @@ export default function AdminLayout() {
 
   const [activeCheckIn, setActiveCheckIn] = useState<any>(null);
 
-  // State cho Lễ tân (role 2) để phát hiện ca chưa xác nhận cần liên hệ
+  // State cho Lễ tân (role 2) để phát hiện ca chưa xác nhận cần liên hệ, quá giờ check-in, và cần thanh toán
   const [pendingContactCount, setPendingContactCount] = useState<number>(0);
   const [earliestPendingId, setEarliestPendingId] = useState<string | null>(null);
   const [earliestPendingDate, setEarliestPendingDate] = useState<string | null>(null);
+
+  const [overdueCheckinCount, setOverdueCheckinCount] = useState<number>(0);
+  const [earliestOverdueId, setEarliestOverdueId] = useState<string | null>(null);
+  const [earliestOverdueDate, setEarliestOverdueDate] = useState<string | null>(null);
+
+  const [pendingPaymentCount, setPendingPaymentCount] = useState<number>(0);
+  const [earliestPaymentId, setEarliestPaymentId] = useState<string | null>(null);
+  const [earliestPaymentDate, setEarliestPaymentDate] = useState<string | null>(null);
+
+  const seenCheckedInIds = useRef<Set<string>>(new Set());
+  const seenUnconfirmedIds = useRef<Set<string>>(new Set());
+  const seenOverdueIds = useRef<Set<string>>(new Set());
+  const seenPaymentIds = useRef<Set<string>>(new Set());
+  const isFirstLoad = useRef(true);
+
+  // Sound chime notifier for receptionist
+  const playNotificationSound = useCallback(() => {
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
+      
+      const play = () => {
+        const now = ctx.currentTime;
+        const osc1 = ctx.createOscillator();
+        const gain1 = ctx.createGain();
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(1046.50, now);
+        gain1.gain.setValueAtTime(0.12, now);
+        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+        osc1.connect(gain1);
+        gain1.connect(ctx.destination);
+        osc1.start(now);
+        osc1.stop(now + 0.4);
+
+        const osc2 = ctx.createOscillator();
+        const gain2 = ctx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(1567.98, now + 0.12);
+        gain2.gain.setValueAtTime(0.12, now + 0.12);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+        osc2.connect(gain2);
+        gain2.connect(ctx.destination);
+        osc2.start(now + 0.12);
+        osc2.stop(now + 0.65);
+      };
+
+      if (ctx.state === 'suspended') {
+        ctx.resume().then(play).catch(e => console.warn(e));
+      } else {
+        play();
+      }
+    } catch (e) {
+      console.warn('AudioContext playback failed:', e);
+    }
+  }, []);
+
+  // Staff central notifications states
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [isNotifDropdownOpen, setIsNotifDropdownOpen] = useState(false);
+
+  const fetchNotifications = async () => {
+    try {
+      const res = await api.get('/client/notifications');
+      setNotifications(res.data || []);
+    } catch (err) {
+      console.error('Lỗi khi tải thông báo nhân sự:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchNotifications();
+      const interval = setInterval(fetchNotifications, 15000);
+      return () => clearInterval(interval);
+    }
+  }, [user]);
+
+  const unreadCount = notifications.filter(n => !n.da_doc).length;
+
+  const handleMarkAsRead = async (id: string) => {
+    try {
+      await api.patch(`/client/notifications/${id}/read`);
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, da_doc: true } : n));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      await api.patch('/client/notifications/read-all');
+      setNotifications(prev => prev.map(n => ({ ...n, da_doc: true })));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleNotifClick = async (notif: any) => {
+    await handleMarkAsRead(notif.id);
+    setIsNotifDropdownOpen(false);
+    if (notif.lien_ket) {
+      navigate(notif.lien_ket);
+    }
+  };
+
+  const formatNotifTime = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr);
+      const now = new Date();
+      const diffMs = now.getTime() - d.getTime();
+      const diffMin = Math.floor(diffMs / 60000);
+      if (diffMin < 1) return 'Vừa xong';
+      if (diffMin < 60) return `${diffMin} phút trước`;
+      const diffHours = Math.floor(diffMin / 60);
+      if (diffHours < 24) return `${diffHours} giờ trước`;
+      return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+    } catch (e) {
+      return '';
+    }
+  };
 
   useEffect(() => {
     if (!user || Number(user.vai_tro_id) !== 2) return;
@@ -74,6 +179,8 @@ export default function AdminLayout() {
       try {
         const res = await api.get('/admin/appointments');
         const appointments = res.data || [];
+
+        // 1. Pending Contact (Lịch cần liên hệ)
         const graceTimeMs = 10 * 60 * 1000;
         const pendingApts = appointments.filter((apt: any) => {
           const createdAt = apt.thoi_gian_tao ? new Date(apt.thoi_gian_tao).getTime() : 0;
@@ -90,15 +197,126 @@ export default function AdminLayout() {
           setEarliestPendingId(null);
           setEarliestPendingDate(null);
         }
+
+        // 2. Overdue Check-in (Quá giờ chưa check-in)
+        const now = new Date();
+        const todayStr = now.toDateString();
+        const overdueApts = appointments.filter((apt: any) => {
+          if (!['da_xac_nhan', 'cho_xac_nhan'].includes(apt.trang_thai)) {
+            return false;
+          }
+          const start = new Date(apt.ngay_gio_bat_dau);
+          const isToday = start.toDateString() === todayStr;
+          return isToday && start.getTime() <= now.getTime();
+        });
+        setOverdueCheckinCount(overdueApts.length);
+        if (overdueApts.length > 0) {
+          overdueApts.sort((a: any, b: any) => new Date(a.ngay_gio_bat_dau || '').getTime() - new Date(b.ngay_gio_bat_dau || '').getTime());
+          setEarliestOverdueId(overdueApts[0].id);
+          const targetDate = overdueApts[0].ngay_gio_bat_dau ? overdueApts[0].ngay_gio_bat_dau.match(/^\d{4}-\d{2}-\d{2}/)?.[0] || '' : '';
+          setEarliestOverdueDate(targetDate);
+        } else {
+          setEarliestOverdueId(null);
+          setEarliestOverdueDate(null);
+        }
+
+        // 3. Pending Payment (Cần thanh toán)
+        const paymentApts = appointments.filter(isAwaitingPaymentForList);
+        setPendingPaymentCount(paymentApts.length);
+        if (paymentApts.length > 0) {
+          paymentApts.sort((a: any, b: any) => new Date(a.ngay_gio_bat_dau || '').getTime() - new Date(b.ngay_gio_bat_dau || '').getTime());
+          setEarliestPaymentId(paymentApts[0].id);
+          const targetDate = paymentApts[0].ngay_gio_bat_dau ? paymentApts[0].ngay_gio_bat_dau.match(/^\d{4}-\d{2}-\d{2}/)?.[0] || '' : '';
+          setEarliestPaymentDate(targetDate);
+        } else {
+          setEarliestPaymentId(null);
+          setEarliestPaymentDate(null);
+        }
+
+        // 4. Check-in notifications
+        const checkedInApts = appointments.filter((apt: any) => apt.trang_thai === 'da_checkin');
+
+        // Trigger notifications & sounds
+        if (isFirstLoad.current) {
+          pendingApts.forEach((apt: any) => seenUnconfirmedIds.current.add(String(apt.id)));
+          overdueApts.forEach((apt: any) => seenOverdueIds.current.add(String(apt.id)));
+          paymentApts.forEach((apt: any) => seenPaymentIds.current.add(String(apt.id)));
+          checkedInApts.forEach((apt: any) => seenCheckedInIds.current.add(String(apt.id)));
+          isFirstLoad.current = false;
+        } else {
+          let hasNewEvent = false;
+
+          pendingApts.forEach((apt: any) => {
+            const id = String(apt.id);
+            if (!seenUnconfirmedIds.current.has(id)) {
+              seenUnconfirmedIds.current.add(id);
+              hasNewEvent = true;
+              const name = apt.ten_khach_hang || 'Khách hàng';
+              toast(`📞 Ca khám mới chờ liên hệ: ${name}`, {
+                icon: '☎️',
+                duration: 8000,
+                style: { borderRadius: '16px', background: '#f59e0b', color: '#fff', fontWeight: 'bold' }
+              });
+            }
+          });
+
+          overdueApts.forEach((apt: any) => {
+            const id = String(apt.id);
+            if (!seenOverdueIds.current.has(id)) {
+              seenOverdueIds.current.add(id);
+              hasNewEvent = true;
+              const name = apt.ten_khach_hang || 'Khách hàng';
+              toast(`⏰ Lịch hẹn quá giờ chưa check-in: ${name}`, {
+                icon: '⏰',
+                duration: 8000,
+                style: { borderRadius: '16px', background: '#e11d48', color: '#fff', fontWeight: 'bold' }
+              });
+            }
+          });
+
+          paymentApts.forEach((apt: any) => {
+            const id = String(apt.id);
+            if (!seenPaymentIds.current.has(id)) {
+              seenPaymentIds.current.add(id);
+              hasNewEvent = true;
+              const name = apt.ten_khach_hang || 'Khách hàng';
+              toast(`💵 Ca khám mới cần thanh toán: ${name}`, {
+                icon: '💰',
+                duration: 8000,
+                style: { borderRadius: '16px', background: '#0d9488', color: '#fff', fontWeight: 'bold' }
+              });
+            }
+          });
+
+          checkedInApts.forEach((apt: any) => {
+            const id = String(apt.id);
+            if (!seenCheckedInIds.current.has(id)) {
+              seenCheckedInIds.current.add(id);
+              hasNewEvent = true;
+              const name = apt.ten_khach_hang || 'Khách hàng';
+              toast(`🎉 Bệnh nhân mới vừa check-in: ${name}`, {
+                icon: '👏',
+                duration: 8000,
+                style: { borderRadius: '16px', background: '#0d9488', color: '#fff', fontWeight: 'bold' }
+              });
+            }
+          });
+
+          const totalCount = pendingApts.length + overdueApts.length + paymentApts.length;
+          if (hasNewEvent || totalCount > 0) {
+            playNotificationSound();
+          }
+        }
+
       } catch (err) {
-        console.error('Lỗi khi tải danh sách ca cần liên hệ:', err);
+        console.error('Lỗi khi tải dữ liệu Lễ tân:', err);
       }
     };
 
     fetchPending();
     const interval = setInterval(fetchPending, 10000);
     return () => clearInterval(interval);
-  }, [user]);
+  }, [user, playNotificationSound]);
 
   // Auto-acknowledge KTV/Doctor when they open the assess page
   useEffect(() => {
@@ -293,9 +511,9 @@ export default function AdminLayout() {
     navigate('/login');
   };
 
-  const isDoctor = user?.vai_tro_id === 4;
-  const isTechnician = user?.vai_tro_id === 3;
-  const isReceptionist = user?.vai_tro_id === 2;
+  const isDoctor = Number(user?.vai_tro_id) === 4;
+  const isTechnician = Number(user?.vai_tro_id) === 3;
+  const isReceptionist = Number(user?.vai_tro_id) === 2;
 
   const rawNavItems = [
     { 
@@ -317,9 +535,8 @@ export default function AdminLayout() {
           : (isTechnician 
             ? '/technician/appointments' 
             : '/admin/appointments')), 
-      icon: <Calendar size={18} />, 
-      searchPlaceholder: isDoctor ? 'Tìm kiếm ca khám...' : 'Tìm kiếm lịch hẹn...', 
-      roles: [2, 3, 4, 5, 6] 
+      icon: <Calendar size={18} />,
+      roles: [2, 3, 4, 5, 6]
     },
     { name: 'Ca làm việc', path: '/admin/schedules', icon: <Clock size={18} />, roles: [5, 6] },
     { 
@@ -332,7 +549,12 @@ export default function AdminLayout() {
       icon: <Clock size={18} />, 
       roles: [2, 3, 4] 
     },
-    { name: 'Khách hàng', path: '/admin/customers', icon: <User size={18} />, searchPlaceholder: 'Tìm kiếm khách hàng...', roles: [5, 6] },
+    { 
+      name: 'Khách hàng', 
+      path: '/admin/customers', 
+      icon: <User size={18} />,
+      roles: [5, 6]
+    },
     { 
       name: 'Hồ sơ điều trị', 
       path: isTechnician 
@@ -340,9 +562,8 @@ export default function AdminLayout() {
         : (isDoctor 
           ? '/doctor/medical-records' 
           : '/admin/medical-records'), 
-      icon: <FileText size={18} />, 
-      searchPlaceholder: isDoctor ? 'Tìm kiếm hồ sơ bệnh nhân...' : 'Tìm kiếm hồ sơ...', 
-      roles: [3, 4, 5, 6] 
+      icon: <FileText size={18} />,
+      roles: [3, 4]
     },
     {
       name: 'Hóa đơn & Thanh toán',
@@ -351,12 +572,6 @@ export default function AdminLayout() {
       roles: [2]
     },
     {
-      name: 'Chỉ định gói chờ kích hoạt',
-      path: '/receptionist/pending-activations',
-      icon: <Package size={18} />,
-      roles: [2]
-    },
-    { 
       name: 'Cài đặt tài khoản', 
       path: isReceptionist 
         ? '/receptionist/settings' 
@@ -366,12 +581,13 @@ export default function AdminLayout() {
       icon: <Settings size={18} />, 
       roles: [2, 3, 4] 
     },
-    { name: 'Nhân sự', path: '/admin/staff', icon: <Users size={18} />, searchPlaceholder: 'Tìm kiếm nhân sự...', roles: [5] },
-    { name: 'Gói Dịch Vụ', path: '/admin/packages', icon: <Package size={18} />, searchPlaceholder: 'Tìm kiếm gói...', roles: [5, 6] },
-    { name: 'Phòng trị liệu', path: '/admin/rooms', icon: <Key size={18} />, searchPlaceholder: 'Tìm kiếm phòng...', roles: [5, 6] },
-    { name: 'Thiết bị y tế', path: '/admin/equipment', icon: <Cpu size={18} />, searchPlaceholder: 'Tìm kiếm thiết bị...', roles: [5, 6] },
+    { name: 'Nhân sự', path: '/admin/staff', icon: <Users size={18} />, roles: [5] },
+    { name: 'Gói Dịch Vụ', path: '/admin/packages', icon: <Package size={18} />, roles: [5, 6] },
+    { name: 'Phòng trị liệu', path: '/admin/rooms', icon: <Key size={18} />, roles: [5, 6] },
+    { name: 'Thiết bị y tế', path: '/admin/equipment', icon: <Cpu size={18} />, roles: [5, 6] },
     { name: 'Tài chính', path: '/admin/finance', icon: <DollarSign size={18} />, roles: [5, 6] },
     { name: 'Marketing', path: '/admin/marketing', icon: <Megaphone size={18} />, roles: [5, 6] },
+    { name: 'Bài viết', path: '/admin/articles', icon: <Newspaper size={18} />, roles: [5, 6] },
     { name: 'Đánh giá', path: '/admin/feedback', icon: <Star size={18} />, roles: [5, 6] },
   ];
 
@@ -452,36 +668,15 @@ export default function AdminLayout() {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative bg-background dark:bg-zinc-950 transition-colors duration-300">
-        {/* Top Header - Premium Design with Search and Actions */}
+        {/* Top Header - Premium Design with Actions */}
         <header className="h-16 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between px-8 shrink-0 z-20 sticky top-0 transition-colors duration-300">
           <div className="flex items-center gap-6 flex-1 min-w-0">
             <h2 className="text-sm font-extrabold text-secondary dark:text-zinc-100 tracking-tight shrink-0">
               {currentItem?.name || 'Tổng quan'}
             </h2>
-            
-            {/* Dynamic Search Bar */}
-            {currentItem?.searchPlaceholder && (
-              <div className="relative max-w-md w-full hidden md:block group animate-fade-in">
-                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400 dark:text-zinc-550 group-focus-within:text-primary transition-colors">
-                  <Search size={14} />
-                </span>
-                <input 
-                  type="text" 
-                  value={searchValue}
-                  onChange={(e) => handleSearchChange(e.target.value)}
-                  placeholder={currentItem.searchPlaceholder}
-                  className="w-full pl-10 pr-4 py-2 text-xs bg-zinc-50 dark:bg-zinc-855 border border-zinc-200 dark:border-zinc-800 rounded-full focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white dark:focus:bg-zinc-900 outline-none transition-all font-semibold text-secondary dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-550"
-                />
-              </div>
-            )}
           </div>
 
           <div className="flex items-center gap-6 shrink-0">
-            <span className="text-xs text-zinc-400 dark:text-zinc-500 font-semibold hidden lg:inline-flex items-center gap-1.5 bg-zinc-50 dark:bg-zinc-800 px-2.5 py-1 rounded-full border border-zinc-100 dark:border-zinc-800">
-              <span className="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              Môi trường: <span className="font-bold text-primary">Production</span>
-            </span>
-
             {/* Actions: Notification, Theme Toggle, & Help */}
             <div className="flex items-center gap-3 border-l border-zinc-100 dark:border-zinc-800 pl-6">
               {activeCheckIn && (
@@ -493,14 +688,81 @@ export default function AdminLayout() {
                       acks.push(activeCheckIn.id);
                       localStorage.setItem('ack-checkins', JSON.stringify(acks));
                     } catch(e) {}
-                    navigate(`/technician/appointments/${activeCheckIn.id}/assess`);
+                    const destPath = Number(user?.vai_tro_id) === 4
+                      ? `/doctor/appointments/${activeCheckIn.id}/assess`
+                      : `/technician/appointments/${activeCheckIn.id}/assess`;
+                    navigate(destPath);
                   }}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-full text-[10px] font-black uppercase tracking-wider animate-bounce shadow-md mr-2"
                 >
                   <span className="size-2 rounded-full bg-white animate-ping"></span>
-                  🔔 Ca mới check-in!
+                  {Number(user?.vai_tro_id) === 4 ? '🔔 Bắt đầu ngay!' : '🔔 Bắt đầu ngay!'}
                 </button>
               )}
+              {/* Notification Bell Dropdown - Hidden for Doctor (role 4) and KTV (role 3) */}
+              {user && Number(user.vai_tro_id) !== 3 && Number(user.vai_tro_id) !== 4 && (
+                <div className="relative">
+                  <button 
+                    onClick={() => setIsNotifDropdownOpen(!isNotifDropdownOpen)}
+                    className="relative text-zinc-500 hover:text-primary transition-colors p-1.5 rounded-full hover:bg-zinc-50 dark:hover:bg-zinc-855 flex items-center justify-center"
+                  >
+                    <Bell size={18} />
+                    {unreadCount > 0 && (
+                      <span className="absolute top-0.5 right-0.5 bg-rose-600 text-white text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center border border-white dark:border-zinc-900 shadow-xs select-none">
+                        {unreadCount}
+                      </span>
+                    )}
+                  </button>
+
+                  {isNotifDropdownOpen && (
+                    <>
+                      {/* Transparent Click-Outside Overlay */}
+                      <div className="fixed inset-0 z-40" onClick={() => setIsNotifDropdownOpen(false)} />
+                      
+                      {/* Dropdown Container */}
+                      <div className="absolute right-0 mt-3 w-80 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border border-zinc-100 dark:border-zinc-800 rounded-[20px] shadow-xl py-3 z-50 animate-in fade-in slide-in-from-top-3 duration-200">
+                        {/* Header */}
+                        <div className="px-4 pb-2.5 border-b border-zinc-100 dark:border-zinc-850 flex items-center justify-between">
+                          <h3 className="text-[10px] font-black text-secondary dark:text-zinc-100 uppercase tracking-wider">Thông báo nhân sự ({unreadCount})</h3>
+                          {unreadCount > 0 && (
+                            <button 
+                              onClick={handleMarkAllAsRead}
+                              className="text-[10px] text-primary hover:underline font-bold"
+                            >
+                              Đọc tất cả
+                            </button>
+                          )}
+                        </div>
+
+                        {/* List */}
+                        <div className="max-h-64 overflow-y-auto divide-y divide-zinc-50 dark:divide-zinc-850">
+                          {notifications.length === 0 ? (
+                            <div className="px-4 py-8 text-center text-zinc-400 text-xs font-semibold">
+                              Không có thông báo mới
+                            </div>
+                          ) : (
+                            notifications.map(notif => (
+                              <button 
+                                key={notif.id}
+                                onClick={() => handleNotifClick(notif)}
+                                className={`w-full px-4 py-3 text-left flex gap-3 transition-colors ${notif.da_doc ? 'hover:bg-zinc-50/50 dark:hover:bg-zinc-850/50' : 'bg-primary/5 dark:bg-primary/10 hover:bg-primary/10'}`}
+                              >
+                                <div className="size-2 bg-primary rounded-full mt-1.5 flex-shrink-0" style={{ visibility: notif.da_doc ? 'hidden' : 'visible' }} />
+                                <div className="flex-1 space-y-0.5">
+                                  <p className="text-xs font-black text-secondary dark:text-zinc-100 leading-tight">{notif.tieu_de}</p>
+                                  <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-semibold leading-relaxed">{notif.noi_dung}</p>
+                                  <p className="text-[9px] text-zinc-400 dark:text-zinc-500 font-bold mt-1">{formatNotifTime(notif.thoi_gian_tao)}</p>
+                                </div>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
               <button 
                 onClick={() => {
                   const nextTheme = theme === 'dark' ? 'light' : 'dark';
@@ -514,30 +776,7 @@ export default function AdminLayout() {
                 {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
               </button>
               
-              <button 
-                onClick={() => {
-                  if (earliestPending) {
-                    const targetDate = earliestPending.ngay_gio_bat_dau ? earliestPending.ngay_gio_bat_dau.match(/^\d{4}-\d{2}-\d{2}/)?.[0] || '' : '';
-                    const query = targetDate 
-                      ? `?date=${targetDate}&range=today&view=timeline&appointmentId=${earliestPending.id}&triggerFocus=true` 
-                      : `?appointmentId=${earliestPending.id}&triggerFocus=true`;
-                    navigate(`/admin/appointments${query}`);
-                  } else {
-                    navigate('/admin/appointments?triggerFocus=true');
-                  }
-                }}
-                className="relative w-8 h-8 rounded-full flex items-center justify-center hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 transition-colors"
-                title={tooltipText}
-              >
-                <Bell size={18} className={pendingAssignCount > 0 ? "text-rose-500 animate-bounce" : ""} />
-                {pendingAssignCount > 0 ? (
-                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-black text-white ring-2 ring-white dark:ring-zinc-900 animate-pulse">
-                    {pendingAssignCount}
-                  </span>
-                ) : (
-                  <span className="absolute top-1 right-1 size-2 bg-rose-500 rounded-full ring-2 ring-white dark:ring-zinc-900"></span>
-                )}
-              </button>
+              {/* Old alarm bell button removed to avoid duplicates */}
               <button className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 transition-colors">
                 <HelpCircle size={18} />
               </button>
@@ -568,7 +807,11 @@ export default function AdminLayout() {
                 <div className="flex items-center gap-3 text-left">
                   <span className="text-2xl animate-spin shrink-0">🔔</span>
                   <div>
-                    <p className="text-sm font-black uppercase tracking-wider">CÓ CA TRỊ LIỆU MỚI CHECK-IN CHƯA VÀO PHÒNG TRỊ LIỆU!</p>
+                    <p className="text-sm font-black uppercase tracking-wider">
+                      {Number(user?.vai_tro_id) === 4 
+                        ? 'CÓ CA KHÁM MỚI CHECK-IN CHƯA VÀO PHÒNG KHÁM!' 
+                        : 'CÓ CA TRỊ LIỆU MỚI CHECK-IN CHƯA VÀO PHÒNG TRỊ LIỆU!'}
+                    </p>
                     <p className="text-xs font-bold opacity-90 mt-0.5">
                       Bệnh nhân: <span className="underline font-black">{activeCheckIn.ho_ten_khach || activeCheckIn.ten_khach_hang}</span> | Mã ca: {activeCheckIn.ma_lich_dat} | Khung giờ: {format(new Date(activeCheckIn.ngay_gio_bat_dau), 'HH:mm')}
                     </p>
@@ -582,11 +825,14 @@ export default function AdminLayout() {
                       acks.push(activeCheckIn.id);
                       localStorage.setItem('ack-checkins', JSON.stringify(acks));
                     } catch(e) {}
-                    navigate(`/technician/appointments/${activeCheckIn.id}/assess`);
+                    const destPath = Number(user?.vai_tro_id) === 4
+                      ? `/doctor/appointments/${activeCheckIn.id}/assess`
+                      : `/technician/appointments/${activeCheckIn.id}/assess`;
+                    navigate(destPath);
                   }}
-                  className="bg-white text-rose-600 hover:bg-rose-50 px-4 py-2 rounded-xl text-xs font-black transition-colors uppercase tracking-widest shrink-0 shadow-md"
+                  className="bg-white text-rose-600 hover:bg-rose-50 px-4 py-2 rounded-xl text-xs font-black transition-colors uppercase tracking-widest shrink-0 shadow-md animate-pulse"
                 >
-                  Vào ca điều trị ➜
+                  Bắt đầu ngay ➜
                 </button>
               </div>
             )}
@@ -596,7 +842,7 @@ export default function AdminLayout() {
       </main>
  
       {/* Floating Mascot Widget for all Admin/Manager pages */}
-      {(user?.vai_tro_id === 5 || user?.vai_tro_id === 6) && (
+      {(Number(user?.vai_tro_id) === 5 || Number(user?.vai_tro_id) === 6) && (
         <MascotWidget
           count={pendingAssignCount}
           onClick={() => {
@@ -616,20 +862,58 @@ export default function AdminLayout() {
       )}
 
       {/* Floating Mascot Widget for Receptionist */}
-      {user?.vai_tro_id === 2 && (
-        <MascotWidget
-          count={pendingContactCount}
-          onClick={() => {
+      {Number(user?.vai_tro_id) === 2 && (() => {
+        const totalCount = pendingContactCount + overdueCheckinCount + pendingPaymentCount;
+        if (totalCount <= 0) return null;
+
+        let mascotTooltip = '';
+        let mascotBadgeColor: 'rose' | 'emerald' | 'amber' = 'rose';
+        let mascotOnClick = () => {};
+
+        if (pendingContactCount > 0) {
+          mascotTooltip = `Có ${pendingContactCount} ca khám chưa xác nhận quá 10 phút cần liên hệ!`;
+          mascotBadgeColor = 'rose';
+          mascotOnClick = () => {
             if (earliestPendingId && earliestPendingDate) {
               navigate(`/receptionist/appointments?date=${earliestPendingDate}&range=today&view=timeline&appointmentId=${earliestPendingId}&triggerFocus=true`);
             } else {
               navigate('/receptionist/appointments?triggerFocus=true');
             }
-          }}
-          tooltipText={`Có ${pendingContactCount} ca khám chưa xác nhận quá 10 phút cần liên hệ!`}
-          badgeColor="rose"
-        />
-      )}
+          };
+        } else if (overdueCheckinCount > 0) {
+          mascotTooltip = `Có ${overdueCheckinCount} ca quá giờ chưa check-in!`;
+          mascotBadgeColor = 'rose';
+          mascotOnClick = () => {
+            if (earliestOverdueId && earliestOverdueDate) {
+              navigate(`/receptionist/appointments?date=${earliestOverdueDate}&range=today&view=timeline&appointmentId=${earliestOverdueId}&triggerFocus=true`);
+            } else {
+              navigate('/receptionist/appointments?triggerFocus=true');
+            }
+          };
+        } else if (pendingPaymentCount > 0) {
+          mascotTooltip = `Có ${pendingPaymentCount} ca hẹn cần thanh toán!`;
+          mascotBadgeColor = 'amber';
+          mascotOnClick = () => {
+            // Điều hướng tới ĐÚNG lịch hẹn đó để lễ tân tự xem & chọn cách thu tiền phù hợp (khám lẻ
+            // hay đợt 2 của gói) — KHÔNG nhảy thẳng vào /receptionist/billing, vì cách đó luôn tự tạo
+            // 1 hóa đơn khám mới bất kể ca đó thực chất đang nợ đợt 2 của gói (hóa đơn đã có sẵn).
+            if (earliestPaymentId && earliestPaymentDate) {
+              navigate(`/receptionist/appointments?date=${earliestPaymentDate}&range=today&view=timeline&appointmentId=${earliestPaymentId}&triggerFocus=true`);
+            } else {
+              navigate('/receptionist/appointments?triggerFocus=true');
+            }
+          };
+        }
+
+        return (
+          <MascotWidget
+            count={totalCount}
+            onClick={mascotOnClick}
+            tooltipText={mascotTooltip}
+            badgeColor={mascotBadgeColor}
+          />
+        );
+      })()}
     </div>
   );
 }

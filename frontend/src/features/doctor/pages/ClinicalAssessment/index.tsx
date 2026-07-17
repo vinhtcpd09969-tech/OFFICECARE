@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { 
-  Phone, 
-  Calendar as CalendarIcon, 
-  FileText, 
-  Activity, 
+import { AnimatePresence, motion } from 'framer-motion';
+import {
+  Phone,
+  Calendar as CalendarIcon,
+  FileText,
+  Activity,
   AlertTriangle,
   ArrowLeft,
   CheckCircle,
@@ -16,17 +17,23 @@ import {
   History,
   ClipboardList,
   ShieldAlert,
-  FlameKindling
+  FlameKindling,
+  Timer,
+  Check,
+  X,
+  Minus,
+  Clock3,
+  ChevronDown
 } from 'lucide-react';
 import { useAuthStore } from '../../../../stores/authStore';
-import { 
-  getAppointmentDetail, 
-  getPatientProfile, 
-  getServices, 
-  getPackages, 
+import { resolveImageUrl } from '../../../../utils/imageUrl';
+import {
+  getAppointmentDetail,
+  getPatientProfile,
+  getPackages,
   saveAssessment,
   PatientProfile,
-  ServiceItem,
+  TreatmentPlan,
   PackageItem
 } from '../../api/doctor.api';
 import {
@@ -34,6 +41,191 @@ import {
   saveTreatmentRecord as saveTreatmentRecordKtv,
   getPatientProfile as getPatientProfileKtv
 } from '../../../technician/api/technician.api';
+
+// --- Trạng thái buổi/phác đồ: map trực tiếp enum thật của cuoc_hen.trang_thai /
+// phac_do_dieu_tri.trang_thai, không phỏng đoán theo "có tồn tại record hay không" ---
+const SESSION_STATUS_META: Record<string, { label: string; ring: string; text: string; dot: string; Icon: typeof Check }> = {
+  hoan_thanh: { label: 'Hoàn thành', ring: 'border-emerald-500', text: 'text-emerald-600 dark:text-emerald-400', dot: 'bg-emerald-500', Icon: Check },
+  khong_den: { label: 'Không đến', ring: 'border-slate-300 dark:border-zinc-600', text: 'text-slate-400 dark:text-zinc-500', dot: 'bg-slate-400', Icon: Minus },
+  khach_khong_den: { label: 'Không đến', ring: 'border-slate-300 dark:border-zinc-600', text: 'text-slate-400 dark:text-zinc-500', dot: 'bg-slate-400', Icon: Minus },
+  khach_khong_den_phat: { label: 'Không đến', ring: 'border-slate-300 dark:border-zinc-600', text: 'text-slate-400 dark:text-zinc-500', dot: 'bg-slate-400', Icon: Minus },
+  da_huy: { label: 'Đã hủy', ring: 'border-rose-400', text: 'text-rose-500 dark:text-rose-400', dot: 'bg-rose-500', Icon: X },
+  huy: { label: 'Đã hủy', ring: 'border-rose-400', text: 'text-rose-500 dark:text-rose-400', dot: 'bg-rose-500', Icon: X },
+  da_huy_phat: { label: 'Đã hủy', ring: 'border-rose-400', text: 'text-rose-500 dark:text-rose-400', dot: 'bg-rose-500', Icon: X },
+};
+const DEFAULT_SESSION_STATUS = { label: 'Chưa diễn ra', ring: 'border-dashed border-zinc-300 dark:border-zinc-700', text: 'text-zinc-400 dark:text-zinc-550', dot: 'bg-zinc-300', Icon: Clock3 };
+const getSessionStatusMeta = (trangThai: string) => SESSION_STATUS_META[trangThai] || DEFAULT_SESSION_STATUS;
+
+const PLAN_STATUS_META: Record<string, { label: string; badge: string; ring: string }> = {
+  huy: { label: 'Đã hủy', badge: 'bg-rose-50 dark:bg-rose-955/15 text-rose-600 dark:text-rose-400 border-rose-200/60 dark:border-rose-900/40', ring: '#f43f5e' },
+  hoan_thanh: { label: 'Hoàn thành', badge: 'bg-emerald-50 dark:bg-emerald-955/15 text-emerald-650 dark:text-emerald-400 border-emerald-200/60 dark:border-emerald-900/40', ring: '#10b981' },
+  cho_kich_hoat: { label: 'Chờ kích hoạt', badge: 'bg-amber-50 dark:bg-amber-955/15 text-amber-650 dark:text-amber-400 border-amber-200/60 dark:border-amber-900/40', ring: '#f59e0b' },
+  dang_dieu_tri: { label: 'Đang điều trị', badge: 'bg-primary/10 text-primary border-primary/25', ring: '#2EC4B6' },
+};
+const getPlanStatusMeta = (trangThai: string) => PLAN_STATUS_META[trangThai] || PLAN_STATUS_META.dang_dieu_tri;
+
+const formatCountdown = (ms: number) => {
+  const abs = Math.max(0, Math.abs(ms));
+  const totalSeconds = Math.floor(abs / 1000);
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+};
+
+/** Vòng tròn tiến độ SVG — dùng cho chip chọn gói/dịch vụ. */
+export function ProgressRing({ percent, color, size = 44, strokeWidth = 4, children }: {
+  percent: number; color: string; size?: number; strokeWidth?: number; children?: React.ReactNode;
+}) {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference * (1 - Math.min(100, Math.max(0, percent)) / 100);
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" strokeWidth={strokeWidth} className="stroke-zinc-100 dark:stroke-zinc-800" />
+        <circle
+          cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={color} strokeWidth={strokeWidth}
+          strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
+          style={{ transition: 'stroke-dashoffset 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">{children}</div>
+    </div>
+  );
+}
+
+/** Avatar nhân sự bọc vòng màu trạng thái + icon nhỏ đè góc — "nhân vật hóa" timeline thay vì badge chữ. */
+function StaffAvatar({ name, avatarUrl, size = 40, statusMeta }: {
+  name?: string | null; avatarUrl?: string | null; size?: number; statusMeta?: { ring: string; dot: string; Icon: typeof Check };
+}) {
+  const initial = (name || '?').trim().charAt(0).toUpperCase();
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <div
+        className={`w-full h-full rounded-full border-2 ${statusMeta?.ring || 'border-zinc-200 dark:border-zinc-700'} overflow-hidden bg-gradient-to-br from-primary/15 to-primary/5 flex items-center justify-center text-primary font-black`}
+        style={{ fontSize: size * 0.38 }}
+      >
+        {avatarUrl ? (
+          <img src={resolveImageUrl(avatarUrl)} alt={name || ''} className="w-full h-full object-cover" />
+        ) : initial}
+      </div>
+      {statusMeta && (
+        <div className={`absolute -bottom-0.5 -right-0.5 size-4 rounded-full ${statusMeta.dot} flex items-center justify-center ring-2 ring-white dark:ring-zinc-900`}>
+          <statusMeta.Icon size={9} className="text-white stroke-[3]" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Nội dung 1 buổi trị liệu: dòng trạng thái + (nếu hoàn thành) khối VAS/cảnh báo/ghi chú xổ ra được.
+ * `large`: dùng cho dịch vụ lẻ (luôn 1 buổi) — avatar lớn, căn giữa, luôn mở sẵn, bỏ nhãn "Buổi N".
+ */
+export function SessionDetailBlock({ session, large = false, expandedSessionId, setExpandedSessionId }: {
+  session: any;
+  large?: boolean;
+  expandedSessionId: string | null;
+  setExpandedSessionId: (id: string | null) => void;
+}) {
+  if (!session) {
+    return <p className="text-xs text-zinc-400 font-semibold text-center py-6">Chưa có dữ liệu buổi.</p>;
+  }
+  const statusMeta = getSessionStatusMeta(session.trang_thai);
+  const isFinished = session.trang_thai === 'hoan_thanh';
+  const isNoShow = ['khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(session.trang_thai);
+  const isCancelled = ['da_huy', 'huy', 'da_huy_phat'].includes(session.trang_thai);
+  const isExpanded = isFinished && expandedSessionId === session.id;
+
+  // Dịch vụ lẻ ("large"): header của khối cha (sân khấu chi tiết) đã tự làm nút bấm ẩn/hiện rồi —
+  // ở đây không tự vẽ avatar/tên/trạng thái nữa khi đang ẩn (từng bị phản hồi là lặp lại thông tin
+  // với header), chỉ hiện 1 dòng tóm tắt cho buổi chưa hoàn thành, hoặc nội dung đầy đủ khi đã mở.
+  if (large) {
+    if (!isFinished) {
+      return (
+        <div className="text-center py-1">
+          {isNoShow && <p className="text-[10px] font-semibold text-slate-400 dark:text-zinc-550">Khách không đến buổi này.</p>}
+          {isCancelled && <p className="text-[10px] font-semibold text-rose-500">Buổi đã bị hủy.</p>}
+        </div>
+      );
+    }
+    if (!isExpanded) return null;
+  }
+
+  const canToggle = isFinished && !large;
+
+  return (
+    <div className={large ? 'flex flex-col items-center text-center gap-2.5' : ''}>
+      {large ? (
+        <>
+          <StaffAvatar name={session.ten_ky_thuat_vien} avatarUrl={session.anh_ky_thuat_vien} size={56} statusMeta={statusMeta} />
+          <span className="min-w-0 font-extrabold text-sm text-secondary dark:text-zinc-300">
+            <span className="text-primary">{session.ten_ky_thuat_vien || 'Chưa phân công'}</span>
+          </span>
+        </>
+      ) : (
+        <button
+          type="button"
+          disabled={!canToggle}
+          onClick={() => canToggle && setExpandedSessionId(expandedSessionId === session.id ? null : session.id)}
+          className={`flex items-center gap-2.5 w-full justify-between ${canToggle ? 'cursor-pointer group' : 'cursor-default'}`}
+        >
+          <span className="min-w-0 font-extrabold text-[10px] flex-1 text-left text-secondary dark:text-zinc-300">
+            {`Buổi ${session.so_thu_tu_buoi} • `}
+            <span className="text-primary">{session.ten_ky_thuat_vien || 'Chưa phân công'}</span>
+          </span>
+          <span className={`shrink-0 flex items-center gap-1 text-[9px] font-black uppercase ${statusMeta.text}`}>
+            {statusMeta.label}
+            {canToggle && <ChevronDown size={11} className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`} />}
+          </span>
+        </button>
+      )}
+
+      {!large && isNoShow && <p className="text-[9px] font-semibold text-slate-400 dark:text-zinc-550 mt-1">Khách không đến buổi này.</p>}
+      {!large && isCancelled && <p className="text-[9px] font-semibold text-rose-500 mt-1">Buổi đã bị hủy.</p>}
+
+      {isFinished && isExpanded && (
+        <div className={`${large ? 'w-full' : 'mt-3'} grid grid-cols-1 md:grid-cols-2 gap-3 bg-zinc-50/50 dark:bg-zinc-855/15 p-4 rounded-xl border border-zinc-150/50 dark:border-zinc-800/80 text-[10px]`}>
+          <div className="bg-white dark:bg-zinc-900 p-2.5 rounded-lg border border-zinc-100 dark:border-zinc-800/60">
+            <span className="text-zinc-400 dark:text-zinc-500 font-black uppercase text-[8px] tracking-wider block">VAS Trước trị liệu</span>
+            <p className="font-extrabold text-secondary dark:text-zinc-200 mt-1 flex items-center gap-1.5">
+              <FlameKindling size={12} className="text-amber-500" />
+              Mức {session.danh_gia_truoc_buoi || 'N/A'}
+            </p>
+          </div>
+          <div className="bg-white dark:bg-zinc-900 p-2.5 rounded-lg border border-zinc-100 dark:border-zinc-800/60">
+            <span className="text-zinc-400 dark:text-zinc-500 font-black uppercase text-[8px] tracking-wider block">VAS Sau trị liệu</span>
+            <p className="font-extrabold text-secondary dark:text-zinc-200 mt-1 flex items-center gap-1.5">
+              <CheckCircle size={12} className="text-emerald-500" />
+              Mức {session.danh_gia_sau_buoi || 'N/A'}
+            </p>
+          </div>
+          {session.canh_bao_dac_biet && (
+            <div className="md:col-span-2 bg-rose-50/50 dark:bg-rose-955/15 text-rose-500 font-bold p-2.5 rounded-lg border border-rose-100/50 flex items-center gap-2 text-[10px]">
+              <AlertTriangle size={14} />
+              Cảnh báo: {session.canh_bao_dac_biet}
+            </div>
+          )}
+          {session.ai_tom_tat_ngan && (
+            <div className="md:col-span-2 border-t border-zinc-100 dark:border-zinc-800/50 pt-2 flex items-center gap-1.5 text-[9px] text-primary font-bold">
+              <TrendingUp size={12} /> Tiến trình: {session.ai_tom_tat_ngan}
+            </div>
+          )}
+          {session.danh_gia_hieu_qua && (
+            <div className="md:col-span-2 border-t border-zinc-150/40 dark:border-zinc-800/50 pt-2.5">
+              <span className="text-zinc-400 dark:text-zinc-500 font-black uppercase text-[8px] tracking-wider">Diễn tiến / Ghi chú trị liệu</span>
+              <p className="font-semibold text-zinc-650 dark:text-zinc-355 mt-1 italic leading-relaxed">
+                "{session.danh_gia_hieu_qua}"
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const getVasDescription = (score: number | null) => {
   if (score === null || score === undefined) return 'Vui lòng chọn mức độ đau';
@@ -44,16 +236,52 @@ const getVasDescription = (score: number | null) => {
   return '🔴 10 - Đau cực độ: Đau kinh khủng không thể chịu đựng nổi, cần can thiệp y tế khẩn cấp.';
 };
 
-const getVasColorClass = (score: number, isSelected: boolean) => {
-  if (!isSelected) {
-    return 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-105 dark:hover:bg-zinc-750';
-  }
-  if (score === 0) return 'bg-emerald-500 border-emerald-600 text-white font-black shadow-lg shadow-emerald-500/30 ring-4 ring-emerald-500/20 scale-110';
-  if (score <= 3) return 'bg-teal-500 border-teal-600 text-white font-black shadow-lg shadow-teal-500/30 ring-4 ring-teal-500/20 scale-110';
-  if (score <= 6) return 'bg-amber-500 border-amber-600 text-white font-black shadow-lg shadow-amber-500/30 ring-4 ring-amber-500/20 scale-110';
-  if (score <= 9) return 'bg-rose-500 border-rose-600 text-white font-black shadow-lg shadow-rose-500/30 ring-4 ring-rose-500/20 scale-110';
-  return 'bg-red-600 border-red-700 text-white font-black shadow-lg shadow-red-600/30 ring-4 ring-red-650/20 scale-110';
+/** Màu badge nổi theo mức VAS hiện tại — cùng bảng màu ngữ nghĩa dùng xuyên suốt trang. */
+const getVasBadgeBg = (score: number) => {
+  if (score === 0) return 'bg-emerald-500';
+  if (score <= 3) return 'bg-teal-500';
+  if (score <= 6) return 'bg-amber-500';
+  if (score <= 9) return 'bg-rose-500';
+  return 'bg-red-600';
 };
+
+/** Thanh trượt chọn điểm đau VAS (0-10) — kéo tới đâu hiện mức đau tới đó, track gradient xanh→đỏ. */
+function VasSlider({ value, onChange }: { value: number; onChange: (val: number) => void }) {
+  const percent = (value / 10) * 100;
+  return (
+    <div className="relative pt-8 pb-1 px-1">
+      <style>{`
+        .vas-slider-input { -webkit-appearance: none; appearance: none; width: 100%; height: 22px; background: transparent; cursor: pointer; }
+        .vas-slider-input::-webkit-slider-runnable-track { height: 10px; border-radius: 9999px; background: linear-gradient(to right, #10b981 0%, #14b8a6 15%, #f59e0b 50%, #f43f5e 80%, #dc2626 100%); }
+        .vas-slider-input::-moz-range-track { height: 10px; border-radius: 9999px; background: linear-gradient(to right, #10b981 0%, #14b8a6 15%, #f59e0b 50%, #f43f5e 80%, #dc2626 100%); }
+        .vas-slider-input::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 22px; height: 22px; margin-top: -6px; border-radius: 9999px; background: #fff; border: 3px solid #0F172A; box-shadow: 0 2px 6px rgba(0,0,0,0.25); cursor: grab; }
+        .vas-slider-input::-webkit-slider-thumb:active { cursor: grabbing; transform: scale(1.1); }
+        .vas-slider-input::-moz-range-thumb { width: 22px; height: 22px; border-radius: 9999px; background: #fff; border: 3px solid #0F172A; box-shadow: 0 2px 6px rgba(0,0,0,0.25); cursor: grab; }
+      `}</style>
+      <div
+        className="absolute top-0 -translate-x-1/2 transition-all duration-100 pointer-events-none"
+        style={{ left: `calc(${percent}% + ${11 - percent * 0.22}px)` }}
+      >
+        <div className={`px-2 py-1 rounded-lg text-[11px] font-black text-white shadow-md ${getVasBadgeBg(value)}`}>
+          {value}
+        </div>
+      </div>
+      <input
+        type="range"
+        min={0}
+        max={10}
+        step={1}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="vas-slider-input"
+      />
+      <div className="flex justify-between text-[8px] font-bold text-zinc-350 dark:text-zinc-600 mt-1 px-0.5">
+        <span>0 · Không đau</span>
+        <span>10 · Cực độ</span>
+      </div>
+    </div>
+  );
+}
 
 export default function ClinicalAssessment() {
   const { id: appointmentId } = useParams<{ id: string }>();
@@ -68,14 +296,12 @@ export default function ClinicalAssessment() {
   const [profile, setProfile] = useState<PatientProfile | null>(null);
   
   // Danh mục đề xuất
-  const [services, setServices] = useState<ServiceItem[]>([]);
   const [packages, setPackages] = useState<PackageItem[]>([]);
 
   // Form State
   const [chanDoan, setChanDoan] = useState('');
   const [chongChiDinh, setChongChiDinh] = useState('');
   const [goiDichVuId, setGoiDichVuId] = useState<string>('');
-  const [dichVuId, setDichVuId] = useState<string>('');
   const [ghiChu, setGhiChu] = useState('');
 
   // VAS states for KTV
@@ -87,6 +313,18 @@ export default function ClinicalAssessment() {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'history' | 'treatments'>('history');
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Gói/dịch vụ đang chọn trong dải chip "Tiến trình trị liệu"
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  // Buổi đang xổ chi tiết (chỉ áp dụng cho buổi hoàn thành, có VAS/ghi chú để xem)
+  const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
+
+  // Đồng hồ đếm ngược tới giờ kết thúc buổi — chạy độc lập, tick mỗi giây
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Tải dữ liệu ban đầu
   const loadInitialData = useCallback(async () => {
@@ -105,18 +343,13 @@ export default function ClinicalAssessment() {
       if (apptData.chan_doan) setChanDoan(apptData.chan_doan);
       if (apptData.chong_chi_dinh) setChongChiDinh(apptData.chong_chi_dinh);
       if (apptData.goi_dich_vu_id) setGoiDichVuId(apptData.goi_dich_vu_id);
-      if (apptData.dich_vu_id) setDichVuId(apptData.dich_vu_id);
       if (apptData.ghi_chu) setGhiChu(apptData.ghi_chu);
       if (apptData.vas_truoc !== undefined && apptData.vas_truoc !== null) setVasTruoc(apptData.vas_truoc);
       if (apptData.vas_sau !== undefined && apptData.vas_sau !== null) setVasSau(apptData.vas_sau);
 
-      // 2. Tải danh mục dịch vụ và gói để làm đề xuất (chỉ bác sĩ)
+      // 2. Tải danh mục gói liệu trình để làm đề xuất (chỉ bác sĩ)
       if (!isKtv) {
-        const [servicesRes, packagesRes] = await Promise.all([
-          getServices(),
-          getPackages()
-        ]);
-        setServices(servicesRes.data);
+        const packagesRes = await getPackages();
         setPackages(packagesRes.data);
       }
 
@@ -138,6 +371,39 @@ export default function ClinicalAssessment() {
   useEffect(() => {
     loadInitialData();
   }, [loadInitialData]);
+
+  // Mặc định chọn gói/dịch vụ gần nhất (backend đã ORDER BY ngay_kich_hoat DESC) khi hồ sơ tải xong
+  useEffect(() => {
+    if (profile?.treatmentPlans?.length && !selectedPlanId) {
+      setSelectedPlanId(profile.treatmentPlans[0].id);
+    }
+  }, [profile, selectedPlanId]);
+
+  // Buổi gần nhất LIÊN QUAN tới ca hôm nay — CHỈ áp dụng cho gói liệu trình (khách đang làm buổi N
+  // của 1 gói nhiều buổi). Lấy đúng buổi liền trước (N-1) TRONG CÙNG gói đó — không lấy buổi gần
+  // nhất của dịch vụ lẻ hay của gói khác, và chỉ hiện khi buổi liền trước đó đã thực sự hoàn thành
+  // (buổi liền trước "không đến"/"đã hủy" thì không có gì để lưu ý — ẩn hẳn banner).
+  const latestRelevantSession = useMemo(() => {
+    if (!appointment?.phac_do_dieu_tri_id || !appointment?.id || !profile?.treatmentPlans?.length) return null;
+    const plan = profile.treatmentPlans.find((p) => p.id === appointment.phac_do_dieu_tri_id);
+    if (!plan || plan.loai_dieu_tri !== 'goi') return null;
+    const sortedSessions = [...plan.sessions].sort(
+      (a, b) => Number(a.so_thu_tu_buoi) - Number(b.so_thu_tu_buoi)
+    );
+    const todayIdx = sortedSessions.findIndex((s) => s.id === appointment.id);
+    if (todayIdx <= 0) return null;
+    const prevSession = sortedSessions[todayIdx - 1];
+    if (!prevSession || prevSession.trang_thai !== 'hoan_thanh') return null;
+    return { session: prevSession, plan };
+  }, [profile, appointment]);
+
+  // Đếm ngược tới giờ kết thúc buổi — chỉ có ý nghĩa khi ca đã thật sự "mở bàn" (dang_kham)
+  const remainingMs = useMemo(() => {
+    if (!appointment?.ngay_gio_ket_thuc) return null;
+    return new Date(appointment.ngay_gio_ket_thuc).getTime() - now.getTime();
+  }, [appointment, now]);
+  const isSessionOpen = appointment?.trang_thai === 'dang_kham';
+  const isOverdue = isSessionOpen && remainingMs !== null && remainingMs <= 0;
 
   // Xử lý gửi kết quả khám
   const handleSubmit = async (e: React.FormEvent) => {
@@ -177,7 +443,6 @@ export default function ClinicalAssessment() {
           chan_doan: chanDoan,
           chong_chi_dinh: chongChiDinh,
           goi_dich_vu_id: goiDichVuId || null,
-          dich_vu_id: dichVuId || null,
           ghi_chu: ghiChu || null
         });
         toast.success('Ghi nhận chẩn đoán lâm sàng và hoàn thành ca khám thành công!');
@@ -230,33 +495,113 @@ export default function ClinicalAssessment() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-12">
-      
-      {/* Top Navigation */}
-      <div className="flex items-center gap-4">
-        <button
-          onClick={() => navigate(isKtv ? '/technician/appointments' : '/doctor')}
-          className="p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-2xl transition-all shadow-sm hover:scale-105"
+
+      {/* Banner quá giờ — nổi bật, không thể bỏ sót */}
+      <AnimatePresence>
+        {isOverdue && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            className="overflow-hidden"
+          >
+            <motion.div
+              animate={{ boxShadow: ['0 0 0 0 rgba(244,63,94,0.25)', '0 0 0 8px rgba(244,63,94,0)'] }}
+              transition={{ repeat: Infinity, duration: 1.8 }}
+              className="flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-rose-50 dark:bg-rose-955/15 border border-rose-200/70 dark:border-rose-900/40"
+            >
+              <AlertTriangle size={18} className="text-rose-500 shrink-0" />
+              <p className="text-xs font-bold text-rose-700 dark:text-rose-400">
+                Đã quá giờ kết thúc buổi <span className="font-mono font-black">{formatCountdown(remainingMs || 0)}</span> — vui lòng hoàn tất và bấm "{isKtv ? 'Xác nhận hoàn thành ca trị liệu' : 'Hoàn thành ca khám'}" sớm nhất có thể.
+              </p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Banner "Buổi gần nhất liên quan" — trả lời ngay câu "buổi trước có gì cần lưu ý" mà không
+          cần tự lọc qua từng chip phác đồ/dịch vụ lẻ bên dưới. */}
+      {latestRelevantSession && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-2xl border border-amber-200/70 dark:border-amber-900/40 bg-amber-50/60 dark:bg-amber-955/10 p-4 flex flex-col sm:flex-row sm:items-start gap-4"
         >
-          <ArrowLeft size={16} />
-        </button>
-        <div>
-          <h1 className="text-xl font-black text-secondary dark:text-zinc-100 tracking-tight flex items-center gap-2">
-            {isKtv ? 'Bàn Trị Liệu & Lượng Giá KTV' : 'Khám Lâm Sàng & Lượng Giá'}
-          </h1>
-          <p className="text-zinc-400 dark:text-zinc-550 text-[10px] font-bold uppercase mt-0.5 tracking-wider">
-            Mã ca khám: <span className="font-mono text-primary font-extrabold">{appointment.ma_lich_dat}</span>
-          </p>
-        </div>
-      </div>
+          <div className="flex items-start gap-3 flex-1 min-w-0">
+            <StaffAvatar
+              name={latestRelevantSession.session.ten_ky_thuat_vien}
+              avatarUrl={latestRelevantSession.session.anh_ky_thuat_vien}
+              size={40}
+            />
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-black text-amber-700 dark:text-amber-400 uppercase tracking-wider flex items-center gap-1.5 flex-wrap">
+                📌 Buổi gần nhất liên quan
+                <span className="font-bold normal-case text-amber-600/80 dark:text-amber-500/70">
+                  · Buổi {latestRelevantSession.session.so_thu_tu_buoi} — cùng liệu trình đang thực hiện
+                </span>
+              </p>
+              <p className="text-xs font-extrabold text-secondary dark:text-zinc-150 mt-1 truncate">
+                {latestRelevantSession.plan.ten_goi || latestRelevantSession.plan.ten_dich_vu}
+                {latestRelevantSession.session.thoi_gian_bat_dau && (
+                  <span className="text-zinc-400 dark:text-zinc-500 font-bold ml-2">
+                    {new Date(latestRelevantSession.session.thoi_gian_bat_dau).toLocaleDateString('vi-VN')}
+                  </span>
+                )}
+              </p>
+              <p className="text-[11px] text-zinc-600 dark:text-zinc-400 font-semibold mt-1.5 flex items-center gap-3 flex-wrap">
+                <span className="inline-flex items-center gap-1 shrink-0">
+                  <FlameKindling size={12} className="text-amber-500" />
+                  VAS {latestRelevantSession.session.danh_gia_truoc_buoi ?? '?'}
+                  <TrendingUp size={11} className="text-zinc-400" />
+                  {latestRelevantSession.session.danh_gia_sau_buoi ?? '?'}
+                </span>
+                {latestRelevantSession.session.danh_gia_hieu_qua && (
+                  <span className="italic text-zinc-500 dark:text-zinc-450 truncate">
+                    "{latestRelevantSession.session.danh_gia_hieu_qua}"
+                  </span>
+                )}
+              </p>
+              {latestRelevantSession.session.canh_bao_dac_biet && (
+                <p className="text-[11px] font-bold text-rose-600 dark:text-rose-400 mt-1.5 flex items-center gap-1.5">
+                  <AlertTriangle size={12} className="shrink-0" /> {latestRelevantSession.session.canh_bao_dac_biet}
+                </p>
+              )}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('treatments');
+              document.getElementById('history-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
+            className="shrink-0 text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400 hover:underline whitespace-nowrap"
+          >
+            Xem lịch sử đầy đủ ↓
+          </button>
+        </motion.div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
+
         {/* LEFT COLUMN: Diagnostic & Recommendations Form (5 Cols) */}
         <div className="lg:col-span-5">
           <form 
             onSubmit={handleSubmit}
             className="bg-white dark:bg-zinc-900 rounded-[24px] border border-zinc-150/60 dark:border-zinc-800 p-6 shadow-sm space-y-5 sticky top-24"
           >
+            <div className="flex items-center gap-3 mb-1">
+              <button
+                type="button"
+                onClick={() => navigate(isKtv ? '/technician/appointments' : '/doctor')}
+                className="p-2 bg-zinc-50 dark:bg-zinc-850 border border-zinc-200/60 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-all shrink-0"
+              >
+                <ArrowLeft size={14} />
+              </button>
+              <span className="font-mono text-[10px] text-primary font-extrabold">
+                {appointment.ma_lich_dat}
+              </span>
+            </div>
             <div>
               <h3 className="text-sm font-black text-secondary dark:text-zinc-100 uppercase tracking-wider flex items-baseline gap-2 flex-wrap">
                 <span className="flex items-center gap-2">
@@ -316,21 +661,7 @@ export default function ClinicalAssessment() {
                       <span>Mức độ đau Trước trị liệu (VAS) <span className="text-rose-500">*</span></span>
                       <span className="text-primary font-bold">Mức {vasTruoc}</span>
                     </label>
-                    <div className="grid grid-cols-6 sm:grid-cols-11 gap-1.5">
-                      {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
-                        const isSelected = vasTruoc === num;
-                        return (
-                          <button
-                            key={num}
-                            type="button"
-                            onClick={() => setVasTruoc(num)}
-                            className={`size-9 rounded-xl border text-[11px] font-black transition-all duration-200 flex items-center justify-center ${getVasColorClass(num, isSelected)}`}
-                          >
-                            {num}
-                          </button>
-                        );
-                      })}
-                    </div>
+                    <VasSlider value={vasTruoc} onChange={setVasTruoc} />
                     {vasTruoc !== null && (
                       <p className="text-[10px] text-zinc-650 dark:text-zinc-450 font-bold mt-2 italic bg-zinc-50 dark:bg-zinc-850/50 p-3 rounded-xl border border-zinc-150/40 dark:border-zinc-800/80 leading-relaxed">
                         {getVasDescription(vasTruoc)}
@@ -343,21 +674,7 @@ export default function ClinicalAssessment() {
                       <span>Mức độ đau Sau trị liệu (VAS) <span className="text-rose-500">*</span></span>
                       <span className="text-primary font-bold">Mức {vasSau}</span>
                     </label>
-                    <div className="grid grid-cols-6 sm:grid-cols-11 gap-1.5">
-                      {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
-                        const isSelected = vasSau === num;
-                        return (
-                          <button
-                            key={num}
-                            type="button"
-                            onClick={() => setVasSau(num)}
-                            className={`size-9 rounded-xl border text-[11px] font-black transition-all duration-200 flex items-center justify-center ${getVasColorClass(num, isSelected)}`}
-                          >
-                            {num}
-                          </button>
-                        );
-                      })}
-                    </div>
+                    <VasSlider value={vasSau} onChange={setVasSau} />
                     {vasSau !== null && (
                       <p className="text-[10px] text-zinc-655 dark:text-zinc-450 font-bold mt-2 italic bg-zinc-50 dark:bg-zinc-850/50 p-3 rounded-xl border border-zinc-150/40 dark:border-zinc-800/80 leading-relaxed">
                         {getVasDescription(vasSau)}
@@ -414,52 +731,26 @@ export default function ClinicalAssessment() {
                   />
                 </div>
 
-                {/* Đề xuất dịch vụ điều trị */}
+                {/* Đề xuất gói liệu trình */}
                 <div className="space-y-4 pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
                   <div>
                     <h4 className="text-[10px] font-black text-zinc-450 dark:text-zinc-500 uppercase tracking-widest">Khuyến nghị phác đồ trị liệu</h4>
-                    <p className="text-[8px] text-zinc-400 dark:text-zinc-500 font-bold uppercase mt-0.5">Lựa chọn gói phục hồi hoặc dịch vụ lẻ đề xuất cho khách</p>
+                    <p className="text-[8px] text-zinc-400 dark:text-zinc-500 font-bold uppercase mt-0.5">Lựa chọn gói liệu trình đề xuất cho khách</p>
                   </div>
 
-                  {/* Gói đề xuất */}
                   <div className="space-y-1.5">
                     <label className="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">
-                      Đề xuất gói điều trị (Ưu tiên)
+                      Đề xuất gói liệu trình
                     </label>
                     <select
                       value={goiDichVuId}
-                      onChange={(e) => {
-                        setGoiDichVuId(e.target.value);
-                        if (e.target.value) setDichVuId(''); // Nếu chọn gói thì xóa chọn dịch vụ lẻ
-                      }}
+                      onChange={(e) => setGoiDichVuId(e.target.value)}
                       className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-semibold text-secondary dark:text-zinc-150 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all cursor-pointer"
                     >
                       <option value="">-- Không đề xuất gói --</option>
                       {packages.map((pkg) => (
                         <option key={pkg.id} value={pkg.id}>
                           {pkg.ten_goi} ({pkg.gia_goi.toLocaleString('vi-VN')}đ)
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Dịch vụ lẻ đề xuất */}
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">
-                      Hoặc đề xuất dịch vụ lẻ (Sử dụng 1 buổi)
-                    </label>
-                    <select
-                      value={dichVuId}
-                      onChange={(e) => {
-                        setDichVuId(e.target.value);
-                        if (e.target.value) setGoiDichVuId(''); // Nếu chọn dịch vụ thì xóa chọn gói
-                      }}
-                      className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-semibold text-secondary dark:text-zinc-150 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all cursor-pointer"
-                    >
-                      <option value="">-- Không đề xuất dịch vụ lẻ --</option>
-                      {services.map((svc) => (
-                        <option key={svc.id} value={svc.id}>
-                          {svc.ten_dich_vu} ({svc.gia_hien_tai.toLocaleString('vi-VN')}đ)
                         </option>
                       ))}
                     </select>
@@ -506,7 +797,26 @@ export default function ClinicalAssessment() {
           {/* Patient Card Header - Pro Max */}
           <div className="bg-white dark:bg-zinc-900 rounded-[24px] border border-zinc-150/60 dark:border-zinc-800 p-6 shadow-sm flex flex-col md:flex-row items-center md:items-start gap-5 transition-all duration-300 relative overflow-hidden">
             <div className="absolute top-0 right-0 bg-primary/5 dark:bg-primary/10 w-24 h-24 rounded-full -mr-6 -mt-6 blur-2xl"></div>
-            
+
+            {/* Đồng hồ đếm ngược tới giờ kết thúc buổi — chỉ hiện khi bàn khám đang mở và chưa quá giờ */}
+            {isSessionOpen && remainingMs !== null && !isOverdue && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className={`absolute top-4 right-4 z-10 flex items-center gap-2 px-3 py-1.5 rounded-xl border shadow-sm ${
+                  remainingMs < 5 * 60 * 1000
+                    ? 'bg-amber-50 dark:bg-amber-955/15 border-amber-200/60 dark:border-amber-900/40 text-amber-700 dark:text-amber-400'
+                    : 'bg-primary/5 border-primary/15 text-primary'
+                }`}
+              >
+                <Timer size={13} className={remainingMs < 5 * 60 * 1000 ? 'animate-pulse' : ''} />
+                <div className="leading-tight">
+                  <p className="text-[7px] font-black uppercase tracking-wider opacity-70">Còn lại</p>
+                  <p className="text-[11px] font-mono font-black tabular-nums">{formatCountdown(remainingMs)}</p>
+                </div>
+              </motion.div>
+            )}
+
             <div className="size-16 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/5 border border-primary/20 flex items-center justify-center text-primary font-black text-2xl shadow-inner shrink-0 scale-105">
               {(appointment.ten_khach_hang || appointment.ho_ten_khach || 'K').charAt(0).toUpperCase()}
             </div>
@@ -520,6 +830,14 @@ export default function ClinicalAssessment() {
                   </span>
                 </h2>
                 <p className="text-zinc-400 dark:text-zinc-550 text-[10px] font-bold uppercase mt-1">Hồ sơ khách hàng</p>
+                {appointment.loai !== 'KHAM' && appointment.ten_dich_vu && (
+                  <p className="text-[11px] font-bold text-secondary dark:text-zinc-200 mt-1.5">
+                    {appointment.ten_dich_vu}
+                    {appointment.phac_do_dieu_tri_id && appointment.so_thu_tu_buoi && (
+                      <span className="text-primary"> — Buổi {appointment.so_thu_tu_buoi}{appointment.pd_tong_so_buoi ? `/${appointment.pd_tong_so_buoi}` : ''}</span>
+                    )}
+                  </p>
+                )}
               </div>
 
               {/* Grid of details */}
@@ -568,7 +886,7 @@ export default function ClinicalAssessment() {
           </div>
 
           {/* Medical Records Navigation Tabs - sliding Pill Style */}
-          <div className="bg-white dark:bg-zinc-900 rounded-[24px] border border-zinc-150/60 dark:border-zinc-800 shadow-sm overflow-hidden flex flex-col">
+          <div id="history-panel" className="bg-white dark:bg-zinc-900 rounded-[24px] border border-zinc-150/60 dark:border-zinc-800 shadow-sm overflow-hidden flex flex-col scroll-mt-24">
             <div className="bg-zinc-50 dark:bg-zinc-950 p-1.5 rounded-t-[24px] flex gap-1 border-b border-zinc-200/50 dark:border-zinc-800/80">
               <button
                 onClick={() => setActiveTab('history')}
@@ -605,18 +923,24 @@ export default function ClinicalAssessment() {
                       <p className="text-xs font-extrabold uppercase tracking-wide">Chưa có lịch sử hồ sơ lâm sàng</p>
                     </div>
                   ) : (
-                    <div className="relative border-l-2 border-dashed border-zinc-200 dark:border-zinc-800/80 pl-6 space-y-6 ml-3 text-left">
-                      {profile.medicalRecords.map((record) => (
-                        <div key={record.id} className="relative group">
-                          {/* Timeline dot */}
-                          <div className="absolute -left-[33px] top-1.5 size-4 rounded-full bg-white dark:bg-zinc-900 border-2 border-primary group-hover:bg-primary transition-all flex items-center justify-center">
-                            <div className="size-1.5 rounded-full bg-primary group-hover:bg-white transition-all"></div>
+                    <div className="relative border-l-2 border-dashed border-zinc-200 dark:border-zinc-800/80 pl-8 space-y-6 ml-4 text-left">
+                      {profile.medicalRecords.map((record, idx) => (
+                        <motion.div
+                          key={record.id}
+                          initial={{ opacity: 0, x: -8 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: idx * 0.05, type: 'spring', stiffness: 300, damping: 26 }}
+                          className="relative group"
+                        >
+                          {/* Node: avatar bác sĩ thay cho chấm tròn thuần túy */}
+                          <div className="absolute -left-[43px] top-0">
+                            <StaffAvatar name={record.ten_bac_si} avatarUrl={record.anh_bac_si} size={32} />
                           </div>
-                          
+
                           <div className="bg-white dark:bg-zinc-900 border border-zinc-150/60 dark:border-zinc-800 group-hover:border-primary/30 rounded-2xl p-5 shadow-sm group-hover:shadow transition-all duration-300 space-y-3">
                             <div className="flex items-center justify-between text-[10px] font-extrabold text-zinc-400">
                               <span className="flex items-center gap-1.5">
-                                <HeartPulse size={12} className="text-primary animate-pulse" />
+                                <HeartPulse size={12} className="text-primary" />
                                 BS: <span className="text-secondary dark:text-zinc-200">{record.ten_bac_si}</span>
                               </span>
                               <span className="font-mono">{new Date(record.thoi_gian_tao).toLocaleDateString('vi-VN')}</span>
@@ -658,109 +982,189 @@ export default function ClinicalAssessment() {
                               </div>
                             )}
                           </div>
-                        </div>
+                        </motion.div>
                       ))}
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Tab 3: Tiến trình trị liệu chi tiết */}
+              {/* Tab 3: Tiến trình trị liệu — dải chip chọn gói/dịch vụ (master) + sân khấu chi tiết */}
               {activeTab === 'treatments' && (
-                <div className="space-y-6 animate-in fade-in duration-300">
+                <div className="space-y-5 animate-in fade-in duration-300">
                   {!profile || profile.treatmentPlans.length === 0 ? (
                     <div className="text-center py-16 text-zinc-450 dark:text-zinc-555 flex flex-col items-center justify-center gap-3">
                       <FileSpreadsheet size={32} className="text-zinc-300" />
                       <p className="text-xs font-extrabold uppercase tracking-wide">Chưa có lịch sử trị liệu</p>
                     </div>
                   ) : (
-                    <div className="space-y-6 text-left">
-                      {profile.treatmentPlans.map((plan) => (
-                        <div key={plan.id} className="border border-zinc-150/60 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm hover:shadow transition-shadow">
-                          {/* Plan Header */}
-                          <div className="bg-zinc-50 dark:bg-zinc-900/50 p-4 border-b border-zinc-150/60 dark:border-zinc-800 flex items-center justify-between flex-wrap gap-2.5">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-mono text-[9px] font-bold text-zinc-450 dark:text-zinc-500 tracking-wider">
-                                  {plan.ma_lich_dieu_tri}
-                                </span>
-                                <span className="text-[8px] font-black uppercase bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded">
-                                  {plan.loai_dieu_tri === 'goi' ? 'Theo Gói' : 'Dịch vụ lẻ'}
-                                </span>
-                              </div>
-                              <h5 className="text-xs font-black text-secondary dark:text-zinc-150 mt-1.5">
-                                {plan.ten_goi || plan.ten_dich_vu}
-                              </h5>
-                            </div>
-                            <div className="text-right">
-                              <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 px-3 py-1 rounded-full border border-emerald-100 dark:border-emerald-900/30">
-                                Tiến độ: {plan.so_buoi_da_dung}/{plan.tong_so_buoi} buổi
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Sessions List */}
-                          <div className="p-4 space-y-4 max-h-[300px] overflow-y-auto pr-2 scrollbar-thin divide-y divide-zinc-100 dark:divide-zinc-800">
-                            {plan.sessions.map((session, sIdx) => (
-                              <div key={session.id} className={`pt-4 ${sIdx === 0 ? 'pt-0' : ''} space-y-3`}>
-                                <div className="flex items-center justify-between text-[10px] font-extrabold">
-                                  <span className="text-secondary dark:text-zinc-300">
-                                    Buổi {session.so_thu_tu_buoi} • KTV: <span className="text-primary">{session.ten_ky_thuat_vien || 'Chưa phân công'}</span>
-                                  </span>
-                                  <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider border ${
-                                    session.trang_thai === 'hoan_thanh'
-                                      ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-650 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/30'
-                                      : session.trang_thai === 'cho_tri_lieu'
-                                        ? 'bg-blue-50 dark:bg-blue-955/15 text-primary border-primary/20'
-                                        : 'bg-zinc-50 text-zinc-400 border-zinc-200/50'
-                                  }`}>
-                                    {session.trang_thai === 'hoan_thanh' ? 'Hoàn thành' : 'Chưa diễn ra'}
-                                  </span>
+                    <>
+                      {/* Dải chip chọn gói/dịch vụ — gọn dù khách có bao nhiêu gói. Chỉ 1 mục duy
+                          nhất thì ẩn hẳn (không có gì để chọn, chỉ dư thừa với header sân khấu bên
+                          dưới), đi thẳng vào sân khấu chi tiết. */}
+                      {profile.treatmentPlans.length > 1 && (
+                      <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin">
+                        {profile.treatmentPlans.map((plan) => {
+                          const meta = getPlanStatusMeta(plan.trang_thai);
+                          const isSelected = selectedPlanId === plan.id;
+                          const percent = plan.tong_so_buoi > 0 ? (plan.so_buoi_da_dung / plan.tong_so_buoi) * 100 : 0;
+                          return (
+                            <button
+                              key={plan.id}
+                              type="button"
+                              onClick={() => { setSelectedPlanId(plan.id); setExpandedSessionId(null); }}
+                              className={`relative shrink-0 w-[172px] text-left rounded-2xl border p-3.5 transition-colors overflow-hidden ${
+                                isSelected
+                                  ? 'border-primary/40'
+                                  : 'border-zinc-150/70 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-250 dark:hover:border-zinc-700'
+                              }`}
+                            >
+                              {isSelected && (
+                                <motion.div
+                                  layoutId="planChipActive"
+                                  className="absolute inset-0 bg-primary/5"
+                                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                                />
+                              )}
+                              <div className="relative flex items-center gap-2.5">
+                                {plan.loai_dieu_tri === 'goi' ? (
+                                  <ProgressRing percent={percent} color={meta.ring} size={38} strokeWidth={3.5}>
+                                    <span className="text-[9px] font-black" style={{ color: meta.ring }}>
+                                      {plan.so_buoi_da_dung}/{plan.tong_so_buoi}
+                                    </span>
+                                  </ProgressRing>
+                                ) : (
+                                  <div className="size-[38px] rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: `${meta.ring}1A` }}>
+                                    <FileText size={16} style={{ color: meta.ring }} />
+                                  </div>
+                                )}
+                                <div className="min-w-0">
+                                  <p className="text-[8px] font-black uppercase text-zinc-400 dark:text-zinc-500 tracking-wider">
+                                    {plan.loai_dieu_tri === 'goi' ? 'Liệu trình' : 'Dịch vụ lẻ'}
+                                  </p>
+                                  <p className="text-[11px] font-black text-secondary dark:text-zinc-150 truncate leading-tight mt-0.5">
+                                    {plan.ten_goi || plan.ten_dich_vu}
+                                  </p>
                                 </div>
+                              </div>
+                              <span className={`relative mt-2.5 inline-block text-[8px] font-black uppercase px-2 py-0.5 rounded border ${meta.badge}`}>
+                                {meta.label}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      )}
 
-                                {session.trang_thai === 'hoan_thanh' && (
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 bg-zinc-50/50 dark:bg-zinc-855/15 p-4 rounded-xl border border-zinc-150/50 dark:border-zinc-800/80 text-[10px] space-y-1">
-                                    <div className="bg-white dark:bg-zinc-900 p-2.5 rounded-lg border border-zinc-100 dark:border-zinc-800/60">
-                                      <span className="text-zinc-400 dark:text-zinc-500 font-black uppercase text-[8px] tracking-wider block">VAS Trước trị liệu</span>
-                                      <p className="font-extrabold text-secondary dark:text-zinc-200 mt-1 flex items-center gap-1.5">
-                                        <FlameKindling size={12} className="text-amber-500" />
-                                        Mức {session.danh_gia_truoc_buoi || 'N/A'}
-                                      </p>
-                                    </div>
-                                    <div className="bg-white dark:bg-zinc-900 p-2.5 rounded-lg border border-zinc-100 dark:border-zinc-800/60">
-                                      <span className="text-zinc-400 dark:text-zinc-500 font-black uppercase text-[8px] tracking-wider block">VAS Sau trị liệu</span>
-                                      <p className="font-extrabold text-secondary dark:text-zinc-200 mt-1 flex items-center gap-1.5">
-                                        <CheckCircle size={12} className="text-emerald-500" />
-                                        Mức {session.danh_gia_sau_buoi || 'N/A'}
-                                      </p>
-                                    </div>
-                                    {session.canh_bao_dac_biet && (
-                                      <div className="md:col-span-2 bg-rose-50/50 dark:bg-rose-955/15 text-rose-500 font-bold p-2.5 rounded-lg border border-rose-100/50 flex items-center gap-2 text-[10px]">
-                                        <AlertTriangle size={14} className="animate-bounce" /> 
-                                        Cảnh báo: {session.canh_bao_dac_biet}
-                                      </div>
-                                    )}
-                                    {session.ai_tom_tat_ngan && (
-                                      <div className="md:col-span-2 border-t border-zinc-100 dark:border-zinc-800/50 pt-2 flex items-center gap-1.5 text-[9px] text-primary font-bold">
-                                        <TrendingUp size={12} /> Tiến trình: {session.ai_tom_tat_ngan}
-                                      </div>
-                                    )}
-                                    {session.danh_gia_hieu_qua && (
-                                      <div className="md:col-span-2 border-t border-zinc-150/40 dark:border-zinc-800/50 pt-2.5">
-                                        <span className="text-zinc-400 dark:text-zinc-500 font-black uppercase text-[8px] tracking-wider">Diễn tiến / Ghi chú trị liệu</span>
-                                        <p className="font-semibold text-zinc-650 dark:text-zinc-355 mt-1 italic leading-relaxed">
-                                          "{session.danh_gia_hieu_qua}"
-                                        </p>
-                                      </div>
-                                    )}
+                      {/* Sân khấu chi tiết — chỉ hiện đúng 1 gói/dịch vụ đang chọn */}
+                      <AnimatePresence mode="wait">
+                        {(() => {
+                          const plan: TreatmentPlan | undefined = profile.treatmentPlans.find((p) => p.id === selectedPlanId);
+                          if (!plan) return null;
+                          const planMeta = getPlanStatusMeta(plan.trang_thai);
+                          const isSingle = plan.loai_dieu_tri === 'dich_vu';
+                          const singleSession = isSingle ? plan.sessions[0] : null;
+                          const singleCanExpand = !!singleSession && singleSession.trang_thai === 'hoan_thanh';
+                          const singleIsExpanded = singleCanExpand && expandedSessionId === singleSession!.id;
+                          // Dịch vụ lẻ hoàn thành nhưng đang ẩn: không có gì để vẽ (SessionDetailBlock
+                          // trả về null) — bỏ luôn khung "p-4" bọc ngoài để không dư 1 khoảng trắng
+                          // rỗng dưới header, giữ đúng cảm giác gọn như lúc chỉ có mỗi header.
+                          const hideContentBlock = isSingle && singleCanExpand && !singleIsExpanded;
+                          return (
+                            <motion.div
+                              key={plan.id}
+                              initial={{ opacity: 0, y: 8 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -8 }}
+                              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                              className="border border-zinc-150/60 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm"
+                            >
+                              <div
+                                className={`bg-zinc-50 dark:bg-zinc-900/50 p-4 border-b border-zinc-150/60 dark:border-zinc-800 flex items-center justify-between flex-wrap gap-2.5 ${singleCanExpand ? 'cursor-pointer select-none hover:bg-zinc-100/70 dark:hover:bg-zinc-900/80 transition-colors' : ''}`}
+                                onClick={() => {
+                                  if (!singleCanExpand || !singleSession) return;
+                                  setExpandedSessionId(expandedSessionId === singleSession.id ? null : singleSession.id);
+                                }}
+                              >
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono text-[9px] font-bold text-zinc-450 dark:text-zinc-500 tracking-wider">
+                                      {plan.ma_lich_dieu_tri}
+                                    </span>
+                                    <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded border ${planMeta.badge}`}>
+                                      {planMeta.label}
+                                    </span>
+                                  </div>
+                                  <h5 className="text-xs font-black text-secondary dark:text-zinc-150 mt-1.5">
+                                    {plan.ten_goi || plan.ten_dich_vu}
+                                  </h5>
+                                </div>
+                                {!isSingle && (
+                                  <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 px-3 py-1 rounded-full border border-emerald-100 dark:border-emerald-900/30">
+                                    Tiến độ: {plan.so_buoi_da_dung}/{plan.tong_so_buoi} buổi
+                                  </span>
+                                )}
+                                {singleCanExpand && (
+                                  <ChevronDown size={16} className={`text-zinc-400 shrink-0 transition-transform ${singleIsExpanded ? 'rotate-180' : ''}`} />
+                                )}
+                              </div>
+
+                              {plan.trang_thai === 'huy' && (
+                                <div className="flex items-center gap-2.5 px-4 py-3 bg-rose-50/70 dark:bg-rose-955/10 border-b border-rose-100 dark:border-rose-900/30">
+                                  <AlertTriangle size={14} className="text-rose-500 shrink-0" />
+                                  <p className="text-[10px] font-bold text-rose-600 dark:text-rose-400">
+                                    Phác đồ đã bị hủy — các buổi sau đó không còn hiệu lực.
+                                  </p>
+                                </div>
+                              )}
+
+                              {!hideContentBlock && (
+                              <div className="p-4">
+                                {isSingle ? (
+                                  <SessionDetailBlock
+                                    session={plan.sessions[0]}
+                                    large
+                                    expandedSessionId={expandedSessionId}
+                                    setExpandedSessionId={setExpandedSessionId}
+                                  />
+                                ) : (
+                                  <div className="max-h-[360px] overflow-y-auto pr-2 scrollbar-thin">
+                                    {plan.sessions.map((session, sIdx) => {
+                                      const statusMeta = getSessionStatusMeta(session.trang_thai);
+                                      const isLast = sIdx === plan.sessions.length - 1;
+                                      return (
+                                        <motion.div
+                                          key={session.id}
+                                          initial={{ opacity: 0, x: -8 }}
+                                          animate={{ opacity: 1, x: 0 }}
+                                          transition={{ delay: sIdx * 0.04, type: 'spring', stiffness: 300, damping: 26 }}
+                                          className="flex gap-3"
+                                        >
+                                          <div className="flex flex-col items-center">
+                                            <StaffAvatar name={session.ten_ky_thuat_vien} avatarUrl={session.anh_ky_thuat_vien} size={38} statusMeta={statusMeta} />
+                                            {!isLast && (
+                                              <div className={`w-0.5 flex-1 my-1 min-h-[16px] ${session.trang_thai === 'hoan_thanh' ? 'bg-emerald-300' : 'bg-zinc-150 dark:bg-zinc-800'}`} />
+                                            )}
+                                          </div>
+                                          <div className="flex-1 pb-4 min-w-0">
+                                            <SessionDetailBlock
+                                              session={session}
+                                              expandedSessionId={expandedSessionId}
+                                              setExpandedSessionId={setExpandedSessionId}
+                                            />
+                                          </div>
+                                        </motion.div>
+                                      );
+                                    })}
                                   </div>
                                 )}
                               </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                              )}
+                            </motion.div>
+                          );
+                        })()}
+                      </AnimatePresence>
+                    </>
                   )}
                 </div>
               )}

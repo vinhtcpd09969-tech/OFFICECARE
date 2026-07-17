@@ -16,6 +16,10 @@ import {
 } from '../../../../receptionist/api/receptionist.api';
 
 
+import { getInstallmentCutoffSession } from '../../../../../utils/billing';
+import { getReceptionistActionOptions, getReceptionistAllowedTargets, hasAssignedStaff, isReceptionistLockedStatus } from './receptionistStatusRules';
+import { statusConfig } from '../constants';
+
 // Import subcomponents
 import { DetailHeader } from './DetailHeader';
 import { TreatmentHistory } from './TreatmentHistory';
@@ -109,6 +113,9 @@ export default function AppointmentDetailModal({
   const resolvedRoom = roomsList.find(r => String(r.id) === String(assignRoomId));
   const resolvedRoomName = resolvedRoom?.ten_phong || selectedAppointment.ten_phong || 'Chưa chỉ định';
   const isUnconfirmedState = isReceptionist && ['cho_xac_nhan', 'chua_xac_nhan'].includes(selectedAppointment.trang_thai);
+  const staffAssigned = hasAssignedStaff(selectedAppointment);
+  const isReceptionistLocked = isReceptionist && isReceptionistLockedStatus(selectedAppointment.trang_thai);
+  const receptionistActionOptions = getReceptionistActionOptions(selectedAppointment.trang_thai, staffAssigned);
 
   const handleResendEmail = async () => {
     setIsSendingEmail(true);
@@ -252,7 +259,7 @@ export default function AppointmentDetailModal({
   const origStaffId = selectedAppointment.bac_si_id || selectedAppointment.chuyen_gia_id || '';
   const currentStaffId = assignStaffId || '';
   const isStaffChanged = String(currentStaffId) !== String(origStaffId);
-  const isNoteRequired = isRescheduled || isStaffChanged || isCancelledOrNoShowStatus;
+  const isNoteRequired = isRescheduled || isStaffChanged || isCancelledOrNoShowStatus || (isReceptionist && isStatusChanged);
 
   // States for dynamic slot-driven clinical times
   const [newStartHourStr, setNewStartHourStr] = useState<string>(aptStartHourStr);
@@ -510,19 +517,20 @@ export default function AppointmentDetailModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const origStart = new Date(selectedAppointment.ngay_gio_bat_dau);
-    const newStart = new Date(`${rescheduleDate}T${selectedTimeSlot}:00`);
-    const formattedOrigStart = format(origStart, 'yyyy-MM-dd HH:mm');
-    const formattedNewStart = format(newStart, 'yyyy-MM-dd HH:mm');
-    const isRescheduled = formattedNewStart !== formattedOrigStart;
-
-    const isCancelledOrNoShowStatus = ['da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(assignStatus);
+    // Receptionist status transition validation
+    if (isReceptionist && isReceptionistLocked) {
+      toast.error('Không thể thay đổi trạng thái của ca hẹn đang tiến hành, đã hoàn thành, đã hủy hoặc đã kết thúc!');
+      return;
+    }
+    if (isReceptionist && isStatusChanged) {
+      const allowedTargets = getReceptionistAllowedTargets(selectedAppointment.trang_thai, staffAssigned);
+      if (!allowedTargets.includes(assignStatus)) {
+        toast.error('Lễ tân không có quyền chuyển lịch hẹn sang trạng thái này!');
+        return;
+      }
+    }
     
-    const origStaffId = selectedAppointment.bac_si_id || selectedAppointment.chuyen_gia_id || '';
-    const currentStaffId = assignStaffId || '';
-    const isStaffChanged = String(currentStaffId) !== String(origStaffId);
-    
-    if (isRescheduled || isStaffChanged || isCancelledOrNoShowStatus) {
+    if (isNoteRequired) {
       const currentNote = localGhiChuNoiBo.trim();
       const dbNote = (selectedAppointment.ghi_chu_noi_bo || '').trim();
 
@@ -821,16 +829,19 @@ export default function AppointmentDetailModal({
               <DetailHeader
                 maLichDat={selectedAppointment.ma_lich_dat}
                 tenKhachHang={selectedAppointment.ten_khach_hang}
-                soDienThoai={selectedAppointment.so_dien_thoai}
                 ngayGioBatDau={selectedAppointment.ngay_gio_bat_dau}
                 aptStartHourStr={aptStartHourStr}
                 aptEndHourStr={aptEndHourStr}
                 durationMs={durationMs}
                 tenDichVu={selectedAppointment.ten_dich_vu}
+                soThuTuBuoi={selectedAppointment.so_thu_tu_buoi}
+                tongSoBuoiGoi={selectedAppointment.tong_so_buoi_goi}
+                loaiGoi={selectedAppointment.loai_goi}
                 isRescheduling={isRescheduling}
                 setIsRescheduling={setIsRescheduling}
                 selectedTimeSlot={selectedTimeSlot}
                 rescheduleDate={rescheduleDate}
+                trangThai={selectedAppointment.trang_thai}
               />
 
               {/* Installment Payment Warning Notice for Receptionist */}
@@ -838,7 +849,7 @@ export default function AppointmentDetailModal({
                 selectedAppointment.hinh_thuc_thanh_toan_goi === 'tra_gop' &&
                 selectedAppointment.trang_thai_hoa_don_goi !== 'da_thanh_toan' &&
                 Number(selectedAppointment.so_tien_da_tra_goi) < Number(selectedAppointment.tong_tien_phai_tra_goi) &&
-                Number(selectedAppointment.so_thu_tu_buoi) >= Math.floor(Number(selectedAppointment.tong_so_buoi_goi || 10) / 2) && (
+                Number(selectedAppointment.so_thu_tu_buoi) >= getInstallmentCutoffSession(Number(selectedAppointment.tong_so_buoi_goi || 10)) && (
                   <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 p-4 rounded-2xl flex items-start gap-3 text-left animate-in fade-in slide-in-from-top-2">
                     <span className="text-amber-500 shrink-0 text-base">⚠️</span>
                     <div className="text-xs text-amber-800 dark:text-amber-300">
@@ -890,27 +901,43 @@ export default function AppointmentDetailModal({
                 appendCallLog={appendCallLog}
               />
 
-              {!isReceptionist && (
-                <div className="space-y-2 bg-slate-50/50 dark:bg-zinc-800/40 p-4 rounded-xl border border-slate-150 dark:border-zinc-800/80">
-                  <label className="text-xs font-extrabold text-slate-700 dark:text-zinc-300 uppercase tracking-wider block">
-                    Trạng thái lịch hẹn (Quản lý)
-                  </label>
-                  <select
-                    value={assignStatus}
-                    onChange={(e) => handleStatusChange(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-white dark:bg-zinc-900 border border-slate-250 dark:border-zinc-800 rounded-xl text-xs font-bold text-slate-800 dark:text-zinc-200 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer"
-                  >
-                    <option value="chua_xac_nhan">Chưa xác nhận</option>
-                    <option value="cho_xac_nhan">Chờ gán nhân sự (Chờ xác nhận)</option>
-                    <option value="da_xac_nhan">Đã xác nhận</option>
-                    <option value="da_checkin">Đã check-in</option>
-                    <option value="dang_kham">Đang khám</option>
-                    <option value="hoan_thanh">Hoàn thành</option>
-                    <option value="da_huy">Đã hủy</option>
-                    <option value="khong_den">Không đến</option>
-                  </select>
-                </div>
-              )}
+              <div className="space-y-2 bg-slate-50/50 dark:bg-zinc-800/40 p-4 rounded-xl border border-slate-150 dark:border-zinc-800/80">
+                <label className="text-xs font-extrabold text-slate-700 dark:text-zinc-300 uppercase tracking-wider block">
+                  {isReceptionist ? 'Trạng thái lịch hẹn' : 'Trạng thái lịch hẹn (Quản lý)'}
+                </label>
+                <select
+                  value={assignStatus}
+                  onChange={(e) => handleStatusChange(e.target.value)}
+                  disabled={isReceptionist && isReceptionistLocked}
+                  className="w-full px-3.5 py-2.5 bg-white dark:bg-zinc-900 border border-slate-250 dark:border-zinc-800 rounded-xl text-xs font-bold text-slate-800 dark:text-zinc-200 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isReceptionist ? (
+                    <>
+                      {/* Lễ tân: luôn hiện trạng thái hiện tại làm option đầu (để <select> luôn có giá trị
+                          hợp lệ, kể cả khi bị khóa), cộng thêm đúng các hành động được phép — xem
+                          receptionistStatusRules.ts. Giai đoạn "chưa xác nhận" chỉ có Xác nhận/Hủy, không
+                          hiện "Chờ gán nhân sự" như 1 lựa chọn riêng dù giá trị thực lưu có thể là nó. */}
+                      <option value={selectedAppointment.trang_thai}>
+                        {statusConfig[selectedAppointment.trang_thai]?.label || selectedAppointment.trang_thai}
+                      </option>
+                      {receptionistActionOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </>
+                  ) : (
+                    <>
+                      <option value="chua_xac_nhan">Chưa xác nhận</option>
+                      <option value="cho_xac_nhan">Chờ gán nhân sự (Chờ xác nhận)</option>
+                      <option value="da_xac_nhan">Đã xác nhận</option>
+                      <option value="da_checkin">Đã check-in</option>
+                      <option value="dang_kham">Đang khám</option>
+                      <option value="hoan_thanh">Hoàn thành</option>
+                      <option value="da_huy">Đã hủy</option>
+                      <option value="khong_den">Không đến</option>
+                    </>
+                  )}
+                </select>
+              </div>
 
               {/* Ghi chú nội bộ phòng khám (Hiển thị cho tất cả nhân sự) */}
               <div className="space-y-2 bg-slate-50/50 dark:bg-zinc-800/40 p-4 rounded-xl border border-slate-150 dark:border-zinc-800/80">
@@ -922,10 +949,11 @@ export default function AppointmentDetailModal({
                   rows={3}
                   value={localGhiChuNoiBo}
                   onChange={(e) => handleNoteChange(e.target.value)}
+                  disabled={isReceptionistLocked}
                   placeholder="Nhập ghi chú nội bộ (lý do hủy, ghi chú cuộc gọi, ghi chú ca trực, v.v.)..."
-                  className={`w-full px-3.5 py-2.5 bg-white dark:bg-zinc-900 border rounded-xl text-xs text-slate-800 dark:text-zinc-200 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-semibold font-mono leading-relaxed resize-none ${
+                  className={`w-full px-3.5 py-2.5 bg-white dark:bg-zinc-900 border rounded-xl text-xs text-slate-800 dark:text-zinc-200 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-semibold font-mono leading-relaxed resize-none disabled:opacity-50 disabled:cursor-not-allowed ${
                     rescheduleError
-                      ? 'border-rose-500 focus:border-rose-500 focus:ring-rose-500/20' 
+                      ? 'border-rose-500 focus:border-rose-500 focus:ring-rose-500/20'
                       : 'border-slate-250 dark:border-zinc-800'
                   }`}
                 />
@@ -943,6 +971,7 @@ export default function AppointmentDetailModal({
                 setAssignStaffId={setAssignStaffId}
                 assignStatus={assignStatus}
                 isReceptionist={isReceptionist}
+                isLocked={isReceptionistLocked}
                 staffList={staffList}
                 schedulesList={schedulesList}
                 aptDateStr={rescheduleDate}
@@ -1060,6 +1089,7 @@ export default function AppointmentDetailModal({
             <DetailFooter
               selectedAppointment={selectedAppointment}
               isReceptionist={isReceptionist}
+              isReceptionistLocked={isReceptionistLocked}
               hideBilling={hideBilling}
               isAssigning={isAssigning}
               onClose={onClose}

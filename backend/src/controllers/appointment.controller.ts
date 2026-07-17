@@ -70,8 +70,9 @@ export const updateAppointmentStatus = async (req: Request, res: Response): Prom
   try {
     const validated = updateAppointmentStatusSchema.parse({ params: req.params, body: req.body });
     const { id } = validated.params;
+    const actorRoleId = req.user?.vai_tro_id ? Number(req.user.vai_tro_id) : undefined;
 
-    const appointment = await appointmentService.updateAppointmentStatus(id, validated.body);
+    const appointment = await appointmentService.updateAppointmentStatus(id, validated.body, actorRoleId);
     return res.json(appointment);
   } catch (error: any) {
     console.error('Lỗi khi cập nhật trạng thái lịch hẹn:', error);
@@ -89,6 +90,9 @@ export const updateAppointmentStatus = async (req: Request, res: Response): Prom
     }
     if (error.constraint === 'no_overlap_khach_hang') {
       return res.status(400).json({ message: 'Khách hàng đã có lịch hẹn hoặc ca điều trị khác trong khung giờ này.' });
+    }
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ message: error.message });
     }
     return res.status(500).json({ message: 'Lỗi server' });
   }
@@ -121,7 +125,11 @@ export const cancelCustomerAppointment = async (req: Request, res: Response): Pr
     return res.json({ success: true, message: 'Đã hủy lịch hẹn thành công.', appointment });
   } catch (error: any) {
     console.error('Lỗi khi khách hàng hủy lịch:', error);
-    const status = error.message && error.message.includes('giới hạn') ? 400 : 500;
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ message: error.message });
+    }
+    // Lỗi nghiệp vụ (message có sẵn, không phải lỗi hạ tầng pg/Prisma) → 400 kèm message gốc.
+    const status = error.message && !error.stack?.includes('pg') && !error.stack?.includes('Prisma') ? 400 : 500;
     return res.status(status).json({ message: error.message || 'Lỗi server khi hủy lịch hẹn.' });
   }
 };

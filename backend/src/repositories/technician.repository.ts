@@ -8,7 +8,7 @@ class TechnicianRepository {
         ch.id, 
         'LH-' || UPPER(SUBSTRING(ch.id::text FROM 1 FOR 6)) as ma_lich_dat,
         kh.ho_ten as ho_ten_khach, kh.so_dien_thoai, kh.gioi_tinh as gioi_tinh_khach,
-        ch.ngay_gio_bat_dau, ch.ngay_gio_ket_thuc, ch.ghi_chu_khach_hang as ly_do_kham, ch.trang_thai, NULL::text as anh_dinh_kem_url,
+        ch.ngay_gio_bat_dau, ch.ngay_gio_ket_thuc, ch.ghi_chu_khach_hang as ly_do_kham, ch.trang_thai, ch.anh_dinh_kem_url,
         kh.id as khach_hang_id, kh.ngay_sinh, kh.gioi_tinh,
         kh.ho_ten as ten_khach_hang, kh.so_dien_thoai as sdt_khach_hang, NULL::text as avatar_url,
         ch.nhan_su_id as ky_thuat_vien_id,
@@ -51,6 +51,21 @@ class TechnicianRepository {
     return rows;
   }
 
+  // 2.4. Kiểm tra nhân sự có ca trị liệu khác đang mở dở (trang_thai='dang_kham') hay không — 1 nhân
+  // sự chỉ được mở 1 "bàn trị liệu" tại 1 thời điểm, tránh quên bấm hoàn thành ca cũ rồi mở ca mới
+  // chồng lấn.
+  async getActiveSessionForStaff(staffId: number, excludeAppointmentId: string) {
+    const { rows } = await pool.query(
+      `SELECT ch.id, 'LH-' || UPPER(SUBSTRING(ch.id::text FROM 1 FOR 6)) as ma_lich_dat, kh.ho_ten as ten_khach_hang
+       FROM cuoc_hen ch
+       LEFT JOIN khach_hang kh ON ch.khach_hang_id = kh.id
+       WHERE ch.nhan_su_id = $1 AND ch.trang_thai = 'dang_kham' AND ch.id != $2::uuid
+       LIMIT 1`,
+      [staffId, excludeAppointmentId]
+    );
+    return rows[0] || null;
+  }
+
   // 2.5. Bắt đầu ca khám / điều trị (Cập nhật trạng thái đang khám và tạo nhật ký)
   async startSession(appointmentId: string, staffId: number) {
     const client = await pool.connect();
@@ -87,17 +102,24 @@ class TechnicianRepository {
         ch.id, 
         'LH-' || UPPER(SUBSTRING(ch.id::text FROM 1 FOR 6)) as ma_lich_dat,
         kh.ho_ten as ho_ten_khach, kh.so_dien_thoai, kh.gioi_tinh as gioi_tinh_khach,
-        ch.ngay_gio_bat_dau, ch.ngay_gio_ket_thuc, ch.ghi_chu_khach_hang as ly_do_kham, ch.trang_thai, NULL::text as anh_dinh_kem_url,
+        ch.ngay_gio_bat_dau, ch.ngay_gio_ket_thuc, ch.ghi_chu_khach_hang as ly_do_kham, ch.trang_thai, ch.anh_dinh_kem_url,
         kh.id as khach_hang_id, kh.ngay_sinh, kh.gioi_tinh,
         kh.ho_ten as ten_khach_hang, kh.so_dien_thoai as sdt_khach_hang, NULL::text as avatar_url,
         nk.id as ho_so_dieu_tri_id, nk.id as ho_so_benh_an_id, nk.chan_doan, nk.chong_chi_dinh, nk.ghi_chu,
         nk.vas_truoc, nk.vas_sau,
         cd.goi_dich_vu_id,
+        ch.phac_do_dieu_tri_id,
+        ch.so_thu_tu_buoi,
+        COALESCE(g.ten_goi, gpd.ten_goi) as ten_dich_vu,
+        pd.tong_so_buoi as pd_tong_so_buoi,
         nk.ngay_tao as nhat_ky_ngay_tao
       FROM cuoc_hen ch
       JOIN khach_hang kh ON ch.khach_hang_id = kh.id
       LEFT JOIN nhat_ky_buoi_dieu_tri nk ON nk.cuoc_hen_id = ch.id
       LEFT JOIN chi_dinh_buoi cd ON cd.nhat_ky_id = nk.id
+      LEFT JOIN goi_dich_vu g ON ch.goi_dich_vu_id = g.id
+      LEFT JOIN phac_do_dieu_tri pd ON ch.phac_do_dieu_tri_id = pd.id
+      LEFT JOIN goi_dich_vu gpd ON pd.goi_dich_vu_id = gpd.id
       WHERE ch.id = $1::uuid;
     `;
     const { rows } = await pool.query(queryStr, [appointmentId]);

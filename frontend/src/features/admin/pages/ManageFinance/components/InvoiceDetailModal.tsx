@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Building, Activity, Receipt, RotateCcw, Printer, CreditCard, ShieldAlert } from 'lucide-react';
+import { User, Building, Activity, Receipt, RotateCcw, Printer, CreditCard, ShieldAlert, CalendarX } from 'lucide-react';
 import { formatCurrency } from '../../../../../shared/utils';
 import type { Invoice, Payment } from '../hooks/useFinanceDashboard';
 
@@ -12,6 +12,7 @@ interface InvoiceDetailModalProps {
   onOpenFastPay: (invoice: Invoice) => void;
   onRefund: (paymentId: string) => void;
   onPackageRefund?: (invoiceId: string, usedSessions: number, penalty: number, reason: string) => Promise<void>;
+  onExpireNoRefund?: (invoiceId: string, reason: string) => Promise<void>;
 }
 
 
@@ -25,6 +26,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
   onOpenFastPay,
   onRefund,
   onPackageRefund,
+  onExpireNoRefund,
 }) => {
   if (!invoice) return null;
 
@@ -35,6 +37,9 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
   const [submittingRefund, setSubmittingRefund] = useState(false);
   const [showConfirmCancelModal, setShowConfirmCancelModal] = useState(false);
   const [selectedTxId, setSelectedTxId] = useState<string | null>(null);
+  const [expireReason, setExpireReason] = useState('');
+  const [submittingExpire, setSubmittingExpire] = useState(false);
+  const [showConfirmExpireModal, setShowConfirmExpireModal] = useState(false);
 
   const invoicePayments = payments.filter(
     (p) => p.hoa_don_id === invoice.id || p.ma_hoa_don === invoice.ma_hoa_don
@@ -77,13 +82,14 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
   // chi_phi_kham đã được backend tính động (join cuoc_hen -> goi_dich_vu), trả về 0 khi
   // không có phí khám cần trừ (không liên kết ca khám, hoặc đã thanh toán khám riêng).
   const chi_phi_kham = Number(invoice.chi_phi_kham || 0);
+  const so_tien_giam_voucher = Number(invoice.so_tien_giam_voucher || 0);
 
   const tong_tien_goc = Number(invoice.tong_tien_goc);
   // Giá gốc gói LUÔN là tong_tien_goc, bất kể phí khám được xử lý theo cách nào (đã đóng
   // riêng, miễn phí, hay chưa đóng) — khớp đúng calculatePackageCancellationRefund() ở
   // backend/src/domain/billing.ts. Phí khám là khoản tách biệt hoàn toàn, không được phép
   // làm lệch giá gốc/gốc tính phạt.
-  const hasPaidSeparateExam = !!invoice.da_thanh_toan_kham_rieng;
+  const hasPaidSeparateExam = !!invoice.ma_hoa_don_kham_rieng;
   const gia_goc_goi = tong_tien_goc;
   const ti_le_giam = Number(invoice.ti_le_giam_gia_goi || 0);
   const giam_gia_goi = isPackage ? Math.round((gia_goc_goi * ti_le_giam) / 100) : 0;
@@ -96,6 +102,15 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
   const canRefund = isPackage &&
                     invoice.loai_goi === 'LIEU_TRINH' &&
                     invoice.hinh_thuc_thanh_toan_goi !== 'tung_buoi';
+
+  // Gói đã quá hạn sử dụng, khách không phản hồi — khác hẳn hủy chủ động (canRefund): áp dụng
+  // cho CẢ 3 hình thức thanh toán (kể cả từng buổi), không hoàn tiền, giữ toàn bộ đã đóng.
+  // Xem docs/BUSINESS_RULES.md mục "Hủy gói quá hạn sử dụng (không hoàn tiền)".
+  const isPackageOverdue = isPackage &&
+                    !!invoice.han_su_dung &&
+                    new Date(invoice.han_su_dung) < new Date() &&
+                    !['da_hoan_tien', 'da_huy'].includes(invoice.trang_thai) &&
+                    !['huy', 'hoan_thanh'].includes(invoice.trang_thai_phac_do || '');
 
   // Refund preview — khớp đúng công thức calculatePackageCancellationRefund() ở backend:
   // phạt 10% trên gia_thanh_toan_goi (giá gói đã chốt theo hình thức thanh toán) — CỐ ĐỊNH
@@ -132,6 +147,24 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
       console.error(e);
     } finally {
       setSubmittingRefund(false);
+    }
+  };
+
+  const handleExpireSubmit = () => {
+    if (!onExpireNoRefund) return;
+    setShowConfirmExpireModal(true);
+  };
+
+  const executeExpire = async () => {
+    if (!onExpireNoRefund) return;
+    setSubmittingExpire(true);
+    try {
+      await onExpireNoRefund(invoice.id, expireReason);
+      setShowConfirmExpireModal(false);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSubmittingExpire(false);
     }
   };
 
@@ -391,7 +424,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                             <div className="text-[10px] leading-relaxed text-zinc-500 bg-white/70 border border-zinc-150 p-2.5 rounded-xl space-y-1 font-normal">
                               <p className="font-bold text-zinc-650 mb-0.5">ℹ️ Ghi nhận dòng tiền thực tế sau khi hoàn trả:</p>
                               {analysis.exam_fee_to_charge > 0 && (
-                                <p>• Phí khám lâm sàng <strong className="text-zinc-700 font-bold">{formatCurrency(analysis.exam_fee_to_charge)}</strong> {examTrace?.has_separate_invoice ? `đã thanh toán độc lập ở hóa đơn ${examTrace.invoice_code}` : 'đã được tách và chuyển thành Hóa đơn khám riêng biệt'}{examTrace?.invoice_date ? ` ngày ${formatLongDate(examTrace.invoice_date)}` : examTrace?.appointment_date ? ` ngày ${formatLongDate(examTrace.appointment_date)}` : ''} để đảm bảo ghi nhận doanh thu khám.</p>
+                                <p>• Phí khám lâm sàng <strong className="text-zinc-700 font-bold">{formatCurrency(analysis.exam_fee_to_charge)}</strong> {examTrace?.has_separate_invoice ? `được ghi nhận tại hóa đơn khám riêng ${examTrace.invoice_code}` : 'chưa được tách hóa đơn khám riêng (giao dịch cũ, trước khi hệ thống hỗ trợ tự động tách)'}{examTrace?.invoice_date ? ` ngày ${formatLongDate(examTrace.invoice_date)}` : examTrace?.appointment_date ? ` ngày ${formatLongDate(examTrace.appointment_date)}` : ''} để đảm bảo ghi nhận doanh thu khám.</p>
                               )}
                               <p>• Phần tiền phạt <strong className="text-zinc-700 font-bold">{formatCurrency(analysis.phi_phat_thuc_te)}</strong> được giữ lại và ghi nhận doanh thu trên hóa đơn gói này.</p>
                             </div>
@@ -463,8 +496,18 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                                     {mien_phi_kham > 0 && (
                                       <div className="flex justify-between text-emerald-700">
                                         <span>
-                                          Miễn phí khám (Ưu đãi mua gói)
-                                          {invoice.ngay_kham ? ` (${formatLongDate(invoice.ngay_kham)})` : ''}:
+                                          {hasPaidSeparateExam ? (
+                                            <>
+                                              Khấu trừ phí khám đã đóng riêng
+                                              {invoice.ngay_thanh_toan_kham_rieng ? ` ngày ${formatLongDate(invoice.ngay_thanh_toan_kham_rieng)}` : ''}
+                                              {invoice.ma_hoa_don_kham_rieng ? ` (HĐ ${invoice.ma_hoa_don_kham_rieng})` : ''}:
+                                            </>
+                                          ) : (
+                                            <>
+                                              Miễn phí khám (Ưu đãi mua gói)
+                                              {invoice.ngay_kham ? ` (${formatLongDate(invoice.ngay_kham)})` : ''}:
+                                            </>
+                                          )}
                                         </span>
                                         <span className="font-semibold">-{formatCurrency(mien_phi_kham)}</span>
                                       </div>
@@ -483,6 +526,16 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                                       </div>
                                     )}
                                   </>
+                                )}
+                                {so_tien_giam_voucher > 0 && (
+                                  <div className="flex justify-between text-emerald-700">
+                                    <span>
+                                      Mã giảm giá
+                                      {invoice.ma_voucher_ap_dung ? <> <strong className="font-bold">{invoice.ma_voucher_ap_dung}</strong></> : ''}
+                                      {invoice.ten_voucher_ap_dung ? ` (${invoice.ten_voucher_ap_dung})` : ''}:
+                                    </span>
+                                    <span className="font-semibold">-{formatCurrency(so_tien_giam_voucher)}</span>
+                                  </div>
                                 )}
                                 <div className="flex justify-between border-t border-dashed border-emerald-250/60 pt-1.5 font-bold text-zinc-800">
                                   <span>Tổng chi phí cần thu:</span>
@@ -547,47 +600,141 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                       />
                     </div>
 
-                    {/* Calculator Breakdown Live Preview */}
-                    <div className="p-4 bg-white border border-slate-150 rounded-xl space-y-2.5 text-xs font-semibold text-zinc-650">
-                      <div className="flex justify-between">
-                        <span>Tổng tiền khách hàng đã đóng:</span>
-                        <span className="text-secondary font-bold">{formatCurrency(totalPaid)}</span>
-                      </div>
-                      <div className="flex justify-between text-amber-600">
-                        <span>
-                          Khấu trừ phí khám lâm sàng (Thu hồi ưu đãi)
-                          {examFeeToCharge > 0 && invoice.ngay_kham ? ` (ca khám ngày ${formatLongDate(invoice.ngay_kham)})` : ''}:
-                        </span>
-                        <span>+{formatCurrency(examFeeToCharge)}</span>
-                      </div>
-                      <div className="flex justify-between text-amber-600">
-                        <span>Khấu trừ {usedSessions}/{totalSessions} buổi đã sử dụng:</span>
-                        <span>+{formatCurrency(usedSessionsCost)}</span>
-                      </div>
-                      <div className="flex justify-between text-amber-600">
-                        <span>Khấu trừ phí phạt hủy gói ({penaltyPercent}%):</span>
-                        <span>+{formatCurrency(penaltyAmount)}</span>
-                      </div>
-                      <div className="flex justify-between border-t border-zinc-100 pt-2 text-slate-800 font-bold">
-                        <span>Tổng số tiền khấu trừ:</span>
-                        <span>{formatCurrency(totalDeduction)}</span>
-                      </div>
-                      <div className="flex justify-between border-t border-zinc-150 pt-2 text-emerald-600 font-black text-sm">
-                        <span>Số tiền hoàn trả lại cho khách:</span>
-                        <span>{formatCurrency(estimatedRefund)}</span>
-                      </div>
-                      <div className="flex justify-between text-secondary font-black text-xs">
-                        <span>Doanh thu phòng khám giữ lại thực tế:</span>
-                        <span>{formatCurrency(keptRevenue)}</span>
-                      </div>
-                    </div>
+                    {/* Bảng tính hoàn tiền — trình bày đúng dạng một phép trừ: đã đóng, trừ từng khoản,
+                        còn lại. Không dùng dấu "+" cho các khoản khấu trừ (gây hiểu nhầm là cộng tiền). */}
+                    {(() => {
+                      const perSessionCost = totalSessions > 0 ? Math.round(gia_thanh_toan_goi / totalSessions) : 0;
+                      const shortfall = Math.max(0, totalDeduction - totalPaid);
 
-                    {estimatedRefund === 0 && (
-                      <div className="p-3.5 bg-rose-50/50 border border-rose-100 rounded-xl text-rose-700 text-xs font-bold flex items-center gap-2 animate-in fade-in duration-200">
-                        <span className="text-sm">⚠️</span>
-                        <span>Quý khách hàng không còn đủ điều kiện hoàn tiền</span>
-                      </div>
-                    )}
+                      return (
+                        <>
+                          <div className="bg-white border border-slate-150 rounded-xl overflow-hidden">
+                            {/* Giá gói theo hợp đồng — nêu số này TRƯỚC, vì 2 khoản trừ bên dưới (buổi
+                                đã dùng + phạt hủy) đều tính theo đúng số này, không tính theo số khách
+                                thực đóng. Đưa lên đầu để người đọc có sẵn "gốc quy chiếu" trước khi
+                                thấy nó xuất hiện lại ở các dòng phạt/buổi, tránh cảm giác số từ đâu ra. */}
+                            {hasPaidSeparateExam && chi_phi_kham > 0 && (
+                              <div className="flex justify-between items-center px-4 py-2.5 bg-amber-50/40 border-b border-amber-100/60">
+                                <span className="text-[11px] font-bold text-amber-800">Giá gói theo hợp đồng</span>
+                                <span className="text-amber-900 font-black text-xs">{formatCurrency(gia_thanh_toan_goi)}</span>
+                              </div>
+                            )}
+
+                            {/* Khách đã đóng */}
+                            <div className="flex justify-between items-center px-4 py-3 bg-zinc-50/70">
+                              <div className="text-left">
+                                <span className="text-xs font-bold text-zinc-650 block">Khách đã đóng</span>
+                                {hasPaidSeparateExam && chi_phi_kham > 0 && (
+                                  <span className="text-[10px] text-zinc-450 font-medium block mt-0.5">
+                                    = Giá gói hợp đồng − {formatCurrency(chi_phi_kham)} phí khám đã đóng riêng trước đó
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-secondary font-black text-sm shrink-0">{formatCurrency(totalPaid)}</span>
+                            </div>
+
+                            {/* Các khoản phải trừ */}
+                            <div className="px-4 py-3 space-y-3 border-t border-slate-100">
+                              <p className="text-[9px] font-black text-zinc-400 uppercase tracking-wider">
+                                Trừ đi các khoản sau{hasPaidSeparateExam && chi_phi_kham > 0 ? ' (tính theo giá gói hợp đồng, không theo số khách thực đóng)' : ''}
+                              </p>
+
+                              {examFeeToCharge > 0 && (
+                                <div className="flex justify-between items-start gap-3">
+                                  <div className="text-left">
+                                    <p className="text-xs font-bold text-zinc-700">Phí khám lâm sàng</p>
+                                    <p className="text-[10px] text-zinc-450 font-medium leading-relaxed">
+                                      Thu hồi ưu đãi miễn phí khám khi mua gói
+                                      {invoice.ngay_kham ? ` · ca khám ${formatLongDate(invoice.ngay_kham)}` : ''}
+                                    </p>
+                                  </div>
+                                  <span className="text-rose-600 font-black text-xs shrink-0 tabular-nums">
+                                    −{formatCurrency(examFeeToCharge)}
+                                  </span>
+                                </div>
+                              )}
+
+                              <div className="flex justify-between items-start gap-3">
+                                <div className="text-left">
+                                  <p className="text-xs font-bold text-zinc-700">
+                                    {usedSessions}/{totalSessions} buổi khách đã thực hiện
+                                  </p>
+                                  <p className="text-[10px] text-zinc-450 font-medium leading-relaxed tabular-nums">
+                                    {formatCurrency(perSessionCost)} × {usedSessions} buổi
+                                  </p>
+                                </div>
+                                <span className="text-rose-600 font-black text-xs shrink-0 tabular-nums">
+                                  −{formatCurrency(usedSessionsCost)}
+                                </span>
+                              </div>
+
+                              <div className="flex justify-between items-start gap-3">
+                                <div className="text-left">
+                                  <p className="text-xs font-bold text-zinc-700">Phí phạt hủy gói giữa chừng</p>
+                                  <p className="text-[10px] text-zinc-450 font-medium leading-relaxed tabular-nums">
+                                    {penaltyPercent}% × giá gói sau giảm ({formatCurrency(gia_thanh_toan_goi)})
+                                  </p>
+                                </div>
+                                <span className="text-rose-600 font-black text-xs shrink-0 tabular-nums">
+                                  −{formatCurrency(penaltyAmount)}
+                                </span>
+                              </div>
+
+                              <div className="flex justify-between items-center pt-2.5 border-t border-dashed border-zinc-200">
+                                <span className="text-xs font-black text-zinc-700">Tổng cộng bị trừ</span>
+                                <span className="text-rose-600 font-black text-sm tabular-nums">
+                                  {formatCurrency(totalDeduction)}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Kết quả */}
+                            <div
+                              className={`flex justify-between items-center px-4 py-3.5 border-t-2 ${
+                                estimatedRefund > 0
+                                  ? 'bg-emerald-50/70 border-emerald-200'
+                                  : 'bg-zinc-100/70 border-zinc-200'
+                              }`}
+                            >
+                              <span
+                                className={`text-xs font-black ${
+                                  estimatedRefund > 0 ? 'text-emerald-800' : 'text-zinc-650'
+                                }`}
+                              >
+                                Hoàn lại cho khách
+                              </span>
+                              <span
+                                className={`font-black text-base tabular-nums ${
+                                  estimatedRefund > 0 ? 'text-emerald-600' : 'text-zinc-450'
+                                }`}
+                              >
+                                {formatCurrency(estimatedRefund)}
+                              </span>
+                            </div>
+
+                            <div className="flex justify-between items-center px-4 py-2.5 border-t border-slate-100 bg-white">
+                              <span className="text-[11px] font-bold text-zinc-500">Phòng khám giữ lại</span>
+                              <span className="text-secondary font-black text-xs tabular-nums">{formatCurrency(keptRevenue)}</span>
+                            </div>
+                          </div>
+
+                          {estimatedRefund === 0 && (
+                            <div className="p-3.5 bg-rose-50/50 border border-rose-100 rounded-xl space-y-1 animate-in fade-in duration-200">
+                              <p className="text-rose-700 text-xs font-black flex items-center gap-1.5">
+                                <span>⚠️</span> Không hoàn tiền
+                              </p>
+                              <p className="text-[11px] text-rose-800/90 font-semibold leading-relaxed">
+                                Các khoản phải trừ ({formatCurrency(totalDeduction)}) đã{' '}
+                                {shortfall > 0 ? 'vượt quá' : 'dùng hết'} số tiền khách đóng ({formatCurrency(totalPaid)})
+                                {shortfall > 0 ? ` — vượt ${formatCurrency(shortfall)}` : ''}. Khách đã dùng{' '}
+                                {usedSessions}/{totalSessions} buổi của gói nên không thể hoàn tiền.
+                                {shortfall > 0 && ' Phòng khám KHÔNG truy thu thêm phần vượt này.'}
+                              </p>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
 
                     <div className="flex justify-end gap-2 pt-2">
                       <button
@@ -621,7 +768,19 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
           </button>
 
           <div className="flex gap-2">
-            {remainingDebt > 0 && (
+            {isAdminOrManager && isPackageOverdue && (
+              <button
+                onClick={handleExpireSubmit}
+                className="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-900 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-sm flex items-center gap-1.5"
+              >
+                <CalendarX size={14} /> Hủy do quá hạn sử dụng
+              </button>
+            )}
+            {/* Trả từng buổi KHÔNG được thu tự do ở đây — "Dư nợ còn lại" gồm cả các buổi tương
+                lai chưa tới, thu thẳng số này sẽ thu dư/sai buổi. Từng buổi phải đi qua đúng luồng
+                checkout theo buổi (customer_id + goi_dich_vu_id, dùng getTungBuoiSessionDue) — nút
+                "Thanh toán" ở danh sách phác đồ/lịch hẹn tương ứng, không phải hóa đơn tổng này. */}
+            {remainingDebt > 0 && invoice.hinh_thuc_thanh_toan_goi !== 'tung_buoi' && (
               <button
                 onClick={() => onOpenFastPay(invoice)}
                 className="px-5 py-2.5 bg-primary hover:opacity-95 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-sm flex items-center gap-1.5"
@@ -678,6 +837,62 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                 className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 active:scale-[0.98] text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-sm transition-all flex items-center justify-center gap-1.5"
               >
                 {submittingRefund ? 'Đang xử lý...' : 'Xác nhận hủy'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showConfirmExpireModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl p-6 text-center space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="size-12 bg-zinc-100 text-zinc-700 rounded-full flex items-center justify-center mx-auto text-xl font-bold">
+              <CalendarX size={22} />
+            </div>
+            <div className="space-y-2">
+              <h3 className="font-heading font-black text-secondary text-base">Xác nhận Hủy Gói Do Quá Hạn Sử Dụng</h3>
+              <p className="text-zinc-500 text-xs font-semibold leading-normal">
+                Gói đã quá hạn sử dụng và khách không còn phản hồi. Hành động này sẽ <strong className="text-zinc-800">giữ lại toàn bộ số tiền đã đóng, không hoàn trả</strong>, và không thể hoàn tác.
+              </p>
+            </div>
+
+            <div className="bg-zinc-50 border border-zinc-200/80 rounded-2xl p-4 text-left text-xs font-semibold space-y-2 text-zinc-650">
+              <div className="flex justify-between">
+                <span>Hạn sử dụng:</span>
+                <span className="text-secondary font-bold">{formatLongDate(invoice.han_su_dung)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Số tiền đã đóng (giữ lại toàn bộ):</span>
+                <span className="text-zinc-800 font-bold text-sm">{formatCurrency(Number(invoice.da_thanh_toan))}</span>
+              </div>
+            </div>
+
+            <div className="space-y-1 text-left">
+              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide">Lý do (không bắt buộc)</label>
+              <input
+                type="text"
+                value={expireReason}
+                onChange={(e) => setExpireReason(e.target.value)}
+                placeholder="Vd: đã gọi 3 lần không nghe máy, nhắn tin không phản hồi..."
+                className="w-full px-3.5 py-2 text-xs border border-zinc-200 rounded-lg focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none font-bold"
+              />
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowConfirmExpireModal(false)}
+                className="flex-1 py-3 bg-zinc-100 hover:bg-zinc-200/80 active:scale-[0.98] text-secondary text-xs font-bold uppercase tracking-wider rounded-xl transition-all border border-zinc-200"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={executeExpire}
+                disabled={submittingExpire}
+                className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-900 active:scale-[0.98] text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-sm transition-all flex items-center justify-center gap-1.5"
+              >
+                {submittingExpire ? 'Đang xử lý...' : 'Xác nhận hủy, không hoàn'}
               </button>
             </div>
           </div>

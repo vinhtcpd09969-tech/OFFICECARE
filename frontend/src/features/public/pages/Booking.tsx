@@ -4,10 +4,13 @@ import {
   Clock,
   Stethoscope,
   Star,
-  User
+  User,
+  Loader2
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuthStore } from '../../../stores/authStore';
+import { useAuthStore, useAuthActions } from '../../../stores/authStore';
+import { agreeTerms } from '../../customer/api/customer.api';
+import { TERMS_OF_SERVICE } from '../../legal/termsContent';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { convertToVietnamUtcIso } from '../../../utils/date';
@@ -25,8 +28,26 @@ export default function Booking() {
   const navigate = useNavigate();
   const location = useLocation();
   const [isClient, setIsClient] = useState(false);
-  const { user, isAuthenticated, setShowAuthModal } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
+  const { updateUser } = useAuthActions();
   const [activeStep, setActiveStep] = useState(1);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [agreeingLoading, setAgreeingLoading] = useState(false);
+
+  const handleAgreeTerms = async () => {
+    if (!acceptedTerms) return;
+    setAgreeingLoading(true);
+    try {
+      await agreeTerms();
+      updateUser({ ngay_dong_y_dieu_khoan: new Date().toISOString() });
+      toast.success('Xác nhận đồng ý điều khoản thành công!');
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Lỗi khi ghi nhận đồng ý điều khoản. Vui lòng thử lại.');
+    } finally {
+      setAgreeingLoading(false);
+    }
+  };
 
   // Initialize from location state if passed
   const initialType = location.state?.isKtv ? 'dich_vu' : (location.state?.bookingType || 'kham');
@@ -111,23 +132,17 @@ export default function Booking() {
     }
   };
 
-  // Intercept Route: If unauthenticated, redirect back and show global modal immediately
+  // Intercept Route: If unauthenticated, let the component render a custom confirm dialog
   useEffect(() => {
     setIsClient(true);
-    if (!isAuthenticated()) {
-      // Go back to the page they came from, or home page if no history
-      navigate(-1);
-      setTimeout(() => {
-        setShowAuthModal(true);
-      }, 100);
-    } else if (user) {
+    if (isAuthenticated() && user) {
       const roleId = Number(user.vai_tro_id);
       if (roleId !== 1 && roleId !== 0) {
         toast.error('Tài khoản nhân sự không thể sử dụng chức năng đặt lịch của Khách hàng. Vui lòng đăng ký tài khoản khách hàng riêng.');
         navigate(getDefaultRouteByRole(roleId), { replace: true });
       }
     }
-  }, [isAuthenticated, user, navigate, setShowAuthModal]);
+  }, [isAuthenticated, user, navigate]);
 
   // Fetch list of services for services step
   useEffect(() => {
@@ -250,7 +265,11 @@ export default function Booking() {
         const appt = await response.json();
         sessionStorage.removeItem('booking_temp_hold_id'); // Prevent release on unmount since it is finalized
         toast.success(bookingType === 'dich_vu' ? 'Đăng ký lịch dịch vụ lẻ thành công!' : 'Đăng ký lịch khám lượng giá thành công!', { id: toastId });
-        navigate(`/booking/success/${appt.id}`);
+        if (user) {
+          navigate('/appointments');
+        } else {
+          navigate(`/booking/success/${appt.id}`);
+        }
       } else {
         const error = await response.json();
         toast.error(error.message || 'Không thể tạo lịch hẹn. Hãy thử lại.', { id: toastId });
@@ -280,11 +299,150 @@ export default function Booking() {
 
   // Prevent flashing component structure if unauthenticated
   if (!isAuthenticated()) {
-    return null;
+    return (
+      <div className="min-h-screen bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
+        {/* Modal Container Card - Bo góc tối đa rounded-[32px] sm:rounded-[40px] */}
+        <div
+          className="relative max-w-[540px] w-full bg-white rounded-[32px] sm:rounded-[40px] p-8 md:p-12 border border-slate-100 shadow-[0_30px_70px_-10px_rgba(15,23,42,0.22)] z-10 text-center animate-in fade-in zoom-in duration-300"
+        >
+          {/* Soft Teal Circular Container with User Icon */}
+          <div className="w-20 h-20 bg-[#2EC4B6]/10 text-[#2EC4B6] rounded-[24px] flex items-center justify-center mx-auto mb-8 shadow-inner">
+            <User size={36} strokeWidth={2.2} />
+          </div>
+
+          {/* Modern Bold Typography Header */}
+          <h3 className="font-heading font-black text-2xl sm:text-[28px] text-secondary text-center mb-4 tracking-tight leading-snug">
+            Yêu cầu đăng nhập
+          </h3>
+
+          {/* Subtitle / UX copy explaining exactly why this is needed */}
+          <p className="text-slate-500 font-semibold text-sm leading-relaxed text-center mb-10 px-2 max-w-[420px] mx-auto">
+            Quý khách vui lòng đăng nhập tài khoản để tiến hành đặt lịch khám lượng giá và trị liệu tại trung tâm OfficeCare.
+          </p>
+
+          {/* Premium Action Buttons - Side-by-Side on desktop, stacked on mobile */}
+          <div className="flex flex-col sm:flex-row gap-4 w-full">
+            <button
+              onClick={() => {
+                if (window.history.length > 1) {
+                  navigate(-1);
+                } else {
+                  navigate('/');
+                }
+              }}
+              className="bg-slate-950 hover:bg-slate-900 text-white font-extrabold text-[13px] tracking-wide py-4 px-6 rounded-2xl flex-1 text-center transition-all shadow-[0_4px_14px_rgba(15,23,42,0.3)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] hover:shadow-[0_6px_20px_rgba(15,23,42,0.4)] cursor-pointer"
+            >
+              HỦY
+            </button>
+            <button
+              onClick={() => {
+                navigate('/login', { state: { from: '/booking' } });
+              }}
+              className="bg-[#2EC4B6] hover:bg-[#25A89C] text-white font-extrabold text-[13px] tracking-wide py-4 px-6 rounded-2xl flex-1 text-center transition-all shadow-[0_4px_14px_rgba(46,196,182,0.3)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] hover:shadow-[0_6px_20px_rgba(46,196,182,0.4)] cursor-pointer"
+            >
+              ĐĂNG NHẬP NGAY
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] py-20 px-4 sm:px-6 lg:px-8">
+      {/* Terms and Conditions Consent Modal Gate */}
+      {user && user.ngay_dong_y_dieu_khoan === null && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="relative max-w-2xl w-full bg-white rounded-[32px] md:rounded-[40px] border border-slate-100 shadow-[0_30px_70px_-10px_rgba(15,23,42,0.22)] p-6 md:p-10 flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-300">
+            {/* Header */}
+            <div className="text-center pb-5 border-b border-slate-100 shrink-0">
+              <span className="bg-primary/10 text-primary border border-primary/20 text-[9px] font-black uppercase tracking-widest px-3.5 py-1 rounded-full inline-flex items-center gap-1.5 mb-3 shadow-inner">
+                📜 Cam kết chất lượng
+              </span>
+              <h2 className="font-heading font-black text-xl md:text-2xl text-slate-900 tracking-tight leading-tight mb-2">
+                Điều khoản dịch vụ & Quy định
+              </h2>
+              <p className="text-[11px] text-slate-450 font-bold uppercase tracking-wider">
+                Áp dụng cho mọi hoạt động trị liệu tại OfficeCare
+              </p>
+            </div>
+
+            {/* Scrollable Terms Content */}
+            <div className="flex-1 overflow-y-auto py-6 pr-2 my-4 border-b border-slate-100 space-y-6 scrollbar-thin scrollbar-thumb-slate-200">
+              <p className="text-xs text-slate-650 leading-relaxed font-semibold">
+                Chào mừng quý khách đến với trung tâm Vật lý trị liệu và Phục hồi chức năng <strong>OfficeCare</strong>. Trước khi tiếp tục đặt lịch hẹn điều trị, xin vui lòng đọc kỹ và xác nhận các điều khoản quy định dưới đây:
+              </p>
+
+              {TERMS_OF_SERVICE.map((section) => (
+                <div key={section.heading} className="space-y-2">
+                  <h3 className="text-xs font-black text-slate-900 uppercase tracking-wide flex items-center gap-2">
+                    <span className="size-1.5 bg-[#0D9488] rounded-full shrink-0" />
+                    {section.heading}
+                  </h3>
+                  <div className="space-y-2.5 pl-3.5">
+                    {section.paragraphs.map((p, idx) => (
+                      <p key={idx} className="text-[11px] text-slate-500 font-semibold leading-relaxed">
+                        {p}
+                      </p>
+                    ))}
+                    {section.bullets && (
+                      <ul className="space-y-1.5 pl-1">
+                        {section.bullets.map((b, idx) => (
+                          <li key={idx} className="text-[11px] text-slate-500 font-semibold leading-relaxed flex items-start gap-2">
+                            <span className="mt-1.5 size-1.5 rounded-full bg-slate-300 shrink-0" />
+                            <span>{b}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Footer Form & Agreement Checkbox */}
+            <div className="pt-2 shrink-0 space-y-4">
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={acceptedTerms}
+                  onChange={(e) => setAcceptedTerms(e.target.checked)}
+                  className="mt-1 size-4 text-primary border-slate-200 rounded-md focus:ring-primary/20 cursor-pointer"
+                />
+                <span className="text-[11px] text-slate-550 font-bold group-hover:text-secondary transition-colors leading-relaxed select-none">
+                  Tôi đã đọc, hiểu rõ và đồng ý với tất cả Điều khoản dịch vụ & Quy chế uy tín của OfficeCare.
+                </span>
+              </label>
+
+              <div className="flex gap-4 pt-2">
+                <button
+                  type="button"
+                  onClick={() => navigate('/')}
+                  className="py-3.5 px-6 border border-slate-200 hover:bg-slate-50 text-slate-700 font-extrabold rounded-2xl text-[11px] uppercase tracking-wider transition-all cursor-pointer text-center flex-1 shadow-sm"
+                >
+                  Quay lại trang chủ
+                </button>
+                <button
+                  type="button"
+                  disabled={!acceptedTerms || agreeingLoading}
+                  onClick={handleAgreeTerms}
+                  className="py-3.5 px-6 bg-primary hover:bg-[#25A89C] disabled:opacity-50 disabled:cursor-not-allowed text-white font-black rounded-2xl text-[11px] uppercase tracking-wider transition-all flex items-center justify-center gap-2 flex-[2] shadow-md shadow-primary/10 cursor-pointer"
+                >
+                  {agreeingLoading ? (
+                    <>
+                      <Loader2 className="animate-spin" size={14} />
+                      Đang lưu đồng ý...
+                    </>
+                  ) : (
+                    'Đồng ý & Tiếp tục đặt lịch'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-7xl mx-auto space-y-16">
         
         {/* Navigation & Header */}

@@ -23,8 +23,15 @@ export const deletePackage = (id: string) => api.delete(`/admin/packages/${id}`)
 // Staff & Customers
 export const getStaff = () => api.get('/admin/staff');
 export const createStaff = (data: any) => api.post('/admin/staff', data);
+export const updateStaff = (id: string, data: any) => api.put(`/admin/staff/${id}`, data);
 export const updateStaffStatus = (id: string, trang_thai: string) => api.patch(`/admin/staff/${id}/status`, { trang_thai });
+export const resetStaffPassword = (id: string) => api.post(`/admin/staff/${id}/reset-password`);
 export const getCustomers = () => api.get('/admin/customers');
+export const updateCustomer = (id: string, data: any) => api.put(`/admin/customers/${id}`, data);
+export const toggleCustomerLock = (id: string, isLocked: boolean) => api.patch(`/admin/customers/${id}/toggle-lock`, { isLocked });
+export const getCustomersOverview = (params: { page: number; pageSize: number; search?: string; status?: string[]; repTier?: string }) =>
+  api.get('/admin/customers/overview', { params: { ...params, status: params.status?.join(',') || undefined } });
+export const getCustomerEmr = (id: string) => api.get(`/admin/customers/${id}/emr`);
 export const getAvailableStaff = (params: any) => api.get('/admin/staff/available', { params });
 
 // Rooms & Equipment
@@ -64,3 +71,20 @@ export const getFeedback = () => api.get('/admin/feedback');
 export const getDashboardSummary = () => api.get('/admin/analytics/summary');
 export const getRevenueStats = () => api.get('/admin/analytics/revenue');
 export const getStaffPerformance = () => api.get('/admin/analytics/performance');
+
+// Articles (Blog)
+export const getArticles = (params?: { danh_muc?: string; trang_thai?: string; search?: string }) =>
+  api.get('/admin/articles', { params });
+export const getArticleById = (id: string) => api.get(`/admin/articles/${id}`);
+export const createArticle = (data: any) => api.post('/admin/articles', data);
+export const updateArticle = (id: string, data: any) => api.put(`/admin/articles/${id}`, data);
+export const deleteArticle = (id: string) => api.delete(`/admin/articles/${id}`);
+
+// Upload ảnh dùng chung (blog | package | specialist)
+export const uploadImage = (file: File, type: 'blog' | 'package' | 'specialist' = 'blog') => {
+  const formData = new FormData();
+  formData.append('image', file);
+  return api.post(`/admin/uploads/image?type=${type}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+};
