@@ -585,3 +585,114 @@ export const sendBookingConfirmationOTP = async (
     throw new Error('Không thể gửi email lúc này');
   }
 };
+
+export const sendAppointmentReminder = async (toEmail: string, userName: string, appointmentDetails: {
+  tenGoi: string;
+  thoiGian: string;
+  tenPhong: string;
+}) => {
+  try {
+    let transporter;
+    const isSMTPConfigured = process.env.EMAIL_USER && 
+                              process.env.EMAIL_USER !== 'your_email@gmail.com' && 
+                              process.env.EMAIL_PASS && 
+                              process.env.EMAIL_PASS !== 'your_app_password';
+
+    if (isSMTPConfigured) {
+      transporter = nodemailer.createTransport({
+        host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+        port: parseInt(process.env.EMAIL_PORT || '587'),
+        secure: process.env.EMAIL_PORT === '465',
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS,
+        },
+      });
+    } else {
+      const testAccount = await nodemailer.createTestAccount();
+      transporter = nodemailer.createTransport({
+        host: 'smtp.ethereal.email',
+        port: 587,
+        secure: false,
+        auth: {
+          user: testAccount.user,
+          pass: testAccount.pass,
+        },
+      });
+    }
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Nhắc lịch hẹn OfficeCare</title>
+      </head>
+      <body style="margin: 0; padding: 0; background-color: #F8FAFC; font-family: sans-serif; -webkit-font-smoothing: antialiased;">
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #F8FAFC; padding: 30px 10px;">
+          <tr>
+            <td align="center">
+              <table width="100%" max-width="560" border="0" cellspacing="0" cellpadding="0" style="max-width: 560px; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03); border: 1px solid #E2E8F0;">
+                <tr>
+                  <td align="center" style="background-color: #0F172A; padding: 35px 30px; text-align: center;">
+                    <div style="font-size: 28px; font-weight: 800; color: #FFFFFF; letter-spacing: -0.5px; line-height: 1.2; font-family: sans-serif;">
+                      <span style="color: #14B8A6;">O</span>fficeCare
+                    </div>
+                    <div style="font-size: 11px; color: #94A3B8; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 6px; font-family: sans-serif;">
+                      Nhắc Lịch Hẹn Trị Liệu Chủ Động
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 35px 35px 25px 35px;">
+                    <p style="margin: 0 0 16px 0; color: #0F172A; font-size: 17px; font-weight: 700; font-family: sans-serif;">Chào ${userName},</p>
+                    <p style="margin: 0 0 24px 0; color: #334155; font-size: 14px; line-height: 1.7; font-family: sans-serif;">OfficeCare trân trọng nhắc bạn về lịch hẹn điều trị sắp diễn ra của mình:</p>
+                    
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #F0FDFA; border-radius: 12px; border: 1px solid #CCFBF1; margin-bottom: 24px; font-size: 14px; color: #0F172A; font-family: sans-serif;">
+                      <tr>
+                        <td style="padding: 20px 16px;">
+                          <div style="margin-bottom: 10px;">🔹 <strong>Dịch vụ:</strong> ${appointmentDetails.tenGoi}</div>
+                          <div style="margin-bottom: 10px;">🕒 <strong>Thời gian:</strong> ${appointmentDetails.thoiGian}</div>
+                          <div>🏢 <strong>Địa điểm:</strong> Phòng ${appointmentDetails.tenPhong} - Trung tâm OfficeCare</div>
+                        </td>
+                      </tr>
+                    </table>
+                    
+                    <p style="margin: 0 0 24px 0; color: #0D9488; font-size: 13px; font-weight: bold; font-style: italic; font-family: sans-serif;">💡 Lời khuyên: Bạn vui lòng đến sớm hơn lịch hẹn khoảng 5 - 10 phút để đội ngũ chuyên gia chuẩn bị đón tiếp và hỗ trợ trị liệu tốt nhất.</p>
+                    
+                    <hr style="border: none; border-top: 1px solid #F1F5F9; margin: 25px 0;" />
+                    <p style="font-size: 12px; color: #64748B; text-align: center; font-family: sans-serif;">Đây là email nhắc lịch hẹn tự động được gửi từ hệ thống OfficeCare.</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const fromAddress = isSMTPConfigured 
+      ? `"OfficeCare Clinic" <${process.env.EMAIL_USER}>` 
+      : '"OfficeCare Clinic" <noreply@officareclinic.com>';
+
+    const info = await transporter.sendMail({
+      from: fromAddress,
+      to: toEmail,
+      subject: `[Nhắc Lịch Hẹn] Lịch hẹn trị liệu tại OfficeCare`,
+      html: htmlContent,
+    });
+
+    console.log('----------------------------------------------------');
+    console.log('✅ Đã gửi Email Nhắc hẹn tới: %s', toEmail);
+    if (!isSMTPConfigured) {
+      console.log('📩 Bấm vào Link này để XEM EMAIL (Ethereal): %s', nodemailer.getTestMessageUrl(info));
+    }
+    console.log('----------------------------------------------------');
+
+    return info;
+  } catch (error) {
+    console.error('Lỗi khi gửi email nhắc hẹn:', error);
+  }
+};

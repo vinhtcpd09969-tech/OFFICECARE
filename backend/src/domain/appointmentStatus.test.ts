@@ -78,4 +78,19 @@ describe('checkReceptionistTransition', () => {
   it('đã xác nhận -> check-in hợp lệ', () => {
     expect(checkReceptionistTransition('da_xac_nhan', 'da_checkin', true)).toEqual({ allowed: true });
   });
+
+  it('lịch hẹn ở tương lai -> không cho check-in trước giờ hẹn', () => {
+    const future = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    const result = checkReceptionistTransition('da_xac_nhan', 'da_checkin', true, future);
+    expect(result.allowed).toBe(false);
+  });
+
+  it('đã tới/qua giờ hẹn -> check-in hợp lệ', () => {
+    const past = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    expect(checkReceptionistTransition('da_xac_nhan', 'da_checkin', true, past)).toEqual({ allowed: true });
+  });
+
+  it('không truyền ngay_gio_bat_dau -> vẫn cho check-in như hành vi cũ (không phá vỡ caller cũ)', () => {
+    expect(checkReceptionistTransition('da_xac_nhan', 'da_checkin', true)).toEqual({ allowed: true });
+  });
 });

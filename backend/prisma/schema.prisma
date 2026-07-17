@@ -105,8 +105,15 @@ model chi_dinh_buoi {
   // admin sửa gói về sau không được phép âm thầm đổi liệu trình/giá đã tư vấn cho khách.
   tong_so_buoi_tu_van   Int?
   don_gia_tu_van        BigInt?
+  // Đánh dấu chỉ định này đã dẫn tới phác đồ nào (set khi khách thanh toán/kích hoạt) — nguồn
+  // xác thực duy nhất để nối ngược 1 phác đồ về đúng ca khám đã chỉ định ra nó, và để biết 1 chỉ
+  // định đã được kích hoạt hay còn "chờ kích hoạt". KHÔNG dùng cuoc_hen.phac_do_dieu_tri_id của
+  // ca khám cho việc này — field đó chỉ dành cho buổi điều trị thật, gán cho ca khám sẽ làm hỏng
+  // cách tính trạng thái thanh toán của ca khám đó (xem lịch sử sửa createInvoiceDirect).
+  phac_do_dieu_tri_id   String?               @db.Uuid
   goi_dich_vu           goi_dich_vu?          @relation(fields: [goi_dich_vu_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   nhat_ky_buoi_dieu_tri nhat_ky_buoi_dieu_tri @relation(fields: [nhat_ky_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  phac_do_dieu_tri      phac_do_dieu_tri?     @relation(fields: [phac_do_dieu_tri_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model cuoc_hen {
@@ -123,6 +130,7 @@ model cuoc_hen {
   ghi_chu_khach_hang    String?
   phong_id              Int?
   ghi_chu_noi_bo        String?
+  anh_dinh_kem_url      String?
   thoi_gian_huy         DateTime?              @db.Timestamptz(6)
   nguoi_tao_id          Int?
   goi_dich_vu           goi_dich_vu?           @relation(fields: [goi_dich_vu_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -179,6 +187,7 @@ model phac_do_dieu_tri {
   han_su_dung     DateTime?   @db.Date
   cuoc_hen        cuoc_hen[]
   hoa_don         hoa_don[]
+  chi_dinh_buoi   chi_dinh_buoi[]
   goi_dich_vu     goi_dich_vu @relation(fields: [goi_dich_vu_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   khach_hang      khach_hang  @relation(fields: [khach_hang_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }

@@ -294,6 +294,22 @@ class AppointmentRepository {
         throw new Error(`Khách hàng đã có lịch đặt cho buổi số ${activeAppt.so_thu_tu_buoi} đang hoạt động. Vui lòng hoàn thành hoặc hủy lịch hẹn cũ trước khi đặt buổi tiếp theo.`);
       }
 
+      // Chặn đặt buổi mới SỚM HƠN buổi liền trước trong cùng phác đồ (kể cả khi buổi trước đã
+      // hoàn thành/không còn active) — trước đây không đối chiếu thời gian giữa các buổi nên dữ
+      // liệu test từng đặt được buổi 4 sớm hơn buổi 3 cùng phác đồ.
+      if (so_thu_tu_buoi && Number(so_thu_tu_buoi) > 1) {
+        const prevSessionRes = await pool.query(
+          `SELECT MAX(ngay_gio_bat_dau) as last_date
+           FROM cuoc_hen
+           WHERE phac_do_dieu_tri_id = $1 AND so_thu_tu_buoi < $2 AND trang_thai != 'da_huy'`,
+          [phac_do_dieu_tri_id, so_thu_tu_buoi]
+        );
+        const lastDate = prevSessionRes.rows[0]?.last_date;
+        if (lastDate && new Date(ngay_gio_bat_dau).getTime() <= new Date(lastDate).getTime()) {
+          throw new Error(`Buổi số ${so_thu_tu_buoi} phải được đặt sau thời gian của (các) buổi trước đó trong cùng liệu trình.`);
+        }
+      }
+
       // Kiểm tra điều kiện hoàn tất thanh toán của buổi trước khi đặt lịch cho buổi tiếp theo (Thống nhất 3 hình thức)
       const invRes = await pool.query(
         `SELECT hd.hinh_thuc_thanh_toan_goi, hd.tong_tien_phai_tra, hd.so_tien_da_tra, hd.tong_tien_goc,
@@ -377,30 +393,59 @@ class AppointmentRepository {
     let final_khach_hang_id = khach_hang_id;
 
     if (!final_khach_hang_id && (email || so_dien_thoai)) {
-      let existCust = null;
-      if (email) {
-        const res = await pool.query('SELECT id FROM khach_hang WHERE email = $1', [email]);
-        if (res.rows.length > 0) existCust = res.rows[0];
+      // 1. Validate formats
+      if (!ho_ten_khach || ho_ten_khach.trim().length < 2) {
+        throw new Error('Họ tên khách hàng phải có ít nhất 2 ký tự.');
       }
-      if (!existCust && so_dien_thoai) {
-        const res = await pool.query('SELECT id FROM khach_hang WHERE so_dien_thoai = $1', [so_dien_thoai]);
-        if (res.rows.length > 0) existCust = res.rows[0];
+      const nameRegex = /^[\p{L}\s']{2,}$/u;
+      if (!nameRegex.test(ho_ten_khach.trim())) {
+        throw new Error('Họ tên khách hàng chỉ được chứa chữ cái và khoảng trắng.');
       }
 
-      if (existCust) {
-        final_khach_hang_id = existCust.id;
-      } else {
-        const targetEmail = email || `${so_dien_thoai || 'guest_' + Math.floor(Math.random() * 100000)}@officecare.placeholder`;
-        const defaultPassword = '123456';
-        const salt = bcrypt.genSaltSync(10);
-        const hash = bcrypt.hashSync(defaultPassword, salt);
-
-        const { rows: newKh } = await pool.query(`
-          INSERT INTO khach_hang (ho_ten, so_dien_thoai, email, mat_khau_hash, gioi_tinh)
-          VALUES ($1, $2, $3, $4, $5) RETURNING id
-        `, [ho_ten_khach || 'Khách vãng lai', so_dien_thoai || null, targetEmail, hash, gioi_tinh_khach || 'khac']);
-        final_khach_hang_id = newKh[0].id;
+      if (!so_dien_thoai) {
+        throw new Error('Số điện thoại khách hàng là bắt buộc.');
       }
+      const phoneRegex = /^(03|05|07|08|09)[0-9]{8}$/;
+      if (!phoneRegex.test(so_dien_thoai.trim())) {
+        throw new Error('Số điện thoại không hợp lệ (phải gồm 10 chữ số và bắt đầu bằng 03, 05, 07, 08 hoặc 09).');
+      }
+
+      if (email && email.trim() !== '') {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email.trim())) {
+          throw new Error('Địa chỉ email không đúng định dạng.');
+        }
+      }
+
+      // 2. Check for duplicate phone in customer or staff
+      if (so_dien_thoai) {
+        const checkPhoneCust = await pool.query('SELECT id FROM khach_hang WHERE so_dien_thoai = $1', [so_dien_thoai.trim()]);
+        const checkPhoneStaff = await pool.query('SELECT id FROM nguoi_dung WHERE so_dien_thoai = $1', [so_dien_thoai.trim()]);
+        if (checkPhoneCust.rows.length > 0 || checkPhoneStaff.rows.length > 0) {
+          throw new Error('Số điện thoại này đã được đăng ký cho một tài khoản khác.');
+        }
+      }
+
+      // 3. Check for duplicate email in customer or staff
+      if (email && email.trim() !== '') {
+        const checkEmailCust = await pool.query('SELECT id FROM khach_hang WHERE email = $1', [email.trim()]);
+        const checkEmailStaff = await pool.query('SELECT id FROM nguoi_dung WHERE email = $1', [email.trim()]);
+        if (checkEmailCust.rows.length > 0 || checkEmailStaff.rows.length > 0) {
+          throw new Error('Địa chỉ email này đã được đăng ký cho một tài khoản khác.');
+        }
+      }
+
+      // 4. Create new customer
+      const targetEmail = (email && email.trim() !== '') ? email.trim() : `${so_dien_thoai.trim()}@officecare.placeholder`;
+      const defaultPassword = '123456';
+      const salt = bcrypt.genSaltSync(10);
+      const hash = bcrypt.hashSync(defaultPassword, salt);
+
+      const { rows: newKh } = await pool.query(`
+        INSERT INTO khach_hang (ho_ten, so_dien_thoai, email, mat_khau_hash, gioi_tinh, trang_thai)
+        VALUES ($1, $2, $3, $4, $5, 'hoat_dong') RETURNING id
+      `, [ho_ten_khach.trim(), so_dien_thoai.trim(), targetEmail, hash, gioi_tinh_khach || 'khac']);
+      final_khach_hang_id = newKh[0].id;
     }
 
     // Validate package payment check for treatment appointments (DIEU_TRI) or when the service is a package (LIEU_TRINH)
@@ -499,6 +544,20 @@ class AppointmentRepository {
         throw new Error(`Khách hàng đã có lịch đặt cho buổi số ${activeAppt.so_thu_tu_buoi} đang hoạt động. Vui lòng hoàn thành hoặc hủy lịch hẹn cũ trước khi đặt buổi tiếp theo.`);
       }
 
+      // Chặn đặt buổi mới SỚM HƠN buổi liền trước trong cùng phác đồ (xem giải thích ở nhánh trên).
+      if (so_thu_tu_buoi && Number(so_thu_tu_buoi) > 1) {
+        const prevSessionRes = await pool.query(
+          `SELECT MAX(ngay_gio_bat_dau) as last_date
+           FROM cuoc_hen
+           WHERE phac_do_dieu_tri_id = $1 AND so_thu_tu_buoi < $2 AND trang_thai != 'da_huy'`,
+          [finalPhacDoId, so_thu_tu_buoi]
+        );
+        const lastDate = prevSessionRes.rows[0]?.last_date;
+        if (lastDate && new Date(ngay_gio_bat_dau).getTime() <= new Date(lastDate).getTime()) {
+          throw new Error(`Buổi số ${so_thu_tu_buoi} phải được đặt sau thời gian của (các) buổi trước đó trong cùng liệu trình.`);
+        }
+      }
+
       // Kiểm tra điều kiện hoàn tất thanh toán của buổi trước khi đặt lịch cho buổi tiếp theo (Thống nhất 3 hình thức)
       const invRes = await pool.query(
         `SELECT hd.hinh_thuc_thanh_toan_goi, hd.tong_tien_phai_tra, hd.so_tien_da_tra, hd.tong_tien_goc,
@@ -589,7 +648,7 @@ class AppointmentRepository {
 
   async createPublicAppointment(ma_lich_dat: string, data: any) {
     const goi_dich_vu_id = data.goi_dich_vu_id || data.dich_vu_id;
-    const { khach_hang_id, nhan_su_id, ho_ten_khach, so_dien_thoai, gioi_tinh_khach, ngay_gio_bat_dau, ly_do_kham, trang_thai, trieu_chung } = data;
+    const { khach_hang_id, nhan_su_id, ho_ten_khach, so_dien_thoai, gioi_tinh_khach, ngay_gio_bat_dau, ly_do_kham, trang_thai, trieu_chung, anh_dinh_kem_url } = data;
 
     const startLocal = new Date(new Date(ngay_gio_bat_dau).getTime() + 7 * 60 * 60000);
     const dateStr = `${startLocal.getUTCFullYear()}-${String(startLocal.getUTCMonth() + 1).padStart(2, '0')}-${String(startLocal.getUTCDate()).padStart(2, '0')}`;
@@ -671,8 +730,8 @@ class AppointmentRepository {
     }
 
     const query = `
-      INSERT INTO cuoc_hen (khach_hang_id, goi_dich_vu_id, nhan_su_id, ngay_gio_bat_dau, ngay_gio_ket_thuc, loai, trang_thai, ghi_chu_khach_hang, phong_id)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      INSERT INTO cuoc_hen (khach_hang_id, goi_dich_vu_id, nhan_su_id, ngay_gio_bat_dau, ngay_gio_ket_thuc, loai, trang_thai, ghi_chu_khach_hang, phong_id, anh_dinh_kem_url)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *
     `;
     const { rows } = await pool.query(query, [
@@ -684,7 +743,8 @@ class AppointmentRepository {
       isExamService ? 'KHAM' : 'DICH_VU_LE',
       trang_thai || 'chua_xac_nhan',
       trieu_chung || ly_do_kham || null,
-      resolvedPhongId
+      resolvedPhongId,
+      anh_dinh_kem_url || null
     ]);
 
     if (data.temp_hold_id) {
@@ -939,7 +999,7 @@ class AppointmentRepository {
           throw err;
         }
         if (data.trang_thai !== appt.trang_thai) {
-          const check = checkReceptionistTransition(appt.trang_thai, data.trang_thai, !!appt.nhan_su_id);
+          const check = checkReceptionistTransition(appt.trang_thai, data.trang_thai, !!appt.nhan_su_id, appt.ngay_gio_bat_dau);
           if (!check.allowed) {
             const err = new Error(check.reason) as any;
             err.statusCode = 403;

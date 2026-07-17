@@ -8,6 +8,7 @@ import { toast } from 'react-hot-toast';
 export const registerSchema = z.object({
   ho_ten: z.string().min(2, 'Họ tên phải có ít nhất 2 ký tự'),
   email: z.string().email('Email không hợp lệ'),
+  so_dien_thoai: z.string().regex(/^(0|\+84)(3|5|7|8|9)\d{8}$/, 'Số điện thoại không hợp lệ'),
   gioi_tinh: z.enum(['nam', 'nu', 'khac'], { message: 'Vui lòng chọn giới tính' }),
   ngay_sinh: z.string().min(1, 'Vui lòng chọn ngày sinh').refine((val) => new Date(val) <= new Date(), {
     message: 'Ngày sinh không hợp lệ'
@@ -28,6 +29,7 @@ export type RegisterFormValues = z.infer<typeof registerSchema>;
 export interface UseRegisterStateReturn {
   form: UseFormReturn<RegisterFormValues>;
   isSuccess: boolean;
+  setIsSuccess: (success: boolean) => void;
   showPassword: boolean;
   setShowPassword: (show: boolean) => void;
   showConfirmPassword: boolean;
@@ -51,6 +53,7 @@ export function useRegisterState(): UseRegisterStateReturn {
     defaultValues: {
       ho_ten: '',
       email: '',
+      so_dien_thoai: '',
       gioi_tinh: undefined,
       ngay_sinh: '',
       dia_chi: '',
@@ -66,13 +69,17 @@ export function useRegisterState(): UseRegisterStateReturn {
 
       const emailCheck = await api.post('/auth/check-email', { email: data.email });
       if (emailCheck.data.exists) {
-        setServerError('Email này đã được sử dụng. Vui lòng đăng nhập hoặc chọn email khác.');
+        const errorMsg = 'Email này đã được sử dụng. Vui lòng đăng nhập hoặc chọn email khác.';
+        setServerError(errorMsg);
+        toast.error(errorMsg);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
       }
 
       await api.post('/auth/register', {
         ho_ten: data.ho_ten,
         email: data.email,
+        so_dien_thoai: data.so_dien_thoai,
         gioi_tinh: data.gioi_tinh,
         ngay_sinh: data.ngay_sinh,
         dia_chi: data.dia_chi || undefined,
@@ -84,17 +91,17 @@ export function useRegisterState(): UseRegisterStateReturn {
       toast.success('Đăng ký tài khoản thành công! Một mã OTP đã được gửi đến email của bạn.');
       setIsSuccess(true);
     } catch (error: any) {
-      if (error.response?.data?.message) {
-        setServerError(error.response.data.message);
-      } else {
-        setServerError('Có lỗi xảy ra khi kết nối đến máy chủ. Vui lòng thử lại sau.');
-      }
+      const errMsg = error.response?.data?.message || 'Có lỗi xảy ra khi kết nối đến máy chủ. Vui lòng thử lại sau.';
+      setServerError(errMsg);
+      toast.error(errMsg);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
   return {
     form,
     isSuccess,
+    setIsSuccess,
     showPassword,
     setShowPassword,
     showConfirmPassword,

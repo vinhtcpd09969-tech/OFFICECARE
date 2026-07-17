@@ -1,4 +1,4 @@
-import { Link, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
@@ -25,7 +25,6 @@ import {
   Moon,
   Cpu,
   Settings,
-  Search,
   Newspaper
 } from 'lucide-react';
 
@@ -36,24 +35,6 @@ export default function AdminLayout() {
   const user = useAuthStore(state => state.user);
   
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
-
-  // Search parameters synchronization
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [searchValue, setSearchValue] = useState(searchParams.get('q') || '');
-
-  useEffect(() => {
-    setSearchValue(searchParams.get('q') || '');
-  }, [searchParams]);
-
-  const handleSearchChange = (val: string) => {
-    setSearchValue(val);
-    if (val.trim()) {
-      setSearchParams({ q: val });
-    } else {
-      searchParams.delete('q');
-      setSearchParams(searchParams);
-    }
-  };
 
   // State và Effect cho thông báo gán Bác sĩ & KTV (Alarm & Bouncing notification)
   const [pendingAppointmentsCount, setPendingAppointmentsCount] = useState<number>(0);
@@ -554,9 +535,8 @@ export default function AdminLayout() {
           : (isTechnician 
             ? '/technician/appointments' 
             : '/admin/appointments')), 
-      icon: <Calendar size={18} />, 
-      searchPlaceholder: isDoctor ? 'Tìm kiếm ca khám...' : 'Tìm kiếm lịch hẹn...', 
-      roles: [2, 3, 4, 5, 6] 
+      icon: <Calendar size={18} />,
+      roles: [2, 3, 4, 5, 6]
     },
     { name: 'Ca làm việc', path: '/admin/schedules', icon: <Clock size={18} />, roles: [5, 6] },
     { 
@@ -572,9 +552,8 @@ export default function AdminLayout() {
     { 
       name: 'Khách hàng', 
       path: '/admin/customers', 
-      icon: <User size={18} />, 
-      searchPlaceholder: 'Tìm kiếm khách hàng...', 
-      roles: [5, 6] 
+      icon: <User size={18} />,
+      roles: [5, 6]
     },
     { 
       name: 'Hồ sơ điều trị', 
@@ -583,9 +562,8 @@ export default function AdminLayout() {
         : (isDoctor 
           ? '/doctor/medical-records' 
           : '/admin/medical-records'), 
-      icon: <FileText size={18} />, 
-      searchPlaceholder: isDoctor ? 'Tìm kiếm hồ sơ bệnh nhân...' : 'Tìm kiếm hồ sơ...', 
-      roles: [3, 4] 
+      icon: <FileText size={18} />,
+      roles: [3, 4]
     },
     {
       name: 'Hóa đơn & Thanh toán',
@@ -594,12 +572,6 @@ export default function AdminLayout() {
       roles: [2]
     },
     {
-      name: 'Chỉ định gói chờ kích hoạt',
-      path: '/receptionist/pending-activations',
-      icon: <Package size={18} />,
-      roles: [2]
-    },
-    { 
       name: 'Cài đặt tài khoản', 
       path: isReceptionist 
         ? '/receptionist/settings' 
@@ -609,13 +581,13 @@ export default function AdminLayout() {
       icon: <Settings size={18} />, 
       roles: [2, 3, 4] 
     },
-    { name: 'Nhân sự', path: '/admin/staff', icon: <Users size={18} />, searchPlaceholder: 'Tìm kiếm nhân sự...', roles: [5] },
-    { name: 'Gói Dịch Vụ', path: '/admin/packages', icon: <Package size={18} />, searchPlaceholder: 'Tìm kiếm gói...', roles: [5, 6] },
-    { name: 'Phòng trị liệu', path: '/admin/rooms', icon: <Key size={18} />, searchPlaceholder: 'Tìm kiếm phòng...', roles: [5, 6] },
-    { name: 'Thiết bị y tế', path: '/admin/equipment', icon: <Cpu size={18} />, searchPlaceholder: 'Tìm kiếm thiết bị...', roles: [5, 6] },
+    { name: 'Nhân sự', path: '/admin/staff', icon: <Users size={18} />, roles: [5] },
+    { name: 'Gói Dịch Vụ', path: '/admin/packages', icon: <Package size={18} />, roles: [5, 6] },
+    { name: 'Phòng trị liệu', path: '/admin/rooms', icon: <Key size={18} />, roles: [5, 6] },
+    { name: 'Thiết bị y tế', path: '/admin/equipment', icon: <Cpu size={18} />, roles: [5, 6] },
     { name: 'Tài chính', path: '/admin/finance', icon: <DollarSign size={18} />, roles: [5, 6] },
     { name: 'Marketing', path: '/admin/marketing', icon: <Megaphone size={18} />, roles: [5, 6] },
-    { name: 'Bài viết', path: '/admin/articles', icon: <Newspaper size={18} />, searchPlaceholder: 'Tìm kiếm bài viết...', roles: [5, 6] },
+    { name: 'Bài viết', path: '/admin/articles', icon: <Newspaper size={18} />, roles: [5, 6] },
     { name: 'Đánh giá', path: '/admin/feedback', icon: <Star size={18} />, roles: [5, 6] },
   ];
 
@@ -696,36 +668,15 @@ export default function AdminLayout() {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative bg-background dark:bg-zinc-950 transition-colors duration-300">
-        {/* Top Header - Premium Design with Search and Actions */}
+        {/* Top Header - Premium Design with Actions */}
         <header className="h-16 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between px-8 shrink-0 z-20 sticky top-0 transition-colors duration-300">
           <div className="flex items-center gap-6 flex-1 min-w-0">
             <h2 className="text-sm font-extrabold text-secondary dark:text-zinc-100 tracking-tight shrink-0">
               {currentItem?.name || 'Tổng quan'}
             </h2>
-            
-            {/* Dynamic Search Bar */}
-            {currentItem?.searchPlaceholder && (
-              <div className="relative max-w-md w-full hidden md:block group animate-fade-in">
-                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400 dark:text-zinc-550 group-focus-within:text-primary transition-colors">
-                  <Search size={14} />
-                </span>
-                <input 
-                  type="text" 
-                  value={searchValue}
-                  onChange={(e) => handleSearchChange(e.target.value)}
-                  placeholder={currentItem.searchPlaceholder}
-                  className="w-full pl-10 pr-4 py-2 text-xs bg-zinc-50 dark:bg-zinc-855 border border-zinc-200 dark:border-zinc-800 rounded-full focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white dark:focus:bg-zinc-900 outline-none transition-all font-semibold text-secondary dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-550"
-                />
-              </div>
-            )}
           </div>
 
           <div className="flex items-center gap-6 shrink-0">
-            <span className="text-xs text-zinc-400 dark:text-zinc-500 font-semibold hidden lg:inline-flex items-center gap-1.5 bg-zinc-50 dark:bg-zinc-800 px-2.5 py-1 rounded-full border border-zinc-100 dark:border-zinc-800">
-              <span className="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              Môi trường: <span className="font-bold text-primary">Production</span>
-            </span>
-
             {/* Actions: Notification, Theme Toggle, & Help */}
             <div className="flex items-center gap-3 border-l border-zinc-100 dark:border-zinc-800 pl-6">
               {activeCheckIn && (

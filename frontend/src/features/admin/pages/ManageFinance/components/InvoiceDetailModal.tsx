@@ -609,15 +609,35 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                       return (
                         <>
                           <div className="bg-white border border-slate-150 rounded-xl overflow-hidden">
+                            {/* Giá gói theo hợp đồng — nêu số này TRƯỚC, vì 2 khoản trừ bên dưới (buổi
+                                đã dùng + phạt hủy) đều tính theo đúng số này, không tính theo số khách
+                                thực đóng. Đưa lên đầu để người đọc có sẵn "gốc quy chiếu" trước khi
+                                thấy nó xuất hiện lại ở các dòng phạt/buổi, tránh cảm giác số từ đâu ra. */}
+                            {hasPaidSeparateExam && chi_phi_kham > 0 && (
+                              <div className="flex justify-between items-center px-4 py-2.5 bg-amber-50/40 border-b border-amber-100/60">
+                                <span className="text-[11px] font-bold text-amber-800">Giá gói theo hợp đồng</span>
+                                <span className="text-amber-900 font-black text-xs">{formatCurrency(gia_thanh_toan_goi)}</span>
+                              </div>
+                            )}
+
                             {/* Khách đã đóng */}
                             <div className="flex justify-between items-center px-4 py-3 bg-zinc-50/70">
-                              <span className="text-xs font-bold text-zinc-650">Khách đã đóng</span>
-                              <span className="text-secondary font-black text-sm">{formatCurrency(totalPaid)}</span>
+                              <div className="text-left">
+                                <span className="text-xs font-bold text-zinc-650 block">Khách đã đóng</span>
+                                {hasPaidSeparateExam && chi_phi_kham > 0 && (
+                                  <span className="text-[10px] text-zinc-450 font-medium block mt-0.5">
+                                    = Giá gói hợp đồng − {formatCurrency(chi_phi_kham)} phí khám đã đóng riêng trước đó
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-secondary font-black text-sm shrink-0">{formatCurrency(totalPaid)}</span>
                             </div>
 
                             {/* Các khoản phải trừ */}
                             <div className="px-4 py-3 space-y-3 border-t border-slate-100">
-                              <p className="text-[9px] font-black text-zinc-400 uppercase tracking-wider">Trừ đi các khoản sau</p>
+                              <p className="text-[9px] font-black text-zinc-400 uppercase tracking-wider">
+                                Trừ đi các khoản sau{hasPaidSeparateExam && chi_phi_kham > 0 ? ' (tính theo giá gói hợp đồng, không theo số khách thực đóng)' : ''}
+                              </p>
 
                               {examFeeToCharge > 0 && (
                                 <div className="flex justify-between items-start gap-3">
@@ -756,7 +776,11 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                 <CalendarX size={14} /> Hủy do quá hạn sử dụng
               </button>
             )}
-            {remainingDebt > 0 && (
+            {/* Trả từng buổi KHÔNG được thu tự do ở đây — "Dư nợ còn lại" gồm cả các buổi tương
+                lai chưa tới, thu thẳng số này sẽ thu dư/sai buổi. Từng buổi phải đi qua đúng luồng
+                checkout theo buổi (customer_id + goi_dich_vu_id, dùng getTungBuoiSessionDue) — nút
+                "Thanh toán" ở danh sách phác đồ/lịch hẹn tương ứng, không phải hóa đơn tổng này. */}
+            {remainingDebt > 0 && invoice.hinh_thuc_thanh_toan_goi !== 'tung_buoi' && (
               <button
                 onClick={() => onOpenFastPay(invoice)}
                 className="px-5 py-2.5 bg-primary hover:opacity-95 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-sm flex items-center gap-1.5"

@@ -234,18 +234,6 @@ export const getBillingInfoByPackage = async (req: Request, res: Response): Prom
   }
 };
 
-// GET /api/receptionist/customers/:id/pending-package-activations
-export const getPendingPackageActivations = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const id = String(req.params.id);
-    const result = await receptionistService.getPendingPackageActivations(id);
-    res.json(result);
-  } catch (error: any) {
-    console.error('Lỗi lấy danh sách gói chỉ định chờ kích hoạt:', error);
-    res.status(500).json({ message: 'Lỗi server' });
-  }
-};
-
 // GET /api/receptionist/customers/:id/check-limit
 export const checkCustomerLimit = async (req: Request, res: Response): Promise<any> => {
   try {

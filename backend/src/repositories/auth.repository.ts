@@ -53,11 +53,12 @@ class AuthRepository {
     return null;
   }
 
-  async createUser(data: { ho_ten: string, email: string, mat_khau_hash: string, gioi_tinh: string, ngay_sinh: Date, dia_chi?: string, ngay_dong_y_dieu_khoan: Date }) {
+  async createUser(data: { ho_ten: string, email: string, so_dien_thoai: string, mat_khau_hash: string, gioi_tinh: string, ngay_sinh: Date, dia_chi?: string, ngay_dong_y_dieu_khoan: Date }) {
     return prisma.khach_hang.create({
       data: {
         ho_ten: data.ho_ten,
         email: data.email,
+        so_dien_thoai: data.so_dien_thoai,
         mat_khau_hash: data.mat_khau_hash,
         gioi_tinh: data.gioi_tinh,
         ngay_sinh: data.ngay_sinh,
@@ -192,6 +193,11 @@ class AuthRepository {
         email: true,
         so_dien_thoai: true,
         trang_thai: true,
+        gioi_tinh: true,
+        diem_uy_tin: true,
+        ngay_dong_y_dieu_khoan: true,
+        dia_chi: true,
+        mat_khau_hash: true
       }
     });
     if (customer) {
@@ -246,6 +252,8 @@ class AuthRepository {
     bang_cap_chung_chi?: string;
     mo_ta?: string;
     the_manh?: string[];
+    gioi_tinh?: string;
+    dia_chi?: string;
   }) {
     const isNguoiDung = typeof userId === 'number' || (typeof userId === 'string' && /^\d+$/.test(userId));
     if (isNguoiDung) {
@@ -315,14 +323,20 @@ class AuthRepository {
         where: { id: String(userId) },
         data: {
           ho_ten: data.ho_ten,
-          so_dien_thoai: data.so_dien_thoai
+          so_dien_thoai: data.so_dien_thoai,
+          gioi_tinh: data.gioi_tinh,
+          dia_chi: data.dia_chi,
         },
         select: {
           id: true,
           ho_ten: true,
           email: true,
           so_dien_thoai: true,
-          trang_thai: true
+          trang_thai: true,
+          gioi_tinh: true,
+          dia_chi: true,
+          diem_uy_tin: true,
+          ngay_dong_y_dieu_khoan: true
         }
       });
       return {

@@ -26,6 +26,9 @@ export const getAppointmentDetail = (id: string) =>
     goi_dich_vu_id?: string;
     dich_vu_id?: string;
     phac_do_dieu_tri_id?: string | null;
+    so_thu_tu_buoi?: number | null;
+    ten_dich_vu?: string | null;
+    pd_tong_so_buoi?: number | null;
   }>(`/technician/appointments/${id}`);
 
 export const getPatientProfile = (patientId: string) => 

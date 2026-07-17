@@ -13,6 +13,7 @@ import swaggerUi from 'swagger-ui-express';
 import { specs } from './config/swagger';
 import apiRouter from './routes';
 import { errorHandler } from './middlewares/error.middleware';
+import { initReminderJob } from './jobs/reminder.job';
 
 const app = express();
 
@@ -63,6 +64,9 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   // Hot-reloaded with updated port
   console.log(`Server is running on port ${PORT}`);
+  
+  // Khởi động job quét nhắc lịch tự động
+  initReminderJob();
 });
 // Reload trigger: swagger docs fully documented - all 80 endpoints
 

@@ -46,7 +46,8 @@ export function getReceptionistAllowedTargets(currentStatus: string, hasAssigned
 export function checkReceptionistTransition(
   currentStatus: string,
   targetStatus: string,
-  hasAssignedStaff: boolean
+  hasAssignedStaff: boolean,
+  ngayGioBatDau?: string | Date | null
 ): ReceptionistTransitionCheck {
   if (targetStatus === currentStatus) {
     return { allowed: true };
@@ -68,6 +69,12 @@ export function checkReceptionistTransition(
 
   const allowedTargets = getReceptionistAllowedTargets(currentStatus, hasAssignedStaff);
   if (allowedTargets.includes(targetStatus)) {
+    // Check-in chỉ hợp lệ từ đúng thời điểm hẹn trở đi — chặn check-in "hộ" 1 lịch còn ở tương
+    // lai (dữ liệu test tùm lum từng lọt qua vì trước đây không đối chiếu giờ hệ thống thực tế).
+    // Chỉ áp cho Lễ tân qua đúng hàm này; Admin vẫn override được như trước (không gọi qua đây).
+    if (targetStatus === 'da_checkin' && ngayGioBatDau && new Date(ngayGioBatDau).getTime() > Date.now()) {
+      return { allowed: false, reason: 'Chưa tới giờ hẹn — không thể check-in trước thời gian đã đặt lịch.' };
+    }
     return { allowed: true };
   }
 

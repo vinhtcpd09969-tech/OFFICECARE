@@ -82,7 +82,7 @@ class ReceptionistService {
   }
 
   async updateAppointmentStatus(id: string, trang_thai: string, ghi_chu_noi_bo?: string) {
-    const currentApt = await pool.query('SELECT trang_thai, nhan_su_id FROM cuoc_hen WHERE id = $1', [id]);
+    const currentApt = await pool.query('SELECT trang_thai, nhan_su_id, ngay_gio_bat_dau FROM cuoc_hen WHERE id = $1', [id]);
     if (currentApt.rows.length === 0) throw new Error('Không tìm thấy lịch hẹn');
     const currentStatus = currentApt.rows[0].trang_thai;
 
@@ -98,7 +98,7 @@ class ReceptionistService {
     }
 
     if (trang_thai !== currentStatus) {
-      const check = checkReceptionistTransition(currentStatus, trang_thai, !!currentApt.rows[0].nhan_su_id);
+      const check = checkReceptionistTransition(currentStatus, trang_thai, !!currentApt.rows[0].nhan_su_id, currentApt.rows[0].ngay_gio_bat_dau);
       if (!check.allowed) {
         const err = new Error(check.reason) as any;
         err.statusCode = 403;
@@ -623,17 +623,25 @@ class ReceptionistService {
       const ldt = await receptionistRepository.getTreatmentPlanById(finalLdtId);
       if (!ldt) throw new Error('Không tìm thấy lịch điều trị');
 
-      // Update package expiration date if custom validity duration is supplied — áp dụng cho cả
-      // 3 hình thức thanh toán (kể cả từng buổi), cần thiết để nút "Hủy do quá hạn sử dụng" có
-      // dữ liệu han_su_dung mà xét, không riêng gì trả thẳng/trả góp như trước.
-      const so_ngay_hieu_luc = data.so_ngay_hieu_luc;
-      if (so_ngay_hieu_luc && ['tra_thang', 'tra_gop', 'tung_buoi'].includes(loai_thanh_toan)) {
-        await pool.query(
-          `UPDATE phac_do_dieu_tri 
-           SET han_su_dung = CURRENT_DATE + $1 * INTERVAL '1 day'
-           WHERE id = $2`,
-          [Number(so_ngay_hieu_luc), finalLdtId]
+      // Hạn sử dụng CHỐT CỨNG (snapshot) đúng 1 lần tại thời điểm kích hoạt đầu tiên — lấy từ cấu
+      // hình gói (goi_dich_vu.han_su_dung_mac_dinh_ngay), KHÔNG nhận từ client, KHÔNG cho sửa tay ở
+      // hóa đơn nữa (đã bỏ ô nhập ở frontend). "WHERE han_su_dung IS NULL" đảm bảo chỉ set 1 lần —
+      // nếu sau này admin đổi cấu hình gói hoặc plan này nhận thêm hóa đơn khác (vd đợt 2 trả góp),
+      // hạn sử dụng đã chốt vẫn giữ nguyên, không bị ghi đè lại.
+      if (['tra_thang', 'tra_gop', 'tung_buoi'].includes(loai_thanh_toan)) {
+        const { rows: pkgRows } = await pool.query(
+          'SELECT han_su_dung_mac_dinh_ngay FROM goi_dich_vu WHERE id = $1',
+          [ldt.goi_dich_vu_id]
         );
+        const soNgayHieuLuc = pkgRows[0]?.han_su_dung_mac_dinh_ngay;
+        if (soNgayHieuLuc) {
+          await pool.query(
+            `UPDATE phac_do_dieu_tri
+             SET han_su_dung = CURRENT_DATE + $1 * INTERVAL '1 day'
+             WHERE id = $2 AND han_su_dung IS NULL`,
+            [Number(soNgayHieuLuc), finalLdtId]
+          );
+        }
       }
 
       const calc = await this.calculateBilling({
@@ -1040,9 +1048,6 @@ class ReceptionistService {
     return receptionistRepository.getBillingInfoByPackage(customerId, packageId);
   }
 
-  async getPendingPackageActivations(customerId: string) {
-    return receptionistRepository.getPendingPackageActivations(customerId);
-  }
 
   async getAppointmentBillingInfo(id: string) {
     return receptionistRepository.getAppointmentBillingInfo(id);

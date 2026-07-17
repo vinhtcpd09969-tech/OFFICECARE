@@ -21,6 +21,7 @@ export default function Register() {
   const {
     form,
     isSuccess,
+    setIsSuccess,
     showPassword,
     setShowPassword,
     showConfirmPassword,
@@ -178,6 +179,20 @@ export default function Register() {
                   placeholder="name@example.com"
                 />
                 {errors.email && <p className="text-red-500 text-xs font-semibold mt-1">{errors.email.message}</p>}
+              </div>
+
+              {/* Số điện thoại */}
+              <div className="space-y-2">
+                <label htmlFor="so_dien_thoai" className="block text-[10px] font-black uppercase tracking-widest text-slate-400">Số điện thoại</label>
+                <input
+                  {...register('so_dien_thoai')}
+                  id="so_dien_thoai"
+                  type="tel"
+                  autoComplete="tel"
+                  className="w-full bg-slate-50/50 border border-slate-200 hover:border-slate-350 focus:border-[#14B8A6] focus:ring-4 focus:ring-[#14B8A6]/10 rounded-2xl px-5 py-4 outline-none transition-all duration-300 text-slate-800 text-sm font-semibold"
+                  placeholder="0xxxxxxxxx"
+                />
+                {errors.so_dien_thoai && <p className="text-red-500 text-xs font-semibold mt-1">{errors.so_dien_thoai.message}</p>}
               </div>
 
               {/* Giới tính & Ngày sinh */}
@@ -375,6 +390,15 @@ export default function Register() {
                 <span>Xác thực ngay</span>
                 <ArrowRight size={14} />
               </motion.button>
+
+              <button
+                type="button"
+                onClick={() => setIsSuccess(false)}
+                className="w-full flex items-center justify-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 font-jakarta font-black uppercase tracking-widest transition-colors duration-200 mt-2"
+              >
+                <ArrowLeft size={13} className="text-[#0D9488]" />
+                <span>Quay lại chỉnh sửa</span>
+              </button>
             </motion.div>
           )}
         </div>

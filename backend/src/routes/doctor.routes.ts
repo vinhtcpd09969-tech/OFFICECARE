@@ -10,7 +10,6 @@ router.use(authorizeRoles(2, 3, 4, 5));
 
 router.get('/queue', doctorController.getQueue);
 router.get('/appointments', doctorController.getAppointments);
-router.get('/services', doctorController.getServices);
 router.get('/packages', doctorController.getPackages);
 router.get('/schedules', doctorController.getSchedules);
 router.get('/patients', doctorController.getPatients);

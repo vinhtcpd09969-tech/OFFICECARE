@@ -302,7 +302,14 @@ export default function ManageFinance() {
                                 // luồng tạo hóa đơn ngay, không có chỗ áp mã giảm giá.
                                 checkout.setCheckoutTab('package');
                               }}
-                              disabled={isTungBuoiWithPaidExam}
+                              // Chỉ khóa khi phí khám ĐÃ thu riêng từ trước (khách về nhà, quay lại
+                              // kích hoạt sau — ngay_thanh_toan_kham có giá trị): lúc này không còn
+                              // gì để thu nếu tắt gói (0đ), tắt đi sẽ để gói treo "chờ kích hoạt" mãi
+                              // mà lễ tân tưởng đã xử lý xong. Nếu phí khám CHƯA thu (đang xử lý
+                              // ngay tại quầy cùng lúc với ca khám) thì vẫn cho tắt bình thường —
+                              // khách có thể chỉ muốn thanh toán khám, chưa quyết định mua liệu trình.
+                              disabled={!!checkout.selectedConsultation?.ngay_thanh_toan_kham}
+
                               className="sr-only peer"
                             />
                             <div className="w-11 h-6 bg-zinc-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
@@ -436,28 +443,6 @@ export default function ManageFinance() {
                                 </button>
                               </div>
                             </div>
-
-                            {['tra_thang', 'tra_gop', 'tung_buoi'].includes(checkout.loaiThanhToan) && (
-                              <div className="space-y-1.5 animate-in fade-in duration-200 text-left">
-                                <label htmlFor="durationDays" className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">
-                                  Hạn sử dụng gói (ngày) *
-                                </label>
-                                <div className="relative">
-                                  <input
-                                    type="number"
-                                    id="durationDays"
-                                    min="1"
-                                    value={checkout.durationDays}
-                                    onChange={(e) => checkout.setDurationDays(Math.max(1, Number(e.target.value)))}
-                                    className="w-full pl-4 pr-32 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-xs font-bold text-secondary focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                                    required
-                                  />
-                                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[9px] text-zinc-400 font-bold uppercase tracking-wider">
-                                    ngày kể từ ngày kích hoạt
-                                  </span>
-                                </div>
-                              </div>
-                            )}
                           </div>
                         )}
                       </div>

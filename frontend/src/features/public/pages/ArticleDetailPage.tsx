@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { Calendar, Eye, ArrowRight, List } from 'lucide-react';
+import { Calendar, Eye, ArrowRight, List, Play, Square } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getPublicArticleBySlug } from '../api/public.api';
 import { resolveImageUrl } from '../../../utils/imageUrl';
@@ -21,6 +21,71 @@ interface TocItem {
   level: number;
 }
 
+const wrapTextNodes = (node: Node, doc: Document, sentences: string[], counter: { val: number }) => {
+  if (node.nodeType === Node.TEXT_NODE) {
+    const text = node.textContent || '';
+    if (text.trim().length === 0) return node;
+
+    const parts = text.split(/(?<=[.!?])\s+/);
+    const fragment = doc.createDocumentFragment();
+
+    parts.forEach((part) => {
+      const trimmed = part.trim();
+      if (trimmed.length > 0) {
+        const span = doc.createElement('span');
+        span.className = 'tts-sentence transition-all duration-300 rounded-sm px-0.5';
+        span.setAttribute('data-sentence-index', String(counter.val));
+        span.textContent = part + ' ';
+        fragment.appendChild(span);
+
+        sentences.push(trimmed);
+        counter.val++;
+      } else {
+        fragment.appendChild(doc.createTextNode(part));
+      }
+    });
+
+    return fragment;
+  }
+
+  if (node.nodeType === Node.ELEMENT_NODE) {
+    if (['SCRIPT', 'STYLE', 'BUTTON', 'A'].includes(node.nodeName)) {
+      return node;
+    }
+
+    const element = node as Element;
+    const childNodes = Array.from(element.childNodes);
+    element.innerHTML = '';
+
+    childNodes.forEach((child) => {
+      const processed = wrapTextNodes(child, doc, sentences, counter);
+      element.appendChild(processed);
+    });
+  }
+
+  return node;
+};
+
+const wrapSentencesInHtml = (html: string) => {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const sentences: string[] = [];
+  const counter = { val: 1 };
+
+  const body = doc.body;
+  const childNodes = Array.from(body.childNodes);
+  body.innerHTML = '';
+
+  childNodes.forEach((child) => {
+    const processed = wrapTextNodes(child, doc, sentences, counter);
+    body.appendChild(processed);
+  });
+
+  return {
+    processedHtml: body.innerHTML,
+    sentences
+  };
+};
+
 export default function ArticleDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
@@ -30,6 +95,235 @@ export default function ArticleDetailPage() {
   const [scrollProgress, setScrollProgress] = useState(0);
   const [activeId, setActiveId] = useState<string>('');
   const contentRef = useRef<HTMLDivElement>(null);
+
+  // AI Text-to-Speech (TTS) states & logic
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [rate, setRate] = useState(1.0);
+  const [processedHtml, setProcessedHtml] = useState('');
+  const [currentSentenceIdx, setCurrentSentenceIdx] = useState<number>(-1);
+  const currentSentenceIndex = useRef(0);
+  const sentencesRef = useRef<string[]>([]);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Pre-process and wrap sentences when article loads
+  useEffect(() => {
+    if (!article) return;
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+    const serverOrigin = baseUrl.replace(/\/api\/?$/, '');
+    const absoluteHtml = (article.noi_dung || '').replace(/src="\/uploads\//g, `src="${serverOrigin}/uploads/`);
+    
+    const { processedHtml: wrappedHtml, sentences } = wrapSentencesInHtml(absoluteHtml);
+    setProcessedHtml(wrappedHtml);
+
+    const titleText = article.tieu_de;
+    sentencesRef.current = [titleText, ...sentences];
+    currentSentenceIndex.current = 0;
+    setCurrentSentenceIdx(-1);
+  }, [article]);
+
+  // Handle visual highlight and auto-scroll
+  useEffect(() => {
+    const allSpans = document.querySelectorAll('.tts-sentence');
+    allSpans.forEach(span => {
+      span.removeAttribute('data-active');
+    });
+
+    if (currentSentenceIdx >= 0) {
+      const activeEl = document.querySelector(`[data-sentence-index="${currentSentenceIdx}"]`);
+      if (activeEl) {
+        activeEl.setAttribute('data-active', 'true');
+        activeEl.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center'
+        });
+      }
+    }
+  }, [currentSentenceIdx]);
+
+  // Click-to-read from target sentence
+  useEffect(() => {
+    const contentEl = contentRef.current;
+    if (!contentEl) return;
+
+    const handleContentClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const span = target.closest('.tts-sentence');
+      if (span) {
+        const idx = parseInt(span.getAttribute('data-sentence-index') || '-1', 10);
+        if (idx >= 0 && sentencesRef.current[idx]) {
+          if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current = null;
+          }
+          if (window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+          }
+          
+          currentSentenceIndex.current = idx;
+          setCurrentSentenceIdx(idx);
+          setIsPlaying(true);
+          setIsPaused(false);
+          speakSentence();
+        }
+      }
+    };
+
+    contentEl.addEventListener('click', handleContentClick);
+    return () => {
+      contentEl.removeEventListener('click', handleContentClick);
+    };
+  }, [processedHtml]);
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
+  const speakSentence = () => {
+    if (currentSentenceIndex.current >= sentencesRef.current.length) {
+      setIsPlaying(false);
+      setIsPaused(false);
+      setCurrentSentenceIdx(-1);
+      return;
+    }
+
+    const text = sentencesRef.current[currentSentenceIndex.current];
+    setCurrentSentenceIdx(currentSentenceIndex.current);
+    
+    // Attempt Google Translate TTS via our backend proxy for highly natural and clear Vietnamese voice
+    try {
+      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+      const url = `${baseUrl}/client/tts?text=${encodeURIComponent(text)}`;
+      
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      
+      const audio = new Audio(url);
+      audio.playbackRate = rate;
+      audioRef.current = audio;
+
+      audio.onended = () => {
+        currentSentenceIndex.current++;
+        speakSentence();
+      };
+
+      audio.onerror = () => {
+        console.warn('Google TTS failed, falling back to Web Speech API');
+        speakSentenceWebSpeech(text);
+      };
+
+      audio.play().catch(() => {
+        speakSentenceWebSpeech(text);
+      });
+    } catch (error) {
+      console.warn('Failed setting up Audio, falling back', error);
+      speakSentenceWebSpeech(text);
+    }
+  };
+
+  const speakSentenceWebSpeech = (text: string) => {
+    if (!window.speechSynthesis) {
+      setIsPlaying(false);
+      setIsPaused(false);
+      setCurrentSentenceIdx(-1);
+      return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    const allVoices = window.speechSynthesis.getVoices();
+    const viVoice = allVoices.find(v => v.lang.toLowerCase().includes('vi'));
+    if (viVoice) {
+      utterance.voice = viVoice;
+    }
+    
+    utterance.rate = rate;
+
+    utterance.onend = () => {
+      currentSentenceIndex.current++;
+      speakSentence();
+    };
+
+    utterance.onerror = (e) => {
+      if (e.error !== 'interrupted') {
+        console.error('Speech error:', e);
+        setIsPlaying(false);
+        setIsPaused(false);
+        setCurrentSentenceIdx(-1);
+      }
+    };
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const handlePlayPause = () => {
+    if (isPlaying) {
+      if (isPaused) {
+        if (audioRef.current) {
+          audioRef.current.play().catch(() => {});
+        } else if (window.speechSynthesis) {
+          window.speechSynthesis.resume();
+        }
+        setIsPaused(false);
+      } else {
+        if (audioRef.current) {
+          audioRef.current.pause();
+        } else if (window.speechSynthesis) {
+          window.speechSynthesis.pause();
+        }
+        setIsPaused(true);
+      }
+    } else {
+      setIsPlaying(true);
+      setIsPaused(false);
+      speakSentence();
+    }
+  };
+
+  const handleStop = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    setIsPlaying(false);
+    setIsPaused(false);
+    currentSentenceIndex.current = 0;
+    setCurrentSentenceIdx(-1);
+  };
+
+  const cycleRate = () => {
+    let nextRate = 1.0;
+    if (rate === 1.0) nextRate = 1.25;
+    else if (rate === 1.25) nextRate = 1.5;
+    else nextRate = 1.0;
+    
+    setRate(nextRate);
+  };
+
+  // Restart speaking when rate changes while already playing
+  useEffect(() => {
+    if (isPlaying && !isPaused) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+      speakSentence();
+    }
+  }, [rate]);
 
   useEffect(() => {
     async function fetchData() {
@@ -188,6 +482,23 @@ export default function ArticleDetailPage() {
         .prose-article li {
           margin-bottom: 0.5rem !important;
         }
+        @keyframes bounce-bar {
+          0%, 100% { height: 4px; }
+          50% { height: 14px; }
+        }
+        .tts-sentence {
+          cursor: pointer;
+          transition: background-color 0.2s ease, border-bottom 0.2s ease;
+        }
+        .tts-sentence:hover {
+          background-color: rgba(13, 148, 136, 0.05);
+        }
+        .tts-sentence[data-active="true"] {
+          background-color: rgba(46, 196, 182, 0.18) !important;
+          border-bottom: 2px solid #0D9488 !important;
+          color: #0F172A !important;
+          font-weight: 600 !important;
+        }
       `}</style>
 
       <div className="max-w-5xl mx-auto px-6">
@@ -212,12 +523,61 @@ export default function ArticleDetailPage() {
             {DANH_MUC_LABELS[article.danh_muc] || article.danh_muc}
           </span>
           <h1 className="font-heading font-black text-2xl md:text-4xl text-slate-900 tracking-tight leading-tight max-w-3xl mx-auto">
-            {article.tieu_de}
+            <span className="tts-sentence transition-all duration-300 rounded-sm px-0.5" data-sentence-index="0">
+              {article.tieu_de}
+            </span>
           </h1>
-          <div className="flex items-center justify-center gap-5 text-xs text-slate-400 font-semibold border-y border-slate-100 py-3 max-w-xl mx-auto">
+          <div className="flex flex-wrap items-center justify-center gap-5 text-xs text-slate-400 font-semibold border-y border-slate-100 py-3 max-w-2xl mx-auto">
             <span className="flex items-center gap-1.5"><Calendar size={13} /> {article.ngay_dang ? new Date(article.ngay_dang).toLocaleDateString('vi-VN') : ''}</span>
             <span className="flex items-center gap-1.5"><Eye size={13} /> {article.luot_xem} lượt xem</span>
-            {article.nguoi_dung?.ho_ten && <span className="text-[#0D9488] font-bold">Tác giả: {article.nguoi_dung.ho_ten}</span>}
+            {article.nguoi_dung?.ho_ten && <span className="text-slate-600 font-bold">Tác giả: {article.nguoi_dung.ho_ten}</span>}
+            
+            {/* Inline AI Speech Reader */}
+            <div className="flex items-center gap-2 border-l border-slate-200 pl-4">
+              <button
+                type="button"
+                onClick={handlePlayPause}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#0D9488]/10 hover:bg-[#0D9488]/20 text-[#0D9488] text-[10px] font-black rounded-full transition-all cursor-pointer select-none"
+                title={isPlaying && !isPaused ? 'Tạm dừng đọc' : 'Nghe đọc tiếng Việt (AI)'}
+              >
+                {isPlaying && !isPaused ? (
+                  <>
+                    <span className="flex items-end gap-0.5 h-2.5">
+                      <span className="w-0.5 bg-[#0D9488] rounded-full" style={{ animation: 'bounce-bar 1.2s infinite ease-in-out', animationDelay: '0.1s' }}></span>
+                      <span className="w-0.5 bg-[#0D9488] rounded-full" style={{ animation: 'bounce-bar 1.2s infinite ease-in-out', animationDelay: '0.3s' }}></span>
+                      <span className="w-0.5 bg-[#0D9488] rounded-full" style={{ animation: 'bounce-bar 1.2s infinite ease-in-out', animationDelay: '0.5s' }}></span>
+                    </span>
+                    <span>Tạm dừng</span>
+                  </>
+                ) : (
+                  <>
+                    <Play size={10} className="fill-current" />
+                    <span>{isPaused ? 'Tiếp tục' : 'Nghe đọc'}</span>
+                  </>
+                )}
+              </button>
+              
+              {isPlaying && (
+                <button
+                  type="button"
+                  onClick={handleStop}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 text-[10px] font-black rounded-full transition-all cursor-pointer"
+                  title="Dừng đọc"
+                >
+                  <Square size={10} className="fill-current" />
+                  <span>Dừng</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={cycleRate}
+                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-black rounded-full transition-all cursor-pointer"
+                title="Thay đổi tốc độ đọc"
+              >
+                {rate}x
+              </button>
+            </div>
           </div>
         </div>
 
@@ -267,7 +627,7 @@ export default function ArticleDetailPage() {
             <div
               ref={contentRef}
               className="prose prose-slate max-w-none prose-a:text-[#0D9488] prose-article font-jakarta text-slate-700"
-              dangerouslySetInnerHTML={{ __html: article.noi_dung }}
+              dangerouslySetInnerHTML={{ __html: processedHtml || article.noi_dung }}
             />
 
             {/* Author info footer card */}

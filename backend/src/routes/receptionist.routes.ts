@@ -20,7 +20,6 @@ import {
   checkCustomerLimit,
   checkPackagePayment,
   getBillingInfoByPackage,
-  getPendingPackageActivations,
   createPayOSPaymentLink,
   cancelPayOSPaymentLink,
   getInvoiceStatus
@@ -51,7 +50,6 @@ router.get('/appointments/:id/billing-info', getAppointmentBillingInfo);
 router.get('/customers/:id/check-limit', checkCustomerLimit);
 router.get('/customers/:id/check-package-payment', checkPackagePayment);
 router.get('/customers/:id/billing-info-by-package', getBillingInfoByPackage);
-router.get('/customers/:id/pending-package-activations', getPendingPackageActivations);
 
 // PayOS integration routes
 router.post('/payment/create-payos-link', createPayOSPaymentLink);

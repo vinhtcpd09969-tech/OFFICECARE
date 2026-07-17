@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import authRepository from '../repositories/auth.repository';
 import { sendOTP, sendForgotPasswordOTP } from '../utils/mailer';
+import prisma from '../config/prisma';
 
 class AuthService {
   private generateAccessToken(user: any) {
@@ -27,6 +28,15 @@ class AuthService {
       throw new Error('Email đã được đăng ký sử dụng');
     }
 
+    // Check if phone number already exists
+    if (data.so_dien_thoai) {
+      const phoneExistsCustomer = await prisma.khach_hang.findFirst({ where: { so_dien_thoai: data.so_dien_thoai } });
+      const phoneExistsUser = await prisma.nguoi_dung.findFirst({ where: { so_dien_thoai: data.so_dien_thoai } });
+      if (phoneExistsCustomer || phoneExistsUser) {
+        throw new Error('Số điện thoại này đã được sử dụng');
+      }
+    }
+
     // 2. Hash password
     const salt = await bcrypt.genSalt(10);
     const hash = await bcrypt.hash(data.password, salt);
@@ -35,6 +45,7 @@ class AuthService {
     const newUser = await authRepository.createUser({
       ho_ten: data.ho_ten,
       email: data.email,
+      so_dien_thoai: data.so_dien_thoai,
       mat_khau_hash: hash,
       gioi_tinh: data.gioi_tinh,
       ngay_sinh: new Date(data.ngay_sinh),
@@ -91,6 +102,8 @@ class AuthService {
     await authRepository.saveRefreshToken(String(user.id), refreshToken, expiresAt, isCustomer);
     await authRepository.updateLastLogin(user.id);
 
+    const isDefaultPassword = user.mat_khau_hash ? await bcrypt.compare('123456', user.mat_khau_hash) : false;
+
     return {
       accessToken,
       refreshToken,
@@ -100,7 +113,8 @@ class AuthService {
         email: user.email,
         so_dien_thoai: user.so_dien_thoai,
         vai_tro_id: user.vai_tro_id,
-        avatar_url: null
+        avatar_url: null,
+        isDefaultPassword
       }
     };
   }
@@ -157,7 +171,12 @@ class AuthService {
   async getMe(userId: string) {
     const user = await authRepository.findUserById(userId);
     if (!user) throw new Error('User not found');
-    return user;
+    const isDefaultPassword = (user as any).mat_khau_hash ? await bcrypt.compare('123456', (user as any).mat_khau_hash) : false;
+    const { mat_khau_hash, ...userWithoutPassword } = user as any;
+    return {
+      ...userWithoutPassword,
+      isDefaultPassword
+    };
   }
 
   async resendOTP(email: string) {
@@ -233,8 +252,44 @@ class AuthService {
     bang_cap_chung_chi?: string;
     mo_ta?: string;
     the_manh?: string[];
+    gioi_tinh?: string;
+    dia_chi?: string;
   }) {
     if (!data.ho_ten) throw new Error('Họ tên không được để trống');
+    
+    // Check if phone number is already registered by another user/customer
+    if (data.so_dien_thoai) {
+      const isNguoiDung = typeof userId === 'number' || (typeof userId === 'string' && /^\d+$/.test(userId));
+      if (isNguoiDung) {
+        const parsedId = typeof userId === 'number' ? userId : parseInt(userId, 10);
+        const duplicateUser = await prisma.nguoi_dung.findFirst({
+          where: {
+            so_dien_thoai: data.so_dien_thoai,
+            id: { not: parsedId }
+          }
+        });
+        const duplicateCustomer = await prisma.khach_hang.findFirst({
+          where: { so_dien_thoai: data.so_dien_thoai }
+        });
+        if (duplicateUser || duplicateCustomer) {
+          throw new Error('Số điện thoại này đã được sử dụng bởi người dùng khác');
+        }
+      } else {
+        const duplicateCustomer = await prisma.khach_hang.findFirst({
+          where: {
+            so_dien_thoai: data.so_dien_thoai,
+            id: { not: String(userId) }
+          }
+        });
+        const duplicateUser = await prisma.nguoi_dung.findFirst({
+          where: { so_dien_thoai: data.so_dien_thoai }
+        });
+        if (duplicateCustomer || duplicateUser) {
+          throw new Error('Số điện thoại này đã được sử dụng bởi khách hàng khác');
+        }
+      }
+    }
+
     return authRepository.updateProfile(userId, data);
   }
 

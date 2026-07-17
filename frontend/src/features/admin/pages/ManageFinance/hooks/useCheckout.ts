@@ -61,13 +61,6 @@ export const useCheckout = (
     }
   }, [selectedPackage]);
 
-  // Hạn sử dụng gói tự điền từ cấu hình gói (han_su_dung_mac_dinh_ngay) — lễ tân vẫn sửa tay được
-  // ở ô input, đây chỉ là giá trị gợi ý ban đầu mỗi khi đổi gói.
-  useEffect(() => {
-    if (selectedPackage?.loai_goi === 'LIEU_TRINH') {
-      setDurationDays(Number(selectedPackage.han_su_dung_mac_dinh_ngay) || 60);
-    }
-  }, [selectedPackage]);
   const [maVoucher, setMaVoucher] = useState('');
   const [appliedVoucher, setAppliedVoucher] = useState<any | null>(null);
   const [calculatedData, setCalculatedData] = useState<any | null>(null);
@@ -79,7 +72,6 @@ export const useCheckout = (
   // tư vấn cho khách. Backend chỉ trả `canh_bao_lech_cau_hinh` khi thực sự có lệch, nên bình thường
   // cờ này không tác động gì tới màn hình.
   const [giuTheoTuVan, setGiuTheoTuVan] = useState<boolean>(true);
-  const [durationDays, setDurationDays] = useState<number>(60);
   const [activePayOSInvoice, setActivePayOSInvoice] = useState<{ invoice: any; amount: number; so_thu_tu_buoi?: number } | null>(null);
 
 
@@ -427,7 +419,6 @@ export const useCheckout = (
         so_dien_thoai: selectedConsultation.sdt_khach_hang,
         dang_ky_goi: dangKyGoi,
         giu_theo_tu_van: giuTheoTuVan,
-        so_ngay_hieu_luc: (dangKyGoi && ['tra_thang', 'tra_gop', 'tung_buoi'].includes(loaiThanhToan)) ? durationDays : null,
       });
 
       const hoaDonMoi = invoiceRes.data.hoa_don;
@@ -580,8 +571,6 @@ export const useCheckout = (
     giuTheoTuVan,
     setGiuTheoTuVan,
     canhBaoLechCauHinh: calculatedData?.canh_bao_lech_cau_hinh || null,
-    durationDays,
-    setDurationDays,
     handleApplyVoucher,
     handleRemoveVoucher,
     handleThanhToanSingle,

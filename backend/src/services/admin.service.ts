@@ -101,6 +101,98 @@ class AdminService {
     return adminRepository.updateCustomerLock(id, isLocked);
   }
 
+  async getCustomersOverview(filters: { page: number; pageSize: number; search: string; status: string[]; repTier?: 'low' | 'mid' | 'high' }) {
+    const result: any = await adminRepository.getCustomersOverview(filters);
+    return {
+      ...result,
+      data: result.data.map((row: any) => {
+        const { primary_status_raw, ...rest } = row;
+        return { ...rest, primary_status: this.resolvePrimaryStatus(primary_status_raw) };
+      })
+    };
+  }
+
+  // Cột "Gói liệu trình" ở bảng danh sách — chỉ hiện ĐÚNG 1 tín hiệu quan trọng nhất của khách theo
+  // thứ tự ưu tiên đã chốt với người dùng: (1) chờ kích hoạt và (2) đang điều trị LUÔN thắng (đang
+  // cần hành động ngay, không cần so ngày). Nếu không có 2 cái đó, so ngày GẦN NHẤT giữa "khám/dịch
+  // vụ lẻ độc lập" và "liệu trình đã hủy gần nhất" — cái nào mới hơn thắng (khách quay lại dùng dịch
+  // vụ lẻ sau khi hủy gói cũ thì hiện dịch vụ lẻ, không hiện gói hủy đã hết ý nghĩa). "Hoàn thành"
+  // chỉ hiện khi khách không còn tín hiệu nào khác gần đây.
+  private resolvePrimaryStatus(raw: any): { tier: string; ten_goi: string | null; note: string | null; so_buoi_da_dung?: number; tong_so_buoi?: number } {
+    if (raw.pending) {
+      const diffMs = new Date(raw.pending.han_kich_hoat).getTime() - Date.now();
+      if (diffMs > 0) {
+        const days = Math.floor(diffMs / 86400000);
+        const hours = Math.floor((diffMs % 86400000) / 3600000);
+        return { tier: 'pending', ten_goi: raw.pending.ten_goi, note: `Còn ${days} ngày ${hours} giờ để kích hoạt` };
+      }
+    }
+    if (raw.progress) {
+      const progressCounts = { so_buoi_da_dung: raw.progress.so_buoi_da_dung, tong_so_buoi: raw.progress.tong_so_buoi };
+      if (Number(raw.progress.so_buoi_da_dung || 0) === 0 && raw.progress.ngay_kich_hoat) {
+        const days = Math.max(0, Math.floor((Date.now() - new Date(raw.progress.ngay_kich_hoat).getTime()) / 86400000));
+        return { tier: 'progress', ten_goi: raw.progress.ten_goi, note: `Đã ${days} ngày từ thời điểm kích hoạt`, ...progressCounts };
+      }
+      if (raw.progress.last_completed_at) {
+        const days = Math.max(0, Math.floor((Date.now() - new Date(raw.progress.last_completed_at).getTime()) / 86400000));
+        return { tier: 'progress', ten_goi: raw.progress.ten_goi, note: `Đã ${days} ngày kể từ buổi trước đó hoàn thành`, ...progressCounts };
+      }
+      return { tier: 'progress', ten_goi: raw.progress.ten_goi, note: null, ...progressCounts };
+    }
+
+    const leDate = raw.last_le_date ? new Date(raw.last_le_date).getTime() : null;
+    const cancelDate = raw.cancelled?.ngay_kich_hoat ? new Date(raw.cancelled.ngay_kich_hoat).getTime() : null;
+    if (leDate !== null || cancelDate !== null) {
+      if (leDate !== null && (cancelDate === null || leDate >= cancelDate)) {
+        const days = Math.max(0, Math.floor((Date.now() - leDate) / 86400000));
+        const note = cancelDate !== null
+          ? `Đã ${days} ngày từ buổi khám/dịch vụ lẻ gần nhất · từng có liệu trình đã hủy`
+          : `Đã ${days} ngày từ buổi khám/dịch vụ lẻ gần nhất`;
+        return { tier: 'le', ten_goi: null, note };
+      }
+      return { tier: 'cancel', ten_goi: raw.cancelled.ten_goi, note: null };
+    }
+
+    if (raw.completed) {
+      return { tier: 'done', ten_goi: raw.completed.ten_goi, note: null };
+    }
+
+    // Không còn tín hiệu nào — khách chưa từng khám/dùng dịch vụ lẻ/có liệu trình, khác hẳn tier
+    // "le" (đã dùng khám/dịch vụ lẻ thật) nên phải tách riêng để không đếm nhầm vào nhau.
+    return { tier: 'none', ten_goi: null, note: null };
+  }
+
+  async getCustomerEmr(id: string) {
+    const record: any = await adminRepository.getCustomerEmr(id);
+    if (!record) throw new Error('Không tìm thấy khách hàng');
+    const { reminder_raw, ...rest } = record;
+    return { ...rest, reminder: this.formatCustomerReminder(reminder_raw) };
+  }
+
+  // Banner nhắc nhở ở trang chi tiết khách hàng — ưu tiên "gói chờ kích hoạt còn hạn", sau đó mới tới
+  // "buổi gần nhất của gói đang điều trị"; không có gì thì trả null (ẩn hẳn banner).
+  private formatCustomerReminder(raw: any): { type: string; message: string } | null {
+    if (raw?.pending_activation?.han_kich_hoat) {
+      const diffMs = new Date(raw.pending_activation.han_kich_hoat).getTime() - Date.now();
+      if (diffMs > 0) {
+        const days = Math.floor(diffMs / 86400000);
+        const hours = Math.floor((diffMs % 86400000) / 3600000);
+        return {
+          type: 'pending_activation',
+          message: `Gói "${raw.pending_activation.ten_goi}" còn ${days} ngày ${hours} giờ để kích hoạt`
+        };
+      }
+    }
+    if (raw?.last_active_session_at) {
+      const days = Math.max(0, Math.floor((Date.now() - new Date(raw.last_active_session_at).getTime()) / 86400000));
+      return {
+        type: 'in_treatment',
+        message: `Buổi điều trị gần nhất của gói "${raw.active_plan_name}" cách đây ${days} ngày`
+      };
+    }
+    return null;
+  }
+
   // --- QUẢN LÝ THIẾT BỊ Y TẾ ---
   async getEquipment() {
     return adminRepository.getEquipment();

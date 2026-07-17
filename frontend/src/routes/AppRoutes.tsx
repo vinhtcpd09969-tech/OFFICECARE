@@ -1,8 +1,9 @@
-import { lazy, Suspense } from 'react';
+﻿import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from '../layouts/ProtectedRoute';
 import { RootRedirect } from '../layouts/RootRedirect';
 import LoadingScreen from '../components/LoadingScreen';
+import AIChatBubble from '../features/chat/components/AIChatBubble';
 
 // --- Shared Layouts (Kept synchronous to avoid unnecessary flashes/unmounts during transition) ---
 import LandingLayout from '../layouts/LandingLayout';
@@ -54,7 +55,6 @@ const ManageArticles = lazy(() => import('../features/admin/pages/ManageArticles
 const ReceptionistDashboard = lazy(() => import('../features/receptionist/pages/ReceptionistDashboard/index'));
 const ReceptionistAppointments = lazy(() => import('../features/receptionist/pages/ReceptionistAppointments/index'));
 const QuickBilling = lazy(() => import('../features/receptionist/pages/QuickBilling/index'));
-const PendingPackageActivations = lazy(() => import('../features/receptionist/pages/PendingPackageActivations/index'));
 
 // Technician Feature
 const TechnicianAppointments = lazy(() => import('../features/technician/pages/TechnicianAppointments/index'));
@@ -133,7 +133,6 @@ export default function AppRoutes() {
             <Route path="/receptionist" element={<ReceptionistDashboard />} />
             <Route path="/receptionist/appointments" element={<ReceptionistAppointments />} />
             <Route path="/receptionist/billing" element={<QuickBilling />} />
-            <Route path="/receptionist/pending-activations" element={<PendingPackageActivations />} />
             <Route path="/receptionist/schedules" element={<DoctorSchedules />} />
             <Route path="/receptionist/settings" element={<CustomerSettings />} />
           </Route>
@@ -162,6 +161,7 @@ export default function AppRoutes() {
           </Route>
         </Route>
       </Routes>
+      <AIChatBubble />
     </Suspense>
   );
 }

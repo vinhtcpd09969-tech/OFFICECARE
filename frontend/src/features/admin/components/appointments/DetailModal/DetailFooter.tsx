@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { updateAppointmentStatus as updateAppointmentStatusAdmin } from '../../../api/admin.api';
-import { updateAppointmentStatus as updateAppointmentStatusRec } from '../../../../receptionist/api/receptionist.api';
 import { isPlanCancelled, isSessionPaymentSatisfied } from '../../../../../utils/billing';
 
 /** Gom dữ liệu hóa đơn gói từ 1 lịch hẹn về đúng shape mà utils/billing mong đợi. */
@@ -85,7 +84,8 @@ export function DetailFooter({
           {(() => {
             const isRetail = selectedAppointment.loai_goi === 'LE';
             const isPayPerSession = selectedAppointment.hinh_thuc_thanh_toan_goi === 'tung_buoi';
-            
+            const isInstallment = selectedAppointment.hinh_thuc_thanh_toan_goi === 'tra_gop';
+
             const currentSessionNum = Number(selectedAppointment.so_thu_tu_buoi || 1);
 
             let isSessionPaid = false;
@@ -135,7 +135,11 @@ export function DetailFooter({
                   {/* Khi đã phải đòi Đợt 2 thì ẩn nhãn "đã thanh toán" đi cho gọn — hai thứ cạnh nhau gây rối. */}
                   {!needsInstallment2 && (
                     <div className="px-4 py-2.5 bg-emerald-50 border border-emerald-250 text-emerald-600 text-xs font-black rounded-xl flex items-center gap-1.5 select-none uppercase tracking-wider">
-                      🟢 {isRetail ? 'Đã thanh toán dịch vụ lẻ' : 'Đã thanh toán liệu trình'}
+                      🟢 {isRetail
+                        ? 'Đã thanh toán dịch vụ lẻ'
+                        : (isPayPerSession || isInstallment)
+                          ? `Đã thanh toán buổi ${currentSessionNum} của liệu trình`
+                          : 'Đã thanh toán liệu trình'}
                     </div>
                   )}
 
@@ -143,13 +147,24 @@ export function DetailFooter({
                     <button
                       type="button"
                       onClick={() => {
-                        const dest = isReceptionist ? '/receptionist/billing' : '/admin/finance';
-                        navigate(`${dest}?hoa_don_id=${selectedAppointment.hoa_don_goi_id}`);
+                        // Đợt 2 trả góp thu đúng dư nợ còn lại của hóa đơn — deep-link ?hoa_don_id=
+                        // (mở thẳng modal chi tiết hóa đơn) là chính xác. Nhưng từng buổi thì số
+                        // cần thu là ĐÚNG BUỔI TIẾP THEO, không phải cả dư nợ (gồm cả các buổi
+                        // tương lai chưa tới) — phải qua đúng luồng checkout theo
+                        // customer_id + goi_dich_vu_id (cùng nguồn getTungBuoiSessionDue backend
+                        // dùng để ghi sổ), nếu không sẽ bắt thu nhầm nguyên giá trị gói còn lại.
+                        if (selectedAppointment.hinh_thuc_thanh_toan_goi === 'tung_buoi') {
+                          const checkoutDest = isReceptionist ? '/receptionist/billing' : '/admin/quick-billing';
+                          navigate(`${checkoutDest}?customer_id=${selectedAppointment.khach_hang_id}&goi_dich_vu_id=${selectedAppointment.pd_goi_dich_vu_id || selectedAppointment.goi_dich_vu_id}`);
+                        } else {
+                          const dest = isReceptionist ? '/receptionist/billing' : '/admin/finance';
+                          navigate(`${dest}?hoa_don_id=${selectedAppointment.hoa_don_goi_id}`);
+                        }
                         onClose();
                       }}
                       className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white shadow-sm text-xs font-black rounded-xl flex items-center gap-1.5 transition-all"
                     >
-                      💵 {selectedAppointment.hinh_thuc_thanh_toan_goi === 'tra_gop' ? 'Thanh toán Đợt 2' : 'Thanh toán gói'}
+                      💵 {selectedAppointment.hinh_thuc_thanh_toan_goi === 'tra_gop' ? 'Thanh toán Đợt 2' : 'Thanh toán'}
                     </button>
                   )}
 
@@ -174,16 +189,24 @@ export function DetailFooter({
                   type="button"
                   onClick={async () => {
                     try {
-                      const updateFn = isReceptionist ? updateAppointmentStatusRec : updateAppointmentStatusAdmin;
-                      await updateFn(selectedAppointment.id, {
-                        trang_thai: 'hoan_thanh',
-                        bac_si_id: assignStaffId || null,
-                        chuyen_gia_id: assignStaffId || null,
-                        ky_thuat_vien_id: assignStaffId || null,
-                        phong_id: assignRoomId || null,
-                        ghi_chu_noi_bo: localGhiChuNoiBo || null
-                      });
-                      
+                      // Nhánh này chỉ render khi selectedAppointment.trang_thai đã là 'hoan_thanh'
+                      // (điều kiện bọc ngoài ở trên) — với Lễ tân, backend luôn khóa MỌI thay đổi
+                      // (kể cả ghi lại đúng giá trị cũ) một khi lịch đã ở trạng thái kết thúc, nên
+                      // gọi lại API đổi trạng thái ở đây chỉ để "đẩy kèm" staff/phòng luôn thất bại
+                      // với 403 — trong khi staff/phòng cũng đã bị khóa không cho Lễ tân sửa từ lúc
+                      // hoàn thành, nên không có gì thực sự cần lưu. Chỉ Admin (được sửa tự do kể cả
+                      // sau khi hoàn thành) mới cần gọi API này để không mất thay đổi vừa chỉnh.
+                      if (!isReceptionist) {
+                        await updateAppointmentStatusAdmin(selectedAppointment.id, {
+                          trang_thai: 'hoan_thanh',
+                          bac_si_id: assignStaffId || null,
+                          chuyen_gia_id: assignStaffId || null,
+                          ky_thuat_vien_id: assignStaffId || null,
+                          phong_id: assignRoomId || null,
+                          ghi_chu_noi_bo: localGhiChuNoiBo || null
+                        });
+                      }
+
                       const dest = isReceptionist ? '/receptionist/billing' : '/admin/quick-billing';
                       navigate(`${dest}?lich_dat_id=${selectedAppointment.id}`);
                       onClose();

@@ -30,12 +30,10 @@ import { resolveImageUrl } from '../../../../utils/imageUrl';
 import {
   getAppointmentDetail,
   getPatientProfile,
-  getServices,
   getPackages,
   saveAssessment,
   PatientProfile,
   TreatmentPlan,
-  ServiceItem,
   PackageItem
 } from '../../api/doctor.api';
 import {
@@ -298,14 +296,12 @@ export default function ClinicalAssessment() {
   const [profile, setProfile] = useState<PatientProfile | null>(null);
   
   // Danh mục đề xuất
-  const [services, setServices] = useState<ServiceItem[]>([]);
   const [packages, setPackages] = useState<PackageItem[]>([]);
 
   // Form State
   const [chanDoan, setChanDoan] = useState('');
   const [chongChiDinh, setChongChiDinh] = useState('');
   const [goiDichVuId, setGoiDichVuId] = useState<string>('');
-  const [dichVuId, setDichVuId] = useState<string>('');
   const [ghiChu, setGhiChu] = useState('');
 
   // VAS states for KTV
@@ -347,18 +343,13 @@ export default function ClinicalAssessment() {
       if (apptData.chan_doan) setChanDoan(apptData.chan_doan);
       if (apptData.chong_chi_dinh) setChongChiDinh(apptData.chong_chi_dinh);
       if (apptData.goi_dich_vu_id) setGoiDichVuId(apptData.goi_dich_vu_id);
-      if (apptData.dich_vu_id) setDichVuId(apptData.dich_vu_id);
       if (apptData.ghi_chu) setGhiChu(apptData.ghi_chu);
       if (apptData.vas_truoc !== undefined && apptData.vas_truoc !== null) setVasTruoc(apptData.vas_truoc);
       if (apptData.vas_sau !== undefined && apptData.vas_sau !== null) setVasSau(apptData.vas_sau);
 
-      // 2. Tải danh mục dịch vụ và gói để làm đề xuất (chỉ bác sĩ)
+      // 2. Tải danh mục gói liệu trình để làm đề xuất (chỉ bác sĩ)
       if (!isKtv) {
-        const [servicesRes, packagesRes] = await Promise.all([
-          getServices(),
-          getPackages()
-        ]);
-        setServices(servicesRes.data);
+        const packagesRes = await getPackages();
         setPackages(packagesRes.data);
       }
 
@@ -452,7 +443,6 @@ export default function ClinicalAssessment() {
           chan_doan: chanDoan,
           chong_chi_dinh: chongChiDinh,
           goi_dich_vu_id: goiDichVuId || null,
-          dich_vu_id: dichVuId || null,
           ghi_chu: ghiChu || null
         });
         toast.success('Ghi nhận chẩn đoán lâm sàng và hoàn thành ca khám thành công!');
@@ -505,43 +495,6 @@ export default function ClinicalAssessment() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-12">
-      
-      {/* Top Navigation */}
-      <div className="flex items-center gap-4 flex-wrap">
-        <button
-          onClick={() => navigate(isKtv ? '/technician/appointments' : '/doctor')}
-          className="p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-2xl transition-all shadow-sm hover:scale-105"
-        >
-          <ArrowLeft size={16} />
-        </button>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-black text-secondary dark:text-zinc-100 tracking-tight flex items-center gap-2">
-            {isKtv ? 'Bàn Trị Liệu & Lượng Giá KTV' : 'Khám Lâm Sàng & Lượng Giá'}
-          </h1>
-          <p className="text-zinc-400 dark:text-zinc-550 text-[10px] font-bold uppercase mt-0.5 tracking-wider">
-            Mã ca khám: <span className="font-mono text-primary font-extrabold">{appointment.ma_lich_dat}</span>
-          </p>
-        </div>
-
-        {/* Đồng hồ đếm ngược tới giờ kết thúc buổi — chỉ hiện khi bàn khám đang mở và chưa quá giờ */}
-        {isSessionOpen && remainingMs !== null && !isOverdue && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl border shadow-sm ${
-              remainingMs < 5 * 60 * 1000
-                ? 'bg-amber-50 dark:bg-amber-955/15 border-amber-200/60 dark:border-amber-900/40 text-amber-700 dark:text-amber-400'
-                : 'bg-primary/5 border-primary/15 text-primary'
-            }`}
-          >
-            <Timer size={15} className={remainingMs < 5 * 60 * 1000 ? 'animate-pulse' : ''} />
-            <div className="leading-tight">
-              <p className="text-[8px] font-black uppercase tracking-wider opacity-70">Còn lại</p>
-              <p className="text-xs font-mono font-black tabular-nums">{formatCountdown(remainingMs)}</p>
-            </div>
-          </motion.div>
-        )}
-      </div>
 
       {/* Banner quá giờ — nổi bật, không thể bỏ sót */}
       <AnimatePresence>
@@ -637,6 +590,18 @@ export default function ClinicalAssessment() {
             onSubmit={handleSubmit}
             className="bg-white dark:bg-zinc-900 rounded-[24px] border border-zinc-150/60 dark:border-zinc-800 p-6 shadow-sm space-y-5 sticky top-24"
           >
+            <div className="flex items-center gap-3 mb-1">
+              <button
+                type="button"
+                onClick={() => navigate(isKtv ? '/technician/appointments' : '/doctor')}
+                className="p-2 bg-zinc-50 dark:bg-zinc-850 border border-zinc-200/60 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-all shrink-0"
+              >
+                <ArrowLeft size={14} />
+              </button>
+              <span className="font-mono text-[10px] text-primary font-extrabold">
+                {appointment.ma_lich_dat}
+              </span>
+            </div>
             <div>
               <h3 className="text-sm font-black text-secondary dark:text-zinc-100 uppercase tracking-wider flex items-baseline gap-2 flex-wrap">
                 <span className="flex items-center gap-2">
@@ -766,52 +731,26 @@ export default function ClinicalAssessment() {
                   />
                 </div>
 
-                {/* Đề xuất dịch vụ điều trị */}
+                {/* Đề xuất gói liệu trình */}
                 <div className="space-y-4 pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
                   <div>
                     <h4 className="text-[10px] font-black text-zinc-450 dark:text-zinc-500 uppercase tracking-widest">Khuyến nghị phác đồ trị liệu</h4>
-                    <p className="text-[8px] text-zinc-400 dark:text-zinc-500 font-bold uppercase mt-0.5">Lựa chọn gói phục hồi hoặc dịch vụ lẻ đề xuất cho khách</p>
+                    <p className="text-[8px] text-zinc-400 dark:text-zinc-500 font-bold uppercase mt-0.5">Lựa chọn gói liệu trình đề xuất cho khách</p>
                   </div>
 
-                  {/* Gói đề xuất */}
                   <div className="space-y-1.5">
                     <label className="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">
-                      Đề xuất gói điều trị (Ưu tiên)
+                      Đề xuất gói liệu trình
                     </label>
                     <select
                       value={goiDichVuId}
-                      onChange={(e) => {
-                        setGoiDichVuId(e.target.value);
-                        if (e.target.value) setDichVuId(''); // Nếu chọn gói thì xóa chọn dịch vụ lẻ
-                      }}
+                      onChange={(e) => setGoiDichVuId(e.target.value)}
                       className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-semibold text-secondary dark:text-zinc-150 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all cursor-pointer"
                     >
                       <option value="">-- Không đề xuất gói --</option>
                       {packages.map((pkg) => (
                         <option key={pkg.id} value={pkg.id}>
                           {pkg.ten_goi} ({pkg.gia_goi.toLocaleString('vi-VN')}đ)
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Dịch vụ lẻ đề xuất */}
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">
-                      Hoặc đề xuất dịch vụ lẻ (Sử dụng 1 buổi)
-                    </label>
-                    <select
-                      value={dichVuId}
-                      onChange={(e) => {
-                        setDichVuId(e.target.value);
-                        if (e.target.value) setGoiDichVuId(''); // Nếu chọn dịch vụ thì xóa chọn gói
-                      }}
-                      className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-semibold text-secondary dark:text-zinc-150 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all cursor-pointer"
-                    >
-                      <option value="">-- Không đề xuất dịch vụ lẻ --</option>
-                      {services.map((svc) => (
-                        <option key={svc.id} value={svc.id}>
-                          {svc.ten_dich_vu} ({svc.gia_hien_tai.toLocaleString('vi-VN')}đ)
                         </option>
                       ))}
                     </select>
@@ -858,7 +797,26 @@ export default function ClinicalAssessment() {
           {/* Patient Card Header - Pro Max */}
           <div className="bg-white dark:bg-zinc-900 rounded-[24px] border border-zinc-150/60 dark:border-zinc-800 p-6 shadow-sm flex flex-col md:flex-row items-center md:items-start gap-5 transition-all duration-300 relative overflow-hidden">
             <div className="absolute top-0 right-0 bg-primary/5 dark:bg-primary/10 w-24 h-24 rounded-full -mr-6 -mt-6 blur-2xl"></div>
-            
+
+            {/* Đồng hồ đếm ngược tới giờ kết thúc buổi — chỉ hiện khi bàn khám đang mở và chưa quá giờ */}
+            {isSessionOpen && remainingMs !== null && !isOverdue && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className={`absolute top-4 right-4 z-10 flex items-center gap-2 px-3 py-1.5 rounded-xl border shadow-sm ${
+                  remainingMs < 5 * 60 * 1000
+                    ? 'bg-amber-50 dark:bg-amber-955/15 border-amber-200/60 dark:border-amber-900/40 text-amber-700 dark:text-amber-400'
+                    : 'bg-primary/5 border-primary/15 text-primary'
+                }`}
+              >
+                <Timer size={13} className={remainingMs < 5 * 60 * 1000 ? 'animate-pulse' : ''} />
+                <div className="leading-tight">
+                  <p className="text-[7px] font-black uppercase tracking-wider opacity-70">Còn lại</p>
+                  <p className="text-[11px] font-mono font-black tabular-nums">{formatCountdown(remainingMs)}</p>
+                </div>
+              </motion.div>
+            )}
+
             <div className="size-16 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/5 border border-primary/20 flex items-center justify-center text-primary font-black text-2xl shadow-inner shrink-0 scale-105">
               {(appointment.ten_khach_hang || appointment.ho_ten_khach || 'K').charAt(0).toUpperCase()}
             </div>
@@ -872,6 +830,14 @@ export default function ClinicalAssessment() {
                   </span>
                 </h2>
                 <p className="text-zinc-400 dark:text-zinc-550 text-[10px] font-bold uppercase mt-1">Hồ sơ khách hàng</p>
+                {appointment.loai !== 'KHAM' && appointment.ten_dich_vu && (
+                  <p className="text-[11px] font-bold text-secondary dark:text-zinc-200 mt-1.5">
+                    {appointment.ten_dich_vu}
+                    {appointment.phac_do_dieu_tri_id && appointment.so_thu_tu_buoi && (
+                      <span className="text-primary"> — Buổi {appointment.so_thu_tu_buoi}{appointment.pd_tong_so_buoi ? `/${appointment.pd_tong_so_buoi}` : ''}</span>
+                    )}
+                  </p>
+                )}
               </div>
 
               {/* Grid of details */}

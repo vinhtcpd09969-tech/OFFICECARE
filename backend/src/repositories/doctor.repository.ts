@@ -1,6 +1,51 @@
 import { pool } from '../config/db';
+import { PACKAGE_ACTIVATION_WINDOW_DAYS } from '../domain/billing';
 
 class DoctorRepository {
+  async isPackageLieuTrinh(goi_dich_vu_id: string) {
+    const { rows } = await pool.query('SELECT loai_goi FROM goi_dich_vu WHERE id = $1', [goi_dich_vu_id]);
+    return rows.length > 0 && rows[0].loai_goi === 'LIEU_TRINH';
+  }
+
+  // Chặn chỉ định liệu trình mới khi khách đang có 1 liệu trình LIỆU_TRÌNH đang chạy, HOẶC còn 1
+  // chỉ định liệu trình từ ca khám trước chưa thanh toán/kích hoạt và còn trong hạn kích hoạt
+  // (PACKAGE_ACTIVATION_WINDOW_DAYS) — 1 khách chỉ được dùng tối đa 1 liệu trình tại 1 thời điểm.
+  // cuoc_hen_id: ca khám đang lưu chỉ định — dùng để tự xác định khách hàng, đồng thời loại trừ
+  // chính nó khỏi kiểm tra "còn chỉ định cũ chưa kích hoạt" (tránh tự chặn khi bác sĩ sửa lại
+  // chỉ định của cùng 1 ca khám vừa nhập).
+  async getBlockingLieuTrinh(cuoc_hen_id: string) {
+    const { rows: activeRows } = await pool.query(`
+      SELECT pd.id, g.ten_goi
+      FROM phac_do_dieu_tri pd
+      JOIN goi_dich_vu g ON pd.goi_dich_vu_id = g.id
+      WHERE pd.khach_hang_id = (SELECT khach_hang_id FROM cuoc_hen WHERE id = $1)
+        AND pd.trang_thai = 'dang_dieu_tri' AND g.loai_goi = 'LIEU_TRINH'
+      LIMIT 1
+    `, [cuoc_hen_id]);
+    if (activeRows.length > 0) {
+      return { blocked: true, reason: `Khách hàng đang có liệu trình "${activeRows[0].ten_goi}" hoạt động. Chỉ có thể chỉ định liệu trình mới sau khi liệu trình này hoàn thành hoặc bị hủy.` };
+    }
+
+    const { rows: pendingRows } = await pool.query(`
+      SELECT g.ten_goi
+      FROM chi_dinh_buoi cd
+      JOIN nhat_ky_buoi_dieu_tri nk ON cd.nhat_ky_id = nk.id
+      JOIN cuoc_hen ch ON nk.cuoc_hen_id = ch.id
+      JOIN goi_dich_vu g ON cd.goi_dich_vu_id = g.id
+      WHERE ch.khach_hang_id = (SELECT khach_hang_id FROM cuoc_hen WHERE id = $1)
+        AND ch.id != $1
+        AND cd.phac_do_dieu_tri_id IS NULL
+        AND g.loai_goi = 'LIEU_TRINH'
+        AND ch.ngay_gio_bat_dau >= NOW() - $2 * INTERVAL '1 day'
+      ORDER BY ch.ngay_gio_bat_dau DESC
+      LIMIT 1
+    `, [cuoc_hen_id, PACKAGE_ACTIVATION_WINDOW_DAYS]);
+    if (pendingRows.length > 0) {
+      return { blocked: true, reason: `Khách hàng đã được chỉ định liệu trình "${pendingRows[0].ten_goi}" từ ca khám trước, còn trong hạn kích hoạt và chưa thanh toán. Chỉ có thể chỉ định liệu trình khác sau khi chỉ định này hết hạn.` };
+    }
+
+    return { blocked: false };
+  }
   // 1. Lấy danh sách bệnh nhân đang xếp hàng chờ khám hôm nay
   async getDoctorQueue(userId: string, roleId: number = 4) {
     const loaiCondition = roleId === 3 ? "ch.loai != 'KHAM'" : "ch.loai = 'KHAM'";
@@ -9,7 +54,7 @@ class DoctorRepository {
         ch.id, 
         'LH-' || UPPER(SUBSTRING(ch.id::text FROM 1 FOR 6)) as ma_lich_dat,
         kh.ho_ten as ho_ten_khach, kh.so_dien_thoai, kh.gioi_tinh as gioi_tinh_khach,
-        ch.ngay_gio_bat_dau, ch.ngay_gio_ket_thuc, ch.ghi_chu_khach_hang as ly_do_kham, ch.trang_thai, NULL::text as anh_dinh_kem_url,
+        ch.ngay_gio_bat_dau, ch.ngay_gio_ket_thuc, ch.ghi_chu_khach_hang as ly_do_kham, ch.trang_thai, ch.anh_dinh_kem_url,
         kh.id as khach_hang_id, kh.ngay_sinh, kh.gioi_tinh,
         kh.ho_ten as ten_khach_hang, kh.so_dien_thoai as sdt_khach_hang, NULL::text as avatar_url,
         ch.nhan_su_id as bac_si_id, ch.nhan_su_id as ky_thuat_vien_id,
@@ -53,6 +98,7 @@ class DoctorRepository {
         ch.id, 
         'LH-' || UPPER(SUBSTRING(ch.id::text FROM 1 FOR 6)) as ma_lich_dat, 
         ch.ngay_gio_bat_dau, ch.ngay_gio_ket_thuc, ch.trang_thai, ch.ghi_chu_khach_hang as ly_do_kham,
+        ch.anh_dinh_kem_url,
         kh.ho_ten as ten_khach_hang,
         kh.so_dien_thoai as so_dien_thoai,
         nk.id as ho_so_dieu_tri_id, nk.id as ho_so_benh_an_id, nk.chan_doan, nk.chong_chi_dinh,
@@ -305,18 +351,24 @@ class DoctorRepository {
         ch.id, 
         'LH-' || UPPER(SUBSTRING(ch.id::text FROM 1 FOR 6)) as ma_lich_dat,
         kh.ho_ten as ho_ten_khach, kh.so_dien_thoai, kh.gioi_tinh as gioi_tinh_khach,
-        ch.ngay_gio_bat_dau, ch.ngay_gio_ket_thuc, ch.ghi_chu_khach_hang as ly_do_kham, ch.trang_thai, NULL::text as anh_dinh_kem_url,
+        ch.ngay_gio_bat_dau, ch.ngay_gio_ket_thuc, ch.ghi_chu_khach_hang as ly_do_kham, ch.trang_thai, ch.anh_dinh_kem_url,
         kh.id as khach_hang_id, kh.ngay_sinh, kh.gioi_tinh,
         kh.ho_ten as ten_khach_hang, kh.so_dien_thoai as sdt_khach_hang, NULL::text as avatar_url,
         nk.id as ho_so_dieu_tri_id, nk.id as ho_so_benh_an_id, nk.chan_doan, nk.chong_chi_dinh, nk.ghi_chu,
         nk.vas_truoc, nk.vas_sau,
         cd.goi_dich_vu_id,
         ch.phac_do_dieu_tri_id,
+        ch.so_thu_tu_buoi,
+        COALESCE(g.ten_goi, gpd.ten_goi) as ten_dich_vu,
+        pd.tong_so_buoi as pd_tong_so_buoi,
         nk.ngay_tao as nhat_ky_ngay_tao
       FROM cuoc_hen ch
       JOIN khach_hang kh ON ch.khach_hang_id = kh.id
       LEFT JOIN nhat_ky_buoi_dieu_tri nk ON nk.cuoc_hen_id = ch.id
       LEFT JOIN chi_dinh_buoi cd ON cd.nhat_ky_id = nk.id
+      LEFT JOIN goi_dich_vu g ON ch.goi_dich_vu_id = g.id
+      LEFT JOIN phac_do_dieu_tri pd ON ch.phac_do_dieu_tri_id = pd.id
+      LEFT JOIN goi_dich_vu gpd ON pd.goi_dich_vu_id = gpd.id
       WHERE ch.id = $1::uuid;
     `;
     const { rows } = await pool.query(queryStr, [appointmentId]);

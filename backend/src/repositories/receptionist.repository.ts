@@ -608,18 +608,34 @@ class ReceptionistRepository {
         shouldCreatePhacDo = goiRows[0]?.loai_goi === 'LIEU_TRINH';
       }
 
+      // Khóa dòng cuộc hẹn để chặn 2 lượt tạo hóa đơn chạy song song cho cùng 1 lịch (race condition).
+      let existingHoaDonId: string | null = null;
+      let loaiLichDat = '';
       if (lich_dat_id) {
         const { rows: apptRows } = await client.query(`
-          SELECT phac_do_dieu_tri_id, loai FROM cuoc_hen WHERE id = $1
+          SELECT phac_do_dieu_tri_id, loai FROM cuoc_hen WHERE id = $1 FOR UPDATE
         `, [lich_dat_id]);
         if (apptRows.length > 0) {
           phacDoId = apptRows[0].phac_do_dieu_tri_id;
-          const loaiLich = (apptRows[0].loai || '').toUpperCase();
+          loaiLichDat = (apptRows[0].loai || '').toUpperCase();
           // Buổi thuộc 1 liệu trình đang chạy (DIEU_TRI) luôn cần gắn/tạo phác đồ để theo dõi tiến
           // độ nhiều buổi — không tính dịch vụ lẻ (DICH_VU_LE, 1 lượt độc lập) hay khám (KHAM/KHAM_MOI).
-          if (loaiLich === 'DIEU_TRI') {
+          if (loaiLichDat === 'DIEU_TRI') {
             shouldCreatePhacDo = true;
           }
+        }
+
+        // Chặn hóa đơn "ma": nếu lễ tân bấm thanh toán, hóa đơn nháp được tạo nhưng bước ghi nhận
+        // tiền bị ngắt giữa chừng (thoát trang, mất mạng...), hóa đơn đó treo mãi ở "chưa thanh
+        // toán". Bấm thanh toán lại trước đây sẽ tạo thêm 1 hóa đơn MỚI thay vì dùng lại hóa đơn
+        // cũ — tiền thu được ghi vào hóa đơn mới, hóa đơn cũ bị bỏ rơi khiến lịch hẹn vẫn hiện nợ
+        // dù đã thu đủ tiền. Nay tái sử dụng đúng hóa đơn nháp cũ, cập nhật lại số liệu theo lựa
+        // chọn mới nhất thay vì chèn thêm dòng.
+        const { rows: existingRows } = await client.query(`
+          SELECT id FROM hoa_don WHERE cuoc_hen_id = $1 AND trang_thai = 'chua_thanh_toan'
+        `, [lich_dat_id]);
+        if (existingRows.length > 0) {
+          existingHoaDonId = existingRows[0].id;
         }
       }
 
@@ -639,8 +655,31 @@ class ReceptionistRepository {
           ]);
           phacDoId = pdRows[0].id;
 
-          // Cập nhật cuộc hẹn gốc liên kết với phác đồ này
+          // Đánh dấu đúng chỉ định (chi_dinh_buoi) của ca khám đã dẫn tới phác đồ này — nguồn xác
+          // thực duy nhất để nối ngược phác đồ về ca khám gốc (lấy lại chẩn đoán/chống chỉ định)
+          // và để biết chỉ định này đã kích hoạt hay chưa, KHÔNG dùng cuoc_hen.phac_do_dieu_tri_id
+          // của ca khám (lý do xem giải thích ở dưới). Nếu lich_dat_id không phải ca khám có chỉ
+          // định tương ứng thì đơn giản không khớp dòng nào, không ảnh hưởng gì.
           if (lich_dat_id) {
+            await client.query(`
+              UPDATE chi_dinh_buoi cd
+              SET phac_do_dieu_tri_id = $1
+              FROM nhat_ky_buoi_dieu_tri nk
+              WHERE cd.nhat_ky_id = nk.id
+                AND nk.cuoc_hen_id = $2
+                AND cd.goi_dich_vu_id = $3
+                AND cd.phac_do_dieu_tri_id IS NULL
+            `, [phacDoId, lich_dat_id, finalGoiDichVuId]);
+          }
+
+          // Cập nhật cuộc hẹn gốc liên kết với phác đồ này — CHỈ khi cuộc hẹn đó tự nó là 1 buổi
+          // điều trị/dịch vụ lẻ. Lễ tân thường đăng ký gói NGAY TỪ màn thanh toán của ca KHÁM (chỉ
+          // định gói sau khám) — nếu gắn luôn phac_do_dieu_tri_id lên chính cuộc hẹn KHÁM đó, câu
+          // JOIN tính "trạng thái thanh toán" ở appointment.repository.ts (getAllAppointments) sẽ
+          // hiểu nhầm ca khám đó "thuộc phác đồ" và tra cứu nhầm sang hóa đơn GÓI (đang trả từng
+          // buổi, còn nợ) thay vì hóa đơn khám riêng đã thanh toán — khiến ca khám bị báo "chưa
+          // thanh toán" vĩnh viễn dù phí khám đã thu đủ, và mascot lễ tân/admin nhảy nhầm.
+          if (lich_dat_id && loaiLichDat !== 'KHAM' && loaiLichDat !== 'KHAM_MOI') {
             await client.query('UPDATE cuoc_hen SET phac_do_dieu_tri_id = $1 WHERE id = $2', [phacDoId, lich_dat_id]);
           }
         }
@@ -658,9 +697,12 @@ class ReceptionistRepository {
           'SELECT so_luong_gioi_han FROM khuyen_mai_voucher WHERE id = $1 FOR UPDATE',
           [voucher_id]
         );
+        // Loại trừ chính hóa đơn nháp đang được tái sử dụng khỏi lượt đếm — nếu không, thao tác
+        // "cập nhật lại hóa đơn cũ" bên dưới sẽ bị tính nhầm thành 1 lượt dùng voucher MỚI và có
+        // thể chặn nhầm khi mã đã gần hết hạn mức.
         const { rows: countRows } = await client.query(
-          'SELECT COUNT(*) FROM hoa_don WHERE voucher_id = $1 AND khach_hang_id = $2',
-          [voucher_id, khach_hang_id]
+          'SELECT COUNT(*) FROM hoa_don WHERE voucher_id = $1 AND khach_hang_id = $2 AND id IS DISTINCT FROM $3',
+          [voucher_id, khach_hang_id, existingHoaDonId]
         );
         const soLuongToiDa = lockRows[0]?.so_luong_gioi_han;
         if (soLuongToiDa !== null && soLuongToiDa !== undefined && parseInt(countRows[0].count) >= soLuongToiDa) {
@@ -668,33 +710,69 @@ class ReceptionistRepository {
         }
       }
 
-      // Tạo hoa_don
-      const { rows: hdRows } = await client.query(`
-        INSERT INTO hoa_don (
-          khach_hang_id, phac_do_dieu_tri_id, cuoc_hen_id,
-          tong_tien_goc, hinh_thuc_thanh_toan_goi, ti_le_giam_gia_goi, so_tien_giam_voucher,
-          tong_tien_phai_tra, so_tien_da_tra, trang_thai, voucher_id, ghi_chu, phi_kham_ap_dung
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0, 'chua_thanh_toan', $9, $10, $11)
-        RETURNING id, 'HD-' || UPPER(SUBSTRING(id::text FROM 1 FOR 6)) as ma_hoa_don,
-                  CASE WHEN phac_do_dieu_tri_id IS NOT NULL THEN 'goi_dich_vu' ELSE 'dich_vu_don' END as loai_hoa_don,
-                  khach_hang_id, phac_do_dieu_tri_id, cuoc_hen_id, tong_tien_goc,
-                  hinh_thuc_thanh_toan_goi, ti_le_giam_gia_goi, so_tien_giam_voucher,
-                  tong_tien_phai_tra, so_tien_da_tra, trang_thai, voucher_id, ngay_tao, ghi_chu
-      `, [
-        khach_hang_id,
-        phacDoId,
-        lich_dat_id || null,
-        tong_tien_truoc_giam || tong_tien_thanh_toan,
-        loai_thanh_toan || null,
-        tiLeGiam,
-        so_tien_giam_voucher || 0,
-        tong_tien_thanh_toan,
-        voucher_id || null,
-        ghi_chu || null,
-        Number(phi_kham_ap_dung || 0)
-      ]);
+      // Tạo hoặc cập nhật hoa_don — nếu đã có hóa đơn nháp "chưa thanh toán" cho đúng lịch hẹn này
+      // (từ 1 lượt bấm thanh toán trước đó bị ngắt giữa chừng), cập nhật lại số liệu theo lựa chọn
+      // mới nhất thay vì chèn thêm 1 dòng mới — tránh sinh hóa đơn "ma" không bao giờ được thanh toán.
+      let hoa_don;
+      if (existingHoaDonId) {
+        const { rows: hdRows } = await client.query(`
+          UPDATE hoa_don SET
+            phac_do_dieu_tri_id = $1,
+            tong_tien_goc = $2,
+            hinh_thuc_thanh_toan_goi = $3,
+            ti_le_giam_gia_goi = $4,
+            so_tien_giam_voucher = $5,
+            tong_tien_phai_tra = $6,
+            voucher_id = $7,
+            ghi_chu = $8,
+            phi_kham_ap_dung = $9
+          WHERE id = $10
+          RETURNING id, 'HD-' || UPPER(SUBSTRING(id::text FROM 1 FOR 6)) as ma_hoa_don,
+                    CASE WHEN phac_do_dieu_tri_id IS NOT NULL THEN 'goi_dich_vu' ELSE 'dich_vu_don' END as loai_hoa_don,
+                    khach_hang_id, phac_do_dieu_tri_id, cuoc_hen_id, tong_tien_goc,
+                    hinh_thuc_thanh_toan_goi, ti_le_giam_gia_goi, so_tien_giam_voucher,
+                    tong_tien_phai_tra, so_tien_da_tra, trang_thai, voucher_id, ngay_tao, ghi_chu
+        `, [
+          phacDoId,
+          tong_tien_truoc_giam || tong_tien_thanh_toan,
+          loai_thanh_toan || null,
+          tiLeGiam,
+          so_tien_giam_voucher || 0,
+          tong_tien_thanh_toan,
+          voucher_id || null,
+          ghi_chu || null,
+          Number(phi_kham_ap_dung || 0),
+          existingHoaDonId
+        ]);
+        hoa_don = hdRows[0];
+      } else {
+        const { rows: hdRows } = await client.query(`
+          INSERT INTO hoa_don (
+            khach_hang_id, phac_do_dieu_tri_id, cuoc_hen_id,
+            tong_tien_goc, hinh_thuc_thanh_toan_goi, ti_le_giam_gia_goi, so_tien_giam_voucher,
+            tong_tien_phai_tra, so_tien_da_tra, trang_thai, voucher_id, ghi_chu, phi_kham_ap_dung
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0, 'chua_thanh_toan', $9, $10, $11)
+          RETURNING id, 'HD-' || UPPER(SUBSTRING(id::text FROM 1 FOR 6)) as ma_hoa_don,
+                    CASE WHEN phac_do_dieu_tri_id IS NOT NULL THEN 'goi_dich_vu' ELSE 'dich_vu_don' END as loai_hoa_don,
+                    khach_hang_id, phac_do_dieu_tri_id, cuoc_hen_id, tong_tien_goc,
+                    hinh_thuc_thanh_toan_goi, ti_le_giam_gia_goi, so_tien_giam_voucher,
+                    tong_tien_phai_tra, so_tien_da_tra, trang_thai, voucher_id, ngay_tao, ghi_chu
+        `, [
+          khach_hang_id,
+          phacDoId,
+          lich_dat_id || null,
+          tong_tien_truoc_giam || tong_tien_thanh_toan,
+          loai_thanh_toan || null,
+          tiLeGiam,
+          so_tien_giam_voucher || 0,
+          tong_tien_thanh_toan,
+          voucher_id || null,
+          ghi_chu || null,
+          Number(phi_kham_ap_dung || 0)
+        ]);
+        hoa_don = hdRows[0];
+      }
 
-      const hoa_don = hdRows[0];
       await client.query('COMMIT');
       return {
         ...hoa_don,
@@ -833,8 +911,8 @@ class ReceptionistRepository {
 
   async searchCustomers(queryText: string) {
     const { rows } = await pool.query(`
-      SELECT id, ho_ten, so_dien_thoai, email, gioi_tinh, ngay_sinh, diem_uy_tin 
-      FROM khach_hang 
+      SELECT id, ho_ten, so_dien_thoai, email, gioi_tinh, ngay_sinh, diem_uy_tin
+      FROM khach_hang
       WHERE (unaccent(ho_ten) ILIKE unaccent($1) OR so_dien_thoai ILIKE $1) AND trang_thai = 'hoat_dong'
       LIMIT 20
     `, [`%${queryText}%`]);
@@ -894,7 +972,44 @@ class ReceptionistRepository {
         -- chưa kịp đồng bộ (dữ liệu cũ từng bị set nhầm thành 'da_tam_dung').
         AND (hd.trang_thai IS NULL OR hd.trang_thai <> 'da_hoan_tien')
     `, [customerId]);
-    return rows;
+
+    // Chỉ định liệu trình từ ca khám nhưng khách chưa thanh toán/kích hoạt, còn trong hạn — hiện
+    // ngay ở đây để lễ tân thấy khi khách quay lại đặt lịch, không cần quay về hồ sơ khách hàng
+    // mới biết có chỉ định đang chờ (map sang trang_thai='khuyen_nghi', đúng shape mà form đặt
+    // lịch tại quầy đã có sẵn logic xử lý — xem isPlanBookable/handleSelectPlan ở
+    // WalkInBookingModal.tsx).
+    const { rows: pendingRecs } = await pool.query(`
+      SELECT
+        cd.id::text,
+        cd.goi_dich_vu_id,
+        COALESCE(cd.tong_so_buoi_tu_van, gdv.tong_so_buoi) as tong_so_buoi,
+        0::int as so_buoi_da_dung,
+        'khuyen_nghi' as trang_thai,
+        gdv.ten_goi as ten_goi_dich_vu,
+        gdv.thoi_luong_phut,
+        ch.id as cuoc_hen_id,
+        gdv.loai_goi,
+        NULL::uuid as hoa_don_id,
+        NULL::varchar as hinh_thuc_thanh_toan_goi,
+        NULL::bigint as tong_tien_phai_tra,
+        NULL::bigint as so_tien_da_tra,
+        NULL::bigint as tong_tien_goc,
+        NULL::numeric as ti_le_giam_gia_goi,
+        NULL::bigint as so_tien_giam_voucher,
+        NULL::varchar as hoa_don_trang_thai,
+        NULL::jsonb as lich_dang_hoat_dong
+      FROM chi_dinh_buoi cd
+      JOIN nhat_ky_buoi_dieu_tri nk ON cd.nhat_ky_id = nk.id
+      JOIN cuoc_hen ch ON nk.cuoc_hen_id = ch.id
+      JOIN goi_dich_vu gdv ON cd.goi_dich_vu_id = gdv.id
+      WHERE ch.khach_hang_id = $1
+        AND cd.phac_do_dieu_tri_id IS NULL
+        AND gdv.loai_goi = 'LIEU_TRINH'
+        AND ch.ngay_gio_bat_dau >= NOW() - $2 * INTERVAL '1 day'
+      ORDER BY ch.ngay_gio_bat_dau DESC
+    `, [customerId, PACKAGE_ACTIVATION_WINDOW_DAYS]);
+
+    return [...rows, ...pendingRecs];
   }
 
   async getTreatmentPlanBySessionId(sessionId: string) {
@@ -1028,6 +1143,32 @@ class ReceptionistRepository {
 
     const pdInfo = pdRows[0] || {};
 
+    // Buổi cần đối chiếu số tiền đã đóng — phác đồ đã kích hoạt có thể đã xong vài buổi (vd đây là
+    // luồng "Thanh toán" khi bị chặn đặt buổi N tiếp theo), không phải luôn luôn là buổi 1. Đếm
+    // đúng công thức so_buoi_da_dung dùng chung ở getCustomerTreatmentPlans để không lệch buổi.
+    //
+    // QUAN TRỌNG: dùng ĐÚNG so_buoi_da_dung (buổi đã hoàn thành gần nhất), KHÔNG cộng thêm 1.
+    // getTungBuoiSessionDue(packageTotal, totalSessions, sessionNum, alreadyPaid) tính
+    // cumulativeRequired = sessionNum * sessionPrice — sessionNum ở ĐÂY nghĩa là "số buổi cần được
+    // phủ tiền tính tới thời điểm này", khác với sessionNum trong getMinPaymentRequired (dùng để
+    // kiểm tra ĐIỀU KIỆN ĐẶT buổi tiếp theo, nội bộ trừ đi 1 buổi). Cộng nhầm +1 ở đây từng khiến
+    // hệ thống đòi dư nguyên 1 buổi (vd đúng ra thiếu buổi 2 = 350k thì lại đòi thành 700k) và ghi
+    // sai tên buổi trên hóa đơn tạm tính.
+    let soThuTuBuoi = 1;
+    if (pdInfo.phac_do_dieu_tri_id) {
+      const { rows: countRows } = await pool.query(`
+        SELECT COUNT(*)::int as so_buoi_da_dung
+        FROM cuoc_hen
+        WHERE phac_do_dieu_tri_id = $1
+          AND (
+            trang_thai = 'hoan_thanh'
+            OR (trang_thai IN ('khong_den', 'khach_khong_den', 'khach_khong_den_phat') AND $2 IN ('tra_thang', 'tra_gop'))
+          )
+          AND loai = 'DIEU_TRI'
+      `, [pdInfo.phac_do_dieu_tri_id, pdInfo.hinh_thuc_thanh_toan_goi]);
+      soThuTuBuoi = countRows[0]?.so_buoi_da_dung || 1;
+    }
+
     return {
       id: null,
       ngay_thanh_toan_kham: examInfo.ngay_thanh_toan_kham || null,
@@ -1037,7 +1178,7 @@ class ReceptionistRepository {
       ngay_gio_ket_thuc: null,
       trang_thai: null,
       phac_do_dieu_tri_id: pdInfo.phac_do_dieu_tri_id || null,
-      so_thu_tu_buoi: 1,
+      so_thu_tu_buoi: soThuTuBuoi,
       goi_dich_vu_id: null,
       loai_lich: 'dieu_tri',
       khach_hang_id: customer.khach_hang_id,
@@ -1132,35 +1273,6 @@ class ReceptionistRepository {
       tong_so_buoi_hien_tai: Number(row.tong_so_buoi_hien_tai),
       don_gia_hien_tai: Number(row.don_gia_hien_tai),
     };
-  }
-
-  /**
-   * Các buổi khám đã có bác sĩ chỉ định gói nhưng khách chưa thanh toán/kích hoạt, còn trong hạn.
-   * Chỉ trả dữ liệu vận hành (ngày khám, gói, giá, hạn) — KHÔNG chọn chẩn đoán/ghi chú lâm sàng
-   * (nk.chan_doan/chong_chi_dinh/ghi_chu) vì Lễ tân không được xem hồ sơ bệnh án.
-   */
-  async getPendingPackageActivations(khach_hang_id: string) {
-    const { rows } = await pool.query(`
-      SELECT
-        ch.id as cuoc_hen_id,
-        ch.ngay_gio_bat_dau as ngay_kham,
-        ch.ngay_gio_bat_dau + $2 * INTERVAL '1 day' as han_kich_hoat,
-        cd.goi_dich_vu_id,
-        g.ten_goi,
-        g.loai_goi,
-        g.don_gia as gia_tien,
-        g.tong_so_buoi
-      FROM chi_dinh_buoi cd
-      JOIN nhat_ky_buoi_dieu_tri nk ON cd.nhat_ky_id = nk.id
-      JOIN cuoc_hen ch ON nk.cuoc_hen_id = ch.id
-      JOIN goi_dich_vu g ON cd.goi_dich_vu_id = g.id
-      WHERE ch.khach_hang_id = $1
-        AND ch.loai = 'KHAM'
-        AND ch.phac_do_dieu_tri_id IS NULL
-        AND ch.ngay_gio_bat_dau >= NOW() - $2 * INTERVAL '1 day'
-      ORDER BY ch.ngay_gio_bat_dau DESC
-    `, [khach_hang_id, PACKAGE_ACTIVATION_WINDOW_DAYS]);
-    return rows;
   }
 
   async getInvoiceByUuidPrefix(prefix: string) {

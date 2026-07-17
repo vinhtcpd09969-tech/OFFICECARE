@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowRight, Clock, Phone, Loader2, Info, ShieldCheck, HeartPulse, Award, Star } from 'lucide-react';
-import { getPublicServices, getPublicCategories, getPublicServiceReviews } from '../api/public.api';
+import { ArrowRight, Clock, Phone, Loader2, Info, ShieldCheck, HeartPulse, Award, Star, TrendingUp, Activity } from 'lucide-react';
+import { getPublicServices, getPublicCategories, getPublicServiceReviews, getPublicSpecialists } from '../api/public.api';
 import { resolveImageUrl } from '../../../utils/imageUrl';
 import ScrollReveal from '../components/shared/ScrollReveal';
 import toast from 'react-hot-toast';
@@ -25,6 +25,7 @@ interface Service {
   anh_goi?: string;
   anh_gallery?: string[];
   trang_thai: string;
+  mo_ta?: string;
 }
 
 interface Category {
@@ -33,6 +34,36 @@ interface Category {
   mo_ta: string;
   loai_danh_muc: string;
 }
+
+const getPrescribedTech = (name: string) => {
+  const lowercaseName = name.toLowerCase();
+  if (lowercaseName.includes('xung kích') || lowercaseName.includes('shockwave')) {
+    return {
+      name: 'Máy sóng xung kích Shockwave Master (BTL - Vương Quốc Anh)',
+      desc: 'Tạo sóng xung kích cường độ cao tác động vào mô xơ hóa sâu, kích thích sinh học tái tạo mô cơ xương khớp chấn thương.',
+      specs: ['Năng lượng: Lên tới 5 Bar', 'Tần số xung: 1 - 22 Hz', 'Công nghệ nén khí nén piston điện']
+    };
+  }
+  if (lowercaseName.includes('laser')) {
+    return {
+      name: 'Hệ thống máy Laser trị liệu cường độ cao 30W (Ý)',
+      desc: 'Sử dụng chùm ánh sáng đơn sắc năng lượng cao tăng hoạt hóa ti thể tế bào, giải phóng chèn ép dây thần kinh tức thì.',
+      specs: ['Công suất phát: 30W siêu xung', '3 bước sóng đồng thời: 810/980/1064nm', 'Độ xuyên thấu mô: 8 - 10 cm']
+    };
+  }
+  if (lowercaseName.includes('điện xung') || lowercaseName.includes('ems')) {
+    return {
+      name: 'Thiết bị Điện xung trị liệu trung tần & giao thoa',
+      desc: 'Dòng điện trị liệu tác động trực tiếp lên hệ cơ thần kinh, nới lỏng cơ co cứng cục bộ và cắt đứt luồng dẫn truyền đau.',
+      specs: ['Hơn 40 dòng điện trị liệu tích hợp', 'Điều khiển qua màn hình cảm ứng', 'Tự động kiểm soát dòng an toàn']
+    };
+  }
+  return {
+    name: 'Hệ thống thiết bị lượng giá & vận động cơ học',
+    desc: 'Bao gồm máy nén ép khí áp lực hơi, máy kéo giãn cột sống tự động kết hợp các dụng cụ tập vận động chức năng chuyên khoa.',
+    specs: ['Chuẩn y tế phục hồi chuyên sâu', 'Kiểm soát lực căng bằng phản hồi sinh học', 'An toàn tuyệt đối cho người cao tuổi']
+  };
+};
 
 export default function ServiceDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -45,23 +76,28 @@ export default function ServiceDetailPage() {
   const [activeGalleryImage, setActiveGalleryImage] = useState<string | null>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(true);
+  const [specialists, setSpecialists] = useState<any[]>([]);
+  const [selectedImage, setSelectedImage] = useState<string>('');
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [resSvcs, resCats] = await Promise.all([
+        const [resSvcs, resCats, resSpecs] = await Promise.all([
           getPublicServices(),
-          getPublicCategories()
+          getPublicCategories(),
+          getPublicSpecialists()
         ]);
 
         const fetchedServices: Service[] = resSvcs.data || [];
         const fetchedCategories: Category[] = resCats.data || [];
         setCategories(fetchedCategories);
+        setSpecialists(resSpecs.data || []);
 
         const foundService = fetchedServices.find(s => s.id.toString() === id?.toString());
         if (foundService) {
           setService(foundService);
+          setSelectedImage(foundService.anh_goi || '');
           setRelatedServices(
             fetchedServices
               .filter(s => s.id.toString() !== foundService.id.toString() && s.danh_muc_goi_id === foundService.danh_muc_goi_id)
@@ -158,6 +194,7 @@ export default function ServiceDetailPage() {
 
   const quyTrinhSteps = service?.quy_trinh ? service.quy_trinh.split('\n').map((s: string) => s.trim()).filter(Boolean) : [];
   const mucTieuPoints = service?.muc_tieu ? service.muc_tieu.split('\n').map((p: string) => p.trim()).filter(Boolean) : [];
+  const galleryImages = service ? ([service.anh_goi, ...(service.anh_gallery || [])].filter(Boolean) as string[]) : [];
 
   // Helper to get category name
   const getCategoryName = (): string => {
@@ -237,191 +274,311 @@ export default function ServiceDetailPage() {
           </Link>
         </div>
 
-        {/* Section 1: Hero Banner */}
-        <div className="bg-white rounded-[40px] border border-slate-100 shadow-[0_15px_50px_rgba(15,23,42,0.015)] p-6 md:p-12 lg:p-16 mb-16 relative overflow-hidden">
+        {/* Unified Service Detail Card */}
+        <div className="bg-white rounded-[24px] border border-slate-150 p-6 md:p-10 mb-12 shadow-[0_8px_30px_rgba(15,23,42,0.015)] relative overflow-hidden">
           <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl pointer-events-none"></div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-16 items-center">
-            
-            <div className="lg:col-span-7 space-y-6">
-              <div className="flex flex-wrap gap-2.5 items-center">
-                <span className="bg-primary/10 text-primary text-[10px] font-extrabold uppercase tracking-wider px-3.5 py-1.5 rounded-full border border-primary/20">
-                  {getCategoryName()}
-                </span>
-                <div className="flex items-center gap-1.5 bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 px-3.5 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider shadow-xs">
-                  <span className="size-1.5 bg-emerald-500 rounded-full"></span>
-                  Đạt chuẩn y tế
-                </div>
-              </div>
-              
-              <h1 className="text-3xl md:text-5xl font-heading font-black text-secondary tracking-tight leading-tight uppercase">
-                {service.ten_goi}
-              </h1>
-              
-              <p className="text-slate-500 text-xs md:text-sm font-semibold leading-relaxed max-w-2xl">
-                {service.quy_trinh || service.muc_tieu || 'Dịch vụ lượng giá lâm sàng và trị liệu chuyên khoa cơ xương khớp.'}
-              </p>
-
-              <div className="flex items-center gap-6 py-2">
-                <div>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Đơn giá trị liệu</p>
-                  <p className="text-3xl font-black text-slate-900 mt-1">{formatPrice(service.don_gia)} <span className="text-sm font-bold text-slate-400">/ buổi</span></p>
-                </div>
-                <div className="w-px h-12 bg-slate-200"></div>
-                <div>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Thời lượng</p>
-                  <p className="text-2xl font-black text-secondary mt-1 flex items-center gap-1.5"><Clock size={20} className="text-primary" /> {service.thoi_luong_phut} phút</p>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-4 pt-2">
-                <button
-                  onClick={handleBooking}
-                  className="bg-primary hover:bg-[#25A89C] text-white font-extrabold px-8 py-4 rounded-full text-xs uppercase tracking-widest transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:scale-105 active:scale-95 shadow-[0_10px_25px_-5px_rgba(46,196,182,0.4)] hover:shadow-[0_15px_30px_-5px_rgba(46,196,182,0.5)] flex items-center gap-2 group"
-                >
-                  Đặt lịch trị liệu ngay <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform duration-300" />
-                </button>
-                
-                <a
-                  href="tel:19001234"
-                  className="bg-white border border-slate-200/80 hover:border-primary text-secondary hover:text-primary font-extrabold px-8 py-4 rounded-full text-xs uppercase tracking-widest transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:scale-105 active:scale-95 shadow-xs flex items-center gap-2"
-                >
-                  <Phone size={13} /> Gọi hotline tư vấn
-                </a>
-              </div>
-            </div>
-
-            {/* Hero Photo */}
-            <div className="lg:col-span-5 relative">
-              <div className="aspect-4/3 md:aspect-video lg:aspect-square rounded-[36px] overflow-hidden shadow-xl border border-white relative group">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 relative z-10">
+            {/* Left Column: Image Showcase & Gallery Thumbnails */}
+            <div className="lg:col-span-6 space-y-4">
+              <div className="aspect-[4/3] w-full rounded-2xl overflow-hidden bg-slate-100 border border-slate-150 relative group">
                 <img
-                  src={service.anh_goi || '/images/packages/wellness_hero.png'}
+                  src={resolveImageUrl(selectedImage || service.anh_goi || '/images/packages/wellness_hero.png')}
                   alt={service.ten_goi}
-                  className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700"
+                  className="w-full h-full object-cover transition-all duration-500"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-secondary/20 via-transparent to-transparent pointer-events-none"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/20 to-transparent pointer-events-none"></div>
+              </div>
+
+              {/* Gallery Thumbnails */}
+              {galleryImages.length > 1 && (
+                <div className="flex flex-wrap gap-2.5">
+                  {galleryImages.map((imgUrl, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setSelectedImage(imgUrl)}
+                      className={`size-16 rounded-xl overflow-hidden border-2 bg-slate-50 transition-all cursor-pointer ${
+                        resolveImageUrl(selectedImage) === resolveImageUrl(imgUrl)
+                          ? 'border-[#0D9488] shadow-sm'
+                          : 'border-slate-200 hover:border-slate-350'
+                      }`}
+                    >
+                      <img
+                        src={resolveImageUrl(imgUrl)}
+                        alt={`${service.ten_goi} thumbnail ${idx + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Right Column: Detailed Info Grid */}
+            <div className="lg:col-span-6 space-y-6 flex flex-col justify-between">
+              <div className="space-y-4">
+                <div className="flex flex-wrap gap-2 items-center">
+                  <span className="bg-[#14B8A6]/10 text-[#0D9488] border border-primary/20 text-[9px] font-black uppercase tracking-wider px-3.5 py-1.5 rounded-full shadow-inner">
+                    {getCategoryName()}
+                  </span>
+                  <div className="flex items-center gap-1.5 bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 px-3.5 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider shadow-xs">
+                    <span className="size-1.5 bg-emerald-500 rounded-full"></span>
+                    Đạt chuẩn y khoa
+                  </div>
+                </div>
+
+                <h1 className="text-2xl md:text-3xl font-heading font-black text-slate-900 tracking-tight leading-tight uppercase">
+                  {service.ten_goi}
+                </h1>
+
+                <p className="text-slate-500 text-xs font-semibold leading-relaxed">
+                  {service.mo_ta || 'Lộ trình phục hồi toàn diện cá nhân hóa theo phác đồ bác sĩ.'}
+                </p>
+
+                {/* Benefits (Mục tiêu & Lợi ích) */}
+                {mucTieuPoints.length > 0 && (
+                  <div className="space-y-2 pt-2">
+                    <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">🎯 Mục tiêu & Lợi ích:</p>
+                    <ul className="space-y-1.5 pl-1">
+                      {mucTieuPoints.map((point: string, idx: number) => (
+                        <li key={idx} className="flex gap-2 items-start text-xs font-semibold text-slate-655 leading-relaxed">
+                          <span className="text-[#0D9488] font-bold shrink-0 mt-0.5">•</span>
+                          <span>{point}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Conditions Treated / Category Pills */}
+                <div className="space-y-2 pt-2">
+                  <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">🏷️ Chỉ định trị liệu:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="bg-slate-100 text-slate-600 text-[9px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-md border border-slate-200">
+                      {service.loai_goi === 'KHAM' ? 'Khám chuyên khoa' : 'Trị liệu đơn buổi'}
+                    </span>
+                    <span className="bg-slate-100 text-slate-600 text-[9px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-md border border-slate-200">
+                      Vận động trị liệu
+                    </span>
+                    <span className="bg-slate-100 text-slate-600 text-[9px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-md border border-slate-200">
+                      Giảm đau cơ học
+                    </span>
+                  </div>
+                </div>
+
+                {/* Key info / Quy trình trị liệu */}
+                {quyTrinhSteps.length > 0 && (
+                  <div className="space-y-2 pt-2">
+                    <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">📋 Quy trình các bước:</p>
+                    <ul className="space-y-1.5 pl-1">
+                      {quyTrinhSteps.map((step: string, idx: number) => (
+                        <li key={idx} className="flex gap-2 items-start text-xs font-semibold text-slate-655 leading-relaxed">
+                          <span className="size-4.5 rounded-full bg-[#14B8A6]/10 text-[#0D9488] flex items-center justify-center font-black text-[9px] shrink-0 mt-0.5">
+                            {idx + 1}
+                          </span>
+                          <span>{step}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              {/* Booking section */}
+              <div className="pt-6 border-t border-slate-100 space-y-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-[9px] text-slate-450 font-extrabold uppercase tracking-wider">Đơn giá trị liệu</p>
+                    <p className="text-2xl font-black text-slate-900 mt-0.5">{formatPrice(service.don_gia)} <span className="text-xs font-bold text-slate-450">/ buổi</span></p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] text-slate-450 font-extrabold uppercase tracking-wider">Thời lượng</p>
+                    <p className="text-sm font-black text-slate-700 mt-0.5 flex items-center gap-1.5"><Clock size={16} className="text-primary" /> {service.thoi_luong_phut} phút</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    onClick={handleBooking}
+                    className="bg-primary hover:bg-[#25A89C] text-white font-extrabold py-3.5 rounded-xl text-[10px] uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2 group cursor-pointer active:scale-98 shadow-md shadow-[#2EC4B6]/15"
+                  >
+                    Đặt lịch trị liệu ngay <ArrowRight size={12} className="group-hover:translate-x-0.5 transition-transform duration-300" />
+                  </button>
+                  <a
+                    href="tel:19001234"
+                    className="bg-white border border-slate-200 hover:border-primary text-slate-750 hover:text-primary font-extrabold py-3.5 rounded-xl text-[10px] uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                  >
+                    <Phone size={12} /> Gọi hotline tư vấn
+                  </a>
+                </div>
               </div>
             </div>
-            
           </div>
         </div>
 
-        {/* Trust Badge Row */}
+        {/* Minimal Trust Badge Row */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-12">
           {TRUST_BADGES.map((badge) => (
-            <div key={badge.title} className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex items-start gap-3">
-              <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+            <div key={badge.title} className="bg-white rounded-2xl border border-slate-150 p-5 shadow-xs flex items-start gap-3">
+              <div className="size-10 rounded-xl bg-[#14B8A6]/10 text-[#0D9488] flex items-center justify-center shrink-0">
                 <badge.icon size={18} />
               </div>
               <div>
-                <h4 className="font-heading font-black text-xs text-secondary mb-1">{badge.title}</h4>
-                <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">{badge.desc}</p>
+                <h4 className="font-heading font-black text-xs text-secondary mb-1 uppercase tracking-tight">{badge.title}</h4>
+                <p className="text-[10px] text-slate-500 leading-relaxed font-semibold">{badge.desc}</p>
               </div>
             </div>
           ))}
         </div>
 
-        {/* Section 2: Quy trình & Mục tiêu trị liệu (2-column layout in a single card) */}
-        <div className="bg-white rounded-[24px] border border-slate-100/80 shadow-[0_8px_30px_rgba(15,23,42,0.015)] p-6 md:p-10 mb-12">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 divide-y md:divide-y-0 md:divide-x divide-slate-100">
-            
-            {/* Left Column: Quy trình trị liệu */}
-            <div className="space-y-6">
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#0D9488] bg-[#14B8A6]/10 px-3 py-1 rounded-full">
-                  🩺 Quy trình
-                </span>
-                <h3 className="font-heading font-black text-secondary text-sm md:text-base uppercase tracking-tight">
-                  Quy trình trị liệu y khoa
-                </h3>
+        {/* Recovery Efficacy Stats Section */}
+        <div className="bg-white rounded-[24px] border border-slate-150 p-6 md:p-10 mb-12 shadow-[0_8px_30px_rgba(15,23,42,0.015)] space-y-8">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black uppercase tracking-widest text-[#0D9488] bg-[#14B8A6]/10 px-3 py-1 rounded-full">
+              📈 Chỉ số lâm sàng
+            </span>
+            <h3 className="font-heading font-black text-secondary text-sm md:text-base uppercase tracking-tight">
+              Hiệu Quả Phục Hồi Dự Kiến
+            </h3>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-slate-50/50 border border-slate-100 p-5 rounded-2xl space-y-2">
+              <div className="flex items-center gap-2 text-[#0D9488]">
+                <TrendingUp size={16} />
+                <span className="text-2xl font-black font-heading">92%</span>
               </div>
-              
-              <div className="space-y-3.5 max-h-[350px] overflow-y-auto pr-2">
-                {quyTrinhSteps.map((step: string, idx: number) => (
-                  <div key={idx} className="flex gap-3 items-start">
-                    <div className="size-5 rounded-full bg-[#14B8A6] text-white flex items-center justify-center font-black text-[9px] shrink-0 mt-0.5">
-                      {idx + 1}
-                    </div>
-                    <p className="text-slate-600 text-xs font-semibold leading-relaxed">
-                      {step}
-                    </p>
-                  </div>
-                ))}
-                {quyTrinhSteps.length === 0 && (
-                  <p className="text-left text-xs text-slate-450 font-bold py-4">
-                    Quy trình trị liệu chi tiết đang được cập nhật...
-                  </p>
-                )}
-              </div>
+              <p className="text-xs font-bold text-slate-800">Giảm đau rõ rệt</p>
+              <p className="text-[10px] text-slate-450 font-semibold leading-relaxed">
+                Bệnh nhân phản hồi mức độ đau giảm đáng kể chỉ sau 3 buổi trị liệu đầu tiên.
+              </p>
             </div>
 
-            {/* Right Column: Mục tiêu trị liệu */}
-            <div className="pt-6 md:pt-0 md:pl-8 space-y-6">
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 bg-emerald-500/10 px-3 py-1 rounded-full">
-                  🎯 Mục tiêu
-                </span>
-                <h3 className="font-heading font-black text-secondary text-sm md:text-base uppercase tracking-tight">
-                  Mục tiêu & Lợi ích trị liệu
-                </h3>
+            <div className="bg-slate-50/50 border border-slate-100 p-5 rounded-2xl space-y-2">
+              <div className="flex items-center gap-2 text-primary">
+                <Activity size={16} />
+                <span className="text-2xl font-black font-heading">95%</span>
               </div>
-              
-              <div className="space-y-3.5 max-h-[350px] overflow-y-auto pr-2">
-                {mucTieuPoints.map((point: string, idx: number) => (
-                  <div key={idx} className="flex gap-3 items-start">
-                    <div className="size-5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center font-bold text-[9px] shrink-0 mt-0.5">
-                      ✓
-                    </div>
-                    <p className="text-slate-600 text-xs font-semibold leading-relaxed">
-                      {point}
-                    </p>
-                  </div>
-                ))}
-                {mucTieuPoints.length === 0 && (
-                  <p className="text-left text-xs text-slate-450 font-bold py-4">
-                    Mục tiêu trị liệu chi tiết đang được cập nhật...
-                  </p>
-                )}
-              </div>
+              <p className="text-xs font-bold text-slate-800">Khôi phục vận động</p>
+              <p className="text-[10px] text-slate-450 font-semibold leading-relaxed">
+                Cải thiện tầm vận động khớp khớp (ROM) tổn thương, giúp bệnh nhân quay lại sinh hoạt bình thường.
+              </p>
             </div>
 
+            <div className="bg-slate-50/50 border border-slate-100 p-5 rounded-2xl space-y-2">
+              <div className="flex items-center gap-2 text-secondary">
+                <ShieldCheck size={16} />
+                <span className="text-2xl font-black font-heading">0%</span>
+              </div>
+              <p className="text-xs font-bold text-slate-800">Rủi ro biến chứng</p>
+              <p className="text-[10px] text-slate-450 font-semibold leading-relaxed">
+                Phương pháp vật lý trị liệu không xâm lấn, không dùng thuốc, an toàn tuyệt đối với mọi cơ địa.
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* Section 3: Hình ảnh thực tế (Gallery) */}
-        {service.anh_gallery && service.anh_gallery.length > 0 && (
-          <div className="bg-white rounded-[24px] border border-slate-100/80 shadow-[0_8px_30px_rgba(15,23,42,0.015)] p-6 md:p-10 mb-12">
-            <div className="flex items-center gap-2 mb-6">
+        {/* Prescribed Technology Spotlight */}
+        {(() => {
+          const tech = getPrescribedTech(service.ten_goi);
+          return (
+            <div className="bg-white rounded-[24px] border border-slate-150 p-6 md:p-10 mb-12 shadow-[0_8px_30px_rgba(15,23,42,0.015)] grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
+              <div className="md:col-span-7 space-y-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#0D9488] bg-[#14B8A6]/10 px-3 py-1 rounded-full">
+                    ⚡ CÔNG NGHỆ CHỈ ĐỊNH
+                  </span>
+                  <h3 className="font-heading font-black text-secondary text-sm md:text-base uppercase tracking-tight">
+                    Thiết Bị Trị Liệu Chính Quy
+                  </h3>
+                </div>
+                <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight leading-snug">
+                  {tech.name}
+                </h4>
+                <p className="text-slate-500 text-[11px] font-semibold leading-relaxed">
+                  {tech.desc}
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                  {tech.specs.map((spec, i) => (
+                    <div key={i} className="flex items-center gap-2 text-[10px] text-slate-655 font-bold">
+                      <span className="size-1.5 bg-[#0D9488] rounded-full shrink-0" />
+                      <span>{spec}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="md:col-span-5 bg-slate-50 border border-slate-150 rounded-[20px] p-6 text-center space-y-4">
+                <span className="text-4xl block">🔬</span>
+                <p className="text-xs font-black text-slate-900 uppercase tracking-tight">FDA & CE APPROVED</p>
+                <p className="text-[10px] text-slate-450 font-semibold leading-relaxed">
+                  Thiết bị được chứng nhận an toàn bởi Cục quản lý Thực phẩm & Dược phẩm Hoa Kỳ (FDA) và đạt chứng chỉ Châu Âu (CE).
+                </p>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Lead Specialists Section */}
+        {specialists.length > 0 && (
+          <div className="bg-white rounded-[24px] border border-slate-150 p-6 md:p-10 mb-12 shadow-[0_8px_30px_rgba(15,23,42,0.015)] space-y-8">
+            <div className="flex items-center gap-2">
               <span className="text-[10px] font-black uppercase tracking-widest text-[#0D9488] bg-[#14B8A6]/10 px-3 py-1 rounded-full">
-                📸 Hình ảnh
+                👨‍⚕️ Hội đồng chuyên môn
               </span>
               <h3 className="font-heading font-black text-secondary text-sm md:text-base uppercase tracking-tight">
-                Hình ảnh thực tế
+                Chuyên Gia Phụ Trách Trị Liệu
               </h3>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-              {service.anh_gallery.map((img, idx) => (
-                <div
-                  key={idx}
-                  onClick={() => setActiveGalleryImage(resolveImageUrl(img))}
-                  className="aspect-square rounded-2xl overflow-hidden border border-slate-200 bg-slate-50 hover:border-[#14B8A6] cursor-pointer group relative shadow-xs"
-                >
-                  <img
-                    src={resolveImageUrl(img)}
-                    alt={`${service.ten_goi} - ảnh ${idx + 1}`}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-slate-950/0 group-hover:bg-slate-950/20 flex items-center justify-center transition-all">
-                    <span className="opacity-0 group-hover:opacity-100 bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider text-[#0D9488] shadow-md transition-all">
-                      🔍 Phóng to
-                    </span>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {specialists.slice(0, 3).map((spec) => (
+                <div key={spec.id} className="bg-slate-50/50 border border-slate-150 rounded-2xl p-5 hover:border-[#14B8A6]/40 transition-all duration-300 flex flex-col justify-between h-full">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="size-12 rounded-xl overflow-hidden bg-slate-200 shrink-0 border border-slate-150">
+                        <img
+                          src={spec.avatar_url || spec.anh_dai_dien || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(spec.ho_ten)}`}
+                          alt={spec.ho_ten}
+                          className="size-full object-cover"
+                        />
+                      </div>
+                      <div>
+                        <h4 className="font-heading font-black text-xs text-slate-900 uppercase tracking-tight">{spec.ho_ten}</h4>
+                        <p className="text-[9px] text-[#0D9488] font-black uppercase tracking-widest mt-0.5">
+                          {spec.vai_tro_id === 3 ? 'Bác sĩ chuyên khoa' : 'Kỹ thuật viên phục hồi'}
+                        </p>
+                      </div>
+                    </div>
+                    {spec.ho_so_chuyen_gia?.so_nam_kinh_nghiem && (
+                      <p className="text-[10px] text-slate-450 font-bold uppercase tracking-wider">
+                        ⏳ Kinh nghiệm: {spec.ho_so_chuyen_gia.so_nam_kinh_nghiem} năm lâm sàng
+                      </p>
+                    )}
+                    {spec.ho_so_chuyen_gia?.the_manh && spec.ho_so_chuyen_gia.the_manh.length > 0 && (
+                      <div className="flex flex-wrap gap-1 pt-1">
+                        {spec.ho_so_chuyen_gia.the_manh.slice(0, 2).map((tm: string, i: number) => (
+                          <span key={i} className="bg-slate-200/50 border border-slate-250 text-slate-600 text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md">
+                            {tm}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/specialists/${spec.id}`)}
+                    className="w-full mt-4 bg-white border border-slate-200 hover:border-[#0d9488] text-slate-655 hover:text-[#0d9488] text-[9px] font-extrabold uppercase tracking-widest py-2.5 rounded-xl transition-all text-center cursor-pointer"
+                  >
+                    Xem thông tin chi tiết
+                  </button>
                 </div>
               ))}
             </div>
           </div>
         )}
+
+
 
         {/* Section: Đánh giá khách hàng */}
         <div className="bg-white rounded-[24px] border border-slate-100/80 shadow-[0_8px_30px_rgba(15,23,42,0.015)] p-6 md:p-10 mb-12">

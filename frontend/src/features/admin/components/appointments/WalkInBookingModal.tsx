@@ -385,8 +385,28 @@ export default function WalkInBookingModal({
   };
 
   const goToInstallmentPayment = (plan: any) => {
+    // Đợt 2 của trả góp thu hết đúng phần còn lại của hóa đơn — deep-link ?hoa_don_id= (mở thẳng
+    // modal chi tiết hóa đơn, "Thu tiền ngay" = đúng dư nợ hiện tại) là chính xác cho trường hợp
+    // này. NHƯNG với từng buổi, số cần thu là số tiền CỦA ĐÚNG BUỔI TIẾP THEO, không phải cả dư nợ
+    // còn lại của hóa đơn (dư nợ gồm cả các buổi tương lai chưa tới) — phải đi qua đúng luồng
+    // checkout theo customer_id + goi_dich_vu_id (cùng nguồn getTungBuoiSessionDue mà backend
+    // dùng để ghi sổ), nếu không sẽ bắt thu nhầm nguyên giá trị gói còn lại.
     const dest = isReceptionist ? '/receptionist/billing' : '/admin/finance';
+    if (plan.hinh_thuc_thanh_toan_goi === 'tung_buoi' && selectedCustomer) {
+      const checkoutDest = isReceptionist ? '/receptionist/billing' : '/admin/quick-billing';
+      navigate(`${checkoutDest}?customer_id=${selectedCustomer.id}&goi_dich_vu_id=${plan.goi_dich_vu_id}`);
+      return;
+    }
     navigate(`${dest}?hoa_don_id=${plan.hoa_don_id}`);
+  };
+
+  // Chỉ định liệu trình (trang_thai='khuyen_nghi') chưa hề được thanh toán/kích hoạt — CHƯA có gì
+  // để "đặt lịch buổi 1" cả (phác đồ còn chưa tồn tại). Phải đưa lễ tân qua đúng luồng thanh toán
+  // để chọn hình thức (trả thẳng/trả góp/từng buổi) và kích hoạt phác đồ trước, không cho phép tạo
+  // thẳng 1 cuộc hẹn rời rạc gắn với gói chưa tồn tại.
+  const goToPackageActivation = (plan: any) => {
+    const dest = isReceptionist ? '/receptionist/billing' : '/admin/quick-billing';
+    navigate(`${dest}?lich_dat_id=${plan.cuoc_hen_id}`);
   };
 
   // Determine active service details
@@ -905,6 +925,12 @@ export default function WalkInBookingModal({
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all font-semibold"
                 />
               </div>
+              <div className="space-y-1 col-span-1 md:col-span-2">
+                <div className="text-[10px] text-amber-700 bg-amber-50/80 border border-amber-200 p-3 rounded-xl font-bold flex items-start gap-2">
+                  <span className="mt-0.5">ℹ️</span>
+                  <span>Mật khẩu mặc định là <strong>123456</strong>. Các trường khác như địa chỉ khách hàng có thể tự cập nhật sau.</span>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -970,7 +996,7 @@ export default function WalkInBookingModal({
                     return (
                       <div
                         key={plan.id}
-                        onClick={() => handleSelectPlan(plan)}
+                        onClick={() => (isRec ? goToPackageActivation(plan) : handleSelectPlan(plan))}
                         className={`p-3 border rounded-xl flex items-center justify-between gap-3 transition-all text-left ${
                           isBlocked
                             ? 'border-rose-200 bg-rose-50/25 cursor-not-allowed'
@@ -990,7 +1016,7 @@ export default function WalkInBookingModal({
                           </div>
                           <p className="text-[10px] text-slate-400 font-semibold mt-0.5">
                             {isRec
-                              ? 'Dịch vụ lẻ/Gói được bác sĩ khuyên dùng'
+                              ? 'Bác sĩ chỉ định — chưa thanh toán/kích hoạt'
                               : hasActiveAppt
                                 ? `Đã dùng: ${plan.so_buoi_da_dung}/${plan.tong_so_buoi} buổi | Buổi ${plan.lich_dang_hoat_dong.so_thu_tu_buoi} đã có lịch`
                                 : `Đã dùng: ${plan.so_buoi_da_dung}/${plan.tong_so_buoi} buổi | Ca tiếp theo: Buổi ${nextSession}`
@@ -1021,7 +1047,7 @@ export default function WalkInBookingModal({
                               }}
                               className="text-[10px] font-black px-3 py-2 rounded-lg shrink-0 bg-amber-500 hover:bg-amber-600 text-white shadow-sm transition-all active:scale-95 cursor-pointer"
                             >
-                              💵 {plan.hinh_thuc_thanh_toan_goi === 'tra_gop' ? 'Thanh toán Đợt 2' : 'Thanh toán gói'}
+                              💵 {plan.hinh_thuc_thanh_toan_goi === 'tra_gop' ? 'Thanh toán Đợt 2' : 'Thanh toán'}
                             </button>
                           ) : (
                             <span className="text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 bg-rose-500 text-white">
@@ -1036,7 +1062,7 @@ export default function WalkInBookingModal({
                                 ? 'bg-amber-500 text-white'
                                 : 'bg-emerald-100 text-emerald-700'
                           }`}>
-                            {isSelected ? 'Đang chọn' : isRec ? 'Chọn đặt lịch' : `Đặt buổi ${nextSession}`}
+                            {isSelected ? 'Đang chọn' : isRec ? '💵 Thanh toán & Kích hoạt' : `Đặt buổi ${nextSession}`}
                           </span>
                         )}
                       </div>

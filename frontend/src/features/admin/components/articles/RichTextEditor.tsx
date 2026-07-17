@@ -15,14 +15,22 @@ interface RichTextEditorProps {
 export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
   const imageInputRef = useRef<HTMLInputElement>(null);
 
+  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+  const serverOrigin = baseUrl.replace(/\/api\/?$/, '');
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ heading: { levels: [2, 3] }, link: { openOnClick: false } }),
       Image,
       Placeholder.configure({ placeholder: 'Soạn nội dung bài viết ở đây...' })
     ],
-    content: value,
-    onUpdate: ({ editor }) => onChange(editor.getHTML()),
+    content: value ? value.replace(/src="\/uploads\//g, `src="${serverOrigin}/uploads/`) : '',
+    onUpdate: ({ editor }) => {
+      const html = editor.getHTML();
+      // Remove server origin so database stores clean relative paths
+      const cleanHtml = html.replace(new RegExp(serverOrigin, 'g'), '');
+      onChange(cleanHtml);
+    },
     editorProps: {
       attributes: {
         class: 'prose prose-sm max-w-none focus:outline-none min-h-[320px] px-4 py-3'
@@ -35,7 +43,8 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
   const handleInsertImage = async (file: File) => {
     try {
       const res = await uploadImage(file, 'blog');
-      editor.chain().focus().setImage({ src: res.data.url }).run();
+      const absoluteUrl = `${serverOrigin}${res.data.url}`;
+      editor.chain().focus().setImage({ src: absoluteUrl }).run();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Không thể tải ảnh lên');
     }

@@ -11,6 +11,7 @@ export const registerSchema = z.object({
   body: z.object({
     ho_ten: z.string({ required_error: 'Họ tên là bắt buộc' }).min(2, 'Họ tên phải có ít nhất 2 ký tự'),
     email: z.string({ required_error: 'Email là bắt buộc' }).email('Email không hợp lệ'),
+    so_dien_thoai: z.string({ required_error: 'Số điện thoại là bắt buộc' }).regex(/^(0|\+84)(3|5|7|8|9)\d{8}$/, 'Số điện thoại không hợp lệ'),
     gioi_tinh: z.enum(['nam', 'nu', 'khac'], { required_error: 'Vui lòng chọn giới tính' }),
     ngay_sinh: z.string({ required_error: 'Ngày sinh là bắt buộc' }).refine((val) => !isNaN(Date.parse(val)) && new Date(val) <= new Date(), {
       message: 'Ngày sinh không hợp lệ'

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import axios from 'axios';
 import {
   createPublicAppointment,
   getCustomerAppointments,
@@ -434,5 +435,43 @@ router.get('/treatment-sessions', verifyToken, getCustomerTreatmentSessions);
 router.get('/notifications', verifyToken, getNotifications);
 router.patch('/notifications/read-all', verifyToken, markAllAsRead);
 router.patch('/notifications/:id/read', verifyToken, markAsRead);
+router.post('/agree-terms', verifyToken, async (req, res) => {
+  try {
+    const khach_hang_id = (req as any).user.id;
+    await pool.query(
+      `UPDATE khach_hang SET ngay_dong_y_dieu_khoan = NOW() WHERE id = $1`,
+      [khach_hang_id]
+    );
+    res.json({ success: true, message: 'Đồng ý điều khoản thành công' });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi đồng ý điều khoản' });
+  }
+});
+
+// TTS Proxy Route for high-quality Vietnamese audio
+router.get('/tts', async (req, res) => {
+  const text = req.query.text as string;
+  if (!text) {
+    return res.status(400).send('Missing text parameter');
+  }
+
+  try {
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=vi&client=tw-ob`;
+    const response = await axios({
+      method: 'get',
+      url,
+      responseType: 'stream',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.0.0 Safari/537.36'
+      }
+    });
+
+    res.setHeader('Content-Type', 'audio/mpeg');
+    response.data.pipe(res);
+  } catch (error: any) {
+    console.error('TTS proxy error:', error.message);
+    res.status(500).send('Error generating TTS');
+  }
+});
 
 export default router;

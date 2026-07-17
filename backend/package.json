@@ -13,6 +13,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@payos/node": "^2.0.5",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",

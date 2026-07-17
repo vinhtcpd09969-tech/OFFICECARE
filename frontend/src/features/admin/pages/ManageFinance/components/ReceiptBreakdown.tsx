@@ -142,13 +142,24 @@ export const ReceiptBreakdown: React.FC<ReceiptBreakdownProps> = ({
               )}
 
               {Number(calculatedData.giam_tru_kham_truoc_do || 0) > 0 && (
-                <div className="flex justify-between border-b border-zinc-100 pb-2 text-emerald-600 font-medium bg-emerald-50/20 p-2 rounded-xl border border-emerald-100/50">
-                  <span>
-                    Khấu trừ phí khám đã đóng{calculatedData.ngay_thanh_toan_kham ? ` ngày ${calculatedData.ngay_thanh_toan_kham}` : ''}
-                    {calculatedData.ma_hoa_don_kham ? ` (HĐ ${calculatedData.ma_hoa_don_kham})` : ''}:
-                  </span>
-                  <span>-{formatCurrency(Number(calculatedData.giam_tru_kham_truoc_do))}</span>
-                </div>
+                <>
+                  <div className="flex justify-between border-b border-zinc-100 pb-2 text-emerald-600 font-medium bg-emerald-50/20 p-2 rounded-xl border border-emerald-100/50">
+                    <span>
+                      Khấu trừ phí khám đã đóng{calculatedData.ngay_thanh_toan_kham ? ` ngày ${calculatedData.ngay_thanh_toan_kham}` : ''}
+                      {calculatedData.ma_hoa_don_kham ? ` (HĐ ${calculatedData.ma_hoa_don_kham})` : ''}:
+                    </span>
+                    <span>-{formatCurrency(Number(calculatedData.giam_tru_kham_truoc_do))}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-zinc-100 pb-2 text-secondary font-semibold">
+                    <span>Còn lại sau khấu trừ:</span>
+                    <span className="text-secondary font-bold">
+                      {formatCurrency(
+                        Number(calculatedData.tong_tien_goi_sau_giam || calculatedData.gia_goc_goi || 0) -
+                        Number(calculatedData.giam_tru_kham_truoc_do || 0)
+                      )}
+                    </span>
+                  </div>
+                </>
               )}
 
               {Number(calculatedData.mien_phi_kham_chua_dong || 0) > 0 && (

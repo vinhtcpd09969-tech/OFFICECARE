@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuthStore, useAuthActions } from '../../../../stores/authStore';
+import { ConfirmDialog } from '../../../../components/ConfirmDialog';
 import { 
   updateProfile, 
   changePassword, 
@@ -51,6 +52,9 @@ export default function CustomerSettings() {
   const [hoTen, setHoTen] = useState(user?.ho_ten || '');
   const email = user?.email || '';
   const [soDienThoai, setSoDienThoai] = useState(user?.so_dien_thoai || '');
+  const [gioiTinh, setGioiTinh] = useState(user?.gioi_tinh || 'nam');
+  const [diaChi, setDiaChi] = useState(user?.dia_chi || '');
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [anhDaiDien, setAnhDaiDien] = useState(user?.anh_dai_dien || '');
   const [soNamKinhNghiem, setSoNamKinhNghiem] = useState(user?.ho_so_chuyen_gia?.so_nam_kinh_nghiem || 0);
   const [bangCapChungChi, setBangCapChungChi] = useState('');
@@ -162,6 +166,8 @@ export default function CustomerSettings() {
     if (user) {
       setHoTen(user.ho_ten);
       setSoDienThoai(user.so_dien_thoai || '');
+      setGioiTinh(user.gioi_tinh || 'nam');
+      setDiaChi(user.dia_chi || '');
       setAnhDaiDien(user.anh_dai_dien || '');
       setSoNamKinhNghiem(user.ho_so_chuyen_gia?.so_nam_kinh_nghiem || 0);
       setMoTa(user.ho_so_chuyen_gia?.mo_ta || '');
@@ -253,7 +259,21 @@ export default function CustomerSettings() {
       toast.error('Họ và tên không được để trống');
       return;
     }
+    if (!soDienThoai.trim()) {
+      toast.error('Số điện thoại không được để trống');
+      return;
+    }
+    const phoneRegex = /^(0|\+84)(3|5|7|8|9)\d{8}$/;
+    if (!phoneRegex.test(soDienThoai.trim())) {
+      toast.error('Số điện thoại không hợp lệ (Ví dụ: 0987654321 hoặc +84987654321)');
+      return;
+    }
 
+    setShowConfirmDialog(true);
+  };
+
+  const executeSaveGeneral = async () => {
+    setShowConfirmDialog(false);
     setLoading(true);
     try {
       // 1. Nếu có điền thay đổi mật khẩu
@@ -291,7 +311,9 @@ export default function CustomerSettings() {
       const payload: any = {
         ho_ten: hoTen,
         so_dien_thoai: soDienThoai,
-        anh_dai_dien: anhDaiDien || null
+        anh_dai_dien: anhDaiDien || null,
+        gioi_tinh: gioiTinh,
+        dia_chi: diaChi
       };
 
       if (isExpert) {
@@ -308,6 +330,8 @@ export default function CustomerSettings() {
         ho_ten: hoTen,
         so_dien_thoai: soDienThoai,
         anh_dai_dien: anhDaiDien || null,
+        gioi_tinh: gioiTinh,
+        dia_chi: diaChi,
         ho_so_chuyen_gia: isExpert ? {
           so_nam_kinh_nghiem: soNamKinhNghiem,
           bang_cap_chung_chi: certValue,
@@ -431,9 +455,16 @@ export default function CustomerSettings() {
                 <div>
                   <h3 className="text-base font-black text-secondary dark:text-zinc-100 tracking-tight">{hoTen || 'Chưa cập nhật'}</h3>
                   <p className="text-zinc-450 dark:text-zinc-500 text-xs font-semibold">{email}</p>
-                  <span className="text-[9px] font-extrabold text-primary bg-primary/10 border border-primary/20 px-2.5 py-0.5 rounded-full inline-block mt-1.5 uppercase tracking-wider">
-                    {getRoleBadge(user?.vai_tro_id)}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                    <span className="text-[9px] font-extrabold text-primary bg-primary/10 border border-primary/20 px-2.5 py-0.5 rounded-full inline-block uppercase tracking-wider">
+                      {getRoleBadge(user?.vai_tro_id)}
+                    </span>
+                    {(Number(user?.vai_tro_id) === 1 || Number(user?.vai_tro_id) === 0) && (
+                      <span className="text-[9px] font-extrabold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/30 border border-teal-250 dark:border-teal-900/40 px-2.5 py-0.5 rounded-full inline-block uppercase tracking-wider">
+                        ★ Điểm uy tín: {user?.diem_uy_tin ?? 100}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -489,6 +520,32 @@ export default function CustomerSettings() {
                         onChange={(e) => setSoDienThoai(e.target.value)}
                         className="w-full bg-zinc-50 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded-xl px-4 py-3 text-xs text-secondary dark:text-zinc-200 font-bold outline-none focus:ring-2 focus:ring-primary/20"
                         required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">Giới tính</label>
+                      <select
+                        value={gioiTinh}
+                        onChange={(e) => setGioiTinh(e.target.value)}
+                        className="w-full bg-zinc-50 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded-xl px-4 py-3 text-xs text-secondary dark:text-zinc-200 font-bold outline-none focus:ring-2 focus:ring-primary/20"
+                      >
+                        <option value="nam">Nam</option>
+                        <option value="nu">Nữ</option>
+                        <option value="khac">Khác</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">Địa chỉ</label>
+                      <input 
+                        type="text" 
+                        value={diaChi}
+                        onChange={(e) => setDiaChi(e.target.value)}
+                        placeholder="Số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành phố"
+                        className="w-full bg-zinc-50 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded-xl px-4 py-3 text-xs text-secondary dark:text-zinc-200 font-bold outline-none focus:ring-2 focus:ring-primary/20"
                       />
                     </div>
                   </div>
@@ -1152,7 +1209,17 @@ export default function CustomerSettings() {
           </div>
         </div>
       )}
-
+      {/* Save Settings Confirm Modal */}
+      <ConfirmDialog
+        isOpen={showConfirmDialog}
+        title="Lưu thay đổi cài đặt?"
+        message="Bạn có chắc chắn muốn lưu lại toàn bộ thay đổi đối với cài đặt tài khoản này không?"
+        confirmLabel="Lưu thay đổi"
+        cancelLabel="Hủy bỏ"
+        type="warning"
+        onConfirm={executeSaveGeneral}
+        onCancel={() => setShowConfirmDialog(false)}
+      />
     </div>
   );
 }

@@ -29,6 +29,9 @@ export const resetStaffPassword = (id: string) => api.post(`/admin/staff/${id}/r
 export const getCustomers = () => api.get('/admin/customers');
 export const updateCustomer = (id: string, data: any) => api.put(`/admin/customers/${id}`, data);
 export const toggleCustomerLock = (id: string, isLocked: boolean) => api.patch(`/admin/customers/${id}/toggle-lock`, { isLocked });
+export const getCustomersOverview = (params: { page: number; pageSize: number; search?: string; status?: string[]; repTier?: string }) =>
+  api.get('/admin/customers/overview', { params: { ...params, status: params.status?.join(',') || undefined } });
+export const getCustomerEmr = (id: string) => api.get(`/admin/customers/${id}/emr`);
 export const getAvailableStaff = (params: any) => api.get('/admin/staff/available', { params });
 
 // Rooms & Equipment

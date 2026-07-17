@@ -50,6 +50,9 @@ router.delete('/schedules/:id', authorizeRoles(5, 6), adminController.deleteSche
 
 // ─── KHÁCH HÀNG ────────────────────────────────────────────────────────────────
 router.get('/customers', authorizeRoles(2, 4, 5, 6), adminController.getCustomers);
+// /overview khai báo TRƯỚC /:id để không bị route :id nuốt mất "overview" làm id.
+router.get('/customers/overview', authorizeRoles(5, 6), adminController.getCustomersOverview);
+router.get('/customers/:id/emr', authorizeRoles(5, 6), adminController.getCustomerEmr);
 router.put('/customers/:id', authorizeRoles(5, 6), adminController.updateCustomer);
 router.patch('/customers/:id/toggle-lock', authorizeRoles(5, 6), adminController.toggleCustomerLock);
 

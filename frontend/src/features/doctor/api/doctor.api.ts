@@ -32,6 +32,7 @@ export interface DoctorAppointment {
   ho_so_benh_an_id?: string;
   chan_doan?: string;
   chong_chi_dinh?: string;
+  anh_dinh_kem_url?: string | null;
 }
 
 export interface PatientMedicalRecord {
@@ -85,13 +86,6 @@ export interface PatientProfile {
   treatmentPlans: TreatmentPlan[];
 }
 
-export interface ServiceItem {
-  id: string;
-  ten_dich_vu: string;
-  mo_ta?: string;
-  gia_hien_tai: number;
-}
-
 export interface PackageItem {
   id: string;
   ten_goi: string;
@@ -104,7 +98,6 @@ export interface ClinicalAssessmentPayload {
   chan_doan: string;
   chong_chi_dinh: string;
   goi_dich_vu_id?: string | null;
-  dich_vu_id?: string | null;
   ghi_chu?: string | null;
 }
 
@@ -121,16 +114,16 @@ export const getAppointmentDetail = (id: string) =>
     chong_chi_dinh?: string;
     ghi_chu?: string;
     goi_dich_vu_id?: string;
-    dich_vu_id?: string;
     vas_truoc?: number;
     vas_sau?: number;
     phac_do_dieu_tri_id?: string | null;
+    so_thu_tu_buoi?: number | null;
+    ten_dich_vu?: string | null;
+    pd_tong_so_buoi?: number | null;
   }>(`/doctor/appointments/${id}`);
 
 export const getPatientProfile = (patientId: string) => 
   api.get<PatientProfile>(`/doctor/patients/${patientId}/profile`);
-
-export const getServices = () => api.get<ServiceItem[]>('/doctor/services');
 
 export const getPackages = () => api.get<PackageItem[]>('/doctor/packages');
 

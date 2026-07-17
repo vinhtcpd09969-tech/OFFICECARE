@@ -255,6 +255,37 @@ export const toggleCustomerLock = async (req: Request, res: Response) => {
   }
 };
 
+const VALID_CUSTOMER_STATUS_FILTERS = ['none', 'le', 'pending', 'progress', 'done', 'cancel', 'any_plan', 'locked'];
+
+export const getCustomersOverview = async (req: Request, res: Response) => {
+  try {
+    const page = Math.max(1, parseInt(String(req.query.page ?? '1'), 10) || 1);
+    const pageSize = Math.min(100, Math.max(1, parseInt(String(req.query.pageSize ?? '20'), 10) || 20));
+    const search = String(req.query.search ?? '').trim();
+    const status = String(req.query.status ?? '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(s => VALID_CUSTOMER_STATUS_FILTERS.includes(s));
+    const repTierRaw = String(req.query.repTier ?? '');
+    const repTier = (['low', 'mid', 'high'] as const).includes(repTierRaw as any) ? (repTierRaw as 'low' | 'mid' | 'high') : undefined;
+    const result = await adminService.getCustomersOverview({ page, pageSize, search, status, repTier });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi lấy danh sách khách hàng' });
+  }
+};
+
+export const getCustomerEmr = async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const record = await adminService.getCustomerEmr(id);
+    res.json(record);
+  } catch (error: any) {
+    if (error.message === 'Không tìm thấy khách hàng') return res.status(404).json({ message: error.message });
+    res.status(500).json({ message: 'Lỗi server khi lấy hồ sơ khách hàng' });
+  }
+};
+
 // --- QUẢN LÝ THIẾT BỊ Y TẾ ---
 
 export const getEquipment = async (req: Request, res: Response) => {

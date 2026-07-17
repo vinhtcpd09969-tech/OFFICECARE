@@ -109,6 +109,20 @@ class DoctorService {
       ghi_chu?: string | null;
     }
   ) {
+    // Chỉ còn 1 loại chỉ định duy nhất: gói liệu trình — chặn cứng ở server (không chỉ ẩn UI)
+    // trường hợp lọt lên 1 gói lẻ, và 1 khách tối đa 1 liệu trình tại 1 thời điểm nên phải kiểm
+    // tra trước khi cho chỉ định thêm (xem getBlockingLieuTrinh).
+    if (data.goi_dich_vu_id) {
+      const isLieuTrinh = await doctorRepository.isPackageLieuTrinh(data.goi_dich_vu_id);
+      if (!isLieuTrinh) {
+        throw new Error('Bác sĩ chỉ được chỉ định gói liệu trình, không được chỉ định dịch vụ lẻ.');
+      }
+      const blockCheck = await doctorRepository.getBlockingLieuTrinh(data.lich_dat_id);
+      if (blockCheck.blocked) {
+        throw new Error(blockCheck.reason);
+      }
+    }
+
     // Gọi repository để thực hiện transaction lưu bệnh án và đóng lịch hẹn
     const result = await doctorRepository.saveClinicalAssessment({
       lich_dat_id: data.lich_dat_id,

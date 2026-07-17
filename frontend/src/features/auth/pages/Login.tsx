@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Eye, EyeOff, Info, ArrowLeft, ShieldAlert } from 'lucide-react';
+import { Eye, EyeOff, ArrowLeft, ShieldAlert } from 'lucide-react';
 import { useLoginState } from '../hooks/useLoginState';
 import { Link, useLocation } from 'react-router-dom';
 import AuthVisualPanel from '../components/AuthVisualPanel';
@@ -158,17 +158,7 @@ export default function Login() {
                   </Link>
                 </div>
 
-                {location.state?.from === '/booking' && (
-                  <div className="mb-6 p-4 bg-teal-50/50 border border-[#14B8A6]/15 text-slate-700 rounded-2xl text-xs flex items-start gap-2.5 shadow-sm animate-pulse-custom">
-                    <Info className="shrink-0 mt-0.5 text-[#0D9488]" size={16} />
-                    <div>
-                      <p className="font-extrabold text-slate-900 font-jakarta">Đồng bộ lịch khám y khoa</p>
-                      <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed font-semibold">
-                        Đăng nhập để đồng bộ lịch hẹn và hồ sơ bệnh án cá nhân của bạn nhé!
-                      </p>
-                    </div>
-                  </div>
-                )}
+
 
                 <div className="mb-6">
                   <h2 className="font-jakarta text-2xl font-black text-slate-900 tracking-tight">

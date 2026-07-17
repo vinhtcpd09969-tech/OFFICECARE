@@ -42,6 +42,8 @@ export const updateProfile = (data: {
   bang_cap_chung_chi?: string;
   mo_ta?: string;
   the_manh?: string[];
+  gioi_tinh?: string;
+  dia_chi?: string;
 }) => api.put('/auth/profile', data);
 
 export const changePassword = (data: { oldPassword: string; newPassword: string }) =>
@@ -51,3 +53,5 @@ export const getMe = () => api.get('/auth/me');
 
 export const getCustomerMedicalRecord = () => 
   api.get('/client/medical-record');
+
+export const agreeTerms = () => api.post('/client/agree-terms');

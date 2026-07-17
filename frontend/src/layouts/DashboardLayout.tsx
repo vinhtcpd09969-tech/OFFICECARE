@@ -10,7 +10,8 @@ import {
   Search,
   Menu,
   X,
-  FileText
+  FileText,
+  ShieldAlert
 } from 'lucide-react';
 
 export default function DashboardLayout() {
@@ -342,7 +343,28 @@ export default function DashboardLayout() {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 p-4 sm:p-8 w-full max-w-7xl mx-auto">
+        <main className="flex-1 p-4 sm:p-8 w-full max-w-7xl mx-auto space-y-6">
+          {user?.isDefaultPassword && (
+            <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 p-4.5 rounded-[20px] shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in slide-in-from-top-2 duration-300">
+              <div className="flex items-start gap-3">
+                <div className="p-2 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-xl shrink-0">
+                  <ShieldAlert size={20} className="animate-pulse" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black text-amber-900 dark:text-amber-350 uppercase tracking-wide">Cảnh báo bảo mật tài khoản</h4>
+                  <p className="text-[11px] text-amber-800 dark:text-amber-400/90 font-semibold leading-relaxed mt-0.5">
+                    Tài khoản của bạn đang sử dụng mật khẩu mặc định (<strong>123456</strong>) do nhân sự OfficeCare cấp. Vui lòng cập nhật mật khẩu mới ngay lập tức để bảo vệ hồ sơ bệnh án cá nhân của mình!
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => navigate('/settings')}
+                className="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition-all shadow-md shadow-amber-600/15 cursor-pointer whitespace-nowrap"
+              >
+                Đổi mật khẩu ngay
+              </button>
+            </div>
+          )}
           <Outlet />
         </main>
       </div>

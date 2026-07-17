@@ -6,6 +6,7 @@ import { format, startOfWeek, addDays, subDays, addMonths, subMonths } from 'dat
 import { vi } from 'date-fns/locale';
 
 import AppointmentCalendar from '../../../admin/components/appointments/AppointmentCalendar';
+import AppointmentInfoModal from '../../../admin/components/appointments/AppointmentInfoModal';
 import { AppointmentsFilterBar } from '../../../admin/components/appointments/ui/AppointmentsFilterBar';
 import { AppointmentKpiCards } from '../../../admin/components/appointments/ui/AppointmentKpiCards';
 import { CapacityView } from '../../../admin/components/appointments/ui/CapacityView';
@@ -36,6 +37,9 @@ export default function TechnicianAppointments() {
   const [appointments, setAppointments] = useState<DoctorAppointment[]>([]);
   const [schedules, setSchedules] = useState<DoctorSchedule[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Modal state for viewing finished/cancelled appointments
+  const [selectedApt, setSelectedApt] = useState<any>(null);
 
   // Confirm Modal state for Checked-in ca
   const [confirmApt, setConfirmApt] = useState<any>(null);
@@ -184,6 +188,8 @@ export default function TechnicianAppointments() {
   const handleOpenDetailModal = useCallback((apt: any) => {
     if (['cho_kham', 'dang_kham', 'da_checkin'].includes(apt.trang_thai)) {
       setConfirmApt(apt);
+    } else {
+      setSelectedApt(apt);
     }
   }, []);
 
@@ -274,6 +280,9 @@ export default function TechnicianAppointments() {
           )}
         </>
       )}
+
+      {/* Detail Modal for Finished/Cancelled Appointments */}
+      <AppointmentInfoModal appointment={selectedApt} onClose={() => setSelectedApt(null)} />
 
       {/* Confirmation Modal for Checked-in Appointments */}
       {confirmApt && (() => {
