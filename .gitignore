@@ -53,3 +53,6 @@ docs/Download.mp4
 
 # Non-code personal files dropped in repo root
 document/
+
+# Antigravity agent tool scaffolding (per-machine, not project source)
+.agentantigravity/
