@@ -258,6 +258,17 @@ export const getCustomerTreatmentSessions = async (req: Request, res: Response):
   }
 };
 
+export const getCustomerInvoices = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const nguoi_dung_id = (req as any).user.id;
+    const data = await appointmentService.getCustomerInvoices(nguoi_dung_id);
+    return res.json(data);
+  } catch (error) {
+    console.error('Lỗi khi lấy hóa đơn khách hàng:', error);
+    return res.status(500).json({ message: 'Lỗi server khi truy vấn hóa đơn.' });
+  }
+};
+
 export const keepAliveAppointment = async (req: Request, res: Response): Promise<any> => {
   try {
     const id = req.params.id as string;

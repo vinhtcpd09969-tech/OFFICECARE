@@ -10,6 +10,7 @@ import {
   getPublicAppointmentById,
   getCustomerMedicalRecord,
   getCustomerTreatmentSessions,
+  getCustomerInvoices,
   confirmEmailAppointment,
   confirmOTPAppointment,
   resendConfirmationEmail,
@@ -162,7 +163,7 @@ router.get('/specialists/:id', async (req, res) => {
 router.get('/specialists/:id/reviews', async (req, res) => {
   try {
     const queryStr = `
-      SELECT dg.id, dg.so_sao as rating, dg.nhan_xet as comment, kh.ho_ten as name, dg.ngay_cap_nhat as date
+      SELECT dg.id, dg.so_sao as rating, dg.nhan_xet as comment, kh.ho_ten as name, dg.ngay_cap_nhat as date, dg.phan_hoi_nhan_xet as reply
       FROM danh_gia_nhan_su dg
       JOIN khach_hang kh ON dg.khach_hang_id = kh.id
       WHERE dg.nhan_su_id = $1
@@ -178,7 +179,7 @@ router.get('/specialists/:id/reviews', async (req, res) => {
 router.get('/services/:id/reviews', async (req, res) => {
   try {
     const queryStr = `
-      SELECT dg.id, dg.so_sao as rating, dg.nhan_xet as comment, kh.ho_ten as name, dg.ngay_cap_nhat as date
+      SELECT dg.id, dg.so_sao as rating, dg.nhan_xet as comment, kh.ho_ten as name, dg.ngay_cap_nhat as date, dg.phan_hoi_nhan_xet as reply
       FROM danh_gia_goi_dich_vu dg
       JOIN khach_hang kh ON dg.khach_hang_id = kh.id
       WHERE dg.goi_dich_vu_id = $1
@@ -194,7 +195,7 @@ router.get('/services/:id/reviews', async (req, res) => {
 router.get('/testimonials', async (req, res) => {
   try {
     const queryStr = `
-      SELECT dg.id, dg.so_sao, dg.nhan_xet, kh.ho_ten, kh.gioi_tinh
+      SELECT dg.id, dg.so_sao, dg.nhan_xet, kh.ho_ten, kh.gioi_tinh, dg.phan_hoi_nhan_xet as reply
       FROM danh_gia_goi_dich_vu dg
       JOIN khach_hang kh ON dg.khach_hang_id = kh.id
       ORDER BY dg.ngay_cap_nhat DESC
@@ -340,7 +341,7 @@ router.get('/reviews/my-reviews', verifyToken, async (req, res) => {
     
     // Service reviews
     const { rows: serviceReviews } = await pool.query(`
-      SELECT dg.id, dg.so_sao as rating, dg.nhan_xet as comment, dg.ngay_cap_nhat as date, g.ten_goi as service_name, dg.goi_dich_vu_id
+      SELECT dg.id, dg.so_sao as rating, dg.nhan_xet as comment, dg.ngay_cap_nhat as date, g.ten_goi as service_name, dg.goi_dich_vu_id, dg.phan_hoi_nhan_xet as reply
       FROM danh_gia_goi_dich_vu dg
       JOIN goi_dich_vu g ON dg.goi_dich_vu_id = g.id
       WHERE dg.khach_hang_id = $1
@@ -349,7 +350,7 @@ router.get('/reviews/my-reviews', verifyToken, async (req, res) => {
 
     // Staff reviews
     const { rows: staffReviews } = await pool.query(`
-      SELECT dg.id, dg.so_sao as rating, dg.nhan_xet as comment, dg.ngay_cap_nhat as date, nd.ho_ten as staff_name, dg.nhan_su_id
+      SELECT dg.id, dg.so_sao as rating, dg.nhan_xet as comment, dg.ngay_cap_nhat as date, nd.ho_ten as staff_name, dg.nhan_su_id, dg.phan_hoi_nhan_xet as reply
       FROM danh_gia_nhan_su dg
       JOIN nguoi_dung nd ON dg.nhan_su_id = nd.id
       WHERE dg.khach_hang_id = $1
@@ -432,6 +433,7 @@ router.delete('/reviews/staff/:id', verifyToken, async (req, res) => {
 });
 router.get('/medical-record', verifyToken, getCustomerMedicalRecord);
 router.get('/treatment-sessions', verifyToken, getCustomerTreatmentSessions);
+router.get('/invoices', verifyToken, getCustomerInvoices);
 router.get('/notifications', verifyToken, getNotifications);
 router.patch('/notifications/read-all', verifyToken, markAllAsRead);
 router.patch('/notifications/:id/read', verifyToken, markAsRead);

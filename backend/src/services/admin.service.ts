@@ -80,9 +80,9 @@ class AdminService {
     return user;
   }
 
-  async resetStaffPassword(id: string) {
+  async updateStaffPassword(id: string, password: string) {
     const salt = await bcrypt.genSalt(10);
-    const hash = await bcrypt.hash('123456', salt);
+    const hash = await bcrypt.hash(password, salt);
     const user = await adminRepository.updateStaffPassword(id, hash);
     if (!user) throw new Error('Không tìm thấy nhân sự');
     return user;
@@ -305,6 +305,14 @@ class AdminService {
   // --- QUẢN LÝ ĐÁNH GIÁ ---
   async getFeedback() {
     return adminRepository.getFeedback();
+  }
+
+  async replyServiceFeedback(id: string, phanHoi: string, staffId: number) {
+    return adminRepository.replyServiceFeedback(id, phanHoi, staffId);
+  }
+
+  async replyStaffFeedback(id: string, phanHoi: string, staffId: number) {
+    return adminRepository.replyStaffFeedback(id, phanHoi, staffId);
   }
 
   // --- BÁO CÁO & THỐNG KÊ ---

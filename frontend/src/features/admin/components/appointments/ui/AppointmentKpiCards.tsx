@@ -1,19 +1,36 @@
 import { motion } from 'framer-motion';
-import { Calendar, AlertCircle, CheckCircle2, HelpCircle } from 'lucide-react';
+import { Calendar, AlertCircle, CalendarCheck, MapPin, Stethoscope, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
+import { AppointmentKpiBuckets } from '../../../../../utils/appointmentKpi';
 
-interface KpiData {
-  total: number;
-  waiting: number;
-  completed: number;
-  secondary: number;
-}
+type FilterableBucketKey = Exclude<keyof AppointmentKpiBuckets, 'total'>;
 
 interface AppointmentKpiCardsProps {
   role: 'admin' | 'receptionist' | 'doctor' | 'technician';
-  kpis: KpiData;
+  kpis: AppointmentKpiBuckets;
   viewMode: 'timeline' | 'capacity';
   timeRange: 'today' | '7days' | 'month' | 'custom';
   activeType: 'kham' | 'dieu_tri';
+  /** Bucket đang được chọn để lọc danh sách bên dưới — thẻ "Tổng ca" không nằm trong tập này vì
+   * không dùng để lọc. */
+  activeStatusFilter?: FilterableBucketKey | null;
+  /** Bấm 1 thẻ (trừ Tổng ca) để lọc theo đúng trạng thái đó; bấm lại thẻ đang chọn để bỏ lọc.
+   * Bỏ qua prop này (undefined) thì thẻ chỉ hiển thị, không bấm được — giữ tương thích ngược. */
+  onSelectStatus?: (key: FilterableBucketKey | null) => void;
+}
+
+interface KpiCardDef {
+  key: 'total' | FilterableBucketKey;
+  title: string;
+  value: number;
+  subtext: string;
+  subtextColor: string;
+  pct: number;
+  pctSuffix?: string;
+  color: string;
+  trackColor: string;
+  ringColor: string;
+  accentHex: string;
+  icon: React.ReactNode;
 }
 
 export function AppointmentKpiCards({
@@ -21,9 +38,11 @@ export function AppointmentKpiCards({
   kpis,
   viewMode,
   timeRange,
-  activeType
+  activeType,
+  activeStatusFilter = null,
+  onSelectStatus
 }: AppointmentKpiCardsProps) {
-  const { total, waiting, completed, secondary } = kpis;
+  const { total, choXacNhan, daXacNhan, daCheckin, dangKham, hoanThanh, daHuy, khongDen } = kpis;
 
   // Calculate percentages for circular rings
   const getPercentage = (value: number, base: number) => {
@@ -31,11 +50,6 @@ export function AppointmentKpiCards({
     return Math.min(Math.round((value / base) * 100), 100);
   };
 
-  const completedPct = getPercentage(completed, total);
-  const waitingPct = getPercentage(waiting, total);
-  const secondaryPct = getPercentage(secondary, total);
-
-  // SVG Circular Ring Configuration
   const radius = 16;
   const circumference = 2 * Math.PI * radius;
 
@@ -54,166 +68,146 @@ export function AppointmentKpiCards({
   };
 
   // Determine active dynamic subtitle label based on view mode and time range selection
-  const rangeLabel = 
-    viewMode === 'timeline' 
-      ? 'ngày này' 
+  const rangeLabel =
+    viewMode === 'timeline'
+      ? 'ngày này'
       : timeRange === 'month'
         ? 'tháng này'
         : 'tuần này';
 
   const isKham = activeType === 'kham';
+  const isStaff = role === 'doctor' || role === 'technician';
 
-  // Build stats config based on role
-  let stats: any[] = [];
+  // Định nghĩa đủ 8 thẻ theo đúng 8 nhóm trạng thái dùng chung (utils/appointmentKpi.ts) — mỗi
+  // actor chỉ chọn hiển thị 1 tập con (xem `stats` bên dưới), giữ nguyên màu/icon khớp với
+  // appointmentStatusConfig.ts để nhất quán với badge trạng thái ở mọi nơi khác trong app.
+  const allCards: Record<'total' | FilterableBucketKey, KpiCardDef> = {
+    total: {
+      key: 'total',
+      title: isStaff
+        ? (isKham ? 'Tổng ca khám phụ trách' : 'Tổng ca điều trị phụ trách')
+        : (isKham ? 'Tổng ca khám' : 'Tổng ca điều trị'),
+      value: total,
+      subtext: isStaff ? `Tổng ca được giao ${rangeLabel}` : (isKham ? `Tổng ca khám ${rangeLabel}` : `Tổng ca điều trị ${rangeLabel}`),
+      subtextColor: 'text-[#0D9488]',
+      pct: 100,
+      color: 'from-[#0D9488] to-[#14B8A6]',
+      trackColor: 'stroke-teal-500/10',
+      ringColor: 'stroke-[#0D9488]',
+      accentHex: '#0D9488',
+      icon: <Calendar className="text-[#0D9488]" size={18} />
+    },
+    choXacNhan: {
+      key: 'choXacNhan',
+      title: 'Chờ xác nhận',
+      value: choXacNhan,
+      subtext: 'Thiếu 1 trong 2: nhân sự hoặc xác nhận',
+      subtextColor: 'text-amber-500',
+      pct: getPercentage(choXacNhan, total),
+      color: 'from-[#F59E0B] to-[#FBBF24]',
+      trackColor: 'stroke-amber-500/10',
+      ringColor: 'stroke-[#F59E0B]',
+      accentHex: '#F59E0B',
+      icon: <AlertCircle className="text-[#F59E0B]" size={18} />
+    },
+    daXacNhan: {
+      key: 'daXacNhan',
+      title: 'Đã xác nhận',
+      value: daXacNhan,
+      subtext: 'Đã gán nhân sự và xác nhận',
+      subtextColor: 'text-blue-500',
+      pct: getPercentage(daXacNhan, total),
+      color: 'from-[#3B82F6] to-[#60A5FA]',
+      trackColor: 'stroke-blue-500/10',
+      ringColor: 'stroke-[#3B82F6]',
+      accentHex: '#3B82F6',
+      icon: <CalendarCheck className="text-[#3B82F6]" size={18} />
+    },
+    daCheckin: {
+      key: 'daCheckin',
+      title: 'Đã check-in',
+      value: daCheckin,
+      subtext: 'Đã đến, chờ gọi vào phòng',
+      subtextColor: 'text-teal-600',
+      pct: getPercentage(daCheckin, total),
+      color: 'from-[#0F766E] to-[#2DD4BF]',
+      trackColor: 'stroke-teal-600/10',
+      ringColor: 'stroke-[#0F766E]',
+      accentHex: '#0F766E',
+      icon: <MapPin className="text-[#0F766E]" size={18} />
+    },
+    dangKham: {
+      key: 'dangKham',
+      title: isKham ? 'Đang khám' : 'Đang điều trị',
+      value: dangKham,
+      subtext: isKham ? 'Đang trong phòng khám' : 'Đang trong phòng trị liệu',
+      subtextColor: 'text-emerald-500',
+      pct: getPercentage(dangKham, total),
+      color: 'from-[#10B981] to-[#34D399]',
+      trackColor: 'stroke-emerald-500/10',
+      ringColor: 'stroke-[#10B981]',
+      accentHex: '#10B981',
+      icon: <Stethoscope className="text-[#10B981]" size={18} />
+    },
+    hoanThanh: {
+      key: 'hoanThanh',
+      title: 'Hoàn thành',
+      value: hoanThanh,
+      subtext: isKham ? 'Khám xong' : 'Trị liệu xong',
+      subtextColor: 'text-emerald-600',
+      pct: getPercentage(hoanThanh, total),
+      color: 'from-[#22C55E] to-[#4ADE80]',
+      trackColor: 'stroke-emerald-500/10',
+      ringColor: 'stroke-[#22C55E]',
+      accentHex: '#22C55E',
+      icon: <CheckCircle2 className="text-[#22C55E]" size={18} />
+    },
+    daHuy: {
+      key: 'daHuy',
+      title: 'Đã hủy',
+      value: daHuy,
+      subtext: 'Ca đã hủy',
+      subtextColor: 'text-rose-500',
+      pct: getPercentage(daHuy, total),
+      pctSuffix: 'tổng số',
+      color: 'from-[#EF4444] to-[#F87171]',
+      trackColor: 'stroke-rose-500/10',
+      ringColor: 'stroke-[#EF4444]',
+      accentHex: '#EF4444',
+      icon: <XCircle className="text-[#EF4444]" size={18} />
+    },
+    khongDen: {
+      key: 'khongDen',
+      title: 'Không đến',
+      value: khongDen,
+      subtext: 'Khách không đến',
+      subtextColor: 'text-slate-500',
+      pct: getPercentage(khongDen, total),
+      pctSuffix: 'tổng số',
+      color: 'from-[#94A3B8] to-[#CBD5E1]',
+      trackColor: 'stroke-slate-500/10',
+      ringColor: 'stroke-[#94A3B8]',
+      accentHex: '#94A3B8',
+      icon: <AlertTriangle className="text-[#94A3B8]" size={18} />
+    }
+  };
 
-  if (role === 'admin') {
-    stats = [
-      {
-        title: isKham ? "Tổng ca khám" : "Tổng ca điều trị",
-        value: total,
-        subtext: isKham ? `Tổng ca khám ${rangeLabel}` : `Tổng ca điều trị ${rangeLabel}`,
-        subtextColor: "text-[#0D9488]",
-        pct: 100,
-        color: "from-[#0D9488] to-[#14B8A6]",
-        trackColor: "stroke-teal-500/10",
-        ringColor: "stroke-[#0D9488]",
-        icon: <Calendar className="text-[#0D9488]" size={18} />
-      },
-      {
-        title: "Chưa xác nhận",
-        value: waiting,
-        subtext: "Chờ xác thực OTP hoặc duyệt",
-        subtextColor: "text-amber-500",
-        pct: waitingPct,
-        color: "from-[#F59E0B] to-[#FBBF24]",
-        trackColor: "stroke-amber-500/10",
-        ringColor: "stroke-[#F59E0B]",
-        icon: <AlertCircle className="text-[#F59E0B]" size={18} />
-      },
-      {
-        title: "Đã hoàn thành",
-        value: completed,
-        subtext: isKham ? "Khám xong" : "Trị liệu xong",
-        subtextColor: "text-emerald-500",
-        pct: completedPct,
-        color: "from-[#22C55E] to-[#4ADE80]",
-        trackColor: "stroke-emerald-500/10",
-        ringColor: "stroke-[#22C55E]",
-        icon: <CheckCircle2 className="text-[#22C55E]" size={18} />
-      },
-      {
-        title: "Hủy / Vắng mặt",
-        value: secondary,
-        subtext: "Ca đã hủy hoặc không đến",
-        subtextColor: "text-rose-500",
-        pct: secondaryPct,
-        color: "from-[#EF4444] to-[#F87171]",
-        trackColor: "stroke-rose-500/10",
-        ringColor: "stroke-[#EF4444]",
-        icon: <HelpCircle className="text-[#EF4444]" size={18} />
-      }
-    ];
-  } else if (role === 'receptionist') {
-    stats = [
-      {
-        title: isKham ? "Tổng ca khám" : "Tổng ca điều trị",
-        value: total,
-        subtext: `Tổng ca đặt lịch ${rangeLabel}`,
-        subtextColor: "text-[#0D9488]",
-        pct: 100,
-        color: "from-[#0D9488] to-[#14B8A6]",
-        trackColor: "stroke-teal-500/10",
-        ringColor: "stroke-[#0D9488]",
-        icon: <Calendar className="text-[#0D9488]" size={18} />
-      },
-      {
-        title: "Chưa xác nhận",
-        value: waiting,
-        subtext: "Chờ liên hệ hoặc duyệt OTP",
-        subtextColor: "text-amber-500",
-        pct: waitingPct,
-        color: "from-[#F59E0B] to-[#FBBF24]",
-        trackColor: "stroke-amber-500/10",
-        ringColor: "stroke-[#F59E0B]",
-        icon: <AlertCircle className="text-[#F59E0B]" size={18} />
-      },
-      {
-        title: "Chờ thanh toán",
-        value: completed,
-        subtext: "Ca hoàn thành chờ thu tiền",
-        subtextColor: "text-blue-500",
-        pct: completedPct,
-        color: "from-[#3B82F6] to-[#60A5FA]",
-        trackColor: "stroke-blue-500/10",
-        ringColor: "stroke-[#3B82F6]",
-        icon: <CheckCircle2 className="text-[#3B82F6]" size={18} />
-      },
-      {
-        title: "Hủy / Không đến",
-        value: secondary,
-        subtext: "Ca bị hủy hoặc vắng mặt",
-        subtextColor: "text-rose-500",
-        pct: secondaryPct,
-        color: "from-[#EF4444] to-[#F87171]",
-        trackColor: "stroke-rose-500/10",
-        ringColor: "stroke-[#EF4444]",
-        icon: <HelpCircle className="text-[#EF4444]" size={18} />
-      }
-    ];
-  } else {
-    // doctor / technician
-    stats = [
-      {
-        title: isKham ? "Tổng ca khám phụ trách" : "Tổng ca điều trị phụ trách",
-        value: total,
-        subtext: `Tổng ca được giao ${rangeLabel}`,
-        subtextColor: "text-[#0D9488]",
-        pct: 100,
-        color: "from-[#0D9488] to-[#14B8A6]",
-        trackColor: "stroke-teal-500/10",
-        ringColor: "stroke-[#0D9488]",
-        icon: <Calendar className="text-[#0D9488]" size={18} />
-      },
-      {
-        title: "Chờ thực hiện",
-        value: waiting,
-        subtext: "Khách đã check-in / Đang chờ",
-        subtextColor: "text-amber-500",
-        pct: waitingPct,
-        color: "from-[#F59E0B] to-[#FBBF24]",
-        trackColor: "stroke-amber-500/10",
-        ringColor: "stroke-[#F59E0B]",
-        icon: <AlertCircle className="text-[#F59E0B]" size={18} />
-      },
-      {
-        title: "Đang thực hiện",
-        value: completed,
-        subtext: "Đang trong phòng trị liệu",
-        subtextColor: "text-emerald-500",
-        pct: completedPct,
-        color: "from-[#22C55E] to-[#4ADE80]",
-        trackColor: "stroke-emerald-500/10",
-        ringColor: "stroke-[#22C55E]",
-        icon: <CheckCircle2 className="text-[#22C55E]" size={18} />
-      },
-      {
-        title: "Ca trễ hẹn / Quá giờ",
-        value: secondary,
-        subtext: "Quá giờ bắt đầu nhưng chưa xong",
-        subtextColor: "text-rose-500",
-        pct: secondaryPct,
-        color: "from-[#EF4444] to-[#F87171]",
-        trackColor: "stroke-rose-500/10",
-        ringColor: "stroke-[#EF4444]",
-        icon: <HelpCircle className="text-[#EF4444]" size={18} />
-      }
-    ];
-  }
+  // Admin/Lễ tân thấy đủ 8 nhóm. Bác sĩ/KTV chỉ thấy phần thuộc trách nhiệm cá nhân: không có
+  // "Chờ xác nhận" (nếu chưa gán nhân sự thì chưa thuộc về họ) và không có "Đã hủy" (hủy giải
+  // phóng nhân sự/phòng nên ca đó không còn thuộc về họ nữa — xem appointment.repository.ts).
+  const cardKeys: Array<'total' | FilterableBucketKey> = isStaff
+    ? ['total', 'daXacNhan', 'daCheckin', 'dangKham', 'hoanThanh', 'khongDen']
+    : ['total', 'choXacNhan', 'daXacNhan', 'daCheckin', 'dangKham', 'hoanThanh', 'daHuy', 'khongDen'];
+
+  const stats = cardKeys.map((key) => allCards[key]);
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
       {stats.map((stat, idx) => {
         const offset = circumference - (stat.pct / 100) * circumference;
+        const isClickable = !!onSelectStatus && stat.key !== 'total';
+        const isSelected = isClickable && stat.key === activeStatusFilter;
+        const isDimmed = isClickable && !!activeStatusFilter && !isSelected;
 
         return (
           <motion.div
@@ -223,7 +217,12 @@ export function AppointmentKpiCards({
             animate="animate"
             variants={cardVariants}
             whileHover={{ y: -5, scale: 1.015 }}
-            className="p-[1px] bg-gradient-to-br from-slate-200/60 dark:from-zinc-800 to-transparent hover:from-[#14B8A6]/30 dark:hover:from-[#14B8A6]/20 rounded-[24px] shadow-[0_4px_20px_-4px_rgba(15,23,42,0.02)] hover:shadow-[0_20px_35px_-8px_rgba(15,23,42,0.06)] transition-all duration-300"
+            onClick={isClickable ? () => onSelectStatus!(isSelected ? null : (stat.key as FilterableBucketKey)) : undefined}
+            role={isClickable ? 'button' : undefined}
+            tabIndex={isClickable ? 0 : undefined}
+            onKeyDown={isClickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectStatus!(isSelected ? null : (stat.key as FilterableBucketKey)); } } : undefined}
+            style={isSelected ? { boxShadow: `0 0 0 2px white, 0 0 0 4px ${stat.accentHex}` } : undefined}
+            className={`p-[1px] bg-gradient-to-br from-slate-200/60 dark:from-zinc-800 to-transparent hover:from-[#14B8A6]/30 dark:hover:from-[#14B8A6]/20 rounded-[24px] shadow-[0_4px_20px_-4px_rgba(15,23,42,0.02)] hover:shadow-[0_20px_35px_-8px_rgba(15,23,42,0.06)] transition-all duration-300 ${isClickable ? 'cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary/50' : ''} ${isDimmed ? 'opacity-50' : ''}`}
           >
             <div className="bg-white dark:bg-zinc-900 rounded-[23px] p-5 h-full flex flex-col justify-between relative overflow-hidden group">
               {/* Subtle background glow */}
@@ -280,7 +279,7 @@ export function AppointmentKpiCards({
                   {stat.subtext}
                 </span>
                 <span className="text-[9px] font-mono text-slate-400 dark:text-zinc-500 bg-slate-50 dark:bg-zinc-800/60 px-2 py-0.5 rounded border border-slate-100 dark:border-zinc-800/50">
-                  {stat.pct}% đạt
+                  {stat.pct}% {stat.pctSuffix ?? 'đạt'}
                 </span>
               </div>
             </div>

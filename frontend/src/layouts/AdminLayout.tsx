@@ -516,15 +516,11 @@ export default function AdminLayout() {
   const isReceptionist = Number(user?.vai_tro_id) === 2;
 
   const rawNavItems = [
-    { 
-      name: 'Tổng quan', 
-      path: isDoctor 
-        ? '/doctor' 
-        : (isReceptionist 
-          ? '/receptionist' 
-          : (isTechnician ? '/technician/appointments' : '/admin')), 
-      icon: <LayoutDashboard size={18} />, 
-      roles: [2, 3, 4, 5, 6] 
+    {
+      name: 'Tổng quan',
+      path: '/admin',
+      icon: <LayoutDashboard size={18} />,
+      roles: [5, 6]
     },
     { 
       name: 'Lịch hẹn', 
@@ -577,9 +573,11 @@ export default function AdminLayout() {
         ? '/receptionist/settings' 
         : (isDoctor 
           ? '/doctor/settings' 
-          : '/technician/settings'), 
+          : (isTechnician 
+            ? '/technician/settings' 
+            : '/admin/settings')), 
       icon: <Settings size={18} />, 
-      roles: [2, 3, 4] 
+      roles: [2, 3, 4, 5, 6] 
     },
     { name: 'Nhân sự', path: '/admin/staff', icon: <Users size={18} />, roles: [5] },
     { name: 'Gói Dịch Vụ', path: '/admin/packages', icon: <Package size={18} />, roles: [5, 6] },
@@ -680,18 +678,14 @@ export default function AdminLayout() {
             {/* Actions: Notification, Theme Toggle, & Help */}
             <div className="flex items-center gap-3 border-l border-zinc-100 dark:border-zinc-800 pl-6">
               {activeCheckIn && (
-                <button 
+                <button
                   onClick={() => {
-                    const ackStr = localStorage.getItem('ack-checkins') || '[]';
-                    try {
-                      const acks = JSON.parse(ackStr);
-                      acks.push(activeCheckIn.id);
-                      localStorage.setItem('ack-checkins', JSON.stringify(acks));
-                    } catch(e) {}
-                    const destPath = Number(user?.vai_tro_id) === 4
-                      ? `/doctor/appointments/${activeCheckIn.id}/assess`
-                      : `/technician/appointments/${activeCheckIn.id}/assess`;
-                    navigate(destPath);
+                    // Không tự ack ở đây nữa — chỉ điều hướng tới trang Lịch hẹn kèm ca cần mở, để
+                    // modal "Xác nhận vào ca" có sẵn ở đó tự bật lên; ack thật sự xảy ra khi vào
+                    // /assess (effect bên dưới), nên nếu Lễ tân/BS/KTV bấm Hủy ở modal thì banner
+                    // này vẫn còn nguyên, không bị im lặng mất tiêu.
+                    const listPath = Number(user?.vai_tro_id) === 4 ? '/doctor/appointments' : '/technician/appointments';
+                    navigate(listPath, { state: { pendingConfirmAppointment: activeCheckIn } });
                   }}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-full text-[10px] font-black uppercase tracking-wider animate-bounce shadow-md mr-2"
                 >
@@ -819,16 +813,10 @@ export default function AdminLayout() {
                 </div>
                 <button
                   onClick={() => {
-                    const ackStr = localStorage.getItem('ack-checkins') || '[]';
-                    try {
-                      const acks = JSON.parse(ackStr);
-                      acks.push(activeCheckIn.id);
-                      localStorage.setItem('ack-checkins', JSON.stringify(acks));
-                    } catch(e) {}
-                    const destPath = Number(user?.vai_tro_id) === 4
-                      ? `/doctor/appointments/${activeCheckIn.id}/assess`
-                      : `/technician/appointments/${activeCheckIn.id}/assess`;
-                    navigate(destPath);
+                    // Cùng lý do như nút thu gọn ở header: không ack ngay, chỉ điều hướng kèm ca cần
+                    // mở để modal xác nhận có sẵn ở trang Lịch hẹn tự bật lên trước khi vào bàn khám.
+                    const listPath = Number(user?.vai_tro_id) === 4 ? '/doctor/appointments' : '/technician/appointments';
+                    navigate(listPath, { state: { pendingConfirmAppointment: activeCheckIn } });
                   }}
                   className="bg-white text-rose-600 hover:bg-rose-50 px-4 py-2 rounded-xl text-xs font-black transition-colors uppercase tracking-widest shrink-0 shadow-md animate-pulse"
                 >

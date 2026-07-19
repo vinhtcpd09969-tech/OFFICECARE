@@ -4,6 +4,8 @@ import adminService from '../services/admin.service';
 import { packageSchema, staffSchema, roomSchema, equipmentSchema } from '../schemas/admin.schema';
 import { refundSchema, packageRefundSchema, expirePackageNoRefundSchema } from '../schemas/finance.schema';
 import { voucherSchema } from '../schemas/marketing.schema';
+import { pool } from '../config/db';
+import bcrypt from 'bcryptjs';
 
 // --- QUẢN LÝ PHÒNG KHÁM ---
 
@@ -185,10 +187,13 @@ export const updateStaffStatus = async (req: Request, res: Response): Promise<an
 export const updateStaff = async (req: Request, res: Response): Promise<any> => {
   try {
     const { id } = req.params as { id: string };
-    const { ho_ten, so_dien_thoai, vai_tro_id, so_nam_kinh_nghiem, bang_cap_chung_chi, mo_ta, the_manh } = req.body;
+    const { ho_ten, email, so_dien_thoai, vai_tro_id, so_nam_kinh_nghiem, bang_cap_chung_chi, mo_ta, the_manh } = req.body;
     
     if (!ho_ten) {
       return res.status(400).json({ message: 'Họ tên là bắt buộc' });
+    }
+    if (!email) {
+      return res.status(400).json({ message: 'Email là bắt buộc' });
     }
     if (!vai_tro_id || ![2, 3, 4, 5, 6].includes(Number(vai_tro_id))) {
       return res.status(400).json({ message: 'Vai trò không hợp lệ' });
@@ -196,6 +201,7 @@ export const updateStaff = async (req: Request, res: Response): Promise<any> => 
 
     const staff = await adminService.updateStaffDetails(id, {
       ho_ten,
+      email,
       so_dien_thoai,
       vai_tro_id,
       so_nam_kinh_nghiem,
@@ -211,14 +217,44 @@ export const updateStaff = async (req: Request, res: Response): Promise<any> => 
   }
 };
 
-export const resetStaffPassword = async (req: Request, res: Response): Promise<any> => {
+export const updateStaffPassword = async (req: Request, res: Response): Promise<any> => {
   try {
     const { id } = req.params as { id: string };
-    const staff = await adminService.resetStaffPassword(id);
-    res.json({ message: 'Reset mật khẩu thành công về 123456', staff });
+    const { password, oldPassword, isReset } = req.body as { password?: string; oldPassword?: string; isReset?: boolean };
+    
+    // Tìm nhân sự để xem vai trò và hash mật khẩu hiện tại
+    const userRes = await pool.query('SELECT vai_tro_id, mat_khau_hash FROM nguoi_dung WHERE id = $1', [Number(id)]);
+    if (userRes.rows.length === 0) {
+      return res.status(404).json({ message: 'Không tìm thấy nhân sự' });
+    }
+    const dbUser = userRes.rows[0];
+
+    if (isReset) {
+      // Đặt lại mật khẩu về mặc định "123456"
+      const staff = await adminService.updateStaffPassword(id, '123456');
+      return res.json({ message: 'Đặt lại mật khẩu của Admin về mặc định (123456) thành công!', staff });
+    }
+
+    if (!password || password.length < 6) {
+      return res.status(400).json({ message: 'Mật khẩu mới phải từ 6 ký tự trở lên' });
+    }
+
+    // Nếu người dùng được đổi mật khẩu là Admin (role 5), bắt buộc kiểm tra mật khẩu cũ
+    if (Number(dbUser.vai_tro_id) === 5) {
+      if (!oldPassword) {
+        return res.status(400).json({ message: 'Mật khẩu cũ là bắt buộc đối với tài khoản Admin' });
+      }
+      const isMatch = await bcrypt.compare(oldPassword, dbUser.mat_khau_hash);
+      if (!isMatch) {
+        return res.status(400).json({ message: 'Mật khẩu cũ không chính xác' });
+      }
+    }
+
+    const staff = await adminService.updateStaffPassword(id, password);
+    res.json({ message: 'Cập nhật mật khẩu nhân sự thành công!', staff });
   } catch (error: any) {
     if (error.message === 'Không tìm thấy nhân sự') return res.status(404).json({ message: error.message });
-    res.status(500).json({ message: 'Lỗi server khi reset mật khẩu' });
+    res.status(500).json({ message: 'Lỗi server khi cập nhật mật khẩu nhân sự' });
   }
 };
 
@@ -536,6 +572,48 @@ export const getFeedback = async (req: Request, res: Response) => {
     res.json(feedback);
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server khi lấy danh sách đánh giá' });
+  }
+};
+
+export const replyServiceFeedback = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params as { id: string };
+    const { phanHoi } = req.body;
+    const staffId = (req as any).user?.id;
+
+    if (!staffId) {
+      return res.status(401).json({ message: 'Không thể xác thực nhân viên' });
+    }
+
+    if (!phanHoi || String(phanHoi).trim() === '') {
+      return res.status(400).json({ message: 'Nội dung phản hồi không được để trống' });
+    }
+
+    const updated = await adminService.replyServiceFeedback(id, phanHoi as string, Number(staffId));
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi phản hồi đánh giá gói dịch vụ' });
+  }
+};
+
+export const replyStaffFeedback = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params as { id: string };
+    const { phanHoi } = req.body;
+    const staffId = (req as any).user?.id;
+
+    if (!staffId) {
+      return res.status(401).json({ message: 'Không thể xác thực nhân viên' });
+    }
+
+    if (!phanHoi || String(phanHoi).trim() === '') {
+      return res.status(400).json({ message: 'Nội dung phản hồi không được để trống' });
+    }
+
+    const updated = await adminService.replyStaffFeedback(id, phanHoi as string, Number(staffId));
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi phản hồi đánh giá nhân sự' });
   }
 };
 

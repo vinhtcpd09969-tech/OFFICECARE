@@ -18,12 +18,6 @@ export const REPUTATION_TIER_OPTIONS: { value: ReputationTier | 'all'; label: st
   { value: 'high', label: '71–100' }
 ];
 
-// Điểm uy tín hiển thị cap ở 100 (badge không có mốc màu riêng cho điểm > 100 do admin nhập tay).
-export function getReputationTier(score: number): ReputationTier {
-  const v = Math.min(100, score);
-  if (v <= 40) return 'low';
-  if (v <= 70) return 'mid';
-  return 'high';
-}
+export { getReputationTier } from '../../../../utils/reputation';
 
 export const DEFAULT_PAGE_SIZE = 20;

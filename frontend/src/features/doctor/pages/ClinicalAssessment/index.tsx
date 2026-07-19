@@ -10,59 +10,34 @@ import {
   AlertTriangle,
   ArrowLeft,
   CheckCircle,
-  FileSpreadsheet,
   TrendingUp,
   User,
   HeartPulse,
-  History,
   ClipboardList,
   ShieldAlert,
   FlameKindling,
-  Timer,
-  Check,
-  X,
-  Minus,
-  Clock3,
-  ChevronDown
+  Timer
 } from 'lucide-react';
 import { useAuthStore } from '../../../../stores/authStore';
-import { resolveImageUrl } from '../../../../utils/imageUrl';
 import {
   getAppointmentDetail,
   getPatientProfile,
   getPackages,
   saveAssessment,
   PatientProfile,
-  TreatmentPlan,
   PackageItem
 } from '../../api/doctor.api';
+type ActiveModal = { type: 'plan'; id: string } | { type: 'visit'; id: string } | null;
 import {
   getAppointmentDetail as getAppointmentDetailKtv,
   saveTreatmentRecord as saveTreatmentRecordKtv,
   getPatientProfile as getPatientProfileKtv
 } from '../../../technician/api/technician.api';
-
-// --- Trạng thái buổi/phác đồ: map trực tiếp enum thật của cuoc_hen.trang_thai /
-// phac_do_dieu_tri.trang_thai, không phỏng đoán theo "có tồn tại record hay không" ---
-const SESSION_STATUS_META: Record<string, { label: string; ring: string; text: string; dot: string; Icon: typeof Check }> = {
-  hoan_thanh: { label: 'Hoàn thành', ring: 'border-emerald-500', text: 'text-emerald-600 dark:text-emerald-400', dot: 'bg-emerald-500', Icon: Check },
-  khong_den: { label: 'Không đến', ring: 'border-slate-300 dark:border-zinc-600', text: 'text-slate-400 dark:text-zinc-500', dot: 'bg-slate-400', Icon: Minus },
-  khach_khong_den: { label: 'Không đến', ring: 'border-slate-300 dark:border-zinc-600', text: 'text-slate-400 dark:text-zinc-500', dot: 'bg-slate-400', Icon: Minus },
-  khach_khong_den_phat: { label: 'Không đến', ring: 'border-slate-300 dark:border-zinc-600', text: 'text-slate-400 dark:text-zinc-500', dot: 'bg-slate-400', Icon: Minus },
-  da_huy: { label: 'Đã hủy', ring: 'border-rose-400', text: 'text-rose-500 dark:text-rose-400', dot: 'bg-rose-500', Icon: X },
-  huy: { label: 'Đã hủy', ring: 'border-rose-400', text: 'text-rose-500 dark:text-rose-400', dot: 'bg-rose-500', Icon: X },
-  da_huy_phat: { label: 'Đã hủy', ring: 'border-rose-400', text: 'text-rose-500 dark:text-rose-400', dot: 'bg-rose-500', Icon: X },
-};
-const DEFAULT_SESSION_STATUS = { label: 'Chưa diễn ra', ring: 'border-dashed border-zinc-300 dark:border-zinc-700', text: 'text-zinc-400 dark:text-zinc-550', dot: 'bg-zinc-300', Icon: Clock3 };
-const getSessionStatusMeta = (trangThai: string) => SESSION_STATUS_META[trangThai] || DEFAULT_SESSION_STATUS;
-
-const PLAN_STATUS_META: Record<string, { label: string; badge: string; ring: string }> = {
-  huy: { label: 'Đã hủy', badge: 'bg-rose-50 dark:bg-rose-955/15 text-rose-600 dark:text-rose-400 border-rose-200/60 dark:border-rose-900/40', ring: '#f43f5e' },
-  hoan_thanh: { label: 'Hoàn thành', badge: 'bg-emerald-50 dark:bg-emerald-955/15 text-emerald-650 dark:text-emerald-400 border-emerald-200/60 dark:border-emerald-900/40', ring: '#10b981' },
-  cho_kich_hoat: { label: 'Chờ kích hoạt', badge: 'bg-amber-50 dark:bg-amber-955/15 text-amber-650 dark:text-amber-400 border-amber-200/60 dark:border-amber-900/40', ring: '#f59e0b' },
-  dang_dieu_tri: { label: 'Đang điều trị', badge: 'bg-primary/10 text-primary border-primary/25', ring: '#2EC4B6' },
-};
-const getPlanStatusMeta = (trangThai: string) => PLAN_STATUS_META[trangThai] || PLAN_STATUS_META.dang_dieu_tri;
+import { StaffAvatar } from '../DoctorMedicalRecords/components/StaffAvatar';
+import { PlanColumn } from '../DoctorMedicalRecords/components/PlanColumn';
+import { VisitColumn } from '../DoctorMedicalRecords/components/VisitColumn';
+import { PlanDetailModal } from '../DoctorMedicalRecords/components/PlanDetailModal';
+import { VisitDetailModal } from '../DoctorMedicalRecords/components/VisitDetailModal';
 
 const formatCountdown = (ms: number) => {
   const abs = Math.max(0, Math.abs(ms));
@@ -73,159 +48,6 @@ const formatCountdown = (ms: number) => {
   const pad = (n: number) => String(n).padStart(2, '0');
   return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
 };
-
-/** Vòng tròn tiến độ SVG — dùng cho chip chọn gói/dịch vụ. */
-export function ProgressRing({ percent, color, size = 44, strokeWidth = 4, children }: {
-  percent: number; color: string; size?: number; strokeWidth?: number; children?: React.ReactNode;
-}) {
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference * (1 - Math.min(100, Math.max(0, percent)) / 100);
-  return (
-    <div className="relative shrink-0" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" strokeWidth={strokeWidth} className="stroke-zinc-100 dark:stroke-zinc-800" />
-        <circle
-          cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={color} strokeWidth={strokeWidth}
-          strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
-          style={{ transition: 'stroke-dashoffset 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
-        />
-      </svg>
-      <div className="absolute inset-0 flex items-center justify-center">{children}</div>
-    </div>
-  );
-}
-
-/** Avatar nhân sự bọc vòng màu trạng thái + icon nhỏ đè góc — "nhân vật hóa" timeline thay vì badge chữ. */
-function StaffAvatar({ name, avatarUrl, size = 40, statusMeta }: {
-  name?: string | null; avatarUrl?: string | null; size?: number; statusMeta?: { ring: string; dot: string; Icon: typeof Check };
-}) {
-  const initial = (name || '?').trim().charAt(0).toUpperCase();
-  return (
-    <div className="relative shrink-0" style={{ width: size, height: size }}>
-      <div
-        className={`w-full h-full rounded-full border-2 ${statusMeta?.ring || 'border-zinc-200 dark:border-zinc-700'} overflow-hidden bg-gradient-to-br from-primary/15 to-primary/5 flex items-center justify-center text-primary font-black`}
-        style={{ fontSize: size * 0.38 }}
-      >
-        {avatarUrl ? (
-          <img src={resolveImageUrl(avatarUrl)} alt={name || ''} className="w-full h-full object-cover" />
-        ) : initial}
-      </div>
-      {statusMeta && (
-        <div className={`absolute -bottom-0.5 -right-0.5 size-4 rounded-full ${statusMeta.dot} flex items-center justify-center ring-2 ring-white dark:ring-zinc-900`}>
-          <statusMeta.Icon size={9} className="text-white stroke-[3]" />
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * Nội dung 1 buổi trị liệu: dòng trạng thái + (nếu hoàn thành) khối VAS/cảnh báo/ghi chú xổ ra được.
- * `large`: dùng cho dịch vụ lẻ (luôn 1 buổi) — avatar lớn, căn giữa, luôn mở sẵn, bỏ nhãn "Buổi N".
- */
-export function SessionDetailBlock({ session, large = false, expandedSessionId, setExpandedSessionId }: {
-  session: any;
-  large?: boolean;
-  expandedSessionId: string | null;
-  setExpandedSessionId: (id: string | null) => void;
-}) {
-  if (!session) {
-    return <p className="text-xs text-zinc-400 font-semibold text-center py-6">Chưa có dữ liệu buổi.</p>;
-  }
-  const statusMeta = getSessionStatusMeta(session.trang_thai);
-  const isFinished = session.trang_thai === 'hoan_thanh';
-  const isNoShow = ['khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(session.trang_thai);
-  const isCancelled = ['da_huy', 'huy', 'da_huy_phat'].includes(session.trang_thai);
-  const isExpanded = isFinished && expandedSessionId === session.id;
-
-  // Dịch vụ lẻ ("large"): header của khối cha (sân khấu chi tiết) đã tự làm nút bấm ẩn/hiện rồi —
-  // ở đây không tự vẽ avatar/tên/trạng thái nữa khi đang ẩn (từng bị phản hồi là lặp lại thông tin
-  // với header), chỉ hiện 1 dòng tóm tắt cho buổi chưa hoàn thành, hoặc nội dung đầy đủ khi đã mở.
-  if (large) {
-    if (!isFinished) {
-      return (
-        <div className="text-center py-1">
-          {isNoShow && <p className="text-[10px] font-semibold text-slate-400 dark:text-zinc-550">Khách không đến buổi này.</p>}
-          {isCancelled && <p className="text-[10px] font-semibold text-rose-500">Buổi đã bị hủy.</p>}
-        </div>
-      );
-    }
-    if (!isExpanded) return null;
-  }
-
-  const canToggle = isFinished && !large;
-
-  return (
-    <div className={large ? 'flex flex-col items-center text-center gap-2.5' : ''}>
-      {large ? (
-        <>
-          <StaffAvatar name={session.ten_ky_thuat_vien} avatarUrl={session.anh_ky_thuat_vien} size={56} statusMeta={statusMeta} />
-          <span className="min-w-0 font-extrabold text-sm text-secondary dark:text-zinc-300">
-            <span className="text-primary">{session.ten_ky_thuat_vien || 'Chưa phân công'}</span>
-          </span>
-        </>
-      ) : (
-        <button
-          type="button"
-          disabled={!canToggle}
-          onClick={() => canToggle && setExpandedSessionId(expandedSessionId === session.id ? null : session.id)}
-          className={`flex items-center gap-2.5 w-full justify-between ${canToggle ? 'cursor-pointer group' : 'cursor-default'}`}
-        >
-          <span className="min-w-0 font-extrabold text-[10px] flex-1 text-left text-secondary dark:text-zinc-300">
-            {`Buổi ${session.so_thu_tu_buoi} • `}
-            <span className="text-primary">{session.ten_ky_thuat_vien || 'Chưa phân công'}</span>
-          </span>
-          <span className={`shrink-0 flex items-center gap-1 text-[9px] font-black uppercase ${statusMeta.text}`}>
-            {statusMeta.label}
-            {canToggle && <ChevronDown size={11} className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`} />}
-          </span>
-        </button>
-      )}
-
-      {!large && isNoShow && <p className="text-[9px] font-semibold text-slate-400 dark:text-zinc-550 mt-1">Khách không đến buổi này.</p>}
-      {!large && isCancelled && <p className="text-[9px] font-semibold text-rose-500 mt-1">Buổi đã bị hủy.</p>}
-
-      {isFinished && isExpanded && (
-        <div className={`${large ? 'w-full' : 'mt-3'} grid grid-cols-1 md:grid-cols-2 gap-3 bg-zinc-50/50 dark:bg-zinc-855/15 p-4 rounded-xl border border-zinc-150/50 dark:border-zinc-800/80 text-[10px]`}>
-          <div className="bg-white dark:bg-zinc-900 p-2.5 rounded-lg border border-zinc-100 dark:border-zinc-800/60">
-            <span className="text-zinc-400 dark:text-zinc-500 font-black uppercase text-[8px] tracking-wider block">VAS Trước trị liệu</span>
-            <p className="font-extrabold text-secondary dark:text-zinc-200 mt-1 flex items-center gap-1.5">
-              <FlameKindling size={12} className="text-amber-500" />
-              Mức {session.danh_gia_truoc_buoi || 'N/A'}
-            </p>
-          </div>
-          <div className="bg-white dark:bg-zinc-900 p-2.5 rounded-lg border border-zinc-100 dark:border-zinc-800/60">
-            <span className="text-zinc-400 dark:text-zinc-500 font-black uppercase text-[8px] tracking-wider block">VAS Sau trị liệu</span>
-            <p className="font-extrabold text-secondary dark:text-zinc-200 mt-1 flex items-center gap-1.5">
-              <CheckCircle size={12} className="text-emerald-500" />
-              Mức {session.danh_gia_sau_buoi || 'N/A'}
-            </p>
-          </div>
-          {session.canh_bao_dac_biet && (
-            <div className="md:col-span-2 bg-rose-50/50 dark:bg-rose-955/15 text-rose-500 font-bold p-2.5 rounded-lg border border-rose-100/50 flex items-center gap-2 text-[10px]">
-              <AlertTriangle size={14} />
-              Cảnh báo: {session.canh_bao_dac_biet}
-            </div>
-          )}
-          {session.ai_tom_tat_ngan && (
-            <div className="md:col-span-2 border-t border-zinc-100 dark:border-zinc-800/50 pt-2 flex items-center gap-1.5 text-[9px] text-primary font-bold">
-              <TrendingUp size={12} /> Tiến trình: {session.ai_tom_tat_ngan}
-            </div>
-          )}
-          {session.danh_gia_hieu_qua && (
-            <div className="md:col-span-2 border-t border-zinc-150/40 dark:border-zinc-800/50 pt-2.5">
-              <span className="text-zinc-400 dark:text-zinc-500 font-black uppercase text-[8px] tracking-wider">Diễn tiến / Ghi chú trị liệu</span>
-              <p className="font-semibold text-zinc-650 dark:text-zinc-355 mt-1 italic leading-relaxed">
-                "{session.danh_gia_hieu_qua}"
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
 
 const getVasDescription = (score: number | null) => {
   if (score === null || score === undefined) return 'Vui lòng chọn mức độ đau';
@@ -311,13 +133,10 @@ export default function ClinicalAssessment() {
   // UI States
   const [loading, setLoading] = useState(true);
   const [submitLoading, setSubmitLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'history' | 'treatments'>('history');
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Gói/dịch vụ đang chọn trong dải chip "Tiến trình trị liệu"
-  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
-  // Buổi đang xổ chi tiết (chỉ áp dụng cho buổi hoàn thành, có VAS/ghi chú để xem)
-  const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
+  // Popup phác đồ/ca khám đang mở trong khối "Hồ sơ điều trị" (2 cột Phác đồ / Khám & Dịch vụ lẻ)
+  const [activeModal, setActiveModal] = useState<ActiveModal>(null);
 
   // Đồng hồ đếm ngược tới giờ kết thúc buổi — chạy độc lập, tick mỗi giây
   const [now, setNow] = useState(() => new Date());
@@ -372,12 +191,20 @@ export default function ClinicalAssessment() {
     loadInitialData();
   }, [loadInitialData]);
 
-  // Mặc định chọn gói/dịch vụ gần nhất (backend đã ORDER BY ngay_kich_hoat DESC) khi hồ sơ tải xong
-  useEffect(() => {
-    if (profile?.treatmentPlans?.length && !selectedPlanId) {
-      setSelectedPlanId(profile.treatmentPlans[0].id);
-    }
-  }, [profile, selectedPlanId]);
+  const activePlan = useMemo(() => {
+    if (activeModal?.type !== 'plan' || !profile) return null;
+    return profile.treatmentPlans.find((p) => p.id === activeModal.id) || null;
+  }, [activeModal, profile]);
+
+  const activeVisit = useMemo(() => {
+    if (activeModal?.type !== 'visit' || !profile) return null;
+    return profile.visits.find((v) => v.id === activeModal.id) || null;
+  }, [activeModal, profile]);
+
+  const linkedPlanForActiveVisit = useMemo(() => {
+    if (!activeVisit?.prescribed_plan_id || !profile) return null;
+    return profile.treatmentPlans.find((p) => p.id === activeVisit.prescribed_plan_id) || null;
+  }, [activeVisit, profile]);
 
   // Buổi gần nhất LIÊN QUAN tới ca hôm nay — CHỈ áp dụng cho gói liệu trình (khách đang làm buổi N
   // của 1 gói nhiều buổi). Lấy đúng buổi liền trước (N-1) TRONG CÙNG gói đó — không lấy buổi gần
@@ -571,10 +398,7 @@ export default function ClinicalAssessment() {
           </div>
           <button
             type="button"
-            onClick={() => {
-              setActiveTab('treatments');
-              document.getElementById('history-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }}
+            onClick={() => setActiveModal({ type: 'plan', id: latestRelevantSession.plan.id })}
             className="shrink-0 text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400 hover:underline whitespace-nowrap"
           >
             Xem lịch sử đầy đủ ↓
@@ -885,294 +709,42 @@ export default function ClinicalAssessment() {
             </div>
           </div>
 
-          {/* Medical Records Navigation Tabs - sliding Pill Style */}
-          <div id="history-panel" className="bg-white dark:bg-zinc-900 rounded-[24px] border border-zinc-150/60 dark:border-zinc-800 shadow-sm overflow-hidden flex flex-col scroll-mt-24">
-            <div className="bg-zinc-50 dark:bg-zinc-950 p-1.5 rounded-t-[24px] flex gap-1 border-b border-zinc-200/50 dark:border-zinc-800/80">
-              <button
-                onClick={() => setActiveTab('history')}
-                className={`flex-1 py-2.5 text-xs font-black uppercase tracking-wider rounded-xl transition-all duration-300 flex items-center justify-center gap-2 ${
-                  activeTab === 'history'
-                    ? 'bg-white dark:bg-zinc-900 text-primary shadow-sm border border-zinc-200/20 dark:border-zinc-800/40 scale-102'
-                    : 'text-zinc-400 dark:text-zinc-555 hover:text-zinc-700 dark:hover:text-zinc-300'
-                }`}
-              >
-                <History size={14} />
-                Lịch sử chẩn đoán ({profile?.medicalRecords?.length || 0})
-              </button>
-              <button
-                onClick={() => setActiveTab('treatments')}
-                className={`flex-1 py-2.5 text-xs font-black uppercase tracking-wider rounded-xl transition-all duration-300 flex items-center justify-center gap-2 ${
-                  activeTab === 'treatments'
-                    ? 'bg-white dark:bg-zinc-900 text-primary shadow-sm border border-zinc-200/20 dark:border-zinc-800/40 scale-102'
-                    : 'text-zinc-400 dark:text-zinc-555 hover:text-zinc-700 dark:hover:text-zinc-300'
-                }`}
-              >
-                <FileSpreadsheet size={14} />
-                Tiến trình trị liệu ({profile?.treatmentPlans?.length || 0})
-              </button>
-            </div>
-
-            <div className="p-6 min-h-[300px]">
-              
-              {/* Tab 2: Lịch sử chẩn đoán trước đó */}
-              {activeTab === 'history' && (
-                <div className="space-y-6 animate-in fade-in duration-300">
-                  {!profile || profile.medicalRecords.length === 0 ? (
-                    <div className="text-center py-16 text-zinc-450 dark:text-zinc-550 flex flex-col items-center justify-center gap-3">
-                      <FileText size={32} className="text-zinc-300" />
-                      <p className="text-xs font-extrabold uppercase tracking-wide">Chưa có lịch sử hồ sơ lâm sàng</p>
-                    </div>
-                  ) : (
-                    <div className="relative border-l-2 border-dashed border-zinc-200 dark:border-zinc-800/80 pl-8 space-y-6 ml-4 text-left">
-                      {profile.medicalRecords.map((record, idx) => (
-                        <motion.div
-                          key={record.id}
-                          initial={{ opacity: 0, x: -8 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: idx * 0.05, type: 'spring', stiffness: 300, damping: 26 }}
-                          className="relative group"
-                        >
-                          {/* Node: avatar bác sĩ thay cho chấm tròn thuần túy */}
-                          <div className="absolute -left-[43px] top-0">
-                            <StaffAvatar name={record.ten_bac_si} avatarUrl={record.anh_bac_si} size={32} />
-                          </div>
-
-                          <div className="bg-white dark:bg-zinc-900 border border-zinc-150/60 dark:border-zinc-800 group-hover:border-primary/30 rounded-2xl p-5 shadow-sm group-hover:shadow transition-all duration-300 space-y-3">
-                            <div className="flex items-center justify-between text-[10px] font-extrabold text-zinc-400">
-                              <span className="flex items-center gap-1.5">
-                                <HeartPulse size={12} className="text-primary" />
-                                BS: <span className="text-secondary dark:text-zinc-200">{record.ten_bac_si}</span>
-                              </span>
-                              <span className="font-mono">{new Date(record.thoi_gian_tao).toLocaleDateString('vi-VN')}</span>
-                            </div>
-
-                            <div>
-                              <p className="text-[8px] text-zinc-400 dark:text-zinc-500 font-black uppercase tracking-widest">Chẩn đoán</p>
-                              <p className="text-xs font-extrabold text-secondary dark:text-zinc-150 mt-0.5 leading-relaxed">{record.chan_doan}</p>
-                            </div>
-
-                            {record.chong_chi_dinh && (
-                              <div className="bg-rose-50/50 dark:bg-rose-955/10 border border-rose-100/50 dark:border-rose-900/30 px-4 py-2.5 rounded-xl flex items-start gap-2.5">
-                                <ShieldAlert size={14} className="text-rose-500 shrink-0 mt-0.5" />
-                                <div>
-                                  <p className="text-[8px] text-rose-550 font-black uppercase tracking-widest">Chống chỉ định</p>
-                                  <p className="text-xs font-bold text-rose-600 dark:text-rose-455 mt-0.5 leading-relaxed">{record.chong_chi_dinh}</p>
-                                </div>
-                              </div>
-                            )}
-
-                            {(record.khuyen_nghi_dich_vu || record.khuyen_nghi_goi) && (
-                              <div className="flex gap-2 flex-wrap border-t border-zinc-100 dark:border-zinc-800/80 pt-2.5">
-                                {record.khuyen_nghi_dich_vu && (
-                                  <span className="text-[8px] font-black bg-primary/10 text-primary border border-primary/25 px-2.5 py-1 rounded uppercase tracking-wider">
-                                    Đề xuất: {record.khuyen_nghi_dich_vu}
-                                  </span>
-                                )}
-                                {record.khuyen_nghi_goi && (
-                                  <span className="text-[8px] font-black bg-teal-50 dark:bg-teal-950/20 text-teal-600 dark:text-teal-400 border border-teal-150/30 px-2.5 py-1 rounded uppercase tracking-wider">
-                                    Gói đề xuất: {record.khuyen_nghi_goi}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-
-                            {record.ghi_chu && (
-                              <div className="text-[10px] text-zinc-550 dark:text-zinc-400 font-medium bg-zinc-50 dark:bg-zinc-850/40 p-2.5 rounded-xl border border-zinc-100 dark:border-zinc-800/60 leading-relaxed italic">
-                                Dặn dò: "{record.ghi_chu}"
-                              </div>
-                            )}
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Tab 3: Tiến trình trị liệu — dải chip chọn gói/dịch vụ (master) + sân khấu chi tiết */}
-              {activeTab === 'treatments' && (
-                <div className="space-y-5 animate-in fade-in duration-300">
-                  {!profile || profile.treatmentPlans.length === 0 ? (
-                    <div className="text-center py-16 text-zinc-450 dark:text-zinc-555 flex flex-col items-center justify-center gap-3">
-                      <FileSpreadsheet size={32} className="text-zinc-300" />
-                      <p className="text-xs font-extrabold uppercase tracking-wide">Chưa có lịch sử trị liệu</p>
-                    </div>
-                  ) : (
-                    <>
-                      {/* Dải chip chọn gói/dịch vụ — gọn dù khách có bao nhiêu gói. Chỉ 1 mục duy
-                          nhất thì ẩn hẳn (không có gì để chọn, chỉ dư thừa với header sân khấu bên
-                          dưới), đi thẳng vào sân khấu chi tiết. */}
-                      {profile.treatmentPlans.length > 1 && (
-                      <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin">
-                        {profile.treatmentPlans.map((plan) => {
-                          const meta = getPlanStatusMeta(plan.trang_thai);
-                          const isSelected = selectedPlanId === plan.id;
-                          const percent = plan.tong_so_buoi > 0 ? (plan.so_buoi_da_dung / plan.tong_so_buoi) * 100 : 0;
-                          return (
-                            <button
-                              key={plan.id}
-                              type="button"
-                              onClick={() => { setSelectedPlanId(plan.id); setExpandedSessionId(null); }}
-                              className={`relative shrink-0 w-[172px] text-left rounded-2xl border p-3.5 transition-colors overflow-hidden ${
-                                isSelected
-                                  ? 'border-primary/40'
-                                  : 'border-zinc-150/70 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-250 dark:hover:border-zinc-700'
-                              }`}
-                            >
-                              {isSelected && (
-                                <motion.div
-                                  layoutId="planChipActive"
-                                  className="absolute inset-0 bg-primary/5"
-                                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                                />
-                              )}
-                              <div className="relative flex items-center gap-2.5">
-                                {plan.loai_dieu_tri === 'goi' ? (
-                                  <ProgressRing percent={percent} color={meta.ring} size={38} strokeWidth={3.5}>
-                                    <span className="text-[9px] font-black" style={{ color: meta.ring }}>
-                                      {plan.so_buoi_da_dung}/{plan.tong_so_buoi}
-                                    </span>
-                                  </ProgressRing>
-                                ) : (
-                                  <div className="size-[38px] rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: `${meta.ring}1A` }}>
-                                    <FileText size={16} style={{ color: meta.ring }} />
-                                  </div>
-                                )}
-                                <div className="min-w-0">
-                                  <p className="text-[8px] font-black uppercase text-zinc-400 dark:text-zinc-500 tracking-wider">
-                                    {plan.loai_dieu_tri === 'goi' ? 'Liệu trình' : 'Dịch vụ lẻ'}
-                                  </p>
-                                  <p className="text-[11px] font-black text-secondary dark:text-zinc-150 truncate leading-tight mt-0.5">
-                                    {plan.ten_goi || plan.ten_dich_vu}
-                                  </p>
-                                </div>
-                              </div>
-                              <span className={`relative mt-2.5 inline-block text-[8px] font-black uppercase px-2 py-0.5 rounded border ${meta.badge}`}>
-                                {meta.label}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                      )}
-
-                      {/* Sân khấu chi tiết — chỉ hiện đúng 1 gói/dịch vụ đang chọn */}
-                      <AnimatePresence mode="wait">
-                        {(() => {
-                          const plan: TreatmentPlan | undefined = profile.treatmentPlans.find((p) => p.id === selectedPlanId);
-                          if (!plan) return null;
-                          const planMeta = getPlanStatusMeta(plan.trang_thai);
-                          const isSingle = plan.loai_dieu_tri === 'dich_vu';
-                          const singleSession = isSingle ? plan.sessions[0] : null;
-                          const singleCanExpand = !!singleSession && singleSession.trang_thai === 'hoan_thanh';
-                          const singleIsExpanded = singleCanExpand && expandedSessionId === singleSession!.id;
-                          // Dịch vụ lẻ hoàn thành nhưng đang ẩn: không có gì để vẽ (SessionDetailBlock
-                          // trả về null) — bỏ luôn khung "p-4" bọc ngoài để không dư 1 khoảng trắng
-                          // rỗng dưới header, giữ đúng cảm giác gọn như lúc chỉ có mỗi header.
-                          const hideContentBlock = isSingle && singleCanExpand && !singleIsExpanded;
-                          return (
-                            <motion.div
-                              key={plan.id}
-                              initial={{ opacity: 0, y: 8 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -8 }}
-                              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                              className="border border-zinc-150/60 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm"
-                            >
-                              <div
-                                className={`bg-zinc-50 dark:bg-zinc-900/50 p-4 border-b border-zinc-150/60 dark:border-zinc-800 flex items-center justify-between flex-wrap gap-2.5 ${singleCanExpand ? 'cursor-pointer select-none hover:bg-zinc-100/70 dark:hover:bg-zinc-900/80 transition-colors' : ''}`}
-                                onClick={() => {
-                                  if (!singleCanExpand || !singleSession) return;
-                                  setExpandedSessionId(expandedSessionId === singleSession.id ? null : singleSession.id);
-                                }}
-                              >
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-mono text-[9px] font-bold text-zinc-450 dark:text-zinc-500 tracking-wider">
-                                      {plan.ma_lich_dieu_tri}
-                                    </span>
-                                    <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded border ${planMeta.badge}`}>
-                                      {planMeta.label}
-                                    </span>
-                                  </div>
-                                  <h5 className="text-xs font-black text-secondary dark:text-zinc-150 mt-1.5">
-                                    {plan.ten_goi || plan.ten_dich_vu}
-                                  </h5>
-                                </div>
-                                {!isSingle && (
-                                  <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 px-3 py-1 rounded-full border border-emerald-100 dark:border-emerald-900/30">
-                                    Tiến độ: {plan.so_buoi_da_dung}/{plan.tong_so_buoi} buổi
-                                  </span>
-                                )}
-                                {singleCanExpand && (
-                                  <ChevronDown size={16} className={`text-zinc-400 shrink-0 transition-transform ${singleIsExpanded ? 'rotate-180' : ''}`} />
-                                )}
-                              </div>
-
-                              {plan.trang_thai === 'huy' && (
-                                <div className="flex items-center gap-2.5 px-4 py-3 bg-rose-50/70 dark:bg-rose-955/10 border-b border-rose-100 dark:border-rose-900/30">
-                                  <AlertTriangle size={14} className="text-rose-500 shrink-0" />
-                                  <p className="text-[10px] font-bold text-rose-600 dark:text-rose-400">
-                                    Phác đồ đã bị hủy — các buổi sau đó không còn hiệu lực.
-                                  </p>
-                                </div>
-                              )}
-
-                              {!hideContentBlock && (
-                              <div className="p-4">
-                                {isSingle ? (
-                                  <SessionDetailBlock
-                                    session={plan.sessions[0]}
-                                    large
-                                    expandedSessionId={expandedSessionId}
-                                    setExpandedSessionId={setExpandedSessionId}
-                                  />
-                                ) : (
-                                  <div className="max-h-[360px] overflow-y-auto pr-2 scrollbar-thin">
-                                    {plan.sessions.map((session, sIdx) => {
-                                      const statusMeta = getSessionStatusMeta(session.trang_thai);
-                                      const isLast = sIdx === plan.sessions.length - 1;
-                                      return (
-                                        <motion.div
-                                          key={session.id}
-                                          initial={{ opacity: 0, x: -8 }}
-                                          animate={{ opacity: 1, x: 0 }}
-                                          transition={{ delay: sIdx * 0.04, type: 'spring', stiffness: 300, damping: 26 }}
-                                          className="flex gap-3"
-                                        >
-                                          <div className="flex flex-col items-center">
-                                            <StaffAvatar name={session.ten_ky_thuat_vien} avatarUrl={session.anh_ky_thuat_vien} size={38} statusMeta={statusMeta} />
-                                            {!isLast && (
-                                              <div className={`w-0.5 flex-1 my-1 min-h-[16px] ${session.trang_thai === 'hoan_thanh' ? 'bg-emerald-300' : 'bg-zinc-150 dark:bg-zinc-800'}`} />
-                                            )}
-                                          </div>
-                                          <div className="flex-1 pb-4 min-w-0">
-                                            <SessionDetailBlock
-                                              session={session}
-                                              expandedSessionId={expandedSessionId}
-                                              setExpandedSessionId={setExpandedSessionId}
-                                            />
-                                          </div>
-                                        </motion.div>
-                                      );
-                                    })}
-                                  </div>
-                                )}
-                              </div>
-                              )}
-                            </motion.div>
-                          );
-                        })()}
-                      </AnimatePresence>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
+          {/* Hồ sơ điều trị — 2 cột giống Admin: Phác đồ điều trị (trái) / Khám & Dịch vụ lẻ (phải).
+              Dùng chung đúng component với trang "Hồ sơ điều trị" của Bác sĩ/KTV — không còn bản sao
+              chép lệch riêng cho bàn khám. Mỗi thẻ chỉ tóm tắt, bấm "Chi tiết" mới mở popup. */}
+          <div id="history-panel" className="scroll-mt-24 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <PlanColumn
+              plans={profile?.treatmentPlans || []}
+              onOpenPlan={(id) => setActiveModal({ type: 'plan', id })}
+            />
+            <VisitColumn
+              visits={profile?.visits || []}
+              onOpenVisit={(id) => setActiveModal({ type: 'visit', id })}
+            />
           </div>
         </div>
 
       </div>
+
+      <AnimatePresence>
+        {activePlan && (
+          <PlanDetailModal
+            key={`plan-${activePlan.id}`}
+            plan={activePlan}
+            onClose={() => setActiveModal(null)}
+            onJumpToVisit={(visitId) => setActiveModal({ type: 'visit', id: visitId })}
+          />
+        )}
+        {activeVisit && (
+          <VisitDetailModal
+            key={`visit-${activeVisit.id}`}
+            visit={activeVisit}
+            linkedPlan={linkedPlanForActiveVisit}
+            onClose={() => setActiveModal(null)}
+            onJumpToPlan={(planId) => setActiveModal({ type: 'plan', id: planId })}
+          />
+        )}
+      </AnimatePresence>
 
     </div>
   );

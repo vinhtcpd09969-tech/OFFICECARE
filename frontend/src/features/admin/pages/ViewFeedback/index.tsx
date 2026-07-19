@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import api from '../../../../api/axios';
+import { censorText } from '../../../../utils/profanity';
 import { 
   Star, 
   MessageSquare, 
@@ -21,6 +22,10 @@ interface Feedback {
   nhan_xet: string;
   hieu_qua_dieu_tri?: string;
   thoi_gian_danh_gia: string;
+  phan_hoi_nhan_xet: string | null;
+  ten_nguoi_phan_hoi: string | null;
+  ngay_phan_hoi: string | null;
+  loai_danh_gia: 'service' | 'staff';
 }
 
 export default function ViewFeedback() {
@@ -28,6 +33,10 @@ export default function ViewFeedback() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'service' | 'staff'>('service');
   const [isClient, setIsClient] = useState(false);
+
+  const [replyingId, setReplyingId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState('');
+  const [submittingReply, setSubmittingReply] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
@@ -47,33 +56,98 @@ export default function ViewFeedback() {
     }
   };
 
-  // Split reviews
-  const serviceFeedbacks = useMemo(() => {
+  const handleSendReply = async (id: string, type: 'service' | 'staff') => {
+    if (!replyText.trim()) {
+      toast.error('Vui lòng nhập nội dung phản hồi.');
+      return;
+    }
+    try {
+      setSubmittingReply(true);
+      await api.post(`/admin/feedback/${type}/${id}/reply`, { phanHoi: replyText });
+      toast.success('Gửi phản hồi thành công!');
+      setReplyingId(null);
+      setReplyText('');
+      fetchFeedback();
+    } catch (error) {
+      console.error('Lỗi gửi phản hồi:', error);
+      toast.error('Không thể gửi phản hồi.');
+    } finally {
+      setSubmittingReply(false);
+    }
+  };
+
+  const [selectedService, setSelectedService] = useState<string>('Tất cả');
+  const [selectedSpecialist, setSelectedSpecialist] = useState<string>('Tất cả');
+  const [selectedStars, setSelectedStars] = useState<string>('Tất cả');
+
+  // Reset page filters when activeTab changes
+  useEffect(() => {
+    setSelectedStars('Tất cả');
+    setSelectedService('Tất cả');
+    setSelectedSpecialist('Tất cả');
+  }, [activeTab]);
+
+  // Extract unique lists dynamically
+  const uniqueServices = useMemo(() => {
+    const services = feedbacks
+      .filter(f => f.so_sao_tong !== null && f.ten_dich_vu)
+      .map(f => f.ten_dich_vu);
+    return ['Tất cả', ...Array.from(new Set(services))];
+  }, [feedbacks]);
+
+  const uniqueSpecialists = useMemo(() => {
+    const specialists = feedbacks
+      .filter(f => f.so_sao_ktv !== null && f.ten_ky_thuat_vien && f.ten_ky_thuat_vien !== '-')
+      .map(f => f.ten_ky_thuat_vien);
+    return ['Tất cả', ...Array.from(new Set(specialists))];
+  }, [feedbacks]);
+
+  // Split reviews (for stats)
+  const allServiceFeedbacks = useMemo(() => {
     return feedbacks.filter(f => f.so_sao_tong !== null);
   }, [feedbacks]);
 
-  const staffFeedbacks = useMemo(() => {
+  const allStaffFeedbacks = useMemo(() => {
     return feedbacks.filter(f => f.so_sao_ktv !== null);
   }, [feedbacks]);
 
-  // Calculations
+  // Filtered reviews (for rendering list)
+  const serviceFeedbacks = useMemo(() => {
+    return feedbacks.filter(f => {
+      if (f.so_sao_tong === null) return false;
+      if (selectedService !== 'Tất cả' && f.ten_dich_vu !== selectedService) return false;
+      if (selectedStars !== 'Tất cả' && f.so_sao_tong !== Number(selectedStars)) return false;
+      return true;
+    });
+  }, [feedbacks, selectedService, selectedStars]);
+
+  const staffFeedbacks = useMemo(() => {
+    return feedbacks.filter(f => {
+      if (f.so_sao_ktv === null) return false;
+      if (selectedSpecialist !== 'Tất cả' && f.ten_ky_thuat_vien !== selectedSpecialist) return false;
+      if (selectedStars !== 'Tất cả' && f.so_sao_ktv !== Number(selectedStars)) return false;
+      return true;
+    });
+  }, [feedbacks, selectedSpecialist, selectedStars]);
+
+  // Calculations (KPIs)
   const serviceStats = useMemo(() => {
-    if (serviceFeedbacks.length === 0) return { avg: 5.0, count: 0 };
-    const sum = serviceFeedbacks.reduce((acc, f) => acc + (f.so_sao_tong || 0), 0);
+    if (allServiceFeedbacks.length === 0) return { avg: 5.0, count: 0 };
+    const sum = allServiceFeedbacks.reduce((acc, f) => acc + (f.so_sao_tong || 0), 0);
     return {
-      avg: Number((sum / serviceFeedbacks.length).toFixed(1)),
-      count: serviceFeedbacks.length
+      avg: Number((sum / allServiceFeedbacks.length).toFixed(1)),
+      count: allServiceFeedbacks.length
     };
-  }, [serviceFeedbacks]);
+  }, [allServiceFeedbacks]);
 
   const staffStats = useMemo(() => {
-    if (staffFeedbacks.length === 0) return { avg: 5.0, count: 0 };
-    const sum = staffFeedbacks.reduce((acc, f) => acc + (f.so_sao_ktv || 0), 0);
+    if (allStaffFeedbacks.length === 0) return { avg: 5.0, count: 0 };
+    const sum = allStaffFeedbacks.reduce((acc, f) => acc + (f.so_sao_ktv || 0), 0);
     return {
-      avg: Number((sum / staffFeedbacks.length).toFixed(1)),
-      count: staffFeedbacks.length
+      avg: Number((sum / allStaffFeedbacks.length).toFixed(1)),
+      count: allStaffFeedbacks.length
     };
-  }, [staffFeedbacks]);
+  }, [allStaffFeedbacks]);
 
   const renderStars = (count: number) => {
     return (
@@ -181,6 +255,75 @@ export default function ViewFeedback() {
         </button>
       </div>
 
+      {/* Filters Section */}
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-150/60 dark:border-zinc-800 rounded-[24px] p-5 shadow-xs flex flex-wrap items-center gap-4 animate-in fade-in duration-300">
+        <div className="text-xs font-black text-secondary dark:text-zinc-300 uppercase tracking-wider shrink-0">
+          🔍 Bộ lọc nhanh:
+        </div>
+
+        {activeTab === 'service' ? (
+          <div className="flex flex-col sm:flex-row gap-3 items-center flex-1">
+            <div className="w-full sm:w-72">
+              <label className="block text-[10px] text-zinc-400 font-black uppercase mb-1">Gói dịch vụ</label>
+              <select
+                value={selectedService}
+                onChange={(e) => setSelectedService(e.target.value)}
+                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-zinc-850 border border-slate-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:border-primary text-slate-700 dark:text-zinc-200 font-semibold cursor-pointer"
+              >
+                {uniqueServices.map((svc) => (
+                  <option key={svc} value={svc}>{svc}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col sm:flex-row gap-3 items-center flex-1">
+            <div className="w-full sm:w-72">
+              <label className="block text-[10px] text-zinc-400 font-black uppercase mb-1">Bác sĩ & Kỹ thuật viên</label>
+              <select
+                value={selectedSpecialist}
+                onChange={(e) => setSelectedSpecialist(e.target.value)}
+                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-zinc-850 border border-slate-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:border-primary text-slate-700 dark:text-zinc-200 font-semibold cursor-pointer"
+              >
+                {uniqueSpecialists.map((spec) => (
+                  <option key={spec} value={spec}>{spec}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+
+        <div className="w-full sm:w-40">
+          <label className="block text-[10px] text-zinc-400 font-black uppercase mb-1">Số sao đánh giá</label>
+          <select
+            value={selectedStars}
+            onChange={(e) => setSelectedStars(e.target.value)}
+            className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-zinc-850 border border-slate-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:border-primary text-slate-700 dark:text-zinc-200 font-semibold cursor-pointer"
+          >
+            <option value="Tất cả">Tất cả sao</option>
+            <option value="5">⭐⭐⭐⭐⭐ (5 sao)</option>
+            <option value="4">⭐⭐⭐⭐ (4 sao)</option>
+            <option value="3">⭐⭐⭐ (3 sao)</option>
+            <option value="2">⭐⭐ (2 sao)</option>
+            <option value="1">⭐ (1 sao)</option>
+          </select>
+        </div>
+
+        {(selectedService !== 'Tất cả' || selectedSpecialist !== 'Tất cả' || selectedStars !== 'Tất cả') && (
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedService('Tất cả');
+              setSelectedSpecialist('Tất cả');
+              setSelectedStars('Tất cả');
+            }}
+            className="text-[10px] font-black uppercase text-rose-500 hover:text-rose-700 cursor-pointer transition-colors"
+          >
+            Xóa bộ lọc
+          </button>
+        )}
+      </div>
+
       {/* Content Area */}
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-zinc-900 border border-zinc-150/60 dark:border-zinc-800 rounded-[32px]">
@@ -227,10 +370,76 @@ export default function ViewFeedback() {
                   {/* Review Text */}
                   <div className="relative pt-1.5">
                     <p className="text-[13px] font-semibold text-slate-600 dark:text-zinc-350 leading-relaxed bg-slate-50/50 dark:bg-zinc-850/10 p-4 rounded-2xl border border-slate-100 dark:border-zinc-800/50 italic">
-                      "{f.nhan_xet || 'Khách hàng không để lại nhận xét bằng chữ.'}"
+                      "{censorText(f.nhan_xet) || 'Khách hàng không để lại nhận xét bằng chữ.'}"
                     </p>
                   </div>
                 </div>
+
+                {/* Reply section */}
+                {f.phan_hoi_nhan_xet ? (
+                  <div className="mt-4 p-4 bg-emerald-50/50 dark:bg-emerald-950/10 border-l-2 border-[#0D9488] rounded-r-2xl text-[12px] space-y-1">
+                    <p className="font-extrabold text-slate-800 dark:text-zinc-200">
+                      Phản hồi từ {f.ten_nguoi_phan_hoi || 'Phòng khám OfficeCare'}:
+                    </p>
+                    <p className="text-slate-655 dark:text-zinc-350 italic">"{f.phan_hoi_nhan_xet}"</p>
+                    {f.ngay_phan_hoi && (
+                      <p className="text-[9px] text-zinc-400 font-bold uppercase mt-1">
+                        Lúc {formatDate(f.ngay_phan_hoi)}
+                      </p>
+                    )}
+                    {replyingId !== f.id && (
+                      <button
+                        onClick={() => {
+                          setReplyingId(f.id);
+                          setReplyText(f.phan_hoi_nhan_xet || '');
+                        }}
+                        className="text-[9px] font-black uppercase text-primary hover:text-emerald-700 mt-2 block cursor-pointer"
+                      >
+                        Sửa phản hồi
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  replyingId !== f.id && (
+                    <button
+                      onClick={() => {
+                        setReplyingId(f.id);
+                        setReplyText('');
+                      }}
+                      className="mt-4 text-xs font-black uppercase text-primary hover:text-teal-700 flex items-center gap-1 cursor-pointer select-none"
+                    >
+                      💬 Phản hồi đánh giá
+                    </button>
+                  )
+                )}
+
+                {replyingId === f.id && (
+                  <div className="mt-4 space-y-3 p-4 bg-slate-50 dark:bg-zinc-850/20 rounded-2xl border border-slate-200/40">
+                    <textarea
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      placeholder="Nhập nội dung phản hồi y khoa của phòng khám..."
+                      className="w-full min-h-[80px] p-3 text-xs bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:border-primary text-slate-700 dark:text-zinc-200"
+                    />
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        onClick={() => setReplyingId(null)}
+                        className="px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-500 hover:text-slate-700 cursor-pointer"
+                        disabled={submittingReply}
+                      >
+                        Hủy
+                      </button>
+                      <button
+                        onClick={() => handleSendReply(f.id, f.loai_danh_gia)}
+                        className="px-4 py-1.5 bg-primary hover:bg-teal-700 text-white rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+                        disabled={submittingReply}
+                      >
+                        {submittingReply && <Loader2 size={12} className="animate-spin" />}
+                        Gửi phản hồi
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -275,10 +484,76 @@ export default function ViewFeedback() {
                   {/* Review Text */}
                   <div className="relative pt-1.5">
                     <p className="text-[13px] font-semibold text-slate-600 dark:text-zinc-350 leading-relaxed bg-slate-50/50 dark:bg-zinc-850/10 p-4 rounded-2xl border border-slate-100 dark:border-zinc-800/50 italic">
-                      "{f.nhan_xet || 'Khách hàng không để lại nhận xét bằng chữ.'}"
+                      "{censorText(f.nhan_xet) || 'Khách hàng không để lại nhận xét bằng chữ.'}"
                     </p>
                   </div>
                 </div>
+
+                {/* Reply section */}
+                {f.phan_hoi_nhan_xet ? (
+                  <div className="mt-4 p-4 bg-emerald-50/50 dark:bg-emerald-950/10 border-l-2 border-[#0D9488] rounded-r-2xl text-[12px] space-y-1">
+                    <p className="font-extrabold text-slate-800 dark:text-zinc-200">
+                      Phản hồi từ {f.ten_nguoi_phan_hoi || 'Phòng khám OfficeCare'}:
+                    </p>
+                    <p className="text-slate-655 dark:text-zinc-350 italic">"{f.phan_hoi_nhan_xet}"</p>
+                    {f.ngay_phan_hoi && (
+                      <p className="text-[9px] text-zinc-400 font-bold uppercase mt-1">
+                        Lúc {formatDate(f.ngay_phan_hoi)}
+                      </p>
+                    )}
+                    {replyingId !== f.id && (
+                      <button
+                        onClick={() => {
+                          setReplyingId(f.id);
+                          setReplyText(f.phan_hoi_nhan_xet || '');
+                        }}
+                        className="text-[9px] font-black uppercase text-primary hover:text-emerald-700 mt-2 block cursor-pointer"
+                      >
+                        Sửa phản hồi
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  replyingId !== f.id && (
+                    <button
+                      onClick={() => {
+                        setReplyingId(f.id);
+                        setReplyText('');
+                      }}
+                      className="mt-4 text-xs font-black uppercase text-primary hover:text-teal-700 flex items-center gap-1 cursor-pointer select-none"
+                    >
+                      💬 Phản hồi đánh giá
+                    </button>
+                  )
+                )}
+
+                {replyingId === f.id && (
+                  <div className="mt-4 space-y-3 p-4 bg-slate-50 dark:bg-zinc-850/20 rounded-2xl border border-slate-200/40">
+                    <textarea
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      placeholder="Nhập nội dung phản hồi y khoa của phòng khám..."
+                      className="w-full min-h-[80px] p-3 text-xs bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:border-primary text-slate-700 dark:text-zinc-200"
+                    />
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        onClick={() => setReplyingId(null)}
+                        className="px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-500 hover:text-slate-700 cursor-pointer"
+                        disabled={submittingReply}
+                      >
+                        Hủy
+                      </button>
+                      <button
+                        onClick={() => handleSendReply(f.id, f.loai_danh_gia)}
+                        className="px-4 py-1.5 bg-primary hover:bg-teal-700 text-white rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+                        disabled={submittingReply}
+                      >
+                        {submittingReply && <Loader2 size={12} className="animate-spin" />}
+                        Gửi phản hồi
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Footer Service details */}
                 <div className="mt-4 pt-3 border-t border-slate-100 dark:border-zinc-800/80 flex items-center justify-between text-[9px] text-zinc-400 font-bold uppercase">

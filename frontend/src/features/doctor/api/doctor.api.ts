@@ -35,18 +35,25 @@ export interface DoctorAppointment {
   anh_dinh_kem_url?: string | null;
 }
 
-export interface PatientMedicalRecord {
+// Khám lâm sàng & dịch vụ lẻ gộp chung 1 dòng thời gian (KHÔNG lẫn buổi trong phác đồ) — mirror
+// đúng cách tách "Phác đồ điều trị" / "Khám & Dịch vụ lẻ" của trang Admin (PatientEmrDetail.tsx).
+export interface PatientVisit {
   id: string;
-  chan_doan: string;
-  chong_chi_dinh: string;
-  ghi_chu: string;
-  thoi_gian_tao: string;
-  lich_dat_id: string;
+  loai: 'KHAM' | 'DICH_VU_LE';
+  thoi_gian: string;
   ma_lich_dat: string;
-  ten_bac_si: string;
-  anh_bac_si?: string;
-  khuyen_nghi_dich_vu?: string;
-  khuyen_nghi_goi?: string;
+  trang_thai: string;
+  chan_doan?: string | null;
+  chong_chi_dinh?: string | null;
+  ly_do_kham?: string | null;
+  anh_dinh_kem_url?: string | null;
+  ghi_chu?: string | null;
+  khuyen_nghi_goi?: string | null;
+  ten_dich_vu?: string | null;
+  ten_nhan_su?: string | null;
+  anh_nhan_su?: string | null;
+  // Nếu ca khám này đã dẫn tới 1 phác đồ được kích hoạt — id của phác đồ đó để nhảy popup.
+  prescribed_plan_id?: string | null;
 }
 
 export interface TreatmentSession {
@@ -63,6 +70,9 @@ export interface TreatmentSession {
   danh_gia_hieu_qua?: string;
   canh_bao_dac_biet?: string;
   ai_tom_tat_ngan?: string;
+  // id numeric của nhan_su thực hiện buổi — so khớp với người đang đăng nhập để quyết định nhãn
+  // "Ghi chú của bạn" hay "Chỉ xem — ghi bởi người khác".
+  thuc_hien_id?: number | null;
   ten_ky_thuat_vien?: string;
   anh_ky_thuat_vien?: string;
 }
@@ -78,11 +88,14 @@ export interface TreatmentPlan {
   ten_dich_vu?: string;
   ten_goi?: string;
   chan_doan?: string;
+  // Ca khám đã chỉ định ra phác đồ này (nếu có) + tên bác sĩ chỉ định, để hiện banner liên kết ngược.
+  goc_kham_id?: string | null;
+  bac_si_chi_dinh?: string | null;
   sessions: TreatmentSession[];
 }
 
 export interface PatientProfile {
-  medicalRecords: PatientMedicalRecord[];
+  visits: PatientVisit[];
   treatmentPlans: TreatmentPlan[];
 }
 
@@ -102,9 +115,7 @@ export interface ClinicalAssessmentPayload {
 }
 
 // --- API Calls ---
-export const getQueue = () => api.get<DoctorQueueItem[]>('/doctor/queue');
-
-export const getAppointments = (startDate?: string, endDate?: string) => 
+export const getAppointments = (startDate?: string, endDate?: string) =>
   api.get<DoctorAppointment[]>('/doctor/appointments', { params: { startDate, endDate } });
 
 export const getAppointmentDetail = (id: string) =>

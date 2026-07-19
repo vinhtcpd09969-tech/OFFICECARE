@@ -35,6 +35,8 @@ model nguoi_dung {
   thong_bao             thong_bao[]
   bai_viet              bai_viet[]
   danh_gia_nhan_su      danh_gia_nhan_su[]
+  phan_hoi_goi          danh_gia_goi_dich_vu[]  @relation("phan_hoi_goi")
+  phan_hoi_nhan_su      danh_gia_nhan_su[]      @relation("phan_hoi_nhan_su")
 }
 
 model ho_so_chuyen_gia {
@@ -71,6 +73,7 @@ model khach_hang {
   gioi_tinh           String?               @db.VarChar(10)
   trang_thai          String                @default("hoat_dong") @db.VarChar(20)
   diem_uy_tin         Int                   @default(100)
+  phai_doi_mat_khau   Boolean               @default(false)
   ngay_dong_y_dieu_khoan DateTime?          @db.Timestamptz(6)
   cuoc_hen            cuoc_hen[]
   danh_gia_goi_dich_vu danh_gia_goi_dich_vu[]
@@ -249,33 +252,41 @@ model khuyen_mai_voucher {
 }
 
 model danh_gia_goi_dich_vu {
-  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  khach_hang_id  String      @db.Uuid
-  goi_dich_vu_id String      @db.Uuid
-  cuoc_hen_id    String?     @db.Uuid
-  so_sao         Int
-  nhan_xet       String?
-  ngay_tao       DateTime    @default(now()) @db.Timestamptz(6)
-  ngay_cap_nhat  DateTime    @default(now()) @db.Timestamptz(6)
-  khach_hang     khach_hang  @relation(fields: [khach_hang_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  goi_dich_vu    goi_dich_vu @relation(fields: [goi_dich_vu_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  cuoc_hen       cuoc_hen?   @relation(fields: [cuoc_hen_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  id                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  khach_hang_id      String       @db.Uuid
+  goi_dich_vu_id     String       @db.Uuid
+  cuoc_hen_id        String?      @db.Uuid
+  so_sao             Int
+  nhan_xet           String?
+  ngay_tao           DateTime     @default(now()) @db.Timestamptz(6)
+  ngay_cap_nhat      DateTime     @default(now()) @db.Timestamptz(6)
+  phan_hoi_nhan_xet  String?      @db.Text
+  nguoi_phan_hoi_id  Int?
+  ngay_phan_hoi      DateTime?    @db.Timestamptz(6)
+  khach_hang         khach_hang   @relation(fields: [khach_hang_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  goi_dich_vu        goi_dich_vu  @relation(fields: [goi_dich_vu_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  cuoc_hen           cuoc_hen?    @relation(fields: [cuoc_hen_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  nguoi_phan_hoi     nguoi_dung?  @relation("phan_hoi_goi", fields: [nguoi_phan_hoi_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@unique([khach_hang_id, goi_dich_vu_id])
 }
 
 model danh_gia_nhan_su {
-  id            String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  khach_hang_id String     @db.Uuid
-  nhan_su_id    Int
-  cuoc_hen_id   String?    @db.Uuid
-  so_sao        Int
-  nhan_xet      String?
-  ngay_tao      DateTime   @default(now()) @db.Timestamptz(6)
-  ngay_cap_nhat DateTime   @default(now()) @db.Timestamptz(6)
-  khach_hang    khach_hang @relation(fields: [khach_hang_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  nguoi_dung    nguoi_dung @relation(fields: [nhan_su_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  cuoc_hen      cuoc_hen?  @relation(fields: [cuoc_hen_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  id                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  khach_hang_id      String       @db.Uuid
+  nhan_su_id         Int
+  cuoc_hen_id        String?      @db.Uuid
+  so_sao             Int
+  nhan_xet           String?
+  ngay_tao           DateTime     @default(now()) @db.Timestamptz(6)
+  ngay_cap_nhat      DateTime     @default(now()) @db.Timestamptz(6)
+  phan_hoi_nhan_xet  String?      @db.Text
+  nguoi_phan_hoi_id  Int?
+  ngay_phan_hoi      DateTime?    @db.Timestamptz(6)
+  khach_hang         khach_hang   @relation(fields: [khach_hang_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  nguoi_dung         nguoi_dung   @relation(fields: [nhan_su_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  cuoc_hen           cuoc_hen?    @relation(fields: [cuoc_hen_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  nguoi_phan_hoi     nguoi_dung?  @relation("phan_hoi_nhan_su", fields: [nguoi_phan_hoi_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@unique([khach_hang_id, nhan_su_id])
 }

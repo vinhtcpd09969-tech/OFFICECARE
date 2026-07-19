@@ -12,6 +12,7 @@ import {
   deleteStaffReview 
 } from '../../api/customer.api';
 import toast from 'react-hot-toast';
+import { censorText } from '../../../../utils/profanity';
 import { 
   Settings, 
   User, 
@@ -48,6 +49,7 @@ export default function CustomerSettings() {
   const [showExpertForm, setShowExpertForm] = useState(false);
 
   const isExpert = [3, 4].includes(Number(user?.vai_tro_id));
+  const isStaff = [2, 3, 4, 6].includes(Number(user?.vai_tro_id));
   const isCustomer = user?.vai_tro_id === 1 || user?.vai_tro_id === 0 || !user?.vai_tro_id; // Default to true if user role is not loaded yet to prevent flashing
   const [hoTen, setHoTen] = useState(user?.ho_ten || '');
   const email = user?.email || '';
@@ -298,6 +300,7 @@ export default function CustomerSettings() {
         setOldPassword('');
         setNewPassword('');
         setConfirmPassword('');
+        updateUser({ isDefaultPassword: false });
         toast.success('Đã đổi mật khẩu bảo mật thành công!');
       }
 
@@ -574,90 +577,92 @@ export default function CustomerSettings() {
                 </div>
 
                 {/* Password & Security Block */}
-                <div className="space-y-4 pt-6 border-t border-zinc-100 dark:border-zinc-800/80">
-                  <div>
-                    <h3 className="text-xs font-black text-secondary dark:text-zinc-100 uppercase tracking-wider flex items-center gap-2">
-                      <Lock size={15} className="text-primary" />
-                      Mật khẩu & Bảo mật
-                    </h3>
-                    <p className="text-[8px] text-zinc-400 dark:text-zinc-500 font-bold uppercase mt-0.5">Để trống nếu không muốn đổi mật khẩu mới</p>
-                  </div>
-
-                  <div className="space-y-4">
-                    {/* Old Password */}
-                    <div className="space-y-1.5">
-                      <label className="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">Mật khẩu hiện tại</label>
-                      <div className="relative">
-                        <input 
-                          type={showOldPass ? "text" : "password"} 
-                          value={oldPassword}
-                          onChange={(e) => setOldPassword(e.target.value)}
-                          placeholder="Nhập mật khẩu cũ đang dùng"
-                          className="w-full bg-zinc-50 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded-xl px-4 py-3 text-xs text-secondary dark:text-zinc-200 font-bold outline-none pr-10 focus:ring-2 focus:ring-primary/20"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowOldPass(!showOldPass)}
-                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-400 hover:text-zinc-650 dark:hover:text-zinc-300 outline-none"
-                        >
-                          {showOldPass ? <EyeOff size={14} /> : <Eye size={14} />}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* New Password */}
-                      <div className="space-y-1.5">
-                        <label className="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">Mật khẩu mới</label>
-                        <div className="relative">
-                          <input 
-                            type={showNewPass ? "text" : "password"} 
-                            value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
-                            placeholder="Tối thiểu 6 ký tự"
-                            className="w-full bg-zinc-50 dark:bg-zinc-855 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded-xl px-4 py-3 text-xs text-secondary dark:text-zinc-200 font-bold outline-none pr-10 focus:ring-2 focus:ring-primary/20"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowNewPass(!showNewPass)}
-                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-400 hover:text-zinc-655 dark:hover:text-zinc-300 outline-none"
-                          >
-                            {showNewPass ? <EyeOff size={14} /> : <Eye size={14} />}
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Confirm New Password */}
-                      <div className="space-y-1.5">
-                        <label className="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">Xác nhận mật khẩu</label>
-                        <div className="relative">
-                          <input 
-                            type={showConfirmPass ? "text" : "password"} 
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
-                            placeholder="Nhập lại mật khẩu mới"
-                            className="w-full bg-zinc-50 dark:bg-zinc-855 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded-xl px-4 py-3 text-xs text-secondary dark:text-zinc-200 font-bold outline-none pr-10 focus:ring-2 focus:ring-primary/20"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowConfirmPass(!showConfirmPass)}
-                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-400 hover:text-zinc-655 dark:hover:text-zinc-300 outline-none"
-                          >
-                            {showConfirmPass ? <EyeOff size={14} /> : <Eye size={14} />}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-[#FFF9E6] dark:bg-amber-955/10 p-4 rounded-2xl border border-amber-200/50 dark:border-amber-900/30 flex items-start gap-2.5 text-xs text-amber-800 dark:text-amber-400">
-                    <ShieldAlert size={16} className="flex-shrink-0 mt-0.5 text-amber-500 animate-bounce" />
+                {!isStaff && (
+                  <div className="space-y-4 pt-6 border-t border-zinc-100 dark:border-zinc-800/80">
                     <div>
-                      <p className="font-extrabold uppercase text-[9px] tracking-wider">Khuyến nghị mật khẩu bảo mật</p>
-                      <p className="font-medium text-zinc-650 dark:text-zinc-455 mt-1 leading-relaxed text-[11px]">Không đặt các mật khẩu đơn giản, trùng ngày sinh hoặc tên gọi của bạn. Đổi mật khẩu định kỳ 3-6 tháng để bảo vệ hồ sơ bệnh án.</p>
+                      <h3 className="text-xs font-black text-secondary dark:text-zinc-100 uppercase tracking-wider flex items-center gap-2">
+                        <Lock size={15} className="text-primary" />
+                        Mật khẩu & Bảo mật
+                      </h3>
+                      <p className="text-[8px] text-zinc-400 dark:text-zinc-500 font-bold uppercase mt-0.5">Để trống nếu không muốn đổi mật khẩu mới</p>
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* Old Password */}
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">Mật khẩu hiện tại</label>
+                        <div className="relative">
+                          <input 
+                            type={showOldPass ? "text" : "password"} 
+                            value={oldPassword}
+                            onChange={(e) => setOldPassword(e.target.value)}
+                            placeholder="Nhập mật khẩu cũ đang dùng"
+                            className="w-full bg-zinc-50 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded-xl px-4 py-3 text-xs text-secondary dark:text-zinc-200 font-bold outline-none pr-10 focus:ring-2 focus:ring-primary/20"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowOldPass(!showOldPass)}
+                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-400 hover:text-zinc-655 dark:hover:text-zinc-300 outline-none"
+                          >
+                            {showOldPass ? <EyeOff size={14} /> : <Eye size={14} />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* New Password */}
+                        <div className="space-y-1.5">
+                          <label className="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">Mật khẩu mới</label>
+                          <div className="relative">
+                            <input 
+                              type={showNewPass ? "text" : "password"} 
+                              value={newPassword}
+                              onChange={(e) => setNewPassword(e.target.value)}
+                              placeholder="Tối thiểu 6 ký tự"
+                              className="w-full bg-zinc-50 dark:bg-zinc-855 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded-xl px-4 py-3 text-xs text-secondary dark:text-zinc-200 font-bold outline-none pr-10 focus:ring-2 focus:ring-primary/20"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowNewPass(!showNewPass)}
+                              className="absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-400 hover:text-zinc-655 dark:hover:text-zinc-300 outline-none"
+                            >
+                              {showNewPass ? <EyeOff size={14} /> : <Eye size={14} />}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Confirm New Password */}
+                        <div className="space-y-1.5">
+                          <label className="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">Xác nhận mật khẩu</label>
+                          <div className="relative">
+                            <input 
+                              type={showConfirmPass ? "text" : "password"} 
+                              value={confirmPassword}
+                              onChange={(e) => setConfirmPassword(e.target.value)}
+                              placeholder="Nhập lại mật khẩu mới"
+                              className="w-full bg-zinc-50 dark:bg-zinc-855 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded-xl px-4 py-3 text-xs text-secondary dark:text-zinc-200 font-bold outline-none pr-10 focus:ring-2 focus:ring-primary/20"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowConfirmPass(!showConfirmPass)}
+                              className="absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-400 hover:text-zinc-655 dark:hover:text-zinc-300 outline-none"
+                            >
+                              {showConfirmPass ? <EyeOff size={14} /> : <Eye size={14} />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-[#FFF9E6] dark:bg-amber-955/10 p-4 rounded-2xl border border-amber-200/50 dark:border-amber-900/30 flex items-start gap-2.5 text-xs text-amber-800 dark:text-amber-400">
+                      <ShieldAlert size={16} className="flex-shrink-0 mt-0.5 text-amber-500 animate-bounce" />
+                      <div>
+                        <p className="font-extrabold uppercase text-[9px] tracking-wider">Khuyến nghị mật khẩu bảo mật</p>
+                        <p className="font-medium text-zinc-650 dark:text-zinc-455 mt-1 leading-relaxed text-[11px]">Không đặt các mật khẩu đơn giản, trùng ngày sinh hoặc tên gọi của bạn. Đổi mật khẩu định kỳ 3-6 tháng để bảo vệ hồ sơ bệnh án.</p>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
                 {/* Submit Action */}
                 <div className="pt-4">
@@ -991,8 +996,17 @@ export default function CustomerSettings() {
                           </div>
                           
                           <p className="text-xs font-semibold text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100 italic">
-                            "{rev.comment || 'Không có nhận xét bằng chữ.'}"
+                            "{censorText(rev.comment) || 'Không có nhận xét bằng chữ.'}"
                           </p>
+
+                          {rev.reply && (
+                            <div className="bg-emerald-50/50 dark:bg-emerald-950/10 border-l-2 border-[#0D9488] rounded-xl p-3.5 mt-2.5 text-[11px] space-y-1">
+                              <p className="font-extrabold text-slate-800 dark:text-zinc-200">
+                                Phản hồi từ OfficeCare:
+                              </p>
+                              <p className="text-slate-655 dark:text-zinc-350 italic">"{rev.reply}"</p>
+                            </div>
+                          )}
 
                           <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
                             <button
@@ -1061,8 +1075,17 @@ export default function CustomerSettings() {
                           </div>
                           
                           <p className="text-xs font-semibold text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100 italic">
-                            "{rev.comment || 'Không có nhận xét bằng chữ.'}"
+                            "{censorText(rev.comment) || 'Không có nhận xét bằng chữ.'}"
                           </p>
+
+                          {rev.reply && (
+                            <div className="bg-emerald-50/50 dark:bg-emerald-950/10 border-l-2 border-[#0D9488] rounded-xl p-3.5 mt-2.5 text-[11px] space-y-1">
+                              <p className="font-extrabold text-slate-800 dark:text-zinc-200">
+                                Phản hồi từ OfficeCare:
+                              </p>
+                              <p className="text-slate-655 dark:text-zinc-350 italic">"{rev.reply}"</p>
+                            </div>
+                          )}
 
                           <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
                             <button

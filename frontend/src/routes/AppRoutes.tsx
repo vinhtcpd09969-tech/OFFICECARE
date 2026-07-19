@@ -1,4 +1,4 @@
-﻿import { lazy, Suspense } from 'react';
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from '../layouts/ProtectedRoute';
 import { RootRedirect } from '../layouts/RootRedirect';
@@ -35,6 +35,7 @@ const VerifyEmail = lazy(() => import('../features/auth/pages/VerifyEmail'));
 const CustomerAppointments = lazy(() => import('../features/customer/pages/CustomerAppointments/index'));
 const CustomerSettings = lazy(() => import('../features/customer/pages/CustomerSettings/index'));
 const CustomerMedicalRecord = lazy(() => import('../features/customer/pages/CustomerMedicalRecord/index'));
+const CustomerInvoices = lazy(() => import('../features/customer/pages/CustomerInvoices/index'));
 
 // Admin Feature
 const AdminDashboard = lazy(() => import('../features/admin/pages/AdminDashboard'));
@@ -52,7 +53,6 @@ const ViewFeedback = lazy(() => import('../features/admin/pages/ViewFeedback'));
 const ManageArticles = lazy(() => import('../features/admin/pages/ManageArticles'));
 
 // Receptionist Feature
-const ReceptionistDashboard = lazy(() => import('../features/receptionist/pages/ReceptionistDashboard/index'));
 const ReceptionistAppointments = lazy(() => import('../features/receptionist/pages/ReceptionistAppointments/index'));
 const QuickBilling = lazy(() => import('../features/receptionist/pages/QuickBilling/index'));
 
@@ -60,7 +60,6 @@ const QuickBilling = lazy(() => import('../features/receptionist/pages/QuickBill
 const TechnicianAppointments = lazy(() => import('../features/technician/pages/TechnicianAppointments/index'));
 
 // Doctor Feature
-const DoctorDashboard = lazy(() => import('../features/doctor/pages/DoctorDashboard'));
 const DoctorAppointments = lazy(() => import('../features/doctor/pages/DoctorAppointments'));
 const ClinicalAssessment = lazy(() => import('../features/doctor/pages/ClinicalAssessment'));
 const DoctorMedicalRecords = lazy(() => import('../features/doctor/pages/DoctorMedicalRecords'));
@@ -94,6 +93,7 @@ export default function AppRoutes() {
             <Route path="/dashboard" element={<Navigate to="/appointments" replace />} />
             <Route path="/appointments" element={<CustomerAppointments />} />
             <Route path="/medical-record" element={<CustomerMedicalRecord />} />
+            <Route path="/invoices" element={<CustomerInvoices />} />
             <Route path="/packages" element={<Navigate to="/appointments" replace />} />
             <Route path="/profile" element={<Navigate to="/appointments" replace />} />
             <Route path="/settings" element={<CustomerSettings />} />
@@ -124,13 +124,14 @@ export default function AppRoutes() {
             <Route path="/admin/marketing" element={<ManageVouchers />} />
             <Route path="/admin/articles" element={<ManageArticles />} />
             <Route path="/admin/feedback" element={<ViewFeedback />} />
+            <Route path="/admin/settings" element={<CustomerSettings />} />
           </Route>
         </Route>
 
         {/* Receptionist Protected Routes */}
         <Route element={<ProtectedRoute allowedRoles={[2]} />}>
           <Route element={<AdminLayout />}>
-            <Route path="/receptionist" element={<ReceptionistDashboard />} />
+            <Route path="/receptionist" element={<Navigate to="/receptionist/appointments" replace />} />
             <Route path="/receptionist/appointments" element={<ReceptionistAppointments />} />
             <Route path="/receptionist/billing" element={<QuickBilling />} />
             <Route path="/receptionist/schedules" element={<DoctorSchedules />} />
@@ -152,7 +153,7 @@ export default function AppRoutes() {
         {/* Doctor Protected Routes */}
         <Route element={<ProtectedRoute allowedRoles={[4]} />}>
           <Route element={<AdminLayout />}>
-            <Route path="/doctor" element={<DoctorDashboard />} />
+            <Route path="/doctor" element={<Navigate to="/doctor/appointments" replace />} />
             <Route path="/doctor/appointments" element={<DoctorAppointments />} />
             <Route path="/doctor/appointments/:id/assess" element={<ClinicalAssessment />} />
             <Route path="/doctor/medical-records" element={<DoctorMedicalRecords />} />

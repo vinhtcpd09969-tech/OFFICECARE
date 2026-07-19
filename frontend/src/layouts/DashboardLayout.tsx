@@ -11,6 +11,7 @@ import {
   Menu,
   X,
   FileText,
+  Receipt,
   ShieldAlert
 } from 'lucide-react';
 
@@ -89,6 +90,7 @@ export default function DashboardLayout() {
   const navItems = [
     { name: 'Lịch hẹn', path: '/appointments', icon: <Calendar size={20} />, roles: [1, 2, 4] },
     { name: 'Hồ sơ trị liệu', path: '/medical-record', icon: <FileText size={20} />, roles: [1] },
+    { name: 'Hóa đơn', path: '/invoices', icon: <Receipt size={20} />, roles: [1] },
     { name: 'Cài đặt', path: '/settings', icon: <Settings size={20} />, roles: [1, 2, 3, 4] },
   ];
 
@@ -343,7 +345,7 @@ export default function DashboardLayout() {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 p-4 sm:p-8 w-full max-w-7xl mx-auto space-y-6">
+        <main className="flex-1 min-w-0 p-4 sm:p-8 w-full max-w-7xl mx-auto space-y-6">
           {user?.isDefaultPassword && (
             <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 p-4.5 rounded-[20px] shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in slide-in-from-top-2 duration-300">
               <div className="flex items-start gap-3">

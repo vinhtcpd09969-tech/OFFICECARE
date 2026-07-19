@@ -4,9 +4,6 @@ import api from '../../../api/axios';
 export const walkInBooking = (data: any) => api.post('/receptionist/walk-in', data);
 export const resendEmail = (id: string) => api.post(`/receptionist/appointments/${id}/resend-email`);
 
-// Dashboard data
-export const getDashboardData = () => api.get('/receptionist/dashboard');
-
 // Appointments
 export const getAppointments = () => api.get('/admin/appointments');
 export const createAppointment = (data: any) => api.post('/admin/appointments', data);

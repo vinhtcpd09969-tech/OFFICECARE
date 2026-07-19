@@ -150,6 +150,14 @@ class AppointmentService {
     return appointmentRepository.getCustomerTreatmentSessions(nguoi_dung_id);
   }
 
+  async getCustomerInvoices(nguoi_dung_id: string) {
+    const [invoices, payments] = await Promise.all([
+      appointmentRepository.getCustomerInvoices(nguoi_dung_id),
+      appointmentRepository.getCustomerPayments(nguoi_dung_id),
+    ]);
+    return { invoices, payments };
+  }
+
   async cancelBreakTimeAppointments() {
     return appointmentRepository.cancelBreakTimeAppointments();
   }

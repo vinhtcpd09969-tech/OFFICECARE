@@ -3,11 +3,9 @@
  * `backend/src/domain/appointmentStatus.ts` (2 phía không dùng chung runtime nên phải trùng
  * lặp thủ công; sửa bên nào nhớ sửa bên kia).
  */
+import { UNCONFIRMED_STATUSES, CHECKED_IN_STATUSES, CANCELLED_STATUSES, NO_SHOW_STATUSES } from '../../../../../utils/appointmentKpi';
 
-const UNCONFIRMED_STATUSES = ['chua_xac_nhan', 'cho_xac_nhan'];
-const IN_PROGRESS_LOCKED_STATUSES = ['da_checkin', 'check_in', 'dang_kham', 'hoan_thanh'];
-const CANCELLED_STATUSES = ['da_huy', 'da_huy_phat'];
-const NO_SHOW_STATUSES = ['khong_den', 'khach_khong_den', 'khach_khong_den_phat'];
+const IN_PROGRESS_LOCKED_STATUSES = [...CHECKED_IN_STATUSES, 'dang_kham', 'hoan_thanh'];
 const TERMINAL_STATUSES = [...CANCELLED_STATUSES, ...NO_SHOW_STATUSES];
 
 export interface ReceptionistStatusOption {
@@ -41,10 +39,16 @@ export function getReceptionistActionOptions(
   hasAssignedStaff: boolean
 ): ReceptionistStatusOption[] {
   if (UNCONFIRMED_STATUSES.includes(currentStatus)) {
-    return [
-      { value: hasAssignedStaff ? 'da_xac_nhan' : 'cho_xac_nhan', label: 'Xác nhận' },
-      { value: 'da_huy', label: 'Hủy' },
-    ];
+    const options: ReceptionistStatusOption[] = [];
+    const confirmTarget = hasAssignedStaff ? 'da_xac_nhan' : 'cho_xac_nhan';
+    // Nếu lịch đã ở đúng trạng thái confirmTarget rồi (vd: đã ở cho_xac_nhan, vẫn chưa gán bác sĩ)
+    // thì "Xác nhận" là hành động rỗng — không đổi gì, chỉ gây hiểu lầm là bấm xong có tác dụng.
+    // Phải gán nhân sự/phòng thật (form riêng bên dưới) mới có gì để chuyển tiếp.
+    if (confirmTarget !== currentStatus) {
+      options.push({ value: confirmTarget, label: 'Xác nhận' });
+    }
+    options.push({ value: 'da_huy', label: 'Hủy' });
+    return options;
   }
   if (currentStatus === 'da_xac_nhan') {
     return [

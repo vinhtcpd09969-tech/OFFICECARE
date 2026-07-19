@@ -13,6 +13,11 @@ interface CapacityViewProps {
   activeType: 'kham' | 'dieu_tri';
   searchTerm?: string;
   onSelectAppointment?: (aptId: string) => void;
+  /** Nhãn trạng thái đang lọc (vd "Đã check-in") — appointments truyền vào đã được lọc sẵn ở
+   * trang cha. Có giá trị thì chuyển từ thẻ gộp theo ngày sang danh sách phẳng từng lịch hẹn
+   * (giống khi gõ tìm kiếm) để thấy rõ kết quả lọc, thay vì chỉ đổi 1 con số nhỏ trong thẻ gộp
+   * mà người dùng dễ không nhận ra là đã lọc. */
+  activeStatusLabel?: string | null;
 }
 
 const removeAccents = (str: string) => {
@@ -28,7 +33,8 @@ export function CapacityView({
   timeRange,
   activeType,
   searchTerm = '',
-  onSelectAppointment
+  onSelectAppointment,
+  activeStatusLabel = null
 }: CapacityViewProps) {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const pageSize = 7;
@@ -129,32 +135,43 @@ export function CapacityView({
     setViewMode('timeline');
   };
 
-  // Tìm kiếm xuyên suốt toàn bộ khoảng thời gian đang tải (không giới hạn theo tuần/tháng đang xem)
+  // Tìm kiếm xuyên suốt toàn bộ khoảng thời gian đang tải (không giới hạn theo tuần/tháng đang xem).
+  // Khi có lọc theo trạng thái (activeStatusLabel) — appointments truyền vào đã lọc sẵn ở trang
+  // cha — cũng chuyển sang hiện danh sách phẳng này thay vì thẻ gộp theo ngày, vì gộp theo ngày
+  // không cho thấy rõ kết quả lọc còn lại là những ca nào.
   const cleanSearch = removeAccents(searchTerm.trim());
-  const searchResults = cleanSearch
-    ? appointments
-        .filter(apt =>
-          removeAccents(apt.ten_khach_hang).includes(cleanSearch) ||
-          removeAccents(apt.ma_lich_dat).includes(cleanSearch) ||
-          (apt.so_dien_thoai || '').includes(searchTerm.trim())
-        )
-        .sort((a, b) => new Date(a.ngay_gio_bat_dau || '').getTime() - new Date(b.ngay_gio_bat_dau || '').getTime())
-        .slice(0, 30)
-    : [];
+  const hasActiveFilter = !!cleanSearch || !!activeStatusLabel;
 
+  let resultsList = appointments.slice();
   if (cleanSearch) {
+    resultsList = resultsList.filter(apt =>
+      removeAccents(apt.ten_khach_hang).includes(cleanSearch) ||
+      removeAccents(apt.ma_lich_dat).includes(cleanSearch) ||
+      (apt.so_dien_thoai || '').includes(searchTerm.trim())
+    );
+  }
+  resultsList = resultsList.sort((a, b) => new Date(a.ngay_gio_bat_dau || '').getTime() - new Date(b.ngay_gio_bat_dau || '').getTime());
+  // Giới hạn 30 chỉ áp dụng khi đang gõ tìm kiếm (tránh danh sách quá dài khi gõ nhầm 1 ký tự) —
+  // lọc theo trạng thái thì hiện đủ, vì mục đích là để duyệt hết kết quả.
+  if (cleanSearch) {
+    resultsList = resultsList.slice(0, 30);
+  }
+
+  if (hasActiveFilter) {
+    const headerText = cleanSearch && activeStatusLabel
+      ? `${resultsList.length} lịch hẹn khớp "${searchTerm.trim()}" trong nhóm ${activeStatusLabel}`
+      : cleanSearch
+        ? (resultsList.length > 0 ? `Tìm thấy ${resultsList.length} lịch hẹn khớp "${searchTerm.trim()}"` : `Không tìm thấy lịch hẹn nào khớp "${searchTerm.trim()}"`)
+        : (resultsList.length > 0 ? `${resultsList.length} lịch hẹn thuộc nhóm ${activeStatusLabel}` : `Không có lịch hẹn nào thuộc nhóm ${activeStatusLabel} trong khoảng đang xem`);
+
     return (
       <div className="space-y-3">
         <div className="flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-zinc-400 px-1">
           <Search size={13} />
-          <span>
-            {searchResults.length > 0
-              ? `Tìm thấy ${searchResults.length} lịch hẹn khớp "${searchTerm.trim()}"`
-              : `Không tìm thấy lịch hẹn nào khớp "${searchTerm.trim()}"`}
-          </span>
+          <span>{headerText}</span>
         </div>
 
-        {searchResults.map((apt) => {
+        {resultsList.map((apt) => {
           const aptDate = new Date(apt.ngay_gio_bat_dau || '');
           return (
             <motion.div

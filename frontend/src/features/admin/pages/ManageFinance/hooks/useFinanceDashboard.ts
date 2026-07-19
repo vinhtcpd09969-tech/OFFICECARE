@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import axiosInstance from '../../../../../api/axios';
+import { FINANCE_PAGE_SIZE } from '../constants';
 
 interface Invoice {
   id: string;
@@ -49,7 +50,6 @@ interface Payment {
   ten_khach_hang: string;
   so_tien: number;
   phuong_thuc: string;
-  trang_thai: string;
   thoi_gian_giao_dich: string;
   loai_giao_dich: string;
   chi_tiet?: PaymentTransactionDetail | null;
@@ -68,6 +68,13 @@ export const useFinanceDashboard = (isCheckoutMode: boolean) => {
   const [methodFilter, setMethodFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
   const [itemTypeFilter, setItemTypeFilter] = useState('all');
+
+  // Phân trang hiển thị thuần (cắt mảng đã tải + đã lọc, không gọi lại API) — reset về trang 1
+  // mỗi khi đổi tab hoặc bất kỳ điều kiện lọc nào để tránh đứng ở 1 trang trống sau khi lọc.
+  const [page, setPage] = useState(1);
+  useEffect(() => {
+    setPage(1);
+  }, [activeTab, searchTerm, statusFilter, methodFilter, dateFilter, itemTypeFilter]);
 
   // Fast Payment Sub-Modal inside detailed modal
   const [fastPayInvoice, setFastPayInvoice] = useState<Invoice | null>(null);
@@ -243,6 +250,70 @@ export const useFinanceDashboard = (isCheckoutMode: boolean) => {
     });
   };
 
+  // Tách khỏi index.tsx (nguyên vẹn logic filter cũ) để InvoiceTable/PaymentTable tự lấy dữ liệu
+  // đã lọc của đúng tab mình, không cần index.tsx tính hộ rồi truyền xuống.
+  const getFilteredPayments = () => {
+    return payments.filter((pay) => {
+      const query = searchTerm.toLowerCase();
+      const matchesSearch =
+        (pay.ma_giao_dich?.toLowerCase() || '').includes(query) ||
+        (pay.ma_hoa_don?.toLowerCase() || '').includes(query) ||
+        (pay.ten_khach_hang?.toLowerCase() || '').includes(query);
+      if (!matchesSearch) return false;
+
+      // "statusFilter" ở tab Giao dịch mang nghĩa loại giao dịch (THANH_TOAN/HOAN_TIEN) — bảng
+      // giao_dich_thanh_toan không có cột trang_thai (xem constants.ts::TRANSACTION_TYPE_META).
+      if (statusFilter !== 'all' && pay.loai_giao_dich !== statusFilter) return false;
+
+      if (methodFilter !== 'all' && pay.phuong_thuc !== methodFilter) return false;
+
+      if (dateFilter !== 'all') {
+        const date = new Date(pay.thoi_gian_giao_dich);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        if (dateFilter === 'today') {
+          if (date < today) return false;
+        } else if (dateFilter === '7days') {
+          const limit = new Date(today);
+          limit.setDate(limit.getDate() - 7);
+          if (date < limit) return false;
+        } else if (dateFilter === 'thisMonth') {
+          if (date.getMonth() !== today.getMonth() || date.getFullYear() !== today.getFullYear()) return false;
+        }
+      }
+
+      return true;
+    });
+  };
+
+  // KPI 4 thẻ đầu trang — bọc useMemo để không tính lại toàn bộ .reduce() trên mỗi lần render
+  // (tối ưu thuần, không đổi kết quả/công thức so với bản cũ ở index.tsx).
+  const kpis = useMemo(() => {
+    const totalCollected = invoices.reduce((acc, inv) => acc + Number(inv.da_thanh_toan || 0), 0);
+    const paidInvoiceCount = invoices.filter((inv) => inv.trang_thai === 'da_thanh_toan').length;
+    const totalPending = invoices.reduce(
+      (acc, inv) => acc + (inv.trang_thai === 'chua_thanh_toan' ? Number(inv.tong_tien_thanh_toan || 0) : 0),
+      0
+    );
+    const pendingInvoiceCount = invoices.filter((inv) => inv.trang_thai === 'chua_thanh_toan').length;
+    const refundPayments = payments.filter((p) => p.loai_giao_dich === 'HOAN_TIEN');
+    const totalRefunded = refundPayments.reduce((acc, p) => acc + Math.abs(Number(p.so_tien || 0)), 0);
+    const totalInvoices = invoices.length;
+    const fullyPaidPercent = totalInvoices > 0 ? Math.round((paidInvoiceCount / totalInvoices) * 100) : 0;
+
+    return {
+      totalCollected,
+      paidInvoiceCount,
+      totalPending,
+      pendingInvoiceCount,
+      totalRefunded,
+      refundCount: refundPayments.length,
+      totalInvoices,
+      fullyPaidPercent,
+    };
+  }, [invoices, payments]);
+
   return {
     invoices,
     setInvoices,
@@ -263,6 +334,11 @@ export const useFinanceDashboard = (isCheckoutMode: boolean) => {
     setDateFilter,
     itemTypeFilter,
     setItemTypeFilter,
+    page,
+    setPage,
+    pageSize: FINANCE_PAGE_SIZE,
+    kpis,
+    getFilteredPayments,
     fastPayInvoice,
     setFastPayInvoice,
     fastPayMethod,

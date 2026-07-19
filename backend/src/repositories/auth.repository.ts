@@ -63,7 +63,7 @@ class AuthRepository {
         gioi_tinh: data.gioi_tinh,
         ngay_sinh: data.ngay_sinh,
         dia_chi: data.dia_chi,
-        trang_thai: 'hoat_dong',
+        trang_thai: 'cho_kich_hoat',
         ngay_dong_y_dieu_khoan: data.ngay_dong_y_dieu_khoan,
       },
       select: {
@@ -197,7 +197,8 @@ class AuthRepository {
         diem_uy_tin: true,
         ngay_dong_y_dieu_khoan: true,
         dia_chi: true,
-        mat_khau_hash: true
+        mat_khau_hash: true,
+        phai_doi_mat_khau: true
       }
     });
     if (customer) {
@@ -375,7 +376,7 @@ class AuthRepository {
     } else {
       return prisma.khach_hang.update({
         where: { id: String(userId) },
-        data: { mat_khau_hash: newHash }
+        data: { mat_khau_hash: newHash, phai_doi_mat_khau: false }
       });
     }
   }

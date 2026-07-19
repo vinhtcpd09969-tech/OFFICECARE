@@ -8,12 +8,13 @@ import {
   createStaff, 
   updateStaff,
   updateStaffStatus, 
-  resetStaffPassword,
+  updateStaffPassword,
   uploadImage
 } from '../../api/admin.api';
 import { ConfirmDialog } from '../../../../components/ConfirmDialog';
 import { 
   Eye, 
+  EyeOff,
   Lock, 
   Unlock, 
   Search, 
@@ -57,8 +58,18 @@ export default function ManageStaff() {
   const [editTab, setEditTab] = useState<'basic' | 'specialist'>('basic');
   const [saveLoading, setSaveLoading] = useState(false);
 
+  // Password Edit State
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showOldPassword, setShowOldPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+
   // Edit Form Fields
   const [editHoTen, setEditHoTen] = useState('');
+  const [editEmail, setEditEmail] = useState('');
   const [editSoDienThoai, setEditSoDienThoai] = useState('');
   const [editVaiTroId, setEditVaiTroId] = useState(2);
   const [editExperience, setEditExperience] = useState(0);
@@ -129,20 +140,82 @@ export default function ManageStaff() {
     });
   };
 
-  const handleResetPassword = (staff: any) => {
+  const handleUpdatePassword = async (staff: any) => {
+    const isTargetAdmin = Number(staff.vai_tro_id) === 5;
+
+    if (isTargetAdmin) {
+      if (!oldPassword) {
+        toast.error('Vui lòng nhập mật khẩu hiện tại.');
+        return;
+      }
+      if (!newPassword || newPassword.length < 6) {
+        toast.error('Mật khẩu mới phải từ 6 ký tự trở lên.');
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        toast.error('Mật khẩu xác nhận không trùng khớp.');
+        return;
+      }
+    } else {
+      if (!newPassword || newPassword.length < 6) {
+        toast.error('Mật khẩu mới phải có độ dài tối thiểu 6 ký tự.');
+        return;
+      }
+    }
+
     setConfirmConfig({
       isOpen: true,
-      title: 'Khôi phục Mật khẩu Mặc định',
-      message: `Bạn có chắc chắn muốn reset mật khẩu của nhân sự "${staff.ho_ten}" về "123456" không? Nhân sự sẽ dùng mật khẩu này để đăng nhập lại.`,
+      title: isTargetAdmin ? 'Đổi Mật khẩu Admin' : 'Cập nhật Mật khẩu Nhân sự',
+      message: `Bạn có chắc chắn muốn thay đổi mật khẩu của nhân sự "${staff.ho_ten}" không?`,
       type: 'warning',
       onConfirm: async () => {
         setConfirmConfig(null);
         try {
-          await resetStaffPassword(staff.id);
-          toast.success(`Đã khôi phục mật khẩu cho nhân sự "${staff.ho_ten}" thành công về "123456"!`);
+          setIsUpdatingPassword(true);
+          await updateStaffPassword(staff.id, { 
+            password: newPassword, 
+            oldPassword: isTargetAdmin ? oldPassword : undefined 
+          });
+          toast.success(`Đã cập nhật mật khẩu cho nhân sự "${staff.ho_ten}" thành công!`);
+          setOldPassword('');
+          setNewPassword('');
+          setConfirmPassword('');
+          setShowOldPassword(false);
+          setShowPassword(false);
+          setShowConfirmPassword(false);
         } catch (error: any) {
-          console.error('Error resetting password:', error);
+          console.error('Error updating password:', error);
+          toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi cập nhật mật khẩu.');
+        } finally {
+          setIsUpdatingPassword(false);
+        }
+      }
+    });
+  };
+
+  const handleResetAdminPassword = async (staff: any) => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Khôi phục Mật khẩu Admin',
+      message: `Bạn có chắc chắn muốn đặt lại mật khẩu của Admin "${staff.ho_ten}" về mặc định (123456) không?`,
+      type: 'danger',
+      onConfirm: async () => {
+        setConfirmConfig(null);
+        try {
+          setIsUpdatingPassword(true);
+          await updateStaffPassword(staff.id, { isReset: true });
+          toast.success(`Đã đặt lại mật khẩu cho Admin về "123456" thành công!`);
+          setOldPassword('');
+          setNewPassword('');
+          setConfirmPassword('');
+          setShowOldPassword(false);
+          setShowPassword(false);
+          setShowConfirmPassword(false);
+        } catch (error: any) {
+          console.error('Error resetting admin password:', error);
           toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi khôi phục mật khẩu.');
+        } finally {
+          setIsUpdatingPassword(false);
         }
       }
     });
@@ -151,6 +224,7 @@ export default function ManageStaff() {
   const handleOpenDetails = (staff: any) => {
     setSelectedStaff(staff);
     setEditHoTen(staff.ho_ten);
+    setEditEmail(staff.email || '');
     setEditSoDienThoai(staff.so_dien_thoai || '');
     setEditVaiTroId(Number(staff.vai_tro_id));
     setEditExperience(Number(staff.so_nam_kinh_nghiem) || 0);
@@ -168,11 +242,14 @@ export default function ManageStaff() {
         setEditCert(rawCert);
         setEditCertImages([]);
       }
-    } else {
-      setEditCert('');
-      setEditCertImages([]);
     }
     
+    setOldPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setShowOldPassword(false);
+    setShowPassword(false);
+    setShowConfirmPassword(false);
     setIsEditMode(false);
     setEditTab('basic');
   };
@@ -230,6 +307,7 @@ export default function ManageStaff() {
 
       const payload = {
         ho_ten: editHoTen,
+        email: editEmail,
         so_dien_thoai: editSoDienThoai,
         vai_tro_id: editVaiTroId,
         so_nam_kinh_nghiem: [3, 4].includes(editVaiTroId) ? editExperience : undefined,
@@ -357,16 +435,18 @@ export default function ManageStaff() {
 
           {/* Header Actions */}
           <div className="flex gap-2">
-            <button
-              onClick={() => handleToggleStatus(selectedStaff)}
-              className={`px-3.5 py-2 border rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer active:scale-95 flex items-center gap-1.5 ${
-                selectedStaff.trang_thai === 'hoat_dong'
-                  ? 'bg-rose-50 hover:bg-rose-100 text-rose-600 border-rose-200/50 dark:bg-rose-955/15 dark:text-rose-400'
-                  : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border-emerald-200/50 dark:bg-emerald-955/15 dark:text-emerald-400'
-              }`}
-            >
-              {selectedStaff.trang_thai === 'hoat_dong' ? <><Lock size={12} /> Khóa tài khoản</> : <><Unlock size={12} /> Mở khóa hoạt động</>}
-            </button>
+            {Number(selectedStaff.vai_tro_id) !== 5 && (
+              <button
+                onClick={() => handleToggleStatus(selectedStaff)}
+                className={`px-3.5 py-2 border rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer active:scale-95 flex items-center gap-1.5 ${
+                  selectedStaff.trang_thai === 'hoat_dong'
+                    ? 'bg-rose-50 hover:bg-rose-100 text-rose-600 border-rose-200/50 dark:bg-rose-955/15 dark:text-rose-400'
+                    : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border-emerald-200/50 dark:bg-emerald-955/15 dark:text-emerald-400'
+                }`}
+              >
+                {selectedStaff.trang_thai === 'hoat_dong' ? <><Lock size={12} /> Khóa tài khoản</> : <><Unlock size={12} /> Mở khóa hoạt động</>}
+              </button>
+            )}
 
             {!isEditMode ? (
               <button
@@ -440,15 +520,22 @@ export default function ManageStaff() {
                 <div className="space-y-1.5">
                   <label className="text-[9px] font-black text-zinc-450 dark:text-zinc-550 uppercase tracking-wider block">Địa chỉ email (Tên tài khoản)</label>
                   <div className="relative">
-                    <Mail className="absolute left-3.5 top-3 text-zinc-450 size-4" />
+                    <Mail className="absolute left-3.5 top-3.5 text-zinc-450 size-4" />
                     <input
                       type="email"
-                      value={selectedStaff.email}
-                      disabled
-                      className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-850 rounded-xl pl-10 pr-4 py-2.5 text-xs text-zinc-500 font-bold outline-none cursor-not-allowed"
+                      value={editEmail}
+                      onChange={(e) => setEditEmail(e.target.value)}
+                      disabled={!isEditMode}
+                      className={`w-full border rounded-xl pl-10 pr-4 py-2.5 text-xs font-bold outline-none ${
+                        isEditMode 
+                          ? 'bg-white border-zinc-200 focus:border-primary focus:ring-2 focus:ring-primary/20 text-secondary dark:bg-zinc-950 dark:border-zinc-800' 
+                          : 'bg-zinc-50/50 border-zinc-250/50 text-zinc-500 cursor-not-allowed dark:bg-zinc-955/20 dark:border-zinc-850'
+                      }`}
                     />
                   </div>
-                  <span className="text-[8px] text-zinc-400 block italic leading-normal">* Địa chỉ email đăng nhập do Admin tạo lập và không thể tự thay đổi.</span>
+                  <span className="text-[8px] text-zinc-400 block italic leading-normal">
+                    {isEditMode ? '* Có thể cập nhật địa chỉ email đăng nhập.' : '* Địa chỉ email đăng nhập do Admin quản lý.'}
+                  </span>
                 </div>
 
                 <div className="space-y-1.5">
@@ -512,21 +599,127 @@ export default function ManageStaff() {
                 </div>
               </div>
 
-              {/* Reset Password Card */}
-              <div className="p-5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-850 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mt-6">
+              {/* Custom Password Input and Update Section */}
+              <div className="p-5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-850 rounded-2xl space-y-4 mt-6">
                 <div>
                   <h5 className="text-[10px] font-extrabold text-secondary dark:text-zinc-250 uppercase tracking-wider flex items-center gap-1.5 leading-none">
-                    <Key size={14} className="text-amber-500" /> Cứu hộ mật khẩu tài khoản
+                    <Key size={14} className="text-primary" /> Mật khẩu đăng nhập
                   </h5>
-                  <p className="text-[9px] text-zinc-450 dark:text-zinc-500 mt-1 leading-normal font-medium">Khôi phục mật khẩu đăng nhập của nhân sự về mật khẩu mặc định: <strong>123456</strong>.</p>
+                  <p className="text-[9px] text-zinc-450 dark:text-zinc-500 mt-1 leading-normal font-medium">
+                    {Number(selectedStaff.vai_tro_id) === 5 
+                      ? 'Để thay đổi mật khẩu Admin, vui lòng điền đầy đủ thông tin xác thực bên dưới.' 
+                      : 'Nhập mật khẩu mới bên dưới để thay đổi mật khẩu đăng nhập của nhân sự này.'}
+                  </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleResetPassword(selectedStaff)}
-                  className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-black text-[10px] rounded-xl tracking-wider transition-all cursor-pointer select-none uppercase shadow-sm active:scale-95 shrink-0"
-                >
-                  Reset Mật khẩu
-                </button>
+
+                {Number(selectedStaff.vai_tro_id) === 5 ? (
+                  // Admin Password Fields
+                  <div className="space-y-3">
+                    {/* Old Password */}
+                    <div className="relative">
+                      <input
+                        type={showOldPassword ? 'text' : 'password'}
+                        value={oldPassword}
+                        onChange={(e) => setOldPassword(e.target.value)}
+                        placeholder="Mật khẩu hiện tại (Mật khẩu cũ)"
+                        className="w-full pl-3.5 pr-10 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-secondary"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowOldPassword(prev => !prev)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 cursor-pointer"
+                      >
+                        {showOldPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* New Password */}
+                      <div className="relative">
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="Mật khẩu mới (tối thiểu 6 ký tự)"
+                          className="w-full pl-3.5 pr-10 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-secondary animate-in fade-in"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(prev => !prev)}
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 cursor-pointer"
+                        >
+                          {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
+                      </div>
+
+                      {/* Confirm Password */}
+                      <div className="relative">
+                        <input
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="Xác nhận mật khẩu mới"
+                          className="w-full pl-3.5 pr-10 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-secondary animate-in fade-in"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(prev => !prev)}
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 cursor-pointer"
+                        >
+                          {showConfirmPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => handleUpdatePassword(selectedStaff)}
+                        disabled={isUpdatingPassword || !oldPassword || !newPassword || !confirmPassword || newPassword.length < 6}
+                        className="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white disabled:bg-slate-200 disabled:text-slate-400 disabled:dark:bg-zinc-800 disabled:dark:text-zinc-600 font-black text-[10px] rounded-xl tracking-wider transition-all cursor-pointer select-none uppercase shadow-xs flex items-center justify-center gap-1.5 h-[38px]"
+                      >
+                        {isUpdatingPassword ? <Loader2 className="animate-spin w-3.5 h-3.5" /> : <Check size={12} />}
+                        Đổi mật khẩu
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleResetAdminPassword(selectedStaff)}
+                        disabled={isUpdatingPassword}
+                        className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white disabled:bg-slate-250 disabled:text-slate-400 disabled:dark:bg-zinc-800 disabled:dark:text-zinc-600 font-black text-[10px] rounded-xl tracking-wider transition-all cursor-pointer select-none uppercase shadow-xs flex items-center justify-center gap-1.5 h-[38px]"
+                      >
+                        Khôi phục mật khẩu (Reset)
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  // General Staff Password Fields (Simple Input)
+                  <div className="flex flex-col sm:flex-row gap-3 items-end">
+                    <div className="relative flex-1 w-full">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="••••• (Nhập mật khẩu mới từ 6 ký tự)"
+                        className="w-full pl-3 pr-10 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-secondary"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(prev => !prev)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 cursor-pointer"
+                      >
+                        {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleUpdatePassword(selectedStaff)}
+                      disabled={isUpdatingPassword || !newPassword || newPassword.length < 6}
+                      className="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white disabled:bg-slate-200 disabled:text-slate-400 disabled:dark:bg-zinc-800 disabled:dark:text-zinc-600 font-black text-[10px] rounded-xl tracking-wider transition-all cursor-pointer select-none uppercase shadow-xs shrink-0 w-full sm:w-auto h-[38px] flex items-center justify-center"
+                    >
+                      {isUpdatingPassword ? <Loader2 className="animate-spin w-3.5 h-3.5" /> : 'Cập nhật mật khẩu'}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           ) : (
@@ -843,17 +1036,19 @@ export default function ManageStaff() {
                           >
                             <Eye size={15} />
                           </button>
-                          <button
-                            onClick={() => handleToggleStatus(staff)}
-                            title={staff.trang_thai === 'hoat_dong' ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
-                            className={`p-2 border rounded-xl transition-all cursor-pointer active:scale-95 ${
-                              staff.trang_thai === 'hoat_dong'
-                                ? 'bg-rose-50 hover:bg-rose-100 dark:bg-rose-955/15 dark:hover:bg-rose-900/30 text-rose-600 border-rose-200/50'
-                                : 'bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-955/15 dark:hover:bg-emerald-900/30 text-emerald-600 border-emerald-200/50'
-                            }`}
-                          >
-                            {staff.trang_thai === 'hoat_dong' ? <Lock size={15} /> : <Unlock size={15} />}
-                          </button>
+                          {Number(staff.vai_tro_id) !== 5 && (
+                            <button
+                              onClick={() => handleToggleStatus(staff)}
+                              title={staff.trang_thai === 'hoat_dong' ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
+                              className={`p-2 border rounded-xl transition-all cursor-pointer active:scale-95 ${
+                                staff.trang_thai === 'hoat_dong'
+                                  ? 'bg-rose-50 hover:bg-rose-100 dark:bg-rose-955/15 dark:hover:bg-rose-900/30 text-rose-600 border-rose-200/50'
+                                  : 'bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-955/15 dark:hover:bg-emerald-900/30 text-emerald-600 border-emerald-200/50'
+                              }`}
+                            >
+                              {staff.trang_thai === 'hoat_dong' ? <Lock size={15} /> : <Unlock size={15} />}
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

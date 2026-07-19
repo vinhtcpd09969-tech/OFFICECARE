@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { PenSquare, Search } from 'lucide-react';
 
-import { getArticles, deleteArticle } from '../../api/admin.api';
+import { getArticles, updateArticle } from '../../api/admin.api';
 import ArticleEditor from '../../components/articles/ArticleEditor';
 import { ConfirmDialog } from '../../../../components/ConfirmDialog';
 import { ArticleRow } from './ArticleRow';
@@ -35,7 +35,7 @@ export default function ManageArticles() {
   const [editingArticle, setEditingArticle] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [danhMucFilter, setDanhMucFilter] = useState('all');
-  const [trangThaiFilter, setTrangThaiFilter] = useState<'all' | 'nhap' | 'xuat_ban'>('all');
+  const [trangThaiFilter, setTrangThaiFilter] = useState<'all' | 'nhap' | 'xuat_ban' | 'ngung_su_dung'>('all');
 
   const [confirmConfig, setConfirmConfig] = useState<{ isOpen: boolean; title: string; message: string; onConfirm: () => void } | null>(null);
 
@@ -65,25 +65,51 @@ export default function ManageArticles() {
     });
   }, [articles, searchQuery, danhMucFilter, trangThaiFilter]);
 
+  const sortedArticles = useMemo(() => {
+    return [...filteredArticles].sort((a, b) => {
+      // ngung_su_dung goes to the bottom
+      const aSuspended = a.trang_thai === 'ngung_su_dung' ? 1 : 0;
+      const bSuspended = b.trang_thai === 'ngung_su_dung' ? 1 : 0;
+      if (aSuspended !== bSuspended) {
+        return aSuspended - bSuspended; // 0 first (active), 1 last (suspended)
+      }
+      // Within same section, sort by ngay_cap_nhat descending
+      const aTime = new Date(a.ngay_cap_nhat || a.ngay_tao || 0).getTime();
+      const bTime = new Date(b.ngay_cap_nhat || b.ngay_tao || 0).getTime();
+      return bTime - aTime;
+    });
+  }, [filteredArticles]);
+
   const publishedCount = useMemo(() => articles.filter(a => a.trang_thai === 'xuat_ban').length, [articles]);
   const draftCount = useMemo(() => articles.filter(a => a.trang_thai === 'nhap').length, [articles]);
+  const suspendedCount = useMemo(() => articles.filter(a => a.trang_thai === 'ngung_su_dung').length, [articles]);
 
   const handleDelete = (article: any) => {
     setConfirmConfig({
       isOpen: true,
-      title: 'Xóa bài viết',
-      message: `Bạn có chắc chắn muốn xóa bài viết "${article.tieu_de}" không? Hành động này không thể hoàn tác.`,
+      title: 'Ngưng sử dụng bài viết',
+      message: `Bạn có chắc chắn muốn ngưng sử dụng bài viết "${article.tieu_de}" không? Bài viết sẽ bị ẩn khỏi các trang của khách hàng.`,
       onConfirm: async () => {
         setConfirmConfig(null);
         try {
-          await deleteArticle(article.id);
-          toast.success(`Đã xóa bài viết "${article.tieu_de}"`);
+          await updateArticle(article.id, { ...article, trang_thai: 'ngung_su_dung' });
+          toast.success(`Đã ngưng sử dụng bài viết "${article.tieu_de}" thành công!`);
           fetchData();
         } catch (error: any) {
-          toast.error(error.response?.data?.message || 'Không thể xóa bài viết');
+          toast.error(error.response?.data?.message || 'Không thể ngưng sử dụng bài viết');
         }
       }
     });
+  };
+
+  const handleRestore = async (article: any) => {
+    try {
+      await updateArticle(article.id, { ...article, trang_thai: 'nhap' });
+      toast.success(`Đã khôi phục bài viết "${article.tieu_de}" về dạng bản nháp thành công!`);
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Không thể khôi phục bài viết');
+    }
   };
 
   return (
@@ -102,7 +128,7 @@ export default function ManageArticles() {
               <div>
                 <h2 className="text-lg font-black font-heading text-secondary">Bài viết (Blog)</h2>
                 <p className="text-xs text-slate-450 font-medium mt-0.5">
-                  {articles.length} bài viết · {publishedCount} đã đăng · {draftCount} bản nháp
+                  {articles.length} bài viết · {publishedCount} đã đăng · {draftCount} bản nháp · {suspendedCount} ngưng sử dụng
                 </p>
               </div>
               <button
@@ -135,7 +161,7 @@ export default function ManageArticles() {
               </div>
 
               <div className="flex border-t border-slate-100 pt-4 items-center gap-2 overflow-x-auto pb-1">
-                {(['all', 'xuat_ban', 'nhap'] as const).map(status => (
+                {(['all', 'xuat_ban', 'nhap', 'ngung_su_dung'] as const).map(status => (
                   <button
                     key={status}
                     onClick={() => setTrangThaiFilter(status)}
@@ -145,7 +171,13 @@ export default function ManageArticles() {
                         : 'bg-slate-55 border-zinc-200 text-slate-655 hover:bg-slate-100'
                     }`}
                   >
-                    {status === 'all' ? 'Tất cả trạng thái' : status === 'xuat_ban' ? 'Đã đăng' : 'Bản nháp'}
+                    {status === 'all'
+                      ? 'Tất cả trạng thái'
+                      : status === 'xuat_ban'
+                      ? 'Đã đăng'
+                      : status === 'nhap'
+                      ? 'Bản nháp'
+                      : 'Ngưng sử dụng'}
                   </button>
                 ))}
               </div>
@@ -163,12 +195,13 @@ export default function ManageArticles() {
                   <p className="text-[10px] text-zinc-455 mt-1 font-semibold">Thử tìm kiếm với từ khóa khác hoặc xóa bộ lọc.</p>
                 </div>
               ) : (
-                filteredArticles.map((article) => (
+                sortedArticles.map((article) => (
                   <ArticleRow
                     key={article.id}
                     article={article}
                     onEdit={(a) => { setEditingArticle(a); setIsEditorOpen(true); }}
                     onDelete={handleDelete}
+                    onRestore={handleRestore}
                   />
                 ))
               )}

@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 // Import Shared Components
 import AppointmentCalendar from '../../../admin/components/appointments/AppointmentCalendar';
 import AppointmentDetailModal from '../../../admin/components/appointments/DetailModal';
-import WalkInBookingModal from '../../../admin/components/appointments/WalkInBookingModal';
+import WalkInBookingModal from '../../../../components/WalkInBookingModal';
 import TreatmentBookingModal from '../../../admin/components/appointments/TreatmentBookingModal';
 
 // Import Shared Hooks & UI
@@ -21,7 +21,9 @@ import { OverdueCheckinPanel } from '../../../admin/components/appointments/ui/O
 import { PendingPaymentPanel } from '../../../admin/components/appointments/ui/PendingPaymentPanel';
 import { isAwaitingPaymentForList } from '../../../../utils/billing';
 import { CapacityView } from '../../../admin/components/appointments/ui/CapacityView';
-import { standardTimeSlots, statusConfig } from '../../../admin/components/appointments/constants';
+import { standardTimeSlots, statusConfig } from '../../../../components/appointmentStatusConfig';
+import { computeAppointmentKpiBuckets, KPI_BUCKET_STATUSES, KPI_BUCKET_LABELS, AppointmentKpiBuckets } from '../../../../utils/appointmentKpi';
+import { ActiveFilterChip } from '../../../admin/components/appointments/ui/ActiveFilterChip';
 import { ViewMode, TimeRange } from '../../../admin/components/appointments/types';
 
 export default function ReceptionistAppointments() {
@@ -34,6 +36,10 @@ export default function ReceptionistAppointments() {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
   const [activeType, setActiveType] = useState<'kham' | 'dieu_tri'>('kham');
+
+  // Lọc theo 1 trạng thái cụ thể khi bấm thẻ KPI — độc lập với số liệu trên thẻ (xem
+  // ManageAppointments/index.tsx cho cùng pattern).
+  const [statusFilter, setStatusFilter] = useState<Exclude<keyof AppointmentKpiBuckets, 'total'> | null>(null);
 
   // Fetch appointments and resources (isReceptionist = true)
   const {
@@ -270,7 +276,8 @@ export default function ReceptionistAppointments() {
     const isOverdueUnconfirmed = apt.trang_thai === 'chua_xac_nhan' && isGracePassed;
 
     const isAllowed = allowedStatuses.includes(apt.trang_thai) || isOverdueUnconfirmed;
-    return isAllowed && matchDate && matchType && matchSearch && apt.trang_thai !== 'giu_cho';
+    const matchStatus = !statusFilter || KPI_BUCKET_STATUSES[statusFilter].includes(apt.trang_thai);
+    return isAllowed && matchDate && matchType && matchSearch && matchStatus && apt.trang_thai !== 'giu_cho';
   });
 
   // Danh sách các ca khám chưa xác nhận đã quá 10 phút (cho toàn bộ các ngày)
@@ -318,12 +325,7 @@ export default function ReceptionistAppointments() {
   };
   const kpiAppointments = getKpiAppointments();
 
-  const kpis = {
-    total: kpiAppointments.length,
-    waiting: kpiAppointments.filter(a => ['chua_xac_nhan', 'cho_xac_nhan'].includes(a.trang_thai)).length,
-    completed: pendingPaymentAppointments.length,
-    secondary: kpiAppointments.filter(a => ['da_huy', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(a.trang_thai)).length,
-  };
+  const kpis = computeAppointmentKpiBuckets(kpiAppointments);
 
   return (
     <div className="space-y-6 max-w-full font-jakarta">
@@ -342,7 +344,16 @@ export default function ReceptionistAppointments() {
             viewMode={viewMode}
             timeRange={timeRange}
             activeType={activeType}
+            activeStatusFilter={statusFilter}
+            onSelectStatus={setStatusFilter}
           />
+
+          {statusFilter && (
+            <ActiveFilterChip
+              label={`Đang lọc: ${KPI_BUCKET_LABELS[statusFilter]}`}
+              onClear={() => setStatusFilter(null)}
+            />
+          )}
 
 
 
@@ -426,14 +437,16 @@ export default function ReceptionistAppointments() {
                       setSelectedDate={setSelectedDate}
                       setViewMode={setViewMode}
                       appointments={appointments.filter(apt =>
-                        activeType === 'kham'
+                        (activeType === 'kham'
                           ? apt.loai_lich === 'kham_moi'
-                          : (apt.loai_lich === 'dieu_tri' || apt.loai_lich === 'dich_vu_don')
+                          : (apt.loai_lich === 'dieu_tri' || apt.loai_lich === 'dich_vu_don')) &&
+                        (!statusFilter || KPI_BUCKET_STATUSES[statusFilter].includes(apt.trang_thai))
                       )}
                       timeRange={timeRange}
                       activeType={activeType}
                       searchTerm={searchTerm}
                       onSelectAppointment={scrollToAppointment}
+                      activeStatusLabel={statusFilter ? KPI_BUCKET_LABELS[statusFilter] : null}
                     />
                   )}
                 </>

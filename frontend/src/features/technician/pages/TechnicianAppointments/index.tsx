@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../../../stores/authStore';
 import { CheckCircle2 } from 'lucide-react';
 import { format, startOfWeek, addDays, subDays, addMonths, subMonths } from 'date-fns';
@@ -11,6 +11,8 @@ import { AppointmentsFilterBar } from '../../../admin/components/appointments/ui
 import { AppointmentKpiCards } from '../../../admin/components/appointments/ui/AppointmentKpiCards';
 import { CapacityView } from '../../../admin/components/appointments/ui/CapacityView';
 import { getAppointments, getDoctorSchedules, DoctorAppointment, DoctorSchedule } from '../../../doctor/api/doctor.api';
+import { computeAppointmentKpiBuckets, KPI_BUCKET_STATUSES, KPI_BUCKET_LABELS, AppointmentKpiBuckets } from '../../../../utils/appointmentKpi';
+import { ActiveFilterChip } from '../../../admin/components/appointments/ui/ActiveFilterChip';
 
 const STATUS_CONFIG: any = {
   cho_xac_nhan: { label: 'Chờ xác nhận', color: 'bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300' },
@@ -31,8 +33,9 @@ const TIME_SLOTS = [
 
 export default function TechnicianAppointments() {
   const navigate = useNavigate();
+  const location = useLocation();
   const user = useAuthStore(state => state.user);
-  
+
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [appointments, setAppointments] = useState<DoctorAppointment[]>([]);
   const [schedules, setSchedules] = useState<DoctorSchedule[]>([]);
@@ -44,10 +47,25 @@ export default function TechnicianAppointments() {
   // Confirm Modal state for Checked-in ca
   const [confirmApt, setConfirmApt] = useState<any>(null);
 
+  // Ca cần mở tới từ banner "Bắt đầu ngay!" (AdminLayout.tsx) — tự bật modal xác nhận thay vì
+  // nhảy thẳng vào bàn trị liệu, để KTV luôn phải xác nhận lại trước khi mở (kể cả đến sớm/trễ giờ).
+  useEffect(() => {
+    const pending = (location.state as any)?.pendingConfirmAppointment;
+    if (pending) {
+      setConfirmApt(pending);
+      navigate(location.pathname, { replace: true, state: null });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
+
   // Filter States
   const [timeRange, setTimeRange] = useState<'today' | '7days' | 'month' | 'custom'>('today');
   const [viewMode, setViewMode] = useState<'timeline' | 'capacity'>('timeline');
   const [searchTerm, setSearchTerm] = useState<string>('');
+
+  // Lọc theo 1 trạng thái cụ thể khi bấm thẻ KPI — độc lập với số liệu trên thẻ (kpiStats tính từ
+  // appointments gốc, không bị thu hẹp bởi filter này).
+  const [statusFilter, setStatusFilter] = useState<Exclude<keyof AppointmentKpiBuckets, 'total'> | null>(null);
 
   // Calculate Active Interval
   const activeInterval = useMemo(() => {
@@ -135,35 +153,24 @@ export default function TechnicianAppointments() {
     }));
   }, [schedules]);
 
-  // Tính toán số liệu thống kê ca điều trị cho KTV dựa trên activeInterval
-  const kpiStats = useMemo(() => {
-    const total = appointments.length;
-    const waiting = appointments.filter(a => ['da_checkin', 'cho_kham'].includes(a.trang_thai)).length;
-    const completed = appointments.filter(a => a.trang_thai === 'dang_kham').length;
-    const now = Date.now();
-    const secondary = appointments.filter(a => 
-      ['da_xac_nhan', 'da_checkin', 'cho_kham'].includes(a.trang_thai) &&
-      new Date(a.ngay_gio_bat_dau).getTime() < now
-    ).length;
+  // Tính toán số liệu thống kê ca điều trị cho KTV dựa trên activeInterval — dùng chung 1 hàm với
+  // Admin/Lễ tân/Bác sĩ (utils/appointmentKpi.ts) để cả 4 actor nhìn cùng 1 con số cho cùng 1 khái
+  // niệm trạng thái, thay vì mỗi trang tự định nghĩa "waiting"/"completed"/"secondary" khác nhau.
+  const kpiStats = useMemo(() => computeAppointmentKpiBuckets(appointments), [appointments]);
 
-    return {
-      total,
-      waiting,
-      completed,
-      secondary
-    };
-  }, [appointments]);
-
-  // Search filter
+  // Search filter + lọc trạng thái (áp dụng cho cả timeline lẫn capacity view vì cả 2 đều dựa
+  // trên danh sách này — xem filteredAppointmentsForDay/mappedAppointments bên dưới).
   const searchedAppointments = useMemo(() => {
-    if (!searchTerm.trim()) return appointments;
-    const lower = searchTerm.toLowerCase();
-    return appointments.filter(a => 
-      a.ten_khach_hang?.toLowerCase().includes(lower) ||
-      a.ma_lich_dat?.toLowerCase().includes(lower) ||
-      a.so_dien_thoai?.toLowerCase().includes(lower)
-    );
-  }, [appointments, searchTerm]);
+    const lower = searchTerm.trim().toLowerCase();
+    return appointments.filter(a => {
+      const matchSearch = !lower ||
+        a.ten_khach_hang?.toLowerCase().includes(lower) ||
+        a.ma_lich_dat?.toLowerCase().includes(lower) ||
+        a.so_dien_thoai?.toLowerCase().includes(lower);
+      const matchStatus = !statusFilter || KPI_BUCKET_STATUSES[statusFilter].includes(a.trang_thai);
+      return matchSearch && matchStatus;
+    });
+  }, [appointments, searchTerm, statusFilter]);
 
   // Mapped appointments for CapacityView compatibility
   const mappedAppointments = useMemo(() => {
@@ -203,7 +210,16 @@ export default function TechnicianAppointments() {
         viewMode={viewMode}
         timeRange={timeRange}
         activeType="dieu_tri"
+        activeStatusFilter={statusFilter}
+        onSelectStatus={setStatusFilter}
       />
+
+      {statusFilter && (
+        <ActiveFilterChip
+          label={`Đang lọc: ${KPI_BUCKET_LABELS[statusFilter]}`}
+          onClear={() => setStatusFilter(null)}
+        />
+      )}
 
       {/* Top filter bar inherited from Admin style */}
       <AppointmentsFilterBar
@@ -276,6 +292,7 @@ export default function TechnicianAppointments() {
                 // Technicians can confirm the appointment just like clicking it on the timeline
                 if (apt) handleOpenDetailModal(apt);
               }}
+              activeStatusLabel={statusFilter ? KPI_BUCKET_LABELS[statusFilter] : null}
             />
           )}
         </>
@@ -301,6 +318,17 @@ export default function TechnicianAppointments() {
         };
         const remaining = getRemainingMinutes(confirmApt);
 
+        // Sớm/đúng giờ/trễ so với giờ hẹn — luôn hỏi lại 1 bước trước khi mở bàn trị liệu, chỉ khác
+        // nội dung cảnh báo, để KTV ý thức rõ đang mở sớm hay ca đã trễ trước khi bấm tiếp.
+        const scheduledStart = new Date(confirmApt.ngay_gio_bat_dau);
+        const diffMinutes = Math.round((Date.now() - scheduledStart.getTime()) / 60000);
+        const scheduledTimeStr = format(scheduledStart, 'HH:mm');
+        const readyMessage = diffMinutes < 0
+          ? `Ca này chưa tới giờ hẹn (${scheduledTimeStr}) — bạn có chắc muốn mở bàn trị liệu ngay bây giờ không?`
+          : diffMinutes > 5
+            ? `Lịch hẹn này đã trễ ${diffMinutes} phút so với giờ hẹn (${scheduledTimeStr}) — bạn có chắc muốn mở bàn trị liệu không?`
+            : 'Bạn đã sẵn sàng cho ca trị liệu này chưa?';
+
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="w-full max-w-md bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden p-6 relative">
@@ -321,9 +349,9 @@ export default function TechnicianAppointments() {
                 </div>
                 
                 <p className="text-xs font-bold text-secondary dark:text-zinc-350 leading-relaxed bg-zinc-50 dark:bg-zinc-800/50 p-3 rounded-2xl w-full border border-zinc-100 dark:border-zinc-800">
-                  {isStarted 
+                  {isStarted
                     ? `Ca trị liệu này đã được mở trước đó. Dự kiến ca trị liệu sẽ hoàn thành sau ${remaining} phút.`
-                    : 'Bạn đã sẵn sàng cho ca trị liệu này chưa?'}
+                    : readyMessage}
                 </p>
 
                 <div className="flex items-center gap-3 w-full pt-3">
