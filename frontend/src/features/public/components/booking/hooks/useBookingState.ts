@@ -98,6 +98,9 @@ export function useBookingState(user: any, bookingType: 'kham' | 'dich_vu', sele
     } else {
       const examService = services.find(s => s.loai_goi === 'KHAM' || s.loai_dich_vu === 'KHAM');
       targetDichVuId = examService?.id || '';
+      if (examService) {
+        duration = examService.thoi_luong_phut || examService.thoi_luong_buoi_phut || 30;
+      }
     }
 
     fetch(`${BASE_URL}/client/appointments/booked-slots?date=${state.selectedDate}&userId=${userId}&phone=${phone}&duration=${duration}&dichVuId=${targetDichVuId}&excludeSessionId=${tempHoldId}`)

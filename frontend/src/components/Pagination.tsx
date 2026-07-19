@@ -6,9 +6,10 @@ interface PaginationProps {
   total: number;
   pageSize: number;
   onPageChange: (page: number) => void;
+  label?: string;
 }
 
-export function Pagination({ page, totalPages, total, pageSize, onPageChange }: PaginationProps) {
+export function Pagination({ page, totalPages, total, pageSize, onPageChange, label = 'khách hàng' }: PaginationProps) {
   if (total === 0) return null;
 
   const from = (page - 1) * pageSize + 1;
@@ -29,7 +30,7 @@ export function Pagination({ page, totalPages, total, pageSize, onPageChange }: 
   return (
     <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3.5 text-xs">
       <span className="text-slate-450 font-semibold">
-        Hiển thị {from}–{to} trong {total.toLocaleString('vi-VN')} khách hàng
+        Hiển thị {from}–{to} trong {total.toLocaleString('vi-VN')} {label}
       </span>
       <div className="flex items-center gap-1">
         <button

@@ -7,16 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { resolveImageUrl } from '../../../utils/imageUrl';
 import { getMinPaymentRequired, isPlanCancelled, resolveGrossBeforeExamDeduction } from '../../../utils/billing';
-const getStaffRoleTitle = (staffName: string, roleId: number) => {
-  const nameLower = (staffName || '').toLowerCase();
-  if (nameLower.includes('ktv') || nameLower.includes('kỹ thuật viên') || nameLower.includes('kĩ thuật viên')) {
-    return 'Kỹ thuật viên PHCN';
-  }
-  if (nameLower.includes('bs') || nameLower.includes('bác sĩ') || nameLower.includes('bác sỹ')) {
-    return 'Bác sĩ chuyên khoa';
-  }
-  return roleId === 3 ? 'Bác sĩ chuyên khoa' : 'Kỹ thuật viên PHCN';
-};
+import { getStaffRoleTitle } from '../../../utils/staff';
 
 interface PatientEmrDetailProps {
   patient: any;

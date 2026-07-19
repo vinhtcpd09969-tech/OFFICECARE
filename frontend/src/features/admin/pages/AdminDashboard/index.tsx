@@ -8,7 +8,7 @@ import {
 import api from '../../../../api/axios';
 
 // Import subcomponents
-import { StatCard } from './StatCard';
+import { StatCard } from '../../../../components/StatCard';
 import { RevenueChart } from './RevenueChart';
 import { TopPackagesChart } from './TopPackagesChart';
 import { TopVipCustomers } from './TopVipCustomers';

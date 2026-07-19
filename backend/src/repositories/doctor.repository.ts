@@ -141,6 +141,7 @@ class DoctorRepository {
       SELECT
         nk.id, nk.chan_doan, nk.chong_chi_dinh, nk.ghi_chu, nk.ngay_tao as thoi_gian_tao,
         ch.id as lich_dat_id, 'LH-' || UPPER(SUBSTRING(ch.id::text FROM 1 FOR 6)) as ma_lich_dat,
+        ch.ghi_chu_khach_hang as ly_do_kham, ch.anh_dinh_kem_url,
         nd_bs.ho_ten as ten_bac_si, nd_bs.anh_dai_dien as anh_bac_si,
         goi.ten_goi as khuyen_nghi_goi
       FROM nhat_ky_buoi_dieu_tri nk
@@ -155,19 +156,30 @@ class DoctorRepository {
     return rows;
   }
 
-  // 4. Lấy danh sách lịch điều trị của bệnh nhân (tiến trình gói/lẻ thực tế)
+  // 4. Lấy danh sách lịch điều trị của bệnh nhân (tiến trình gói/lẻ thực tế). so_buoi_da_dung tính
+  // SỐNG từ số buổi cuoc_hen thực sự hoan_thanh thay vì tin cột cache phac_do_dieu_tri.so_buoi_da_dung
+  // (cột cache từng bị lệch — xem PackageCard.tsx bên trang khách hàng đã vá lỗi tương tự). Kèm liên
+  // kết ngược về đúng ca khám đã chỉ định ra phác đồ này (qua chi_dinh_buoi.phac_do_dieu_tri_id).
   async getPatientTreatments(patientId: string) {
     const queryStr = `
-      SELECT 
-        pd.id, 
-        CASE WHEN goi.loai_goi = 'LIEU_TRINH' THEN 'goi' ELSE 'dich_vu' END as loai_dieu_tri, 
-        pd.tong_so_buoi, pd.so_buoi_da_dung, pd.trang_thai, pd.ngay_kich_hoat as thoi_gian_tao, 
+      SELECT
+        pd.id,
+        CASE WHEN goi.loai_goi = 'LIEU_TRINH' THEN 'goi' ELSE 'dich_vu' END as loai_dieu_tri,
+        pd.tong_so_buoi,
+        (SELECT COUNT(*) FROM cuoc_hen c2 WHERE c2.phac_do_dieu_tri_id = pd.id AND c2.trang_thai = 'hoan_thanh') as so_buoi_da_dung,
+        pd.trang_thai, pd.ngay_kich_hoat as thoi_gian_tao,
         'PD-' || UPPER(SUBSTRING(pd.id::text FROM 1 FOR 6)) as ma_lich_dieu_tri,
         NULL::text as ten_dich_vu, goi.ten_goi,
-        'Hội chẩn lâm sàng' as chan_doan
+        'Hội chẩn lâm sàng' as chan_doan,
+        origin_ch.id as goc_kham_id,
+        nd_origin.ho_ten as bac_si_chi_dinh
       FROM phac_do_dieu_tri pd
       JOIN hoa_don hd ON hd.phac_do_dieu_tri_id = pd.id
       LEFT JOIN goi_dich_vu goi ON pd.goi_dich_vu_id = goi.id
+      LEFT JOIN chi_dinh_buoi cd_origin ON cd_origin.phac_do_dieu_tri_id = pd.id
+      LEFT JOIN nhat_ky_buoi_dieu_tri nk_origin ON cd_origin.nhat_ky_id = nk_origin.id
+      LEFT JOIN cuoc_hen origin_ch ON nk_origin.cuoc_hen_id = origin_ch.id
+      LEFT JOIN nguoi_dung nd_origin ON origin_ch.nhan_su_id = nd_origin.id
       WHERE pd.khach_hang_id = $1::uuid
       ORDER BY pd.ngay_kich_hoat DESC NULLS LAST;
     `;
@@ -177,34 +189,23 @@ class DoctorRepository {
 
   // 4b. Lấy các lượt dịch vụ lẻ ĐỘC LẬP (không thuộc phác đồ nào) đã có kết quả — dịch vụ lẻ thanh
   // toán qua quick-billing không còn tạo phac_do_dieu_tri nữa nên getPatientTreatments() không thấy
-  // được các buổi này; bù lại ở đây, mỗi cuoc_hen tự nó là 1 "phác đồ 1 buổi" hoàn chỉnh.
+  // được các buổi này. Trả về đúng hình dạng "1 lượt khám/dịch vụ" để gộp vào danh sách Khám &
+  // Dịch vụ lẻ (KHÔNG còn giả làm "phác đồ 1 buổi" trộn vào cột liệu trình như trước — gây rối mắt).
   async getStandaloneServiceVisits(patientId: string) {
     const queryStr = `
       SELECT
         ch.id,
-        'dich_vu' as loai_dieu_tri,
-        1 as tong_so_buoi,
-        CASE WHEN ch.trang_thai = 'hoan_thanh' THEN 1 ELSE 0 END as so_buoi_da_dung,
-        CASE WHEN ch.trang_thai = 'hoan_thanh' THEN 'hoan_thanh' ELSE 'huy' END as trang_thai,
         ch.ngay_gio_bat_dau as thoi_gian_tao,
-        'LH-' || UPPER(SUBSTRING(ch.id::text FROM 1 FOR 6)) as ma_lich_dieu_tri,
+        'LH-' || UPPER(SUBSTRING(ch.id::text FROM 1 FOR 6)) as ma_lich_dat,
+        ch.trang_thai,
         dv.ten_goi as ten_dich_vu,
-        NULL::text as ten_goi,
-        'Dịch vụ lẻ' as chan_doan,
-        1 as so_thu_tu_buoi,
-        ch.trang_thai as session_trang_thai,
-        ch.ngay_gio_bat_dau as thoi_gian_bat_dau,
-        ch.ngay_gio_ket_thuc as thoi_gian_ket_thuc,
-        nk.vas_truoc as danh_gia_truoc_buoi,
-        nk.vas_sau as danh_gia_sau_buoi,
-        nk.ghi_chu as danh_gia_hieu_qua,
-        nk.chong_chi_dinh as canh_bao_dac_biet,
-        nd_ktv.ho_ten as ten_ky_thuat_vien,
-        nd_ktv.anh_dai_dien as anh_ky_thuat_vien
+        nk.ghi_chu as ghi_chu,
+        nd_nhan_su.ho_ten as ten_nhan_su,
+        nd_nhan_su.anh_dai_dien as anh_nhan_su
       FROM cuoc_hen ch
       LEFT JOIN goi_dich_vu dv ON ch.goi_dich_vu_id = dv.id
       LEFT JOIN nhat_ky_buoi_dieu_tri nk ON nk.cuoc_hen_id = ch.id
-      LEFT JOIN nguoi_dung nd_ktv ON ch.nhan_su_id = nd_ktv.id
+      LEFT JOIN nguoi_dung nd_nhan_su ON ch.nhan_su_id = nd_nhan_su.id
       WHERE ch.khach_hang_id = $1::uuid
         AND ch.loai = 'DICH_VU_LE'
         AND ch.phac_do_dieu_tri_id IS NULL
@@ -215,13 +216,15 @@ class DoctorRepository {
     return rows;
   }
 
-  // 5. Lấy danh sách chi tiết các buổi trị liệu của 1 lịch điều trị cụ thể
+  // 5. Lấy danh sách chi tiết các buổi trị liệu của 1 lịch điều trị cụ thể. thuc_hien_id (numeric)
+  // dùng để so khớp với người đang đăng nhập — quyết định nhãn "Ghi chú của bạn" hay "Chỉ xem".
   async getTreatmentSessions(treatmentPlanId: string) {
     const queryStr = `
-      SELECT 
+      SELECT
         ch.id, ch.so_thu_tu_buoi, ch.trang_thai, ch.ngay_gio_bat_dau as thoi_gian_bat_dau, ch.ngay_gio_ket_thuc as thoi_gian_ket_thuc,
         nk.vas_truoc as danh_gia_truoc_buoi, nk.vas_sau as danh_gia_sau_buoi, nk.ghi_chu as danh_gia_hieu_qua,
         nk.chong_chi_dinh as canh_bao_dac_biet, nk.chan_doan as ai_tom_tat_ngan,
+        ch.nhan_su_id as thuc_hien_id,
         nd_ktv.ho_ten as ten_ky_thuat_vien, nd_ktv.anh_dai_dien as anh_ky_thuat_vien
       FROM cuoc_hen ch
       LEFT JOIN nhat_ky_buoi_dieu_tri nk ON nk.cuoc_hen_id = ch.id

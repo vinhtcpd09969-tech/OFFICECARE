@@ -24,7 +24,7 @@ const articleFormSchema = z.object({
   noi_dung: z.string().min(1, 'Nội dung là bắt buộc'),
   anh_bia: z.string().optional().nullable(),
   danh_muc: z.enum(['suc_khoe', 'dieu_tri', 'tin_tuc', 'khuyen_mai', 'phong_ngua'], { message: 'Vui lòng chọn danh mục' }),
-  trang_thai: z.enum(['nhap', 'xuat_ban']).default('nhap'),
+  trang_thai: z.enum(['nhap', 'xuat_ban', 'ngung_su_dung']).default('nhap'),
   meta_title: z.string().max(70, 'Tiêu đề SEO tối đa 70 ký tự').optional().nullable(),
   meta_description: z.string().max(160, 'Mô tả SEO tối đa 160 ký tự').optional().nullable()
 });
@@ -88,7 +88,7 @@ export default function ArticleEditor({ editingArticle, onClose, onSuccess }: Ar
   const slugPreview = watchSlug ? slugifyPreview(watchSlug) : slugifyPreview(watchTieuDe);
 
   const executeSave = async (data: ArticleFormValues, publish: boolean) => {
-    const payload = { ...data, trang_thai: publish ? 'xuat_ban' : data.trang_thai };
+    const payload = { ...data, trang_thai: publish ? 'xuat_ban' : 'nhap' };
     try {
       if (isEdit) {
         await updateArticle(editingArticle.id, payload);
@@ -152,20 +152,12 @@ export default function ArticleEditor({ editingArticle, onClose, onSuccess }: Ar
               <p className="text-[9px] text-slate-400 mt-1">/tin-tuc/{slugPreview || '...'}</p>
             </div>
 
-            <div>
+             <div className="sm:col-span-2">
               <label className="block font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Danh mục *</label>
               <select {...register('danh_muc')} className="w-full px-4 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 outline-none transition-all text-secondary font-semibold text-xs shadow-sm cursor-pointer">
                 {DANH_MUC_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
               </select>
               {errors.danh_muc && <span className="text-rose-500 text-[10px] mt-1 block">{errors.danh_muc.message}</span>}
-            </div>
-
-            <div>
-              <label className="block font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Trạng thái</label>
-              <select {...register('trang_thai')} className="w-full px-4 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 outline-none transition-all text-secondary font-semibold text-xs shadow-sm cursor-pointer">
-                <option value="nhap">Bản nháp</option>
-                <option value="xuat_ban">Đã xuất bản</option>
-              </select>
             </div>
 
             <div className="sm:col-span-2">

@@ -18,7 +18,7 @@ import {
 
 import { getInstallmentCutoffSession } from '../../../../../utils/billing';
 import { getReceptionistActionOptions, getReceptionistAllowedTargets, hasAssignedStaff, isReceptionistLockedStatus } from './receptionistStatusRules';
-import { statusConfig } from '../constants';
+import { statusConfig } from '../../../../../components/appointmentStatusConfig';
 
 // Import subcomponents
 import { DetailHeader } from './DetailHeader';
@@ -1098,7 +1098,6 @@ export default function AppointmentDetailModal({
               assignRoomId={assignRoomId}
               localGhiChuNoiBo={localGhiChuNoiBo}
               isUnconfirmedState={isUnconfirmedState}
-              setAssignStatus={setAssignStatus}
               setCancelReason={setCancelReason}
               setShowConfirmType={setShowConfirmType}
               appointments={appointments}

@@ -77,6 +77,9 @@ export const handleWalkInBooking = async (req: Request, res: Response) => {
     if (error.message === 'ROOM_UNAVAILABLE') {
       return res.status(400).json({ message: 'Không có phòng trống cho dịch vụ này tại thời điểm hiện tại.' });
     }
+    if (error.message && !error.stack?.includes('pg') && !error.stack?.includes('Prisma') && !error.message.includes('connection')) {
+      return res.status(400).json({ message: error.message });
+    }
     res.status(500).json({ message: 'Lỗi server khi tạo lịch' });
   }
 };

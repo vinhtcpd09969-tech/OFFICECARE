@@ -3,11 +3,31 @@ import { Clock, MapPin, User, Stethoscope, Search, Loader2, CalendarRange, Arrow
 import { format } from 'date-fns';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-import axiosInstance from '../../../../api/axios';
-import { convertToVietnamUtcIso } from '../../../../utils/date';
-import { isPlanCancelled, isSessionPaymentSatisfied } from '../../../../utils/billing';
-import { resolveImageUrl } from '../../../../utils/imageUrl';
-import { statusConfig } from './constants';
+import { z } from 'zod';
+import axiosInstance from '../api/axios';
+import { convertToVietnamUtcIso } from '../utils/date';
+import { isPlanCancelled, isSessionPaymentSatisfied } from '../utils/billing';
+import { resolveImageUrl } from '../utils/imageUrl';
+import { statusConfig } from './appointmentStatusConfig';
+
+// Khớp đúng quy tắc validate phía backend (appointment.repository.ts::createAppointment) — dùng
+// zod thay cho required/pattern gốc của trình duyệt vì tooltip mặc định ("Please match the
+// requested format.") không dịch được và không đồng bộ giao diện với phần còn lại của app.
+const phoneRegex = /^(03|05|07|08|09)[0-9]{8}$/;
+const nameRegex = /^[\p{L}\s']{2,}$/u;
+
+const newCustomerSchema = z.object({
+  hoTen: z.string().trim()
+    .min(2, 'Họ tên khách hàng phải có ít nhất 2 ký tự.')
+    .regex(nameRegex, 'Họ tên khách hàng chỉ được chứa chữ cái và khoảng trắng.'),
+  sdt: z.string().trim()
+    .regex(phoneRegex, 'Số điện thoại không hợp lệ (phải gồm 10 chữ số và bắt đầu bằng 03, 05, 07, 08 hoặc 09).'),
+  email: z.string().trim()
+    .min(1, 'Email khách hàng là bắt buộc.')
+    .email('Địa chỉ email không đúng định dạng.'),
+});
+
+type NewCustomerErrors = Partial<Record<keyof z.infer<typeof newCustomerSchema>, string>>;
 
 /** Buổi kế tiếp của phác đồ đã đủ điều kiện thanh toán để đặt lịch chưa (xem docs/BUSINESS_RULES.md mục 3). */
 function isPlanBookable(plan: any): boolean {
@@ -179,6 +199,7 @@ export default function WalkInBookingModal({
 
   // Form states
   const [hoTen, setHoTen] = useState('');
+  const [newCustomerErrors, setNewCustomerErrors] = useState<NewCustomerErrors>({});
   const [sdt, setSdt] = useState('');
   const [gioiTinh, setGioiTinh] = useState('nam');
   const [email, setEmail] = useState('');
@@ -363,6 +384,7 @@ export default function WalkInBookingModal({
     setSdt('');
     setGioiTinh('nam');
     setEmail('');
+    setNewCustomerErrors({});
     setTreatmentPlans([]);
     setSelectedPlan(null);
     setSelectedServiceId('');
@@ -673,6 +695,25 @@ export default function WalkInBookingModal({
       toast.error('Vui lòng tìm và chọn khách hàng!');
       return;
     }
+    if (isNewCustomer) {
+      const parsed = newCustomerSchema.safeParse({ hoTen, sdt, email });
+      if (!parsed.success) {
+        const errs: NewCustomerErrors = {};
+        for (const issue of parsed.error.issues) {
+          const field = issue.path[0] as keyof NewCustomerErrors;
+          if (!errs[field]) errs[field] = issue.message;
+        }
+        setNewCustomerErrors(errs);
+        // Trường bị lỗi nằm ở đầu form (dài, có thể đang cuộn xuống khu chọn dịch vụ/giờ) — chỉ
+        // hiện lỗi inline dưới ô thì dễ bị bỏ sót ngoài màn hình, nên toast thêm để chắc chắn thấy.
+        toast.error(parsed.error.issues[0]?.message || 'Vui lòng kiểm tra lại thông tin khách hàng mới.');
+        return;
+      }
+      setNewCustomerErrors({});
+    } else if (sdt && !phoneRegex.test(sdt.trim())) {
+      toast.error('Số điện thoại liên hệ không hợp lệ (phải gồm 10 chữ số và bắt đầu bằng 03, 05, 07, 08 hoặc 09).');
+      return;
+    }
     if (selectedPlan && !isPlanBookable(selectedPlan)) {
       const nextSession = Number(selectedPlan.so_buoi_da_dung || 0) + 1;
       toast.error(
@@ -768,7 +809,7 @@ export default function WalkInBookingModal({
       </div>
 
       {/* Form Content */}
-      <form onSubmit={handleSubmitForm} className="space-y-6 text-left">
+      <form onSubmit={handleSubmitForm} noValidate className="space-y-6 text-left">
         
         {/* Tab chọn Khách hàng Cũ / Khách mới */}
         <div className="space-y-4">
@@ -884,24 +925,29 @@ export default function WalkInBookingModal({
                 <label className="text-xs font-bold text-slate-500">Họ tên khách hàng *</label>
                 <input
                   type="text"
-                  required
                   placeholder="Nguyễn Văn A"
                   value={hoTen}
-                  onChange={e => setHoTen(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all font-semibold"
+                  onChange={e => {
+                    setHoTen(e.target.value);
+                    if (newCustomerErrors.hoTen) setNewCustomerErrors(prev => ({ ...prev, hoTen: undefined }));
+                  }}
+                  className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-sm outline-none focus:ring-2 transition-all font-semibold ${newCustomerErrors.hoTen ? 'border-rose-300 focus:ring-rose-500/20' : 'border-slate-200 focus:ring-emerald-500/20'}`}
                 />
+                {newCustomerErrors.hoTen && <p className="text-rose-500 text-[11px] font-semibold mt-1">{newCustomerErrors.hoTen}</p>}
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-500">Số điện thoại *</label>
                 <input
                   type="tel"
-                  required
-                  pattern="[0-9]{10,11}"
                   placeholder="0987654321"
                   value={sdt}
-                  onChange={e => setSdt(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all font-mono font-semibold"
+                  onChange={e => {
+                    setSdt(e.target.value);
+                    if (newCustomerErrors.sdt) setNewCustomerErrors(prev => ({ ...prev, sdt: undefined }));
+                  }}
+                  className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-sm outline-none focus:ring-2 transition-all font-mono font-semibold ${newCustomerErrors.sdt ? 'border-rose-300 focus:ring-rose-500/20' : 'border-slate-200 focus:ring-emerald-500/20'}`}
                 />
+                {newCustomerErrors.sdt && <p className="text-rose-500 text-[11px] font-semibold mt-1 font-sans">{newCustomerErrors.sdt}</p>}
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-500">Giới tính</label>
@@ -916,19 +962,23 @@ export default function WalkInBookingModal({
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-500">Email khách hàng (nếu có)</label>
+                <label className="text-xs font-bold text-slate-500">Email khách hàng *</label>
                 <input
                   type="email"
                   placeholder="khachhang@gmail.com"
                   value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all font-semibold"
+                  onChange={e => {
+                    setEmail(e.target.value);
+                    if (newCustomerErrors.email) setNewCustomerErrors(prev => ({ ...prev, email: undefined }));
+                  }}
+                  className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-sm outline-none focus:ring-2 transition-all font-semibold ${newCustomerErrors.email ? 'border-rose-300 focus:ring-rose-500/20' : 'border-slate-200 focus:ring-emerald-500/20'}`}
                 />
+                {newCustomerErrors.email && <p className="text-rose-500 text-[11px] font-semibold mt-1">{newCustomerErrors.email}</p>}
               </div>
               <div className="space-y-1 col-span-1 md:col-span-2">
                 <div className="text-[10px] text-amber-700 bg-amber-50/80 border border-amber-200 p-3 rounded-xl font-bold flex items-start gap-2">
                   <span className="mt-0.5">ℹ️</span>
-                  <span>Mật khẩu mặc định là <strong>123456</strong>. Các trường khác như địa chỉ khách hàng có thể tự cập nhật sau.</span>
+                  <span>Mật khẩu mặc định là <strong>123456</strong>. Vui lòng xin đúng email thật của khách — đây là email dùng để đăng nhập và xác thực OTP sau này. Các trường khác như địa chỉ khách hàng có thể tự cập nhật sau.</span>
                 </div>
               </div>
             </div>
@@ -941,8 +991,6 @@ export default function WalkInBookingModal({
             <label className="text-[10px] font-bold text-slate-450 uppercase tracking-wider block">Số điện thoại liên hệ cho ca hẹn này</label>
             <input
               type="tel"
-              required
-              pattern="[0-9]{10,11}"
               value={sdt}
               onChange={e => setSdt(e.target.value)}
               className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all font-mono font-bold mt-1"

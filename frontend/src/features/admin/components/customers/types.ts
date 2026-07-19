@@ -40,7 +40,7 @@ export interface CustomerOverviewItem {
 // trạng thái nào (không phải 1 tier cụ thể của resolvePrimaryStatus).
 export type CustomerStatusFilter = CustomerStatusTier | 'locked' | 'any_plan';
 
-export type ReputationTier = 'low' | 'mid' | 'high';
+export type { ReputationTier } from '../../../../utils/reputation';
 
 export interface PackageStats extends CustomerPackageCounts {}
 

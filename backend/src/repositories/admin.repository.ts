@@ -231,9 +231,9 @@ class AdminRepository {
       // Update basic fields in nguoi_dung
       const { rows: userRows } = await client.query(
         `UPDATE nguoi_dung 
-         SET ho_ten = $1, so_dien_thoai = $2, vai_tro_id = $3
-         WHERE id = $4 RETURNING id, ho_ten, email`,
-        [data.ho_ten, data.so_dien_thoai || null, Number(data.vai_tro_id), Number(id)]
+         SET ho_ten = $1, so_dien_thoai = $2, vai_tro_id = $3, email = $4
+         WHERE id = $5 RETURNING id, ho_ten, email`,
+        [data.ho_ten, data.so_dien_thoai || null, Number(data.vai_tro_id), data.email, Number(id)]
       );
 
       const isExpertRole = [3, 4].includes(Number(data.vai_tro_id));
@@ -1229,6 +1229,18 @@ class AdminRepository {
         return { error: 'Giao dịch này đã được hoàn tiền trước đó', code: 400 };
       }
 
+      // Chặn hoàn tiền 2 lần cho cùng 1 giao dịch gốc — chi_tiet.giao_dich_goc lưu mã tham chiếu
+      // của giao dịch THANH_TOAN đã bị hoàn (không có FK cứng, tra theo mã tham chiếu).
+      const { rows: existingRefunds } = await client.query(
+        `SELECT id FROM giao_dich_thanh_toan
+         WHERE loai_giao_dich = 'HOAN_TIEN' AND chi_tiet->>'giao_dich_goc' = $1`,
+        [originalPayment.ma_tham_chieu]
+      );
+      if (existingRefunds.length > 0) {
+        await client.query('ROLLBACK');
+        return { error: 'Giao dịch này đã được hoàn tiền trước đó', code: 400 };
+      }
+
       // Tạo giao dịch hoàn tiền số âm với mã tham chiếu ngắn gọn sạch sẽ
       const maRefund = `REF${Math.floor(10000000 + Math.random() * 90000000)}`;
       const chiTietHoanTien = {
@@ -1358,7 +1370,11 @@ class AdminRepository {
         ten_khach_hang,
         ten_ky_thuat_vien,
         ten_dich_vu,
-        thoi_gian_danh_gia
+        thoi_gian_danh_gia,
+        phan_hoi_nhan_xet,
+        ten_nguoi_phan_hoi,
+        ngay_phan_hoi,
+        loai_danh_gia
       FROM (
         SELECT 
           dg.id,
@@ -1368,12 +1384,17 @@ class AdminRepository {
           kh.ho_ten as ten_khach_hang,
           COALESCE(nd_ktv.ho_ten, '-') as ten_ky_thuat_vien,
           g.ten_goi as ten_dich_vu,
-          dg.ngay_cap_nhat as thoi_gian_danh_gia
+          dg.ngay_cap_nhat as thoi_gian_danh_gia,
+          dg.phan_hoi_nhan_xet,
+          nd_ph.ho_ten as ten_nguoi_phan_hoi,
+          dg.ngay_phan_hoi,
+          'service' as loai_danh_gia
         FROM danh_gia_goi_dich_vu dg
         JOIN khach_hang kh ON dg.khach_hang_id = kh.id
         LEFT JOIN goi_dich_vu g ON dg.goi_dich_vu_id = g.id
         LEFT JOIN cuoc_hen ch ON dg.cuoc_hen_id = ch.id
         LEFT JOIN nguoi_dung nd_ktv ON ch.nhan_su_id = nd_ktv.id
+        LEFT JOIN nguoi_dung nd_ph ON dg.nguoi_phan_hoi_id = nd_ph.id
 
         UNION ALL
 
@@ -1385,16 +1406,43 @@ class AdminRepository {
           kh.ho_ten as ten_khach_hang,
           nd_ktv.ho_ten as ten_ky_thuat_vien,
           COALESCE(g.ten_goi, '-') as ten_dich_vu,
-          dg.ngay_cap_nhat as thoi_gian_danh_gia
+          dg.ngay_cap_nhat as thoi_gian_danh_gia,
+          dg.phan_hoi_nhan_xet,
+          nd_ph.ho_ten as ten_nguoi_phan_hoi,
+          dg.ngay_phan_hoi,
+          'staff' as loai_danh_gia
         FROM danh_gia_nhan_su dg
         JOIN khach_hang kh ON dg.khach_hang_id = kh.id
         JOIN nguoi_dung nd_ktv ON dg.nhan_su_id = nd_ktv.id
         LEFT JOIN cuoc_hen ch ON dg.cuoc_hen_id = ch.id
         LEFT JOIN goi_dich_vu g ON ch.goi_dich_vu_id = g.id
+        LEFT JOIN nguoi_dung nd_ph ON dg.nguoi_phan_hoi_id = nd_ph.id
       ) combined
       ORDER BY thoi_gian_danh_gia DESC
     `);
     return rows;
+  }
+
+  async replyServiceFeedback(id: string, phanHoi: string, staffId: number) {
+    return prisma.danh_gia_goi_dich_vu.update({
+      where: { id },
+      data: {
+        phan_hoi_nhan_xet: phanHoi,
+        nguoi_phan_hoi_id: staffId,
+        ngay_phan_hoi: new Date()
+      }
+    });
+  }
+
+  async replyStaffFeedback(id: string, phanHoi: string, staffId: number) {
+    return prisma.danh_gia_nhan_su.update({
+      where: { id },
+      data: {
+        phan_hoi_nhan_xet: phanHoi,
+        nguoi_phan_hoi_id: staffId,
+        ngay_phan_hoi: new Date()
+      }
+    });
   }
 
   // --- BÁO CÁO & THỐNG KÊ ---
@@ -1705,9 +1753,9 @@ class AdminRepository {
         (
           SELECT COALESCE(COUNT(*), 0)::integer
           FROM cuoc_hen ch
-          WHERE ch.nhan_su_id = nd.id 
-            AND ch.ngay_gio_bat_dau::date = $1::date 
-            AND ch.trang_thai NOT IN ('huy', 'khong_den')
+          WHERE ch.nhan_su_id = nd.id
+            AND ch.ngay_gio_bat_dau::date = $1::date
+            AND ch.trang_thai NOT IN ('da_huy', 'huy', 'khong_den')
         ) as so_ca_trong_ngay
       FROM ho_so_chuyen_gia ktv
       JOIN nguoi_dung nd ON ktv.nguoi_dung_id = nd.id
@@ -1727,7 +1775,7 @@ class AdminRepository {
         AND NOT EXISTS (
           SELECT 1 FROM cuoc_hen ch
           WHERE ch.nhan_su_id = nd.id
-            AND ch.trang_thai NOT IN ('huy', 'khong_den')
+            AND ch.trang_thai NOT IN ('da_huy', 'huy', 'khong_den')
             AND ch.ngay_gio_bat_dau < ($1::date + $2::time + ($3 || ' minutes')::interval)::timestamp
             AND ch.ngay_gio_ket_thuc > ($1::date + $2::time)::timestamp
         )
@@ -1765,9 +1813,9 @@ class AdminRepository {
       SELECT ch.id, ch.ngay_gio_bat_dau, kh.ho_ten as ten_khach_hang
       FROM cuoc_hen ch
       JOIN khach_hang kh ON ch.khach_hang_id = kh.id
-      WHERE ch.phong_id = $1 
+      WHERE ch.phong_id = $1
         AND ch.ngay_gio_ket_thuc >= NOW()
-        AND ch.trang_thai NOT IN ('da_huy', 'hoan_thanh')
+        AND ch.trang_thai NOT IN ('da_huy', 'hoan_thanh', 'khong_den')
       LIMIT 1
     `, [roomId]);
     if (apptRows.length > 0) {

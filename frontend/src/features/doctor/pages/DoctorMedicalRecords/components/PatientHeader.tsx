@@ -29,8 +29,8 @@ export const PatientHeader: React.FC<PatientHeaderProps> = ({ selectedPatient, p
   };
 
   // Tính toán chỉ số thống kê
-  const totalRecords = profile?.medicalRecords?.length || 0;
-  const activePlans = profile?.treatmentPlans?.filter((p: any) => p.trang_thai === 'dang_dieu_tri').length || 0;
+  const totalRecords = profile?.visits?.filter((v) => v.loai === 'KHAM').length || 0;
+  const activePlans = profile?.treatmentPlans?.filter((p) => p.trang_thai === 'dang_dieu_tri').length || 0;
   const totalPlans = profile?.treatmentPlans?.length || 0;
 
   return (

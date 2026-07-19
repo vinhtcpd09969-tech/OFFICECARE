@@ -80,8 +80,8 @@ export function StaffRoomAllocation({
       return { hasDuty: true, label: '' };
     }
 
-    const staffSchedules = schedulesList.filter(s => 
-      String(s.nguoi_dung_id) === String(staff.id) && 
+    const staffSchedules = schedulesList.filter(s =>
+      String(s.nguoi_dung_id) === String(staff.id) &&
       s.ngay === aptDateStr
     );
 
@@ -118,10 +118,10 @@ export function StaffRoomAllocation({
     .filter(staff => {
       const assignedId = selectedAppointment.bac_si_id || selectedAppointment.chuyen_gia_id;
       const isCurrentlyAssigned = assignedId && String(staff.id) === String(assignedId);
-      
+
       // Check if they have an active schedule today (i.e. they are working, not vacation/absent)
-      const staffSchedules = schedulesList.filter(s => 
-        String(s.nguoi_dung_id) === String(staff.id) && 
+      const staffSchedules = schedulesList.filter(s =>
+        String(s.nguoi_dung_id) === String(staff.id) &&
         s.ngay === aptDateStr
       );
       const activeSchedule = staffSchedules.find(s => s.trang_thai === 'hoat_dong');
@@ -150,9 +150,9 @@ export function StaffRoomAllocation({
             {targetRole === 'Bác sĩ' ? 'Bác sĩ phụ trách' : 'Kỹ thuật viên phụ trách'}
           </label>
           {isEditable && assignStaffId && (
-            <button 
-              type="button" 
-              onClick={() => setAssignStaffId('')} 
+            <button
+              type="button"
+              onClick={() => setAssignStaffId('')}
               className="text-[10px] text-rose-500 font-extrabold hover:underline"
             >
               Hủy phân công
@@ -179,7 +179,7 @@ export function StaffRoomAllocation({
                 try {
                   const d = new Date(apt.ngay_gio_bat_dau);
                   aptDStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                } catch (e) {}
+                } catch (e) { }
                 return String(assignedId) === String(staffId) &&
                   aptDStr === aptDateStr &&
                   apt.trang_thai !== 'da_huy' &&
@@ -191,8 +191,7 @@ export function StaffRoomAllocation({
                 <div
                   key={staff.id}
                   onClick={() => isEditable && isAvailable && setAssignStaffId(String(staffId))}
-                  className={`p-3 rounded-xl border-2 transition-all flex items-center gap-3 select-none ${
-                    !isEditable
+                  className={`p-3 rounded-xl border-2 transition-all flex items-center gap-3 select-none ${!isEditable
                       ? isSelected
                         ? 'bg-emerald-50/30 dark:bg-emerald-955/10 border-emerald-500/80 dark:border-emerald-600/80 text-emerald-800 dark:text-emerald-355 cursor-default'
                         : 'bg-slate-50/50 dark:bg-zinc-800/10 border-slate-100 dark:border-zinc-800/30 opacity-40 cursor-not-allowed'
@@ -201,24 +200,22 @@ export function StaffRoomAllocation({
                         : isSelected
                           ? 'bg-emerald-50/50 dark:bg-emerald-955/15 border-emerald-500 dark:border-emerald-600 text-emerald-800 dark:text-emerald-355 ring-2 ring-emerald-500/10 cursor-pointer'
                           : 'bg-white dark:bg-zinc-900 border-slate-150 dark:border-zinc-800 hover:border-slate-350 dark:hover:border-zinc-700 cursor-pointer'
-                  }`}
+                    }`}
                 >
                   {staff.anh_dai_dien ? (
                     <img
                       src={resolveImageUrl(staff.anh_dai_dien)}
                       alt={staff.ho_ten}
-                      className={`w-8 h-8 rounded-full object-cover shrink-0 border-2 ${
-                        isSelected && isAvailable
+                      className={`w-8 h-8 rounded-full object-cover shrink-0 border-2 ${isSelected && isAvailable
                           ? 'border-emerald-600'
                           : 'border-slate-200 dark:border-zinc-750'
-                      }`}
+                        }`}
                     />
                   ) : (
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-[10px] shrink-0 border ${
-                      isSelected && isAvailable
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-[10px] shrink-0 border ${isSelected && isAvailable
                         ? 'bg-emerald-600 dark:bg-emerald-700 text-white border-emerald-600'
                         : 'bg-slate-100 dark:bg-zinc-800 text-slate-650 dark:text-zinc-450 border-slate-200 dark:border-zinc-750'
-                    }`}>
+                      }`}>
                       {getAvatarInitials(staff.ho_ten)}
                     </div>
                   )}
@@ -229,11 +226,10 @@ export function StaffRoomAllocation({
                       <span className="text-[9px] text-slate-500 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800/80 px-1.5 py-0.2 rounded font-extrabold">{staffAptsCount} ca</span>
                     </p>
                     <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                      <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider ${
-                        !isAvailable
+                      <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider ${!isAvailable
                           ? 'bg-rose-100 dark:bg-rose-955/30 text-rose-700 dark:text-rose-455'
                           : 'bg-emerald-100 dark:bg-emerald-955/20 text-emerald-700 dark:text-emerald-450'
-                      }`}>
+                        }`}>
                         {isAvailable ? 'Sẵn sàng' : 'Không khả dụng'}
                       </span>
                       {duty.label && (
@@ -261,7 +257,7 @@ export function StaffRoomAllocation({
           <div className="flex justify-between items-center">
             <span className="text-slate-800 dark:text-zinc-100">{resolvedRoomName}</span>
             <span className="text-[10px] text-slate-400 dark:text-zinc-555 uppercase tracking-wider font-extrabold">
-              {resolvedRoom 
+              {resolvedRoom
                 ? (selectedAppointment.loai_lich === 'kham_moi' ? 'Tự động phân theo ca trực Bác sĩ' : 'Tự động phân theo ca trực KTV')
                 : 'Chưa phân phòng'}
             </span>

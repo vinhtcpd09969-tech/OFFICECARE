@@ -71,10 +71,11 @@ export function BookingStepCard({
   // Auto-calculate service duration
   const duration = React.useMemo(() => {
     if (bookingType === 'kham') {
-      return 30; // default for medical exams
+      const examService = services.find(s => s.loai_goi === 'KHAM' || s.loai_dich_vu === 'KHAM');
+      return examService?.thoi_luong_phut || examService?.thoi_luong_buoi_phut || 30;
     }
     const selectedService = services.find(s => s.id === selectedServiceId);
-    return selectedService?.thoi_luong_phut || 30;
+    return selectedService?.thoi_luong_phut || selectedService?.thoi_luong_buoi_phut || 30;
   }, [bookingType, selectedServiceId, services]);
 
   // Hide block warning when user changes date

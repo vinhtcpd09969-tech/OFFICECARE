@@ -72,10 +72,12 @@ class AuthService {
   }
 
   async login(data: any) {
-    const user = await authRepository.findActiveUserByEmail(data.email);
+    const user = await authRepository.findUserByEmail(data.email);
     if (!user) throw new Error('Email hoặc mật khẩu không chính xác');
 
-    if (user.trang_thai !== 'hoat_dong') throw new Error('Tài khoản đã bị khóa hoặc vô hiệu hóa');
+    if (user.trang_thai !== 'hoat_dong' && user.trang_thai !== 'cho_kich_hoat') {
+      throw new Error('Tài khoản đã bị khóa hoặc vô hiệu hóa');
+    }
 
     const isVerified = (user as any).trang_thai !== 'cho_kich_hoat';
     if (!isVerified) {
@@ -102,7 +104,10 @@ class AuthService {
     await authRepository.saveRefreshToken(String(user.id), refreshToken, expiresAt, isCustomer);
     await authRepository.updateLastLogin(user.id);
 
-    const isDefaultPassword = user.mat_khau_hash ? await bcrypt.compare('123456', user.mat_khau_hash) : false;
+    // Chỉ tài khoản khách hàng do Lễ tân tạo nhanh (mật khẩu mặc định 123456) mới cần cờ này —
+    // khách tự đăng ký không có cột phai_doi_mat_khau nên luôn undefined/false, kể cả khi họ
+    // tự chọn trùng mật khẩu 123456 (tránh cảnh báo nhầm "do nhân sự cấp").
+    const isDefaultPassword = (user as any).phai_doi_mat_khau === true;
 
     return {
       accessToken,
@@ -171,7 +176,7 @@ class AuthService {
   async getMe(userId: string) {
     const user = await authRepository.findUserById(userId);
     if (!user) throw new Error('User not found');
-    const isDefaultPassword = (user as any).mat_khau_hash ? await bcrypt.compare('123456', (user as any).mat_khau_hash) : false;
+    const isDefaultPassword = (user as any).phai_doi_mat_khau === true;
     const { mat_khau_hash, ...userWithoutPassword } = user as any;
     return {
       ...userWithoutPassword,

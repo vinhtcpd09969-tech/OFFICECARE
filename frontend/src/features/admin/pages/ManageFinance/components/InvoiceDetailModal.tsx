@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Building, Activity, Receipt, RotateCcw, Printer, CreditCard, ShieldAlert, CalendarX } from 'lucide-react';
+import { User, Building, Activity, Receipt, RotateCcw, Printer, CreditCard, ShieldAlert, CalendarX, ChevronDown } from 'lucide-react';
 import { formatCurrency } from '../../../../../shared/utils';
 import type { Invoice, Payment } from '../hooks/useFinanceDashboard';
 
@@ -271,10 +271,15 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
             <div className="space-y-4">
               {/* Lịch sử ghi nhận giao dịch thanh toán */}
               <div className="space-y-3">
-                <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-wider pb-1 border-b border-zinc-100 flex items-center gap-1.5">
-                  <Receipt size={13} className="text-primary" />
-                  Lịch sử ghi nhận giao dịch thanh toán
-                </h3>
+                <div className="pb-1 border-b border-zinc-100 flex items-center justify-between gap-2">
+                  <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Receipt size={13} className="text-primary" />
+                    Lịch sử ghi nhận giao dịch thanh toán
+                  </h3>
+                  {invoicePayments.length > 0 && (
+                    <span className="text-[9px] font-bold text-zinc-350 italic normal-case">Bấm vào 1 dòng để xem chi tiết dòng tiền</span>
+                  )}
+                </div>
                 {invoicePayments.length === 0 ? (
                   <p className="text-xs text-zinc-400 italic">Chưa ghi nhận giao dịch thanh toán nào cho hóa đơn này.</p>
                 ) : (
@@ -286,52 +291,70 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                           <th className="px-3 py-2.5">Số tiền thu</th>
                           <th className="px-3 py-2.5">Phương thức</th>
                           <th className="px-3 py-2.5">Thời gian</th>
+                          <th className="px-2 py-2.5 w-6" aria-hidden="true" />
                           {isAdminOrManager && <th className="px-3 py-2.5 text-right">Thao tác</th>}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-zinc-100 font-semibold text-zinc-650">
-                        {invoicePayments.map((p) => (
-                          <tr 
-                            key={p.id} 
-                            onClick={() => setSelectedTxId(selectedTxId === p.id ? null : p.id)}
-                            className={`hover:bg-zinc-50/40 cursor-pointer transition-all ${
-                              selectedTxId === p.id ? 'bg-indigo-50/60 font-bold' : ''
-                            }`}
-                          >
-                            <td className="px-3 py-2 font-mono text-zinc-400 text-[10px]">{p.ma_giao_dich}</td>
-                            <td className="px-3 py-2 font-black text-secondary">{formatCurrency(p.so_tien)}</td>
-                            <td className="px-3 py-2 capitalize text-[10px]">
-                              {p.phuong_thuc === 'tien_mat'
-                                ? '💵 Tiền mặt'
-                                : p.phuong_thuc === 'chuyen_khoan'
-                                ? '🏦 Chuyển khoản'
-                                : '💳 Thẻ/POS'}
-                            </td>
-                            <td className="px-3 py-2 text-zinc-500 text-[10px]">{new Date(p.thoi_gian_giao_dich).toLocaleString('vi-VN')}</td>
-                            {isAdminOrManager && (
-                              <td className="px-3 py-2 text-right" onClick={(e) => e.stopPropagation()}>
-                                {p.loai_giao_dich === 'THANH_TOAN' && invoice.trang_thai !== 'da_hoan_tien' && canRefund ? (
-                                  <button
-                                    onClick={() => {
-                                      if (isPackage) {
-                                        setIsRefundPanelOpen(true);
-                                      } else {
-                                        onRefund(p.id);
-                                      }
-                                    }}
-                                    className="text-[10px] font-black text-rose-500 hover:text-rose-700 hover:underline flex items-center gap-0.5 justify-end"
-                                  >
-                                    <RotateCcw size={10} /> Hoàn tiền
-                                  </button>
-                                ) : p.loai_giao_dich === 'HOAN_TIEN' ? (
-                                  <span className="text-[10px] text-rose-500 font-bold italic">Đã hoàn trả</span>
-                                ) : (
-                                  <span className="text-[10px] text-zinc-400 italic">—</span>
-                                )}
+                        {invoicePayments.map((p) => {
+                          const isSelected = selectedTxId === p.id;
+                          return (
+                            <tr
+                              key={p.id}
+                              onClick={() => {
+                                setSelectedTxId(isSelected ? null : p.id);
+                                // Chỉ hiện 1 panel tại 1 thời điểm — mở chi tiết giao dịch thì đóng
+                                // panel hoàn tiền nâng cao đang mở (nếu có), tránh phải cuộn qua cả 2.
+                                setIsRefundPanelOpen(false);
+                              }}
+                              className={`hover:bg-zinc-50/40 cursor-pointer transition-all ${
+                                isSelected ? 'bg-indigo-50/60 font-bold' : ''
+                              }`}
+                            >
+                              <td className="px-3 py-2 font-mono text-zinc-400 text-[10px]">{p.ma_giao_dich}</td>
+                              <td className="px-3 py-2 font-black text-secondary">{formatCurrency(p.so_tien)}</td>
+                              <td className="px-3 py-2 capitalize text-[10px]">
+                                {p.phuong_thuc === 'tien_mat'
+                                  ? '💵 Tiền mặt'
+                                  : p.phuong_thuc === 'chuyen_khoan'
+                                  ? '🏦 Chuyển khoản'
+                                  : '💳 Thẻ/POS'}
                               </td>
-                            )}
-                          </tr>
-                        ))}
+                              <td className="px-3 py-2 text-zinc-500 text-[10px]">{new Date(p.thoi_gian_giao_dich).toLocaleString('vi-VN')}</td>
+                              <td className="px-2 py-2">
+                                <ChevronDown
+                                  size={12}
+                                  className={`text-zinc-350 transition-transform duration-200 ${isSelected ? 'rotate-180 text-primary' : ''}`}
+                                />
+                              </td>
+                              {isAdminOrManager && (
+                                <td className="px-3 py-2 text-right" onClick={(e) => e.stopPropagation()}>
+                                  {p.loai_giao_dich === 'THANH_TOAN' && invoice.trang_thai !== 'da_hoan_tien' && canRefund ? (
+                                    <button
+                                      onClick={() => {
+                                        if (isPackage) {
+                                          setIsRefundPanelOpen(true);
+                                          // Tương tự chiều ngược lại — mở panel hoàn tiền thì đóng
+                                          // panel chi tiết giao dịch đang mở (nếu có).
+                                          setSelectedTxId(null);
+                                        } else {
+                                          onRefund(p.id);
+                                        }
+                                      }}
+                                      className="text-[10px] font-black text-rose-500 hover:text-rose-700 hover:underline flex items-center gap-0.5 justify-end"
+                                    >
+                                      <RotateCcw size={10} /> Hoàn tiền
+                                    </button>
+                                  ) : p.loai_giao_dich === 'HOAN_TIEN' ? (
+                                    <span className="text-[10px] text-rose-500 font-bold italic">Đã hoàn trả</span>
+                                  ) : (
+                                    <span className="text-[10px] text-zinc-400 italic">—</span>
+                                  )}
+                                </td>
+                              )}
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -746,7 +769,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                       <button
                         onClick={handleRefundSubmit}
                         disabled={submittingRefund || estimatedRefund === 0}
-                        className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                       >
                         {submittingRefund ? 'Đang xử lý...' : 'Xác nhận hủy & Hoàn tiền'}
                       </button>
@@ -771,7 +794,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
             {isAdminOrManager && isPackageOverdue && (
               <button
                 onClick={handleExpireSubmit}
-                className="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-900 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-sm flex items-center gap-1.5"
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-sm flex items-center gap-1.5"
               >
                 <CalendarX size={14} /> Hủy do quá hạn sử dụng
               </button>
@@ -846,7 +869,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
       {showConfirmExpireModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[60] flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl p-6 text-center space-y-4 animate-in zoom-in-95 duration-200">
-            <div className="size-12 bg-zinc-100 text-zinc-700 rounded-full flex items-center justify-center mx-auto text-xl font-bold">
+            <div className="size-12 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto text-xl font-bold">
               <CalendarX size={22} />
             </div>
             <div className="space-y-2">
@@ -890,7 +913,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                 type="button"
                 onClick={executeExpire}
                 disabled={submittingExpire}
-                className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-900 active:scale-[0.98] text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-sm transition-all flex items-center justify-center gap-1.5"
+                className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 active:scale-[0.98] text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-sm transition-all flex items-center justify-center gap-1.5"
               >
                 {submittingExpire ? 'Đang xử lý...' : 'Xác nhận hủy, không hoàn'}
               </button>

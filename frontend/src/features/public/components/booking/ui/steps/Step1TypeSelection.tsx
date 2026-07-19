@@ -66,7 +66,6 @@ export function Step1TypeSelection({
           </div>
           <div className="flex gap-1.5 mt-4">
             <span className="text-[9px] font-black px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 uppercase tracking-wider">Có Bác sĩ</span>
-            <span className="text-[9px] font-black px-2 py-0.5 rounded bg-slate-100 text-slate-500 uppercase tracking-wider">30 phút</span>
             <span className="text-[9px] font-black px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 uppercase tracking-wider">Lượng giá chuyên sâu</span>
           </div>
         </div>

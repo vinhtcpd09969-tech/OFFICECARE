@@ -13,64 +13,76 @@ class DoctorService {
     return appointments;
   }
 
-  // 3. Tổng hợp hồ sơ y tế toàn diện của bệnh nhân (lịch sử khám + phác đồ + chi tiết buổi trị liệu)
+  // 3. Tổng hợp hồ sơ y tế toàn diện của bệnh nhân: 2 danh sách TÁCH BIỆT — visits (khám lâm sàng +
+  // dịch vụ lẻ độc lập, gộp chung 1 dòng thời gian) và treatmentPlans (chỉ phác đồ/liệu trình thật,
+  // mỗi phác đồ kèm sessions + liên kết ngược về đúng ca khám đã chỉ định ra nó). Trộn lẫn dịch vụ lẻ
+  // vào treatmentPlans như bản cũ gây rối mắt cho Bác sĩ/KTV khi xem — đã tách theo góp ý người dùng.
   async getPatientMedicalProfile(patientId: string) {
-    // Lấy lịch sử khám lâm sàng
-    const medicalRecords = await doctorRepository.getPatientHistory(patientId);
+    const [medicalRecords, rawTreatments, standaloneVisits] = await Promise.all([
+      doctorRepository.getPatientHistory(patientId),
+      doctorRepository.getPatientTreatments(patientId),
+      doctorRepository.getStandaloneServiceVisits(patientId),
+    ]);
 
-    // Lấy danh sách lịch điều trị
-    const rawTreatments = await doctorRepository.getPatientTreatments(patientId);
-
-    // Ghép chi tiết từng buổi trị liệu vào các lịch điều trị tương ứng
-    const treatmentPlans: any[] = [];
-    for (const treatment of rawTreatments) {
-      const sessions = await doctorRepository.getTreatmentSessions(treatment.id);
-      treatmentPlans.push({
+    const treatmentPlans = await Promise.all(
+      rawTreatments.map(async (treatment: any) => ({
         ...treatment,
-        sessions,
-      });
+        sessions: await doctorRepository.getTreatmentSessions(treatment.id),
+      }))
+    );
+
+    // Map ca khám -> phác đồ mà nó đã chỉ định ra (nếu có và đã được kích hoạt), để visits phía dưới
+    // gắn được prescribed_plan_id cho đúng banner liên kết "Ca khám này đã chỉ định phác đồ...".
+    const planByOriginExamId = new Map<string, any>();
+    for (const plan of treatmentPlans) {
+      if (plan.goc_kham_id) planByOriginExamId.set(plan.goc_kham_id, plan);
     }
 
-    // Dịch vụ lẻ độc lập (không có phác đồ) — mỗi cuoc_hen tự nó là 1 "phác đồ 1 buổi" hoàn chỉnh,
-    // không cần gọi getTreatmentSessions vì dòng trả về đã mang sẵn đủ dữ liệu buổi đó.
-    const standaloneVisits = await doctorRepository.getStandaloneServiceVisits(patientId);
-    for (const visit of standaloneVisits) {
-      treatmentPlans.push({
-        id: visit.id,
-        loai_dieu_tri: visit.loai_dieu_tri,
-        tong_so_buoi: visit.tong_so_buoi,
-        so_buoi_da_dung: visit.so_buoi_da_dung,
-        trang_thai: visit.trang_thai,
-        thoi_gian_tao: visit.thoi_gian_tao,
-        ma_lich_dieu_tri: visit.ma_lich_dieu_tri,
-        ten_dich_vu: visit.ten_dich_vu,
-        ten_goi: visit.ten_goi,
-        chan_doan: visit.chan_doan,
-        sessions: [{
-          id: visit.id,
-          so_thu_tu_buoi: visit.so_thu_tu_buoi,
-          trang_thai: visit.session_trang_thai,
-          thoi_gian_bat_dau: visit.thoi_gian_bat_dau,
-          thoi_gian_ket_thuc: visit.thoi_gian_ket_thuc,
-          danh_gia_truoc_buoi: visit.danh_gia_truoc_buoi,
-          danh_gia_sau_buoi: visit.danh_gia_sau_buoi,
-          danh_gia_hieu_qua: visit.danh_gia_hieu_qua,
-          canh_bao_dac_biet: visit.canh_bao_dac_biet,
-          ten_ky_thuat_vien: visit.ten_ky_thuat_vien,
-          anh_ky_thuat_vien: visit.anh_ky_thuat_vien,
-        }],
-      });
-    }
+    const examVisits = medicalRecords.map((r: any) => ({
+      id: r.lich_dat_id,
+      loai: 'KHAM' as const,
+      thoi_gian: r.thoi_gian_tao,
+      ma_lich_dat: r.ma_lich_dat,
+      trang_thai: 'hoan_thanh',
+      chan_doan: r.chan_doan,
+      chong_chi_dinh: r.chong_chi_dinh,
+      ly_do_kham: r.ly_do_kham,
+      anh_dinh_kem_url: r.anh_dinh_kem_url,
+      ghi_chu: r.ghi_chu,
+      khuyen_nghi_goi: r.khuyen_nghi_goi,
+      ten_nhan_su: r.ten_bac_si,
+      anh_nhan_su: r.anh_bac_si,
+      prescribed_plan_id: planByOriginExamId.get(r.lich_dat_id)?.id || null,
+    }));
+
+    const serviceVisits = standaloneVisits.map((v: any) => ({
+      id: v.id,
+      loai: 'DICH_VU_LE' as const,
+      thoi_gian: v.thoi_gian_tao,
+      ma_lich_dat: v.ma_lich_dat,
+      trang_thai: v.trang_thai,
+      ten_dich_vu: v.ten_dich_vu,
+      ghi_chu: v.ghi_chu,
+      ten_nhan_su: v.ten_nhan_su,
+      anh_nhan_su: v.anh_nhan_su,
+      prescribed_plan_id: null,
+    }));
+
+    const visits = [...examVisits, ...serviceVisits].sort((a, b) => {
+      const timeA = a.thoi_gian ? new Date(a.thoi_gian).getTime() : 0;
+      const timeB = b.thoi_gian ? new Date(b.thoi_gian).getTime() : 0;
+      return timeB - timeA;
+    });
 
     // Gói/dịch vụ gần nhất lên đầu — frontend mặc định chọn phần tử đầu tiên trong dải chip.
-    treatmentPlans.sort((a, b) => {
+    treatmentPlans.sort((a: any, b: any) => {
       const timeA = a.thoi_gian_tao ? new Date(a.thoi_gian_tao).getTime() : 0;
       const timeB = b.thoi_gian_tao ? new Date(b.thoi_gian_tao).getTime() : 0;
       return timeB - timeA;
     });
 
     return {
-      medicalRecords,
+      visits,
       treatmentPlans,
     };
   }

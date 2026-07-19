@@ -4,8 +4,7 @@ import {
   Calendar as CalendarIcon,
   CalendarDays,
   Settings,
-  ChevronLeft,
-  X
+  ChevronLeft
 } from 'lucide-react';
 import { format, addDays, subDays, startOfWeek, addMonths, subMonths } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -15,7 +14,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import AppointmentCalendar from '../../components/appointments/AppointmentCalendar';
 import AppointmentDetailModal from '../../components/appointments/DetailModal';
 import TreatmentBookingModal from '../../components/appointments/TreatmentBookingModal';
-import WalkInBookingModal from '../../components/appointments/WalkInBookingModal';
+import WalkInBookingModal from '../../../../components/WalkInBookingModal';
 
 // Import Module Hooks & UI Components
 import { useAppointmentsData } from '../../components/appointments/hooks/useAppointmentsData';
@@ -25,7 +24,9 @@ import { AppointmentsFilterBar } from '../../components/appointments/ui/Appointm
 import { DoctorWorkloadPanel } from '../../components/appointments/ui/DoctorWorkloadPanel';
 import { UnassignedPanel } from '../../components/appointments/ui/UnassignedPanel';
 import { CapacityView } from '../../components/appointments/ui/CapacityView';
-import { standardTimeSlots, statusConfig } from '../../components/appointments/constants';
+import { standardTimeSlots, statusConfig } from '../../../../components/appointmentStatusConfig';
+import { computeAppointmentKpiBuckets, KPI_BUCKET_STATUSES, KPI_BUCKET_LABELS, AppointmentKpiBuckets } from '../../../../utils/appointmentKpi';
+import { ActiveFilterChip } from '../../components/appointments/ui/ActiveFilterChip';
 import { RoleView, ViewMode, TimeRange } from '../../components/appointments/types';
 
 // Import Local Components
@@ -102,6 +103,11 @@ export default function ManageAppointments() {
 
   // Local Filter for staff/doctor in Timeline view
   const [selectedStaffFilter, setSelectedStaffFilter] = useState<string | null>(null);
+
+  // Lọc theo 1 trạng thái cụ thể khi bấm thẻ KPI (AppointmentKpiCards.tsx) — độc lập với KPI,
+  // không thu hẹp số liệu trên thẻ, chỉ thu hẹp danh sách hiển thị bên dưới. Không có 'total' vì
+  // thẻ Tổng ca không dùng để lọc.
+  const [statusFilter, setStatusFilter] = useState<Exclude<keyof AppointmentKpiBuckets, 'total'> | null>(null);
 
   // Command palette state
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
@@ -359,8 +365,9 @@ export default function ManageAppointments() {
       (apt.so_dien_thoai || '').includes(searchTerm.trim());
 
     const matchStaff = !selectedStaffFilter || String(apt.bac_si_id) === String(selectedStaffFilter);
+    const matchStatus = !statusFilter || KPI_BUCKET_STATUSES[statusFilter].includes(apt.trang_thai);
 
-    return matchDate && matchType && matchSearch && matchStaff && apt.trang_thai !== 'giu_cho';
+    return matchDate && matchType && matchSearch && matchStaff && matchStatus && apt.trang_thai !== 'giu_cho';
   });
 
   const getKpiAppointments = () => {
@@ -384,12 +391,7 @@ export default function ManageAppointments() {
 
   const kpiAppointments = getKpiAppointments();
 
-  const kpis = {
-    total: kpiAppointments.length,
-    waiting: kpiAppointments.filter(a => a.trang_thai === 'chua_xac_nhan' || a.trang_thai === 'cho_xac_nhan').length,
-    completed: kpiAppointments.filter(a => a.trang_thai === 'hoan_thanh').length,
-    secondary: kpiAppointments.filter(a => a.trang_thai === 'da_huy' || a.trang_thai === 'khong_den').length,
-  };
+  const kpis = computeAppointmentKpiBuckets(kpiAppointments);
 
   const unassignedAppointments = appointmentsToUse
     .filter(apt => {
@@ -595,6 +597,8 @@ export default function ManageAppointments() {
             viewMode={viewMode}
             timeRange={timeRange}
             activeType={activeType}
+            activeStatusFilter={statusFilter}
+            onSelectStatus={setStatusFilter}
           />
 
           <AppointmentsFilterBar
@@ -643,22 +647,20 @@ export default function ManageAppointments() {
             {/* Left Content Area */}
             <div className="flex-1 w-full min-w-0">
               {viewMode === 'timeline' && selectedStaffFilter && (
-                <div className="mb-4 flex items-center justify-between bg-teal-550/10 dark:bg-teal-955/20 border border-teal-500/30 p-4 rounded-2xl shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
-                  <div className="flex items-center gap-3">
-                    <div className="size-2 rounded-full bg-teal-500 animate-pulse" />
-                    <span className="text-xs font-black text-slate-800 dark:text-zinc-150 uppercase tracking-wider">
-                      Lịch {activeType === 'kham' ? 'Bác sĩ' : 'Kỹ thuật viên'}: {
-                        staffToUse.find(s => String(s.id) === String(selectedStaffFilter))?.ho_ten || 'Chuyên gia'
-                      }
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => setSelectedStaffFilter(null)}
-                    className="flex items-center gap-1 px-3 py-1.5 text-[10px] font-black text-rose-500 hover:text-rose-600 bg-rose-50/50 hover:bg-rose-50 dark:bg-rose-955/20 dark:hover:bg-rose-955/30 rounded-xl border border-rose-250/20 dark:border-rose-900/30 transition-all uppercase tracking-wider"
-                  >
-                    <X size={12} className="stroke-[3]" />
-                    <span>Hủy lọc</span>
-                  </button>
+                <div className="mb-4">
+                  <ActiveFilterChip
+                    label={`Lịch ${activeType === 'kham' ? 'Bác sĩ' : 'Kỹ thuật viên'}: ${staffToUse.find(s => String(s.id) === String(selectedStaffFilter))?.ho_ten || 'Chuyên gia'}`}
+                    onClear={() => setSelectedStaffFilter(null)}
+                  />
+                </div>
+              )}
+
+              {statusFilter && (
+                <div className="mb-4">
+                  <ActiveFilterChip
+                    label={`Đang lọc: ${KPI_BUCKET_LABELS[statusFilter]}`}
+                    onClear={() => setStatusFilter(null)}
+                  />
                 </div>
               )}
 
@@ -713,14 +715,16 @@ export default function ManageAppointments() {
                       setSelectedDate={setSelectedDate}
                       setViewMode={setViewMode}
                       appointments={appointmentsToUse.filter(apt =>
-                        activeType === 'kham'
+                        (activeType === 'kham'
                           ? apt.loai_lich === 'kham_moi'
-                          : (apt.loai_lich === 'dieu_tri' || apt.loai_lich === 'dich_vu_don')
+                          : (apt.loai_lich === 'dieu_tri' || apt.loai_lich === 'dich_vu_don')) &&
+                        (!statusFilter || KPI_BUCKET_STATUSES[statusFilter].includes(apt.trang_thai))
                       )}
                       timeRange={timeRange}
                       activeType={activeType}
                       searchTerm={searchTerm}
                       onSelectAppointment={scrollToAppointment}
+                      activeStatusLabel={statusFilter ? KPI_BUCKET_LABELS[statusFilter] : null}
                     />
                   )}
                 </>

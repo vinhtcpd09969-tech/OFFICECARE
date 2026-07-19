@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Clock, Phone, Loader2, Info, ShieldCheck, HeartPulse, Award, Star, TrendingUp, Activity } from 'lucide-react';
@@ -6,6 +6,7 @@ import { getPublicServices, getPublicCategories, getPublicServiceReviews, getPub
 import { resolveImageUrl } from '../../../utils/imageUrl';
 import ScrollReveal from '../components/shared/ScrollReveal';
 import toast from 'react-hot-toast';
+import { censorText } from '../../../utils/profanity';
 
 const TRUST_BADGES = [
   { icon: ShieldCheck, title: 'An toàn chuẩn y khoa', desc: 'Phác đồ được bác sĩ chuyên khoa xây dựng và giám sát.' },
@@ -76,8 +77,19 @@ export default function ServiceDetailPage() {
   const [activeGalleryImage, setActiveGalleryImage] = useState<string | null>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
   const [specialists, setSpecialists] = useState<any[]>([]);
   const [selectedImage, setSelectedImage] = useState<string>('');
+
+  // Reset page when service id changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [id]);
+
+  const paginatedReviews = useMemo(() => {
+    const startIndex = (currentPage - 1) * 5;
+    return reviews.slice(startIndex, startIndex + 5);
+  }, [reviews, currentPage]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -603,36 +615,92 @@ export default function ServiceDetailPage() {
           ) : reviews.length === 0 ? (
             <p className="text-slate-400 text-xs font-semibold py-4">Chưa có đánh giá nào cho gói trị liệu này.</p>
           ) : (
-            <div className="space-y-6 divide-y divide-slate-100">
-              {reviews.map((rev) => (
-                <div key={rev.id} className="pt-6 first:pt-0 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="size-9 rounded-xl bg-teal-50 flex items-center justify-center text-teal-650 font-black text-xs">
-                        {rev.name?.charAt(0) || 'K'}
+            <div className="space-y-6">
+              <div className="space-y-6 divide-y divide-slate-100">
+                {paginatedReviews.map((rev) => (
+                  <div key={rev.id} className="pt-6 first:pt-0 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="size-9 rounded-xl bg-teal-50 flex items-center justify-center text-teal-650 font-black text-xs">
+                          {rev.name?.charAt(0) || 'K'}
+                        </div>
+                        <div>
+                          <p className="font-extrabold text-slate-800 text-xs">{rev.name}</p>
+                          <p className="text-[9px] text-slate-400 font-bold">
+                            Đã trị liệu ngày {new Date(rev.date).toLocaleDateString('vi-VN')}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-extrabold text-slate-800 text-xs">{rev.name}</p>
-                        <p className="text-[9px] text-slate-400 font-bold">
-                          Đã trị liệu ngày {new Date(rev.date).toLocaleDateString('vi-VN')}
+                      <div className="flex gap-0.5 text-amber-400">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star 
+                            key={i} 
+                            size={14} 
+                            className={i < rev.rating ? 'fill-amber-400 stroke-none' : 'text-zinc-200 fill-zinc-200 stroke-none'} 
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-slate-650 text-xs font-semibold leading-relaxed italic bg-slate-50/50 p-5 rounded-2xl border border-slate-100 max-w-3xl">
+                      "{censorText(rev.comment)}"
+                    </p>
+                    {rev.reply && (
+                      <div className="bg-emerald-50/55 border-l-2 border-[#0D9488] rounded-r-2xl p-4 mt-2 max-w-3xl text-xs space-y-1 ml-4">
+                        <p className="font-extrabold text-slate-800">
+                          Phản hồi từ OfficeCare:
                         </p>
+                        <p className="text-slate-600 italic">"{rev.reply}"</p>
                       </div>
-                    </div>
-                    <div className="flex gap-0.5 text-amber-400">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <Star 
-                          key={i} 
-                          size={14} 
-                          className={i < rev.rating ? 'fill-amber-400 stroke-none' : 'text-zinc-200 fill-zinc-200 stroke-none'} 
-                        />
-                      ))}
-                    </div>
+                    )}
                   </div>
-                  <p className="text-slate-650 text-xs font-semibold leading-relaxed italic bg-slate-50/50 p-5 rounded-2xl border border-slate-100 max-w-3xl">
-                    "{rev.comment}"
-                  </p>
-                </div>
-              ))}
+                ))}
+              </div>
+
+              {/* Pagination controls */}
+              {(() => {
+                const totalPages = Math.ceil(reviews.length / 5);
+                if (totalPages <= 1) return null;
+                return (
+                  <div className="flex items-center justify-center gap-2 pt-6 mt-4 border-t border-slate-100/60">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-xl border border-slate-200 hover:border-[#0D9488] hover:text-[#0D9488] text-slate-500 disabled:opacity-30 disabled:hover:border-slate-200 disabled:hover:text-slate-500 transition-all cursor-pointer select-none"
+                    >
+                      Trước
+                    </button>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: totalPages }).map((_, i) => {
+                        const pageNum = i + 1;
+                        const isActive = currentPage === pageNum;
+                        return (
+                          <button
+                            key={pageNum}
+                            type="button"
+                            onClick={() => setCurrentPage(pageNum)}
+                            className={`w-7 h-7 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
+                              isActive
+                                ? 'bg-primary text-white shadow-md shadow-teal-500/10 scale-105'
+                                : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-600'
+                            }`}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-xl border border-slate-200 hover:border-[#0D9488] hover:text-[#0D9488] text-slate-500 disabled:opacity-30 disabled:hover:border-slate-200 disabled:hover:text-slate-500 transition-all cursor-pointer select-none"
+                    >
+                      Sau
+                    </button>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>

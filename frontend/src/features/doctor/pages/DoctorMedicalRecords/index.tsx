@@ -1,19 +1,24 @@
-import { useState, useEffect } from 'react';
-import { HeartHandshake, History, FileSpreadsheet } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { AnimatePresence } from 'framer-motion';
+import { HeartHandshake } from 'lucide-react';
 import { getPatients, getPatientProfile, PatientInfo, PatientProfile } from '../../api/doctor.api';
 import { PatientSidebar } from './components/PatientSidebar';
 import { PatientHeader } from './components/PatientHeader';
-import { ClinicalTimeline } from './components/ClinicalTimeline';
-import { TreatmentProgress } from './components/TreatmentProgress';
+import { PlanColumn } from './components/PlanColumn';
+import { VisitColumn } from './components/VisitColumn';
+import { PlanDetailModal } from './components/PlanDetailModal';
+import { VisitDetailModal } from './components/VisitDetailModal';
+
+type ActiveModal = { type: 'plan'; id: string } | { type: 'visit'; id: string } | null;
 
 export default function DoctorMedicalRecords() {
   const [patients, setPatients] = useState<PatientInfo[]>([]);
   const [loadingPatients, setLoadingPatients] = useState(true);
-  
+
   const [selectedPatient, setSelectedPatient] = useState<PatientInfo | null>(null);
   const [profile, setProfile] = useState<PatientProfile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
-  const [activeTab, setActiveTab] = useState<'history' | 'treatments'>('history');
+  const [activeModal, setActiveModal] = useState<ActiveModal>(null);
 
   // Load danh sách bệnh nhân
   useEffect(() => {
@@ -40,6 +45,7 @@ export default function DoctorMedicalRecords() {
 
     async function loadProfile() {
       setLoadingProfile(true);
+      setActiveModal(null);
       try {
         const res = await getPatientProfile(selectedPatient!.id);
         setProfile(res.data);
@@ -52,64 +58,55 @@ export default function DoctorMedicalRecords() {
     loadProfile();
   }, [selectedPatient]);
 
+  const activePlan = useMemo(() => {
+    if (activeModal?.type !== 'plan' || !profile) return null;
+    return profile.treatmentPlans.find((p) => p.id === activeModal.id) || null;
+  }, [activeModal, profile]);
+
+  const activeVisit = useMemo(() => {
+    if (activeModal?.type !== 'visit' || !profile) return null;
+    return profile.visits.find((v) => v.id === activeModal.id) || null;
+  }, [activeModal, profile]);
+
+  const linkedPlanForActiveVisit = useMemo(() => {
+    if (!activeVisit?.prescribed_plan_id || !profile) return null;
+    return profile.treatmentPlans.find((p) => p.id === activeVisit.prescribed_plan_id) || null;
+  }, [activeVisit, profile]);
+
   return (
     <div className="h-[calc(100vh-10rem)] -mt-2 flex gap-6 animate-in fade-in duration-500 overflow-hidden">
-      
+
       {/* CỘT 1: Thanh bên lọc bệnh nhân (Tất cả / Gần đây / Chống chỉ định) */}
-      <PatientSidebar 
-        patients={patients} 
-        selectedPatient={selectedPatient} 
-        onSelectPatient={setSelectedPatient} 
-        loadingPatients={loadingPatients} 
+      <PatientSidebar
+        patients={patients}
+        selectedPatient={selectedPatient}
+        onSelectPatient={setSelectedPatient}
+        loadingPatients={loadingPatients}
       />
 
       {/* KHU VỰC CHI TIẾT CHÍNH (Cột bên phải chiếm toàn bộ chiều rộng còn lại) */}
       <div className="flex-1 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-150 dark:border-zinc-800 shadow-sm flex flex-col overflow-hidden min-w-0">
         {selectedPatient ? (
           <>
-            {/* HUD Header thông tin bệnh nhân & Thống kê số liệu */}
-            <PatientHeader 
-              selectedPatient={selectedPatient} 
-              profile={profile} 
-            />
+            <PatientHeader selectedPatient={selectedPatient} profile={profile} />
 
-            {/* Thanh Tab điều hướng chính (Chẩn đoán lâm sàng vs Tiến trình trị liệu thực tế) */}
-            <div className="bg-zinc-50 dark:bg-zinc-950 p-1.5 rounded-t-3xl flex gap-1 border-b border-zinc-200/50 dark:border-zinc-800/80 shrink-0">
-              <button
-                onClick={() => setActiveTab('history')}
-                className={`flex-1 py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-all duration-300 flex items-center justify-center gap-2 ${
-                  activeTab === 'history'
-                    ? 'bg-white dark:bg-zinc-900 text-primary shadow-sm border border-zinc-200/20 dark:border-zinc-800/40 scale-102'
-                    : 'text-zinc-400 dark:text-zinc-555 hover:text-zinc-700 dark:hover:text-zinc-300'
-                }`}
-              >
-                <History size={14} />
-                Lịch sử chẩn đoán ({profile?.medicalRecords?.length || 0})
-              </button>
-              <button
-                onClick={() => setActiveTab('treatments')}
-                className={`flex-1 py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-all duration-300 flex items-center justify-center gap-2 ${
-                  activeTab === 'treatments'
-                    ? 'bg-white dark:bg-zinc-900 text-primary shadow-sm border border-zinc-200/20 dark:border-zinc-800/40 scale-102'
-                    : 'text-zinc-400 dark:text-zinc-555 hover:text-zinc-700 dark:hover:text-zinc-300'
-                }`}
-              >
-                <FileSpreadsheet size={14} />
-                Tiến trình trị liệu thực tế ({profile?.treatmentPlans?.length || 0})
-              </button>
-            </div>
-
-            {/* Nội dung chi tiết của Tab đang hoạt động */}
-            <div className="flex-1 overflow-hidden min-h-0 bg-white dark:bg-zinc-900">
+            <div className="flex-1 overflow-y-auto min-h-0 bg-white dark:bg-zinc-900 p-6">
               {loadingProfile ? (
                 <div className="h-full flex flex-col items-center justify-center gap-2 text-zinc-400">
                   <div className="size-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
                   <p className="text-[10px] font-bold uppercase tracking-wider animate-pulse">Đang tải dữ liệu hồ sơ...</p>
                 </div>
-              ) : activeTab === 'history' ? (
-                <ClinicalTimeline medicalRecords={profile?.medicalRecords || []} />
               ) : (
-                <TreatmentProgress profile={profile} />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                  <PlanColumn
+                    plans={profile?.treatmentPlans || []}
+                    onOpenPlan={(id) => setActiveModal({ type: 'plan', id })}
+                  />
+                  <VisitColumn
+                    visits={profile?.visits || []}
+                    onOpenVisit={(id) => setActiveModal({ type: 'visit', id })}
+                  />
+                </div>
               )}
             </div>
           </>
@@ -138,6 +135,25 @@ export default function DoctorMedicalRecords() {
         )}
       </div>
 
+      <AnimatePresence>
+        {activePlan && (
+          <PlanDetailModal
+            key={`plan-${activePlan.id}`}
+            plan={activePlan}
+            onClose={() => setActiveModal(null)}
+            onJumpToVisit={(visitId) => setActiveModal({ type: 'visit', id: visitId })}
+          />
+        )}
+        {activeVisit && (
+          <VisitDetailModal
+            key={`visit-${activeVisit.id}`}
+            visit={activeVisit}
+            linkedPlan={linkedPlanForActiveVisit}
+            onClose={() => setActiveModal(null)}
+            onJumpToPlan={(planId) => setActiveModal({ type: 'plan', id: planId })}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

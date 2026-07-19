@@ -52,6 +52,13 @@ export function useLoginState(WelcomeToastComponent: React.ComponentType<{ t: an
       const from = (location.state as any)?.from || '/appointments';
       const roleId = Number(user.vai_tro_id);
 
+      // Tài khoản khách hàng do Lễ tân tạo nhanh (mật khẩu mặc định 123456) — bắt đổi mật khẩu
+      // ngay lần đăng nhập đầu, ưu tiên hơn mọi điều hướng khác cho tới khi họ tự đổi.
+      if (roleId === 1 && user.isDefaultPassword) {
+        navigate('/settings');
+        return;
+      }
+
       if (roleId === 5) {
         navigate(from === '/appointments' || from === '/dashboard' ? '/admin' : from);
       } else if (roleId === 2) {

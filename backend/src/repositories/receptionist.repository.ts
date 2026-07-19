@@ -1,6 +1,7 @@
 import { pool } from '../config/db';
 import { calculateDiscountPercent, resolveNoShowOutcome, PaymentTransactionDetail, PACKAGE_ACTIVATION_WINDOW_DAYS } from '../domain/billing';
 import { HinhThucThanhToanGoi } from '../domain/types';
+import appointmentRepository from './appointment.repository';
 
 class ReceptionistRepository {
   async getTodayAppointments() {
@@ -141,11 +142,14 @@ class ReceptionistRepository {
         paramIndex++;
       }
 
-      if (['da_huy', 'da_huy_phat'].includes(finalStatus)) {
+      if (finalStatus === 'da_huy') {
         updates.push(`thoi_gian_huy = NOW()`);
       }
 
-      if (['da_huy', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat', 'da_huy_phat'].includes(finalStatus)) {
+      // Chỉ HỦY mới giải phóng nhân sự/phòng — "không đến" giữ nguyên (xem giải thích tương tự ở
+      // appointment.repository.ts::updateAppointmentStatus) để Bác sĩ/KTV vẫn thấy đúng ca "không
+      // đến" thuộc trách nhiệm của mình.
+      if (finalStatus === 'da_huy') {
         updates.push(`nhan_su_id = NULL`);
         updates.push(`phong_id = NULL`);
       }
@@ -234,6 +238,21 @@ class ReceptionistRepository {
   }
 
   async createAppointment(maLichDat: string, khachHangId: string, goi_dich_vu_id: string, ky_thuat_vien_id: string, startTime: Date, endTime: Date) {
+    // Đặt lịch tại quầy (walk-in) trước đây INSERT thẳng, không hề qua checkCustomerOverlap/
+    // checkDoctorOverlap như 2 luồng đặt lịch còn lại (public/客户 và TreatmentBookingModal của
+    // Admin/Lễ tân) — áp lại đúng 2 lớp chặn trùng lịch đó cho nhất quán, tránh Lễ tân double-book
+    // khách hàng hoặc nhân sự qua đúng cửa này.
+    const customerOverlap = await appointmentRepository.checkCustomerOverlap(khachHangId, null, startTime.toISOString(), endTime.toISOString());
+    if (customerOverlap) {
+      throw new Error('Khách hàng đã có lịch hẹn hoặc ca điều trị khác trong khung giờ này.');
+    }
+    if (ky_thuat_vien_id) {
+      const staffOverlap = await appointmentRepository.checkDoctorOverlap(ky_thuat_vien_id, startTime.toISOString(), endTime.toISOString());
+      if (staffOverlap) {
+        throw new Error('Nhân sự được chọn đã có lịch trong khung giờ này.');
+      }
+    }
+
     const { rows } = await pool.query(`
       INSERT INTO cuoc_hen (khach_hang_id, goi_dich_vu_id, nhan_su_id, ngay_gio_bat_dau, ngay_gio_ket_thuc, loai, trang_thai)
       VALUES ($1, $2, $3, $4, $5, 'DICH_VU_LE', 'cho_xac_nhan') RETURNING id

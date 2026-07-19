@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Mail, Phone, Award, Calendar, Star, CheckCircle2, ShieldCheck, Newspaper, User } from 'lucide-react';
@@ -6,6 +6,7 @@ import { getPublicSpecialistById, getPublicSpecialists, getPublicArticles, getPu
 import LoadingScreen from '../../../components/LoadingScreen';
 import ScrollReveal from '../components/shared/ScrollReveal';
 import { resolveImageUrl } from '../../../utils/imageUrl';
+import { censorText } from '../../../utils/profanity';
 
 interface Specialist {
   id: number;
@@ -43,6 +44,17 @@ export default function SpecialistDetailPage() {
   const [latestArticles, setLatestArticles] = useState<ArticleSummary[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Reset page when specialist id changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [id]);
+
+  const paginatedReviews = useMemo(() => {
+    const startIndex = (currentPage - 1) * 5;
+    return reviews.slice(startIndex, startIndex + 5);
+  }, [reviews, currentPage]);
 
   useEffect(() => {
     async function fetchDetails() {
@@ -302,36 +314,92 @@ export default function SpecialistDetailPage() {
               ) : reviews.length === 0 ? (
                 <p className="text-slate-400 text-xs font-semibold py-4">Chưa có phản hồi nào cho chuyên gia này.</p>
               ) : (
-                <div className="space-y-4 divide-y divide-slate-100">
-                  {reviews.map((rev) => (
-                    <div key={rev.id} className="pt-4 first:pt-0 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="size-8 rounded-lg bg-teal-50 flex items-center justify-center text-teal-650 font-black text-xs">
-                            {rev.name?.charAt(0) || 'K'}
+                <div className="space-y-4">
+                  <div className="space-y-4 divide-y divide-slate-100">
+                    {paginatedReviews.map((rev) => (
+                      <div key={rev.id} className="pt-4 first:pt-0 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="size-8 rounded-lg bg-teal-50 flex items-center justify-center text-teal-650 font-black text-xs">
+                              {rev.name?.charAt(0) || 'K'}
+                            </div>
+                            <div>
+                              <p className="font-extrabold text-slate-800 text-xs">{rev.name}</p>
+                              <p className="text-[9px] text-slate-400 font-bold">
+                                {new Date(rev.date).toLocaleDateString('vi-VN')}
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-extrabold text-slate-800 text-xs">{rev.name}</p>
-                            <p className="text-[9px] text-slate-400 font-bold">
-                              {new Date(rev.date).toLocaleDateString('vi-VN')}
+                          <div className="flex gap-0.5 text-amber-400">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                              <Star 
+                                key={i} 
+                                size={12} 
+                                className={i < rev.rating ? 'fill-amber-400 stroke-none' : 'text-zinc-200 fill-zinc-200 stroke-none'} 
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        <p className="text-slate-655 text-xs font-medium leading-relaxed italic bg-slate-50 p-4 rounded-xl border border-slate-100">
+                          "{censorText(rev.comment)}"
+                        </p>
+                        {rev.reply && (
+                          <div className="bg-emerald-50/55 border-l-2 border-[#0D9488] rounded-r-2xl p-4 mt-2 text-xs space-y-1 ml-4">
+                            <p className="font-extrabold text-slate-800">
+                              Phản hồi từ OfficeCare:
                             </p>
+                            <p className="text-slate-600 italic">"{rev.reply}"</p>
                           </div>
-                        </div>
-                        <div className="flex gap-0.5 text-amber-400">
-                          {Array.from({ length: 5 }).map((_, i) => (
-                            <Star 
-                              key={i} 
-                              size={12} 
-                              className={i < rev.rating ? 'fill-amber-400 stroke-none' : 'text-zinc-200 fill-zinc-200 stroke-none'} 
-                            />
-                          ))}
-                        </div>
+                        )}
                       </div>
-                      <p className="text-slate-650 text-xs font-medium leading-relaxed italic bg-slate-50 p-4 rounded-xl border border-slate-100">
-                        "{rev.comment}"
-                      </p>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+
+                  {/* Pagination controls */}
+                  {(() => {
+                    const totalPages = Math.ceil(reviews.length / 5);
+                    if (totalPages <= 1) return null;
+                    return (
+                      <div className="flex items-center justify-center gap-2 pt-6 mt-4 border-t border-slate-100/60">
+                        <button
+                          type="button"
+                          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                          disabled={currentPage === 1}
+                          className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-xl border border-slate-200 hover:border-[#0D9488] hover:text-[#0D9488] text-slate-500 disabled:opacity-30 disabled:hover:border-slate-200 disabled:hover:text-slate-500 transition-all cursor-pointer select-none"
+                        >
+                          Trước
+                        </button>
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: totalPages }).map((_, i) => {
+                            const pageNum = i + 1;
+                            const isActive = currentPage === pageNum;
+                            return (
+                              <button
+                                key={pageNum}
+                                type="button"
+                                onClick={() => setCurrentPage(pageNum)}
+                                className={`w-7 h-7 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
+                                  isActive
+                                    ? 'bg-primary text-white shadow-md shadow-teal-500/10 scale-105'
+                                    : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-600'
+                                }`}
+                              >
+                                {pageNum}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                          disabled={currentPage === totalPages}
+                          className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-xl border border-slate-200 hover:border-[#0D9488] hover:text-[#0D9488] text-slate-500 disabled:opacity-30 disabled:hover:border-slate-200 disabled:hover:text-slate-500 transition-all cursor-pointer select-none"
+                        >
+                          Sau
+                        </button>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>

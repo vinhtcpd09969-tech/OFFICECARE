@@ -23,6 +23,7 @@ import { resolveImageUrl } from '../../../../utils/imageUrl';
 
 interface Appointment {
   id: string;
+  phac_do_dieu_tri_id?: string | null;
   ma_lich_dat: string;
   ngay_gio_bat_dau: string;
   ngay_gio_ket_thuc: string;
@@ -380,8 +381,14 @@ export default function CustomerAppointments() {
     }
   };
 
-  const handleViewTreatmentDetail = () => {
-    toast.success('Tính năng xem hồ sơ chi tiết buổi trị liệu đang được phát triển...');
+  // Điều hướng sang trang Hồ sơ trị liệu, tự mở đúng gói (và cuộn tới đúng buổi nếu buổi đó thuộc
+  // 1 gói liệu trình) — thay cho stub toast cũ.
+  const handleViewTreatmentDetail = (app: Appointment) => {
+    if (!app.phac_do_dieu_tri_id) {
+      navigate('/medical-record');
+      return;
+    }
+    navigate(`/medical-record?phac_do_id=${app.phac_do_dieu_tri_id}&buoi=${app.id}`);
   };
 
   // Counters & Metrics
@@ -1021,7 +1028,7 @@ export default function CustomerAppointments() {
                               <motion.button
                                 whileHover={{ scale: 1.02 }}
                                 whileTap={{ scale: 0.98 }}
-                                onClick={handleViewTreatmentDetail}
+                                onClick={() => handleViewTreatmentDetail(app)}
                                 className="w-full bg-[#0F172A] hover:bg-slate-900 text-white font-extrabold text-[10px] uppercase tracking-wider py-2.5 rounded-xl transition-all text-center cursor-pointer shadow-xs"
                               >
                                 Chi tiết buổi

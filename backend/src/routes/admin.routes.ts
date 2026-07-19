@@ -17,7 +17,7 @@ router.get('/staff', authorizeRoles(2, 3, 4, 5, 6), adminController.getStaff);
 router.post('/staff', authorizeRoles(5), adminController.createStaff);
 router.put('/staff/:id', authorizeRoles(5), adminController.updateStaff);
 router.patch('/staff/:id/status', authorizeRoles(5), adminController.updateStaffStatus);
-router.post('/staff/:id/reset-password', authorizeRoles(5), adminController.resetStaffPassword);
+router.post('/staff/:id/update-password', authorizeRoles(5), adminController.updateStaffPassword);
 
 // ─── GÓI ĐIỀU TRỊ ─────────────────────────────────────────────────────────────
 router.get('/packages', authorizeRoles(2, 3, 4, 5, 6), adminController.getPackages);
@@ -83,6 +83,8 @@ router.put('/vouchers/:id', authorizeRoles(5, 6), adminController.updateVoucher)
 router.delete('/vouchers/:id', authorizeRoles(5, 6), adminController.deleteVoucher);
 
 router.get('/feedback', authorizeRoles(5, 6), adminController.getFeedback);
+router.post('/feedback/service/:id/reply', authorizeRoles(2, 5, 6), adminController.replyServiceFeedback);
+router.post('/feedback/staff/:id/reply', authorizeRoles(2, 5, 6), adminController.replyStaffFeedback);
 
 // ─── BÁO CÁO ──────────────────────────────────────────────────────────────────
 router.get('/analytics/summary', authorizeRoles(2, 5, 6), adminController.getDashboardSummary);

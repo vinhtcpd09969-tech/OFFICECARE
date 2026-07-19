@@ -1,16 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../../../stores/authStore';
-import { 
-  Search, 
-  ArrowLeft, 
-  User, 
-  Coins, 
-  Receipt, 
-  ChevronRight, 
-  Filter, 
-  RotateCcw, 
-  Clock, 
+import {
+  ArrowLeft,
+  User,
+  Coins,
   CalendarDays,
   DollarSign,
   Activity
@@ -31,18 +25,11 @@ import PaymentSuccessBox from './components/PaymentSuccessBox';
 import ConfirmPaymentModal from './components/ConfirmPaymentModal';
 import QRWebhookModal from './components/QRWebhookModal';
 import VoucherPicker from './components/VoucherPicker';
-
-
-const getStatusBadge = (status: string) => {
-  const badges: Record<string, string> = {
-    da_thanh_toan: 'bg-emerald-50 text-emerald-700 border border-emerald-200/50',
-    thanh_cong: 'bg-emerald-50 text-emerald-700 border border-emerald-200/50',
-    chua_thanh_toan: 'bg-amber-50 text-amber-700 border border-amber-250/50',
-    da_hoan_tien: 'bg-rose-50 text-rose-700 border border-rose-200/50',
-    cho_xu_ly: 'bg-zinc-50 text-zinc-700 border border-zinc-200',
-  };
-  return badges[status] || 'bg-zinc-50 text-zinc-700 border border-zinc-200';
-};
+import FinanceKpiCards from './components/FinanceKpiCards';
+import FinanceTabs from './components/FinanceTabs';
+import FinanceFilterBar from './components/FinanceFilterBar';
+import InvoiceTable from './components/InvoiceTable';
+import PaymentTable from './components/PaymentTable';
 
 export default function ManageFinance() {
   const { user } = useAuthStore();
@@ -655,6 +642,7 @@ export default function ManageFinance() {
   // RENDER FINANCE DASHBOARD
   // ----------------------------------------------------
   const filteredInvoices = dashboard.getFilteredInvoices();
+  const filteredPayments = dashboard.getFilteredPayments();
   // Gói liệu trình đã quá hạn sử dụng, khách không phản hồi — xem docs/BUSINESS_RULES.md mục
   // "Hủy gói quá hạn sử dụng (không hoàn tiền)". Cả admin lẫn lễ tân đều thấy để dễ liên lạc thử
   // trước, nhưng chỉ Admin thấy/bấm được nút hủy trong InvoiceDetailModal.
@@ -665,36 +653,6 @@ export default function ManageFinance() {
     !['da_hoan_tien', 'da_huy'].includes(inv.trang_thai) &&
     !['huy', 'hoan_thanh'].includes(inv.trang_thai_phac_do || '')
   );
-  const filteredPayments = dashboard.payments.filter((pay) => {
-    const query = dashboard.searchTerm.toLowerCase();
-    const matchesSearch =
-      (pay.ma_giao_dich?.toLowerCase() || '').includes(query) ||
-      (pay.ma_hoa_don?.toLowerCase() || '').includes(query) ||
-      (pay.ten_khach_hang?.toLowerCase() || '').includes(query);
-    if (!matchesSearch) return false;
-
-    if (dashboard.statusFilter !== 'all' && pay.trang_thai !== dashboard.statusFilter) return false;
-
-    if (dashboard.methodFilter !== 'all' && pay.phuong_thuc !== dashboard.methodFilter) return false;
-
-    if (dashboard.dateFilter !== 'all') {
-      const date = new Date(pay.thoi_gian_giao_dich);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      if (dashboard.dateFilter === 'today') {
-        if (date < today) return false;
-      } else if (dashboard.dateFilter === '7days') {
-        const limit = new Date(today);
-        limit.setDate(limit.getDate() - 7);
-        if (date < limit) return false;
-      } else if (dashboard.dateFilter === 'thisMonth') {
-        if (date.getMonth() !== today.getMonth() || date.getFullYear() !== today.getFullYear()) return false;
-      }
-    }
-
-    return true;
-  });
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 text-left">
@@ -724,293 +682,56 @@ export default function ManageFinance() {
 
       <OverduePackagePanel invoices={overdueInvoices} onOpenDetail={(inv) => dashboard.setSelectedInvoice(inv)} />
 
-      {/* Stats Cards Workspace */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="p-6 rounded-3xl bg-white border border-zinc-150 shadow-sm hover:shadow-md transition-all hover:scale-[1.01] duration-200 text-left flex items-start gap-4">
-          <div className="p-3 bg-emerald-100 text-emerald-600 rounded-2xl shadow-inner">
-            <Coins size={22} />
-          </div>
-          <div>
-            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Doanh thu thực tế (Đã thu)</span>
-            <h3 className="text-xl font-black text-secondary mt-1">
-              {formatCurrency(dashboard.invoices.reduce((acc, inv) => acc + Number(inv.da_thanh_toan || 0), 0))}
-            </h3>
-          </div>
-        </div>
+      <FinanceKpiCards kpis={dashboard.kpis} />
 
-        <div className="p-6 rounded-3xl bg-white border border-zinc-150 shadow-sm hover:shadow-md transition-all hover:scale-[1.01] duration-200 text-left flex items-start gap-4">
-          <div className="p-3 bg-amber-100 text-amber-600 rounded-2xl shadow-inner">
-            <Clock size={22} />
-          </div>
-          <div>
-            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Đang chờ thanh toán</span>
-            <h3 className="text-xl font-black text-secondary mt-1">
-              {formatCurrency(dashboard.invoices.reduce((acc, inv) => acc + (inv.trang_thai === 'chua_thanh_toan' ? Number(inv.tong_tien_thanh_toan || 0) : 0), 0))}
-            </h3>
-          </div>
-        </div>
+      {/* Tabs + Filter + Bảng — bỏ sidebar dọc 1/4 cũ, nhường toàn bộ chiều rộng cho bảng dữ liệu */}
+      <div className="space-y-5 text-left">
+        <FinanceTabs
+          activeTab={dashboard.activeTab}
+          invoiceCount={dashboard.invoices.length}
+          paymentCount={dashboard.payments.length}
+          onChange={(tab) => {
+            dashboard.setActiveTab(tab);
+            dashboard.setStatusFilter('all');
+          }}
+        />
 
-        <div className="p-6 rounded-3xl bg-white border border-zinc-150 shadow-sm hover:shadow-md transition-all hover:scale-[1.01] duration-200 text-left flex items-start gap-4">
-          <div className="p-3 bg-rose-100 text-rose-600 rounded-2xl shadow-inner">
-            <RotateCcw size={22} />
-          </div>
-          <div>
-            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Đã hoàn tiền (Hoàn trả)</span>
-            <h3 className="text-xl font-black text-secondary mt-1">
-              {formatCurrency(dashboard.payments.filter(p => p.loai_giao_dich === 'HOAN_TIEN').reduce((acc, p) => acc + Math.abs(Number(p.so_tien || 0)), 0))}
-            </h3>
-          </div>
-        </div>
+        <FinanceFilterBar
+          activeTab={dashboard.activeTab}
+          searchTerm={dashboard.searchTerm}
+          onSearchChange={dashboard.setSearchTerm}
+          statusFilter={dashboard.statusFilter}
+          onStatusChange={dashboard.setStatusFilter}
+          itemTypeFilter={dashboard.itemTypeFilter}
+          onItemTypeChange={dashboard.setItemTypeFilter}
+          methodFilter={dashboard.methodFilter}
+          onMethodChange={dashboard.setMethodFilter}
+          dateFilter={dashboard.dateFilter}
+          onDateChange={dashboard.setDateFilter}
+        />
 
-        <div className="p-6 rounded-3xl bg-white border border-zinc-150 shadow-sm hover:shadow-md transition-all hover:scale-[1.01] duration-200 text-left flex items-start gap-4">
-          <div className="p-3 bg-zinc-100 text-zinc-500 rounded-2xl shadow-inner">
-            <Receipt size={22} />
-          </div>
-          <div>
-            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Tổng số hóa đơn y khoa</span>
-            <h3 className="text-xl font-black text-secondary mt-1">
-              {dashboard.invoices.length} HĐ
-            </h3>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Workspace Layout */}
-      <div className="flex flex-col lg:flex-row gap-8">
-        {/* Left column: Navigation Tabs */}
-        <div className="lg:w-1/4 space-y-6 text-left">
-          <div className="bg-white p-2.5 rounded-2xl border border-zinc-150 shadow-sm space-y-1">
-            <span className="text-[9px] font-black text-zinc-400 uppercase tracking-wider px-3.5 block mb-1">Lựa chọn phân mục</span>
-            <button
-              onClick={() => {
-                dashboard.setActiveTab('invoices');
-                dashboard.setStatusFilter('all');
-              }}
-              className={`w-full text-left px-4 py-3.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-between ${
-                dashboard.activeTab === 'invoices' ? 'bg-primary/10 text-primary' : 'text-zinc-500 hover:bg-zinc-50'
-              }`}
-            >
-              <span>🧾 Danh sách Hóa đơn</span>
-              <ChevronRight size={14} className={dashboard.activeTab === 'invoices' ? 'text-primary' : 'text-zinc-350'} />
-            </button>
-            <button
-              onClick={() => {
-                dashboard.setActiveTab('payments');
-                dashboard.setStatusFilter('all');
-              }}
-              className={`w-full text-left px-4 py-3.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-between ${
-                dashboard.activeTab === 'payments' ? 'bg-primary/10 text-primary' : 'text-zinc-500 hover:bg-zinc-50'
-              }`}
-            >
-              <span>🏦 Lịch sử giao dịch</span>
-              <ChevronRight size={14} className={dashboard.activeTab === 'payments' ? 'text-primary' : 'text-zinc-350'} />
-            </button>
-          </div>
-        </div>
-
-        {/* Right column: Filters and Interactive Table */}
-        <div className="lg:w-3/4 space-y-6 text-left">
-          {/* Advanced Filter Pane */}
-          <div className="bg-white p-6 rounded-3xl border border-zinc-150 shadow-sm space-y-4">
-            <div className="flex items-center gap-2 border-b border-zinc-100 pb-2">
-              <Filter className="text-primary size-4" />
-              <h3 className="font-heading font-black text-secondary text-xs uppercase tracking-wider">Bộ lọc tài chính nâng cao</h3>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              <div className="space-y-1.5 md:col-span-2">
-                <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">Tìm kiếm</label>
-                <div className="relative">
-                  <Search className="size-4.5 absolute left-3 top-1/2 transform -translate-y-1/2 text-zinc-400" />
-                  <input
-                    type="text"
-                    placeholder="Mã HĐ, Mã giao dịch, tên khách hàng..."
-                    value={dashboard.searchTerm}
-                    onChange={(e) => dashboard.setSearchTerm(e.target.value)}
-                    className="pl-9 w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:border-primary transition-all text-xs font-semibold text-secondary"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">Trạng thái</label>
-                <select
-                  value={dashboard.statusFilter}
-                  onChange={(e) => dashboard.setStatusFilter(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:border-primary text-xs font-semibold text-secondary"
-                >
-                  <option value="all">Tất cả trạng thái</option>
-                  {dashboard.activeTab === 'invoices' ? (
-                    <>
-                      <option value="da_thanh_toan">Đã thanh toán</option>
-                      <option value="chua_thanh_toan">Chưa thanh toán</option>
-                    </>
-                  ) : (
-                    <>
-                      <option value="thanh_cong">Thành công</option>
-                      <option value="da_hoan_tien">Đã hoàn tiền</option>
-                    </>
-                  )}
-                </select>
-              </div>
-
-              {dashboard.activeTab === 'invoices' ? (
-                <div className="space-y-1.5">
-                  <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">Loại hóa đơn</label>
-                  <select
-                    value={dashboard.itemTypeFilter}
-                    onChange={(e) => dashboard.setItemTypeFilter(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:border-primary text-xs font-semibold text-secondary"
-                  >
-                    <option value="all">Tất cả danh mục</option>
-                    <option value="goi">Gói điều trị</option>
-                    <option value="kham_lam_sang">Khám lâm sàng</option>
-                    <option value="buoi_le">Buổi trị liệu lẻ</option>
-                  </select>
-                </div>
-              ) : (
-                <div className="space-y-1.5">
-                  <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">Phương thức</label>
-                  <select
-                    value={dashboard.methodFilter}
-                    onChange={(e) => dashboard.setMethodFilter(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:border-primary text-xs font-semibold text-secondary"
-                  >
-                    <option value="all">Tất cả phương thức</option>
-                    <option value="tien_mat">Tiền mặt</option>
-                    <option value="chuyen_khoan">Chuyển khoản</option>
-                    <option value="the">Thẻ / POS</option>
-                  </select>
-                </div>
-              )}
-
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">Thời gian tạo</label>
-                <select
-                  value={dashboard.dateFilter}
-                  onChange={(e) => dashboard.setDateFilter(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:border-primary text-xs font-semibold text-secondary"
-                >
-                  <option value="all">Tất cả thời gian</option>
-                  <option value="today">Hôm nay</option>
-                  <option value="7days">7 ngày qua</option>
-                  <option value="thisMonth">Tháng này</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Data List table card */}
-          <div className="bg-white rounded-3xl border border-zinc-150 shadow-sm overflow-hidden text-left">
-            {dashboard.dashboardLoading ? (
-              <div className="py-24 text-center space-y-3">
-                <div className="size-10 rounded-full border-4 border-t-primary border-zinc-200 animate-spin mx-auto" />
-                <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Đang tải dữ liệu tài chính...</p>
-              </div>
-            ) : dashboard.activeTab === 'invoices' ? (
-              filteredInvoices.length === 0 ? (
-                <div className="py-20 text-center text-zinc-400 text-xs italic">
-                  Không tìm thấy hóa đơn nào khớp với bộ lọc.
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead className="bg-zinc-50 border-b border-zinc-100 text-zinc-500">
-                      <tr>
-                        <th className="px-6 py-4.5 text-[10px] font-black uppercase tracking-wider">Mã hóa đơn</th>
-                        <th className="px-6 py-4.5 text-[10px] font-black uppercase tracking-wider">Khách hàng</th>
-                        <th className="px-6 py-4.5 text-[10px] font-black uppercase tracking-wider">Tổng tiền</th>
-                        <th className="px-6 py-4.5 text-[10px] font-black uppercase tracking-wider">Đã đóng</th>
-                        <th className="px-6 py-4.5 text-[10px] font-black uppercase tracking-wider">Trạng thái</th>
-                        <th className="px-6 py-4.5 text-[10px] font-black uppercase tracking-wider text-right">Hành động</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-100">
-                      {filteredInvoices.map((inv) => (
-                        <tr key={inv.id} className="hover:bg-zinc-50/60 hover:scale-[1.002] transition-all duration-150">
-                          <td className="px-6 py-4 font-mono font-black text-secondary text-xs">{inv.ma_hoa_don}</td>
-                          <td className="px-6 py-4 text-xs font-bold text-secondary">
-                            <div>{inv.ten_khach_hang}</div>
-                            <div className="text-[9px] text-zinc-400 font-semibold mt-0.5">{inv.so_dien_thoai || 'N/A'}</div>
-                          </td>
-                          <td className="px-6 py-4 font-black text-secondary text-xs">{formatCurrency(inv.tong_tien_thanh_toan)}</td>
-                          <td className="px-6 py-4 font-bold text-emerald-600 text-xs">{formatCurrency(inv.da_thanh_toan)}</td>
-                          <td className="px-6 py-4">
-                            <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ${getStatusBadge(inv.trang_thai)}`}>
-                              {(inv.trang_thai || '').replace(/_/g, ' ')}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <button
-                              onClick={() => dashboard.setSelectedInvoice(inv)}
-                              className="px-3.5 py-1.5 bg-zinc-100 hover:bg-primary hover:text-white rounded-lg text-[10px] font-black uppercase tracking-wider text-zinc-500 transition-all"
-                            >
-                              Chi tiết
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )
-            ) : (
-              filteredPayments.length === 0 ? (
-                <div className="py-20 text-center text-zinc-400 text-xs italic">
-                  Chưa ghi nhận giao dịch thanh toán nào khớp bộ lọc.
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead className="bg-zinc-50 border-b border-zinc-100 text-zinc-500">
-                      <tr>
-                        <th className="px-6 py-4.5 text-[10px] font-black uppercase tracking-wider">Mã GD</th>
-                        <th className="px-6 py-4.5 text-[10px] font-black uppercase tracking-wider">Mã hóa đơn</th>
-                        <th className="px-6 py-4.5 text-[10px] font-black uppercase tracking-wider">Khách hàng</th>
-                        <th className="px-6 py-4.5 text-[10px] font-black uppercase tracking-wider">Số tiền</th>
-                        <th className="px-6 py-4.5 text-[10px] font-black uppercase tracking-wider">Phương thức</th>
-                        <th className="px-6 py-4.5 text-[10px] font-black uppercase tracking-wider">Trạng thái</th>
-                        {isAdminOrManager && <th className="px-6 py-4.5 text-[10px] font-black uppercase tracking-wider text-right">Hành động</th>}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-100">
-                      {filteredPayments.map((pay) => (
-                        <tr key={pay.id} className="hover:bg-zinc-50/60 hover:scale-[1.002] transition-all duration-150">
-                          <td className="px-6 py-4 font-mono text-zinc-400 text-xs">{pay.ma_giao_dich}</td>
-                          <td className="px-6 py-4 font-mono font-black text-secondary text-xs">{pay.ma_hoa_don}</td>
-                          <td className="px-6 py-4 text-xs font-bold text-secondary">{pay.ten_khach_hang}</td>
-                          <td className="px-6 py-4 font-black text-secondary text-xs">{formatCurrency(pay.so_tien)}</td>
-                          <td className="px-6 py-4 text-xs text-secondary capitalize font-bold">
-                            {pay.phuong_thuc === 'tien_mat' ? '💵 Tiền mặt' : pay.phuong_thuc === 'chuyen_khoan' ? '🏦 Chuyển khoản' : '💳 Thẻ / POS'}
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ${getStatusBadge(pay.trang_thai)}`}>
-                              {(pay.trang_thai || '').replace(/_/g, ' ')}
-                            </span>
-                          </td>
-                          {isAdminOrManager && (
-                            <td className="px-6 py-4 text-right">
-                              {pay.trang_thai === 'thanh_cong' ? (
-                                <button
-                                  onClick={() => dashboard.handleRefund(pay.id)}
-                                  className="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-600 hover:text-white rounded-lg text-[10px] font-black uppercase tracking-wider text-rose-500 transition-all border border-rose-150/70"
-                                >
-                                  Hoàn tiền
-                                </button>
-                              ) : (
-                                <span className="text-[10px] text-zinc-400 font-semibold italic">Đã hoàn trả</span>
-                              )}
-                            </td>
-                          )}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )
-            )}
-          </div>
-        </div>
+        {dashboard.activeTab === 'invoices' ? (
+          <InvoiceTable
+            invoices={filteredInvoices}
+            loading={dashboard.dashboardLoading}
+            page={dashboard.page}
+            pageSize={dashboard.pageSize}
+            onPageChange={dashboard.setPage}
+            onSelectInvoice={(inv) => dashboard.setSelectedInvoice(inv)}
+          />
+        ) : (
+          <PaymentTable
+            payments={filteredPayments}
+            allPayments={dashboard.payments}
+            invoices={dashboard.invoices}
+            loading={dashboard.dashboardLoading}
+            isAdminOrManager={isAdminOrManager}
+            page={dashboard.page}
+            pageSize={dashboard.pageSize}
+            onPageChange={dashboard.setPage}
+            onOpenRefund={(inv) => dashboard.setSelectedInvoice(inv)}
+          />
+        )}
       </div>
 
       {/* Invoice Detail Modal Overlay */}
@@ -1054,4 +775,3 @@ export default function ManageFinance() {
     </div>
   );
 }
-export { getStatusBadge };

@@ -31,7 +31,6 @@ interface DetailFooterProps {
   assignRoomId: string;
   localGhiChuNoiBo: string;
   isUnconfirmedState: boolean;
-  setAssignStatus: (status: string) => void;
   setCancelReason?: (reason: string) => void;
   setShowConfirmType?: (val: 'save' | 'cancel' | 'receptionist_confirm' | null) => void;
   appointments?: any[];
@@ -50,7 +49,6 @@ export function DetailFooter({
   assignStaffId,
   assignRoomId,
   localGhiChuNoiBo,
-  setAssignStatus,
   appointments = []
 }: DetailFooterProps) {
   const navigate = useNavigate();
@@ -232,17 +230,6 @@ export function DetailFooter({
 
       {/* Right actions */}
       <div className="flex gap-2 ml-auto">
-        {selectedAppointment.trang_thai === 'da_xac_nhan' && (['kham_moi', 'KHAM', 'dich_vu_don', 'DICH_VU_LE'].includes(selectedAppointment.loai_lich) || !isReceptionist) && (
-          <button
-            type="submit"
-            onClick={() => setAssignStatus('da_checkin')}
-            disabled={isAssigning}
-            className="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 active:scale-95 animate-pulse"
-          >
-            🛎️ Check-in Khách
-          </button>
-        )}
-        
         <button
           type="submit"
           disabled={isAssigning || selectedAppointment.trang_thai === 'hoan_thanh' || isReceptionistLocked}

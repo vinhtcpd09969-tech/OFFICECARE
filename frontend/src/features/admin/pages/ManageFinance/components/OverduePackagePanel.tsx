@@ -23,7 +23,7 @@ export function OverduePackagePanel({ invoices, onOpenDetail }: OverduePackagePa
   if (invoices.length === 0) return null;
 
   return (
-    <div className="w-full bg-white border border-amber-200 p-5 rounded-2xl shadow-sm space-y-4">
+    <div className="w-full bg-white border border-amber-200 p-6 rounded-3xl shadow-sm space-y-4">
       <div className="flex items-center justify-between pb-2 border-b border-amber-100">
         <h3 className="text-sm font-extrabold text-amber-800 uppercase tracking-wider flex items-center gap-1.5">
           <CalendarX size={16} className="text-amber-600" /> Gói quá hạn sử dụng cần xử lý
@@ -38,7 +38,7 @@ export function OverduePackagePanel({ invoices, onOpenDetail }: OverduePackagePa
           <div
             key={inv.id}
             onClick={() => onOpenDetail(inv)}
-            className="p-3.5 rounded-xl bg-amber-50/40 border border-amber-150 hover:border-amber-400 hover:bg-amber-50 transition-all duration-200 cursor-pointer flex flex-col gap-1.5"
+            className="p-3.5 rounded-2xl bg-amber-50/40 border border-amber-150 hover:border-amber-400 hover:bg-amber-50 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col gap-1.5"
           >
             <div className="flex justify-between items-start gap-2">
               <span className="text-xs font-black text-slate-800 truncate">{inv.ten_khach_hang}</span>
