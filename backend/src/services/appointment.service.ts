@@ -9,26 +9,8 @@ class AppointmentService {
   async createAppointment(data: any) {
     const ma_lich_dat = `LH${Math.floor(100000 + Math.random() * 900000)}`;
     const newApt = await appointmentRepository.createAppointment(ma_lich_dat, data);
-    
-    // Trigger notification async
-    if (newApt) {
-      const { default: notificationService } = require('./notification.service');
-      notificationService.triggerAppointmentNotification(newApt.id, newApt.trang_thai, newApt).catch((err: any) => {
-        console.error('Lỗi khi gửi thông báo lịch hẹn khi tạo:', err);
-      });
-      // Notify receptionist immediately ONLY if the appointment is already pending approval (cho_xac_nhan)
-      if (newApt.trang_thai === 'cho_xac_nhan') {
-        notificationService.triggerNewBookingToReceptionists(newApt.id).catch((err: any) => {
-          console.error('Lỗi khi gửi thông báo Lễ tân khi đặt lịch:', err);
-        });
-      }
-      // Notify doctor if pre-assigned and confirmed or pending waiting queue
-      if (newApt.nhan_su_id && ['da_xac_nhan', 'xac_nhan', 'cho_xac_nhan', 'cho_kham'].includes(newApt.trang_thai)) {
-        notificationService.triggerAssignmentToDoctor(newApt.id, String(newApt.nhan_su_id)).catch((err: any) => {
-          console.error('Lỗi khi gửi thông báo phân công Bác sĩ:', err);
-        });
-      }
 
+    if (newApt) {
       // Gửi OTP chỉ khi lịch ở trạng thái chưa xác nhận (cần khách hàng xác thực)
       if (newApt.trang_thai === 'chua_xac_nhan') {
         const otpCode = await this.generateAndSaveOTP(newApt);
@@ -44,17 +26,11 @@ class AppointmentService {
   async createPublicAppointment(data: any) {
     const ma_lich_dat = `LH${Math.floor(100000 + Math.random() * 900000)}`;
     const newApt = await appointmentRepository.createPublicAppointment(ma_lich_dat, data);
-    
-    // Trigger notification and confirmation email async
+
+    // Generate OTP + confirmation email async
     if (newApt) {
       // 1. Generate and save OTP to DB synchronously to prevent race conditions on redirect
       const otpCode = await this.generateAndSaveOTP(newApt);
-
-      const { default: notificationService } = require('./notification.service');
-      notificationService.triggerAppointmentNotification(newApt.id, newApt.trang_thai, newApt).catch((err: any) => {
-        console.error('Lỗi khi gửi thông báo lịch hẹn public:', err);
-      });
-      // REMOVED triggerNewBookingToReceptionists from here because public appointments start as chua_xac_nhan (waiting for OTP)
 
       // 2. Send SMTP email asynchronously in background
       this.sendOTPEmailAsync(newApt, otpCode).catch((err: any) => {
@@ -71,27 +47,6 @@ class AppointmentService {
 
   async updateAppointmentStatus(id: string, data: any, actorRoleId?: number) {
     const updated = await appointmentRepository.updateAppointmentStatus(id, data, actorRoleId);
-    
-    // Trigger notification async
-    if (updated) {
-      const { default: notificationService } = require('./notification.service');
-      notificationService.triggerAppointmentNotification(updated.id, updated.trang_thai, updated).catch((err: any) => {
-        console.error('Lỗi khi gửi thông báo cập nhật trạng thái:', err);
-      });
-
-      if (updated.nhan_su_id) {
-        if (updated.trang_thai === 'da_checkin' || updated.trang_thai === 'check_in' || updated.trang_thai === 'cho_kham') {
-          notificationService.triggerCheckinToDoctor(updated.id, String(updated.nhan_su_id)).catch((err: any) => {
-            console.error('Lỗi gửi thông báo check-in cho Bác sĩ:', err);
-          });
-        } else if (updated.trang_thai === 'da_xac_nhan' || updated.trang_thai === 'xac_nhan') {
-          notificationService.triggerAssignmentToDoctor(updated.id, String(updated.nhan_su_id)).catch((err: any) => {
-            console.error('Lỗi gửi thông báo phân công cho Bác sĩ:', err);
-          });
-        }
-      }
-    }
-
     return updated;
   }
 
@@ -113,32 +68,6 @@ class AppointmentService {
 
   async cancelCustomerAppointment(id: string, khach_hang_id: string, ghi_chu_noi_bo: string) {
     const updated = await appointmentRepository.cancelCustomerAppointment(id, khach_hang_id, ghi_chu_noi_bo);
-    
-    // Trigger notification async
-    if (updated) {
-      const { default: notificationService } = require('./notification.service');
-      notificationService.triggerAppointmentNotification(updated.id, updated.trang_thai, updated).catch((err: any) => {
-        console.error('Lỗi khi gửi thông báo hủy lịch:', err);
-      });
-      notificationService.triggerCancellationToReceptionists(updated.id).catch((err: any) => {
-        console.error('Lỗi gửi thông báo hủy lịch cho Lễ tân:', err);
-      });
-      if (updated.nhan_su_id) {
-        notificationService.createNotification(
-          String(updated.nhan_su_id),
-          '❌ Ca khám bị hủy',
-          'Bệnh nhân đã chủ động hủy ca hẹn phụ trách.',
-          'lich_hen',
-          false,
-          `/doctor/appointments?highlight=${updated.id}`,
-          updated.id,
-          'cuoc_hen'
-        ).catch((err: any) => {
-          console.error('Lỗi gửi thông báo hủy ca cho Bác sĩ:', err);
-        });
-      }
-    }
-
     return updated;
   }
 
@@ -263,21 +192,6 @@ class AppointmentService {
           trang_thai: targetStatus
         }
       });
-
-      // Trigger notifications after successful OTP confirmation
-      const { default: notificationService } = require('./notification.service');
-
-      // Notify receptionist that a new booking has been verified
-      notificationService.triggerConfirmedBookingToReceptionists(updated.id).catch((err: any) => {
-        console.error('Lỗi khi trigger thông báo Lễ tân sau OTP:', err);
-      });
-
-      // If a doctor was already pre-assigned, trigger the assignment notification to the doctor!
-      if (updated.nhan_su_id && ['da_xac_nhan', 'xac_nhan', 'cho_xac_nhan', 'cho_kham'].includes(updated.trang_thai)) {
-        notificationService.triggerAssignmentToDoctor(updated.id, String(updated.nhan_su_id)).catch((err: any) => {
-          console.error('Lỗi khi trigger thông báo phân công Bác sĩ sau OTP:', err);
-        });
-      }
 
       return updated;
     }

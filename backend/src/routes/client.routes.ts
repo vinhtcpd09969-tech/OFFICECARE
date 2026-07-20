@@ -17,7 +17,6 @@ import {
   createTempHold,
   releaseTempHold
 } from '../controllers/appointment.controller';
-import { getNotifications, markAsRead, markAllAsRead } from '../controllers/notification.controller';
 import { getPublicArticles, getPublicArticleBySlug } from '../controllers/article.controller';
 import { verifyToken } from '../middlewares/auth.middleware';
 import adminService from '../services/admin.service';
@@ -311,23 +310,6 @@ router.post('/appointments/:id/rate', verifyToken, async (req, res) => {
       `, [khach_hang_id, appt.goi_dich_vu_id, cuoc_hen_id, Number(rating_dich_vu), comment_dich_vu]);
     }
 
-    // Trigger low rating notifications if either is low (<= 2)
-    const minStars = Math.min(
-      rating_dich_vu ? Number(rating_dich_vu) : 5,
-      rating_ktv ? Number(rating_ktv) : 5
-    );
-    if (minStars <= 2) {
-      try {
-        const { default: notificationService } = require('../services/notification.service');
-        const lowComment = [comment_dich_vu, comment_ktv].filter(Boolean).join(' | ');
-        notificationService.triggerLowRatingToAdmins(cuoc_hen_id, minStars, lowComment).catch((err: any) => {
-          console.error('Lỗi khi gửi thông báo đánh giá tệ:', err);
-        });
-      } catch (err) {
-        console.error('Lỗi nạp notificationService:', err);
-      }
-    }
-
     res.status(200).json({ message: 'Lưu đánh giá thành công!' });
   } catch (error) {
     console.error('Lỗi khi lưu đánh giá:', error);
@@ -434,9 +416,6 @@ router.delete('/reviews/staff/:id', verifyToken, async (req, res) => {
 router.get('/medical-record', verifyToken, getCustomerMedicalRecord);
 router.get('/treatment-sessions', verifyToken, getCustomerTreatmentSessions);
 router.get('/invoices', verifyToken, getCustomerInvoices);
-router.get('/notifications', verifyToken, getNotifications);
-router.patch('/notifications/read-all', verifyToken, markAllAsRead);
-router.patch('/notifications/:id/read', verifyToken, markAsRead);
 router.post('/agree-terms', verifyToken, async (req, res) => {
   try {
     const khach_hang_id = (req as any).user.id;

@@ -194,6 +194,7 @@ class AuthRepository {
         so_dien_thoai: true,
         trang_thai: true,
         gioi_tinh: true,
+        ngay_sinh: true,
         diem_uy_tin: true,
         ngay_dong_y_dieu_khoan: true,
         dia_chi: true,
@@ -255,6 +256,7 @@ class AuthRepository {
     the_manh?: string[];
     gioi_tinh?: string;
     dia_chi?: string;
+    ngay_sinh?: string | Date;
   }) {
     const isNguoiDung = typeof userId === 'number' || (typeof userId === 'string' && /^\d+$/.test(userId));
     if (isNguoiDung) {
@@ -327,6 +329,7 @@ class AuthRepository {
           so_dien_thoai: data.so_dien_thoai,
           gioi_tinh: data.gioi_tinh,
           dia_chi: data.dia_chi,
+          ngay_sinh: data.ngay_sinh ? new Date(data.ngay_sinh) : undefined,
         },
         select: {
           id: true,
@@ -336,6 +339,7 @@ class AuthRepository {
           trang_thai: true,
           gioi_tinh: true,
           dia_chi: true,
+          ngay_sinh: true,
           diem_uy_tin: true,
           ngay_dong_y_dieu_khoan: true
         }

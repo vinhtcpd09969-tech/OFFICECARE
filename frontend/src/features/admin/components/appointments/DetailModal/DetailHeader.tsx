@@ -4,6 +4,7 @@ import { format, isValid } from 'date-fns';
 interface DetailHeaderProps {
   maLichDat: string;
   tenKhachHang: string;
+  soDienThoai?: string;
   ngayGioBatDau: string;
   aptStartHourStr: string;
   aptEndHourStr: string;
@@ -21,6 +22,7 @@ interface DetailHeaderProps {
 
 export function DetailHeader({
   tenKhachHang,
+  soDienThoai,
   ngayGioBatDau,
   aptStartHourStr,
   aptEndHourStr,
@@ -67,7 +69,14 @@ export function DetailHeader({
         </div>
         <div className="flex-1 min-w-0">
           <label className="text-[10px] font-bold text-slate-455 dark:text-zinc-555 uppercase tracking-widest block">Khách hàng</label>
-          <span className="text-sm font-black text-slate-800 dark:text-zinc-100 block mt-0.5">{tenKhachHang}</span>
+          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+            <span className="text-sm font-black text-slate-800 dark:text-zinc-100">{tenKhachHang}</span>
+            {soDienThoai && (
+              <span className="inline-flex items-center text-[10px] font-bold text-slate-600 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800/80 px-2 py-0.5 rounded border border-slate-200 dark:border-zinc-850 font-mono">
+                📞 {soDienThoai}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 

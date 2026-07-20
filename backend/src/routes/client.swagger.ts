@@ -237,48 +237,5 @@
  *         description: Chưa đăng nhập
  */
 
-/**
- * @swagger
- * /client/notifications:
- *   get:
- *     summary: Lấy danh sách thông báo của khách hàng
- *     tags: [Khách hàng - Client]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Danh sách thông báo
- */
 
-/**
- * @swagger
- * /client/notifications/read-all:
- *   patch:
- *     summary: Đánh dấu tất cả thông báo là đã đọc
- *     tags: [Khách hàng - Client]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Tất cả thông báo đã được đánh dấu đã đọc
- */
 
-/**
- * @swagger
- * /client/notifications/{id}/read:
- *   patch:
- *     summary: Đánh dấu một thông báo là đã đọc
- *     tags: [Khách hàng - Client]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: ID thông báo
- *     responses:
- *       200:
- *         description: Thông báo đã được đánh dấu đã đọc
- */

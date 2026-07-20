@@ -23,7 +23,6 @@ const DEMO_TABLES = [
   'hoa_don',
   'thanh_toan',
   'danh_gia_dich_vu',
-  'thong_bao',
   'voucher'
 ];
 

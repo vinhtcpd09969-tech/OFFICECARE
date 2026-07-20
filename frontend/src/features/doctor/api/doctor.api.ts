@@ -112,6 +112,21 @@ export interface ClinicalAssessmentPayload {
   chong_chi_dinh: string;
   goi_dich_vu_id?: string | null;
   ghi_chu?: string | null;
+  // Bác sĩ đã chọn "xóa chỉ định cũ, dùng gói mới" ở modal xung đột — chỉ gửi lại true khi thực
+  // sự cần xóa, không gửi ở lần lưu đầu tiên.
+  resolvePendingConflict?: boolean;
+}
+
+// Cảnh báo/chặn khi khách đang có chỉ định gói (chưa kích hoạt) hoặc phác đồ (đang điều trị) khác
+// còn hiệu lực — trả kèm getAppointmentDetail để bàn khám hiện banner ngay lúc mở ca, không đợi
+// tới lúc lưu (xem doctor.repository.ts::getBlockingLieuTrinh).
+export interface PackageConflict {
+  blocked: boolean;
+  type?: 'active_plan' | 'pending_chi_dinh';
+  reason?: string;
+  ten_goi?: string;
+  han_kich_hoat?: string;
+  chi_dinh_buoi_id?: string;
 }
 
 // --- API Calls ---
@@ -131,6 +146,7 @@ export const getAppointmentDetail = (id: string) =>
     so_thu_tu_buoi?: number | null;
     ten_dich_vu?: string | null;
     pd_tong_so_buoi?: number | null;
+    package_conflict?: PackageConflict | null;
   }>(`/doctor/appointments/${id}`);
 
 export const getPatientProfile = (patientId: string) => 

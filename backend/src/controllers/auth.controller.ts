@@ -150,7 +150,7 @@ export const resetPassword = asyncHandler(async (req: Request, res: Response) =>
 
 export const updateProfile = asyncHandler(async (req: Request, res: Response) => {
   try {
-    const { ho_ten, so_dien_thoai, anh_dai_dien, so_nam_kinh_nghiem, bang_cap_chung_chi, mo_ta, the_manh, gioi_tinh, dia_chi } = req.body;
+    const { ho_ten, so_dien_thoai, anh_dai_dien, so_nam_kinh_nghiem, bang_cap_chung_chi, mo_ta, the_manh, gioi_tinh, dia_chi, ngay_sinh } = req.body;
     const parsedExp = so_nam_kinh_nghiem !== undefined ? parseInt(so_nam_kinh_nghiem, 10) : undefined;
     const parsedTheManh = Array.isArray(the_manh)
       ? the_manh.map((t: any) => String(t).trim()).filter(Boolean).slice(0, 6)
@@ -164,7 +164,8 @@ export const updateProfile = asyncHandler(async (req: Request, res: Response) =>
       mo_ta,
       the_manh: parsedTheManh,
       gioi_tinh,
-      dia_chi
+      dia_chi,
+      ngay_sinh
     });
     res.json({
       success: true,

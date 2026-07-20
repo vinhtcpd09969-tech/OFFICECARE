@@ -77,6 +77,7 @@ export default function ManageStaff() {
   const [editCertImages, setEditCertImages] = useState<string[]>([]);
   const [uploadingCert, setUploadingCert] = useState(false);
   const [editDescription, setEditDescription] = useState('');
+  const [moTaTab, setMoTaTab] = useState<'edit' | 'preview'>('edit');
   const [editTheManh, setEditTheManh] = useState<string[]>([]);
   const [theManhInput, setTheManhInput] = useState('');
 
@@ -747,23 +748,63 @@ export default function ManageStaff() {
                 </div>
               </div>
 
-              {/* Row 2: Description (Large input block) */}
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-zinc-450 dark:text-zinc-550 uppercase tracking-wider block">
-                  Mô tả tóm tắt hồ sơ năng lực chuyên môn (Đầy đủ và Chi tiết)
-                </label>
-                <textarea 
-                  value={editDescription}
-                  onChange={(e) => setEditDescription(e.target.value)}
-                  disabled={!isEditMode}
-                  placeholder="Hãy viết giới thiệu đầy đủ về bản thân, kinh nghiệm điều trị và thế mạnh của bạn..."
-                  rows={8}
-                  className={`w-full border rounded-2xl px-4 py-3.5 text-xs font-semibold outline-none resize-y leading-relaxed ${
-                    isEditMode
-                      ? 'bg-white border-zinc-200 focus:border-primary focus:ring-2 focus:ring-primary/20 text-secondary dark:bg-zinc-950 dark:border-zinc-800'
-                      : 'bg-zinc-50/50 border-zinc-250/50 text-zinc-500 cursor-not-allowed dark:bg-zinc-955/20 dark:border-zinc-855'
-                  }`}
-                />
+              {/* Row 2: Description (Large input block with Tabs & Live Preview) */}
+              <div className="space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-100 dark:border-zinc-800 pb-1.5">
+                  <label className="text-[9px] font-black text-zinc-450 dark:text-zinc-550 uppercase tracking-wider block">
+                    Mô tả tóm tắt hồ sơ năng lực chuyên môn (Đầy đủ và Chi tiết)
+                  </label>
+                  
+                  {/* Selector Tabs */}
+                  <div className="flex bg-zinc-100 dark:bg-zinc-850 rounded-lg p-0.5 w-fit select-none">
+                    <button
+                      type="button"
+                      onClick={() => setMoTaTab('edit')}
+                      className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all cursor-pointer ${
+                        moTaTab === 'edit'
+                          ? 'bg-white dark:bg-zinc-900 text-secondary dark:text-zinc-100 shadow-xs'
+                          : 'text-zinc-455 dark:text-zinc-500 hover:text-secondary'
+                      }`}
+                    >
+                      Chỉnh sửa
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMoTaTab('preview')}
+                      className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all cursor-pointer ${
+                        moTaTab === 'preview'
+                          ? 'bg-white dark:bg-zinc-900 text-[#14B8A6] shadow-xs'
+                          : 'text-zinc-455 dark:text-zinc-500 hover:text-secondary'
+                      }`}
+                    >
+                      Xem trước
+                    </button>
+                  </div>
+                </div>
+
+                {moTaTab === 'edit' ? (
+                  <textarea 
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    disabled={!isEditMode}
+                    placeholder="Hãy viết giới thiệu đầy đủ về bản thân, kinh nghiệm điều trị và thế mạnh của bạn..."
+                    rows={8}
+                    className={`w-full border rounded-2xl px-4 py-3.5 text-xs font-semibold outline-none resize-y leading-relaxed ${
+                      isEditMode
+                        ? 'bg-white border-zinc-200 focus:border-primary focus:ring-2 focus:ring-primary/20 text-secondary dark:bg-zinc-950 dark:border-zinc-800'
+                        : 'bg-zinc-50/50 border-zinc-250/50 text-zinc-555 cursor-not-allowed dark:bg-zinc-955/20 dark:border-zinc-855'
+                    }`}
+                  />
+                ) : (
+                  <div className="w-full bg-zinc-50/20 dark:bg-zinc-950/20 border border-zinc-150 dark:border-zinc-800 rounded-2xl p-6 min-h-[180px] transition-all">
+                    <h2 className="text-xs font-black uppercase tracking-widest text-[#14B8A6] mb-4">
+                      🔬 HỒ SƠ CHUYÊN MÔN
+                    </h2>
+                    <p className="text-slate-700 dark:text-zinc-300 text-sm md:text-[14px] font-medium leading-relaxed whitespace-pre-line text-left">
+                      {editDescription.trim() || 'Chưa nhập thông tin hồ sơ chuyên môn...'}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Row 2.5: Thế mạnh chuyên sâu (tag list) */}

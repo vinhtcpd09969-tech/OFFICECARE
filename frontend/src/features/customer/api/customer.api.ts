@@ -44,6 +44,7 @@ export const updateProfile = (data: {
   the_manh?: string[];
   gioi_tinh?: string;
   dia_chi?: string;
+  ngay_sinh?: string | null;
 }) => api.put('/auth/profile', data);
 
 export const changePassword = (data: { oldPassword: string; newPassword: string }) =>

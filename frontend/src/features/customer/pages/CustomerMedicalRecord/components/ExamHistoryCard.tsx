@@ -1,4 +1,4 @@
-import { Calendar, ShieldAlert, MessageSquareText, ImageIcon, PackageCheck, ArrowRight } from 'lucide-react';
+import { Calendar, ShieldAlert, MessageSquareText, ImageIcon, PackageCheck, ArrowRight, Clock3 } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { InvoiceSnippet } from './InvoiceSnippet';
@@ -43,21 +43,21 @@ export function ExamHistoryCard({ exam, onJumpToPackage }: ExamHistoryCardProps)
 
         {exam.ghi_chu && (
           <div>
-            <p className="text-[9.5px] uppercase font-black text-zinc-400 tracking-wider">Khuyến nghị &amp; Lượng giá</p>
+            <p className="text-[9.5px] uppercase font-black text-zinc-400 tracking-wider">Ghi chú của bác sĩ</p>
             <p className="text-xs text-zinc-600 italic mt-0.5">"{exam.ghi_chu}"</p>
           </div>
         )}
 
-        {exam.khuyen_nghi_goi && (
-          <div className="p-3.5 bg-emerald-50 border border-emerald-100 rounded-2xl text-emerald-800 flex items-center justify-between gap-3">
+        {exam.khuyen_nghi_goi && exam.khuyen_nghi_phac_do_id && (
+          <div className="p-3.5 bg-emerald-50 border border-emerald-100 rounded-2xl text-emerald-800 flex items-start justify-between gap-3">
             <div className="flex gap-2 min-w-0">
               <PackageCheck size={17} className="shrink-0 mt-0.5 text-emerald-600" />
               <div className="min-w-0">
                 <p className="font-black uppercase tracking-wider text-emerald-600 text-[9.5px]">Gói khuyến nghị</p>
-                <p className="font-semibold mt-0.5 text-xs truncate">{exam.khuyen_nghi_goi}</p>
+                <p className="font-semibold mt-0.5 text-xs line-clamp-2">{exam.khuyen_nghi_goi}</p>
               </div>
             </div>
-            {exam.khuyen_nghi_phac_do_id && onJumpToPackage && (
+            {onJumpToPackage && (
               <button
                 type="button"
                 onClick={() => onJumpToPackage(exam.khuyen_nghi_phac_do_id!)}
@@ -68,6 +68,35 @@ export function ExamHistoryCard({ exam, onJumpToPackage }: ExamHistoryCardProps)
             )}
           </div>
         )}
+
+        {exam.khuyen_nghi_goi && !exam.khuyen_nghi_phac_do_id && exam.khuyen_nghi_han_kich_hoat && (() => {
+          const daysLeft = Math.ceil(
+            (new Date(exam.khuyen_nghi_han_kich_hoat).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+          );
+          if (daysLeft <= 0) return null;
+          return (
+            <div className="p-3.5 bg-amber-50 border border-amber-100 rounded-2xl text-amber-900">
+              <div className="flex items-start gap-2">
+                <Clock3 size={17} className="shrink-0 mt-0.5 text-amber-600" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-black uppercase tracking-wider text-amber-600 text-[9.5px]">Gói khuyến nghị</p>
+                    <span className="px-1.5 py-0.5 rounded-md text-[8.5px] font-black uppercase bg-amber-100 text-amber-800 border border-amber-200">
+                      Chờ kích hoạt
+                    </span>
+                  </div>
+                  <p className="font-semibold mt-0.5 text-xs line-clamp-2">{exam.khuyen_nghi_goi}</p>
+                  <p className={`text-[10px] font-bold mt-1 ${daysLeft <= 3 ? 'text-red-600' : 'text-amber-700'}`}>
+                    ⏱ Còn {daysLeft} ngày để kích hoạt
+                  </p>
+                </div>
+              </div>
+              <p className="text-[10.5px] text-amber-700 font-semibold mt-2 pt-2 border-t border-amber-200/70">
+                Vui lòng liên hệ phòng khám để thanh toán và kích hoạt.
+              </p>
+            </div>
+          );
+        })()}
 
         <div className="p-3.5 bg-zinc-50 border border-zinc-100 rounded-2xl">
           <p className="text-[9.5px] uppercase font-black text-zinc-400 tracking-wider flex items-center gap-1.5 mb-1">

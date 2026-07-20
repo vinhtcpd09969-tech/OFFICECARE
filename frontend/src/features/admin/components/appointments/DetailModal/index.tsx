@@ -17,6 +17,7 @@ import {
 
 
 import { getInstallmentCutoffSession } from '../../../../../utils/billing';
+import { getCheckinTimingInfo } from '../../../../../utils/appointmentCheckin';
 import { getReceptionistActionOptions, getReceptionistAllowedTargets, hasAssignedStaff, isReceptionistLockedStatus } from './receptionistStatusRules';
 import { statusConfig } from '../../../../../components/appointmentStatusConfig';
 
@@ -260,6 +261,12 @@ export default function AppointmentDetailModal({
   const currentStaffId = assignStaffId || '';
   const isStaffChanged = String(currentStaffId) !== String(origStaffId);
   const isNoteRequired = isRescheduled || isStaffChanged || isCancelledOrNoShowStatus || (isReceptionist && isStatusChanged);
+
+  // Cảnh báo (không chặn) khi check-in 1 lịch đã quá giờ hẹn — trước đây hộp thoại xác nhận hiện
+  // đúng 1 câu chung chung dù lịch còn sớm hay đã trễ hàng giờ, Lễ tân không hề được nhắc.
+  const isCheckinAction = assignStatus === 'da_checkin' && isStatusChanged;
+  const checkinTiming = isCheckinAction ? getCheckinTimingInfo(selectedAppointment.ngay_gio_bat_dau) : null;
+  const isLateCheckin = checkinTiming?.state === 'overdue' || checkinTiming?.state === 'overdue_critical';
 
   // States for dynamic slot-driven clinical times
   const [newStartHourStr, setNewStartHourStr] = useState<string>(aptStartHourStr);
@@ -766,6 +773,15 @@ export default function AppointmentDetailModal({
                 </p>
               </div>
 
+              {showConfirmType === 'save' && isCheckinAction && isLateCheckin && checkinTiming && (
+                <div className="flex items-start gap-2 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-955/20 border border-amber-200 dark:border-amber-900/40 text-left">
+                  <span className="text-amber-500 shrink-0">⚠️</span>
+                  <p className="text-[11px] font-bold text-amber-700 dark:text-amber-400 leading-relaxed">
+                    Lịch hẹn {checkinTiming.label.toLowerCase()} so với giờ hẹn ban đầu ({aptStartHourStr}).
+                  </p>
+                </div>
+              )}
+
               {showConfirmType === 'cancel' && (
                 <textarea
                   value={customCancelReason}
@@ -829,6 +845,7 @@ export default function AppointmentDetailModal({
               <DetailHeader
                 maLichDat={selectedAppointment.ma_lich_dat}
                 tenKhachHang={selectedAppointment.ten_khach_hang}
+                soDienThoai={selectedAppointment.so_dien_thoai || selectedAppointment.sdt_khach_hang}
                 ngayGioBatDau={selectedAppointment.ngay_gio_bat_dau}
                 aptStartHourStr={aptStartHourStr}
                 aptEndHourStr={aptEndHourStr}

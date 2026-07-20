@@ -23,11 +23,16 @@ class DoctorRepository {
       LIMIT 1
     `, [cuoc_hen_id]);
     if (activeRows.length > 0) {
-      return { blocked: true, reason: `Khách hàng đang có liệu trình "${activeRows[0].ten_goi}" hoạt động. Chỉ có thể chỉ định liệu trình mới sau khi liệu trình này hoàn thành hoặc bị hủy.` };
+      return {
+        blocked: true,
+        type: 'active_plan' as const,
+        ten_goi: activeRows[0].ten_goi,
+        reason: `Khách hàng đang có liệu trình "${activeRows[0].ten_goi}" hoạt động. Chỉ có thể chỉ định liệu trình mới sau khi liệu trình này hoàn thành hoặc bị hủy.`
+      };
     }
 
     const { rows: pendingRows } = await pool.query(`
-      SELECT g.ten_goi
+      SELECT cd.id as chi_dinh_buoi_id, g.ten_goi, ch.ngay_gio_bat_dau + $2 * INTERVAL '1 day' as han_kich_hoat
       FROM chi_dinh_buoi cd
       JOIN nhat_ky_buoi_dieu_tri nk ON cd.nhat_ky_id = nk.id
       JOIN cuoc_hen ch ON nk.cuoc_hen_id = ch.id
@@ -41,10 +46,28 @@ class DoctorRepository {
       LIMIT 1
     `, [cuoc_hen_id, PACKAGE_ACTIVATION_WINDOW_DAYS]);
     if (pendingRows.length > 0) {
-      return { blocked: true, reason: `Khách hàng đã được chỉ định liệu trình "${pendingRows[0].ten_goi}" từ ca khám trước, còn trong hạn kích hoạt và chưa thanh toán. Chỉ có thể chỉ định liệu trình khác sau khi chỉ định này hết hạn.` };
+      return {
+        blocked: true,
+        type: 'pending_chi_dinh' as const,
+        ten_goi: pendingRows[0].ten_goi,
+        han_kich_hoat: pendingRows[0].han_kich_hoat,
+        chi_dinh_buoi_id: pendingRows[0].chi_dinh_buoi_id,
+        reason: `Khách hàng đã được chỉ định liệu trình "${pendingRows[0].ten_goi}" từ ca khám trước, còn trong hạn kích hoạt và chưa thanh toán. Chỉ có thể chỉ định liệu trình khác sau khi chỉ định này hết hạn.`
+      };
     }
 
-    return { blocked: false };
+    return { blocked: false as const };
+  }
+
+  // Xóa hẳn 1 chỉ định gói CHƯA kích hoạt (dùng khi Bác sĩ chọn "xóa chỉ định cũ, dùng gói mới" ở
+  // modal xung đột) — điều kiện phac_do_dieu_tri_id IS NULL là chốt an toàn cuối, không bao giờ xóa
+  // nhầm 1 chỉ định đã kích hoạt/thu tiền dù tầng gọi có lỡ truyền sai id.
+  async deletePendingChiDinh(chi_dinh_buoi_id: string) {
+    const { rowCount } = await pool.query(
+      'DELETE FROM chi_dinh_buoi WHERE id = $1 AND phac_do_dieu_tri_id IS NULL',
+      [chi_dinh_buoi_id]
+    );
+    return (rowCount ?? 0) > 0;
   }
   // 1. Lấy danh sách bệnh nhân đang xếp hàng chờ khám hôm nay
   async getDoctorQueue(userId: string, roleId: number = 4) {

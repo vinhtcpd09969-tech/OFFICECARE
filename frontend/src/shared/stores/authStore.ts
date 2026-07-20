@@ -19,6 +19,7 @@ interface User {
   diem_uy_tin?: number;
   ngay_dong_y_dieu_khoan?: string | null;
   dia_chi?: string | null;
+  ngay_sinh?: string | null;
   isDefaultPassword?: boolean;
 }
 

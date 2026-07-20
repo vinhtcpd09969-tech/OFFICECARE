@@ -51,18 +51,7 @@ const runReminderScan = async () => {
 
       console.log(`[Reminder Job] Tiến hành gửi nhắc nhở cho: ${apt.khach_hang.ho_ten} (Lịch lúc: ${apt.ngay_gio_bat_dau})`);
 
-      // 1. Tạo thông báo hệ thống trên website (bảng thong_bao)
-      await prisma.thong_bao.create({
-        data: {
-          khach_hang_id: apt.khach_hang_id,
-          tieu_de: 'Nhắc lịch hẹn sắp diễn ra',
-          noi_dung: `Lịch hẹn điều trị "${apt.goi_dich_vu?.ten_goi || 'Trị liệu phục hồi'}" của bạn bắt đầu lúc ${new Date(apt.ngay_gio_bat_dau).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} hôm nay.`,
-          da_doc: false,
-          loai: 'he_thong',
-        },
-      });
-
-      // 2. Gửi email nếu khách hàng có điền email
+      // Gửi email nếu khách hàng có điền email
       if (apt.khach_hang.email) {
         const dateString = new Date(apt.ngay_gio_bat_dau).toLocaleDateString('vi-VN');
         const timeString = new Date(apt.ngay_gio_bat_dau).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
