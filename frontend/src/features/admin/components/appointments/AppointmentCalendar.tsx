@@ -3,6 +3,7 @@ import { MapPin, Clock, Plus, Coffee, Stethoscope } from 'lucide-react';
 import { format } from 'date-fns';
 import { getCheckinTimingInfo } from '../../../../utils/appointmentCheckin';
 import { isPaymentDue, getInstallmentCutoffSession } from '../../../../utils/billing';
+import { useAuthStore } from '../../../../stores/authStore';
 
 interface AppointmentCalendarProps {
   timeSlots: string[];
@@ -33,6 +34,8 @@ export default function AppointmentCalendar({
   schedulesList = [],
   allAppointments = []
 }: AppointmentCalendarProps) {
+  const { user } = useAuthStore();
+  const canCreateAppointment = user && [2, 5, 6].includes(Number(user.vai_tro_id));
   const [currentTime, setCurrentTime] = useState(new Date());
 
   const getStaffDutyStatus = (staff: any) => {
@@ -213,7 +216,20 @@ export default function AppointmentCalendar({
         <thead>
           <tr className="bg-slate-50/50 dark:bg-zinc-800/20 text-slate-400 dark:text-zinc-555 text-[10px] font-black uppercase tracking-wider border-b border-slate-150/60 dark:border-zinc-800/80 select-none">
             <th className="w-28 p-4 text-center border-r border-slate-100 dark:border-zinc-800/50">Thời gian</th>
-            <th className="p-4">Danh sách phân bổ lịch trình</th>
+            <th className="p-4">
+              <div className="flex justify-between items-center w-full">
+                <span>Danh sách phân bổ lịch trình</span>
+                {canCreateAppointment && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenWalkInModal && onOpenWalkInModal('08:00')}
+                    className="flex items-center gap-1.5 text-[10px] font-black text-emerald-600 dark:text-emerald-450 bg-emerald-50 dark:bg-emerald-950/20 px-3.5 py-1.5 rounded-xl border border-emerald-300 dark:border-emerald-800 transition-all hover:bg-emerald-100/50 dark:hover:bg-emerald-900/30 active:scale-95 cursor-pointer shadow-xs uppercase tracking-wider"
+                  >
+                    <Plus size={11} className="stroke-[3]" /> Thêm ca hẹn
+                  </button>
+                )}
+              </div>
+            </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/60 relative">
@@ -286,12 +302,6 @@ export default function AppointmentCalendar({
                             Trống lịch <span className="font-extrabold text-slate-550 dark:text-zinc-400 group-hover/gap:text-emerald-600">{row.durationMins} phút</span>
                           </span>
                         </div>
-                        <button
-                          type="button"
-                          className="opacity-0 group-hover/gap:opacity-100 flex items-center gap-1 text-[10px] font-extrabold text-emerald-600 dark:text-emerald-450 bg-emerald-50 dark:bg-emerald-950/20 px-2.5 py-1 rounded-xl border border-emerald-100 dark:border-emerald-900/30 transition-all active:scale-95"
-                        >
-                          <Plus size={10} className="stroke-[3]" /> Thêm ca hẹn
-                        </button>
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full">

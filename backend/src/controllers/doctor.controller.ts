@@ -79,7 +79,7 @@ export const getAppointmentDetail = async (req: AuthenticatedRequest, res: Respo
 export const saveAssessment = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user?.id;
-    const { lich_dat_id, chan_doan, chong_chi_dinh, goi_dich_vu_id, ghi_chu } = req.body;
+    const { lich_dat_id, chan_doan, chong_chi_dinh, goi_dich_vu_id, ghi_chu, resolvePendingConflict } = req.body;
 
     if (!userId) {
       return res.status(401).json({ message: 'Không xác định được danh tính người dùng.' });
@@ -94,6 +94,7 @@ export const saveAssessment = async (req: AuthenticatedRequest, res: Response) =
       chong_chi_dinh,
       goi_dich_vu_id: goi_dich_vu_id || null,
       ghi_chu,
+      resolvePendingConflict,
     });
 
     res.json({
@@ -102,7 +103,12 @@ export const saveAssessment = async (req: AuthenticatedRequest, res: Response) =
     });
   } catch (error: any) {
     console.error('Lỗi khi lưu chẩn đoán khám bệnh:', error);
-    res.status(500).json({ message: error.message || 'Lỗi server' });
+    // Lỗi nghiệp vụ (chẩn đoán sai gói, trùng chỉ định...) → 400 kèm message gốc + errorCode để
+    // frontend phân biệt được loại lỗi, không nuốt thành 500 chung chung.
+    if (error.message && !error.stack?.includes('pg') && !error.stack?.includes('Prisma') && !error.message.includes('connection')) {
+      return res.status(400).json({ message: error.message, errorCode: error.errorCode });
+    }
+    res.status(500).json({ message: 'Lỗi server' });
   }
 };
 

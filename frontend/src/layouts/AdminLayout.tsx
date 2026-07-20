@@ -19,7 +19,6 @@ import {
   Megaphone, 
   Star, 
   LogOut,
-  Bell,
   HelpCircle,
   Sun,
   Moon,
@@ -106,71 +105,6 @@ export default function AdminLayout() {
       console.warn('AudioContext playback failed:', e);
     }
   }, []);
-
-  // Staff central notifications states
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [isNotifDropdownOpen, setIsNotifDropdownOpen] = useState(false);
-
-  const fetchNotifications = async () => {
-    try {
-      const res = await api.get('/client/notifications');
-      setNotifications(res.data || []);
-    } catch (err) {
-      console.error('Lỗi khi tải thông báo nhân sự:', err);
-    }
-  };
-
-  useEffect(() => {
-    if (user) {
-      fetchNotifications();
-      const interval = setInterval(fetchNotifications, 15000);
-      return () => clearInterval(interval);
-    }
-  }, [user]);
-
-  const unreadCount = notifications.filter(n => !n.da_doc).length;
-
-  const handleMarkAsRead = async (id: string) => {
-    try {
-      await api.patch(`/client/notifications/${id}/read`);
-      setNotifications(prev => prev.map(n => n.id === id ? { ...n, da_doc: true } : n));
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleMarkAllAsRead = async () => {
-    try {
-      await api.patch('/client/notifications/read-all');
-      setNotifications(prev => prev.map(n => ({ ...n, da_doc: true })));
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleNotifClick = async (notif: any) => {
-    await handleMarkAsRead(notif.id);
-    setIsNotifDropdownOpen(false);
-    if (notif.lien_ket) {
-      navigate(notif.lien_ket);
-    }
-  };
-
-  const formatNotifTime = (dateStr: string) => {
-    try {
-      const d = new Date(dateStr);
-      const now = new Date();
-      const diffMs = now.getTime() - d.getTime();
-      const diffMin = Math.floor(diffMs / 60000);
-      if (diffMin < 1) return 'Vừa xong';
-      if (diffMin < 60) return `${diffMin} phút trước`;
-      const diffHours = Math.floor(diffMin / 60);
-      if (diffHours < 24) return `${diffHours} giờ trước`;
-      return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
-    } catch (e) {
-      return '';
-    }
-  };
 
   useEffect(() => {
     if (!user || Number(user.vai_tro_id) !== 2) return;
@@ -692,69 +626,6 @@ export default function AdminLayout() {
                   <span className="size-2 rounded-full bg-white animate-ping"></span>
                   {Number(user?.vai_tro_id) === 4 ? '🔔 Bắt đầu ngay!' : '🔔 Bắt đầu ngay!'}
                 </button>
-              )}
-              {/* Notification Bell Dropdown - Hidden for Doctor (role 4) and KTV (role 3) */}
-              {user && Number(user.vai_tro_id) !== 3 && Number(user.vai_tro_id) !== 4 && (
-                <div className="relative">
-                  <button 
-                    onClick={() => setIsNotifDropdownOpen(!isNotifDropdownOpen)}
-                    className="relative text-zinc-500 hover:text-primary transition-colors p-1.5 rounded-full hover:bg-zinc-50 dark:hover:bg-zinc-855 flex items-center justify-center"
-                  >
-                    <Bell size={18} />
-                    {unreadCount > 0 && (
-                      <span className="absolute top-0.5 right-0.5 bg-rose-600 text-white text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center border border-white dark:border-zinc-900 shadow-xs select-none">
-                        {unreadCount}
-                      </span>
-                    )}
-                  </button>
-
-                  {isNotifDropdownOpen && (
-                    <>
-                      {/* Transparent Click-Outside Overlay */}
-                      <div className="fixed inset-0 z-40" onClick={() => setIsNotifDropdownOpen(false)} />
-                      
-                      {/* Dropdown Container */}
-                      <div className="absolute right-0 mt-3 w-80 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border border-zinc-100 dark:border-zinc-800 rounded-[20px] shadow-xl py-3 z-50 animate-in fade-in slide-in-from-top-3 duration-200">
-                        {/* Header */}
-                        <div className="px-4 pb-2.5 border-b border-zinc-100 dark:border-zinc-850 flex items-center justify-between">
-                          <h3 className="text-[10px] font-black text-secondary dark:text-zinc-100 uppercase tracking-wider">Thông báo nhân sự ({unreadCount})</h3>
-                          {unreadCount > 0 && (
-                            <button 
-                              onClick={handleMarkAllAsRead}
-                              className="text-[10px] text-primary hover:underline font-bold"
-                            >
-                              Đọc tất cả
-                            </button>
-                          )}
-                        </div>
-
-                        {/* List */}
-                        <div className="max-h-64 overflow-y-auto divide-y divide-zinc-50 dark:divide-zinc-850">
-                          {notifications.length === 0 ? (
-                            <div className="px-4 py-8 text-center text-zinc-400 text-xs font-semibold">
-                              Không có thông báo mới
-                            </div>
-                          ) : (
-                            notifications.map(notif => (
-                              <button 
-                                key={notif.id}
-                                onClick={() => handleNotifClick(notif)}
-                                className={`w-full px-4 py-3 text-left flex gap-3 transition-colors ${notif.da_doc ? 'hover:bg-zinc-50/50 dark:hover:bg-zinc-850/50' : 'bg-primary/5 dark:bg-primary/10 hover:bg-primary/10'}`}
-                              >
-                                <div className="size-2 bg-primary rounded-full mt-1.5 flex-shrink-0" style={{ visibility: notif.da_doc ? 'hidden' : 'visible' }} />
-                                <div className="flex-1 space-y-0.5">
-                                  <p className="text-xs font-black text-secondary dark:text-zinc-100 leading-tight">{notif.tieu_de}</p>
-                                  <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-semibold leading-relaxed">{notif.noi_dung}</p>
-                                  <p className="text-[9px] text-zinc-400 dark:text-zinc-500 font-bold mt-1">{formatNotifTime(notif.thoi_gian_tao)}</p>
-                                </div>
-                              </button>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
               )}
 
               <button 

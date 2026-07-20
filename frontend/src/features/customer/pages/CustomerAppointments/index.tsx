@@ -20,6 +20,7 @@ import { toast } from 'react-hot-toast';
 import api from '../../../../api/axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { resolveImageUrl } from '../../../../utils/imageUrl';
+import { useAuthStore } from '../../../../stores/authStore';
 
 interface Appointment {
   id: string;
@@ -59,6 +60,7 @@ interface Appointment {
 
 export default function CustomerAppointments() {
   const navigate = useNavigate();
+  const { user } = useAuthStore();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
@@ -409,7 +411,11 @@ export default function CustomerAppointments() {
       return sum + (isNaN(durationHours) ? 0 : durationHours);
     }, 0);
 
-  const diemUyTin = appointments.length > 0 ? (appointments[0].diem_uy_tin ?? 100) : 100;
+  // Ưu tiên điểm mới nhất kèm theo danh sách lịch hẹn (làm mới sau mỗi lần hủy/no-show); khi danh
+  // sách rỗng (khách mới, hoặc lịch trong khoảng lọc hiện tại không có), KHÔNG được mặc định cứng về
+  // 100 — trước đây làm vậy khiến điểm uy tín thật sự đã tụt (vd 0) vẫn hiển thị sai thành 100/100.
+  // Dùng lại điểm đã có sẵn trong hồ sơ đăng nhập (authStore) làm phương án dự phòng.
+  const diemUyTin = appointments[0]?.diem_uy_tin ?? user?.diem_uy_tin ?? 100;
 
   // Filter implementation
   const filteredAppointments = appointments.filter((app) => {
@@ -507,7 +513,7 @@ export default function CustomerAppointments() {
               </div>
 
               <p className="text-[10px] text-slate-450 leading-relaxed font-semibold">
-                Hệ thống OfficeCare đánh giá điểm uy tín tự động. Việc hủy lịch hẹn trễ (dưới 8 tiếng) hoặc không đến điều trị (no-show) sẽ làm giảm điểm uy tín và hạn chế khả năng đặt lịch trực tuyến của bạn.
+                Hệ thống OfficeCare đánh giá điểm uy tín tự động. Việc hủy lịch hẹn trễ (dưới 8 tiếng) hoặc không đến điều trị (no-show) sẽ làm giảm điểm uy tín và có thể khiến tài khoản của bạn bị khóa nếu phòng khám xét thấy cần thiết.
               </p>
             </div>
           </div>

@@ -59,6 +59,9 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
     onConfirm: () => void;
   } | null>(null);
 
+  const [quyTrinhSteps, setQuyTrinhSteps] = useState<string[]>(['']);
+  const [mucTieuSteps, setMucTieuSteps] = useState<string[]>(['']);
+
   const { register, handleSubmit, watch, setValue, setError, formState: { errors } } = useForm<PackageFormValues>({
     resolver: zodResolver(packageSchema) as any,
     defaultValues: editingPackage ? {
@@ -172,6 +175,21 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
       }
     };
     loadCats();
+  }, [editingPackage, setValue]);
+
+  // Khởi tạo các bước từ dữ liệu cũ nếu chỉnh sửa
+  useEffect(() => {
+    if (editingPackage) {
+      setQuyTrinhSteps(editingPackage.quy_trinh ? editingPackage.quy_trinh.split('\n') : ['']);
+      setMucTieuSteps(editingPackage.muc_tieu ? editingPackage.muc_tieu.split('\n') : ['']);
+      setValue('quy_trinh', editingPackage.quy_trinh || '');
+      setValue('muc_tieu', editingPackage.muc_tieu || '');
+    } else {
+      setQuyTrinhSteps(['']);
+      setMucTieuSteps(['']);
+      setValue('quy_trinh', '');
+      setValue('muc_tieu', '');
+    }
   }, [editingPackage, setValue]);
 
   const executeSave = async (data: PackageFormValues) => {
@@ -441,28 +459,117 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
 
 
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Quy trình trị liệu *</label>
-                          <textarea 
-                            {...register('quy_trinh')} 
-                            rows={6}
-                            className="w-full px-4 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 outline-none transition-all text-secondary placeholder-zinc-400 resize-y min-h-[140px] font-medium text-xs shadow-sm leading-relaxed"
-                            placeholder="Nhập chi tiết các bước trong quy trình trị liệu chuẩn y khoa..."
-                          ></textarea>
+                      <style>{`
+                        .package-scroll::-webkit-scrollbar { width: 5px; }
+                        .package-scroll::-webkit-scrollbar-track { background: transparent; }
+                        .package-scroll::-webkit-scrollbar-thumb { background: #e4e4e7; border-radius: 99px; }
+                        .dark .package-scroll::-webkit-scrollbar-thumb { background: #27272a; }
+                      `}</style>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* BỘ DỰNG QUY TRÌNH DẠNG LIST */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between border-b border-zinc-100 pb-1">
+                            <label className="block font-black text-slate-500 uppercase tracking-wider text-[10px]">Quy trình các bước trị liệu *</label>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const next = [...quyTrinhSteps, ''];
+                                setQuyTrinhSteps(next);
+                                setValue('quy_trinh', next.filter(s => s.trim() !== '').join('\n'), { shouldValidate: true });
+                              }}
+                              className="text-[10px] font-black uppercase text-emerald-600 hover:text-emerald-700 transition-all cursor-pointer"
+                            >
+                              + Thêm bước
+                            </button>
+                          </div>
+                          
+                          <div className="space-y-2 max-h-[190px] overflow-y-auto pr-1.5 package-scroll">
+                            {quyTrinhSteps.map((step, idx) => (
+                              <div key={idx} className="flex items-center gap-2 animate-fade-in">
+                                <span className="text-[10px] font-black text-slate-400 w-5 text-right shrink-0">{idx + 1}.</span>
+                                <input
+                                  type="text"
+                                  value={step}
+                                  onChange={(e) => {
+                                    const next = [...quyTrinhSteps];
+                                    next[idx] = e.target.value;
+                                    setQuyTrinhSteps(next);
+                                    setValue('quy_trinh', next.filter(s => s.trim() !== '').join('\n'), { shouldValidate: true });
+                                  }}
+                                  placeholder={`Nhập nội dung bước ${idx + 1}...`}
+                                  className="flex-1 px-3 py-2 bg-white border border-zinc-200 rounded-xl focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600/20 outline-none transition-all font-semibold text-secondary text-xs shadow-xs"
+                                />
+                                {quyTrinhSteps.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const next = quyTrinhSteps.filter((_, i) => i !== idx);
+                                      setQuyTrinhSteps(next);
+                                      setValue('quy_trinh', next.filter(s => s.trim() !== '').join('\n'), { shouldValidate: true });
+                                    }}
+                                    className="p-1.5 border border-zinc-150 hover:border-rose-250 text-zinc-400 hover:text-rose-500 rounded-lg hover:bg-rose-50/20 transition-all shrink-0 cursor-pointer"
+                                  >
+                                    <X size={12} />
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
                           {errors.quy_trinh && (
                             <span className="text-rose-500 text-[10px] mt-1 block">{errors.quy_trinh.message}</span>
                           )}
                         </div>
 
-                        <div>
-                          <label className="block font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Mục tiêu trị liệu *</label>
-                          <textarea 
-                            {...register('muc_tieu')} 
-                            rows={6}
-                            className="w-full px-4 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 outline-none transition-all text-secondary placeholder-zinc-400 resize-y min-h-[140px] font-medium text-xs shadow-sm leading-relaxed"
-                            placeholder="Nhập mục tiêu và lợi ích cam kết đạt được sau khi kết thúc đợt trị liệu..."
-                          ></textarea>
+                        {/* BỘ DỰNG MỤC TIÊU DẠNG LIST */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between border-b border-zinc-100 pb-1">
+                            <label className="block font-black text-slate-500 uppercase tracking-wider text-[10px]">Mục tiêu & Lợi ích trị liệu *</label>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const next = [...mucTieuSteps, ''];
+                                setMucTieuSteps(next);
+                                setValue('muc_tieu', next.filter(s => s.trim() !== '').join('\n'), { shouldValidate: true });
+                              }}
+                              className="text-[10px] font-black uppercase text-emerald-600 hover:text-emerald-700 transition-all cursor-pointer"
+                            >
+                              + Thêm mục tiêu
+                            </button>
+                          </div>
+                          
+                          <div className="space-y-2 max-h-[190px] overflow-y-auto pr-1.5 package-scroll">
+                            {mucTieuSteps.map((step, idx) => (
+                              <div key={idx} className="flex items-center gap-2 animate-fade-in">
+                                <span className="text-[10px] font-black text-slate-400 w-5 text-right shrink-0">•</span>
+                                <input
+                                  type="text"
+                                  value={step}
+                                  onChange={(e) => {
+                                    const next = [...mucTieuSteps];
+                                    next[idx] = e.target.value;
+                                    setMucTieuSteps(next);
+                                    setValue('muc_tieu', next.filter(s => s.trim() !== '').join('\n'), { shouldValidate: true });
+                                  }}
+                                  placeholder={`Nhập nội dung mục tiêu...`}
+                                  className="flex-1 px-3 py-2 bg-white border border-zinc-200 rounded-xl focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600/20 outline-none transition-all font-semibold text-secondary text-xs shadow-xs"
+                                />
+                                {mucTieuSteps.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const next = mucTieuSteps.filter((_, i) => i !== idx);
+                                      setMucTieuSteps(next);
+                                      setValue('muc_tieu', next.filter(s => s.trim() !== '').join('\n'), { shouldValidate: true });
+                                    }}
+                                    className="p-1.5 border border-zinc-150 hover:border-rose-250 text-zinc-400 hover:text-rose-500 rounded-lg hover:bg-rose-50/20 transition-all shrink-0 cursor-pointer"
+                                  >
+                                    <X size={12} />
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
                           {errors.muc_tieu && (
                             <span className="text-rose-500 text-[10px] mt-1 block">{errors.muc_tieu.message}</span>
                           )}

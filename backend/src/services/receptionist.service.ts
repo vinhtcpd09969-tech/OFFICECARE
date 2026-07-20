@@ -1,6 +1,5 @@
 import receptionistRepository from '../repositories/receptionist.repository';
 import appointmentRepository, { assertTraGopDot2PaidBeforeCheckin } from '../repositories/appointment.repository';
-import notificationService from './notification.service';
 import { pool } from '../config/db';
 import {
   DEFAULT_DISCOUNT_PERCENT,
@@ -113,47 +112,6 @@ class ReceptionistService {
     const appointment = await receptionistRepository.updateAppointmentStatus(id, trang_thai, ghi_chu_noi_bo);
     if (!appointment) throw new Error('Không tìm thấy lịch hẹn');
 
-    // Kích hoạt gửi thông báo tự động cho khách hàng
-    notificationService.triggerAppointmentNotification(id, trang_thai).catch(err => {
-      console.error('Lỗi khi trigger thông báo từ le_tan service:', err);
-    });
-
-    // Triggers bổ sung cho Bác sĩ và Lễ tân
-    if (appointment.nhan_su_id) {
-      if (trang_thai === 'da_xac_nhan' || trang_thai === 'xac_nhan') {
-        notificationService.triggerAssignmentToDoctor(appointment.id, String(appointment.nhan_su_id)).catch(err => {
-          console.error('Lỗi trigger phân công bác sĩ:', err);
-        });
-      } else if (trang_thai === 'da_checkin' || trang_thai === 'check_in' || trang_thai === 'cho_kham') {
-        notificationService.triggerCheckinToDoctor(appointment.id, String(appointment.nhan_su_id)).catch(err => {
-          console.error('Lỗi trigger check-in bác sĩ:', err);
-        });
-      } else if (['da_huy', 'huy', 'khong_den'].includes(trang_thai)) {
-        notificationService.createNotification(
-          String(appointment.nhan_su_id),
-          '❌ Ca khám bị hủy',
-          'Ca hẹn bạn phụ trách đã bị hủy hoặc bệnh nhân không đến.',
-          'lich_hen',
-          false,
-          `/doctor/appointments?highlight=${appointment.id}`,
-          appointment.id,
-          'cuoc_hen'
-        ).catch(err => {
-          console.error('Lỗi gửi thông báo hủy ca cho Bác sĩ:', err);
-        });
-      }
-    }
-
-    if (trang_thai === 'hoan_thanh') {
-      notificationService.triggerCheckoutRequiredToReceptionists(appointment.id).catch(err => {
-        console.error('Lỗi trigger thanh toán cho Lễ tân:', err);
-      });
-    } else if (['da_huy', 'huy'].includes(trang_thai)) {
-      notificationService.triggerCancellationToReceptionists(appointment.id).catch(err => {
-        console.error('Lỗi trigger hủy ca cho Lễ tân:', err);
-      });
-    }
-
     return appointment;
   }
 
@@ -186,12 +144,6 @@ class ReceptionistService {
     const maLichDat = `LD${Math.floor(100000 + Math.random() * 900000)}`;
 
     const lich_dat_id = await receptionistRepository.createAppointment(maLichDat, khachHangId, goi_dich_vu_id, bac_si_id, startTime, endTime);
-    
-    if (bac_si_id) {
-      notificationService.triggerAssignmentToDoctor(lich_dat_id, String(bac_si_id)).catch(err => {
-        console.error('Lỗi trigger thông báo gán ca cho Bác sĩ (Walk-in):', err);
-      });
-    }
 
     return { lich_dat_id };
   }
@@ -203,20 +155,7 @@ class ReceptionistService {
     const maHoaDon = `HD${Math.floor(100000 + Math.random() * 900000)}`;
     const result = await receptionistRepository.createBilling(maHoaDon, lich.khach_hang_id, lich_dat_id, lich.don_gia, lich.goi_dich_vu_id);
     
-    const { hoa_don, doctorUserId, customerName } = result;
-
-    if (doctorUserId) {
-      try {
-        await notificationService.createNotification(
-          doctorUserId,
-          'Đồng bộ hồ sơ điều trị',
-          `Bệnh nhân ${customerName} đã chuyển sang thanh toán lẻ 1 buổi sau buổi trải nghiệm.`,
-          'he_thong'
-        );
-      } catch (err) {
-        console.error('Lỗi gửi thông báo cho bác sĩ khi hạ cấp gói:', err);
-      }
-    }
+    const { hoa_don } = result;
 
     return hoa_don;
   }

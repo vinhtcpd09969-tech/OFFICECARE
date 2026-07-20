@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
-import { LogOut, ChevronDown, Menu, X, Calendar, Facebook, Instagram, Youtube, Mail, Phone, MapPin, Bell } from 'lucide-react';
-import api from '../api/axios';
+import { LogOut, ChevronDown, Menu, X, Calendar, Facebook, Instagram, Youtube, Mail, Phone, MapPin } from 'lucide-react';
 import GlobalAuthModal from '../components/GlobalAuthModal';
 
 export default function LandingLayout() {
@@ -42,71 +41,6 @@ export default function LandingLayout() {
 
     window.addEventListener('scroll', handleScroll);
   }, []);
-
-  // Notifications states for logged-in user in landing header
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [isNotifDropdownOpen, setIsNotifDropdownOpen] = useState(false);
-
-  const fetchNotifications = async () => {
-    try {
-      const res = await api.get('/client/notifications');
-      setNotifications(res.data || []);
-    } catch (err) {
-      console.error('Lỗi tải thông báo public header:', err);
-    }
-  };
-
-  useEffect(() => {
-    if (isAuthenticated() && user) {
-      fetchNotifications();
-      const interval = setInterval(fetchNotifications, 15000);
-      return () => clearInterval(interval);
-    }
-  }, [user]);
-
-  const unreadCount = notifications.filter(n => !n.da_doc).length;
-
-  const handleMarkAsRead = async (id: string) => {
-    try {
-      await api.patch(`/client/notifications/${id}/read`);
-      setNotifications(prev => prev.map(n => n.id === id ? { ...n, da_doc: true } : n));
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleMarkAllAsRead = async () => {
-    try {
-      await api.patch('/client/notifications/read-all');
-      setNotifications(prev => prev.map(n => ({ ...n, da_doc: true })));
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleNotifClick = async (notif: any) => {
-    await handleMarkAsRead(notif.id);
-    setIsNotifDropdownOpen(false);
-    if (notif.lien_ket) {
-      navigate(notif.lien_ket);
-    }
-  };
-
-  const formatNotifTime = (dateStr: string) => {
-    try {
-      const d = new Date(dateStr);
-      const now = new Date();
-      const diffMs = now.getTime() - d.getTime();
-      const diffMin = Math.floor(diffMs / 60000);
-      if (diffMin < 1) return 'Vừa xong';
-      if (diffMin < 60) return `${diffMin} phút trước`;
-      const diffHours = Math.floor(diffMin / 60);
-      if (diffHours < 24) return `${diffHours} giờ trước`;
-      return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
-    } catch (e) {
-      return '';
-    }
-  };
 
   const handleLogout = () => {
     logout();
@@ -169,64 +103,6 @@ export default function LandingLayout() {
               <Calendar size={14} />
               Đặt lịch
             </Link>
-
-            {isAuthenticated() && user && (
-              <div className="relative mr-1">
-                <button 
-                  onClick={() => setIsNotifDropdownOpen(!isNotifDropdownOpen)}
-                  className="relative text-secondary hover:text-primary transition-colors p-2 rounded-full hover:bg-slate-100/50 flex items-center justify-center"
-                >
-                  <Bell size={18} />
-                  {unreadCount > 0 && (
-                    <span className="absolute top-1 right-1 bg-rose-600 text-white text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center border border-white shadow-xs select-none">
-                      {unreadCount}
-                    </span>
-                  )}
-                </button>
-
-                {isNotifDropdownOpen && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setIsNotifDropdownOpen(false)} />
-                    <div className="absolute right-0 mt-3 w-80 bg-white border border-slate-100 rounded-[20px] shadow-lg py-3 z-50 animate-slide-up">
-                      <div className="px-4 pb-2 border-b border-slate-100 flex items-center justify-between">
-                        <h3 className="text-[10px] font-black text-secondary uppercase tracking-wider">Thông báo ({unreadCount})</h3>
-                        {unreadCount > 0 && (
-                          <button 
-                            onClick={handleMarkAllAsRead}
-                            className="text-[10px] text-primary hover:underline font-bold"
-                          >
-                            Đọc tất cả
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="max-h-64 overflow-y-auto divide-y divide-slate-50">
-                        {notifications.length === 0 ? (
-                          <div className="px-4 py-8 text-center text-slate-400 text-xs font-semibold">
-                            Không có thông báo mới
-                          </div>
-                        ) : (
-                          notifications.map(notif => (
-                            <button 
-                              key={notif.id}
-                              onClick={() => handleNotifClick(notif)}
-                              className={`w-full px-4 py-2.5 text-left flex gap-3 transition-colors ${notif.da_doc ? 'hover:bg-slate-50/50' : 'bg-primary/5 hover:bg-primary/10'}`}
-                            >
-                              <div className="size-2 bg-primary rounded-full mt-1.5 flex-shrink-0" style={{ visibility: notif.da_doc ? 'hidden' : 'visible' }} />
-                              <div className="flex-1 space-y-0.5">
-                                <p className="text-xs font-black text-secondary leading-tight">{notif.tieu_de}</p>
-                                <p className="text-[10px] text-slate-500 font-semibold leading-relaxed">{notif.noi_dung}</p>
-                                <p className="text-[9px] text-slate-400 font-bold mt-1">{formatNotifTime(notif.thoi_gian_tao)}</p>
-                              </div>
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
 
             {isAuthenticated() && user ? (
               <div className="relative">

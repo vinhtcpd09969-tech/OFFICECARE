@@ -1,7 +1,7 @@
 import { Pool, PoolClient } from 'pg';
 import { pool } from '../config/db';
 import bcrypt from 'bcryptjs';
-import { getMinPaymentRequired, resolveNoShowOutcome } from '../domain/billing';
+import { getMinPaymentRequired, resolveNoShowOutcome, PACKAGE_ACTIVATION_WINDOW_DAYS } from '../domain/billing';
 import { checkReceptionistTransition, isReceptionistLockedStatus } from '../domain/appointmentStatus';
 import { HinhThucThanhToanGoi, NoShowAction } from '../domain/types';
 
@@ -1626,7 +1626,10 @@ class AppointmentRepository {
         CAST(hd.so_tien_da_tra AS double precision) as so_tien_da_tra,
         hd.trang_thai as trang_thai_hoa_don,
         goi_kn.ten_goi as khuyen_nghi_goi,
-        cd.phac_do_dieu_tri_id as khuyen_nghi_phac_do_id
+        cd.phac_do_dieu_tri_id as khuyen_nghi_phac_do_id,
+        CASE WHEN cd.id IS NOT NULL AND cd.phac_do_dieu_tri_id IS NULL
+             THEN ch.ngay_gio_bat_dau + $2 * INTERVAL '1 day'
+             ELSE NULL END as khuyen_nghi_han_kich_hoat
       FROM cuoc_hen ch
       LEFT JOIN nhat_ky_buoi_dieu_tri nk ON nk.cuoc_hen_id = ch.id
       LEFT JOIN nguoi_dung nd ON ch.nhan_su_id = nd.id
@@ -1642,7 +1645,7 @@ class AppointmentRepository {
         AND ch.trang_thai = 'hoan_thanh'
       ORDER BY ch.ngay_gio_bat_dau DESC;
     `;
-    const examRes = await pool.query(examQuery, [customer_id]);
+    const examRes = await pool.query(examQuery, [customer_id, PACKAGE_ACTIVATION_WINDOW_DAYS]);
 
     // 2. Gói liệu trình
     const packageQuery = `

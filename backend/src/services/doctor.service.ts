@@ -89,11 +89,11 @@ class DoctorService {
 
   // 4. Lấy thông tin chi tiết một ca khám cụ thể
   async getAppointmentDetail(appointmentId: string, userId?: string) {
-    const detail = await doctorRepository.getAppointmentDetail(appointmentId);
+    let detail = await doctorRepository.getAppointmentDetail(appointmentId);
     if (!detail) {
       throw new Error('Không tìm thấy chi tiết ca khám.');
     }
-    
+
     // Tự động chuyển trạng thái sang 'dang_kham' nếu lịch đang ở 'da_checkin' hoặc 'cho_kham'
     if (['da_checkin', 'cho_kham'].includes(detail.trang_thai) && userId) {
       const staffId = parseInt(userId, 10);
@@ -104,10 +104,15 @@ class DoctorService {
         throw new Error(`Bạn đang có ca khám ${otherOpenSession.ma_lich_dat} (${otherOpenSession.ten_khach_hang}) chưa hoàn thành. Vui lòng hoàn thành ca đó trước khi mở ca khám mới.`);
       }
       await doctorRepository.startSession(appointmentId, staffId);
-      return await doctorRepository.getAppointmentDetail(appointmentId);
+      detail = await doctorRepository.getAppointmentDetail(appointmentId);
     }
 
-    return detail;
+    // Cho Bác sĩ biết NGAY lúc mở ca khám (không đợi tới lúc lưu mới báo) nếu khách đang có chỉ
+    // định/phác đồ liệu trình khác đang chặn — dùng lại đúng check ở saveAssessment, để trang bàn
+    // khám hiện banner cảnh báo sớm giống cách Admin đang thấy ở PatientEmrDetail.
+    const packageConflict = await doctorRepository.getBlockingLieuTrinh(appointmentId);
+
+    return { ...detail, package_conflict: packageConflict };
   }
 
   // 5. Lưu chẩn đoán lâm sàng và hoàn thành ca khám
@@ -119,6 +124,7 @@ class DoctorService {
       chong_chi_dinh: string;
       goi_dich_vu_id?: string | null;
       ghi_chu?: string | null;
+      resolvePendingConflict?: boolean;
     }
   ) {
     // Chỉ còn 1 loại chỉ định duy nhất: gói liệu trình — chặn cứng ở server (không chỉ ẩn UI)
@@ -131,7 +137,22 @@ class DoctorService {
       }
       const blockCheck = await doctorRepository.getBlockingLieuTrinh(data.lich_dat_id);
       if (blockCheck.blocked) {
-        throw new Error(blockCheck.reason);
+        // Phác đồ đang điều trị thật (đã thu tiền) — chặn cứng tuyệt đối, không có lối thoát qua
+        // màn hình khám; muốn hủy phải đi đúng luồng hủy gói/hoàn tiền hiện có.
+        if (blockCheck.type === 'active_plan') {
+          const err: any = new Error(blockCheck.reason);
+          err.errorCode = 'ACTIVE_LIEU_TRINH_CONFLICT';
+          throw err;
+        }
+        // Chỉ định cũ CHƯA kích hoạt — cho Bác sĩ chọn xóa hẳn rồi dùng gói mới, nếu chưa xác nhận
+        // thì báo lỗi kèm errorCode để frontend hiện modal 3 lựa chọn thay vì chặn cứng luôn.
+        if (data.resolvePendingConflict && blockCheck.chi_dinh_buoi_id) {
+          await doctorRepository.deletePendingChiDinh(blockCheck.chi_dinh_buoi_id);
+        } else {
+          const err: any = new Error(blockCheck.reason);
+          err.errorCode = 'PENDING_LIEU_TRINH_CONFLICT';
+          throw err;
+        }
       }
     }
 

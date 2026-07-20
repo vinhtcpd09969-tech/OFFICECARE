@@ -14,10 +14,9 @@ import {
 import toast from 'react-hot-toast';
 import { censorText } from '../../../../utils/profanity';
 import { 
-  Settings, 
-  User, 
-  Lock, 
-  Bell, 
+  Settings,
+  User,
+  Lock,
   ShieldAlert,
   Save,
   Check,
@@ -41,7 +40,7 @@ import {
 export default function CustomerSettings() {
   const { user } = useAuthStore();
   const { updateUser } = useAuthActions();
-  const [activeSection, setActiveSection] = useState<'general' | 'notifications' | 'reviews'>('general');
+  const [activeSection, setActiveSection] = useState<'general' | 'reviews'>('general');
   const [savedSuccess, setSavedSuccess] = useState<boolean>(false);
   const [loading, setLoading] = useState(false);
 
@@ -62,8 +61,10 @@ export default function CustomerSettings() {
   const [bangCapChungChi, setBangCapChungChi] = useState('');
   const [anhChungChiList, setAnhChungChiList] = useState<string[]>([]);
   const [moTa, setMoTa] = useState(user?.ho_so_chuyen_gia?.mo_ta || '');
+  const [moTaTab, setMoTaTab] = useState<'edit' | 'preview'>('edit');
   const [theManh, setTheManh] = useState<string[]>(user?.ho_so_chuyen_gia?.the_manh || []);
   const [theManhInput, setTheManhInput] = useState('');
+  const [ngaySinh, setNgaySinh] = useState('');
 
   // Reviews states
   const [reviewsLoading, setReviewsLoading] = useState(false);
@@ -145,11 +146,6 @@ export default function CustomerSettings() {
   const [showNewPass, setShowNewPass] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
 
-  // Notification states
-  const [notifySMS, setNotifySMS] = useState(true);
-  const [notifyEmail, setNotifyEmail] = useState(true);
-  const [notifyZalo, setNotifyZalo] = useState(true);
-
   // Fetch latest database profile on mount
   useEffect(() => {
     async function loadLatestProfile() {
@@ -174,6 +170,17 @@ export default function CustomerSettings() {
       setSoNamKinhNghiem(user.ho_so_chuyen_gia?.so_nam_kinh_nghiem || 0);
       setMoTa(user.ho_so_chuyen_gia?.mo_ta || '');
       setTheManh(user.ho_so_chuyen_gia?.the_manh || []);
+
+      if (user.ngay_sinh) {
+        const d = new Date(user.ngay_sinh);
+        if (!isNaN(d.getTime())) {
+          setNgaySinh(d.toISOString().split('T')[0]);
+        } else {
+          setNgaySinh('');
+        }
+      } else {
+        setNgaySinh('');
+      }
 
       // Định dạng chuẩn: chuỗi JSON { text: string, images: string[] } (đã chuẩn hóa toàn bộ dữ liệu DB).
       // Vẫn giữ try/catch phòng hờ dữ liệu chỉnh sửa tay không đúng định dạng.
@@ -316,7 +323,8 @@ export default function CustomerSettings() {
         so_dien_thoai: soDienThoai,
         anh_dai_dien: anhDaiDien || null,
         gioi_tinh: gioiTinh,
-        dia_chi: diaChi
+        dia_chi: diaChi,
+        ngay_sinh: ngaySinh || null
       };
 
       if (isExpert) {
@@ -335,6 +343,7 @@ export default function CustomerSettings() {
         anh_dai_dien: anhDaiDien || null,
         gioi_tinh: gioiTinh,
         dia_chi: diaChi,
+        ngay_sinh: ngaySinh || null,
         ho_so_chuyen_gia: isExpert ? {
           so_nam_kinh_nghiem: soNamKinhNghiem,
           bang_cap_chung_chi: certValue,
@@ -352,13 +361,6 @@ export default function CustomerSettings() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleSaveNotifications = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 3000);
-    toast.success('Đã lưu cấu hình thông báo nhắc lịch thành công!');
   };
 
   const getRoleBadge = (roleId?: number) => {
@@ -400,17 +402,6 @@ export default function CustomerSettings() {
           >
             <User size={14} />
             Tài khoản & Bảo mật
-          </button>
-          <button
-            onClick={() => setActiveSection('notifications')}
-            className={`px-4 py-2 text-xs font-black uppercase tracking-wider rounded-xl transition-all duration-300 flex items-center gap-2 ${
-              activeSection === 'notifications'
-                ? 'bg-white dark:bg-zinc-900 text-primary shadow-sm scale-102 font-bold border border-zinc-200/20'
-                : 'text-zinc-450 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
-            }`}
-          >
-            <Bell size={14} />
-            Cài đặt thông báo
           </button>
           {isCustomer && (
             <button
@@ -527,31 +518,46 @@ export default function CustomerSettings() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">Giới tính</label>
-                      <select
-                        value={gioiTinh}
-                        onChange={(e) => setGioiTinh(e.target.value)}
-                        className="w-full bg-zinc-50 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded-xl px-4 py-3 text-xs text-secondary dark:text-zinc-200 font-bold outline-none focus:ring-2 focus:ring-primary/20"
-                      >
-                        <option value="nam">Nam</option>
-                        <option value="nu">Nữ</option>
-                        <option value="khac">Khác</option>
-                      </select>
-                    </div>
+                  {isCustomer && (
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">Giới tính</label>
+                          <select
+                            value={gioiTinh}
+                            onChange={(e) => setGioiTinh(e.target.value)}
+                            className="w-full bg-zinc-50 dark:bg-zinc-855 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded-xl px-4 py-3 text-xs text-secondary dark:text-zinc-200 font-bold outline-none focus:ring-2 focus:ring-primary/20"
+                          >
+                            <option value="nam">Nam</option>
+                            <option value="nu">Nữ</option>
+                            <option value="khac">Khác</option>
+                          </select>
+                        </div>
 
-                    <div className="space-y-1.5">
-                      <label className="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">Địa chỉ</label>
-                      <input 
-                        type="text" 
-                        value={diaChi}
-                        onChange={(e) => setDiaChi(e.target.value)}
-                        placeholder="Số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành phố"
-                        className="w-full bg-zinc-50 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded-xl px-4 py-3 text-xs text-secondary dark:text-zinc-200 font-bold outline-none focus:ring-2 focus:ring-primary/20"
-                      />
-                    </div>
-                  </div>
+                        <div className="space-y-1.5">
+                          <label className="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">Ngày sinh</label>
+                          <input 
+                            type="date" 
+                            value={ngaySinh}
+                            onChange={(e) => setNgaySinh(e.target.value)}
+                            className="w-full bg-zinc-50 dark:bg-zinc-855 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded-xl px-4 py-3 text-xs text-secondary dark:text-zinc-200 font-bold outline-none focus:ring-2 focus:ring-primary/20"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">Địa chỉ</label>
+                        <input 
+                          type="text" 
+                          value={diaChi}
+                          onChange={(e) => setDiaChi(e.target.value)}
+                          placeholder="Số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành phố"
+                          className="w-full bg-zinc-50 dark:bg-zinc-855 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded-xl px-4 py-3 text-xs text-secondary dark:text-zinc-200 font-bold outline-none focus:ring-2 focus:ring-primary/20"
+                        />
+                      </div>
+                    </>
+                  )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
@@ -731,19 +737,59 @@ export default function CustomerSettings() {
                       </div>
                     </div>
 
-                    {/* Row 2: Description (Large input block) */}
-                    <div className="space-y-1.5">
-                      <label className="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block flex items-center gap-1">
-                        <BadgeCheck size={13} className="text-primary" />
-                        Mô tả tóm tắt hồ sơ năng lực chuyên môn (Đầy đủ và Chi tiết)
-                      </label>
-                      <textarea 
-                        value={moTa}
-                        onChange={(e) => setMoTa(e.target.value)}
-                        placeholder="Hãy viết giới thiệu đầy đủ về bản thân, kinh nghiệm điều trị và thế mạnh của bạn (Ví dụ: Chuyên sâu phục hồi chức năng cột sống, trị liệu chấn thương thể thao)..."
-                        rows={10}
-                        className="w-full bg-zinc-50 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded-2xl px-4 py-3.5 text-xs text-secondary dark:text-zinc-200 font-semibold outline-none resize-y leading-relaxed focus:ring-2 focus:ring-primary/20"
-                      />
+                    {/* Row 2: Description (Large input block with Tabs & Live Preview) */}
+                    <div className="space-y-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-100 dark:border-zinc-800 pb-1.5">
+                        <label className="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block flex items-center gap-1">
+                          <BadgeCheck size={13} className="text-primary" />
+                          Mô tả tóm tắt hồ sơ năng lực chuyên môn (Đầy đủ và Chi tiết)
+                        </label>
+                        
+                        {/* Selector Tabs */}
+                        <div className="flex bg-zinc-100 dark:bg-zinc-800 rounded-lg p-0.5 w-fit select-none">
+                          <button
+                            type="button"
+                            onClick={() => setMoTaTab('edit')}
+                            className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all cursor-pointer ${
+                              moTaTab === 'edit'
+                                ? 'bg-white dark:bg-zinc-900 text-secondary dark:text-zinc-100 shadow-xs'
+                                : 'text-zinc-450 dark:text-zinc-500 hover:text-secondary'
+                            }`}
+                          >
+                            Chỉnh sửa
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setMoTaTab('preview')}
+                            className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all cursor-pointer ${
+                              moTaTab === 'preview'
+                                ? 'bg-white dark:bg-zinc-900 text-[#14B8A6] shadow-xs'
+                                : 'text-zinc-455 dark:text-zinc-500 hover:text-secondary'
+                            }`}
+                          >
+                            Xem trước
+                          </button>
+                        </div>
+                      </div>
+
+                      {moTaTab === 'edit' ? (
+                        <textarea 
+                          value={moTa}
+                          onChange={(e) => setMoTa(e.target.value)}
+                          placeholder="Hãy viết giới thiệu đầy đủ về bản thân, kinh nghiệm điều trị và thế mạnh của bạn (Ví dụ: Chuyên sâu phục hồi chức năng cột sống, trị liệu chấn thương thể thao)..."
+                          rows={10}
+                          className="w-full bg-zinc-50 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded-2xl px-4 py-3.5 text-xs text-secondary dark:text-zinc-200 font-semibold outline-none resize-y leading-relaxed focus:ring-2 focus:ring-primary/20"
+                        />
+                      ) : (
+                        <div className="w-full bg-zinc-50/20 dark:bg-zinc-950/20 border border-zinc-150 dark:border-zinc-800 rounded-2xl p-6 min-h-[220px] transition-all">
+                          <h2 className="text-xs font-black uppercase tracking-widest text-[#14B8A6] mb-4">
+                            🔬 HỒ SƠ CHUYÊN MÔN
+                          </h2>
+                          <p className="text-slate-700 dark:text-zinc-300 text-sm md:text-[14.5px] font-medium leading-relaxed whitespace-pre-line text-left">
+                            {moTa.trim() || 'Chưa nhập thông tin hồ sơ chuyên môn...'}
+                          </p>
+                        </div>
+                      )}
                     </div>
 
                     {/* Row 2.5: Thế mạnh chuyên sâu (tag list) */}
@@ -877,69 +923,6 @@ export default function CustomerSettings() {
           </div>
         )}
 
-        {activeSection === 'notifications' && (
-          <form onSubmit={handleSaveNotifications} className="bg-white dark:bg-zinc-900 rounded-[28px] border border-zinc-150/60 dark:border-zinc-800 p-6 md:p-8 shadow-sm space-y-6">
-            <div>
-              <h2 className="text-sm font-black text-secondary dark:text-zinc-100 uppercase tracking-wider flex items-center gap-2">
-                <Bell size={16} className="text-primary" />
-                Cấu hình nhận thông báo
-              </h2>
-              <p className="text-[8px] text-zinc-400 dark:text-zinc-550 font-bold uppercase mt-0.5">Nhận thông báo lịch trực và điều phối lịch hẹn y khoa</p>
-            </div>
-
-            <div className="space-y-4">
-              {[
-                {
-                  state: notifySMS,
-                  setter: setNotifySMS,
-                  title: 'Tin nhắn di động (SMS)',
-                  desc: 'Nhận thông báo nhắc ca trực cá nhân và thông báo khẩn cấp qua số điện thoại.'
-                },
-                {
-                  state: notifyZalo,
-                  setter: setNotifyZalo,
-                  title: 'Trợ lý Zalo OA',
-                  desc: 'Nhận tin nhắn Zalo tương tác nhắc lịch điều phối phòng khám.'
-                },
-                {
-                  state: notifyEmail,
-                  setter: setNotifyEmail,
-                  title: 'Thư điện tử (Email)',
-                  desc: 'Nhận báo cáo sao kê doanh thu hoặc các văn bản chỉ đạo lâm sàng qua hòm thư.'
-                }
-              ].map((item, index) => (
-                <div 
-                  key={index}
-                  onClick={() => item.setter(!item.state)}
-                  className="flex items-start justify-between gap-4 p-4 rounded-2xl border border-zinc-155 dark:border-zinc-800 hover:border-primary/20 bg-zinc-50/50 dark:bg-zinc-850/20 hover:bg-white dark:hover:bg-zinc-900 hover:shadow-sm transition-all cursor-pointer"
-                >
-                  <div>
-                    <h3 className="font-extrabold text-xs text-secondary dark:text-zinc-200">{item.title}</h3>
-                    <p className="text-[10px] text-zinc-455 dark:text-zinc-500 mt-1 leading-relaxed font-semibold">{item.desc}</p>
-                  </div>
-
-                  <button 
-                    type="button"
-                    className={`size-5 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 mt-0.5 ${
-                      item.state 
-                        ? 'bg-primary border-primary text-white scale-105' 
-                        : 'border-zinc-300 dark:border-zinc-700 text-transparent'
-                    }`}
-                  >
-                    <Check size={12} />
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            <button 
-              type="submit"
-              className="w-full py-4 bg-primary hover:bg-primary/95 text-white font-extrabold rounded-2xl text-xs shadow-lg shadow-primary/10 hover:shadow-primary/20 hover:scale-[1.005] transition-all flex items-center justify-center gap-2 uppercase tracking-widest cursor-pointer"
-            >
-              <Save size={16} /> Lưu tùy chọn thông báo
-            </button>
-          </form>
-        )}
 
         {activeSection === 'reviews' && isCustomer && (
           <div className="space-y-8 animate-in fade-in duration-300">

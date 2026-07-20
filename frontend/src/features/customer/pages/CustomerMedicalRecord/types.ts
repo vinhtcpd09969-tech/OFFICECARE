@@ -85,6 +85,7 @@ export interface ExamEntry {
   trang_thai_hoa_don: string | null;
   khuyen_nghi_goi: string | null;
   khuyen_nghi_phac_do_id: string | null;
+  khuyen_nghi_han_kich_hoat: string | null;
 }
 
 export interface MedicalRecordData {

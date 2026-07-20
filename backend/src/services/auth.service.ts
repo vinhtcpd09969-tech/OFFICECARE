@@ -119,6 +119,10 @@ class AuthService {
         so_dien_thoai: user.so_dien_thoai,
         vai_tro_id: user.vai_tro_id,
         avatar_url: null,
+        // Chỉ có ở khach_hang — undefined với nhân sự (nguoi_dung không có cột này), vô hại vì
+        // frontend khai optional. Thiếu trường này khiến authStore.user.diem_uy_tin luôn undefined
+        // ngay sau đăng nhập, trang Lịch hẹn phải chờ fetch riêng mới có đúng số.
+        diem_uy_tin: (user as any).diem_uy_tin,
         isDefaultPassword
       }
     };
@@ -152,7 +156,8 @@ class AuthService {
         email: user.email,
         so_dien_thoai: user.so_dien_thoai,
         vai_tro_id: user.vai_tro_id,
-        avatar_url: null
+        avatar_url: null,
+        diem_uy_tin: (user as any).diem_uy_tin
       }
     };
   }
@@ -259,6 +264,7 @@ class AuthService {
     the_manh?: string[];
     gioi_tinh?: string;
     dia_chi?: string;
+    ngay_sinh?: string | Date;
   }) {
     if (!data.ho_ten) throw new Error('Họ tên không được để trống');
     

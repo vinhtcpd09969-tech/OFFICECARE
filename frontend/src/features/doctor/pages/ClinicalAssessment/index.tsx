@@ -16,7 +16,8 @@ import {
   ClipboardList,
   ShieldAlert,
   FlameKindling,
-  Timer
+  Timer,
+  History as HistoryIcon
 } from 'lucide-react';
 import { useAuthStore } from '../../../../stores/authStore';
 import {
@@ -134,6 +135,11 @@ export default function ClinicalAssessment() {
   const [loading, setLoading] = useState(true);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [packageSearchQuery, setPackageSearchQuery] = useState('');
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  // Modal 3 lựa chọn khi lưu bị chặn vì khách đang có 1 chỉ định liệu trình khác chưa kích hoạt.
+  const [showPendingConflictModal, setShowPendingConflictModal] = useState(false);
 
   // Popup phác đồ/ca khám đang mở trong khối "Hồ sơ điều trị" (2 cột Phác đồ / Khám & Dịch vụ lẻ)
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
@@ -191,6 +197,15 @@ export default function ClinicalAssessment() {
     loadInitialData();
   }, [loadInitialData]);
 
+  const filteredPackages = useMemo(() => {
+    if (!packageSearchQuery.trim()) return packages;
+    const query = packageSearchQuery.toLowerCase();
+    return packages.filter((pkg) => 
+      pkg.ten_goi.toLowerCase().includes(query) || 
+      (pkg.mo_ta && pkg.mo_ta.toLowerCase().includes(query))
+    );
+  }, [packages, packageSearchQuery]);
+
   const activePlan = useMemo(() => {
     if (activeModal?.type !== 'plan' || !profile) return null;
     return profile.treatmentPlans.find((p) => p.id === activeModal.id) || null;
@@ -232,7 +247,49 @@ export default function ClinicalAssessment() {
   const isSessionOpen = appointment?.trang_thai === 'dang_kham';
   const isOverdue = isSessionOpen && remainingMs !== null && remainingMs <= 0;
 
-  // Xử lý gửi kết quả khám
+  // Thực tế lưu dữ liệu từ Modal xác nhận. `options` chỉ dùng khi được gọi lại từ modal xử lý xung
+  // đột chỉ định liệu trình (resolvePendingConflict: xóa chỉ định cũ rồi lưu; skipPackage: giữ
+  // nguyên chỉ định cũ, không chỉ định gói cho ca khám này).
+  const handleConfirmSubmit = async (options?: { resolvePendingConflict?: boolean; skipPackage?: boolean }) => {
+    if (!appointmentId) return;
+    setShowConfirmModal(false);
+    setShowPendingConflictModal(false);
+    setSubmitLoading(true);
+    try {
+      if (isKtv) {
+        await saveTreatmentRecordKtv({
+          lich_dat_id: appointmentId,
+          vas_truoc: vasTruoc,
+          vas_sau: vasSau,
+          ghi_chu: ghiChu || null
+        });
+        toast.success('Ghi nhận kết quả buổi trị liệu thành công!');
+        navigate('/technician/appointments');
+      } else {
+        await saveAssessment({
+          lich_dat_id: appointmentId,
+          chan_doan: chanDoan,
+          chong_chi_dinh: chongChiDinh,
+          goi_dich_vu_id: options?.skipPackage ? null : (goiDichVuId || null),
+          ghi_chu: ghiChu || null,
+          resolvePendingConflict: options?.resolvePendingConflict
+        });
+        toast.success('Ghi nhận chẩn đoán lâm sàng và hoàn thành ca khám thành công!');
+        navigate('/doctor'); // Trở lại danh sách hàng chờ
+      }
+    } catch (error: any) {
+      console.error('Lỗi khi lưu hồ sơ điều trị:', error);
+      if (!isKtv && error.response?.data?.errorCode === 'PENDING_LIEU_TRINH_CONFLICT') {
+        setShowPendingConflictModal(true);
+      } else {
+        toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi lưu hồ sơ điều trị.');
+      }
+    } finally {
+      setSubmitLoading(false);
+    }
+  };
+
+  // Xử lý gửi kết quả khám: Chỉ validate và mở Modal xác nhận
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!appointmentId) return;
@@ -253,34 +310,7 @@ export default function ClinicalAssessment() {
       }
     }
 
-    setSubmitLoading(true);
-    try {
-      if (isKtv) {
-        await saveTreatmentRecordKtv({
-          lich_dat_id: appointmentId,
-          vas_truoc: vasTruoc,
-          vas_sau: vasSau,
-          ghi_chu: ghiChu || null
-        });
-        toast.success('Ghi nhận kết quả buổi trị liệu thành công!');
-        navigate('/technician/appointments');
-      } else {
-        await saveAssessment({
-          lich_dat_id: appointmentId,
-          chan_doan: chanDoan,
-          chong_chi_dinh: chongChiDinh,
-          goi_dich_vu_id: goiDichVuId || null,
-          ghi_chu: ghiChu || null
-        });
-        toast.success('Ghi nhận chẩn đoán lâm sàng và hoàn thành ca khám thành công!');
-        navigate('/doctor'); // Trở lại danh sách hàng chờ
-      }
-    } catch (error: any) {
-      console.error('Lỗi khi lưu hồ sơ điều trị:', error);
-      toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi lưu hồ sơ điều trị.');
-    } finally {
-      setSubmitLoading(false);
-    }
+    setShowConfirmModal(true);
   };
 
   // Tính tuổi bệnh nhân
@@ -408,8 +438,8 @@ export default function ClinicalAssessment() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-        {/* LEFT COLUMN: Diagnostic & Recommendations Form (5 Cols) */}
-        <div className="lg:col-span-5">
+        {/* LEFT COLUMN: Diagnostic & Recommendations Form (8 Cols) */}
+        <div className="lg:col-span-8">
           <form 
             onSubmit={handleSubmit}
             className="bg-white dark:bg-zinc-900 rounded-[24px] border border-zinc-150/60 dark:border-zinc-800 p-6 shadow-sm space-y-5 sticky top-24"
@@ -556,28 +586,160 @@ export default function ClinicalAssessment() {
                 </div>
 
                 {/* Đề xuất gói liệu trình */}
-                <div className="space-y-4 pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
-                  <div>
-                    <h4 className="text-[10px] font-black text-zinc-450 dark:text-zinc-500 uppercase tracking-widest">Khuyến nghị phác đồ trị liệu</h4>
-                    <p className="text-[8px] text-zinc-400 dark:text-zinc-500 font-bold uppercase mt-0.5">Lựa chọn gói liệu trình đề xuất cho khách</p>
+                <div className="space-y-4 pt-4 border-t border-zinc-150/65 dark:border-zinc-800/80">
+                  <style>{`
+                    .package-scroll::-webkit-scrollbar { width: 5px; }
+                    .package-scroll::-webkit-scrollbar-track { background: transparent; }
+                    .package-scroll::-webkit-scrollbar-thumb { background: #e4e4e7; border-radius: 99px; }
+                    .dark .package-scroll::-webkit-scrollbar-thumb { background: #27272a; }
+                  `}</style>
+
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <h4 className="text-[10px] font-black text-zinc-450 dark:text-zinc-550 uppercase tracking-widest flex items-center gap-1.5">
+                        <ClipboardList size={13} className="text-primary" /> Khuyến nghị phác đồ trị liệu
+                      </h4>
+                      <p className="text-[8px] text-zinc-400 dark:text-zinc-500 font-bold uppercase mt-0.5">Lựa chọn gói phác đồ đề xuất cho khách</p>
+                    </div>
+
+                    {/* Ô Tìm kiếm nhanh */}
+                    <div className="relative w-full sm:w-48">
+                      <input
+                        type="text"
+                        value={packageSearchQuery}
+                        onChange={(e) => setPackageSearchQuery(e.target.value)}
+                        placeholder="Tìm nhanh gói..."
+                        className="w-full bg-zinc-50 dark:bg-zinc-850/50 border border-zinc-200 dark:border-zinc-800 focus:border-primary rounded-xl pl-7 pr-3 py-1.5 text-[10px] font-semibold text-secondary outline-none transition-all placeholder-zinc-400"
+                      />
+                      <svg className="absolute left-2.5 top-2.5 text-zinc-400 size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                    </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">
-                      Đề xuất gói liệu trình
+                  {/* Cảnh báo sớm — khách đang có chỉ định/phác đồ liệu trình khác còn hiệu lực. Chỉ
+                      mang tính thông tin: quyết định xóa/giữ chỉ định cũ diễn ra ở modal lúc bấm lưu,
+                      không xử lý ngay tại đây để tránh sửa DB ngoài luồng lưu chính thức. */}
+                  {appointment?.package_conflict?.blocked && (
+                    <div className={`p-3.5 rounded-2xl border flex items-start gap-2.5 ${
+                      appointment.package_conflict.type === 'active_plan'
+                        ? 'bg-rose-50 dark:bg-rose-955/10 border-rose-200 dark:border-rose-900/40 text-rose-800 dark:text-rose-300'
+                        : 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/40 text-amber-900 dark:text-amber-300'
+                    }`}>
+                      {appointment.package_conflict.type === 'active_plan' ? (
+                        <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+                      ) : (
+                        <Timer size={16} className="shrink-0 mt-0.5" />
+                      )}
+                      <p className="min-w-0 flex-1 text-xs font-semibold leading-relaxed">
+                        {appointment.package_conflict.type === 'active_plan' ? (
+                          <>Khách hàng đang điều trị gói <strong>"{appointment.package_conflict.ten_goi}"</strong>. Không thể chỉ định liệu trình mới cho tới khi liệu trình này hoàn thành hoặc bị hủy.</>
+                        ) : (
+                          <>
+                            Khách hàng đang có chỉ định <strong>"{appointment.package_conflict.ten_goi}"</strong> từ ca khám trước
+                            {appointment.package_conflict.han_kich_hoat && (() => {
+                              const daysLeft = Math.ceil((new Date(appointment.package_conflict.han_kich_hoat).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                              return daysLeft > 0 ? `, còn ${daysLeft} ngày để kích hoạt` : '';
+                            })()}
+                            {' '}(chưa thanh toán). Nếu chỉ định gói mới, bạn sẽ được chọn xóa hoặc giữ chỉ định này lúc lưu.
+                          </>
+                        )}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-zinc-400 dark:text-zinc-555 uppercase tracking-wider block">
+                      Đề xuất gói liệu trình {packageSearchQuery && `(Đã lọc: ${filteredPackages.length})`}
                     </label>
-                    <select
-                      value={goiDichVuId}
-                      onChange={(e) => setGoiDichVuId(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-semibold text-secondary dark:text-zinc-150 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all cursor-pointer"
-                    >
-                      <option value="">-- Không đề xuất gói --</option>
-                      {packages.map((pkg) => (
-                        <option key={pkg.id} value={pkg.id}>
-                          {pkg.ten_goi} ({pkg.gia_goi.toLocaleString('vi-VN')}đ)
-                        </option>
-                      ))}
-                    </select>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[265px] overflow-y-auto pr-1.5 package-scroll">
+                      {/* Thẻ không đề xuất gói (Luôn hiển thị đầu tiên) */}
+                      {!packageSearchQuery && (
+                        <div
+                          onClick={() => setGoiDichVuId('')}
+                          className={`group relative p-3 border.5 rounded-xl cursor-pointer transition-all duration-300 flex items-start gap-2.5 select-none ${
+                            !goiDichVuId
+                              ? 'border-zinc-400 dark:border-zinc-650 bg-zinc-50 dark:bg-zinc-850/60 ring-2 ring-zinc-500/10 shadow-xs'
+                              : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50/10 dark:bg-zinc-900/10 hover:bg-zinc-100/50 dark:hover:bg-zinc-850/20'
+                          }`}
+                        >
+                          <div className={`size-7 rounded-lg flex items-center justify-center font-bold text-[9px] shrink-0 border transition-all ${
+                            !goiDichVuId
+                              ? 'bg-zinc-500 text-white border-zinc-500 shadow-sm'
+                              : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-450 border-zinc-200 dark:border-zinc-700'
+                          }`}>
+                            OFF
+                          </div>
+                          <div className="flex-1 text-left min-w-0">
+                            <h5 className="text-[11px] font-black text-secondary dark:text-zinc-200 leading-tight">Không đề xuất phác đồ</h5>
+                            <p className="text-[9px] text-zinc-400 dark:text-zinc-500 mt-1 font-semibold leading-tight">
+                              Không đề xuất gói
+                            </p>
+                          </div>
+                          {!goiDichVuId && (
+                            <div className="absolute top-2 right-2 bg-zinc-500 text-white rounded-full p-0.5 shadow-sm scale-90">
+                              <CheckCircle size={10} className="stroke-[3]" />
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Các thẻ gói đã lọc */}
+                      {filteredPackages.map((pkg) => {
+                        const isSelected = goiDichVuId === pkg.id;
+                        return (
+                          <div
+                            key={pkg.id}
+                            onClick={() => setGoiDichVuId(pkg.id)}
+                            className={`group relative p-3 border.5 rounded-xl cursor-pointer transition-all duration-300 flex flex-col justify-between select-none ${
+                              isSelected
+                                ? 'border-primary bg-primary/5 dark:bg-primary/10 ring-2 ring-primary/10 shadow-xs'
+                                : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50/10 dark:bg-zinc-900/10 hover:bg-zinc-100/50 dark:hover:bg-zinc-850/20'
+                            }`}
+                          >
+                            <div className="flex items-start gap-2.5 w-full text-left">
+                              <div className={`size-7 rounded-lg flex items-center justify-center font-bold text-[9px] shrink-0 border transition-all ${
+                                isSelected
+                                  ? 'bg-primary text-white border-primary shadow-sm'
+                                  : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 border-zinc-200 dark:border-zinc-700'
+                              }`}>
+                                GOI
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h5 className="text-[11px] font-black text-secondary dark:text-zinc-200 leading-tight line-clamp-2">
+                                  {pkg.ten_goi}
+                                </h5>
+                                {pkg.mo_ta && (
+                                  <p className="text-[9px] text-zinc-400 dark:text-zinc-550 mt-1 font-semibold leading-tight line-clamp-2">
+                                    {pkg.mo_ta}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-dashed border-zinc-150 dark:border-zinc-800/80 w-full">
+                              <span className="text-[9px] text-zinc-400 dark:text-zinc-555 font-bold uppercase tracking-wider">Giá gói</span>
+                              <span className="text-[11px] font-black text-emerald-600 dark:text-emerald-450 tabular-nums">
+                                {pkg.gia_goi.toLocaleString('vi-VN')}đ
+                              </span>
+                            </div>
+
+                            {isSelected && (
+                              <div className="absolute top-2 right-2 bg-primary text-white rounded-full p-0.5 shadow-sm scale-90">
+                                <CheckCircle size={10} className="stroke-[3]" />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      {filteredPackages.length === 0 && (
+                        <div className="col-span-2 py-8 text-center text-[11px] text-zinc-400 font-semibold italic">
+                          Không tìm thấy gói phác đồ phù hợp.
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -615,11 +777,11 @@ export default function ClinicalAssessment() {
           </form>
         </div>
 
-        {/* RIGHT COLUMN: Patient Info & History (7 Cols) */}
-        <div className="lg:col-span-7 space-y-6">
+        {/* RIGHT COLUMN: Patient Info & Actions (4 Cols) */}
+        <div className="lg:col-span-4 space-y-6">
           
           {/* Patient Card Header - Pro Max */}
-          <div className="bg-white dark:bg-zinc-900 rounded-[24px] border border-zinc-150/60 dark:border-zinc-800 p-6 shadow-sm flex flex-col md:flex-row items-center md:items-start gap-5 transition-all duration-300 relative overflow-hidden">
+          <div className="bg-white dark:bg-zinc-900 rounded-[24px] border border-zinc-150/60 dark:border-zinc-800 p-6 shadow-sm flex flex-col items-center md:items-start gap-5 transition-all duration-300 relative overflow-hidden">
             <div className="absolute top-0 right-0 bg-primary/5 dark:bg-primary/10 w-24 h-24 rounded-full -mr-6 -mt-6 blur-2xl"></div>
 
             {/* Đồng hồ đếm ngược tới giờ kết thúc buổi — chỉ hiện khi bàn khám đang mở và chưa quá giờ */}
@@ -627,13 +789,9 @@ export default function ClinicalAssessment() {
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className={`absolute top-4 right-4 z-10 flex items-center gap-2 px-3 py-1.5 rounded-xl border shadow-sm ${
-                  remainingMs < 5 * 60 * 1000
-                    ? 'bg-amber-50 dark:bg-amber-955/15 border-amber-200/60 dark:border-amber-900/40 text-amber-700 dark:text-amber-400'
-                    : 'bg-primary/5 border-primary/15 text-primary'
-                }`}
+                className={`absolute top-4 right-4 z-10 flex items-center gap-2 px-3 py-1.5 rounded-xl border shadow-sm bg-primary/5 border-primary/15 text-primary`}
               >
-                <Timer size={13} className={remainingMs < 5 * 60 * 1000 ? 'animate-pulse' : ''} />
+                <Timer size={13} />
                 <div className="leading-tight">
                   <p className="text-[7px] font-black uppercase tracking-wider opacity-70">Còn lại</p>
                   <p className="text-[11px] font-mono font-black tabular-nums">{formatCountdown(remainingMs)}</p>
@@ -641,36 +799,38 @@ export default function ClinicalAssessment() {
               </motion.div>
             )}
 
-            <div className="size-16 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/5 border border-primary/20 flex items-center justify-center text-primary font-black text-2xl shadow-inner shrink-0 scale-105">
-              {(appointment.ten_khach_hang || appointment.ho_ten_khach || 'K').charAt(0).toUpperCase()}
-            </div>
-            
-            <div className="flex-1 w-full space-y-4 text-center md:text-left">
-              <div>
-                <h2 className="text-lg font-black text-secondary dark:text-zinc-100 flex items-center justify-center md:justify-start gap-2.5">
+            <div className="flex items-center gap-3">
+              <div className="size-16 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/5 border border-primary/20 flex items-center justify-center text-primary font-black text-2xl shadow-inner shrink-0 scale-105">
+                {(appointment.ten_khach_hang || appointment.ho_ten_khach || 'K').charAt(0).toUpperCase()}
+              </div>
+              <div className="text-left">
+                <h2 className="text-base font-black text-secondary dark:text-zinc-100 flex items-center gap-2 flex-wrap">
                   {appointment.ten_khach_hang || appointment.ho_ten_khach}
-                  <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/25">
+                  <span className="text-[9px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/25">
                     {appointment.loai === 'KHAM' ? 'Khám lâm sàng' : 'Trị liệu'}
                   </span>
                 </h2>
                 <p className="text-zinc-400 dark:text-zinc-550 text-[10px] font-bold uppercase mt-1">Hồ sơ khách hàng</p>
-                {appointment.loai !== 'KHAM' && appointment.ten_dich_vu && (
-                  <p className="text-[11px] font-bold text-secondary dark:text-zinc-200 mt-1.5">
-                    {appointment.ten_dich_vu}
-                    {appointment.phac_do_dieu_tri_id && appointment.so_thu_tu_buoi && (
-                      <span className="text-primary"> — Buổi {appointment.so_thu_tu_buoi}{appointment.pd_tong_so_buoi ? `/${appointment.pd_tong_so_buoi}` : ''}</span>
-                    )}
-                  </p>
-                )}
               </div>
+            </div>
+            
+            <div className="w-full space-y-4">
+              {appointment.loai !== 'KHAM' && appointment.ten_dich_vu && (
+                <p className="text-[11px] font-bold text-secondary dark:text-zinc-200 mt-1.5 text-left">
+                  {appointment.ten_dich_vu}
+                  {appointment.phac_do_dieu_tri_id && appointment.so_thu_tu_buoi && (
+                    <span className="text-primary"> — Buổi {appointment.so_thu_tu_buoi}{appointment.pd_tong_so_buoi ? `/${appointment.pd_tong_so_buoi}` : ''}</span>
+                  )}
+                </p>
+              )}
 
               {/* Grid of details */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 gap-3 w-full">
                 <div className="bg-zinc-50 dark:bg-zinc-850/50 p-2.5 rounded-xl border border-zinc-150/50 dark:border-zinc-800 flex items-center gap-2">
                   <User size={14} className="text-primary shrink-0" />
                   <div className="text-left min-w-0">
                     <p className="text-[8px] text-zinc-400 dark:text-zinc-500 font-bold uppercase">Giới tính</p>
-                    <p className="text-xs font-bold text-secondary dark:text-zinc-200 capitalize truncate">
+                    <p className="text-xs font-bold text-secondary dark:text-zinc-250 capitalize truncate">
                       {appointment.gioi_tinh === 'nam' ? 'Nam' : 'Nữ'}
                     </p>
                   </div>
@@ -686,7 +846,7 @@ export default function ClinicalAssessment() {
                   </div>
                 </div>
 
-                <div className="bg-zinc-50 dark:bg-zinc-850/50 p-2.5 rounded-xl border border-zinc-150/50 dark:border-zinc-800 flex items-center gap-2">
+                <div className="bg-zinc-50 dark:bg-zinc-850/50 p-2.5 rounded-xl border border-zinc-150/50 dark:border-zinc-800 flex items-center gap-2 col-span-2">
                   <Phone size={14} className="text-primary shrink-0" />
                   <div className="text-left min-w-0">
                     <p className="text-[8px] text-zinc-400 dark:text-zinc-500 font-bold uppercase">Điện thoại</p>
@@ -696,7 +856,7 @@ export default function ClinicalAssessment() {
                   </div>
                 </div>
 
-                <div className="bg-zinc-50 dark:bg-zinc-850/50 p-2.5 rounded-xl border border-zinc-150/50 dark:border-zinc-800 flex items-center gap-2">
+                <div className="bg-zinc-50 dark:bg-zinc-850/50 p-2.5 rounded-xl border border-zinc-150/50 dark:border-zinc-800 flex items-center gap-2 col-span-2">
                   <CalendarIcon size={14} className="text-primary shrink-0" />
                   <div className="text-left min-w-0">
                     <p className="text-[8px] text-zinc-400 dark:text-zinc-500 font-bold uppercase">Giờ hẹn</p>
@@ -706,27 +866,244 @@ export default function ClinicalAssessment() {
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-          {/* Hồ sơ điều trị — 2 cột giống Admin: Phác đồ điều trị (trái) / Khám & Dịch vụ lẻ (phải).
-              Dùng chung đúng component với trang "Hồ sơ điều trị" của Bác sĩ/KTV — không còn bản sao
-              chép lệch riêng cho bàn khám. Mỗi thẻ chỉ tóm tắt, bấm "Chi tiết" mới mở popup. */}
-          <div id="history-panel" className="scroll-mt-24 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <PlanColumn
-              plans={profile?.treatmentPlans || []}
-              onOpenPlan={(id) => setActiveModal({ type: 'plan', id })}
-            />
-            <VisitColumn
-              visits={profile?.visits || []}
-              onOpenVisit={(id) => setActiveModal({ type: 'visit', id })}
-            />
+              {/* Nút Xem lịch sử điều trị để kích hoạt trượt Drawer */}
+              <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800/80 w-full">
+                <button
+                  type="button"
+                  onClick={() => setIsHistoryOpen(true)}
+                  className="w-full py-3 bg-slate-50 hover:bg-slate-100 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-slate-700 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                >
+                  <HistoryIcon size={14} className="text-primary" />
+                  Hồ sơ lịch sử điều trị ({ (profile?.treatmentPlans?.length || 0) + (profile?.visits?.length || 0) })
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
       </div>
 
       <AnimatePresence>
+        {showConfirmModal && (
+          <>
+            {/* Modal Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowConfirmModal(false)}
+              className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs z-[80]"
+            />
+
+            {/* Modal Dialog */}
+            <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 pointer-events-none">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+                className="w-full max-w-md bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 rounded-[28px] p-6 shadow-2xl pointer-events-auto overflow-hidden relative"
+              >
+                {/* Header / Icon */}
+                <div className="text-center space-y-4">
+                  {isOverdue ? (
+                    <div className="mx-auto size-14 bg-rose-50 dark:bg-rose-955/20 text-rose-500 rounded-full flex items-center justify-center border border-rose-100 dark:border-rose-900/30">
+                      <AlertTriangle size={24} className="animate-bounce" />
+                    </div>
+                  ) : (
+                    <div className="mx-auto size-14 bg-emerald-50 dark:bg-emerald-955/20 text-emerald-500 rounded-full flex items-center justify-center border border-emerald-100 dark:border-emerald-900/30">
+                      <CheckCircle size={24} />
+                    </div>
+                  )}
+
+                  <h3 className="text-sm font-black text-secondary dark:text-zinc-100 uppercase tracking-widest">
+                    {isOverdue ? '⚠️ Cảnh báo quá giờ ca hẹn!' : 'Xác nhận hoàn thành ca'}
+                  </h3>
+
+                  {/* Timing chip like the image */}
+                  {remainingMs !== null && (
+                    isOverdue ? (
+                      <div className="flex items-center justify-center gap-2 px-4 py-2 bg-rose-50 dark:bg-rose-955/15 border border-rose-200/50 dark:border-rose-900/40 text-rose-600 dark:text-rose-450 rounded-2xl mx-auto w-fit shadow-xs">
+                        <AlertTriangle size={14} className="stroke-[2.5]" />
+                        <div className="text-left leading-tight">
+                          <p className="text-[8px] font-black uppercase tracking-wider opacity-85">QUÁ GIỜ</p>
+                          <p className="text-[12px] font-mono font-black tabular-nums">Đã hết thời gian buổi hẹn</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center gap-2.5 px-4 py-2 bg-emerald-50 dark:bg-emerald-955/15 border border-emerald-200/50 dark:border-emerald-900/40 text-emerald-650 dark:text-emerald-450 rounded-2xl mx-auto w-fit shadow-xs">
+                        <Timer size={14} className="stroke-[2.5]" />
+                        <div className="text-left leading-tight">
+                          <p className="text-[8px] font-black uppercase tracking-wider opacity-85">CÒN LẠI</p>
+                          <p className="text-[12px] font-mono font-black tabular-nums">{formatCountdown(remainingMs)}</p>
+                        </div>
+                      </div>
+                    )
+                  )}
+
+                  <div className="text-xs text-zinc-550 dark:text-zinc-400 font-semibold leading-relaxed px-2">
+                    {isOverdue ? (
+                      <p>
+                        Ca {isKtv ? 'trị liệu' : 'khám'} của khách hàng <span className="font-extrabold text-secondary dark:text-zinc-200">{appointment?.ten_khach_hang || appointment?.ho_ten_khach}</span> đã <span className="text-rose-500 font-extrabold">QUÁ GIỜ</span> quy định. Bạn có chắc chắn muốn kết thúc và lưu hồ sơ ngay bây giờ?
+                      </p>
+                    ) : (
+                      <p>
+                        Bạn đang hoàn thành sớm ca {isKtv ? 'trị liệu' : 'khám'} của bệnh nhân <span className="font-extrabold text-secondary dark:text-zinc-200">{appointment?.ten_khach_hang || appointment?.ho_ten_khach}</span>. Xác nhận lưu hồ sơ và giải phóng phòng?
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Footer Buttons */}
+                <div className="flex gap-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmModal(false)}
+                    className="flex-1 py-3 bg-zinc-100 hover:bg-zinc-150 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-zinc-600 dark:text-zinc-300 rounded-2xl text-[10.5px] font-black uppercase tracking-wider transition-all active:scale-[0.98] cursor-pointer"
+                  >
+                    Hủy bỏ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleConfirmSubmit()}
+                    className={`flex-1 py-3 text-white rounded-2xl text-[10.5px] font-black uppercase tracking-wider transition-all active:scale-[0.98] cursor-pointer shadow-md ${
+                      isOverdue
+                        ? 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/10'
+                        : 'bg-primary hover:bg-primary/95 shadow-primary/10'
+                    }`}
+                  >
+                    Xác nhận hoàn thành
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          </>
+        )}
+
+        {showPendingConflictModal && (
+          <>
+            {/* Modal Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowPendingConflictModal(false)}
+              className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs z-[80]"
+            />
+
+            {/* Modal Dialog */}
+            <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 pointer-events-none">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+                className="w-full max-w-md bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 rounded-[28px] p-6 shadow-2xl pointer-events-auto overflow-hidden relative"
+              >
+                <div className="text-center space-y-4">
+                  <div className="mx-auto size-14 bg-amber-50 dark:bg-amber-955/20 text-amber-500 rounded-full flex items-center justify-center border border-amber-100 dark:border-amber-900/30">
+                    <Timer size={24} />
+                  </div>
+
+                  <h3 className="text-sm font-black text-secondary dark:text-zinc-100 uppercase tracking-widest">
+                    Khách đang có chỉ định khác
+                  </h3>
+
+                  <div className="text-xs text-zinc-550 dark:text-zinc-400 font-semibold leading-relaxed px-2">
+                    <p>
+                      Khách hàng <span className="font-extrabold text-secondary dark:text-zinc-200">{appointment?.ten_khach_hang || appointment?.ho_ten_khach}</span> đã được chỉ định gói{' '}
+                      <span className="font-extrabold text-secondary dark:text-zinc-200">"{appointment?.package_conflict?.ten_goi}"</span> từ ca khám trước, còn hạn kích hoạt và chưa thanh toán. Chọn 1 trong 3 lựa chọn dưới đây:
+                    </p>
+                  </div>
+                </div>
+
+                {/* 3 lựa chọn */}
+                <div className="flex flex-col gap-2.5 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => handleConfirmSubmit({ resolvePendingConflict: true })}
+                    className="w-full py-3 px-4 bg-rose-500 hover:bg-rose-600 text-white rounded-2xl text-[10.5px] font-black uppercase tracking-wider transition-all active:scale-[0.98] cursor-pointer shadow-md shadow-rose-500/10 text-left"
+                  >
+                    Xóa chỉ định cũ, dùng gói mới
+                    <span className="block text-[9px] font-bold normal-case tracking-normal opacity-80 mt-0.5">Không thể hoàn tác — chỉ định cũ bị xóa hẳn khỏi hệ thống</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleConfirmSubmit({ skipPackage: true })}
+                    className="w-full py-3 px-4 bg-zinc-100 hover:bg-zinc-150 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-zinc-700 dark:text-zinc-200 rounded-2xl text-[10.5px] font-black uppercase tracking-wider transition-all active:scale-[0.98] cursor-pointer text-left"
+                  >
+                    Giữ chỉ định cũ, không chỉ định gói cho ca khám này
+                    <span className="block text-[9px] font-bold normal-case tracking-normal opacity-70 mt-0.5">Vẫn lưu chẩn đoán/hoàn thành ca khám bình thường</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowPendingConflictModal(false)}
+                    className="w-full py-2.5 text-zinc-450 dark:text-zinc-500 rounded-2xl text-[10.5px] font-black uppercase tracking-wider transition-all active:scale-[0.98] cursor-pointer hover:text-zinc-600 dark:hover:text-zinc-300"
+                  >
+                    Quay lại chọn gói khác
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          </>
+        )}
+
+        {isHistoryOpen && (
+          <>
+            {/* Dark Overlay */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsHistoryOpen(false)}
+              className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs z-[60]"
+            />
+            
+            {/* Sliding Drawer */}
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 28, stiffness: 260 }}
+              className="fixed top-0 right-0 h-full w-full max-w-2xl bg-zinc-50 dark:bg-zinc-950 border-l border-zinc-150 dark:border-zinc-800 shadow-2xl z-[70] flex flex-col"
+            >
+              {/* Header */}
+              <div className="p-5 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-black text-secondary dark:text-zinc-100 uppercase tracking-wider flex items-center gap-2">
+                    <ClipboardList size={16} className="text-primary shrink-0" /> Lịch sử hồ sơ điều trị
+                  </h3>
+                  <p className="text-[10px] text-zinc-400 dark:text-zinc-550 font-bold uppercase mt-0.5">
+                    Bệnh nhân: {appointment?.ten_khach_hang || appointment?.ho_ten_khach}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsHistoryOpen(false)}
+                  className="px-3.5 py-1.5 bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-500 dark:text-zinc-400 rounded-xl text-[10px] font-black uppercase tracking-wider border border-zinc-200/50 dark:border-zinc-750 transition-all active:scale-95 cursor-pointer"
+                >
+                  Đóng
+                </button>
+              </div>
+
+              {/* Drawer Content */}
+              <div className="flex-1 p-6 overflow-y-auto space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <PlanColumn
+                    plans={profile?.treatmentPlans || []}
+                    onOpenPlan={(id) => setActiveModal({ type: 'plan', id })}
+                  />
+                  <VisitColumn
+                    visits={profile?.visits || []}
+                    onOpenVisit={(id) => setActiveModal({ type: 'visit', id })}
+                  />
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+
         {activePlan && (
           <PlanDetailModal
             key={`plan-${activePlan.id}`}
