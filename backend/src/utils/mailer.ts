@@ -696,3 +696,134 @@ export const sendAppointmentReminder = async (toEmail: string, userName: string,
     console.error('Lỗi khi gửi email nhắc hẹn:', error);
   }
 };
+
+export const sendAccountLockedNotification = async (toEmail: string, userName: string) => {
+  try {
+    let transporter;
+    const isSMTPConfigured = process.env.EMAIL_USER && 
+                              process.env.EMAIL_USER !== 'your_email@gmail.com' && 
+                              process.env.EMAIL_PASS && 
+                              process.env.EMAIL_PASS !== 'your_app_password';
+
+    if (isSMTPConfigured) {
+      transporter = nodemailer.createTransport({
+        host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+        port: parseInt(process.env.EMAIL_PORT || '587'),
+        secure: process.env.EMAIL_PORT === '465',
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS,
+        },
+      });
+    } else {
+      const testAccount = await nodemailer.createTestAccount();
+      transporter = nodemailer.createTransport({
+        host: 'smtp.ethereal.email',
+        port: 587,
+        secure: false,
+        auth: {
+          user: testAccount.user,
+          pass: testAccount.pass,
+        },
+      });
+    }
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Thông báo khóa tài khoản OfficeCare</title>
+      </head>
+      <body style="margin: 0; padding: 0; background-color: #F8FAFC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #F8FAFC; padding: 30px 10px;">
+          <tr>
+            <td align="center">
+              <table width="100%" max-width="560" border="0" cellspacing="0" cellpadding="0" style="max-width: 560px; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03); border: 1px solid #E2E8F0;">
+                
+                <!-- Header Banner: Màu đỏ cảnh báo chuyên nghiệp -->
+                <tr>
+                  <td align="center" style="background-color: #EF4444; padding: 35px 30px; text-align: center;">
+                    <div style="font-size: 28px; font-weight: 800; color: #FFFFFF; letter-spacing: -0.5px; line-height: 1.2; font-family: sans-serif;">
+                      OfficeCare
+                    </div>
+                    <div style="font-size: 11px; color: #FEE2E2; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 6px; font-family: sans-serif;">
+                      Thông Báo Khóa Tài Khoản
+                    </div>
+                  </td>
+                </tr>
+
+                <!-- Content Body -->
+                <tr>
+                  <td style="padding: 35px 35px 25px 35px;">
+                    <p style="margin: 0 0 16px 0; color: #0F172A; font-size: 17px; font-weight: 700; font-family: sans-serif;">Chào ${userName},</p>
+                    <p style="margin: 0 0 20px 0; color: #334155; font-size: 14px; line-height: 1.7; font-family: sans-serif;">Chúng tôi rất tiếc phải thông báo rằng tài khoản khách hàng của bạn tại OfficeCare đã bị <strong>khóa</strong>.</p>
+                    
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #FEF2F2; border-radius: 12px; border: 1px solid #FEE2E2; margin-bottom: 24px; font-size: 14px; color: #991B1B; font-family: sans-serif;">
+                      <tr>
+                        <td style="padding: 20px 16px; line-height: 1.6;">
+                          ⚠️ <strong>Lý do:</strong> Bạn đã vi phạm chính sách của phòng khám <strong>OfficeCare</strong> nên đã bị khóa tài khoản.<br><br>
+                          📞 Mọi thắc mắc vui lòng liên hệ hotline hỗ trợ hoặc Fanpage của phòng khám để được giải đáp và hỗ trợ mở lại nếu có nhầm lẫn.
+                        </td>
+                      </tr>
+                    </table>
+
+                    <div style="margin-bottom: 24px; text-align: center;">
+                      <a href="https://www.facebook.com/profile.php?id=61591064963268" target="_blank" style="display: inline-block; background-color: #1877F2; color: #FFFFFF; font-weight: bold; font-size: 14px; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-family: sans-serif; box-shadow: 0 2px 4px rgba(24, 119, 242, 0.2);">
+                        Liên hệ qua Fanpage
+                      </a>
+                    </div>
+                    
+                    <hr style="border: none; border-top: 1px solid #F1F5F9; margin: 25px 0;" />
+                    
+                    <!-- Clinic Info -->
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="color: #64748B; font-size: 12px; line-height: 1.7; font-family: sans-serif;">
+                      <tr>
+                        <td>
+                          <strong>Hỗ trợ khách hàng OfficeCare:</strong><br>
+                          📞 Hotline: 1900 6868 (Phím 1)<br>
+                          ✉️ Email support: support@officareclinic.com
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <!-- Footer -->
+                <tr>
+                  <td style="background-color: #F8FAFC; padding: 20px; border-top: 1px solid #F1F5F9; text-align: center; font-size: 11px; color: #94A3B8; font-family: sans-serif;">
+                    © 2026 OfficeCare. Tất cả các quyền được bảo lưu.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const fromAddress = isSMTPConfigured 
+      ? `"OfficeCare Clinic" <${process.env.EMAIL_USER}>` 
+      : '"OfficeCare Clinic" <noreply@officareclinic.com>';
+
+    const info = await transporter.sendMail({
+      from: fromAddress,
+      to: toEmail,
+      subject: `[Thông Báo] Tài khoản OfficeCare của bạn đã bị khóa`,
+      html: htmlContent,
+    });
+
+    console.log('----------------------------------------------------');
+    console.log('✅ Đã gửi Email thông báo khóa tài khoản tới: %s', toEmail);
+    if (!isSMTPConfigured) {
+      console.log('📩 Bấm vào Link này để XEM EMAIL (Ethereal): %s', nodemailer.getTestMessageUrl(info));
+    }
+    console.log('----------------------------------------------------');
+
+    return info;
+  } catch (error) {
+    console.error('Lỗi khi gửi email thông báo khóa tài khoản:', error);
+  }
+};

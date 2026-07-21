@@ -8,6 +8,7 @@ export interface ChatMessage {
   role: 'user' | 'model';
   content: string;
   timestamp: number;
+  suggestBooking?: boolean;
 }
 
 export function useAIChat() {
@@ -76,6 +77,7 @@ export function useAIChat() {
         role: 'model',
         content: response.data.reply,
         timestamp: Date.now(),
+        suggestBooking: response.data.suggestBooking === true,
       };
 
       const finalMessages = [...updatedMessages, replyMsg];

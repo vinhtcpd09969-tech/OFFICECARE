@@ -14,6 +14,7 @@ import {
   keepAliveAppointment as keepAliveAppointmentRec,
   resendEmail
 } from '../../../../receptionist/api/receptionist.api';
+import { CustomDatePicker } from '../../../../../components/CustomDatePicker';
 
 
 import { getInstallmentCutoffSession } from '../../../../../utils/billing';
@@ -1016,13 +1017,12 @@ export default function AppointmentDetailModal({
                   <label className="text-[10px] font-black text-slate-500 dark:text-zinc-400 uppercase tracking-wider block">
                     Chọn ngày mới
                   </label>
-                  <input 
-                    type="date"
-                    min={todayStr}
-                    max={maxDateStr}
+                  <CustomDatePicker 
                     value={rescheduleDate}
-                    onChange={(e) => setRescheduleDate(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-zinc-955 border border-slate-200 dark:border-zinc-850 rounded-2xl text-xs font-bold text-slate-800 dark:text-zinc-200 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer font-semibold shadow-inner"
+                    minDate={todayStr}
+                    maxDate={maxDateStr}
+                    onChange={(date) => setRescheduleDate(date)}
+                    buttonClassName="bg-slate-50 dark:bg-zinc-955 border border-slate-200 dark:border-zinc-850 text-slate-800 dark:text-zinc-200"
                   />
                 </div>
 

@@ -708,6 +708,10 @@ export default function ManageFinance() {
           onMethodChange={dashboard.setMethodFilter}
           dateFilter={dashboard.dateFilter}
           onDateChange={dashboard.setDateFilter}
+          startDate={dashboard.startDate}
+          onStartDateChange={dashboard.setStartDate}
+          endDate={dashboard.endDate}
+          onEndDateChange={dashboard.setEndDate}
         />
 
         {dashboard.activeTab === 'invoices' ? (

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowRight, Clock, Phone, Loader2, Info, TrendingUp, Activity, ShieldCheck } from 'lucide-react';
-import { getPublicPackages, getPublicCategories, getPublicSpecialists } from '../api/public.api';
+import { getPublicPackages, getPublicSpecialists } from '../api/public.api';
 import { resolveImageUrl } from '../../../utils/imageUrl';
 import toast from 'react-hot-toast';
 
@@ -18,13 +18,6 @@ interface Package {
   anh_goi?: string;
   anh_gallery?: string[];
   mo_ta?: string;
-  danh_muc_goi_id?: string;
-  danh_muc_id?: string;
-}
-
-interface Category {
-  id: string;
-  ten_danh_muc: string;
 }
 
 const getPrescribedTech = (name: string) => {
@@ -63,7 +56,6 @@ export default function PackageDetailPage() {
 
   const [loading, setLoading] = useState<boolean>(true);
   const [pkg, setPkg] = useState<Package | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [specialists, setSpecialists] = useState<any[]>([]);
   const [selectedImage, setSelectedImage] = useState<string>('');
 
@@ -71,15 +63,12 @@ export default function PackageDetailPage() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [resPkgs, resCats, resSpecs] = await Promise.all([
+        const [resPkgs, resSpecs] = await Promise.all([
           getPublicPackages(),
-          getPublicCategories(),
           getPublicSpecialists()
         ]);
 
         const fetchedPackages: Package[] = resPkgs.data || [];
-        const fetchedCategories: Category[] = resCats.data || [];
-        setCategories(fetchedCategories);
         setSpecialists(resSpecs.data || []);
 
         const foundPkg = fetchedPackages.find(p => p.id.toString() === id?.toString());
@@ -128,13 +117,6 @@ export default function PackageDetailPage() {
       </div>
     );
   }
-
-  const getCategoryName = (): string => {
-    const catId = pkg.danh_muc_goi_id || pkg.danh_muc_id;
-    if (!catId) return 'Liệu trình';
-    const cat = categories.find(c => c.id.toString() === catId.toString());
-    return cat ? cat.ten_danh_muc : 'Liệu trình';
-  };
 
   const formatPrice = (price: number | string | undefined): string => {
     if (price === undefined || price === null) return '';
@@ -228,7 +210,7 @@ export default function PackageDetailPage() {
               <div className="space-y-4">
                 <div className="flex flex-wrap gap-2 items-center">
                   <span className="bg-[#14B8A6]/10 text-[#0D9488] border border-primary/20 text-[9px] font-black uppercase tracking-wider px-3.5 py-1.5 rounded-full shadow-inner">
-                    {getCategoryName()}
+                    Liệu trình chuyên sâu
                   </span>
                   <div className="flex items-center gap-1.5 bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 px-3.5 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider shadow-xs">
                     <span className="size-1.5 bg-emerald-500 rounded-full"></span>

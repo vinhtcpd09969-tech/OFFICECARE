@@ -16,6 +16,8 @@ import {
   getPackagesForReceptionist,
   searchCustomers,
   getCustomerTreatmentPlans,
+  getCustomerRoster,
+  getCustomerHistory,
   getAppointmentBillingInfo,
   checkCustomerLimit,
   checkPackagePayment,
@@ -45,7 +47,9 @@ router.post('/vouchers/apply', applyVoucher);
 router.post('/billing/create', createBillingDirect);
 router.get('/packages', getPackagesForReceptionist);
 router.get('/customers/search', searchCustomers);
+router.get('/customers/roster', getCustomerRoster);
 router.get('/customers/:id/treatment-plans', getCustomerTreatmentPlans);
+router.get('/customers/:id/history', getCustomerHistory);
 router.get('/appointments/:id/billing-info', getAppointmentBillingInfo);
 router.get('/customers/:id/check-limit', checkCustomerLimit);
 router.get('/customers/:id/check-package-payment', checkPackagePayment);

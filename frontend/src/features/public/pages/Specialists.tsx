@@ -68,14 +68,14 @@ export default function Specialists() {
       <div className="max-w-7xl mx-auto px-6">
 
         {/* Centered Hero Header */}
-        <div className="mb-10 max-w-3xl mx-auto text-center">
-          <span className="bg-[#14B8A6]/10 text-[#0D9488] border border-[#14B8A6]/20 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full inline-block mb-3 shadow-sm">
-            ✨ ĐỘI NGŨ NHÂN SỰ Y KHOA
+        <div className="mb-10 max-w-3xl mx-auto text-center space-y-2">
+          <span className="bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 text-[10px] font-semibold tracking-wider px-3.5 py-1.5 rounded-full inline-block shadow-2xs">
+            Đội ngũ nhân sự y khoa
           </span>
-          <h1 className="font-heading font-black text-2xl md:text-3xl text-slate-900 tracking-tight leading-tight mb-3">
-            Đồng Hành Cùng <span className="bg-gradient-to-r from-[#0D9488] to-[#14B8A6] bg-clip-text text-transparent">Chuyên Gia</span>
+          <h1 className="font-heading font-bold text-2xl sm:text-3xl md:text-[34px] text-slate-900 tracking-normal leading-snug">
+            Đồng Hành Cùng <span className="text-[#0D9488]">Chuyên Gia Hàng Đầu</span>
           </h1>
-          <p className="text-slate-500 font-semibold text-xs md:text-sm leading-relaxed max-w-2xl mx-auto">
+          <p className="text-slate-600 font-normal text-xs md:text-sm leading-relaxed max-w-2xl mx-auto">
             Hội tụ các Bác sĩ chuyên khoa Phục hồi chức năng đầu ngành cùng đội ngũ Kỹ thuật viên trị liệu dày dặn kinh nghiệm, tận tâm và chuyên nghiệp.
           </p>
         </div>
@@ -133,12 +133,12 @@ export default function Specialists() {
                     </div>
 
                     <div className="flex-1 flex flex-col text-center">
-                      <span className={`text-[9px] font-black uppercase tracking-widest mb-1.5 ${
+                      <span className={`text-[9.5px] font-bold tracking-wider mb-1.5 ${
                         isDoctor ? 'text-[#0D9488]' : 'text-[#D97706]'
                       }`}>
                         {spec.vai_tro}
                       </span>
-                      <h3 className="font-heading font-black text-base text-slate-900 leading-tight mb-2">
+                      <h3 className="font-heading font-bold text-base text-slate-800 leading-tight mb-2">
                         {spec.ho_ten}
                       </h3>
 

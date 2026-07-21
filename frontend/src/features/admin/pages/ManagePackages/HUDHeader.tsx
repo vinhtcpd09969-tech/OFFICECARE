@@ -4,7 +4,6 @@ interface HUDHeaderProps {
   khamCount: number;
   leCount: number;
   lieuTrinhCount: number;
-  onOpenCategory: () => void;
   onOpenAddPackage: () => void;
 }
 
@@ -14,7 +13,6 @@ export function HUDHeader({
   khamCount,
   leCount,
   lieuTrinhCount,
-  onOpenCategory,
   onOpenAddPackage
 }: HUDHeaderProps) {
   return (
@@ -32,13 +30,6 @@ export function HUDHeader({
         </div>
         
         <div className="flex items-center gap-3">
-          <button
-            onClick={onOpenCategory}
-            className="bg-white hover:bg-slate-50 border border-zinc-255 active:scale-95 text-slate-705 px-5 py-2.5 rounded-xl font-heading text-xs font-bold tracking-wide transition-all shadow-sm flex items-center gap-2"
-          >
-            📂 QUẢN LÝ DANH MỤC
-          </button>
-
           <button
             onClick={onOpenAddPackage}
             className="bg-primary hover:bg-primary/90 hover:shadow-soft-button active:scale-95 text-white px-5 py-2.5 rounded-xl font-heading text-xs font-bold tracking-wide transition-all shadow-sm flex items-center gap-2"

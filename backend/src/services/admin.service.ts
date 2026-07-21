@@ -36,23 +36,6 @@ class AdminService {
     return adminRepository.deletePackage(id);
   }
 
-  // --- QUẢN LÝ DANH MỤC GÓI ---
-  async getCategories() {
-    return adminRepository.getCategories();
-  }
-
-  async createCategory(data: any) {
-    return adminRepository.createCategory(data);
-  }
-
-  async updateCategory(id: string, data: any) {
-    return adminRepository.updateCategory(id, data);
-  }
-
-  async deleteCategory(id: string) {
-    return adminRepository.deleteCategory(id);
-  }
-
   // --- QUẢN LÝ NHÂN SỰ ---
   async getStaff() {
     return adminRepository.getStaff();

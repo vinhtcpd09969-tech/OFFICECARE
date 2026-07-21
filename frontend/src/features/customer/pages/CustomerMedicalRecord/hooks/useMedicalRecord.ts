@@ -20,10 +20,6 @@ export function useMedicalRecord() {
       setLoading(true);
       const res = await getCustomerMedicalRecord();
       setData(res.data);
-
-      if (res.data?.goi_dieu_tri?.length > 0) {
-        setExpandedPackages({ [res.data.goi_dieu_tri[0].phac_do_id]: true });
-      }
     } catch (err) {
       console.error('Lỗi khi tải hồ sơ trị liệu:', err);
       toast.error('Không thể tải thông tin hồ sơ trị liệu.');

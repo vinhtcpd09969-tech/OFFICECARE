@@ -30,8 +30,8 @@ export default {
         'xxl': '48px',
       },
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
-        heading: ['Manrope', 'sans-serif'],
+        sans: ['Plus Jakarta Sans', 'Be Vietnam Pro', 'Inter', 'system-ui', 'sans-serif'],
+        heading: ['Plus Jakarta Sans', 'Be Vietnam Pro', 'Inter', 'sans-serif'],
         jakarta: ['Plus Jakarta Sans', 'sans-serif'],
       },
       borderRadius: {

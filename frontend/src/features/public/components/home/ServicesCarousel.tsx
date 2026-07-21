@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Clock, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import ScrollReveal from '../shared/ScrollReveal';
 import { getPublicTopServices } from '../../api/public.api';
@@ -59,14 +59,18 @@ export default function ServicesCarousel() {
   }
 
   return (
-    <section id="services" className="py-xxl bg-white border-b border-slate-100">
+    <section id="services" className="py-20 bg-slate-50/50 border-b border-slate-200/80">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <ScrollReveal>
-          <div className="text-center mb-12">
-            <h2 className="text-primary font-black tracking-widest uppercase text-xs mb-3 font-jakarta">Dịch vụ phục hồi</h2>
-            <h3 className="font-jakarta text-3xl md:text-4xl font-extrabold text-secondary mb-2">Dịch Vụ Nổi Bật Tại Phòng Khám</h3>
-            <p className="text-slate-500 font-medium text-sm md:text-base max-w-2xl mx-auto">
-              Các dịch vụ y khoa được tin dùng nhiều nhất của chúng tôi để giúp giải quyết nhanh cơn đau mỏi cơ xương khớp.
+          <div className="text-center mb-14 max-w-2xl mx-auto">
+            <span className="bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 font-semibold tracking-wider text-[10px] px-3.5 py-1.5 rounded-full inline-flex items-center gap-1.5 mb-2 shadow-2xs">
+              <Sparkles size={12} /> Dịch vụ phục hồi y khoa
+            </span>
+            <h3 className="font-heading font-bold text-2xl md:text-3xl text-slate-800 mb-2 tracking-normal">
+              Dịch Vụ Nổi Bật Tại OfficeCare
+            </h3>
+            <p className="text-slate-500 font-normal text-xs md:text-sm leading-relaxed">
+              Các dịch vụ y khoa được tin dùng nhiều nhất của chúng tôi giúp giải quyết nhanh cơn đau mỏi cơ xương khớp văn phòng.
             </p>
           </div>
         </ScrollReveal>
@@ -76,38 +80,45 @@ export default function ServicesCarousel() {
             {services.map((service, idx) => (
               <motion.div 
                 key={idx}
-                whileHover={{ y: -6, boxShadow: "0 20px 40px -15px rgba(0, 0, 0, 0.05)" }}
-                className="bg-[#F9FAFB] rounded-[32px] overflow-hidden group border border-slate-200/50 transition-all duration-300 flex flex-col justify-between"
+                whileHover={{ y: -6, boxShadow: "0 20px 40px -12px rgba(15, 23, 42, 0.06)" }}
+                className="bg-white rounded-3xl overflow-hidden group border border-slate-200/80 transition-all duration-300 flex flex-col justify-between shadow-2xs hover:border-teal-500/40"
               >
                 <div>
-                  <div className="h-48 md:h-56 overflow-hidden relative bg-slate-200">
+                  <div className="h-52 md:h-60 overflow-hidden relative bg-slate-100">
                     <img 
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 filter saturate-[1.05]" 
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
                       src={service.image} 
                       alt={service.title}
                     />
-                    <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm text-primary font-black text-[9px] uppercase tracking-wider px-2.5 py-1 rounded-full shadow-sm">
+                    <div className="absolute top-4 left-4 bg-slate-900/80 backdrop-blur-md text-white font-semibold text-[9.5px] tracking-wider px-3 py-1.5 rounded-xl shadow-md border border-white/10 flex items-center gap-1.5">
+                      <Clock size={11} className="text-teal-400" />
                       {service.duration}
                     </div>
                   </div>
-                  <div className="p-6 space-y-3">
-                    <h4 className="font-jakarta font-black text-lg text-secondary leading-snug">{service.title}</h4>
-                    <p className="font-jakarta text-xs text-slate-400 font-semibold leading-relaxed line-clamp-3">
+                  <div className="p-6 space-y-2.5">
+                    <span className="text-[10px] font-bold tracking-wider text-[#0D9488] block">
+                      {service.loai_goi === 'KHAM' ? 'Khám chuyên khoa' : service.loai_goi === 'LE' ? 'Trị liệu đơn' : 'Liệu trình phục hồi'}
+                    </span>
+                    <h4 className="font-heading font-bold text-base text-slate-800 leading-snug line-clamp-2">
+                      {service.title}
+                    </h4>
+                    <p className="font-normal text-xs text-slate-500 leading-relaxed line-clamp-3">
                       {service.desc}
                     </p>
                   </div>
                 </div>
+
                 <div className="p-6 pt-0 mt-2 border-t border-slate-100 flex items-center justify-between">
                   <div>
-                    <p className="text-[9px] uppercase font-bold text-slate-400">Chi phí</p>
-                    <span className="text-primary font-jakarta font-black text-sm">{service.price}</span>
+                    <p className="text-[9.5px] font-semibold text-slate-400">Chi phí điều trị</p>
+                    <span className="text-[#0D9488] font-heading font-bold text-base">{service.price}</span>
                   </div>
                   <button 
                     onClick={() => handleServiceClick(service)}
-                    className="text-xs font-black text-primary group-hover:underline flex items-center gap-1 cursor-pointer bg-transparent border-none outline-none"
+                    className="px-4 py-2 bg-teal-50 hover:bg-[#0D9488] text-[#0D9488] hover:text-white rounded-xl text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer border border-teal-500/20"
                   >
-                    {service.loai_goi === 'KHAM' ? 'Đăng ký khám' : service.loai_goi === 'LE' ? 'Đăng ký trị liệu' : 'Đặt lịch khám'} 
-                    <ArrowRight size={12} />
+                    <span>{service.loai_goi === 'KHAM' ? 'Đăng ký khám' : service.loai_goi === 'LE' ? 'Đăng ký trị liệu' : 'Đặt lịch khám'}</span>
+                    <ArrowRight size={13} />
                   </button>
                 </div>
               </motion.div>

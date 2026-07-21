@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Star } from 'lucide-react';
+import { Star, Award, ChevronRight, User } from 'lucide-react';
 import { motion } from 'framer-motion';
 import ScrollReveal from '../shared/ScrollReveal';
 import { getPublicSpecialists } from '../../api/public.api';
@@ -21,7 +21,6 @@ export default function Specialists() {
     async function fetchSpecialists() {
       try {
         const response = await getPublicSpecialists();
-        // Limit to top 3 specialists for the home page showcase
         setSpecialists(response.data.slice(0, 3));
       } catch (err) {
         console.error('Lỗi khi lấy danh sách chuyên gia:', err);
@@ -31,7 +30,6 @@ export default function Specialists() {
     }
     fetchSpecialists();
   }, []);
-
 
   const getRating = (id: number) => {
     const seed = (id * 7) % 5;
@@ -46,72 +44,92 @@ export default function Specialists() {
   }
 
   return (
-    <section className="py-xxl bg-slate-50/50 border-y border-slate-100">
+    <section className="py-20 bg-white border-b border-slate-200/80">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <ScrollReveal>
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <h2 className="text-primary font-black tracking-widest uppercase text-xs mb-3 font-jakarta">Đội ngũ của chúng tôi</h2>
-            <h3 className="font-jakarta text-3xl md:text-4xl font-extrabold text-secondary mb-4 leading-tight">Chuyên Gia Hàng Đầu</h3>
-            <div className="h-1.5 w-24 bg-primary mx-auto rounded-full"></div>
-            <p className="text-slate-500 font-medium text-sm md:text-base mt-4">
-              Đội ngũ y bác sĩ và kỹ thuật viên vật lý trị liệu có bằng cấp chuyên môn cao, hơn 10 năm kinh nghiệm đồng hành cùng bạn.
+          <div className="text-center max-w-2xl mx-auto mb-14">
+            <span className="bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 font-semibold tracking-wider text-[10px] px-3.5 py-1.5 rounded-full inline-flex items-center gap-1.5 mb-2 shadow-2xs">
+              <Award size={12} /> Đội ngũ y tế uy tín
+            </span>
+            <h3 className="font-heading font-bold text-2xl md:text-3xl text-slate-800 mb-2 tracking-normal">
+              Hội Đồng Chuyên Gia Hàng Đầu
+            </h3>
+            <p className="text-slate-500 font-normal text-xs md:text-sm leading-relaxed">
+              Các Bác sĩ chuyên khoa và Kỹ thuật viên trị liệu nhiều năm kinh nghiệm, luôn tận tâm đồng hành trong từng ca phục hồi.
             </p>
           </div>
         </ScrollReveal>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {specialists.map((specialist, idx) => (
-            <ScrollReveal key={specialist.id} delay={idx * 100}>
-              <motion.div 
-                whileHover={{ y: -6, boxShadow: "0 20px 40px -15px rgba(0, 0, 0, 0.05)" }}
-                className="bg-white rounded-[40px] p-6 shadow-sm border border-slate-100 transition-all duration-300 flex flex-col justify-between h-full"
-              >
-                <div>
-                  <div className="relative mb-6 rounded-[32px] overflow-hidden aspect-[4/3] bg-slate-200">
-                    <img 
-                      className="w-full h-full object-cover" 
-                      src={specialist.anh_dai_dien || "https://i.pravatar.cc/150?img=11"} 
-                      alt={specialist.ho_ten}
-                    />
-                    <div className="absolute bottom-4 left-4 bg-primary text-white px-3 py-1.5 rounded-full font-jakarta text-[10px] font-black flex items-center gap-1 shadow-sm">
-                      <Star size={11} fill="white" /> {getRating(specialist.id)}
+          {specialists.map((specialist, idx) => {
+            const isDoctor = specialist.vai_tro.toLowerCase().includes('bác sĩ') || specialist.vai_tro.toLowerCase().includes('doctor');
+            return (
+              <ScrollReveal key={specialist.id} delay={idx * 100}>
+                <motion.div 
+                  whileHover={{ y: -6, boxShadow: "0 20px 40px -12px rgba(15, 23, 42, 0.06)" }}
+                  className="bg-white rounded-3xl p-6 shadow-2xs border border-slate-200/80 transition-all duration-300 flex flex-col justify-between h-full hover:border-teal-500/40 group"
+                >
+                  <div>
+                    <div className="relative mb-5 rounded-2xl overflow-hidden aspect-[4/3] bg-slate-100 border border-slate-200/60">
+                      {specialist.anh_dai_dien ? (
+                        <img 
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                          src={specialist.anh_dai_dien} 
+                          alt={specialist.ho_ten}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-slate-100 text-slate-300">
+                          <User size={48} strokeWidth={1.5} />
+                        </div>
+                      )}
+                      <div className="absolute bottom-3 left-3 bg-slate-900/80 backdrop-blur-md text-white px-3 py-1 rounded-xl text-[9.5px] font-semibold flex items-center gap-1 shadow-md border border-white/10">
+                        <Star size={11} className="fill-amber-400 text-amber-400" />
+                        <span>{getRating(specialist.id)}</span>
+                      </div>
+                    </div>
+
+                    <span className={`text-[10px] font-bold tracking-wider block mb-1 ${
+                      isDoctor ? 'text-[#0D9488]' : 'text-amber-600'
+                    }`}>
+                      {specialist.vai_tro} • {specialist.so_nam_kinh_nghiem ? `${specialist.so_nam_kinh_nghiem} năm kinh nghiệm` : 'Chuyên gia y tế'}
+                    </span>
+
+                    <h4 className="font-heading font-bold text-base md:text-lg text-slate-800 mb-2 leading-snug">
+                      {specialist.ho_ten}
+                    </h4>
+                    
+                    <div className="flex flex-wrap gap-1.5 mb-6">
+                      {isDoctor ? (
+                        <>
+                          <span className="px-2.5 py-0.5 bg-teal-50 text-[#0D9488] font-semibold text-[9.5px] rounded-md border border-teal-500/15">#Cột_sống</span>
+                          <span className="px-2.5 py-0.5 bg-teal-50 text-[#0D9488] font-semibold text-[9.5px] rounded-md border border-teal-500/15">#Cơ_xương_khớp</span>
+                          <span className="px-2.5 py-0.5 bg-teal-50 text-[#0D9488] font-semibold text-[9.5px] rounded-md border border-teal-500/15">#Lượng_giá</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="px-2.5 py-0.5 bg-amber-50 text-amber-700 font-semibold text-[9.5px] rounded-md border border-amber-500/15">#Trị_liệu_tay</span>
+                          <span className="px-2.5 py-0.5 bg-amber-50 text-amber-700 font-semibold text-[9.5px] rounded-md border border-amber-500/15">#Giải_cơ_sâu</span>
+                          <span className="px-2.5 py-0.5 bg-amber-50 text-amber-700 font-semibold text-[9.5px] rounded-md border border-amber-500/15">#Vật_lý_trị_liệu</span>
+                        </>
+                      )}
                     </div>
                   </div>
-                  <h4 className="font-jakarta font-black text-lg text-secondary mb-0.5">{specialist.ho_ten}</h4>
-                  <p className="font-jakarta text-[11px] text-primary font-bold mb-3">
-                    {specialist.vai_tro} • {specialist.so_nam_kinh_nghiem ? `${specialist.so_nam_kinh_nghiem} năm kinh nghiệm` : 'Chuyên gia'}
-                  </p>
-                  
-                  <div className="flex flex-wrap gap-1.5 mb-5">
-                    {specialist.vai_tro.toLowerCase().includes('bác sĩ') ? (
-                      <>
-                        <span className="px-2.5 py-0.5 bg-slate-50 text-slate-500 font-jakarta text-[9px] font-extrabold rounded-full border border-slate-100">#Cột_sống</span>
-                        <span className="px-2.5 py-0.5 bg-slate-50 text-slate-500 font-jakarta text-[9px] font-extrabold rounded-full border border-slate-100">#Cơ_xương_khớp</span>
-                        <span className="px-2.5 py-0.5 bg-slate-50 text-slate-500 font-jakarta text-[9px] font-extrabold rounded-full border border-slate-100">#Lượng_giá</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="px-2.5 py-0.5 bg-slate-50 text-slate-500 font-jakarta text-[9px] font-extrabold rounded-full border border-slate-100">#Trị_liệu_tay</span>
-                        <span className="px-2.5 py-0.5 bg-slate-50 text-slate-500 font-jakarta text-[9px] font-extrabold rounded-full border border-slate-100">#Giải_cơ_sâu</span>
-                        <span className="px-2.5 py-0.5 bg-slate-50 text-slate-500 font-jakarta text-[9px] font-extrabold rounded-full border border-slate-100">#Vật_lý_trị_liệu</span>
-                      </>
-                    )}
-                  </div>
-                </div>
 
-                <Link 
-                  to="/booking" 
-                  state={{ 
-                    selectedDoctorId: specialist.id,
-                    isKtv: !(specialist.vai_tro.toLowerCase().includes('bác sĩ') || specialist.vai_tro.toLowerCase().includes('doctor'))
-                  }}
-                  className="w-full block text-center py-2.5 font-jakarta font-extrabold border border-primary text-primary hover:bg-primary hover:text-white rounded-xl transition-all text-xs cursor-pointer"
-                >
-                  Đặt lịch
-                </Link>
-              </motion.div>
-            </ScrollReveal>
-          ))}
+                  <Link 
+                    to="/booking" 
+                    state={{ 
+                      selectedDoctorId: specialist.id,
+                      isKtv: !isDoctor
+                    }}
+                    className="w-full text-center py-3 bg-[#0D9488] hover:bg-[#0B7A70] text-white font-bold rounded-xl transition-all text-xs cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
+                  >
+                    <span>Đặt lịch khám với chuyên gia</span>
+                    <ChevronRight size={13} />
+                  </Link>
+                </motion.div>
+              </ScrollReveal>
+            );
+          })}
         </div>
       </div>
     </section>

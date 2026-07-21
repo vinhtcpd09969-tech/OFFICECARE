@@ -3,7 +3,6 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from '../layouts/ProtectedRoute';
 import { RootRedirect } from '../layouts/RootRedirect';
 import LoadingScreen from '../components/LoadingScreen';
-import AIChatBubble from '../features/chat/components/AIChatBubble';
 
 // --- Shared Layouts (Kept synchronous to avoid unnecessary flashes/unmounts during transition) ---
 import LandingLayout from '../layouts/LandingLayout';
@@ -55,6 +54,7 @@ const ManageArticles = lazy(() => import('../features/admin/pages/ManageArticles
 // Receptionist Feature
 const ReceptionistAppointments = lazy(() => import('../features/receptionist/pages/ReceptionistAppointments/index'));
 const QuickBilling = lazy(() => import('../features/receptionist/pages/QuickBilling/index'));
+const CustomerDirectory = lazy(() => import('../features/receptionist/pages/CustomerDirectory/index'));
 
 // Technician Feature
 const TechnicianAppointments = lazy(() => import('../features/technician/pages/TechnicianAppointments/index'));
@@ -83,11 +83,11 @@ export default function AppRoutes() {
           <Route path="/gioi-thieu" element={<AboutUs />} />
           <Route path="/dieu-khoan-dich-vu" element={<TermsOfService />} />
         </Route>
-        
+
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
-        
+
         <Route element={<ProtectedRoute allowedRoles={[1, 0]} />}>
           <Route element={<DashboardLayout />}>
             <Route path="/dashboard" element={<Navigate to="/appointments" replace />} />
@@ -133,6 +133,7 @@ export default function AppRoutes() {
           <Route element={<AdminLayout />}>
             <Route path="/receptionist" element={<Navigate to="/receptionist/appointments" replace />} />
             <Route path="/receptionist/appointments" element={<ReceptionistAppointments />} />
+            <Route path="/receptionist/customers" element={<CustomerDirectory />} />
             <Route path="/receptionist/billing" element={<QuickBilling />} />
             <Route path="/receptionist/schedules" element={<DoctorSchedules />} />
             <Route path="/receptionist/settings" element={<CustomerSettings />} />
@@ -144,6 +145,7 @@ export default function AppRoutes() {
           <Route element={<AdminLayout />}>
             <Route path="/technician/appointments" element={<TechnicianAppointments />} />
             <Route path="/technician/appointments/:id/assess" element={<ClinicalAssessment />} />
+            <Route path="/technician/desk" element={<ClinicalAssessment />} />
             <Route path="/technician/medical-records" element={<DoctorMedicalRecords />} />
             <Route path="/technician/schedules" element={<DoctorSchedules />} />
             <Route path="/technician/settings" element={<CustomerSettings />} />
@@ -156,13 +158,13 @@ export default function AppRoutes() {
             <Route path="/doctor" element={<Navigate to="/doctor/appointments" replace />} />
             <Route path="/doctor/appointments" element={<DoctorAppointments />} />
             <Route path="/doctor/appointments/:id/assess" element={<ClinicalAssessment />} />
+            <Route path="/doctor/desk" element={<ClinicalAssessment />} />
             <Route path="/doctor/medical-records" element={<DoctorMedicalRecords />} />
             <Route path="/doctor/schedules" element={<DoctorSchedules />} />
             <Route path="/doctor/settings" element={<CustomerSettings />} />
           </Route>
         </Route>
       </Routes>
-      <AIChatBubble />
     </Suspense>
   );
 }

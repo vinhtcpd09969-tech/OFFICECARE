@@ -66,9 +66,25 @@ export function useCustomerActions(onChanged: () => void) {
       toast.success(lockTarget.isLocked ? 'Đã khóa tài khoản khách hàng thành công' : 'Đã mở khóa tài khoản khách hàng thành công');
       setLockTarget(null);
       onChanged();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to toggle customer lock:', error);
-      toast.error('Có lỗi xảy ra khi thực hiện thao tác.');
+      setLockTarget(null);
+      toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi thực hiện thao tác.', {
+        style: {
+          background: '#E11D48',
+          color: '#FFFFFF',
+          fontWeight: 700,
+          fontSize: '13px',
+          borderRadius: '16px',
+          padding: '12px 16px',
+          boxShadow: '0 20px 25px -5px rgba(225, 29, 72, 0.3)'
+        },
+        iconTheme: {
+          primary: '#FFFFFF',
+          secondary: '#E11D48',
+        },
+        duration: 6000,
+      });
     }
   };
 

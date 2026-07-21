@@ -31,15 +31,14 @@ export const PAYMENT_TYPE_OPTIONS = [
 ];
 
 export const INVOICE_TYPE_OPTIONS = [
-  { value: 'goi', label: 'Gói điều trị' },
-  { value: 'kham_lam_sang', label: 'Khám lâm sàng' },
-  { value: 'buoi_le', label: 'Buổi trị liệu lẻ' },
+  { value: '100', label: '100% (Trả thẳng / Khám & Dịch vụ lẻ)' },
+  { value: '50', label: '50% (Trả góp đợt 1 gói liệu trình)' },
+  { value: 'tung_buoi', label: 'Từng buổi (Thanh toán theo ca lẻ)' },
 ];
 
 export const PAYMENT_METHOD_OPTIONS = [
   { value: 'tien_mat', label: 'Tiền mặt' },
   { value: 'chuyen_khoan', label: 'Chuyển khoản' },
-  { value: 'the', label: 'Thẻ / POS' },
 ];
 
 export const DATE_FILTER_OPTIONS = [

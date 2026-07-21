@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, Plus } from 'lucide-react';
+import { AlertTriangle, Plus, Sun, Sunset, Moon, UserX } from 'lucide-react';
 import { Schedule, Staff, WeekDate } from '../types';
 import { getAvatarInitials } from '../constants';
 
@@ -35,29 +35,34 @@ export function SchedulesGrid({
       c.dowLabel === (weekDates.find(d => d.fullDateStr === sched.ngay)?.label || sched.ngay)
     );
     
-    let label = 'Sáng'; 
-    let colorClass = 'bg-emerald-50 text-emerald-700 border-emerald-250 cursor-pointer hover:border-emerald-450';
+    let label = 'Ca Sáng'; 
+    let colorClass = 'bg-gradient-to-r from-teal-50 to-emerald-50 text-emerald-800 border-teal-200/80 hover:border-teal-400 hover:shadow-xs';
+    let ShiftIcon = Sun;
+    let iconColor = 'text-amber-500';
     
     if (sched.trang_thai === 'tam_nghi') {
       label = 'Nghỉ phép'; 
-      colorClass = 'bg-rose-50 text-rose-600 border-rose-200 cursor-pointer hover:border-rose-400';
+      colorClass = 'bg-rose-50/80 text-rose-700 border-rose-200 hover:border-rose-350';
+      ShiftIcon = UserX;
+      iconColor = 'text-rose-500';
     } else {
       const hour = parseInt(sched.gio_bat_dau.split(':')[0]);
       if (hour >= 11 && hour < 16) {
-        label = 'Chiều'; 
-        colorClass = 'bg-sky-50 text-sky-700 border-sky-200 cursor-pointer hover:border-sky-400';
+        label = 'Ca Chiều'; 
+        colorClass = 'bg-gradient-to-r from-sky-50 to-indigo-50 text-indigo-800 border-indigo-200/80 hover:border-indigo-400 hover:shadow-xs';
+        ShiftIcon = Sunset;
+        iconColor = 'text-indigo-500';
       } else if (hour >= 16) {
-        label = 'Tối'; 
-        colorClass = 'bg-amber-50 text-amber-700 border-amber-200 cursor-pointer hover:border-amber-400';
+        label = 'Ca Tối'; 
+        colorClass = 'bg-gradient-to-r from-amber-50 to-orange-50 text-amber-800 border-amber-200/80 hover:border-amber-400 hover:shadow-xs';
+        ShiftIcon = Moon;
+        iconColor = 'text-amber-600';
       }
     }
 
     if (isConflict && sched.trang_thai !== 'tam_nghi') {
-      colorClass = 'bg-rose-100 text-rose-800 border-rose-350 border-dashed cursor-pointer hover:border-rose-500';
-      label = `Trùng ca ${label}`;
-    }
-    if (sched.trang_thai !== 'tam_nghi' && sched.ma_phong) {
-      label = `${label} (${sched.ma_phong})`;
+      colorClass = 'bg-rose-100/90 text-rose-800 border-rose-300 border-dashed animate-pulse hover:border-rose-500';
+      label = `Trùng ca (${label})`;
     }
 
     const isPastDate = sched.ngay < todayDateStr;
@@ -66,11 +71,17 @@ export function SchedulesGrid({
       return (
         <div 
           key={sched.id} 
-          className="text-[11px] font-semibold border border-gray-200 px-1.5 py-1 rounded-md text-center mb-1 shadow-sm transition-all bg-gray-50 text-gray-400 cursor-not-allowed select-none opacity-85"
+          className="text-[11px] font-bold border border-slate-200/60 p-1.5 rounded-xl text-center mb-1.5 shadow-xs bg-slate-50 text-slate-400 cursor-not-allowed select-none opacity-75 flex flex-col items-center gap-0.5"
         >
-          <div className="uppercase tracking-wider">{label}</div>
+          <div className="flex items-center gap-1">
+            <ShiftIcon size={12} className="opacity-60" />
+            <span className="uppercase tracking-wider font-extrabold text-[10px]">{label}</span>
+          </div>
           {sched.trang_thai !== 'tam_nghi' && (
-            <div className="opacity-80 mt-0.5">({sched.gio_bat_dau.slice(0, 5)}-{sched.gio_ket_thuc.slice(0, 5)})</div>
+            <div className="flex items-center gap-1 text-[9.5px]">
+              {sched.ma_phong && <span className="bg-slate-200 px-1 py-0.2 rounded text-[8.5px] font-black text-slate-600">{sched.ma_phong}</span>}
+              <span>{sched.gio_bat_dau.slice(0, 5)}-{sched.gio_ket_thuc.slice(0, 5)}</span>
+            </div>
           )}
         </div>
       );
@@ -80,11 +91,22 @@ export function SchedulesGrid({
       <div 
         key={sched.id} 
         onClick={(e) => { e.stopPropagation(); onOpenEditModal(sched); }}
-        className={`text-[11px] font-semibold border px-1.5 py-1 rounded-md text-center mb-1 shadow-sm transition-all ${colorClass}`}
+        className={`text-[11px] font-bold border p-1.5 rounded-xl text-center mb-1.5 shadow-2xs transition-all cursor-pointer flex flex-col items-center gap-0.5 ${colorClass}`}
+        title={`Click để chỉnh sửa ca trực (${sched.gio_bat_dau.slice(0, 5)} - ${sched.gio_ket_thuc.slice(0, 5)})`}
       >
-        <div className="uppercase tracking-wider">{label}</div>
+        <div className="flex items-center gap-1">
+          <ShiftIcon size={12} className={iconColor} />
+          <span className="uppercase tracking-wider font-extrabold text-[10px]">{label}</span>
+        </div>
         {sched.trang_thai !== 'tam_nghi' && (
-          <div className="opacity-80 mt-0.5">({sched.gio_bat_dau.slice(0, 5)}-{sched.gio_ket_thuc.slice(0, 5)})</div>
+          <div className="flex items-center gap-1 text-[9.5px] mt-0.5">
+            {sched.ma_phong && (
+              <span className="bg-white/80 dark:bg-zinc-800 px-1.5 py-0.2 rounded-md text-[8.5px] font-black text-teal-800 border border-teal-150 shadow-2xs">
+                {sched.ma_phong}
+              </span>
+            )}
+            <span className="opacity-90 font-mono">{sched.gio_bat_dau.slice(0, 5)}-{sched.gio_ket_thuc.slice(0, 5)}</span>
+          </div>
         )}
       </div>
     );

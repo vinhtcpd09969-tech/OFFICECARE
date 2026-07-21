@@ -1,117 +1,221 @@
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Calendar, ArrowRight, ShieldCheck } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Calendar, ArrowRight, ChevronLeft, ChevronRight, Activity } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import LazyImage from '../../../../components/LazyImage';
 import ScrollReveal from '../shared/ScrollReveal';
 
+const HERO_SLIDES = [
+  {
+    id: 1,
+    tag: 'Lượng giá chuyên sâu',
+    title: 'Thăm Khám & Lượng Giá Lâm Sàng 1:1 Với Bác Sĩ CKI',
+    subtitle: 'Đánh giá tầm vận động khớp và siêu âm chẩn đoán chính xác vị trí cơ xương khớp tổn thương.',
+    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuChY7AW6ev6J87eZLl2o4MoOD8BnBBtnPFSB4sYKHKTosht_wFuKieK_jt9CtkyD3kA167GUk8Yv-tUkVT4HN7Y30l1-IvGzK21MPHz2SivO1OybUi6n3NCCiMObQuKtnx2j3jPLLy02O1zGNlbH6Q2vUq-MIs7udDukLlJ6rq88bk56Zx9KQdrvKpHKuGS5t8GE28Cpn03TTkqWiO84_J2E0tCuwpNunaAl4gqM19_WXyeqvQDPUdzHpThmQ9l73Ch6AY7CGkNuv8',
+    badge: 'Phác Đồ Cá Nhân Hóa'
+  },
+  {
+    id: 2,
+    tag: 'Công nghệ tiên tiến',
+    title: 'Trị Liệu Sóng Xung Kích & Laser Cường Độ Cao 30W',
+    subtitle: 'Phá vỡ mô xơ hóa, giảm co thắt cơ và đẩy nhanh phục hồi tái tạo tế bào.',
+    image: '/goi/images/laser_tri_lieu.png',
+    badge: 'Đạt Chuẩn FDA Hoa Kỳ'
+  },
+  {
+    id: 3,
+    tag: 'Kỹ thuật chuyên khoa',
+    title: 'Giải Phóng Cơ Mô Mềm Tận Gốc Điểm Đau (Trigger Points)',
+    subtitle: 'Kỹ thuật viên chính quy đứng máy kết hợp thao tác nắn chỉnh di động khớp thủ công.',
+    image: '/goi/images/giai_co_sau.png',
+    badge: '+15.000 Ca Hồi Phục'
+  }
+];
+
+const SYMPTOM_TAGS = [
+  { label: 'Đau cổ vai gáy', type: 'kham' },
+  { label: 'Đau thắt lưng & thoát vị', type: 'dich_vu' },
+  { label: 'Đau mỏi khớp gối', type: 'dich_vu' },
+  { label: 'Tê bì tay chân', type: 'kham' },
+  { label: 'Khám lượng giá cột sống', type: 'kham' }
+];
+
 export default function Hero() {
   const navigate = useNavigate();
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSlide(prev => (prev + 1) % HERO_SLIDES.length);
+    }, 5500);
+    return () => clearInterval(timer);
+  }, []);
+
+  const prevSlide = () => {
+    setCurrentSlide(prev => (prev - 1 + HERO_SLIDES.length) % HERO_SLIDES.length);
+  };
+
+  const nextSlide = () => {
+    setCurrentSlide(prev => (prev + 1) % HERO_SLIDES.length);
+  };
 
   return (
-    <section className="relative pt-24 pb-8 lg:pt-28 lg:pb-12 overflow-hidden flex items-center bg-gradient-to-b from-teal-55/20 via-white to-slate-50/50">
-      {/* Decorative Blur Spheres */}
-      <div className="absolute top-1/4 left-10 w-72 h-72 bg-primary/5 rounded-full filter blur-3xl pointer-events-none"></div>
-      <div className="absolute bottom-10 right-10 w-96 h-96 bg-primary/5 rounded-full filter blur-3xl pointer-events-none"></div>
+    <section className="relative pt-24 pb-12 lg:pt-28 lg:pb-16 bg-gradient-to-b from-teal-500/10 via-white to-slate-50/70 overflow-hidden font-sans">
+      {/* Decorative Subtle Background Aura */}
+      <div className="absolute top-10 left-1/4 w-96 h-96 bg-teal-400/10 rounded-full filter blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-4 right-10 w-[450px] h-[450px] bg-[#2EC4B6]/10 rounded-full filter blur-[120px] pointer-events-none" />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full">
-        {/* Hero Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
           
           {/* Left Text Column */}
-          <div className="lg:col-span-7 space-y-4 lg:space-y-5 text-left">
+          <div className="lg:col-span-6 space-y-4 text-left">
             <ScrollReveal delay={100}>
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary font-extrabold text-[10px] uppercase tracking-wider shadow-sm border border-primary/5">
-                ⚡ Hệ thống trị liệu cơ xương khớp văn phòng
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/10 text-[#0D9488] font-semibold text-xs border border-teal-500/20 shadow-2xs">
+                <span className="size-2 rounded-full bg-[#0D9488] animate-pulse" />
+                <span>Hệ thống phục hồi chức năng cơ xương khớp văn phòng</span>
               </div>
             </ScrollReveal>
             
             <ScrollReveal delay={200}>
-              <h1 className="font-jakarta text-3xl md:text-4xl lg:text-5xl font-black text-secondary leading-[1.15] tracking-tight">
-                Ngồi 8 tiếng, đau lưng cổ vai? <br />
-                <span className="text-primary">Trị liệu chuyên sâu</span> cùng chuyên gia.
+              <h1 className="font-heading font-bold text-2xl sm:text-3xl md:text-[34px] text-slate-900 leading-[1.3] tracking-normal">
+                Giải Pháp Phục Hồi Cột Sống Cổ Vai Gáy <br className="hidden sm:inline" />
+                <span className="bg-gradient-to-r from-[#0D9488] to-[#14B8A6] bg-clip-text text-transparent font-bold">
+                  Chuẩn Y Khoa Toàn Diện
+                </span>
               </h1>
             </ScrollReveal>
 
             <ScrollReveal delay={300}>
-              <p className="text-slate-500 text-xs md:text-sm leading-relaxed font-semibold max-w-xl">
-                Giải pháp phục hồi cột sống hiệu quả và an toàn. Nơi kết hợp hoàn hảo giữa công nghệ trị liệu cơ xương khớp tiên tiến nhất và phác đồ điều trị cá nhân hóa.
+              <p className="text-slate-600 text-xs md:text-sm leading-relaxed font-normal max-w-lg">
+                Thăm khám 1:1 cùng Bác sĩ chuyên khoa, trị liệu chuẩn phác đồ y tế kết hợp công nghệ sóng Châu Âu giúp giải phóng đau mỏi an toàn không dùng thuốc.
               </p>
             </ScrollReveal>
 
-            {/* Premium Compact Buttons */}
+            {/* Standardized Call-To-Action Buttons */}
             <ScrollReveal delay={400}>
-              <div className="flex flex-wrap gap-3 pt-1">
+              <div className="flex flex-wrap items-center gap-3 pt-1">
                 <Link 
                   to="/booking" 
-                  className="px-6 py-3 bg-primary hover:bg-[#25A89C] text-white font-jakarta font-extrabold rounded-xl shadow-md hover:scale-[1.02] active:scale-98 transition-all text-xs cursor-pointer flex items-center gap-1.5"
+                  className="px-6 py-3.5 bg-[#0D9488] hover:bg-[#0B7A70] text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all text-xs cursor-pointer flex items-center gap-2"
                 >
-                  <Calendar size={14} />
-                  Đặt lịch ngay
+                  <Calendar size={15} />
+                  <span>Đặt Lịch Khám Bác Sĩ</span>
                 </Link>
                 <button 
                   onClick={() => navigate('/services')}
-                  className="px-6 py-3 border-2 border-[#2EC4B6]/20 hover:border-[#2EC4B6]/40 text-[#0D9488] font-jakarta font-extrabold rounded-xl hover:bg-[#14B8A6]/5 hover:scale-[1.02] active:scale-98 transition-all text-xs cursor-pointer flex items-center gap-1.5"
+                  className="px-6 py-3.5 bg-white border border-slate-200 hover:border-teal-500/50 text-slate-700 hover:text-[#0D9488] font-bold rounded-xl transition-all text-xs cursor-pointer flex items-center gap-2 shadow-2xs"
                 >
-                  Khám phá dịch vụ
-                  <ArrowRight size={12} />
+                  <span>Xem Chi Tiết Dịch Vụ</span>
+                  <ArrowRight size={14} />
                 </button>
               </div>
             </ScrollReveal>
 
-            {/* Social Proof Review Snippet */}
+            {/* Medical Metrics Row */}
             <ScrollReveal delay={500}>
-              <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500 pt-2 border-t border-slate-100 w-fit">
-                <div className="flex text-amber-500 text-xs">
-                  <span>★</span>
-                  <span>★</span>
-                  <span>★</span>
-                  <span>★</span>
-                  <span>★</span>
+              <div className="pt-5 border-t border-slate-200/80 grid grid-cols-3 gap-4 text-left">
+                <div>
+                  <p className="text-lg font-bold text-slate-900 font-heading">+15.000</p>
+                  <p className="text-[10px] text-slate-500 font-normal">Bệnh nhân đã điều trị</p>
                 </div>
-                <span>4.9/5 (1,200+ bệnh nhân đã phục hồi thành công)</span>
+                <div>
+                  <p className="text-lg font-bold text-[#0D9488] font-heading">4.9 / 5.0</p>
+                  <p className="text-[10px] text-slate-500 font-normal">Đánh giá hài lòng</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold text-slate-900 font-heading">100%</p>
+                  <p className="text-[10px] text-slate-500 font-normal">Bác sĩ CKI lượng giá 1:1</p>
+                </div>
               </div>
             </ScrollReveal>
           </div>
 
-          {/* Right Visual Image Column */}
-          <div className="lg:col-span-5 relative mt-4 lg:mt-0 flex justify-center">
-            <div className="relative max-w-[380px] w-full px-4">
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.95, rotate: 0 }}
-                animate={{ opacity: 1, scale: 1, rotate: 2 }}
-                transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
-                whileHover={{ rotate: 0, scale: 1.02 }}
-                className="bg-primary-container/40 rounded-[32px] p-3 shadow-lg border border-primary/10 transition-transform duration-500 cursor-pointer"
-              >
-                <div className="relative rounded-[24px] overflow-hidden aspect-[4/3] w-full shadow-inner bg-slate-100">
+          {/* Right Banner Slider Container */}
+          <div className="lg:col-span-6 relative mt-4 lg:mt-0">
+            <div className="relative rounded-[28px] overflow-hidden shadow-xl border border-white/80 bg-white aspect-[16/11]">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={currentSlide}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.4 }}
+                  className="relative w-full h-full"
+                >
                   <LazyImage 
-                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuChY7AW6ev6J87eZLl2o4MoOD8BnBBtnPFSB4sYKHKTosht_wFuKieK_jt9CtkyD3kA167GUk8Yv-tUkVT4HN7Y30l1-IvGzK21MPHz2SivO1OybUi6n3NCCiMObQuKtnx2j3jPLLy02O1zGNlbH6Q2vUq-MIs7udDukLlJ6rq88bk56Zx9KQdrvKpHKuGS5t8GE28Cpn03TTkqWiO84_J2E0tCuwpNunaAl4gqM19_WXyeqvQDPUdzHpThmQ9l73Ch6AY7CGkNuv8" 
-                    alt="Office Care Premium Clinic" 
-                    className="size-full object-cover"
-                    wrapperClassName="size-full"
+                    src={HERO_SLIDES[currentSlide].image} 
+                    alt={HERO_SLIDES[currentSlide].title} 
+                    className="w-full h-full object-cover"
+                    wrapperClassName="w-full h-full"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-secondary/80 via-transparent to-transparent opacity-50"></div>
-                  <div className="absolute bottom-3 left-3 right-3 bg-white/10 backdrop-blur-md border border-white/20 p-2.5 rounded-xl text-white">
-                    <p className="text-[8px] uppercase font-bold text-primary-container mb-0.5 tracking-wider font-jakarta">Không gian điều trị</p>
-                    <h4 className="text-[10px] font-bold leading-snug font-jakarta">Phòng khám hiện đại, riêng tư mang lại sự thư giãn tuyệt đối</h4>
-                  </div>
-                </div>
-              </motion.div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/20 to-transparent" />
 
-              {/* Floating Verified Badge */}
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.6 }}
-                className="absolute -bottom-4 -left-1 glass-card p-3 rounded-2xl shadow-md hover:shadow-lg max-w-[160px] border border-white/40"
+                  {/* Banner Content Overlay */}
+                  <div className="absolute bottom-0 left-0 right-0 p-6 text-white text-left space-y-1.5">
+                    <span className="bg-[#0D9488] text-white text-[9.5px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider inline-block">
+                      {HERO_SLIDES[currentSlide].badge}
+                    </span>
+                    <h3 className="font-heading font-bold text-base md:text-lg leading-snug">
+                      {HERO_SLIDES[currentSlide].title}
+                    </h3>
+                    <p className="text-xs text-slate-200 font-normal line-clamp-2">
+                      {HERO_SLIDES[currentSlide].subtitle}
+                    </p>
+                  </div>
+                </motion.div>
+              </AnimatePresence>
+
+              {/* Slider Navigation Arrows */}
+              <button
+                type="button"
+                onClick={prevSlide}
+                className="absolute left-3 top-1/2 -translate-y-1/2 size-9 rounded-full bg-slate-900/40 hover:bg-slate-900/70 backdrop-blur-md text-white flex items-center justify-center transition-colors cursor-pointer border border-white/20"
               >
-                <div className="flex items-center gap-1.5 mb-1">
-                  <ShieldCheck className="text-primary animate-pulse" size={16} />
-                  <span className="font-jakarta font-bold text-[9px] uppercase text-primary tracking-wider">Chuẩn Y Khoa</span>
-                </div>
-                <p className="font-jakarta text-[10px] text-secondary/80 leading-relaxed font-bold">Phác đồ cá nhân hóa từ chuyên gia.</p>
-              </motion.div>
+                <ChevronLeft size={18} />
+              </button>
+              <button
+                type="button"
+                onClick={nextSlide}
+                className="absolute right-3 top-1/2 -translate-y-1/2 size-9 rounded-full bg-slate-900/40 hover:bg-slate-900/70 backdrop-blur-md text-white flex items-center justify-center transition-colors cursor-pointer border border-white/20"
+              >
+                <ChevronRight size={18} />
+              </button>
+
+              {/* Slide Indicators */}
+              <div className="absolute top-4 right-4 flex items-center gap-1.5 z-10">
+                {HERO_SLIDES.map((_, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setCurrentSlide(idx)}
+                    className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                      currentSlide === idx ? 'w-6 bg-[#0D9488]' : 'w-2 bg-white/50'
+                    }`}
+                  />
+                ))}
+              </div>
             </div>
+          </div>
+        </div>
+
+        {/* Symptoms Quick Action Bar */}
+        <div className="mt-12 p-4 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-wrap items-center justify-between gap-3 text-left">
+          <div className="flex items-center gap-2">
+            <Activity size={16} className="text-[#0D9488]" />
+            <span className="text-xs font-bold text-slate-800">Bạn đang bị đau vị trí nào?</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {SYMPTOM_TAGS.map((tag, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => navigate('/booking', { state: { bookingType: tag.type } })}
+                className="px-3.5 py-1.5 bg-slate-50 hover:bg-teal-50 hover:text-[#0D9488] text-slate-600 rounded-xl text-xs font-semibold border border-slate-200 transition-all cursor-pointer"
+              >
+                {tag.label}
+              </button>
+            ))}
           </div>
         </div>
       </div>

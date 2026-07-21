@@ -18,3 +18,16 @@ export const getPackages = () => api.get('/admin/packages');
 export const getRooms = () => api.get('/admin/rooms');
 export const getSchedules = () => api.get('/admin/schedules');
 export const getCustomers = () => api.get('/admin/customers');
+
+// Customer directory (rút gọn cho Lễ tân — xem lịch sử, không xem lâm sàng, không sửa/khóa)
+export const getCustomerRoster = (params: {
+  page: number;
+  pageSize: number;
+  search?: string;
+  trangThaiGoi?: string;
+  canLienHe?: boolean;
+  staleDays?: number;
+}) => api.get('/receptionist/customers/roster', { params });
+
+export const getCustomerHistory = (id: string, staleDays?: number) =>
+  api.get(`/receptionist/customers/${id}/history`, { params: { staleDays } });

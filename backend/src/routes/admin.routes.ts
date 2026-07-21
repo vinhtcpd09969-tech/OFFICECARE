@@ -25,12 +25,6 @@ router.post('/packages', authorizeRoles(5, 6), adminController.createPackage);
 router.put('/packages/:id', authorizeRoles(5, 6), adminController.updatePackage);
 router.delete('/packages/:id', authorizeRoles(5, 6), adminController.deletePackage);
 
-// ─── DANH MỤC GÓI ─────────────────────────────────────────────────────────────
-router.get('/categories', authorizeRoles(2, 3, 4, 5, 6), adminController.getCategories);
-router.post('/categories', authorizeRoles(5, 6), adminController.createCategory);
-router.put('/categories/:id', authorizeRoles(5, 6), adminController.updateCategory);
-router.delete('/categories/:id', authorizeRoles(5, 6), adminController.deleteCategory);
-
 // ─── PHÒNG KHÁM ────────────────────────────────────────────────────────────────
 router.get('/rooms', authorizeRoles(2, 3, 4, 5, 6), adminController.getRooms);
 router.post('/rooms', authorizeRoles(5, 6), adminController.createRoom);

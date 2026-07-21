@@ -57,16 +57,16 @@ export default function Testimonials() {
       <div className="max-w-7xl mx-auto px-6 relative z-10">
         
         {/* Header */}
-        <div className="text-center max-w-2xl mx-auto mb-16">
+        <div className="text-center max-w-2xl mx-auto mb-14">
           <ScrollReveal>
-            <span className="text-[10px] font-black uppercase tracking-widest text-[#0D9488] bg-[#14B8A6]/10 px-3.5 py-1.5 rounded-full inline-block mb-3">
-              💌 ĐÁNH GIÁ TỪ BỆNH NHÂN TRỰC TUYẾN
+            <span className="text-[10px] font-semibold tracking-wider text-[#0D9488] bg-[#14B8A6]/10 px-3.5 py-1.5 rounded-full inline-block mb-2 shadow-2xs">
+              💌 Đánh giá từ bệnh nhân
             </span>
-            <h2 className="font-heading font-black text-3xl md:text-4xl text-slate-900 leading-tight">
+            <h2 className="font-heading font-bold text-2xl md:text-3xl text-slate-800 leading-snug">
               Hành Trình Hồi Phục Đầy Cảm Hứng
             </h2>
-            <p className="text-slate-500 font-semibold mt-3 text-xs md:text-sm">
-              Đánh giá thực tế từ cơ sở dữ liệu bệnh nhân đã hoàn thành phác đồ phục hồi sức khỏe cột sống & cơ xương khớp tại OfficeCare.
+            <p className="text-slate-500 font-normal mt-2 text-xs md:text-sm leading-relaxed">
+              Đánh giá thực tế từ bệnh nhân đã hoàn thành phác đồ phục hồi sức khỏe cột sống &amp; cơ xương khớp tại OfficeCare.
             </p>
           </ScrollReveal>
         </div>

@@ -107,7 +107,9 @@ function VasSlider({ value, onChange }: { value: number; onChange: (val: number)
 }
 
 export default function ClinicalAssessment() {
-  const { id: appointmentId } = useParams<{ id: string }>();
+  const { id: routeId } = useParams<{ id: string }>();
+  const storedId = localStorage.getItem('active_appointment_id');
+  const appointmentId = routeId || storedId || undefined;
   const navigate = useNavigate();
 
   const { user } = useAuthStore();
@@ -135,14 +137,11 @@ export default function ClinicalAssessment() {
   const [loading, setLoading] = useState(true);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'assess' | 'history'>('assess');
+  const [selectedHistoryItem, setSelectedHistoryItem] = useState<{ type: 'plan' | 'visit'; id: string } | null>(null);
   const [packageSearchQuery, setPackageSearchQuery] = useState('');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  // Modal 3 lựa chọn khi lưu bị chặn vì khách đang có 1 chỉ định liệu trình khác chưa kích hoạt.
   const [showPendingConflictModal, setShowPendingConflictModal] = useState(false);
-
-  // Popup phác đồ/ca khám đang mở trong khối "Hồ sơ điều trị" (2 cột Phác đồ / Khám & Dịch vụ lẻ)
-  const [activeModal, setActiveModal] = useState<ActiveModal>(null);
 
   // Đồng hồ đếm ngược tới giờ kết thúc buổi — chạy độc lập, tick mỗi giây
   const [now, setNow] = useState(() => new Date());
@@ -154,6 +153,8 @@ export default function ClinicalAssessment() {
   // Tải dữ liệu ban đầu
   const loadInitialData = useCallback(async () => {
     if (!appointmentId) return;
+    localStorage.setItem('active_appointment_id', appointmentId);
+    localStorage.setItem('active_appointment_role', isKtv ? 'ktv' : 'doctor');
     setLoading(true);
     setErrorMsg('');
     try {
@@ -194,8 +195,12 @@ export default function ClinicalAssessment() {
   }, [appointmentId, isKtv]);
 
   useEffect(() => {
+    if (!appointmentId) {
+      setLoading(false);
+      return;
+    }
     loadInitialData();
-  }, [loadInitialData]);
+  }, [appointmentId, loadInitialData]);
 
   const filteredPackages = useMemo(() => {
     if (!packageSearchQuery.trim()) return packages;
@@ -207,14 +212,25 @@ export default function ClinicalAssessment() {
   }, [packages, packageSearchQuery]);
 
   const activePlan = useMemo(() => {
-    if (activeModal?.type !== 'plan' || !profile) return null;
-    return profile.treatmentPlans.find((p) => p.id === activeModal.id) || null;
-  }, [activeModal, profile]);
+    if (selectedHistoryItem?.type !== 'plan' || !profile) return null;
+    return profile.treatmentPlans.find((p) => p.id === selectedHistoryItem.id) || null;
+  }, [selectedHistoryItem, profile]);
 
   const activeVisit = useMemo(() => {
-    if (activeModal?.type !== 'visit' || !profile) return null;
-    return profile.visits.find((v) => v.id === activeModal.id) || null;
-  }, [activeModal, profile]);
+    if (selectedHistoryItem?.type !== 'visit' || !profile) return null;
+    return profile.visits.find((v) => v.id === selectedHistoryItem.id) || null;
+  }, [selectedHistoryItem, profile]);
+
+  // Tự động chọn bản ghi đầu tiên khi chuyển sang tab Lịch sử và chưa chọn gì
+  useEffect(() => {
+    if (activeTab === 'history' && !selectedHistoryItem && profile) {
+      if (profile.treatmentPlans?.[0]) {
+        setSelectedHistoryItem({ type: 'plan', id: profile.treatmentPlans[0].id });
+      } else if (profile.visits?.[0]) {
+        setSelectedHistoryItem({ type: 'visit', id: profile.visits[0].id });
+      }
+    }
+  }, [activeTab, selectedHistoryItem, profile]);
 
   const linkedPlanForActiveVisit = useMemo(() => {
     if (!activeVisit?.prescribed_plan_id || !profile) return null;
@@ -264,6 +280,8 @@ export default function ClinicalAssessment() {
           ghi_chu: ghiChu || null
         });
         toast.success('Ghi nhận kết quả buổi trị liệu thành công!');
+        localStorage.removeItem('active_appointment_id');
+        localStorage.removeItem('active_appointment_role');
         navigate('/technician/appointments');
       } else {
         await saveAssessment({
@@ -275,6 +293,8 @@ export default function ClinicalAssessment() {
           resolvePendingConflict: options?.resolvePendingConflict
         });
         toast.success('Ghi nhận chẩn đoán lâm sàng và hoàn thành ca khám thành công!');
+        localStorage.removeItem('active_appointment_id');
+        localStorage.removeItem('active_appointment_role');
         navigate('/doctor'); // Trở lại danh sách hàng chờ
       }
     } catch (error: any) {
@@ -330,6 +350,31 @@ export default function ClinicalAssessment() {
       <div className="min-h-[500px] flex flex-col items-center justify-center gap-3 text-zinc-400 dark:text-zinc-650">
         <div className="size-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
         <p className="text-[10px] font-black uppercase tracking-widest animate-pulse">Đang tải hồ sơ điều trị khách hàng...</p>
+      </div>
+    );
+  }
+
+  if (!appointmentId) {
+    return (
+      <div className="min-h-[500px] flex flex-col items-center justify-center text-center p-6 space-y-6 max-w-md mx-auto">
+        <div className="size-20 rounded-3xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center text-zinc-450 dark:text-zinc-500 shadow-sm relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          <HeartPulse size={36} className="text-zinc-400 dark:text-zinc-550 group-hover:scale-110 transition-transform duration-300 animate-pulse" />
+        </div>
+        <div className="space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <h3 className="text-lg font-black text-secondary dark:text-zinc-100 uppercase tracking-tight">
+            Bàn làm việc chưa có bệnh nhân
+          </h3>
+          <p className="text-xs text-zinc-550 dark:text-zinc-400 font-semibold leading-relaxed max-w-sm mx-auto">
+            Hiện tại bạn không có ca khám hay ca trị liệu nào đang được mở. Vui lòng chọn một ca hẹn từ danh sách lịch hẹn để bắt đầu làm việc.
+          </p>
+        </div>
+        <button
+          onClick={() => navigate(isKtv ? '/technician/appointments' : '/doctor/appointments')}
+          className="px-6 py-3 bg-primary hover:bg-primary/95 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-md shadow-primary/10 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+        >
+          Xem danh sách lịch hẹn
+        </button>
       </div>
     );
   }
@@ -428,7 +473,10 @@ export default function ClinicalAssessment() {
           </div>
           <button
             type="button"
-            onClick={() => setActiveModal({ type: 'plan', id: latestRelevantSession.plan.id })}
+            onClick={() => {
+              setActiveTab('history');
+              setSelectedHistoryItem({ type: 'plan', id: latestRelevantSession.plan.id });
+            }}
             className="shrink-0 text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400 hover:underline whitespace-nowrap"
           >
             Xem lịch sử đầy đủ ↓
@@ -436,13 +484,134 @@ export default function ClinicalAssessment() {
         </motion.div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      {/* Premium Tab Navigation */}
+      <div className="flex border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 rounded-[20px] p-1.5 shadow-xs border border-zinc-150/60 gap-1">
+        <button
+          type="button"
+          onClick={() => setActiveTab('assess')}
+          className={`flex-1 md:flex-none px-6 py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 ${
+            activeTab === 'assess'
+              ? 'bg-primary text-zinc-950 shadow-xs'
+              : 'text-zinc-550 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-850'
+          }`}
+        >
+          <HeartPulse size={14} />
+          {isKtv ? 'Lượng giá buổi trị liệu' : 'Khám lâm sàng'}
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('history')}
+          className={`flex-1 md:flex-none px-6 py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 ${
+            activeTab === 'history'
+              ? 'bg-primary text-zinc-950 shadow-xs'
+              : 'text-zinc-555 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-855'
+          }`}
+        >
+          <ClipboardList size={14} />
+          Lịch sử Hồ sơ điều trị
+        </button>
+      </div>
 
-        {/* LEFT COLUMN: Diagnostic & Recommendations Form (8 Cols) */}
-        <div className="lg:col-span-8">
+      {activeTab === 'assess' && (
+        <div className="max-w-4xl mx-auto space-y-6">
+          
+          {/* Patient Card Header - Premium Clinic Desk Summary */}
+          <div className="bg-white dark:bg-zinc-900 rounded-[24px] border border-zinc-150/60 dark:border-zinc-800 p-6 shadow-sm relative overflow-hidden space-y-4">
+            <div className="absolute top-0 right-0 bg-primary/5 dark:bg-primary/10 w-32 h-32 rounded-full -mr-8 -mt-8 blur-2xl"></div>
+            
+            {/* Top Row: Workspace Label & Appointment ID */}
+            <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3 flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <span className="size-2 rounded-full bg-emerald-500 animate-ping"></span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-455 dark:text-zinc-500">
+                  Bàn làm việc
+                </span>
+              </div>
+              <span className="font-mono text-xs font-black text-primary bg-primary/10 px-2.5 py-0.5 rounded-lg border border-primary/20">
+                Mã: {appointment.ma_lich_dat}
+              </span>
+            </div>
+
+            {/* Content Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+              
+              {/* Left Column (lg:col-span-8): Avatar & Name & Service Info */}
+              <div className="lg:col-span-8 flex items-start gap-4">
+                <div className="size-14 rounded-2xl bg-gradient-to-br from-primary/15 to-primary/5 dark:from-primary/20 dark:to-primary/5 border border-primary/25 flex items-center justify-center text-primary font-black text-xl shadow-inner shrink-0 scale-105">
+                  {(appointment.ten_khach_hang || appointment.ho_ten_khach || 'K').charAt(0).toUpperCase()}
+                </div>
+                <div className="space-y-1.5 min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-base font-black text-secondary dark:text-zinc-100 truncate">
+                      {appointment.ten_khach_hang || appointment.ho_ten_khach}
+                    </h2>
+                    <span className="text-[9px] font-extrabold text-zinc-550 bg-zinc-100 dark:bg-zinc-800 dark:text-zinc-400 px-2 py-0.5 rounded border border-zinc-200 dark:border-zinc-700 uppercase tracking-wider">
+                      {appointment.loai === 'KHAM' ? 'Khám lâm sàng' : 'Trị liệu'}
+                    </span>
+                  </div>
+
+                  {/* Demographic Badges */}
+                  <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold text-zinc-550 dark:text-zinc-450">
+                    <span className="px-2 py-0.5 bg-zinc-50 dark:bg-zinc-850 border border-zinc-150/80 dark:border-zinc-800 rounded-md">
+                      Giới tính: <span className="text-secondary dark:text-zinc-200 capitalize">{appointment.gioi_tinh === 'nam' ? 'Nam' : 'Nữ'}</span>
+                    </span>
+                    <span className="px-2 py-0.5 bg-zinc-50 dark:bg-zinc-850 border border-zinc-150/80 dark:border-zinc-800 rounded-md">
+                      Tuổi: <span className="text-secondary dark:text-zinc-200">{patientAge || 'N/A'}</span>
+                    </span>
+                    <span className="px-2 py-0.5 bg-zinc-50 dark:bg-zinc-850 border border-zinc-150/80 dark:border-zinc-800 rounded-md">
+                      SĐT: <span className="text-secondary dark:text-zinc-200">{appointment.so_dien_thoai || appointment.sdt_khach_hang || 'N/A'}</span>
+                    </span>
+                  </div>
+
+                  {/* Service Package Text */}
+                  {appointment.loai !== 'KHAM' && appointment.ten_dich_vu ? (
+                    <p className="text-xs text-zinc-650 dark:text-zinc-350 font-bold mt-1 text-left leading-relaxed">
+                      Dịch vụ: <span className="text-secondary dark:text-zinc-100">{appointment.ten_dich_vu}</span>
+                      {appointment.phac_do_dieu_tri_id && appointment.so_thu_tu_buoi && (
+                        <span className="text-primary font-black"> — Buổi {appointment.so_thu_tu_buoi}{appointment.pd_tong_so_buoi ? `/${appointment.pd_tong_so_buoi}` : ''}</span>
+                      )}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-zinc-450 dark:text-zinc-500 font-bold italic mt-1">Hồ sơ khám lâm sàng chưa lập phác đồ</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column (lg:col-span-4): Stats / Time Box & Countdown */}
+              <div className="lg:col-span-4 flex flex-col sm:flex-row lg:flex-col gap-3 justify-end items-stretch sm:items-center lg:items-end">
+                
+                {/* Appointment time Box */}
+                <div className="bg-zinc-50 dark:bg-zinc-850/50 p-2 rounded-2xl border border-zinc-150/50 dark:border-zinc-800 flex items-center gap-2 w-full max-w-[240px] shrink-0">
+                  <CalendarIcon size={13} className="text-primary shrink-0" />
+                  <div className="leading-tight text-left">
+                    <p className="text-[7px] text-zinc-400 dark:text-zinc-500 font-black uppercase">Thời gian hẹn</p>
+                    <p className="text-[10px] font-mono font-black text-secondary dark:text-zinc-200 mt-0.5">
+                      {new Date(appointment.ngay_gio_bat_dau).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} — {new Date(appointment.ngay_gio_bat_dau).toLocaleDateString('vi-VN', {day: 'numeric', month: 'numeric'})}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Countdown Box */}
+                {isSessionOpen && remainingMs !== null && !isOverdue && (
+                  <div className="bg-emerald-50/50 dark:bg-emerald-955/10 p-2 rounded-2xl border border-emerald-150/50 dark:border-emerald-900/30 flex items-center gap-2 w-full max-w-[240px] shadow-xs shrink-0">
+                    <Timer size={13} className="text-emerald-500 shrink-0 animate-pulse" />
+                    <div className="leading-tight text-left">
+                      <p className="text-[7px] text-emerald-650 dark:text-emerald-500 font-black uppercase tracking-wider">Thời gian còn lại</p>
+                      <p className="text-[10px] font-mono font-black text-emerald-600 dark:text-emerald-400 mt-0.5 tabular-nums">
+                        {formatCountdown(remainingMs)}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+            </div>
+          </div>
+
+
           <form 
             onSubmit={handleSubmit}
-            className="bg-white dark:bg-zinc-900 rounded-[24px] border border-zinc-150/60 dark:border-zinc-800 p-6 shadow-sm space-y-5 sticky top-24"
+            className="bg-white dark:bg-zinc-900 rounded-[24px] border border-zinc-150/60 dark:border-zinc-800 p-6 shadow-sm space-y-5"
           >
             <div className="flex items-center gap-3 mb-1">
               <button
@@ -776,113 +945,65 @@ export default function ClinicalAssessment() {
             </button>
           </form>
         </div>
+      )}
 
-        {/* RIGHT COLUMN: Patient Info & Actions (4 Cols) */}
-        <div className="lg:col-span-4 space-y-6">
-          
-          {/* Patient Card Header - Pro Max */}
-          <div className="bg-white dark:bg-zinc-900 rounded-[24px] border border-zinc-150/60 dark:border-zinc-800 p-6 shadow-sm flex flex-col items-center md:items-start gap-5 transition-all duration-300 relative overflow-hidden">
-            <div className="absolute top-0 right-0 bg-primary/5 dark:bg-primary/10 w-24 h-24 rounded-full -mr-6 -mt-6 blur-2xl"></div>
-
-            {/* Đồng hồ đếm ngược tới giờ kết thúc buổi — chỉ hiện khi bàn khám đang mở và chưa quá giờ */}
-            {isSessionOpen && remainingMs !== null && !isOverdue && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className={`absolute top-4 right-4 z-10 flex items-center gap-2 px-3 py-1.5 rounded-xl border shadow-sm bg-primary/5 border-primary/15 text-primary`}
-              >
-                <Timer size={13} />
-                <div className="leading-tight">
-                  <p className="text-[7px] font-black uppercase tracking-wider opacity-70">Còn lại</p>
-                  <p className="text-[11px] font-mono font-black tabular-nums">{formatCountdown(remainingMs)}</p>
-                </div>
-              </motion.div>
-            )}
-
-            <div className="flex items-center gap-3">
-              <div className="size-16 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/5 border border-primary/20 flex items-center justify-center text-primary font-black text-2xl shadow-inner shrink-0 scale-105">
-                {(appointment.ten_khach_hang || appointment.ho_ten_khach || 'K').charAt(0).toUpperCase()}
-              </div>
-              <div className="text-left">
-                <h2 className="text-base font-black text-secondary dark:text-zinc-100 flex items-center gap-2 flex-wrap">
-                  {appointment.ten_khach_hang || appointment.ho_ten_khach}
-                  <span className="text-[9px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/25">
-                    {appointment.loai === 'KHAM' ? 'Khám lâm sàng' : 'Trị liệu'}
-                  </span>
-                </h2>
-                <p className="text-zinc-400 dark:text-zinc-550 text-[10px] font-bold uppercase mt-1">Hồ sơ khách hàng</p>
-              </div>
-            </div>
+      {activeTab === 'history' && (
+        <div className="bg-white dark:bg-zinc-900 rounded-[24px] border border-zinc-150/60 dark:border-zinc-800 p-6 shadow-sm min-h-[500px]">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
-            <div className="w-full space-y-4">
-              {appointment.loai !== 'KHAM' && appointment.ten_dich_vu && (
-                <p className="text-[11px] font-bold text-secondary dark:text-zinc-200 mt-1.5 text-left">
-                  {appointment.ten_dich_vu}
-                  {appointment.phac_do_dieu_tri_id && appointment.so_thu_tu_buoi && (
-                    <span className="text-primary"> — Buổi {appointment.so_thu_tu_buoi}{appointment.pd_tong_so_buoi ? `/${appointment.pd_tong_so_buoi}` : ''}</span>
-                  )}
-                </p>
-              )}
-
-              {/* Grid of details */}
-              <div className="grid grid-cols-2 gap-3 w-full">
-                <div className="bg-zinc-50 dark:bg-zinc-850/50 p-2.5 rounded-xl border border-zinc-150/50 dark:border-zinc-800 flex items-center gap-2">
-                  <User size={14} className="text-primary shrink-0" />
-                  <div className="text-left min-w-0">
-                    <p className="text-[8px] text-zinc-400 dark:text-zinc-500 font-bold uppercase">Giới tính</p>
-                    <p className="text-xs font-bold text-secondary dark:text-zinc-250 capitalize truncate">
-                      {appointment.gioi_tinh === 'nam' ? 'Nam' : 'Nữ'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="bg-zinc-50 dark:bg-zinc-850/50 p-2.5 rounded-xl border border-zinc-150/50 dark:border-zinc-800 flex items-center gap-2">
-                  <Activity size={14} className="text-primary shrink-0" />
-                  <div className="text-left min-w-0">
-                    <p className="text-[8px] text-zinc-400 dark:text-zinc-500 font-bold uppercase">Tuổi</p>
-                    <p className="text-xs font-bold text-secondary dark:text-zinc-200 truncate">
-                      {patientAge || 'N/A'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="bg-zinc-50 dark:bg-zinc-850/50 p-2.5 rounded-xl border border-zinc-150/50 dark:border-zinc-800 flex items-center gap-2 col-span-2">
-                  <Phone size={14} className="text-primary shrink-0" />
-                  <div className="text-left min-w-0">
-                    <p className="text-[8px] text-zinc-400 dark:text-zinc-500 font-bold uppercase">Điện thoại</p>
-                    <p className="text-xs font-bold text-secondary dark:text-zinc-200 truncate">
-                      {appointment.so_dien_thoai || appointment.sdt_khach_hang || 'N/A'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="bg-zinc-50 dark:bg-zinc-850/50 p-2.5 rounded-xl border border-zinc-150/50 dark:border-zinc-800 flex items-center gap-2 col-span-2">
-                  <CalendarIcon size={14} className="text-primary shrink-0" />
-                  <div className="text-left min-w-0">
-                    <p className="text-[8px] text-zinc-400 dark:text-zinc-500 font-bold uppercase">Giờ hẹn</p>
-                    <p className="text-[10px] font-bold text-secondary dark:text-zinc-200 truncate">
-                      {new Date(appointment.ngay_gio_bat_dau).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} {new Date(appointment.ngay_gio_bat_dau).toLocaleDateString('vi-VN', {day: 'numeric', month: 'numeric'})}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Nút Xem lịch sử điều trị để kích hoạt trượt Drawer */}
-              <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800/80 w-full">
-                <button
-                  type="button"
-                  onClick={() => setIsHistoryOpen(true)}
-                  className="w-full py-3 bg-slate-50 hover:bg-slate-100 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-slate-700 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                >
-                  <HistoryIcon size={14} className="text-primary" />
-                  Hồ sơ lịch sử điều trị ({ (profile?.treatmentPlans?.length || 0) + (profile?.visits?.length || 0) })
-                </button>
+            {/* LEFT COLUMN: History Lists (col-span-4) */}
+            <div className="lg:col-span-4 space-y-6 lg:border-r lg:border-zinc-150 lg:dark:border-zinc-800 lg:pr-6 max-h-[70vh] overflow-y-auto pr-1 package-scroll">
+              <div className="space-y-4">
+                <PlanColumn
+                  plans={profile?.treatmentPlans || []}
+                  onOpenPlan={(id) => setSelectedHistoryItem({ type: 'plan', id })}
+                />
+                
+                <div className="border-t border-zinc-100 dark:border-zinc-800/80 my-4" />
+                
+                <VisitColumn
+                  visits={profile?.visits || []}
+                  onOpenVisit={(id) => setSelectedHistoryItem({ type: 'visit', id })}
+                />
               </div>
             </div>
+
+            {/* RIGHT COLUMN: Inline Detailed View (col-span-8) */}
+            <div className="lg:col-span-8 min-h-[400px]">
+              {selectedHistoryItem ? (
+                <>
+                  {activePlan && (
+                    <PlanDetailModal
+                      key={`plan-inline-${activePlan.id}`}
+                      plan={activePlan}
+                      onJumpToVisit={(visitId) => setSelectedHistoryItem({ type: 'visit', id: visitId })}
+                      isInline={true}
+                    />
+                  )}
+                  {activeVisit && (
+                    <VisitDetailModal
+                      key={`visit-inline-${activeVisit.id}`}
+                      visit={activeVisit}
+                      linkedPlan={linkedPlanForActiveVisit}
+                      onJumpToPlan={(planId) => setSelectedHistoryItem({ type: 'plan', id: planId })}
+                      isInline={true}
+                    />
+                  )}
+                </>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-center p-8 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-3xl min-h-[400px]">
+                  <ClipboardList className="size-16 text-zinc-300 dark:text-zinc-700 animate-pulse mb-4" />
+                  <h4 className="text-sm font-black text-secondary dark:text-zinc-350 uppercase tracking-wider">Hồ sơ lịch sử điều trị</h4>
+                  <p className="text-xs text-zinc-400 dark:text-zinc-500 font-semibold max-w-sm mt-2">
+                    Vui lòng chọn một phác đồ trị liệu hoặc một ca khám lâm sàng ở cột bên trái để xem thông tin chi tiết.
+                  </p>
+                </div>
+              )}
+            </div>
+
           </div>
         </div>
-
-      </div>
+      )}
 
       <AnimatePresence>
         {showConfirmModal && (
@@ -924,7 +1045,7 @@ export default function ClinicalAssessment() {
                   {/* Timing chip like the image */}
                   {remainingMs !== null && (
                     isOverdue ? (
-                      <div className="flex items-center justify-center gap-2 px-4 py-2 bg-rose-50 dark:bg-rose-955/15 border border-rose-200/50 dark:border-rose-900/40 text-rose-600 dark:text-rose-450 rounded-2xl mx-auto w-fit shadow-xs">
+                      <div className="flex items-center justify-center gap-2 px-4 py-2 bg-rose-50 dark:bg-rose-955/15 border border-rose-200/50 dark:border-rose-900/40 text-rose-600 dark:text-rose-455 rounded-2xl mx-auto w-fit shadow-xs">
                         <AlertTriangle size={14} className="stroke-[2.5]" />
                         <div className="text-left leading-tight">
                           <p className="text-[8px] font-black uppercase tracking-wider opacity-85">QUÁ GIỜ</p>
@@ -932,7 +1053,7 @@ export default function ClinicalAssessment() {
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-center gap-2.5 px-4 py-2 bg-emerald-50 dark:bg-emerald-955/15 border border-emerald-200/50 dark:border-emerald-900/40 text-emerald-650 dark:text-emerald-450 rounded-2xl mx-auto w-fit shadow-xs">
+                      <div className="flex items-center justify-center gap-2.5 px-4 py-2 bg-emerald-50 dark:bg-emerald-955/15 border border-emerald-200/50 dark:border-emerald-900/40 text-emerald-650 dark:text-emerald-455 rounded-2xl mx-auto w-fit shadow-xs">
                         <Timer size={14} className="stroke-[2.5]" />
                         <div className="text-left leading-tight">
                           <p className="text-[8px] font-black uppercase tracking-wider opacity-85">CÒN LẠI</p>
@@ -960,7 +1081,7 @@ export default function ClinicalAssessment() {
                   <button
                     type="button"
                     onClick={() => setShowConfirmModal(false)}
-                    className="flex-1 py-3 bg-zinc-100 hover:bg-zinc-150 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-zinc-600 dark:text-zinc-300 rounded-2xl text-[10.5px] font-black uppercase tracking-wider transition-all active:scale-[0.98] cursor-pointer"
+                    className="flex-1 py-3 bg-zinc-100 hover:bg-zinc-150 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-zinc-650 dark:text-zinc-300 rounded-2xl text-[10.5px] font-black uppercase tracking-wider transition-all active:scale-[0.98] cursor-pointer"
                   >
                     Hủy bỏ
                   </button>
@@ -1031,7 +1152,7 @@ export default function ClinicalAssessment() {
                   <button
                     type="button"
                     onClick={() => handleConfirmSubmit({ skipPackage: true })}
-                    className="w-full py-3 px-4 bg-zinc-100 hover:bg-zinc-150 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-zinc-700 dark:text-zinc-200 rounded-2xl text-[10.5px] font-black uppercase tracking-wider transition-all active:scale-[0.98] cursor-pointer text-left"
+                    className="w-full py-3 px-4 bg-zinc-100 hover:bg-zinc-150 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-zinc-755 dark:text-zinc-200 rounded-2xl text-[10.5px] font-black uppercase tracking-wider transition-all active:scale-[0.98] cursor-pointer text-left"
                   >
                     Giữ chỉ định cũ, không chỉ định gói cho ca khám này
                     <span className="block text-[9px] font-bold normal-case tracking-normal opacity-70 mt-0.5">Vẫn lưu chẩn đoán/hoàn thành ca khám bình thường</span>
@@ -1048,81 +1169,7 @@ export default function ClinicalAssessment() {
             </div>
           </>
         )}
-
-        {isHistoryOpen && (
-          <>
-            {/* Dark Overlay */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsHistoryOpen(false)}
-              className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs z-[60]"
-            />
-            
-            {/* Sliding Drawer */}
-            <motion.div
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 28, stiffness: 260 }}
-              className="fixed top-0 right-0 h-full w-full max-w-2xl bg-zinc-50 dark:bg-zinc-950 border-l border-zinc-150 dark:border-zinc-800 shadow-2xl z-[70] flex flex-col"
-            >
-              {/* Header */}
-              <div className="p-5 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-black text-secondary dark:text-zinc-100 uppercase tracking-wider flex items-center gap-2">
-                    <ClipboardList size={16} className="text-primary shrink-0" /> Lịch sử hồ sơ điều trị
-                  </h3>
-                  <p className="text-[10px] text-zinc-400 dark:text-zinc-550 font-bold uppercase mt-0.5">
-                    Bệnh nhân: {appointment?.ten_khach_hang || appointment?.ho_ten_khach}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsHistoryOpen(false)}
-                  className="px-3.5 py-1.5 bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-500 dark:text-zinc-400 rounded-xl text-[10px] font-black uppercase tracking-wider border border-zinc-200/50 dark:border-zinc-750 transition-all active:scale-95 cursor-pointer"
-                >
-                  Đóng
-                </button>
-              </div>
-
-              {/* Drawer Content */}
-              <div className="flex-1 p-6 overflow-y-auto space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <PlanColumn
-                    plans={profile?.treatmentPlans || []}
-                    onOpenPlan={(id) => setActiveModal({ type: 'plan', id })}
-                  />
-                  <VisitColumn
-                    visits={profile?.visits || []}
-                    onOpenVisit={(id) => setActiveModal({ type: 'visit', id })}
-                  />
-                </div>
-              </div>
-            </motion.div>
-          </>
-        )}
-
-        {activePlan && (
-          <PlanDetailModal
-            key={`plan-${activePlan.id}`}
-            plan={activePlan}
-            onClose={() => setActiveModal(null)}
-            onJumpToVisit={(visitId) => setActiveModal({ type: 'visit', id: visitId })}
-          />
-        )}
-        {activeVisit && (
-          <VisitDetailModal
-            key={`visit-${activeVisit.id}`}
-            visit={activeVisit}
-            linkedPlan={linkedPlanForActiveVisit}
-            onClose={() => setActiveModal(null)}
-            onJumpToPlan={(planId) => setActiveModal({ type: 'plan', id: planId })}
-          />
-        )}
       </AnimatePresence>
-
     </div>
   );
 }

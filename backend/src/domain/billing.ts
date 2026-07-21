@@ -37,10 +37,20 @@ export function resolvePackageBasePrice(
 /**
  * Khách có được miễn phí khám lâm sàng khi trả_thẳng/trả_góp không.
  * Thay thế cho `admin.repository.ts:1150` và `receptionist.service.ts:358,603,688`.
- * Quy tắc: chỉ theo ngưỡng giá gói, không quan tâm loại gói.
+ * Quy tắc: CHỈ áp dụng cho gói LIỆU_TRÌNH (nhiều buổi, có phác đồ đi kèm) có giá gói ≥ ngưỡng —
+ * dịch vụ lẻ (LE, 1 lượt độc lập, không có phác đồ) KHÔNG BAO GIỜ được miễn phí khám dù giá cao
+ * tới đâu. Ngưỡng tính trên GIÁ GÓI (`giaGocGoi`), không phải tổng tiền hóa đơn.
  */
-export function isExamWaived(hinhThuc: HinhThucThanhToanGoi, giaGocGoi: number): boolean {
-  return giaGocGoi >= EXAM_WAIVER_THRESHOLD && (hinhThuc === 'tra_thang' || hinhThuc === 'tra_gop');
+export function isExamWaived(
+  hinhThuc: HinhThucThanhToanGoi,
+  giaGocGoi: number,
+  loaiGoi: LoaiGoi | null
+): boolean {
+  return (
+    loaiGoi === 'LIEU_TRINH' &&
+    giaGocGoi >= EXAM_WAIVER_THRESHOLD &&
+    (hinhThuc === 'tra_thang' || hinhThuc === 'tra_gop')
+  );
 }
 
 /**

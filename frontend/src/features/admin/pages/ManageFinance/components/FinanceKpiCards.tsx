@@ -1,12 +1,12 @@
-import { Coins, Clock, RotateCcw, Receipt } from 'lucide-react';
+import { Coins, Layers, RotateCcw, Receipt } from 'lucide-react';
 import { StatCard } from '../../../../../components/StatCard';
 import { formatCurrency } from '../../../../../shared/utils';
 
 interface FinanceKpis {
   totalCollected: number;
   paidInvoiceCount: number;
-  totalPending: number;
-  pendingInvoiceCount: number;
+  totalPackageRevenue?: number;
+  packageInvoiceCount?: number;
   totalRefunded: number;
   refundCount: number;
   totalInvoices: number;
@@ -17,8 +17,6 @@ interface FinanceKpiCardsProps {
   kpis: FinanceKpis;
 }
 
-// 4 thẻ KPI đầu trang, dùng chung StatCard với AdminDashboard (promote từ AdminDashboard/StatCard.tsx)
-// để đồng bộ hình học/chuyển động thay vì card tự dựng riêng như bản cũ.
 export function FinanceKpiCards({ kpis }: FinanceKpiCardsProps) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -32,12 +30,12 @@ export function FinanceKpiCards({ kpis }: FinanceKpiCardsProps) {
         delay="100ms"
       />
       <StatCard
-        title="Đang chờ thanh toán"
-        value={formatCurrency(kpis.totalPending)}
-        change={`${kpis.pendingInvoiceCount} hóa đơn`}
-        changeColor="bg-amber-50 text-amber-600"
-        icon={<Clock size={18} className="text-amber-600" />}
-        color="bg-amber-50"
+        title="Doanh thu Gói liệu trình"
+        value={formatCurrency(kpis.totalPackageRevenue || 0)}
+        change={`${kpis.packageInvoiceCount || 0} hóa đơn gói`}
+        changeColor="bg-teal-50 text-teal-600"
+        icon={<Layers size={18} className="text-teal-600" />}
+        color="bg-teal-50"
         delay="150ms"
       />
       <StatCard
@@ -52,7 +50,7 @@ export function FinanceKpiCards({ kpis }: FinanceKpiCardsProps) {
       <StatCard
         title="Tổng số hóa đơn y khoa"
         value={`${kpis.totalInvoices} HĐ`}
-        change={`${kpis.fullyPaidPercent}% đã thanh toán đủ`}
+        change={`${kpis.fullyPaidPercent}% hoàn tất đủ`}
         changeColor="bg-zinc-100 text-zinc-600"
         icon={<Receipt size={18} className="text-zinc-500" />}
         color="bg-zinc-100"
