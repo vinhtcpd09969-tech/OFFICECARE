@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import receptionistService from '../services/receptionist.service';
 import receptionistRepository from '../repositories/receptionist.repository';
 import { getMinPaymentRequired } from '../domain/billing';
+import { DEFAULT_FOLLOW_UP_STALE_DAYS } from '../domain/customerFollowUp';
 import { HinhThucThanhToanGoi } from '../domain/types';
 import { payos } from '../config/payos';
 import { pool } from '../config/db';
@@ -199,6 +200,40 @@ export const getCustomerTreatmentPlans = async (req: Request, res: Response): Pr
     res.json(result);
   } catch (error: any) {
     console.error('Lỗi lấy danh sách phác đồ:', error);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+};
+
+const VALID_RECEPTIONIST_STATUS_FILTERS = ['dang_dieu_tri', 'cho_kich_hoat', 'hoan_thanh', 'khong_co_goi', 'all'];
+
+// GET /api/receptionist/customers/roster
+export const getCustomerRoster = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const page = Math.max(1, parseInt(String(req.query.page ?? '1'), 10) || 1);
+    const pageSize = Math.min(100, Math.max(1, parseInt(String(req.query.pageSize ?? '20'), 10) || 20));
+    const search = String(req.query.search ?? '').trim();
+    const trangThaiGoiRaw = String(req.query.trangThaiGoi ?? 'all');
+    const trangThaiGoi = VALID_RECEPTIONIST_STATUS_FILTERS.includes(trangThaiGoiRaw) ? trangThaiGoiRaw : 'all';
+    const canLienHe = String(req.query.canLienHe ?? '') === 'true';
+    const staleDays = Math.max(1, parseInt(String(req.query.staleDays ?? String(DEFAULT_FOLLOW_UP_STALE_DAYS)), 10) || DEFAULT_FOLLOW_UP_STALE_DAYS);
+    const result = await receptionistService.getCustomerRoster({ page, pageSize, search, trangThaiGoi, canLienHe, staleDays });
+    res.json(result);
+  } catch (error: any) {
+    console.error('Lỗi lấy danh sách khách hàng:', error);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+};
+
+// GET /api/receptionist/customers/:id/history
+export const getCustomerHistory = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const id = String(req.params.id);
+    const staleDays = Math.max(1, parseInt(String(req.query.staleDays ?? String(DEFAULT_FOLLOW_UP_STALE_DAYS)), 10) || DEFAULT_FOLLOW_UP_STALE_DAYS);
+    const result = await receptionistService.getCustomerHistory(id, staleDays);
+    res.json(result);
+  } catch (error: any) {
+    if (error.message === 'Không tìm thấy khách hàng') return res.status(404).json({ message: error.message });
+    console.error('Lỗi lấy lịch sử khách hàng:', error);
     res.status(500).json({ message: 'Lỗi server' });
   }
 };

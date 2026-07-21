@@ -11,25 +11,31 @@ import {
 
 describe('isExamWaived', () => {
   it('gói LIEU_TRINH 3.2 triệu, trả thẳng -> miễn phí khám', () => {
-    expect(isExamWaived('tra_thang', 3_200_000)).toBe(true);
+    expect(isExamWaived('tra_thang', 3_200_000, 'LIEU_TRINH')).toBe(true);
   });
 
   it('gói LIEU_TRINH 3.2 triệu, trả góp -> miễn phí khám', () => {
-    expect(isExamWaived('tra_gop', 3_200_000)).toBe(true);
+    expect(isExamWaived('tra_gop', 3_200_000, 'LIEU_TRINH')).toBe(true);
   });
 
-  it('gói LE 300k -> không miễn phí khám dù hình thức nào', () => {
-    expect(isExamWaived('tra_thang', 300_000)).toBe(false);
-    expect(isExamWaived('tra_gop', 300_000)).toBe(false);
+  it('gói LIEU_TRINH 300k -> không miễn phí khám dù hình thức nào (chưa đạt ngưỡng)', () => {
+    expect(isExamWaived('tra_thang', 300_000, 'LIEU_TRINH')).toBe(false);
+    expect(isExamWaived('tra_gop', 300_000, 'LIEU_TRINH')).toBe(false);
+  });
+
+  it('gói LE (dịch vụ lẻ) không bao giờ miễn phí khám dù giá cao và hình thức hợp lệ', () => {
+    expect(isExamWaived('tra_thang', 5_000_000, 'LE')).toBe(false);
+    expect(isExamWaived('tra_gop', 5_000_000, 'LE')).toBe(false);
   });
 
   it('trả từng buổi -> không bao giờ miễn phí khám dù giá cao', () => {
-    expect(isExamWaived('tung_buoi', 5_000_000)).toBe(false);
+    expect(isExamWaived('tung_buoi', 5_000_000, 'LIEU_TRINH')).toBe(false);
   });
 
-  it('đúng ngưỡng 1.000.000đ vẫn được miễn (>=)', () => {
-    expect(isExamWaived('tra_thang', 1_000_000)).toBe(true);
-    expect(isExamWaived('tra_thang', 999_999)).toBe(false);
+  it('đúng ngưỡng 1.000.000đ vẫn được miễn (>=), chỉ khi là LIEU_TRINH', () => {
+    expect(isExamWaived('tra_thang', 1_000_000, 'LIEU_TRINH')).toBe(true);
+    expect(isExamWaived('tra_thang', 999_999, 'LIEU_TRINH')).toBe(false);
+    expect(isExamWaived('tra_thang', 1_000_000, 'LE')).toBe(false);
   });
 });
 

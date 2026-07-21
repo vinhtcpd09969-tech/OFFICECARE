@@ -1315,6 +1315,8 @@ class AppointmentRepository {
         kh.id as khach_hang_id,
         kh.diem_uy_tin as diem_uy_tin,
         ch.phac_do_dieu_tri_id,
+        ch.so_thu_tu_buoi,
+        pddt.tong_so_buoi as tong_so_buoi_goi,
         gdv.ten_goi as ten_dich_vu,
         nd_ktv.ho_ten AS ten_ky_thuat_vien,
         nd_ktv.anh_dai_dien AS anh_bac_si,

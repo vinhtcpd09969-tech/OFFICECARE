@@ -1,5 +1,6 @@
-﻿import { useEffect } from 'react';
+import { useEffect } from 'react';
 import Hero from '../components/home/Hero';
+import WhyUs from '../components/home/WhyUs';
 import ServicesCarousel from '../components/home/ServicesCarousel';
 import Specialists from '../components/home/Specialists';
 import Testimonials from '../components/home/Testimonials';
@@ -11,8 +12,9 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="font-jakarta bg-background overflow-hidden selection:bg-primary/20 selection:text-primary min-h-screen">
+    <div className="font-jakarta bg-background overflow-hidden selection:bg-teal-500/20 min-h-screen">
       <Hero />
+      <WhyUs />
       <div id="featured-services-section">
         <ServicesCarousel />
       </div>

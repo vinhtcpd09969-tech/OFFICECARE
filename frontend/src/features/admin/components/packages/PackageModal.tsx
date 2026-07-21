@@ -1,8 +1,8 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { createPackage, updatePackage, getCategories } from '../../api/admin.api';
-import { useEffect, useState, useRef } from 'react';
+import { createPackage, updatePackage } from '../../api/admin.api';
+import { useEffect, useState } from 'react';
 import { X, Sparkles, Coins, Layers, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { ConfirmDialog } from '../../../../components/ConfirmDialog';
@@ -12,7 +12,6 @@ import { GalleryUploadZone } from '../shared/GalleryUploadZone';
 const packageSchema = z.object({
   ten_goi: z.string().min(1, 'Tên gói dịch vụ là bắt buộc'),
   loai_goi: z.enum(['KHAM', 'LE', 'LIEU_TRINH'], { message: 'Vui lòng chọn loại gói' }),
-  danh_muc_goi_id: z.string().optional().nullable(),
   quy_trinh: z.string().min(1, 'Quy trình trị liệu là bắt buộc'),
   muc_tieu: z.string().min(1, 'Mục tiêu trị liệu là bắt buộc'),
   tong_so_buoi: z.number().min(1, 'Số buổi phải lớn hơn 0'),
@@ -51,7 +50,6 @@ interface PackageModalProps {
 }
 
 export default function PackageModal({ onClose, onSuccess, editingPackage, existingPackages }: PackageModalProps) {
-  const [categories, setCategories] = useState<any[]>([]);
   const [confirmConfig, setConfirmConfig] = useState<{
     isOpen: boolean;
     title: string;
@@ -67,7 +65,6 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
     defaultValues: editingPackage ? {
       ten_goi: editingPackage.ten_goi || '',
       loai_goi: editingPackage.loai_goi || 'LIEU_TRINH',
-      danh_muc_goi_id: editingPackage.danh_muc_goi_id || editingPackage.danh_muc_id || '',
       quy_trinh: editingPackage.quy_trinh || '',
       muc_tieu: editingPackage.muc_tieu || '',
       tong_so_buoi: editingPackage.tong_so_buoi || 10,
@@ -81,7 +78,6 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
     } : {
       trang_thai: 'hoat_dong',
       loai_goi: undefined as any,
-      danh_muc_goi_id: '',
       quy_trinh: '',
       muc_tieu: '',
       tong_so_buoi: 12,
@@ -114,8 +110,6 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
   const perSessionShifted =
     watchLoaiGoi === 'LIEU_TRINH' && originalPerSession > 0 && averageCost > 0 && averageCost !== originalPerSession;
 
-  const prevLoaiGoiRef = useRef<string | undefined>(editingPackage?.loai_goi);
-
   // Register don_gia and don_gia_theo_buoi fields manually for custom text inputs
   useEffect(() => {
     register('don_gia');
@@ -145,37 +139,6 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
       }
     }
   }, [watchLoaiGoi, watchDonGia, watchTongSoBuoi, setValue]);
-
-  // Reset selected category only if it's a manual change of package type
-  useEffect(() => {
-    if (prevLoaiGoiRef.current !== undefined && prevLoaiGoiRef.current !== watchLoaiGoi) {
-      setValue('danh_muc_goi_id', '');
-    }
-    
-    prevLoaiGoiRef.current = watchLoaiGoi;
-  }, [watchLoaiGoi, setValue, watch]);
-
-  // Load categories on open
-  useEffect(() => {
-    const loadCats = async () => {
-      try {
-        const res = await getCategories();
-        const loadedCats = res.data || [];
-        setCategories(loadedCats);
-        
-        // Sync selected category ID to form state once categories are populated
-        if (editingPackage) {
-          const targetId = editingPackage.danh_muc_goi_id || editingPackage.danh_muc_id || '';
-          if (targetId) {
-            setValue('danh_muc_goi_id', targetId);
-          }
-        }
-      } catch (e) {
-        console.error('Error fetching categories inside PackageModal:', e);
-      }
-    };
-    loadCats();
-  }, [editingPackage, setValue]);
 
   // Khởi tạo các bước từ dữ liệu cũ nếu chỉnh sửa
   useEffect(() => {
@@ -209,7 +172,6 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
         han_su_dung_mac_dinh_ngay: data.loai_goi === 'LIEU_TRINH' ? (data.han_su_dung_mac_dinh_ngay || 60) : null,
         anh_goi: data.anh_goi || null,
         anh_gallery: data.anh_gallery || [],
-        danh_muc_goi_id: data.danh_muc_goi_id || null,
         quy_trinh: data.quy_trinh || '',
         muc_tieu: data.muc_tieu || '',
         trang_thai: 'hoat_dong',
@@ -251,23 +213,9 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
     }
 
     // Determine smart confirmation message
-    let confirmMsg = isEdit 
+    const confirmMsg = isEdit
       ? `Bạn có chắc chắn muốn lưu các thay đổi cho gói dịch vụ "${data.ten_goi}" không?`
       : `Bạn có chắc chắn muốn tạo mới gói dịch vụ "${data.ten_goi}" không?`;
-
-    if (isEdit) {
-      const originalCatId = editingPackage.danh_muc_goi_id || editingPackage.danh_muc_id;
-      const selectedCatId = data.danh_muc_goi_id;
-
-      if (String(originalCatId || '') !== String(selectedCatId || '')) {
-        const oldCatObj = categories.find(c => String(c.id) === String(originalCatId));
-        const newCatObj = categories.find(c => String(c.id) === String(selectedCatId));
-        const tenDanhMucCu = oldCatObj ? oldCatObj.ten_danh_muc : 'Không phân loại';
-        const tenDanhMucMoi = newCatObj ? newCatObj.ten_danh_muc : 'Không phân loại';
-        
-        confirmMsg = `Bạn có chắc chắn muốn thay đổi danh mục dịch vụ từ "${tenDanhMucCu}" sang "${tenDanhMucMoi}" cho gói "${data.ten_goi}" không?`;
-      }
-    }
 
     setConfirmConfig({
       isOpen: true,
@@ -424,40 +372,17 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                   <div className={`space-y-6 transition-all duration-300 ${!isTypeSelected ? 'opacity-25 pointer-events-none' : ''}`}>
                     {/* Hộp I (phần còn lại): Tên gói, Danh mục và Mô tả */}
                     <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Tên gói dịch vụ *</label>
-                          <input 
-                            {...register('ten_goi')} 
-                            placeholder="Nhập tên gói dịch vụ..."
-                            className="w-full px-4 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 outline-none transition-all font-semibold text-secondary text-sm placeholder-zinc-300 shadow-sm"
-                          />
-                          {errors.ten_goi && (
-                            <span className="text-rose-500 text-[10px] mt-1 block">{errors.ten_goi.message}</span>
-                          )}
-                        </div>
-
-                        {/* DANH MỤC CHUYÊN KHOA LỌC GÓI */}
-                        <div>
-                          <label className="block font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Danh mục chuyên khoa gói *</label>
-                          <select 
-                            {...register('danh_muc_goi_id')}
-                            className="w-full px-4 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 outline-none transition-all text-secondary font-semibold text-xs shadow-sm cursor-pointer"
-                          >
-                            <option value="">-- CHỌN DANH MỤC CHUYÊN KHOA --</option>
-                            {categories
-                              .filter(c => c.loai_goi_ap_dung === watchLoaiGoi)
-                              .map(c => (
-                                <option key={c.id} value={c.id}>{c.ten_danh_muc.toUpperCase()}</option>
-                              ))}
-                          </select>
-                          {errors.danh_muc_goi_id && (
-                            <span className="text-rose-500 text-[10px] mt-1 block">{errors.danh_muc_goi_id.message}</span>
-                          )}
-                        </div>
+                      <div>
+                        <label className="block font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Tên gói dịch vụ *</label>
+                        <input
+                          {...register('ten_goi')}
+                          placeholder="Nhập tên gói dịch vụ..."
+                          className="w-full px-4 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 outline-none transition-all font-semibold text-secondary text-sm placeholder-zinc-300 shadow-sm"
+                        />
+                        {errors.ten_goi && (
+                          <span className="text-rose-500 text-[10px] mt-1 block">{errors.ten_goi.message}</span>
+                        )}
                       </div>
-
-
 
                       <style>{`
                         .package-scroll::-webkit-scrollbar { width: 5px; }

@@ -13,10 +13,11 @@ export const chatWithAI = asyncHandler(async (req: Request, res: Response) => {
   const chatHistory = Array.isArray(history) ? history : [];
 
   try {
-    const reply = await AIService.generateChatResponse(message, chatHistory);
+    const result = await AIService.generateChatResponse(message, chatHistory);
     res.json({
       success: true,
-      reply
+      reply: result.reply,
+      suggestBooking: result.suggestBooking
     });
   } catch (error: any) {
     throw new BadRequestError(error.message || 'Lỗi xử lý phản hồi từ AI');

@@ -110,7 +110,7 @@ export default function AIChatBubble() {
             {/* Nội dung tin nhắn */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50">
               {messages.map((msg) => {
-                const hasBookingTag = msg.role === 'model' && msg.content.includes('[DAT_LICH]');
+                const hasBookingTag = msg.role === 'model' && (msg.suggestBooking === true || msg.content.includes('[DAT_LICH]'));
                 const cleanContent = msg.content.replace('[DAT_LICH]', '').trim();
 
                 return (

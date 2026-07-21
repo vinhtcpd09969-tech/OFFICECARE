@@ -68,13 +68,15 @@ export const useFinanceDashboard = (isCheckoutMode: boolean) => {
   const [methodFilter, setMethodFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
   const [itemTypeFilter, setItemTypeFilter] = useState('all');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   // Phân trang hiển thị thuần (cắt mảng đã tải + đã lọc, không gọi lại API) — reset về trang 1
   // mỗi khi đổi tab hoặc bất kỳ điều kiện lọc nào để tránh đứng ở 1 trang trống sau khi lọc.
   const [page, setPage] = useState(1);
   useEffect(() => {
     setPage(1);
-  }, [activeTab, searchTerm, statusFilter, methodFilter, dateFilter, itemTypeFilter]);
+  }, [activeTab, searchTerm, statusFilter, methodFilter, dateFilter, itemTypeFilter, startDate, endDate]);
 
   // Fast Payment Sub-Modal inside detailed modal
   const [fastPayInvoice, setFastPayInvoice] = useState<Invoice | null>(null);
@@ -219,7 +221,19 @@ export const useFinanceDashboard = (isCheckoutMode: boolean) => {
 
       if (statusFilter !== 'all' && inv.trang_thai !== statusFilter) return false;
 
-      if (dateFilter !== 'all') {
+      // Lọc theo khoảng ngày (Từ ngày - Đến ngày)
+      if (startDate) {
+        const start = new Date(startDate + 'T00:00:00');
+        const date = new Date(inv.ngay_tao);
+        if (date < start) return false;
+      }
+      if (endDate) {
+        const end = new Date(endDate + 'T23:59:59');
+        const date = new Date(inv.ngay_tao);
+        if (date > end) return false;
+      }
+
+      if (dateFilter !== 'all' && !startDate && !endDate) {
         const date = new Date(inv.ngay_tao);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -237,7 +251,18 @@ export const useFinanceDashboard = (isCheckoutMode: boolean) => {
 
       if (itemTypeFilter !== 'all') {
         const itemType = (inv.ten_dich_vu || '').toLowerCase();
-        if (itemTypeFilter === 'goi') {
+        const hinhThuc = inv.hinh_thuc_thanh_toan_goi || '';
+        
+        if (itemTypeFilter === '100') {
+          // 100%: Bao gồm gói trả thẳng 100%, khám lâm sàng, buổi dịch vụ lẻ
+          if (hinhThuc === 'tra_gop' || hinhThuc === 'tung_buoi') return false;
+        } else if (itemTypeFilter === '50') {
+          // 50%: Gói trả góp đợt 1
+          if (hinhThuc !== 'tra_gop') return false;
+        } else if (itemTypeFilter === 'tung_buoi') {
+          // Từng buổi: Thanh toán lẻ theo ca
+          if (hinhThuc !== 'tung_buoi') return false;
+        } else if (itemTypeFilter === 'goi') {
           if (!itemType.includes('gói') && !inv.hinh_thuc_thanh_toan_goi) return false;
         } else if (itemTypeFilter === 'kham_lam_sang') {
           if (!itemType.includes('khám lâm sàng') && !itemType.includes('khám sơ khởi')) return false;
@@ -250,8 +275,6 @@ export const useFinanceDashboard = (isCheckoutMode: boolean) => {
     });
   };
 
-  // Tách khỏi index.tsx (nguyên vẹn logic filter cũ) để InvoiceTable/PaymentTable tự lấy dữ liệu
-  // đã lọc của đúng tab mình, không cần index.tsx tính hộ rồi truyền xuống.
   const getFilteredPayments = () => {
     return payments.filter((pay) => {
       const query = searchTerm.toLowerCase();
@@ -267,7 +290,19 @@ export const useFinanceDashboard = (isCheckoutMode: boolean) => {
 
       if (methodFilter !== 'all' && pay.phuong_thuc !== methodFilter) return false;
 
-      if (dateFilter !== 'all') {
+      // Lọc theo khoảng ngày (Từ ngày - Đến ngày)
+      if (startDate) {
+        const start = new Date(startDate + 'T00:00:00');
+        const date = new Date(pay.thoi_gian_giao_dich);
+        if (date < start) return false;
+      }
+      if (endDate) {
+        const end = new Date(endDate + 'T23:59:59');
+        const date = new Date(pay.thoi_gian_giao_dich);
+        if (date > end) return false;
+      }
+
+      if (dateFilter !== 'all' && !startDate && !endDate) {
         const date = new Date(pay.thoi_gian_giao_dich);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -287,32 +322,33 @@ export const useFinanceDashboard = (isCheckoutMode: boolean) => {
     });
   };
 
-  // KPI 4 thẻ đầu trang — bọc useMemo để không tính lại toàn bộ .reduce() trên mỗi lần render
-  // (tối ưu thuần, không đổi kết quả/công thức so với bản cũ ở index.tsx).
+  // KPI 4 thẻ đầu trang — Tính toán ĐỘNG theo khoảng ngày & bộ lọc người dùng đang chọn
   const kpis = useMemo(() => {
-    const totalCollected = invoices.reduce((acc, inv) => acc + Number(inv.da_thanh_toan || 0), 0);
-    const paidInvoiceCount = invoices.filter((inv) => inv.trang_thai === 'da_thanh_toan').length;
-    const totalPending = invoices.reduce(
-      (acc, inv) => acc + (inv.trang_thai === 'chua_thanh_toan' ? Number(inv.tong_tien_thanh_toan || 0) : 0),
-      0
-    );
-    const pendingInvoiceCount = invoices.filter((inv) => inv.trang_thai === 'chua_thanh_toan').length;
-    const refundPayments = payments.filter((p) => p.loai_giao_dich === 'HOAN_TIEN');
+    const filteredInvoices = getFilteredInvoices();
+    const filteredPayments = getFilteredPayments();
+
+    const totalCollected = filteredInvoices.reduce((acc, inv) => acc + Number(inv.da_thanh_toan || 0), 0);
+    const paidInvoiceCount = filteredInvoices.filter((inv) => inv.trang_thai === 'da_thanh_toan').length;
+    
+    const packageInvoices = filteredInvoices.filter((inv) => !!inv.phac_do_dieu_tri_id);
+    const totalPackageRevenue = packageInvoices.reduce((acc, inv) => acc + Number(inv.da_thanh_toan || 0), 0);
+
+    const refundPayments = filteredPayments.filter((p) => p.loai_giao_dich === 'HOAN_TIEN');
     const totalRefunded = refundPayments.reduce((acc, p) => acc + Math.abs(Number(p.so_tien || 0)), 0);
-    const totalInvoices = invoices.length;
+    const totalInvoices = filteredInvoices.length;
     const fullyPaidPercent = totalInvoices > 0 ? Math.round((paidInvoiceCount / totalInvoices) * 100) : 0;
 
     return {
       totalCollected,
       paidInvoiceCount,
-      totalPending,
-      pendingInvoiceCount,
+      totalPackageRevenue,
+      packageInvoiceCount: packageInvoices.length,
       totalRefunded,
       refundCount: refundPayments.length,
       totalInvoices,
       fullyPaidPercent,
     };
-  }, [invoices, payments]);
+  }, [invoices, payments, searchTerm, statusFilter, methodFilter, dateFilter, itemTypeFilter, startDate, endDate]);
 
   return {
     invoices,
@@ -332,6 +368,10 @@ export const useFinanceDashboard = (isCheckoutMode: boolean) => {
     setMethodFilter,
     dateFilter,
     setDateFilter,
+    startDate,
+    setStartDate,
+    endDate,
+    setEndDate,
     itemTypeFilter,
     setItemTypeFilter,
     page,

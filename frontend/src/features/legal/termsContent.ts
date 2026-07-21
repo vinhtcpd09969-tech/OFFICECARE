@@ -44,8 +44,8 @@ export const TERMS_OF_SERVICE: TermsSection[] = [
   {
     heading: '5. Chính sách miễn phí khám lâm sàng',
     paragraphs: [
-      '5.1 Điều kiện miễn phí: Khách hàng được miễn phí 100% chi phí khám lâm sàng ban đầu khi mua gói dịch vụ theo hình thức Trả thẳng hoặc Trả góp, với điều kiện giá trị gốc của gói dịch vụ (không bao gồm phí khám) đạt từ 1.000.000đ trở lên.',
-      '5.2 Đối tượng loại trừ: Chính sách miễn phí khám KHÔNG áp dụng dưới bất kỳ hình thức nào đối với khách hàng lựa chọn hình thức Thanh toán từng buổi.',
+      '5.1 Điều kiện miễn phí: Khách hàng được miễn phí 100% chi phí khám lâm sàng ban đầu khi mua Gói liệu trình (nhiều buổi) theo hình thức Trả thẳng hoặc Trả góp, với điều kiện giá trị gốc của gói (không bao gồm phí khám) đạt từ 1.000.000đ trở lên.',
+      '5.2 Đối tượng loại trừ: Chính sách miễn phí khám KHÔNG áp dụng dưới bất kỳ hình thức nào đối với khách hàng lựa chọn hình thức Thanh toán từng buổi, và KHÔNG áp dụng cho Dịch vụ lẻ (gói 1 buổi độc lập, không thuộc liệu trình) dù giá trị dịch vụ có đạt ngưỡng trên.',
     ],
   },
   {

@@ -65,7 +65,6 @@ class AdminRepository {
 
     return packages.map(({ _count, ...pkg }) => ({
       ...pkg,
-      danh_muc_id: pkg.danh_muc_goi_id,
       gia_tien: pkg.don_gia,
       gia_goi: pkg.don_gia,
       gia_goc: pkg.don_gia,
@@ -74,25 +73,11 @@ class AdminRepository {
     }));
   }
 
-  private async assertDanhMucCompatible(danhMucGoiId: string, loaiGoi: string) {
-    const category = await prisma.danh_muc_goi.findUnique({
-      where: { id: danhMucGoiId },
-      select: { loai_goi_ap_dung: true }
-    });
-    if (category && category.loai_goi_ap_dung !== loaiGoi) {
-      throw new Error('Danh mục chuyên khoa đã chọn không tương thích với loại gói này!');
-    }
-  }
-
   async createPackage(data: any) {
     const isAct = data.trang_thai || 'hoat_dong';
     const donGia = data.don_gia ? BigInt(data.don_gia) : BigInt(0);
     const tongSoBuoi = data.tong_so_buoi ? Number(data.tong_so_buoi) : 1;
     const donGiaTheoBuoi = data.don_gia_theo_buoi ? BigInt(data.don_gia_theo_buoi) : BigInt(Math.round(Number(donGia) / tongSoBuoi));
-
-    if (data.danh_muc_goi_id) {
-      await this.assertDanhMucCompatible(data.danh_muc_goi_id, data.loai_goi);
-    }
 
     const pkg = await prisma.goi_dich_vu.create({
       data: {
@@ -107,7 +92,6 @@ class AdminRepository {
         trang_thai: isAct,
         anh_goi: data.anh_goi || null,
         anh_gallery: data.anh_gallery || [],
-        danh_muc_goi_id: data.danh_muc_goi_id || null,
         han_su_dung_mac_dinh_ngay: data.loai_goi === 'LIEU_TRINH' && data.han_su_dung_mac_dinh_ngay
           ? Number(data.han_su_dung_mac_dinh_ngay)
           : null
@@ -117,8 +101,7 @@ class AdminRepository {
     return {
       ...pkg,
       gia_tien: pkg.don_gia,
-      thoi_luong_buoi_phut: pkg.thoi_luong_phut,
-      danh_muc_id: pkg.danh_muc_goi_id
+      thoi_luong_buoi_phut: pkg.thoi_luong_phut
     };
   }
 
@@ -127,10 +110,6 @@ class AdminRepository {
     const donGia = data.don_gia ? BigInt(data.don_gia) : BigInt(0);
     const tongSoBuoi = data.tong_so_buoi ? Number(data.tong_so_buoi) : 1;
     const donGiaTheoBuoi = data.don_gia_theo_buoi ? BigInt(data.don_gia_theo_buoi) : BigInt(Math.round(Number(donGia) / tongSoBuoi));
-
-    if (data.danh_muc_goi_id) {
-      await this.assertDanhMucCompatible(data.danh_muc_goi_id, data.loai_goi);
-    }
 
     const pkg = await prisma.goi_dich_vu.update({
       where: { id },
@@ -146,7 +125,6 @@ class AdminRepository {
         trang_thai: isAct,
         anh_goi: data.anh_goi || null,
         anh_gallery: data.anh_gallery || [],
-        danh_muc_goi_id: data.danh_muc_goi_id || null,
         han_su_dung_mac_dinh_ngay: data.loai_goi === 'LIEU_TRINH' && data.han_su_dung_mac_dinh_ngay
           ? Number(data.han_su_dung_mac_dinh_ngay)
           : null
@@ -156,8 +134,7 @@ class AdminRepository {
     return {
       ...pkg,
       gia_tien: pkg.don_gia,
-      thoi_luong_buoi_phut: pkg.thoi_luong_phut,
-      danh_muc_id: pkg.danh_muc_goi_id
+      thoi_luong_buoi_phut: pkg.thoi_luong_phut
     };
   }
 
@@ -310,7 +287,6 @@ class AdminRepository {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      await client.query('UPDATE nguoi_dung SET trang_thai = $1 WHERE id = $2', [status, id]);
       const { rows } = await client.query('UPDATE khach_hang SET trang_thai = $1 WHERE id = $2 RETURNING *', [status, id]);
       await client.query('COMMIT');
       return rows[0];
@@ -1374,9 +1350,12 @@ class AdminRepository {
         phan_hoi_nhan_xet,
         ten_nguoi_phan_hoi,
         ngay_phan_hoi,
-        loai_danh_gia
+        loai_danh_gia,
+        cam_xuc,
+        do_tin_cay,
+        ly_do_cam_xuc
       FROM (
-        SELECT 
+        SELECT
           dg.id,
           dg.so_sao as so_sao_tong,
           NULL::integer as so_sao_ktv,
@@ -1388,7 +1367,10 @@ class AdminRepository {
           dg.phan_hoi_nhan_xet,
           nd_ph.ho_ten as ten_nguoi_phan_hoi,
           dg.ngay_phan_hoi,
-          'service' as loai_danh_gia
+          'service' as loai_danh_gia,
+          dg.cam_xuc,
+          dg.do_tin_cay,
+          dg.ly_do_cam_xuc
         FROM danh_gia_goi_dich_vu dg
         JOIN khach_hang kh ON dg.khach_hang_id = kh.id
         LEFT JOIN goi_dich_vu g ON dg.goi_dich_vu_id = g.id
@@ -1398,7 +1380,7 @@ class AdminRepository {
 
         UNION ALL
 
-        SELECT 
+        SELECT
           dg.id,
           NULL::integer as so_sao_tong,
           dg.so_sao as so_sao_ktv,
@@ -1410,7 +1392,10 @@ class AdminRepository {
           dg.phan_hoi_nhan_xet,
           nd_ph.ho_ten as ten_nguoi_phan_hoi,
           dg.ngay_phan_hoi,
-          'staff' as loai_danh_gia
+          'staff' as loai_danh_gia,
+          dg.cam_xuc,
+          dg.do_tin_cay,
+          dg.ly_do_cam_xuc
         FROM danh_gia_nhan_su dg
         JOIN khach_hang kh ON dg.khach_hang_id = kh.id
         JOIN nguoi_dung nd_ktv ON dg.nhan_su_id = nd_ktv.id
@@ -1854,44 +1839,6 @@ class AdminRepository {
         AND ngay_gio_bat_dau >= $3::timestamptz
         AND ngay_gio_ket_thuc <= $4::timestamptz
     `, [targetRoomId, shift.nhan_su_id, startTimestamp, endTimestamp]);
-  }
-
-  async getCategories() {
-    const { rows } = await pool.query('SELECT id, ten_danh_muc, mo_ta, loai_goi_ap_dung FROM danh_muc_goi ORDER BY ten_danh_muc ASC');
-    return rows.map(r => ({
-      ...r,
-      loai_danh_muc: 'goi',
-      an_hien: true
-    }));
-  }
-
-  async createCategory(data: any) {
-    const { rows } = await pool.query(
-      'INSERT INTO danh_muc_goi (ten_danh_muc, mo_ta, loai_goi_ap_dung) VALUES ($1, $2, $3) RETURNING *',
-      [data.ten_danh_muc, data.mo_ta || null, data.loai_goi_ap_dung || 'LIEU_TRINH']
-    );
-    return {
-      ...rows[0],
-      loai_danh_muc: 'goi',
-      an_hien: true
-    };
-  }
-
-  async updateCategory(id: string, data: any) {
-    const { rows } = await pool.query(
-      'UPDATE danh_muc_goi SET ten_danh_muc = $1, mo_ta = $2, loai_goi_ap_dung = $3 WHERE id = $4 RETURNING *',
-      [data.ten_danh_muc, data.mo_ta || null, data.loai_goi_ap_dung || 'LIEU_TRINH', id]
-    );
-    return {
-      ...rows[0],
-      loai_danh_muc: 'goi',
-      an_hien: true
-    };
-  }
-
-  async deleteCategory(id: string) {
-    const { rows } = await pool.query('DELETE FROM danh_muc_goi WHERE id = $1 RETURNING *', [id]);
-    return rows[0];
   }
 
   async handlePackageRefund(

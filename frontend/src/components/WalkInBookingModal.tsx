@@ -9,6 +9,7 @@ import { convertToVietnamUtcIso } from '../utils/date';
 import { isPlanCancelled, isSessionPaymentSatisfied } from '../utils/billing';
 import { resolveImageUrl } from '../utils/imageUrl';
 import { statusConfig } from './appointmentStatusConfig';
+import { CustomDatePicker } from './CustomDatePicker';
 
 // Khớp đúng quy tắc validate phía backend (appointment.repository.ts::createAppointment) — dùng
 // zod thay cho required/pattern gốc của trình duyệt vì tooltip mặc định ("Please match the
@@ -1196,20 +1197,18 @@ export default function WalkInBookingModal({
             </h4>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Ngày khám:</span>
-              <input
-                type="date"
+              <CustomDatePicker
                 value={selectedDate}
-                onChange={e => {
-                  const val = e.target.value;
-                  setSelectedDate(val);
+                onChange={(date) => {
+                  setSelectedDate(date);
                   setSelectedTime('');
                   setSelectedDoctorId('');
                   setSelectedRoomId('');
-                  if (val && onDateChange) {
-                    onDateChange(new Date(val));
+                  if (date && onDateChange) {
+                    onDateChange(new Date(date));
                   }
                 }}
-                className="px-3 py-1 bg-emerald-50 text-emerald-750 border border-emerald-150 rounded-lg text-xs font-black focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                className="w-36"
               />
             </div>
           </div>

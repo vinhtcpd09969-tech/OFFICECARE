@@ -24,7 +24,8 @@ import {
   Moon,
   Cpu,
   Settings,
-  Newspaper
+  Newspaper,
+  Activity
 } from 'lucide-react';
 
 export default function AdminLayout() {
@@ -449,6 +450,8 @@ export default function AdminLayout() {
   const isTechnician = Number(user?.vai_tro_id) === 3;
   const isReceptionist = Number(user?.vai_tro_id) === 2;
 
+  const activeAppointmentId = localStorage.getItem('active_appointment_id');
+
   const rawNavItems = [
     {
       name: 'Tổng quan',
@@ -468,6 +471,12 @@ export default function AdminLayout() {
       icon: <Calendar size={18} />,
       roles: [2, 3, 4, 5, 6]
     },
+    { 
+      name: 'Bàn làm việc', 
+      path: isTechnician ? '/technician/desk' : '/doctor/desk',
+      icon: <Activity size={18} />,
+      roles: [3, 4]
+    },
     { name: 'Ca làm việc', path: '/admin/schedules', icon: <Clock size={18} />, roles: [5, 6] },
     { 
       name: 'Lịch trực cá nhân', 
@@ -479,11 +488,17 @@ export default function AdminLayout() {
       icon: <Clock size={18} />, 
       roles: [2, 3, 4] 
     },
-    { 
-      name: 'Khách hàng', 
-      path: '/admin/customers', 
+    {
+      name: 'Khách hàng',
+      path: '/admin/customers',
       icon: <User size={18} />,
       roles: [5, 6]
+    },
+    {
+      name: 'Khách hàng',
+      path: '/receptionist/customers',
+      icon: <User size={18} />,
+      roles: [2]
     },
     { 
       name: 'Hồ sơ điều trị', 
@@ -546,7 +561,15 @@ export default function AdminLayout() {
         <nav className="flex-1 py-4 overflow-y-auto pr-1 scrollbar-thin">
           <ul className="space-y-1 px-3">
             {navItems.map((item) => {
-              const isActive = location.pathname === item.path || (item.path !== '/admin' && item.path !== '/receptionist' && item.path !== '/doctor' && location.pathname.startsWith(item.path + '/'));
+              const isAssess = location.pathname.includes('/assess') || location.pathname.endsWith('/desk');
+              let isActive = false;
+              if (item.path.includes('/desk')) {
+                isActive = isAssess;
+              } else if (item.name === 'Lịch hẹn') {
+                isActive = !isAssess && (location.pathname === item.path || location.pathname.startsWith(item.path + '/'));
+              } else {
+                isActive = location.pathname === item.path || (item.path !== '/admin' && item.path !== '/receptionist' && item.path !== '/doctor' && location.pathname.startsWith(item.path + '/'));
+              }
               return (
                 <li key={item.name}>
                   <Link

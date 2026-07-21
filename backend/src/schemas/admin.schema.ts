@@ -5,7 +5,6 @@ export const packageSchema = z.object({
   body: z.object({
     ten_goi: z.string().min(1, 'Tên gói/dịch vụ là bắt buộc'),
     loai_goi: z.enum(['KHAM', 'LE', 'LIEU_TRINH'], { required_error: 'Loại gói không hợp lệ (KHAM, LE, LIEU_TRINH)' }),
-    danh_muc_goi_id: z.string().uuid('ID danh mục không hợp lệ').optional().nullable(),
     tong_so_buoi: z.number().int().min(1, 'Số buổi tối thiểu là 1').default(1),
     thoi_luong_phut: z.number().int().min(1, 'Thời lượng tối thiểu là 1').default(30),
     don_gia: z.number().min(0, 'Đơn giá không hợp lệ'),

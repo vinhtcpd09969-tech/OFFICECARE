@@ -205,19 +205,6 @@ async function main() {
       });
     }
 
-    // 4.5. Seed danh_muc_goi
-    const catCount = await prisma.danh_muc_goi.count();
-    if (catCount === 0) {
-      console.log('Seeding package categories...');
-      await prisma.danh_muc_goi.createMany({
-        data: [
-          { id: 'd1000000-0000-0000-0000-000000000001', ten_danh_muc: 'Khám & Lượng Giá Chuyên Sâu', mo_ta: 'Các gói khám và đánh giá ban đầu với Bác sĩ', loai_goi_ap_dung: 'KHAM' },
-          { id: 'd1000000-0000-0000-0000-000000000002', ten_danh_muc: 'Trị Liệu Giải Quyết Cơn Đau', mo_ta: 'Các gói lẻ điện xung, laser, sóng xung kích điều trị triệu chứng', loai_goi_ap_dung: 'LE' },
-          { id: 'd1000000-0000-0000-0000-000000000003', ten_danh_muc: 'Phục Hồi Chức Năng Chuyên Sâu', mo_ta: 'Các gói liệu trình chuyên sâu điều trị phục hồi cột sống, khớp xương gối', loai_goi_ap_dung: 'LIEU_TRINH' },
-        ]
-      });
-    }
-
     // 5. Seed goi_dich_vu (Unified Packages)
     const pkgCount = await prisma.goi_dich_vu.count();
     if (pkgCount === 0) {
@@ -235,7 +222,6 @@ async function main() {
             don_gia_theo_buoi: BigInt(200000),
             mo_ta: 'Bác sĩ khám lâm sàng, lượng giá tầm vận động cột sống, kiểm tra biến dạng khớp và lên phác đồ điều trị.',
             trang_thai: 'hoat_dong',
-            danh_muc_goi_id: 'd1000000-0000-0000-0000-000000000001',
           },
           // 5.2 Gói Lẻ (LE)
           {
@@ -248,7 +234,6 @@ async function main() {
             don_gia_theo_buoi: BigInt(250000),
             mo_ta: 'Sử dụng tia Laser cao tần kích thích sâu dưới da, tăng tuần hoàn và giảm sưng viêm tại chỗ khớp xương.',
             trang_thai: 'hoat_dong',
-            danh_muc_goi_id: 'd1000000-0000-0000-0000-000000000002',
           },
           {
             id: 'c1000000-0000-0000-0000-000000000102',
@@ -260,7 +245,6 @@ async function main() {
             don_gia_theo_buoi: BigInt(300000),
             mo_ta: 'Giải tỏa điểm kích hoạt đau (trigger points), hóa lỏng các điểm xơ hóa cơ bằng xung kích cơ học.',
             trang_thai: 'hoat_dong',
-            danh_muc_goi_id: 'd1000000-0000-0000-0000-000000000002',
           },
           {
             id: 'c1000000-0000-0000-0000-000000000103',
@@ -272,7 +256,6 @@ async function main() {
             don_gia_theo_buoi: BigInt(350000),
             mo_ta: 'Kỹ thuật viên xoa bóp, di động cơ học chuyên sâu giải phóng các bó cơ co thắt gây đau đầu, vai gáy, thắt lưng.',
             trang_thai: 'hoat_dong',
-            danh_muc_goi_id: 'd1000000-0000-0000-0000-000000000002',
           },
           // 5.3 Gói Liệu Trình (LIEU_TRINH)
           {
@@ -285,7 +268,6 @@ async function main() {
             don_gia_theo_buoi: BigInt(400000),
             mo_ta: 'Mỗi buổi KTV thực hiện: Điện xung giảm đau vai gáy (15 phút), Nhiệt trị liệu làm mềm cơ (15 phút), và Nắn chỉnh di động khớp cổ (30 phút).',
             trang_thai: 'hoat_dong',
-            danh_muc_goi_id: 'd1000000-0000-0000-0000-000000000003',
           },
           {
             id: 'c1000000-0000-0000-0000-000000000002',
@@ -297,7 +279,6 @@ async function main() {
             don_gia_theo_buoi: BigInt(450000),
             mo_ta: 'Mỗi buổi KTV thực hiện: Kéo giãn cột sống cổ/thắt lưng giảm áp đĩa đệm (20 phút), Laser công suất cao giảm viêm rễ thần kinh (15 phút), và Tập phục hồi nhóm cơ lõi thắt lưng (25 phút).',
             trang_thai: 'hoat_dong',
-            danh_muc_goi_id: 'd1000000-0000-0000-0000-000000000003',
           },
           {
             id: 'c1000000-0000-0000-0000-000000000003',
@@ -309,7 +290,6 @@ async function main() {
             don_gia_theo_buoi: BigInt(450000),
             mo_ta: 'Mỗi buổi KTV thực hiện: Trị liệu sóng xung kích hội tụ Focused Shockwave (20 phút), Laser tiêu viêm sâu (15 phút), và Tập Kinetic Rehab tăng sức mạnh gân cơ dây chằng (25 phút).',
             trang_thai: 'hoat_dong',
-            danh_muc_goi_id: 'd1000000-0000-0000-0000-000000000003',
           },
         ],
       });

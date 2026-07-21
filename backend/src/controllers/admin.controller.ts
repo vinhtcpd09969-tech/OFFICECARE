@@ -6,6 +6,7 @@ import { refundSchema, packageRefundSchema, expirePackageNoRefundSchema } from '
 import { voucherSchema } from '../schemas/marketing.schema';
 import { pool } from '../config/db';
 import bcrypt from 'bcryptjs';
+import { sendAccountLockedNotification } from '../utils/mailer';
 
 // --- QUẢN LÝ PHÒNG KHÁM ---
 
@@ -97,45 +98,6 @@ export const deletePackage = async (req: Request, res: Response): Promise<any> =
     res.json({ message: 'Xóa gói điều trị thành công' });
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server khi xóa gói điều trị' });
-  }
-};
-
-// --- QUẢN LÝ DANH MỤC GÓI ---
-export const getCategories = async (req: Request, res: Response) => {
-  try {
-    const categories = await adminService.getCategories();
-    res.json(categories);
-  } catch (error) {
-    res.status(500).json({ message: 'Lỗi server khi lấy danh sách danh mục' });
-  }
-};
-
-export const createCategory = async (req: Request, res: Response) => {
-  try {
-    const category = await adminService.createCategory(req.body);
-    res.json(category);
-  } catch (error) {
-    res.status(500).json({ message: 'Lỗi server khi tạo danh mục' });
-  }
-};
-
-export const updateCategory = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params as { id: string };
-    const category = await adminService.updateCategory(id, req.body);
-    res.json(category);
-  } catch (error) {
-    res.status(500).json({ message: 'Lỗi server khi cập nhật danh mục' });
-  }
-};
-
-export const deleteCategory = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params as { id: string };
-    await adminService.deleteCategory(id);
-    res.json({ message: 'Xóa danh mục thành công' });
-  } catch (error) {
-    res.status(500).json({ message: 'Lỗi server khi xóa danh mục' });
   }
 };
 
@@ -284,7 +246,40 @@ export const toggleCustomerLock = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
     const { isLocked } = req.body;
+
+    if (isLocked) {
+      // 1. Kiểm tra lịch hẹn sắp tới hoặc đang diễn ra
+      const apptCheck = await pool.query(
+        `SELECT id FROM cuoc_hen 
+         WHERE khach_hang_id = $1 
+           AND trang_thai IN ('chua_xac_nhan', 'cho_xac_nhan', 'da_xac_nhan', 'da_checkin', 'dang_kham')`,
+        [id]
+      );
+
+      // 2. Kiểm tra gói phác đồ đang hoạt động và chưa dùng hết buổi
+      const planCheck = await pool.query(
+        `SELECT id FROM phac_do_dieu_tri 
+         WHERE khach_hang_id = $1 
+           AND trang_thai = 'dang_dieu_tri' 
+           AND so_buoi_da_dung < tong_so_buoi`,
+        [id]
+      );
+
+      if ((apptCheck.rowCount && apptCheck.rowCount > 0) || (planCheck.rowCount && planCheck.rowCount > 0)) {
+        return res.status(400).json({
+          message: 'Không thể khóa tài khoản: Khách hàng đang có lịch hẹn sắp tới hoặc gói liệu trình đang hoạt động. Vui lòng hủy lịch hẹn hoặc xử lý gói trước khi khóa.'
+        });
+      }
+    }
+
     const updated = await adminService.updateCustomerLock(id, isLocked);
+
+    if (isLocked && updated && updated.email) {
+      sendAccountLockedNotification(updated.email, updated.ho_ten).catch(err => {
+        console.error('Lỗi khi gửi email thông báo khóa tài khoản:', err);
+      });
+    }
+
     res.json({ message: isLocked ? 'Khóa tài khoản thành công' : 'Mở khóa tài khoản thành công', data: updated });
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server khi khóa/mở khóa tài khoản khách hàng' });

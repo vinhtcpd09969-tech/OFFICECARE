@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { resolveImageUrl } from '../../../../../utils/imageUrl';
 import { convertToVietnamUtcIso } from '../../../../../utils/date';
 import { api } from '../../../../../shared/api';
+import { CustomDatePicker } from '../../../../../components/CustomDatePicker';
 
 interface BookNextSessionModalProps {
   pkg: {
@@ -222,11 +223,12 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
       const response = await api.post('/client/appointments/public', payload);
 
       if (response.status === 200 || response.status === 201) {
-        const appt = response.data;
         toast.success('Khởi tạo lịch hẹn thành công!', { id: toastId });
         onClose();
-        // Chuyển hướng đến trang nhập OTP có sẵn để khách hàng xác nhận
-        navigate(`/booking/success/${appt.id}`);
+        // Đưa khách về thẳng trang quản lý lịch hẹn của chính họ để xác thực OTP ngay trên thẻ lịch
+        // hẹn (không còn chuyển qua trang /booking/success — đó là luồng đặt lịch công khai, không
+        // dành cho khách đã đăng nhập). Kèm ngày hẹn để trang tự chuyển view hiển thị đúng buổi mới.
+        navigate(`/appointments?date=${selectedDate}`);
       } else {
         toast.error('Không thể đặt lịch hẹn. Vui lòng thử lại.', { id: toastId });
         setShowConfirmStep(false);
@@ -359,16 +361,15 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
                 </h4>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Ngày khám:</span>
-                  <input
-                    type="date"
-                    min={getTomorrowString()}
+                  <CustomDatePicker
                     value={selectedDate}
-                    onChange={(e) => {
-                      setSelectedDate(e.target.value);
+                    minDate={getTomorrowString()}
+                    onChange={(date) => {
+                      setSelectedDate(date);
                       setSelectedTime('');
                       setSelectedStaffId('');
                     }}
-                    className="px-3 py-1 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-400 border border-emerald-150 dark:border-emerald-900/30 rounded-lg text-xs font-black focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="w-36"
                   />
                 </div>
               </div>

@@ -26,7 +26,16 @@ interface Feedback {
   ten_nguoi_phan_hoi: string | null;
   ngay_phan_hoi: string | null;
   loai_danh_gia: 'service' | 'staff';
+  cam_xuc: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL' | null;
+  do_tin_cay: number | null;
+  ly_do_cam_xuc: string | null;
 }
+
+const SENTIMENT_CONFIG: Record<string, { label: string; cls: string }> = {
+  POSITIVE: { label: 'Tích cực', cls: 'bg-emerald-50 text-emerald-700 border-emerald-150 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900' },
+  NEGATIVE: { label: 'Tiêu cực', cls: 'bg-rose-50 text-rose-700 border-rose-150 dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900' },
+  NEUTRAL: { label: 'Trung tính', cls: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700' },
+};
 
 export default function ViewFeedback() {
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
@@ -79,12 +88,14 @@ export default function ViewFeedback() {
   const [selectedService, setSelectedService] = useState<string>('Tất cả');
   const [selectedSpecialist, setSelectedSpecialist] = useState<string>('Tất cả');
   const [selectedStars, setSelectedStars] = useState<string>('Tất cả');
+  const [selectedSentiment, setSelectedSentiment] = useState<string>('Tất cả');
 
   // Reset page filters when activeTab changes
   useEffect(() => {
     setSelectedStars('Tất cả');
     setSelectedService('Tất cả');
     setSelectedSpecialist('Tất cả');
+    setSelectedSentiment('Tất cả');
   }, [activeTab]);
 
   // Extract unique lists dynamically
@@ -117,18 +128,20 @@ export default function ViewFeedback() {
       if (f.so_sao_tong === null) return false;
       if (selectedService !== 'Tất cả' && f.ten_dich_vu !== selectedService) return false;
       if (selectedStars !== 'Tất cả' && f.so_sao_tong !== Number(selectedStars)) return false;
+      if (selectedSentiment !== 'Tất cả' && f.cam_xuc !== selectedSentiment) return false;
       return true;
     });
-  }, [feedbacks, selectedService, selectedStars]);
+  }, [feedbacks, selectedService, selectedStars, selectedSentiment]);
 
   const staffFeedbacks = useMemo(() => {
     return feedbacks.filter(f => {
       if (f.so_sao_ktv === null) return false;
       if (selectedSpecialist !== 'Tất cả' && f.ten_ky_thuat_vien !== selectedSpecialist) return false;
       if (selectedStars !== 'Tất cả' && f.so_sao_ktv !== Number(selectedStars)) return false;
+      if (selectedSentiment !== 'Tất cả' && f.cam_xuc !== selectedSentiment) return false;
       return true;
     });
-  }, [feedbacks, selectedSpecialist, selectedStars]);
+  }, [feedbacks, selectedSpecialist, selectedStars, selectedSentiment]);
 
   // Calculations (KPIs)
   const serviceStats = useMemo(() => {
@@ -160,6 +173,20 @@ export default function ViewFeedback() {
           />
         ))}
       </div>
+    );
+  };
+
+  const renderSentimentBadge = (camXuc: Feedback['cam_xuc'], lyDo: string | null) => {
+    if (!camXuc) return null;
+    const config = SENTIMENT_CONFIG[camXuc];
+    if (!config) return null;
+    return (
+      <span
+        title={lyDo || undefined}
+        className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-[9px] font-black uppercase tracking-wider ${config.cls}`}
+      >
+        🤖 {config.label}
+      </span>
     );
   };
 
@@ -309,13 +336,28 @@ export default function ViewFeedback() {
           </select>
         </div>
 
-        {(selectedService !== 'Tất cả' || selectedSpecialist !== 'Tất cả' || selectedStars !== 'Tất cả') && (
+        <div className="w-full sm:w-40">
+          <label className="block text-[10px] text-zinc-400 font-black uppercase mb-1">Cảm xúc (AI)</label>
+          <select
+            value={selectedSentiment}
+            onChange={(e) => setSelectedSentiment(e.target.value)}
+            className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-zinc-850 border border-slate-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:border-primary text-slate-700 dark:text-zinc-200 font-semibold cursor-pointer"
+          >
+            <option value="Tất cả">Tất cả cảm xúc</option>
+            <option value="POSITIVE">🤖 Tích cực</option>
+            <option value="NEGATIVE">🤖 Tiêu cực</option>
+            <option value="NEUTRAL">🤖 Trung tính</option>
+          </select>
+        </div>
+
+        {(selectedService !== 'Tất cả' || selectedSpecialist !== 'Tất cả' || selectedStars !== 'Tất cả' || selectedSentiment !== 'Tất cả') && (
           <button
             type="button"
             onClick={() => {
               setSelectedService('Tất cả');
               setSelectedSpecialist('Tất cả');
               setSelectedStars('Tất cả');
+              setSelectedSentiment('Tất cả');
             }}
             className="text-[10px] font-black uppercase text-rose-500 hover:text-rose-700 cursor-pointer transition-colors"
           >
@@ -362,9 +404,12 @@ export default function ViewFeedback() {
                   </div>
 
                   {/* Rating display */}
-                  <div className="flex items-center gap-2 bg-slate-50 dark:bg-zinc-850/30 px-3.5 py-2.5 rounded-xl border border-slate-100 dark:border-zinc-800/80 w-fit">
-                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider">Đánh giá:</span>
-                    {renderStars(f.so_sao_tong || 0)}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 bg-slate-50 dark:bg-zinc-850/30 px-3.5 py-2.5 rounded-xl border border-slate-100 dark:border-zinc-800/80 w-fit">
+                      <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider">Đánh giá:</span>
+                      {renderStars(f.so_sao_tong || 0)}
+                    </div>
+                    {renderSentimentBadge(f.cam_xuc, f.ly_do_cam_xuc)}
                   </div>
 
                   {/* Review Text */}
@@ -476,9 +521,12 @@ export default function ViewFeedback() {
                   </div>
 
                   {/* Rating display */}
-                  <div className="flex items-center gap-2 bg-slate-50 dark:bg-zinc-850/30 px-3.5 py-2.5 rounded-xl border border-slate-100 dark:border-zinc-800/80 w-fit">
-                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider">Đánh giá KTV:</span>
-                    {renderStars(f.so_sao_ktv || 0)}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 bg-slate-50 dark:bg-zinc-850/30 px-3.5 py-2.5 rounded-xl border border-slate-100 dark:border-zinc-800/80 w-fit">
+                      <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider">Đánh giá KTV:</span>
+                      {renderStars(f.so_sao_ktv || 0)}
+                    </div>
+                    {renderSentimentBadge(f.cam_xuc, f.ly_do_cam_xuc)}
                   </div>
 
                   {/* Review Text */}

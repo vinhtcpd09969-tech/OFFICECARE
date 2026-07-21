@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Clock, Phone, Loader2, Info, ShieldCheck, HeartPulse, Award, Star, TrendingUp, Activity } from 'lucide-react';
-import { getPublicServices, getPublicCategories, getPublicServiceReviews, getPublicSpecialists } from '../api/public.api';
+import { getPublicServices, getPublicServiceReviews, getPublicSpecialists } from '../api/public.api';
 import { resolveImageUrl } from '../../../utils/imageUrl';
 import ScrollReveal from '../components/shared/ScrollReveal';
 import toast from 'react-hot-toast';
@@ -16,7 +16,6 @@ const TRUST_BADGES = [
 
 interface Service {
   id: string;
-  danh_muc_goi_id: string;
   ten_goi: string;
   loai_goi: 'KHAM' | 'LE';
   quy_trinh?: string;
@@ -27,13 +26,6 @@ interface Service {
   anh_gallery?: string[];
   trang_thai: string;
   mo_ta?: string;
-}
-
-interface Category {
-  id: string | number;
-  ten_danh_muc: string;
-  mo_ta: string;
-  loai_danh_muc: string;
 }
 
 const getPrescribedTech = (name: string) => {
@@ -72,7 +64,6 @@ export default function ServiceDetailPage() {
 
   const [loading, setLoading] = useState<boolean>(true);
   const [service, setService] = useState<Service | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [relatedServices, setRelatedServices] = useState<Service[]>([]);
   const [activeGalleryImage, setActiveGalleryImage] = useState<string | null>(null);
   const [reviews, setReviews] = useState<any[]>([]);
@@ -95,15 +86,12 @@ export default function ServiceDetailPage() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [resSvcs, resCats, resSpecs] = await Promise.all([
+        const [resSvcs, resSpecs] = await Promise.all([
           getPublicServices(),
-          getPublicCategories(),
           getPublicSpecialists()
         ]);
 
         const fetchedServices: Service[] = resSvcs.data || [];
-        const fetchedCategories: Category[] = resCats.data || [];
-        setCategories(fetchedCategories);
         setSpecialists(resSpecs.data || []);
 
         const foundService = fetchedServices.find(s => s.id.toString() === id?.toString());
@@ -112,7 +100,7 @@ export default function ServiceDetailPage() {
           setSelectedImage(foundService.anh_goi || '');
           setRelatedServices(
             fetchedServices
-              .filter(s => s.id.toString() !== foundService.id.toString() && s.danh_muc_goi_id === foundService.danh_muc_goi_id)
+              .filter(s => s.id.toString() !== foundService.id.toString() && s.loai_goi === foundService.loai_goi)
               .slice(0, 3)
           );
         } else {
@@ -210,12 +198,8 @@ export default function ServiceDetailPage() {
 
   // Helper to get category name
   const getCategoryName = (): string => {
-    if (!service.danh_muc_goi_id) return 'Dịch vụ lẻ';
-    const cat = categories.find(c => c.id.toString() === service.danh_muc_goi_id!.toString());
-    return cat ? cat.ten_danh_muc : 'Dịch vụ lẻ';
+    return service.loai_goi === 'KHAM' ? 'Khám chuyên khoa' : 'Trị liệu đơn buổi';
   };
-
-
 
   const formatPrice = (price: number | string | undefined): string => {
     if (price === undefined || price === null) return '';

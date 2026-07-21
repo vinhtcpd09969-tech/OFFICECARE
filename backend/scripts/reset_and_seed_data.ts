@@ -48,17 +48,6 @@ async function main() {
 
     console.log('Phase 1: Đang dọn dẹp danh mục gói và các gói cũ...');
     await prisma.goi_dich_vu.deleteMany();
-    await prisma.danh_muc_goi.deleteMany();
-
-    // Reseed Categories
-    console.log('Phase 2: Đang khởi tạo lại danh mục gói...');
-    await prisma.danh_muc_goi.createMany({
-      data: [
-        { id: 'd1000000-0000-0000-0000-000000000001', ten_danh_muc: 'Khám & Lượng Giá Chuyên Sâu', mo_ta: 'Khám tầm soát cột sống, lượng giá vận động cổ vai gáy cùng Bác sĩ Chuyên khoa.', loai_goi_ap_dung: 'KHAM' },
-        { id: 'd1000000-0000-0000-0000-000000000002', ten_danh_muc: 'Trị Liệu Giải Quyết Cơn Đau', mo_ta: 'Các gói lẻ điện xung, laser, sóng xung kích điều trị các cơ co cứng cấp tính.', loai_goi_ap_dung: 'LE' },
-        { id: 'd1000000-0000-0000-0000-000000000003', ten_danh_muc: 'Phục Hồi Chức Năng Chuyên Sâu', mo_ta: 'Liệu trình vật lý trị liệu kết hợp phục hồi chức năng chuyên sâu cột sống, cổ tay.', loai_goi_ap_dung: 'LIEU_TRINH' },
-      ]
-    });
 
     // Reseed Gói Khám (KHAM) - Giữ 1 gói duy nhất
     console.log('Phase 2: Đang chèn Gói khám lâm sàng...');
@@ -73,7 +62,6 @@ async function main() {
         don_gia_theo_buoi: BigInt(150000),
         anh_goi: '/goi/images/kham_sang_loc.png',
         anh_gallery: ['/goi/images/kham_sang_loc.png', '/images/physio_premium_facility.png'],
-        danh_muc_goi_id: 'd1000000-0000-0000-0000-000000000001',
         muc_tieu: 'Xác định chính xác nguyên nhân gốc rễ gây đau cơ xương khớp cấp và mạn tính.\nLượng hóa mức độ suy giảm chức năng vận động cột sống.\nPhát hiện sớm các dấu hiệu thoát vị đĩa đệm, thoái hóa khớp tiềm ẩn.\nXây dựng lộ trình trị liệu phục hồi chức năng khoa học, không dùng thuốc.\nTư vấn thay đổi tư thế làm việc công thái học (Ergonomics) tại văn phòng.',
         quy_trinh: 'Đo chỉ số sinh tồn và khai thác bệnh sử chi tiết của bệnh nhân (thói quen sinh hoạt, tư thế làm việc).\nBác sĩ trực tiếp thăm khám lâm sàng vùng cột sống cổ, vai gáy, thắt lưng.\nLượng giá chức năng sinh học vận động, đo tầm vận động (ROM) của các khớp.\nKiểm tra các điểm đau lệch trục cơ thể và các bất thường về tư thế (gù lưng, vai lệch).\nLập phác đồ điều trị phục hồi chức năng cá nhân hóa phù hợp với mức độ tổn thương.',
         trang_thai: 'hoat_dong'
@@ -94,7 +82,6 @@ async function main() {
           don_gia_theo_buoi: BigInt(350000),
           anh_goi: '/goi/images/giai_co_sau.png',
           anh_gallery: ['/goi/images/giai_co_sau.png', '/images/therapist_treatment.png'],
-          danh_muc_goi_id: 'd1000000-0000-0000-0000-000000000002',
           muc_tieu: 'Giải tỏa tức thì tình trạng co thắt, xơ hóa các nhóm cơ thang, cơ nâng vai.\nKích thích tuần hoàn máu vi mạch, giảm axit lactic tích tụ gây mỏi cơ.\nGiảm nhanh cơn đau mỏi ê ẩm bả vai gáy do ngồi máy tính liên tục.\nMang lại cảm giác nhẹ nhõm, thư giãn vùng vai gáy ngay sau buổi trị liệu.',
           quy_trinh: 'Nhiệt trị liệu hồng ngoại làm ấm, giãn nở mạch máu và làm mềm cơ nông vùng cổ vai gáy (15 phút).\nKỹ thuật viên thực hiện các động tác trị liệu giải cơ sâu bằng tay giải tỏa xơ cứng màng cơ (20 phút).\nTác động sâu giải phóng các nút thắt cơ (Trigger Points) gây đau bả vai và đau đầu (10 phút).',
           trang_thai: 'hoat_dong'
@@ -109,7 +96,6 @@ async function main() {
           don_gia_theo_buoi: BigInt(400000),
           anh_goi: '/images/therapist_treatment.png',
           anh_gallery: ['/images/therapist_treatment.png', '/images/therapist_treatment_banner.png'],
-          danh_muc_goi_id: 'd1000000-0000-0000-0000-000000000002',
           muc_tieu: 'Mở rộng khe khớp, giải phóng chèn ép rễ thần kinh nhẹ.\nTăng tiết dịch khớp bôi trơn đầu xương, giảm ma sát gây đau khi xoay lưng/cổ.\nKhôi phục biên độ vận động tự nhiên của đốt sống thắt lưng và đốt sống cổ.\nCải thiện tình trạng kẹt khớp cơ học do ngồi thụ động ở văn phòng.',
           quy_trinh: 'Kỹ thuật viên thực hiện massage khởi động làm mềm mô mềm xung quanh đốt sống bị kẹt (10 phút).\nChuyên gia thực hiện kỹ thuật di động khớp (Joint Mobilization) giải kẹt khớp cơ học bằng lực tay y khoa chuyên biệt (15 phút).\nThao tác kéo giãn cột sống thụ động nhẹ nhàng phục hồi khe khớp (5 phút).',
           trang_thai: 'hoat_dong'
@@ -124,7 +110,6 @@ async function main() {
           don_gia_theo_buoi: BigInt(200000),
           anh_goi: '/images/physio_treatment_room.png',
           anh_gallery: ['/images/physio_treatment_room.png', '/images/physio_premium_facility.png'],
-          danh_muc_goi_id: 'd1000000-0000-0000-0000-000000000002',
           muc_tieu: 'Ức chế đường truyền cảm giác đau lên hệ thần kinh trung ương.\nKích thích co cơ nhẹ nhàng nhịp nhàng, tăng cường thải trừ chất gây đau cơ.\nGiải tỏa căng cơ thắt lưng dưới cấp tính và mạn tính do ngồi lâu.\nHỗ trợ giảm viêm cơ mỏi cơ sâu mà kỹ thuật tay thông thường khó tác động.',
           quy_trinh: 'Lựa chọn và dán các tấm bản cực điện cực y khoa tại vùng cơ lưng dưới bị co thắt (5 phút).\nVận hành máy điện xung phát dòng TENS/EMS ức chế dẫn truyền cảm giác đau (15 phút).\nLau sạch và massage nhẹ thư giãn cơ vùng dán điện cực (2 phút).',
           trang_thai: 'hoat_dong'
@@ -139,7 +124,6 @@ async function main() {
           don_gia_theo_buoi: BigInt(300000),
           anh_goi: '/goi/images/laser_tri_lieu.png',
           anh_gallery: ['/goi/images/laser_tri_lieu.png', '/images/recovery_journey.png'],
-          danh_muc_goi_id: 'd1000000-0000-0000-0000-000000000002',
           muc_tieu: 'Laser bước sóng đơn sắc năng lượng cao thâm nhập sâu vào các mô cơ khớp bị viêm.\nTiêu viêm nhanh vùng rễ thần kinh cổ/lưng gây đau và tê bì tay chân.\nKích thích tế bào tăng sinh ATP, thúc đẩy quá trình tự lành tổn thương sâu.\nGiảm sưng tấy đau nhức tại các bao gân khuỷu tay hoặc cổ tay.',
           quy_trinh: 'Bệnh nhân và chuyên gia đeo kính bảo hộ chuyên dụng bảo vệ võng mạc (3 phút).\nDùng đầu quét Laser cao tần rà quét đều trên vùng rễ thần kinh hoặc bao gân bị viêm (10 phút).\nKiểm tra phản ứng nhiệt da và bôi kem làm dịu da vùng quét (2 phút).',
           trang_thai: 'hoat_dong'
@@ -154,7 +138,6 @@ async function main() {
           don_gia_theo_buoi: BigInt(350000),
           anh_goi: '/goi/images/song_xung_kich.png',
           anh_gallery: ['/goi/images/song_xung_kich.png', '/images/physio_premium_facility.png'],
-          danh_muc_goi_id: 'd1000000-0000-0000-0000-000000000002',
           muc_tieu: 'Phá vỡ các mô xơ cơ (trigger points) lâu ngày vùng vai gáy và mông.\nThúc đẩy sản sinh mạch máu mới, tăng cường tưới máu phục hồi mô cơ.\nTái khởi động cơ chế tự chữa lành tự nhiên của các vùng tổn thương mạn tính.\nGiảm nhanh cơn đau nhói sâu trong bả vai bắp đùi.',
           quy_trinh: 'Thoa gel siêu âm chuyên dụng dẫn truyền sóng xung kích cơ học lên da (2 phút).\nĐi máy sóng xung kích bắn tập trung vào các điểm xơ hóa cơ, điểm bám gân mạn tính (15 phút).\nVệ sinh sạch lớp gel dẫn và massage nhẹ làm dịu mô mềm (3 phút).',
           trang_thai: 'hoat_dong'
@@ -176,7 +159,6 @@ async function main() {
           don_gia_theo_buoi: BigInt(314285),
           anh_goi: '/images/therapist_treatment.png',
           anh_gallery: ['/images/therapist_treatment.png', '/goi/images/giai_co_sau.png', '/images/recovery_journey.png'],
-          danh_muc_goi_id: 'd1000000-0000-0000-0000-000000000003',
           muc_tieu: 'Chấm dứt hoàn toàn cơn đau mỏi âm ỉ vùng cổ vai gáy mạn tính của dân văn phòng.\nGiải phóng chèn ép rễ thần kinh cổ, triệt tiêu tê bì lan dọc hai tay.\nTăng cường tuần hoàn máu não, đẩy lùi cơn đau đầu vận mạch, hoa mắt, mất ngủ.\nKhôi phục biên độ vận động cổ (xoay, gập, ngửa cổ linh hoạt).',
           quy_trinh: 'Chiếu hồng ngoại nhiệt trị liệu làm mềm cơ bắp vùng cổ vai gáy (15 phút).\nGiải cơ sâu Myofascial Release bằng tay tác động trực tiếp lên trigger points cơ thang, cơ nâng vai (25 phút).\nĐiện xung y khoa kết hợp siêu âm trị liệu tiêu viêm rễ thần kinh cổ (20 phút).\nHướng dẫn thực hiện bài tập tự giãn cơ bả vai tại bàn làm việc (5 phút).',
           trang_thai: 'hoat_dong'
@@ -191,7 +173,6 @@ async function main() {
           don_gia_theo_buoi: BigInt(350000),
           anh_goi: '/images/recovery_journey.png',
           anh_gallery: ['/images/recovery_journey.png', '/images/physio_treatment_room.png', '/images/physio_premium_facility.png'],
-          danh_muc_goi_id: 'd1000000-0000-0000-0000-000000000003',
           muc_tieu: 'Tạo áp suất âm đĩa đệm, hút nhân nhầy thoát vị co hồi nhẹ về vị trí cũ.\nGiải chèn ép thần kinh tọa, chấm dứt đau buốt từ thắt lưng lan xuống chân.\nTăng sức mạnh nhóm cơ core thắt lưng bụng giữ cột sống vững vàng khi ngồi làm việc.\nĐiều chỉnh tư thế lưng gù vai lệch, tái lập trục tư thế thẳng tự nhiên.',
           quy_trinh: 'Kéo giãn cột sống giảm áp lực đĩa đệm bằng giường kéo giãn kỹ thuật số áp lực âm (20 phút).\nTrị liệu Laser công suất cao tiêu viêm rễ thần kinh cột sống thắt lưng (15 phút).\nBài tập vận động trị liệu Kinetic Rehab phục hồi cơ lõi core lưng bụng và cơ mông (35 phút).\nKỹ thuật viên nắn chỉnh di động khớp thắt lưng bằng tay giải kẹt khớp (5 phút).',
           trang_thai: 'hoat_dong'
@@ -206,7 +187,6 @@ async function main() {
           don_gia_theo_buoi: BigInt(280000),
           anh_goi: '/images/therapist_treatment_banner.png',
           anh_gallery: ['/images/therapist_treatment_banner.png', '/goi/images/laser_tri_lieu.png', '/images/recovery_journey.png'],
-          danh_muc_goi_id: 'd1000000-0000-0000-0000-000000000003',
           muc_tieu: 'Giải chèn ép thần kinh giữa trong ống cổ tay.\nTrị dứt điểm tê bì ngón tay cái, ngón trỏ và ngón giữa do gõ phím liên tục.\nKhôi phục lực cầm nắm, sức mạnh cơ ngón tay và cổ tay.\nPhòng ngừa xơ cứng gân gấp ngón tay (hội chứng ngón tay lò xo).',
           quy_trinh: 'Siêu âm trị liệu vùng bao gân cổ tay giúp giảm sưng viêm rãnh thần kinh giữa (15 phút).\nKỹ thuật viên thực hiện nắn chỉnh di động các khớp xương cổ tay giải ép cơ học bằng tay (20 phút).\nBài tập Kinetic tăng sức mạnh cơ cẳng tay và ngón tay phục hồi sự linh hoạt cầm nắm (10 phút).',
           trang_thai: 'hoat_dong'
@@ -221,7 +201,6 @@ async function main() {
           don_gia_theo_buoi: BigInt(350000),
           anh_goi: '/images/physio_premium_facility.png',
           anh_gallery: ['/images/physio_premium_facility.png', '/goi/images/song_xung_kich.png', '/images/therapist_treatment.png'],
-          danh_muc_goi_id: 'd1000000-0000-0000-0000-000000000003',
           muc_tieu: 'Khắc phục hoàn toàn tư thế lệch vai, vai tròn, đầu nhô phía trước do dùng máy tính nhiều.\nPhục hồi sự cân bằng cơ đối kháng (cân bằng giữa cơ ngực trước và cơ bả vai sau).\nTái lập thói quen tư thế đúng cho cột sống khi ngồi và đứng làm việc.\nTăng dung tích thở của lồng ngực bị hạn chế do tư thế gù vai khép ngực.',
           quy_trinh: 'Giải cơ sâu giải phóng các nhóm cơ ngực lớn, cơ chéo cổ trước bị co rút ngắn (20 phút).\nTập Kinetic Rehab chuyên sâu kéo giãn và tăng sức mạnh cơ bả vai sau, cơ lưng trên (30 phút).\nBài tập chuyên biệt chỉnh tư thế đầu nhô ra trước (Forward Head Posture) và vai tròn (Rounded Shoulders) (10 phút).',
           trang_thai: 'hoat_dong'

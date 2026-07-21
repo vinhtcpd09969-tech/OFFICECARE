@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
   Calendar, 
   AlertCircle, 
@@ -15,12 +15,13 @@ import {
   ShieldCheck,
   FileText
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import api from '../../../../api/axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { resolveImageUrl } from '../../../../utils/imageUrl';
 import { useAuthStore } from '../../../../stores/authStore';
+import { CustomDatePicker } from '../../../../components/CustomDatePicker';
 
 interface Appointment {
   id: string;
@@ -56,10 +57,13 @@ interface Appointment {
   phac_do_status?: string;
   diem_uy_tin?: number;
   anh_bac_si?: string | null;
+  so_thu_tu_buoi?: number | null;
+  tong_so_buoi_goi?: number | null;
 }
 
 export default function CustomerAppointments() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuthStore();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -87,8 +91,19 @@ export default function CustomerAppointments() {
 
   // Filtering States
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [dateMode, setDateMode] = useState<'day' | 'week' | 'month'>('week');
-  const [dateAnchor, setDateAnchor] = useState<Date>(new Date());
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+
+  // Nếu được điều hướng tới kèm ?date=YYYY-MM-DD (vd sau khi đặt buổi tiếp theo của gói liệu
+  // trình), tự chuyển sang xem đúng ngày đó thay vì mặc định.
+  useEffect(() => {
+    const dateParam = searchParams.get('date');
+    if (!dateParam) return;
+    setStartDate(dateParam);
+    setEndDate(dateParam);
+    setSearchParams({}, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Inline OTP states
   const [otpInput, setOtpInput] = useState<string>('');
@@ -418,41 +433,33 @@ export default function CustomerAppointments() {
   const diemUyTin = appointments[0]?.diem_uy_tin ?? user?.diem_uy_tin ?? 100;
 
   // Filter implementation
-  const filteredAppointments = appointments.filter((app) => {
-    // 1. Status Filter
-    if (statusFilter === 'upcoming') {
-      if (!['cho_xac_nhan', 'chua_xac_nhan', 'da_xac_nhan'].includes(app.trang_thai)) return false;
-    } else if (statusFilter === 'completed') {
-      if (app.trang_thai !== 'hoan_thanh') return false;
-    } else if (statusFilter === 'cancelled') {
-      if (!['da_huy', 'da_huy_phat', 'cho_huy', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(app.trang_thai)) return false;
-    }
+  const filteredAppointments = useMemo(() => {
+    const sorted = [...appointments].sort((a, b) => new Date(b.ngay_gio_bat_dau).getTime() - new Date(a.ngay_gio_bat_dau).getTime());
+    return sorted.filter((app) => {
+      // 1. Status Filter
+      if (statusFilter === 'upcoming') {
+        if (!['cho_xac_nhan', 'chua_xac_nhan', 'da_xac_nhan'].includes(app.trang_thai)) return false;
+      } else if (statusFilter === 'completed') {
+        if (app.trang_thai !== 'hoan_thanh') return false;
+      } else if (statusFilter === 'cancelled') {
+        if (!['da_huy', 'da_huy_phat', 'cho_huy', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(app.trang_thai)) return false;
+      }
 
-    // 2. Date Navigation Filter
-    const appDate = new Date(app.ngay_gio_bat_dau);
-    
-    if (dateMode === 'day') {
-      return (
-        appDate.getDate() === dateAnchor.getDate() &&
-        appDate.getMonth() === dateAnchor.getMonth() &&
-        appDate.getFullYear() === dateAnchor.getFullYear()
-      );
-    }
-    
-    if (dateMode === 'week') {
-      const { monday, sunday } = getWeekRange(dateAnchor);
-      return appDate >= monday && appDate <= sunday;
-    }
-    
-    if (dateMode === 'month') {
-      return (
-        appDate.getMonth() === dateAnchor.getMonth() &&
-        appDate.getFullYear() === dateAnchor.getFullYear()
-      );
-    }
+      // 2. Date Range Filter
+      if (startDate) {
+        const start = new Date(startDate + 'T00:00:00').getTime();
+        const appTime = new Date(app.ngay_gio_bat_dau).getTime();
+        if (appTime < start) return false;
+      }
+      if (endDate) {
+        const end = new Date(endDate + 'T23:59:59').getTime();
+        const appTime = new Date(app.ngay_gio_bat_dau).getTime();
+        if (appTime > end) return false;
+      }
 
-    return true;
-  });
+      return true;
+    });
+  }, [appointments, statusFilter, startDate, endDate]);
 
   return (
     <div className="space-y-6 font-jakarta text-[#0F172A] min-h-screen bg-slate-50/50 p-2 sm:p-6 rounded-[32px]">
@@ -665,58 +672,44 @@ export default function CustomerAppointments() {
               ))}
             </div>
 
-            {/* Date Navigator & Capsule Switcher */}
-            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 pt-3 border-t border-slate-50">
-              
-              {/* Navigator */}
-              <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-150">
-                <button
-                  onClick={() => handleDateNavigate('prev')}
-                  className="p-1.5 hover:bg-white rounded-lg text-slate-500 hover:text-slate-800 transition-all cursor-pointer"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                
-                <button 
-                  onClick={handleQuickJump}
-                  className="px-2.5 py-1 hover:bg-white rounded-lg text-[9px] font-black uppercase text-slate-600 hover:text-slate-900 tracking-wider transition-all cursor-pointer"
-                >
-                  {getQuickJumpLabel()}
-                </button>
+            {/* Lọc khoảng thời gian */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-3 border-t border-slate-50">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black text-slate-450 uppercase shrink-0">Từ ngày:</span>
+                  <CustomDatePicker
+                    value={startDate}
+                    onChange={(date) => setStartDate(date)}
+                    placeholder="Chọn ngày bắt đầu"
+                    align="left"
+                    className="w-full sm:w-36"
+                  />
+                </div>
 
-                <span className="text-[10px] font-black text-slate-700 px-1 select-none">
-                  {getDateRangeLabel()}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black text-slate-450 uppercase shrink-0">Đến ngày:</span>
+                  <CustomDatePicker
+                    value={endDate}
+                    onChange={(date) => setEndDate(date)}
+                    placeholder="Chọn ngày kết thúc"
+                    align="left"
+                    className="w-full sm:w-36"
+                  />
+                </div>
 
-                <button
-                  onClick={() => handleDateNavigate('next')}
-                  className="p-1.5 hover:bg-white rounded-lg text-slate-500 hover:text-slate-800 transition-all cursor-pointer"
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-
-              {/* Day/Week/Month selector capsules */}
-              <div className="bg-slate-100 p-0.5 rounded-full flex gap-0.5 self-end sm:self-auto border border-slate-200/50">
-                {[
-                  { label: 'NGÀY', value: 'day' },
-                  { label: 'TUẦN', value: 'week' },
-                  { label: 'THÁNG', value: 'month' }
-                ].map((mode) => (
+                {(startDate || endDate) && (
                   <button
-                    key={mode.value}
-                    onClick={() => setDateMode(mode.value as any)}
-                    className={`px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase transition-all ${
-                      dateMode === mode.value
-                        ? 'bg-white text-teal-700 shadow-xs'
-                        : 'text-slate-500 hover:text-slate-900'
-                    }`}
+                    type="button"
+                    onClick={() => {
+                      setStartDate('');
+                      setEndDate('');
+                    }}
+                    className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-150 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer shadow-xs"
                   >
-                    {mode.label}
+                    Xóa lọc ngày
                   </button>
-                ))}
+                )}
               </div>
-
             </div>
           </div>
 
@@ -762,7 +755,11 @@ export default function CustomerAppointments() {
                   const canSelfCancel = hoursUntilStart >= 8;
 
                   const showWarningNotice = ['da_xac_nhan', 'cho_xac_nhan', 'chua_xac_nhan'].includes(app.trang_thai);
-                  
+
+                  // Buổi thuộc gói liệu trình: nêu rõ đang là buổi thứ mấy/tổng số buổi, tránh chỉ
+                  // hiện tên gói trơ trọi khiến khách không biết đây là buổi nào trong liệu trình.
+                  const isPackageSession = app.loai_goi === 'LIEU_TRINH' && !!app.so_thu_tu_buoi;
+
                   const getInitials = (fullName: string | null) => {
                     if (!fullName) return 'BS';
                     const parts = fullName.trim().split(' ');
@@ -807,8 +804,13 @@ export default function CustomerAppointments() {
                         <div className="space-y-1.5">
                           <h3 className="font-heading font-black text-slate-900 text-xs uppercase tracking-wide leading-snug">
                             {app.ten_dich_vu || 'Khám Lâm Sàng & Lượng Giá'}
+                            {isPackageSession && (
+                              <span className="ml-2 inline-flex items-center normal-case text-[10px] font-black text-[#0d766e] bg-[#0d9488]/10 px-2 py-0.5 rounded border border-[#0d9488]/15 align-middle">
+                                Buổi {app.so_thu_tu_buoi} / {app.tong_so_buoi_goi ?? '?'}
+                              </span>
+                            )}
                           </h3>
-                          
+
                           {/* Date details */}
                           <div className="flex items-center gap-1 text-[10px] font-extrabold text-[#0D9488]">
                             <Clock size={12} />
@@ -1006,7 +1008,16 @@ export default function CustomerAppointments() {
                         {/* Warning Box */}
                         {showWarningNotice && (
                           <div className="bg-slate-50 border border-slate-150 p-3 rounded-xl text-[10px] text-slate-450 leading-relaxed font-semibold">
-                            ⚠️ <strong>Lưu ý:</strong> Vui lòng đổi lịch hẹn trước ít nhất <strong>8 tiếng</strong> qua Hotline: <strong>1900 6868</strong> để tránh bị trừ điểm uy tín.
+                            ⚠️ <strong>Lưu ý:</strong> Quý khách có nhu cầu thay đổi giờ lịch hẹn vui lòng liên hệ Hotline: <strong>1900 6868</strong> hoặc{' '}
+                            <a
+                              href="https://www.facebook.com/profile.php?id=61591064963268"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[#0D9488] font-black underline underline-offset-2 hover:text-[#0b7d72]"
+                            >
+                              Chat với phòng khám
+                            </a>{' '}
+                            để được hỗ trợ.
                           </div>
                         )}
 
@@ -1059,7 +1070,16 @@ export default function CustomerAppointments() {
                                 <Clock size={11} /> Đã quá mốc tự hủy (dưới 8 tiếng)
                               </p>
                               <p className="text-[9px] text-slate-400 font-semibold leading-snug">
-                                Vui lòng gọi Hotline để Lễ tân hỗ trợ hủy/đổi lịch.
+                                Vui lòng liên hệ Hotline: <strong>1900 6868</strong> hoặc{' '}
+                                <a
+                                  href="https://www.facebook.com/profile.php?id=61591064963268"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[#0D9488] font-black underline underline-offset-2 hover:text-[#0b7d72]"
+                                >
+                                  Chat với phòng khám
+                                </a>{' '}
+                                để được hỗ trợ hủy/đổi lịch.
                               </p>
                             </div>
                           )
@@ -1101,7 +1121,13 @@ export default function CustomerAppointments() {
                   </div>
                   <h3 className="text-lg font-black text-slate-900 uppercase tracking-wide">Yêu cầu hủy lịch?</h3>
                   <p className="text-[11px] text-slate-400 font-semibold leading-relaxed px-2">
-                    Trung tâm xác nhận sẽ liên hệ điện thoại để xác minh yêu cầu. Hủy lịch quá trễ (dưới 8 tiếng) hoặc không báo trước có thể ảnh hưởng đến Điểm uy tín của bạn.
+                    Trung tâm xác nhận sẽ liên hệ điện thoại để xác minh yêu cầu.
+                  </p>
+                </div>
+
+                <div className="bg-rose-50 border border-rose-150 rounded-xl p-3 text-center">
+                  <p className="text-[11px] font-black text-rose-700">
+                    ⚠️ Bạn sẽ bị trừ <strong>10 điểm uy tín</strong> nếu xác nhận hủy lịch hẹn này.
                   </p>
                 </div>
 

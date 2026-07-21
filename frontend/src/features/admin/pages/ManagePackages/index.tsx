@@ -3,11 +3,10 @@ import { AnimatePresence, motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 
 // API Client calls
-import { 
-  getPackages, 
-  deletePackage, 
-  updatePackage,
-  getCategories
+import {
+  getPackages,
+  deletePackage,
+  updatePackage
 } from '../../api/admin.api';
 
 // Shared Components
@@ -17,7 +16,6 @@ import { ConfirmDialog } from '../../../../components/ConfirmDialog';
 // Local flat components
 import { HUDHeader } from './HUDHeader';
 import { PackageRow } from './PackageRow';
-import { CategoryManagerModal } from './CategoryManagerModal';
 
 const currencyFormatter = new Intl.NumberFormat('vi-VN');
 
@@ -26,11 +24,7 @@ export default function ManagePackages() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPackage, setEditingPackage] = useState<any>(null);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [lastModifiedId, setLastModifiedId] = useState<string | null>(null);
-
-  const [isCategoryOpen, setIsCategoryOpen] = useState(false);
 
   const [confirmConfig, setConfirmConfig] = useState<{
     isOpen: boolean;
@@ -58,10 +52,9 @@ export default function ManagePackages() {
       const normQuery = normalizeString(searchQuery);
       const matchesSearch = normName.includes(normQuery);
       
-      const matchesCategory = selectedCategory === 'all' || String(pkg.danh_muc_id) === String(selectedCategory);
       const matchesType = selectedTypeFilter === 'all' || pkg.loai_goi === selectedTypeFilter;
-      
-      return matchesSearch && matchesCategory && matchesType;
+
+      return matchesSearch && matchesType;
     });
 
     return [...filtered].sort((a, b) => {
@@ -80,32 +73,13 @@ export default function ManagePackages() {
       // 3. Fallback to alphabetical sorting by ten_goi
       return a.ten_goi.localeCompare(b.ten_goi);
     });
-  }, [packages, searchQuery, selectedCategory, selectedTypeFilter, lastModifiedId]);
-
-  const visibleCategories = useMemo(() => {
-    if (selectedTypeFilter === 'all') return categories;
-    return categories.filter((cat: any) => cat.loai_goi_ap_dung === selectedTypeFilter);
-  }, [categories, selectedTypeFilter]);
-
-  // Reset selected category filter if it's not compatible with the active package type tab
-  useEffect(() => {
-    if (selectedCategory !== 'all' && selectedTypeFilter !== 'all') {
-      const activeCat = categories.find(c => String(c.id) === String(selectedCategory));
-      if (activeCat && activeCat.loai_goi_ap_dung !== selectedTypeFilter) {
-        setSelectedCategory('all');
-      }
-    }
-  }, [selectedTypeFilter, selectedCategory, categories]);
+  }, [packages, searchQuery, selectedTypeFilter, lastModifiedId]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [pkgsRes, catsRes] = await Promise.all([
-        getPackages(),
-        getCategories()
-      ]);
+      const pkgsRes = await getPackages();
       setPackages(pkgsRes.data || []);
-      setCategories((catsRes.data || []).filter((c: any) => c.loai_danh_muc === 'goi' && c.an_hien !== false));
     } catch (error) {
       console.error('Error fetching packages:', error);
     } finally {
@@ -160,7 +134,6 @@ export default function ManagePackages() {
             muc_tieu: pkg.muc_tieu || '',
             anh_goi: pkg.anh_goi,
             anh_gallery: pkg.anh_gallery || [],
-            danh_muc_goi_id: pkg.danh_muc_id || pkg.danh_muc_goi_id,
             han_su_dung_mac_dinh_ngay: pkg.han_su_dung_mac_dinh_ngay,
             trang_thai: 'hoat_dong'
           };
@@ -216,7 +189,6 @@ export default function ManagePackages() {
               khamCount={khamCount}
               leCount={leCount}
               lieuTrinhCount={lieuTrinhCount}
-              onOpenCategory={() => setIsCategoryOpen(true)}
               onOpenAddPackage={() => {
                 setEditingPackage(null);
                 setIsModalOpen(true);
@@ -234,21 +206,6 @@ export default function ManagePackages() {
                 </div>
                 
                 <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
-                  <div className="relative">
-                    <select
-                      value={selectedCategory}
-                      onChange={(e) => setSelectedCategory(e.target.value)}
-                      className="w-full sm:w-auto px-4 py-2.5 border border-zinc-200 rounded-xl bg-white text-xs outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-secondary font-bold shadow-sm transition-all cursor-pointer hover:border-zinc-300"
-                    >
-                      <option value="all">📂 TẤT CẢ CHUYÊN KHOA</option>
-                      {visibleCategories.map((cat: any) => (
-                        <option key={cat.id} value={cat.id}>
-                          {cat.ten_danh_muc.toUpperCase()}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
                   <div className="relative w-full sm:w-64">
                     <svg className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -363,7 +320,6 @@ export default function ManagePackages() {
                     <PackageRow
                       key={pkg.id}
                       pkg={pkg}
-                      categories={categories}
                       currencyFormatter={currencyFormatter}
                       onEdit={(p) => {
                         setEditingPackage(p);
@@ -405,15 +361,6 @@ export default function ManagePackages() {
           </motion.div>
         )}
       </AnimatePresence>
-
-      <CategoryManagerModal
-        isOpen={isCategoryOpen}
-        onClose={() => setIsCategoryOpen(false)}
-        categories={categories}
-        packages={packages}
-        fetchData={fetchData}
-        setConfirmConfig={setConfirmConfig}
-      />
 
       <ConfirmDialog
         isOpen={!!confirmConfig?.isOpen}

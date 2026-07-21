@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, AlertTriangle, X, Stethoscope, Zap, Hand, Dumbbell, ShieldCheck, Activity, Flame, Search } from 'lucide-react';
+import { Clock, AlertTriangle, X, Stethoscope, Zap, ShieldCheck, Activity, Flame, Search } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { getPublicServices, getPublicPackages, getPublicCategories } from '../api/public.api';
+import { getPublicServices, getPublicPackages } from '../api/public.api';
 import LoadingScreen from '../../../components/LoadingScreen';
 import ScrollReveal from '../components/shared/ScrollReveal';
 
@@ -16,15 +16,7 @@ interface UnifiedService {
   thoi_luong_phut?: number;
   anh_goi?: string;
   loai_goi: 'KHAM' | 'LE' | 'LIEU_TRINH';
-  danh_muc_id?: number | string | null;
   luot_dung: number;
-}
-
-interface Category {
-  id: string;
-  ten_danh_muc: string;
-  mo_ta: string | null;
-  loai_goi_ap_dung: 'KHAM' | 'LE' | 'LIEU_TRINH';
 }
 
 const TAB_OPTIONS: { key: 'ALL' | 'KHAM' | 'LE' | 'LIEU_TRINH'; label: string; icon: typeof Stethoscope }[] = [
@@ -33,16 +25,6 @@ const TAB_OPTIONS: { key: 'ALL' | 'KHAM' | 'LE' | 'LIEU_TRINH'; label: string; i
   { key: 'LE', label: 'Trị Liệu Đơn Buổi', icon: Zap },
   { key: 'LIEU_TRINH', label: 'Liệu Trình Chuyên Sâu', icon: ShieldCheck },
 ];
-
-function getCategoryIcon(tenDanhMuc: string) {
-  const name = tenDanhMuc.toLowerCase();
-  if (name.includes('công nghệ')) return Zap;
-  if (name.includes('thủ công')) return Hand;
-  if (name.includes('thể thao')) return Dumbbell;
-  if (name.includes('phòng ngừa') || name.includes('duy trì')) return ShieldCheck;
-  if (name.includes('khám')) return Stethoscope;
-  return Activity;
-}
 
 const TREATMENT_STEPS = [
   {
@@ -111,8 +93,6 @@ const MEDICAL_FAQS = [
 export default function ServicesPage() {
   const navigate = useNavigate();
   const [items, setItems] = useState<UnifiedService[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('ALL');
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'ALL' | 'KHAM' | 'LE' | 'LIEU_TRINH'>('ALL');
   const [showLieuTrinhWarning, setShowLieuTrinhWarning] = useState(false);
@@ -120,18 +100,15 @@ export default function ServicesPage() {
 
   const handleTabChange = (tab: 'ALL' | 'KHAM' | 'LE' | 'LIEU_TRINH') => {
     setActiveTab(tab);
-    setSelectedCategoryId('ALL');
   };
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [servicesRes, packagesRes, categoriesRes] = await Promise.all([
+        const [servicesRes, packagesRes] = await Promise.all([
           getPublicServices(),
-          getPublicPackages(),
-          getPublicCategories()
+          getPublicPackages()
         ]);
-        setCategories(categoriesRes.data);
 
         // Map services (KHAM and LE)
         const servicesMapped = servicesRes.data.map((s: any) => ({
@@ -146,7 +123,6 @@ export default function ServicesPage() {
           thoi_luong_phut: s.thoi_luong_phut,
           anh_goi: s.anh_goi || (s.loai_dich_vu === 'KHAM' ? '/goi/images/kham_sang_loc.png' : '/goi/images/laser_tri_lieu.png'),
           loai_goi: s.loai_dich_vu === 'KHAM' ? 'KHAM' : 'LE',
-          danh_muc_id: s.danh_muc_id,
           luot_dung: Number(s.luot_dung || 0)
         }));
 
@@ -163,7 +139,6 @@ export default function ServicesPage() {
           thoi_luong_phut: p.thoi_luong_phut || 60,
           anh_goi: p.anh_goi || '/goi/images/giai_co_sau.png',
           loai_goi: 'LIEU_TRINH',
-          danh_muc_id: p.danh_muc_id,
           luot_dung: Number(p.luot_dung || 0)
         }));
 
@@ -181,13 +156,8 @@ export default function ServicesPage() {
     return <LoadingScreen />;
   }
 
-  const activeCategories = activeTab === 'ALL'
-    ? categories
-    : categories.filter((cat: Category) => cat.loai_goi_ap_dung === activeTab);
-
   const filteredItems = items.filter((item: UnifiedService) => {
     if (activeTab !== 'ALL' && item.loai_goi !== activeTab) return false;
-    if (selectedCategoryId !== 'ALL' && item.danh_muc_id !== selectedCategoryId) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       return item.ten_goi.toLowerCase().includes(q) || (item.mo_ta && item.mo_ta.toLowerCase().includes(q));
@@ -208,12 +178,12 @@ export default function ServicesPage() {
         {/* Asymmetric Header */}
         <div className="mb-14 grid grid-cols-1 lg:grid-cols-12 gap-8 items-end border-b border-slate-200 pb-10">
           <div className="lg:col-span-7 space-y-4">
-            <span className="bg-[#14B8A6]/10 text-[#0D9488] border border-[#14B8A6]/20 text-[9px] font-black uppercase tracking-widest px-3.5 py-1 rounded-full inline-flex items-center gap-1.5 shadow-inner">
-              ⚡ DỊCH VỤ & LIỆU TRÌNH Y KHOA
+            <span className="bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 text-[10px] font-semibold tracking-wider px-3.5 py-1.5 rounded-full inline-flex items-center gap-1.5 shadow-2xs">
+              Dịch vụ &amp; liệu trình y khoa
             </span>
-            <h1 className="font-heading font-black text-4xl md:text-5xl text-slate-900 tracking-tight leading-[1.05] uppercase">
+            <h1 className="font-heading font-bold text-2xl sm:text-3xl md:text-[34px] text-slate-900 tracking-normal leading-snug">
               Giải Pháp <span className="text-[#0D9488]">Trị Liệu</span> <br className="hidden md:inline" />
-              & Phục Hồi Chuyên Sâu
+              &amp; Phục Hồi Chuyên Sâu
             </h1>
           </div>
           <div className="lg:col-span-5 space-y-4">
@@ -287,42 +257,6 @@ export default function ServicesPage() {
               })}
             </div>
           </div>
-
-          {/* Secondary Category Pills */}
-          {activeCategories.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 pt-4 border-t border-slate-100">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider mr-2">Bộ lọc:</span>
-              <button
-                type="button"
-                onClick={() => setSelectedCategoryId('ALL')}
-                className={`px-4.5 py-2 rounded-xl text-[10px] font-bold transition-all border cursor-pointer ${
-                  selectedCategoryId === 'ALL'
-                    ? 'bg-slate-900 border-slate-900 text-white'
-                    : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-350'
-                }`}
-              >
-                Tất cả danh mục
-              </button>
-              {activeCategories.map((cat: Category) => {
-                const Icon = getCategoryIcon(cat.ten_danh_muc);
-                return (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => setSelectedCategoryId(cat.id)}
-                    className={`flex items-center gap-1.5 px-4.5 py-2 rounded-xl text-[10px] font-bold transition-all border cursor-pointer ${
-                      selectedCategoryId === cat.id
-                        ? 'bg-primary/10 border-primary/30 text-primary'
-                        : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-350'
-                    }`}
-                  >
-                    <Icon size={11} />
-                    {cat.ten_danh_muc}
-                  </button>
-                );
-              })}
-            </div>
-          )}
         </div>
 
         {/* 3-Column Responsive Grid */}
@@ -364,17 +298,17 @@ export default function ServicesPage() {
                     </div>
 
                     {/* Service Category Tag */}
-                    <span className="text-[9px] font-extrabold uppercase tracking-widest text-[#0D9488] mb-1.5 block">
+                    <span className="text-[9.5px] font-bold tracking-wider text-[#0D9488] mb-1 block">
                       {item.loai_goi === 'KHAM' ? 'Khám chuyên khoa' : item.loai_goi === 'LE' ? 'Trị liệu đơn' : 'Liệu trình phục hồi'}
                     </span>
 
                     {/* Title */}
-                    <h3 className="font-heading font-black text-sm text-slate-900 leading-snug mb-2.5 line-clamp-2 min-h-[40px] uppercase tracking-tight">
+                    <h3 className="font-heading font-bold text-sm text-slate-800 leading-snug mb-2 line-clamp-2 min-h-[40px]">
                       {item.ten_goi}
                     </h3>
 
                     {/* Short Description */}
-                    <p className="text-slate-500 text-[11px] font-semibold leading-relaxed line-clamp-3 mb-4 min-h-[48px]">
+                    <p className="text-slate-500 text-[11px] font-normal leading-relaxed line-clamp-3 mb-4 min-h-[48px]">
                       {item.mo_ta}
                     </p>
 
@@ -448,13 +382,13 @@ export default function ServicesPage() {
         {/* SECTION 2: 3-STEP TREATMENT JOURNEY */}
         <div className="mt-24 pt-16 border-t border-slate-200 space-y-12">
           <div className="max-w-2xl text-left space-y-3">
-            <span className="bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full inline-block">
-              🩺 HÀNH TRÌNH KHÁM CHỮA BỆNH
+            <span className="bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 text-[9.5px] font-bold tracking-wider px-3.5 py-1.5 rounded-full inline-block">
+              Hành trình khám chữa bệnh
             </span>
-            <h2 className="font-heading font-black text-2xl md:text-3xl text-slate-900 tracking-tight leading-tight uppercase">
+            <h2 className="font-heading font-bold text-2xl md:text-3xl text-slate-800 tracking-normal leading-snug">
               Quy Trình Trị Liệu Khoa Học Tại OfficeCare
             </h2>
-            <p className="text-slate-500 font-semibold text-xs leading-relaxed">
+            <p className="text-slate-500 font-normal text-xs leading-relaxed">
               Mỗi bệnh nhân tại trung tâm được dẫn dắt bởi một quy trình nghiêm ngặt từ khâu chẩn đoán đến khi phục hồi hoàn toàn chức năng vận động.
             </p>
           </div>
@@ -462,9 +396,9 @@ export default function ServicesPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {TREATMENT_STEPS.map((step) => (
               <div key={step.step} className="bg-white rounded-2xl border border-slate-150 p-6 md:p-8 space-y-4 hover:border-[#14B8A6]/40 transition-all duration-300">
-                <span className="text-3xl font-black text-[#14B8A6]/30 font-heading block">{step.step}</span>
-                <h3 className="font-heading font-black text-sm text-slate-950 uppercase tracking-tight">{step.title}</h3>
-                <p className="text-slate-500 text-[11px] font-semibold leading-relaxed">{step.desc}</p>
+                <span className="text-3xl font-bold text-[#14B8A6]/30 font-heading block">{step.step}</span>
+                <h3 className="font-heading font-bold text-sm text-slate-800 tracking-normal">{step.title}</h3>
+                <p className="text-slate-500 text-[11px] font-normal leading-relaxed">{step.desc}</p>
               </div>
             ))}
           </div>
@@ -473,13 +407,13 @@ export default function ServicesPage() {
         {/* SECTION 3: MEDICAL TECHNOLOGY SHOWCASE */}
         <div className="mt-24 pt-16 border-t border-slate-200 space-y-12">
           <div className="max-w-2xl text-left space-y-3">
-            <span className="bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full inline-block">
-              ⚡ THIẾT BỊ CÔNG NGHỆ CAO
+            <span className="bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 text-[9.5px] font-bold tracking-wider px-3.5 py-1.5 rounded-full inline-block">
+              Thiết bị công nghệ cao
             </span>
-            <h2 className="font-heading font-black text-2xl md:text-3xl text-slate-900 tracking-tight leading-tight uppercase">
+            <h2 className="font-heading font-bold text-2xl md:text-3xl text-slate-800 tracking-normal leading-snug">
               Hệ Thống Thiết Bị Đạt Chuẩn Y Khoa
             </h2>
-            <p className="text-slate-500 font-semibold text-xs leading-relaxed">
+            <p className="text-slate-500 font-normal text-xs leading-relaxed">
               Chúng tôi đầu tư đồng bộ hệ thống máy móc tân tiến nhập khẩu từ Châu Âu, hỗ trợ đẩy nhanh thời gian lành thương gấp 2 lần.
             </p>
           </div>
@@ -489,16 +423,16 @@ export default function ServicesPage() {
               <div key={tech.name} className="bg-white rounded-2xl border border-slate-150 p-6 flex flex-col justify-between gap-4 hover:border-[#14B8A6]/40 transition-all duration-300">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <h3 className="font-heading font-black text-xs text-slate-950 uppercase tracking-tight">{tech.name}</h3>
-                    <span className="bg-teal-500/10 text-[#0D9488] text-[8px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border border-teal-500/15 shrink-0">
+                    <h3 className="font-heading font-bold text-xs text-slate-800 tracking-normal">{tech.name}</h3>
+                    <span className="bg-teal-500/10 text-[#0D9488] text-[8.5px] font-bold tracking-wider px-2.5 py-1 rounded-lg border border-teal-500/15 shrink-0">
                       {tech.tag}
                     </span>
                   </div>
-                  <p className="text-slate-500 text-[11px] font-semibold leading-relaxed">{tech.desc}</p>
+                  <p className="text-slate-500 text-[11px] font-normal leading-relaxed">{tech.desc}</p>
                 </div>
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Hiệu quả lâm sàng:</span>
-                  <span className="text-xs font-black text-[#0D9488]">{tech.efficacy}</span>
+                  <span className="text-[9.5px] text-slate-400 font-medium">Hiệu quả lâm sàng:</span>
+                  <span className="text-xs font-bold text-[#0D9488]">{tech.efficacy}</span>
                 </div>
               </div>
             ))}
@@ -508,13 +442,13 @@ export default function ServicesPage() {
         {/* SECTION 4: FAQ SECTION */}
         <div className="mt-24 pt-16 border-t border-slate-200 space-y-12">
           <div className="max-w-2xl text-left space-y-3">
-            <span className="bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full inline-block">
-              💬 HỎI ĐÁP Y KHOA
+            <span className="bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 text-[9.5px] font-bold tracking-wider px-3.5 py-1.5 rounded-full inline-block">
+              Hỏi đáp y khoa
             </span>
-            <h2 className="font-heading font-black text-2xl md:text-3xl text-slate-900 tracking-tight leading-tight uppercase">
+            <h2 className="font-heading font-bold text-2xl md:text-3xl text-slate-800 tracking-normal leading-snug">
               Giải Đáp Thắc Mắc Thường Gặp
             </h2>
-            <p className="text-slate-500 font-semibold text-xs leading-relaxed">
+            <p className="text-slate-500 font-normal text-xs leading-relaxed">
               Các câu hỏi đáp nhanh từ bác sĩ chuyên khoa giúp quý khách hiểu rõ hơn về lộ trình trị liệu cơ xương khớp.
             </p>
           </div>
@@ -522,11 +456,11 @@ export default function ServicesPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {MEDICAL_FAQS.map((faq, idx) => (
               <div key={idx} className="bg-white rounded-2xl border border-slate-150 p-6 space-y-2 hover:border-[#14B8A6]/45 transition-all duration-300">
-                <h3 className="font-heading font-black text-xs text-slate-900 leading-snug flex items-start gap-2">
-                  <span className="text-[#0D9488] shrink-0 font-black">Q.</span>
+                <h3 className="font-heading font-bold text-xs text-slate-800 leading-snug flex items-start gap-2">
+                  <span className="text-[#0D9488] shrink-0 font-bold">Q.</span>
                   <span>{faq.q}</span>
                 </h3>
-                <p className="text-slate-550 text-[11px] font-semibold leading-relaxed pl-4 border-l-2 border-slate-100">
+                <p className="text-slate-500 text-[11px] font-normal leading-relaxed pl-4 border-l-2 border-slate-100">
                   {faq.a}
                 </p>
               </div>
@@ -550,7 +484,7 @@ export default function ServicesPage() {
               <div className="w-14 h-14 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto border border-amber-100">
                 <AlertTriangle size={28} />
               </div>
-              <h3 className="text-xl font-heading font-black text-slate-900 uppercase tracking-wide">Yêu cầu chỉ định thăm khám</h3>
+              <h3 className="text-xl font-heading font-bold text-slate-800 tracking-normal">Yêu cầu chỉ định thăm khám</h3>
               <p className="text-xs text-slate-500 font-semibold leading-relaxed">
                 Gói liệu trình chuyên sâu cần có chỉ định thăm khám lâm sàng từ Bác sĩ chuyên khoa trước khi thực hiện để đảm bảo an toàn & hiệu quả điều trị.
               </p>

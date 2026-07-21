@@ -157,24 +157,14 @@ model goi_dich_vu {
   trang_thai        String             @default("hoat_dong") @db.VarChar(20)
   anh_goi           String?
   anh_gallery       String[]           @default([])
-  danh_muc_goi_id   String?            @db.Uuid
   muc_tieu          String?
   quy_trinh         String?
   han_su_dung_mac_dinh_ngay Int?
   chi_dinh_buoi     chi_dinh_buoi[]
   cuoc_hen          cuoc_hen[]
-  danh_muc_goi      danh_muc_goi?      @relation(fields: [danh_muc_goi_id], references: [id], onUpdate: NoAction)
   phac_do_dieu_tri  phac_do_dieu_tri[]
   tam_giu_cho       tam_giu_cho[]
   danh_gia_goi_dich_vu danh_gia_goi_dich_vu[]
-}
-
-model danh_muc_goi {
-  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  ten_danh_muc     String        @db.VarChar(150)
-  mo_ta            String?
-  loai_goi_ap_dung String        @default("LIEU_TRINH") @db.VarChar(20)
-  goi_dich_vu      goi_dich_vu[]
 }
 
 model phac_do_dieu_tri {
@@ -261,6 +251,9 @@ model danh_gia_goi_dich_vu {
   phan_hoi_nhan_xet  String?      @db.Text
   nguoi_phan_hoi_id  Int?
   ngay_phan_hoi      DateTime?    @db.Timestamptz(6)
+  cam_xuc            String?      @db.VarChar(20)
+  do_tin_cay         Float?
+  ly_do_cam_xuc      String?      @db.Text
   khach_hang         khach_hang   @relation(fields: [khach_hang_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   goi_dich_vu        goi_dich_vu  @relation(fields: [goi_dich_vu_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   cuoc_hen           cuoc_hen?    @relation(fields: [cuoc_hen_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
@@ -281,6 +274,9 @@ model danh_gia_nhan_su {
   phan_hoi_nhan_xet  String?      @db.Text
   nguoi_phan_hoi_id  Int?
   ngay_phan_hoi      DateTime?    @db.Timestamptz(6)
+  cam_xuc            String?      @db.VarChar(20)
+  do_tin_cay         Float?
+  ly_do_cam_xuc      String?      @db.Text
   khach_hang         khach_hang   @relation(fields: [khach_hang_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   nguoi_dung         nguoi_dung   @relation(fields: [nhan_su_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   cuoc_hen           cuoc_hen?    @relation(fields: [cuoc_hen_id], references: [id], onDelete: SetNull, onUpdate: NoAction)

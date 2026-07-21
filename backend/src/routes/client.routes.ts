@@ -20,6 +20,7 @@ import {
 import { getPublicArticles, getPublicArticleBySlug } from '../controllers/article.controller';
 import { verifyToken } from '../middlewares/auth.middleware';
 import adminService from '../services/admin.service';
+import { SentimentService } from '../services/sentiment.service';
 import { pool } from '../config/db';
 
 const router = Router();
@@ -53,8 +54,6 @@ router.get('/services', async (req, res) => {
         muc_tieu: pkg.muc_tieu,
         anh_goi: pkg.anh_goi,
         anh_gallery: pkg.anh_gallery || [],
-        danh_muc_goi_id: pkg.danh_muc_id,
-        danh_muc_id: pkg.danh_muc_id, // backward compatibility
         luot_dung: Number(pkg.luot_dung || 0),
       }));
     res.json(publicServices);
@@ -101,15 +100,6 @@ router.get('/top-services', async (req, res) => {
   } catch (error) {
     console.error('Lỗi khi lấy top dịch vụ:', error);
     res.status(500).json({ message: 'Lỗi server khi lấy top dịch vụ' });
-  }
-});
-
-router.get('/categories', async (req, res) => {
-  try {
-    const { rows } = await pool.query('SELECT id, ten_danh_muc, mo_ta, loai_goi_ap_dung FROM danh_muc_goi ORDER BY id ASC');
-    res.json(rows);
-  } catch (error) {
-    res.status(500).json({ message: 'Lỗi server khi lấy danh mục' });
   }
 });
 
@@ -284,12 +274,18 @@ router.post('/appointments/:id/rate', verifyToken, async (req, res) => {
 
     // 1. Insert/Update KTV review
     if (rating_ktv && appt.nhan_su_id) {
-      await pool.query(`
+      const { rows: staffReviewRows } = await pool.query(`
         INSERT INTO danh_gia_nhan_su (khach_hang_id, nhan_su_id, cuoc_hen_id, so_sao, nhan_xet, ngay_cap_nhat)
         VALUES ($1, $2, $3, $4, $5, NOW())
         ON CONFLICT (khach_hang_id, nhan_su_id)
         DO UPDATE SET so_sao = EXCLUDED.so_sao, nhan_xet = EXCLUDED.nhan_xet, cuoc_hen_id = EXCLUDED.cuoc_hen_id, ngay_cap_nhat = NOW()
+        RETURNING id
       `, [khach_hang_id, appt.nhan_su_id, cuoc_hen_id, Number(rating_ktv), comment_ktv]);
+
+      if (comment_ktv && comment_ktv.trim()) {
+        SentimentService.classifyAndSaveStaffReview(staffReviewRows[0].id, comment_ktv, Number(rating_ktv))
+          .catch(err => console.error('Lỗi phân tích cảm xúc đánh giá nhân sự:', err));
+      }
     }
 
     // 2. Insert/Update Service package review
@@ -301,13 +297,19 @@ router.post('/appointments/:id/rate', verifyToken, async (req, res) => {
           return res.status(400).json({ message: 'Gói liệu trình chưa hoàn thành hoặc chưa bị hủy để đánh giá dịch vụ' });
         }
       }
-      
-      await pool.query(`
+
+      const { rows: serviceReviewRows } = await pool.query(`
         INSERT INTO danh_gia_goi_dich_vu (khach_hang_id, goi_dich_vu_id, cuoc_hen_id, so_sao, nhan_xet, ngay_cap_nhat)
         VALUES ($1, $2, $3, $4, $5, NOW())
         ON CONFLICT (khach_hang_id, goi_dich_vu_id)
         DO UPDATE SET so_sao = EXCLUDED.so_sao, nhan_xet = EXCLUDED.nhan_xet, cuoc_hen_id = EXCLUDED.cuoc_hen_id, ngay_cap_nhat = NOW()
+        RETURNING id
       `, [khach_hang_id, appt.goi_dich_vu_id, cuoc_hen_id, Number(rating_dich_vu), comment_dich_vu]);
+
+      if (comment_dich_vu && comment_dich_vu.trim()) {
+        SentimentService.classifyAndSaveServiceReview(serviceReviewRows[0].id, comment_dich_vu, Number(rating_dich_vu))
+          .catch(err => console.error('Lỗi phân tích cảm xúc đánh giá dịch vụ:', err));
+      }
     }
 
     res.status(200).json({ message: 'Lưu đánh giá thành công!' });

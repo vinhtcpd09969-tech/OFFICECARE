@@ -46,19 +46,13 @@ export function DetailHeader({
     'da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'
   ].includes(trangThai || '');
 
-  // Check if current time is less than 8 hours before start time
-  const startMs = ngayGioBatDau ? new Date(ngayGioBatDau).getTime() : 0;
-  const diffHours = startMs > 0 ? (startMs - Date.now()) / (1000 * 60 * 60) : 0;
-  const isWithin8Hours = diffHours < 8;
+  // Nhân sự (Admin/Lễ tân) được đổi lịch bất kỳ lúc nào trước khi ca hẹn check-in/hoàn tất/hủy —
+  // không còn giới hạn 8 tiếng như phía khách hàng tự hủy (gate 8h chỉ áp cho khách tự hủy).
+  const isRescheduleDisabled = isCheckedInOrFinished;
 
-  const isRescheduleDisabled = isCheckedInOrFinished || isWithin8Hours;
-
-  let disableReason = '';
-  if (isCheckedInOrFinished) {
-    disableReason = 'Không thể đổi lịch của ca đã check-in hoặc hoàn tất/hủy.';
-  } else if (isWithin8Hours) {
-    disableReason = 'Không thể đổi lịch trước giờ hẹn dưới 8 tiếng.';
-  }
+  const disableReason = isCheckedInOrFinished
+    ? 'Không thể đổi lịch của ca đã check-in hoặc hoàn tất/hủy.'
+    : '';
 
   return (
     <div className="bg-slate-50/70 dark:bg-zinc-800/30 p-5 rounded-2xl border border-slate-150 dark:border-zinc-800/80 space-y-3.5 select-none shadow-sm">

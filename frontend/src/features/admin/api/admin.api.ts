@@ -8,12 +8,6 @@ export const updateAppointmentStatus = (id: string, data: any) =>
 export const keepAliveAppointment = (id: string) => 
   api.post(`/admin/appointments/${id}/keep-alive`);
 
-// Categories
-export const getCategories = () => api.get('/admin/categories');
-export const createCategory = (data: any) => api.post('/admin/categories', data);
-export const updateCategory = (id: string, data: any) => api.put(`/admin/categories/${id}`, data);
-export const deleteCategory = (id: string) => api.delete(`/admin/categories/${id}`);
-
 // Packages
 export const getPackages = () => api.get('/admin/packages');
 export const createPackage = (data: any) => api.post('/admin/packages', data);

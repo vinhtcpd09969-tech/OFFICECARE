@@ -1,15 +1,19 @@
 interface PackageRowProps {
   pkg: any;
-  categories: any[];
   currencyFormatter: Intl.NumberFormat;
   onEdit: (pkg: any) => void;
   onDelete: (pkg: any) => void;
   onRestore: (pkg: any) => void;
 }
 
+const LOAI_GOI_LABELS: Record<string, string> = {
+  KHAM: 'Khám',
+  LE: 'Lẻ',
+  LIEU_TRINH: 'Liệu trình'
+};
+
 export function PackageRow({
   pkg,
-  categories,
   currencyFormatter,
   onEdit,
   onDelete,
@@ -17,8 +21,7 @@ export function PackageRow({
 }: PackageRowProps) {
   const isInactive = pkg.trang_thai !== 'hoat_dong';
 
-  const catObj = categories.find(c => String(c.id) === String(pkg.danh_muc_id));
-  const catName = catObj ? catObj.ten_danh_muc : 'Không phân loại';
+  const catName = LOAI_GOI_LABELS[pkg.loai_goi] || pkg.loai_goi;
 
   return (
     <div 

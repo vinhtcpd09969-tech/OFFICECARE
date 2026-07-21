@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import axiosInstance from '../../../../api/axios';
 import toast from 'react-hot-toast';
+import { CustomDatePicker } from '../../../../components/CustomDatePicker';
 
 interface TreatmentBookingModalProps {
   selectedAppointment: any;
@@ -203,7 +204,7 @@ export default function TreatmentBookingModal({
               <label className="text-sm font-bold text-slate-700">Chọn dịch vụ linh động *</label>
               <select value={selectedServiceId} onChange={(e) => setSelectedServiceId(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20" required>
                 <option value="">-- Lựa chọn --</option>
-                {services.filter(s => String(s.danh_muc_id) !== '10').map(s => (
+                {services.map(s => (
                   <option key={s.id} value={s.id}>
                     {s.ten_dich_vu} ({s.thoi_gian_uoc_tinh} phút)
                   </option>
@@ -289,7 +290,11 @@ export default function TreatmentBookingModal({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-sm font-bold text-slate-700">Ngày điều trị *</label>
-              <input type="date" value={treatmentDate} onChange={(e) => setTreatmentDate(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20" required />
+              <CustomDatePicker 
+                value={treatmentDate} 
+                onChange={(date) => setTreatmentDate(date)} 
+                buttonClassName="bg-white border border-slate-200 text-slate-800"
+              />
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-bold text-slate-700">Giờ bắt đầu *</label>

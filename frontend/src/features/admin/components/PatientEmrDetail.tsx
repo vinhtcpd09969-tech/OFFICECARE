@@ -392,54 +392,97 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
                 )}
 
                 {/* Chuyên gia chỉ định & thời gian khám gốc — cùng dữ liệu hiển thị bên popup Khám,
-                    chỉ bỏ lý do khám + ảnh khách hàng (riêng cho ca khám, không thuộc về gói) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="border border-slate-100 rounded-xl p-3.5 flex items-center gap-3 bg-white shadow-sm">
-                    {selectedPlan.anh_bac_si ? (
-                      <img
-                        src={resolveImageUrl(selectedPlan.anh_bac_si)}
-                        alt={selectedPlan.ten_bac_si}
-                        className="size-10 rounded-full object-cover border border-slate-200 shadow-sm shrink-0"
-                      />
-                    ) : (
-                      <div className="size-10 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm shrink-0">
-                        {selectedPlan.ten_bac_si?.trim()?.charAt(0)?.toUpperCase() || '?'}
-                      </div>
-                    )}
-                    <div>
-                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Bác sĩ chỉ định</span>
-                      <h4 className="text-xs font-bold text-slate-800 mt-0.5">{selectedPlan.ten_bac_si || 'Chưa phân công'}</h4>
-                      <span className="text-[9px] font-bold text-indigo-650 bg-indigo-50 border border-indigo-100/50 px-2 py-0.5 rounded-full inline-block mt-1">
-                        {getStaffRoleTitle(selectedPlan.ten_bac_si, selectedPlan.vai_tro_bac_si)}
-                      </span>
-                    </div>
-                  </div>
+                    chỉ bỏ lý do khám + ảnh khách hàng (riêng cho ca khám, không thuộc về gói).
+                    Bấm vào để mở lại đúng ca khám đã chỉ định gói này (đảo ngược của nút "Ca khám
+                    này đã chỉ định phác đồ" bên popup Khám — setExpandedAptId ở dưới). */}
+                {(() => {
+                  const canViewExamSession = !!selectedPlan.cuoc_hen_id &&
+                    (patient?.appointments || []).some((ap: any) => ap.id === selectedPlan.cuoc_hen_id);
 
-                  <div className="border border-slate-100 rounded-xl p-3.5 flex flex-col gap-1.5 bg-white text-[11px] text-slate-600 font-semibold shadow-sm">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-0.5">Thời gian khám chỉ định gói</span>
-                    {selectedPlan.ngay_gio_kham ? (
-                      <>
-                        <span className="flex items-center gap-2">
-                          <Calendar size={12} className="text-slate-400 shrink-0" />
-                          {format(new Date(selectedPlan.ngay_gio_kham), 'EEEE, dd/MM/yyyy')}
+                  const handleViewExamSession = () => {
+                    if (!canViewExamSession) return;
+                    setExpandedPlanId(null);
+                    setExpandedAptId(selectedPlan.cuoc_hen_id);
+                  };
+
+                  return (
+                    <div
+                      role={canViewExamSession ? 'button' : undefined}
+                      tabIndex={canViewExamSession ? 0 : undefined}
+                      onClick={handleViewExamSession}
+                      onKeyDown={(e) => {
+                        if (canViewExamSession && (e.key === 'Enter' || e.key === ' ')) {
+                          e.preventDefault();
+                          handleViewExamSession();
+                        }
+                      }}
+                      className={`grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-xl transition-all ${
+                        canViewExamSession ? 'group cursor-pointer active:scale-[0.99]' : ''
+                      }`}
+                    >
+                      <div className={`border rounded-xl p-3.5 flex items-center gap-3 shadow-sm transition-all ${
+                        canViewExamSession
+                          ? 'border-teal-150 bg-gradient-to-br from-teal-50/60 to-white group-hover:border-teal-300 group-hover:shadow-md'
+                          : 'border-slate-100 bg-white'
+                      }`}>
+                        {selectedPlan.anh_bac_si ? (
+                          <img
+                            src={resolveImageUrl(selectedPlan.anh_bac_si)}
+                            alt={selectedPlan.ten_bac_si}
+                            className="size-10 rounded-full object-cover border border-slate-200 shadow-sm shrink-0"
+                          />
+                        ) : (
+                          <div className="size-10 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm shrink-0">
+                            {selectedPlan.ten_bac_si?.trim()?.charAt(0)?.toUpperCase() || '?'}
+                          </div>
+                        )}
+                        <div>
+                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Bác sĩ chỉ định</span>
+                          <h4 className="text-xs font-bold text-slate-800 mt-0.5">{selectedPlan.ten_bac_si || 'Chưa phân công'}</h4>
+                          <span className="text-[9px] font-bold text-indigo-650 bg-indigo-50 border border-indigo-100/50 px-2 py-0.5 rounded-full inline-block mt-1">
+                            {getStaffRoleTitle(selectedPlan.ten_bac_si, selectedPlan.vai_tro_bac_si)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className={`border rounded-xl p-3.5 flex flex-col gap-1.5 text-[11px] text-slate-600 font-semibold shadow-sm transition-all ${
+                        canViewExamSession
+                          ? 'border-teal-150 bg-gradient-to-br from-teal-50/60 to-white group-hover:border-teal-300 group-hover:shadow-md'
+                          : 'border-slate-100 bg-white'
+                      }`}>
+                        <span className="flex items-center justify-between gap-2">
+                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-0.5">Thời gian khám chỉ định gói</span>
+                          {canViewExamSession && (
+                            <span className="inline-flex items-center gap-1 text-[9px] font-black text-white bg-teal-600 group-hover:bg-teal-700 px-2 py-1 rounded-full shrink-0 shadow-sm transition-colors">
+                              Xem ca khám <ChevronDown size={11} className="-rotate-90 stroke-[3]" />
+                            </span>
+                          )}
                         </span>
-                        <span className="flex items-center gap-2">
-                          <Clock size={12} className="text-slate-400 shrink-0" />
-                          {format(new Date(selectedPlan.ngay_gio_kham), 'HH:mm')}
-                          {selectedPlan.ngay_gio_ket_thuc_kham && <> - {format(new Date(selectedPlan.ngay_gio_ket_thuc_kham), 'HH:mm')}</>}
-                        </span>
-                      </>
-                    ) : (
-                      <span>Chưa ghi nhận buổi khám chỉ định.</span>
-                    )}
-                    {selectedPlan.ten_phong_kham && (
-                      <span className="flex items-center gap-2">
-                        <MapPin size={12} className="text-slate-400 shrink-0" />
-                        {selectedPlan.ten_phong_kham}
-                      </span>
-                    )}
-                  </div>
-                </div>
+                        {selectedPlan.ngay_gio_kham ? (
+                          <>
+                            <span className="flex items-center gap-2">
+                              <Calendar size={12} className="text-slate-400 shrink-0" />
+                              {format(new Date(selectedPlan.ngay_gio_kham), 'EEEE, dd/MM/yyyy')}
+                            </span>
+                            <span className="flex items-center gap-2">
+                              <Clock size={12} className="text-slate-400 shrink-0" />
+                              {format(new Date(selectedPlan.ngay_gio_kham), 'HH:mm')}
+                              {selectedPlan.ngay_gio_ket_thuc_kham && <> - {format(new Date(selectedPlan.ngay_gio_ket_thuc_kham), 'HH:mm')}</>}
+                            </span>
+                          </>
+                        ) : (
+                          <span>Chưa ghi nhận buổi khám chỉ định.</span>
+                        )}
+                        {selectedPlan.ten_phong_kham && (
+                          <span className="flex items-center gap-2">
+                            <MapPin size={12} className="text-slate-400 shrink-0" />
+                            {selectedPlan.ten_phong_kham}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Hồ sơ Khám lâm sàng — chỉ giữ chẩn đoán + chống chỉ định bác sĩ nhập */}
                 <div className="bg-white border border-slate-100 rounded-xl p-4 space-y-3">

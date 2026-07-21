@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Building, Activity, Receipt, ChevronDown, Phone, ShieldAlert, Printer, RotateCcw } from 'lucide-react';
+import { User, Building, Activity, Receipt, ChevronDown, Phone, ShieldAlert, RotateCcw } from 'lucide-react';
 import { formatCurrency } from '../../../../../utils/format';
 import type { CustomerInvoice, CustomerPayment } from '../../../api/customer.api';
 
@@ -611,13 +611,7 @@ export function InvoiceDetailModal({ invoice, payments, onClose, onOpenPolicy, a
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4.5 bg-zinc-50 border-t border-zinc-100 flex items-center justify-between">
-          <button
-            onClick={() => window.print()}
-            className="px-4 py-2 bg-zinc-150 hover:bg-zinc-200 text-zinc-650 hover:text-secondary text-xs font-bold rounded-xl transition-all flex items-center gap-1.5"
-          >
-            <Printer size={14} /> In hóa đơn
-          </button>
+        <div className="px-6 py-4.5 bg-zinc-50 border-t border-zinc-100 flex items-center justify-end">
           <button
             onClick={onClose}
             className="px-5 py-2.5 bg-zinc-200 hover:bg-zinc-300 text-zinc-700 text-xs font-bold rounded-xl transition-all"

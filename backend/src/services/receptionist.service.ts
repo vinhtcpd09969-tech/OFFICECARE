@@ -4,13 +4,13 @@ import { pool } from '../config/db';
 import {
   DEFAULT_DISCOUNT_PERCENT,
   describePaymentTransaction,
-  EXAM_WAIVER_THRESHOLD,
   getMinPaymentRequired,
   getTungBuoiSessionDue,
   isExamWaived as isExamWaivedDomain,
   resolvePackageBasePrice,
 } from '../domain/billing';
 import { checkReceptionistTransition, isReceptionistLockedStatus } from '../domain/appointmentStatus';
+import { needsFollowUp } from '../domain/customerFollowUp';
 import { HinhThucThanhToanGoi, LoaiGoi } from '../domain/types';
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
@@ -313,18 +313,16 @@ class ReceptionistService {
     // họ chưa từng đóng. Xem receptionistRepository.getPaidInvoiceAmountForAppointment.
     let paidAmount = 0;
 
+    // Dịch vụ lẻ (LE) không có phác đồ điều trị đi kèm — không tham gia bất kỳ liên kết/miễn phí
+    // khám nào, dù giá cao tới đâu (chỉ gói LIỆU_TRÌNH mới được xét miễn phí khám, xem
+    // billing.ts isExamWaived). Trước đây có nhánh riêng cho LE giá cao mượn phí khám của ca khám
+    // đã chỉ định nó (qua chi_dinh_buoi), nhưng tính năng bác sĩ chỉ định gói LE từ ca khám đã bị
+    // bỏ — nhánh đó thành lỗi (LE vẫn được miễn phí khám y như liệu trình), nay bỏ hẳn.
     const isSingleService = item_type === 'goi' && loai_goi_db === 'LE';
-    // Dịch vụ lẻ (LE) giá cao (≥ ngưỡng miễn phí khám) được bác sĩ chỉ định trong ca khám cũng được
-    // trừ phí khám đã trả riêng trước đó — xem docs/BUSINESS_RULES.md mục 5, dò ngược qua chi_dinh_buoi
-    // (getPrescribingExamForLeSession) để tránh trừ lặp nếu khách mua lại cùng gói LE nhiều lần.
-    const qualifiesForLeExamDeduction = isSingleService && gia_goc_goi >= EXAM_WAIVER_THRESHOLD;
-    const isExcludeExam = isSingleService && !qualifiesForLeExamDeduction;
+    const isExcludeExam = isSingleService;
 
     let targetLichDatId = lich_dat_id;
-    if (qualifiesForLeExamDeduction && lich_dat_id) {
-      const prescribingExam = await receptionistRepository.getPrescribingExamForLeSession(item_id, lich_dat_id);
-      targetLichDatId = prescribingExam ? prescribingExam.id : null;
-    } else if (!targetLichDatId && data.khach_hang_id && !isExcludeExam) {
+    if (!targetLichDatId && data.khach_hang_id && !isExcludeExam) {
       // Find the last clinical exam appointment for this customer that has a paid invoice!
       const { rows: apptRows } = await pool.query(`
         SELECT ch.id
@@ -366,7 +364,8 @@ class ReceptionistService {
       }
 
       // Miễn phí khám: xem docs/BUSINESS_RULES.md mục 5 / backend/src/domain/billing.ts isExamWaived()
-      const isExamWaived = isExamWaivedDomain(loai_thanh_toan, gia_goc_goi);
+      // — CHỈ áp dụng cho gói LIỆU_TRÌNH, dịch vụ lẻ (LE) không bao giờ được miễn dù giá cao.
+      const isExamWaived = isExamWaivedDomain(loai_thanh_toan, gia_goc_goi, loai_goi_db as LoaiGoi);
 
       if (isExamWaived) {
         if (hasPaidExam) {
@@ -710,7 +709,10 @@ class ReceptionistService {
       giaGocGoi = resolvePackageBasePrice(Number(hd.tong_tien_goc), chi_phi_kham, hasPaidSeparateExam);
 
       // Miễn phí khám: xem docs/BUSINESS_RULES.md mục 5 / backend/src/domain/billing.ts isExamWaived()
-      if (hasPaidSeparateExam && isExamWaivedDomain(loai_thanh_toan, giaGocGoi)) {
+      // — chỉ hóa đơn gói LIỆU_TRÌNH (có phac_do_dieu_tri_id) mới được xét miễn, dịch vụ lẻ (LE)
+      // không có phác đồ đi kèm nên không bao giờ đủ điều kiện.
+      const loaiGoiForWaiver: LoaiGoi | null = hd.phac_do_dieu_tri_id ? 'LIEU_TRINH' : null;
+      if (hasPaidSeparateExam && isExamWaivedDomain(loai_thanh_toan, giaGocGoi, loaiGoiForWaiver)) {
         giam_tru = paidExam;
       }
     }
@@ -852,7 +854,11 @@ class ReceptionistService {
     }
 
     // Mark any pending original exam invoice for this client/appointment as Paid (0đ due) to link it to the package promotion
-    const isExamWaived = !!hd.phac_do_dieu_tri_id && isExamWaivedDomain(hd.loai_thanh_toan || '', giaGocGoi);
+    const isExamWaived = isExamWaivedDomain(
+      hd.loai_thanh_toan || '',
+      giaGocGoi,
+      hd.phac_do_dieu_tri_id ? 'LIEU_TRINH' : null
+    );
     if (isExamWaived) {
       const maHoaDonGoi = `HD-${hoa_don_id.substring(0, 6).toUpperCase()}`;
       const promoNote = `Được miễn phí khám lâm sàng theo chương trình ưu đãi của hóa đơn gói ${maHoaDonGoi}.`;
@@ -981,6 +987,49 @@ class ReceptionistService {
 
   async getCustomerTreatmentPlans(customerId: string) {
     return receptionistRepository.getCustomerTreatmentPlans(customerId);
+  }
+
+  async getCustomerRoster(filters: {
+    page: number;
+    pageSize: number;
+    search: string;
+    trangThaiGoi: string;
+    canLienHe: boolean;
+    staleDays: number;
+  }) {
+    return receptionistRepository.getCustomerRoster(filters);
+  }
+
+  async getCustomerHistory(customerId: string, staleDays: number) {
+    const record: any = await receptionistRepository.getCustomerHistory(customerId);
+    if (!record) throw new Error('Không tìm thấy khách hàng');
+
+    const activePlan = record.plans.find((p: any) => p.trang_thai === 'dang_dieu_tri');
+    let canLienHe = false;
+    if (activePlan) {
+      const sessions = record.appointments.filter((a: any) => a.phac_do_dieu_tri_id === activePlan.id);
+      const completedTimes = sessions
+        .filter((a: any) => a.trang_thai === 'hoan_thanh')
+        .map((a: any) => new Date(a.ngay_gio_bat_dau).getTime());
+      const lastCompletedAt = completedTimes.length ? new Date(Math.max(...completedTimes)) : null;
+      const hasUpcoming = sessions.some((a: any) =>
+        new Date(a.ngay_gio_bat_dau) > new Date() && !['da_huy', 'huy'].includes(a.trang_thai)
+      );
+      canLienHe = needsFollowUp({
+        trangThaiGoi: activePlan.trang_thai,
+        soBuoiDaDung: activePlan.so_buoi_da_dung,
+        lastCompletedAt,
+        hasUpcomingAppointment: hasUpcoming,
+        staleDays
+      });
+    }
+
+    const completedAny = record.appointments
+      .filter((a: any) => a.trang_thai === 'hoan_thanh')
+      .map((a: any) => new Date(a.ngay_gio_bat_dau).getTime());
+    const lastUsedAt = completedAny.length ? new Date(Math.max(...completedAny)).toISOString() : null;
+
+    return { ...record, can_lien_he: canLienHe, last_used_at: lastUsedAt };
   }
 
   async getBillingInfoByPackage(customerId: string, packageId: string) {

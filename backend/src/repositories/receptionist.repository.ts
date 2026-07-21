@@ -1031,6 +1031,222 @@ class ReceptionistRepository {
     return [...rows, ...pendingRecs];
   }
 
+  // --- QUẢN LÝ KHÁCH HÀNG (rút gọn cho Lễ tân) ---
+  // Bản thu nhỏ, view-only của admin.repository.ts::getCustomersOverview/getCustomerEmr — KHÔNG
+  // bao giờ SELECT cột nào từ nhat_ky_buoi_dieu_tri (chan_doan/chong_chi_dinh/ghi_chu/vas_truoc/
+  // vas_sau) hay tổng chi tiêu (tong_chi_tieu), đúng phạm vi quyền hạn của Lễ tân.
+  async getCustomerRoster(filters: {
+    page: number;
+    pageSize: number;
+    search: string;
+    trangThaiGoi: string;
+    canLienHe: boolean;
+    staleDays: number;
+  }) {
+    const { page, pageSize, search, trangThaiGoi, canLienHe, staleDays } = filters;
+    const offset = (page - 1) * pageSize;
+
+    const STATUS_CONDITIONS: Record<string, string> = {
+      dang_dieu_tri: 'prog.id IS NOT NULL',
+      cho_kich_hoat: 'COALESCE(cho.cnt, 0) > 0',
+      hoan_thanh: "xong.ten_goi IS NOT NULL AND prog.id IS NULL AND COALESCE(cho.cnt, 0) = 0",
+      khong_co_goi: 'COALESCE(pc.tong, 0) = 0 AND COALESCE(cho.cnt, 0) = 0',
+    };
+    const statusWhere = STATUS_CONDITIONS[trangThaiGoi] || 'TRUE';
+    const canLienHeWhere = canLienHe ? 'can_lien_he = true' : 'TRUE';
+    // Luôn tham chiếu $1 trong text kể cả khi search rỗng ('%%' khớp mọi hàng) — pg cần MỌI
+    // placeholder $N xuất hiện đâu đó để suy ra kiểu dữ liệu (xem cùng lý do ở admin.repository.ts).
+    const searchWhere = `(ho_ten ILIKE $1 OR so_dien_thoai ILIKE $1 OR email ILIKE $1 OR ('KH-' || UPPER(SUBSTRING(id::text FROM 1 FOR 8))) ILIKE $1)`;
+
+    const { rows } = await pool.query(`
+      WITH base AS (
+        SELECT
+          kh.id, kh.ho_ten, kh.so_dien_thoai, kh.email, kh.trang_thai, kh.diem_uy_tin,
+          COALESCE(pc.tong, 0) AS goi_tong,
+          pend.ten_goi AS pend_ten_goi, pend.han_kich_hoat AS pend_han_kich_hoat,
+          prog.id AS prog_id, prog.ten_goi AS prog_ten_goi, prog.tong_so_buoi AS prog_tong_so_buoi,
+          prog.so_buoi_da_dung AS prog_so_buoi_da_dung, prog.last_completed_at AS prog_last_completed_at,
+          prog.has_upcoming AS prog_has_upcoming,
+          xong.ten_goi AS xong_ten_goi,
+          last_used.last_date AS last_used_at,
+          -- ĐỒNG BỘ VỚI backend/src/domain/customerFollowUp.ts::needsFollowUp — sửa điều kiện ở
+          -- đây phải soát lại bên đó, và ngược lại.
+          (
+            prog.id IS NOT NULL AND COALESCE(prog.so_buoi_da_dung, 0) >= 1
+            AND prog.last_completed_at IS NOT NULL AND NOT COALESCE(prog.has_upcoming, false)
+            AND prog.last_completed_at <= NOW() - $5 * INTERVAL '1 day'
+          ) AS can_lien_he
+        FROM khach_hang kh
+        LEFT JOIN LATERAL (
+          SELECT
+            COUNT(*)::int AS tong,
+            COUNT(*) FILTER (WHERE trang_thai = 'dang_dieu_tri')::int AS dang_dieu_tri,
+            COUNT(*) FILTER (WHERE trang_thai = 'hoan_thanh')::int AS hoan_thanh,
+            COUNT(*) FILTER (WHERE trang_thai = 'huy')::int AS huy
+          FROM phac_do_dieu_tri
+          WHERE khach_hang_id = kh.id
+        ) pc ON true
+        LEFT JOIN LATERAL (
+          SELECT COUNT(*)::int AS cnt
+          FROM chi_dinh_buoi cd
+          JOIN nhat_ky_buoi_dieu_tri nk ON cd.nhat_ky_id = nk.id
+          JOIN cuoc_hen ch ON nk.cuoc_hen_id = ch.id
+          JOIN goi_dich_vu g ON cd.goi_dich_vu_id = g.id
+          WHERE ch.khach_hang_id = kh.id
+            AND cd.phac_do_dieu_tri_id IS NULL
+            AND g.loai_goi = 'LIEU_TRINH'
+            AND ch.ngay_gio_bat_dau >= NOW() - $4 * INTERVAL '1 day'
+        ) cho ON true
+        LEFT JOIN LATERAL (
+          SELECT g.ten_goi, ch.ngay_gio_bat_dau + $4 * INTERVAL '1 day' AS han_kich_hoat
+          FROM chi_dinh_buoi cd
+          JOIN nhat_ky_buoi_dieu_tri nk ON cd.nhat_ky_id = nk.id
+          JOIN cuoc_hen ch ON nk.cuoc_hen_id = ch.id
+          JOIN goi_dich_vu g ON cd.goi_dich_vu_id = g.id
+          WHERE ch.khach_hang_id = kh.id AND cd.phac_do_dieu_tri_id IS NULL
+            AND g.loai_goi = 'LIEU_TRINH' AND ch.ngay_gio_bat_dau >= NOW() - $4 * INTERVAL '1 day'
+          ORDER BY ch.ngay_gio_bat_dau DESC LIMIT 1
+        ) pend ON true
+        LEFT JOIN LATERAL (
+          SELECT pd.id, g.ten_goi, pd.tong_so_buoi,
+            (SELECT COUNT(*)::int FROM cuoc_hen WHERE phac_do_dieu_tri_id = pd.id AND trang_thai = 'hoan_thanh' AND loai = 'DIEU_TRI') AS so_buoi_da_dung,
+            (SELECT MAX(ngay_gio_bat_dau) FROM cuoc_hen WHERE phac_do_dieu_tri_id = pd.id AND trang_thai = 'hoan_thanh' AND loai = 'DIEU_TRI') AS last_completed_at,
+            EXISTS (
+              SELECT 1 FROM cuoc_hen ch_up
+              WHERE ch_up.phac_do_dieu_tri_id = pd.id AND ch_up.ngay_gio_bat_dau > NOW()
+                AND ch_up.trang_thai NOT IN ('da_huy', 'huy')
+            ) AS has_upcoming
+          FROM phac_do_dieu_tri pd JOIN goi_dich_vu g ON pd.goi_dich_vu_id = g.id
+          WHERE pd.khach_hang_id = kh.id AND pd.trang_thai = 'dang_dieu_tri'
+          ORDER BY pd.ngay_kich_hoat DESC LIMIT 1
+        ) prog ON true
+        LEFT JOIN LATERAL (
+          SELECT g.ten_goi
+          FROM phac_do_dieu_tri pd JOIN goi_dich_vu g ON pd.goi_dich_vu_id = g.id
+          WHERE pd.khach_hang_id = kh.id AND pd.trang_thai = 'hoan_thanh'
+          ORDER BY pd.ngay_kich_hoat DESC LIMIT 1
+        ) xong ON true
+        -- Lần cuối dùng BẤT KỲ dịch vụ nào (KHAM/DICH_VU_LE/DIEU_TRI) — khác le.last_date của admin
+        -- (chỉ tính KHAM/DICH_VU_LE), tổng quát hơn theo đúng yêu cầu "lần cuối dùng dịch vụ".
+        LEFT JOIN LATERAL (
+          SELECT MAX(ngay_gio_bat_dau) AS last_date
+          FROM cuoc_hen
+          WHERE khach_hang_id = kh.id AND trang_thai = 'hoan_thanh'
+        ) last_used ON true
+      )
+      SELECT *, COUNT(*) OVER()::int AS full_count
+      FROM base
+      WHERE ${searchWhere} AND ${statusWhere} AND ${canLienHeWhere}
+      ORDER BY ${canLienHe ? 'prog_last_completed_at ASC NULLS LAST, ' : ''}ho_ten ASC
+      LIMIT $2 OFFSET $3
+    `, [`%${search}%`, pageSize, offset, PACKAGE_ACTIVATION_WINDOW_DAYS, staleDays]);
+
+    const total = rows[0]?.full_count ? Number(rows[0].full_count) : 0;
+    const data = rows.map((r: any) => {
+      const goiHienTai = r.pend_ten_goi
+        ? { trang_thai: 'cho_kich_hoat', ten_goi: r.pend_ten_goi, han_kich_hoat: r.pend_han_kich_hoat }
+        : r.prog_ten_goi
+          ? { trang_thai: 'dang_dieu_tri', ten_goi: r.prog_ten_goi, so_buoi_da_dung: r.prog_so_buoi_da_dung, tong_so_buoi: r.prog_tong_so_buoi }
+          : r.xong_ten_goi
+            ? { trang_thai: 'hoan_thanh', ten_goi: r.xong_ten_goi }
+            : null;
+      return {
+        id: r.id,
+        ma_khach_hang: 'KH-' + r.id.substring(0, 8).toUpperCase(),
+        ho_ten: r.ho_ten,
+        so_dien_thoai: r.so_dien_thoai,
+        email: r.email,
+        trang_thai: r.trang_thai,
+        diem_uy_tin: r.diem_uy_tin,
+        goi_hien_tai: goiHienTai,
+        last_used_at: r.last_used_at,
+        can_lien_he: r.can_lien_he,
+      };
+    });
+
+    return {
+      data,
+      meta: { page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) }
+    };
+  }
+
+  async getCustomerHistory(customerId: string) {
+    const { rows: patientRows } = await pool.query(`
+      SELECT id, ho_ten, so_dien_thoai, email, trang_thai, diem_uy_tin, ngay_sinh, gioi_tinh, dia_chi
+      FROM khach_hang WHERE id = $1
+    `, [customerId]);
+    if (patientRows.length === 0) return null;
+    const patient = patientRows[0];
+
+    // Gói đã kích hoạt — không JOIN hoa_don/nhat_ky_buoi_dieu_tri/nhân sự/phòng (không cần cho
+    // lịch sử rút gọn của Lễ tân).
+    const { rows: plans } = await pool.query(`
+      SELECT
+        pd.id, pd.goi_dich_vu_id, pd.tong_so_buoi,
+        (
+          SELECT COUNT(*)::int FROM cuoc_hen
+          WHERE phac_do_dieu_tri_id = pd.id AND trang_thai = 'hoan_thanh' AND loai = 'DIEU_TRI'
+        ) as so_buoi_da_dung,
+        pd.trang_thai, pd.ngay_kich_hoat, pd.han_su_dung,
+        g.ten_goi, g.loai_goi
+      FROM phac_do_dieu_tri pd
+      JOIN goi_dich_vu g ON pd.goi_dich_vu_id = g.id
+      WHERE pd.khach_hang_id = $1
+      ORDER BY pd.ngay_kich_hoat DESC
+    `, [customerId]);
+
+    // Gói bác sĩ chỉ định nhưng chưa kích hoạt — chỉ bắc cầu qua chi_dinh_buoi/nhat_ky_buoi_dieu_tri
+    // để lấy cuoc_hen, KHÔNG SELECT chan_doan/chong_chi_dinh/ghi_chu của nhat_ky_buoi_dieu_tri.
+    const { rows: pendingPlans } = await pool.query(`
+      SELECT
+        cd.goi_dich_vu_id, g.ten_goi, g.loai_goi, g.tong_so_buoi,
+        ch.id as cuoc_hen_id, ch.ngay_gio_bat_dau,
+        ch.ngay_gio_bat_dau + $2 * INTERVAL '1 day' as han_kich_hoat
+      FROM chi_dinh_buoi cd
+      JOIN nhat_ky_buoi_dieu_tri nk ON cd.nhat_ky_id = nk.id
+      JOIN cuoc_hen ch ON nk.cuoc_hen_id = ch.id
+      JOIN goi_dich_vu g ON cd.goi_dich_vu_id = g.id
+      WHERE ch.loai = 'KHAM'
+        AND cd.phac_do_dieu_tri_id IS NULL
+        AND ch.khach_hang_id = $1
+        AND ch.ngay_gio_bat_dau >= NOW() - $2 * INTERVAL '1 day'
+    `, [customerId, PACKAGE_ACTIVATION_WINDOW_DAYS]);
+
+    const virtualPlans = pendingPlans.map((item: any) => ({
+      id: `virtual-${item.cuoc_hen_id}`,
+      goi_dich_vu_id: item.goi_dich_vu_id,
+      tong_so_buoi: item.tong_so_buoi,
+      so_buoi_da_dung: 0,
+      trang_thai: 'cho_kich_hoat',
+      ngay_kich_hoat: null,
+      ten_goi: item.ten_goi,
+      loai_goi: item.loai_goi,
+      cuoc_hen_id: item.cuoc_hen_id,
+      han_kich_hoat: item.han_kich_hoat
+    }));
+
+    // Lịch sử cuộc hẹn — lấy MỌI trạng thái (kể cả đã hủy/không đến, khác admin's getCustomerEmr):
+    // dữ liệu vận hành thuần, hữu ích để Lễ tân biết khách từng lỡ hẹn trước khi gọi lại. Không
+    // JOIN nhân sự/phòng/hóa đơn/nhat_ky_buoi_dieu_tri.
+    const { rows: appointments } = await pool.query(`
+      SELECT
+        ch.id, ch.phac_do_dieu_tri_id, ch.so_thu_tu_buoi, ch.goi_dich_vu_id,
+        ch.ngay_gio_bat_dau, ch.ngay_gio_ket_thuc, ch.loai, ch.trang_thai,
+        dv.ten_goi as ten_dich_vu
+      FROM cuoc_hen ch
+      LEFT JOIN goi_dich_vu dv ON ch.goi_dich_vu_id = dv.id
+      WHERE ch.khach_hang_id = $1
+      ORDER BY ch.ngay_gio_bat_dau DESC
+    `, [customerId]);
+
+    return {
+      ...patient,
+      ma_khach_hang: 'KH-' + patient.id.substring(0, 8).toUpperCase(),
+      plans: [...plans, ...virtualPlans],
+      appointments,
+    };
+  }
+
   async getTreatmentPlanBySessionId(sessionId: string) {
     const { rows } = await pool.query('SELECT phac_do_dieu_tri_id FROM cuoc_hen WHERE id = $1', [sessionId]);
     return rows[0] ? rows[0].phac_do_dieu_tri_id : null;
@@ -1228,37 +1444,6 @@ class ReceptionistRepository {
       [lich_dat_id]
     );
     return rows[0] ? Number(rows[0].tong_tien_phai_tra) : 0;
-  }
-
-  /**
-   * Dò ngược ca khám gốc đã chỉ định (chi_dinh_buoi) đúng gói dịch vụ lẻ (LE) đang thanh toán,
-   * chỉ trả về khi: ca khám đó đã có hóa đơn thanh toán riêng, VÀ buổi lẻ đang thanh toán (le_lich_dat_id)
-   * là buổi ĐẦU TIÊN của gói này (cùng khách) được thanh toán kể từ sau ca khám đó — tránh trừ phí khám
-   * lặp lại nếu khách mua lại đúng gói LE này nhiều lần sau cùng 1 ca khám.
-   */
-  async getPrescribingExamForLeSession(goiDichVuId: string, leLichDatId: string) {
-    const { rows } = await pool.query(`
-      SELECT ch_kham.id, ch_kham.ngay_gio_bat_dau
-      FROM cuoc_hen ch_le
-      JOIN chi_dinh_buoi cdb ON cdb.goi_dich_vu_id = $1
-      JOIN nhat_ky_buoi_dieu_tri nk ON cdb.nhat_ky_id = nk.id
-      JOIN cuoc_hen ch_kham ON nk.cuoc_hen_id = ch_kham.id AND ch_kham.loai IN ('KHAM', 'KHAM_MOI')
-      JOIN hoa_don hd_kham ON hd_kham.cuoc_hen_id = ch_kham.id AND hd_kham.trang_thai = 'da_thanh_toan'
-      WHERE ch_le.id = $2
-        AND ch_kham.khach_hang_id = ch_le.khach_hang_id
-        AND NOT EXISTS (
-          SELECT 1 FROM cuoc_hen ch_other
-          JOIN hoa_don hd_other ON hd_other.cuoc_hen_id = ch_other.id AND hd_other.trang_thai = 'da_thanh_toan'
-          WHERE ch_other.khach_hang_id = ch_kham.khach_hang_id
-            AND ch_other.goi_dich_vu_id = $1
-            AND ch_other.loai = 'DIEU_TRI'
-            AND ch_other.id != ch_le.id
-            AND hd_other.ngay_tao > hd_kham.ngay_tao
-        )
-      ORDER BY ch_kham.ngay_gio_bat_dau DESC
-      LIMIT 1
-    `, [goiDichVuId, leLichDatId]);
-    return rows[0] || null;
   }
 
   /**

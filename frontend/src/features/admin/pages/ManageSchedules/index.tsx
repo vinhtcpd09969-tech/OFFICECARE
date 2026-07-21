@@ -87,8 +87,13 @@ export default function ManageSchedules() {
         onSearchQueryChange={setSearchQuery}
       />
 
-      {/* KPI Cards (Simplified to just active staff today) */}
-      <SchedulesKpis stats={stats} />
+      {/* Executive KPI Cards Bar */}
+      <SchedulesKpis 
+        stats={stats} 
+        totalSchedules={schedules.length}
+        conflictCount={conflicts.length}
+        totalRooms={rooms.length}
+      />
 
       {/* Conflicts Warnings - Rendered at top of table, only visible when there are conflicts */}
       {conflicts.length > 0 && (

@@ -109,70 +109,6 @@
 
 /**
  * @swagger
- * /admin/categories:
- *   get:
- *     summary: Lấy danh sách danh mục dịch vụ
- *     tags: [Admin - Danh mục & Dịch vụ]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Danh sách danh mục (khám lâm sàng, điều trị, ...)
- *   post:
- *     summary: Tạo danh mục mới (Admin/Quản lý)
- *     tags: [Admin - Danh mục & Dịch vụ]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               ten_danh_muc:
- *                 type: string
- *                 example: Phục hồi chức năng
- *     responses:
- *       201:
- *         description: Danh mục được tạo thành công
- */
-
-/**
- * @swagger
- * /admin/categories/{id}:
- *   put:
- *     summary: Cập nhật danh mục
- *     tags: [Admin - Danh mục & Dịch vụ]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: Danh mục đã được cập nhật
- *   delete:
- *     summary: Xóa danh mục
- *     tags: [Admin - Danh mục & Dịch vụ]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: Danh mục đã được xóa
- */
-
-/**
- * @swagger
  * /admin/services:
  *   get:
  *     summary: Lấy danh sách dịch vụ
@@ -200,9 +136,6 @@
  *               gia:
  *                 type: number
  *                 example: 350000
- *               danh_muc_id:
- *                 type: integer
- *                 example: 2
  *               thoi_luong_phut:
  *                 type: integer
  *                 example: 30

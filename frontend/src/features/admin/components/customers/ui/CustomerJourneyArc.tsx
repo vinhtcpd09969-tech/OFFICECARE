@@ -32,26 +32,21 @@ interface WaypointDef {
 // đang điều trị → hoàn thành → đã hủy — "đã hủy" giờ là điểm cuối trên chính đường line (không còn
 // là nhánh phụ tách rời) vì nó vẫn là 1 kết cục thuộc hành trình liệu trình, chỉ tô màu rust để phân
 // biệt đây là kết cục cần chú ý, khác với "hoàn thành" (tích cực).
-const LEFT_FORK: WaypointDef[] = [
-  { key: 'none', label: TIER_META.none.label, left: '17.3%', top: '34.6%', small: true, dotColor: 'var(--rc-taupe)', ringColor: 'rgba(138,133,120,0.3)' }
-];
-
 const MAIN_WAYPOINTS: WaypointDef[] = [
-  { key: 'any_plan', label: 'Tổng liệu trình', left: '29.8%', top: '59.6%', dotColor: 'var(--rc-clay)', ringColor: 'rgba(198,93,59,0.22)' },
-  { key: 'pending', label: TIER_META.pending.label, left: '46.2%', top: '45.4%', dotColor: 'var(--rc-clay)', ringColor: 'rgba(198,93,59,0.22)' },
-  { key: 'progress', label: TIER_META.progress.label, left: '62.5%', top: '28.8%', dotColor: 'var(--rc-clay)', ringColor: 'rgba(198,93,59,0.22)' },
-  { key: 'done', label: TIER_META.done.label, left: '77.9%', top: '14.6%', dotColor: 'var(--rc-clay)', ringColor: 'rgba(198,93,59,0.22)' },
-  { key: 'cancel', label: TIER_META.cancel.label, left: '95.2%', top: '5.4%', dotColor: 'var(--rc-rust)', ringColor: 'rgba(139,58,46,0.28)' }
+  { key: 'none', label: TIER_META.none.label, left: '19.0%', top: '45%', dotColor: 'var(--rc-taupe)', ringColor: 'rgba(138,133,120,0.3)' },
+  { key: 'any_plan', label: 'Tổng liệu trình', left: '34.0%', top: '45%', dotColor: 'var(--rc-clay)', ringColor: 'rgba(198,93,59,0.22)' },
+  { key: 'pending', label: TIER_META.pending.label, left: '50.0%', top: '45%', dotColor: 'var(--rc-clay)', ringColor: 'rgba(198,93,59,0.22)' },
+  { key: 'progress', label: TIER_META.progress.label, left: '65.5%', top: '45%', dotColor: 'var(--rc-clay)', ringColor: 'rgba(198,93,59,0.22)' },
+  { key: 'done', label: TIER_META.done.label, left: '80.5%', top: '45%', dotColor: 'var(--rc-clay)', ringColor: 'rgba(198,93,59,0.22)' },
+  { key: 'cancel', label: TIER_META.cancel.label, left: '95.2%', top: '45%', dotColor: 'var(--rc-rust)', ringColor: 'rgba(139,58,46,0.28)' }
 ];
 
-// "Đường cong Phục hồi" — thay thế card thống kê tĩnh + hàng chip lọc trạng thái cũ. Mỗi trạm trên
-// đường cong vừa hiển thị số liệu vừa LÀ nút lọc bảng theo trạng thái đó (bấm lại "Tổng" để bỏ lọc).
+// Trục ngang đồng phẳng — tất cả các nút lọc nằm trên cùng một đường thẳng duy nhất
 export function CustomerJourneyArc({
   totalCustomers, newThisMonth, tierCounts, khamHoanThanh, dichVuLeHoanThanh, totalRevenue,
   activeTier, onFilterChange
 }: CustomerJourneyArcProps) {
-  const mainD = 'M50,170 C140,166 220,162 310,155 C360,148 420,135 480,118 C530,103 580,90 650,75 C700,64 750,50 810,38 C860,28 920,20 990,14';
-  const leftForkD = 'M50,170 C90,138 130,112 180,90';
+  const mainD = 'M50,90 L990,90';
 
   const anyPlanCount = tierCounts.pending + tierCounts.progress + tierCounts.done + tierCounts.cancel;
   const countFor = (key: CustomerStatusFilter): number =>
@@ -101,11 +96,10 @@ export function CustomerJourneyArc({
         style={{ background: 'radial-gradient(520px 260px at 88% -10%, rgba(198,93,59,0.20), transparent 70%)' }}
       />
 
-      <div className="relative w-full" style={{ height: 260 }}>
-        <svg viewBox="0 0 1040 260" preserveAspectRatio="none" className="w-full h-full overflow-visible" aria-hidden="true">
+      <div className="relative w-full" style={{ height: 210 }}>
+        <svg viewBox="0 0 1040 210" preserveAspectRatio="none" className="w-full h-full overflow-visible" aria-hidden="true">
           <path d={mainD} fill="none" stroke="rgba(245,244,239,0.24)" strokeWidth={2.5} strokeLinecap="round" />
           <path d={mainD} fill="none" stroke="var(--rc-clay)" strokeWidth={2.5} strokeLinecap="round" className="rc-arc-path-progress" />
-          <path d={leftForkD} fill="none" stroke="rgba(138,133,120,0.5)" strokeWidth={2} strokeLinecap="round" strokeDasharray="3 7" />
         </svg>
 
         {/* Trạm "Tổng khách hàng" — bấm để bỏ lọc, luôn hiện tổng số khách thật (không đổi theo filter) */}
@@ -113,7 +107,7 @@ export function CustomerJourneyArc({
           type="button"
           onClick={() => onFilterChange('all')}
           className="absolute -translate-x-1/2 text-center bg-transparent border-none cursor-pointer"
-          style={{ left: '4.8%', top: '65.4%', marginTop: -6.5 }}
+          style={{ left: '4.8%', top: '45%', marginTop: -6.5 }}
         >
           <span
             className="block mx-auto mb-4 rounded-full transition-all"
@@ -133,7 +127,6 @@ export function CustomerJourneyArc({
           </span>
         </button>
 
-        {LEFT_FORK.map(renderDot)}
         {MAIN_WAYPOINTS.map(renderDot)}
       </div>
 
