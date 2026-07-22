@@ -26,7 +26,7 @@ class ReceptionistRepository {
         END as loai_lich,
         kh.id as khach_hang_id,
         kh.ho_ten as ten_khach_hang, 
-        kh.so_dien_thoai as sdt_khach_hang,
+        COALESCE(ch.so_dien_thoai, kh.so_dien_thoai) as sdt_khach_hang,
         dv.ten_goi as ten_dich_vu,
         ch.nhan_su_id,
         nd_ktv.ho_ten as ten_ky_thuat_vien,
@@ -237,7 +237,7 @@ class ReceptionistRepository {
     return rows[0]?.thoi_luong_phut || 30;
   }
 
-  async createAppointment(maLichDat: string, khachHangId: string, goi_dich_vu_id: string, ky_thuat_vien_id: string, startTime: Date, endTime: Date) {
+  async createAppointment(maLichDat: string, khachHangId: string, goi_dich_vu_id: string, ky_thuat_vien_id: string, startTime: Date, endTime: Date, phone?: string) {
     // Đặt lịch tại quầy (walk-in) trước đây INSERT thẳng, không hề qua checkCustomerOverlap/
     // checkDoctorOverlap như 2 luồng đặt lịch còn lại (public/客户 và TreatmentBookingModal của
     // Admin/Lễ tân) — áp lại đúng 2 lớp chặn trùng lịch đó cho nhất quán, tránh Lễ tân double-book
@@ -253,10 +253,28 @@ class ReceptionistRepository {
       }
     }
 
+    let finalPhone = phone;
+    if (!finalPhone) {
+      const customerRes = await pool.query('SELECT so_dien_thoai FROM khach_hang WHERE id = $1', [khachHangId]);
+      finalPhone = customerRes.rows[0]?.so_dien_thoai || null;
+    }
+
+    if (finalPhone && finalPhone.trim() !== '') {
+      const cleanPhone = finalPhone.trim();
+      const checkPhoneCust = await pool.query(
+        'SELECT id FROM khach_hang WHERE so_dien_thoai = $1 AND ($2::uuid IS NULL OR id != $2::uuid)',
+        [cleanPhone, khachHangId || null]
+      );
+      const checkPhoneStaff = await pool.query('SELECT id FROM nguoi_dung WHERE so_dien_thoai = $1', [cleanPhone]);
+      if (checkPhoneCust.rows.length > 0 || checkPhoneStaff.rows.length > 0) {
+        throw new Error('Số điện thoại liên hệ này đã được đăng ký cho một tài khoản khác trong hệ thống.');
+      }
+    }
+
     const { rows } = await pool.query(`
-      INSERT INTO cuoc_hen (khach_hang_id, goi_dich_vu_id, nhan_su_id, ngay_gio_bat_dau, ngay_gio_ket_thuc, loai, trang_thai)
-      VALUES ($1, $2, $3, $4, $5, 'DICH_VU_LE', 'cho_xac_nhan') RETURNING id
-    `, [khachHangId, goi_dich_vu_id, ky_thuat_vien_id ? parseInt(ky_thuat_vien_id, 10) : null, startTime, endTime]);
+      INSERT INTO cuoc_hen (khach_hang_id, goi_dich_vu_id, nhan_su_id, ngay_gio_bat_dau, ngay_gio_ket_thuc, loai, trang_thai, so_dien_thoai)
+      VALUES ($1, $2, $3, $4, $5, 'DICH_VU_LE', 'cho_xac_nhan', $6) RETURNING id
+    `, [khachHangId, goi_dich_vu_id, ky_thuat_vien_id ? parseInt(ky_thuat_vien_id, 10) : null, startTime, endTime, finalPhone]);
     return rows[0].id;
   }
 
@@ -1282,7 +1300,7 @@ class ReceptionistRepository {
         END as loai_lich,
         kh.id as khach_hang_id,
         kh.ho_ten as ten_khach_hang, 
-        kh.so_dien_thoai as sdt_khach_hang,
+        COALESCE(ch.so_dien_thoai, kh.so_dien_thoai) as sdt_khach_hang,
         dv.ten_goi as ten_dich_vu,
         dv.don_gia as don_gia_dich_vu,
         COALESCE(

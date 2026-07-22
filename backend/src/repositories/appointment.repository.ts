@@ -142,7 +142,7 @@ class AppointmentRepository {
           ELSE 'dich_vu_don'
         END as loai_lich,
         kh.ho_ten AS ten_khach_hang, 
-        kh.so_dien_thoai AS so_dien_thoai,
+        COALESCE(ch.so_dien_thoai, kh.so_dien_thoai) AS so_dien_thoai,
         kh.id as khach_hang_id,
         COALESCE(g.ten_goi, gpd.ten_goi) as ten_dich_vu,
         nd_ktv.ho_ten AS ten_ky_thuat_vien,
@@ -392,6 +392,19 @@ class AppointmentRepository {
 
     let final_khach_hang_id = khach_hang_id;
 
+    // Kiểm tra trùng SĐT liên hệ với tài khoản khách hàng khác hoặc nhân sự
+    if (so_dien_thoai && so_dien_thoai.trim() !== '') {
+      const cleanPhone = so_dien_thoai.trim();
+      const checkPhoneCust = await pool.query(
+        'SELECT id FROM khach_hang WHERE so_dien_thoai = $1 AND ($2::uuid IS NULL OR id != $2::uuid)',
+        [cleanPhone, final_khach_hang_id || null]
+      );
+      const checkPhoneStaff = await pool.query('SELECT id FROM nguoi_dung WHERE so_dien_thoai = $1', [cleanPhone]);
+      if (checkPhoneCust.rows.length > 0 || checkPhoneStaff.rows.length > 0) {
+        throw new Error('Số điện thoại liên hệ này đã được đăng ký cho một tài khoản khác trong hệ thống.');
+      }
+    }
+
     if (!final_khach_hang_id && (email || so_dien_thoai)) {
       // 1. Validate formats
       if (!ho_ten_khach || ho_ten_khach.trim().length < 2) {
@@ -418,15 +431,6 @@ class AppointmentRepository {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email.trim())) {
         throw new Error('Địa chỉ email không đúng định dạng.');
-      }
-
-      // 2. Check for duplicate phone in customer or staff
-      if (so_dien_thoai) {
-        const checkPhoneCust = await pool.query('SELECT id FROM khach_hang WHERE so_dien_thoai = $1', [so_dien_thoai.trim()]);
-        const checkPhoneStaff = await pool.query('SELECT id FROM nguoi_dung WHERE so_dien_thoai = $1', [so_dien_thoai.trim()]);
-        if (checkPhoneCust.rows.length > 0 || checkPhoneStaff.rows.length > 0) {
-          throw new Error('Số điện thoại này đã được đăng ký cho một tài khoản khác.');
-        }
       }
 
       // 3. Check for duplicate email in customer or staff
@@ -627,8 +631,8 @@ class AppointmentRepository {
     }
 
     const query = `
-      INSERT INTO cuoc_hen (khach_hang_id, nhan_su_id, goi_dich_vu_id, phac_do_dieu_tri_id, so_thu_tu_buoi, ngay_gio_bat_dau, ngay_gio_ket_thuc, loai, trang_thai, ghi_chu_khach_hang, phong_id, nguoi_tao_id)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      INSERT INTO cuoc_hen (khach_hang_id, nhan_su_id, goi_dich_vu_id, phac_do_dieu_tri_id, so_thu_tu_buoi, ngay_gio_bat_dau, ngay_gio_ket_thuc, loai, trang_thai, ghi_chu_khach_hang, phong_id, nguoi_tao_id, so_dien_thoai)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING *
     `;
     const { rows } = await pool.query(query, [
@@ -643,7 +647,8 @@ class AppointmentRepository {
       trang_thai,
       ghi_chu_dat_lich || null,
       resolvedPhongId,
-      data.nguoi_tao_id || null
+      data.nguoi_tao_id || null,
+      so_dien_thoai || null
     ]);
 
     return rows[0];
@@ -769,6 +774,18 @@ class AppointmentRepository {
       }
     }
 
+    if (final_khach_hang_id_input && so_dien_thoai && so_dien_thoai.trim() !== '') {
+      const cleanPhone = so_dien_thoai.trim();
+      const checkPhoneCust = await pool.query(
+        'SELECT id FROM khach_hang WHERE so_dien_thoai = $1 AND id != $2::uuid',
+        [cleanPhone, final_khach_hang_id_input]
+      );
+      const checkPhoneStaff = await pool.query('SELECT id FROM nguoi_dung WHERE so_dien_thoai = $1', [cleanPhone]);
+      if (checkPhoneCust.rows.length > 0 || checkPhoneStaff.rows.length > 0) {
+        throw new Error('Số điện thoại liên hệ này đã được đăng ký cho một tài khoản khác trong hệ thống.');
+      }
+    }
+
     let final_khach_hang_id = final_khach_hang_id_input;
     if (!final_khach_hang_id && so_dien_thoai) {
       const res = await pool.query('SELECT id FROM khach_hang WHERE so_dien_thoai = $1', [so_dien_thoai]);
@@ -810,8 +827,8 @@ class AppointmentRepository {
     const finalLoai = phac_do_dieu_tri_id ? 'DIEU_TRI' : (isExamService ? 'KHAM' : 'DICH_VU_LE');
 
     const query = `
-      INSERT INTO cuoc_hen (khach_hang_id, goi_dich_vu_id, nhan_su_id, ngay_gio_bat_dau, ngay_gio_ket_thuc, loai, trang_thai, ghi_chu_khach_hang, phong_id, anh_dinh_kem_url, phac_do_dieu_tri_id, so_thu_tu_buoi)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      INSERT INTO cuoc_hen (khach_hang_id, goi_dich_vu_id, nhan_su_id, ngay_gio_bat_dau, ngay_gio_ket_thuc, loai, trang_thai, ghi_chu_khach_hang, phong_id, anh_dinh_kem_url, phac_do_dieu_tri_id, so_thu_tu_buoi, so_dien_thoai)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING *
     `;
     const { rows } = await pool.query(query, [
@@ -826,7 +843,8 @@ class AppointmentRepository {
       resolvedPhongId,
       anh_dinh_kem_url || null,
       phac_do_dieu_tri_id || null,
-      so_thu_tu_buoi || null
+      so_thu_tu_buoi || null,
+      so_dien_thoai || null
     ]);
 
     if (data.temp_hold_id) {
@@ -1311,7 +1329,7 @@ class AppointmentRepository {
           ELSE 'dich_vu_don'
         END as loai_lich,
         kh.ho_ten AS ten_khach_hang, 
-        kh.so_dien_thoai AS so_dien_thoai,
+        COALESCE(ch.so_dien_thoai, kh.so_dien_thoai) AS so_dien_thoai,
         kh.id as khach_hang_id,
         kh.diem_uy_tin as diem_uy_tin,
         ch.phac_do_dieu_tri_id,
@@ -1484,7 +1502,7 @@ class AppointmentRepository {
       LEFT JOIN khach_hang kh ON ch.khach_hang_id = kh.id
       WHERE (
         ($1::uuid IS NOT NULL AND ch.khach_hang_id = $1::uuid)
-        OR ($2::text IS NOT NULL AND kh.so_dien_thoai = $2::text)
+        OR ($2::text IS NOT NULL AND (ch.so_dien_thoai = $2::text OR kh.so_dien_thoai = $2::text))
       )
       AND ch.trang_thai NOT IN ('da_huy', 'huy', 'khong_den')
       AND DATE(ch.ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh') = $3::date
@@ -1537,7 +1555,7 @@ class AppointmentRepository {
       LEFT JOIN khach_hang kh ON ch.khach_hang_id = kh.id
       WHERE (
         ($1::uuid IS NOT NULL AND ch.khach_hang_id = $1::uuid)
-        OR ($2::text IS NOT NULL AND kh.so_dien_thoai = $2::text)
+        OR ($2::text IS NOT NULL AND (ch.so_dien_thoai = $2::text OR kh.so_dien_thoai = $2::text))
       )
         -- KHÔNG loại 'hoan_thanh' — 1 buổi đã hoàn thành vẫn thực sự chiếm đúng khung giờ đó của
         -- khách hàng (đã xác nhận qua data thật: 2 cuoc_hen của cùng khách trùng khít giờ, 1 cái

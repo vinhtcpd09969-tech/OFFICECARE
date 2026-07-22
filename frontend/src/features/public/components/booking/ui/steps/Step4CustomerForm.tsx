@@ -46,6 +46,7 @@ export function Step4CustomerForm({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
   const [timeLeft, setTimeLeft] = useState(300); // 5 minutes in seconds
+  const [isEditingPhone, setIsEditingPhone] = useState(false);
 
   useEffect(() => {
     if (timeLeft <= 0) {
@@ -100,7 +101,7 @@ export function Step4CustomerForm({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     onChange(e);
-    
+
     const error = validateField(name, value);
     setErrors(prev => ({
       ...prev,
@@ -122,7 +123,7 @@ export function Step4CustomerForm({
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    
+
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       handleFile(e.dataTransfer.files[0]);
     }
@@ -141,7 +142,7 @@ export function Step4CustomerForm({
 
     const nameError = validateField('ho_ten_khach', nameTrimmed);
     const phoneError = validateField('so_dien_thoai', phoneTrimmed);
-    const symptomError = validateField('trieu_chung', symptomTrimmed);
+    const symptomError = bookingType === 'kham' ? validateField('trieu_chung', symptomTrimmed) : '';
 
     if (nameError || phoneError || symptomError) {
       setErrors({
@@ -162,7 +163,7 @@ export function Step4CustomerForm({
         toast.dismiss(toastId);
         const bookedList = data.bookedSlots || [];
         const slotStartKey = selectedTime.split(' - ')[0];
-        
+
         if (bookedList.includes(slotStartKey)) {
           toast.error('Bạn đã có lịch hẹn hoặc ca điều trị khác trong khung giờ này. Vui lòng quay lại chọn khung giờ khác.');
         } else {
@@ -270,7 +271,7 @@ export function Step4CustomerForm({
             name="so_dien_thoai"
             required
             placeholder=" "
-            disabled={!!user}
+            disabled={!!user && !isEditingPhone}
             className={`peer block w-full rounded-xl border bg-white px-4 pt-6 pb-2 text-sm font-bold focus:ring-0 outline-none transition-all placeholder-transparent shadow-sm disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed
               ${errors.so_dien_thoai
                 ? 'border-rose-300 focus:border-rose-500 text-rose-600'
@@ -289,6 +290,34 @@ export function Step4CustomerForm({
           >
             Số điện thoại *
           </label>
+          {user?.so_dien_thoai && !isEditingPhone && (
+            <button
+              type="button"
+              onClick={() => setIsEditingPhone(true)}
+              className="absolute right-3 top-4 text-[9px] font-black text-[#2EC4B6] bg-teal-50 hover:bg-teal-100 px-2 py-0.5 rounded-full transition-all"
+            >
+              Đổi số liên hệ
+            </button>
+          )}
+          {user?.so_dien_thoai && isEditingPhone && (
+            <button
+              type="button"
+              onClick={() => {
+                setIsEditingPhone(false);
+                const event = {
+                  target: {
+                    name: 'so_dien_thoai',
+                    value: user.so_dien_thoai
+                  }
+                } as React.ChangeEvent<HTMLInputElement>;
+                onChange(event);
+                setErrors(prev => ({ ...prev, so_dien_thoai: '' }));
+              }}
+              className="absolute right-3 top-4 text-[9px] font-black text-slate-500 bg-slate-100 hover:bg-slate-200 px-2 py-0.5 rounded-full transition-all"
+            >
+              Mặc định
+            </button>
+          )}
           {errors.so_dien_thoai && (
             <span className="text-[10px] font-extrabold text-rose-500 mt-1 block pl-1">
               {errors.so_dien_thoai}
@@ -327,94 +356,99 @@ export function Step4CustomerForm({
           </div>
         </div>
 
-        {/* Symptom Textarea */}
-        <div className="sm:col-span-2 relative">
-          <textarea
-            id="trieu_chung"
-            name="trieu_chung"
-            required
-            rows={4}
-            placeholder=" "
-            className={`peer block w-full rounded-xl border bg-white px-4 pt-6 pb-2 text-sm font-medium focus:ring-0 outline-none transition-all placeholder-transparent shadow-sm resize-none
-              ${errors.trieu_chung
-                ? 'border-rose-300 focus:border-rose-500 text-rose-600'
-                : 'border-slate-200 focus:border-[#2EC4B6] text-slate-700'
-              }`}
-            value={formData.trieu_chung}
-            onChange={handleInputChange}
-          />
-          <label
-            htmlFor="trieu_chung"
-            className={`absolute left-4 top-2 text-[10px] font-black uppercase tracking-widest transition-all peer-placeholder-shown:text-xs peer-placeholder-shown:top-4 peer-focus:top-2 peer-focus:text-[10px]
-              ${errors.trieu_chung
-                ? 'text-rose-400 peer-focus:text-rose-500'
-                : 'text-slate-400 peer-focus:text-[#2EC4B6]'
-              }`}
-          >
-            Mô tả triệu chứng, vùng đau nhức (VD: đau mỏi cổ vai gáy...) *
-          </label>
-          {errors.trieu_chung && (
-            <span className="text-[10px] font-extrabold text-rose-500 mt-1 block pl-1">
-              {errors.trieu_chung}
-            </span>
-          )}
-        </div>
-
-        {/* Symptom image upload */}
-        <div className="sm:col-span-2 space-y-2">
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">
-            Ảnh đính kèm triệu chứng (nếu có - tối đa 5MB)
-          </span>
-          
-          {!formData.anh_dinh_kem_url ? (
-            <div
-              onDragEnter={handleDrag}
-              onDragOver={handleDrag}
-              onDragLeave={handleDrag}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-              className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all duration-200 flex flex-col items-center justify-center gap-2.5 bg-slate-50/50 hover:bg-slate-50
-                ${dragActive 
-                  ? 'border-[#2EC4B6] bg-[#2EC4B6]/5 scale-[1.01]' 
-                  : 'border-slate-200 hover:border-[#2EC4B6]'
-                }`}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="hidden"
-                accept="image/*"
-                onChange={handleFileInputChange}
+        {/* Chỉ hiển thị Triệu chứng & Ảnh đính kèm khi là loại lịch Khám */}
+        {bookingType === 'kham' && (
+          <>
+            {/* Symptom Textarea */}
+            <div className="sm:col-span-2 relative">
+              <textarea
+                id="trieu_chung"
+                name="trieu_chung"
+                required
+                rows={4}
+                placeholder=" "
+                className={`peer block w-full rounded-xl border bg-white px-4 pt-6 pb-2 text-sm font-medium focus:ring-0 outline-none transition-all placeholder-transparent shadow-sm resize-none
+                  ${errors.trieu_chung
+                    ? 'border-rose-300 focus:border-rose-500 text-rose-600'
+                    : 'border-slate-200 focus:border-[#2EC4B6] text-slate-700'
+                  }`}
+                value={formData.trieu_chung}
+                onChange={handleInputChange}
               />
-              <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center border border-slate-200/60 transition-colors">
-                <Upload size={18} />
-              </div>
-              <div className="space-y-0.5">
-                <p className="text-xs font-bold text-slate-700">Kéo thả ảnh hoặc click để tải lên</p>
-                <p className="text-[10px] text-slate-400 font-semibold">Chấp nhận JPG, PNG, WEBP tối đa 5MB</p>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center gap-4 p-4 border border-slate-200 bg-slate-50/30 rounded-2xl relative group">
-              <div className="w-16 h-16 rounded-xl overflow-hidden border border-slate-200 shrink-0 relative bg-white">
-                <img src={formData.anh_dinh_kem_url} alt="Uploaded symptom" className="w-full h-full object-cover" />
-              </div>
-              <div className="flex-1 min-w-0 space-y-0.5">
-                <p className="text-xs font-bold text-slate-700 truncate font-jakarta">Ảnh triệu chứng đã tải lên</p>
-                <p className="text-[10px] text-emerald-500 font-extrabold flex items-center gap-1 font-jakarta">
-                  <CheckCircle2 size={12} /> Sẵn sàng đính kèm
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={removeImage}
-                className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-red-50 hover:text-red-500 text-slate-500 flex items-center justify-center transition-all border border-slate-200/60"
+              <label
+                htmlFor="trieu_chung"
+                className={`absolute left-4 top-2 text-[10px] font-black uppercase tracking-widest transition-all peer-placeholder-shown:text-xs peer-placeholder-shown:top-4 peer-focus:top-2 peer-focus:text-[10px]
+                  ${errors.trieu_chung
+                    ? 'text-rose-400 peer-focus:text-rose-500'
+                    : 'text-slate-400 peer-focus:text-[#2EC4B6]'
+                  }`}
               >
-                <X size={14} />
-              </button>
+                Mô tả triệu chứng, vùng đau nhức (VD: đau mỏi cổ vai gáy...) *
+              </label>
+              {errors.trieu_chung && (
+                <span className="text-[10px] font-extrabold text-rose-500 mt-1 block pl-1">
+                  {errors.trieu_chung}
+                </span>
+              )}
             </div>
-          )}
-        </div>
+
+            {/* Symptom image upload */}
+            <div className="sm:col-span-2 space-y-2">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">
+                Ảnh đính kèm triệu chứng (nếu có - tối đa 5MB)
+              </span>
+
+              {!formData.anh_dinh_kem_url ? (
+                <div
+                  onDragEnter={handleDrag}
+                  onDragOver={handleDrag}
+                  onDragLeave={handleDrag}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all duration-200 flex flex-col items-center justify-center gap-2.5 bg-slate-50/50 hover:bg-slate-50
+                    ${dragActive
+                      ? 'border-[#2EC4B6] bg-[#2EC4B6]/5 scale-[1.01]'
+                      : 'border-slate-200 hover:border-[#2EC4B6]'
+                    }`}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleFileInputChange}
+                  />
+                  <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center border border-slate-200/60 transition-colors">
+                    <Upload size={18} />
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-bold text-slate-700">Kéo thả ảnh hoặc click để tải lên</p>
+                    <p className="text-[10px] text-slate-400 font-semibold">Chấp nhận JPG, PNG, WEBP tối đa 5MB</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-4 p-4 border border-slate-200 bg-slate-50/30 rounded-2xl relative group">
+                  <div className="w-16 h-16 rounded-xl overflow-hidden border border-slate-200 shrink-0 relative bg-white">
+                    <img src={formData.anh_dinh_kem_url} alt="Uploaded symptom" className="w-full h-full object-cover" />
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-0.5">
+                    <p className="text-xs font-bold text-slate-700 truncate font-jakarta">Ảnh triệu chứng đã tải lên</p>
+                    <p className="text-[10px] text-emerald-500 font-extrabold flex items-center gap-1 font-jakarta">
+                      <CheckCircle2 size={12} /> Sẵn sàng đính kèm
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={removeImage}
+                    className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-red-50 hover:text-red-500 text-slate-500 flex items-center justify-center transition-all border border-slate-200/60"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
       <div className="flex justify-between pt-4">

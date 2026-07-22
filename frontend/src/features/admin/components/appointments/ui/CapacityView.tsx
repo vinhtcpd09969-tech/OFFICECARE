@@ -18,6 +18,8 @@ interface CapacityViewProps {
    * (giống khi gõ tìm kiếm) để thấy rõ kết quả lọc, thay vì chỉ đổi 1 con số nhỏ trong thẻ gộp
    * mà người dùng dễ không nhận ra là đã lọc. */
   activeStatusLabel?: string | null;
+  selectedStaffFilter?: string | null;
+  staffList?: any[];
 }
 
 const removeAccents = (str: string) => {
@@ -34,16 +36,18 @@ export function CapacityView({
   activeType,
   searchTerm = '',
   onSelectAppointment,
-  activeStatusLabel = null
+  activeStatusLabel = null,
+  selectedStaffFilter = null,
+  staffList = []
 }: CapacityViewProps) {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const pageSize = 7;
 
 
-  // Reset page when timeRange changes
+  // Reset page when timeRange or filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [timeRange]);
+  }, [timeRange, searchTerm, activeStatusLabel, selectedStaffFilter]);
 
   // Sinh danh sách ngày dựa trên khoảng thời gian
   const getDaysRange = () => {
@@ -140,7 +144,7 @@ export function CapacityView({
   // cha — cũng chuyển sang hiện danh sách phẳng này thay vì thẻ gộp theo ngày, vì gộp theo ngày
   // không cho thấy rõ kết quả lọc còn lại là những ca nào.
   const cleanSearch = removeAccents(searchTerm.trim());
-  const hasActiveFilter = !!cleanSearch || !!activeStatusLabel;
+  const hasActiveFilter = !!cleanSearch || !!activeStatusLabel || !!selectedStaffFilter;
 
   let resultsList = appointments.slice();
   if (cleanSearch) {
@@ -157,12 +161,28 @@ export function CapacityView({
     resultsList = resultsList.slice(0, 30);
   }
 
+  const resultsPageSize = 8;
+  const resultsTotalItems = resultsList.length;
+  const resultsTotalPages = Math.ceil(resultsTotalItems / resultsPageSize);
+  const resultsStartIndex = (currentPage - 1) * resultsPageSize;
+  const resultsEndIndex = resultsStartIndex + resultsPageSize;
+  const paginatedResults = resultsList.slice(resultsStartIndex, resultsEndIndex);
+
   if (hasActiveFilter) {
+    const selectedStaff = selectedStaffFilter && staffList
+      ? staffList.find(s => String(s.id) === String(selectedStaffFilter))
+      : null;
+    const staffName = selectedStaff
+      ? `${activeType === 'kham' ? 'BS.' : 'KTV.'} ${selectedStaff.ho_ten}`
+      : 'chuyên gia';
+
     const headerText = cleanSearch && activeStatusLabel
       ? `${resultsList.length} lịch hẹn khớp "${searchTerm.trim()}" trong nhóm ${activeStatusLabel}`
       : cleanSearch
         ? (resultsList.length > 0 ? `Tìm thấy ${resultsList.length} lịch hẹn khớp "${searchTerm.trim()}"` : `Không tìm thấy lịch hẹn nào khớp "${searchTerm.trim()}"`)
-        : (resultsList.length > 0 ? `${resultsList.length} lịch hẹn thuộc nhóm ${activeStatusLabel}` : `Không có lịch hẹn nào thuộc nhóm ${activeStatusLabel} trong khoảng đang xem`);
+        : activeStatusLabel
+          ? (resultsList.length > 0 ? `${resultsList.length} lịch hẹn thuộc nhóm ${activeStatusLabel}` : `Không có lịch hẹn nào thuộc nhóm ${activeStatusLabel} trong khoảng đang xem`)
+          : (resultsList.length > 0 ? `Tìm thấy ${resultsList.length} lịch hẹn của ${staffName}` : `Không có lịch hẹn nào của ${staffName} trong khoảng đang xem`);
 
     return (
       <div className="space-y-3">
@@ -171,7 +191,7 @@ export function CapacityView({
           <span>{headerText}</span>
         </div>
 
-        {resultsList.map((apt) => {
+        {paginatedResults.map((apt) => {
           const aptDate = new Date(apt.ngay_gio_bat_dau || '');
           return (
             <motion.div
@@ -204,6 +224,37 @@ export function CapacityView({
             </motion.div>
           );
         })}
+
+        {/* Results Pagination Controls */}
+        {resultsTotalPages > 1 && (
+          <div className="flex items-center justify-between bg-white dark:bg-zinc-900 border border-slate-150/80 dark:border-zinc-800/80 p-3.5 rounded-2xl shadow-sm select-none mt-2">
+            <div className="text-xs font-semibold text-slate-500 dark:text-zinc-400">
+              Hiển thị <span className="font-extrabold text-slate-800 dark:text-zinc-200">{resultsStartIndex + 1}-{Math.min(resultsEndIndex, resultsTotalItems)}</span> trong số <span className="font-extrabold text-slate-800 dark:text-zinc-200">{resultsTotalItems}</span> lịch hẹn
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                className="py-1.5 px-3 bg-slate-50 hover:bg-slate-100 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-slate-750 dark:text-zinc-300 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-black uppercase tracking-wider rounded-xl border border-slate-200/50 dark:border-zinc-700 transition-all flex items-center gap-1 focus:outline-none"
+              >
+                Trang trước
+              </button>
+              <span className="text-xs font-bold text-slate-600 dark:text-zinc-350 px-2">
+                Trang {currentPage} / {resultsTotalPages}
+              </span>
+              <button
+                type="button"
+                disabled={currentPage === resultsTotalPages}
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, resultsTotalPages))}
+                className="py-1.5 px-3 bg-slate-50 hover:bg-slate-100 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-slate-750 dark:text-zinc-300 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-black uppercase tracking-wider rounded-xl border border-slate-200/50 dark:border-zinc-700 transition-all flex items-center gap-1 focus:outline-none"
+              >
+                Trang sau
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

@@ -16,13 +16,15 @@ interface DoctorWorkloadPanelProps {
   activeType: 'kham' | 'dieu_tri';
   selectedStaffId: string | null;
   onSelectStaff: (id: string | null) => void;
+  periodLabel?: string;
 }
 
 export function DoctorWorkloadPanel({
   doctorWorkloads,
   activeType,
   selectedStaffId,
-  onSelectStaff
+  onSelectStaff,
+  periodLabel = 'Hôm nay'
 }: DoctorWorkloadPanelProps) {
   const isKham = activeType === 'kham';
 
@@ -54,10 +56,10 @@ export function DoctorWorkloadPanel({
       <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800/80">
         <h3 className="text-xs font-black text-slate-800 dark:text-zinc-150 uppercase tracking-widest flex items-center gap-2">
           <Activity size={15} className={isKham ? "text-[#0D9488]" : "text-amber-500"} /> 
-          <span>{isKham ? 'Điều phối Bác sĩ' : 'Điều phối Kỹ thuật viên'}</span>
+          <span>{isKham ? 'Danh sách Bác sĩ' : 'Danh sách Kỹ thuật viên'}</span>
         </h3>
         <span className="text-[9px] font-black text-slate-400 dark:text-zinc-500 bg-slate-50 dark:bg-zinc-800 px-2 py-0.5 rounded-md border border-slate-100 dark:border-zinc-800/50 uppercase tracking-widest">
-          Hôm nay
+          {periodLabel}
         </span>
       </div>
 
@@ -110,12 +112,12 @@ export function DoctorWorkloadPanel({
                         {doc.hasShift ? (
                           <>
                             <span className="size-1 bg-emerald-500 rounded-full animate-pulse" />
-                            <span>Đang trực ca</span>
+                            <span>{periodLabel && periodLabel !== 'Hôm nay' ? 'Có ca làm' : 'Đang trực ca'}</span>
                             <span className="text-slate-300 dark:text-zinc-700 font-normal">•</span>
                             <span className="text-slate-600 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800/80 px-1.5 py-0.2 rounded-md font-extrabold">{doc.occupiedCount} ca</span>
                           </>
                         ) : (
-                          <span>Nghỉ ca trực</span>
+                          <span>{periodLabel && periodLabel !== 'Hôm nay' ? 'Không có ca làm' : 'Nghỉ ca trực'}</span>
                         )}
                       </span>
                     </div>
@@ -126,7 +128,7 @@ export function DoctorWorkloadPanel({
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-[9px] text-slate-400 dark:text-zinc-500 font-bold">
                       <span className="flex items-center gap-1 uppercase tracking-wide">
-                        Hiệu suất lấp đầy ({doc.occupiedCount} ca)
+                        {periodLabel && periodLabel !== 'Hôm nay' ? 'Tổng số ca hẹn' : 'Hiệu suất lấp đầy'} ({doc.occupiedCount} ca)
                       </span>
                       {isNearOverload ? (
                         <span className="text-rose-500 font-extrabold flex items-center gap-0.5 animate-pulse bg-rose-50 dark:bg-rose-950/20 px-1.5 py-0.5 rounded border border-rose-200/30">

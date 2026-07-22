@@ -76,10 +76,10 @@ class DoctorRepository {
       SELECT 
         ch.id, 
         'LH-' || UPPER(SUBSTRING(ch.id::text FROM 1 FOR 6)) as ma_lich_dat,
-        kh.ho_ten as ho_ten_khach, kh.so_dien_thoai, kh.gioi_tinh as gioi_tinh_khach,
+        kh.ho_ten as ho_ten_khach, COALESCE(ch.so_dien_thoai, kh.so_dien_thoai) as so_dien_thoai, kh.gioi_tinh as gioi_tinh_khach,
         ch.ngay_gio_bat_dau, ch.ngay_gio_ket_thuc, ch.ghi_chu_khach_hang as ly_do_kham, ch.trang_thai, ch.anh_dinh_kem_url,
         kh.id as khach_hang_id, kh.ngay_sinh, kh.gioi_tinh,
-        kh.ho_ten as ten_khach_hang, kh.so_dien_thoai as sdt_khach_hang, NULL::text as avatar_url,
+        kh.ho_ten as ten_khach_hang, COALESCE(ch.so_dien_thoai, kh.so_dien_thoai) as sdt_khach_hang, NULL::text as avatar_url,
         ch.nhan_su_id as bac_si_id, ch.nhan_su_id as ky_thuat_vien_id,
         nk.ngay_tao as nhat_ky_ngay_tao,
         COALESCE(g.ten_goi, gpd.ten_goi) as ten_dich_vu,
@@ -123,7 +123,7 @@ class DoctorRepository {
         ch.ngay_gio_bat_dau, ch.ngay_gio_ket_thuc, ch.trang_thai, ch.ghi_chu_khach_hang as ly_do_kham,
         ch.anh_dinh_kem_url,
         kh.ho_ten as ten_khach_hang,
-        kh.so_dien_thoai as so_dien_thoai,
+        COALESCE(ch.so_dien_thoai, kh.so_dien_thoai) as so_dien_thoai,
         nk.id as ho_so_dieu_tri_id, nk.id as ho_so_benh_an_id, nk.chan_doan, nk.chong_chi_dinh,
         ch.nhan_su_id as bac_si_id, ch.nhan_su_id as ky_thuat_vien_id,
         nk.ngay_tao as nhat_ky_ngay_tao,
@@ -329,14 +329,14 @@ class DoctorRepository {
 
   // 6.4. Kiểm tra nhân sự có ca khám khác đang mở dở (trang_thai='dang_kham') hay không — 1 nhân sự
   // chỉ được mở 1 "bàn khám" tại 1 thời điểm, tránh quên bấm hoàn thành ca cũ rồi mở ca mới chồng lấn.
-  async getActiveSessionForStaff(staffId: number, excludeAppointmentId: string) {
+  async getActiveSessionForStaff(staffId: number, excludeAppointmentId: string | null) {
     const { rows } = await pool.query(
       `SELECT ch.id, 'LH-' || UPPER(SUBSTRING(ch.id::text FROM 1 FOR 6)) as ma_lich_dat, kh.ho_ten as ten_khach_hang
        FROM cuoc_hen ch
        LEFT JOIN khach_hang kh ON ch.khach_hang_id = kh.id
-       WHERE ch.nhan_su_id = $1 AND ch.trang_thai = 'dang_kham' AND ch.id != $2::uuid
+       WHERE ch.nhan_su_id = $1 AND ch.trang_thai = 'dang_kham' AND ($2::uuid IS NULL OR ch.id != $2::uuid)
        LIMIT 1`,
-      [staffId, excludeAppointmentId]
+      [staffId, excludeAppointmentId || null]
     );
     return rows[0] || null;
   }
@@ -376,10 +376,10 @@ class DoctorRepository {
       SELECT 
         ch.id, 
         'LH-' || UPPER(SUBSTRING(ch.id::text FROM 1 FOR 6)) as ma_lich_dat,
-        kh.ho_ten as ho_ten_khach, kh.so_dien_thoai, kh.gioi_tinh as gioi_tinh_khach,
+        kh.ho_ten as ho_ten_khach, COALESCE(ch.so_dien_thoai, kh.so_dien_thoai) as so_dien_thoai, kh.gioi_tinh as gioi_tinh_khach,
         ch.ngay_gio_bat_dau, ch.ngay_gio_ket_thuc, ch.ghi_chu_khach_hang as ly_do_kham, ch.trang_thai, ch.anh_dinh_kem_url,
         kh.id as khach_hang_id, kh.ngay_sinh, kh.gioi_tinh,
-        kh.ho_ten as ten_khach_hang, kh.so_dien_thoai as sdt_khach_hang, NULL::text as avatar_url,
+        kh.ho_ten as ten_khach_hang, COALESCE(ch.so_dien_thoai, kh.so_dien_thoai) as sdt_khach_hang, NULL::text as avatar_url,
         nk.id as ho_so_dieu_tri_id, nk.id as ho_so_benh_an_id, nk.chan_doan, nk.chong_chi_dinh, nk.ghi_chu,
         nk.vas_truoc, nk.vas_sau,
         cd.goi_dich_vu_id,

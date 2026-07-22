@@ -25,9 +25,8 @@ export function BookingWizard({ activeStep }: BookingWizardProps) {
         {[1, 2, 3, 4, 5].map((stepNum) => (
           <div
             key={stepNum}
-            className={`h-full flex-1 transition-all duration-300 border-r border-white last:border-0 ${
-              activeStep >= stepNum ? 'bg-[#2EC4B6]' : 'bg-slate-100'
-            }`}
+            className={`h-full flex-1 transition-all duration-300 border-r border-white last:border-0 ${activeStep >= stepNum ? 'bg-[#2EC4B6]' : 'bg-slate-100'
+              }`}
           />
         ))}
       </div>

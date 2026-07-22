@@ -81,17 +81,21 @@ export function Step5Confirmation({
               {selectedTime} — {formatFullDate(selectedDate)}
             </p>
           </div>
-          <div className="sm:col-span-2 border-t border-slate-200/60 pt-3">
-            <p className="text-slate-400 font-bold uppercase tracking-wider">Mô tả triệu chứng</p>
-            <p className="text-slate-700 font-medium mt-1 text-sm leading-relaxed whitespace-pre-wrap">{formData.trieu_chung}</p>
-          </div>
-          {formData.anh_dinh_kem_url && (
-            <div className="sm:col-span-2 border-t border-slate-200/60 pt-3">
-              <p className="text-slate-400 font-bold uppercase tracking-wider">Ảnh đính kèm triệu chứng</p>
-              <div className="mt-2 relative w-32 h-32 rounded-xl overflow-hidden border border-slate-200 bg-white">
-                <img src={formData.anh_dinh_kem_url} alt="Symptom preview" className="w-full h-full object-cover" />
+          {bookingType === 'kham' && (
+            <>
+              <div className="sm:col-span-2 border-t border-slate-200/60 pt-3">
+                <p className="text-slate-400 font-bold uppercase tracking-wider">Mô tả triệu chứng</p>
+                <p className="text-slate-700 font-medium mt-1 text-sm leading-relaxed whitespace-pre-wrap">{formData.trieu_chung}</p>
               </div>
-            </div>
+              {formData.anh_dinh_kem_url && (
+                <div className="sm:col-span-2 border-t border-slate-200/60 pt-3">
+                  <p className="text-slate-400 font-bold uppercase tracking-wider">Ảnh đính kèm triệu chứng</p>
+                  <div className="mt-2 relative w-32 h-32 rounded-xl overflow-hidden border border-slate-200 bg-white">
+                    <img src={formData.anh_dinh_kem_url} alt="Symptom preview" className="w-full h-full object-cover" />
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

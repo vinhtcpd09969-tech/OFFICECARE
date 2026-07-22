@@ -129,13 +129,14 @@ class ReceptionistService {
     const { sdt, ho_ten, gioi_tinh, ngay_sinh, gio_bat_dau } = data;
     const bac_si_id = data.bac_si_id || data.chuyen_gia_id || data.ky_thuat_vien_id;
 
-    let khachHangId;
-    const existCust = await receptionistRepository.findCustomerByPhone(sdt);
-    
-    if (existCust) {
-      khachHangId = existCust.khach_hang_id;
-    } else {
-      khachHangId = await receptionistRepository.createWalkInCustomer(ho_ten, sdt, gioi_tinh, ngay_sinh);
+    let khachHangId = data.khach_hang_id;
+    if (!khachHangId) {
+      const existCust = await receptionistRepository.findCustomerByPhone(sdt);
+      if (existCust) {
+        khachHangId = existCust.khach_hang_id;
+      } else {
+        khachHangId = await receptionistRepository.createWalkInCustomer(ho_ten, sdt, gioi_tinh, ngay_sinh);
+      }
     }
 
     const duration = await receptionistRepository.getServiceDuration(goi_dich_vu_id);
@@ -143,7 +144,7 @@ class ReceptionistService {
     const endTime = new Date(startTime.getTime() + duration * 60000);
     const maLichDat = `LD${Math.floor(100000 + Math.random() * 900000)}`;
 
-    const lich_dat_id = await receptionistRepository.createAppointment(maLichDat, khachHangId, goi_dich_vu_id, bac_si_id, startTime, endTime);
+    const lich_dat_id = await receptionistRepository.createAppointment(maLichDat, khachHangId, goi_dich_vu_id, bac_si_id, startTime, endTime, sdt);
 
     return { lich_dat_id };
   }

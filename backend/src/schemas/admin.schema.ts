@@ -7,7 +7,7 @@ export const packageSchema = z.object({
     loai_goi: z.enum(['KHAM', 'LE', 'LIEU_TRINH'], { required_error: 'Loại gói không hợp lệ (KHAM, LE, LIEU_TRINH)' }),
     tong_so_buoi: z.number().int().min(1, 'Số buổi tối thiểu là 1').default(1),
     thoi_luong_phut: z.number().int().min(1, 'Thời lượng tối thiểu là 1').default(30),
-    don_gia: z.number().min(0, 'Đơn giá không hợp lệ'),
+    don_gia: z.number().gt(0, 'Đơn giá phải lớn hơn 0'),
     don_gia_theo_buoi: z.number().min(0, 'Đơn giá theo buổi không hợp lệ'),
     quy_trinh: z.string().min(1, 'Quy trình trị liệu là bắt buộc'),
     muc_tieu: z.string().min(1, 'Mục tiêu trị liệu là bắt buộc'),
@@ -15,6 +15,14 @@ export const packageSchema = z.object({
     anh_goi: z.string().optional().nullable(),
     anh_gallery: z.array(z.string()).optional().default([]),
     han_su_dung_mac_dinh_ngay: z.number().int().min(1, 'Hạn sử dụng tối thiểu là 1 ngày').optional().nullable()
+  }).refine(data => {
+    if (data.loai_goi === 'LIEU_TRINH') {
+      return data.tong_so_buoi >= 6;
+    }
+    return true;
+  }, {
+    message: 'Gói liệu trình phải có ít nhất 6 buổi trở lên!',
+    path: ['tong_so_buoi']
   })
 });
 

@@ -154,6 +154,9 @@ export const getPatientProfile = (patientId: string) =>
 
 export const getPackages = () => api.get<PackageItem[]>('/doctor/packages');
 
+export const getActiveSession = () => 
+  api.get<{ id: string; ma_lich_dat: string; ten_khach_hang: string } | null>('/doctor/active-session');
+
 export const saveAssessment = (payload: ClinicalAssessmentPayload) => 
   api.post<{ success: boolean; message: string; medicalRecordId: string }>('/doctor/appointments/assess', payload);
 

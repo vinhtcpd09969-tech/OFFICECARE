@@ -5,7 +5,11 @@ import {
   Stethoscope,
   Star,
   User,
-  Loader2
+  Loader2,
+  Users,
+  Activity,
+  Lock,
+  ChevronRight
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore, useAuthActions } from '../../../stores/authStore';
@@ -112,6 +116,18 @@ export default function Booking() {
       refreshSlots();
     }
   }, [activeStep, refreshSlots]);
+
+  // Tự động cuộn biểu mẫu vào trung tâm khi đổi bước hoặc khi vừa tải trang (tránh bị Header che lấp)
+  useEffect(() => {
+    setTimeout(() => {
+      const el = document.getElementById('booking-experience-card');
+      if (el) {
+        const yOffset = -90; // Khoảng cách offset tránh thanh Menu chính che lấp
+        const y = el.getBoundingClientRect().top + window.pageYOffset + yOffset;
+        window.scrollTo({ top: y, behavior: 'smooth' });
+      }
+    }, 300);
+  }, [activeStep]);
 
   if (createdApptId || typeof setCreatedApptId === 'function' || typeof setSuccess === 'function' || isSuccess) { /* noop */ }
 
@@ -226,13 +242,15 @@ export default function Booking() {
       return;
     }
 
-    if (!symptomTrimmed) {
-      toast.error('Vui lòng nhập Mô tả triệu chứng!');
-      return;
-    }
-    if (symptomTrimmed.length < 10) {
-      toast.error('Mô tả triệu chứng phải có ít nhất 10 ký tự để bác sĩ nắm rõ tình trạng!');
-      return;
+    if (bookingType === 'kham') {
+      if (!symptomTrimmed) {
+        toast.error('Vui lòng nhập Mô tả triệu chứng!');
+        return;
+      }
+      if (symptomTrimmed.length < 10) {
+        toast.error('Mô tả triệu chứng phải có ít nhất 10 ký tự để bác sĩ nắm rõ tình trạng!');
+        return;
+      }
     }
 
     const toastId = toast.loading(bookingType === 'dich_vu' ? 'Đang gửi đăng ký lịch dịch vụ lẻ...' : 'Đang gửi đăng ký lịch hẹn y khoa...');
@@ -256,6 +274,7 @@ export default function Booking() {
           khach_hang_id: user?.id,
           nhan_su_id: selectedStaffId ? parseInt(selectedStaffId, 10) : null,
           goi_dich_vu_id: targetDichVuId,
+          trieu_chung: bookingType === 'dich_vu' ? `Đặt lịch gói lẻ: ${selectedService?.ten_dich_vu || 'Dịch vụ lẻ'}` : formData.trieu_chung,
           ly_do_kham: bookingType === 'dich_vu' ? `Trị liệu lẻ: ${selectedService?.ten_dich_vu || 'Không rõ'}` : (formData.ly_do_kham || 'Khám lượng giá ban đầu'),
           temp_hold_id: tempHoldId
         }),
@@ -349,7 +368,7 @@ export default function Booking() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] py-20 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[#F8FAFC] pt-32 pb-20 px-4 sm:px-6 lg:px-8">
       {/* Terms and Conditions Consent Modal Gate */}
       {user && user.ngay_dong_y_dieu_khoan === null && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
@@ -443,118 +462,193 @@ export default function Booking() {
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto space-y-16">
-        
-        {/* Navigation & Header */}
-        <BookingHeader onBack={() => navigate(-1)} />
+      <div className="max-w-7xl mx-auto space-y-12">
 
         {/* REDESIGNED HERO SECTION (Stripe/Apple Clean aesthetic) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center text-left">
           {/* Hero left content */}
-          <div className="lg:col-span-6 space-y-6 text-left">
+          <div className="lg:col-span-6 space-y-6">
+            <div className="inline-flex items-center gap-2 bg-slate-50 border border-slate-200/60 px-3.5 py-1.5 rounded-full select-none shadow-2xs">
+              <span className="flex h-2 w-2 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#0D9488]"></span>
+              </span>
+              <span className="text-[9.5px] font-black text-slate-500 uppercase tracking-widest leading-none">Hệ thống OfficeCare Live</span>
+            </div>
+
             <motion.h1
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="text-4xl sm:text-5xl lg:text-6xl font-jakarta font-black text-[#0F172A] tracking-tight leading-[1.05]"
+              className="text-3xl sm:text-4xl lg:text-[42px] font-jakarta font-black text-slate-800 tracking-tight leading-[1.1]"
             >
               Khởi đầu hành trình <br />
-              <span className="text-[#2EC4B6]">phục hồi</span> của bạn
+              <span className="text-[#0D9488]">phục hồi</span> của bạn
             </motion.h1>
-            
+
             <motion.p
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
-              className="text-slate-500 font-medium text-base sm:text-lg leading-relaxed max-w-xl"
+              className="text-slate-550 font-medium text-xs sm:text-sm leading-relaxed max-w-xl text-slate-500"
             >
               Đặt lịch khám lượng giá hoặc trị liệu với chuyên gia để xác định nguyên nhân đau nhức và xây dựng lộ trình phục hồi sức khỏe phù hợp.
             </motion.p>
 
-            {/* Micro badges & benefits */}
+            {/* Micro badges & benefits in Grid */}
+            {/* Micro badges & benefits in Grid */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.2 }}
-              className="grid grid-cols-2 gap-4 max-w-md pt-2"
+              className="grid grid-cols-1 sm:grid-cols-2 gap-4"
             >
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100/50">
-                  <Star size={16} className="fill-emerald-500 text-emerald-500" />
+              <div className="flex items-center gap-3.5 bg-white border border-slate-100 p-3.5 rounded-2xl shadow-2xs">
+                <div className="w-9 h-9 rounded-full bg-teal-50 text-[#0D9488] flex items-center justify-center shrink-0 border border-teal-100/40">
+                  <Star size={16} className="fill-[#0D9488] text-[#0D9488]" />
                 </div>
-                <span className="text-xs font-extrabold text-[#0F172A]">Đánh giá 4.9/5</span>
+                <span className="text-xs font-bold text-slate-700">Đánh giá 4.9/5</span>
               </div>
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-[#2EC4B6]/10 text-[#2EC4B6] flex items-center justify-center border border-[#2EC4B6]/20">
-                  <Stethoscope size={16} />
+              
+              <div className="flex items-center gap-3.5 bg-white border border-slate-100 p-3.5 rounded-2xl shadow-2xs">
+                <div className="w-9 h-9 rounded-full bg-teal-50 text-[#0D9488] flex items-center justify-center shrink-0 border border-teal-100/40">
+                  <Users size={16} />
                 </div>
-                <span className="text-xs font-extrabold text-[#0F172A]">Đội ngũ giàu kinh nghiệm</span>
+                <span className="text-xs font-bold text-slate-700">Đội ngũ giàu kinh nghiệm</span>
               </div>
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-[#2EC4B6]/10 text-[#2EC4B6] flex items-center justify-center border border-[#2EC4B6]/20">
+
+              <div className="flex items-center gap-3.5 bg-white border border-slate-100 p-3.5 rounded-2xl shadow-2xs">
+                <div className="w-9 h-9 rounded-full bg-teal-50 text-[#0D9488] flex items-center justify-center shrink-0 border border-teal-100/40">
                   <ShieldCheck size={16} />
                 </div>
-                <span className="text-xs font-extrabold text-[#0F172A]">Quy trình chuẩn y khoa</span>
+                <span className="text-xs font-bold text-slate-700">Quy trình chuẩn y khoa</span>
               </div>
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-[#2EC4B6]/10 text-[#2EC4B6] flex items-center justify-center border border-[#2EC4B6]/20">
-                  <Clock size={16} />
+
+              <div className="flex items-center gap-3.5 bg-white border border-slate-100 p-3.5 rounded-2xl shadow-2xs">
+                <div className="w-9 h-9 rounded-full bg-teal-50 text-[#0D9488] flex items-center justify-center shrink-0 border border-teal-100/40">
+                  <Activity size={16} />
                 </div>
-                <span className="text-xs font-extrabold text-[#0F172A]">Trị liệu chuyên sâu</span>
+                <span className="text-xs font-bold text-slate-700">Trị liệu chuyên sâu</span>
               </div>
             </motion.div>
 
-            {/* Elegant trust info banner */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="flex items-start gap-3 bg-slate-50 border border-slate-100 p-4 rounded-2xl max-w-md mt-4"
-            >
-              <div className="w-5 h-5 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <span className="text-[10px] font-bold">✓</span>
+            {/* Steps timeline exactly as requested */}
+            <div className="pt-6 border-t border-slate-100 space-y-5">
+              <div className="relative flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                  <div className="w-full border-t border-slate-200"></div>
+                </div>
+                <div className="relative bg-[#F8FAFC] px-4 select-none">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">4 bước đặt hẹn nhanh chóng</span>
+                </div>
               </div>
-              <div className="space-y-1">
-                <h4 className="text-xs font-extrabold text-slate-800">Đặt lịch hẹn nhanh trong 3 bước</h4>
-                <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
-                  Lựa chọn dịch vụ, thời gian và chuyên gia mong muốn ở biểu mẫu bên dưới. Lịch hẹn của bạn sẽ được đồng bộ và xác nhận.
-                </p>
+
+              <div className="flex justify-between items-center px-4 sm:px-6">
+                {/* Step 1 */}
+                <div className="flex flex-col items-center gap-2 flex-1">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs shadow-2xs transition-all duration-300
+                    ${activeStep >= 1 ? 'bg-[#0D9488] text-white ring-4 ring-teal-500/10' : 'bg-slate-200 text-slate-500'}`}>
+                    1
+                  </div>
+                  <span className="text-[11px] font-bold text-slate-700 text-center">Chọn dịch vụ</span>
+                </div>
+
+                {/* Arrow 1-2 */}
+                <div className="text-slate-350 self-start mt-3">
+                  <ChevronRight size={16} strokeWidth={3} />
+                </div>
+
+                {/* Step 2 */}
+                <div className="flex flex-col items-center gap-2 flex-1">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs shadow-2xs transition-all duration-300
+                    ${activeStep >= 2 ? 'bg-[#0D9488] text-white ring-4 ring-teal-500/10' : 'bg-slate-200 text-slate-500'}`}>
+                    2
+                  </div>
+                  <span className="text-[11px] font-bold text-slate-700 text-center">Chọn thời gian</span>
+                </div>
+
+                {/* Arrow 2-3 */}
+                <div className="text-slate-350 self-start mt-3">
+                  <ChevronRight size={16} strokeWidth={3} />
+                </div>
+
+                {/* Step 3 */}
+                <div className="flex flex-col items-center gap-2 flex-1">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs shadow-2xs transition-all duration-300
+                    ${activeStep >= 3 ? 'bg-[#0D9488] text-white ring-4 ring-teal-500/10' : 'bg-slate-200 text-slate-500'}`}>
+                    3
+                  </div>
+                  <span className="text-[11px] font-bold text-slate-700 text-center">Xác nhận</span>
+                </div>
+
+                {/* Arrow 3-4 */}
+                <div className="text-slate-350 self-start mt-3">
+                  <ChevronRight size={16} strokeWidth={3} />
+                </div>
+
+                {/* Step 4 */}
+                <div className="flex flex-col items-center gap-2 flex-1">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs shadow-2xs transition-all duration-300
+                    ${activeStep >= 4 ? 'bg-[#0D9488] text-white ring-4 ring-teal-500/10' : 'bg-slate-200 text-slate-500'}`}>
+                    4
+                  </div>
+                  <span className="text-[11px] font-bold text-slate-700 text-center">Xác thực OTP</span>
+                </div>
               </div>
-            </motion.div>
+            </div>
           </div>
 
-          {/* Hero right visual (Custom illustration overlay) */}
-          <div className="lg:col-span-6 relative flex justify-center items-center">
+          {/* Hero right visual (Clinic guarantees widget) */}
+          <div className="lg:col-span-6 relative flex flex-col justify-center items-center gap-4">
             {/* Soft gradient blur backdrops */}
-            <div className="absolute w-72 h-72 rounded-full bg-gradient-to-br from-[#2EC4B6]/20 to-[#E6F4F1]/30 blur-3xl -z-10 animate-pulse" />
-            <div className="absolute w-96 h-96 rounded-full bg-gradient-to-tr from-[#0F172A]/5 to-[#2EC4B6]/10 blur-2xl -z-10" />
+            <div className="absolute w-72 h-72 rounded-full bg-gradient-to-br from-[#0D9488]/15 to-[#E6F4F1]/30 blur-3xl -z-10 animate-pulse pointer-events-none" />
+            <div className="absolute w-96 h-96 rounded-full bg-gradient-to-tr from-[#0F172A]/5 to-[#0D9488]/10 blur-2xl -z-10 pointer-events-none" />
 
-            <div className="relative max-w-md w-full h-[380px] rounded-[32px] overflow-hidden border border-slate-100 shadow-2xl bg-white/60 p-4">
-              <img
-                src="/images/physio_hero.png"
-                alt="Physio Clinic Hero Visual"
-                className="w-full h-full object-cover rounded-[24px]"
-              />
-
-              {/* Floating trust card 1 */}
-              <div className="absolute top-8 -left-6 bg-white/80 backdrop-blur-md border border-slate-100 rounded-2xl shadow-xl p-3 flex items-center gap-3 animate-float stagger-delay-1 max-w-[190px]">
-                <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center">
-                  <ShieldCheck size={16} />
-                </div>
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-wide">Tiêu chuẩn</p>
-                  <p className="text-xs font-extrabold text-[#0F172A]">FDA Approved</p>
-                </div>
+            <div className="relative max-w-md w-full rounded-[32px] border border-slate-100 shadow-xl bg-white p-7 sm:p-8 space-y-6 text-left">
+              <div>
+                <h3 className="text-xl font-jakarta font-black text-slate-800 leading-tight">
+                  Đặt lịch an toàn &amp; nhanh chóng
+                </h3>
+                <p className="text-slate-400 font-medium text-[11px] leading-relaxed mt-1 font-sans">
+                  Hệ thống bảo mật chuẩn quốc tế bảo vệ thông tin y tế của bạn.
+                </p>
               </div>
-
-              {/* Floating trust card 2 */}
-              <div className="absolute bottom-10 -right-6 bg-white/80 backdrop-blur-md border border-slate-100 rounded-2xl shadow-xl p-3.5 flex items-center gap-3 animate-float stagger-delay-3 max-w-[190px]">
-                <div className="w-8 h-8 rounded-full bg-[#2EC4B6] text-white flex items-center justify-center">
-                  <User size={16} />
+              
+              <div className="space-y-4">
+                <div className="flex items-start gap-4">
+                  <div className="w-9 h-9 rounded-xl bg-teal-50 text-[#0D9488] flex items-center justify-center shrink-0 border border-teal-100/40 shadow-2xs">
+                    <ShieldCheck size={16} />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-750 font-jakarta">Mã hóa bảo mật thông tin</h4>
+                    <p className="text-[11px] text-slate-500 font-medium leading-relaxed mt-0.5 font-sans">
+                      Mọi thông tin liên hệ và triệu chứng y khoa đều được bảo mật tuyệt đối theo tiêu chuẩn HIPAA.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-wide">Đội ngũ</p>
-                  <p className="text-xs font-extrabold text-[#0F172A]">100% KTV Cấp Chứng Chỉ</p>
+
+                <div className="flex items-start gap-4">
+                  <div className="w-9 h-9 rounded-xl bg-teal-50 text-[#0D9488] flex items-center justify-center shrink-0 border border-teal-100/40 shadow-2xs">
+                    <Lock size={16} />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-750 font-jakarta">Xác thực OTP tức thời</h4>
+                    <p className="text-[11px] text-slate-500 font-medium leading-relaxed mt-0.5 font-sans">
+                      Hệ thống tự động gửi mã kích hoạt qua email cá nhân để đảm bảo đặt giữ chỗ chính xác.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-4">
+                  <div className="w-9 h-9 rounded-xl bg-teal-50 text-[#0D9488] flex items-center justify-center shrink-0 border border-teal-100/40 shadow-2xs">
+                    <Users size={16} />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-750 font-jakarta">Đội ngũ nhân sự giàu kinh nghiệm</h4>
+                    <p className="text-[11px] text-slate-500 font-medium leading-relaxed mt-0.5 font-sans">
+                      100% đội ngũ chuyên gia đạt chất lượng chuyên môn cao, dày dặn kinh nghiệm trong lĩnh vực phục hồi chức năng và cột sống.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -563,10 +657,10 @@ export default function Booking() {
 
         {/* BOOKING INTERFACE CONTAINER (Asymmetric Layout) */}
         <div id="booking-experience-card" className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start pt-8">
-          
+
           {/* WIZARD EXPERIENCE CARD (Left 8-cols) */}
           <div className="lg:col-span-8 bg-white rounded-[24px] border border-slate-100 shadow-xl overflow-hidden p-6 sm:p-8 space-y-8">
-            
+
             {/* Step progress bar */}
             <BookingWizard activeStep={activeStep} />
 
@@ -609,12 +703,11 @@ export default function Booking() {
           <div className="lg:col-span-4 lg:sticky lg:top-28 space-y-6">
             <div className="bg-white/80 backdrop-blur-md border border-slate-150 shadow-lg rounded-[24px] overflow-hidden p-6 space-y-6">
               <div className="space-y-4 text-left">
-                <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border ${
-                  bookingType === 'dich_vu' ? 'bg-teal-50 text-teal-700 border-teal-100' : 'bg-emerald-50 text-emerald-650 border-emerald-100'
-                }`}>
+                <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border ${bookingType === 'dich_vu' ? 'bg-teal-50 text-teal-700 border-teal-100' : 'bg-emerald-50 text-emerald-650 border-emerald-100'
+                  }`}>
                   {bookingType === 'dich_vu' ? 'Trị liệu lẻ' : 'Lịch khám'}
                 </span>
-                
+
                 <div className="space-y-1">
                   <h3 className="text-lg font-jakarta font-black text-[#0F172A]">
                     {selectedService?.ten_dich_vu || (bookingType === 'dich_vu' ? 'Chọn dịch vụ' : 'Chọn gói khám')}

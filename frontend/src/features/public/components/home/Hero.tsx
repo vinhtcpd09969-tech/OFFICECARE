@@ -100,7 +100,7 @@ export default function Hero() {
                   className="px-6 py-3.5 bg-[#0D9488] hover:bg-[#0B7A70] text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all text-xs cursor-pointer flex items-center gap-2"
                 >
                   <Calendar size={15} />
-                  <span>Đặt Lịch Khám Bác Sĩ</span>
+                  <span>Đặt lịch</span>
                 </Link>
                 <button 
                   onClick={() => navigate('/services')}

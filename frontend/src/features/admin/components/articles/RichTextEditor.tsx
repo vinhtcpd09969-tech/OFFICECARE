@@ -2,8 +2,9 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
 import Placeholder from '@tiptap/extension-placeholder';
+import { NodeSelection } from 'prosemirror-state';
 import { useRef } from 'react';
-import { Bold, Italic, List, ListOrdered, Heading2, Heading3, LinkIcon, ImageIcon, Undo, Redo } from 'lucide-react';
+import { Bold, Italic, List, ListOrdered, Heading2, Heading3, LinkIcon, ImageIcon, Undo, Redo, Trash2 } from 'lucide-react';
 import { uploadImage } from '../../api/admin.api';
 import toast from 'react-hot-toast';
 
@@ -34,6 +35,14 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
     editorProps: {
       attributes: {
         class: 'prose prose-sm max-w-none focus:outline-none min-h-[320px] px-4 py-3'
+      },
+      handleClickOn(view, pos, node, nodePos, event, direct) {
+        if (node.type.name === 'image') {
+          const selection = NodeSelection.create(view.state.doc, nodePos);
+          view.dispatch(view.state.tr.setSelection(selection));
+          return true;
+        }
+        return false;
       }
     }
   });
@@ -70,7 +79,19 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
 
   return (
     <div className="border border-zinc-200 rounded-2xl overflow-hidden bg-white shadow-sm">
-      <div className="flex items-center gap-1 px-2 py-2 border-b border-zinc-100 bg-slate-50/60 flex-wrap">
+      <style>{`
+        .ProseMirror img {
+          transition: all 0.2s ease-in-out;
+          cursor: pointer;
+          border-radius: 8px;
+        }
+        .ProseMirror img.ProseMirror-selectednode {
+          outline: 3px solid #0D9488;
+          box-shadow: 0 0 0 6px rgba(13, 148, 136, 0.15);
+          transform: scale(0.99);
+        }
+      `}</style>
+      <div className="sticky top-0 z-10 flex items-center gap-1 px-2 py-2 border-b border-zinc-100 bg-slate-50/95 backdrop-blur-md flex-wrap shadow-sm">
         <ToolbarButton title="Đậm" active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()}>
           <Bold size={14} />
         </ToolbarButton>
@@ -102,6 +123,11 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
           className="hidden"
           onChange={(e) => { if (e.target.files?.[0]) handleInsertImage(e.target.files[0]); e.target.value = ''; }}
         />
+        {editor.isActive('image') && (
+          <ToolbarButton title="Xóa ảnh đang chọn" onClick={() => editor.chain().focus().deleteSelection().run()}>
+            <Trash2 size={14} className="text-rose-500 animate-pulse" />
+          </ToolbarButton>
+        )}
         <div className="w-px h-5 bg-zinc-200 mx-1" />
         <ToolbarButton title="Hoàn tác" onClick={() => editor.chain().focus().undo().run()}>
           <Undo size={14} />

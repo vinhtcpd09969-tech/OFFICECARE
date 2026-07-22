@@ -612,6 +612,21 @@ export const replyStaffFeedback = async (req: Request, res: Response) => {
   }
 };
 
+export const analyzeFeedback = async (req: Request, res: Response) => {
+  try {
+    const { type, id } = req.params as { type: string; id: string };
+    if (type !== 'service' && type !== 'staff') {
+      return res.status(400).json({ message: 'Loại đánh giá không hợp lệ' });
+    }
+
+    const result = await adminService.analyzeFeedback(type, id);
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    // Lỗi nghiệp vụ (hết quota AI, thiếu nội dung...) -> trả message gốc, không nuốt thành 500 chung chung.
+    res.status(400).json({ message: error.message || 'Lỗi khi AI phân tích đánh giá' });
+  }
+};
+
 // --- BÁO CÁO & THỐNG KÊ (ANALYTICS) ---
 
 export const getDashboardSummary = async (req: Request, res: Response) => {

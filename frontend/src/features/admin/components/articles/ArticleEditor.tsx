@@ -118,8 +118,8 @@ export default function ArticleEditor({ editingArticle, onClose, onSuccess }: Ar
   };
 
   return (
-    <div className="bg-white border border-zinc-150 rounded-3xl shadow-xl max-w-6xl mx-auto w-full text-secondary overflow-hidden">
-      <div className="px-8 py-6 flex justify-between items-center border-b border-zinc-100 bg-slate-50/70">
+    <div className="bg-white border border-zinc-150 rounded-3xl shadow-xl max-w-6xl mx-auto w-full text-secondary overflow-visible">
+      <div className="px-8 py-6 flex justify-between items-center border-b border-zinc-100 bg-slate-50/70 rounded-t-[22px]">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-2xl bg-teal-600/10 flex items-center justify-center">
             <Sparkles className="w-4 h-4 text-teal-600" />
@@ -201,7 +201,7 @@ export default function ArticleEditor({ editingArticle, onClose, onSuccess }: Ar
         </div>
 
         {/* SEO SIDEBAR (1/3) */}
-        <div className="col-span-1 p-8 bg-slate-50/40 space-y-6">
+        <div className="col-span-1 p-8 bg-slate-50/40 space-y-6 lg:rounded-r-[22px] lg:rounded-tl-none rounded-b-[22px]">
           <h4 className="text-[10px] font-bold text-teal-600 uppercase tracking-wider border-b border-zinc-100 pb-2 flex items-center gap-1.5">
             <Search className="w-3.5 h-3.5" /> Tối ưu SEO
           </h4>

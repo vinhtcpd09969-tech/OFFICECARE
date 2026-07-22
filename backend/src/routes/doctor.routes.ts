@@ -13,6 +13,7 @@ router.get('/appointments', doctorController.getAppointments);
 router.get('/packages', doctorController.getPackages);
 router.get('/schedules', doctorController.getSchedules);
 router.get('/patients', doctorController.getPatients);
+router.get('/active-session', doctorController.getActiveSession);
 router.get('/appointments/:id', doctorController.getAppointmentDetail);
 router.get('/patients/:patientId/profile', doctorController.getPatientProfile);
 router.post('/appointments/assess', doctorController.saveAssessment);

@@ -79,6 +79,7 @@ router.delete('/vouchers/:id', authorizeRoles(5, 6), adminController.deleteVouch
 router.get('/feedback', authorizeRoles(5, 6), adminController.getFeedback);
 router.post('/feedback/service/:id/reply', authorizeRoles(2, 5, 6), adminController.replyServiceFeedback);
 router.post('/feedback/staff/:id/reply', authorizeRoles(2, 5, 6), adminController.replyStaffFeedback);
+router.post('/feedback/:type/:id/analyze', authorizeRoles(2, 5, 6), adminController.analyzeFeedback);
 
 // ─── BÁO CÁO ──────────────────────────────────────────────────────────────────
 router.get('/analytics/summary', authorizeRoles(2, 5, 6), adminController.getDashboardSummary);

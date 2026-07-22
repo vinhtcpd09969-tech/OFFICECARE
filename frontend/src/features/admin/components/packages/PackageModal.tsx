@@ -16,12 +16,20 @@ const packageSchema = z.object({
   muc_tieu: z.string().min(1, 'Mục tiêu trị liệu là bắt buộc'),
   tong_so_buoi: z.number().min(1, 'Số buổi phải lớn hơn 0'),
   thoi_luong_phut: z.number().min(1, 'Thời lượng buổi phải lớn hơn 0').default(60),
-  don_gia: z.number().min(0, 'Giá bán không hợp lệ'),
+  don_gia: z.number().min(1, 'Giá bán phải lớn hơn 0'),
   don_gia_theo_buoi: z.number().min(0, 'Giá từng buổi không hợp lệ').optional().nullable(),
   han_su_dung_mac_dinh_ngay: z.number().min(1, 'Hạn sử dụng phải lớn hơn 0 ngày').optional().nullable(),
   anh_goi: z.string().optional().nullable(),
   anh_gallery: z.array(z.string()).optional().default([]),
   trang_thai: z.enum(['hoat_dong', 'tam_ngung']).default('hoat_dong'),
+}).refine(data => {
+  if (data.loai_goi === 'LIEU_TRINH') {
+    return data.tong_so_buoi >= 6;
+  }
+  return true;
+}, {
+  message: "Gói liệu trình phải có ít nhất 6 buổi trở lên!",
+  path: ["tong_so_buoi"]
 }).refine(data => {
   if (data.loai_goi === 'LIEU_TRINH' && data.don_gia_theo_buoi) {
     const average = data.don_gia / data.tong_so_buoi;
