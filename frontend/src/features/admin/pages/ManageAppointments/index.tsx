@@ -287,6 +287,13 @@ export default function ManageAppointments() {
     }
   }, [staffToUse, selectedDocSimId]);
 
+  // Tự động reset bộ lọc và đóng form khi chuyển đổi tab (lịch khám <=> lịch điều trị)
+  useEffect(() => {
+    setSelectedStaffFilter(null);
+    setStatusFilter(null);
+    setIsWalkInModalOpen(false);
+  }, [activeType, setIsWalkInModalOpen]);
+
   const getActiveInterval = () => {
     if (timeRange === 'today') {
       const start = new Date(selectedDate);
@@ -375,16 +382,18 @@ export default function ManageAppointments() {
       ? apt.loai_lich === 'kham_moi'
       : (apt.loai_lich === 'dieu_tri' || apt.loai_lich === 'dich_vu_don');
     
+    const filterByStaff = (apt: any) => !selectedStaffFilter || String(apt.bac_si_id) === String(selectedStaffFilter);
+
     if (viewMode === 'timeline') {
       return appointmentsToUse.filter(apt => {
         const aptDateStr = format(new Date(apt.ngay_gio_bat_dau || ''), 'yyyy-MM-dd');
-        return aptDateStr === formattedSelectedDate && matchType(apt) && apt.trang_thai !== 'giu_cho';
+        return aptDateStr === formattedSelectedDate && matchType(apt) && filterByStaff(apt) && apt.trang_thai !== 'giu_cho';
       });
     } else {
       const interval = getActiveInterval();
       return appointmentsToUse.filter(apt => {
         const aptDate = new Date(apt.ngay_gio_bat_dau || '');
-        return aptDate >= interval.start && aptDate <= interval.end && matchType(apt) && apt.trang_thai !== 'giu_cho';
+        return aptDate >= interval.start && aptDate <= interval.end && matchType(apt) && filterByStaff(apt) && apt.trang_thai !== 'giu_cho';
       });
     }
   };
@@ -483,28 +492,63 @@ export default function ManageAppointments() {
     }
   }, [location.search, mascotTargetAppointments, scrollToAppointment, navigate, location.pathname, loading, setIsWalkInModalOpen]);
 
+  const periodLabel = viewMode === 'timeline'
+    ? 'Hôm nay'
+    : timeRange === '7days'
+      ? 'Tuần này'
+      : timeRange === 'month'
+        ? 'Tháng này'
+        : 'Hôm nay';
+
   const targetWorkloadRole = activeType === 'kham' ? 'Bác sĩ' : 'Kỹ thuật viên';
   const doctorWorkloads = staffToUse
     .filter(s => s.vai_tro === targetWorkloadRole)
     .map(doc => {
-      const docSchedules = schedulesToUse.filter(s =>
-        String(s.nguoi_dung_id) === String(doc.id) &&
-        s.ngay === formattedSelectedDate &&
-        s.trang_thai === 'hoat_dong'
-      );
-      const hasShift = docSchedules.length > 0;
+      let hasShift = false;
+      let occupiedCount = 0;
+      let maxSlots = 16;
 
-      const docApts = appointmentsToUse.filter(apt => {
-        const assignedId = apt.bac_si_id || apt.chuyen_gia_id;
-        return String(assignedId) === String(doc.id) &&
-          format(new Date(apt.ngay_gio_bat_dau || ''), 'yyyy-MM-dd') === formattedSelectedDate &&
-          apt.trang_thai !== 'da_huy' &&
-          apt.trang_thai !== 'khong_den' &&
-          apt.trang_thai !== 'giu_cho';
-      });
+      if (viewMode === 'timeline') {
+        const docSchedules = schedulesToUse.filter(s =>
+          String(s.nguoi_dung_id) === String(doc.id) &&
+          s.ngay === formattedSelectedDate &&
+          s.trang_thai === 'hoat_dong'
+        );
+        hasShift = docSchedules.length > 0;
 
-      const maxSlots = 16;
-      const occupiedCount = docApts.length;
+        const docApts = appointmentsToUse.filter(apt => {
+          const assignedId = apt.bac_si_id || apt.chuyen_gia_id;
+          return String(assignedId) === String(doc.id) &&
+            format(new Date(apt.ngay_gio_bat_dau || ''), 'yyyy-MM-dd') === formattedSelectedDate &&
+            apt.trang_thai !== 'da_huy' &&
+            apt.trang_thai !== 'khong_den' &&
+            apt.trang_thai !== 'giu_cho';
+        });
+        occupiedCount = docApts.length;
+      } else {
+        const interval = getActiveInterval();
+        const docSchedules = schedulesToUse.filter(s => {
+          if (String(s.nguoi_dung_id) !== String(doc.id) || s.trang_thai !== 'hoat_dong') return false;
+          const shiftDate = new Date(s.ngay);
+          return shiftDate >= interval.start && shiftDate <= interval.end;
+        });
+
+        const docApts = appointmentsToUse.filter(apt => {
+          const assignedId = apt.bac_si_id || apt.chuyen_gia_id;
+          if (String(assignedId) !== String(doc.id)) return false;
+          const aptDate = new Date(apt.ngay_gio_bat_dau || '');
+          return aptDate >= interval.start && aptDate <= interval.end &&
+            apt.trang_thai !== 'da_huy' &&
+            apt.trang_thai !== 'khong_den' &&
+            apt.trang_thai !== 'giu_cho';
+        });
+
+        hasShift = docSchedules.length > 0 || docApts.length > 0;
+        occupiedCount = docApts.length;
+        const activeDays = new Set(docSchedules.map(s => s.ngay)).size;
+        maxSlots = Math.max(activeDays * 16, 16);
+      }
+
       const percentage = maxSlots > 0 ? Math.min(Math.round((occupiedCount / maxSlots) * 100), 100) : 0;
 
       return {
@@ -646,7 +690,7 @@ export default function ManageAppointments() {
             
             {/* Left Content Area */}
             <div className="flex-1 w-full min-w-0">
-              {viewMode === 'timeline' && selectedStaffFilter && (
+              {selectedStaffFilter && (
                 <div className="mb-4">
                   <ActiveFilterChip
                     label={`Lịch ${activeType === 'kham' ? 'Bác sĩ' : 'Kỹ thuật viên'}: ${staffToUse.find(s => String(s.id) === String(selectedStaffFilter))?.ho_ten || 'Chuyên gia'}`}
@@ -718,13 +762,16 @@ export default function ManageAppointments() {
                         (activeType === 'kham'
                           ? apt.loai_lich === 'kham_moi'
                           : (apt.loai_lich === 'dieu_tri' || apt.loai_lich === 'dich_vu_don')) &&
-                        (!statusFilter || KPI_BUCKET_STATUSES[statusFilter].includes(apt.trang_thai))
+                        (!statusFilter || KPI_BUCKET_STATUSES[statusFilter].includes(apt.trang_thai)) &&
+                        (!selectedStaffFilter || String(apt.bac_si_id) === String(selectedStaffFilter))
                       )}
                       timeRange={timeRange}
                       activeType={activeType}
                       searchTerm={searchTerm}
                       onSelectAppointment={scrollToAppointment}
                       activeStatusLabel={statusFilter ? KPI_BUCKET_LABELS[statusFilter] : null}
+                      selectedStaffFilter={selectedStaffFilter}
+                      staffList={staffToUse}
                     />
                   )}
                 </>
@@ -732,7 +779,7 @@ export default function ManageAppointments() {
             </div>
 
             {/* Right Sidebar (Collapsible) */}
-            {viewMode === 'timeline' && !isWalkInModalOpen && (
+            {!isWalkInModalOpen && (
               <div className="relative shrink-0 flex items-stretch min-h-[400px]">
                 <button
                   type="button"
@@ -745,15 +792,18 @@ export default function ManageAppointments() {
                 {isSidebarOpen ? (
                   <div className="w-80 border-l border-slate-100 dark:border-zinc-800 pl-6 space-y-6 overflow-y-auto animate-in slide-in-from-right-3 duration-200">
                     
-                    <UnassignedPanel
-                      unassignedAppointments={unassignedAppointments}
-                      onOpenDetailModal={handleOpenDetailModal}
-                    />
+                    {viewMode === 'timeline' && (
+                      <UnassignedPanel
+                        unassignedAppointments={unassignedAppointments}
+                        onOpenDetailModal={handleOpenDetailModal}
+                      />
+                    )}
                     <DoctorWorkloadPanel 
                       doctorWorkloads={doctorWorkloads} 
                       activeType={activeType} 
                       selectedStaffId={selectedStaffFilter}
                       onSelectStaff={setSelectedStaffFilter}
+                      periodLabel={periodLabel}
                     />
                     
                     <div className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 p-4 rounded-2xl shadow-sm">

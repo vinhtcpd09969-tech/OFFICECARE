@@ -25,7 +25,10 @@ class TechnicianService {
       // (vd quên bấm hoàn thành ca trước).
       const otherOpenSession = await technicianRepository.getActiveSessionForStaff(staffId, appointmentId);
       if (otherOpenSession) {
-        throw new Error(`Bạn đang có ca trị liệu ${otherOpenSession.ma_lich_dat} (${otherOpenSession.ten_khach_hang}) chưa hoàn thành. Vui lòng hoàn thành ca đó trước khi mở ca trị liệu mới.`);
+        const errorMsg = `Bạn đang có ca trị liệu ${otherOpenSession.ma_lich_dat} (${otherOpenSession.ten_khach_hang}) chưa hoàn thành. Vui lòng hoàn thành ca đó trước khi mở ca trị liệu mới.`;
+        const err = new Error(errorMsg) as any;
+        err.activeSessionId = otherOpenSession.id;
+        throw err;
       }
       await technicianRepository.startSession(appointmentId, staffId);
       return await technicianRepository.getAppointmentDetail(appointmentId);
@@ -56,6 +59,12 @@ class TechnicianService {
   // 5. Lấy danh sách lịch trực của KTV
   async getSchedules(userId: string) {
     return await technicianRepository.getTechnicianSchedules(userId);
+  }
+
+  // 6. Lấy ca trị liệu đang chạy dở của KTV (nếu có)
+  async getActiveSession(userId: string) {
+    const staffId = parseInt(userId, 10);
+    return await technicianRepository.getActiveSessionForStaff(staffId, null);
   }
 }
 

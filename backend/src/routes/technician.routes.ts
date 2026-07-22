@@ -11,6 +11,7 @@ router.use(authorizeRoles(3, 5, 6));
 router.get('/queue', technicianController.getQueue);
 router.get('/appointments', technicianController.getAppointments);
 router.get('/schedules', technicianController.getSchedules);
+router.get('/active-session', technicianController.getActiveSession);
 router.get('/appointments/:id', technicianController.getAppointmentDetail);
 router.post('/appointments/assess', technicianController.saveTreatmentRecord);
 

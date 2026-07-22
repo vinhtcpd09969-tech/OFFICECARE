@@ -34,6 +34,9 @@ export const getAppointmentDetail = (id: string) =>
 export const getPatientProfile = (patientId: string) => 
   api.get<PatientProfile>(`/doctor/patients/${patientId}/profile`); // Hồ sơ bệnh lịch sử có thể dùng chung của doctor
 
+export const getActiveSession = () => 
+  api.get<{ id: string; ma_lich_dat: string; ten_khach_hang: string } | null>('/technician/active-session');
+
 export const saveTreatmentRecord = (payload: TreatmentRecordPayload) => 
   api.post<{ success: boolean; message: string; medicalRecordId: string }>('/technician/appointments/assess', payload);
 

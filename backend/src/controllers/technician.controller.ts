@@ -53,7 +53,10 @@ export const getAppointmentDetail = async (req: AuthenticatedRequest, res: Respo
     res.json(detail);
   } catch (error: any) {
     console.error('Lỗi khi lấy chi tiết ca trị liệu KTV:', error);
-    res.status(400).json({ message: error.message || 'Lỗi server' });
+    res.status(400).json({ 
+      message: error.message || 'Lỗi server',
+      activeSessionId: error.activeSessionId
+    });
   }
 };
 
@@ -97,6 +100,21 @@ export const getSchedules = async (req: AuthenticatedRequest, res: Response) => 
     res.json(schedules);
   } catch (error: any) {
     console.error('Lỗi khi lấy lịch trực KTV:', error);
+    res.status(500).json({ message: error.message || 'Lỗi server' });
+  }
+};
+
+// GET /api/technician/active-session
+export const getActiveSession = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: 'Không xác định được danh tính người dùng.' });
+    }
+    const activeSession = await technicianService.getActiveSession(userId);
+    res.json(activeSession);
+  } catch (error: any) {
+    console.error('Lỗi khi lấy ca trị liệu đang chạy dở KTV:', error);
     res.status(500).json({ message: error.message || 'Lỗi server' });
   }
 };

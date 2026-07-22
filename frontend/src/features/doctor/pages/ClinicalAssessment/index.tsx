@@ -25,6 +25,7 @@ import {
   getPatientProfile,
   getPackages,
   saveAssessment,
+  getActiveSession,
   PatientProfile,
   PackageItem
 } from '../../api/doctor.api';
@@ -32,7 +33,8 @@ type ActiveModal = { type: 'plan'; id: string } | { type: 'visit'; id: string } 
 import {
   getAppointmentDetail as getAppointmentDetailKtv,
   saveTreatmentRecord as saveTreatmentRecordKtv,
-  getPatientProfile as getPatientProfileKtv
+  getPatientProfile as getPatientProfileKtv,
+  getActiveSession as getActiveSessionKtv
 } from '../../../technician/api/technician.api';
 import { StaffAvatar } from '../DoctorMedicalRecords/components/StaffAvatar';
 import { PlanColumn } from '../DoctorMedicalRecords/components/PlanColumn';
@@ -137,6 +139,7 @@ export default function ClinicalAssessment() {
   const [loading, setLoading] = useState(true);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'assess' | 'history'>('assess');
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<{ type: 'plan' | 'visit'; id: string } | null>(null);
   const [packageSearchQuery, setPackageSearchQuery] = useState('');
@@ -189,18 +192,48 @@ export default function ClinicalAssessment() {
     } catch (error: any) {
       console.error('Lỗi khi tải dữ liệu khám bệnh:', error);
       setErrorMsg(error.response?.data?.message || 'Không thể tải dữ liệu ca khám. Vui lòng thử lại.');
+      if (error.response?.data?.activeSessionId) {
+        setActiveSessionId(error.response.data.activeSessionId);
+      }
     } finally {
       setLoading(false);
     }
   }, [appointmentId, isKtv]);
 
+  // Tự động kiểm tra ca khám / trị liệu đang hoạt động trên máy chủ nếu truy cập đường dẫn Desk chung
   useEffect(() => {
-    if (!appointmentId) {
-      setLoading(false);
-      return;
+    if (!routeId) {
+      const checkActiveSession = async () => {
+        try {
+          const res = isKtv ? await getActiveSessionKtv() : await getActiveSession();
+          if (res.data) {
+            // Nếu có ca đang dang dở, cập nhật localStorage và chuyển hướng đến đó
+            localStorage.setItem('active_appointment_id', res.data.id);
+            navigate(isKtv 
+              ? `/technician/appointments/${res.data.id}/assess` 
+              : `/doctor/appointments/${res.data.id}/assess`, 
+              { replace: true }
+            );
+          } else {
+            // Nếu không có ca nào đang mở dở, xóa storedId cũ để hiển thị giao diện trống
+            localStorage.removeItem('active_appointment_id');
+            setLoading(false);
+          }
+        } catch (err) {
+          console.error('Lỗi khi kiểm tra ca đang hoạt động:', err);
+          setLoading(false);
+        }
+      };
+      checkActiveSession();
     }
-    loadInitialData();
-  }, [appointmentId, loadInitialData]);
+  }, [routeId, isKtv, navigate]);
+
+  // Chỉ gọi tải dữ liệu khi có ID cụ thể trên đường dẫn URL
+  useEffect(() => {
+    if (routeId) {
+      loadInitialData();
+    }
+  }, [routeId, loadInitialData]);
 
   const filteredPackages = useMemo(() => {
     if (!packageSearchQuery.trim()) return packages;
@@ -345,7 +378,7 @@ export default function ClinicalAssessment() {
     }
   }, [appointment]);
 
-  if (loading) {
+  if (loading || (appointmentId && !appointment && !errorMsg)) {
     return (
       <div className="min-h-[500px] flex flex-col items-center justify-center gap-3 text-zinc-400 dark:text-zinc-650">
         <div className="size-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
@@ -381,15 +414,27 @@ export default function ClinicalAssessment() {
 
   if (errorMsg) {
     return (
-      <div className="bg-red-50 dark:bg-red-950/10 border border-red-200 dark:border-red-900/30 p-6 rounded-3xl text-center max-w-lg mx-auto mt-12 space-y-4">
+      <div className="bg-red-50 dark:bg-red-950/10 border border-red-200 dark:border-red-900/30 p-6 rounded-3xl text-center max-w-lg mx-auto mt-12 space-y-4 animate-in fade-in duration-300">
         <AlertTriangle className="size-12 text-rose-500 mx-auto" />
         <h3 className="font-extrabold text-secondary dark:text-red-400">Đã xảy ra lỗi</h3>
-        <p className="text-xs text-zinc-600 dark:text-zinc-400 font-semibold">{errorMsg}</p>
+        <p className="text-xs text-zinc-650 dark:text-zinc-400 font-semibold leading-relaxed">{errorMsg}</p>
         <button 
-          onClick={() => navigate(isKtv ? '/technician/appointments' : '/doctor')}
-          className="bg-primary text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all hover:opacity-90 shadow-soft-button"
+          onClick={() => {
+            if (activeSessionId) {
+              localStorage.setItem('active_appointment_id', activeSessionId);
+              navigate(isKtv 
+                ? `/technician/appointments/${activeSessionId}/assess` 
+                : `/doctor/appointments/${activeSessionId}/assess`
+              );
+            } else {
+              navigate(isKtv ? '/technician/appointments' : '/doctor');
+            }
+          }}
+          className="bg-primary hover:opacity-95 text-zinc-950 text-xs font-black uppercase tracking-wider px-6 py-3 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md cursor-pointer"
         >
-          {isKtv ? 'Trở lại lịch hẹn' : 'Trở lại hàng chờ'}
+          {activeSessionId 
+            ? 'Trở lại bàn làm việc' 
+            : (isKtv ? 'Trở lại danh sách lịch hẹn' : 'Trở lại hàng chờ')}
         </button>
       </div>
     );
@@ -647,8 +692,8 @@ export default function ClinicalAssessment() {
               </p>
             </div>
 
-            {/* Lý do khám bệnh / trị liệu (Đổ tự động từ ca hiện tại) */}
-            {appointment && (
+            {/* Lý do khám bệnh / trị liệu (Đổ tự động từ ca hiện tại, ẩn đối với KTV) */}
+            {appointment && !isKtv && (
               <div className="bg-zinc-50/60 dark:bg-zinc-850/20 p-4 rounded-xl border border-zinc-150/50 dark:border-zinc-800 space-y-3 text-left">
                 <div>
                   <span className="text-[8px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">

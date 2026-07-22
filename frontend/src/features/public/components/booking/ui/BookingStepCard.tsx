@@ -168,7 +168,7 @@ export function BookingStepCard({
                     <p className="text-sm font-jakarta font-black text-slate-800 mt-1 leading-none">0398 655 332</p>
                   </div>
                 </div>
-                <a 
+                <a
                   href="tel:0398655332"
                   className="bg-slate-900 hover:bg-slate-800 active:scale-95 text-white font-jakarta font-extrabold text-[10px] uppercase tracking-wider py-2.5 px-4 rounded-xl transition-all shadow-sm"
                 >

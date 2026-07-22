@@ -1,5 +1,6 @@
 import adminRepository from '../repositories/admin.repository';
 import bcrypt from 'bcryptjs';
+import { SentimentService } from './sentiment.service';
 
 class AdminService {
   // --- QUẢN LÝ PHÒNG KHÁM ---
@@ -296,6 +297,23 @@ class AdminService {
 
   async replyStaffFeedback(id: string, phanHoi: string, staffId: number) {
     return adminRepository.replyStaffFeedback(id, phanHoi, staffId);
+  }
+
+  async analyzeFeedback(type: 'service' | 'staff', id: string) {
+    const review = await adminRepository.getFeedbackReviewText(type, id);
+    if (!review) throw new Error('Không tìm thấy đánh giá');
+    if (!review.nhan_xet || !review.nhan_xet.trim()) {
+      throw new Error('Đánh giá này không có nội dung nhận xét để AI phân tích');
+    }
+
+    const result = type === 'service'
+      ? await SentimentService.classifyAndSaveServiceReview(id, review.nhan_xet, review.so_sao)
+      : await SentimentService.classifyAndSaveStaffReview(id, review.nhan_xet, review.so_sao);
+
+    if (!result) {
+      throw new Error('AI hiện không thể phân tích (có thể đã hết lượt gọi miễn phí trong hôm nay). Vui lòng thử lại sau.');
+    }
+    return result;
   }
 
   // --- BÁO CÁO & THỐNG KÊ ---

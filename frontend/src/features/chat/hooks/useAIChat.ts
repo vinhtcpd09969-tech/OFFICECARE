@@ -20,6 +20,17 @@ export function useAIChat() {
   const user = useAuthStore((state) => state.user);
   const storageKey = user ? `officecare_ai_chat_${user.id}` : 'officecare_ai_chat_guest';
 
+  // Session id bền vững trong phiên trình duyệt — gửi kèm mỗi lượt chat để backend lưu
+  // lịch sử vào Postgres (localStorage vẫn là cache hiển thị chính, DB chỉ là nguồn lưu bền).
+  const [sessionId] = useState(() => {
+    let id = sessionStorage.getItem('officecare_ai_chat_session_id');
+    if (!id) {
+      id = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36);
+      sessionStorage.setItem('officecare_ai_chat_session_id', id);
+    }
+    return id;
+  });
+
   // Nạp lịch sử chat tương ứng với storageKey của tài khoản đang đăng nhập
   useEffect(() => {
     const saved = localStorage.getItem(storageKey);
@@ -70,6 +81,7 @@ export function useAIChat() {
       const response = await api.post('/ai/chat', {
         message: userMsg.content,
         history: contextHistory.slice(0, -1), // Lịch sử không gồm tin nhắn vừa gõ
+        sessionId,
       });
 
       const replyMsg: ChatMessage = {

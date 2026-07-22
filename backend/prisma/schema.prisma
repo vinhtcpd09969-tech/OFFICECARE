@@ -80,6 +80,25 @@ model khach_hang {
   hoa_don             hoa_don[]
   phac_do_dieu_tri    phac_do_dieu_tri[]
   refresh_tokens      refresh_tokens[]
+  phien_chat_ai       phien_chat_ai[]
+}
+
+model phien_chat_ai {
+  id               String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id       String              @unique @db.VarChar(64)
+  khach_hang_id    String?             @db.Uuid
+  created_at       DateTime            @default(now()) @db.Timestamptz(6)
+  khach_hang       khach_hang?         @relation(fields: [khach_hang_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  tin_nhan_chat_ai tin_nhan_chat_ai[]
+}
+
+model tin_nhan_chat_ai {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  phien_chat_ai_id String        @db.Uuid
+  role             String        @db.VarChar(10)
+  content          String        @db.Text
+  created_at       DateTime      @default(now()) @db.Timestamptz(6)
+  phien_chat_ai    phien_chat_ai @relation(fields: [phien_chat_ai_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
 model nhat_ky_buoi_dieu_tri {
@@ -144,6 +163,7 @@ model cuoc_hen {
   danh_gia_nhan_su    danh_gia_nhan_su[]
   hoa_don               hoa_don[]
   nhat_ky_buoi_dieu_tri nhat_ky_buoi_dieu_tri?
+  so_dien_thoai         String?                @db.VarChar(20)
 }
 
 model goi_dich_vu {
@@ -254,6 +274,8 @@ model danh_gia_goi_dich_vu {
   cam_xuc            String?      @db.VarChar(20)
   do_tin_cay         Float?
   ly_do_cam_xuc      String?      @db.Text
+  de_xuat_hanh_dong  String?      @db.Text
+  de_xuat_phan_hoi   String?      @db.Text
   khach_hang         khach_hang   @relation(fields: [khach_hang_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   goi_dich_vu        goi_dich_vu  @relation(fields: [goi_dich_vu_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   cuoc_hen           cuoc_hen?    @relation(fields: [cuoc_hen_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
@@ -277,6 +299,8 @@ model danh_gia_nhan_su {
   cam_xuc            String?      @db.VarChar(20)
   do_tin_cay         Float?
   ly_do_cam_xuc      String?      @db.Text
+  de_xuat_hanh_dong  String?      @db.Text
+  de_xuat_phan_hoi   String?      @db.Text
   khach_hang         khach_hang   @relation(fields: [khach_hang_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   nguoi_dung         nguoi_dung   @relation(fields: [nhan_su_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   cuoc_hen           cuoc_hen?    @relation(fields: [cuoc_hen_id], references: [id], onDelete: SetNull, onUpdate: NoAction)

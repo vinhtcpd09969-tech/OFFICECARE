@@ -32,7 +32,7 @@ async function main() {
     if (result) {
       await prisma.danh_gia_goi_dich_vu.update({
         where: { id: review.id },
-        data: { cam_xuc: result.sentiment, do_tin_cay: result.confidence, ly_do_cam_xuc: result.reason }
+        data: { cam_xuc: result.sentiment, do_tin_cay: result.confidence, ly_do_cam_xuc: result.reason, de_xuat_hanh_dong: result.suggestedAction, de_xuat_phan_hoi: result.draftReply }
       });
       console.log(`  OK   đánh giá dịch vụ ${review.id} -> ${result.sentiment}`);
     } else {
@@ -51,7 +51,7 @@ async function main() {
     if (result) {
       await prisma.danh_gia_nhan_su.update({
         where: { id: review.id },
-        data: { cam_xuc: result.sentiment, do_tin_cay: result.confidence, ly_do_cam_xuc: result.reason }
+        data: { cam_xuc: result.sentiment, do_tin_cay: result.confidence, ly_do_cam_xuc: result.reason, de_xuat_hanh_dong: result.suggestedAction, de_xuat_phan_hoi: result.draftReply }
       });
       console.log(`  OK   đánh giá nhân sự ${review.id} -> ${result.sentiment}`);
     } else {

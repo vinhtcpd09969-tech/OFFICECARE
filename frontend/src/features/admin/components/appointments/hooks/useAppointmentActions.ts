@@ -278,8 +278,8 @@ export function useAppointmentActions({
 
       const payload = {
         khach_hang_id: selectedAppointment.khach_hang_id,
-        ho_ten_khach: selectedAppointment.khach_hang_id ? undefined : selectedAppointment.ten_khach_hang,
-        so_dien_thoai: selectedAppointment.khach_hang_id ? undefined : selectedAppointment.so_dien_thoai,
+        ho_ten_khach: selectedAppointment.ten_khach_hang || undefined,
+        so_dien_thoai: selectedAppointment.so_dien_thoai || undefined,
         dich_vu_id: chosenServiceId || null,
         ky_thuat_vien_id: selectedKtvId,
         phong_id: selectedRoomId || null,

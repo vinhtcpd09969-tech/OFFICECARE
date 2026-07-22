@@ -101,7 +101,10 @@ class DoctorService {
       // (vd quên bấm hoàn thành ca trước).
       const otherOpenSession = await doctorRepository.getActiveSessionForStaff(staffId, appointmentId);
       if (otherOpenSession) {
-        throw new Error(`Bạn đang có ca khám ${otherOpenSession.ma_lich_dat} (${otherOpenSession.ten_khach_hang}) chưa hoàn thành. Vui lòng hoàn thành ca đó trước khi mở ca khám mới.`);
+        const errorMsg = `Bạn đang có ca khám ${otherOpenSession.ma_lich_dat} (${otherOpenSession.ten_khach_hang}) chưa hoàn thành. Vui lòng hoàn thành ca đó trước khi mở ca khám mới.`;
+        const err = new Error(errorMsg) as any;
+        err.activeSessionId = otherOpenSession.id;
+        throw err;
       }
       await doctorRepository.startSession(appointmentId, staffId);
       detail = await doctorRepository.getAppointmentDetail(appointmentId);
@@ -179,6 +182,12 @@ class DoctorService {
   async getPatients(userId: string) {
     const patients = await doctorRepository.getPatients(userId);
     return patients;
+  }
+
+  // 8. Lấy ca khám đang chạy dở của bác sĩ (nếu có)
+  async getActiveSession(userId: string) {
+    const staffId = parseInt(userId, 10);
+    return await doctorRepository.getActiveSessionForStaff(staffId, null);
   }
 }
 

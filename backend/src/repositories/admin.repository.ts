@@ -1353,7 +1353,9 @@ class AdminRepository {
         loai_danh_gia,
         cam_xuc,
         do_tin_cay,
-        ly_do_cam_xuc
+        ly_do_cam_xuc,
+        de_xuat_hanh_dong,
+        de_xuat_phan_hoi
       FROM (
         SELECT
           dg.id,
@@ -1370,7 +1372,9 @@ class AdminRepository {
           'service' as loai_danh_gia,
           dg.cam_xuc,
           dg.do_tin_cay,
-          dg.ly_do_cam_xuc
+          dg.ly_do_cam_xuc,
+          dg.de_xuat_hanh_dong,
+          dg.de_xuat_phan_hoi
         FROM danh_gia_goi_dich_vu dg
         JOIN khach_hang kh ON dg.khach_hang_id = kh.id
         LEFT JOIN goi_dich_vu g ON dg.goi_dich_vu_id = g.id
@@ -1395,7 +1399,9 @@ class AdminRepository {
           'staff' as loai_danh_gia,
           dg.cam_xuc,
           dg.do_tin_cay,
-          dg.ly_do_cam_xuc
+          dg.ly_do_cam_xuc,
+          dg.de_xuat_hanh_dong,
+          dg.de_xuat_phan_hoi
         FROM danh_gia_nhan_su dg
         JOIN khach_hang kh ON dg.khach_hang_id = kh.id
         JOIN nguoi_dung nd_ktv ON dg.nhan_su_id = nd_ktv.id
@@ -1428,6 +1434,13 @@ class AdminRepository {
         ngay_phan_hoi: new Date()
       }
     });
+  }
+
+  async getFeedbackReviewText(type: 'service' | 'staff', id: string) {
+    if (type === 'service') {
+      return prisma.danh_gia_goi_dich_vu.findUnique({ where: { id }, select: { nhan_xet: true, so_sao: true } });
+    }
+    return prisma.danh_gia_nhan_su.findUnique({ where: { id }, select: { nhan_xet: true, so_sao: true } });
   }
 
   // --- BÁO CÁO & THỐNG KÊ ---

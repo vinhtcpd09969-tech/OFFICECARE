@@ -71,7 +71,10 @@ export const getAppointmentDetail = async (req: AuthenticatedRequest, res: Respo
     res.json(detail);
   } catch (error: any) {
     console.error('Lỗi khi lấy chi tiết ca khám:', error);
-    res.status(400).json({ message: error.message || 'Lỗi server' });
+    res.status(400).json({ 
+      message: error.message || 'Lỗi server',
+      activeSessionId: error.activeSessionId
+    });
   }
 };
 
@@ -151,6 +154,21 @@ export const getPatients = async (req: AuthenticatedRequest, res: Response) => {
     res.json(patients);
   } catch (error: any) {
     console.error('Lỗi khi lấy danh sách bệnh nhân cho bác sĩ:', error);
+    res.status(500).json({ message: error.message || 'Lỗi server' });
+  }
+};
+
+// GET /api/doctor/active-session
+export const getActiveSession = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: 'Không xác định được danh tính người dùng.' });
+    }
+    const activeSession = await doctorService.getActiveSession(userId);
+    res.json(activeSession);
+  } catch (error: any) {
+    console.error('Lỗi khi lấy ca khám đang chạy dở của bác sĩ:', error);
     res.status(500).json({ message: error.message || 'Lỗi server' });
   }
 };

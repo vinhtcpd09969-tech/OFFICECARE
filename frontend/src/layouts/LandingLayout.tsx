@@ -74,15 +74,6 @@ export default function LandingLayout() {
                 </span>
               </div>
             </Link>
-
-            {/* Status indicator in Navbar */}
-            <div className="hidden lg:flex items-center gap-2 border-l border-slate-200 pl-3.5 py-1 text-[10px] font-bold text-emerald-600 tracking-wide uppercase font-jakarta">
-              <span className="relative flex size-2">
-                <span className="animate-ping absolute inline-flex size-full rounded-full bg-emerald-500 opacity-75"></span>
-                <span className="relative inline-flex rounded-full size-2 bg-emerald-500"></span>
-              </span>
-              <span>Mở cửa (7:30 - 20:30)</span>
-            </div>
           </div>
 
           {/* Desktop Navigation */}
@@ -99,7 +90,7 @@ export default function LandingLayout() {
             <Link 
               to="/booking" 
               onClick={handleBookingClick} 
-              className="bg-[#2EC4B6] hover:bg-[#25A89C] text-white text-xs font-jakarta font-extrabold px-5 py-3 rounded-full shadow-md hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5 cursor-pointer"
+              className="bg-[#0D9488] hover:bg-[#0b7a70] text-white text-xs font-jakarta font-extrabold px-6 py-2.5 rounded-full shadow-md hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <Calendar size={14} />
               Đặt lịch
@@ -204,8 +195,8 @@ export default function LandingLayout() {
         <Outlet />
       </main>
 
-      {/* Sleek Premium Compact Footer (Light Theme) */}
-      <footer className="bg-slate-900 text-slate-300 pt-14 pb-8 mt-auto text-xs font-sans border-t border-slate-800">
+      {/* Sleek Premium Compact Footer (Medical Light Mint Theme) */}
+      <footer className="bg-gradient-to-b from-[#E6F4F1] to-[#D5EDE9] text-slate-600 pt-14 pb-8 mt-auto text-xs font-sans border-t border-[#B3E0D8]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-8 mb-12">
             
@@ -216,23 +207,23 @@ export default function LandingLayout() {
                   O
                 </div>
                 <div className="flex flex-col">
-                  <span className="font-heading font-bold text-base text-white tracking-normal">
+                  <span className="font-heading font-bold text-base text-slate-800 tracking-normal">
                     OfficeCare
                   </span>
-                  <span className="text-[9px] text-teal-400 font-semibold uppercase tracking-wider">
+                  <span className="text-[9px] text-[#0D9488] font-black uppercase tracking-wider">
                     Phục Hồi Chức Năng Y Khoa
                   </span>
                 </div>
               </Link>
-              <p className="text-slate-400 text-xs leading-relaxed max-w-sm font-normal">
-                Giải pháp phục hồi chức năng cơ xương khớp & cột sống văn phòng chuyên sâu. Kết hợp công nghệ trị liệu Châu Âu và phác đồ cá nhân hóa 1:1 từ Bác sĩ chuyên khoa.
+              <p className="text-slate-600 text-xs leading-relaxed max-w-sm font-medium">
+                Giải pháp phục hồi chức năng cơ xương khớp &amp; cột sống văn phòng chuyên sâu. Kết hợp công nghệ trị liệu Châu Âu và phác đồ cá nhân hóa 1:1 từ Bác sĩ chuyên khoa.
               </p>
               <div className="flex items-center gap-2.5 pt-1">
                 <a 
                   href="https://www.facebook.com/profile.php?id=61591064963268" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="size-9 rounded-xl bg-slate-800 hover:bg-[#1877F2] text-slate-300 hover:text-white flex items-center justify-center transition-all duration-200 border border-slate-700/60"
+                  className="size-9 rounded-xl bg-white/80 hover:bg-[#0D9488] text-slate-600 hover:text-white flex items-center justify-center transition-all duration-200 border border-[#B3E0D8] shadow-2xs"
                   title="Fanpage Facebook OfficeCare"
                 >
                   <Facebook size={16} />
@@ -241,7 +232,7 @@ export default function LandingLayout() {
                   href="https://zalo.me/0398655332" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-teal-600 text-teal-400 hover:text-white flex items-center gap-1.5 transition-all duration-200 border border-slate-700/60 font-bold text-[11px]"
+                  className="px-3 py-2 rounded-xl bg-white/80 hover:bg-[#0D9488] text-[#0D9488] hover:text-white flex items-center gap-1.5 transition-all duration-200 border border-[#B3E0D8] shadow-2xs font-bold text-[11px]"
                   title="Zalo tư vấn 0398655332"
                 >
                   <MessageCircle size={15} />
@@ -252,52 +243,52 @@ export default function LandingLayout() {
             
             {/* Quick Links Column */}
             <div className="md:col-span-2 space-y-3 text-left">
-              <h4 className="font-heading font-bold text-xs tracking-wider text-white uppercase">Dịch Vụ</h4>
-              <ul className="space-y-2 text-slate-400">
-                <li><Link to="/services" className="hover:text-teal-400 transition-colors">Khám Lâm Sàng 1:1</Link></li>
-                <li><Link to="/services" className="hover:text-teal-400 transition-colors">Trị Liệu Sóng Xung Kích</Link></li>
-                <li><Link to="/services" className="hover:text-teal-400 transition-colors">Giải Phóng Cơ Mô Mềm</Link></li>
-                <li><Link to="/services" className="hover:text-teal-400 transition-colors">Liệu Trình Cột Sống</Link></li>
+              <h4 className="font-heading font-bold text-xs tracking-wider text-slate-800 uppercase">Dịch Vụ</h4>
+              <ul className="space-y-2 text-slate-600 font-semibold">
+                <li><Link to="/services" className="hover:text-[#0D9488] transition-colors">Khám Lâm Sàng 1:1</Link></li>
+                <li><Link to="/services" className="hover:text-[#0D9488] transition-colors">Trị Liệu Sóng Xung Kích</Link></li>
+                <li><Link to="/services" className="hover:text-[#0D9488] transition-colors">Giải Phóng Cơ Mô Mềm</Link></li>
+                <li><Link to="/services" className="hover:text-[#0D9488] transition-colors">Liệu Trình Cột Sống</Link></li>
               </ul>
             </div>
             
             {/* Support Links Column */}
             <div className="md:col-span-2 space-y-3 text-left">
-              <h4 className="font-heading font-bold text-xs tracking-wider text-white uppercase">Thông Tin</h4>
-              <ul className="space-y-2 text-slate-400">
-                <li><Link to="/gioi-thieu" className="hover:text-teal-400 transition-colors">Giới thiệu phòng khám</Link></li>
-                <li><Link to="/specialists" className="hover:text-teal-400 transition-colors">Hội đồng chuyên gia</Link></li>
-                <li><Link to="/articles" className="hover:text-teal-400 transition-colors">Kiến thức y khoa</Link></li>
-                <li><Link to="/terms" className="hover:text-teal-400 transition-colors">Điều khoản &amp; Bảo mật</Link></li>
+              <h4 className="font-heading font-bold text-xs tracking-wider text-slate-800 uppercase">Thông Tin</h4>
+              <ul className="space-y-2 text-slate-600 font-semibold">
+                <li><Link to="/gioi-thieu" className="hover:text-[#0D9488] transition-colors">Giới thiệu phòng khám</Link></li>
+                <li><Link to="/specialists" className="hover:text-[#0D9488] transition-colors">Hội đồng chuyên gia</Link></li>
+                <li><Link to="/tin-tuc" className="hover:text-[#0D9488] transition-colors">Kiến thức y khoa</Link></li>
+                <li><Link to="/dieu-khoan-dich-vu" className="hover:text-[#0D9488] transition-colors">Điều khoản &amp; Bảo mật</Link></li>
               </ul>
             </div>
             
             {/* Contact Details Column */}
             <div className="md:col-span-4 space-y-3 text-left">
-              <h4 className="font-heading font-bold text-xs tracking-wider text-white uppercase">Vị Trí &amp; Liên Hệ</h4>
-              <div className="space-y-2.5 text-slate-400">
+              <h4 className="font-heading font-bold text-xs tracking-wider text-slate-800 uppercase">Vị Trí &amp; Liên Hệ</h4>
+              <div className="space-y-2.5 text-slate-600 font-medium">
                 <p className="flex items-start gap-2.5 leading-relaxed">
-                  <MapPin size={15} className="shrink-0 mt-0.5 text-teal-400" />
-                  <span>Vinhomes Golden River, Bến Nghé, Quận 1, TP. Hồ Chí Minh</span>
+                  <MapPin size={15} className="shrink-0 mt-0.5 text-[#0D9488]" />
+                  <span className="text-slate-700">Vinhomes Golden River, Bến Nghé, Quận 1, TP. Hồ Chí Minh</span>
                 </p>
                 <p className="flex items-center gap-2.5">
-                  <Phone size={15} className="shrink-0 text-teal-400" />
-                  <a href="tel:0398655332" className="hover:text-teal-400 font-bold transition-colors">Hotline &amp; Zalo: 0398655332</a>
+                  <Phone size={15} className="shrink-0 text-[#0D9488]" />
+                  <a href="tel:0398655332" className="hover:text-[#0D9488] font-bold text-slate-700 transition-colors">Hotline &amp; Zalo: 0398655332</a>
                 </p>
                 <p className="flex items-center gap-2.5">
-                  <Mail size={15} className="shrink-0 text-teal-400" />
-                  <a href="mailto:officecareclinic2026@gmail.com" className="hover:text-teal-400 font-medium transition-colors">officecareclinic2026@gmail.com</a>
+                  <Mail size={15} className="shrink-0 text-[#0D9488]" />
+                  <a href="mailto:officecareclinic2026@gmail.com" className="hover:text-[#0D9488] font-semibold text-slate-700 transition-colors">officecareclinic2026@gmail.com</a>
                 </p>
               </div>
             </div>
           </div>
           
-          <div className="border-t border-slate-800 pt-6 flex flex-col md:flex-row justify-between items-center gap-3 text-[11px] text-slate-500">
+          <div className="border-t border-[#B3E0D8] pt-6 flex flex-col md:flex-row justify-between items-center gap-3 text-[11px] text-slate-500 font-medium">
             <p>© 2026 OfficeCare Clinic. Tất cả các quyền được bảo lưu. Đạt chuẩn y tế cao cấp.</p>
             <div className="flex items-center gap-4">
               <span>Hotline 24/7: 0398655332</span>
               <span>•</span>
-              <a href="https://www.facebook.com/profile.php?id=61591064963268" target="_blank" rel="noopener noreferrer" className="hover:text-teal-400">Facebook Chính Thức</a>
+              <a href="https://www.facebook.com/profile.php?id=61591064963268" target="_blank" rel="noopener noreferrer" className="hover:text-[#0D9488]">Facebook Chính Thức</a>
             </div>
           </div>
         </div>
