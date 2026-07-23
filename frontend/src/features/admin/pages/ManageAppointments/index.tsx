@@ -208,6 +208,18 @@ export default function ManageAppointments() {
     };
   }, [roleView]);
 
+  const bookingFormRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll xuống form Đặt lịch tại quầy khi mở form từ đường dẫn / đặt lịch tiếp theo
+  useEffect(() => {
+    if (isWalkInModalOpen && bookingFormRef.current) {
+      const timer = setTimeout(() => {
+        bookingFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [isWalkInModalOpen]);
+
   // Synchronize state with URL search parameters
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -709,29 +721,31 @@ export default function ManageAppointments() {
               )}
 
               {isWalkInModalOpen ? (
-                <WalkInBookingModal
-                  roomsList={roomsToUse}
-                  staffList={staffToUse}
-                  appointments={appointmentsToUse}
-                  schedulesList={schedulesToUse}
-                  servicesList={services}
-                  onClose={() => {
-                    setIsWalkInModalOpen(false);
-                    const newParams = new URLSearchParams(location.search);
-                    newParams.delete('khach_hang_id');
-                    newParams.delete('goi_dich_vu_id');
-                    navigate(location.pathname + '?' + newParams.toString(), { replace: true });
-                  }}
-                  onSubmitApi={handleBookWalkIn}
-                  bookingLoading={bookingLoading}
-                  initialTime={walkInTime}
-                  activeType={activeType}
-                  isReceptionist={roleView === 'receptionist'}
-                  selectedDateStr={formattedSelectedDate}
-                  initialCustomerId={new URLSearchParams(location.search).get('khach_hang_id') || undefined}
-                  initialServiceId={new URLSearchParams(location.search).get('goi_dich_vu_id') || undefined}
-                  onDateChange={setSelectedDate}
-                />
+                <div ref={bookingFormRef} className="scroll-mt-6">
+                  <WalkInBookingModal
+                    roomsList={roomsToUse}
+                    staffList={staffToUse}
+                    appointments={appointmentsToUse}
+                    schedulesList={schedulesToUse}
+                    servicesList={services}
+                    onClose={() => {
+                      setIsWalkInModalOpen(false);
+                      const newParams = new URLSearchParams(location.search);
+                      newParams.delete('khach_hang_id');
+                      newParams.delete('goi_dich_vu_id');
+                      navigate(location.pathname + '?' + newParams.toString(), { replace: true });
+                    }}
+                    onSubmitApi={handleBookWalkIn}
+                    bookingLoading={bookingLoading}
+                    initialTime={walkInTime}
+                    activeType={activeType}
+                    isReceptionist={roleView === 'receptionist'}
+                    selectedDateStr={formattedSelectedDate}
+                    initialCustomerId={new URLSearchParams(location.search).get('khach_hang_id') || undefined}
+                    initialServiceId={new URLSearchParams(location.search).get('goi_dich_vu_id') || undefined}
+                    onDateChange={setSelectedDate}
+                  />
+                </div>
               ) : (
                 <>
                   {viewMode === 'timeline' && (

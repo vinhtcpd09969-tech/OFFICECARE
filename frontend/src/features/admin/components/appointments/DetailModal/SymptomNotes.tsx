@@ -24,7 +24,7 @@ export function SymptomNotes({
             <AlertCircle size={16} className="text-rose-600 animate-bounce" /> Khách hàng yêu cầu hủy lịch này
           </p>
           <p className="text-sm text-slate-800 font-semibold">
-            Lý do khách đưa ra: <span className="font-normal italic text-slate-600">"{selectedAppointment.ghi_chu_noi_bo || selectedAppointment.ly_do_huy || 'Không có lý do chi tiết'}"</span>
+            Lý do khách đưa ra: <span className="font-normal italic text-slate-600">"{selectedAppointment.ly_do_huy || selectedAppointment.ghi_chu_noi_bo || 'Không có lý do chi tiết'}"</span>
           </p>
           <div className="text-xs text-rose-700 font-medium leading-relaxed bg-white/60 p-2.5 rounded border border-rose-100">
             ⚠️ <strong>Quy trình xử lý của Lễ tân:</strong>

@@ -172,6 +172,7 @@ export const getBookedSlots = async (req: Request, res: Response): Promise<any> 
     const slotAvailability = result?.slotAvailability || {};
 
     let hasExistingClinicalExam = false;
+    let isPhoneTakenByOther = false;
     if (typeof userId === 'string' || typeof phone === 'string') {
       hasExistingClinicalExam = await appointmentService.checkCustomerHasClinicalExamOnDate(
         typeof userId === 'string' ? userId : undefined,
@@ -181,11 +182,16 @@ export const getBookedSlots = async (req: Request, res: Response): Promise<any> 
       );
     }
 
+    if (typeof userId === 'string' && userId && typeof phone === 'string' && phone.trim()) {
+      isPhoneTakenByOther = await appointmentService.checkPhoneTakenByOther(phone.trim(), userId);
+    }
+
     return res.json({
       bookedSlots: bookedSlotsList,
       specialists,
       slotAvailability,
-      hasExistingClinicalExam
+      hasExistingClinicalExam,
+      isPhoneTakenByOther
     });
   } catch (error: any) {
     console.error('Lỗi khi lấy danh sách giờ đã đặt:', error);

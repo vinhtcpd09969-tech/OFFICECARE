@@ -66,8 +66,8 @@ class AppointmentService {
     return appointmentRepository.getCustomerAppointments(khach_hang_id);
   }
 
-  async cancelCustomerAppointment(id: string, khach_hang_id: string, ghi_chu_noi_bo: string) {
-    const updated = await appointmentRepository.cancelCustomerAppointment(id, khach_hang_id, ghi_chu_noi_bo);
+  async cancelCustomerAppointment(id: string, khach_hang_id: string, ly_do_huy: string) {
+    const updated = await appointmentRepository.cancelCustomerAppointment(id, khach_hang_id, ly_do_huy);
     return updated;
   }
 
@@ -93,6 +93,10 @@ class AppointmentService {
 
   async checkCustomerHasClinicalExamOnDate(khach_hang_id: string | undefined, so_dien_thoai: string | undefined, dateStr: string, excludeSessionId?: string) {
     return appointmentRepository.checkCustomerHasClinicalExamOnDate(khach_hang_id || null, so_dien_thoai || null, dateStr, excludeSessionId);
+  }
+
+  async checkPhoneTakenByOther(phone: string, excludeUserId: string) {
+    return appointmentRepository.checkPhoneTakenByOther(phone, excludeUserId);
   }
 
   async getPublicAppointmentById(id: string) {

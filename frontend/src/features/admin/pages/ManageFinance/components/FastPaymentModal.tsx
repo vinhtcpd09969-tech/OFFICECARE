@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Receipt, CreditCard } from 'lucide-react';
 import { formatCurrency } from '../../../../../shared/utils';
 import { getInstallmentCutoffSession } from '../../../../../utils/billing';
+import { ConfirmDialog } from '../../../../../components/ConfirmDialog';
 import type { Invoice } from '../hooks/useFinanceDashboard';
 
 interface FastPaymentModalProps {
@@ -29,6 +30,7 @@ export const FastPaymentModal: React.FC<FastPaymentModalProps> = ({
   setNote,
   loading,
 }) => {
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   if (!invoice) return null;
 
   const isRefundedOrCancelled = invoice.trang_thai === 'da_hoan_tien' || invoice.trang_thai === 'da_huy';
@@ -64,10 +66,23 @@ export const FastPaymentModal: React.FC<FastPaymentModalProps> = ({
     hinhThuc === 'tra_thang' ? 'Trả thẳng' :
     hinhThuc === 'tung_buoi' ? 'Từng buổi' : null;
 
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setShowConfirmModal(true);
+  };
+
+  const handleFinalConfirm = () => {
+    setShowConfirmModal(false);
+    onSubmit({ preventDefault: () => {} } as React.FormEvent);
+  };
+
+  const cleanReceived = received.replace(/\D/g, '');
+  const amountToConfirm = method === 'tien_mat' && cleanReceived ? Number(cleanReceived) : requiredAmount;
+
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
       <form
-        onSubmit={onSubmit}
+        onSubmit={handleFormSubmit}
         className="bg-white rounded-3xl w-full max-w-3xl shadow-2xl border border-zinc-150 text-left animate-in zoom-in-95 duration-200 my-auto"
       >
         <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4">
@@ -312,6 +327,17 @@ export const FastPaymentModal: React.FC<FastPaymentModalProps> = ({
           </div>
         </div>
       </form>
+
+      <ConfirmDialog
+        isOpen={showConfirmModal}
+        title={isDot2 ? 'Xác nhận thu tiền Đợt 2' : 'Xác nhận thu tiền thanh toán'}
+        message={`Bạn có chắc chắn muốn xác nhận thu ${formatCurrency(amountToConfirm)} cho bệnh nhân "${invoice.ten_khach_hang}" (Mã HĐ: ${invoice.ma_hoa_don}) qua hình thức ${method === 'chuyen_khoan' ? 'Chuyển khoản' : 'Tiền mặt'}?`}
+        confirmLabel="Đồng ý & Thu tiền"
+        cancelLabel="Kiểm tra lại"
+        type="success"
+        onConfirm={handleFinalConfirm}
+        onCancel={() => setShowConfirmModal(false)}
+      />
     </div>
   );
 };

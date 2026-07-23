@@ -296,6 +296,13 @@ export default function ClinicalAssessment() {
   const isSessionOpen = appointment?.trang_thai === 'dang_kham';
   const isOverdue = isSessionOpen && remainingMs !== null && remainingMs <= 0;
 
+  // Ca đã kết thúc (hoàn thành/hủy/không đến) — chỉ được xem lại, cấm hoàn thành lại lần nữa vì sẽ
+  // ghi đè/xóa dữ liệu lâm sàng + chỉ định gói đã dùng để lập hóa đơn thật (backend cũng đã chặn,
+  // đây là lớp bảo vệ UI để tránh nhân viên bấm nhầm).
+  const isTerminalStatus = !!appointment && [
+    'hoan_thanh', 'da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'
+  ].includes(appointment.trang_thai);
+
   // Thực tế lưu dữ liệu từ Modal xác nhận. `options` chỉ dùng khi được gọi lại từ modal xử lý xung
   // đột chỉ định liệu trình (resolvePendingConflict: xóa chỉ định cũ rồi lưu; skipPackage: giữ
   // nguyên chỉ định cũ, không chỉ định gói cho ca khám này).
@@ -346,6 +353,10 @@ export default function ClinicalAssessment() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!appointmentId) return;
+    if (isTerminalStatus) {
+      toast.error('Ca này đã kết thúc, không thể chỉnh sửa hoặc hoàn thành lại.');
+      return;
+    }
 
     if (isKtv) {
       if (vasTruoc === undefined || vasSau === undefined) {
@@ -559,7 +570,16 @@ export default function ClinicalAssessment() {
 
       {activeTab === 'assess' && (
         <div className="max-w-4xl mx-auto space-y-6">
-          
+
+          {isTerminalStatus && (
+            <div className="flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-zinc-100 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-800">
+              <CheckCircle size={18} className="text-emerald-500 shrink-0" />
+              <p className="text-xs font-bold text-zinc-600 dark:text-zinc-300">
+                Ca này đã kết thúc (trạng thái: <span className="font-black text-secondary dark:text-zinc-100">{appointment?.trang_thai === 'hoan_thanh' ? 'Hoàn thành' : appointment?.trang_thai}</span>) — chỉ xem lại, không thể chỉnh sửa hoặc hoàn thành lại.
+              </p>
+            </div>
+          )}
+
           {/* Patient Card Header - Premium Clinic Desk Summary */}
           <div className="bg-white dark:bg-zinc-900 rounded-[24px] border border-zinc-150/60 dark:border-zinc-800 p-6 shadow-sm relative overflow-hidden space-y-4">
             <div className="absolute top-0 right-0 bg-primary/5 dark:bg-primary/10 w-32 h-32 rounded-full -mr-8 -mt-8 blur-2xl"></div>
@@ -973,21 +993,23 @@ export default function ClinicalAssessment() {
               </>
             )}
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={submitLoading}
-              className="w-full py-4 bg-primary hover:bg-primary/95 text-white font-extrabold rounded-2xl text-xs shadow-lg shadow-primary/15 hover:shadow-primary/25 hover:scale-[1.01] transition-all flex items-center justify-center gap-2.5 uppercase tracking-widest"
-            >
-              {submitLoading ? (
-                <div className="size-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              ) : (
-                <>
-                  <CheckCircle size={16} />
-                  {isKtv ? 'Xác nhận hoàn thành ca trị liệu' : 'Hoàn thành ca khám'}
-                </>
-              )}
-            </button>
+            {/* Submit Button — ẩn hẳn khi ca đã kết thúc, không cho hoàn thành lại */}
+            {!isTerminalStatus && (
+              <button
+                type="submit"
+                disabled={submitLoading}
+                className="w-full py-4 bg-primary hover:bg-primary/95 text-white font-extrabold rounded-2xl text-xs shadow-lg shadow-primary/15 hover:shadow-primary/25 hover:scale-[1.01] transition-all flex items-center justify-center gap-2.5 uppercase tracking-widest"
+              >
+                {submitLoading ? (
+                  <div className="size-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <>
+                    <CheckCircle size={16} />
+                    {isKtv ? 'Xác nhận hoàn thành ca trị liệu' : 'Hoàn thành ca khám'}
+                  </>
+                )}
+              </button>
+            )}
           </form>
         </div>
       )}

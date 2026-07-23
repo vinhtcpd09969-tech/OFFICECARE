@@ -179,7 +179,7 @@ class AppointmentRepository {
         ) as thoi_gian_tao,
         ch.ghi_chu_khach_hang AS ly_do_kham,
         ch.ghi_chu_noi_bo as ghi_chu_noi_bo,
-        ch.ghi_chu_noi_bo as ly_do_huy
+        ch.ly_do_huy as ly_do_huy
       FROM cuoc_hen ch
       LEFT JOIN khach_hang kh ON ch.khach_hang_id = kh.id
       LEFT JOIN goi_dich_vu g ON ch.goi_dich_vu_id = g.id
@@ -1081,6 +1081,7 @@ class AppointmentRepository {
     ngay_gio_bat_dau?: string | null;
     ngay_gio_ket_thuc?: string | null;
     ghi_chu_noi_bo?: string | null;
+    ly_do_huy?: string | null;
     phong_id?: string | number | null;
   }, actorRoleId?: number) {
     let finalStatus = data.trang_thai;
@@ -1243,6 +1244,12 @@ class AppointmentRepository {
         paramIndex++;
       }
 
+      if (data.ly_do_huy !== undefined) {
+        updates.push(`ly_do_huy = $${paramIndex}`);
+        values.push(data.ly_do_huy);
+        paramIndex++;
+      }
+
       if (data.phong_id !== undefined && !isCancelledOrNoShow) {
         updates.push(`phong_id = $${paramIndex}`);
         values.push(data.phong_id ? parseInt(String(data.phong_id), 10) : null);
@@ -1345,11 +1352,11 @@ class AppointmentRepository {
         nk.chong_chi_dinh,
         ch.ghi_chu_khach_hang as ghi_chu,
         ch.ghi_chu_noi_bo as ghi_chu_noi_bo,
-        ch.ghi_chu_noi_bo as ly_do_huy,
+        ch.ly_do_huy as ly_do_huy,
         COALESCE(
           (
-            SELECT created_at 
-            FROM otp_codes 
+            SELECT created_at
+            FROM otp_codes
             WHERE email = COALESCE(kh.email, (kh.so_dien_thoai || '@officecare.placeholder')) 
             ORDER BY created_at DESC 
             LIMIT 1
@@ -1423,7 +1430,7 @@ class AppointmentRepository {
     return rows[0].count || 0;
   }
 
-  async cancelCustomerAppointment(id: string, customer_id: string, ghi_chu_noi_bo: string) {
+  async cancelCustomerAppointment(id: string, customer_id: string, ly_do_huy: string) {
     const checkQuery = 'SELECT * FROM cuoc_hen WHERE id = $1 AND khach_hang_id = $2';
     const checkRes = await pool.query(checkQuery, [id, customer_id]);
     if (checkRes.rows.length === 0) {
@@ -1465,11 +1472,11 @@ class AppointmentRepository {
 
     const query = `
       UPDATE cuoc_hen
-      SET trang_thai = $1, ghi_chu_noi_bo = $2, thoi_gian_huy = NOW(), nhan_su_id = NULL, phong_id = NULL
+      SET trang_thai = $1, ly_do_huy = $2, thoi_gian_huy = NOW(), nhan_su_id = NULL, phong_id = NULL
       WHERE id = $3
       RETURNING *
     `;
-    const { rows } = await pool.query(query, [finalStatus, ghi_chu_noi_bo, id]);
+    const { rows } = await pool.query(query, [finalStatus, ly_do_huy, id]);
 
     // Hủy không bao giờ đổi so_buoi_da_dung ở quy tắc mới (action luôn là 'da_huy') — không gọi
     // updateCompletedSessionsCount nữa.
@@ -1497,6 +1504,17 @@ class AppointmentRepository {
   async checkCustomerHasClinicalExamOnDate(khach_hang_id: string | null, so_dien_thoai: string | null, dateStr: string, excludeSessionId?: string): Promise<boolean> {
     if (!khach_hang_id && !so_dien_thoai) return false;
 
+    let effectivePhone: string | null = so_dien_thoai;
+    if (khach_hang_id && so_dien_thoai && so_dien_thoai.trim()) {
+      const otherRes = await pool.query(
+        'SELECT id FROM khach_hang WHERE so_dien_thoai = $1 AND id != $2::uuid',
+        [so_dien_thoai.trim(), khach_hang_id]
+      );
+      if (otherRes.rows.length > 0) {
+        effectivePhone = null;
+      }
+    }
+
     const apptQuery = `
       SELECT COUNT(*)::int as count FROM cuoc_hen ch
       LEFT JOIN khach_hang kh ON ch.khach_hang_id = kh.id
@@ -1509,7 +1527,7 @@ class AppointmentRepository {
     `;
     const apptRes = await pool.query(apptQuery, [
       khach_hang_id || null,
-      so_dien_thoai || null,
+      effectivePhone || null,
       dateStr
     ]);
     const apptCount = apptRes.rows[0].count || 0;
@@ -1527,13 +1545,22 @@ class AppointmentRepository {
     `;
     const holdRes = await pool.query(holdQuery, [
       khach_hang_id || null,
-      so_dien_thoai || null,
+      effectivePhone || null,
       dateStr,
       excludeSessionId || null
     ]);
     const holdCount = holdRes.rows[0].count || 0;
 
     return (apptCount + holdCount) >= 3;
+  }
+
+  async checkPhoneTakenByOther(phone: string, excludeUserId: string): Promise<boolean> {
+    if (!phone || !excludeUserId) return false;
+    const res = await pool.query(
+      'SELECT id FROM khach_hang WHERE so_dien_thoai = $1 AND id != $2::uuid',
+      [phone.trim(), excludeUserId]
+    );
+    return res.rows.length > 0;
   }
 
   async checkCustomerHasClinicalExamOnDateByUserId(userId: string | null, phone: string | null, dateStr: string, excludeSessionId?: string): Promise<boolean> {
@@ -1599,7 +1626,7 @@ class AppointmentRepository {
         nk.chong_chi_dinh,
         ch.ghi_chu_khach_hang as ghi_chu_dat_lich,
         ch.ghi_chu_noi_bo as ghi_chu_noi_bo,
-        ch.ghi_chu_noi_bo as ly_do_huy,
+        ch.ly_do_huy as ly_do_huy,
         ch.thoi_gian_huy,
         ch.ngay_gio_bat_dau as thoi_gian_tao,
         (SELECT expires_at FROM otp_codes WHERE email = COALESCE(kh.email, (kh.so_dien_thoai || '@officecare.placeholder')) ORDER BY expires_at DESC LIMIT 1) as han_xac_nhan

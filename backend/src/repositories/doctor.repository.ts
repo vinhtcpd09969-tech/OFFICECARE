@@ -118,10 +118,10 @@ class DoctorRepository {
     const loaiCondition = roleId === 3 ? "ch.loai != 'KHAM'" : "ch.loai = 'KHAM'";
     const queryStr = `
       SELECT 
-        ch.id, 
-        'LH-' || UPPER(SUBSTRING(ch.id::text FROM 1 FOR 6)) as ma_lich_dat, 
+        ch.id,
+        'LH-' || UPPER(SUBSTRING(ch.id::text FROM 1 FOR 6)) as ma_lich_dat,
         ch.ngay_gio_bat_dau, ch.ngay_gio_ket_thuc, ch.trang_thai, ch.ghi_chu_khach_hang as ly_do_kham,
-        ch.anh_dinh_kem_url,
+        ch.anh_dinh_kem_url, ch.khach_hang_id,
         kh.ho_ten as ten_khach_hang,
         COALESCE(ch.so_dien_thoai, kh.so_dien_thoai) as so_dien_thoai,
         nk.id as ho_so_dieu_tri_id, nk.id as ho_so_benh_an_id, nk.chan_doan, nk.chong_chi_dinh,
@@ -272,6 +272,17 @@ class DoctorRepository {
     try {
       await client.query('BEGIN');
 
+      // Chặn hoàn thành lại 1 ca đã ở trạng thái kết thúc (hoàn thành/hủy/không đến) — nếu không,
+      // việc DELETE + re-INSERT chi_dinh_buoi bên dưới sẽ xóa mất chỉ định gói đã dùng để tạo hóa
+      // đơn thật của lần hoàn thành trước đó.
+      const currentRes = await client.query('SELECT trang_thai FROM cuoc_hen WHERE id = $1', [data.lich_dat_id]);
+      if (currentRes.rows.length === 0) {
+        throw new Error('Không tìm thấy cuộc hẹn.');
+      }
+      if (['hoan_thanh', 'da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(currentRes.rows[0].trang_thai)) {
+        throw new Error('Ca khám này đã kết thúc (hoàn thành/hủy/không đến), không thể chỉnh sửa hoặc hoàn thành lại.');
+      }
+
       // 1. Tạo/cập nhật hồ sơ bệnh án (UPSERT vào nhat_ky_buoi_dieu_tri)
       const nhatKyQuery = `
         INSERT INTO nhat_ky_buoi_dieu_tri (cuoc_hen_id, nguoi_tao_id, chan_doan, chong_chi_dinh, ghi_chu)
@@ -419,18 +430,25 @@ class DoctorRepository {
   async getPatients(userId: string) {
     const queryStr = `
       SELECT DISTINCT kh.id as khach_hang_id, kh.id as id, kh.id as nguoi_dung_id, kh.ngay_sinh, kh.gioi_tinh, kh.dia_chi,
-             COALESCE(kh.ho_ten, 'Khách vãng lai') as ho_ten, 
-             kh.email, 
-             kh.so_dien_thoai, 
-             kh.trang_thai, 
+             COALESCE(kh.ho_ten, 'Khách vãng lai') as ho_ten,
+             kh.email,
+             kh.so_dien_thoai,
+             kh.trang_thai,
              EXISTS (
-                SELECT 1 
+                SELECT 1
                 FROM cuoc_hen ch_inner
                 JOIN nhat_ky_buoi_dieu_tri nk ON nk.cuoc_hen_id = ch_inner.id
-                WHERE ch_inner.khach_hang_id = kh.id 
-                  AND nk.chong_chi_dinh IS NOT NULL 
+                WHERE ch_inner.khach_hang_id = kh.id
+                  AND nk.chong_chi_dinh IS NOT NULL
                   AND nk.chong_chi_dinh <> ''
-             ) as has_chong_chi_dinh
+             ) as has_chong_chi_dinh,
+             (
+                SELECT MAX(ch_last.ngay_gio_bat_dau)
+                FROM cuoc_hen ch_last
+                WHERE ch_last.khach_hang_id = kh.id
+                  AND ch_last.nhan_su_id = $1::integer
+                  AND ch_last.trang_thai = 'hoan_thanh'
+             ) as lan_cuoi_su_dung
       FROM khach_hang kh
       JOIN cuoc_hen ch ON ch.khach_hang_id = kh.id
       WHERE ch.nhan_su_id = $1::integer

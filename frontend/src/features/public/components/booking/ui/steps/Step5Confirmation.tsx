@@ -28,7 +28,7 @@ export function Step5Confirmation({
   isSubmitting
 }: Step5ConfirmationProps) {
   const selectedService = services.find(s => s.id === selectedServiceId);
-  const selectedStaffName = specialists.find(s => String(s.id) === selectedStaffId)?.ho_ten || 'Hệ thống chọn sau (Chưa chỉ định)';
+  const selectedStaffName = specialists.find(s => String(s.id) === selectedStaffId)?.ho_ten || 'Không chọn (Chưa chỉ định)';
 
   return (
     <motion.div

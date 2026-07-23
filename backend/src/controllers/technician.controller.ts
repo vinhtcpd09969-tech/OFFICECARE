@@ -85,7 +85,12 @@ export const saveTreatmentRecord = async (req: AuthenticatedRequest, res: Respon
     res.json(result);
   } catch (error: any) {
     console.error('Lỗi khi lưu kết quả buổi trị liệu KTV:', error);
-    res.status(500).json({ message: error.message || 'Lỗi server' });
+    // Lỗi nghiệp vụ (ca đã kết thúc, không tìm thấy cuộc hẹn...) → 400 kèm message gốc, không nuốt
+    // thành 500 chung chung (đồng bộ quy ước với doctor.controller.ts::saveAssessment).
+    if (error.message && !error.stack?.includes('pg') && !error.stack?.includes('Prisma') && !error.message.includes('connection')) {
+      return res.status(400).json({ message: error.message });
+    }
+    res.status(500).json({ message: 'Lỗi server' });
   }
 };
 

@@ -36,7 +36,7 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
       attributes: {
         class: 'prose prose-sm max-w-none focus:outline-none min-h-[320px] px-4 py-3'
       },
-      handleClickOn(view, pos, node, nodePos, event, direct) {
+      handleClickOn(view, _pos, node, nodePos, _event, _direct) {
         if (node.type.name === 'image') {
           const selection = NodeSelection.create(view.state.doc, nodePos);
           view.dispatch(view.state.tr.setSelection(selection));

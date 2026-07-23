@@ -12,7 +12,8 @@ export interface Voucher {
   so_luong_toi_da: number | null;
   ngay_bat_dau: string;
   ngay_het_han: string | null;
-  trang_thai: 'hoat_dong' | 'tam_dung' | 'sap_ra_mat' | 'het_han';
+  trang_thai: 'hoat_dong' | 'tam_dung' | 'sap_ra_mat' | 'het_han' | 'vo_hieu';
+  dang_kich_hoat?: boolean;
   yeu_cau_thanh_toan: string[];
 }
 
@@ -43,6 +44,7 @@ export function VoucherCard({
   
   let computedStatus = v.trang_thai;
   if (isExpired) computedStatus = 'het_han';
+  else if (v.trang_thai === 'vo_hieu' || v.dang_kich_hoat === false || v.trang_thai === 'tam_dung') computedStatus = 'tam_dung';
   else if (isUpcoming && v.trang_thai === 'hoat_dong') computedStatus = 'sap_ra_mat';
 
   return (
@@ -97,13 +99,12 @@ export function VoucherCard({
               <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-lg border ${
                 computedStatus === 'hoat_dong' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
                 computedStatus === 'sap_ra_mat' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                'bg-slate-100 text-slate-500 border-slate-200'
+                computedStatus === 'het_han' ? 'bg-rose-50 text-rose-700 border-rose-100' :
+                'bg-amber-50 text-amber-700 border-amber-100'
               }`}>
-                {/* "Tạm dừng" (admin tự tắt) và "Hết hạn" (tự động tính theo ngày) gộp chung 1 nhãn
-                    "Ngưng sử dụng" cho dễ nhìn — cả 2 đều nghĩa là mã không dùng được lúc này, chi
-                    tiết lý do đã có ở nút bật/tắt và ngày hết hạn bên dưới. */}
                 {computedStatus === 'hoat_dong' ? 'Đang chạy' :
-                 computedStatus === 'sap_ra_mat' ? 'Sắp hoạt động' : 'Ngưng sử dụng'}
+                 computedStatus === 'sap_ra_mat' ? 'Sắp hoạt động' :
+                 computedStatus === 'het_han' ? 'Đã hết hạn' : 'Ngưng sử dụng'}
               </span>
 
               {paymentMethodLabel && (

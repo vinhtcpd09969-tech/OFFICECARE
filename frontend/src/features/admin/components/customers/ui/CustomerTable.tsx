@@ -54,18 +54,18 @@ const CustomerTableRow = memo(function CustomerTableRow({
           <span className="text-[10px] text-slate-400 font-medium">{customer.email || '-'}</span>
         </div>
       </td>
-      <td className="p-4">
+      <td className="p-4 text-center">
         <ReputationBadge score={customer.diem_uy_tin} />
       </td>
-      <td className="p-4">
+      <td className="p-4 text-center">
         <StatusTierPill status={customer.primary_status} />
       </td>
       <td className="p-4">
         <PrimaryPlanCell status={customer.primary_status} />
       </td>
-      <td className="p-4 font-mono font-bold text-slate-800">{formatCurrency(customer.tong_chi_tieu)}</td>
+      <td className="p-4 text-right font-mono font-bold text-slate-800 whitespace-nowrap">{formatCurrency(customer.tong_chi_tieu)}</td>
       <td className="p-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-end gap-2 flex-wrap">
           <RecordViewButton hasRecord={customer.has_record} onClick={() => onViewProfile(customer)} />
           <button
             type="button"
@@ -112,16 +112,25 @@ export function CustomerTable({ data, loading, meta, onPageChange, onViewProfile
   return (
     <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse text-xs">
+        <table className="w-full text-left border-collapse text-xs table-fixed">
+          <colgroup>
+            <col className="w-[17%]" />
+            <col className="w-[14%]" />
+            <col className="w-[9%]" />
+            <col className="w-[13%]" />
+            <col className="w-[16%]" />
+            <col className="w-[10%]" />
+            <col className="w-[21%]" />
+          </colgroup>
           <thead>
             <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase tracking-wider">
               <th className="p-4 font-black">Khách hàng</th>
               <th className="p-4 font-black">Liên hệ</th>
-              <th className="p-4 font-black">Uy tín</th>
-              <th className="p-4 font-black">Trạng thái</th>
+              <th className="p-4 font-black text-center">Uy tín</th>
+              <th className="p-4 font-black text-center">Trạng thái</th>
               <th className="p-4 font-black">Liệu trình</th>
-              <th className="p-4 font-black">Tổng chi tiêu</th>
-              <th className="p-4 font-black">Thao tác</th>
+              <th className="p-4 font-black text-right">Tổng chi tiêu</th>
+              <th className="p-4 font-black text-right">Thao tác</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">

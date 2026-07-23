@@ -79,14 +79,16 @@ export const updateAppointmentStatusSchema = z.object({
     ngay_gio_bat_dau: z.string().datetime({ message: 'Ngày giờ bắt đầu không hợp lệ' }).optional().nullable(),
     ngay_gio_ket_thuc: z.string().datetime({ message: 'Ngày giờ kết thúc không hợp lệ' }).optional().nullable(),
     ghi_chu_noi_bo: z.string().optional().nullable(),
+    ly_do_huy: z.string().optional().nullable(),
   })
 }).refine(data => {
   const isCancelledOrNoShow = ['da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(data.body.trang_thai);
-  if (isCancelledOrNoShow && (!data.body.ghi_chu_noi_bo || !data.body.ghi_chu_noi_bo.trim())) {
+  const effectiveReason = data.body.ly_do_huy || data.body.ghi_chu_noi_bo;
+  if (isCancelledOrNoShow && (!effectiveReason || !effectiveReason.trim())) {
     return false;
   }
   return true;
 }, {
-  message: 'Ghi chú nội bộ (Lý do hủy/vắng mặt) là bắt buộc.',
-  path: ['body', 'ghi_chu_noi_bo']
+  message: 'Lý do hủy/vắng mặt là bắt buộc.',
+  path: ['body', 'ly_do_huy']
 });
