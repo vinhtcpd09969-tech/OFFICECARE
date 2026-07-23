@@ -15,6 +15,7 @@ interface Step4CustomerFormProps {
   selectedDate: string;
   bookingType: 'kham' | 'dich_vu';
   hasExistingClinicalExam: boolean;
+  isPhoneTakenByOther?: boolean;
   user: any;
   setActiveStep: (step: number) => void;
   selectedTime: string;
@@ -34,6 +35,7 @@ export function Step4CustomerForm({
   selectedDate,
   bookingType,
   hasExistingClinicalExam,
+  isPhoneTakenByOther,
   user,
   setActiveStep,
   selectedTime,
@@ -153,6 +155,11 @@ export function Step4CustomerForm({
       return;
     }
 
+    if (isPhoneTakenByOther) {
+      toast.error('Số điện thoại này đã thuộc về một tài khoản khách hàng khác trong hệ thống.');
+      return;
+    }
+
     const toastId = toast.loading('Đang kiểm tra trùng lịch hẹn...');
     const examService = services.find(s => s.loai_goi === 'KHAM' || s.loai_dich_vu === 'KHAM');
     const targetDichVuId = bookingType === 'dich_vu' ? selectedServiceId : (examService?.id || '');
@@ -211,7 +218,19 @@ export function Step4CustomerForm({
 
 
 
-      {hasExistingClinicalExam && bookingType === 'kham' && (
+      {isPhoneTakenByOther && (
+        <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl text-xs flex items-start gap-3 text-amber-900 leading-relaxed font-semibold animate-fade-in">
+          <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-extrabold uppercase tracking-wider text-amber-800 text-[10px]">Cảnh báo: Số điện thoại đã được sử dụng</p>
+            <p className="mt-0.5 font-medium text-amber-700">
+              Số điện thoại này đã thuộc về một tài khoản khách hàng khác trong hệ thống. Vui lòng kiểm tra lại chính xác số điện thoại của bạn.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {hasExistingClinicalExam && bookingType === 'kham' && !isPhoneTakenByOther && (
         <div className="bg-rose-50 border border-rose-200 p-4 rounded-2xl text-xs flex items-start gap-3 text-rose-900 leading-relaxed font-semibold animate-fade-in">
           <AlertTriangle size={18} className="text-rose-500 shrink-0 mt-0.5" />
           <div>
@@ -461,7 +480,7 @@ export function Step4CustomerForm({
         </button>
         <button
           type="button"
-          disabled={hasExistingClinicalExam && bookingType === 'kham'}
+          disabled={(hasExistingClinicalExam && bookingType === 'kham') || isPhoneTakenByOther}
           onClick={handleNextStep}
           className="bg-[#0F172A] hover:bg-[#1E293B] text-white font-jakarta font-extrabold py-3.5 px-6 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
         >

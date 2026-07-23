@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { ChevronLeft, Phone, Mail, Bell, CalendarPlus, ClipboardList, History } from 'lucide-react';
+import { ChevronLeft, Phone, Mail, Bell, CalendarPlus, Calendar, CreditCard, ClipboardList, History } from 'lucide-react';
 import { statusConfig } from '../../../../../components/appointmentStatusConfig';
 import { ReputationScore } from './ReputationScore';
 import type { CustomerHistoryDetail } from '../types';
@@ -61,17 +61,6 @@ export function CustomerHistoryView({ customer, staleDays, onBack }: CustomerHis
             </div>
           </div>
         </div>
-
-        {activePlan && (
-          <button
-            type="button"
-            onClick={() => navigate(`/receptionist/appointments?khach_hang_id=${customer.id}&goi_dich_vu_id=${activePlan.goi_dich_vu_id}`)}
-            className="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 shadow-sm active:scale-95 shrink-0"
-          >
-            <CalendarPlus size={14} />
-            Đặt lịch hẹn tiếp theo cho khách
-          </button>
-        )}
       </div>
 
       {/* Banner cần liên hệ lại */}
@@ -106,12 +95,27 @@ export function CustomerHistoryView({ customer, staleDays, onBack }: CustomerHis
                   <th className="p-3 font-black">Tiến độ</th>
                   <th className="p-3 font-black">Ngày kích hoạt</th>
                   <th className="p-3 font-black">Hạn</th>
+                  <th className="p-3 font-black">Lịch hẹn tiếp theo</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {customer.plans.map((p) => {
                   const meta = PLAN_STATUS_META[p.trang_thai] || { label: p.trang_thai, cls: 'bg-slate-100 text-slate-600 border-slate-200' };
                   const hanDate = p.trang_thai === 'cho_kich_hoat' ? p.han_kich_hoat : p.han_su_dung;
+
+                  // Lọc lịch hẹn tiếp theo đang chờ diễn ra cho gói này (Chỉ tính các ca CHƯA hoàn thành/hủy)
+                  const upcomingAppts = customer.appointments.filter((a) => {
+                    const isSamePlan = a.phac_do_dieu_tri_id
+                      ? String(a.phac_do_dieu_tri_id) === String(p.id)
+                      : String(a.goi_dich_vu_id) === String(p.goi_dich_vu_id) && p.trang_thai === 'dang_dieu_tri';
+                    
+                    const isPendingOrActive = ['cho_xac_nhan', 'da_xac_nhan', 'da_checkin', 'dang_kham'].includes(a.trang_thai);
+                    return isSamePlan && isPendingOrActive;
+                  }).sort((a, b) => new Date(a.ngay_gio_bat_dau).getTime() - new Date(b.ngay_gio_bat_dau).getTime());
+
+                  const nextAppt = upcomingAppts[0];
+                  const isPlanCompleted = p.trang_thai === 'hoan_thanh' || (p.so_buoi_da_dung || 0) >= (p.tong_so_buoi || 0);
+
                   return (
                     <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="p-3 font-bold text-slate-800">{p.ten_goi}</td>
@@ -126,6 +130,48 @@ export function CustomerHistoryView({ customer, staleDays, onBack }: CustomerHis
                       </td>
                       <td className="p-3 font-semibold text-slate-500">
                         {hanDate ? format(new Date(hanDate), 'dd/MM/yyyy') : '-'}
+                      </td>
+                      <td className="p-3">
+                        {nextAppt ? (
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1.5 font-bold text-slate-800">
+                              <Calendar size={13} className="text-teal-600 shrink-0" />
+                              <span>{format(new Date(nextAppt.ngay_gio_bat_dau), 'dd/MM/yyyy HH:mm')}</span>
+                              {nextAppt.so_thu_tu_buoi && (
+                                <span className="text-[10px] font-extrabold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-100">
+                                  Buổi #{nextAppt.so_thu_tu_buoi}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className={`inline-flex px-1.5 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-wider ${
+                                statusConfig[nextAppt.trang_thai]?.color || 'bg-slate-100 text-slate-600 border-slate-200'
+                              }`}>
+                                {statusConfig[nextAppt.trang_thai]?.label || nextAppt.trang_thai}
+                              </span>
+                            </div>
+                          </div>
+                        ) : p.trang_thai === 'cho_kich_hoat' || p.trang_thai === 'khuyen_nghi' ? (
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/receptionist/billing?customer_id=${customer.id}&goi_dich_vu_id=${p.goi_dich_vu_id}&phac_do_id=${p.id}`)}
+                            className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 shadow-xs active:scale-95 shrink-0 cursor-pointer"
+                          >
+                            <CreditCard size={13} />
+                            Thanh toán & Kích hoạt
+                          </button>
+                        ) : p.trang_thai === 'dang_dieu_tri' && !isPlanCompleted ? (
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/receptionist/appointments?khach_hang_id=${customer.id}&goi_dich_vu_id=${p.goi_dich_vu_id}&phac_do_id=${p.id}&buoi=${(p.so_buoi_da_dung || 0) + 1}`)}
+                            className="px-3 py-1.5 bg-[#0D9488] hover:bg-[#0D9488]/90 text-white rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 shadow-xs active:scale-95 shrink-0 cursor-pointer"
+                          >
+                            <CalendarPlus size={13} />
+                            Đặt lịch buổi {(p.so_buoi_da_dung || 0) + 1}
+                          </button>
+                        ) : (
+                          <span className="text-[11px] font-semibold text-slate-400 italic">Đã hoàn thành</span>
+                        )}
                       </td>
                     </tr>
                   );

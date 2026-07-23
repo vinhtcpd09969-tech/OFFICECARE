@@ -34,13 +34,13 @@ export const updateAppointmentStatus = async (req: Request, res: Response): Prom
   try {
     const { id } = req.params as { id: string };
     const { trang_thai, ly_do_huy, ghi_chu_noi_bo } = req.body;
-    const finalNote = ghi_chu_noi_bo !== undefined ? ghi_chu_noi_bo : ly_do_huy;
+    const effectiveReason = (ly_do_huy && ly_do_huy.trim()) ? ly_do_huy.trim() : (ghi_chu_noi_bo && ghi_chu_noi_bo.trim() ? ghi_chu_noi_bo.trim() : undefined);
     if (['da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(trang_thai)) {
-      if (!finalNote || !finalNote.trim()) {
-        return res.status(400).json({ message: 'Ghi chú nội bộ (Lý do hủy/vắng mặt) là bắt buộc.' });
+      if (!effectiveReason) {
+        return res.status(400).json({ message: 'Lý do hủy/vắng mặt là bắt buộc.' });
       }
     }
-    const appointment = await receptionistService.updateAppointmentStatus(id, trang_thai, finalNote);
+    const appointment = await receptionistService.updateAppointmentStatus(id, trang_thai, ghi_chu_noi_bo, effectiveReason);
     res.json(appointment);
   } catch (error: any) {
     console.error('Lỗi cập nhật trạng thái:', error);

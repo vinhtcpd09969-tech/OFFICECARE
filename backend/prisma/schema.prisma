@@ -153,6 +153,7 @@ model cuoc_hen {
   anh_dinh_kem_url      String?
   thoi_gian_huy         DateTime?              @db.Timestamptz(6)
   nguoi_tao_id          Int?
+  ly_do_huy             String?
   goi_dich_vu           goi_dich_vu?           @relation(fields: [goi_dich_vu_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   khach_hang            khach_hang             @relation(fields: [khach_hang_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   nguoi_dung            nguoi_dung?            @relation(fields: [nhan_su_id], references: [id], onDelete: NoAction, onUpdate: NoAction)

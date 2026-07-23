@@ -668,8 +668,8 @@ export default function AppointmentDetailModal({
           const updateFn = isReceptionist ? updateAppointmentStatusRec : updateAppointmentStatusAdmin;
           await updateFn(selectedAppointment.id, {
             trang_thai: 'da_huy',
-            ghi_chu_noi_bo: trimmedReason || localGhiChuNoiBo,
-            ly_do_huy: trimmedReason || localGhiChuNoiBo,
+            ghi_chu_noi_bo: localGhiChuNoiBo || null,
+            ly_do_huy: trimmedReason,
             ...(finalNgayGioBatDau && { ngay_gio_bat_dau: finalNgayGioBatDau }),
             ...(finalNgayGioKetThuc && { ngay_gio_ket_thuc: finalNgayGioKetThuc })
           });

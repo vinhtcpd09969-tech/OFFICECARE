@@ -33,6 +33,8 @@ export interface DoctorAppointment {
   chan_doan?: string;
   chong_chi_dinh?: string;
   anh_dinh_kem_url?: string | null;
+  khach_hang_id?: string;
+  phac_do_dieu_tri_id?: string | null;
 }
 
 // Khám lâm sàng & dịch vụ lẻ gộp chung 1 dòng thời gian (KHÔNG lẫn buổi trong phác đồ) — mirror
@@ -181,6 +183,7 @@ export interface PatientInfo {
   so_dien_thoai: string;
   avatar_url?: string;
   has_chong_chi_dinh?: boolean;
+  lan_cuoi_su_dung?: string | null;
 }
 
 export const getPatients = () => api.get<PatientInfo[]>('/doctor/patients');

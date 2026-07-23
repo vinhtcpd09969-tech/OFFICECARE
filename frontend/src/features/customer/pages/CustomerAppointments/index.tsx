@@ -13,7 +13,8 @@ import {
   ChevronRight,
   TrendingUp,
   ShieldCheck,
-  FileText
+  FileText,
+  AlertTriangle
 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
@@ -432,13 +433,33 @@ export default function CustomerAppointments() {
   // Dùng lại điểm đã có sẵn trong hồ sơ đăng nhập (authStore) làm phương án dự phòng.
   const diemUyTin = appointments[0]?.diem_uy_tin ?? user?.diem_uy_tin ?? 100;
 
-  // Filter implementation
+  // Filter & Priority Sorting implementation
   const filteredAppointments = useMemo(() => {
-    const sorted = [...appointments].sort((a, b) => new Date(b.ngay_gio_bat_dau).getTime() - new Date(a.ngay_gio_bat_dau).getTime());
+    const isUpcomingStatus = (status: string) => {
+      return ['cho_xac_nhan', 'chua_xac_nhan', 'da_xac_nhan', 'da_checkin', 'dang_kham', 'cho_huy'].includes(status);
+    };
+
+    const sorted = [...appointments].sort((a, b) => {
+      const aUpcoming = isUpcomingStatus(a.trang_thai);
+      const bUpcoming = isUpcomingStatus(b.trang_thai);
+
+      // Ưu tiên đưa lịch sắp tới / mới tạo (Chờ duyệt, Đã xác nhận, Đang khám...) lên ĐẦU danh sách
+      if (aUpcoming && !bUpcoming) return -1;
+      if (!aUpcoming && bUpcoming) return 1;
+
+      // Nếu cả 2 đều là lịch sắp tới, ưu tiên ngày gần nhất (gần hiện tại nhất lên trước)
+      if (aUpcoming && bUpcoming) {
+        return new Date(a.ngay_gio_bat_dau).getTime() - new Date(b.ngay_gio_bat_dau).getTime();
+      }
+
+      // Nếu cả 2 đều là lịch cũ/hoàn thành/hủy, sắp xếp lịch gần đây nhất lên trước
+      return new Date(b.ngay_gio_bat_dau).getTime() - new Date(a.ngay_gio_bat_dau).getTime();
+    });
+
     return sorted.filter((app) => {
       // 1. Status Filter
       if (statusFilter === 'upcoming') {
-        if (!['cho_xac_nhan', 'chua_xac_nhan', 'da_xac_nhan'].includes(app.trang_thai)) return false;
+        if (!isUpcomingStatus(app.trang_thai)) return false;
       } else if (statusFilter === 'completed') {
         if (app.trang_thai !== 'hoan_thanh') return false;
       } else if (statusFilter === 'cancelled') {
@@ -992,7 +1013,7 @@ export default function CustomerAppointments() {
                               {app.trang_thai.includes('huy') ? 'Đã Hủy Lịch Hẹn' : 'Vắng Mặt (No-Show)'}
                             </p>
                             <p className="text-slate-400 mt-1 italic font-medium text-[10px]">
-                              "Lý do: {app.ghi_chu_noi_bo || app.ly_do_huy || 'Không có lý do chi tiết'}"
+                              "Lý do: {app.ly_do_huy || app.ghi_chu_noi_bo || 'Không có lý do chi tiết'}"
                             </p>
                           </div>
                         )}
@@ -1064,25 +1085,7 @@ export default function CustomerAppointments() {
                             >
                               Yêu cầu hủy lịch
                             </motion.button>
-                          ) : (
-                            <div className="w-full bg-slate-50 border border-slate-150 rounded-xl py-2.5 px-3 text-center space-y-0.5">
-                              <p className="text-[9px] font-black text-slate-450 uppercase tracking-wider flex items-center justify-center gap-1">
-                                <Clock size={11} /> Đã quá mốc tự hủy (dưới 8 tiếng)
-                              </p>
-                              <p className="text-[9px] text-slate-400 font-semibold leading-snug">
-                                Vui lòng liên hệ Hotline: <strong>1900 6868</strong> hoặc{' '}
-                                <a
-                                  href="https://www.facebook.com/profile.php?id=61591064963268"
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-[#0D9488] font-black underline underline-offset-2 hover:text-[#0b7d72]"
-                                >
-                                  Chat với phòng khám
-                                </a>{' '}
-                                để được hỗ trợ hủy/đổi lịch.
-                              </p>
-                            </div>
-                          )
+                          ) : null
                         )}
                       </div>
                     </motion.div>
@@ -1098,74 +1101,132 @@ export default function CustomerAppointments() {
 
       {/* CANCEL CONFIRMATION MODAL */}
       <AnimatePresence>
-        {cancellingId && (
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setCancellingId(null)}
-              className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs"
-            />
+        {cancellingId && (() => {
+          const cancellingAppt = appointments.find(a => a.id === cancellingId);
+          const getRemainingTimeText = (startDateStr?: string) => {
+            if (!startDateStr) return '';
+            const startMs = new Date(startDateStr).getTime();
+            const nowMs = Date.now();
+            const diffMs = startMs - nowMs;
+            if (diffMs <= 0) return '0 phút';
+            
+            const totalMinutes = Math.floor(diffMs / 60000);
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = totalMinutes % 60;
+            
+            if (hours > 0) {
+              return `${hours} giờ ${minutes > 0 ? `${minutes} phút` : ''}`;
+            }
+            return `${minutes} phút`;
+          };
 
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="bg-white text-slate-800 rounded-[24px] border border-slate-100 max-w-sm w-full p-6 shadow-xl relative z-10 font-jakarta"
-            >
-              <form onSubmit={handleCancelSubmit} className="space-y-5">
+          const remainingTime = getRemainingTimeText(cancellingAppt?.ngay_gio_bat_dau);
+
+          return (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => {
+                  setCancellingId(null);
+                  setLyDoHuy('');
+                }}
+                className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs"
+              />
+
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                className="bg-white text-slate-800 rounded-[28px] border border-slate-100 max-w-md w-full p-6 shadow-2xl relative z-10 font-jakarta space-y-4"
+              >
                 <div className="text-center space-y-2">
-                  <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center mx-auto border border-rose-100 shadow-xs">
-                    <XCircle size={24} />
+                  <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto border border-amber-200/60 shadow-xs">
+                    <AlertTriangle size={24} />
                   </div>
-                  <h3 className="text-lg font-black text-slate-900 uppercase tracking-wide">Yêu cầu hủy lịch?</h3>
-                  <p className="text-[11px] text-slate-400 font-semibold leading-relaxed px-2">
-                    Trung tâm xác nhận sẽ liên hệ điện thoại để xác minh yêu cầu.
+                  <h3 className="text-lg font-black text-slate-900 uppercase tracking-wide">
+                    Xác nhận Hủy Lịch Hẹn
+                  </h3>
+                  
+                  {remainingTime && (
+                    <div className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-800 font-extrabold text-xs px-3.5 py-1.5 rounded-full border border-amber-200/80">
+                      <span>⏱️ Lịch hẹn còn</span>
+                      <span className="text-rose-600 font-black">{remainingTime}</span>
+                      <span>nữa mới bắt đầu</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200/70 p-3.5 rounded-2xl text-xs text-slate-600 leading-relaxed font-medium space-y-1">
+                  <p>
+                    Nếu có nhu cầu thay đổi lịch hẹn, vui lòng liên hệ Hotline{' '}
+                    <a href="tel:19006868" className="font-extrabold text-slate-900 hover:text-[#0D9488]">1900 6868</a>{' '}
+                    hoặc{' '}
+                    <a
+                      href="https://www.facebook.com/profile.php?id=61591064963268"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-extrabold text-[#0D9488] underline hover:text-[#0b7d72]"
+                    >
+                      Chat với phòng khám
+                    </a>{' '}
+                    để được hỗ trợ đổi giờ tốt nhất.
                   </p>
                 </div>
 
-                <div className="bg-rose-50 border border-rose-150 rounded-xl p-3 text-center">
-                  <p className="text-[11px] font-black text-rose-700">
-                    ⚠️ Bạn sẽ bị trừ <strong>10 điểm uy tín</strong> nếu xác nhận hủy lịch hẹn này.
+                <div className="bg-rose-50 border border-rose-200/80 p-3.5 rounded-2xl text-xs font-bold text-rose-800 space-y-1">
+                  <p className="flex items-center gap-1.5 text-rose-700 font-black">
+                    ⚠️ Hủy lịch sẽ ảnh hưởng đến Điểm uy tín của khách hàng!
+                  </p>
+                  <p className="text-[11px] font-medium text-rose-600 leading-snug">
+                    Xác nhận hủy lịch sẽ làm giảm 10 điểm uy tín tích lũy của bạn trong hệ thống.
                   </p>
                 </div>
 
-                <div className="space-y-1.5 text-left">
-                  <label htmlFor="lyDoHuyInput" className="text-[9px] font-black text-slate-455 uppercase block tracking-wider">Lý do hủy lịch *</label>
-                  <textarea
-                    id="lyDoHuyInput"
-                    rows={3}
-                    required
-                    value={lyDoHuy}
-                    onChange={(e) => setLyDoHuy(e.target.value)}
-                    placeholder="Hãy ghi lý do hủy ca..."
-                    className="w-full bg-slate-50 border border-slate-150 focus:border-[#14B8A6]/60 p-3 rounded-lg text-xs font-bold resize-none outline-none text-slate-800 transition-colors"
-                  />
-                </div>
+                <form onSubmit={handleCancelSubmit} className="space-y-3.5">
+                  <div className="space-y-1.5 text-left">
+                    <label htmlFor="lyDoHuyInput" className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      Lý do hủy lịch *
+                    </label>
+                    <textarea
+                      id="lyDoHuyInput"
+                      rows={2}
+                      required
+                      value={lyDoHuy}
+                      onChange={(e) => setLyDoHuy(e.target.value)}
+                      placeholder="Nhập lý do hủy lịch hẹn..."
+                      className="w-full bg-slate-50 border border-slate-200 focus:border-[#0D9488] p-3 rounded-xl text-xs font-semibold resize-none outline-none text-slate-800 transition-colors"
+                    />
+                  </div>
 
-                <div className="grid grid-cols-2 gap-3 pt-1">
-                  <button
-                    type="submit"
-                    className="bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-[11px] uppercase tracking-wider py-3 rounded-xl shadow-xs cursor-pointer"
-                  >
-                    Gửi yêu cầu
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCancellingId(null);
-                      setLyDoHuy('');
-                    }}
-                    className="bg-slate-50 hover:bg-slate-100 text-slate-500 font-extrabold text-[11px] uppercase tracking-wider py-3 rounded-xl border border-slate-200 transition-all cursor-pointer"
-                  >
-                    Quay lại
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
+                  <p className="text-[10px] text-slate-400 font-semibold italic text-center leading-snug">
+                    *(Điểm uy tín dưới 50% sẽ có nguy cơ bị khóa tài khoản)*
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCancellingId(null);
+                        setLyDoHuy('');
+                      }}
+                      className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs py-3 rounded-xl border border-slate-200 transition-all cursor-pointer"
+                    >
+                      Quay lại
+                    </button>
+                    <button
+                      type="submit"
+                      className="bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs py-3 rounded-xl shadow-md shadow-rose-600/20 cursor-pointer transition-all"
+                    >
+                      Vẫn muốn hủy lịch
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </div>
+          );
+        })()}
       </AnimatePresence>
 
       {/* RATING MODAL */}

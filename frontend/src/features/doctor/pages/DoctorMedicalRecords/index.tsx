@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
-import { HeartHandshake } from 'lucide-react';
 import { getPatients, getPatientProfile, PatientInfo, PatientProfile } from '../../api/doctor.api';
 import { PatientSidebar } from './components/PatientSidebar';
 import { PatientHeader } from './components/PatientHeader';
@@ -20,6 +20,11 @@ export default function DoctorMedicalRecords() {
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
 
+  // Deep-link từ nơi khác (vd nút "Xem chi tiết" của 1 lịch hẹn đã kết thúc trong AppointmentInfoModal)
+  // — tự chọn sẵn bệnh nhân + mở đúng popup buổi khám/phác đồ tương ứng, chỉ áp dụng 1 lần lúc vào trang.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [pendingDeepLinkModal, setPendingDeepLinkModal] = useState<ActiveModal>(null);
+
   // Load danh sách bệnh nhân
   useEffect(() => {
     async function loadPatients() {
@@ -36,6 +41,25 @@ export default function DoctorMedicalRecords() {
     loadPatients();
   }, []);
 
+  // Áp dụng deep-link (?patientId=&type=&itemId=) ngay khi danh sách bệnh nhân đã sẵn sàng, rồi xóa
+  // param khỏi URL để không tự chọn lại nếu người dùng tự quay ra danh sách chọn bệnh nhân khác.
+  useEffect(() => {
+    if (loadingPatients) return;
+    const patientId = searchParams.get('patientId');
+    if (!patientId) return;
+
+    const found = patients.find((p) => p.id === patientId);
+    if (found) {
+      setSelectedPatient(found);
+      const type = searchParams.get('type');
+      const itemId = searchParams.get('itemId');
+      if ((type === 'plan' || type === 'visit') && itemId) {
+        setPendingDeepLinkModal({ type, id: itemId });
+      }
+    }
+    setSearchParams({}, { replace: true });
+  }, [patients, loadingPatients, searchParams, setSearchParams]);
+
   // Load hồ sơ điều trị của bệnh nhân được chọn
   useEffect(() => {
     if (!selectedPatient) {
@@ -49,6 +73,10 @@ export default function DoctorMedicalRecords() {
       try {
         const res = await getPatientProfile(selectedPatient!.id);
         setProfile(res.data);
+        if (pendingDeepLinkModal) {
+          setActiveModal(pendingDeepLinkModal);
+          setPendingDeepLinkModal(null);
+        }
       } catch (error) {
         console.error('Lỗi khi tải hồ sơ điều trị bệnh nhân:', error);
       } finally {
@@ -74,66 +102,38 @@ export default function DoctorMedicalRecords() {
   }, [activeVisit, profile]);
 
   return (
-    <div className="h-[calc(100vh-10rem)] -mt-2 flex gap-6 animate-in fade-in duration-500 overflow-hidden">
+    <div className="animate-in fade-in duration-500">
+      {!selectedPatient ? (
+        <PatientSidebar
+          patients={patients}
+          onSelectPatient={setSelectedPatient}
+          loadingPatients={loadingPatients}
+        />
+      ) : (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-150 dark:border-slate-800 shadow-sm overflow-hidden">
+          <PatientHeader selectedPatient={selectedPatient} onBack={() => setSelectedPatient(null)} />
 
-      {/* CỘT 1: Thanh bên lọc bệnh nhân (Tất cả / Gần đây / Chống chỉ định) */}
-      <PatientSidebar
-        patients={patients}
-        selectedPatient={selectedPatient}
-        onSelectPatient={setSelectedPatient}
-        loadingPatients={loadingPatients}
-      />
-
-      {/* KHU VỰC CHI TIẾT CHÍNH (Cột bên phải chiếm toàn bộ chiều rộng còn lại) */}
-      <div className="flex-1 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-150 dark:border-zinc-800 shadow-sm flex flex-col overflow-hidden min-w-0">
-        {selectedPatient ? (
-          <>
-            <PatientHeader selectedPatient={selectedPatient} profile={profile} />
-
-            <div className="flex-1 overflow-y-auto min-h-0 bg-white dark:bg-zinc-900 p-6">
-              {loadingProfile ? (
-                <div className="h-full flex flex-col items-center justify-center gap-2 text-zinc-400">
-                  <div className="size-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider animate-pulse">Đang tải dữ liệu hồ sơ...</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-                  <PlanColumn
-                    plans={profile?.treatmentPlans || []}
-                    onOpenPlan={(id) => setActiveModal({ type: 'plan', id })}
-                  />
-                  <VisitColumn
-                    visits={profile?.visits || []}
-                    onOpenVisit={(id) => setActiveModal({ type: 'visit', id })}
-                  />
-                </div>
-              )}
-            </div>
-          </>
-        ) : (
-          /* Trạng thái trống khi chưa chọn bệnh nhân */
-          <div className="flex-1 flex flex-col items-center justify-center p-12 text-zinc-400 dark:text-zinc-500 text-center gap-4">
-            <div className="size-20 rounded-full bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center border border-zinc-100 dark:border-zinc-800 text-4xl shadow-inner">
-              🗂️
-            </div>
-            <div className="max-w-xs space-y-1">
-              <h3 className="font-extrabold text-secondary dark:text-zinc-300 text-sm">Hồ sơ điều trị chi tiết</h3>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
-                Vui lòng chọn một bệnh nhân từ danh sách bên trái để tra cứu toàn bộ lịch sử chẩn đoán lâm sàng và quá trình điều trị thực tế.
-              </p>
-            </div>
-            <div className="bg-primary/5 dark:bg-primary/10 px-4 py-3 rounded-2xl border border-primary/20 max-w-sm flex items-start gap-2.5 text-left mt-2">
-              <HeartHandshake className="text-primary size-5 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-[10px] font-black text-primary uppercase tracking-wider">Lưu ý chuyên môn</p>
-                <p className="text-[10px] text-zinc-650 dark:text-zinc-400 font-semibold mt-0.5">
-                  Việc đối chiếu tiến độ phục hồi qua ghi chú kỹ thuật viên giúp bác sĩ chẩn đoán chính xác hơn cho lần tái khám.
-                </p>
+          <div className="p-6">
+            {loadingProfile ? (
+              <div className="py-20 flex flex-col items-center justify-center gap-2 text-slate-400">
+                <div className="size-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-[10px] font-bold uppercase tracking-wider animate-pulse">Đang tải dữ liệu hồ sơ...</p>
               </div>
-            </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                <PlanColumn
+                  plans={profile?.treatmentPlans || []}
+                  onOpenPlan={(id) => setActiveModal({ type: 'plan', id })}
+                />
+                <VisitColumn
+                  visits={profile?.visits || []}
+                  onOpenVisit={(id) => setActiveModal({ type: 'visit', id })}
+                />
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       <AnimatePresence>
         {activePlan && (

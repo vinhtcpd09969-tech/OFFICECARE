@@ -306,7 +306,7 @@ export default function BookingSuccess() {
             {isConfirmed 
               ? 'Lịch hẹn của bạn đã được tiếp nhận và xác nhận thành công. Vui lòng tới phòng khám đúng giờ hẹn để bắt đầu ca trị liệu.'
               : isCancelled 
-                ? `Lịch hẹn này đã bị hủy. Lý do: "${appointment.ghi_chu_noi_bo || appointment.ly_do_huy || 'Hủy bởi hệ thống'}"`
+                ? `Lịch hẹn này đã bị hủy. Lý do: "${appointment.ly_do_huy || appointment.ghi_chu_noi_bo || 'Hủy bởi hệ thống'}"`
                 : isUnconfirmed
                   ? 'Bạn đã đăng ký thông tin lịch đặt thành công! Vui lòng kiểm tra hòm thư email và nhập mã OTP 6 số để kích hoạt ca hẹn.'
                   : 'Lịch hẹn đã được xác thực OTP thành công. Trung tâm xác nhận đang sắp xếp bác sĩ phụ trách và phòng điều trị cho bạn.'}

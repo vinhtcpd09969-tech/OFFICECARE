@@ -63,7 +63,7 @@ class ReceptionistRepository {
     return rows;
   }
 
-  async updateAppointmentStatus(id: string, trang_thai: string, ghi_chu_noi_bo?: string) {
+  async updateAppointmentStatus(id: string, trang_thai: string, ghi_chu_noi_bo?: string, ly_do_huy?: string) {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
@@ -139,6 +139,12 @@ class ReceptionistRepository {
       if (ghi_chu_noi_bo !== undefined) {
         updates.push(`ghi_chu_noi_bo = $${paramIndex}`);
         values.push(ghi_chu_noi_bo);
+        paramIndex++;
+      }
+
+      if (ly_do_huy !== undefined) {
+        updates.push(`ly_do_huy = $${paramIndex}`);
+        values.push(ly_do_huy);
         paramIndex++;
       }
 

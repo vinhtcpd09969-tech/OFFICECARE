@@ -86,6 +86,7 @@ export default function Booking() {
     specialists,
     slotAvailability,
     hasExistingClinicalExam,
+    isPhoneTakenByOther,
     setDateField,
     setTimeField,
     setFormField,
@@ -684,6 +685,7 @@ export default function Booking() {
                   selectedStaffId={selectedStaffId}
                   setSelectedStaffId={setSelectedStaffId}
                   hasExistingClinicalExam={hasExistingClinicalExam}
+                  isPhoneTakenByOther={isPhoneTakenByOther}
                   tempHoldId={tempHoldId}
                   onViewAppointments={() => navigate('/appointments')}
                   onChange={handleChange}

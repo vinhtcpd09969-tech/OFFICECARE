@@ -1,9 +1,10 @@
 import { memo } from 'react';
-import { Inbox, Eye } from 'lucide-react';
+import { Inbox, ClipboardPlus } from 'lucide-react';
 import { Pagination } from '../../../../../components/Pagination';
 import { ReputationScore } from './ReputationScore';
 import { PackageStatusBadge } from './PackageStatusBadge';
 import { FollowUpFlag } from './FollowUpFlag';
+import { formatDaysAgo } from '../../../../../utils/date';
 import type { CustomerRosterItem, RosterMeta } from '../types';
 
 interface CustomerRosterTableProps {
@@ -13,14 +14,6 @@ interface CustomerRosterTableProps {
   staleDays: number;
   onPageChange: (page: number) => void;
   onViewProfile: (customer: CustomerRosterItem) => void;
-}
-
-function formatDaysAgo(isoDate: string | null): string {
-  if (!isoDate) return 'Chưa từng sử dụng';
-  const days = Math.floor((Date.now() - new Date(isoDate).getTime()) / 86400000);
-  if (days <= 0) return 'Hôm nay';
-  if (days === 1) return 'Hôm qua';
-  return `${days} ngày trước`;
 }
 
 const CustomerRosterRow = memo(function CustomerRosterRow({
@@ -65,9 +58,9 @@ const CustomerRosterRow = memo(function CustomerRosterRow({
         <button
           type="button"
           onClick={() => onViewProfile(customer)}
-          className="px-2.5 py-1.5 border border-slate-200 hover:bg-teal-50 hover:border-teal-200 text-slate-655 hover:text-teal-700 rounded-xl font-bold text-[10px] transition-all flex items-center gap-1 active:scale-95 whitespace-nowrap shadow-sm"
+          className="px-2.5 py-1.5 border border-teal-200 bg-teal-50/50 hover:bg-teal-100/70 text-teal-700 rounded-xl font-bold text-[10px] transition-all flex items-center gap-1.5 active:scale-95 whitespace-nowrap shadow-sm"
         >
-          <Eye size={11} />
+          <ClipboardPlus size={13} />
           Xem hồ sơ
         </button>
       </td>

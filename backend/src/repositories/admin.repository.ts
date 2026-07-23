@@ -1261,7 +1261,7 @@ class AdminRepository {
       SELECT id, ma_code as ma_voucher, ten_chien_dich, loai_giam_gia as loai_giam, gia_tri_giam, giam_toi_da,
              don_hang_toi_thieu, so_luong_gioi_han as so_luong_toi_da,
              ngay_bat_dau, ngay_het_han, dang_kich_hoat, yeu_cau_thanh_toan,
-             CASE WHEN dang_kich_hoat = true THEN 'hoat_dong' ELSE 'vo_hieu' END as trang_thai
+             CASE WHEN dang_kich_hoat = true THEN 'hoat_dong' ELSE 'tam_dung' END as trang_thai
       FROM khuyen_mai_voucher
       ORDER BY ngay_bat_dau DESC
     `);
@@ -1273,7 +1273,7 @@ class AdminRepository {
       SELECT id, ma_code as ma_voucher, ten_chien_dich, loai_giam_gia as loai_giam, gia_tri_giam, giam_toi_da,
              don_hang_toi_thieu, so_luong_gioi_han as so_luong_toi_da,
              ngay_bat_dau, ngay_het_han, dang_kich_hoat, yeu_cau_thanh_toan,
-             CASE WHEN dang_kich_hoat = true THEN 'hoat_dong' ELSE 'vo_hieu' END as trang_thai
+             CASE WHEN dang_kich_hoat = true THEN 'hoat_dong' ELSE 'tam_dung' END as trang_thai
       FROM khuyen_mai_voucher
       WHERE ma_code = $1
     `, [code]);

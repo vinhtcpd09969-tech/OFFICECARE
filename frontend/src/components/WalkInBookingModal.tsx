@@ -355,7 +355,7 @@ export default function WalkInBookingModal({
           const matched = list.find((p: any) => String(p.goi_dich_vu_id) === String(initialServiceId));
           // Không auto-chọn gói đang bị chặn thanh toán (vd trả góp chưa đóng Đợt 2) — lễ tân
           // sẽ thấy nút "Thanh toán Đợt 2" trong danh sách thay vì một form đặt lịch đặt không được.
-          if (matched && isPlanBookable(matched)) {
+          if (matched && matched.trang_thai === 'dang_dieu_tri' && isPlanBookable(matched)) {
             setSelectedPlan(matched);
             setSelectedServiceId(matched.goi_dich_vu_id);
           }

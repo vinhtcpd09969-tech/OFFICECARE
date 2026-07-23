@@ -30,9 +30,10 @@ class TechnicianRepository {
   async getTechnicianAppointments(userId: string, startDate?: string, endDate?: string) {
     const queryStr = `
       SELECT 
-        ch.id, 
-        'LH-' || UPPER(SUBSTRING(ch.id::text FROM 1 FOR 6)) as ma_lich_dat, 
+        ch.id,
+        'LH-' || UPPER(SUBSTRING(ch.id::text FROM 1 FOR 6)) as ma_lich_dat,
         ch.ngay_gio_bat_dau, ch.ngay_gio_ket_thuc, ch.trang_thai, ch.ghi_chu_khach_hang as ly_do_kham,
+        ch.khach_hang_id, ch.phac_do_dieu_tri_id,
         kh.ho_ten as ten_khach_hang,
         COALESCE(ch.so_dien_thoai, kh.so_dien_thoai) as so_dien_thoai,
         nk.id as ho_so_dieu_tri_id, nk.id as ho_so_benh_an_id, nk.chan_doan, nk.chong_chi_dinh,
@@ -137,6 +138,15 @@ class TechnicianRepository {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+
+      // Chặn hoàn thành lại 1 ca đã ở trạng thái kết thúc (hoàn thành/hủy/không đến).
+      const currentRes = await client.query('SELECT trang_thai FROM cuoc_hen WHERE id = $1', [data.lich_dat_id]);
+      if (currentRes.rows.length === 0) {
+        throw new Error('Không tìm thấy cuộc hẹn.');
+      }
+      if (['hoan_thanh', 'da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(currentRes.rows[0].trang_thai)) {
+        throw new Error('Ca trị liệu này đã kết thúc (hoàn thành/hủy/không đến), không thể chỉnh sửa hoặc hoàn thành lại.');
+      }
 
       // 1. Tạo hoặc cập nhật nhật ký buổi điều trị (UPSERT)
       const nhatKyQuery = `

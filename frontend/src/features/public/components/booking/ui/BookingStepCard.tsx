@@ -24,6 +24,7 @@ interface BookingStepCardProps {
   selectedStaffId: string;
   setSelectedStaffId: (id: string) => void;
   hasExistingClinicalExam: boolean;
+  isPhoneTakenByOther?: boolean;
   onViewAppointments: () => void;
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
   handleGenderChange: (gender: string) => void;
@@ -53,6 +54,7 @@ export function BookingStepCard({
   selectedStaffId,
   setSelectedStaffId,
   hasExistingClinicalExam,
+  isPhoneTakenByOther,
   onViewAppointments,
   onChange,
   handleGenderChange,
@@ -259,6 +261,7 @@ export function BookingStepCard({
           selectedDate={selectedDate}
           bookingType={bookingType}
           hasExistingClinicalExam={hasExistingClinicalExam}
+          isPhoneTakenByOther={isPhoneTakenByOther}
           user={user}
           setActiveStep={setActiveStep}
           selectedTime={selectedTime}

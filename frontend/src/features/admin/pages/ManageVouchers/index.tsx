@@ -4,9 +4,11 @@ import {
   Ticket, 
   Plus, 
   Search, 
-  Filter, 
   Sparkles, 
-  AlertCircle
+  AlertCircle,
+  PlayCircle,
+  PauseCircle,
+  Clock
 } from 'lucide-react';
 import api from '../../../../api/axios';
 
@@ -34,7 +36,7 @@ export default function ManageVouchers() {
   // Copy state
   const [copiedId, setCopiedId] = useState<string | null>(null);
   
-  // Filter States
+  // Filter States: 'all' | 'hoat_dong' | 'tam_dung' | 'het_han'
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   
@@ -95,9 +97,6 @@ export default function ManageVouchers() {
       don_hang_toi_thieu: Number(data.don_hang_toi_thieu),
       so_luong_toi_da: data.so_luong_toi_da ? Number(data.so_luong_toi_da) : null,
       yeu_cau_thanh_toan: yeuCauThanhToan.length ? yeuCauThanhToan : ['tat_ca'],
-      // Form không còn ô "Trạng thái hoạt động" (không ai tạo mã mà để tạm dừng ngay) — khi sửa,
-      // giữ nguyên trạng thái đang có (vd đã bị ngưng) thay vì mặc định bật lại; khi tạo mới thì
-      // luôn kích hoạt.
       trang_thai: editingVoucher?.id ? (editingVoucher.trang_thai || 'hoat_dong') : 'hoat_dong',
     };
 
@@ -128,13 +127,6 @@ export default function ManageVouchers() {
     });
   };
 
-  // Bật/tắt mã giảm giá — đây cũng chính là hành động "xóa mềm" duy nhất trong màn này (không có
-  // nút xóa cứng riêng): voucher đã từng được dùng trong hóa đơn (hoa_don.voucher_id) không thể
-  // xóa cứng vì vướng ràng buộc khóa ngoại, và xóa cứng cũng làm mất dấu vết cho các hóa đơn cũ.
-  //
-  // "Tạm dừng" (admin tự tắt) và "Hết hạn" (ngay_het_han đã qua) đều coi là đang TẮT — bấm nút
-  // bật lại ở cả 2 trường hợp đều hỏi xác nhận, nhưng nếu mã đã hết hạn thì chặn lại và yêu cầu
-  // gia hạn trước, không cho bật ngầm một mã đã hết hạn sử dụng.
   const handleToggleVoucherStatus = (v: Voucher) => {
     const isExpired = !!(v.ngay_het_han && new Date(v.ngay_het_han) < new Date());
     const isEffectivelyOn = v.trang_thai === 'hoat_dong' && !isExpired;
@@ -194,25 +186,29 @@ export default function ManageVouchers() {
     return new Date(dateStr).toLocaleDateString('vi-VN', { year: 'numeric', month: 'numeric', day: 'numeric' });
   };
 
+  const getVoucherStatus = (v: Voucher): 'hoat_dong' | 'tam_dung' | 'het_han' => {
+    const isExpired = !!(v.ngay_het_han && new Date(v.ngay_het_han) < new Date());
+    if (isExpired || v.trang_thai === 'het_han') return 'het_han';
+    if (v.trang_thai === 'tam_dung' || v.trang_thai === 'vo_hieu' || v.dang_kich_hoat === false) return 'tam_dung';
+    return 'hoat_dong';
+  };
+
   // Filters logic
   const filteredVouchers = vouchers.filter((v) => {
     const matchesSearch = v.ma_voucher?.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           v.ten_chien_dich?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const isExpired = v.ngay_het_han && new Date(v.ngay_het_han) < new Date();
-    const isUpcoming = new Date(v.ngay_bat_dau) > new Date();
-    let computedStatus = v.trang_thai;
-    if (isExpired) computedStatus = 'het_han';
-    else if (isUpcoming && v.trang_thai === 'hoat_dong') computedStatus = 'sap_ra_mat';
-
+    const computedStatus = getVoucherStatus(v);
     const matchesStatus = statusFilter === 'all' || computedStatus === statusFilter;
 
     return matchesSearch && matchesStatus;
   });
 
-  // Calculate statistics
-  const activeVouchersCount = vouchers.filter(v => v.trang_thai === 'hoat_dong').length;
-  const pausedVouchersCount = vouchers.filter(v => v.trang_thai === 'tam_dung').length;
+  // Calculate statistics for 4 cards
+  const totalCount = vouchers.length;
+  const activeCount = vouchers.filter(v => getVoucherStatus(v) === 'hoat_dong').length;
+  const pausedCount = vouchers.filter(v => getVoucherStatus(v) === 'tam_dung').length;
+  const expiredCount = vouchers.filter(v => getVoucherStatus(v) === 'het_han').length;
 
   return (
     <div className="space-y-6">
@@ -241,59 +237,114 @@ export default function ManageVouchers() {
         </button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-soft-ui flex items-center gap-4">
-          <div className="bg-teal-50 text-teal-600 p-3 rounded-xl">
-            <Ticket className="w-5 h-5" />
+      {/* 4 Stats Cards làm chức năng Tab Lọc */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* 1. Tất cả mã */}
+        <button
+          type="button"
+          onClick={() => setStatusFilter('all')}
+          className={`bg-white rounded-2xl p-4 border text-left transition-all cursor-pointer flex items-center justify-between ${
+            statusFilter === 'all'
+              ? 'border-indigo-500 ring-2 ring-indigo-500/20 shadow-md bg-indigo-50/20'
+              : 'border-slate-100 hover:border-slate-200 shadow-soft-ui'
+          }`}
+        >
+          <div className="flex items-center gap-3.5">
+            <div className="bg-indigo-50 text-indigo-600 p-3 rounded-xl shrink-0">
+              <Ticket className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Tất cả mã</span>
+              <span className="text-xl font-black text-slate-800 mt-0.5 block tabular-nums">{totalCount} Mã</span>
+            </div>
           </div>
-          <div>
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Mã Voucher đang mở</span>
-            <span className="text-2xl font-extrabold text-secondary mt-0.5 block">{activeVouchersCount} Mã</span>
+        </button>
+
+        {/* 2. Mã Đang chạy */}
+        <button
+          type="button"
+          onClick={() => setStatusFilter('hoat_dong')}
+          className={`bg-white rounded-2xl p-4 border text-left transition-all cursor-pointer flex items-center justify-between ${
+            statusFilter === 'hoat_dong'
+              ? 'border-[#0D9488] ring-2 ring-[#0D9488]/20 shadow-md bg-[#0D9488]/5'
+              : 'border-slate-100 hover:border-slate-200 shadow-soft-ui'
+          }`}
+        >
+          <div className="flex items-center gap-3.5">
+            <div className="bg-emerald-50 text-emerald-600 p-3 rounded-xl shrink-0">
+              <PlayCircle className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider block">Mã Đang chạy</span>
+              <span className="text-xl font-black text-slate-800 mt-0.5 block tabular-nums">{activeCount} Mã</span>
+            </div>
           </div>
-        </div>
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-soft-ui flex items-center gap-4">
-          <div className="bg-amber-50 text-amber-600 p-3 rounded-xl">
-            <Filter className="w-5 h-5" />
+        </button>
+
+        {/* 3. Ngưng sử dụng */}
+        <button
+          type="button"
+          onClick={() => setStatusFilter('tam_dung')}
+          className={`bg-white rounded-2xl p-4 border text-left transition-all cursor-pointer flex items-center justify-between ${
+            statusFilter === 'tam_dung'
+              ? 'border-amber-500 ring-2 ring-amber-500/20 shadow-md bg-amber-50/30'
+              : 'border-slate-100 hover:border-slate-200 shadow-soft-ui'
+          }`}
+        >
+          <div className="flex items-center gap-3.5">
+            <div className="bg-amber-50 text-amber-600 p-3 rounded-xl shrink-0">
+              <PauseCircle className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-xs font-bold text-amber-700 uppercase tracking-wider block">Ngưng sử dụng</span>
+              <span className="text-xl font-black text-slate-800 mt-0.5 block tabular-nums">{pausedCount} Mã</span>
+            </div>
           </div>
-          <div>
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Mã Voucher tạm dừng</span>
-            <span className="text-2xl font-extrabold text-secondary mt-0.5 block">{pausedVouchersCount} Mã</span>
+        </button>
+
+        {/* 4. Đã Hết hạn */}
+        <button
+          type="button"
+          onClick={() => setStatusFilter('het_han')}
+          className={`bg-white rounded-2xl p-4 border text-left transition-all cursor-pointer flex items-center justify-between ${
+            statusFilter === 'het_han'
+              ? 'border-rose-500 ring-2 ring-rose-500/20 shadow-md bg-rose-50/30'
+              : 'border-slate-100 hover:border-slate-200 shadow-soft-ui'
+          }`}
+        >
+          <div className="flex items-center gap-3.5">
+            <div className="bg-rose-50 text-rose-600 p-3 rounded-xl shrink-0">
+              <Clock className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-xs font-bold text-rose-700 uppercase tracking-wider block">Đã Hết hạn</span>
+              <span className="text-xl font-black text-slate-800 mt-0.5 block tabular-nums">{expiredCount} Mã</span>
+            </div>
           </div>
-        </div>
+        </button>
       </div>
 
-      {/* Filter Section */}
+      {/* Filter & Search Bar Section */}
       <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-soft-ui flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-          {/* Search bar */}
-          <div className="relative flex-grow md:flex-initial md:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Tìm mã hoặc tên chiến dịch..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm transition-all bg-slate-50/50"
-            />
-          </div>
-
-          {/* Status Filter */}
-          <div className="relative">
-            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="pl-9 pr-8 py-2 rounded-xl border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm transition-all bg-slate-50/50 appearance-none cursor-pointer"
-            >
-              <option value="all">Tất cả trạng thái</option>
-              <option value="hoat_dong">Đang chạy</option>
-              <option value="tam_dung">Tạm dừng</option>
-              <option value="sap_ra_mat">Sắp diễn ra</option>
-              <option value="het_han">Đã hết hạn</option>
-            </select>
-          </div>
+        <div className="relative w-full md:w-80">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Tìm mã hoặc tên chiến dịch..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm transition-all bg-slate-50/50"
+          />
         </div>
+        {statusFilter !== 'all' && (
+          <button
+            type="button"
+            onClick={() => setStatusFilter('all')}
+            className="text-xs font-bold text-primary hover:underline self-end md:self-auto cursor-pointer"
+          >
+            Hiển thị tất cả mã ({totalCount})
+          </button>
+        )}
       </div>
 
       {/* Unified Voucher Card List */}
@@ -318,8 +369,8 @@ export default function ManageVouchers() {
         ) : (
           <div className="col-span-full bg-white border border-slate-200 border-dashed rounded-3xl p-12 text-center text-slate-500 space-y-3">
             <Ticket className="w-12 h-12 text-slate-300 mx-auto" />
-            <p className="font-semibold text-slate-700">Chưa thiết lập bất kỳ chiến dịch tiếp thị nào</p>
-            <p className="text-xs text-slate-400">Vui lòng điều chỉnh bộ lọc hoặc tạo chiến dịch marketing mới.</p>
+            <p className="font-semibold text-slate-700">Chưa thiết lập bất kỳ chiến dịch tiếp thị nào phù hợp</p>
+            <p className="text-xs text-slate-400">Vui lòng chọn thẻ thống kê khác hoặc tìm kiếm với từ khóa mới.</p>
           </div>
         )}
       </div>

@@ -51,6 +51,7 @@ export function useBookingState(user: any, bookingType: 'kham' | 'dich_vu', sele
   const [specialists, setSpecialists] = useState<any[]>([]);
   const [slotAvailability, setSlotAvailability] = useState<Record<string, number[]>>({});
   const [hasExistingClinicalExam, setHasExistingClinicalExam] = useState<boolean>(false);
+  const [isPhoneTakenByOther, setIsPhoneTakenByOther] = useState<boolean>(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const refreshSlots = useCallback(() => {
@@ -110,12 +111,14 @@ export function useBookingState(user: any, bookingType: 'kham' | 'dich_vu', sele
         setSpecialists(data.specialists || []);
         setSlotAvailability(data.slotAvailability || {});
         setHasExistingClinicalExam(!!data.hasExistingClinicalExam);
+        setIsPhoneTakenByOther(!!data.isPhoneTakenByOther);
       })
       .catch(() => {
         setBookedSlots([]);
         setSpecialists([]);
         setSlotAvailability({});
         setHasExistingClinicalExam(false);
+        setIsPhoneTakenByOther(false);
       });
   }, [state.selectedDate, user?.id, state.formData.so_dien_thoai, user?.so_dien_thoai, bookingType, selectedServiceId, services, tempHoldId, refreshTrigger]);
 
@@ -146,6 +149,7 @@ export function useBookingState(user: any, bookingType: 'kham' | 'dich_vu', sele
     specialists,
     slotAvailability,
     hasExistingClinicalExam,
+    isPhoneTakenByOther,
     setDateField,
     setTimeField,
     setFormField,

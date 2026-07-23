@@ -566,9 +566,9 @@ function AppointmentCard({
         )}
         
         {/* Lý do hủy/không đến nếu có */}
-        {['da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(apt.trang_thai) && (apt.ghi_chu_noi_bo || apt.ly_do_huy) && (
+        {['da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(apt.trang_thai) && (apt.ly_do_huy || apt.ghi_chu_noi_bo) && (
           <div className="mt-1 text-[8.5px] italic text-rose-500 dark:text-rose-455 font-bold line-clamp-1">
-            Lý do: {apt.ghi_chu_noi_bo || apt.ly_do_huy}
+            Lý do: {apt.ly_do_huy || apt.ghi_chu_noi_bo}
           </div>
         )}
         

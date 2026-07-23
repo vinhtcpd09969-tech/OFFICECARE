@@ -8,6 +8,7 @@ import { VasTrendSparkline } from './VasTrendSparkline';
 import { SessionTimelineItem } from './SessionTimelineItem';
 import { BookNextSessionModal } from './BookNextSessionModal';
 import { PACKAGE_STATUS_META } from '../constants';
+import { isSessionPaymentSatisfied, isPlanCancelled } from '../../../../../utils/billing';
 import type { PackageEntry } from '../types';
 
 interface PackageCardProps {
@@ -116,11 +117,31 @@ export function PackageCard({ pkg, isExpanded, onToggleExpand }: PackageCardProp
               const sessionNum = idx + 1;
               const session = sortedSessions.find((s) => s.so_thu_tu_buoi === sessionNum && s.trang_thai !== 'da_huy');
 
-              let status: 'hoan_thanh' | 'da_dat_lich' | 'chua_dat_lich' | 'chua_toi_han' = 'chua_toi_han';
+              const isCancelled = isPlanCancelled({
+                trang_thai: pkg.trang_thai_phac_do,
+                hoa_don_trang_thai: pkg.trang_thai_hoa_don,
+                trang_thai_hoa_don_goi: pkg.trang_thai_hoa_don
+              });
+
+              const isPaySatisfied = isSessionPaymentSatisfied({
+                hinh_thuc_thanh_toan_goi: pkg.hinh_thuc_thanh_toan_goi,
+                tong_tien_phai_tra: pkg.tong_tien_phai_tra,
+                so_tien_da_tra: pkg.so_tien_da_tra,
+                tong_so_buoi: pkg.tong_so_buoi,
+                trang_thai: pkg.trang_thai_phac_do,
+                hoa_don_trang_thai: pkg.trang_thai_hoa_don,
+                trang_thai_hoa_don_goi: pkg.trang_thai_hoa_don
+              }, sessionNum);
+
+              let status: 'hoan_thanh' | 'da_dat_lich' | 'chua_dat_lich' | 'can_thanh_toan' | 'chua_toi_han' = 'chua_toi_han';
               if (session) {
                 status = session.trang_thai === 'hoan_thanh' ? 'hoan_thanh' : 'da_dat_lich';
               } else if (sessionNum === firstUnbookedNum && pkg.trang_thai_phac_do === 'dang_dieu_tri') {
-                status = 'chua_dat_lich';
+                if (isCancelled || !isPaySatisfied) {
+                  status = 'can_thanh_toan';
+                } else {
+                  status = 'chua_dat_lich';
+                }
               }
 
               const isSessionExpanded = expandedSessionNum === sessionNum;
@@ -165,6 +186,12 @@ export function PackageCard({ pkg, isExpanded, onToggleExpand }: PackageCardProp
                             ? `${session.trang_thai === 'chua_xac_nhan' ? 'Chờ xác thực' : 'Dự kiến'}: ${session.ten_bac_si || 'KTV'} · ${format(new Date(session.ngay_gio_bat_dau), 'dd/MM/yyyy HH:mm')}`
                             : status === 'chua_dat_lich'
                             ? 'Sẵn sàng để lên lịch đặt chỗ.'
+                            : status === 'can_thanh_toan'
+                            ? (pkg.hinh_thuc_thanh_toan_goi === 'tung_buoi'
+                                ? '⚠️ Vui lòng hoàn tất thanh toán buổi trước để mở khóa đặt lịch buổi này.'
+                                : pkg.hinh_thuc_thanh_toan_goi === 'tra_gop'
+                                ? '⚠️ Vui lòng thanh toán Đợt 2 của gói trả góp để mở khóa đặt lịch.'
+                                : '⚠️ Vui lòng hoàn tất thanh toán để mở khóa đặt lịch.')
                             : 'Lịch hẹn sẽ mở khi hoàn tất buổi trước.'}
                         </span>
                       </div>
@@ -204,9 +231,22 @@ export function PackageCard({ pkg, isExpanded, onToggleExpand }: PackageCardProp
                             e.stopPropagation();
                             setBookingSessionNum(sessionNum);
                           }}
-                          className="bg-primary hover:bg-[#25A89C] text-white text-[10px] font-black px-3.5 py-1.5 rounded-full transition-colors uppercase tracking-wider shadow-xs"
+                          className="bg-primary hover:bg-[#25A89C] text-white text-[10px] font-black px-3.5 py-1.5 rounded-full transition-colors uppercase tracking-wider shadow-xs cursor-pointer"
                         >
                           Đặt lịch
+                        </button>
+                      )}
+
+                      {status === 'can_thanh_toan' && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/invoices${pkg.hoa_don_id ? `?invoice=${pkg.hoa_don_id}` : ''}`);
+                          }}
+                          className="bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-black px-3 py-1.5 rounded-full transition-all uppercase tracking-wider shadow-xs cursor-pointer flex items-center gap-1"
+                        >
+                          💳 {pkg.hinh_thuc_thanh_toan_goi === 'tra_gop' ? 'Thanh toán Đợt 2' : 'Cần thanh toán'}
                         </button>
                       )}
 

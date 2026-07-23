@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import {
   ChevronLeft, FileText, Printer, Stethoscope,
-  AlertTriangle, ChevronDown, ChevronUp, Calendar, MapPin, Clock, ImageIcon, MessageSquareText, X
+  AlertTriangle, ChevronDown, ChevronUp, Calendar, MapPin, Clock, ImageIcon, MessageSquareText, X,
+  ShieldAlert, TrendingDown, TrendingUp, CheckCircle2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
@@ -14,6 +15,16 @@ interface PatientEmrDetailProps {
   onBack: () => void;
   showAdminInfo?: boolean;
 }
+
+const getVasDescription = (score: number | null | undefined): string => {
+  if (score === null || score === undefined) return '';
+  if (score === 0) return 'Không đau';
+  if (score >= 1 && score <= 3) return 'Đau nhẹ: Ê ẩm, mỏi nhẹ (Vẫn làm việc, sinh hoạt bình thường)';
+  if (score >= 4 && score <= 6) return 'Đau vừa: Đau rõ rệt, nhức mỏi (Có ảnh hưởng một phần đến sinh hoạt/công việc)';
+  if (score >= 7 && score <= 9) return 'Đau nặng: Đau buốt dữ dội (Hạn chế vận động, ảnh hưởng sinh hoạt)';
+  if (score === 10) return 'Cực độ: Đau không thể chịu nổi (Hạn chế vận động hoàn toàn, cần can thiệp khẩn cấp)';
+  return '';
+};
 
 export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true }: PatientEmrDetailProps) {
   // "Phác đồ điều trị" và "Khám & Dịch vụ lẻ" hiện đồng thời thành 2 bảng cạnh nhau — bấm "Chi tiết"
@@ -607,56 +618,129 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
                                   </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                  {appt.chan_doan_tri_lieu && (
-                                    <div className="p-3 bg-teal-50/10 border border-teal-100/20 rounded-xl">
-                                      <span className="text-[9px] font-bold text-teal-700 uppercase tracking-widest block mb-1">Nhật ký trị liệu của KTV</span>
-                                      <p className="text-slate-700 font-bold leading-relaxed">{appt.chan_doan_tri_lieu}</p>
-                                    </div>
-                                  )}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch pt-2">
+                                  {/* Cột trái: Ghi nhận lâm sàng & Nhật ký KTV */}
+                                  <div className="flex flex-col gap-3">
+                                    {appt.chan_doan_tri_lieu && (
+                                      <div className="p-3.5 bg-white border border-slate-200/80 rounded-2xl shadow-xs space-y-1.5 shrink-0">
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                                          <CheckCircle2 size={13} className="text-[#0D9488]" /> Ghi nhận lâm sàng
+                                        </span>
+                                        <p className="text-xs font-bold text-slate-800 leading-relaxed mt-1">{appt.chan_doan_tri_lieu}</p>
+                                      </div>
+                                    )}
 
-                                  {appt.chong_chi_dinh_tri_lieu && (
-                                    <div className="p-3 bg-rose-50/20 border border-rose-100/20 rounded-xl">
-                                      <span className="text-[9px] font-bold text-rose-700 uppercase tracking-widest block mb-1 flex items-center gap-1">
-                                        <AlertTriangle size={11} /> Ghi nhận chống chỉ định
-                                      </span>
-                                      <p className="text-rose-950 font-bold leading-relaxed">{appt.chong_chi_dinh_tri_lieu}</p>
-                                    </div>
-                                  )}
+                                    {appt.ghi_chu_tri_lieu && (
+                                      <div className="p-3.5 bg-white border border-slate-200/80 rounded-2xl shadow-xs space-y-1.5 flex-1 flex flex-col justify-start">
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                                          <FileText size={13} className="text-amber-500" /> Nhật ký &amp; Ghi chú của kỹ thuật viên
+                                        </span>
+                                        <p className="text-xs font-semibold text-slate-650 italic leading-relaxed mt-1 flex-1">"{appt.ghi_chu_tri_lieu}"</p>
+                                      </div>
+                                    )}
+
+                                    {appt.chong_chi_dinh_tri_lieu && (
+                                      <div className="p-3.5 bg-rose-50/60 border border-rose-100 rounded-2xl flex gap-2.5 text-rose-900 shrink-0">
+                                        <ShieldAlert size={15} className="shrink-0 mt-0.5 text-rose-500" />
+                                        <div className="space-y-0.5">
+                                          <span className="text-[9.5px] uppercase font-black tracking-wider text-rose-600 block">Chống chỉ định lưu ý</span>
+                                          <p className="text-xs font-bold">{appt.chong_chi_dinh_tri_lieu}</p>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Cột phải: Thước đo chỉ số đau (VAS) chuẩn 3D như trang Khách hàng */}
+                                  <div className="flex">
+                                    {(appt.vas_truoc !== null || appt.vas_sau !== null) && (
+                                      <div className="p-4 bg-white border border-slate-200/80 rounded-2xl shadow-xs space-y-4 flex-1 flex flex-col justify-between">
+                                        <div>
+                                          <p className="text-[10px] font-black text-slate-800 uppercase tracking-wider mb-3">Chỉ số mức độ đau (VAS)</p>
+
+                                          <div className="grid grid-cols-2 gap-3">
+                                            <div className="p-3 bg-slate-50 rounded-xl text-center border border-slate-100">
+                                              <span className="text-[9px] text-slate-400 uppercase font-black tracking-wider block">Trước trị liệu</span>
+                                              <span className="text-2xl font-black text-slate-700 mt-1 block tabular-nums">{appt.vas_truoc ?? '—'}</span>
+                                            </div>
+                                            <div className="p-3 bg-[#0D9488]/5 rounded-xl text-center border border-[#0D9488]/15">
+                                              <span className="text-[9px] text-[#0D9488] uppercase font-black tracking-wider block">Sau trị liệu</span>
+                                              <span className="text-2xl font-black text-[#0D9488] mt-1 block tabular-nums">{appt.vas_sau ?? '—'}</span>
+                                            </div>
+                                          </div>
+
+                                          {/* Thanh slider gradient VAS */}
+                                          {appt.vas_truoc !== null && appt.vas_sau !== null && (
+                                            <div className="space-y-1.5 pt-4">
+                                              <div className="flex justify-between text-[9px] font-bold text-slate-400">
+                                                <span>0 (Không đau)</span>
+                                                <span>10 (Rất dữ dội)</span>
+                                              </div>
+                                              <div className="h-2.5 bg-slate-100 rounded-full relative overflow-hidden">
+                                                <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-amber-500 to-rose-500 opacity-25" />
+                                                {appt.vas_truoc !== appt.vas_sau && (
+                                                  <div
+                                                    className={`absolute top-0 bottom-0 opacity-40 transition-all ${
+                                                      appt.vas_sau < appt.vas_truoc ? 'bg-emerald-500' : 'bg-rose-500'
+                                                    }`}
+                                                    style={{
+                                                      left: `${Math.min(appt.vas_truoc, appt.vas_sau) * 10}%`,
+                                                      width: `${Math.abs(appt.vas_sau - appt.vas_truoc) * 10}%`
+                                                    }}
+                                                  />
+                                                )}
+                                                <div
+                                                  className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-slate-400 border border-white rounded-full -ml-1.25 transition-all shadow-xs"
+                                                  style={{ left: `${appt.vas_truoc * 10}%` }}
+                                                  title={`Trước: ${appt.vas_truoc}`}
+                                                />
+                                                <div
+                                                  className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-[#0D9488] border border-white rounded-full -ml-1.75 transition-all shadow-sm"
+                                                  style={{ left: `${appt.vas_sau * 10}%` }}
+                                                  title={`Sau: ${appt.vas_sau}`}
+                                                />
+                                              </div>
+                                            </div>
+                                          )}
+
+                                          {/* Bảng chi tiết mô tả thang điểm đau */}
+                                          <div className="space-y-2 pt-3 border-t border-slate-100 mt-4">
+                                            {appt.vas_truoc !== null && (
+                                              <div className="flex items-start gap-2 text-[11px] text-slate-500">
+                                                <span className="size-2 rounded-full bg-slate-400 mt-1 shrink-0" />
+                                                <p className="leading-tight">
+                                                  <span className="font-extrabold text-slate-700">Mức {appt.vas_truoc} (Trước):</span> {getVasDescription(appt.vas_truoc)}
+                                                </p>
+                                              </div>
+                                            )}
+                                            {appt.vas_sau !== null && (
+                                              <div className="flex items-start gap-2 text-[11px] text-[#0D9488]">
+                                                <span className="size-2 rounded-full bg-[#0D9488] mt-1 shrink-0" />
+                                                <p className="leading-tight">
+                                                  <span className="font-extrabold text-[#0D9488]">Mức {appt.vas_sau} (Sau):</span> {getVasDescription(appt.vas_sau)}
+                                                </p>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+
+                                        {appt.vas_truoc !== null && appt.vas_sau !== null && appt.vas_truoc !== appt.vas_sau && (
+                                          <div className="flex justify-center pt-2">
+                                            <span
+                                              className={`inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-0.5 rounded-full border ${
+                                                appt.vas_sau < appt.vas_truoc
+                                                  ? 'text-emerald-700 bg-emerald-50 border-emerald-100'
+                                                  : 'text-rose-700 bg-rose-50 border-rose-100'
+                                              }`}
+                                            >
+                                              {appt.vas_sau < appt.vas_truoc ? <TrendingDown size={12} /> : <TrendingUp size={12} />}
+                                              {appt.vas_sau < appt.vas_truoc ? 'Giảm' : 'Tăng'} {Math.abs(appt.vas_sau - appt.vas_truoc)} điểm đau so với trước khi trị liệu
+                                            </span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
-
-                                {appt.ghi_chu_tri_lieu && (
-                                  <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl">
-                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Ghi chú & Hướng dẫn phục hồi</span>
-                                    <p className="text-slate-650 italic">"{appt.ghi_chu_tri_lieu}"</p>
-                                  </div>
-                                )}
-
-                                {appt.vas_truoc !== null && appt.vas_sau !== null && (
-                                  <div className="space-y-1.5 pt-2.5 border-t border-slate-100/70">
-                                    <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
-                                      <span>Chỉ số đau (VAS Pain Scale):</span>
-                                      <span className="text-slate-800 font-extrabold">
-                                        Cảm giác đau giảm: VAS {appt.vas_truoc} (Trước) ➔ VAS {appt.vas_sau} (Sau)
-                                      </span>
-                                    </div>
-                                    <div className="relative w-full h-3.5 bg-slate-100 rounded-full overflow-hidden flex items-center px-1">
-                                      <div
-                                        className="absolute h-2 bg-gradient-to-r from-teal-500 to-rose-500 rounded-full"
-                                        style={{
-                                          left: `${(appt.vas_sau || 0) * 10}%`,
-                                          right: `${100 - (appt.vas_truoc || 10) * 10}%`
-                                        }}
-                                      />
-                                      <span className="absolute text-[8px] font-bold text-teal-800 font-mono" style={{ left: `${(appt.vas_sau || 0) * 10}%`, transform: 'translateY(-1px)' }}>
-                                        ▲ {appt.vas_sau}
-                                      </span>
-                                      <span className="absolute text-[8px] font-bold text-rose-800 font-mono" style={{ left: `${(appt.vas_truoc || 0) * 10}%`, transform: 'translateY(-1px)' }}>
-                                        ▲ {appt.vas_truoc}
-                                      </span>
-                                    </div>
-                                  </div>
-                                )}
                               </div>
                             )}
                           </div>
@@ -701,7 +785,7 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
                               <div className="flex items-center gap-2">
                                 <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${isCancelled
                                     ? 'bg-rose-50 text-rose-600 border border-rose-200'
-                                    : isUnpaid ? 'bg-amber-100 text-amber-800 border border-amber-200' : (isBlocked ? 'bg-slate-100 text-slate-500 border border-slate-200' : 'bg-sky-100 text-sky-850')
+                                    : isUnpaid ? 'bg-amber-100 text-amber-800 border border-amber-200' : (isBlocked ? 'bg-slate-100 text-slate-500 border border-slate-200' : 'bg-sky-100 text-sky-800 border border-sky-200')
                                   }`}>
                                   {isCancelled ? 'Đã hủy gói' : (isUnpaid ? 'Chờ kích hoạt' : (isBlocked ? 'Chưa đủ điều kiện' : 'Chưa đặt lịch'))}
                                 </span>
@@ -756,11 +840,11 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
                                   const basePath = window.location.pathname.startsWith('/receptionist') ? '/receptionist' : '/admin';
                                   window.location.href = `${basePath}/appointments?khach_hang_id=${patient.id}&goi_dich_vu_id=${selectedPlan.goi_dich_vu_id}`;
                                 }}
-                                className="px-4 py-2 bg-sky-650 hover:bg-sky-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95 cursor-pointer"
-                              >
-                                Đặt lịch
-                              </button>
-                            )}
+                                  className="px-4 py-2 bg-[#0D9488] hover:bg-[#0b7d72] text-white rounded-xl text-xs font-extrabold shadow-sm transition-all active:scale-95 cursor-pointer shrink-0"
+                                >
+                                  Đặt lịch
+                                </button>
+                              )}
                           </div>
                         );
                       } else {

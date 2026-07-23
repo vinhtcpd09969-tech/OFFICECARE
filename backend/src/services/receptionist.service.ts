@@ -80,7 +80,7 @@ class ReceptionistService {
     };
   }
 
-  async updateAppointmentStatus(id: string, trang_thai: string, ghi_chu_noi_bo?: string) {
+  async updateAppointmentStatus(id: string, trang_thai: string, ghi_chu_noi_bo?: string, ly_do_huy?: string) {
     const currentApt = await pool.query('SELECT trang_thai, nhan_su_id, ngay_gio_bat_dau FROM cuoc_hen WHERE id = $1', [id]);
     if (currentApt.rows.length === 0) throw new Error('Không tìm thấy lịch hẹn');
     const currentStatus = currentApt.rows[0].trang_thai;
@@ -109,7 +109,7 @@ class ReceptionistService {
       await assertTraGopDot2PaidBeforeCheckin(pool, id);
     }
 
-    const appointment = await receptionistRepository.updateAppointmentStatus(id, trang_thai, ghi_chu_noi_bo);
+    const appointment = await receptionistRepository.updateAppointmentStatus(id, trang_thai, ghi_chu_noi_bo, ly_do_huy);
     if (!appointment) throw new Error('Không tìm thấy lịch hẹn');
 
     return appointment;

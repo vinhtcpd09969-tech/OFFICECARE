@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
-import { Clock, AlertTriangle } from 'lucide-react';
+import { Clock, AlertTriangle, Sparkles, CheckCircle2, User, Award } from 'lucide-react';
 import { formatFullDate, isSlotInPast, isSlotUrgent } from '../../constants';
 import { convertToVietnamUtcIso } from '../../../../../../utils/date';
+import { resolveImageUrl } from '../../../../../../utils/imageUrl';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
@@ -126,6 +127,22 @@ export function Step3DateTimeSpecialist({
     return specialists.filter(spec => availableIds.includes(spec.id));
   }, [specialists, slotAvailability, selectedTime]);
 
+  const checkIsSlotDisabled = (time: string) => {
+    const slotStartKey = time.split(' - ')[0];
+    const isBooked = bookedSlots.includes(slotStartKey);
+    const isPast = isSlotInPast(slotStartKey, selectedDate);
+
+    // Vô hiệu hóa khung giờ nếu hệ thống đã tải xong dữ liệu trực ca nhưng không có bất kỳ chuyên gia/KTV nào sẵn sàng
+    const hasSlotData = Object.keys(slotAvailability || {}).length > 0;
+    const availableIds = slotAvailability?.[slotStartKey] || [];
+    const hasAvailableStaff = availableIds.some((id: number) =>
+      specialists.some((spec: any) => Number(spec.id) === Number(id))
+    );
+    const isNoStaff = hasSlotData && !hasAvailableStaff;
+
+    return isBooked || isPast || isNoStaff;
+  };
+
   return (
     <motion.div
       key="time-step"
@@ -166,9 +183,7 @@ export function Step3DateTimeSpecialist({
             </h4>
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
               {morningSlots.map((time) => {
-                const isBooked = bookedSlots.includes(time.split(' - ')[0]);
-                const isPast = isSlotInPast(time.split(' - ')[0], selectedDate);
-                const isDisabled = isBooked || isPast;
+                const isDisabled = checkIsSlotDisabled(time);
                 const isSelected = selectedTime === time;
 
                 return (
@@ -201,9 +216,7 @@ export function Step3DateTimeSpecialist({
             </h4>
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
               {afternoonSlots.map((time) => {
-                const isBooked = bookedSlots.includes(time.split(' - ')[0]);
-                const isPast = isSlotInPast(time.split(' - ')[0], selectedDate);
-                const isDisabled = isBooked || isPast;
+                const isDisabled = checkIsSlotDisabled(time);
                 const isSelected = selectedTime === time;
 
                 return (
@@ -236,9 +249,7 @@ export function Step3DateTimeSpecialist({
             </h4>
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
               {eveningSlots.map((time) => {
-                const isBooked = bookedSlots.includes(time.split(' - ')[0]);
-                const isPast = isSlotInPast(time.split(' - ')[0], selectedDate);
-                const isDisabled = isBooked || isPast;
+                const isDisabled = checkIsSlotDisabled(time);
                 const isSelected = selectedTime === time;
 
                 return (
@@ -264,34 +275,134 @@ export function Step3DateTimeSpecialist({
         )}
       </div>
 
-      {/* Dropdown chọn nhân sự (Bác sĩ/KTV) */}
-      <div className="bg-slate-50 border border-slate-200/60 p-5 rounded-[20px] mt-6 space-y-3 font-jakarta">
-        <label className="block text-[11px] font-black text-slate-800 uppercase tracking-widest">
-          {bookingType === 'kham' ? '👨‍⚕️ Bác sĩ thực hiện lượng giá' : '💆 Kỹ thuật viên trị liệu'}
-        </label>
-        <div className="relative">
-          <select
-            value={selectedStaffId}
-            onChange={(e) => setSelectedStaffId(e.target.value)}
-            disabled={!selectedTime}
-            className="w-full bg-white border border-slate-200 text-slate-700 font-extrabold text-xs py-3.5 px-4 rounded-xl shadow-sm focus:border-[#2EC4B6] focus:ring-1 focus:ring-[#2EC4B6]/20 transition-all cursor-pointer disabled:bg-slate-100/60 disabled:cursor-not-allowed"
-          >
-            <option value="">
-              {selectedTime 
-                ? `Hệ thống chọn sau (Chưa chỉ định - Có ${availableSpecialists.length} chuyên gia phù hợp)` 
-                : 'Vui lòng chọn khung giờ để hiển thị danh sách chuyên gia'}
-            </option>
-            {availableSpecialists.map((spec) => (
-              <option key={spec.id} value={spec.id}>
-                {spec.ho_ten} {spec.id === Number(location.state?.selectedDoctorId) ? '(Chuyên gia được chọn ban đầu)' : ''}
-              </option>
-            ))}
-          </select>
+      {/* Giao diện Thẻ chọn nhân sự (Bác sĩ/KTV) có Avatar & Font chữ cao cấp */}
+      <div className="bg-slate-50/80 border border-slate-200/80 p-5 sm:p-6 rounded-[24px] mt-6 space-y-4 font-jakarta shadow-xs">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <label className="block text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              {bookingType === 'kham' ? (
+                <>
+                  <span className="p-1 rounded-lg bg-teal-50 text-[#2EC4B6]">👨‍⚕️</span>
+                  <span>Bác sĩ thực hiện lượng giá</span>
+                </>
+              ) : (
+                <>
+                  <span className="p-1 rounded-lg bg-teal-50 text-[#2EC4B6]">💆</span>
+                  <span>Kỹ thuật viên trị liệu</span>
+                </>
+              )}
+            </label>
+            <p className="text-[11px] text-slate-400 font-semibold mt-0.5">
+              {selectedTime
+                ? 'Chọn chuyên gia phụ trách hoặc để hệ thống tự động gán ca'
+                : 'Vui lòng chọn khung giờ ở trên để xem danh sách chuyên gia'}
+            </p>
+          </div>
+
+          {selectedTime && availableSpecialists.length > 0 && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-black text-[#2EC4B6] bg-teal-50 border border-teal-200/60 px-2.5 py-1 rounded-full">
+              <Sparkles size={12} /> {availableSpecialists.length} chuyên gia sẵn sàng
+            </span>
+          )}
         </div>
+
+        {!selectedTime ? (
+          <div className="bg-white border border-dashed border-slate-200 p-5 rounded-2xl text-center space-y-1.5">
+            <User size={22} className="mx-auto text-slate-300" />
+            <p className="text-xs font-bold text-slate-400">
+              Vui lòng chọn khung giờ khám để xem danh sách chuyên gia có mặt
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            {/* Tùy chọn 0: Không chọn chuyên gia */}
+            <div
+              onClick={() => setSelectedStaffId('')}
+              className={`p-3.5 rounded-2xl border-2 transition-all duration-200 cursor-pointer flex items-center gap-3.5 select-none relative ${
+                !selectedStaffId
+                  ? 'bg-white border-[#2EC4B6] shadow-md shadow-[#2EC4B6]/10 ring-2 ring-[#2EC4B6]/10'
+                  : 'bg-white/80 border-slate-200/80 hover:border-slate-300 hover:bg-white'
+              }`}
+            >
+              <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                !selectedStaffId ? 'bg-[#2EC4B6] text-white' : 'bg-slate-100 text-slate-500'
+              }`}>
+                <User size={20} />
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <h5 className="text-xs font-black text-slate-900 truncate">Không chọn</h5>
+                <p className="text-[10px] text-slate-500 font-semibold truncate mt-0.5">
+                  Chưa chỉ định chuyên gia cụ thể
+                </p>
+              </div>
+
+              {!selectedStaffId && (
+                <div className="shrink-0 text-[#2EC4B6]">
+                  <CheckCircle2 size={18} className="fill-[#2EC4B6] text-white" />
+                </div>
+              )}
+            </div>
+
+            {/* Các thẻ Chuyên gia có Avatar */}
+            {availableSpecialists.map((spec) => {
+              const isSelected = String(selectedStaffId) === String(spec.id);
+              const rawAvatar = spec.anh_dai_dien || spec.avatar_url;
+              const avatarSrc = rawAvatar
+                ? resolveImageUrl(rawAvatar)
+                : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(spec.ho_ten)}`;
+              const isPreSelected = spec.id === Number(location.state?.selectedDoctorId);
+              const roleTitle = spec.chuc_danh || spec.chuyen_khoa || (bookingType === 'kham' ? 'Bác sĩ Chuyên khoa' : 'Kỹ thuật viên Trị liệu');
+
+              return (
+                <div
+                  key={spec.id}
+                  onClick={() => setSelectedStaffId(String(spec.id))}
+                  className={`p-3.5 rounded-2xl border-2 transition-all duration-200 cursor-pointer flex items-center gap-3.5 select-none relative ${
+                    isSelected
+                      ? 'bg-white border-[#2EC4B6] shadow-md shadow-[#2EC4B6]/10 ring-2 ring-[#2EC4B6]/10'
+                      : 'bg-white/80 border-slate-200/80 hover:border-slate-300 hover:bg-white'
+                  }`}
+                >
+                  <div className="relative shrink-0">
+                    <img
+                      src={avatarSrc}
+                      alt={spec.ho_ten}
+                      className="w-11 h-11 rounded-xl object-cover border border-slate-150 shadow-xs"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(spec.ho_ten)}`;
+                      }}
+                    />
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h5 className="text-xs font-black text-slate-900 truncate">{spec.ho_ten}</h5>
+                      {isPreSelected && (
+                        <span className="text-[9px] font-extrabold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">Đã chọn trước</span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-slate-500 font-semibold truncate mt-0.5 flex items-center gap-1">
+                      <Award size={10} className="text-[#2EC4B6] shrink-0" />
+                      <span>{roleTitle}</span>
+                    </p>
+                  </div>
+
+                  {isSelected && (
+                    <div className="shrink-0 text-[#2EC4B6]">
+                      <CheckCircle2 size={18} className="fill-[#2EC4B6] text-white" />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {selectedTime && (
-          <p className="text-[11px] text-slate-500 font-semibold leading-relaxed">
+          <p className="text-[11px] text-slate-500 font-semibold leading-relaxed pt-1">
             {availableSpecialists.length > 0
-              ? `Khung giờ ${selectedTime} có ${availableSpecialists.length} chuyên gia phù hợp ca trực và chưa bận lịch.`
+              ? `💡 Khung giờ ${selectedTime} có ${availableSpecialists.length} chuyên gia phù hợp ca trực và chưa bận lịch.`
               : 'Không có chuyên gia nào phù hợp cho khung giờ này. Vui lòng chọn khung giờ khác hoặc liên hệ hotline.'}
           </p>
         )}

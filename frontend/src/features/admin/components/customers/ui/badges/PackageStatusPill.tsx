@@ -1,4 +1,4 @@
-import { FileSearch } from 'lucide-react';
+import { ClipboardPlus } from 'lucide-react';
 import { TIER_META } from '../../constants';
 import type { PrimaryStatus } from '../../types';
 
@@ -30,9 +30,14 @@ export function StatusTierPill({ status }: { status: PrimaryStatus }) {
 // dùng/tổng buổi thật). Tier "le" (chỉ khám/dịch vụ lẻ) không có gói nào để hiện — chỉ 1 dòng ghi chú.
 export function PrimaryPlanCell({ status }: { status: PrimaryStatus }) {
   if (!status.ten_goi) {
+    const text = status.note || 'Chưa có liệu trình';
     return (
-      <span className="recovery-arc-scope text-[11.5px] italic" style={{ color: 'var(--rc-taupe)' }}>
-        {status.note || 'Chưa có liệu trình'}
+      <span
+        className="recovery-arc-scope block text-[11.5px] italic truncate max-w-[240px]"
+        style={{ color: 'var(--rc-taupe)' }}
+        title={text}
+      >
+        {text}
       </span>
     );
   }
@@ -42,7 +47,11 @@ export function PrimaryPlanCell({ status }: { status: PrimaryStatus }) {
         <div className="text-[12.5px] font-semibold truncate max-w-[220px]" style={{ color: 'var(--rc-ink)' }} title={status.ten_goi}>
           {status.ten_goi}
         </div>
-        {status.note && <div className="text-[10.5px] mt-0.5" style={{ color: 'var(--rc-taupe)' }}>{status.note}</div>}
+        {status.note && (
+          <div className="text-[10.5px] mt-0.5 truncate max-w-[220px]" style={{ color: 'var(--rc-taupe)' }} title={status.note}>
+            {status.note}
+          </div>
+        )}
       </div>
     );
   }
@@ -67,7 +76,11 @@ export function PrimaryPlanCell({ status }: { status: PrimaryStatus }) {
         <div className="text-[12.5px] font-semibold truncate max-w-[220px]" style={{ color: 'var(--rc-ink)' }} title={status.ten_goi}>
           {status.ten_goi}
         </div>
-        <div className="text-[10.5px] mt-0.5" style={{ color: 'var(--rc-taupe)' }}>
+        <div
+          className="text-[10.5px] mt-0.5 truncate max-w-[180px]"
+          style={{ color: 'var(--rc-taupe)' }}
+          title={status.note || undefined}
+        >
           {status.note || (total ? `${Math.round(pct * 100)}% tiến độ` : '')}
         </div>
       </div>
@@ -77,17 +90,27 @@ export function PrimaryPlanCell({ status }: { status: PrimaryStatus }) {
 
 export function RecordViewButton({ hasRecord, onClick }: { hasRecord: boolean; onClick: () => void }) {
   if (!hasRecord) {
-    return <span className="text-[10px] font-semibold" style={{ color: 'var(--rc-taupe)' }}>—</span>;
+    return (
+      <span
+        title="Khách hàng chưa có hồ sơ điều trị"
+        className="recovery-arc-scope inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border border-dashed whitespace-nowrap"
+        style={{ borderColor: 'var(--rc-line)', color: 'var(--rc-taupe)' }}
+      >
+        <ClipboardPlus size={13} className="opacity-50" />
+        Chưa có
+      </span>
+    );
   }
   return (
     <button
       type="button"
       onClick={onClick}
       title="Xem hồ sơ điều trị"
-      className="recovery-arc-scope size-8 rounded-lg flex items-center justify-center transition-all hover:-translate-y-0.5 active:scale-95"
-      style={{ background: 'var(--rc-sage-soft)', color: 'var(--rc-sage)' }}
+      className="recovery-arc-scope inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all hover:-translate-y-0.5 active:scale-95 whitespace-nowrap"
+      style={{ background: 'var(--rc-sage-soft)', color: 'var(--rc-sage)', borderColor: 'var(--rc-sage)' }}
     >
-      <FileSearch size={15} />
+      <ClipboardPlus size={13} />
+      Hồ sơ
     </button>
   );
 }
