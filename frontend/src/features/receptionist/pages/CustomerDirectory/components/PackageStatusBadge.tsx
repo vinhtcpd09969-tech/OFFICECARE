@@ -1,9 +1,11 @@
 import type { CurrentPackageInfo } from '../types';
+import { formatCountdown } from '../../../../../utils/format';
 
 const STATUS_META: Record<string, { label: string; cls: string }> = {
   cho_kich_hoat: { label: 'Chờ kích hoạt', cls: 'bg-amber-50 text-amber-700 border-amber-150' },
   dang_dieu_tri: { label: 'Đang điều trị', cls: 'bg-teal-50 text-teal-700 border-teal-150' },
   hoan_thanh: { label: 'Hoàn thành', cls: 'bg-slate-100 text-slate-600 border-slate-200' },
+  huy: { label: 'Đã hủy', cls: 'bg-rose-50 text-rose-700 border-rose-150' },
 };
 
 export function PackageStatusBadge({ goi }: { goi: CurrentPackageInfo | null }) {
@@ -11,6 +13,7 @@ export function PackageStatusBadge({ goi }: { goi: CurrentPackageInfo | null }) 
     return <span className="text-[11px] text-slate-400 font-semibold italic">Chưa có liệu trình</span>;
   }
   const meta = STATUS_META[goi.trang_thai] || { label: goi.trang_thai, cls: 'bg-slate-100 text-slate-600 border-slate-200' };
+  const countdown = goi.trang_thai === 'cho_kich_hoat' && goi.han_kich_hoat ? formatCountdown(goi.han_kich_hoat) : null;
 
   return (
     <div className="flex flex-col gap-1">
@@ -21,6 +24,11 @@ export function PackageStatusBadge({ goi }: { goi: CurrentPackageInfo | null }) 
       {goi.trang_thai === 'dang_dieu_tri' && typeof goi.so_buoi_da_dung === 'number' && (
         <span className="text-[10px] text-slate-450 font-semibold">
           Buổi {goi.so_buoi_da_dung} / {goi.tong_so_buoi}
+        </span>
+      )}
+      {countdown && (
+        <span className={`text-[10px] font-bold ${countdown.urgent ? 'text-red-600' : 'text-amber-700'}`}>
+          ⏱ {countdown.text}
         </span>
       )}
     </div>

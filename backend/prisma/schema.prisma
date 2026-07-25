@@ -151,7 +151,13 @@ model cuoc_hen {
   phong_id              Int?
   ghi_chu_noi_bo        String?
   anh_dinh_kem_url      String?
+  thoi_gian_tao         DateTime?              @default(now()) @db.Timestamptz(6)
   thoi_gian_huy         DateTime?              @db.Timestamptz(6)
+  thoi_gian_xac_nhan    DateTime?              @db.Timestamptz(6)
+  thoi_gian_checkin     DateTime?              @db.Timestamptz(6)
+  thoi_gian_bat_dau     DateTime?              @db.Timestamptz(6)
+  thoi_gian_hoan_thanh  DateTime?              @db.Timestamptz(6)
+  thoi_gian_khong_den   DateTime?              @db.Timestamptz(6)
   nguoi_tao_id          Int?
   ly_do_huy             String?
   goi_dich_vu           goi_dich_vu?           @relation(fields: [goi_dich_vu_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -197,6 +203,8 @@ model phac_do_dieu_tri {
   trang_thai      String      @default("cho_kich_hoat") @db.VarChar(20)
   ngay_kich_hoat  DateTime?   @db.Date
   han_su_dung     DateTime?   @db.Date
+  ngay_hoan_thanh DateTime?   @db.Timestamptz(6)
+  ngay_huy        DateTime?   @db.Timestamptz(6)
   cuoc_hen        cuoc_hen[]
   hoa_don         hoa_don[]
   chi_dinh_buoi   chi_dinh_buoi[]

@@ -1,0 +1,15 @@
+$kind: http-request
+url: "{{baseUrl}}/receptionist/appointments/:id/cancel"
+method: PATCH
+headers:
+  Content-Type: application/json
+  Authorization: Bearer {{token}}
+pathVariables:
+  id: ""
+body:
+  type: json
+  content: |-
+    {
+      "ly_do_huy": "Khách bận công tác đột xuất"
+    }
+order: 6000

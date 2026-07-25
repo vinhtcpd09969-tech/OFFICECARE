@@ -1,0 +1,12 @@
+$kind: http-request
+url: "{{baseUrl}}/auth/forgot-password"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "email": "nguyenvanan@gmail.com"
+    }
+order: 7000

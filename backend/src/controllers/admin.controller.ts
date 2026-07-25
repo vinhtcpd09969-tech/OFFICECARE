@@ -242,35 +242,14 @@ export const updateCustomer = async (req: Request, res: Response) => {
   }
 };
 
+// Khóa luôn được phép thực hiện, không chặn cứng theo lịch hẹn/gói liệu trình còn hoạt động — khóa
+// chỉ chặn khách tự đăng nhập (auth.service.ts), không đụng tới các bản ghi đó. Cảnh báo cho admin
+// biết khách còn gì để tự xử lý tay là việc của getCustomerLockImpact (gọi từ frontend TRƯỚC khi xác
+// nhận), không phải trách nhiệm của endpoint này.
 export const toggleCustomerLock = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
     const { isLocked } = req.body;
-
-    if (isLocked) {
-      // 1. Kiểm tra lịch hẹn sắp tới hoặc đang diễn ra
-      const apptCheck = await pool.query(
-        `SELECT id FROM cuoc_hen 
-         WHERE khach_hang_id = $1 
-           AND trang_thai IN ('chua_xac_nhan', 'cho_xac_nhan', 'da_xac_nhan', 'da_checkin', 'dang_kham')`,
-        [id]
-      );
-
-      // 2. Kiểm tra gói phác đồ đang hoạt động và chưa dùng hết buổi
-      const planCheck = await pool.query(
-        `SELECT id FROM phac_do_dieu_tri 
-         WHERE khach_hang_id = $1 
-           AND trang_thai = 'dang_dieu_tri' 
-           AND so_buoi_da_dung < tong_so_buoi`,
-        [id]
-      );
-
-      if ((apptCheck.rowCount && apptCheck.rowCount > 0) || (planCheck.rowCount && planCheck.rowCount > 0)) {
-        return res.status(400).json({
-          message: 'Không thể khóa tài khoản: Khách hàng đang có lịch hẹn sắp tới hoặc gói liệu trình đang hoạt động. Vui lòng hủy lịch hẹn hoặc xử lý gói trước khi khóa.'
-        });
-      }
-    }
 
     const updated = await adminService.updateCustomerLock(id, isLocked);
 
@@ -286,7 +265,17 @@ export const toggleCustomerLock = async (req: Request, res: Response) => {
   }
 };
 
-const VALID_CUSTOMER_STATUS_FILTERS = ['none', 'le', 'pending', 'progress', 'done', 'cancel', 'any_plan', 'locked'];
+export const getCustomerLockImpact = async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const impact = await adminService.getCustomerLockImpact(id);
+    res.json(impact);
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi kiểm tra lịch hẹn/liệu trình của khách hàng' });
+  }
+};
+
+const VALID_CUSTOMER_STATUS_FILTERS = ['locked', 'no_record'];
 
 export const getCustomersOverview = async (req: Request, res: Response) => {
   try {
@@ -303,6 +292,33 @@ export const getCustomersOverview = async (req: Request, res: Response) => {
     res.json(result);
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server khi lấy danh sách khách hàng' });
+  }
+};
+
+const VALID_PLAN_STATUS_FILTERS = ['dang_dieu_tri', 'qua_han', 'hoan_thanh', 'huy'];
+
+export const getTreatmentPlans = async (req: Request, res: Response) => {
+  try {
+    const page = Math.max(1, parseInt(String(req.query.page ?? '1'), 10) || 1);
+    const pageSize = Math.min(100, Math.max(1, parseInt(String(req.query.pageSize ?? '20'), 10) || 20));
+    const search = String(req.query.search ?? '').trim();
+    const statusRaw = String(req.query.status ?? '');
+    const status = VALID_PLAN_STATUS_FILTERS.includes(statusRaw) ? statusRaw : undefined;
+    const result = await adminService.getTreatmentPlansOverview({ page, pageSize, search, status });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi lấy danh sách liệu trình' });
+  }
+};
+
+export const getCompletedSingleVisits = async (req: Request, res: Response) => {
+  try {
+    const page = Math.max(1, parseInt(String(req.query.page ?? '1'), 10) || 1);
+    const pageSize = Math.min(100, Math.max(1, parseInt(String(req.query.pageSize ?? '20'), 10) || 20));
+    const result = await adminService.getCompletedSingleVisits({ page, pageSize });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server khi lấy danh sách ca khám lẻ hoàn thành' });
   }
 };
 

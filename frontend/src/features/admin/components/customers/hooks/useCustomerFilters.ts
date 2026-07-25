@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
-import type { CustomerStatusFilter, ReputationTier } from '../types';
+import type { ReputationTier } from '../types';
+
+export type CustomerRecordFilter = 'all' | 'no_record';
 
 // State thuần cho filter — không gọi API, chỉ debounce search để hook fetch dữ liệu dùng.
-// Tier trạng thái giờ là SINGLE-SELECT (bấm 1 trạm trên "Đường cong Phục hồi"), khác với chip đa
-// chọn cũ; "khóa tài khoản" là 1 trục độc lập (checkbox riêng, không thuộc hành trình điều trị).
+// "khóa tài khoản" và "chưa có hồ sơ điều trị" là 2 trục độc lập (kết hợp AND ở backend).
 export function useCustomerFilters() {
-  const [activeTier, setActiveTier] = useState<CustomerStatusFilter | 'all'>('all');
   const [showLockedOnly, setShowLockedOnly] = useState(false);
+  const [recordFilter, setRecordFilter] = useState<CustomerRecordFilter>('all');
   const [repTier, setRepTier] = useState<ReputationTier | 'all'>('all');
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -17,10 +18,13 @@ export function useCustomerFilters() {
   }, [searchInput]);
 
   const toggleLockedOnly = () => setShowLockedOnly(prev => !prev);
+  // Card "Chưa có hồ sơ điều trị" bấm lại lần 2 để bỏ lọc; card "Tổng khách hàng" luôn reset về 'all'.
+  const toggleRecordFilter = (filter: CustomerRecordFilter) =>
+    setRecordFilter(prev => (filter === 'all' ? 'all' : prev === filter ? 'all' : filter));
 
   return {
-    activeTier, setActiveTier,
     showLockedOnly, toggleLockedOnly,
+    recordFilter, toggleRecordFilter,
     repTier, setRepTier,
     searchInput, setSearchInput,
     debouncedSearch

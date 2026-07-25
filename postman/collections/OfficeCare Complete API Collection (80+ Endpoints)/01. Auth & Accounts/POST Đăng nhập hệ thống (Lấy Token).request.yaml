@@ -1,0 +1,25 @@
+$kind: http-request
+url: "{{baseUrl}}/auth/login"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "sdt": "0912345678",
+      "mat_khau": "123456"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      var jsonData = pm.response.json();
+      if (jsonData.data && jsonData.data.access_token) {
+          pm.environment.set('token', jsonData.data.access_token);
+          console.log('✅ Đã lưu JWT Token tự động vào {{token}}');
+      } else if (jsonData.token) {
+          pm.environment.set('token', jsonData.token);
+          console.log('✅ Đã lưu JWT Token tự động vào {{token}}');
+      }
+    language: text/javascript
+order: 1000

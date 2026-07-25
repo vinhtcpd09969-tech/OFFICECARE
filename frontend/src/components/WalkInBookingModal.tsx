@@ -441,10 +441,10 @@ export default function WalkInBookingModal({
     const duration = selectedService ? (selectedService.thoi_luong_phut || 30) : 30;
     const slots: string[] = [];
     let current = new Date();
-    current.setHours(7, 30, 0, 0); // Bắt đầu lúc 07:30
+    current.setHours(8, 0, 0, 0); // Bắt đầu lúc 08:00
     
     const end = new Date();
-    end.setHours(19, 30, 0, 0); // Giờ hẹn muộn nhất có thể bắt đầu là 19:30
+    end.setHours(20, 0, 0, 0); // Giờ hẹn muộn nhất có thể bắt đầu là 20:00
     
     const formatTime = (d: Date) => {
       const h = String(d.getHours()).padStart(2, '0');

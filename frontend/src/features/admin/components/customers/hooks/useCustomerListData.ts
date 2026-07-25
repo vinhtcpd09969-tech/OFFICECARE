@@ -2,27 +2,26 @@ import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { getCustomersOverview, getDashboardSummary } from '../../../api/admin.api';
 import { DEFAULT_PAGE_SIZE } from '../constants';
-import type { CustomerOverviewItem, CustomerStatusFilter, EmrStats, ReputationTier } from '../types';
+import type { CustomerOverviewItem, EmrStats, ReputationTier } from '../types';
+import type { CustomerRecordFilter } from './useCustomerFilters';
 
 interface UseCustomerListDataParams {
-  activeTier: CustomerStatusFilter | 'all';
   showLockedOnly: boolean;
+  recordFilter: CustomerRecordFilter;
   repTier: ReputationTier | 'all';
   search: string;
 }
 
-export function useCustomerListData({ activeTier, showLockedOnly, repTier, search }: UseCustomerListDataParams) {
+export function useCustomerListData({ showLockedOnly, recordFilter, repTier, search }: UseCustomerListDataParams) {
   const [data, setData] = useState<CustomerOverviewItem[]>([]);
   const [meta, setMeta] = useState({ page: 1, pageSize: DEFAULT_PAGE_SIZE, total: 0, totalPages: 1 });
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
 
   const [totalCustomers, setTotalCustomers] = useState(0);
-  const [newThisMonth, setNewThisMonth] = useState(0);
-  const [totalRevenue, setTotalRevenue] = useState(0);
   const [emrStats, setEmrStats] = useState<EmrStats | null>(null);
 
-  const statusKey = [activeTier !== 'all' ? activeTier : null, showLockedOnly ? 'locked' : null].filter(Boolean).join(',');
+  const statusKey = [showLockedOnly ? 'locked' : null, recordFilter !== 'all' ? recordFilter : null].filter(Boolean).join(',');
 
   // Đổi filter/search thì luôn quay về trang 1.
   useEffect(() => {
@@ -33,8 +32,8 @@ export function useCustomerListData({ activeTier, showLockedOnly, repTier, searc
     try {
       setLoading(true);
       const status: string[] = [];
-      if (activeTier !== 'all') status.push(activeTier);
       if (showLockedOnly) status.push('locked');
+      if (recordFilter !== 'all') status.push(recordFilter);
       const res = await getCustomersOverview({
         page,
         pageSize: DEFAULT_PAGE_SIZE,
@@ -57,12 +56,12 @@ export function useCustomerListData({ activeTier, showLockedOnly, repTier, searc
     fetchList();
   }, [fetchList]);
 
+  // emrStats.lieu_trinh nuôi chip filter khối "Gói liệu trình" (tab Hồ sơ điều trị);
+  // emrStats.customers_without_record + totalCustomers nuôi 2 card tĩnh (tab Theo khách hàng).
   useEffect(() => {
     getDashboardSummary()
       .then(res => {
         setTotalCustomers(Number(res.data?.total_customers || 0));
-        setNewThisMonth(Number(res.data?.customers_this_month || 0));
-        setTotalRevenue(Number(res.data?.total_revenue || 0));
         setEmrStats(res.data?.emr_stats || null);
       })
       .catch(err => console.error('Error fetching customer stat cards:', err));
@@ -70,6 +69,6 @@ export function useCustomerListData({ activeTier, showLockedOnly, repTier, searc
 
   return {
     data, meta, page, setPage, loading, refetch: fetchList,
-    totalCustomers, newThisMonth, totalRevenue, emrStats
+    totalCustomers, emrStats
   };
 }

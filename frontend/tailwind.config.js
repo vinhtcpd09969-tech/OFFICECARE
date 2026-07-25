@@ -76,6 +76,7 @@ export default {
         'pulse-custom': 'pulse-primary 2s infinite',
         'wave-move': 'wave-move 10s linear infinite',
         'marquee': 'marquee 30s linear infinite',
+        'highlight-once': 'pulse-primary 1s ease-out 2',
       }
     },
   },

@@ -1,5 +1,6 @@
 import { memo } from 'react';
-import { Inbox, ClipboardPlus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Inbox, ClipboardPlus, CreditCard } from 'lucide-react';
 import { Pagination } from '../../../../../components/Pagination';
 import { ReputationScore } from './ReputationScore';
 import { PackageStatusBadge } from './PackageStatusBadge';
@@ -23,6 +24,9 @@ const CustomerRosterRow = memo(function CustomerRosterRow({
   staleDays: number;
   onViewProfile: (c: CustomerRosterItem) => void;
 }) {
+  const navigate = useNavigate();
+  const reason = customer.ly_do_lien_he;
+
   return (
     <tr className="hover:bg-slate-50/50 transition-colors">
       <td className="p-4">
@@ -52,17 +56,31 @@ const CustomerRosterRow = memo(function CustomerRosterRow({
         {formatDaysAgo(customer.last_used_at)}
       </td>
       <td className="p-4">
-        <FollowUpFlag canLienHe={customer.can_lien_he} staleDays={staleDays} />
+        <FollowUpFlag lyDoLienHe={reason} staleDays={staleDays} />
       </td>
       <td className="p-4">
-        <button
-          type="button"
-          onClick={() => onViewProfile(customer)}
-          className="px-2.5 py-1.5 border border-teal-200 bg-teal-50/50 hover:bg-teal-100/70 text-teal-700 rounded-xl font-bold text-[10px] transition-all flex items-center gap-1.5 active:scale-95 whitespace-nowrap shadow-sm"
-        >
-          <ClipboardPlus size={13} />
-          Xem hồ sơ
-        </button>
+        <div className="flex items-center gap-1.5">
+          {reason?.type === 'sap_het_han' && (
+            <button
+              type="button"
+              onClick={() =>
+                navigate(`/receptionist/billing?lich_dat_id=${reason.cuoc_hen_id}`)
+              }
+              className="px-2.5 py-1.5 border border-amber-200 bg-amber-50/50 hover:bg-amber-100/70 text-amber-700 rounded-xl font-bold text-[10px] transition-all flex items-center gap-1.5 active:scale-95 whitespace-nowrap shadow-sm"
+            >
+              <CreditCard size={13} />
+              Thanh toán
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => onViewProfile(customer)}
+            className="px-2.5 py-1.5 border border-teal-200 bg-teal-50/50 hover:bg-teal-100/70 text-teal-700 rounded-xl font-bold text-[10px] transition-all flex items-center gap-1.5 active:scale-95 whitespace-nowrap shadow-sm"
+          >
+            <ClipboardPlus size={13} />
+            Xem hồ sơ
+          </button>
+        </div>
       </td>
     </tr>
   );

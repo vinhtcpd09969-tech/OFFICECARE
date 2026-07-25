@@ -1,0 +1,17 @@
+$kind: http-request
+url: "{{baseUrl}}/auth/profile"
+method: PUT
+headers:
+  Content-Type: application/json
+  Authorization: Bearer {{token}}
+body:
+  type: json
+  content: |-
+    {
+      "ho_ten": "Nguyễn Văn An",
+      "email": "nguyenvanan@gmail.com",
+      "ngay_sinh": "1995-05-15",
+      "gioi_tinh": "nam",
+      "dia_chi": "123 Nguyễn Văn Linh, Q.7, TP.HCM"
+    }
+order: 10000

@@ -994,7 +994,6 @@ class ReceptionistService {
     page: number;
     pageSize: number;
     search: string;
-    trangThaiGoi: string;
     canLienHe: boolean;
     staleDays: number;
   }) {
@@ -1005,9 +1004,16 @@ class ReceptionistService {
     const record: any = await receptionistRepository.getCustomerHistory(customerId);
     if (!record) throw new Error('Không tìm thấy khách hàng');
 
+    // "Lý do cần liên hệ" hợp nhất — suy ra thuần từ dữ liệu vừa tải, không lưu DB (chỉ gợi ý
+    // hiển thị). Ưu tiên gói chờ kích hoạt (luật "1 khách 1 liệu trình tại 1 thời điểm" đảm bảo
+    // không bao giờ trùng với trường hợp đang điều trị lâu chưa quay lại).
+    const pendingPlan = record.plans.find((p: any) => p.trang_thai === 'cho_kich_hoat');
     const activePlan = record.plans.find((p: any) => p.trang_thai === 'dang_dieu_tri');
-    let canLienHe = false;
-    if (activePlan) {
+    let lyDoLienHe: any = null;
+
+    if (pendingPlan) {
+      lyDoLienHe = { type: 'sap_het_han', han_kich_hoat: pendingPlan.han_kich_hoat };
+    } else if (activePlan) {
       const sessions = record.appointments.filter((a: any) => a.phac_do_dieu_tri_id === activePlan.id);
       const completedTimes = sessions
         .filter((a: any) => a.trang_thai === 'hoan_thanh')
@@ -1016,13 +1022,14 @@ class ReceptionistService {
       const hasUpcoming = sessions.some((a: any) =>
         new Date(a.ngay_gio_bat_dau) > new Date() && !['da_huy', 'huy'].includes(a.trang_thai)
       );
-      canLienHe = needsFollowUp({
+      const canLienHe = needsFollowUp({
         trangThaiGoi: activePlan.trang_thai,
         soBuoiDaDung: activePlan.so_buoi_da_dung,
         lastCompletedAt,
         hasUpcomingAppointment: hasUpcoming,
         staleDays
       });
+      if (canLienHe) lyDoLienHe = { type: 'lau_chua_quay_lai' };
     }
 
     const completedAny = record.appointments
@@ -1030,7 +1037,7 @@ class ReceptionistService {
       .map((a: any) => new Date(a.ngay_gio_bat_dau).getTime());
     const lastUsedAt = completedAny.length ? new Date(Math.max(...completedAny)).toISOString() : null;
 
-    return { ...record, can_lien_he: canLienHe, last_used_at: lastUsedAt };
+    return { ...record, ly_do_lien_he: lyDoLienHe, last_used_at: lastUsedAt };
   }
 
   async getBillingInfoByPackage(customerId: string, packageId: string) {

@@ -22,16 +22,15 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
   const navigate = useNavigate();
   const { user } = useAuthStore();
 
-  const getTomorrowString = () => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const y = tomorrow.getFullYear();
-    const m = String(tomorrow.getMonth() + 1).padStart(2, '0');
-    const d = String(tomorrow.getDate()).padStart(2, '0');
+  const getTodayString = () => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const d = String(today.getDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
   };
 
-  const [selectedDate, setSelectedDate] = useState<string>(getTomorrowString());
+  const [selectedDate, setSelectedDate] = useState<string>(getTodayString());
   const [sdt, setSdt] = useState<string>(user?.so_dien_thoai || '');
   const [selectedStaffId, setSelectedStaffId] = useState<string>('');
   const [selectedTime, setSelectedTime] = useState<string>('');
@@ -363,7 +362,7 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
                   <span className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Ngày khám:</span>
                   <CustomDatePicker
                     value={selectedDate}
-                    minDate={getTomorrowString()}
+                    minDate={getTodayString()}
                     onChange={(date) => {
                       setSelectedDate(date);
                       setSelectedTime('');

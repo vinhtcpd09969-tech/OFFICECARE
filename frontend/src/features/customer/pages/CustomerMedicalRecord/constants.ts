@@ -8,6 +8,8 @@ export const INVOICE_STATUS_META: Record<string, { label: string; className: str
   dang_tra_gop: { label: 'Đang trả góp', className: 'bg-amber-50 text-amber-700 border-amber-200' },
   dang_tra_tung_buoi: { label: 'Đang trả từng buổi', className: 'bg-sky-50 text-sky-700 border-sky-200' },
   da_hoan_tien: { label: 'Đã hoàn tiền', className: 'bg-zinc-100 text-zinc-600 border-zinc-200' },
+  // Gói bị hủy KHÔNG hoàn tiền (quá hạn sử dụng, tự động hoặc Admin xử lý) — khác hẳn da_hoan_tien.
+  da_huy: { label: 'Đã hủy', className: 'bg-zinc-100 text-zinc-600 border-zinc-200' },
 };
 
 export const DEFAULT_INVOICE_STATUS_META = { label: 'Chờ cập nhật', className: 'bg-zinc-50 text-zinc-500 border-zinc-200' };
@@ -22,5 +24,5 @@ export const PACKAGE_STATUS_META: Record<string, { label: string; className: str
   cho_kich_hoat: { label: 'Chờ kích hoạt', className: 'bg-amber-50 text-amber-700 border-amber-200' },
   dang_dieu_tri: { label: 'Đang điều trị', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   hoan_thanh: { label: 'Hoàn thành', className: 'bg-primary/10 text-primary border-primary/25' },
-  huy_ngang: { label: 'Đã hủy', className: 'bg-rose-50 text-rose-700 border-rose-200' },
+  huy: { label: 'Đã hủy', className: 'bg-rose-50 text-rose-700 border-rose-200' },
 };

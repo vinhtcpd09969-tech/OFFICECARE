@@ -1,0 +1,7 @@
+$kind: http-request
+url: "{{baseUrl}}/auth/me"
+method: GET
+headers:
+  Content-Type: application/json
+  Authorization: Bearer {{token}}
+order: 9000

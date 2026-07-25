@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ChevronDown, ChevronUp, FileText, XCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ChevronDown, ChevronUp, FileText, XCircle, CreditCard } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -8,35 +8,77 @@ import { VasTrendSparkline } from './VasTrendSparkline';
 import { SessionTimelineItem } from './SessionTimelineItem';
 import { BookNextSessionModal } from './BookNextSessionModal';
 import { PACKAGE_STATUS_META } from '../constants';
-import { isSessionPaymentSatisfied, isPlanCancelled } from '../../../../../utils/billing';
 import type { PackageEntry } from '../types';
+import { isSessionPaymentSatisfied } from '../../../../../utils/billing';
+
+/** Gom dữ liệu hóa đơn gói từ 1 PackageEntry về đúng shape mà utils/billing mong đợi. */
+function toPlanShape(pkg: PackageEntry) {
+  return {
+    loai_goi: pkg.loai_goi,
+    hinh_thuc_thanh_toan_goi: pkg.hinh_thuc_thanh_toan_goi,
+    tong_tien_phai_tra: pkg.tong_tien_phai_tra,
+    so_tien_da_tra: pkg.so_tien_da_tra,
+    tong_so_buoi: pkg.tong_so_buoi,
+    tong_tien_goc: pkg.tong_tien_goc,
+    ti_le_giam_gia_goi: pkg.ti_le_giam_gia_goi,
+    so_tien_giam_voucher: pkg.so_tien_giam_voucher,
+    // Cần cho isPlanCancelled bên trong isSessionPaymentSatisfied: gói đã hoàn tiền thì không còn
+    // khoản nào để đòi, không chặn "Đặt lịch" vì lý do thanh toán nữa.
+    trang_thai: pkg.trang_thai_phac_do,
+    hoa_don_trang_thai: pkg.trang_thai_hoa_don,
+  };
+}
 
 interface PackageCardProps {
   pkg: PackageEntry;
   isExpanded: boolean;
   onToggleExpand: () => void;
+  targetSessionId?: string | null;
 }
 
-export function PackageCard({ pkg, isExpanded, onToggleExpand }: PackageCardProps) {
+export function PackageCard({ pkg, isExpanded, onToggleExpand, targetSessionId }: PackageCardProps) {
   const navigate = useNavigate();
 
   const [expandedSessionNum, setExpandedSessionNum] = useState<number | null>(null);
   const [bookingSessionNum, setBookingSessionNum] = useState<number | null>(null);
 
-  // KHÔNG dùng thẳng pkg.so_buoi_da_dung — đây là cột lưu cache trên phac_do_dieu_tri, có thể lệch
-  // với số buổi thật sự đã hoàn thành (đã xác nhận qua DB: có phác đồ so_buoi_da_dung=1 nhưng thực
-  // tế 2 cuoc_hen đã hoan_thanh). Chính vì lệch này mà admin.repository.ts cũng phải tính lại trực
-  // tiếp từ COUNT(cuoc_hen) ở nhiều nơi thay vì tin cột cache — áp dụng lại đúng cách đó ở đây.
   const sortedSessions = [...pkg.buoi_dieu_tri].sort((a, b) => a.so_thu_tu_buoi - b.so_thu_tu_buoi);
-  const actualCompleted = sortedSessions.filter((s) => s.trang_thai === 'hoan_thanh').length;
+
+  useEffect(() => {
+    if (!targetSessionId) return;
+    const match = sortedSessions.find(s => s.cuoc_hen_id === targetSessionId || String(s.so_thu_tu_buoi) === String(targetSessionId));
+    if (match) {
+      setExpandedSessionNum(match.so_thu_tu_buoi);
+    }
+  }, [targetSessionId, pkg.buoi_dieu_tri]);
+
+  const isPrepaidPackage = pkg.hinh_thuc_thanh_toan_goi === 'tra_thang' || pkg.hinh_thuc_thanh_toan_goi === 'tra_gop';
+  const completedFromSessions = sortedSessions.filter((s) => 
+    s.trang_thai === 'hoan_thanh' || 
+    (isPrepaidPackage && ['khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(s.trang_thai))
+  ).length;
+  const actualCompleted = isPrepaidPackage 
+    ? Math.max(pkg.so_buoi_da_dung || 0, completedFromSessions)
+    : sortedSessions.filter((s) => s.trang_thai === 'hoan_thanh').length;
   const percentDone = pkg.tong_so_buoi > 0 ? Math.round((actualCompleted / pkg.tong_so_buoi) * 100) : 0;
   const statusMeta = PACKAGE_STATUS_META[pkg.trang_thai_phac_do] || { label: pkg.trang_thai_phac_do, className: 'bg-zinc-100 text-zinc-600 border-zinc-200' };
 
-  // Tìm buổi chưa đặt lịch đầu tiên (1-indexed) để hiển thị nút Đặt lịch
+  // Tìm buổi chưa hoàn thành / cần đặt lịch đầu tiên (1-indexed) để hiển thị nút Đặt lịch
   let firstUnbookedNum = 1;
   for (let i = 1; i <= pkg.tong_so_buoi; i++) {
-    const exists = sortedSessions.some((s) => s.so_thu_tu_buoi === i && s.trang_thai !== 'da_huy');
-    if (!exists) {
+    const session = sortedSessions.find((s) => s.so_thu_tu_buoi === i && s.trang_thai !== 'da_huy');
+    if (!session) {
+      firstUnbookedNum = i;
+      break;
+    }
+    if (isPrepaidPackage && ['khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(session.trang_thai)) {
+      continue;
+    }
+    if (!isPrepaidPackage && ['khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(session.trang_thai)) {
+      firstUnbookedNum = i;
+      break;
+    }
+    if (session.trang_thai !== 'hoan_thanh') {
       firstUnbookedNum = i;
       break;
     }
@@ -45,6 +87,11 @@ export function PackageCard({ pkg, isExpanded, onToggleExpand }: PackageCardProp
   // Chỉ cho xem trước hoàn tiền/yêu cầu hủy khi gói còn đang chạy và đã có hóa đơn thật gắn vào —
   // gói chờ kích hoạt (chưa đóng tiền) hay đã hoàn thành/hủy thì không còn gì để hủy nữa.
   const canRequestCancel = pkg.trang_thai_phac_do === 'dang_dieu_tri' && !!pkg.hoa_don_id;
+
+  // Gói bị hủy do quá hạn sử dụng (tự động hoặc Admin xử lý, không hoàn tiền) — khác "khách chủ
+  // động yêu cầu hủy và được hoàn tiền" (trang_thai_hoa_don = da_hoan_tien). Hiện rõ lý do để khách
+  // không thắc mắc "sao gói tự nhiên bị hủy".
+  const isExpiredCancel = pkg.trang_thai_phac_do === 'huy' && !!pkg.han_su_dung && new Date(pkg.han_su_dung) < new Date();
 
   return (
     <div
@@ -60,6 +107,7 @@ export function PackageCard({ pkg, isExpanded, onToggleExpand }: PackageCardProp
             </span>
             <span className="text-[11px] font-semibold text-zinc-400">
               {pkg.ngay_kich_hoat ? `Kích hoạt ${format(new Date(pkg.ngay_kich_hoat), 'dd/MM/yyyy', { locale: vi })}` : 'Chờ kích hoạt'}
+              {pkg.han_su_dung && ` · Hạn sử dụng ${format(new Date(pkg.han_su_dung), 'dd/MM/yyyy', { locale: vi })}`}
             </span>
           </div>
           <h2 className="font-heading text-lg md:text-xl font-black text-secondary tracking-tight">{pkg.ten_dich_vu}</h2>
@@ -82,6 +130,15 @@ export function PackageCard({ pkg, isExpanded, onToggleExpand }: PackageCardProp
             >
               <XCircle size={13} /> Hủy liệu trình
             </button>
+          )}
+
+          {isExpiredCancel && (
+            <div className="mt-4 flex items-start gap-2 text-[11px] font-semibold text-rose-700 bg-rose-50 border border-rose-100 rounded-xl px-3.5 py-2.5 max-w-md">
+              <XCircle size={14} className="shrink-0 mt-0.5" />
+              <span>
+                Gói đã tự động hủy do quá hạn sử dụng ({format(new Date(pkg.han_su_dung!), 'dd/MM/yyyy', { locale: vi })}) — không hoàn tiền theo chính sách, không còn thao tác nào trên lịch hẹn/hóa đơn của gói này. Liên hệ phòng khám nếu cần hỗ trợ.
+              </span>
+            </div>
           )}
         </div>
 
@@ -117,31 +174,21 @@ export function PackageCard({ pkg, isExpanded, onToggleExpand }: PackageCardProp
               const sessionNum = idx + 1;
               const session = sortedSessions.find((s) => s.so_thu_tu_buoi === sessionNum && s.trang_thai !== 'da_huy');
 
-              const isCancelled = isPlanCancelled({
-                trang_thai: pkg.trang_thai_phac_do,
-                hoa_don_trang_thai: pkg.trang_thai_hoa_don,
-                trang_thai_hoa_don_goi: pkg.trang_thai_hoa_don
-              });
-
-              const isPaySatisfied = isSessionPaymentSatisfied({
-                hinh_thuc_thanh_toan_goi: pkg.hinh_thuc_thanh_toan_goi,
-                tong_tien_phai_tra: pkg.tong_tien_phai_tra,
-                so_tien_da_tra: pkg.so_tien_da_tra,
-                tong_so_buoi: pkg.tong_so_buoi,
-                trang_thai: pkg.trang_thai_phac_do,
-                hoa_don_trang_thai: pkg.trang_thai_hoa_don,
-                trang_thai_hoa_don_goi: pkg.trang_thai_hoa_don
-              }, sessionNum);
-
-              let status: 'hoan_thanh' | 'da_dat_lich' | 'chua_dat_lich' | 'can_thanh_toan' | 'chua_toi_han' = 'chua_toi_han';
+              let status: 'hoan_thanh' | 'khong_den' | 'da_dat_lich' | 'chua_dat_lich' | 'can_thanh_toan' | 'chua_toi_han' | 'goi_da_huy' = 'chua_toi_han';
               if (session) {
-                status = session.trang_thai === 'hoan_thanh' ? 'hoan_thanh' : 'da_dat_lich';
-              } else if (sessionNum === firstUnbookedNum && pkg.trang_thai_phac_do === 'dang_dieu_tri') {
-                if (isCancelled || !isPaySatisfied) {
-                  status = 'can_thanh_toan';
+                if (session.trang_thai === 'hoan_thanh') {
+                  status = 'hoan_thanh';
+                } else if (['khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(session.trang_thai)) {
+                  status = 'khong_den';
                 } else {
-                  status = 'chua_dat_lich';
+                  status = 'da_dat_lich';
                 }
+              } else if (pkg.trang_thai_phac_do === 'huy') {
+                // Gói đã hủy (hết hạn sử dụng hoặc lý do khác) — mọi buổi chưa từng diễn ra sẽ
+                // không bao giờ diễn ra nữa, KHÔNG phải "chưa tới hạn" (dễ hiểu nhầm là còn chờ).
+                status = 'goi_da_huy';
+              } else if (sessionNum === firstUnbookedNum && pkg.trang_thai_phac_do === 'dang_dieu_tri') {
+                status = isSessionPaymentSatisfied(toPlanShape(pkg), sessionNum) ? 'chua_dat_lich' : 'can_thanh_toan';
               }
 
               const isSessionExpanded = expandedSessionNum === sessionNum;
@@ -155,22 +202,22 @@ export function PackageCard({ pkg, isExpanded, onToggleExpand }: PackageCardProp
                         setExpandedSessionNum(isSessionExpanded ? null : sessionNum);
                       }
                     }}
-                    className={`p-4 flex flex-wrap items-center justify-between gap-4 bg-zinc-50/40 ${
-                      (status === 'hoan_thanh' || status === 'da_dat_lich') ? 'cursor-pointer hover:bg-zinc-50' : ''
-                    } ${status === 'chua_toi_han' ? 'opacity-50' : ''}`}
+                    className={`p-4 flex flex-wrap items-center justify-between gap-4 bg-zinc-50/40 ${(status === 'hoan_thanh' || status === 'da_dat_lich') ? 'cursor-pointer hover:bg-zinc-50' : ''
+                      } ${status === 'chua_toi_han' ? 'opacity-50' : ''}`}
                   >
                     <div className="flex items-center gap-3.5 min-w-0">
                       {/* Số thứ tự buổi */}
                       <span
-                        className={`size-7 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${
-                          status === 'hoan_thanh'
+                        className={`size-7 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${status === 'hoan_thanh'
                             ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
                             : status === 'da_dat_lich'
-                            ? 'bg-blue-50 text-blue-600 border border-blue-200'
-                            : status === 'chua_dat_lich'
-                            ? 'bg-amber-50 text-amber-600 border border-amber-200'
-                            : 'bg-zinc-100 text-zinc-400'
-                        }`}
+                              ? 'bg-blue-50 text-blue-600 border border-blue-200'
+                              : status === 'chua_dat_lich'
+                                ? 'bg-amber-50 text-amber-600 border border-amber-200'
+                                : status === 'can_thanh_toan' || status === 'goi_da_huy'
+                                  ? 'bg-rose-50 text-rose-600 border border-rose-200'
+                                  : 'bg-zinc-100 text-zinc-400'
+                          }`}
                       >
                         {sessionNum}
                       </span>
@@ -182,17 +229,17 @@ export function PackageCard({ pkg, isExpanded, onToggleExpand }: PackageCardProp
                         <span className="text-[11px] text-zinc-500 font-semibold mt-0.5 block truncate">
                           {status === 'hoan_thanh' && session
                             ? `Thực hiện: ${session.ten_bac_si || 'KTV'} · ${format(new Date(session.ngay_gio_bat_dau), 'dd/MM/yyyy HH:mm')}`
-                            : status === 'da_dat_lich' && session
-                            ? `${session.trang_thai === 'chua_xac_nhan' ? 'Chờ xác thực' : 'Dự kiến'}: ${session.ten_bac_si || 'KTV'} · ${format(new Date(session.ngay_gio_bat_dau), 'dd/MM/yyyy HH:mm')}`
-                            : status === 'chua_dat_lich'
-                            ? 'Sẵn sàng để lên lịch đặt chỗ.'
-                            : status === 'can_thanh_toan'
-                            ? (pkg.hinh_thuc_thanh_toan_goi === 'tung_buoi'
-                                ? '⚠️ Vui lòng hoàn tất thanh toán buổi trước để mở khóa đặt lịch buổi này.'
-                                : pkg.hinh_thuc_thanh_toan_goi === 'tra_gop'
-                                ? '⚠️ Vui lòng thanh toán Đợt 2 của gói trả góp để mở khóa đặt lịch.'
-                                : '⚠️ Vui lòng hoàn tất thanh toán để mở khóa đặt lịch.')
-                            : 'Lịch hẹn sẽ mở khi hoàn tất buổi trước.'}
+                            : status === 'khong_den' && session
+                              ? `Vắng mặt lúc ${format(new Date(session.ngay_gio_bat_dau), 'dd/MM/yyyy HH:mm')}${!isPrepaidPackage ? ' · Đã mở lại lượt đặt lịch cho buổi này.' : ' · Đã tính 1 buổi tiêu thụ.'}`
+                              : status === 'da_dat_lich' && session
+                                ? `${session.trang_thai === 'chua_xac_nhan' ? 'Chờ xác thực' : 'Dự kiến'}: ${session.ten_bac_si || 'KTV'} · ${format(new Date(session.ngay_gio_bat_dau), 'dd/MM/yyyy HH:mm')}`
+                                : status === 'chua_dat_lich'
+                                  ? 'Sẵn sàng để lên lịch đặt chỗ.'
+                                  : status === 'can_thanh_toan'
+                                    ? 'Cần hoàn tất thanh toán trước khi đặt buổi này.'
+                                    : status === 'goi_da_huy'
+                                      ? 'Gói đã hủy — buổi này sẽ không diễn ra.'
+                                      : 'Lịch hẹn sẽ mở khi hoàn tất buổi trước.'}
                         </span>
                       </div>
                     </div>
@@ -211,13 +258,33 @@ export function PackageCard({ pkg, isExpanded, onToggleExpand }: PackageCardProp
                         </>
                       )}
 
+                      {status === 'khong_den' && session && (
+                        <>
+                          <span className="text-[10px] font-black uppercase bg-amber-50 text-amber-600 border border-amber-200 px-2 py-0.5 rounded-md tracking-wider">
+                            Vắng mặt (No-show)
+                          </span>
+                          {!isPrepaidPackage && sessionNum === firstUnbookedNum && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setBookingSessionNum(sessionNum);
+                              }}
+                              className="bg-primary hover:bg-[#25A89C] text-white text-[10px] font-black px-3.5 py-1.5 rounded-full transition-colors uppercase tracking-wider shadow-xs"
+                            >
+                              Đặt lịch
+                            </button>
+                          )}
+                          {isSessionExpanded ? <ChevronUp size={15} className="text-zinc-400" /> : <ChevronDown size={15} className="text-zinc-400" />}
+                        </>
+                      )}
+
                       {status === 'da_dat_lich' && session && (
                         <>
-                          <span className={`text-[10px] font-black uppercase border px-2 py-0.5 rounded-md tracking-wider ${
-                            session.trang_thai === 'chua_xac_nhan'
+                          <span className={`text-[10px] font-black uppercase border px-2 py-0.5 rounded-md tracking-wider ${session.trang_thai === 'chua_xac_nhan'
                               ? 'bg-amber-50 text-amber-600 border-amber-100'
                               : 'bg-blue-50 text-blue-600 border-blue-100'
-                          }`}>
+                            }`}>
                             {session.trang_thai === 'chua_xac_nhan' ? 'Chờ xác thực' : 'Đã đặt lịch'}
                           </span>
                           {isSessionExpanded ? <ChevronUp size={15} className="text-zinc-400" /> : <ChevronDown size={15} className="text-zinc-400" />}
@@ -231,7 +298,7 @@ export function PackageCard({ pkg, isExpanded, onToggleExpand }: PackageCardProp
                             e.stopPropagation();
                             setBookingSessionNum(sessionNum);
                           }}
-                          className="bg-primary hover:bg-[#25A89C] text-white text-[10px] font-black px-3.5 py-1.5 rounded-full transition-colors uppercase tracking-wider shadow-xs cursor-pointer"
+                          className="bg-primary hover:bg-[#25A89C] text-white text-[10px] font-black px-3.5 py-1.5 rounded-full transition-colors uppercase tracking-wider shadow-xs"
                         >
                           Đặt lịch
                         </button>
@@ -242,12 +309,18 @@ export function PackageCard({ pkg, isExpanded, onToggleExpand }: PackageCardProp
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/invoices${pkg.hoa_don_id ? `?invoice=${pkg.hoa_don_id}` : ''}`);
+                            navigate(`/invoices?invoice=${pkg.hoa_don_id}`);
                           }}
-                          className="bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-black px-3 py-1.5 rounded-full transition-all uppercase tracking-wider shadow-xs cursor-pointer flex items-center gap-1"
+                          className="inline-flex items-center gap-1.5 bg-rose-500 hover:bg-rose-600 text-white text-[10px] font-black px-3.5 py-1.5 rounded-full transition-colors uppercase tracking-wider shadow-xs"
                         >
-                          💳 {pkg.hinh_thuc_thanh_toan_goi === 'tra_gop' ? 'Thanh toán Đợt 2' : 'Cần thanh toán'}
+                          <CreditCard size={12} /> Cần thanh toán
                         </button>
+                      )}
+
+                      {status === 'goi_da_huy' && (
+                        <span className="text-[9px] font-black uppercase bg-rose-50 text-rose-600 border border-rose-200 px-2 py-0.5 rounded-md tracking-wider">
+                          Gói đã hủy
+                        </span>
                       )}
 
                       {status === 'chua_toi_han' && (

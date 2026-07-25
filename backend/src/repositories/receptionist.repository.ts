@@ -148,13 +148,21 @@ class ReceptionistRepository {
         paramIndex++;
       }
 
-      if (finalStatus === 'da_huy') {
-        updates.push(`thoi_gian_huy = NOW()`);
+      if (finalStatus === 'da_xac_nhan') {
+        updates.push(`thoi_gian_xac_nhan = COALESCE(thoi_gian_xac_nhan, NOW())`);
+      } else if (finalStatus === 'da_checkin') {
+        updates.push(`thoi_gian_checkin = COALESCE(thoi_gian_checkin, NOW())`);
+      } else if (finalStatus === 'dang_kham') {
+        updates.push(`thoi_gian_bat_dau = COALESCE(thoi_gian_bat_dau, NOW())`);
+      } else if (finalStatus === 'hoan_thanh') {
+        updates.push(`thoi_gian_hoan_thanh = COALESCE(thoi_gian_hoan_thanh, NOW())`);
+      } else if (finalStatus === 'da_huy') {
+        updates.push(`thoi_gian_huy = COALESCE(thoi_gian_huy, NOW())`);
+      } else if (['khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(finalStatus)) {
+        updates.push(`thoi_gian_khong_den = COALESCE(thoi_gian_khong_den, NOW())`);
       }
 
-      // Chỉ HỦY mới giải phóng nhân sự/phòng — "không đến" giữ nguyên (xem giải thích tương tự ở
-      // appointment.repository.ts::updateAppointmentStatus) để Bác sĩ/KTV vẫn thấy đúng ca "không
-      // đến" thuộc trách nhiệm của mình.
+      // Chỉ HỦY mới giải phóng nhân sự/phòng — "không đến" giữ nguyên
       if (finalStatus === 'da_huy') {
         updates.push(`nhan_su_id = NULL`);
         updates.push(`phong_id = NULL`);
@@ -196,10 +204,21 @@ class ReceptionistRepository {
           if (pdRes.rows.length > 0) {
             const { tong_so_buoi, trang_thai } = pdRes.rows[0];
             const statusToSet = completedCount >= tong_so_buoi ? 'hoan_thanh' : (trang_thai === 'hoan_thanh' ? 'dang_dieu_tri' : trang_thai);
-            await client.query(
-              'UPDATE phac_do_dieu_tri SET so_buoi_da_dung = $1, trang_thai = $2 WHERE id = $3',
-              [completedCount, statusToSet, updatedAppt.phac_do_dieu_tri_id]
-            );
+            if (statusToSet === 'hoan_thanh') {
+              await client.query(
+                `UPDATE phac_do_dieu_tri
+                 SET so_buoi_da_dung = $1, trang_thai = $2, ngay_hoan_thanh = COALESCE(ngay_hoan_thanh, NOW())
+                 WHERE id = $3`,
+                [completedCount, statusToSet, updatedAppt.phac_do_dieu_tri_id]
+              );
+            } else {
+              await client.query(
+                `UPDATE phac_do_dieu_tri
+                 SET so_buoi_da_dung = $1, trang_thai = $2
+                 WHERE id = $3`,
+                [completedCount, statusToSet, updatedAppt.phac_do_dieu_tri_id]
+              );
+            }
           }
         }
       }
@@ -277,10 +296,13 @@ class ReceptionistRepository {
       }
     }
 
+    const finalStatus = ky_thuat_vien_id ? 'da_xac_nhan' : 'cho_xac_nhan';
+    const thoiGianXacNhan = ky_thuat_vien_id ? new Date() : null;
+
     const { rows } = await pool.query(`
-      INSERT INTO cuoc_hen (khach_hang_id, goi_dich_vu_id, nhan_su_id, ngay_gio_bat_dau, ngay_gio_ket_thuc, loai, trang_thai, so_dien_thoai)
-      VALUES ($1, $2, $3, $4, $5, 'DICH_VU_LE', 'cho_xac_nhan', $6) RETURNING id
-    `, [khachHangId, goi_dich_vu_id, ky_thuat_vien_id ? parseInt(ky_thuat_vien_id, 10) : null, startTime, endTime, finalPhone]);
+      INSERT INTO cuoc_hen (khach_hang_id, goi_dich_vu_id, nhan_su_id, ngay_gio_bat_dau, ngay_gio_ket_thuc, loai, trang_thai, so_dien_thoai, thoi_gian_tao, thoi_gian_xac_nhan)
+      VALUES ($1, $2, $3, $4, $5, 'DICH_VU_LE', $6, $7, NOW(), $8) RETURNING id
+    `, [khachHangId, goi_dich_vu_id, ky_thuat_vien_id ? parseInt(ky_thuat_vien_id, 10) : null, startTime, endTime, finalStatus, finalPhone, thoiGianXacNhan]);
     return rows[0].id;
   }
 
@@ -373,8 +395,8 @@ class ReceptionistRepository {
         phacDoId = apptRows[0].phac_do_dieu_tri_id;
         // Cập nhật phác đồ
         await client.query(`
-          UPDATE phac_do_dieu_tri 
-          SET trang_thai = 'huy', tong_so_buoi = 1 
+          UPDATE phac_do_dieu_tri
+          SET trang_thai = 'huy', tong_so_buoi = 1, ngay_huy = COALESCE(ngay_huy, NOW())
           WHERE id = $1
         `, [phacDoId]);
 
@@ -1014,6 +1036,9 @@ class ReceptionistRepository {
         -- Gói đã hoàn tiền không được đưa ra form đặt lịch, kể cả khi trạng thái phác đồ
         -- chưa kịp đồng bộ (dữ liệu cũ từng bị set nhầm thành 'da_tam_dung').
         AND (hd.trang_thai IS NULL OR hd.trang_thai <> 'da_hoan_tien')
+        -- Gói đã quá hạn sử dụng không được chọn để đặt buổi mới — chặn ngay từ danh sách chọn
+        -- gói, khớp với gate cứng ở appointment.repository.ts::createAppointment().
+        AND (pd.han_su_dung IS NULL OR pd.han_su_dung >= CURRENT_DATE)
     `, [customerId]);
 
     // Chỉ định liệu trình từ ca khám nhưng khách chưa thanh toán/kích hoạt, còn trong hạn — hiện
@@ -1063,21 +1088,16 @@ class ReceptionistRepository {
     page: number;
     pageSize: number;
     search: string;
-    trangThaiGoi: string;
     canLienHe: boolean;
     staleDays: number;
   }) {
-    const { page, pageSize, search, trangThaiGoi, canLienHe, staleDays } = filters;
+    const { page, pageSize, search, canLienHe, staleDays } = filters;
     const offset = (page - 1) * pageSize;
 
-    const STATUS_CONDITIONS: Record<string, string> = {
-      dang_dieu_tri: 'prog.id IS NOT NULL',
-      cho_kich_hoat: 'COALESCE(cho.cnt, 0) > 0',
-      hoan_thanh: "xong.ten_goi IS NOT NULL AND prog.id IS NULL AND COALESCE(cho.cnt, 0) = 0",
-      khong_co_goi: 'COALESCE(pc.tong, 0) = 0 AND COALESCE(cho.cnt, 0) = 0',
-    };
-    const statusWhere = STATUS_CONDITIONS[trangThaiGoi] || 'TRUE';
-    const canLienHeWhere = canLienHe ? 'can_lien_he = true' : 'TRUE';
+    // Gộp 2 lý do "cần liên hệ" (chờ kích hoạt sắp hết hạn + lâu chưa quay lại) vào đúng 1 điều
+    // kiện — luật "1 khách 1 liệu trình tại 1 thời điểm" đảm bảo pend/can_lien_he loại trừ nhau,
+    // không cần OR phức tạp hơn.
+    const canLienHeWhere = canLienHe ? '(can_lien_he = true OR pend_ten_goi IS NOT NULL)' : 'TRUE';
     // Luôn tham chiếu $1 trong text kể cả khi search rỗng ('%%' khớp mọi hàng) — pg cần MỌI
     // placeholder $N xuất hiện đâu đó để suy ra kiểu dữ liệu (xem cùng lý do ở admin.repository.ts).
     const searchWhere = `(ho_ten ILIKE $1 OR so_dien_thoai ILIKE $1 OR email ILIKE $1 OR ('KH-' || UPPER(SUBSTRING(id::text FROM 1 FOR 8))) ILIKE $1)`;
@@ -1086,12 +1106,13 @@ class ReceptionistRepository {
       WITH base AS (
         SELECT
           kh.id, kh.ho_ten, kh.so_dien_thoai, kh.email, kh.trang_thai, kh.diem_uy_tin,
-          COALESCE(pc.tong, 0) AS goi_tong,
           pend.ten_goi AS pend_ten_goi, pend.han_kich_hoat AS pend_han_kich_hoat,
+          pend.goi_dich_vu_id AS pend_goi_dich_vu_id, pend.cuoc_hen_id AS pend_cuoc_hen_id,
           prog.id AS prog_id, prog.ten_goi AS prog_ten_goi, prog.tong_so_buoi AS prog_tong_so_buoi,
           prog.so_buoi_da_dung AS prog_so_buoi_da_dung, prog.last_completed_at AS prog_last_completed_at,
           prog.has_upcoming AS prog_has_upcoming,
           xong.ten_goi AS xong_ten_goi,
+          huy.ten_goi AS huy_ten_goi,
           last_used.last_date AS last_used_at,
           -- ĐỒNG BỘ VỚI backend/src/domain/customerFollowUp.ts::needsFollowUp — sửa điều kiện ở
           -- đây phải soát lại bên đó, và ngược lại.
@@ -1102,27 +1123,8 @@ class ReceptionistRepository {
           ) AS can_lien_he
         FROM khach_hang kh
         LEFT JOIN LATERAL (
-          SELECT
-            COUNT(*)::int AS tong,
-            COUNT(*) FILTER (WHERE trang_thai = 'dang_dieu_tri')::int AS dang_dieu_tri,
-            COUNT(*) FILTER (WHERE trang_thai = 'hoan_thanh')::int AS hoan_thanh,
-            COUNT(*) FILTER (WHERE trang_thai = 'huy')::int AS huy
-          FROM phac_do_dieu_tri
-          WHERE khach_hang_id = kh.id
-        ) pc ON true
-        LEFT JOIN LATERAL (
-          SELECT COUNT(*)::int AS cnt
-          FROM chi_dinh_buoi cd
-          JOIN nhat_ky_buoi_dieu_tri nk ON cd.nhat_ky_id = nk.id
-          JOIN cuoc_hen ch ON nk.cuoc_hen_id = ch.id
-          JOIN goi_dich_vu g ON cd.goi_dich_vu_id = g.id
-          WHERE ch.khach_hang_id = kh.id
-            AND cd.phac_do_dieu_tri_id IS NULL
-            AND g.loai_goi = 'LIEU_TRINH'
-            AND ch.ngay_gio_bat_dau >= NOW() - $4 * INTERVAL '1 day'
-        ) cho ON true
-        LEFT JOIN LATERAL (
-          SELECT g.ten_goi, ch.ngay_gio_bat_dau + $4 * INTERVAL '1 day' AS han_kich_hoat
+          SELECT g.ten_goi, cd.goi_dich_vu_id, ch.id AS cuoc_hen_id,
+            ch.ngay_gio_bat_dau + $4 * INTERVAL '1 day' AS han_kich_hoat
           FROM chi_dinh_buoi cd
           JOIN nhat_ky_buoi_dieu_tri nk ON cd.nhat_ky_id = nk.id
           JOIN cuoc_hen ch ON nk.cuoc_hen_id = ch.id
@@ -1150,6 +1152,14 @@ class ReceptionistRepository {
           WHERE pd.khach_hang_id = kh.id AND pd.trang_thai = 'hoan_thanh'
           ORDER BY pd.ngay_kich_hoat DESC LIMIT 1
         ) xong ON true
+        -- Gói gần nhất bị hủy — chỉ hiện khi khách không có gói chờ kích hoạt/đang điều trị/hoàn
+        -- thành nào khác, tránh hiện nhầm "Chưa có liệu trình" cho khách từng đăng ký nhưng đã hủy.
+        LEFT JOIN LATERAL (
+          SELECT g.ten_goi
+          FROM phac_do_dieu_tri pd JOIN goi_dich_vu g ON pd.goi_dich_vu_id = g.id
+          WHERE pd.khach_hang_id = kh.id AND pd.trang_thai = 'huy'
+          ORDER BY pd.ngay_huy DESC NULLS LAST LIMIT 1
+        ) huy ON true
         -- Lần cuối dùng BẤT KỲ dịch vụ nào (KHAM/DICH_VU_LE/DIEU_TRI) — khác le.last_date của admin
         -- (chỉ tính KHAM/DICH_VU_LE), tổng quát hơn theo đúng yêu cầu "lần cuối dùng dịch vụ".
         LEFT JOIN LATERAL (
@@ -1160,8 +1170,10 @@ class ReceptionistRepository {
       )
       SELECT *, COUNT(*) OVER()::int AS full_count
       FROM base
-      WHERE ${searchWhere} AND ${statusWhere} AND ${canLienHeWhere}
-      ORDER BY ${canLienHe ? 'prog_last_completed_at ASC NULLS LAST, ' : ''}ho_ten ASC
+      WHERE ${searchWhere} AND ${canLienHeWhere}
+      ORDER BY ${canLienHe
+        ? "CASE WHEN pend_ten_goi IS NOT NULL THEN 0 ELSE 1 END, pend_han_kich_hoat ASC NULLS LAST, prog_last_completed_at ASC NULLS LAST, "
+        : ''}ho_ten ASC
       LIMIT $2 OFFSET $3
     `, [`%${search}%`, pageSize, offset, PACKAGE_ACTIVATION_WINDOW_DAYS, staleDays]);
 
@@ -1173,7 +1185,15 @@ class ReceptionistRepository {
           ? { trang_thai: 'dang_dieu_tri', ten_goi: r.prog_ten_goi, so_buoi_da_dung: r.prog_so_buoi_da_dung, tong_so_buoi: r.prog_tong_so_buoi }
           : r.xong_ten_goi
             ? { trang_thai: 'hoan_thanh', ten_goi: r.xong_ten_goi }
-            : null;
+            : r.huy_ten_goi
+              ? { trang_thai: 'huy', ten_goi: r.huy_ten_goi }
+              : null;
+      // Suy ra thuần từ dữ liệu vừa tính ở trên — KHÔNG lưu DB, chỉ để hiển thị gợi ý cho Lễ tân.
+      const lyDoLienHe = r.pend_ten_goi
+        ? { type: 'sap_het_han' as const, han_kich_hoat: r.pend_han_kich_hoat, goi_dich_vu_id: r.pend_goi_dich_vu_id, cuoc_hen_id: r.pend_cuoc_hen_id }
+        : r.can_lien_he
+          ? { type: 'lau_chua_quay_lai' as const }
+          : null;
       return {
         id: r.id,
         ma_khach_hang: 'KH-' + r.id.substring(0, 8).toUpperCase(),
@@ -1184,7 +1204,7 @@ class ReceptionistRepository {
         diem_uy_tin: r.diem_uy_tin,
         goi_hien_tai: goiHienTai,
         last_used_at: r.last_used_at,
-        can_lien_he: r.can_lien_he,
+        ly_do_lien_he: lyDoLienHe,
       };
     });
 

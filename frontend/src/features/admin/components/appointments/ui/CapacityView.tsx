@@ -3,6 +3,7 @@ import { format, startOfWeek, addDays, isSameDay, isToday } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { motion } from 'framer-motion';
 import { User, MapPin, ChevronRight, Calendar, Search } from 'lucide-react';
+import { statusConfig } from '../../../../../components/appointmentStatusConfig';
 
 interface CapacityViewProps {
   selectedDate: Date;
@@ -213,6 +214,15 @@ export function CapacityView({
                 </div>
               </div>
               <div className="flex items-center gap-3 shrink-0">
+                {(() => {
+                  const status = statusConfig[apt.trang_thai] || { label: apt.trang_thai, color: 'bg-slate-100 text-slate-700 border-slate-200', icon: null };
+                  return (
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold border ${status.color}`}>
+                      {status.icon}
+                      <span>{status.label}</span>
+                    </span>
+                  );
+                })()}
                 <span className="font-mono text-[10px] font-black text-slate-400 dark:text-zinc-550 bg-slate-50 dark:bg-zinc-800/80 px-2 py-0.5 rounded border border-slate-100 dark:border-zinc-800/50">
                   {apt.ma_lich_dat}
                 </span>

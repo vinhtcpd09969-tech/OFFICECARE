@@ -24,7 +24,6 @@ export const getCustomerRoster = (params: {
   page: number;
   pageSize: number;
   search?: string;
-  trangThaiGoi?: string;
   canLienHe?: boolean;
   staleDays?: number;
 }) => api.get('/receptionist/customers/roster', { params });

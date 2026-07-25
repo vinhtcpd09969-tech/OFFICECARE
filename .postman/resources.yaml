@@ -2,6 +2,12 @@
 workspace:
   id: cc739d3f-2272-46e4-854c-ea6a69c150e4
 
+# Each entry here maps a local resource to one or more corresponding objects in Postman Cloud
+
+cloudResources:
+  collections:
+    ../postman/collections/OfficeCare Complete API Collection (80+ Endpoints): 5667c71c-f033-4ca9-9384-3af8c8192e48
+
 # All resources in the `postman/` folder are automatically registered in Local View.
 # Point to additional files outside the `postman/` folder to register them individually. Example:
 #localResources:

@@ -104,6 +104,23 @@ export function isPlanCancelled(plan: {
 }
 
 /**
+ * Gói đã quá hạn sử dụng (còn `dang_dieu_tri`, chưa bị Admin hủy) — PHẢI khớp đúng điều kiện
+ * `qua_han` dùng ở backend (`pd.trang_thai = 'dang_dieu_tri' AND han_su_dung < CURRENT_DATE`,
+ * xem admin.repository.ts::expirePackageNoRefund/getTreatmentPlansOverview). Chỉ chặn đặt buổi
+ * mới trên UI — không tự hủy gói, không hoàn tiền (đó là hành động thủ công riêng của Admin).
+ */
+export function isPlanExpired(plan: {
+  trang_thai?: string | null;
+  han_su_dung?: string | null;
+} | null | undefined): boolean {
+  if (!plan || !plan.han_su_dung) return false;
+  if (plan.trang_thai !== 'dang_dieu_tri') return false;
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const hanStr = new Date(plan.han_su_dung).toISOString().slice(0, 10);
+  return hanStr < todayStr;
+}
+
+/**
  * Khách đã đóng đủ tiền để được đặt/thực hiện buổi thứ `sessionNum` chưa.
  * `plan` là bất kỳ object nào mang thông tin hóa đơn gói (lịch hẹn, phác đồ, hóa đơn...).
  * Gói đã hủy KHÔNG bao giờ "thiếu tiền" — nó đơn giản là không còn được đặt lịch nữa

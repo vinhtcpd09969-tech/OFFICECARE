@@ -1,14 +1,11 @@
-import type { CustomerStatusTier, ReputationTier } from './types';
+import type { ReputationTier, TreatmentPlanStatus } from './types';
 
-// Nhãn cho từng tier — 4 trạng thái liệu trình có tiền tố "Liệu trình" để không nhầm với trạng
-// thái buổi hẹn/ca khám (cũng dùng chữ "Đang điều trị"/"Hoàn thành" ở nơi khác trong app).
-export const TIER_META: Record<CustomerStatusTier, { label: string }> = {
-  none: { label: 'Chưa có hồ sơ điều trị' },
-  le: { label: 'Chỉ khám / DV lẻ' },
-  pending: { label: 'Liệu trình chờ kích hoạt' },
-  progress: { label: 'Liệu trình đang điều trị' },
-  done: { label: 'Liệu trình hoàn thành' },
-  cancel: { label: 'Liệu trình đã hủy' }
+// Nhãn trạng thái THẬT của 1 gói liệu trình — dùng ở khối "Gói liệu trình" (tab "Hồ sơ điều trị").
+export const PLAN_STATUS_META: Record<TreatmentPlanStatus, { label: string }> = {
+  dang_dieu_tri: { label: 'Đang điều trị' },
+  qua_han: { label: 'Quá hạn' },
+  hoan_thanh: { label: 'Hoàn thành' },
+  huy: { label: 'Đã hủy' }
 };
 
 export const REPUTATION_TIER_OPTIONS: { value: ReputationTier | 'all'; label: string }[] = [
@@ -21,3 +18,7 @@ export const REPUTATION_TIER_OPTIONS: { value: ReputationTier | 'all'; label: st
 export { getReputationTier } from '../../../../utils/reputation';
 
 export const DEFAULT_PAGE_SIZE = 20;
+
+// Khối "Ca khám & dịch vụ lẻ hoàn thành" nằm phía trên "Gói liệu trình" trong cùng 1 màn hình —
+// trang nhỏ hơn để không phải cuộn quá xa mới thấy khối liệu trình bên dưới.
+export const SINGLE_VISIT_PAGE_SIZE = 8;

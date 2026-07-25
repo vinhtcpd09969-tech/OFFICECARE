@@ -23,9 +23,14 @@ export const updateStaffPassword = (id: string, data: { password?: string; oldPa
 export const getCustomers = () => api.get('/admin/customers');
 export const updateCustomer = (id: string, data: any) => api.put(`/admin/customers/${id}`, data);
 export const toggleCustomerLock = (id: string, isLocked: boolean) => api.patch(`/admin/customers/${id}/toggle-lock`, { isLocked });
+export const getCustomerLockImpact = (id: string) => api.get(`/admin/customers/${id}/lock-impact`);
 export const getCustomersOverview = (params: { page: number; pageSize: number; search?: string; status?: string[]; repTier?: string }) =>
   api.get('/admin/customers/overview', { params: { ...params, status: params.status?.join(',') || undefined } });
 export const getCustomerEmr = (id: string) => api.get(`/admin/customers/${id}/emr`);
+export const getTreatmentPlansOverview = (params: { page: number; pageSize: number; search?: string; status?: string }) =>
+  api.get('/admin/customers/treatment-plans', { params });
+export const getCompletedSingleVisits = (params: { page: number; pageSize: number }) =>
+  api.get('/admin/customers/completed-single-visits', { params });
 export const getAvailableStaff = (params: any) => api.get('/admin/staff/available', { params });
 
 // Rooms & Equipment

@@ -1,0 +1,7 @@
+$kind: http-request
+url: "{{baseUrl}}/admin/services"
+method: GET
+headers:
+  Content-Type: application/json
+  Authorization: Bearer {{token}}
+order: 6000

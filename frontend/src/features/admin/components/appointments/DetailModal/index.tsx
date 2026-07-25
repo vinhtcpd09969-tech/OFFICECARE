@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { X } from 'lucide-react';
+import { X, Pencil, Check, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { useAuthStore } from '../../../../../stores/authStore';
@@ -15,6 +15,7 @@ import {
   resendEmail
 } from '../../../../receptionist/api/receptionist.api';
 import { CustomDatePicker } from '../../../../../components/CustomDatePicker';
+import { StatusHistoryModal } from '../../../../../components/StatusHistoryModal';
 
 
 import { getInstallmentCutoffSession } from '../../../../../utils/billing';
@@ -94,7 +95,19 @@ export default function AppointmentDetailModal({
   const [localGhiChuNoiBo, setLocalGhiChuNoiBo] = useState<string>(selectedAppointment?.ghi_chu_noi_bo || '');
   const [rescheduleError, setRescheduleError] = useState<string>('');
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [isEditingStatus, setIsEditingStatus] = useState(false);
+  const [isStatusHistoryOpen, setIsStatusHistoryOpen] = useState(false);
   const noteTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    setIsEditingStatus(false);
+  }, [selectedAppointment]);
+
+  const currentStatusInfo = statusConfig[assignStatus] || statusConfig[selectedAppointment?.trang_thai] || {
+    label: assignStatus || selectedAppointment?.trang_thai || 'Chưa xác định',
+    color: 'bg-slate-100 text-slate-700 border-slate-200',
+    icon: null
+  };
 
   const handleNoteChange = (val: string) => {
     setLocalGhiChuNoiBo(val);
@@ -668,8 +681,7 @@ export default function AppointmentDetailModal({
           const updateFn = isReceptionist ? updateAppointmentStatusRec : updateAppointmentStatusAdmin;
           await updateFn(selectedAppointment.id, {
             trang_thai: 'da_huy',
-            ghi_chu_noi_bo: localGhiChuNoiBo || null,
-            ly_do_huy: trimmedReason,
+            ghi_chu_noi_bo: localGhiChuNoiBo || trimmedReason || null,
             ...(finalNgayGioBatDau && { ngay_gio_bat_dau: finalNgayGioBatDau }),
             ...(finalNgayGioKetThuc && { ngay_gio_ket_thuc: finalNgayGioKetThuc })
           });
@@ -923,38 +935,89 @@ export default function AppointmentDetailModal({
                 <label className="text-xs font-extrabold text-slate-700 dark:text-zinc-300 uppercase tracking-wider block">
                   {isReceptionist ? 'Trạng thái lịch hẹn' : 'Trạng thái lịch hẹn (Quản lý)'}
                 </label>
-                <select
-                  value={assignStatus}
-                  onChange={(e) => handleStatusChange(e.target.value)}
-                  disabled={isReceptionist && isReceptionistLocked}
-                  className="w-full px-3.5 py-2.5 bg-white dark:bg-zinc-900 border border-slate-250 dark:border-zinc-800 rounded-xl text-xs font-bold text-slate-800 dark:text-zinc-200 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isReceptionist ? (
-                    <>
-                      {/* Lễ tân: luôn hiện trạng thái hiện tại làm option đầu (để <select> luôn có giá trị
-                          hợp lệ, kể cả khi bị khóa), cộng thêm đúng các hành động được phép — xem
-                          receptionistStatusRules.ts. Giai đoạn "chưa xác nhận" chỉ có Xác nhận/Hủy, không
-                          hiện "Chờ gán nhân sự" như 1 lựa chọn riêng dù giá trị thực lưu có thể là nó. */}
-                      <option value={selectedAppointment.trang_thai}>
-                        {statusConfig[selectedAppointment.trang_thai]?.label || selectedAppointment.trang_thai}
-                      </option>
-                      {receptionistActionOptions.map((opt) => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                      ))}
-                    </>
-                  ) : (
-                    <>
-                      <option value="chua_xac_nhan">Chưa xác nhận</option>
-                      <option value="cho_xac_nhan">Chờ gán nhân sự (Chờ xác nhận)</option>
-                      <option value="da_xac_nhan">Đã xác nhận</option>
-                      <option value="da_checkin">Đã check-in</option>
-                      <option value="dang_kham">Đang khám</option>
-                      <option value="hoan_thanh">Hoàn thành</option>
-                      <option value="da_huy">Đã hủy</option>
-                      <option value="khong_den">Không đến</option>
-                    </>
-                  )}
-                </select>
+                {!isEditingStatus ? (
+                  <div className="flex items-center justify-between pt-1">
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold border ${currentStatusInfo.color}`}>
+                      {currentStatusInfo.icon}
+                      <span>{currentStatusInfo.label}</span>
+                    </span>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setIsStatusHistoryOpen(true)}
+                        className="flex items-center gap-1.5 text-[11px] font-extrabold text-slate-500 hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-200 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-750 px-2.5 py-1 rounded-xl transition-all cursor-pointer border border-slate-200/60 dark:border-zinc-700/50 shadow-2xs"
+                      >
+                        <Clock size={12} />
+                        <span>Lịch sử trạng thái</span>
+                      </button>
+                      {(!isReceptionist || !isReceptionistLocked) && (
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingStatus(true)}
+                          className="flex items-center gap-1.5 text-[11px] font-extrabold text-teal-600 hover:text-teal-700 dark:text-teal-400 bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/40 px-2.5 py-1 rounded-xl transition-all cursor-pointer border border-teal-200/60 dark:border-teal-800/50 shadow-2xs"
+                        >
+                          <Pencil size={12} />
+                          <span>Đổi trạng thái</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3 pt-1 animate-fade-in">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-extrabold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
+                        Chọn trạng thái mới
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingStatus(false)}
+                        className="text-[11px] font-bold text-slate-500 hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-200 hover:underline cursor-pointer"
+                      >
+                        Thu gọn
+                      </button>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {(isReceptionist
+                        ? receptionistActionOptions.map(opt => ({ value: opt.value, label: opt.label }))
+                        : [
+                            { value: 'chua_xac_nhan', label: 'Chưa xác nhận' },
+                            { value: 'da_xac_nhan', label: 'Đã xác nhận' },
+                            { value: 'da_checkin', label: 'Đã check-in' },
+                            { value: 'dang_kham', label: 'Đang khám' },
+                            { value: 'hoan_thanh', label: 'Hoàn thành' },
+                            { value: 'da_huy', label: 'Đã hủy' },
+                            { value: 'khong_den', label: 'Không đến' }
+                          ]
+                      ).map((st) => {
+                        // Màu/icon mượn từ statusConfig cho đồng bộ trực quan, nhưng CHỮ luôn lấy từ
+                        // st.label (nhãn hành động, vd "Xác nhận") — không lấy statusConfig[value].label
+                        // (nhãn trạng thái đích, vd "Chưa xác nhận" cho cả 'cho_xac_nhan'), tránh lệch
+                        // nghĩa giữa 2 nút cùng đại diện 1 lựa chọn (bug đã phát hiện ở bản cũ).
+                        const meta = statusConfig[st.value] || { color: 'bg-slate-100 text-slate-700 border-slate-200', icon: null };
+                        const isSelected = assignStatus === st.value;
+                        return (
+                          <button
+                            key={st.value}
+                            type="button"
+                            onClick={() => {
+                              handleStatusChange(st.value);
+                              setIsEditingStatus(false);
+                            }}
+                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${meta.color} ${
+                              isSelected ? 'ring-2 ring-teal-500/50 font-black shadow-xs scale-[1.02]' : 'opacity-70 hover:opacity-100 hover:scale-[1.01]'
+                            }`}
+                          >
+                            {meta.icon}
+                            <span>{st.label}</span>
+                            {isSelected && <Check size={12} className="text-teal-600 ml-0.5" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Ghi chú nội bộ phòng khám (Hiển thị cho tất cả nhân sự) */}
@@ -1122,6 +1185,15 @@ export default function AppointmentDetailModal({
           </div>
         </form>
       </motion.div>
+
+      {/* Render ngoài motion.div (đang bị framer-motion gắn transform khi animate) — StatusHistoryModal
+          dùng position:fixed để phủ toàn viewport, lồng trong 1 ancestor có transform sẽ bị giới hạn
+          lại trong khung modal cha thay vì full-screen. */}
+      <StatusHistoryModal
+        isOpen={isStatusHistoryOpen}
+        onClose={() => setIsStatusHistoryOpen(false)}
+        appointment={selectedAppointment}
+      />
     </div>
   );
 }

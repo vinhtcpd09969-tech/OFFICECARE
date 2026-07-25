@@ -1,0 +1,9 @@
+$kind: http-request
+url: "{{baseUrl}}/technician/appointments/:id/complete"
+method: POST
+headers:
+  Content-Type: application/json
+  Authorization: Bearer {{token}}
+pathVariables:
+  id: ""
+order: 3000

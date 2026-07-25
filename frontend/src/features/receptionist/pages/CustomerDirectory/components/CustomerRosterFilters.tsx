@@ -1,30 +1,17 @@
 import { Search, Bell } from 'lucide-react';
-import type { TrangThaiGoiFilter } from '../types';
 
 interface CustomerRosterFiltersProps {
   searchInput: string;
   onSearchChange: (value: string) => void;
-  trangThaiGoi: TrangThaiGoiFilter;
-  onTrangThaiGoiChange: (value: TrangThaiGoiFilter) => void;
   canLienHe: boolean;
   onToggleCanLienHe: () => void;
   staleDays: number;
   onStaleDaysChange: (value: number) => void;
 }
 
-const STATUS_OPTIONS: { value: TrangThaiGoiFilter; label: string }[] = [
-  { value: 'all', label: 'Tất cả trạng thái gói' },
-  { value: 'dang_dieu_tri', label: 'Đang điều trị' },
-  { value: 'cho_kich_hoat', label: 'Chờ kích hoạt' },
-  { value: 'hoan_thanh', label: 'Đã hoàn thành' },
-  { value: 'khong_co_goi', label: 'Không có gói' },
-];
-
 export function CustomerRosterFilters({
   searchInput,
   onSearchChange,
-  trangThaiGoi,
-  onTrangThaiGoiChange,
   canLienHe,
   onToggleCanLienHe,
   staleDays,
@@ -44,16 +31,6 @@ export function CustomerRosterFilters({
           />
         </div>
 
-        <select
-          value={trangThaiGoi}
-          onChange={(e) => onTrangThaiGoiChange(e.target.value as TrangThaiGoiFilter)}
-          className="px-3.5 py-2.5 bg-slate-50 border border-slate-200/80 text-slate-700 text-xs font-bold rounded-xl outline-none focus:ring-2 focus:ring-teal-500/10 focus:border-teal-500 transition-all cursor-pointer shrink-0"
-        >
-          {STATUS_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
-
         <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
@@ -65,14 +42,14 @@ export function CustomerRosterFilters({
             }`}
           >
             <Bell size={13} />
-            Cần liên hệ lại
+            Cần liên hệ
           </button>
 
           <select
             value={staleDays}
             onChange={(e) => onStaleDaysChange(Number(e.target.value))}
             disabled={!canLienHe}
-            title="Số ngày kể từ buổi hoàn thành gần nhất"
+            title="Ngưỡng ngày cho nhóm 'lâu chưa quay lại' (không ảnh hưởng nhóm sắp hết hạn kích hoạt)"
             className="px-2.5 py-2.5 bg-slate-50 border border-slate-200/80 text-slate-700 text-xs font-bold rounded-xl outline-none focus:ring-2 focus:ring-teal-500/10 focus:border-teal-500 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <option value={3}>≥ 3 ngày</option>
