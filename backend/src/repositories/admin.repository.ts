@@ -298,6 +298,31 @@ class AdminRepository {
     }
   }
 
+  // Không dùng để CHẶN khóa (khóa luôn cho phép thực hiện) — chỉ để hiển thị cảnh báo cho admin biết
+  // khách còn lịch/gói gì trước khi xác nhận, vì khóa không tự hủy các bản ghi này (chỉ chặn khách
+  // tự đăng nhập, xem auth.service.ts).
+  async getCustomerLockImpact(id: string) {
+    const [apptResult, planResult] = await Promise.all([
+      pool.query(
+        `SELECT COUNT(*)::int AS cnt FROM cuoc_hen
+         WHERE khach_hang_id = $1
+           AND trang_thai IN ('chua_xac_nhan', 'cho_xac_nhan', 'da_xac_nhan', 'da_checkin', 'dang_kham')`,
+        [id]
+      ),
+      pool.query(
+        `SELECT pd.id, g.ten_goi, pd.so_buoi_da_dung, pd.tong_so_buoi
+         FROM phac_do_dieu_tri pd
+         JOIN goi_dich_vu g ON g.id = pd.goi_dich_vu_id
+         WHERE pd.khach_hang_id = $1 AND pd.trang_thai = 'dang_dieu_tri' AND pd.so_buoi_da_dung < pd.tong_so_buoi`,
+        [id]
+      )
+    ]);
+    return {
+      upcomingAppointments: apptResult.rows[0].cnt as number,
+      activePlans: planResult.rows as { id: string; ten_goi: string; so_buoi_da_dung: number; tong_so_buoi: number }[]
+    };
+  }
+
   // --- QUẢN LÝ THIẾT BỊ Y TẾ ---
   async getEquipment(): Promise<any[]> {
     const { rows } = await pool.query(`
@@ -579,22 +604,12 @@ class AdminRepository {
     const { page, pageSize, search, status, repTier } = filters;
     const offset = (page - 1) * pageSize;
 
-    // Tier khớp đúng resolvePrimaryStatus() ở admin.service.ts — filter theo cột "tier" tính sẵn
-    // trong CTE base (xem CASE WHEN bên dưới), không tính lại thuật toán ở đây.
-    const STATUS_CONDITIONS: Record<string, string> = {
-      none: "tier = 'none'",
-      le: "tier = 'le'",
-      pending: "tier = 'pending'",
-      progress: "tier = 'progress'",
-      done: "tier = 'done'",
-      cancel: "tier = 'cancel'",
-      // "Tổng liệu trình" — bất kỳ khách nào từng có liệu trình ở trạng thái nào cũng tính (dùng khi
-      // bấm chấm tổng trên đường cong, không phải 1 tier cụ thể của resolvePrimaryStatus).
-      any_plan: "tier IN ('pending','progress','done','cancel')",
-      locked: "trang_thai = 'vo_hieu'"
-    };
-    const statusClauses = status.map(s => STATUS_CONDITIONS[s]).filter(Boolean);
-    const statusWhere = statusClauses.length ? `(${statusClauses.join(' OR ')})` : 'TRUE';
+    // "locked" và "no_record" là 2 trục lọc ĐỘC LẬP (khóa tài khoản, chưa có hồ sơ điều trị) — kết
+    // hợp bằng AND, không phải OR (khác bản cũ vốn coi status[] là nhiều lựa chọn CÙNG 1 trục tier).
+    const statusClauses: string[] = [];
+    if (status.includes('locked')) statusClauses.push("trang_thai = 'vo_hieu'");
+    if (status.includes('no_record')) statusClauses.push('NOT has_record');
+    const statusWhere = statusClauses.length ? statusClauses.join(' AND ') : 'TRUE';
     // Luôn tham chiếu $1 trong text (kể cả khi search rỗng — '%%' khớp mọi hàng): pg yêu cầu MỌI
     // placeholder $N phải xuất hiện đâu đó trong câu lệnh để suy ra kiểu dữ liệu, thiếu 1 chỗ dùng
     // $1 (như bản có điều kiện trước đây) gây lỗi "could not determine data type of parameter $1".
@@ -612,36 +627,23 @@ class AdminRepository {
         SELECT
           kh.id, kh.ho_ten, kh.so_dien_thoai, kh.email, kh.trang_thai, kh.diem_uy_tin,
           COALESCE(spend.total, 0)::bigint AS tong_chi_tieu,
-          COALESCE(pc.tong, 0) + COALESCE(cho.cnt, 0) AS goi_tong,
-          COALESCE(cho.cnt, 0) AS goi_cho_kich_hoat,
-          COALESCE(pc.dang_dieu_tri, 0) AS goi_dang_dieu_tri,
-          COALESCE(pc.hoan_thanh, 0) AS goi_hoan_thanh,
-          COALESCE(pc.huy, 0) AS goi_huy,
           (
-            COALESCE(pc.tong, 0) > 0 OR COALESCE(cho.cnt, 0) > 0
+            EXISTS (SELECT 1 FROM phac_do_dieu_tri pd WHERE pd.khach_hang_id = kh.id)
+            OR EXISTS (
+              SELECT 1 FROM chi_dinh_buoi cd
+              JOIN nhat_ky_buoi_dieu_tri nk ON cd.nhat_ky_id = nk.id
+              JOIN cuoc_hen ch ON nk.cuoc_hen_id = ch.id
+              JOIN goi_dich_vu g ON cd.goi_dich_vu_id = g.id
+              WHERE ch.khach_hang_id = kh.id AND cd.phac_do_dieu_tri_id IS NULL
+                AND g.loai_goi = 'LIEU_TRINH' AND ch.ngay_gio_bat_dau >= NOW() - $4 * INTERVAL '1 day'
+            )
             OR EXISTS (
               SELECT 1 FROM cuoc_hen ch_h
               WHERE ch_h.khach_hang_id = kh.id
                 AND ch_h.loai IN ('KHAM', 'DICH_VU_LE')
                 AND ch_h.trang_thai NOT IN ('da_huy', 'huy')
             )
-          ) AS has_record,
-          pend.ten_goi AS pend_ten_goi, pend.han_kich_hoat AS pend_han_kich_hoat,
-          prog.ten_goi AS prog_ten_goi, prog.ngay_kich_hoat AS prog_ngay_kich_hoat,
-          prog.so_buoi_da_dung AS prog_so_buoi_da_dung, prog.last_completed_at AS prog_last_completed_at,
-          prog.tong_so_buoi AS prog_tong_so_buoi,
-          huy.ten_goi AS huy_ten_goi, huy.ngay_kich_hoat AS huy_ngay_kich_hoat,
-          xong.ten_goi AS xong_ten_goi, xong.ngay_kich_hoat AS xong_ngay_kich_hoat,
-          xong.so_buoi_da_dung AS xong_so_buoi_da_dung, xong.last_completed_at AS xong_last_completed_at,
-          le.last_date AS le_last_date,
-          CASE
-            WHEN pend.ten_goi IS NOT NULL THEN 'pending'
-            WHEN prog.ten_goi IS NOT NULL THEN 'progress'
-            WHEN le.last_date IS NOT NULL AND (huy.ngay_kich_hoat IS NULL OR le.last_date >= huy.ngay_kich_hoat) THEN 'le'
-            WHEN huy.ngay_kich_hoat IS NOT NULL THEN 'cancel'
-            WHEN xong.ten_goi IS NOT NULL THEN 'done'
-            ELSE 'none'
-          END AS tier
+          ) AS has_record
         FROM khach_hang kh
         -- Tổng thực thu ròng: SUM mọi giao dịch (hoàn tiền đã ghi số âm nên tự trừ ra) — cùng cách
         -- tính với getTopVipCustomers(), không lọc theo trạng thái hóa đơn (đã chốt với người dùng).
@@ -651,71 +653,6 @@ class AdminRepository {
           JOIN giao_dich_thanh_toan gd ON gd.hoa_don_id = hd.id
           WHERE hd.khach_hang_id = kh.id
         ) spend ON true
-        -- Gói liệu trình THẬT (đã từng kích hoạt) theo trạng thái trong phac_do_dieu_tri.
-        LEFT JOIN LATERAL (
-          SELECT
-            COUNT(*)::int AS tong,
-            COUNT(*) FILTER (WHERE trang_thai = 'dang_dieu_tri')::int AS dang_dieu_tri,
-            COUNT(*) FILTER (WHERE trang_thai = 'hoan_thanh')::int AS hoan_thanh,
-            COUNT(*) FILTER (WHERE trang_thai = 'huy')::int AS huy
-          FROM phac_do_dieu_tri
-          WHERE khach_hang_id = kh.id
-        ) pc ON true
-        -- Gói "chờ kích hoạt" — trạng thái ảo từ chi_dinh_buoi chưa kích hoạt, còn hạn (cùng logic
-        -- getBlockingLieuTrinh() ở doctor.repository.ts).
-        LEFT JOIN LATERAL (
-          SELECT COUNT(*)::int AS cnt
-          FROM chi_dinh_buoi cd
-          JOIN nhat_ky_buoi_dieu_tri nk ON cd.nhat_ky_id = nk.id
-          JOIN cuoc_hen ch ON nk.cuoc_hen_id = ch.id
-          JOIN goi_dich_vu g ON cd.goi_dich_vu_id = g.id
-          WHERE ch.khach_hang_id = kh.id
-            AND cd.phac_do_dieu_tri_id IS NULL
-            AND g.loai_goi = 'LIEU_TRINH'
-            AND ch.ngay_gio_bat_dau >= NOW() - $4 * INTERVAL '1 day'
-        ) cho ON true
-        -- Tín hiệu "trạng thái chính" hiển thị ở cột "Gói liệu trình" — trả về THÔ từng ứng viên
-        -- (không tự chọn 1 cái ở SQL), service sẽ áp thuật toán ưu tiên + so ngày gần nhất
-        -- (resolvePrimaryStatus, xem admin.service.ts): chờ kích hoạt / đang điều trị luôn thắng;
-        -- nếu không có 2 cái đó thì so ngày giữa "khám/dịch vụ lẻ gần nhất" và "liệu trình hủy gần
-        -- nhất"; "hoàn thành" chỉ dùng khi không còn tín hiệu nào khác.
-        LEFT JOIN LATERAL (
-          SELECT g.ten_goi, ch.ngay_gio_bat_dau + $4 * INTERVAL '1 day' AS han_kich_hoat
-          FROM chi_dinh_buoi cd
-          JOIN nhat_ky_buoi_dieu_tri nk ON cd.nhat_ky_id = nk.id
-          JOIN cuoc_hen ch ON nk.cuoc_hen_id = ch.id
-          JOIN goi_dich_vu g ON cd.goi_dich_vu_id = g.id
-          WHERE ch.khach_hang_id = kh.id AND cd.phac_do_dieu_tri_id IS NULL
-            AND g.loai_goi = 'LIEU_TRINH' AND ch.ngay_gio_bat_dau >= NOW() - $4 * INTERVAL '1 day'
-          ORDER BY ch.ngay_gio_bat_dau DESC LIMIT 1
-        ) pend ON true
-        LEFT JOIN LATERAL (
-          SELECT g.ten_goi, pd.ngay_kich_hoat, pd.tong_so_buoi,
-            (SELECT COUNT(*)::int FROM cuoc_hen WHERE phac_do_dieu_tri_id = pd.id AND trang_thai = 'hoan_thanh' AND loai = 'DIEU_TRI') AS so_buoi_da_dung,
-            (SELECT MAX(ngay_gio_bat_dau) FROM cuoc_hen WHERE phac_do_dieu_tri_id = pd.id AND trang_thai = 'hoan_thanh' AND loai = 'DIEU_TRI') AS last_completed_at
-          FROM phac_do_dieu_tri pd JOIN goi_dich_vu g ON pd.goi_dich_vu_id = g.id
-          WHERE pd.khach_hang_id = kh.id AND pd.trang_thai = 'dang_dieu_tri'
-          ORDER BY pd.ngay_kich_hoat DESC LIMIT 1
-        ) prog ON true
-        LEFT JOIN LATERAL (
-          SELECT g.ten_goi, pd.ngay_kich_hoat
-          FROM phac_do_dieu_tri pd JOIN goi_dich_vu g ON pd.goi_dich_vu_id = g.id
-          WHERE pd.khach_hang_id = kh.id AND pd.trang_thai = 'huy'
-          ORDER BY pd.ngay_kich_hoat DESC LIMIT 1
-        ) huy ON true
-        LEFT JOIN LATERAL (
-          SELECT g.ten_goi, pd.ngay_kich_hoat,
-            (SELECT COUNT(*)::int FROM cuoc_hen WHERE phac_do_dieu_tri_id = pd.id AND trang_thai = 'hoan_thanh' AND loai = 'DIEU_TRI') AS so_buoi_da_dung,
-            (SELECT MAX(ngay_gio_bat_dau) FROM cuoc_hen WHERE phac_do_dieu_tri_id = pd.id AND trang_thai = 'hoan_thanh' AND loai = 'DIEU_TRI') AS last_completed_at
-          FROM phac_do_dieu_tri pd JOIN goi_dich_vu g ON pd.goi_dich_vu_id = g.id
-          WHERE pd.khach_hang_id = kh.id AND pd.trang_thai = 'hoan_thanh'
-          ORDER BY pd.ngay_kich_hoat DESC LIMIT 1
-        ) xong ON true
-        LEFT JOIN LATERAL (
-          SELECT MAX(ngay_gio_bat_dau) AS last_date
-          FROM cuoc_hen
-          WHERE khach_hang_id = kh.id AND loai IN ('KHAM', 'DICH_VU_LE') AND trang_thai = 'hoan_thanh'
-        ) le ON true
       )
       SELECT *, COUNT(*) OVER()::int AS full_count
       FROM base
@@ -734,28 +671,114 @@ class AdminRepository {
       trang_thai: r.trang_thai,
       diem_uy_tin: r.diem_uy_tin,
       tong_chi_tieu: Number(r.tong_chi_tieu || 0),
-      has_record: r.has_record,
-      goi_lieu_trinh: {
-        tong: r.goi_tong,
-        cho_kich_hoat: r.goi_cho_kich_hoat,
-        dang_dieu_tri: r.goi_dang_dieu_tri,
-        hoan_thanh: r.goi_hoan_thanh,
-        huy: r.goi_huy
-      },
-      primary_status_raw: {
-        pending: r.pend_ten_goi ? { ten_goi: r.pend_ten_goi, han_kich_hoat: r.pend_han_kich_hoat } : null,
-        progress: r.prog_ten_goi ? {
-          ten_goi: r.prog_ten_goi, ngay_kich_hoat: r.prog_ngay_kich_hoat,
-          so_buoi_da_dung: r.prog_so_buoi_da_dung, last_completed_at: r.prog_last_completed_at,
-          tong_so_buoi: r.prog_tong_so_buoi
-        } : null,
-        cancelled: r.huy_ten_goi ? { ten_goi: r.huy_ten_goi, ngay_kich_hoat: r.huy_ngay_kich_hoat } : null,
-        completed: r.xong_ten_goi ? {
-          ten_goi: r.xong_ten_goi, ngay_kich_hoat: r.xong_ngay_kich_hoat,
-          so_buoi_da_dung: r.xong_so_buoi_da_dung, last_completed_at: r.xong_last_completed_at
-        } : null,
-        last_le_date: r.le_last_date
-      }
+      has_record: r.has_record
+    }));
+
+    return {
+      data,
+      meta: { page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) }
+    };
+  }
+
+  // --- KHÁCH HÀNG: DANH SÁCH LIỆU TRÌNH (1 dòng = 1 phac_do_dieu_tri, không gộp theo khách) ---
+  // Bổ sung cho getCustomersOverview() ở trên: bảng đó lọc theo "trạng thái chính" của TỪNG KHÁCH
+  // (1 khách chỉ 1 tier hiện tại), nên 1 liệu trình đã hủy/hoàn thành cũ có thể bị che bởi hoạt động
+  // gần hơn của cùng khách — không có cách nào lọc ra "mọi liệu trình đã hủy/hoàn thành" theo đúng
+  // nghĩa đó. Query này phẳng theo phac_do_dieu_tri, filter đúng trang_thai thật của TỪNG gói.
+  async getTreatmentPlansOverview(params: { page: number; pageSize: number; search?: string; status?: string }) {
+    const { page, pageSize, search, status } = params;
+    const offset = (page - 1) * pageSize;
+
+    const STATUS_CONDITIONS: Record<string, string> = {
+      dang_dieu_tri: `trang_thai = 'dang_dieu_tri' AND NOT qua_han`,
+      qua_han: `qua_han`,
+      hoan_thanh: `trang_thai = 'hoan_thanh'`,
+      huy: `trang_thai = 'huy'`
+    };
+    const statusWhere = status && STATUS_CONDITIONS[status] ? STATUS_CONDITIONS[status] : 'TRUE';
+    // Search đọc từ CTE "base" (đã đổi tên cột, không còn alias bảng gốc kh./g.) — KHÔNG copy y hệt
+    // searchWhere của getCustomersOverview() vì đó là query phẳng trực tiếp trên FROM khach_hang kh.
+    const searchWhere = `(ho_ten ILIKE $1 OR so_dien_thoai ILIKE $1 OR ten_goi ILIKE $1 OR ('KH-' || UPPER(SUBSTRING(khach_hang_id::text FROM 1 FOR 8))) ILIKE $1)`;
+
+    const { rows } = await pool.query(`
+      WITH base AS (
+        SELECT
+          pd.id, pd.khach_hang_id, pd.tong_so_buoi, pd.trang_thai, pd.ngay_kich_hoat, pd.han_su_dung,
+          pd.ngay_hoan_thanh, pd.ngay_huy,
+          g.ten_goi,
+          kh.ho_ten, kh.so_dien_thoai, kh.email,
+          (pd.trang_thai = 'dang_dieu_tri' AND pd.han_su_dung IS NOT NULL AND pd.han_su_dung < CURRENT_DATE) AS qua_han,
+          (SELECT COUNT(*)::int FROM cuoc_hen WHERE phac_do_dieu_tri_id = pd.id AND trang_thai = 'hoan_thanh' AND loai = 'DIEU_TRI') AS so_buoi_da_dung
+        FROM phac_do_dieu_tri pd
+        JOIN goi_dich_vu g ON pd.goi_dich_vu_id = g.id
+        JOIN khach_hang kh ON pd.khach_hang_id = kh.id
+      )
+      SELECT *, COUNT(*) OVER()::int AS full_count
+      FROM base
+      WHERE ${searchWhere} AND ${statusWhere}
+      ORDER BY COALESCE(ngay_huy, ngay_hoan_thanh, ngay_kich_hoat) DESC NULLS LAST
+      LIMIT $2 OFFSET $3
+    `, [`%${search || ''}%`, pageSize, offset]);
+
+    const total = rows[0]?.full_count ? Number(rows[0].full_count) : 0;
+    const data = rows.map((r: any) => ({
+      id: r.id,
+      khach_hang_id: r.khach_hang_id,
+      ma_khach_hang: 'KH-' + r.khach_hang_id.substring(0, 8).toUpperCase(),
+      ho_ten: r.ho_ten,
+      so_dien_thoai: r.so_dien_thoai,
+      email: r.email,
+      ten_goi: r.ten_goi,
+      status: r.qua_han ? 'qua_han' : r.trang_thai,
+      tong_so_buoi: r.tong_so_buoi,
+      so_buoi_da_dung: r.so_buoi_da_dung,
+      ngay_kich_hoat: r.ngay_kich_hoat,
+      han_su_dung: r.han_su_dung,
+      ngay_hoan_thanh: r.ngay_hoan_thanh,
+      ngay_huy: r.ngay_huy
+    }));
+
+    return {
+      data,
+      meta: { page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) }
+    };
+  }
+
+  // --- KHÁCH HÀNG: DANH SÁCH CA KHÁM LẺ HOÀN THÀNH (không lọc — chỉ 1 trạng thái duy nhất) ---
+  // Khối bổ sung cho tab "Hồ sơ điều trị" bên cạnh getTreatmentPlansOverview() — phần "hồ sơ" của
+  // khách không có gói liệu trình nào (chỉ khám/dùng dịch vụ lẻ) vẫn cần xem được ở đây.
+  async getCompletedSingleVisits(params: { page: number; pageSize: number }) {
+    const { page, pageSize } = params;
+    const offset = (page - 1) * pageSize;
+
+    const { rows } = await pool.query(`
+      WITH base AS (
+        SELECT
+          ch.id, ch.khach_hang_id, ch.loai, ch.ngay_gio_bat_dau,
+          kh.ho_ten AS ten_khach_hang,
+          g.ten_goi AS ten_dich_vu,
+          nd.ho_ten AS ten_nhan_su
+        FROM cuoc_hen ch
+        JOIN khach_hang kh ON ch.khach_hang_id = kh.id
+        LEFT JOIN goi_dich_vu g ON ch.goi_dich_vu_id = g.id
+        LEFT JOIN nguoi_dung nd ON ch.nhan_su_id = nd.id
+        WHERE ch.loai IN ('KHAM', 'DICH_VU_LE') AND ch.trang_thai = 'hoan_thanh'
+      )
+      SELECT *, COUNT(*) OVER()::int AS full_count
+      FROM base
+      ORDER BY ngay_gio_bat_dau DESC
+      LIMIT $1 OFFSET $2
+    `, [pageSize, offset]);
+
+    const total = rows[0]?.full_count ? Number(rows[0].full_count) : 0;
+    const data = rows.map((r: any) => ({
+      id: r.id,
+      khach_hang_id: r.khach_hang_id,
+      ho_ten: r.ten_khach_hang,
+      loai: r.loai,
+      ten_dich_vu: r.ten_dich_vu,
+      ngay_gio_bat_dau: r.ngay_gio_bat_dau,
+      ten_nhan_su: r.ten_nhan_su
     }));
 
     return {
@@ -927,7 +950,7 @@ class AdminRepository {
     // trước) — khớp công thức so_buoi_da_dung ở updateCompletedSessionsCount (appointment.repository.ts).
     await pool.query(`
       UPDATE phac_do_dieu_tri
-      SET trang_thai = 'hoan_thanh'
+      SET trang_thai = 'hoan_thanh', ngay_hoan_thanh = COALESCE(ngay_hoan_thanh, NOW())
       WHERE trang_thai = 'dang_dieu_tri'
         AND (
           SELECT COUNT(*)::int
@@ -1459,10 +1482,13 @@ class AdminRepository {
       pool.query(`SELECT (COUNT(CASE WHEN trang_thai = 'huy' THEN 1 END)::float / GREATEST(COUNT(*), 1) * 100)::numeric(5,2) as rate FROM cuoc_hen`),
       pool.query(`SELECT COUNT(*)::integer FROM cuoc_hen WHERE trang_thai = 'hoan_thanh'`),
       // Gói liệu trình theo trạng thái thật trong phac_do_dieu_tri (chưa bao giờ có 'cho_kich_hoat' ở
-      // đây — bảng này chỉ tạo dòng khi đã kích hoạt, xem receptionist.repository.ts).
+      // đây — bảng này chỉ tạo dòng khi đã kích hoạt, xem receptionist.repository.ts). "quá hạn" tách
+      // riêng khỏi "đang điều trị" (dang_dieu_tri kỹ thuật vẫn là trạng thái DB, nhưng han_su_dung đã
+      // trôi qua) — nuôi chip filter khối "Gói liệu trình" ở tab "Hồ sơ điều trị".
       pool.query(`
         SELECT
-          COUNT(*) FILTER (WHERE trang_thai = 'dang_dieu_tri')::int AS dang_dieu_tri,
+          COUNT(*) FILTER (WHERE trang_thai = 'dang_dieu_tri' AND NOT (han_su_dung IS NOT NULL AND han_su_dung < CURRENT_DATE))::int AS dang_dieu_tri,
+          COUNT(*) FILTER (WHERE trang_thai = 'dang_dieu_tri' AND han_su_dung IS NOT NULL AND han_su_dung < CURRENT_DATE)::int AS qua_han,
           COUNT(*) FILTER (WHERE trang_thai = 'hoan_thanh')::int AS hoan_thanh,
           COUNT(*) FILTER (WHERE trang_thai = 'huy')::int AS huy
         FROM phac_do_dieu_tri
@@ -1480,67 +1506,28 @@ class AdminRepository {
           AND g.loai_goi = 'LIEU_TRINH'
           AND ch.ngay_gio_bat_dau >= NOW() - $1 * INTERVAL '1 day'
       `, [PACKAGE_ACTIVATION_WINDOW_DAYS]),
-      // Khám/Dịch vụ lẻ không có vòng đời nhiều trạng thái như liệu trình — chỉ đếm số buổi đã
-      // dùng thành công (hoàn thành), hệ thống toàn bộ, cho khối "Hồ sơ điều trị".
-      pool.query(`SELECT COUNT(*)::int AS cnt FROM cuoc_hen WHERE loai = 'KHAM' AND trang_thai = 'hoan_thanh'`),
-      pool.query(`SELECT COUNT(*)::int AS cnt FROM cuoc_hen WHERE loai = 'DICH_VU_LE' AND trang_thai = 'hoan_thanh'`),
-      // Đếm khách theo ĐÚNG 1 tier "trạng thái chính" mỗi người (khớp resolvePrimaryStatus ở
-      // admin.service.ts, dùng cho card thống kê dạng đường cong ở trang Quản lý Khách hàng):
-      // chờ kích hoạt / đang điều trị luôn thắng; còn lại so ngày gần nhất giữa khám-dịch vụ lẻ và
-      // liệu trình hủy; hoàn thành chỉ tính khi không còn tín hiệu nào khác.
+      // Đếm khách CHƯA có hồ sơ điều trị nào (chưa từng khám/dùng dịch vụ lẻ/có liệu trình) — dùng
+      // đúng 3 EXISTS y hệt has_record trong getCustomersOverview() (không được lệch định nghĩa
+      // "có hồ sơ" giữa 2 nơi), cho 2 card tĩnh ở tab "Theo khách hàng".
       pool.query(`
-        WITH sig AS (
-          SELECT
-            kh.id,
-            pend.ten_goi IS NOT NULL AS has_pending,
-            prog.id IS NOT NULL AS has_progress,
-            huy.ngay_kich_hoat AS cancel_date,
-            xong.id IS NOT NULL AS has_done,
-            le.last_date AS le_date
-          FROM khach_hang kh
-          LEFT JOIN LATERAL (
-            SELECT g.ten_goi
-            FROM chi_dinh_buoi cd
+        SELECT COUNT(*)::int AS cnt
+        FROM khach_hang kh
+        WHERE NOT (
+          EXISTS (SELECT 1 FROM phac_do_dieu_tri pd WHERE pd.khach_hang_id = kh.id)
+          OR EXISTS (
+            SELECT 1 FROM chi_dinh_buoi cd
             JOIN nhat_ky_buoi_dieu_tri nk ON cd.nhat_ky_id = nk.id
             JOIN cuoc_hen ch ON nk.cuoc_hen_id = ch.id
             JOIN goi_dich_vu g ON cd.goi_dich_vu_id = g.id
             WHERE ch.khach_hang_id = kh.id AND cd.phac_do_dieu_tri_id IS NULL
               AND g.loai_goi = 'LIEU_TRINH' AND ch.ngay_gio_bat_dau >= NOW() - $1 * INTERVAL '1 day'
-            LIMIT 1
-          ) pend ON true
-          LEFT JOIN LATERAL (
-            SELECT pd.id FROM phac_do_dieu_tri pd WHERE pd.khach_hang_id = kh.id AND pd.trang_thai = 'dang_dieu_tri' LIMIT 1
-          ) prog ON true
-          LEFT JOIN LATERAL (
-            SELECT pd.ngay_kich_hoat FROM phac_do_dieu_tri pd WHERE pd.khach_hang_id = kh.id AND pd.trang_thai = 'huy'
-            ORDER BY pd.ngay_kich_hoat DESC LIMIT 1
-          ) huy ON true
-          LEFT JOIN LATERAL (
-            SELECT pd.id FROM phac_do_dieu_tri pd WHERE pd.khach_hang_id = kh.id AND pd.trang_thai = 'hoan_thanh' LIMIT 1
-          ) xong ON true
-          LEFT JOIN LATERAL (
-            SELECT MAX(ngay_gio_bat_dau) AS last_date FROM cuoc_hen
-            WHERE khach_hang_id = kh.id AND loai IN ('KHAM', 'DICH_VU_LE') AND trang_thai = 'hoan_thanh'
-          ) le ON true
+          )
+          OR EXISTS (
+            SELECT 1 FROM cuoc_hen ch_h
+            WHERE ch_h.khach_hang_id = kh.id AND ch_h.loai IN ('KHAM', 'DICH_VU_LE')
+              AND ch_h.trang_thai NOT IN ('da_huy', 'huy')
+          )
         )
-        SELECT
-          COUNT(*) FILTER (WHERE has_pending)::int AS pending,
-          COUNT(*) FILTER (WHERE NOT has_pending AND has_progress)::int AS progress,
-          COUNT(*) FILTER (
-            WHERE NOT has_pending AND NOT has_progress
-              AND le_date IS NOT NULL AND (cancel_date IS NULL OR le_date >= cancel_date)
-          )::int AS le,
-          COUNT(*) FILTER (
-            WHERE NOT has_pending AND NOT has_progress
-              AND cancel_date IS NOT NULL AND (le_date IS NULL OR cancel_date > le_date)
-          )::int AS cancel,
-          COUNT(*) FILTER (
-            WHERE NOT has_pending AND NOT has_progress AND le_date IS NULL AND cancel_date IS NULL AND has_done
-          )::int AS done,
-          COUNT(*) FILTER (
-            WHERE NOT has_pending AND NOT has_progress AND le_date IS NULL AND cancel_date IS NULL AND NOT has_done
-          )::int AS none_tier
-        FROM sig
       `, [PACKAGE_ACTIVATION_WINDOW_DAYS])
     ];
     const results = await Promise.all(queries);
@@ -1574,28 +1561,19 @@ class AdminRepository {
       cancellation_rate: parseFloat(results[10].rows[0].rate || '0'),
       completed_appointments: results[11].rows[0].count || 0,
       // Hồ sơ điều trị = khái niệm chung cho mọi khách đã từng khám, dùng dịch vụ lẻ, hoặc có liệu
-      // trình — tách 3 nhóm: liệu trình (đủ vòng đời trạng thái), khám/lẻ (chỉ đếm buổi thành công).
+      // trình. lieu_trinh nuôi chip filter khối "Gói liệu trình" (tab Hồ sơ điều trị);
+      // customers_without_record nuôi 2 card tĩnh (tab Theo khách hàng).
       emr_stats: {
         lieu_trinh: {
           dang_dieu_tri: results[12].rows[0]?.dang_dieu_tri || 0,
+          qua_han: results[12].rows[0]?.qua_han || 0,
           hoan_thanh: results[12].rows[0]?.hoan_thanh || 0,
           huy: results[12].rows[0]?.huy || 0,
           cho_kich_hoat: results[13].rows[0]?.cnt || 0,
-          tong: (results[12].rows[0]?.dang_dieu_tri || 0) + (results[12].rows[0]?.hoan_thanh || 0)
-            + (results[12].rows[0]?.huy || 0) + (results[13].rows[0]?.cnt || 0)
+          tong: (results[12].rows[0]?.dang_dieu_tri || 0) + (results[12].rows[0]?.qua_han || 0)
+            + (results[12].rows[0]?.hoan_thanh || 0) + (results[12].rows[0]?.huy || 0) + (results[13].rows[0]?.cnt || 0)
         },
-        kham_hoan_thanh: results[14].rows[0]?.cnt || 0,
-        dich_vu_le_hoan_thanh: results[15].rows[0]?.cnt || 0,
-        // Đếm theo tier "trạng thái chính" mỗi khách (1 khách = đúng 1 tier) — dùng cho card đường
-        // cong hành trình ở trang Quản lý Khách hàng, khớp resolvePrimaryStatus() ở admin.service.ts.
-        customer_tiers: {
-          pending: results[16].rows[0]?.pending || 0,
-          progress: results[16].rows[0]?.progress || 0,
-          le: results[16].rows[0]?.le || 0,
-          cancel: results[16].rows[0]?.cancel || 0,
-          done: results[16].rows[0]?.done || 0,
-          none: results[16].rows[0]?.none_tier || 0
-        }
+        customers_without_record: results[14].rows[0]?.cnt || 0
       }
     };
   }
@@ -1886,13 +1864,21 @@ class AdminRepository {
       let ldtId = hd.phac_do_dieu_tri_id;
       if (ldtId) {
         const { rows: pdRows } = await client.query(
-          `SELECT pd.tong_so_buoi
+          `SELECT pd.tong_so_buoi,
+                  (pd.trang_thai = 'dang_dieu_tri' AND pd.han_su_dung IS NOT NULL AND pd.han_su_dung < CURRENT_DATE) as qua_han
            FROM phac_do_dieu_tri pd
            WHERE pd.id = $1`,
           [ldtId]
         );
         if (pdRows.length > 0) {
           totalSessions = pdRows[0].tong_so_buoi || 10;
+          // Gói đã quá hạn sử dụng phải đi qua đúng luồng expirePackageNoRefund() (giữ nguyên toàn
+          // bộ đã thu, không hoàn tiền) — KHÔNG được áp dụng công thức phạt 10% + hoàn phần dư của
+          // hủy giữa chừng thông thường ở đây (docs/BUSINESS_RULES.md mục 6b).
+          if (pdRows[0].qua_han) {
+            await client.query('ROLLBACK');
+            return { error: 'Gói đã quá hạn sử dụng. Vui lòng dùng thao tác "Hủy do quá hạn sử dụng" (giữ nguyên số tiền đã thu, không hoàn tiền) thay vì hủy hoàn tiền thông thường.', code: 400 };
+          }
         }
       }
 
@@ -2068,7 +2054,7 @@ class AdminRepository {
       if (ldtId) {
         await client.query(
           `UPDATE phac_do_dieu_tri
-           SET trang_thai = 'huy'
+           SET trang_thai = 'huy', ngay_huy = COALESCE(ngay_huy, NOW())
            WHERE id = $1`,
           [ldtId]
         );
@@ -2161,7 +2147,7 @@ class AdminRepository {
 
       // Hủy do quá hạn cũng KHÔNG đảo ngược -> 'huy' (giống hủy hoàn tiền), không phải 'da_tam_dung'.
       await client.query(
-        `UPDATE phac_do_dieu_tri SET trang_thai = 'huy' WHERE id = $1`,
+        `UPDATE phac_do_dieu_tri SET trang_thai = 'huy', ngay_huy = COALESCE(ngay_huy, NOW()) WHERE id = $1`,
         [pd.id]
       );
 
@@ -2175,6 +2161,38 @@ class AdminRepository {
     } finally {
       client.release();
     }
+  }
+
+  /**
+   * Quét "lười" (lazy sweep) — chạy hiệu ứng Y HỆT expirePackageNoRefund() nhưng KHÔNG cần Admin
+   * bấm nút: mọi gói còn 'dang_dieu_tri' đã quá han_su_dung tự động chuyển 'huy' + chốt hóa đơn
+   * giữ nguyên số đã thu (không hoàn/không thu thêm), gói đã 'hoan_thanh' không bị đụng tới. Gọi
+   * lười ở middleware mỗi request (xem index.ts) thay vì cron thật — không cần thêm hạ tầng
+   * scheduler, chấp nhận độ trễ tối đa bằng chu kỳ throttle của middleware.
+   */
+  async sweepExpiredPackages() {
+    const { rows } = await pool.query(`
+      WITH newly_expired AS (
+        UPDATE phac_do_dieu_tri
+        SET trang_thai = 'huy', ngay_huy = NOW()
+        WHERE trang_thai = 'dang_dieu_tri'
+          AND han_su_dung IS NOT NULL
+          AND han_su_dung < CURRENT_DATE
+        RETURNING id, han_su_dung
+      )
+      UPDATE hoa_don hd
+      SET trang_thai = 'da_huy',
+          tong_tien_phai_tra = hd.so_tien_da_tra,
+          ghi_chu = COALESCE(hd.ghi_chu || ' | ', '') ||
+            'Hệ thống tự động hủy do quá hạn sử dụng (hạn ' || to_char(ne.han_su_dung, 'DD/MM/YYYY') ||
+            '), không hoàn/không thu thêm. Chốt sổ tại số tiền đã thu (' ||
+            to_char(hd.so_tien_da_tra, 'FM999,999,999') || 'đ).'
+      FROM newly_expired ne
+      WHERE hd.phac_do_dieu_tri_id = ne.id
+        AND hd.trang_thai NOT IN ('da_hoan_tien', 'da_huy')
+      RETURNING hd.id
+    `);
+    return rows.length;
   }
 }
 

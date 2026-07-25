@@ -73,10 +73,11 @@ class TechnicianRepository {
     try {
       await client.query('BEGIN');
       
-      // 1. Cập nhật trạng thái cuộc hẹn thành 'dang_kham'
+      // 1. Cập nhật trạng thái cuộc hẹn thành 'dang_kham' và ghi mốc thoi_gian_bat_dau
       await client.query(`
         UPDATE cuoc_hen
-        SET trang_thai = 'dang_kham'
+        SET trang_thai = 'dang_kham',
+            thoi_gian_bat_dau = COALESCE(thoi_gian_bat_dau, NOW())
         WHERE id = $1::uuid;
       `, [appointmentId]);
 
@@ -98,6 +99,15 @@ class TechnicianRepository {
 
   // 3. Lấy chi tiết lịch trị liệu hiện tại (bao gồm cả chẩn đoán/chống chỉ định của Bác sĩ)
   async getAppointmentDetail(appointmentId: string) {
+    // Tự động ghi nhận mốc thoi_gian_bat_dau khi Bác sĩ/KTV mở bàn làm việc
+    await pool.query(
+      `UPDATE cuoc_hen
+       SET thoi_gian_bat_dau = COALESCE(thoi_gian_bat_dau, NOW()),
+           trang_thai = CASE WHEN trang_thai IN ('da_xac_nhan', 'da_checkin') THEN 'dang_kham' ELSE trang_thai END
+       WHERE id = $1::uuid AND (thoi_gian_bat_dau IS NULL OR trang_thai IN ('da_xac_nhan', 'da_checkin'))`,
+      [appointmentId]
+    );
+
     const queryStr = `
       SELECT 
         ch.id, 
@@ -173,10 +183,12 @@ class TechnicianRepository {
       const getPdRes = await client.query('SELECT phac_do_dieu_tri_id FROM cuoc_hen WHERE id = $1', [data.lich_dat_id]);
       const phacDoId = getPdRes.rows[0]?.phac_do_dieu_tri_id;
 
-      // 3. Cập nhật trạng thái cuộc hẹn thành 'hoan_thanh'
+      // 3. Cập nhật trạng thái cuộc hẹn thành 'hoan_thanh', bảo đảm mốc thoi_gian_bat_dau và thoi_gian_hoan_thanh
       const updateLdQuery = `
         UPDATE cuoc_hen 
-        SET trang_thai = 'hoan_thanh'
+        SET trang_thai = 'hoan_thanh',
+            thoi_gian_bat_dau = COALESCE(thoi_gian_bat_dau, thoi_gian_checkin, NOW()),
+            thoi_gian_hoan_thanh = COALESCE(thoi_gian_hoan_thanh, NOW())
         WHERE id = $1;
       `;
       await client.query(updateLdQuery, [data.lich_dat_id]);
@@ -193,10 +205,21 @@ class TechnicianRepository {
         if (pdRes.rows.length > 0) {
           const { tong_so_buoi, trang_thai } = pdRes.rows[0];
           const statusToSet = completedCount >= tong_so_buoi ? 'hoan_thanh' : (trang_thai === 'hoan_thanh' ? 'dang_dieu_tri' : trang_thai);
-          await client.query(
-            'UPDATE phac_do_dieu_tri SET so_buoi_da_dung = $1, trang_thai = $2 WHERE id = $3',
-            [completedCount, statusToSet, phacDoId]
-          );
+          if (statusToSet === 'hoan_thanh') {
+            await client.query(
+              `UPDATE phac_do_dieu_tri
+               SET so_buoi_da_dung = $1, trang_thai = $2, ngay_hoan_thanh = COALESCE(ngay_hoan_thanh, NOW())
+               WHERE id = $3`,
+              [completedCount, statusToSet, phacDoId]
+            );
+          } else {
+            await client.query(
+              `UPDATE phac_do_dieu_tri
+               SET so_buoi_da_dung = $1, trang_thai = $2
+               WHERE id = $3`,
+              [completedCount, statusToSet, phacDoId]
+            );
+          }
         }
       }
 

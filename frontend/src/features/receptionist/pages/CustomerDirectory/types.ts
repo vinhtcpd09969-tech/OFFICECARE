@@ -1,4 +1,4 @@
-export type PackageStatus = 'cho_kich_hoat' | 'dang_dieu_tri' | 'hoan_thanh';
+export type PackageStatus = 'cho_kich_hoat' | 'dang_dieu_tri' | 'hoan_thanh' | 'huy';
 
 export interface CurrentPackageInfo {
   trang_thai: PackageStatus;
@@ -7,6 +7,12 @@ export interface CurrentPackageInfo {
   so_buoi_da_dung?: number;
   tong_so_buoi?: number;
 }
+
+// Lý do cần liên hệ — suy ra từ dữ liệu, KHÔNG lưu DB, chỉ để gợi ý cho Lễ tân biết ai cần gọi
+// trước. 2 lý do loại trừ nhau (luật "1 khách 1 liệu trình tại 1 thời điểm").
+export type ContactReason =
+  | { type: 'sap_het_han'; han_kich_hoat: string | null; goi_dich_vu_id?: string | null; cuoc_hen_id?: string | null }
+  | { type: 'lau_chua_quay_lai' };
 
 export interface CustomerRosterItem {
   id: string;
@@ -18,7 +24,7 @@ export interface CustomerRosterItem {
   diem_uy_tin: number;
   goi_hien_tai: CurrentPackageInfo | null;
   last_used_at: string | null;
-  can_lien_he: boolean;
+  ly_do_lien_he: ContactReason | null;
 }
 
 export interface RosterMeta {
@@ -27,8 +33,6 @@ export interface RosterMeta {
   total: number;
   totalPages: number;
 }
-
-export type TrangThaiGoiFilter = 'all' | 'dang_dieu_tri' | 'cho_kich_hoat' | 'hoan_thanh' | 'khong_co_goi';
 
 export interface CustomerHistoryPlan {
   id: string;
@@ -69,6 +73,6 @@ export interface CustomerHistoryDetail {
   dia_chi: string | null;
   plans: CustomerHistoryPlan[];
   appointments: CustomerHistoryAppointment[];
-  can_lien_he: boolean;
+  ly_do_lien_he: ContactReason | null;
   last_used_at: string | null;
 }

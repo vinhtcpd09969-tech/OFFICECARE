@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { format } from 'date-fns';
-import { updateCustomer, toggleCustomerLock } from '../../../api/admin.api';
+import { updateCustomer, toggleCustomerLock, getCustomerLockImpact } from '../../../api/admin.api';
+import type { CustomerLockImpact } from '../types';
 
 export interface CustomerEditForm {
   ho_ten: string;
@@ -23,6 +24,8 @@ export function useCustomerActions(onChanged: () => void) {
   const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<CustomerEditForm>(EMPTY_FORM);
   const [lockTarget, setLockTarget] = useState<{ id: string; ho_ten: string; isLocked: boolean } | null>(null);
+  const [lockImpact, setLockImpact] = useState<CustomerLockImpact | null>(null);
+  const [lockImpactLoading, setLockImpactLoading] = useState(false);
 
   const startEdit = (customer: any) => {
     setEditingCustomerId(customer.id);
@@ -54,10 +57,24 @@ export function useCustomerActions(onChanged: () => void) {
     }
   };
 
+  // Khóa không còn bị chặn cứng theo lịch hẹn/gói liệu trình (xem admin.controller.ts) — chỉ tra
+  // thêm thông tin này để CẢNH BÁO admin trong dialog xác nhận, không dùng để ngăn thao tác.
   const requestToggleLock = (customer: any) => {
-    setLockTarget({ id: customer.id, ho_ten: customer.ho_ten, isLocked: customer.trang_thai !== 'vo_hieu' });
+    const willLock = customer.trang_thai !== 'vo_hieu';
+    setLockTarget({ id: customer.id, ho_ten: customer.ho_ten, isLocked: willLock });
+    setLockImpact(null);
+    if (willLock) {
+      setLockImpactLoading(true);
+      getCustomerLockImpact(customer.id)
+        .then(res => setLockImpact(res.data))
+        .catch(() => setLockImpact(null))
+        .finally(() => setLockImpactLoading(false));
+    }
   };
-  const cancelToggleLock = () => setLockTarget(null);
+  const cancelToggleLock = () => {
+    setLockTarget(null);
+    setLockImpact(null);
+  };
 
   const confirmToggleLock = async () => {
     if (!lockTarget) return;
@@ -65,6 +82,7 @@ export function useCustomerActions(onChanged: () => void) {
       await toggleCustomerLock(lockTarget.id, lockTarget.isLocked);
       toast.success(lockTarget.isLocked ? 'Đã khóa tài khoản khách hàng thành công' : 'Đã mở khóa tài khoản khách hàng thành công');
       setLockTarget(null);
+      setLockImpact(null);
       onChanged();
     } catch (error: any) {
       console.error('Failed to toggle customer lock:', error);
@@ -90,6 +108,6 @@ export function useCustomerActions(onChanged: () => void) {
 
   return {
     editingCustomerId, editForm, setEditForm, startEdit, cancelEdit, saveProfile,
-    lockTarget, requestToggleLock, cancelToggleLock, confirmToggleLock
+    lockTarget, lockImpact, lockImpactLoading, requestToggleLock, cancelToggleLock, confirmToggleLock
   };
 }

@@ -1,0 +1,9 @@
+$kind: http-request
+url: "{{baseUrl}}/client/public-articles/:slug"
+method: GET
+headers:
+  Content-Type: application/json
+  Authorization: Bearer {{token}}
+pathVariables:
+  slug: ""
+order: 5000

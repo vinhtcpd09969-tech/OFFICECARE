@@ -1,0 +1,19 @@
+$kind: http-request
+name: POST Tạo tài khoản nhân sự mới (Bác sĩ/KTV/Lễ tân)
+url: "{{baseUrl}}/admin/staff"
+method: POST
+headers:
+  Content-Type: application/json
+  Authorization: Bearer {{token}}
+body:
+  type: json
+  content: |-
+    {
+      "ho_ten": "BS. Phạm Quốc Bảo",
+      "sdt": "0909123456",
+      "mat_khau": "123456",
+      "email": "bs.bao@officecare.vn",
+      "vai_tro_id": 3,
+      "chuyen_khoa": "Vật lý trị liệu - Cột sống"
+    }
+order: 4000

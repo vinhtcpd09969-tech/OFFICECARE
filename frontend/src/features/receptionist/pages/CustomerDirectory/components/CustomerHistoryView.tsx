@@ -63,8 +63,21 @@ export function CustomerHistoryView({ customer, staleDays, onBack }: CustomerHis
         </div>
       </div>
 
-      {/* Banner cần liên hệ lại */}
-      {customer.can_lien_he && (
+      {/* Banner cần liên hệ */}
+      {customer.ly_do_lien_he?.type === 'sap_het_han' && (
+        <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-150 rounded-2xl">
+          <div className="p-2 bg-amber-100 text-amber-600 rounded-xl shrink-0">
+            <Bell size={16} />
+          </div>
+          <div>
+            <p className="text-xs font-black text-amber-800 uppercase tracking-wide">Sắp hết hạn kích hoạt</p>
+            <p className="text-[11px] text-amber-700 font-semibold mt-0.5 leading-relaxed">
+              Khách có gói bác sĩ vừa chỉ định nhưng chưa thanh toán — chỉ định sẽ mất nếu quá hạn. Vui lòng gọi khách để chốt thanh toán & kích hoạt sớm.
+            </p>
+          </div>
+        </div>
+      )}
+      {customer.ly_do_lien_he?.type === 'lau_chua_quay_lai' && (
         <div className="flex items-start gap-3 p-4 bg-rose-50 border border-rose-150 rounded-2xl">
           <div className="p-2 bg-rose-100 text-rose-600 rounded-xl shrink-0">
             <Bell size={16} />
@@ -151,10 +164,10 @@ export function CustomerHistoryView({ customer, staleDays, onBack }: CustomerHis
                               </span>
                             </div>
                           </div>
-                        ) : p.trang_thai === 'cho_kich_hoat' || p.trang_thai === 'khuyen_nghi' ? (
+                        ) : p.trang_thai === 'cho_kich_hoat' ? (
                           <button
                             type="button"
-                            onClick={() => navigate(`/receptionist/billing?customer_id=${customer.id}&goi_dich_vu_id=${p.goi_dich_vu_id}&phac_do_id=${p.id}`)}
+                            onClick={() => navigate(`/receptionist/billing?lich_dat_id=${p.cuoc_hen_id}`)}
                             className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 shadow-xs active:scale-95 shrink-0 cursor-pointer"
                           >
                             <CreditCard size={13} />

@@ -61,6 +61,7 @@ export default function CustomerMedicalRecord() {
                 pkg={pkg}
                 isExpanded={!!record.expandedPackages[pkg.phac_do_id]}
                 onToggleExpand={() => record.togglePackage(pkg.phac_do_id)}
+                targetSessionId={record.targetSessionId}
               />
             ))
           )}

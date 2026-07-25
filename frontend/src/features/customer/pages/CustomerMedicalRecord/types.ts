@@ -36,12 +36,17 @@ export interface PackageEntry {
   tong_so_buoi: number;
   so_buoi_da_dung: number;
   trang_thai_phac_do: string;
+  han_su_dung: string | null;
   hoa_don_id: string | null;
   ma_hoa_don: string | null;
   tong_tien_phai_tra: number | null;
   so_tien_da_tra: number | null;
   trang_thai_hoa_don: string | null;
   hinh_thuc_thanh_toan_goi: string | null;
+  tong_tien_goc: number | null;
+  ti_le_giam_gia_goi: number | null;
+  so_tien_giam_voucher: number | null;
+  loai_goi: string | null;
   buoi_dieu_tri: SessionEntry[];
 }
 

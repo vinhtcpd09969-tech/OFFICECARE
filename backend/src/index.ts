@@ -9,10 +9,9 @@ dotenv.config();
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import path from 'path';
-import swaggerUi from 'swagger-ui-express';
-import { specs } from './config/swagger';
 import apiRouter from './routes';
 import { errorHandler } from './middlewares/error.middleware';
+import { packageExpirySweep } from './middlewares/packageExpirySweep.middleware';
 import { initReminderJob } from './jobs/reminder.job';
 
 const app = express();
@@ -47,11 +46,8 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
 // --- STATIC UPLOADS (ảnh bìa bài viết, ảnh gói dịch vụ, ảnh chuyên gia) ---
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// --- SWAGGER UI ---
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
-
 // --- API ROUTES HUB ---
-app.use('/api', apiRouter);
+app.use('/api', packageExpirySweep, apiRouter);
 
 app.get('/api/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', message: 'OfficeCare API is running (TypeScript)' });
@@ -68,5 +64,5 @@ app.listen(PORT, () => {
   // Khởi động job quét nhắc lịch tự động
   initReminderJob();
 });
-// Reload trigger: swagger docs fully documented - all 80 endpoints
+// Server setup complete
 

@@ -1,0 +1,7 @@
+$kind: http-request
+url: "{{baseUrl}}/admin/vouchers"
+method: GET
+headers:
+  Content-Type: application/json
+  Authorization: Bearer {{token}}
+order: 14000

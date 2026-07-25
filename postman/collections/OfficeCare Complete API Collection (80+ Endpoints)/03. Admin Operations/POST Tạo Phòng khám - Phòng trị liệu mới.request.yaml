@@ -1,0 +1,16 @@
+$kind: http-request
+name: POST Tạo Phòng khám / Phòng trị liệu mới
+url: "{{baseUrl}}/admin/rooms"
+method: POST
+headers:
+  Content-Type: application/json
+  Authorization: Bearer {{token}}
+body:
+  type: json
+  content: |-
+    {
+      "ten_phong": "Phòng Trị liệu 05",
+      "loai_phong": "TRI_LIEU",
+      "suc_chua": 4
+    }
+order: 13000

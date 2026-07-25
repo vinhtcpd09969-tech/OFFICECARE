@@ -167,25 +167,25 @@ class AppointmentRepository {
         pd.tong_so_buoi as tong_so_buoi_goi,
         pd.goi_dich_vu_id as pd_goi_dich_vu_id,
         COALESCE(g.loai_goi, gpd.loai_goi) as loai_goi,
-        COALESCE(
-          (
-            SELECT created_at 
-            FROM otp_codes 
-            WHERE email = COALESCE(kh.email, (kh.so_dien_thoai || '@officecare.placeholder')) 
-            ORDER BY created_at DESC 
-            LIMIT 1
-          ), 
-          ch.ngay_gio_bat_dau
-        ) as thoi_gian_tao,
+        ch.nguoi_tao_id,
+        nd_tao.ho_ten AS ten_nguoi_tao,
+        ch.thoi_gian_tao as thoi_gian_tao,
         ch.ghi_chu_khach_hang AS ly_do_kham,
         ch.ghi_chu_noi_bo as ghi_chu_noi_bo,
-        ch.ly_do_huy as ly_do_huy
+        ch.ly_do_huy as ly_do_huy,
+        ch.thoi_gian_xac_nhan,
+        ch.thoi_gian_checkin,
+        ch.thoi_gian_bat_dau,
+        ch.thoi_gian_hoan_thanh,
+        ch.thoi_gian_khong_den,
+        ch.thoi_gian_huy
       FROM cuoc_hen ch
       LEFT JOIN khach_hang kh ON ch.khach_hang_id = kh.id
       LEFT JOIN goi_dich_vu g ON ch.goi_dich_vu_id = g.id
       LEFT JOIN phac_do_dieu_tri pd ON ch.phac_do_dieu_tri_id = pd.id
       LEFT JOIN goi_dich_vu gpd ON pd.goi_dich_vu_id = gpd.id
       LEFT JOIN nguoi_dung nd_ktv ON ch.nhan_su_id = nd_ktv.id
+      LEFT JOIN nguoi_dung nd_tao ON ch.nguoi_tao_id = nd_tao.id
       LEFT JOIN nhat_ky_buoi_dieu_tri nk ON nk.cuoc_hen_id = ch.id
       LEFT JOIN LATERAL (
         SELECT
@@ -314,7 +314,9 @@ class AppointmentRepository {
       const invRes = await pool.query(
         `SELECT hd.hinh_thuc_thanh_toan_goi, hd.tong_tien_phai_tra, hd.so_tien_da_tra, hd.tong_tien_goc,
                 hd.ti_le_giam_gia_goi, hd.so_tien_giam_voucher, hd.trang_thai as hd_trang_thai,
-                pd.tong_so_buoi, pd.trang_thai as pd_trang_thai, g.loai_goi
+                pd.tong_so_buoi, pd.trang_thai as pd_trang_thai, g.loai_goi,
+                (pd.trang_thai = 'dang_dieu_tri' AND pd.han_su_dung IS NOT NULL AND pd.han_su_dung < CURRENT_DATE) as qua_han,
+                pd.han_su_dung
          FROM hoa_don hd
          JOIN phac_do_dieu_tri pd ON pd.id = hd.phac_do_dieu_tri_id
          JOIN goi_dich_vu g ON pd.goi_dich_vu_id = g.id
@@ -325,12 +327,18 @@ class AppointmentRepository {
       if (invRes.rows.length > 0) {
         const { hinh_thuc_thanh_toan_goi, tong_tien_phai_tra, so_tien_da_tra, tong_so_buoi, loai_goi,
           tong_tien_goc, ti_le_giam_gia_goi, so_tien_giam_voucher,
-          pd_trang_thai, hd_trang_thai } = invRes.rows[0];
+          pd_trang_thai, hd_trang_thai, qua_han, han_su_dung } = invRes.rows[0];
 
         // Gói đã hủy/hoàn tiền: chấm dứt vĩnh viễn, không đặt thêm buổi nào nữa (kể cả khi
         // so_tien_da_tra tụt xuống sau hoàn tiền — đó KHÔNG phải "khách còn nợ tiền").
         if (['huy', 'da_huy'].includes(String(pd_trang_thai)) || hd_trang_thai === 'da_hoan_tien') {
           throw new Error('Gói trị liệu này đã bị hủy và hoàn tiền. Không thể đặt thêm buổi điều trị cho gói đã hủy.');
+        }
+
+        // Gói đã quá hạn sử dụng: chặn đặt buổi mới cho tới khi Admin xử lý thủ công (hủy do quá
+        // hạn, xem expirePackageNoRefund) — hệ thống KHÔNG tự hủy gói, chỉ chặn thao tác đặt tiếp.
+        if (qua_han) {
+          throw new Error(`Gói trị liệu này đã quá hạn sử dụng (hạn ${new Date(han_su_dung).toLocaleDateString('vi-VN')}). Vui lòng liên hệ Admin để xử lý trước khi đặt thêm buổi điều trị.`);
         }
 
         // Gói lẻ LE không bị chặn đặt lịch trước thanh toán
@@ -364,6 +372,22 @@ class AppointmentRepository {
       const doctorOverlap = await this.checkDoctorOverlap(bac_si_id, ngay_gio_bat_dau, ngay_gio_ket_thuc);
       if (doctorOverlap) {
         const err: any = new Error('Bác sĩ đã có lịch trong khung giờ này.');
+        err.constraint = 'no_overlap_ktv';
+        throw err;
+      }
+    } else {
+      // Lễ tân không có quyền chọn nhân sự (chỉ Quản lý mới gán sau) — vẫn phải kiểm tra còn suất
+      // trực hay không, nếu không thì 2 ca "chờ gán" (Lễ tân tạo + khách tự đặt public, hoặc 2 Lễ
+      // tân cùng lúc) có thể trùng giờ trong khi chỉ có 1 nhân sự trực, tới lúc Quản lý gán thì thiếu
+      // người. Tái dùng đúng công thức sức chứa của getBookedSlots() để không lệch 2 nơi.
+      const startLocal = new Date(new Date(ngay_gio_bat_dau).getTime() + 7 * 60 * 60000);
+      const dateStr = `${startLocal.getUTCFullYear()}-${String(startLocal.getUTCMonth() + 1).padStart(2, '0')}-${String(startLocal.getUTCDate()).padStart(2, '0')}`;
+      const slotTimeStr = `${String(startLocal.getUTCHours()).padStart(2, '0')}:${String(startLocal.getUTCMinutes()).padStart(2, '0')}`;
+      const durationMinutes = Math.round((new Date(ngay_gio_ket_thuc).getTime() - new Date(ngay_gio_bat_dau).getTime()) / 60000);
+
+      const { bookedSlots: fullSlots } = await this.getBookedSlots(dateStr, undefined, undefined, durationMinutes, finalGoiId);
+      if (fullSlots.includes(slotTimeStr)) {
+        const err: any = new Error('Khung giờ này đã hết nhân sự trực ca. Vui lòng chọn khung giờ khác hoặc chỉ định nhân sự cụ thể.');
         err.constraint = 'no_overlap_ktv';
         throw err;
       }
@@ -568,7 +592,9 @@ class AppointmentRepository {
       // Kiểm tra điều kiện hoàn tất thanh toán của buổi trước khi đặt lịch cho buổi tiếp theo (Thống nhất 3 hình thức)
       const invRes = await pool.query(
         `SELECT hd.hinh_thuc_thanh_toan_goi, hd.tong_tien_phai_tra, hd.so_tien_da_tra, hd.tong_tien_goc,
-                hd.ti_le_giam_gia_goi, hd.so_tien_giam_voucher, pd.tong_so_buoi, g.loai_goi
+                hd.ti_le_giam_gia_goi, hd.so_tien_giam_voucher, pd.tong_so_buoi, g.loai_goi,
+                (pd.trang_thai = 'dang_dieu_tri' AND pd.han_su_dung IS NOT NULL AND pd.han_su_dung < CURRENT_DATE) as qua_han,
+                pd.han_su_dung
          FROM hoa_don hd
          JOIN phac_do_dieu_tri pd ON pd.id = hd.phac_do_dieu_tri_id
          JOIN goi_dich_vu g ON pd.goi_dich_vu_id = g.id
@@ -578,7 +604,12 @@ class AppointmentRepository {
       );
       if (invRes.rows.length > 0) {
         const { hinh_thuc_thanh_toan_goi, tong_tien_phai_tra, so_tien_da_tra, tong_so_buoi, loai_goi,
-          tong_tien_goc, ti_le_giam_gia_goi, so_tien_giam_voucher } = invRes.rows[0];
+          tong_tien_goc, ti_le_giam_gia_goi, so_tien_giam_voucher, qua_han, han_su_dung } = invRes.rows[0];
+
+        // Gói đã quá hạn sử dụng: chặn đặt buổi mới cho tới khi Admin xử lý thủ công.
+        if (qua_han) {
+          throw new Error(`Gói trị liệu này đã quá hạn sử dụng (hạn ${new Date(han_su_dung).toLocaleDateString('vi-VN')}). Vui lòng liên hệ Admin để xử lý trước khi đặt thêm buổi điều trị.`);
+        }
 
         // Gói lẻ LE không bị chặn đặt lịch trước thanh toán
         if (loai_goi !== 'LE') {
@@ -630,9 +661,18 @@ class AppointmentRepository {
       }
     }
 
+    const isConfirmedState = ['da_xac_nhan', 'da_checkin', 'dang_kham', 'hoan_thanh'].includes(trang_thai) || !!bac_si_id;
+    const thoi_gian_xac_nhan_val = isConfirmedState ? new Date() : null;
+
     const query = `
-      INSERT INTO cuoc_hen (khach_hang_id, nhan_su_id, goi_dich_vu_id, phac_do_dieu_tri_id, so_thu_tu_buoi, ngay_gio_bat_dau, ngay_gio_ket_thuc, loai, trang_thai, ghi_chu_khach_hang, phong_id, nguoi_tao_id, so_dien_thoai)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      INSERT INTO cuoc_hen (
+        khach_hang_id, nhan_su_id, goi_dich_vu_id, phac_do_dieu_tri_id, so_thu_tu_buoi, 
+        ngay_gio_bat_dau, ngay_gio_ket_thuc, loai, trang_thai, ghi_chu_khach_hang, 
+        phong_id, nguoi_tao_id, so_dien_thoai, thoi_gian_tao, thoi_gian_xac_nhan
+      )
+      VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), $14
+      )
       RETURNING *
     `;
     const { rows } = await pool.query(query, [
@@ -648,7 +688,8 @@ class AppointmentRepository {
       ghi_chu_dat_lich || null,
       resolvedPhongId,
       data.nguoi_tao_id || null,
-      so_dien_thoai || null
+      so_dien_thoai || null,
+      thoi_gian_xac_nhan_val
     ]);
 
     return rows[0];
@@ -705,7 +746,9 @@ class AppointmentRepository {
       const invRes = await pool.query(
         `SELECT hd.hinh_thuc_thanh_toan_goi, hd.tong_tien_phai_tra, hd.so_tien_da_tra, hd.tong_tien_goc,
                 hd.ti_le_giam_gia_goi, hd.so_tien_giam_voucher, hd.trang_thai as hd_trang_thai,
-                pd.tong_so_buoi, pd.trang_thai as pd_trang_thai, g.loai_goi
+                pd.tong_so_buoi, pd.trang_thai as pd_trang_thai, g.loai_goi,
+                (pd.trang_thai = 'dang_dieu_tri' AND pd.han_su_dung IS NOT NULL AND pd.han_su_dung < CURRENT_DATE) as qua_han,
+                pd.han_su_dung
          FROM hoa_don hd
          JOIN phac_do_dieu_tri pd ON pd.id = hd.phac_do_dieu_tri_id
          JOIN goi_dich_vu g ON pd.goi_dich_vu_id = g.id
@@ -716,10 +759,15 @@ class AppointmentRepository {
       if (invRes.rows.length > 0) {
         const { hinh_thuc_thanh_toan_goi, tong_tien_phai_tra, so_tien_da_tra, tong_so_buoi, loai_goi,
           tong_tien_goc, ti_le_giam_gia_goi, so_tien_giam_voucher,
-          pd_trang_thai, hd_trang_thai } = invRes.rows[0];
+          pd_trang_thai, hd_trang_thai, qua_han, han_su_dung } = invRes.rows[0];
 
         if (['huy', 'da_huy'].includes(String(pd_trang_thai)) || hd_trang_thai === 'da_hoan_tien') {
           throw new Error('Gói trị liệu này đã bị hủy và hoàn tiền. Không thể đặt thêm buổi điều trị cho gói đã hủy.');
+        }
+
+        // Gói đã quá hạn sử dụng: chặn đặt buổi mới cho tới khi Admin xử lý thủ công.
+        if (qua_han) {
+          throw new Error(`Gói trị liệu này đã quá hạn sử dụng (hạn ${new Date(han_su_dung).toLocaleDateString('vi-VN')}). Vui lòng liên hệ phòng khám để được hỗ trợ trước khi đặt thêm buổi điều trị.`);
         }
 
         if (loai_goi !== 'LE') {
@@ -827,8 +875,12 @@ class AppointmentRepository {
     const finalLoai = phac_do_dieu_tri_id ? 'DIEU_TRI' : (isExamService ? 'KHAM' : 'DICH_VU_LE');
 
     const query = `
-      INSERT INTO cuoc_hen (khach_hang_id, goi_dich_vu_id, nhan_su_id, ngay_gio_bat_dau, ngay_gio_ket_thuc, loai, trang_thai, ghi_chu_khach_hang, phong_id, anh_dinh_kem_url, phac_do_dieu_tri_id, so_thu_tu_buoi, so_dien_thoai)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      INSERT INTO cuoc_hen (
+        khach_hang_id, goi_dich_vu_id, nhan_su_id, ngay_gio_bat_dau, ngay_gio_ket_thuc, 
+        loai, trang_thai, ghi_chu_khach_hang, phong_id, anh_dinh_kem_url, 
+        phac_do_dieu_tri_id, so_thu_tu_buoi, so_dien_thoai, thoi_gian_tao
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())
       RETURNING *
     `;
     const { rows } = await pool.query(query, [
@@ -919,11 +971,12 @@ class AppointmentRepository {
 
     // 3. Lấy danh sách tất cả các lịch hẹn/ca trị liệu đang hoạt động của ngày này (theo giờ VN)
     const aptQuery = `
-      SELECT 
+      SELECT
         ch.id,
         ch.nhan_su_id as bac_si_id,
         ch.ngay_gio_bat_dau AS bat_dau,
-        ch.ngay_gio_ket_thuc AS ket_thuc
+        ch.ngay_gio_ket_thuc AS ket_thuc,
+        (UPPER(ch.loai) IN ('KHAM', 'KHAM_MOI')) AS is_kham
       FROM cuoc_hen ch
       WHERE
         DATE(ch.ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh') = $1::date
@@ -938,16 +991,18 @@ class AppointmentRepository {
 
     // Get active holds for this day
     const holdQuery = `
-      SELECT 
-        id,
-        nhan_su_id as bac_si_id,
-        ngay_gio_bat_dau AS bat_dau,
-        ngay_gio_ket_thuc AS ket_thuc
-      FROM tam_giu_cho
-      WHERE 
-        DATE(ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh') = $1::date
-        AND thoi_gian_het_han > NOW()
-        AND ($2::varchar IS NULL OR session_id != $2::varchar)
+      SELECT
+        t.id,
+        t.nhan_su_id as bac_si_id,
+        t.ngay_gio_bat_dau AS bat_dau,
+        t.ngay_gio_ket_thuc AS ket_thuc,
+        (g.loai_goi = 'KHAM') AS is_kham
+      FROM tam_giu_cho t
+      LEFT JOIN goi_dich_vu g ON t.goi_dich_vu_id = g.id
+      WHERE
+        DATE(t.ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh') = $1::date
+        AND t.thoi_gian_het_han > NOW()
+        AND ($2::varchar IS NULL OR t.session_id != $2::varchar)
     `;
     const holdRes = await pool.query(holdQuery, [dateStr, excludeSessionId || null]);
 
@@ -981,7 +1036,7 @@ class AppointmentRepository {
       return slots;
     };
 
-    const timeSlots = generateSlots(7, 30, 19, 30);
+    const timeSlots = generateSlots(8, 0, 20, 0);
 
     const scheduledSpecialistsForDay = doctors.filter(doc =>
       schedules.some(s => s.nguoi_dung_id === doc.nguoi_dung_id)
@@ -1021,6 +1076,7 @@ class AppointmentRepository {
     for (const slot of timeSlots) {
       const slotStart = new Date(`${dateStr}T${slot}:00+07:00`);
       const slotEnd = new Date(slotStart.getTime() + duration * 60000);
+      const slotEndHHMM = `${String(slotEnd.getHours()).padStart(2, '0')}:${String(slotEnd.getMinutes()).padStart(2, '0')}`;
 
       if (khach_hang_id || phone) {
         const hasOverlap = await this.checkCustomerOverlap(khach_hang_id, phone || null, slotStart.toISOString(), slotEnd.toISOString());
@@ -1035,8 +1091,11 @@ class AppointmentRepository {
         return slotStart < new Date(aptEnd) && slotEnd > new Date(aptStart);
       };
 
-      const slotApts = appointments.filter(apt => isOverlapping(apt.bat_dau, apt.ket_thuc));
+      // Lọc đúng nhóm dịch vụ (Khám/Bác sĩ vs Điều trị/KTV) — 2 nhóm dùng 2 nguồn nhân sự độc lập,
+      // không được để ca "chờ gán" của nhóm này làm hụt sức chứa của nhóm kia.
+      const slotApts = appointments.filter(apt => isOverlapping(apt.bat_dau, apt.ket_thuc) && apt.is_kham === isExam);
 
+      // Chỉ lấy nhân sự có ca trực bao phủ TRỌN VẸN suất hẹn (từ bắt đầu đến kết thúc)
       const scheduledDoctors = doctors.filter(doc => {
         const docScheds = schedules.filter(s => s.nguoi_dung_id === doc.nguoi_dung_id);
         if (docScheds.length === 0) return false;
@@ -1044,24 +1103,24 @@ class AppointmentRepository {
         return docScheds.some(s => {
           const dutyStart = s.gio_bat_dau.substring(0, 5);
           const dutyEnd = s.gio_ket_thuc.substring(0, 5);
-          return dutyStart <= slot && dutyEnd > slot;
+          return dutyStart <= slot && dutyEnd >= slotEndHHMM;
         });
       });
 
       const assignedApts = slotApts.filter(a => a.bac_si_id !== null);
       const occupiedDoctorIds = assignedApts.map(a => a.bac_si_id).filter(Boolean);
       const freeDoctors = scheduledDoctors.filter(doc => !occupiedDoctorIds.includes(doc.nguoi_dung_id));
-
-      const unassignedAptsCount = slotApts.filter(a => a.bac_si_id === null).length;
-      let slotFreeDoctorIds = freeDoctors.map(doc => doc.nguoi_dung_id);
-
-      if (unassignedAptsCount > 0) {
-        slotFreeDoctorIds = slotFreeDoctorIds.slice(unassignedAptsCount);
-      }
+      const slotFreeDoctorIds = freeDoctors.map(doc => doc.nguoi_dung_id);
 
       slotAvailability[slot] = slotFreeDoctorIds;
 
-      if (slotFreeDoctorIds.length === 0) {
+      // Sức chứa còn lại phải trừ luôn ca "chờ gán" (bac_si_id null) — chưa nêu tên cụ thể nên
+      // không nằm trong occupiedDoctorIds ở trên, nhưng vẫn sẽ chiếm đúng 1 suất khi được gán sau.
+      // Thiếu bước này thì 1 slot chỉ có 1 nhân sự trực vẫn báo "còn trống" dù đã có 1 ca chờ gán.
+      const unassignedCount = slotApts.length - assignedApts.length;
+      const remainingCapacity = Math.max(0, slotFreeDoctorIds.length - unassignedCount);
+
+      if (remainingCapacity === 0) {
         bookedSlots.push(slot);
       }
     }
@@ -1258,8 +1317,18 @@ class AppointmentRepository {
         updates.push(`phong_id = NULL`);
       }
 
-      if (finalStatus === 'da_huy') {
-        updates.push(`thoi_gian_huy = NOW()`);
+      if (finalStatus === 'da_xac_nhan') {
+        updates.push(`thoi_gian_xac_nhan = COALESCE(thoi_gian_xac_nhan, NOW())`);
+      } else if (finalStatus === 'da_checkin') {
+        updates.push(`thoi_gian_checkin = COALESCE(thoi_gian_checkin, NOW())`);
+      } else if (finalStatus === 'dang_kham') {
+        updates.push(`thoi_gian_bat_dau = COALESCE(thoi_gian_bat_dau, NOW())`);
+      } else if (finalStatus === 'hoan_thanh') {
+        updates.push(`thoi_gian_hoan_thanh = COALESCE(thoi_gian_hoan_thanh, NOW())`);
+      } else if (finalStatus === 'da_huy') {
+        updates.push(`thoi_gian_huy = COALESCE(thoi_gian_huy, NOW())`);
+      } else if (['khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(finalStatus)) {
+        updates.push(`thoi_gian_khong_den = COALESCE(thoi_gian_khong_den, NOW())`);
       }
 
       values.push(id);
@@ -1315,10 +1384,22 @@ class AppointmentRepository {
     if (pdRes.rows.length > 0) {
       const { tong_so_buoi, trang_thai } = pdRes.rows[0];
       const statusToSet = completedCount >= tong_so_buoi ? 'hoan_thanh' : (trang_thai === 'hoan_thanh' ? 'dang_dieu_tri' : trang_thai);
-      await pool.query(
-        'UPDATE phac_do_dieu_tri SET so_buoi_da_dung = $1, trang_thai = $2 WHERE id = $3',
-        [completedCount, statusToSet, phac_do_dieu_tri_id]
-      );
+      
+      if (statusToSet === 'hoan_thanh') {
+        await pool.query(
+          `UPDATE phac_do_dieu_tri
+           SET so_buoi_da_dung = $1, trang_thai = $2, ngay_hoan_thanh = COALESCE(ngay_hoan_thanh, NOW())
+           WHERE id = $3`,
+          [completedCount, statusToSet, phac_do_dieu_tri_id]
+        );
+      } else {
+        await pool.query(
+          `UPDATE phac_do_dieu_tri
+           SET so_buoi_da_dung = $1, trang_thai = $2
+           WHERE id = $3`,
+          [completedCount, statusToSet, phac_do_dieu_tri_id]
+        );
+      }
     }
   }
 
@@ -1353,16 +1434,15 @@ class AppointmentRepository {
         ch.ghi_chu_khach_hang as ghi_chu,
         ch.ghi_chu_noi_bo as ghi_chu_noi_bo,
         ch.ly_do_huy as ly_do_huy,
-        COALESCE(
-          (
-            SELECT created_at
-            FROM otp_codes
-            WHERE email = COALESCE(kh.email, (kh.so_dien_thoai || '@officecare.placeholder')) 
-            ORDER BY created_at DESC 
-            LIMIT 1
-          ), 
-          ch.ngay_gio_bat_dau
-        ) as thoi_gian_tao,
+        ch.nguoi_tao_id,
+        nd_tao.ho_ten AS ten_nguoi_tao,
+        ch.thoi_gian_tao as thoi_gian_tao,
+        ch.thoi_gian_xac_nhan,
+        ch.thoi_gian_checkin,
+        ch.thoi_gian_bat_dau as thoi_gian_bat_dau_dieu_tri,
+        ch.thoi_gian_hoan_thanh,
+        ch.thoi_gian_khong_den,
+        ch.thoi_gian_huy,
         (
           SELECT expires_at 
           FROM otp_codes 
@@ -1390,6 +1470,7 @@ class AppointmentRepository {
       JOIN khach_hang kh ON ch.khach_hang_id = kh.id
       LEFT JOIN goi_dich_vu gdv ON ch.goi_dich_vu_id = gdv.id
       LEFT JOIN nguoi_dung nd_ktv ON ch.nhan_su_id = nd_ktv.id
+      LEFT JOIN nguoi_dung nd_tao ON ch.nguoi_tao_id = nd_tao.id
       LEFT JOIN nhat_ky_buoi_dieu_tri nk ON nk.cuoc_hen_id = ch.id
       LEFT JOIN phong_lam_viec p ON ch.phong_id = p.id
       LEFT JOIN phac_do_dieu_tri pddt ON ch.phac_do_dieu_tri_id = pddt.id
@@ -1706,12 +1787,17 @@ class AppointmentRepository {
         pd.tong_so_buoi,
         pd.so_buoi_da_dung,
         pd.trang_thai as trang_thai_phac_do,
+        pd.han_su_dung,
         hd.id as hoa_don_id,
         'HD-' || UPPER(SUBSTRING(hd.id::text FROM 1 FOR 6)) as ma_hoa_don,
         CAST(hd.tong_tien_phai_tra AS double precision) as tong_tien_phai_tra,
         CAST(hd.so_tien_da_tra AS double precision) as so_tien_da_tra,
         hd.trang_thai as trang_thai_hoa_don,
-        hd.hinh_thuc_thanh_toan_goi
+        hd.hinh_thuc_thanh_toan_goi,
+        CAST(hd.tong_tien_goc AS double precision) as tong_tien_goc,
+        hd.ti_le_giam_gia_goi,
+        CAST(hd.so_tien_giam_voucher AS double precision) as so_tien_giam_voucher,
+        g.loai_goi
       FROM phac_do_dieu_tri pd
       JOIN goi_dich_vu g ON pd.goi_dich_vu_id = g.id
       LEFT JOIN hoa_don hd ON hd.phac_do_dieu_tri_id = pd.id

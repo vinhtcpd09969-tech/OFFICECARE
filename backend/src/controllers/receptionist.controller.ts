@@ -204,19 +204,15 @@ export const getCustomerTreatmentPlans = async (req: Request, res: Response): Pr
   }
 };
 
-const VALID_RECEPTIONIST_STATUS_FILTERS = ['dang_dieu_tri', 'cho_kich_hoat', 'hoan_thanh', 'khong_co_goi', 'all'];
-
 // GET /api/receptionist/customers/roster
 export const getCustomerRoster = async (req: Request, res: Response): Promise<any> => {
   try {
     const page = Math.max(1, parseInt(String(req.query.page ?? '1'), 10) || 1);
     const pageSize = Math.min(100, Math.max(1, parseInt(String(req.query.pageSize ?? '20'), 10) || 20));
     const search = String(req.query.search ?? '').trim();
-    const trangThaiGoiRaw = String(req.query.trangThaiGoi ?? 'all');
-    const trangThaiGoi = VALID_RECEPTIONIST_STATUS_FILTERS.includes(trangThaiGoiRaw) ? trangThaiGoiRaw : 'all';
     const canLienHe = String(req.query.canLienHe ?? '') === 'true';
     const staleDays = Math.max(1, parseInt(String(req.query.staleDays ?? String(DEFAULT_FOLLOW_UP_STALE_DAYS)), 10) || DEFAULT_FOLLOW_UP_STALE_DAYS);
-    const result = await receptionistService.getCustomerRoster({ page, pageSize, search, trangThaiGoi, canLienHe, staleDays });
+    const result = await receptionistService.getCustomerRoster({ page, pageSize, search, canLienHe, staleDays });
     res.json(result);
   } catch (error: any) {
     console.error('Lỗi lấy danh sách khách hàng:', error);

@@ -11,7 +11,6 @@ export default function CustomerDirectory() {
   const roster = useCustomerRosterData({
     page: filters.page,
     search: filters.debouncedSearch,
-    trangThaiGoi: filters.trangThaiGoi,
     canLienHe: filters.canLienHe,
     staleDays: filters.staleDays,
   });
@@ -33,8 +32,6 @@ export default function CustomerDirectory() {
           <CustomerRosterFilters
             searchInput={filters.searchInput}
             onSearchChange={filters.setSearchInput}
-            trangThaiGoi={filters.trangThaiGoi}
-            onTrangThaiGoiChange={filters.setTrangThaiGoi}
             canLienHe={filters.canLienHe}
             onToggleCanLienHe={() => filters.setCanLienHe((v) => !v)}
             staleDays={filters.staleDays}

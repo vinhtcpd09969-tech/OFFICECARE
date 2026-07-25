@@ -98,11 +98,6 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
   const isExamWaived = isPackage && (gia_goc_goi >= 1000000) && ['tra_thang', 'tra_gop'].includes(invoice.hinh_thuc_thanh_toan_goi || '');
   const mien_phi_kham = isExamWaived ? chi_phi_kham : 0;
 
-  // Refund eligibility check (Only pre-paid packages: LIEU_TRINH and hinh_thuc is tra_thang/tra_gop)
-  const canRefund = isPackage &&
-                    invoice.loai_goi === 'LIEU_TRINH' &&
-                    invoice.hinh_thuc_thanh_toan_goi !== 'tung_buoi';
-
   // Gói đã quá hạn sử dụng, khách không phản hồi — khác hẳn hủy chủ động (canRefund): áp dụng
   // cho CẢ 3 hình thức thanh toán (kể cả từng buổi), không hoàn tiền, giữ toàn bộ đã đóng.
   // Xem docs/BUSINESS_RULES.md mục "Hủy gói quá hạn sử dụng (không hoàn tiền)".
@@ -111,6 +106,14 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                     new Date(invoice.han_su_dung) < new Date() &&
                     !['da_hoan_tien', 'da_huy'].includes(invoice.trang_thai) &&
                     !['huy', 'hoan_thanh'].includes(invoice.trang_thai_phac_do || '');
+
+  // Refund eligibility check (Only pre-paid packages: LIEU_TRINH and hinh_thuc is tra_thang/tra_gop)
+  // — gói đã quá hạn sử dụng KHÔNG được hủy theo luồng hoàn tiền thông thường nữa (chỉ còn đúng 1
+  // lối ra: "Hủy do quá hạn sử dụng", không hoàn tiền — xem isPackageOverdue).
+  const canRefund = isPackage &&
+                    invoice.loai_goi === 'LIEU_TRINH' &&
+                    invoice.hinh_thuc_thanh_toan_goi !== 'tung_buoi' &&
+                    !isPackageOverdue;
 
   // Refund preview — khớp đúng công thức calculatePackageCancellationRefund() ở backend:
   // phạt 10% trên gia_thanh_toan_goi (giá gói đã chốt theo hình thức thanh toán) — CỐ ĐỊNH

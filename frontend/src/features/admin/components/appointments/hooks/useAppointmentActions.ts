@@ -181,8 +181,7 @@ export function useAppointmentActions({
         bac_si_id: isCancelled ? null : (assignStaffId || null),
         chuyen_gia_id: isCancelled ? null : (assignStaffId || null),
         phong_id: isCancelled ? null : (assignRoomId || null),
-        ly_do_huy: isCancelled ? (cancelReason || note || null) : null,
-        ghi_chu_noi_bo: note || null,
+        ghi_chu_noi_bo: note || cancelReason || null,
         ...(finalNgayGioBatDau && { ngay_gio_bat_dau: finalNgayGioBatDau }),
         ...(finalNgayGioKetThuc && { ngay_gio_ket_thuc: finalNgayGioKetThuc })
       });

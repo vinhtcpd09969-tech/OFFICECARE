@@ -1,90 +1,37 @@
 import { ClipboardPlus } from 'lucide-react';
-import { TIER_META } from '../../constants';
-import type { PrimaryStatus } from '../../types';
+import { PLAN_STATUS_META } from '../../constants';
+import type { TreatmentPlanStatus } from '../../types';
 
 const TIER_STYLE: Record<string, { bg: string; color: string }> = {
   none: { bg: 'var(--rc-taupe-soft)', color: 'var(--rc-taupe)' },
   le: { bg: 'var(--rc-taupe-soft)', color: 'var(--rc-taupe)' },
   pending: { bg: 'var(--rc-amber-soft)', color: 'var(--rc-amber)' },
   progress: { bg: 'var(--rc-sage-soft)', color: 'var(--rc-sage)' },
+  qua_han: { bg: 'var(--rc-clay-soft)', color: 'var(--rc-clay)' },
   done: { bg: 'var(--rc-moss)', color: 'var(--rc-fog)' },
   cancel: { bg: 'var(--rc-rust-soft)', color: 'var(--rc-rust)' }
 };
 
-// Cột "Trạng thái" — pill duy nhất theo tier đã resolve ở backend (resolvePrimaryStatus).
-export function StatusTierPill({ status }: { status: PrimaryStatus }) {
-  const style = TIER_STYLE[status.tier];
+// Trạng thái 1 liệu trình (phac_do_dieu_tri) dùng chung đúng bảng màu trên qua ánh xạ sang tier
+// tương ứng — không rời rạc thêm 1 bộ hex mới.
+const PLAN_STATUS_TO_TIER_STYLE: Record<TreatmentPlanStatus, string> = {
+  dang_dieu_tri: 'progress',
+  qua_han: 'qua_han',
+  hoan_thanh: 'done',
+  huy: 'cancel'
+};
+
+// Cột "Trạng thái" ở khối "Gói liệu trình" (tab "Hồ sơ điều trị") — 1 dòng = 1 gói.
+export function PlanStatusPill({ status }: { status: TreatmentPlanStatus }) {
+  const style = TIER_STYLE[PLAN_STATUS_TO_TIER_STYLE[status]];
   return (
     <span
       className="recovery-arc-scope inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10.5px] font-bold whitespace-nowrap"
       style={{ background: style.bg, color: style.color }}
     >
       <span className="size-1.5 rounded-full shrink-0" style={{ background: 'currentColor' }} />
-      {TIER_META[status.tier].label}
+      {PLAN_STATUS_META[status].label}
     </span>
-  );
-}
-
-// Cột "Liệu trình" — hiện tên gói + ghi chú thời gian (mọi tier có gói: chờ kích hoạt/đang điều
-// trị/hủy/hoàn thành); riêng donut tiến độ chỉ có ý nghĩa khi đang điều trị (mới có số buổi đã
-// dùng/tổng buổi thật). Tier "le" (chỉ khám/dịch vụ lẻ) không có gói nào để hiện — chỉ 1 dòng ghi chú.
-export function PrimaryPlanCell({ status }: { status: PrimaryStatus }) {
-  if (!status.ten_goi) {
-    const text = status.note || 'Chưa có liệu trình';
-    return (
-      <span
-        className="recovery-arc-scope block text-[11.5px] italic truncate max-w-[240px]"
-        style={{ color: 'var(--rc-taupe)' }}
-        title={text}
-      >
-        {text}
-      </span>
-    );
-  }
-  if (status.tier !== 'progress') {
-    return (
-      <div className="recovery-arc-scope min-w-0">
-        <div className="text-[12.5px] font-semibold truncate max-w-[220px]" style={{ color: 'var(--rc-ink)' }} title={status.ten_goi}>
-          {status.ten_goi}
-        </div>
-        {status.note && (
-          <div className="text-[10.5px] mt-0.5 truncate max-w-[220px]" style={{ color: 'var(--rc-taupe)' }} title={status.note}>
-            {status.note}
-          </div>
-        )}
-      </div>
-    );
-  }
-  const total = status.tong_so_buoi || 0;
-  const done = status.so_buoi_da_dung || 0;
-  const pct = total > 0 ? Math.min(1, done / total) : 0;
-  const r = 12, circumference = 2 * Math.PI * r;
-  const offset = circumference * (1 - pct);
-  return (
-    <div className="recovery-arc-scope flex items-center gap-2.5">
-      <span className="relative shrink-0" style={{ width: 30, height: 30 }}>
-        <svg width={30} height={30} viewBox="0 0 30 30" style={{ transform: 'rotate(-90deg)' }}>
-          <circle cx={15} cy={15} r={r} fill="none" stroke="var(--rc-track)" strokeWidth={3} />
-          <circle cx={15} cy={15} r={r} fill="none" stroke="var(--rc-sage)" strokeWidth={3} strokeLinecap="round"
-            strokeDasharray={circumference} strokeDashoffset={offset} style={{ transition: 'stroke-dashoffset .6s ease' }} />
-        </svg>
-        <span className="rc-mono absolute inset-0 flex items-center justify-center text-[8.5px] font-semibold" style={{ color: 'var(--rc-ink)' }}>
-          {total ? `${done}/${total}` : '–'}
-        </span>
-      </span>
-      <div className="min-w-0">
-        <div className="text-[12.5px] font-semibold truncate max-w-[220px]" style={{ color: 'var(--rc-ink)' }} title={status.ten_goi}>
-          {status.ten_goi}
-        </div>
-        <div
-          className="text-[10.5px] mt-0.5 truncate max-w-[180px]"
-          style={{ color: 'var(--rc-taupe)' }}
-          title={status.note || undefined}
-        >
-          {status.note || (total ? `${Math.round(pct * 100)}% tiến độ` : '')}
-        </div>
-      </div>
-    </div>
   );
 }
 

@@ -1,0 +1,19 @@
+$kind: http-request
+name: POST Bác sĩ lưu Phiếu chẩn đoán lâm sàng & Kê phác đồ
+url: "{{baseUrl}}/doctor/examinations"
+method: POST
+headers:
+  Content-Type: application/json
+  Authorization: Bearer {{token}}
+body:
+  type: json
+  content: |-
+    {
+      "cuoc_hen_id": "ch_01",
+      "chan_doan": "Thoát vị đĩa đệm cột sống thắt lưng L4-L5, chèn ép rễ thần kinh nhẹ",
+      "tien_su_benh": "Đau lưng mạn tính kéo dài 6 tháng",
+      "mach": 76,
+      "huyet_ap": "120/80",
+      "phac_do_khuyen_dung_id": "goi_cot_song_10b"
+    }
+order: 2000

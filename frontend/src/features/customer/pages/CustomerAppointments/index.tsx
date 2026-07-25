@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
-import { 
-  Calendar, 
-  AlertCircle, 
-  XCircle, 
+import {
+  Calendar,
+  AlertCircle,
+  XCircle,
   RefreshCw,
   PlusCircle,
   Star,
@@ -23,6 +23,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { resolveImageUrl } from '../../../../utils/imageUrl';
 import { useAuthStore } from '../../../../stores/authStore';
 import { CustomDatePicker } from '../../../../components/CustomDatePicker';
+import { StatusHistoryModal } from '../../../../components/StatusHistoryModal';
 
 interface Appointment {
   id: string;
@@ -71,7 +72,8 @@ export default function CustomerAppointments() {
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [lyDoHuy, setLyDoHuy] = useState<string>('');
   const [ratingApptId, setRatingApptId] = useState<string | null>(null);
-  
+  const [selectedTimelineAppt, setSelectedTimelineAppt] = useState<any | null>(null);
+
   // Separate rating states
   const [ratingStarsService, setRatingStarsService] = useState<number>(5);
   const [ratingCommentService, setRatingCommentService] = useState<string>('');
@@ -145,7 +147,7 @@ export default function CustomerAppointments() {
     try {
       const appt = appointments.find(a => a.id === ratingApptId) || pendingRatingAppts.find(a => a.id === ratingApptId);
       const isPackage = appt?.loai_goi === 'LIEU_TRINH';
-      const isPackageFinished = appt?.phac_do_status === 'hoan_thanh' || appt?.phac_do_status === 'huy_ngang';
+      const isPackageFinished = appt?.phac_do_status === 'hoan_thanh' || appt?.phac_do_status === 'huy';
       const canRateService = !isPackage || isPackageFinished;
 
       await api.post(`/client/appointments/${ratingApptId}/rate`, {
@@ -301,12 +303,12 @@ export default function CustomerAppointments() {
     const hours = Math.floor(sec / 3600);
     const minutes = Math.floor((sec % 3600) / 60);
     const seconds = sec % 60;
-    
+
     let parts = [];
     if (hours > 0) parts.push(`${hours}h`);
     if (minutes > 0 || hours > 0) parts.push(`${minutes}m`);
     parts.push(`${seconds}s`);
-    
+
     return `Bắt đầu sau: ${parts.join(' ')}`;
   };
 
@@ -399,14 +401,15 @@ export default function CustomerAppointments() {
     }
   };
 
-  // Điều hướng sang trang Hồ sơ trị liệu, tự mở đúng gói (và cuộn tới đúng buổi nếu buổi đó thuộc
-  // 1 gói liệu trình) — thay cho stub toast cũ.
+  // Điều hướng sang trang Hồ sơ trị liệu, tự chuyển sang tab tương ứng và cuộn/bật nội dung buổi
   const handleViewTreatmentDetail = (app: Appointment) => {
-    if (!app.phac_do_dieu_tri_id) {
-      navigate('/medical-record');
-      return;
+    if (app.phac_do_dieu_tri_id) {
+      navigate(`/medical-record?tab=goi&phac_do_id=${app.phac_do_dieu_tri_id}&buoi=${app.id}`);
+    } else if (app.loai_goi === 'KHAM' || app.trang_thai_kham === 'kham_moi' || (app.ten_dich_vu && app.ten_dich_vu.toLowerCase().includes('khám'))) {
+      navigate(`/medical-record?tab=kham&cuoc_hen_id=${app.id}`);
+    } else {
+      navigate(`/medical-record?tab=le&cuoc_hen_id=${app.id}`);
     }
-    navigate(`/medical-record?phac_do_id=${app.phac_do_dieu_tri_id}&buoi=${app.id}`);
   };
 
   // Counters & Metrics
@@ -416,7 +419,7 @@ export default function CustomerAppointments() {
   const cancelledCount = appointments.filter(app => ['da_huy', 'da_huy_phat', 'cho_huy', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(app.trang_thai)).length;
 
   const recoveryRate = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
-  
+
   // Calculate total hours of usage based on actual duration of completed sessions
   const totalHours = appointments
     .filter(app => app.trang_thai === 'hoan_thanh')
@@ -484,7 +487,7 @@ export default function CustomerAppointments() {
 
   return (
     <div className="space-y-6 font-jakarta text-[#0F172A] min-h-screen bg-slate-50/50 p-2 sm:p-6 rounded-[32px]">
-      
+
       {/* Title & Add button */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-100 pb-5">
         <div className="space-y-1">
@@ -499,7 +502,7 @@ export default function CustomerAppointments() {
           </p>
         </div>
 
-        <motion.button 
+        <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => navigate('/booking')}
@@ -511,10 +514,10 @@ export default function CustomerAppointments() {
 
       {/* Main Grid: Left side stats, Right side filters and list */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        
+
         {/* LEFT COLUMN: Recovery Journey Analytics (col-span-4) */}
         <div className="lg:col-span-4 space-y-6">
-          
+
           {/* Reputation Info Box */}
           <div className="bg-white rounded-[28px] border border-slate-100 p-5 space-y-4 shadow-sm hover:shadow-md transition-shadow duration-300">
             <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-2">
@@ -532,10 +535,9 @@ export default function CustomerAppointments() {
 
               {/* Progress bar scale from red to green */}
               <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                <div 
-                  className={`h-full rounded-full transition-all duration-500 ${
-                    diemUyTin >= 80 ? 'bg-emerald-500' : diemUyTin >= 50 ? 'bg-amber-500' : 'bg-rose-500'
-                  }`}
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${diemUyTin >= 80 ? 'bg-emerald-500' : diemUyTin >= 50 ? 'bg-amber-500' : 'bg-rose-500'
+                    }`}
                   style={{ width: `${diemUyTin}%` }}
                 />
               </div>
@@ -587,10 +589,10 @@ export default function CustomerAppointments() {
 
               <div className="text-center space-y-1">
                 <p className="text-xs font-black text-slate-100">
-                  {recoveryRate >= 70 
-                    ? 'Tiến trình trị liệu vượt bậc!' 
-                    : recoveryRate >= 30 
-                      ? 'Đang tiến triển ổn định' 
+                  {recoveryRate >= 70
+                    ? 'Tiến trình trị liệu vượt bậc!'
+                    : recoveryRate >= 30
+                      ? 'Đang tiến triển ổn định'
                       : 'Mới bắt đầu lộ trình'}
                 </p>
                 <p className="text-[10px] text-slate-400 font-semibold leading-relaxed px-4">
@@ -625,7 +627,7 @@ export default function CustomerAppointments() {
 
         {/* RIGHT COLUMN: Appointments & Filters (col-span-8) */}
         <div className="lg:col-span-8 space-y-5">
-          
+
           {/* Pending Reviews Notification Banner */}
           {pendingRatingAppts.length > 0 && (() => {
             const app = pendingRatingAppts[0];
@@ -663,7 +665,7 @@ export default function CustomerAppointments() {
 
           {/* Filters Bar */}
           <div className="bg-white rounded-[28px] border border-slate-100 p-4.5 shadow-sm space-y-4">
-            
+
             {/* Status filters (Horizontal Pills with count badges) */}
             <div className="flex flex-wrap items-center gap-2">
               {[
@@ -675,18 +677,16 @@ export default function CustomerAppointments() {
                 <button
                   key={pill.value}
                   onClick={() => setStatusFilter(pill.value)}
-                  className={`px-3.5 py-2 rounded-xl text-[11px] font-black transition-all border flex items-center gap-1.5 ${
-                    statusFilter === pill.value
+                  className={`px-3.5 py-2 rounded-xl text-[11px] font-black transition-all border flex items-center gap-1.5 ${statusFilter === pill.value
                       ? 'bg-[#0D9488] text-white border-transparent shadow-sm'
                       : 'bg-slate-50 text-slate-500 border-slate-150 hover:bg-slate-100'
-                  }`}
+                    }`}
                 >
                   <span>{pill.label}</span>
-                  <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${
-                    statusFilter === pill.value
+                  <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${statusFilter === pill.value
                       ? 'bg-white/20 text-white'
                       : 'bg-slate-200 text-slate-600'
-                  }`}>
+                    }`}>
                     {pill.count}
                   </span>
                 </button>
@@ -759,7 +759,7 @@ export default function CustomerAppointments() {
                   const { dateStr, timeStr } = formatDateTime(app.ngay_gio_bat_dau);
                   const gradientStatus = getStatusColorClass(app.trang_thai);
                   const docAvatar = resolveImageUrl(app.anh_bac_si);
-                  
+
                   const isUnconfirmed = app.trang_thai === 'chua_xac_nhan';
                   const isPending = app.trang_thai === 'cho_xac_nhan';
                   const isConfirmed = app.trang_thai === 'da_xac_nhan';
@@ -791,7 +791,7 @@ export default function CustomerAppointments() {
                   };
 
                   return (
-                    <motion.div 
+                    <motion.div
                       layout
                       initial={{ opacity: 0, y: 12 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -810,11 +810,10 @@ export default function CustomerAppointments() {
                             {app.ma_lich_dat}
                           </span>
                           <div className="flex items-center gap-1.5">
-                            <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded border ${
-                              app.loai_lich === 'kham_moi' 
-                                ? 'bg-blue-50 border-blue-100 text-blue-600' 
+                            <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded border ${app.loai_lich === 'kham_moi'
+                                ? 'bg-blue-50 border-blue-100 text-blue-600'
                                 : 'bg-purple-50 border-purple-100 text-purple-600'
-                            }`}>
+                              }`}>
                               {app.loai_lich === 'kham_moi' ? 'Khám' : 'Trị liệu'}
                             </span>
                             {getStatusBadge(app.trang_thai)}
@@ -852,7 +851,7 @@ export default function CustomerAppointments() {
                         {/* Doctor and Location layout */}
                         {!isCancelled && (
                           <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between pt-1 border-t border-slate-50/80">
-                            
+
                             <div className="flex items-center gap-2">
                               {app.ten_ky_thuat_vien ? (
                                 <>
@@ -902,7 +901,7 @@ export default function CustomerAppointments() {
                             <div className="flex justify-between items-center relative">
                               {/* Track Line */}
                               <div className="absolute left-4 right-4 top-2 h-0.5 bg-slate-200 -translate-y-1/2 z-0" />
-                              
+
                               {/* Active Track Line fill */}
                               <div
                                 className="absolute left-4 top-2 h-0.5 bg-gradient-to-r from-teal-500 to-emerald-500 -translate-y-1/2 z-0 transition-all duration-500"
@@ -921,32 +920,28 @@ export default function CustomerAppointments() {
 
                               {/* Step 2: Xác nhận */}
                               <div className="flex flex-col items-center z-10">
-                                <div className={`size-4 rounded-full border-2 border-white shadow-xs flex items-center justify-center transition-all ${
-                                  isConfirmed || isCheckedInOrInSession || isCompleted
+                                <div className={`size-4 rounded-full border-2 border-white shadow-xs flex items-center justify-center transition-all ${isConfirmed || isCheckedInOrInSession || isCompleted
                                     ? 'bg-emerald-500'
                                     : isPending || isUnconfirmed
                                       ? 'bg-amber-500 animate-pulse'
                                       : 'bg-slate-250'
-                                }`}>
+                                  }`}>
                                   {(isConfirmed || isCheckedInOrInSession || isCompleted) && <span className="w-1.5 h-1.5 rounded-full bg-white"></span>}
                                 </div>
-                                <span className={`text-[9px] font-black mt-1 uppercase tracking-wide ${
-                                  isConfirmed || isCheckedInOrInSession || isCompleted || isPending || isUnconfirmed
+                                <span className={`text-[9px] font-black mt-1 uppercase tracking-wide ${isConfirmed || isCheckedInOrInSession || isCompleted || isPending || isUnconfirmed
                                     ? 'text-slate-800'
                                     : 'text-slate-400'
-                                }`}>Xác nhận</span>
+                                  }`}>Xác nhận</span>
                               </div>
 
                               {/* Step 3: Hoàn thành */}
                               <div className="flex flex-col items-center z-10">
-                                <div className={`size-4 rounded-full border-2 border-white shadow-xs flex items-center justify-center transition-all ${
-                                  isCompleted ? 'bg-emerald-500' : 'bg-slate-250'
-                                }`}>
+                                <div className={`size-4 rounded-full border-2 border-white shadow-xs flex items-center justify-center transition-all ${isCompleted ? 'bg-emerald-500' : 'bg-slate-250'
+                                  }`}>
                                   {isCompleted && <span className="w-1.5 h-1.5 rounded-full bg-white"></span>}
                                 </div>
-                                <span className={`text-[9px] font-black mt-1 uppercase tracking-wide ${
-                                  isCompleted ? 'text-slate-800' : 'text-slate-400'
-                                }`}>Hoàn thành</span>
+                                <span className={`text-[9px] font-black mt-1 uppercase tracking-wide ${isCompleted ? 'text-slate-800' : 'text-slate-400'
+                                  }`}>Hoàn thành</span>
                               </div>
                             </div>
                           </div>
@@ -958,7 +953,7 @@ export default function CustomerAppointments() {
                           return (
                             <div className="bg-rose-50 border border-rose-100 p-3.5 rounded-2xl text-[11px] space-y-3 text-left">
                               <span className="text-rose-700 font-black flex items-center gap-1 uppercase text-[9px] tracking-wider">📧 CẦN XÁC THỰC LỊCH BẰNG OTP!</span>
-                              
+
                               {app.han_xac_nhan && (
                                 <div className={`p-2 py-1.5 rounded-xl text-[10px] flex items-center justify-between font-semibold ${otpTimeLeft > 0 ? 'bg-amber-50 text-amber-800 border border-amber-200/50' : 'bg-rose-50 border border-rose-250 text-rose-800 animate-pulse'}`}>
                                   <div className="flex items-center gap-1.5">
@@ -1009,7 +1004,7 @@ export default function CustomerAppointments() {
                         {isCancelled && (
                           <div className="bg-rose-50/20 border border-rose-100/60 p-3 rounded-xl text-[11px] font-semibold leading-relaxed">
                             <p className="font-black text-rose-600 flex items-center gap-1 uppercase text-[9px] tracking-wider">
-                              <XCircle size={12} /> 
+                              <XCircle size={12} />
                               {app.trang_thai.includes('huy') ? 'Đã Hủy Lịch Hẹn' : 'Vắng Mặt (No-Show)'}
                             </p>
                             <p className="text-slate-400 mt-1 italic font-medium text-[10px]">
@@ -1044,48 +1039,39 @@ export default function CustomerAppointments() {
 
                       </div>
 
-                      {/* Side-by-side Compact Action Footer */}
-                      <div className="p-4 px-5 bg-slate-50/50 border-t border-slate-100 flex flex-col gap-2 rounded-b-[28px]">
+                      {/* Dual Action Footer: Status History & Session Details */}
+                      <div className="p-4 px-5 bg-slate-50/60 border-t border-slate-100 flex flex-wrap sm:flex-nowrap gap-2 rounded-b-[28px]">
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => setSelectedTimelineAppt(app)}
+                          className="flex-1 bg-white hover:bg-teal-50 text-teal-700 hover:text-teal-800 border border-teal-200/80 hover:border-teal-300 font-extrabold text-[10px] uppercase tracking-wider py-2.5 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                        >
+                          <Clock size={13} className="text-teal-600" />
+                          Lịch sử trạng thái
+                        </motion.button>
+
                         {isCompleted && (
-                          app.rating_id ? (
-                            <div className="border border-slate-200/80 p-2.5 rounded-xl text-[11px] font-bold text-slate-500 space-y-1 bg-white shadow-inner text-center">
-                              <div className="flex items-center justify-center gap-1 text-amber-500 font-bold">
-                                {Array.from({ length: 5 }).map((_, i) => (
-                                  <Star 
-                                    key={i} 
-                                    size={12} 
-                                    className={i < (app.rating_stars || 5) ? 'fill-amber-400 stroke-none' : 'text-zinc-200 fill-zinc-200 stroke-none'} 
-                                  />
-                                ))}
-                                <span className="text-slate-700 font-extrabold ml-1">{app.rating_stars || 5} / 5</span>
-                              </div>
-                              {app.rating_comment && <p className="text-[10px] text-slate-400 italic">"{app.rating_comment}"</p>}
-                            </div>
-                          ) : (
-                            <div className="w-full">
-                              <motion.button
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                                onClick={() => handleViewTreatmentDetail(app)}
-                                className="w-full bg-[#0F172A] hover:bg-slate-900 text-white font-extrabold text-[10px] uppercase tracking-wider py-2.5 rounded-xl transition-all text-center cursor-pointer shadow-xs"
-                              >
-                                Chi tiết buổi
-                              </motion.button>
-                            </div>
-                          )
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => handleViewTreatmentDetail(app)}
+                            className="flex-1 bg-[#0F172A] hover:bg-slate-900 text-white font-extrabold text-[10px] uppercase tracking-wider py-2.5 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                          >
+                            <FileText size={13} />
+                            Chi tiết buổi
+                          </motion.button>
                         )}
 
-                        {(app.trang_thai === 'cho_xac_nhan' || app.trang_thai === 'da_xac_nhan') && (
-                          canSelfCancel ? (
-                            <motion.button
-                              whileHover={{ scale: 1.02 }}
-                              whileTap={{ scale: 0.98 }}
-                              onClick={() => setCancellingId(app.id)}
-                              className="w-full bg-white hover:bg-rose-50 hover:text-rose-600 border border-slate-200 hover:border-rose-200 text-slate-650 font-extrabold text-[10px] uppercase tracking-wider py-2.5 rounded-xl transition-all cursor-pointer shadow-xs"
-                            >
-                              Yêu cầu hủy lịch
-                            </motion.button>
-                          ) : null
+                        {(app.trang_thai === 'cho_xac_nhan' || app.trang_thai === 'da_xac_nhan') && canSelfCancel && (
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => setCancellingId(app.id)}
+                            className="w-full sm:w-auto bg-white hover:bg-rose-50 hover:text-rose-600 border border-slate-200 hover:border-rose-200 text-slate-650 font-extrabold text-[10px] uppercase tracking-wider py-2.5 px-3 rounded-xl transition-all cursor-pointer shadow-2xs"
+                          >
+                            Yêu cầu hủy lịch
+                          </motion.button>
                         )}
                       </div>
                     </motion.div>
@@ -1109,11 +1095,11 @@ export default function CustomerAppointments() {
             const nowMs = Date.now();
             const diffMs = startMs - nowMs;
             if (diffMs <= 0) return '0 phút';
-            
+
             const totalMinutes = Math.floor(diffMs / 60000);
             const hours = Math.floor(totalMinutes / 60);
             const minutes = totalMinutes % 60;
-            
+
             if (hours > 0) {
               return `${hours} giờ ${minutes > 0 ? `${minutes} phút` : ''}`;
             }
@@ -1148,7 +1134,7 @@ export default function CustomerAppointments() {
                   <h3 className="text-lg font-black text-slate-900 uppercase tracking-wide">
                     Xác nhận Hủy Lịch Hẹn
                   </h3>
-                  
+
                   {remainingTime && (
                     <div className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-800 font-extrabold text-xs px-3.5 py-1.5 rounded-full border border-amber-200/80">
                       <span>⏱️ Lịch hẹn còn</span>
@@ -1234,7 +1220,7 @@ export default function CustomerAppointments() {
         {ratingApptId && (() => {
           const activeAppt = appointments.find(a => a.id === ratingApptId);
           const isPackage = activeAppt?.loai_goi === 'LIEU_TRINH';
-          const isPackageFinished = activeAppt?.phac_do_status === 'hoan_thanh' || activeAppt?.phac_do_status === 'huy_ngang';
+          const isPackageFinished = activeAppt?.phac_do_status === 'hoan_thanh' || activeAppt?.phac_do_status === 'huy';
           const canRateService = !isPackage || isPackageFinished;
 
           return (
@@ -1388,6 +1374,13 @@ export default function CustomerAppointments() {
           );
         })()}
       </AnimatePresence>
+
+      {/* STATUS HISTORY TIMELINE MODAL */}
+      <StatusHistoryModal
+        isOpen={!!selectedTimelineAppt}
+        onClose={() => setSelectedTimelineAppt(null)}
+        appointment={selectedTimelineAppt}
+      />
 
     </div>
   );

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { getCustomerRoster } from '../../../api/receptionist.api';
-import type { CustomerRosterItem, RosterMeta, TrangThaiGoiFilter } from '../types';
+import type { CustomerRosterItem, RosterMeta } from '../types';
 
 const DEFAULT_PAGE_SIZE = 20;
 const EMPTY_META: RosterMeta = { page: 1, pageSize: DEFAULT_PAGE_SIZE, total: 0, totalPages: 1 };
@@ -9,12 +9,11 @@ const EMPTY_META: RosterMeta = { page: 1, pageSize: DEFAULT_PAGE_SIZE, total: 0,
 interface UseCustomerRosterDataParams {
   page: number;
   search: string;
-  trangThaiGoi: TrangThaiGoiFilter;
   canLienHe: boolean;
   staleDays: number;
 }
 
-export function useCustomerRosterData({ page, search, trangThaiGoi, canLienHe, staleDays }: UseCustomerRosterDataParams) {
+export function useCustomerRosterData({ page, search, canLienHe, staleDays }: UseCustomerRosterDataParams) {
   const [data, setData] = useState<CustomerRosterItem[]>([]);
   const [meta, setMeta] = useState<RosterMeta>(EMPTY_META);
   const [loading, setLoading] = useState(true);
@@ -26,7 +25,6 @@ export function useCustomerRosterData({ page, search, trangThaiGoi, canLienHe, s
         page,
         pageSize: DEFAULT_PAGE_SIZE,
         search: search || undefined,
-        trangThaiGoi: trangThaiGoi !== 'all' ? trangThaiGoi : undefined,
         canLienHe: canLienHe || undefined,
         staleDays,
       });
@@ -39,7 +37,7 @@ export function useCustomerRosterData({ page, search, trangThaiGoi, canLienHe, s
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, search, trangThaiGoi, canLienHe, staleDays]);
+  }, [page, search, canLienHe, staleDays]);
 
   useEffect(() => {
     fetchList();

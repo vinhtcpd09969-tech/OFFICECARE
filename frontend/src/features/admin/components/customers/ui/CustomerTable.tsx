@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { Edit3, Inbox } from 'lucide-react';
 import { ReputationBadge } from './badges/ReputationBadge';
-import { RecordViewButton, PrimaryPlanCell, StatusTierPill } from './badges/PackageStatusPill';
+import { RecordViewButton } from './badges/PackageStatusPill';
 import { Pagination } from '../../../../../components/Pagination';
 import type { CustomerOverviewItem } from '../types';
 
@@ -57,12 +57,6 @@ const CustomerTableRow = memo(function CustomerTableRow({
       <td className="p-4 text-center">
         <ReputationBadge score={customer.diem_uy_tin} />
       </td>
-      <td className="p-4 text-center">
-        <StatusTierPill status={customer.primary_status} />
-      </td>
-      <td className="p-4">
-        <PrimaryPlanCell status={customer.primary_status} />
-      </td>
       <td className="p-4 text-right font-mono font-bold text-slate-800 whitespace-nowrap">{formatCurrency(customer.tong_chi_tieu)}</td>
       <td className="p-4">
         <div className="flex items-center justify-end gap-2 flex-wrap">
@@ -97,7 +91,7 @@ function TableSkeletonRows() {
     <>
       {Array.from({ length: 6 }).map((_, i) => (
         <tr key={i}>
-          {Array.from({ length: 7 }).map((_, j) => (
+          {Array.from({ length: 5 }).map((_, j) => (
             <td key={j} className="p-4">
               <div className="h-4 bg-slate-100 rounded-lg animate-pulse" style={{ width: j === 0 ? '70%' : '50%' }} />
             </td>
@@ -114,21 +108,17 @@ export function CustomerTable({ data, loading, meta, onPageChange, onViewProfile
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse text-xs table-fixed">
           <colgroup>
-            <col className="w-[17%]" />
-            <col className="w-[14%]" />
-            <col className="w-[9%]" />
-            <col className="w-[13%]" />
-            <col className="w-[16%]" />
-            <col className="w-[10%]" />
-            <col className="w-[21%]" />
+            <col className="w-[24%]" />
+            <col className="w-[19%]" />
+            <col className="w-[11%]" />
+            <col className="w-[15%]" />
+            <col className="w-[31%]" />
           </colgroup>
           <thead>
             <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase tracking-wider">
               <th className="p-4 font-black">Khách hàng</th>
               <th className="p-4 font-black">Liên hệ</th>
               <th className="p-4 font-black text-center">Uy tín</th>
-              <th className="p-4 font-black text-center">Trạng thái</th>
-              <th className="p-4 font-black">Liệu trình</th>
               <th className="p-4 font-black text-right">Tổng chi tiêu</th>
               <th className="p-4 font-black text-right">Thao tác</th>
             </tr>
@@ -138,7 +128,7 @@ export function CustomerTable({ data, loading, meta, onPageChange, onViewProfile
               <TableSkeletonRows />
             ) : data.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-16 text-center">
+                <td colSpan={5} className="py-16 text-center">
                   <div className="flex flex-col items-center gap-2 text-slate-400">
                     <Inbox size={28} className="stroke-[1.5]" />
                     <span className="font-semibold text-xs">Không tìm thấy khách hàng nào thỏa điều kiện lọc.</span>

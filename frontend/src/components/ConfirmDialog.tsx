@@ -1,10 +1,11 @@
+import type { ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HelpCircle, AlertTriangle, CheckCircle } from 'lucide-react';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
   title: string;
-  message: string;
+  message: ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
   type?: 'warning' | 'danger' | 'info' | 'success';

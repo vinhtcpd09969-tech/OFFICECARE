@@ -1,0 +1,19 @@
+$kind: http-request
+url: "{{baseUrl}}/client/public-booking"
+method: POST
+headers:
+  Content-Type: application/json
+  Authorization: Bearer {{token}}
+body:
+  type: json
+  content: |-
+    {
+      "ho_ten": "Trần Văn Vinh",
+      "sdt": "0912345678",
+      "email": "tranvinh@gmail.com",
+      "dich_vu_id": "dv_kham_ls",
+      "ngay_kham": "2026-07-25",
+      "gio_kham": "09:00",
+      "ghi_chu": "Đau vai gáy và cột sống thắt lưng khi ngồi làm việc lâu"
+    }
+order: 1000

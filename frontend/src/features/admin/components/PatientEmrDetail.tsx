@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   ChevronLeft, FileText, Printer, Stethoscope,
   AlertTriangle, ChevronDown, ChevronUp, Calendar, MapPin, Clock, ImageIcon, MessageSquareText, X,
@@ -7,14 +7,30 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { resolveImageUrl } from '../../../utils/imageUrl';
-import { getMinPaymentRequired, isPlanCancelled, resolveGrossBeforeExamDeduction } from '../../../utils/billing';
+import { getMinPaymentRequired, isPlanCancelled, isPlanExpired, resolveGrossBeforeExamDeduction } from '../../../utils/billing';
+import { formatCountdown } from '../../../utils/format';
 import { getStaffRoleTitle } from '../../../utils/staff';
+import type { EmrHighlightTarget } from './customers/hooks/useCustomerEmr';
 
 interface PatientEmrDetailProps {
   patient: any;
   onBack: () => void;
   showAdminInfo?: boolean;
+  // Đích cần cuộn tới + nhấp nháy khi mở hồ sơ từ 1 dòng cụ thể ở tab "Hồ sơ điều trị" (khớp id
+  // card phác đồ/ca khám bên dưới) — undefined khi mở qua nút "Xem hồ sơ" ở tab khách hàng.
+  highlightTarget?: EmrHighlightTarget | null;
 }
+
+// Badge trạng thái phác đồ — trước đây chỉ phân biệt dang_dieu_tri/cho_kich_hoat, MỌI trạng thái
+// khác (kể cả 'huy') đều rơi vào nhánh else và bị gán nhãn "Hoàn thành", khiến liệu trình đã hủy
+// hiện sai thành đã hoàn thành trong hồ sơ khách hàng. Tách rõ 4 trạng thái thật.
+const PLAN_STATUS_BADGE: Record<string, { className: string; label: string }> = {
+  dang_dieu_tri: { className: 'bg-teal-50 text-teal-700 border border-teal-100/50', label: 'Đang điều trị' },
+  cho_kich_hoat: { className: 'bg-amber-50 text-amber-700 border border-amber-100/50', label: 'Chờ kích hoạt' },
+  hoan_thanh: { className: 'bg-slate-100 text-slate-650', label: 'Hoàn thành' },
+  huy: { className: 'bg-rose-50 text-rose-700 border border-rose-100/50', label: 'Đã hủy' }
+};
+const getPlanStatusBadge = (trangThai: string) => PLAN_STATUS_BADGE[trangThai] || PLAN_STATUS_BADGE.hoan_thanh;
 
 const getVasDescription = (score: number | null | undefined): string => {
   if (score === null || score === undefined) return '';
@@ -26,12 +42,24 @@ const getVasDescription = (score: number | null | undefined): string => {
   return '';
 };
 
-export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true }: PatientEmrDetailProps) {
+export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true, highlightTarget }: PatientEmrDetailProps) {
   // "Phác đồ điều trị" và "Khám & Dịch vụ lẻ" hiện đồng thời thành 2 bảng cạnh nhau — bấm "Chi tiết"
   // trên 1 dòng mở popup hiển thị đầy đủ nội dung (thay vì accordion nội tuyến kéo dài cả trang).
   const [expandedPlanId, setExpandedPlanId] = useState<string | null>(null);
   const [expandedAptId, setExpandedAptId] = useState<string | null>(null);
   const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
+  // Cuộn tới + nhấp nháy đúng card vừa bấm vào từ tab "Hồ sơ điều trị" (id card = `${type}-card-${id}`
+  // gắn bên dưới) — cho người dùng biết rõ mình vừa chuyển từ dòng nào sang.
+  const [activeHighlightId, setActiveHighlightId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!highlightTarget || !patient) return;
+    const el = document.getElementById(`${highlightTarget.type}-card-${highlightTarget.id}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setActiveHighlightId(highlightTarget.id);
+    const timer = setTimeout(() => setActiveHighlightId(null), 2000);
+    return () => clearTimeout(timer);
+  }, [highlightTarget, patient]);
 
   const selectedPlan = useMemo(() => {
     return patient?.plans?.find((p: any) => p.id === expandedPlanId);
@@ -230,8 +258,15 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
                 realPlans.map((pl: any) => {
                   const progressPercent = Math.min(100, Math.round(((pl.so_buoi_da_dung || 0) / (pl.tong_so_buoi || 10)) * 100));
                   const showReminder = reminderTargetPlanId === pl.id && patient?.reminder;
+                  const isHighlighted = activeHighlightId === pl.id;
                   return (
-                    <div key={pl.id} className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden transition-all hover:border-slate-200">
+                    <div
+                      key={pl.id}
+                      id={`plan-card-${pl.id}`}
+                      className={`bg-white border rounded-2xl shadow-sm overflow-hidden transition-all ${
+                        isHighlighted ? 'animate-highlight-once ring-2 ring-teal-400 ring-offset-2 border-teal-200' : 'border-slate-100 hover:border-slate-200'
+                      }`}
+                    >
                       <div className="p-5 space-y-4">
                         {showReminder && (
                           <div className="flex items-start gap-2 bg-amber-50/70 border border-amber-200/60 rounded-xl px-3 py-2.5">
@@ -241,13 +276,8 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
                         )}
                         <div className="flex justify-between items-start gap-4">
                           <div>
-                            <span className={`inline-flex px-2 py-0.5 rounded text-[8px] font-bold uppercase ${pl.trang_thai === 'dang_dieu_tri'
-                                ? 'bg-teal-50 text-teal-700 border border-teal-100/50'
-                                : pl.trang_thai === 'cho_kich_hoat'
-                                  ? 'bg-amber-50 text-amber-700 border border-amber-100/50'
-                                  : 'bg-slate-100 text-slate-650'
-                              }`}>
-                              {pl.trang_thai === 'dang_dieu_tri' ? 'Đang điều trị' : pl.trang_thai === 'cho_kich_hoat' ? 'Chờ kích hoạt' : 'Hoàn thành'}
+                            <span className={`inline-flex px-2 py-0.5 rounded text-[8px] font-bold uppercase ${getPlanStatusBadge(pl.trang_thai).className}`}>
+                              {getPlanStatusBadge(pl.trang_thai).label}
                             </span>
                             <h4 className="text-sm font-bold text-slate-805 mt-1.5">{pl.ten_goi}</h4>
                             <p className="text-[10px] text-slate-400 font-semibold mt-1">
@@ -299,8 +329,15 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
                 historyItems.map((ap: any) => {
                   const statusMeta = STATUS_META[ap.trang_thai] || { label: ap.trang_thai, cls: 'bg-slate-100 text-slate-600' };
                   const payMeta = ap.trang_thai_thanh_toan ? PAY_META[ap.trang_thai_thanh_toan] : null;
+                  const isHighlighted = activeHighlightId === ap.id;
                   return (
-                    <div key={ap.id} className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden transition-all hover:border-slate-200">
+                    <div
+                      key={ap.id}
+                      id={`visit-card-${ap.id}`}
+                      className={`bg-white border rounded-2xl shadow-sm overflow-hidden transition-all ${
+                        isHighlighted ? 'animate-highlight-once ring-2 ring-teal-400 ring-offset-2 border-teal-200' : 'border-slate-100 hover:border-slate-200'
+                      }`}
+                    >
                       <button
                         type="button"
                         onClick={() => setExpandedAptId(ap.id)}
@@ -361,13 +398,8 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
             >
               <div className="flex justify-between items-start gap-4 p-5 border-b border-slate-100 shrink-0">
                 <div>
-                  <span className={`inline-flex px-2 py-0.5 rounded text-[8px] font-bold uppercase ${selectedPlan.trang_thai === 'dang_dieu_tri'
-                      ? 'bg-teal-50 text-teal-700 border border-teal-100/50'
-                      : selectedPlan.trang_thai === 'cho_kich_hoat'
-                        ? 'bg-amber-50 text-amber-700 border border-amber-100/50'
-                        : 'bg-slate-100 text-slate-650'
-                    }`}>
-                    {selectedPlan.trang_thai === 'dang_dieu_tri' ? 'Đang điều trị' : selectedPlan.trang_thai === 'cho_kich_hoat' ? 'Chờ kích hoạt' : 'Hoàn thành'}
+                  <span className={`inline-flex px-2 py-0.5 rounded text-[8px] font-bold uppercase ${getPlanStatusBadge(selectedPlan.trang_thai).className}`}>
+                    {getPlanStatusBadge(selectedPlan.trang_thai).label}
                   </span>
                   <h3 className="text-base font-bold text-slate-900 mt-1.5">{selectedPlan.ten_goi}</h3>
                   <p className="text-[10px] text-slate-400 font-semibold mt-1">
@@ -747,6 +779,7 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
                         );
                       } else if (isUnbooked) {
                         const isCancelled = isPlanCancelled(selectedPlan);
+                        const isExpired = !isCancelled && isPlanExpired(selectedPlan);
                         const isUnpaid = !isCancelled && selectedPlan.trang_thai === 'cho_kich_hoat' && selectedPlan.loai_goi !== 'LE';
 
                         const prevAppt = sessionNum > 1
@@ -764,18 +797,20 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
                           grossBeforeExamDeduction
                         );
                         const soTienDaTra = Number(selectedPlan.so_tien_da_tra || 0);
-                        const isPaymentBlocked = !isCancelled && selectedPlan.loai_goi !== 'LE' && soTienDaTra < minRequired;
-                        const isBlocked = isCancelled || !isPrevFinished || isPaymentBlocked;
+                        const isPaymentBlocked = !isCancelled && !isExpired && selectedPlan.loai_goi !== 'LE' && soTienDaTra < minRequired;
+                        const isBlocked = isCancelled || isExpired || !isPrevFinished || isPaymentBlocked;
                         const blockMessage = isCancelled
                           ? '🚫 Gói đã bị hủy và hoàn tiền — không thể đặt thêm buổi điều trị.'
-                          : (!isPrevFinished
-                            ? `⚠️ Vui lòng hoàn thành buổi điều trị số ${sessionNum - 1} để đặt lịch buổi này.`
-                            : (selectedPlan.hinh_thuc_thanh_toan_goi === 'tra_gop'
-                              ? `⚠️ Vui lòng thanh toán Đợt 2 của gói trả góp để đặt lịch buổi này.`
-                              : `⚠️ Vui lòng thanh toán liệu trình để đặt lịch buổi này.`));
+                          : (isExpired
+                            ? `⛔ Gói đã quá hạn sử dụng (hạn ${selectedPlan.han_su_dung ? new Date(selectedPlan.han_su_dung).toLocaleDateString('vi-VN') : ''}) — liên hệ Admin để xử lý trước khi đặt thêm buổi.`
+                            : (!isPrevFinished
+                              ? `⚠️ Vui lòng hoàn thành buổi điều trị số ${sessionNum - 1} để đặt lịch buổi này.`
+                              : (selectedPlan.hinh_thuc_thanh_toan_goi === 'tra_gop'
+                                ? `⚠️ Vui lòng thanh toán Đợt 2 của gói trả góp để đặt lịch buổi này.`
+                                : `⚠️ Vui lòng thanh toán liệu trình để đặt lịch buổi này.`)));
 
                         return (
-                          <div key={sessionNum} className={`border rounded-xl p-4 flex justify-between items-center gap-4 ${isCancelled
+                          <div key={sessionNum} className={`border rounded-xl p-4 flex justify-between items-center gap-4 ${isCancelled || isExpired
                               ? 'border-rose-100 bg-rose-50/20 opacity-75'
                               : isUnpaid || isBlocked
                                 ? 'border-amber-100 bg-amber-50/10 opacity-80'
@@ -783,11 +818,11 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
                             }`}>
                             <div>
                               <div className="flex items-center gap-2">
-                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${isCancelled
+                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${isCancelled || isExpired
                                     ? 'bg-rose-50 text-rose-600 border border-rose-200'
                                     : isUnpaid ? 'bg-amber-100 text-amber-800 border border-amber-200' : (isBlocked ? 'bg-slate-100 text-slate-500 border border-slate-200' : 'bg-sky-100 text-sky-800 border border-sky-200')
                                   }`}>
-                                  {isCancelled ? 'Đã hủy gói' : (isUnpaid ? 'Chờ kích hoạt' : (isBlocked ? 'Chưa đủ điều kiện' : 'Chưa đặt lịch'))}
+                                  {isCancelled ? 'Đã hủy gói' : (isExpired ? 'Quá hạn sử dụng' : (isUnpaid ? 'Chờ kích hoạt' : (isBlocked ? 'Chưa đủ điều kiện' : 'Chưa đặt lịch')))}
                                 </span>
                                 <strong className="text-xs font-bold text-slate-800">
                                   Buổi {sessionNum} • Trị liệu phục hồi
@@ -992,12 +1027,10 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
                               Bác sĩ đã chỉ định phác đồ điều trị này. Vui lòng thanh toán để kích hoạt và bắt đầu buổi trị liệu.
                             </p>
                             {prescribedPlan.han_kich_hoat && (() => {
-                              const daysLeft = Math.ceil(
-                                (new Date(prescribedPlan.han_kich_hoat).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-                              );
+                              const countdown = formatCountdown(prescribedPlan.han_kich_hoat);
                               return (
-                                <p className={`text-[10px] font-bold mt-1 ${daysLeft <= 3 ? 'text-red-600' : 'text-amber-700'}`}>
-                                  ⏱ {daysLeft > 0 ? `Còn ${daysLeft} ngày để kích hoạt` : 'Hết hạn hôm nay'}
+                                <p className={`text-[10px] font-bold mt-1 ${countdown.urgent ? 'text-red-600' : 'text-amber-700'}`}>
+                                  ⏱ {countdown.text}
                                 </p>
                               );
                             })()}

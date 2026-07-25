@@ -1,0 +1,7 @@
+$kind: http-request
+url: "{{baseUrl}}/client/medical-record"
+method: GET
+headers:
+  Content-Type: application/json
+  Authorization: Bearer {{token}}
+order: 1000

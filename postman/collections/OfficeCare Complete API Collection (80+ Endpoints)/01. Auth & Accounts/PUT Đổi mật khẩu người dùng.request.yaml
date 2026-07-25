@@ -1,0 +1,14 @@
+$kind: http-request
+url: "{{baseUrl}}/auth/change-password"
+method: PUT
+headers:
+  Content-Type: application/json
+  Authorization: Bearer {{token}}
+body:
+  type: json
+  content: |-
+    {
+      "mat_khau_cu": "123456",
+      "mat_khau_moi": "654321"
+    }
+order: 11000

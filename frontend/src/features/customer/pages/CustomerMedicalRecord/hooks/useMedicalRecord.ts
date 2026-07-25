@@ -10,9 +10,10 @@ export function useMedicalRecord() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<RecordTab>('goi');
   const [expandedPackages, setExpandedPackages] = useState<Record<string, boolean>>({});
+  const [targetSessionId, setTargetSessionId] = useState<string | null>(null);
 
   // Điều hướng sâu từ nút "Chi tiết buổi" ở trang Lịch hẹn (?phac_do_id=...&buoi=...) — tự mở
-  // đúng gói và cuộn tới đúng buổi, chỉ áp dụng 1 lần lúc data vừa tải xong.
+  // đúng tab, mở rộng thẻ gói, tự động bật/sổ nội dung buổi và cuộn tới kèm hiệu ứng highlight nhẹ.
   const deepLinkApplied = useRef(false);
 
   const fetchRecord = async () => {
@@ -35,27 +36,86 @@ export function useMedicalRecord() {
 
   useEffect(() => {
     if (deepLinkApplied.current || !data) return;
+    const tabParam = searchParams.get('tab') as RecordTab | null;
     const phacDoId = searchParams.get('phac_do_id');
-    const buoiId = searchParams.get('buoi');
-    if (!phacDoId) return;
+    const buoiId = searchParams.get('buoi') || searchParams.get('buoi_id');
+    const cuocHenId = searchParams.get('cuoc_hen_id');
 
-    deepLinkApplied.current = true;
-    setActiveTab('goi');
-    setExpandedPackages((prev) => ({ ...prev, [phacDoId]: true }));
+    const targetId = buoiId || cuocHenId;
+    if (targetId) setTargetSessionId(targetId);
 
-    const targetId = buoiId ? `session-${buoiId}` : `package-${phacDoId}`;
-    // Chờ DOM render xong khối vừa mở rộng rồi mới cuộn tới.
-    setTimeout(() => {
-      document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 150);
+    // 1. Phác đồ / Buổi thuộc gói liệu trình
+    if (phacDoId || (targetId && data.goi_dieu_tri?.some((pkg) => pkg.buoi_dieu_tri.some((s) => s.cuoc_hen_id === targetId)))) {
+      deepLinkApplied.current = true;
+      setActiveTab('goi');
+
+      let targetPkgId = phacDoId;
+      if (!targetPkgId && targetId && data.goi_dieu_tri) {
+        const foundPkg = data.goi_dieu_tri.find((pkg) => pkg.buoi_dieu_tri.some((s) => s.cuoc_hen_id === targetId));
+        if (foundPkg) targetPkgId = foundPkg.phac_do_id;
+      }
+
+      if (targetPkgId) {
+        setExpandedPackages((prev) => ({ ...prev, [targetPkgId!]: true }));
+      }
+
+      const elementId = targetId ? `session-${targetId}` : `package-${targetPkgId}`;
+      setTimeout(() => {
+        const el = document.getElementById(elementId) || document.getElementById(`package-${targetPkgId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.classList.add('ring-2', 'ring-[#0D9488]', 'ring-offset-2', 'transition-all', 'duration-500', 'rounded-3xl');
+          setTimeout(() => {
+            el.classList.remove('ring-2', 'ring-[#0D9488]', 'ring-offset-2');
+          }, 2500);
+        }
+      }, 250);
+      return;
+    }
+
+    // 2. Dịch vụ lẻ
+    if (tabParam === 'le' || (targetId && data.dieu_tri_le?.some((item) => item.cuoc_hen_id === targetId))) {
+      deepLinkApplied.current = true;
+      setActiveTab('le');
+      if (targetId) {
+        setTimeout(() => {
+          const el = document.getElementById(`appointment-${targetId}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('ring-2', 'ring-[#0D9488]', 'ring-offset-2', 'transition-all', 'duration-500');
+            setTimeout(() => {
+              el.classList.remove('ring-2', 'ring-[#0D9488]', 'ring-offset-2');
+            }, 2500);
+          }
+        }, 250);
+      }
+      return;
+    }
+
+    // 3. Khám lâm sàng
+    if (tabParam === 'kham' || (targetId && data.lich_su_kham?.some((item) => item.cuoc_hen_id === targetId))) {
+      deepLinkApplied.current = true;
+      setActiveTab('kham');
+      if (targetId) {
+        setTimeout(() => {
+          const el = document.getElementById(`appointment-${targetId}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('ring-2', 'ring-[#0D9488]', 'ring-offset-2', 'transition-all', 'duration-500');
+            setTimeout(() => {
+              el.classList.remove('ring-2', 'ring-[#0D9488]', 'ring-offset-2');
+            }, 2500);
+          }
+        }, 250);
+      }
+      return;
+    }
   }, [data, searchParams]);
 
   const togglePackage = (id: string) => {
     setExpandedPackages((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  // Bấm "Xem liệu trình" từ 1 thẻ ca khám đã chỉ định ra phác đồ — nhảy sang tab Gói liệu trình,
-  // mở đúng thẻ và cuộn tới, dùng chung cơ chế deep-link ở trên.
   const jumpToPackage = (phacDoId: string) => {
     setActiveTab('goi');
     setExpandedPackages((prev) => ({ ...prev, [phacDoId]: true }));
@@ -70,6 +130,7 @@ export function useMedicalRecord() {
     activeTab,
     setActiveTab,
     expandedPackages,
+    targetSessionId,
     togglePackage,
     jumpToPackage,
     refetch: fetchRecord,
