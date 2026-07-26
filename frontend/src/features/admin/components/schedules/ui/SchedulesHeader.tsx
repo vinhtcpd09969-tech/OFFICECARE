@@ -104,13 +104,14 @@ export function SchedulesHeader({
             <button 
               type="button"
               onClick={handleJumpToCurrent} 
+              title={isCurrentWeek ? 'Đang ở tuần hiện tại' : 'Bấm để quay về tuần hiện tại'}
               className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border transition-all ${
                 isCurrentWeek 
                   ? 'bg-[#0d9488]/10 text-[#0d9488] border-teal-500/20 shadow-sm' 
-                  : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200/70'
+                  : 'bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-900 cursor-pointer'
               }`}
             >
-              Tuần này
+              {isCurrentWeek ? 'Tuần này' : 'Về tuần này'}
             </button>
           </div>
 

@@ -457,7 +457,7 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                         {/* BỘ DỰNG MỤC TIÊU DẠNG LIST */}
                         <div className="space-y-2">
                           <div className="flex items-center justify-between border-b border-zinc-100 pb-1">
-                            <label className="block font-black text-slate-500 uppercase tracking-wider text-[10px]">Mục tiêu & Lợi ích trị liệu *</label>
+                            <label className="block font-black text-slate-500 uppercase tracking-wider text-[10px]">Mục tiêu trị liệu *</label>
                             <button
                               type="button"
                               onClick={() => {

@@ -3,9 +3,8 @@ import { HinhThucThanhToanGoi, LoaiGoi, NoShowAction, PaymentInstallment } from 
 /** Ngưỡng giá gói (đồng) để được miễn phí khám lâm sàng khi trả_thẳng/trả_góp. */
 export const EXAM_WAIVER_THRESHOLD = 1_000_000;
 
-/** Số ngày kể từ ngày khám mà một chỉ định gói (chi_dinh_buoi) còn được phép kích hoạt/thanh toán.
- * TEMP TEST: đang để 5 phút (5/1440 ngày) để kiểm tra nhanh hành vi hết hạn — NHỚ TRẢ LẠI = 3. */
-export const PACKAGE_ACTIVATION_WINDOW_DAYS = 5 / 1440;
+/** Số ngày kể từ ngày khám mà một chỉ định gói (chi_dinh_buoi) còn được phép kích hoạt/thanh toán. */
+export const PACKAGE_ACTIVATION_WINDOW_DAYS = 3;
 
 /** % giảm giá mặc định theo hình thức thanh toán, dùng khi chưa có số tiền giảm thực tế để tính động. */
 export const DEFAULT_DISCOUNT_PERCENT: Record<'tra_thang' | 'tra_gop', number> = {
@@ -199,7 +198,10 @@ export function calculatePackageCancellationRefund(
 
   const tongKhauTru = examFeeToCharge + chiPhiBuoiDung + phiPhatThucTe;
   const soTienHoanTra = Math.max(0, soTienDaDong - tongKhauTru);
-  const keptRevenuePackage = soTienDaDong - soTienHoanTra - examFeeToCharge;
+  // Không trừ examFeeToCharge ra khỏi đây nữa — phí khám thu hồi giờ giữ nguyên trên CHÍNH hóa đơn
+  // gói này (không tách hóa đơn khám riêng, xem admin.repository.ts::handlePackageRefund), nên phải
+  // tính đủ vào doanh thu giữ lại của hóa đơn, nếu không tiền sẽ "biến mất" khỏi sổ sách.
+  const keptRevenuePackage = soTienDaDong - soTienHoanTra;
 
   return {
     giaGocGoi,

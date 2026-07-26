@@ -37,6 +37,10 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
   const [lyDo, setLyDo] = useState<string>(`Đặt lịch buổi trị liệu số ${sessionNum} theo gói ${pkg.ten_dich_vu}.`);
   const [specialists, setSpecialists] = useState<any[]>([]);
   const [slotAvailability, setSlotAvailability] = useState<Record<string, number[]>>({});
+  // "Sức chứa còn lại" thật của slot (đã trừ luôn ca "chờ gán" chưa nêu tên) — khác slotAvailability
+  // (chỉ liệt kê nhân sự chưa bị gán TÊN cụ thể, dùng để chọn chuyên gia). Thiếu bookedSlots thì UI
+  // có thể hiện 1 slot "còn trống" dù thực ra hết sức chứa, khách chọn xong mới bị server từ chối.
+  const [bookedSlots, setBookedSlots] = useState<string[]>([]);
   const [loadingSlots, setLoadingSlots] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
@@ -102,6 +106,7 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
       .then((res: any) => {
         setSpecialists(res.data.specialists || []);
         setSlotAvailability(res.data.slotAvailability || {});
+        setBookedSlots(res.data.bookedSlots || []);
         // Reset lựa chọn giờ và nhân viên nếu đổi ngày
         setSelectedTime('');
         setSelectedStaffId('');
@@ -154,7 +159,12 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
         return { time, available: false, reason: 'TRÙNG LỊCH KH' };
       }
 
-      // c. Kiểm tra số nhân sự khả dụng trong ca này
+      // c. Kiểm tra sức chứa thật của slot — bookedSlots đã trừ luôn ca "chờ gán" chưa nêu tên cụ
+      // thể (slotAvailability chỉ lọc theo tên, không phản ánh đủ sức chứa còn lại).
+      if (bookedSlots.includes(time)) {
+        return { time, available: false, reason: 'HẾT NHÂN SỰ' };
+      }
+
       const availableStaffs = slotAvailability[time] || [];
       const finalCount = availableStaffs.length;
 
@@ -169,7 +179,7 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
         reason: `CÒN ${finalCount} NV`
       };
     });
-  }, [timeSlots, selectedDate, customerDayApts, slotAvailability, duration]);
+  }, [timeSlots, selectedDate, customerDayApts, slotAvailability, bookedSlots, duration]);
 
   // 6. Lọc danh sách nhân viên khả dụng cho ca giờ được chọn
   const availableSpecialistsForSelectedTime = useMemo(() => {

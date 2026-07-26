@@ -526,7 +526,7 @@ export default function AdminLayout() {
             ? '/technician/settings' 
             : '/admin/settings')), 
       icon: <Settings size={18} />, 
-      roles: [2, 3, 4, 5, 6] 
+      roles: [2, 3, 4, 6] 
     },
     { name: 'Nhân sự', path: '/admin/staff', icon: <Users size={18} />, roles: [5] },
     { name: 'Gói Dịch Vụ', path: '/admin/packages', icon: <Package size={18} />, roles: [5, 6] },

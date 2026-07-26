@@ -20,7 +20,8 @@ import {
   PieChart,
   Pencil,
   Bot,
-  Send
+  Send,
+  Filter
 } from 'lucide-react';
 
 interface Feedback {
@@ -214,6 +215,7 @@ export default function ViewFeedback() {
   const [selectedSpecialist, setSelectedSpecialist] = useState<string>('Tất cả');
   const [selectedStars, setSelectedStars] = useState<string>('Tất cả');
   const [selectedSentiment, setSelectedSentiment] = useState<string>('Tất cả');
+  const [selectedResponseStatus, setSelectedResponseStatus] = useState<string>('Tất cả');
 
   // Reset page filters when activeTab changes
   useEffect(() => {
@@ -221,6 +223,7 @@ export default function ViewFeedback() {
     setSelectedService('Tất cả');
     setSelectedSpecialist('Tất cả');
     setSelectedSentiment('Tất cả');
+    setSelectedResponseStatus('Tất cả');
   }, [activeTab]);
 
   // Extract unique lists dynamically
@@ -256,9 +259,11 @@ export default function ViewFeedback() {
       if (selectedService !== 'Tất cả' && f.ten_dich_vu !== selectedService) return false;
       if (selectedStars !== 'Tất cả' && f.so_sao_tong !== Number(selectedStars)) return false;
       if (selectedSentiment !== 'Tất cả' && f.cam_xuc !== selectedSentiment) return false;
+      if (selectedResponseStatus === 'pending' && f.phan_hoi_nhan_xet) return false;
+      if (selectedResponseStatus === 'replied' && !f.phan_hoi_nhan_xet) return false;
       return true;
     });
-  }, [feedbacks, selectedService, selectedStars, selectedSentiment]);
+  }, [feedbacks, selectedService, selectedStars, selectedSentiment, selectedResponseStatus]);
 
   const staffFeedbacks = useMemo(() => {
     return feedbacks.filter(f => {
@@ -266,9 +271,11 @@ export default function ViewFeedback() {
       if (selectedSpecialist !== 'Tất cả' && f.ten_ky_thuat_vien !== selectedSpecialist) return false;
       if (selectedStars !== 'Tất cả' && f.so_sao_ktv !== Number(selectedStars)) return false;
       if (selectedSentiment !== 'Tất cả' && f.cam_xuc !== selectedSentiment) return false;
+      if (selectedResponseStatus === 'pending' && f.phan_hoi_nhan_xet) return false;
+      if (selectedResponseStatus === 'replied' && !f.phan_hoi_nhan_xet) return false;
       return true;
     });
-  }, [feedbacks, selectedSpecialist, selectedStars, selectedSentiment]);
+  }, [feedbacks, selectedSpecialist, selectedStars, selectedSentiment, selectedResponseStatus]);
 
   // Calculations (KPIs)
   const serviceStats = useMemo(() => {
@@ -624,94 +631,72 @@ export default function ViewFeedback() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-secondary dark:text-zinc-100 tracking-tight flex items-center gap-2.5">
-            <MessageSquare className="text-primary animate-pulse" size={26} />
-            Đánh giá & Phản hồi
-          </h1>
-          <p className="text-xs text-zinc-400 dark:text-zinc-550 font-bold uppercase mt-0.5 tracking-wider">
-            Phân tích mức độ hài lòng của khách hàng về dịch vụ trị liệu & nhân sự y khoa
-          </p>
-        </div>
-      </div>
+      {/* Premium Header Banner */}
+      <div className="relative overflow-hidden bg-gradient-to-r from-slate-900 via-teal-950 to-slate-900 dark:from-zinc-900 dark:via-teal-950/60 dark:to-zinc-900 rounded-[32px] p-7 md:p-9 text-white shadow-xl border border-teal-800/30">
+        {/* Ambient Light Glow Effects */}
+        <div className="absolute -top-24 -right-24 w-72 h-72 bg-teal-500/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
 
-      {/* Analytics Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Service Card */}
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-150/60 dark:border-zinc-800 rounded-[28px] p-6 shadow-xs flex items-center justify-between gap-4">
-          <div className="space-y-1">
-            <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest">Đánh giá dịch vụ</p>
-            <h3 className="text-2xl font-black text-secondary dark:text-zinc-100">
-              {serviceStats.avg} <span className="text-xs text-zinc-400 font-bold">/ 5.0</span>
-            </h3>
-            <p className="text-[10px] text-teal-600 font-extrabold">Từ {serviceStats.count} lượt đánh giá</p>
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-1.5">
+            <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white flex items-center gap-3">
+              <MessageSquare className="text-teal-400" size={28} />
+              Quản Lý Đánh Giá & Phản Hồi
+            </h1>
+            <p className="text-xs text-teal-100/80 font-medium max-w-2xl leading-relaxed">
+              Tổng hợp và quản lý ý kiến phản hồi của khách hàng về chất lượng dịch vụ trị liệu & đội ngũ chuyên môn y khoa.
+            </p>
           </div>
-          <div className="w-12 h-12 bg-teal-50 dark:bg-teal-950/20 text-teal-650 dark:text-teal-400 rounded-2xl flex items-center justify-center shadow-xs">
-            <Package size={22} />
-          </div>
-        </div>
 
-        {/* Staff Card */}
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-150/60 dark:border-zinc-800 rounded-[28px] p-6 shadow-xs flex items-center justify-between gap-4">
-          <div className="space-y-1">
-            <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest">Đánh giá KTV & Bác sĩ</p>
-            <h3 className="text-2xl font-black text-secondary dark:text-zinc-100">
-              {staffStats.avg} <span className="text-xs text-zinc-400 font-bold">/ 5.0</span>
-            </h3>
-            <p className="text-[10px] text-amber-600 font-extrabold">Từ {staffStats.count} lượt đánh giá</p>
-          </div>
-          <div className="w-12 h-12 bg-amber-50 dark:bg-amber-950/20 text-amber-600 dark:text-amber-400 rounded-2xl flex items-center justify-center shadow-xs">
-            <Users size={22} />
-          </div>
-        </div>
-
-        {/* Happy Index */}
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-150/60 dark:border-zinc-800 rounded-[28px] p-6 shadow-xs flex items-center justify-between gap-4 sm:col-span-2 lg:col-span-1">
-          <div className="space-y-1">
-            <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest">Chỉ số hài lòng</p>
-            <h3 className="text-2xl font-black text-[#0D9488]">
-              {Number((((serviceStats.avg + staffStats.avg) / 10) * 100).toFixed(0))}%
-            </h3>
-            <p className="text-[10px] text-zinc-450 font-bold">Mức độ hài lòng toàn diện đạt chuẩn</p>
-          </div>
-          <div className="w-12 h-12 bg-[#EBFBFA] text-[#0D9488] rounded-2xl flex items-center justify-center shadow-xs">
-            <Smile size={22} />
+          <div className="flex items-center gap-4 bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-4 shrink-0">
+            <div className="text-center px-2">
+              <p className="text-[9px] font-black uppercase tracking-wider text-teal-200/80">Điểm Dịch Vụ</p>
+              <p className="text-xl font-black text-white mt-0.5">{serviceStats.avg} <span className="text-xs text-teal-300/60 font-semibold">/ 5★</span></p>
+            </div>
+            <div className="w-px h-8 bg-white/20" />
+            <div className="text-center px-2">
+              <p className="text-[9px] font-black uppercase tracking-wider text-teal-200/80">Điểm KTV</p>
+              <p className="text-xl font-black text-white mt-0.5">{staffStats.avg} <span className="text-xs text-teal-300/60 font-semibold">/ 5★</span></p>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* AI Analytics Row: Sentiment breakdown + Pending replies queue */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-stretch">
-        {/* Sentiment breakdown — donut */}
-        <div className="lg:col-span-2 bg-white dark:bg-zinc-900 border border-zinc-150/60 dark:border-zinc-800 rounded-[28px] p-6 shadow-xs flex flex-col">
-          <div className="flex items-center gap-2.5 mb-6">
-            <div className="w-9 h-9 bg-teal-50 dark:bg-teal-950/20 text-teal-650 dark:text-teal-400 rounded-xl flex items-center justify-center shrink-0">
-              <PieChart size={16} />
+      {/* SECTION 1: AI Analytics & Sentiment Intelligence Banner (Full Width 100%) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+        {/* Donut Chart breakdown */}
+        <div className="lg:col-span-5 bg-white dark:bg-zinc-900 border border-zinc-150/60 dark:border-zinc-800 rounded-[28px] p-6 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between gap-2 mb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 bg-teal-50 dark:bg-teal-950/20 text-teal-650 dark:text-teal-400 rounded-xl flex items-center justify-center shrink-0">
+                <PieChart size={16} />
+              </div>
+              <div>
+                <h3 className="text-xs font-black text-secondary dark:text-zinc-100 uppercase tracking-wider">Phân bố cảm xúc AI</h3>
+                <p className="text-[9px] text-zinc-400 font-bold uppercase">
+                  {sentimentBreakdown.total} đánh giá {activeTab === 'service' ? 'dịch vụ' : 'kỹ thuật viên'}
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-xs font-black text-secondary dark:text-zinc-100 uppercase tracking-wider">Phân bố cảm xúc AI</h3>
-              <p className="text-[9px] text-zinc-400 font-bold uppercase">
-                {sentimentBreakdown.total} đánh giá {activeTab === 'service' ? 'dịch vụ' : 'kỹ thuật viên'}
-              </p>
-            </div>
+            <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-teal-50 dark:bg-teal-950/30 text-teal-700 dark:text-teal-300 border border-teal-150 dark:border-teal-900/50">
+              AI Sentiment Engine
+            </span>
           </div>
 
           {sentimentBreakdown.total === 0 ? (
-            <div className="flex-1 flex items-center justify-center">
+            <div className="flex-1 flex items-center justify-center py-8">
               <p className="text-[11px] text-zinc-400 italic">Chưa có đánh giá nào ở mục này.</p>
             </div>
           ) : (
-            <div className="flex-1 flex items-center gap-7">
-              <div className="relative size-32 rounded-full shrink-0" style={sentimentDonutStyle}>
+            <div className="flex flex-col sm:flex-row items-center gap-6 py-2">
+              <div className="relative size-32 rounded-full shrink-0 mx-auto sm:mx-0" style={sentimentDonutStyle}>
                 <div className="absolute inset-[12px] rounded-full bg-white dark:bg-zinc-900 flex flex-col items-center justify-center">
                   <span className="text-2xl font-black text-secondary dark:text-zinc-100 leading-none">{sentimentBreakdown.total}</span>
                   <span className="text-[8px] font-black text-zinc-400 uppercase mt-1.5 tracking-wider">đánh giá</span>
                 </div>
               </div>
 
-              <div className="flex-1 min-w-0 space-y-3">
+              <div className="flex-1 min-w-0 space-y-2.5 w-full">
                 {[
                   { label: 'Tích cực', count: sentimentBreakdown.positive, dot: 'bg-emerald-500' },
                   { label: 'Tiêu cực', count: sentimentBreakdown.negative, dot: 'bg-rose-500' },
@@ -722,7 +707,7 @@ export default function ViewFeedback() {
                     <span className={`size-2.5 rounded-full shrink-0 ${item.dot}`} />
                     <span className="text-[11.5px] font-bold text-slate-600 dark:text-zinc-300 flex-1 truncate">{item.label}</span>
                     <span className="text-[12px] font-black text-slate-800 dark:text-zinc-100 tabular-nums">{item.count}</span>
-                    <span className="text-[9.5px] font-bold text-zinc-400 tabular-nums w-9 text-right">
+                    <span className="text-[9.5px] font-bold text-zinc-400 tabular-nums w-10 text-right">
                       {sentimentBreakdown.total > 0 ? Math.round((item.count / sentimentBreakdown.total) * 100) : 0}%
                     </span>
                   </div>
@@ -732,211 +717,111 @@ export default function ViewFeedback() {
           )}
         </div>
 
-        {/* Pending replies queue + response rate */}
-        <div className="lg:col-span-3 bg-white dark:bg-zinc-900 border border-zinc-150/60 dark:border-zinc-800 rounded-[28px] p-6 shadow-xs flex flex-col">
-          <div className="flex items-start justify-between gap-3 mb-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 rounded-xl flex items-center justify-center shrink-0">
-                <BellRing size={16} />
-              </div>
-              <div>
-                <h3 className="text-xs font-black text-secondary dark:text-zinc-100 uppercase tracking-wider">Chờ phản hồi</h3>
-                <p className="text-[9px] text-zinc-400 font-bold uppercase">Duyệt câu trả lời AI soạn sẵn</p>
-              </div>
-            </div>
-            <span className="text-[10px] font-black text-slate-500 dark:text-zinc-400 shrink-0 text-right">
-              {responseRate.replied}/{responseRate.total} đã trả lời<br />
-              <span className="text-primary">{responseRate.pct}%</span>
-            </span>
-          </div>
-
-          <div className="h-1.5 rounded-full bg-slate-100 dark:bg-zinc-800 overflow-hidden mb-4">
-            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${responseRate.pct}%` }} />
-          </div>
-
-          <div className="flex items-center gap-2 mb-2">
-            <button
-              type="button"
-              onClick={handleBatchAnalyze}
-              disabled={batchRunning || !!analyzingId || toDraftCount === 0}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-gradient-to-tr from-[#0D9488] to-[#14B8A6] text-white rounded-xl text-[11px] font-black uppercase tracking-wider shadow-sm hover:shadow-md active:scale-95 transition-all disabled:opacity-40 disabled:active:scale-100 cursor-pointer disabled:cursor-not-allowed"
-            >
-              {batchRunning ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-              {batchRunning ? `Đang soạn ${batchProgress ? `${batchProgress.done}/${batchProgress.total}` : '...'}` : `Trả lời tất cả (${toDraftCount})`}
-            </button>
-            <button
-              type="button"
-              onClick={() => handleBulkApprove(readyToSend)}
-              disabled={readyToSend.length === 0 || submittingReply}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-secondary dark:bg-teal-900/30 text-white dark:text-teal-300 rounded-xl text-[11px] font-black uppercase tracking-wider hover:opacity-90 active:scale-[0.99] transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-xs"
-            >
-              {submittingReply ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
-              Xác nhận tất cả ({readyToSend.length})
-            </button>
-          </div>
-          <p className="text-[8.5px] text-zinc-400 font-bold uppercase tracking-wide text-center mb-4">
-            Soạn dùng chung hạn mức ~20 lượt AI miễn phí/ngày với chatbot trên trang khách hàng
-          </p>
-
-          {batchRunning && batchProgress && (
-            <div className="h-1.5 rounded-full bg-slate-100 dark:bg-zinc-800 overflow-hidden mb-3">
-              <div
-                className="h-full rounded-full bg-primary transition-all"
-                style={{ width: `${(batchProgress.done / batchProgress.total) * 100}%` }}
-              />
-            </div>
-          )}
-
-          {batchStopReason === 'quota' && batchProgress && (
-            <div className="flex items-start gap-2 p-3 mb-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-150 dark:border-amber-900 rounded-xl text-[11px] text-amber-750 dark:text-amber-400 font-semibold">
-              ⏸️ Đã dừng vì hết lượt gọi AI miễn phí trong hôm nay. Còn {batchProgress.total - batchProgress.done} đánh giá chưa được AI soạn trả lời — thử lại vào ngày mai.
-            </div>
-          )}
-
-          <AnimatePresence>
-            {batchLog.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="space-y-1 max-h-28 overflow-y-auto pr-1 mb-3"
-              >
-                {batchLog.slice().reverse().map(entry => (
-                  <motion.div
-                    key={entry.id}
-                    initial={{ opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="flex items-center gap-2 text-[10px] font-semibold text-slate-500 dark:text-zinc-400"
-                  >
-                    {entry.status === 'running' && <Loader2 size={11} className="animate-spin text-primary shrink-0" />}
-                    {entry.status === 'ok' && <CheckCircle2 size={11} className="text-emerald-500 shrink-0" />}
-                    {entry.status === 'skip' && <XCircle size={11} className="text-rose-400 shrink-0" />}
-                    <span className="truncate">{entry.label}</span>
-                  </motion.div>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {pendingReplies.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center">
-              <p className="text-[11px] text-zinc-400 italic">🎉 Không còn đánh giá nào đang chờ phản hồi.</p>
-            </div>
-          ) : (
-            <div className="space-y-3 max-h-[340px] overflow-y-auto pr-2 -mr-2">
-              {pendingReplies.slice(0, 8).map(f => (
-                <div
-                  key={f.id}
-                  className={`p-4 rounded-2xl border-2 transition-colors ${
-                    f.cam_xuc === 'NEGATIVE'
-                      ? 'bg-rose-50/40 dark:bg-rose-950/10 border-rose-150 dark:border-rose-900/50'
-                      : f.de_xuat_phan_hoi
-                        ? 'bg-white dark:bg-zinc-900 border-teal-150 dark:border-teal-900/50'
-                        : 'bg-slate-50/60 dark:bg-zinc-850/20 border-slate-150/70 dark:border-zinc-800/70'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-[12px] font-black text-slate-700 dark:text-zinc-200 truncate">{f.ten_khach_hang}</p>
-                    {f.cam_xuc && (
-                      <span className={`shrink-0 text-[8.5px] font-black uppercase px-2 py-0.5 rounded-full border ${SENTIMENT_CONFIG[f.cam_xuc]?.cls}`}>
-                        {SENTIMENT_CONFIG[f.cam_xuc]?.label}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-slate-500 dark:text-zinc-400 truncate italic mt-1">"{censorText(f.nhan_xet)}"</p>
-
-                  {f.de_xuat_phan_hoi ? (
-                    <div className="mt-3 space-y-2.5">
-                      <div className="flex items-start gap-2 bg-teal-50/70 dark:bg-teal-950/20 rounded-xl p-3">
-                        <Bot size={14} className="text-teal-600 dark:text-teal-400 mt-0.5 shrink-0" />
-                        <p className="text-[11.5px] text-teal-800 dark:text-teal-300 line-clamp-3 leading-relaxed">{f.de_xuat_phan_hoi}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleQuickApprove(f)}
-                          disabled={submittingReply}
-                          className="flex-1 text-[10.5px] font-black uppercase text-white bg-primary hover:bg-teal-700 px-3 py-2 rounded-xl cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-xs"
-                        >
-                          <CheckCircle2 size={12} /> Dùng câu này
-                        </button>
-                        <button
-                          type="button"
-                          title="Sửa trước khi gửi"
-                          onClick={() => handleJumpToReview(f)}
-                          className="p-2 rounded-xl text-slate-500 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 cursor-pointer transition-colors"
-                        >
-                          <Pencil size={13} />
-                        </button>
-                        <button
-                          type="button"
-                          title="Soạn lại"
-                          onClick={() => handleAnalyzeOne(f)}
-                          disabled={!!analyzingId || batchRunning}
-                          className="p-2 rounded-xl text-slate-500 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 disabled:opacity-40 cursor-pointer transition-colors"
-                        >
-                          {analyzingId === f.id ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />}
-                        </button>
-                      </div>
-                    </div>
-                  ) : f.nhan_xet?.trim() ? (
-                    <p className="mt-3 text-[10px] text-zinc-400 italic text-center py-1.5 border border-dashed border-slate-200 dark:border-zinc-700 rounded-xl">
-                      Chưa có câu trả lời AI — dùng "Trả lời tất cả" ở trên, hoặc lướt xuống danh sách để soạn riêng.
-                    </p>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => handleJumpToReview(f)}
-                      className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 border border-dashed border-slate-300 dark:border-zinc-700 rounded-xl text-[10.5px] font-black uppercase text-slate-500 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 cursor-pointer transition-colors"
-                    >
-                      Phản hồi thủ công
-                    </button>
-                  )}
+        {/* Response Performance Summary Card */}
+        <div className="lg:col-span-7 bg-white dark:bg-zinc-900 border border-zinc-150/60 dark:border-zinc-800 rounded-[28px] p-6 shadow-xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 rounded-xl flex items-center justify-center shrink-0">
+                  <BellRing size={16} />
                 </div>
-              ))}
-              {pendingReplies.length > 8 && (
-                <p className="text-[9px] text-zinc-400 font-bold text-center pt-1">+{pendingReplies.length - 8} đánh giá khác</p>
-              )}
+                <div>
+                  <h3 className="text-xs font-black text-secondary dark:text-zinc-100 uppercase tracking-wider">Tiến độ phản hồi khách hàng</h3>
+                  <p className="text-[9px] text-zinc-400 font-bold uppercase">Hiệu suất và chất lượng phản hồi</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="text-xl font-black text-primary">{responseRate.pct}%</span>
+                <p className="text-[9.5px] font-bold text-slate-400 dark:text-zinc-500">
+                  {responseRate.replied}/{responseRate.total} ca đã tương tác
+                </p>
+              </div>
             </div>
-          )}
+
+            <div className="h-2 rounded-full bg-slate-100 dark:bg-zinc-800 overflow-hidden mb-6">
+              <div className="h-full rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 transition-all duration-500" style={{ width: `${responseRate.pct}%` }} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="p-4 bg-emerald-50/60 dark:bg-emerald-950/15 border border-emerald-150 dark:border-emerald-900/40 rounded-2xl">
+              <p className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Đánh giá Tích cực</p>
+              <h4 className="text-lg font-black text-emerald-800 dark:text-emerald-200 mt-0.5">
+                {sentimentBreakdown.total > 0 ? Math.round((sentimentBreakdown.positive / sentimentBreakdown.total) * 100) : 0}%
+              </h4>
+              <p className="text-[9.5px] font-semibold text-emerald-650/80 dark:text-emerald-400">{sentimentBreakdown.positive} lượt đánh giá tốt</p>
+            </div>
+
+            <div className="p-4 bg-rose-50/60 dark:bg-rose-950/15 border border-rose-150 dark:border-rose-900/40 rounded-2xl">
+              <p className="text-[9px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-wider">Cần ưu tiên xử lý</p>
+              <h4 className="text-lg font-black text-rose-800 dark:text-rose-200 mt-0.5">{sentimentBreakdown.negative} ca</h4>
+              <p className="text-[9.5px] font-semibold text-rose-650/80 dark:text-rose-400">Đánh giá tiêu cực cần phản hồi</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Tabs segment navigation */}
-      <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1.5 rounded-2xl w-fit shadow-inner">
-        <button
-          onClick={() => setActiveTab('service')}
-          className={`px-5 py-2.5 text-xs font-black uppercase tracking-wider rounded-xl transition-all duration-300 flex items-center gap-2 cursor-pointer ${
-            activeTab === 'service'
-              ? 'bg-white dark:bg-zinc-900 text-primary shadow-xs border border-zinc-200/20 scale-[1.02]'
-              : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
-          }`}
-        >
-          <Package size={14} />
-          Đánh giá dịch vụ ({serviceStats.count})
-        </button>
-        <button
-          onClick={() => setActiveTab('staff')}
-          className={`px-5 py-2.5 text-xs font-black uppercase tracking-wider rounded-xl transition-all duration-300 flex items-center gap-2 cursor-pointer ${
-            activeTab === 'staff'
-              ? 'bg-white dark:bg-zinc-900 text-primary shadow-xs border border-zinc-200/20 scale-[1.02]'
-              : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
-          }`}
-        >
-          <Users size={14} />
-          Đánh giá kỹ thuật viên ({staffStats.count})
-        </button>
+      {/* SECTION 2: Combined Tabs Bar & Action Toolbar (Hình ảnh 1) */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-2">
+        {/* Tabs segment navigation */}
+        <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1.5 rounded-2xl w-fit shadow-inner">
+          <button
+            onClick={() => setActiveTab('service')}
+            className={`px-5 py-2.5 text-xs font-black uppercase tracking-wider rounded-xl transition-all duration-300 flex items-center gap-2 cursor-pointer ${
+              activeTab === 'service'
+                ? 'bg-white dark:bg-zinc-900 text-primary shadow-xs border border-zinc-200/20 scale-[1.02]'
+                : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+            }`}
+          >
+            <Package size={14} />
+            Đánh giá dịch vụ ({serviceStats.count})
+          </button>
+          <button
+            onClick={() => setActiveTab('staff')}
+            className={`px-5 py-2.5 text-xs font-black uppercase tracking-wider rounded-xl transition-all duration-300 flex items-center gap-2 cursor-pointer ${
+              activeTab === 'staff'
+                ? 'bg-white dark:bg-zinc-900 text-primary shadow-xs border border-zinc-200/20 scale-[1.02]'
+                : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+            }`}
+          >
+            <Users size={14} />
+            Đánh giá kỹ thuật viên ({staffStats.count})
+          </button>
+        </div>
+
+        {/* Action Toolbar */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            type="button"
+            onClick={handleBatchAnalyze}
+            disabled={batchRunning || !!analyzingId || toDraftCount === 0}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-tr from-[#0D9488] to-[#14B8A6] text-white rounded-xl text-[11px] font-black uppercase tracking-wider shadow-sm hover:shadow-md active:scale-95 transition-all disabled:opacity-40 disabled:active:scale-100 cursor-pointer disabled:cursor-not-allowed"
+          >
+            {batchRunning ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+            {batchRunning ? `Đang soạn ${batchProgress ? `${batchProgress.done}/${batchProgress.total}` : '...'}` : `Soạn AI hàng loạt (${toDraftCount})`}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleBulkApprove(readyToSend)}
+            disabled={readyToSend.length === 0 || submittingReply}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-secondary dark:bg-teal-900/30 text-white dark:text-teal-300 rounded-xl text-[11px] font-black uppercase tracking-wider hover:opacity-90 active:scale-[0.99] transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-xs"
+          >
+            {submittingReply ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+            Xác nhận gửi tất cả ({readyToSend.length})
+          </button>
+        </div>
       </div>
 
-      {/* Filters Section */}
+      {/* SECTION 3: Unified Filters Section (Hình ảnh 1) */}
       <div className="bg-white dark:bg-zinc-900 border border-zinc-150/60 dark:border-zinc-800 rounded-[24px] p-5 shadow-xs flex flex-wrap items-center gap-4 animate-in fade-in duration-300">
-        <div className="text-xs font-black text-secondary dark:text-zinc-300 uppercase tracking-wider shrink-0">
-          🔍 Bộ lọc nhanh:
+        <div className="text-xs font-black text-secondary dark:text-zinc-300 uppercase tracking-wider shrink-0 flex items-center gap-1.5">
+          <Filter size={14} className="text-primary" /> Bộ lọc nhanh:
         </div>
 
         {activeTab === 'service' ? (
           <div className="flex flex-col sm:flex-row gap-3 items-center flex-1">
-            <div className="w-full sm:w-72">
+            <div className="w-full sm:w-64">
               <label className="block text-[10px] text-zinc-400 font-black uppercase mb-1">Gói dịch vụ</label>
               <select
                 value={selectedService}
@@ -951,7 +836,7 @@ export default function ViewFeedback() {
           </div>
         ) : (
           <div className="flex flex-col sm:flex-row gap-3 items-center flex-1">
-            <div className="w-full sm:w-72">
+            <div className="w-full sm:w-64">
               <label className="block text-[10px] text-zinc-400 font-black uppercase mb-1">Bác sĩ & Kỹ thuật viên</label>
               <select
                 value={selectedSpecialist}
@@ -966,7 +851,7 @@ export default function ViewFeedback() {
           </div>
         )}
 
-        <div className="w-full sm:w-40">
+        <div className="w-full sm:w-36">
           <label className="block text-[10px] text-zinc-400 font-black uppercase mb-1">Số sao đánh giá</label>
           <select
             value={selectedStars}
@@ -982,7 +867,7 @@ export default function ViewFeedback() {
           </select>
         </div>
 
-        <div className="w-full sm:w-40">
+        <div className="w-full sm:w-36">
           <label className="block text-[10px] text-zinc-400 font-black uppercase mb-1">Cảm xúc (AI)</label>
           <select
             value={selectedSentiment}
@@ -996,7 +881,20 @@ export default function ViewFeedback() {
           </select>
         </div>
 
-        {(selectedService !== 'Tất cả' || selectedSpecialist !== 'Tất cả' || selectedStars !== 'Tất cả' || selectedSentiment !== 'Tất cả') && (
+        <div className="w-full sm:w-44">
+          <label className="block text-[10px] text-zinc-400 font-black uppercase mb-1">Trạng thái phản hồi</label>
+          <select
+            value={selectedResponseStatus}
+            onChange={(e) => setSelectedResponseStatus(e.target.value)}
+            className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-zinc-850 border border-slate-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:border-primary text-slate-700 dark:text-zinc-200 font-semibold cursor-pointer"
+          >
+            <option value="Tất cả">Tất cả trạng thái</option>
+            <option value="pending">⏳ Chờ duyệt / AI soạn</option>
+            <option value="replied">✅ Đã phản hồi</option>
+          </select>
+        </div>
+
+        {(selectedService !== 'Tất cả' || selectedSpecialist !== 'Tất cả' || selectedStars !== 'Tất cả' || selectedSentiment !== 'Tất cả' || selectedResponseStatus !== 'Tất cả') && (
           <button
             type="button"
             onClick={() => {
@@ -1004,6 +902,7 @@ export default function ViewFeedback() {
               setSelectedSpecialist('Tất cả');
               setSelectedStars('Tất cả');
               setSelectedSentiment('Tất cả');
+              setSelectedResponseStatus('Tất cả');
             }}
             className="text-[10px] font-black uppercase text-rose-500 hover:text-rose-700 cursor-pointer transition-colors"
           >
@@ -1012,7 +911,47 @@ export default function ViewFeedback() {
         )}
       </div>
 
-      {/* Content Area */}
+      {batchRunning && batchProgress && (
+        <div className="h-1.5 rounded-full bg-slate-100 dark:bg-zinc-800 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-primary transition-all"
+            style={{ width: `${(batchProgress.done / batchProgress.total) * 100}%` }}
+          />
+        </div>
+      )}
+
+      {batchStopReason === 'quota' && batchProgress && (
+        <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-150 dark:border-amber-900 rounded-2xl text-[11px] text-amber-750 dark:text-amber-400 font-semibold">
+          ⏸️ Đã dừng vì hết lượt gọi AI miễn phí trong hôm nay. Còn {batchProgress.total - batchProgress.done} đánh giá chưa được AI soạn trả lời — thử lại vào ngày mai.
+        </div>
+      )}
+
+      <AnimatePresence>
+        {batchLog.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="space-y-1 max-h-32 overflow-y-auto pr-1"
+          >
+            {batchLog.slice().reverse().map(entry => (
+              <motion.div
+                key={entry.id}
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="flex items-center gap-2 text-[10px] font-semibold text-slate-500 dark:text-zinc-400"
+              >
+                {entry.status === 'running' && <Loader2 size={11} className="animate-spin text-primary shrink-0" />}
+                {entry.status === 'ok' && <CheckCircle2 size={11} className="text-emerald-500 shrink-0" />}
+                {entry.status === 'skip' && <XCircle size={11} className="text-rose-400 shrink-0" />}
+                <span className="truncate">{entry.label}</span>
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* SECTION 4: Single Unified Reviews Feed */}
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-zinc-900 border border-zinc-150/60 dark:border-zinc-800 rounded-[32px]">
           <Loader2 className="animate-spin text-primary mb-3" size={28} />

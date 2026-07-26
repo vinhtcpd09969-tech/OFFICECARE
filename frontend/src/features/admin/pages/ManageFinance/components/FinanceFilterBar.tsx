@@ -130,14 +130,14 @@ export function FinanceFilterBar({
           <div className="space-y-1.5">
             <label className="text-[10px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-wider flex items-center gap-1">
               <Layers size={12} className="text-zinc-400" />
-              Loại hóa đơn (100% / 50% / Buổi)
+              Hình thức thanh toán gói
             </label>
             <select
               value={itemTypeFilter}
               onChange={(e) => onItemTypeChange(e.target.value)}
               className="w-full px-3.5 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-800 rounded-xl focus:outline-none focus:border-teal-500 text-xs font-bold text-slate-800 dark:text-zinc-200 cursor-pointer shadow-2xs"
             >
-              <option value="all">Tất cả loại hóa đơn</option>
+              <option value="all">Tất cả hình thức</option>
               {INVOICE_TYPE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}

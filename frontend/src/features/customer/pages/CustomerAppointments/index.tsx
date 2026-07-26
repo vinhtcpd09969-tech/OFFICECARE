@@ -488,185 +488,123 @@ export default function CustomerAppointments() {
   return (
     <div className="space-y-6 font-jakarta text-[#0F172A] min-h-screen bg-slate-50/50 p-2 sm:p-6 rounded-[32px]">
 
-      {/* Title & Add button */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-100 pb-5">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-black tracking-tight flex items-center gap-2.5">
-            <span className="p-2 bg-[#0D9488]/10 text-[#0D9488] rounded-2xl flex items-center justify-center shadow-xs">
-              <Calendar size={22} />
+
+
+      {/* Top Hero Analytics Banner (Pro Max Medical Ambient Strip) */}
+      <div className="relative overflow-hidden rounded-[32px] p-6 md:p-8 text-white shadow-xl bg-gradient-to-r from-[#0D4B46] via-[#0F766E] to-[#115E59] border border-teal-600/30">
+        <div className="pointer-events-none absolute -top-24 -right-24 size-80 bg-teal-400/20 rounded-full blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 -left-24 size-80 bg-emerald-500/15 rounded-full blur-3xl" />
+
+        <div className="relative z-10 flex flex-wrap items-center justify-between gap-6">
+          <div className="space-y-1">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-teal-200 text-[10px] font-black uppercase tracking-widest border border-white/15">
+              🛡️ Quản Lý Lịch Hẹn & Phác Đồ
             </span>
-            Hành Trình Trị Liệu & Lịch Hẹn
-          </h1>
-          <p className="text-xs font-semibold text-slate-400">
-            Quản lý lộ trình thăm khám lượng giá y khoa và đặt lịch trị liệu chuyên sâu.
-          </p>
-        </div>
-
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => navigate('/booking')}
-          className="flex items-center gap-2 bg-gradient-to-r from-[#0D9488] to-[#14B8A6] text-white font-black text-xs uppercase tracking-wider py-3.5 px-6 rounded-2xl transition-all shadow-md shadow-teal-500/10 cursor-pointer"
-        >
-          <PlusCircle size={15} /> Đăng ký buổi khám mới
-        </motion.button>
-      </div>
-
-      {/* Main Grid: Left side stats, Right side filters and list */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-
-        {/* LEFT COLUMN: Recovery Journey Analytics (col-span-4) */}
-        <div className="lg:col-span-4 space-y-6">
-
-          {/* Reputation Info Box */}
-          <div className="bg-white rounded-[28px] border border-slate-100 p-5 space-y-4 shadow-sm hover:shadow-md transition-shadow duration-300">
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-2">
-              <span className="p-1 bg-[#0D9488]/10 rounded-lg text-[#0D9488]">
-                <ShieldCheck size={16} />
-              </span>
-              Chỉ số tuân thủ y khoa
-            </h3>
-
-            <div className="space-y-3.5">
-              <div className="flex justify-between items-baseline">
-                <span className="text-[11px] text-slate-450 font-bold uppercase tracking-wider">Điểm uy tín bệnh nhân</span>
-                <span className="text-lg font-black text-slate-900">{diemUyTin} <span className="text-xs text-slate-400 font-bold">/ 100</span></span>
-              </div>
-
-              {/* Progress bar scale from red to green */}
-              <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all duration-500 ${diemUyTin >= 80 ? 'bg-emerald-500' : diemUyTin >= 50 ? 'bg-amber-500' : 'bg-rose-500'
-                    }`}
-                  style={{ width: `${diemUyTin}%` }}
-                />
-              </div>
-
-              <p className="text-[10px] text-slate-450 leading-relaxed font-semibold">
-                Hệ thống OfficeCare đánh giá điểm uy tín tự động. Việc hủy lịch hẹn trễ (dưới 8 tiếng) hoặc không đến điều trị (no-show) sẽ làm giảm điểm uy tín và có thể khiến tài khoản của bạn bị khóa nếu phòng khám xét thấy cần thiết.
-              </p>
-            </div>
-          </div>
-
-          {/* Recovery Progress Card */}
-          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-teal-950 text-white rounded-[28px] p-6 shadow-xl border border-slate-700/40 relative overflow-hidden">
-            {/* Background design pattern */}
-            <div className="absolute right-0 bottom-0 w-32 h-32 bg-teal-500/10 rounded-full blur-2xl pointer-events-none"></div>
-
-            <h3 className="text-xs font-black uppercase tracking-widest text-teal-400 flex items-center gap-1.5 mb-5">
-              <TrendingUp size={14} /> Hành trình phục hồi
-            </h3>
-
-            <div className="flex flex-col items-center justify-center space-y-4">
-              {/* Circular Gauge */}
-              <div className="relative size-28">
-                <svg className="size-28 transform -rotate-90">
-                  <circle
-                    cx="56"
-                    cy="56"
-                    r="45"
-                    className="stroke-slate-700/50"
-                    strokeWidth="8"
-                    fill="transparent"
-                  />
-                  <circle
-                    cx="56"
-                    cy="56"
-                    r="45"
-                    className="stroke-teal-450"
-                    strokeWidth="8"
-                    fill="transparent"
-                    strokeDasharray={2 * Math.PI * 45}
-                    strokeDashoffset={2 * Math.PI * 45 * (1 - recoveryRate / 100)}
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-2xl font-black tracking-tight">{recoveryRate}%</span>
-                  <span className="text-[9px] text-slate-400 uppercase font-black tracking-widest">{completedCount}/{totalCount} Ca</span>
-                </div>
-              </div>
-
-              <div className="text-center space-y-1">
-                <p className="text-xs font-black text-slate-100">
-                  {recoveryRate >= 70
-                    ? 'Tiến trình trị liệu vượt bậc!'
-                    : recoveryRate >= 30
-                      ? 'Đang tiến triển ổn định'
-                      : 'Mới bắt đầu lộ trình'}
-                </p>
-                <p className="text-[10px] text-slate-400 font-semibold leading-relaxed px-4">
-                  Bạn đã hoàn thành {completedCount} ca trong tổng số {totalCount} ca hẹn của lộ trình.
-                </p>
-              </div>
-            </div>
-
-            {/* Micro Stats inside Card */}
-            <div className="grid grid-cols-2 gap-3.5 border-t border-slate-700/50 mt-5 pt-4.5 text-center">
-              <div className="space-y-0.5">
-                <span className="text-[9px] text-slate-400 uppercase tracking-wider font-bold block">Tổng giờ sử dụng</span>
-                <span className="text-sm font-black text-white block">{totalHours.toFixed(1)} giờ</span>
-              </div>
-              <div className="space-y-0.5 border-l border-slate-700/50">
-                <span className="text-[9px] text-slate-400 uppercase tracking-wider font-bold block">Độ Tuân Thủ</span>
-                <span className="text-sm font-black text-teal-450 block">{diemUyTin}%</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Medical Record Tip */}
-          <div className="bg-teal-50/50 border border-teal-100/30 rounded-[28px] p-5 space-y-3">
-            <h4 className="text-[11px] font-black text-teal-850 uppercase tracking-wider flex items-center gap-1.5">
-              <FileText size={15} /> Lời khuyên hồi phục y khoa
-            </h4>
-            <p className="text-[10px] text-slate-650 font-semibold leading-relaxed">
-              Bạn có thể theo dõi chi tiết bệnh án, hồ sơ lượng giá cơ sinh học của Bác sĩ lượng giá và ghi nhận chẩn đoán chi tiết ngay tại mục <strong>Hồ sơ điều trị</strong> của bạn.
+            <h1 className="font-heading text-2xl md:text-3xl font-black text-white tracking-tight">
+              Hành Trình Phục Hồi Y Khoa
+            </h1>
+            <p className="text-xs text-teal-100/80 font-medium max-w-xl">
+              Theo dõi chi tiết các ca hẹn, độ tuân thủ và tiến trình điều trị cơ xương khớp cá nhân hóa.
             </p>
           </div>
+
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => navigate('/booking')}
+            className="flex items-center gap-2 bg-white text-[#0D9488] hover:bg-teal-50 font-black text-xs uppercase tracking-wider py-3.5 px-6 rounded-2xl transition-all shadow-lg cursor-pointer shrink-0"
+          >
+            <PlusCircle size={16} /> Đăng ký buổi khám mới
+          </motion.button>
         </div>
 
-        {/* RIGHT COLUMN: Appointments & Filters (col-span-8) */}
-        <div className="lg:col-span-8 space-y-5">
+        {/* 4 Metric Glass Tiles Horizontal Grid */}
+        <div className="relative z-10 grid grid-cols-2 lg:grid-cols-4 gap-3.5 mt-7">
+          <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-4 flex items-center gap-3.5 transition-all hover:bg-white/15">
+            <div className="size-10 rounded-xl bg-teal-400/20 border border-teal-300/30 text-teal-200 flex items-center justify-center shrink-0">
+              <Calendar size={20} />
+            </div>
+            <div>
+              <div className="font-heading text-xl font-black tabular-nums text-white">{totalCount} Ca</div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-teal-100/70">Tổng số ca hẹn</div>
+            </div>
+          </div>
 
-          {/* Pending Reviews Notification Banner */}
-          {pendingRatingAppts.length > 0 && (() => {
-            const app = pendingRatingAppts[0];
-            return (
-              <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/60 rounded-[28px] p-5 shadow-xs flex items-center justify-between gap-4 animate-in slide-in-from-top-3 duration-300">
-                <div className="flex items-start gap-3.5">
-                  <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center shrink-0 border border-amber-200 shadow-2xs">
-                    <Star className="fill-amber-500 text-amber-500" size={20} />
-                  </div>
-                  <div>
-                    <h4 className="font-extrabold text-xs text-secondary leading-tight flex items-center gap-1.5">
-                      🔔 Góp ý chất lượng y khoa
-                    </h4>
-                    <p className="text-[10px] text-slate-500 font-semibold leading-relaxed mt-1">
-                      Bạn vừa hoàn thành trị liệu <strong>{app.ten_dich_vu}</strong>{app.ten_bac_si ? ` cùng KTV ${app.ten_bac_si}` : ''}. Hãy dành 1 phút đóng góp ý kiến nhé!
-                    </p>
-                  </div>
+          <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-4 flex items-center gap-3.5 transition-all hover:bg-white/15">
+            <div className="size-10 rounded-xl bg-emerald-400/20 border border-emerald-300/30 text-emerald-300 flex items-center justify-center shrink-0">
+              <TrendingUp size={20} />
+            </div>
+            <div>
+              <div className="font-heading text-xl font-black tabular-nums text-white">{recoveryRate}%</div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-teal-100/70">Hoàn thành ({completedCount}/{totalCount})</div>
+            </div>
+          </div>
+
+          <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-4 flex items-center gap-3.5 transition-all hover:bg-white/15">
+            <div className="size-10 rounded-xl bg-sky-400/20 border border-sky-300/30 text-sky-200 flex items-center justify-center shrink-0">
+              <Clock size={20} />
+            </div>
+            <div>
+              <div className="font-heading text-xl font-black tabular-nums text-white">{totalHours.toFixed(1)} giờ</div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-teal-100/70">Thời lượng trị liệu</div>
+            </div>
+          </div>
+
+          <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-4 flex items-center gap-3.5 transition-all hover:bg-white/15">
+            <div className="size-10 rounded-xl bg-amber-400/20 border border-amber-300/30 text-amber-300 flex items-center justify-center shrink-0">
+              <ShieldCheck size={20} />
+            </div>
+            <div>
+              <div className="font-heading text-xl font-black tabular-nums text-white">{diemUyTin}/100</div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-teal-100/70">Điểm tuân thủ</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content Area (Full 12 Columns) */}
+      <div className="space-y-6">
+
+        {/* Pending Reviews Notification Banner */}
+        {pendingRatingAppts.length > 0 && (() => {
+          const app = pendingRatingAppts[0];
+          return (
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 rounded-[28px] p-5 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in slide-in-from-top-3 duration-300">
+              <div className="flex items-start gap-3.5">
+                <div className="size-11 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center shrink-0 border border-amber-200 shadow-2xs">
+                  <Star className="fill-amber-500 text-amber-500" size={22} />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRatingApptId(app.id);
-                    setRatingStarsService(app.rating_service_stars || 5);
-                    setRatingCommentService(app.rating_service_comment || '');
-                    setRatingStarsStaff(app.rating_staff_stars || 5);
-                    setRatingCommentStaff(app.rating_staff_comment || '');
-                  }}
-                  className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-[10px] uppercase tracking-wider rounded-xl transition-all shadow-xs shrink-0 cursor-pointer"
-                >
-                  Đánh giá ngay
-                </button>
+                <div>
+                  <h4 className="font-extrabold text-xs text-slate-800 leading-tight flex items-center gap-1.5">
+                    🔔 Góp ý chất lượng y khoa
+                  </h4>
+                  <p className="text-xs text-slate-600 font-medium leading-relaxed mt-1">
+                    Bạn vừa hoàn thành trị liệu <strong>{app.ten_dich_vu}</strong>{app.ten_bac_si ? ` cùng KTV ${app.ten_bac_si}` : ''}. Hãy dành 1 phút đóng góp ý kiến nhé!
+                  </p>
+                </div>
               </div>
-            );
-          })()}
+              <button
+                type="button"
+                onClick={() => {
+                  setRatingApptId(app.id);
+                  setRatingStarsService(app.rating_service_stars || 5);
+                  setRatingCommentService(app.rating_service_comment || '');
+                  setRatingStarsStaff(app.rating_staff_stars || 5);
+                  setRatingCommentStaff(app.rating_staff_comment || '');
+                }}
+                className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-sm shrink-0 cursor-pointer"
+              >
+                Đánh giá ngay
+              </button>
+            </div>
+          );
+        })()}
 
-          {/* Filters Bar */}
-          <div className="bg-white rounded-[28px] border border-slate-100 p-4.5 shadow-sm space-y-4">
-
-            {/* Status filters (Horizontal Pills with count badges) */}
+        {/* Integrated Filter Toolbar */}
+        <div className="bg-white rounded-[28px] border border-slate-200/80 p-5 shadow-xs space-y-4">
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+            
+            {/* Status pills segmented bar */}
             <div className="flex flex-wrap items-center gap-2">
               {[
                 { label: 'Tất cả lịch', value: 'all', count: totalCount },
@@ -677,64 +615,60 @@ export default function CustomerAppointments() {
                 <button
                   key={pill.value}
                   onClick={() => setStatusFilter(pill.value)}
-                  className={`px-3.5 py-2 rounded-xl text-[11px] font-black transition-all border flex items-center gap-1.5 ${statusFilter === pill.value
-                      ? 'bg-[#0D9488] text-white border-transparent shadow-sm'
-                      : 'bg-slate-50 text-slate-500 border-slate-150 hover:bg-slate-100'
-                    }`}
+                  className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all border flex items-center gap-2 cursor-pointer ${
+                    statusFilter === pill.value
+                      ? 'bg-[#0D9488] text-white border-transparent shadow-sm scale-[1.02]'
+                      : 'bg-slate-50 text-slate-600 border-slate-200/70 hover:bg-slate-100'
+                  }`}
                 >
                   <span>{pill.label}</span>
-                  <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${statusFilter === pill.value
-                      ? 'bg-white/20 text-white'
-                      : 'bg-slate-200 text-slate-600'
-                    }`}>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black tabular-nums ${
+                    statusFilter === pill.value ? 'bg-white/20 text-white' : 'bg-slate-200/70 text-slate-700'
+                  }`}>
                     {pill.count}
                   </span>
                 </button>
               ))}
             </div>
 
-            {/* Lọc khoảng thời gian */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-3 border-t border-slate-50">
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black text-slate-450 uppercase shrink-0">Từ ngày:</span>
-                  <CustomDatePicker
-                    value={startDate}
-                    onChange={(date) => setStartDate(date)}
-                    placeholder="Chọn ngày bắt đầu"
-                    align="left"
-                    className="w-full sm:w-36"
-                  />
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black text-slate-450 uppercase shrink-0">Đến ngày:</span>
-                  <CustomDatePicker
-                    value={endDate}
-                    onChange={(date) => setEndDate(date)}
-                    placeholder="Chọn ngày kết thúc"
-                    align="left"
-                    className="w-full sm:w-36"
-                  />
-                </div>
-
-                {(startDate || endDate) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setStartDate('');
-                      setEndDate('');
-                    }}
-                    className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-150 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer shadow-xs"
-                  >
-                    Xóa lọc ngày
-                  </button>
-                )}
+            {/* Date filter range inputs */}
+            <div className="flex flex-wrap items-center gap-3 pt-3 lg:pt-0 border-t lg:border-t-0 border-slate-100">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider shrink-0">Từ ngày:</span>
+                <CustomDatePicker
+                  value={startDate}
+                  onChange={(date) => setStartDate(date)}
+                  placeholder="Chọn ngày"
+                  align="left"
+                  className="w-36"
+                />
               </div>
-            </div>
-          </div>
 
-          {/* Appointments List */}
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider shrink-0">Đến:</span>
+                <CustomDatePicker
+                  value={endDate}
+                  onChange={(date) => setEndDate(date)}
+                  placeholder="Chọn ngày"
+                  align="left"
+                  className="w-36"
+                />
+              </div>
+
+              {(startDate || endDate) && (
+                <button
+                  type="button"
+                  onClick={() => { setStartDate(''); setEndDate(''); }}
+                  className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+                  title="Xóa bộ lọc ngày"
+                >
+                  <XCircle size={16} />
+                </button>
+              )}
+            </div>
+        </div>
+
+        {/* Appointments List */}
           {loading ? (
             <div className="bg-white rounded-[28px] border border-slate-100 p-16 text-center space-y-4 shadow-sm flex flex-col items-center justify-center">
               <RefreshCw className="animate-spin text-[#0D9488] size-8" />

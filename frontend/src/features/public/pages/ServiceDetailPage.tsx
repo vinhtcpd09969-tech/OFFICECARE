@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowRight, Clock, Phone, Loader2, Info, ShieldCheck, HeartPulse, Award, Star, TrendingUp, Activity } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Clock, Phone, Loader2, Info, ShieldCheck, HeartPulse, Award, Star, TrendingUp, Activity } from 'lucide-react';
 import { getPublicServices, getPublicServiceReviews, getPublicSpecialists } from '../api/public.api';
 import { resolveImageUrl } from '../../../utils/imageUrl';
 import ScrollReveal from '../components/shared/ScrollReveal';
@@ -252,21 +252,21 @@ export default function ServiceDetailPage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         
-        {/* Navigation Breadcrumb */}
-        <div className="mb-8 flex items-center justify-between">
+        {/* Navigation Breadcrumb & Back Link */}
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
             <Link to="/" className="hover:text-primary transition-colors">Trang chủ</Link>
             <span>/</span>
-            <Link to="/services" className="hover:text-primary transition-colors">Danh mục dịch vụ</Link>
+            <Link to="/services" className="hover:text-primary transition-colors">Dịch vụ</Link>
             <span>/</span>
             <span className="text-primary font-extrabold">{service.ten_goi}</span>
           </div>
 
           <Link
             to="/services"
-            className="flex items-center gap-1.5 text-xs font-black uppercase text-slate-500 hover:text-slate-800 tracking-wider transition-colors bg-white border border-slate-200/60 px-4.5 py-2.5 rounded-xl shadow-xs"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-[#0D9488] hover:border-[#0D9488] text-xs font-black uppercase tracking-wider transition-all shadow-xs hover:-translate-x-0.5 cursor-pointer"
           >
-            ← Danh mục dịch vụ
+            <ArrowLeft size={14} /> Quay lại danh sách dịch vụ
           </Link>
         </div>
 
@@ -335,7 +335,7 @@ export default function ServiceDetailPage() {
                 {/* Benefits (Mục tiêu & Lợi ích) */}
                 {mucTieuPoints.length > 0 && (
                   <div className="space-y-2 pt-2">
-                    <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">🎯 Mục tiêu & Lợi ích:</p>
+                    <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">🎯 Mục tiêu trị liệu:</p>
                     <ul className="space-y-1.5 pl-1">
                       {mucTieuPoints.map((point: string, idx: number) => (
                         <li key={idx} className="flex gap-2 items-start text-xs font-semibold text-slate-655 leading-relaxed">

@@ -229,7 +229,7 @@ export default function PackageDetailPage() {
                 {/* Benefits (Mục tiêu & Lợi ích) */}
                 {mucTieuPoints.length > 0 && (
                   <div className="space-y-2 pt-2">
-                    <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">🎯 Mục tiêu & Lợi ích:</p>
+                    <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">🎯 Mục tiêu trị liệu:</p>
                     <ul className="space-y-1.5 pl-1">
                       {mucTieuPoints.map((point: string, idx: number) => (
                         <li key={idx} className="flex gap-2 items-start text-xs font-semibold text-slate-655 leading-relaxed">

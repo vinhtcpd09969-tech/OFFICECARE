@@ -1,4 +1,5 @@
 import { pool } from '../config/db';
+import { updateCompletedSessionsCount } from './appointment.repository';
 
 class TechnicianRepository {
   // 1. Lấy danh sách ca trị liệu chờ thực hiện hôm nay của KTV
@@ -193,34 +194,11 @@ class TechnicianRepository {
       `;
       await client.query(updateLdQuery, [data.lich_dat_id]);
 
-      // 4. Nếu ca trị liệu thuộc 1 Phác đồ (gói liệu trình), cập nhật số buổi đã dùng
+      // 4. Nếu ca trị liệu thuộc 1 Phác đồ (gói liệu trình), đếm lại & tự chuyển trang_thai —
+      // dùng đúng hàm dùng chung (khóa hàng, chặn race với receptionist/appointment repository
+      // cùng đụng 1 phác đồ), không tự chép lại công thức ở đây nữa.
       if (phacDoId) {
-        const countRes = await client.query(
-          "SELECT COUNT(*)::int as count FROM cuoc_hen WHERE phac_do_dieu_tri_id = $1 AND trang_thai = 'hoan_thanh' AND loai = 'DIEU_TRI'",
-          [phacDoId]
-        );
-        const completedCount = countRes.rows[0].count || 0;
-
-        const pdRes = await client.query('SELECT tong_so_buoi, trang_thai FROM phac_do_dieu_tri WHERE id = $1', [phacDoId]);
-        if (pdRes.rows.length > 0) {
-          const { tong_so_buoi, trang_thai } = pdRes.rows[0];
-          const statusToSet = completedCount >= tong_so_buoi ? 'hoan_thanh' : (trang_thai === 'hoan_thanh' ? 'dang_dieu_tri' : trang_thai);
-          if (statusToSet === 'hoan_thanh') {
-            await client.query(
-              `UPDATE phac_do_dieu_tri
-               SET so_buoi_da_dung = $1, trang_thai = $2, ngay_hoan_thanh = COALESCE(ngay_hoan_thanh, NOW())
-               WHERE id = $3`,
-              [completedCount, statusToSet, phacDoId]
-            );
-          } else {
-            await client.query(
-              `UPDATE phac_do_dieu_tri
-               SET so_buoi_da_dung = $1, trang_thai = $2
-               WHERE id = $3`,
-              [completedCount, statusToSet, phacDoId]
-            );
-          }
-        }
+        await updateCompletedSessionsCount(client, phacDoId);
       }
 
       await client.query('COMMIT');

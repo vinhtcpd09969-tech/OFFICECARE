@@ -1,7 +1,7 @@
 import { pool } from '../config/db';
 import { calculateDiscountPercent, resolveNoShowOutcome, PaymentTransactionDetail, PACKAGE_ACTIVATION_WINDOW_DAYS } from '../domain/billing';
 import { HinhThucThanhToanGoi } from '../domain/types';
-import appointmentRepository from './appointment.repository';
+import appointmentRepository, { updateCompletedSessionsCount } from './appointment.repository';
 
 class ReceptionistRepository {
   async getTodayAppointments() {
@@ -182,44 +182,11 @@ class ReceptionistRepository {
         const updatedAppt = rows[0];
         // Buổi "không đến" cũng có thể tiêu thụ 1 buổi (Nhóm B) — gọi lại cả khi finalStatus='khong_den',
         // không chỉ hoan_thanh. Công thức đếm bên dưới tự quyết định có tính buổi đó hay không.
+        // Buổi "không đến" cũng có thể tiêu thụ 1 buổi (Nhóm B) — gọi lại cả khi finalStatus='khong_den',
+        // không chỉ hoan_thanh. Dùng đúng hàm dùng chung (khóa hàng, chặn race với
+        // technician/appointment repository cùng đụng 1 phác đồ), không tự chép lại công thức ở đây.
         if (['hoan_thanh', 'khong_den', 'khach_khong_den'].includes(finalStatus) && updatedAppt.phac_do_dieu_tri_id) {
-          // Đếm buổi đã TIÊU THỤ: hoan_thanh luôn tính; "không đến" CHỈ tính khi gói Nhóm B (trả
-          // thẳng/trả góp). Hủy không bao giờ tính. Xem updateCompletedSessionsCount ở appointment.repository.ts.
-          const countRes = await client.query(
-            `SELECT COUNT(*)::int as count FROM cuoc_hen
-             WHERE phac_do_dieu_tri_id = $1
-               AND loai = 'DIEU_TRI'
-               AND (
-                 trang_thai = 'hoan_thanh'
-                 OR (
-                   trang_thai IN ('khong_den', 'khach_khong_den', 'khach_khong_den_phat')
-                   AND (SELECT hinh_thuc_thanh_toan_goi FROM hoa_don WHERE phac_do_dieu_tri_id = $1 LIMIT 1)
-                       IN ('tra_thang', 'tra_gop')
-                 )
-               )`,
-            [updatedAppt.phac_do_dieu_tri_id]
-          );
-          const completedCount = countRes.rows[0].count || 0;
-          const pdRes = await client.query('SELECT tong_so_buoi, trang_thai FROM phac_do_dieu_tri WHERE id = $1', [updatedAppt.phac_do_dieu_tri_id]);
-          if (pdRes.rows.length > 0) {
-            const { tong_so_buoi, trang_thai } = pdRes.rows[0];
-            const statusToSet = completedCount >= tong_so_buoi ? 'hoan_thanh' : (trang_thai === 'hoan_thanh' ? 'dang_dieu_tri' : trang_thai);
-            if (statusToSet === 'hoan_thanh') {
-              await client.query(
-                `UPDATE phac_do_dieu_tri
-                 SET so_buoi_da_dung = $1, trang_thai = $2, ngay_hoan_thanh = COALESCE(ngay_hoan_thanh, NOW())
-                 WHERE id = $3`,
-                [completedCount, statusToSet, updatedAppt.phac_do_dieu_tri_id]
-              );
-            } else {
-              await client.query(
-                `UPDATE phac_do_dieu_tri
-                 SET so_buoi_da_dung = $1, trang_thai = $2
-                 WHERE id = $3`,
-                [completedCount, statusToSet, updatedAppt.phac_do_dieu_tri_id]
-              );
-            }
-          }
+          await updateCompletedSessionsCount(client, updatedAppt.phac_do_dieu_tri_id);
         }
       }
 
@@ -1222,8 +1189,11 @@ class ReceptionistRepository {
     if (patientRows.length === 0) return null;
     const patient = patientRows[0];
 
-    // Gói đã kích hoạt — không JOIN hoa_don/nhat_ky_buoi_dieu_tri/nhân sự/phòng (không cần cho
-    // lịch sử rút gọn của Lễ tân).
+    // Gói đã kích hoạt — có JOIN hoa_don (chỉ các field thanh toán cần cho
+    // isSessionPaymentSatisfied() ở frontend, xem CustomerHistoryView.tsx) để biết buổi tiếp theo có
+    // đang bị chặn đặt lịch vì chưa đóng đợt 2/buổi hiện tại hay không — trước đây không JOIN nên nút
+    // "Đặt lịch buổi N" ở trang hồ sơ Lễ tân luôn hiện, không bắt được điều kiện này như mọi nơi khác
+    // (WalkInBookingModal, DetailFooter.tsx...). Không JOIN thêm nhat_ky_buoi_dieu_tri/nhân sự/phòng.
     const { rows: plans } = await pool.query(`
       SELECT
         pd.id, pd.goi_dich_vu_id, pd.tong_so_buoi,
@@ -1232,9 +1202,14 @@ class ReceptionistRepository {
           WHERE phac_do_dieu_tri_id = pd.id AND trang_thai = 'hoan_thanh' AND loai = 'DIEU_TRI'
         ) as so_buoi_da_dung,
         pd.trang_thai, pd.ngay_kich_hoat, pd.han_su_dung,
-        g.ten_goi, g.loai_goi
+        g.ten_goi, g.loai_goi,
+        hd.id as hoa_don_id,
+        hd.hinh_thuc_thanh_toan_goi, hd.tong_tien_phai_tra, hd.so_tien_da_tra,
+        hd.tong_tien_goc, hd.ti_le_giam_gia_goi, hd.so_tien_giam_voucher,
+        hd.trang_thai as trang_thai_hoa_don_goi
       FROM phac_do_dieu_tri pd
       JOIN goi_dich_vu g ON pd.goi_dich_vu_id = g.id
+      LEFT JOIN hoa_don hd ON hd.phac_do_dieu_tri_id = pd.id
       WHERE pd.khach_hang_id = $1
       ORDER BY pd.ngay_kich_hoat DESC
     `, [customerId]);

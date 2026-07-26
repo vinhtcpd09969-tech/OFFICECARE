@@ -36,7 +36,12 @@ export default function CustomerMedicalRecord() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <RecordHeader khachHang={khach_hang} goiDieuTri={goi_dieu_tri} />
+      <RecordHeader
+        khachHang={khach_hang}
+        goiDieuTri={goi_dieu_tri}
+        dieuTriLe={dieu_tri_le}
+        lichSuKham={lich_su_kham}
+      />
 
       <RecordTabs
         activeTab={record.activeTab}

@@ -68,6 +68,65 @@ export async function assertTraGopDot2PaidBeforeCheckin(db: Pool | PoolClient, c
   }
 }
 
+/**
+ * Đếm lại số buổi ĐÃ TIÊU THỤ của 1 phác đồ và tự chuyển trang_thai sang 'hoan_thanh' nếu đã đủ
+ * (hoặc lùi lại 'dang_dieu_tri' nếu trước đó lỡ đánh dấu hoàn thành mà giờ chưa đủ buổi nữa) —
+ * nguồn DUY NHẤT cho phép tính này. Dùng chung cho appointment.repository.ts (Bác sĩ/Admin đổi
+ * trạng thái), technician.repository.ts (KTV hoàn thành buổi trị liệu), receptionist.repository.ts
+ * (Lễ tân đổi trạng thái lịch hẹn) — trước đây mỗi nơi tự chép 1 bản riêng, không khóa hàng, nên 2
+ * luồng cùng đụng 1 phác đồ gần lúc nhau có thể đua nhau ghi đè: luồng đọc COUNT trước khi luồng
+ * kia kịp commit sẽ ghi lại giá trị cũ, khiến trang_thai kẹt ở 'dang_dieu_tri' dù đã đủ buổi (đã xảy
+ * ra thật với dữ liệu, xem trace log lúc phát hiện bug).
+ *
+ * BẮT BUỘC gọi với `client` đang ở trong transaction (BEGIN...COMMIT) của caller, không gọi với
+ * `pool` trần — `SELECT ... FOR UPDATE` chỉ thực sự khóa hàng phác đồ tới khi transaction ngoài
+ * COMMIT/ROLLBACK, gọi ngoài transaction sẽ nhả khóa ngay sau câu lệnh, không chặn được race.
+ */
+export async function updateCompletedSessionsCount(db: Pool | PoolClient, phac_do_dieu_tri_id: string): Promise<void> {
+  const pdRes = await db.query(
+    'SELECT tong_so_buoi, trang_thai FROM phac_do_dieu_tri WHERE id = $1 FOR UPDATE',
+    [phac_do_dieu_tri_id]
+  );
+  if (pdRes.rows.length === 0) return;
+  const { tong_so_buoi, trang_thai } = pdRes.rows[0];
+
+  // Đếm buổi đã TIÊU THỤ: hoan_thanh luôn tính; "không đến" CHỈ tính khi gói Nhóm B (trả
+  // thẳng/trả góp — khách đã trả trước nên mất buổi), Nhóm A không đến thì KHÔNG mất buổi. Hủy
+  // (da_huy/da_huy_phat) không bao giờ tính.
+  const countRes = await db.query(
+    `SELECT COUNT(*)::int as count FROM cuoc_hen
+     WHERE phac_do_dieu_tri_id = $1
+       AND loai = 'DIEU_TRI'
+       AND (
+         trang_thai = 'hoan_thanh'
+         OR (
+           trang_thai IN ('khong_den', 'khach_khong_den', 'khach_khong_den_phat')
+           AND (SELECT hinh_thuc_thanh_toan_goi FROM hoa_don WHERE phac_do_dieu_tri_id = $1 LIMIT 1)
+               IN ('tra_thang', 'tra_gop')
+         )
+       )`,
+    [phac_do_dieu_tri_id]
+  );
+  const completedCount = countRes.rows[0].count || 0;
+  const statusToSet = completedCount >= tong_so_buoi ? 'hoan_thanh' : (trang_thai === 'hoan_thanh' ? 'dang_dieu_tri' : trang_thai);
+
+  if (statusToSet === 'hoan_thanh') {
+    await db.query(
+      `UPDATE phac_do_dieu_tri
+       SET so_buoi_da_dung = $1, trang_thai = $2, ngay_hoan_thanh = COALESCE(ngay_hoan_thanh, NOW())
+       WHERE id = $3`,
+      [completedCount, statusToSet, phac_do_dieu_tri_id]
+    );
+  } else {
+    await db.query(
+      `UPDATE phac_do_dieu_tri
+       SET so_buoi_da_dung = $1, trang_thai = $2
+       WHERE id = $3`,
+      [completedCount, statusToSet, phac_do_dieu_tri_id]
+    );
+  }
+}
+
 function calculateConfirmationDeadline(now: Date, appointmentStart: Date): Date {
   const durationMs = 30 * 60 * 1000;
 
@@ -1344,7 +1403,7 @@ class AppointmentRepository {
         // Buổi bị "không đến" cũng có thể tiêu thụ 1 buổi của gói (Nhóm B) — phải gọi lại cả khi
         // finalStatus='khong_den', không chỉ hoan_thanh. Formula bên trong tự quyết đếm hay không.
         if (['hoan_thanh', 'khong_den', 'khach_khong_den'].includes(finalStatus) && rows[0].phac_do_dieu_tri_id) {
-          await this.updateCompletedSessionsCount(rows[0].phac_do_dieu_tri_id);
+          await updateCompletedSessionsCount(client, rows[0].phac_do_dieu_tri_id);
         }
       }
 
@@ -1358,50 +1417,6 @@ class AppointmentRepository {
     }
   }
 
-
-  async updateCompletedSessionsCount(phac_do_dieu_tri_id: string) {
-    // Đếm số buổi đã TIÊU THỤ của phác đồ: hoan_thanh luôn tính; buổi "không đến" CHỈ tính khi gói
-    // là Nhóm B (trả thẳng/trả góp — khách đã trả trước nên mất buổi), còn Nhóm A không đến thì
-    // KHÔNG mất buổi. Hủy (da_huy/da_huy_phat) không bao giờ tính. Giữ 'khach_khong_den_phat' trong
-    // danh sách để dữ liệu lịch sử (nếu có) vẫn được diễn giải nhất quán.
-    const countRes = await pool.query(
-      `SELECT COUNT(*)::int as count FROM cuoc_hen
-       WHERE phac_do_dieu_tri_id = $1
-         AND loai = 'DIEU_TRI'
-         AND (
-           trang_thai = 'hoan_thanh'
-           OR (
-             trang_thai IN ('khong_den', 'khach_khong_den', 'khach_khong_den_phat')
-             AND (SELECT hinh_thuc_thanh_toan_goi FROM hoa_don WHERE phac_do_dieu_tri_id = $1 LIMIT 1)
-                 IN ('tra_thang', 'tra_gop')
-           )
-         )`,
-      [phac_do_dieu_tri_id]
-    );
-    const completedCount = countRes.rows[0].count || 0;
-
-    const pdRes = await pool.query('SELECT tong_so_buoi, trang_thai FROM phac_do_dieu_tri WHERE id = $1', [phac_do_dieu_tri_id]);
-    if (pdRes.rows.length > 0) {
-      const { tong_so_buoi, trang_thai } = pdRes.rows[0];
-      const statusToSet = completedCount >= tong_so_buoi ? 'hoan_thanh' : (trang_thai === 'hoan_thanh' ? 'dang_dieu_tri' : trang_thai);
-      
-      if (statusToSet === 'hoan_thanh') {
-        await pool.query(
-          `UPDATE phac_do_dieu_tri
-           SET so_buoi_da_dung = $1, trang_thai = $2, ngay_hoan_thanh = COALESCE(ngay_hoan_thanh, NOW())
-           WHERE id = $3`,
-          [completedCount, statusToSet, phac_do_dieu_tri_id]
-        );
-      } else {
-        await pool.query(
-          `UPDATE phac_do_dieu_tri
-           SET so_buoi_da_dung = $1, trang_thai = $2
-           WHERE id = $3`,
-          [completedCount, statusToSet, phac_do_dieu_tri_id]
-        );
-      }
-    }
-  }
 
   async getCustomerAppointments(customer_id: string) {
     const query = `
@@ -1983,6 +1998,9 @@ class AppointmentRepository {
           WHEN hd.cuoc_hen_id IS NOT NULL THEN COALESCE(NULLIF(hd.phi_kham_ap_dung, 0), dv.don_gia, 0)
           ELSE 0
         END as chi_phi_kham,
+        -- CHỈ tính là "đã đóng khám riêng TRƯỚC KHI mua gói" nếu hóa đơn khám đó được tạo TRƯỚC hóa
+        -- đơn gói này (sep_hd.ngay_tao < hd.ngay_tao) — mirror đúng fix ở admin.repository.ts, xem
+        -- chú thích đầy đủ ở đó.
         (
           SELECT 'HD-' || UPPER(SUBSTRING(sep_hd.id::text FROM 1 FOR 6))
           FROM hoa_don sep_hd
@@ -1991,6 +2009,7 @@ class AppointmentRepository {
             AND sep_hd.trang_thai = 'da_thanh_toan'
             AND sep_hd.tong_tien_phai_tra > 0
             AND sep_hd.id != hd.id
+            AND sep_hd.ngay_tao < hd.ngay_tao
           LIMIT 1
         ) as ma_hoa_don_kham_rieng,
         (
@@ -2001,6 +2020,7 @@ class AppointmentRepository {
             AND sep_hd.trang_thai = 'da_thanh_toan'
             AND sep_hd.tong_tien_phai_tra > 0
             AND sep_hd.id != hd.id
+            AND sep_hd.ngay_tao < hd.ngay_tao
           LIMIT 1
         ) as ngay_thanh_toan_kham_rieng
       FROM hoa_don hd

@@ -759,7 +759,7 @@ export default function Booking() {
               {/* Benefit checks */}
               <div className="space-y-3 text-left">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  {bookingType === 'dich_vu' ? 'Nội dung thực hiện' : 'Quyền lợi khám'}
+                  {bookingType === 'dich_vu' ? 'Mục tiêu trị liệu' : 'Quyền lợi khám'}
                 </p>
                 <ul className="space-y-2 text-xs font-bold text-slate-650">
                   {selectedService?.muc_tieu ? (

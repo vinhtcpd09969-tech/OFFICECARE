@@ -46,6 +46,16 @@ export interface CustomerHistoryPlan {
   loai_goi: string;
   cuoc_hen_id?: string;
   han_kich_hoat?: string | null;
+  // Field thanh toán — cần cho isSessionPaymentSatisfied() (utils/billing.ts) để biết buổi tiếp
+  // theo có đang bị chặn vì chưa đóng đợt 2 (tra_gop)/buổi hiện tại (tung_buoi) hay không.
+  hoa_don_id?: string | null;
+  hinh_thuc_thanh_toan_goi?: string | null;
+  tong_tien_phai_tra?: number | string | null;
+  so_tien_da_tra?: number | string | null;
+  tong_tien_goc?: number | string | null;
+  ti_le_giam_gia_goi?: number | string | null;
+  so_tien_giam_voucher?: number | string | null;
+  trang_thai_hoa_don_goi?: string | null;
 }
 
 export interface CustomerHistoryAppointment {

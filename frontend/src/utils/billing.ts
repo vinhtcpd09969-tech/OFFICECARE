@@ -234,6 +234,39 @@ export function isPaymentDue(apt: {
 }
 
 /**
+ * Gói liệu trình còn đủ điều kiện đi qua luồng "Hủy gói & hoàn tiền" thông thường hay không —
+ * PHẢI khớp `canRefund` ở backend/src/repositories/admin.repository.ts::handlePackageRefund()
+ * (chặn hóa đơn da_hoan_tien/da_huy, chặn gói quá hạn — dùng "Hủy do quá hạn sử dụng" thay thế).
+ * Dùng chung giữa InvoiceDetailModal.tsx và PaymentTable.tsx (trang Tài chính) — từng bị lệch nhau
+ * vì PaymentTable.tsx tự chép 1 bản rút gọn thiếu hẳn 2 điều kiện (đã đóng sổ, đã quá hạn), khiến
+ * nút "Hoàn tiền" vẫn hiện cho hóa đơn đã bị sweepExpiredPackages()/expirePackageNoRefund() tự hủy.
+ */
+export function canRefundPackage(invoice: {
+  phac_do_dieu_tri_id?: string | null;
+  loai_goi?: string | null;
+  hinh_thuc_thanh_toan_goi?: string | null;
+  trang_thai?: string | null;
+  han_su_dung?: string | null;
+  trang_thai_phac_do?: string | null;
+}): boolean {
+  if (!invoice.phac_do_dieu_tri_id) return false;
+  if (invoice.loai_goi !== 'LIEU_TRINH') return false;
+  if (invoice.hinh_thuc_thanh_toan_goi === 'tung_buoi') return false;
+  // Hóa đơn đã hoàn tiền rồi — không hoàn lần 2. Không check invoice.trang_thai === 'da_huy' nữa:
+  // gói hủy-không-hoàn (quá hạn) giờ ghi hóa đơn đúng bản chất tài chính là 'da_thanh_toan' (đã thu
+  // đủ, không nợ) — "gói đã chấm dứt" là chuyện của trang_thai_phac_do, không phải của hóa đơn.
+  if (invoice.trang_thai === 'da_hoan_tien') return false;
+  // Phác đồ đã chấm dứt (huy = hủy quá hạn/hủy chủ động, hoan_thanh = đã dùng hết) — không còn gì
+  // để "hủy & hoàn tiền" nữa, bất kể hóa đơn đang ghi trạng thái tiền là gì.
+  if (['huy', 'hoan_thanh'].includes(invoice.trang_thai_phac_do || '')) return false;
+
+  const isOverdue = !!invoice.han_su_dung && new Date(invoice.han_su_dung) < new Date();
+  if (isOverdue) return false;
+
+  return true;
+}
+
+/**
  * Danh sách "ca cần thanh toán" hiển thị cho lễ tân (mascot ở AdminLayout.tsx, PendingPaymentPanel)
  * — khác `isPaymentDue()` ở chỗ hàm này gồm luôn điều kiện trạng thái lịch hẹn: khám/dịch vụ lẻ,
  * từng buổi, và trả góp (đợt 2) chỉ tính khi buổi đã THỰC SỰ xong (`hoan_thanh`) — mới check-in/

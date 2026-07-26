@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { ChevronLeft, Phone, Mail, Bell, CalendarPlus, Calendar, CreditCard, ClipboardList, History } from 'lucide-react';
 import { statusConfig } from '../../../../../components/appointmentStatusConfig';
+import { isSessionPaymentSatisfied } from '../../../../../utils/billing';
 import { ReputationScore } from './ReputationScore';
 import type { CustomerHistoryDetail } from '../types';
 
@@ -174,14 +175,40 @@ export function CustomerHistoryView({ customer, staleDays, onBack }: CustomerHis
                             Thanh toán & Kích hoạt
                           </button>
                         ) : p.trang_thai === 'dang_dieu_tri' && !isPlanCompleted ? (
-                          <button
-                            type="button"
-                            onClick={() => navigate(`/receptionist/appointments?khach_hang_id=${customer.id}&goi_dich_vu_id=${p.goi_dich_vu_id}&phac_do_id=${p.id}&buoi=${(p.so_buoi_da_dung || 0) + 1}`)}
-                            className="px-3 py-1.5 bg-[#0D9488] hover:bg-[#0D9488]/90 text-white rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 shadow-xs active:scale-95 shrink-0 cursor-pointer"
-                          >
-                            <CalendarPlus size={13} />
-                            Đặt lịch buổi {(p.so_buoi_da_dung || 0) + 1}
-                          </button>
+                          (() => {
+                            const nextSessionNum = (p.so_buoi_da_dung || 0) + 1;
+                            // Khớp đúng điều kiện chặn đặt buổi tiếp theo đang áp dụng ở mọi nơi khác
+                            // (WalkInBookingModal, DetailFooter.tsx, backend createAppointment) —
+                            // trước đây trang này thiếu dữ liệu thanh toán nên không bắt được, luôn
+                            // hiện "Đặt lịch buổi N" dù còn nợ đợt 2 (trả góp)/buổi hiện tại (từng buổi).
+                            if (!isSessionPaymentSatisfied(p, nextSessionNum)) {
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const dest = p.hinh_thuc_thanh_toan_goi === 'tung_buoi'
+                                      ? `/receptionist/billing?customer_id=${customer.id}&goi_dich_vu_id=${p.goi_dich_vu_id}`
+                                      : `/receptionist/billing?hoa_don_id=${p.hoa_don_id}`;
+                                    navigate(dest);
+                                  }}
+                                  className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 shadow-xs active:scale-95 shrink-0 cursor-pointer"
+                                >
+                                  <CreditCard size={13} />
+                                  Cần thanh toán trước
+                                </button>
+                              );
+                            }
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => navigate(`/receptionist/appointments?khach_hang_id=${customer.id}&goi_dich_vu_id=${p.goi_dich_vu_id}&phac_do_id=${p.id}&buoi=${nextSessionNum}`)}
+                                className="px-3 py-1.5 bg-[#0D9488] hover:bg-[#0D9488]/90 text-white rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 shadow-xs active:scale-95 shrink-0 cursor-pointer"
+                              >
+                                <CalendarPlus size={13} />
+                                Đặt lịch buổi {nextSessionNum}
+                              </button>
+                            );
+                          })()
                         ) : (
                           <span className="text-[11px] font-semibold text-slate-400 italic">Đã hoàn thành</span>
                         )}

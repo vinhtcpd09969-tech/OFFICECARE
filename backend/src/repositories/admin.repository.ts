@@ -1164,6 +1164,12 @@ class AdminRepository {
           WHEN hd.cuoc_hen_id IS NOT NULL THEN COALESCE(NULLIF(hd.phi_kham_ap_dung, 0), dv.don_gia, 0)
           ELSE 0
         END as chi_phi_kham,
+        -- CHỈ tính là "đã đóng khám riêng TRƯỚC KHI mua gói" nếu hóa đơn khám đó được tạo TRƯỚC hóa
+        -- đơn gói này (sep_hd.ngay_tao < hd.ngay_tao). Thiếu điều kiện này, hóa đơn khám do
+        -- handlePackageRefund() TỰ TÁCH RA SAU khi hủy gói (thu hồi phí khám đã miễn — cùng
+        -- cuoc_hen_id) sẽ bị nhầm là "đã đóng riêng lúc mua", khiến panel "Phân tích chi tiết hóa đơn
+        -- lúc mua" kể sai câu chuyện (số tiền vẫn đúng, chỉ narrative sai — snapshot ghi_chu lúc
+        -- checkout ở receptionist.service.ts không bị ảnh hưởng, vẫn đúng).
         (
           SELECT 'HD-' || UPPER(SUBSTRING(sep_hd.id::text FROM 1 FOR 6))
           FROM hoa_don sep_hd
@@ -1172,6 +1178,7 @@ class AdminRepository {
             AND sep_hd.trang_thai = 'da_thanh_toan'
             AND sep_hd.tong_tien_phai_tra > 0
             AND sep_hd.id != hd.id
+            AND sep_hd.ngay_tao < hd.ngay_tao
           LIMIT 1
         ) as ma_hoa_don_kham_rieng,
         (
@@ -1182,6 +1189,7 @@ class AdminRepository {
             AND sep_hd.trang_thai = 'da_thanh_toan'
             AND sep_hd.tong_tien_phai_tra > 0
             AND sep_hd.id != hd.id
+            AND sep_hd.ngay_tao < hd.ngay_tao
           LIMIT 1
         ) as ngay_thanh_toan_kham_rieng
       FROM hoa_don hd
@@ -1854,9 +1862,9 @@ class AdminRepository {
       }
       const hd = hdRows[0];
 
-      if (hd.trang_thai === 'da_hoan_tien') {
+      if (['da_hoan_tien', 'da_huy'].includes(hd.trang_thai)) {
         await client.query('ROLLBACK');
-        return { error: 'Hóa đơn này đã được hoàn tiền trước đó', code: 400 };
+        return { error: 'Hóa đơn này đã được xử lý (hủy/hoàn tiền) trước đó', code: 400 };
       }
 
       // 2. Fetch the associated treatment plan to know the total sessions
@@ -1963,46 +1971,16 @@ class AdminRepository {
       const examFeeToCharge = refundCalc.examFeeToCharge;
       const so_tien_hoan_tra = refundCalc.soTienHoanTra;
 
-      // examFeeToCharge > 0 nghĩa là khám được miễn phí gộp vào giá gói (chưa từng có hóa đơn
-      // khám riêng) và giờ gói bị hủy giữa chừng — phải tách thành 1 hóa đơn khám riêng biệt (đã
-      // thanh toán) để giá trị này không biến mất khỏi hoa_don: trước đây chỉ trừ vào tiền hoàn
-      // cho khách mà không ghi nhận doanh thu ở đâu cả (xem docs/BUSINESS_RULES.md).
-      if (examFeeToCharge > 0) {
-        const { rows: examHdRows } = await client.query(
-          `INSERT INTO hoa_don (khach_hang_id, cuoc_hen_id, tong_tien_goc, tong_tien_phai_tra, so_tien_da_tra, trang_thai, ghi_chu)
-           VALUES ($1, $2, $3, $3, $3, 'da_thanh_toan', $4)
-           RETURNING id, 'HD-' || UPPER(SUBSTRING(id::text FROM 1 FOR 6)) as ma_hoa_don, ngay_tao`,
-          [
-            hd.khach_hang_id,
-            hd.cuoc_hen_id,
-            examFeeToCharge,
-            `Tự động tách khi hủy gói HD-${String(hd.id).substring(0, 6).toUpperCase()} — phí khám lâm sàng đã miễn (gộp vào giá gói), thu hồi khi gói bị hủy giữa chừng.`
-          ]
-        );
-        const examHd = examHdRows[0];
-
-        await client.query(
-          `INSERT INTO giao_dich_thanh_toan (hoa_don_id, so_tien, loai_giao_dich, phuong_thuc, ma_tham_chieu, ngay_giao_dich, nhan_vien_thuc_hien_id, chi_tiet)
-           VALUES ($1, $2, 'THANH_TOAN', 'tien_mat', $3, NOW(), $4, $5)`,
-          [
-            examHd.id,
-            examFeeToCharge,
-            `EX${Math.floor(10000000 + Math.random() * 90000000)}`,
-            nhan_vien_id,
-            JSON.stringify({
-              v: 1,
-              dien_giai: `Phí khám lâm sàng thu hồi từ hủy gói HD-${String(hd.id).substring(0, 6).toUpperCase()}`,
-              ty_le_phan_tram: 100,
-            })
-          ]
-        );
-
-        if (examTrace) {
-          examTrace.has_separate_invoice = true;
-          examTrace.invoice_code = examHd.ma_hoa_don;
-          examTrace.invoice_date = examHd.ngay_tao;
-        }
-      }
+      // examFeeToCharge > 0 nghĩa là khám được miễn phí gộp vào giá gói (chưa từng có hóa đơn khám
+      // riêng) và giờ gói bị hủy giữa chừng — phí này được thu hồi NGAY TRÊN hóa đơn gói (gộp vào
+      // keptRevenuePackage ở calculatePackageCancellationRefund()), KHÔNG tách hóa đơn khám riêng
+      // nữa. Từng thử tách hóa đơn riêng để "phí không biến mất khỏi hoa_don", nhưng cách đó lại đẻ
+      // ra hóa đơn không tương ứng giao dịch thu tiền thật nào (badge "Tự động" phải dán thêm để giải
+      // thích), khiến "Tổng tiền" cộng dồn giữa các hóa đơn của cùng khách lệch nhau tùy thứ tự thanh
+      // toán khám trước/sau — gộp thẳng vào hóa đơn gói đơn giản hơn và không mất gì (không có báo
+      // cáo nào tách bạch "doanh thu khám" riêng khỏi "doanh thu gói" đang dùng tới sự tách đó).
+      // examTrace giữ nguyên has_separate_invoice=false cho trường hợp này — panel "Phân tích chi
+      // tiết giao dịch hoàn tiền" tự chuyển sang mô tả theo ca khám (ngày/giờ) thay vì mã hóa đơn.
 
       // 4. Create a negative transaction log for the refund
       const maRefund = `REF${Math.floor(10000000 + Math.random() * 90000000)}`;
@@ -2037,6 +2015,11 @@ class AdminRepository {
 
       const keptRevenuePackage = refundCalc.keptRevenuePackage;
 
+      // tong_tien_phai_tra KHÔNG được đổi sau khi tạo — đây là sự kiện lịch sử "lúc mua" (giống hệt
+      // tong_tien_goc, ti_le_giam_gia_goi — luôn bất biến), các nơi hiển thị "chi tiết hóa đơn lúc
+      // mua" (InvoiceDetailModal.tsx cả Admin lẫn Khách hàng) đọc thẳng field này để dựng lại đúng
+      // bối cảnh lúc bán, đổi ngược ở đây sẽ khiến nó tự mâu thuẫn với ghi_chú snapshot cùng lúc tạo
+      // (vd "Được miễn phí khám..." nhưng Tổng cần thu lại tụt đúng bằng giá khám).
       await client.query(
         `UPDATE hoa_don
          SET trang_thai = 'da_hoan_tien',
@@ -2136,9 +2119,14 @@ class AdminRepository {
 
       // Không tạo giao_dich_thanh_toan — không có tiền di chuyển (không hoàn, không thu thêm),
       // và nhan_vien_thuc_hien_id là NOT NULL trong khi hành động này không cần gắn giao dịch tiền.
+      // trang_thai hóa đơn set 'da_thanh_toan' (không phải 'da_huy') — đúng bản chất TÀI CHÍNH của
+      // hóa đơn (đã thu đủ, không nợ, không hoàn), KHÔNG phải trạng thái "hóa đơn bị hủy". Việc gói
+      // liệu trình bị chấm dứt do quá hạn là chuyện của phac_do_dieu_tri.trang_thai ('huy') — nơi
+      // canRefundPackage()/remainingDebt (frontend) đọc để biết gói đã hết cửa hoàn tiền, không dựa
+      // vào trang_thai của hóa đơn nữa (tránh lẫn 2 khái niệm "tiền" và "gói" vào cùng 1 field).
       await client.query(
         `UPDATE hoa_don
-         SET trang_thai = 'da_huy',
+         SET trang_thai = 'da_thanh_toan',
              tong_tien_phai_tra = so_tien_da_tra,
              ghi_chu = COALESCE(ghi_chu || ' | ', '') || $1
          WHERE id = $2`,
@@ -2181,7 +2169,7 @@ class AdminRepository {
         RETURNING id, han_su_dung
       )
       UPDATE hoa_don hd
-      SET trang_thai = 'da_huy',
+      SET trang_thai = 'da_thanh_toan',
           tong_tien_phai_tra = hd.so_tien_da_tra,
           ghi_chu = COALESCE(hd.ghi_chu || ' | ', '') ||
             'Hệ thống tự động hủy do quá hạn sử dụng (hạn ' || to_char(ne.han_su_dung, 'DD/MM/YYYY') ||
