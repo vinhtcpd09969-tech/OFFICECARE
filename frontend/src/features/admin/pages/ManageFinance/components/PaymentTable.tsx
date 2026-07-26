@@ -1,4 +1,5 @@
 import { formatCurrency } from '../../../../../shared/utils';
+import { canRefundPackage } from '../../../../../utils/billing';
 import { TRANSACTION_TYPE_META } from '../constants';
 import { Pagination } from '../../../../../components/Pagination';
 import { TableSkeleton } from './TableSkeleton';
@@ -30,9 +31,7 @@ const isAlreadyRefunded = (payment: Payment, allPayments: Payment[]) =>
 const getRefundEligibility = (payment: Payment, invoices: Invoice[]) => {
   const invoice = invoices.find((inv) => inv.id === payment.hoa_don_id) || null;
   if (!invoice) return { invoice: null, eligible: false };
-  const isPackage = !!invoice.phac_do_dieu_tri_id;
-  const eligible = isPackage && invoice.loai_goi === 'LIEU_TRINH' && invoice.hinh_thuc_thanh_toan_goi !== 'tung_buoi';
-  return { invoice, eligible };
+  return { invoice, eligible: canRefundPackage(invoice) };
 };
 
 export function PaymentTable({ payments, allPayments, invoices, loading, isAdminOrManager, page, pageSize, onPageChange, onOpenRefund }: PaymentTableProps) {
@@ -79,8 +78,8 @@ export function PaymentTable({ payments, allPayments, invoices, loading, isAdmin
                         </span>
                       </td>
                       <td className="px-6 py-4 text-xs font-extrabold text-slate-800 dark:text-zinc-100">{pay.ten_khach_hang}</td>
-                      <td className={`px-6 py-4 font-mono font-black text-xs ${pay.loai_giao_dich === 'HOAN_TIEN' ? 'text-rose-600 dark:text-rose-400' : 'text-slate-800 dark:text-zinc-100'}`}>
-                        {pay.loai_giao_dich === 'HOAN_TIEN' ? `- ${formatCurrency(pay.so_tien)}` : formatCurrency(pay.so_tien)}
+                      <td className={`px-6 py-4 font-mono font-black text-xs tabular-nums ${pay.loai_giao_dich === 'HOAN_TIEN' ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
+                        {pay.loai_giao_dich === 'HOAN_TIEN' ? '−' : '+'}{formatCurrency(Math.abs(Number(pay.so_tien)))}
                       </td>
                       <td className="px-6 py-4 text-xs text-slate-700 dark:text-zinc-300 font-bold">
                         {METHOD_LABEL[pay.phuong_thuc] || '🏦 Chuyển khoản'}

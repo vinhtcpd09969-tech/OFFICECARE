@@ -103,11 +103,19 @@ export default function LandingLayout() {
                   className="flex items-center gap-3 hover:bg-white/80 py-1.5 px-2.5 rounded-full border border-transparent hover:border-slate-100 transition-all"
                 >
                   <div className="w-8 h-8 rounded-full border border-primary/20 p-0.5 overflow-hidden">
-                    <img 
-                      src={user.avatar_url || "https://i.pravatar.cc/150?img=11"} 
-                      alt="Avatar" 
-                      className="w-full h-full object-cover rounded-full"
-                    />
+                    {user.avatar_url ? (
+                      <img 
+                        src={resolveImageUrl(user.avatar_url)} 
+                        alt={user.ho_ten} 
+                        className="w-full h-full object-cover rounded-full"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-slate-100 flex items-center justify-center rounded-full text-slate-300">
+                        <svg className="w-full h-full text-slate-300" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                        </svg>
+                      </div>
+                    )}
                   </div>
                   <div className="text-left hidden lg:block">
                     <p className="text-xs font-jakarta font-bold text-secondary leading-tight">{user.ho_ten}</p>
@@ -196,8 +204,44 @@ export default function LandingLayout() {
       </main>
 
       {/* Sleek Premium Compact Footer (Medical Light Mint Theme) */}
-      <footer className="bg-gradient-to-b from-[#E6F4F1] to-[#D5EDE9] text-slate-600 pt-14 pb-8 mt-auto text-xs font-sans border-t border-[#B3E0D8]">
+      <footer className="bg-gradient-to-b from-[#E6F4F1] to-[#D5EDE9] text-slate-600 pt-10 pb-8 mt-auto text-xs font-sans border-t border-[#B3E0D8]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          
+          {/* Pre-Footer Premium Hero Banner */}
+          <div className="relative overflow-hidden bg-gradient-to-r from-slate-900 via-teal-950 to-slate-900 rounded-[32px] p-7 md:p-9 text-white mb-12 shadow-xl border border-teal-800/30">
+            <div className="absolute -top-24 -right-24 w-72 h-72 bg-teal-500/20 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="space-y-2 text-center md:text-left">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-500/20 border border-teal-400/30 text-teal-300 text-[10px] font-black uppercase tracking-widest">
+                  ✨ Trải Nghiệm Phục Hồi Y Khoa
+                </span>
+                <h3 className="text-xl md:text-2xl font-heading font-black text-white uppercase tracking-tight">
+                  Đặt Lịch Trị Liệu & Khám 1:1 Cùng Bác Sĩ
+                </h3>
+                <p className="text-xs text-teal-100/80 max-w-xl leading-relaxed font-medium">
+                  Đội ngũ Bác sĩ & KTV chuyên khoa luôn sẵn sàng đồng hành cùng bạn chấm dứt triệt để các cơn đau cột sống & cơ xương khớp.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-center gap-3 shrink-0">
+                <Link
+                  to="/booking"
+                  className="px-6 py-3.5 bg-primary hover:bg-[#25A89C] text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-teal-500/20 hover:scale-105 active:scale-98 transition-all flex items-center gap-2 cursor-pointer"
+                >
+                  <Calendar size={15} /> Đặt lịch khám ngay
+                </Link>
+                <a
+                  href="tel:0398655332"
+                  className="px-5 py-3.5 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 cursor-pointer"
+                >
+                  <Phone size={15} /> 0398655332
+                </a>
+              </div>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-12 gap-8 mb-12">
             
             {/* Brand & Mission Column */}

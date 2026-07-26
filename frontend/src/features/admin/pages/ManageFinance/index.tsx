@@ -10,11 +10,12 @@ import {
   Activity
 } from 'lucide-react';
 import { formatCurrency } from '../../../../shared/utils';
+import { INVOICE_STATUS_LABELS } from './constants';
 
 // Hooks
 import { useCheckout } from './hooks/useCheckout';
 import { useFinanceDashboard } from './hooks/useFinanceDashboard';
-import type { Invoice } from './hooks/useFinanceDashboard';
+import type { Invoice, Payment } from './hooks/useFinanceDashboard';
 
 // Components
 import FastPaymentModal from './components/FastPaymentModal';
@@ -114,7 +115,7 @@ export default function ManageFinance() {
             </div>
             <div style="text-align: right;">
               <strong>Hình thức thanh toán:</strong> ${inv.hinh_thuc_thanh_toan_goi ? inv.hinh_thuc_thanh_toan_goi.replace(/_/g, ' ').toUpperCase() : 'MẶC ĐỊNH'}<br/>
-              <strong>Trạng thái:</strong> ${inv.trang_thai.toUpperCase().replace(/_/g, ' ')}
+              <strong>Trạng thái:</strong> ${INVOICE_STATUS_LABELS[inv.trang_thai] || inv.trang_thai.toUpperCase().replace(/_/g, ' ')}
             </div>
           </div>
           <table>
@@ -143,12 +144,87 @@ export default function ManageFinance() {
           </table>
           <div class="total-section">
             <div>Tổng số tiền phải thanh toán: ${formatCurrency(Number(inv.tong_tien_thanh_toan))}</div>
-            <div style="color: #10b981; margin-top: 5px;">Số tiền đã đóng: ${formatCurrency(Number(inv.da_thanh_toan))}</div>
-            <div style="color: #f59e0b; margin-top: 5px;">Còn nợ lại: ${formatCurrency(Math.max(0, Number(inv.tong_tien_thanh_toan) - Number(inv.da_thanh_toan)))}</div>
+            <div style="color: #10b981; margin-top: 5px;">Số tiền đã đóng${inv.trang_thai === 'da_hoan_tien' ? ' (giữ lại)' : ''}: ${formatCurrency(Number(inv.da_thanh_toan))}</div>
+            ${inv.trang_thai === 'da_hoan_tien'
+              ? `<div style="color: #e11d48; margin-top: 5px;">Đã hoàn trả cho khách: ${formatCurrency(Math.max(0, Number(inv.tong_tien_thanh_toan) - Number(inv.da_thanh_toan)))}</div>`
+              : `<div style="color: #f59e0b; margin-top: 5px;">Còn nợ lại: ${formatCurrency(Math.max(0, Number(inv.tong_tien_thanh_toan) - Number(inv.da_thanh_toan)))}</div>`
+            }
           </div>
           <div class="footer">
             Cảm ơn quý khách đã tin tưởng và sử dụng dịch vụ phục hồi chức năng của chúng tôi!<br/>
             <em>Bản in hóa đơn y khoa điện tử hợp lệ</em>
+          </div>
+          <script>window.print();</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  // In biên nhận cho ĐÚNG 1 giao dịch (không phải cả hóa đơn) — cần khi khách chỉ muốn giấy biên
+  // nhận cho 1 lần thu/hoàn cụ thể, vd hóa đơn "từng buổi" thu nhiều lần rải rác, hoặc muốn biên
+  // nhận riêng cho giao dịch hoàn tiền. handlePrint() ở trên chỉ in được tổng lũy kế cả hóa đơn.
+  const handlePrintTransaction = (inv: Invoice, pay: Payment) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const isRefund = pay.loai_giao_dich === 'HOAN_TIEN';
+    const soTien = Math.abs(Number(pay.so_tien));
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Biên nhận ${pay.ma_giao_dich}</title>
+          <style>
+            body { font-family: sans-serif; padding: 40px; color: #333; line-height: 1.6; }
+            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #eee; padding-bottom: 20px; }
+            .logo { font-size: 24px; font-weight: bold; color: #0d9488; }
+            .invoice-title { font-size: 20px; margin-top: 10px; font-weight: bold; text-transform: uppercase; }
+            .meta-grid { display: grid; grid-template-cols: 1fr 1fr; margin-bottom: 30px; gap: 15px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+            th { background: #f8fafc; border-bottom: 2px solid #cbd5e1; padding: 12px; text-align: left; font-size: 14px; }
+            td { border-bottom: 1px solid #e2e8f0; padding: 12px; font-size: 14px; }
+            .total-section { text-align: right; font-size: 15px; font-weight: bold; }
+            .footer { text-align: center; margin-top: 50px; font-size: 12px; color: #666; border-top: 1px solid #eee; padding-top: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo">OFFICE CARE PHYSIOFLOW</div>
+            <div class="invoice-title">${isRefund ? 'BIÊN NHẬN HOÀN TIỀN' : 'BIÊN NHẬN THANH TOÁN'}</div>
+            <div>Mã giao dịch: ${pay.ma_giao_dich}</div>
+          </div>
+          <div class="meta-grid">
+            <div>
+              <strong>Khách hàng:</strong> ${inv.ten_khach_hang}<br/>
+              <strong>Điện thoại:</strong> ${inv.so_dien_thoai || 'N/A'}<br/>
+              <strong>Thời gian:</strong> ${new Date(pay.thoi_gian_giao_dich).toLocaleString('vi-VN')}
+            </div>
+            <div style="text-align: right;">
+              <strong>Hóa đơn liên quan:</strong> ${inv.ma_hoa_don}<br/>
+              <strong>Phương thức:</strong> ${pay.phuong_thuc === 'tien_mat' ? 'Tiền mặt' : pay.phuong_thuc === 'chuyen_khoan' ? 'Chuyển khoản' : 'Thẻ/POS'}
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Nội dung</th>
+                <th style="text-align: right;">Số tiền</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>${inv.ten_dich_vu || 'Phí khám lâm sàng/Buổi lẻ'} — ${isRefund ? 'Hoàn tiền' : 'Thanh toán'}</td>
+                <td style="text-align: right; color: ${isRefund ? '#e11d48' : '#0d9488'};">${formatCurrency(soTien)}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="total-section" style="color: ${isRefund ? '#e11d48' : '#0d9488'};">
+            <div>${isRefund ? 'Đã hoàn trả cho khách' : 'Số tiền đã thu'}: ${formatCurrency(soTien)}</div>
+          </div>
+          <div class="footer">
+            Cảm ơn quý khách đã tin tưởng và sử dụng dịch vụ phục hồi chức năng của chúng tôi!<br/>
+            <em>Bản in biên nhận điện tử hợp lệ</em>
           </div>
           <script>window.print();</script>
         </body>
@@ -746,6 +822,7 @@ export default function ManageFinance() {
           isAdminOrManager={isAdminOrManager}
           onClose={() => dashboard.setSelectedInvoice(null)}
           onPrint={handlePrint}
+          onPrintTransaction={handlePrintTransaction}
           onOpenFastPay={(inv) => dashboard.setFastPayInvoice(inv)}
           onRefund={dashboard.handleRefund}
           onPackageRefund={dashboard.handlePackageRefund}

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import axiosInstance from '../../../../../api/axios';
-import { FINANCE_PAGE_SIZE } from '../constants';
+import { FINANCE_PAGE_SIZE, INVOICE_PENDING_STATUSES } from '../constants';
 
 interface Invoice {
   id: string;
@@ -219,7 +219,13 @@ export const useFinanceDashboard = (isCheckoutMode: boolean) => {
         (inv.so_dien_thoai || '').includes(query);
       if (!matchesSearch) return false;
 
-      if (statusFilter !== 'all' && inv.trang_thai !== statusFilter) return false;
+      // "con_no" là lựa chọn gộp (không phải trang_thai thật) — khớp cả dang_tra_gop lẫn
+      // dang_tra_tung_buoi, xem giải thích ở constants.ts::INVOICE_PENDING_STATUSES.
+      if (statusFilter === 'con_no') {
+        if (!INVOICE_PENDING_STATUSES.includes(inv.trang_thai)) return false;
+      } else if (statusFilter !== 'all' && inv.trang_thai !== statusFilter) {
+        return false;
+      }
 
       // Lọc theo khoảng ngày (Từ ngày - Đến ngày)
       if (startDate) {
@@ -250,9 +256,11 @@ export const useFinanceDashboard = (isCheckoutMode: boolean) => {
       }
 
       if (itemTypeFilter !== 'all') {
-        const itemType = (inv.ten_dich_vu || '').toLowerCase();
         const hinhThuc = inv.hinh_thuc_thanh_toan_goi || '';
-        
+
+        // Lọc theo hình thức thanh toán gói thật (hinh_thuc_thanh_toan_goi) — 3 nhánh 'goi'/
+        // 'kham_lam_sang'/'buoi_le' (đoán loại dịch vụ qua tên chuỗi ten_dich_vu) đã bỏ vì không có
+        // option nào trong FinanceFilterBar.tsx trỏ tới, là code chết từ thiết kế cũ.
         if (itemTypeFilter === '100') {
           // 100%: Bao gồm gói trả thẳng 100%, khám lâm sàng, buổi dịch vụ lẻ
           if (hinhThuc === 'tra_gop' || hinhThuc === 'tung_buoi') return false;
@@ -262,12 +270,6 @@ export const useFinanceDashboard = (isCheckoutMode: boolean) => {
         } else if (itemTypeFilter === 'tung_buoi') {
           // Từng buổi: Thanh toán lẻ theo ca
           if (hinhThuc !== 'tung_buoi') return false;
-        } else if (itemTypeFilter === 'goi') {
-          if (!itemType.includes('gói') && !inv.hinh_thuc_thanh_toan_goi) return false;
-        } else if (itemTypeFilter === 'kham_lam_sang') {
-          if (!itemType.includes('khám lâm sàng') && !itemType.includes('khám sơ khởi')) return false;
-        } else if (itemTypeFilter === 'buoi_le') {
-          if (itemType.includes('khám') || itemType.includes('gói') || inv.hinh_thuc_thanh_toan_goi) return false;
         }
       }
 

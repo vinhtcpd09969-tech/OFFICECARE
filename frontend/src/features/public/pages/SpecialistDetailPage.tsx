@@ -295,114 +295,6 @@ export default function SpecialistDetailPage() {
                 </div>
               )}
             </div>
-
-            {/* Reviews Section */}
-            <div className="bg-white rounded-[32px] p-6 md:p-8 border border-slate-100 shadow-[0_15px_40px_rgba(15,23,42,0.015)] space-y-6">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#14B8A6] bg-[#14B8A6]/10 px-3 py-1 rounded-full">
-                  💬 Phản Hồi Từ Bệnh Nhân
-                </span>
-                <span className="text-xs font-bold text-slate-500">
-                  {reviews.length} đánh giá
-                </span>
-              </div>
-
-              {reviewsLoading ? (
-                <div className="text-center py-6 text-xs font-bold text-slate-400 animate-pulse">
-                  Đang tải đánh giá...
-                </div>
-              ) : reviews.length === 0 ? (
-                <p className="text-slate-400 text-xs font-semibold py-4">Chưa có phản hồi nào cho chuyên gia này.</p>
-              ) : (
-                <div className="space-y-4">
-                  <div className="space-y-4 divide-y divide-slate-100">
-                    {paginatedReviews.map((rev) => (
-                      <div key={rev.id} className="pt-4 first:pt-0 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="size-8 rounded-lg bg-teal-50 flex items-center justify-center text-teal-650 font-black text-xs">
-                              {rev.name?.charAt(0) || 'K'}
-                            </div>
-                            <div>
-                              <p className="font-extrabold text-slate-800 text-xs">{rev.name}</p>
-                              <p className="text-[9px] text-slate-400 font-bold">
-                                {new Date(rev.date).toLocaleDateString('vi-VN')}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex gap-0.5 text-amber-400">
-                            {Array.from({ length: 5 }).map((_, i) => (
-                              <Star 
-                                key={i} 
-                                size={12} 
-                                className={i < rev.rating ? 'fill-amber-400 stroke-none' : 'text-zinc-200 fill-zinc-200 stroke-none'} 
-                              />
-                            ))}
-                          </div>
-                        </div>
-                        <p className="text-slate-655 text-xs font-medium leading-relaxed italic bg-slate-50 p-4 rounded-xl border border-slate-100">
-                          "{censorText(rev.comment)}"
-                        </p>
-                        {rev.reply && (
-                          <div className="bg-emerald-50/55 border-l-2 border-[#0D9488] rounded-r-2xl p-4 mt-2 text-xs space-y-1 ml-4">
-                            <p className="font-extrabold text-slate-800">
-                              Phản hồi từ OfficeCare:
-                            </p>
-                            <p className="text-slate-600 italic">"{rev.reply}"</p>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Pagination controls */}
-                  {(() => {
-                    const totalPages = Math.ceil(reviews.length / 5);
-                    if (totalPages <= 1) return null;
-                    return (
-                      <div className="flex items-center justify-center gap-2 pt-6 mt-4 border-t border-slate-100/60">
-                        <button
-                          type="button"
-                          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                          disabled={currentPage === 1}
-                          className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-xl border border-slate-200 hover:border-[#0D9488] hover:text-[#0D9488] text-slate-500 disabled:opacity-30 disabled:hover:border-slate-200 disabled:hover:text-slate-500 transition-all cursor-pointer select-none"
-                        >
-                          Trước
-                        </button>
-                        <div className="flex items-center gap-1">
-                          {Array.from({ length: totalPages }).map((_, i) => {
-                            const pageNum = i + 1;
-                            const isActive = currentPage === pageNum;
-                            return (
-                              <button
-                                key={pageNum}
-                                type="button"
-                                onClick={() => setCurrentPage(pageNum)}
-                                className={`w-7 h-7 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
-                                  isActive
-                                    ? 'bg-primary text-white shadow-md shadow-teal-500/10 scale-105'
-                                    : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-600'
-                                }`}
-                              >
-                                {pageNum}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                          disabled={currentPage === totalPages}
-                          className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-xl border border-slate-200 hover:border-[#0D9488] hover:text-[#0D9488] text-slate-500 disabled:opacity-30 disabled:hover:border-slate-200 disabled:hover:text-slate-500 transition-all cursor-pointer select-none"
-                        >
-                          Sau
-                        </button>
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
-            </div>
           </div>
 
           {/* Right Column: Specializations & Working Schedule (col-span 4) */}
@@ -448,30 +340,112 @@ export default function SpecialistDetailPage() {
           </div>
         </div>
 
-        {/* Full-width CTA booking banner */}
-        <div className="mt-12 bg-gradient-to-br from-[#0D9488] to-[#14B8A6] rounded-[32px] p-10 md:p-14 text-white text-center shadow-xl shadow-teal-500/10 relative overflow-hidden">
-          <div className="absolute -top-24 -left-24 w-64 h-64 bg-white/5 rounded-full pointer-events-none"></div>
-          <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-white/5 rounded-full pointer-events-none"></div>
-          <div className="relative z-10 max-w-2xl mx-auto space-y-4">
-            <span className="text-[10px] font-black uppercase tracking-widest text-teal-100 bg-white/10 px-4 py-1.5 rounded-full inline-block">
-              🗓️ Đăng ký khám chủ động
+        {/* Full-width Reviews Section */}
+        <div className="bg-white rounded-[32px] p-6 md:p-8 border border-slate-100 shadow-[0_15px_40px_rgba(15,23,42,0.015)] space-y-6 mt-8">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase tracking-widest text-[#14B8A6] bg-[#14B8A6]/10 px-3 py-1 rounded-full">
+              💬 Phản Hồi Từ Bệnh Nhân
             </span>
-            <h2 className="text-2xl md:text-4xl font-black font-heading leading-tight">
-              Đăng ký lịch hẹn trực tiếp với {specialist.ho_ten}
-            </h2>
-            <p className="text-teal-50 text-xs md:text-sm font-semibold leading-relaxed max-w-lg mx-auto">
-              Chỉ mất 1 phút để chọn lịch hẹn phù hợp nhất. Chuyên gia sẽ trực tiếp lượng giá và điều trị theo phác đồ cá nhân hóa tối ưu cho riêng bạn.
-            </p>
-            <div className="pt-4">
-              <Link
-                to="/booking"
-                state={{ selectedDoctorId: specialist.id, isKtv: !isDoctor }}
-                className="inline-flex items-center gap-2 px-8 py-4 bg-white text-[#0D9488] font-black text-xs md:text-sm rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 active:scale-98 transition-all"
-              >
-                <Calendar size={16} /> ĐẶT LỊCH HẸN TRỊ LIỆU NGAY <ArrowRight size={16} />
-              </Link>
-            </div>
+            <span className="text-xs font-bold text-slate-500">
+              {reviews.length} đánh giá
+            </span>
           </div>
+
+          {reviewsLoading ? (
+            <div className="text-center py-6 text-xs font-bold text-slate-400 animate-pulse">
+              Đang tải đánh giá...
+            </div>
+          ) : reviews.length === 0 ? (
+            <p className="text-slate-400 text-xs font-semibold py-4">Chưa có phản hồi nào cho chuyên gia này.</p>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-4 divide-y divide-slate-100">
+                {paginatedReviews.map((rev) => (
+                  <div key={rev.id} className="pt-4 first:pt-0 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="size-8 rounded-lg bg-teal-50 flex items-center justify-center text-teal-650 font-black text-xs">
+                          {rev.name?.charAt(0) || 'K'}
+                        </div>
+                        <div>
+                          <p className="font-extrabold text-slate-800 text-xs">{rev.name}</p>
+                          <p className="text-[9px] text-slate-400 font-bold">
+                            {new Date(rev.date).toLocaleDateString('vi-VN')}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex gap-0.5 text-amber-400">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star 
+                            key={i} 
+                            size={12} 
+                            className={i < rev.rating ? 'fill-amber-400 stroke-none' : 'text-zinc-200 fill-zinc-200 stroke-none'} 
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-slate-655 text-xs font-medium leading-relaxed italic bg-slate-50 p-4 rounded-xl border border-slate-100">
+                      "{censorText(rev.comment)}"
+                    </p>
+                    {rev.reply && (
+                      <div className="bg-emerald-50/55 border-l-2 border-[#0D9488] rounded-r-2xl p-4 mt-2 text-xs space-y-1 ml-4">
+                        <p className="font-extrabold text-slate-800">
+                          Phản hồi từ OfficeCare:
+                        </p>
+                        <p className="text-slate-600 italic">"{rev.reply}"</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Pagination controls */}
+              {(() => {
+                const totalPages = Math.ceil(reviews.length / 5);
+                if (totalPages <= 1) return null;
+                return (
+                  <div className="flex items-center justify-center gap-2 pt-6 mt-4 border-t border-slate-100/60">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-xl border border-slate-200 hover:border-[#0D9488] hover:text-[#0D9488] text-slate-500 disabled:opacity-30 disabled:hover:border-slate-200 disabled:hover:text-slate-500 transition-all cursor-pointer select-none"
+                    >
+                      Trước
+                    </button>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: totalPages }).map((_, i) => {
+                        const pageNum = i + 1;
+                        const isActive = currentPage === pageNum;
+                        return (
+                          <button
+                            key={pageNum}
+                            type="button"
+                            onClick={() => setCurrentPage(pageNum)}
+                            className={`w-7 h-7 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
+                              isActive
+                                ? 'bg-primary text-white shadow-md shadow-teal-500/10 scale-105'
+                                : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-600'
+                            }`}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-xl border border-slate-200 hover:border-[#0D9488] hover:text-[#0D9488] text-slate-500 disabled:opacity-30 disabled:hover:border-slate-200 disabled:hover:text-slate-500 transition-all cursor-pointer select-none"
+                    >
+                      Sau
+                    </button>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
         </div>
 
         {/* Chuyên gia nổi bật */}

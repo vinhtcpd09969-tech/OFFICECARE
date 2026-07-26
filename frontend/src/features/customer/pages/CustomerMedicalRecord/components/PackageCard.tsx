@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronDown, ChevronUp, FileText, XCircle, CreditCard } from 'lucide-react';
+import { ChevronDown, ChevronUp, FileText, XCircle, CreditCard, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -9,7 +9,7 @@ import { SessionTimelineItem } from './SessionTimelineItem';
 import { BookNextSessionModal } from './BookNextSessionModal';
 import { PACKAGE_STATUS_META } from '../constants';
 import type { PackageEntry } from '../types';
-import { isSessionPaymentSatisfied } from '../../../../../utils/billing';
+import { isSessionPaymentSatisfied, getInstallmentCutoffSession } from '../../../../../utils/billing';
 
 /** Gom dữ liệu hóa đơn gói từ 1 PackageEntry về đúng shape mà utils/billing mong đợi. */
 function toPlanShape(pkg: PackageEntry) {
@@ -93,32 +93,40 @@ export function PackageCard({ pkg, isExpanded, onToggleExpand, targetSessionId }
   // không thắc mắc "sao gói tự nhiên bị hủy".
   const isExpiredCancel = pkg.trang_thai_phac_do === 'huy' && !!pkg.han_su_dung && new Date(pkg.han_su_dung) < new Date();
 
+  // Gói trả góp còn đang chạy, chưa đóng đợt 2 — nhắc trước để khách chủ động, không đợi tới lúc bị
+  // chặn đặt buổi mới biết (cùng ngưỡng buổi với getMinPaymentRequired()/isSessionPaymentSatisfied()
+  // đang chặn nút "Đặt lịch" bên dưới, xem utils/billing.ts).
+  const installmentCutoff = pkg.hinh_thuc_thanh_toan_goi === 'tra_gop' ? getInstallmentCutoffSession(pkg.tong_so_buoi) : null;
+  const needsInstallment2 = pkg.trang_thai_phac_do === 'dang_dieu_tri'
+    && installmentCutoff !== null
+    && !isSessionPaymentSatisfied(toPlanShape(pkg), installmentCutoff);
+
   return (
     <div
       id={`package-${pkg.phac_do_id}`}
-      className="bg-white rounded-3xl border border-zinc-150 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md scroll-mt-6"
+      className="bg-white rounded-[32px] border border-slate-200/80 shadow-[0_10px_30px_rgba(15,23,42,0.025)] overflow-hidden transition-all duration-300 hover:shadow-xl hover:border-teal-500/30 scroll-mt-6"
     >
-      <div className="p-6 md:p-7 flex flex-col lg:flex-row gap-6 justify-between border-b border-zinc-100 bg-zinc-50/40">
+      <div className="p-6 md:p-8 flex flex-col lg:flex-row gap-6 justify-between border-b border-slate-100 bg-slate-50/50">
         <div className="flex-1 min-w-0">
-          <div className="flex flex-wrap items-center gap-2.5 mb-2.5">
-            <span className="text-[10px] font-bold text-zinc-400 bg-zinc-100 px-2 py-1 rounded-md">{pkg.ma_phac_do}</span>
-            <span className={`px-2.5 py-1 rounded-lg text-[9.5px] font-black uppercase tracking-wider border ${statusMeta.className}`}>
+          <div className="flex flex-wrap items-center gap-2.5 mb-3">
+            <span className="text-[10px] font-black text-teal-800 bg-teal-50 border border-teal-200/60 px-2.5 py-1 rounded-lg uppercase tracking-wider">{pkg.ma_phac_do}</span>
+            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-2xs ${statusMeta.className}`}>
               {statusMeta.label}
             </span>
-            <span className="text-[11px] font-semibold text-zinc-400">
+            <span className="text-xs font-semibold text-slate-400">
               {pkg.ngay_kich_hoat ? `Kích hoạt ${format(new Date(pkg.ngay_kich_hoat), 'dd/MM/yyyy', { locale: vi })}` : 'Chờ kích hoạt'}
               {pkg.han_su_dung && ` · Hạn sử dụng ${format(new Date(pkg.han_su_dung), 'dd/MM/yyyy', { locale: vi })}`}
             </span>
           </div>
-          <h2 className="font-heading text-lg md:text-xl font-black text-secondary tracking-tight">{pkg.ten_dich_vu}</h2>
+          <h2 className="font-heading text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-snug">{pkg.ten_dich_vu}</h2>
 
-          <div className="max-w-md mt-4 space-y-1.5">
-            <div className="flex justify-between text-xs font-bold text-zinc-600">
-              <span>Tiến trình phục hồi</span>
-              <span className="tabular-nums">{actualCompleted}/{pkg.tong_so_buoi} buổi · {percentDone}%</span>
+          <div className="max-w-md mt-5 space-y-2">
+            <div className="flex justify-between items-center text-xs font-bold text-slate-600">
+              <span className="text-slate-500 uppercase tracking-wider text-[10px] font-black">Tiến trình phục hồi</span>
+              <span className="tabular-nums font-black text-[#0D9488] bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-100">{actualCompleted}/{pkg.tong_so_buoi} buổi · {percentDone}%</span>
             </div>
-            <div className="h-2 w-full bg-zinc-100 rounded-full overflow-hidden">
-              <div className="h-full rounded-full bg-gradient-to-r from-primary to-teal-400 transition-all duration-500" style={{ width: `${percentDone}%` }} />
+            <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-200/50">
+              <div className="h-full rounded-full bg-gradient-to-r from-[#0D9488] via-[#14B8A6] to-emerald-400 transition-all duration-500 shadow-sm" style={{ width: `${percentDone}%` }} />
             </div>
           </div>
 
@@ -126,15 +134,15 @@ export function PackageCard({ pkg, isExpanded, onToggleExpand, targetSessionId }
             <button
               type="button"
               onClick={() => navigate(`/invoices?invoice=${pkg.hoa_don_id}&refund=1`)}
-              className="mt-4 inline-flex items-center gap-1.5 text-[11px] font-black text-rose-500 hover:text-rose-600 hover:underline uppercase tracking-wider"
+              className="mt-4 inline-flex items-center gap-1.5 text-[11px] font-black text-rose-500 hover:text-rose-700 hover:underline uppercase tracking-wider transition-colors"
             >
               <XCircle size={13} /> Hủy liệu trình
             </button>
           )}
 
           {isExpiredCancel && (
-            <div className="mt-4 flex items-start gap-2 text-[11px] font-semibold text-rose-700 bg-rose-50 border border-rose-100 rounded-xl px-3.5 py-2.5 max-w-md">
-              <XCircle size={14} className="shrink-0 mt-0.5" />
+            <div className="mt-4 flex items-start gap-2.5 text-xs font-medium text-rose-800 bg-rose-50/80 border border-rose-200/70 rounded-2xl p-4 max-w-md shadow-2xs">
+              <XCircle size={15} className="shrink-0 mt-0.5 text-rose-500" />
               <span>
                 Gói đã tự động hủy do quá hạn sử dụng ({format(new Date(pkg.han_su_dung!), 'dd/MM/yyyy', { locale: vi })}) — không hoàn tiền theo chính sách, không còn thao tác nào trên lịch hẹn/hóa đơn của gói này. Liên hệ phòng khám nếu cần hỗ trợ.
               </span>
@@ -143,7 +151,7 @@ export function PackageCard({ pkg, isExpanded, onToggleExpand, targetSessionId }
         </div>
 
         <div className="flex flex-col gap-3.5 lg:w-72 shrink-0">
-          <div className="bg-white border border-zinc-100 rounded-2xl p-3.5">
+          <div className="bg-white border border-slate-150 rounded-2xl p-4 shadow-2xs">
             <VasTrendSparkline sessions={pkg.buoi_dieu_tri} />
           </div>
           <InvoiceSnippet
@@ -152,18 +160,24 @@ export function PackageCard({ pkg, isExpanded, onToggleExpand, targetSessionId }
             daTra={pkg.so_tien_da_tra}
             trangThai={pkg.trang_thai_hoa_don}
           />
+          {needsInstallment2 && (
+            <div className="flex items-start gap-2 text-[11px] font-semibold text-amber-800 bg-amber-50/80 border border-amber-200/70 rounded-xl p-3">
+              <AlertCircle size={14} className="shrink-0 mt-0.5 text-amber-500" />
+              <span>Vui lòng thanh toán đợt 2 khi hoàn thành buổi số {installmentCutoff! - 1} để tiếp tục đặt buổi tiếp theo.</span>
+            </div>
+          )}
         </div>
       </div>
 
       <button
         type="button"
         onClick={onToggleExpand}
-        className="w-full py-3.5 px-6 md:px-7 bg-zinc-50 flex items-center justify-between text-xs font-bold text-zinc-600 hover:text-primary hover:bg-zinc-100/60 border-b border-zinc-100 transition-colors"
+        className="w-full py-4 px-6 md:px-8 bg-slate-50/80 hover:bg-teal-50/40 flex items-center justify-between text-xs font-black text-slate-700 hover:text-[#0D9488] border-b border-slate-100 transition-all cursor-pointer"
       >
-        <span className="flex items-center gap-2">
-          <FileText size={15} /> Nhật ký {pkg.buoi_dieu_tri.length} buổi trị liệu đã ghi nhận
+        <span className="flex items-center gap-2.5">
+          <FileText size={16} className="text-[#0D9488]" /> Nhật ký {pkg.buoi_dieu_tri.length} buổi trị liệu đã ghi nhận
         </span>
-        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        {isExpanded ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
       </button>
 
       {isExpanded && (

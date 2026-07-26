@@ -5,13 +5,26 @@ import {
   Calendar,
   Settings,
   LogOut,
-  Search,
   Menu,
   X,
   FileText,
   Receipt,
-  ShieldAlert
+  ShieldAlert,
+  ArrowLeft,
+  User as UserIcon
 } from 'lucide-react';
+import { resolveImageUrl } from '../utils/imageUrl';
+
+// Default Silhouette Avatar (Chuẩn Facebook SVG Avatar)
+function DefaultAvatar() {
+  return (
+    <div className="size-full bg-slate-100 flex items-center justify-center rounded-full text-slate-400">
+      <svg className="size-full text-slate-300" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+      </svg>
+    </div>
+  );
+}
 
 export default function DashboardLayout() {
   const { user, logout } = useAuthStore();
@@ -32,31 +45,35 @@ export default function DashboardLayout() {
 
   const filteredNavItems = navItems.filter(item => user && item.roles.map(Number).includes(Number(user.vai_tro_id)));
 
+  const avatarSrc = user?.avatar_url ? resolveImageUrl(user.avatar_url) : null;
+
   return (
     <div className="min-h-screen bg-background flex font-body">
       
       {/* Sidebar (Desktop) */}
-      <aside className="hidden lg:flex flex-col w-64 bg-white text-zinc-500 fixed h-full z-20 border-r border-zinc-100 shadow-sm">
+      <aside className="hidden lg:flex flex-col w-64 bg-white text-zinc-500 fixed h-full z-20 border-r border-zinc-100 shadow-xs">
         <div className="h-16 flex items-center gap-3 px-6 border-b border-zinc-100 bg-white">
-          <div className="size-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
-            <span className="text-primary font-bold text-sm">🏥</span>
+          <div className="size-8 rounded-lg bg-[#0D9488]/10 border border-[#0D9488]/20 flex items-center justify-center">
+            <span className="text-[#0D9488] font-bold text-sm">🏥</span>
           </div>
           <div>
             <h1 className="text-sm font-extrabold text-secondary tracking-tight flex items-center gap-1.5">
-              OFFICE CARE <span className="text-primary font-bold text-[9px] bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20">2026</span>
+              OFFICE CARE <span className="text-[#0D9488] font-bold text-[9px] bg-[#0D9488]/10 px-1.5 py-0.5 rounded border border-[#0D9488]/20">2026</span>
             </h1>
             <p className="text-[8px] text-zinc-400 font-extrabold tracking-widest uppercase mt-0.5">Phục hồi chức năng</p>
           </div>
         </div>
 
-        {/* Back to Landing Page Button */}
-        <div className="px-3 pt-4 pb-1 border-b border-zinc-50">
+        {/* Back to Landing Page Button - Redesigned Pro Max */}
+        <div className="p-3 border-b border-slate-100">
           <NavLink
             to="/"
-            className="flex items-center gap-2.5 px-4 py-2.5 rounded-[12px] text-zinc-400 hover:text-primary hover:bg-primary/5 transition-all text-[11px] font-bold uppercase tracking-wider group"
+            className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl bg-slate-50 hover:bg-teal-50/80 text-slate-600 hover:text-[#0D9488] border border-slate-200/60 hover:border-teal-200/80 transition-all text-xs font-black uppercase tracking-wider group shadow-2xs"
           >
-            <span className="transition-transform group-hover:-translate-x-1 duration-200">←</span>
-            Quay lại Trang chủ
+            <span className="p-1 rounded-xl bg-white group-hover:bg-[#0D9488]/10 text-slate-500 group-hover:text-[#0D9488] transition-colors border border-slate-200/60 group-hover:border-teal-200/60">
+              <ArrowLeft size={14} className="transition-transform group-hover:-translate-x-0.5" />
+            </span>
+            <span className="truncate">Quay lại Trang chủ</span>
           </NavLink>
         </div>
         
@@ -68,7 +85,7 @@ export default function DashboardLayout() {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-4 py-2.5 rounded-[14px] font-bold text-[11px] tracking-wide uppercase transition-all duration-200 group border-l-4 ${
                   isActive 
-                    ? 'bg-primary/5 text-primary border-primary shadow-sm' 
+                    ? 'bg-[#0D9488]/8 text-[#0D9488] border-[#0D9488] shadow-2xs font-black' 
                     : 'border-transparent text-zinc-500 hover:bg-zinc-50 hover:text-secondary'
                 }`
               }
@@ -84,7 +101,7 @@ export default function DashboardLayout() {
         <div className="p-4 border-t border-zinc-100 bg-white">
           <button 
             onClick={handleLogout}
-            className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-[14px] bg-zinc-50 hover:bg-rose-50 hover:text-rose-600 border border-zinc-100 hover:border-rose-200 text-xs font-bold transition-all text-zinc-600"
+            className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-[14px] bg-zinc-50 hover:bg-rose-50 hover:text-rose-600 border border-zinc-100 hover:border-rose-200 text-xs font-bold transition-all text-zinc-600 cursor-pointer"
           >
             <LogOut size={16} />
             Đăng xuất
@@ -110,8 +127,8 @@ export default function DashboardLayout() {
           >
             <div className="flex justify-between items-center mb-6 px-2">
               <div className="flex items-center gap-2">
-                <div className="size-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
-                  <span className="text-primary font-bold text-sm">🏥</span>
+                <div className="size-8 rounded-lg bg-[#0D9488]/10 border border-[#0D9488]/20 flex items-center justify-center">
+                  <span className="text-[#0D9488] font-bold text-sm">🏥</span>
                 </div>
                 <h1 className="text-sm font-extrabold text-secondary tracking-tight">
                   OFFICE CARE
@@ -130,7 +147,7 @@ export default function DashboardLayout() {
                   onClick={() => setIsMobileMenuOpen(false)}
                   className={({ isActive }) =>
                     `flex items-center gap-3 px-4 py-2.5 rounded-[14px] font-bold text-[11px] tracking-wide uppercase transition-all border-l-4 ${
-                      isActive ? 'bg-primary/5 text-primary border-primary' : 'border-transparent text-zinc-500 hover:bg-zinc-50 hover:text-secondary'
+                      isActive ? 'bg-[#0D9488]/10 text-[#0D9488] border-[#0D9488]' : 'border-transparent text-zinc-500 hover:bg-zinc-50 hover:text-secondary'
                     }`
                   }
                 >
@@ -139,10 +156,18 @@ export default function DashboardLayout() {
                 </NavLink>
               ))}
             </nav>
+
+            <NavLink
+              to="/"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-[14px] bg-slate-50 hover:bg-teal-50 text-slate-600 hover:text-[#0D9488] border border-slate-200 text-xs font-bold transition-all mb-2"
+            >
+              <ArrowLeft size={15} /> Quay lại Trang chủ
+            </NavLink>
             
             <button 
               onClick={handleLogout} 
-              className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-[14px] bg-zinc-50 hover:bg-rose-50 hover:text-rose-600 border border-zinc-100 hover:border-rose-200 text-xs font-bold transition-all text-zinc-600 mt-auto"
+              className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-[14px] bg-zinc-50 hover:bg-rose-50 hover:text-rose-600 border border-zinc-100 hover:border-rose-200 text-xs font-bold transition-all text-zinc-600"
             >
               <LogOut size={16} /> Đăng xuất
             </button>
@@ -154,31 +179,27 @@ export default function DashboardLayout() {
       <div className="flex-1 lg:ml-64 flex flex-col min-h-screen">
         
         {/* Topbar */}
-        <header className="h-16 bg-white/80 backdrop-blur-md border-b border-zinc-100 sticky top-0 z-10 px-4 sm:px-8 flex items-center justify-between">
+        <header className="h-16 bg-white/90 backdrop-blur-md border-b border-slate-100 sticky top-0 z-10 px-4 sm:px-8 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button 
-              className="lg:hidden text-secondary p-2 rounded-md hover:bg-zinc-100"
+              className="lg:hidden text-secondary p-2 rounded-xl hover:bg-slate-100 transition-colors"
               onClick={() => setIsMobileMenuOpen(true)}
             >
-              <Menu size={24} />
+              <Menu size={22} />
             </button>
             
-            {/* Search Bar */}
-            <div className="hidden sm:flex items-center bg-zinc-50 rounded-full px-4 py-2 border border-zinc-200 w-64 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
-              <Search size={18} className="text-zinc-400 mr-2" />
-              <input 
-                type="text" 
-                placeholder="Tìm kiếm..." 
-                className="bg-transparent border-none outline-none text-sm w-full text-secondary placeholder-zinc-400"
-              />
+            {/* Context Badge replacing useless search bar */}
+            <div className="hidden sm:flex items-center gap-2 text-slate-500 text-xs font-bold">
+              <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Cổng Thông Tin Y Khoa Cá Nhân</span>
             </div>
           </div>
 
           <div className="flex items-center gap-4 sm:gap-6">
             <div className="flex items-center gap-3 cursor-pointer group">
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-semibold text-secondary group-hover:text-primary transition-colors">{user?.ho_ten || 'Người dùng'}</p>
-                <p className="text-xs text-zinc-500 font-medium">
+                <p className="text-sm font-black text-slate-800 group-hover:text-[#0D9488] transition-colors">{user?.ho_ten || 'Người dùng'}</p>
+                <p className="text-[10px] text-slate-400 font-black uppercase tracking-wider">
                   {Number(user?.vai_tro_id) === 1 ? 'Khách hàng' : 
                    Number(user?.vai_tro_id) === 2 ? 'Lễ tân' : 
                    Number(user?.vai_tro_id) === 3 ? 'Kỹ thuật viên' : 
@@ -186,14 +207,23 @@ export default function DashboardLayout() {
                    Number(user?.vai_tro_id) === 5 ? 'Quản trị viên' : 
                    Number(user?.vai_tro_id) === 6 ? 'Quản lý' : 'Khách hàng'}
                 </p>
-
               </div>
-              <div className="size-10 rounded-full border-2 border-primary/20 p-0.5 overflow-hidden group-hover:border-primary transition-colors">
-                <img 
-                  src={user?.avatar_url || "https://i.pravatar.cc/150?img=11"} 
-                  alt="Avatar" 
-                  className="size-full object-cover rounded-full"
-                />
+
+              {/* User Avatar: Clean SVG Silhouette Default instead of random Pravatar photo */}
+              <div className="size-10 rounded-full border-2 border-[#0D9488]/20 p-0.5 overflow-hidden group-hover:border-[#0D9488] transition-colors shadow-2xs">
+                {avatarSrc ? (
+                  <img 
+                    src={avatarSrc} 
+                    alt={user?.ho_ten || 'Avatar'} 
+                    className="size-full object-cover rounded-full"
+                    onError={(e) => {
+                      // Fallback if avatar URL fails to load
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <DefaultAvatar />
+                )}
               </div>
             </div>
           </div>

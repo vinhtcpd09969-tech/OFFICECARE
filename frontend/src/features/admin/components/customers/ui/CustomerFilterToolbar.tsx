@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search, Lock } from 'lucide-react';
+import { Search, Lock, X } from 'lucide-react';
 import { REPUTATION_TIER_OPTIONS } from '../constants';
 import type { ReputationTier } from '../types';
 
@@ -96,7 +96,7 @@ export function CustomerFilterToolbar({
       <button
         type="button"
         onClick={onToggleLockedOnly}
-        className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-[9px] text-[12.5px] font-bold transition-all shrink-0"
+        className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-[9px] text-[12.5px] font-bold transition-all shrink-0 cursor-pointer"
         style={
           showLockedOnly
             ? { background: 'var(--rc-rust-soft)', border: '1px solid var(--rc-rust)', color: 'var(--rc-rust)' }
@@ -104,7 +104,19 @@ export function CustomerFilterToolbar({
         }
       >
         <Lock size={13} />
-        Tài khoản bị khóa
+        <span>Tài khoản bị khóa</span>
+        {showLockedOnly && (
+          <span
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleLockedOnly();
+            }}
+            title="Bỏ lọc tài khoản bị khóa"
+            className="ml-1 size-4 rounded-full bg-rose-200/80 hover:bg-rose-300 text-rose-800 flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-90"
+          >
+            <X size={10} className="stroke-[3]" />
+          </span>
+        )}
       </button>
     </div>
   );

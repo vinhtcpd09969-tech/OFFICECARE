@@ -1,5 +1,5 @@
 import { formatCurrency } from '../../../../../shared/utils';
-import { getStatusBadge } from '../constants';
+import { getStatusBadge, INVOICE_STATUS_LABELS } from '../constants';
 import { Pagination } from '../../../../../components/Pagination';
 import { TableSkeleton } from './TableSkeleton';
 import type { Invoice } from '../hooks/useFinanceDashboard';
@@ -69,7 +69,7 @@ export function InvoiceTable({ invoices, loading, page, pageSize, onPageChange, 
                     </td>
                     <td className="px-6 py-4">
                       <span className={`px-2.5 py-1 rounded-lg text-[9.5px] font-black uppercase tracking-wider ${getStatusBadge(inv.trang_thai)}`}>
-                        {(inv.trang_thai || '').replace(/_/g, ' ')}
+                        {INVOICE_STATUS_LABELS[inv.trang_thai] || (inv.trang_thai || '').replace(/_/g, ' ')}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">

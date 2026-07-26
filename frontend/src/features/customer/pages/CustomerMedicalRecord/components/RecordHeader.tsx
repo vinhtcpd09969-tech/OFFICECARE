@@ -1,17 +1,19 @@
-import { Phone, Mail } from 'lucide-react';
+import { Phone, Mail, CheckCircle2, Activity, Calendar } from 'lucide-react';
 import { formatPhone } from '../../../../../utils/format';
 import { getReputationTier } from '../../../../../utils/reputation';
-import type { RecordCustomer, PackageEntry } from '../types';
+import type { RecordCustomer, PackageEntry, SingleTreatmentEntry, ExamEntry } from '../types';
 
 interface RecordHeaderProps {
   khachHang: RecordCustomer;
   goiDieuTri: PackageEntry[];
+  dieuTriLe?: SingleTreatmentEntry[];
+  lichSuKham?: ExamEntry[];
 }
 
-const TIER_META: Record<string, { label: string; dot: string }> = {
-  low: { label: 'Cần lưu ý', dot: '#FB7185' },
-  mid: { label: 'Ổn định', dot: '#F0A93B' },
-  high: { label: 'Xuất sắc', dot: '#34D399' },
+const TIER_META: Record<string, { label: string; dot: string; bg: string }> = {
+  low: { label: 'Cần lưu ý', dot: '#FB7185', bg: 'bg-rose-500/15 border-rose-400/30 text-rose-300' },
+  mid: { label: 'Ổn định', dot: '#F0A93B', bg: 'bg-amber-500/15 border-amber-400/30 text-amber-300' },
+  high: { label: 'Xuất sắc', dot: '#34D399', bg: 'bg-emerald-500/15 border-emerald-400/30 text-emerald-300' },
 };
 
 function getInitials(name: string) {
@@ -20,71 +22,111 @@ function getInitials(name: string) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-// Thay banner "Khách Hàng Thân Thiết / VIP" (text cứng, không đọc dữ liệu thật) bằng dữ liệu thật:
-// điểm uy tín (khach_hang.diem_uy_tin) đặt nhỏ gọn làm phụ, và 3 chỉ số hành trình phục hồi thật
-// làm trọng tâm — đúng thứ khách quan tâm nhất khi mở trang, thay vì 1 badge trang trí vô nghĩa.
-export function RecordHeader({ khachHang, goiDieuTri }: RecordHeaderProps) {
+export function RecordHeader({ khachHang, goiDieuTri = [], dieuTriLe = [], lichSuKham = [] }: RecordHeaderProps) {
   const tier = getReputationTier(khachHang.diem_uy_tin || 0);
   const tierMeta = TIER_META[tier];
 
-  const completedSessions = goiDieuTri.reduce(
+  // 1. Tính tổng tất cả cuộc hẹn ĐÃ HOÀN THÀNH của khách hàng (gói + lẻ + khám)
+  const packageCompletedCount = goiDieuTri.reduce(
     (acc, pkg) => acc + pkg.buoi_dieu_tri.filter((s) => s.trang_thai === 'hoan_thanh').length,
     0
   );
+  const singleCompletedCount = dieuTriLe.length;
+  const examCompletedCount = lichSuKham.length;
+  const totalCompletedSessions = packageCompletedCount + singleCompletedCount + examCompletedCount;
+
+  // 2. Số gói đang điều trị
   const activePackages = goiDieuTri.filter((pkg) => pkg.trang_thai_phac_do === 'dang_dieu_tri').length;
-  const lastSessionDate = goiDieuTri
+
+  // 3. Tìm buổi hoàn thành gần nhất trong tất cả các loại (gói + lẻ + khám)
+  const packageDates = goiDieuTri
     .flatMap((pkg) => pkg.buoi_dieu_tri)
-    .filter((s) => s.trang_thai === 'hoan_thanh')
-    .map((s) => new Date(s.ngay_gio_bat_dau))
-    .sort((a, b) => b.getTime() - a.getTime())[0];
+    .filter((s) => s.trang_thai === 'hoan_thanh' && s.ngay_gio_bat_dau)
+    .map((s) => new Date(s.ngay_gio_bat_dau).getTime());
+
+  const singleDates = dieuTriLe
+    .filter((item) => item.ngay_dieu_tri)
+    .map((item) => new Date(item.ngay_dieu_tri).getTime());
+
+  const examDates = lichSuKham
+    .filter((exam) => exam.ngay_kham)
+    .map((exam) => new Date(exam.ngay_kham).getTime());
+
+  const allDates = [...packageDates, ...singleDates, ...examDates].filter((t) => !isNaN(t));
+  const latestTimestamp = allDates.length > 0 ? Math.max(...allDates) : null;
+  const lastSessionDate = latestTimestamp ? new Date(latestTimestamp) : null;
 
   return (
-    <div className="relative overflow-hidden rounded-[28px] p-7 md:p-8 text-white shadow-lg bg-gradient-to-br from-secondary via-[#16223D] to-secondary">
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{ background: 'radial-gradient(480px 260px at 88% -10%, rgba(46,196,182,0.25), transparent 70%)' }}
-      />
+    <div className="relative overflow-hidden rounded-[32px] p-7 md:p-9 text-white shadow-xl bg-gradient-to-r from-[#0D4B46] via-[#0F766E] to-[#115E59] border border-teal-600/30">
+      {/* Background Ambient Orbs */}
+      <div className="pointer-events-none absolute -top-24 -right-24 size-80 bg-teal-400/20 rounded-full blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-24 -left-24 size-80 bg-emerald-500/15 rounded-full blur-3xl" />
 
-      <div className="relative flex flex-wrap items-start justify-between gap-5">
-        <div className="flex items-center gap-3.5">
-          <div className="size-12 rounded-2xl bg-primary/15 border border-primary/35 text-primary flex items-center justify-center font-heading font-black text-lg shrink-0">
+      <div className="relative z-10 flex flex-wrap items-start justify-between gap-6">
+        {/* Profile Info */}
+        <div className="flex items-center gap-4">
+          <div className="size-16 rounded-2xl bg-white/10 backdrop-blur-md border-2 border-teal-300/40 text-teal-100 flex items-center justify-center font-heading font-black text-xl shrink-0 shadow-inner">
             {getInitials(khachHang.ho_ten || '?')}
           </div>
-          <div>
-            <h1 className="font-heading text-xl md:text-2xl font-black tracking-tight">{khachHang.ho_ten}</h1>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/60 font-semibold mt-1">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <h1 className="font-heading text-2xl md:text-3xl font-black tracking-tight text-white">{khachHang.ho_ten}</h1>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-white/10 text-teal-200 border border-white/15">
+                Hồ Sơ Y Khoa
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-teal-100/80 font-medium">
               {khachHang.so_dien_thoai && (
-                <span className="flex items-center gap-1.5"><Phone size={13} /> {formatPhone(khachHang.so_dien_thoai)}</span>
+                <span className="flex items-center gap-1.5"><Phone size={13} className="text-teal-300" /> {formatPhone(khachHang.so_dien_thoai)}</span>
               )}
               {khachHang.email && (
-                <span className="flex items-center gap-1.5"><Mail size={13} /> {khachHang.email}</span>
+                <span className="flex items-center gap-1.5"><Mail size={13} className="text-teal-300" /> {khachHang.email}</span>
               )}
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 bg-white/8 border border-white/10 rounded-full pl-2 pr-3.5 py-1.5 shrink-0">
-          <span className="size-2 rounded-full shrink-0" style={{ background: tierMeta.dot, boxShadow: `0 0 0 3px ${tierMeta.dot}40` }} />
-          <span className="text-[11px] font-bold text-white/85">
-            Điểm uy tín <strong className="text-white font-black">{Math.min(100, khachHang.diem_uy_tin || 0)}</strong>/100 · {tierMeta.label}
+        {/* Reputation Pill */}
+        <div className={`flex items-center gap-2.5 backdrop-blur-md border rounded-full px-4 py-2 shrink-0 shadow-md ${tierMeta.bg}`}>
+          <span className="size-2.5 rounded-full shrink-0 animate-pulse" style={{ background: tierMeta.dot, boxShadow: `0 0 10px ${tierMeta.dot}` }} />
+          <span className="text-xs font-bold text-white">
+            Điểm uy tín <strong className="text-white font-black text-sm ml-0.5">{Math.min(100, khachHang.diem_uy_tin || 0)}</strong>/100 · <span className="font-extrabold">{tierMeta.label}</span>
           </span>
         </div>
       </div>
 
-      <div className="relative grid grid-cols-1 sm:grid-cols-3 gap-px mt-6 bg-white/8 rounded-2xl overflow-hidden">
-        <div className="bg-white/[0.03] px-4.5 py-4">
-          <div className="font-heading text-xl font-black tabular-nums">{completedSessions}</div>
-          <div className="text-[10px] font-bold uppercase tracking-wider text-white/45 mt-0.5">Buổi đã hoàn thành</div>
-        </div>
-        <div className="bg-white/[0.03] px-4.5 py-4">
-          <div className="font-heading text-xl font-black tabular-nums">{activePackages}</div>
-          <div className="text-[10px] font-bold uppercase tracking-wider text-white/45 mt-0.5">Liệu trình đang điều trị</div>
-        </div>
-        <div className="bg-white/[0.03] px-4.5 py-4">
-          <div className="font-heading text-xl font-black tabular-nums">
-            {lastSessionDate ? lastSessionDate.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : '—'}
+      {/* 3 Metric Glass Tiles */}
+      <div className="relative z-10 grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8">
+        <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-4.5 flex items-center gap-4 transition-all hover:bg-white/15">
+          <div className="size-11 rounded-xl bg-emerald-400/20 border border-emerald-300/30 text-emerald-300 flex items-center justify-center shrink-0">
+            <CheckCircle2 size={22} />
           </div>
-          <div className="text-[10px] font-bold uppercase tracking-wider text-white/45 mt-0.5">Buổi trị liệu gần nhất</div>
+          <div>
+            <div className="font-heading text-2xl font-black tabular-nums text-white">{totalCompletedSessions}</div>
+            <div className="text-[10.5px] font-bold uppercase tracking-wider text-teal-100/70 mt-0.5">Buổi đã hoàn thành</div>
+          </div>
+        </div>
+
+        <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-4.5 flex items-center gap-4 transition-all hover:bg-white/15">
+          <div className="size-11 rounded-xl bg-teal-400/20 border border-teal-300/30 text-teal-200 flex items-center justify-center shrink-0">
+            <Activity size={22} />
+          </div>
+          <div>
+            <div className="font-heading text-2xl font-black tabular-nums text-white">{activePackages}</div>
+            <div className="text-[10.5px] font-bold uppercase tracking-wider text-teal-100/70 mt-0.5">Liệu trình đang điều trị</div>
+          </div>
+        </div>
+
+        <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-4.5 flex items-center gap-4 transition-all hover:bg-white/15">
+          <div className="size-11 rounded-xl bg-amber-400/20 border border-amber-300/30 text-amber-300 flex items-center justify-center shrink-0">
+            <Calendar size={22} />
+          </div>
+          <div>
+            <div className="font-heading text-2xl font-black tabular-nums text-white">
+              {lastSessionDate ? lastSessionDate.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : '—'}
+            </div>
+            <div className="text-[10.5px] font-bold uppercase tracking-wider text-teal-100/70 mt-0.5">Buổi trị liệu gần nhất</div>
+          </div>
         </div>
       </div>
     </div>

@@ -4,7 +4,7 @@ Hướng dẫn cho Claude Code khi làm việc trong repo này.
 
 ## Dự án
 
-**OfficeCare** (tên repo GitHub: PhysioFlow) — hệ thống quản lý phòng khám vật lý trị liệu cho dân văn phòng: đặt lịch khám/điều trị, quản lý gói liệu trình, thanh toán, hồ sơ bệnh án điện tử. 5 actor: **Admin/Quản lý**, **Lễ tân**, **Bác sĩ**, **Kỹ thuật viên (KTV)**, **Khách hàng**.
+**OfficeCare** (tên repo GitHub: OFFICECARE — PhysioFlow là repo cũ, đã tách riêng, không còn liên quan) — hệ thống quản lý phòng khám vật lý trị liệu cho dân văn phòng: đặt lịch khám/điều trị, quản lý gói liệu trình, thanh toán, hồ sơ bệnh án điện tử. 5 actor: **Admin/Quản lý**, **Lễ tân**, **Bác sĩ**, **Kỹ thuật viên (KTV)**, **Khách hàng**.
 
 - Backend: `backend/` — Node.js + Express + TypeScript + Prisma 7 + PostgreSQL + Zod + JWT.
 - Frontend: `frontend/` — React 18 + Vite + TypeScript + Tailwind + Zustand + React Hook Form + Zod + Framer Motion + Recharts.
