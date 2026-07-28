@@ -1821,9 +1821,14 @@ class AppointmentRepository {
     `;
     const packageRes = await pool.query(packageQuery, [customer_id]);
 
-    // 3. Các buổi thuộc gói
+    // 3. Các buổi thuộc gói. Nếu 1 buổi từng "không đến" rồi khách đặt lại và hoàn thành (không mất
+    // buổi với tung_buoi, xem resolveNoShowOutcome), DB sẽ có 2 dòng cuoc_hen cùng
+    // (phac_do_dieu_tri_id, so_thu_tu_buoi) — dòng không đến cũ vẫn giữ nguyên cho mục đích tra cứu
+    // lịch sử ở nơi khác, nhưng trang khách hàng chỉ cần biết trạng thái HIỆN TẠI của từng buổi.
+    // DISTINCT ON lấy đúng 1 dòng/buổi, ưu tiên hoàn thành > đang diễn ra/đã đặt lịch > không đến >
+    // đã hủy (đồng hạng thì lấy dòng mới nhất).
     const sessionQuery = `
-      SELECT 
+      SELECT DISTINCT ON (ch.phac_do_dieu_tri_id, ch.so_thu_tu_buoi)
         ch.id as cuoc_hen_id,
         ch.phac_do_dieu_tri_id,
         ch.so_thu_tu_buoi,
@@ -1848,7 +1853,17 @@ class AppointmentRepository {
       LEFT JOIN danh_gia_nhan_su dg_n ON (dg_n.khach_hang_id = ch.khach_hang_id AND dg_n.nhan_su_id = ch.nhan_su_id)
       WHERE ch.khach_hang_id = $1
         AND ch.phac_do_dieu_tri_id IS NOT NULL
-      ORDER BY ch.so_thu_tu_buoi ASC;
+      ORDER BY ch.phac_do_dieu_tri_id, ch.so_thu_tu_buoi ASC,
+        CASE ch.trang_thai
+          WHEN 'hoan_thanh' THEN 0
+          WHEN 'khong_den' THEN 2
+          WHEN 'khach_khong_den' THEN 2
+          WHEN 'khach_khong_den_phat' THEN 2
+          WHEN 'da_huy' THEN 3
+          WHEN 'da_huy_phat' THEN 3
+          ELSE 1
+        END ASC,
+        ch.ngay_gio_bat_dau DESC;
     `;
     const sessionRes = await pool.query(sessionQuery, [customer_id]);
 

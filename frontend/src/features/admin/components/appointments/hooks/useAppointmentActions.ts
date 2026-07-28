@@ -110,21 +110,13 @@ export function useAppointmentActions({
     if (e) e.preventDefault();
     if (!selectedAppointment) return;
 
-    // Chỉ tự chuyển "Đã xác nhận" khi thực sự VỪA gán xong nhân sự+phòng còn thiếu ở lần lưu này —
-    // không dựa vào giá trị đã có sẵn từ trước, nếu không mọi lần bấm "Lưu cập nhật" (kể cả không
-    // đổi gì) đều bị tự nhảy trạng thái do nhân sự/phòng vốn đã được gán từ lúc đặt lịch.
-    const origStaffIdForAutoConfirm = selectedAppointment ? (selectedAppointment.bac_si_id || (selectedAppointment as any).chuyen_gia_id) : null;
-    const isFreshStaffRoomAssignment = (!origStaffIdForAutoConfirm || !selectedAppointment?.phong_id) && !!assignStaffId && !!assignRoomId;
-
+    // Trạng thái luôn lấy đúng giá trị Admin/Lễ tân chọn tường minh ở dropdown (assignStatus) —
+    // KHÔNG tự suy diễn/ghi đè sang "Đã xác nhận" chỉ vì vừa gán xong nhân sự+phòng. Trước đây có
+    // logic tự nhảy trạng thái ở đây, khiến việc chỉ gán nhân sự (để dropdown ở "Chưa xác nhận")
+    // vẫn bị tự động xác nhận ngoài ý muốn — dropdown đã có sẵn lựa chọn "Đã xác nhận" tường minh,
+    // không cần suy đoán thay người dùng.
     if (isDemoMode && setDemoApts) {
-      let finalStatus = assignStatus;
-      if (
-        ['chua_xac_nhan', 'cho_xac_nhan'].includes(selectedAppointment.trang_thai) &&
-        ['chua_xac_nhan', 'cho_xac_nhan'].includes(assignStatus) &&
-        isFreshStaffRoomAssignment
-      ) {
-        finalStatus = 'da_xac_nhan';
-      }
+      const finalStatus = assignStatus;
       setDemoApts(prev => prev.map(apt =>
         String(apt.id) === String(selectedAppointment.id)
           ? { 
@@ -144,14 +136,7 @@ export function useAppointmentActions({
     try {
       setIsAssigning(true);
 
-      let finalStatus = assignStatus;
-      if (
-        ['chua_xac_nhan', 'cho_xac_nhan'].includes(selectedAppointment.trang_thai) &&
-        ['chua_xac_nhan', 'cho_xac_nhan'].includes(assignStatus) &&
-        isFreshStaffRoomAssignment
-      ) {
-        finalStatus = 'da_xac_nhan';
-      }
+      const finalStatus = assignStatus;
 
       // Construct new date strings if selectedTimeSlot or rescheduleDate has changed
       let finalNgayGioBatDau: string | null = null;

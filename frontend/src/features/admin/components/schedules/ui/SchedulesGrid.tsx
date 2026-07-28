@@ -36,32 +36,32 @@ export function SchedulesGrid({
     );
     
     let label = 'Ca Sáng'; 
-    let colorClass = 'bg-gradient-to-r from-teal-50 to-emerald-50 text-emerald-800 border-teal-200/80 hover:border-teal-400 hover:shadow-xs';
+    let colorClass = 'bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-950/60 dark:to-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-teal-200/80 dark:border-teal-800/60 hover:border-teal-400 hover:shadow-xs';
     let ShiftIcon = Sun;
     let iconColor = 'text-amber-500';
     
     if (sched.trang_thai === 'tam_nghi') {
       label = 'Nghỉ phép'; 
-      colorClass = 'bg-rose-50/80 text-rose-700 border-rose-200 hover:border-rose-350';
+      colorClass = 'bg-rose-50/80 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/60 hover:border-rose-350';
       ShiftIcon = UserX;
       iconColor = 'text-rose-500';
     } else {
       const hour = parseInt(sched.gio_bat_dau.split(':')[0]);
       if (hour >= 11 && hour < 16) {
         label = 'Ca Chiều'; 
-        colorClass = 'bg-gradient-to-r from-sky-50 to-indigo-50 text-indigo-800 border-indigo-200/80 hover:border-indigo-400 hover:shadow-xs';
+        colorClass = 'bg-gradient-to-r from-sky-50 to-indigo-50 dark:from-sky-950/60 dark:to-indigo-950/60 text-indigo-800 dark:text-indigo-300 border-indigo-200/80 dark:border-indigo-800/60 hover:border-indigo-400 hover:shadow-xs';
         ShiftIcon = Sunset;
         iconColor = 'text-indigo-500';
       } else if (hour >= 16) {
         label = 'Ca Tối'; 
-        colorClass = 'bg-gradient-to-r from-amber-50 to-orange-50 text-amber-800 border-amber-200/80 hover:border-amber-400 hover:shadow-xs';
+        colorClass = 'bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/60 dark:to-orange-950/60 text-amber-800 dark:text-amber-300 border-amber-200/80 dark:border-amber-800/60 hover:border-amber-400 hover:shadow-xs';
         ShiftIcon = Moon;
         iconColor = 'text-amber-600';
       }
     }
 
     if (isConflict && sched.trang_thai !== 'tam_nghi') {
-      colorClass = 'bg-rose-100/90 text-rose-800 border-rose-300 border-dashed animate-pulse hover:border-rose-500';
+      colorClass = 'bg-rose-100/90 dark:bg-rose-950/80 text-rose-800 dark:text-rose-200 border-rose-300 dark:border-rose-700 border-dashed animate-pulse hover:border-rose-500';
       label = `Trùng ca (${label})`;
     }
 
@@ -71,7 +71,7 @@ export function SchedulesGrid({
       return (
         <div 
           key={sched.id} 
-          className="text-[11px] font-bold border border-slate-200/60 p-1.5 rounded-xl text-center mb-1.5 shadow-xs bg-slate-50 text-slate-400 cursor-not-allowed select-none opacity-75 flex flex-col items-center gap-0.5"
+          className="text-[11px] font-bold border border-slate-200/60 dark:border-zinc-700/50 p-1.5 rounded-xl text-center mb-1.5 shadow-xs bg-slate-50 dark:bg-zinc-800/60 text-slate-400 dark:text-zinc-400 cursor-not-allowed select-none opacity-75 flex flex-col items-center gap-0.5"
         >
           <div className="flex items-center gap-1">
             <ShiftIcon size={12} className="opacity-60" />
@@ -79,7 +79,7 @@ export function SchedulesGrid({
           </div>
           {sched.trang_thai !== 'tam_nghi' && (
             <div className="flex items-center gap-1 text-[9.5px]">
-              {sched.ma_phong && <span className="bg-slate-200 px-1 py-0.2 rounded text-[8.5px] font-black text-slate-600">{sched.ma_phong}</span>}
+              {sched.ma_phong && <span className="bg-slate-200 dark:bg-zinc-700 px-1 py-0.2 rounded text-[8.5px] font-black text-slate-600 dark:text-zinc-300">{sched.ma_phong}</span>}
               <span>{sched.gio_bat_dau.slice(0, 5)}-{sched.gio_ket_thuc.slice(0, 5)}</span>
             </div>
           )}
@@ -101,7 +101,7 @@ export function SchedulesGrid({
         {sched.trang_thai !== 'tam_nghi' && (
           <div className="flex items-center gap-1 text-[9.5px] mt-0.5">
             {sched.ma_phong && (
-              <span className="bg-white/80 dark:bg-zinc-800 px-1.5 py-0.2 rounded-md text-[8.5px] font-black text-teal-800 border border-teal-150 shadow-2xs">
+              <span className="bg-white/80 dark:bg-zinc-800 px-1.5 py-0.2 rounded-md text-[8.5px] font-black text-teal-800 dark:text-teal-300 border border-teal-150 dark:border-teal-800/60 shadow-2xs">
                 {sched.ma_phong}
               </span>
             )}
@@ -113,19 +113,19 @@ export function SchedulesGrid({
   };
 
   return (
-    <div className="flex-1 bg-white rounded-[24px] shadow-sm border border-gray-100 overflow-hidden">
+    <div className="flex-1 bg-white dark:bg-zinc-900/90 rounded-[24px] shadow-sm border border-gray-100 dark:border-zinc-800 overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse min-w-[800px]">
           <thead>
-            <tr className="bg-gray-50/50 select-none">
-              <th className="p-4 font-bold text-xs text-gray-500 uppercase tracking-wider w-1/4 border-b border-r border-gray-100">Nhân viên</th>
+            <tr className="bg-gray-50/50 dark:bg-zinc-900/80 select-none">
+              <th className="p-4 font-bold text-xs text-gray-500 dark:text-zinc-400 uppercase tracking-wider w-1/4 border-b border-r border-gray-100 dark:border-zinc-800">Nhân viên</th>
               {weekDates.map(d => (
                 <th 
                   key={d.key} 
-                  className={`p-3 text-center border-b border-r border-gray-100 min-w-[100px] transition-all relative ${
+                  className={`p-3 text-center border-b border-r border-gray-100 dark:border-zinc-800 min-w-[100px] transition-all relative ${
                     d.isToday 
-                      ? 'bg-teal-50/50 border-b-2 border-b-teal-500 text-teal-700 font-extrabold' 
-                      : 'border-b-gray-100 text-gray-800'
+                      ? 'bg-teal-50/50 dark:bg-teal-950/30 border-b-2 border-b-teal-500 text-teal-700 dark:text-teal-300 font-extrabold' 
+                      : 'border-b-gray-100 dark:border-b-zinc-800 text-gray-800 dark:text-zinc-200'
                   }`}
                 >
                   <div className="flex flex-col items-center justify-center pt-2">
@@ -136,11 +136,11 @@ export function SchedulesGrid({
                           <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
                         </span>
                       )}
-                      <span className={`font-bold text-sm ${d.isToday ? 'text-teal-700' : 'text-gray-800'}`}>{d.label}</span>
+                      <span className={`font-bold text-sm ${d.isToday ? 'text-teal-700 dark:text-teal-300' : 'text-gray-800 dark:text-zinc-200'}`}>{d.label}</span>
                     </div>
-                    <div className={`text-xs mt-1 ${d.isToday ? 'text-teal-600 font-bold' : 'text-gray-500'}`}>{d.dateStr}</div>
+                    <div className={`text-xs mt-1 ${d.isToday ? 'text-teal-600 dark:text-teal-400 font-bold' : 'text-gray-500 dark:text-zinc-400'}`}>{d.dateStr}</div>
                     {d.isToday && (
-                      <span className="absolute top-1 text-[8px] font-black uppercase text-[#0d9488] bg-teal-100/50 px-1.5 py-0.5 rounded scale-[0.8] select-none">
+                      <span className="absolute top-1 text-[8px] font-black uppercase text-[#0d9488] dark:text-teal-300 bg-teal-100/50 dark:bg-teal-900/50 px-1.5 py-0.5 rounded scale-[0.8] select-none">
                         Hôm nay
                       </span>
                     )}
@@ -149,29 +149,29 @@ export function SchedulesGrid({
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-gray-100 dark:divide-zinc-800">
             {['Bác sĩ', 'Lễ tân', 'Kỹ thuật viên'].map(role => {
               const roleStaff = groupedStaff[role];
               if (!roleStaff || roleStaff.length === 0) return null;
               
               return (
                 <React.Fragment key={role}>
-                  <tr className="bg-gray-50 select-none">
-                    <td colSpan={8} className="py-2.5 px-4 text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                  <tr className="bg-gray-50 dark:bg-zinc-800/80 select-none">
+                    <td colSpan={8} className="py-2.5 px-4 text-[11px] font-bold text-gray-500 dark:text-teal-400 uppercase tracking-wider">
                       {role} ({roleStaff.length})
                     </td>
                   </tr>
                   {roleStaff.map(staff => {
                     const isStaffConflict = conflicts.some(c => c.id === staff.id);
                     return (
-                      <tr key={staff.id} className="hover:bg-gray-50/50 transition-colors group border-b border-gray-100 last:border-none">
-                        <td className="p-4 border-r border-gray-100 bg-white group-hover:bg-gray-50/50 transition-colors">
+                      <tr key={staff.id} className="hover:bg-gray-50/50 dark:hover:bg-zinc-800/40 transition-colors group border-b border-gray-100 dark:border-zinc-800 last:border-none">
+                        <td className="p-4 border-r border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 group-hover:bg-gray-50/50 dark:group-hover:bg-zinc-800/50 transition-colors">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-sm font-bold shrink-0 shadow-sm border border-white select-none">
+                            <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-zinc-700 text-slate-600 dark:text-zinc-200 flex items-center justify-center text-sm font-bold shrink-0 shadow-sm border border-white dark:border-zinc-600 select-none">
                               {getAvatarInitials(staff.ho_ten)}
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className="font-bold text-sm text-gray-800">{staff.ho_ten}</span>
+                              <span className="font-bold text-sm text-gray-800 dark:text-zinc-100">{staff.ho_ten}</span>
                               {isStaffConflict && <AlertTriangle size={16} className="text-rose-500" />}
                             </div>
                           </div>
@@ -182,11 +182,11 @@ export function SchedulesGrid({
                           return (
                             <td 
                               key={dow.key} 
-                              className={`p-2 border-r border-gray-100 align-top transition-colors relative ${
+                              className={`p-2 border-r border-gray-100 dark:border-zinc-800 align-top transition-colors relative ${
                                 dow.isToday 
-                                  ? 'bg-teal-50/20 ring-1 ring-teal-500/10' 
-                                  : 'bg-white'
-                              } group-hover:bg-gray-50/50`}
+                                  ? 'bg-teal-50/20 dark:bg-teal-950/20 ring-1 ring-teal-500/10' 
+                                  : 'bg-white dark:bg-zinc-900'
+                              } group-hover:bg-gray-50/50 dark:group-hover:bg-zinc-800/40`}
                             >
                               {cellSchedules.length > 0 ? (
                                 cellSchedules.map(renderShiftBadge)
@@ -194,7 +194,7 @@ export function SchedulesGrid({
                                 !isPastDate ? (
                                   <div 
                                     onClick={() => onOpenModal(staff.id, dow.fullDateStr)}
-                                    className="h-full min-h-[40px] rounded-lg border border-transparent hover:border-gray-300 hover:bg-gray-50 border-dashed flex items-center justify-center cursor-pointer transition-all opacity-0 group-hover:opacity-100 text-gray-400 hover:text-teal-600"
+                                    className="h-full min-h-[40px] rounded-lg border border-transparent hover:border-gray-300 dark:hover:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800/60 border-dashed flex items-center justify-center cursor-pointer transition-all opacity-0 group-hover:opacity-100 text-gray-400 dark:text-zinc-500 hover:text-teal-600 dark:hover:text-teal-400"
                                   >
                                     <Plus size={16} />
                                   </div>

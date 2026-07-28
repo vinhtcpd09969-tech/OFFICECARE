@@ -82,41 +82,49 @@ export function Step3DateTimeSpecialist({
       return { morningSlots: [], afternoonSlots: [], eveningSlots: [] };
     }
 
-    const generateSlots = (startHour: number, startMinute: number, endHour: number, endMinute: number) => {
-      const slots: string[] = [];
-      let current = new Date();
-      current.setHours(startHour, startMinute, 0, 0);
+    const allSlots: string[] = [];
+    let current = new Date();
+    current.setHours(8, 0, 0, 0);
 
-      const end = new Date();
-      end.setHours(endHour, endMinute, 0, 0);
+    const dayEnd = new Date();
+    dayEnd.setHours(20, 0, 0, 0);
 
-      while (true) {
-        const slotStart = new Date(current);
-        const slotNextStart = new Date(current.getTime() + interval * 60000);
+    const formatTime = (d: Date) => {
+      const h = String(d.getHours()).padStart(2, '0');
+      const m = String(d.getMinutes()).padStart(2, '0');
+      return `${h}:${m}`;
+    };
 
-        if (slotNextStart.getTime() > end.getTime()) {
-          break;
-        }
+    while (true) {
+      const slotStart = new Date(current);
+      const slotNextStart = new Date(current.getTime() + interval * 60000);
 
-        const formatTime = (d: Date) => {
-          const h = String(d.getHours()).padStart(2, '0');
-          const m = String(d.getMinutes()).padStart(2, '0');
-          return `${h}:${m}`;
-        };
-
-        const slotEnd = new Date(slotStart.getTime() + duration * 60000);
-        slots.push(`${formatTime(slotStart)} - ${formatTime(slotEnd)}`);
-        current = slotNextStart;
+      if (slotNextStart.getTime() > dayEnd.getTime()) {
+        break;
       }
-      return slots;
-    };
 
-    return {
-      morningSlots: generateSlots(8, 0, 12, 0),
-      afternoonSlots: generateSlots(12, 0, 18, 0),
-      eveningSlots: generateSlots(18, 0, 20, 0)
-    };
-  }, [selectedDate, interval]);
+      const slotEnd = new Date(slotStart.getTime() + duration * 60000);
+      allSlots.push(`${formatTime(slotStart)} - ${formatTime(slotEnd)}`);
+      current = slotNextStart;
+    }
+
+    const morningSlots: string[] = [];
+    const afternoonSlots: string[] = [];
+    const eveningSlots: string[] = [];
+
+    for (const slotStr of allSlots) {
+      const startHour = parseInt(slotStr.split(':')[0], 10);
+      if (startHour < 12) {
+        morningSlots.push(slotStr);
+      } else if (startHour < 18) {
+        afternoonSlots.push(slotStr);
+      } else {
+        eveningSlots.push(slotStr);
+      }
+    }
+
+    return { morningSlots, afternoonSlots, eveningSlots };
+  }, [selectedDate, interval, duration]);
 
   const availableSpecialists = useMemo(() => {
     if (!selectedTime) {

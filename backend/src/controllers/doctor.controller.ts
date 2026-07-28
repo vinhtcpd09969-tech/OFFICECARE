@@ -87,8 +87,14 @@ export const saveAssessment = async (req: AuthenticatedRequest, res: Response) =
     if (!userId) {
       return res.status(401).json({ message: 'Không xác định được danh tính người dùng.' });
     }
-    if (!lich_dat_id || !chan_doan) {
+    if (!lich_dat_id || !chan_doan?.trim()) {
       return res.status(400).json({ message: 'Thiếu mã lịch khám hoặc chẩn đoán lâm sàng.' });
+    }
+    if (!chong_chi_dinh?.trim()) {
+      return res.status(400).json({ message: 'Thiếu chống chỉ định y khoa (nếu không có, ghi rõ "Không có").' });
+    }
+    if (!ghi_chu?.trim()) {
+      return res.status(400).json({ message: 'Thiếu ghi chú / dặn dò cho khách hàng.' });
     }
 
     const result = await doctorService.saveAssessment(userId, {

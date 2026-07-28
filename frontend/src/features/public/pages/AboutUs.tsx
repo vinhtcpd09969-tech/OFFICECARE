@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { motion } from 'framer-motion';
-import { ArrowRight, ShieldCheck, HeartPulse, Lock, Users, Stethoscope, Award, MapPin, Phone, Mail, MessageCircle, Facebook } from 'lucide-react';
+import { ShieldCheck, HeartPulse, Users, Stethoscope, MapPin, Phone, Mail, Facebook } from 'lucide-react';
 import LazyImage from '../../../components/LazyImage';
 import ScrollReveal from '../components/shared/ScrollReveal';
 

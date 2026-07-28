@@ -79,9 +79,21 @@ describe('checkReceptionistTransition', () => {
     expect(checkReceptionistTransition('da_xac_nhan', 'da_checkin', true)).toEqual({ allowed: true });
   });
 
-  it('lịch hẹn ở tương lai -> không cho check-in trước giờ hẹn', () => {
+  it('lịch hẹn ở tương lai xa -> không cho check-in trước giờ hẹn quá 30 phút', () => {
     const future = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
     const result = checkReceptionistTransition('da_xac_nhan', 'da_checkin', true, future);
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toContain('mở khóa check-in');
+  });
+
+  it('còn đúng 30 phút nữa mới tới giờ hẹn -> cho phép check-in sớm', () => {
+    const soon = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+    expect(checkReceptionistTransition('da_xac_nhan', 'da_checkin', true, soon)).toEqual({ allowed: true });
+  });
+
+  it('còn hơn 30 phút mới tới giờ hẹn (31 phút) -> chưa cho check-in', () => {
+    const tooEarly = new Date(Date.now() + 31 * 60 * 1000).toISOString();
+    const result = checkReceptionistTransition('da_xac_nhan', 'da_checkin', true, tooEarly);
     expect(result.allowed).toBe(false);
   });
 
@@ -92,5 +104,32 @@ describe('checkReceptionistTransition', () => {
 
   it('không truyền ngay_gio_bat_dau -> vẫn cho check-in như hành vi cũ (không phá vỡ caller cũ)', () => {
     expect(checkReceptionistTransition('da_xac_nhan', 'da_checkin', true)).toEqual({ allowed: true });
+  });
+
+  it('lịch hẹn chưa tới giờ -> không cho đánh dấu không đến', () => {
+    const future = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    const result = checkReceptionistTransition('da_xac_nhan', 'khong_den', true, future);
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toContain('mở khóa');
+  });
+
+  it('vừa tới giờ hẹn nhưng chưa đủ 15 phút đệm -> chưa cho đánh dấu không đến', () => {
+    const justStarted = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const result = checkReceptionistTransition('da_xac_nhan', 'khong_den', true, justStarted);
+    expect(result.allowed).toBe(false);
+  });
+
+  it('đã qua giờ hẹn đúng 15 phút -> cho phép đánh dấu không đến', () => {
+    const graceElapsed = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+    expect(checkReceptionistTransition('da_xac_nhan', 'khong_den', true, graceElapsed)).toEqual({ allowed: true });
+  });
+
+  it('đã qua giờ hẹn lâu -> cho phép đánh dấu không đến', () => {
+    const longPast = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    expect(checkReceptionistTransition('da_xac_nhan', 'khong_den', true, longPast)).toEqual({ allowed: true });
+  });
+
+  it('không truyền ngay_gio_bat_dau -> vẫn cho đánh dấu không đến như hành vi cũ', () => {
+    expect(checkReceptionistTransition('da_xac_nhan', 'khong_den', true)).toEqual({ allowed: true });
   });
 });

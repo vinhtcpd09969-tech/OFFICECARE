@@ -6,9 +6,8 @@ import {
   Search, 
   Sparkles, 
   AlertCircle,
-  PlayCircle,
-  PauseCircle,
-  Clock
+  CheckCircle2,
+  PauseCircle
 } from 'lucide-react';
 import api from '../../../../api/axios';
 
@@ -213,14 +212,14 @@ export default function ManageVouchers() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white rounded-3xl p-6 border border-slate-100 shadow-soft-ui">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-zinc-900 rounded-3xl p-6 border border-slate-100 dark:border-zinc-800 shadow-soft-ui">
         <div className="flex items-center gap-4">
           <div className="bg-primary-container p-3.5 rounded-2xl text-primary">
             <Sparkles className="w-6 h-6 animate-pulse" />
           </div>
           <div>
-            <h1 className="text-2xl font-extrabold text-secondary font-heading tracking-tight">Chiến dịch Marketing & Ưu đãi</h1>
-            <p className="text-slate-500 text-sm mt-0.5">Quản lý thống nhất toàn bộ mã giảm giá áp dụng trên hóa đơn.</p>
+            <h1 className="text-2xl font-extrabold text-secondary dark:text-zinc-100 font-heading tracking-tight">Chiến dịch Marketing & Ưu đãi</h1>
+            <p className="text-slate-500 dark:text-zinc-400 text-sm mt-0.5">Quản lý thống nhất toàn bộ mã giảm giá áp dụng trên hóa đơn.</p>
           </div>
         </div>
         
@@ -243,97 +242,97 @@ export default function ManageVouchers() {
         <button
           type="button"
           onClick={() => setStatusFilter('all')}
-          className={`bg-white rounded-2xl p-4 border text-left transition-all cursor-pointer flex items-center justify-between ${
+          className={`bg-white dark:bg-zinc-900 rounded-2xl p-4 border text-left transition-all cursor-pointer flex items-center justify-between ${
             statusFilter === 'all'
-              ? 'border-indigo-500 ring-2 ring-indigo-500/20 shadow-md bg-indigo-50/20'
-              : 'border-slate-100 hover:border-slate-200 shadow-soft-ui'
+              ? 'border-indigo-500 ring-2 ring-indigo-500/20 shadow-md bg-indigo-50/20 dark:bg-indigo-950/40'
+              : 'border-slate-100 dark:border-zinc-800 hover:border-slate-200 dark:hover:border-zinc-700 shadow-soft-ui'
           }`}
         >
-          <div className="flex items-center gap-3.5">
-            <div className="bg-indigo-50 text-indigo-600 p-3 rounded-xl shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
               <Ticket className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Tất cả mã</span>
-              <span className="text-xl font-black text-slate-800 mt-0.5 block tabular-nums">{totalCount} Mã</span>
+              <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider block">Tất Cả Mã</span>
+              <span className="text-xl font-black text-slate-800 dark:text-zinc-100 mt-0.5 block tabular-nums">{totalCount} Mã</span>
             </div>
           </div>
         </button>
 
-        {/* 2. Mã Đang chạy */}
+        {/* 2. Đang hoạt động */}
         <button
           type="button"
           onClick={() => setStatusFilter('hoat_dong')}
-          className={`bg-white rounded-2xl p-4 border text-left transition-all cursor-pointer flex items-center justify-between ${
+          className={`bg-white dark:bg-zinc-900 rounded-2xl p-4 border text-left transition-all cursor-pointer flex items-center justify-between ${
             statusFilter === 'hoat_dong'
-              ? 'border-[#0D9488] ring-2 ring-[#0D9488]/20 shadow-md bg-[#0D9488]/5'
-              : 'border-slate-100 hover:border-slate-200 shadow-soft-ui'
+              ? 'border-emerald-500 ring-2 ring-emerald-500/20 shadow-md bg-emerald-50/20 dark:bg-emerald-950/40'
+              : 'border-slate-100 dark:border-zinc-800 hover:border-slate-200 dark:hover:border-zinc-700 shadow-soft-ui'
           }`}
         >
-          <div className="flex items-center gap-3.5">
-            <div className="bg-emerald-50 text-emerald-600 p-3 rounded-xl shrink-0">
-              <PlayCircle className="w-5 h-5" />
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider block">Mã Đang chạy</span>
-              <span className="text-xl font-black text-slate-800 mt-0.5 block tabular-nums">{activeCount} Mã</span>
+              <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider block">Đang Chạy</span>
+              <span className="text-xl font-black text-slate-800 dark:text-zinc-100 mt-0.5 block tabular-nums">{activeCount} Mã</span>
             </div>
           </div>
         </button>
 
-        {/* 3. Ngưng sử dụng */}
+        {/* 3. Ngưng sử dụng / Tạm dừng */}
         <button
           type="button"
           onClick={() => setStatusFilter('tam_dung')}
-          className={`bg-white rounded-2xl p-4 border text-left transition-all cursor-pointer flex items-center justify-between ${
+          className={`bg-white dark:bg-zinc-900 rounded-2xl p-4 border text-left transition-all cursor-pointer flex items-center justify-between ${
             statusFilter === 'tam_dung'
-              ? 'border-amber-500 ring-2 ring-amber-500/20 shadow-md bg-amber-50/30'
-              : 'border-slate-100 hover:border-slate-200 shadow-soft-ui'
+              ? 'border-amber-500 ring-2 ring-amber-500/20 shadow-md bg-amber-50/20 dark:bg-amber-950/40'
+              : 'border-slate-100 dark:border-zinc-800 hover:border-slate-200 dark:hover:border-zinc-700 shadow-soft-ui'
           }`}
         >
-          <div className="flex items-center gap-3.5">
-            <div className="bg-amber-50 text-amber-600 p-3 rounded-xl shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
               <PauseCircle className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-xs font-bold text-amber-700 uppercase tracking-wider block">Ngưng sử dụng</span>
-              <span className="text-xl font-black text-slate-800 mt-0.5 block tabular-nums">{pausedCount} Mã</span>
+              <span className="text-xs font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wider block">Tạm Dừng</span>
+              <span className="text-xl font-black text-slate-800 dark:text-zinc-100 mt-0.5 block tabular-nums">{pausedCount} Mã</span>
             </div>
           </div>
         </button>
 
-        {/* 4. Đã Hết hạn */}
+        {/* 4. Hết hạn */}
         <button
           type="button"
           onClick={() => setStatusFilter('het_han')}
-          className={`bg-white rounded-2xl p-4 border text-left transition-all cursor-pointer flex items-center justify-between ${
+          className={`bg-white dark:bg-zinc-900 rounded-2xl p-4 border text-left transition-all cursor-pointer flex items-center justify-between ${
             statusFilter === 'het_han'
-              ? 'border-rose-500 ring-2 ring-rose-500/20 shadow-md bg-rose-50/30'
-              : 'border-slate-100 hover:border-slate-200 shadow-soft-ui'
+              ? 'border-rose-500 ring-2 ring-rose-500/20 shadow-md bg-rose-50/20 dark:bg-rose-950/40'
+              : 'border-slate-100 dark:border-zinc-800 hover:border-slate-200 dark:hover:border-zinc-700 shadow-soft-ui'
           }`}
         >
-          <div className="flex items-center gap-3.5">
-            <div className="bg-rose-50 text-rose-600 p-3 rounded-xl shrink-0">
-              <Clock className="w-5 h-5" />
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+              <AlertCircle className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-xs font-bold text-rose-700 uppercase tracking-wider block">Đã Hết hạn</span>
-              <span className="text-xl font-black text-slate-800 mt-0.5 block tabular-nums">{expiredCount} Mã</span>
+              <span className="text-xs font-bold text-rose-700 dark:text-rose-300 uppercase tracking-wider block">Đã Hết hạn</span>
+              <span className="text-xl font-black text-slate-800 dark:text-zinc-100 mt-0.5 block tabular-nums">{expiredCount} Mã</span>
             </div>
           </div>
         </button>
       </div>
 
       {/* Filter & Search Bar Section */}
-      <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-soft-ui flex flex-col md:flex-row items-center justify-between gap-4">
+      <div className="bg-white dark:bg-zinc-900 rounded-2xl p-4 border border-slate-100 dark:border-zinc-800 shadow-soft-ui flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="relative w-full md:w-80">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-zinc-500 pointer-events-none" />
           <input
             type="text"
             placeholder="Tìm mã hoặc tên chiến dịch..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm transition-all bg-slate-50/50"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm transition-all placeholder-slate-400 dark:placeholder-zinc-500"
           />
         </div>
         {statusFilter !== 'all' && (

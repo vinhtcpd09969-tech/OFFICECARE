@@ -9,8 +9,6 @@ import {
   Clock,
   User,
   MapPin,
-  ChevronLeft,
-  ChevronRight,
   TrendingUp,
   ShieldCheck,
   FileText,
@@ -32,6 +30,7 @@ interface Appointment {
   ngay_gio_bat_dau: string;
   ngay_gio_ket_thuc: string;
   trang_thai: string;
+  trang_thai_kham?: string | null;
   loai_lich: string;
   ten_khach_hang: string;
   so_dien_thoai: string;
@@ -231,59 +230,6 @@ export default function CustomerAppointments() {
     } finally {
       setResendingOtpId(null);
     }
-  };
-
-  // Date helpers
-  const getWeekRange = (anchor: Date) => {
-    const day = anchor.getDay();
-    const distanceToMonday = day === 0 ? -6 : 1 - day;
-    const monday = new Date(anchor);
-    monday.setDate(anchor.getDate() + distanceToMonday);
-    monday.setHours(0, 0, 0, 0);
-
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    sunday.setHours(23, 59, 59, 999);
-    return { monday, sunday };
-  };
-
-  const handleDateNavigate = (direction: 'prev' | 'next') => {
-    const offset = direction === 'prev' ? -1 : 1;
-    setDateAnchor(prev => {
-      const newDate = new Date(prev);
-      if (dateMode === 'day') {
-        newDate.setDate(prev.getDate() + offset);
-      } else if (dateMode === 'week') {
-        newDate.setDate(prev.getDate() + offset * 7);
-      } else if (dateMode === 'month') {
-        newDate.setMonth(prev.getMonth() + offset);
-      }
-      return newDate;
-    });
-  };
-
-  const handleQuickJump = () => {
-    setDateAnchor(new Date());
-  };
-
-  const getQuickJumpLabel = () => {
-    if (dateMode === 'day') return 'HÔM NAY';
-    if (dateMode === 'week') return 'TUẦN NÀY';
-    return 'THÁNG NÀY';
-  };
-
-  const getDateRangeLabel = () => {
-    if (dateMode === 'day') {
-      return `Ngày: ${dateAnchor.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
-    }
-    if (dateMode === 'week') {
-      const { monday, sunday } = getWeekRange(dateAnchor);
-      const startStr = `${monday.getDate().toString().padStart(2, '0')}/${(monday.getMonth() + 1).toString().padStart(2, '0')}`;
-      const endStr = `${sunday.getDate().toString().padStart(2, '0')}/${(sunday.getMonth() + 1).toString().padStart(2, '0')}/${sunday.getFullYear()}`;
-      return `Tuần: ${startStr} – ${endStr}`;
-    }
-    const monthStr = (dateAnchor.getMonth() + 1).toString().padStart(2, '0');
-    return `Tháng: ${monthStr}/${dateAnchor.getFullYear()}`;
   };
 
   const formatDateTime = (isoString: string) => {

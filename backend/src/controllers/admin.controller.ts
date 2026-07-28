@@ -647,7 +647,8 @@ export const analyzeFeedback = async (req: Request, res: Response) => {
 
 export const getDashboardSummary = async (req: Request, res: Response) => {
   try {
-    const summary = await adminService.getDashboardSummary();
+    const { range, startDate, endDate } = req.query as { range?: string; startDate?: string; endDate?: string };
+    const summary = await adminService.getDashboardSummary(range, startDate, endDate);
     res.json(summary);
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server khi lấy tổng quan dashboard' });
@@ -656,12 +657,8 @@ export const getDashboardSummary = async (req: Request, res: Response) => {
 
 export const getRevenueStats = async (req: Request, res: Response) => {
   try {
-    const { type, startDate, endDate } = req.query as {
-      type?: string;
-      startDate?: string;
-      endDate?: string;
-    };
-    const stats = await adminService.getRevenueStats(type, startDate, endDate);
+    const { range, startDate, endDate, bucket } = req.query as { range?: string; startDate?: string; endDate?: string; bucket?: string };
+    const stats = await adminService.getRevenueStats(range, startDate, endDate, bucket);
     res.json(stats);
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server khi lấy thống kê doanh thu' });
@@ -692,15 +689,6 @@ export const getTopVipCustomers = async (req: Request, res: Response) => {
     res.json(stats);
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server khi lấy top khách hàng VIP' });
-  }
-};
-
-export const getReviews = async (req: Request, res: Response) => {
-  try {
-    const stats = await adminService.getReviews();
-    res.json(stats);
-  } catch (error) {
-    res.status(500).json({ message: 'Lỗi server khi lấy danh sách đánh giá' });
   }
 };
 

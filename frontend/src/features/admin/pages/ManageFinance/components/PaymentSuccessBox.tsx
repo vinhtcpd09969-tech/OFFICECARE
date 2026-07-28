@@ -95,7 +95,12 @@ export const PaymentSuccessBox: React.FC<PaymentSuccessBoxProps> = ({
         </div>
       )}
 
-      {paymentSuccessData.daDangKyGoiId && (
+      {/* nextSessionNum === null có 2 nghĩa khác nhau: (a) không áp dụng, hoặc (b) buổi vừa thanh
+          toán chính là buổi CUỐI của gói (không còn buổi tiếp theo để gợi ý — gói đã xong). Trước
+          đây không phân biệt 2 trường hợp, khiến buổi cuối hiện nhầm gợi ý "Đặt lịch Buổi 1" (như
+          thể vừa đăng ký gói mới). Nhánh LE (dịch vụ lẻ) không phụ thuộc buổi số nên luôn hiện. */}
+      {paymentSuccessData.daDangKyGoiId
+        && (paymentSuccessData.daDangKyGoiLoai === 'LE' || paymentSuccessData.nextSessionNum) && (
         <div className="bg-emerald-50 border border-emerald-200/85 rounded-2xl p-5 space-y-4 text-left animate-in slide-in-from-bottom duration-250">
           <div className="flex items-start gap-3">
             <span className="text-emerald-600 text-xl shrink-0">📅</span>

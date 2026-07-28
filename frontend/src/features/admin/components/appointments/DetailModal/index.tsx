@@ -581,6 +581,14 @@ export default function AppointmentDetailModal({
 
     const currentStaffIdToCheck = isCurrentStaffUnavailableAtNewSlot && isReceptionist ? '' : assignStaffId;
 
+    // Đã có nhân sự phụ trách nhưng trạng thái vẫn để "Chưa xác nhận"/"Chờ xác nhận" là trạng thái
+    // dữ liệu mâu thuẫn (nhân sự đã đủ điều kiện làm việc nhưng lịch lại báo chưa xác nhận) — chặn
+    // lưu, bắt buộc người dùng tự bấm chọn đúng trạng thái "Đã xác nhận" thay vì để hệ thống đoán.
+    if (currentStaffIdToCheck && ['chua_xac_nhan', 'cho_xac_nhan'].includes(assignStatus)) {
+      toast.error('Đã chọn nhân sự phụ trách — vui lòng đổi trạng thái lịch hẹn sang "Đã xác nhận" trước khi lưu.');
+      return;
+    }
+
     if (!['da_huy', 'khong_den', 'chua_xac_nhan', 'cho_xac_nhan', 'cho_huy'].includes(assignStatus)) {
       if (!assignRoomId) {
         toast.error('Vui lòng chọn phòng thực hiện!');

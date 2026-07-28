@@ -79,7 +79,7 @@ router.post('/vouchers', authorizeRoles(5, 6), adminController.createVoucher);
 router.put('/vouchers/:id', authorizeRoles(5, 6), adminController.updateVoucher);
 router.delete('/vouchers/:id', authorizeRoles(5, 6), adminController.deleteVoucher);
 
-router.get('/feedback', authorizeRoles(5, 6), adminController.getFeedback);
+router.get('/feedback', authorizeRoles(2, 5, 6), adminController.getFeedback);
 router.post('/feedback/service/:id/reply', authorizeRoles(2, 5, 6), adminController.replyServiceFeedback);
 router.post('/feedback/staff/:id/reply', authorizeRoles(2, 5, 6), adminController.replyStaffFeedback);
 router.post('/feedback/:type/:id/analyze', authorizeRoles(2, 5, 6), adminController.analyzeFeedback);
@@ -90,7 +90,6 @@ router.get('/analytics/revenue', authorizeRoles(5, 6), adminController.getRevenu
 router.get('/analytics/performance', authorizeRoles(5, 6), adminController.getStaffPerformance);
 router.get('/analytics/top-packages', authorizeRoles(5, 6), adminController.getTopPackages);
 router.get('/analytics/top-vip-customers', authorizeRoles(5, 6), adminController.getTopVipCustomers);
-router.get('/analytics/reviews', authorizeRoles(5, 6), adminController.getReviews);
 
 // ─── LỊCH HẸN (ADMIN MASTER VIEW) ─────────────────────────────────────────────
 router.get('/appointments', authorizeRoles(2, 4, 5, 6), appointmentController.getAllAppointments);

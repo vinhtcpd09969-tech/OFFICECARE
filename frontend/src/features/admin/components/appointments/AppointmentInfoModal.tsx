@@ -1,4 +1,3 @@
-import React from 'react';
 import { X, User, Activity, Clock, Calendar, FileText, ArrowRight } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../../../stores/authStore';

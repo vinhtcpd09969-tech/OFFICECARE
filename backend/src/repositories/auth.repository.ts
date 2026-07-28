@@ -53,6 +53,28 @@ class AuthRepository {
     return null;
   }
 
+  async findStaffByEmail(email: string) {
+    return prisma.nguoi_dung.findFirst({
+      where: { email }
+    });
+  }
+
+  async findActiveCustomerByEmail(email: string) {
+    const customer = await prisma.khach_hang.findFirst({
+      where: {
+        email,
+        trang_thai: 'hoat_dong'
+      }
+    });
+    if (customer) {
+      return {
+        ...customer,
+        vai_tro_id: 1
+      };
+    }
+    return null;
+  }
+
   async createUser(data: { ho_ten: string, email: string, so_dien_thoai: string, mat_khau_hash: string, gioi_tinh: string, ngay_sinh: Date, dia_chi?: string, ngay_dong_y_dieu_khoan: Date }) {
     return prisma.khach_hang.create({
       data: {
@@ -74,6 +96,10 @@ class AuthRepository {
   }
 
   async saveOTP(email: string, otp: string, expiresAt: Date) {
+    // Dọn mã OTP hết hạn của MỌI email — không có cron riêng, tận dụng luôn request tạo OTP mới
+    // (đăng ký/gửi lại/quên mật khẩu) làm điểm quét, giống cách tam_giu_cho tự dọn ở appointment.repository.ts.
+    await prisma.otp_codes.deleteMany({ where: { expires_at: { lte: new Date() } } });
+
     await prisma.otp_codes.create({
       data: {
         email,
@@ -129,6 +155,10 @@ class AuthRepository {
   }
 
   async saveRefreshToken(userId: string, token: string, expiresAt: Date, isCustomer: boolean) {
+    // Dọn refresh token hết hạn của MỌI người dùng — không có endpoint logout xóa token, nên đây
+    // là điểm quét duy nhất (mỗi lần đăng nhập/đăng ký thành công đều tạo token mới).
+    await prisma.refresh_tokens.deleteMany({ where: { expires_at: { lte: new Date() } } });
+
     await prisma.refresh_tokens.create({
       data: {
         nguoi_dung_id: isCustomer ? null : parseInt(userId, 10),

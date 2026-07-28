@@ -498,7 +498,7 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
                           </span>
                           <span className={`text-[9.5px] font-semibold mt-0.5 block ${isAvailable ? 'text-teal-600 dark:text-teal-400' : 'text-zinc-400'
                             }`}>
-                            {staff.ca_truc} {isAvailable && `· ${staff.so_ca} ca`}
+                            {staff.ca_truc}
                           </span>
                         </div>
                       </div>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, Stethoscope, ChevronDown, ShieldAlert, Lock, UserCheck, FileText, TrendingDown, TrendingUp, CheckCircle2 } from 'lucide-react';
+import { X, Stethoscope, ChevronDown, ShieldAlert, Lock, UserCheck, FileText, TrendingDown, TrendingUp } from 'lucide-react';
 import { TreatmentPlan } from '../../../api/doctor.api';
 import { StaffAvatar, getSessionStatusMeta } from './StaffAvatar';
 import { getPlanStatusMeta } from './PlanColumn';
@@ -76,6 +76,8 @@ export const PlanDetailModal: React.FC<PlanDetailModalProps> = ({ plan, onClose,
           const isCompleted = session.trang_thai === 'hoan_thanh';
           const statusMeta = getSessionStatusMeta(session.trang_thai);
           const isOwn = !!currentUserId && session.thuc_hien_id === currentUserId;
+          const beforeScore = typeof session.danh_gia_truoc_buoi === 'number' ? session.danh_gia_truoc_buoi : null;
+          const afterScore = typeof session.danh_gia_sau_buoi === 'number' ? session.danh_gia_sau_buoi : null;
           return (
             <div key={session.id} className={`border rounded-2xl overflow-hidden transition-all bg-white dark:bg-slate-900 ${isOpen ? 'border-slate-200 dark:border-slate-700 shadow-sm' : 'border-slate-100 dark:border-slate-800'}`}>
               <button
@@ -136,7 +138,7 @@ export const PlanDetailModal: React.FC<PlanDetailModalProps> = ({ plan, onClose,
 
                     {/* Cột phải: Thước đo chỉ số đau (VAS) */}
                     <div className="flex">
-                      {(session.danh_gia_truoc_buoi !== null || session.danh_gia_sau_buoi !== null) && (
+                      {(beforeScore !== null || afterScore !== null) && (
                         <div className="p-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-150 dark:border-slate-750 rounded-2xl space-y-4 flex-1 flex flex-col justify-between">
                           <div>
                             <p className="text-[10px] font-black text-[#0D9488] uppercase tracking-wider mb-3">Chỉ số mức độ đau (VAS)</p>
@@ -144,16 +146,16 @@ export const PlanDetailModal: React.FC<PlanDetailModalProps> = ({ plan, onClose,
                             <div className="grid grid-cols-2 gap-3">
                               <div className="p-3 bg-white dark:bg-slate-900 rounded-xl text-center border border-slate-100 dark:border-slate-800">
                                 <span className="text-[9px] text-slate-400 uppercase font-black tracking-wider block">Trước trị liệu</span>
-                                <span className="text-2xl font-black text-slate-700 dark:text-slate-200 mt-1 block tabular-nums">{session.danh_gia_truoc_buoi ?? '—'}</span>
+                                <span className="text-2xl font-black text-slate-700 dark:text-slate-200 mt-1 block tabular-nums">{beforeScore ?? '—'}</span>
                               </div>
                               <div className="p-3 bg-[#0D9488]/10 rounded-xl text-center border border-[#0D9488]/20">
                                 <span className="text-[9px] text-[#0D9488] uppercase font-black tracking-wider block">Sau trị liệu</span>
-                                <span className="text-2xl font-black text-[#0D9488] mt-1 block tabular-nums">{session.danh_gia_sau_buoi ?? '—'}</span>
+                                <span className="text-2xl font-black text-[#0D9488] mt-1 block tabular-nums">{afterScore ?? '—'}</span>
                               </div>
                             </div>
 
                             {/* Thanh slider gradient VAS */}
-                            {session.danh_gia_truoc_buoi !== null && session.danh_gia_sau_buoi !== null && (
+                            {beforeScore !== null && afterScore !== null && (
                               <div className="space-y-1.5 pt-4">
                                 <div className="flex justify-between text-[9px] font-bold text-slate-400">
                                   <span>0 (Không đau)</span>
@@ -161,26 +163,26 @@ export const PlanDetailModal: React.FC<PlanDetailModalProps> = ({ plan, onClose,
                                 </div>
                                 <div className="h-2.5 bg-slate-200 dark:bg-slate-800 rounded-full relative overflow-hidden">
                                   <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-amber-500 to-rose-500 opacity-30" />
-                                  {session.danh_gia_truoc_buoi !== session.danh_gia_sau_buoi && (
+                                  {beforeScore !== afterScore && (
                                     <div
                                       className={`absolute top-0 bottom-0 opacity-40 transition-all ${
-                                        session.danh_gia_sau_buoi < session.danh_gia_truoc_buoi ? 'bg-emerald-500' : 'bg-rose-500'
+                                        afterScore < beforeScore ? 'bg-emerald-500' : 'bg-rose-500'
                                       }`}
                                       style={{
-                                        left: `${Math.min(session.danh_gia_truoc_buoi, session.danh_gia_sau_buoi) * 10}%`,
-                                        width: `${Math.abs(session.danh_gia_sau_buoi - session.danh_gia_truoc_buoi) * 10}%`
+                                        left: `${Math.min(beforeScore, afterScore) * 10}%`,
+                                        width: `${Math.abs(afterScore - beforeScore) * 10}%`
                                       }}
                                     />
                                   )}
                                   <div
                                     className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-slate-400 border border-white rounded-full -ml-1.25 transition-all shadow-xs"
-                                    style={{ left: `${session.danh_gia_truoc_buoi * 10}%` }}
-                                    title={`Trước: ${session.danh_gia_truoc_buoi}`}
+                                    style={{ left: `${beforeScore * 10}%` }}
+                                    title={`Trước: ${beforeScore}`}
                                   />
                                   <div
                                     className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-[#0D9488] border border-white rounded-full -ml-1.75 transition-all shadow-sm"
-                                    style={{ left: `${session.danh_gia_sau_buoi * 10}%` }}
-                                    title={`Sau: ${session.danh_gia_sau_buoi}`}
+                                    style={{ left: `${afterScore * 10}%` }}
+                                    title={`Sau: ${afterScore}`}
                                   />
                                 </div>
                               </div>
@@ -188,36 +190,36 @@ export const PlanDetailModal: React.FC<PlanDetailModalProps> = ({ plan, onClose,
 
                             {/* Bảng chi tiết mô tả thang điểm đau */}
                             <div className="space-y-2 pt-3 border-t border-slate-200/60 dark:border-slate-800 mt-4">
-                              {session.danh_gia_truoc_buoi !== null && (
+                              {beforeScore !== null && (
                                 <div className="flex items-start gap-2 text-[11px] text-slate-500 dark:text-slate-400">
                                   <span className="size-2 rounded-full bg-slate-400 mt-1 shrink-0" />
                                   <p className="leading-tight">
-                                    <span className="font-extrabold text-slate-700 dark:text-slate-200">Mức {session.danh_gia_truoc_buoi} (Trước):</span> {getVasDescription(session.danh_gia_truoc_buoi)}
+                                    <span className="font-extrabold text-slate-700 dark:text-slate-200">Mức {beforeScore} (Trước):</span> {getVasDescription(beforeScore)}
                                   </p>
                                 </div>
                               )}
-                              {session.danh_gia_sau_buoi !== null && (
+                              {afterScore !== null && (
                                 <div className="flex items-start gap-2 text-[11px] text-[#0D9488]">
                                   <span className="size-2 rounded-full bg-[#0D9488] mt-1 shrink-0" />
                                   <p className="leading-tight">
-                                    <span className="font-extrabold text-[#0D9488]">Mức {session.danh_gia_sau_buoi} (Sau):</span> {getVasDescription(session.danh_gia_sau_buoi)}
+                                    <span className="font-extrabold text-[#0D9488]">Mức {afterScore} (Sau):</span> {getVasDescription(afterScore)}
                                   </p>
                                 </div>
                               )}
                             </div>
                           </div>
 
-                          {session.danh_gia_truoc_buoi !== null && session.danh_gia_sau_buoi !== null && session.danh_gia_truoc_buoi !== session.danh_gia_sau_buoi && (
+                          {beforeScore !== null && afterScore !== null && beforeScore !== afterScore && (
                             <div className="flex justify-center pt-2">
                               <span
                                 className={`inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-0.5 rounded-full border ${
-                                  session.danh_gia_sau_buoi < session.danh_gia_truoc_buoi
+                                  afterScore < beforeScore
                                     ? 'text-emerald-700 bg-emerald-50 border-emerald-100 dark:bg-emerald-950/30 dark:border-emerald-900/40 dark:text-emerald-400'
                                     : 'text-rose-700 bg-rose-50 border-rose-100 dark:bg-rose-950/30 dark:border-rose-900/40 dark:text-rose-400'
                                 }`}
                               >
-                                {session.danh_gia_sau_buoi < session.danh_gia_truoc_buoi ? <TrendingDown size={12} /> : <TrendingUp size={12} />}
-                                {session.danh_gia_sau_buoi < session.danh_gia_truoc_buoi ? 'Giảm' : 'Tăng'} {Math.abs(session.danh_gia_sau_buoi - session.danh_gia_truoc_buoi)} điểm đau so với trước trị liệu
+                                {afterScore < beforeScore ? <TrendingDown size={12} /> : <TrendingUp size={12} />}
+                                {afterScore < beforeScore ? 'Giảm' : 'Tăng'} {Math.abs(afterScore - beforeScore)} điểm đau so với trước trị liệu
                               </span>
                             </div>
                           )}

@@ -120,7 +120,6 @@ model chi_dinh_buoi {
   id                    String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   nhat_ky_id            String                @db.Uuid
   goi_dich_vu_id        String?               @db.Uuid
-  ghi_chu               String?
   // Snapshot cấu hình gói tại đúng thời điểm bác sĩ chỉ định — số buổi là một chỉ định lâm sàng,
   // admin sửa gói về sau không được phép âm thầm đổi liệu trình/giá đã tư vấn cho khách.
   tong_so_buoi_tu_van   Int?

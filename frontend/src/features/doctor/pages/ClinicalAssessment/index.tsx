@@ -3,21 +3,17 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  Phone,
   Calendar as CalendarIcon,
   FileText,
-  Activity,
   AlertTriangle,
   ArrowLeft,
   CheckCircle,
   TrendingUp,
-  User,
   HeartPulse,
   ClipboardList,
   ShieldAlert,
   FlameKindling,
-  Timer,
-  History as HistoryIcon
+  Timer
 } from 'lucide-react';
 import { useAuthStore } from '../../../../stores/authStore';
 import {
@@ -29,7 +25,6 @@ import {
   PatientProfile,
   PackageItem
 } from '../../api/doctor.api';
-type ActiveModal = { type: 'plan'; id: string } | { type: 'visit'; id: string } | null;
 import {
   getAppointmentDetail as getAppointmentDetailKtv,
   saveTreatmentRecord as saveTreatmentRecordKtv,
@@ -370,6 +365,14 @@ export default function ClinicalAssessment() {
     } else {
       if (!chanDoan.trim()) {
         toast.error('Vui lòng điền chẩn đoán lâm sàng của bệnh nhân.');
+        return;
+      }
+      if (!chongChiDinh.trim()) {
+        toast.error('Vui lòng điền chống chỉ định y khoa (nếu không có, ghi rõ "Không có").');
+        return;
+      }
+      if (!ghiChu.trim()) {
+        toast.error('Vui lòng điền ghi chú / dặn dò cho khách hàng.');
         return;
       }
     }
@@ -808,13 +811,14 @@ export default function ClinicalAssessment() {
                 {/* Chống chỉ định */}
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black text-rose-500 uppercase tracking-widest block flex items-center gap-1.5">
-                    <ShieldAlert size={14} /> Chống chỉ định y khoa (nếu có)
+                    <ShieldAlert size={14} /> Chống chỉ định y khoa <span className="text-rose-500">*</span>
                   </label>
                   <textarea
                     value={chongChiDinh}
                     onChange={(e) => setChongChiDinh(e.target.value)}
-                    placeholder="Những vùng tránh can thiệp mạnh (ví dụ: Tránh siêu âm nhiệt vùng có kim loại, không dán parafin nóng vùng cổ chân có viêm cấp)..."
+                    placeholder="Những vùng tránh can thiệp mạnh (ví dụ: Tránh siêu âm nhiệt vùng có kim loại, không dán parafin nóng vùng cổ chân có viêm cấp)... Nếu không có, ghi rõ &quot;Không có&quot;."
                     rows={2}
+                    required
                     className="w-full px-4 py-3 bg-rose-50/10 dark:bg-rose-955/5 border border-rose-200/50 dark:border-rose-900/40 rounded-2xl text-xs font-semibold text-rose-650 dark:text-rose-450 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-400 outline-none transition-all placeholder-rose-350"
                   />
                 </div>
@@ -980,13 +984,14 @@ export default function ClinicalAssessment() {
                 {/* Dặn dò bác sĩ */}
                 <div className="space-y-1.5 pt-2">
                   <label className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest block">
-                    Ghi chú / Dặn dò thêm
+                    Ghi chú / Dặn dò thêm <span className="text-rose-500">*</span>
                   </label>
                   <textarea
                     value={ghiChu}
                     onChange={(e) => setGhiChu(e.target.value)}
                     placeholder="Nhập hướng dẫn tập luyện thêm tại nhà hoặc dặn dò đặc biệt..."
                     rows={2}
+                    required
                     className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-xs font-semibold text-secondary dark:text-zinc-150 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder-zinc-400"
                   />
                 </div>

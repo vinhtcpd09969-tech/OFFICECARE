@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, ArrowRight, Mail, Phone, Award, Calendar, Star, CheckCircle2, ShieldCheck, Newspaper, User } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, Award, Calendar, Star, CheckCircle2, ShieldCheck, Newspaper, User } from 'lucide-react';
 import { getPublicSpecialistById, getPublicSpecialists, getPublicArticles, getPublicSpecialistReviews } from '../api/public.api';
 import LoadingScreen from '../../../components/LoadingScreen';
 import ScrollReveal from '../components/shared/ScrollReveal';

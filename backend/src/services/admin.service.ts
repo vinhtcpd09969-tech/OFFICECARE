@@ -276,12 +276,12 @@ class AdminService {
   }
 
   // --- BÁO CÁO & THỐNG KÊ ---
-  async getDashboardSummary() {
-    return adminRepository.getDashboardSummary();
+  async getDashboardSummary(range?: string, startDate?: string, endDate?: string) {
+    return adminRepository.getDashboardSummary(range, startDate, endDate);
   }
 
-  async getRevenueStats(type?: string, startDate?: string, endDate?: string) {
-    return adminRepository.getRevenueStats(type, startDate, endDate);
+  async getRevenueStats(range?: string, startDate?: string, endDate?: string, bucket?: string) {
+    return adminRepository.getRevenueStats(range, startDate, endDate, bucket);
   }
 
   async getStaffPerformance() {
@@ -294,10 +294,6 @@ class AdminService {
 
   async getTopVipCustomers() {
     return adminRepository.getTopVipCustomers();
-  }
-
-  async getReviews() {
-    return adminRepository.getReviews();
   }
 
   async getAvailableStaff(dich_vu_id: string | null, dang_ky_goi_id: string | null, ngay: string, gio_bat_dau: string) {

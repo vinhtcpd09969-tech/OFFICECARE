@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   ShieldCheck,
-  Clock,
-  Stethoscope,
   Star,
   User,
   Loader2,
@@ -22,7 +20,6 @@ import { useBookingState } from '../components/booking/hooks/useBookingState';
 import {
   formatFullDate
 } from '../components/booking/constants';
-import { BookingHeader } from '../components/booking/ui/BookingHeader';
 import { BookingWizard } from '../components/booking/ui/BookingWizard';
 import { BookingStepCard } from '../components/booking/ui/BookingStepCard';
 

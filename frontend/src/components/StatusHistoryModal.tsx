@@ -100,7 +100,6 @@ export const StatusHistoryModal: React.FC<StatusHistoryModalProps> = ({
       title: 'Đón tiếp & Check-in tại quầy',
       timestamp: formatDateStr(appointment.thoi_gian_checkin),
       status: 'completed',
-      performer: 'Lễ tân tiếp nhận tại quầy',
       description: 'Bệnh nhân đã có mặt tại phòng khám và hoàn tất thủ tục check-in.',
       icon: UserCheck,
       color: 'bg-teal-500 text-white'
@@ -114,7 +113,6 @@ export const StatusHistoryModal: React.FC<StatusHistoryModalProps> = ({
       title: 'Bắt đầu ca Khám / Trị liệu',
       timestamp: formatDateStr(appointment.thoi_gian_bat_dau),
       status: 'completed',
-      performer: appointment.ten_ky_thuat_vien ? `Chuyên gia: ${appointment.ten_ky_thuat_vien}` : 'Bác sĩ / KTV phụ trách',
       description: 'Chuyên gia đã tiếp nhận bệnh nhân và bắt đầu tiến trình chuyên môn.',
       icon: Stethoscope,
       color: 'bg-indigo-500 text-white'
@@ -128,7 +126,6 @@ export const StatusHistoryModal: React.FC<StatusHistoryModalProps> = ({
       title: 'Hoàn thành ca & Lưu hồ sơ y khoa',
       timestamp: formatDateStr(appointment.thoi_gian_hoan_thanh),
       status: 'completed',
-      performer: appointment.ten_ky_thuat_vien ? `Chuyên gia: ${appointment.ten_ky_thuat_vien}` : 'Phòng khám OfficeCare',
       description: 'Buổi trị liệu đã kết thúc thành công. Đã lưu nhật ký trị liệu và thang đo VAS.',
       icon: CheckCircle2,
       color: 'bg-emerald-600 text-white'
@@ -138,11 +135,6 @@ export const StatusHistoryModal: React.FC<StatusHistoryModalProps> = ({
   // 6. Mốc Hủy ca (Chỉ hiển thị khi bị Hủy)
   if (appointment.thoi_gian_huy || ['da_huy', 'da_huy_phat', 'cho_huy'].includes(appointment.trang_thai)) {
     const cancelTime = formatDateStr(appointment.thoi_gian_huy) || formatDateStr(appointment.thoi_gian_tao);
-    const isCustomerSelfCancelled = !appointment.nguoi_tao_id && !!appointment.ly_do_huy;
-    const cancelPerformer = isCustomerSelfCancelled
-      ? `Khách hàng: ${appointment.ten_khach_hang || 'Khách hàng'}`
-      : 'Lễ tân / Admin phòng khám';
-
     const cancelReasonText = appointment.ghi_chu_noi_bo || appointment.ly_do_huy || 'Thay đổi lịch làm việc';
 
     timelineEvents.push({
@@ -150,7 +142,6 @@ export const StatusHistoryModal: React.FC<StatusHistoryModalProps> = ({
       title: 'Ca hẹn đã bị hủy',
       timestamp: cancelTime,
       status: 'failed',
-      performer: cancelPerformer,
       description: `Ghi chú / Lý do hủy: ${cancelReasonText}`,
       icon: XCircle,
       color: 'bg-rose-500 text-white'
@@ -166,7 +157,6 @@ export const StatusHistoryModal: React.FC<StatusHistoryModalProps> = ({
       title: 'Bệnh nhân không đến (No-show)',
       timestamp: noshowTime,
       status: 'failed',
-      performer: 'Lễ tân / Admin phòng khám',
       description: 'Nhân viên tiếp nhận ghi nhận bệnh nhân không có mặt theo giờ hẹn đã đăng ký.',
       icon: AlertTriangle,
       color: 'bg-amber-500 text-white'

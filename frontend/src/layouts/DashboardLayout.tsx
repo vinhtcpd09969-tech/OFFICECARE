@@ -10,8 +10,7 @@ import {
   FileText,
   Receipt,
   ShieldAlert,
-  ArrowLeft,
-  User as UserIcon
+  ArrowLeft
 } from 'lucide-react';
 import { resolveImageUrl } from '../utils/imageUrl';
 
