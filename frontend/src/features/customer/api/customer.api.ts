@@ -25,14 +25,8 @@ export const getMyReviews = () => api.get('/client/reviews/my-reviews');
 export const updateServiceReview = (id: string, data: { rating: number; comment?: string }) => 
   api.put(`/client/reviews/service/${id}`, data);
 
-export const updateStaffReview = (id: string, data: { rating: number; comment?: string }) => 
+export const updateStaffReview = (id: string, data: { rating: number; comment?: string }) =>
   api.put(`/client/reviews/staff/${id}`, data);
-
-export const deleteServiceReview = (id: string) => 
-  api.delete(`/client/reviews/service/${id}`);
-
-export const deleteStaffReview = (id: string) => 
-  api.delete(`/client/reviews/staff/${id}`);
 
 export const updateProfile = (data: {
   ho_ten: string;

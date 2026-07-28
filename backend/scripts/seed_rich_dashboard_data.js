@@ -208,11 +208,11 @@ async function seedRichData() {
 
       // Staff Review
       await client.query(`
-        INSERT INTO danh_gia_nhan_su (
-          id, khach_hang_id, nhan_su_id, cuoc_hen_id, so_sao, nhan_xet, ngay_tao, 
+        INSERT INTO danh_gia (
+          id, loai_danh_gia, khach_hang_id, nhan_su_id, cuoc_hen_id, so_sao, nhan_xet, ngay_tao,
           ngay_phan_hoi, nguoi_phan_hoi_id, phan_hoi_nhan_xet, cam_xuc, do_tin_cay, ly_do_cam_xuc
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $7::timestamptz + INTERVAL '2 hours', $3, $8, $9, 0.96, 'Khách hàng khen ngợi chuyên môn và thái độ dịch vụ chu đáo')
+        VALUES ($1, 'NHAN_SU', $2, $3, $4, $5, $6, $7, $7::timestamptz + INTERVAL '2 hours', $3, $8, $9, 0.96, 'Khách hàng khen ngợi chuyên môn và thái độ dịch vụ chu đáo')
         ON CONFLICT DO NOTHING
       `, [
         uuidv4(), apt.custId, apt.staffId, apt.id, sRev.stars, sRev.text, apt.date,
@@ -224,11 +224,11 @@ async function seedRichData() {
       if (apt.pkgId) {
         const pRev = packageReviewComments[i % packageReviewComments.length];
         await client.query(`
-          INSERT INTO danh_gia_goi_dich_vu (
-            id, khach_hang_id, goi_dich_vu_id, cuoc_hen_id, so_sao, nhan_xet, ngay_tao,
+          INSERT INTO danh_gia (
+            id, loai_danh_gia, khach_hang_id, goi_dich_vu_id, cuoc_hen_id, so_sao, nhan_xet, ngay_tao,
             ngay_phan_hoi, nguoi_phan_hoi_id, phan_hoi_nhan_xet, cam_xuc, do_tin_cay
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $7::timestamptz + INTERVAL '3 hours', $8, $9, $10, 0.95)
+          VALUES ($1, 'GOI_DICH_VU', $2, $3, $4, $5, $6, $7, $7::timestamptz + INTERVAL '3 hours', $8, $9, $10, 0.95)
           ON CONFLICT DO NOTHING
         `, [
           uuidv4(), apt.custId, apt.pkgId, apt.id, pRev.stars, pRev.text, apt.date,

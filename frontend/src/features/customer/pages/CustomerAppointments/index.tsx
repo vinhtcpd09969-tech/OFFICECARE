@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   Calendar,
   AlertCircle,
+  X,
   XCircle,
   RefreshCw,
   PlusCircle,
@@ -81,6 +82,7 @@ export default function CustomerAppointments() {
 
   // Pending ratings list for top notification banner
   const [pendingRatingAppts, setPendingRatingAppts] = useState<any[]>([]);
+  const [hideReviewBanner, setHideReviewBanner] = useState<boolean>(() => sessionStorage.getItem('hide_review_banner') === 'true');
 
   const fetchPendingRatings = async () => {
     try {
@@ -512,36 +514,52 @@ export default function CustomerAppointments() {
       <div className="space-y-6">
 
         {/* Pending Reviews Notification Banner */}
-        {pendingRatingAppts.length > 0 && (() => {
+        {!hideReviewBanner && pendingRatingAppts.length > 0 && (() => {
           const app = pendingRatingAppts[0];
           return (
-            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 rounded-[28px] p-5 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in slide-in-from-top-3 duration-300">
-              <div className="flex items-start gap-3.5">
-                <div className="size-11 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center shrink-0 border border-amber-200 shadow-2xs">
-                  <Star className="fill-amber-500 text-amber-500" size={22} />
+            <div className="relative bg-gradient-to-r from-amber-50/90 via-orange-50/90 to-yellow-50/90 border border-amber-200/80 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5 animate-in slide-in-from-top-3 duration-300">
+              <div className="flex items-start gap-3 min-w-0 flex-1 pr-6 sm:pr-0">
+                <div className="size-10 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center shrink-0 border border-amber-200 shadow-2xs">
+                  <Star className="fill-amber-500 text-amber-500" size={18} />
                 </div>
-                <div>
+                <div className="min-w-0 flex-1">
                   <h4 className="font-extrabold text-xs text-slate-800 leading-tight flex items-center gap-1.5">
                     🔔 Góp ý chất lượng y khoa
                   </h4>
-                  <p className="text-xs text-slate-600 font-medium leading-relaxed mt-1">
+                  <p className="text-xs text-slate-600 font-medium leading-relaxed mt-0.5">
                     Bạn vừa hoàn thành trị liệu <strong>{app.ten_dich_vu}</strong>{app.ten_bac_si ? ` cùng KTV ${app.ten_bac_si}` : ''}. Hãy dành 1 phút đóng góp ý kiến nhé!
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setRatingApptId(app.id);
-                  setRatingStarsService(app.rating_service_stars || 5);
-                  setRatingCommentService(app.rating_service_comment || '');
-                  setRatingStarsStaff(app.rating_staff_stars || 5);
-                  setRatingCommentStaff(app.rating_staff_comment || '');
-                }}
-                className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-sm shrink-0 cursor-pointer"
-              >
-                Đánh giá ngay
-              </button>
+
+              <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRatingApptId(app.id);
+                    setRatingStarsService(app.rating_service_stars || 5);
+                    setRatingCommentService(app.rating_service_comment || '');
+                    setRatingStarsStaff(app.rating_staff_stars || 5);
+                    setRatingCommentStaff(app.rating_staff_comment || '');
+                  }}
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-xs shrink-0 cursor-pointer"
+                >
+                  Đánh giá ngay
+                </button>
+
+                {/* Nút ẩn/tắt thông báo Đánh giá */}
+                <button
+                  type="button"
+                  title="Tắt thông báo này"
+                  onClick={() => {
+                    setHideReviewBanner(true);
+                    sessionStorage.setItem('hide_review_banner', 'true');
+                  }}
+                  className="p-1.5 text-zinc-400 hover:text-zinc-600 hover:bg-amber-100/60 rounded-lg transition-colors cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
             </div>
           );
         })()}
@@ -1102,6 +1120,9 @@ export default function CustomerAppointments() {
           const isPackage = activeAppt?.loai_goi === 'LIEU_TRINH';
           const isPackageFinished = activeAppt?.phac_do_status === 'hoan_thanh' || activeAppt?.phac_do_status === 'huy';
           const canRateService = !isPackage || isPackageFinished;
+          const hasExistingServiceReview = !!activeAppt?.rating_service_id;
+          const hasExistingStaffReview = !!activeAppt?.rating_staff_id;
+          const isEditingAny = hasExistingServiceReview || hasExistingStaffReview;
 
           return (
             <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
@@ -1123,9 +1144,13 @@ export default function CustomerAppointments() {
                   <div className="w-12 h-12 bg-amber-50 text-amber-500 rounded-xl flex items-center justify-center mx-auto border border-amber-100 shadow-xs">
                     <Star size={24} fill="currentColor" />
                   </div>
-                  <h3 className="text-lg font-black text-slate-900 uppercase tracking-wide">Đánh giá trị liệu</h3>
+                  <h3 className="text-lg font-black text-slate-900 uppercase tracking-wide">
+                    {isEditingAny ? 'Sửa đánh giá' : 'Đánh giá trị liệu'}
+                  </h3>
                   <p className="text-[11px] text-slate-400 font-semibold leading-relaxed px-2">
-                    Ý kiến khách quan giúp chúng tôi liên tục tối ưu hóa phác đồ điều trị và nâng cao tay nghề nhân sự.
+                    {isEditingAny
+                      ? 'Bạn đã đánh giá mục này trước đó — nội dung bên dưới là đánh giá cũ, chỉnh sửa rồi gửi lại để cập nhật.'
+                      : 'Ý kiến khách quan giúp chúng tôi liên tục tối ưu hóa phác đồ điều trị và nâng cao tay nghề nhân sự.'}
                   </p>
                 </div>
 
@@ -1136,6 +1161,11 @@ export default function CustomerAppointments() {
                       <h4 className="text-[11px] font-black text-secondary uppercase tracking-wider">
                         1. Chất lượng Dịch vụ
                       </h4>
+                      {hasExistingServiceReview && (
+                        <span className="text-[8px] bg-teal-50 text-teal-600 font-black px-2 py-0.5 rounded-md uppercase border border-teal-100">
+                          Đã đánh giá — đang sửa
+                        </span>
+                      )}
                       {!canRateService && (
                         <span className="text-[8px] bg-slate-100 text-slate-500 font-black px-2 py-0.5 rounded-md uppercase">
                           Khóa
@@ -1181,7 +1211,7 @@ export default function CustomerAppointments() {
                             rows={2}
                             value={ratingCommentService}
                             onChange={(e) => setRatingCommentService(e.target.value)}
-                            placeholder="Mức độ phục hồi, cơ sở vật chất, thiết bị y khoa..."
+                            placeholder="Bạn có hài lòng về quy trình của gói, hiệu quả trị liệu, cơ sở vật chất và trang thiết bị không? Hãy chia sẻ trải nghiệm của bạn..."
                             className="w-full bg-slate-50 border border-slate-150 focus:border-[#14B8A6]/60 p-3 rounded-lg text-xs font-bold resize-none outline-none text-slate-800 transition-colors"
                           />
                         </div>
@@ -1191,9 +1221,16 @@ export default function CustomerAppointments() {
 
                   {/* 2. STAFF QUALITY RATING */}
                   <div className="space-y-4 pt-5">
-                    <h4 className="text-[11px] font-black text-secondary uppercase tracking-wider text-left">
-                      2. Kỹ thuật viên / Bác sĩ ({activeAppt?.ten_ky_thuat_vien || 'Phụ trách'})
-                    </h4>
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-[11px] font-black text-secondary uppercase tracking-wider text-left">
+                        2. Kỹ thuật viên / Bác sĩ ({activeAppt?.ten_ky_thuat_vien || 'Phụ trách'})
+                      </h4>
+                      {hasExistingStaffReview && (
+                        <span className="text-[8px] bg-teal-50 text-teal-600 font-black px-2 py-0.5 rounded-md uppercase border border-teal-100 shrink-0">
+                          Đã đánh giá — đang sửa
+                        </span>
+                      )}
+                    </div>
 
                     <div className="flex justify-center gap-1.5">
                       {[1, 2, 3, 4, 5].map((star) => (
@@ -1220,7 +1257,7 @@ export default function CustomerAppointments() {
                         rows={2}
                         value={ratingCommentStaff}
                         onChange={(e) => setRatingCommentStaff(e.target.value)}
-                        placeholder="Tay nghề, thái độ phục vụ chu đáo tận tâm..."
+                        placeholder="Bạn có hài lòng về nhân sự khi làm không? Thái độ phục vụ, tay nghề chuyên môn của bác sĩ / KTV như thế nào..."
                         className="w-full bg-slate-50 border border-slate-150 focus:border-[#14B8A6]/60 p-3 rounded-lg text-xs font-bold resize-none outline-none text-slate-800 transition-colors"
                       />
                     </div>
@@ -1233,7 +1270,7 @@ export default function CustomerAppointments() {
                     onClick={handleRatingSubmit}
                     className="bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-[11px] uppercase tracking-wider py-3 rounded-xl shadow-xs cursor-pointer flex items-center justify-center"
                   >
-                    Gửi đánh giá
+                    {isEditingAny ? 'Cập nhật đánh giá' : 'Gửi đánh giá'}
                   </button>
                   <button
                     type="button"

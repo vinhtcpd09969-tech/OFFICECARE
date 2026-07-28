@@ -1406,12 +1406,13 @@ class AdminRepository {
           dg.ly_do_cam_xuc,
           dg.de_xuat_hanh_dong,
           dg.de_xuat_phan_hoi
-        FROM danh_gia_goi_dich_vu dg
+        FROM danh_gia dg
         JOIN khach_hang kh ON dg.khach_hang_id = kh.id
         LEFT JOIN goi_dich_vu g ON dg.goi_dich_vu_id = g.id
         LEFT JOIN cuoc_hen ch ON dg.cuoc_hen_id = ch.id
         LEFT JOIN nguoi_dung nd_ktv ON ch.nhan_su_id = nd_ktv.id
         LEFT JOIN nguoi_dung nd_ph ON dg.nguoi_phan_hoi_id = nd_ph.id
+        WHERE dg.loai_danh_gia = 'GOI_DICH_VU'
 
         UNION ALL
 
@@ -1433,12 +1434,13 @@ class AdminRepository {
           dg.ly_do_cam_xuc,
           dg.de_xuat_hanh_dong,
           dg.de_xuat_phan_hoi
-        FROM danh_gia_nhan_su dg
+        FROM danh_gia dg
         JOIN khach_hang kh ON dg.khach_hang_id = kh.id
         JOIN nguoi_dung nd_ktv ON dg.nhan_su_id = nd_ktv.id
         LEFT JOIN cuoc_hen ch ON dg.cuoc_hen_id = ch.id
         LEFT JOIN goi_dich_vu g ON ch.goi_dich_vu_id = g.id
         LEFT JOIN nguoi_dung nd_ph ON dg.nguoi_phan_hoi_id = nd_ph.id
+        WHERE dg.loai_danh_gia = 'NHAN_SU'
       ) combined
       ORDER BY thoi_gian_danh_gia DESC
     `);
@@ -1446,7 +1448,7 @@ class AdminRepository {
   }
 
   async replyServiceFeedback(id: string, phanHoi: string, staffId: number) {
-    return prisma.danh_gia_goi_dich_vu.update({
+    return prisma.danh_gia.update({
       where: { id },
       data: {
         phan_hoi_nhan_xet: phanHoi,
@@ -1457,7 +1459,7 @@ class AdminRepository {
   }
 
   async replyStaffFeedback(id: string, phanHoi: string, staffId: number) {
-    return prisma.danh_gia_nhan_su.update({
+    return prisma.danh_gia.update({
       where: { id },
       data: {
         phan_hoi_nhan_xet: phanHoi,
@@ -1467,11 +1469,8 @@ class AdminRepository {
     });
   }
 
-  async getFeedbackReviewText(type: 'service' | 'staff', id: string) {
-    if (type === 'service') {
-      return prisma.danh_gia_goi_dich_vu.findUnique({ where: { id }, select: { nhan_xet: true, so_sao: true } });
-    }
-    return prisma.danh_gia_nhan_su.findUnique({ where: { id }, select: { nhan_xet: true, so_sao: true } });
+  async getFeedbackReviewText(id: string) {
+    return prisma.danh_gia.findUnique({ where: { id }, select: { nhan_xet: true, so_sao: true } });
   }
 
   // --- BÁO CÁO & THỐNG KÊ ---

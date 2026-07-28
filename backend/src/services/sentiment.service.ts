@@ -105,7 +105,7 @@ export class SentimentService {
     const result = await this.classify(reviewText, soSao);
     if (!result) return null;
 
-    await prisma.danh_gia_goi_dich_vu.update({
+    await prisma.danh_gia.update({
       where: { id: reviewId },
       data: {
         cam_xuc: result.sentiment,
@@ -122,7 +122,7 @@ export class SentimentService {
     const result = await this.classify(reviewText, soSao);
     if (!result) return null;
 
-    await prisma.danh_gia_nhan_su.update({
+    await prisma.danh_gia.update({
       where: { id: reviewId },
       data: {
         cam_xuc: result.sentiment,

@@ -22,15 +22,15 @@ async function main() {
 
   console.log('Bắt đầu backfill phân tích cảm xúc cho các đánh giá cũ...');
 
-  const serviceReviews = await prisma.danh_gia_goi_dich_vu.findMany({
-    where: { cam_xuc: null, nhan_xet: { not: null } }
+  const serviceReviews = await prisma.danh_gia.findMany({
+    where: { loai_danh_gia: 'GOI_DICH_VU', cam_xuc: null, nhan_xet: { not: null } }
   });
   console.log(`Tìm thấy ${serviceReviews.length} đánh giá dịch vụ chưa phân loại.`);
   for (const review of serviceReviews) {
     if (!review.nhan_xet || !review.nhan_xet.trim()) continue;
     const result = await SentimentService.classify(review.nhan_xet, review.so_sao);
     if (result) {
-      await prisma.danh_gia_goi_dich_vu.update({
+      await prisma.danh_gia.update({
         where: { id: review.id },
         data: { cam_xuc: result.sentiment, do_tin_cay: result.confidence, ly_do_cam_xuc: result.reason, de_xuat_hanh_dong: result.suggestedAction, de_xuat_phan_hoi: result.draftReply }
       });
@@ -41,15 +41,15 @@ async function main() {
     await sleep(DELAY_MS);
   }
 
-  const staffReviews = await prisma.danh_gia_nhan_su.findMany({
-    where: { cam_xuc: null, nhan_xet: { not: null } }
+  const staffReviews = await prisma.danh_gia.findMany({
+    where: { loai_danh_gia: 'NHAN_SU', cam_xuc: null, nhan_xet: { not: null } }
   });
   console.log(`Tìm thấy ${staffReviews.length} đánh giá nhân sự chưa phân loại.`);
   for (const review of staffReviews) {
     if (!review.nhan_xet || !review.nhan_xet.trim()) continue;
     const result = await SentimentService.classify(review.nhan_xet, review.so_sao);
     if (result) {
-      await prisma.danh_gia_nhan_su.update({
+      await prisma.danh_gia.update({
         where: { id: review.id },
         data: { cam_xuc: result.sentiment, do_tin_cay: result.confidence, ly_do_cam_xuc: result.reason, de_xuat_hanh_dong: result.suggestedAction, de_xuat_phan_hoi: result.draftReply }
       });

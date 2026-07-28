@@ -1,15 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuthStore, useAuthActions } from '../../../../stores/authStore';
 import { ConfirmDialog } from '../../../../components/ConfirmDialog';
-import { 
-  updateProfile, 
-  changePassword, 
-  getMe, 
-  getMyReviews, 
-  updateServiceReview, 
-  updateStaffReview, 
-  deleteServiceReview, 
-  deleteStaffReview 
+import {
+  updateProfile,
+  changePassword,
+  getMe,
+  getMyReviews,
+  updateServiceReview,
+  updateStaffReview,
+  rateAppointment
 } from '../../api/customer.api';
 import toast from 'react-hot-toast';
 import { censorText } from '../../../../utils/profanity';
@@ -34,8 +33,242 @@ import {
   Tag,
   Star,
   MessageSquare,
-  Edit2
+  Edit2,
+  PlusCircle
 } from 'lucide-react';
+
+function ReviewCard({
+  id,
+  title,
+  rating,
+  comment,
+  reply,
+  date,
+  type,
+  onUpdated
+}: {
+  id: string;
+  title: string;
+  rating: number;
+  comment: string;
+  reply?: string | null;
+  date: string;
+  type: 'service' | 'staff';
+  onUpdated: () => void;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftRating, setDraftRating] = useState(rating);
+  const [draftComment, setDraftComment] = useState(comment);
+  const [saving, setSaving] = useState(false);
+
+  const startEditing = () => {
+    setDraftRating(rating);
+    setDraftComment(comment);
+    setIsEditing(true);
+  };
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      const payload = { rating: draftRating, comment: draftComment };
+      if (type === 'service') {
+        await updateServiceReview(id, payload);
+      } else {
+        await updateStaffReview(id, payload);
+      }
+      toast.success('Đã cập nhật đánh giá thành công!');
+      setIsEditing(false);
+      onUpdated();
+    } catch (err) {
+      console.error(err);
+      toast.error('Không thể cập nhật đánh giá.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      className={`bg-white dark:bg-zinc-900 rounded-[24px] border p-5 shadow-sm space-y-3 transition-all ${
+        isEditing
+          ? 'border-primary ring-2 ring-primary/20'
+          : 'border-zinc-150/60 dark:border-zinc-800'
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h4 className="font-extrabold text-xs text-secondary dark:text-zinc-200 leading-tight">
+            {title}
+          </h4>
+          <p className="text-[9px] text-zinc-400 font-bold uppercase mt-1">
+            Cập nhật: {new Date(date).toLocaleDateString('vi-VN')}
+          </p>
+        </div>
+        <div className="flex gap-0.5 shrink-0">
+          {Array.from({ length: 5 }).map((_, i) => (
+            isEditing ? (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setDraftRating(i + 1)}
+                className="p-0.5 hover:scale-110 active:scale-95 transition-all cursor-pointer"
+              >
+                <Star
+                  size={14}
+                  className={i < draftRating ? 'fill-amber-400 text-amber-400 stroke-none' : 'text-zinc-250 fill-zinc-200 stroke-none'}
+                />
+              </button>
+            ) : (
+              <Star
+                key={i}
+                size={11}
+                className={i < rating ? 'fill-amber-400 text-amber-400 stroke-none' : 'text-zinc-200 fill-zinc-250 stroke-none'}
+              />
+            )
+          ))}
+        </div>
+      </div>
+
+      {isEditing ? (
+        <textarea
+          rows={3}
+          value={draftComment}
+          onChange={(e) => setDraftComment(e.target.value)}
+          placeholder="Bạn có hài lòng về quy trình của gói dịch vụ, thái độ phục vụ của nhân sự hay cơ sở vật chất không? Đóng góp ý kiến tại đây..."
+          autoFocus
+          className="w-full bg-primary/5 border border-primary/40 focus:border-primary p-3 rounded-xl text-xs font-semibold resize-none outline-none text-slate-700 transition-colors"
+        />
+      ) : (
+        <p className="text-xs font-semibold text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100 italic">
+          "{censorText(comment) || 'Không có nhận xét bằng chữ.'}"
+        </p>
+      )}
+
+      {!isEditing && reply && (
+        <div className="bg-emerald-50/50 dark:bg-emerald-950/10 border-l-2 border-[#0D9488] rounded-xl p-3.5 mt-2.5 text-[11px] space-y-1">
+          <p className="font-extrabold text-slate-800 dark:text-zinc-200">
+            Phản hồi từ OfficeCare:
+          </p>
+          <p className="text-slate-655 dark:text-zinc-350 italic">"{reply}"</p>
+        </div>
+      )}
+
+      <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+        {isEditing ? (
+          <>
+            <button
+              type="button"
+              onClick={() => setIsEditing(false)}
+              disabled={saving}
+              className="px-3 py-1.5 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-lg text-[9px] uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50"
+            >
+              Hủy
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="px-3 py-1.5 bg-primary hover:bg-primary/90 disabled:opacity-50 text-white font-bold rounded-lg text-[9px] uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer"
+            >
+              {saving ? <Loader2 className="animate-spin" size={10} /> : 'Lưu thay đổi'}
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={startEditing}
+            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-[9px] uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer"
+          >
+            <Edit2 size={10} /> Chỉnh sửa
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PendingReviewCard({
+  title,
+  cuocHenId,
+  type,
+  onSubmitted
+}: {
+  title: string;
+  cuocHenId: string;
+  type: 'service' | 'staff';
+  onSubmitted: () => void;
+}) {
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      const payload = type === 'service'
+        ? { rating_dich_vu: rating, comment_dich_vu: comment }
+        : { rating_ktv: rating, comment_ktv: comment };
+      await rateAppointment(cuocHenId, payload);
+      toast.success('Đã gửi đánh giá thành công!');
+      onSubmitted();
+    } catch (err) {
+      console.error(err);
+      toast.error('Không thể gửi đánh giá.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="bg-amber-50/50 dark:bg-amber-950/10 rounded-[24px] border border-dashed border-amber-300/70 p-5 shadow-sm space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h4 className="font-extrabold text-xs text-amber-800 dark:text-amber-300 leading-tight">
+            {title}
+          </h4>
+          <p className="text-[9px] text-amber-600/80 font-bold uppercase mt-1">
+            Đã hoàn thành — chưa đánh giá
+          </p>
+        </div>
+        <div className="flex gap-0.5 shrink-0">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setRating(i + 1)}
+              className="p-0.5 hover:scale-110 active:scale-95 transition-all cursor-pointer"
+            >
+              <Star
+                size={14}
+                className={i < rating ? 'fill-amber-400 text-amber-400 stroke-none' : 'text-zinc-250 fill-zinc-200 stroke-none'}
+              />
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <textarea
+        rows={2}
+        value={comment}
+        onChange={(e) => setComment(e.target.value)}
+        placeholder="Bạn có hài lòng về nhân sự khi làm không? Quy trình của gói, cơ sở vật chất thế nào? Chia sẻ nhận xét tại đây..."
+        className="w-full bg-white border border-amber-200/70 focus:border-amber-400 p-3 rounded-xl text-xs font-semibold resize-none outline-none text-slate-700 transition-colors"
+      />
+
+      <div className="flex justify-end pt-1">
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving}
+          className="px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-bold rounded-lg text-[9px] uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer"
+        >
+          {saving ? <Loader2 className="animate-spin" size={11} /> : <PlusCircle size={11} />}
+          Lưu đánh giá
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function CustomerSettings() {
   const { user } = useAuthStore();
@@ -70,9 +303,8 @@ export default function CustomerSettings() {
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [serviceReviews, setServiceReviews] = useState<any[]>([]);
   const [staffReviews, setStaffReviews] = useState<any[]>([]);
-  const [editingReview, setEditingReview] = useState<{ id: string; rating: number; comment: string; type: 'service' | 'staff'; name: string } | null>(null);
-  const [deletingReview, setDeletingReview] = useState<{ id: string; type: 'service' | 'staff'; name: string } | null>(null);
-  const [savingReview, setSavingReview] = useState(false);
+  const [pendingServiceReviews, setPendingServiceReviews] = useState<any[]>([]);
+  const [pendingStaffReviews, setPendingStaffReviews] = useState<any[]>([]);
 
   const loadMyReviews = async () => {
     try {
@@ -80,6 +312,8 @@ export default function CustomerSettings() {
       const res = await getMyReviews();
       setServiceReviews(res.data.serviceReviews || []);
       setStaffReviews(res.data.staffReviews || []);
+      setPendingServiceReviews(res.data.pendingServiceReviews || []);
+      setPendingStaffReviews(res.data.pendingStaffReviews || []);
     } catch (err) {
       console.error('Lỗi nạp đánh giá:', err);
       toast.error('Không thể tải danh sách đánh giá.');
@@ -93,48 +327,6 @@ export default function CustomerSettings() {
       loadMyReviews();
     }
   }, [activeSection, isCustomer]);
-
-  const handleSaveEditReview = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingReview) return;
-    try {
-      setSavingReview(true);
-      const payload = { rating: editingReview.rating, comment: editingReview.comment };
-      if (editingReview.type === 'service') {
-        await updateServiceReview(editingReview.id, payload);
-      } else {
-        await updateStaffReview(editingReview.id, payload);
-      }
-      toast.success('Đã cập nhật đánh giá thành công!');
-      setEditingReview(null);
-      loadMyReviews();
-    } catch (err) {
-      console.error(err);
-      toast.error('Không thể cập nhật đánh giá.');
-    } finally {
-      setSavingReview(false);
-    }
-  };
-
-  const handleConfirmDeleteReview = async () => {
-    if (!deletingReview) return;
-    try {
-      setSavingReview(true);
-      if (deletingReview.type === 'service') {
-        await deleteServiceReview(deletingReview.id);
-      } else {
-        await deleteStaffReview(deletingReview.id);
-      }
-      toast.success('Đã xóa đánh giá thành công!');
-      setDeletingReview(null);
-      loadMyReviews();
-    } catch (err) {
-      console.error(err);
-      toast.error('Không thể xóa đánh giá.');
-    } finally {
-      setSavingReview(false);
-    }
-  };
 
   // Password states
   const [oldPassword, setOldPassword] = useState('');
@@ -949,75 +1141,39 @@ export default function CustomerSettings() {
                   <h3 className="text-xs font-black text-secondary dark:text-zinc-100 uppercase tracking-wider px-2">
                     📦 Đánh giá dịch vụ & khám lẻ ({serviceReviews.length})
                   </h3>
-                  
-                  {serviceReviews.length === 0 ? (
+
+                  {pendingServiceReviews.length > 0 && (
+                    <div className="space-y-3">
+                      {pendingServiceReviews.map((p) => (
+                        <PendingReviewCard
+                          key={p.goi_dich_vu_id}
+                          title={p.service_name}
+                          cuocHenId={p.cuoc_hen_id}
+                          type="service"
+                          onSubmitted={loadMyReviews}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {serviceReviews.length === 0 && pendingServiceReviews.length === 0 ? (
                     <div className="p-8 text-center bg-white dark:bg-zinc-900 border border-zinc-150/60 dark:border-zinc-800 rounded-[28px] text-xs font-semibold text-slate-450 italic">
                       Bạn chưa gửi đánh giá chất lượng dịch vụ nào.
                     </div>
                   ) : (
                     <div className="space-y-4">
                       {serviceReviews.map((rev) => (
-                        <div key={rev.id} className="bg-white dark:bg-zinc-900 rounded-[24px] border border-zinc-150/60 dark:border-zinc-800 p-5 shadow-sm space-y-3">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <h4 className="font-extrabold text-xs text-secondary dark:text-zinc-200 leading-tight">
-                                {rev.service_name}
-                              </h4>
-                              <p className="text-[9px] text-zinc-400 font-bold uppercase mt-1">
-                                Cập nhật: {new Date(rev.date).toLocaleDateString('vi-VN')}
-                              </p>
-                            </div>
-                            <div className="flex gap-0.5 text-amber-400 shrink-0">
-                              {Array.from({ length: 5 }).map((_, i) => (
-                                <Star 
-                                  key={i} 
-                                  size={11} 
-                                  className={i < rev.rating ? 'fill-amber-400 stroke-none' : 'text-zinc-200 fill-zinc-250 stroke-none'} 
-                                />
-                              ))}
-                            </div>
-                          </div>
-                          
-                          <p className="text-xs font-semibold text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100 italic">
-                            "{censorText(rev.comment) || 'Không có nhận xét bằng chữ.'}"
-                          </p>
-
-                          {rev.reply && (
-                            <div className="bg-emerald-50/50 dark:bg-emerald-950/10 border-l-2 border-[#0D9488] rounded-xl p-3.5 mt-2.5 text-[11px] space-y-1">
-                              <p className="font-extrabold text-slate-800 dark:text-zinc-200">
-                                Phản hồi từ OfficeCare:
-                              </p>
-                              <p className="text-slate-655 dark:text-zinc-350 italic">"{rev.reply}"</p>
-                            </div>
-                          )}
-
-                          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                            <button
-                              type="button"
-                              onClick={() => setEditingReview({
-                                id: rev.id,
-                                rating: rev.rating,
-                                comment: rev.comment || '',
-                                type: 'service',
-                                name: rev.service_name
-                              })}
-                              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-[9px] uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer"
-                            >
-                              <Edit2 size={10} /> Chỉnh sửa
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setDeletingReview({
-                                id: rev.id,
-                                type: 'service',
-                                name: rev.service_name
-                              })}
-                              className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-650 font-bold rounded-lg text-[9px] uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer"
-                            >
-                              <Trash2 size={10} /> Xóa
-                            </button>
-                          </div>
-                        </div>
+                        <ReviewCard
+                          key={rev.id}
+                          id={rev.id}
+                          title={rev.service_name}
+                          rating={rev.rating}
+                          comment={rev.comment || ''}
+                          reply={rev.reply}
+                          date={rev.date}
+                          type="service"
+                          onUpdated={loadMyReviews}
+                        />
                       ))}
                     </div>
                   )}
@@ -1028,75 +1184,39 @@ export default function CustomerSettings() {
                   <h3 className="text-xs font-black text-secondary dark:text-zinc-100 uppercase tracking-wider px-2">
                     🩺 Đánh giá kỹ thuật viên & Bác sĩ ({staffReviews.length})
                   </h3>
-                  
-                  {staffReviews.length === 0 ? (
+
+                  {pendingStaffReviews.length > 0 && (
+                    <div className="space-y-3">
+                      {pendingStaffReviews.map((p) => (
+                        <PendingReviewCard
+                          key={p.nhan_su_id}
+                          title={p.staff_name}
+                          cuocHenId={p.cuoc_hen_id}
+                          type="staff"
+                          onSubmitted={loadMyReviews}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {staffReviews.length === 0 && pendingStaffReviews.length === 0 ? (
                     <div className="p-8 text-center bg-white dark:bg-zinc-900 border border-zinc-150/60 dark:border-zinc-800 rounded-[28px] text-xs font-semibold text-slate-450 italic">
                       Bạn chưa gửi đánh giá nhân viên trị liệu nào.
                     </div>
                   ) : (
                     <div className="space-y-4">
                       {staffReviews.map((rev) => (
-                        <div key={rev.id} className="bg-white dark:bg-zinc-900 rounded-[24px] border border-zinc-150/60 dark:border-zinc-800 p-5 shadow-sm space-y-3">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <h4 className="font-extrabold text-xs text-secondary dark:text-zinc-200 leading-tight">
-                                {rev.staff_name}
-                              </h4>
-                              <p className="text-[9px] text-zinc-400 font-bold uppercase mt-1">
-                                Cập nhật: {new Date(rev.date).toLocaleDateString('vi-VN')}
-                              </p>
-                            </div>
-                            <div className="flex gap-0.5 text-amber-400 shrink-0">
-                              {Array.from({ length: 5 }).map((_, i) => (
-                                <Star 
-                                  key={i} 
-                                  size={11} 
-                                  className={i < rev.rating ? 'fill-amber-400 stroke-none' : 'text-zinc-200 fill-zinc-250 stroke-none'} 
-                                />
-                              ))}
-                            </div>
-                          </div>
-                          
-                          <p className="text-xs font-semibold text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100 italic">
-                            "{censorText(rev.comment) || 'Không có nhận xét bằng chữ.'}"
-                          </p>
-
-                          {rev.reply && (
-                            <div className="bg-emerald-50/50 dark:bg-emerald-950/10 border-l-2 border-[#0D9488] rounded-xl p-3.5 mt-2.5 text-[11px] space-y-1">
-                              <p className="font-extrabold text-slate-800 dark:text-zinc-200">
-                                Phản hồi từ OfficeCare:
-                              </p>
-                              <p className="text-slate-655 dark:text-zinc-350 italic">"{rev.reply}"</p>
-                            </div>
-                          )}
-
-                          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                            <button
-                              type="button"
-                              onClick={() => setEditingReview({
-                                id: rev.id,
-                                rating: rev.rating,
-                                comment: rev.comment || '',
-                                type: 'staff',
-                                name: rev.staff_name
-                              })}
-                              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-[9px] uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer"
-                            >
-                              <Edit2 size={10} /> Chỉnh sửa
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setDeletingReview({
-                                id: rev.id,
-                                type: 'staff',
-                                name: rev.staff_name
-                              })}
-                              className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-650 font-bold rounded-lg text-[9px] uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer"
-                            >
-                              <Trash2 size={10} /> Xóa
-                            </button>
-                          </div>
-                        </div>
+                        <ReviewCard
+                          key={rev.id}
+                          id={rev.id}
+                          title={rev.staff_name}
+                          rating={rev.rating}
+                          comment={rev.comment || ''}
+                          reply={rev.reply}
+                          date={rev.date}
+                          type="staff"
+                          onUpdated={loadMyReviews}
+                        />
                       ))}
                     </div>
                   )}
@@ -1108,113 +1228,6 @@ export default function CustomerSettings() {
 
       </div>
 
-      {/* Edit Review Modal */}
-      {editingReview && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-[32px] border border-slate-100 shadow-2xl p-6 md:p-8 max-w-md w-full space-y-6 animate-in zoom-in-95 duration-200">
-            <div>
-              <h3 className="font-heading font-black text-secondary text-sm md:text-base uppercase tracking-tight">
-                Chỉnh sửa đánh giá
-              </h3>
-              <p className="text-[10px] text-zinc-400 font-bold uppercase mt-1">
-                Đối tượng: {editingReview.name}
-              </p>
-            </div>
-
-            <form onSubmit={handleSaveEditReview} className="space-y-4">
-              {/* Star Rating Select */}
-              <div className="space-y-2">
-                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-wider block">
-                  Điểm số chất lượng
-                </label>
-                <div className="flex gap-1">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setEditingReview({ ...editingReview, rating: i + 1 })}
-                      className="text-amber-400 hover:scale-110 transition-transform outline-none cursor-pointer"
-                    >
-                      <Star 
-                        size={28} 
-                        className={i < editingReview.rating ? 'fill-amber-400 stroke-none' : 'text-zinc-200 fill-zinc-200 stroke-none'} 
-                      />
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Comment Textarea */}
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-wider block">
-                  Ý kiến đóng góp
-                </label>
-                <textarea
-                  value={editingReview.comment}
-                  onChange={(e) => setEditingReview({ ...editingReview, comment: e.target.value })}
-                  placeholder="Chia sẻ ý kiến đóng góp của bạn để chúng tôi phục vụ tốt hơn..."
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs font-semibold text-slate-700 outline-none focus:border-[#14B8A6] focus:ring-2 focus:ring-[#14B8A6]/10 min-h-[100px]"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingReview(null)}
-                  className="flex-1 py-3 border border-slate-200 hover:bg-slate-50 text-slate-700 font-extrabold rounded-xl text-[10px] uppercase tracking-wider transition-all cursor-pointer text-center"
-                >
-                  Hủy bỏ
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingReview}
-                  className="flex-1 py-3 bg-[#0D9488] hover:bg-[#0D9488]/95 text-white font-extrabold rounded-xl text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-teal-500/10 cursor-pointer disabled:opacity-50"
-                >
-                  {savingReview ? <Loader2 className="animate-spin" size={12} /> : 'Lưu thay đổi'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Review Modal */}
-      {deletingReview && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-[32px] border border-slate-100 shadow-2xl p-6 md:p-8 max-w-sm w-full space-y-6 animate-in zoom-in-95 duration-200 text-center">
-            <div className="size-12 rounded-full bg-rose-50 flex items-center justify-center text-rose-600 mx-auto">
-              <Trash2 size={24} />
-            </div>
-
-            <div>
-              <h3 className="font-heading font-black text-rose-700 text-sm uppercase tracking-tight">
-                Xóa nhận xét này?
-              </h3>
-              <p className="text-xs text-slate-500 font-semibold leading-relaxed mt-2">
-                Bạn có chắc chắn muốn xóa vĩnh viễn đánh giá của <strong>{deletingReview.name}</strong>? Buổi khám/trị liệu này sẽ quay về trạng thái chưa đánh giá.
-              </p>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setDeletingReview(null)}
-                className="flex-1 py-3 border border-slate-200 hover:bg-slate-50 text-slate-700 font-extrabold rounded-xl text-[10px] uppercase tracking-wider transition-all cursor-pointer text-center"
-              >
-                Hủy bỏ
-              </button>
-              <button
-                type="button"
-                disabled={savingReview}
-                onClick={handleConfirmDeleteReview}
-                className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white font-extrabold rounded-xl text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-rose-500/10 cursor-pointer disabled:opacity-50"
-              >
-                {savingReview ? <Loader2 className="animate-spin" size={12} /> : 'Xác nhận xóa'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       {/* Save Settings Confirm Modal */}
       <ConfirmDialog
         isOpen={showConfirmDialog}

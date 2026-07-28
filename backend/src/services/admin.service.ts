@@ -259,7 +259,7 @@ class AdminService {
   }
 
   async analyzeFeedback(type: 'service' | 'staff', id: string) {
-    const review = await adminRepository.getFeedbackReviewText(type, id);
+    const review = await adminRepository.getFeedbackReviewText(id);
     if (!review) throw new Error('Không tìm thấy đánh giá');
     if (!review.nhan_xet || !review.nhan_xet.trim()) {
       throw new Error('Đánh giá này không có nội dung nhận xét để AI phân tích');
