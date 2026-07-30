@@ -11,23 +11,23 @@ import { vi } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Import Components
-import AppointmentCalendar from '../../components/appointments/AppointmentCalendar';
-import AppointmentDetailModal from '../../components/appointments/DetailModal';
-import TreatmentBookingModal from '../../components/appointments/TreatmentBookingModal';
+import AppointmentCalendar from '../../../../components/appointments/AppointmentCalendar';
+import AppointmentDetailModal from '../../../../components/appointments/DetailModal';
+import TreatmentBookingModal from '../../../../components/appointments/TreatmentBookingModal';
 import WalkInBookingModal from '../../../../components/WalkInBookingModal';
 
 // Import Module Hooks & UI Components
-import { useAppointmentsData } from '../../components/appointments/hooks/useAppointmentsData';
-import { useAppointmentActions } from '../../components/appointments/hooks/useAppointmentActions';
-import { AppointmentKpiCards } from '../../components/appointments/ui/AppointmentKpiCards';
-import { AppointmentsFilterBar } from '../../components/appointments/ui/AppointmentsFilterBar';
-import { DoctorWorkloadPanel } from '../../components/appointments/ui/DoctorWorkloadPanel';
-import { UnassignedPanel } from '../../components/appointments/ui/UnassignedPanel';
-import { CapacityView } from '../../components/appointments/ui/CapacityView';
-import { standardTimeSlots, statusConfig } from '../../../../components/appointmentStatusConfig';
+import { useAppointmentsData } from '../../../../components/appointments/hooks/useAppointmentsData';
+import { useAppointmentActions } from '../../../../components/appointments/hooks/useAppointmentActions';
+import { AppointmentKpiCards } from '../../../../components/appointments/ui/AppointmentKpiCards';
+import { AppointmentsFilterBar } from '../../../../components/appointments/ui/AppointmentsFilterBar';
+import { DoctorWorkloadPanel } from '../../../../components/appointments/ui/DoctorWorkloadPanel';
+import { UnassignedPanel } from '../../../../components/appointments/ui/UnassignedPanel';
+import { CapacityView } from '../../../../components/appointments/ui/CapacityView';
+import { statusConfig } from '../../../../components/appointmentStatusConfig';
 import { computeAppointmentKpiBuckets, KPI_BUCKET_STATUSES, KPI_BUCKET_LABELS, AppointmentKpiBuckets } from '../../../../utils/appointmentKpi';
-import { ActiveFilterChip } from '../../components/appointments/ui/ActiveFilterChip';
-import { RoleView, ViewMode, TimeRange } from '../../components/appointments/types';
+import { ActiveFilterChip } from '../../../../components/appointments/ui/ActiveFilterChip';
+import { RoleView, ViewMode, TimeRange } from '../../../../components/appointments/types';
 
 // Import Local Components
 import { CommandPalette } from './CommandPalette';
@@ -750,7 +750,6 @@ export default function ManageAppointments() {
                 <>
                   {viewMode === 'timeline' && (
                     <AppointmentCalendar
-                      timeSlots={standardTimeSlots}
                       appointments={filteredAppointments}
                       statusConfig={statusConfig}
                       handleOpenDetailModal={handleOpenDetailModal}

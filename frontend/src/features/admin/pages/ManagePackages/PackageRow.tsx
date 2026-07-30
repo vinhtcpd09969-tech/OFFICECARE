@@ -46,11 +46,11 @@ export function PackageRow({
           {/* Thumbnail Image */}
           <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl border border-zinc-150 dark:border-zinc-800 overflow-hidden flex-shrink-0 bg-slate-100 dark:bg-zinc-800 flex items-center justify-center relative shadow-sm">
             <img 
-              src={pkg.anh_goi || '/goi/images/kham_sang_loc.png'} 
+              src={pkg.anh_goi || '/images/goi/kham_sang_loc.png'} 
               className="w-full h-full object-cover group-hover:scale-110 transition-all duration-500 ease-out" 
               alt={pkg.ten_goi} 
               onError={(e) => {
-                (e.target as HTMLImageElement).src = '/goi/images/kham_sang_loc.png';
+                (e.target as HTMLImageElement).src = '/images/goi/kham_sang_loc.png';
               }}
             />
           </div>

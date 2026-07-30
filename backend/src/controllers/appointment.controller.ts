@@ -286,23 +286,6 @@ export const keepAliveAppointment = async (req: Request, res: Response): Promise
   }
 };
 
-export const confirmEmailAppointment = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const id = req.params.id as string;
-    await appointmentService.confirmEmailAppointment(id);
-    return res.redirect(`http://localhost:3000/booking/success/${id}?confirmed=true`);
-  } catch (error: any) {
-    console.error('Lỗi khi xác nhận lịch qua email:', error);
-    return res.status(400).send(`
-      <div style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
-        <h2 style="color: #ef4444;">Xác nhận không thành công</h2>
-        <p>${error.message || 'Lỗi hệ thống'}</p>
-        <a href="http://localhost:3000/" style="color: #2EC4B6; font-weight: bold; text-decoration: none;">Quay lại Trang chủ</a>
-      </div>
-    `);
-  }
-};
-
 export const confirmOTPAppointment = async (req: Request, res: Response): Promise<any> => {
   try {
     const { id, otp } = req.body;

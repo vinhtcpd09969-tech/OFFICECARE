@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Receipt, CreditCard } from 'lucide-react';
-import { formatCurrency } from '../../../../../shared/utils';
+import { formatCurrency } from '../../../../../utils/format';
 import { getInstallmentCutoffSession } from '../../../../../utils/billing';
 import { ConfirmDialog } from '../../../../../components/ConfirmDialog';
 import type { Invoice } from '../hooks/useFinanceDashboard';

@@ -31,13 +31,11 @@ export const getTreatmentPlansOverview = (params: { page: number; pageSize: numb
   api.get('/admin/customers/treatment-plans', { params });
 export const getCompletedSingleVisits = (params: { page: number; pageSize: number }) =>
   api.get('/admin/customers/completed-single-visits', { params });
-export const getAvailableStaff = (params: any) => api.get('/admin/staff/available', { params });
 
 // Rooms & Equipment
 export const getRooms = () => api.get('/admin/rooms');
 export const createRoom = (data: any) => api.post('/admin/rooms', data);
 export const updateRoom = (id: string | number, data: any) => api.put(`/admin/rooms/${id}`, data);
-export const deleteRoom = (id: string | number) => api.delete(`/admin/rooms/${id}`);
 export const getEquipment = () => api.get('/admin/equipment');
 export const createEquipment = (data: any) => api.post('/admin/equipment', data);
 export const updateEquipment = (id: string, data: any) => api.put(`/admin/equipment/${id}`, data);
@@ -52,32 +50,19 @@ export const deleteSchedule = (id: string) => api.delete(`/admin/schedules/${id}
 // Medical Records
 export const getMedicalRecords = () => api.get('/admin/medical-records');
 
-// Vouchers & Marketing
-export const getVouchers = () => api.get('/admin/vouchers');
-export const createVoucher = (data: any) => api.post('/admin/vouchers', data);
-export const updateVoucher = (id: string, data: any) => api.put(`/admin/vouchers/${id}`, data);
-export const deleteVoucher = (id: string) => api.delete(`/admin/vouchers/${id}`);
-
 // Finance
 export const getInvoices = () => api.get('/admin/invoices');
-export const getPayments = () => api.get('/admin/payments');
 export const handleRefund = (paymentId: string) => api.post(`/admin/payments/${paymentId}/refund`);
-
-// Feedback
-export const getFeedback = () => api.get('/admin/feedback');
 
 // Analytics
 export const getDashboardSummary = () => api.get('/admin/analytics/summary');
 export const getRevenueStats = () => api.get('/admin/analytics/revenue');
-export const getStaffPerformance = () => api.get('/admin/analytics/performance');
 
 // Articles (Blog)
 export const getArticles = (params?: { danh_muc?: string; trang_thai?: string; search?: string }) =>
   api.get('/admin/articles', { params });
-export const getArticleById = (id: string) => api.get(`/admin/articles/${id}`);
 export const createArticle = (data: any) => api.post('/admin/articles', data);
 export const updateArticle = (id: string, data: any) => api.put(`/admin/articles/${id}`, data);
-export const deleteArticle = (id: string) => api.delete(`/admin/articles/${id}`);
 
 // Upload ảnh dùng chung (blog | package | specialist)
 export const uploadImage = (file: File, type: 'blog' | 'package' | 'specialist' = 'blog') => {

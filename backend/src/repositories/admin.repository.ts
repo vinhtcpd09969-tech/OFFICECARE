@@ -333,10 +333,6 @@ class AdminRepository {
     return rows;
   }
 
-  getRawPool() {
-    return pool;
-  }
-
   async createEquipment(ma_thiet_bi: string, data: any): Promise<any> {
     const ma = data.ma_thiet_bi || ma_thiet_bi || ('TB-' + Math.random().toString(36).substring(2, 8).toUpperCase());
     const { rows } = await pool.query(`

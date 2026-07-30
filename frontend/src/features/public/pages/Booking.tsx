@@ -115,16 +115,18 @@ export default function Booking() {
     }
   }, [activeStep, refreshSlots]);
 
-  // Tự động cuộn biểu mẫu vào trung tâm khi đổi bước hoặc khi vừa tải trang (tránh bị Header che lấp)
+  // Tự động điều chỉnh cuộn trang mượt mà khi đổi bước (chỉ cuộn khi vị trí thẻ nằm ngoài tầm nhìn)
   useEffect(() => {
-    setTimeout(() => {
-      const el = document.getElementById('booking-experience-card');
-      if (el) {
-        const yOffset = -90; // Khoảng cách offset tránh thanh Menu chính che lấp
-        const y = el.getBoundingClientRect().top + window.pageYOffset + yOffset;
+    const el = document.getElementById('booking-experience-card');
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      // Chỉ cuộn nếu thẻ nằm ngoài tầm nhìn người dùng (cuộn lên quá cao hoặc bị che lấp)
+      if (rect.top < 0 || rect.top > 250) {
+        const yOffset = -90;
+        const y = rect.top + window.pageYOffset + yOffset;
         window.scrollTo({ top: y, behavior: 'smooth' });
       }
-    }, 300);
+    }
   }, [activeStep]);
 
   if (createdApptId || typeof setCreatedApptId === 'function' || typeof setSuccess === 'function' || isSuccess) { /* noop */ }
@@ -434,10 +436,10 @@ export default function Booking() {
               <div className="flex gap-4 pt-2">
                 <button
                   type="button"
-                  onClick={() => navigate('/')}
+                  onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/'))}
                   className="py-3.5 px-6 border border-slate-200 hover:bg-slate-50 text-slate-700 font-extrabold rounded-2xl text-[11px] uppercase tracking-wider transition-all cursor-pointer text-center flex-1 shadow-sm"
                 >
-                  Quay lại trang chủ
+                  Quay lại trang trước
                 </button>
                 <button
                   type="button"

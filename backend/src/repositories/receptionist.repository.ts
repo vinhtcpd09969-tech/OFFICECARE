@@ -212,67 +212,6 @@ class ReceptionistRepository {
     return rows[0];
   }
 
-  async findCustomerByPhone(phone: string) {
-    const { rows } = await pool.query('SELECT id AS khach_hang_id FROM khach_hang WHERE so_dien_thoai = $1', [phone]);
-    return rows[0];
-  }
-
-  async createWalkInCustomer(ho_ten: string, sdt: string, gioi_tinh: string, ngay_sinh: string | null) {
-    const { rows: newKh } = await pool.query(`
-      INSERT INTO khach_hang (ho_ten, so_dien_thoai, gioi_tinh, ngay_sinh) VALUES ($1, $2, $3, $4) RETURNING id
-    `, [ho_ten, sdt, gioi_tinh || 'khac', ngay_sinh || null]);
-    return newKh[0].id;
-  }
-
-  async getServiceDuration(goi_dich_vu_id: string) {
-    const { rows } = await pool.query('SELECT thoi_luong_phut FROM goi_dich_vu WHERE id = $1', [goi_dich_vu_id]);
-    return rows[0]?.thoi_luong_phut || 30;
-  }
-
-  async createAppointment(maLichDat: string, khachHangId: string, goi_dich_vu_id: string, ky_thuat_vien_id: string, startTime: Date, endTime: Date, phone?: string) {
-    // Đặt lịch tại quầy (walk-in) trước đây INSERT thẳng, không hề qua checkCustomerOverlap/
-    // checkDoctorOverlap như 2 luồng đặt lịch còn lại (public/客户 và TreatmentBookingModal của
-    // Admin/Lễ tân) — áp lại đúng 2 lớp chặn trùng lịch đó cho nhất quán, tránh Lễ tân double-book
-    // khách hàng hoặc nhân sự qua đúng cửa này.
-    const customerOverlap = await appointmentRepository.checkCustomerOverlap(khachHangId, null, startTime.toISOString(), endTime.toISOString());
-    if (customerOverlap) {
-      throw new Error('Khách hàng đã có lịch hẹn hoặc ca điều trị khác trong khung giờ này.');
-    }
-    if (ky_thuat_vien_id) {
-      const staffOverlap = await appointmentRepository.checkDoctorOverlap(ky_thuat_vien_id, startTime.toISOString(), endTime.toISOString());
-      if (staffOverlap) {
-        throw new Error('Nhân sự được chọn đã có lịch trong khung giờ này.');
-      }
-    }
-
-    let finalPhone = phone;
-    if (!finalPhone) {
-      const customerRes = await pool.query('SELECT so_dien_thoai FROM khach_hang WHERE id = $1', [khachHangId]);
-      finalPhone = customerRes.rows[0]?.so_dien_thoai || null;
-    }
-
-    if (finalPhone && finalPhone.trim() !== '') {
-      const cleanPhone = finalPhone.trim();
-      const checkPhoneCust = await pool.query(
-        'SELECT id FROM khach_hang WHERE so_dien_thoai = $1 AND ($2::uuid IS NULL OR id != $2::uuid)',
-        [cleanPhone, khachHangId || null]
-      );
-      const checkPhoneStaff = await pool.query('SELECT id FROM nguoi_dung WHERE so_dien_thoai = $1', [cleanPhone]);
-      if (checkPhoneCust.rows.length > 0 || checkPhoneStaff.rows.length > 0) {
-        throw new Error('Số điện thoại liên hệ này đã được đăng ký cho một tài khoản khác trong hệ thống.');
-      }
-    }
-
-    const finalStatus = ky_thuat_vien_id ? 'da_xac_nhan' : 'cho_xac_nhan';
-    const thoiGianXacNhan = ky_thuat_vien_id ? new Date() : null;
-
-    const { rows } = await pool.query(`
-      INSERT INTO cuoc_hen (khach_hang_id, goi_dich_vu_id, nhan_su_id, ngay_gio_bat_dau, ngay_gio_ket_thuc, loai, trang_thai, so_dien_thoai, thoi_gian_tao, thoi_gian_xac_nhan)
-      VALUES ($1, $2, $3, $4, $5, 'DICH_VU_LE', $6, $7, NOW(), $8) RETURNING id
-    `, [khachHangId, goi_dich_vu_id, ky_thuat_vien_id ? parseInt(ky_thuat_vien_id, 10) : null, startTime, endTime, finalStatus, finalPhone, thoiGianXacNhan]);
-    return rows[0].id;
-  }
-
   async getAppointmentForBilling(lich_dat_id: string) {
     const { rows } = await pool.query(`
       SELECT ch.khach_hang_id, ch.goi_dich_vu_id, g.don_gia 

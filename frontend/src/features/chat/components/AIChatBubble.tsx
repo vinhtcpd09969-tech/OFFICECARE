@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAIChat } from '../hooks/useAIChat';
-import { 
-  Send, 
-  X, 
-  Calendar, 
-  Bot, 
-  Smile, 
-  Info, 
+import {
+  Send,
+  X,
+  Calendar,
+  Stethoscope,
+  Smile,
+  Info,
   HelpCircle,
   RotateCcw
 } from 'lucide-react';
@@ -65,7 +65,7 @@ export default function AIChatBubble() {
             initial={{ opacity: 0, scale: 0.85, y: 15 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.85, y: 15 }}
-            className="absolute bottom-20 right-2 w-72 bg-slate-900 text-white p-4 rounded-2xl shadow-2xl border border-slate-800 text-xs flex flex-col gap-2 z-10"
+            className="absolute bottom-20 right-2 w-72 bg-gradient-to-r from-slate-900 to-[#0F172A] text-white p-4 rounded-2xl shadow-2xl border border-slate-800 text-xs flex flex-col gap-2 z-10"
           >
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2">
@@ -73,20 +73,20 @@ export default function AIChatBubble() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
                 </span>
-                <p className="font-bold text-[#2EC4B6]">Trợ lý ảo OfficeCare AI</p>
+                <p className="font-bold text-[#2EC4B6]">Trợ lý Y khoa Bác sĩ AI</p>
               </div>
               <button 
                 onClick={() => {
                   setShowTooltip(false);
                   sessionStorage.setItem('officecare_chat_tooltip_seen', 'true');
                 }}
-                className="text-slate-400 hover:text-white transition-colors"
+                className="text-slate-400 hover:text-white transition-colors cursor-pointer"
               >
                 <X size={14} />
               </button>
             </div>
-            <p className="text-slate-350 leading-relaxed font-medium">
-              Chào bạn! Tôi có thể giải đáp ngay các thắc mắc về đau mỏi vai gáy, thoát vị đĩa đệm và hỗ trợ đặt lịch khám bác sĩ.
+            <p className="text-slate-300 leading-relaxed font-medium">
+              Chào bạn! Bác sĩ ảo sẵn sàng tư vấn thắt lưng, cổ vai gáy và hỗ trợ bạn đặt lịch khám 1:1 ngay.
             </p>
             <button
               onClick={() => {
@@ -94,16 +94,16 @@ export default function AIChatBubble() {
                 setShowTooltip(false);
                 sessionStorage.setItem('officecare_chat_tooltip_seen', 'true');
               }}
-              className="text-teal-400 font-bold hover:text-teal-300 transition-colors self-start flex items-center gap-1 mt-1 group"
+              className="text-teal-400 font-bold hover:text-teal-300 transition-colors self-start flex items-center gap-1 mt-1 group cursor-pointer"
             >
-              <span>Trò chuyện ngay</span>
+              <span>Tư vấn cùng Bác sĩ AI</span>
               <span className="group-hover:translate-x-1 transition-transform">&rarr;</span>
             </button>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* 1. Bong bóng Chat nổi 3D Hologram Radar */}
+      {/* 1. Bong bóng Chat nổi với Icon Bác sĩ Mini */}
       <motion.button
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
@@ -112,7 +112,8 @@ export default function AIChatBubble() {
           setShowTooltip(false);
           sessionStorage.setItem('officecare_chat_tooltip_seen', 'true');
         }}
-        className="size-14 rounded-full bg-gradient-to-tr from-[#0D9488] to-[#14B8A6] text-white shadow-[0_8px_30px_rgb(13,148,136,0.4)] flex items-center justify-center relative border border-white/20 focus:outline-none overflow-hidden group cursor-pointer active:scale-95 transition-all"
+        className="size-14 rounded-full bg-gradient-to-tr from-[#0D9488] to-[#14B8A6] text-white shadow-[0_8px_30px_rgb(13,148,136,0.4)] flex items-center justify-center relative border border-white/30 focus:outline-none overflow-hidden group cursor-pointer active:scale-95 transition-all"
+        title="Trợ lý Bác sĩ Y khoa AI"
       >
         {/* Radar wave ping effect */}
         <span className="absolute inset-0 rounded-full bg-teal-400/20 group-hover:scale-150 transition-transform duration-700 pointer-events-none" />
@@ -135,9 +136,9 @@ export default function AIChatBubble() {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="relative"
+              className="relative flex items-center justify-center"
             >
-              <Bot size={24} strokeWidth={2} />
+              <Stethoscope size={24} strokeWidth={2.2} />
               <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border-2 border-white"></span>
@@ -147,7 +148,7 @@ export default function AIChatBubble() {
         </AnimatePresence>
       </motion.button>
 
-      {/* 2. Khung thoại Chat Glassmorphism Pro Max */}
+      {/* 2. Khung thoại Chat Glassmorphic - Clean Medical Teal Header (Sửa khung đen ở Ảnh 2) */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -155,24 +156,24 @@ export default function AIChatBubble() {
             animate={{ opacity: 1, y: -10, scale: 1 }}
             exit={{ opacity: 0, y: 50, scale: 0.95 }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="absolute bottom-20 right-0 w-[360px] sm:w-[420px] h-[580px] bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/60 dark:border-slate-800/80 rounded-[32px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.15)] flex flex-col overflow-hidden"
+            className="absolute bottom-20 right-0 w-[360px] sm:w-[420px] h-[580px] bg-white/98 backdrop-blur-2xl border border-slate-200/80 rounded-[32px] shadow-[0_25px_60px_-15px_rgba(13,148,136,0.2)] flex flex-col overflow-hidden"
           >
-            {/* Header: Brand Gradient và trạng thái trực tuyến */}
-            <div className="bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 px-5 py-4 text-white flex items-center justify-between border-b border-slate-800 shadow-sm relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-[#0D9488]/10 to-transparent pointer-events-none" />
+            {/* Header: Tone màu xanh Y tế Mint/Teal sang trọng chuẩn OfficeCare (Đã loại bỏ khung màu xám tối đen) */}
+            <div className="bg-gradient-to-r from-[#0D9488] via-[#0f9f93] to-[#14B8A6] px-5 py-4 text-white flex items-center justify-between shadow-md relative rounded-t-[32px]">
+              <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent pointer-events-none" />
               
               <div className="flex items-center gap-3 relative z-10">
-                <div className="size-10 bg-teal-500/10 rounded-2xl flex items-center justify-center border border-teal-500/20 text-[#14B8A6] shadow-inner">
-                  <Bot size={20} className="animate-pulse text-teal-400" />
+                <div className="size-10 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/30 text-white shadow-inner">
+                  <Stethoscope size={20} className="animate-pulse text-white" />
                 </div>
                 <div className="text-left">
-                  <h3 className="text-[13px] font-bold tracking-normal flex items-center gap-1.5">
-                    <span>Trợ lý Y khoa AI</span>
-                    <span className="bg-[#14B8A6]/20 text-[#2EC4B6] border border-[#2EC4B6]/20 text-[8px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wider">PRO</span>
+                  <h3 className="text-[13.5px] font-extrabold tracking-normal flex items-center gap-1.5 text-white">
+                    <span>Trợ lý Bác sĩ Y khoa AI</span>
+                    <span className="bg-white/20 backdrop-blur-md text-white border border-white/30 text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wider">OFFICECARE</span>
                   </h3>
                   <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span className="text-[10px] text-slate-400 font-medium">Bác sĩ ảo giải đáp 24/7</span>
+                    <span className="size-2 rounded-full bg-emerald-300 animate-pulse"></span>
+                    <span className="text-[10.5px] text-teal-50 font-medium">Bác sĩ ảo tư vấn 24/7</span>
                   </div>
                 </div>
               </div>
@@ -182,14 +183,14 @@ export default function AIChatBubble() {
                   type="button"
                   onClick={clearChat}
                   title="Làm mới cuộc trò chuyện"
-                  className="p-2 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-white transition-all duration-200 focus:outline-none cursor-pointer"
+                  className="p-2 hover:bg-white/20 rounded-xl text-white/80 hover:text-white transition-all duration-200 focus:outline-none cursor-pointer"
                 >
                   <RotateCcw size={16} />
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
-                  className="p-2 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-white transition-all duration-200 focus:outline-none cursor-pointer"
+                  className="p-2 hover:bg-white/20 rounded-xl text-white/80 hover:text-white transition-all duration-200 focus:outline-none cursor-pointer"
                 >
                   <X size={16} />
                 </button>
@@ -208,10 +209,10 @@ export default function AIChatBubble() {
                     key={msg.id}
                     className={`flex items-end gap-2.5 ${isUser ? 'justify-end' : 'justify-start'}`}
                   >
-                    {/* Bot avatar bên cạnh tin nhắn AI */}
+                    {/* Doctor avatar bên cạnh tin nhắn AI */}
                     {!isUser && (
-                      <div className="size-6 bg-teal-500/10 text-teal-600 rounded-lg flex items-center justify-center shrink-0 border border-teal-500/15 mb-0.5 shadow-2xs">
-                        <Bot size={13} />
+                      <div className="size-6.5 bg-[#0D9488]/10 text-[#0D9488] rounded-full flex items-center justify-center shrink-0 border border-[#0D9488]/20 mb-0.5 shadow-2xs">
+                        <Stethoscope size={13} />
                       </div>
                     )}
                     
@@ -251,8 +252,8 @@ export default function AIChatBubble() {
               {/* Bouncing Dots Loading Indicator */}
               {loading && (
                 <div className="flex items-end gap-2.5 justify-start">
-                  <div className="size-6 bg-teal-500/10 text-teal-600 rounded-lg flex items-center justify-center shrink-0 border border-teal-500/15 mb-0.5">
-                    <Bot size={13} />
+                  <div className="size-6.5 bg-[#0D9488]/10 text-[#0D9488] rounded-full flex items-center justify-center shrink-0 border border-[#0D9488]/20 mb-0.5">
+                    <Stethoscope size={13} />
                   </div>
                   <div className="bg-white dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/60 rounded-[20px] rounded-bl-none px-4 py-3.5 flex items-center gap-1.5 shadow-2xs">
                     <span className="size-1.5 bg-[#0D9488] rounded-full animate-bounce [animation-delay:-0.3s]"></span>

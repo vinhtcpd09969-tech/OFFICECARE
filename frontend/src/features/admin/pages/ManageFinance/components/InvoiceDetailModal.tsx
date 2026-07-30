@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { User, Building, Activity, Receipt, RotateCcw, Printer, CreditCard, ShieldAlert, CalendarX, ChevronDown } from 'lucide-react';
-import { formatCurrency } from '../../../../../shared/utils';
+import { formatCurrency } from '../../../../../utils/format';
 import { canRefundPackage } from '../../../../../utils/billing';
 import type { Invoice, Payment } from '../hooks/useFinanceDashboard';
 

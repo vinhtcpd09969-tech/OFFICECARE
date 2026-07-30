@@ -9,7 +9,9 @@ import {
   AlertCircle, 
   Home as HomeIcon,
   ChevronRight,
-  ArrowRight
+  ArrowRight,
+  ShieldCheck,
+  Loader2
 } from 'lucide-react';
 import { useAuthStore } from '../../../stores/authStore';
 import { toast } from 'react-hot-toast';
@@ -313,67 +315,80 @@ export default function BookingSuccess() {
           </p>
         </div>
 
-        {/* OTP VERIFICATION CARD (Displayed only when unconfirmed) */}
+        {/* OTP VERIFICATION CARD (High-End Teal/Mint Design) */}
         {isUnconfirmed && (
-          <div className="bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border-2 border-amber-500/20 p-6 sm:p-8 rounded-[24px] shadow-[0_10px_30px_rgba(245,158,11,0.03)] text-left space-y-4">
+          <div className="bg-gradient-to-br from-teal-50/80 via-white to-emerald-50/50 border border-teal-200/80 rounded-[28px] p-6 sm:p-7 shadow-[0_10px_30px_rgba(13,148,136,0.06)] space-y-5 text-left relative overflow-hidden">
             <div className="flex items-center gap-3">
-              <div className="size-9 bg-amber-500 text-white rounded-full flex items-center justify-center font-black animate-pulse shadow-[0_0_15px_rgba(245,158,11,0.3)]">
-                🔑
+              <div className="size-11 bg-[#0D9488] text-white rounded-2xl flex items-center justify-center font-black shadow-md shadow-teal-500/20 shrink-0">
+                <ShieldCheck size={22} />
               </div>
               <div>
-                <h3 className="text-sm font-heading font-black text-amber-800 dark:text-amber-500 uppercase tracking-wider">
-                  Xác Thực Lịch Hẹn Bằng OTP
+                <span className="bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-md inline-block mb-0.5">
+                  Xác Thực An Toàn Y Tế
+                </span>
+                <h3 className="text-base font-heading font-extrabold text-slate-900 leading-tight">
+                  Nhập Mã Xác Thực OTP Lịch Hẹn
                 </h3>
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
-                  Yêu cầu nhập mã xác thực
-                </p>
               </div>
             </div>
 
-            <p className="text-xs text-slate-650 dark:text-zinc-400 font-semibold leading-relaxed">
-              Chúng tôi đã gửi một mã OTP 6 chữ số đến địa chỉ email đăng ký của bạn. Vui lòng nhập mã để kích hoạt và giữ chỗ lịch hẹn.
+            <p className="text-xs text-slate-600 font-medium leading-relaxed">
+              Mã xác thực OTP gồm 6 chữ số đã được gửi đến email của bạn. Vui lòng nhập mã bên dưới để hoàn tất xác nhận lịch khám.
             </p>
 
             {otpTimeLeft !== null && (
-              <div className={`p-3 rounded-xl text-xs flex items-center justify-between font-semibold ${otpTimeLeft > 0 ? 'bg-amber-50 text-amber-800 border border-amber-200 animate-fade-in' : 'bg-rose-50 text-rose-800 border border-rose-200 animate-pulse'}`}>
+              <div className={`p-3 rounded-2xl text-xs flex items-center justify-between font-bold border transition-all ${
+                otpTimeLeft > 0 
+                  ? 'bg-teal-50/80 text-[#0D9488] border-teal-200/80' 
+                  : 'bg-rose-50 text-rose-700 border-rose-200 animate-pulse'
+              }`}>
                 <div className="flex items-center gap-2">
-                  <Clock size={14} className={otpTimeLeft > 0 ? 'text-amber-500 animate-pulse shrink-0' : 'text-rose-500 shrink-0'} />
-                  <span>{otpTimeLeft > 0 ? 'Mã OTP sẽ hết hạn sau:' : 'Mã OTP đã hết hạn!'}</span>
+                  <Clock size={15} className={otpTimeLeft > 0 ? 'text-[#0D9488] animate-pulse shrink-0' : 'text-rose-500 shrink-0'} />
+                  <span>{otpTimeLeft > 0 ? 'Thời gian mã OTP có hiệu lực:' : 'Mã OTP đã hết hạn!'}</span>
                 </div>
-                <span className="font-mono font-extrabold text-sm px-2 py-0.5 bg-white rounded-lg shadow-sm shrink-0">
+                <span className="font-mono font-black text-sm px-3 py-1 bg-white text-slate-900 rounded-xl shadow-xs shrink-0 border border-slate-150">
                   {otpTimeLeft > 0 ? `${Math.floor(otpTimeLeft / 60)}:${(otpTimeLeft % 60).toString().padStart(2, '0')}` : '0:00'}
                 </span>
               </div>
             )}
 
-            <form onSubmit={handleVerifyOtp} className="flex flex-col sm:flex-row gap-3">
-              <input
-                type="text"
-                maxLength={6}
-                value={otpInput}
-                onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ''))}
-                placeholder="Nhập 6 chữ số OTP"
-                disabled={otpVerifying || (otpTimeLeft !== null && otpTimeLeft <= 0)}
-                className="flex-1 px-4 py-3 bg-white border border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 text-center text-lg font-mono font-black tracking-widest rounded-2xl outline-none transition-all disabled:bg-slate-50 disabled:text-slate-400"
-              />
-              <button
-                type="submit"
-                disabled={otpVerifying || otpInput.length !== 6 || (otpTimeLeft !== null && otpTimeLeft <= 0)}
-                className="px-6 py-3 bg-amber-500 hover:bg-amber-600 active:scale-95 disabled:opacity-50 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl transition-all shadow-md shadow-amber-500/10 cursor-pointer"
-              >
-                {otpVerifying ? 'Đang xác thực...' : 'Xác thực'}
-              </button>
+            <form onSubmit={handleVerifyOtp} className="space-y-4">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input
+                  type="text"
+                  maxLength={6}
+                  value={otpInput}
+                  onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ''))}
+                  placeholder="• • • • • •"
+                  disabled={otpVerifying || (otpTimeLeft !== null && otpTimeLeft <= 0)}
+                  className="flex-1 px-4 py-3.5 bg-white border-2 border-slate-200 focus:border-[#0D9488] focus:ring-4 focus:ring-[#0D9488]/10 text-center text-xl font-mono font-black tracking-[0.6em] rounded-2xl outline-none transition-all shadow-2xs disabled:bg-slate-50 disabled:text-slate-400"
+                />
+                <button
+                  type="submit"
+                  disabled={otpVerifying || otpInput.length !== 6 || (otpTimeLeft !== null && otpTimeLeft <= 0)}
+                  className="px-8 py-3.5 bg-[#0D9488] hover:bg-[#0b7a70] active:scale-98 disabled:opacity-50 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl transition-all shadow-md shadow-teal-500/20 cursor-pointer flex items-center justify-center gap-2 shrink-0"
+                >
+                  {otpVerifying ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>Đang xác thực...</span>
+                    </>
+                  ) : (
+                    <span>Xác Thực Ngay →</span>
+                  )}
+                </button>
+              </div>
             </form>
 
-            <div className="flex justify-between items-center text-[10px] pt-1 font-bold">
-              <span className="text-slate-400">Không nhận được mã?</span>
+            <div className="flex flex-wrap justify-between items-center text-xs pt-1 font-semibold border-t border-slate-150/70">
+              <span className="text-slate-500">Chưa nhận được mã OTP trong hộp thư?</span>
               <button
                 type="button"
                 onClick={handleResendOtp}
                 disabled={otpResending}
-                className="text-amber-600 hover:text-amber-700 hover:underline cursor-pointer disabled:opacity-50"
+                className="text-[#0D9488] hover:text-[#0b7a70] font-extrabold hover:underline cursor-pointer disabled:opacity-50 transition-colors"
               >
-                {otpResending ? 'Đang gửi lại...' : 'Gửi lại mã OTP'}
+                {otpResending ? 'Đang gửi lại mã...' : '🔄 Gửi lại mã OTP ngay'}
               </button>
             </div>
           </div>

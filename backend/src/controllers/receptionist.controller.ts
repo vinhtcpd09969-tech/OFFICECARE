@@ -68,23 +68,6 @@ export const getReceptionistStats = async (req: Request, res: Response) => {
   }
 };
 
-// POST /api/receptionist/walk-in
-export const handleWalkInBooking = async (req: Request, res: Response) => {
-  try {
-    const result = await receptionistService.handleWalkInBooking(req.body);
-    res.json({ message: 'Tạo lịch thành công', ...result });
-  } catch (error: any) {
-    console.error('Lỗi Walk-in booking:', error);
-    if (error.message === 'ROOM_UNAVAILABLE') {
-      return res.status(400).json({ message: 'Không có phòng trống cho dịch vụ này tại thời điểm hiện tại.' });
-    }
-    if (error.message && !error.stack?.includes('pg') && !error.stack?.includes('Prisma') && !error.message.includes('connection')) {
-      return res.status(400).json({ message: error.message });
-    }
-    res.status(500).json({ message: 'Lỗi server khi tạo lịch' });
-  }
-};
-
 // POST /api/receptionist/billing
 export const createBillingFromAppointment = async (req: Request, res: Response): Promise<any> => {
   try {

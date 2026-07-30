@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Eye, EyeOff, ArrowRight, ArrowLeft, Timer, Send, ShieldAlert, CheckCircle2 } from 'lucide-react';
-import api from '../../../api/axios';
+import { forgotPassword, resetPassword } from '../api/auth.api';
 import { toast } from 'react-hot-toast';
 
 interface ForgotPasswordFlowProps {
@@ -88,7 +88,7 @@ export default function ForgotPasswordFlow({
     setIsSendingForgotOTP(true);
     setServerError('');
     try {
-      await api.post('/auth/forgot-password', { email: forgotEmail });
+      await forgotPassword(forgotEmail);
       toast.success('Mã OTP khôi phục mật khẩu đã được gửi!');
       setStep(2);
       setForgotTimer(600);
@@ -105,7 +105,7 @@ export default function ForgotPasswordFlow({
     setForgotResendSuccess(false);
     setServerError('');
     try {
-      await api.post('/auth/forgot-password', { email: forgotEmail });
+      await forgotPassword(forgotEmail);
       setForgotResendSuccess(true);
       setForgotTimer(600);
       setForgotOtp(['', '', '', '', '', '']);
@@ -134,7 +134,7 @@ export default function ForgotPasswordFlow({
     setIsResettingPassword(true);
     setServerError('');
     try {
-      await api.post('/auth/reset-password', {
+      await resetPassword({
         email: forgotEmail,
         otp: otpValue,
         newPassword: forgotNewPassword,

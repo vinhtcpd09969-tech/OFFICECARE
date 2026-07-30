@@ -1,5 +1,93 @@
-/**
- * @deprecated Import from '@/shared/api/axios' instead.
- * This file re-exports for backward compatibility.
- */
-export { default } from '../shared/api/axios';
+import axios from 'axios';
+import { useAuthStore } from '../stores/authStore';
+
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5001/api',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+api.interceptors.request.use(
+  (config) => {
+    const token = useAuthStore.getState().accessToken;
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+let isRefreshing = false;
+let failedQueue: any[] = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    // Không thực hiện Refresh Token interceptor đối với các request đăng nhập/đăng ký/refresh token
+    const isAuthEndpoint = originalRequest.url?.includes('/auth/login') ||
+                           originalRequest.url?.includes('/auth/register') ||
+                           originalRequest.url?.includes('/auth/refresh-token');
+
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return api(originalRequest);
+          })
+          .catch((err) => Promise.reject(err));
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      const { refreshToken, logout, updateAccessToken } = useAuthStore.getState();
+
+      if (!refreshToken) {
+        logout();
+        return Promise.reject(error);
+      }
+
+      try {
+        const response = await axios.post(
+          `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/auth/refresh-token`,
+          { refreshToken }
+        );
+
+        const { accessToken } = response.data;
+        updateAccessToken(accessToken);
+
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+        processQueue(null, accessToken);
+        return api(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+        logout();
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+
+export default api;

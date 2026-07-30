@@ -59,8 +59,8 @@ async function main() {
         thoi_luong_phut: 30,
         don_gia: BigInt(150000),
         don_gia_theo_buoi: BigInt(150000),
-        anh_goi: '/goi/images/kham_sang_loc.png',
-        anh_gallery: ['/goi/images/kham_sang_loc.png', '/images/physio_premium_facility.png'],
+        anh_goi: '/images/goi/kham_sang_loc.png',
+        anh_gallery: ['/images/goi/kham_sang_loc.png', '/images/physio_premium_facility.png'],
         muc_tieu: 'Xác định chính xác nguyên nhân gốc rễ gây đau cơ xương khớp cấp và mạn tính.\nLượng hóa mức độ suy giảm chức năng vận động cột sống.\nPhát hiện sớm các dấu hiệu thoát vị đĩa đệm, thoái hóa khớp tiềm ẩn.\nXây dựng lộ trình trị liệu phục hồi chức năng khoa học, không dùng thuốc.\nTư vấn thay đổi tư thế làm việc công thái học (Ergonomics) tại văn phòng.',
         quy_trinh: 'Đo chỉ số sinh tồn và khai thác bệnh sử chi tiết của bệnh nhân (thói quen sinh hoạt, tư thế làm việc).\nBác sĩ trực tiếp thăm khám lâm sàng vùng cột sống cổ, vai gáy, thắt lưng.\nLượng giá chức năng sinh học vận động, đo tầm vận động (ROM) của các khớp.\nKiểm tra các điểm đau lệch trục cơ thể và các bất thường về tư thế (gù lưng, vai lệch).\nLập phác đồ điều trị phục hồi chức năng cá nhân hóa phù hợp với mức độ tổn thương.',
         trang_thai: 'hoat_dong'
@@ -79,8 +79,8 @@ async function main() {
           thoi_luong_phut: 45,
           don_gia: BigInt(350000),
           don_gia_theo_buoi: BigInt(350000),
-          anh_goi: '/goi/images/giai_co_sau.png',
-          anh_gallery: ['/goi/images/giai_co_sau.png', '/images/therapist_treatment.png'],
+          anh_goi: '/images/goi/giai_co_sau.png',
+          anh_gallery: ['/images/goi/giai_co_sau.png', '/images/therapist_treatment.png'],
           muc_tieu: 'Giải tỏa tức thì tình trạng co thắt, xơ hóa các nhóm cơ thang, cơ nâng vai.\nKích thích tuần hoàn máu vi mạch, giảm axit lactic tích tụ gây mỏi cơ.\nGiảm nhanh cơn đau mỏi ê ẩm bả vai gáy do ngồi máy tính liên tục.\nMang lại cảm giác nhẹ nhõm, thư giãn vùng vai gáy ngay sau buổi trị liệu.',
           quy_trinh: 'Nhiệt trị liệu hồng ngoại làm ấm, giãn nở mạch máu và làm mềm cơ nông vùng cổ vai gáy (15 phút).\nKỹ thuật viên thực hiện các động tác trị liệu giải cơ sâu bằng tay giải tỏa xơ cứng màng cơ (20 phút).\nTác động sâu giải phóng các nút thắt cơ (Trigger Points) gây đau bả vai và đau đầu (10 phút).',
           trang_thai: 'hoat_dong'
@@ -121,8 +121,8 @@ async function main() {
           thoi_luong_phut: 15,
           don_gia: BigInt(300000),
           don_gia_theo_buoi: BigInt(300000),
-          anh_goi: '/goi/images/laser_tri_lieu.png',
-          anh_gallery: ['/goi/images/laser_tri_lieu.png', '/images/recovery_journey.png'],
+          anh_goi: '/images/goi/laser_tri_lieu.png',
+          anh_gallery: ['/images/goi/laser_tri_lieu.png', '/images/recovery_journey.png'],
           muc_tieu: 'Laser bước sóng đơn sắc năng lượng cao thâm nhập sâu vào các mô cơ khớp bị viêm.\nTiêu viêm nhanh vùng rễ thần kinh cổ/lưng gây đau và tê bì tay chân.\nKích thích tế bào tăng sinh ATP, thúc đẩy quá trình tự lành tổn thương sâu.\nGiảm sưng tấy đau nhức tại các bao gân khuỷu tay hoặc cổ tay.',
           quy_trinh: 'Bệnh nhân và chuyên gia đeo kính bảo hộ chuyên dụng bảo vệ võng mạc (3 phút).\nDùng đầu quét Laser cao tần rà quét đều trên vùng rễ thần kinh hoặc bao gân bị viêm (10 phút).\nKiểm tra phản ứng nhiệt da và bôi kem làm dịu da vùng quét (2 phút).',
           trang_thai: 'hoat_dong'
@@ -135,8 +135,8 @@ async function main() {
           thoi_luong_phut: 20,
           don_gia: BigInt(350000),
           don_gia_theo_buoi: BigInt(350000),
-          anh_goi: '/goi/images/song_xung_kich.png',
-          anh_gallery: ['/goi/images/song_xung_kich.png', '/images/physio_premium_facility.png'],
+          anh_goi: '/images/goi/song_xung_kich.png',
+          anh_gallery: ['/images/goi/song_xung_kich.png', '/images/physio_premium_facility.png'],
           muc_tieu: 'Phá vỡ các mô xơ cơ (trigger points) lâu ngày vùng vai gáy và mông.\nThúc đẩy sản sinh mạch máu mới, tăng cường tưới máu phục hồi mô cơ.\nTái khởi động cơ chế tự chữa lành tự nhiên của các vùng tổn thương mạn tính.\nGiảm nhanh cơn đau nhói sâu trong bả vai bắp đùi.',
           quy_trinh: 'Thoa gel siêu âm chuyên dụng dẫn truyền sóng xung kích cơ học lên da (2 phút).\nĐi máy sóng xung kích bắn tập trung vào các điểm xơ hóa cơ, điểm bám gân mạn tính (15 phút).\nVệ sinh sạch lớp gel dẫn và massage nhẹ làm dịu mô mềm (3 phút).',
           trang_thai: 'hoat_dong'
@@ -157,7 +157,7 @@ async function main() {
           don_gia: BigInt(2200000),
           don_gia_theo_buoi: BigInt(314285),
           anh_goi: '/images/therapist_treatment.png',
-          anh_gallery: ['/images/therapist_treatment.png', '/goi/images/giai_co_sau.png', '/images/recovery_journey.png'],
+          anh_gallery: ['/images/therapist_treatment.png', '/images/goi/giai_co_sau.png', '/images/recovery_journey.png'],
           muc_tieu: 'Chấm dứt hoàn toàn cơn đau mỏi âm ỉ vùng cổ vai gáy mạn tính của dân văn phòng.\nGiải phóng chèn ép rễ thần kinh cổ, triệt tiêu tê bì lan dọc hai tay.\nTăng cường tuần hoàn máu não, đẩy lùi cơn đau đầu vận mạch, hoa mắt, mất ngủ.\nKhôi phục biên độ vận động cổ (xoay, gập, ngửa cổ linh hoạt).',
           quy_trinh: 'Chiếu hồng ngoại nhiệt trị liệu làm mềm cơ bắp vùng cổ vai gáy (15 phút).\nGiải cơ sâu Myofascial Release bằng tay tác động trực tiếp lên trigger points cơ thang, cơ nâng vai (25 phút).\nĐiện xung y khoa kết hợp siêu âm trị liệu tiêu viêm rễ thần kinh cổ (20 phút).\nHướng dẫn thực hiện bài tập tự giãn cơ bả vai tại bàn làm việc (5 phút).',
           trang_thai: 'hoat_dong'
@@ -185,7 +185,7 @@ async function main() {
           don_gia: BigInt(1400000),
           don_gia_theo_buoi: BigInt(280000),
           anh_goi: '/images/therapist_treatment_banner.png',
-          anh_gallery: ['/images/therapist_treatment_banner.png', '/goi/images/laser_tri_lieu.png', '/images/recovery_journey.png'],
+          anh_gallery: ['/images/therapist_treatment_banner.png', '/images/goi/laser_tri_lieu.png', '/images/recovery_journey.png'],
           muc_tieu: 'Giải chèn ép thần kinh giữa trong ống cổ tay.\nTrị dứt điểm tê bì ngón tay cái, ngón trỏ và ngón giữa do gõ phím liên tục.\nKhôi phục lực cầm nắm, sức mạnh cơ ngón tay và cổ tay.\nPhòng ngừa xơ cứng gân gấp ngón tay (hội chứng ngón tay lò xo).',
           quy_trinh: 'Siêu âm trị liệu vùng bao gân cổ tay giúp giảm sưng viêm rãnh thần kinh giữa (15 phút).\nKỹ thuật viên thực hiện nắn chỉnh di động các khớp xương cổ tay giải ép cơ học bằng tay (20 phút).\nBài tập Kinetic tăng sức mạnh cơ cẳng tay và ngón tay phục hồi sự linh hoạt cầm nắm (10 phút).',
           trang_thai: 'hoat_dong'
@@ -199,7 +199,7 @@ async function main() {
           don_gia: BigInt(4200000),
           don_gia_theo_buoi: BigInt(350000),
           anh_goi: '/images/physio_premium_facility.png',
-          anh_gallery: ['/images/physio_premium_facility.png', '/goi/images/song_xung_kich.png', '/images/therapist_treatment.png'],
+          anh_gallery: ['/images/physio_premium_facility.png', '/images/goi/song_xung_kich.png', '/images/therapist_treatment.png'],
           muc_tieu: 'Khắc phục hoàn toàn tư thế lệch vai, vai tròn, đầu nhô phía trước do dùng máy tính nhiều.\nPhục hồi sự cân bằng cơ đối kháng (cân bằng giữa cơ ngực trước và cơ bả vai sau).\nTái lập thói quen tư thế đúng cho cột sống khi ngồi và đứng làm việc.\nTăng dung tích thở của lồng ngực bị hạn chế do tư thế gù vai khép ngực.',
           quy_trinh: 'Giải cơ sâu giải phóng các nhóm cơ ngực lớn, cơ chéo cổ trước bị co rút ngắn (20 phút).\nTập Kinetic Rehab chuyên sâu kéo giãn và tăng sức mạnh cơ bả vai sau, cơ lưng trên (30 phút).\nBài tập chuyên biệt chỉnh tư thế đầu nhô ra trước (Forward Head Posture) và vai tròn (Rounded Shoulders) (10 phút).',
           trang_thai: 'hoat_dong'
@@ -222,7 +222,7 @@ async function main() {
           mat_khau_hash: hash,
           vai_tro_id: 4,
           trang_thai: 'hoat_dong',
-          anh_dai_dien: '/nhan_su/images/dr_nguyen_van_a.png'
+          anh_dai_dien: '/images/nhansu/dr_nguyen_van_a.png'
         },
         {
           id: 6,
@@ -232,7 +232,7 @@ async function main() {
           mat_khau_hash: hash,
           vai_tro_id: 4,
           trang_thai: 'hoat_dong',
-          anh_dai_dien: '/nhan_su/images/dr_tran_thi_b.png'
+          anh_dai_dien: '/images/nhansu/dr_tran_thi_b.png'
         },
         {
           id: 7,
@@ -242,7 +242,7 @@ async function main() {
           mat_khau_hash: hash,
           vai_tro_id: 3,
           trang_thai: 'hoat_dong',
-          anh_dai_dien: '/nhan_su/images/ktv_le_van_c.png'
+          anh_dai_dien: '/images/nhansu/ktv_le_van_c.png'
         },
         {
           id: 8,
@@ -252,7 +252,7 @@ async function main() {
           mat_khau_hash: hash,
           vai_tro_id: 3,
           trang_thai: 'hoat_dong',
-          anh_dai_dien: '/nhan_su/images/ktv_pham_thi_d.png'
+          anh_dai_dien: '/images/nhansu/ktv_pham_thi_d.png'
         },
         {
           id: 9,
@@ -262,7 +262,7 @@ async function main() {
           mat_khau_hash: hash,
           vai_tro_id: 3,
           trang_thai: 'hoat_dong',
-          anh_dai_dien: '/nhan_su/images/ktv_le_van_c.png'
+          anh_dai_dien: '/images/nhansu/ktv_le_van_c.png'
         },
         {
           id: 10,
@@ -272,7 +272,7 @@ async function main() {
           mat_khau_hash: hash,
           vai_tro_id: 3,
           trang_thai: 'hoat_dong',
-          anh_dai_dien: '/nhan_su/images/ktv_pham_thi_d.png'
+          anh_dai_dien: '/images/nhansu/ktv_pham_thi_d.png'
         }
       ]
     });
@@ -286,7 +286,7 @@ async function main() {
           so_nam_kinh_nghiem: 12,
           bang_cap_chung_chi: JSON.stringify({
             text: 'Bác sĩ Chuyên khoa I PHCN - ĐH Y Dược TP.HCM\nChứng nhận đào tạo Trị liệu thần kinh cột sống Chiropractic y khoa Singapore\nChứng chỉ hành nghề Phục hồi chức năng cơ xương khớp Bộ Y tế cấp',
-            images: ['/nhan_su/images/cert_assess.png', '/nhan_su/images/cert_physio.png']
+            images: ['/images/nhansu/cert_assess.png', '/images/nhansu/cert_physio.png']
           }),
           mo_ta: 'Bác sĩ Nguyễn Minh Đức là chuyên gia hàng đầu về cơ xương khớp cột sống với hơn 12 năm kinh nghiệm thực tế. Từng công tác tại các chuyên khoa Phục hồi chức năng lớn, ông nổi tiếng với phương pháp khám cơ sinh học vận động sâu sắc, tìm ra chính xác trục lệch cột sống do ngồi sai tư thế. Bác sĩ Đức đã trực tiếp xây dựng phác đồ phục hồi không dùng thuốc cho hơn 2.000 bệnh nhân văn phòng gặp tình trạng thoát vị đĩa đệm lưng và thoái hóa cột sống cổ, giúp họ giải thoát khỏi cơn đau mạn tính dai dẳng, khôi phục chất lượng cuộc sống cao.',
           the_manh: ['Trị liệu thoát vị đĩa đệm thắt lưng', 'Khám lượng giá sinh cơ học cột sống', 'Điều trị Chiropractic y khoa', 'Thiết lập phác đồ PHCN cá nhân hóa']
@@ -297,7 +297,7 @@ async function main() {
           so_nam_kinh_nghiem: 8,
           bang_cap_chung_chi: JSON.stringify({
             text: 'Thạc sĩ Vật lý trị liệu & PHCN - Đại học Y Hà Nội\nChứng chỉ kỹ thuật Laser siêu cao tần và Shockwave hội tụ chuẩn Quốc tế\nChứng chỉ hành nghề Chuyên môn vật lý trị liệu Bộ Y tế cấp',
-            images: ['/nhan_su/images/cert_assess.png', '/nhan_su/images/cert_physio.png']
+            images: ['/images/nhansu/cert_assess.png', '/images/nhansu/cert_physio.png']
           }),
           mo_ta: 'Bác sĩ Trần Thị Thu Trang sở hữu chuyên môn vững vàng trong điều trị các bệnh lý đau mỏi vai gáy cấp và mạn tính của dân công sở. Với 8 năm kinh nghiệm chuyên sâu, bà luôn áp dụng sáng tạo các công nghệ y học vật lý như Laser công suất cao tiêu viêm sâu và sóng xung kích Shockwave phá vỡ các điểm xơ cơ (Trigger Points), mang lại hiệu quả giảm đau tức thì cho bệnh nhân mà không gây đau buốt hay cần can thiệp xâm lấn.',
           the_manh: ['Trị liệu hội chứng cổ vai gáy mạn tính', 'Tiêu viêm rễ thần kinh bằng Laser', 'Sóng xung kích giải trigger points', 'Phục hồi chấn thương bả vai']
@@ -308,7 +308,7 @@ async function main() {
           so_nam_kinh_nghiem: 6,
           bang_cap_chung_chi: JSON.stringify({
             text: 'Cử nhân Vật lý trị liệu - Đại học Y Dược TP.HCM\nChứng chỉ kỹ thuật di động khớp khớp cột sống Manual Therapy tiêu chuẩn Úc',
-            images: ['/nhan_su/images/cert_physio.png']
+            images: ['/images/nhansu/cert_physio.png']
           }),
           mo_ta: 'Kỹ thuật viên Lê Văn Dương được mệnh danh là chuyên gia có đôi tay vàng trong trị liệu giải phóng cơ khớp. Với 6 năm kinh nghiệm thực hành trị liệu bằng tay (Manual Therapy) và di động khớp chuyên sâu, anh giúp bệnh nhân khôi phục hoàn toàn biên độ vận động của các khớp đốt sống cổ và thắt lưng bị kẹt do tư thế làm việc gù ngồi kéo dài.',
           the_manh: ['Kỹ thuật di động khớp Manual Therapy', 'Giải cơ sâu Myofascial Release', 'Nắn khớp thắt lưng giải kẹt', 'Xoa bóp cơ học y khoa sâu']
@@ -319,7 +319,7 @@ async function main() {
           so_nam_kinh_nghiem: 5,
           bang_cap_chung_chi: JSON.stringify({
             text: 'Cử nhân Vật lý trị liệu - PHCN Đại học Y Dược\nChứng chỉ bài tập y khoa phục hồi vận động Kinetic Rehab do Hội PHCN cấp',
-            images: ['/nhan_su/images/cert_assess.png']
+            images: ['/images/nhansu/cert_assess.png']
           }),
           mo_ta: 'Kỹ thuật viên Nguyễn Thùy Linh chuyên trách vận động trị liệu chủ động. Cô có hơn 5 năm kinh nghiệm đồng hành cùng bệnh nhân thực hiện các bài tập Kinetic phục hồi tư thế, tăng cơ lõi core lưng bụng. Cô đặc biệt mát tay trong điều trị bảo tồn hội chứng ống cổ tay cho dân IT, thiết kế đồ họa và kế toán.',
           the_manh: ['Vận động trị liệu Kinetic Rehab', 'Phục hồi hội chứng ống cổ tay', 'Hướng dẫn tập chỉnh lệch tư thế', 'Kéo giãn cơ co rút sâu']
@@ -330,7 +330,7 @@ async function main() {
           so_nam_kinh_nghiem: 4,
           bang_cap_chung_chi: JSON.stringify({
             text: 'Chứng chỉ Kỹ thuật viên Vật lý trị liệu Trường Cao đẳng Y tế\nChứng chỉ Vận hành máy trị liệu công nghệ cao Bệnh viện Chợ Rẫy',
-            images: ['/nhan_su/images/cert_physio.png']
+            images: ['/images/nhansu/cert_physio.png']
           }),
           mo_ta: 'Kỹ thuật viên Phạm Thành Nam là chuyên gia vận hành thiết bị vật lý trị liệu hiện đại. Anh chịu trách nhiệm chính điều phối giường kéo giãn cột sống giảm áp áp lực âm kỹ thuật số, cài đặt thông số điện xung giảm đau mỏi lưng dưới. Sự chu đáo và theo dõi thông số chuẩn xác của anh giúp bệnh nhân phục hồi cực kỳ an tâm.',
           the_manh: ['Vận hành máy kéo giãn giảm áp', 'Cài đặt điện xung y khoa', 'Siêu âm bao gân trị liệu', 'Theo dõi thông số an toàn thiết bị']
@@ -341,7 +341,7 @@ async function main() {
           so_nam_kinh_nghiem: 4,
           bang_cap_chung_chi: JSON.stringify({
             text: 'Chứng chỉ Kỹ thuật viên Massage trị liệu y học cổ truyền\nChứng chỉ trị liệu giải phóng màng cơ myofascial sâu Viện PHCN',
-            images: ['/nhan_su/images/cert_assess.png']
+            images: ['/images/nhansu/cert_assess.png']
           }),
           mo_ta: 'Kỹ thuật viên Đặng Minh Anh chuyên sâu về trị liệu giải cơ ngực lớn, cơ chéo cổ trước và phục hồi thẩm mỹ tư thế vai tròn gù lưng. Cô áp dụng nhuần nhuyễn sự kết hợp lực tay mềm mại, ấn huyệt kích hoạt lưu thông máu vùng vai cổ giúp bệnh nhân xua tan căng thẳng thể chất lẫn tinh thần sau ngày làm việc bận rộn.',
           the_manh: ['Điều chỉnh vai tròn gù lưng', 'Giải tỏa cơ co thắt ngực/cổ', 'Massage bấm huyệt trị liệu', 'Giãn cơ sâu thư giãn vùng gáy']
@@ -430,7 +430,7 @@ async function main() {
         meta_title: 'Trị liệu giải cơ sâu - Giải pháp đau vai gáy mãn tính',
         meta_description: 'Trị liệu giải cơ sâu Myofascial Release tác động vào điểm xơ cơ bả vai, chấm dứt ngay tình trạng đau mỏi cổ vai gáy mãn tính cho dân văn phòng.',
         meta_keywords: 'giải cơ sâu, myofascial release, đau vai gáy, trigger points, trị liệu bằng tay',
-        anh_bia: '/goi/images/giai_co_sau.png',
+        anh_bia: '/images/goi/giai_co_sau.png',
         nguoi_viet_id: 5, // Bác sĩ Minh Đức
         ngay_dang: new Date(),
         noi_dung: `
@@ -439,7 +439,7 @@ async function main() {
           <h2>1. Trị liệu giải cơ sâu Myofascial Release là gì?</h2>
           <p>Khác với massage thư giãn bề mặt, trị liệu giải cơ sâu là kỹ thuật trị liệu bằng tay chuyên khoa. Kỹ thuật viên sẽ sử dụng lực ngón tay và cùi chỏ tác động sâu, liên tục vào lớp màng bao bọc cơ (fascia) bị co thắt, hóa cứng để phá vỡ các nút thắt xơ, phục hồi độ đàn hồi tự nhiên của bó cơ.</p>
 
-          <img class="w-full max-h-[400px] object-cover rounded-xl my-6 shadow-md" src="/goi/images/giai_co_sau.png" alt="Kỹ thuật viên thực hiện giải cơ sâu vai gáy bằng tay" />
+          <img class="w-full max-h-[400px] object-cover rounded-xl my-6 shadow-md" src="/images/goi/giai_co_sau.png" alt="Kỹ thuật viên thực hiện giải cơ sâu vai gáy bằng tay" />
 
           <h2>2. Tác dụng vượt trội của giải cơ sâu tại OfficeCare</h2>
           <ul>
@@ -585,7 +585,7 @@ async function main() {
         meta_title: 'Miễn phí khám lâm sàng cột sống cổ vai gáy OfficeCare',
         meta_description: 'Nhận ngay đặc quyền ưu đãi miễn phí 100% gói khám lâm sàng ban đầu với Bác sĩ PHCN chuyên sâu cho nhân viên văn phòng. Số lượng có hạn!',
         meta_keywords: 'miễn phí gói khám, khám cột sống miễn phí, officecare ưu đãi, đau vai gáy khám ở đâu',
-        anh_bia: '/goi/images/kham_sang_loc.png',
+        anh_bia: '/images/goi/kham_sang_loc.png',
         nguoi_viet_id: 1,
         ngay_dang: new Date(),
         noi_dung: `
@@ -600,7 +600,7 @@ async function main() {
             <li>Thiết lập phác đồ trị liệu khoa học phù hợp riêng cho thể trạng từng người.</li>
           </ul>
 
-          <img class="w-full max-h-[400px] object-cover rounded-xl my-6 shadow-md" src="/goi/images/kham_sang_loc.png" alt="Bác sĩ khám lâm sàng cột sống cổ cho khách hàng văn phòng" />
+          <img class="w-full max-h-[400px] object-cover rounded-xl my-6 shadow-md" src="/images/goi/kham_sang_loc.png" alt="Bác sĩ khám lâm sàng cột sống cổ cho khách hàng văn phòng" />
 
           <h2>2. Điều kiện áp dụng chương trình khuyến mãi</h2>
           <p>Chương trình áp dụng cho tất cả khách hàng mới đăng ký qua website hoặc hotline, có mang theo thẻ nhân viên văn phòng hoặc chứng minh công việc văn phòng khi đến thăm khám tại OfficeCare.</p>

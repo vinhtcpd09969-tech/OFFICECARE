@@ -5,7 +5,7 @@ import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { resolveImageUrl } from '../../../../../utils/imageUrl';
 import { convertToVietnamUtcIso } from '../../../../../utils/date';
-import { api } from '../../../../../shared/api';
+import api from '../../../../../api/axios';
 import { CustomDatePicker } from '../../../../../components/CustomDatePicker';
 
 interface BookNextSessionModalProps {

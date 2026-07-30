@@ -1,7 +1,0 @@
-$kind: http-request
-url: "{{baseUrl}}/receptionist/appointments"
-method: GET
-headers:
-  Content-Type: application/json
-  Authorization: Bearer {{token}}
-order: 1000

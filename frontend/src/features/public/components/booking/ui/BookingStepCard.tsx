@@ -203,90 +203,99 @@ export function BookingStepCard({
         )}
       </AnimatePresence>
 
-      {/* Render Steps */}
-      {activeStep === 1 && (
-        <Step1TypeSelection
-          bookingType={bookingType}
-          setBookingType={setBookingType}
-          selectedServiceId={selectedServiceId}
-          setSelectedServiceId={setSelectedServiceId}
-          services={services}
-          servicesLoading={servicesLoading}
-          setActiveStep={setActiveStep}
-        />
-      )}
+      {/* Render Steps mượt mà với AnimatePresence mode="wait" */}
+      <div className="min-h-[420px]">
+        <AnimatePresence mode="wait">
+          {activeStep === 1 && (
+            <Step1TypeSelection
+              key="step-1"
+              bookingType={bookingType}
+              setBookingType={setBookingType}
+              selectedServiceId={selectedServiceId}
+              setSelectedServiceId={setSelectedServiceId}
+              services={services}
+              servicesLoading={servicesLoading}
+              setActiveStep={setActiveStep}
+            />
+          )}
 
-      {activeStep === 2 && (
-        <Step2DatePicker
-          selectedDate={selectedDate}
-          setDateField={setDateField}
-          bookingType={bookingType}
-          hasExistingClinicalExam={hasExistingClinicalExam}
-          setShowBlockWarning={setShowBlockWarning}
-          setActiveStep={setActiveStep}
-          selectedServiceId={selectedServiceId}
-          services={services}
-          duration={duration}
-        />
-      )}
+          {activeStep === 2 && (
+            <Step2DatePicker
+              key="step-2"
+              selectedDate={selectedDate}
+              setDateField={setDateField}
+              bookingType={bookingType}
+              hasExistingClinicalExam={hasExistingClinicalExam}
+              setShowBlockWarning={setShowBlockWarning}
+              setActiveStep={setActiveStep}
+              selectedServiceId={selectedServiceId}
+              services={services}
+              duration={duration}
+            />
+          )}
 
-      {activeStep === 3 && (
-        <Step3DateTimeSpecialist
-          selectedDate={selectedDate}
-          selectedTime={selectedTime}
-          setTimeField={setTimeField}
-          bookingType={bookingType}
-          bookedSlots={bookedSlots}
-          specialists={specialists}
-          slotAvailability={slotAvailability}
-          selectedStaffId={selectedStaffId}
-          setSelectedStaffId={setSelectedStaffId}
-          hasExistingClinicalExam={hasExistingClinicalExam}
-          duration={duration}
-          setActiveStep={setActiveStep}
-          tempHoldId={tempHoldId}
-          services={services}
-          selectedServiceId={selectedServiceId}
-          user={user}
-        />
-      )}
+          {activeStep === 3 && (
+            <Step3DateTimeSpecialist
+              key="step-3"
+              selectedDate={selectedDate}
+              selectedTime={selectedTime}
+              setTimeField={setTimeField}
+              bookingType={bookingType}
+              bookedSlots={bookedSlots}
+              specialists={specialists}
+              slotAvailability={slotAvailability}
+              selectedStaffId={selectedStaffId}
+              setSelectedStaffId={setSelectedStaffId}
+              hasExistingClinicalExam={hasExistingClinicalExam}
+              duration={duration}
+              setActiveStep={setActiveStep}
+              tempHoldId={tempHoldId}
+              services={services}
+              selectedServiceId={selectedServiceId}
+              user={user}
+            />
+          )}
 
-      {activeStep === 4 && (
-        <Step4CustomerForm
-          formData={formData}
-          onChange={onChange}
-          handleGenderChange={handleGenderChange}
-          handleFile={handleFile}
-          removeImage={removeImage}
-          selectedDate={selectedDate}
-          bookingType={bookingType}
-          hasExistingClinicalExam={hasExistingClinicalExam}
-          isPhoneTakenByOther={isPhoneTakenByOther}
-          user={user}
-          setActiveStep={setActiveStep}
-          selectedTime={selectedTime}
-          selectedServiceId={selectedServiceId}
-          services={services}
-          duration={duration}
-          tempHoldId={tempHoldId}
-          onTimeout={onTimeout}
-        />
-      )}
+          {activeStep === 4 && (
+            <Step4CustomerForm
+              key="step-4"
+              formData={formData}
+              onChange={onChange}
+              handleGenderChange={handleGenderChange}
+              handleFile={handleFile}
+              removeImage={removeImage}
+              selectedDate={selectedDate}
+              bookingType={bookingType}
+              hasExistingClinicalExam={hasExistingClinicalExam}
+              isPhoneTakenByOther={isPhoneTakenByOther}
+              user={user}
+              setActiveStep={setActiveStep}
+              selectedTime={selectedTime}
+              selectedServiceId={selectedServiceId}
+              services={services}
+              duration={duration}
+              tempHoldId={tempHoldId}
+              onTimeout={onTimeout}
+            />
+          )}
 
-      {activeStep === 5 && (
-        <Step5Confirmation
-          bookingType={bookingType}
-          selectedServiceId={selectedServiceId}
-          services={services}
-          selectedDate={selectedDate}
-          selectedTime={selectedTime}
-          selectedStaffId={selectedStaffId}
-          specialists={specialists}
-          formData={formData}
-          setActiveStep={setActiveStep}
-          isSubmitting={isSubmitting}
-        />
-      )}
+          {activeStep === 5 && (
+            <Step5Confirmation
+              key="step-5"
+              bookingType={bookingType}
+              selectedServiceId={selectedServiceId}
+              services={services}
+              selectedDate={selectedDate}
+              selectedTime={selectedTime}
+              selectedStaffId={selectedStaffId}
+              specialists={specialists}
+              formData={formData}
+              setActiveStep={setActiveStep}
+              isSubmitting={isSubmitting}
+            />
+          )}
+        </AnimatePresence>
+      </div>
     </>
   );
 }

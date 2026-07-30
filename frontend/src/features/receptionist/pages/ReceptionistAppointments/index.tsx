@@ -6,25 +6,25 @@ import { vi } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Import Shared Components
-import AppointmentCalendar from '../../../admin/components/appointments/AppointmentCalendar';
-import AppointmentDetailModal from '../../../admin/components/appointments/DetailModal';
+import AppointmentCalendar from '../../../../components/appointments/AppointmentCalendar';
+import AppointmentDetailModal from '../../../../components/appointments/DetailModal';
 import WalkInBookingModal from '../../../../components/WalkInBookingModal';
-import TreatmentBookingModal from '../../../admin/components/appointments/TreatmentBookingModal';
+import TreatmentBookingModal from '../../../../components/appointments/TreatmentBookingModal';
 
 // Import Shared Hooks & UI
-import { useAppointmentsData } from '../../../admin/components/appointments/hooks/useAppointmentsData';
-import { useAppointmentActions } from '../../../admin/components/appointments/hooks/useAppointmentActions';
-import { AppointmentKpiCards } from '../../../admin/components/appointments/ui/AppointmentKpiCards';
-import { AppointmentsFilterBar } from '../../../admin/components/appointments/ui/AppointmentsFilterBar';
-import { PendingContactPanel } from '../../../admin/components/appointments/ui/PendingContactPanel';
-import { OverdueCheckinPanel } from '../../../admin/components/appointments/ui/OverdueCheckinPanel';
-import { PendingPaymentPanel } from '../../../admin/components/appointments/ui/PendingPaymentPanel';
+import { useAppointmentsData } from '../../../../components/appointments/hooks/useAppointmentsData';
+import { useAppointmentActions } from '../../../../components/appointments/hooks/useAppointmentActions';
+import { AppointmentKpiCards } from '../../../../components/appointments/ui/AppointmentKpiCards';
+import { AppointmentsFilterBar } from '../../../../components/appointments/ui/AppointmentsFilterBar';
+import { PendingContactPanel } from '../../../../components/appointments/ui/PendingContactPanel';
+import { OverdueCheckinPanel } from '../../../../components/appointments/ui/OverdueCheckinPanel';
+import { PendingPaymentPanel } from '../../../../components/appointments/ui/PendingPaymentPanel';
 import { isAwaitingPaymentForList } from '../../../../utils/billing';
-import { CapacityView } from '../../../admin/components/appointments/ui/CapacityView';
-import { standardTimeSlots, statusConfig } from '../../../../components/appointmentStatusConfig';
+import { CapacityView } from '../../../../components/appointments/ui/CapacityView';
+import { statusConfig } from '../../../../components/appointmentStatusConfig';
 import { computeAppointmentKpiBuckets, KPI_BUCKET_STATUSES, KPI_BUCKET_LABELS, AppointmentKpiBuckets } from '../../../../utils/appointmentKpi';
-import { ActiveFilterChip } from '../../../admin/components/appointments/ui/ActiveFilterChip';
-import { ViewMode, TimeRange } from '../../../admin/components/appointments/types';
+import { ActiveFilterChip } from '../../../../components/appointments/ui/ActiveFilterChip';
+import { ViewMode, TimeRange } from '../../../../components/appointments/types';
 
 export default function ReceptionistAppointments() {
   const location = useLocation();
@@ -427,7 +427,6 @@ export default function ReceptionistAppointments() {
                 <>
                   {viewMode === 'timeline' && (
                     <AppointmentCalendar
-                      timeSlots={standardTimeSlots}
                       appointments={filteredAppointments}
                       statusConfig={statusConfig}
                       handleOpenDetailModal={handleOpenDetailModal}

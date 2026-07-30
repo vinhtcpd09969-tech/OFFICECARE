@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, ArrowRight, Clock, Phone, Loader2, Info, ShieldCheck, HeartPulse, Award, Star, TrendingUp, Activity } from 'lucide-react';
-import { getPublicServices, getPublicServiceReviews, getPublicSpecialists } from '../api/public.api';
+import { ArrowRight, Clock, Phone, Loader2, Info, ShieldCheck, HeartPulse, Award, Star, TrendingUp, Activity, ArrowLeft } from 'lucide-react';
+import { getPublicServices, getPublicPackages, getPublicServiceReviews, getPublicSpecialists } from '../api/public.api';
 import { resolveImageUrl } from '../../../utils/imageUrl';
-import ScrollReveal from '../components/shared/ScrollReveal';
+import ScrollReveal from '../components/effects/ScrollReveal';
 import toast from 'react-hot-toast';
 import { censorText } from '../../../utils/profanity';
 
@@ -17,14 +17,16 @@ const TRUST_BADGES = [
 interface Service {
   id: string;
   ten_goi: string;
-  loai_goi: 'KHAM' | 'LE';
+  loai_goi: string;
+  tong_so_buoi?: number;
+  don_gia_theo_buoi?: number | string;
   quy_trinh?: string;
   muc_tieu?: string;
   thoi_luong_phut: number;
   don_gia: number | string;
   anh_goi?: string;
   anh_gallery?: string[];
-  trang_thai: string;
+  trang_thai?: string;
   mo_ta?: string;
 }
 
@@ -86,25 +88,31 @@ export default function ServiceDetailPage() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [resSvcs, resSpecs] = await Promise.all([
+        const [resSvcs, resPkgs, resSpecs] = await Promise.all([
           getPublicServices(),
+          getPublicPackages(),
           getPublicSpecialists()
         ]);
 
         const fetchedServices: Service[] = resSvcs.data || [];
+        const fetchedPackages: Service[] = (resPkgs.data || []).map((p: any) => ({
+          ...p,
+          loai_goi: p.loai_goi || 'LIEU_TRINH'
+        }));
+        const allItems = [...fetchedServices, ...fetchedPackages];
         setSpecialists(resSpecs.data || []);
 
-        const foundService = fetchedServices.find(s => s.id.toString() === id?.toString());
+        const foundService = allItems.find(s => s.id.toString() === id?.toString());
         if (foundService) {
           setService(foundService);
           setSelectedImage(foundService.anh_goi || '');
           setRelatedServices(
-            fetchedServices
-              .filter(s => s.id.toString() !== foundService.id.toString() && s.loai_goi === foundService.loai_goi)
+            allItems
+              .filter(s => s.id.toString() !== foundService.id.toString())
               .slice(0, 3)
           );
         } else {
-          toast.error('Không tìm thấy dịch vụ trị liệu này.');
+          toast.error('Không tìm thấy dịch vụ hoặc gói trị liệu này.');
           navigate('/services');
         }
       } catch (error) {
@@ -196,9 +204,13 @@ export default function ServiceDetailPage() {
   const mucTieuPoints = service?.muc_tieu ? service.muc_tieu.split('\n').map((p: string) => p.trim()).filter(Boolean) : [];
   const galleryImages = service ? ([service.anh_goi, ...(service.anh_gallery || [])].filter(Boolean) as string[]) : [];
 
-  // Helper to get category name
+  // Helper to get category name dynamically
   const getCategoryName = (): string => {
-    return service.loai_goi === 'KHAM' ? 'Khám chuyên khoa' : 'Trị liệu đơn buổi';
+    if (!service) return 'Gói dịch vụ';
+    const loai = service.loai_goi?.toUpperCase() || '';
+    if (loai === 'KHAM') return 'Khám chuyên khoa 1:1';
+    if (loai.includes('LIEU_TRINH')) return 'Liệu trình chuyên sâu';
+    return 'Trị liệu đơn buổi';
   };
 
   const formatPrice = (price: number | string | undefined): string => {
@@ -252,22 +264,19 @@ export default function ServiceDetailPage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         
-        {/* Navigation Breadcrumb & Back Link */}
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
-            <Link to="/" className="hover:text-primary transition-colors">Trang chủ</Link>
-            <span>/</span>
-            <Link to="/services" className="hover:text-primary transition-colors">Dịch vụ</Link>
-            <span>/</span>
-            <span className="text-primary font-extrabold">{service.ten_goi}</span>
-          </div>
-
-          <Link
-            to="/services"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-[#0D9488] hover:border-[#0D9488] text-xs font-black uppercase tracking-wider transition-all shadow-xs hover:-translate-x-0.5 cursor-pointer"
+        {/* Nút Quay lại trang trước Thông Minh */}
+        <div className="mb-6 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/services'))}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white/90 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-2xl border border-slate-200/90 shadow-sm hover:shadow transition-all duration-300 group cursor-pointer"
           >
-            <ArrowLeft size={14} /> Quay lại danh sách dịch vụ
-          </Link>
+            <ArrowLeft className="w-4 h-4 text-[#0D9488] group-hover:-translate-x-1 transition-transform" />
+            <span>Quay lại trang trước</span>
+          </button>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-3 py-1 rounded-full hidden sm:inline-block">
+            {getCategoryName()}
+          </span>
         </div>
 
         {/* Unified Service Detail Card */}
@@ -381,18 +390,28 @@ export default function ServiceDetailPage() {
                 )}
               </div>
 
-              {/* Booking section */}
-              <div className="pt-6 border-t border-slate-100 space-y-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-[9px] text-slate-450 font-extrabold uppercase tracking-wider">Đơn giá trị liệu</p>
-                    <p className="text-2xl font-black text-slate-900 mt-0.5">{formatPrice(service.don_gia)} <span className="text-xs font-bold text-slate-450">/ buổi</span></p>
+                {/* Booking section */}
+                <div className="pt-6 border-t border-slate-100 space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                      <p className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider">Chi phí niêm yết</p>
+                      <p className="text-2xl font-black text-[#0D9488] mt-0.5">
+                        {formatPrice(service.don_gia)}
+                        {service.don_gia_theo_buoi && service.tong_so_buoi && service.tong_so_buoi > 1 && (
+                          <span className="text-xs font-semibold text-slate-500 ml-2">
+                            (~{formatPrice(service.don_gia_theo_buoi)} / buổi)
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider">Thời lượng &amp; Số buổi</p>
+                      <p className="text-sm font-black text-slate-700 mt-0.5 flex items-center gap-1.5">
+                        <Clock size={16} className="text-[#0D9488]" />
+                        <span>{service.thoi_luong_phut} phút {service.tong_so_buoi ? `• ${service.tong_so_buoi} buổi điều trị` : '/ buổi'}</span>
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-[9px] text-slate-450 font-extrabold uppercase tracking-wider">Thời lượng</p>
-                    <p className="text-sm font-black text-slate-700 mt-0.5 flex items-center gap-1.5"><Clock size={16} className="text-primary" /> {service.thoi_luong_phut} phút</p>
-                  </div>
-                </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <button

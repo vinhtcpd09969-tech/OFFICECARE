@@ -63,8 +63,8 @@
   --rc-track: #212C26;
 }
 
-.recovery-arc-scope .rc-display { font-family: 'RC Fraunces', Georgia, serif; }
-.recovery-arc-scope .rc-mono { font-family: 'RC Plex Mono', 'Courier New', monospace; }
+.recovery-arc-scope .rc-display { font-family: 'Plus Jakarta Sans', var(--font-jakarta), -apple-system, sans-serif; }
+.recovery-arc-scope .rc-mono { font-family: 'Plus Jakarta Sans', var(--font-jakarta), monospace; }
 
 .recovery-arc-scope .rc-arc-path-progress {
   stroke-dasharray: 900;

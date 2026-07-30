@@ -1,7 +1,0 @@
-$kind: http-request
-url: "{{baseUrl}}/admin/packages"
-method: GET
-headers:
-  Content-Type: application/json
-  Authorization: Bearer {{token}}
-order: 9000

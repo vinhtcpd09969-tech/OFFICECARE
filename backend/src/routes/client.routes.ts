@@ -11,7 +11,6 @@ import {
   getCustomerMedicalRecord,
   getCustomerTreatmentSessions,
   getCustomerInvoices,
-  confirmEmailAppointment,
   confirmOTPAppointment,
   resendConfirmationEmail,
   createTempHold,
@@ -27,7 +26,6 @@ const router = Router();
 
 router.post('/appointments/public', createPublicAppointment);
 router.get('/appointments/public/track/:id', getPublicAppointmentById);
-router.get('/appointments/public/confirm-email/:id', confirmEmailAppointment);
 router.post('/appointments/public/confirm-otp', confirmOTPAppointment);
 router.post('/appointments/public/:id/resend-otp', resendConfirmationEmail);
 router.post('/appointments/hold', createTempHold);

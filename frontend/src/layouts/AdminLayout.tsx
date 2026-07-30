@@ -4,7 +4,7 @@ import api from '../api/axios';
 import toast from 'react-hot-toast';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { format } from 'date-fns';
-import { MascotWidget } from '../components/MascotWidget';
+import { MascotWidget } from './MascotWidget';
 import { isAwaitingPaymentForList } from '../utils/billing';
 import { 
   LayoutDashboard, 

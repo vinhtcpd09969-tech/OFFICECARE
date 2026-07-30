@@ -1,6 +1,6 @@
 import React from 'react';
 import { CalendarRange } from 'lucide-react';
-import { formatCurrency } from '../../../../../shared/utils';
+import { formatCurrency } from '../../../../../utils/format';
 
 interface PaymentSuccessBoxProps {
   paymentSuccessData: any;

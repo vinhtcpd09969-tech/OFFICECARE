@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Clock, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
-import ScrollReveal from '../shared/ScrollReveal';
+import ScrollReveal from '../effects/ScrollReveal';
 import { getPublicTopServices } from '../../api/public.api';
 
 interface FeaturedService {
@@ -28,7 +28,7 @@ export default function ServicesCarousel() {
           id: p.id,
           title: p.ten_goi,
           desc: p.quy_trinh || p.muc_tieu || (p.loai_goi === 'KHAM' ? 'Dịch vụ lượng giá lâm sàng và thăm khám chuyên sâu.' : 'Liệu trình phục hồi toàn diện cá nhân hóa theo phác đồ bác sĩ.'),
-          image: p.anh_goi || (p.loai_goi === 'KHAM' ? '/goi/images/kham_sang_loc.png' : p.loai_goi === 'LE' ? '/goi/images/laser_tri_lieu.png' : '/goi/images/giai_co_sau.png'),
+          image: p.anh_goi || (p.loai_goi === 'KHAM' ? '/images/goi/kham_sang_loc.png' : p.loai_goi === 'LE' ? '/images/goi/laser_tri_lieu.png' : '/images/goi/giai_co_sau.png'),
           price: p.don_gia === 0 ? 'Liên hệ' : Number(p.don_gia).toLocaleString('vi-VN') + ' đ',
           duration: p.loai_goi === 'LIEU_TRINH' ? `${p.tong_so_buoi} buổi` : `${p.thoi_luong_phut} phút`,
           loai_goi: p.loai_goi

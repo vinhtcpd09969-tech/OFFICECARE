@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { Calendar, Eye, ArrowRight, List, Play, Square } from 'lucide-react';
+import { Calendar, Eye, ArrowRight, List, Play, Square, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getPublicArticleBySlug } from '../api/public.api';
 import { resolveImageUrl } from '../../../utils/imageUrl';
@@ -503,18 +503,19 @@ export default function ArticleDetailPage() {
 
       <div className="max-w-5xl mx-auto px-6">
         
-        {/* Quay lại & Breadcrumbs */}
-        <div className="mb-6 flex items-center justify-between text-xs text-slate-400 font-semibold">
-          <div className="flex items-center gap-1.5">
-            <Link to="/" className="hover:text-primary transition-colors">Trang chủ</Link>
-            <span>/</span>
-            <Link to="/tin-tuc" className="hover:text-primary transition-colors">Tin tức</Link>
-            <span>/</span>
-            <span className="text-slate-600 truncate max-w-xs">{article.tieu_de}</span>
-          </div>
-          <Link to="/tin-tuc" className="text-slate-500 hover:text-slate-800 transition-colors">
-            ← Tất cả bài viết
-          </Link>
+        {/* Quay lại trang trước Nút Thông Minh */}
+        <div className="mb-6 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/tin-tuc'))}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white/90 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-2xl border border-slate-200/90 shadow-sm hover:shadow transition-all duration-300 group cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4 text-[#0D9488] group-hover:-translate-x-1 transition-transform" />
+            <span>Quay lại trang trước</span>
+          </button>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-3 py-1 rounded-full hidden sm:inline-block">
+            {DANH_MUC_LABELS[article.danh_muc] || article.danh_muc}
+          </span>
         </div>
 
         {/* Hero Header */}
@@ -581,10 +582,18 @@ export default function ArticleDetailPage() {
           </div>
         </div>
 
-        {/* Constraint main cover image banner */}
+        {/* Format chuẩn đẹp khung ảnh bài viết */}
         {article.anh_bia && (
-          <div className="w-full max-h-[360px] rounded-[32px] overflow-hidden mb-12 shadow-md border border-slate-100">
-            <img src={resolveImageUrl(article.anh_bia)} alt={article.tieu_de} className="w-full h-full max-h-[360px] object-cover hover:scale-[1.01] transition-transform duration-700" loading="lazy" />
+          <div className="w-full max-w-4xl mx-auto rounded-[32px] overflow-hidden mb-12 shadow-[0_20px_50px_rgba(13,148,136,0.08)] border border-slate-200/80 group relative bg-slate-900">
+            <div className="aspect-[16/9] md:aspect-[21/9] w-full overflow-hidden relative">
+              <img
+                src={resolveImageUrl(article.anh_bia)}
+                alt={article.tieu_de}
+                className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700 ease-out"
+                loading="lazy"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-900/30 via-transparent to-transparent pointer-events-none"></div>
+            </div>
           </div>
         )}
 

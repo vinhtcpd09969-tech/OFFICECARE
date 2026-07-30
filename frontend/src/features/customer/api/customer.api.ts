@@ -1,11 +1,5 @@
 import api from '../../../api/axios';
 
-export interface RatePayload {
-  cuoc_hen_id: string;
-  diem_so: number;
-  nhan_xet?: string;
-}
-
 // Logged-in Customer APIs
 export const getPendingRatingAppointments = () => 
   api.get('/client/appointments/pending-rating');

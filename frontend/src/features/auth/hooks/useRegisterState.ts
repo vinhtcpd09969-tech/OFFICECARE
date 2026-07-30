@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useForm, UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import api from '../../../api/axios';
+import { checkEmailExists, register as registerApi } from '../api/auth.api';
 import { toast } from 'react-hot-toast';
 
 export const registerSchema = z.object({
@@ -67,7 +67,7 @@ export function useRegisterState(): UseRegisterStateReturn {
     try {
       setServerError(null);
 
-      const emailCheck = await api.post('/auth/check-email', { email: data.email });
+      const emailCheck = await checkEmailExists(data.email);
       if (emailCheck.data.exists) {
         const errorMsg = 'Email này đã được sử dụng. Vui lòng đăng nhập hoặc chọn email khác.';
         setServerError(errorMsg);
@@ -76,7 +76,7 @@ export function useRegisterState(): UseRegisterStateReturn {
         return;
       }
 
-      await api.post('/auth/register', {
+      await registerApi({
         ho_ten: data.ho_ten,
         email: data.email,
         so_dien_thoai: data.so_dien_thoai,

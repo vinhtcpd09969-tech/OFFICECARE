@@ -5,31 +5,17 @@ import { CheckCircle2 } from 'lucide-react';
 import { format, startOfWeek, addDays, subDays, addMonths, subMonths } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
-import AppointmentCalendar from '../../../admin/components/appointments/AppointmentCalendar';
-import AppointmentInfoModal from '../../../admin/components/appointments/AppointmentInfoModal';
-import { AppointmentsFilterBar } from '../../../admin/components/appointments/ui/AppointmentsFilterBar';
-import { AppointmentKpiCards } from '../../../admin/components/appointments/ui/AppointmentKpiCards';
-import { CapacityView } from '../../../admin/components/appointments/ui/CapacityView';
+import AppointmentCalendar from '../../../../components/appointments/AppointmentCalendar';
+import AppointmentInfoModal from '../../../../components/appointments/AppointmentInfoModal';
+import { AppointmentsFilterBar } from '../../../../components/appointments/ui/AppointmentsFilterBar';
+import { AppointmentKpiCards } from '../../../../components/appointments/ui/AppointmentKpiCards';
+import { CapacityView } from '../../../../components/appointments/ui/CapacityView';
 import { getAppointments, getDoctorSchedules, DoctorAppointment, DoctorSchedule } from '../../../doctor/api/doctor.api';
 import { computeAppointmentKpiBuckets, KPI_BUCKET_STATUSES, KPI_BUCKET_LABELS, AppointmentKpiBuckets } from '../../../../utils/appointmentKpi';
-import { ActiveFilterChip } from '../../../admin/components/appointments/ui/ActiveFilterChip';
+import { ActiveFilterChip } from '../../../../components/appointments/ui/ActiveFilterChip';
+import { getClinicalStatusConfig } from '../../../../components/appointmentStatusConfig';
 
-const STATUS_CONFIG: any = {
-  cho_xac_nhan: { label: 'Chờ xác nhận', color: 'bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300' },
-  da_xac_nhan: { label: 'Đã xác nhận', color: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-955/30 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/30' },
-  da_checkin: { label: 'Đã check-in', color: 'bg-teal-50 text-teal-700 dark:bg-teal-955/30 dark:text-teal-400 border border-teal-100 dark:border-teal-900/30' },
-  cho_kham: { label: 'Chờ điều trị', color: 'bg-blue-50 text-blue-700 dark:bg-blue-955/30 dark:text-blue-400 border border-blue-100 dark:border-blue-900/30' },
-  dang_kham: { label: 'Đang điều trị', color: 'bg-amber-50 text-amber-700 dark:bg-amber-955/30 dark:text-amber-400 border border-amber-100 dark:border-amber-900/30 animate-pulse' },
-  hoan_thanh: { label: 'Hoàn thành', color: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-955/30 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30' },
-  da_huy: { label: 'Đã hủy', color: 'bg-rose-50 text-rose-700 dark:bg-rose-955/30 dark:text-rose-400 border border-rose-100 dark:border-rose-900/30' },
-  khong_den: { label: 'Vắng mặt', color: 'bg-zinc-100 text-zinc-650 dark:bg-zinc-800 dark:text-zinc-400' }
-};
-
-const TIME_SLOTS = [
-  '07:00', '07:30', '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
-  '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30',
-  '17:00', '17:30', '18:00', '18:30', '19:00', '19:30'
-];
+const STATUS_CONFIG = getClinicalStatusConfig('technician');
 
 export default function TechnicianAppointments() {
   const navigate = useNavigate();
@@ -267,7 +253,6 @@ export default function TechnicianAppointments() {
         <>
           {viewMode === 'timeline' ? (
             <AppointmentCalendar
-              timeSlots={TIME_SLOTS}
               appointments={filteredAppointmentsForDay}
               allAppointments={searchedAppointments}
               statusConfig={STATUS_CONFIG}
@@ -276,7 +261,6 @@ export default function TechnicianAppointments() {
               schedulesList={schedulesList}
               selectedDateStr={selectedDate.toLocaleDateString('fr-CA')}
               viewMode="doctor"
-              currentStaffId={user?.id}
             />
           ) : (
             <CapacityView

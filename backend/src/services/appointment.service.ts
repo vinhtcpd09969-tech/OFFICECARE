@@ -115,29 +115,6 @@ class AppointmentService {
     return appt;
   }
 
-  async confirmEmailAppointment(id: string) {
-    const appt = await prisma.cuoc_hen.findUnique({
-      where: { id }
-    });
-
-    if (!appt) {
-      throw new Error('Lịch hẹn không tồn tại');
-    }
-
-    if (appt.trang_thai === 'chua_xac_nhan') {
-      const targetStatus = appt.nhan_su_id ? 'da_xac_nhan' : 'cho_xac_nhan';
-      const updated = await prisma.cuoc_hen.update({
-        where: { id },
-        data: {
-          trang_thai: targetStatus
-        }
-      });
-      return updated;
-    }
-
-    return appt;
-  }
-
   async confirmOTPAppointment(id: string, otpCode: string) {
     const appt = await prisma.cuoc_hen.findUnique({
       where: { id },

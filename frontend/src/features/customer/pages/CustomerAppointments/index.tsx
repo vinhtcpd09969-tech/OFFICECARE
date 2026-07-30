@@ -849,16 +849,23 @@ export default function CustomerAppointments() {
                         {isUnconfirmed && (() => {
                           const otpTimeLeft = app.han_xac_nhan ? Math.max(0, Math.floor((new Date(app.han_xac_nhan).getTime() - currentTime.getTime()) / 1000)) : 0;
                           return (
-                            <div className="bg-rose-50 border border-rose-100 p-3.5 rounded-2xl text-[11px] space-y-3 text-left">
-                              <span className="text-rose-700 font-black flex items-center gap-1 uppercase text-[9px] tracking-wider">📧 CẦN XÁC THỰC LỊCH BẰNG OTP!</span>
+                            <div className="bg-gradient-to-br from-teal-50/70 via-white to-emerald-50/40 border border-teal-200/80 p-4 rounded-2xl text-[11px] space-y-3 text-left shadow-2xs">
+                              <div className="flex items-center gap-1.5 text-[#0D9488] font-black uppercase text-[10px] tracking-wider">
+                                <ShieldCheck size={14} />
+                                <span>XÁC THỰC LỊCH HẸN BẰNG MÃ OTP</span>
+                              </div>
 
                               {app.han_xac_nhan && (
-                                <div className={`p-2 py-1.5 rounded-xl text-[10px] flex items-center justify-between font-semibold ${otpTimeLeft > 0 ? 'bg-amber-50 text-amber-800 border border-amber-200/50' : 'bg-rose-50 border border-rose-250 text-rose-800 animate-pulse'}`}>
+                                <div className={`p-2.5 rounded-xl text-[10px] flex items-center justify-between font-bold border transition-all ${
+                                  otpTimeLeft > 0 
+                                    ? 'bg-teal-50 text-[#0D9488] border-teal-200/70' 
+                                    : 'bg-rose-50 border border-rose-200 text-rose-700 animate-pulse'
+                                }`}>
                                   <div className="flex items-center gap-1.5">
-                                    <Clock size={12} className={otpTimeLeft > 0 ? 'text-amber-500 animate-pulse' : 'text-rose-500'} />
-                                    <span>{otpTimeLeft > 0 ? 'Mã OTP hết hạn sau:' : 'Mã OTP đã hết hạn!'}</span>
+                                    <Clock size={13} className={otpTimeLeft > 0 ? 'text-[#0D9488] animate-pulse' : 'text-rose-500'} />
+                                    <span>{otpTimeLeft > 0 ? 'Mã OTP có hiệu lực trong:' : 'Mã OTP đã hết hạn!'}</span>
                                   </div>
-                                  <span className="font-mono font-black">
+                                  <span className="font-mono font-black text-xs px-2 py-0.5 bg-white text-slate-900 rounded-lg shadow-2xs border border-slate-150">
                                     {otpTimeLeft > 0 ? `${Math.floor(otpTimeLeft / 60)}:${(otpTimeLeft % 60).toString().padStart(2, '0')}` : '0:00'}
                                   </span>
                                 </div>
@@ -870,28 +877,28 @@ export default function CustomerAppointments() {
                                   maxLength={6}
                                   value={otpInput}
                                   onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ''))}
-                                  placeholder="Nhập 6 số OTP"
+                                  placeholder="• • • • • •"
                                   disabled={verifyingOtpId === app.id || (!!app.han_xac_nhan && otpTimeLeft <= 0)}
-                                  className="flex-1 px-3 py-2 bg-white border border-slate-200 focus:border-amber-500 text-center font-mono font-black tracking-widest text-xs rounded-xl outline-none transition-all disabled:bg-slate-50"
+                                  className="flex-1 px-3 py-2.5 bg-white border-2 border-slate-200 focus:border-[#0D9488] focus:ring-2 focus:ring-[#0D9488]/10 text-center font-mono font-black tracking-[0.4em] text-sm rounded-xl outline-none transition-all disabled:bg-slate-50 shadow-2xs"
                                 />
                                 <button
                                   type="button"
                                   onClick={() => handleVerifyOtp(app.id)}
                                   disabled={verifyingOtpId === app.id || otpInput.length !== 6 || (!!app.han_xac_nhan && otpTimeLeft <= 0)}
-                                  className="px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-extrabold text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer shadow-xs"
+                                  className="px-5 py-2.5 bg-[#0D9488] hover:bg-[#0b7a70] disabled:opacity-50 text-white font-extrabold text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer shadow-md shadow-teal-500/15 flex items-center justify-center gap-1 shrink-0"
                                 >
-                                  Xác thực
+                                  {verifyingOtpId === app.id ? 'Đang duyệt...' : 'Xác thực'}
                                 </button>
                               </div>
-                              <div className="flex justify-between items-center text-[9px] font-bold">
-                                <span className="text-slate-455">Không nhận được mã?</span>
+                              <div className="flex justify-between items-center text-[10px] font-bold border-t border-slate-100 pt-2">
+                                <span className="text-slate-500">Chưa nhận được mã?</span>
                                 <button
                                   type="button"
                                   onClick={() => handleResendOtp(app.id)}
                                   disabled={resendingOtpId === app.id}
-                                  className="text-amber-600 hover:text-amber-700 hover:underline cursor-pointer disabled:opacity-50"
+                                  className="text-[#0D9488] hover:text-[#0b7a70] font-extrabold hover:underline cursor-pointer disabled:opacity-50 transition-colors"
                                 >
-                                  {resendingOtpId === app.id ? 'Đang gửi...' : 'Gửi lại OTP'}
+                                  {resendingOtpId === app.id ? 'Đang gửi...' : '🔄 Gửi lại OTP ngay'}
                                 </button>
                               </div>
                             </div>

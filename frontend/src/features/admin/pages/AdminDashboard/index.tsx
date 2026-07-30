@@ -11,7 +11,7 @@ import api from '../../../../api/axios';
 import { toast } from 'react-hot-toast';
 
 // Import subcomponents
-import { StatCard } from '../../../../components/StatCard';
+import { StatCard } from '../../components/StatCard';
 import { CustomDatePicker } from '../../../../components/CustomDatePicker';
 import { RevenueChart } from './RevenueChart';
 import { TopPackagesChart } from './TopPackagesChart';
@@ -62,9 +62,8 @@ export default function AdminDashboard() {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Bộ lọc thời gian DUY NHẤT cho cả trang — 3 chế độ Ngày/Tháng/Năm, mỗi chế độ chọn mốc bắt đầu
-  // + kết thúc riêng (không phải preset dựng sẵn). Mặc định vào trang là chế độ Tháng, chọn sẵn
-  // tháng hiện tại làm cả 2 đầu mốc.
-  const [filterMode, setFilterMode] = useState<FilterMode>('month');
+  // Bộ lọc thời gian DUY NHẤT cho cả trang — Mặc định khi mới tải trang là 7 ngày gần nhất (chế độ Ngày)
+  const [filterMode, setFilterMode] = useState<FilterMode>('day');
 
   const [dayStart, setDayStart] = useState('');
   const [dayEnd, setDayEnd] = useState('');
@@ -80,14 +79,17 @@ export default function AdminDashboard() {
   const years = useMemo(() => Array.from({ length: 11 }, (_, i) => 2020 + i), []);
   const months = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 1), []);
 
-  // Khởi tạo mốc mặc định = hôm nay/tháng này/năm nay cho cả 3 chế độ ngay khi vào trang.
+  // Khởi tạo mốc mặc định = 7 ngày gần nhất (từ 6 ngày trước đến hôm nay) khi vừa vào trang.
   useEffect(() => {
     setIsClient(true);
     const today = new Date();
+    const sixDaysAgo = new Date();
+    sixDaysAgo.setDate(today.getDate() - 6);
+
     const y = today.getFullYear();
     const m = today.getMonth() + 1;
 
-    setDayStart(getLocalFormattedDate(today));
+    setDayStart(getLocalFormattedDate(sixDaysAgo));
     setDayEnd(getLocalFormattedDate(today));
 
     setMonthStartVal(m);
