@@ -6,7 +6,6 @@ import {
   getDashboardData,
   updateAppointmentStatus,
   getReceptionistStats,
-  handleWalkInBooking,
   createBillingFromAppointment,
   processPayment,
   calculateBilling,
@@ -29,35 +28,33 @@ import {
 
 const router = Router();
 
-// Tất cả các route của Lễ tân đều yêu cầu đăng nhập và có vai trò Lễ tân (2) hoặc Admin (5)
+// Tất cả các route trong file này đều yêu cầu đăng nhập
 router.use(verifyToken);
-router.use(authorizeRoles(2, 5));
 
-router.get('/today-appointments', getTodayAppointments);
-router.get('/dashboard', getDashboardData);
-router.patch('/appointments/:id/status', updateAppointmentStatus);
-router.post('/appointments/:id/resend-email', resendConfirmationEmail);
-router.get('/stats', getReceptionistStats);
-router.post('/walk-in', handleWalkInBooking);
-router.post('/billing', createBillingFromAppointment);
-router.post('/payment', processPayment);
-router.post('/billing/calculate', calculateBilling);
-router.get('/vouchers/active', getActiveVouchers);
-router.post('/vouchers/apply', applyVoucher);
-router.post('/billing/create', createBillingDirect);
-router.get('/packages', getPackagesForReceptionist);
-router.get('/customers/search', searchCustomers);
-router.get('/customers/roster', getCustomerRoster);
-router.get('/customers/:id/treatment-plans', getCustomerTreatmentPlans);
-router.get('/customers/:id/history', getCustomerHistory);
-router.get('/appointments/:id/billing-info', getAppointmentBillingInfo);
-router.get('/customers/:id/check-limit', checkCustomerLimit);
-router.get('/customers/:id/check-package-payment', checkPackagePayment);
-router.get('/customers/:id/billing-info-by-package', getBillingInfoByPackage);
+router.get('/today-appointments', authorizeRoles(2, 5), getTodayAppointments);
+router.get('/dashboard', authorizeRoles(2, 5), getDashboardData);
+router.patch('/appointments/:id/status', authorizeRoles(2, 5), updateAppointmentStatus);
+router.post('/appointments/:id/resend-email', authorizeRoles(2, 5), resendConfirmationEmail);
+router.get('/stats', authorizeRoles(2, 5), getReceptionistStats);
+router.post('/billing', authorizeRoles(2, 5), createBillingFromAppointment);
+router.post('/payment', authorizeRoles(2, 5), processPayment);
+router.post('/billing/calculate', authorizeRoles(2, 5), calculateBilling);
+router.get('/vouchers/active', authorizeRoles(2, 5), getActiveVouchers);
+router.post('/vouchers/apply', authorizeRoles(2, 5), applyVoucher);
+router.post('/billing/create', authorizeRoles(2, 5), createBillingDirect);
+router.get('/packages', authorizeRoles(2, 5), getPackagesForReceptionist);
+router.get('/customers/search', authorizeRoles(2, 5), searchCustomers);
+router.get('/customers/roster', authorizeRoles(2, 5), getCustomerRoster);
+router.get('/customers/:id/treatment-plans', authorizeRoles(2, 5), getCustomerTreatmentPlans);
+router.get('/customers/:id/history', authorizeRoles(2, 5), getCustomerHistory);
+router.get('/appointments/:id/billing-info', authorizeRoles(2, 5), getAppointmentBillingInfo);
+router.get('/customers/:id/check-limit', authorizeRoles(2, 5), checkCustomerLimit);
+router.get('/customers/:id/check-package-payment', authorizeRoles(2, 5), checkPackagePayment);
+router.get('/customers/:id/billing-info-by-package', authorizeRoles(2, 5), getBillingInfoByPackage);
 
 // PayOS integration routes
-router.post('/payment/create-payos-link', createPayOSPaymentLink);
-router.post('/payment/cancel-payos-link', cancelPayOSPaymentLink);
-router.get('/payment/status/:id', getInvoiceStatus);
+router.post('/payment/create-payos-link', authorizeRoles(2, 5), createPayOSPaymentLink);
+router.post('/payment/cancel-payos-link', authorizeRoles(2, 5), cancelPayOSPaymentLink);
+router.get('/payment/status/:id', authorizeRoles(2, 5), getInvoiceStatus);
 
 export default router;

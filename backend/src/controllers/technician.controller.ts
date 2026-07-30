@@ -75,6 +75,9 @@ export const saveTreatmentRecord = async (req: AuthenticatedRequest, res: Respon
     if (vas_truoc === undefined || vas_sau === undefined) {
       return res.status(400).json({ message: 'Vui lòng điền đầy đủ lượng giá VAS trước và sau buổi.' });
     }
+    if (!ghi_chu?.trim()) {
+      return res.status(400).json({ message: 'Vui lòng điền diễn tiến / ghi chú buổi trị liệu.' });
+    }
 
     const result = await technicianService.saveTreatmentRecord(userId, {
       lich_dat_id,

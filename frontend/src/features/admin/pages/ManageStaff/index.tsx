@@ -1007,30 +1007,30 @@ export default function ManageStaff() {
       </div>
 
       {/* STAFF LIST TABLE */}
-      <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+      <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-[28px] shadow-xl shadow-slate-200/40 dark:shadow-none border border-slate-200/80 dark:border-slate-800 overflow-hidden font-jakarta">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gradient-to-r from-zinc-50 via-slate-50 to-zinc-50 dark:from-zinc-950 dark:to-zinc-900 border-b border-zinc-200 dark:border-zinc-800 text-secondary dark:text-zinc-400 font-black uppercase tracking-widest text-[9.5px]">
-                <th className="p-5 flex items-center gap-2">Nhân sự</th>
-                <th className="p-5">Email liên hệ</th>
-                <th className="p-5">Số điện thoại</th>
-                <th className="p-5">Vai trò làm việc</th>
-                <th className="p-5 text-center">Trạng thái</th>
-                <th className="p-5 text-right">Thao tác</th>
+              <tr className="bg-slate-50/80 dark:bg-slate-800/80 border-b border-slate-200/80 dark:border-slate-700/80 text-slate-400 font-black uppercase tracking-widest text-[10px]">
+                <th className="p-4 flex items-center gap-2">Nhân sự</th>
+                <th className="p-4">Email liên hệ</th>
+                <th className="p-4">Số điện thoại</th>
+                <th className="p-4">Vai trò làm việc</th>
+                <th className="p-4 text-center">Trạng thái</th>
+                <th className="p-4 text-right">Thao tác</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="p-16 text-center text-zinc-400 font-bold">
-                    <Loader2 className="animate-spin text-primary size-8 mx-auto mb-2" />
+                  <td colSpan={6} className="p-16 text-center text-slate-400 font-bold">
+                    <Loader2 className="animate-spin text-teal-600 size-8 mx-auto mb-2" />
                     Đang tải danh sách nhân sự...
                   </td>
                 </tr>
               ) : filteredStaffList.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-16 text-center text-zinc-400 font-semibold italic">
+                  <td colSpan={6} className="p-16 text-center text-slate-400 font-semibold italic">
                     Không tìm thấy nhân sự phù hợp với điều kiện tìm kiếm.
                   </td>
                 </tr>
@@ -1038,22 +1038,26 @@ export default function ManageStaff() {
                 filteredStaffList.map((staff) => {
                   const avatarUrl = staff.anh_dai_dien || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(staff.ho_ten)}&backgroundType=gradientLinear&fontSize=45`;
                   return (
-                    <tr key={staff.id} className="hover:bg-slate-50/50 dark:hover:bg-zinc-850/30 transition-colors">
-                      <td className="p-5">
+                    <tr key={staff.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors font-jakarta">
+                      <td className="p-4">
                         <div className="flex items-center gap-3">
                           <img 
                             src={avatarUrl} 
                             alt={staff.ho_ten}
-                            className="size-9 rounded-full object-cover border border-zinc-150 shadow-xs shrink-0"
+                            className="w-10 h-10 rounded-2xl object-cover border border-slate-200 dark:border-slate-700 shadow-sm shrink-0"
                           />
-                          <div>
-                            <span className="font-extrabold text-xs text-secondary dark:text-zinc-200 block leading-tight">{staff.ho_ten}</span>
-                            <span className="text-[9px] font-semibold text-zinc-450 dark:text-zinc-500 uppercase tracking-wide block mt-1">Mã NV: #{staff.id}</span>
+                          <div className="flex flex-col min-w-0">
+                            <span className="font-extrabold text-xs md:text-sm text-slate-900 dark:text-white block leading-tight truncate">
+                              {staff.ho_ten}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-extrabold tracking-wider block mt-0.5">
+                              MÃ NV: #{staff.id}
+                            </span>
                           </div>
                         </div>
                       </td>
-                      <td className="p-5 text-xs text-slate-600 dark:text-zinc-300 font-semibold">{staff.email}</td>
-                      <td className="p-5 text-xs text-slate-600 dark:text-zinc-300 font-semibold">{staff.so_dien_thoai || '-'}</td>
+                      <td className="p-4 text-xs font-bold text-slate-700 dark:text-slate-300">{staff.email}</td>
+                      <td className="p-4 text-xs font-bold text-slate-700 dark:text-slate-300">{staff.so_dien_thoai || '-'}</td>
                       <td className="p-5">
                         <span className={`inline-flex items-center px-2.5 py-1 border rounded-lg text-[9px] font-extrabold uppercase tracking-widest ${getRoleStyle(staff.vai_tro_id)}`}>
                           {getRoleLabel(staff.vai_tro_id)}

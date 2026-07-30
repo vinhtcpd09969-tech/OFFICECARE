@@ -1,6 +1,6 @@
 import { Coins, Layers, RotateCcw, Receipt } from 'lucide-react';
-import { StatCard } from '../../../../../components/StatCard';
-import { formatCurrency } from '../../../../../shared/utils';
+import { StatCard } from '../../../components/StatCard';
+import { formatCurrency } from '../../../../../utils/format';
 
 interface FinanceKpis {
   totalCollected: number;

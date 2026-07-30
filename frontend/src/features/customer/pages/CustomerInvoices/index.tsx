@@ -4,7 +4,7 @@ import { Receipt } from 'lucide-react';
 import { useCustomerInvoices } from './hooks/useCustomerInvoices';
 import { InvoiceCard } from './components/InvoiceCard';
 import { InvoiceDetailModal } from './components/InvoiceDetailModal';
-import { TermsOfServiceModal } from '../../../../components/TermsOfServiceModal';
+import { TermsOfServiceModal } from '../../components/TermsOfServiceModal';
 
 type TypeFilter = 'all' | 'LIEU_TRINH' | 'other';
 

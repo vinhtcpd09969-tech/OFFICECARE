@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Ticket, X } from 'lucide-react';
 import axiosInstance from '../../../../../api/axios';
-import { formatCurrency } from '../../../../../shared/utils';
+import { formatCurrency } from '../../../../../utils/format';
 import { formatVoucherPaymentMethods } from '../../../../../utils/voucherPaymentMethod';
 
 interface VoucherOption {

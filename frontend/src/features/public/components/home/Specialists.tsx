@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Star, Award, ChevronRight, User } from 'lucide-react';
 import { motion } from 'framer-motion';
-import ScrollReveal from '../shared/ScrollReveal';
+import ScrollReveal from '../effects/ScrollReveal';
 import { getPublicSpecialists } from '../../api/public.api';
 
 interface Specialist {

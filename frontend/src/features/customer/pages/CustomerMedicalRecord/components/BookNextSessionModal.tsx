@@ -5,7 +5,7 @@ import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { resolveImageUrl } from '../../../../../utils/imageUrl';
 import { convertToVietnamUtcIso } from '../../../../../utils/date';
-import { api } from '../../../../../shared/api';
+import api from '../../../../../api/axios';
 import { CustomDatePicker } from '../../../../../components/CustomDatePicker';
 
 interface BookNextSessionModalProps {
@@ -498,7 +498,7 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
                           </span>
                           <span className={`text-[9.5px] font-semibold mt-0.5 block ${isAvailable ? 'text-teal-600 dark:text-teal-400' : 'text-zinc-400'
                             }`}>
-                            {staff.ca_truc} {isAvailable && `· ${staff.so_ca} ca`}
+                            {staff.ca_truc}
                           </span>
                         </div>
                       </div>

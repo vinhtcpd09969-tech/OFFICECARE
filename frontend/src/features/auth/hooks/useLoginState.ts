@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useForm, UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import api from '../../../api/axios';
+import { login } from '../api/auth.api';
 import { useAuthStore } from '../../../stores/authStore';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
@@ -27,6 +27,7 @@ export interface UseLoginStateReturn {
 export function useLoginState(WelcomeToastComponent: React.ComponentType<{ t: any; user: any }>): UseLoginStateReturn {
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const setAuth = useAuthStore((state) => state.setAuth);
   const navigate = useNavigate();
   const location = useLocation();
@@ -40,9 +41,11 @@ export function useLoginState(WelcomeToastComponent: React.ComponentType<{ t: an
   });
 
   const onSubmit = async (data: LoginFormValues) => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       setServerError('');
-      const response = await api.post('/auth/login', data);
+      const response = await login(data);
       const { user, accessToken, refreshToken } = response.data;
       setAuth(user, accessToken, refreshToken);
 
@@ -76,6 +79,8 @@ export function useLoginState(WelcomeToastComponent: React.ComponentType<{ t: an
       } else {
         setServerError(error.response?.data?.message || 'Email hoặc mật khẩu không chính xác');
       }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -86,6 +91,6 @@ export function useLoginState(WelcomeToastComponent: React.ComponentType<{ t: an
     serverError,
     setServerError,
     onSubmit,
-    isSubmitting: form.formState.isSubmitting,
+    isSubmitting: isSubmitting || form.formState.isSubmitting,
   };
 }

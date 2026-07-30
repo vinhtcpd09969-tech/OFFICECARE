@@ -1,7 +1,5 @@
 import api from '../../../api/axios';
 
-// Walk-in booking
-export const walkInBooking = (data: any) => api.post('/receptionist/walk-in', data);
 export const resendEmail = (id: string) => api.post(`/receptionist/appointments/${id}/resend-email`);
 
 // Appointments

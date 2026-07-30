@@ -104,12 +104,12 @@ export default function ManageSchedules() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {conflicts.map((c: any, i: number) => (
-              <div key={i} className="bg-white rounded-xl p-4 border border-rose-150 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+              <div key={i} className="bg-white dark:bg-zinc-900 rounded-xl p-4 border border-rose-150 dark:border-rose-900/60 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
                 <div>
-                  <p className="text-xs font-semibold text-gray-800 leading-relaxed">
-                    <span className="font-bold text-rose-700">{c.name}</span> bị trùng ca trực vào <span className="font-bold text-gray-900">{c.dowLabel}</span>.
+                  <p className="text-xs font-semibold text-gray-800 dark:text-zinc-200 leading-relaxed">
+                    <span className="font-bold text-rose-700 dark:text-rose-400">{c.name}</span> bị trùng ca trực vào <span className="font-bold text-gray-900 dark:text-zinc-100">{c.dowLabel}</span>.
                   </p>
-                  <p className="text-[10px] text-rose-600 font-bold mt-1.5 bg-rose-50 px-2.5 py-0.5 rounded-md w-fit">
+                  <p className="text-[10px] text-rose-600 dark:text-rose-400 font-bold mt-1.5 bg-rose-50 dark:bg-rose-950/60 px-2.5 py-0.5 rounded-md w-fit">
                     Khung giờ: {c.time1} - {c.time2}
                   </p>
                 </div>

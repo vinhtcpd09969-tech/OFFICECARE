@@ -11,7 +11,7 @@ import {
   Receipt,
   ShieldAlert,
   ArrowLeft,
-  User as UserIcon
+  User
 } from 'lucide-react';
 import { resolveImageUrl } from '../utils/imageUrl';
 
@@ -19,9 +19,7 @@ import { resolveImageUrl } from '../utils/imageUrl';
 function DefaultAvatar() {
   return (
     <div className="size-full bg-slate-100 flex items-center justify-center rounded-full text-slate-400">
-      <svg className="size-full text-slate-300" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-      </svg>
+      <User className="size-3/4 text-slate-400" />
     </div>
   );
 }

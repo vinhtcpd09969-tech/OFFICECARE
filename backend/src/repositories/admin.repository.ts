@@ -333,10 +333,6 @@ class AdminRepository {
     return rows;
   }
 
-  getRawPool() {
-    return pool;
-  }
-
   async createEquipment(ma_thiet_bi: string, data: any): Promise<any> {
     const ma = data.ma_thiet_bi || ma_thiet_bi || ('TB-' + Math.random().toString(36).substring(2, 8).toUpperCase());
     const { rows } = await pool.query(`
@@ -1406,12 +1402,13 @@ class AdminRepository {
           dg.ly_do_cam_xuc,
           dg.de_xuat_hanh_dong,
           dg.de_xuat_phan_hoi
-        FROM danh_gia_goi_dich_vu dg
+        FROM danh_gia dg
         JOIN khach_hang kh ON dg.khach_hang_id = kh.id
         LEFT JOIN goi_dich_vu g ON dg.goi_dich_vu_id = g.id
         LEFT JOIN cuoc_hen ch ON dg.cuoc_hen_id = ch.id
         LEFT JOIN nguoi_dung nd_ktv ON ch.nhan_su_id = nd_ktv.id
         LEFT JOIN nguoi_dung nd_ph ON dg.nguoi_phan_hoi_id = nd_ph.id
+        WHERE dg.loai_danh_gia = 'GOI_DICH_VU'
 
         UNION ALL
 
@@ -1433,12 +1430,13 @@ class AdminRepository {
           dg.ly_do_cam_xuc,
           dg.de_xuat_hanh_dong,
           dg.de_xuat_phan_hoi
-        FROM danh_gia_nhan_su dg
+        FROM danh_gia dg
         JOIN khach_hang kh ON dg.khach_hang_id = kh.id
         JOIN nguoi_dung nd_ktv ON dg.nhan_su_id = nd_ktv.id
         LEFT JOIN cuoc_hen ch ON dg.cuoc_hen_id = ch.id
         LEFT JOIN goi_dich_vu g ON ch.goi_dich_vu_id = g.id
         LEFT JOIN nguoi_dung nd_ph ON dg.nguoi_phan_hoi_id = nd_ph.id
+        WHERE dg.loai_danh_gia = 'NHAN_SU'
       ) combined
       ORDER BY thoi_gian_danh_gia DESC
     `);
@@ -1446,7 +1444,7 @@ class AdminRepository {
   }
 
   async replyServiceFeedback(id: string, phanHoi: string, staffId: number) {
-    return prisma.danh_gia_goi_dich_vu.update({
+    return prisma.danh_gia.update({
       where: { id },
       data: {
         phan_hoi_nhan_xet: phanHoi,
@@ -1457,7 +1455,7 @@ class AdminRepository {
   }
 
   async replyStaffFeedback(id: string, phanHoi: string, staffId: number) {
-    return prisma.danh_gia_nhan_su.update({
+    return prisma.danh_gia.update({
       where: { id },
       data: {
         phan_hoi_nhan_xet: phanHoi,
@@ -1467,19 +1465,44 @@ class AdminRepository {
     });
   }
 
-  async getFeedbackReviewText(type: 'service' | 'staff', id: string) {
-    if (type === 'service') {
-      return prisma.danh_gia_goi_dich_vu.findUnique({ where: { id }, select: { nhan_xet: true, so_sao: true } });
-    }
-    return prisma.danh_gia_nhan_su.findUnique({ where: { id }, select: { nhan_xet: true, so_sao: true } });
+  async getFeedbackReviewText(id: string) {
+    return prisma.danh_gia.findUnique({ where: { id }, select: { nhan_xet: true, so_sao: true } });
   }
 
   // --- BÁO CÁO & THỐNG KÊ ---
-  async getDashboardSummary() {
+  async getDashboardSummary(range?: string, startDate?: string, endDate?: string) {
+    // Whitelist nghiêm ngặt YYYY-MM-DD trước khi nối chuỗi vào SQL — revWhere/aptWhere được tái sử
+    // dụng thô (không tham số hóa) ở nhiều câu query độc lập bên dưới, nên validate ở đây là lớp
+    // chặn injection duy nhất cho startDate/endDate (đến từ query string của client).
+    const isValidDate = (d?: string) => !!d && /^\d{4}-\d{2}-\d{2}$/.test(d);
+    const hasCustomRange = isValidDate(startDate) && isValidDate(endDate);
+
+    let revWhere = '';
+    let aptWhere = '';
+    if (hasCustomRange) {
+      revWhere = ` WHERE ngay_giao_dich::date >= '${startDate}'::date AND ngay_giao_dich::date <= '${endDate}'::date`;
+      aptWhere = ` WHERE ngay_gio_bat_dau::date >= '${startDate}'::date AND ngay_gio_bat_dau::date <= '${endDate}'::date`;
+    } else if (range === 'today') {
+      revWhere = ' WHERE ngay_giao_dich >= CURRENT_DATE';
+      aptWhere = ' WHERE ngay_gio_bat_dau >= CURRENT_DATE';
+    } else if (range === 'week') {
+      revWhere = " WHERE ngay_giao_dich >= NOW() - INTERVAL '7 days'";
+      aptWhere = " WHERE ngay_gio_bat_dau >= NOW() - INTERVAL '7 days'";
+    } else if (range === 'month') {
+      revWhere = " WHERE ngay_giao_dich >= DATE_TRUNC('month', NOW())";
+      aptWhere = " WHERE ngay_gio_bat_dau >= DATE_TRUNC('month', NOW())";
+    } else if (range === 'quarter') {
+      revWhere = " WHERE ngay_giao_dich >= DATE_TRUNC('quarter', NOW())";
+      aptWhere = " WHERE ngay_gio_bat_dau >= DATE_TRUNC('quarter', NOW())";
+    } else if (range === 'year') {
+      revWhere = " WHERE ngay_giao_dich >= DATE_TRUNC('year', NOW())";
+      aptWhere = " WHERE ngay_gio_bat_dau >= DATE_TRUNC('year', NOW())";
+    }
+
     const queries = [
       pool.query('SELECT COUNT(*) FROM khach_hang'),
       pool.query('SELECT COUNT(*) FROM cuoc_hen WHERE trang_thai = \'cho_xac_nhan\''),
-      pool.query('SELECT COALESCE(SUM(so_tien), 0) AS sum FROM giao_dich_thanh_toan'),
+      pool.query(`SELECT COALESCE(SUM(so_tien), 0) AS sum FROM giao_dich_thanh_toan ${revWhere}`),
       pool.query('SELECT COUNT(*) FROM nguoi_dung WHERE trang_thai = \'hoat_dong\''),
       pool.query('SELECT COUNT(*) FROM cuoc_hen WHERE phac_do_dieu_tri_id IS NULL AND nhan_su_id IS NULL AND trang_thai IN (\'cho_xac_nhan\', \'da_xac_nhan\')'),
       pool.query('SELECT COUNT(*) FROM cuoc_hen WHERE phac_do_dieu_tri_id IS NOT NULL AND nhan_su_id IS NULL AND trang_thai NOT IN (\'hoan_thanh\', \'huy\', \'da_huy\', \'khong_den\', \'khach_khong_den\', \'khach_khong_den_phat\', \'da_huy_phat\')'),
@@ -1487,8 +1510,11 @@ class AdminRepository {
       pool.query('SELECT id, ngay_gio_bat_dau AS start_time FROM cuoc_hen WHERE phac_do_dieu_tri_id IS NOT NULL AND nhan_su_id IS NULL AND trang_thai NOT IN (\'hoan_thanh\', \'huy\', \'da_huy\', \'khong_den\', \'khach_khong_den\', \'khach_khong_den_phat\', \'da_huy_phat\') ORDER BY ngay_gio_bat_dau ASC LIMIT 1'),
       pool.query(`SELECT COUNT(*)::integer FROM khach_hang WHERE ngay_dong_y_dieu_khoan >= DATE_TRUNC('month', NOW())`),
       pool.query(`SELECT COUNT(*)::integer FROM khach_hang WHERE ngay_dong_y_dieu_khoan >= DATE_TRUNC('month', NOW() - INTERVAL '1 month') AND ngay_dong_y_dieu_khoan < DATE_TRUNC('month', NOW())`),
-      pool.query(`SELECT (COUNT(CASE WHEN trang_thai = 'huy' THEN 1 END)::float / GREATEST(COUNT(*), 1) * 100)::numeric(5,2) as rate FROM cuoc_hen`),
-      pool.query(`SELECT COUNT(*)::integer FROM cuoc_hen WHERE trang_thai = 'hoan_thanh'`),
+      // 'huy' là tên trạng thái hủy CŨ trước khi domain đổi thành 'da_huy'/'da_huy_phat' (xem
+      // appointmentStatus.ts::CANCELLED_STATUSES) — vẫn còn dữ liệu cũ mang tên này nên đếm cả 3,
+      // nếu chỉ đếm đúng 'huy' như bản gốc thì lịch hủy thật (da_huy/da_huy_phat) sẽ không được tính.
+      pool.query(`SELECT (COUNT(CASE WHEN trang_thai IN ('huy', 'da_huy', 'da_huy_phat') THEN 1 END)::float / GREATEST(COUNT(*), 1) * 100)::numeric(5,2) as rate FROM cuoc_hen ${aptWhere}`),
+      pool.query(`SELECT COUNT(*)::integer FROM cuoc_hen WHERE trang_thai = 'hoan_thanh' ${aptWhere ? aptWhere.replace('WHERE', 'AND') : ''}`),
       // Gói liệu trình theo trạng thái thật trong phac_do_dieu_tri (chưa bao giờ có 'cho_kich_hoat' ở
       // đây — bảng này chỉ tạo dòng khi đã kích hoạt, xem receptionist.repository.ts). "quá hạn" tách
       // riêng khỏi "đang điều trị" (dang_dieu_tri kỹ thuật vẫn là trạng thái DB, nhưng han_su_dung đã
@@ -1586,44 +1612,50 @@ class AdminRepository {
     };
   }
 
-  async getRevenueStats(type?: string, startDate?: string, endDate?: string) {
-    let formatStr = 'YYYY-MM';
-    if (type === 'day') {
+  // startDate/endDate + bucket (day/month/year) đến từ đúng 1 bộ lọc 3 chế độ Ngày/Tháng/Năm ở
+  // header (cùng nguồn với getDashboardSummary) — chế độ nào quyết định luôn độ chia của biểu đồ,
+  // không suy đoán qua độ dài khoảng ngày. range (cũ) giữ lại làm fallback, không còn dùng từ FE mới.
+  async getRevenueStats(range?: string, startDate?: string, endDate?: string, bucket?: string) {
+    const isValidDate = (d?: string) => !!d && /^\d{4}-\d{2}-\d{2}$/.test(d);
+    const hasCustomRange = isValidDate(startDate) && isValidDate(endDate);
+
+    let revWhere = ` WHERE ngay_giao_dich >= DATE_TRUNC('month', NOW()) `;
+    let formatStr = 'YYYY-MM-DD';
+
+    if (hasCustomRange) {
+      revWhere = ` WHERE ngay_giao_dich::date >= '${startDate}'::date AND ngay_giao_dich::date <= '${endDate}'::date `;
+      formatStr = bucket === 'year' ? 'YYYY' : bucket === 'month' ? 'YYYY-MM' : 'YYYY-MM-DD';
+    } else if (range === 'today') {
+      revWhere = ` WHERE ngay_giao_dich >= CURRENT_DATE `;
+      formatStr = 'HH24:00';
+    } else if (range === 'week') {
+      revWhere = ` WHERE ngay_giao_dich >= NOW() - INTERVAL '7 days' `;
       formatStr = 'YYYY-MM-DD';
-    } else if (type === 'year') {
-      formatStr = 'YYYY';
+    } else if (range === 'month') {
+      revWhere = ` WHERE ngay_giao_dich >= DATE_TRUNC('month', NOW()) `;
+      formatStr = 'YYYY-MM-DD';
+    } else if (range === 'quarter') {
+      revWhere = ` WHERE ngay_giao_dich >= DATE_TRUNC('quarter', NOW()) `;
+      formatStr = 'YYYY-MM-DD';
+    } else if (range === 'year') {
+      revWhere = ` WHERE ngay_giao_dich >= DATE_TRUNC('year', NOW()) `;
+      formatStr = 'YYYY-MM';
     }
 
-    let query = `
-      SELECT 
-        TO_CHAR(ngay_giao_dich, '${formatStr}') as label,
-        SUM(so_tien) as revenue
+    const { rows } = await pool.query(`
+      SELECT TO_CHAR(ngay_giao_dich, '${formatStr}') as label, SUM(so_tien) as revenue
       FROM giao_dich_thanh_toan
-    `;
-    const params: any[] = [];
-
-    if (startDate && endDate) {
-      query += ` WHERE ngay_giao_dich::date >= $1::date AND ngay_giao_dich::date <= $2::date `;
-      params.push(startDate, endDate);
-    } else {
-      query += ` WHERE ngay_giao_dich >= NOW() - INTERVAL '6 months' `;
-    }
-
-    query += `
+      ${revWhere}
       GROUP BY label
       ORDER BY label ASC
-    `;
+    `);
 
-    const { rows } = await pool.query(query, params);
-    return rows.map(r => ({
-      label: r.label,
-      revenue: Number(r.revenue || 0)
-    }));
+    return rows.map(r => ({ label: r.label, revenue: Number(r.revenue || 0) }));
   }
 
   async getStaffPerformance() {
     const { rows } = await pool.query(`
-      SELECT 
+      SELECT
         nd.ho_ten as name,
         nd.anh_dai_dien as avatar,
         vt.ten_vai_tro as role,
@@ -1640,6 +1672,10 @@ class AdminRepository {
     return rows;
   }
 
+  // Bó lại 12 tháng gần nhất (rolling window, không phải all-time) — 2 lý do: (1) xếp hạng "top"
+  // phản ánh đúng nhà vô địch HIỆN TẠI thay vì đóng băng vĩnh viễn theo dữ liệu từ nhiều năm trước,
+  // (2) chặn query quét toàn bộ lịch sử phình dần theo năm vận hành. KHÔNG đồng bộ với bộ lọc range
+  // ở header (today/week/...) vì khung ngắn sẽ làm bảng gần như trống, mất hết ý nghĩa xếp hạng.
   async getTopPackages() {
     const { rows } = await pool.query(`
       SELECT name, COUNT(*)::integer as count
@@ -1647,11 +1683,13 @@ class AdminRepository {
         SELECT gdv.ten_goi as name, pddt.khach_hang_id
         FROM phac_do_dieu_tri pddt
         JOIN goi_dich_vu gdv ON pddt.goi_dich_vu_id = gdv.id
+        WHERE pddt.ngay_kich_hoat >= NOW() - INTERVAL '12 months'
         UNION ALL
         SELECT gdv.ten_goi as name, ch.khach_hang_id
         FROM cuoc_hen ch
         JOIN goi_dich_vu gdv ON ch.goi_dich_vu_id = gdv.id
         WHERE ch.phac_do_dieu_tri_id IS NULL
+          AND ch.ngay_gio_bat_dau >= NOW() - INTERVAL '12 months'
       ) combined
       GROUP BY name
       ORDER BY count DESC
@@ -1662,7 +1700,7 @@ class AdminRepository {
 
   async getTopVipCustomers() {
     const { rows } = await pool.query(`
-      SELECT 
+      SELECT
         kh.id,
         kh.ho_ten as name,
         kh.so_dien_thoai as phone,
@@ -1670,6 +1708,7 @@ class AdminRepository {
       FROM khach_hang kh
       LEFT JOIN hoa_don hd ON kh.id = hd.khach_hang_id
       LEFT JOIN giao_dich_thanh_toan gd ON hd.id = gd.hoa_don_id
+        AND gd.ngay_giao_dich >= NOW() - INTERVAL '12 months'
       GROUP BY kh.id, kh.ho_ten, kh.so_dien_thoai
       ORDER BY total_paid DESC
       LIMIT 5
@@ -1678,41 +1717,6 @@ class AdminRepository {
       ...r,
       total_paid: Number(r.total_paid || 0)
     }));
-  }
-
-  async getReviews() {
-    const { rows } = await pool.query(`
-      SELECT 
-        id,
-        name,
-        rating,
-        comment,
-        type,
-        date
-      FROM (
-        SELECT 
-          dg.id,
-          kh.ho_ten as name,
-          dg.so_sao as rating,
-          dg.nhan_xet as comment,
-          'dich_vu' as type,
-          dg.ngay_cap_nhat as date
-        FROM danh_gia_goi_dich_vu dg
-        JOIN khach_hang kh ON dg.khach_hang_id = kh.id
-        UNION ALL
-        SELECT 
-          dg.id,
-          kh.ho_ten as name,
-          dg.so_sao as rating,
-          dg.nhan_xet as comment,
-          'nhan_su' as type,
-          dg.ngay_cap_nhat as date
-        FROM danh_gia_nhan_su dg
-        JOIN khach_hang kh ON dg.khach_hang_id = kh.id
-      ) combined
-      ORDER BY date DESC
-    `);
-    return rows;
   }
 
   async getAvailableStaff(goi_dich_vu_id: string | null, dang_ky_goi_id: string | null, ngay: string, gio_bat_dau: string) {

@@ -5,7 +5,7 @@ import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { Sparkles, X, Search } from 'lucide-react';
 import { createArticle, updateArticle } from '../../api/admin.api';
-import { ImageUploadZone } from '../shared/ImageUploadZone';
+import { ImageUploadZone } from '../upload/ImageUploadZone';
 import { RichTextEditor } from './RichTextEditor';
 import { ConfirmDialog } from '../../../../components/ConfirmDialog';
 
@@ -26,7 +26,8 @@ const articleFormSchema = z.object({
   danh_muc: z.enum(['suc_khoe', 'dieu_tri', 'tin_tuc', 'khuyen_mai', 'phong_ngua'], { message: 'Vui lòng chọn danh mục' }),
   trang_thai: z.enum(['nhap', 'xuat_ban', 'ngung_su_dung']).default('nhap'),
   meta_title: z.string().max(70, 'Tiêu đề SEO tối đa 70 ký tự').optional().nullable(),
-  meta_description: z.string().max(160, 'Mô tả SEO tối đa 160 ký tự').optional().nullable()
+  meta_description: z.string().max(160, 'Mô tả SEO tối đa 160 ký tự').optional().nullable(),
+  meta_keywords: z.string().max(255, 'Từ khóa SEO tối đa 255 ký tự').optional().nullable()
 });
 
 type ArticleFormValues = z.infer<typeof articleFormSchema>;
@@ -66,7 +67,8 @@ export default function ArticleEditor({ editingArticle, onClose, onSuccess }: Ar
       danh_muc: editingArticle.danh_muc || 'tin_tuc',
       trang_thai: editingArticle.trang_thai || 'nhap',
       meta_title: editingArticle.meta_title || '',
-      meta_description: editingArticle.meta_description || ''
+      meta_description: editingArticle.meta_description || '',
+      meta_keywords: editingArticle.meta_keywords || ''
     } : {
       tieu_de: '',
       slug: '',
@@ -76,7 +78,8 @@ export default function ArticleEditor({ editingArticle, onClose, onSuccess }: Ar
       danh_muc: 'tin_tuc',
       trang_thai: 'nhap',
       meta_title: '',
-      meta_description: ''
+      meta_description: '',
+      meta_keywords: ''
     }
   });
 
@@ -84,6 +87,7 @@ export default function ArticleEditor({ editingArticle, onClose, onSuccess }: Ar
   const watchSlug = watch('slug') || '';
   const watchMetaTitle = watch('meta_title') || '';
   const watchMetaDescription = watch('meta_description') || '';
+  const watchMetaKeywords = watch('meta_keywords') || '';
 
   const slugPreview = watchSlug ? slugifyPreview(watchSlug) : slugifyPreview(watchTieuDe);
 
@@ -222,6 +226,16 @@ export default function ArticleEditor({ editingArticle, onClose, onSuccess }: Ar
             </div>
             <textarea {...register('meta_description')} rows={3} placeholder="Mô tả ngắn hiển thị trên kết quả tìm kiếm Google..." className="w-full px-3 py-2 bg-white border border-zinc-200 rounded-xl focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 outline-none transition-all text-secondary resize-none text-xs shadow-sm" />
             {errors.meta_description && <span className="text-rose-500 text-[10px] mt-1 block">{errors.meta_description.message}</span>}
+          </div>
+
+          <div>
+            <div className="flex justify-between items-center mb-1.5">
+              <label className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Từ khóa SEO</label>
+              <span className={`text-[9px] font-bold ${watchMetaKeywords.length > 255 ? 'text-rose-500' : 'text-slate-400'}`}>{watchMetaKeywords.length}/255</span>
+            </div>
+            <input {...register('meta_keywords')} placeholder="vd: hô hấp, phổi, tập thở cơ hoành" className="w-full px-3 py-2 bg-white border border-zinc-200 rounded-xl focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 outline-none transition-all text-secondary text-xs shadow-sm" />
+            <p className="text-[9px] text-slate-400 mt-1">Các từ khóa cách nhau bằng dấu phẩy.</p>
+            {errors.meta_keywords && <span className="text-rose-500 text-[10px] mt-1 block">{errors.meta_keywords.message}</span>}
           </div>
 
           {/* Google Search Preview */}

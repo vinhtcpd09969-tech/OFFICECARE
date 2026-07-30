@@ -1,5 +1,5 @@
 import { ShieldCheck, Stethoscope, Zap, HeartPulse } from 'lucide-react';
-import ScrollReveal from '../shared/ScrollReveal';
+import ScrollReveal from '../effects/ScrollReveal';
 
 const FEATURES = [
   {

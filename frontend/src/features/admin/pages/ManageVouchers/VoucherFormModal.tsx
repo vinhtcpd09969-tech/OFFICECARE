@@ -118,18 +118,18 @@ export function VoucherFormModal({
 
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-      <div className="bg-white rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl border border-slate-100 flex flex-col max-h-[90vh]">
+      <div className="bg-white dark:bg-zinc-900 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl border border-slate-100 dark:border-zinc-800 flex flex-col max-h-[90vh]">
         {/* Modal Header */}
-        <div className="px-8 py-5 border-b border-slate-100 flex items-center justify-between">
+        <div className="px-8 py-5 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Ticket className="w-5 h-5 text-primary" />
-            <h2 className="text-xl font-bold text-slate-800">
+            <h2 className="text-xl font-bold text-slate-800 dark:text-zinc-100">
               {editingVoucher?.id ? 'Chỉnh sửa Ưu đãi / Voucher' : 'Thiết lập chiến dịch mới'}
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1.5 rounded-full transition-colors"
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 p-1.5 rounded-full transition-colors"
           >
             <X className="w-5 h-5" />
           </button>

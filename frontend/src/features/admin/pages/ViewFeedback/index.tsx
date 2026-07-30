@@ -7,7 +7,6 @@ import {
   Star,
   MessageSquare,
   Award,
-  Smile,
   Loader2,
   Package,
   Users,
@@ -18,8 +17,6 @@ import {
   CheckCircle2,
   XCircle,
   PieChart,
-  Pencil,
-  Bot,
   Send,
   Filter
 } from 'lucide-react';
@@ -139,11 +136,6 @@ export default function ViewFeedback() {
     }
   };
 
-  const handleQuickApprove = async (f: Feedback) => {
-    if (!f.de_xuat_phan_hoi) return;
-    await submitReply(f.id, f.loai_danh_gia, f.de_xuat_phan_hoi);
-  };
-
   const handleBulkApprove = async (ready: Feedback[]) => {
     if (ready.length === 0 || submittingReply) return;
     const confirmed = window.confirm(`Gửi ngay ${ready.length} câu trả lời do AI soạn cho khách hàng? Hành động này không thể hoàn tác.`);
@@ -197,18 +189,6 @@ export default function ViewFeedback() {
     } finally {
       setAnalyzingId(null);
     }
-  };
-
-  const handleJumpToReview = (f: Feedback) => {
-    setSelectedService('Tất cả');
-    setSelectedSpecialist('Tất cả');
-    setSelectedStars('Tất cả');
-    setSelectedSentiment('Tất cả');
-    setReplyingId(f.id);
-    setReplyText(f.de_xuat_phan_hoi || '');
-    setTimeout(() => {
-      document.getElementById(`feedback-${f.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 60);
   };
 
   const [selectedService, setSelectedService] = useState<string>('Tất cả');

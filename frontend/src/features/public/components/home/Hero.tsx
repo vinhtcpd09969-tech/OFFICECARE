@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Calendar, ArrowRight, ChevronLeft, ChevronRight, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import LazyImage from '../../../../components/LazyImage';
-import ScrollReveal from '../shared/ScrollReveal';
+import LazyImage from '../LazyImage';
+import ScrollReveal from '../effects/ScrollReveal';
 
 const HERO_SLIDES = [
   {
@@ -19,7 +19,7 @@ const HERO_SLIDES = [
     tag: 'Công nghệ tiên tiến',
     title: 'Trị Liệu Sóng Xung Kích & Laser Cường Độ Cao 30W',
     subtitle: 'Phá vỡ mô xơ hóa, giảm co thắt cơ và đẩy nhanh phục hồi tái tạo tế bào.',
-    image: '/goi/images/laser_tri_lieu.png',
+    image: '/images/goi/laser_tri_lieu.png',
     badge: 'Đạt Chuẩn FDA Hoa Kỳ'
   },
   {
@@ -27,7 +27,7 @@ const HERO_SLIDES = [
     tag: 'Kỹ thuật chuyên khoa',
     title: 'Giải Phóng Cơ Mô Mềm Tận Gốc Điểm Đau (Trigger Points)',
     subtitle: 'Kỹ thuật viên chính quy đứng máy kết hợp thao tác nắn chỉnh di động khớp thủ công.',
-    image: '/goi/images/giai_co_sau.png',
+    image: '/images/goi/giai_co_sau.png',
     badge: '+15.000 Ca Hồi Phục'
   }
 ];
@@ -152,14 +152,14 @@ export default function Hero() {
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/20 to-transparent" />
 
                   {/* Banner Content Overlay */}
-                  <div className="absolute bottom-0 left-0 right-0 p-6 text-white text-left space-y-1.5">
-                    <span className="bg-[#0D9488] text-white text-[9.5px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider inline-block">
+                  <div className="absolute bottom-0 left-0 right-0 p-6 text-white text-left space-y-1.5 z-10">
+                    <span className="bg-[#0D9488] text-white text-[9.5px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider inline-block shadow-sm">
                       {HERO_SLIDES[currentSlide].badge}
                     </span>
-                    <h3 className="font-heading font-bold text-base md:text-lg leading-snug">
+                    <h3 className="font-heading font-extrabold text-base md:text-lg text-white leading-snug drop-shadow-md">
                       {HERO_SLIDES[currentSlide].title}
                     </h3>
-                    <p className="text-xs text-slate-200 font-normal line-clamp-2">
+                    <p className="text-xs text-slate-100 font-medium line-clamp-2 drop-shadow-sm">
                       {HERO_SLIDES[currentSlide].subtitle}
                     </p>
                   </div>

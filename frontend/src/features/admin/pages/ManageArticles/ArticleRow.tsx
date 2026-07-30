@@ -28,7 +28,7 @@ export function ArticleRow({ article, onEdit, onDelete, onRestore }: ArticleRowP
       onClick={(e) => {
         const target = e.target as HTMLElement;
         if (target.closest('button')) return;
-        if (isSuspended) return; // Không cho sửa bài đang ngưng sử dụng trực tiếp, phải khôi phục trước
+        if (isSuspended) return; // Không cho sửa bài đang bị gỡ trực tiếp, phải khôi phục trước
         onEdit(article);
       }}
     >
@@ -71,7 +71,7 @@ export function ArticleRow({ article, onEdit, onDelete, onRestore }: ArticleRowP
                 ? 'bg-zinc-100 text-zinc-500 border border-zinc-200'
                 : 'bg-amber-50 text-amber-700 border border-amber-200'
           }`}>
-            {isPublished ? 'Đã đăng' : isSuspended ? 'Ngưng dùng' : 'Nháp'}
+            {isPublished ? 'Đã đăng' : isSuspended ? 'Đã gỡ' : 'Nháp'}
           </span>
         </div>
 
@@ -90,7 +90,7 @@ export function ArticleRow({ article, onEdit, onDelete, onRestore }: ArticleRowP
                 type="button"
                 onClick={() => onDelete(article)}
                 className="p-2 rounded-lg bg-slate-50 hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-zinc-150 transition-all cursor-pointer"
-                title="Ngưng sử dụng"
+                title="Gỡ bài viết"
               >
                 <Ban size={13} />
               </button>

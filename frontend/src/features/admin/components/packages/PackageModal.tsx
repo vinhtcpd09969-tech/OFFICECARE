@@ -6,8 +6,8 @@ import { useEffect, useState } from 'react';
 import { X, Sparkles, Coins, Layers, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { ConfirmDialog } from '../../../../components/ConfirmDialog';
-import { ImageUploadZone } from '../shared/ImageUploadZone';
-import { GalleryUploadZone } from '../shared/GalleryUploadZone';
+import { ImageUploadZone } from '../upload/ImageUploadZone';
+import { GalleryUploadZone } from '../upload/GalleryUploadZone';
 
 const packageSchema = z.object({
   ten_goi: z.string().min(1, 'Tên gói dịch vụ là bắt buộc'),

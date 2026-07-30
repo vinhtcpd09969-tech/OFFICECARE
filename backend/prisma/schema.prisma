@@ -33,9 +33,8 @@ model nguoi_dung {
   refresh_tokens        refresh_tokens[]
   tam_giu_cho           tam_giu_cho[]
   bai_viet              bai_viet[]
-  danh_gia_nhan_su      danh_gia_nhan_su[]
-  phan_hoi_goi          danh_gia_goi_dich_vu[]  @relation("phan_hoi_goi")
-  phan_hoi_nhan_su      danh_gia_nhan_su[]      @relation("phan_hoi_nhan_su")
+  danh_gia_as_nhan_su   danh_gia[]              @relation("danh_gia_nhan_su")
+  danh_gia_phan_hoi     danh_gia[]              @relation("danh_gia_phan_hoi")
 }
 
 model ho_so_chuyen_gia {
@@ -75,8 +74,7 @@ model khach_hang {
   phai_doi_mat_khau   Boolean               @default(false)
   ngay_dong_y_dieu_khoan DateTime?          @db.Timestamptz(6)
   cuoc_hen            cuoc_hen[]
-  danh_gia_goi_dich_vu danh_gia_goi_dich_vu[]
-  danh_gia_nhan_su    danh_gia_nhan_su[]
+  danh_gia            danh_gia[]
   hoa_don             hoa_don[]
   phac_do_dieu_tri    phac_do_dieu_tri[]
   refresh_tokens      refresh_tokens[]
@@ -120,7 +118,6 @@ model chi_dinh_buoi {
   id                    String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   nhat_ky_id            String                @db.Uuid
   goi_dich_vu_id        String?               @db.Uuid
-  ghi_chu               String?
   // Snapshot cấu hình gói tại đúng thời điểm bác sĩ chỉ định — số buổi là một chỉ định lâm sàng,
   // admin sửa gói về sau không được phép âm thầm đổi liệu trình/giá đã tư vấn cho khách.
   tong_so_buoi_tu_van   Int?
@@ -166,8 +163,7 @@ model cuoc_hen {
   nguoi_dung_tao        nguoi_dung?            @relation("cuoc_hen_nguoi_tao", fields: [nguoi_tao_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   phac_do_dieu_tri      phac_do_dieu_tri?      @relation(fields: [phac_do_dieu_tri_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   phong                 phong_lam_viec?        @relation(fields: [phong_id], references: [id], onUpdate: NoAction)
-  danh_gia_goi_dich_vu danh_gia_goi_dich_vu[]
-  danh_gia_nhan_su    danh_gia_nhan_su[]
+  danh_gia              danh_gia[]
   hoa_don               hoa_don[]
   nhat_ky_buoi_dieu_tri nhat_ky_buoi_dieu_tri?
   so_dien_thoai         String?                @db.VarChar(20)
@@ -191,7 +187,7 @@ model goi_dich_vu {
   cuoc_hen          cuoc_hen[]
   phac_do_dieu_tri  phac_do_dieu_tri[]
   tam_giu_cho       tam_giu_cho[]
-  danh_gia_goi_dich_vu danh_gia_goi_dich_vu[]
+  danh_gia          danh_gia[]
 }
 
 model phac_do_dieu_tri {
@@ -268,10 +264,12 @@ model khuyen_mai_voucher {
   hoa_don            hoa_don[]
 }
 
-model danh_gia_goi_dich_vu {
+model danh_gia {
   id                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  loai_danh_gia      String       @db.VarChar(20)
   khach_hang_id      String       @db.Uuid
-  goi_dich_vu_id     String       @db.Uuid
+  goi_dich_vu_id     String?      @db.Uuid
+  nhan_su_id         Int?
   cuoc_hen_id        String?      @db.Uuid
   so_sao             Int
   nhan_xet           String?
@@ -286,35 +284,12 @@ model danh_gia_goi_dich_vu {
   de_xuat_hanh_dong  String?      @db.Text
   de_xuat_phan_hoi   String?      @db.Text
   khach_hang         khach_hang   @relation(fields: [khach_hang_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  goi_dich_vu        goi_dich_vu  @relation(fields: [goi_dich_vu_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  goi_dich_vu        goi_dich_vu? @relation(fields: [goi_dich_vu_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  nhan_su            nguoi_dung?  @relation("danh_gia_nhan_su", fields: [nhan_su_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   cuoc_hen           cuoc_hen?    @relation(fields: [cuoc_hen_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  nguoi_phan_hoi     nguoi_dung?  @relation("phan_hoi_goi", fields: [nguoi_phan_hoi_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  nguoi_phan_hoi     nguoi_dung?  @relation("danh_gia_phan_hoi", fields: [nguoi_phan_hoi_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@unique([khach_hang_id, goi_dich_vu_id])
-}
-
-model danh_gia_nhan_su {
-  id                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  khach_hang_id      String       @db.Uuid
-  nhan_su_id         Int
-  cuoc_hen_id        String?      @db.Uuid
-  so_sao             Int
-  nhan_xet           String?
-  ngay_tao           DateTime     @default(now()) @db.Timestamptz(6)
-  ngay_cap_nhat      DateTime     @default(now()) @db.Timestamptz(6)
-  phan_hoi_nhan_xet  String?      @db.Text
-  nguoi_phan_hoi_id  Int?
-  ngay_phan_hoi      DateTime?    @db.Timestamptz(6)
-  cam_xuc            String?      @db.VarChar(20)
-  do_tin_cay         Float?
-  ly_do_cam_xuc      String?      @db.Text
-  de_xuat_hanh_dong  String?      @db.Text
-  de_xuat_phan_hoi   String?      @db.Text
-  khach_hang         khach_hang   @relation(fields: [khach_hang_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  nguoi_dung         nguoi_dung   @relation(fields: [nhan_su_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  cuoc_hen           cuoc_hen?    @relation(fields: [cuoc_hen_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  nguoi_phan_hoi     nguoi_dung?  @relation("phan_hoi_nhan_su", fields: [nguoi_phan_hoi_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-
   @@unique([khach_hang_id, nhan_su_id])
 }
 

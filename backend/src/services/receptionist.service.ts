@@ -124,31 +124,6 @@ class ReceptionistService {
     };
   }
 
-  async handleWalkInBooking(data: any) {
-    const goi_dich_vu_id = data.goi_dich_vu_id || data.dich_vu_id;
-    const { sdt, ho_ten, gioi_tinh, ngay_sinh, gio_bat_dau } = data;
-    const bac_si_id = data.bac_si_id || data.chuyen_gia_id || data.ky_thuat_vien_id;
-
-    let khachHangId = data.khach_hang_id;
-    if (!khachHangId) {
-      const existCust = await receptionistRepository.findCustomerByPhone(sdt);
-      if (existCust) {
-        khachHangId = existCust.khach_hang_id;
-      } else {
-        khachHangId = await receptionistRepository.createWalkInCustomer(ho_ten, sdt, gioi_tinh, ngay_sinh);
-      }
-    }
-
-    const duration = await receptionistRepository.getServiceDuration(goi_dich_vu_id);
-    const startTime = new Date(gio_bat_dau);
-    const endTime = new Date(startTime.getTime() + duration * 60000);
-    const maLichDat = `LD${Math.floor(100000 + Math.random() * 900000)}`;
-
-    const lich_dat_id = await receptionistRepository.createAppointment(maLichDat, khachHangId, goi_dich_vu_id, bac_si_id, startTime, endTime, sdt);
-
-    return { lich_dat_id };
-  }
-
   async createBillingFromAppointment(lich_dat_id: string) {
     const lich = await receptionistRepository.getAppointmentForBilling(lich_dat_id);
     if (!lich) throw new Error('Lịch hẹn không hợp lệ hoặc chưa hoàn thành');

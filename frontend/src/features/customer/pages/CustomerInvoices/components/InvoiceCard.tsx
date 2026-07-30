@@ -32,33 +32,48 @@ export function InvoiceCard({ invoice, onOpen }: InvoiceCardProps) {
     <button
       type="button"
       onClick={() => onOpen(invoice)}
-      className="w-full text-left bg-white rounded-3xl border border-zinc-150 p-5 shadow-sm hover:shadow-md hover:border-primary/30 hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-4"
+      className="w-full text-left bg-white rounded-2xl border border-zinc-150 hover:border-teal-500/40 p-4 shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-between gap-4 group"
     >
-      <div className="size-11 rounded-2xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shrink-0">
-        <TypeIcon size={18} />
-      </div>
-
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2 flex-wrap mb-1">
-          <span className="text-[9px] font-black uppercase tracking-wider text-zinc-400 bg-zinc-50 border border-zinc-100 px-2 py-0.5 rounded">
-            {typeMeta.label}
-          </span>
-          <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${statusMeta.cls}`}>
-            {statusMeta.label}
-          </span>
+      {/* Left Icon & Information */}
+      <div className="flex items-center gap-3.5 min-w-0 flex-1">
+        <div className="size-10 rounded-xl bg-teal-50 border border-teal-100 text-teal-700 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+          <TypeIcon size={18} />
         </div>
-        <h4 className="text-sm font-black text-secondary truncate">{invoice.ten_dich_vu || 'Phí khám lâm sàng/Buổi lẻ'}</h4>
-        <p className="text-[11px] text-zinc-400 font-semibold flex items-center gap-1.5 mt-0.5">
-          <Calendar size={11} /> {dateStr} · {invoice.ma_hoa_don}
-        </p>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap mb-0.5">
+            <span className="text-[10px] font-extrabold text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded-md">
+              {invoice.ma_hoa_don}
+            </span>
+            <span className="text-[10px] text-zinc-400 font-semibold flex items-center gap-1">
+              <Calendar size={11} /> {dateStr}
+            </span>
+            <span className={`text-[9.5px] font-black uppercase tracking-wide px-2 py-0.5 rounded-md border ${statusMeta.cls}`}>
+              {statusMeta.label}
+            </span>
+          </div>
+
+          <h4 className="text-xs sm:text-sm font-black text-zinc-800 truncate group-hover:text-teal-700 transition-colors">
+            {invoice.ten_dich_vu || 'Phí khám lâm sàng/Buổi lẻ'}
+          </h4>
+        </div>
       </div>
 
-      <div className="text-right shrink-0">
-        <p className="text-sm font-black text-secondary">{formatCurrency(invoice.tong_tien_thanh_toan)}</p>
-        <p className="text-[10px] text-zinc-400 font-bold mt-0.5">Đã đóng: {formatCurrency(invoice.da_thanh_toan)}</p>
-      </div>
+      {/* Right Price & Paid Status */}
+      <div className="flex items-center gap-3 shrink-0 text-right">
+        <div>
+          <p className="text-xs sm:text-sm font-black text-zinc-900 tracking-tight">
+            {formatCurrency(invoice.tong_tien_thanh_toan)}
+          </p>
+          <p className="text-[10.5px] text-zinc-400 font-semibold mt-0.5">
+            Đã đóng: <span className="text-zinc-600 font-bold">{formatCurrency(invoice.da_thanh_toan)}</span>
+          </p>
+        </div>
 
-      <ChevronRight size={16} className="text-zinc-300 shrink-0" />
+        <div className="size-7 rounded-lg bg-zinc-50 border border-zinc-100 text-zinc-400 group-hover:bg-teal-50 group-hover:text-teal-600 group-hover:border-teal-100 flex items-center justify-center transition-all">
+          <ChevronRight size={14} />
+        </div>
+      </div>
     </button>
   );
 }

@@ -1,5 +1,5 @@
 import api from '../../../api/axios';
-import { PatientProfile, DoctorQueueItem, DoctorAppointment, DoctorSchedule } from '../../doctor/api/doctor.api';
+import { PatientProfile, DoctorQueueItem, DoctorAppointment } from '../../doctor/api/doctor.api';
 
 export interface TreatmentRecordPayload {
   lich_dat_id: string;
@@ -9,10 +9,7 @@ export interface TreatmentRecordPayload {
 }
 
 // KTV API calls
-export const getQueue = () => 
-  api.get<DoctorQueueItem[]>('/technician/queue');
-
-export const getAppointments = (startDate?: string, endDate?: string) => 
+export const getAppointments = (startDate?: string, endDate?: string) =>
   api.get<DoctorAppointment[]>('/technician/appointments', { params: { startDate, endDate } });
 
 export const getAppointmentDetail = (id: string) =>
@@ -37,8 +34,5 @@ export const getPatientProfile = (patientId: string) =>
 export const getActiveSession = () => 
   api.get<{ id: string; ma_lich_dat: string; ten_khach_hang: string } | null>('/technician/active-session');
 
-export const saveTreatmentRecord = (payload: TreatmentRecordPayload) => 
+export const saveTreatmentRecord = (payload: TreatmentRecordPayload) =>
   api.post<{ success: boolean; message: string; medicalRecordId: string }>('/technician/appointments/assess', payload);
-
-export const getTechnicianSchedules = () => 
-  api.get<DoctorSchedule[]>('/technician/schedules');

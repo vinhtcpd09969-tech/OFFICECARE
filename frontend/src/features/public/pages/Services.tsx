@@ -4,7 +4,7 @@ import { Clock, AlertTriangle, X, Stethoscope, Zap, ShieldCheck, Activity, Flame
 import { motion } from 'framer-motion';
 import { getPublicServices, getPublicPackages } from '../api/public.api';
 import LoadingScreen from '../../../components/LoadingScreen';
-import ScrollReveal from '../components/shared/ScrollReveal';
+import ScrollReveal from '../components/effects/ScrollReveal';
 
 interface UnifiedService {
   id: string;
@@ -121,7 +121,7 @@ export default function ServicesPage() {
           tong_so_buoi: 1,
           gia_tien: Number(s.don_gia),
           thoi_luong_phut: s.thoi_luong_phut,
-          anh_goi: s.anh_goi || (s.loai_dich_vu === 'KHAM' ? '/goi/images/kham_sang_loc.png' : '/goi/images/laser_tri_lieu.png'),
+          anh_goi: s.anh_goi || (s.loai_dich_vu === 'KHAM' ? '/images/goi/kham_sang_loc.png' : '/images/goi/laser_tri_lieu.png'),
           loai_goi: s.loai_dich_vu === 'KHAM' ? 'KHAM' : 'LE',
           luot_dung: Number(s.luot_dung || 0)
         }));
@@ -137,7 +137,7 @@ export default function ServicesPage() {
           tong_so_buoi: p.tong_so_buoi,
           gia_tien: Number(p.gia_tien),
           thoi_luong_phut: p.thoi_luong_phut || 60,
-          anh_goi: p.anh_goi || '/goi/images/giai_co_sau.png',
+          anh_goi: p.anh_goi || '/images/goi/giai_co_sau.png',
           loai_goi: 'LIEU_TRINH',
           luot_dung: Number(p.luot_dung || 0)
         }));
@@ -177,17 +177,14 @@ export default function ServicesPage() {
 
         {/* Asymmetric Header */}
         <div className="mb-14 grid grid-cols-1 lg:grid-cols-12 gap-8 items-end border-b border-slate-200 pb-10">
-          <div className="lg:col-span-7 space-y-4">
-            <span className="bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 text-[10px] font-semibold tracking-wider px-3.5 py-1.5 rounded-full inline-flex items-center gap-1.5 shadow-2xs">
-              Dịch vụ &amp; liệu trình y khoa
-            </span>
-            <h1 className="font-heading font-bold text-2xl sm:text-3xl md:text-[34px] text-slate-900 tracking-normal leading-snug">
+          <div className="lg:col-span-7 space-y-2">
+            <h1 className="font-heading font-extrabold text-2xl sm:text-3xl md:text-[32px] text-slate-900 tracking-tight leading-snug">
               Giải Pháp <span className="text-[#0D9488]">Trị Liệu</span> <br className="hidden md:inline" />
               &amp; Phục Hồi Chuyên Sâu
             </h1>
           </div>
           <div className="lg:col-span-5 space-y-4">
-            <p className="text-slate-500 font-semibold text-xs leading-relaxed">
+            <p className="text-slate-600 font-normal text-xs sm:text-sm leading-relaxed">
               Tất cả dịch vụ tại OfficeCare được chuẩn hóa y học quốc tế, kết hợp máy móc công nghệ cao châu Âu và phác đồ chuyên biệt từ hội đồng chuyên môn nhằm tối ưu thời gian lành thương cơ xương khớp.
             </p>
             {/* Quick trust metrics */}
@@ -208,49 +205,50 @@ export default function ServicesPage() {
           </div>
         </div>
 
-        {/* Search & Filter Hub */}
-        <div className="bg-white rounded-[24px] border border-slate-150 p-4 md:p-6 mb-12 shadow-[0_8px_30px_rgba(15,23,42,0.015)] space-y-4">
+        {/* Search & Filter Hub - Apple/Linear Segmented Control Standard */}
+        <div className="bg-white rounded-[28px] border border-slate-200/80 p-4 md:p-5 mb-12 shadow-[0_10px_35px_rgba(15,23,42,0.03)] space-y-4">
           <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
-            {/* Search Input */}
-            <div className="relative w-full lg:max-w-md">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-450" size={15} />
+            {/* Realtime Search Input */}
+            <div className="relative w-full lg:w-80 shrink-0">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
               <input
                 type="text"
-                placeholder="Tìm kiếm dịch vụ, triệu chứng đau..."
+                placeholder="Tìm dịch vụ, triệu chứng đau..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-11 pr-10 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-secondary font-bold placeholder-slate-400 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                className="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-200 hover:border-slate-300 focus:border-[#0D9488] focus:bg-white rounded-2xl text-xs text-slate-800 font-semibold placeholder-slate-400 outline-none transition-all duration-200"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-650"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                 >
                   <X size={14} />
                 </button>
               )}
             </div>
 
-            {/* Main Tabs */}
-            <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-end">
+            {/* Segmented Control Bar (Single Row Scrollable - Never Breaks awkward lines) */}
+            <div className="w-full lg:w-auto bg-slate-100/90 p-1.5 rounded-2xl flex items-center gap-1.5 overflow-x-auto no-scrollbar">
               {TAB_OPTIONS.map(tab => {
                 const Icon = tab.icon;
+                const isActive = activeTab === tab.key;
                 return (
                   <button
                     key={tab.key}
                     type="button"
                     onClick={() => handleTabChange(tab.key)}
-                    className={`flex items-center gap-2 px-5 py-3 rounded-xl text-xs font-bold transition-all duration-200 border cursor-pointer active:scale-98 ${
-                      activeTab === tab.key
-                        ? 'bg-[#0D9488] border-[#0D9488] text-white shadow-md shadow-teal-500/10'
-                        : 'bg-white border-slate-200 text-slate-600 hover:border-[#14B8A6]/40'
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all duration-200 shrink-0 cursor-pointer ${
+                      isActive
+                        ? 'bg-[#0D9488] text-white shadow-md shadow-teal-500/20 font-extrabold scale-[1.02]'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
                     }`}
                   >
-                    <Icon size={13} />
-                    {tab.label}
-                    <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-md ${
-                      activeTab === tab.key ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                    <Icon size={14} className={isActive ? 'text-white' : 'text-[#0D9488]'} />
+                    <span>{tab.label}</span>
+                    <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${
+                      isActive ? 'bg-white/20 text-white' : 'bg-slate-200/80 text-slate-600'
                     }`}>{countByTab[tab.key]}</span>
                   </button>
                 );
@@ -276,7 +274,7 @@ export default function ServicesPage() {
                     {/* Visual Thumbnail */}
                     <div className="aspect-[16/10] w-full rounded-[16px] overflow-hidden bg-slate-100 relative mb-4">
                       <img
-                        src={item.anh_goi || '/goi/images/giai_co_sau.png'}
+                        src={item.anh_goi || '/images/goi/giai_co_sau.png'}
                         alt={item.ten_goi}
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                       />

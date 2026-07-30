@@ -20,13 +20,6 @@ class ArticleRepository {
     });
   }
 
-  async getBySlug(slug: string) {
-    return prisma.bai_viet.findUnique({
-      where: { slug },
-      include: { nguoi_dung: { select: { ho_ten: true } } }
-    });
-  }
-
   async findBySlugExcludingId(slug: string, excludeId?: string) {
     return prisma.bai_viet.findFirst({
       where: { slug, ...(excludeId && { id: { not: excludeId } }) }

@@ -241,6 +241,11 @@ class DoctorRepository {
 
   // 5. Lấy danh sách chi tiết các buổi trị liệu của 1 lịch điều trị cụ thể. thuc_hien_id (numeric)
   // dùng để so khớp với người đang đăng nhập — quyết định nhãn "Ghi chú của bạn" hay "Chỉ xem".
+  // Chỉ lấy buổi đã hoàn thành (có nhật ký lâm sàng thật) — đây là "Nhật ký buổi điều trị", không
+  // phải lịch hẹn. Nếu 1 buổi từng "không đến" rồi đặt lại và hoàn thành (không mất buổi với
+  // tung_buoi), sẽ có 2 dòng cuoc_hen cùng so_thu_tu_buoi trong DB (giữ nguyên để Lễ tân tra lịch sử
+  // vắng mặt) — lọc thẳng ở đây để chỉ hiện đúng 1 dòng hoàn thành, không hiện dòng không đến/hủy đã
+  // bị thay thế lẫn không cần liệt kê buổi chưa diễn ra ở khu vực này.
   async getTreatmentSessions(treatmentPlanId: string) {
     const queryStr = `
       SELECT
@@ -252,7 +257,7 @@ class DoctorRepository {
       FROM cuoc_hen ch
       LEFT JOIN nhat_ky_buoi_dieu_tri nk ON nk.cuoc_hen_id = ch.id
       LEFT JOIN nguoi_dung nd_ktv ON ch.nhan_su_id = nd_ktv.id
-      WHERE ch.phac_do_dieu_tri_id = $1::uuid AND ch.loai = 'DIEU_TRI'
+      WHERE ch.phac_do_dieu_tri_id = $1::uuid AND ch.loai = 'DIEU_TRI' AND ch.trang_thai = 'hoan_thanh'
       ORDER BY ch.so_thu_tu_buoi ASC;
     `;
     const { rows } = await pool.query(queryStr, [treatmentPlanId]);

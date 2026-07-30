@@ -222,8 +222,15 @@ class AuthService {
   }
 
   async forgotPassword(email: string) {
-    const user = await authRepository.findActiveUserByEmail(email);
-    if (!user) throw new Error('Người dùng không tồn tại');
+    // 1. Block staff accounts from using public forgot password
+    const staff = await authRepository.findStaffByEmail(email);
+    if (staff) {
+      throw new Error('Tài khoản nhân sự không thể tự đặt lại mật khẩu tại đây. Vui lòng liên hệ Admin hệ thống.');
+    }
+
+    // 2. Only allow active customer accounts
+    const user = await authRepository.findActiveCustomerByEmail(email);
+    if (!user) throw new Error('Tài khoản khách hàng không tồn tại hoặc chưa được kích hoạt');
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date();
@@ -240,6 +247,11 @@ class AuthService {
   }
 
   async resetPassword(data: any) {
+    const staff = await authRepository.findStaffByEmail(data.email);
+    if (staff) {
+      throw new Error('Tài khoản nhân sự không thể tự đặt lại mật khẩu tại đây. Vui lòng liên hệ Admin hệ thống.');
+    }
+
     const validOTP = await authRepository.findValidOTP(data.email, data.otp);
     if (!validOTP) throw new Error('Mã OTP không hợp lệ hoặc đã hết hạn');
 

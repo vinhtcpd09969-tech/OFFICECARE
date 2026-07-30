@@ -67,8 +67,8 @@ export interface TreatmentSession {
   trang_thai: string;
   thoi_gian_bat_dau?: string;
   thoi_gian_ket_thuc?: string;
-  danh_gia_truoc_buoi?: string;
-  danh_gia_sau_buoi?: string;
+  danh_gia_truoc_buoi?: number | null;
+  danh_gia_sau_buoi?: number | null;
   danh_gia_hieu_qua?: string;
   canh_bao_dac_biet?: string;
   ai_tom_tat_ngan?: string;

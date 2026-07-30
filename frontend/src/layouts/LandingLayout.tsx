@@ -1,17 +1,57 @@
 import { useState, useEffect } from 'react';
-import { Outlet, Link, useNavigate } from 'react-router-dom';
+import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
-import { LogOut, ChevronDown, Menu, X, Calendar, Facebook, Mail, Phone, MapPin, MessageCircle } from 'lucide-react';
-import GlobalAuthModal from '../components/GlobalAuthModal';
+import { LogOut, ChevronDown, Menu, X, Calendar, Facebook, MapPin, User } from 'lucide-react';
+import GlobalAuthModal from './GlobalAuthModal';
 import AIChatBubble from '../features/chat/components/AIChatBubble';
+import { resolveImageUrl } from '../utils/imageUrl';
 
 export default function LandingLayout() {
   const { isAuthenticated, user, logout } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [showGlobalAuthModal, setShowGlobalAuthModal] = useState(false);
+
+  // Active Route Detector
+  const isActive = (path: string) => {
+    if (path === '/') {
+      return location.pathname === '/';
+    }
+    if (path === '/services') {
+      return location.pathname.startsWith('/services') || location.pathname.startsWith('/package');
+    }
+    if (path === '/specialists') {
+      return location.pathname.startsWith('/specialists');
+    }
+    if (path === '/tin-tuc') {
+      return location.pathname.startsWith('/tin-tuc') || location.pathname.startsWith('/bai-viet') || location.pathname.startsWith('/articles');
+    }
+    if (path === '/gioi-thieu') {
+      return location.pathname.startsWith('/gioi-thieu') || location.pathname.startsWith('/about');
+    }
+    return location.pathname.startsWith(path);
+  };
+
+  const getDesktopNavClass = (path: string) => {
+    const active = isActive(path);
+    return `text-sm font-jakarta transition-colors relative py-1 after:absolute after:bottom-0 after:left-0 after:h-0.5 after:bg-[#0D9488] hover:after:w-full after:transition-all ${
+      active 
+        ? 'text-[#0D9488] after:w-full font-extrabold' 
+        : 'text-secondary hover:text-[#0D9488] after:w-0 font-bold'
+    }`;
+  };
+
+  const getMobileNavClass = (path: string) => {
+    const active = isActive(path);
+    return `text-sm font-jakarta py-2.5 border-b border-slate-50 transition-colors ${
+      active 
+        ? 'text-[#0D9488] font-extrabold px-3 bg-teal-50/60 rounded-xl border-l-4 border-l-[#0D9488]' 
+        : 'text-secondary font-bold hover:text-[#0D9488]'
+    }`;
+  };
 
   useEffect(() => {
     const handleOpenModal = () => {
@@ -77,12 +117,12 @@ export default function LandingLayout() {
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-8">
-            <Link to="/" className="text-sm font-jakarta font-bold text-secondary hover:text-primary transition-colors relative py-1 after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-primary hover:after:w-full after:transition-all">Trang chủ</Link>
-            <Link to="/gioi-thieu" className="text-sm font-jakarta font-bold text-secondary hover:text-primary transition-colors relative py-1 after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-primary hover:after:w-full after:transition-all">Giới thiệu</Link>
-            <Link to="/services" className="text-sm font-jakarta font-bold text-secondary hover:text-primary transition-colors relative py-1 after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-primary hover:after:w-full after:transition-all">Dịch vụ</Link>
-            <Link to="/specialists" className="text-sm font-jakarta font-bold text-secondary hover:text-primary transition-colors relative py-1 after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-primary hover:after:w-full after:transition-all">Chuyên gia</Link>
-            <Link to="/tin-tuc" className="text-sm font-jakarta font-bold text-secondary hover:text-primary transition-colors relative py-1 after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-primary hover:after:w-full after:transition-all">Bài viết</Link>
+          <nav className="hidden md:flex items-center gap-7">
+            <Link to="/" className={getDesktopNavClass('/')}>Trang chủ</Link>
+            <Link to="/services" className={getDesktopNavClass('/services')}>Gói Trị Liệu</Link>
+            <Link to="/specialists" className={getDesktopNavClass('/specialists')}>Đội Ngũ</Link>
+            <Link to="/tin-tuc" className={getDesktopNavClass('/tin-tuc')}>Kiến Thức Y Khoa</Link>
+            <Link to="/gioi-thieu" className={getDesktopNavClass('/gioi-thieu')}>Về Chúng Tôi</Link>
           </nav>
 
           {/* Auth Actions (Desktop) */}
@@ -110,10 +150,8 @@ export default function LandingLayout() {
                         className="w-full h-full object-cover rounded-full"
                       />
                     ) : (
-                      <div className="w-full h-full bg-slate-100 flex items-center justify-center rounded-full text-slate-300">
-                        <svg className="w-full h-full text-slate-300" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                        </svg>
+                      <div className="w-full h-full bg-slate-100 flex items-center justify-center rounded-full text-slate-400">
+                        <User size={16} className="text-slate-400" />
                       </div>
                     )}
                   </div>
@@ -165,11 +203,11 @@ export default function LandingLayout() {
         {/* Mobile Menu Drawer */}
         {isMobileMenuOpen && (
           <div className="md:hidden w-full mt-2 bg-white/95 backdrop-blur-md rounded-[24px] border border-slate-100 shadow-lg px-6 py-6 flex flex-col gap-3 animate-slide-up">
-            <Link to="/" className="text-sm font-jakarta font-bold text-secondary py-2.5 border-b border-slate-50" onClick={() => setIsMobileMenuOpen(false)}>Trang chủ</Link>
-            <Link to="/gioi-thieu" className="text-sm font-jakarta font-bold text-secondary py-2.5 border-b border-slate-50" onClick={() => setIsMobileMenuOpen(false)}>Giới thiệu</Link>
-            <Link to="/services" className="text-sm font-jakarta font-bold text-secondary py-2.5 border-b border-slate-50" onClick={() => setIsMobileMenuOpen(false)}>Dịch vụ</Link>
-            <Link to="/specialists" className="text-sm font-jakarta font-bold text-secondary py-2.5 border-b border-slate-50" onClick={() => setIsMobileMenuOpen(false)}>Chuyên gia</Link>
-            <Link to="/tin-tuc" className="text-sm font-jakarta font-bold text-secondary py-2.5 border-b border-slate-50" onClick={() => setIsMobileMenuOpen(false)}>Bài viết</Link>
+            <Link to="/" className={getMobileNavClass('/')} onClick={() => setIsMobileMenuOpen(false)}>Trang chủ</Link>
+            <Link to="/services" className={getMobileNavClass('/services')} onClick={() => setIsMobileMenuOpen(false)}>Gói Trị Liệu</Link>
+            <Link to="/specialists" className={getMobileNavClass('/specialists')} onClick={() => setIsMobileMenuOpen(false)}>Đội Ngũ</Link>
+            <Link to="/tin-tuc" className={getMobileNavClass('/tin-tuc')} onClick={() => setIsMobileMenuOpen(false)}>Kiến Thức Y Khoa</Link>
+            <Link to="/gioi-thieu" className={getMobileNavClass('/gioi-thieu')} onClick={() => setIsMobileMenuOpen(false)}>Về Chúng Tôi</Link>
             
             <div className="mt-4 flex flex-col gap-2.5">
               <Link 
@@ -206,46 +244,12 @@ export default function LandingLayout() {
       {/* Sleek Premium Compact Footer (Medical Light Mint Theme) */}
       <footer className="bg-gradient-to-b from-[#E6F4F1] to-[#D5EDE9] text-slate-600 pt-10 pb-8 mt-auto text-xs font-sans border-t border-[#B3E0D8]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          
-          {/* Pre-Footer Premium Hero Banner */}
-          <div className="relative overflow-hidden bg-gradient-to-r from-slate-900 via-teal-950 to-slate-900 rounded-[32px] p-7 md:p-9 text-white mb-12 shadow-xl border border-teal-800/30">
-            <div className="absolute -top-24 -right-24 w-72 h-72 bg-teal-500/20 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
 
-            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="space-y-2 text-center md:text-left">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-500/20 border border-teal-400/30 text-teal-300 text-[10px] font-black uppercase tracking-widest">
-                  ✨ Trải Nghiệm Phục Hồi Y Khoa
-                </span>
-                <h3 className="text-xl md:text-2xl font-heading font-black text-white uppercase tracking-tight">
-                  Đặt Lịch Trị Liệu & Khám 1:1 Cùng Bác Sĩ
-                </h3>
-                <p className="text-xs text-teal-100/80 max-w-xl leading-relaxed font-medium">
-                  Đội ngũ Bác sĩ & KTV chuyên khoa luôn sẵn sàng đồng hành cùng bạn chấm dứt triệt để các cơn đau cột sống & cơ xương khớp.
-                </p>
-              </div>
 
-              <div className="flex flex-wrap items-center justify-center gap-3 shrink-0">
-                <Link
-                  to="/booking"
-                  className="px-6 py-3.5 bg-primary hover:bg-[#25A89C] text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-teal-500/20 hover:scale-105 active:scale-98 transition-all flex items-center gap-2 cursor-pointer"
-                >
-                  <Calendar size={15} /> Đặt lịch khám ngay
-                </Link>
-                <a
-                  href="tel:0398655332"
-                  className="px-5 py-3.5 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 cursor-pointer"
-                >
-                  <Phone size={15} /> 0398655332
-                </a>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-8 mb-12">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-8 mb-10">
             
             {/* Brand & Mission Column */}
-            <div className="md:col-span-4 space-y-4 text-left">
+            <div className="md:col-span-4 space-y-3.5 text-left">
               <Link to="/" className="inline-flex items-center gap-2.5">
                 <div className="size-9 rounded-xl bg-[#0D9488] text-white font-heading font-bold text-lg flex items-center justify-center shadow-md">
                   O
@@ -262,27 +266,6 @@ export default function LandingLayout() {
               <p className="text-slate-600 text-xs leading-relaxed max-w-sm font-medium">
                 Giải pháp phục hồi chức năng cơ xương khớp &amp; cột sống văn phòng chuyên sâu. Kết hợp công nghệ trị liệu Châu Âu và phác đồ cá nhân hóa 1:1 từ Bác sĩ chuyên khoa.
               </p>
-              <div className="flex items-center gap-2.5 pt-1">
-                <a 
-                  href="https://www.facebook.com/profile.php?id=61591064963268" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="size-9 rounded-xl bg-white/80 hover:bg-[#0D9488] text-slate-600 hover:text-white flex items-center justify-center transition-all duration-200 border border-[#B3E0D8] shadow-2xs"
-                  title="Fanpage Facebook OfficeCare"
-                >
-                  <Facebook size={16} />
-                </a>
-                <a 
-                  href="https://zalo.me/0398655332" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="px-3 py-2 rounded-xl bg-white/80 hover:bg-[#0D9488] text-[#0D9488] hover:text-white flex items-center gap-1.5 transition-all duration-200 border border-[#B3E0D8] shadow-2xs font-bold text-[11px]"
-                  title="Zalo tư vấn 0398655332"
-                >
-                  <MessageCircle size={15} />
-                  <span>Zalo: 0398655332</span>
-                </a>
-              </div>
             </div>
             
             {/* Quick Links Column */}
@@ -307,32 +290,55 @@ export default function LandingLayout() {
               </ul>
             </div>
             
-            {/* Contact Details Column */}
-            <div className="md:col-span-4 space-y-3 text-left">
+            {/* Contact Details & Action Buttons Column (Đúng vị trí dưới cột 4 như ảnh mẫu) */}
+            <div className="md:col-span-4 space-y-4 text-left">
               <h4 className="font-heading font-bold text-xs tracking-wider text-slate-800 uppercase">Vị Trí &amp; Liên Hệ</h4>
-              <div className="space-y-2.5 text-slate-600 font-medium">
-                <p className="flex items-start gap-2.5 leading-relaxed">
+              <div className="space-y-2 text-slate-600 font-medium">
+                <p className="flex items-start gap-2 leading-relaxed">
                   <MapPin size={15} className="shrink-0 mt-0.5 text-[#0D9488]" />
                   <span className="text-slate-700">Vinhomes Golden River, Bến Nghé, Quận 1, TP. Hồ Chí Minh</span>
                 </p>
-                <p className="flex items-center gap-2.5">
-                  <Phone size={15} className="shrink-0 text-[#0D9488]" />
-                  <a href="tel:0398655332" className="hover:text-[#0D9488] font-bold text-slate-700 transition-colors">Hotline &amp; Zalo: 0398655332</a>
-                </p>
-                <p className="flex items-center gap-2.5">
-                  <Mail size={15} className="shrink-0 text-[#0D9488]" />
-                  <a href="mailto:officecareclinic2026@gmail.com" className="hover:text-[#0D9488] font-semibold text-slate-700 transition-colors">officecareclinic2026@gmail.com</a>
-                </p>
+              </div>
+
+              {/* Action Buttons & Social Icons Row under Column 4 */}
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <Link
+                  to="/booking"
+                  onClick={handleBookingClick}
+                  className="inline-flex items-center gap-1.5 bg-[#0D9488] hover:bg-[#0b7a70] text-white text-xs font-jakarta font-extrabold px-4 py-2 rounded-xl shadow-sm hover:shadow transition-all cursor-pointer shrink-0"
+                >
+                  <Calendar size={14} />
+                  <span>Đặt lịch khám</span>
+                </Link>
+
+                <a 
+                  href="https://www.facebook.com/profile.php?id=61591064963268" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="size-8.5 rounded-full bg-[#1877F2] hover:bg-[#166fe5] text-white flex items-center justify-center transition-all duration-200 shadow-2xs shrink-0 font-bold"
+                  title="Facebook Page OfficeCare"
+                >
+                  <Facebook size={15} />
+                </a>
+
+                <a 
+                  href="https://zalo.me/0398655332" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="size-8.5 rounded-full bg-[#0068FF] hover:bg-[#005cdb] text-white flex items-center justify-center transition-all duration-200 shadow-2xs shrink-0 text-[10px] font-extrabold"
+                  title="Zalo 0398655332"
+                >
+                  Zalo
+                </a>
               </div>
             </div>
           </div>
           
-          <div className="border-t border-[#B3E0D8] pt-6 flex flex-col md:flex-row justify-between items-center gap-3 text-[11px] text-slate-500 font-medium">
+          {/* Bottom Copyright & Sub-bar with Padding to avoid AI Chatbot Overlap */}
+          <div className="border-t border-[#B3E0D8] pt-5 flex flex-col md:flex-row justify-between items-center gap-3 text-[11px] text-slate-500 font-medium pr-0 md:pr-24">
             <p>© 2026 OfficeCare Clinic. Tất cả các quyền được bảo lưu. Đạt chuẩn y tế cao cấp.</p>
-            <div className="flex items-center gap-4">
-              <span>Hotline 24/7: 0398655332</span>
-              <span>•</span>
-              <a href="https://www.facebook.com/profile.php?id=61591064963268" target="_blank" rel="noopener noreferrer" className="hover:text-[#0D9488]">Facebook Chính Thức</a>
+            <div className="flex items-center gap-3">
+              <span>Website: officecareclinic.com</span>
             </div>
           </div>
         </div>

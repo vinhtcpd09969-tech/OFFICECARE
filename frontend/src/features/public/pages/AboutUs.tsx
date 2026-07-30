@@ -1,9 +1,8 @@
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { motion } from 'framer-motion';
-import { ArrowRight, ShieldCheck, HeartPulse, Lock, Users, Stethoscope, Award, MapPin, Phone, Mail, MessageCircle, Facebook } from 'lucide-react';
-import LazyImage from '../../../components/LazyImage';
-import ScrollReveal from '../components/shared/ScrollReveal';
+import { ShieldCheck, HeartPulse, Users, Stethoscope, MapPin, Phone, Mail, Facebook } from 'lucide-react';
+import LazyImage from '../components/LazyImage';
+import ScrollReveal from '../components/effects/ScrollReveal';
 
 const CORE_VALUES = [
   {
@@ -44,22 +43,17 @@ export default function AboutUs() {
         <div className="absolute top-1/4 left-10 w-72 h-72 bg-teal-400/10 rounded-full filter blur-[100px] pointer-events-none" />
         <div className="absolute bottom-10 right-10 w-96 h-96 bg-[#2EC4B6]/10 rounded-full filter blur-[120px] pointer-events-none" />
 
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 relative z-10 text-center space-y-4">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 relative z-10 text-center space-y-2">
           <ScrollReveal>
-            <span className="bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 text-[10px] font-semibold tracking-wider px-3.5 py-1.5 rounded-full inline-block shadow-2xs">
-              Về phòng khám OfficeCare
-            </span>
-          </ScrollReveal>
-          <ScrollReveal delay={100}>
-            <h1 className="font-heading font-bold text-2xl sm:text-3xl md:text-4xl lg:text-[40px] text-slate-800 leading-[1.3] tracking-normal">
+            <h1 className="font-heading font-extrabold text-2xl sm:text-3xl md:text-[32px] text-slate-900 tracking-tight leading-snug">
               Đồng Hành Phục Hồi Chức Năng <br className="hidden sm:inline" />
-              <span className="bg-gradient-to-r from-[#0D9488] to-[#14B8A6] bg-clip-text text-transparent font-bold">
+              <span className="text-[#0D9488]">
                 Cùng Giới Văn Phòng Việt Nam
               </span>
             </h1>
           </ScrollReveal>
-          <ScrollReveal delay={200}>
-            <p className="text-slate-600 text-xs md:text-sm leading-relaxed font-normal max-w-2xl mx-auto">
+          <ScrollReveal delay={100}>
+            <p className="text-slate-600 text-xs sm:text-sm leading-relaxed font-normal max-w-2xl mx-auto pt-1">
               OfficeCare ra đời từ sự thấu hiểu tình trạng đau mỏi cổ vai gáy &amp; thoát vị thắt lưng của người làm việc văn phòng. Chúng tôi xây dựng một môi trường y tế chuẩn hóa, cá nhân hóa phác đồ giúp bệnh nhân tìm lại sự thoải mái trong từng vận động.
             </p>
           </ScrollReveal>
@@ -140,7 +134,7 @@ export default function AboutUs() {
             { value: '+15.000', label: 'Bệnh nhân phục hồi' },
             { value: '100%', label: 'Bác sĩ CKI lượng giá' },
             { value: '4.9 / 5', label: 'Đánh giá hài lòng' },
-            { value: '07:30 – 20:30', label: 'Mở cửa tất cả các ngày' }
+            { value: '08:00 – 20:00', label: 'Thứ 2 – Chủ Nhật (Hàng ngày)' }
           ].map((stat, idx) => (
             <ScrollReveal key={idx} delay={idx * 80}>
               <p className="font-heading font-bold text-2xl md:text-3xl text-[#0D9488]">{stat.value}</p>
@@ -201,10 +195,10 @@ export default function AboutUs() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { src: '/goi/images/kham_sang_loc.png', title: 'Phòng khám lượng giá 1:1' },
-              { src: '/goi/images/laser_tri_lieu.png', title: 'Phòng laser cường độ cao 30W' },
-              { src: '/goi/images/song_xung_kich.png', title: 'Máy sóng xung kích Shockwave' },
-              { src: '/goi/images/giai_co_sau.png', title: 'Khu vực giải phóng cơ sâu' }
+              { src: '/images/goi/kham_sang_loc.png', title: 'Phòng khám lượng giá 1:1' },
+              { src: '/images/goi/laser_tri_lieu.png', title: 'Phòng laser cường độ cao 30W' },
+              { src: '/images/goi/song_xung_kich.png', title: 'Máy sóng xung kích Shockwave' },
+              { src: '/images/goi/giai_co_sau.png', title: 'Khu vực giải phóng cơ sâu' }
             ].map((facility, idx) => (
               <ScrollReveal key={idx} delay={idx * 100}>
                 <div className="group rounded-2xl overflow-hidden border border-slate-200/80 shadow-2xs relative aspect-[4/3] bg-slate-100">
@@ -264,6 +258,15 @@ export default function AboutUs() {
               <div className="flex items-center gap-2.5">
                 <Facebook className="text-[#0D9488] shrink-0" size={15} />
                 <a href="https://www.facebook.com/profile.php?id=61591064963268" target="_blank" rel="noopener noreferrer" className="hover:text-[#0D9488] transition-colors">Fanpage Facebook OfficeCare</a>
+              </div>
+
+              {/* General Clinic Working Hours */}
+              <div className="border-t border-slate-100 pt-3 mt-1 space-y-1.5 text-xs text-slate-600 font-medium">
+                <p className="font-bold text-[#0D9488] text-[11px] uppercase tracking-wider">🕒 Lịch Làm Việc Phòng Khám</p>
+                <div className="flex justify-between text-[11.5px]">
+                  <span>Thứ 2 – Chủ Nhật:</span>
+                  <span className="font-extrabold text-slate-800">08:00 – 20:00 (Hàng ngày)</span>
+                </div>
               </div>
             </div>
 

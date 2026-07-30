@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect } from 'react';
-import api from '../../../shared/api/axios';
-import { useAuthStore } from '../../../shared/stores/authStore';
+import { sendChatMessage } from '../api/chat.api';
+import { useAuthStore } from '../../../stores/authStore';
 import { toast } from 'react-hot-toast';
 
 export interface ChatMessage {
@@ -78,7 +78,7 @@ export function useAIChat() {
           content: msg.content,
         }));
 
-      const response = await api.post('/ai/chat', {
+      const response = await sendChatMessage({
         message: userMsg.content,
         history: contextHistory.slice(0, -1), // Lịch sử không gồm tin nhắn vừa gõ
         sessionId,

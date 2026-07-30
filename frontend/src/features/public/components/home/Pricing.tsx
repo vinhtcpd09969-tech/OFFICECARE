@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { CheckCircle2, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
-import ScrollReveal from '../shared/ScrollReveal';
+import ScrollReveal from '../effects/ScrollReveal';
 
 export default function Pricing() {
   return (

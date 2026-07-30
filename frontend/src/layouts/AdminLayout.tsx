@@ -4,7 +4,7 @@ import api from '../api/axios';
 import toast from 'react-hot-toast';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { format } from 'date-fns';
-import { MascotWidget } from '../components/MascotWidget';
+import { MascotWidget } from './MascotWidget';
 import { isAwaitingPaymentForList } from '../utils/billing';
 import { 
   LayoutDashboard, 
@@ -450,8 +450,6 @@ export default function AdminLayout() {
   const isTechnician = Number(user?.vai_tro_id) === 3;
   const isReceptionist = Number(user?.vai_tro_id) === 2;
 
-  const activeAppointmentId = localStorage.getItem('active_appointment_id');
-
   const rawNavItems = [
     {
       name: 'Tổng quan',
@@ -514,6 +512,12 @@ export default function AdminLayout() {
       name: 'Hóa đơn & Thanh toán',
       path: '/receptionist/billing',
       icon: <DollarSign size={18} />,
+      roles: [2]
+    },
+    {
+      name: 'Đánh giá',
+      path: '/receptionist/feedback',
+      icon: <Star size={18} />,
       roles: [2]
     },
     {

@@ -9,7 +9,7 @@ import {
   DollarSign,
   Activity
 } from 'lucide-react';
-import { formatCurrency } from '../../../../shared/utils';
+import { formatCurrency } from '../../../../utils/format';
 import { INVOICE_STATUS_LABELS } from './constants';
 
 // Hooks
@@ -257,26 +257,31 @@ export default function ManageFinance() {
     }
 
     return (
-      <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
-        {/* Header Banner */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border border-zinc-150/80 shadow-sm relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-48 h-48 bg-primary/5 rounded-bl-full pointer-events-none"></div>
-          <div className="space-y-1">
-            <span className="text-[10px] font-black text-primary bg-primary/10 border border-primary/20 px-3 py-1 rounded-full uppercase tracking-wider">
-              Quầy Thu Ngân & Tài Chính
-            </span>
-            <h2 className="text-2xl font-black text-secondary flex items-center gap-2.5">
-              <Coins className="text-primary" size={28} />
-              Thu Ngân & Lập Hóa Đơn Trị Liệu
+      <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500 font-jakarta">
+        {/* Header Banner HUD Pro Max */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl p-6 rounded-[28px] border border-slate-200/80 dark:border-slate-800 shadow-xl shadow-slate-200/30 dark:shadow-none relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-teal-500/5 rounded-full blur-3xl pointer-events-none"></div>
+          <div className="space-y-1 text-left">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="w-2.5 h-2.5 rounded-full bg-teal-500 animate-ping"></span>
+              <span className="text-[10px] font-black uppercase tracking-wider text-teal-600 dark:text-teal-400">
+                QUẦY THU NGÂN & TÀI CHÍNH Y KHOA
+              </span>
+            </div>
+            <h2 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight uppercase flex items-center gap-2.5">
+              <Coins className="text-teal-600 dark:text-teal-400 size-7" />
+              THU NGÂN & LẬP HÓA ĐƠN TRỊ LIỆU
             </h2>
-            <p className="text-zinc-500 text-xs font-semibold">Thanh toán phí khám lâm sàng hoặc gói điều trị theo chỉ định của Bác sĩ.</p>
+            <p className="text-slate-500 dark:text-slate-400 text-xs font-semibold">
+              Thanh toán phí khám lâm sàng hoặc gói điều trị theo chỉ định chuyên môn của Bác sĩ.
+            </p>
           </div>
           
           <button
-            onClick={() => navigate(baseFinanceRoute)}
-            className="flex items-center gap-1.5 text-zinc-400 hover:text-primary transition-all text-xs font-bold uppercase tracking-wider z-10 relative"
+            onClick={() => navigate(-1)}
+            className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-2xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-xs active:scale-95 z-10"
           >
-            <ArrowLeft size={16} /> Quay lại Tài chính
+            <ArrowLeft size={16} /> Quay lại trang trước
           </button>
         </div>
 
@@ -284,20 +289,36 @@ export default function ManageFinance() {
           {/* Left panel: Info & calculations */}
           <div className="lg:col-span-2 space-y-6">
             {checkout.selectedConsultation && (
-              <div className="bg-white rounded-3xl border border-zinc-150 shadow-sm p-6 space-y-5 text-left">
-                <div className="flex items-center gap-2 border-b border-zinc-100 pb-3">
-                  <User className="text-primary size-5" />
-                  <h3 className="font-heading font-black text-secondary text-sm">Bệnh nhân đang thanh toán</h3>
+              <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-[28px] border border-slate-200/80 dark:border-slate-800 shadow-xl shadow-slate-200/30 dark:shadow-none p-6 space-y-4 text-left">
+                <div className="flex items-center gap-2.5 border-b border-slate-100 dark:border-slate-800 pb-3">
+                  <div className="p-2 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 border border-teal-100 dark:border-teal-800">
+                    <User size={18} />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-slate-900 dark:text-white text-sm uppercase">Bệnh nhân đang thanh toán</h3>
+                    <p className="text-[10px] text-slate-400 font-bold">Thông tin hồ sơ tiếp nhận tại quầy thu ngân</p>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-semibold text-zinc-650">
-                  <div className="space-y-0.5">
-                    <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Họ và tên</p>
-                    <p className="text-secondary font-black text-sm">{checkout.selectedConsultation.ten_khach_hang}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-bold">
+                  <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
+                    <div className="w-10 h-10 rounded-2xl bg-teal-500/20 text-teal-700 dark:text-teal-300 font-black flex items-center justify-center text-xs uppercase shrink-0">
+                      {checkout.selectedConsultation.ten_khach_hang?.charAt(0) || 'K'}
+                    </div>
+                    <div className="space-y-0.5 min-w-0">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Họ và tên bệnh nhân</p>
+                      <p className="text-slate-900 dark:text-white font-extrabold text-sm truncate">{checkout.selectedConsultation.ten_khach_hang}</p>
+                    </div>
                   </div>
-                  <div className="space-y-0.5">
-                    <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Số điện thoại</p>
-                    <p className="text-secondary font-bold text-sm">{checkout.selectedConsultation.sdt_khach_hang}</p>
+
+                  <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
+                    <div className="w-10 h-10 rounded-2xl bg-teal-500/20 text-teal-700 dark:text-teal-300 font-black flex items-center justify-center text-xs shrink-0">
+                      📞
+                    </div>
+                    <div className="space-y-0.5 min-w-0">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Số điện thoại liên hệ</p>
+                      <p className="text-slate-900 dark:text-white font-black text-sm">{checkout.selectedConsultation.sdt_khach_hang}</p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -330,29 +351,34 @@ export default function ManageFinance() {
                     }
                     setShowConfirmModal(true);
                   }}
-                  className="bg-white rounded-2xl border border-zinc-150 p-6 space-y-6 shadow-sm"
+                  className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-[28px] border border-slate-200/80 dark:border-slate-800 p-6 space-y-6 shadow-xl shadow-slate-200/30 dark:shadow-none font-jakarta"
                 >
                   <div className="space-y-5 text-left">
-                    <div className="flex items-center gap-2 border-b border-zinc-100 pb-3">
-                      <Activity className="text-primary size-5" />
-                      <h3 className="font-heading font-black text-secondary text-sm">Bước 2: Thông tin giao dịch & Lập hóa đơn</h3>
+                    <div className="flex items-center gap-2.5 border-b border-slate-100 dark:border-slate-800 pb-3">
+                      <div className="p-2 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 border border-teal-100 dark:border-teal-800">
+                        <Activity size={18} />
+                      </div>
+                      <div>
+                        <h3 className="font-extrabold text-slate-900 dark:text-white text-sm uppercase">Bước 2: Thông tin giao dịch & Lập hóa đơn</h3>
+                        <p className="text-[10px] text-slate-400 font-bold">Lựa chọn hình thức thanh toán & nhận tiền từ bệnh nhân</p>
+                      </div>
                     </div>
 
                     {checkout.selectedConsultation?.loai_lich === 'kham_moi' && checkout.selectedConsultation?.khuyen_nghi_goi_id && (
                       checkout.selectedConsultation.khuyen_nghi_loai_goi === 'LE' ? (
-                        <div className="bg-blue-50/40 border border-blue-200/30 rounded-2xl p-4 shadow-sm space-y-1 animate-in fade-in duration-200">
-                          <span className="text-xs font-black text-blue-950 flex items-center gap-1.5">
+                        <div className="bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 rounded-2xl p-4 shadow-xs space-y-1 animate-in fade-in duration-200">
+                          <span className="text-xs font-extrabold text-sky-950 dark:text-sky-300 flex items-center gap-1.5">
                             <span>💡</span> Chỉ định dịch vụ lẻ tiếp theo
                           </span>
-                          <span className="text-[10.5px] text-blue-800 font-bold block">
+                          <span className="text-[11px] text-sky-800 dark:text-sky-400 font-bold block">
                             Dịch vụ: {checkout.selectedConsultation.khuyen_nghi_ten_goi || 'Dịch vụ lẻ'}
                           </span>
                         </div>
                       ) : (
-                        <div className="bg-emerald-50/50 border border-emerald-200/40 rounded-2xl p-4 flex items-center justify-between shadow-sm animate-in fade-in duration-200">
+                        <div className="bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-2xl p-4 flex items-center justify-between shadow-xs animate-in fade-in duration-200">
                           <div className="space-y-1 text-left">
-                            <span className="text-xs font-black text-emerald-950 block">Đăng ký mua gói trị liệu được chỉ định</span>
-                            <span className="text-[10px] text-emerald-800 font-bold block">Chỉ định: {checkout.selectedConsultation.khuyen_nghi_ten_goi || 'Gói trị liệu'}</span>
+                            <span className="text-xs font-black text-emerald-950 dark:text-emerald-300 block">Đăng ký mua gói trị liệu được chỉ định</span>
+                            <span className="text-[11px] text-emerald-800 dark:text-emerald-400 font-bold block">Chỉ định: {checkout.selectedConsultation.khuyen_nghi_ten_goi || 'Gói trị liệu'}</span>
                           </div>
                           <label className="relative inline-flex items-center cursor-pointer">
                             <input 
@@ -361,21 +387,12 @@ export default function ManageFinance() {
                               onChange={(e) => {
                                 const checked = e.target.checked;
                                 checkout.setDangKyGoi(checked);
-                                // Luôn ở tab 'package' dù có đăng ký gói hay không — tab 'single' là
-                                // luồng tạo hóa đơn ngay, không có chỗ áp mã giảm giá.
                                 checkout.setCheckoutTab('package');
                               }}
-                              // Chỉ khóa khi phí khám ĐÃ thu riêng từ trước (khách về nhà, quay lại
-                              // kích hoạt sau — ngay_thanh_toan_kham có giá trị): lúc này không còn
-                              // gì để thu nếu tắt gói (0đ), tắt đi sẽ để gói treo "chờ kích hoạt" mãi
-                              // mà lễ tân tưởng đã xử lý xong. Nếu phí khám CHƯA thu (đang xử lý
-                              // ngay tại quầy cùng lúc với ca khám) thì vẫn cho tắt bình thường —
-                              // khách có thể chỉ muốn thanh toán khám, chưa quyết định mua liệu trình.
                               disabled={!!checkout.selectedConsultation?.ngay_thanh_toan_kham}
-
                               className="sr-only peer"
                             />
-                            <div className="w-11 h-6 bg-zinc-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
                           </label>
                         </div>
                       )
@@ -383,10 +400,10 @@ export default function ManageFinance() {
 
                     {checkout.checkoutTab === 'package' && (
                       <div className="space-y-4 animate-in fade-in duration-200">
-                        {/* Select assigned medical package (chỉ khi có đăng ký gói — khám thường không chọn gói) */}
+                        {/* Select assigned medical package */}
                         {checkout.dangKyGoi && (
                           <div className="space-y-1.5">
-                            <label htmlFor="selectedPackage" className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                            <label htmlFor="selectedPackage" className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">
                               {checkout.selectedPackage?.loai_goi === 'LE' ? 'Dịch vụ lẻ được chỉ định *' : 'Gói trị liệu được chỉ định *'}
                             </label>
                             <select
@@ -398,7 +415,7 @@ export default function ManageFinance() {
                               }}
                               required
                               disabled={hasLockedTarget || isTungBuoiWithPaidExam}
-                              className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-xs font-bold text-secondary focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                              className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed shadow-xs"
                             >
                               <option value="">-- Chọn gói trị liệu --</option>
                               {checkout.packages.map(pkg => (
@@ -410,15 +427,14 @@ export default function ManageFinance() {
                           </div>
                         )}
 
-                        {/* Cảnh báo bất thường: admin sửa cấu hình gói SAU khi bác sĩ đã chỉ định.
-                            Chỉ hiện khi thực sự lệch — ca bình thường không thấy gì. */}
+                        {/* Cảnh báo bất thường */}
                         {checkout.canhBaoLechCauHinh && (
-                          <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 space-y-3 shadow-sm animate-in fade-in duration-200">
+                          <div className="bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 space-y-3 shadow-xs animate-in fade-in duration-200">
                             <div className="space-y-1">
-                              <span className="text-xs font-black text-amber-900 flex items-center gap-1.5">
+                              <span className="text-xs font-black text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
                                 <span>⚠️</span> Gói đã được cấu hình lại sau khi bác sĩ chỉ định
                               </span>
-                              <span className="text-[10.5px] text-amber-800 font-bold block leading-relaxed">
+                              <span className="text-[10.5px] text-amber-800 dark:text-amber-400 font-bold block leading-relaxed">
                                 Bác sĩ tư vấn cho khách:{' '}
                                 <span className="font-black">
                                   {checkout.canhBaoLechCauHinh.tu_van.tong_so_buoi} buổi ·{' '}
@@ -437,9 +453,9 @@ export default function ManageFinance() {
                               <button
                                 type="button"
                                 onClick={() => checkout.setGiuTheoTuVan(true)}
-                                className={`py-2.5 px-3 rounded-xl border text-[10.5px] font-black uppercase tracking-wider transition-all ${
+                                className={`py-2.5 px-3 rounded-xl border text-[10.5px] font-black uppercase tracking-wider transition-all cursor-pointer ${
                                   checkout.giuTheoTuVan
-                                    ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
+                                    ? 'bg-teal-600 border-teal-600 text-white shadow-xs'
                                     : 'bg-white border-amber-200 text-amber-800 hover:bg-amber-50'
                                 }`}
                               >
@@ -448,61 +464,56 @@ export default function ManageFinance() {
                               <button
                                 type="button"
                                 onClick={() => checkout.setGiuTheoTuVan(false)}
-                                className={`py-2.5 px-3 rounded-xl border text-[10.5px] font-black uppercase tracking-wider transition-all ${
+                                className={`py-2.5 px-3 rounded-xl border text-[10.5px] font-black uppercase tracking-wider transition-all cursor-pointer ${
                                   !checkout.giuTheoTuVan
-                                    ? 'bg-secondary border-secondary text-white shadow-sm'
+                                    ? 'bg-slate-900 border-slate-900 text-white shadow-xs'
                                     : 'bg-white border-amber-200 text-amber-800 hover:bg-amber-50'
                                 }`}
                               >
                                 Áp cấu hình mới ({checkout.canhBaoLechCauHinh.hien_tai.tong_so_buoi} buổi)
                               </button>
                             </div>
-
-                            <p className="text-[10px] text-amber-800 leading-relaxed font-semibold border-t border-amber-200/70 pt-2">
-                              📢 Mặc định giữ đúng liệu trình + giá bác sĩ đã tư vấn cho khách. Chỉ áp cấu hình mới
-                              nếu gói cũ bị cấu hình sai — và nhớ trao đổi lại với khách trước khi thu tiền.
-                            </p>
                           </div>
                         )}
 
-                        {/* Payment type options (chỉ khi có đăng ký gói) */}
+                        {/* Payment type options */}
                         {checkout.dangKyGoi && checkout.selectedPackage?.loai_goi !== 'LE' && (
                           <div className="space-y-3">
                             <div className="space-y-2">
-                              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Hình thức thanh toán gói</label>
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Hình thức thanh toán gói</label>
                               <div className="grid grid-cols-3 gap-3">
                                 <button
                                   type="button"
                                   onClick={() => checkout.setLoaiThanhToan('tra_thang')}
-                                  className={`py-3.5 px-4 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all ${
+                                  className={`py-3.5 px-4 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
                                     checkout.loaiThanhToan === 'tra_thang'
-                                      ? 'bg-primary/10 border-primary text-primary shadow-sm'
-                                      : 'bg-zinc-50/50 border-zinc-200 text-zinc-500 hover:bg-zinc-50'
+                                      ? 'bg-teal-600 border-teal-600 text-white shadow-md shadow-teal-600/20 scale-[1.02]'
+                                      : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
                                   }`}
                                 >
-                                  Trả thẳng
+                                  Trả Thẳng (100%)
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => checkout.setLoaiThanhToan('tra_gop')}
-                                  className={`py-3.5 px-4 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all ${
+                                  className={`py-3.5 px-4 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
                                     checkout.loaiThanhToan === 'tra_gop'
-                                      ? 'bg-primary/10 border-primary text-primary shadow-sm'
-                                      : 'bg-zinc-50/50 border-zinc-200 text-zinc-500 hover:bg-zinc-50'
+                                      ? 'bg-teal-600 border-teal-600 text-white shadow-md shadow-teal-600/20 scale-[1.02]'
+                                      : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
                                   }`}
                                 >
-                                  Trả góp 50%
+                                  Trả Góp 50%
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => checkout.setLoaiThanhToan('tung_buoi')}
-                                  className={`py-3.5 px-4 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all ${
+                                  className={`py-3.5 px-4 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
                                     checkout.loaiThanhToan === 'tung_buoi'
-                                      ? 'bg-primary/10 border-primary text-primary shadow-sm'
-                                      : 'bg-zinc-50/50 border-zinc-200 text-zinc-500 hover:bg-zinc-50'
+                                      ? 'bg-teal-600 border-teal-600 text-white shadow-md shadow-teal-600/20 scale-[1.02]'
+                                      : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
                                   }`}
                                 >
-                                  Từng buổi
+                                  Từng Buổi
                                 </button>
                               </div>
                             </div>
@@ -526,16 +537,16 @@ export default function ManageFinance() {
 
                     {/* Payment method */}
                     <div className="space-y-1.5">
-                      <label htmlFor="phuongThuc" className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Hình thức nhận tiền</label>
+                      <label htmlFor="phuongThuc" className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Hình thức nhận tiền</label>
                       <select 
                         id="phuongThuc"
                         value={checkout.state.phuongThuc} 
                         onChange={(e) => checkout.dispatch({ type: 'SET_FIELD', field: 'phuongThuc', value: e.target.value })}
                         disabled={isTungBuoiWithPaidExam}
-                        className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-xs font-bold text-secondary focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed shadow-xs"
                       >
                         <option value="tien_mat">💵 Tiền mặt</option>
-                        <option value="chuyen_khoan">🏦 Chuyển khoản ngân hàng</option>
+                        <option value="chuyen_khoan">🏦 Chuyển khoản ngân hàng (Quét mã VietQR tự động qua PayOS)</option>
                       </select>
                     </div>
 
@@ -551,7 +562,7 @@ export default function ManageFinance() {
                       return (
                         <div className="space-y-3 animate-in slide-in-from-top-3 duration-200">
                           <div className="space-y-1.5">
-                            <label htmlFor="soTienNhan" className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Số tiền khách đưa (VND) *</label>
+                            <label htmlFor="soTienNhan" className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Số tiền khách đưa (VND) *</label>
                             <input 
                               id="soTienNhan"
                               type="text" 
@@ -562,31 +573,31 @@ export default function ManageFinance() {
                                 checkout.dispatch({ type: 'SET_FIELD', field: 'soTienNhan', value: raw });
                               }}
                               required
-                              className={`w-full px-4 py-3 rounded-2xl text-xs font-bold transition-all outline-none ${
+                              className={`w-full px-4 py-3.5 rounded-2xl text-xs font-black transition-all outline-none ${
                                 isShortage 
-                                  ? 'bg-rose-50/20 border-rose-350 text-rose-900 focus:bg-white focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20' 
-                                  : 'bg-zinc-50 border-zinc-200 text-secondary focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20'
+                                  ? 'bg-rose-50/40 border-rose-400 text-rose-900 focus:bg-white focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20' 
+                                  : 'bg-slate-50 dark:bg-slate-800 border-slate-200/80 dark:border-slate-700 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20'
                               }`}
                             />
                             {isShortage && (
-                              <p className="text-[10.5px] text-rose-600 font-extrabold flex items-center gap-1 mt-1 animate-in fade-in slide-in-from-top-1 duration-150">
+                              <p className="text-[11px] text-rose-600 font-extrabold flex items-center gap-1 mt-1 animate-in fade-in duration-150">
                                 ⚠️ Còn thiếu {formatCurrency(totalRequired - received)} để hoàn thành thanh toán
                               </p>
                             )}
                           </div>
 
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex flex-wrap gap-2 pt-1">
                             {currentQuickCashOptions.map(val => {
                               const isActive = val === received;
                               const isExact = val === totalRequired;
                               
                               let btnStyle = '';
                               if (isActive) {
-                                btnStyle = 'bg-primary border-primary text-white shadow-sm scale-105';
+                                btnStyle = 'bg-teal-600 border-teal-600 text-white shadow-md shadow-teal-600/20 scale-105';
                               } else if (isExact) {
-                                btnStyle = 'bg-primary/5 border-primary/50 text-primary hover:bg-primary hover:text-white';
+                                btnStyle = 'bg-teal-50 dark:bg-teal-950/60 border-teal-300 dark:border-teal-800 text-teal-700 dark:text-teal-300 hover:bg-teal-600 hover:text-white';
                               } else {
-                                btnStyle = 'bg-zinc-50 border-zinc-200 text-zinc-500 hover:bg-primary hover:text-white';
+                                btnStyle = 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-teal-600 hover:text-white';
                               }
 
                               return (
@@ -594,50 +605,65 @@ export default function ManageFinance() {
                                   key={val} 
                                   type="button"
                                   onClick={() => checkout.dispatch({ type: 'SET_FIELD', field: 'soTienNhan', value: val.toString() })}
-                                  className={`px-3.5 py-2 rounded-full text-[10px] font-black transition-all border ${btnStyle}`}
+                                  className={`px-4 py-2.5 rounded-full text-xs font-black transition-all border cursor-pointer ${btnStyle}`}
                                 >
                                   {formatCurrency(val)}
-                                  {isExact && !isActive && <span className="text-[8px] font-bold ml-1 opacity-80">(Cần thu)</span>}
+                                  {isExact && !isActive && <span className="text-[9px] font-bold ml-1 opacity-80">(Cần thu)</span>}
                                 </button>
                               );
                             })}
                           </div>
 
                           {received > totalRequired && (
-                            <div className="bg-emerald-50 text-emerald-700 border border-emerald-200/40 rounded-2xl p-4 text-xs font-bold flex justify-between items-center">
-                              <span>Tiền thừa thối khách hàng:</span>
-                              <span className="text-base font-black">{formatCurrency(received - totalRequired)}</span>
+                            <div className="bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-2xl p-4 text-xs font-extrabold flex justify-between items-center shadow-xs">
+                              <span>Tiền thừa thối lại khách hàng:</span>
+                              <span className="text-base font-black text-emerald-600 dark:text-emerald-400">{formatCurrency(received - totalRequired)}</span>
                             </div>
                           )}
                         </div>
                       );
                     })()}
 
-                    {/* Friendly message if totalRequired is 0 (Tung buoi with paid exam) */}
+                    {/* Friendly message if totalRequired is 0 */}
                     {isTungBuoiWithPaidExam && (
-                      <div className="bg-emerald-50/65 border border-emerald-200/80 p-4.5 rounded-2xl text-xs font-bold text-emerald-800 space-y-2 animate-in fade-in duration-200 border-dashed">
-                        <p className="flex items-center gap-1.5 text-emerald-950 font-black">
-                          <span>✓</span> Đã thanh toán khám ngày {checkout.selectedConsultation?.ngay_thanh_toan_kham}
+                      <div className="bg-emerald-50/80 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 p-4.5 rounded-2xl text-xs font-bold text-emerald-800 dark:text-emerald-300 space-y-2 animate-in fade-in duration-200 border-dashed">
+                        <p className="flex items-center gap-1.5 text-emerald-950 dark:text-emerald-200 font-black">
+                          <span>✓</span> Đã thanh toán khám ngày {(() => {
+                            const dateRaw = checkout.selectedConsultation?.ngay_thanh_toan_kham;
+                            if (!dateRaw) return '';
+                            try {
+                              const d = new Date(dateRaw);
+                              if (isNaN(d.getTime())) return dateRaw;
+                              const day = String(d.getDate()).padStart(2, '0');
+                              const month = String(d.getMonth() + 1).padStart(2, '0');
+                              const year = d.getFullYear();
+                              const hours = String(d.getHours()).padStart(2, '0');
+                              const minutes = String(d.getMinutes()).padStart(2, '0');
+                              return `${day}/${month}/${year} (${hours}:${minutes})`;
+                            } catch (e) {
+                              return dateRaw;
+                            }
+                          })()}
                         </p>
-                        <p className="flex items-center gap-1.5 text-emerald-950 font-black">
+                        <p className="flex items-center gap-1.5 text-emerald-950 dark:text-emerald-200 font-black">
                           <span>✓</span> Đã chọn phương thức thanh toán từng buổi.
                         </p>
-                        <p className="text-emerald-900 leading-relaxed font-semibold">
-                          💵 Khách hàng không cần thanh toán thêm tại quầy hôm nay. Phác đồ sẽ được kích hoạt ngay lập tức. Số tiền thanh toán mỗi buổi thực tế sau này là: <span className="text-emerald-950 font-black">{formatCurrency(Number(checkout.calculatedData?.don_gia_theo_buoi || 0))}/buổi</span> (bắt đầu từ buổi số 1).
+                        <p className="text-emerald-900 dark:text-emerald-300 leading-relaxed font-semibold">
+                          💵 Khách hàng không cần thanh toán thêm tại quầy hôm nay. Phác đồ sẽ được kích hoạt ngay lập tức.
                         </p>
                       </div>
                     )}
 
                     {/* Reason / Note input */}
                     <div className="space-y-1.5">
-                      <label htmlFor="feedbackLyDo" className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Ghi chú nội bộ phòng khám</label>
+                      <label htmlFor="feedbackLyDo" className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Ghi chú nội bộ phòng khám</label>
                       <textarea 
                         id="feedbackLyDo"
                         placeholder="Ghi nhận phản hồi..."
                         rows={2.5}
                         value={checkout.feedbackLyDo}
                         onChange={(e) => checkout.setFeedbackLyDo(e.target.value)}
-                        className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-xs font-bold text-secondary focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all resize-none"
+                        className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none transition-all resize-none shadow-xs"
                       />
                     </div>
                   </div>
@@ -645,9 +671,9 @@ export default function ManageFinance() {
                   <button
                     type="submit"
                     disabled={checkout.state.loading || (checkout.checkoutTab === 'package' ? (checkout.calculating || !checkout.calculatedData) : !checkout.state.hoaDon)}
-                    className="w-full py-4 bg-primary hover:bg-primary/95 text-white shadow-md hover:shadow-lg font-black text-xs uppercase tracking-wider rounded-2xl transition-all disabled:opacity-45 disabled:pointer-events-none"
+                    className="w-full py-4 bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-700 hover:to-teal-600 text-white font-black text-xs md:text-sm uppercase tracking-wider rounded-2xl shadow-lg shadow-teal-600/25 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-45 disabled:pointer-events-none flex items-center justify-center gap-2"
                   >
-                    {checkout.state.loading ? 'Đang xử lý...' : (totalRequired === 0 ? 'Kích hoạt phác đồ & Đặt lịch' : 'Xác nhận & Thu tiền')}
+                    {checkout.state.loading ? 'Đang xử lý...' : (totalRequired === 0 ? 'Kích hoạt phác đồ & Đặt lịch' : 'Xác Nhận & Thu Tiền')}
                   </button>
                 </form>
               );
@@ -731,28 +757,31 @@ export default function ManageFinance() {
   );
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 text-left">
-      {/* Header Banner */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-3xl border border-zinc-150/80 shadow-sm relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-48 h-48 bg-primary/5 rounded-bl-full pointer-events-none"></div>
-        <div className="space-y-1.5 text-left">
-          <span className="text-[10px] font-black text-primary bg-primary/10 border border-primary/20 px-3 py-1 rounded-full uppercase tracking-wider">
-            Phân hệ Kế toán lâm sàng
-          </span>
-          <h1 className="text-2xl font-black text-secondary tracking-tight flex items-center gap-2">
-            <DollarSign className="text-primary size-7" />
-            Quản Lý Tài Chính & Hóa Đơn Y Khoa
+    <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500 text-left font-jakarta">
+      {/* HUD Header Banner Đồng Nhất Admin */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl p-6 rounded-[28px] border border-slate-200/80 dark:border-slate-800 shadow-xl shadow-slate-200/30 dark:shadow-none relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-teal-500/5 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="space-y-1 text-left">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="w-2.5 h-2.5 rounded-full bg-teal-500 animate-ping"></span>
+            <span className="text-[10px] font-black uppercase tracking-wider text-teal-600 dark:text-teal-400">
+              PHÂN HỆ KẾ TOÁN LÂM SÀNG
+            </span>
+          </div>
+          <h1 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight uppercase flex items-center gap-2.5">
+            <DollarSign className="text-teal-600 dark:text-teal-400 size-7" />
+            QUẢN LÝ TÀI CHÍNH & HÓA ĐƠN Y KHOA
           </h1>
-          <p className="text-zinc-500 text-xs font-semibold">
+          <p className="text-slate-500 dark:text-slate-400 text-xs font-semibold">
             Theo dõi dòng tiền, hóa đơn khám/gói trị liệu và xử lý các giao dịch hoàn tiền của hệ thống.
           </p>
         </div>
 
         <button
           onClick={() => navigate(isAdminOrManager ? '/admin/appointments' : '/receptionist/appointments')}
-          className="px-5 py-3.5 bg-primary hover:opacity-95 active:scale-[0.98] text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md flex items-center gap-2 shrink-0"
+          className="px-5 py-3 bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-700 hover:to-teal-600 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-md shadow-teal-600/25 active:scale-95 flex items-center gap-2 shrink-0 cursor-pointer"
         >
-          <CalendarDays size={16} /> Lập lịch thanh toán
+          <Coins size={16} /> Thu Ngân Ngay
         </button>
       </div>
 

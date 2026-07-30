@@ -49,29 +49,29 @@ export function VoucherCard({
 
   return (
     <div 
-      className="group relative bg-white border border-slate-200 rounded-3xl flex flex-col sm:flex-row shadow-soft-ui hover:shadow-soft-ui-hover hover:-translate-y-0.5 transition-all duration-300 overflow-hidden min-h-[180px]"
+      className="group relative bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl flex flex-col sm:flex-row shadow-soft-ui hover:shadow-soft-ui-hover hover:-translate-y-0.5 transition-all duration-300 overflow-hidden min-h-[180px]"
     >
       {/* Left Side of Ticket (Coupon Tag) */}
-      <div className="sm:w-44 border-b sm:border-b-0 sm:border-r border-dashed border-slate-200/80 p-6 flex flex-col items-center justify-center relative min-h-[140px] rounded-t-3xl sm:rounded-t-none sm:rounded-l-3xl bg-gradient-to-br from-teal-50/5 to-primary/10">
+      <div className="sm:w-44 border-b sm:border-b-0 sm:border-r border-dashed border-slate-200/80 dark:border-zinc-800 p-6 flex flex-col items-center justify-center relative min-h-[140px] rounded-t-3xl sm:rounded-t-none sm:rounded-l-3xl bg-gradient-to-br from-teal-50/5 to-primary/10 dark:from-zinc-900 dark:to-zinc-950">
         
         {/* Circle cutouts for ticket look */}
-        <div className="hidden sm:block absolute -top-3.5 -right-3.5 w-7 h-7 bg-background border border-slate-200 rounded-full z-10" />
-        <div className="hidden sm:block absolute -bottom-3.5 -right-3.5 w-7 h-7 bg-background border border-slate-200 rounded-full z-10" />
+        <div className="hidden sm:block absolute -top-3.5 -right-3.5 w-7 h-7 bg-background border border-slate-200 dark:border-zinc-800 rounded-full z-10" />
+        <div className="hidden sm:block absolute -bottom-3.5 -right-3.5 w-7 h-7 bg-background border border-slate-200 dark:border-zinc-800 rounded-full z-10" />
         
-        <span className="text-[10px] font-extrabold uppercase tracking-widest mb-1.5 font-heading text-primary">
+        <span className="text-[10px] font-extrabold uppercase tracking-widest mb-1.5 font-heading text-primary dark:text-emerald-400">
           MÃ GIẢM GIÁ
         </span>
-        <div className="text-3xl font-black text-secondary font-heading tracking-tight flex items-baseline gap-0.5">
+        <div className="text-3xl font-black text-secondary dark:text-zinc-100 font-heading tracking-tight flex items-baseline gap-0.5">
           {v.loai_giam === 'phan_tram' ? (
             <>
-              {v.gia_tri_giam}<span className="text-lg font-bold text-primary">%</span>
+              {v.gia_tri_giam}<span className="text-lg font-bold text-primary dark:text-emerald-400">%</span>
             </>
           ) : (
             <span className="text-2xl">{formatCurrencyShort(v.gia_tri_giam)}</span>
           )}
         </div>
         {v.giam_toi_da && (
-          <span className="text-[9px] text-slate-500 font-semibold mt-1 text-center">
+          <span className="text-[9px] text-slate-500 dark:text-zinc-400 font-semibold mt-1 text-center">
             Tối đa {formatCurrencyShort(v.giam_toi_da)}
           </span>
         )}
@@ -82,16 +82,16 @@ export function VoucherCard({
           className={`mt-4 px-3 py-1.5 rounded-xl text-xs font-mono font-bold tracking-wider shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all select-none ${
             copiedId === v.id 
               ? 'bg-emerald-500 text-white border border-emerald-500' 
-              : 'bg-white text-teal-600 border border-teal-200/80 hover:bg-teal-50'
+              : 'bg-white dark:bg-zinc-950 text-teal-600 dark:text-teal-300 border border-teal-200/80 dark:border-zinc-800 hover:bg-teal-50 dark:hover:bg-zinc-800'
           }`}
         >
-          {copiedId === v.id ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5 text-teal-500/70" />}
+          {copiedId === v.id ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5 text-teal-500/70 dark:text-teal-400" />}
           {v.ma_voucher}
         </div>
       </div>
 
       {/* Right Side of Ticket (Voucher details) */}
-      <div className="flex-1 p-6 flex flex-col justify-between bg-white sm:rounded-r-3xl">
+      <div className="flex-1 p-6 flex flex-col justify-between bg-white dark:bg-zinc-900 sm:rounded-r-3xl">
         <div>
           {/* Badge Row */}
           <div className="flex items-center justify-between gap-2 mb-2">

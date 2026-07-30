@@ -73,9 +73,9 @@ export default function ManageArticles() {
       if (aSuspended !== bSuspended) {
         return aSuspended - bSuspended; // 0 first (active), 1 last (suspended)
       }
-      // Within same section, sort by ngay_cap_nhat descending
-      const aTime = new Date(a.ngay_cap_nhat || a.ngay_tao || 0).getTime();
-      const bTime = new Date(b.ngay_cap_nhat || b.ngay_tao || 0).getTime();
+      // Within same section, sort by ngay_dang descending (khớp với cột ngày hiển thị trên UI)
+      const aTime = new Date(a.ngay_dang || a.ngay_tao || 0).getTime();
+      const bTime = new Date(b.ngay_dang || b.ngay_tao || 0).getTime();
       return bTime - aTime;
     });
   }, [filteredArticles]);
@@ -87,16 +87,16 @@ export default function ManageArticles() {
   const handleDelete = (article: any) => {
     setConfirmConfig({
       isOpen: true,
-      title: 'Ngưng sử dụng bài viết',
-      message: `Bạn có chắc chắn muốn ngưng sử dụng bài viết "${article.tieu_de}" không? Bài viết sẽ bị ẩn khỏi các trang của khách hàng.`,
+      title: 'Gỡ bài viết',
+      message: `Bạn có chắc chắn muốn gỡ bài viết "${article.tieu_de}" không? Bài viết sẽ bị ẩn khỏi các trang của khách hàng, có thể khôi phục lại sau.`,
       onConfirm: async () => {
         setConfirmConfig(null);
         try {
           await updateArticle(article.id, { ...article, trang_thai: 'ngung_su_dung' });
-          toast.success(`Đã ngưng sử dụng bài viết "${article.tieu_de}" thành công!`);
+          toast.success(`Đã gỡ bài viết "${article.tieu_de}" thành công!`);
           fetchData();
         } catch (error: any) {
-          toast.error(error.response?.data?.message || 'Không thể ngưng sử dụng bài viết');
+          toast.error(error.response?.data?.message || 'Không thể gỡ bài viết');
         }
       }
     });
@@ -128,7 +128,7 @@ export default function ManageArticles() {
               <div>
                 <h2 className="text-lg font-black font-heading text-secondary">Bài viết (Blog)</h2>
                 <p className="text-xs text-slate-450 font-medium mt-0.5">
-                  {articles.length} bài viết · {publishedCount} đã đăng · {draftCount} bản nháp · {suspendedCount} ngưng sử dụng
+                  {articles.length} bài viết · {publishedCount} đã đăng · {draftCount} bản nháp · {suspendedCount} đã gỡ
                 </p>
               </div>
               <button
@@ -177,7 +177,7 @@ export default function ManageArticles() {
                       ? 'Đã đăng'
                       : status === 'nhap'
                       ? 'Bản nháp'
-                      : 'Ngưng sử dụng'}
+                      : 'Đã gỡ'}
                   </button>
                 ))}
               </div>

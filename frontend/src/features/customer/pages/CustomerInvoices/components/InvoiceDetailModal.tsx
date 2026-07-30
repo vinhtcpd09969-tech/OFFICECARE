@@ -597,7 +597,7 @@ export function InvoiceDetailModal({ invoice, payments, onClose, onOpenPolicy, a
                   <div className="space-y-1.5">
                     <p className="text-xs font-bold text-secondary leading-relaxed">
                       {isTungBuoiPackage
-                        ? 'Gói thanh toán theo hình thức từng buổi không áp dụng hoàn tiền theo lô. Vui lòng liên hệ phòng khám nếu cần hỗ trợ.'
+                        ? 'Gói thanh toán theo hình thức từng buổi không áp dụng hoàn tiền. Vui lòng liên hệ phòng khám nếu cần hỗ trợ.'
                         : 'Gói này đã kết thúc (hủy/hoàn tiền/quá hạn) — xem chi tiết trong lịch sử giao dịch phía trên. Mọi thắc mắc vui lòng liên hệ phòng khám.'}
                     </p>
                     <button
