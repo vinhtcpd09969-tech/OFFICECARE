@@ -1,18 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { Calendar, Eye, ArrowRight, List, Play, Square, ArrowLeft } from 'lucide-react';
+import { Calendar, Eye, List, Play, Square, ArrowLeft, Clock, Share2, Check, UserCheck, Volume2, Bookmark, Sparkles, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { getPublicArticleBySlug } from '../api/public.api';
+import { getPublicArticleBySlug, getPublicArticles } from '../api/public.api';
 import { resolveImageUrl } from '../../../utils/imageUrl';
 import LoadingScreen from '../../../components/LoadingScreen';
 
 const DANH_MUC_LABELS: Record<string, string> = {
-  suc_khoe: 'Sức khỏe',
-  dieu_tri: 'Điều trị',
-  tin_tuc: 'Tin tức',
-  khuyen_mai: 'Khuyến mãi',
-  phong_ngua: 'Phòng ngừa'
+  suc_khoe: 'Sức khỏe văn phòng',
+  dieu_tri: 'Phác đồ điều trị',
+  tin_tuc: 'Tin tức y khoa',
+  khuyen_mai: 'Ưu đãi & Gói tập',
+  phong_ngua: 'Bài tập phòng ngừa'
 };
 
 interface TocItem {
@@ -86,14 +86,25 @@ const wrapSentencesInHtml = (html: string) => {
   };
 };
 
+function estimateReadMinutes(html: string): number {
+  if (!html) return 3;
+  const text = html.replace(/<[^>]*>/g, ' ');
+  const words = text.trim().split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.ceil(words / 200));
+}
+
 export default function ArticleDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const [article, setArticle] = useState<any>(null);
+  const [relatedArticles, setRelatedArticles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [toc, setToc] = useState<TocItem[]>([]);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [activeId, setActiveId] = useState<string>('');
+  const [fontSizeLevel, setFontSizeLevel] = useState<'normal' | 'large' | 'xlarge'>('normal');
+  const [copiedShare, setCopiedShare] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
   // AI Text-to-Speech (TTS) states & logic
@@ -105,6 +116,33 @@ export default function ArticleDetailPage() {
   const currentSentenceIndex = useRef(0);
   const sentencesRef = useRef<string[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Fetch Article Detail & Related Articles
+  useEffect(() => {
+    async function fetchData() {
+      if (!slug) return;
+      try {
+        setLoading(true);
+        const res = await getPublicArticleBySlug(slug);
+        const artData = res.data;
+        setArticle(artData);
+
+        if (artData) {
+          const relRes = await getPublicArticles(artData.danh_muc);
+          const filteredRel = (relRes.data || [])
+            .filter((a: any) => a.slug !== slug)
+            .slice(0, 5); // Up to 5 related articles for vertical sidebar
+          setRelatedArticles(filteredRel);
+        }
+      } catch (error) {
+        toast.error('Không tìm thấy bài viết này.');
+        navigate('/tin-tuc');
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, [slug, navigate]);
 
   // Pre-process and wrap sentences when article loads
   useEffect(() => {
@@ -122,7 +160,7 @@ export default function ArticleDetailPage() {
     setCurrentSentenceIdx(-1);
   }, [article]);
 
-  // Handle visual highlight and auto-scroll
+  // Handle visual highlight and auto-scroll for TTS
   useEffect(() => {
     const allSpans = document.querySelectorAll('.tts-sentence');
     allSpans.forEach(span => {
@@ -198,7 +236,6 @@ export default function ArticleDetailPage() {
     const text = sentencesRef.current[currentSentenceIndex.current];
     setCurrentSentenceIdx(currentSentenceIndex.current);
     
-    // Attempt Google Translate TTS via our backend proxy for highly natural and clear Vietnamese voice
     try {
       const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
       const url = `${baseUrl}/client/tts?text=${encodeURIComponent(text)}`;
@@ -217,7 +254,6 @@ export default function ArticleDetailPage() {
       };
 
       audio.onerror = () => {
-        console.warn('Google TTS failed, falling back to Web Speech API');
         speakSentenceWebSpeech(text);
       };
 
@@ -225,7 +261,6 @@ export default function ArticleDetailPage() {
         speakSentenceWebSpeech(text);
       });
     } catch (error) {
-      console.warn('Failed setting up Audio, falling back', error);
       speakSentenceWebSpeech(text);
     }
   };
@@ -254,7 +289,6 @@ export default function ArticleDetailPage() {
 
     utterance.onerror = (e) => {
       if (e.error !== 'interrupted') {
-        console.error('Speech error:', e);
         setIsPlaying(false);
         setIsPaused(false);
         setCurrentSentenceIdx(-1);
@@ -311,7 +345,6 @@ export default function ArticleDetailPage() {
     setRate(nextRate);
   };
 
-  // Restart speaking when rate changes while already playing
   useEffect(() => {
     if (isPlaying && !isPaused) {
       if (audioRef.current) {
@@ -325,24 +358,7 @@ export default function ArticleDetailPage() {
     }
   }, [rate]);
 
-  useEffect(() => {
-    async function fetchData() {
-      if (!slug) return;
-      try {
-        setLoading(true);
-        const res = await getPublicArticleBySlug(slug);
-        setArticle(res.data);
-      } catch (error) {
-        toast.error('Không tìm thấy bài viết này.');
-        navigate('/tin-tuc');
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchData();
-  }, [slug, navigate]);
-
-  // Tự sinh mục lục (TOC) từ heading h2/h3 sau khi nội dung được render
+  // Generate Table of Contents (TOC) from heading h2/h3
   useEffect(() => {
     if (!article || !contentRef.current) return;
     const headings = contentRef.current.querySelectorAll('h2, h3');
@@ -352,18 +368,16 @@ export default function ArticleDetailPage() {
       items.push({ id: el.id, text: el.textContent || '', level: el.tagName === 'H2' ? 2 : 3 });
     });
     setToc(items);
-  }, [article]);
+  }, [article, processedHtml]);
 
-  // Lắng nghe scroll để tính tiến trình đọc và kích hoạt ScrollSpy
+  // ScrollSpy & Reading Progress
   useEffect(() => {
     const handleScroll = () => {
-      // 1. Tính toán tiến trình đọc
       const totalScroll = document.documentElement.scrollHeight - window.innerHeight;
       if (totalScroll > 0) {
         setScrollProgress((window.scrollY / totalScroll) * 100);
       }
 
-      // 2. ScrollSpy cho mục lục
       if (!toc.length) return;
       const headingElements = toc.map(item => document.getElementById(item.id));
       let currentActiveId = '';
@@ -371,7 +385,6 @@ export default function ArticleDetailPage() {
       for (const el of headingElements) {
         if (el) {
           const rect = el.getBoundingClientRect();
-          // Nếu phần tiêu đề cuộn đến khoảng trên màn hình
           if (rect.top <= 180) {
             currentActiveId = el.id;
           }
@@ -386,14 +399,14 @@ export default function ArticleDetailPage() {
     };
 
     window.addEventListener('scroll', handleScroll);
-    setTimeout(handleScroll, 200); // Trigger ban đầu sau khi vẽ xong
+    setTimeout(handleScroll, 200);
     return () => window.removeEventListener('scroll', handleScroll);
   }, [toc]);
 
   const scrollToHeading = (id: string) => {
     const el = document.getElementById(id);
     if (el) {
-      const offset = 120; // Tránh bị thanh header đè
+      const offset = 120;
       const bodyRect = document.body.getBoundingClientRect().top;
       const elementRect = el.getBoundingClientRect().top;
       const elementPosition = elementRect - bodyRect;
@@ -406,8 +419,17 @@ export default function ArticleDetailPage() {
     }
   };
 
+  const handleCopyShare = () => {
+    navigator.clipboard.writeText(window.location.href);
+    setCopiedShare(true);
+    toast.success('Đã sao chép đường dẫn bài viết!');
+    setTimeout(() => setCopiedShare(false), 3000);
+  };
+
   if (loading) return <LoadingScreen />;
   if (!article) return null;
+
+  const readMinutes = estimateReadMinutes(article.noi_dung);
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -419,6 +441,12 @@ export default function ArticleDetailPage() {
     author: { '@type': 'Person', name: article.nguoi_dung?.ho_ten || 'OfficeCare' }
   };
 
+  const getFontSizeClass = () => {
+    if (fontSizeLevel === 'large') return 'text-[1.05rem]';
+    if (fontSizeLevel === 'xlarge') return 'text-[1.15rem]';
+    return 'text-[0.95rem]';
+  };
+
   return (
     <div className="min-h-screen bg-slate-50/50 pb-20 pt-28 font-jakarta">
       <Helmet>
@@ -428,59 +456,59 @@ export default function ArticleDetailPage() {
         <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
       </Helmet>
 
-      {/* Thanh tiến trình đọc y khoa chạy trên đầu */}
+      {/* Top Reading Progress Bar */}
       <div className="fixed top-0 left-0 right-0 h-1.5 bg-slate-100 z-[9999]">
-        <div className="h-full bg-gradient-to-r from-[#2EC4B6] to-[#0D9488] transition-all duration-75" style={{ width: `${scrollProgress}%` }}></div>
+        <div
+          className="h-full bg-gradient-to-r from-[#14B8A6] via-[#0D9488] to-emerald-600 transition-all duration-75 shadow-sm"
+          style={{ width: `${scrollProgress}%` }}
+        />
       </div>
 
-      {/* Style tùy biến cục bộ cho hình ảnh trong bài viết không bị to quá cỡ */}
       <style>{`
         .prose-article img {
-          max-width: 500px !important;
+          max-width: 580px !important;
           width: 100% !important;
           max-height: 320px !important;
-          margin: 2.5rem auto !important;
+          margin: 2rem auto !important;
           object-fit: cover !important;
-          border-radius: 1.5rem !important;
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05) !important;
+          border-radius: 1.25rem !important;
+          box-shadow: 0 10px 25px rgba(15, 23, 42, 0.05) !important;
           display: block !important;
-          border: 4px solid #ffffff !important;
+          border: 3px solid #ffffff !important;
         }
         .prose-article h2 {
           font-family: 'Plus Jakarta Sans', sans-serif !important;
-          font-size: 1.45rem !important;
+          font-size: 1.35rem !important;
           font-weight: 800 !important;
           color: #0F172A !important;
-          margin-top: 2.5rem !important;
-          margin-bottom: 1.25rem !important;
-          letter-spacing: -0.025em !important;
+          margin-top: 2rem !important;
+          margin-bottom: 1rem !important;
+          letter-spacing: -0.02em !important;
           line-height: 1.35 !important;
         }
         .prose-article h3 {
           font-family: 'Plus Jakarta Sans', sans-serif !important;
-          font-size: 1.2rem !important;
+          font-size: 1.1rem !important;
           font-weight: 700 !important;
           color: #1E293B !important;
-          margin-top: 1.8rem !important;
-          margin-bottom: 0.9rem !important;
+          margin-top: 1.5rem !important;
+          margin-bottom: 0.75rem !important;
           line-height: 1.4 !important;
         }
         .prose-article p {
-          font-size: 0.95rem !important;
           line-height: 1.8 !important;
-          color: #475569 !important;
-          margin-bottom: 1.5rem !important;
+          color: #334155 !important;
+          margin-bottom: 1.3rem !important;
         }
         .prose-article ul {
           list-style-type: disc !important;
-          padding-left: 1.5rem !important;
-          margin-bottom: 1.5rem !important;
-          font-size: 0.95rem !important;
+          padding-left: 1.4rem !important;
+          margin-bottom: 1.3rem !important;
           line-height: 1.8 !important;
-          color: #475569 !important;
+          color: #334155 !important;
         }
         .prose-article li {
-          margin-bottom: 0.5rem !important;
+          margin-bottom: 0.4rem !important;
         }
         @keyframes bounce-bar {
           0%, 100% { height: 4px; }
@@ -491,136 +519,274 @@ export default function ArticleDetailPage() {
           transition: background-color 0.2s ease, border-bottom 0.2s ease;
         }
         .tts-sentence:hover {
-          background-color: rgba(13, 148, 136, 0.05);
+          background-color: rgba(13, 148, 136, 0.06);
         }
         .tts-sentence[data-active="true"] {
-          background-color: rgba(46, 196, 182, 0.18) !important;
+          background-color: rgba(46, 196, 182, 0.2) !important;
           border-bottom: 2px solid #0D9488 !important;
           color: #0F172A !important;
           font-weight: 600 !important;
         }
       `}</style>
 
-      <div className="max-w-5xl mx-auto px-6">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6">
         
-        {/* Quay lại trang trước Nút Thông Minh */}
-        <div className="mb-6 flex items-center justify-between">
+        {/* Navigation Breadcrumb & Back Button */}
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <button
             type="button"
             onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/tin-tuc'))}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-white/90 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-2xl border border-slate-200/90 shadow-sm hover:shadow transition-all duration-300 group cursor-pointer"
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 text-xs font-extrabold rounded-xl border border-slate-200/90 shadow-2xs transition-all duration-200 group cursor-pointer"
           >
-            <ArrowLeft className="w-4 h-4 text-[#0D9488] group-hover:-translate-x-1 transition-transform" />
-            <span>Quay lại trang trước</span>
+            <ArrowLeft className="w-3.5 h-3.5 text-[#0D9488] group-hover:-translate-x-1 transition-transform" />
+            <span>Trở lại</span>
           </button>
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-3 py-1 rounded-full hidden sm:inline-block">
-            {DANH_MUC_LABELS[article.danh_muc] || article.danh_muc}
-          </span>
+
+          <div className="flex items-center gap-2 text-xs text-slate-500 font-semibold">
+            <Link to="/" className="hover:text-[#0D9488]">Trang chủ</Link>
+            <span>/</span>
+            <Link to="/tin-tuc" className="hover:text-[#0D9488]">Bài viết</Link>
+            <span>/</span>
+            <span className="text-[#0D9488] font-bold">
+              {DANH_MUC_LABELS[article.danh_muc] || article.danh_muc}
+            </span>
+          </div>
         </div>
 
-        {/* Hero Header */}
-        <div className="mb-10 text-center space-y-4">
-          <span className="bg-[#14B8A6]/10 text-[#0D9488] border border-[#14B8A6]/20 text-[9px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full inline-block shadow-sm">
-            {DANH_MUC_LABELS[article.danh_muc] || article.danh_muc}
-          </span>
-          <h1 className="font-heading font-black text-2xl md:text-4xl text-slate-900 tracking-tight leading-tight max-w-3xl mx-auto">
+        {/* Compact Header Article Card */}
+        <div className="bg-white rounded-[24px] border border-slate-200/80 p-5 sm:p-6 mb-6 shadow-2xs space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 text-[10px] font-black uppercase tracking-widest px-3 py-0.5 rounded-md">
+              {DANH_MUC_LABELS[article.danh_muc] || article.danh_muc}
+            </span>
+            <span className="bg-amber-50 text-amber-700 border border-amber-200/60 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-md flex items-center gap-1">
+              <Sparkles size={11} /> Tham vấn y khoa
+            </span>
+          </div>
+
+          <h1 className="font-heading font-black text-xl sm:text-2xl md:text-3xl text-slate-900 tracking-tight leading-snug">
             <span className="tts-sentence transition-all duration-300 rounded-sm px-0.5" data-sentence-index="0">
               {article.tieu_de}
             </span>
           </h1>
-          <div className="flex flex-wrap items-center justify-center gap-5 text-xs text-slate-400 font-semibold border-y border-slate-100 py-3 max-w-2xl mx-auto">
-            <span className="flex items-center gap-1.5"><Calendar size={13} /> {article.ngay_dang ? new Date(article.ngay_dang).toLocaleDateString('vi-VN') : ''}</span>
-            <span className="flex items-center gap-1.5"><Eye size={13} /> {article.luot_xem} lượt xem</span>
-            {article.nguoi_dung?.ho_ten && <span className="text-slate-600 font-bold">Tác giả: {article.nguoi_dung.ho_ten}</span>}
-            
-            {/* Inline AI Speech Reader */}
-            <div className="flex items-center gap-2 border-l border-slate-200 pl-4">
+
+          {/* Author & Metadata Row */}
+          <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs font-semibold text-slate-600">
+            <div className="flex items-center gap-2.5">
+              <div className="size-8 rounded-full bg-teal-100 text-[#0D9488] font-black text-xs flex items-center justify-center shrink-0">
+                BS
+              </div>
+              <div>
+                <p className="font-extrabold text-slate-800 text-xs flex items-center gap-1">
+                  {article.nguoi_dung?.ho_ten || 'Hội đồng Y Khoa OfficeCare'}
+                  <UserCheck size={13} className="text-[#0D9488]" />
+                </p>
+                <p className="text-[10px] text-slate-400 font-semibold">
+                  Chuyên gia Phục hồi chức năng • Kiểm duyệt y y khoa
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3.5 text-slate-500 text-xs shrink-0">
+              <span className="flex items-center gap-1"><Calendar size={12} className="text-[#0D9488]" /> {article.ngay_dang ? new Date(article.ngay_dang).toLocaleDateString('vi-VN') : ''}</span>
+              <span className="flex items-center gap-1"><Clock size={12} className="text-[#0D9488]" /> {readMinutes} phút đọc</span>
+              <span className="flex items-center gap-1"><Eye size={12} className="text-[#0D9488]" /> {article.luot_xem || 0} lượt xem</span>
+            </div>
+          </div>
+
+          {/* Sleek Compact AI Reader Widget */}
+          <div className="bg-gradient-to-r from-teal-50/80 via-white to-teal-50/80 border border-teal-200/70 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2.5">
+              <div className="size-7 rounded-lg bg-[#0D9488] text-white flex items-center justify-center shrink-0">
+                <Volume2 size={15} />
+              </div>
+              <div>
+                <p className="font-extrabold text-slate-900 text-xs flex items-center gap-1">
+                  Nghe đọc bài viết AI (Tiếng Việt)
+                  {isPlaying && !isPaused && (
+                    <span className="flex items-end gap-0.5 h-2.5 ml-1">
+                      <span className="w-0.5 bg-[#0D9488] rounded-full" style={{ animation: 'bounce-bar 1.2s infinite ease-in-out', animationDelay: '0.1s' }} />
+                      <span className="w-0.5 bg-[#0D9488] rounded-full" style={{ animation: 'bounce-bar 1.2s infinite ease-in-out', animationDelay: '0.3s' }} />
+                      <span className="w-0.5 bg-[#0D9488] rounded-full" style={{ animation: 'bounce-bar 1.2s infinite ease-in-out', animationDelay: '0.5s' }} />
+                    </span>
+                  )}
+                </p>
+                <p className="text-[10px] text-slate-400 font-medium">
+                  Click vào bất kỳ câu nào trong bài viết để phát từ vị trí đó.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
                 onClick={handlePlayPause}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#0D9488]/10 hover:bg-[#0D9488]/20 text-[#0D9488] text-[10px] font-black rounded-full transition-all cursor-pointer select-none"
-                title={isPlaying && !isPaused ? 'Tạm dừng đọc' : 'Nghe đọc tiếng Việt (AI)'}
+                className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#0D9488] hover:bg-[#0b7a70] text-white text-xs font-extrabold rounded-lg transition-all cursor-pointer"
               >
                 {isPlaying && !isPaused ? (
-                  <>
-                    <span className="flex items-end gap-0.5 h-2.5">
-                      <span className="w-0.5 bg-[#0D9488] rounded-full" style={{ animation: 'bounce-bar 1.2s infinite ease-in-out', animationDelay: '0.1s' }}></span>
-                      <span className="w-0.5 bg-[#0D9488] rounded-full" style={{ animation: 'bounce-bar 1.2s infinite ease-in-out', animationDelay: '0.3s' }}></span>
-                      <span className="w-0.5 bg-[#0D9488] rounded-full" style={{ animation: 'bounce-bar 1.2s infinite ease-in-out', animationDelay: '0.5s' }}></span>
-                    </span>
-                    <span>Tạm dừng</span>
-                  </>
+                  <span>Tạm dừng</span>
                 ) : (
                   <>
-                    <Play size={10} className="fill-current" />
-                    <span>{isPaused ? 'Tiếp tục' : 'Nghe đọc'}</span>
+                    <Play size={11} className="fill-current" />
+                    <span>{isPaused ? 'Tiếp tục' : 'Nghe đọc ngay'}</span>
                   </>
                 )}
               </button>
-              
+
               {isPlaying && (
                 <button
                   type="button"
                   onClick={handleStop}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 text-[10px] font-black rounded-full transition-all cursor-pointer"
-                  title="Dừng đọc"
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-rose-50 text-rose-600 text-xs font-bold rounded-lg"
                 >
                   <Square size={10} className="fill-current" />
-                  <span>Dừng</span>
                 </button>
               )}
 
               <button
                 type="button"
                 onClick={cycleRate}
-                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-black rounded-full transition-all cursor-pointer"
-                title="Thay đổi tốc độ đọc"
+                className="px-2.5 py-1.5 bg-slate-100 text-slate-700 text-[11px] font-bold rounded-lg border border-slate-200"
               >
-                {rate}x
+                Tốc độ: {rate}x
               </button>
             </div>
           </div>
         </div>
 
-        {/* Format chuẩn đẹp khung ảnh bài viết */}
+        {/* Compact Balanced Cover Image (Dành khoảng trống vừa phải, không bị tràn màn hình) */}
         {article.anh_bia && (
-          <div className="w-full max-w-4xl mx-auto rounded-[32px] overflow-hidden mb-12 shadow-[0_20px_50px_rgba(13,148,136,0.08)] border border-slate-200/80 group relative bg-slate-900">
-            <div className="aspect-[16/9] md:aspect-[21/9] w-full overflow-hidden relative">
+          <div className="w-full max-w-3xl mx-auto rounded-2xl overflow-hidden mb-8 border border-slate-200/80 bg-slate-900 shadow-2xs">
+            <div className="aspect-[16/9] md:aspect-[21/9] w-full max-h-[300px] overflow-hidden relative">
               <img
                 src={resolveImageUrl(article.anh_bia)}
                 alt={article.tieu_de}
-                className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700 ease-out"
-                loading="lazy"
+                className="w-full h-full object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-900/30 via-transparent to-transparent pointer-events-none"></div>
             </div>
           </div>
         )}
 
-        {/* Grid Layout: Sidebar TOC & Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+        {/* 2-Column Layout: Main Article Content (8 Cols) + Sticky Right Sidebar (4 Cols) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-7 items-start">
           
-          {/* Active ScrollSpy Table of Contents Sidebar */}
-          {toc.length > 0 && (
-            <div className="hidden lg:block lg:col-span-3 sticky top-28">
-              <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-[0_15px_40px_rgba(15,23,42,0.015)] space-y-4">
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                  <List size={13} className="text-[#14B8A6]" /> Mục lục
+          {/* LEFT MAIN ARTICLE BODY (8 COLUMNS) */}
+          <div className="lg:col-span-8 space-y-6">
+            
+            {/* Compact Toolbar */}
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-3 flex items-center justify-between shadow-2xs">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold text-slate-500">Cỡ chữ:</span>
+                <button
+                  type="button"
+                  onClick={() => setFontSizeLevel('normal')}
+                  className={`px-2.5 py-0.5 rounded-md text-xs font-black transition-all ${
+                    fontSizeLevel === 'normal' ? 'bg-[#0D9488] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  A
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFontSizeLevel('large')}
+                  className={`px-2.5 py-0.5 rounded-md text-xs font-black transition-all ${
+                    fontSizeLevel === 'large' ? 'bg-[#0D9488] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  A+
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFontSizeLevel('xlarge')}
+                  className={`px-2.5 py-0.5 rounded-md text-xs font-black transition-all ${
+                    fontSizeLevel === 'xlarge' ? 'bg-[#0D9488] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  A++
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsBookmarked(!isBookmarked);
+                    toast.success(isBookmarked ? 'Đã bỏ lưu bài viết' : 'Đã lưu bài viết vào danh sách yêu thích!');
+                  }}
+                  className={`inline-flex items-center gap-1 px-3 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                    isBookmarked
+                      ? 'bg-amber-50 text-amber-700 border-amber-300'
+                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  <Bookmark size={12} className={isBookmarked ? 'fill-amber-500' : ''} />
+                  <span>{isBookmarked ? 'Đã lưu' : 'Lưu bài'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCopyShare}
+                  className="inline-flex items-center gap-1 px-3 py-1 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-all cursor-pointer"
+                >
+                  {copiedShare ? <Check size={12} className="text-emerald-600" /> : <Share2 size={12} />}
+                  <span>Chia sẻ</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Article Main HTML Content */}
+            <div className="bg-white rounded-[24px] border border-slate-200/80 p-5 sm:p-7 md:p-8 shadow-2xs">
+              <div
+                ref={contentRef}
+                className={`prose prose-slate max-w-none prose-a:text-[#0D9488] prose-article font-jakarta text-slate-700 ${getFontSizeClass()}`}
+                dangerouslySetInnerHTML={{ __html: processedHtml || article.noi_dung }}
+              />
+            </div>
+
+            {/* Author Credibility Footer Card */}
+            <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row gap-4 items-center">
+              <div className="size-12 rounded-xl bg-teal-100 text-[#0D9488] border border-teal-200/80 flex items-center justify-center text-sm font-black shrink-0">
+                BS
+              </div>
+              <div className="space-y-0.5 text-center sm:text-left">
+                <span className="text-[9px] font-black text-[#0D9488] uppercase tracking-widest bg-teal-50 px-2 py-0.5 rounded-md border border-teal-100">
+                  Hội đồng Y Khoa Biên Soạn
+                </span>
+                <h4 className="text-xs font-black text-slate-900 pt-0.5">
+                  {article.nguoi_dung?.ho_ten || 'Ban biên tập Y Khoa OfficeCare'}
                 </h4>
-                <ul className="space-y-3.5 border-l border-slate-100">
+                <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
+                  Bài viết được xem duyệt chuyên môn kỹ lưỡng bởi đội ngũ Bác sĩ CKI Phục hồi chức năng nhằm mang lại thông tin y khoa chính xác cho người bệnh.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT STICKY SIDEBAR (4 COLUMNS) */}
+          <div className="lg:col-span-4 space-y-5 sticky top-28">
+            
+            {/* Widget 1: Table of Contents (Mục lục tự động ScrollSpy) */}
+            {toc.length > 0 && (
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                  <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                    <List size={14} className="text-[#0D9488]" /> Mục Lục Bài Viết
+                  </h4>
+                  <span className="text-[10px] font-black text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md">
+                    {toc.length} mục
+                  </span>
+                </div>
+                
+                <ul className="space-y-2 max-h-[45vh] overflow-y-auto no-scrollbar pr-1">
                   {toc.map(item => (
-                    <li key={item.id} className="relative pl-4">
-                      {/* Active Indicator bar */}
-                      {activeId === item.id && (
-                        <span className="absolute left-[-1.5px] top-1/2 -translate-y-1/2 w-1 h-4 bg-[#2EC4B6] rounded-r-md transition-all duration-300"></span>
-                      )}
+                    <li key={item.id} className="relative">
                       <button
                         onClick={() => scrollToHeading(item.id)}
-                        className={`text-left text-xs transition-all duration-300 block py-0.5 ${
+                        className={`text-left text-xs transition-all duration-200 block w-full py-1 px-2 rounded-xl ${
                           activeId === item.id
-                            ? 'font-black text-[#0D9488] translate-x-1'
-                            : 'font-semibold text-slate-450 hover:text-slate-700'
-                        } ${item.level === 3 ? 'pl-3 text-[11px]' : ''}`}
+                            ? 'font-black bg-teal-50 text-[#0D9488] border border-teal-200/60 translate-x-0.5'
+                            : 'font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                        } ${item.level === 3 ? 'pl-4 text-[11px]' : ''}`}
                       >
                         {item.text}
                       </button>
@@ -628,51 +794,69 @@ export default function ArticleDetailPage() {
                   ))}
                 </ul>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Main Article Content */}
-          <div className={toc.length > 0 ? 'lg:col-span-9 space-y-8' : 'lg:col-span-12 space-y-8'}>
-            <div
-              ref={contentRef}
-              className="prose prose-slate max-w-none prose-a:text-[#0D9488] prose-article font-jakarta text-slate-700"
-              dangerouslySetInnerHTML={{ __html: processedHtml || article.noi_dung }}
-            />
+            {/* Widget 2: Bài Viết Cùng Chủ Đề (Dạng Dọc ở Cột Phải) */}
+            {relatedArticles.length > 0 && (
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                  <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles size={14} className="text-[#0D9488]" /> Bài Viết Cùng Chủ Đề
+                  </h4>
+                  <Link to="/tin-tuc" className="text-[10px] font-bold text-[#0D9488] hover:underline">
+                    Xem tất cả
+                  </Link>
+                </div>
 
-            {/* Author info footer card */}
-            <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-[0_15px_40px_rgba(15,23,42,0.015)] flex flex-col sm:flex-row gap-5 items-center">
-              <div className="size-16 rounded-full bg-teal-50 border border-teal-100 flex items-center justify-center text-[#2EC4B6] text-xl font-black shrink-0">
-                {article.nguoi_dung?.ho_ten?.charAt(0) || 'O'}
-              </div>
-              <div className="space-y-1 text-center sm:text-left">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Đội ngũ y tế biên soạn</p>
-                <h4 className="text-sm font-black text-slate-800">{article.nguoi_dung?.ho_ten || 'Ban biên tập y khoa OfficeCare'}</h4>
-                <p className="text-xs text-slate-450 font-semibold leading-relaxed">
-                  Bài viết được xem duyệt chuyên môn y khoa kỹ lưỡng nhằm mang lại thông tin chính xác, tin cậy về phục hồi chức năng cơ xương khớp cho bệnh nhân.
-                </p>
-              </div>
-            </div>
+                <div className="space-y-3">
+                  {relatedArticles.map((relArt) => (
+                    <Link
+                      key={relArt.id}
+                      to={`/tin-tuc/${relArt.slug}`}
+                      className="group flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-200/60"
+                    >
+                      <div className="size-14 rounded-lg overflow-hidden bg-slate-100 shrink-0 border border-slate-200/60">
+                        {relArt.anh_bia ? (
+                          <img
+                            src={resolveImageUrl(relArt.anh_bia)}
+                            alt={relArt.tieu_de}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-slate-400 text-[10px] font-bold">
+                            OfficeCare
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <h5 className="font-extrabold text-xs text-slate-800 group-hover:text-[#0D9488] transition-colors leading-snug line-clamp-2">
+                          {relArt.tieu_de}
+                        </h5>
+                        <span className="text-[10px] text-slate-400 font-semibold block">
+                          {estimateReadMinutes(relArt.noi_dung)} phút đọc
+                        </span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
 
-            {/* CTA đặt lịch */}
-            <div className="mt-12 bg-gradient-to-br from-[#0D9488] to-[#14B8A6] rounded-[32px] p-10 text-center shadow-lg relative overflow-hidden text-white">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full pointer-events-none blur-xl"></div>
-              <div className="relative z-10 space-y-4 max-w-md mx-auto">
-                <h3 className="font-heading font-black text-xl md:text-2xl">Sẵn sàng bắt đầu hành trình phục hồi?</h3>
-                <p className="text-teal-50 text-xs md:text-sm font-semibold leading-relaxed">
-                  Đặt lịch tầm soát cột sống và cơ xương khớp ngay hôm nay để nhận tư vấn trực tiếp từ chuyên gia OfficeCare.
-                </p>
-                <div className="pt-2">
+                {/* Minimal Fast Booking Action Link */}
+                <div className="pt-2 border-t border-slate-100 text-center">
                   <Link
                     to="/booking"
-                    className="inline-flex items-center gap-2 px-8 py-3.5 bg-white text-[#0D9488] font-black text-xs rounded-xl shadow-md hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 active:scale-98 transition-all"
+                    className="inline-flex items-center gap-1 text-[11px] font-black text-[#0D9488] hover:underline uppercase tracking-wider"
                   >
-                    Đặt lịch ngay <ArrowRight size={14} />
+                    <span>📅 Đặt lịch tư vấn bác sĩ 1:1</span>
+                    <ChevronRight size={13} />
                   </Link>
                 </div>
               </div>
-            </div>
+            )}
+
           </div>
+
         </div>
+
       </div>
     </div>
   );

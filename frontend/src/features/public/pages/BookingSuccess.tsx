@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { 
   CheckCircle2, 
   Clock, 
@@ -53,6 +54,17 @@ export default function BookingSuccess() {
   const [otpVerifying, setOtpVerifying] = useState(false);
   const [otpResending, setOtpResending] = useState(false);
   const [otpTimeLeft, setOtpTimeLeft] = useState<number | null>(null);
+  const otpSectionRef = useRef<HTMLDivElement | null>(null);
+
+  // Auto-scroll to OTP verification section on load
+  useEffect(() => {
+    if (appointment?.trang_thai === 'chua_xac_nhan') {
+      const timer = setTimeout(() => {
+        otpSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [appointment?.trang_thai]);
 
   useEffect(() => {
     if (!appointment || appointment.trang_thai !== 'chua_xac_nhan' || !appointment.han_xac_nhan) {
@@ -315,9 +327,15 @@ export default function BookingSuccess() {
           </p>
         </div>
 
-        {/* OTP VERIFICATION CARD (High-End Teal/Mint Design) */}
+        {/* OTP VERIFICATION CARD (High-End Teal/Mint Design with Animations) */}
         {isUnconfirmed && (
-          <div className="bg-gradient-to-br from-teal-50/80 via-white to-emerald-50/50 border border-teal-200/80 rounded-[28px] p-6 sm:p-7 shadow-[0_10px_30px_rgba(13,148,136,0.06)] space-y-5 text-left relative overflow-hidden">
+          <motion.div 
+            ref={otpSectionRef}
+            initial={{ opacity: 0, y: 25, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            className="bg-gradient-to-br from-teal-50/90 via-white to-emerald-50/60 border-2 border-teal-500/50 rounded-[28px] p-6 sm:p-7 shadow-[0_12px_40px_rgba(13,148,136,0.12)] space-y-5 text-left relative overflow-hidden backdrop-blur-md"
+          >
             <div className="flex items-center gap-3">
               <div className="size-11 bg-[#0D9488] text-white rounded-2xl flex items-center justify-center font-black shadow-md shadow-teal-500/20 shrink-0">
                 <ShieldCheck size={22} />
@@ -353,20 +371,61 @@ export default function BookingSuccess() {
             )}
 
             <form onSubmit={handleVerifyOtp} className="space-y-4">
-              <div className="flex flex-col sm:flex-row gap-3">
-                <input
-                  type="text"
-                  maxLength={6}
-                  value={otpInput}
-                  onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ''))}
-                  placeholder="• • • • • •"
-                  disabled={otpVerifying || (otpTimeLeft !== null && otpTimeLeft <= 0)}
-                  className="flex-1 px-4 py-3.5 bg-white border-2 border-slate-200 focus:border-[#0D9488] focus:ring-4 focus:ring-[#0D9488]/10 text-center text-xl font-mono font-black tracking-[0.6em] rounded-2xl outline-none transition-all shadow-2xs disabled:bg-slate-50 disabled:text-slate-400"
-                />
+              <div className="space-y-3">
+                {/* 6 Visual OTP Digit Slots + Hidden Native Input */}
+                <div className="relative">
+                  <input
+                    type="text"
+                    maxLength={6}
+                    value={otpInput}
+                    onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ''))}
+                    disabled={otpVerifying || (otpTimeLeft !== null && otpTimeLeft <= 0)}
+                    className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer disabled:cursor-not-allowed"
+                    autoFocus
+                  />
+                  <div className="grid grid-cols-6 gap-2 sm:gap-3">
+                    {[0, 1, 2, 3, 4, 5].map((idx) => {
+                      const digit = otpInput[idx] || '';
+                      const isFocused = otpInput.length === idx;
+                      const isFilled = !!digit;
+
+                      return (
+                        <motion.div
+                          key={idx}
+                          animate={{
+                            scale: isFilled ? [1, 1.1, 1] : isFocused ? [1, 1.05, 1] : 1,
+                            borderColor: isFilled ? '#0D9488' : isFocused ? '#0D9488' : '#CBD5E1',
+                          }}
+                          transition={{ duration: 0.15 }}
+                          className={`h-12 sm:h-14 rounded-2xl border-2 flex items-center justify-center font-mono text-xl sm:text-2xl font-black transition-all ${
+                            isFilled
+                              ? 'bg-[#0D9488] text-white border-teal-700 shadow-sm shadow-teal-500/25'
+                              : isFocused
+                              ? 'bg-white border-[#0D9488] text-[#0D9488] ring-4 ring-[#0D9488]/15 animate-pulse'
+                              : 'bg-white/90 text-slate-400 border-slate-200'
+                          }`}
+                        >
+                          {digit ? (
+                            <motion.span
+                              initial={{ scale: 0, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+                            >
+                              {digit}
+                            </motion.span>
+                          ) : (
+                            <span className="text-slate-300 text-sm">•</span>
+                          )}
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <button
                   type="submit"
                   disabled={otpVerifying || otpInput.length !== 6 || (otpTimeLeft !== null && otpTimeLeft <= 0)}
-                  className="px-8 py-3.5 bg-[#0D9488] hover:bg-[#0b7a70] active:scale-98 disabled:opacity-50 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl transition-all shadow-md shadow-teal-500/20 cursor-pointer flex items-center justify-center gap-2 shrink-0"
+                  className="w-full py-3.5 bg-[#0D9488] hover:bg-[#0b7a70] active:scale-98 disabled:opacity-50 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl transition-all shadow-md shadow-teal-500/20 cursor-pointer flex items-center justify-center gap-2"
                 >
                   {otpVerifying ? (
                     <>
@@ -391,7 +450,7 @@ export default function BookingSuccess() {
                 {otpResending ? 'Đang gửi lại mã...' : '🔄 Gửi lại mã OTP ngay'}
               </button>
             </div>
-          </div>
+          </motion.div>
         )}
 
         {/* LỊCH HẸN DETAILS CARD (Centerpiece) */}

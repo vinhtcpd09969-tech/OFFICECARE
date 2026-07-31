@@ -3,7 +3,7 @@ import { getStatusBadge, INVOICE_STATUS_LABELS } from '../constants';
 import { Pagination } from '../../../../../components/Pagination';
 import { TableSkeleton } from './TableSkeleton';
 import type { Invoice } from '../hooks/useFinanceDashboard';
-import { Eye, FileText, User } from 'lucide-react';
+import { Eye, FileText } from 'lucide-react';
 
 interface InvoiceTableProps {
   invoices: Invoice[];

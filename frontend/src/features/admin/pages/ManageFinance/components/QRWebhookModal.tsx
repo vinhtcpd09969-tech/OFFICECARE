@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { QrCode, Clock, ArrowUpRight, Loader2, X, Copy, Check, ShieldCheck, Sparkles, Building2, CreditCard, UserCheck, AlertCircle } from 'lucide-react';
+import { QrCode, Clock, ArrowUpRight, X, Copy, Check, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import axiosInstance from '../../../../../api/axios';
 import { formatCurrency } from '../../../../../utils/format';

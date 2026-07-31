@@ -16,11 +16,7 @@ export function VasTrendSparkline({ sessions }: VasTrendSparklineProps) {
     .map((s) => ({ buoi: s.so_thu_tu_buoi, val: Number(s.vas_sau) }));
 
   if (points.length < 2) {
-    return (
-      <div className="text-[11px] text-zinc-400 italic py-2">
-        Cần ít nhất 2 buổi có nhật ký VAS để vẽ xu hướng.
-      </div>
-    );
+    return null;
   }
 
   const first = points[0].val;
@@ -29,7 +25,7 @@ export function VasTrendSparkline({ sessions }: VasTrendSparklineProps) {
   const deltaPercent = first > 0 ? Math.round((Math.abs(last - first) / first) * 100) : 0;
 
   return (
-    <div>
+    <div className="bg-white border border-slate-200/80 rounded-2xl p-3.5 shadow-2xs">
       <div className="flex items-center justify-between mb-1.5">
         <span className="text-[10px] font-black text-zinc-400 uppercase tracking-wider">Xu hướng thang đau (VAS)</span>
         {deltaPercent > 0 && (

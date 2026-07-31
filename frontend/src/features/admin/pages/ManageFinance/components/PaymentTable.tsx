@@ -1,5 +1,4 @@
 import { formatCurrency } from '../../../../../utils/format';
-import { TRANSACTION_TYPE_META } from '../constants';
 import { canRefundPackage } from '../../../../../utils/billing';
 import { Pagination } from '../../../../../components/Pagination';
 import { TableSkeleton } from './TableSkeleton';
@@ -75,7 +74,6 @@ export function PaymentTable({ payments, allPayments, invoices, loading, isAdmin
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {pagePayments.map((pay) => {
-                  const typeMeta = TRANSACTION_TYPE_META[pay.loai_giao_dich] || { label: pay.loai_giao_dich, badge: 'bg-slate-50 text-slate-700 border border-slate-200' };
                   const { invoice, eligible } = pay.loai_giao_dich === 'THANH_TOAN' ? getRefundEligibility(pay, invoices) : { invoice: null, eligible: false };
                   const canRefundThis = eligible && !isAlreadyRefunded(pay, allPayments);
                   return (

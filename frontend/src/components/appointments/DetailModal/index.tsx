@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { X, Pencil, Check, Clock } from 'lucide-react';
+import { X, Pencil, Check, Clock, Undo2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { useAuthStore } from '../../../stores/authStore';
@@ -118,6 +118,16 @@ export default function AppointmentDetailModal({
 
   const handleStatusChange = (val: string) => {
     setAssignStatus(val);
+    setRescheduleError('');
+  };
+
+  // Lựa chọn trạng thái mới chỉ nằm ở state cục bộ (assignStatus) cho tới khi bấm "Lưu cập nhật" —
+  // so sánh với trạng thái gốc để biết có đang có lựa chọn CHƯA LƯU hay không, tránh badge trông
+  // giống hệt trạng thái đã lưu thật khiến người dùng tưởng nhầm đã xong (và không có đường hoàn tác).
+  const hasPendingStatusChange = !!assignStatus && assignStatus !== selectedAppointment?.trang_thai;
+
+  const handleUndoStatusChange = () => {
+    setAssignStatus(selectedAppointment.trang_thai);
     setRescheduleError('');
   };
 
@@ -943,13 +953,24 @@ export default function AppointmentDetailModal({
                   {isReceptionist ? 'Trạng thái lịch hẹn' : 'Trạng thái lịch hẹn (Quản lý)'}
                 </label>
                 {!isEditingStatus ? (
-                  <div className="flex items-center justify-between pt-1">
-                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold border ${currentStatusInfo.color}`}>
+                  <div className="flex items-center justify-between pt-1 flex-wrap gap-y-2">
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold border ${currentStatusInfo.color} ${hasPendingStatusChange ? 'border-dashed' : ''}`}>
                       {currentStatusInfo.icon}
                       <span>{currentStatusInfo.label}</span>
+                      {hasPendingStatusChange && <span className="font-semibold opacity-70 normal-case">(chưa lưu)</span>}
                     </span>
 
                     <div className="flex items-center gap-1.5">
+                      {hasPendingStatusChange && (
+                        <button
+                          type="button"
+                          onClick={handleUndoStatusChange}
+                          className="flex items-center gap-1.5 text-[11px] font-extrabold text-amber-600 hover:text-amber-700 dark:text-amber-400 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 px-2.5 py-1 rounded-xl transition-all cursor-pointer border border-amber-200/60 dark:border-amber-800/50 shadow-2xs"
+                        >
+                          <Undo2 size={12} />
+                          <span>Hoàn tác</span>
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => setIsStatusHistoryOpen(true)}

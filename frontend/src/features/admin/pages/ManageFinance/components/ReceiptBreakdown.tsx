@@ -1,8 +1,9 @@
 import React from 'react';
-import { Receipt, CheckCircle2, AlertCircle, Sparkles, Tag, ShieldCheck } from 'lucide-react';
+import { Receipt, Sparkles, Tag, ShieldCheck } from 'lucide-react';
 import { formatCurrency } from '../../../../../utils/format';
 import { getInstallmentCutoffSession } from '../../../../../utils/billing';
-import type { Invoice, CalculatedCheckoutData, AssignedPackage } from '../hooks/useFinanceDashboard';
+import type { Invoice } from '../hooks/useFinanceDashboard';
+import type { CalculatedCheckoutData, AssignedPackage } from '../hooks/useCheckout';
 
 interface ReceiptBreakdownProps {
   checkoutTab: 'package' | 'single';
@@ -48,13 +49,13 @@ export const ReceiptBreakdown: React.FC<ReceiptBreakdownProps> = ({
           <div className="space-y-5">
             <div className="space-y-1 bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Nội dung thanh toán</p>
-              <p className="text-slate-900 dark:text-white font-extrabold text-xs leading-normal">{hoaDon.ten_item || 'Phí khám lâm sàng'}</p>
+              <p className="text-slate-900 dark:text-white font-extrabold text-xs leading-normal">{hoaDon.ten_dich_vu || 'Phí khám lâm sàng'}</p>
             </div>
             
             <div className="space-y-3.5 text-xs font-bold text-slate-600 dark:text-slate-300">
               <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
                 <span>Giá trị buổi:</span>
-                <span className="text-slate-900 dark:text-white font-black">{formatCurrency(Number(hoaDon.tong_tien_truoc_giam))}</span>
+                <span className="text-slate-900 dark:text-white font-black">{formatCurrency(Number(hoaDon.tong_tien_goc || hoaDon.tong_tien_thanh_toan))}</span>
               </div>
               <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-2 text-slate-900 dark:text-white font-black">
                 <span>Tổng phải thu:</span>

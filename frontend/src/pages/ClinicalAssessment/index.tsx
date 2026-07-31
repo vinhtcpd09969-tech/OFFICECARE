@@ -16,11 +16,7 @@ import {
   Timer,
   Stethoscope,
   Activity,
-  Sparkles,
-  UserCheck,
-  Coins,
-  Clock,
-  User
+  Clock
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import {

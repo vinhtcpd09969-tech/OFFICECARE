@@ -157,10 +157,10 @@ export function TopPackagesChart() {
                         strokeWidth={isHovered ? 18 : 14}
                         strokeDasharray={strokeDasharray}
                         strokeDashoffset={strokeDashoffset}
+                        pathLength={100}
                         className="transition-all duration-300 cursor-pointer"
                         onMouseEnter={() => setHoveredIndex(idx)}
                         onMouseLeave={() => setHoveredIndex(null)}
-                        style={{ pathLength: 100 }}
                       />
                     );
                   })}

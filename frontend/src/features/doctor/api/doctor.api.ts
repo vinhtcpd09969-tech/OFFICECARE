@@ -106,6 +106,7 @@ export interface PackageItem {
   ten_goi: string;
   mo_ta?: string;
   gia_goi: number;
+  tong_so_buoi?: number;
 }
 
 export interface ClinicalAssessmentPayload {

@@ -613,18 +613,34 @@ class ReceptionistRepository {
       if (shouldCreatePhacDo && !phacDoId) {
         const finalGoiDichVuId = item_type === 'goi' ? item_id : (item_id || null);
         if (finalGoiDichVuId) {
-          // Tạo phác đồ điều trị mới
-          const { rows: pdRows } = await client.query(`
-            INSERT INTO phac_do_dieu_tri (
-              khach_hang_id, goi_dich_vu_id, tong_so_buoi, so_buoi_da_dung, trang_thai, ngay_kich_hoat
-            ) VALUES ($1, $2, $3, 0, 'dang_dieu_tri', NOW())
-            RETURNING id
-          `, [
-            khach_hang_id,
-            finalGoiDichVuId,
-            item_type === 'goi' ? (so_buoi_goi || 10) : 1
-          ]);
-          phacDoId = pdRows[0].id;
+          // Guard chống trùng: cuoc_hen.phac_do_dieu_tri_id (nguồn phacDoId ở trên) bị cố ý bỏ trống
+          // cho ca KHÁM (xem lý do ở UPDATE cuoc_hen bên dưới), nên nếu request tạo hóa đơn bị gọi lại
+          // nhiều lần cho cùng cuộc hẹn khám đó (lễ tân bấm lại do tưởng lỗi/timeout, mất mạng giữa
+          // chừng...), điều kiện "!phacDoId" phía trên luôn đúng — không có gì chặn tạo phác đồ mới
+          // mỗi lần gọi lại, sinh nhiều phác đồ mồ côi cho cùng 1 lần mua thực tế (bug đã gặp thực tế).
+          // Khóa dòng để chặn 2 giao dịch song song cùng khách + cùng gói race nhau tạo trùng, rồi tái
+          // sử dụng phác đồ đang "dang_dieu_tri" nếu đã tồn tại thay vì luôn insert mới.
+          const { rows: existingPhacDoRows } = await client.query(`
+            SELECT id FROM phac_do_dieu_tri
+            WHERE khach_hang_id = $1 AND goi_dich_vu_id = $2 AND trang_thai = 'dang_dieu_tri'
+            FOR UPDATE
+          `, [khach_hang_id, finalGoiDichVuId]);
+
+          if (existingPhacDoRows.length > 0) {
+            phacDoId = existingPhacDoRows[0].id;
+          } else {
+            const { rows: pdRows } = await client.query(`
+              INSERT INTO phac_do_dieu_tri (
+                khach_hang_id, goi_dich_vu_id, tong_so_buoi, so_buoi_da_dung, trang_thai, ngay_kich_hoat
+              ) VALUES ($1, $2, $3, 0, 'dang_dieu_tri', NOW())
+              RETURNING id
+            `, [
+              khach_hang_id,
+              finalGoiDichVuId,
+              item_type === 'goi' ? (so_buoi_goi || 10) : 1
+            ]);
+            phacDoId = pdRows[0].id;
+          }
 
           // Đánh dấu đúng chỉ định (chi_dinh_buoi) của ca khám đã dẫn tới phác đồ này — nguồn xác
           // thực duy nhất để nối ngược phác đồ về ca khám gốc (lấy lại chẩn đoán/chống chỉ định)

@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   User,
   Coins,
-  CalendarDays,
   DollarSign,
   Activity
 } from 'lucide-react';
