@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Calendar,
   AlertCircle,
@@ -109,10 +109,17 @@ export default function CustomerAppointments() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Inline OTP states
-  const [otpInput, setOtpInput] = useState<string>('');
+  // Inline OTP states & Ref for Auto Scroll (Keyed per appointment ID to prevent input bleeding)
+  const [otpInputs, setOtpInputs] = useState<Record<string, string>>({});
+  const getOtpInput = (id: string) => otpInputs[id] || '';
+  const setSingleOtpInput = (id: string, val: string) => {
+    const clean = val.replace(/\D/g, '').slice(0, 6);
+    setOtpInputs(prev => ({ ...prev, [id]: clean }));
+  };
+
   const [verifyingOtpId, setVerifyingOtpId] = useState<string | null>(null);
   const [resendingOtpId, setResendingOtpId] = useState<string | null>(null);
+  const otpBoxRef = useRef<HTMLDivElement | null>(null);
 
   // Time ticker state for realtime countdown
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
@@ -123,6 +130,17 @@ export default function CustomerAppointments() {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Tự động kéo đến phần OTP khi có lịch hẹn cần xác thực mã
+  useEffect(() => {
+    const hasUnconfirmed = appointments.some(a => ['chua_xac_nhan', 'cho_xac_nhan'].includes(a.trang_thai?.toLowerCase()));
+    if (hasUnconfirmed) {
+      const timer = setTimeout(() => {
+        otpBoxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 600);
+      return () => clearTimeout(timer);
+    }
+  }, [appointments]);
 
   const fetchAppointments = async () => {
     setLoading(true);
@@ -192,7 +210,8 @@ export default function CustomerAppointments() {
   };
 
   const handleVerifyOtp = async (apptId: string) => {
-    if (otpInput.length !== 6 || !/^\d+$/.test(otpInput)) {
+    const apptOtp = getOtpInput(apptId);
+    if (apptOtp.length !== 6 || !/^\d+$/.test(apptOtp)) {
       toast.error('Vui lòng nhập đúng mã OTP 6 chữ số.');
       return;
     }
@@ -200,11 +219,11 @@ export default function CustomerAppointments() {
     try {
       const response = await api.post(`/client/appointments/public/confirm-otp`, {
         id: apptId,
-        otp: otpInput
+        otp: apptOtp
       });
       if (response.data.success) {
         toast.success('Xác thực OTP thành công! Lịch hẹn của bạn đang chờ Trung tâm xác nhận.');
-        setOtpInput('');
+        setSingleOtpInput(apptId, '');
         fetchAppointments();
       } else {
         toast.error(response.data.message || 'Mã OTP không hợp lệ hoặc đã hết hạn.');
@@ -849,10 +868,21 @@ export default function CustomerAppointments() {
                         {isUnconfirmed && (() => {
                           const otpTimeLeft = app.han_xac_nhan ? Math.max(0, Math.floor((new Date(app.han_xac_nhan).getTime() - currentTime.getTime()) / 1000)) : 0;
                           return (
-                            <div className="bg-gradient-to-br from-teal-50/70 via-white to-emerald-50/40 border border-teal-200/80 p-4 rounded-2xl text-[11px] space-y-3 text-left shadow-2xs">
-                              <div className="flex items-center gap-1.5 text-[#0D9488] font-black uppercase text-[10px] tracking-wider">
-                                <ShieldCheck size={14} />
-                                <span>XÁC THỰC LỊCH HẸN BẰNG MÃ OTP</span>
+                            <motion.div 
+                              ref={otpBoxRef}
+                              initial={{ opacity: 0, y: 20, scale: 0.96 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                              className="bg-gradient-to-br from-teal-50/90 via-white to-emerald-50/70 border-2 border-teal-500/50 p-4.5 sm:p-5 rounded-2xl text-[11px] space-y-3.5 text-left shadow-lg shadow-teal-500/10 relative overflow-hidden backdrop-blur-md"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-1.5 text-[#0D9488] font-black uppercase text-[10px] tracking-wider">
+                                  <ShieldCheck size={15} />
+                                  <span>XÁC THỰC LỊCH HẸN BẰNG MÃ OTP</span>
+                                </div>
+                                <span className="bg-teal-500/10 text-teal-700 text-[9px] font-black uppercase px-2 py-0.5 rounded-full border border-teal-500/20">
+                                  Xác Thực An Toàn
+                                </span>
                               </div>
 
                               {app.han_xac_nhan && (
@@ -865,33 +895,79 @@ export default function CustomerAppointments() {
                                     <Clock size={13} className={otpTimeLeft > 0 ? 'text-[#0D9488] animate-pulse' : 'text-rose-500'} />
                                     <span>{otpTimeLeft > 0 ? 'Mã OTP có hiệu lực trong:' : 'Mã OTP đã hết hạn!'}</span>
                                   </div>
-                                  <span className="font-mono font-black text-xs px-2 py-0.5 bg-white text-slate-900 rounded-lg shadow-2xs border border-slate-150">
+                                  <span className="font-mono font-black text-xs px-2.5 py-0.5 bg-white text-slate-900 rounded-lg shadow-2xs border border-slate-150">
                                     {otpTimeLeft > 0 ? `${Math.floor(otpTimeLeft / 60)}:${(otpTimeLeft % 60).toString().padStart(2, '0')}` : '0:00'}
                                   </span>
                                 </div>
                               )}
 
-                              <div className="flex gap-2">
-                                <input
-                                  type="text"
-                                  maxLength={6}
-                                  value={otpInput}
-                                  onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ''))}
-                                  placeholder="• • • • • •"
-                                  disabled={verifyingOtpId === app.id || (!!app.han_xac_nhan && otpTimeLeft <= 0)}
-                                  className="flex-1 px-3 py-2.5 bg-white border-2 border-slate-200 focus:border-[#0D9488] focus:ring-2 focus:ring-[#0D9488]/10 text-center font-mono font-black tracking-[0.4em] text-sm rounded-xl outline-none transition-all disabled:bg-slate-50 shadow-2xs"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => handleVerifyOtp(app.id)}
-                                  disabled={verifyingOtpId === app.id || otpInput.length !== 6 || (!!app.han_xac_nhan && otpTimeLeft <= 0)}
-                                  className="px-5 py-2.5 bg-[#0D9488] hover:bg-[#0b7a70] disabled:opacity-50 text-white font-extrabold text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer shadow-md shadow-teal-500/15 flex items-center justify-center gap-1 shrink-0"
-                                >
-                                  {verifyingOtpId === app.id ? 'Đang duyệt...' : 'Xác thực'}
-                                </button>
-                              </div>
-                              <div className="flex justify-between items-center text-[10px] font-bold border-t border-slate-100 pt-2">
-                                <span className="text-slate-500">Chưa nhận được mã?</span>
+                              {/* 6 Visual OTP Digit Slots + Hidden Native Input */}
+                              {(() => {
+                                const currentOtpVal = getOtpInput(app.id);
+                                return (
+                                  <div className="space-y-3">
+                                    <div className="relative">
+                                      <input
+                                        type="text"
+                                        maxLength={6}
+                                        value={currentOtpVal}
+                                        onChange={(e) => setSingleOtpInput(app.id, e.target.value)}
+                                        disabled={verifyingOtpId === app.id || (!!app.han_xac_nhan && otpTimeLeft <= 0)}
+                                        className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer disabled:cursor-not-allowed"
+                                      />
+                                      <div className="grid grid-cols-6 gap-1.5 sm:gap-2">
+                                        {[0, 1, 2, 3, 4, 5].map((idx) => {
+                                          const digit = currentOtpVal[idx] || '';
+                                          const isFocused = currentOtpVal.length === idx;
+                                          const isFilled = !!digit;
+
+                                          return (
+                                            <motion.div
+                                              key={idx}
+                                              animate={{
+                                                scale: isFilled ? [1, 1.08, 1] : isFocused ? [1, 1.05, 1] : 1,
+                                                borderColor: isFilled ? '#0D9488' : isFocused ? '#0D9488' : '#CBD5E1',
+                                              }}
+                                              transition={{ duration: 0.15 }}
+                                              className={`h-11 sm:h-12 rounded-xl border-2 flex items-center justify-center font-mono text-base font-black transition-all ${
+                                                isFilled
+                                                  ? 'bg-teal-600 text-white border-teal-700 shadow-xs'
+                                                  : isFocused
+                                                  ? 'bg-white border-teal-500 text-teal-600 ring-4 ring-teal-500/15 animate-pulse'
+                                                  : 'bg-white/90 text-slate-400 border-slate-200'
+                                              }`}
+                                            >
+                                              {digit ? (
+                                                <motion.span
+                                                  initial={{ scale: 0, opacity: 0 }}
+                                                  animate={{ scale: 1, opacity: 1 }}
+                                                  transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+                                                >
+                                                  {digit}
+                                                </motion.span>
+                                              ) : (
+                                                <span className="text-slate-300 text-xs">•</span>
+                                              )}
+                                            </motion.div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleVerifyOtp(app.id)}
+                                      disabled={verifyingOtpId === app.id || currentOtpVal.length !== 6 || (!!app.han_xac_nhan && otpTimeLeft <= 0)}
+                                      className="w-full py-3 bg-gradient-to-r from-[#0D9488] to-teal-600 hover:from-[#0b7a70] hover:to-teal-700 disabled:opacity-50 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer shadow-md shadow-teal-500/20 flex items-center justify-center gap-1.5 active:scale-[0.99]"
+                                    >
+                                      {verifyingOtpId === app.id ? 'Đang xác thực OTP...' : 'Xác thực mã OTP ngay'}
+                                    </button>
+                                  </div>
+                                );
+                              })()}
+
+                              <div className="flex justify-between items-center text-[10px] font-bold border-t border-slate-100 pt-2.5">
+                                <span className="text-slate-500">Chưa nhận được mã OTP?</span>
                                 <button
                                   type="button"
                                   onClick={() => handleResendOtp(app.id)}
@@ -901,7 +977,7 @@ export default function CustomerAppointments() {
                                   {resendingOtpId === app.id ? 'Đang gửi...' : '🔄 Gửi lại OTP ngay'}
                                 </button>
                               </div>
-                            </div>
+                            </motion.div>
                           );
                         })()}
 

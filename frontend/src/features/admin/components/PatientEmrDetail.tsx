@@ -1,8 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
 import {
-  ChevronLeft, FileText, Printer, Stethoscope,
+  ChevronLeft, FileText, Stethoscope,
   AlertTriangle, ChevronDown, ChevronUp, Calendar, MapPin, Clock, ImageIcon, MessageSquareText, X,
-  ShieldAlert, TrendingDown, TrendingUp, CheckCircle2
+  ShieldAlert, TrendingDown, TrendingUp, CheckCircle2, HeartPulse, Activity
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
@@ -25,10 +25,10 @@ interface PatientEmrDetailProps {
 // khác (kể cả 'huy') đều rơi vào nhánh else và bị gán nhãn "Hoàn thành", khiến liệu trình đã hủy
 // hiện sai thành đã hoàn thành trong hồ sơ khách hàng. Tách rõ 4 trạng thái thật.
 const PLAN_STATUS_BADGE: Record<string, { className: string; label: string }> = {
-  dang_dieu_tri: { className: 'bg-teal-50 text-teal-700 border border-teal-100/50', label: 'Đang điều trị' },
-  cho_kich_hoat: { className: 'bg-amber-50 text-amber-700 border border-amber-100/50', label: 'Chờ kích hoạt' },
-  hoan_thanh: { className: 'bg-slate-100 text-slate-650', label: 'Hoàn thành' },
-  huy: { className: 'bg-rose-50 text-rose-700 border border-rose-100/50', label: 'Đã hủy' }
+  dang_dieu_tri: { className: 'bg-teal-50 text-teal-800 border border-teal-200/80 shadow-2xs font-black', label: 'Đang điều trị' },
+  cho_kich_hoat: { className: 'bg-amber-50 text-amber-800 border border-amber-200/80 shadow-2xs font-black', label: 'Chờ kích hoạt' },
+  hoan_thanh: { className: 'bg-emerald-50 text-emerald-800 border border-emerald-200/80 shadow-2xs font-black', label: 'Hoàn thành' },
+  huy: { className: 'bg-rose-50 text-rose-800 border border-rose-200/80 shadow-2xs font-black', label: 'Đã hủy' }
 };
 const getPlanStatusBadge = (trangThai: string) => PLAN_STATUS_BADGE[trangThai] || PLAN_STATUS_BADGE.hoan_thanh;
 
@@ -127,132 +127,127 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
     return null;
   }, [patient]);
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   const realPlans = patient?.plans?.filter((pl: any) => !pl.id.startsWith('virtual-')) || [];
   const historyItems = patient?.appointments?.filter(
     (ap: any) => !ap.phac_do_dieu_tri_id || ap.loai === 'KHAM'
   ) || [];
   const STATUS_META: Record<string, { label: string; cls: string }> = {
-    hoan_thanh: { label: 'Đã hoàn thành', cls: 'bg-emerald-50 text-emerald-700' },
-    cho_xac_nhan: { label: 'Chờ xác nhận', cls: 'bg-slate-100 text-slate-600' },
-    da_xac_nhan: { label: 'Đã đặt lịch', cls: 'bg-amber-50 text-amber-700' },
-    da_checkin: { label: 'Đang khám', cls: 'bg-sky-50 text-sky-700' },
-    khong_den: { label: 'Không đến', cls: 'bg-rose-50 text-rose-700' },
-    khach_khong_den: { label: 'Không đến', cls: 'bg-rose-50 text-rose-700' },
-    khach_khong_den_phat: { label: 'Không đến', cls: 'bg-rose-50 text-rose-700' }
+    hoan_thanh: { label: 'Đã hoàn thành', cls: 'bg-emerald-50 text-emerald-800 border border-emerald-200/60 font-extrabold' },
+    cho_xac_nhan: { label: 'Chờ xác nhận', cls: 'bg-slate-100 text-slate-700 border border-slate-200/60 font-extrabold' },
+    da_xac_nhan: { label: 'Đã đặt lịch', cls: 'bg-amber-50 text-amber-800 border border-amber-200/60 font-extrabold' },
+    da_checkin: { label: 'Đang khám', cls: 'bg-sky-50 text-sky-800 border border-sky-200/60 font-extrabold' },
+    khong_den: { label: 'Không đến', cls: 'bg-rose-50 text-rose-800 border border-rose-200/60 font-extrabold' },
+    khach_khong_den: { label: 'Không đến', cls: 'bg-rose-50 text-rose-800 border border-rose-200/60 font-extrabold' },
+    khach_khong_den_phat: { label: 'Không đến', cls: 'bg-rose-50 text-rose-800 border border-rose-200/60 font-extrabold' }
   };
   const PAY_META: Record<string, { label: string; cls: string }> = {
-    da_thanh_toan: { label: 'Đã thanh toán', cls: 'bg-emerald-50 text-emerald-700' },
-    chua_thanh_toan: { label: 'Chưa thanh toán', cls: 'bg-amber-50 text-amber-700' }
+    da_thanh_toan: { label: 'Đã thanh toán', cls: 'bg-emerald-50 text-emerald-800 border border-emerald-200/60 font-extrabold' },
+    chua_thanh_toan: { label: 'Chưa thanh toán', cls: 'bg-amber-50 text-amber-800 border border-amber-200/60 font-extrabold' }
   };
 
   return (
     <div className="space-y-6">
-      {/* Back Button & Patient Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-100 pb-5">
+      {/* Back Button & Patient Header Soft Light */}
+      <div className="bg-gradient-to-r from-teal-50/70 via-slate-50 to-emerald-50/40 border border-slate-200/80 rounded-3xl p-5 shadow-2xs flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <button
             onClick={onBack}
-            className="p-2.5 bg-white border border-slate-200 rounded-xl text-slate-650 hover:text-slate-850 hover:bg-slate-50 transition-all shadow-sm active:scale-95 shrink-0"
+            className="p-2.5 bg-white hover:bg-teal-50 hover:text-[#0D9488] border border-slate-200/80 rounded-2xl text-slate-600 transition-all shadow-2xs active:scale-95 shrink-0 cursor-pointer"
+            title="Quay lại danh sách"
           >
-            <ChevronLeft size={16} className="stroke-[3]" />
+            <ChevronLeft size={18} className="stroke-[2.5]" />
           </button>
 
-          <div className="flex items-center gap-3.5">
-            <div className="size-12 rounded-xl bg-gradient-to-br from-slate-800 to-slate-950 text-white flex items-center justify-center font-bold text-sm uppercase shadow-md shadow-slate-950/15 border border-slate-700/10 shrink-0">
-              {patient?.ho_ten?.charAt(0) || 'K'}
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-900 leading-tight">{patient?.ho_ten}</h3>
-              <p className="text-[10px] text-slate-500 font-semibold mt-0.5">
-                <span className="font-extrabold font-mono text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded mr-1.5">
+          <div className="flex items-center gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h3 className="text-base font-black text-slate-900 tracking-tight">{patient?.ho_ten}</h3>
+                <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200/80 px-2.5 py-0.5 rounded-full">
+                  <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" /> Bệnh nhân điều trị tích hợp
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 font-medium flex items-center gap-2 flex-wrap">
+                <span className="font-extrabold font-mono text-teal-800 bg-teal-50 border border-teal-200/60 px-2 py-0.5 rounded-md">
                   {'KH-' + patient?.id?.substring(0, 8).toUpperCase()}
                 </span>
-                {patient?.so_dien_thoai} • Bệnh nhân điều trị tích hợp
+                <span>• {patient?.so_dien_thoai}</span>
+                {patient?.email && <span className="text-slate-400">• {patient.email}</span>}
               </p>
             </div>
           </div>
         </div>
-
-        <div className="flex items-center gap-2.5 self-end sm:self-center">
-          <button
-            onClick={handlePrint}
-            className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-200/50 rounded-xl text-slate-700 font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
-          >
-            <Printer size={13} className="stroke-[2.5]" />
-            <span>In hồ sơ</span>
-          </button>
-        </div>
       </div>
 
       <div className={showAdminInfo ? "grid grid-cols-1 lg:grid-cols-3 gap-6" : "w-full"}>
-        {/* Left Column: Patient Profile Summary */}
+        {/* Left Column: Patient Profile Summary ProMax */}
         {showAdminInfo && (
           <div className="space-y-6">
-            <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="size-14 rounded-2xl bg-gradient-to-br from-teal-500 to-teal-700 text-white flex items-center justify-center font-bold text-xl uppercase shadow-md shadow-teal-500/10 shrink-0">
+            <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-xs space-y-5">
+              <div className="flex items-center gap-3.5">
+                <div className="size-14 rounded-2xl bg-gradient-to-br from-teal-500 via-teal-600 to-emerald-700 text-white flex items-center justify-center font-black text-xl uppercase shadow-md shadow-teal-500/15 shrink-0">
                   {patient?.ho_ten?.charAt(0) || 'K'}
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-slate-805 leading-tight">{patient?.ho_ten}</h4>
-                  <span className="text-[10px] text-slate-400 font-extrabold font-mono bg-slate-50 px-1.5 py-0.5 rounded inline-block mt-1.5">
+                  <h4 className="text-sm font-black text-slate-900 leading-tight">{patient?.ho_ten}</h4>
+                  <span className="text-[10px] text-teal-800 font-black font-mono bg-teal-50 border border-teal-200/50 px-2 py-0.5 rounded-md inline-block mt-1.5">
                     {'KH-' + patient?.id?.substring(0, 8).toUpperCase()}
                   </span>
                 </div>
               </div>
 
-              <div className="border-t border-slate-50 pt-4 space-y-3 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-slate-400 font-medium">Số điện thoại:</span>
-                  <strong className="text-slate-700 font-bold">{patient?.so_dien_thoai}</strong>
+              <div className="border-t border-slate-100 pt-4 space-y-3 text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 font-medium">Số điện thoại:</span>
+                  <strong className="text-slate-800 font-bold font-mono">{patient?.so_dien_thoai}</strong>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400 font-medium">Email:</span>
-                  <strong className="text-slate-700 font-bold">{patient?.email || 'Chưa cung cấp'}</strong>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 font-medium">Email:</span>
+                  <strong className="text-slate-800 font-bold truncate max-w-[160px]">{patient?.email || 'Chưa cung cấp'}</strong>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400 font-medium">Điểm uy tín:</span>
-                  <strong className="text-teal-600 font-bold">{patient?.diem_uy_tin || 0}đ</strong>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 font-medium">Điểm uy tín:</span>
+                  <strong className="text-teal-600 font-extrabold bg-teal-50 px-2 py-0.5 rounded-lg border border-teal-100">{patient?.diem_uy_tin || 0}đ</strong>
                 </div>
               </div>
             </div>
 
-            {/* Quick statistics */}
-            <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-3">
-              <h4 className="text-xs font-bold text-slate-805 uppercase tracking-wider">Thống kê hồ sơ</h4>
-              <div className="grid grid-cols-2 gap-4 pt-1">
-                <div className="bg-slate-50 p-3 rounded-xl text-center">
-                  <span className="text-[20px] font-bold text-slate-850 block">{realPlans.length}</span>
-                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mt-0.5">Phác đồ</span>
+            {/* Quick statistics ProMax */}
+            <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-xs space-y-4">
+              <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                <Activity size={15} className="text-teal-600" /> Thống kê hồ sơ
+              </h4>
+              <div className="grid grid-cols-2 gap-3.5 pt-1">
+                <div className="bg-gradient-to-br from-teal-50/70 to-emerald-50/30 border border-teal-100/80 p-3.5 rounded-2xl text-center shadow-2xs">
+                  <span className="text-2xl font-black text-[#0D9488] block">{realPlans.length}</span>
+                  <span className="text-[9px] font-black text-teal-800 uppercase tracking-wider block mt-0.5">Gói liệu trình</span>
                 </div>
-                <div className="bg-slate-50 p-3 rounded-xl text-center">
-                  <span className="text-[20px] font-bold text-slate-850 block">
+                <div className="bg-gradient-to-br from-indigo-50/70 to-blue-50/30 border border-indigo-100/80 p-3.5 rounded-2xl text-center shadow-2xs">
+                  <span className="text-2xl font-black text-indigo-600 block">
                     {patient?.appointments?.filter((ap: any) => ap.trang_thai === 'hoan_thanh').length || 0}
                   </span>
-                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mt-0.5">Buổi hoàn thành</span>
+                  <span className="text-[9px] font-black text-indigo-800 uppercase tracking-wider block mt-0.5">Buổi hoàn thành</span>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Right/Main: 2 bảng luôn hiện song song — Phác đồ điều trị & Khám/Dịch vụ lẻ */}
+        {/* Right/Main: 2 bảng luôn hiện song song — Gói liệu trình & Gói khám/Dịch vụ đơn lẻ */}
         <div className={showAdminInfo ? "lg:col-span-2" : "w-full"}>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-            {/* ===== BẢNG TRÁI: Phác đồ điều trị ===== */}
+            {/* ===== BẢNG TRÁI: Gói liệu trình ===== */}
             <div className="space-y-4">
-              <h4 className="text-xs font-bold text-slate-805 uppercase tracking-wider">
-                Phác đồ điều trị ({realPlans.length})
-              </h4>
+              <div className="flex items-center gap-2 bg-slate-100/80 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-slate-200/60 w-fit">
+                <HeartPulse size={15} className="text-[#0D9488]" />
+                <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">
+                  Gói liệu trình ({realPlans.length})
+                </h4>
+              </div>
 
               {realPlans.length === 0 ? (
-                <div className="bg-white border border-slate-100 rounded-2xl py-12 text-center text-slate-400 font-semibold text-xs shadow-sm">
-                  Bệnh nhân chưa có phác đồ điều trị nào.
+                <div className="bg-white border border-slate-200/80 rounded-3xl py-12 text-center text-slate-400 font-semibold text-xs shadow-xs">
+                  Bệnh nhân chưa có gói liệu trình nào.
                 </div>
               ) : (
                 realPlans.map((pl: any) => {
@@ -263,49 +258,49 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
                     <div
                       key={pl.id}
                       id={`plan-card-${pl.id}`}
-                      className={`bg-white border rounded-2xl shadow-sm overflow-hidden transition-all ${
-                        isHighlighted ? 'animate-highlight-once ring-2 ring-teal-400 ring-offset-2 border-teal-200' : 'border-slate-100 hover:border-slate-200'
+                      className={`bg-white border rounded-3xl shadow-xs hover:shadow-md transition-all duration-300 overflow-hidden ${
+                        isHighlighted ? 'animate-highlight-once ring-2 ring-teal-400 ring-offset-2 border-teal-300' : 'border-slate-200/80 hover:border-teal-500/40'
                       }`}
                     >
                       <div className="p-5 space-y-4">
                         {showReminder && (
-                          <div className="flex items-start gap-2 bg-amber-50/70 border border-amber-200/60 rounded-xl px-3 py-2.5">
-                            <Clock size={13} className="text-amber-600 stroke-[2.5] shrink-0 mt-0.5" />
-                            <p className="text-[11px] font-bold text-amber-900 leading-relaxed">{patient.reminder.message}</p>
+                          <div className="flex items-start gap-3 bg-gradient-to-r from-amber-50 to-amber-100/50 border border-amber-300/60 rounded-2xl px-3.5 py-2.5 shadow-2xs">
+                            <Clock size={15} className="text-amber-600 stroke-[2.5] shrink-0 mt-0.5 animate-pulse" />
+                            <p className="text-[11px] font-black text-amber-900 leading-relaxed">{patient.reminder.message}</p>
                           </div>
                         )}
                         <div className="flex justify-between items-start gap-4">
                           <div>
-                            <span className={`inline-flex px-2 py-0.5 rounded text-[8px] font-bold uppercase ${getPlanStatusBadge(pl.trang_thai).className}`}>
+                            <span className={`inline-flex px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider ${getPlanStatusBadge(pl.trang_thai).className}`}>
                               {getPlanStatusBadge(pl.trang_thai).label}
                             </span>
-                            <h4 className="text-sm font-bold text-slate-805 mt-1.5">{pl.ten_goi}</h4>
-                            <p className="text-[10px] text-slate-400 font-semibold mt-1">
-                              Bác sĩ: {pl.ten_bac_si || 'N/A'} • Ngày kích hoạt: {pl.ngay_kich_hoat ? format(new Date(pl.ngay_kich_hoat), 'dd/MM/yyyy') : 'N/A'}
+                            <h4 className="text-sm font-black text-slate-900 mt-2 leading-snug">{pl.ten_goi}</h4>
+                            <p className="text-[11px] text-slate-500 font-medium mt-1">
+                              Bác sĩ: <strong className="text-slate-700">{pl.ten_bac_si || 'N/A'}</strong> • Ngày kích hoạt: {pl.ngay_kich_hoat ? format(new Date(pl.ngay_kich_hoat), 'dd/MM/yyyy') : 'N/A'}
                             </p>
                             {pl.han_su_dung && (
-                              <p className="text-[10px] text-slate-400 font-semibold mt-0.5">
-                                Hạn sử dụng: <strong className="text-slate-600">{format(new Date(pl.han_su_dung), 'dd/MM/yyyy')}</strong>
+                              <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                                Hạn sử dụng: <strong className="text-slate-700 font-bold">{format(new Date(pl.han_su_dung), 'dd/MM/yyyy')}</strong>
                               </p>
                             )}
                           </div>
                           <button
                             onClick={() => setExpandedPlanId(pl.id)}
-                            className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-bold text-[10px] transition-all flex items-center gap-1 shrink-0"
+                            className="px-3.5 py-1.5 bg-slate-900 hover:bg-[#0D9488] text-white rounded-xl font-bold text-[11px] transition-all shadow-xs flex items-center gap-1 shrink-0 cursor-pointer active:scale-95"
                           >
                             Chi tiết
-                            <ChevronDown size={11} />
+                            <ChevronDown size={12} />
                           </button>
                         </div>
 
-                        {/* Progress bar */}
+                        {/* Progress bar ProMax */}
                         <div className="space-y-1.5 pt-1">
-                          <div className="flex justify-between text-[10px] font-bold text-slate-500">
+                          <div className="flex justify-between text-[11px] font-extrabold text-slate-600">
                             <span>Tiến độ liệu trình: {pl.so_buoi_da_dung}/{pl.tong_so_buoi} buổi</span>
-                            <span>{progressPercent}%</span>
+                            <span className="text-[#0D9488] font-black">{progressPercent}%</span>
                           </div>
-                          <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                            <div className="bg-teal-500 h-full rounded-full transition-all" style={{ width: `${progressPercent}%` }} />
+                          <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden p-0.5 border border-slate-200/50">
+                            <div className="bg-gradient-to-r from-[#0D9488] to-emerald-400 h-full rounded-full transition-all duration-500 shadow-2xs" style={{ width: `${progressPercent}%` }} />
                           </div>
                         </div>
                       </div>
@@ -315,15 +310,18 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
               )}
             </div>
 
-            {/* ===== BẢNG PHẢI: Khám & Dịch vụ lẻ ===== */}
+            {/* ===== BẢNG PHẢI: Gói khám & Dịch vụ đơn lẻ ===== */}
             <div className="space-y-4">
-              <h4 className="text-xs font-bold text-slate-805 uppercase tracking-wider">
-                Khám & Dịch vụ lẻ ({historyItems.length})
-              </h4>
+              <div className="flex items-center gap-2 bg-slate-100/80 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-slate-200/60 w-fit">
+                <Stethoscope size={15} className="text-indigo-600" />
+                <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">
+                  Gói khám và gói dịch vụ đơn lẻ ({historyItems.length})
+                </h4>
+              </div>
 
               {historyItems.length === 0 ? (
-                <div className="bg-white border border-slate-100 rounded-2xl py-12 text-center text-slate-400 font-semibold text-xs shadow-sm">
-                  Bệnh nhân chưa có lịch sử ca khám hoặc dịch vụ lẻ nào.
+                <div className="bg-white border border-slate-200/80 rounded-3xl py-12 text-center text-slate-400 font-semibold text-xs shadow-xs">
+                  Bệnh nhân chưa có lịch sử gói khám hoặc gói dịch vụ đơn lẻ nào.
                 </div>
               ) : (
                 historyItems.map((ap: any) => {
@@ -334,38 +332,38 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
                     <div
                       key={ap.id}
                       id={`visit-card-${ap.id}`}
-                      className={`bg-white border rounded-2xl shadow-sm overflow-hidden transition-all ${
-                        isHighlighted ? 'animate-highlight-once ring-2 ring-teal-400 ring-offset-2 border-teal-200' : 'border-slate-100 hover:border-slate-200'
+                      className={`bg-white border rounded-3xl shadow-xs hover:shadow-md transition-all duration-300 overflow-hidden ${
+                        isHighlighted ? 'animate-highlight-once ring-2 ring-teal-400 ring-offset-2 border-teal-300' : 'border-slate-200/80 hover:border-indigo-500/40'
                       }`}
                     >
                       <button
                         type="button"
                         onClick={() => setExpandedAptId(ap.id)}
-                        className="w-full p-4 flex justify-between items-center gap-4 text-left cursor-pointer select-none hover:bg-slate-50/30 transition-colors"
+                        className="w-full p-5 flex justify-between items-center gap-4 text-left cursor-pointer select-none hover:bg-slate-50/40 transition-colors"
                       >
-                        <div className="space-y-1.5">
+                        <div className="space-y-2">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${ap.loai === 'KHAM' ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-100 text-slate-650'
+                            <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider ${ap.loai === 'KHAM' ? 'bg-indigo-50 text-indigo-800 border border-indigo-200/60' : 'bg-purple-50 text-purple-800 border border-purple-200/60'
                               }`}>
                               {ap.loai === 'KHAM' ? 'Khám lâm sàng' : 'Dịch vụ lẻ'}
                             </span>
-                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${statusMeta.cls}`}>
+                            <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider ${statusMeta.cls}`}>
                               {statusMeta.label}
                             </span>
                             {payMeta && (
-                              <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${payMeta.cls}`}>
+                              <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider ${payMeta.cls}`}>
                                 {payMeta.label}
                               </span>
                             )}
                           </div>
-                          <h4 className="text-xs font-bold text-slate-800">{ap.ten_dich_vu || (ap.loai === 'KHAM' ? 'Khám lâm sàng & Lượng giá' : 'Trị liệu dịch vụ lẻ')}</h4>
-                          <p className="text-[10px] text-slate-400 font-semibold">
-                            {format(new Date(ap.ngay_gio_bat_dau), 'dd/MM/yyyy HH:mm')} • Thực hiện: {ap.ten_nhan_su || 'Chưa phân công'}
+                          <h4 className="text-sm font-black text-slate-900 leading-snug">{ap.ten_dich_vu || (ap.loai === 'KHAM' ? 'Khám lâm sàng & Lượng giá' : 'Trị liệu dịch vụ lẻ')}</h4>
+                          <p className="text-[11px] text-slate-500 font-medium">
+                            {format(new Date(ap.ngay_gio_bat_dau), 'dd/MM/yyyy HH:mm')} • Thực hiện: <strong className="text-slate-700">{ap.ten_nhan_su || 'Chưa phân công'}</strong>
                           </p>
                         </div>
-                        <span className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-bold text-[10px] transition-all flex items-center gap-1 shrink-0">
+                        <span className="px-3.5 py-1.5 bg-slate-900 hover:bg-indigo-600 text-white rounded-xl font-bold text-[11px] transition-all shadow-xs flex items-center gap-1 shrink-0 cursor-pointer active:scale-95">
                           Chi tiết
-                          <ChevronDown size={11} />
+                          <ChevronDown size={12} />
                         </span>
                       </button>
                     </div>
@@ -1099,17 +1097,19 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
                     </div>
 
                     {selectedApt.anh_dinh_kem_url && (
-                      <div className="p-3.5 bg-white border border-slate-100 rounded-xl shadow-sm">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-2">
-                          <ImageIcon size={11} className="text-slate-400" /> Ảnh khách hàng đính kèm
+                      <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-2.5 shadow-2xs">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                          <ImageIcon size={14} className="text-slate-400" /> Ảnh khách hàng đính kèm
                         </span>
-                        <a href={resolveImageUrl(selectedApt.anh_dinh_kem_url)} target="_blank" rel="noreferrer">
-                          <img
-                            src={resolveImageUrl(selectedApt.anh_dinh_kem_url)}
-                            alt="Ảnh đính kèm của khách hàng"
-                            className="max-h-64 rounded-xl border border-slate-100 object-contain"
-                          />
-                        </a>
+                        <div className="rounded-xl overflow-hidden bg-slate-900/5 border border-slate-200/60">
+                          <a href={resolveImageUrl(selectedApt.anh_dinh_kem_url)} target="_blank" rel="noreferrer" className="block">
+                            <img
+                              src={resolveImageUrl(selectedApt.anh_dinh_kem_url)}
+                              alt="Ảnh đính kèm của khách hàng"
+                              className="max-h-80 w-full object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                            />
+                          </a>
+                        </div>
                       </div>
                     )}
                   </div>

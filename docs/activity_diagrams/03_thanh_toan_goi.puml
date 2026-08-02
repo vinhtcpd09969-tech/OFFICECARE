@@ -1,0 +1,64 @@
+@startuml
+title Thanh Toán Gói Liệu Trình
+
+skinparam defaultFontName "Arial"
+skinparam defaultFontSize 17
+skinparam ActivityFontSize 17
+skinparam ActivityDiamondFontSize 16
+skinparam ArrowFontSize 15
+skinparam SwimlaneTitleFontSize 20
+skinparam TitleFontSize 24
+skinparam SwimlaneWidth 420
+skinparam ActivityBorderThickness 1.5
+skinparam ActivityCornerRadius 12
+skinparam shadowing false
+skinparam wrapWidth 280
+skinparam nodesep 95
+skinparam ranksep 100
+
+skinparam ActivityBackgroundColor #FFFFFF
+skinparam ActivityBorderColor #0D9488
+skinparam ActivityDiamondBackgroundColor #FFFFFF
+skinparam ActivityDiamondBorderColor #0D9488
+skinparam SwimlaneBorderColor #CBD5E1
+skinparam SwimlaneTitleBackgroundColor #F1F5F9
+skinparam ArrowColor #0D9488
+
+|Khách hàng|
+start
+:B1. Chọn gói liệu trình & hình thức thanh toán\n(Trả thẳng 100% / Trả góp / Từng buổi);
+
+|Hệ thống|
+:B2. Kiểm tra điều kiện miễn phí khám\n• Gói Liệu trình giá ≥ 1.000.000đ\n• Hình thức Trả thẳng hoặc Trả góp;
+
+if (Đủ điều kiện miễn phí khám?) then (có)
+  :B3. Miễn phí khám lâm sàng;
+else (không)
+  :B4. Thu phí khám riêng theo giá niêm yết;
+endif
+
+if (Hình thức thanh toán?) then (Trả thẳng)
+  :B5. Đóng đủ 100% giá trị gói ngay;
+elseif (Trả góp) then
+  :B6. Đóng Đợt 1 = 50% giá trị gói\n(trừ phí khám đã đóng riêng nếu có);
+else (Từng buổi)
+  :B7. Thu tiền theo từng buổi khi thực hiện;
+endif
+
+|Lễ tân / Quản lý|
+:B8. Xác nhận đã thu tiền, kích hoạt gói\nchuyển trạng thái "Đang điều trị";
+
+|Hệ thống|
+if (Chưa đóng đủ Đợt 2 khi\nđến mốc 40% buổi + 1?) then (có)
+  :B9. Chặn đặt buổi, yêu cầu đóng Đợt 2\n(phần còn lại của gói);
+  |Lễ tân / Quản lý|
+  :B10. Xác nhận đã thu Đợt 2;
+  |Hệ thống|
+else (không)
+endif
+
+:B11. Trừ 1 buổi mỗi khi hoàn thành 1 buổi điều trị\n(lặp lại cho các buổi tiếp theo);
+:B12. Dùng hết số buổi, chuyển trạng thái "Hoàn thành";
+stop
+
+@enduml

@@ -44,17 +44,17 @@ export default function Specialists() {
   }
 
   return (
-    <section className="py-20 bg-white border-b border-slate-200/80">
+    <section className="py-10 lg:py-12 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800/80 transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <ScrollReveal>
-          <div className="text-center max-w-2xl mx-auto mb-14">
-            <span className="bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 font-semibold tracking-wider text-[10px] px-3.5 py-1.5 rounded-full inline-flex items-center gap-1.5 mb-2 shadow-2xs">
+          <div className="text-center max-w-2xl mx-auto mb-8 lg:mb-10 space-y-1.5">
+            <span className="bg-[#0D9488]/10 text-[#0D9488] dark:text-teal-300 border border-[#0D9488]/20 font-bold tracking-wider text-[11px] px-3.5 py-1 rounded-full inline-flex items-center gap-1.5 shadow-2xs">
               <Award size={12} /> Đội ngũ y tế uy tín
             </span>
-            <h3 className="font-heading font-bold text-2xl md:text-3xl text-slate-800 mb-2 tracking-normal">
+            <h3 className="font-bold text-xl sm:text-2xl lg:text-3xl text-slate-900 dark:text-white tracking-tight">
               Hội Đồng Chuyên Gia Hàng Đầu
             </h3>
-            <p className="text-slate-500 font-normal text-xs md:text-sm leading-relaxed">
+            <p className="text-slate-600 dark:text-slate-400 font-medium text-xs sm:text-sm leading-relaxed">
               Các Bác sĩ chuyên khoa và Kỹ thuật viên trị liệu nhiều năm kinh nghiệm, luôn tận tâm đồng hành trong từng ca phục hồi.
             </p>
           </div>

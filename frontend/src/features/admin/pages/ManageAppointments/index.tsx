@@ -6,7 +6,7 @@ import {
   Settings,
   ChevronLeft
 } from 'lucide-react';
-import { format, addDays, subDays, startOfWeek, addMonths, subMonths } from 'date-fns';
+import { format, addDays, isSameDay } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -26,6 +26,7 @@ import { UnassignedPanel } from '../../../../components/appointments/ui/Unassign
 import { CapacityView } from '../../../../components/appointments/ui/CapacityView';
 import { statusConfig } from '../../../../components/appointmentStatusConfig';
 import { computeAppointmentKpiBuckets, KPI_BUCKET_STATUSES, KPI_BUCKET_LABELS, AppointmentKpiBuckets } from '../../../../utils/appointmentKpi';
+import { getSmartSearchScore } from '../../../../utils/smartSearch';
 import { ActiveFilterChip } from '../../../../components/appointments/ui/ActiveFilterChip';
 import { RoleView, ViewMode, TimeRange } from '../../../../components/appointments/types';
 
@@ -64,29 +65,32 @@ export default function ManageAppointments() {
     refetch
   } = useAppointmentsData(false);
 
-  // Filters State
-  const [selectedDate, setSelectedDate] = useState<Date>(() => {
+  // Filters State: Dynamic Start Date & End Date Range
+  const [startDate, setStartDate] = useState<Date>(() => {
     const params = new URLSearchParams(window.location.search);
-    const dateParam = params.get('date');
-    if (dateParam) {
-      const parsedDate = new Date(dateParam);
-      if (!isNaN(parsedDate.getTime())) {
-        return parsedDate;
-      }
+    const startParam = params.get('startDate') || params.get('date');
+    if (startParam) {
+      const parsedDate = new Date(startParam);
+      if (!isNaN(parsedDate.getTime())) return parsedDate;
     }
-    return new Date();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  });
+
+  const [endDate, setEndDate] = useState<Date>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const endParam = params.get('endDate');
+    if (endParam) {
+      const parsedDate = new Date(endParam);
+      if (!isNaN(parsedDate.getTime())) return parsedDate;
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return addDays(today, 6); // Mặc định 7 ngày (Hôm nay + 6 ngày)
   });
 
   const [activeType, setActiveType] = useState<'kham' | 'dieu_tri'>('kham');
-
-  const [timeRange, setTimeRange] = useState<TimeRange>(() => {
-    const params = new URLSearchParams(window.location.search);
-    const rangeParam = params.get('range');
-    if (rangeParam && ['today', '7days', 'month'].includes(rangeParam)) {
-      return rangeParam as TimeRange;
-    }
-    return '7days';
-  });
 
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const params = new URLSearchParams(window.location.search);
@@ -168,12 +172,15 @@ export default function ManageAppointments() {
     appointments: appointmentsToUse,
     services,
     packages,
-    selectedDate,
-    setSelectedDate,
+    selectedDate: startDate,
+    setSelectedDate: (d: Date) => {
+      setStartDate(d);
+      setEndDate(d);
+    },
     viewMode,
     setViewMode,
-    timeRange,
-    setTimeRange,
+    timeRange: 'custom',
+    setTimeRange: () => {},
     refetch,
     navigate,
     roleView,
@@ -223,37 +230,27 @@ export default function ManageAppointments() {
   // Synchronize state with URL search parameters
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const dateParam = params.get('date');
+    const startParam = params.get('startDate') || params.get('date');
+    const endParam = params.get('endDate');
     const viewParam = params.get('view');
-    const rangeParam = params.get('range');
 
-    if (dateParam) {
-      const parsedDate = new Date(dateParam);
-      if (!isNaN(parsedDate.getTime()) && format(parsedDate, 'yyyy-MM-dd') !== format(selectedDate, 'yyyy-MM-dd')) {
-        setSelectedDate(parsedDate);
+    if (startParam) {
+      const parsedDate = new Date(startParam);
+      if (!isNaN(parsedDate.getTime()) && format(parsedDate, 'yyyy-MM-dd') !== format(startDate, 'yyyy-MM-dd')) {
+        setStartDate(parsedDate);
       }
     }
 
-    if (rangeParam && ['today', '7days', 'month'].includes(rangeParam)) {
-      if (rangeParam !== timeRange) {
-        setTimeRange(rangeParam as TimeRange);
+    if (endParam) {
+      const parsedDate = new Date(endParam);
+      if (!isNaN(parsedDate.getTime()) && format(parsedDate, 'yyyy-MM-dd') !== format(endDate, 'yyyy-MM-dd')) {
+        setEndDate(parsedDate);
       }
-    } else if (!rangeParam && viewParam === 'timeline') {
-      setTimeRange('today');
-    } else if (!rangeParam) {
-      setTimeRange('7days');
     }
 
     if (viewParam && ['timeline', 'capacity'].includes(viewParam)) {
       if (viewParam !== viewMode) {
         setViewMode(viewParam as ViewMode);
-      }
-    }
-
-    if (!dateParam && !viewParam) {
-      if (roleView === 'receptionist' || roleView === 'manager') {
-        setViewMode('capacity');
-        setSelectedDate(new Date());
       }
     }
 
@@ -263,20 +260,20 @@ export default function ManageAppointments() {
       setActiveType('dieu_tri');
       setIsWalkInModalOpen(true);
     }
-  }, [location.search, roleView, setActiveType, setIsWalkInModalOpen]);
+  }, [location.search, roleView, setActiveType, setIsWalkInModalOpen, startDate, endDate, viewMode]);
 
   // Update URL when states change
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    params.set('date', format(selectedDate, 'yyyy-MM-dd'));
-    params.set('range', timeRange);
+    params.set('startDate', format(startDate, 'yyyy-MM-dd'));
+    params.set('endDate', format(endDate, 'yyyy-MM-dd'));
     params.set('view', viewMode);
     
     const newSearch = `?${params.toString()}`;
     if (location.search !== newSearch) {
       navigate(location.pathname + newSearch, { replace: true });
     }
-  }, [selectedDate, timeRange, viewMode, navigate, location.pathname]);
+  }, [startDate, endDate, viewMode, navigate, location.pathname]);
 
   // Navigate to corresponding routes when simulator role changes
   useEffect(() => {
@@ -306,57 +303,43 @@ export default function ManageAppointments() {
     setIsWalkInModalOpen(false);
   }, [activeType, setIsWalkInModalOpen]);
 
-  const getActiveInterval = () => {
-    if (timeRange === 'today') {
-      const start = new Date(selectedDate);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(selectedDate);
-      end.setHours(23, 59, 59, 999);
-      return { start, end };
-    } else if (timeRange === '7days') {
-      const start = startOfWeek(selectedDate, { weekStartsOn: 1 });
-      start.setHours(0, 0, 0, 0);
-      const end = addDays(start, 6);
-      end.setHours(23, 59, 59, 999);
-      return { start, end };
-    } else if (timeRange === 'month') {
-      const start = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1, 0, 0, 0, 0);
-      const end = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0, 23, 59, 59, 999);
-      return { start, end };
+  const handleSelectDateRange = (start: Date, end: Date) => {
+    setStartDate(start);
+    setEndDate(end);
+    if (isSameDay(start, end)) {
+      setViewMode('timeline');
     } else {
-      const start = startOfWeek(selectedDate, { weekStartsOn: 1 });
-      start.setHours(0, 0, 0, 0);
-      const end = addDays(start, 6);
-      end.setHours(23, 59, 59, 999);
-      return { start, end };
+      setViewMode('capacity');
     }
   };
-  const activeInterval = getActiveInterval();
 
-  const handleNavigateDay = (direction: 'next' | 'prev' | 'today') => {
+  const handleNavigateRange = (direction: 'next' | 'prev' | 'today') => {
     if (direction === 'today') {
-      setSelectedDate(new Date());
-    } else if (direction === 'next') {
-      setSelectedDate(prev => 
-        (viewMode === 'timeline' || timeRange === 'today')
-          ? addDays(prev, 1)
-          : timeRange === 'month'
-            ? addMonths(prev, 1)
-            : addDays(prev, 7)
-      );
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      setStartDate(today);
+      setEndDate(addDays(today, 6));
+      setViewMode('capacity');
+      return;
+    }
+
+    const s = new Date(startDate);
+    s.setHours(0, 0, 0, 0);
+    const e = new Date(endDate);
+    e.setHours(0, 0, 0, 0);
+    const diffDays = Math.max(1, Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+
+    if (direction === 'next') {
+      setStartDate(prev => addDays(prev, diffDays));
+      setEndDate(prev => addDays(prev, diffDays));
     } else {
-      setSelectedDate(prev => 
-        (viewMode === 'timeline' || timeRange === 'today')
-          ? subDays(prev, 1)
-          : timeRange === 'month'
-            ? subMonths(prev, 1)
-            : subDays(prev, 7)
-      );
+      setStartDate(prev => addDays(prev, -diffDays));
+      setEndDate(prev => addDays(prev, -diffDays));
     }
   };
 
   const activeRole = activeType === 'kham' ? 'Bác sĩ' : 'Kỹ thuật viên';
-  const formattedSelectedDate = format(selectedDate, 'yyyy-MM-dd');
+  const formattedSelectedDate = format(startDate, 'yyyy-MM-dd');
 
   const removeAccents = (str: string) => {
     return (str || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -368,9 +351,14 @@ export default function ManageAppointments() {
 
     if (viewMode === 'timeline') {
       const aptDateStr = format(aptDate, 'yyyy-MM-dd');
-      matchDate = aptDateStr === formattedSelectedDate;
+      const startStr = format(startDate, 'yyyy-MM-dd');
+      matchDate = aptDateStr === startStr;
     } else {
-      matchDate = aptDate >= activeInterval.start && aptDate <= activeInterval.end;
+      const startBound = new Date(startDate);
+      startBound.setHours(0, 0, 0, 0);
+      const endBound = new Date(endDate);
+      endBound.setHours(23, 59, 59, 999);
+      matchDate = aptDate >= startBound && aptDate <= endBound;
     }
 
     const matchType = activeType === 'kham'
@@ -379,8 +367,8 @@ export default function ManageAppointments() {
     
     const cleanSearch = removeAccents(searchTerm);
     const matchSearch = searchTerm === '' ||
+      getSmartSearchScore(apt.ten_khach_hang || '', searchTerm) > 0 ||
       removeAccents(apt.ma_lich_dat).includes(cleanSearch) ||
-      removeAccents(apt.ten_khach_hang).includes(cleanSearch) ||
       (apt.so_dien_thoai || '').includes(searchTerm.trim());
 
     const matchStaff = !selectedStaffFilter || String(apt.bac_si_id) === String(selectedStaffFilter);
@@ -402,10 +390,13 @@ export default function ManageAppointments() {
         return aptDateStr === formattedSelectedDate && matchType(apt) && filterByStaff(apt) && apt.trang_thai !== 'giu_cho';
       });
     } else {
-      const interval = getActiveInterval();
+      const startBound = new Date(startDate);
+      startBound.setHours(0, 0, 0, 0);
+      const endBound = new Date(endDate);
+      endBound.setHours(23, 59, 59, 999);
       return appointmentsToUse.filter(apt => {
         const aptDate = new Date(apt.ngay_gio_bat_dau || '');
-        return aptDate >= interval.start && aptDate <= interval.end && matchType(apt) && filterByStaff(apt) && apt.trang_thai !== 'giu_cho';
+        return aptDate >= startBound && aptDate <= endBound && matchType(apt) && filterByStaff(apt) && apt.trang_thai !== 'giu_cho';
       });
     }
   };
@@ -506,11 +497,7 @@ export default function ManageAppointments() {
 
   const periodLabel = viewMode === 'timeline'
     ? 'Hôm nay'
-    : timeRange === '7days'
-      ? 'Tuần này'
-      : timeRange === 'month'
-        ? 'Tháng này'
-        : 'Hôm nay';
+    : 'Bảng công suất';
 
   const targetWorkloadRole = activeType === 'kham' ? 'Bác sĩ' : 'Kỹ thuật viên';
   const doctorWorkloads = staffToUse
@@ -538,18 +525,22 @@ export default function ManageAppointments() {
         });
         occupiedCount = docApts.length;
       } else {
-        const interval = getActiveInterval();
+        const startBound = new Date(startDate);
+        startBound.setHours(0, 0, 0, 0);
+        const endBound = new Date(endDate);
+        endBound.setHours(23, 59, 59, 999);
+
         const docSchedules = schedulesToUse.filter(s => {
           if (String(s.nguoi_dung_id) !== String(doc.id) || s.trang_thai !== 'hoat_dong') return false;
           const shiftDate = new Date(s.ngay);
-          return shiftDate >= interval.start && shiftDate <= interval.end;
+          return shiftDate >= startBound && shiftDate <= endBound;
         });
 
         const docApts = appointmentsToUse.filter(apt => {
           const assignedId = apt.bac_si_id || apt.chuyen_gia_id;
           if (String(assignedId) !== String(doc.id)) return false;
           const aptDate = new Date(apt.ngay_gio_bat_dau || '');
-          return aptDate >= interval.start && aptDate <= interval.end &&
+          return aptDate >= startBound && aptDate <= endBound &&
             apt.trang_thai !== 'da_huy' &&
             apt.trang_thai !== 'khong_den' &&
             apt.trang_thai !== 'giu_cho';
@@ -582,18 +573,20 @@ export default function ManageAppointments() {
       icon: <CalendarIcon size={14} />,
       shortcut: 'T',
       action: () => {
-        setTimeRange('today');
-        setViewMode('timeline');
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        handleSelectDateRange(today, today);
       }
     },
     {
       id: 'view_week',
-      name: 'Xem Lịch trình Tuần này',
+      name: 'Xem 7 ngày tới',
       icon: <CalendarDays size={14} />,
       shortcut: 'W',
       action: () => {
-        setTimeRange('7days');
-        setViewMode('capacity');
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        handleSelectDateRange(today, addDays(today, 6));
       }
     },
     {
@@ -637,65 +630,30 @@ export default function ManageAppointments() {
 
   return (
     <div className="space-y-6 max-w-full font-jakarta">
-
-      <AnimatePresence mode="wait">
-        <motion.div
-          key="unified-appointment-center"
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -15 }}
-          className="space-y-6"
-        >
-          {/* KPI METRIC CARDS */}
-          <AppointmentKpiCards
-            role="admin"
-            kpis={kpis}
-            viewMode={viewMode}
-            timeRange={timeRange}
-            activeType={activeType}
-            activeStatusFilter={statusFilter}
-            onSelectStatus={setStatusFilter}
-          />
+      {/* KPI METRIC CARDS */}
+      <AppointmentKpiCards
+        role="admin"
+        kpis={kpis}
+        viewMode={viewMode}
+        timeRange="custom"
+        activeType={activeType}
+        activeStatusFilter={statusFilter}
+        onSelectStatus={setStatusFilter}
+      />
 
           <AppointmentsFilterBar
-            timeRange={timeRange}
-            setTimeRange={setTimeRange}
-            startDateOfWeek={activeInterval.start}
-            endDateOfWeek={activeInterval.end}
-            handleNavigateDay={handleNavigateDay}
+            startDate={startDate}
+            endDate={endDate}
+            onSelectDateRange={handleSelectDateRange}
+            handleNavigateRange={handleNavigateRange}
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
             viewMode={viewMode}
-            selectedDate={selectedDate}
             activeType={activeType}
             onToggleType={() => setActiveType(prev => prev === 'kham' ? 'dieu_tri' : 'kham')}
             canToggleType={true}
             setViewMode={setViewMode}
           />
-
-          {/* DYNAMIC HEADER & BACK NAVIGATION */}
-          {viewMode === 'timeline' && (
-            <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between bg-slate-55/40 dark:bg-zinc-900/40 border border-slate-100 dark:border-zinc-800/80 p-3 rounded-[20px] backdrop-blur-md">
-              <button
-                type="button"
-                onClick={() => {
-                  setTimeRange('7days');
-                  setViewMode('capacity');
-                }}
-                className="flex items-center gap-2 px-4 py-2 text-xs font-black uppercase tracking-wider text-[#0D9488] bg-[#0D9488]/10 hover:bg-[#0D9488]/15 rounded-xl border border-[#0D9488]/20 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-              >
-                <ChevronLeft size={14} className="stroke-[3]" />
-                <span>Quay lại Bảng công suất</span>
-              </button>
-
-              <div className="text-xs font-bold text-slate-505 dark:text-zinc-400 flex items-center gap-2 self-end sm:self-center">
-                <span>Đang xem ngày:</span>
-                <span className="bg-teal-55 dark:bg-teal-955/20 text-[#0d9488] dark:text-teal-450 px-2.5 py-1 rounded-xl border border-teal-100/30 font-black uppercase tracking-wide">
-                  {format(selectedDate, 'eeee, dd/MM/yyyy', { locale: vi })}
-                </span>
-              </div>
-            </div>
-          )}
 
           {/* MAIN WORKBOARD GRID */}
           <div className="flex flex-col lg:flex-row gap-6 items-start">
@@ -743,7 +701,10 @@ export default function ManageAppointments() {
                     selectedDateStr={formattedSelectedDate}
                     initialCustomerId={new URLSearchParams(location.search).get('khach_hang_id') || undefined}
                     initialServiceId={new URLSearchParams(location.search).get('goi_dich_vu_id') || undefined}
-                    onDateChange={setSelectedDate}
+                    onDateChange={(d) => {
+                      setStartDate(d);
+                      setEndDate(d);
+                    }}
                   />
                 </div>
               ) : (
@@ -768,8 +729,12 @@ export default function ManageAppointments() {
 
                   {viewMode === 'capacity' && (
                     <CapacityView
-                      selectedDate={selectedDate}
-                      setSelectedDate={setSelectedDate}
+                      selectedDate={startDate}
+                      setSelectedDate={(d) => {
+                        setStartDate(d);
+                        setEndDate(d);
+                        setViewMode('timeline');
+                      }}
                       setViewMode={setViewMode}
                       appointments={appointmentsToUse.filter(apt =>
                         (activeType === 'kham'
@@ -778,7 +743,9 @@ export default function ManageAppointments() {
                         (!statusFilter || KPI_BUCKET_STATUSES[statusFilter].includes(apt.trang_thai)) &&
                         (!selectedStaffFilter || String(apt.bac_si_id) === String(selectedStaffFilter))
                       )}
-                      timeRange={timeRange}
+                      timeRange="custom"
+                      startDate={startDate}
+                      endDate={endDate}
                       activeType={activeType}
                       searchTerm={searchTerm}
                       onSelectAppointment={scrollToAppointment}
@@ -848,8 +815,6 @@ export default function ManageAppointments() {
               </div>
             )}
           </div>
-        </motion.div>
-      </AnimatePresence>
 
       {/* GLOBAL MODALS */}
       {isDetailModalOpen && (

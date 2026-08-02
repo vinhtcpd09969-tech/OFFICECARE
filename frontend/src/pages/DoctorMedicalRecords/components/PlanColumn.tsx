@@ -27,11 +27,11 @@ export const PlanColumn: React.FC<PlanColumnProps> = ({ plans, onOpenPlan }) => 
   return (
     <div className="space-y-3">
       <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-        <Layers size={12} /> Phác đồ điều trị ({plans.length})
+        <Layers size={12} /> Gói liệu trình ({plans.length})
       </h3>
       {plans.length === 0 ? (
         <div className="bg-slate-50/50 dark:bg-slate-900/10 border border-dashed border-slate-200 dark:border-slate-800 rounded-3xl py-12 text-center text-slate-400 dark:text-slate-500 text-xs font-bold px-4">
-          Bệnh nhân chưa có phác đồ điều trị nào.
+          Bệnh nhân chưa có gói liệu trình nào.
         </div>
       ) : (
         <div className="space-y-3">

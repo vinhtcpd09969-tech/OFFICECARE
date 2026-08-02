@@ -11,29 +11,52 @@ async function backupDatabase() {
     writeStream.write(`-- Exported on: ${new Date().toISOString()}\n\n`);
     writeStream.write(`SET session_replication_role = 'replica';\n\n`);
 
-    // Get all user tables
-    const { rows: tables } = await pool.query(`
-      SELECT table_name 
-      FROM information_schema.tables 
-      WHERE table_schema = 'public' 
-        AND table_type = 'BASE TABLE'
-        AND table_name NOT IN ('_prisma_migrations')
-      ORDER BY table_name;
-    `);
+    // Get all user tables in dependency order
+    const tableOrder = [
+      'vai_tro',
+      'nguoi_dung',
+      'ho_so_chuyen_gia',
+      'khach_hang',
+      'goi_dich_vu',
+      'phong_lam_viec',
+      'thiet_bi',
+      'khuyen_mai_voucher',
+      'phac_do_dieu_tri',
+      'cuoc_hen',
+      'nhat_ky_buoi_dieu_tri',
+      'chi_dinh_buoi',
+      'hoa_don',
+      'giao_dich_thanh_toan',
+      'danh_gia',
+      'bai_viet',
+      'lich_truc_nhan_su',
+      'otp_codes',
+      'phien_chat_ai',
+      'tin_nhan_chat_ai',
+      'tam_giu_cho',
+      'refresh_tokens'
+    ];
 
-    for (const tableRow of tables) {
-      const tableName = tableRow.table_name;
+    // First write TRUNCATE statements in reverse order
+    for (const tableName of [...tableOrder].reverse()) {
+      writeStream.write(`TRUNCATE TABLE "${tableName}" CASCADE;\n`);
+    }
+    writeStream.write(`\n`);
+
+    // Then write INSERTS in proper dependency order
+    for (const tableName of tableOrder) {
       console.log(`Exporting table: ${tableName}`);
 
       writeStream.write(`-- Table: ${tableName}\n`);
-      writeStream.write(`TRUNCATE TABLE "${tableName}" CASCADE;\n\n`);
 
       const { rows: columns } = await pool.query(
-        `SELECT column_name, data_type FROM information_schema.columns WHERE table_name=$1 AND table_schema='public'`,
+        `SELECT column_name, data_type, udt_name FROM information_schema.columns WHERE table_name=$1 AND table_schema='public'`,
         [tableName]
       );
 
       const colNames = columns.map(c => c.column_name);
+      const colTypeMap = new Map(columns.map(c => [c.column_name, c.udt_name]));
+
       const { rows: data } = await pool.query(`SELECT * FROM "${tableName}"`);
 
       if (data.length === 0) {
@@ -44,6 +67,8 @@ async function backupDatabase() {
       for (const row of data) {
         const values = colNames.map(col => {
           const val = row[col];
+          const udtName = colTypeMap.get(col);
+
           if (val === null || val === undefined) return 'NULL';
           if (typeof val === 'string') {
             return `'${val.replace(/'/g, "''")}'`;
@@ -56,6 +81,10 @@ async function backupDatabase() {
           }
           if (typeof val === 'boolean') {
             return val ? 'true' : 'false';
+          }
+          if (Array.isArray(val)) {
+            if (val.length === 0) return `ARRAY[]::${udtName === '_text' || udtName === 'text' ? 'text[]' : 'varchar[]'}`;
+            return `ARRAY[${val.map(v => `'${String(v).replace(/'/g, "''")}'`).join(', ')}]::text[]`;
           }
           if (typeof val === 'object') {
             return `'${JSON.stringify(val).replace(/'/g, "''")}'::jsonb`;
@@ -70,9 +99,9 @@ async function backupDatabase() {
     }
 
     writeStream.write(`SET session_replication_role = 'origin';\n`);
-    console.log(`Successfully backed up database to ${targetFile}`);
+    console.log(`✅ Exported database successfully to ${targetFile}`);
   } catch (err) {
-    console.error('Error during database backup:', err);
+    console.error('❌ Error during database backup:', err);
   } finally {
     writeStream.end();
     await pool.end();

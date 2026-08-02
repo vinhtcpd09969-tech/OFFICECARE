@@ -12,10 +12,11 @@ export const chatWithAI = asyncHandler(async (req: Request, res: Response) => {
   }
 
   const chatHistory = Array.isArray(history) ? history : [];
+  const khachHangId = Number(req.user?.vai_tro_id) === 1 && req.user?.id ? String(req.user.id) : null;
 
   let result;
   try {
-    result = await AIService.generateChatResponse(message, chatHistory);
+    result = await AIService.generateChatResponse(message, chatHistory, khachHangId);
   } catch (error: any) {
     throw new BadRequestError(error.message || 'Lỗi xử lý phản hồi từ AI');
   }
@@ -28,7 +29,6 @@ export const chatWithAI = asyncHandler(async (req: Request, res: Response) => {
 
   // Lưu lịch sử chat vào Postgres không đồng bộ, không chặn phản hồi đã trả về khách.
   if (sessionId && typeof sessionId === 'string') {
-    const khachHangId = Number(req.user?.vai_tro_id) === 1 && req.user?.id ? String(req.user.id) : null;
     ChatHistoryService.appendTurn(sessionId, khachHangId, message, result.reply).catch(err => {
       console.error('Lỗi lưu lịch sử chat AI:', err);
     });

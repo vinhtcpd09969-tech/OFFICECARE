@@ -49,7 +49,6 @@ export default function ServicesCarousel() {
     } else if (service.loai_goi === 'LE') {
       navigate('/booking', { state: { bookingType: 'dich_vu', selectedServiceId: service.id } });
     } else {
-      // Lieu trinh needs kham first
       navigate('/booking', { state: { bookingType: 'kham' } });
     }
   };
@@ -59,65 +58,67 @@ export default function ServicesCarousel() {
   }
 
   return (
-    <section id="services" className="py-20 bg-slate-50/50 border-b border-slate-200/80">
+    <section id="services" className="py-10 lg:py-12 bg-slate-50/60 dark:bg-slate-950/60 border-b border-slate-200/80 dark:border-slate-800/80 transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
         <ScrollReveal>
-          <div className="text-center mb-14 max-w-2xl mx-auto">
-            <span className="bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 font-semibold tracking-wider text-[10px] px-3.5 py-1.5 rounded-full inline-flex items-center gap-1.5 mb-2 shadow-2xs">
-              <Sparkles size={12} /> Dịch vụ phục hồi y khoa
+          <div className="text-center mb-8 lg:mb-10 max-w-2xl mx-auto space-y-1.5">
+            <span className="bg-[#0D9488]/10 text-[#0D9488] dark:text-teal-300 border border-[#0D9488]/20 font-bold tracking-wider text-[11px] px-3.5 py-1 rounded-full inline-flex items-center gap-1.5 shadow-2xs">
+              <Sparkles size={12} /> Dịch Vụ Y Khoa Nổi Bật
             </span>
-            <h3 className="font-heading font-bold text-2xl md:text-3xl text-slate-800 mb-2 tracking-normal">
-              Dịch Vụ Nổi Bật Tại OfficeCare
+            <h3 className="font-bold text-xl sm:text-2xl lg:text-3xl text-slate-900 dark:text-white tracking-tight">
+              Giải Pháp Trị Liệu Cơ Xương Khớp Chuyên Sâu
             </h3>
-            <p className="text-slate-500 font-normal text-xs md:text-sm leading-relaxed">
+            <p className="text-slate-600 dark:text-slate-400 font-medium text-xs sm:text-sm leading-relaxed">
               Các dịch vụ y khoa được tin dùng nhiều nhất của chúng tôi giúp giải quyết nhanh cơn đau mỏi cơ xương khớp văn phòng.
             </p>
           </div>
         </ScrollReveal>
 
+        {/* Services Grid (No unnecessary filter buttons) */}
         <ScrollReveal delay={150}>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
             {services.map((service, idx) => (
               <motion.div 
-                key={idx}
+                key={service.id || idx}
                 whileHover={{ y: -6, boxShadow: "0 20px 40px -12px rgba(15, 23, 42, 0.06)" }}
-                className="bg-white rounded-3xl overflow-hidden group border border-slate-200/80 transition-all duration-300 flex flex-col justify-between shadow-2xs hover:border-teal-500/40"
+                className="bg-white rounded-[28px] overflow-hidden group border border-slate-200/80 transition-all duration-300 flex flex-col justify-between shadow-2xs hover:border-[#0D9488]/40"
               >
                 <div>
-                  <div className="h-52 md:h-60 overflow-hidden relative bg-slate-100">
+                  <div className="h-48 md:h-52 overflow-hidden relative bg-slate-100">
                     <img 
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
                       src={service.image} 
                       alt={service.title}
                     />
-                    <div className="absolute top-4 left-4 bg-slate-900/80 backdrop-blur-md text-white font-semibold text-[9.5px] tracking-wider px-3 py-1.5 rounded-xl shadow-md border border-white/10 flex items-center gap-1.5">
+                    <div className="absolute top-4 left-4 bg-slate-900/80 backdrop-blur-md text-white font-black text-[9.5px] tracking-wider px-3 py-1.5 rounded-xl shadow-md border border-white/10 flex items-center gap-1.5">
                       <Clock size={11} className="text-teal-400" />
                       {service.duration}
                     </div>
                   </div>
-                  <div className="p-6 space-y-2.5">
-                    <span className="text-[10px] font-bold tracking-wider text-[#0D9488] block">
-                      {service.loai_goi === 'KHAM' ? 'Khám chuyên khoa' : service.loai_goi === 'LE' ? 'Trị liệu đơn' : 'Liệu trình phục hồi'}
+                  <div className="p-6 space-y-2 text-left">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-[#0D9488] block">
+                      {service.loai_goi === 'KHAM' ? 'Khám chuyên khoa 1:1' : service.loai_goi === 'LE' ? 'Trị liệu đơn buổi' : 'Gói phác đồ điều trị'}
                     </span>
-                    <h4 className="font-heading font-bold text-base text-slate-800 leading-snug line-clamp-2">
+                    <h4 className="font-heading font-black text-base text-slate-900 leading-snug line-clamp-2">
                       {service.title}
                     </h4>
-                    <p className="font-normal text-xs text-slate-500 leading-relaxed line-clamp-3">
+                    <p className="font-normal text-xs text-slate-600 leading-relaxed line-clamp-3">
                       {service.desc}
                     </p>
                   </div>
                 </div>
 
                 <div className="p-6 pt-0 mt-2 border-t border-slate-100 flex items-center justify-between">
-                  <div>
+                  <div className="text-left">
                     <p className="text-[9.5px] font-semibold text-slate-400">Chi phí điều trị</p>
-                    <span className="text-[#0D9488] font-heading font-bold text-base">{service.price}</span>
+                    <span className="text-[#0D9488] font-heading font-black text-base">{service.price}</span>
                   </div>
                   <button 
                     onClick={() => handleServiceClick(service)}
-                    className="px-4 py-2 bg-teal-50 hover:bg-[#0D9488] text-[#0D9488] hover:text-white rounded-xl text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer border border-teal-500/20"
+                    className="px-4 py-2.5 bg-teal-50 hover:bg-[#0D9488] text-[#0D9488] hover:text-white rounded-xl text-xs font-black transition-all duration-200 flex items-center gap-1.5 cursor-pointer border border-teal-500/20 shadow-2xs"
                   >
-                    <span>{service.loai_goi === 'KHAM' ? 'Đăng ký khám' : service.loai_goi === 'LE' ? 'Đăng ký trị liệu' : 'Đặt lịch khám'}</span>
+                    <span>{service.loai_goi === 'KHAM' ? 'Đăng ký khám' : 'Đăng ký ngay'}</span>
                     <ArrowRight size={13} />
                   </button>
                 </div>
@@ -125,6 +126,7 @@ export default function ServicesCarousel() {
             ))}
           </div>
         </ScrollReveal>
+
       </div>
     </section>
   );

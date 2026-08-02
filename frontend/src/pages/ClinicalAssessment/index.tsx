@@ -15,12 +15,7 @@ import {
   FlameKindling,
   Timer,
   Stethoscope,
-  Activity,
-  Sparkles,
-  UserCheck,
-  Coins,
-  Clock,
-  User
+  Clock
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import {
@@ -920,41 +915,7 @@ export default function ClinicalAssessment() {
             {/* Right Column (4 cols): Medical HUD Sidebar */}
             <div className="lg:col-span-4 space-y-6">
 
-              {/* Card 1: Medical Vital Signs HUD Widget */}
-              <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-[28px] border border-slate-200/80 dark:border-slate-800 p-6 shadow-xl shadow-slate-200/30 dark:shadow-none space-y-4 text-left">
-                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-                  <div className="flex items-center gap-2">
-                    <Activity size={18} className="text-teal-600 dark:text-teal-400" />
-                    <h4 className="text-xs font-black uppercase text-slate-900 dark:text-white tracking-wider">Sinh Hiệu Bệnh Nhân</h4>
-                  </div>
-                  <span className="text-[9px] font-black uppercase text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
-                    🟢 Ổn định
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/60 dark:border-slate-700">
-                    <p className="text-[9px] font-black uppercase text-slate-400">Nhịp tim</p>
-                    <p className="text-sm font-mono font-black text-teal-600 dark:text-teal-400 mt-0.5">75 BPM</p>
-                  </div>
-                  <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/60 dark:border-slate-700">
-                    <p className="text-[9px] font-black uppercase text-slate-400">Huyết áp</p>
-                    <p className="text-sm font-mono font-black text-teal-600 dark:text-teal-400 mt-0.5">120/80</p>
-                  </div>
-                  <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/60 dark:border-slate-700">
-                    <p className="text-[9px] font-black uppercase text-slate-400">Nhiệt độ</p>
-                    <p className="text-sm font-mono font-black text-teal-600 dark:text-teal-400 mt-0.5">36.8 °C</p>
-                  </div>
-                  <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/60 dark:border-slate-700">
-                    <p className="text-[9px] font-black uppercase text-slate-400">Mức đau VAS</p>
-                    <p className="text-sm font-mono font-black text-rose-600 dark:text-rose-400 mt-0.5">
-                      {isKtv ? (vasTruoc ?? 0) : 3} / 10
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Card 2: Recent Session Summary */}
+              {/* Card 1: Recent Session Summary */}
               {latestRelevantSession && (
                 <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-[28px] border border-amber-200/80 dark:border-amber-800 p-6 shadow-xl shadow-amber-500/5 text-left space-y-3">
                   <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 border-b border-amber-100 dark:border-amber-900/40 pb-2.5">
@@ -975,26 +936,67 @@ export default function ClinicalAssessment() {
                 </div>
               )}
 
-              {/* Card 3: Clinical Flow HUD */}
+              {/* Card 2: Dynamic Procedure Flow HUD */}
               <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-[28px] border border-slate-200/80 dark:border-slate-800 p-6 shadow-xl shadow-slate-200/30 dark:shadow-none space-y-4 text-left">
-                <h4 className="text-xs font-black uppercase text-slate-900 dark:text-white tracking-wider border-b border-slate-100 dark:border-slate-800 pb-2.5 flex items-center gap-2">
-                  <Clock size={16} className="text-teal-600 dark:text-teal-400" />
-                  Quy Trình Khám Lâm Sàng 3 Bước
-                </h4>
-                <div className="space-y-3 text-xs font-bold">
-                  <div className="flex items-center gap-3 text-emerald-600 dark:text-emerald-400">
-                    <span className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center text-[10px] font-black">1</span>
-                    <span>Tiếp nhận & Đo sinh hiệu ban đầu</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-teal-600 dark:text-teal-400">
-                    <span className="w-6 h-6 rounded-full bg-teal-600 text-white flex items-center justify-center text-[10px] font-black animate-pulse">2</span>
-                    <span className="font-black uppercase">Khám chuyên khoa & Kết luận</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-slate-400">
-                    <span className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center text-[10px] font-black">3</span>
-                    <span>Chỉ định phác đồ & Bàn giao KTV</span>
-                  </div>
-                </div>
+                {(() => {
+                  const currentApptPkg = appointment?.goi_dich_vu_id
+                    ? packages.find((p) => p.id === appointment.goi_dich_vu_id)
+                    : null;
+                  const pkgName = appointment?.ten_goi || appointment?.ten_dich_vu || appointment?.goi_dich_vu?.ten_goi || currentApptPkg?.ten_goi;
+                  const pkgQuyTrinh = appointment?.quy_trinh || appointment?.goi_dich_vu?.quy_trinh || currentApptPkg?.quy_trinh;
+                  const pkgMoTa = appointment?.mo_ta_goi || appointment?.mo_ta || appointment?.goi_dich_vu?.mo_ta || currentApptPkg?.mo_ta;
+                  const pkgTongBuoi = appointment?.tong_so_buoi || appointment?.pd_tong_so_buoi || appointment?.goi_dich_vu?.tong_so_buoi || currentApptPkg?.tong_so_buoi;
+
+                  return (
+                    <>
+                      <div className="border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center justify-between gap-2">
+                        <h4 className="text-xs font-black uppercase text-slate-900 dark:text-white tracking-wider flex items-center gap-2">
+                          <Clock size={16} className="text-teal-600 dark:text-teal-400 shrink-0" />
+                          <span>{pkgName ? `Quy Trình: ${pkgName}` : 'Quy Trình Khám & Trị Liệu'}</span>
+                        </h4>
+                        {pkgTongBuoi && (
+                          <span className="text-[9px] font-black uppercase text-teal-600 bg-teal-50 dark:bg-teal-950/60 px-2 py-0.5 rounded-md border border-teal-200/60 shrink-0">
+                            {appointment?.so_thu_tu_buoi ? `Buổi ${appointment.so_thu_tu_buoi}/${pkgTongBuoi}` : `${pkgTongBuoi} Buổi`}
+                          </span>
+                        )}
+                      </div>
+
+                      {pkgQuyTrinh ? (
+                        <div className="space-y-2.5">
+                          {pkgName && (
+                            <p className="text-[11px] font-black uppercase text-teal-600 dark:text-teal-400">
+                              {pkgName}
+                            </p>
+                          )}
+                          {pkgQuyTrinh
+                            .split(/\r?\n|;/)
+                            .map((s: string) => s.trim())
+                            .filter(Boolean)
+                            .map((step: string, idx: number) => (
+                              <div key={idx} className="flex items-start gap-2.5 p-2.5 rounded-xl bg-teal-50/60 dark:bg-teal-950/40 border border-teal-100 dark:border-teal-900/50 text-xs font-bold text-slate-800 dark:text-slate-200">
+                                <span className="w-5 h-5 rounded-full bg-[#0D9488] text-white shrink-0 flex items-center justify-center text-[10px] font-black mt-0.5">
+                                  {idx + 1}
+                                </span>
+                                <span className="leading-snug">{step}</span>
+                              </div>
+                            ))}
+                        </div>
+                      ) : pkgName ? (
+                        <div className="p-3.5 bg-teal-50/50 dark:bg-teal-950/30 rounded-2xl border border-teal-100 dark:border-teal-900/40 space-y-1">
+                          <p className="text-xs font-black text-slate-900 dark:text-white">{pkgName}</p>
+                          <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 leading-relaxed">
+                            {pkgMoTa || 'Quy trình phục hồi chức năng chuẩn y khoa.'}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 text-center space-y-1">
+                          <p className="text-xs font-bold text-slate-600 dark:text-slate-300">Chưa ghi nhận gói trị liệu</p>
+                          <p className="text-[11px] text-slate-400">Thông tin gói trị liệu sẽ hiển thị tự động theo chỉ định ca khám.</p>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
 
             </div>

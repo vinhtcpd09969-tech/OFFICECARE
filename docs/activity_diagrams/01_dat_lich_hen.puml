@@ -1,0 +1,71 @@
+@startuml
+title Đặt Lịch Hẹn (Khám Lâm Sàng / Buổi Trị Liệu)
+
+skinparam defaultFontName "Arial"
+skinparam defaultFontSize 17
+skinparam ActivityFontSize 17
+skinparam ActivityDiamondFontSize 16
+skinparam ArrowFontSize 15
+skinparam SwimlaneTitleFontSize 20
+skinparam TitleFontSize 24
+skinparam SwimlaneWidth 400
+skinparam ActivityBorderThickness 1.5
+skinparam ActivityCornerRadius 12
+skinparam shadowing false
+skinparam wrapWidth 280
+skinparam nodesep 90
+skinparam ranksep 95
+
+skinparam ActivityBackgroundColor #FFFFFF
+skinparam ActivityBorderColor #0D9488
+skinparam ActivityDiamondBackgroundColor #FFFFFF
+skinparam ActivityDiamondBorderColor #0D9488
+skinparam SwimlaneBorderColor #CBD5E1
+skinparam SwimlaneTitleBackgroundColor #F1F5F9
+skinparam ArrowColor #0D9488
+
+|Khách hàng|
+start
+:B1. Chọn dịch vụ & khung giờ hẹn;
+
+|Hệ thống|
+:B2. Kiểm tra điều kiện đặt lịch\n• Sức chứa phòng & ca trực\n• Trùng lịch hẹn trùng giờ\n• Hoàn thành thanh toán gói;
+
+if (Đủ điều kiện đặt lịch?) then (không)
+  :B3. Hiển thị thông báo lý do từ chối;
+  |Khách hàng|
+  end
+else (có)
+endif
+
+|Hệ thống|
+:B4. Tạo bản ghi lịch hẹn "Chưa xác nhận";
+:B5. Gửi mã OTP 6 số qua Email (hạn 10 phút);
+
+|Khách hàng|
+:B6. Nhập mã OTP xác thực;
+
+|Hệ thống|
+if (OTP hợp lệ & còn hạn?) then (không)
+  |Lễ tân|
+  :B7. Gọi điện xác nhận thủ công;
+  if (Liên hệ thành công?) then (không)
+    :B8. Quyết định hủy lịch hẹn;
+    end
+  else (có)
+  endif
+  |Hệ thống|
+else (có)
+endif
+
+if (Đã phân công nhân sự?) then (chưa)
+  |Quản lý|
+  :B9. Đối chiếu ca trực, gán Bác sĩ/KTV + Phòng;
+  |Hệ thống|
+else (rồi)
+endif
+
+:B10. Cập nhật trạng thái "Đã xác nhận";
+stop
+
+@enduml

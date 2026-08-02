@@ -3,7 +3,7 @@ import { Clock, CalendarCheck, MapPin, Stethoscope, CheckCircle2, XCircle, Alert
 
 export const statusConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   chua_xac_nhan: { label: 'Chưa xác nhận', color: 'bg-amber-50 text-amber-700 border-amber-200/60 dark:bg-amber-955/10 dark:text-amber-450 dark:border-amber-900/30', icon: React.createElement(Clock, { size: 13, className: "text-amber-500 animate-pulse" }) },
-  cho_xac_nhan: { label: 'Chưa xác nhận', color: 'bg-amber-50 text-amber-700 border-amber-200/60 dark:bg-amber-955/10 dark:text-amber-450 dark:border-amber-900/30', icon: React.createElement(Clock, { size: 13, className: "text-amber-600" }) },
+  cho_xac_nhan: { label: 'Chờ xác nhận', color: 'bg-sky-50 text-sky-700 border-sky-200/60 dark:bg-sky-955/10 dark:text-sky-450 dark:border-sky-900/30', icon: React.createElement(Clock, { size: 13, className: "text-sky-500" }) },
   da_xac_nhan: { label: 'Đã xác nhận', color: 'bg-blue-50 text-blue-700 border-blue-200/50 dark:bg-blue-955/10 dark:text-blue-450 dark:border-blue-900/30', icon: React.createElement(CalendarCheck, { size: 13, className: "text-blue-500" }) },
   da_checkin: { label: 'Đã check-in', color: 'bg-teal-50 text-teal-700 border-teal-200/50 dark:bg-teal-955/10 dark:text-teal-450 dark:border-teal-900/30', icon: React.createElement(MapPin, { size: 13, className: "text-teal-500" }) },
   dang_kham: { label: 'Đang khám', color: 'bg-emerald-50 text-emerald-800 border-emerald-250 dark:bg-emerald-955/10 dark:text-emerald-400 dark:border-emerald-900/30', icon: React.createElement(Stethoscope, { size: 13, className: "text-emerald-500" }) },

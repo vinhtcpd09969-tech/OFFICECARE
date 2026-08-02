@@ -84,6 +84,9 @@ export const useFinanceDashboard = (isCheckoutMode: boolean) => {
   const [fastPayReceived, setFastPayReceived] = useState('');
   const [fastPayNote, setFastPayNote] = useState('');
   const [fastPayLoading, setFastPayLoading] = useState(false);
+  // Khi chọn "Chuyển khoản" ở Thu tiền nhanh, phải đi qua cổng QR PayOS thật + chờ webhook xác nhận
+  // (giống hệt luồng thanh toán bình thường ở useCheckout.ts), không được tự đánh dấu "đã thu" ngay.
+  const [fastPayQRInvoice, setFastPayQRInvoice] = useState<{ invoice: Invoice; amount: number } | null>(null);
 
   const fetchDashboardData = async () => {
     setDashboardLoading(true);
@@ -179,6 +182,16 @@ export const useFinanceDashboard = (isCheckoutMode: boolean) => {
       return;
     }
 
+    // Chuyển khoản: mở cổng QR PayOS thật, chờ webhook xác nhận tiền đã về mới đánh dấu đã thu —
+    // KHÔNG được gọi thẳng /receptionist/payment ở đây (trước đây làm vậy khiến bấm "Xác nhận thu"
+    // là tự tin thành công ngay dù chưa có tiền về, khác hẳn hành vi đúng ở luồng thanh toán bình
+    // thường của lễ tân).
+    if (fastPayMethod === 'chuyen_khoan') {
+      setFastPayQRInvoice({ invoice: fastPayInvoice, amount: requiredAmount });
+      setFastPayInvoice(null);
+      return;
+    }
+
     setFastPayLoading(true);
     const toastId = toast.loading('Đang ghi nhận giao dịch thanh toán nhanh...');
     try {
@@ -208,6 +221,17 @@ export const useFinanceDashboard = (isCheckoutMode: boolean) => {
     } finally {
       setFastPayLoading(false);
     }
+  };
+
+  // Gọi khi QRWebhookModal xác nhận webhook PayOS đã báo tiền về thật — paidInvoice là hóa đơn đã
+  // được backend cập nhật trang_thai, không phải dữ liệu tự bịa từ phía client.
+  const handleFastPayQRSuccess = (paidInvoice: any) => {
+    setFastPayQRInvoice(null);
+    toast.success('Giao dịch thanh toán ghi nhận thành công!');
+    setFastPayReceived('');
+    setFastPayNote('');
+    fetchDashboardData();
+    setSelectedInvoice(paidInvoice);
   };
 
   const getFilteredInvoices = () => {
@@ -390,6 +414,9 @@ export const useFinanceDashboard = (isCheckoutMode: boolean) => {
     fastPayNote,
     setFastPayNote,
     fastPayLoading,
+    fastPayQRInvoice,
+    setFastPayQRInvoice,
+    handleFastPayQRSuccess,
     fetchDashboardData,
     handleRefund,
     handlePackageRefund,

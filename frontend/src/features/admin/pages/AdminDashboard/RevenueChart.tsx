@@ -82,6 +82,17 @@ export function RevenueChart({ startDate, endDate, bucket, periodLabel, isClient
     [chartData]
   );
 
+  const processedChartData = useMemo(() => {
+    if (chartData.length === 1) {
+      const firstLabel = bucket === 'month' ? 'Đầu kỳ' : '00:00';
+      return [
+        { label: firstLabel, revenue: 0 },
+        chartData[0]
+      ];
+    }
+    return chartData;
+  }, [chartData, bucket]);
+
   return (
     <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl p-6 md:p-8 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-xl shadow-slate-200/40 dark:shadow-none transition-all duration-300 hover:border-teal-500/30">
       {/* Title */}
@@ -107,12 +118,12 @@ export function RevenueChart({ startDate, endDate, bucket, periodLabel, isClient
       <div className="h-[340px] w-full flex items-center justify-center">
         {loading ? (
           <div className="text-zinc-400 text-xs font-bold animate-pulse">Đang đồng bộ hóa doanh số...</div>
-        ) : chartData.length === 0 ? (
+        ) : processedChartData.length === 0 ? (
           <div className="text-zinc-400 text-xs italic font-bold">Không có giao dịch thanh toán trong thời gian này.</div>
         ) : (
           isClient && (
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+              <AreaChart data={processedChartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#0D9488" stopOpacity={0.25} />
@@ -126,6 +137,8 @@ export function RevenueChart({ startDate, endDate, bucket, periodLabel, isClient
                   tickLine={false}
                   tick={{ fill: '#94A3B8', fontSize: 9, fontWeight: 'bold' }}
                   dy={10}
+                  interval="preserveStartEnd"
+                  minTickGap={12}
                 />
                 <YAxis
                   axisLine={false}

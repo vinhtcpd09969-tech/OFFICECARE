@@ -1,9 +1,7 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-import { format, addDays, subDays, startOfWeek, addMonths, subMonths } from 'date-fns';
-import { vi } from 'date-fns/locale';
-import { motion, AnimatePresence } from 'framer-motion';
+import { format, addDays, isSameDay } from 'date-fns';
 
 // Import Shared Components
 import AppointmentCalendar from '../../../../components/appointments/AppointmentCalendar';
@@ -23,19 +21,65 @@ import { isAwaitingPaymentForList } from '../../../../utils/billing';
 import { CapacityView } from '../../../../components/appointments/ui/CapacityView';
 import { statusConfig } from '../../../../components/appointmentStatusConfig';
 import { computeAppointmentKpiBuckets, KPI_BUCKET_STATUSES, KPI_BUCKET_LABELS, AppointmentKpiBuckets } from '../../../../utils/appointmentKpi';
+import { getSmartSearchScore } from '../../../../utils/smartSearch';
 import { ActiveFilterChip } from '../../../../components/appointments/ui/ActiveFilterChip';
-import { ViewMode, TimeRange } from '../../../../components/appointments/types';
+import { ViewMode } from '../../../../components/appointments/types';
 
 export default function ReceptionistAppointments() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [timeRange, setTimeRange] = useState<TimeRange>('today');
-  const [viewMode, setViewMode] = useState<ViewMode>('timeline');
+  const [startDate, setStartDate] = useState<Date>(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  });
+
+  const [endDate, setEndDate] = useState<Date>(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return addDays(today, 6);
+  });
+
+  const [viewMode, setViewMode] = useState<ViewMode>('capacity');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
   const [activeType, setActiveType] = useState<'kham' | 'dieu_tri'>('kham');
+
+  const handleSelectDateRange = (start: Date, end: Date) => {
+    setStartDate(start);
+    setEndDate(end);
+    if (isSameDay(start, end)) {
+      setViewMode('timeline');
+    } else {
+      setViewMode('capacity');
+    }
+  };
+
+  const handleNavigateRange = (direction: 'next' | 'prev' | 'today') => {
+    if (direction === 'today') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      setStartDate(today);
+      setEndDate(addDays(today, 6));
+      setViewMode('capacity');
+      return;
+    }
+
+    const s = new Date(startDate);
+    s.setHours(0, 0, 0, 0);
+    const e = new Date(endDate);
+    e.setHours(0, 0, 0, 0);
+    const diffDays = Math.max(1, Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+
+    if (direction === 'next') {
+      setStartDate(prev => addDays(prev, diffDays));
+      setEndDate(prev => addDays(prev, diffDays));
+    } else {
+      setStartDate(prev => addDays(prev, -diffDays));
+      setEndDate(prev => addDays(prev, -diffDays));
+    }
+  };
 
   // Lọc theo 1 trạng thái cụ thể khi bấm thẻ KPI — độc lập với số liệu trên thẻ (xem
   // ManageAppointments/index.tsx cho cùng pattern).
@@ -103,12 +147,15 @@ export default function ReceptionistAppointments() {
     appointments,
     services,
     packages,
-    selectedDate,
-    setSelectedDate,
+    selectedDate: startDate,
+    setSelectedDate: (d: Date) => {
+      setStartDate(d);
+      setEndDate(d);
+    },
     viewMode,
     setViewMode,
-    timeRange,
-    setTimeRange,
+    timeRange: 'custom',
+    setTimeRange: () => {},
     refetch,
     navigate,
     roleView: 'receptionist',
@@ -142,21 +189,28 @@ export default function ReceptionistAppointments() {
   // Parse URL search parameters on load
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const dateParam = params.get('date');
-    const rangeParam = params.get('range');
+    const startParam = params.get('startDate') || params.get('date');
+    const endParam = params.get('endDate');
     const viewParam = params.get('view');
 
-    if (dateParam) {
-      const parsedDate = new Date(dateParam);
-      if (!isNaN(parsedDate.getTime())) {
-        setSelectedDate(parsedDate);
+    if (startParam) {
+      const parsedDate = new Date(startParam);
+      if (!isNaN(parsedDate.getTime()) && format(parsedDate, 'yyyy-MM-dd') !== format(startDate, 'yyyy-MM-dd')) {
+        setStartDate(parsedDate);
       }
     }
-    if (rangeParam && ['today', '7days', 'month'].includes(rangeParam)) {
-      setTimeRange(rangeParam as TimeRange);
+
+    if (endParam) {
+      const parsedDate = new Date(endParam);
+      if (!isNaN(parsedDate.getTime()) && format(parsedDate, 'yyyy-MM-dd') !== format(endDate, 'yyyy-MM-dd')) {
+        setEndDate(parsedDate);
+      }
     }
+
     if (viewParam && ['timeline', 'capacity'].includes(viewParam)) {
-      setViewMode(viewParam as ViewMode);
+      if (viewParam !== viewMode) {
+        setViewMode(viewParam as ViewMode);
+      }
     }
 
     const khId = params.get('khach_hang_id');
@@ -165,7 +219,7 @@ export default function ReceptionistAppointments() {
       setActiveType('dieu_tri');
       setIsWalkInModalOpen(true);
     }
-  }, [location.search, setActiveType, setIsWalkInModalOpen]);
+  }, [location.search, setActiveType, setIsWalkInModalOpen, startDate, endDate, viewMode]);
 
   // Handle Mascot redirection focus
   const mascotTargetAppointments = location.search;
@@ -191,70 +245,19 @@ export default function ReceptionistAppointments() {
   // Update URL search parameters when filtering state changes
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    params.set('date', format(selectedDate, 'yyyy-MM-dd'));
-    params.set('range', timeRange);
+    params.set('startDate', format(startDate, 'yyyy-MM-dd'));
+    params.set('endDate', format(endDate, 'yyyy-MM-dd'));
     params.set('view', viewMode);
     
     const newSearch = `?${params.toString()}`;
     if (location.search !== newSearch) {
       navigate(location.pathname + newSearch, { replace: true });
     }
-  }, [selectedDate, timeRange, viewMode, navigate, location.pathname]);
-
-  const getActiveInterval = () => {
-    if (timeRange === 'today') {
-      const start = new Date(selectedDate);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(selectedDate);
-      end.setHours(23, 59, 59, 999);
-      return { start, end };
-    } else if (timeRange === '7days') {
-      const start = startOfWeek(selectedDate, { weekStartsOn: 1 });
-      start.setHours(0, 0, 0, 0);
-      const end = addDays(start, 6);
-      end.setHours(23, 59, 59, 999);
-      return { start, end };
-    } else if (timeRange === 'month') {
-      const start = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1, 0, 0, 0, 0);
-      const end = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0, 23, 59, 59, 999);
-      return { start, end };
-    } else {
-      const start = startOfWeek(selectedDate, { weekStartsOn: 1 });
-      start.setHours(0, 0, 0, 0);
-      const end = addDays(start, 6);
-      end.setHours(23, 59, 59, 999);
-      return { start, end };
-    }
-  };
-  const activeInterval = getActiveInterval();
-
-  const handleNavigateDay = (direction: 'next' | 'prev' | 'today') => {
-    if (direction === 'today') {
-      setSelectedDate(new Date());
-    } else if (direction === 'next') {
-      setSelectedDate(prev => 
-        viewMode === 'timeline'
-          ? addDays(prev, 1)
-          : timeRange === 'month'
-            ? addMonths(prev, 1)
-            : addDays(prev, 7)
-      );
-    } else {
-      setSelectedDate(prev => 
-        viewMode === 'timeline'
-          ? subDays(prev, 1)
-          : timeRange === 'month'
-            ? subMonths(prev, 1)
-            : subDays(prev, 7)
-      );
-    }
-  };
+  }, [startDate, endDate, viewMode, navigate, location.pathname]);
 
   const removeAccents = (str: string) => {
     return (str || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   };
-
-  const formattedSelectedDate = format(selectedDate, 'yyyy-MM-dd');
 
   // Filtered appointments list for the main daily schedule view
   const filteredAppointments = appointments.filter(apt => {
@@ -263,9 +266,14 @@ export default function ReceptionistAppointments() {
 
     if (viewMode === 'timeline') {
       const aptDateStr = format(aptDate, 'yyyy-MM-dd');
-      matchDate = aptDateStr === formattedSelectedDate;
+      const startStr = format(startDate, 'yyyy-MM-dd');
+      matchDate = aptDateStr === startStr;
     } else {
-      matchDate = aptDate >= activeInterval.start && aptDate <= activeInterval.end;
+      const startBound = new Date(startDate);
+      startBound.setHours(0, 0, 0, 0);
+      const endBound = new Date(endDate);
+      endBound.setHours(23, 59, 59, 999);
+      matchDate = aptDate >= startBound && aptDate <= endBound;
     }
 
     const matchType = activeType === 'kham'
@@ -274,8 +282,8 @@ export default function ReceptionistAppointments() {
     
     const cleanSearch = removeAccents(searchTerm);
     const matchSearch = searchTerm === '' ||
+      getSmartSearchScore(apt.ten_khach_hang || '', searchTerm) > 0 ||
       removeAccents(apt.ma_lich_dat).includes(cleanSearch) ||
-      removeAccents(apt.ten_khach_hang).includes(cleanSearch) ||
       (apt.so_dien_thoai || '').includes(searchTerm.trim());
 
     const allowedStatuses = ['chua_xac_nhan', 'cho_xac_nhan', 'da_xac_nhan', 'da_checkin', 'dang_kham', 'hoan_thanh', 'da_huy', 'khong_den'];
@@ -323,12 +331,15 @@ export default function ReceptionistAppointments() {
       ? apt.loai_lich === 'kham_moi'
       : (apt.loai_lich === 'dieu_tri' || apt.loai_lich === 'dich_vu_don');
     
-    const interval = getActiveInterval();
+    const startBound = new Date(startDate);
+    startBound.setHours(0, 0, 0, 0);
+    const endBound = new Date(endDate);
+    endBound.setHours(23, 59, 59, 999);
     return appointments.filter(apt => {
       const aptDate = new Date(apt.ngay_gio_bat_dau || '');
       return (
-        aptDate >= interval.start &&
-        aptDate <= interval.end &&
+        aptDate >= startBound &&
+        aptDate <= endBound &&
         matchType(apt) &&
         apt.trang_thai !== 'giu_cho'
       );
@@ -340,22 +351,14 @@ export default function ReceptionistAppointments() {
 
   return (
     <div className="space-y-6 max-w-full font-jakarta">
-      <AnimatePresence mode="wait">
-        <motion.div
-          key="unified-appointment-center"
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -15 }}
-          className="space-y-6"
-        >
-          {/* KPI METRIC CARDS */}
-          <AppointmentKpiCards
-            role="receptionist"
-            kpis={kpis}
-            viewMode={viewMode}
-            timeRange={timeRange}
-            activeType={activeType}
-            activeStatusFilter={statusFilter}
+      {/* KPI METRIC CARDS */}
+      <AppointmentKpiCards
+        role="receptionist"
+        kpis={kpis}
+        viewMode={viewMode}
+        timeRange="custom"
+        activeType={activeType}
+        activeStatusFilter={statusFilter}
             onSelectStatus={setStatusFilter}
           />
 
@@ -366,37 +369,24 @@ export default function ReceptionistAppointments() {
             />
           )}
 
-
-
           <AppointmentsFilterBar
-            timeRange={timeRange}
-            setTimeRange={setTimeRange}
-            startDateOfWeek={activeInterval.start}
-            endDateOfWeek={activeInterval.end}
-            handleNavigateDay={handleNavigateDay}
+            startDate={startDate}
+            endDate={endDate}
+            onSelectDateRange={handleSelectDateRange}
+            handleNavigateRange={handleNavigateRange}
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
             viewMode={viewMode}
-            selectedDate={selectedDate}
             activeType={activeType}
             onToggleType={() => setActiveType(prev => prev === 'kham' ? 'dieu_tri' : 'kham')}
             canToggleType={true}
             setViewMode={setViewMode}
           />
 
-          {viewMode === 'timeline' && (
-            <div className="flex items-center justify-center bg-slate-55/40 dark:bg-zinc-900/40 border border-slate-100 dark:border-zinc-800/80 p-3 rounded-[20px] backdrop-blur-md">
-              <div className="text-xs font-bold text-slate-500 dark:text-zinc-400 flex items-center gap-2">
-                <span>Đang xem lịch ngày:</span>
-                <span className="font-extrabold text-[#0D9488] uppercase tracking-wide bg-[#0D9488]/5 dark:bg-teal-950/20 px-3 py-1 rounded-lg border border-[#0D9488]/15">
-                  {format(selectedDate, 'eeee, dd/MM/yyyy', { locale: vi })}
-                </span>
-              </div>
-            </div>
-          )}
-
           {/* MAIN CALENDAR / TIMELINE WORKSPACE */}
           <div className="flex flex-col lg:flex-row gap-6 items-start">
+            
+            {/* Left Content Area */}
             <div className="flex-1 w-full min-w-0">
               {isWalkInModalOpen ? (
                 <div ref={bookingFormRef} className="scroll-mt-6">
@@ -418,7 +408,7 @@ export default function ReceptionistAppointments() {
                     initialTime={walkInTime}
                     activeType={activeType}
                     isReceptionist={true}
-                    selectedDateStr={formattedSelectedDate}
+                    selectedDateStr={format(startDate, 'yyyy-MM-dd')}
                     initialCustomerId={new URLSearchParams(location.search).get('khach_hang_id') || undefined}
                     initialServiceId={new URLSearchParams(location.search).get('goi_dich_vu_id') || undefined}
                   />
@@ -433,7 +423,7 @@ export default function ReceptionistAppointments() {
                       staffList={staffList}
                       schedulesList={schedulesList}
                       allAppointments={appointments}
-                      selectedDateStr={formattedSelectedDate}
+                      selectedDateStr={format(startDate, 'yyyy-MM-dd')}
                       onOpenWalkInModal={(time) => {
                         setWalkInTime(time);
                         setIsWalkInModalOpen(true);
@@ -445,8 +435,12 @@ export default function ReceptionistAppointments() {
 
                   {viewMode === 'capacity' && (
                     <CapacityView
-                      selectedDate={selectedDate}
-                      setSelectedDate={setSelectedDate}
+                      selectedDate={startDate}
+                      setSelectedDate={(d) => {
+                        setStartDate(d);
+                        setEndDate(d);
+                        setViewMode('timeline');
+                      }}
                       setViewMode={setViewMode}
                       appointments={appointments.filter(apt =>
                         (activeType === 'kham'
@@ -454,7 +448,9 @@ export default function ReceptionistAppointments() {
                           : (apt.loai_lich === 'dieu_tri' || apt.loai_lich === 'dich_vu_don')) &&
                         (!statusFilter || KPI_BUCKET_STATUSES[statusFilter].includes(apt.trang_thai))
                       )}
-                      timeRange={timeRange}
+                      timeRange="custom"
+                      startDate={startDate}
+                      endDate={endDate}
                       activeType={activeType}
                       searchTerm={searchTerm}
                       onSelectAppointment={scrollToAppointment}
@@ -507,8 +503,6 @@ export default function ReceptionistAppointments() {
               )}
             </div>
           </div>
-        </motion.div>
-      </AnimatePresence>
 
       {/* GLOBAL MODALS */}
       {isDetailModalOpen && (

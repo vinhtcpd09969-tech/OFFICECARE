@@ -4,6 +4,7 @@ import { vi } from 'date-fns/locale';
 import { motion } from 'framer-motion';
 import { User, MapPin, ChevronRight, Calendar, Search } from 'lucide-react';
 import { statusConfig } from '../../appointmentStatusConfig';
+import { getSmartSearchScore } from '../../../utils/smartSearch';
 
 interface CapacityViewProps {
   selectedDate: Date;
@@ -11,13 +12,11 @@ interface CapacityViewProps {
   setViewMode: (view: 'timeline' | 'capacity') => void;
   appointments: any[];
   timeRange: 'today' | '7days' | 'month' | 'custom';
+  startDate?: Date;
+  endDate?: Date;
   activeType: 'kham' | 'dieu_tri';
   searchTerm?: string;
   onSelectAppointment?: (aptId: string) => void;
-  /** Nhãn trạng thái đang lọc (vd "Đã check-in") — appointments truyền vào đã được lọc sẵn ở
-   * trang cha. Có giá trị thì chuyển từ thẻ gộp theo ngày sang danh sách phẳng từng lịch hẹn
-   * (giống khi gõ tìm kiếm) để thấy rõ kết quả lọc, thay vì chỉ đổi 1 con số nhỏ trong thẻ gộp
-   * mà người dùng dễ không nhận ra là đã lọc. */
   activeStatusLabel?: string | null;
   selectedStaffFilter?: string | null;
   staffList?: any[];
@@ -34,6 +33,8 @@ export function CapacityView({
   setViewMode,
   appointments,
   timeRange,
+  startDate,
+  endDate,
   activeType,
   searchTerm = '',
   onSelectAppointment,
@@ -44,32 +45,35 @@ export function CapacityView({
   const [currentPage, setCurrentPage] = useState<number>(1);
   const pageSize = 7;
 
-
-  // Reset page when timeRange or filters change
+  // Reset page when range or filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [timeRange, searchTerm, activeStatusLabel, selectedStaffFilter]);
+  }, [timeRange, startDate, endDate, searchTerm, activeStatusLabel, selectedStaffFilter]);
 
   // Sinh danh sách ngày dựa trên khoảng thời gian
   const getDaysRange = () => {
+    if (startDate && endDate) {
+      const daysArr: Date[] = [];
+      let curr = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+      const end = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+      while (curr <= end) {
+        daysArr.push(new Date(curr));
+        curr = addDays(curr, 1);
+      }
+      return daysArr;
+    }
     if (timeRange === 'today') {
       return [selectedDate];
     }
-    if (timeRange === 'month') {
-      const start = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-      const totalDays = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0).getDate();
-      return Array.from({ length: totalDays }).map((_, i) => addDays(start, i));
-    }
-    // Mặc định hoặc 7 Ngày: Lấy 7 ngày trong tuần của selectedDate
     const start = startOfWeek(selectedDate, { weekStartsOn: 1 });
     return Array.from({ length: 7 }).map((_, i) => addDays(start, i));
   };
 
   const days = getDaysRange();
 
-  // Phân trang danh sách ngày
+  // Phân trang danh sách ngày (Tự động phân trang 7 ngày/trang nếu tổng số ngày > 7)
   const totalItems = days.length;
-  const isPaginated = timeRange === 'month' && totalItems > pageSize;
+  const isPaginated = totalItems > pageSize;
   const totalPages = Math.ceil(totalItems / pageSize);
   
   const startIndex = (currentPage - 1) * pageSize;
@@ -148,14 +152,35 @@ export function CapacityView({
   const hasActiveFilter = !!cleanSearch || !!activeStatusLabel || !!selectedStaffFilter;
 
   let resultsList = appointments.slice();
-  if (cleanSearch) {
-    resultsList = resultsList.filter(apt =>
-      removeAccents(apt.ten_khach_hang).includes(cleanSearch) ||
-      removeAccents(apt.ma_lich_dat).includes(cleanSearch) ||
-      (apt.so_dien_thoai || '').includes(searchTerm.trim())
-    );
+  // Lọc theo bác sĩ/KTV hoặc theo trạng thái phải tôn trọng đúng khoảng ngày đang xem (giống cách
+  // các thẻ theo ngày bên dưới đã làm) — appointments truyền vào từ trang cha chỉ mới lọc theo
+  // loại/trạng thái/nhân sự, CHƯA lọc theo ngày. Riêng tìm kiếm tự do theo tên/mã/SĐT (không kèm lọc
+  // nhân sự/trạng thái nào khác) vẫn cố tình tìm xuyên suốt toàn bộ dữ liệu đã tải, để không bỏ lỡ
+  // khách nằm ngoài khung ngày đang hiển thị.
+  if ((selectedStaffFilter || activeStatusLabel) && startDate && endDate) {
+    const startBound = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+    const endBound = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), 23, 59, 59, 999);
+    resultsList = resultsList.filter(apt => {
+      const aptDate = new Date(apt.ngay_gio_bat_dau || '');
+      return aptDate >= startBound && aptDate <= endBound;
+    });
   }
-  resultsList = resultsList.sort((a, b) => new Date(a.ngay_gio_bat_dau || '').getTime() - new Date(b.ngay_gio_bat_dau || '').getTime());
+  if (cleanSearch) {
+    resultsList = resultsList
+      .map(apt => {
+        const nameScore = getSmartSearchScore(apt.ten_khach_hang || '', searchTerm);
+        const codeScore = (apt.ma_lich_dat || '').toLowerCase().includes(cleanSearch) ? 80 : 0;
+        const phoneScore = (apt.so_dien_thoai || '').includes(searchTerm.trim()) ? 80 : 0;
+        const score = Math.max(nameScore, codeScore, phoneScore);
+        return { apt, score };
+      })
+      .filter(item => item.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .map(item => item.apt);
+  }
+  if (!cleanSearch) {
+    resultsList = resultsList.sort((a, b) => new Date(a.ngay_gio_bat_dau || '').getTime() - new Date(b.ngay_gio_bat_dau || '').getTime());
+  }
   // Giới hạn 30 chỉ áp dụng khi đang gõ tìm kiếm (tránh danh sách quá dài khi gõ nhầm 1 ký tự) —
   // lọc theo trạng thái thì hiện đủ, vì mục đích là để duyệt hết kết quả.
   if (cleanSearch) {

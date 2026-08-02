@@ -481,6 +481,31 @@ class ReceptionistService {
     return voucher;
   }
 
+  // Hạn sử dụng CHỐT CỨNG (snapshot) đúng 1 lần tại thời điểm kích hoạt đầu tiên — lấy từ cấu hình
+  // gói (goi_dich_vu.han_su_dung_mac_dinh_ngay), KHÔNG nhận từ client, KHÔNG cho sửa tay ở hóa đơn.
+  // "WHERE han_su_dung IS NULL" đảm bảo chỉ set 1 lần — nếu sau này admin đổi cấu hình gói hoặc plan
+  // này nhận thêm hóa đơn khác (vd đợt 2 trả góp), hạn sử dụng đã chốt vẫn giữ nguyên, không bị ghi đè.
+  // Dùng chung cho cả 2 luồng kích hoạt: tạo hóa đơn mới thu tiền ngay (createBillingDirect) và thu
+  // tiền cho hóa đơn đã tồn tại sẵn từ trước, vd bác sĩ chỉ định gói rồi lễ tân thu tiền sau (processPayment).
+  private async snapshotTreatmentPlanExpiry(treatmentPlanId: string) {
+    const ldt = await receptionistRepository.getTreatmentPlanById(treatmentPlanId);
+    if (!ldt) return;
+
+    const { rows: pkgRows } = await pool.query(
+      'SELECT han_su_dung_mac_dinh_ngay FROM goi_dich_vu WHERE id = $1',
+      [ldt.goi_dich_vu_id]
+    );
+    const soNgayHieuLuc = pkgRows[0]?.han_su_dung_mac_dinh_ngay;
+    if (soNgayHieuLuc) {
+      await pool.query(
+        `UPDATE phac_do_dieu_tri
+         SET han_su_dung = CURRENT_DATE + $1 * INTERVAL '1 day'
+         WHERE id = $2 AND han_su_dung IS NULL`,
+        [Number(soNgayHieuLuc), treatmentPlanId]
+      );
+    }
+  }
+
   async createBillingDirect(data: any) {
     const { khach_hang_id, item_type, item_id, loai_thanh_toan, ma_voucher, lich_dat_id, ho_ten_khach, so_dien_thoai, lich_dieu_tri_id, dang_ky_goi } = data;
 
@@ -537,25 +562,8 @@ class ReceptionistService {
       const ldt = await receptionistRepository.getTreatmentPlanById(finalLdtId);
       if (!ldt) throw new Error('Không tìm thấy lịch điều trị');
 
-      // Hạn sử dụng CHỐT CỨNG (snapshot) đúng 1 lần tại thời điểm kích hoạt đầu tiên — lấy từ cấu
-      // hình gói (goi_dich_vu.han_su_dung_mac_dinh_ngay), KHÔNG nhận từ client, KHÔNG cho sửa tay ở
-      // hóa đơn nữa (đã bỏ ô nhập ở frontend). "WHERE han_su_dung IS NULL" đảm bảo chỉ set 1 lần —
-      // nếu sau này admin đổi cấu hình gói hoặc plan này nhận thêm hóa đơn khác (vd đợt 2 trả góp),
-      // hạn sử dụng đã chốt vẫn giữ nguyên, không bị ghi đè lại.
       if (['tra_thang', 'tra_gop', 'tung_buoi'].includes(loai_thanh_toan)) {
-        const { rows: pkgRows } = await pool.query(
-          'SELECT han_su_dung_mac_dinh_ngay FROM goi_dich_vu WHERE id = $1',
-          [ldt.goi_dich_vu_id]
-        );
-        const soNgayHieuLuc = pkgRows[0]?.han_su_dung_mac_dinh_ngay;
-        if (soNgayHieuLuc) {
-          await pool.query(
-            `UPDATE phac_do_dieu_tri
-             SET han_su_dung = CURRENT_DATE + $1 * INTERVAL '1 day'
-             WHERE id = $2 AND han_su_dung IS NULL`,
-            [Number(soNgayHieuLuc), finalLdtId]
-          );
-        }
+        await this.snapshotTreatmentPlanExpiry(finalLdtId);
       }
 
       const calc = await this.calculateBilling({
@@ -826,6 +834,11 @@ class ReceptionistService {
     // Update linked treatment plan status on first payment
     if (hd.lich_dieu_tri_id && da_thanh_toan_truoc === 0) {
       const statusToSet = hd.loai_hoa_don === 'dich_vu_don' ? 'da_thanh_toan' : 'dang_dieu_tri';
+      if (statusToSet === 'dang_dieu_tri') {
+        // Hóa đơn này được tạo sẵn từ trước (vd bác sĩ chỉ định gói) rồi mới thu tiền ở đây, khác với
+        // luồng createBillingDirect tạo hóa đơn + thu tiền cùng lúc — vẫn cần chốt hạn sử dụng tại đây.
+        await this.snapshotTreatmentPlanExpiry(hd.lich_dieu_tri_id);
+      }
       await receptionistRepository.updateTreatmentPlanStatus(hd.lich_dieu_tri_id, statusToSet);
     }
 

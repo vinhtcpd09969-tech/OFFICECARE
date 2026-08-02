@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Eye, EyeOff, Info, ArrowRight, ArrowLeft, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { Eye, EyeOff, ArrowRight, ArrowLeft, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRegisterState } from '../hooks/useRegisterState';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -123,17 +123,7 @@ export default function Register() {
                 <h3 className="font-jakarta text-xl font-black text-[#0F172A] tracking-tight">Tạo tài khoản mới</h3>
               </div>
 
-              {location.state?.from === '/booking' && (
-                <div className="mb-5 p-4 bg-teal-50/50 border border-[#14B8A6]/15 text-slate-700 rounded-2xl text-xs flex items-start gap-2.5 shadow-sm animate-pulse-custom">
-                  <Info className="shrink-0 mt-0.5 text-[#0D9488]" size={16} />
-                  <div>
-                    <p className="font-extrabold text-slate-900 font-jakarta">Tạo tài khoản trị liệu</p>
-                    <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed font-semibold">
-                      Thiết lập tài khoản để đồng bộ hóa hồ sơ bệnh án và lưu trữ bệnh án lâu dài nhé!
-                    </p>
-                  </div>
-                </div>
-              )}
+
             </>
           )}
 

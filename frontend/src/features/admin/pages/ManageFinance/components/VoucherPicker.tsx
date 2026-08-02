@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Ticket, X } from 'lucide-react';
+import toast from 'react-hot-toast';
 import axiosInstance from '../../../../../api/axios';
 import { formatCurrency } from '../../../../../utils/format';
 import { formatVoucherPaymentMethods } from '../../../../../utils/voucherPaymentMethod';
@@ -31,6 +32,16 @@ interface VoucherPickerProps {
 
 const isPercent = (loaiGiam: string) => loaiGiam === 'phan_tram' || loaiGiam === 'percentage';
 
+// Dùng chung cho cả việc lọc danh sách dropdown VÀ kiểm tra voucher đang áp còn hợp lệ hay không
+// sau khi đổi hình thức thanh toán — một nơi duy nhất, tránh 2 chỗ lệch điều kiện nhau.
+const isVoucherEligible = (
+  v: Pick<VoucherOption, 'don_hang_toi_thieu' | 'yeu_cau_thanh_toan'>,
+  orderValue: number,
+  loaiThanhToan?: 'tra_thang' | 'tra_gop' | 'tung_buoi'
+) =>
+  orderValue >= Number(v.don_hang_toi_thieu || 0) &&
+  (!v.yeu_cau_thanh_toan?.length || v.yeu_cau_thanh_toan.includes('tat_ca') || (!!loaiThanhToan && v.yeu_cau_thanh_toan.includes(loaiThanhToan)));
+
 const formatDiscount = (v: { loai_giam: string; gia_tri_giam: number; giam_toi_da?: number | null }) =>
   isPercent(v.loai_giam)
     ? `Giảm ${v.gia_tri_giam}%${v.giam_toi_da ? ` (tối đa ${formatCurrency(v.giam_toi_da)})` : ''}`
@@ -46,16 +57,23 @@ export default function VoucherPicker({ appliedVoucher, onApply, onRemove, disab
   // Chỉ hiển thị voucher đơn hàng hiện tại đủ điều kiện áp dụng (đơn tối thiểu + đúng hình thức
   // thanh toán yêu cầu nếu có giới hạn) — voucher không đạt điều kiện bị ẩn hẳn thay vì hiện ra
   // rồi báo "áp dụng thành công" nhưng giảm 0đ hoặc bị chặn ở bước tính tiền.
-  const eligibleVouchers = vouchers.filter((v) =>
-    orderValue >= Number(v.don_hang_toi_thieu || 0) &&
-    (!v.yeu_cau_thanh_toan?.length || v.yeu_cau_thanh_toan.includes('tat_ca') || (!!loaiThanhToan && v.yeu_cau_thanh_toan.includes(loaiThanhToan)))
-  );
+  const eligibleVouchers = vouchers.filter((v) => isVoucherEligible(v, orderValue, loaiThanhToan));
 
   // Reset danh sách đã tải khi đổi khách hàng — giới hạn lượt dùng tính riêng theo từng khách.
   useEffect(() => {
     setLoaded(false);
     setVouchers([]);
   }, [khachHangId]);
+
+  // Voucher đang áp mà đổi hình thức thanh toán/giá trị đơn hàng khiến nó không còn hợp lệ nữa
+  // (VD đang áp cho "Trả thẳng 100%" rồi bấm qua "Từng buổi") — tự gỡ ngay để khách chọn lại, thay
+  // vì giữ nguyên rồi để bước tính tiền phía sau trả lỗi "Mã giảm giá này chỉ áp dụng cho...".
+  useEffect(() => {
+    if (appliedVoucher && !isVoucherEligible(appliedVoucher, orderValue, loaiThanhToan)) {
+      onRemove();
+      toast(`Mã "${appliedVoucher.ma_voucher}" không áp dụng được cho lựa chọn mới, vui lòng chọn lại mã giảm giá.`, { icon: 'ℹ️' });
+    }
+  }, [appliedVoucher, orderValue, loaiThanhToan]);
 
   useEffect(() => {
     if (!open || loaded || !khachHangId) return;

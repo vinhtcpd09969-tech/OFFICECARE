@@ -263,11 +263,18 @@ export function useScheduleForm({
       }
     }
 
+    const selectedStaffObj = staff.find(s => s.id === data.nguoi_dung_id);
+    const isDoctorNow = selectedStaffObj?.vai_tro === 'Bác sĩ';
+    const isTechnicianNow = selectedStaffObj?.vai_tro === 'Kỹ thuật viên';
+
+    // Chỉ Bác sĩ/KTV mới bắt buộc chọn phòng (Lễ tân không có ô chọn phòng trên form) — kiểm tra ở
+    // đây thay vì trong zod schema vì schema không biết vai trò nhân sự đang chọn.
+    if ((isDoctorNow || isTechnicianNow) && data.trang_thai === 'hoat_dong' && !data.phong_id) {
+      toast.error(`Vui lòng chọn ${isDoctorNow ? 'phòng khám' : 'phòng trị liệu'} cho ca trực này.`);
+      return;
+    }
+
     try {
-      const selectedStaffObj = staff.find(s => s.id === data.nguoi_dung_id);
-      const isDoctorNow = selectedStaffObj?.vai_tro === 'Bác sĩ';
-      const isTechnicianNow = selectedStaffObj?.vai_tro === 'Kỹ thuật viên';
-      
       const submitData = {
         ...data,
         phong_id: (isDoctorNow || isTechnicianNow) && data.trang_thai === 'hoat_dong' ? (data.phong_id ? Number(data.phong_id) : null) : null

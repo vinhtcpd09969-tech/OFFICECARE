@@ -3,6 +3,36 @@ import { toast } from 'react-hot-toast';
 import axiosInstance from '../../../../../api/axios';
 import { getInstallmentCutoffSession, getTungBuoiSessionDue } from '../../../../../utils/billing';
 
+export interface CalculatedCheckoutData {
+  ten_item?: string;
+  gia_goc?: number;
+  loai_goi?: string;
+  ten_goi?: string;
+  gia_goc_goi?: number;
+  so_tien_giam_phuong_thuc?: number;
+  giam_tru_kham_truoc_do?: number;
+  ma_hoa_don_kham?: string;
+  ngay_thanh_toan_kham?: string;
+  mien_phi_kham_chua_dong?: number;
+  so_tien_giam_voucher?: number;
+  tong_tien_thanh_toan?: number;
+  so_buoi_goi?: number;
+  so_tien_dot_1?: number;
+  so_tien_dot_2?: number;
+  don_gia_buoi?: number;
+  don_gia_theo_buoi?: number;
+  phan_tram_giam_phuong_thuc?: number;
+}
+
+export interface AssignedPackage {
+  id?: string;
+  ten_goi?: string;
+  tong_so_buoi?: number;
+  gia_ban?: number;
+  gia_niem_yet?: number;
+  loai_goi?: string;
+}
+
 interface CheckoutState {
   lichDatId: string;
   soTienNhan: string;

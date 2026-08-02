@@ -35,6 +35,10 @@ export interface DoctorAppointment {
   anh_dinh_kem_url?: string | null;
   khach_hang_id?: string;
   phac_do_dieu_tri_id?: string | null;
+  thoi_gian_bat_dau?: string | null;
+  nhat_ky_ngay_tao?: string | null;
+  so_thu_tu_buoi?: number | null;
+  tong_so_buoi_goi?: number | null;
 }
 
 // Khám lâm sàng & dịch vụ lẻ gộp chung 1 dòng thời gian (KHÔNG lẫn buổi trong phác đồ) — mirror
@@ -106,6 +110,8 @@ export interface PackageItem {
   ten_goi: string;
   mo_ta?: string;
   gia_goi: number;
+  tong_so_buoi?: number;
+  quy_trinh?: string | null;
 }
 
 export interface ClinicalAssessmentPayload {

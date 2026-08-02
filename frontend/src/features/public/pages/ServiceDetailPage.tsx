@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Clock, Phone, Loader2, Info, ShieldCheck, HeartPulse, Award, Star, TrendingUp, Activity, ArrowLeft } from 'lucide-react';
@@ -73,16 +73,6 @@ export default function ServiceDetailPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [specialists, setSpecialists] = useState<any[]>([]);
   const [selectedImage, setSelectedImage] = useState<string>('');
-
-  // Reset page when service id changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [id]);
-
-  const paginatedReviews = useMemo(() => {
-    const startIndex = (currentPage - 1) * 5;
-    return reviews.slice(startIndex, startIndex + 5);
-  }, [reviews, currentPage]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -595,16 +585,21 @@ export default function ServiceDetailPage() {
 
 
 
-        {/* Section: Đánh giá khách hàng */}
-        <div className="bg-white rounded-[24px] border border-slate-100/80 shadow-[0_8px_30px_rgba(15,23,42,0.015)] p-6 md:p-10 mb-12">
-          <div className="flex items-center justify-between mb-6">
+        {/* Full-width Reviews Section */}
+        <div className="bg-white rounded-[28px] p-5 sm:p-6 border border-slate-200/80 shadow-2xs space-y-4 mb-12">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black uppercase tracking-widest text-[#0D9488] bg-[#14B8A6]/10 px-3 py-1 rounded-full">
-                💬 Đánh giá
+              <span className="text-[10px] font-black uppercase tracking-widest text-[#0D9488] bg-[#0D9488]/10 px-3 py-1 rounded-full border border-[#0D9488]/20">
+                💬 Phản Hồi Từ Bệnh Nhân
               </span>
-              <h3 className="font-heading font-black text-secondary text-sm md:text-base uppercase tracking-tight">
-                Phản hồi từ bệnh nhân
-              </h3>
+              {reviews.length > 0 && (
+                <span className="text-xs font-black text-slate-700 flex items-center gap-1">
+                  <Star size={13} className="fill-amber-400 text-amber-400" />
+                  <span>
+                    {(reviews.reduce((acc: number, r: any) => acc + (r.rating || 5), 0) / reviews.length).toFixed(1)}/5.0
+                  </span>
+                </span>
+              )}
             </div>
             <span className="text-xs font-bold text-slate-500">
               {reviews.length} nhận xét
@@ -612,98 +607,67 @@ export default function ServiceDetailPage() {
           </div>
 
           {reviewsLoading ? (
-            <div className="text-center py-6 text-xs font-bold text-slate-400 animate-pulse">
+            <div className="text-center py-4 text-xs font-bold text-slate-400 animate-pulse">
               Đang tải nhận xét...
             </div>
           ) : reviews.length === 0 ? (
-            <p className="text-slate-400 text-xs font-semibold py-4">Chưa có đánh giá nào cho gói trị liệu này.</p>
+            <div className="text-center py-6 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+              <p className="text-xs font-semibold text-slate-400">Chưa có đánh giá nào cho gói trị liệu này.</p>
+            </div>
           ) : (
-            <div className="space-y-6">
-              <div className="space-y-6 divide-y divide-slate-100">
-                {paginatedReviews.map((rev) => (
-                  <div key={rev.id} className="pt-6 first:pt-0 space-y-3">
+            <div className="space-y-3">
+              <div className="space-y-2.5">
+                {(currentPage === 1 ? reviews.slice(0, 5) : reviews).map((rev) => (
+                  <div key={rev.id} className="p-3.5 bg-slate-50/70 hover:bg-white border border-slate-200/60 rounded-2xl transition-all space-y-2">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="size-9 rounded-xl bg-teal-50 flex items-center justify-center text-teal-650 font-black text-xs">
+                      <div className="flex items-center gap-2.5">
+                        <div className="size-7 rounded-full bg-teal-100/80 text-[#0D9488] font-black text-xs flex items-center justify-center shrink-0">
                           {rev.name?.charAt(0) || 'K'}
                         </div>
                         <div>
-                          <p className="font-extrabold text-slate-800 text-xs">{rev.name}</p>
-                          <p className="text-[9px] text-slate-400 font-bold">
+                          <p className="font-extrabold text-slate-800 text-xs leading-none">{rev.name}</p>
+                          <p className="text-[9px] text-slate-400 font-semibold mt-0.5">
                             Đã trị liệu ngày {new Date(rev.date).toLocaleDateString('vi-VN')}
                           </p>
                         </div>
                       </div>
-                      <div className="flex gap-0.5 text-amber-400">
+                      <div className="flex gap-0.5 text-amber-400 shrink-0">
                         {Array.from({ length: 5 }).map((_, i) => (
                           <Star 
                             key={i} 
-                            size={14} 
-                            className={i < rev.rating ? 'fill-amber-400 stroke-none' : 'text-zinc-200 fill-zinc-200 stroke-none'} 
+                            size={11} 
+                            className={i < rev.rating ? 'fill-amber-400 stroke-none' : 'text-slate-200 fill-slate-200 stroke-none'} 
                           />
                         ))}
                       </div>
                     </div>
-                    <p className="text-slate-650 text-xs font-semibold leading-relaxed italic bg-slate-50/50 p-5 rounded-2xl border border-slate-100 max-w-3xl">
+                    <p className="text-slate-700 text-xs font-normal leading-relaxed italic pl-1">
                       "{censorText(rev.comment)}"
                     </p>
                     {rev.reply && (
-                      <div className="bg-emerald-50/55 border-l-2 border-[#0D9488] rounded-r-2xl p-4 mt-2 max-w-3xl text-xs space-y-1 ml-4">
-                        <p className="font-extrabold text-slate-800">
+                      <div className="bg-emerald-50/60 border-l-2 border-[#0D9488] rounded-r-xl p-2.5 text-xs space-y-0.5 ml-2">
+                        <p className="font-extrabold text-slate-800 text-[11px]">
                           Phản hồi từ OfficeCare:
                         </p>
-                        <p className="text-slate-600 italic">"{rev.reply}"</p>
+                        <p className="text-slate-600 italic text-[11px]">"{rev.reply}"</p>
                       </div>
                     )}
                   </div>
                 ))}
               </div>
 
-              {/* Pagination controls */}
-              {(() => {
-                const totalPages = Math.ceil(reviews.length / 5);
-                if (totalPages <= 1) return null;
-                return (
-                  <div className="flex items-center justify-center gap-2 pt-6 mt-4 border-t border-slate-100/60">
-                    <button
-                      type="button"
-                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                      disabled={currentPage === 1}
-                      className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-xl border border-slate-200 hover:border-[#0D9488] hover:text-[#0D9488] text-slate-500 disabled:opacity-30 disabled:hover:border-slate-200 disabled:hover:text-slate-500 transition-all cursor-pointer select-none"
-                    >
-                      Trước
-                    </button>
-                    <div className="flex items-center gap-1">
-                      {Array.from({ length: totalPages }).map((_, i) => {
-                        const pageNum = i + 1;
-                        const isActive = currentPage === pageNum;
-                        return (
-                          <button
-                            key={pageNum}
-                            type="button"
-                            onClick={() => setCurrentPage(pageNum)}
-                            className={`w-7 h-7 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
-                              isActive
-                                ? 'bg-primary text-white shadow-md shadow-teal-500/10 scale-105'
-                                : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-600'
-                            }`}
-                          >
-                            {pageNum}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                      disabled={currentPage === totalPages}
-                      className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-xl border border-slate-200 hover:border-[#0D9488] hover:text-[#0D9488] text-slate-500 disabled:opacity-30 disabled:hover:border-slate-200 disabled:hover:text-slate-500 transition-all cursor-pointer select-none"
-                    >
-                      Sau
-                    </button>
-                  </div>
-                );
-              })()}
+              {/* View All / Collapse Button */}
+              {reviews.length > 5 && (
+                <div className="text-center pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage(prev => (prev === 1 ? 2 : 1))}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-teal-50 text-slate-700 hover:text-[#0D9488] rounded-xl text-xs font-black transition-all cursor-pointer border border-slate-200/80"
+                  >
+                    <span>{currentPage === 1 ? `Xem tất cả ${reviews.length} đánh giá` : 'Thu gọn đánh giá'}</span>
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

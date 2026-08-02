@@ -65,6 +65,20 @@ export function FinanceFilterBar({
     onEndDateChange('');
   };
 
+  const handleStartDateChange = (val: string) => {
+    onStartDateChange(val);
+    if (val && endDate && val > endDate) {
+      onEndDateChange(val);
+    }
+  };
+
+  const handleEndDateChange = (val: string) => {
+    onEndDateChange(val);
+    if (val && startDate && val < startDate) {
+      onStartDateChange(val);
+    }
+  };
+
   return (
     <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-200/80 dark:border-zinc-800 shadow-xs space-y-4 text-left select-none">
       <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-850 pb-3">
@@ -179,18 +193,22 @@ export function FinanceFilterBar({
               </button>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-1.5">
+          <div className="grid grid-cols-2 gap-1.5 items-center">
             <CustomDatePicker
               value={startDate}
-              onChange={onStartDateChange}
+              onChange={handleStartDateChange}
+              maxDate={endDate || undefined}
               placeholder="Từ ngày..."
               align="left"
+              variant="neutral"
             />
             <CustomDatePicker
               value={endDate}
-              onChange={onEndDateChange}
+              onChange={handleEndDateChange}
+              minDate={startDate || undefined}
               placeholder="Đến ngày..."
               align="right"
+              variant="neutral"
             />
           </div>
         </div>

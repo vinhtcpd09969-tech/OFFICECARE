@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../../../stores/authStore';
 import { CheckCircle2 } from 'lucide-react';
-import { format, startOfWeek, addDays, subDays, addMonths, subMonths } from 'date-fns';
+import { format, addDays, isSameDay } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
 import AppointmentCalendar from '../../../../components/appointments/AppointmentCalendar';
@@ -22,7 +22,18 @@ export default function DoctorAppointments() {
   const location = useLocation();
   const user = useAuthStore(state => state.user);
 
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [startDate, setStartDate] = useState<Date>(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  });
+
+  const [endDate, setEndDate] = useState<Date>(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return addDays(today, 6);
+  });
+
   const [appointments, setAppointments] = useState<DoctorAppointment[]>([]);
   const [schedules, setSchedules] = useState<DoctorSchedule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,21 +44,53 @@ export default function DoctorAppointments() {
   // Confirm Modal state for Checked-in ca
   const [confirmApt, setConfirmApt] = useState<any>(null);
 
-  // Ca cần mở tới từ banner "Bắt đầu ngay!" (AdminLayout.tsx) — tự bật modal xác nhận thay vì
-  // nhảy thẳng vào bàn khám, để BS luôn phải xác nhận lại trước khi mở (kể cả đến sớm/trễ giờ).
   useEffect(() => {
     const pending = (location.state as any)?.pendingConfirmAppointment;
     if (pending) {
       setConfirmApt(pending);
       navigate(location.pathname, { replace: true, state: null });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.state]);
+  }, [location.state, navigate, location.pathname]);
 
   // Filter States
-  const [timeRange, setTimeRange] = useState<'today' | '7days' | 'month' | 'custom'>('today');
-  const [viewMode, setViewMode] = useState<'timeline' | 'capacity'>('timeline');
+  const [timeRange, setTimeRange] = useState<'today' | '7days' | 'month' | 'custom'>('7days');
+  const [viewMode, setViewMode] = useState<'timeline' | 'capacity'>('capacity');
   const [searchTerm, setSearchTerm] = useState<string>('');
+
+  const handleSelectDateRange = (start: Date, end: Date) => {
+    setStartDate(start);
+    setEndDate(end);
+    if (isSameDay(start, end)) {
+      setViewMode('timeline');
+    } else {
+      setViewMode('capacity');
+    }
+  };
+
+  const handleNavigateRange = (direction: 'next' | 'prev' | 'today') => {
+    if (direction === 'today') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      setStartDate(today);
+      setEndDate(addDays(today, 6));
+      setViewMode('capacity');
+      return;
+    }
+
+    const s = new Date(startDate);
+    s.setHours(0, 0, 0, 0);
+    const e = new Date(endDate);
+    e.setHours(0, 0, 0, 0);
+    const diffDays = Math.max(1, Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+
+    if (direction === 'next') {
+      setStartDate(prev => addDays(prev, diffDays));
+      setEndDate(prev => addDays(prev, diffDays));
+    } else {
+      setStartDate(prev => addDays(prev, -diffDays));
+      setEndDate(prev => addDays(prev, -diffDays));
+    }
+  };
 
   // Lọc theo 1 trạng thái cụ thể khi bấm thẻ KPI — độc lập với số liệu trên thẻ (kpiStats tính từ
   // appointments gốc, không bị thu hẹp bởi filter này).
@@ -55,24 +98,12 @@ export default function DoctorAppointments() {
 
   // Calculate Active Interval
   const activeInterval = useMemo(() => {
-    if (timeRange === 'today') {
-      const start = new Date(selectedDate);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(selectedDate);
-      end.setHours(23, 59, 59, 999);
-      return { start, end };
-    } else if (timeRange === '7days') {
-      const start = startOfWeek(selectedDate, { weekStartsOn: 1 });
-      start.setHours(0, 0, 0, 0);
-      const end = addDays(start, 6);
-      end.setHours(23, 59, 59, 999);
-      return { start, end };
-    } else { // month
-      const start = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1, 0, 0, 0, 0);
-      const end = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0, 23, 59, 59, 999);
-      return { start, end };
-    }
-  }, [selectedDate, timeRange]);
+    const start = new Date(startDate);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+    return { start, end };
+  }, [startDate, endDate]);
 
   // Fetch appointments and schedules
   const loadData = useCallback(async () => {
@@ -89,7 +120,7 @@ export default function DoctorAppointments() {
       setAppointments(apptRes.data);
       setSchedules(schedRes.data);
     } catch (error) {
-      console.error('Lỗi khi tải lịch hẹn bác sĩ:', error);
+      console.error('Lỗi khi tải lịch khám:', error);
     } finally {
       setLoading(false);
     }
@@ -98,23 +129,6 @@ export default function DoctorAppointments() {
   useEffect(() => {
     loadData();
   }, [loadData]);
-
-  // Navigate dates
-  const handleNavigateDay = (direction: 'next' | 'prev' | 'today') => {
-    if (direction === 'today') {
-      setSelectedDate(new Date());
-      return;
-    }
-
-    const amount = timeRange === 'month' ? 1 : timeRange === '7days' ? 7 : 1;
-    if (timeRange === 'month') {
-      const monthFn = direction === 'next' ? addMonths : subMonths;
-      setSelectedDate(prev => monthFn(prev, 1));
-    } else {
-      const fn = direction === 'next' ? addDays : subDays;
-      setSelectedDate(prev => fn(prev, amount));
-    }
-  };
 
   // Giả lập staffList chứa chính bác sĩ đang đăng nhập để hiển thị 1 cột trên calendar
   const staffList = useMemo(() => {
@@ -171,12 +185,12 @@ export default function DoctorAppointments() {
 
   // Daily filtered appointments for the timeline view
   const filteredAppointmentsForDay = useMemo(() => {
-    const selectedDateStr = selectedDate.toLocaleDateString('fr-CA');
+    const selectedDateStr = format(startDate, 'yyyy-MM-dd');
     return searchedAppointments.filter(apt => {
-      const aptDateStr = new Date(apt.ngay_gio_bat_dau).toLocaleDateString('fr-CA');
+      const aptDateStr = format(new Date(apt.ngay_gio_bat_dau), 'yyyy-MM-dd');
       return aptDateStr === selectedDateStr;
     });
-  }, [searchedAppointments, selectedDate]);
+  }, [searchedAppointments, startDate]);
 
   // Khi bác sĩ click vào 1 card hẹn trên calendar
   const handleOpenDetailModal = useCallback((apt: any) => {
@@ -210,39 +224,18 @@ export default function DoctorAppointments() {
 
       {/* Top filter bar inherited from Admin style */}
       <AppointmentsFilterBar
-        timeRange={timeRange}
-        setTimeRange={(range) => {
-          setTimeRange(range);
-          if (range === 'today') {
-            setViewMode('timeline');
-          } else {
-            setViewMode('capacity');
-          }
-        }}
-        startDateOfWeek={activeInterval.start}
-        endDateOfWeek={activeInterval.end}
-        handleNavigateDay={handleNavigateDay}
+        startDate={startDate}
+        endDate={endDate}
+        onSelectDateRange={handleSelectDateRange}
+        handleNavigateRange={handleNavigateRange}
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
         viewMode={viewMode}
-        selectedDate={selectedDate}
         activeType="kham"
         onToggleType={() => {}}
         canToggleType={false}
         setViewMode={setViewMode}
       />
-
-      {/* Dynamic Navigation Indicator for Timeline view */}
-      {viewMode === 'timeline' && (
-        <div className="flex items-center justify-center bg-slate-55/40 dark:bg-zinc-900/40 border border-slate-100 dark:border-zinc-800/80 p-3 rounded-[20px] backdrop-blur-md">
-          <div className="text-xs font-bold text-slate-505 dark:text-zinc-400 flex items-center gap-2">
-            <span>Đang xem lịch khám ngày:</span>
-            <span className="bg-teal-55 dark:bg-teal-955/20 text-[#0d9488] dark:text-teal-450 px-2.5 py-1 rounded-xl border border-teal-100/30 font-black uppercase tracking-wide">
-              {format(selectedDate, 'eeee, dd/MM/yyyy', { locale: vi })}
-            </span>
-          </div>
-        </div>
-      )}
 
       {/* Calendar Area */}
       {loading ? (
@@ -260,16 +253,22 @@ export default function DoctorAppointments() {
               handleOpenDetailModal={handleOpenDetailModal}
               staffList={staffList}
               schedulesList={schedulesList}
-              selectedDateStr={selectedDate.toLocaleDateString('fr-CA')}
+              selectedDateStr={format(startDate, 'yyyy-MM-dd')}
               viewMode="doctor"
             />
           ) : (
             <CapacityView
-              selectedDate={selectedDate}
-              setSelectedDate={setSelectedDate}
+              selectedDate={startDate}
+              setSelectedDate={(d) => {
+                setStartDate(d);
+                setEndDate(d);
+                setViewMode('timeline');
+              }}
               setViewMode={setViewMode}
               appointments={mappedAppointments}
-              timeRange={timeRange}
+              timeRange="custom"
+              startDate={startDate}
+              endDate={endDate}
               activeType="kham"
               searchTerm={searchTerm}
               onSelectAppointment={(id) => {
@@ -289,15 +288,13 @@ export default function DoctorAppointments() {
       {confirmApt && (() => {
         const isStarted = confirmApt.trang_thai === 'dang_kham';
         const getRemainingMinutes = (apt: any) => {
-          if (!apt || !apt.nhat_ky_ngay_tao) return 0;
-          const start = new Date(apt.nhat_ky_ngay_tao);
-          const serviceStart = new Date(apt.ngay_gio_bat_dau);
-          const serviceEnd = new Date(apt.ngay_gio_ket_thuc);
-          const durationMs = serviceEnd.getTime() - serviceStart.getTime();
-          const durationMinutes = Math.round(durationMs / 60000) || 30;
-          
-          const completionTime = start.getTime() + durationMinutes * 60000;
-          const remainingMs = completionTime - Date.now();
+          // Thống nhất với HUD "Còn lại trong ca" ở trang Bàn làm việc (ClinicalAssessment/index.tsx)
+          // — luôn tính theo giờ KẾT THÚC THEO LỊCH ĐÃ ĐẶT (ngay_gio_ket_thuc), không theo giờ mở bàn
+          // thực tế, vì mốc cần cảnh báo là tràn slot/phòng đã đặt cho bệnh nhân sau, không phải ước
+          // lượng cá nhân dựa trên lúc thật sự bắt đầu làm.
+          if (!apt?.ngay_gio_ket_thuc) return 0;
+          const end = new Date(apt.ngay_gio_ket_thuc);
+          const remainingMs = end.getTime() - Date.now();
           return Math.max(0, Math.ceil(remainingMs / 60000));
         };
         const remaining = getRemainingMinutes(confirmApt);

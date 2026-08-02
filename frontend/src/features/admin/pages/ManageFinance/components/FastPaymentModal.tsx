@@ -219,7 +219,7 @@ export const FastPaymentModal: React.FC<FastPaymentModalProps> = ({
                 className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl text-xs font-bold text-secondary focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
               >
                 <option value="tien_mat">💵 Tiền mặt</option>
-                <option value="chuyen_khoan">🏦 Chuyển khoản ngân hàng</option>
+                <option value="chuyen_khoan">🏦 Chuyển khoản ngân hàng (Quét mã VietQR tự động qua PayOS)</option>
               </select>
             </div>
 
@@ -321,7 +321,7 @@ export const FastPaymentModal: React.FC<FastPaymentModalProps> = ({
                 disabled={loading}
                 className="flex-1 py-3 bg-primary hover:bg-primary/95 disabled:opacity-60 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-md hover:shadow-lg transition-all"
               >
-                {loading ? 'Đang xử lý...' : 'Xác nhận thu'}
+                {loading ? 'Đang xử lý...' : method === 'chuyen_khoan' ? 'Tiếp tục quét mã QR' : 'Xác nhận thu'}
               </button>
             </div>
           </div>
@@ -331,8 +331,12 @@ export const FastPaymentModal: React.FC<FastPaymentModalProps> = ({
       <ConfirmDialog
         isOpen={showConfirmModal}
         title={isDot2 ? 'Xác nhận thu tiền Đợt 2' : 'Xác nhận thu tiền thanh toán'}
-        message={`Bạn có chắc chắn muốn xác nhận thu ${formatCurrency(amountToConfirm)} cho bệnh nhân "${invoice.ten_khach_hang}" (Mã HĐ: ${invoice.ma_hoa_don}) qua hình thức ${method === 'chuyen_khoan' ? 'Chuyển khoản' : 'Tiền mặt'}?`}
-        confirmLabel="Đồng ý & Thu tiền"
+        message={
+          method === 'chuyen_khoan'
+            ? `Mở cổng thanh toán QR PayOS để thu ${formatCurrency(amountToConfirm)} cho bệnh nhân "${invoice.ten_khach_hang}" (Mã HĐ: ${invoice.ma_hoa_don})? Hóa đơn chỉ được đánh dấu đã thu sau khi hệ thống xác nhận tiền đã về qua webhook.`
+            : `Bạn có chắc chắn muốn xác nhận thu ${formatCurrency(amountToConfirm)} cho bệnh nhân "${invoice.ten_khach_hang}" (Mã HĐ: ${invoice.ma_hoa_don}) qua hình thức Tiền mặt?`
+        }
+        confirmLabel={method === 'chuyen_khoan' ? 'Mở cổng thanh toán QR' : 'Đồng ý & Thu tiền'}
         cancelLabel="Kiểm tra lại"
         type="success"
         onConfirm={handleFinalConfirm}

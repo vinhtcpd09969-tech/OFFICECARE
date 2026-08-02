@@ -75,16 +75,16 @@ export default function DashboardLayout() {
           </NavLink>
         </div>
         
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 px-3.5 py-4 space-y-1.5 overflow-y-auto">
           {filteredNavItems.map((item) => (
             <NavLink
               key={item.name}
               to={item.path}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-2.5 rounded-[14px] font-bold text-[11px] tracking-wide uppercase transition-all duration-200 group border-l-4 ${
+                `flex items-center gap-3 px-4 py-3 rounded-2xl font-black text-xs uppercase tracking-wide transition-all duration-200 group ${
                   isActive 
-                    ? 'bg-[#0D9488]/8 text-[#0D9488] border-[#0D9488] shadow-2xs font-black' 
-                    : 'border-transparent text-zinc-500 hover:bg-zinc-50 hover:text-secondary'
+                    ? 'bg-[#0D9488]/15 text-[#0D9488] shadow-2xs font-black' 
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-bold'
                 }`
               }
             >

@@ -172,11 +172,11 @@ export default function ServicesPage() {
   const countByTab = { ALL: allCount, KHAM: khamCount, LE: leCount, LIEU_TRINH: lieuTrinhCount };
 
   return (
-    <div className="min-h-screen bg-slate-50/50 pb-20 pt-28 font-jakarta">
-      <div className="max-w-7xl mx-auto px-6">
+    <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50 pb-12 pt-24 font-jakarta transition-colors">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* Asymmetric Header */}
-        <div className="mb-14 grid grid-cols-1 lg:grid-cols-12 gap-8 items-end border-b border-slate-200 pb-10">
+        <div className="mb-8 grid grid-cols-1 lg:grid-cols-12 gap-6 items-end border-b border-slate-200 dark:border-slate-800 pb-6">
           <div className="lg:col-span-7 space-y-2">
             <h1 className="font-heading font-extrabold text-2xl sm:text-3xl md:text-[32px] text-slate-900 tracking-tight leading-snug">
               Giải Pháp <span className="text-[#0D9488]">Trị Liệu</span> <br className="hidden md:inline" />
@@ -378,24 +378,24 @@ export default function ServicesPage() {
         )}
 
         {/* SECTION 2: 3-STEP TREATMENT JOURNEY */}
-        <div className="mt-24 pt-16 border-t border-slate-200 space-y-12">
-          <div className="max-w-2xl text-left space-y-3">
-            <span className="bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 text-[9.5px] font-bold tracking-wider px-3.5 py-1.5 rounded-full inline-block">
+        <div className="mt-10 pt-8 lg:mt-12 lg:pt-10 border-t border-slate-200 space-y-8">
+          <div className="max-w-2xl mx-auto text-center space-y-2">
+            <span className="bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 text-[10px] font-bold tracking-wider px-3.5 py-1 rounded-full inline-block">
               Hành trình khám chữa bệnh
             </span>
-            <h2 className="font-heading font-bold text-2xl md:text-3xl text-slate-800 tracking-normal leading-snug">
+            <h2 className="font-bold text-xl sm:text-2xl lg:text-3xl text-slate-900 tracking-tight leading-snug">
               Quy Trình Trị Liệu Khoa Học Tại OfficeCare
             </h2>
-            <p className="text-slate-500 font-normal text-xs leading-relaxed">
+            <p className="text-slate-600 font-medium text-xs sm:text-sm leading-relaxed">
               Mỗi bệnh nhân tại trung tâm được dẫn dắt bởi một quy trình nghiêm ngặt từ khâu chẩn đoán đến khi phục hồi hoàn toàn chức năng vận động.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {TREATMENT_STEPS.map((step) => (
-              <div key={step.step} className="bg-white rounded-2xl border border-slate-150 p-6 md:p-8 space-y-4 hover:border-[#14B8A6]/40 transition-all duration-300">
+              <div key={step.step} className="bg-white rounded-2xl border border-slate-150 p-6 space-y-3 hover:border-[#14B8A6]/40 transition-all duration-300">
                 <span className="text-3xl font-bold text-[#14B8A6]/30 font-heading block">{step.step}</span>
-                <h3 className="font-heading font-bold text-sm text-slate-800 tracking-normal">{step.title}</h3>
+                <h3 className="font-bold text-sm text-slate-800 tracking-tight">{step.title}</h3>
                 <p className="text-slate-500 text-[11px] font-normal leading-relaxed">{step.desc}</p>
               </div>
             ))}
@@ -403,15 +403,15 @@ export default function ServicesPage() {
         </div>
 
         {/* SECTION 3: MEDICAL TECHNOLOGY SHOWCASE */}
-        <div className="mt-24 pt-16 border-t border-slate-200 space-y-12">
-          <div className="max-w-2xl text-left space-y-3">
-            <span className="bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 text-[9.5px] font-bold tracking-wider px-3.5 py-1.5 rounded-full inline-block">
+        <div className="mt-10 pt-8 lg:mt-12 lg:pt-10 border-t border-slate-200 space-y-8">
+          <div className="max-w-2xl mx-auto text-center space-y-2">
+            <span className="bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 text-[10px] font-bold tracking-wider px-3.5 py-1 rounded-full inline-block">
               Thiết bị công nghệ cao
             </span>
-            <h2 className="font-heading font-bold text-2xl md:text-3xl text-slate-800 tracking-normal leading-snug">
+            <h2 className="font-bold text-xl sm:text-2xl lg:text-3xl text-slate-900 tracking-tight leading-snug">
               Hệ Thống Thiết Bị Đạt Chuẩn Y Khoa
             </h2>
-            <p className="text-slate-500 font-normal text-xs leading-relaxed">
+            <p className="text-slate-600 font-medium text-xs sm:text-sm leading-relaxed">
               Chúng tôi đầu tư đồng bộ hệ thống máy móc tân tiến nhập khẩu từ Châu Âu, hỗ trợ đẩy nhanh thời gian lành thương gấp 2 lần.
             </p>
           </div>
@@ -421,7 +421,7 @@ export default function ServicesPage() {
               <div key={tech.name} className="bg-white rounded-2xl border border-slate-150 p-6 flex flex-col justify-between gap-4 hover:border-[#14B8A6]/40 transition-all duration-300">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <h3 className="font-heading font-bold text-xs text-slate-800 tracking-normal">{tech.name}</h3>
+                    <h3 className="font-bold text-xs sm:text-sm text-slate-800 tracking-tight">{tech.name}</h3>
                     <span className="bg-teal-500/10 text-[#0D9488] text-[8.5px] font-bold tracking-wider px-2.5 py-1 rounded-lg border border-teal-500/15 shrink-0">
                       {tech.tag}
                     </span>
@@ -438,15 +438,15 @@ export default function ServicesPage() {
         </div>
 
         {/* SECTION 4: FAQ SECTION */}
-        <div className="mt-24 pt-16 border-t border-slate-200 space-y-12">
-          <div className="max-w-2xl text-left space-y-3">
-            <span className="bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 text-[9.5px] font-bold tracking-wider px-3.5 py-1.5 rounded-full inline-block">
+        <div className="mt-10 pt-8 lg:mt-12 lg:pt-10 border-t border-slate-200 space-y-8">
+          <div className="max-w-2xl mx-auto text-center space-y-2">
+            <span className="bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 text-[10px] font-bold tracking-wider px-3.5 py-1 rounded-full inline-block">
               Hỏi đáp y khoa
             </span>
-            <h2 className="font-heading font-bold text-2xl md:text-3xl text-slate-800 tracking-normal leading-snug">
+            <h2 className="font-bold text-xl sm:text-2xl lg:text-3xl text-slate-900 tracking-tight leading-snug">
               Giải Đáp Thắc Mắc Thường Gặp
             </h2>
-            <p className="text-slate-500 font-normal text-xs leading-relaxed">
+            <p className="text-slate-600 font-medium text-xs sm:text-sm leading-relaxed">
               Các câu hỏi đáp nhanh từ bác sĩ chuyên khoa giúp quý khách hiểu rõ hơn về lộ trình trị liệu cơ xương khớp.
             </p>
           </div>
@@ -454,7 +454,7 @@ export default function ServicesPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {MEDICAL_FAQS.map((faq, idx) => (
               <div key={idx} className="bg-white rounded-2xl border border-slate-150 p-6 space-y-2 hover:border-[#14B8A6]/45 transition-all duration-300">
-                <h3 className="font-heading font-bold text-xs text-slate-800 leading-snug flex items-start gap-2">
+                <h3 className="font-bold text-xs sm:text-sm text-slate-800 leading-snug flex items-start gap-2">
                   <span className="text-[#0D9488] shrink-0 font-bold">Q.</span>
                   <span>{faq.q}</span>
                 </h3>
