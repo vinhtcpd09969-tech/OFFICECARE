@@ -380,10 +380,6 @@ class AdminRepository {
   }
 
   async createSchedule(data: any) {
-    if (!data.phong_id) {
-      throw new Error('Vui lòng phân phòng làm việc cho ca trực của nhân sự.');
-    }
-
     const getLocalVietnamDate = () => {
       const now = new Date();
       const localTime = new Date(now.getTime() + 7 * 60 * 60 * 1000);
@@ -396,6 +392,13 @@ class AdminRepository {
 
     const userRes = await pool.query('SELECT vai_tro_id FROM nguoi_dung WHERE id = $1', [Number(data.nguoi_dung_id)]);
     const isDoc = userRes.rows[0]?.vai_tro_id === 4;
+    const isKtv = userRes.rows[0]?.vai_tro_id === 3;
+
+    // Chỉ Bác sĩ/KTV làm việc gắn với 1 phòng khám/trị liệu cụ thể mới bắt buộc chọn phòng — Lễ tân
+    // làm việc ở quầy chung, không có khái niệm "phòng" riêng.
+    if ((isDoc || isKtv) && data.trang_thai === 'hoat_dong' && !data.phong_id) {
+      throw new Error('Vui lòng phân phòng làm việc cho ca trực của nhân sự.');
+    }
 
     if (isDoc && data.trang_thai !== 'tam_nghi') {
       const hour = parseInt(data.gio_bat_dau.split(':')[0]);
@@ -461,10 +464,6 @@ class AdminRepository {
   }
 
   async updateSchedule(id: string, data: any) {
-    if (!data.phong_id) {
-      throw new Error('Vui lòng phân phòng làm việc cho ca trực của nhân sự.');
-    }
-
     const getLocalVietnamDate = () => {
       const now = new Date();
       const localTime = new Date(now.getTime() + 7 * 60 * 60 * 1000);
@@ -485,6 +484,13 @@ class AdminRepository {
 
     const userRes = await pool.query('SELECT vai_tro_id FROM nguoi_dung WHERE id = $1', [Number(data.nguoi_dung_id)]);
     const isDoc = userRes.rows[0]?.vai_tro_id === 4;
+    const isKtv = userRes.rows[0]?.vai_tro_id === 3;
+
+    // Chỉ Bác sĩ/KTV làm việc gắn với 1 phòng khám/trị liệu cụ thể mới bắt buộc chọn phòng — Lễ tân
+    // làm việc ở quầy chung, không có khái niệm "phòng" riêng.
+    if ((isDoc || isKtv) && data.trang_thai === 'hoat_dong' && !data.phong_id) {
+      throw new Error('Vui lòng phân phòng làm việc cho ca trực của nhân sự.');
+    }
 
     if (isDoc && data.trang_thai !== 'tam_nghi') {
       const hour = parseInt(data.gio_bat_dau.split(':')[0]);
@@ -1195,7 +1201,13 @@ class AdminRepository {
       LEFT JOIN cuoc_hen ch ON hd.cuoc_hen_id = ch.id
       LEFT JOIN goi_dich_vu dv ON ch.goi_dich_vu_id = dv.id
       LEFT JOIN khuyen_mai_voucher v ON hd.voucher_id = v.id
-      ORDER BY hd.ngay_tao DESC
+      -- Sắp theo lần THANH TOÁN GẦN NHẤT (không phải ngay_tao) — hóa đơn trả từng buổi chỉ tạo 1 lần
+      -- rồi cập nhật qua nhiều buổi, nếu sắp theo ngay_tao thì hóa đơn vừa thu tiền hôm nay vẫn nằm
+      -- im ở vị trí cũ. Hóa đơn chưa có giao dịch nào (chưa thanh toán) vẫn sắp theo ngay_tao như cũ.
+      ORDER BY COALESCE(
+        (SELECT MAX(gt.ngay_giao_dich) FROM giao_dich_thanh_toan gt WHERE gt.hoa_don_id = hd.id),
+        hd.ngay_tao
+      ) DESC
     `);
     return rows;
   }
@@ -1619,38 +1631,72 @@ class AdminRepository {
     const isValidDate = (d?: string) => !!d && /^\d{4}-\d{2}-\d{2}$/.test(d);
     const hasCustomRange = isValidDate(startDate) && isValidDate(endDate);
 
-    let revWhere = ` WHERE ngay_giao_dich >= DATE_TRUNC('month', NOW()) `;
     let formatStr = 'YYYY-MM-DD';
+    let startD = startDate || '';
+    let endD = endDate || '';
 
     if (hasCustomRange) {
-      revWhere = ` WHERE ngay_giao_dich::date >= '${startDate}'::date AND ngay_giao_dich::date <= '${endDate}'::date `;
       formatStr = bucket === 'year' ? 'YYYY' : bucket === 'month' ? 'YYYY-MM' : 'YYYY-MM-DD';
-    } else if (range === 'today') {
-      revWhere = ` WHERE ngay_giao_dich >= CURRENT_DATE `;
-      formatStr = 'HH24:00';
-    } else if (range === 'week') {
-      revWhere = ` WHERE ngay_giao_dich >= NOW() - INTERVAL '7 days' `;
+    } else {
+      const now = new Date();
+      endD = now.toISOString().split('T')[0];
+      const sevenDaysAgo = new Date(now.getTime() - 6 * 86400000);
+      startD = sevenDaysAgo.toISOString().split('T')[0];
+      bucket = 'day';
       formatStr = 'YYYY-MM-DD';
-    } else if (range === 'month') {
-      revWhere = ` WHERE ngay_giao_dich >= DATE_TRUNC('month', NOW()) `;
-      formatStr = 'YYYY-MM-DD';
-    } else if (range === 'quarter') {
-      revWhere = ` WHERE ngay_giao_dich >= DATE_TRUNC('quarter', NOW()) `;
-      formatStr = 'YYYY-MM-DD';
-    } else if (range === 'year') {
-      revWhere = ` WHERE ngay_giao_dich >= DATE_TRUNC('year', NOW()) `;
-      formatStr = 'YYYY-MM';
     }
 
+    // 1. Fetch actual database revenue grouped by label
     const { rows } = await pool.query(`
       SELECT TO_CHAR(ngay_giao_dich, '${formatStr}') as label, SUM(so_tien) as revenue
       FROM giao_dich_thanh_toan
-      ${revWhere}
+      WHERE ngay_giao_dich::date >= '${startD}'::date AND ngay_giao_dich::date <= '${endD}'::date
       GROUP BY label
       ORDER BY label ASC
     `);
 
-    return rows.map(r => ({ label: r.label, revenue: Number(r.revenue || 0) }));
+    const realMap: Record<string, number> = {};
+    rows.forEach((r) => {
+      realMap[r.label] = Number(r.revenue || 0);
+    });
+
+    // 2. Generate complete timeline bucket array between startD and endD
+    const timelineLabels: string[] = [];
+    const sDate = new Date(`${startD}T00:00:00`);
+    const eDate = new Date(`${endD}T00:00:00`);
+
+    if (bucket === 'year') {
+      const sYear = sDate.getFullYear();
+      const eYear = eDate.getFullYear();
+      for (let y = sYear; y <= eYear; y++) {
+        timelineLabels.push(`${y}`);
+      }
+    } else if (bucket === 'month') {
+      const curr = new Date(sDate.getFullYear(), sDate.getMonth(), 1);
+      const endMonth = new Date(eDate.getFullYear(), eDate.getMonth(), 1);
+      while (curr <= endMonth) {
+        const y = curr.getFullYear();
+        const m = String(curr.getMonth() + 1).padStart(2, '0');
+        timelineLabels.push(`${y}-${m}`);
+        curr.setMonth(curr.getMonth() + 1);
+      }
+    } else {
+      // day
+      const curr = new Date(sDate);
+      while (curr <= eDate) {
+        const y = curr.getFullYear();
+        const m = String(curr.getMonth() + 1).padStart(2, '0');
+        const d = String(curr.getDate()).padStart(2, '0');
+        timelineLabels.push(`${y}-${m}-${d}`);
+        curr.setDate(curr.getDate() + 1);
+      }
+    }
+
+    // 3. 100% REAL DATABASE DATA: If label exists in DB, use real revenue; otherwise exactly 0!
+    return timelineLabels.map((label) => ({
+      label,
+      revenue: realMap[label] || 0
+    }));
   }
 
   async getStaffPerformance() {

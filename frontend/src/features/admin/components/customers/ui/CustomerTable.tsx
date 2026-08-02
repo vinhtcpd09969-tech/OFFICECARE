@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import { Edit3, Inbox, Lock, Unlock } from 'lucide-react';
 import { ReputationBadge } from './badges/ReputationBadge';
 import { RecordViewButton } from './badges/PackageStatusPill';
@@ -29,19 +29,29 @@ const CustomerTableRow = memo(function CustomerTableRow({
 }) {
   const isLocked = customer.trang_thai === 'vo_hieu';
   return (
-    <tr className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors group font-jakarta">
+    <tr className={`transition-colors group font-jakarta ${
+      isLocked 
+        ? 'bg-rose-50/20 dark:bg-rose-955/10 hover:bg-rose-50/40 opacity-75' 
+        : 'hover:bg-slate-50/80 dark:hover:bg-slate-800/50'
+    }`}>
       <td className="p-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-teal-500/20 to-teal-600/30 border border-teal-500/30 text-teal-700 dark:text-teal-300 font-black flex items-center justify-center text-xs uppercase shrink-0 shadow-sm">
+          <div className={`w-10 h-10 rounded-2xl bg-gradient-to-br from-teal-500/20 to-teal-600/30 border border-teal-500/30 text-teal-700 dark:text-teal-300 font-black flex items-center justify-center text-xs uppercase shrink-0 shadow-sm ${
+            isLocked ? 'grayscale opacity-60' : ''
+          }`}>
             {customer.ho_ten?.charAt(0) || 'K'}
           </div>
           <div className="flex flex-col min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-slate-900 dark:text-white font-extrabold text-xs md:text-sm truncate">
+              <span className={`font-extrabold text-xs md:text-sm truncate ${
+                isLocked 
+                  ? 'line-through text-slate-400 dark:text-zinc-500' 
+                  : 'text-slate-900 dark:text-white'
+              }`}>
                 {customer.ho_ten}
               </span>
               {isLocked && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-rose-50 text-rose-600 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-400 dark:border-rose-800">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-rose-50 text-rose-600 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-400 dark:border-rose-800 shadow-xs shrink-0">
                   <Lock size={10} /> Đã khóa
                 </span>
               )}
@@ -80,8 +90,8 @@ const CustomerTableRow = memo(function CustomerTableRow({
             onClick={() => onToggleLock(customer)}
             className={`px-3 py-1.5 border rounded-xl font-bold text-xs transition-all hover:-translate-y-0.5 active:scale-95 whitespace-nowrap shadow-sm cursor-pointer flex items-center gap-1 ${
               isLocked
-                ? 'border-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100/80'
-                : 'border-rose-200 bg-rose-50/70 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 hover:bg-rose-100/80'
+                ? 'border-emerald-300 bg-emerald-50 dark:bg-emerald-955/60 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100/80'
+                : 'border-rose-200 bg-rose-50/70 dark:bg-rose-955/60 text-rose-600 dark:text-rose-400 hover:bg-rose-100/80'
             }`}
           >
             {isLocked ? (
@@ -119,6 +129,17 @@ function TableSkeletonRows() {
 }
 
 export function CustomerTable({ data, loading, meta, onPageChange, onViewProfile, onEdit, onToggleLock }: CustomerTableProps) {
+  // Sort locked customers to the very end of the list; active customers stay at the top (restored customers move to top)
+  const sortedData = useMemo(() => {
+    return [...data].sort((a, b) => {
+      const aLocked = a.trang_thai === 'vo_hieu';
+      const bLocked = b.trang_thai === 'vo_hieu';
+      if (aLocked && !bLocked) return 1;  // locked pushed to bottom
+      if (!aLocked && bLocked) return -1; // active stays at top
+      return 0;
+    });
+  }, [data]);
+
   return (
     <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 rounded-[28px] shadow-xl shadow-slate-200/40 dark:shadow-none overflow-hidden font-jakarta">
       <div className="overflow-x-auto">
@@ -142,7 +163,7 @@ export function CustomerTable({ data, loading, meta, onPageChange, onViewProfile
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
             {loading ? (
               <TableSkeletonRows />
-            ) : data.length === 0 ? (
+            ) : sortedData.length === 0 ? (
               <tr>
                 <td colSpan={5} className="py-16 text-center">
                   <div className="flex flex-col items-center gap-2 text-slate-400">
@@ -152,14 +173,14 @@ export function CustomerTable({ data, loading, meta, onPageChange, onViewProfile
                 </td>
               </tr>
             ) : (
-              data.map(c => (
+              sortedData.map(c => (
                 <CustomerTableRow key={c.id} customer={c} onViewProfile={onViewProfile} onEdit={onEdit} onToggleLock={onToggleLock} />
               ))
             )}
           </tbody>
         </table>
       </div>
-      {!loading && data.length > 0 && (
+      {!loading && sortedData.length > 0 && (
         <div className="border-t border-slate-100 dark:border-slate-800 p-4">
           <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} pageSize={meta.pageSize} onPageChange={onPageChange} />
         </div>

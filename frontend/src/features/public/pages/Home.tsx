@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import Hero from '../components/home/Hero';
+import ConditionsTreated from '../components/home/ConditionsTreated';
 import WhyUs from '../components/home/WhyUs';
 import ServicesCarousel from '../components/home/ServicesCarousel';
 import Specialists from '../components/home/Specialists';
@@ -14,6 +15,7 @@ export default function Home() {
   return (
     <div className="font-jakarta bg-background overflow-hidden selection:bg-teal-500/20 min-h-screen">
       <Hero />
+      <ConditionsTreated />
       <WhyUs />
       <div id="featured-services-section">
         <ServicesCarousel />

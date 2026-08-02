@@ -901,7 +901,7 @@ class ReceptionistRepository {
       SELECT id, ho_ten, so_dien_thoai, email, gioi_tinh, ngay_sinh, diem_uy_tin
       FROM khach_hang
       WHERE (unaccent(ho_ten) ILIKE unaccent($1) OR so_dien_thoai ILIKE $1) AND trang_thai = 'hoat_dong'
-      LIMIT 20
+      LIMIT 50
     `, [`%${queryText}%`]);
     return rows;
   }

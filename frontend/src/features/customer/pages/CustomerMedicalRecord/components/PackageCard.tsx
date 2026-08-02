@@ -275,7 +275,7 @@ export function PackageCard({ pkg, isExpanded, onToggleExpand, targetSessionId }
                           <h4 className={`text-sm font-extrabold truncate ${
                             status === 'chua_dat_lich' ? 'text-[#034e3a] font-black text-base' : status === 'hoan_thanh' ? 'text-slate-800' : 'text-slate-500'
                           }`}>
-                            {session?.ten_dich_vu || 'Trị liệu phục hồi'}
+                            {pkg.ten_dich_vu || 'Trị liệu phục hồi'}
                           </h4>
                           <p className="text-xs text-slate-500 font-medium mt-0.5 truncate">
                             {status === 'hoan_thanh' && session

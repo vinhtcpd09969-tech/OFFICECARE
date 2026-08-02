@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, Phone, Award, Calendar, Star, CheckCircle2, ShieldCheck, Newspaper, User, ArrowLeft } from 'lucide-react';
@@ -45,17 +45,7 @@ export default function SpecialistDetailPage() {
   const [latestArticles, setLatestArticles] = useState<ArticleSummary[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-
-  // Reset page when specialist id changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [id]);
-
-  const paginatedReviews = useMemo(() => {
-    const startIndex = (currentPage - 1) * 5;
-    return reviews.slice(startIndex, startIndex + 5);
-  }, [reviews, currentPage]);
+  const [currentPage, setCurrentPage] = useState<number>(1);
 
   useEffect(() => {
     async function fetchDetails() {
@@ -255,13 +245,16 @@ export default function SpecialistDetailPage() {
 
         {/* Streamlined Certifications & Degrees Card */}
         {certItems.length > 0 && (
-          <div className="bg-white rounded-[24px] p-5 md:p-6 border border-slate-200/80 shadow-2xs mb-8 space-y-4 text-left">
-            <span className="text-[10px] font-black uppercase tracking-widest text-[#0D9488] bg-[#0D9488]/10 px-3 py-1 rounded-full inline-block">
-              🩺 Bằng Cấp &amp; Chứng Chỉ Hành Nghề
-            </span>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+          <div className="bg-white rounded-[24px] p-5 md:p-6 border border-slate-200/80 shadow-2xs mb-8 space-y-5 text-left">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black uppercase tracking-widest text-[#0D9488] bg-[#0D9488]/10 px-3 py-1 rounded-full inline-block">
+                🩺 Bằng Cấp &amp; Chứng Chỉ Hành Nghề
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {certItems.map((item, idx) => (
-                <div key={idx} className="flex gap-2 items-start bg-slate-50 p-3 rounded-xl border border-slate-150">
+                <div key={idx} className="flex gap-2.5 items-start bg-slate-50/80 p-3.5 rounded-xl border border-slate-150/80 hover:border-teal-500/30 transition-colors">
                   <CheckCircle2 size={16} className="text-[#0D9488] shrink-0 mt-0.5" />
                   <p className="text-slate-700 text-xs font-semibold leading-relaxed">{item}</p>
                 </div>
@@ -270,16 +263,16 @@ export default function SpecialistDetailPage() {
 
             {/* Certificate Images Gallery */}
             {certificates.length > 0 && (
-              <div className="border-t border-slate-100 pt-4 mt-3">
+              <div className="border-t border-slate-100 pt-4 mt-2">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-3">
                   📋 Hình ảnh chứng nhận thực tế
                 </p>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="flex flex-wrap gap-4">
                   {certificates.map((certPath, idx) => (
                     <div
                       key={idx}
                       onClick={() => setActiveCert(resolveImageUrl(certPath))}
-                      className="aspect-[4/3] rounded-xl overflow-hidden border border-slate-200 bg-slate-50 hover:border-[#0D9488] cursor-pointer group relative shadow-2xs transition-all duration-200"
+                      className="w-full sm:w-60 md:w-64 aspect-[4/3] rounded-xl overflow-hidden border border-slate-200 bg-slate-50 hover:border-[#0D9488] cursor-pointer group relative shadow-2xs transition-all duration-200"
                     >
                       <img
                         src={resolveImageUrl(certPath)}
@@ -287,7 +280,7 @@ export default function SpecialistDetailPage() {
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
                       <div className="absolute inset-0 bg-slate-950/0 group-hover:bg-slate-950/20 flex items-center justify-center transition-all">
-                        <span className="opacity-0 group-hover:opacity-100 bg-white px-2.5 py-1 rounded-md text-[9px] font-bold text-[#0D9488] shadow-xs">
+                        <span className="opacity-0 group-hover:opacity-100 bg-white px-3 py-1.5 rounded-lg text-[10px] font-bold text-[#0D9488] shadow-sm">
                           🔍 Xem ảnh
                         </span>
                       </div>

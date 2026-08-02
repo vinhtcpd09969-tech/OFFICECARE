@@ -31,6 +31,14 @@ const packageSchema = z.object({
   message: "Gói liệu trình phải có ít nhất 6 buổi trở lên!",
   path: ["tong_so_buoi"]
 }).refine(data => {
+  if (data.loai_goi === 'LIEU_TRINH') {
+    return data.han_su_dung_mac_dinh_ngay != null && data.han_su_dung_mac_dinh_ngay > 0;
+  }
+  return true;
+}, {
+  message: "Vui lòng nhập hạn sử dụng cho gói liệu trình!",
+  path: ["han_su_dung_mac_dinh_ngay"]
+}).refine(data => {
   if (data.loai_goi === 'LIEU_TRINH' && data.don_gia_theo_buoi) {
     const average = data.don_gia / data.tong_so_buoi;
     return data.don_gia_theo_buoi >= average;
@@ -79,7 +87,7 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
       thoi_luong_phut: editingPackage.thoi_luong_phut || editingPackage.thoi_luong_buoi_phut || 60,
       don_gia: typeof editingPackage.don_gia === 'string' ? parseInt(editingPackage.don_gia) : (editingPackage.don_gia || Number(editingPackage.gia_tien) || 0),
       don_gia_theo_buoi: editingPackage.don_gia_theo_buoi ? (typeof editingPackage.don_gia_theo_buoi === 'string' ? parseInt(editingPackage.don_gia_theo_buoi) : editingPackage.don_gia_theo_buoi) : undefined,
-      han_su_dung_mac_dinh_ngay: editingPackage.han_su_dung_mac_dinh_ngay || 60,
+      han_su_dung_mac_dinh_ngay: editingPackage.han_su_dung_mac_dinh_ngay ?? undefined,
       anh_goi: editingPackage.anh_goi || null,
       anh_gallery: editingPackage.anh_gallery || [],
       trang_thai: editingPackage.trang_thai || 'hoat_dong',
@@ -92,7 +100,7 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
       thoi_luong_phut: 60,
       don_gia: 0,
       don_gia_theo_buoi: undefined,
-      han_su_dung_mac_dinh_ngay: 60,
+      han_su_dung_mac_dinh_ngay: undefined,
       anh_goi: null,
       anh_gallery: [],
     }
@@ -177,7 +185,7 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
         thoi_luong_phut: data.thoi_luong_phut,
         don_gia: data.don_gia,
         don_gia_theo_buoi,
-        han_su_dung_mac_dinh_ngay: data.loai_goi === 'LIEU_TRINH' ? (data.han_su_dung_mac_dinh_ngay || 60) : null,
+        han_su_dung_mac_dinh_ngay: data.loai_goi === 'LIEU_TRINH' ? data.han_su_dung_mac_dinh_ngay : null,
         anh_goi: data.anh_goi || null,
         anh_gallery: data.anh_gallery || [],
         quy_trinh: data.quy_trinh || '',
@@ -633,12 +641,12 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                         {/* DYNAMIC FIELD: Display ONLY for LIEU_TRINH */}
                         {watchLoaiGoi === 'LIEU_TRINH' && (
                           <div className="animate-slide-down">
-                            <label className="block font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Hạn sử dụng mặc định (ngày) *</label>
+                            <label className="block font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Hạn sử dụng *</label>
                             <div className="relative">
                               <input
                                 type="number"
                                 {...register('han_su_dung_mac_dinh_ngay', { valueAsNumber: true })}
-                                placeholder="60"
+                                placeholder="Nhập số ngày"
                                 className="w-full px-4 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 outline-none transition-all font-semibold text-secondary shadow-sm text-sm pr-14"
                               />
                               <span className="absolute right-3 top-2.5 text-[10px] font-bold text-slate-400">Ngày</span>

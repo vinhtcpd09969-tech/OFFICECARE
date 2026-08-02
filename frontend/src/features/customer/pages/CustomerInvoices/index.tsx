@@ -1,18 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { Receipt } from 'lucide-react';
 import { useCustomerInvoices } from './hooks/useCustomerInvoices';
 import { InvoiceCard } from './components/InvoiceCard';
 import { InvoiceDetailModal } from './components/InvoiceDetailModal';
 import { TermsOfServiceModal } from '../../components/TermsOfServiceModal';
-import { formatCurrency } from '../../../../utils/format';
 
 type TypeFilter = 'all' | 'LIEU_TRINH' | 'other';
 
 const FILTERS: { key: TypeFilter; label: string }[] = [
   { key: 'all', label: 'Tất cả' },
   { key: 'LIEU_TRINH', label: 'Gói liệu trình' },
-  { key: 'other', label: 'Khám & dịch vụ lẻ' },
+  { key: 'other', label: 'Gói khám và gói dịch vụ đơn lẻ' },
 ];
 
 export default function CustomerInvoices() {
@@ -20,7 +19,6 @@ export default function CustomerInvoices() {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [showPolicy, setShowPolicy] = useState(false);
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
   const [autoOpenRefund, setAutoOpenRefund] = useState(false);
 
   // Nhảy tới từ nút "Hủy liệu trình" ở trang Hồ sơ trị liệu (?invoice=<hoa_don_id>&refund=1)
@@ -43,15 +41,7 @@ export default function CustomerInvoices() {
     return invoices.filter((i) => i.loai_goi !== 'LIEU_TRINH');
   }, [invoices, typeFilter]);
 
-  const installmentInvoices = useMemo(() => {
-    return invoices.filter(
-      (i) => ['dang_tra_gop', 'dang_tra_tung_buoi', 'chua_thanh_toan'].includes(i.trang_thai) && i.tong_tien_thanh_toan > i.da_thanh_toan
-    );
-  }, [invoices]);
 
-  const totalRemaining = useMemo(() => {
-    return installmentInvoices.reduce((acc, i) => acc + (i.tong_tien_thanh_toan - i.da_thanh_toan), 0);
-  }, [installmentInvoices]);
 
   if (loading) {
     return (

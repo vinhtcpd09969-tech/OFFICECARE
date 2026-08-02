@@ -212,10 +212,8 @@ export const ReceiptBreakdown: React.FC<ReceiptBreakdownProps> = ({
             <div className="pt-3 flex justify-between items-center text-slate-900 dark:text-white font-black border-t border-slate-200/80 dark:border-slate-700">
               <span className="text-sm">Tổng cần thu ngay:</span>
               <span className="text-teal-600 dark:text-teal-400 text-xl font-black">
-                {loaiThanhToan === 'tra_gop'
+                {loaiThanhToan === 'tra_gop' || loaiThanhToan === 'tung_buoi'
                   ? formatCurrency(Number(calculatedData.so_tien_dot_1))
-                  : loaiThanhToan === 'tung_buoi'
-                  ? formatCurrency(0)
                   : formatCurrency(Number(calculatedData.tong_tien_thanh_toan))}
               </span>
             </div>

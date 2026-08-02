@@ -723,14 +723,27 @@ class AppointmentRepository {
     const isConfirmedState = ['da_xac_nhan', 'da_checkin', 'dang_kham', 'hoan_thanh'].includes(trang_thai) || !!bac_si_id;
     const thoi_gian_xac_nhan_val = isConfirmedState ? new Date() : null;
 
+    // Tạo lịch nhanh tại quầy có thể tạo thẳng ở trạng thái đã check-in/đang khám/hoàn thành (khách
+    // vãng lai đã có mặt) — trước đây chỉ set trang_thai mà KHÔNG set các mốc thời gian tương ứng
+    // (thoi_gian_checkin/bat_dau/hoan_thanh), khiến Lịch Sử Trạng Thái hiện đúng nhãn trạng thái
+    // nhưng thiếu mốc giờ, và các nơi khác dựa vào cột này để biết "đã check-in thật chưa" bị sai.
+    // Cascading: 1 trạng thái sau luôn bao hàm đã đi qua (các) mốc trước đó.
+    const isCheckedInState = ['da_checkin', 'dang_kham', 'hoan_thanh'].includes(trang_thai);
+    const isInProgressState = ['dang_kham', 'hoan_thanh'].includes(trang_thai);
+    const isCompletedState = trang_thai === 'hoan_thanh';
+    const thoi_gian_checkin_val = isCheckedInState ? new Date() : null;
+    const thoi_gian_bat_dau_val = isInProgressState ? new Date() : null;
+    const thoi_gian_hoan_thanh_val = isCompletedState ? new Date() : null;
+
     const query = `
       INSERT INTO cuoc_hen (
-        khach_hang_id, nhan_su_id, goi_dich_vu_id, phac_do_dieu_tri_id, so_thu_tu_buoi, 
-        ngay_gio_bat_dau, ngay_gio_ket_thuc, loai, trang_thai, ghi_chu_khach_hang, 
-        phong_id, nguoi_tao_id, so_dien_thoai, thoi_gian_tao, thoi_gian_xac_nhan
+        khach_hang_id, nhan_su_id, goi_dich_vu_id, phac_do_dieu_tri_id, so_thu_tu_buoi,
+        ngay_gio_bat_dau, ngay_gio_ket_thuc, loai, trang_thai, ghi_chu_khach_hang,
+        phong_id, nguoi_tao_id, so_dien_thoai, thoi_gian_tao, thoi_gian_xac_nhan,
+        thoi_gian_checkin, thoi_gian_bat_dau, thoi_gian_hoan_thanh
       )
       VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), $14
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), $14, $15, $16, $17
       )
       RETURNING *
     `;
@@ -748,7 +761,10 @@ class AppointmentRepository {
       resolvedPhongId,
       data.nguoi_tao_id || null,
       so_dien_thoai || null,
-      thoi_gian_xac_nhan_val
+      thoi_gian_xac_nhan_val,
+      thoi_gian_checkin_val,
+      thoi_gian_bat_dau_val,
+      thoi_gian_hoan_thanh_val
     ]);
 
     return rows[0];
@@ -2007,7 +2023,12 @@ class AppointmentRepository {
       LEFT JOIN goi_dich_vu dv ON ch.goi_dich_vu_id = dv.id
       LEFT JOIN khuyen_mai_voucher v ON hd.voucher_id = v.id
       WHERE hd.khach_hang_id = $1::uuid
-      ORDER BY hd.ngay_tao DESC
+      -- Sắp theo lần thanh toán gần nhất — mirror đúng fix ở admin.repository.ts::getInvoices(), xem
+      -- chú thích đầy đủ ở đó.
+      ORDER BY COALESCE(
+        (SELECT MAX(gt.ngay_giao_dich) FROM giao_dich_thanh_toan gt WHERE gt.hoa_don_id = hd.id),
+        hd.ngay_tao
+      ) DESC
     `, [customer_id]);
     return rows;
   }

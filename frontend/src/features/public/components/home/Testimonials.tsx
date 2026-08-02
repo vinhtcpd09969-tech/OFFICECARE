@@ -49,7 +49,7 @@ export default function Testimonials() {
   const marqueeItems = [...testimonials, ...testimonials, ...testimonials, ...testimonials];
 
   return (
-    <section className="py-20 bg-slate-50/30 border-t border-b border-slate-100 relative overflow-hidden font-jakarta">
+    <section className="py-10 lg:py-12 bg-slate-50/30 dark:bg-slate-950/30 border-t border-b border-slate-100 dark:border-slate-800 relative overflow-hidden font-jakarta transition-colors">
       {/* Background Decorative Circles */}
       <div className="absolute top-1/2 left-0 -translate-y-1/2 w-[300px] h-[300px] bg-[#14B8A6]/5 rounded-full blur-[80px] z-0"></div>
       <div className="absolute bottom-0 right-0 w-[250px] h-[250px] bg-[#FF9F1C]/3 rounded-full blur-[70px] z-0"></div>
@@ -57,15 +57,15 @@ export default function Testimonials() {
       <div className="max-w-7xl mx-auto px-6 relative z-10">
         
         {/* Header */}
-        <div className="text-center max-w-2xl mx-auto mb-14">
+        <div className="text-center max-w-2xl mx-auto mb-8 lg:mb-10">
           <ScrollReveal>
-            <span className="text-[10px] font-semibold tracking-wider text-[#0D9488] bg-[#14B8A6]/10 px-3.5 py-1.5 rounded-full inline-block mb-2 shadow-2xs">
+            <span className="text-[11px] font-bold tracking-wider text-[#0D9488] dark:text-teal-300 bg-[#14B8A6]/10 px-3.5 py-1 rounded-full inline-block mb-2 shadow-2xs">
               💌 Đánh giá từ bệnh nhân
             </span>
-            <h2 className="font-heading font-bold text-2xl md:text-3xl text-slate-800 leading-snug">
+            <h2 className="font-bold text-xl sm:text-2xl lg:text-3xl text-slate-900 dark:text-white tracking-tight leading-snug">
               Hành Trình Hồi Phục Đầy Cảm Hứng
             </h2>
-            <p className="text-slate-500 font-normal mt-2 text-xs md:text-sm leading-relaxed">
+            <p className="text-slate-600 dark:text-slate-400 font-medium mt-1.5 text-xs sm:text-sm leading-relaxed">
               Đánh giá thực tế từ bệnh nhân đã hoàn thành phác đồ phục hồi sức khỏe cột sống &amp; cơ xương khớp tại OfficeCare.
             </p>
           </ScrollReveal>

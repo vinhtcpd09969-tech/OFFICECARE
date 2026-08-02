@@ -222,7 +222,7 @@ async function main() {
           mat_khau_hash: hash,
           vai_tro_id: 4,
           trang_thai: 'hoat_dong',
-          anh_dai_dien: '/images/nhansu/dr_nguyen_van_a.png'
+          anh_dai_dien: '/images/nhansu/dr_nguyen_minh_duc.png'
         },
         {
           id: 6,
@@ -232,7 +232,7 @@ async function main() {
           mat_khau_hash: hash,
           vai_tro_id: 4,
           trang_thai: 'hoat_dong',
-          anh_dai_dien: '/images/nhansu/dr_tran_thi_b.png'
+          anh_dai_dien: '/images/nhansu/dr_tran_thi_thu_trang.png'
         },
         {
           id: 7,
@@ -242,7 +242,7 @@ async function main() {
           mat_khau_hash: hash,
           vai_tro_id: 3,
           trang_thai: 'hoat_dong',
-          anh_dai_dien: '/images/nhansu/ktv_le_van_c.png'
+          anh_dai_dien: '/images/nhansu/ktv_le_van_duong.png'
         },
         {
           id: 8,
@@ -252,7 +252,7 @@ async function main() {
           mat_khau_hash: hash,
           vai_tro_id: 3,
           trang_thai: 'hoat_dong',
-          anh_dai_dien: '/images/nhansu/ktv_pham_thi_d.png'
+          anh_dai_dien: '/images/nhansu/ktv_nguyen_thuy_linh.png'
         },
         {
           id: 9,
@@ -262,7 +262,7 @@ async function main() {
           mat_khau_hash: hash,
           vai_tro_id: 3,
           trang_thai: 'hoat_dong',
-          anh_dai_dien: '/images/nhansu/ktv_le_van_c.png'
+          anh_dai_dien: '/images/nhansu/ktv_pham_thanh_nam.png'
         },
         {
           id: 10,
@@ -272,7 +272,7 @@ async function main() {
           mat_khau_hash: hash,
           vai_tro_id: 3,
           trang_thai: 'hoat_dong',
-          anh_dai_dien: '/images/nhansu/ktv_pham_thi_d.png'
+          anh_dai_dien: '/images/nhansu/ktv_dang_minh_anh.png'
         }
       ]
     });
@@ -286,7 +286,7 @@ async function main() {
           so_nam_kinh_nghiem: 12,
           bang_cap_chung_chi: JSON.stringify({
             text: 'Bác sĩ Chuyên khoa I PHCN - ĐH Y Dược TP.HCM\nChứng nhận đào tạo Trị liệu thần kinh cột sống Chiropractic y khoa Singapore\nChứng chỉ hành nghề Phục hồi chức năng cơ xương khớp Bộ Y tế cấp',
-            images: ['/images/nhansu/cert_assess.png', '/images/nhansu/cert_physio.png']
+            images: ['/images/nhansu/cert_chiropractic_singapore.png', '/images/nhansu/cert_laser_shockwave_intl.png']
           }),
           mo_ta: 'Bác sĩ Nguyễn Minh Đức là chuyên gia hàng đầu về cơ xương khớp cột sống với hơn 12 năm kinh nghiệm thực tế. Từng công tác tại các chuyên khoa Phục hồi chức năng lớn, ông nổi tiếng với phương pháp khám cơ sinh học vận động sâu sắc, tìm ra chính xác trục lệch cột sống do ngồi sai tư thế. Bác sĩ Đức đã trực tiếp xây dựng phác đồ phục hồi không dùng thuốc cho hơn 2.000 bệnh nhân văn phòng gặp tình trạng thoát vị đĩa đệm lưng và thoái hóa cột sống cổ, giúp họ giải thoát khỏi cơn đau mạn tính dai dẳng, khôi phục chất lượng cuộc sống cao.',
           the_manh: ['Trị liệu thoát vị đĩa đệm thắt lưng', 'Khám lượng giá sinh cơ học cột sống', 'Điều trị Chiropractic y khoa', 'Thiết lập phác đồ PHCN cá nhân hóa']
@@ -297,7 +297,7 @@ async function main() {
           so_nam_kinh_nghiem: 8,
           bang_cap_chung_chi: JSON.stringify({
             text: 'Thạc sĩ Vật lý trị liệu & PHCN - Đại học Y Hà Nội\nChứng chỉ kỹ thuật Laser siêu cao tần và Shockwave hội tụ chuẩn Quốc tế\nChứng chỉ hành nghề Chuyên môn vật lý trị liệu Bộ Y tế cấp',
-            images: ['/images/nhansu/cert_assess.png', '/images/nhansu/cert_physio.png']
+            images: ['/images/nhansu/cert_laser_shockwave_intl.png', '/images/nhansu/cert_manual_therapy_aus.png']
           }),
           mo_ta: 'Bác sĩ Trần Thị Thu Trang sở hữu chuyên môn vững vàng trong điều trị các bệnh lý đau mỏi vai gáy cấp và mạn tính của dân công sở. Với 8 năm kinh nghiệm chuyên sâu, bà luôn áp dụng sáng tạo các công nghệ y học vật lý như Laser công suất cao tiêu viêm sâu và sóng xung kích Shockwave phá vỡ các điểm xơ cơ (Trigger Points), mang lại hiệu quả giảm đau tức thì cho bệnh nhân mà không gây đau buốt hay cần can thiệp xâm lấn.',
           the_manh: ['Trị liệu hội chứng cổ vai gáy mạn tính', 'Tiêu viêm rễ thần kinh bằng Laser', 'Sóng xung kích giải trigger points', 'Phục hồi chấn thương bả vai']
@@ -308,7 +308,7 @@ async function main() {
           so_nam_kinh_nghiem: 6,
           bang_cap_chung_chi: JSON.stringify({
             text: 'Cử nhân Vật lý trị liệu - Đại học Y Dược TP.HCM\nChứng chỉ kỹ thuật di động khớp khớp cột sống Manual Therapy tiêu chuẩn Úc',
-            images: ['/images/nhansu/cert_physio.png']
+            images: ['/images/nhansu/cert_manual_therapy_aus.png']
           }),
           mo_ta: 'Kỹ thuật viên Lê Văn Dương được mệnh danh là chuyên gia có đôi tay vàng trong trị liệu giải phóng cơ khớp. Với 6 năm kinh nghiệm thực hành trị liệu bằng tay (Manual Therapy) và di động khớp chuyên sâu, anh giúp bệnh nhân khôi phục hoàn toàn biên độ vận động của các khớp đốt sống cổ và thắt lưng bị kẹt do tư thế làm việc gù ngồi kéo dài.',
           the_manh: ['Kỹ thuật di động khớp Manual Therapy', 'Giải cơ sâu Myofascial Release', 'Nắn khớp thắt lưng giải kẹt', 'Xoa bóp cơ học y khoa sâu']
@@ -319,7 +319,7 @@ async function main() {
           so_nam_kinh_nghiem: 5,
           bang_cap_chung_chi: JSON.stringify({
             text: 'Cử nhân Vật lý trị liệu - PHCN Đại học Y Dược\nChứng chỉ bài tập y khoa phục hồi vận động Kinetic Rehab do Hội PHCN cấp',
-            images: ['/images/nhansu/cert_assess.png']
+            images: ['/images/nhansu/cert_chiropractic_singapore.png']
           }),
           mo_ta: 'Kỹ thuật viên Nguyễn Thùy Linh chuyên trách vận động trị liệu chủ động. Cô có hơn 5 năm kinh nghiệm đồng hành cùng bệnh nhân thực hiện các bài tập Kinetic phục hồi tư thế, tăng cơ lõi core lưng bụng. Cô đặc biệt mát tay trong điều trị bảo tồn hội chứng ống cổ tay cho dân IT, thiết kế đồ họa và kế toán.',
           the_manh: ['Vận động trị liệu Kinetic Rehab', 'Phục hồi hội chứng ống cổ tay', 'Hướng dẫn tập chỉnh lệch tư thế', 'Kéo giãn cơ co rút sâu']
@@ -330,7 +330,7 @@ async function main() {
           so_nam_kinh_nghiem: 4,
           bang_cap_chung_chi: JSON.stringify({
             text: 'Chứng chỉ Kỹ thuật viên Vật lý trị liệu Trường Cao đẳng Y tế\nChứng chỉ Vận hành máy trị liệu công nghệ cao Bệnh viện Chợ Rẫy',
-            images: ['/images/nhansu/cert_physio.png']
+            images: ['/images/nhansu/cert_laser_shockwave_intl.png']
           }),
           mo_ta: 'Kỹ thuật viên Phạm Thành Nam là chuyên gia vận hành thiết bị vật lý trị liệu hiện đại. Anh chịu trách nhiệm chính điều phối giường kéo giãn cột sống giảm áp áp lực âm kỹ thuật số, cài đặt thông số điện xung giảm đau mỏi lưng dưới. Sự chu đáo và theo dõi thông số chuẩn xác của anh giúp bệnh nhân phục hồi cực kỳ an tâm.',
           the_manh: ['Vận hành máy kéo giãn giảm áp', 'Cài đặt điện xung y khoa', 'Siêu âm bao gân trị liệu', 'Theo dõi thông số an toàn thiết bị']
@@ -341,7 +341,7 @@ async function main() {
           so_nam_kinh_nghiem: 4,
           bang_cap_chung_chi: JSON.stringify({
             text: 'Chứng chỉ Kỹ thuật viên Massage trị liệu y học cổ truyền\nChứng chỉ trị liệu giải phóng màng cơ myofascial sâu Viện PHCN',
-            images: ['/images/nhansu/cert_assess.png']
+            images: ['/images/nhansu/cert_manual_therapy_aus.png']
           }),
           mo_ta: 'Kỹ thuật viên Đặng Minh Anh chuyên sâu về trị liệu giải cơ ngực lớn, cơ chéo cổ trước và phục hồi thẩm mỹ tư thế vai tròn gù lưng. Cô áp dụng nhuần nhuyễn sự kết hợp lực tay mềm mại, ấn huyệt kích hoạt lưu thông máu vùng vai cổ giúp bệnh nhân xua tan căng thẳng thể chất lẫn tinh thần sau ngày làm việc bận rộn.',
           the_manh: ['Điều chỉnh vai tròn gù lưng', 'Giải tỏa cơ co thắt ngực/cổ', 'Massage bấm huyệt trị liệu', 'Giãn cơ sâu thư giãn vùng gáy']

@@ -13,6 +13,7 @@ import apiRouter from './routes';
 import { errorHandler } from './middlewares/error.middleware';
 import { packageExpirySweep } from './middlewares/packageExpirySweep.middleware';
 import { initReminderJob } from './jobs/reminder.job';
+import { initSentimentRetryJob } from './jobs/sentiment-retry.job';
 
 const app = express();
 
@@ -63,6 +64,8 @@ app.listen(PORT, () => {
   
   // Khởi động job quét nhắc lịch tự động
   initReminderJob();
+  // Khởi động job tự động thử lại phân tích cảm xúc đánh giá khi trước đó thất bại/hết quota
+  initSentimentRetryJob();
 });
 // Server setup complete
 

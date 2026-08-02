@@ -30,11 +30,11 @@ export const VisitColumn: React.FC<VisitColumnProps> = ({ visits, onOpenVisit })
   return (
     <div className="space-y-3">
       <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-        <FileText size={12} /> Khám &amp; Dịch vụ lẻ ({visits.length})
+        <FileText size={12} /> Gói khám và gói dịch vụ đơn lẻ ({visits.length})
       </h3>
       {visits.length === 0 ? (
         <div className="bg-slate-50/50 dark:bg-slate-900/10 border border-dashed border-slate-200 dark:border-slate-800 rounded-3xl py-12 text-center text-slate-400 dark:text-slate-500 text-xs font-bold px-4">
-          Bệnh nhân chưa có lịch sử ca khám hoặc dịch vụ lẻ nào.
+          Bệnh nhân chưa có lịch sử gói khám hoặc gói dịch vụ đơn lẻ nào.
         </div>
       ) : (
         <div className="space-y-3">

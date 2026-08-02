@@ -13,8 +13,9 @@
 
 ```
 frontend/src/
-├── components/              # Shared components dùng chung toàn dự án (Button, Modal...)
-├── features/                # Phân theo tính năng nghiệp vụ
+├── pages/                   # Cả 1 trang/route dùng chung ≥2 actor, lazy-load thẳng bởi AppRoutes.tsx
+├── components/              # Mảnh UI dùng chung toàn dự án, nhúng BÊN TRONG 1 trang khác (Modal, Badge...)
+├── features/                # Phân theo tính năng nghiệp vụ — MẶC ĐỊNH, mỗi actor sở hữu Page/Component riêng
 │   ├── admin/                pages/, components/<module>/{hooks,ui}, constants.ts, types.ts
 │   ├── receptionist/          features/receptionist/pages/ReceptionistAppointments.tsx
 │   ├── doctor/                 features/doctor/pages/DoctorAppointments.tsx
@@ -23,9 +24,17 @@ frontend/src/
 │   └── public/                Landing, booking, chatbot cho khách vãng lai
 ├── stores/                  # Zustand state toàn cục — DÙNG BẢN NÀY, xem mục 5
 ├── utils/                   # Hàm tiện ích dùng chung — DÙNG BẢN NÀY, xem mục 5
-├── api/                     # axios instance — DÙNG BẢN NÀY, xem mục 5
-└── shared/                  # ⚠️ Di sản một lần migrate FSD dở dang, xem mục 5
+└── api/                     # axios instance — DÙNG BẢN NÀY, xem mục 5
 ```
+
+### Quy tắc "thăng cấp" lên top-level (`pages/` vs `components/` vs `features/<actor>/`)
+
+Mặc định **mọi trang/component nằm trong `features/<actor>/`** (actor sở hữu logic/quyền riêng). Chỉ chuyển lên top-level khi đã **grep xác nhận** (không suy đoán) code là một bản y hệt được ≥2 actor dùng chung — top-level luôn là số ít ngoại lệ đã xác minh, không phải nơi mặc định:
+
+- **Cả 1 trang/route hoàn chỉnh** (được `AppRoutes.tsx` `lazy()` trực tiếp vào 1 `<Route>`) → `src/pages/`. Ví dụ: `DoctorSchedules` (Bác sĩ + Lễ tân + KTV), `CustomerSettings` (Khách hàng + Lễ tân + Bác sĩ + KTV), `ClinicalAssessment`/`DoctorMedicalRecords` (Bác sĩ + KTV).
+- **Một mảnh UI nằm bên trong trang khác** (modal, bộ lịch, form con...) → `src/components/`. Ví dụ: `components/appointments/` (bộ lịch hẹn dùng bởi Admin/Lễ tân/Bác sĩ/KTV).
+
+Khi phát hiện 1 trang trong `features/<actor>/pages/` thực chất bị actor khác import (grep tên trang ở ngoài `features/<actor>/`), đó là dấu hiệu cần thăng cấp lên `src/pages/`, không phải giữ nguyên rồi để actor kia import chéo vào `features/<actor>/`.
 
 ## 3. Cấu trúc thư mục Backend (`backend/src/`)
 
@@ -52,9 +61,9 @@ backend/src/
 - **UI tĩnh** (`BookingStepCard.tsx`, `KpiCards.tsx`...) chỉ nhận props dữ liệu + handler, không tự fetch.
 - Page chỉ import hook, truyền state cần thiết, dùng các hàm phản hồi (`onSave`, `onCheckIn`, `onCancel`).
 
-### ⚠️ Known issue — file trùng lặp chưa dọn
+### Đã dọn — `shared/` (lịch sử)
 
-`frontend/src/shared/{stores,utils,api}/...` là tàn dư của một lần migrate sang `shared/` bị bỏ dở — gần như mồ côi (0-2 import). Bản đang thực sự được dùng là top-level: `stores/authStore.ts` (~18 import), `utils/date.ts`, `api/axios.ts` (~23 import). **Luôn import từ bản top-level**, không thêm import mới trỏ vào `shared/`. Việc dọn/xóa các bản mồ côi này là một task riêng, chưa thực hiện.
+`frontend/src/shared/{stores,utils,api}/...` từng là tàn dư của một lần migrate FSD bị bỏ dở, đã được gộp vào bản top-level (`stores/authStore.ts`, `utils/date.ts`, `api/axios.ts`) và xóa hẳn. Luôn import từ bản top-level, không tạo lại `shared/`.
 
 ## 6. Phân quyền chi tiết (Fine-grained Authorization — Backend RBAC)
 

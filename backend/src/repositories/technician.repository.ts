@@ -119,10 +119,14 @@ class TechnicianRepository {
         kh.ho_ten as ten_khach_hang, COALESCE(ch.so_dien_thoai, kh.so_dien_thoai) as sdt_khach_hang, NULL::text as avatar_url,
         nk.id as ho_so_dieu_tri_id, nk.id as ho_so_benh_an_id, nk.chan_doan, nk.chong_chi_dinh, nk.ghi_chu,
         nk.vas_truoc, nk.vas_sau,
-        cd.goi_dich_vu_id,
+        COALESCE(ch.goi_dich_vu_id, pd.goi_dich_vu_id, cd.goi_dich_vu_id) as goi_dich_vu_id,
         ch.phac_do_dieu_tri_id,
         ch.so_thu_tu_buoi,
         COALESCE(g.ten_goi, gpd.ten_goi) as ten_dich_vu,
+        COALESCE(g.ten_goi, gpd.ten_goi) as ten_goi,
+        COALESCE(g.quy_trinh, gpd.quy_trinh) as quy_trinh,
+        COALESCE(g.muc_tieu, gpd.muc_tieu) as mo_ta_goi,
+        COALESCE(g.tong_so_buoi, pd.tong_so_buoi) as tong_so_buoi,
         pd.tong_so_buoi as pd_tong_so_buoi,
         nk.ngay_tao as nhat_ky_ngay_tao
       FROM cuoc_hen ch

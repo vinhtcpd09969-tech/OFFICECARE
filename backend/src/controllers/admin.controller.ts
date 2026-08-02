@@ -161,6 +161,12 @@ export const updateStaff = async (req: Request, res: Response): Promise<any> => 
       return res.status(400).json({ message: 'Vai trò không hợp lệ' });
     }
 
+    const currentUserId = (req as any).user?.id;
+    const currentUserRoleId = (req as any).user?.vai_tro_id;
+    if (currentUserId && String(currentUserId) === String(id) && Number(vai_tro_id) !== Number(currentUserRoleId)) {
+      return res.status(400).json({ message: 'Tài khoản Admin không thể tự thay đổi vai trò của chính mình' });
+    }
+
     const staff = await adminService.updateStaffDetails(id, {
       ho_ten,
       email,

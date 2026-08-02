@@ -10,6 +10,7 @@ interface CustomDatePickerProps {
   className?: string;
   buttonClassName?: string;
   align?: 'left' | 'right';
+  variant?: 'emerald' | 'subtle' | 'neutral';
 }
 
 export function CustomDatePicker({
@@ -20,7 +21,8 @@ export function CustomDatePicker({
   placeholder = 'Chọn ngày',
   className = '',
   buttonClassName = '',
-  align = 'right'
+  align = 'right',
+  variant = 'neutral'
 }: CustomDatePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -123,22 +125,54 @@ export function CustomDatePicker({
     return new Date(maxDate + 'T23:59:59').getTime();
   }, [maxDate]);
 
+  const isEmerald = variant === 'emerald';
+
   return (
     <div ref={wrapperRef} className={`relative ${className}`}>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center justify-between gap-2 px-3 py-2 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-400 border border-emerald-150 dark:border-emerald-900/30 rounded-xl text-xs font-black transition-all hover:bg-emerald-100 dark:hover:bg-emerald-950/40 w-full shadow-xs cursor-pointer ${buttonClassName}`}
+        className={`flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl text-xs transition-all w-full shadow-2xs cursor-pointer ${
+          isEmerald
+            ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-400 border border-emerald-150 dark:border-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-950/40 font-black'
+            : 'bg-zinc-50 dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-800 hover:bg-zinc-100/80 dark:hover:bg-zinc-900/60 focus:outline-none focus:border-teal-500'
+        } ${buttonClassName}`}
       >
-        <div className="flex items-center gap-1.5">
-          <CalendarIcon size={14} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
-          <span>{formattedValue}</span>
+        <div className="flex items-center gap-2 truncate">
+          <CalendarIcon
+            size={14}
+            className={`shrink-0 transition-colors ${
+              isEmerald
+                ? 'text-emerald-600 dark:text-emerald-400'
+                : value
+                  ? 'text-teal-600 dark:text-teal-400'
+                  : 'text-zinc-400 dark:text-zinc-500'
+            }`}
+          />
+          <span
+            className={`truncate ${
+              isEmerald
+                ? ''
+                : value
+                  ? 'text-slate-900 dark:text-zinc-100 font-bold'
+                  : 'text-zinc-400 dark:text-zinc-500 font-medium'
+            }`}
+          >
+            {formattedValue}
+          </span>
         </div>
-        <ChevronRight size={14} className={`transform transition-transform text-emerald-600/70 dark:text-emerald-400/70 ${isOpen ? 'rotate-90' : ''}`} />
+        <ChevronRight
+          size={14}
+          className={`transform transition-transform shrink-0 ${
+            isEmerald
+              ? 'text-emerald-600/70 dark:text-emerald-400/70'
+              : 'text-zinc-400 dark:text-zinc-500'
+          } ${isOpen ? 'rotate-90' : ''}`}
+        />
       </button>
 
       {isOpen && (
-        <div className={`absolute ${align === 'left' ? 'left-0' : 'right-0'} mt-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-2xl p-4 w-72 z-[100] text-slate-800 dark:text-zinc-200 animate-in fade-in slide-in-from-top-1 duration-200`}>
+        <div className={`absolute ${align === 'left' ? 'left-0' : 'right-0'} mt-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-2xl p-4 w-72 z-[9999] text-slate-800 dark:text-zinc-200 animate-in fade-in slide-in-from-top-1 duration-200`}>
           <div className="flex justify-between items-center mb-3">
             <button
               type="button"

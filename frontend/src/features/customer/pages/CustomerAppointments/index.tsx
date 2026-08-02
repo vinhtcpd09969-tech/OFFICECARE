@@ -13,8 +13,7 @@ import {
   TrendingUp,
   ShieldCheck,
   FileText,
-  AlertTriangle,
-  ArrowRight
+  AlertTriangle
 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
@@ -110,8 +109,14 @@ export default function CustomerAppointments() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Inline OTP states & Ref for Auto Scroll
-  const [otpInput, setOtpInput] = useState<string>('');
+  // Inline OTP states & Ref for Auto Scroll (Keyed per appointment ID to prevent input bleeding)
+  const [otpInputs, setOtpInputs] = useState<Record<string, string>>({});
+  const getOtpInput = (id: string) => otpInputs[id] || '';
+  const setSingleOtpInput = (id: string, val: string) => {
+    const clean = val.replace(/\D/g, '').slice(0, 6);
+    setOtpInputs(prev => ({ ...prev, [id]: clean }));
+  };
+
   const [verifyingOtpId, setVerifyingOtpId] = useState<string | null>(null);
   const [resendingOtpId, setResendingOtpId] = useState<string | null>(null);
   const otpBoxRef = useRef<HTMLDivElement | null>(null);
@@ -205,7 +210,8 @@ export default function CustomerAppointments() {
   };
 
   const handleVerifyOtp = async (apptId: string) => {
-    if (otpInput.length !== 6 || !/^\d+$/.test(otpInput)) {
+    const apptOtp = getOtpInput(apptId);
+    if (apptOtp.length !== 6 || !/^\d+$/.test(apptOtp)) {
       toast.error('Vui lòng nhập đúng mã OTP 6 chữ số.');
       return;
     }
@@ -213,11 +219,11 @@ export default function CustomerAppointments() {
     try {
       const response = await api.post(`/client/appointments/public/confirm-otp`, {
         id: apptId,
-        otp: otpInput
+        otp: apptOtp
       });
       if (response.data.success) {
         toast.success('Xác thực OTP thành công! Lịch hẹn của bạn đang chờ Trung tâm xác nhận.');
-        setOtpInput('');
+        setSingleOtpInput(apptId, '');
         fetchAppointments();
       } else {
         toast.error(response.data.message || 'Mã OTP không hợp lệ hoặc đã hết hạn.');
@@ -896,65 +902,69 @@ export default function CustomerAppointments() {
                               )}
 
                               {/* 6 Visual OTP Digit Slots + Hidden Native Input */}
-                              <div className="space-y-3">
-                                <div className="relative">
-                                  <input
-                                    type="text"
-                                    maxLength={6}
-                                    value={otpInput}
-                                    onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ''))}
-                                    disabled={verifyingOtpId === app.id || (!!app.han_xac_nhan && otpTimeLeft <= 0)}
-                                    className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer disabled:cursor-not-allowed"
-                                    autoFocus
-                                  />
-                                  <div className="grid grid-cols-6 gap-1.5 sm:gap-2">
-                                    {[0, 1, 2, 3, 4, 5].map((idx) => {
-                                      const digit = otpInput[idx] || '';
-                                      const isFocused = otpInput.length === idx;
-                                      const isFilled = !!digit;
+                              {(() => {
+                                const currentOtpVal = getOtpInput(app.id);
+                                return (
+                                  <div className="space-y-3">
+                                    <div className="relative">
+                                      <input
+                                        type="text"
+                                        maxLength={6}
+                                        value={currentOtpVal}
+                                        onChange={(e) => setSingleOtpInput(app.id, e.target.value)}
+                                        disabled={verifyingOtpId === app.id || (!!app.han_xac_nhan && otpTimeLeft <= 0)}
+                                        className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer disabled:cursor-not-allowed"
+                                      />
+                                      <div className="grid grid-cols-6 gap-1.5 sm:gap-2">
+                                        {[0, 1, 2, 3, 4, 5].map((idx) => {
+                                          const digit = currentOtpVal[idx] || '';
+                                          const isFocused = currentOtpVal.length === idx;
+                                          const isFilled = !!digit;
 
-                                      return (
-                                        <motion.div
-                                          key={idx}
-                                          animate={{
-                                            scale: isFilled ? [1, 1.08, 1] : isFocused ? [1, 1.05, 1] : 1,
-                                            borderColor: isFilled ? '#0D9488' : isFocused ? '#0D9488' : '#CBD5E1',
-                                          }}
-                                          transition={{ duration: 0.15 }}
-                                          className={`h-11 sm:h-12 rounded-xl border-2 flex items-center justify-center font-mono text-base font-black transition-all ${
-                                            isFilled
-                                              ? 'bg-teal-600 text-white border-teal-700 shadow-xs'
-                                              : isFocused
-                                              ? 'bg-white border-teal-500 text-teal-600 ring-4 ring-teal-500/15 animate-pulse'
-                                              : 'bg-white/90 text-slate-400 border-slate-200'
-                                          }`}
-                                        >
-                                          {digit ? (
-                                            <motion.span
-                                              initial={{ scale: 0, opacity: 0 }}
-                                              animate={{ scale: 1, opacity: 1 }}
-                                              transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+                                          return (
+                                            <motion.div
+                                              key={idx}
+                                              animate={{
+                                                scale: isFilled ? [1, 1.08, 1] : isFocused ? [1, 1.05, 1] : 1,
+                                                borderColor: isFilled ? '#0D9488' : isFocused ? '#0D9488' : '#CBD5E1',
+                                              }}
+                                              transition={{ duration: 0.15 }}
+                                              className={`h-11 sm:h-12 rounded-xl border-2 flex items-center justify-center font-mono text-base font-black transition-all ${
+                                                isFilled
+                                                  ? 'bg-teal-600 text-white border-teal-700 shadow-xs'
+                                                  : isFocused
+                                                  ? 'bg-white border-teal-500 text-teal-600 ring-4 ring-teal-500/15 animate-pulse'
+                                                  : 'bg-white/90 text-slate-400 border-slate-200'
+                                              }`}
                                             >
-                                              {digit}
-                                            </motion.span>
-                                          ) : (
-                                            <span className="text-slate-300 text-xs">•</span>
-                                          )}
-                                        </motion.div>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
+                                              {digit ? (
+                                                <motion.span
+                                                  initial={{ scale: 0, opacity: 0 }}
+                                                  animate={{ scale: 1, opacity: 1 }}
+                                                  transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+                                                >
+                                                  {digit}
+                                                </motion.span>
+                                              ) : (
+                                                <span className="text-slate-300 text-xs">•</span>
+                                              )}
+                                            </motion.div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
 
-                                <button
-                                  type="button"
-                                  onClick={() => handleVerifyOtp(app.id)}
-                                  disabled={verifyingOtpId === app.id || otpInput.length !== 6 || (!!app.han_xac_nhan && otpTimeLeft <= 0)}
-                                  className="w-full py-3 bg-gradient-to-r from-[#0D9488] to-teal-600 hover:from-[#0b7a70] hover:to-teal-700 disabled:opacity-50 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer shadow-md shadow-teal-500/20 flex items-center justify-center gap-1.5 active:scale-[0.99]"
-                                >
-                                  {verifyingOtpId === app.id ? 'Đang xác thực OTP...' : 'Xác thực mã OTP ngay'}
-                                </button>
-                              </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleVerifyOtp(app.id)}
+                                      disabled={verifyingOtpId === app.id || currentOtpVal.length !== 6 || (!!app.han_xac_nhan && otpTimeLeft <= 0)}
+                                      className="w-full py-3 bg-gradient-to-r from-[#0D9488] to-teal-600 hover:from-[#0b7a70] hover:to-teal-700 disabled:opacity-50 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer shadow-md shadow-teal-500/20 flex items-center justify-center gap-1.5 active:scale-[0.99]"
+                                    >
+                                      {verifyingOtpId === app.id ? 'Đang xác thực OTP...' : 'Xác thực mã OTP ngay'}
+                                    </button>
+                                  </div>
+                                );
+                              })()}
 
                               <div className="flex justify-between items-center text-[10px] font-bold border-t border-slate-100 pt-2.5">
                                 <span className="text-slate-500">Chưa nhận được mã OTP?</span>

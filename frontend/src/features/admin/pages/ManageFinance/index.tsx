@@ -371,13 +371,17 @@ export default function ManageFinance() {
                           </span>
                           <span className="text-[11px] text-sky-800 dark:text-sky-400 font-bold block">
                             Dịch vụ: {checkout.selectedConsultation.khuyen_nghi_ten_goi || 'Dịch vụ lẻ'}
+                            {checkout.selectedPackage?.don_gia != null ? ` (${formatCurrency(checkout.selectedPackage.don_gia)})` : ''}
                           </span>
                         </div>
                       ) : (
                         <div className="bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-2xl p-4 flex items-center justify-between shadow-xs animate-in fade-in duration-200">
                           <div className="space-y-1 text-left">
                             <span className="text-xs font-black text-emerald-950 dark:text-emerald-300 block">Đăng ký mua gói trị liệu được chỉ định</span>
-                            <span className="text-[11px] text-emerald-800 dark:text-emerald-400 font-bold block">Chỉ định: {checkout.selectedConsultation.khuyen_nghi_ten_goi || 'Gói trị liệu'}</span>
+                            <span className="text-[11px] text-emerald-800 dark:text-emerald-400 font-bold block">
+                              Chỉ định: {checkout.selectedConsultation.khuyen_nghi_ten_goi || 'Gói trị liệu'}
+                              {checkout.selectedPackage?.don_gia != null ? ` (${formatCurrency(checkout.selectedPackage.don_gia)})` : ''}
+                            </span>
                           </div>
                           <label className="relative inline-flex items-center cursor-pointer">
                             <input 
@@ -399,8 +403,8 @@ export default function ManageFinance() {
 
                     {checkout.checkoutTab === 'package' && (
                       <div className="space-y-4 animate-in fade-in duration-200">
-                        {/* Select assigned medical package */}
-                        {checkout.dangKyGoi && (
+                        {/* Select assigned medical package - chỉ hiện khi không có gói chỉ định sẵn */}
+                        {checkout.dangKyGoi && !hasLockedTarget && (
                           <div className="space-y-1.5">
                             <label htmlFor="selectedPackage" className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">
                               {checkout.selectedPackage?.loai_goi === 'LE' ? 'Dịch vụ lẻ được chỉ định *' : 'Gói trị liệu được chỉ định *'}
@@ -879,6 +883,14 @@ export default function ManageFinance() {
           amount={checkout.activePayOSInvoice.amount}
           onClose={() => checkout.setActivePayOSInvoice(null)}
           onSuccess={(paidInvoice) => checkout.handlePayOSSuccess(paidInvoice)}
+        />
+      )}
+      {dashboard.fastPayQRInvoice && (
+        <QRWebhookModal
+          hoaDonId={dashboard.fastPayQRInvoice.invoice.id}
+          amount={dashboard.fastPayQRInvoice.amount}
+          onClose={() => dashboard.setFastPayQRInvoice(null)}
+          onSuccess={(paidInvoice) => dashboard.handleFastPayQRSuccess(paidInvoice)}
         />
       )}
     </div>

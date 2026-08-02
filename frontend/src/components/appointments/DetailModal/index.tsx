@@ -25,7 +25,6 @@ import { statusConfig } from '../../appointmentStatusConfig';
 
 // Import subcomponents
 import { DetailHeader } from './DetailHeader';
-import { TreatmentHistory } from './TreatmentHistory';
 import { StaffRoomAllocation } from './StaffRoomAllocation';
 import { SymptomNotes } from './SymptomNotes';
 import { DetailFooter } from './DetailFooter';
@@ -921,12 +920,6 @@ export default function AppointmentDetailModal({
                     </div>
                   </div>
               )}
-
-              <TreatmentHistory
-                loaiLich={selectedAppointment.loai_lich}
-                chanDoan={selectedAppointment.chan_doan}
-                chongChiDinh={selectedAppointment.chong_chi_dinh}
-              />
 
               {/* Warning message when staff selected is busy */}
               {isStaffUnavailable && !isCurrentStaffUnavailableAtNewSlot && (

@@ -1,17 +1,18 @@
-import { ChevronLeft, ChevronRight, Search, Stethoscope, Zap } from 'lucide-react';
-import { format, startOfWeek, isSameDay } from 'date-fns';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { ChevronLeft, ChevronRight, ChevronDown, Search, Stethoscope, Zap, Calendar as CalendarIcon, RotateCcw, ArrowRight } from 'lucide-react';
+import { format, isSameDay, addDays, addMonths, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
+export type RangePreset = 'today' | '7days' | 'month' | 'custom';
+
 interface AppointmentsFilterBarProps {
-  timeRange: 'today' | '7days' | 'month' | 'custom';
-  setTimeRange: (range: 'today' | '7days' | 'month' | 'custom') => void;
-  startDateOfWeek: Date;
-  endDateOfWeek: Date;
-  handleNavigateDay: (direction: 'next' | 'prev' | 'today') => void;
+  startDate: Date;
+  endDate: Date;
+  onSelectDateRange: (start: Date, end: Date, preset?: RangePreset) => void;
+  handleNavigateRange: (direction: 'next' | 'prev' | 'today') => void;
   searchTerm: string;
   setSearchTerm: (term: string) => void;
   viewMode: 'timeline' | 'capacity';
-  selectedDate: Date;
   activeType: 'kham' | 'dieu_tri';
   onToggleType: () => void;
   canToggleType?: boolean;
@@ -19,36 +20,157 @@ interface AppointmentsFilterBarProps {
 }
 
 export function AppointmentsFilterBar({
-  timeRange,
-  setTimeRange,
-  startDateOfWeek,
-  endDateOfWeek,
-  handleNavigateDay,
+  startDate,
+  endDate,
+  onSelectDateRange,
+  handleNavigateRange,
   searchTerm,
   setSearchTerm,
-  viewMode,
-  selectedDate,
+  viewMode: _viewMode,
   activeType,
   onToggleType,
   canToggleType = false,
-  setViewMode
+  setViewMode: _setViewMode
 }: AppointmentsFilterBarProps) {
-  
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [pickerNavDate, setPickerNavDate] = useState<Date>(startDate || new Date());
+  const [tempStart, setTempStart] = useState<Date | null>(startDate);
+  const [tempEnd, setTempEnd] = useState<Date | null>(endDate);
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  // Cập nhật nav date và temp range khi props thay đổi hoặc khi mở pop-up
+  useEffect(() => {
+    setPickerNavDate(startDate || new Date());
+    setTempStart(startDate);
+    setTempEnd(endDate);
+  }, [startDate, endDate, isPickerOpen]);
+
+  // Đóng pop-up khi click ngoài hoặc ấn Esc
+  useEffect(() => {
+    if (!isPickerOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        setIsPickerOpen(false);
+      }
+    };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsPickerOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEsc);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEsc);
+    };
+  }, [isPickerOpen]);
+
+  const monthNames = [
+    'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6',
+    'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'
+  ];
+
+  // Tính lưới ô lịch hiển thị trong Pop-up
+  const calendarGrid = useMemo(() => {
+    const year = pickerNavDate.getFullYear();
+    const month = pickerNavDate.getMonth();
+    const firstDayOfMonth = new Date(year, month, 1);
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    let dayOfWeek = firstDayOfMonth.getDay() - 1;
+    if (dayOfWeek === -1) dayOfWeek = 6;
+
+    const cells: (Date | null)[] = [];
+    for (let i = 0; i < dayOfWeek; i++) {
+      cells.push(null);
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      cells.push(new Date(year, month, d));
+    }
+    return cells;
+  }, [pickerNavDate]);
+
+  // Xử lý chọn ngày trên Pop-up Lịch (Range Selection)
+  const handleDateClick = (date: Date) => {
+    if (!tempStart || (tempStart && tempEnd)) {
+      // Chọn mốc bắt đầu mới
+      setTempStart(date);
+      setTempEnd(null);
+    } else if (tempStart && !tempEnd) {
+      if (date < tempStart) {
+        setTempStart(date);
+        setTempEnd(null);
+      } else {
+        setTempEnd(date);
+        // Tự động áp dụng khoảng ngày vừa chọn
+        onSelectDateRange(tempStart, date, 'custom');
+        setIsPickerOpen(false);
+      }
+    }
+  };
+
+  // Xác định khoảng thời gian hiện tại khớp với Preset nào
+  const currentPreset = useMemo<RangePreset>(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const s = new Date(startDate);
+    s.setHours(0, 0, 0, 0);
+    const e = new Date(endDate);
+    e.setHours(0, 0, 0, 0);
+
+    if (isSameDay(s, e) && isSameDay(s, today)) {
+      return 'today';
+    }
+
+    const next7DaysEnd = addDays(today, 6);
+    if (isSameDay(s, today) && isSameDay(e, next7DaysEnd)) {
+      return '7days';
+    }
+
+    const monthStart = startOfMonth(today);
+    const monthEnd = endOfMonth(today);
+    if (isSameDay(s, monthStart) && isSameDay(e, monthEnd)) {
+      return 'month';
+    }
+
+    return 'custom';
+  }, [startDate, endDate]);
+
+  // Số ngày trong khoảng lọc
+  const totalDaysCount = useMemo(() => {
+    const s = Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+    const e = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+    return Math.round((e - s) / (1000 * 60 * 60 * 24)) + 1;
+  }, [startDate, endDate]);
+
+  const handleApplyPreset = (preset: 'today' | '7days' | 'month') => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (preset === 'today') {
+      onSelectDateRange(today, today, 'today');
+    } else if (preset === '7days') {
+      onSelectDateRange(today, addDays(today, 6), '7days');
+    } else if (preset === 'month') {
+      onSelectDateRange(startOfMonth(today), endOfMonth(today), 'month');
+    }
+    setIsPickerOpen(false);
+  };
+
   return (
     <div className="relative bg-white dark:bg-zinc-900 rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.02)] border border-slate-100 dark:border-zinc-800/80 p-4 lg:p-5 transition-colors duration-300">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 lg:gap-4">
         
-        {/* Left Section: Icon, Title, and Search bar combined in a clean row/group */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4 flex-1 min-w-0">
+        {/* Left Section: Tab Selector Lịch Khám/Điều Trị + Ô tìm kiếm bệnh nhân */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 shrink-0 min-w-0">
           
-          {/* Title block / Tab Selector for Lịch Khám vs Lịch Điều Trị */}
           <div className="flex items-center gap-3 shrink-0">
             {canToggleType ? (
               <div className="flex bg-slate-100 dark:bg-zinc-800/80 p-1 rounded-2xl border border-slate-200/40 dark:border-zinc-800 select-none shrink-0">
                 <button
                   type="button"
                   onClick={() => { if (activeType !== 'kham') onToggleType(); }}
-                  className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-black uppercase tracking-wider rounded-xl transition-all active:scale-95 ${
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-black uppercase tracking-wider rounded-xl transition-all active:scale-95 cursor-pointer ${
                     activeType === 'kham'
                       ? 'bg-white dark:bg-zinc-700 text-[#0d9488] dark:text-teal-400 shadow-sm border border-slate-200/20'
                       : 'text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200'
@@ -60,7 +182,7 @@ export function AppointmentsFilterBar({
                 <button
                   type="button"
                   onClick={() => { if (activeType !== 'dieu_tri') onToggleType(); }}
-                  className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-black uppercase tracking-wider rounded-xl transition-all active:scale-95 ${
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-black uppercase tracking-wider rounded-xl transition-all active:scale-95 cursor-pointer ${
                     activeType === 'dieu_tri'
                       ? 'bg-white dark:bg-zinc-700 text-amber-600 dark:text-amber-400 shadow-sm border border-slate-200/20'
                       : 'text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200'
@@ -86,138 +208,262 @@ export function AppointmentsFilterBar({
               </div>
             )}
             
-            {/* Helper label for view type */}
-            <div className="hidden xl:flex flex-col text-left">
+            <div className="hidden 2xl:flex flex-col text-left">
               <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-bold tracking-wide uppercase">
-                {viewMode === 'timeline' 
-                  ? "Trình tự ngày" 
-                  : "Công suất tuần/tháng"}
+                {totalDaysCount === 1 
+                  ? "Trình tự giờ" 
+                  : `Công suất (${totalDaysCount} ngày)`}
               </p>
             </div>
           </div>
  
-          {/* Vertical divider on screens >= sm */}
           <div className="hidden sm:block w-[1px] h-8 bg-slate-150 dark:bg-zinc-800 shrink-0" />
  
-          {/* Search Patient Box */}
-          <div className="relative w-full sm:max-w-xs">
+          {/* Ô Tìm Kiếm Bệnh Nhân */}
+          <div className="relative w-full sm:w-44 md:w-48 lg:w-56 shrink-0">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-555 pointer-events-none" size={13} />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Tìm tên bệnh nhân, mã số..."
+              placeholder="Tìm tên bệnh nhân, mã..."
               className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-zinc-850/60 border border-slate-200/80 dark:border-zinc-800 text-slate-850 dark:text-zinc-200 text-xs font-bold rounded-xl outline-none focus:ring-2 focus:ring-teal-500/10 focus:border-teal-500 dark:focus:border-teal-500/50 transition-all placeholder-slate-400 dark:placeholder-zinc-555"
             />
           </div>
  
         </div>
  
-        {/* Right Section: Toggle buttons & Date navigation */}
-        <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 shrink-0 justify-start lg:justify-end">
-          
-          {/* Selector for Ngày / Tuần / Tháng - Always visible */}
-          <div className="flex bg-slate-50 dark:bg-zinc-850 p-1 rounded-xl border border-slate-200/60 dark:border-zinc-800 select-none shrink-0">
+        {/* Right Section: Bộ điều hướng khoảng ngày (Date Range Navigator) */}
+        <div className="flex items-center gap-2.5 shrink-0 justify-start lg:justify-end flex-wrap sm:flex-nowrap">
+          {totalDaysCount === 1 && (
             <button
               type="button"
-              onClick={() => {
-                setTimeRange('today');
-                setViewMode?.('timeline');
-              }}
-              className={`px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all ${
-                timeRange === 'today'
-                  ? 'bg-white dark:bg-zinc-700 text-[#0d9488] dark:text-teal-400 shadow-sm border border-slate-200/20'
-                  : 'text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200'
-              }`}
+              onClick={() => handleApplyPreset('7days')}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-black uppercase tracking-wider text-[#0D9488] bg-[#0D9488]/10 hover:bg-[#0D9488]/15 rounded-xl border border-[#0D9488]/20 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-xs shrink-0"
+              title="Quay lại xem Bảng công suất 7 ngày"
             >
-              Ngày
+              <ChevronLeft size={14} className="stroke-[3]" />
+              <span className="hidden sm:inline">Quay lại Bảng công suất</span>
+              <span className="sm:hidden">Công suất</span>
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                setTimeRange('7days');
-                setViewMode?.('capacity');
-              }}
-              className={`px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all ${
-                timeRange === '7days'
-                  ? 'bg-white dark:bg-zinc-700 text-[#0d9488] dark:text-teal-450 shadow-sm border border-slate-200/20'
-                  : 'text-slate-550 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200'
-              }`}
-            >
-              Tuần
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setTimeRange('month');
-                setViewMode?.('capacity');
-              }}
-              className={`px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all ${
-                timeRange === 'month'
-                  ? 'bg-white dark:bg-zinc-700 text-[#0d9488] dark:text-teal-450 shadow-sm border border-slate-200/20'
-                  : 'text-slate-550 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200'
-              }`}
-            >
-              Tháng
-            </button>
-          </div>
+          )}
 
-          {/* Date Navigator Card */}
-          {(() => {
-            const isCurrentWeek = format(startDateOfWeek, 'yyyy-MM-dd') === format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
-            const isCurrentMonth = timeRange === 'month' && format(startDateOfWeek, 'yyyy-MM') === format(new Date(), 'yyyy-MM');
-            const isCurrentDay = isSameDay(selectedDate, new Date());
-            
-            const showActiveIndicator = 
-              viewMode === 'timeline' 
-                ? isCurrentDay
-                : (timeRange === 'month' && isCurrentMonth) || (timeRange === '7days' && isCurrentWeek);
-            
-            return (
-              <div className={`flex items-center justify-between bg-slate-50 dark:bg-zinc-850/60 border rounded-xl p-1 shrink-0 transition-all ${
-                showActiveIndicator
-                  ? 'border-teal-500/40 dark:border-teal-500/30 ring-2 ring-teal-500/5 dark:ring-teal-500/2 shadow-[0_0_15px_rgba(20,184,166,0.08)] bg-teal-50/5 dark:bg-teal-955/2' 
-                  : 'border-slate-200/80 dark:border-zinc-800'
-              }`}>
-                <button 
-                  type="button"
-                  onClick={() => handleNavigateDay('prev')} 
-                  className="p-2 hover:bg-white dark:hover:bg-zinc-800 text-slate-650 dark:text-zinc-300 rounded-lg transition-all focus:outline-none hover:shadow-sm"
-                >
-                  <ChevronLeft size={15} className="stroke-[2.5]" />
-                </button>
+          {/* Khung Điều Hướng Khoảng Ngày (Interactive Date Range Navigator) */}
+          <div ref={popoverRef} className="relative">
+            <div className={`flex items-center justify-between bg-slate-50 dark:bg-zinc-850/60 border rounded-xl p-1 shrink-0 transition-all ${
+              currentPreset !== 'custom'
+                ? 'border-teal-500/40 dark:border-teal-500/30 ring-2 ring-teal-500/5 dark:ring-teal-500/2 shadow-[0_0_15px_rgba(20,184,166,0.08)] bg-teal-50/5 dark:bg-teal-955/2' 
+                : 'border-slate-200/80 dark:border-zinc-800'
+            }`}>
+              <button 
+                type="button"
+                onClick={() => handleNavigateRange('prev')} 
+                title="Lùi khoảng ngày"
+                className="p-2 hover:bg-white dark:hover:bg-zinc-800 text-slate-650 dark:text-zinc-300 rounded-lg transition-all focus:outline-none hover:shadow-sm cursor-pointer"
+              >
+                <ChevronLeft size={15} className="stroke-[2.5]" />
+              </button>
+              
+              {/* Nút bấm mở Lịch chọn khoảng ngày Pop-up */}
+              <button
+                type="button"
+                onClick={() => setIsPickerOpen(!isPickerOpen)}
+                title="Nhấn để mở Pop-up lịch chọn khoảng ngày tùy chỉnh"
+                className="group px-2.5 py-1.5 hover:bg-white dark:hover:bg-zinc-800 text-xs font-black text-slate-800 dark:text-zinc-150 text-center min-w-[180px] sm:min-w-[200px] select-none capitalize flex items-center justify-center gap-1.5 rounded-lg transition-all border border-transparent hover:border-slate-200/80 dark:hover:border-zinc-700 hover:shadow-xs cursor-pointer"
+              >
+                <CalendarIcon size={14} className="text-[#0d9488] dark:text-teal-400 shrink-0 group-hover:scale-110 transition-transform" />
                 
-                <div className="px-3 text-xs font-black text-slate-800 dark:text-zinc-150 text-center min-w-[190px] sm:min-w-[210px] select-none capitalize flex items-center justify-center gap-2">
-                  {showActiveIndicator && (
-                    <span className="flex h-2 w-2 relative shrink-0">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-500 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
+                {currentPreset !== 'custom' && (
+                  <span className="flex h-2 w-2 relative shrink-0">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-500 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
+                  </span>
+                )}
+
+                {totalDaysCount === 1 ? (
+                  <span className="lowercase first-letter:uppercase">Ngày: {format(startDate, 'eeee, dd/MM/yyyy', { locale: vi })}</span>
+                ) : (
+                  <span>{format(startDate, 'dd/MM')} ➔ {format(endDate, 'dd/MM/yyyy')} ({totalDaysCount} ngày)</span>
+                )}
+
+                {currentPreset !== 'custom' && (
+                  <span className="text-[9px] font-black uppercase text-[#0d9488] dark:text-teal-400 bg-[#0d9488]/10 dark:bg-teal-950/40 px-1.5 py-0.5 rounded border border-teal-500/20">
+                    {currentPreset === 'today' ? 'Hôm nay' : currentPreset === '7days' ? '7 ngày' : 'Tháng này'}
+                  </span>
+                )}
+
+                <ChevronDown size={13} className={`text-slate-400 dark:text-zinc-500 transition-transform duration-200 ${isPickerOpen ? 'rotate-180 text-teal-600' : 'group-hover:text-slate-600'}`} />
+              </button>
+              
+              <button 
+                type="button"
+                onClick={() => handleNavigateRange('next')} 
+                title="Tiến khoảng ngày"
+                className="p-2 hover:bg-white dark:hover:bg-zinc-800 text-slate-650 dark:text-zinc-300 rounded-lg transition-all focus:outline-none hover:shadow-sm cursor-pointer"
+              >
+                <ChevronRight size={15} className="stroke-[2.5]" />
+              </button>
+            </div>
+
+            {/* Pop-up Date Range Picker Modal Card */}
+            {isPickerOpen && (
+              <div className="absolute top-full right-0 mt-2.5 bg-white dark:bg-zinc-900 border border-slate-200/90 dark:border-zinc-800 shadow-2xl rounded-3xl p-4 sm:p-5 w-80 sm:w-84 z-[99999] text-slate-800 dark:text-zinc-100 animate-in fade-in zoom-in-95 duration-150">
+                
+                {/* Header Navigation */}
+                <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100 dark:border-zinc-800">
+                  <div className="flex items-center gap-2">
+                    <div className="size-7 rounded-xl bg-teal-50 dark:bg-teal-950/40 text-[#0d9488] dark:text-teal-400 flex items-center justify-center font-bold">
+                      <CalendarIcon size={14} />
+                    </div>
+                    <span className="font-extrabold text-sm text-slate-900 dark:text-zinc-100 font-jakarta">
+                      {monthNames[pickerNavDate.getMonth()]} {pickerNavDate.getFullYear()}
                     </span>
-                  )}
-                  {(viewMode === 'timeline' || timeRange === 'today') ? (
-                    <span className="lowercase first-letter:uppercase">Ngày: {format(selectedDate, 'eeee, dd/MM/yyyy', { locale: vi })}</span>
-                  ) : timeRange === 'month' ? (
-                    <span>Tháng: {format(startDateOfWeek, 'MM/yyyy')}</span>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setPickerNavDate(subMonths(pickerNavDate, 1))}
+                      className="size-7 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 flex items-center justify-center text-slate-600 dark:text-zinc-300 font-bold transition-all cursor-pointer"
+                      title="Tháng trước"
+                    >
+                      ‹
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const today = new Date();
+                        setPickerNavDate(today);
+                        handleApplyPreset('7days');
+                      }}
+                      className="px-2 py-1 bg-teal-50 dark:bg-teal-950/40 text-[#0d9488] dark:text-teal-400 hover:bg-teal-100 rounded-lg text-[10px] font-black uppercase transition-all cursor-pointer flex items-center gap-1"
+                      title="Về 7 ngày tới"
+                    >
+                      <RotateCcw size={10} />
+                      <span>7 Ngày</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPickerNavDate(addMonths(pickerNavDate, 1))}
+                      className="size-7 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 flex items-center justify-center text-slate-600 dark:text-zinc-300 font-bold transition-all cursor-pointer"
+                      title="Tháng sau"
+                    >
+                      ›
+                    </button>
+                  </div>
+                </div>
+
+                {/* Day headers */}
+                <div className="grid grid-cols-7 gap-1 text-center font-black text-[10px] text-slate-400 dark:text-zinc-500 uppercase tracking-wider mb-2">
+                  <span>T2</span>
+                  <span>T3</span>
+                  <span>T4</span>
+                  <span>T5</span>
+                  <span>T6</span>
+                  <span>T7</span>
+                  <span className="text-rose-500">CN</span>
+                </div>
+
+                {/* Calendar grid with Range Selection */}
+                <div className="grid grid-cols-7 gap-y-1 text-center text-xs">
+                  {calendarGrid.map((dayItem, idx) => {
+                    if (!dayItem) return <div key={`empty-${idx}`} />;
+
+                    const dayTime = dayItem.getTime();
+                    const startRangeTime = tempStart ? new Date(tempStart.getFullYear(), tempStart.getMonth(), tempStart.getDate()).getTime() : null;
+                    const endRangeTime = tempEnd ? new Date(tempEnd.getFullYear(), tempEnd.getMonth(), tempEnd.getDate()).getTime() : null;
+
+                    const isStart = startRangeTime !== null && dayTime === startRangeTime;
+                    const isEnd = endRangeTime !== null && dayTime === endRangeTime;
+                    const isInRange = startRangeTime !== null && endRangeTime !== null && dayTime > startRangeTime && dayTime < endRangeTime;
+                    const isToday = isSameDay(dayItem, new Date());
+
+                    return (
+                      <button
+                        key={dayItem.toISOString()}
+                        type="button"
+                        onClick={() => handleDateClick(dayItem)}
+                        className={`h-9 w-full text-xs font-black flex items-center justify-center relative transition-all cursor-pointer ${
+                          isStart && isEnd
+                            ? 'bg-gradient-to-br from-[#0d9488] to-teal-600 text-white rounded-xl shadow-md shadow-teal-500/25 ring-2 ring-teal-500/30 z-10'
+                            : isStart
+                            ? 'bg-[#0d9488] text-white rounded-l-xl z-10 font-bold'
+                            : isEnd
+                            ? 'bg-[#0d9488] text-white rounded-r-xl z-10 font-bold'
+                            : isInRange
+                            ? 'bg-teal-50 dark:bg-teal-950/40 text-teal-800 dark:text-teal-300 font-extrabold'
+                            : isToday
+                            ? 'bg-teal-50/50 dark:bg-teal-950/20 text-[#0d9488] border border-teal-500/30 hover:bg-teal-100 rounded-xl'
+                            : 'hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 rounded-xl'
+                        }`}
+                      >
+                        <span>{dayItem.getDate()}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Status selection footer */}
+                <div className="mt-3 pt-2 text-[11px] font-semibold text-slate-500 dark:text-zinc-400 flex items-center justify-between">
+                  {tempStart && !tempEnd ? (
+                    <span className="text-slate-700 dark:text-zinc-200 text-[11px] font-medium flex items-center gap-1">
+                      <span>Bạn đã chọn <strong className="text-[#0d9488] dark:text-teal-400 font-black">{format(tempStart, 'dd/MM/yyyy')}</strong> ➔ chọn ngày kết thúc</span>
+                    </span>
+                  ) : tempStart && tempEnd ? (
+                    <span className="text-slate-700 dark:text-zinc-200 font-bold flex items-center gap-1">
+                      <span>{format(tempStart, 'dd/MM')}</span>
+                      <ArrowRight size={11} className="text-teal-600" />
+                      <span>{format(tempEnd, 'dd/MM/yyyy')}</span>
+                    </span>
                   ) : (
-                    <span>Tuần: {format(startDateOfWeek, 'dd/MM')} - {format(endDateOfWeek, 'dd/MM/yyyy')}</span>
+                    <span>Chọn 2 ngày để khoanh vùng</span>
                   )}
-                  {showActiveIndicator && (
-                    <span className="text-[9px] font-black uppercase text-[#0d9488] dark:text-teal-400 bg-[#0d9488]/10 dark:bg-teal-950/40 px-1.5 py-0.5 rounded border border-teal-500/20">
-                      {(viewMode === 'timeline' || timeRange === 'today') ? 'Hôm nay' : timeRange === 'month' ? 'Tháng này' : 'Tuần này'}
-                    </span>
+
+                  {tempStart && tempEnd && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSelectDateRange(tempStart, tempEnd, 'custom');
+                        setIsPickerOpen(false);
+                      }}
+                      className="px-3 py-1 bg-gradient-to-r from-[#0d9488] to-teal-600 text-white font-extrabold text-[10px] uppercase tracking-wider rounded-lg shadow-sm hover:from-[#0b7a70] hover:to-teal-700 cursor-pointer"
+                    >
+                      Áp dụng
+                    </button>
                   )}
                 </div>
-                
-                <button 
-                  type="button"
-                  onClick={() => handleNavigateDay('next')} 
-                  className="p-2 hover:bg-white dark:hover:bg-zinc-800 text-slate-650 dark:text-zinc-300 rounded-lg transition-all focus:outline-none hover:shadow-sm"
-                >
-                  <ChevronRight size={15} className="stroke-[2.5]" />
-                </button>
+
+                {/* Quick Presets Bar inside Popover */}
+                <div className="mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between text-[11px] font-bold">
+                  <span className="text-slate-400 dark:text-zinc-500 text-[10px] uppercase font-black tracking-wider">Lối tắt:</span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleApplyPreset('today')}
+                      className="px-2.5 py-1 bg-slate-100 dark:bg-zinc-800 hover:bg-teal-50 dark:hover:bg-teal-950/30 text-slate-700 dark:text-zinc-300 hover:text-[#0d9488] rounded-lg transition-all cursor-pointer"
+                    >
+                      Hôm nay
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyPreset('7days')}
+                      className="px-2.5 py-1 bg-slate-100 dark:bg-zinc-800 hover:bg-teal-50 dark:hover:bg-teal-950/30 text-slate-700 dark:text-zinc-300 hover:text-[#0d9488] rounded-lg transition-all cursor-pointer"
+                    >
+                      7 ngày tới
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyPreset('month')}
+                      className="px-2.5 py-1 bg-slate-100 dark:bg-zinc-800 hover:bg-teal-50 dark:hover:bg-teal-950/30 text-slate-700 dark:text-zinc-300 hover:text-[#0d9488] rounded-lg transition-all cursor-pointer"
+                    >
+                      Tháng này
+                    </button>
+                  </div>
+                </div>
+
               </div>
-            );
-          })()}
+            )}
+          </div>
 
         </div>
 

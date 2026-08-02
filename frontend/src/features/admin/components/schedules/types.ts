@@ -6,15 +6,11 @@ export const scheduleSchema = z.object({
   gio_bat_dau: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Giờ không hợp lệ'),
   gio_ket_thuc: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Giờ không hợp lệ'),
   trang_thai: z.enum(['hoat_dong', 'tam_nghi']),
+  // Bắt buộc chọn phòng chỉ áp dụng cho Bác sĩ/KTV — kiểm tra ở onSubmit (useScheduleForm.ts) vì cần
+  // biết vai trò của nhân sự đang chọn, schema này không có thông tin đó. Lễ tân không có ô chọn
+  // phòng trên form (xem ScheduleFormModal.tsx), nếu bắt buộc ở đây thì submit sẽ bị chặn âm thầm mà
+  // không có ô nào để hiện lỗi errors.phong_id cho Lễ tân thấy — đây chính là bug đã gặp.
   phong_id: z.union([z.string(), z.number(), z.null()]).optional()
-}).refine(data => {
-  if (data.trang_thai === 'hoat_dong') {
-    return data.phong_id !== undefined && data.phong_id !== null && String(data.phong_id).trim() !== '';
-  }
-  return true;
-}, {
-  message: 'Phòng làm việc là bắt buộc khi thiết lập ca làm việc',
-  path: ['phong_id']
 });
 
 export type ScheduleFormValues = z.infer<typeof scheduleSchema>;

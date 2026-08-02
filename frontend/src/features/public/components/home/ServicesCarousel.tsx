@@ -58,18 +58,18 @@ export default function ServicesCarousel() {
   }
 
   return (
-    <section id="services" className="py-16 sm:py-20 bg-slate-50/60 border-b border-slate-200/80">
+    <section id="services" className="py-10 lg:py-12 bg-slate-50/60 dark:bg-slate-950/60 border-b border-slate-200/80 dark:border-slate-800/80 transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         <ScrollReveal>
-          <div className="text-center mb-12 max-w-2xl mx-auto space-y-2">
-            <span className="bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 font-extrabold tracking-wider text-[10px] px-3.5 py-1.5 rounded-full inline-flex items-center gap-1.5 shadow-2xs">
+          <div className="text-center mb-8 lg:mb-10 max-w-2xl mx-auto space-y-1.5">
+            <span className="bg-[#0D9488]/10 text-[#0D9488] dark:text-teal-300 border border-[#0D9488]/20 font-bold tracking-wider text-[11px] px-3.5 py-1 rounded-full inline-flex items-center gap-1.5 shadow-2xs">
               <Sparkles size={12} /> Dịch Vụ Y Khoa Nổi Bật
             </span>
-            <h3 className="font-heading font-black text-2xl md:text-3xl text-slate-900 tracking-tight">
+            <h3 className="font-bold text-xl sm:text-2xl lg:text-3xl text-slate-900 dark:text-white tracking-tight">
               Giải Pháp Trị Liệu Cơ Xương Khớp Chuyên Sâu
             </h3>
-            <p className="text-slate-500 font-normal text-xs md:text-sm leading-relaxed">
+            <p className="text-slate-600 dark:text-slate-400 font-medium text-xs sm:text-sm leading-relaxed">
               Các dịch vụ y khoa được tin dùng nhiều nhất của chúng tôi giúp giải quyết nhanh cơn đau mỏi cơ xương khớp văn phòng.
             </p>
           </div>

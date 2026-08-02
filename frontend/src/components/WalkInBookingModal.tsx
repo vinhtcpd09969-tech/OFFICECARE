@@ -10,6 +10,7 @@ import { isPlanCancelled, isSessionPaymentSatisfied } from '../utils/billing';
 import { resolveImageUrl } from '../utils/imageUrl';
 import { statusConfig } from './appointmentStatusConfig';
 import { CustomDatePicker } from './CustomDatePicker';
+import { getSmartSearchScore } from '../utils/smartSearch';
 
 // Khớp đúng quy tắc validate phía backend (appointment.repository.ts::createAppointment) — dùng
 // zod thay cho required/pattern gốc của trình duyệt vì tooltip mặc định ("Please match the
@@ -308,7 +309,19 @@ export default function WalkInBookingModal({
     const delayDebounce = setTimeout(async () => {
       try {
         const res = await axiosInstance.get(`/receptionist/customers/search?q=${encodeURIComponent(searchQuery)}`);
-        setSearchResults(res.data || []);
+        const rawList = res.data || [];
+        const sorted = rawList
+          .map((c: any) => {
+            const nameScore = getSmartSearchScore(c.ho_ten || '', searchQuery);
+            const phoneScore = (c.so_dien_thoai || '').includes(searchQuery.trim()) ? 80 : 0;
+            const score = Math.max(nameScore, phoneScore);
+            return { c, score };
+          })
+          .filter((item: any) => item.score > 0)
+          .sort((a: any, b: any) => b.score - a.score)
+          .map((item: any) => item.c);
+
+        setSearchResults(sorted);
       } catch (err) {
         console.error('Error searching customers:', err);
       } finally {

@@ -11,6 +11,8 @@ import {
   updateStaffPassword,
   uploadImage
 } from '../../api/admin.api';
+import { useAuthStore } from '../../../../stores/authStore';
+import { getSmartSearchScore } from '../../../../utils/smartSearch';
 import { ConfirmDialog } from '../../../../components/ConfirmDialog';
 import { 
   Eye, 
@@ -44,16 +46,23 @@ const staffSchema = z.object({
 type StaffFormValues = z.infer<typeof staffSchema>;
 
 export default function ManageStaff() {
+  const { user: currentUser } = useAuthStore();
   const [staffList, setStaffList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRoleFilter, setSelectedRoleFilter] = useState<'all' | '2' | '3' | '4' | '5' | '6'>('all');
+
+  // Edit / Details Screen State (replacing table)
+  const [selectedStaff, setSelectedStaff] = useState<any | null>(null);
+
+  const isSelf = useMemo(() => {
+    if (!selectedStaff || !currentUser) return false;
+    return String(selectedStaff.id) === String(currentUser.id) || (selectedStaff.email && selectedStaff.email === currentUser.email);
+  }, [selectedStaff, currentUser]);
   
   // Create Modal State
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
-  // Edit / Details Screen State (replacing table)
-  const [selectedStaff, setSelectedStaff] = useState<any | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editTab, setEditTab] = useState<'basic' | 'specialist'>('basic');
   const [saveLoading, setSaveLoading] = useState(false);
@@ -349,17 +358,28 @@ export default function ManageStaff() {
     }
   };
 
-  // Filter and search logic
+  // Filter, search, and sort logic (locked accounts pushed to bottom, restored accounts to top)
   const filteredStaffList = useMemo(() => {
-    return staffList.filter((staff: any) => {
-      const nameMatch = staff.ho_ten.toLowerCase().includes(searchQuery.toLowerCase());
-      const emailMatch = staff.email.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesSearch = nameMatch || emailMatch;
+    return staffList
+      .filter((staff: any) => {
+        const nameMatch = searchQuery === '' || getSmartSearchScore(staff.ho_ten || '', searchQuery) > 0;
+        const emailMatch = staff.email.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesSearch = nameMatch || emailMatch;
 
-      const matchesRole = selectedRoleFilter === 'all' || String(staff.vai_tro_id) === selectedRoleFilter;
+        const matchesRole = selectedRoleFilter === 'all' || String(staff.vai_tro_id) === selectedRoleFilter;
 
-      return matchesSearch && matchesRole;
-    });
+        return matchesSearch && matchesRole;
+      })
+      .sort((a: any, b: any) => {
+        const aLocked = a.trang_thai === 'vo_hieu';
+        const bLocked = b.trang_thai === 'vo_hieu';
+        if (aLocked && !bLocked) return 1;  // Locked staff pushed to bottom
+        if (!aLocked && bLocked) return -1; // Active staff stay at top
+        
+        const aTime = a.updated_at ? new Date(a.updated_at).getTime() : Number(a.id) || 0;
+        const bTime = b.updated_at ? new Date(b.updated_at).getTime() : Number(b.id) || 0;
+        return bTime - aTime;
+      });
   }, [staffList, searchQuery, selectedRoleFilter]);
 
   const getRoleLabel = (roleId: number) => {
@@ -583,10 +603,10 @@ export default function ManageStaff() {
                     <select
                       value={editVaiTroId}
                       onChange={(e) => setEditVaiTroId(Number(e.target.value))}
-                      disabled={!isEditMode}
-                      className={`w-full border rounded-xl pl-10 pr-4 py-2.5 text-xs font-bold outline-none cursor-pointer ${
-                        isEditMode 
-                          ? 'bg-white border-zinc-200 focus:border-primary focus:ring-2 focus:ring-primary/20 text-secondary dark:bg-zinc-950 dark:border-zinc-800' 
+                      disabled={!isEditMode || isSelf}
+                      className={`w-full border rounded-xl pl-10 pr-4 py-2.5 text-xs font-bold outline-none ${
+                        isEditMode && !isSelf
+                          ? 'bg-white border-zinc-200 focus:border-primary focus:ring-2 focus:ring-primary/20 text-secondary dark:bg-zinc-950 dark:border-zinc-800 cursor-pointer' 
                           : 'bg-zinc-50/50 border-zinc-250/50 text-zinc-500 cursor-not-allowed dark:bg-zinc-955/20 dark:border-zinc-850'
                       }`}
                     >
@@ -597,6 +617,11 @@ export default function ManageStaff() {
                       <option value={6}>Quản lý</option>
                     </select>
                   </div>
+                  {isSelf && (
+                    <span className="text-[9px] font-extrabold text-amber-600 dark:text-amber-400 block italic mt-1">
+                      * Bạn không thể tự thay đổi vai trò Admin của chính mình.
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -1036,20 +1061,41 @@ export default function ManageStaff() {
                 </tr>
               ) : (
                 filteredStaffList.map((staff) => {
+                  const isLocked = staff.trang_thai === 'vo_hieu';
                   const avatarUrl = staff.anh_dai_dien || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(staff.ho_ten)}&backgroundType=gradientLinear&fontSize=45`;
                   return (
-                    <tr key={staff.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors font-jakarta">
+                    <tr 
+                      key={staff.id} 
+                      className={`transition-colors font-jakarta ${
+                        isLocked 
+                          ? 'bg-rose-50/20 dark:bg-rose-955/10 hover:bg-rose-50/40 opacity-75' 
+                          : 'hover:bg-slate-50/80 dark:hover:bg-slate-800/50'
+                      }`}
+                    >
                       <td className="p-4">
                         <div className="flex items-center gap-3">
                           <img 
                             src={avatarUrl} 
                             alt={staff.ho_ten}
-                            className="w-10 h-10 rounded-2xl object-cover border border-slate-200 dark:border-slate-700 shadow-sm shrink-0"
+                            className={`w-10 h-10 rounded-2xl object-cover border shadow-sm shrink-0 ${
+                              isLocked ? 'border-rose-200 dark:border-rose-800 grayscale' : 'border-slate-200 dark:border-slate-700'
+                            }`}
                           />
                           <div className="flex flex-col min-w-0">
-                            <span className="font-extrabold text-xs md:text-sm text-slate-900 dark:text-white block leading-tight truncate">
-                              {staff.ho_ten}
-                            </span>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`font-extrabold text-xs md:text-sm leading-tight truncate ${
+                                isLocked 
+                                  ? 'line-through text-slate-400 dark:text-zinc-500' 
+                                  : 'text-slate-900 dark:text-white'
+                              }`}>
+                                {staff.ho_ten}
+                              </span>
+                              {isLocked && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-rose-50 text-rose-600 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-400 dark:border-rose-800 shadow-xs shrink-0">
+                                  <Lock size={10} /> Đã khóa
+                                </span>
+                              )}
+                            </div>
                             <span className="text-[10px] text-slate-400 font-extrabold tracking-wider block mt-0.5">
                               MÃ NV: #{staff.id}
                             </span>

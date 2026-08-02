@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Clock, Phone, Loader2, Info, ShieldCheck, HeartPulse, Award, Star, TrendingUp, Activity, ArrowLeft } from 'lucide-react';
@@ -73,16 +73,6 @@ export default function ServiceDetailPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [specialists, setSpecialists] = useState<any[]>([]);
   const [selectedImage, setSelectedImage] = useState<string>('');
-
-  // Reset page when service id changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [id]);
-
-  const paginatedReviews = useMemo(() => {
-    const startIndex = (currentPage - 1) * 5;
-    return reviews.slice(startIndex, startIndex + 5);
-  }, [reviews, currentPage]);
 
   useEffect(() => {
     const fetchData = async () => {

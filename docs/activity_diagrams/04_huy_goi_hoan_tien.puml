@@ -1,0 +1,65 @@
+@startuml
+title Hủy Gói Liệu Trình / Hoàn Tiền
+
+skinparam defaultFontName "Arial"
+skinparam defaultFontSize 17
+skinparam ActivityFontSize 17
+skinparam ActivityDiamondFontSize 16
+skinparam ArrowFontSize 15
+skinparam SwimlaneTitleFontSize 20
+skinparam TitleFontSize 24
+skinparam SwimlaneWidth 420
+skinparam ActivityBorderThickness 1.5
+skinparam ActivityCornerRadius 12
+skinparam shadowing false
+skinparam wrapWidth 280
+skinparam nodesep 95
+skinparam ranksep 100
+
+skinparam ActivityBackgroundColor #FFFFFF
+skinparam ActivityBorderColor #0D9488
+skinparam ActivityDiamondBackgroundColor #FFFFFF
+skinparam ActivityDiamondBorderColor #0D9488
+skinparam SwimlaneBorderColor #CBD5E1
+skinparam SwimlaneTitleBackgroundColor #F1F5F9
+skinparam ArrowColor #0D9488
+
+|Quản lý|
+start
+:B1. Yêu cầu hủy gói liệu trình giữa chừng cho khách;
+
+|Hệ thống|
+:B2. Kiểm tra trạng thái hóa đơn gói;
+
+if (Hóa đơn đã hủy hoặc hoàn tiền trước đó?) then (có)
+  :B3. Từ chối, hóa đơn đã được xử lý;
+  |Quản lý|
+  end
+else (chưa)
+endif
+
+|Hệ thống|
+if (Gói đã quá hạn sử dụng?) then (có)
+  :B4. Chuyển luồng "Hủy do quá hạn"\ngiữ nguyên tiền đã thu, KHÔNG hoàn;
+  |Quản lý|
+  end
+else (chưa quá hạn)
+endif
+
+|Hệ thống|
+:B5. Tính giá đã chốt theo hình thức thanh toán\n(giá gốc − giảm giá hình thức);
+:B6. Tính phí phạt = 10% trên giá đã chốt\n(cố định theo hợp đồng);
+:B7. Tính chi phí các buổi đã dùng:\n(giá đã chốt × số buổi đã dùng) ÷ tổng số buổi;
+
+if (Được miễn phí khám lúc mua\nnhưng chưa từng đóng phí khám riêng?) then (có)
+  :B8. Cộng thêm phí khám lâm sàng\n(ưu tiên giá đã snapshot lúc bán gói);
+else (không)
+endif
+
+:B9. Số tiền hoàn = Số tiền đã đóng\n− (phí phạt + chi phí buổi đã dùng + phí khám);
+
+|Quản lý|
+:B10. Xác nhận hoàn tiền cho khách\nchuyển hóa đơn "Đã hoàn tiền", gói "Đã hủy";
+stop
+
+@enduml

@@ -30,14 +30,14 @@ const FEATURES = [
 
 export default function WhyUs() {
   return (
-    <section className="py-16 bg-white border-b border-slate-200/80">
+    <section className="py-10 lg:py-12 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800/80 transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <ScrollReveal>
-          <div className="text-center max-w-2xl mx-auto mb-12">
-            <span className="bg-teal-50 text-[#0D9488] border border-teal-500/20 font-bold tracking-wider uppercase text-[10px] px-3.5 py-1.5 rounded-full inline-block mb-2">
+          <div className="text-center max-w-2xl mx-auto mb-8 lg:mb-10">
+            <span className="bg-teal-50 dark:bg-teal-950/60 text-[#0D9488] dark:text-teal-300 border border-teal-500/20 dark:border-teal-800/60 font-bold tracking-wider uppercase text-[11px] px-3.5 py-1 rounded-full inline-block mb-2.5">
               Ưu thế vượt trội
             </span>
-            <h2 className="font-heading font-extrabold text-2xl md:text-3xl text-slate-900 tracking-normal">
+            <h2 className="font-bold text-xl sm:text-2xl lg:text-3xl text-slate-900 dark:text-white tracking-tight">
               Tại Sao Hơn 15.000 Bệnh Nhân Tin Chọn OfficeCare?
             </h2>
           </div>

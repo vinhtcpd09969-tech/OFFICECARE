@@ -383,14 +383,22 @@ router.get('/reviews/my-reviews', verifyToken, async (req, res) => {
 router.put('/reviews/service/:id', verifyToken, async (req, res) => {
   try {
     const { rating, comment } = req.body;
-    const reviewId = req.params.id;
+    const reviewId = String(req.params.id);
     const khach_hang_id = (req as any).user.id;
 
+    // Sửa đánh giá luôn đổi nội dung -> cam_xuc/gợi ý cũ (nếu có) không còn khớp, xóa để job nền/nút
+    // "AI đánh giá ngay" phân loại lại thay vì hiển thị nhãn cảm xúc lỗi thời.
     await pool.query(`
       UPDATE danh_gia
-      SET so_sao = $1, nhan_xet = $2, ngay_cap_nhat = NOW()
+      SET so_sao = $1, nhan_xet = $2, ngay_cap_nhat = NOW(),
+          cam_xuc = NULL, do_tin_cay = NULL, ly_do_cam_xuc = NULL, de_xuat_hanh_dong = NULL, de_xuat_phan_hoi = NULL
       WHERE id = $3 AND khach_hang_id = $4 AND loai_danh_gia = 'GOI_DICH_VU'
     `, [Number(rating), comment, reviewId, khach_hang_id]);
+
+    if (comment && comment.trim()) {
+      SentimentService.classifyAndSaveServiceReview(reviewId, comment, Number(rating))
+        .catch(err => console.error('Lỗi phân tích cảm xúc đánh giá dịch vụ (sửa):', err));
+    }
 
     res.json({ message: 'Cập nhật đánh giá dịch vụ thành công' });
   } catch (error) {
@@ -401,14 +409,22 @@ router.put('/reviews/service/:id', verifyToken, async (req, res) => {
 router.put('/reviews/staff/:id', verifyToken, async (req, res) => {
   try {
     const { rating, comment } = req.body;
-    const reviewId = req.params.id;
+    const reviewId = String(req.params.id);
     const khach_hang_id = (req as any).user.id;
 
+    // Sửa đánh giá luôn đổi nội dung -> cam_xuc/gợi ý cũ (nếu có) không còn khớp, xóa để job nền/nút
+    // "AI đánh giá ngay" phân loại lại thay vì hiển thị nhãn cảm xúc lỗi thời.
     await pool.query(`
       UPDATE danh_gia
-      SET so_sao = $1, nhan_xet = $2, ngay_cap_nhat = NOW()
+      SET so_sao = $1, nhan_xet = $2, ngay_cap_nhat = NOW(),
+          cam_xuc = NULL, do_tin_cay = NULL, ly_do_cam_xuc = NULL, de_xuat_hanh_dong = NULL, de_xuat_phan_hoi = NULL
       WHERE id = $3 AND khach_hang_id = $4 AND loai_danh_gia = 'NHAN_SU'
     `, [Number(rating), comment, reviewId, khach_hang_id]);
+
+    if (comment && comment.trim()) {
+      SentimentService.classifyAndSaveStaffReview(reviewId, comment, Number(rating))
+        .catch(err => console.error('Lỗi phân tích cảm xúc đánh giá nhân sự (sửa):', err));
+    }
 
     res.json({ message: 'Cập nhật đánh giá nhân sự thành công' });
   } catch (error) {

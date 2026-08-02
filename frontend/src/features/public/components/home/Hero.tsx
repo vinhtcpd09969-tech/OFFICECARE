@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Calendar, ArrowRight, ChevronLeft, ChevronRight, Activity } from 'lucide-react';
+import { Calendar, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import LazyImage from '../LazyImage';
 import ScrollReveal from '../effects/ScrollReveal';
@@ -32,14 +32,6 @@ const HERO_SLIDES = [
   }
 ];
 
-const SYMPTOM_TAGS = [
-  { label: 'Đau cổ vai gáy', type: 'kham' },
-  { label: 'Đau thắt lưng & thoát vị', type: 'dich_vu' },
-  { label: 'Đau mỏi khớp gối', type: 'dich_vu' },
-  { label: 'Tê bì tay chân', type: 'kham' },
-  { label: 'Khám lượng giá cột sống', type: 'kham' }
-];
-
 export default function Hero() {
   const navigate = useNavigate();
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -60,7 +52,7 @@ export default function Hero() {
   };
 
   return (
-    <section className="relative pt-24 pb-12 lg:pt-28 lg:pb-16 bg-gradient-to-b from-teal-500/10 via-white to-slate-50/70 overflow-hidden font-sans">
+    <section className="relative pt-20 pb-10 lg:pt-24 lg:pb-12 bg-gradient-to-b from-teal-500/10 via-white to-slate-50/70 dark:from-teal-950/20 dark:via-slate-900 dark:to-slate-950/70 overflow-hidden font-sans transition-colors">
       {/* Decorative Subtle Background Aura */}
       <div className="absolute top-10 left-1/4 w-96 h-96 bg-teal-400/10 rounded-full filter blur-[100px] pointer-events-none" />
       <div className="absolute bottom-4 right-10 w-[450px] h-[450px] bg-[#2EC4B6]/10 rounded-full filter blur-[120px] pointer-events-none" />
@@ -196,26 +188,6 @@ export default function Hero() {
                 ))}
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* Symptoms Quick Action Bar */}
-        <div className="mt-12 p-4 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-wrap items-center justify-between gap-3 text-left">
-          <div className="flex items-center gap-2">
-            <Activity size={16} className="text-[#0D9488]" />
-            <span className="text-xs font-bold text-slate-800">Bạn đang bị đau vị trí nào?</span>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {SYMPTOM_TAGS.map((tag, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => navigate('/booking', { state: { bookingType: tag.type } })}
-                className="px-3.5 py-1.5 bg-slate-50 hover:bg-teal-50 hover:text-[#0D9488] text-slate-600 rounded-xl text-xs font-semibold border border-slate-200 transition-all cursor-pointer"
-              >
-                {tag.label}
-              </button>
-            ))}
           </div>
         </div>
       </div>

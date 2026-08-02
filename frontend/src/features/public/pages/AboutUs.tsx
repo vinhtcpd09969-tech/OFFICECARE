@@ -1,29 +1,29 @@
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { ShieldCheck, HeartPulse, Users, Stethoscope, MapPin, Phone, Mail, Facebook } from 'lucide-react';
+import { ShieldCheck, HeartPulse, Stethoscope, MapPin, Phone, Mail, Facebook, ArrowRight, Zap, CheckCircle2, Award, Sparkles } from 'lucide-react';
 import LazyImage from '../components/LazyImage';
 import ScrollReveal from '../components/effects/ScrollReveal';
 
-const CORE_VALUES = [
+const CORE_PILLARS = [
+  {
+    icon: ShieldCheck,
+    title: 'Trị Liệu Bảo Tồn Tự Nhiên',
+    desc: 'Phương pháp tập trung giải tỏa nguyên nhân gây đau cơ xương khớp hiệu quả, an toàn và không phụ thuộc vào thuốc.'
+  },
+  {
+    icon: Zap,
+    title: 'Trang Thiết Bị Hiện Đại',
+    desc: 'Đầu tư hệ thống máy sóng xung kích, Laser cường độ cao và giường kéo giãn cột sống công nghệ tân tiến.'
+  },
   {
     icon: Stethoscope,
-    title: 'Thăm khám 1:1 Bác sĩ CKI',
-    desc: 'Mọi phác đồ phục hồi đều được Bác sĩ chuyên khoa chẩn đoán lâm sàng và giám sát trực tiếp.'
+    title: 'Đội Ngũ Chuyên Chế 1:1',
+    desc: 'Đội ngũ bác sĩ và kỹ thuật viên tận tâm, đồng hành hỗ trợ bệnh nhân xuyên suốt lộ trình phục hồi.'
   },
   {
     icon: HeartPulse,
-    title: 'Phác đồ cá nhân hóa 100%',
-    desc: 'Không có công thức chung — mỗi bệnh nhân được thiết kế lộ trình riêng theo ngưỡng chịu đau và tính chất công việc.'
-  },
-  {
-    icon: ShieldCheck,
-    title: 'An toàn & không xâm lấn',
-    desc: 'Phương pháp bảo tồn tự nhiên, giải phóng cơ khớp nhẹ nhàng không dùng thuốc giảm đau.'
-  },
-  {
-    icon: Users,
-    title: 'Đồng hành dài hạn',
-    desc: 'Theo dõi chỉ số sinh học và biên độ khớp xuyên suốt liệu trình nhằm ngăn ngừa tái phát mạn tính.'
+    title: 'Theo Dõi & Cá Nhân Hóa',
+    desc: 'Lộ trình chăm sóc được cập nhật minh bạch trên hệ thống bệnh án điện tử, giúp đánh giá tiến triển rõ ràng.'
   }
 ];
 
@@ -31,142 +31,178 @@ export default function AboutUs() {
   return (
     <div className="min-h-screen bg-slate-50/50 font-sans overflow-hidden">
       <Helmet>
-        <title>Giới thiệu phòng khám | OfficeCare Clinic</title>
+        <title>Về Chúng Tôi | Trung Tâm Trị Liệu Cột Sống Văn Phòng OfficeCare</title>
         <meta
           name="description"
-          content="OfficeCare — Phòng khám phục hồi chức năng cột sống và cơ xương khớp chuyên sâu cho dân văn phòng. Tìm hiểu sứ mệnh, giá trị cốt lõi và đội ngũ y khoa của chúng tôi."
+          content="OfficeCare - Trung tâm phục hồi chức năng chuyên biệt giải cứu cột sống khỏi áp lực 8 tiếng làm việc mỗi ngày. Nơi trị liệu tay giải phóng điểm đau kết hợp cùng sóng trị liệu Châu Âu."
         />
       </Helmet>
 
-      {/* Hero Banner Header */}
-      <section className="relative pt-28 pb-16 lg:pt-32 lg:pb-20 bg-gradient-to-b from-teal-500/10 via-white to-slate-50/70 border-b border-slate-200/60">
+      {/* Hero Banner Header - Harmonious Typography & Layout (Fixed Font Size & Spacing) */}
+      <section className="relative pt-20 pb-10 lg:pt-24 lg:pb-12 bg-gradient-to-b from-teal-500/10 via-white to-slate-50/80 border-b border-slate-200/60 overflow-hidden">
         <div className="absolute top-1/4 left-10 w-72 h-72 bg-teal-400/10 rounded-full filter blur-[100px] pointer-events-none" />
         <div className="absolute bottom-10 right-10 w-96 h-96 bg-[#2EC4B6]/10 rounded-full filter blur-[120px] pointer-events-none" />
 
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 relative z-10 text-center space-y-2">
-          <ScrollReveal>
-            <h1 className="font-heading font-extrabold text-2xl sm:text-3xl md:text-[32px] text-slate-900 tracking-tight leading-snug">
-              Đồng Hành Phục Hồi Chức Năng <br className="hidden sm:inline" />
-              <span className="text-[#0D9488]">
-                Cùng Giới Văn Phòng Việt Nam
-              </span>
-            </h1>
-          </ScrollReveal>
-          <ScrollReveal delay={100}>
-            <p className="text-slate-600 text-xs sm:text-sm leading-relaxed font-normal max-w-2xl mx-auto pt-1">
-              OfficeCare ra đời từ sự thấu hiểu tình trạng đau mỏi cổ vai gáy &amp; thoát vị thắt lưng của người làm việc văn phòng. Chúng tôi xây dựng một môi trường y tế chuẩn hóa, cá nhân hóa phác đồ giúp bệnh nhân tìm lại sự thoải mái trong từng vận động.
-            </p>
-          </ScrollReveal>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+            
+            {/* Left Column: Clean Left-Aligned Narrative (Font Size Normalized to Match Site Standard) */}
+            <div className="lg:col-span-7 space-y-4 text-left">
+              <ScrollReveal direction="left">
+                <div className="inline-flex items-center gap-2 bg-teal-50 border border-teal-200/80 text-[#0D9488] font-bold text-[10px] uppercase tracking-wider px-3 py-1 rounded-full">
+                  <Sparkles size={13} className="text-[#0D9488]" />
+                  <span>Trung tâm phục hồi chức năng chuyên biệt</span>
+                </div>
+              </ScrollReveal>
+
+              <ScrollReveal direction="left" delay={100}>
+                <h1 className="font-heading font-bold text-2xl sm:text-3xl text-slate-900 tracking-tight leading-snug">
+                  Giải Cứu Cột Sống Khỏi Áp Lực <br />
+                  <span className="text-[#0D9488]">
+                    "8 Tiếng Làm Việc Mỗi Ngày"
+                  </span>
+                </h1>
+              </ScrollReveal>
+
+              <ScrollReveal direction="left" delay={150}>
+                <div className="space-y-2.5 text-slate-600 text-xs sm:text-sm leading-relaxed font-normal">
+                  <p>
+                    Tại các đô thị lớn, giới văn phòng công sở phải ngồi liên tục 8–10 tiếng mỗi ngày, gõ máy tính sai tư thế và ít vận động. Điều này tích lũy dần thành những cơn đau mỏi mạn tính tàn phá sức khỏe cột sống từ rất sớm.
+                  </p>
+                  <p className="font-medium text-slate-800 bg-teal-50/60 border-l-3 border-[#0D9488] p-3 rounded-r-xl text-xs sm:text-sm">
+                    <strong>OfficeCare</strong> xây dựng một trung tâm phục hồi chức năng chuyên biệt, nơi kỹ thuật trị liệu tay giải phóng điểm đau kết hợp cùng sóng trị liệu Châu Âu giúp triệt tiêu triệt để nguyên nhân gây đau không dùng thuốc.
+                  </p>
+                </div>
+              </ScrollReveal>
+
+              <ScrollReveal direction="left" delay={200}>
+                <div className="flex flex-wrap items-center gap-3 pt-2">
+                  <Link
+                    to="/booking"
+                    className="px-5 py-2.5 bg-[#0D9488] hover:bg-[#0B7A70] text-white font-bold text-xs sm:text-sm rounded-xl transition-all shadow-xs flex items-center gap-2 active:scale-95 cursor-pointer"
+                  >
+                    <span>Đặt lịch thăm khám 1:1</span>
+                    <ArrowRight size={15} />
+                  </Link>
+                  <Link
+                    to="/services"
+                    className="px-5 py-2.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200/90 font-bold text-xs sm:text-sm rounded-xl transition-all shadow-2xs active:scale-95 cursor-pointer"
+                  >
+                    Khám phá các gói trị liệu
+                  </Link>
+                </div>
+              </ScrollReveal>
+            </div>
+
+            {/* Right Column: OfficeCare Center Lobby Visual Showcase */}
+            <div className="lg:col-span-5">
+              <ScrollReveal direction="right">
+                <div className="relative rounded-2xl overflow-hidden shadow-lg border border-slate-200/80 aspect-[4/3] bg-slate-900 group">
+                  <LazyImage
+                    src="/images/about/officecare_center_lobby.png"
+                    alt="Sảnh trung tâm phục hồi chức năng OfficeCare"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    wrapperClassName="w-full h-full"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent" />
+                  
+                  {/* Floating Glassmorphism Badge */}
+                  <div className="absolute bottom-3 left-3 right-3 bg-white/95 backdrop-blur-md p-3 rounded-xl border border-white/60 shadow-md text-left">
+                    <div className="flex items-center gap-1.5 text-[#0D9488] font-bold text-[11px] uppercase tracking-wider">
+                      <Award size={14} />
+                      <span>Trung Tâm Trị Liệu OfficeCare</span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 font-medium mt-0.5">Không gian y tế hiện đại, chuẩn hóa dịch vụ phục hồi cột sống văn phòng</p>
+                  </div>
+                </div>
+              </ScrollReveal>
+            </div>
+
+          </div>
         </div>
       </section>
 
-      {/* Sứ mệnh & Câu chuyện sáng lập */}
-      <section className="py-16 md:py-20 bg-white">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
-          <ScrollReveal direction="right">
-            <div className="rounded-3xl overflow-hidden shadow-lg border border-slate-200/80 aspect-[4/3] relative group bg-slate-100">
-              <LazyImage
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuChY7AW6ev6J87eZLl2o4MoOD8BnBBtnPFSB4sYKHKTosht_wFuKieK_jt9CtkyD3kA167GUk8Yv-tUkVT4HN7Y30l1-IvGzK21MPHz2SivO1OybUi6n3NCCiMObQuKtnx2j3jPLLy02O1zGNlbH6Q2vUq-MIs7udDukLlJ6rq88bk56Zx9KQdrvKpHKuGS5t8GE28Cpn03TTkqWiO84_J2E0tCuwpNunaAl4gqM19_WXyeqvQDPUdzHpThmQ9l73Ch6AY7CGkNuv8"
-                alt="Không gian điều trị y tế tại OfficeCare"
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                wrapperClassName="w-full h-full"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-transparent"></div>
-              <div className="absolute bottom-4 left-4 right-4 bg-white/90 backdrop-blur-md p-3 rounded-2xl border border-white/60">
-                <p className="text-[10px] font-bold text-[#0D9488]">Không gian y tế hiện đại</p>
-                <p className="text-xs text-slate-700 font-medium">Trị liệu riêng tư, mang lại cảm giác thư thái tối đa</p>
+      {/* Sứ mệnh & Định hướng Trung tâm (Fixed Spacing & Clean General Corporate Content) */}
+      <section className="py-10 lg:py-12 bg-white">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+
+            {/* Left Image Showcase */}
+            <ScrollReveal direction="right">
+              <div className="relative rounded-2xl overflow-hidden shadow-md border border-slate-200/80 aspect-[4/3] bg-slate-100 group">
+                <LazyImage
+                  src="/images/about/officecare_therapy_session.png"
+                  alt="Không gian trị liệu tại OfficeCare"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  wrapperClassName="w-full h-full"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/50 via-transparent to-transparent" />
+                <div className="absolute bottom-3 left-3 right-3 bg-white/90 backdrop-blur-md p-2.5 rounded-xl border border-white/60 text-left">
+                  <p className="text-[11px] font-bold text-[#0D9488]">Không gian trị liệu riêng tư</p>
+                  <p className="text-[10px] text-slate-600 font-medium">Đem lại sự thoải mái và tập trung tối đa cho người bệnh</p>
+                </div>
               </div>
-            </div>
-          </ScrollReveal>
-
-          <ScrollReveal direction="left" delay={100}>
-            <div className="space-y-4 text-left">
-              <span className="text-[10px] font-semibold tracking-wider text-[#0D9488] bg-[#0D9488]/10 px-3 py-1 rounded-full inline-block">
-                Câu chuyện sáng lập
-              </span>
-              <h2 className="font-heading font-bold text-2xl md:text-3xl text-slate-800 tracking-normal leading-snug">
-                Giải cứu cột sống khỏi áp lực của "8 tiếng làm việc mỗi ngày"
-              </h2>
-              <p className="text-slate-600 text-xs md:text-sm leading-relaxed font-normal">
-                Tại các đô thị lớn, giới văn phòng công sở phải ngồi liên tục 8–10 tiếng mỗi ngày, gõ máy tính sai tư thế và ít vận động. Điều này tích lũy dần thành những cơn đau mỏi mạn tính tàn phá sức khỏe cột sống từ rất sớm.
-              </p>
-              <p className="text-slate-600 text-xs md:text-sm leading-relaxed font-normal">
-                OfficeCare xây dựng một trung tâm phục hồi chức năng chuyên biệt, nơi kỹ thuật trị liệu tay giải phóng điểm đau kết hợp cùng sóng trị liệu Châu Âu giúp triệt tiêu triệt để nguyên nhân gây đau không dùng thuốc.
-              </p>
-            </div>
-          </ScrollReveal>
-        </div>
-      </section>
-
-      {/* Sứ mệnh & Tầm nhìn */}
-      <section className="py-16 bg-slate-50/60 border-t border-slate-200/70">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-2 gap-8">
-          <ScrollReveal direction="up">
-            <div className="bg-white rounded-3xl p-8 border border-slate-200/80 shadow-2xs space-y-3 text-left">
-              <div className="size-10 rounded-xl bg-teal-50 text-[#0D9488] flex items-center justify-center font-bold">
-                🎯
-              </div>
-              <h3 className="font-heading font-bold text-lg text-slate-800">Sứ Mệnh Y Khoa</h3>
-              <p className="text-slate-600 text-xs md:text-sm leading-relaxed font-normal">
-                Cung cấp các giải pháp phục hồi chức năng cơ xương khớp an toàn, hiệu quả và cá nhân hóa. Chấm dứt các cơn đau cột sống mạn tính cho giới văn phòng mà không lạm dụng thuốc giảm đau hay phẫu thuật không cần thiết.
-              </p>
-            </div>
-          </ScrollReveal>
-
-          <ScrollReveal direction="up" delay={100}>
-            <div className="bg-white rounded-3xl p-8 border border-slate-200/80 shadow-2xs space-y-3 text-left">
-              <div className="size-10 rounded-xl bg-teal-50 text-[#0D9488] flex items-center justify-center font-bold">
-                👁️
-              </div>
-              <h3 className="font-heading font-bold text-lg text-slate-800">Tầm Nhìn Chiến Lược</h3>
-              <p className="text-slate-600 text-xs md:text-sm leading-relaxed font-normal">
-                Trở thành hệ thống phòng khám phục hồi chức năng uy tín hàng đầu tại Việt Nam trong lĩnh vực điều trị bảo tồn cột sống văn phòng, đồng hành kiến tạo môi trường làm việc khỏe mạnh tối ưu.
-              </p>
-            </div>
-          </ScrollReveal>
-        </div>
-      </section>
-
-      {/* Metric Counters */}
-      <section className="py-12 bg-white border-y border-slate-200/80">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-          {[
-            { value: '+15.000', label: 'Bệnh nhân phục hồi' },
-            { value: '100%', label: 'Bác sĩ CKI lượng giá' },
-            { value: '4.9 / 5', label: 'Đánh giá hài lòng' },
-            { value: '08:00 – 20:00', label: 'Thứ 2 – Chủ Nhật (Hàng ngày)' }
-          ].map((stat, idx) => (
-            <ScrollReveal key={idx} delay={idx * 80}>
-              <p className="font-heading font-bold text-2xl md:text-3xl text-[#0D9488]">{stat.value}</p>
-              <p className="text-xs text-slate-500 font-medium mt-1">{stat.label}</p>
             </ScrollReveal>
-          ))}
+
+            {/* Right Asymmetrical Content (General Corporate Content - No Complex Medical Details) */}
+            <ScrollReveal direction="left" delay={100}>
+              <div className="space-y-4 text-left">
+                <span className="text-[10px] font-bold tracking-wider text-[#0D9488] bg-teal-50 border border-teal-200/60 px-3 py-1 rounded-full inline-block uppercase">
+                  Ý nghĩa & Định hướng phát triển
+                </span>
+                
+                <h2 className="font-heading font-bold text-xl sm:text-2xl text-slate-900 tracking-tight">
+                  Vì Sao Trung Tâm OfficeCare Được Ra Đời?
+                </h2>
+
+                <p className="text-slate-600 text-xs sm:text-sm leading-relaxed font-normal">
+                  Nhận thấy đại đa số dân văn phòng Việt Nam chỉ tạm thời chịu đựng cơn đau mỏi hoặc sử dụng các giải pháp giảm đau ngắn hạn, <strong>OfficeCare</strong> được ra đời với mục tiêu mang đến một môi trường chăm sóc sức khỏe cột sống toàn diện và chuẩn hóa.
+                </p>
+
+                {/* Clean General Highlights (No Overly Detailed Medical Steps) */}
+                <div className="space-y-2.5 pt-1">
+                  {[
+                    'Môi trường y tế chuẩn hóa, thân thiện và riêng tư cho từng khách hàng',
+                    'Đội ngũ y bác sĩ & kỹ thuật viên chuyên nghiệp, tận tâm đồng hành',
+                    'Trang thiết bị trị liệu hiện đại nhập khẩu, hỗ trợ phục hồi tối ưu',
+                    'Theo dõi lộ trình chăm sóc minh bạch trên hệ thống hồ sơ điện tử'
+                  ].map((text, idx) => (
+                    <div key={idx} className="flex items-start gap-2.5">
+                      <CheckCircle2 size={16} className="text-[#0D9488] shrink-0 mt-0.5" />
+                      <span className="text-xs sm:text-sm font-medium text-slate-700">{text}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </ScrollReveal>
+
+          </div>
         </div>
       </section>
 
-      {/* Giá trị cốt lõi */}
-      <section className="py-16 md:py-20 bg-white">
+      {/* 4 Trụ cột cốt lõi (Centered Header & Optimized Spacing) */}
+      <section className="py-10 lg:py-12 bg-slate-50/70 dark:bg-slate-950/70 border-t border-slate-200/70 dark:border-slate-800/70 transition-colors">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <ScrollReveal>
-            <div className="text-center max-w-2xl mx-auto mb-12">
-              <span className="bg-teal-50 text-[#0D9488] border border-teal-500/20 font-bold tracking-wider uppercase text-[10px] px-3.5 py-1.5 rounded-full inline-block mb-2">
-                Quy chuẩn y đức
+            <div className="text-center max-w-2xl mx-auto mb-8 lg:mb-10 space-y-1.5">
+              <span className="bg-teal-50 dark:bg-teal-950/60 text-[#0D9488] dark:text-teal-300 border border-teal-500/20 dark:border-teal-800/60 font-bold tracking-wider uppercase text-[11px] px-3.5 py-1 rounded-full inline-block shadow-2xs">
+                Quy chuẩn dịch vụ
               </span>
-              <h2 className="font-heading font-bold text-2xl md:text-3xl text-slate-800">
-                Giá Trị Cốt Lõi Tại OfficeCare
+              <h2 className="font-bold text-xl sm:text-2xl lg:text-3xl text-slate-900 dark:text-white tracking-tight">
+                4 Trụ Cột Tại Trung Tâm OfficeCare
               </h2>
             </div>
           </ScrollReveal>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {CORE_VALUES.map((item, idx) => {
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {CORE_PILLARS.map((item, idx) => {
               const Icon = item.icon;
               return (
-                <ScrollReveal key={idx} delay={idx * 100}>
-                  <div className="bg-slate-50/70 hover:bg-white rounded-2xl p-6 border border-slate-200/70 hover:border-teal-500/40 hover:shadow-md transition-all duration-300 h-full flex flex-col justify-between text-left group">
+                <ScrollReveal key={idx} delay={idx * 80}>
+                  <div className="bg-white rounded-2xl p-5 border border-slate-200/80 hover:border-teal-500/40 hover:shadow-xs transition-all duration-300 h-full flex flex-col justify-between text-left group">
                     <div className="space-y-3">
-                      <div className="size-11 rounded-xl bg-teal-500/10 text-[#0D9488] group-hover:bg-[#0D9488] group-hover:text-white flex items-center justify-center transition-colors duration-300">
-                        <Icon size={20} />
+                      <div className="size-10 rounded-xl bg-teal-50 text-[#0D9488] group-hover:bg-[#0D9488] group-hover:text-white flex items-center justify-center transition-colors duration-300">
+                        <Icon size={18} />
                       </div>
                       <h4 className="font-heading font-bold text-sm text-slate-800">{item.title}</h4>
                       <p className="text-xs text-slate-500 font-normal leading-relaxed">{item.desc}</p>
@@ -179,37 +215,54 @@ export default function AboutUs() {
         </div>
       </section>
 
-      {/* Facility Gallery */}
-      <section className="py-16 bg-slate-50/60 border-t border-slate-200/70">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Cơ Sở Vật Chất & Trang Thiết Bị (Centered Header & Tightened Whitespace) */}
+      <section className="py-10 md:py-12 bg-white border-t border-slate-200/70">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
           <ScrollReveal>
-            <div className="text-center max-w-2xl mx-auto mb-12">
-              <span className="bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 text-[10px] font-semibold tracking-wider px-3.5 py-1.5 rounded-full inline-block mb-2">
-                Không gian phòng khám
+            <div className="text-center max-w-2xl mx-auto space-y-1.5">
+              <span className="bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full inline-block">
+                Cơ sở vật chất &amp; Trang thiết bị
               </span>
-              <h2 className="font-heading font-bold text-2xl md:text-3xl text-slate-800">
-                Trị Liệu Trong Không Gian Hiện Đại &amp; Riêng Tư
+              <h2 className="font-heading font-bold text-xl sm:text-2xl text-slate-900 tracking-tight">
+                Không Gian Trị Liệu Đẳng Cấp &amp; Trang Thiết Bị Châu Âu
               </h2>
+              <p className="text-slate-600 text-xs sm:text-sm leading-relaxed">
+                OfficeCare chú trọng đầu tư không gian phòng khám hiện đại, sạch sẽ và riêng tư, giúp mang lại sự yên tâm cho mọi khách hàng.
+              </p>
             </div>
           </ScrollReveal>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {[
-              { src: '/images/goi/kham_sang_loc.png', title: 'Phòng khám lượng giá 1:1' },
-              { src: '/images/goi/laser_tri_lieu.png', title: 'Phòng laser cường độ cao 30W' },
-              { src: '/images/goi/song_xung_kich.png', title: 'Máy sóng xung kích Shockwave' },
-              { src: '/images/goi/giai_co_sau.png', title: 'Khu vực giải phóng cơ sâu' }
+              {
+                src: '/images/about/officecare_center_lobby.png',
+                title: 'Sảnh Lễ Tân & Tiếp Đón Đẳng Cấp',
+                desc: 'Không gian sang trọng, thư thái giúp bệnh nhân giải tỏa căng thẳng ngay khi bước vào trung tâm.'
+              },
+              {
+                src: '/images/about/officecare_facilities_equipment.png',
+                title: 'Phòng Trị Liệu Công Nghệ Cao Châu Âu',
+                desc: 'Trang bị máy sóng xung kích Shockwave, Laser cường độ cao và giường kéo giãn tự động.'
+              },
+              {
+                src: '/images/about/officecare_therapy_session.png',
+                title: 'Khu Trị Liệu Nắn Chỉnh 1:1 Riêng Tư',
+                desc: 'Phòng điều trị riêng biệt, tạo sự thoải mái và tập trung tối đa cho kỹ thuật viên thao tác.'
+              }
             ].map((facility, idx) => (
               <ScrollReveal key={idx} delay={idx * 100}>
-                <div className="group rounded-2xl overflow-hidden border border-slate-200/80 shadow-2xs relative aspect-[4/3] bg-slate-100">
-                  <LazyImage
-                    src={facility.src}
-                    alt={facility.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    wrapperClassName="w-full h-full"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent flex items-end p-4">
-                    <p className="text-white text-xs font-semibold">{facility.title}</p>
+                <div className="group rounded-xl overflow-hidden border border-slate-200/80 shadow-2xs bg-slate-50 hover:shadow-md transition-all duration-300 text-left">
+                  <div className="aspect-[16/9] overflow-hidden relative bg-slate-200">
+                    <LazyImage
+                      src={facility.src}
+                      alt={facility.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      wrapperClassName="w-full h-full"
+                    />
+                  </div>
+                  <div className="p-3.5 space-y-1">
+                    <h4 className="font-heading font-bold text-sm text-slate-900">{facility.title}</h4>
+                    <p className="text-[11.5px] text-slate-600 leading-normal font-normal">{facility.desc}</p>
                   </div>
                 </div>
               </ScrollReveal>
@@ -218,7 +271,7 @@ export default function AboutUs() {
         </div>
       </section>
 
-      {/* Google Map & Contact Details Card */}
+      {/* Google Map & Contact Details Card Overlay */}
       <section className="relative w-full h-[450px] bg-slate-100 border-t border-slate-200/80">
         <iframe
           src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3919.2217631388835!2d106.70617309999999!3d10.7943265!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3919221763138883%3A0x123456789abcdef!2sVinhomes%20Golden%20River!5e0!3m2!1svi!2s!4v1700000000000!5m2!1svi!2s"
@@ -234,48 +287,48 @@ export default function AboutUs() {
 
         {/* Contact Overlay Card */}
         <div className="absolute top-1/2 left-4 md:left-16 -translate-y-1/2 z-10 w-full max-w-sm px-4 md:px-0">
-          <div className="bg-white/95 backdrop-blur-md rounded-3xl p-6 shadow-xl border border-slate-200/80 space-y-4 text-left">
+          <div className="bg-white/95 backdrop-blur-md rounded-2xl p-5 shadow-xl border border-slate-200/80 space-y-3.5 text-left">
             <div className="space-y-1">
-              <span className="bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 text-[9.5px] font-semibold px-3 py-1 rounded-full inline-block">
-                📍 Vị trí &amp; Liên hệ
+              <span className="bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 text-[9.5px] font-bold uppercase tracking-wider px-3 py-1 rounded-full inline-block">
+                📍 Vị trí trung tâm &amp; Liên hệ
               </span>
-              <h3 className="font-heading font-bold text-base text-slate-800 pt-1">Phòng Khám OfficeCare</h3>
+              <h3 className="font-heading font-bold text-base text-slate-900 pt-0.5">Phòng Khám OfficeCare</h3>
             </div>
             
-            <div className="space-y-2.5 text-xs text-slate-600 font-normal leading-relaxed">
-              <div className="flex items-start gap-2.5">
+            <div className="space-y-2 text-xs text-slate-600 font-normal leading-relaxed">
+              <div className="flex items-start gap-2">
                 <MapPin className="text-[#0D9488] shrink-0 mt-0.5" size={15} />
-                <p>Vinhomes Golden River, Bến Nghé, Quận 1, TP. Hồ Chí Minh</p>
+                <p className="font-medium text-slate-800">Vinhomes Golden River, Bến Nghé, Quận 1, TP. Hồ Chí Minh</p>
               </div>
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2">
                 <Phone className="text-[#0D9488] shrink-0" size={15} />
-                <a href="tel:0398655332" className="hover:text-[#0D9488] font-bold transition-colors">Hotline &amp; Zalo: 0398655332</a>
+                <a href="tel:0398655332" className="hover:text-[#0D9488] font-bold text-slate-800 transition-colors">Hotline &amp; Zalo: 0398655332</a>
               </div>
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2">
                 <Mail className="text-[#0D9488] shrink-0" size={15} />
                 <a href="mailto:officecareclinic2026@gmail.com" className="hover:text-[#0D9488] transition-colors">officecareclinic2026@gmail.com</a>
               </div>
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2">
                 <Facebook className="text-[#0D9488] shrink-0" size={15} />
                 <a href="https://www.facebook.com/profile.php?id=61591064963268" target="_blank" rel="noopener noreferrer" className="hover:text-[#0D9488] transition-colors">Fanpage Facebook OfficeCare</a>
               </div>
 
               {/* General Clinic Working Hours */}
-              <div className="border-t border-slate-100 pt-3 mt-1 space-y-1.5 text-xs text-slate-600 font-medium">
-                <p className="font-bold text-[#0D9488] text-[11px] uppercase tracking-wider">🕒 Lịch Làm Việc Phòng Khám</p>
-                <div className="flex justify-between text-[11.5px]">
+              <div className="border-t border-slate-100 pt-2.5 mt-1 space-y-1 text-xs text-slate-600 font-medium">
+                <p className="font-bold text-[#0D9488] text-[10px] uppercase tracking-wider">🕒 Lịch Làm Việc Phòng Khám</p>
+                <div className="flex justify-between text-[11px]">
                   <span>Thứ 2 – Chủ Nhật:</span>
-                  <span className="font-extrabold text-slate-800">08:00 – 20:00 (Hàng ngày)</span>
+                  <span className="font-bold text-slate-900">08:00 – 20:00 (Hàng ngày)</span>
                 </div>
               </div>
             </div>
 
-            <div className="pt-2">
+            <div className="pt-1">
               <Link
                 to="/booking"
-                className="w-full bg-[#0D9488] hover:bg-[#0B7A70] text-white text-center font-bold py-3 rounded-xl text-xs transition-all block shadow-xs"
+                className="w-full bg-[#0D9488] hover:bg-[#0B7A70] text-white text-center font-bold py-2.5 rounded-xl text-xs transition-all block shadow-xs active:scale-95"
               >
-                Đặt Lịch Hẹn Khám Bác Sĩ
+                Đặt Lịch Khám &amp; Tư Vấn Trị Liệu
               </Link>
             </div>
           </div>
