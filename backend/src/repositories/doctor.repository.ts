@@ -121,7 +121,8 @@ class DoctorRepository {
         ch.id,
         'LH-' || UPPER(SUBSTRING(ch.id::text FROM 1 FOR 6)) as ma_lich_dat,
         ch.ngay_gio_bat_dau, ch.ngay_gio_ket_thuc, ch.trang_thai, ch.ghi_chu_khach_hang as ly_do_kham,
-        ch.anh_dinh_kem_url, ch.khach_hang_id, ch.thoi_gian_bat_dau,
+        ch.anh_dinh_kem_url, ch.khach_hang_id,
+        ch.thoi_gian_tao, ch.thoi_gian_xac_nhan, ch.thoi_gian_checkin, ch.thoi_gian_bat_dau, ch.thoi_gian_hoan_thanh,
         kh.ho_ten as ten_khach_hang,
         COALESCE(ch.so_dien_thoai, kh.so_dien_thoai) as so_dien_thoai,
         nk.id as ho_so_dieu_tri_id, nk.id as ho_so_benh_an_id, nk.chan_doan, nk.chong_chi_dinh,
@@ -327,10 +328,13 @@ class DoctorRepository {
         ]);
       }
 
-      // 3. Cập nhật trạng thái cuộc hẹn sang 'hoan_thanh'
+      // 3. Cập nhật trạng thái cuộc hẹn sang 'hoan_thanh', bảo đảm mốc thoi_gian_bat_dau và
+      // thoi_gian_hoan_thanh (mirror đúng logic technician.repository.ts::saveTreatmentRecord)
       const updateLdQuery = `
-        UPDATE cuoc_hen 
-        SET trang_thai = 'hoan_thanh'
+        UPDATE cuoc_hen
+        SET trang_thai = 'hoan_thanh',
+            thoi_gian_bat_dau = COALESCE(thoi_gian_bat_dau, thoi_gian_checkin, NOW()),
+            thoi_gian_hoan_thanh = COALESCE(thoi_gian_hoan_thanh, NOW())
         WHERE id = $1;
       `;
       await client.query(updateLdQuery, [data.lich_dat_id]);
@@ -365,10 +369,11 @@ class DoctorRepository {
     try {
       await client.query('BEGIN');
       
-      // 1. Cập nhật trạng thái cuộc hẹn thành 'dang_kham'
+      // 1. Cập nhật trạng thái cuộc hẹn thành 'dang_kham' và ghi mốc thoi_gian_bat_dau
       await client.query(`
         UPDATE cuoc_hen
-        SET trang_thai = 'dang_kham'
+        SET trang_thai = 'dang_kham',
+            thoi_gian_bat_dau = COALESCE(thoi_gian_bat_dau, NOW())
         WHERE id = $1::uuid;
       `, [appointmentId]);
 
@@ -396,6 +401,7 @@ class DoctorRepository {
         'LH-' || UPPER(SUBSTRING(ch.id::text FROM 1 FOR 6)) as ma_lich_dat,
         kh.ho_ten as ho_ten_khach, COALESCE(ch.so_dien_thoai, kh.so_dien_thoai) as so_dien_thoai, kh.gioi_tinh as gioi_tinh_khach,
         ch.ngay_gio_bat_dau, ch.ngay_gio_ket_thuc, ch.ghi_chu_khach_hang as ly_do_kham, ch.trang_thai, ch.anh_dinh_kem_url,
+        ch.thoi_gian_tao, ch.thoi_gian_xac_nhan, ch.thoi_gian_checkin, ch.thoi_gian_bat_dau, ch.thoi_gian_hoan_thanh,
         kh.id as khach_hang_id, kh.ngay_sinh, kh.gioi_tinh,
         kh.ho_ten as ten_khach_hang, COALESCE(ch.so_dien_thoai, kh.so_dien_thoai) as sdt_khach_hang, NULL::text as avatar_url,
         nk.id as ho_so_dieu_tri_id, nk.id as ho_so_benh_an_id, nk.chan_doan, nk.chong_chi_dinh, nk.ghi_chu,

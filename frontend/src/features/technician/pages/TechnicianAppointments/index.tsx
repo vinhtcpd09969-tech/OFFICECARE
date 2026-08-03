@@ -3,7 +3,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../../../stores/authStore';
 import { CheckCircle2 } from 'lucide-react';
 import { format, addDays, isSameDay } from 'date-fns';
-import { vi } from 'date-fns/locale';
 
 import AppointmentCalendar from '../../../../components/appointments/AppointmentCalendar';
 import AppointmentInfoModal from '../../../../components/appointments/AppointmentInfoModal';
@@ -53,7 +52,7 @@ export default function TechnicianAppointments() {
   }, [location.state, navigate, location.pathname]);
 
   // Filter States
-  const [timeRange, setTimeRange] = useState<'today' | '7days' | 'month' | 'custom'>('7days');
+  const [timeRange] = useState<'today' | '7days' | 'month' | 'custom'>('7days');
   const [viewMode, setViewMode] = useState<'timeline' | 'capacity'>('capacity');
   const [searchTerm, setSearchTerm] = useState<string>('');
 

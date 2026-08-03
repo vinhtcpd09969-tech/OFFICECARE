@@ -520,6 +520,14 @@ export default function AdminLayout() {
       icon: <Star size={18} />,
       roles: [2]
     },
+    { name: 'Nhân sự', path: '/admin/staff', icon: <Users size={18} />, roles: [5] },
+    { name: 'Gói Dịch Vụ', path: '/admin/packages', icon: <Package size={18} />, roles: [5, 6] },
+    { name: 'Phòng trị liệu', path: '/admin/rooms', icon: <Key size={18} />, roles: [5, 6] },
+    { name: 'Thiết bị y tế', path: '/admin/equipment', icon: <Cpu size={18} />, roles: [5, 6] },
+    { name: 'Tài chính', path: '/admin/finance', icon: <DollarSign size={18} />, roles: [5, 6] },
+    { name: 'Marketing', path: '/admin/marketing', icon: <Megaphone size={18} />, roles: [5, 6] },
+    { name: 'Bài viết', path: '/admin/articles', icon: <Newspaper size={18} />, roles: [5, 6] },
+    { name: 'Đánh giá', path: '/admin/feedback', icon: <Star size={18} />, roles: [5, 6] },
     {
       name: 'Cài đặt tài khoản', 
       path: isReceptionist 
@@ -532,14 +540,6 @@ export default function AdminLayout() {
       icon: <Settings size={18} />, 
       roles: [2, 3, 4, 6] 
     },
-    { name: 'Nhân sự', path: '/admin/staff', icon: <Users size={18} />, roles: [5] },
-    { name: 'Gói Dịch Vụ', path: '/admin/packages', icon: <Package size={18} />, roles: [5, 6] },
-    { name: 'Phòng trị liệu', path: '/admin/rooms', icon: <Key size={18} />, roles: [5, 6] },
-    { name: 'Thiết bị y tế', path: '/admin/equipment', icon: <Cpu size={18} />, roles: [5, 6] },
-    { name: 'Tài chính', path: '/admin/finance', icon: <DollarSign size={18} />, roles: [5, 6] },
-    { name: 'Marketing', path: '/admin/marketing', icon: <Megaphone size={18} />, roles: [5, 6] },
-    { name: 'Bài viết', path: '/admin/articles', icon: <Newspaper size={18} />, roles: [5, 6] },
-    { name: 'Đánh giá', path: '/admin/feedback', icon: <Star size={18} />, roles: [5, 6] },
   ];
 
   const navItems = rawNavItems.filter(item => item.roles.includes(user?.vai_tro_id || 5));

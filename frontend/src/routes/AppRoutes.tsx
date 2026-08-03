@@ -124,7 +124,7 @@ export default function AppRoutes() {
             <Route path="/admin/marketing" element={<ManageVouchers />} />
             <Route path="/admin/articles" element={<ManageArticles />} />
             <Route path="/admin/feedback" element={<ViewFeedback />} />
-            <Route path="/admin/settings" element={<Navigate to="/admin/staff" replace />} />
+            <Route path="/admin/settings" element={<CustomerSettings />} />
           </Route>
         </Route>
 

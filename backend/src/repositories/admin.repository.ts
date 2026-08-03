@@ -247,6 +247,14 @@ class AdminRepository {
     }
   }
 
+  async deleteStaffAvatar(id: string) {
+    const { rows } = await pool.query(
+      'UPDATE nguoi_dung SET anh_dai_dien = NULL WHERE id = $1 RETURNING id, anh_dai_dien',
+      [Number(id)]
+    );
+    return rows[0];
+  }
+
   async updateStaffPassword(id: string, hash: string) {
     const { rows } = await pool.query(
       'UPDATE nguoi_dung SET mat_khau_hash = $1 WHERE id = $2 RETURNING id, ho_ten, email',

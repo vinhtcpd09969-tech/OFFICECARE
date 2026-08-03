@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
 
-export default function LoadingScreen() {
+interface LoadingScreenProps {
+  message?: string;
+}
+
+export default function LoadingScreen({ message }: LoadingScreenProps) {
   const [showSlowMessage, setShowSlowMessage] = useState(false);
 
   useEffect(() => {
@@ -34,7 +38,7 @@ export default function LoadingScreen() {
           OFFICE CARE
         </h3>
         <p className="font-sans text-[13px] text-slate-500 font-medium tracking-wide animate-pulse">
-          Đang tải dữ liệu...
+          {message || 'Đang tải dữ liệu...'}
         </p>
 
         {showSlowMessage && (

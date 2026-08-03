@@ -2,32 +2,34 @@ import type { CurrentPackageInfo } from '../types';
 import { formatCountdown } from '../../../../../utils/format';
 
 const STATUS_META: Record<string, { label: string; cls: string }> = {
-  cho_kich_hoat: { label: 'Chờ kích hoạt', cls: 'bg-amber-50 text-amber-700 border-amber-150' },
-  dang_dieu_tri: { label: 'Đang điều trị', cls: 'bg-teal-50 text-teal-700 border-teal-150' },
-  hoan_thanh: { label: 'Hoàn thành', cls: 'bg-slate-100 text-slate-600 border-slate-200' },
-  huy: { label: 'Đã hủy', cls: 'bg-rose-50 text-rose-700 border-rose-150' },
+  cho_kich_hoat: { label: 'Chờ kích hoạt', cls: 'bg-amber-50 text-amber-700 border-amber-200/60' },
+  dang_dieu_tri: { label: 'Đang điều trị', cls: 'bg-teal-50 text-[#0D9488] border-teal-200/60' },
+  hoan_thanh: { label: 'Hoàn thành', cls: 'bg-slate-100 text-slate-600 border-slate-200/80' },
+  huy: { label: 'Đã hủy', cls: 'bg-rose-50 text-rose-700 border-rose-200/60' },
 };
 
 export function PackageStatusBadge({ goi }: { goi: CurrentPackageInfo | null }) {
   if (!goi) {
-    return <span className="text-[11px] text-slate-400 font-semibold italic">Chưa có liệu trình</span>;
+    return <span className="text-xs text-slate-400 font-bold italic">Chưa có liệu trình</span>;
   }
   const meta = STATUS_META[goi.trang_thai] || { label: goi.trang_thai, cls: 'bg-slate-100 text-slate-600 border-slate-200' };
   const countdown = goi.trang_thai === 'cho_kich_hoat' && goi.han_kich_hoat ? formatCountdown(goi.han_kich_hoat) : null;
 
   return (
-    <div className="flex flex-col gap-1">
-      <span className={`inline-flex w-fit items-center px-2 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-wider ${meta.cls}`}>
+    <div className="flex flex-col gap-1 min-w-0">
+      <span className={`inline-flex w-fit items-center px-2.5 py-0.5 rounded-lg border text-[10px] font-black uppercase tracking-wider ${meta.cls}`}>
         {meta.label}
       </span>
-      <span className="text-[11px] font-bold text-slate-700 truncate max-w-[180px]">{goi.ten_goi}</span>
+      <span className="text-xs font-extrabold text-slate-800 dark:text-slate-200 leading-snug break-words">
+        {goi.ten_goi}
+      </span>
       {goi.trang_thai === 'dang_dieu_tri' && typeof goi.so_buoi_da_dung === 'number' && (
-        <span className="text-[10px] text-slate-450 font-semibold">
+        <span className="text-[11px] font-black text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/60 px-2 py-0.5 rounded-md border border-teal-100 dark:border-teal-800 w-fit mt-0.5">
           Buổi {goi.so_buoi_da_dung} / {goi.tong_so_buoi}
         </span>
       )}
       {countdown && (
-        <span className={`text-[10px] font-bold ${countdown.urgent ? 'text-red-600' : 'text-amber-700'}`}>
+        <span className={`text-[10px] font-bold ${countdown.urgent ? 'text-rose-600' : 'text-amber-700'}`}>
           ⏱ {countdown.text}
         </span>
       )}

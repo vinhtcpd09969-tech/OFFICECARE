@@ -3,12 +3,13 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { toast } from 'react-hot-toast';
-import { 
-  getStaff, 
-  createStaff, 
+import {
+  getStaff,
+  createStaff,
   updateStaff,
-  updateStaffStatus, 
+  updateStaffStatus,
   updateStaffPassword,
+  deleteStaffAvatar,
   uploadImage
 } from '../../api/admin.api';
 import { useAuthStore } from '../../../../stores/authStore';
@@ -145,6 +146,27 @@ export default function ManageStaff() {
         } catch (error: any) {
           console.error('Error updating staff status:', error);
           toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi cập nhật trạng thái');
+        }
+      }
+    });
+  };
+
+  const handleDeleteAvatar = (staff: any) => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Xóa ảnh đại diện',
+      message: `Xóa ảnh đại diện của nhân sự "${staff.ho_ten}"? Ảnh sẽ được thay bằng avatar chữ cái mặc định.`,
+      type: 'danger',
+      onConfirm: async () => {
+        setConfirmConfig(null);
+        try {
+          await deleteStaffAvatar(staff.id);
+          toast.success('Đã xóa ảnh đại diện.');
+          setStaffList(prev => prev.map(s => s.id === staff.id ? { ...s, anh_dai_dien: null } : s));
+          setSelectedStaff((prev: any) => (prev && prev.id === staff.id ? { ...prev, anh_dai_dien: null } : prev));
+        } catch (error: any) {
+          console.error('Error deleting staff avatar:', error);
+          toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi xóa ảnh đại diện.');
         }
       }
     });
@@ -430,11 +452,23 @@ export default function ManageStaff() {
 
             {/* Staff profile summary */}
             <div className="flex items-center gap-3">
-              <img
-                src={avatarUrl}
-                alt={selectedStaff.ho_ten}
-                className="size-10 rounded-full object-cover border border-primary/20 shadow-xs shrink-0"
-              />
+              <div className="relative shrink-0 group/avatar">
+                <img
+                  src={avatarUrl}
+                  alt={selectedStaff.ho_ten}
+                  className="size-10 rounded-full object-cover border border-primary/20 shadow-xs"
+                />
+                {selectedStaff.anh_dai_dien && (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteAvatar(selectedStaff)}
+                    title="Xóa ảnh đại diện"
+                    className="absolute inset-0 rounded-full bg-black/60 opacity-0 group-hover/avatar:opacity-100 flex items-center justify-center transition-opacity cursor-pointer"
+                  >
+                    <X size={14} className="text-white" />
+                  </button>
+                )}
+              </div>
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-extrabold text-sm text-secondary dark:text-zinc-200 leading-none">{selectedStaff.ho_ten}</span>
@@ -1074,13 +1108,25 @@ export default function ManageStaff() {
                     >
                       <td className="p-4">
                         <div className="flex items-center gap-3">
-                          <img 
-                            src={avatarUrl} 
-                            alt={staff.ho_ten}
-                            className={`w-10 h-10 rounded-2xl object-cover border shadow-sm shrink-0 ${
-                              isLocked ? 'border-rose-200 dark:border-rose-800 grayscale' : 'border-slate-200 dark:border-slate-700'
-                            }`}
-                          />
+                          <div className="relative shrink-0 group/avatar">
+                            <img
+                              src={avatarUrl}
+                              alt={staff.ho_ten}
+                              className={`w-10 h-10 rounded-2xl object-cover border shadow-sm ${
+                                isLocked ? 'border-rose-200 dark:border-rose-800 grayscale' : 'border-slate-200 dark:border-slate-700'
+                              }`}
+                            />
+                            {staff.anh_dai_dien && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteAvatar(staff)}
+                                title="Xóa ảnh đại diện"
+                                className="absolute inset-0 rounded-2xl bg-black/60 opacity-0 group-hover/avatar:opacity-100 flex items-center justify-center transition-opacity cursor-pointer"
+                              >
+                                <X size={16} className="text-white" />
+                              </button>
+                            )}
+                          </div>
                           <div className="flex flex-col min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className={`font-extrabold text-xs md:text-sm leading-tight truncate ${

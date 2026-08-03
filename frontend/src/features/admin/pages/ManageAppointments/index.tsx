@@ -3,12 +3,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Calendar as CalendarIcon,
   CalendarDays,
-  Settings,
-  ChevronLeft
+  Settings
 } from 'lucide-react';
 import { format, addDays, isSameDay } from 'date-fns';
-import { vi } from 'date-fns/locale';
-import { motion, AnimatePresence } from 'framer-motion';
 
 // Import Components
 import AppointmentCalendar from '../../../../components/appointments/AppointmentCalendar';
@@ -28,7 +25,7 @@ import { statusConfig } from '../../../../components/appointmentStatusConfig';
 import { computeAppointmentKpiBuckets, KPI_BUCKET_STATUSES, KPI_BUCKET_LABELS, AppointmentKpiBuckets } from '../../../../utils/appointmentKpi';
 import { getSmartSearchScore } from '../../../../utils/smartSearch';
 import { ActiveFilterChip } from '../../../../components/appointments/ui/ActiveFilterChip';
-import { RoleView, ViewMode, TimeRange } from '../../../../components/appointments/types';
+import { RoleView, ViewMode } from '../../../../components/appointments/types';
 
 // Import Local Components
 import { CommandPalette } from './CommandPalette';

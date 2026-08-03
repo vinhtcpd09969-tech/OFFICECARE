@@ -40,7 +40,7 @@ export function useBookingState(user: any, bookingType: 'kham' | 'dich_vu', sele
     formData: {
       ho_ten_khach: user?.ho_ten || '',
       so_dien_thoai: user?.so_dien_thoai || '',
-      gioi_tinh_khach: 'nam',
+      gioi_tinh_khach: user?.gioi_tinh || 'nam',
       trieu_chung: '',
       ly_do_kham: 'Khám lượng giá ban đầu',
       anh_dinh_kem_url: ''

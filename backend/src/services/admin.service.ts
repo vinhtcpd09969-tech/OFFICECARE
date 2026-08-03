@@ -64,6 +64,12 @@ class AdminService {
     return user;
   }
 
+  async deleteStaffAvatar(id: string) {
+    const user = await adminRepository.deleteStaffAvatar(id);
+    if (!user) throw new Error('Không tìm thấy nhân sự');
+    return user;
+  }
+
   async updateStaffPassword(id: string, password: string) {
     const salt = await bcrypt.genSalt(10);
     const hash = await bcrypt.hash(password, salt);
