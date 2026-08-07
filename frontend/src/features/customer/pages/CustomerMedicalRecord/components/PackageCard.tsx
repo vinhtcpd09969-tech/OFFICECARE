@@ -53,11 +53,11 @@ export function PackageCard({ pkg, isExpanded, onToggleExpand, targetSessionId }
   }, [targetSessionId, pkg.buoi_dieu_tri]);
 
   const isPrepaidPackage = pkg.hinh_thuc_thanh_toan_goi === 'tra_thang' || pkg.hinh_thuc_thanh_toan_goi === 'tra_gop';
-  const completedFromSessions = sortedSessions.filter((s) => 
-    s.trang_thai === 'hoan_thanh' || 
+  const completedFromSessions = sortedSessions.filter((s) =>
+    s.trang_thai === 'hoan_thanh' ||
     (isPrepaidPackage && ['khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(s.trang_thai))
   ).length;
-  const actualCompleted = isPrepaidPackage 
+  const actualCompleted = isPrepaidPackage
     ? Math.max(pkg.so_buoi_da_dung || 0, completedFromSessions)
     : sortedSessions.filter((s) => s.trang_thai === 'hoan_thanh').length;
   const percentDone = pkg.tong_so_buoi > 0 ? Math.round((actualCompleted / pkg.tong_so_buoi) * 100) : 0;
@@ -253,28 +253,25 @@ export function PackageCard({ pkg, isExpanded, onToggleExpand, targetSessionId }
                   </div>
 
                   {/* 3. Main Card Container */}
-                  <div className={`flex-1 min-w-0 border rounded-2xl overflow-hidden transition-all duration-200 ${
-                    status === 'chua_dat_lich' 
-                      ? 'border-2 border-[#034e3a] bg-white shadow-md shadow-emerald-900/5' 
+                  <div className={`flex-1 min-w-0 border rounded-2xl overflow-hidden transition-all duration-200 ${status === 'chua_dat_lich'
+                      ? 'border-2 border-[#034e3a] bg-white shadow-md shadow-emerald-900/5'
                       : status === 'hoan_thanh'
-                      ? 'border-slate-200/80 bg-white hover:border-slate-300 shadow-2xs'
-                      : 'border-slate-200/60 bg-slate-50/40 opacity-75'
-                  }`}>
+                        ? 'border-slate-200/80 bg-white hover:border-slate-300 shadow-2xs'
+                        : 'border-slate-200/60 bg-slate-50/40 opacity-75'
+                    }`}>
                     <div
                       onClick={() => {
                         if (status === 'hoan_thanh' || status === 'da_dat_lich') {
                           setExpandedSessionNum(isSessionExpanded ? null : sessionNum);
                         }
                       }}
-                      className={`p-4 flex flex-wrap items-center justify-between gap-3 ${
-                        (status === 'hoan_thanh' || status === 'da_dat_lich') ? 'cursor-pointer' : ''
-                      }`}
+                      className={`p-4 flex flex-wrap items-center justify-between gap-3 ${(status === 'hoan_thanh' || status === 'da_dat_lich') ? 'cursor-pointer' : ''
+                        }`}
                     >
                       <div className="flex items-center gap-3.5 min-w-0 flex-1">
                         <div className="min-w-0 flex-1">
-                          <h4 className={`text-sm font-extrabold truncate ${
-                            status === 'chua_dat_lich' ? 'text-[#034e3a] font-black text-base' : status === 'hoan_thanh' ? 'text-slate-800' : 'text-slate-500'
-                          }`}>
+                          <h4 className={`text-sm font-extrabold truncate ${status === 'chua_dat_lich' ? 'text-[#034e3a] font-black text-base' : status === 'hoan_thanh' ? 'text-slate-800' : 'text-slate-500'
+                            }`}>
                             {pkg.ten_dich_vu || 'Trị liệu phục hồi'}
                           </h4>
                           <p className="text-xs text-slate-500 font-medium mt-0.5 truncate">
@@ -283,7 +280,7 @@ export function PackageCard({ pkg, isExpanded, onToggleExpand, targetSessionId }
                               : status === 'khong_den' && session
                                 ? `Vắng mặt lúc ${format(new Date(session.ngay_gio_bat_dau), 'dd/MM/yyyy HH:mm')}`
                                 : status === 'da_dat_lich' && session
-                                  ? `${session.trang_thai === 'chua_xac_nhan' ? 'Chờ xác thực' : 'Dự kiến'}: ${session.ten_bac_si || 'KTV'} • ${format(new Date(session.ngay_gio_bat_dau), 'dd/MM/yyyy HH:mm')}`
+                                  ? `Dự kiến: ${session.ten_bac_si || 'KTV'} • ${format(new Date(session.ngay_gio_bat_dau), 'dd/MM/yyyy HH:mm')}`
                                   : status === 'chua_dat_lich'
                                     ? 'Sẵn sàng để đặt lịch cho buổi tiếp theo.'
                                     : status === 'can_thanh_toan'
@@ -324,7 +321,7 @@ export function PackageCard({ pkg, isExpanded, onToggleExpand, targetSessionId }
                         {status === 'da_dat_lich' && session && (
                           <>
                             <span className="bg-blue-50 text-blue-700 font-bold text-xs px-3 py-1 rounded-full border border-blue-200/60">
-                              {session.trang_thai === 'chua_xac_nhan' ? 'Chờ xác thực' : 'Đã đặt lịch'}
+                              Đã đặt lịch
                             </span>
                             <button type="button" className="text-xs font-extrabold text-slate-500 hover:text-slate-800 flex items-center gap-0.5">
                               Chi tiết <ChevronRight size={14} />

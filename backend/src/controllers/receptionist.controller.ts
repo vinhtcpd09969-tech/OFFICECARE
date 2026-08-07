@@ -7,28 +7,6 @@ import { HinhThucThanhToanGoi } from '../domain/types';
 import { payos } from '../config/payos';
 import { pool } from '../config/db';
 
-// GET /api/receptionist/today-appointments
-export const getTodayAppointments = async (req: Request, res: Response) => {
-  try {
-    const kanbanData = await receptionistService.getTodayAppointments();
-    res.json(kanbanData);
-  } catch (error) {
-    console.error('Lỗi khi lấy lịch hẹn hôm nay:', error);
-    res.status(500).json({ message: 'Lỗi server' });
-  }
-};
-
-// GET /api/receptionist/dashboard
-export const getDashboardData = async (req: Request, res: Response) => {
-  try {
-    const data = await receptionistService.getDashboardData();
-    res.json(data);
-  } catch (error) {
-    console.error('Lỗi khi lấy dữ liệu dashboard lễ tân:', error);
-    res.status(500).json({ message: 'Lỗi server' });
-  }
-};
-
 // PATCH /api/receptionist/appointments/:id/status
 export const updateAppointmentStatus = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -58,16 +36,6 @@ export const updateAppointmentStatus = async (req: Request, res: Response): Prom
 };
 
 // GET /api/receptionist/stats
-export const getReceptionistStats = async (req: Request, res: Response) => {
-  try {
-    const stats = await receptionistService.getReceptionistStats();
-    res.json(stats);
-  } catch (error) {
-    console.error('Lỗi thống kê:', error);
-    res.status(500).json({ message: 'Lỗi server' });
-  }
-};
-
 // POST /api/receptionist/billing
 export const createBillingFromAppointment = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -259,10 +227,12 @@ export const checkCustomerLimit = async (req: Request, res: Response): Promise<a
     if (!date || typeof date !== 'string') {
       return res.status(400).json({ message: 'Thiếu tham số date (YYYY-MM-DD)' });
     }
-    
+
+    // Giới hạn giờ tính TOÀN THỜI GIAN (không theo ngày) — `date` giữ lại trên route/FE cho
+    // tương thích ngược, không còn ảnh hưởng tới kết quả kiểm tra.
     const appointmentRepository = require('../repositories/appointment.repository').default;
-    const limitReached = await appointmentRepository.checkCustomerHasClinicalExamOnDate(id, null, date as string);
-    
+    const limitReached = await appointmentRepository.checkCustomerActiveLimit(id, null);
+
     return res.json({ limitReached });
   } catch (error: any) {
     console.error('Lỗi khi kiểm tra giới hạn đặt lịch của khách hàng:', error);
@@ -378,6 +348,11 @@ export const createPayOSPaymentLink = async (req: Request, res: Response): Promi
     };
 
     const paymentLinkRes = await payos.paymentRequests.create(paymentData);
+
+    // A15 — khóa hủy phía khách ngay khi link vừa tạo (giao dịch coi như đang treo từ đây, không
+    // đợi khách thật sự quét mã) — an toàn hơn: nếu không ai quét, sweep 15 phút tự đảo lại.
+    await receptionistService.markPayOSLinkCreated(hoa_don_id);
+
     return res.json({
       ...paymentLinkRes,
       orderCode,
@@ -404,6 +379,11 @@ export const cancelPayOSPaymentLink = async (req: Request, res: Response): Promi
       await payos.paymentRequests.cancel(Number(targetOrderCode));
     } catch (payosError: any) {
       console.warn('Lỗi từ PayOS khi hủy link (có thể đã hủy trước đó):', payosError.message);
+    }
+
+    // A15 — Lễ tân chủ động hủy link thì đảo NGAY, không đợi sweep 15 phút.
+    if (hoa_don_id) {
+      await receptionistService.revertPayOSPending(hoa_don_id);
     }
 
     res.json({ message: 'Đã hủy link thanh toán thành công' });

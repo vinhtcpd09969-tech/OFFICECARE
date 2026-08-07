@@ -202,10 +202,10 @@ class AdminService {
   }
 
   async handlePackageRefund(id: string, data: any, userId: number) {
+    // A15b — tỉ lệ phạt không còn nhận từ request (đọc snapshot ti_le_phat_huy_goi trong repository).
     const result = await adminRepository.handlePackageRefund(
       id,
       Number(data.so_buoi_dung || 0),
-      Number(data.phi_phat || 0),
       data.ly_do || 'Hủy gói theo yêu cầu của Admin',
       userId
     );

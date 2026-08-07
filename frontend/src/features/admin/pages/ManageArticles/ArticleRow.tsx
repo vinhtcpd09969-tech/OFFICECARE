@@ -22,7 +22,7 @@ export function ArticleRow({ article, onEdit, onDelete, onRestore }: ArticleRowP
 
   return (
     <div
-      className={`group relative bg-gradient-to-b from-white to-zinc-50/30 border border-zinc-200/90 rounded-2xl p-6 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:border-teal-250 hover:shadow-[0_20px_50px_rgba(46,196,182,0.06)] hover:-translate-y-1.5 cursor-pointer ${
+      className={`group relative bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-2xl p-6 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:border-teal-250 dark:hover:border-teal-700 hover:shadow-[0_20px_50px_rgba(46,196,182,0.06)] hover:-translate-y-1.5 cursor-pointer ${
         isSuspended ? 'opacity-65 grayscale-[30%]' : ''
       }`}
       onClick={(e) => {
@@ -36,40 +36,40 @@ export function ArticleRow({ article, onEdit, onDelete, onRestore }: ArticleRowP
 
       <div className="flex flex-col lg:grid lg:grid-cols-12 lg:items-center gap-6 lg:gap-4">
         <div className="col-span-12 lg:col-span-6 min-w-0 flex gap-4">
-          <div className="w-16 h-16 rounded-xl border border-zinc-150 overflow-hidden shrink-0 bg-slate-100 flex items-center justify-center">
+          <div className="w-16 h-16 rounded-xl border border-zinc-150 dark:border-zinc-800 overflow-hidden shrink-0 bg-slate-100 dark:bg-zinc-800 flex items-center justify-center">
             {article.anh_bia ? (
               <img src={resolveImageUrl(article.anh_bia)} className="w-full h-full object-cover" alt={article.tieu_de} />
             ) : (
-              <span className="text-slate-300 text-[9px] font-bold">Chưa có ảnh</span>
+              <span className="text-slate-300 dark:text-zinc-600 text-[9px] font-bold">Chưa có ảnh</span>
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <span className="text-[9px] text-teal-850 font-black bg-teal-50 border border-teal-150/60 px-2 py-0.5 rounded-lg uppercase tracking-wider">
+            <span className="text-[9px] text-teal-850 dark:text-teal-300 font-black bg-teal-50 dark:bg-teal-950/40 border border-teal-150/60 dark:border-teal-800/60 px-2 py-0.5 rounded-lg uppercase tracking-wider">
               {DANH_MUC_LABELS[article.danh_muc] || article.danh_muc}
             </span>
-            <h4 className="font-heading font-black text-[13.5px] text-secondary tracking-tight mt-1.5 leading-snug line-clamp-1">
+            <h4 className="font-heading font-black text-[13.5px] text-secondary dark:text-zinc-100 tracking-tight mt-1.5 leading-snug line-clamp-1">
               {article.tieu_de}
             </h4>
-            <p className="text-[11px] text-zinc-455 mt-1 font-medium line-clamp-1">{article.tom_tat}</p>
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 font-medium line-clamp-1">{article.tom_tat}</p>
           </div>
         </div>
 
-        <div className="col-span-6 lg:col-span-2 flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
-          <Eye size={13} className="text-slate-400" /> {article.luot_xem} lượt xem
+        <div className="col-span-6 lg:col-span-2 flex items-center gap-1.5 text-[11px] font-bold text-slate-500 dark:text-zinc-400">
+          <Eye size={13} className="text-slate-400 dark:text-zinc-500" /> {article.luot_xem} lượt xem
         </div>
 
-        <div className="col-span-6 lg:col-span-2 flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
-          <Calendar size={13} className="text-slate-400" />
+        <div className="col-span-6 lg:col-span-2 flex items-center gap-1.5 text-[11px] font-bold text-slate-500 dark:text-zinc-400">
+          <Calendar size={13} className="text-slate-400 dark:text-zinc-500" />
           {article.ngay_dang ? new Date(article.ngay_dang).toLocaleDateString('vi-VN') : 'Chưa đăng'}
         </div>
 
         <div className="col-span-6 lg:col-span-1">
           <span className={`text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-wider ${
             isPublished 
-              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+              ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' 
               : isSuspended
-                ? 'bg-zinc-100 text-zinc-500 border border-zinc-200'
-                : 'bg-amber-50 text-amber-700 border border-amber-200'
+                ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700'
+                : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
           }`}>
             {isPublished ? 'Đã đăng' : isSuspended ? 'Đã gỡ' : 'Nháp'}
           </span>
@@ -81,7 +81,7 @@ export function ArticleRow({ article, onEdit, onDelete, onRestore }: ArticleRowP
               <button
                 type="button"
                 onClick={() => onEdit(article)}
-                className="p-2 rounded-lg bg-slate-50 hover:bg-teal-50 text-slate-500 hover:text-teal-600 border border-zinc-150 transition-all cursor-pointer"
+                className="p-2 rounded-lg bg-slate-50 dark:bg-zinc-800 hover:bg-teal-50 dark:hover:bg-teal-950/50 text-slate-500 dark:text-zinc-400 hover:text-teal-600 dark:hover:text-teal-300 border border-zinc-150 dark:border-zinc-700 transition-all cursor-pointer"
                 title="Sửa bài viết"
               >
                 <Pencil size={13} />
@@ -89,7 +89,7 @@ export function ArticleRow({ article, onEdit, onDelete, onRestore }: ArticleRowP
               <button
                 type="button"
                 onClick={() => onDelete(article)}
-                className="p-2 rounded-lg bg-slate-50 hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-zinc-150 transition-all cursor-pointer"
+                className="p-2 rounded-lg bg-slate-50 dark:bg-zinc-800 hover:bg-rose-50 dark:hover:bg-rose-950/50 text-slate-500 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-300 border border-zinc-150 dark:border-zinc-700 transition-all cursor-pointer"
                 title="Gỡ bài viết"
               >
                 <Ban size={13} />
@@ -99,7 +99,7 @@ export function ArticleRow({ article, onEdit, onDelete, onRestore }: ArticleRowP
             <button
               type="button"
               onClick={() => onRestore && onRestore(article)}
-              className="p-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-250 transition-all cursor-pointer"
+              className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 text-emerald-600 dark:text-emerald-400 border border-emerald-250 dark:border-emerald-800 transition-all cursor-pointer"
               title="Khôi phục bài viết"
             >
               <RotateCcw size={13} />

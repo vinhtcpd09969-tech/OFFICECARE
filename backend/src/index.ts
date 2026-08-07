@@ -12,6 +12,8 @@ import path from 'path';
 import apiRouter from './routes';
 import { errorHandler } from './middlewares/error.middleware';
 import { packageExpirySweep } from './middlewares/packageExpirySweep.middleware';
+import { noShowSweep } from './middlewares/noShowSweep.middleware';
+import { paymentPendingSweep } from './middlewares/paymentPendingSweep.middleware';
 import { initReminderJob } from './jobs/reminder.job';
 import { initSentimentRetryJob } from './jobs/sentiment-retry.job';
 
@@ -48,7 +50,7 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // --- API ROUTES HUB ---
-app.use('/api', packageExpirySweep, apiRouter);
+app.use('/api', packageExpirySweep, noShowSweep, paymentPendingSweep, apiRouter);
 
 app.get('/api/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', message: 'OfficeCare API is running (TypeScript)' });

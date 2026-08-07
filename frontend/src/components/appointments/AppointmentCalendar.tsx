@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, Clock, Plus, Coffee, Stethoscope } from 'lucide-react';
 import { format } from 'date-fns';
-import { getCheckinTimingInfo } from '../../utils/appointmentCheckin';
 import { isPaymentDue, getInstallmentCutoffSession } from '../../utils/billing';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -28,7 +27,7 @@ export default function AppointmentCalendar({
   onUpdateAppointment: _onUpdateAppointment,
   viewMode = 'admin',
   schedulesList = [],
-  allAppointments = []
+  allAppointments: _allAppointments = []
 }: AppointmentCalendarProps) {
   const { user } = useAuthStore();
   const canCreateAppointment = user && [2, 5, 6].includes(Number(user.vai_tro_id));
@@ -56,31 +55,16 @@ export default function AppointmentCalendar({
     return { hasDuty: true, label: '' };
   };
 
-  const getIsDoctorUnavailable = (apt: any, doc: any) => {
+  // Chỉ còn kiểm tra CA TRỰC — không còn kiểm tra "trùng giờ" giữa 2 lịch hẹn của cùng
+  // nhân sự: từ khi đặt lịch chuyển sang mô hình theo BUỔI (ngân sách phút), mọi lịch hẹn
+  // trong cùng 1 buổi đều mang cùng mốc ngay_gio_bat_dau/ngay_gio_ket_thuc NOMINAL (vd 7h30–12h00),
+  // nên 1 nhân sự có ≥2 lịch trong cùng buổi là chuyện BÌNH THƯỜNG (phục vụ tuần tự qua hàng đợi),
+  // không phải xung đột. Giữ lại kiểm tra overlap ở đây sẽ luôn coi nhân sự "không khả dụng"
+  // ngay khi họ có lịch thứ 2 trong buổi, dù dữ liệu nhan_su_id vẫn đúng.
+  const getIsDoctorUnavailable = (_apt: any, doc: any) => {
     if (!doc) return false;
-    
-    // Check ca trực
     const duty = getStaffDutyStatus(doc);
-    if (!duty.hasDuty) return true;
-
-    // Check overlap
-    const isOverlapping = (start1: string, end1: string, start2: string, end2: string) => {
-      const s1 = new Date(start1).getTime();
-      const e1 = new Date(end1).getTime();
-      const s2 = new Date(start2).getTime();
-      const e2 = new Date(end2).getTime();
-      return s1 < e2 && e1 > s2;
-    };
-
-    const isOccupied = allAppointments.some(otherApt => 
-      otherApt.id !== apt.id && 
-      otherApt.trang_thai !== 'da_huy' &&
-      otherApt.trang_thai !== 'khong_den' &&
-      String(otherApt.bac_si_id) === String(doc.id) &&
-      isOverlapping(apt.ngay_gio_bat_dau, apt.ngay_gio_ket_thuc, otherApt.ngay_gio_bat_dau, otherApt.ngay_gio_ket_thuc)
-    );
-
-    return isOccupied;
+    return !duty.hasDuty;
   };
 
   // Update current time every minute for the NOW indicator
@@ -210,8 +194,8 @@ export default function AppointmentCalendar({
     <div className="bg-white/90 dark:bg-zinc-900/90 backdrop-blur-xl rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-slate-100 dark:border-zinc-800 overflow-hidden transition-all duration-300">
       <table className="w-full border-collapse text-left relative table-fixed">
         <thead>
-          <tr className="bg-slate-50/50 dark:bg-zinc-800/20 text-slate-400 dark:text-zinc-555 text-[10px] font-black uppercase tracking-wider border-b border-slate-150/60 dark:border-zinc-800/80 select-none">
-            <th className="w-28 p-4 text-center border-r border-slate-100 dark:border-zinc-800/50">Thời gian</th>
+          <tr className="bg-slate-50/50 dark:bg-zinc-800/40 text-slate-400 dark:text-zinc-400 text-[10px] font-black uppercase tracking-wider border-b border-slate-150/60 dark:border-zinc-800 select-none">
+            <th className="w-28 p-4 text-center border-r border-slate-100 dark:border-zinc-800">Thời gian</th>
             <th className="p-4">
               <div className="flex justify-between items-center w-full">
                 <span>Danh sách phân bổ lịch trình</span>
@@ -219,7 +203,7 @@ export default function AppointmentCalendar({
                   <button
                     type="button"
                     onClick={() => onOpenWalkInModal && onOpenWalkInModal('08:00')}
-                    className="flex items-center gap-1.5 text-[10px] font-black text-emerald-600 dark:text-emerald-450 bg-emerald-50 dark:bg-emerald-950/20 px-3.5 py-1.5 rounded-xl border border-emerald-300 dark:border-emerald-800 transition-all hover:bg-emerald-100/50 dark:hover:bg-emerald-900/30 active:scale-95 cursor-pointer shadow-xs uppercase tracking-wider"
+                    className="flex items-center gap-1.5 text-[10px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-3.5 py-1.5 rounded-xl border border-emerald-300 dark:border-emerald-800 transition-all hover:bg-emerald-100/50 dark:hover:bg-emerald-900/40 active:scale-95 cursor-pointer shadow-xs uppercase tracking-wider"
                   >
                     <Plus size={11} className="stroke-[3]" /> Thêm ca hẹn
                   </button>
@@ -257,10 +241,10 @@ export default function AppointmentCalendar({
               return (
                 <tr 
                   key={row.id} 
-                  className={`relative group/row ${isGap ? 'bg-slate-50/30 dark:bg-zinc-955/5' : 'hover:bg-slate-50/20 dark:hover:bg-zinc-800/10 transition-colors'}`}
+                  className={`relative group/row ${isGap ? 'bg-slate-50/30 dark:bg-zinc-900/60' : 'hover:bg-slate-50/20 dark:hover:bg-zinc-800/40 transition-colors'}`}
                 >
                   {/* Trục thời gian bên trái */}
-                  <td className="p-4 text-center border-r border-slate-100 dark:border-zinc-800/50 font-mono text-xs font-black text-slate-500 dark:text-zinc-400 bg-slate-50/10 dark:bg-zinc-900/5 select-none w-28 align-middle">
+                  <td className="p-4 text-center border-r border-slate-100 dark:border-zinc-800 font-mono text-xs font-black text-slate-500 dark:text-zinc-400 bg-slate-50/10 dark:bg-zinc-900/80 select-none w-28 align-middle">
                     {/* NOW Indicator Line overlay */}
                     {isCurrentTimeInRow && (
                       <div 
@@ -279,7 +263,7 @@ export default function AppointmentCalendar({
                         {isGap ? <Coffee size={11} className="text-amber-500" /> : <Clock size={11} className="text-emerald-500" />}
                         <span>{row.startTimeStr}</span>
                       </div>
-                      <div className="text-[9px] text-slate-400 dark:text-zinc-550 font-semibold">
+                      <div className="text-[9px] text-slate-400 dark:text-zinc-400 font-semibold">
                         đến {row.endTimeStr}
                       </div>
                     </div>
@@ -290,12 +274,12 @@ export default function AppointmentCalendar({
                     {isGap ? (
                       <div 
                         onClick={() => onOpenWalkInModal && onOpenWalkInModal(row.startTimeStr)}
-                        className="group/gap flex items-center justify-between py-3 px-4 border border-dashed border-slate-200 dark:border-zinc-800/80 hover:border-emerald-350 dark:hover:border-emerald-850 hover:bg-slate-50/60 dark:hover:bg-zinc-855/10 rounded-2xl cursor-pointer transition-all duration-300 select-none"
+                        className="group/gap flex items-center justify-between py-3 px-4 border border-dashed border-slate-200 dark:border-zinc-800 hover:border-emerald-500 dark:hover:border-emerald-600 hover:bg-slate-50/60 dark:hover:bg-zinc-800/50 bg-slate-50/20 dark:bg-zinc-900/40 rounded-2xl cursor-pointer transition-all duration-300 select-none"
                       >
                         <div className="flex items-center gap-2.5">
-                          <span className="inline-block w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-zinc-700 group-hover/gap:bg-emerald-500 transition-colors" />
-                          <span className="text-xs font-semibold text-slate-400 dark:text-zinc-550 group-hover/gap:text-slate-600 dark:group-hover/gap:text-zinc-300">
-                            Trống lịch <span className="font-extrabold text-slate-550 dark:text-zinc-400 group-hover/gap:text-emerald-600">{row.durationMins} phút</span>
+                          <span className="inline-block w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-zinc-600 group-hover/gap:bg-emerald-500 transition-colors" />
+                          <span className="text-xs font-semibold text-slate-400 dark:text-zinc-400 group-hover/gap:text-slate-600 dark:group-hover/gap:text-zinc-200">
+                            Trống lịch <span className="font-extrabold text-slate-600 dark:text-zinc-300 group-hover/gap:text-emerald-600 dark:group-hover/gap:text-emerald-400">{row.durationMins} phút</span>
                           </span>
                         </div>
                       </div>
@@ -336,87 +320,13 @@ export default function AppointmentCalendar({
   );
 }
 
-// Subcomponent: Countdown Timer
-function CountdownTimer({ hanXacNhan, onExpire }: { hanXacNhan: string; onExpire?: () => void }) {
-  const calculateTimeLeft = () => {
-    if (!hanXacNhan) return 0;
-    const diff = new Date(hanXacNhan).getTime() - Date.now();
-    return Math.max(0, Math.floor(diff / 1000));
-  };
+// CountdownTimer (đếm ngược han_xac_nhan) và CheckinTimingBadge (đếm "còn/quá X giờ" tới
+// ngay_gio_bat_dau) đã bị gỡ: cả hai đều là tàn dư của mô hình đặt giờ chính xác + xác nhận OTP.
+// Từ khi chuyển sang đặt theo BUỔI (A1) và bỏ hẳn bước xác nhận OTP (C1, A10), ngay_gio_bat_dau
+// chỉ còn là mốc NOMINAL của buổi (vd 7h30) chứ không phải giờ hẹn thật — đếm ngược/báo "quá giờ"
+// dựa vào mốc đó sẽ luôn sai (báo trễ hàng trăm phút cho khách đã check-in bình thường).
 
-  const [timeLeft, setTimeLeft] = useState(calculateTimeLeft());
-
-  useEffect(() => {
-    setTimeLeft(calculateTimeLeft());
-    const interval = setInterval(() => {
-      const remaining = calculateTimeLeft();
-      setTimeLeft(remaining);
-      if (remaining <= 0) {
-        clearInterval(interval);
-        if (onExpire) onExpire();
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [hanXacNhan, onExpire]);
-
-  if (timeLeft <= 0) {
-    return <span className="text-red-500 font-extrabold text-[9px] animate-pulse">Quá hạn</span>;
-  }
-
-  const minutes = Math.floor(timeLeft / 60);
-  const seconds = timeLeft % 60;
-  const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-
-  let colorClass = 'text-amber-600 bg-amber-50 dark:bg-amber-955/20 border border-amber-200/20';
-  if (minutes < 5) {
-    colorClass = 'text-rose-600 bg-rose-50 dark:bg-rose-955/20 animate-pulse font-extrabold border border-rose-250/20';
-  } else if (minutes < 10) {
-    colorClass = 'text-orange-600 bg-orange-50 dark:bg-orange-955/20 font-bold border border-orange-200/20';
-  }
-
-  return (
-    <span className={`text-[9px] px-1.5 py-0.5 rounded-md flex items-center gap-1 font-mono ${colorClass}`}>
-      <span>⏳</span>
-      <span>{timeStr}</span>
-    </span>
-  );
-}
-
-// Subcomponent: Check-in timing badge — chỉ dùng cho lịch đã xác nhận (da_xac_nhan), đang chờ khách đến
-function CheckinTimingBadge({ startIso }: { startIso: string }) {
-  const [now, setNow] = useState(Date.now());
-
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const { state, label } = getCheckinTimingInfo(startIso, now);
-
-  const styleByState: Record<string, string> = {
-    upcoming: 'text-slate-500 dark:text-zinc-400 bg-slate-50 dark:bg-zinc-800/50 border border-slate-150 dark:border-zinc-800',
-    due_soon: 'text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-955/20 border border-amber-250 font-black animate-pulse',
-    overdue: 'text-orange-700 dark:text-orange-400 bg-orange-50 dark:bg-orange-955/20 border border-orange-250 font-black',
-    overdue_critical: 'text-white bg-rose-600 border border-rose-700 font-black animate-pulse'
-  };
-
-  const iconByState: Record<string, string> = {
-    upcoming: '⏳',
-    due_soon: '🔔',
-    overdue: '⚠️',
-    overdue_critical: '⚠️'
-  };
-
-  return (
-    <span className={`text-[8.5px] px-1.5 py-0.5 rounded-md inline-flex items-center gap-1 font-mono select-none ${styleByState[state]}`}>
-      <span>{iconByState[state]}</span>
-      <span>{label}</span>
-    </span>
-  );
-}
-
-// Subcomponent: Appointment Card (Premium Glassmorphic card styling, simplified - removed quick action buttons)
+// Subcomponent: Appointment Card
 function AppointmentCard({
   apt,
   statusConfig,
@@ -435,36 +345,11 @@ function AppointmentCard({
   assignedDoc?: any;
   isDocUnavailable?: boolean;
 }) {
-  const [nowTime, setNowTime] = useState(Date.now());
-  useEffect(() => {
-    const timer = setInterval(() => setNowTime(Date.now()), 15000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const isCheckedInButNotStarted = ['da_checkin', 'cho_kham'].includes(apt.trang_thai);
-  const isCheckinOverdue = ['da_xac_nhan', 'cho_xac_nhan'].includes(apt.trang_thai);
-  const startMs = apt.ngay_gio_bat_dau ? new Date(apt.ngay_gio_bat_dau).getTime() : 0;
-  const isOverdue = (isCheckedInButNotStarted || isCheckinOverdue) && startMs > 0 && nowTime > startMs;
-  const delayMins = isOverdue ? Math.floor((nowTime - startMs) / 60000) : 0;
-
-  const rawStatus = statusConfig[apt.trang_thai] || statusConfig.cho_xac_nhan;
-  // Lịch hẹn chỉ có 1 cột nhân sự duy nhất ở DB (nhan_su_id) — API danh sách lịch hẹn luôn trả nó
-  // qua field `bac_si_id` (dùng chung cho cả bác sĩ lẫn KTV), `chuyen_gia_id` không được API này trả
-  // về nên luôn undefined. Trước đây dịch vụ lẻ/trị liệu chỉ xét `chuyen_gia_id` nên luôn hiện "Chờ
-  // gán KTV" dù đã gán — giờ xét cả 2 field để không phụ thuộc field nào thực sự có dữ liệu.
+  const rawStatus = statusConfig[apt.trang_thai] || statusConfig.da_xac_nhan;
   const hasStaff = !!apt.bac_si_id || !!apt.chuyen_gia_id;
-  const status = {
-    ...rawStatus,
-    // Badge trạng thái chỉ nói đúng trạng thái lịch hẹn ("Chờ xác nhận") — việc "còn thiếu nhân sự"
-    // đã có riêng 1 dấu hiệu khác bên dưới card (badge đỏ "Chờ gán KTV/Bác sĩ" + mascot của Admin),
-    // không cần nhồi vào badge trạng thái chính gây trùng lặp/khó hiểu.
-    label: (apt.trang_thai === 'cho_xac_nhan' && !hasStaff) ? 'Chờ xác nhận' : rawStatus.label
-  };
+  const status = rawStatus;
   const isUnassigned = !hasStaff;
   const isCheckedIn = apt.trang_thai === 'da_checkin';
-  const isPending = ['cho_xac_nhan', 'chua_xac_nhan'].includes(apt.trang_thai);
-  
-  const showCountdown = false;
 
   const isInstallmentWarning =
     apt.loai_lich?.toUpperCase() === 'DIEU_TRI' &&
@@ -474,8 +359,6 @@ function AppointmentCard({
     Number(apt.so_tien_da_tra_goi) < Number(apt.tong_tien_phai_tra_goi) &&
     Number(apt.so_thu_tu_buoi) >= getInstallmentCutoffSession(Number(apt.tong_so_buoi_goi || 10));
 
-  // Chỉ Lễ tân/Admin (viewMode='admin', dùng chung cho cả 2 vai trò) cần thấy dấu hiệu ca đã
-  // hoàn thành nhưng chưa thu tiền — Bác sĩ/KTV (viewMode='doctor') không cần quản lý thu ngân.
   const showPaymentDueBadge = viewMode === 'admin' && apt.trang_thai === 'hoan_thanh' && isPaymentDue(apt);
 
   return (
@@ -486,44 +369,35 @@ function AppointmentCard({
       onClick={onClick}
       className={`p-3.5 bg-white dark:bg-zinc-900 border ${viewMode === 'doctor' ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'} transition-all duration-300 rounded-[18px] relative flex flex-col justify-between min-h-[110px] group/card hover:-translate-y-0.5 hover:shadow-lg select-none ${
         ['da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(apt.trang_thai)
-          ? 'opacity-85 border-slate-200 bg-slate-50/50 dark:bg-zinc-955/20 dark:border-zinc-850/80 cursor-pointer'
-          : isOverdue && delayMins > 0
-            ? 'border-rose-500 dark:border-rose-600 ring-4 ring-rose-500/25 dark:ring-rose-500/15 bg-rose-50/15 dark:bg-rose-955/10 shadow-[0_0_12px_rgba(239,68,68,0.15)] animate-pulse'
-            : isCheckedIn
-              ? 'border-teal-350 dark:border-teal-850 ring-2 ring-[#0D9488]/10 dark:ring-[#0D9488]/5 bg-[#0D9488]/2 dark:bg-[#0D9488]/2'
+          ? 'opacity-85 border-slate-200 bg-slate-50/50 dark:bg-zinc-900 dark:border-zinc-800 cursor-pointer'
+          : isCheckedIn
+              ? 'border-teal-400 dark:border-teal-700 ring-2 ring-[#0D9488]/10 dark:ring-[#0D9488]/20 bg-[#0D9488]/5 dark:bg-teal-950/30'
               : isInstallmentWarning
-                ? 'border-amber-500 ring-2 ring-amber-500/10 dark:ring-amber-500/5 bg-amber-50/10 dark:bg-amber-955/5'
-                : (isUnassigned || isDocUnavailable) && !isPending
-                  ? 'border-rose-500 ring-2 ring-rose-500/10 dark:ring-rose-500/5 bg-rose-55/10 dark:bg-rose-955/5 animate-pulse'
-                  : isUnassigned && isPending
-                    ? 'border-rose-100 dark:border-rose-900/30 hover:border-rose-300' 
-                    : 'border-slate-100 dark:border-zinc-800 hover:border-[#14B8A6]/30'
+                ? 'border-amber-500 ring-2 ring-amber-500/10 dark:ring-amber-500/20 bg-amber-50/10 dark:bg-amber-950/30'
+                : (isUnassigned || isDocUnavailable)
+                  ? 'border-rose-500 ring-2 ring-rose-500/10 dark:ring-rose-500/20 bg-rose-50/10 dark:bg-rose-950/30 animate-pulse'
+                  : 'border-slate-100 dark:border-zinc-800 hover:border-[#14B8A6]/30'
       }`}
     >
       <div>
         <div className="flex justify-between items-center mb-1.5">
-          <span className="font-mono text-[9px] font-black text-slate-400 dark:text-zinc-555 bg-slate-50 dark:bg-zinc-800/80 px-2 py-0.5 rounded border border-slate-100 dark:border-zinc-800/50">
+          <span className="font-mono text-[9px] font-black text-slate-400 dark:text-zinc-400 bg-slate-50 dark:bg-zinc-800 px-2 py-0.5 rounded border border-slate-100 dark:border-zinc-700">
             {apt.ma_lich_dat}
           </span>
           <div className="flex items-center gap-1.5">
-            {isCheckedInButNotStarted && isOverdue && delayMins > 0 && (
-              <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-rose-600 text-white animate-pulse flex items-center gap-0.5 shadow-sm border border-rose-500">
-                ⚠️ Trễ {delayMins} phút
-              </span>
-            )}
             {isInstallmentWarning && (
               <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-amber-500 text-white animate-pulse flex items-center gap-0.5 shadow-sm">
                 ⚠️ Nợ Đợt 2
               </span>
             )}
-            {isCheckedIn && !isOverdue && (
+            {isCheckedIn && (
               <span className="flex h-1.5 w-1.5 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#0D9488] opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#0D9488]"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-teal-500"></span>
               </span>
             )}
             {apt.trang_thai === 'dang_kham' && (
-              <span className="flex items-center justify-center text-emerald-600 dark:text-emerald-455 bg-emerald-100/50 dark:bg-emerald-955/40 p-1 rounded-full border border-emerald-250 ring-2 ring-emerald-500/15 animate-pulse">
+              <span className="flex items-center justify-center text-emerald-600 dark:text-emerald-400 bg-emerald-100/50 dark:bg-emerald-950/40 p-1 rounded-full border border-emerald-200 ring-2 ring-emerald-500/15 animate-pulse">
                 <Stethoscope size={10} className="stroke-[2.5]" />
               </span>
             )}
@@ -541,42 +415,35 @@ function AppointmentCard({
           </div>
         </div>
         
-        <div className="text-xs font-black text-slate-800 dark:text-zinc-150 line-clamp-1 group-hover/card:text-[#0D9488] transition-colors duration-200">
+        <div className="text-xs font-black text-slate-800 dark:text-zinc-100 line-clamp-1 group-hover/card:text-[#0D9488] transition-colors duration-200">
           {apt.ten_khach_hang}
         </div>
         
-        <div className="text-[9.5px] text-slate-405 dark:text-zinc-550 line-clamp-1 font-bold mt-0.5">
+        <div className="text-[9.5px] text-slate-500 dark:text-zinc-400 line-clamp-1 font-bold mt-0.5">
           {apt.ten_dich_vu}
         </div>
 
-        {apt.trang_thai === 'da_xac_nhan' && (
-          <div className="mt-1.5">
-            <CheckinTimingBadge startIso={apt.ngay_gio_bat_dau} />
-          </div>
-        )}
-
         {isInstallmentWarning && (
-          <div className="mt-1.5 bg-amber-50 dark:bg-amber-955/30 border border-amber-200 dark:border-amber-900/40 text-amber-700 dark:text-amber-300 text-[8.5px] font-bold px-2 py-0.8 rounded-lg flex items-center gap-1 leading-normal select-none">
+          <div className="mt-1.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 text-amber-700 dark:text-amber-300 text-[8.5px] font-bold px-2 py-0.8 rounded-lg flex items-center gap-1 leading-normal select-none">
             <span>⚠️ Hôm nay hạn đóng Đợt 2</span>
           </div>
         )}
         
         {/* Lý do hủy/không đến nếu có */}
         {['da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(apt.trang_thai) && (apt.ly_do_huy || apt.ghi_chu_noi_bo) && (
-          <div className="mt-1 text-[8.5px] italic text-rose-500 dark:text-rose-455 font-bold line-clamp-1">
+          <div className="mt-1 text-[8.5px] italic text-rose-500 dark:text-rose-400 font-bold line-clamp-1">
             Lý do: {apt.ly_do_huy || apt.ghi_chu_noi_bo}
           </div>
         )}
         
-        {/* Doctor/KTV badge inside the card if assigned or locked — trạng thái xác nhận đã có sẵn
-            ở badge chính đầu card, không lặp lại ở đây nữa cho đỡ rối. */}
+        {/* Doctor/KTV badge inside the card if assigned or locked */}
         {assignedDoc && !isDocUnavailable ? (
           <div className="mt-1.5 inline-flex items-center gap-1.5 text-[9px] font-black text-[#0D9488] dark:text-teal-400 bg-[#0D9488]/5 dark:bg-teal-950/20 px-2 py-0.5 rounded border border-[#0D9488]/15 dark:border-teal-900/20 select-none">
             <span className="size-1 bg-[#0D9488] rounded-full" />
             <span>{apt.loai_lich === 'dich_vu_don' || apt.loai_lich === 'dieu_tri' ? 'KTV.' : 'BS.'} {assignedDoc.ho_ten}</span>
           </div>
         ) : !['da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(apt.trang_thai) ? (
-          <div className="mt-1.5 inline-flex items-center gap-1.5 text-[9px] font-black text-rose-600 dark:text-rose-455 bg-rose-55/50 dark:bg-rose-955/20 px-2 py-0.5 rounded border border-rose-220/20 select-none">
+          <div className="mt-1.5 inline-flex items-center gap-1.5 text-[9px] font-black text-rose-600 dark:text-rose-400 bg-rose-50/50 dark:bg-rose-950/20 px-2 py-0.5 rounded border border-rose-200/20 select-none">
             <span className="size-1 bg-rose-500 rounded-full animate-pulse" />
             <span>Chờ gán {apt.loai_lich === 'dich_vu_don' || apt.loai_lich === 'dieu_tri' ? 'kỹ thuật viên' : 'bác sĩ'}</span>
           </div>
@@ -584,16 +451,16 @@ function AppointmentCard({
       </div>
 
       {/* Floating Detailed Hover Info Tooltip Panel */}
-      <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 bg-slate-900 dark:bg-zinc-955 text-white text-[10px] p-3 rounded-xl shadow-xl w-60 opacity-0 group-hover/card:opacity-100 transition-opacity pointer-events-none z-50 border border-slate-800 dark:border-zinc-800">
+      <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 bg-slate-900 dark:bg-zinc-900 text-white text-[10px] p-3 rounded-xl shadow-xl w-60 opacity-0 group-hover/card:opacity-100 transition-opacity pointer-events-none z-50 border border-slate-800 dark:border-zinc-800">
         <div className="absolute bottom-[-5px] left-1/2 -translate-x-1/2 w-0.5 h-0.5 border-t-[6px] border-t-slate-900 border-x-[6px] border-x-transparent" />
         <p className="font-black text-xs text-white border-b border-slate-800 pb-1.5 mb-1.5 flex items-center justify-between">
           <span>Chi tiết ca hẹn</span>
           <span className="text-[9px] font-mono text-[#14B8A6]">{apt.ma_lich_dat}</span>
         </p>
-        <p className="font-bold text-[11px] mb-1">📞 SDT: <span className="text-slate-350">{apt.so_dien_thoai}</span></p>
-        <p className="font-bold text-[11px] mb-1">🩺 Dịch vụ: <span className="text-slate-350">{apt.ten_dich_vu}</span></p>
+        <p className="font-bold text-[11px] mb-1">📞 SDT: <span className="text-slate-300">{apt.so_dien_thoai}</span></p>
+        <p className="font-bold text-[11px] mb-1">🩺 Dịch vụ: <span className="text-slate-300">{apt.ten_dich_vu}</span></p>
         {apt.ly_do_kham && (
-          <p className="text-[10px] text-slate-450 italic mt-1 bg-slate-950/40 p-1.5 rounded-lg border border-slate-800/20 line-clamp-2">
+          <p className="text-[10px] text-slate-400 italic mt-1 bg-slate-950/40 p-1.5 rounded-lg border border-slate-800/20 line-clamp-2">
             "{apt.ly_do_kham}"
           </p>
         )}
@@ -613,10 +480,6 @@ function AppointmentCard({
           </div>
         ) : (
           <div />
-        )}
-
-        {showCountdown && (
-          <CountdownTimer hanXacNhan={apt.han_xac_nhan} />
         )}
       </div>
     </div>

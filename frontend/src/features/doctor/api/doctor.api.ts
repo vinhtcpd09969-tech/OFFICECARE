@@ -10,7 +10,7 @@ export interface DoctorQueueItem {
   ngay_gio_bat_dau: string;
   ngay_gio_ket_thuc: string;
   ly_do_kham: string;
-  trang_thai: 'cho_kham' | 'dang_kham' | 'hoan_thanh' | 'da_huy';
+  trang_thai: 'da_checkin' | 'dang_kham' | 'cho_tai_luong_gia' | 'hoan_thanh' | 'da_huy';
   anh_dinh_kem_url?: string;
   khach_hang_id: string;
   ngay_sinh?: string;
@@ -56,6 +56,8 @@ export interface PatientVisit {
   ghi_chu?: string | null;
   khuyen_nghi_goi?: string | null;
   ten_dich_vu?: string | null;
+  vas_truoc?: number | null;
+  vas_sau?: number | null;
   ten_nhan_su?: string | null;
   anh_nhan_su?: string | null;
   // Nếu ca khám này đã dẫn tới 1 phác đồ được kích hoạt — id của phác đồ đó để nhảy popup.
@@ -65,8 +67,8 @@ export interface PatientVisit {
 export interface TreatmentSession {
   id: string;
   so_thu_tu_buoi: number;
-  // Giá trị thật của cuoc_hen.trang_thai (chua_xac_nhan/cho_xac_nhan/da_xac_nhan/da_checkin/dang_kham/
-  // hoan_thanh/khong_den/da_huy...) — dùng string thay vì union cứng vì còn vài biến thể lịch sử
+  // Giá trị thật của cuoc_hen.trang_thai (da_xac_nhan/da_checkin/dang_kham/cho_tai_luong_gia/
+  // hoan_thanh/khong_den/da_huy...) — dùng string thay vì union cứng vì còn vài biến thể có phạt
   // (khach_khong_den, da_huy_phat...) không đáng liệt kê hết.
   trang_thai: string;
   thoi_gian_bat_dau?: string;

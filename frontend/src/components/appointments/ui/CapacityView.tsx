@@ -85,10 +85,7 @@ export function CapacityView({
     const dayStr = format(day, 'yyyy-MM-dd');
     const dayApts = appointments.filter(apt => {
       const aptDate = new Date(apt.ngay_gio_bat_dau);
-      return (
-        format(aptDate, 'yyyy-MM-dd') === dayStr &&
-        apt.trang_thai !== 'giu_cho'
-      );
+      return format(aptDate, 'yyyy-MM-dd') === dayStr;
     });
 
     const activeRooms = Array.from(new Set(dayApts.map(apt => apt.phong_id).filter(Boolean)));

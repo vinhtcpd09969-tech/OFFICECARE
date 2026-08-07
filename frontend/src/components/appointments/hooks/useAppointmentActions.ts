@@ -4,6 +4,15 @@ import { createAppointment, updateAppointmentStatus } from '../../../features/ad
 import toast from 'react-hot-toast';
 import { convertToVietnamUtcIso } from '../../../utils/date';
 import { Appointment } from '../types';
+
+// A7 — đổi lịch chỉ còn ngày + buổi, bỏ hẳn giờ cụ thể. Mốc buổi danh nghĩa PHẢI khớp đúng
+// GIO_NHAN_KHACH ở backend (domain/capacity.ts) — lịch hẹn theo buổi lưu ngay_gio_bat_dau/
+// ngay_gio_ket_thuc là TRỌN buổi (vd 07:30-12:00), không phải khung giờ riêng của dịch vụ.
+const BUOI_WINDOW: Record<'sang' | 'chieu', { batDau: string; ketThuc: string }> = {
+  sang: { batDau: '07:30', ketThuc: '12:00' },
+  chieu: { batDau: '12:00', ketThuc: '19:30' },
+};
+
 interface UseAppointmentActionsProps {
   appointments: Appointment[];
   services: any[];
@@ -55,8 +64,8 @@ export function useAppointmentActions({
   const [cancelReason, setCancelReason] = useState<string>('');
   const [isAssigning, setIsAssigning] = useState(false);
 
-  // Time Rescheduling State
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>('');
+  // Reschedule State (A7 — chỉ ngày + buổi)
+  const [selectedBuoi, setSelectedBuoi] = useState<'sang' | 'chieu' | ''>('');
   const [rescheduleDate, setRescheduleDate] = useState<string>('');
 
   // Treatment Booking Form State
@@ -71,7 +80,7 @@ export function useAppointmentActions({
 
   const handleOpenDetailModal = useCallback((apt: Appointment) => {
     if (roleView === 'doctor') {
-      if (['cho_kham', 'dang_kham', 'da_checkin'].includes(apt.trang_thai)) {
+      if (['dang_kham', 'da_checkin'].includes(apt.trang_thai)) {
         if (navigate) {
           navigate(`/doctor/appointments/${apt.id}/assess`);
           return;
@@ -82,11 +91,10 @@ export function useAppointmentActions({
     setAssignStatus(apt.trang_thai);
     setAssignStaffId(apt.bac_si_id ? String(apt.bac_si_id) : '');
     setAssignRoomId(apt.phong_id ? String(apt.phong_id) : '');
-    
-    // Set initial selected time slot
+
+    // Buổi/ngày hiện tại làm giá trị khởi điểm cho panel đổi lịch
     const date = new Date(apt.ngay_gio_bat_dau);
-    const startHourStr = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-    setSelectedTimeSlot(startHourStr);
+    setSelectedBuoi((apt.buoi as 'sang' | 'chieu') || '');
     setRescheduleDate(format(date, 'yyyy-MM-dd'));
     
     setIsWalkInModalOpen(false); // Close Walk-in Booking Form to show detail modal cleanly
@@ -138,37 +146,43 @@ export function useAppointmentActions({
 
       const finalStatus = assignStatus;
 
-      // Construct new date strings if selectedTimeSlot or rescheduleDate has changed
+      // A7 — đổi lịch chỉ còn ngày + buổi: dựng lại ngay_gio_bat_dau/ngay_gio_ket_thuc từ mốc
+      // buổi danh nghĩa (KHÔNG phải giờ tự chọn) khi buổi hoặc ngày thay đổi.
       let finalNgayGioBatDau: string | null = null;
       let finalNgayGioKetThuc: string | null = null;
+      let finalBuoi: 'sang' | 'chieu' | null = null;
 
       const origStart = new Date(selectedAppointment.ngay_gio_bat_dau);
-      const origEnd = new Date(selectedAppointment.ngay_gio_ket_thuc);
-      const durationMs = origEnd.getTime() - origStart.getTime();
+      const origDateStr = format(origStart, 'yyyy-MM-dd');
+      const origBuoi = selectedAppointment.buoi as 'sang' | 'chieu' | undefined;
 
-      const baseDateStr = rescheduleDate || format(origStart, 'yyyy-MM-dd');
-      const newStart = new Date(`${baseDateStr}T${selectedTimeSlot}:00`);
-      const newEnd = new Date(newStart.getTime() + durationMs);
-
-      // Format comparison in minutes to avoid tiny timezone diffs
-      const formattedOrigStart = format(origStart, 'yyyy-MM-dd HH:mm');
-      const formattedNewStart = format(newStart, 'yyyy-MM-dd HH:mm');
-
-      if (formattedNewStart !== formattedOrigStart) {
-        finalNgayGioBatDau = newStart.toISOString();
-        finalNgayGioKetThuc = newEnd.toISOString();
+      const isBuoiOrDateChanged = !!selectedBuoi && (selectedBuoi !== origBuoi || rescheduleDate !== origDateStr);
+      if (isBuoiOrDateChanged) {
+        const baseDateStr = rescheduleDate || origDateStr;
+        const window = BUOI_WINDOW[selectedBuoi as 'sang' | 'chieu'];
+        finalNgayGioBatDau = new Date(`${baseDateStr}T${window.batDau}:00`).toISOString();
+        finalNgayGioKetThuc = new Date(`${baseDateStr}T${window.ketThuc}:00`).toISOString();
+        finalBuoi = selectedBuoi as 'sang' | 'chieu';
       }
 
       const isCancelled = ['da_huy', 'khong_den'].includes(finalStatus);
 
+      // Lễ tân không có quyền đổi nhân sự (business rule "Quyền đổi nhân sự") và không có UI nào để
+      // sửa assignStaffId — luôn giữ NGUYÊN nhân sự đã gán của lịch, không suy theo state cục bộ này
+      // (phòng trường hợp assignStaffId bị bên khác clear ngoài ý muốn, tránh lặp lại lỗi đã gặp:
+      // Lễ tân chỉ đổi buổi mà lại làm rỗng nhan_su_id trong DB).
+      const origStaffIdForSave = selectedAppointment.bac_si_id ? String(selectedAppointment.bac_si_id) : '';
+      const staffIdForSave = roleView === 'receptionist' ? origStaffIdForSave : assignStaffId;
+
       await updateAppointmentStatus(String(selectedAppointment.id), {
         trang_thai: finalStatus,
-        bac_si_id: isCancelled ? null : (assignStaffId || null),
-        chuyen_gia_id: isCancelled ? null : (assignStaffId || null),
+        bac_si_id: isCancelled ? null : (staffIdForSave || null),
+        chuyen_gia_id: isCancelled ? null : (staffIdForSave || null),
         phong_id: isCancelled ? null : (assignRoomId || null),
         ghi_chu_noi_bo: note || cancelReason || null,
         ...(finalNgayGioBatDau && { ngay_gio_bat_dau: finalNgayGioBatDau }),
-        ...(finalNgayGioKetThuc && { ngay_gio_ket_thuc: finalNgayGioKetThuc })
+        ...(finalNgayGioKetThuc && { ngay_gio_ket_thuc: finalNgayGioKetThuc }),
+        ...(finalBuoi && { buoi: finalBuoi })
       });
 
       toast.success('Cập nhật thông tin ca trực thành công');
@@ -180,7 +194,7 @@ export function useAppointmentActions({
     } finally {
       setIsAssigning(false);
     }
-  }, [selectedAppointment, assignStatus, assignStaffId, assignRoomId, refetch, isDemoMode, setDemoApts, selectedTimeSlot, rescheduleDate, cancelReason]);
+  }, [selectedAppointment, assignStatus, assignStaffId, assignRoomId, refetch, isDemoMode, setDemoApts, selectedBuoi, rescheduleDate, cancelReason, roleView]);
 
   const handleBookTreatment = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -299,7 +313,7 @@ export function useAppointmentActions({
         so_dien_thoai: payload.so_dien_thoai || "09xxxxxxxx",
         ngay_gio_bat_dau: payload.ngay_gio_bat_dau,
         ngay_gio_ket_thuc: payload.ngay_gio_ket_thuc,
-        trang_thai: payload.trang_thai || "cho_xac_nhan",
+        trang_thai: payload.trang_thai || "da_xac_nhan",
         bac_si_id: payload.bac_si_id || null,
         phong_id: payload.phong_id || null,
         ten_dich_vu: services.find(s => String(s.id) === String(payload.goi_dich_vu_id))?.ten_dich_vu || "Dịch vụ khám/trị liệu",
@@ -334,24 +348,25 @@ export function useAppointmentActions({
     }
   }, [refetch, isDemoMode, setDemoApts, services, navigate]);
 
-  const handleUpdateAppointmentFields = useCallback(async (appointmentId: string, updatedFields: any) => {
+  const handleUpdateAppointmentFields = useCallback(async (appointmentId: string, updatedFields: any, successMessage: string = 'Đã cập nhật phân bổ lịch trình') => {
     if (isDemoMode && setDemoApts) {
-      setDemoApts(prev => prev.map(apt => 
+      setDemoApts(prev => prev.map(apt =>
         String(apt.id) === String(appointmentId)
           ? { ...apt, ...updatedFields }
           : apt
       ));
-      toast.success('MÔ PHỎNG: Đã cập nhật phân bổ lịch trình');
+      toast.success(`MÔ PHỎNG: ${successMessage}`);
       return;
     }
 
+    const toastId = toast.loading('Đang cập nhật...');
     try {
       await updateAppointmentStatus(appointmentId, updatedFields);
-      toast.success('Đã cập nhật phân bổ lịch trình');
+      toast.success(successMessage, { id: toastId });
       await refetch();
     } catch (error: any) {
       console.error('Lỗi khi điều phối kéo thả:', error);
-      toast.error(error.response?.data?.message || 'Bác sĩ hoặc phòng đã bị trùng vào khung giờ này.');
+      toast.error(error.response?.data?.message || 'Không thể cập nhật lịch hẹn, vui lòng thử lại.', { id: toastId });
     }
   }, [refetch, isDemoMode, setDemoApts]);
 
@@ -480,8 +495,8 @@ export function useAppointmentActions({
     scrollToAppointment,
     cancelReason,
     setCancelReason,
-    selectedTimeSlot,
-    setSelectedTimeSlot,
+    selectedBuoi,
+    setSelectedBuoi,
     rescheduleDate,
     setRescheduleDate
   };

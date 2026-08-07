@@ -1,10 +1,8 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { User as UserIcon, Upload, X, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { formatFullDate } from '../../constants';
-
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 interface Step4CustomerFormProps {
   formData: any;
@@ -18,12 +16,6 @@ interface Step4CustomerFormProps {
   isPhoneTakenByOther?: boolean;
   user: any;
   setActiveStep: (step: number) => void;
-  selectedTime: string;
-  selectedServiceId: string;
-  services: any[];
-  duration: number;
-  tempHoldId?: string;
-  onTimeout?: () => void;
 }
 
 export function Step4CustomerForm({
@@ -36,31 +28,11 @@ export function Step4CustomerForm({
   hasExistingClinicalExam,
   isPhoneTakenByOther,
   user,
-  setActiveStep,
-  selectedTime,
-  selectedServiceId,
-  services,
-  duration,
-  tempHoldId,
-  onTimeout
+  setActiveStep
 }: Step4CustomerFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(300); // 5 minutes in seconds
   const [isEditingPhone, setIsEditingPhone] = useState(false);
-
-  useEffect(() => {
-    if (timeLeft <= 0) {
-      if (onTimeout) onTimeout();
-      return;
-    }
-
-    const timer = setInterval(() => {
-      setTimeLeft(prev => prev - 1);
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [timeLeft, onTimeout]);
 
   const [errors, setErrors] = useState<{
     ho_ten_khach?: string;
@@ -158,39 +130,10 @@ export function Step4CustomerForm({
       return;
     }
 
-    const toastId = toast.loading('Đang kiểm tra trùng lịch hẹn...');
-    const examService = services.find(s => s.loai_goi === 'KHAM' || s.loai_dich_vu === 'KHAM');
-    const targetDichVuId = bookingType === 'dich_vu' ? selectedServiceId : (examService?.id || '');
-
-    fetch(`${BASE_URL}/client/appointments/booked-slots?date=${selectedDate}&phone=${phoneTrimmed}&duration=${duration}&dichVuId=${targetDichVuId}&excludeSessionId=${tempHoldId}`)
-      .then(res => res.json())
-      .then(data => {
-        toast.dismiss(toastId);
-        const bookedList = data.bookedSlots || [];
-        const slotStartKey = selectedTime.split(' - ')[0];
-
-        if (bookedList.includes(slotStartKey)) {
-          toast.error('Bạn đã có lịch hẹn hoặc ca điều trị khác trong khung giờ này. Vui lòng quay lại chọn khung giờ khác.');
-        } else {
-          setActiveStep(5);
-        }
-      })
-      .catch(() => {
-        toast.dismiss(toastId);
-        setActiveStep(5);
-      });
+    setActiveStep(5);
   };
 
-  const handleBack = async () => {
-    if (tempHoldId) {
-      try {
-        await fetch(`${BASE_URL}/client/appointments/hold/${tempHoldId}`, {
-          method: 'DELETE'
-        });
-      } catch (err) {
-        console.error('Failed to release hold on back navigation:', err);
-      }
-    }
+  const handleBack = () => {
     setActiveStep(3);
   };
 

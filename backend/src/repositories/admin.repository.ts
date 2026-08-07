@@ -1,6 +1,6 @@
 import { pool } from '../config/db';
 import prisma from '../config/prisma';
-import { calculatePackageCancellationRefund, PACKAGE_ACTIVATION_WINDOW_DAYS } from '../domain/billing';
+import { calculatePackageCancellationRefund, PACKAGE_ACTIVATION_WINDOW_DAYS, DEFAULT_CANCELLATION_PENALTY_PERCENT } from '../domain/billing';
 
 class AdminRepository {
   constructor() {
@@ -314,7 +314,7 @@ class AdminRepository {
       pool.query(
         `SELECT COUNT(*)::int AS cnt FROM cuoc_hen
          WHERE khach_hang_id = $1
-           AND trang_thai IN ('chua_xac_nhan', 'cho_xac_nhan', 'da_xac_nhan', 'da_checkin', 'dang_kham')`,
+           AND trang_thai IN ('da_xac_nhan', 'da_checkin', 'dang_kham', 'cho_tai_luong_gia')`,
         [id]
       ),
       pool.query(
@@ -1292,6 +1292,15 @@ class AdminRepository {
         [originalPayment.so_tien, originalPayment.hoa_don_id]
       );
 
+      // A10b — hoàn tiền giao dịch gắn với đúng 1 lịch hẹn thì lịch đó phải trở lại "chưa thanh
+      // toán", tránh để cuoc_hen kẹt ở "đã thanh toán" giả sau khi tiền đã bị đảo ngược.
+      if (invoices[0]?.cuoc_hen_id) {
+        await client.query(
+          `UPDATE cuoc_hen SET trang_thai_thanh_toan = 'chua_thanh_toan' WHERE id = $1`,
+          [invoices[0].cuoc_hen_id]
+        );
+      }
+
       await client.query('COMMIT');
       return { success: true, invoice: invoices[0], originalAmount: originalPayment.so_tien };
     } catch (e) {
@@ -1821,14 +1830,6 @@ class AdminRepository {
             AND ch.ngay_gio_bat_dau < ($1::date + $2::time + ($3 || ' minutes')::interval)::timestamp
             AND ch.ngay_gio_ket_thuc > ($1::date + $2::time)::timestamp
         )
-        -- 3. Khong trung voi bat ky ca giu cho nao
-        AND NOT EXISTS (
-          SELECT 1 FROM tam_giu_cho t
-          WHERE t.nhan_su_id = nd.id
-            AND t.thoi_gian_het_han > NOW()
-            AND t.ngay_gio_bat_dau < ($1::date + $2::time + ($3 || ' minutes')::interval)::timestamp
-            AND t.ngay_gio_ket_thuc > ($1::date + $2::time)::timestamp
-        )
       ORDER BY so_ca_trong_ngay ASC, nd.ho_ten ASC
     `;
 
@@ -1898,10 +1899,15 @@ class AdminRepository {
     `, [targetRoomId, shift.nhan_su_id, startTimestamp, endTimestamp]);
   }
 
+  /**
+   * A15b — tỉ lệ phạt KHÔNG còn nhận từ request (bỏ ô Admin gõ tay `phi_phat`, xem C13) mà đọc
+   * snapshot `hoa_don.ti_le_phat_huy_goi` — ghi tại đúng thời điểm bán gói, không hồi tố khi cấu
+   * hình đổi sau đó (điều khoản hợp đồng khách đã đồng ý lúc ký). Hóa đơn cũ tạo trước khi có cột
+   * snapshot (NULL) fallback về DEFAULT_CANCELLATION_PENALTY_PERCENT hiện hành.
+   */
   async handlePackageRefund(
     hoa_don_id: string,
     so_buoi_dung: number,
-    phi_phat_percent: number,
     ly_do: string,
     nhan_vien_id: number
   ) {
@@ -2008,14 +2014,20 @@ class AdminRepository {
       } : null;
 
       const tong_tien_goc = Number(hd.tong_tien_goc);
-      const ti_le_giam = Number(hd.ti_le_giam_gia_goi || 0);
       const so_tien_da_dong = Number(hd.so_tien_da_tra);
+      // A15c — giá đã trả THẬT lấy thẳng tong_tien_phai_tra (net qua mọi hình thức giảm giá, kể cả
+      // voucher), không tái tính từ ti_le_giam_gia_goi (cột đang khai tử theo C11).
+      const gia_thanh_toan_goi = Number(hd.tong_tien_phai_tra);
+      // A15b — snapshot tại thời điểm bán gói, không đọc cấu hình hiện hành (không hồi tố).
+      const phi_phat_percent = hd.ti_le_phat_huy_goi !== null && hd.ti_le_phat_huy_goi !== undefined
+        ? Number(hd.ti_le_phat_huy_goi)
+        : DEFAULT_CANCELLATION_PENALTY_PERCENT;
 
       // Công thức chuẩn: docs/BUSINESS_RULES.md mục 5-6 / backend/src/domain/billing.ts
       const refundCalc = calculatePackageCancellationRefund({
         tongTienGoc: tong_tien_goc,
         soTienDaDong: so_tien_da_dong,
-        tiLeGiam: ti_le_giam,
+        giaThanhToanGoi: gia_thanh_toan_goi,
         soBuoiDung: so_buoi_dung,
         tongSoBuoi: totalSessions,
         chiPhiKham: chi_phi_kham,

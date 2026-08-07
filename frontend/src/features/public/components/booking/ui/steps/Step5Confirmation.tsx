@@ -1,13 +1,13 @@
 import { motion } from 'framer-motion';
-import { ShieldCheck, AlertTriangle, Lock, ArrowRight } from 'lucide-react';
-import { formatFullDate, isSlotUrgent } from '../../constants';
+import { ShieldCheck, Lock, ArrowRight } from 'lucide-react';
+import { BUOI_INFO, Buoi, formatFullDate } from '../../constants';
 
 interface Step5ConfirmationProps {
   bookingType: 'kham' | 'dich_vu';
   selectedServiceId: string;
   services: any[];
   selectedDate: string;
-  selectedTime: string;
+  selectedBuoi: Buoi | '';
   selectedStaffId: string;
   specialists: any[];
   formData: any;
@@ -20,7 +20,7 @@ export function Step5Confirmation({
   selectedServiceId,
   services,
   selectedDate,
-  selectedTime,
+  selectedBuoi,
   selectedStaffId,
   specialists,
   formData,
@@ -28,7 +28,7 @@ export function Step5Confirmation({
   isSubmitting
 }: Step5ConfirmationProps) {
   const selectedService = services.find(s => s.id === selectedServiceId);
-  const selectedStaffName = specialists.find(s => String(s.id) === selectedStaffId)?.ho_ten || 'Không chọn (Chưa chỉ định)';
+  const selectedStaffName = specialists.find(s => String(s.id) === selectedStaffId)?.ho_ten || 'Bất kỳ (hệ thống tự gán)';
 
   return (
     <motion.div
@@ -78,7 +78,7 @@ export function Step5Confirmation({
           <div className="sm:col-span-2 border-t border-slate-200/60 pt-3">
             <p className="text-slate-400 font-bold uppercase tracking-wider">Thời gian khám</p>
             <p className="text-[#0F172A] font-extrabold mt-1 text-sm capitalize">
-              {selectedTime} — {formatFullDate(selectedDate)}
+              {selectedBuoi ? BUOI_INFO[selectedBuoi].label : ''} ({selectedBuoi ? BUOI_INFO[selectedBuoi].khung : ''}) — {formatFullDate(selectedDate)}
             </p>
           </div>
           {bookingType === 'kham' && (
@@ -99,19 +99,6 @@ export function Step5Confirmation({
           )}
         </div>
       </div>
-
-      {/* Urgent Warning Banner */}
-      {selectedTime && isSlotUrgent(selectedTime.split(' - ')[0], selectedDate) && (
-        <div className="bg-amber-50 border border-amber-200/80 p-4 rounded-xl text-xs flex items-start gap-3 text-amber-900 leading-relaxed font-semibold mb-1">
-          <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5 animate-bounce" />
-          <div>
-            <p className="font-extrabold uppercase tracking-wider text-amber-800 text-[10px]">Cảnh báo đặt lịch sát giờ</p>
-            <p className="mt-1 font-medium text-amber-700">
-              Bạn đang đặt lịch khám bắt đầu trong vòng chưa đầy 2 giờ. Vui lòng di chuyển sớm để có mặt trước 10 phút. Hotline hỗ trợ gấp: <span className="font-extrabold text-amber-900">0398 655 332</span>.
-            </p>
-          </div>
-        </div>
-      )}
 
       <div className="flex items-start gap-3 bg-teal-50/50 border border-[#2EC4B6]/15 p-4 rounded-xl text-[11px] leading-relaxed text-slate-500">
         <Lock size={16} className="text-[#2EC4B6] shrink-0 mt-0.5" />

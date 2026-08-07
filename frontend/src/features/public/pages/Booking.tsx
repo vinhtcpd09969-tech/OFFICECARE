@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import {
   ShieldCheck,
   Star,
@@ -15,9 +15,9 @@ import { agreeTerms } from '../../customer/api/customer.api';
 import { TERMS_OF_SERVICE } from '../../legal/termsContent';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import { convertToVietnamUtcIso } from '../../../utils/date';
 import { useBookingState } from '../components/booking/hooks/useBookingState';
 import {
+  BUOI_INFO,
   formatFullDate
 } from '../components/booking/constants';
 import { BookingWizard } from '../components/booking/ui/BookingWizard';
@@ -79,36 +79,20 @@ export default function Booking() {
 
   const {
     state,
-    bookedSlots,
-    specialists,
-    slotAvailability,
+    buoiAvailability,
     hasExistingClinicalExam,
     isPhoneTakenByOther,
     setDateField,
-    setTimeField,
+    setBuoiField,
     setFormField,
     setSubmitting,
     setSuccess,
-    tempHoldId,
     refreshSlots
   } = useBookingState(user, bookingType, selectedServiceId, services);
 
-  const { selectedDate, selectedTime, isSubmitting, isSuccess, formData } = state;
+  const { selectedDate, selectedBuoi, isSubmitting, isSuccess, formData } = state;
 
-  // Release hold on unmount if booking was not completed
-  useEffect(() => {
-    return () => {
-      const holdId = sessionStorage.getItem('booking_temp_hold_id');
-      if (holdId) {
-        fetch(`${BASE_URL}/client/appointments/hold/${holdId}`, {
-          method: 'DELETE',
-          keepalive: true
-        }).catch(err => console.error('Failed to release hold:', err));
-      }
-    };
-  }, []);
-
-  // Re-fetch booked slots when entering Step 3 (Date/Time/Specialist Selection)
+  // Re-fetch sức chứa buổi khi vào Step 3 (Chọn buổi/nhân sự)
   useEffect(() => {
     if (activeStep === 3) {
       refreshSlots();
@@ -131,11 +115,11 @@ export default function Booking() {
 
   if (createdApptId || typeof setCreatedApptId === 'function' || typeof setSuccess === 'function' || isSuccess) { /* noop */ }
 
-  // Reset selected time and staff when service or booking type changes
+  // Reset buổi và nhân sự đã chọn khi đổi dịch vụ/loại đặt lịch
   useEffect(() => {
-    setTimeField('');
+    setBuoiField('');
     setSelectedStaffId('');
-  }, [selectedServiceId, bookingType, setTimeField]);
+  }, [selectedServiceId, bookingType, setBuoiField]);
 
   const getDefaultRouteByRole = (roleId: number) => {
     switch (roleId) {
@@ -214,8 +198,8 @@ export default function Booking() {
       toast.error('Vui lòng chọn ngày khám!');
       return;
     }
-    if (!selectedTime) {
-      toast.error('Vui lòng chọn khung giờ khám!');
+    if (!selectedBuoi) {
+      toast.error('Vui lòng chọn buổi khám!');
       return;
     }
     const nameTrimmed = formData.ho_ten_khach.trim();
@@ -256,8 +240,6 @@ export default function Booking() {
     const toastId = toast.loading(bookingType === 'dich_vu' ? 'Đang gửi đăng ký lịch dịch vụ lẻ...' : 'Đang gửi đăng ký lịch hẹn y khoa...');
     setSubmitting(true);
 
-    const ngay_gio_bat_dau = convertToVietnamUtcIso(selectedDate, selectedTime);
-
     try {
       const examService = services.find(s => s.loai_goi === 'KHAM' || s.loai_dich_vu === 'KHAM');
       const selectedService = services.find(s => s.id === selectedServiceId);
@@ -270,19 +252,18 @@ export default function Booking() {
         },
         body: JSON.stringify({
           ...formData,
-          ngay_gio_bat_dau,
+          ngay: selectedDate,
+          buoi: selectedBuoi,
           khach_hang_id: user?.id,
           nhan_su_id: selectedStaffId ? parseInt(selectedStaffId, 10) : null,
           goi_dich_vu_id: targetDichVuId,
           trieu_chung: bookingType === 'dich_vu' ? `Đặt lịch gói lẻ: ${selectedService?.ten_dich_vu || 'Dịch vụ lẻ'}` : formData.trieu_chung,
-          ly_do_kham: bookingType === 'dich_vu' ? `Trị liệu lẻ: ${selectedService?.ten_dich_vu || 'Không rõ'}` : (formData.ly_do_kham || 'Khám lượng giá ban đầu'),
-          temp_hold_id: tempHoldId
+          ly_do_kham: bookingType === 'dich_vu' ? `Trị liệu lẻ: ${selectedService?.ten_dich_vu || 'Không rõ'}` : (formData.ly_do_kham || 'Khám lượng giá ban đầu')
         }),
       });
 
       if (response.ok) {
         const appt = await response.json();
-        sessionStorage.removeItem('booking_temp_hold_id'); // Prevent release on unmount since it is finalized
         toast.success(bookingType === 'dich_vu' ? 'Đăng ký lịch dịch vụ lẻ thành công!' : 'Đăng ký lịch khám lượng giá thành công!', { id: toastId });
         if (user) {
           navigate('/appointments');
@@ -299,22 +280,6 @@ export default function Booking() {
       setSubmitting(false);
     }
   };
-
-  const handleTimeout = useCallback(async () => {
-    const holdId = sessionStorage.getItem('booking_temp_hold_id');
-    if (holdId) {
-      try {
-        await fetch(`${BASE_URL}/client/appointments/hold/${holdId}`, {
-          method: 'DELETE'
-        });
-      } catch (err) {
-        console.error('Failed to release hold on timeout:', err);
-      }
-    }
-    setTimeField('');
-    toast.error('Thời gian giữ chỗ đã hết hạn. Vui lòng chọn lại khung giờ.', { duration: 5000 });
-    setActiveStep(3);
-  }, [setTimeField, setActiveStep]);
 
   // Prevent flashing component structure if unauthenticated
   if (!isAuthenticated()) {
@@ -368,7 +333,7 @@ export default function Booking() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] pt-32 pb-20 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[#F8FAFC] pt-6 pb-20 px-4 sm:px-6 lg:px-8">
       {/* Terms and Conditions Consent Modal Gate */}
       {user && user.ngay_dong_y_dieu_khoan === null && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
@@ -564,7 +529,7 @@ export default function Booking() {
                     ${activeStep >= 2 ? 'bg-[#0D9488] text-white ring-4 ring-teal-500/10' : 'bg-slate-200 text-slate-500'}`}>
                     2
                   </div>
-                  <span className="text-[11px] font-bold text-slate-700 text-center">Chọn thời gian</span>
+                  <span className="text-[11px] font-bold text-slate-700 text-center">Chọn buổi</span>
                 </div>
 
                 {/* Arrow 2-3 */}
@@ -592,7 +557,7 @@ export default function Booking() {
                     ${activeStep >= 4 ? 'bg-[#0D9488] text-white ring-4 ring-teal-500/10' : 'bg-slate-200 text-slate-500'}`}>
                     4
                   </div>
-                  <span className="text-[11px] font-bold text-slate-700 text-center">Xác thực OTP</span>
+                  <span className="text-[11px] font-bold text-slate-700 text-center">Hoàn tất</span>
                 </div>
               </div>
             </div>
@@ -632,9 +597,9 @@ export default function Booking() {
                     <Lock size={16} />
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-slate-750 font-jakarta">Xác thực OTP tức thời</h4>
+                    <h4 className="text-xs font-bold text-slate-750 font-jakarta">Đặt lịch tức thời</h4>
                     <p className="text-[11px] text-slate-500 font-medium leading-relaxed mt-0.5 font-sans">
-                      Hệ thống tự động gửi mã kích hoạt qua email cá nhân để đảm bảo đặt giữ chỗ chính xác.
+                      Xác nhận ngay khi đặt, không cần chờ xác thực — theo dõi lịch hẹn trong mục "Lịch của tôi".
                     </p>
                   </div>
                 </div>
@@ -674,25 +639,21 @@ export default function Booking() {
                   setBookingType={setBookingType}
                   selectedServiceId={selectedServiceId}
                   setSelectedServiceId={setSelectedServiceId}
-                  onTimeout={handleTimeout}
                   services={services}
                   servicesLoading={servicesLoading}
                   state={state}
-                  bookedSlots={bookedSlots}
-                  specialists={specialists}
-                  slotAvailability={slotAvailability}
+                  buoiAvailability={buoiAvailability}
                   selectedStaffId={selectedStaffId}
                   setSelectedStaffId={setSelectedStaffId}
                   hasExistingClinicalExam={hasExistingClinicalExam}
                   isPhoneTakenByOther={isPhoneTakenByOther}
-                  tempHoldId={tempHoldId}
                   onViewAppointments={() => navigate('/appointments')}
                   onChange={handleChange}
                   handleGenderChange={handleGenderChange}
                   handleFile={handleFile}
                   removeImage={removeImage}
                   setDateField={setDateField}
-                  setTimeField={setTimeField}
+                  setBuoiField={setBuoiField}
                   isSubmitting={isSubmitting}
                   user={user}
                 />
@@ -733,10 +694,10 @@ export default function Booking() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-slate-450 font-bold uppercase tracking-wider">
-                    {bookingType === 'dich_vu' ? 'Giờ hẹn' : 'Giờ khám'}
+                    {bookingType === 'dich_vu' ? 'Buổi hẹn' : 'Buổi khám'}
                   </span>
                   <span className="text-[#0F172A] font-extrabold">
-                    {selectedTime ? `${selectedTime}` : 'Chưa chọn'}
+                    {selectedBuoi ? `${BUOI_INFO[selectedBuoi].label} (${BUOI_INFO[selectedBuoi].khung})` : 'Chưa chọn'}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">

@@ -223,41 +223,45 @@ export default function ManagePackages() {
 
               <div className="flex border-t border-slate-100 dark:border-zinc-800 pt-4 items-center gap-2 overflow-x-auto pb-1 shrink-0">
                 <button
+                  type="button"
                   onClick={() => setSelectedTypeFilter('all')}
-                  className={`px-4 py-2 text-xs font-bold rounded-xl transition-all duration-200 shrink-0 border ${
+                  className={`px-4 py-2 text-xs font-bold rounded-xl transition-all duration-200 shrink-0 border cursor-pointer ${
                     selectedTypeFilter === 'all'
-                      ? 'bg-secondary border-secondary text-white shadow-sm'
-                      : 'bg-slate-55 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-slate-655 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-700'
+                      ? 'bg-slate-900 dark:bg-zinc-100 border-slate-900 dark:border-zinc-100 text-white dark:text-zinc-900 shadow-sm'
+                      : 'bg-slate-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700'
                   }`}
                 >
                   TẤT CẢ PHÂN LOẠI ({packages.length})
                 </button>
                 <button
+                  type="button"
                   onClick={() => setSelectedTypeFilter('KHAM')}
-                  className={`px-4 py-2 text-xs font-bold rounded-xl transition-all duration-200 shrink-0 border ${
+                  className={`px-4 py-2 text-xs font-bold rounded-xl transition-all duration-200 shrink-0 border cursor-pointer ${
                     selectedTypeFilter === 'KHAM'
-                      ? 'bg-indigo-650 border-indigo-650 text-white shadow-sm'
-                      : 'bg-slate-55 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-slate-655 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-700'
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
+                      : 'bg-slate-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700'
                   }`}
                 >
                   KHÁM LÂM SÀNG ({packages.filter(p => p.loai_goi === 'KHAM').length})
                 </button>
                 <button
+                  type="button"
                   onClick={() => setSelectedTypeFilter('LE')}
-                  className={`px-4 py-2 text-xs font-bold rounded-xl transition-all duration-200 shrink-0 border ${
+                  className={`px-4 py-2 text-xs font-bold rounded-xl transition-all duration-200 shrink-0 border cursor-pointer ${
                     selectedTypeFilter === 'LE'
-                      ? 'bg-teal-700 border-teal-700 text-white shadow-sm'
-                      : 'bg-slate-55 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-slate-655 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-700'
+                      ? 'bg-teal-600 border-teal-600 text-white shadow-sm'
+                      : 'bg-slate-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700'
                   }`}
                 >
                   GÓI LẺ TRỊ LIỆU ({packages.filter(p => p.loai_goi === 'LE').length})
                 </button>
                 <button
+                  type="button"
                   onClick={() => setSelectedTypeFilter('LIEU_TRINH')}
-                  className={`px-4 py-2 text-xs font-bold rounded-xl transition-all duration-200 shrink-0 border ${
+                  className={`px-4 py-2 text-xs font-bold rounded-xl transition-all duration-200 shrink-0 border cursor-pointer ${
                     selectedTypeFilter === 'LIEU_TRINH'
                       ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
-                      : 'bg-slate-55 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-slate-655 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-700'
+                      : 'bg-slate-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700'
                   }`}
                 >
                   LIỆU TRÌNH CHUYÊN SÂU ({packages.filter(p => p.loai_goi === 'LIEU_TRINH').length})

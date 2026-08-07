@@ -18,8 +18,8 @@ class TechnicianService {
       throw new Error('Không tìm thấy chi tiết ca trị liệu.');
     }
 
-    // Tự động chuyển trạng thái sang 'dang_kham' nếu lịch đang ở 'da_checkin' hoặc 'cho_kham'
-    if (['da_checkin', 'cho_kham'].includes(detail.trang_thai) && userId) {
+    // Tự động chuyển trạng thái sang 'dang_kham' nếu lịch đang ở 'da_checkin'
+    if (detail.trang_thai === 'da_checkin' && userId) {
       const staffId = parseInt(userId, 10);
       // 1 KTV chỉ được mở 1 "bàn trị liệu" tại 1 thời điểm — chặn nếu còn ca khác đang dang_kham
       // (vd quên bấm hoàn thành ca trước).

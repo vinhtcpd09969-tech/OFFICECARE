@@ -69,19 +69,19 @@ export function ConfirmDialog({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: 'spring', duration: 0.35 }}
-            className="relative w-full max-w-md bg-white border border-zinc-150 rounded-3xl shadow-2xl p-6 overflow-hidden flex flex-col items-center text-center space-y-4"
+            className="relative w-full max-w-md bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 rounded-3xl shadow-2xl p-6 overflow-hidden flex flex-col items-center text-center space-y-4"
           >
             {/* Top Icon Area */}
-            <div className={`p-4 rounded-full bg-slate-50/80 border border-zinc-100 flex items-center justify-center shrink-0`}>
+            <div className={`p-4 rounded-full bg-slate-50/80 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 flex items-center justify-center shrink-0`}>
               {getIcon()}
             </div>
 
             {/* Title & Message */}
             <div className="space-y-2">
-              <h3 className="font-heading font-black text-lg text-slate-800 tracking-tight leading-snug">
+              <h3 className="font-heading font-black text-lg text-slate-800 dark:text-zinc-100 tracking-tight leading-snug">
                 {title}
               </h3>
-              <p className="text-zinc-500 font-medium text-xs leading-relaxed max-w-sm">
+              <p className="text-zinc-500 dark:text-zinc-300 font-medium text-xs leading-relaxed max-w-sm">
                 {message}
               </p>
             </div>
@@ -91,14 +91,14 @@ export function ConfirmDialog({
               <button
                 type="button"
                 onClick={onCancel}
-                className="px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-slate-650 font-bold rounded-xl text-xs transition-all active:scale-95 border border-zinc-200"
+                className="px-4 py-2.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 font-bold rounded-xl text-xs transition-all active:scale-95 border border-zinc-200 dark:border-zinc-700 cursor-pointer"
               >
                 {cancelLabel}
               </button>
               <button
                 type="button"
                 onClick={onConfirm}
-                className={`px-4 py-2.5 text-white font-black rounded-xl text-xs shadow-lg transition-all active:scale-95 focus:ring-4 outline-none ${getButtonStyles()}`}
+                className={`px-4 py-2.5 text-white font-black rounded-xl text-xs shadow-lg transition-all active:scale-95 focus:ring-4 outline-none cursor-pointer ${getButtonStyles()}`}
               >
                 {confirmLabel}
               </button>

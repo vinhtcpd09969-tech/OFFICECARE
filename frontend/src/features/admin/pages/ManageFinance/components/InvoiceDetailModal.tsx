@@ -190,25 +190,25 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-zinc-950/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl w-full max-w-3xl shadow-2xl border border-zinc-150 overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200 text-left">
+      <div className="bg-white dark:bg-zinc-900 rounded-3xl w-full max-w-3xl shadow-2xl border border-zinc-150 dark:border-zinc-800 overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200 text-left text-secondary dark:text-zinc-100">
         {/* Header */}
-        <div className="px-6 py-4 bg-zinc-50 border-b border-zinc-100 flex items-center justify-between">
+        <div className="px-6 py-4 bg-zinc-50 dark:bg-zinc-900/90 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="p-3 bg-primary/10 text-primary rounded-2xl shadow-inner">
+            <span className="p-3 bg-primary/10 dark:bg-primary/20 text-primary dark:text-teal-400 rounded-2xl shadow-inner">
               <Receipt size={20} />
             </span>
             <div>
-              <h2 className="text-base font-black text-secondary flex items-center gap-2">
+              <h2 className="text-base font-black text-secondary dark:text-zinc-100 flex items-center gap-2">
                 Chi tiết Hóa đơn y khoa {invoice.ma_hoa_don}
               </h2>
-              <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wide">
+              <p className="text-[10px] text-zinc-400 dark:text-zinc-400 font-bold uppercase tracking-wide">
                 Khởi tạo ngày: {new Date(invoice.ngay_tao).toLocaleString('vi-VN')}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 hover:bg-zinc-100 rounded-lg text-zinc-400 hover:text-zinc-650 transition-colors text-lg leading-none"
+            className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-400 dark:text-zinc-400 hover:text-zinc-650 dark:hover:text-zinc-100 transition-colors text-lg leading-none cursor-pointer"
           >
             &times;
           </button>
@@ -220,41 +220,41 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
             {/* Top 3 Cards Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Customer block */}
-              <div className="p-4 bg-zinc-50/50 border border-zinc-150 rounded-2xl space-y-2.5">
-                <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-wider pb-1 border-b border-zinc-100 flex items-center gap-1.5">
-                  <User size={13} className="text-primary" />
+              <div className="p-4 bg-zinc-50/50 dark:bg-zinc-800/50 border border-zinc-150 dark:border-zinc-700/80 rounded-2xl space-y-2.5">
+                <h3 className="text-[10px] font-black text-zinc-400 dark:text-zinc-400 uppercase tracking-wider pb-1 border-b border-zinc-100 dark:border-zinc-700/60 flex items-center gap-1.5">
+                  <User size={13} className="text-primary dark:text-teal-400" />
                   Thông tin khách hàng
                 </h3>
-                <div className="space-y-1.5 text-xs font-semibold text-zinc-650">
+                <div className="space-y-1.5 text-xs font-semibold text-zinc-650 dark:text-zinc-300">
                   <div className="flex justify-between">
-                    <span className="text-zinc-400">Họ và tên:</span>
-                    <span className="text-secondary font-black">{invoice.ten_khach_hang}</span>
+                    <span className="text-zinc-400 dark:text-zinc-400">Họ và tên:</span>
+                    <span className="text-secondary dark:text-zinc-100 font-black">{invoice.ten_khach_hang}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-zinc-400">Số điện thoại:</span>
-                    <span className="text-secondary font-bold">{invoice.so_dien_thoai || 'N/A'}</span>
+                    <span className="text-zinc-400 dark:text-zinc-400">Số điện thoại:</span>
+                    <span className="text-secondary dark:text-zinc-100 font-bold">{invoice.so_dien_thoai || 'N/A'}</span>
                   </div>
                 </div>
               </div>
 
               {/* Service block */}
-              <div className="p-4 bg-zinc-50/50 border border-zinc-150 rounded-2xl space-y-2.5">
-                <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-wider pb-1 border-b border-zinc-100 flex items-center gap-1.5">
-                  <Building size={13} className="text-primary" />
+              <div className="p-4 bg-zinc-50/50 dark:bg-zinc-800/50 border border-zinc-150 dark:border-zinc-700/80 rounded-2xl space-y-2.5">
+                <h3 className="text-[10px] font-black text-zinc-400 dark:text-zinc-400 uppercase tracking-wider pb-1 border-b border-zinc-100 dark:border-zinc-700/60 flex items-center gap-1.5">
+                  <Building size={13} className="text-primary dark:text-teal-400" />
                   Sản phẩm điều trị
                 </h3>
-                <div className="space-y-1.5 text-xs font-semibold text-zinc-650">
+                <div className="space-y-1.5 text-xs font-semibold text-zinc-650 dark:text-zinc-300">
                   <div className="flex justify-between items-start gap-2">
-                    <span className="text-zinc-400 shrink-0">Chi tiết:</span>
-                    <span className="text-secondary font-black text-right leading-snug" title={invoice.ten_dich_vu}>
+                    <span className="text-zinc-400 dark:text-zinc-400 shrink-0">Chi tiết:</span>
+                    <span className="text-secondary dark:text-zinc-100 font-black text-right leading-snug" title={invoice.ten_dich_vu}>
                       {invoice.ten_dich_vu || 'Phí khám lâm sàng/Buổi lẻ'}
                       {isPackage && ` (${totalSessions} buổi)`}
                     </span>
                   </div>
                   {invoice.hinh_thuc_thanh_toan_goi && (
                     <div className="flex justify-between">
-                      <span className="text-zinc-400">Hình thức:</span>
-                      <span className="text-primary font-black uppercase tracking-wider text-[9px] bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded">
+                      <span className="text-zinc-400 dark:text-zinc-400">Hình thức:</span>
+                      <span className="text-primary dark:text-teal-300 font-black uppercase tracking-wider text-[9px] bg-primary/10 dark:bg-teal-950/60 border border-primary/20 dark:border-teal-800 px-1.5 py-0.5 rounded">
                         {invoice.hinh_thuc_thanh_toan_goi.replace(/_/g, ' ')}
                       </span>
                     </div>
@@ -263,22 +263,22 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
               </div>
 
               {/* Financial Status Summary block */}
-              <div className="p-4 bg-zinc-50/50 border border-zinc-150 rounded-2xl space-y-2.5">
-                <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-wider pb-1 border-b border-zinc-100 flex items-center gap-1.5">
-                  <Activity size={13} className="text-primary" />
+              <div className="p-4 bg-zinc-50/50 dark:bg-zinc-800/50 border border-zinc-150 dark:border-zinc-700/80 rounded-2xl space-y-2.5">
+                <h3 className="text-[10px] font-black text-zinc-400 dark:text-zinc-400 uppercase tracking-wider pb-1 border-b border-zinc-100 dark:border-zinc-700/60 flex items-center gap-1.5">
+                  <Activity size={13} className="text-primary dark:text-teal-400" />
                   Trạng thái tài chính
                 </h3>
-                <div className="space-y-1.5 text-xs font-semibold text-zinc-650">
+                <div className="space-y-1.5 text-xs font-semibold text-zinc-650 dark:text-zinc-300">
                   <div className="flex justify-between">
-                    <span className="text-zinc-400">Tổng cần thu:</span>
-                    <span className="text-secondary font-black">{formatCurrency(Number(invoice.tong_tien_thanh_toan))}</span>
+                    <span className="text-zinc-400 dark:text-zinc-400">Tổng cần thu:</span>
+                    <span className="text-secondary dark:text-zinc-100 font-black">{formatCurrency(Number(invoice.tong_tien_thanh_toan))}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-zinc-400">Đã thanh toán:</span>
-                    <span className="text-emerald-700 font-bold">{formatCurrency(Number(invoice.da_thanh_toan))}</span>
+                    <span className="text-zinc-400 dark:text-zinc-400">Đã thanh toán:</span>
+                    <span className="text-emerald-700 dark:text-emerald-400 font-bold">{formatCurrency(Number(invoice.da_thanh_toan))}</span>
                   </div>
                   {remainingDebt > 0 && (
-                    <div className="flex justify-between text-amber-600 font-bold">
+                    <div className="flex justify-between text-amber-600 dark:text-amber-400 font-bold">
                       <span>Dư nợ còn lại:</span>
                       <span>{formatCurrency(remainingDebt)}</span>
                     </div>
@@ -287,12 +287,11 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
               </div>
             </div>
 
-            {/* Ghi chú snapshot lúc tạo hóa đơn (vd lý do miễn/khấu trừ phí khám, ghi chú thu tiền
-                nhanh...) — trước đây field này có trong DB nhưng chưa từng hiển thị ở đâu cả. */}
+            {/* Ghi chú snapshot */}
             {invoice.ghi_chu && (
-              <div className="p-3.5 bg-zinc-50/70 border border-zinc-150 rounded-2xl">
-                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-wider mb-0.5">Ghi chú</p>
-                <p className="text-xs font-semibold text-zinc-600 leading-relaxed">{invoice.ghi_chu}</p>
+              <div className="p-3.5 bg-zinc-50/70 dark:bg-zinc-800/70 border border-zinc-150 dark:border-zinc-700 rounded-2xl">
+                <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-400 uppercase tracking-wider mb-0.5">Ghi chú</p>
+                <p className="text-xs font-semibold text-zinc-600 dark:text-zinc-300 leading-relaxed">{invoice.ghi_chu}</p>
               </div>
             )}
 
@@ -300,21 +299,21 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
             <div className="space-y-4">
               {/* Lịch sử ghi nhận giao dịch thanh toán */}
               <div className="space-y-3">
-                <div className="pb-1 border-b border-zinc-100 flex items-center justify-between gap-2">
-                  <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <Receipt size={13} className="text-primary" />
+                <div className="pb-1 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between gap-2">
+                  <h3 className="text-[10px] font-black text-zinc-400 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Receipt size={13} className="text-primary dark:text-teal-400" />
                     Lịch sử ghi nhận giao dịch thanh toán
                   </h3>
                   {invoicePayments.length > 0 && (
-                    <span className="text-[9px] font-bold text-zinc-350 italic normal-case">Bấm vào 1 dòng để xem chi tiết dòng tiền</span>
+                    <span className="text-[9px] font-bold text-zinc-350 dark:text-zinc-500 italic normal-case">Bấm vào 1 dòng để xem chi tiết dòng tiền</span>
                   )}
                 </div>
                 {invoicePayments.length === 0 ? (
-                  <p className="text-xs text-zinc-400 italic">Chưa ghi nhận giao dịch thanh toán nào cho hóa đơn này.</p>
+                  <p className="text-xs text-zinc-400 dark:text-zinc-500 italic">Chưa ghi nhận giao dịch thanh toán nào cho hóa đơn này.</p>
                 ) : (
-                  <div className="border border-zinc-150 rounded-2xl overflow-hidden bg-white shadow-xs">
+                  <div className="border border-zinc-150 dark:border-zinc-800 rounded-2xl overflow-hidden bg-white dark:bg-zinc-900 shadow-xs">
                     <table className="w-full text-left text-[11px]">
-                      <thead className="bg-zinc-50 border-b border-zinc-150 text-zinc-500 font-bold">
+                      <thead className="bg-zinc-50 dark:bg-zinc-800 border-b border-zinc-150 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 font-bold">
                         <tr>
                           <th className="px-3 py-2.5">Mã GD</th>
                           <th className="px-3 py-2.5">Số tiền</th>
@@ -324,7 +323,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                           <th className="px-3 py-2.5 text-right">Thao tác</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-zinc-100 font-semibold text-zinc-650">
+                      <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 font-semibold text-zinc-650 dark:text-zinc-300">
                         {invoicePayments.map((p) => {
                           const isSelected = selectedTxId === p.id;
                           return (
@@ -332,16 +331,14 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                               key={p.id}
                               onClick={() => {
                                 setSelectedTxId(isSelected ? null : p.id);
-                                // Chỉ hiện 1 panel tại 1 thời điểm — mở chi tiết giao dịch thì đóng
-                                // panel hoàn tiền nâng cao đang mở (nếu có), tránh phải cuộn qua cả 2.
                                 setIsRefundPanelOpen(false);
                               }}
-                              className={`hover:bg-zinc-50/40 cursor-pointer transition-all ${
-                                isSelected ? 'bg-indigo-50/60 font-bold' : ''
+                              className={`hover:bg-zinc-50/40 dark:hover:bg-zinc-800/40 cursor-pointer transition-all ${
+                                isSelected ? 'bg-indigo-50/60 dark:bg-indigo-950/40 font-bold' : ''
                               }`}
                             >
-                              <td className="px-3 py-2 font-mono text-zinc-400 text-[10px]">{p.ma_giao_dich}</td>
-                              <td className={`px-3 py-2 font-black tabular-nums ${p.loai_giao_dich === 'HOAN_TIEN' ? 'text-rose-600' : 'text-emerald-700'}`}>
+                              <td className="px-3 py-2 font-mono text-zinc-400 dark:text-zinc-500 text-[10px]">{p.ma_giao_dich}</td>
+                              <td className={`px-3 py-2 font-black tabular-nums ${p.loai_giao_dich === 'HOAN_TIEN' ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
                                 {p.loai_giao_dich === 'HOAN_TIEN' ? '−' : '+'}{formatCurrency(Math.abs(Number(p.so_tien)))}
                               </td>
                               <td className="px-3 py-2 capitalize text-[10px]">
@@ -351,11 +348,11 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                                   ? '🏦 Chuyển khoản'
                                   : '💳 Thẻ/POS'}
                               </td>
-                              <td className="px-3 py-2 text-zinc-500 text-[10px]">{new Date(p.thoi_gian_giao_dich).toLocaleString('vi-VN')}</td>
+                              <td className="px-3 py-2 text-zinc-500 dark:text-zinc-400 text-[10px]">{new Date(p.thoi_gian_giao_dich).toLocaleString('vi-VN')}</td>
                               <td className="px-2 py-2">
                                 <ChevronDown
                                   size={12}
-                                  className={`text-zinc-350 transition-transform duration-200 ${isSelected ? 'rotate-180 text-primary' : ''}`}
+                                  className={`text-zinc-350 dark:text-zinc-500 transition-transform duration-200 ${isSelected ? 'rotate-180 text-primary dark:text-teal-400' : ''}`}
                                 />
                               </td>
                               <td className="px-3 py-2 text-right" onClick={(e) => e.stopPropagation()}>
@@ -366,28 +363,26 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                                         onClick={() => {
                                           if (isPackage) {
                                             setIsRefundPanelOpen(true);
-                                            // Tương tự chiều ngược lại — mở panel hoàn tiền thì đóng
-                                            // panel chi tiết giao dịch đang mở (nếu có).
                                             setSelectedTxId(null);
                                           } else {
                                             onRefund(p.id);
                                           }
                                         }}
-                                        className="text-[10px] font-black text-rose-500 hover:text-rose-700 hover:underline flex items-center gap-0.5"
+                                        className="text-[10px] font-black text-rose-500 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 hover:underline flex items-center gap-0.5 cursor-pointer"
                                       >
                                         <RotateCcw size={10} /> Hoàn tiền
                                       </button>
                                     ) : p.loai_giao_dich === 'HOAN_TIEN' ? (
-                                      <span className="text-[10px] text-rose-500 font-bold italic">Đã hoàn trả</span>
+                                      <span className="text-[10px] text-rose-500 dark:text-rose-400 font-bold italic">Đã hoàn trả</span>
                                     ) : (
-                                      <span className="text-[10px] text-zinc-400 italic">—</span>
+                                      <span className="text-[10px] text-zinc-400 dark:text-zinc-500 italic">—</span>
                                     )
                                   )}
                                   <button
                                     type="button"
                                     onClick={() => onPrintTransaction(invoice, p)}
                                     title="In biên nhận giao dịch này"
-                                    className="p-1 text-zinc-400 hover:text-primary hover:bg-zinc-100 rounded-lg transition-all cursor-pointer"
+                                    className="p-1 text-zinc-400 dark:text-zinc-500 hover:text-primary dark:hover:text-teal-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-all cursor-pointer"
                                   >
                                     <Printer size={12} />
                                   </button>
@@ -407,7 +402,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                       const selectedTx = invoicePayments.find((tx) => tx.id === selectedTxId);
                       if (!selectedTx) {
                         return (
-                          <div className="text-[10px] text-zinc-400 italic text-center py-2 bg-zinc-50/30 border border-zinc-150 border-dashed rounded-xl">
+                          <div className="text-[10px] text-zinc-400 dark:text-zinc-500 italic text-center py-2 bg-zinc-50/30 dark:bg-zinc-800/30 border border-zinc-150 dark:border-zinc-800 border-dashed rounded-xl">
                             💡 Click chọn một giao dịch ở trên để xem phân tích chi tiết dòng tiền từng bước.
                           </div>
                         );
@@ -418,7 +413,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
 
                         if (!analysis) {
                           return (
-                            <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-150 border-dashed text-zinc-400 text-[11px] italic text-center">
+                            <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-150 dark:border-zinc-700 border-dashed text-zinc-400 dark:text-zinc-500 text-[11px] italic text-center">
                               Giao dịch trước nâng cấp hệ thống — không có dữ liệu chi tiết.
                             </div>
                           );
@@ -437,40 +432,37 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                         const totalDeduct = Number(analysis.chi_phi_buoi_dung) + Number(analysis.phi_phat_thuc_te) + Number(analysis.exam_fee_to_charge);
 
                         return (
-                          <div className="p-4 rounded-2xl bg-rose-50/60 border border-rose-200 text-rose-950 text-xs font-semibold space-y-3.5 shadow-sm animate-in fade-in duration-200">
-                            <div className="flex justify-between items-center pb-2 border-b border-rose-100/65">
-                              <span className="font-black text-rose-700 uppercase tracking-wider text-[10px] flex items-center gap-1.5">
+                          <div className="p-4 rounded-2xl bg-rose-50/60 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/60 text-rose-950 dark:text-rose-100 text-xs font-semibold space-y-3.5 shadow-sm animate-in fade-in duration-200">
+                            <div className="flex justify-between items-center pb-2 border-b border-rose-100/65 dark:border-rose-900/50">
+                              <span className="font-black text-rose-700 dark:text-rose-400 uppercase tracking-wider text-[10px] flex items-center gap-1.5">
                                 📊 Phân tích chi tiết giao dịch hoàn tiền ({selectedTx.ma_giao_dich})
                               </span>
-                              <span className="text-[9px] bg-rose-200/50 text-rose-800 px-1.5 py-0.5 rounded font-black">REFUND</span>
+                              <span className="text-[9px] bg-rose-200/50 dark:bg-rose-900/60 text-rose-800 dark:text-rose-300 px-1.5 py-0.5 rounded font-black">REFUND</span>
                             </div>
 
                             <div className="space-y-2.5">
-                              <div className="flex justify-between items-center text-zinc-700 font-bold">
+                              <div className="flex justify-between items-center text-zinc-700 dark:text-zinc-300 font-bold">
                                 <span>1. Số tiền khách đã thực đóng (A):</span>
-                                <strong className="text-secondary font-black text-sm">{formatCurrency(analysis.so_tien_da_dong)}</strong>
+                                <strong className="text-secondary dark:text-zinc-100 font-black text-sm">{formatCurrency(analysis.so_tien_da_dong)}</strong>
                               </div>
 
-                              <div className="pl-3 border-l-2 border-rose-200 space-y-1.5 text-[11px] text-zinc-650">
+                              <div className="pl-3 border-l-2 border-rose-200 dark:border-rose-800 space-y-1.5 text-[11px] text-zinc-650 dark:text-zinc-400">
                                 <div className="flex justify-between">
-                                  <span className="text-zinc-500">2.1. Chi phí số buổi đã sử dụng ({analysis.so_buoi_dung}/{analysis.tong_so_buoi} buổi):</span>
+                                  <span className="text-zinc-500 dark:text-zinc-400">2.1. Chi phí số buổi đã sử dụng ({analysis.so_buoi_dung}/{analysis.tong_so_buoi} buổi):</span>
                                   <span>-{formatCurrency(analysis.chi_phi_buoi_dung)}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                  <span className="text-zinc-500">2.2. Phí phạt hủy gói ({analysis.phi_phat_percent}% trên số tiền đã đóng thực tế):</span>
+                                  <span className="text-zinc-500 dark:text-zinc-400">2.2. Phí phạt hủy gói ({analysis.phi_phat_percent}% trên số tiền đã đóng thực tế):</span>
                                   <span>-{formatCurrency(analysis.phi_phat_thuc_te)}</span>
                                 </div>
                                 {examTrace && (
                                   <div className="flex justify-between items-start">
-                                    <span className="text-zinc-500 text-left max-w-[280px]">
+                                    <span className="text-zinc-500 dark:text-zinc-400 text-left max-w-[280px]">
                                       {examTrace.has_separate_invoice ? (
-                                        <>2.3. Thu hồi miễn phí khám (Hóa đơn khám <strong className="text-rose-700 font-bold">{examTrace.invoice_code}</strong>{examTrace.invoice_date ? ` ngày ${formatLongDate(examTrace.invoice_date)}` : ''}):</>
+                                        <>2.3. Thu hồi miễn phí khám (Hóa đơn khám <strong className="text-rose-700 dark:text-rose-400 font-bold">{examTrace.invoice_code}</strong>{examTrace.invoice_date ? ` ngày ${formatLongDate(examTrace.invoice_date)}` : ''}):</>
                                       ) : isExamWaived ? (
                                         <>2.3. Thu hồi miễn phí khám{examTrace.appointment_date ? ` (Ca khám ngày ${formatLongDate(examTrace.appointment_date)}${examTimeRange ? ` từ ${examTimeRange.replace(' - ', ' đến ')}` : ''})` : ''}:</>
                                       ) : (
-                                        // Gói dưới 1 triệu KHÔNG được miễn phí khám (isExamWaived luôn false, xem
-                                        // billing.ts isExamWaived) — phí khám là khoản đã thu thật ngay lúc mua, không
-                                        // phải ưu đãi bị "thu hồi". Dùng chữ "Thu hồi miễn phí khám" ở đây sẽ sai bản chất.
                                         <>2.3. Phí khám lâm sàng (đã thu){examTrace.appointment_date ? ` (Ca khám ngày ${formatLongDate(examTrace.appointment_date)}${examTimeRange ? ` từ ${examTimeRange.replace(' - ', ' đến ')}` : ''})` : ''}:</>
                                       )}
                                     </span>
@@ -479,50 +471,48 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                                 )}
                               </div>
 
-                              <div className="flex justify-between items-center pt-2 border-t border-dashed border-rose-200/60 font-bold text-rose-800">
+                              <div className="flex justify-between items-center pt-2 border-t border-dashed border-rose-200/60 dark:border-rose-900/50 font-bold text-rose-800 dark:text-rose-300">
                                 <span>3. Tổng số tiền khấu trừ (B = 2.1 + 2.2 + 2.3):</span>
                                 <span>-{formatCurrency(totalDeduct)}</span>
                               </div>
 
-                              <div className="flex justify-between items-center pt-2.5 border-t border-rose-200 font-black text-rose-950 text-xs">
+                              <div className="flex justify-between items-center pt-2.5 border-t border-rose-200 dark:border-rose-800 font-black text-rose-950 dark:text-rose-100 text-xs">
                                 <span>4. Thực tế hoàn trả cho khách (A - B):</span>
-                                <span className="text-rose-600 font-black text-sm">{formatCurrency(analysis.so_tien_hoan_tra)}</span>
+                                <span className="text-rose-600 dark:text-rose-400 font-black text-sm">{formatCurrency(analysis.so_tien_hoan_tra)}</span>
                               </div>
                             </div>
                           </div>
                         );
                       } else {
-                        // THANH_TOAN transaction — đọc thẳng chi_tiet ghi lúc phát sinh giao dịch,
-                        // không đoán theo vị trí trong mảng (xem backend/src/domain/billing.ts describePaymentTransaction).
                         const chiTiet = selectedTx.chi_tiet;
                         const txContent = chiTiet?.dien_giai || 'Giao dịch thanh toán (dữ liệu cũ, trước nâng cấp hệ thống)';
                         const percentPaid = chiTiet ? `${chiTiet.ty_le_phan_tram}%` : 'Không rõ (giao dịch cũ)';
 
                         return (
-                          <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-250 text-emerald-950 text-xs font-semibold space-y-3 shadow-sm animate-in fade-in duration-200">
-                            <div className="flex justify-between items-center pb-2 border-b border-emerald-100/65">
-                              <span className="font-black text-emerald-850 uppercase tracking-wider text-[10px] flex items-center gap-1.5">
+                          <div className="p-4 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-250 dark:border-emerald-800/70 text-emerald-950 dark:text-emerald-100 text-xs font-semibold space-y-3 shadow-sm animate-in fade-in duration-200">
+                            <div className="flex justify-between items-center pb-2 border-b border-emerald-100/65 dark:border-emerald-900/50">
+                              <span className="font-black text-emerald-850 dark:text-emerald-300 uppercase tracking-wider text-[10px] flex items-center gap-1.5">
                                 📊 Chi tiết giao dịch thanh toán ({selectedTx.ma_giao_dich})
                               </span>
-                              <span className="text-[9px] bg-emerald-200/50 text-emerald-800 px-1.5 py-0.5 rounded font-black">PAYMENT</span>
+                              <span className="text-[9px] bg-emerald-200/50 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 px-1.5 py-0.5 rounded font-black">PAYMENT</span>
                             </div>
                             
-                            <div className="space-y-2 text-zinc-700">
+                            <div className="space-y-2 text-zinc-700 dark:text-zinc-300">
                               <div className="flex justify-between items-center font-bold">
                                 <span>1. Số tiền thực đóng:</span>
-                                <strong className="text-emerald-700 font-black text-sm">+{formatCurrency(selectedTx.so_tien)}</strong>
+                                <strong className="text-emerald-700 dark:text-emerald-400 font-black text-sm">+{formatCurrency(selectedTx.so_tien)}</strong>
                               </div>
                               <div className="flex justify-between">
-                                <span className="text-zinc-500">2. Nội dung giao dịch:</span>
-                                <span className="font-semibold text-zinc-800">{txContent}</span>
+                                <span className="text-zinc-500 dark:text-zinc-400">2. Nội dung giao dịch:</span>
+                                <span className="font-semibold text-zinc-800 dark:text-zinc-200">{txContent}</span>
                               </div>
                               <div className="flex justify-between">
-                                <span className="text-zinc-500">3. Tỷ lệ thanh toán đợt này:</span>
-                                <span className="font-semibold text-zinc-800">{percentPaid}</span>
+                                <span className="text-zinc-500 dark:text-zinc-400">3. Tỷ lệ thanh toán đợt này:</span>
+                                <span className="font-semibold text-zinc-800 dark:text-zinc-200">{percentPaid}</span>
                               </div>
                               <div className="flex justify-between">
-                                <span className="text-zinc-500">4. Phương thức giao dịch:</span>
-                                <span className="font-semibold text-zinc-800 capitalize">
+                                <span className="text-zinc-500 dark:text-zinc-400">4. Phương thức giao dịch:</span>
+                                <span className="font-semibold text-zinc-800 dark:text-zinc-200 capitalize">
                                   {selectedTx.phuong_thuc === 'tien_mat'
                                     ? 'Tiền mặt'
                                     : selectedTx.phuong_thuc === 'chuyen_khoan'
@@ -532,41 +522,30 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                               </div>
 
                               {/* Billing Calculation Details */}
-                              <div className="mt-3 pt-3 border-t border-emerald-100/65 space-y-1.5 text-[11px] text-zinc-650">
-                                <div className="font-black text-emerald-850 uppercase tracking-wider text-[9px] mb-1">
+                              <div className="mt-3 pt-3 border-t border-emerald-100/65 dark:border-emerald-900/50 space-y-1.5 text-[11px] text-zinc-650 dark:text-zinc-400">
+                                <div className="font-black text-emerald-850 dark:text-emerald-300 uppercase tracking-wider text-[9px] mb-1">
                                   🔍 Phân tích chi tiết hóa đơn lúc mua:
                                 </div>
                                 {isPackage ? (
                                   <>
                                     <div className="flex justify-between">
-                                      <span className="text-zinc-500">Giá gốc gói trị liệu:</span>
-                                      <span className="font-semibold">{formatCurrency(gia_goc_goi)}</span>
+                                      <span className="text-zinc-500 dark:text-zinc-400">Giá gốc gói trị liệu:</span>
+                                      <span className="font-semibold text-zinc-800 dark:text-zinc-200">{formatCurrency(gia_goc_goi)}</span>
                                     </div>
-                                    {/* Giá gốc gói KHÔNG bao gồm phí khám (2 khoản tách biệt hoàn toàn) — chỉ hiện dòng
-                                        tham khảo này khi phí khám chưa được miễn/khấu trừ ở dòng dưới (mien_phi_kham === 0),
-                                        tức trường hợp phải thu thêm thật sự. Khi ĐÃ được miễn/khấu trừ, dòng "Miễn phí
-                                        khám"/"Khấu trừ đã đóng riêng" bên dưới đã tự nêu đủ số tiền + lý do — giữ thêm dòng
-                                        này sẽ trùng lặp, khiến 150.000đ trông như xuất hiện 2 lần và bị hiểu nhầm là cộng khống. */}
                                     {chi_phi_kham > 0 && mien_phi_kham === 0 && (
                                       <div className="flex justify-between">
-                                        <span className="text-zinc-500">Phí khám lâm sàng & Lượng giá (thu riêng, không gộp vào tổng gói):</span>
-                                        <span className="font-semibold">{formatCurrency(chi_phi_kham)}</span>
+                                        <span className="text-zinc-500 dark:text-zinc-400">Phí khám lâm sàng & Lượng giá (thu riêng, không gộp vào tổng gói):</span>
+                                        <span className="font-semibold text-zinc-800 dark:text-zinc-200">{formatCurrency(chi_phi_kham)}</span>
                                       </div>
                                     )}
                                     {giam_gia_goi > 0 && (
-                                      <div className="flex justify-between text-emerald-700">
+                                      <div className="flex justify-between text-emerald-700 dark:text-emerald-400">
                                         <span>Ưu đãi hình thức ({ti_le_giam}%):</span>
                                         <span className="font-semibold">-{formatCurrency(giam_gia_goi)}</span>
                                       </div>
                                     )}
-                                    {/* 2 nhánh KHÔNG tương đương về mặt toán học dù cùng hiện "150.000đ": "khấu trừ đã
-                                        đóng riêng" là khoản trừ THẬT (khách đã trả 150.000đ ở 1 hóa đơn khác, phải trừ ra
-                                        khỏi hóa đơn này để không thu 2 lần) — có tham gia vào "Tổng chi phí cần thu" bên
-                                        dưới. "Miễn phí khám" là ưu đãi CHƯA TỪNG được tính vào giá gói (Giá gốc gói trị
-                                        liệu ở trên vốn dĩ không bao gồm phí khám) — không có gì để "trừ", nên hiện dưới
-                                        dạng ghi chú thưởng riêng, không phải 1 dòng trừ trong phép tính. */}
                                     {mien_phi_kham > 0 && hasPaidSeparateExam && (
-                                      <div className="flex justify-between text-emerald-700">
+                                      <div className="flex justify-between text-emerald-700 dark:text-emerald-400">
                                         <span>
                                           Khấu trừ phí khám đã đóng riêng
                                           {invoice.ngay_thanh_toan_kham_rieng ? ` ngày ${formatLongDate(invoice.ngay_thanh_toan_kham_rieng)}` : ''}
@@ -579,11 +558,11 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                                 ) : (
                                   <>
                                     <div className="flex justify-between">
-                                      <span className="text-zinc-500">{invoice.loai_goi === 'LE' ? 'Giá gốc dịch vụ lẻ:' : 'Phí khám lâm sàng & Lượng giá:'}</span>
-                                      <span className="font-semibold">{formatCurrency(chi_phi_kham || Number(invoice.tong_tien_thanh_toan))}</span>
+                                      <span className="text-zinc-500 dark:text-zinc-400">{invoice.loai_goi === 'LE' ? 'Giá gốc dịch vụ lẻ:' : 'Phí khám lâm sàng & Lượng giá:'}</span>
+                                      <span className="font-semibold text-zinc-800 dark:text-zinc-200">{formatCurrency(chi_phi_kham || Number(invoice.tong_tien_thanh_toan))}</span>
                                     </div>
                                     {invoice.trang_thai === 'da_thanh_toan' && Number(invoice.tong_tien_thanh_toan) === 0 && chi_phi_kham > 0 && (
-                                      <div className="flex justify-between text-emerald-700">
+                                      <div className="flex justify-between text-emerald-700 dark:text-emerald-400">
                                         <span>Khấu trừ/Miễn phí theo hóa đơn gói:</span>
                                         <span className="font-semibold">-{formatCurrency(chi_phi_kham)}</span>
                                       </div>
@@ -591,7 +570,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                                   </>
                                 )}
                                 {so_tien_giam_voucher > 0 && (
-                                  <div className="flex justify-between text-emerald-700">
+                                  <div className="flex justify-between text-emerald-700 dark:text-emerald-400">
                                     <span>
                                       Mã giảm giá
                                       {invoice.ma_voucher_ap_dung ? <> <strong className="font-bold">{invoice.ma_voucher_ap_dung}</strong></> : ''}
@@ -600,7 +579,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                                     <span className="font-semibold">-{formatCurrency(so_tien_giam_voucher)}</span>
                                   </div>
                                 )}
-                                <div className="flex justify-between border-t border-dashed border-emerald-250/60 pt-1.5 font-bold text-zinc-800">
+                                <div className="flex justify-between border-t border-dashed border-emerald-250/60 dark:border-emerald-800/60 pt-1.5 font-bold text-zinc-800 dark:text-zinc-100">
                                   <span>Tổng chi phí cần thu:</span>
                                   <span>{formatCurrency(isPackage ? tongChiPhiLucMuaGoi : Number(invoice.tong_tien_thanh_toan))}</span>
                                 </div>
@@ -622,15 +601,15 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
 
               {/* Advanced Package Refund Panel (rendered inline inside Right Column when triggered) */}
               {isRefundPanelOpen && isAdminOrManager && isPackage && canRefund && (
-                <div className="border border-slate-200 bg-slate-50/40 rounded-2xl p-6 space-y-4 animate-in fade-in duration-200 shadow-sm">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                    <div className="flex items-center gap-2 text-slate-800 font-black text-xs uppercase tracking-wider">
+                <div className="border border-slate-200 dark:border-zinc-800 bg-slate-50/40 dark:bg-zinc-900 rounded-2xl p-6 space-y-4 animate-in fade-in duration-200 shadow-sm">
+                  <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
+                    <div className="flex items-center gap-2 text-slate-800 dark:text-zinc-100 font-black text-xs uppercase tracking-wider">
                       <ShieldAlert size={16} className="text-amber-500 stroke-[2.5]" />
                       <span>Nghiệp vụ Hủy gói & Hoàn tiền chuyên sâu</span>
                     </div>
                     <button
                       onClick={() => setIsRefundPanelOpen(false)}
-                      className="text-[10px] font-black text-zinc-400 hover:text-zinc-650 uppercase tracking-widest"
+                      className="text-[10px] font-black text-zinc-400 dark:text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 uppercase tracking-widest cursor-pointer"
                     >
                       Đóng
                     </button>
@@ -639,33 +618,33 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-zinc-450 uppercase tracking-wide">Số buổi đã sử dụng (Tự động)</label>
+                        <label className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">Số buổi đã sử dụng (Tự động)</label>
                         <input
                           type="number"
                           value={usedSessions}
                           disabled
-                          className="w-full px-3.5 py-2 text-xs border border-zinc-200 bg-zinc-50 rounded-lg text-zinc-400 font-bold cursor-not-allowed outline-none"
+                          className="w-full px-3.5 py-2 text-xs border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 rounded-lg text-zinc-400 dark:text-zinc-400 font-bold cursor-not-allowed outline-none"
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-zinc-455 uppercase tracking-wide">Phí phạt hủy gói (%) (Cố định)</label>
+                        <label className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">Phí phạt hủy gói (%) (Cố định)</label>
                         <input
                           type="number"
                           value={penaltyPercent}
                           disabled
-                          className="w-full px-3.5 py-2 text-xs border border-zinc-200 bg-zinc-50 rounded-lg text-zinc-400 font-bold cursor-not-allowed outline-none"
+                          className="w-full px-3.5 py-2 text-xs border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 rounded-lg text-zinc-400 dark:text-zinc-400 font-bold cursor-not-allowed outline-none"
                         />
                       </div>
                     </div>
 
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide">Lý do hủy gói & hoàn tiền</label>
+                      <label className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">Lý do hủy gói & hoàn tiền</label>
                       <input
                         type="text"
                         value={refundReason}
                         onChange={(e) => setRefundReason(e.target.value)}
                         placeholder="Nhập lý do hoàn trả..."
-                        className="w-full px-3.5 py-2 text-xs border border-zinc-200 rounded-lg focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none font-bold"
+                        className="w-full px-3.5 py-2 text-xs border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 rounded-lg focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none font-bold text-slate-800 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500"
                       />
                     </div>
 
@@ -677,55 +656,44 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
 
                       return (
                         <>
-                          <div className="bg-white border border-slate-150 rounded-xl overflow-hidden">
-                            {/* Giá gói theo hợp đồng — nêu số này TRƯỚC, vì 2 khoản trừ bên dưới (buổi
-                                đã dùng + phạt hủy) đều tính theo đúng số này, không tính theo số khách
-                                thực đóng. Đưa lên đầu để người đọc có sẵn "gốc quy chiếu" trước khi
-                                thấy nó xuất hiện lại ở các dòng phạt/buổi, tránh cảm giác số từ đâu ra. */}
+                          <div className="bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 rounded-xl overflow-hidden">
+                            {/* Giá gói theo hợp đồng */}
                             {hasPaidSeparateExam && chi_phi_kham > 0 && (
-                              <div className="flex justify-between items-center px-4 py-2.5 bg-amber-50/40 border-b border-amber-100/60">
-                                <span className="text-[11px] font-bold text-amber-800">Giá gói theo hợp đồng</span>
-                                <span className="text-amber-900 font-black text-xs">{formatCurrency(gia_thanh_toan_goi)}</span>
+                              <div className="flex justify-between items-center px-4 py-2.5 bg-amber-50/40 dark:bg-amber-950/40 border-b border-amber-100/60 dark:border-amber-900/60">
+                                <span className="text-[11px] font-bold text-amber-800 dark:text-amber-300">Giá gói theo hợp đồng</span>
+                                <span className="text-amber-900 dark:text-amber-200 font-black text-xs">{formatCurrency(gia_thanh_toan_goi)}</span>
                               </div>
                             )}
 
                             {/* Khách đã đóng */}
-                            <div className="flex justify-between items-center px-4 py-3 bg-zinc-50/70">
+                            <div className="flex justify-between items-center px-4 py-3 bg-zinc-50/70 dark:bg-zinc-800/80">
                               <div className="text-left">
-                                <span className="text-xs font-bold text-zinc-650 block">Khách đã đóng</span>
-                                {/* Không viết dạng công thức "= Giá gói hợp đồng − X" — với gói trả góp, "Khách đã
-                                    đóng" chỉ mới là đợt 1 (hoặc đợt 1+2), KHÔNG phải toàn bộ giá gói hợp đồng, viết
-                                    vậy dễ bị hiểu nhầm là Giá gói hợp đồng − X = Khách đã đóng (sai hẳn số học). Nêu
-                                    thẳng sự thật: khoản này đã được trừ sẵn trong số tiền thu, kèm mã hóa đơn khám để
-                                    tra cứu, không đưa ra phép tính dễ hiểu lầm. */}
+                                <span className="text-xs font-bold text-zinc-700 dark:text-zinc-200 block">Khách đã đóng</span>
                                 {hasPaidSeparateExam && chi_phi_kham > 0 && (
-                                  <span className="text-[10px] text-zinc-450 font-medium block mt-0.5">
+                                  <span className="text-[10px] text-zinc-400 dark:text-zinc-400 font-medium block mt-0.5">
                                     Đã trừ sẵn {formatCurrency(chi_phi_kham)} phí khám đã đóng riêng
                                     {invoice.ma_hoa_don_kham_rieng && (
                                       <> (HĐ {invoice.ma_hoa_don_kham_rieng}{invoice.ngay_thanh_toan_kham_rieng ? ` ngày ${formatLongDate(invoice.ngay_thanh_toan_kham_rieng)}` : ''})</>
-                                    )} trong số tiền đã thu ở trên
+                                    )}
                                   </span>
                                 )}
                               </div>
-                              <span className="text-secondary font-black text-sm shrink-0">{formatCurrency(totalPaid)}</span>
+                              <span className="text-slate-900 dark:text-zinc-100 font-black text-sm tabular-nums">
+                                {formatCurrency(totalPaid)}
+                              </span>
                             </div>
 
-                            {/* Các khoản phải trừ */}
-                            <div className="px-4 py-3 space-y-3 border-t border-slate-100">
-                              <p className="text-[9px] font-black text-zinc-400 uppercase tracking-wider">
-                                Trừ đi các khoản sau{hasPaidSeparateExam && chi_phi_kham > 0 ? ' (tính theo giá gói hợp đồng, không theo số khách thực đóng)' : ''}
-                              </p>
-
-                              {examFeeToCharge > 0 && (
+                            {/* Chi tiết trừ */}
+                            <div className="p-4 space-y-3 bg-white dark:bg-zinc-900 border-t border-zinc-150 dark:border-zinc-800 text-xs">
+                              {hasPaidSeparateExam && examFeeToCharge > 0 && (
                                 <div className="flex justify-between items-start gap-3">
                                   <div className="text-left">
-                                    <p className="text-xs font-bold text-zinc-700">Phí khám lâm sàng</p>
-                                    <p className="text-[10px] text-zinc-450 font-medium leading-relaxed">
-                                      Thu hồi ưu đãi miễn phí khám khi mua gói
-                                      {invoice.ngay_kham ? ` · ca khám ${formatLongDate(invoice.ngay_kham)}` : ''}
+                                    <p className="text-xs font-bold text-zinc-700 dark:text-zinc-200">Phí khám lâm sàng</p>
+                                    <p className="text-[10px] text-zinc-400 dark:text-zinc-400 font-medium leading-relaxed">
+                                      Thu hồi ưu đãi miễn phí khám khi mua gói{invoice?.ngay_thanh_toan_kham_rieng ? ` • ca khám ${formatLongDate(invoice.ngay_thanh_toan_kham_rieng)}` : ''}
                                     </p>
                                   </div>
-                                  <span className="text-rose-600 font-black text-xs shrink-0 tabular-nums">
+                                  <span className="text-rose-600 dark:text-rose-400 font-black text-xs shrink-0 tabular-nums">
                                     −{formatCurrency(examFeeToCharge)}
                                   </span>
                                 </div>
@@ -733,33 +701,33 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
 
                               <div className="flex justify-between items-start gap-3">
                                 <div className="text-left">
-                                  <p className="text-xs font-bold text-zinc-700">
+                                  <p className="text-xs font-bold text-zinc-700 dark:text-zinc-200">
                                     {usedSessions}/{totalSessions} buổi khách đã thực hiện
                                   </p>
-                                  <p className="text-[10px] text-zinc-450 font-medium leading-relaxed tabular-nums">
+                                  <p className="text-[10px] text-zinc-400 dark:text-zinc-400 font-medium leading-relaxed tabular-nums">
                                     {formatCurrency(perSessionCost)} × {usedSessions} buổi
                                   </p>
                                 </div>
-                                <span className="text-rose-600 font-black text-xs shrink-0 tabular-nums">
+                                <span className="text-rose-600 dark:text-rose-400 font-black text-xs shrink-0 tabular-nums">
                                   −{formatCurrency(usedSessionsCost)}
                                 </span>
                               </div>
 
                               <div className="flex justify-between items-start gap-3">
                                 <div className="text-left">
-                                  <p className="text-xs font-bold text-zinc-700">Phí phạt hủy gói giữa chừng</p>
-                                  <p className="text-[10px] text-zinc-450 font-medium leading-relaxed tabular-nums">
+                                  <p className="text-xs font-bold text-zinc-700 dark:text-zinc-200">Phí phạt hủy gói giữa chừng</p>
+                                  <p className="text-[10px] text-zinc-400 dark:text-zinc-400 font-medium leading-relaxed tabular-nums">
                                     {penaltyPercent}% × giá gói sau giảm ({formatCurrency(gia_thanh_toan_goi)})
                                   </p>
                                 </div>
-                                <span className="text-rose-600 font-black text-xs shrink-0 tabular-nums">
+                                <span className="text-rose-600 dark:text-rose-400 font-black text-xs shrink-0 tabular-nums">
                                   −{formatCurrency(penaltyAmount)}
                                 </span>
                               </div>
 
-                              <div className="flex justify-between items-center pt-2.5 border-t border-dashed border-zinc-200">
-                                <span className="text-xs font-black text-zinc-700">Tổng cộng bị trừ</span>
-                                <span className="text-rose-600 font-black text-sm tabular-nums">
+                              <div className="flex justify-between items-center pt-2.5 border-t border-dashed border-zinc-200 dark:border-zinc-800">
+                                <span className="text-xs font-black text-zinc-700 dark:text-zinc-200">Tổng cộng bị trừ</span>
+                                <span className="text-rose-600 dark:text-rose-400 font-black text-sm tabular-nums">
                                   {formatCurrency(totalDeduction)}
                                 </span>
                               </div>
@@ -769,38 +737,38 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                             <div
                               className={`flex justify-between items-center px-4 py-3.5 border-t-2 ${
                                 estimatedRefund > 0
-                                  ? 'bg-emerald-50/70 border-emerald-200'
-                                  : 'bg-zinc-100/70 border-zinc-200'
+                                  ? 'bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800'
+                                  : 'bg-zinc-100/70 dark:bg-zinc-800/60 border-zinc-200 dark:border-zinc-700'
                               }`}
                             >
                               <span
                                 className={`text-xs font-black ${
-                                  estimatedRefund > 0 ? 'text-emerald-800' : 'text-zinc-650'
+                                  estimatedRefund > 0 ? 'text-emerald-800 dark:text-emerald-300' : 'text-zinc-700 dark:text-zinc-300'
                                 }`}
                               >
                                 Hoàn lại cho khách
                               </span>
                               <span
                                 className={`font-black text-base tabular-nums ${
-                                  estimatedRefund > 0 ? 'text-emerald-600' : 'text-zinc-450'
+                                  estimatedRefund > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400 dark:text-zinc-500'
                                 }`}
                               >
                                 {formatCurrency(estimatedRefund)}
                               </span>
                             </div>
 
-                            <div className="flex justify-between items-center px-4 py-2.5 border-t border-slate-100 bg-white">
-                              <span className="text-[11px] font-bold text-zinc-500">Phòng khám giữ lại</span>
-                              <span className="text-secondary font-black text-xs tabular-nums">{formatCurrency(keptRevenue)}</span>
+                            <div className="flex justify-between items-center px-4 py-2.5 border-t border-slate-100 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+                              <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400">Phòng khám giữ lại</span>
+                              <span className="text-secondary dark:text-zinc-100 font-black text-xs tabular-nums">{formatCurrency(keptRevenue)}</span>
                             </div>
                           </div>
 
                           {estimatedRefund === 0 && (
-                            <div className="p-3.5 bg-rose-50/50 border border-rose-100 rounded-xl space-y-1 animate-in fade-in duration-200">
-                              <p className="text-rose-700 text-xs font-black flex items-center gap-1.5">
+                            <div className="p-3.5 bg-rose-50/50 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900/50 rounded-xl space-y-1 animate-in fade-in duration-200">
+                              <p className="text-rose-700 dark:text-rose-300 text-xs font-black flex items-center gap-1.5">
                                 <span>⚠️</span> Không hoàn tiền
                               </p>
-                              <p className="text-[11px] text-rose-800/90 font-semibold leading-relaxed">
+                              <p className="text-[11px] text-rose-800/90 dark:text-rose-300/90 font-semibold leading-relaxed">
                                 Các khoản phải trừ ({formatCurrency(totalDeduction)}) đã{' '}
                                 {shortfall > 0 ? 'vượt quá' : 'dùng hết'} số tiền khách đóng ({formatCurrency(totalPaid)})
                                 {shortfall > 0 ? ` — vượt ${formatCurrency(shortfall)}` : ''}. Khách đã dùng{' '}
@@ -815,12 +783,14 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
 
                     <div className="flex justify-end gap-2 pt-2">
                       <button
+                        type="button"
                         onClick={() => setIsRefundPanelOpen(false)}
-                        className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-650 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                        className="px-4 py-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
                       >
                         Hủy bỏ
                       </button>
                       <button
+                        type="button"
                         onClick={handleRefundSubmit}
                         disabled={submittingRefund || estimatedRefund === 0}
                         className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"

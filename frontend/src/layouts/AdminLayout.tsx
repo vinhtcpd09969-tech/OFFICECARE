@@ -46,22 +46,14 @@ export default function AdminLayout() {
 
   const [activeCheckIn, setActiveCheckIn] = useState<any>(null);
 
-  // State cho Lễ tân (role 2) để phát hiện ca chưa xác nhận cần liên hệ, quá giờ check-in, và cần thanh toán
-  const [pendingContactCount, setPendingContactCount] = useState<number>(0);
-  const [earliestPendingId, setEarliestPendingId] = useState<string | null>(null);
-  const [earliestPendingDate, setEarliestPendingDate] = useState<string | null>(null);
-
-  const [overdueCheckinCount, setOverdueCheckinCount] = useState<number>(0);
-  const [earliestOverdueId, setEarliestOverdueId] = useState<string | null>(null);
-  const [earliestOverdueDate, setEarliestOverdueDate] = useState<string | null>(null);
-
+  // State cho Lễ tân (role 2) để phát hiện ca cần thanh toán và ca vừa check-in. C4 ("chưa xác
+  // nhận cần liên hệ") và C6 ("quá giờ chưa check-in") đã bỏ (06/08/2026) — mô hình theo buổi
+  // không còn khái niệm chờ xác nhận hay giờ hẹn cố định để so "quá giờ".
   const [pendingPaymentCount, setPendingPaymentCount] = useState<number>(0);
   const [earliestPaymentId, setEarliestPaymentId] = useState<string | null>(null);
   const [earliestPaymentDate, setEarliestPaymentDate] = useState<string | null>(null);
 
   const seenCheckedInIds = useRef<Set<string>>(new Set());
-  const seenUnconfirmedIds = useRef<Set<string>>(new Set());
-  const seenOverdueIds = useRef<Set<string>>(new Set());
   const seenPaymentIds = useRef<Set<string>>(new Set());
   const isFirstLoad = useRef(true);
 
@@ -115,46 +107,6 @@ export default function AdminLayout() {
         const res = await api.get('/admin/appointments');
         const appointments = res.data || [];
 
-        // 1. Pending Contact (Lịch cần liên hệ)
-        const graceTimeMs = 10 * 60 * 1000;
-        const pendingApts = appointments.filter((apt: any) => {
-          const createdAt = apt.thoi_gian_tao ? new Date(apt.thoi_gian_tao).getTime() : 0;
-          const isGracePassed = createdAt > 0 && (createdAt + graceTimeMs <= Date.now());
-          return apt.trang_thai === 'chua_xac_nhan' && isGracePassed;
-        });
-        setPendingContactCount(pendingApts.length);
-        if (pendingApts.length > 0) {
-          pendingApts.sort((a: any, b: any) => new Date(a.ngay_gio_bat_dau || '').getTime() - new Date(b.ngay_gio_bat_dau || '').getTime());
-          setEarliestPendingId(pendingApts[0].id);
-          const targetDate = pendingApts[0].ngay_gio_bat_dau ? pendingApts[0].ngay_gio_bat_dau.match(/^\d{4}-\d{2}-\d{2}/)?.[0] || '' : '';
-          setEarliestPendingDate(targetDate);
-        } else {
-          setEarliestPendingId(null);
-          setEarliestPendingDate(null);
-        }
-
-        // 2. Overdue Check-in (Quá giờ chưa check-in)
-        const now = new Date();
-        const todayStr = now.toDateString();
-        const overdueApts = appointments.filter((apt: any) => {
-          if (!['da_xac_nhan', 'cho_xac_nhan'].includes(apt.trang_thai)) {
-            return false;
-          }
-          const start = new Date(apt.ngay_gio_bat_dau);
-          const isToday = start.toDateString() === todayStr;
-          return isToday && start.getTime() <= now.getTime();
-        });
-        setOverdueCheckinCount(overdueApts.length);
-        if (overdueApts.length > 0) {
-          overdueApts.sort((a: any, b: any) => new Date(a.ngay_gio_bat_dau || '').getTime() - new Date(b.ngay_gio_bat_dau || '').getTime());
-          setEarliestOverdueId(overdueApts[0].id);
-          const targetDate = overdueApts[0].ngay_gio_bat_dau ? overdueApts[0].ngay_gio_bat_dau.match(/^\d{4}-\d{2}-\d{2}/)?.[0] || '' : '';
-          setEarliestOverdueDate(targetDate);
-        } else {
-          setEarliestOverdueId(null);
-          setEarliestOverdueDate(null);
-        }
-
         // 3. Pending Payment (Cần thanh toán)
         const paymentApts = appointments.filter(isAwaitingPaymentForList);
         setPendingPaymentCount(paymentApts.length);
@@ -173,41 +125,11 @@ export default function AdminLayout() {
 
         // Trigger notifications & sounds
         if (isFirstLoad.current) {
-          pendingApts.forEach((apt: any) => seenUnconfirmedIds.current.add(String(apt.id)));
-          overdueApts.forEach((apt: any) => seenOverdueIds.current.add(String(apt.id)));
           paymentApts.forEach((apt: any) => seenPaymentIds.current.add(String(apt.id)));
           checkedInApts.forEach((apt: any) => seenCheckedInIds.current.add(String(apt.id)));
           isFirstLoad.current = false;
         } else {
           let hasNewEvent = false;
-
-          pendingApts.forEach((apt: any) => {
-            const id = String(apt.id);
-            if (!seenUnconfirmedIds.current.has(id)) {
-              seenUnconfirmedIds.current.add(id);
-              hasNewEvent = true;
-              const name = apt.ten_khach_hang || 'Khách hàng';
-              toast(`📞 Ca khám mới chờ liên hệ: ${name}`, {
-                icon: '☎️',
-                duration: 8000,
-                style: { borderRadius: '16px', background: '#f59e0b', color: '#fff', fontWeight: 'bold' }
-              });
-            }
-          });
-
-          overdueApts.forEach((apt: any) => {
-            const id = String(apt.id);
-            if (!seenOverdueIds.current.has(id)) {
-              seenOverdueIds.current.add(id);
-              hasNewEvent = true;
-              const name = apt.ten_khach_hang || 'Khách hàng';
-              toast(`⏰ Lịch hẹn quá giờ chưa check-in: ${name}`, {
-                icon: '⏰',
-                duration: 8000,
-                style: { borderRadius: '16px', background: '#e11d48', color: '#fff', fontWeight: 'bold' }
-              });
-            }
-          });
 
           paymentApts.forEach((apt: any) => {
             const id = String(apt.id);
@@ -237,7 +159,7 @@ export default function AdminLayout() {
             }
           });
 
-          const totalCount = pendingApts.length + overdueApts.length + paymentApts.length;
+          const totalCount = paymentApts.length;
           if (hasNewEvent || totalCount > 0) {
             playNotificationSound();
           }
@@ -282,8 +204,8 @@ export default function AdminLayout() {
       try {
         const endpoint = Number(user.vai_tro_id) === 4 ? '/doctor/queue' : '/technician/queue';
         const res = await api.get(endpoint);
-        const checkedInApts = res.data.filter((apt: any) => 
-          (apt.trang_thai === 'da_checkin' || apt.trang_thai === 'check_in' || apt.trang_thai === 'cho_kham')
+        const checkedInApts = res.data.filter((apt: any) =>
+          (apt.trang_thai === 'da_checkin' || apt.trang_thai === 'check_in')
         );
 
         if (checkedInApts.length > 0) {
@@ -439,9 +361,16 @@ export default function AdminLayout() {
       document.body.classList.remove('dark');
     }
     localStorage.setItem('theme', theme);
+    return () => {
+      document.documentElement.classList.remove('dark');
+      document.body.classList.remove('dark');
+    };
   }, [theme]);
 
   const handleLogout = () => {
+    document.documentElement.classList.remove('dark');
+    document.body.classList.remove('dark');
+    localStorage.removeItem('theme');
     logout();
     navigate('/login');
   };
@@ -590,11 +519,6 @@ export default function AdminLayout() {
                       </span>
                       <span className="text-[11px] font-bold tracking-wide uppercase">{item.name}</span>
                     </div>
-                    {item.path === '/receptionist/appointments' && pendingContactCount > 0 && (
-                      <span className="animate-bounce inline-flex items-center justify-center w-5 h-5 text-[9px] font-black text-white bg-rose-500 rounded-full border border-rose-455">
-                        {pendingContactCount}
-                      </span>
-                    )}
                   </Link>
                 </li>
               );
@@ -749,47 +673,21 @@ export default function AdminLayout() {
 
       {/* Floating Mascot Widget for Receptionist */}
       {Number(user?.vai_tro_id) === 2 && (() => {
-        const totalCount = pendingContactCount + overdueCheckinCount + pendingPaymentCount;
+        const totalCount = pendingPaymentCount;
         if (totalCount <= 0) return null;
 
-        let mascotTooltip = '';
-        let mascotBadgeColor: 'rose' | 'emerald' | 'amber' = 'rose';
-        let mascotOnClick = () => {};
-
-        if (pendingContactCount > 0) {
-          mascotTooltip = `Có ${pendingContactCount} ca khám chưa xác nhận quá 10 phút cần liên hệ!`;
-          mascotBadgeColor = 'rose';
-          mascotOnClick = () => {
-            if (earliestPendingId && earliestPendingDate) {
-              navigate(`/receptionist/appointments?date=${earliestPendingDate}&range=today&view=timeline&appointmentId=${earliestPendingId}&triggerFocus=true`);
-            } else {
-              navigate('/receptionist/appointments?triggerFocus=true');
-            }
-          };
-        } else if (overdueCheckinCount > 0) {
-          mascotTooltip = `Có ${overdueCheckinCount} ca quá giờ chưa check-in!`;
-          mascotBadgeColor = 'rose';
-          mascotOnClick = () => {
-            if (earliestOverdueId && earliestOverdueDate) {
-              navigate(`/receptionist/appointments?date=${earliestOverdueDate}&range=today&view=timeline&appointmentId=${earliestOverdueId}&triggerFocus=true`);
-            } else {
-              navigate('/receptionist/appointments?triggerFocus=true');
-            }
-          };
-        } else if (pendingPaymentCount > 0) {
-          mascotTooltip = `Có ${pendingPaymentCount} ca hẹn cần thanh toán!`;
-          mascotBadgeColor = 'amber';
-          mascotOnClick = () => {
-            // Điều hướng tới ĐÚNG lịch hẹn đó để lễ tân tự xem & chọn cách thu tiền phù hợp (khám lẻ
-            // hay đợt 2 của gói) — KHÔNG nhảy thẳng vào /receptionist/billing, vì cách đó luôn tự tạo
-            // 1 hóa đơn khám mới bất kể ca đó thực chất đang nợ đợt 2 của gói (hóa đơn đã có sẵn).
-            if (earliestPaymentId && earliestPaymentDate) {
-              navigate(`/receptionist/appointments?date=${earliestPaymentDate}&range=today&view=timeline&appointmentId=${earliestPaymentId}&triggerFocus=true`);
-            } else {
-              navigate('/receptionist/appointments?triggerFocus=true');
-            }
-          };
-        }
+        const mascotBadgeColor: 'rose' | 'emerald' | 'amber' = 'amber';
+        const mascotTooltip = `Có ${pendingPaymentCount} ca hẹn cần thanh toán!`;
+        const mascotOnClick = () => {
+          // Điều hướng tới ĐÚNG lịch hẹn đó để lễ tân tự xem & chọn cách thu tiền phù hợp (khám lẻ
+          // hay đợt 2 của gói) — KHÔNG nhảy thẳng vào /receptionist/billing, vì cách đó luôn tự tạo
+          // 1 hóa đơn khám mới bất kể ca đó thực chất đang nợ đợt 2 của gói (hóa đơn đã có sẵn).
+          if (earliestPaymentId && earliestPaymentDate) {
+            navigate(`/receptionist/appointments?date=${earliestPaymentDate}&range=today&view=timeline&appointmentId=${earliestPaymentId}&triggerFocus=true`);
+          } else {
+            navigate('/receptionist/appointments?triggerFocus=true');
+          }
+        };
 
         return (
           <MascotWidget

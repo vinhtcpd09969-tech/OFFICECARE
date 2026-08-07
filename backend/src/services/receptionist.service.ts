@@ -20,68 +20,8 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
 };
 
 class ReceptionistService {
-  async getTodayAppointments() {
-    const rows = await receptionistRepository.getTodayAppointments();
-    return {
-      cho_xac_nhan: rows.filter(r => r.trang_thai === 'cho_xac_nhan'),
-      da_xac_nhan: rows.filter(r => r.trang_thai === 'da_xac_nhan'),
-      da_checkin: rows.filter(r => r.trang_thai === 'da_checkin'),
-      hoan_thanh: rows.filter(r => r.trang_thai === 'hoan_thanh'),
-    };
-  }
-
-  async getDashboardData() {
-    const rows = await receptionistRepository.getTodayAppointments();
-    const appointments = rows.map(r => {
-      let frontendStatus = '';
-      if (r.loai_lich === 'KHAM' || r.loai_lich === 'kham_moi') {
-        if (['cho_xac_nhan', 'da_xac_nhan', 'da_checkin'].includes(r.trang_thai)) {
-          frontendStatus = 'Cho khao sat';
-        } else if (r.trang_thai === 'hoan_thanh') {
-          frontendStatus = 'Hoan thanh';
-        }
-      } else {
-        if (['dang_thuc_hien', 'da_checkin', 'dang_dieu_tri'].includes(r.trang_thai)) {
-          frontendStatus = 'Dang dieu tri';
-        } else if (r.trang_thai === 'hoan_thanh') {
-          frontendStatus = 'Hoan thanh';
-        }
-      }
-
-      const formatTime = (isoString: string | Date) => {
-        if (!isoString) return '';
-        const d = new Date(isoString);
-        return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
-      };
-
-      const start = formatTime(r.ngay_gio_bat_dau);
-      const end = formatTime(r.ngay_gio_ket_thuc);
-      const gio = start && end ? `${start} - ${end}` : start;
-
-      return {
-        id: r.id,
-        ma_lich_dat: r.ma_lich_dat,
-        ten_khach_hang: r.ten_khach_hang,
-        sdt_khach_hang: r.sdt_khach_hang,
-        ten_dich_vu: r.ten_dich_vu,
-        bac_si: r.ten_ky_thuat_vien,
-        gio,
-        trang_thai: frontendStatus,
-      };
-    }).filter(appt => appt.trang_thai !== '');
-
-    const pending = appointments.filter(a => a.trang_thai === 'Cho khao sat').length;
-    const active = appointments.filter(a => a.trang_thai === 'Dang dieu tri').length;
-    const completed = appointments.filter(a => a.trang_thai === 'Hoan thanh').length;
-
-    return {
-      appointments,
-      stats: { pending, active, completed }
-    };
-  }
-
   async updateAppointmentStatus(id: string, trang_thai: string, ghi_chu_noi_bo?: string, ly_do_huy?: string) {
-    const currentApt = await pool.query('SELECT trang_thai, nhan_su_id, ngay_gio_bat_dau FROM cuoc_hen WHERE id = $1', [id]);
+    const currentApt = await pool.query('SELECT trang_thai, nhan_su_id FROM cuoc_hen WHERE id = $1', [id]);
     if (currentApt.rows.length === 0) throw new Error('Không tìm thấy lịch hẹn');
     const currentStatus = currentApt.rows[0].trang_thai;
 
@@ -97,7 +37,7 @@ class ReceptionistService {
     }
 
     if (trang_thai !== currentStatus) {
-      const check = checkReceptionistTransition(currentStatus, trang_thai, !!currentApt.rows[0].nhan_su_id, currentApt.rows[0].ngay_gio_bat_dau);
+      const check = checkReceptionistTransition(currentStatus, trang_thai, !!currentApt.rows[0].nhan_su_id);
       if (!check.allowed) {
         const err = new Error(check.reason) as any;
         err.statusCode = 403;
@@ -113,15 +53,6 @@ class ReceptionistService {
     if (!appointment) throw new Error('Không tìm thấy lịch hẹn');
 
     return appointment;
-  }
-
-  async getReceptionistStats() {
-    const stats = await receptionistRepository.getReceptionistStats();
-    return {
-      checkin: parseInt(stats.checkin_count),
-      waiting: parseInt(stats.waiting_count),
-      total: parseInt(stats.total_today)
-    };
   }
 
   async createBillingFromAppointment(lich_dat_id: string) {
@@ -725,6 +656,14 @@ class ReceptionistService {
     }
 
     return { requiredAmount, giaGocGoi };
+  }
+
+  async markPayOSLinkCreated(hoa_don_id: string) {
+    return receptionistRepository.markPayOSLinkCreated(hoa_don_id);
+  }
+
+  async revertPayOSPending(hoa_don_id: string) {
+    return receptionistRepository.revertPayOSPending(hoa_don_id);
   }
 
   async processPayment(data: any) {

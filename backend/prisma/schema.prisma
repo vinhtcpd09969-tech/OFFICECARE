@@ -31,7 +31,6 @@ model nguoi_dung {
   vai_tro               vai_tro                 @relation(fields: [vai_tro_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   nhat_ky_buoi_dieu_tri nhat_ky_buoi_dieu_tri[]
   refresh_tokens        refresh_tokens[]
-  tam_giu_cho           tam_giu_cho[]
   bai_viet              bai_viet[]
   danh_gia_as_nhan_su   danh_gia[]              @relation("danh_gia_nhan_su")
   danh_gia_phan_hoi     danh_gia[]              @relation("danh_gia_phan_hoi")
@@ -44,6 +43,10 @@ model ho_so_chuyen_gia {
   bang_cap_chung_chi String?
   mo_ta              String?
   the_manh           String[]   @default([])
+  // Số khách tối đa nhân sự này được gọi vào đồng thời — Chuyên viên VLTL mặc định 1 (lượng giá
+  // cần tập trung), KTV mặc định 2 (xen kẽ được khi khách nằm máy). Nhân với ngân sách phút của ca
+  // để ra tổng ngân sách phút riêng của người này (xem backend/src/domain/capacity.ts).
+  so_khach_song_song Int        @default(1) @db.SmallInt
   nguoi_dung         nguoi_dung @relation(fields: [nguoi_dung_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
@@ -109,6 +112,12 @@ model nhat_ky_buoi_dieu_tri {
   chong_chi_dinh String?
   ghi_chu        String?
   ngay_tao       DateTime        @default(now()) @db.Timestamptz(6)
+  // Nội dung buổi Lượng giá — { rom: [...], mmt: [...] }. JSONB thay vì cột rời: gần nửa số buổi
+  // (buổi trị liệu) sẽ luôn NULL nếu tách cột (xem docs/BUSINESS_RULES.md khảo sát dữ liệu thật).
+  du_lieu_luong_gia Json?        @db.JsonB
+  // Nhật ký thao tác buổi trị liệu — { nhat_ky: [{ luc, noi_dung, thiet_bi_id?, phut? }] }. Thao
+  // tác "Đưa vào máy" tự sinh 1 mục; KTV chỉ gõ tay các bước làm thủ công.
+  du_lieu_tri_lieu  Json?        @db.JsonB
   chi_dinh_buoi  chi_dinh_buoi[]
   cuoc_hen       cuoc_hen        @relation(fields: [cuoc_hen_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   nguoi_dung     nguoi_dung      @relation(fields: [nguoi_tao_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -157,6 +166,15 @@ model cuoc_hen {
   thoi_gian_khong_den   DateTime?              @db.Timestamptz(6)
   nguoi_tao_id          Int?
   ly_do_huy             String?
+  // sáng ('sang') / chiều ('chieu') — đơn vị đặt lịch mới, thay cho giờ cụ thể.
+  buoi                  String                 @db.VarChar(10)
+  // Hạn quay lại do chuyên viên đặt khi chuyển sang trạng thái chờ tái lượng giá.
+  han_tai_kham          DateTime?              @db.Date
+  // Tách khỏi `trang_thai` (chỉ còn ý nghĩa lâm sàng) — chua_thanh_toan / dang_cho_thanh_toan / da_thanh_toan.
+  trang_thai_thanh_toan String                 @default("chua_thanh_toan") @db.VarChar(20)
+  // Phân loại nguồn hủy — khach_huy_som (cửa sổ 60 phút, không phạt) / khach_huy / phong_kham_huy
+  // (đổi buổi miễn phí, không trừ hạn mức). NULL nếu chưa hủy.
+  loai_huy              String?                @db.VarChar(20)
   goi_dich_vu           goi_dich_vu?           @relation(fields: [goi_dich_vu_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   khach_hang            khach_hang             @relation(fields: [khach_hang_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   nguoi_dung            nguoi_dung?            @relation(fields: [nhan_su_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -167,6 +185,8 @@ model cuoc_hen {
   hoa_don               hoa_don[]
   nhat_ky_buoi_dieu_tri nhat_ky_buoi_dieu_tri?
   so_dien_thoai         String?                @db.VarChar(20)
+  phien_lam_viec        phien_lam_viec[]
+  thiet_bi_dang_dung    thiet_bi[]             @relation("thiet_bi_dang_su_dung_boi")
 }
 
 model goi_dich_vu {
@@ -186,7 +206,6 @@ model goi_dich_vu {
   chi_dinh_buoi     chi_dinh_buoi[]
   cuoc_hen          cuoc_hen[]
   phac_do_dieu_tri  phac_do_dieu_tri[]
-  tam_giu_cho       tam_giu_cho[]
   danh_gia          danh_gia[]
 }
 
@@ -225,7 +244,14 @@ model hoa_don {
   // Phí khám lâm sàng tại đúng thời điểm chốt hóa đơn gói (được miễn hoặc khấu trừ vào gói).
   // Bắt buộc snapshot: hóa đơn khám được miễn bị ghi đè tong_tien_phai_tra = 0, nên nếu không lưu
   // ở đây thì lúc hủy gói không còn cách nào biết đã miễn cho khách bao nhiêu để truy thu lại.
+  // NGỪNG GHI MỚI (C11) — buổi Lượng giá giờ bắt buộc thu trước, không còn cơ chế miễn phí khám.
   phi_kham_ap_dung         BigInt                 @default(0)
+  // Snapshot % phạt hủy gói tại thời điểm bán — đọc từ cấu hình tập trung lúc tạo hóa đơn, KHÔNG
+  // đổi theo cấu hình hiện hành lúc hủy (điều khoản hợp đồng không hồi tố). Xem A15b.
+  ti_le_phat_huy_goi       Int?                   @db.SmallInt
+  // A15 — mốc tạo link thanh toán PayOS gần nhất, dùng để sweep tự đảo cuoc_hen.trang_thai_thanh_toan
+  // (dang_cho_thanh_toan) về chua_thanh_toan sau 15 phút không có webhook xác nhận.
+  thoi_diem_tao_link_thanh_toan DateTime?          @db.Timestamptz(6)
   ngay_tao                 DateTime               @default(now()) @db.Timestamptz(6)
   giao_dich_thanh_toan     giao_dich_thanh_toan[]
   cuoc_hen                 cuoc_hen?              @relation(fields: [cuoc_hen_id], references: [id], onUpdate: NoAction)
@@ -261,6 +287,10 @@ model khuyen_mai_voucher {
   so_luong_gioi_han  Int?
   dang_kich_hoat     Boolean   @default(true)
   yeu_cau_thanh_toan String[] @default(["tat_ca"])
+  // Điều kiện lọc chi tiết cho mã tự động (B13) — xem docs/BUSINESS_RULES.md.
+  tu_dong_ap_dung    Boolean   @default(false)
+  kenh_ap_dung       String[]  @default([])
+  loai_goi_ap_dung   String[]  @default([])
   hoa_don            hoa_don[]
 }
 
@@ -322,32 +352,47 @@ model phong_lam_viec {
   mo_ta             String?
   cuoc_hen          cuoc_hen[]
   lich_truc_nhan_su lich_truc_nhan_su[]
+  thiet_bi          thiet_bi[]
 }
 
 model thiet_bi {
-  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  ma_thiet_bi  String    @unique @db.VarChar(50)
-  ten_thiet_bi String    @db.VarChar(150)
-  ngay_mua     DateTime? @db.Date
-  trang_thai   String    @default("san_sang") @db.VarChar(20)
-  ghi_chu      String?
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ma_thiet_bi        String           @unique @db.VarChar(50)
+  ten_thiet_bi       String           @db.VarChar(150)
+  ngay_mua           DateTime?        @db.Date
+  trang_thai         String           @default("san_sang") @db.VarChar(20)
+  ghi_chu            String?
+  // Chiếm dụng tức thời (A17c) — TÁCH KHỎI trang_thai (vòng đời do Admin quản: san_sang/dang_bao_tri/hong).
+  // Hệ thống KHÔNG được ghi vào trang_thai, chỉ ghi 2 cột này; UI suy ra nhãn "Đang sử dụng" từ đây.
+  dang_su_dung_boi   String?          @db.Uuid
+  ban_den_luc        DateTime?        @db.Timestamptz(6)
+  // Phòng đặt máy — chỉ để hiển thị/lọc, TUYỆT ĐỐI không dùng để suy sức chứa (vẫn là phong_lam_viec.suc_chua).
+  phong_id           Int?
+  cuoc_hen_dang_dung cuoc_hen?        @relation("thiet_bi_dang_su_dung_boi", fields: [dang_su_dung_boi], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  phong              phong_lam_viec?  @relation(fields: [phong_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  phien_lam_viec     phien_lam_viec[]
 }
 
-model tam_giu_cho {
-  id                String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  session_id        String       @unique @db.VarChar(100)
-  ngay_gio_bat_dau  DateTime     @db.Timestamptz(6)
-  ngay_gio_ket_thuc DateTime     @db.Timestamptz(6)
-  nhan_su_id        Int?
-  goi_dich_vu_id    String?      @db.Uuid
-  thoi_gian_het_han DateTime     @db.Timestamptz(6)
-  thoi_gian_tao     DateTime?    @default(now()) @db.Timestamptz(6)
-  khach_hang_id     String?      @db.Uuid
-  so_dien_thoai     String?
-  goi_dich_vu       goi_dich_vu? @relation(fields: [goi_dich_vu_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  nguoi_dung        nguoi_dung?  @relation(fields: [nhan_su_id], references: [id], onUpdate: NoAction)
+// Trạng thái vận hành CHỈ CÓ Ý NGHĨA lúc khách đang ở phòng khám — tách khỏi cuoc_hen để chống phình
+// bảng trung tâm. 1 cuoc_hen có thể có NHIỀU phien_lam_viec (lượng giá lần đầu + tái lượng giá là
+// 2 phiên của cùng 1 lịch hẹn — xem lan_thu).
+model phien_lam_viec {
+  id                      String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cuoc_hen_id             String    @db.Uuid
+  lan_thu                 Int       @default(1) @db.SmallInt
+  so_thu_tu_hang_doi      Int?
+  thoi_gian_goi_vao       DateTime? @db.Timestamptz(6)
+  so_lan_goi_khong_co_mat Int       @default(0) @db.SmallInt
+  // dang_thuc_hien / dang_tren_may / cho_ktv (A17c) — KHÔNG đụng trang_thai của cuoc_hen.
+  giai_doan_hien_tai      String?   @db.VarChar(20)
+  may_bat_dau_luc         DateTime? @db.Timestamptz(6)
+  may_ket_thuc_du_kien    DateTime? @db.Timestamptz(6)
+  thiet_bi_id             String?   @db.Uuid
+  thoi_gian_tao           DateTime  @default(now()) @db.Timestamptz(6)
+  cuoc_hen                cuoc_hen  @relation(fields: [cuoc_hen_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  thiet_bi                thiet_bi? @relation(fields: [thiet_bi_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
-  @@index([thoi_gian_het_han], map: "idx_tam_giu_cho_het_han")
+  @@index([cuoc_hen_id])
 }
 
 model bai_viet {

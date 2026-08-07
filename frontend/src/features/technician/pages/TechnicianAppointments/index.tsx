@@ -12,9 +12,7 @@ import { CapacityView } from '../../../../components/appointments/ui/CapacityVie
 import { getAppointments, getDoctorSchedules, DoctorAppointment, DoctorSchedule } from '../../../doctor/api/doctor.api';
 import { computeAppointmentKpiBuckets, KPI_BUCKET_STATUSES, KPI_BUCKET_LABELS, AppointmentKpiBuckets } from '../../../../utils/appointmentKpi';
 import { ActiveFilterChip } from '../../../../components/appointments/ui/ActiveFilterChip';
-import { getClinicalStatusConfig } from '../../../../components/appointmentStatusConfig';
-
-const STATUS_CONFIG = getClinicalStatusConfig('technician');
+import { statusConfig as STATUS_CONFIG } from '../../../../components/appointmentStatusConfig';
 
 export default function TechnicianAppointments() {
   const navigate = useNavigate();
@@ -192,7 +190,7 @@ export default function TechnicianAppointments() {
 
   // Khi KTV click vào 1 card hẹn trên calendar
   const handleOpenDetailModal = useCallback((apt: any) => {
-    if (['cho_kham', 'dang_kham', 'da_checkin'].includes(apt.trang_thai)) {
+    if (['dang_kham', 'da_checkin'].includes(apt.trang_thai)) {
       setConfirmApt(apt);
     } else {
       setSelectedApt(apt);

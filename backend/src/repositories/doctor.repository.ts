@@ -105,7 +105,7 @@ class DoctorRepository {
       ) shift_room ON TRUE
       WHERE ch.nhan_su_id = $1::integer 
         AND ${loaiCondition}
-        AND ch.trang_thai IN ('cho_kham', 'dang_kham', 'check_in', 'cho_xac_nhan', 'da_xac_nhan', 'da_checkin')
+        AND ch.trang_thai IN ('dang_kham', 'check_in', 'da_xac_nhan', 'da_checkin')
         AND DATE(ch.ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh') = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh')
       ORDER BY ch.ngay_gio_bat_dau ASC;
     `;
@@ -226,6 +226,8 @@ class DoctorRepository {
         ch.trang_thai,
         dv.ten_goi as ten_dich_vu,
         nk.ghi_chu as ghi_chu,
+        nk.vas_truoc as vas_truoc,
+        nk.vas_sau as vas_sau,
         nd_nhan_su.ho_ten as ten_nhan_su,
         nd_nhan_su.anh_dai_dien as anh_nhan_su
       FROM cuoc_hen ch

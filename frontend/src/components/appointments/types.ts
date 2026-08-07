@@ -17,10 +17,15 @@ export interface Appointment {
   anh_dinh_kem_url?: string;
   trang_thai: string;
   thoi_gian_tao?: string;
+  thoi_gian_checkin?: string | null;
   han_xac_nhan?: string;
+  buoi?: 'sang' | 'chieu';
+  thoi_luong_phut?: number;
   bac_si_id?: string | number | null;
   phong_id?: string | number | null;
   ten_dich_vu?: string;
+  ten_ky_thuat_vien?: string | null;
+  ten_phong?: string | null;
   dich_vu_id?: string | number | null;
   loai_lich?: string;
   loai_goi?: string;

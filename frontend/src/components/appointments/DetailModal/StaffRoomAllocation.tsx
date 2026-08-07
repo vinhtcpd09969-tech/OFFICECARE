@@ -1,4 +1,5 @@
 import { resolveImageUrl } from '../../../utils/imageUrl';
+import { statusConfig } from '../../appointmentStatusConfig';
 
 interface StaffRoomAllocationProps {
   selectedAppointment: any;
@@ -10,12 +11,18 @@ interface StaffRoomAllocationProps {
   assignStatus: string;
   isReceptionist: boolean;
   isLocked?: boolean;
+  /** B15 — chỉ true khi ca CHƯA bắt đầu (đã xác nhận/đã check-in) hoặc ĐANG THỰC HIỆN. Admin/Quản
+   * lý không được đổi nhân sự ngoài 2 trạng thái này (hoàn thành/đã hủy/không đến/chờ tái lượng giá). */
+  isReassignAllowed: boolean;
+  buoi: 'sang' | 'chieu';
+  /** null = chưa tải xong (bỏ qua kiểm tra ngân sách tạm thời, tránh chớp nhầm "không đủ"). */
+  staffBudget: Record<string, { conLai: number; soKhachSongSong: number }> | null;
+  serviceDurationMinutes: number;
   staffList: any[];
   schedulesList: any[];
   aptDateStr: string;
   aptStartHourStr: string;
   aptEndHourStr: string;
-  occupiedStaffIds: any[];
   appointments?: any[];
 }
 
@@ -29,35 +36,19 @@ export function StaffRoomAllocation({
   assignStatus: _assignStatus,
   isReceptionist: _isReceptionist,
   isLocked = false,
+  isReassignAllowed,
+  buoi,
+  staffBudget,
+  serviceDurationMinutes,
   staffList,
   schedulesList,
   aptDateStr,
   aptStartHourStr,
   aptEndHourStr,
-  occupiedStaffIds,
   appointments = []
 }: StaffRoomAllocationProps) {
   const hasAssignedStaff = !!selectedAppointment?.bac_si_id || !!selectedAppointment?.chuyen_gia_id;
-  // Lịch còn "chưa xác nhận" nghĩa là CHƯA có tín hiệu xác thực nào (khách chưa OTP, Lễ tân chưa
-  // gọi) — khớp đúng quy tắc đối xứng ở appointment.service.ts::confirmOTPAppointment (targetStatus
-  // = nhan_su_id ? da_xac_nhan : cho_xac_nhan). Nếu cho phép phân bổ nhân sự ngay từ lúc này, chỉ
-  // riêng thao tác gán nhân sự (không kèm xác thực gì) có thể vô tình đẩy lịch lên "Đã xác nhận"
-  // trong khi khách chưa hề xác nhận sẽ đến. Khóa hẳn cho tới khi trạng thái rời khỏi chua_xac_nhan.
-  const isUnverified = selectedAppointment?.trang_thai === 'chua_xac_nhan';
-  const isEditable = !isUnverified && !(_isReceptionist && (hasAssignedStaff || isLocked));
-
-  if (!_isReceptionist && isUnverified && !hasAssignedStaff) {
-    return (
-      <div className="space-y-3">
-        <h4 className="text-xs font-bold text-slate-400 dark:text-zinc-555 uppercase tracking-wider border-b border-slate-100 dark:border-zinc-800 pb-1.5">
-          Điều phối lâm sàng
-        </h4>
-        <div className="py-6 px-4 text-center text-xs font-bold text-slate-450 dark:text-zinc-500 border border-dashed border-slate-200 dark:border-zinc-800/80 rounded-2xl select-none leading-relaxed">
-          🔒 Chờ khách xác thực OTP hoặc Lễ tân liên hệ xác nhận trước khi phân bổ nhân sự.
-        </div>
-      </div>
-    );
-  }
+  const isEditable = isReassignAllowed && !(_isReceptionist && (hasAssignedStaff || isLocked));
 
   // Lễ tân không có quyền chọn nhân sự — khi ca chưa được Quản lý phân bổ, ẩn hẳn phần
   // nhân sự + phòng thay vì hiển thị dạng thẻ chọn được. Khi đã có nhân sự (dù khách tự
@@ -75,9 +66,13 @@ export function StaffRoomAllocation({
     );
   }
 
+  // aptStartHourStr/aptEndHourStr là mốc buổi danh nghĩa (vd 07:30-12:00) — chỉ cần GIAO NHAU với
+  // ca trực, không bắt ca trực phủ trọn buổi: nhân sự trực 07:00-16:00 vẫn hợp lệ cho buổi chiều
+  // (12:00-19:30), chỉ là phủ MỘT PHẦN, cần cảnh báo rõ chứ không loại hẳn (giống cảnh báo đã có
+  // ở form đặt lịch tại quầy — WalkInBookingModal.tsx).
   const getStaffDutyStatus = (staff: any) => {
     if (!schedulesList || schedulesList.length === 0) {
-      return { hasDuty: true, label: '' };
+      return { hasDuty: true, label: '', isPartial: false };
     }
 
     const staffSchedules = schedulesList.filter(s =>
@@ -86,23 +81,57 @@ export function StaffRoomAllocation({
     );
 
     if (staffSchedules.length === 0) {
-      return { hasDuty: false, label: 'Không trực hôm nay' };
+      return { hasDuty: false, label: 'Không trực hôm nay', isPartial: false };
     }
 
     const activeSchedule = staffSchedules.find(s => s.trang_thai === 'hoat_dong');
     if (!activeSchedule) {
-      return { hasDuty: false, label: 'Nghỉ phép cả ngày' };
+      return { hasDuty: false, label: 'Nghỉ phép cả ngày', isPartial: false };
     }
 
     const dutyStart = activeSchedule.gio_bat_dau.substring(0, 5);
     const dutyEnd = activeSchedule.gio_ket_thuc.substring(0, 5);
 
-    const isCovered = dutyStart <= aptStartHourStr && dutyEnd >= aptEndHourStr;
-    if (!isCovered) {
-      return { hasDuty: false, label: `Trực ca ${dutyStart}-${dutyEnd}` };
+    // Nhân sự đã TAN CA THẬT (giờ hiện tại đã qua giờ kết thúc ca trực) khi ngày đang xét là HÔM
+    // NAY — họ không còn ở phòng khám nữa nên phải khóa hẳn, không chỉ cảnh báo phủ một phần. Cùng
+    // lỗi đã sửa ở WalkInBookingModal.tsx (nơi TẠO lịch mới) — đây là nơi ĐỔI nhân sự cho lịch đã
+    // có, dùng chung nguyên tắc.
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    if (aptDateStr === todayStr) {
+      const nowMinutes = now.getHours() * 60 + now.getMinutes();
+      const [endH, endM] = dutyEnd.split(':').map(Number);
+      if (nowMinutes >= endH * 60 + endM) {
+        return { hasDuty: false, label: `Đã tan ca (${dutyStart}-${dutyEnd}) — không còn tại phòng khám`, isPartial: false };
+      }
     }
 
-    return { hasDuty: true, label: `Trực ca ${dutyStart}-${dutyEnd}` };
+    const overlaps = dutyStart < aptEndHourStr && dutyEnd > aptStartHourStr;
+    if (!overlaps) {
+      return { hasDuty: false, label: `ca trực ${dutyStart}-${dutyEnd} không trùng buổi này`, isPartial: false };
+    }
+
+    const isPartial = dutyStart > aptStartHourStr || dutyEnd < aptEndHourStr;
+    return { hasDuty: true, label: `Trực ${dutyStart}-${dutyEnd}`, isPartial, dutyEnd };
+  };
+
+  // B15 — số ca ĐANG THỰC HIỆN (dang_kham) của nhân sự này, đúng buổi/ngày đang xét — đối chiếu với
+  // soKhachSongSong (Lớp 3 — giới hạn bàn song song), tách biệt với ngân sách phút (Lớp 1).
+  const getDangKhamCount = (staffId: any) => {
+    return appointments.filter((apt) => {
+      if (String(apt.id) === String(selectedAppointment.id)) return false;
+      if (apt.trang_thai !== 'dang_kham') return false;
+      if (apt.buoi !== buoi) return false;
+      const assignedId = apt.bac_si_id || apt.chuyen_gia_id;
+      if (String(assignedId) !== String(staffId)) return false;
+      try {
+        const d = new Date(apt.ngay_gio_bat_dau);
+        const dStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        return dStr === aptDateStr;
+      } catch (e) {
+        return false;
+      }
+    }).length;
   };
 
   const getAvatarInitials = (name: string) => {
@@ -143,6 +172,14 @@ export function StaffRoomAllocation({
         Điều phối lâm sàng
       </h4>
 
+      {!isReassignAllowed && (
+        <div className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5">
+          🔒 Không thể đổi nhân sự — ca này đã{' '}
+          <strong>{statusConfig[selectedAppointment.trang_thai]?.label || selectedAppointment.trang_thai}</strong>.
+          Chỉ đổi được khi ca chưa bắt đầu (đã xác nhận/đã check-in) hoặc đang thực hiện.
+        </div>
+      )}
+
       {/* 1. NHÂN SỰ PHỤ TRÁCH */}
       <div className="space-y-2">
         <div className="flex justify-between items-center">
@@ -169,8 +206,29 @@ export function StaffRoomAllocation({
             displayedStaff.map(staff => {
               const staffId = staff.id;
               const duty = getStaffDutyStatus(staff);
-              const isAvailable = duty.hasDuty && !occupiedStaffIds.includes(staffId);
               const isSelected = String(assignStaffId) === String(staffId);
+
+              // B15 — Lớp 3 (bàn song song): số ca đang thực hiện ngay bây giờ so với cấu hình
+              // song song của nhân sự đó (mặc định 1 nếu chưa tải xong ngân sách).
+              const budgetInfo = staffBudget ? staffBudget[String(staffId)] : null;
+              const soKhachSongSong = budgetInfo?.soKhachSongSong ?? 1;
+              const dangKhamCount = getDangKhamCount(staffId);
+              const isParallelFull = dangKhamCount >= soKhachSongSong;
+
+              // Lớp 1 (ngân sách phút): bỏ qua kiểm tra khi staffBudget còn null (đang tải) để
+              // tránh chớp nhầm "không đủ" trước khi có dữ liệu thật.
+              const hasEnoughBudget = !staffBudget || !budgetInfo || budgetInfo.conLai >= serviceDurationMinutes;
+
+              const isAvailable = duty.hasDuty && !isParallelFull && hasEnoughBudget;
+
+              let blockReason: string | null = null;
+              if (!duty.hasDuty) {
+                blockReason = duty.label || 'không trực buổi này';
+              } else if (isParallelFull) {
+                blockReason = `đang thực hiện đủ ${dangKhamCount}/${soKhachSongSong} ca song song`;
+              } else if (!hasEnoughBudget && budgetInfo) {
+                blockReason = `chỉ còn ${budgetInfo.conLai} phút, ca này cần ${serviceDurationMinutes} phút`;
+              }
 
               // Calculate occupied count for this staff on the target date
               const staffAptsCount = appointments.filter(apt => {
@@ -183,8 +241,7 @@ export function StaffRoomAllocation({
                 return String(assignedId) === String(staffId) &&
                   aptDStr === aptDateStr &&
                   apt.trang_thai !== 'da_huy' &&
-                  apt.trang_thai !== 'khong_den' &&
-                  apt.trang_thai !== 'giu_cho';
+                  apt.trang_thai !== 'khong_den';
               }).length;
 
               return (
@@ -232,12 +289,25 @@ export function StaffRoomAllocation({
                         }`}>
                         {isAvailable ? 'Sẵn sàng' : 'Không khả dụng'}
                       </span>
-                      {duty.label && (
-                        <span className="text-[9px] text-slate-400 dark:text-zinc-555 font-bold truncate">
-                          {duty.label.replace('Trực ca ', '')}
-                        </span>
+                      {isAvailable && duty.label && (
+                        duty.isPartial ? (
+                          <span className="text-[9px] text-amber-600 dark:text-amber-450 font-black truncate">
+                            ⚠️ {duty.label} — chỉ nhận khách đến trước {duty.dutyEnd}
+                          </span>
+                        ) : (
+                          <span className="text-[9px] text-slate-400 dark:text-zinc-555 font-bold truncate">
+                            {duty.label}
+                          </span>
+                        )
                       )}
                     </div>
+                    {/* B15 — ghi chú lý do CỤ THỂ ngay dưới nhân sự khi không phân bổ được, thay vì
+                        chỉ có badge "Không khả dụng" trơ trọi không nói được vì sao. */}
+                    {!isAvailable && blockReason && (
+                      <p className="text-[9px] text-rose-600 dark:text-rose-450 font-bold mt-1 leading-snug">
+                        ❌ Không thể phân bổ vì {blockReason}
+                      </p>
+                    )}
                   </div>
                 </div>
               );

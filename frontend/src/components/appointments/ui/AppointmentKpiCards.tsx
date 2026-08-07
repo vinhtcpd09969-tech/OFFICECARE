@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Calendar, AlertCircle, CalendarCheck, MapPin, Stethoscope, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
+import { Calendar, CalendarCheck, MapPin, Stethoscope, RotateCcw, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 import { AppointmentKpiBuckets } from '../../../utils/appointmentKpi';
 
 type FilterableBucketKey = Exclude<keyof AppointmentKpiBuckets, 'total'>;
@@ -42,7 +42,7 @@ export function AppointmentKpiCards({
   activeStatusFilter = null,
   onSelectStatus
 }: AppointmentKpiCardsProps) {
-  const { total, choXacNhan, daXacNhan, daCheckin, dangKham, hoanThanh, daHuy, khongDen } = kpis;
+  const { total, daXacNhan, daCheckin, dangKham, choTaiLuongGia, hoanThanh, daHuy, khongDen } = kpis;
 
   // Calculate percentages for circular rings
   const getPercentage = (value: number, base: number) => {
@@ -78,7 +78,7 @@ export function AppointmentKpiCards({
   const isKham = activeType === 'kham';
   const isStaff = role === 'doctor' || role === 'technician';
 
-  // Định nghĩa đủ 8 thẻ theo đúng 8 nhóm trạng thái dùng chung (utils/appointmentKpi.ts) — mỗi
+  // Định nghĩa đủ 7 thẻ theo đúng 7 nhóm trạng thái dùng chung (utils/appointmentKpi.ts) — mỗi
   // actor chỉ chọn hiển thị 1 tập con (xem `stats` bên dưới), giữ nguyên màu/icon khớp với
   // appointmentStatusConfig.ts để nhất quán với badge trạng thái ở mọi nơi khác trong app.
   const allCards: Record<'total' | FilterableBucketKey, KpiCardDef> = {
@@ -96,19 +96,6 @@ export function AppointmentKpiCards({
       ringColor: 'stroke-[#0D9488]',
       accentHex: '#0D9488',
       icon: <Calendar className="text-[#0D9488]" size={18} />
-    },
-    choXacNhan: {
-      key: 'choXacNhan',
-      title: 'Chờ xác nhận',
-      value: choXacNhan,
-      subtext: 'Thiếu 1 trong 2: nhân sự hoặc xác nhận',
-      subtextColor: 'text-amber-500',
-      pct: getPercentage(choXacNhan, total),
-      color: 'from-[#F59E0B] to-[#FBBF24]',
-      trackColor: 'stroke-amber-500/10',
-      ringColor: 'stroke-[#F59E0B]',
-      accentHex: '#F59E0B',
-      icon: <AlertCircle className="text-[#F59E0B]" size={18} />
     },
     daXacNhan: {
       key: 'daXacNhan',
@@ -138,7 +125,7 @@ export function AppointmentKpiCards({
     },
     dangKham: {
       key: 'dangKham',
-      title: isKham ? 'Đang khám' : 'Đang điều trị',
+      title: 'Đang thực hiện',
       value: dangKham,
       subtext: isKham ? 'Đang trong phòng khám' : 'Đang trong phòng trị liệu',
       subtextColor: 'text-emerald-500',
@@ -148,6 +135,19 @@ export function AppointmentKpiCards({
       ringColor: 'stroke-[#10B981]',
       accentHex: '#10B981',
       icon: <Stethoscope className="text-[#10B981]" size={18} />
+    },
+    choTaiLuongGia: {
+      key: 'choTaiLuongGia',
+      title: 'Chờ tái lượng giá',
+      value: choTaiLuongGia,
+      subtext: 'Đã chuyển tuyến, chờ khách quay lại',
+      subtextColor: 'text-amber-500',
+      pct: getPercentage(choTaiLuongGia, total),
+      color: 'from-[#F59E0B] to-[#FBBF24]',
+      trackColor: 'stroke-amber-500/10',
+      ringColor: 'stroke-[#F59E0B]',
+      accentHex: '#F59E0B',
+      icon: <RotateCcw className="text-[#F59E0B]" size={18} />
     },
     hoanThanh: {
       key: 'hoanThanh',
@@ -192,12 +192,15 @@ export function AppointmentKpiCards({
     }
   };
 
-  // Admin/Lễ tân thấy đủ 8 nhóm. Bác sĩ/KTV chỉ thấy phần thuộc trách nhiệm cá nhân: không có
-  // "Chờ xác nhận" (nếu chưa gán nhân sự thì chưa thuộc về họ) và không có "Đã hủy" (hủy giải
-  // phóng nhân sự/phòng nên ca đó không còn thuộc về họ nữa — xem appointment.repository.ts).
+  // Admin/Lễ tân chỉ còn thấy màn này ở "Bảng công suất" (nhiều ngày) — màn 1 ngày đã chuyển sang
+  // TodayFlowBoard. Ở tầm nhìn nhiều ngày, các trạng thái vận hành trong-ngày (check-in/đang thực
+  // hiện/chờ tái lượng giá) không có ý nghĩa gộp theo tuần, nên chỉ còn 4 tổng số kết thúc/đang chờ:
+  // Hoàn thành, Đã xác nhận (đang chờ tới ngày hẹn), Đã hủy, Không đến.
+  // Bác sĩ/KTV vẫn thấy đủ 7 nhóm thuộc trách nhiệm cá nhân (không có "Đã hủy" — hủy giải phóng
+  // nhân sự/phòng nên ca đó không còn thuộc về họ nữa, xem appointment.repository.ts).
   const cardKeys: Array<'total' | FilterableBucketKey> = isStaff
-    ? ['total', 'daXacNhan', 'daCheckin', 'dangKham', 'hoanThanh', 'khongDen']
-    : ['total', 'choXacNhan', 'daXacNhan', 'daCheckin', 'dangKham', 'hoanThanh', 'daHuy', 'khongDen'];
+    ? ['total', 'daXacNhan', 'daCheckin', 'dangKham', 'choTaiLuongGia', 'hoanThanh', 'khongDen']
+    : ['hoanThanh', 'daXacNhan', 'daHuy', 'khongDen'];
 
   const stats = cardKeys.map((key) => allCards[key]);
 

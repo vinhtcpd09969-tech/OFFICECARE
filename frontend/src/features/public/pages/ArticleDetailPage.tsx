@@ -172,26 +172,20 @@ export default function ArticleDetailPage() {
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-5">
         
-        {/* Navigation Breadcrumb & Back Button */}
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        {/* Sleek E-Commerce Standard Breadcrumb Bar (Lazada Style) */}
+        <div className="mb-4 flex items-center gap-2 text-xs font-semibold text-slate-500 flex-wrap">
           <button
             type="button"
             onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/tin-tuc'))}
-            className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 text-xs font-extrabold rounded-xl border border-slate-200/90 shadow-2xs transition-all duration-200 group cursor-pointer"
+            className="inline-flex items-center gap-1.5 text-[#0D9488] font-extrabold hover:text-[#0b7a70] transition-colors cursor-pointer mr-1"
           >
-            <ArrowLeft className="w-3.5 h-3.5 text-[#0D9488] group-hover:-translate-x-1 transition-transform" />
-            <span>Trở lại</span>
+            <ArrowLeft size={14} />
+            <span>Quay lại</span>
           </button>
-
-          <div className="flex items-center gap-2 text-xs text-slate-500 font-semibold">
-            <Link to="/" className="hover:text-[#0D9488]">Trang chủ</Link>
-            <span>/</span>
-            <Link to="/tin-tuc" className="hover:text-[#0D9488]">Bài viết</Link>
-            <span>/</span>
-            <span className="text-[#0D9488] font-bold">
-              {DANH_MUC_LABELS[article.danh_muc] || article.danh_muc}
-            </span>
-          </div>
+          <span>/</span>
+          <Link to="/tin-tuc" className="hover:text-[#0D9488] transition-colors">Bài viết</Link>
+          <span>/</span>
+          <span className="text-slate-800 font-bold truncate max-w-sm">{article.tieu_de}</span>
         </div>
 
         {/* Header Article Card - Clean, Standard UX/UI Proportion */}

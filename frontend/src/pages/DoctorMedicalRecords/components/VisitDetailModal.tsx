@@ -4,6 +4,7 @@ import { X, Calendar, ShieldAlert, MessageSquareText, ImageIcon, BadgeCheck, Pac
 import { PatientVisit, TreatmentPlan } from '../../../features/doctor/api/doctor.api';
 import { resolveImageUrl } from '../../../utils/imageUrl';
 import { getStaffRoleTitle } from '../../../utils/staff';
+import { TreatmentSessionDetailBody } from '../../../components/TreatmentSessionDetailBody';
 
 interface VisitDetailModalProps {
   visit: PatientVisit;
@@ -80,10 +81,15 @@ export const VisitDetailModal: React.FC<VisitDetailModalProps> = ({ visit, linke
             </div>
           )}
         </>
+      ) : visit.ghi_chu || visit.vas_truoc != null || visit.vas_sau != null ? (
+        <TreatmentSessionDetailBody
+          ghiChu={visit.ghi_chu}
+          vasTruoc={visit.vas_truoc ?? null}
+          vasSau={visit.vas_sau ?? null}
+        />
       ) : (
         <div className="bg-slate-50/50 dark:bg-slate-900/30 border border-slate-150 dark:border-slate-800 p-4 rounded-2xl">
-          <p className="text-[11px] uppercase font-black text-slate-400 tracking-wider">Ghi chú buổi</p>
-          <p className="text-sm font-semibold text-slate-650 dark:text-slate-300 mt-1.5">{visit.ghi_chu || 'Chưa ghi nhận.'}</p>
+          <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 italic">Chưa ghi nhận nhật ký cho buổi này.</p>
         </div>
       )}
 

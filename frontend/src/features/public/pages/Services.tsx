@@ -172,7 +172,7 @@ export default function ServicesPage() {
   const countByTab = { ALL: allCount, KHAM: khamCount, LE: leCount, LIEU_TRINH: lieuTrinhCount };
 
   return (
-    <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50 pb-12 pt-24 font-jakarta transition-colors">
+    <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50 pb-12 pt-6 font-jakarta transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* Asymmetric Header */}

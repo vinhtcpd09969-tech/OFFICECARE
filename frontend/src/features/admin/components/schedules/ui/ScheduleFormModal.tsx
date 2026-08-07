@@ -91,7 +91,7 @@ export function ScheduleFormModal({
 
   return (
     <div className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200">
+      <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-100 dark:border-zinc-800 animate-in zoom-in-95 duration-200">
         
         {/* Header */}
         <div className="px-6 py-4.5 bg-gradient-to-r from-[#0D9488] to-teal-700 text-white flex justify-between items-center relative overflow-hidden">
@@ -119,14 +119,14 @@ export function ScheduleFormModal({
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-5 max-h-[85vh] overflow-y-auto no-scrollbar">
           
           {/* Staff Banner Card */}
-          <div className="bg-gradient-to-br from-teal-50/80 to-emerald-50/50 border border-teal-100 rounded-2xl p-3.5 flex items-center justify-between">
+          <div className="bg-gradient-to-br from-teal-50/80 to-emerald-50/50 dark:from-teal-950/60 dark:to-emerald-950/40 border border-teal-100 dark:border-teal-900/60 rounded-2xl p-3.5 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="size-11 rounded-2xl bg-[#0D9488] text-white flex items-center justify-center font-black text-sm shadow-sm shadow-teal-700/20">
                 {getAvatarInitials(selectedStaffName)}
               </div>
               <div>
-                <p className="text-sm font-extrabold text-slate-900">{selectedStaffName}</p>
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0D9488]">
+                <p className="text-sm font-extrabold text-slate-900 dark:text-zinc-100">{selectedStaffName}</p>
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0D9488] dark:text-teal-300">
                   <Sparkles size={11} /> {selectedStaffRole}
                 </span>
               </div>
@@ -136,20 +136,20 @@ export function ScheduleFormModal({
 
           {/* Current Schedule Summary if editing */}
           {editingSchedule && (
-            <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 space-y-1.5 select-none">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Thông tin ca trực hiện tại</span>
+            <div className="bg-slate-50 dark:bg-zinc-800/80 border border-slate-200/80 dark:border-zinc-700 rounded-2xl p-3.5 space-y-1.5 select-none">
+              <span className="text-[10px] font-black text-slate-400 dark:text-zinc-400 uppercase tracking-widest block">Thông tin ca trực hiện tại</span>
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div>
-                  <span className="text-slate-400 font-bold block mb-0.5">KHUNG GIỜ:</span>
-                  <p className="font-extrabold text-slate-800 flex items-center gap-1">
-                    <Clock size={12} className="text-[#0D9488]" />
+                  <span className="text-slate-400 dark:text-zinc-400 font-bold block mb-0.5">KHUNG GIỜ:</span>
+                  <p className="font-extrabold text-slate-800 dark:text-zinc-100 flex items-center gap-1">
+                    <Clock size={12} className="text-[#0D9488] dark:text-teal-400" />
                     {editingSchedule.gio_bat_dau?.slice(0, 5)} - {editingSchedule.gio_ket_thuc?.slice(0, 5)}
                   </p>
                 </div>
                 <div>
-                  <span className="text-slate-400 font-bold block mb-0.5">PHÒNG GÁN:</span>
-                  <p className="font-extrabold text-slate-800 flex items-center gap-1">
-                    <DoorOpen size={12} className="text-[#0D9488]" />
+                  <span className="text-slate-400 dark:text-zinc-400 font-bold block mb-0.5">PHÒNG GÁN:</span>
+                  <p className="font-extrabold text-slate-800 dark:text-zinc-100 flex items-center gap-1">
+                    <DoorOpen size={12} className="text-[#0D9488] dark:text-teal-400" />
                     {editingSchedule.ma_phong ? editingSchedule.ma_phong : 'Chưa gán phòng'}
                   </p>
                 </div>
@@ -159,7 +159,7 @@ export function ScheduleFormModal({
 
           {/* Date Picker Input */}
           <div>
-            <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-extrabold text-slate-700 dark:text-zinc-300 uppercase tracking-wider mb-1.5">
               Ngày Trực *
             </label>
             <div className="relative">
@@ -167,7 +167,7 @@ export function ScheduleFormModal({
                 type="date" 
                 disabled={isPastDate}
                 {...register('ngay')} 
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0D9488]/20 focus:border-[#0D9488] outline-none text-sm font-bold text-slate-800 transition-all disabled:opacity-60 disabled:cursor-not-allowed" 
+                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl focus:ring-2 focus:ring-[#0D9488]/20 focus:border-[#0D9488] outline-none text-sm font-bold text-slate-800 dark:text-zinc-100 transition-all disabled:opacity-60 disabled:cursor-not-allowed" 
               />
             </div>
             {errors.ngay && <p className="text-rose-500 text-xs mt-1 font-bold">{errors.ngay.message}</p>}
@@ -175,7 +175,7 @@ export function ScheduleFormModal({
 
           {/* Shift Selection (Visual Interactive Radio Cards) */}
           <div>
-            <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-extrabold text-slate-700 dark:text-zinc-300 uppercase tracking-wider mb-2">
               Ca Trực Thiết Lập *
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -187,13 +187,13 @@ export function ScheduleFormModal({
                 onClick={() => handleShiftTypeChange('morning')}
                 className={`p-3 rounded-2xl border text-left transition-all duration-200 relative cursor-pointer ${
                   selectedShiftType === 'morning'
-                    ? 'bg-teal-50/80 border-[#0D9488] text-[#0D9488] shadow-sm ring-2 ring-[#0D9488]/20 font-black'
-                    : 'bg-slate-50/60 border-slate-200/80 text-slate-700 hover:bg-slate-100/80 font-bold'
-                } ${disabledShiftsForSelected.morning ? 'opacity-40 cursor-not-allowed bg-slate-100' : ''}`}
+                    ? 'bg-teal-50/80 dark:bg-teal-950/60 border-[#0D9488] text-[#0D9488] dark:text-teal-300 shadow-sm ring-2 ring-[#0D9488]/20 font-black'
+                    : 'bg-slate-50/60 dark:bg-zinc-800 border-slate-200/80 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 hover:bg-slate-100/80 dark:hover:bg-zinc-700 font-bold'
+                } ${disabledShiftsForSelected.morning ? 'opacity-40 cursor-not-allowed bg-slate-100 dark:bg-zinc-800' : ''}`}
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs font-black flex items-center gap-1.5">
-                    <Sunrise size={14} className={selectedShiftType === 'morning' ? 'text-[#0D9488]' : 'text-amber-500'} /> Ca Sáng
+                    <Sunrise size={14} className={selectedShiftType === 'morning' ? 'text-[#0D9488] dark:text-teal-300' : 'text-amber-500'} /> Ca Sáng
                   </span>
                   {selectedShiftType === 'morning' && (
                     <div className="size-4 rounded-full bg-[#0D9488] text-white flex items-center justify-center">
@@ -201,7 +201,7 @@ export function ScheduleFormModal({
                     </div>
                   )}
                 </div>
-                <span className="text-[10px] text-slate-500 font-semibold block">
+                <span className="text-[10px] text-slate-500 dark:text-zinc-400 font-semibold block">
                   {selectedStaffRole === 'Lễ tân' ? '07:00 - 12:00' : '07:00 - 16:00'}
                 </span>
                 {disabledShiftsForSelected.morning && (
@@ -216,13 +216,13 @@ export function ScheduleFormModal({
                 onClick={() => handleShiftTypeChange('afternoon')}
                 className={`p-3 rounded-2xl border text-left transition-all duration-200 relative cursor-pointer ${
                   selectedShiftType === 'afternoon'
-                    ? 'bg-teal-50/80 border-[#0D9488] text-[#0D9488] shadow-sm ring-2 ring-[#0D9488]/20 font-black'
-                    : 'bg-slate-50/60 border-slate-200/80 text-slate-700 hover:bg-slate-100/80 font-bold'
-                } ${disabledShiftsForSelected.afternoon ? 'opacity-40 cursor-not-allowed bg-slate-100' : ''}`}
+                    ? 'bg-teal-50/80 dark:bg-teal-950/60 border-[#0D9488] text-[#0D9488] dark:text-teal-300 shadow-sm ring-2 ring-[#0D9488]/20 font-black'
+                    : 'bg-slate-50/60 dark:bg-zinc-800 border-slate-200/80 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 hover:bg-slate-100/80 dark:hover:bg-zinc-700 font-bold'
+                } ${disabledShiftsForSelected.afternoon ? 'opacity-40 cursor-not-allowed bg-slate-100 dark:bg-zinc-800' : ''}`}
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs font-black flex items-center gap-1.5">
-                    <Sun size={14} className={selectedShiftType === 'afternoon' ? 'text-[#0D9488]' : 'text-amber-500'} /> Ca Chiều
+                    <Sun size={14} className={selectedShiftType === 'afternoon' ? 'text-[#0D9488] dark:text-teal-300' : 'text-amber-500'} /> Ca Chiều
                   </span>
                   {selectedShiftType === 'afternoon' && (
                     <div className="size-4 rounded-full bg-[#0D9488] text-white flex items-center justify-center">
@@ -230,7 +230,7 @@ export function ScheduleFormModal({
                     </div>
                   )}
                 </div>
-                <span className="text-[10px] text-slate-500 font-semibold block">
+                <span className="text-[10px] text-slate-500 dark:text-zinc-400 font-semibold block">
                   {selectedStaffRole === 'Lễ tân' ? '12:00 - 20:00' : '11:00 - 20:00'}
                 </span>
                 {disabledShiftsForSelected.afternoon && (
@@ -245,8 +245,8 @@ export function ScheduleFormModal({
                 onClick={() => handleShiftTypeChange('tam_nghi')}
                 className={`p-3 rounded-2xl border text-left transition-all duration-200 relative cursor-pointer ${
                   selectedShiftType === 'tam_nghi'
-                    ? 'bg-amber-50/80 border-amber-500 text-amber-800 shadow-sm ring-2 ring-amber-400/20 font-black'
-                    : 'bg-slate-50/60 border-slate-200/80 text-slate-700 hover:bg-slate-100/80 font-bold'
+                    ? 'bg-amber-50/80 dark:bg-amber-950/60 border-amber-500 text-amber-800 dark:text-amber-300 shadow-sm ring-2 ring-amber-400/20 font-black'
+                    : 'bg-slate-50/60 dark:bg-zinc-800 border-slate-200/80 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 hover:bg-slate-100/80 dark:hover:bg-zinc-700 font-bold'
                 }`}
               >
                 <div className="flex items-center justify-between mb-1">

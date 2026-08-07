@@ -222,6 +222,8 @@ export function DetailFooter({
           })()}
         </div>
       ) : (
+        // Ca CHƯA hoàn thành mà còn nợ tiền: nút "Thu tiền" giờ nằm NGAY CẠNH badge trạng thái lâm
+        // sàng ở đầu modal (A10c — "hai chỉ báo nằm cạnh nhau"), không lặp lại ở góc footer nữa.
         <div />
       )}
 

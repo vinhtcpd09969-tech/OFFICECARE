@@ -68,7 +68,7 @@ class AuthRepository {
 
   async saveOTP(email: string, otp: string, expiresAt: Date) {
     // Dọn mã OTP hết hạn của MỌI email — không có cron riêng, tận dụng luôn request tạo OTP mới
-    // (đăng ký/gửi lại/quên mật khẩu) làm điểm quét, giống cách tam_giu_cho tự dọn ở appointment.repository.ts.
+    // (đăng ký/gửi lại/quên mật khẩu) làm điểm quét.
     await prisma.otp_codes.deleteMany({ where: { expires_at: { lte: new Date() } } });
 
     await prisma.otp_codes.create({

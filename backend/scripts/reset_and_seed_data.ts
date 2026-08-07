@@ -32,7 +32,6 @@ async function main() {
     await prisma.nhat_ky_buoi_dieu_tri.deleteMany();
     await prisma.cuoc_hen.deleteMany();
     await prisma.phac_do_dieu_tri.deleteMany();
-    await prisma.tam_giu_cho.deleteMany();
     await prisma.lich_truc_nhan_su.deleteMany();
     await prisma.bai_viet.deleteMany();
 

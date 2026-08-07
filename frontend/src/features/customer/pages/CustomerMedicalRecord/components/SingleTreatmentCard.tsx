@@ -1,8 +1,9 @@
-import { Calendar, User, MapPin, ShieldAlert } from 'lucide-react';
+import { Calendar, User, MapPin } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { InvoiceSnippet } from './InvoiceSnippet';
 import { SessionRatingControl } from './SessionRatingControl';
+import { TreatmentSessionDetailBody } from '../../../../../components/TreatmentSessionDetailBody';
 import type { SingleTreatmentEntry } from '../types';
 
 interface SingleTreatmentCardProps {
@@ -28,31 +29,18 @@ export function SingleTreatmentCard({ item }: SingleTreatmentCardProps) {
 
         <h3 className="font-heading text-lg font-black text-secondary tracking-tight">{item.ten_dich_vu}</h3>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-1.5 text-xs text-zinc-600 font-semibold">
-            {item.ten_bac_si && <p className="flex items-center gap-1.5"><User size={14} /> {item.ten_bac_si}</p>}
-            {item.ten_phong && <p className="flex items-center gap-1.5"><MapPin size={14} /> {item.ten_phong}</p>}
-            {item.chan_doan && <p>Chẩn đoán: <span className="text-secondary font-bold">{item.chan_doan}</span></p>}
-          </div>
-          {item.chong_chi_dinh && (
-            <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl text-rose-700 text-xs flex gap-2">
-              <ShieldAlert size={16} className="shrink-0 mt-0.5" />
-              <div>
-                <p className="font-black uppercase tracking-wider text-rose-500 text-[9.5px]">Chống chỉ định</p>
-                <p className="font-semibold mt-0.5">{item.chong_chi_dinh}</p>
-              </div>
-            </div>
-          )}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-600 font-semibold">
+          {item.ten_bac_si && <p className="flex items-center gap-1.5"><User size={14} /> {item.ten_bac_si}</p>}
+          {item.ten_phong && <p className="flex items-center gap-1.5"><MapPin size={14} /> {item.ten_phong}</p>}
         </div>
 
-        {(item.vas_truoc !== null || item.vas_sau !== null) && (
-          <div className="inline-flex gap-4 p-2.5 px-3.5 bg-zinc-50 border border-zinc-100 rounded-xl text-xs font-semibold tabular-nums">
-            <span>VAS trước: <strong className="text-secondary">{item.vas_truoc ?? '—'}</strong></span>
-            <span>VAS sau: <strong className="text-primary">{item.vas_sau ?? '—'}</strong></span>
-          </div>
-        )}
-
-        {item.ghi_chu && <p className="text-xs text-zinc-500 italic">Ghi chú: "{item.ghi_chu}"</p>}
+        <TreatmentSessionDetailBody
+          chanDoan={item.chan_doan}
+          ghiChu={item.ghi_chu}
+          chongChiDinh={item.chong_chi_dinh}
+          vasTruoc={item.vas_truoc}
+          vasSau={item.vas_sau}
+        />
       </div>
 
       <div className="lg:w-72 shrink-0 flex flex-col gap-3.5">

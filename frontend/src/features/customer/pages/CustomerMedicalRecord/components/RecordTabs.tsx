@@ -11,10 +11,9 @@ interface RecordTabsProps {
 
 export function RecordTabs({ activeTab, goiCount, leCount, khamCount, onChange }: RecordTabsProps) {
   const tabClass = (tab: RecordTab) =>
-    `px-5 py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-all duration-300 flex items-center gap-2.5 cursor-pointer select-none ${
-      activeTab === tab
-        ? 'bg-white text-[#0D9488] shadow-md shadow-teal-500/10 border border-teal-500/20 scale-[1.02]'
-        : 'text-slate-500 hover:text-slate-800 hover:bg-white/50'
+    `px-5 py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-all duration-300 flex items-center gap-2.5 cursor-pointer select-none ${activeTab === tab
+      ? 'bg-white text-[#0D9488] shadow-md shadow-teal-500/10 border border-teal-500/20 scale-[1.02]'
+      : 'text-slate-500 hover:text-slate-800 hover:bg-white/50'
     }`;
 
   return (

@@ -660,12 +660,12 @@ export default function ManageStaff() {
               </div>
 
               {/* Custom Password Input and Update Section */}
-              <div className="p-5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-850 rounded-2xl space-y-4 mt-6">
+              <div className="p-5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl space-y-4 mt-6">
                 <div>
-                  <h5 className="text-[10px] font-extrabold text-secondary dark:text-zinc-250 uppercase tracking-wider flex items-center gap-1.5 leading-none">
+                  <h5 className="text-[10px] font-extrabold text-slate-800 dark:text-zinc-100 uppercase tracking-wider flex items-center gap-1.5 leading-none">
                     <Key size={14} className="text-primary" /> Mật khẩu đăng nhập
                   </h5>
-                  <p className="text-[9px] text-zinc-450 dark:text-zinc-500 mt-1 leading-normal font-medium">
+                  <p className="text-[9px] text-zinc-500 dark:text-zinc-400 mt-1 leading-normal font-medium">
                     {Number(selectedStaff.vai_tro_id) === 5 
                       ? 'Để thay đổi mật khẩu Admin, vui lòng điền đầy đủ thông tin xác thực bên dưới.' 
                       : 'Nhập mật khẩu mới bên dưới để thay đổi mật khẩu đăng nhập của nhân sự này.'}
@@ -682,7 +682,7 @@ export default function ManageStaff() {
                         value={oldPassword}
                         onChange={(e) => setOldPassword(e.target.value)}
                         placeholder="Mật khẩu hiện tại (Mật khẩu cũ)"
-                        className="w-full pl-3.5 pr-10 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-secondary"
+                        className="w-full pl-3.5 pr-10 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-slate-800 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500"
                       />
                       <button
                         type="button"
@@ -701,7 +701,7 @@ export default function ManageStaff() {
                           value={newPassword}
                           onChange={(e) => setNewPassword(e.target.value)}
                           placeholder="Mật khẩu mới (tối thiểu 6 ký tự)"
-                          className="w-full pl-3.5 pr-10 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-secondary animate-in fade-in"
+                          className="w-full pl-3.5 pr-10 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-slate-800 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 animate-in fade-in"
                         />
                         <button
                           type="button"
@@ -719,7 +719,7 @@ export default function ManageStaff() {
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
                           placeholder="Xác nhận mật khẩu mới"
-                          className="w-full pl-3.5 pr-10 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-secondary animate-in fade-in"
+                          className="w-full pl-3.5 pr-10 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-slate-800 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 animate-in fade-in"
                         />
                         <button
                           type="button"
@@ -745,7 +745,7 @@ export default function ManageStaff() {
                         type="button"
                         onClick={() => handleResetAdminPassword(selectedStaff)}
                         disabled={isUpdatingPassword}
-                        className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white disabled:bg-slate-250 disabled:text-slate-400 disabled:dark:bg-zinc-800 disabled:dark:text-zinc-600 font-black text-[10px] rounded-xl tracking-wider transition-all cursor-pointer select-none uppercase shadow-xs flex items-center justify-center gap-1.5 h-[38px]"
+                        className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white disabled:bg-slate-200 disabled:text-slate-400 disabled:dark:bg-zinc-800 disabled:dark:text-zinc-600 font-black text-[10px] rounded-xl tracking-wider transition-all cursor-pointer select-none uppercase shadow-xs flex items-center justify-center gap-1.5 h-[38px]"
                       >
                         Khôi phục mật khẩu (Reset)
                       </button>
@@ -760,7 +760,7 @@ export default function ManageStaff() {
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
                         placeholder="••••• (Nhập mật khẩu mới từ 6 ký tự)"
-                        className="w-full pl-3 pr-10 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-secondary"
+                        className="w-full pl-3 pr-10 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-slate-800 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500"
                       />
                       <button
                         type="button"

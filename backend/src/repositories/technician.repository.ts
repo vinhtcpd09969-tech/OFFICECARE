@@ -17,9 +17,9 @@ class TechnicianRepository {
       FROM cuoc_hen ch
       JOIN khach_hang kh ON ch.khach_hang_id = kh.id
       LEFT JOIN nhat_ky_buoi_dieu_tri nk ON nk.cuoc_hen_id = ch.id
-      WHERE ch.nhan_su_id = $1::integer 
-        AND ch.loai = 'DIEU_TRI'
-        AND ch.trang_thai IN ('cho_kham', 'dang_kham', 'check_in', 'cho_xac_nhan', 'da_xac_nhan', 'da_checkin')
+      WHERE ch.nhan_su_id = $1::integer
+        AND ch.loai != 'KHAM'
+        AND ch.trang_thai IN ('dang_kham', 'check_in', 'da_xac_nhan', 'da_checkin')
         AND DATE(ch.ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh') = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh')
       ORDER BY ch.ngay_gio_bat_dau ASC;
     `;
@@ -99,16 +99,10 @@ class TechnicianRepository {
   }
 
   // 3. Lấy chi tiết lịch trị liệu hiện tại (bao gồm cả chẩn đoán/chống chỉ định của Bác sĩ)
+  // Chỉ SELECT thuần — việc chuyển trạng thái sang 'dang_kham' (startSession) phải đi qua guard
+  // getActiveSessionForStaff ở service layer, không tự ý UPDATE ở đây (trước đây làm vậy khiến KTV
+  // mở được nhiều "bàn trị liệu" cùng lúc vì guard không kịp chặn).
   async getAppointmentDetail(appointmentId: string) {
-    // Tự động ghi nhận mốc thoi_gian_bat_dau khi Bác sĩ/KTV mở bàn làm việc
-    await pool.query(
-      `UPDATE cuoc_hen
-       SET thoi_gian_bat_dau = COALESCE(thoi_gian_bat_dau, NOW()),
-           trang_thai = CASE WHEN trang_thai IN ('da_xac_nhan', 'da_checkin') THEN 'dang_kham' ELSE trang_thai END
-       WHERE id = $1::uuid AND (thoi_gian_bat_dau IS NULL OR trang_thai IN ('da_xac_nhan', 'da_checkin'))`,
-      [appointmentId]
-    );
-
     const queryStr = `
       SELECT 
         ch.id, 

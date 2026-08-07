@@ -1,66 +1,47 @@
 import { pool } from '../config/db';
-import { calculateDiscountPercent, resolveNoShowOutcome, PaymentTransactionDetail, PACKAGE_ACTIVATION_WINDOW_DAYS } from '../domain/billing';
+import { calculateDiscountPercent, resolveNoShowOutcome, PaymentTransactionDetail, PACKAGE_ACTIVATION_WINDOW_DAYS, DEFAULT_CANCELLATION_PENALTY_PERCENT } from '../domain/billing';
 import { HinhThucThanhToanGoi } from '../domain/types';
+import { GIO_NHAN_KHACH, NO_SHOW_SWEEP_BUFFER_MINUTES } from '../domain/capacity';
 import appointmentRepository, { updateCompletedSessionsCount } from './appointment.repository';
 
 class ReceptionistRepository {
-  async getTodayAppointments() {
-    const { rows } = await pool.query(`
-      SELECT 
-        ch.id, 
-        'LH-' || UPPER(SUBSTRING(ch.id::text FROM 1 FOR 6)) as ma_lich_dat, 
-        ch.ngay_gio_bat_dau, 
-        ch.ngay_gio_ket_thuc, 
-        ch.trang_thai,
-        ch.phac_do_dieu_tri_id as phac_do_dieu_tri_id,
-        ch.so_thu_tu_buoi,
-        hd_goi.trang_thai as trang_thai_hoa_don_goi,
-        hd_goi.so_tien_da_tra as so_tien_da_tra_goi,
-        hd_goi.tong_tien_phai_tra as tong_tien_phai_tra_goi,
-        hd_goi.hinh_thuc_thanh_toan_goi as hinh_thuc_thanh_toan_goi,
-        hd_goi.id as hoa_don_goi_id,
-        CASE 
-          WHEN UPPER(ch.loai) IN ('KHAM', 'KHAM_MOI') THEN 'kham_moi'
-          WHEN UPPER(ch.loai) IN ('DIEU_TRI') THEN 'dieu_tri'
-          ELSE 'dich_vu_don'
-        END as loai_lich,
-        kh.id as khach_hang_id,
-        kh.ho_ten as ten_khach_hang, 
-        COALESCE(ch.so_dien_thoai, kh.so_dien_thoai) as sdt_khach_hang,
-        dv.ten_goi as ten_dich_vu,
-        ch.nhan_su_id,
-        nd_ktv.ho_ten as ten_ky_thuat_vien,
-        ch.phong_id as phong_id,
-        p.ten_phong as ten_phong,
-        COALESCE(
-          (
-            SELECT created_at 
-            FROM otp_codes 
-            WHERE email = COALESCE(kh.email, (kh.so_dien_thoai || '@officecare.placeholder')) 
-            ORDER BY created_at DESC 
-            LIMIT 1
-          ), 
-          ch.ngay_gio_bat_dau
-        ) as thoi_gian_tao
-      FROM cuoc_hen ch
-      JOIN khach_hang kh ON ch.khach_hang_id = kh.id
-      LEFT JOIN goi_dich_vu dv ON ch.goi_dich_vu_id = dv.id
-      LEFT JOIN nguoi_dung nd_ktv ON ch.nhan_su_id = nd_ktv.id
-      LEFT JOIN phong_lam_viec p ON ch.phong_id = p.id
-      LEFT JOIN phac_do_dieu_tri pd ON ch.phac_do_dieu_tri_id = pd.id
-      LEFT JOIN hoa_don hd_goi ON pd.id = hd_goi.phac_do_dieu_tri_id
-      WHERE DATE(ch.ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh') = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh')
-        AND (
-          ch.trang_thai != 'chua_xac_nhan'
-          OR NOT EXISTS (
-            SELECT 1 FROM otp_codes 
-            WHERE email = COALESCE(kh.email, (kh.so_dien_thoai || '@officecare.placeholder')) 
-              AND expires_at > CURRENT_TIMESTAMP
-          )
-        )
-      ORDER BY ch.ngay_gio_bat_dau ASC
-    `);
-    return rows;
+  /**
+   * B10 — quét "lười" các lịch đã xác nhận nhưng chưa check-in mà buổi đã kết thúc quá
+   * NO_SHOW_SWEEP_BUFFER_MINUTES phút, tự động đánh dấu "không đến". Gọi lại ĐÚNG
+   * updateAppointmentStatus (không tự chép lại logic phạt/đếm buổi) để hưởng nguyên vẹn
+   * resolveNoShowOutcome + cập nhật số buổi đã dùng — cùng một đường xử lý dù Lễ tân bấm tay
+   * hay hệ thống tự quét, tránh 2 luồng no-show lệch nhau.
+   */
+  async sweepNoShowAppointments(): Promise<number> {
+    const { rows } = await pool.query(
+      `SELECT id FROM cuoc_hen
+       WHERE trang_thai = 'da_xac_nhan'
+         AND buoi IS NOT NULL
+         AND (
+           (DATE(ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh')::text || ' ' ||
+             CASE WHEN buoi = 'sang' THEN $1 ELSE $2 END
+           )::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh'
+           + ($3 || ' minutes')::interval
+           <= NOW()
+         )`,
+      [GIO_NHAN_KHACH.sang.ketThuc, GIO_NHAN_KHACH.chieu.ketThuc, NO_SHOW_SWEEP_BUFFER_MINUTES]
+    );
+
+    let count = 0;
+    for (const row of rows) {
+      try {
+        await this.updateAppointmentStatus(
+          row.id,
+          'khong_den',
+          `Tự động đánh dấu không đến — quá giờ nhận khách ${NO_SHOW_SWEEP_BUFFER_MINUTES} phút, khách chưa check-in.`
+        );
+        count++;
+      } catch (err) {
+        // Một lịch lỗi không được chặn các lịch khác trong cùng đợt quét.
+        console.error(`Lỗi khi tự động đánh dấu không đến cho lịch ${row.id}:`, err);
+      }
+    }
+    return count;
   }
 
   async updateAppointmentStatus(id: string, trang_thai: string, ghi_chu_noi_bo?: string, ly_do_huy?: string) {
@@ -198,18 +179,6 @@ class ReceptionistRepository {
     } finally {
       client.release();
     }
-  }
-
-  async getReceptionistStats() {
-    const { rows } = await pool.query(`
-      SELECT
-        COUNT(*) FILTER (WHERE trang_thai = 'da_checkin') as checkin_count,
-        COUNT(*) FILTER (WHERE trang_thai IN ('cho_xac_nhan', 'da_xac_nhan')) as waiting_count,
-        COUNT(*) as total_today
-      FROM cuoc_hen
-      WHERE DATE(ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh') = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh')
-    `);
-    return rows[0];
   }
 
   async getAppointmentForBilling(lich_dat_id: string) {
@@ -448,16 +417,30 @@ class ReceptionistRepository {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      await client.query(`
-        UPDATE hoa_don 
+      const { rows: hdRows } = await client.query(`
+        UPDATE hoa_don
         SET so_tien_da_tra = $1, trang_thai = 'da_thanh_toan', ngay_thanh_toan = NOW()
         WHERE id = $2
+        RETURNING cuoc_hen_id
       `, [tong_tien, hoa_don_id]);
 
       await client.query(`
         INSERT INTO giao_dich_thanh_toan (hoa_don_id, so_tien, loai_giao_dich, phuong_thuc, ma_tham_chieu, nhan_vien_thuc_hien_id, ngay_giao_dich)
         VALUES ($1, $2, 'THANH_TOAN', $3, $4, 1, NOW())
       `, [hoa_don_id, tong_tien, phuong_thuc, maGiaoDich]);
+
+      // A10b — nguồn ghi DUY NHẤT của cuoc_hen.trang_thai_thanh_toan khi tiền thật được xác nhận đủ
+      // (đi qua cả 2 luồng: Lễ tân thu tại quầy VÀ webhook PayOS, vì cả 2 đều gọi processPayment này).
+      // Chỉ ghi khi hóa đơn gắn với đúng 1 lịch hẹn cụ thể — hóa đơn mua cả gói không gắn 1 buổi nào
+      // thì không có cuoc_hen_id để ghi (đúng, vì "đã thanh toán" của GÓI không tương đương với bất
+      // kỳ buổi cụ thể nào — từng buổi trong gói có trạng thái thanh toán riêng của chính nó).
+      const cuocHenId = hdRows[0]?.cuoc_hen_id;
+      if (cuocHenId) {
+        await client.query(
+          `UPDATE cuoc_hen SET trang_thai_thanh_toan = 'da_thanh_toan' WHERE id = $1`,
+          [cuocHenId]
+        );
+      }
 
       await client.query('COMMIT');
     } catch (e) {
@@ -466,6 +449,69 @@ class ReceptionistRepository {
     } finally {
       client.release();
     }
+  }
+
+  /**
+   * A15 — đánh dấu vừa tạo link thanh toán PayOS cho hóa đơn này: ghi mốc thời gian (để sweep 15
+   * phút tự đảo dùng làm đồng hồ) và chuyển cuoc_hen liên kết sang `dang_cho_thanh_toan` — khóa nút
+   * Hủy phía khách trong lúc giao dịch đang treo (đua với webhook là kịch bản mất tiền thật).
+   * Chỉ đụng cuoc_hen đang `chua_thanh_toan` — không ghi đè lịch đã lỡ được đánh dấu đã thanh toán
+   * qua đường khác (vd Lễ tân vừa thu tiền mặt xong thì link PayOS cũ mới được tạo tiếp).
+   */
+  async markPayOSLinkCreated(hoa_don_id: string) {
+    const { rows } = await pool.query(
+      `UPDATE hoa_don SET thoi_diem_tao_link_thanh_toan = NOW() WHERE id = $1 RETURNING cuoc_hen_id`,
+      [hoa_don_id]
+    );
+    const cuocHenId = rows[0]?.cuoc_hen_id;
+    if (cuocHenId) {
+      await pool.query(
+        `UPDATE cuoc_hen SET trang_thai_thanh_toan = 'dang_cho_thanh_toan' WHERE id = $1 AND trang_thai_thanh_toan = 'chua_thanh_toan'`,
+        [cuocHenId]
+      );
+    }
+  }
+
+  /**
+   * A15 — Lễ tân chủ động hủy link PayOS (khách đổi ý, chọn tiền mặt...) → đảo NGAY cuoc_hen về
+   * `chua_thanh_toan`, không cần đợi sweep 15 phút. Chỉ đảo nếu đang thực sự `dang_cho_thanh_toan`
+   * — không đụng nếu đã kịp lên `da_thanh_toan` qua webhook đúng lúc Lễ tân bấm hủy (race benign:
+   * webhook luôn đáng tin hơn thao tác hủy tay).
+   */
+  async revertPayOSPending(hoa_don_id: string) {
+    const { rows } = await pool.query(
+      `SELECT cuoc_hen_id FROM hoa_don WHERE id = $1`,
+      [hoa_don_id]
+    );
+    const cuocHenId = rows[0]?.cuoc_hen_id;
+    if (cuocHenId) {
+      await pool.query(
+        `UPDATE cuoc_hen SET trang_thai_thanh_toan = 'chua_thanh_toan' WHERE id = $1 AND trang_thai_thanh_toan = 'dang_cho_thanh_toan'`,
+        [cuocHenId]
+      );
+    }
+  }
+
+  /**
+   * A15 — quét lười (cùng mẫu packageExpirySweep/noShowSweep): cuoc_hen còn kẹt ở
+   * `dang_cho_thanh_toan` quá 15 phút kể từ lúc tạo link mà chưa có webhook xác nhận thì tự đảo về
+   * `chua_thanh_toan` — thiếu cơ chế này thì 1 webhook thất lạc khiến lịch kẹt vĩnh viễn (không hủy
+   * được, không thu lại được). Webhook về muộn sau khi đã đảo vẫn xử lý đúng (idempotent) vì
+   * processPayment ghi thẳng `da_thanh_toan`, không phụ thuộc trạng thái đang chờ.
+   */
+  async sweepPendingPaymentTimeouts(): Promise<number> {
+    const { rows } = await pool.query(`
+      UPDATE cuoc_hen ch
+      SET trang_thai_thanh_toan = 'chua_thanh_toan'
+      FROM hoa_don hd
+      WHERE hd.cuoc_hen_id = ch.id
+        AND ch.trang_thai_thanh_toan = 'dang_cho_thanh_toan'
+        AND hd.trang_thai != 'da_thanh_toan'
+        AND hd.thoi_diem_tao_link_thanh_toan IS NOT NULL
+        AND hd.thoi_diem_tao_link_thanh_toan < NOW() - INTERVAL '15 minutes'
+      RETURNING ch.id
+    `);
+    return rows.length;
   }
 
   async getPackageById(id: string) {
@@ -700,6 +746,10 @@ class ReceptionistRepository {
       // Tạo hoặc cập nhật hoa_don — nếu đã có hóa đơn nháp "chưa thanh toán" cho đúng lịch hẹn này
       // (từ 1 lượt bấm thanh toán trước đó bị ngắt giữa chừng), cập nhật lại số liệu theo lựa chọn
       // mới nhất thay vì chèn thêm 1 dòng mới — tránh sinh hóa đơn "ma" không bao giờ được thanh toán.
+      // A15b — snapshot tỉ lệ phạt hủy gói CHỈ khi hóa đơn thực sự gắn với 1 phác đồ (gói liệu
+      // trình) — hóa đơn khám/dịch vụ lẻ không có khái niệm "phạt hủy gói" nên để NULL.
+      const tiLePhatHuyGoi = phacDoId ? DEFAULT_CANCELLATION_PENALTY_PERCENT : null;
+
       let hoa_don;
       if (existingHoaDonId) {
         const { rows: hdRows } = await client.query(`
@@ -712,8 +762,9 @@ class ReceptionistRepository {
             tong_tien_phai_tra = $6,
             voucher_id = $7,
             ghi_chu = $8,
-            phi_kham_ap_dung = $9
-          WHERE id = $10
+            phi_kham_ap_dung = $9,
+            ti_le_phat_huy_goi = $10
+          WHERE id = $11
           RETURNING id, 'HD-' || UPPER(SUBSTRING(id::text FROM 1 FOR 6)) as ma_hoa_don,
                     CASE WHEN phac_do_dieu_tri_id IS NOT NULL THEN 'goi_dich_vu' ELSE 'dich_vu_don' END as loai_hoa_don,
                     khach_hang_id, phac_do_dieu_tri_id, cuoc_hen_id, tong_tien_goc,
@@ -729,6 +780,7 @@ class ReceptionistRepository {
           voucher_id || null,
           ghi_chu || null,
           Number(phi_kham_ap_dung || 0),
+          tiLePhatHuyGoi,
           existingHoaDonId
         ]);
         hoa_don = hdRows[0];
@@ -737,8 +789,9 @@ class ReceptionistRepository {
           INSERT INTO hoa_don (
             khach_hang_id, phac_do_dieu_tri_id, cuoc_hen_id,
             tong_tien_goc, hinh_thuc_thanh_toan_goi, ti_le_giam_gia_goi, so_tien_giam_voucher,
-            tong_tien_phai_tra, so_tien_da_tra, trang_thai, voucher_id, ghi_chu, phi_kham_ap_dung
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0, 'chua_thanh_toan', $9, $10, $11)
+            tong_tien_phai_tra, so_tien_da_tra, trang_thai, voucher_id, ghi_chu, phi_kham_ap_dung,
+            ti_le_phat_huy_goi
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0, 'chua_thanh_toan', $9, $10, $11, $12)
           RETURNING id, 'HD-' || UPPER(SUBSTRING(id::text FROM 1 FOR 6)) as ma_hoa_don,
                     CASE WHEN phac_do_dieu_tri_id IS NOT NULL THEN 'goi_dich_vu' ELSE 'dich_vu_don' END as loai_hoa_don,
                     khach_hang_id, phac_do_dieu_tri_id, cuoc_hen_id, tong_tien_goc,
@@ -755,7 +808,8 @@ class ReceptionistRepository {
           tong_tien_thanh_toan,
           voucher_id || null,
           ghi_chu || null,
-          Number(phi_kham_ap_dung || 0)
+          Number(phi_kham_ap_dung || 0),
+          tiLePhatHuyGoi
         ]);
         hoa_don = hdRows[0];
       }
@@ -937,7 +991,7 @@ class ReceptionistRepository {
                )
                FROM cuoc_hen ch_active
                WHERE ch_active.phac_do_dieu_tri_id = pd.id
-                 AND ch_active.trang_thai IN ('chua_xac_nhan', 'cho_xac_nhan', 'da_xac_nhan', 'da_checkin', 'dang_kham')
+                 AND ch_active.trang_thai IN ('da_xac_nhan', 'da_checkin', 'dang_kham', 'cho_tai_luong_gia')
                LIMIT 1
              ) as lich_dang_hoat_dong
       FROM phac_do_dieu_tri pd

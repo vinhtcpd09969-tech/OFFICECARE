@@ -5,8 +5,10 @@ export const getAppointments = () => api.get('/admin/appointments');
 export const createAppointment = (data: any) => api.post('/admin/appointments', data);
 export const updateAppointmentStatus = (id: string, data: any) => 
   api.patch(`/admin/appointments/${id}/status`, data);
-export const keepAliveAppointment = (id: string) => 
+export const keepAliveAppointment = (id: string) =>
   api.post(`/admin/appointments/${id}/keep-alive`);
+export const getStaffBudgetForBuoi = (date: string, buoi: 'sang' | 'chieu', loai: string, excludeApptId?: string) =>
+  api.get('/admin/appointments/staff-budget', { params: { date, buoi, loai, excludeApptId } });
 
 // Packages
 export const getPackages = () => api.get('/admin/packages');

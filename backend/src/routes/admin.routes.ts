@@ -94,6 +94,7 @@ router.get('/analytics/top-vip-customers', authorizeRoles(5, 6), adminController
 
 // ─── LỊCH HẸN (ADMIN MASTER VIEW) ─────────────────────────────────────────────
 router.get('/appointments', authorizeRoles(2, 4, 5, 6), appointmentController.getAllAppointments);
+router.get('/appointments/staff-budget', authorizeRoles(5, 6), appointmentController.getStaffBudgetForBuoi);
 router.post('/appointments', authorizeRoles(2, 5, 6), appointmentController.createAppointment);
 router.patch('/appointments/:id/status', authorizeRoles(2, 4, 5, 6), appointmentController.updateAppointmentStatus);
 router.delete('/appointments/break-time', authorizeRoles(5, 6), appointmentController.cancelBreakTimeAppointments);

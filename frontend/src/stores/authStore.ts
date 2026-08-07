@@ -49,7 +49,14 @@ export const useAuthStore = create<AuthState>()(
         user: state.user ? { ...state.user, ...updatedFields } : null
       })),
       updateAccessToken: (accessToken) => set({ accessToken }),
-      logout: () => set({ user: null, accessToken: null, refreshToken: null }),
+      logout: () => {
+        if (typeof document !== 'undefined') {
+          document.documentElement.classList.remove('dark');
+          document.body.classList.remove('dark');
+        }
+        localStorage.removeItem('theme');
+        set({ user: null, accessToken: null, refreshToken: null });
+      },
       isAuthenticated: () => !!get().accessToken,
     }),
     {

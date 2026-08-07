@@ -132,21 +132,23 @@ export default function SpecialistDetailPage() {
   const specializations = specialist.the_manh && specialist.the_manh.length > 0 ? specialist.the_manh : [];
 
   return (
-    <div className="min-h-screen bg-slate-50/50 pb-20 pt-28 font-jakarta">
+    <div className="min-h-screen bg-slate-50/50 pb-20 pt-6 font-jakarta">
       <div className="max-w-6xl mx-auto px-6 relative z-10">
-        {/* Nút Quay lại trang trước Thông Minh */}
-        <div className="mb-6 flex items-center justify-between">
+        
+        {/* Sleek E-Commerce Standard Breadcrumb Bar */}
+        <div className="mb-4 flex items-center gap-2 text-xs font-semibold text-slate-500 flex-wrap">
           <button
             type="button"
             onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/specialists'))}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-white/90 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-2xl border border-slate-200/90 shadow-sm hover:shadow transition-all duration-300 group cursor-pointer"
+            className="inline-flex items-center gap-1.5 text-[#0D9488] font-extrabold hover:text-[#0b7a70] transition-colors cursor-pointer mr-1"
           >
-            <ArrowLeft className="w-4 h-4 text-[#0D9488] group-hover:-translate-x-1 transition-transform" />
-            <span>Quay lại trang trước</span>
+            <ArrowLeft size={14} />
+            <span>Quay lại</span>
           </button>
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-3 py-1 rounded-full hidden sm:inline-block">
-            Chuyên gia Phục hồi Chức năng
-          </span>
+          <span>/</span>
+          <Link to="/specialists" className="hover:text-[#0D9488] transition-colors">Đội ngũ chuyên gia</Link>
+          <span>/</span>
+          <span className="text-slate-800 font-bold truncate max-w-sm">{specialist.ho_ten}</span>
         </div>
 
         {/* Compact & Unified Hero Header Card */}

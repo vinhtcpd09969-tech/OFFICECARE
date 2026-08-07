@@ -57,7 +57,7 @@ const AI_TOOLS: FunctionDeclaration[] = [
   {
     name: 'kiem_tra_lich_kham_trong',
     description:
-      'Tra cứu số khung giờ khám còn trống THẬT trong hệ thống đặt lịch của OfficeCare cho một ngày cụ thể. Dùng khi khách hỏi về việc đặt lịch cho 1 ngày xác định (hôm nay/ngày mai/thứ mấy/ngày dd-mm).',
+      'Tra cứu buổi sáng/chiều còn nhận khách THẬT trong hệ thống đặt lịch của OfficeCare cho một ngày cụ thể (hệ thống đặt lịch theo buổi, không còn khung giờ cố định). Dùng khi khách hỏi về việc đặt lịch cho 1 ngày xác định (hôm nay/ngày mai/thứ mấy/ngày dd-mm).',
     parameters: {
       type: SchemaType.OBJECT,
       properties: {
@@ -85,24 +85,26 @@ async function toolKiemTraLichKhamTrong(args: any): Promise<object> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(ngay)) {
     return { error: 'Ngày không hợp lệ, cần đúng định dạng YYYY-MM-DD.' };
   }
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const target = new Date(`${ngay}T00:00:00`);
-  if (Number.isNaN(target.getTime()) || target < today) {
-    return { error: 'Ngày đã qua hoặc không hợp lệ, không thể tra cứu lịch trống cho ngày trong quá khứ.' };
+  const todayVN = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+  if (ngay < todayVN) {
+    return { error: 'Ngày đã qua, không thể tra cứu lịch trống cho ngày trong quá khứ.' };
   }
 
-  const result = await appointmentService.getBookedSlots(ngay);
-  const slotAvailability: Record<string, unknown[]> = result?.slotAvailability || {};
-  const cacKhungGio = Object.entries(slotAvailability);
-  const khungGioConTrong = cacKhungGio.filter(([, docs]) => Array.isArray(docs) && docs.length > 0).map(([slot]) => slot);
+  // Đặt lịch giờ theo mô hình BUỔI (sáng/chiều), không còn lưới giờ cố định — tra cứu mặc định cho
+  // dịch vụ Lượng giá (không truyền dichVuId, khớp hành vi mặc định cũ của getBookedSlots).
+  const result = await appointmentService.getBuoiAvailability(ngay);
 
   return {
     ngay,
-    tong_so_khung_gio_trong_ngay: cacKhungGio.length,
-    so_khung_gio_con_trong: khungGioConTrong.length,
-    vai_khung_gio_con_trong_gan_nhat: khungGioConTrong.slice(0, 6),
-    so_bac_si_truc_hom_do: (result?.specialists || []).length,
+    buoi_sang: {
+      con_cho: result?.sang?.choPhep ?? false,
+      so_phut_con_lai_uoc_tinh: result?.sang?.conLaiChung ?? 0,
+    },
+    buoi_chieu: {
+      con_cho: result?.chieu?.choPhep ?? false,
+      so_phut_con_lai_uoc_tinh: result?.chieu?.conLaiChung ?? 0,
+    },
+    so_nhan_su_truc_hom_do: (result?.nhanSu || []).length,
   };
 }
 
@@ -133,7 +135,7 @@ async function toolXemThongTinCaNhan(khachHangId: string | null): Promise<object
   const nextAppointment = await prisma.cuoc_hen.findFirst({
     where: {
       khach_hang_id: khachHangId,
-      trang_thai: { in: ['chua_xac_nhan', 'cho_xac_nhan', 'da_xac_nhan'] },
+      trang_thai: 'da_xac_nhan',
       ngay_gio_bat_dau: { gt: new Date() },
     },
     orderBy: { ngay_gio_bat_dau: 'asc' },
@@ -153,7 +155,17 @@ async function toolXemThongTinCaNhan(khachHangId: string | null): Promise<object
       : null,
     lich_hen_sap_toi: nextAppointment
       ? {
-          thoi_gian: nextAppointment.ngay_gio_bat_dau.toISOString(),
+          // Định dạng sẵn theo giờ Việt Nam trước khi đưa cho AI — trả nguyên chuỗi ISO (giờ UTC)
+          // khiến model đọc thẳng số giờ UTC mà không tự quy đổi +7h, gây báo sai giờ hẹn cho khách
+          // (vd 18:00 giờ VN bị đọc nhầm thành 11:00).
+          thoi_gian: nextAppointment.ngay_gio_bat_dau.toLocaleString('vi-VN', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            hour: '2-digit',
+            minute: '2-digit',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+          }),
           loai: nextAppointment.loai,
         }
       : null,

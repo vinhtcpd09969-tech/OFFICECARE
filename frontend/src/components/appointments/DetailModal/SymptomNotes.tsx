@@ -1,8 +1,7 @@
-import { AlertCircle, Phone, PhoneCall } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 
 interface SymptomNotesProps {
   selectedAppointment: any;
-  isUnconfirmedState: boolean;
   isSendingEmail: boolean;
   handleResendEmail: () => void;
   appendCallLog: (logText: string) => void;
@@ -10,7 +9,6 @@ interface SymptomNotesProps {
 
 export function SymptomNotes({
   selectedAppointment,
-  isUnconfirmedState,
   isSendingEmail: _isSendingEmail,
   handleResendEmail: _handleResendEmail,
   appendCallLog: _,
@@ -34,43 +32,6 @@ export function SymptomNotes({
               <li>Nếu khách muốn giữ lịch hoặc đổi giờ, hỗ trợ khách và cập nhật thông tin tương ứng.</li>
             </ol>
           </div>
-        </div>
-      )}
-
-      {/* Giao diện cuộc gọi & Xác nhận */}
-      {isUnconfirmedState && (
-        <div className="bg-slate-50 dark:bg-zinc-800/45 p-5 rounded-2xl border border-slate-150 dark:border-zinc-800/80 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-zinc-700/50 pb-3">
-            <h4 className="text-xs font-black text-slate-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-              <Phone size={14} className="text-emerald-600 dark:text-emerald-450" />
-              Giao diện cuộc gọi & Xác nhận
-            </h4>
-            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
-              selectedAppointment.trang_thai === 'chua_xac_nhan'
-                ? 'bg-amber-100 dark:bg-amber-955/20 text-amber-700 dark:text-amber-450 border border-amber-200/40 dark:border-amber-900/30'
-                : 'bg-blue-100 dark:bg-blue-955/20 text-blue-700 dark:text-blue-450 border border-blue-200/40 dark:border-blue-900/30'
-            }`}>
-              {selectedAppointment.trang_thai === 'chua_xac_nhan' ? 'Chưa xác nhận' : 'Chờ xác nhận'}
-            </span>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 py-2">
-            <div className="space-y-1">
-              <p className="text-[10px] font-bold text-slate-450 dark:text-zinc-555 uppercase tracking-wider">Số điện thoại liên hệ</p>
-              <a
-                href={`tel:${selectedAppointment.so_dien_thoai}`}
-                className="text-2xl font-black text-slate-800 dark:text-zinc-150 font-mono tracking-wide hover:text-emerald-600 dark:hover:text-emerald-450 transition-colors flex items-center gap-2 group"
-                title="Nhấp để gọi điện"
-              >
-                {selectedAppointment.so_dien_thoai}
-                <span className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-450 group-hover:scale-110 transition-transform">
-                  <PhoneCall size={14} className="animate-pulse" />
-                </span>
-              </a>
-            </div>
-          </div>
-
-
         </div>
       )}
     </div>
