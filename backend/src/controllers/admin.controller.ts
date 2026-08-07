@@ -185,6 +185,17 @@ export const updateStaff = async (req: Request, res: Response): Promise<any> => 
   }
 };
 
+export const deleteStaffAvatar = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params as { id: string };
+    const staff = await adminService.deleteStaffAvatar(id);
+    res.json(staff);
+  } catch (error: any) {
+    if (error.message === 'Không tìm thấy nhân sự') return res.status(404).json({ message: error.message });
+    res.status(500).json({ message: 'Lỗi server khi xóa ảnh đại diện' });
+  }
+};
+
 export const updateStaffPassword = async (req: Request, res: Response): Promise<any> => {
   try {
     const { id } = req.params as { id: string };

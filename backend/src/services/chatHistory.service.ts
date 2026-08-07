@@ -35,4 +35,14 @@ export class ChatHistoryService {
     });
     return session?.tin_nhan_chat_ai ?? [];
   }
+
+  // Lịch sử theo khách hàng (không theo sessionId) — dùng để khôi phục hội thoại khi khách đăng
+  // nhập lại trên trình duyệt/thiết bị khác, gộp tất cả phiên chat cũ của khách theo đúng mốc thời
+  // gian thực tế.
+  static async getHistoryByCustomer(khachHangId: string) {
+    return prisma.tin_nhan_chat_ai.findMany({
+      where: { phien_chat_ai: { khach_hang_id: khachHangId } },
+      orderBy: { created_at: 'asc' }
+    });
+  }
 }

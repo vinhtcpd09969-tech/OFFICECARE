@@ -21,7 +21,6 @@ export function useAppointmentsData(isReceptionist: boolean) {
 
   const seenCheckedInIds = useRef<Set<string>>(new Set());
   const isFirstLoad = useRef(true);
-  const seenUnconfirmedIds = useRef<Set<string>>(new Set());
 
   // Sound chime notifier for doctor/receptionist
   const playNotificationSound = useCallback(() => {
@@ -133,56 +132,6 @@ export function useAppointmentsData(isReceptionist: boolean) {
         });
       }
     }
-  }, [appointments, isReceptionist, playNotificationSound]);
-
-  // Monitor changes in unconfirmed appointments (>10 min grace period)
-  useEffect(() => {
-    if (appointments.length === 0 || isReceptionist) return;
-
-    const checkNewUnconfirmed = () => {
-      const graceTimeMs = 10 * 60 * 1000;
-      const currentUnconfirmed = appointments.filter(apt => {
-        const createdAt = apt.thoi_gian_tao ? new Date(apt.thoi_gian_tao).getTime() : 0;
-        const isGracePassed = createdAt > 0 && (createdAt + graceTimeMs <= Date.now());
-        return apt.trang_thai === 'chua_xac_nhan' && isGracePassed;
-      });
-
-      let hasNewUnconfirmed = false;
-      let newAptNames: string[] = [];
-
-      currentUnconfirmed.forEach(apt => {
-        const id = String(apt.id);
-        if (!seenUnconfirmedIds.current.has(id)) {
-          seenUnconfirmedIds.current.add(id);
-          hasNewUnconfirmed = true;
-          const name = apt.ten_khach_hang || apt.ho_ten_khach || 'Khách hàng';
-          newAptNames.push(name);
-        }
-      });
-
-      if (hasNewUnconfirmed && isReceptionist) {
-        const nameList = newAptNames.slice(0, 2).join(', ') + (newAptNames.length > 2 ? ` và ${newAptNames.length - 2} khác` : '');
-        toast(`📞 ${newAptNames.length} ca khám chờ liên hệ: ${nameList}`, {
-          icon: '☎️',
-          duration: 8000,
-          style: {
-            borderRadius: '16px',
-            background: '#f59e0b',
-            color: '#fff',
-            fontWeight: 'bold',
-          },
-        });
-      }
-
-      // Play sound continuously every 10 seconds if any unconfirmed appointment is overdue
-      if (currentUnconfirmed.length > 0 && isReceptionist) {
-        playNotificationSound();
-      }
-    };
-
-    checkNewUnconfirmed();
-    const interval = setInterval(checkNewUnconfirmed, 10000);
-    return () => clearInterval(interval);
   }, [appointments, isReceptionist, playNotificationSound]);
 
   return {

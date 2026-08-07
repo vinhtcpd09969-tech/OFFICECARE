@@ -1,3 +1,5 @@
+import { Buoi } from './constants';
+
 export interface BookingFormData {
   ho_ten_khach: string;
   so_dien_thoai: string;
@@ -9,7 +11,7 @@ export interface BookingFormData {
 
 export interface BookingState {
   selectedDate: string;
-  selectedTime: string;
+  selectedBuoi: Buoi | '';
   isSubmitting: boolean;
   isSuccess: boolean;
   formData: BookingFormData;
@@ -17,7 +19,7 @@ export interface BookingState {
 
 export type BookingAction =
   | { type: 'SET_DATE'; date: string }
-  | { type: 'SET_TIME'; time: string }
+  | { type: 'SET_BUOI'; buoi: Buoi | '' }
   | { type: 'SET_FORM_FIELD'; field: string; value: string }
   | { type: 'SET_SUBMITTING'; isSubmitting: boolean }
   | { type: 'SET_SUCCESS'; isSuccess: boolean };

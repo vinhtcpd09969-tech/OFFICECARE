@@ -64,6 +64,12 @@ class AdminService {
     return user;
   }
 
+  async deleteStaffAvatar(id: string) {
+    const user = await adminRepository.deleteStaffAvatar(id);
+    if (!user) throw new Error('Không tìm thấy nhân sự');
+    return user;
+  }
+
   async updateStaffPassword(id: string, password: string) {
     const salt = await bcrypt.genSalt(10);
     const hash = await bcrypt.hash(password, salt);
@@ -196,10 +202,10 @@ class AdminService {
   }
 
   async handlePackageRefund(id: string, data: any, userId: number) {
+    // A15b — tỉ lệ phạt không còn nhận từ request (đọc snapshot ti_le_phat_huy_goi trong repository).
     const result = await adminRepository.handlePackageRefund(
       id,
       Number(data.so_buoi_dung || 0),
-      Number(data.phi_phat || 0),
       data.ly_do || 'Hủy gói theo yêu cầu của Admin',
       userId
     );

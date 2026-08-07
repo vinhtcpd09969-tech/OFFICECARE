@@ -38,12 +38,8 @@ export function RecentAppointmentsList({ recentAppointments, onViewSchedule }: R
                 <p className="text-xs font-extrabold text-secondary">
                   {appt.ngay_gio_bat_dau ? new Date(appt.ngay_gio_bat_dau).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '-'}
                 </p>
-                <span className={`text-[8px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider mt-1 inline-block ${
-                  appt.trang_thai === 'cho_xac_nhan' 
-                    ? 'bg-amber-50 text-accent' 
-                    : 'bg-emerald-50 text-emerald-600'
-                }`}>
-                  {appt.trang_thai === 'cho_xac_nhan' ? 'Chờ xác nhận' : 'Đã xác nhận'}
+                <span className="text-[8px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider mt-1 inline-block bg-emerald-50 text-emerald-600">
+                  Đã xác nhận
                 </span>
               </div>
             </div>

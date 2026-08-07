@@ -39,7 +39,7 @@ export default function AboutUs() {
       </Helmet>
 
       {/* Hero Banner Header - Harmonious Typography & Layout (Fixed Font Size & Spacing) */}
-      <section className="relative pt-20 pb-10 lg:pt-24 lg:pb-12 bg-gradient-to-b from-teal-500/10 via-white to-slate-50/80 border-b border-slate-200/60 overflow-hidden">
+      <section className="relative pt-6 pb-10 lg:pt-8 lg:pb-12 bg-gradient-to-b from-teal-500/10 via-white to-slate-50/80 border-b border-slate-200/60 overflow-hidden">
         <div className="absolute top-1/4 left-10 w-72 h-72 bg-teal-400/10 rounded-full filter blur-[100px] pointer-events-none" />
         <div className="absolute bottom-10 right-10 w-96 h-96 bg-[#2EC4B6]/10 rounded-full filter blur-[120px] pointer-events-none" />
 

@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import {
   ChevronLeft, FileText, Stethoscope,
   AlertTriangle, ChevronDown, ChevronUp, Calendar, MapPin, Clock, ImageIcon, MessageSquareText, X,
-  ShieldAlert, TrendingDown, TrendingUp, CheckCircle2, HeartPulse, Activity
+  HeartPulse, Activity
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
@@ -10,6 +10,7 @@ import { resolveImageUrl } from '../../../utils/imageUrl';
 import { getMinPaymentRequired, isPlanCancelled, isPlanExpired, resolveGrossBeforeExamDeduction } from '../../../utils/billing';
 import { formatCountdown } from '../../../utils/format';
 import { getStaffRoleTitle } from '../../../utils/staff';
+import { TreatmentSessionDetailBody } from '../../../components/TreatmentSessionDetailBody';
 import type { EmrHighlightTarget } from './customers/hooks/useCustomerEmr';
 
 interface PatientEmrDetailProps {
@@ -31,16 +32,6 @@ const PLAN_STATUS_BADGE: Record<string, { className: string; label: string }> = 
   huy: { className: 'bg-rose-50 text-rose-800 border border-rose-200/80 shadow-2xs font-black', label: 'Đã hủy' }
 };
 const getPlanStatusBadge = (trangThai: string) => PLAN_STATUS_BADGE[trangThai] || PLAN_STATUS_BADGE.hoan_thanh;
-
-const getVasDescription = (score: number | null | undefined): string => {
-  if (score === null || score === undefined) return '';
-  if (score === 0) return 'Không đau';
-  if (score >= 1 && score <= 3) return 'Đau nhẹ: Ê ẩm, mỏi nhẹ (Vẫn làm việc, sinh hoạt bình thường)';
-  if (score >= 4 && score <= 6) return 'Đau vừa: Đau rõ rệt, nhức mỏi (Có ảnh hưởng một phần đến sinh hoạt/công việc)';
-  if (score >= 7 && score <= 9) return 'Đau nặng: Đau buốt dữ dội (Hạn chế vận động, ảnh hưởng sinh hoạt)';
-  if (score === 10) return 'Cực độ: Đau không thể chịu nổi (Hạn chế vận động hoàn toàn, cần can thiệp khẩn cấp)';
-  return '';
-};
 
 export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true, highlightTarget }: PatientEmrDetailProps) {
   // "Phác đồ điều trị" và "Khám & Dịch vụ lẻ" hiện đồng thời thành 2 bảng cạnh nhau — bấm "Chi tiết"
@@ -133,9 +124,9 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
   ) || [];
   const STATUS_META: Record<string, { label: string; cls: string }> = {
     hoan_thanh: { label: 'Đã hoàn thành', cls: 'bg-emerald-50 text-emerald-800 border border-emerald-200/60 font-extrabold' },
-    cho_xac_nhan: { label: 'Chờ xác nhận', cls: 'bg-slate-100 text-slate-700 border border-slate-200/60 font-extrabold' },
     da_xac_nhan: { label: 'Đã đặt lịch', cls: 'bg-amber-50 text-amber-800 border border-amber-200/60 font-extrabold' },
     da_checkin: { label: 'Đang khám', cls: 'bg-sky-50 text-sky-800 border border-sky-200/60 font-extrabold' },
+    cho_tai_luong_gia: { label: 'Chờ tái lượng giá', cls: 'bg-amber-50 text-amber-800 border border-amber-200/60 font-extrabold' },
     khong_den: { label: 'Không đến', cls: 'bg-rose-50 text-rose-800 border border-rose-200/60 font-extrabold' },
     khach_khong_den: { label: 'Không đến', cls: 'bg-rose-50 text-rose-800 border border-rose-200/60 font-extrabold' },
     khach_khong_den_phat: { label: 'Không đến', cls: 'bg-rose-50 text-rose-800 border border-rose-200/60 font-extrabold' }
@@ -238,15 +229,15 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
 
             {/* ===== BẢNG TRÁI: Gói liệu trình ===== */}
             <div className="space-y-4">
-              <div className="flex items-center gap-2 bg-slate-100/80 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-slate-200/60 w-fit">
+              <div className="flex items-center gap-2 bg-slate-100/80 dark:bg-zinc-800 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-slate-200/60 dark:border-zinc-700 w-fit">
                 <HeartPulse size={15} className="text-[#0D9488]" />
-                <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">
+                <h4 className="text-xs font-black text-slate-800 dark:text-zinc-100 uppercase tracking-wider">
                   Gói liệu trình ({realPlans.length})
                 </h4>
               </div>
 
               {realPlans.length === 0 ? (
-                <div className="bg-white border border-slate-200/80 rounded-3xl py-12 text-center text-slate-400 font-semibold text-xs shadow-xs">
+                <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl py-12 text-center text-slate-400 dark:text-zinc-500 font-semibold text-xs shadow-xs">
                   Bệnh nhân chưa có gói liệu trình nào.
                 </div>
               ) : (
@@ -258,35 +249,46 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
                     <div
                       key={pl.id}
                       id={`plan-card-${pl.id}`}
-                      className={`bg-white border rounded-3xl shadow-xs hover:shadow-md transition-all duration-300 overflow-hidden ${
-                        isHighlighted ? 'animate-highlight-once ring-2 ring-teal-400 ring-offset-2 border-teal-300' : 'border-slate-200/80 hover:border-teal-500/40'
+                      className={`bg-white dark:bg-zinc-900 border rounded-3xl shadow-xs hover:shadow-md transition-all duration-300 overflow-hidden ${
+                        isHighlighted ? 'animate-highlight-once ring-2 ring-teal-400 ring-offset-2 border-teal-300' : 'border-slate-200/80 dark:border-zinc-800 hover:border-teal-500/40'
                       }`}
                     >
                       <div className="p-5 space-y-4">
                         {showReminder && (
-                          <div className="flex items-start gap-3 bg-gradient-to-r from-amber-50 to-amber-100/50 border border-amber-300/60 rounded-2xl px-3.5 py-2.5 shadow-2xs">
-                            <Clock size={15} className="text-amber-600 stroke-[2.5] shrink-0 mt-0.5 animate-pulse" />
-                            <p className="text-[11px] font-black text-amber-900 leading-relaxed">{patient.reminder.message}</p>
+                          <div className="flex items-start gap-3 bg-gradient-to-r from-amber-50 to-amber-100/50 dark:from-amber-950/60 dark:to-amber-900/40 border border-amber-300/60 dark:border-amber-800/60 rounded-2xl px-3.5 py-2.5 shadow-2xs">
+                            <Clock size={15} className="text-amber-600 dark:text-amber-400 stroke-[2.5] shrink-0 mt-0.5 animate-pulse" />
+                            <p className="text-[11px] font-black text-amber-900 dark:text-amber-200 leading-relaxed">{patient.reminder.message}</p>
                           </div>
                         )}
+
                         <div className="flex justify-between items-start gap-4">
-                          <div>
-                            <span className={`inline-flex px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider ${getPlanStatusBadge(pl.trang_thai).className}`}>
-                              {getPlanStatusBadge(pl.trang_thai).label}
-                            </span>
-                            <h4 className="text-sm font-black text-slate-900 mt-2 leading-snug">{pl.ten_goi}</h4>
-                            <p className="text-[11px] text-slate-500 font-medium mt-1">
-                              Bác sĩ: <strong className="text-slate-700">{pl.ten_bac_si || 'N/A'}</strong> • Ngày kích hoạt: {pl.ngay_kich_hoat ? format(new Date(pl.ngay_kich_hoat), 'dd/MM/yyyy') : 'N/A'}
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider ${getPlanStatusBadge(pl.trang_thai).className}`}>
+                                {getPlanStatusBadge(pl.trang_thai).label}
+                              </span>
+                              {pl.hinh_thuc_thanh_toan_goi && (
+                                <span className="text-[9px] font-black uppercase tracking-wider bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 px-2 py-0.5 rounded-lg border border-slate-200/60 dark:border-zinc-700">
+                                  {pl.hinh_thuc_thanh_toan_goi === 'tra_gop' ? 'Trả góp' : pl.hinh_thuc_thanh_toan_goi === 'tra_buoi' ? 'Trả từng buổi' : 'Trả thẳng'}
+                                </span>
+                              )}
+                            </div>
+                            <h4 className="text-sm font-black text-slate-900 dark:text-zinc-100 tracking-tight flex items-center gap-2 flex-wrap">
+                              {pl.ten_goi} ({pl.tong_so_buoi} buổi)
+                            </h4>
+                            <p className="text-[11px] text-slate-500 dark:text-zinc-400 font-medium mt-1.5 flex items-center gap-1 flex-wrap">
+                              Bác sĩ: <strong className="text-slate-700 dark:text-zinc-200">{pl.ten_bac_si || 'N/A'}</strong> • Ngày kích hoạt: {pl.ngay_kich_hoat ? format(new Date(pl.ngay_kich_hoat), 'dd/MM/yyyy') : 'N/A'}
                             </p>
                             {pl.han_su_dung && (
-                              <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-                                Hạn sử dụng: <strong className="text-slate-700 font-bold">{format(new Date(pl.han_su_dung), 'dd/MM/yyyy')}</strong>
+                              <p className="text-[11px] text-slate-500 dark:text-zinc-400 font-medium mt-0.5">
+                                Hạn sử dụng: <strong className="text-slate-700 dark:text-zinc-200 font-bold">{format(new Date(pl.han_su_dung), 'dd/MM/yyyy')}</strong>
                               </p>
                             )}
                           </div>
                           <button
+                            type="button"
                             onClick={() => setExpandedPlanId(pl.id)}
-                            className="px-3.5 py-1.5 bg-slate-900 hover:bg-[#0D9488] text-white rounded-xl font-bold text-[11px] transition-all shadow-xs flex items-center gap-1 shrink-0 cursor-pointer active:scale-95"
+                            className="px-3.5 py-1.5 bg-slate-900 dark:bg-zinc-800 hover:bg-[#0D9488] dark:hover:bg-teal-600 text-white rounded-xl font-bold text-[11px] transition-all shadow-xs flex items-center gap-1 shrink-0 cursor-pointer active:scale-95 border border-slate-800 dark:border-zinc-700"
                           >
                             Chi tiết
                             <ChevronDown size={12} />
@@ -295,11 +297,11 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
 
                         {/* Progress bar ProMax */}
                         <div className="space-y-1.5 pt-1">
-                          <div className="flex justify-between text-[11px] font-extrabold text-slate-600">
+                          <div className="flex justify-between text-[11px] font-extrabold text-slate-600 dark:text-zinc-300">
                             <span>Tiến độ liệu trình: {pl.so_buoi_da_dung}/{pl.tong_so_buoi} buổi</span>
-                            <span className="text-[#0D9488] font-black">{progressPercent}%</span>
+                            <span className="text-[#0D9488] dark:text-teal-400 font-black">{progressPercent}%</span>
                           </div>
-                          <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden p-0.5 border border-slate-200/50">
+                          <div className="w-full bg-slate-100 dark:bg-zinc-800 h-2.5 rounded-full overflow-hidden p-0.5 border border-slate-200/50 dark:border-zinc-700">
                             <div className="bg-gradient-to-r from-[#0D9488] to-emerald-400 h-full rounded-full transition-all duration-500 shadow-2xs" style={{ width: `${progressPercent}%` }} />
                           </div>
                         </div>
@@ -312,15 +314,15 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
 
             {/* ===== BẢNG PHẢI: Gói khám & Dịch vụ đơn lẻ ===== */}
             <div className="space-y-4">
-              <div className="flex items-center gap-2 bg-slate-100/80 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-slate-200/60 w-fit">
-                <Stethoscope size={15} className="text-indigo-600" />
-                <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">
+              <div className="flex items-center gap-2 bg-slate-100/80 dark:bg-zinc-800 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-slate-200/60 dark:border-zinc-700 w-fit">
+                <Stethoscope size={15} className="text-indigo-600 dark:text-indigo-400" />
+                <h4 className="text-xs font-black text-slate-800 dark:text-zinc-100 uppercase tracking-wider">
                   Gói khám và gói dịch vụ đơn lẻ ({historyItems.length})
                 </h4>
               </div>
 
               {historyItems.length === 0 ? (
-                <div className="bg-white border border-slate-200/80 rounded-3xl py-12 text-center text-slate-400 font-semibold text-xs shadow-xs">
+                <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl py-12 text-center text-slate-400 dark:text-zinc-500 font-semibold text-xs shadow-xs">
                   Bệnh nhân chưa có lịch sử gói khám hoặc gói dịch vụ đơn lẻ nào.
                 </div>
               ) : (
@@ -332,18 +334,18 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
                     <div
                       key={ap.id}
                       id={`visit-card-${ap.id}`}
-                      className={`bg-white border rounded-3xl shadow-xs hover:shadow-md transition-all duration-300 overflow-hidden ${
-                        isHighlighted ? 'animate-highlight-once ring-2 ring-teal-400 ring-offset-2 border-teal-300' : 'border-slate-200/80 hover:border-indigo-500/40'
+                      className={`bg-white dark:bg-zinc-900 border rounded-3xl shadow-xs hover:shadow-md transition-all duration-300 overflow-hidden ${
+                        isHighlighted ? 'animate-highlight-once ring-2 ring-teal-400 ring-offset-2 border-teal-300' : 'border-slate-200/80 dark:border-zinc-800 hover:border-indigo-500/40'
                       }`}
                     >
                       <button
                         type="button"
                         onClick={() => setExpandedAptId(ap.id)}
-                        className="w-full p-5 flex justify-between items-center gap-4 text-left cursor-pointer select-none hover:bg-slate-50/40 transition-colors"
+                        className="w-full p-5 flex justify-between items-center gap-4 text-left cursor-pointer select-none hover:bg-slate-50/40 dark:hover:bg-zinc-800/50 transition-colors"
                       >
                         <div className="space-y-2">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider ${ap.loai === 'KHAM' ? 'bg-indigo-50 text-indigo-800 border border-indigo-200/60' : 'bg-purple-50 text-purple-800 border border-purple-200/60'
+                            <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider ${ap.loai === 'KHAM' ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800' : 'bg-purple-50 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800'
                               }`}>
                               {ap.loai === 'KHAM' ? 'Khám lâm sàng' : 'Dịch vụ lẻ'}
                             </span>
@@ -356,12 +358,12 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
                               </span>
                             )}
                           </div>
-                          <h4 className="text-sm font-black text-slate-900 leading-snug">{ap.ten_dich_vu || (ap.loai === 'KHAM' ? 'Khám lâm sàng & Lượng giá' : 'Trị liệu dịch vụ lẻ')}</h4>
-                          <p className="text-[11px] text-slate-500 font-medium">
-                            {format(new Date(ap.ngay_gio_bat_dau), 'dd/MM/yyyy HH:mm')} • Thực hiện: <strong className="text-slate-700">{ap.ten_nhan_su || 'Chưa phân công'}</strong>
+                          <h4 className="text-sm font-black text-slate-900 dark:text-zinc-100 leading-snug">{ap.ten_dich_vu || (ap.loai === 'KHAM' ? 'Khám lâm sàng & Lượng giá' : 'Trị liệu dịch vụ lẻ')}</h4>
+                          <p className="text-[11px] text-slate-500 dark:text-zinc-400 font-medium">
+                            {format(new Date(ap.ngay_gio_bat_dau), 'dd/MM/yyyy HH:mm')} • Thực hiện: <strong className="text-slate-700 dark:text-zinc-200">{ap.ten_nhan_su || 'Chưa phân công'}</strong>
                           </p>
                         </div>
-                        <span className="px-3.5 py-1.5 bg-slate-900 hover:bg-indigo-600 text-white rounded-xl font-bold text-[11px] transition-all shadow-xs flex items-center gap-1 shrink-0 cursor-pointer active:scale-95">
+                        <span className="px-3.5 py-1.5 bg-slate-900 dark:bg-zinc-800 hover:bg-indigo-600 dark:hover:bg-indigo-600 text-white rounded-xl font-bold text-[11px] transition-all shadow-xs flex items-center gap-1 shrink-0 cursor-pointer active:scale-95 border border-slate-800 dark:border-zinc-700">
                           Chi tiết
                           <ChevronDown size={12} />
                         </span>
@@ -648,128 +650,14 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
                                   </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch pt-2">
-                                  {/* Cột trái: Ghi nhận lâm sàng & Nhật ký KTV */}
-                                  <div className="flex flex-col gap-3">
-                                    {appt.chan_doan_tri_lieu && (
-                                      <div className="p-3.5 bg-white border border-slate-200/80 rounded-2xl shadow-xs space-y-1.5 shrink-0">
-                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                                          <CheckCircle2 size={13} className="text-[#0D9488]" /> Ghi nhận lâm sàng
-                                        </span>
-                                        <p className="text-xs font-bold text-slate-800 leading-relaxed mt-1">{appt.chan_doan_tri_lieu}</p>
-                                      </div>
-                                    )}
-
-                                    {appt.ghi_chu_tri_lieu && (
-                                      <div className="p-3.5 bg-white border border-slate-200/80 rounded-2xl shadow-xs space-y-1.5 flex-1 flex flex-col justify-start">
-                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                                          <FileText size={13} className="text-amber-500" /> Nhật ký &amp; Ghi chú của kỹ thuật viên
-                                        </span>
-                                        <p className="text-xs font-semibold text-slate-650 italic leading-relaxed mt-1 flex-1">"{appt.ghi_chu_tri_lieu}"</p>
-                                      </div>
-                                    )}
-
-                                    {appt.chong_chi_dinh_tri_lieu && (
-                                      <div className="p-3.5 bg-rose-50/60 border border-rose-100 rounded-2xl flex gap-2.5 text-rose-900 shrink-0">
-                                        <ShieldAlert size={15} className="shrink-0 mt-0.5 text-rose-500" />
-                                        <div className="space-y-0.5">
-                                          <span className="text-[9.5px] uppercase font-black tracking-wider text-rose-600 block">Chống chỉ định lưu ý</span>
-                                          <p className="text-xs font-bold">{appt.chong_chi_dinh_tri_lieu}</p>
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  {/* Cột phải: Thước đo chỉ số đau (VAS) chuẩn 3D như trang Khách hàng */}
-                                  <div className="flex">
-                                    {(appt.vas_truoc !== null || appt.vas_sau !== null) && (
-                                      <div className="p-4 bg-white border border-slate-200/80 rounded-2xl shadow-xs space-y-4 flex-1 flex flex-col justify-between">
-                                        <div>
-                                          <p className="text-[10px] font-black text-slate-800 uppercase tracking-wider mb-3">Chỉ số mức độ đau (VAS)</p>
-
-                                          <div className="grid grid-cols-2 gap-3">
-                                            <div className="p-3 bg-slate-50 rounded-xl text-center border border-slate-100">
-                                              <span className="text-[9px] text-slate-400 uppercase font-black tracking-wider block">Trước trị liệu</span>
-                                              <span className="text-2xl font-black text-slate-700 mt-1 block tabular-nums">{appt.vas_truoc ?? '—'}</span>
-                                            </div>
-                                            <div className="p-3 bg-[#0D9488]/5 rounded-xl text-center border border-[#0D9488]/15">
-                                              <span className="text-[9px] text-[#0D9488] uppercase font-black tracking-wider block">Sau trị liệu</span>
-                                              <span className="text-2xl font-black text-[#0D9488] mt-1 block tabular-nums">{appt.vas_sau ?? '—'}</span>
-                                            </div>
-                                          </div>
-
-                                          {/* Thanh slider gradient VAS */}
-                                          {appt.vas_truoc !== null && appt.vas_sau !== null && (
-                                            <div className="space-y-1.5 pt-4">
-                                              <div className="flex justify-between text-[9px] font-bold text-slate-400">
-                                                <span>0 (Không đau)</span>
-                                                <span>10 (Rất dữ dội)</span>
-                                              </div>
-                                              <div className="h-2.5 bg-slate-100 rounded-full relative overflow-hidden">
-                                                <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-amber-500 to-rose-500 opacity-25" />
-                                                {appt.vas_truoc !== appt.vas_sau && (
-                                                  <div
-                                                    className={`absolute top-0 bottom-0 opacity-40 transition-all ${
-                                                      appt.vas_sau < appt.vas_truoc ? 'bg-emerald-500' : 'bg-rose-500'
-                                                    }`}
-                                                    style={{
-                                                      left: `${Math.min(appt.vas_truoc, appt.vas_sau) * 10}%`,
-                                                      width: `${Math.abs(appt.vas_sau - appt.vas_truoc) * 10}%`
-                                                    }}
-                                                  />
-                                                )}
-                                                <div
-                                                  className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-slate-400 border border-white rounded-full -ml-1.25 transition-all shadow-xs"
-                                                  style={{ left: `${appt.vas_truoc * 10}%` }}
-                                                  title={`Trước: ${appt.vas_truoc}`}
-                                                />
-                                                <div
-                                                  className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-[#0D9488] border border-white rounded-full -ml-1.75 transition-all shadow-sm"
-                                                  style={{ left: `${appt.vas_sau * 10}%` }}
-                                                  title={`Sau: ${appt.vas_sau}`}
-                                                />
-                                              </div>
-                                            </div>
-                                          )}
-
-                                          {/* Bảng chi tiết mô tả thang điểm đau */}
-                                          <div className="space-y-2 pt-3 border-t border-slate-100 mt-4">
-                                            {appt.vas_truoc !== null && (
-                                              <div className="flex items-start gap-2 text-[11px] text-slate-500">
-                                                <span className="size-2 rounded-full bg-slate-400 mt-1 shrink-0" />
-                                                <p className="leading-tight">
-                                                  <span className="font-extrabold text-slate-700">Mức {appt.vas_truoc} (Trước):</span> {getVasDescription(appt.vas_truoc)}
-                                                </p>
-                                              </div>
-                                            )}
-                                            {appt.vas_sau !== null && (
-                                              <div className="flex items-start gap-2 text-[11px] text-[#0D9488]">
-                                                <span className="size-2 rounded-full bg-[#0D9488] mt-1 shrink-0" />
-                                                <p className="leading-tight">
-                                                  <span className="font-extrabold text-[#0D9488]">Mức {appt.vas_sau} (Sau):</span> {getVasDescription(appt.vas_sau)}
-                                                </p>
-                                              </div>
-                                            )}
-                                          </div>
-                                        </div>
-
-                                        {appt.vas_truoc !== null && appt.vas_sau !== null && appt.vas_truoc !== appt.vas_sau && (
-                                          <div className="flex justify-center pt-2">
-                                            <span
-                                              className={`inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-0.5 rounded-full border ${
-                                                appt.vas_sau < appt.vas_truoc
-                                                  ? 'text-emerald-700 bg-emerald-50 border-emerald-100'
-                                                  : 'text-rose-700 bg-rose-50 border-rose-100'
-                                              }`}
-                                            >
-                                              {appt.vas_sau < appt.vas_truoc ? <TrendingDown size={12} /> : <TrendingUp size={12} />}
-                                              {appt.vas_sau < appt.vas_truoc ? 'Giảm' : 'Tăng'} {Math.abs(appt.vas_sau - appt.vas_truoc)} điểm đau so với trước khi trị liệu
-                                            </span>
-                                          </div>
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
+                                <div className="pt-2">
+                                  <TreatmentSessionDetailBody
+                                    chanDoan={appt.chan_doan_tri_lieu}
+                                    ghiChu={appt.ghi_chu_tri_lieu}
+                                    chongChiDinh={appt.chong_chi_dinh_tri_lieu}
+                                    vasTruoc={appt.vas_truoc}
+                                    vasSau={appt.vas_sau}
+                                  />
                                 </div>
                               </div>
                             )}
@@ -957,30 +845,30 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
                 {/* Gói chỉ định từ ca khám */}
                 {prescribedPlan && prescribedPlan.trang_thai === 'cho_kich_hoat' && (
                   prescribedPlan.loai_goi === 'LE' ? (
-                    <div className="border border-sky-200 bg-gradient-to-r from-sky-50/70 via-sky-50/30 to-white text-sky-900 rounded-xl p-4">
+                    <div className="border border-sky-200 dark:border-sky-800 bg-gradient-to-r from-sky-50/70 via-sky-50/30 to-white dark:from-sky-950/60 dark:via-zinc-800 dark:to-zinc-900 text-sky-900 dark:text-sky-200 rounded-xl p-4">
                       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                         <div className="flex items-start gap-3">
-                          <div className="size-9 rounded-xl flex items-center justify-center shrink-0 bg-sky-100 text-sky-700">
+                          <div className="size-9 rounded-xl flex items-center justify-center shrink-0 bg-sky-100 dark:bg-sky-900/60 text-sky-700 dark:text-sky-300">
                             <Stethoscope size={16} className="stroke-[2.5]" />
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-400">
                                 Dịch vụ lẻ chỉ định từ ca khám
                               </span>
                               <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase border ${!bookedApt
-                                  ? 'bg-sky-100 text-sky-800 border-sky-200'
+                                  ? 'bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border-sky-200 dark:border-sky-800'
                                   : bookedApt.trang_thai === 'hoan_thanh'
-                                    ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                                    : 'bg-amber-100 text-amber-800 border-amber-200'
+                                    ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                                    : 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800'
                                 }`}>
                                 {!bookedApt ? 'Chưa đặt lịch' : bookedApt.trang_thai === 'hoan_thanh' ? 'Đã hoàn thành' : 'Đã đặt lịch'}
                               </span>
                             </div>
-                            <h4 className="text-sm font-bold text-slate-800 mt-1">
+                            <h4 className="text-sm font-bold text-slate-800 dark:text-zinc-100 mt-1">
                               {prescribedPlan.ten_goi} ({prescribedPlan.tong_so_buoi} buổi)
                             </h4>
-                            <p className="text-[10px] text-slate-505 font-semibold mt-0.5">
+                            <p className="text-[10px] text-slate-500 dark:text-zinc-400 font-semibold mt-0.5">
                               {bookedApt
                                 ? `Lịch hẹn: ${format(new Date(bookedApt.ngay_gio_bat_dau), 'dd/MM/yyyy HH:mm')} • KTV ${bookedApt.ten_nhan_su || 'Chưa phân công'}`
                                 : 'Bác sĩ đã chỉ định dịch vụ lẻ này. Khách hàng sẽ thanh toán sau khi thực hiện dịch vụ.'}
@@ -1003,31 +891,31 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
                       </div>
                     </div>
                   ) : (
-                    <div className="border border-amber-200 bg-gradient-to-r from-amber-50/70 via-amber-50/30 to-white text-amber-900 rounded-xl p-4">
+                    <div className="border border-amber-200 dark:border-amber-800 bg-gradient-to-r from-amber-50/70 via-amber-50/30 to-white dark:from-amber-950/60 dark:via-zinc-800 dark:to-zinc-900 text-amber-900 dark:text-amber-200 rounded-xl p-4">
                       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                         <div className="flex items-start gap-3">
-                          <div className="size-9 rounded-xl flex items-center justify-center shrink-0 bg-amber-100 text-amber-700">
+                          <div className="size-9 rounded-xl flex items-center justify-center shrink-0 bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300">
                             <Stethoscope size={16} className="stroke-[2.5]" />
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-400">
                                 Gói chỉ định từ ca khám này
                               </span>
-                              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-amber-100 text-amber-800 border border-amber-200">
+                              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
                                 Chờ kích hoạt
                               </span>
                             </div>
-                            <h4 className="text-sm font-bold text-slate-800 mt-1">
+                            <h4 className="text-sm font-bold text-slate-800 dark:text-zinc-100 mt-1">
                               {prescribedPlan.ten_goi} ({prescribedPlan.tong_so_buoi} buổi)
                             </h4>
-                            <p className="text-[10px] text-slate-500 font-semibold mt-0.5">
+                            <p className="text-[10px] text-slate-500 dark:text-zinc-400 font-semibold mt-0.5">
                               Bác sĩ đã chỉ định phác đồ điều trị này. Vui lòng thanh toán để kích hoạt và bắt đầu buổi trị liệu.
                             </p>
                             {prescribedPlan.han_kich_hoat && (() => {
                               const countdown = formatCountdown(prescribedPlan.han_kich_hoat);
                               return (
-                                <p className={`text-[10px] font-bold mt-1 ${countdown.urgent ? 'text-red-600' : 'text-amber-700'}`}>
+                                <p className={`text-[10px] font-bold mt-1 ${countdown.urgent ? 'text-red-600 dark:text-red-400' : 'text-amber-700 dark:text-amber-300'}`}>
                                   ⏱ {countdown.text}
                                 </p>
                               );
@@ -1059,28 +947,28 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
                       setExpandedPlanId(prescribedPlan.id);
                     }}
                     className={`w-full flex items-center justify-between gap-3 rounded-xl p-4 border text-left transition-all active:scale-[0.99] cursor-pointer ${prescribedPlan.trang_thai === 'huy'
-                        ? 'border-rose-200 bg-gradient-to-r from-rose-50/70 via-rose-50/30 to-white'
-                        : 'border-teal-200 bg-gradient-to-r from-teal-50/70 via-teal-50/30 to-white'
+                        ? 'border-rose-200 dark:border-rose-800 bg-gradient-to-r from-rose-50/70 via-rose-50/30 to-white dark:from-rose-950/60 dark:via-zinc-800 dark:to-zinc-900'
+                        : 'border-teal-200 dark:border-teal-800 bg-gradient-to-r from-teal-50/70 via-teal-50/30 to-white dark:from-teal-950/60 dark:via-zinc-800 dark:to-zinc-900'
                       }`}
                   >
                     <div className="flex items-start gap-3">
-                      <div className={`size-9 rounded-xl flex items-center justify-center shrink-0 ${prescribedPlan.trang_thai === 'huy' ? 'bg-rose-100 text-rose-700' : 'bg-teal-100 text-teal-700'
+                      <div className={`size-9 rounded-xl flex items-center justify-center shrink-0 ${prescribedPlan.trang_thai === 'huy' ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300' : 'bg-teal-100 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300'
                         }`}>
                         <Stethoscope size={16} className="stroke-[2.5]" />
                       </div>
                       <div>
-                        <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-400">
                           Ca khám này đã chỉ định phác đồ
                         </span>
-                        <h4 className="text-sm font-bold text-slate-800 mt-1">
+                        <h4 className="text-sm font-bold text-slate-800 dark:text-zinc-100 mt-1">
                           {prescribedPlan.ten_goi} ({prescribedPlan.tong_so_buoi} buổi)
                         </h4>
-                        <p className="text-[10px] text-slate-505 font-semibold mt-0.5">
+                        <p className="text-[10px] text-slate-500 dark:text-zinc-400 font-semibold mt-0.5">
                           {prescribedPlan.trang_thai === 'dang_dieu_tri' ? 'Đang điều trị' : prescribedPlan.trang_thai === 'hoan_thanh' ? 'Đã hoàn thành liệu trình' : 'Đã hủy'} • Bấm để xem chi tiết phác đồ
                         </p>
                       </div>
                     </div>
-                    <ChevronDown size={14} className="text-slate-400 -rotate-90 stroke-[2.5] shrink-0" />
+                    <ChevronDown size={14} className="text-slate-400 dark:text-zinc-400 -rotate-90 stroke-[2.5] shrink-0" />
                   </button>
                 )}
 
@@ -1157,62 +1045,17 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
                   </div>
                 </div>
 
-                {/* Pain Scale visualizer if available */}
-                {selectedApt.vas_truoc !== null && selectedApt.vas_sau !== null && (
-                  <div className="border border-slate-100 rounded-xl p-3.5 space-y-2 bg-white">
-                    <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
-                      <span>Kết quả lượng giá đau (VAS):</span>
-                      <span className="text-slate-800 font-extrabold">
-                        VAS {selectedApt.vas_truoc} (Trước) ➔ VAS {selectedApt.vas_sau} (Sau)
-                      </span>
-                    </div>
-                    <div className="relative w-full h-3.5 bg-slate-100 rounded-full overflow-hidden flex items-center px-1">
-                      <div
-                        className="absolute h-2 bg-gradient-to-r from-teal-500 to-rose-500 rounded-full"
-                        style={{
-                          left: `${(selectedApt.vas_sau || 0) * 10}%`,
-                          right: `${100 - (selectedApt.vas_truoc || 10) * 10}%`
-                        }}
-                      />
-                      <span className="absolute text-[8px] font-bold text-teal-800 font-mono" style={{ left: `${(selectedApt.vas_sau || 0) * 10}%`, transform: 'translateY(-1px)' }}>
-                        ▲ {selectedApt.vas_sau}
-                      </span>
-                      <span className="absolute text-[8px] font-bold text-rose-800 font-mono" style={{ left: `${(selectedApt.vas_truoc || 0) * 10}%`, transform: 'translateY(-1px)' }}>
-                        ▲ {selectedApt.vas_truoc}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Diagnostics and Treatment journal */}
-                <div className="space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="space-y-1.5 p-3 bg-teal-50/20 border border-teal-100/30 rounded-xl">
-                      <span className="text-[9px] font-bold text-teal-855 uppercase tracking-widest block">Chẩn đoán / Ghi chép trị liệu</span>
-                      <p className="text-xs font-bold text-teal-950 leading-relaxed">
-                        {selectedApt.chan_doan_tri_lieu || 'Đang chờ cập nhật chẩn đoán.'}
-                      </p>
-                    </div>
-
-                    <div className="space-y-1.5 p-3 bg-rose-50/20 border border-rose-100/30 rounded-xl">
-                      <span className="text-[9px] font-bold text-rose-850 uppercase tracking-widest block flex items-center gap-1">
-                        <AlertTriangle size={11} className="text-rose-500" /> Chống chỉ định lâm sàng
-                      </span>
-                      <p className="text-xs font-bold text-rose-955 leading-relaxed">
-                        {selectedApt.chong_chi_dinh_tri_lieu || 'Không ghi nhận chống chỉ định.'}
-                      </p>
-                    </div>
-                  </div>
-
-                  {selectedApt.ghi_chu_tri_lieu && (
-                    <div className="text-xs">
-                      <span className="text-[9px] text-slate-400 block font-mono uppercase">Ghi chú & Chỉ định thêm</span>
-                      <p className="text-slate-700 italic mt-1 bg-slate-50 p-3 rounded-lg border border-slate-100">
-                        "{selectedApt.ghi_chu_tri_lieu}"
-                      </p>
-                    </div>
-                  )}
-                </div>
+                {/* Chẩn đoán/chống chỉ định chỉ có ở KHAM; VAS chỉ có ở dịch vụ lẻ/trị liệu — 2 loại
+                    dữ liệu loại trừ nhau theo đúng quy tắc nghiệp vụ, component tự ẩn field null,
+                    không còn fallback "Đang chờ cập nhật..." sai bản chất cho dịch vụ lẻ. */}
+                <TreatmentSessionDetailBody
+                  chanDoan={selectedApt.chan_doan_tri_lieu}
+                  ghiChu={selectedApt.ghi_chu_tri_lieu}
+                  ghiChuLabel="Ghi chú & Chỉ định thêm"
+                  chongChiDinh={selectedApt.chong_chi_dinh_tri_lieu}
+                  vasTruoc={selectedApt.vas_truoc}
+                  vasSau={selectedApt.vas_sau}
+                />
               </div>
             </motion.div>
           </div>

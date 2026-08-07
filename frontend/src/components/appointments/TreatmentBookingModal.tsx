@@ -187,7 +187,7 @@ export default function TreatmentBookingModal({
           {hasReachedLimit && (
             <div className="bg-rose-55 border border-rose-200 p-3.5 rounded-xl text-xs font-semibold text-rose-700 flex items-center gap-2 animate-in fade-in duration-200">
               <span>⚠️</span>
-              <span>Khách đã đặt tối đa 3 dịch vụ 1 ngày. Vui lòng đặt dịch vụ vào 1 ngày khác.</span>
+              <span>Khách đang có tối đa 3 lịch chưa hoàn thành/chưa hủy. Cần hoàn thành hoặc hủy bớt lịch hiện có trước khi đặt thêm.</span>
             </div>
           )}
 

@@ -3,7 +3,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../../../stores/authStore';
 import { CheckCircle2 } from 'lucide-react';
 import { format, addDays, isSameDay } from 'date-fns';
-import { vi } from 'date-fns/locale';
 
 import AppointmentCalendar from '../../../../components/appointments/AppointmentCalendar';
 import AppointmentInfoModal from '../../../../components/appointments/AppointmentInfoModal';
@@ -13,9 +12,7 @@ import { CapacityView } from '../../../../components/appointments/ui/CapacityVie
 import { getAppointments, getDoctorSchedules, DoctorAppointment, DoctorSchedule } from '../../api/doctor.api';
 import { computeAppointmentKpiBuckets, KPI_BUCKET_STATUSES, KPI_BUCKET_LABELS, AppointmentKpiBuckets } from '../../../../utils/appointmentKpi';
 import { ActiveFilterChip } from '../../../../components/appointments/ui/ActiveFilterChip';
-import { getClinicalStatusConfig } from '../../../../components/appointmentStatusConfig';
-
-const STATUS_CONFIG = getClinicalStatusConfig('doctor');
+import { statusConfig as STATUS_CONFIG } from '../../../../components/appointmentStatusConfig';
 
 export default function DoctorAppointments() {
   const navigate = useNavigate();
@@ -53,7 +50,7 @@ export default function DoctorAppointments() {
   }, [location.state, navigate, location.pathname]);
 
   // Filter States
-  const [timeRange, setTimeRange] = useState<'today' | '7days' | 'month' | 'custom'>('7days');
+  const [timeRange] = useState<'today' | '7days' | 'month' | 'custom'>('7days');
   const [viewMode, setViewMode] = useState<'timeline' | 'capacity'>('capacity');
   const [searchTerm, setSearchTerm] = useState<string>('');
 
@@ -194,7 +191,7 @@ export default function DoctorAppointments() {
 
   // Khi bác sĩ click vào 1 card hẹn trên calendar
   const handleOpenDetailModal = useCallback((apt: any) => {
-    if (['cho_kham', 'dang_kham', 'da_checkin'].includes(apt.trang_thai)) {
+    if (['dang_kham', 'da_checkin'].includes(apt.trang_thai)) {
       setConfirmApt(apt);
     } else {
       setSelectedApt(apt);

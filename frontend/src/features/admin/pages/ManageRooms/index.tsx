@@ -253,10 +253,10 @@ export default function ManageRooms() {
       </div>
 
       {/* Filters Panel */}
-      <div className="bg-slate-50/80 backdrop-blur-md border border-slate-200/60 p-5 rounded-2xl grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+      <div className="bg-slate-50/80 dark:bg-zinc-900 backdrop-blur-md border border-slate-200/60 dark:border-zinc-800 p-5 rounded-2xl grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
         {/* Search */}
         <div className="relative md:col-span-3">
-          <span className="absolute inset-y-0 left-3.5 flex items-center text-slate-400">
+          <span className="absolute inset-y-0 left-3.5 flex items-center text-slate-400 dark:text-zinc-400">
             <Compass className="w-5 h-5" />
           </span>
           <input 
@@ -264,7 +264,7 @@ export default function ManageRooms() {
             placeholder="Tìm kiếm theo mã phòng, tên phòng hoặc ghi chú..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-11 pr-4 py-3 border border-slate-200/80 bg-white text-sm font-semibold rounded-xl focus:outline-none focus:border-teal-800 focus:ring-2 focus:ring-teal-100 transition-all placeholder-slate-400"
+            className="w-full pl-11 pr-4 py-3 border border-slate-200/80 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 text-sm font-semibold rounded-xl focus:outline-none focus:border-teal-800 focus:ring-2 focus:ring-teal-100 transition-all placeholder-slate-400 dark:placeholder-zinc-500"
           />
         </div>
 
@@ -272,7 +272,7 @@ export default function ManageRooms() {
         <select 
           value={selectedType}
           onChange={(e) => setSelectedType(e.target.value)}
-          className="w-full py-3 px-4 border border-slate-200/80 bg-white text-sm font-bold rounded-xl focus:outline-none focus:border-teal-800 focus:ring-2 focus:ring-teal-100 transition-all"
+          className="w-full py-3 px-4 border border-slate-200/80 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 text-sm font-bold rounded-xl focus:outline-none focus:border-teal-800 focus:ring-2 focus:ring-teal-100 transition-all cursor-pointer"
         >
           <option value="all">TẤT CẢ LOẠI PHÒNG</option>
           <option value="phong_tri_lieu">PHÒNG TRỊ LIỆU</option>

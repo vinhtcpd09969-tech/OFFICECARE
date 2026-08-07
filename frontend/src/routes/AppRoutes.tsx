@@ -1,5 +1,5 @@
-import { lazy, Suspense } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { lazy, Suspense, useEffect } from 'react';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ProtectedRoute } from '../layouts/ProtectedRoute';
 import { RootRedirect } from '../layouts/RootRedirect';
 import LoadingScreen from '../components/LoadingScreen';
@@ -22,7 +22,6 @@ const SpecialistDetailPage = lazy(() => import('../features/public/pages/Special
 const Articles = lazy(() => import('../features/public/pages/Articles'));
 const ArticleDetailPage = lazy(() => import('../features/public/pages/ArticleDetailPage'));
 const AboutUs = lazy(() => import('../features/public/pages/AboutUs'));
-const TermsOfService = lazy(() => import('../features/public/pages/TermsOfService'));
 
 // Auth Feature
 const Login = lazy(() => import('../features/auth/pages/Login'));
@@ -66,6 +65,18 @@ const DoctorMedicalRecords = lazy(() => import('../pages/DoctorMedicalRecords'))
 const DoctorSchedules = lazy(() => import('../pages/DoctorSchedules'));
 
 export default function AppRoutes() {
+  const location = useLocation();
+
+  useEffect(() => {
+    const isStaffRoute = ['/admin', '/doctor', '/receptionist', '/technician'].some(prefix =>
+      location.pathname.startsWith(prefix)
+    );
+    if (!isStaffRoute) {
+      document.documentElement.classList.remove('dark');
+      document.body.classList.remove('dark');
+    }
+  }, [location.pathname]);
+
   return (
     <Suspense fallback={<LoadingScreen />}>
       <Routes>
@@ -81,7 +92,7 @@ export default function AppRoutes() {
           <Route path="/tin-tuc" element={<Articles />} />
           <Route path="/tin-tuc/:slug" element={<ArticleDetailPage />} />
           <Route path="/gioi-thieu" element={<AboutUs />} />
-          <Route path="/dieu-khoan-dich-vu" element={<TermsOfService />} />
+          <Route path="/dieu-khoan-dich-vu" element={<Navigate to="/" replace />} />
         </Route>
 
         <Route path="/login" element={<Login />} />
@@ -124,7 +135,7 @@ export default function AppRoutes() {
             <Route path="/admin/marketing" element={<ManageVouchers />} />
             <Route path="/admin/articles" element={<ManageArticles />} />
             <Route path="/admin/feedback" element={<ViewFeedback />} />
-            <Route path="/admin/settings" element={<Navigate to="/admin/staff" replace />} />
+            <Route path="/admin/settings" element={<CustomerSettings />} />
           </Route>
         </Route>
 

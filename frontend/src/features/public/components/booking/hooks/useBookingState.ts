@@ -5,12 +5,40 @@ import { formatLocalDate } from '../constants';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
+export interface BuoiSlotAvailability {
+  conLaiChung: number;
+  choPhep: boolean;
+}
+
+export interface BuoiNhanSu {
+  id: number;
+  ho_ten: string;
+  anh_dai_dien: string | null;
+  caTruc: string;
+  conLaiSang: number;
+  conLaiChieu: number;
+}
+
+export interface BuoiAvailability {
+  sang: BuoiSlotAvailability;
+  chieu: BuoiSlotAvailability;
+  nhanSu: BuoiNhanSu[];
+  hasExistingClinicalExam: boolean;
+}
+
+const EMPTY_AVAILABILITY: BuoiAvailability = {
+  sang: { conLaiChung: 0, choPhep: false },
+  chieu: { conLaiChung: 0, choPhep: false },
+  nhanSu: [],
+  hasExistingClinicalExam: false
+};
+
 function bookingReducer(state: BookingState, action: BookingAction): BookingState {
   switch (action.type) {
     case 'SET_DATE':
-      return { ...state, selectedDate: action.date, selectedTime: '' };
-    case 'SET_TIME':
-      return { ...state, selectedTime: action.time };
+      return { ...state, selectedDate: action.date, selectedBuoi: '' };
+    case 'SET_BUOI':
+      return { ...state, selectedBuoi: action.buoi };
     case 'SET_FORM_FIELD':
       return { ...state, formData: { ...state.formData, [action.field]: action.value } };
     case 'SET_SUBMITTING':
@@ -23,34 +51,22 @@ function bookingReducer(state: BookingState, action: BookingAction): BookingStat
 }
 
 export function useBookingState(user: any, bookingType: 'kham' | 'dich_vu', selectedServiceId: string, services: any[]) {
-  const [tempHoldId] = useState(() => {
-    let id = sessionStorage.getItem('booking_temp_hold_id');
-    if (!id) {
-      id = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36);
-      sessionStorage.setItem('booking_temp_hold_id', id);
-    }
-    return id;
-  });
-
   const [state, dispatch] = useReducer(bookingReducer, {
     selectedDate: formatLocalDate(new Date()),
-    selectedTime: '',
+    selectedBuoi: '',
     isSubmitting: false,
     isSuccess: false,
     formData: {
       ho_ten_khach: user?.ho_ten || '',
       so_dien_thoai: user?.so_dien_thoai || '',
-      gioi_tinh_khach: 'nam',
+      gioi_tinh_khach: user?.gioi_tinh || 'nam',
       trieu_chung: '',
       ly_do_kham: 'Khám lượng giá ban đầu',
       anh_dinh_kem_url: ''
     }
   });
 
-  const [bookedSlots, setBookedSlots] = useState<string[]>([]);
-  const [specialists, setSpecialists] = useState<any[]>([]);
-  const [slotAvailability, setSlotAvailability] = useState<Record<string, number[]>>({});
-  const [hasExistingClinicalExam, setHasExistingClinicalExam] = useState<boolean>(false);
+  const [buoiAvailability, setBuoiAvailability] = useState<BuoiAvailability>(EMPTY_AVAILABILITY);
   const [isPhoneTakenByOther, setIsPhoneTakenByOther] = useState<boolean>(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
@@ -65,7 +81,7 @@ export function useBookingState(user: any, bookingType: 'kham' | 'dich_vu', sele
       try {
         const parsed = JSON.parse(saved);
         if (parsed.selectedDate) dispatch({ type: 'SET_DATE', date: parsed.selectedDate });
-        if (parsed.selectedTime) dispatch({ type: 'SET_TIME', time: parsed.selectedTime });
+        if (parsed.selectedBuoi) dispatch({ type: 'SET_BUOI', buoi: parsed.selectedBuoi });
         if (parsed.formData) {
           Object.keys(parsed.formData).forEach(key => {
             if (key === 'ho_ten_khach' && user?.ho_ten) return;
@@ -80,55 +96,43 @@ export function useBookingState(user: any, bookingType: 'kham' | 'dich_vu', sele
     }
   }, [user]);
 
-  // Fetch booked slots for the selected date
+  // Fetch sức chứa 2 buổi cho ngày đang chọn
   useEffect(() => {
     if (!state.selectedDate) return;
-    setHasExistingClinicalExam(false); // Reset cờ trùng lịch ngay khi thay đổi ngày
     const userId = user?.id || '';
     const phone = state.formData.so_dien_thoai || user?.so_dien_thoai || '';
-    
-    let duration = 30;
+
     let targetDichVuId = '';
-    
     if (bookingType === 'dich_vu') {
       targetDichVuId = selectedServiceId;
-      const service = services.find(s => s.id === selectedServiceId);
-      if (service) {
-        duration = service.thoi_luong_phut || 30;
-      }
     } else {
       const examService = services.find(s => s.loai_goi === 'KHAM' || s.loai_dich_vu === 'KHAM');
       targetDichVuId = examService?.id || '';
-      if (examService) {
-        duration = examService.thoi_luong_phut || examService.thoi_luong_buoi_phut || 30;
-      }
     }
 
-    fetch(`${BASE_URL}/client/appointments/booked-slots?date=${state.selectedDate}&userId=${userId}&phone=${phone}&duration=${duration}&dichVuId=${targetDichVuId}&excludeSessionId=${tempHoldId}`)
+    fetch(`${BASE_URL}/client/appointments/buoi-availability?date=${state.selectedDate}&userId=${userId}&phone=${phone}&dichVuId=${targetDichVuId}`)
       .then(res => res.json())
       .then(data => {
-        setBookedSlots(data.bookedSlots || []);
-        setSpecialists(data.specialists || []);
-        setSlotAvailability(data.slotAvailability || {});
-        setHasExistingClinicalExam(!!data.hasExistingClinicalExam);
+        setBuoiAvailability({
+          sang: data.sang || EMPTY_AVAILABILITY.sang,
+          chieu: data.chieu || EMPTY_AVAILABILITY.chieu,
+          nhanSu: data.nhanSu || [],
+          hasExistingClinicalExam: !!data.hasExistingClinicalExam
+        });
         setIsPhoneTakenByOther(!!data.isPhoneTakenByOther);
       })
       .catch(() => {
-        setBookedSlots([]);
-        setSpecialists([]);
-        setSlotAvailability({});
-        setHasExistingClinicalExam(false);
+        setBuoiAvailability(EMPTY_AVAILABILITY);
         setIsPhoneTakenByOther(false);
       });
-  }, [state.selectedDate, user?.id, state.formData.so_dien_thoai, user?.so_dien_thoai, bookingType, selectedServiceId, services, tempHoldId, refreshTrigger]);
+  }, [state.selectedDate, user?.id, state.formData.so_dien_thoai, user?.so_dien_thoai, bookingType, selectedServiceId, services, refreshTrigger]);
 
   const setDateField = useCallback((date: string) => {
-    setHasExistingClinicalExam(false); // Reset cờ khi set date mới
     dispatch({ type: 'SET_DATE', date });
   }, []);
 
-  const setTimeField = useCallback((time: string) => {
-    dispatch({ type: 'SET_TIME', time });
+  const setBuoiField = useCallback((buoi: 'sang' | 'chieu' | '') => {
+    dispatch({ type: 'SET_BUOI', buoi });
   }, []);
 
   const setFormField = useCallback((field: string, value: string) => {
@@ -145,17 +149,14 @@ export function useBookingState(user: any, bookingType: 'kham' | 'dich_vu', sele
 
   return {
     state,
-    bookedSlots,
-    specialists,
-    slotAvailability,
-    hasExistingClinicalExam,
+    buoiAvailability,
+    hasExistingClinicalExam: buoiAvailability.hasExistingClinicalExam,
     isPhoneTakenByOther,
     setDateField,
-    setTimeField,
+    setBuoiField,
     setFormField,
     setSubmitting,
     setSuccess,
-    tempHoldId,
     refreshSlots
   };
 }

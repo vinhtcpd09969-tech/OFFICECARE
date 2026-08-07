@@ -14,10 +14,13 @@ interface DetailHeaderProps {
   loaiGoi?: string | null;
   isRescheduling: boolean;
   setIsRescheduling: (val: boolean) => void;
-  selectedTimeSlot?: string;
+  selectedBuoi?: 'sang' | 'chieu' | '';
   rescheduleDate?: string;
+  currentBuoi?: string;
   trangThai?: string;
 }
+
+const BUOI_LABEL: Record<string, string> = { sang: 'Buổi sáng', chieu: 'Buổi chiều' };
 
 export function DetailHeader({
   tenKhachHang,
@@ -32,25 +35,22 @@ export function DetailHeader({
   loaiGoi,
   isRescheduling,
   setIsRescheduling,
-  selectedTimeSlot,
+  selectedBuoi,
   rescheduleDate,
+  currentBuoi,
   trangThai
 }: DetailHeaderProps) {
   // Gói liệu trình: nêu rõ đang là buổi thứ mấy / tổng số buổi, thay vì chỉ tên gói trơ trọi.
   const isPackageSession = loaiGoi === 'LIEU_TRINH' && !!soThuTuBuoi;
 
-  // Check if status is checked-in, completed, or cancelled
-  const isCheckedInOrFinished = [
-    'da_checkin', 'cho_kham', 'dang_kham', 'hoan_thanh', 
-    'da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'
-  ].includes(trangThai || '');
+  // Đổi buổi chỉ hợp lệ khi lịch còn ở `da_xac_nhan`/`da_checkin` (race-condition guard lớp 1 —
+  // xem mục "Đổi buổi" trong kế hoạch tổng): ca đang thực hiện, chờ tái lượng giá, đã hoàn thành,
+  // đã hủy hoặc không đến đều không còn ý nghĩa để dời buổi.
+  const RESCHEDULABLE_STATUSES = ['da_xac_nhan', 'da_checkin'];
+  const isRescheduleDisabled = !RESCHEDULABLE_STATUSES.includes(trangThai || '');
 
-  // Nhân sự (Admin/Lễ tân) được đổi lịch bất kỳ lúc nào trước khi ca hẹn check-in/hoàn tất/hủy —
-  // không còn giới hạn 8 tiếng như phía khách hàng tự hủy (gate 8h chỉ áp cho khách tự hủy).
-  const isRescheduleDisabled = isCheckedInOrFinished;
-
-  const disableReason = isCheckedInOrFinished
-    ? 'Không thể đổi lịch của ca đã check-in hoặc hoàn tất/hủy.'
+  const disableReason = isRescheduleDisabled
+    ? 'Không thể đổi lịch của ca đang thực hiện, chờ tái lượng giá, đã hoàn tất, đã hủy hoặc không đến.'
     : '';
 
   return (
@@ -140,14 +140,14 @@ export function DetailHeader({
             </button>
 
             {isRescheduling && (() => {
-              if (!selectedTimeSlot || !rescheduleDate) return null;
+              if (!selectedBuoi || !rescheduleDate) return null;
               const origStart = new Date(ngayGioBatDau);
               const origDateStr = format(origStart, 'yyyy-MM-dd');
-              const isChanged = selectedTimeSlot !== aptStartHourStr || rescheduleDate !== origDateStr;
+              const isChanged = selectedBuoi !== currentBuoi || rescheduleDate !== origDateStr;
               if (!isChanged) return null;
               return (
                 <span className="inline-flex items-center gap-1.5 text-xs font-mono font-black text-rose-700 dark:text-rose-455 bg-rose-50 dark:bg-rose-955/20 border border-rose-100 dark:border-rose-900/30 px-2.5 py-1.5 rounded-lg">
-                  👉 Lịch muốn đổi: {selectedTimeSlot} ({format(new Date(rescheduleDate), 'dd/MM/yyyy')})
+                  👉 Lịch muốn đổi: {BUOI_LABEL[selectedBuoi]} ({format(new Date(rescheduleDate), 'dd/MM/yyyy')})
                 </span>
               );
             })()}

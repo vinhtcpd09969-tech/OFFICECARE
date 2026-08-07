@@ -142,7 +142,10 @@ export function calculateDiscountPercent(
 export interface PackageCancellationRefundInput {
   tongTienGoc: number;
   soTienDaDong: number;
-  tiLeGiam: number;
+  /** A15c — giá gói khách THẬT SỰ phải trả, lấy thẳng `hoa_don.tong_tien_phai_tra` (đã net qua mọi
+   * hình thức giảm giá, kể cả voucher số tiền cố định) — KHÔNG tái tính từ `tongTienGoc × tiLeGiam`
+   * (cột `ti_le_giam_gia_goi` đang bị khai tử theo C11, và tái tính sẽ phạt sai với gói bán qua voucher). */
+  giaThanhToanGoi: number;
   soBuoiDung: number;
   tongSoBuoi: number;
   chiPhiKham: number;
@@ -178,7 +181,7 @@ export function calculatePackageCancellationRefund(
   const {
     tongTienGoc,
     soTienDaDong,
-    tiLeGiam,
+    giaThanhToanGoi,
     soBuoiDung,
     tongSoBuoi,
     chiPhiKham,
@@ -188,8 +191,6 @@ export function calculatePackageCancellationRefund(
   } = input;
 
   const giaGocGoi = tongTienGoc;
-  const giamGiaGoi = Math.round((giaGocGoi * tiLeGiam) / 100);
-  const giaThanhToanGoi = giaGocGoi - giamGiaGoi;
 
   const chiPhiBuoiDung = Math.round((giaThanhToanGoi * soBuoiDung) / tongSoBuoi);
   const phiPhatThucTe = Math.round((giaThanhToanGoi * phiPhatPercent) / 100);

@@ -1,18 +1,15 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { 
-  CheckCircle2, 
-  Clock, 
-  MapPin, 
-  User, 
-  Activity, 
-  AlertCircle, 
+import {
+  CheckCircle2,
+  Clock,
+  MapPin,
+  User,
+  Activity,
+  AlertCircle,
   Home as HomeIcon,
   ChevronRight,
-  ArrowRight,
-  ShieldCheck,
-  Loader2
+  ArrowRight
 } from 'lucide-react';
 import { useAuthStore } from '../../../stores/authStore';
 import { toast } from 'react-hot-toast';
@@ -22,7 +19,7 @@ interface AppointmentData {
   ma_lich_dat: string;
   ngay_gio_bat_dau: string;
   ngay_gio_ket_thuc: string;
-  trang_thai: 'chua_xac_nhan' | 'cho_xac_nhan' | 'da_xac_nhan' | 'da_checkin' | 'dang_kham' | 'hoan_thanh' | 'da_huy' | 'khong_den' | 'da_huy_phat' | 'khach_khong_den_phat' | 'khach_khong_den';
+  trang_thai: 'da_xac_nhan' | 'da_checkin' | 'dang_kham' | 'cho_tai_luong_gia' | 'hoan_thanh' | 'da_huy' | 'khong_den' | 'da_huy_phat' | 'khach_khong_den_phat' | 'khach_khong_den';
   ho_ten_khach: string;
   so_dien_thoai: string;
   gioi_tinh_khach: string;
@@ -49,104 +46,6 @@ export default function BookingSuccess() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [appointment, setAppointment] = useState<AppointmentData | null>(null);
-  const [triggerTransition, setTriggerTransition] = useState(false);
-  const [otpInput, setOtpInput] = useState('');
-  const [otpVerifying, setOtpVerifying] = useState(false);
-  const [otpResending, setOtpResending] = useState(false);
-  const [otpTimeLeft, setOtpTimeLeft] = useState<number | null>(null);
-  const otpSectionRef = useRef<HTMLDivElement | null>(null);
-
-  // Auto-scroll to OTP verification section on load
-  useEffect(() => {
-    if (appointment?.trang_thai === 'chua_xac_nhan') {
-      const timer = setTimeout(() => {
-        otpSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 400);
-      return () => clearTimeout(timer);
-    }
-  }, [appointment?.trang_thai]);
-
-  useEffect(() => {
-    if (!appointment || appointment.trang_thai !== 'chua_xac_nhan' || !appointment.han_xac_nhan) {
-      setOtpTimeLeft(null);
-      return;
-    }
-
-    const calculateTimeLeft = () => {
-      const difference = new Date(appointment.han_xac_nhan!).getTime() - Date.now();
-      return difference > 0 ? Math.floor(difference / 1000) : 0;
-    };
-
-    setOtpTimeLeft(calculateTimeLeft());
-
-    const timer = setInterval(() => {
-      const left = calculateTimeLeft();
-      setOtpTimeLeft(left);
-      if (left <= 0) {
-        clearInterval(timer);
-      }
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [appointment?.han_xac_nhan, appointment?.trang_thai]);
-
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const otp = otpInput.trim();
-    if (otp.length !== 6 || !/^\d+$/.test(otp)) {
-      toast.error('Vui lòng nhập đúng mã OTP 6 chữ số.');
-      return;
-    }
-
-    setOtpVerifying(true);
-    try {
-      const response = await fetch(`http://localhost:5001/api/client/appointments/public/confirm-otp`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ id, otp }),
-      });
-
-      const resData = await response.json();
-      if (response.ok && resData.success) {
-        toast.success('Xác thực OTP thành công! Lịch hẹn của bạn đang chờ Lễ tân duyệt.');
-        setAppointment(resData.appointment || null);
-      } else {
-        toast.error(resData.message || 'Mã OTP không hợp lệ hoặc đã hết hạn.');
-      }
-    } catch (err) {
-      console.error('Lỗi xác thực OTP:', err);
-      toast.error('Không thể kết nối máy chủ xác thực.');
-    } finally {
-      setOtpVerifying(false);
-    }
-  };
-
-  const handleResendOtp = async () => {
-    setOtpResending(true);
-    try {
-      const response = await fetch(`http://localhost:5001/api/client/appointments/public/${id}/resend-otp`, {
-        method: 'POST',
-      });
-      const resData = await response.json();
-      if (response.ok && resData.success) {
-        toast.success('Đã gửi lại mã OTP thành công! Vui lòng kiểm tra email của bạn.');
-        const trackRes = await fetch(`http://localhost:5001/api/client/appointments/public/track/${id}`);
-        if (trackRes.ok) {
-          const trackData = await trackRes.json();
-          setAppointment(trackData);
-        }
-      } else {
-        toast.error(resData.message || 'Không thể gửi lại OTP.');
-      }
-    } catch (err) {
-      console.error('Lỗi gửi lại OTP:', err);
-      toast.error('Không thể kết nối máy chủ.');
-    } finally {
-      setOtpResending(false);
-    }
-  };
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -156,56 +55,41 @@ export default function BookingSuccess() {
     }
   }, []);
 
+  // Đặt lịch vào thẳng `da_xac_nhan` ngay lúc tạo (A10) — không còn bước "chờ trung tâm phê
+  // duyệt" nào để chờ, nên chỉ tải 1 lần, không cần polling định kỳ như bản cũ.
   useEffect(() => {
     if (!id) return;
 
     let isMounted = true;
-    let pollCount = 0;
 
-    const fetchStatus = async (isFirstLoad = false) => {
+    const fetchStatus = async () => {
       try {
         const response = await fetch(`http://localhost:5001/api/client/appointments/public/track/${id}`);
         if (!response.ok) {
           throw new Error('Không thể tải thông tin lịch hẹn.');
         }
         const data = await response.json();
-        
-        if (isMounted) {
-          if (appointment && appointment.trang_thai === 'cho_xac_nhan' && data.trang_thai === 'da_xac_nhan') {
-            setTriggerTransition(true);
-            toast.success('Trung tâm xác nhận đã phê duyệt lịch hẹn của bạn!', { icon: '🎉', duration: 5000 });
-            setTimeout(() => setTriggerTransition(false), 3000);
-          }
 
+        if (isMounted) {
           setAppointment(data);
           setError(null);
-          if (isFirstLoad) setLoading(false);
+          setLoading(false);
         }
       } catch (err: any) {
         console.error('Lỗi khi tải trạng thái lịch hẹn:', err);
-        if (isMounted && isFirstLoad) {
+        if (isMounted) {
           setError(err.message || 'Lỗi kết nối máy chủ y khoa.');
           setLoading(false);
         }
       }
     };
 
-    fetchStatus(true);
-
-    const interval = setInterval(() => {
-      pollCount++;
-      if (pollCount > 360) {
-        clearInterval(interval);
-        return;
-      }
-      fetchStatus(false);
-    }, 5000);
+    fetchStatus();
 
     return () => {
       isMounted = false;
-      clearInterval(interval);
     };
-  }, [id, appointment?.trang_thai]);
+  }, [id]);
 
   const formatFullDate = (dateString: string) => {
     try {
@@ -273,17 +157,12 @@ export default function BookingSuccess() {
     );
   }
 
-  const isUnconfirmed = appointment.trang_thai === 'chua_xac_nhan';
-  const isConfirmed = ['da_xac_nhan', 'da_checkin', 'dang_kham', 'hoan_thanh'].includes(appointment.trang_thai);
   const isCancelled = ['da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(appointment.trang_thai);
-
-  const isStep2Passed = ['da_xac_nhan', 'da_checkin', 'dang_kham', 'hoan_thanh'].includes(appointment.trang_thai);
-  const isStep2Pending = ['chua_xac_nhan', 'cho_xac_nhan'].includes(appointment.trang_thai) && !isCancelled;
-  const isStep4Passed = ['hoan_thanh'].includes(appointment.trang_thai);
-  const isStep4Pending = !isStep4Passed && !isCancelled && isStep2Passed;
+  const isConfirmed = !isCancelled;
+  const isCompleted = appointment.trang_thai === 'hoan_thanh';
 
   return (
-    <div className={`min-h-screen bg-slate-50 text-slate-700 py-16 px-4 sm:px-6 lg:px-8 font-sans relative overflow-hidden transition-colors duration-500 ${triggerTransition ? 'bg-emerald-50' : ''}`}>
+    <div className="min-h-screen bg-slate-50 text-slate-700 py-16 px-4 sm:px-6 lg:px-8 font-sans relative overflow-hidden">
       {/* Background Grid Pattern */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#e2e8f00c_1px,transparent_1px),linear-gradient(to_bottom,#e2e8f00c_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none opacity-60"></div>
 
@@ -314,144 +193,14 @@ export default function BookingSuccess() {
             Thông tin hệ thống: Đăng ký thành công
           </div>
           <h1 className="text-3xl font-heading font-black text-slate-900 tracking-tight uppercase">
-            {isConfirmed ? 'Đăng Ký Lịch Hẹn Thành Công' : isCancelled ? 'Lịch Hẹn Đã Bị Hủy' : isUnconfirmed ? 'Đang Chờ Xác Thực OTP' : 'Lịch Hẹn Đang Chờ Phê Duyệt'}
+            {isCancelled ? 'Lịch Hẹn Đã Bị Hủy' : 'Đăng Ký Lịch Hẹn Thành Công'}
           </h1>
           <p className="text-sm text-slate-500 font-semibold max-w-xl mx-auto leading-relaxed">
-            {isConfirmed 
-              ? 'Lịch hẹn của bạn đã được tiếp nhận và xác nhận thành công. Vui lòng tới phòng khám đúng giờ hẹn để bắt đầu ca trị liệu.'
-              : isCancelled 
-                ? `Lịch hẹn này đã bị hủy. Lý do: "${appointment.ly_do_huy || appointment.ghi_chu_noi_bo || 'Hủy bởi hệ thống'}"`
-                : isUnconfirmed
-                  ? 'Bạn đã đăng ký thông tin lịch đặt thành công! Vui lòng kiểm tra hòm thư email và nhập mã OTP 6 số để kích hoạt ca hẹn.'
-                  : 'Lịch hẹn đã được xác thực OTP thành công. Trung tâm xác nhận đang sắp xếp bác sĩ phụ trách và phòng điều trị cho bạn.'}
+            {isCancelled
+              ? `Lịch hẹn này đã bị hủy. Lý do: "${appointment.ly_do_huy || appointment.ghi_chu_noi_bo || 'Hủy bởi hệ thống'}"`
+              : 'Lịch hẹn của bạn đã được tiếp nhận và xác nhận thành công. Vui lòng tới phòng khám đúng buổi đã chọn để check-in.'}
           </p>
         </div>
-
-        {/* OTP VERIFICATION CARD (High-End Teal/Mint Design with Animations) */}
-        {isUnconfirmed && (
-          <motion.div 
-            ref={otpSectionRef}
-            initial={{ opacity: 0, y: 25, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-            className="bg-gradient-to-br from-teal-50/90 via-white to-emerald-50/60 border-2 border-teal-500/50 rounded-[28px] p-6 sm:p-7 shadow-[0_12px_40px_rgba(13,148,136,0.12)] space-y-5 text-left relative overflow-hidden backdrop-blur-md"
-          >
-            <div className="flex items-center gap-3">
-              <div className="size-11 bg-[#0D9488] text-white rounded-2xl flex items-center justify-center font-black shadow-md shadow-teal-500/20 shrink-0">
-                <ShieldCheck size={22} />
-              </div>
-              <div>
-                <span className="bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-md inline-block mb-0.5">
-                  Xác Thực An Toàn Y Tế
-                </span>
-                <h3 className="text-base font-heading font-extrabold text-slate-900 leading-tight">
-                  Nhập Mã Xác Thực OTP Lịch Hẹn
-                </h3>
-              </div>
-            </div>
-
-            <p className="text-xs text-slate-600 font-medium leading-relaxed">
-              Mã xác thực OTP gồm 6 chữ số đã được gửi đến email của bạn. Vui lòng nhập mã bên dưới để hoàn tất xác nhận lịch khám.
-            </p>
-
-            {otpTimeLeft !== null && (
-              <div className={`p-3 rounded-2xl text-xs flex items-center justify-between font-bold border transition-all ${
-                otpTimeLeft > 0 
-                  ? 'bg-teal-50/80 text-[#0D9488] border-teal-200/80' 
-                  : 'bg-rose-50 text-rose-700 border-rose-200 animate-pulse'
-              }`}>
-                <div className="flex items-center gap-2">
-                  <Clock size={15} className={otpTimeLeft > 0 ? 'text-[#0D9488] animate-pulse shrink-0' : 'text-rose-500 shrink-0'} />
-                  <span>{otpTimeLeft > 0 ? 'Thời gian mã OTP có hiệu lực:' : 'Mã OTP đã hết hạn!'}</span>
-                </div>
-                <span className="font-mono font-black text-sm px-3 py-1 bg-white text-slate-900 rounded-xl shadow-xs shrink-0 border border-slate-150">
-                  {otpTimeLeft > 0 ? `${Math.floor(otpTimeLeft / 60)}:${(otpTimeLeft % 60).toString().padStart(2, '0')}` : '0:00'}
-                </span>
-              </div>
-            )}
-
-            <form onSubmit={handleVerifyOtp} className="space-y-4">
-              <div className="space-y-3">
-                {/* 6 Visual OTP Digit Slots + Hidden Native Input */}
-                <div className="relative">
-                  <input
-                    type="text"
-                    maxLength={6}
-                    value={otpInput}
-                    onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ''))}
-                    disabled={otpVerifying || (otpTimeLeft !== null && otpTimeLeft <= 0)}
-                    className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer disabled:cursor-not-allowed"
-                    autoFocus
-                  />
-                  <div className="grid grid-cols-6 gap-2 sm:gap-3">
-                    {[0, 1, 2, 3, 4, 5].map((idx) => {
-                      const digit = otpInput[idx] || '';
-                      const isFocused = otpInput.length === idx;
-                      const isFilled = !!digit;
-
-                      return (
-                        <motion.div
-                          key={idx}
-                          animate={{
-                            scale: isFilled ? [1, 1.1, 1] : isFocused ? [1, 1.05, 1] : 1,
-                            borderColor: isFilled ? '#0D9488' : isFocused ? '#0D9488' : '#CBD5E1',
-                          }}
-                          transition={{ duration: 0.15 }}
-                          className={`h-12 sm:h-14 rounded-2xl border-2 flex items-center justify-center font-mono text-xl sm:text-2xl font-black transition-all ${
-                            isFilled
-                              ? 'bg-[#0D9488] text-white border-teal-700 shadow-sm shadow-teal-500/25'
-                              : isFocused
-                              ? 'bg-white border-[#0D9488] text-[#0D9488] ring-4 ring-[#0D9488]/15 animate-pulse'
-                              : 'bg-white/90 text-slate-400 border-slate-200'
-                          }`}
-                        >
-                          {digit ? (
-                            <motion.span
-                              initial={{ scale: 0, opacity: 0 }}
-                              animate={{ scale: 1, opacity: 1 }}
-                              transition={{ type: 'spring', stiffness: 500, damping: 25 }}
-                            >
-                              {digit}
-                            </motion.span>
-                          ) : (
-                            <span className="text-slate-300 text-sm">•</span>
-                          )}
-                        </motion.div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={otpVerifying || otpInput.length !== 6 || (otpTimeLeft !== null && otpTimeLeft <= 0)}
-                  className="w-full py-3.5 bg-[#0D9488] hover:bg-[#0b7a70] active:scale-98 disabled:opacity-50 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl transition-all shadow-md shadow-teal-500/20 cursor-pointer flex items-center justify-center gap-2"
-                >
-                  {otpVerifying ? (
-                    <>
-                      <Loader2 size={16} className="animate-spin" />
-                      <span>Đang xác thực...</span>
-                    </>
-                  ) : (
-                    <span>Xác Thực Ngay →</span>
-                  )}
-                </button>
-              </div>
-            </form>
-
-            <div className="flex flex-wrap justify-between items-center text-xs pt-1 font-semibold border-t border-slate-150/70">
-              <span className="text-slate-500">Chưa nhận được mã OTP trong hộp thư?</span>
-              <button
-                type="button"
-                onClick={handleResendOtp}
-                disabled={otpResending}
-                className="text-[#0D9488] hover:text-[#0b7a70] font-extrabold hover:underline cursor-pointer disabled:opacity-50 transition-colors"
-              >
-                {otpResending ? 'Đang gửi lại mã...' : '🔄 Gửi lại mã OTP ngay'}
-              </button>
-            </div>
-          </motion.div>
-        )}
 
         {/* LỊCH HẸN DETAILS CARD (Centerpiece) */}
         <div className="bg-white border border-slate-100 rounded-[24px] p-6 sm:p-8 shadow-sm space-y-6 text-left">
@@ -501,57 +250,38 @@ export default function BookingSuccess() {
           </div>
         </div>
 
-        {/* Live Progress Logs Panel */}
+        {/* Progress Log Panel — chỉ còn 2 mốc thật: lịch đã tự động xác nhận ngay lúc đặt (A10),
+            không còn bước "chờ trung tâm phê duyệt" nào để hiện chờ ở giữa */}
         {!isCancelled && (
           <div className="bg-white border border-slate-100 p-6 sm:p-8 rounded-[24px] shadow-sm space-y-6 text-left">
             <h3 className="text-sm font-heading font-black text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-3 flex items-center gap-2">
               <Activity size={16} className="text-primary" />
-              Tiến Trình Xác Thực Y Khoa
+              Tiến Trình Lịch Hẹn
             </h3>
 
-            {/* Progress Steps */}
             <div className="relative border-l border-slate-250 ml-3 pl-4 space-y-5 text-xs">
-              {/* Step 1: Đăng ký lịch thành công */}
+              {/* Step 1: Đăng ký & xác nhận thành công */}
               <div className="relative">
                 <div className="absolute -left-[23px] top-0.5 size-3 bg-emerald-500 rounded-full border border-white flex items-center justify-center text-white ring-4 ring-emerald-50">
                   <CheckCircle2 size={8} />
                 </div>
                 <h4 className="font-extrabold text-slate-800 uppercase tracking-wider text-[10px]">
-                  1. Đăng ký lịch thành công <span className="text-[9px] text-slate-400 font-mono font-normal">[{getRelativeTime(appointment.thoi_gian_tao)}]</span>
+                  1. Đăng ký & xác nhận thành công <span className="text-[9px] text-slate-400 font-mono font-normal">[{getRelativeTime(appointment.thoi_gian_tao)}]</span>
                 </h4>
               </div>
 
-              {/* Step 2: Đã Xác nhận */}
+              {/* Step 2: Hoàn thành */}
               <div className="relative">
                 <div className={`absolute -left-[23px] top-0.5 size-3 rounded-full border border-white flex items-center justify-center text-white
-                  ${isStep2Passed
-                    ? 'bg-emerald-500 ring-4 ring-emerald-50' 
-                    : isStep2Pending
-                      ? 'bg-amber-500 animate-pulse ring-4 ring-amber-50'
-                      : 'bg-slate-200 text-slate-400'
+                  ${isCompleted
+                    ? 'bg-emerald-500 ring-4 ring-emerald-50'
+                    : 'bg-amber-500 animate-pulse ring-4 ring-amber-50'
                   }`}
                 >
-                  {isStep2Passed ? <CheckCircle2 size={8} /> : <Clock size={8} />}
+                  {isCompleted ? <CheckCircle2 size={8} /> : <Clock size={8} />}
                 </div>
-                <h4 className={`font-extrabold uppercase tracking-wider text-[10px] ${isStep2Passed ? 'text-slate-800' : 'text-slate-400'}`}>
-                  2. Trung tâm phê duyệt & xác nhận
-                </h4>
-              </div>
-
-              {/* Step 3: Hoàn thành */}
-              <div className="relative">
-                <div className={`absolute -left-[23px] top-0.5 size-3 rounded-full border border-white flex items-center justify-center text-white
-                  ${isStep4Passed 
-                    ? 'bg-emerald-500 ring-4 ring-emerald-50' 
-                    : isStep4Pending
-                      ? 'bg-amber-500 animate-pulse ring-4 ring-amber-50'
-                      : 'bg-slate-200 text-slate-400'
-                  }`}
-                >
-                  {isStep4Passed ? <CheckCircle2 size={8} /> : <Clock size={8} />}
-                </div>
-                <h4 className={`font-extrabold uppercase tracking-wider text-[10px] ${isStep4Passed ? 'text-slate-800' : 'text-slate-400'}`}>
-                  3. Hoàn thành khám trị liệu
+                <h4 className={`font-extrabold uppercase tracking-wider text-[10px] ${isCompleted ? 'text-slate-800' : 'text-slate-400'}`}>
+                  2. Hoàn thành khám trị liệu
                 </h4>
               </div>
             </div>

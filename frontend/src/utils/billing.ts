@@ -277,7 +277,7 @@ export function canRefundPackage(invoice: {
 export function isAwaitingPaymentForList(apt: Parameters<typeof isPaymentDue>[0] & {
   trang_thai?: string | null;
 }): boolean {
-  if (['da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat', 'giu_cho', 'chua_xac_nhan', 'dang_kham'].includes(apt.trang_thai || '')) return false;
+  if (['da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat', 'dang_kham'].includes(apt.trang_thai || '')) return false;
 
   const isRetailOrExam = ['kham_moi', 'KHAM', 'dich_vu_don', 'DICH_VU_LE'].includes(apt.loai_lich || '') || apt.loai_goi === 'LE';
   const isSessionStarted = apt.trang_thai === 'hoan_thanh';

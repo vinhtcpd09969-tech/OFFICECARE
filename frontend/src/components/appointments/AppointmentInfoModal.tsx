@@ -51,7 +51,7 @@ export default function AppointmentInfoModal({ appointment, onClose }: Appointme
     }
   }
 
-  const rawStatus = appointment.trang_thai || 'cho_xac_nhan';
+  const rawStatus = appointment.trang_thai || 'da_xac_nhan';
   const statusInfo = statusConfig[rawStatus] || {
     label: rawStatus,
     color: 'bg-slate-100 text-slate-700 border-slate-200',

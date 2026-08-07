@@ -1,8 +1,9 @@
-export const timeSlots = [
-  '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
-  '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30',
-  '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30'
-];
+export type Buoi = 'sang' | 'chieu';
+
+export const BUOI_INFO: Record<Buoi, { label: string; khung: string; batDau: string; ketThuc: string }> = {
+  sang: { label: 'Buổi sáng', khung: '7:30 - 12:00', batDau: '07:30', ketThuc: '12:00' },
+  chieu: { label: 'Buổi chiều', khung: '12:00 - 19:30', batDau: '12:00', ketThuc: '19:30' }
+};
 
 export const fullDateFormatter = new Intl.DateTimeFormat('vi-VN', {
   weekday: 'long',
@@ -30,41 +31,16 @@ export const generateAvailableDates = (): Date[] => {
   return dates;
 };
 
-// Mock consistent spots available based on date string
-export const getMockAvailableSlots = (dateStr: string): number => {
-  let hash = 0;
-  for (let i = 0; i < dateStr.length; i++) {
-    hash = dateStr.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return Math.abs(hash % 5) + 3; // 3 to 7 spots remaining
-};
-
-export const MIN_BOOKING_BUFFER_MINUTES = 60; // 1 hour buffer to prevent last-minute bookings
-
-export const isSlotInPast = (timeStr: string, selectedDate: string): boolean => {
+/** Buổi đặt cho hôm nay đã trôi qua giờ nhận khách kết thúc — mirror `isBuoiDaQua` phía backend
+ * (đặt buổi sáng sau 12h00 thì không đặt được nữa). Ngày trong quá khứ luôn coi là đã qua. */
+export const isBuoiDaQua = (dateStr: string, buoi: Buoi): boolean => {
   const todayStr = formatLocalDate(new Date());
-  if (selectedDate !== todayStr) return false;
+  if (dateStr < todayStr) return true;
+  if (dateStr > todayStr) return false;
   const now = new Date();
-  const [slotHour, slotMinute] = timeStr.split(':').map(Number);
-  
-  const slotTime = new Date(now);
-  slotTime.setHours(slotHour, slotMinute, 0, 0);
-  
-  const diffMins = (slotTime.getTime() - now.getTime()) / (1000 * 60);
-  return diffMins < MIN_BOOKING_BUFFER_MINUTES;
-};
-
-export const isSlotUrgent = (timeStr: string, selectedDate: string): boolean => {
-  const todayStr = formatLocalDate(new Date());
-  if (selectedDate !== todayStr || !timeStr) return false;
-  const now = new Date();
-  const [slotHour, slotMinute] = timeStr.split(':').map(Number);
-  
-  const slotTime = new Date(now);
-  slotTime.setHours(slotHour, slotMinute, 0, 0);
-  
-  const diffMins = (slotTime.getTime() - now.getTime()) / (1000 * 60);
-  return diffMins > 0 && diffMins <= 120; // urgent if starting within 2 hours
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const [h, m] = BUOI_INFO[buoi].ketThuc.split(':').map(Number);
+  return nowMinutes >= h * 60 + m;
 };
 
 export const getVietnameseDay = (date: Date): string => {

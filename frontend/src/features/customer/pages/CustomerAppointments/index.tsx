@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Calendar,
   AlertCircle,
@@ -32,6 +32,7 @@ interface Appointment {
   ngay_gio_ket_thuc: string;
   trang_thai: string;
   trang_thai_kham?: string | null;
+  trang_thai_thanh_toan?: string | null;
   loai_lich: string;
   ten_khach_hang: string;
   so_dien_thoai: string;
@@ -109,18 +110,6 @@ export default function CustomerAppointments() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Inline OTP states & Ref for Auto Scroll (Keyed per appointment ID to prevent input bleeding)
-  const [otpInputs, setOtpInputs] = useState<Record<string, string>>({});
-  const getOtpInput = (id: string) => otpInputs[id] || '';
-  const setSingleOtpInput = (id: string, val: string) => {
-    const clean = val.replace(/\D/g, '').slice(0, 6);
-    setOtpInputs(prev => ({ ...prev, [id]: clean }));
-  };
-
-  const [verifyingOtpId, setVerifyingOtpId] = useState<string | null>(null);
-  const [resendingOtpId, setResendingOtpId] = useState<string | null>(null);
-  const otpBoxRef = useRef<HTMLDivElement | null>(null);
-
   // Time ticker state for realtime countdown
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
 
@@ -130,17 +119,6 @@ export default function CustomerAppointments() {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
-
-  // Tự động kéo đến phần OTP khi có lịch hẹn cần xác thực mã
-  useEffect(() => {
-    const hasUnconfirmed = appointments.some(a => ['chua_xac_nhan', 'cho_xac_nhan'].includes(a.trang_thai?.toLowerCase()));
-    if (hasUnconfirmed) {
-      const timer = setTimeout(() => {
-        otpBoxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 600);
-      return () => clearTimeout(timer);
-    }
-  }, [appointments]);
 
   const fetchAppointments = async () => {
     setLoading(true);
@@ -209,50 +187,6 @@ export default function CustomerAppointments() {
     }
   };
 
-  const handleVerifyOtp = async (apptId: string) => {
-    const apptOtp = getOtpInput(apptId);
-    if (apptOtp.length !== 6 || !/^\d+$/.test(apptOtp)) {
-      toast.error('Vui lòng nhập đúng mã OTP 6 chữ số.');
-      return;
-    }
-    setVerifyingOtpId(apptId);
-    try {
-      const response = await api.post(`/client/appointments/public/confirm-otp`, {
-        id: apptId,
-        otp: apptOtp
-      });
-      if (response.data.success) {
-        toast.success('Xác thực OTP thành công! Lịch hẹn của bạn đang chờ Trung tâm xác nhận.');
-        setSingleOtpInput(apptId, '');
-        fetchAppointments();
-      } else {
-        toast.error(response.data.message || 'Mã OTP không hợp lệ hoặc đã hết hạn.');
-      }
-    } catch (err: any) {
-      console.error('Lỗi xác thực OTP:', err);
-      toast.error(err.response?.data?.message || 'Không thể kết nối máy chủ xác thực.');
-    } finally {
-      setVerifyingOtpId(null);
-    }
-  };
-
-  const handleResendOtp = async (apptId: string) => {
-    setResendingOtpId(apptId);
-    try {
-      const response = await api.post(`/client/appointments/public/${apptId}/resend-otp`);
-      if (response.data.success) {
-        toast.success('Đã gửi lại mã OTP thành công! Vui lòng kiểm tra email của bạn.');
-      } else {
-        toast.error(response.data.message || 'Không thể gửi lại OTP.');
-      }
-    } catch (err: any) {
-      console.error('Lỗi gửi lại OTP:', err);
-      toast.error(err.response?.data?.message || 'Không thể kết nối máy chủ.');
-    } finally {
-      setResendingOtpId(null);
-    }
-  };
-
   const formatDateTime = (isoString: string) => {
     const d = new Date(isoString);
     const dateStr = d.toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -281,13 +215,6 @@ export default function CustomerAppointments() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'cho_xac_nhan':
-      case 'chua_xac_nhan':
-        return (
-          <span className="text-[9px] font-black text-amber-600 bg-amber-50 border border-amber-200/50 px-2 py-0.5 rounded uppercase tracking-wider">
-            Chờ Duyệt
-          </span>
-        );
       case 'da_xac_nhan':
         return (
           <span className="text-[9px] font-black text-[#0D9488] bg-teal-50 border border-teal-200/50 px-2 py-0.5 rounded uppercase tracking-wider">
@@ -304,6 +231,12 @@ export default function CustomerAppointments() {
         return (
           <span className="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200/50 px-2 py-0.5 rounded uppercase tracking-wider animate-pulse">
             Đang Khám / Trị Liệu
+          </span>
+        );
+      case 'cho_tai_luong_gia':
+        return (
+          <span className="text-[9px] font-black text-amber-600 bg-amber-50 border border-amber-200/50 px-2 py-0.5 rounded uppercase tracking-wider">
+            Chờ Tái Lượng Giá
           </span>
         );
       case 'cho_huy':
@@ -344,15 +277,14 @@ export default function CustomerAppointments() {
 
   const getStatusColorClass = (status: string) => {
     switch (status) {
-      case 'cho_xac_nhan':
-      case 'chua_xac_nhan':
-        return 'from-amber-400 to-yellow-300';
       case 'da_xac_nhan':
         return 'from-[#0D9488] to-[#14B8A6]';
       case 'da_checkin':
         return 'from-teal-500 to-cyan-400';
       case 'dang_kham':
         return 'from-emerald-500 to-teal-400';
+      case 'cho_tai_luong_gia':
+        return 'from-amber-400 to-yellow-300';
       case 'cho_huy':
         return 'from-rose-500 to-pink-500';
       case 'da_huy':
@@ -381,7 +313,7 @@ export default function CustomerAppointments() {
 
   // Counters & Metrics
   const totalCount = appointments.length;
-  const upcomingCount = appointments.filter(app => ['cho_xac_nhan', 'chua_xac_nhan', 'da_xac_nhan'].includes(app.trang_thai)).length;
+  const upcomingCount = appointments.filter(app => app.trang_thai === 'da_xac_nhan').length;
   const completedCount = appointments.filter(app => app.trang_thai === 'hoan_thanh').length;
   const cancelledCount = appointments.filter(app => ['da_huy', 'da_huy_phat', 'cho_huy', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(app.trang_thai)).length;
 
@@ -406,7 +338,7 @@ export default function CustomerAppointments() {
   // Filter & Priority Sorting implementation
   const filteredAppointments = useMemo(() => {
     const isUpcomingStatus = (status: string) => {
-      return ['cho_xac_nhan', 'chua_xac_nhan', 'da_xac_nhan', 'da_checkin', 'dang_kham', 'cho_huy'].includes(status);
+      return ['da_xac_nhan', 'da_checkin', 'dang_kham', 'cho_tai_luong_gia', 'cho_huy'].includes(status);
     };
 
     const sorted = [...appointments].sort((a, b) => {
@@ -677,8 +609,6 @@ export default function CustomerAppointments() {
                   const gradientStatus = getStatusColorClass(app.trang_thai);
                   const docAvatar = resolveImageUrl(app.anh_bac_si);
 
-                  const isUnconfirmed = app.trang_thai === 'chua_xac_nhan';
-                  const isPending = app.trang_thai === 'cho_xac_nhan';
                   const isConfirmed = app.trang_thai === 'da_xac_nhan';
                   // Đã check-in / đang khám-trị liệu: đã qua bước Xác nhận từ lâu, chỉ còn thiếu bước
                   // Hoàn thành — dùng chung nhánh hiển thị với isConfirmed cho thanh tiến trình 3 bước
@@ -687,12 +617,19 @@ export default function CustomerAppointments() {
                   const isCompleted = app.trang_thai === 'hoan_thanh';
                   const isCancelled = ['da_huy', 'da_huy_phat', 'cho_huy', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(app.trang_thai);
 
-                  // Khách chỉ được tự hủy khi còn ≥ 8 tiếng trước giờ hẹn (khớp gate ở backend
-                  // cancelCustomerAppointment). Dưới mốc đó phải gọi Lễ tân hủy giúp.
-                  const hoursUntilStart = (new Date(app.ngay_gio_bat_dau).getTime() - currentTime.getTime()) / (1000 * 60 * 60);
-                  const canSelfCancel = hoursUntilStart >= 8;
+                  // A13/A14 — khớp đúng gate mới ở backend cancelCustomerAppointment: CHƯA thanh
+                  // toán + còn trong 60 phút kể từ lúc đặt + chưa check-in + buổi chưa kết thúc.
+                  // ngay_gio_ket_thuc chính là mốc kết thúc DANH NGHĨA của buổi (12:00/19:30) nên
+                  // so trực tiếp là đủ, không cần tách ngày/giờ theo múi giờ riêng.
+                  const isPaidOrPending = app.trang_thai_thanh_toan === 'da_thanh_toan' || app.trang_thai_thanh_toan === 'dang_cho_thanh_toan';
+                  const CANCEL_WINDOW_MS = 60 * 60 * 1000;
+                  const elapsedSinceBookingMs = app.thoi_gian_tao ? currentTime.getTime() - new Date(app.thoi_gian_tao).getTime() : Infinity;
+                  const canSelfCancel = !isPaidOrPending
+                    && elapsedSinceBookingMs < CANCEL_WINDOW_MS
+                    && app.trang_thai === 'da_xac_nhan'
+                    && currentTime.getTime() < new Date(app.ngay_gio_ket_thuc).getTime();
 
-                  const showWarningNotice = ['da_xac_nhan', 'cho_xac_nhan', 'chua_xac_nhan'].includes(app.trang_thai);
+                  const showWarningNotice = app.trang_thai === 'da_xac_nhan';
 
                   // Buổi thuộc gói liệu trình: nêu rõ đang là buổi thứ mấy/tổng số buổi, tránh chỉ
                   // hiện tên gói trơ trọi khiến khách không biết đây là buổi nào trong liệu trình.
@@ -839,13 +776,11 @@ export default function CustomerAppointments() {
                               <div className="flex flex-col items-center z-10">
                                 <div className={`size-4 rounded-full border-2 border-white shadow-xs flex items-center justify-center transition-all ${isConfirmed || isCheckedInOrInSession || isCompleted
                                     ? 'bg-emerald-500'
-                                    : isPending || isUnconfirmed
-                                      ? 'bg-amber-500 animate-pulse'
-                                      : 'bg-slate-250'
+                                    : 'bg-slate-250'
                                   }`}>
                                   {(isConfirmed || isCheckedInOrInSession || isCompleted) && <span className="w-1.5 h-1.5 rounded-full bg-white"></span>}
                                 </div>
-                                <span className={`text-[9px] font-black mt-1 uppercase tracking-wide ${isConfirmed || isCheckedInOrInSession || isCompleted || isPending || isUnconfirmed
+                                <span className={`text-[9px] font-black mt-1 uppercase tracking-wide ${isConfirmed || isCheckedInOrInSession || isCompleted
                                     ? 'text-slate-800'
                                     : 'text-slate-400'
                                   }`}>Xác nhận</span>
@@ -863,123 +798,6 @@ export default function CustomerAppointments() {
                             </div>
                           </div>
                         )}
-
-                        {/* OTP Inline Form */}
-                        {isUnconfirmed && (() => {
-                          const otpTimeLeft = app.han_xac_nhan ? Math.max(0, Math.floor((new Date(app.han_xac_nhan).getTime() - currentTime.getTime()) / 1000)) : 0;
-                          return (
-                            <motion.div 
-                              ref={otpBoxRef}
-                              initial={{ opacity: 0, y: 20, scale: 0.96 }}
-                              animate={{ opacity: 1, y: 0, scale: 1 }}
-                              transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-                              className="bg-gradient-to-br from-teal-50/90 via-white to-emerald-50/70 border-2 border-teal-500/50 p-4.5 sm:p-5 rounded-2xl text-[11px] space-y-3.5 text-left shadow-lg shadow-teal-500/10 relative overflow-hidden backdrop-blur-md"
-                            >
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-1.5 text-[#0D9488] font-black uppercase text-[10px] tracking-wider">
-                                  <ShieldCheck size={15} />
-                                  <span>XÁC THỰC LỊCH HẸN BẰNG MÃ OTP</span>
-                                </div>
-                                <span className="bg-teal-500/10 text-teal-700 text-[9px] font-black uppercase px-2 py-0.5 rounded-full border border-teal-500/20">
-                                  Xác Thực An Toàn
-                                </span>
-                              </div>
-
-                              {app.han_xac_nhan && (
-                                <div className={`p-2.5 rounded-xl text-[10px] flex items-center justify-between font-bold border transition-all ${
-                                  otpTimeLeft > 0 
-                                    ? 'bg-teal-50 text-[#0D9488] border-teal-200/70' 
-                                    : 'bg-rose-50 border border-rose-200 text-rose-700 animate-pulse'
-                                }`}>
-                                  <div className="flex items-center gap-1.5">
-                                    <Clock size={13} className={otpTimeLeft > 0 ? 'text-[#0D9488] animate-pulse' : 'text-rose-500'} />
-                                    <span>{otpTimeLeft > 0 ? 'Mã OTP có hiệu lực trong:' : 'Mã OTP đã hết hạn!'}</span>
-                                  </div>
-                                  <span className="font-mono font-black text-xs px-2.5 py-0.5 bg-white text-slate-900 rounded-lg shadow-2xs border border-slate-150">
-                                    {otpTimeLeft > 0 ? `${Math.floor(otpTimeLeft / 60)}:${(otpTimeLeft % 60).toString().padStart(2, '0')}` : '0:00'}
-                                  </span>
-                                </div>
-                              )}
-
-                              {/* 6 Visual OTP Digit Slots + Hidden Native Input */}
-                              {(() => {
-                                const currentOtpVal = getOtpInput(app.id);
-                                return (
-                                  <div className="space-y-3">
-                                    <div className="relative">
-                                      <input
-                                        type="text"
-                                        maxLength={6}
-                                        value={currentOtpVal}
-                                        onChange={(e) => setSingleOtpInput(app.id, e.target.value)}
-                                        disabled={verifyingOtpId === app.id || (!!app.han_xac_nhan && otpTimeLeft <= 0)}
-                                        className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer disabled:cursor-not-allowed"
-                                      />
-                                      <div className="grid grid-cols-6 gap-1.5 sm:gap-2">
-                                        {[0, 1, 2, 3, 4, 5].map((idx) => {
-                                          const digit = currentOtpVal[idx] || '';
-                                          const isFocused = currentOtpVal.length === idx;
-                                          const isFilled = !!digit;
-
-                                          return (
-                                            <motion.div
-                                              key={idx}
-                                              animate={{
-                                                scale: isFilled ? [1, 1.08, 1] : isFocused ? [1, 1.05, 1] : 1,
-                                                borderColor: isFilled ? '#0D9488' : isFocused ? '#0D9488' : '#CBD5E1',
-                                              }}
-                                              transition={{ duration: 0.15 }}
-                                              className={`h-11 sm:h-12 rounded-xl border-2 flex items-center justify-center font-mono text-base font-black transition-all ${
-                                                isFilled
-                                                  ? 'bg-teal-600 text-white border-teal-700 shadow-xs'
-                                                  : isFocused
-                                                  ? 'bg-white border-teal-500 text-teal-600 ring-4 ring-teal-500/15 animate-pulse'
-                                                  : 'bg-white/90 text-slate-400 border-slate-200'
-                                              }`}
-                                            >
-                                              {digit ? (
-                                                <motion.span
-                                                  initial={{ scale: 0, opacity: 0 }}
-                                                  animate={{ scale: 1, opacity: 1 }}
-                                                  transition={{ type: 'spring', stiffness: 500, damping: 25 }}
-                                                >
-                                                  {digit}
-                                                </motion.span>
-                                              ) : (
-                                                <span className="text-slate-300 text-xs">•</span>
-                                              )}
-                                            </motion.div>
-                                          );
-                                        })}
-                                      </div>
-                                    </div>
-
-                                    <button
-                                      type="button"
-                                      onClick={() => handleVerifyOtp(app.id)}
-                                      disabled={verifyingOtpId === app.id || currentOtpVal.length !== 6 || (!!app.han_xac_nhan && otpTimeLeft <= 0)}
-                                      className="w-full py-3 bg-gradient-to-r from-[#0D9488] to-teal-600 hover:from-[#0b7a70] hover:to-teal-700 disabled:opacity-50 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer shadow-md shadow-teal-500/20 flex items-center justify-center gap-1.5 active:scale-[0.99]"
-                                    >
-                                      {verifyingOtpId === app.id ? 'Đang xác thực OTP...' : 'Xác thực mã OTP ngay'}
-                                    </button>
-                                  </div>
-                                );
-                              })()}
-
-                              <div className="flex justify-between items-center text-[10px] font-bold border-t border-slate-100 pt-2.5">
-                                <span className="text-slate-500">Chưa nhận được mã OTP?</span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleResendOtp(app.id)}
-                                  disabled={resendingOtpId === app.id}
-                                  className="text-[#0D9488] hover:text-[#0b7a70] font-extrabold hover:underline cursor-pointer disabled:opacity-50 transition-colors"
-                                >
-                                  {resendingOtpId === app.id ? 'Đang gửi...' : '🔄 Gửi lại OTP ngay'}
-                                </button>
-                              </div>
-                            </motion.div>
-                          );
-                        })()}
 
                         {/* Canceled reasons */}
                         {isCancelled && (
@@ -1044,7 +862,7 @@ export default function CustomerAppointments() {
                           </motion.button>
                         )}
 
-                        {(app.trang_thai === 'cho_xac_nhan' || app.trang_thai === 'da_xac_nhan') && canSelfCancel && (
+                        {app.trang_thai === 'da_xac_nhan' && canSelfCancel && (
                           <motion.button
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
@@ -1221,19 +1039,19 @@ export default function CustomerAppointments() {
                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                className="bg-white text-slate-800 rounded-[28px] border border-slate-100 max-w-md w-full p-6 md:p-8 shadow-2xl relative z-10 font-jakarta max-h-[90vh] overflow-y-auto space-y-6"
+                className="bg-white text-slate-800 rounded-[32px] border border-slate-100 max-w-lg w-full p-6 md:p-8 shadow-2xl relative z-10 font-jakarta max-h-[90vh] overflow-y-auto space-y-6"
               >
                 <div className="text-center space-y-2">
-                  <div className="w-12 h-12 bg-amber-50 text-amber-500 rounded-xl flex items-center justify-center mx-auto border border-amber-100 shadow-xs">
-                    <Star size={24} fill="currentColor" />
+                  <div className="w-13 h-13 bg-amber-50 text-amber-500 rounded-2xl flex items-center justify-center mx-auto border border-amber-100 shadow-xs">
+                    <Star size={26} fill="currentColor" />
                   </div>
-                  <h3 className="text-lg font-black text-slate-900 uppercase tracking-wide">
-                    {isEditingAny ? 'Sửa đánh giá' : 'Đánh giá trị liệu'}
+                  <h3 className="text-lg md:text-xl font-black text-slate-900 uppercase tracking-tight">
+                    {isEditingAny ? 'Sửa đánh giá trị liệu' : 'Đánh giá trị liệu'}
                   </h3>
-                  <p className="text-[11px] text-slate-400 font-semibold leading-relaxed px-2">
+                  <p className="text-xs text-slate-400 font-semibold leading-relaxed px-2">
                     {isEditingAny
                       ? 'Bạn đã đánh giá mục này trước đó — nội dung bên dưới là đánh giá cũ, chỉnh sửa rồi gửi lại để cập nhật.'
-                      : 'Ý kiến khách quan giúp chúng tôi liên tục tối ưu hóa phác đồ điều trị và nâng cao tay nghề nhân sự.'}
+                      : 'Ý kiến đóng góp khách quan của bạn giúp chúng tôi liên tục cải tiến chất lượng phác đồ và phục vụ tốt hơn.'}
                   </p>
                 </div>
 
@@ -1241,35 +1059,35 @@ export default function CustomerAppointments() {
                   {/* 1. SERVICE QUALITY RATING */}
                   <div className="space-y-4 pt-4 first:pt-0">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-[11px] font-black text-secondary uppercase tracking-wider">
-                        1. Chất lượng Dịch vụ
+                      <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider text-left">
+                        1. Chất lượng Dịch vụ ({activeAppt?.ten_dich_vu || 'Khám Lâm Sàng & Lượng Giá'})
                       </h4>
                       {hasExistingServiceReview && (
-                        <span className="text-[8px] bg-teal-50 text-teal-600 font-black px-2 py-0.5 rounded-md uppercase border border-teal-100">
+                        <span className="text-[9px] bg-teal-50 text-teal-600 font-black px-2.5 py-0.5 rounded-full uppercase border border-teal-100">
                           Đã đánh giá — đang sửa
                         </span>
                       )}
                       {!canRateService && (
-                        <span className="text-[8px] bg-slate-100 text-slate-500 font-black px-2 py-0.5 rounded-md uppercase">
+                        <span className="text-[9px] bg-slate-100 text-slate-500 font-black px-2.5 py-0.5 rounded-full uppercase">
                           Khóa
                         </span>
                       )}
                     </div>
 
                     {!canRateService ? (
-                      <div className="bg-slate-50 p-4 rounded-2xl border border-slate-150 text-center space-y-2">
+                      <div className="bg-slate-50 p-5 rounded-2xl border border-slate-150 text-center space-y-2">
                         <div className="flex justify-center gap-1 opacity-40">
                           {[1, 2, 3, 4, 5].map((star) => (
                             <Star key={star} size={20} className="text-zinc-300 fill-zinc-200" />
                           ))}
                         </div>
-                        <p className="text-[10px] text-slate-400 font-extrabold leading-normal">
+                        <p className="text-xs text-slate-400 font-extrabold leading-normal">
                           🔒 Bạn có thể đánh giá gói liệu trình này khi hoàn thành toàn bộ lộ trình trị liệu.
                         </p>
                       </div>
                     ) : (
                       <div className="space-y-4">
-                        <div className="flex justify-center gap-1.5">
+                        <div className="flex justify-center items-center gap-2 bg-amber-50/50 py-2.5 px-4 rounded-2xl border border-amber-100/60 w-fit mx-auto">
                           {[1, 2, 3, 4, 5].map((star) => (
                             <button
                               key={star}
@@ -1278,7 +1096,7 @@ export default function CustomerAppointments() {
                               className="p-1 hover:scale-110 active:scale-95 transition-all text-amber-400 cursor-pointer"
                             >
                               <Star
-                                size={26}
+                                size={28}
                                 fill={star <= ratingStarsService ? "#FF9F1C" : "none"}
                                 stroke={star <= ratingStarsService ? "#FF9F1C" : "currentColor"}
                                 className="stroke-[1.5]"
@@ -1288,14 +1106,16 @@ export default function CustomerAppointments() {
                         </div>
 
                         <div className="space-y-1.5 text-left">
-                          <label htmlFor="nhanXetService" className="text-[9px] font-black text-slate-455 uppercase block tracking-wider">Nhận xét về gói dịch vụ</label>
+                          <label htmlFor="nhanXetService" className="text-[10px] font-black text-slate-500 uppercase block tracking-widest">
+                            Nhận xét về gói dịch vụ
+                          </label>
                           <textarea
                             id="nhanXetService"
-                            rows={2}
+                            rows={3}
                             value={ratingCommentService}
                             onChange={(e) => setRatingCommentService(e.target.value)}
-                            placeholder="Bạn có hài lòng về quy trình của gói, hiệu quả trị liệu, cơ sở vật chất và trang thiết bị không? Hãy chia sẻ trải nghiệm của bạn..."
-                            className="w-full bg-slate-50 border border-slate-150 focus:border-[#14B8A6]/60 p-3 rounded-lg text-xs font-bold resize-none outline-none text-slate-800 transition-colors"
+                            placeholder="Bạn có hài lòng về quy trình trị liệu, hiệu quả dịch vụ, cơ sở vật chất và trang thiết bị không? Hãy chia sẻ trải nghiệm của bạn..."
+                            className="w-full bg-slate-50/70 border border-slate-200/80 focus:border-[#14B8A6] focus:bg-white focus:ring-4 focus:ring-[#14B8A6]/10 p-3.5 rounded-2xl text-xs font-semibold leading-relaxed resize-none outline-none text-slate-800 transition-all placeholder:text-slate-400 placeholder:font-normal min-h-[96px]"
                           />
                         </div>
                       </div>
@@ -1305,17 +1125,17 @@ export default function CustomerAppointments() {
                   {/* 2. STAFF QUALITY RATING */}
                   <div className="space-y-4 pt-5">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-[11px] font-black text-secondary uppercase tracking-wider text-left">
+                      <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider text-left">
                         2. Kỹ thuật viên / Bác sĩ ({activeAppt?.ten_ky_thuat_vien || 'Phụ trách'})
                       </h4>
                       {hasExistingStaffReview && (
-                        <span className="text-[8px] bg-teal-50 text-teal-600 font-black px-2 py-0.5 rounded-md uppercase border border-teal-100 shrink-0">
+                        <span className="text-[9px] bg-teal-50 text-teal-600 font-black px-2.5 py-0.5 rounded-full uppercase border border-teal-100 shrink-0">
                           Đã đánh giá — đang sửa
                         </span>
                       )}
                     </div>
 
-                    <div className="flex justify-center gap-1.5">
+                    <div className="flex justify-center items-center gap-2 bg-amber-50/50 py-2.5 px-4 rounded-2xl border border-amber-100/60 w-fit mx-auto">
                       {[1, 2, 3, 4, 5].map((star) => (
                         <button
                           key={star}
@@ -1324,7 +1144,7 @@ export default function CustomerAppointments() {
                           className="p-1 hover:scale-110 active:scale-95 transition-all text-amber-400 cursor-pointer"
                         >
                           <Star
-                            size={26}
+                            size={28}
                             fill={star <= ratingStarsStaff ? "#FF9F1C" : "none"}
                             stroke={star <= ratingStarsStaff ? "#FF9F1C" : "currentColor"}
                             className="stroke-[1.5]"
@@ -1334,14 +1154,16 @@ export default function CustomerAppointments() {
                     </div>
 
                     <div className="space-y-1.5 text-left">
-                      <label htmlFor="nhanXetStaff" className="text-[9px] font-black text-slate-455 uppercase block tracking-wider">Nhận xét về KTV / Bác sĩ</label>
+                      <label htmlFor="nhanXetStaff" className="text-[10px] font-black text-slate-500 uppercase block tracking-widest">
+                        Nhận xét về KTV / Bác sĩ
+                      </label>
                       <textarea
                         id="nhanXetStaff"
-                        rows={2}
+                        rows={3}
                         value={ratingCommentStaff}
                         onChange={(e) => setRatingCommentStaff(e.target.value)}
-                        placeholder="Bạn có hài lòng về nhân sự khi làm không? Thái độ phục vụ, tay nghề chuyên môn của bác sĩ / KTV như thế nào..."
-                        className="w-full bg-slate-50 border border-slate-150 focus:border-[#14B8A6]/60 p-3 rounded-lg text-xs font-bold resize-none outline-none text-slate-800 transition-colors"
+                        placeholder="Bạn có hài lòng về nhân sự khi làm việc không? Thái độ phục vụ, tay nghề chuyên môn của bác sĩ / KTV như thế nào..."
+                        className="w-full bg-slate-50/70 border border-slate-200/80 focus:border-[#14B8A6] focus:bg-white focus:ring-4 focus:ring-[#14B8A6]/10 p-3.5 rounded-2xl text-xs font-semibold leading-relaxed resize-none outline-none text-slate-800 transition-all placeholder:text-slate-400 placeholder:font-normal min-h-[96px]"
                       />
                     </div>
                   </div>
@@ -1351,7 +1173,7 @@ export default function CustomerAppointments() {
                   <button
                     type="button"
                     onClick={handleRatingSubmit}
-                    className="bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-[11px] uppercase tracking-wider py-3 rounded-xl shadow-xs cursor-pointer flex items-center justify-center"
+                    className="bg-[#FF9F1C] hover:bg-[#e88f13] text-white font-black text-xs uppercase tracking-wider py-3.5 rounded-2xl shadow-lg shadow-amber-500/20 active:scale-98 transition-all cursor-pointer flex items-center justify-center"
                   >
                     {isEditingAny ? 'Cập nhật đánh giá' : 'Gửi đánh giá'}
                   </button>
@@ -1364,7 +1186,7 @@ export default function CustomerAppointments() {
                       setRatingStarsStaff(5);
                       setRatingCommentStaff('');
                     }}
-                    className="bg-slate-50 hover:bg-slate-100 text-slate-500 font-extrabold text-[11px] uppercase tracking-wider py-3 rounded-xl border border-slate-200 transition-all cursor-pointer flex items-center justify-center"
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs uppercase tracking-wider py-3.5 rounded-2xl border border-slate-200/60 transition-all cursor-pointer flex items-center justify-center"
                   >
                     Hủy bỏ
                   </button>

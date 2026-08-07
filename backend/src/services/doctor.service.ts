@@ -63,6 +63,8 @@ class DoctorService {
       trang_thai: v.trang_thai,
       ten_dich_vu: v.ten_dich_vu,
       ghi_chu: v.ghi_chu,
+      vas_truoc: v.vas_truoc,
+      vas_sau: v.vas_sau,
       ten_nhan_su: v.ten_nhan_su,
       anh_nhan_su: v.anh_nhan_su,
       prescribed_plan_id: null,
@@ -94,8 +96,8 @@ class DoctorService {
       throw new Error('Không tìm thấy chi tiết ca khám.');
     }
 
-    // Tự động chuyển trạng thái sang 'dang_kham' nếu lịch đang ở 'da_checkin' hoặc 'cho_kham'
-    if (['da_checkin', 'cho_kham'].includes(detail.trang_thai) && userId) {
+    // Tự động chuyển trạng thái sang 'dang_kham' nếu lịch đang ở 'da_checkin'
+    if (detail.trang_thai === 'da_checkin' && userId) {
       const staffId = parseInt(userId, 10);
       // 1 bác sĩ chỉ được mở 1 "bàn khám" tại 1 thời điểm — chặn nếu còn ca khác đang dang_kham
       // (vd quên bấm hoàn thành ca trước).

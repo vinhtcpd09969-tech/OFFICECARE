@@ -31,15 +31,6 @@ export const createAppointment = async (req: Request, res: Response): Promise<an
     if (error.message && (error.message.includes('dùng thử') || error.message.includes('trải nghiệm') || error.message.includes('giới hạn') || error.message.includes('tối đa') || error.message.includes('đạt giới hạn'))) {
       return res.status(400).json({ message: error.message });
     }
-    if (error.constraint === 'no_overlap_ktv') {
-      return res.status(400).json({ message: 'Kỹ thuật viên đã có lịch trong khung giờ này.' });
-    }
-    if (error.constraint === 'no_overlap_phong') {
-      return res.status(400).json({ message: 'Phòng đã được đặt trong khung giờ này.' });
-    }
-    if (error.constraint === 'no_overlap_khach_hang') {
-      return res.status(400).json({ message: 'Khách hàng đã có lịch hẹn hoặc ca điều trị khác trong khung giờ này.' });
-    }
     if (error.message && !error.stack?.includes('pg') && !error.stack?.includes('Prisma') && !error.message.includes('connection') && !error.message.includes('database')) {
       return res.status(400).json({ message: error.message });
     }
@@ -82,17 +73,14 @@ export const updateAppointmentStatus = async (req: Request, res: Response): Prom
     if (error.message === 'Không tìm thấy lịch hẹn') {
       return res.status(404).json({ message: error.message });
     }
-    if (error.constraint === 'no_overlap_ktv') {
-      return res.status(400).json({ message: 'Kỹ thuật viên đã có lịch trong khung giờ này.' });
-    }
-    if (error.constraint === 'no_overlap_phong') {
-      return res.status(400).json({ message: 'Phòng đã được đặt trong khung giờ này.' });
-    }
-    if (error.constraint === 'no_overlap_khach_hang') {
-      return res.status(400).json({ message: 'Khách hàng đã có lịch hẹn hoặc ca điều trị khác trong khung giờ này.' });
-    }
     if (error.statusCode) {
       return res.status(error.statusCode).json({ message: error.message });
+    }
+    // Lỗi nghiệp vụ từ service/repository (vd "Gói trị liệu liên kết chưa được thanh toán...")
+    // không đặt statusCode riêng — vẫn phải trả message gốc dạng 400, không được nuốt thành 500
+    // chung chung (quy tắc bất di bất dịch #5).
+    if (error.message && !error.stack?.includes('pg') && !error.stack?.includes('Prisma') && !error.message.includes('connection') && !error.message.includes('database')) {
+      return res.status(400).json({ message: error.message });
     }
     return res.status(500).json({ message: 'Lỗi server' });
   }
@@ -149,57 +137,55 @@ export const cancelBreakTimeAppointments = async (req: Request, res: Response): 
   }
 };
 
-// Lấy danh sách khung giờ đã đặt cho ngày cụ thể (public - dùng cho trang booking client)
-export const getBookedSlots = async (req: Request, res: Response): Promise<any> => {
+// Sức chứa 2 buổi (sáng/chiều) cho 1 ngày — nguồn dữ liệu cho màn hình đặt lịch (A1, thay
+// getBookedSlots dạng lưới giờ cố định cũ).
+export const getBuoiAvailability = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { date, userId, phone, duration, dichVuId, dich_vu_id, excludeSessionId, temp_hold_id } = req.query;
+    const { date, userId, phone, dichVuId, dich_vu_id } = req.query;
     if (!date || typeof date !== 'string') {
       return res.status(400).json({ message: 'Thiếu tham số ngày (date=YYYY-MM-DD)' });
     }
-    const durationNum = duration ? parseInt(duration as string, 10) : 30;
     const serviceId = (typeof dichVuId === 'string' ? dichVuId : (typeof dich_vu_id === 'string' ? dich_vu_id : undefined));
-    const result = await appointmentService.getBookedSlots(
+    const result = await appointmentService.getBuoiAvailability(
       date,
-      typeof userId === 'string' ? userId : undefined,
-      typeof phone === 'string' ? phone : undefined,
-      durationNum,
       serviceId,
-      typeof excludeSessionId === 'string' ? excludeSessionId : (typeof temp_hold_id === 'string' ? temp_hold_id : undefined)
+      typeof userId === 'string' ? userId : undefined,
+      typeof phone === 'string' ? phone : undefined
     );
 
-    const bookedSlotsList = result?.bookedSlots || [];
-    const specialists = result?.specialists || [];
-    const slotAvailability = result?.slotAvailability || {};
-
-    let hasExistingClinicalExam = false;
     let isPhoneTakenByOther = false;
-    if (typeof userId === 'string' || typeof phone === 'string') {
-      hasExistingClinicalExam = await appointmentService.checkCustomerHasClinicalExamOnDate(
-        typeof userId === 'string' ? userId : undefined,
-        typeof phone === 'string' ? phone : undefined,
-        date,
-        typeof excludeSessionId === 'string' ? excludeSessionId : (typeof temp_hold_id === 'string' ? temp_hold_id : undefined)
-      );
-    }
-
     if (typeof userId === 'string' && userId && typeof phone === 'string' && phone.trim()) {
       isPhoneTakenByOther = await appointmentService.checkPhoneTakenByOther(phone.trim(), userId);
     }
 
-    return res.json({
-      bookedSlots: bookedSlotsList,
-      specialists,
-      slotAvailability,
-      hasExistingClinicalExam,
-      isPhoneTakenByOther
-    });
+    return res.json({ ...result, isPhoneTakenByOther });
   } catch (error: any) {
-    console.error('Lỗi khi lấy danh sách giờ đã đặt:', error);
+    console.error('Lỗi khi lấy sức chứa theo buổi:', error);
     return res.status(500).json({ message: error.message || 'Lỗi server' });
   }
 };
 
 // Lấy danh sách các ngày có lịch trực của Bác sĩ (public - dùng cho trang booking client)
+// B15 — ngân sách phút còn lại của từng nhân sự cho 1 buổi/ngày, dùng khi Admin/Quản lý đổi nhân sự.
+export const getStaffBudgetForBuoi = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { date, buoi, loai, excludeApptId } = req.query;
+    if (typeof date !== 'string' || (buoi !== 'sang' && buoi !== 'chieu') || typeof loai !== 'string') {
+      return res.status(400).json({ message: 'Thiếu hoặc sai tham số date/buoi/loai' });
+    }
+    const result = await appointmentService.getStaffBudgetForBuoi(
+      date,
+      buoi,
+      loai,
+      typeof excludeApptId === 'string' ? excludeApptId : undefined
+    );
+    return res.json(result);
+  } catch (error: any) {
+    console.error('Lỗi khi lấy ngân sách phút của nhân sự:', error);
+    return res.status(500).json({ message: error.message || 'Lỗi server' });
+  }
+};
+
 export const getActiveDoctorDates = async (req: Request, res: Response): Promise<any> => {
   try {
     const dates = await appointmentService.getActiveDoctorDates();
@@ -286,63 +272,4 @@ export const keepAliveAppointment = async (req: Request, res: Response): Promise
   }
 };
 
-export const confirmOTPAppointment = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const { id, otp } = req.body;
-    if (!id || !otp) {
-      return res.status(400).json({ message: 'Vui lòng cung cấp mã OTP và ID lịch hẹn.' });
-    }
-    const updated = await appointmentService.confirmOTPAppointment(id, otp);
-    return res.json({ success: true, appointment: updated });
-  } catch (error: any) {
-    console.error('Lỗi khi xác thực OTP lịch hẹn:', error);
-    return res.status(400).json({ message: error.message || 'Lỗi hệ thống' });
-  }
-};
-
-export const resendConfirmationEmail = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const id = req.params.id as string;
-    await appointmentService.resendConfirmationEmail(id);
-    return res.json({ success: true, message: 'Đã gửi lại email xác nhận thành công!' });
-  } catch (error: any) {
-    console.error('Lỗi khi gửi lại email xác nhận:', error);
-    return res.status(400).json({ message: error.message || 'Lỗi server' });
-  }
-};
-
-export const createTempHold = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const { session_id, ngay_gio_bat_dau, goi_dich_vu_id, nhan_su_id, khach_hang_id, so_dien_thoai } = req.body;
-    if (!session_id || !ngay_gio_bat_dau || !goi_dich_vu_id) {
-      return res.status(400).json({ message: 'Thiếu thông tin session_id, ngay_gio_bat_dau hoặc goi_dich_vu_id' });
-    }
-    const hold = await appointmentService.createTempHold({
-      session_id,
-      ngay_gio_bat_dau,
-      goi_dich_vu_id,
-      nhan_su_id: nhan_su_id ? Number(nhan_su_id) : null,
-      khach_hang_id,
-      so_dien_thoai
-    });
-    return res.status(201).json(hold);
-  } catch (error: any) {
-    console.error('Lỗi khi tạo giữ chỗ tạm thời:', error);
-    return res.status(500).json({ message: error.message || 'Lỗi server' });
-  }
-};
-
-export const releaseTempHold = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const { session_id } = req.params;
-    if (!session_id) {
-      return res.status(400).json({ message: 'Thiếu session_id' });
-    }
-    await appointmentService.releaseTempHold(session_id as string);
-    return res.json({ message: 'Giải phóng giữ chỗ thành công' });
-  } catch (error: any) {
-    console.error('Lỗi khi giải phóng giữ chỗ:', error);
-    return res.status(500).json({ message: error.message || 'Lỗi server' });
-  }
-};
 

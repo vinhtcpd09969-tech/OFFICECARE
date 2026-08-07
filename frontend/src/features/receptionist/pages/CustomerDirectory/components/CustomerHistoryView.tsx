@@ -123,7 +123,7 @@ export function CustomerHistoryView({ customer, staleDays, onBack }: CustomerHis
                       ? String(a.phac_do_dieu_tri_id) === String(p.id)
                       : String(a.goi_dich_vu_id) === String(p.goi_dich_vu_id) && p.trang_thai === 'dang_dieu_tri';
                     
-                    const isPendingOrActive = ['cho_xac_nhan', 'da_xac_nhan', 'da_checkin', 'dang_kham'].includes(a.trang_thai);
+                    const isPendingOrActive = ['da_xac_nhan', 'da_checkin', 'dang_kham', 'cho_tai_luong_gia'].includes(a.trang_thai);
                     return isSamePlan && isPendingOrActive;
                   }).sort((a, b) => new Date(a.ngay_gio_bat_dau).getTime() - new Date(b.ngay_gio_bat_dau).getTime());
 

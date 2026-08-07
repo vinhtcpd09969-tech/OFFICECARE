@@ -44,3 +44,11 @@ export const getChatHistory = asyncHandler(async (req: Request, res: Response) =
   const messages = await ChatHistoryService.getHistory(sessionId);
   res.json({ success: true, messages });
 });
+
+// Lịch sử chat của khách đang đăng nhập, gộp mọi phiên cũ — cho phép khung chat khôi phục hội
+// thoại dù khách mở trên trình duyệt/thiết bị khác với lúc chat trước đó (khác với getChatHistory
+// ở trên vốn chỉ tra theo sessionId của riêng 1 tab trình duyệt).
+export const getMyChatHistory = asyncHandler(async (req: Request, res: Response) => {
+  const messages = await ChatHistoryService.getHistoryByCustomer(String(req.user!.id));
+  res.json({ success: true, messages });
+});

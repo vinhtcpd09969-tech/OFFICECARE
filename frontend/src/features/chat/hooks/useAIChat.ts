@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect } from 'react';
-import { sendChatMessage } from '../api/chat.api';
+import { sendChatMessage, getMyChatHistory } from '../api/chat.api';
 import { useAuthStore } from '../../../stores/authStore';
 import { toast } from 'react-hot-toast';
 
@@ -31,17 +31,44 @@ export function useAIChat() {
     return id;
   });
 
-  // Nạp lịch sử chat tương ứng với storageKey của tài khoản đang đăng nhập
+  // Nạp lịch sử chat tương ứng với storageKey của tài khoản đang đăng nhập. Nếu trình duyệt/thiết
+  // bị này chưa có cache (vd khách đổi máy) và đang đăng nhập với vai trò khách hàng (vai_tro_id=1),
+  // thử khôi phục lại hội thoại đã lưu bền ở DB trước khi rơi về tin nhắn chào mừng mặc định.
   useEffect(() => {
-    const saved = localStorage.getItem(storageKey);
-    if (saved) {
-      try {
-        setMessages(JSON.parse(saved));
-      } catch (e) {
-        console.error('Lỗi phân tích lịch sử chat:', e);
+    let cancelled = false;
+
+    const loadHistory = async () => {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        try {
+          setMessages(JSON.parse(saved));
+          return;
+        } catch (e) {
+          console.error('Lỗi phân tích lịch sử chat:', e);
+        }
       }
-    } else {
-      // Tin nhắn chào mừng mặc định
+
+      if (user?.vai_tro_id === 1) {
+        try {
+          const res = await getMyChatHistory();
+          const dbMessages = res.data.messages || [];
+          if (!cancelled && dbMessages.length > 0) {
+            const restored: ChatMessage[] = dbMessages.map((m, idx) => ({
+              id: `db-${idx}`,
+              role: m.role,
+              content: m.content,
+              timestamp: new Date(m.created_at).getTime(),
+            }));
+            setMessages(restored);
+            localStorage.setItem(storageKey, JSON.stringify(restored));
+            return;
+          }
+        } catch (e) {
+          console.error('Lỗi khôi phục lịch sử chat từ máy chủ:', e);
+        }
+      }
+
+      if (cancelled) return;
       const welcomeMessage: ChatMessage = {
         id: 'welcome',
         role: 'model',
@@ -50,8 +77,11 @@ export function useAIChat() {
       };
       setMessages([welcomeMessage]);
       localStorage.setItem(storageKey, JSON.stringify([welcomeMessage]));
-    }
-  }, [storageKey]);
+    };
+
+    loadHistory();
+    return () => { cancelled = true; };
+  }, [storageKey, user?.vai_tro_id]);
 
   const sendMessage = async (text: string) => {
     if (!text.trim()) return;

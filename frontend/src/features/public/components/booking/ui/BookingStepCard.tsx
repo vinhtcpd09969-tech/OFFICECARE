@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, AlertTriangle, Phone } from 'lucide-react';
 import { BookingState } from '../types';
+import { BuoiAvailability } from '../hooks/useBookingState';
 import { Step1TypeSelection } from './steps/Step1TypeSelection';
 import { Step2DatePicker } from './steps/Step2DatePicker';
 import { Step3DateTimeSpecialist } from './steps/Step3DateTimeSpecialist';
@@ -18,9 +19,7 @@ interface BookingStepCardProps {
   services: any[];
   servicesLoading: boolean;
   state: BookingState;
-  bookedSlots: string[];
-  specialists: any[];
-  slotAvailability: Record<string, number[]>;
+  buoiAvailability: BuoiAvailability;
   selectedStaffId: string;
   setSelectedStaffId: (id: string) => void;
   hasExistingClinicalExam: boolean;
@@ -31,11 +30,9 @@ interface BookingStepCardProps {
   handleFile: (file: File) => void;
   removeImage: () => void;
   setDateField: (date: string) => void;
-  setTimeField: (time: string) => void;
+  setBuoiField: (buoi: 'sang' | 'chieu' | '') => void;
   isSubmitting: boolean;
   user: any;
-  tempHoldId: string;
-  onTimeout?: () => void;
 }
 
 export function BookingStepCard({
@@ -48,9 +45,7 @@ export function BookingStepCard({
   services,
   servicesLoading,
   state,
-  bookedSlots,
-  specialists,
-  slotAvailability,
+  buoiAvailability,
   selectedStaffId,
   setSelectedStaffId,
   hasExistingClinicalExam,
@@ -61,13 +56,11 @@ export function BookingStepCard({
   handleFile,
   removeImage,
   setDateField,
-  setTimeField,
+  setBuoiField,
   isSubmitting,
-  user,
-  tempHoldId,
-  onTimeout
+  user
 }: BookingStepCardProps) {
-  const { selectedDate, selectedTime, formData } = state;
+  const { selectedDate, selectedBuoi, formData } = state;
   const [showBlockWarning, setShowBlockWarning] = useState<boolean>(false);
 
   // Auto-calculate service duration
@@ -224,13 +217,9 @@ export function BookingStepCard({
               key="step-2"
               selectedDate={selectedDate}
               setDateField={setDateField}
-              bookingType={bookingType}
               hasExistingClinicalExam={hasExistingClinicalExam}
               setShowBlockWarning={setShowBlockWarning}
               setActiveStep={setActiveStep}
-              selectedServiceId={selectedServiceId}
-              services={services}
-              duration={duration}
             />
           )}
 
@@ -238,21 +227,14 @@ export function BookingStepCard({
             <Step3DateTimeSpecialist
               key="step-3"
               selectedDate={selectedDate}
-              selectedTime={selectedTime}
-              setTimeField={setTimeField}
+              selectedBuoi={selectedBuoi}
+              setBuoiField={setBuoiField}
               bookingType={bookingType}
-              bookedSlots={bookedSlots}
-              specialists={specialists}
-              slotAvailability={slotAvailability}
+              buoiAvailability={buoiAvailability}
               selectedStaffId={selectedStaffId}
               setSelectedStaffId={setSelectedStaffId}
-              hasExistingClinicalExam={hasExistingClinicalExam}
               duration={duration}
               setActiveStep={setActiveStep}
-              tempHoldId={tempHoldId}
-              services={services}
-              selectedServiceId={selectedServiceId}
-              user={user}
             />
           )}
 
@@ -270,12 +252,6 @@ export function BookingStepCard({
               isPhoneTakenByOther={isPhoneTakenByOther}
               user={user}
               setActiveStep={setActiveStep}
-              selectedTime={selectedTime}
-              selectedServiceId={selectedServiceId}
-              services={services}
-              duration={duration}
-              tempHoldId={tempHoldId}
-              onTimeout={onTimeout}
             />
           )}
 
@@ -286,9 +262,9 @@ export function BookingStepCard({
               selectedServiceId={selectedServiceId}
               services={services}
               selectedDate={selectedDate}
-              selectedTime={selectedTime}
+              selectedBuoi={selectedBuoi}
               selectedStaffId={selectedStaffId}
-              specialists={specialists}
+              specialists={buoiAvailability.nhanSu}
               formData={formData}
               setActiveStep={setActiveStep}
               isSubmitting={isSubmitting}

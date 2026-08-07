@@ -252,25 +252,25 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
   };
 
   return (
-    <div className="bg-white border border-zinc-150 rounded-3xl shadow-xl max-w-5xl mx-auto w-full text-secondary overflow-hidden backdrop-blur-md bg-white/95 animate-fade-in">
+    <div className="bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 rounded-3xl shadow-xl max-w-5xl mx-auto w-full text-secondary dark:text-zinc-100 overflow-hidden backdrop-blur-md bg-white/95 dark:bg-zinc-900/95 animate-fade-in">
         
         {/* Modal Header */}
-        <div className="px-8 py-6 flex justify-between items-center border-b border-zinc-100 bg-slate-50/70">
+        <div className="px-8 py-6 flex justify-between items-center border-b border-zinc-100 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-800/70">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-2xl bg-emerald-600/10 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-emerald-600 animate-pulse" />
+            <div className="w-8 h-8 rounded-2xl bg-emerald-600/10 dark:bg-emerald-500/20 flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400 animate-pulse" />
             </div>
             <div>
-              <h3 className="text-sm font-bold font-heading tracking-wide uppercase text-slate-800">
+              <h3 className="text-sm font-bold font-heading tracking-wide uppercase text-slate-800 dark:text-zinc-100">
                 {editingPackage && editingPackage.id ? `[CHỈNH SỬA] CẤU HÌNH GÓI` : `[THIẾT KẾ MỚI] GÓI DỊCH VỤ`}
               </h3>
-              <p className="text-[10px] text-slate-400 font-medium">Bảng cấu hình gói chuyên khoa & phân tích doanh thu</p>
+              <p className="text-[10px] text-slate-400 dark:text-zinc-400 font-medium">Bảng cấu hình gói chuyên khoa & phân tích doanh thu</p>
             </div>
           </div>
           <button 
             type="button"
             onClick={onClose} 
-            className="text-zinc-500 hover:text-rose-600 text-xs border border-zinc-200 hover:border-rose-200 px-4 py-2 rounded-xl bg-white shadow-sm transition-all hover:bg-rose-50/30 flex items-center gap-1.5 font-bold"
+            className="text-zinc-500 dark:text-zinc-300 hover:text-rose-600 dark:hover:text-rose-400 text-xs border border-zinc-200 dark:border-zinc-700 hover:border-rose-200 px-4 py-2 rounded-xl bg-white dark:bg-zinc-800 shadow-sm transition-all hover:bg-rose-50/30 flex items-center gap-1.5 font-bold cursor-pointer"
           >
             <X className="w-3.5 h-3.5" /> [ Đóng ]
           </button>
@@ -278,10 +278,10 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
 
         {/* Form Body - Two-Column Layout */}
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-0">
-          <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-zinc-100 min-h-[460px]">
+          <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-zinc-100 dark:divide-zinc-800 min-h-[460px]">
             
             {/* LEFT PANEL (33% width) - Interactive Image Upload & Dynamic Guide */}
-            <div className="col-span-1 p-8 bg-slate-50/40 flex flex-col justify-between space-y-6">
+            <div className="col-span-1 p-8 bg-slate-50/40 dark:bg-zinc-900/60 flex flex-col justify-between space-y-6">
               <div className="space-y-6">
                 <ImageUploadZone
                   value={watch('anh_goi') || null}
@@ -313,10 +313,10 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
               </div>
 
               {/* Dynamic pricing/operational guide in place of active switch */}
-              <div className="bg-emerald-50/50 border border-emerald-100 p-4 rounded-2xl flex items-start gap-2.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 mt-1.5 shrink-0 animate-ping"></span>
+              <div className="bg-emerald-50/50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/60 p-4 rounded-2xl flex items-start gap-2.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 dark:bg-emerald-400 mt-1.5 shrink-0 animate-ping"></span>
                 <div>
-                  <p className="text-[10px] font-bold text-emerald-800 uppercase tracking-wide">
+                  <p className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wide">
                     {watchLoaiGoi === 'KHAM' 
                       ? 'Hướng dẫn Khám Lâm Sàng' 
                       : watchLoaiGoi === 'LE' 
@@ -325,7 +325,7 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                           ? 'Chiến lược Giá Liệu Trình'
                           : 'Cấu hình y khoa'}
                   </p>
-                  <p className="text-[9px] text-emerald-600 font-semibold mt-0.5 leading-relaxed">
+                  <p className="text-[9px] text-emerald-700 dark:text-emerald-300/90 font-semibold mt-0.5 leading-relaxed">
                     {watchLoaiGoi === 'KHAM' && (
                       'Dành riêng cho Bác sĩ thực hiện kiểm tra tầm vận động, chẩn đoán ban đầu và lên phác đồ điều trị cho bệnh nhân.'
                     )}
@@ -355,10 +355,10 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                   </h4>
                   
                   <div>
-                    <label className="block font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Loại gói dịch vụ *</label>
+                    <label className="block font-bold text-slate-500 dark:text-zinc-400 mb-1.5 uppercase tracking-wider">Loại gói dịch vụ *</label>
                     <select 
                       {...register('loai_goi')}
-                      className="w-full px-4 py-3 bg-white border border-zinc-250 rounded-xl focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 outline-none transition-all text-secondary font-semibold text-xs shadow-sm cursor-pointer relative z-30 font-heading"
+                      className="w-full px-4 py-3 bg-white dark:bg-zinc-800 border border-zinc-250 dark:border-zinc-700 rounded-xl focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 outline-none transition-all text-secondary dark:text-zinc-100 font-semibold text-xs shadow-sm cursor-pointer relative z-30 font-heading"
                     >
                       <option value="">-- CHỌN LOẠI GÓI DỊCH VỤ --</option>
                       <option value="KHAM">Gói Khám Lâm Sàng (Bác sĩ chuẩn đoán bệnh)</option>
@@ -374,12 +374,12 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                 {/* PHẦN CÁC TRƯỜNG DỮ LIỆU CÒN LẠI - BỊ PHỦ KÍNH NẾU CHƯA CHỌN LOẠI GÓI */}
                 <div className="relative">
                   {!isTypeSelected && (
-                    <div className="absolute inset-0 bg-white/70 backdrop-blur-[2px] z-20 flex flex-col items-center justify-center p-6 text-center select-none rounded-2xl border border-zinc-150 shadow-inner">
-                      <div className="w-10 h-10 rounded-full bg-indigo-50 border border-indigo-150 flex items-center justify-center mb-2 shadow-md shadow-indigo-100">
-                        <Lock className="w-4 h-4 text-indigo-600 animate-bounce" />
+                    <div className="absolute inset-0 bg-white/70 dark:bg-zinc-900/80 backdrop-blur-[2px] z-20 flex flex-col items-center justify-center p-6 text-center select-none rounded-2xl border border-zinc-150 dark:border-zinc-800 shadow-inner">
+                      <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-150 dark:border-indigo-800 flex items-center justify-center mb-2 shadow-md shadow-indigo-100 dark:shadow-none">
+                        <Lock className="w-4 h-4 text-indigo-600 dark:text-indigo-400 animate-bounce" />
                       </div>
-                      <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Thông số chi tiết đang khóa</h4>
-                      <p className="text-[10px] text-slate-500 font-medium max-w-xs mt-1">
+                      <h4 className="text-xs font-bold text-slate-800 dark:text-zinc-100 uppercase tracking-wider">Thông số chi tiết đang khóa</h4>
+                      <p className="text-[10px] text-slate-500 dark:text-zinc-400 font-medium max-w-xs mt-1">
                         Vui lòng chọn loại gói dịch vụ ở trên để nhập thông tin chi tiết phác đồ và tài chính.
                       </p>
                     </div>
@@ -389,11 +389,11 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                     {/* Hộp I (phần còn lại): Tên gói, Danh mục và Mô tả */}
                     <div className="space-y-4">
                       <div>
-                        <label className="block font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Tên gói dịch vụ *</label>
+                        <label className="block font-bold text-slate-500 dark:text-zinc-400 mb-1.5 uppercase tracking-wider">Tên gói dịch vụ *</label>
                         <input
                           {...register('ten_goi')}
                           placeholder="Nhập tên gói dịch vụ..."
-                          className="w-full px-4 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 outline-none transition-all font-semibold text-secondary text-sm placeholder-zinc-300 shadow-sm"
+                          className="w-full px-4 py-2.5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 outline-none transition-all font-semibold text-secondary dark:text-zinc-100 text-sm placeholder-zinc-300 dark:placeholder-zinc-500 shadow-sm"
                         />
                         {errors.ten_goi && (
                           <span className="text-rose-500 text-[10px] mt-1 block">{errors.ten_goi.message}</span>
@@ -410,8 +410,8 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* BỘ DỰNG QUY TRÌNH DẠNG LIST */}
                         <div className="space-y-2">
-                          <div className="flex items-center justify-between border-b border-zinc-100 pb-1">
-                            <label className="block font-black text-slate-500 uppercase tracking-wider text-[10px]">Quy trình các bước trị liệu *</label>
+                          <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-1">
+                            <label className="block font-black text-slate-500 dark:text-zinc-400 uppercase tracking-wider text-[10px]">Quy trình các bước trị liệu *</label>
                             <button
                               type="button"
                               onClick={() => {
@@ -419,7 +419,7 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                                 setQuyTrinhSteps(next);
                                 setValue('quy_trinh', next.filter(s => s.trim() !== '').join('\n'), { shouldValidate: true });
                               }}
-                              className="text-[10px] font-black uppercase text-emerald-600 hover:text-emerald-700 transition-all cursor-pointer"
+                              className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 transition-all cursor-pointer"
                             >
                               + Thêm bước
                             </button>
@@ -428,7 +428,7 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                           <div className="space-y-2 max-h-[190px] overflow-y-auto pr-1.5 package-scroll">
                             {quyTrinhSteps.map((step, idx) => (
                               <div key={idx} className="flex items-center gap-2 animate-fade-in">
-                                <span className="text-[10px] font-black text-slate-400 w-5 text-right shrink-0">{idx + 1}.</span>
+                                <span className="text-[10px] font-black text-slate-400 dark:text-zinc-400 w-5 text-right shrink-0">{idx + 1}.</span>
                                 <input
                                   type="text"
                                   value={step}
@@ -439,7 +439,7 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                                     setValue('quy_trinh', next.filter(s => s.trim() !== '').join('\n'), { shouldValidate: true });
                                   }}
                                   placeholder={`Nhập nội dung bước ${idx + 1}...`}
-                                  className="flex-1 px-3 py-2 bg-white border border-zinc-200 rounded-xl focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600/20 outline-none transition-all font-semibold text-secondary text-xs shadow-xs"
+                                  className="flex-1 px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600/20 outline-none transition-all font-semibold text-secondary dark:text-zinc-100 text-xs shadow-xs"
                                 />
                                 {quyTrinhSteps.length > 1 && (
                                   <button
@@ -464,8 +464,8 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
 
                         {/* BỘ DỰNG MỤC TIÊU DẠNG LIST */}
                         <div className="space-y-2">
-                          <div className="flex items-center justify-between border-b border-zinc-100 pb-1">
-                            <label className="block font-black text-slate-500 uppercase tracking-wider text-[10px]">Mục tiêu trị liệu *</label>
+                          <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-1">
+                            <label className="block font-black text-slate-500 dark:text-zinc-400 uppercase tracking-wider text-[10px]">Mục tiêu trị liệu *</label>
                             <button
                               type="button"
                               onClick={() => {
@@ -473,7 +473,7 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                                 setMucTieuSteps(next);
                                 setValue('muc_tieu', next.filter(s => s.trim() !== '').join('\n'), { shouldValidate: true });
                               }}
-                              className="text-[10px] font-black uppercase text-emerald-600 hover:text-emerald-700 transition-all cursor-pointer"
+                              className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 transition-all cursor-pointer"
                             >
                               + Thêm mục tiêu
                             </button>
@@ -482,7 +482,7 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                           <div className="space-y-2 max-h-[190px] overflow-y-auto pr-1.5 package-scroll">
                             {mucTieuSteps.map((step, idx) => (
                               <div key={idx} className="flex items-center gap-2 animate-fade-in">
-                                <span className="text-[10px] font-black text-slate-400 w-5 text-right shrink-0">•</span>
+                                <span className="text-[10px] font-black text-slate-400 dark:text-zinc-400 w-5 text-right shrink-0">•</span>
                                 <input
                                   type="text"
                                   value={step}
@@ -493,7 +493,7 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                                     setValue('muc_tieu', next.filter(s => s.trim() !== '').join('\n'), { shouldValidate: true });
                                   }}
                                   placeholder={`Nhập nội dung mục tiêu...`}
-                                  className="flex-1 px-3 py-2 bg-white border border-zinc-200 rounded-xl focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600/20 outline-none transition-all font-semibold text-secondary text-xs shadow-xs"
+                                  className="flex-1 px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600/20 outline-none transition-all font-semibold text-secondary dark:text-zinc-100 text-xs shadow-xs"
                                 />
                                 {mucTieuSteps.length > 1 && (
                                   <button
@@ -503,7 +503,7 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                                       setMucTieuSteps(next);
                                       setValue('muc_tieu', next.filter(s => s.trim() !== '').join('\n'), { shouldValidate: true });
                                     }}
-                                    className="p-1.5 border border-zinc-150 hover:border-rose-250 text-zinc-400 hover:text-rose-500 rounded-lg hover:bg-rose-50/20 transition-all shrink-0 cursor-pointer"
+                                    className="p-1.5 border border-zinc-150 dark:border-zinc-700 hover:border-rose-250 text-zinc-400 dark:text-zinc-400 hover:text-rose-500 rounded-lg hover:bg-rose-50/20 transition-all shrink-0 cursor-pointer"
                                   >
                                     <X size={12} />
                                   </button>
@@ -519,14 +519,14 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                     </div>
 
                     {/* Hộp II: Vận hành & Tài chính */}
-                    <div className="space-y-4 pt-4 border-t border-zinc-100">
-                      <h4 className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider border-b border-zinc-100 pb-2 flex items-center gap-1.5">
+                    <div className="space-y-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                      <h4 className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider border-b border-zinc-100 dark:border-zinc-800 pb-2 flex items-center gap-1.5">
                         <Coins className="w-3.5 h-3.5" /> Hộp II: Cấu hình vận hành & Kinh tế học
                       </h4>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <label className="block font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Tổng số buổi *</label>
+                          <label className="block font-bold text-slate-500 dark:text-zinc-400 mb-1.5 uppercase tracking-wider">Tổng số buổi *</label>
                           <div className="relative">
                             <input 
                               type="number"
@@ -535,12 +535,12 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                               readOnly={watchLoaiGoi === 'KHAM' || watchLoaiGoi === 'LE'}
                               className={`w-full px-4 py-2.5 border rounded-xl focus:outline-none transition-all font-semibold text-sm shadow-sm ${
                                 watchLoaiGoi === 'KHAM' || watchLoaiGoi === 'LE'
-                                  ? 'bg-zinc-50 border-zinc-200 text-zinc-400 cursor-not-allowed'
-                                  : 'bg-white border-zinc-200 text-secondary focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20'
+                                  ? 'bg-zinc-50 dark:bg-zinc-800/50 border-zinc-200 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 cursor-not-allowed'
+                                  : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-secondary dark:text-zinc-100 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20'
                               }`}
                             />
                             {watchLoaiGoi === 'LIEU_TRINH' && (
-                              <span className="absolute right-3 top-2.5 text-[10px] font-bold text-slate-400">Buổi</span>
+                              <span className="absolute right-3 top-2.5 text-[10px] font-bold text-slate-400 dark:text-zinc-400">Buổi</span>
                             )}
                           </div>
                           {errors.tong_so_buoi && (
@@ -548,20 +548,20 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                           )}
 
                           {watchLoaiGoi === 'LIEU_TRINH' && averageCost > 0 && !errors.tong_so_buoi && (
-                            <p className="text-[10px] text-slate-400 mt-1 font-medium">
+                            <p className="text-[10px] text-slate-400 dark:text-zinc-400 mt-1 font-medium">
                               Đơn giá thực tế:{' '}
-                              <span className={`font-bold ${perSessionShifted ? 'text-amber-600' : 'text-emerald-600'}`}>
+                              <span className={`font-bold ${perSessionShifted ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                                 {averageCost.toLocaleString()}đ / buổi
                               </span>
                             </p>
                           )}
 
                           {perSessionShifted && (
-                            <div className="mt-2 bg-amber-50/70 border border-amber-200 rounded-xl p-2.5 space-y-1 animate-slide-down">
-                              <span className="text-[10px] font-black text-amber-900 block">
+                            <div className="mt-2 bg-amber-50/70 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl p-2.5 space-y-1 animate-slide-down">
+                              <span className="text-[10px] font-black text-amber-900 dark:text-amber-200 block">
                                 ⚠️ Đơn giá mỗi buổi đổi: {originalPerSession.toLocaleString()}đ → {averageCost.toLocaleString()}đ
                               </span>
-                              <span className="text-[10px] text-amber-800 font-semibold block leading-relaxed">
+                              <span className="text-[10px] text-amber-800 dark:text-amber-300 font-semibold block leading-relaxed">
                                 Giá bán trọn gói giữ nguyên nên khách vẫn trả cùng số tiền cho số buổi khác đi. Sửa lại
                                 “Giá bán trọn gói” nếu muốn giữ đơn giá {originalPerSession.toLocaleString()}đ/buổi
                                 (= {(originalPerSession * watchTongSoBuoi).toLocaleString()}đ).
@@ -571,27 +571,27 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                         </div>
 
                         <div>
-                          <label className="block font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Thời lượng mỗi buổi (Phút) *</label>
+                          <label className="block font-bold text-slate-500 dark:text-zinc-400 mb-1.5 uppercase tracking-wider">Thời lượng mỗi buổi (Phút) *</label>
                           <div className="relative">
                             <input 
                               type="number"
                               {...register('thoi_luong_phut', { valueAsNumber: true })} 
                               placeholder="60"
-                              className="w-full px-4 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 outline-none transition-all font-semibold text-secondary shadow-sm text-sm"
+                              className="w-full px-4 py-2.5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 outline-none transition-all font-semibold text-secondary dark:text-zinc-100 shadow-sm text-sm"
                             />
-                            <span className="absolute right-3 top-2.5 text-[10px] font-bold text-slate-400">Phút</span>
+                            <span className="absolute right-3 top-2.5 text-[10px] font-bold text-slate-400 dark:text-zinc-400">Phút</span>
                           </div>
                           {errors.thoi_luong_phut ? (
                             <span className="text-rose-500 text-[10px] mt-1 block">{errors.thoi_luong_phut.message}</span>
                           ) : (
-                            <p className="text-[10px] text-amber-600 mt-1 font-medium leading-relaxed flex items-center gap-1">
+                            <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1 font-medium leading-relaxed flex items-center gap-1">
                               <span>ℹ️ Vui lòng chủ động thêm thời gian cho nhân sự chuẩn bị</span>
                             </p>
                           )}
                         </div>
 
                         <div>
-                          <label className="block font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
+                          <label className="block font-bold text-slate-500 dark:text-zinc-400 mb-1.5 uppercase tracking-wider">
                             {watchLoaiGoi === 'LIEU_TRINH' ? 'Giá bán trọn gói (VND) *' : 'Giá bán dịch vụ (VND) *'}
                           </label>
                           <div className="relative">
@@ -603,9 +603,9 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                                 setValue('don_gia', val ? parseInt(val) : 0, { shouldValidate: true });
                               }}
                               placeholder="6.000.000"
-                              className="w-full px-4 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 outline-none transition-all font-semibold text-secondary shadow-sm text-sm pr-12"
+                              className="w-full px-4 py-2.5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 outline-none transition-all font-semibold text-secondary dark:text-zinc-100 shadow-sm text-sm pr-12"
                             />
-                            <span className="absolute right-3 top-2.5 text-[10px] font-bold text-slate-400">VND</span>
+                            <span className="absolute right-3 top-2.5 text-[10px] font-bold text-slate-400 dark:text-zinc-400">VND</span>
                           </div>
                           {errors.don_gia && (
                             <span className="text-rose-500 text-[10px] mt-1 block">{errors.don_gia.message}</span>
@@ -615,23 +615,23 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                         {/* DYNAMIC FIELD: Display ONLY for LIEU_TRINH */}
                         {watchLoaiGoi === 'LIEU_TRINH' && (
                           <div className="animate-slide-down">
-                            <label className="block font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Giá thanh toán lẻ từng buổi (VND) *</label>
+                            <label className="block font-bold text-slate-500 dark:text-zinc-400 mb-1.5 uppercase tracking-wider">Giá thanh toán lẻ từng buổi (VND) *</label>
                             <div className="relative">
                               <input 
                                 type="text"
                                 readOnly
                                 value={formatNumberWithCommas(watch('don_gia_theo_buoi'))}
                                 placeholder={averageCost ? formatNumberWithCommas(averageCost) : "60.000"}
-                                className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl outline-none font-semibold text-secondary shadow-sm text-sm pr-12 cursor-not-allowed"
+                                className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none font-semibold text-secondary dark:text-zinc-100 shadow-sm text-sm pr-12 cursor-not-allowed"
                               />
-                              <span className="absolute right-3 top-2.5 text-[10px] font-bold text-slate-400">VND</span>
+                              <span className="absolute right-3 top-2.5 text-[10px] font-bold text-slate-400 dark:text-zinc-400">VND</span>
                             </div>
                             {errors.don_gia_theo_buoi ? (
                               <span className="text-rose-500 text-[10px] mt-1 block">{errors.don_gia_theo_buoi.message}</span>
                             ) : (
                               averageCost > 0 && (
-                                <p className="text-[10px] text-slate-400 mt-1 font-medium">
-                                  Đơn giá trung bình trọn gói: <span className="font-bold text-emerald-600">{averageCost.toLocaleString()}đ / buổi</span>.
+                                <p className="text-[10px] text-slate-400 dark:text-zinc-400 mt-1 font-medium">
+                                  Đơn giá trung bình trọn gói: <span className="font-bold text-emerald-600 dark:text-emerald-400">{averageCost.toLocaleString()}đ / buổi</span>.
                                 </p>
                               )
                             )}
@@ -641,20 +641,20 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                         {/* DYNAMIC FIELD: Display ONLY for LIEU_TRINH */}
                         {watchLoaiGoi === 'LIEU_TRINH' && (
                           <div className="animate-slide-down">
-                            <label className="block font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Hạn sử dụng *</label>
+                            <label className="block font-bold text-slate-500 dark:text-zinc-400 mb-1.5 uppercase tracking-wider">Hạn sử dụng *</label>
                             <div className="relative">
                               <input
                                 type="number"
                                 {...register('han_su_dung_mac_dinh_ngay', { valueAsNumber: true })}
                                 placeholder="Nhập số ngày"
-                                className="w-full px-4 py-2.5 bg-white border border-zinc-200 rounded-xl focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 outline-none transition-all font-semibold text-secondary shadow-sm text-sm pr-14"
+                                className="w-full px-4 py-2.5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 outline-none transition-all font-semibold text-secondary dark:text-zinc-100 shadow-sm text-sm pr-14"
                               />
-                              <span className="absolute right-3 top-2.5 text-[10px] font-bold text-slate-400">Ngày</span>
+                              <span className="absolute right-3 top-2.5 text-[10px] font-bold text-slate-400 dark:text-zinc-400">Ngày</span>
                             </div>
                             {errors.han_su_dung_mac_dinh_ngay ? (
                               <span className="text-rose-500 text-[10px] mt-1 block">{errors.han_su_dung_mac_dinh_ngay.message}</span>
                             ) : (
-                              <p className="text-[10px] text-slate-400 mt-1 font-medium">
+                              <p className="text-[10px] text-slate-400 dark:text-zinc-400 mt-1 font-medium">
                                 Tính từ ngày kích hoạt gói — tự điền khi lễ tân lập hóa đơn, có thể sửa tay từng ca nếu cần.
                               </p>
                             )}
@@ -672,7 +672,7 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                 <button 
                   type="button" 
                   onClick={onClose} 
-                  className="flex-1 px-5 py-3 bg-white border border-zinc-200 hover:border-zinc-355 text-slate-500 hover:text-slate-800 font-bold rounded-xl shadow-sm transition-all text-xs"
+                  className="flex-1 px-5 py-3 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-355 text-slate-500 dark:text-zinc-300 hover:text-slate-800 font-bold rounded-xl shadow-sm transition-all text-xs cursor-pointer"
                 >
                   HỦY BỎ
                 </button>

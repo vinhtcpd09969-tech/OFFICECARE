@@ -1,25 +1,23 @@
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { X, Pencil, Check, Clock, Undo2 } from 'lucide-react';
+import { X, Pencil, Check, Clock, Undo2, DollarSign } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { useAuthStore } from '../../../stores/authStore';
 import {
   updateAppointmentStatus as updateAppointmentStatusAdmin,
-  keepAliveAppointment as keepAliveAppointmentAdmin
+  getStaffBudgetForBuoi
 } from '../../../features/admin/api/admin.api';
 import {
   updateAppointmentStatus as updateAppointmentStatusRec,
-  keepAliveAppointment as keepAliveAppointmentRec,
   resendEmail
 } from '../../../features/receptionist/api/receptionist.api';
 import { CustomDatePicker } from '../../CustomDatePicker';
 import { StatusHistoryModal } from '../../StatusHistoryModal';
 
 
-import { getInstallmentCutoffSession } from '../../../utils/billing';
-import { getCheckinTimingInfo } from '../../../utils/appointmentCheckin';
+import { getInstallmentCutoffSession, isPaymentDue } from '../../../utils/billing';
 import { getReceptionistActionOptions, getReceptionistAllowedTargets, hasAssignedStaff, isReceptionistLockedStatus } from './receptionistStatusRules';
 import { statusConfig } from '../../appointmentStatusConfig';
 
@@ -51,8 +49,8 @@ interface AppointmentDetailModalProps {
   schedulesList?: any[];
   hideBilling?: boolean;
   isReceptionistOverride?: boolean;
-  selectedTimeSlot: string;
-  setSelectedTimeSlot: (val: string) => void;
+  selectedBuoi: 'sang' | 'chieu' | '';
+  setSelectedBuoi: (val: 'sang' | 'chieu' | '') => void;
   rescheduleDate: string;
   setRescheduleDate: (val: string) => void;
 }
@@ -78,8 +76,8 @@ export default function AppointmentDetailModal({
   schedulesList = [],
   hideBilling = false,
   isReceptionistOverride,
-  selectedTimeSlot,
-  setSelectedTimeSlot,
+  selectedBuoi,
+  setSelectedBuoi,
   rescheduleDate,
   setRescheduleDate
 }: AppointmentDetailModalProps) {
@@ -130,13 +128,12 @@ export default function AppointmentDetailModal({
     setRescheduleError('');
   };
 
-  const [showConfirmType, setShowConfirmType] = useState<'save' | 'cancel' | 'receptionist_confirm' | null>(null);
+  const [showConfirmType, setShowConfirmType] = useState<'save' | 'cancel' | null>(null);
   const [customCancelReason, setCustomCancelReason] = useState<string>('');
   const [isRescheduling, setIsRescheduling] = useState(false);
 
   const resolvedRoom = roomsList.find(r => String(r.id) === String(assignRoomId));
   const resolvedRoomName = resolvedRoom?.ten_phong || selectedAppointment.ten_phong || 'Chưa chỉ định';
-  const isUnconfirmedState = isReceptionist && ['cho_xac_nhan', 'chua_xac_nhan'].includes(selectedAppointment.trang_thai);
   const staffAssigned = hasAssignedStaff(selectedAppointment);
   const isReceptionistLocked = isReceptionist && isReceptionistLockedStatus(selectedAppointment.trang_thai);
   const receptionistActionOptions = getReceptionistActionOptions(selectedAppointment.trang_thai, staffAssigned);
@@ -159,43 +156,7 @@ export default function AppointmentDetailModal({
     setLocalGhiChuNoiBo(selectedAppointment?.ghi_chu_noi_bo || '');
   }, [selectedAppointment]);
 
-  // Keep-alive heartbeat effect
-  useEffect(() => {
-    if (
-      selectedAppointment &&
-      !selectedAppointment.bac_si_id &&
-      !selectedAppointment.chuyen_gia_id &&
-      ['cho_xac_nhan', 'chua_xac_nhan'].includes(selectedAppointment.trang_thai) &&
-      false
-    ) {
-      const sendKeepAlive = async () => {
-        try {
-          await (isReceptionist ? keepAliveAppointmentRec : keepAliveAppointmentAdmin)(selectedAppointment.id);
-          console.log('[Keep-Alive] Đã gia hạn giữ chỗ lịch hẹn thêm 5 phút');
-          if (onSuccess) {
-            onSuccess();
-          }
-        } catch (error) {
-          console.error('[Keep-Alive] Lỗi khi gia hạn giữ chỗ:', error);
-        }
-      };
-
-      sendKeepAlive();
-      const interval = setInterval(sendKeepAlive, 3 * 60 * 1000);
-      return () => clearInterval(interval);
-    }
-  }, [selectedAppointment, onSuccess]);
-
   if (!selectedAppointment) return null;
-
-  // Logic kiểm tra trùng lịch (Overlap)
-  const isOverlapping = (start1: string, end1: string, start2: string, end2: string) => {
-    const s1 = new Date(start1).getTime();
-    const e1 = new Date(end1).getTime();
-    const s2 = new Date(start2).getTime();
-    const e2 = new Date(end2).getTime();
-    return s1 < e2 && e1 > s2;
-  };
 
   const appendCallLog = (logText: string) => {
     const vnTimeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' - ' + new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -207,63 +168,49 @@ export default function AppointmentDetailModal({
   const currentEnd = selectedAppointment.ngay_gio_ket_thuc;
   const durationMs = new Date(currentEnd).getTime() - new Date(currentStart).getTime();
 
-  // Helper check availability of a staff on a custom date and time slot
-  const checkStaffAvailabilityForDate = (staffId: string | number, dateStr: string, slotStartStr: string) => {
-    if (!staffId) return true;
+  // A7 — đổi lịch chỉ còn ngày + buổi. Mốc buổi danh nghĩa PHẢI khớp GIO_NHAN_KHACH ở backend
+  // (domain/capacity.ts) — lịch hẹn theo buổi lưu ngay_gio_bat_dau/ngay_gio_ket_thuc là TRỌN
+  // buổi (vd 07:30-12:00), không phải khung giờ riêng của dịch vụ.
+  const BUOI_INFO: Record<'sang' | 'chieu', { label: string; batDau: string; ketThuc: string }> = {
+    sang: { label: 'Buổi sáng', batDau: '07:30', ketThuc: '12:00' },
+    chieu: { label: 'Buổi chiều', batDau: '12:00', ketThuc: '19:30' },
+  };
 
-    // 1. Check working schedule shift
-    if (schedulesList && schedulesList.length > 0) {
-      const staffSchedules = schedulesList.filter(s => 
-        String(s.nguoi_dung_id) === String(staffId) && 
-        s.ngay === dateStr &&
-        s.trang_thai === 'hoat_dong'
-      );
-      
-      if (staffSchedules.length === 0) return false;
+  // Nhân sự có TRỰC GIAO với buổi này không (chỉ cần giao nhau, không bắt phủ trọn buổi — trực
+  // 07:00-16:00 vẫn giao với buổi chiều 12:00-19:30, chỉ là phủ một phần, xem StaffRoomAllocation
+  // để biết cách hiện cảnh báo "chỉ nhận khách đến trước ...").
+  const checkStaffOnDutyForBuoi = (staffId: string | number, dateStr: string, buoi: 'sang' | 'chieu') => {
+    if (!staffId || !schedulesList || schedulesList.length === 0) return true;
+    const window = BUOI_INFO[buoi];
+    return schedulesList.some(s =>
+      String(s.nguoi_dung_id) === String(staffId) &&
+      s.ngay === dateStr &&
+      s.trang_thai === 'hoat_dong' &&
+      s.gio_bat_dau.substring(0, 5) < window.ketThuc &&
+      s.gio_ket_thuc.substring(0, 5) > window.batDau
+    );
+  };
 
-      const activeSchedule = staffSchedules[0];
-      const dutyStart = activeSchedule.gio_bat_dau.substring(0, 5);
-      const dutyEnd = activeSchedule.gio_ket_thuc.substring(0, 5);
-
-      const [startH, startM] = slotStartStr.split(':').map(Number);
-      const startDate = new Date(2000, 0, 1, startH, startM);
-      const endDate = new Date(startDate.getTime() + durationMs);
-      const slotEndStr = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
-
-      const isWithinShift = dutyStart <= slotStartStr && dutyEnd >= slotEndStr;
-      if (!isWithinShift) return false;
-    }
-
-    // 2. Check overlap with other appointments
-    const [startH, startM] = slotStartStr.split(':').map(Number);
-    const targetStart = new Date(2000, 0, 1, startH, startM).getTime();
-    const targetEnd = targetStart + durationMs;
-
-    const overlap = appointments.some(apt => {
+  // Nhân sự có đang bận (dang_kham) với MỘT lịch khác trong đúng buổi/ngày này không — chỉ ca
+  // ĐANG THỰC HIỆN mới thật sự chiếm người, ca chỉ xếp hàng chờ trong cùng buổi không phải xung
+  // đột (bình thường của mô hình hàng đợi).
+  const checkStaffBusyForBuoi = (staffId: string | number, dateStr: string, buoi: 'sang' | 'chieu') => {
+    if (!staffId) return false;
+    return appointments.some(apt => {
       if (String(apt.id) === String(selectedAppointment.id)) return false;
-      if (['da_huy', 'khong_den'].includes(apt.trang_thai)) return false;
-
+      if (apt.trang_thai !== 'dang_kham') return false;
       const assignedId = apt.bac_si_id || apt.chuyen_gia_id;
       if (!assignedId || String(assignedId) !== String(staffId)) return false;
-
+      if (apt.buoi !== buoi) return false;
       const aptD = new Date(apt.ngay_gio_bat_dau);
       const aptDStr = `${aptD.getFullYear()}-${String(aptD.getMonth() + 1).padStart(2, '0')}-${String(aptD.getDate()).padStart(2, '0')}`;
-      if (aptDStr !== dateStr) return false;
-
-      const aptS = new Date(apt.ngay_gio_bat_dau);
-      const aptSStr = `${String(aptS.getHours()).padStart(2, '0')}:${String(aptS.getMinutes()).padStart(2, '0')}`;
-      const [aptSH, aptSM] = aptSStr.split(':').map(Number);
-      const aptSMs = new Date(2000, 0, 1, aptSH, aptSM).getTime();
-      
-      const aptE = new Date(apt.ngay_gio_ket_thuc);
-      const aptEStr = `${String(aptE.getHours()).padStart(2, '0')}:${String(aptE.getMinutes()).padStart(2, '0')}`;
-      const [aptEH, aptEM] = aptEStr.split(':').map(Number);
-      const aptEMs = new Date(2000, 0, 1, aptEH, aptEM).getTime();
-
-      return targetStart < aptEMs && targetEnd > aptSMs;
+      return aptDStr === dateStr;
     });
+  };
 
-    return !overlap;
+  const checkStaffAvailableForBuoi = (staffId: string | number, dateStr: string, buoi: 'sang' | 'chieu' | '') => {
+    if (!staffId || !buoi) return true;
+    return checkStaffOnDutyForBuoi(staffId, dateStr, buoi) && !checkStaffBusyForBuoi(staffId, dateStr, buoi);
   };
 
   const getLocalTimeStr = (isoStr: string) => {
@@ -277,7 +224,7 @@ export default function AppointmentDetailModal({
 
   const origStart = new Date(selectedAppointment.ngay_gio_bat_dau);
   const origDateStr = format(origStart, 'yyyy-MM-dd');
-  const isRescheduled = !!(selectedTimeSlot && rescheduleDate && (selectedTimeSlot !== aptStartHourStr || rescheduleDate !== origDateStr));
+  const isRescheduled = !!(selectedBuoi && rescheduleDate && (selectedBuoi !== selectedAppointment.buoi || rescheduleDate !== origDateStr));
   const isStatusChanged = assignStatus !== selectedAppointment.trang_thai;
   const isCancelledOrNoShowStatus = ['da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(assignStatus);
   const origStaffId = selectedAppointment.bac_si_id || selectedAppointment.chuyen_gia_id || '';
@@ -285,62 +232,65 @@ export default function AppointmentDetailModal({
   const isStaffChanged = String(currentStaffId) !== String(origStaffId);
   const isNoteRequired = isRescheduled || isStaffChanged || isCancelledOrNoShowStatus || (isReceptionist && isStatusChanged);
 
-  // Cảnh báo (không chặn) khi check-in 1 lịch đã quá giờ hẹn — trước đây hộp thoại xác nhận hiện
-  // đúng 1 câu chung chung dù lịch còn sớm hay đã trễ hàng giờ, Lễ tân không hề được nhắc.
-  const isCheckinAction = assignStatus === 'da_checkin' && isStatusChanged;
-  const checkinTiming = isCheckinAction ? getCheckinTimingInfo(selectedAppointment.ngay_gio_bat_dau) : null;
-  const isLateCheckin = checkinTiming?.state === 'overdue' || checkinTiming?.state === 'overdue_critical';
+  // Khung giờ ĐÍCH — buổi đang chọn để đổi lịch (nếu có), ngược lại là buổi hiện tại của ca hẹn.
+  // Dùng để duty-check nhân sự (StaffRoomAllocation) và tự động phân phòng, KHÔNG còn phụ thuộc
+  // vào 1 giờ cụ thể nào nữa.
+  const effectiveBuoi: 'sang' | 'chieu' = (selectedBuoi || selectedAppointment.buoi || 'sang') as 'sang' | 'chieu';
+  const newStartHourStr = BUOI_INFO[effectiveBuoi].batDau;
+  const newEndHourStr = BUOI_INFO[effectiveBuoi].ketThuc;
 
-  // States for dynamic slot-driven clinical times
-  const [newStartHourStr, setNewStartHourStr] = useState<string>(aptStartHourStr);
-  const [newEndHourStr, setNewEndHourStr] = useState<string>(aptEndHourStr);
-
+  // Bỏ chọn nhân sự nếu người đang gán không còn phù hợp với buổi/ngày vừa đổi — CHỈ áp dụng cho
+  // Quản lý/Admin (người có quyền đổi nhân sự). Lễ tân không có quyền này (xem business rule "Quyền
+  // đổi nhân sự") nên không được để hiệu ứng này âm thầm xóa assignStaffId của họ — nếu không, lúc
+  // Lễ tân bấm "Lưu cập nhật" chỉ để đổi buổi, payload sẽ gửi bac_si_id: null và XÓA MẤT nhân sự đã
+  // phân bổ (đã xác nhận qua dữ liệu thật: nhan_su_id về NULL sau một lượt đổi lịch của Lễ tân).
   useEffect(() => {
-    if (!selectedTimeSlot) return;
-    const [hours, minutes] = selectedTimeSlot.split(':').map(Number);
-    const date = new Date(2000, 0, 1, hours, minutes);
-    const end = new Date(date.getTime() + durationMs);
-    setNewStartHourStr(selectedTimeSlot);
-    setNewEndHourStr(`${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`);
-
-    if (assignStaffId) {
-      const isAvailable = checkStaffAvailabilityForDate(assignStaffId, rescheduleDate, selectedTimeSlot);
-      if (!isAvailable) {
-        setAssignStaffId('');
-      }
+    if (isReceptionist || !selectedBuoi || !assignStaffId) return;
+    if (!checkStaffAvailableForBuoi(assignStaffId, rescheduleDate, selectedBuoi)) {
+      setAssignStaffId('');
     }
-  }, [selectedTimeSlot, durationMs, assignStaffId, rescheduleDate, setAssignStaffId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBuoi, rescheduleDate]);
 
-  // Check overlap for the newly selected slot
-  const getIsoStringForTime = (timeStr: string) => {
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    const d = new Date(selectedAppointment.ngay_gio_bat_dau);
-    d.setHours(hours, minutes, 0, 0);
-    return d.toISOString();
-  };
+  // B15 — chỉ Quản lý/Admin được đổi nhân sự, và CHỈ khi ca CHƯA bắt đầu (đã xác nhận/đã check-in)
+  // hoặc ĐANG THỰC HIỆN — khớp đúng "Quyền đổi nhân sự" trong kế hoạch tổng. Hoàn thành/đã hủy/
+  // không đến/chờ tái lượng giá đều không còn ý nghĩa để đổi người phụ trách.
+  const isReassignAllowed = ['da_xac_nhan', 'da_checkin', 'dang_kham'].includes(selectedAppointment.trang_thai);
 
-  const newStartIso = getIsoStringForTime(selectedTimeSlot);
-  const newEndIso = new Date(new Date(newStartIso).getTime() + durationMs).toISOString();
+  // B15 — ngân sách phút còn lại của từng nhân sự (đúng túi vai trò) cho buổi/ngày đang xét, loại
+  // trừ chính ca này khỏi "đã dùng". Chỉ Admin/Quản lý cần (Lễ tân không có quyền đổi nhân sự nên
+  // không tải, khỏi tốn API mỗi lần mở modal).
+  const [staffBudget, setStaffBudget] = useState<Record<string, { conLai: number; soKhachSongSong: number }> | null>(null);
+  useEffect(() => {
+    if (isReceptionist || !effectiveBuoi || !rescheduleDate) {
+      setStaffBudget(null);
+      return;
+    }
+    let cancelled = false;
+    getStaffBudgetForBuoi(rescheduleDate, effectiveBuoi, selectedAppointment.loai_lich, selectedAppointment.id)
+      .then((res) => {
+        if (cancelled) return;
+        const map: Record<string, { conLai: number; soKhachSongSong: number }> = {};
+        (res.data || []).forEach((s: any) => {
+          map[String(s.nhanSuId)] = { conLai: s.conLai, soKhachSongSong: s.soKhachSongSong };
+        });
+        setStaffBudget(map);
+      })
+      .catch(() => { if (!cancelled) setStaffBudget(null); });
+    return () => { cancelled = true; };
+  }, [isReceptionist, effectiveBuoi, rescheduleDate, selectedAppointment.loai_lich, selectedAppointment.id]);
 
-  const overlappingApts = appointments.filter(apt => 
-    apt.id !== selectedAppointment.id && 
-    apt.trang_thai !== 'da_huy' &&
-    apt.trang_thai !== 'khong_den' &&
-    isOverlapping(newStartIso, newEndIso, apt.ngay_gio_bat_dau, apt.ngay_gio_ket_thuc)
-  );
-
-  const occupiedStaffIds = overlappingApts.map(apt => apt.bac_si_id || apt.chuyen_gia_id).filter(Boolean);
-
-  // Tự động phân phòng dựa trên ca trực của nhân viên khi gán
+  // Tự động phân phòng dựa trên ca trực của nhân viên khi gán (giao với buổi đích là đủ, không
+  // cần phủ trọn — nếu chỉ phủ 1 phần, cảnh báo riêng ở StaffRoomAllocation đã lo phần nhắc nhở).
   useEffect(() => {
     if (!assignStaffId) return;
 
-    const staffSchedule = (schedulesList || []).find(s => 
+    const staffSchedule = (schedulesList || []).find(s =>
       String(s.nguoi_dung_id) === String(assignStaffId) &&
       s.ngay === rescheduleDate &&
       s.trang_thai === 'hoat_dong' &&
-      s.gio_bat_dau.substring(0, 5) <= newStartHourStr &&
-      s.gio_ket_thuc.substring(0, 5) >= newEndHourStr
+      s.gio_bat_dau.substring(0, 5) < newEndHourStr &&
+      s.gio_ket_thuc.substring(0, 5) > newStartHourStr
     );
 
     if (staffSchedule && staffSchedule.phong_id) {
@@ -351,103 +301,28 @@ export default function AppointmentDetailModal({
   const currentStaff = staffList.find(s => String(s.id) === String(assignStaffId));
   const currentStaffName = currentStaff ? currentStaff.ho_ten : 'nhân sự';
 
-  // Check if current staff is bận/unavailable at the new slot
-  const isCurrentStaffUnavailableAtNewSlot = assignStaffId && !checkStaffAvailabilityForDate(assignStaffId, rescheduleDate, selectedTimeSlot);
-  const isStaffUnavailable = assignStaffId ? !checkStaffAvailabilityForDate(assignStaffId, rescheduleDate, selectedTimeSlot) : false;
+  // Nhân sự đang gán có còn phù hợp với buổi/ngày đích không (chỉ có ý nghĩa sau khi đã chọn buổi
+  // để đổi lịch — chưa chọn thì coi như chưa cần kiểm tra gì).
+  const isCurrentStaffUnavailableAtNewSlot = !!(selectedBuoi && assignStaffId && !checkStaffAvailableForBuoi(assignStaffId, rescheduleDate, selectedBuoi));
+  const isStaffUnavailable = !!(selectedBuoi && assignStaffId) && !checkStaffAvailableForBuoi(assignStaffId, rescheduleDate, selectedBuoi);
 
   const now = new Date();
-  const isToday = rescheduleDate === `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const todayLocalStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const isToday = rescheduleDate === todayLocalStr;
 
-  const generateDynamicSlots = () => {
-    const intervalMins = Math.round(durationMs / 60000);
-    
-    const generateBlock = (startHour: number, startMinute: number, endHour: number, endMinute: number) => {
-      const blockSlots: string[] = [];
-      const current = new Date();
-      current.setHours(startHour, startMinute, 0, 0);
-
-      const end = new Date();
-      end.setHours(endHour, endMinute, 0, 0);
-
-      while (true) {
-        const slotNextStart = new Date(current.getTime() + intervalMins * 60000);
-        if (slotNextStart.getTime() > end.getTime()) {
-          break;
-        }
-
-        const formatTime = (d: Date) => {
-          const h = String(d.getHours()).padStart(2, '0');
-          const m = String(d.getMinutes()).padStart(2, '0');
-          return `${h}:${m}`;
-        };
-
-        blockSlots.push(formatTime(current));
-        current.setTime(slotNextStart.getTime());
-      }
-      return blockSlots;
-    };
-
-    return [
-      ...generateBlock(8, 0, 12, 0),
-      ...generateBlock(12, 0, 18, 0),
-      ...generateBlock(18, 0, 20, 0)
-    ];
+  // Buổi đã qua giờ nhận khách kết thúc (chỉ áp dụng khi ngày đích là hôm nay) — mirror isBuoiDaQua
+  // phía backend/public booking.
+  const isBuoiAllowed = (buoi: 'sang' | 'chieu') => {
+    const isOrigBuoiDate = buoi === selectedAppointment.buoi && rescheduleDate === origDateStr;
+    if (isOrigBuoiDate) return true; // luôn cho giữ nguyên buổi gốc
+    if (!isToday) return true;
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const [h, m] = BUOI_INFO[buoi].ketThuc.split(':').map(Number);
+    return nowMinutes < h * 60 + m;
   };
 
-  const dynamicTimeSlots = useMemo(() => {
-    const baseSlots = generateDynamicSlots();
-    if (aptStartHourStr && !baseSlots.includes(aptStartHourStr)) {
-      baseSlots.push(aptStartHourStr);
-    }
-    return baseSlots.sort((a, b) => {
-      const [ha, ma] = a.split(':').map(Number);
-      const [hb, mb] = b.split(':').map(Number);
-      return (ha * 60 + ma) - (hb * 60 + mb);
-    });
-  }, [durationMs, aptStartHourStr]);
-
-  const isStaffOnDuty = (staffId: string | number, dateStr: string, slot: string) => {
-    const docSchedules = (schedulesList || []).filter(s => 
-      String(s.nguoi_dung_id) === String(staffId) && 
-      s.ngay === dateStr
-    );
-    if (docSchedules.length === 0) return false;
-
-    const activeSchedule = docSchedules.find(s => s.trang_thai === 'hoat_dong');
-    if (!activeSchedule) return false;
-
-    const dutyStart = activeSchedule.gio_bat_dau.substring(0, 5);
-    const dutyEnd = activeSchedule.gio_ket_thuc.substring(0, 5);
-
-    const [startH, startM] = slot.split(':').map(Number);
-    const startDate = new Date(2000, 0, 1, startH, startM);
-    const endDate = new Date(startDate.getTime() + durationMs);
-
-    const [dsH, dsM] = dutyStart.split(':').map(Number);
-    const [deH, deM] = dutyEnd.split(':').map(Number);
-    const dsDate = new Date(2000, 0, 1, dsH, dsM);
-    const deDate = new Date(2000, 0, 1, deH, deM);
-
-    return startDate.getTime() >= dsDate.getTime() && endDate.getTime() <= deDate.getTime();
-  };
-
-  const isSlotAllowed = (slot: string) => {
-    const isOrigDate = rescheduleDate === format(new Date(selectedAppointment.ngay_gio_bat_dau), 'yyyy-MM-dd');
-    if (slot === aptStartHourStr && isOrigDate) return true;
-    
-    if (isToday) {
-      const [slotHour, slotMinute] = slot.split(':').map(Number);
-      const slotTime = new Date(now);
-      slotTime.setHours(slotHour, slotMinute, 0, 0);
-      
-      const diffMins = (slotTime.getTime() - now.getTime()) / (1000 * 60);
-      if (diffMins < 60) return false;
-    }
-    return true;
-  };
-
-  // Live Slot Availability / Capacity Checker
-  const getSlotAvailabilityForDate = (slot: string, dateStr: string) => {
+  // Đếm nhân sự đúng vai trò còn khả dụng cho 1 buổi tại 1 ngày — thay lưới giờ cũ bằng 2 thẻ buổi.
+  const getBuoiStaffCount = (buoi: 'sang' | 'chieu', dateStr: string) => {
     let staffToFilter = targetRole === 'Bác sĩ'
       ? staffList.filter(s => s.vai_tro === 'Bác sĩ')
       : staffList.filter(s => s.vai_tro === 'Kỹ thuật viên' || s.vai_tro === 'KTV');
@@ -457,91 +332,7 @@ export default function AppointmentDetailModal({
       staffToFilter = staffToFilter.filter(s => String(s.id) === String(assignedStaffId));
     }
 
-    // 1. Filter staff that are active on duty at dateStr and slot time
-    const availableStaff = staffToFilter.filter(doc => {
-      const docSchedules = schedulesList.filter(s => 
-        String(s.nguoi_dung_id) === String(doc.id) && 
-        s.ngay === dateStr
-      );
-      if (docSchedules.length === 0) return false;
-
-      const activeSchedule = docSchedules.find(s => s.trang_thai === 'hoat_dong');
-      if (!activeSchedule) return false;
-
-      const dutyStart = activeSchedule.gio_bat_dau.substring(0, 5);
-      const dutyEnd = activeSchedule.gio_ket_thuc.substring(0, 5);
-
-      const [startH, startM] = slot.split(':').map(Number);
-      const startDate = new Date(2000, 0, 1, startH, startM);
-      const endDate = new Date(startDate.getTime() + durationMs);
-      const slotEndStr = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
-
-      const isCovered = dutyStart <= slot && dutyEnd >= slotEndStr;
-      if (!isCovered) return false;
-
-      // Check if KTV is busy with another appointment at this slot on dateStr
-      const isOccupied = appointments.some(apt => {
-        if (String(apt.id) === String(selectedAppointment.id)) return false;
-        if (['da_huy', 'khong_den'].includes(apt.trang_thai)) return false;
-        if (String(apt.bac_si_id || apt.chuyen_gia_id) !== String(doc.id)) return false;
-
-        const aptD = new Date(apt.ngay_gio_bat_dau);
-        const aptDStr = `${aptD.getFullYear()}-${String(aptD.getMonth() + 1).padStart(2, '0')}-${String(aptD.getDate()).padStart(2, '0')}`;
-        if (aptDStr !== dateStr) return false;
-
-        const aptS = new Date(apt.ngay_gio_bat_dau);
-        const aptSStr = `${String(aptS.getHours()).padStart(2, '0')}:${String(aptS.getMinutes()).padStart(2, '0')}`;
-        const [aptSH, aptSM] = aptSStr.split(':').map(Number);
-        const aptSMs = new Date(2000, 0, 1, aptSH, aptSM).getTime();
-        
-        const aptE = new Date(apt.ngay_gio_ket_thuc);
-        const aptEStr = `${String(aptE.getHours()).padStart(2, '0')}:${String(aptE.getMinutes()).padStart(2, '0')}`;
-        const [aptEH, aptEM] = aptEStr.split(':').map(Number);
-        const aptEMs = new Date(2000, 0, 1, aptEH, aptEM).getTime();
-
-        return startDate.getTime() < aptEMs && endDate.getTime() > aptSMs;
-      });
-
-      return !isOccupied;
-    });
-
-    // 2. Filter unassigned appointments at this slot on dateStr (which will occupy available staff capacity)
-    const unassignedAptsCount = appointments.filter(apt => {
-      if (String(apt.id) === String(selectedAppointment.id)) return false;
-      if (['da_huy', 'khong_den'].includes(apt.trang_thai)) return false;
-      if (apt.bac_si_id) return false; // has doctor assigned
-
-      const matchType = targetRole === 'Bác sĩ'
-        ? apt.loai_lich === 'kham_moi'
-        : (apt.loai_lich === 'dieu_tri' || apt.loai_lich === 'dich_vu_don');
-      if (!matchType) return false;
-
-      const aptD = new Date(apt.ngay_gio_bat_dau);
-      const aptDStr = `${aptD.getFullYear()}-${String(aptD.getMonth() + 1).padStart(2, '0')}-${String(aptD.getDate()).padStart(2, '0')}`;
-      if (aptDStr !== dateStr) return false;
-
-      const aptS = new Date(apt.ngay_gio_bat_dau);
-      const aptSStr = `${String(aptS.getHours()).padStart(2, '0')}:${String(aptS.getMinutes()).padStart(2, '0')}`;
-      const [aptSH, aptSM] = aptSStr.split(':').map(Number);
-      const aptSMs = new Date(2000, 0, 1, aptSH, aptSM).getTime();
-      
-      const aptE = new Date(apt.ngay_gio_ket_thuc);
-      const aptEStr = `${String(aptE.getHours()).padStart(2, '0')}:${String(aptE.getMinutes()).padStart(2, '0')}`;
-      const [aptEH, aptEM] = aptEStr.split(':').map(Number);
-      const aptEMs = new Date(2000, 0, 1, aptEH, aptEM).getTime();
-
-      const [startH, startM] = slot.split(':').map(Number);
-      const targetStart = new Date(2000, 0, 1, startH, startM).getTime();
-      const targetEnd = targetStart + durationMs;
-
-      return targetStart < aptEMs && targetEnd > aptSMs;
-    }).length;
-
-    if (isReceptionist && assignedStaffId) {
-      return availableStaff.length;
-    }
-
-    return Math.max(0, availableStaff.length - unassignedAptsCount);
+    return staffToFilter.filter(doc => checkStaffAvailableForBuoi(doc.id, dateStr, buoi)).length;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -585,20 +376,12 @@ export default function AppointmentDetailModal({
     // Auto-clear staff assignment for Receptionist if old staff is busy in new slot
     if (isCurrentStaffUnavailableAtNewSlot && isReceptionist) {
       setAssignStaffId('');
-      setAssignStatus('cho_xac_nhan');
+      setAssignStatus('da_xac_nhan');
     }
 
     const currentStaffIdToCheck = isCurrentStaffUnavailableAtNewSlot && isReceptionist ? '' : assignStaffId;
 
-    // Đã có nhân sự phụ trách nhưng trạng thái vẫn để "Chưa xác nhận"/"Chờ xác nhận" là trạng thái
-    // dữ liệu mâu thuẫn (nhân sự đã đủ điều kiện làm việc nhưng lịch lại báo chưa xác nhận) — chặn
-    // lưu, bắt buộc người dùng tự bấm chọn đúng trạng thái "Đã xác nhận" thay vì để hệ thống đoán.
-    if (currentStaffIdToCheck && ['chua_xac_nhan', 'cho_xac_nhan'].includes(assignStatus)) {
-      toast.error('Đã chọn nhân sự phụ trách — vui lòng đổi trạng thái lịch hẹn sang "Đã xác nhận" trước khi lưu.');
-      return;
-    }
-
-    if (!['da_huy', 'khong_den', 'chua_xac_nhan', 'cho_xac_nhan', 'cho_huy'].includes(assignStatus)) {
+    if (!['da_huy', 'khong_den', 'cho_huy'].includes(assignStatus)) {
       if (!assignRoomId) {
         toast.error('Vui lòng chọn phòng thực hiện!');
         return;
@@ -628,48 +411,7 @@ export default function AppointmentDetailModal({
   };
 
   const handleConfirmAction = async () => {
-    if (showConfirmType === 'receptionist_confirm') {
-      setShowConfirmType(null);
-      const toastId = toast.loading('Đang cập nhật trạng thái...');
-      try {
-        // Compute new start/end date times
-        let finalNgayGioBatDau: string | null = null;
-        let finalNgayGioKetThuc: string | null = null;
-        const origStart = new Date(selectedAppointment.ngay_gio_bat_dau);
-        const newStart = new Date(`${rescheduleDate}T${selectedTimeSlot}:00`);
-        const newEnd = new Date(newStart.getTime() + durationMs);
-
-        // Format check
-        const formattedOrigStart = format(origStart, 'yyyy-MM-dd HH:mm');
-        const formattedNewStart = format(newStart, 'yyyy-MM-dd HH:mm');
-
-        if (formattedNewStart !== formattedOrigStart) {
-          finalNgayGioBatDau = newStart.toISOString();
-          finalNgayGioKetThuc = newEnd.toISOString();
-        }
-
-        const updateFn = isReceptionist ? updateAppointmentStatusRec : updateAppointmentStatusAdmin;
-        
-        // If current staff is unavailable, clear them
-        const finalStaffId = isCurrentStaffUnavailableAtNewSlot && isReceptionist ? null : (assignStaffId || null);
-        const finalStatus = isCurrentStaffUnavailableAtNewSlot && isReceptionist ? 'cho_xac_nhan' : 'cho_xac_nhan';
-
-        await updateFn(selectedAppointment.id, {
-          trang_thai: finalStatus,
-          bac_si_id: finalStaffId,
-          chuyen_gia_id: finalStaffId,
-          ghi_chu_noi_bo: localGhiChuNoiBo,
-          ...(finalNgayGioBatDau && { ngay_gio_bat_dau: finalNgayGioBatDau }),
-          ...(finalNgayGioKetThuc && { ngay_gio_ket_thuc: finalNgayGioKetThuc })
-        });
-        toast.success('Đã xác nhận lịch hẹn thành công!', { id: toastId });
-        onClose();
-        if (onSuccess) onSuccess();
-      } catch (error: any) {
-        console.error(error);
-        toast.error(error.response?.data?.message || 'Lỗi khi cập nhật trạng thái', { id: toastId });
-      }
-    } else if (showConfirmType === 'cancel') {
+    if (showConfirmType === 'cancel') {
       const trimmedReason = customCancelReason.trim();
       if (!trimmedReason) {
         toast.error('Vui lòng nhập lý do hủy lịch!');
@@ -681,26 +423,13 @@ export default function AppointmentDetailModal({
       if (isReceptionist) {
         const toastId = toast.loading('Đang hủy lịch...');
         try {
-          let finalNgayGioBatDau: string | null = null;
-          let finalNgayGioKetThuc: string | null = null;
-          const origStart = new Date(selectedAppointment.ngay_gio_bat_dau);
-          const newStart = new Date(`${rescheduleDate}T${selectedTimeSlot}:00`);
-          const newEnd = new Date(newStart.getTime() + durationMs);
-
-          const formattedOrigStart = format(origStart, 'yyyy-MM-dd HH:mm');
-          const formattedNewStart = format(newStart, 'yyyy-MM-dd HH:mm');
-
-          if (formattedNewStart !== formattedOrigStart) {
-            finalNgayGioBatDau = newStart.toISOString();
-            finalNgayGioKetThuc = newEnd.toISOString();
-          }
-
+          // Hủy lịch không cần dựng lại ngày/buổi mới — receptionist.repository.ts::updateAppointmentStatus
+          // (route Lễ tân hủy đi qua) vốn không có cột nào nhận ngay_gio_bat_dau/buoi, gửi lên cũng
+          // không có tác dụng. Giữ nguyên hành vi cũ (không gửi các trường này ở nhánh hủy).
           const updateFn = isReceptionist ? updateAppointmentStatusRec : updateAppointmentStatusAdmin;
           await updateFn(selectedAppointment.id, {
             trang_thai: 'da_huy',
-            ghi_chu_noi_bo: localGhiChuNoiBo || trimmedReason || null,
-            ...(finalNgayGioBatDau && { ngay_gio_bat_dau: finalNgayGioBatDau }),
-            ...(finalNgayGioKetThuc && { ngay_gio_ket_thuc: finalNgayGioKetThuc })
+            ghi_chu_noi_bo: localGhiChuNoiBo || trimmedReason || null
           });
           toast.success('Đã hủy lịch hẹn thành công!', { id: toastId });
           onClose();
@@ -723,7 +452,7 @@ export default function AppointmentDetailModal({
       // Auto-clear staff assignment for Receptionist if old staff is busy in new slot
       if (isCurrentStaffUnavailableAtNewSlot && isReceptionist) {
         setAssignStaffId('');
-        setAssignStatus('cho_xac_nhan');
+        setAssignStatus('da_xac_nhan');
       }
 
       // Timeout to allow state updates to settle before saving
@@ -737,12 +466,12 @@ export default function AppointmentDetailModal({
   const maxDateStr = format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 dark:bg-zinc-955/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-slate-900/60 dark:bg-zinc-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
       <motion.div 
         initial={{ opacity: 0, y: -40, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ type: "spring", duration: 0.5, bounce: 0.15 }}
-        className={`bg-white dark:bg-zinc-900 rounded-[32px] w-full flex flex-col shadow-[0_20px_50px_rgba(0,0,0,0.18)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.45)] overflow-hidden border border-slate-100 dark:border-zinc-800/80 transition-all duration-300 max-h-[90vh] relative ${isRescheduling ? 'max-w-5xl' : 'max-w-2xl'}`}
+        className={`bg-white dark:bg-zinc-900 rounded-[32px] w-full flex flex-col shadow-[0_20px_50px_rgba(0,0,0,0.18)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.45)] overflow-hidden border border-slate-100 dark:border-zinc-800 transition-all duration-300 max-h-[90vh] relative ${isRescheduling ? 'max-w-5xl' : 'max-w-2xl'}`}
       >
         {/* Custom Confirmation Dialog Overlay */}
         {showConfirmType && (
@@ -752,12 +481,12 @@ export default function AppointmentDetailModal({
               animate={{ opacity: 1, scale: 1 }}
               className="bg-white dark:bg-zinc-900 p-6 rounded-2xl max-w-sm w-full shadow-2xl border border-slate-100 dark:border-zinc-800 text-center space-y-4"
             >
-              <div className="size-12 rounded-full bg-amber-50 dark:bg-amber-955/30 text-amber-500 flex items-center justify-center mx-auto text-xl font-bold">
+              <div className="size-12 rounded-full bg-amber-50 dark:bg-amber-950/30 text-amber-500 flex items-center justify-center mx-auto text-xl font-bold">
                 {showConfirmType === 'cancel' ? '⚠️' : '❓'}
               </div>
               
               <div className="space-y-1.5">
-                <h5 className="font-extrabold text-sm text-slate-800 dark:text-zinc-150 uppercase tracking-wide">
+                <h5 className="font-extrabold text-sm text-slate-800 dark:text-zinc-100 uppercase tracking-wide">
                   {showConfirmType === 'cancel' 
                     ? 'Hủy lịch hẹn' 
                     : assignStatus === 'da_checkin' && isStatusChanged
@@ -769,10 +498,7 @@ export default function AppointmentDetailModal({
                     if (showConfirmType === 'cancel') {
                       return 'Bạn có chắc chắn muốn hủy lịch hẹn này không? Vui lòng nhập lý do bên dưới:';
                     }
-                    if (showConfirmType === 'receptionist_confirm') {
-                      return 'Bạn có chắc chắn muốn xác nhận lịch hẹn này không?';
-                    }
-                    
+
                     if (isStatusChanged) {
                       if (assignStatus === 'da_checkin') {
                         return 'Bạn có muốn check-in cho khách ngay bây giờ không?';
@@ -803,22 +529,13 @@ export default function AppointmentDetailModal({
                 </p>
               </div>
 
-              {showConfirmType === 'save' && isCheckinAction && isLateCheckin && checkinTiming && (
-                <div className="flex items-start gap-2 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-955/20 border border-amber-200 dark:border-amber-900/40 text-left">
-                  <span className="text-amber-500 shrink-0">⚠️</span>
-                  <p className="text-[11px] font-bold text-amber-700 dark:text-amber-400 leading-relaxed">
-                    Lịch hẹn {checkinTiming.label.toLowerCase()} so với giờ hẹn ban đầu ({aptStartHourStr}).
-                  </p>
-                </div>
-              )}
-
               {showConfirmType === 'cancel' && (
                 <textarea
                   value={customCancelReason}
                   onChange={(e) => setCustomCancelReason(e.target.value)}
                   placeholder="Nhập lý do hủy lịch tại đây..."
                   rows={2}
-                  className="w-full px-3 py-2 bg-white dark:bg-zinc-955 border border-slate-250 dark:border-zinc-850 rounded-xl text-xs text-slate-800 dark:text-zinc-200 outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-semibold"
+                  className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-xs text-slate-800 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-semibold"
                 />
               )}
 
@@ -885,8 +602,9 @@ export default function AppointmentDetailModal({
                 loaiGoi={selectedAppointment.loai_goi}
                 isRescheduling={isRescheduling}
                 setIsRescheduling={setIsRescheduling}
-                selectedTimeSlot={selectedTimeSlot}
+                selectedBuoi={selectedBuoi}
                 rescheduleDate={rescheduleDate}
+                currentBuoi={selectedAppointment.buoi}
                 trangThai={selectedAppointment.trang_thai}
               />
 
@@ -935,7 +653,6 @@ export default function AppointmentDetailModal({
 
               <SymptomNotes
                 selectedAppointment={selectedAppointment}
-                isUnconfirmedState={isUnconfirmedState}
                 isSendingEmail={isSendingEmail}
                 handleResendEmail={handleResendEmail}
                 appendCallLog={appendCallLog}
@@ -946,43 +663,92 @@ export default function AppointmentDetailModal({
                   {isReceptionist ? 'Trạng thái lịch hẹn' : 'Trạng thái lịch hẹn (Quản lý)'}
                 </label>
                 {!isEditingStatus ? (
-                  <div className="flex items-center justify-between pt-1 flex-wrap gap-y-2">
-                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold border ${currentStatusInfo.color} ${hasPendingStatusChange ? 'border-dashed' : ''}`}>
-                      {currentStatusInfo.icon}
-                      <span>{currentStatusInfo.label}</span>
-                      {hasPendingStatusChange && <span className="font-semibold opacity-70 normal-case">(chưa lưu)</span>}
-                    </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    {/* A10c — cột LÂM SÀNG và cột THANH TOÁN tách hẳn 2 khối riêng biệt (kèm nhãn
+                        và đường kẻ phân cách rõ ràng), thay vì 1 hàng dồn hết badge+nút chung một
+                        chỗ — dễ đọc hơn hẳn khi cả 2 khối đều có badge + nút hành động riêng. */}
+                    <div className="flex flex-col gap-1.5 sm:pr-3 sm:border-r sm:border-slate-200 dark:sm:border-zinc-750">
+                      <span className="text-[9px] font-black text-slate-400 dark:text-zinc-550 uppercase tracking-widest">
+                        Trạng thái lịch hẹn
+                      </span>
+                      <div className="flex items-center justify-between gap-1.5 flex-wrap">
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold border ${currentStatusInfo.color} ${hasPendingStatusChange ? 'border-dashed' : ''}`}>
+                          {currentStatusInfo.icon}
+                          <span>{currentStatusInfo.label}</span>
+                          {hasPendingStatusChange && <span className="font-semibold opacity-70 normal-case">(chưa lưu)</span>}
+                        </span>
 
-                    <div className="flex items-center gap-1.5">
-                      {hasPendingStatusChange && (
-                        <button
-                          type="button"
-                          onClick={handleUndoStatusChange}
-                          className="flex items-center gap-1.5 text-[11px] font-extrabold text-amber-600 hover:text-amber-700 dark:text-amber-400 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 px-2.5 py-1 rounded-xl transition-all cursor-pointer border border-amber-200/60 dark:border-amber-800/50 shadow-2xs"
-                        >
-                          <Undo2 size={12} />
-                          <span>Hoàn tác</span>
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setIsStatusHistoryOpen(true)}
-                        className="flex items-center gap-1.5 text-[11px] font-extrabold text-slate-500 hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-200 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-750 px-2.5 py-1 rounded-xl transition-all cursor-pointer border border-slate-200/60 dark:border-zinc-700/50 shadow-2xs"
-                      >
-                        <Clock size={12} />
-                        <span>Lịch sử trạng thái</span>
-                      </button>
-                      {(!isReceptionist || !isReceptionistLocked) && (
-                        <button
-                          type="button"
-                          onClick={() => setIsEditingStatus(true)}
-                          className="flex items-center gap-1.5 text-[11px] font-extrabold text-teal-600 hover:text-teal-700 dark:text-teal-400 bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/40 px-2.5 py-1 rounded-xl transition-all cursor-pointer border border-teal-200/60 dark:border-teal-800/50 shadow-2xs"
-                        >
-                          <Pencil size={12} />
-                          <span>Đổi trạng thái</span>
-                        </button>
-                      )}
+                        <div className="flex items-center gap-1.5">
+                          {hasPendingStatusChange && (
+                            <button
+                              type="button"
+                              onClick={handleUndoStatusChange}
+                              className="flex items-center gap-1.5 text-[11px] font-extrabold text-amber-600 hover:text-amber-700 dark:text-amber-400 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 px-2.5 py-1 rounded-xl transition-all cursor-pointer border border-amber-200/60 dark:border-amber-800/50 shadow-2xs"
+                            >
+                              <Undo2 size={12} />
+                              <span>Hoàn tác</span>
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setIsStatusHistoryOpen(true)}
+                            className="flex items-center gap-1.5 text-[11px] font-extrabold text-slate-500 hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-200 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-750 px-2.5 py-1 rounded-xl transition-all cursor-pointer border border-slate-200/60 dark:border-zinc-700/50 shadow-2xs"
+                            title="Lịch sử trạng thái"
+                          >
+                            <Clock size={12} />
+                          </button>
+                          {(!isReceptionist || !isReceptionistLocked) && (
+                            <button
+                              type="button"
+                              onClick={() => setIsEditingStatus(true)}
+                              className="flex items-center gap-1.5 text-[11px] font-extrabold text-teal-600 hover:text-teal-700 dark:text-teal-400 bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/40 px-2.5 py-1 rounded-xl transition-all cursor-pointer border border-teal-200/60 dark:border-teal-800/50 shadow-2xs"
+                              title="Đổi trạng thái"
+                            >
+                              <Pencil size={12} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
+
+                    {!['da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(selectedAppointment.trang_thai) && (
+                      <div className="flex flex-col gap-1.5">
+                        <span className="text-[9px] font-black text-slate-400 dark:text-zinc-550 uppercase tracking-widest">
+                          Trạng thái thanh toán
+                        </span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {selectedAppointment.trang_thai_thanh_toan === 'dang_cho_thanh_toan' ? (
+                            // A15 — giao dịch PayOS đang treo, chưa có webhook xác nhận: nói thật
+                            // thay vì báo "Chưa thu" khiến Lễ tân/khách hoảng và thu trùng lần nữa.
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold border bg-amber-50 dark:bg-amber-955/20 text-amber-700 dark:text-amber-450 border-amber-150 dark:border-amber-900/30">
+                              ⏳ Đang xác nhận thanh toán…
+                            </span>
+                          ) : isPaymentDue(selectedAppointment) ? (
+                            <>
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold border bg-rose-50 dark:bg-rose-955/20 text-rose-700 dark:text-rose-455 border-rose-150 dark:border-rose-900/30">
+                                ⚠ Chưa thu
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const dest = isReceptionist ? '/receptionist/billing' : '/admin/quick-billing';
+                                  navigate(`${dest}?lich_dat_id=${selectedAppointment.id}`);
+                                  onClose();
+                                }}
+                                className="flex items-center gap-1.5 text-[11px] font-extrabold text-white bg-amber-500 hover:bg-amber-600 px-2.5 py-1.5 rounded-xl transition-all cursor-pointer shadow-2xs"
+                              >
+                                <DollarSign size={12} />
+                                <span>Thu tiền</span>
+                              </button>
+                            </>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold border bg-emerald-50 dark:bg-emerald-955/20 text-emerald-700 dark:text-emerald-450 border-emerald-150 dark:border-emerald-900/30">
+                              ✓ Đã thu
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-3 pt-1 animate-fade-in">
@@ -1003,10 +769,10 @@ export default function AppointmentDetailModal({
                       {(isReceptionist
                         ? receptionistActionOptions.map(opt => ({ value: opt.value, label: opt.label }))
                         : [
-                            { value: 'chua_xac_nhan', label: 'Chưa xác nhận' },
                             { value: 'da_xac_nhan', label: 'Đã xác nhận' },
                             { value: 'da_checkin', label: 'Đã check-in' },
-                            { value: 'dang_kham', label: 'Đang khám' },
+                            { value: 'dang_kham', label: 'Đang thực hiện' },
+                            { value: 'cho_tai_luong_gia', label: 'Chờ tái lượng giá' },
                             { value: 'hoan_thanh', label: 'Hoàn thành' },
                             { value: 'da_huy', label: 'Đã hủy' },
                             { value: 'khong_den', label: 'Không đến' }
@@ -1014,8 +780,8 @@ export default function AppointmentDetailModal({
                       ).map((st) => {
                         // Màu/icon mượn từ statusConfig cho đồng bộ trực quan, nhưng CHỮ luôn lấy từ
                         // st.label (nhãn hành động, vd "Xác nhận") — không lấy statusConfig[value].label
-                        // (nhãn trạng thái đích, vd "Chưa xác nhận" cho cả 'cho_xac_nhan'), tránh lệch
-                        // nghĩa giữa 2 nút cùng đại diện 1 lựa chọn (bug đã phát hiện ở bản cũ).
+                        // (nhãn trạng thái đích), tránh lệch nghĩa giữa 2 nút cùng đại diện 1 lựa chọn
+                        // (bug đã phát hiện ở bản cũ).
                         const meta = statusConfig[st.value] || { color: 'bg-slate-100 text-slate-700 border-slate-200', icon: null };
                         const isSelected = assignStatus === st.value;
                         return (
@@ -1074,12 +840,15 @@ export default function AppointmentDetailModal({
                 assignStatus={assignStatus}
                 isReceptionist={isReceptionist}
                 isLocked={isReceptionistLocked}
+                isReassignAllowed={isReassignAllowed}
+                buoi={effectiveBuoi}
+                staffBudget={staffBudget}
+                serviceDurationMinutes={Number(selectedAppointment.thoi_luong_phut) || 0}
                 staffList={staffList}
                 schedulesList={schedulesList}
                 aptDateStr={rescheduleDate}
                 aptStartHourStr={newStartHourStr}
                 aptEndHourStr={newEndHourStr}
-                occupiedStaffIds={occupiedStaffIds}
                 appointments={appointments}
               />
             </div>
@@ -1089,10 +858,10 @@ export default function AppointmentDetailModal({
               <div className="md:col-span-5 md:border-l md:border-slate-100 dark:md:border-zinc-800/80 md:pl-6 space-y-5 flex flex-col justify-start">
                 <div className="flex flex-col gap-1.5 pb-2 border-b border-slate-100 dark:border-zinc-800/40">
                   <h4 className="text-xs font-black text-slate-700 dark:text-zinc-300 uppercase tracking-wider">
-                    Đổi ngày / giờ hẹn
+                    Đổi lịch
                   </h4>
                   <p className="text-[10px] text-slate-450 dark:text-zinc-555 font-semibold leading-relaxed">
-                    Thay đổi ngày và khung giờ hoạt động của lịch khám/trị liệu
+                    Chọn ngày và buổi mới (A7 — không còn chọn giờ cụ thể)
                   </p>
                 </div>
 
@@ -1101,84 +870,68 @@ export default function AppointmentDetailModal({
                   <label className="text-[10px] font-black text-slate-500 dark:text-zinc-400 uppercase tracking-wider block">
                     Chọn ngày mới
                   </label>
-                  <CustomDatePicker 
+                  <CustomDatePicker
                     value={rescheduleDate}
                     minDate={todayStr}
                     maxDate={maxDateStr}
                     onChange={(date) => setRescheduleDate(date)}
-                    buttonClassName="bg-slate-50 dark:bg-zinc-955 border border-slate-200 dark:border-zinc-850 text-slate-800 dark:text-zinc-200"
+                    buttonClassName="bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-800 dark:text-zinc-100"
                   />
                 </div>
 
-                {/* Lưới giờ trực quan (Live Capacity Grid) */}
-                <div className="space-y-1.5 flex-1 flex flex-col min-h-0">
+                {/* Chọn buổi */}
+                <div className="space-y-1.5">
                   <label className="text-[10px] font-black text-slate-500 dark:text-zinc-400 uppercase tracking-wider block">
-                    Chọn giờ mới (Live Capacity Grid)
+                    Chọn buổi mới
                   </label>
-                  
-                  <div className="grid grid-cols-2 gap-2 overflow-y-auto max-h-[220px] p-1.5 border border-slate-100/50 dark:border-zinc-800/30 rounded-2xl scrollbar-thin">
-                    {dynamicTimeSlots
-                      .filter(slot => {
-                        const assignedStaffId = selectedAppointment.bac_si_id || selectedAppointment.chuyen_gia_id;
-                        if (isReceptionist && assignedStaffId) {
-                          return isStaffOnDuty(assignedStaffId, rescheduleDate, slot);
-                        }
-                        return true;
-                      })
-                      .map(slot => {
-                        const availableStaffCount = getSlotAvailabilityForDate(slot, rescheduleDate);
-                        const isSelected = selectedTimeSlot === slot;
-                        const isAllowed = isSlotAllowed(slot);
-                        
-                        const isCurrentSlot = slot === aptStartHourStr && rescheduleDate === format(new Date(selectedAppointment.ngay_gio_bat_dau), 'yyyy-MM-dd');
-                        
-                        const [sh, sm] = slot.split(':').map(Number);
-                        const slotStart = new Date(2000, 0, 1, sh, sm);
-                        const slotEnd = new Date(slotStart.getTime() + durationMs);
-                        const slotEndStr = `${String(slotEnd.getHours()).padStart(2, '0')}:${String(slotEnd.getMinutes()).padStart(2, '0')}`;
-                        const slotRangeStr = `${slot} - ${slotEndStr}`;
+                  <div className="grid grid-cols-1 gap-2.5">
+                    {(['sang', 'chieu'] as const).map((buoi) => {
+                      const availableStaffCount = getBuoiStaffCount(buoi, rescheduleDate);
+                      const isSelected = selectedBuoi === buoi;
+                      const isAllowed = isBuoiAllowed(buoi);
+                      const isCurrentBuoi = buoi === selectedAppointment.buoi && rescheduleDate === origDateStr;
 
-                        let bgClass = '';
-                        let textClass = '';
-                        let label = '';
-                        
-                        if (isCurrentSlot) {
-                          bgClass = isSelected 
-                            ? 'bg-blue-600 border-blue-600 text-white shadow-md ring-2 ring-blue-500/20'
-                            : 'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-950/20 dark:border-blue-900/30 dark:text-blue-400';
-                          label = 'Giờ hiện tại';
-                        } else if (!isAllowed) {
-                          bgClass = 'bg-slate-50 dark:bg-zinc-800/10 border-slate-100 dark:border-zinc-850 opacity-40 cursor-not-allowed';
-                          textClass = 'text-slate-400 dark:text-zinc-555';
-                          label = 'Quá giờ';
-                        } else if (availableStaffCount === 0) {
-                          bgClass = 'bg-slate-50 dark:bg-zinc-800/10 border-slate-150 dark:border-zinc-850 opacity-50 cursor-not-allowed relative overflow-hidden';
-                          textClass = 'text-slate-400 dark:text-zinc-555';
-                          label = 'Hết chỗ';
-                        } else if (isSelected) {
-                          bgClass = 'bg-emerald-600 border-emerald-600 text-white shadow-md';
-                          label = 'Giờ muốn đổi';
-                        } else if (availableStaffCount === 1) {
-                          bgClass = 'bg-amber-50/50 dark:bg-amber-955/20 border-amber-200 dark:border-amber-900/30 text-amber-700 dark:text-amber-450 hover:border-amber-400';
-                          label = 'Còn 1 chỗ';
-                        } else {
-                          bgClass = 'bg-emerald-50/50 dark:bg-emerald-955/15 border-emerald-100 dark:border-emerald-900/20 text-emerald-700 dark:text-emerald-455 hover:border-emerald-400';
-                          label = `Còn ${availableStaffCount} chỗ`;
-                        }
+                      let bgClass = '';
+                      let textClass = '';
+                      let label = '';
 
-                        return (
-                          <button
-                            key={slot}
-                            type="button"
-                            disabled={!isAllowed || (availableStaffCount === 0 && !isCurrentSlot)}
-                            onClick={() => setSelectedTimeSlot(slot)}
-                            className={`py-2 px-1 border rounded-xl text-[10px] font-mono font-bold flex flex-col items-center justify-center gap-0.5 transition-all duration-200 active:scale-95 min-h-[56px] h-14 flex-shrink-0 w-full ${bgClass} ${textClass}`}
-                          >
-                            <span className="font-extrabold text-[11px] sm:text-[12px] tracking-tight">{slotRangeStr}</span>
-                            <span className="text-[8px] font-black uppercase tracking-wider opacity-85">{label}</span>
-                          </button>
-                        );
-                      })}
+                      if (isCurrentBuoi) {
+                        bgClass = isSelected
+                          ? 'bg-blue-600 border-blue-600 text-white shadow-md ring-2 ring-blue-500/20'
+                          : 'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-950/20 dark:border-blue-900/30 dark:text-blue-400';
+                        label = 'Buổi hiện tại';
+                      } else if (!isAllowed) {
+                        bgClass = 'bg-slate-50 dark:bg-zinc-800/10 border-slate-100 dark:border-zinc-850 opacity-40 cursor-not-allowed';
+                        textClass = 'text-slate-400 dark:text-zinc-555';
+                        label = 'Đã qua giờ nhận khách';
+                      } else if (availableStaffCount === 0) {
+                        bgClass = 'bg-slate-50 dark:bg-zinc-800/10 border-slate-150 dark:border-zinc-850 opacity-50 cursor-not-allowed';
+                        textClass = 'text-slate-400 dark:text-zinc-555';
+                        label = 'Hết chỗ';
+                      } else if (isSelected) {
+                        bgClass = 'bg-emerald-600 border-emerald-600 text-white shadow-md';
+                        label = 'Buổi muốn đổi';
+                      } else if (availableStaffCount === 1) {
+                        bgClass = 'bg-amber-50/50 dark:bg-amber-955/20 border-amber-200 dark:border-amber-900/30 text-amber-700 dark:text-amber-450 hover:border-amber-400';
+                        label = 'Còn 1 nhân sự';
+                      } else {
+                        bgClass = 'bg-emerald-50/50 dark:bg-emerald-955/15 border-emerald-100 dark:border-emerald-900/20 text-emerald-700 dark:text-emerald-455 hover:border-emerald-400';
+                        label = `Còn ${availableStaffCount} nhân sự`;
+                      }
+
+                      return (
+                        <button
+                          key={buoi}
+                          type="button"
+                          disabled={!isAllowed || (availableStaffCount === 0 && !isCurrentBuoi)}
+                          onClick={() => setSelectedBuoi(buoi)}
+                          className={`py-3 px-3 border rounded-xl text-left flex items-center justify-between gap-2 transition-all duration-200 active:scale-[0.99] ${bgClass} ${textClass}`}
+                        >
+                          <span className="font-extrabold text-xs">{BUOI_INFO[buoi].label} · {BUOI_INFO[buoi].batDau}-{BUOI_INFO[buoi].ketThuc}</span>
+                          <span className="text-[9px] font-black uppercase tracking-wider opacity-85 shrink-0">{label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>

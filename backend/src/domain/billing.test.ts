@@ -127,7 +127,7 @@ describe('calculatePackageCancellationRefund', () => {
     const result = calculatePackageCancellationRefund({
       tongTienGoc: 5_130_000,
       soTienDaDong: 2_565_000,
-      tiLeGiam: 0,
+      giaThanhToanGoi: 5_130_000,
       soBuoiDung: 0,
       tongSoBuoi: 10,
       chiPhiKham: 0,
@@ -144,7 +144,7 @@ describe('calculatePackageCancellationRefund', () => {
     const daDongDu = calculatePackageCancellationRefund({
       tongTienGoc: 3_200_000,
       soTienDaDong: 2_890_000,
-      tiLeGiam: 5,
+      giaThanhToanGoi: 3_040_000,
       soBuoiDung: 0,
       tongSoBuoi: 8,
       chiPhiKham: 150_000,
@@ -155,7 +155,7 @@ describe('calculatePackageCancellationRefund', () => {
     const moiDongDot1 = calculatePackageCancellationRefund({
       tongTienGoc: 3_200_000,
       soTienDaDong: 1_520_000,
-      tiLeGiam: 5,
+      giaThanhToanGoi: 3_040_000,
       soBuoiDung: 0,
       tongSoBuoi: 8,
       chiPhiKham: 150_000,
@@ -173,7 +173,7 @@ describe('calculatePackageCancellationRefund', () => {
     const daDongRieng = calculatePackageCancellationRefund({
       tongTienGoc: 3_200_000,
       soTienDaDong: 2_880_000,
-      tiLeGiam: 10,
+      giaThanhToanGoi: 2_880_000,
       soBuoiDung: 0,
       tongSoBuoi: 8,
       chiPhiKham: 150_000,
@@ -184,7 +184,7 @@ describe('calculatePackageCancellationRefund', () => {
     const mienPhiChuaDong = calculatePackageCancellationRefund({
       tongTienGoc: 3_200_000,
       soTienDaDong: 2_880_000,
-      tiLeGiam: 10,
+      giaThanhToanGoi: 2_880_000,
       soBuoiDung: 0,
       tongSoBuoi: 8,
       chiPhiKham: 150_000,
@@ -204,7 +204,7 @@ describe('calculatePackageCancellationRefund', () => {
     const result = calculatePackageCancellationRefund({
       tongTienGoc: 5_000_000,
       soTienDaDong: 5_000_000,
-      tiLeGiam: 0,
+      giaThanhToanGoi: 5_000_000,
       soBuoiDung: 0,
       tongSoBuoi: 10,
       chiPhiKham: 200_000,
@@ -220,7 +220,7 @@ describe('calculatePackageCancellationRefund', () => {
     const result = calculatePackageCancellationRefund({
       tongTienGoc: 5_000_000,
       soTienDaDong: 5_000_000,
-      tiLeGiam: 0,
+      giaThanhToanGoi: 5_000_000,
       soBuoiDung: 0,
       tongSoBuoi: 10,
       chiPhiKham: 200_000,

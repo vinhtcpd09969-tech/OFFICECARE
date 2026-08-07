@@ -1,16 +1,33 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Clock, MapPin, User, Stethoscope, Search, Loader2, CalendarRange, ArrowLeft, X, ChevronDown, Check } from 'lucide-react';
+import { Clock, MapPin, User, Stethoscope, Search, Loader2, CalendarRange, ArrowLeft, X, ChevronDown, Check, Sun, Moon } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import axiosInstance from '../api/axios';
-import { convertToVietnamUtcIso } from '../utils/date';
 import { isPlanCancelled, isSessionPaymentSatisfied } from '../utils/billing';
 import { resolveImageUrl } from '../utils/imageUrl';
 import { statusConfig } from './appointmentStatusConfig';
 import { CustomDatePicker } from './CustomDatePicker';
 import { getSmartSearchScore } from '../utils/smartSearch';
+
+type Buoi = 'sang' | 'chieu';
+const BUOI_INFO: Record<Buoi, { label: string; khung: string; ketThuc: string }> = {
+  sang: { label: 'Buổi sáng', khung: '7:30 - 12:00', ketThuc: '12:00' },
+  chieu: { label: 'Buổi chiều', khung: '12:00 - 19:30', ketThuc: '19:30' }
+};
+
+/** Mirror `isBuoiDaQua` phía backend/domain/capacity.ts — buổi đặt cho hôm nay đã qua giờ nhận
+ * khách kết thúc thì không cho đặt nữa; ngày quá khứ luôn coi là đã qua. */
+function isBuoiDaQua(dateStr: string, buoi: Buoi): boolean {
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  if (dateStr < todayStr) return true;
+  if (dateStr > todayStr) return false;
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const [h, m] = BUOI_INFO[buoi].ketThuc.split(':').map(Number);
+  return nowMinutes >= h * 60 + m;
+}
 
 // Khớp đúng quy tắc validate phía backend (appointment.repository.ts::createAppointment) — dùng
 // zod thay cho required/pattern gốc của trình duyệt vì tooltip mặc định ("Please match the
@@ -86,35 +103,35 @@ function ServiceSelect({
         onClick={() => setOpen((v) => !v)}
         className={`w-full px-4 py-3 border rounded-xl text-sm text-left flex items-center justify-between gap-3 transition-all outline-none ${
           disabled
-            ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
+            ? 'bg-slate-100 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-400 dark:text-zinc-500 cursor-not-allowed'
             : open
-              ? 'bg-white border-emerald-500 ring-2 ring-emerald-500/15 cursor-pointer'
-              : 'bg-slate-50 border-slate-200 hover:border-slate-300 cursor-pointer'
+              ? 'bg-white dark:bg-zinc-900 border-emerald-500 dark:border-emerald-500 ring-2 ring-emerald-500/15 cursor-pointer text-slate-800 dark:text-zinc-100'
+              : 'bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 hover:border-slate-300 dark:hover:border-zinc-600 cursor-pointer text-slate-800 dark:text-zinc-100'
         }`}
       >
         {selected ? (
           <span className="min-w-0 flex items-center gap-2">
-            <span className="font-bold text-slate-800 truncate">{selected.ten_goi}</span>
-            <span className="text-[10px] font-bold text-slate-500 bg-slate-150 px-1.5 py-0.5 rounded shrink-0">
+            <span className="font-bold text-slate-800 dark:text-zinc-100 truncate">{selected.ten_goi}</span>
+            <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400 bg-slate-200 dark:bg-zinc-700 px-1.5 py-0.5 rounded shrink-0">
               {selected.thoi_luong_phut}p
             </span>
-            <span className="text-[10px] font-black text-emerald-700 shrink-0">
+            <span className="text-[10px] font-black text-emerald-700 dark:text-emerald-400 shrink-0">
               {Number(selected.don_gia).toLocaleString('vi-VN')}đ
             </span>
           </span>
         ) : (
-          <span className="font-semibold text-slate-400">Vui lòng chọn dịch vụ...</span>
+          <span className="font-semibold text-slate-400 dark:text-zinc-400">Vui lòng chọn dịch vụ...</span>
         )}
         <ChevronDown
           size={16}
-          className={`shrink-0 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}
+          className={`shrink-0 text-slate-400 dark:text-zinc-400 transition-transform ${open ? 'rotate-180' : ''}`}
         />
       </button>
 
       {open && !disabled && (
-        <div className="absolute z-30 mt-2 w-full max-h-72 overflow-y-auto bg-white border border-slate-200 rounded-2xl shadow-xl shadow-slate-900/5 p-1.5 space-y-1 animate-in fade-in slide-in-from-top-1 duration-150">
+        <div className="absolute z-30 mt-2 w-full max-h-72 overflow-y-auto bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-xl p-1.5 space-y-1 animate-in fade-in slide-in-from-top-1 duration-150">
           {services.length === 0 && (
-            <p className="text-xs font-semibold text-slate-400 text-center py-6">Không có dịch vụ phù hợp.</p>
+            <p className="text-xs font-semibold text-slate-400 dark:text-zinc-500 text-center py-6">Không có dịch vụ phù hợp.</p>
           )}
           {services.map((svc: any) => {
             const isActive = String(svc.id) === String(value);
@@ -126,19 +143,19 @@ function ServiceSelect({
                   onChange(String(svc.id));
                   setOpen(false);
                 }}
-                className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between gap-3 transition-all ${
-                  isActive ? 'bg-emerald-50 ring-1 ring-emerald-500/25' : 'hover:bg-slate-50'
+                className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between gap-3 transition-all cursor-pointer ${
+                  isActive ? 'bg-emerald-50 dark:bg-emerald-950/60 ring-1 ring-emerald-500/25 dark:ring-emerald-500/50' : 'hover:bg-slate-50 dark:hover:bg-zinc-800/80'
                 }`}
               >
                 <div className="min-w-0">
-                  <p className={`text-xs font-black truncate ${isActive ? 'text-emerald-800' : 'text-slate-800'}`}>
+                  <p className={`text-xs font-black truncate ${isActive ? 'text-emerald-800 dark:text-emerald-300' : 'text-slate-800 dark:text-zinc-100'}`}>
                     {svc.ten_goi}
                   </p>
                   <div className="flex items-center gap-1.5 mt-1">
-                    <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                    <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
                       ⏳ {svc.thoi_luong_phut} phút
                     </span>
-                    <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
+                    <span className="text-[10px] font-black text-emerald-700 dark:text-emerald-400">
                       {Number(svc.don_gia).toLocaleString('vi-VN')}đ
                     </span>
                   </div>
@@ -210,10 +227,19 @@ export default function WalkInBookingModal({
   useEffect(() => {
     setSelectedDate(selectedDateStr);
   }, [selectedDateStr]);
-  const [selectedTime, setSelectedTime] = useState(initialTime);
+
+  const [selectedBuoi, setSelectedBuoi] = useState<Buoi | ''>('');
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
   const [selectedRoomId, setSelectedRoomId] = useState('');
   const [bookingStatus, setBookingStatus] = useState<'da_checkin' | 'da_xac_nhan'>('da_checkin');
+
+  // Sức chứa 2 buổi (sáng/chiều) cho ngày+dịch vụ đang chọn — cùng nguồn A1 dùng cho trang đặt lịch
+  // khách hàng (getBuoiAvailability), để Lễ tân/Admin và khách luôn thấy cùng một sự thật.
+  const [buoiAvailability, setBuoiAvailability] = useState<{
+    sang: { conLaiChung: number; choPhep: boolean };
+    chieu: { conLaiChung: number; choPhep: boolean };
+    nhanSu: Array<{ id: number; ho_ten: string; anh_dai_dien: string | null; caTruc: string; conLaiSang: number; conLaiChieu: number }>;
+  }>({ sang: { conLaiChung: 0, choPhep: false }, chieu: { conLaiChung: 0, choPhep: false }, nhanSu: [] });
 
   // Treatment plan / package states
   const [treatmentPlans, setTreatmentPlans] = useState<any[]>([]);
@@ -281,23 +307,23 @@ export default function WalkInBookingModal({
     }
   }, [initialServiceId]);
 
+  // initialTime (giờ cụ thể, di sản từ mô hình slot cũ) chỉ còn dùng để suy ra buổi mặc định khi
+  // mở modal từ 1 ô lịch cụ thể — trước 12h là buổi sáng, còn lại là buổi chiều.
   useEffect(() => {
-    setSelectedTime(initialTime);
+    if (!initialTime) return;
+    const [h] = initialTime.split(':').map(Number);
+    setSelectedBuoi(h < 12 ? 'sang' : 'chieu');
   }, [initialTime]);
 
-  const timeDifferenceMinutes = React.useMemo(() => {
-    if (!selectedTime) return 9999;
-    const now = new Date();
-    const isToday = selectedDate === format(now, 'yyyy-MM-dd');
-    if (!isToday) return 9999;
-
-    const [sh, sm] = selectedTime.split(':').map(Number);
-    const slotVal = sh * 60 + sm;
-    const currentVal = now.getHours() * 60 + now.getMinutes();
-    return slotVal - currentVal;
-  }, [selectedTime, selectedDate]);
-
-  const isTooClose = timeDifferenceMinutes >= 0 && timeDifferenceMinutes <= 60;
+  // Buổi đang chọn (kể cả buổi MẶC ĐỊNH vừa suy ra từ initialTime ở trên) mà đã qua giờ nhận khách
+  // thì phải tự bỏ chọn — nếu không, phần "Phân bổ nhân sự" bên dưới vẫn hiện sẵn sàng cho một buổi
+  // không còn đặt được nữa (bug thật đã gặp: initialTime mặc định '09:00' tự chọn buổi sáng dù lúc
+  // mở modal đã qua cả 2 buổi trong ngày).
+  useEffect(() => {
+    if (selectedBuoi && isBuoiDaQua(selectedDate, selectedBuoi)) {
+      setSelectedBuoi('');
+    }
+  }, [selectedBuoi, selectedDate]);
 
   // 2. Autocomplete Search Customers
   useEffect(() => {
@@ -449,194 +475,44 @@ export default function WalkInBookingModal({
   const selectedService = servicesList.find((s: any) => String(s.id) === String(selectedServiceId));
   const isExam = selectedService ? (selectedService.loai_goi === 'KHAM' || selectedService.loai_dich_vu === 'KHAM') : true;
 
-  // 1.5. Tạo baseTimeSlots động dựa trên thời lượng dịch vụ
-  const baseTimeSlots = React.useMemo(() => {
-    const duration = selectedService ? (selectedService.thoi_luong_phut || 30) : 30;
-    const slots: string[] = [];
-    let current = new Date();
-    current.setHours(8, 0, 0, 0); // Bắt đầu lúc 08:00
-    
-    const end = new Date();
-    end.setHours(20, 0, 0, 0); // Giờ hẹn muộn nhất có thể bắt đầu là 20:00
-    
-    const formatTime = (d: Date) => {
-      const h = String(d.getHours()).padStart(2, '0');
-      const m = String(d.getMinutes()).padStart(2, '0');
-      return `${h}:${m}`;
-    };
-    
-    while (current.getTime() <= end.getTime()) {
-      slots.push(formatTime(current));
-      current = new Date(current.getTime() + duration * 60000);
-    }
-    return slots;
-  }, [selectedService]);
-
-  // 4. Tự động gán phòng khi chọn nhân sự dựa theo ca trực đã được cấu hình
+  // A1 — sức chứa 2 buổi cho ngày+dịch vụ đang chọn (thay hoàn toàn lưới giờ 30 phút cũ)
   useEffect(() => {
-    if (!selectedDoctorId || !selectedTime) {
+    if (!selectedDate || !selectedServiceId) {
+      setBuoiAvailability({ sang: { conLaiChung: 0, choPhep: false }, chieu: { conLaiChung: 0, choPhep: false }, nhanSu: [] });
       return;
     }
-    const docSchedules = schedulesList.filter(s => 
-      String(s.nguoi_dung_id) === String(selectedDoctorId) && 
-      s.ngay === selectedDate
-    );
-    const activeSchedule = docSchedules.find(s => {
-      if (s.trang_thai !== 'hoat_dong') return false;
-      const dutyStart = s.gio_bat_dau.substring(0, 5);
-      const dutyEnd = s.gio_ket_thuc.substring(0, 5);
-      return dutyStart <= selectedTime && dutyEnd > selectedTime;
-    });
+    let cancelled = false;
+    axiosInstance.get('/client/appointments/buoi-availability', { params: { date: selectedDate, dichVuId: selectedServiceId } })
+      .then(res => { if (!cancelled) setBuoiAvailability(res.data); })
+      .catch(() => { if (!cancelled) setBuoiAvailability({ sang: { conLaiChung: 0, choPhep: false }, chieu: { conLaiChung: 0, choPhep: false }, nhanSu: [] }); });
+    return () => { cancelled = true; };
+  }, [selectedDate, selectedServiceId]);
 
-    if (activeSchedule && activeSchedule.phong_id) {
-      setSelectedRoomId(String(activeSchedule.phong_id));
-    } else {
+  // Tự động gán phòng khi chọn nhân sự — theo đúng ca trực của người đó trong ngày (không cần giờ
+  // cụ thể nữa, vì buổi đã ánh xạ 1-1 với đúng 1 ca trực thực tế trong dữ liệu mẫu/hiện có).
+  useEffect(() => {
+    if (!selectedDoctorId) {
       setSelectedRoomId('');
-    }
-  }, [selectedDoctorId, selectedTime, schedulesList, selectedDate]);
-
-  // 5. Tính toán Slot Giờ thông minh động (Kiểm tra trùng lịch Khách hàng & Nhân sự và hiển thị lý do)
-  const slotDetails = React.useMemo(() => {
-    if (!selectedServiceId) return [];
-
-    const duration = selectedService ? (selectedService.thoi_luong_phut || 30) : 30;
-    
-    // Lọc nhân sự theo vai trò (Bác sĩ cho ca khám, KTV cho ca điều trị)
-    const staffToFilter = isExam 
-      ? staffList.filter(s => s.vai_tro === 'Bác sĩ')
-      : staffList.filter(s => s.vai_tro === 'Kỹ thuật viên' || s.vai_tro === 'KTV');
-
-    // Xem thời gian hiện tại nếu ngày chọn là hôm nay hoặc quá khứ
-    const now = new Date();
-    const todayStr = format(now, 'yyyy-MM-dd');
-    const isToday = selectedDate === todayStr;
-    const isPastDate = selectedDate < todayStr;
-    const currentVal = now.getHours() * 60 + now.getMinutes();
-
-    // Lấy danh sách lịch hẹn trùng của khách hàng được chọn trong ngày đặt lịch này
-    const occupiedCustomerApts = (!isNewCustomer && selectedCustomer)
-      ? appointments.filter(apt => 
-          String(apt.khach_hang_id) === String(selectedCustomer.id) &&
-          apt.trang_thai !== 'da_huy' &&
-          apt.trang_thai !== 'khong_den' &&
-          format(new Date(apt.ngay_gio_bat_dau), 'yyyy-MM-dd') === selectedDate
-        )
-      : [];
-
-    return baseTimeSlots.map(time => {
-      // 1. Kiểm tra ngày/giờ quá khứ
-      if (isPastDate) {
-        return { time, available: false, count: 0, reason: 'Đã qua' };
-      }
-
-      const [sh, sm] = time.split(':').map(Number);
-      const slotVal = sh * 60 + sm;
-      if (isToday && slotVal < currentVal) {
-        return { time, available: false, count: 0, reason: 'Đã qua' };
-      }
-
-      // Tính giờ bắt đầu và kết thúc của ca hẹn
-      const aptStartLocal = new Date(`${selectedDate}T${time}:00`);
-      const aptEndLocal = new Date(aptStartLocal.getTime() + duration * 60000);
-
-      const isOverlapping = (start1: Date, end1: Date, start2Str: string, end2Str: string) => {
-        const s2 = new Date(start2Str).getTime();
-        const e2 = new Date(end2Str).getTime();
-        return start1.getTime() < e2 && end1.getTime() > s2;
-      };
-
-      // 2. Kiểm tra trùng lịch hẹn của bệnh nhân
-      const hasCustOverlap = occupiedCustomerApts.some(apt => 
-        isOverlapping(aptStartLocal, aptEndLocal, apt.ngay_gio_bat_dau, apt.ngay_gio_ket_thuc)
-      );
-
-      if (hasCustOverlap) {
-        return { time, available: false, count: 0, reason: 'Trùng lịch KH' };
-      }
-
-      // 3. Kiểm tra ca trực và trùng lịch của nhân viên
-      const overlappingApts = appointments.filter(apt => 
-        apt.trang_thai !== 'da_huy' &&
-        apt.trang_thai !== 'khong_den' &&
-        isOverlapping(aptStartLocal, aptEndLocal, apt.ngay_gio_bat_dau, apt.ngay_gio_ket_thuc)
-      );
-
-      const occupiedStaffIds = overlappingApts.map(apt => apt.bac_si_id).filter(Boolean);
-
-      const availableStaff = staffToFilter.filter(doc => {
-        const docSchedules = schedulesList.filter(s => 
-          String(s.nguoi_dung_id) === String(doc.id) && 
-          s.ngay === selectedDate
-        );
-
-        if (docSchedules.length === 0) return false;
-
-        const activeSchedule = docSchedules.find(s => s.trang_thai === 'hoat_dong');
-        if (!activeSchedule) return false;
-
-        const dutyStart = activeSchedule.gio_bat_dau.substring(0, 5);
-        const dutyEnd = activeSchedule.gio_ket_thuc.substring(0, 5);
-
-        // Xem slot giờ này có nằm trọn vẹn trong ca làm việc không
-        const endHour = Math.floor((slotVal + duration) / 60);
-        const endMin = (slotVal + duration) % 60;
-        const endTimeStr = `${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}`;
-
-        const isCovered = dutyStart <= time && dutyEnd >= endTimeStr;
-        if (!isCovered) return false;
-
-        const hasOverlap = occupiedStaffIds.includes(doc.id);
-        return !hasOverlap;
-      });
-
-      const unassignedAptsCount = overlappingApts.filter(apt => !apt.bac_si_id).length;
-      const finalCount = Math.max(0, availableStaff.length - unassignedAptsCount);
-
-      if (finalCount === 0) {
-        return { time, available: false, count: 0, reason: 'Hết nhân sự' };
-      }
-
-      return {
-        time,
-        available: true,
-        count: finalCount,
-        reason: `Còn ${finalCount} NV`
-      };
-    });
-  }, [selectedServiceId, selectedDoctorId, appointments, schedulesList, staffList, selectedDate, isExam, selectedService, isNewCustomer, selectedCustomer, isReceptionist, baseTimeSlots]);
-
-  // Real-time resource availability (specifically for the selected time slot, used for room allocation and doctor cards)
-  const [availableDoctors, setAvailableDoctors] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (!selectedTime || !selectedServiceId) {
-      setAvailableDoctors([]);
       return;
     }
-
-    const duration = selectedService ? (selectedService.thoi_luong_phut || 30) : 30;
-    const aptStartLocal = new Date(`${selectedDate}T${selectedTime}:00`);
-    const aptEndLocal = new Date(aptStartLocal.getTime() + duration * 60000);
-
-    const isOverlapping = (start1: Date, end1: Date, start2Str: string, end2Str: string) => {
-      const s2 = new Date(start2Str).getTime();
-      const e2 = new Date(end2Str).getTime();
-      return start1.getTime() < e2 && end1.getTime() > s2;
-    };
-
-    const overlappingApts = appointments.filter(apt => 
-      apt.trang_thai !== 'da_huy' &&
-      apt.trang_thai !== 'khong_den' &&
-      isOverlapping(aptStartLocal, aptEndLocal, apt.ngay_gio_bat_dau, apt.ngay_gio_ket_thuc)
+    const activeSchedule = schedulesList.find(s =>
+      String(s.nguoi_dung_id) === String(selectedDoctorId) &&
+      s.ngay === selectedDate &&
+      s.trang_thai === 'hoat_dong'
     );
+    setSelectedRoomId(activeSchedule?.phong_id ? String(activeSchedule.phong_id) : '');
+  }, [selectedDoctorId, selectedDate, schedulesList]);
 
-    const occupiedDoctorIds = overlappingApts.map(apt => apt.bac_si_id).filter(Boolean);
-
-    const staffToFilter = isExam 
+  // Nhân sự còn đủ chỗ riêng cho buổi đang chọn — cùng nguồn ngân sách phút với buoiAvailability,
+  // ghép thêm số ca trong ngày (đọc từ `appointments` đã tải sẵn) để hiển thị cho Quản lý tham khảo.
+  const availableDoctors = React.useMemo(() => {
+    if (!selectedBuoi || !selectedServiceId) return [];
+    const duration = selectedService ? (selectedService.thoi_luong_phut || 30) : 30;
+    const staffToFilter = isExam
       ? staffList.filter(s => s.vai_tro === 'Bác sĩ')
       : staffList.filter(s => s.vai_tro === 'Kỹ thuật viên' || s.vai_tro === 'KTV');
 
-    const filteredDocs = staffToFilter.map(doc => {
+    return staffToFilter.map(doc => {
       const docAptsCount = (appointments || []).filter(apt => {
         const assignedId = apt.bac_si_id || apt.chuyen_gia_id;
         let aptDateStr = '';
@@ -646,55 +522,58 @@ export default function WalkInBookingModal({
         return String(assignedId) === String(doc.id) &&
           aptDateStr === selectedDate &&
           apt.trang_thai !== 'da_huy' &&
-          apt.trang_thai !== 'khong_den' &&
-          apt.trang_thai !== 'giu_cho';
+          apt.trang_thai !== 'khong_den';
       }).length;
 
-      const docSchedules = schedulesList.filter(s => 
-        String(s.nguoi_dung_id) === String(doc.id) && 
-        s.ngay === selectedDate
-      );
-
-      if (docSchedules.length === 0) {
+      const nhanSuInfo = buoiAvailability.nhanSu.find(n => String(n.id) === String(doc.id));
+      if (!nhanSuInfo) {
         return { ...doc, occupiedCount: docAptsCount, available: false, reason: 'Không trực hôm nay' };
       }
 
-      const activeSchedule = docSchedules.find(s => s.trang_thai === 'hoat_dong');
-      if (!activeSchedule) {
-        return { ...doc, occupiedCount: docAptsCount, available: false, reason: 'Nghỉ phép cả ngày' };
+      const conLai = selectedBuoi === 'sang' ? nhanSuInfo.conLaiSang : nhanSuInfo.conLaiChieu;
+      if (conLai < duration) {
+        return { ...doc, occupiedCount: docAptsCount, available: false, reason: `Trực ${nhanSuInfo.caTruc} — không đủ chỗ`, endsEarly: false };
       }
 
-      const dutyStart = activeSchedule.gio_bat_dau.substring(0, 5);
-      const dutyEnd = activeSchedule.gio_ket_thuc.substring(0, 5);
+      const gioKetThucTruc = nhanSuInfo.caTruc.split('-')[1];
 
-      const isCovered = dutyStart <= selectedTime && dutyEnd > selectedTime;
-      if (!isCovered) {
-        return { ...doc, occupiedCount: docAptsCount, available: false, reason: `Trực ca ${dutyStart}-${dutyEnd}` };
+      // Nhân sự đã TAN CA THẬT (giờ hiện tại đã qua giờ kết thúc ca trực) khi đặt cho HÔM NAY —
+      // họ không còn ở phòng khám nữa nên phải khóa hẳn, không chỉ cảnh báo. `conLai` chỉ trừ theo
+      // ngân sách phút của buổi, không biết đồng hồ thực tế đã trôi qua khỏi ca trực chưa.
+      if (selectedDate === format(new Date(), 'yyyy-MM-dd') && gioKetThucTruc) {
+        const now = new Date();
+        const nowMinutes = now.getHours() * 60 + now.getMinutes();
+        const [endH, endM] = gioKetThucTruc.split(':').map(Number);
+        if (nowMinutes >= endH * 60 + endM) {
+          return { ...doc, occupiedCount: docAptsCount, available: false, reason: `Đã tan ca (${nhanSuInfo.caTruc}) — không còn tại phòng khám`, endsEarly: false };
+        }
       }
 
-      const hasOverlap = occupiedDoctorIds.includes(doc.id);
-      if (hasOverlap) {
-        return { ...doc, occupiedCount: docAptsCount, available: false, reason: 'Trùng lịch khám khác' };
-      }
+      // Cảnh báo khi nhân sự tan ca SỚM HƠN mốc kết thúc buổi (vd trực tới 16h nhưng buổi chiều
+      // kéo dài tới 19h30) — ngân sách phút đã chặn đúng theo phần giao thực (không cho đặt dịch
+      // vụ dài hơn phần còn lại), nhưng lễ tân vẫn có thể hiểu lầm khách "đến muộn trong buổi" là
+      // bình thường rồi hẹn khách tới sát giờ đóng cửa trong khi nhân sự này đã về từ lâu. Cảnh báo
+      // thuần hiển thị — KHÔNG chặn chọn, vì ngân sách phút đã tự bảo vệ phần thời lượng rồi.
+      const gioKetThucBuoi = BUOI_INFO[selectedBuoi].ketThuc;
+      const endsEarly = !!gioKetThucTruc && gioKetThucTruc < gioKetThucBuoi;
 
-      return { ...doc, occupiedCount: docAptsCount, available: true, reason: `Trực ca ${dutyStart}-${dutyEnd}` };
+      return { ...doc, occupiedCount: docAptsCount, available: true, reason: `Trực ${nhanSuInfo.caTruc}`, endsEarly, gioKetThucTruc };
     });
+  }, [selectedBuoi, selectedServiceId, buoiAvailability, staffList, appointments, selectedDate, isExam, selectedService]);
 
-    setAvailableDoctors(filteredDocs);
-
-    if (selectedDoctorId) {
-      const selectedDocObj = filteredDocs.find(d => String(d.id) === String(selectedDoctorId));
-      if (!selectedDocObj || !selectedDocObj.available) {
-        setSelectedDoctorId('');
-        setSelectedRoomId('');
-      }
+  useEffect(() => {
+    if (!selectedDoctorId) return;
+    const selectedDocObj = availableDoctors.find(d => String(d.id) === String(selectedDoctorId));
+    if (!selectedDocObj || !selectedDocObj.available) {
+      setSelectedDoctorId('');
+      setSelectedRoomId('');
     }
-  }, [selectedTime, selectedServiceId, appointments, schedulesList, staffList, selectedDate, isExam, selectedService, selectedDoctorId]);
+  }, [availableDoctors, selectedDoctorId]);
 
   const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTime) {
-      toast.error('Vui lòng chọn khung giờ!');
+    if (!selectedBuoi) {
+      toast.error('Vui lòng chọn buổi!');
       return;
     }
     if (!selectedServiceId) {
@@ -748,25 +627,11 @@ export default function WalkInBookingModal({
       return;
     }
 
-    // Kiểm tra nếu giờ chọn thuộc về quá khứ của ngày hôm nay
-    if (selectedDate === todayStr) {
-      const currentVal = now.getHours() * 60 + now.getMinutes();
-      const [sh, sm] = selectedTime.split(':').map(Number);
-      const slotVal = sh * 60 + sm;
-      if (slotVal < currentVal) {
-        toast.error('Khung giờ được chọn đã trôi qua. Vui lòng chọn khung giờ khác!');
-        return;
-      }
+    // Buổi đã qua giờ nhận khách (chốt thô, mirror backend isBuoiDaQua)
+    if (isBuoiDaQua(selectedDate, selectedBuoi)) {
+      toast.error('Buổi được chọn đã qua giờ nhận khách. Vui lòng chọn buổi khác!');
+      return;
     }
-
-    const duration = selectedService ? (selectedService.thoi_luong_phut || 30) : 30;
-    const startUtcIso = convertToVietnamUtcIso(selectedDate, selectedTime);
-
-    const [h, m] = selectedTime.split(':').map(Number);
-    const endMin = (m + duration) % 60;
-    const endHour = h + Math.floor((m + duration) / 60);
-    const endTimeStr = `${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}`;
-    const endUtcIso = convertToVietnamUtcIso(selectedDate, endTimeStr);
 
     const isPlanRec = selectedPlan && selectedPlan.trang_thai === 'khuyen_nghi';
     const activePlan = selectedPlan && !isPlanRec ? selectedPlan : null;
@@ -779,21 +644,25 @@ export default function WalkInBookingModal({
       email: email || null,
       ly_do_kham: lyDo || (activePlan ? `Điều trị buổi ${activePlan.so_buoi_da_dung + 1}` : (isPlanRec ? `Trị liệu theo chỉ định: ${selectedPlan.ten_goi_dich_vu}` : 'Khám lượng giá')),
       goi_dich_vu_id: selectedServiceId,
-      ngay_gio_bat_dau: startUtcIso,
-      ngay_gio_ket_thuc: endUtcIso,
+      ngay: selectedDate,
+      buoi: selectedBuoi,
       bac_si_id: isReceptionist ? null : (selectedDoctorId ? Number(selectedDoctorId) : null),
       phong_id: isReceptionist ? null : (selectedRoomId ? Number(selectedRoomId) : null),
       loai_lich: activePlan ? 'dieu_tri' : (isExam ? 'kham_moi' : 'dich_vu_don'),
       phac_do_dieu_tri_id: activePlan ? activePlan.id : null,
       so_thu_tu_buoi: activePlan ? activePlan.so_buoi_da_dung + 1 : null,
-      trang_thai: (!isReceptionist && selectedDoctorId) ? bookingStatus : 'cho_xac_nhan',
+      trang_thai: (!isReceptionist && selectedDoctorId) ? bookingStatus : 'da_xac_nhan',
       ghi_chu_dat_lich: lyDo || (activePlan ? `Đặt lịch trị liệu theo gói ${activePlan.ten_goi_dich_vu}` : (isPlanRec ? 'Đặt lịch trị liệu theo chỉ định y khoa' : 'Lập lịch nhanh tại quầy lễ tân'))
     };
 
     await onSubmitApi(payload);
   };
 
-  const selectedSlot = slotDetails.find(s => s.time === selectedTime);
+  const buoiOptions = (['sang', 'chieu'] as Buoi[]).map(key => {
+    const info = buoiAvailability[key];
+    const daQua = isBuoiDaQua(selectedDate, key);
+    return { key, info, daQua, disabled: daQua || !info.choPhep };
+  });
 
   return (
     <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm p-6 space-y-6 animate-in fade-in duration-300">
@@ -900,31 +769,31 @@ export default function WalkInBookingModal({
               ) : (
                 /* Đã chọn khách hàng profile card */
                 <div className="flex flex-col gap-3">
-                  <div className="bg-emerald-50/30 border border-emerald-100 p-4 rounded-2xl flex justify-between items-center animate-in fade-in duration-200">
+                  <div className="bg-emerald-50/30 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/60 p-4 rounded-2xl flex justify-between items-center animate-in fade-in duration-200">
                     <div className="flex items-center gap-3">
                       <div className="p-2.5 bg-emerald-600 text-white rounded-2xl">
                         <User size={18} />
                       </div>
                       <div>
-                        <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest block">Bệnh nhân liên kết</span>
-                        <span className="text-sm font-black text-slate-800 block mt-0.5">{hoTen}</span>
-                        <span className="text-[10px] text-slate-450 font-semibold block mt-0.5">SĐT liên hệ: {sdt}</span>
+                        <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest block">Bệnh nhân liên kết</span>
+                        <span className="text-sm font-black text-slate-800 dark:text-zinc-100 block mt-0.5">{hoTen}</span>
+                        <span className="text-[10px] text-slate-500 dark:text-zinc-400 font-semibold block mt-0.5">SĐT liên hệ: {sdt}</span>
                       </div>
                     </div>
                     {!initialCustomerId && (
                       <button
                         type="button"
                         onClick={handleClearCustomer}
-                        className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-650 rounded-lg transition-all"
+                        className="px-3 py-1.5 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-700 text-xs font-bold text-slate-700 dark:text-zinc-200 rounded-lg transition-all cursor-pointer"
                       >
                         Chọn khách hàng khác
                       </button>
                     )}
                   </div>
                   {hasReachedLimit && (
-                    <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold p-3.5 rounded-2xl flex items-center gap-2 animate-in fade-in duration-200">
+                    <div className="bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-300 text-xs font-semibold p-3.5 rounded-2xl flex items-center gap-2 animate-in fade-in duration-200">
                       <span>⚠️</span>
-                      <span>Khách đã đặt tối đa 3 dịch vụ 1 ngày. Vui lòng đặt dịch vụ vào 1 ngày khác.</span>
+                      <span>Khách đang có tối đa 3 lịch chưa hoàn thành/chưa hủy. Cần hoàn thành hoặc hủy bớt lịch hiện có trước khi đặt thêm.</span>
                     </div>
                   )}
                 </div>
@@ -936,7 +805,7 @@ export default function WalkInBookingModal({
           {isNewCustomer && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-200">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-500">Họ tên khách hàng *</label>
+                <label className="text-xs font-bold text-slate-500 dark:text-zinc-400">Họ tên khách hàng *</label>
                 <input
                   type="text"
                   placeholder="Nguyễn Văn A"
@@ -945,12 +814,12 @@ export default function WalkInBookingModal({
                     setHoTen(e.target.value);
                     if (newCustomerErrors.hoTen) setNewCustomerErrors(prev => ({ ...prev, hoTen: undefined }));
                   }}
-                  className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-sm outline-none focus:ring-2 transition-all font-semibold ${newCustomerErrors.hoTen ? 'border-rose-300 focus:ring-rose-500/20' : 'border-slate-200 focus:ring-emerald-500/20'}`}
+                  className={`w-full px-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border rounded-xl text-sm outline-none focus:ring-2 transition-all font-semibold text-slate-800 dark:text-zinc-100 ${newCustomerErrors.hoTen ? 'border-rose-300 focus:ring-rose-500/20' : 'border-slate-200 dark:border-zinc-700 focus:ring-emerald-500/20'}`}
                 />
                 {newCustomerErrors.hoTen && <p className="text-rose-500 text-[11px] font-semibold mt-1">{newCustomerErrors.hoTen}</p>}
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-500">Số điện thoại *</label>
+                <label className="text-xs font-bold text-slate-500 dark:text-zinc-400">Số điện thoại *</label>
                 <input
                   type="tel"
                   placeholder="0987654321"
@@ -959,16 +828,16 @@ export default function WalkInBookingModal({
                     setSdt(e.target.value);
                     if (newCustomerErrors.sdt) setNewCustomerErrors(prev => ({ ...prev, sdt: undefined }));
                   }}
-                  className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-sm outline-none focus:ring-2 transition-all font-mono font-semibold ${newCustomerErrors.sdt ? 'border-rose-300 focus:ring-rose-500/20' : 'border-slate-200 focus:ring-emerald-500/20'}`}
+                  className={`w-full px-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border rounded-xl text-sm outline-none focus:ring-2 transition-all font-mono font-semibold text-slate-800 dark:text-zinc-100 ${newCustomerErrors.sdt ? 'border-rose-300 focus:ring-rose-500/20' : 'border-slate-200 dark:border-zinc-700 focus:ring-emerald-500/20'}`}
                 />
                 {newCustomerErrors.sdt && <p className="text-rose-500 text-[11px] font-semibold mt-1 font-sans">{newCustomerErrors.sdt}</p>}
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-500">Giới tính</label>
+                <label className="text-xs font-bold text-slate-500 dark:text-zinc-400">Giới tính</label>
                 <select
                   value={gioiTinh}
                   onChange={e => setGioiTinh(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all font-semibold"
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all font-semibold text-slate-800 dark:text-zinc-100"
                 >
                   <option value="nam">Nam</option>
                   <option value="nu">Nữ</option>
@@ -976,7 +845,7 @@ export default function WalkInBookingModal({
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-500">Email khách hàng *</label>
+                <label className="text-xs font-bold text-slate-500 dark:text-zinc-400">Email khách hàng *</label>
                 <input
                   type="email"
                   placeholder="khachhang@gmail.com"
@@ -985,12 +854,12 @@ export default function WalkInBookingModal({
                     setEmail(e.target.value);
                     if (newCustomerErrors.email) setNewCustomerErrors(prev => ({ ...prev, email: undefined }));
                   }}
-                  className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-sm outline-none focus:ring-2 transition-all font-semibold ${newCustomerErrors.email ? 'border-rose-300 focus:ring-rose-500/20' : 'border-slate-200 focus:ring-emerald-500/20'}`}
+                  className={`w-full px-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border rounded-xl text-sm outline-none focus:ring-2 transition-all font-semibold text-slate-800 dark:text-zinc-100 ${newCustomerErrors.email ? 'border-rose-300 focus:ring-rose-500/20' : 'border-slate-200 dark:border-zinc-700 focus:ring-emerald-500/20'}`}
                 />
                 {newCustomerErrors.email && <p className="text-rose-500 text-[11px] font-semibold mt-1">{newCustomerErrors.email}</p>}
               </div>
               <div className="space-y-1 col-span-1 md:col-span-2">
-                <div className="text-[10px] text-amber-700 bg-amber-50/80 border border-amber-200 p-3 rounded-xl font-bold flex items-start gap-2">
+                <div className="text-[10px] text-amber-700 dark:text-amber-300 bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 p-3 rounded-xl font-bold flex items-start gap-2">
                   <span className="mt-0.5">ℹ️</span>
                   <span>Mật khẩu mặc định là <strong>123456</strong>. Vui lòng xin đúng email thật của khách — đây là email dùng để đăng nhập và xác thực OTP sau này. Các trường khác như địa chỉ khách hàng có thể tự cập nhật sau.</span>
                 </div>
@@ -1001,13 +870,13 @@ export default function WalkInBookingModal({
 
         {/* SĐT có thể sửa đổi nếu cần liên hệ số khác */}
         {!isNewCustomer && selectedCustomer && (
-          <div className="space-y-1 bg-slate-50/50 p-3 rounded-xl border border-slate-100">
-            <label className="text-[10px] font-bold text-slate-450 uppercase tracking-wider block">Số điện thoại liên hệ cho ca hẹn này</label>
+          <div className="space-y-1 bg-slate-50/50 dark:bg-zinc-800/80 p-3 rounded-xl border border-slate-100 dark:border-zinc-700">
+            <label className="text-[10px] font-bold text-slate-400 dark:text-zinc-400 uppercase tracking-wider block">Số điện thoại liên hệ cho ca hẹn này</label>
             <input
               type="tel"
               value={sdt}
               onChange={e => setSdt(e.target.value)}
-              className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all font-mono font-bold mt-1"
+              className="w-full px-3 py-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all font-mono font-bold text-slate-800 dark:text-zinc-100 mt-1"
             />
           </div>
         )}
@@ -1016,16 +885,16 @@ export default function WalkInBookingModal({
         {activeType === 'dieu_tri' && selectedCustomer && treatmentPlans.length > 0 && (
           <div className="space-y-3">
             {/* Sleek collapse-toggle banner */}
-            <div className="bg-emerald-50/65 border border-emerald-250/50 rounded-xl p-3 flex items-center justify-between text-left transition-all">
+            <div className="bg-emerald-50/65 dark:bg-emerald-950/60 border border-emerald-250/50 dark:border-emerald-800/60 rounded-xl p-3 flex items-center justify-between text-left transition-all">
               <div className="flex items-center gap-2.5">
-                <CalendarRange size={16} className="text-emerald-600 shrink-0" />
+                <CalendarRange size={16} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
                 <div className="space-y-0.5">
-                  <h4 className="text-[11px] font-black text-emerald-950">
+                  <h4 className="text-[11px] font-black text-emerald-950 dark:text-emerald-200">
                     {treatmentPlans.some(p => p.trang_thai === 'khuyen_nghi') 
                       ? 'Khách có chỉ định dịch vụ từ Bác sĩ' 
                       : `Khách có gói liệu trình đang hoạt động (${treatmentPlans.length})`}
                   </h4>
-                  <p className="text-[10px] text-emerald-800/80 font-bold">
+                  <p className="text-[10px] text-emerald-800/80 dark:text-emerald-300 font-bold">
                     👉 {treatmentPlans[0].ten_goi_dich_vu}
                   </p>
                 </div>
@@ -1033,9 +902,9 @@ export default function WalkInBookingModal({
               <button
                 type="button"
                 onClick={() => setShowPlansList(!showPlansList)}
-                className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all shadow-sm shrink-0 ${
+                className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all shadow-sm shrink-0 cursor-pointer ${
                   showPlansList 
-                    ? 'bg-zinc-200 hover:bg-zinc-300 text-secondary' 
+                    ? 'bg-zinc-200 dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 hover:bg-zinc-300 dark:hover:bg-zinc-700' 
                     : 'bg-emerald-600 hover:bg-emerald-700 text-white'
                 }`}
               >
@@ -1045,8 +914,8 @@ export default function WalkInBookingModal({
 
             {/* List of plans, rendered conditionally */}
             {showPlansList && (
-              <div className="space-y-3 bg-emerald-50/10 border border-emerald-100/50 p-4 rounded-xl mt-2 animate-in fade-in duration-200">
-                <p className="text-[10px] text-slate-455 font-semibold italic text-left">Chọn gói hoặc chỉ định để tự động điền dịch vụ:</p>
+              <div className="space-y-3 bg-emerald-50/10 dark:bg-zinc-900 border border-emerald-100/50 dark:border-zinc-800 p-4 rounded-xl mt-2 animate-in fade-in duration-200">
+                <p className="text-[10px] text-slate-400 dark:text-zinc-400 font-semibold italic text-left">Chọn gói hoặc chỉ định để tự động điền dịch vụ:</p>
                 
                 <div className="grid grid-cols-1 gap-2">
                   {treatmentPlans.map((plan) => {
@@ -1061,17 +930,17 @@ export default function WalkInBookingModal({
                         onClick={() => (isRec ? goToPackageActivation(plan) : handleSelectPlan(plan))}
                         className={`p-3 border rounded-xl flex items-center justify-between gap-3 transition-all text-left ${
                           isBlocked
-                            ? 'border-rose-200 bg-rose-50/25 cursor-not-allowed'
+                            ? 'border-rose-200 dark:border-rose-900/50 bg-rose-50/25 dark:bg-rose-950/20 cursor-not-allowed'
                             : isSelected
-                              ? 'border-emerald-500 bg-emerald-50/50 ring-2 ring-emerald-500/10 cursor-pointer'
+                              ? 'border-emerald-500 dark:border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/40 ring-2 ring-emerald-500/10 cursor-pointer'
                               : isRec
-                                ? 'border-amber-200 bg-amber-50/10 hover:border-amber-400 cursor-pointer'
-                                : 'border-slate-150 bg-white hover:border-emerald-350 cursor-pointer'
+                                ? 'border-amber-200 dark:border-amber-900/50 bg-amber-50/10 dark:bg-amber-950/20 hover:border-amber-400 cursor-pointer'
+                                : 'border-slate-150 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-emerald-350 dark:hover:border-emerald-600 cursor-pointer'
                         }`}
                       >
                         <div className={isBlocked ? 'opacity-70' : ''}>
                           <div className="flex items-center gap-1.5">
-                            <p className="text-xs font-black text-slate-800">{plan.ten_goi_dich_vu}</p>
+                            <p className="text-xs font-black text-slate-800 dark:text-zinc-100">{plan.ten_goi_dich_vu}</p>
                             {isRec && (
                               <span className="text-[8px] font-bold bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded uppercase">Chỉ định</span>
                             )}
@@ -1201,12 +1070,12 @@ export default function WalkInBookingModal({
           </div>
         </div>
 
-        {/* Chọn khung giờ */}
+        {/* Chọn buổi */}
         <div className="space-y-3">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-1.5">
             <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
               <Clock size={14} className="text-slate-400" />
-              Chọn khung giờ đặt lịch
+              Chọn buổi đặt lịch
             </h4>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Ngày khám:</span>
@@ -1214,7 +1083,7 @@ export default function WalkInBookingModal({
                 value={selectedDate}
                 onChange={(date) => {
                   setSelectedDate(date);
-                  setSelectedTime('');
+                  setSelectedBuoi('');
                   setSelectedDoctorId('');
                   setSelectedRoomId('');
                   if (date && onDateChange) {
@@ -1225,83 +1094,61 @@ export default function WalkInBookingModal({
               />
             </div>
           </div>
-          
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-            {slotDetails.map(slot => {
-              const isSelected = selectedTime === slot.time;
-              const isAvailable = slot.available;
-              
-              let badgeStyle = 'text-slate-400';
-              if (slot.reason === 'Đã qua') badgeStyle = 'text-slate-400';
-              else if (slot.reason === 'Trùng lịch KH') badgeStyle = 'text-rose-500 font-extrabold';
-              else if (slot.reason === 'Hết nhân sự') badgeStyle = 'text-amber-500 font-extrabold';
-              else if (isAvailable) badgeStyle = isSelected ? 'text-white' : 'text-emerald-600 font-bold';
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {buoiOptions.map(({ key, info, daQua, disabled }) => {
+              const isSelected = selectedBuoi === key;
+              const Icon = key === 'sang' ? Sun : Moon;
               return (
                 <button
-                  key={slot.time}
+                  key={key}
                   type="button"
-                  disabled={!isAvailable}
-                  onClick={() => setSelectedTime(slot.time)}
-                  className={`py-2 px-1 rounded-xl border flex flex-col items-center justify-center transition-all ${
-                    isSelected
-                      ? 'bg-emerald-600 border-emerald-600 text-white shadow-md scale-95'
-                      : isAvailable
-                        ? 'bg-white border-slate-200 text-slate-800 hover:border-emerald-300 hover:shadow-sm'
-                        : 'bg-slate-50 border-slate-200/60 opacity-60 cursor-not-allowed'
+                  disabled={disabled}
+                  onClick={() => setSelectedBuoi(key)}
+                  className={`text-left p-4 rounded-2xl border flex items-center gap-3 transition-all ${
+                    disabled
+                      ? 'bg-slate-50 dark:bg-zinc-900/60 border-slate-200/60 dark:border-zinc-800/60 opacity-60 cursor-not-allowed'
+                      : isSelected
+                        ? 'bg-emerald-600 border-emerald-600 text-white shadow-md'
+                        : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-800 dark:text-zinc-100 hover:border-emerald-300 dark:hover:border-emerald-600 hover:shadow-sm cursor-pointer'
                   }`}
                 >
-                  <span className="text-sm font-black font-mono">{slot.time}</span>
-                  <span className={`text-[9px] uppercase tracking-wide mt-0.5 ${badgeStyle}`}>
-                    {slot.reason}
-                  </span>
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                    disabled ? 'bg-slate-200 dark:bg-zinc-700 text-slate-400' : isSelected ? 'bg-white/20 text-white' : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400'
+                  }`}>
+                    <Icon size={16} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-black">{BUOI_INFO[key].label}</p>
+                    <p className={`text-[10px] font-bold mt-0.5 ${isSelected ? 'text-white/80' : 'text-slate-400'}`}>{BUOI_INFO[key].khung}</p>
+                    <p className={`text-[10px] font-black mt-1 ${disabled ? 'text-slate-400' : isSelected ? 'text-white' : 'text-emerald-600'}`}>
+                      {daQua ? 'Đã qua giờ nhận khách' : !info.choPhep ? 'Hết chỗ' : 'Còn chỗ'}
+                    </p>
+                  </div>
                 </button>
               );
             })}
           </div>
         </div>
 
-        {selectedTime && selectedSlot && (
-          <div className="space-y-3">
-            <div className="bg-emerald-50/40 border border-emerald-100 p-4 rounded-2xl flex items-center gap-2 animate-in fade-in duration-200">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-xs font-bold text-emerald-850">
-                {selectedSlot.reason === 'Trùng lịch KH' 
-                  ? 'Bệnh nhân đã có lịch hẹn trùng lặp trong khung giờ này.'
-                  : `Khung giờ khả dụng: Có ${selectedSlot.count} nhân sự sẵn sàng phục vụ.`}
-              </span>
-            </div>
-
-            {isTooClose && (
-              <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-start gap-3 animate-in fade-in duration-200">
-                <span className="text-lg">⚠️</span>
-                <div className="text-xs font-bold text-amber-800 leading-relaxed text-left">
-                  <p className="font-extrabold text-[13px] text-amber-900 mb-0.5">Cảnh báo: Ca hẹn quá gần giờ hiện tại!</p>
-                  <p>Lịch này đang được đặt cách thời gian hiện tại {timeDifferenceMinutes} phút. Vui lòng tự chủ động điều phối trực tiếp nhân sự và chuẩn bị phòng làm việc hợp lý.</p>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
         {/* QUẢN LÝ THÌ MỚI HIỆN PHẦN CHỌN NHÂN SỰ VÀ TỰ ĐỘNG KHÓA PHÒNG TRỰC */}
-        {selectedTime && !isReceptionist && (
+        {selectedBuoi && !isReceptionist && (
           <>
             {/* Chọn Bác Sĩ / KTV (Không bắt buộc) */}
             <div className="space-y-3">
-              <div className="flex justify-between items-center border-b border-slate-100 pb-1.5">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <User size={14} className="text-slate-400" />
+              <div className="flex justify-between items-center border-b border-slate-100 dark:border-zinc-800 pb-1.5">
+                <h4 className="text-xs font-bold text-slate-400 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <User size={14} className="text-slate-400 dark:text-zinc-400" />
                   {isExam ? 'Phân bổ Bác sĩ phụ trách' : 'Phân bổ Kỹ thuật viên phụ trách'}
                 </h4>
-                <span className="text-[10px] text-slate-400 font-semibold italic">(Không bắt buộc)</span>
+                <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-semibold italic">(Không bắt buộc)</span>
               </div>
               
               {selectedDoctorId && (
-                <div className="flex gap-4 p-3 bg-slate-50 rounded-xl border border-slate-200 mb-2">
-                  <span className="text-xs font-bold text-slate-500">Trạng thái ca hẹn:</span>
+                <div className="flex gap-4 p-3 bg-slate-50 dark:bg-zinc-800/80 rounded-xl border border-slate-200 dark:border-zinc-700 mb-2">
+                  <span className="text-xs font-bold text-slate-500 dark:text-zinc-400">Trạng thái ca hẹn:</span>
                   <div className="flex gap-4">
-                    <label className="flex items-center gap-1.5 text-xs font-black cursor-pointer text-slate-700">
+                    <label className="flex items-center gap-1.5 text-xs font-black cursor-pointer text-slate-700 dark:text-zinc-200">
                       <input
                         type="radio"
                         name="bookingStatus"
@@ -1311,7 +1158,7 @@ export default function WalkInBookingModal({
                       />
                       Khách đã đến (Check-in)
                     </label>
-                    <label className="flex items-center gap-1.5 text-xs font-black cursor-pointer text-slate-700">
+                    <label className="flex items-center gap-1.5 text-xs font-black cursor-pointer text-slate-700 dark:text-zinc-200">
                       <input
                         type="radio"
                         name="bookingStatus"
@@ -1326,7 +1173,7 @@ export default function WalkInBookingModal({
               )}
 
               {availableDoctors.length === 0 ? (
-                <div className="text-sm text-slate-400 italic">Không tìm thấy thông tin nhân sự khả dụng.</div>
+                <div className="text-sm text-slate-400 dark:text-zinc-500 italic">Không tìm thấy thông tin nhân sự khả dụng.</div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {availableDoctors.map(doc => {
@@ -1336,11 +1183,13 @@ export default function WalkInBookingModal({
                         key={doc.id}
                         onClick={() => doc.available && setSelectedDoctorId(String(doc.id))}
                         className={`p-3.5 border rounded-2xl flex items-center gap-3 transition-all ${
-                          doc.available 
+                          doc.available
                             ? isSelected
-                              ? 'border-emerald-500 bg-emerald-50/40 ring-2 ring-emerald-500/10 cursor-pointer'
-                              : 'border-slate-150 bg-white hover:border-emerald-300 hover:shadow-sm cursor-pointer'
-                            : 'border-slate-100 bg-slate-50/50 opacity-60 cursor-not-allowed'
+                              ? 'border-emerald-500 dark:border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/40 ring-2 ring-emerald-500/10 cursor-pointer'
+                              : doc.endsEarly
+                                ? 'border-amber-300 dark:border-amber-800/70 bg-amber-50/40 dark:bg-amber-950/20 hover:border-amber-400 hover:shadow-sm cursor-pointer'
+                                : 'border-slate-150 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-emerald-300 dark:hover:border-emerald-600 hover:shadow-sm cursor-pointer'
+                            : 'border-slate-100 dark:border-zinc-800 bg-slate-100/60 dark:bg-zinc-800/60 opacity-60 cursor-not-allowed'
                         }`}
                       >
                         {doc.anh_dai_dien ? (
@@ -1348,26 +1197,28 @@ export default function WalkInBookingModal({
                             src={resolveImageUrl(doc.anh_dai_dien)}
                             alt={doc.ho_ten}
                             className={`w-9 h-9 rounded-full object-cover shrink-0 border-2 ${
-                              isSelected && doc.available ? 'border-emerald-500' : 'border-slate-200'
+                              isSelected && doc.available ? 'border-emerald-500' : 'border-slate-200 dark:border-zinc-700'
                             } ${doc.available ? '' : 'grayscale'}`}
                           />
                         ) : (
                           <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
-                            doc.available ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-555'
+                            doc.available ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300' : 'bg-slate-200 dark:bg-zinc-700 text-slate-500 dark:text-zinc-400'
                           }`}>
                             {isExam ? 'BS' : 'KTV'}
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-black text-slate-800 truncate flex items-center gap-1.5">
+                          <p className="text-xs font-black text-slate-800 dark:text-zinc-100 truncate flex items-center gap-1.5">
                             <span>{doc.ho_ten}</span>
-                            <span className="text-[9px] text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded font-extrabold">{doc.occupiedCount} ca</span>
+                            <span className="text-[9px] text-slate-500 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 px-1.5 py-0.2 rounded font-extrabold">{doc.occupiedCount} ca</span>
                           </p>
-                          <p className="text-[10px] font-semibold text-slate-450 mt-0.5">{doc.reason}</p>
+                          <p className={`text-[10px] font-semibold mt-0.5 ${doc.endsEarly ? 'text-amber-600 dark:text-amber-450 font-black' : 'text-slate-400 dark:text-zinc-400'}`}>
+                            {doc.endsEarly ? `⚠️ ${doc.reason} — chỉ nhận khách đến trước ${doc.gioKetThucTruc}` : doc.reason}
+                          </p>
                         </div>
                         {doc.available && (
                           <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
-                            isSelected ? 'bg-emerald-600 text-white' : 'bg-emerald-100 text-emerald-700'
+                            isSelected ? 'bg-emerald-600 text-white' : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
                           }`}>
                             {isSelected ? 'Đã chọn' : 'Sẵn sàng'}
                           </span>
@@ -1381,14 +1232,14 @@ export default function WalkInBookingModal({
 
             {/* TỰ ĐỘNG KHÓA VÀ HIỂN THỊ PHÒNG TRỰC CỦA CHUYÊN GIA (Không cho chọn thủ công) */}
             <div className="space-y-3">
-              <div className="flex justify-between items-center border-b border-slate-100 pb-1.5">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <MapPin size={14} className="text-slate-400" />
+              <div className="flex justify-between items-center border-b border-slate-100 dark:border-zinc-800 pb-1.5">
+                <h4 className="text-xs font-bold text-slate-400 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <MapPin size={14} className="text-slate-400 dark:text-zinc-400" />
                   Phòng chuyên khoa / trị liệu gán ca trực
                 </h4>
               </div>
 
-              <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl flex justify-between items-center select-none animate-in fade-in duration-200">
+              <div className="bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 p-4 rounded-2xl flex justify-between items-center select-none animate-in fade-in duration-200">
                 <div>
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Phòng trực ca làm việc</span>
                   <span className="text-sm font-black text-slate-800 block mt-0.5">
@@ -1423,7 +1274,7 @@ export default function WalkInBookingModal({
         </button>
         <button
           type="button"
-          disabled={bookingLoading || !selectedTime || !selectedServiceId || (!isNewCustomer && !selectedCustomer) || (!isReceptionist && !selectedDoctorId) || hasReachedLimit || (!!selectedPlan && !isPlanBookable(selectedPlan))}
+          disabled={bookingLoading || !selectedBuoi || !selectedServiceId || (!isNewCustomer && !selectedCustomer) || (!isReceptionist && !selectedDoctorId) || hasReachedLimit || (!!selectedPlan && !isPlanBookable(selectedPlan))}
           onClick={() => {
             const form = document.querySelector('form');
             if (form) form.requestSubmit();

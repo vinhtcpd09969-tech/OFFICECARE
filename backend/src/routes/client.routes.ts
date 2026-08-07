@@ -4,17 +4,13 @@ import {
   createPublicAppointment,
   getCustomerAppointments,
   cancelCustomerAppointment,
-  getBookedSlots,
+  getBuoiAvailability,
   getActiveDoctorDates,
   getPublicServices,
   getPublicAppointmentById,
   getCustomerMedicalRecord,
   getCustomerTreatmentSessions,
-  getCustomerInvoices,
-  confirmOTPAppointment,
-  resendConfirmationEmail,
-  createTempHold,
-  releaseTempHold
+  getCustomerInvoices
 } from '../controllers/appointment.controller';
 import { getPublicArticles, getPublicArticleBySlug } from '../controllers/article.controller';
 import { verifyToken } from '../middlewares/auth.middleware';
@@ -26,10 +22,6 @@ const router = Router();
 
 router.post('/appointments/public', createPublicAppointment);
 router.get('/appointments/public/track/:id', getPublicAppointmentById);
-router.post('/appointments/public/confirm-otp', confirmOTPAppointment);
-router.post('/appointments/public/:id/resend-otp', resendConfirmationEmail);
-router.post('/appointments/hold', createTempHold);
-router.delete('/appointments/hold/:session_id', releaseTempHold);
 
 router.get('/services', async (req, res) => {
   try {
@@ -198,7 +190,7 @@ router.get('/testimonials', async (req, res) => {
 router.get('/articles', getPublicArticles);
 router.get('/articles/:slug', getPublicArticleBySlug);
 
-router.get('/appointments/booked-slots', getBookedSlots);
+router.get('/appointments/buoi-availability', getBuoiAvailability);
 router.get('/appointments/active-doctor-dates', getActiveDoctorDates);
 router.get('/appointments', verifyToken, getCustomerAppointments);
 router.patch('/appointments/:id/cancel', verifyToken, cancelCustomerAppointment);

@@ -1,11 +1,7 @@
 import { Router } from 'express';
 import { verifyToken, authorizeRoles } from '../middlewares/auth.middleware';
-import { resendConfirmationEmail } from '../controllers/appointment.controller';
 import {
-  getTodayAppointments,
-  getDashboardData,
   updateAppointmentStatus,
-  getReceptionistStats,
   createBillingFromAppointment,
   processPayment,
   calculateBilling,
@@ -31,11 +27,7 @@ const router = Router();
 // Tất cả các route trong file này đều yêu cầu đăng nhập
 router.use(verifyToken);
 
-router.get('/today-appointments', authorizeRoles(2, 5), getTodayAppointments);
-router.get('/dashboard', authorizeRoles(2, 5), getDashboardData);
 router.patch('/appointments/:id/status', authorizeRoles(2, 5), updateAppointmentStatus);
-router.post('/appointments/:id/resend-email', authorizeRoles(2, 5), resendConfirmationEmail);
-router.get('/stats', authorizeRoles(2, 5), getReceptionistStats);
 router.post('/billing', authorizeRoles(2, 5), createBillingFromAppointment);
 router.post('/payment', authorizeRoles(2, 5), processPayment);
 router.post('/billing/calculate', authorizeRoles(2, 5), calculateBilling);

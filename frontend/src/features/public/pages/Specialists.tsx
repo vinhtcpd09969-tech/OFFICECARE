@@ -73,7 +73,7 @@ export default function Specialists() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50/50 pb-20 pt-28 font-jakarta">
+    <div className="min-h-screen bg-slate-50/50 pb-20 pt-6 font-jakarta">
       <div className="max-w-7xl mx-auto px-6">
 
         {/* Centered Hero Header */}

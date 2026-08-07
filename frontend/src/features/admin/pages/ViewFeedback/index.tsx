@@ -491,8 +491,8 @@ export default function ViewFeedback() {
         </div>
 
         {/* Rating display */}
-        <div className="flex items-center gap-2 bg-slate-50 dark:bg-zinc-850/30 px-3.5 py-2.5 rounded-xl border border-slate-100 dark:border-zinc-800/80 w-fit">
-          <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider">
+        <div className="flex items-center gap-2 bg-slate-50 dark:bg-zinc-800/60 px-3.5 py-2.5 rounded-xl border border-slate-100 dark:border-zinc-800 w-fit">
+          <span className="text-[9px] font-black text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
             {kind === 'service' ? 'Đánh giá:' : 'Đánh giá KTV:'}
           </span>
           {renderStars((kind === 'service' ? f.so_sao_tong : f.so_sao_ktv) || 0)}
@@ -500,7 +500,7 @@ export default function ViewFeedback() {
 
         {/* Review Text */}
         <div className="relative pt-1.5">
-          <p className="text-[13px] font-semibold text-slate-600 dark:text-zinc-350 leading-relaxed bg-slate-50/50 dark:bg-zinc-850/10 p-4 rounded-2xl border border-slate-100 dark:border-zinc-800/50 italic">
+          <p className="text-[13px] font-semibold text-slate-700 dark:text-zinc-200 leading-relaxed bg-slate-100/60 dark:bg-zinc-800/80 p-4 rounded-2xl border border-slate-200/80 dark:border-zinc-700/80 italic">
             "{censorText(f.nhan_xet) || 'Khách hàng không để lại nhận xét bằng chữ.'}"
           </p>
         </div>
@@ -511,13 +511,13 @@ export default function ViewFeedback() {
 
       {/* Reply section */}
       {f.phan_hoi_nhan_xet ? (
-        <div className="mt-4 p-4 bg-emerald-50/50 dark:bg-emerald-950/10 border-l-2 border-[#0D9488] rounded-r-2xl text-[12px] space-y-1">
+        <div className="mt-4 p-4 bg-emerald-50/50 dark:bg-emerald-950/20 border-l-2 border-[#0D9488] rounded-r-2xl text-[12px] space-y-1">
           <p className="font-extrabold text-slate-800 dark:text-zinc-200">
             Phản hồi từ {f.ten_nguoi_phan_hoi || 'Phòng khám OfficeCare'}:
           </p>
-          <p className="text-slate-655 dark:text-zinc-350 italic">"{f.phan_hoi_nhan_xet}"</p>
+          <p className="text-slate-700 dark:text-zinc-300 italic">"{f.phan_hoi_nhan_xet}"</p>
           {f.ngay_phan_hoi && (
-            <p className="text-[9px] text-zinc-400 font-bold uppercase mt-1">
+            <p className="text-[9px] text-zinc-400 dark:text-zinc-400 font-bold uppercase mt-1">
               Lúc {formatDate(f.ngay_phan_hoi)}
             </p>
           )}
@@ -527,7 +527,7 @@ export default function ViewFeedback() {
                 setReplyingId(f.id);
                 setReplyText(f.phan_hoi_nhan_xet || '');
               }}
-              className="text-[9px] font-black uppercase text-primary hover:text-emerald-700 mt-2 block cursor-pointer"
+              className="text-[9px] font-black uppercase text-primary dark:text-teal-400 hover:text-emerald-700 dark:hover:text-teal-300 mt-2 block cursor-pointer"
             >
               Sửa phản hồi
             </button>
@@ -540,7 +540,7 @@ export default function ViewFeedback() {
               setReplyingId(f.id);
               setReplyText(f.de_xuat_phan_hoi || '');
             }}
-            className="mt-4 text-xs font-black uppercase text-primary hover:text-teal-700 flex items-center gap-1 cursor-pointer select-none"
+            className="mt-4 text-xs font-black uppercase text-primary dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 flex items-center gap-1 cursor-pointer select-none"
           >
             💬 Phản hồi đánh giá
           </button>
@@ -548,7 +548,7 @@ export default function ViewFeedback() {
       )}
 
       {replyingId === f.id && (
-        <div className="mt-4 space-y-3 p-4 bg-slate-50 dark:bg-zinc-850/20 rounded-2xl border border-slate-200/40">
+        <div className="mt-4 space-y-3 p-4 bg-slate-50 dark:bg-zinc-800/50 rounded-2xl border border-slate-200/40 dark:border-zinc-700">
           {replyText && replyText === f.de_xuat_phan_hoi && (
             <div className="flex items-center justify-between gap-2">
               <span className="text-[9px] font-black uppercase text-teal-650 dark:text-teal-400">🤖 AI đã soạn sẵn — chỉnh sửa nếu cần</span>
@@ -612,31 +612,31 @@ export default function ViewFeedback() {
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       {/* Premium Header Banner */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-slate-900 via-teal-950 to-slate-900 dark:from-zinc-900 dark:via-teal-950/60 dark:to-zinc-900 rounded-[32px] p-7 md:p-9 text-white shadow-xl border border-teal-800/30">
+      <div className="relative overflow-hidden bg-gradient-to-r from-[#0D9488] via-teal-700 to-[#14B8A6] dark:from-teal-900 dark:via-teal-800 dark:to-teal-900 rounded-[32px] p-7 md:p-9 text-white shadow-xl border border-teal-500/30">
         {/* Ambient Light Glow Effects */}
-        <div className="absolute -top-24 -right-24 w-72 h-72 bg-teal-500/20 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -top-24 -right-24 w-72 h-72 bg-white/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-emerald-400/20 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-1.5">
             <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white flex items-center gap-3">
-              <MessageSquare className="text-teal-400" size={28} />
+              <MessageSquare className="text-teal-100" size={28} />
               Quản Lý Đánh Giá & Phản Hồi
             </h1>
-            <p className="text-xs text-teal-100/80 font-medium max-w-2xl leading-relaxed">
+            <p className="text-xs text-teal-50/90 font-medium max-w-2xl leading-relaxed">
               Tổng hợp và quản lý ý kiến phản hồi của khách hàng về chất lượng dịch vụ trị liệu & đội ngũ chuyên môn y khoa.
             </p>
           </div>
 
-          <div className="flex items-center gap-4 bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-4 shrink-0">
+          <div className="flex items-center gap-4 bg-white/15 backdrop-blur-md border border-white/25 rounded-2xl p-4 shrink-0 shadow-sm">
             <div className="text-center px-2">
-              <p className="text-[9px] font-black uppercase tracking-wider text-teal-200/80">Điểm Dịch Vụ</p>
-              <p className="text-xl font-black text-white mt-0.5">{serviceStats.avg} <span className="text-xs text-teal-300/60 font-semibold">/ 5★</span></p>
+              <p className="text-[9px] font-black uppercase tracking-wider text-teal-100">Điểm Dịch Vụ</p>
+              <p className="text-xl font-black text-white mt-0.5">{serviceStats.avg} <span className="text-xs text-teal-100/70 font-semibold">/ 5★</span></p>
             </div>
-            <div className="w-px h-8 bg-white/20" />
+            <div className="w-px h-8 bg-white/25" />
             <div className="text-center px-2">
-              <p className="text-[9px] font-black uppercase tracking-wider text-teal-200/80">Điểm KTV</p>
-              <p className="text-xl font-black text-white mt-0.5">{staffStats.avg} <span className="text-xs text-teal-300/60 font-semibold">/ 5★</span></p>
+              <p className="text-[9px] font-black uppercase tracking-wider text-teal-100">Điểm KTV</p>
+              <p className="text-xl font-black text-white mt-0.5">{staffStats.avg} <span className="text-xs text-teal-100/70 font-semibold">/ 5★</span></p>
             </div>
           </div>
         </div>
@@ -806,7 +806,7 @@ export default function ViewFeedback() {
               <select
                 value={selectedService}
                 onChange={(e) => setSelectedService(e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-zinc-850 border border-slate-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:border-primary text-slate-700 dark:text-zinc-200 font-semibold cursor-pointer"
+                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:border-primary text-slate-700 dark:text-zinc-200 font-semibold cursor-pointer"
               >
                 {uniqueServices.map((svc) => (
                   <option key={svc} value={svc}>{svc}</option>
@@ -821,7 +821,7 @@ export default function ViewFeedback() {
               <select
                 value={selectedSpecialist}
                 onChange={(e) => setSelectedSpecialist(e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-zinc-850 border border-slate-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:border-primary text-slate-700 dark:text-zinc-200 font-semibold cursor-pointer"
+                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:border-primary text-slate-700 dark:text-zinc-200 font-semibold cursor-pointer"
               >
                 {uniqueSpecialists.map((spec) => (
                   <option key={spec} value={spec}>{spec}</option>
@@ -836,7 +836,7 @@ export default function ViewFeedback() {
           <select
             value={selectedStars}
             onChange={(e) => setSelectedStars(e.target.value)}
-            className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-zinc-850 border border-slate-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:border-primary text-slate-700 dark:text-zinc-200 font-semibold cursor-pointer"
+            className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:border-primary text-slate-700 dark:text-zinc-200 font-semibold cursor-pointer"
           >
             <option value="Tất cả">Tất cả sao</option>
             <option value="5">⭐⭐⭐⭐⭐ (5 sao)</option>
@@ -852,7 +852,7 @@ export default function ViewFeedback() {
           <select
             value={selectedSentiment}
             onChange={(e) => setSelectedSentiment(e.target.value)}
-            className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-zinc-850 border border-slate-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:border-primary text-slate-700 dark:text-zinc-200 font-semibold cursor-pointer"
+            className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:border-primary text-slate-700 dark:text-zinc-200 font-semibold cursor-pointer"
           >
             <option value="Tất cả">Tất cả cảm xúc</option>
             <option value="POSITIVE">🤖 Tích cực</option>
@@ -866,7 +866,7 @@ export default function ViewFeedback() {
           <select
             value={selectedResponseStatus}
             onChange={(e) => setSelectedResponseStatus(e.target.value)}
-            className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-zinc-850 border border-slate-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:border-primary text-slate-700 dark:text-zinc-200 font-semibold cursor-pointer"
+            className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:border-primary text-slate-700 dark:text-zinc-200 font-semibold cursor-pointer"
           >
             <option value="Tất cả">Tất cả trạng thái</option>
             <option value="pending">⏳ Chờ duyệt / AI soạn</option>

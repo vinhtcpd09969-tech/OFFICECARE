@@ -1,12 +1,28 @@
 import { useState, useEffect, useMemo } from 'react';
-import { X, Calendar, Clock, User, ArrowRight } from 'lucide-react';
+import { X, Calendar, Clock, User, ArrowRight, Sun, Moon } from 'lucide-react';
 import { useAuthStore } from '../../../../../stores/authStore';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { resolveImageUrl } from '../../../../../utils/imageUrl';
-import { convertToVietnamUtcIso } from '../../../../../utils/date';
 import api from '../../../../../api/axios';
 import { CustomDatePicker } from '../../../../../components/CustomDatePicker';
+
+type Buoi = 'sang' | 'chieu';
+const BUOI_INFO: Record<Buoi, { label: string; khung: string; ketThuc: string }> = {
+  sang: { label: 'Buổi sáng', khung: '7:30 - 12:00', ketThuc: '12:00' },
+  chieu: { label: 'Buổi chiều', khung: '12:00 - 19:30', ketThuc: '19:30' }
+};
+
+/** Mirror `isBuoiDaQua` phía backend/domain/capacity.ts. */
+function isBuoiDaQua(dateStr: string, buoi: Buoi): boolean {
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  if (dateStr < todayStr) return true;
+  if (dateStr > todayStr) return false;
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const [h, m] = BUOI_INFO[buoi].ketThuc.split(':').map(Number);
+  return nowMinutes >= h * 60 + m;
+}
 
 interface BookNextSessionModalProps {
   pkg: {
@@ -16,6 +32,15 @@ interface BookNextSessionModalProps {
   };
   sessionNum: number;
   onClose: () => void;
+}
+
+interface BuoiNhanSu {
+  id: number;
+  ho_ten: string;
+  anh_dai_dien: string | null;
+  caTruc: string;
+  conLaiSang: number;
+  conLaiChieu: number;
 }
 
 export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessionModalProps) {
@@ -33,22 +58,18 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
   const [selectedDate, setSelectedDate] = useState<string>(getTodayString());
   const [sdt, setSdt] = useState<string>(user?.so_dien_thoai || '');
   const [selectedStaffId, setSelectedStaffId] = useState<string>('');
-  const [selectedTime, setSelectedTime] = useState<string>('');
+  const [selectedBuoi, setSelectedBuoi] = useState<Buoi | ''>('');
   const [lyDo, setLyDo] = useState<string>(`Đặt lịch buổi trị liệu số ${sessionNum} theo gói ${pkg.ten_dich_vu}.`);
-  const [specialists, setSpecialists] = useState<any[]>([]);
-  const [slotAvailability, setSlotAvailability] = useState<Record<string, number[]>>({});
-  // "Sức chứa còn lại" thật của slot (đã trừ luôn ca "chờ gán" chưa nêu tên) — khác slotAvailability
-  // (chỉ liệt kê nhân sự chưa bị gán TÊN cụ thể, dùng để chọn chuyên gia). Thiếu bookedSlots thì UI
-  // có thể hiện 1 slot "còn trống" dù thực ra hết sức chứa, khách chọn xong mới bị server từ chối.
-  const [bookedSlots, setBookedSlots] = useState<string[]>([]);
+  const [nhanSu, setNhanSu] = useState<BuoiNhanSu[]>([]);
+  const [buoiAvailability, setBuoiAvailability] = useState<{
+    sang: { conLaiChung: number; choPhep: boolean };
+    chieu: { conLaiChung: number; choPhep: boolean };
+  }>({ sang: { conLaiChung: 0, choPhep: false }, chieu: { conLaiChung: 0, choPhep: false } });
   const [loadingSlots, setLoadingSlots] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   // Thời lượng gói dịch vụ (lấy động từ API)
   const [duration, setDuration] = useState<number>(75);
-
-  // Lịch sử cuộc hẹn trong ngày của khách hàng để check trùng lịch KH cục bộ
-  const [customerDayApts, setCustomerDayApts] = useState<any[]>([]);
 
   // Trạng thái cho hộp thoại xác nhận 2 lớp
   const [showConfirmStep, setShowConfirmStep] = useState<boolean>(false);
@@ -57,7 +78,7 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
   useEffect(() => {
     const fetchPackageDuration = async () => {
       try {
-        const res = await api.get('/packages');
+        const res = await api.get('/client/packages');
         const list = res.data || [];
         const matched = list.find((p: any) => p.id === pkg.goi_dich_vu_id);
         if (matched && matched.thoi_luong_phut) {
@@ -70,130 +91,60 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
     fetchPackageDuration();
   }, [pkg.goi_dich_vu_id]);
 
-  // 2. Tải danh sách lịch hẹn của khách hàng trong ngày được chọn để check trùng lịch
-  useEffect(() => {
-    if (!selectedDate || !user?.id) return;
-    const fetchCustomerAppointments = async () => {
-      try {
-        const res = await api.get('/client/appointments');
-        const list = res.data || [];
-        const filtered = list.filter((apt: any) => {
-          try {
-            const aptDateStr = new Date(apt.ngay_gio_bat_dau).toLocaleDateString('en-CA');
-            return aptDateStr === selectedDate && apt.trang_thai !== 'da_huy';
-          } catch (e) {
-            return false;
-          }
-        });
-        setCustomerDayApts(filtered);
-      } catch (err) {
-        console.error('Lỗi khi tải lịch hẹn của khách hàng:', err);
-      }
-    };
-    fetchCustomerAppointments();
-  }, [selectedDate, user?.id]);
-
-  // 3. Tải danh sách ca trống và chuyên gia từ API khi thay đổi ngày hoặc thời lượng
+  // 2. Tải sức chứa 2 buổi (A1) khi đổi ngày
   useEffect(() => {
     if (!selectedDate) return;
-
     setLoadingSlots(true);
     const userId = user?.id || '';
     const phone = sdt || user?.so_dien_thoai || '';
-    const url = `/client/appointments/booked-slots?date=${selectedDate}&userId=${userId}&phone=${phone}&duration=${duration}&dichVuId=${pkg.goi_dich_vu_id}`;
+    const url = `/client/appointments/buoi-availability?date=${selectedDate}&userId=${userId}&phone=${phone}&dichVuId=${pkg.goi_dich_vu_id}`;
 
     api.get(url)
       .then((res: any) => {
-        setSpecialists(res.data.specialists || []);
-        setSlotAvailability(res.data.slotAvailability || {});
-        setBookedSlots(res.data.bookedSlots || []);
-        // Reset lựa chọn giờ và nhân viên nếu đổi ngày
-        setSelectedTime('');
+        setBuoiAvailability({ sang: res.data.sang, chieu: res.data.chieu });
+        setNhanSu(res.data.nhanSu || []);
+        setSelectedBuoi('');
         setSelectedStaffId('');
       })
       .catch((err: any) => {
-        console.error('Lỗi khi tải lịch trống:', err);
-        toast.error('Không thể tải lịch trống cho ngày này.');
+        console.error('Lỗi khi tải sức chứa buổi:', err);
+        toast.error('Không thể tải sức chứa cho ngày này.');
       })
       .finally(() => {
         setLoadingSlots(false);
       });
-  }, [selectedDate, duration, user?.id, pkg.goi_dich_vu_id]);
+  }, [selectedDate, user?.id, sdt, user?.so_dien_thoai, pkg.goi_dich_vu_id]);
 
-  // 4. Danh sách các khung giờ sinh động dựa trên kết quả trả về từ slotAvailability
-  const timeSlots = useMemo(() => {
-    return Object.keys(slotAvailability).sort();
-  }, [slotAvailability]);
+  const buoiOptions = useMemo(() => (['sang', 'chieu'] as Buoi[]).map((key) => {
+    const info = buoiAvailability[key];
+    const daQua = isBuoiDaQua(selectedDate, key);
+    return { key, info, daQua, disabled: daQua || !info.choPhep };
+  }), [buoiAvailability, selectedDate]);
 
-  // 5. Tính toán chi tiết trạng thái của từng slot (Đã qua, Trùng lịch KH, Hết nhân sự, khả dụng)
-  const slotDetails = useMemo(() => {
-    const now = new Date();
-    const todayStr = now.toLocaleDateString('en-CA');
-    const isToday = selectedDate === todayStr;
-    const isPastDate = selectedDate < todayStr;
-    const currentVal = now.getHours() * 60 + now.getMinutes();
-
-    return timeSlots.map((time) => {
-      // a. Kiểm tra ngày giờ quá khứ
-      if (isPastDate) {
-        return { time, available: false, reason: 'ĐÃ QUA' };
-      }
-
-      const [sh, sm] = time.split(':').map(Number);
-      const slotVal = sh * 60 + sm;
-      if (isToday && slotVal < currentVal) {
-        return { time, available: false, reason: 'ĐÃ QUA' };
-      }
-
-      // b. Kiểm tra trùng lịch hẹn của bệnh nhân
-      const slotStart = new Date(`${selectedDate}T${time}:00`);
-      const slotEnd = new Date(slotStart.getTime() + duration * 60000);
-
-      const hasCustOverlap = customerDayApts.some((apt) => {
-        const s2 = new Date(apt.ngay_gio_bat_dau).getTime();
-        const e2 = new Date(apt.ngay_gio_ket_thuc).getTime();
-        return slotStart.getTime() < e2 && slotEnd.getTime() > s2;
-      });
-
-      if (hasCustOverlap) {
-        return { time, available: false, reason: 'TRÙNG LỊCH KH' };
-      }
-
-      // c. Kiểm tra sức chứa thật của slot — bookedSlots đã trừ luôn ca "chờ gán" chưa nêu tên cụ
-      // thể (slotAvailability chỉ lọc theo tên, không phản ánh đủ sức chứa còn lại).
-      if (bookedSlots.includes(time)) {
-        return { time, available: false, reason: 'HẾT NHÂN SỰ' };
-      }
-
-      const availableStaffs = slotAvailability[time] || [];
-      const finalCount = availableStaffs.length;
-
-      if (finalCount === 0) {
-        return { time, available: false, reason: 'HẾT NHÂN SỰ' };
-      }
-
-      return {
-        time,
-        available: true,
-        count: finalCount,
-        reason: `CÒN ${finalCount} NV`
-      };
-    });
-  }, [timeSlots, selectedDate, customerDayApts, slotAvailability, bookedSlots, duration]);
-
-  // 6. Lọc danh sách nhân viên khả dụng cho ca giờ được chọn
-  const availableSpecialistsForSelectedTime = useMemo(() => {
-    if (!selectedTime) return [];
-    const freeStaffIds = slotAvailability[selectedTime] || [];
-    return specialists.map((staff) => {
-      const isFree = freeStaffIds.includes(staff.id);
+  // Lọc danh sách nhân viên còn đủ chỗ riêng cho buổi được chọn
+  const availableSpecialistsForSelectedBuoi = useMemo(() => {
+    if (!selectedBuoi) return [];
+    return nhanSu.map((staff) => {
+      const conLai = selectedBuoi === 'sang' ? staff.conLaiSang : staff.conLaiChieu;
+      const isFree = conLai >= duration;
       return {
         ...staff,
         available: isFree,
-        reason: isFree ? 'Sẵn sàng' : 'Không trực / Bận ca này'
+        reason: isFree ? `Trực ${staff.caTruc}` : 'Không đủ chỗ trong buổi này'
       };
     });
-  }, [selectedTime, slotAvailability, specialists]);
+  }, [selectedBuoi, nhanSu, duration]);
+
+  const formatStaffName = (name?: string) => {
+    if (!name) return '';
+    const clean = name.replace(/^(ktv\.|bác sĩ|bs\.|dr\.|ktv)\s*/i, '').trim();
+    return `KTV. ${clean}`;
+  };
+
+  const selectedStaffObject = useMemo(() => {
+    if (!selectedStaffId) return null;
+    return nhanSu.find((s) => String(s.id) === String(selectedStaffId)) || null;
+  }, [selectedStaffId, nhanSu]);
 
   const handleOpenConfirm = (e: React.FormEvent) => {
     e.preventDefault();
@@ -201,21 +152,22 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
       toast.error('Vui lòng chọn ngày điều trị.');
       return;
     }
-    if (!selectedTime) {
-      toast.error('Vui lòng chọn khung giờ.');
+    if (!selectedBuoi) {
+      toast.error('Vui lòng chọn buổi điều trị.');
       return;
     }
     setShowConfirmStep(true);
   };
 
   const handleConfirmSubmit = async () => {
+    if (!selectedBuoi) return;
     setIsSubmitting(true);
     const toastId = toast.loading('Đang khởi tạo lịch hẹn trị liệu...');
-    const ngay_gio_bat_dau = convertToVietnamUtcIso(selectedDate, selectedTime);
 
     try {
       const payload = {
-        ngay_gio_bat_dau,
+        ngay: selectedDate,
+        buoi: selectedBuoi,
         khach_hang_id: user?.id,
         ho_ten_khach: user?.ho_ten || 'Khách hàng',
         so_dien_thoai: sdt,
@@ -234,9 +186,6 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
       if (response.status === 200 || response.status === 201) {
         toast.success('Khởi tạo lịch hẹn thành công!', { id: toastId });
         onClose();
-        // Đưa khách về thẳng trang quản lý lịch hẹn của chính họ để xác thực OTP ngay trên thẻ lịch
-        // hẹn (không còn chuyển qua trang /booking/success — đó là luồng đặt lịch công khai, không
-        // dành cho khách đã đăng nhập). Kèm ngày hẹn để trang tự chuyển view hiển thị đúng buổi mới.
         navigate(`/appointments?date=${selectedDate}`);
       } else {
         toast.error('Không thể đặt lịch hẹn. Vui lòng thử lại.', { id: toastId });
@@ -361,12 +310,12 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
               </div>
             </div>
 
-            {/* 3. CHỌN KHUNG GIỜ ĐẶT LỊCH */}
+            {/* 3. CHỌN BUỔI ĐẶT LỊCH */}
             <div className="space-y-3.5">
               <div className="flex justify-between items-center border-b border-zinc-100 dark:border-zinc-850 pb-1">
                 <h4 className="text-xs font-extrabold text-zinc-400 dark:text-zinc-550 uppercase tracking-widest flex items-center gap-1.5">
                   <Clock size={14} className="text-zinc-400" />
-                  Chọn khung giờ đặt lịch
+                  Chọn buổi đặt lịch
                 </h4>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Ngày khám:</span>
@@ -375,7 +324,7 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
                     minDate={getTodayString()}
                     onChange={(date) => {
                       setSelectedDate(date);
-                      setSelectedTime('');
+                      setSelectedBuoi('');
                       setSelectedStaffId('');
                     }}
                     className="w-36"
@@ -385,44 +334,42 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
 
               {loadingSlots ? (
                 <div className="py-8 text-center text-sm text-zinc-450 animate-pulse font-bold">
-                  Đang quét và tính toán các khung giờ trống...
-                </div>
-              ) : slotDetails.length === 0 ? (
-                <div className="py-8 text-center text-xs text-zinc-400 italic">
-                  Không tìm thấy khung giờ hoạt động khả dụng cho ngày được chọn.
+                  Đang tính toán sức chứa các buổi...
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2">
-                  {slotDetails.map((slot) => {
-                    const isSelected = selectedTime === slot.time;
-                    const isAvailable = slot.available;
-
-                    let badgeStyle = 'text-zinc-400';
-                    if (slot.reason === 'ĐÃ QUA') badgeStyle = 'text-zinc-400 dark:text-zinc-650';
-                    else if (slot.reason === 'TRÙNG LỊCH KH') badgeStyle = 'text-rose-500 font-extrabold';
-                    else if (slot.reason === 'HẾT NHÂN SỰ') badgeStyle = 'text-amber-500 font-extrabold';
-                    else if (isAvailable) badgeStyle = isSelected ? 'text-white' : 'text-emerald-600 dark:text-emerald-400 font-black';
-
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {buoiOptions.map(({ key, info, daQua, disabled }) => {
+                    const isSelected = selectedBuoi === key;
+                    const Icon = key === 'sang' ? Sun : Moon;
                     return (
                       <button
-                        key={slot.time}
+                        key={key}
                         type="button"
-                        disabled={!isAvailable}
+                        disabled={disabled}
                         onClick={() => {
-                          setSelectedTime(slot.time);
-                          setSelectedStaffId(''); // Reset chuyên gia khi chọn giờ mới
+                          setSelectedBuoi(key);
+                          setSelectedStaffId('');
                         }}
-                        className={`py-2 px-1 rounded-2xl border flex flex-col items-center justify-center transition-all ${isSelected
-                            ? 'bg-emerald-600 border-emerald-600 text-white shadow-md scale-95'
-                            : isAvailable
-                              ? 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 hover:border-emerald-350 dark:hover:border-emerald-700 hover:shadow-xs'
-                              : 'bg-zinc-50 dark:bg-zinc-900/60 border-zinc-150 dark:border-zinc-850 opacity-60 cursor-not-allowed'
-                          }`}
+                        className={`text-left p-4 rounded-2xl border flex items-center gap-3 transition-all ${
+                          disabled
+                            ? 'bg-zinc-50 dark:bg-zinc-900/60 border-zinc-150 dark:border-zinc-850 opacity-60 cursor-not-allowed'
+                            : isSelected
+                              ? 'bg-emerald-600 border-emerald-600 text-white shadow-md scale-[0.99]'
+                              : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 hover:border-emerald-350 dark:hover:border-emerald-700 hover:shadow-xs cursor-pointer'
+                        }`}
                       >
-                        <span className="text-sm font-black font-mono">{slot.time}</span>
-                        <span className={`text-[9px] uppercase tracking-wider mt-0.5 ${badgeStyle}`}>
-                          {slot.reason}
-                        </span>
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                          disabled ? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-400' : isSelected ? 'bg-white/20 text-white' : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400'
+                        }`}>
+                          <Icon size={16} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-black">{BUOI_INFO[key].label}</p>
+                          <p className={`text-[10px] font-bold mt-0.5 ${isSelected ? 'text-white/80' : 'text-zinc-400'}`}>{BUOI_INFO[key].khung}</p>
+                          <p className={`text-[10px] font-black mt-1 ${disabled ? 'text-zinc-400' : isSelected ? 'text-white' : 'text-emerald-600'}`}>
+                            {daQua ? 'Đã qua giờ nhận khách' : !info.choPhep ? 'Hết chỗ' : 'Còn chỗ'}
+                          </p>
+                        </div>
                       </button>
                     );
                   })}
@@ -431,7 +378,7 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
             </div>
 
             {/* 4. PHÂN BỔ NHÂN VIÊN TRỰC */}
-            {selectedTime && (
+            {selectedBuoi && (
               <div className="space-y-3.5 animate-in fade-in duration-300">
                 <div className="flex justify-between items-center border-b border-zinc-100 dark:border-zinc-850 pb-1">
                   <h4 className="text-xs font-extrabold text-zinc-400 dark:text-zinc-550 uppercase tracking-widest flex items-center gap-1.5">
@@ -460,7 +407,7 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
                   </div>
 
                   {/* Available Specialists list */}
-                  {availableSpecialistsForSelectedTime.map((staff) => {
+                  {availableSpecialistsForSelectedBuoi.map((staff) => {
                     const isSelected = selectedStaffId === String(staff.id);
                     const isAvailable = staff.available;
 
@@ -471,7 +418,7 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
                           if (isAvailable) {
                             setSelectedStaffId(String(staff.id));
                           } else {
-                            toast.error(`${staff.ho_ten} không rảnh trong khung giờ này.`);
+                            toast.error(`${staff.ho_ten} không đủ chỗ trong buổi này.`);
                           }
                         }}
                         className={`p-3 border rounded-2xl flex items-center gap-3 transition-all ${!isAvailable
@@ -494,11 +441,11 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
                         )}
                         <div className="min-w-0">
                           <span className="text-xs font-black text-zinc-800 dark:text-zinc-200 block truncate">
-                            KTV. {staff.ho_ten}
+                            {formatStaffName(staff.ho_ten)}
                           </span>
                           <span className={`text-[9.5px] font-semibold mt-0.5 block ${isAvailable ? 'text-teal-600 dark:text-teal-400' : 'text-zinc-400'
                             }`}>
-                            {staff.ca_truc}
+                            {staff.reason}
                           </span>
                         </div>
                       </div>
@@ -514,15 +461,15 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs font-extrabold text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 transition-colors uppercase tracking-wider"
+              className="px-5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs font-extrabold text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 transition-colors uppercase tracking-wider cursor-pointer"
             >
               Hủy
             </button>
             <button
               type="button"
-              disabled={!selectedTime || isSubmitting}
+              disabled={!selectedBuoi || isSubmitting}
               onClick={handleOpenConfirm}
-              className="px-6 py-2.5 rounded-xl bg-primary hover:bg-[#25A89C] disabled:bg-zinc-200 dark:disabled:bg-zinc-800 disabled:text-zinc-400 text-white text-xs font-black transition-colors uppercase tracking-wider flex items-center gap-1.5 shadow-sm"
+              className="px-6 py-2.5 rounded-xl bg-primary hover:bg-[#25A89C] disabled:bg-zinc-200 dark:disabled:bg-zinc-800 disabled:text-zinc-400 text-white text-xs font-black transition-colors uppercase tracking-wider flex items-center gap-1.5 shadow-sm cursor-pointer"
             >
               <span>Đặt lịch hẹn</span>
               <ArrowRight size={14} />
@@ -538,24 +485,70 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
 
           <div className="space-y-2">
             <h4 className="font-heading text-lg font-black text-secondary dark:text-zinc-200">Xác nhận lịch hẹn của bạn</h4>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed font-semibold">
               Bạn có chắc chắn muốn đặt lịch cho buổi tiếp theo của phác đồ này không?
             </p>
           </div>
 
-          <div className="p-4 bg-zinc-50 dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-850 text-left space-y-2.5">
+          <div className="p-4 md:p-5 bg-slate-50/80 dark:bg-zinc-900/80 rounded-2xl border border-slate-200/80 dark:border-zinc-800 text-left space-y-3.5">
             <div>
-              <span className="text-[10px] text-zinc-450 dark:text-zinc-500 uppercase font-black tracking-wider block">Gói dịch vụ</span>
-              <span className="text-xs font-bold text-zinc-850 dark:text-zinc-300">{pkg.ten_dich_vu}</span>
+              <span className="text-[10px] text-slate-400 dark:text-zinc-500 uppercase font-black tracking-widest block">Gói dịch vụ</span>
+              <span className="text-xs md:text-sm font-extrabold text-slate-900 dark:text-zinc-100 mt-0.5 block">{pkg.ten_dich_vu}</span>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+
+            <div className="grid grid-cols-2 gap-4 pt-1 border-t border-slate-200/60 dark:border-zinc-800/60">
               <div>
-                <span className="text-[10px] text-zinc-450 dark:text-zinc-500 uppercase font-black tracking-wider block">Buổi điều trị</span>
-                <span className="text-xs font-bold text-primary">Buổi số {sessionNum}</span>
+                <span className="text-[10px] text-slate-400 dark:text-zinc-500 uppercase font-black tracking-widest block">Buổi điều trị</span>
+                <span className="text-xs font-black text-[#0D9488] mt-0.5 block">Buổi số {sessionNum}</span>
               </div>
               <div>
-                <span className="text-[10px] text-zinc-450 dark:text-zinc-500 uppercase font-black tracking-wider block">Thời gian đặt</span>
-                <span className="text-xs font-bold text-zinc-850 dark:text-zinc-300">{selectedTime} · {getFormattedDate()}</span>
+                <span className="text-[10px] text-slate-400 dark:text-zinc-500 uppercase font-black tracking-widest block">Thời gian đặt</span>
+                <span className="text-xs font-extrabold text-slate-800 dark:text-zinc-200 mt-0.5 block">
+                  {selectedBuoi ? BUOI_INFO[selectedBuoi].label : ''} · {getFormattedDate()}
+                </span>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-slate-200/60 dark:border-zinc-800/60">
+              <span className="text-[10px] text-slate-400 dark:text-zinc-500 uppercase font-black tracking-widest block mb-1.5">Kỹ thuật viên phụ trách</span>
+              <div className="flex items-center gap-3 bg-white dark:bg-zinc-950 p-2.5 rounded-xl border border-slate-200/70 dark:border-zinc-800 shadow-2xs">
+                {selectedStaffObject ? (
+                  <>
+                    {selectedStaffObject.anh_dai_dien ? (
+                      <img
+                        src={resolveImageUrl(selectedStaffObject.anh_dai_dien)}
+                        alt={selectedStaffObject.ho_ten}
+                        className="w-9 h-9 rounded-full object-cover border border-teal-200/80 shrink-0"
+                      />
+                    ) : (
+                      <div className="w-9 h-9 rounded-full bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 flex items-center justify-center font-black text-xs shrink-0">
+                        {selectedStaffObject.ho_ten?.split(' ').pop()?.substring(0, 2).toUpperCase() || 'KTV'}
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <span className="text-xs font-extrabold text-slate-900 dark:text-zinc-100 block truncate">
+                        {formatStaffName(selectedStaffObject.ho_ten)}
+                      </span>
+                      <span className="text-[10px] text-teal-600 dark:text-teal-400 font-bold block">
+                        {selectedStaffObject.caTruc || 'Chuyên gia trị liệu'}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700 flex items-center justify-center font-black text-[9px] shrink-0">
+                      AUTO
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-xs font-extrabold text-slate-900 dark:text-zinc-100 block truncate">
+                        Hệ thống tự động điều phối
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-medium block">
+                        Chỉ định KTV sẵn sàng khi đến ca
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>

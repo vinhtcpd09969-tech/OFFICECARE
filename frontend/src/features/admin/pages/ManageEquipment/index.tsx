@@ -747,58 +747,58 @@ export default function ManageEquipment() {
       {/* Modal: Add / Edit Equipment */}
       {isEquipmentModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white border border-slate-100 shadow-xl max-w-md w-full flex flex-col rounded-2xl animate-scale-up">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-xl max-w-md w-full flex flex-col rounded-2xl animate-scale-up">
             {/* Modal Header */}
-            <div className="border-b border-slate-100 bg-slate-50 px-6 py-4 flex justify-between items-center rounded-t-2xl">
+            <div className="border-b border-slate-100 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50 px-6 py-4 flex justify-between items-center rounded-t-2xl">
               <div>
-                <span className="text-[10px] font-black text-indigo-655 uppercase tracking-widest block mb-0.5">
+                <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest block mb-0.5">
                   {editingEquipment ? 'Hạ tầng y tế' : 'Đăng ký thiết bị'}
                 </span>
-                <h3 className="font-extrabold text-sm text-slate-800 uppercase tracking-wider">
+                <h3 className="font-extrabold text-sm text-slate-800 dark:text-zinc-100 uppercase tracking-wider">
                   {editingEquipment ? 'Hiệu chỉnh thiết bị' : 'Thêm thiết bị mới'}
                 </h3>
               </div>
               <button
                 onClick={() => setIsEquipmentModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 transition-colors font-bold text-sm cursor-pointer"
+                className="text-slate-400 dark:text-zinc-400 hover:text-slate-600 dark:hover:text-zinc-200 transition-colors font-bold text-sm cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
             {/* Modal Form */}
-            <form onSubmit={handleEquipmentSubmit} className="p-6 space-y-4 text-slate-800 text-xs rounded-b-2xl">
+            <form onSubmit={handleEquipmentSubmit} className="p-6 space-y-4 text-slate-800 dark:text-zinc-200 text-xs rounded-b-2xl">
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Mã thiết bị (Độc nhất)</label>
+                <label className="block text-[10px] font-black text-slate-400 dark:text-zinc-400 uppercase tracking-widest mb-1.5">Mã thiết bị (Độc nhất)</label>
                 <input
                   type="text"
                   required
                   placeholder="Ví dụ: LASER-01, SHOCK-02..."
                   value={equipmentFormData.ma_thiet_bi}
                   onChange={(e) => setEquipmentFormData({ ...equipmentFormData, ma_thiet_bi: e.target.value })}
-                  className="w-full border border-slate-200 p-2.5 font-bold rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500/10 transition-colors"
+                  className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 p-2.5 font-bold rounded-xl text-slate-800 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-slate-500/10 transition-colors"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Tên thiết bị</label>
+                <label className="block text-[10px] font-black text-slate-400 dark:text-zinc-400 uppercase tracking-widest mb-1.5">Tên thiết bị</label>
                 <input
                   type="text"
                   required
                   placeholder="Ví dụ: Máy Laser trị liệu công suất cao..."
                   value={equipmentFormData.ten_thiet_bi}
                   onChange={(e) => setEquipmentFormData({ ...equipmentFormData, ten_thiet_bi: e.target.value })}
-                  className="w-full border border-slate-200 p-2.5 font-bold rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500/10 transition-colors"
+                  className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 p-2.5 font-bold rounded-xl text-slate-800 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-slate-500/10 transition-colors"
                 />
               </div>
 
               {editingEquipment && (
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Trạng thái</label>
+                  <label className="block text-[10px] font-black text-slate-400 dark:text-zinc-400 uppercase tracking-widest mb-1.5">Trạng thái</label>
                   <select
                     value={equipmentFormData.trang_thai}
                     onChange={(e) => setEquipmentFormData({ ...equipmentFormData, trang_thai: e.target.value })}
-                    className="w-full border border-slate-200 p-2.5 font-bold rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500/10 transition-colors cursor-pointer"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 p-2.5 font-bold rounded-xl text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-slate-500/10 transition-colors cursor-pointer"
                   >
                     <option value="dang_su_dung">Đang sử dụng</option>
                     <option value="dang_bao_tri">Đang bảo trì</option>
@@ -807,7 +807,7 @@ export default function ManageEquipment() {
               )}
 
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Ngày mua</label>
+                <label className="block text-[10px] font-black text-slate-400 dark:text-zinc-400 uppercase tracking-widest mb-1.5">Ngày mua</label>
                 <CustomDatePicker
                   value={equipmentFormData.ngay_mua}
                   onChange={(val) => setEquipmentFormData({ ...equipmentFormData, ngay_mua: val })}
@@ -815,28 +815,28 @@ export default function ManageEquipment() {
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Ghi chú / Mô tả</label>
+                <label className="block text-[10px] font-black text-slate-400 dark:text-zinc-400 uppercase tracking-widest mb-1.5">Ghi chú / Mô tả</label>
                 <textarea
                   value={equipmentFormData.ghi_chu}
                   onChange={(e) => setEquipmentFormData({ ...equipmentFormData, ghi_chu: e.target.value })}
                   placeholder="Thông tin chi tiết về tình trạng máy..."
                   rows={3}
-                  className="w-full border border-slate-200 p-2.5 font-semibold rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500/10 transition-colors"
+                  className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 p-2.5 font-semibold rounded-xl text-slate-800 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-slate-500/10 transition-colors"
                 />
               </div>
 
               {/* Action buttons */}
-              <div className="flex gap-3 justify-end pt-4 border-t border-slate-100">
+              <div className="flex gap-3 justify-end pt-4 border-t border-slate-100 dark:border-zinc-800">
                 <button
                   type="button"
                   onClick={() => setIsEquipmentModalOpen(false)}
-                  className="px-4 py-2 border border-slate-250 text-slate-500 text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-slate-50 transition-colors"
+                  className="px-4 py-2 border border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 text-xs font-bold uppercase tracking-wider rounded-xl transition-colors"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold uppercase tracking-wider transition-colors rounded-xl active:scale-95"
+                  className="px-6 py-2 bg-slate-900 dark:bg-teal-600 hover:bg-slate-800 dark:hover:bg-teal-500 text-white text-xs font-bold uppercase tracking-wider transition-colors rounded-xl active:scale-95"
                 >
                   {editingEquipment ? 'Lưu thông tin' : 'Thêm mới'}
                 </button>

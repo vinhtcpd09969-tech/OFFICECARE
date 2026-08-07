@@ -2,10 +2,13 @@
  * Quy tắc chuyển trạng thái lịch hẹn dành riêng cho Lễ tân trên UI — mirror 1:1 với
  * `backend/src/domain/appointmentStatus.ts` (2 phía không dùng chung runtime nên phải trùng
  * lặp thủ công; sửa bên nào nhớ sửa bên kia).
+ *
+ * A10 (06/08/2026): bỏ hẳn khái niệm "chưa xác nhận"/"chờ xác nhận" — mọi lịch vào thẳng
+ * `da_xac_nhan` lúc tạo (Phase 1), nên Lễ tân không còn hành động "Xác nhận" nào cả.
  */
-import { UNCONFIRMED_STATUSES, CHECKED_IN_STATUSES, CANCELLED_STATUSES, NO_SHOW_STATUSES } from '../../../utils/appointmentKpi';
+import { CHECKED_IN_STATUSES, CANCELLED_STATUSES, NO_SHOW_STATUSES } from '../../../utils/appointmentKpi';
 
-const IN_PROGRESS_LOCKED_STATUSES = [...CHECKED_IN_STATUSES, 'dang_kham', 'hoan_thanh'];
+const IN_PROGRESS_LOCKED_STATUSES = [...CHECKED_IN_STATUSES, 'dang_kham', 'cho_tai_luong_gia', 'hoan_thanh'];
 const TERMINAL_STATUSES = [...CANCELLED_STATUSES, ...NO_SHOW_STATUSES];
 
 export interface ReceptionistStatusOption {
@@ -30,26 +33,13 @@ export function isReceptionistLockedStatus(currentStatus: string): boolean {
 
 /**
  * Danh sách hành động Lễ tân được chọn từ `currentStatus` hiện tại, kèm nhãn hiển thị.
- * Giai đoạn "chưa xác nhận" luôn chỉ có 2 lựa chọn Xác nhận/Hủy — nút "Xác nhận" trỏ tới giá trị
- * khác nhau tùy nhân sự đã gán hay chưa (đã gán -> da_xac_nhan; chưa -> cho_xac_nhan, tức "lễ
- * tân đã xác nhận phần của mình, đẩy bóng qua Quản lý phân bổ nhân sự").
+ * Lịch mới luôn ở `da_xac_nhan` — Lễ tân chỉ còn Check-in/Không đến/Hủy; mọi trạng thái sau đó
+ * bị khóa (xem `isReceptionistLockedStatus`).
  */
 export function getReceptionistActionOptions(
   currentStatus: string,
-  hasAssignedStaff: boolean
+  _hasAssignedStaff: boolean
 ): ReceptionistStatusOption[] {
-  if (UNCONFIRMED_STATUSES.includes(currentStatus)) {
-    const options: ReceptionistStatusOption[] = [];
-    const confirmTarget = hasAssignedStaff ? 'da_xac_nhan' : 'cho_xac_nhan';
-    // Nếu lịch đã ở đúng trạng thái confirmTarget rồi (vd: đã ở cho_xac_nhan, vẫn chưa gán bác sĩ)
-    // thì "Xác nhận" là hành động rỗng — không đổi gì, chỉ gây hiểu lầm là bấm xong có tác dụng.
-    // Phải gán nhân sự/phòng thật (form riêng bên dưới) mới có gì để chuyển tiếp.
-    if (confirmTarget !== currentStatus) {
-      options.push({ value: confirmTarget, label: 'Xác nhận' });
-    }
-    options.push({ value: 'da_huy', label: 'Hủy' });
-    return options;
-  }
   if (currentStatus === 'da_xac_nhan') {
     return [
       { value: 'da_checkin', label: 'Check-in' },

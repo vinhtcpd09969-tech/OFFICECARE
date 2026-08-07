@@ -50,12 +50,12 @@ export function RoomCard({ room }: RoomCardProps) {
   return (
     <Link 
       to={`/admin/rooms/${room.id}`}
-      className={`border bg-gradient-to-br from-white to-slate-50/50 p-6 rounded-2xl transition-all duration-300 hover:shadow-xl hover:-translate-y-1 relative flex flex-col justify-between group overflow-hidden ${
+      className={`border bg-white dark:bg-zinc-900 p-6 rounded-2xl transition-all duration-300 hover:shadow-xl hover:-translate-y-1 relative flex flex-col justify-between group overflow-hidden ${
         isUnderMaintenance 
-          ? 'border-amber-200/80 hover:border-amber-400' 
+          ? 'border-amber-200/80 dark:border-amber-900/60 hover:border-amber-400' 
           : isOccupied 
-            ? 'border-cyan-200/80 hover:border-cyan-400'
-            : 'border-slate-200/60 hover:border-teal-500'
+            ? 'border-cyan-200/80 dark:border-cyan-900/60 hover:border-cyan-400'
+            : 'border-slate-200/60 dark:border-zinc-800 hover:border-teal-500'
       }`}
     >
       {/* Visual patterns */}
@@ -69,12 +69,12 @@ export function RoomCard({ room }: RoomCardProps) {
       </div>
 
       <div className="z-10 w-full">
-        <div className="flex justify-between items-start border-b border-slate-100/80 pb-4 mb-4">
+        <div className="flex justify-between items-start border-b border-slate-100/80 dark:border-zinc-800 pb-4 mb-4">
           <div className="space-y-1">
-            <span className="bg-slate-900 text-white font-mono text-[9px] font-black px-2.5 py-1 rounded-md uppercase tracking-wider">
+            <span className="bg-slate-900 dark:bg-zinc-800 text-white dark:text-zinc-200 font-mono text-[9px] font-black px-2.5 py-1 rounded-md uppercase tracking-wider">
               {room.ma_phong || 'Chưa có mã'}
             </span>
-            <h3 className="text-lg font-black text-slate-800 tracking-tight mt-2.5 group-hover:text-teal-900 transition-colors">
+            <h3 className="text-lg font-black text-slate-800 dark:text-zinc-100 tracking-tight mt-2.5 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
               {room.ten_phong}
             </h3>
           </div>
@@ -86,15 +86,15 @@ export function RoomCard({ room }: RoomCardProps) {
 
         {/* Status Badge */}
         <div className="flex justify-between items-center mb-4">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Trạng thái</span>
+          <span className="text-[10px] font-bold text-slate-400 dark:text-zinc-400 uppercase tracking-widest">Trạng thái</span>
           <span className={`inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg border ${
             isAvailable 
-              ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+              ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' 
               : isOccupied 
-                ? 'bg-cyan-50 text-cyan-700 border-cyan-200' 
+                ? 'bg-cyan-50 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-300 border-cyan-200 dark:border-cyan-800' 
                 : room.trang_thai === 'ngung_hoat_dong'
-                  ? 'bg-rose-50 text-rose-700 border-rose-200'
-                  : 'bg-amber-50 text-amber-700 border-amber-200'
+                  ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800'
+                  : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
           }`}>
             <span className={`w-1.5 h-1.5 rounded-full ${
               isAvailable 
@@ -110,22 +110,22 @@ export function RoomCard({ room }: RoomCardProps) {
         </div>
 
         {room.mo_ta && (
-          <p className="text-xs text-slate-505 font-medium leading-relaxed line-clamp-2 mb-4 bg-slate-50/50 p-2.5 rounded-xl border border-slate-100/50">
+          <p className="text-xs text-slate-600 dark:text-zinc-300 font-medium leading-relaxed line-clamp-2 mb-4 bg-slate-50/50 dark:bg-zinc-800/50 p-2.5 rounded-xl border border-slate-100/50 dark:border-zinc-700/60">
             {room.mo_ta}
           </p>
         )}
       </div>
 
-      <div className="flex items-center justify-between border-t border-slate-100/80 pt-4 mt-4 z-10">
-        <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-bold">
-          <Users className="w-3.5 h-3.5 text-slate-400" />
+      <div className="flex items-center justify-between border-t border-slate-100/80 dark:border-zinc-800 pt-4 mt-4 z-10">
+        <div className="flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-zinc-400 font-bold">
+          <Users className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-400" />
           <span>
             {room.loai_phong === 'phong_tri_lieu' || room.loai_phong === 'tri_lieu'
               ? `Giường tối đa: ${room.suc_chua || 1}` 
               : `Sức chứa: ${room.suc_chua || 1} bác sĩ`}
           </span>
         </div>
-        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-teal-800 transition-colors flex items-center gap-1">
+        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-400 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors flex items-center gap-1">
           Cấu hình phòng <span className="transform translate-x-0 group-hover:translate-x-1.5 transition-transform">→</span>
         </span>
       </div>

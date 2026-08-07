@@ -52,7 +52,7 @@ export default function Hero() {
   };
 
   return (
-    <section className="relative pt-20 pb-10 lg:pt-24 lg:pb-12 bg-gradient-to-b from-teal-500/10 via-white to-slate-50/70 dark:from-teal-950/20 dark:via-slate-900 dark:to-slate-950/70 overflow-hidden font-sans transition-colors">
+    <section className="relative pt-6 pb-10 lg:pt-8 lg:pb-12 bg-gradient-to-b from-teal-500/10 via-white to-slate-50/70 dark:from-teal-950/20 dark:via-slate-900 dark:to-slate-950/70 overflow-hidden font-sans transition-colors">
       {/* Decorative Subtle Background Aura */}
       <div className="absolute top-10 left-1/4 w-96 h-96 bg-teal-400/10 rounded-full filter blur-[100px] pointer-events-none" />
       <div className="absolute bottom-4 right-10 w-[450px] h-[450px] bg-[#2EC4B6]/10 rounded-full filter blur-[120px] pointer-events-none" />

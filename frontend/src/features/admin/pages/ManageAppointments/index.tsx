@@ -1,17 +1,13 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Calendar as CalendarIcon,
   CalendarDays,
-  Settings,
-  ChevronLeft
+  Settings
 } from 'lucide-react';
 import { format, addDays, isSameDay } from 'date-fns';
-import { vi } from 'date-fns/locale';
-import { motion, AnimatePresence } from 'framer-motion';
 
 // Import Components
-import AppointmentCalendar from '../../../../components/appointments/AppointmentCalendar';
 import AppointmentDetailModal from '../../../../components/appointments/DetailModal';
 import TreatmentBookingModal from '../../../../components/appointments/TreatmentBookingModal';
 import WalkInBookingModal from '../../../../components/WalkInBookingModal';
@@ -21,14 +17,11 @@ import { useAppointmentsData } from '../../../../components/appointments/hooks/u
 import { useAppointmentActions } from '../../../../components/appointments/hooks/useAppointmentActions';
 import { AppointmentKpiCards } from '../../../../components/appointments/ui/AppointmentKpiCards';
 import { AppointmentsFilterBar } from '../../../../components/appointments/ui/AppointmentsFilterBar';
-import { DoctorWorkloadPanel } from '../../../../components/appointments/ui/DoctorWorkloadPanel';
-import { UnassignedPanel } from '../../../../components/appointments/ui/UnassignedPanel';
 import { CapacityView } from '../../../../components/appointments/ui/CapacityView';
-import { statusConfig } from '../../../../components/appointmentStatusConfig';
+import { TodayFlowBoard } from '../../../../components/appointments/ui/TodayFlowBoard';
 import { computeAppointmentKpiBuckets, KPI_BUCKET_STATUSES, KPI_BUCKET_LABELS, AppointmentKpiBuckets } from '../../../../utils/appointmentKpi';
-import { getSmartSearchScore } from '../../../../utils/smartSearch';
 import { ActiveFilterChip } from '../../../../components/appointments/ui/ActiveFilterChip';
-import { RoleView, ViewMode, TimeRange } from '../../../../components/appointments/types';
+import { RoleView, ViewMode } from '../../../../components/appointments/types';
 
 // Import Local Components
 import { CommandPalette } from './CommandPalette';
@@ -102,7 +95,6 @@ export default function ManageAppointments() {
   });
 
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
   const focusTimerRef = useRef<any>(null);
 
   // Local Filter for staff/doctor in Timeline view
@@ -164,8 +156,8 @@ export default function ManageAppointments() {
     scrollToAppointment,
     cancelReason,
     setCancelReason,
-    selectedTimeSlot,
-    setSelectedTimeSlot,
+    selectedBuoi,
+    setSelectedBuoi,
     rescheduleDate,
     setRescheduleDate
   } = useAppointmentActions({
@@ -341,42 +333,6 @@ export default function ManageAppointments() {
   const activeRole = activeType === 'kham' ? 'Bác sĩ' : 'Kỹ thuật viên';
   const formattedSelectedDate = format(startDate, 'yyyy-MM-dd');
 
-  const removeAccents = (str: string) => {
-    return (str || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  };
-
-  const filteredAppointments = appointmentsToUse.filter(apt => {
-    const aptDate = new Date(apt.ngay_gio_bat_dau || '');
-    let matchDate = false;
-
-    if (viewMode === 'timeline') {
-      const aptDateStr = format(aptDate, 'yyyy-MM-dd');
-      const startStr = format(startDate, 'yyyy-MM-dd');
-      matchDate = aptDateStr === startStr;
-    } else {
-      const startBound = new Date(startDate);
-      startBound.setHours(0, 0, 0, 0);
-      const endBound = new Date(endDate);
-      endBound.setHours(23, 59, 59, 999);
-      matchDate = aptDate >= startBound && aptDate <= endBound;
-    }
-
-    const matchType = activeType === 'kham'
-      ? apt.loai_lich === 'kham_moi'
-      : (apt.loai_lich === 'dieu_tri' || apt.loai_lich === 'dich_vu_don');
-    
-    const cleanSearch = removeAccents(searchTerm);
-    const matchSearch = searchTerm === '' ||
-      getSmartSearchScore(apt.ten_khach_hang || '', searchTerm) > 0 ||
-      removeAccents(apt.ma_lich_dat).includes(cleanSearch) ||
-      (apt.so_dien_thoai || '').includes(searchTerm.trim());
-
-    const matchStaff = !selectedStaffFilter || String(apt.bac_si_id) === String(selectedStaffFilter);
-    const matchStatus = !statusFilter || KPI_BUCKET_STATUSES[statusFilter].includes(apt.trang_thai);
-
-    return matchDate && matchType && matchSearch && matchStaff && matchStatus && apt.trang_thai !== 'giu_cho';
-  });
-
   const getKpiAppointments = () => {
     const matchType = (apt: any) => activeType === 'kham'
       ? apt.loai_lich === 'kham_moi'
@@ -387,7 +343,7 @@ export default function ManageAppointments() {
     if (viewMode === 'timeline') {
       return appointmentsToUse.filter(apt => {
         const aptDateStr = format(new Date(apt.ngay_gio_bat_dau || ''), 'yyyy-MM-dd');
-        return aptDateStr === formattedSelectedDate && matchType(apt) && filterByStaff(apt) && apt.trang_thai !== 'giu_cho';
+        return aptDateStr === formattedSelectedDate && matchType(apt) && filterByStaff(apt);
       });
     } else {
       const startBound = new Date(startDate);
@@ -396,7 +352,7 @@ export default function ManageAppointments() {
       endBound.setHours(23, 59, 59, 999);
       return appointmentsToUse.filter(apt => {
         const aptDate = new Date(apt.ngay_gio_bat_dau || '');
-        return aptDate >= startBound && aptDate <= endBound && matchType(apt) && filterByStaff(apt) && apt.trang_thai !== 'giu_cho';
+        return aptDate >= startBound && aptDate <= endBound && matchType(apt) && filterByStaff(apt);
       });
     }
   };
@@ -405,53 +361,43 @@ export default function ManageAppointments() {
 
   const kpis = computeAppointmentKpiBuckets(kpiAppointments);
 
-  const unassignedAppointments = appointmentsToUse
-    .filter(apt => {
-      const aptDateStr = format(new Date(apt.ngay_gio_bat_dau || ''), 'yyyy-MM-dd');
-      const isSelectedDate = aptDateStr === formattedSelectedDate;
-      const isClinical = apt.loai_lich === 'kham_moi' || apt.loai_lich === 'dich_vu_don';
-      const isWaitingForAssignment = apt.trang_thai === 'cho_xac_nhan';
-      const hasNoDoctor = !apt.bac_si_id;
-      return isSelectedDate && isClinical && isWaitingForAssignment && hasNoDoctor;
-    })
-    .sort((a, b) => new Date(a.ngay_gio_bat_dau || '').getTime() - new Date(b.ngay_gio_bat_dau || '').getTime());
+  // A5 — 1 màn hình duy nhất cho mọi ngày đơn lẻ, dùng chung với Lễ tân: viewMode 'timeline' (dù
+  // đang xem hôm nay hay ngày khác) luôn dùng TodayFlowBoard (nhóm dòng chảy) — không còn rơi về
+  // AppointmentCalendar cũ (dạng slot-giờ). Chỉ "Bảng công suất" (nhiều ngày) mới khác, có 8 thẻ KPI
+  // + danh sách tổng hợp riêng — đúng góp ý "lễ tân và admin xem lịch không khác gì nhau".
+  const isCapacityView = viewMode === 'capacity';
 
+  const dayAppointmentsForBoard = useMemo(() => {
+    const dayStr = format(startDate, 'yyyy-MM-dd');
+    return appointmentsToUse.filter((apt) => format(new Date(apt.ngay_gio_bat_dau || ''), 'yyyy-MM-dd') === dayStr);
+  }, [appointmentsToUse, startDate]);
+
+  const handleQuickCheckin = async (apt: any) => {
+    await handleUpdateAppointmentFields(String(apt.id), { trang_thai: 'da_checkin' }, `Đã check-in cho ${apt.ten_khach_hang || apt.ho_ten_khach || 'khách hàng'}`);
+  };
+
+  // Chỉ còn kiểm tra CA TRỰC — bỏ kiểm tra "trùng giờ" giữa 2 lịch hẹn của cùng nhân sự.
+  // Lý do: từ khi đặt lịch chuyển sang mô hình theo BUỔI, mọi lịch hẹn trong cùng 1 buổi đều
+  // mang cùng mốc ngay_gio_bat_dau/ngay_gio_ket_thuc NOMINAL, nên 1 nhân sự có ≥2 lịch trong
+  // cùng buổi là bình thường (phục vụ tuần tự qua hàng đợi), không phải xung đột.
   const getIsDoctorUnavailable = (apt: any, doc: any) => {
     if (!doc) return false;
-    
+
     const aptDate = new Date(apt.ngay_gio_bat_dau);
     const aptDateStr = `${aptDate.getFullYear()}-${String(aptDate.getMonth() + 1).padStart(2, '0')}-${String(aptDate.getDate()).padStart(2, '0')}`;
-    
-    const staffSchedules = schedulesToUse.filter(s => 
-      String(s.nguoi_dung_id) === String(doc.id) && 
+
+    const staffSchedules = schedulesToUse.filter(s =>
+      String(s.nguoi_dung_id) === String(doc.id) &&
       s.ngay === aptDateStr
     );
 
     const activeSchedule = staffSchedules.find(s => s.trang_thai === 'hoat_dong');
-    if (!activeSchedule) return true;
-
-    const isOverlapping = (start1: string, end1: string, start2: string, end2: string) => {
-      const s1 = new Date(start1).getTime();
-      const e1 = new Date(end1).getTime();
-      const s2 = new Date(start2).getTime();
-      const e2 = new Date(end2).getTime();
-      return s1 < e2 && e1 > s2;
-    };
-
-    const isOccupied = appointmentsToUse.some(otherApt => 
-      otherApt.id !== apt.id && 
-      otherApt.trang_thai !== 'da_huy' &&
-      otherApt.trang_thai !== 'khong_den' &&
-      String(otherApt.bac_si_id) === String(doc.id) &&
-      isOverlapping(apt.ngay_gio_bat_dau, apt.ngay_gio_ket_thuc, otherApt.ngay_gio_bat_dau, otherApt.ngay_gio_ket_thuc)
-    );
-
-    return isOccupied;
+    return !activeSchedule;
   };
 
   const managerMascotApts = appointmentsToUse.filter(apt => {
     const isClinical = apt.loai_lich === 'kham_moi' || apt.loai_lich === 'dich_vu_don';
-    const isActive = ['cho_xac_nhan', 'da_xac_nhan'].includes(apt.trang_thai);
+    const isActive = apt.trang_thai === 'da_xac_nhan';
     if (!isClinical || !isActive) return false;
 
     const hasNoDoctor = !apt.bac_si_id;
@@ -495,76 +441,20 @@ export default function ManageAppointments() {
     }
   }, [location.search, mascotTargetAppointments, scrollToAppointment, navigate, location.pathname, loading, setIsWalkInModalOpen]);
 
-  const periodLabel = viewMode === 'timeline'
-    ? 'Hôm nay'
-    : 'Bảng công suất';
-
   const targetWorkloadRole = activeType === 'kham' ? 'Bác sĩ' : 'Kỹ thuật viên';
-  const doctorWorkloads = staffToUse
-    .filter(s => s.vai_tro === targetWorkloadRole)
-    .map(doc => {
-      let hasShift = false;
-      let occupiedCount = 0;
-      let maxSlots = 16;
 
-      if (viewMode === 'timeline') {
-        const docSchedules = schedulesToUse.filter(s =>
-          String(s.nguoi_dung_id) === String(doc.id) &&
-          s.ngay === formattedSelectedDate &&
-          s.trang_thai === 'hoat_dong'
-        );
-        hasShift = docSchedules.length > 0;
-
-        const docApts = appointmentsToUse.filter(apt => {
-          const assignedId = apt.bac_si_id || apt.chuyen_gia_id;
-          return String(assignedId) === String(doc.id) &&
-            format(new Date(apt.ngay_gio_bat_dau || ''), 'yyyy-MM-dd') === formattedSelectedDate &&
-            apt.trang_thai !== 'da_huy' &&
-            apt.trang_thai !== 'khong_den' &&
-            apt.trang_thai !== 'giu_cho';
-        });
-        occupiedCount = docApts.length;
-      } else {
-        const startBound = new Date(startDate);
-        startBound.setHours(0, 0, 0, 0);
-        const endBound = new Date(endDate);
-        endBound.setHours(23, 59, 59, 999);
-
-        const docSchedules = schedulesToUse.filter(s => {
-          if (String(s.nguoi_dung_id) !== String(doc.id) || s.trang_thai !== 'hoat_dong') return false;
-          const shiftDate = new Date(s.ngay);
-          return shiftDate >= startBound && shiftDate <= endBound;
-        });
-
-        const docApts = appointmentsToUse.filter(apt => {
-          const assignedId = apt.bac_si_id || apt.chuyen_gia_id;
-          if (String(assignedId) !== String(doc.id)) return false;
-          const aptDate = new Date(apt.ngay_gio_bat_dau || '');
-          return aptDate >= startBound && aptDate <= endBound &&
-            apt.trang_thai !== 'da_huy' &&
-            apt.trang_thai !== 'khong_den' &&
-            apt.trang_thai !== 'giu_cho';
-        });
-
-        hasShift = docSchedules.length > 0 || docApts.length > 0;
-        occupiedCount = docApts.length;
-        const activeDays = new Set(docSchedules.map(s => s.ngay)).size;
-        maxSlots = Math.max(activeDays * 16, 16);
-      }
-
-      const percentage = maxSlots > 0 ? Math.min(Math.round((occupiedCount / maxSlots) * 100), 100) : 0;
-
-      return {
-        id: doc.id,
-        chuyen_gia_id: String(doc.id),
-        name: doc.ho_ten,
-        hasShift,
-        occupiedCount,
-        maxSlots,
-        percentage
-      };
-    })
-    .filter(doc => doc.hasShift);
+  // Danh sách nhân sự đang trực đúng ngày đang xem — nguồn cho dropdown lọc trong TodayFlowBoard
+  // (thay cho card DoctorWorkloadPanel cũ). Chỉ có ý nghĩa ở màn hình 1 ngày (viewMode timeline).
+  const onDutyStaffOptions = useMemo(() => {
+    return staffToUse
+      .filter((s) => s.vai_tro === targetWorkloadRole)
+      .filter((doc) => schedulesToUse.some((s) =>
+        String(s.nguoi_dung_id) === String(doc.id) &&
+        s.ngay === formattedSelectedDate &&
+        s.trang_thai === 'hoat_dong'
+      ))
+      .map((doc) => ({ id: String(doc.id), name: doc.ho_ten }));
+  }, [staffToUse, schedulesToUse, targetWorkloadRole, formattedSelectedDate]);
 
   const commandShortcuts = [
     {
@@ -615,6 +505,7 @@ export default function ManageAppointments() {
           document.body.classList.add('dark');
           localStorage.setItem('theme', 'dark');
         }
+        window.dispatchEvent(new Event('theme-change'));
       }
     }
   ];
@@ -630,16 +521,20 @@ export default function ManageAppointments() {
 
   return (
     <div className="space-y-6 max-w-full font-jakarta">
-      {/* KPI METRIC CARDS */}
-      <AppointmentKpiCards
-        role="admin"
-        kpis={kpis}
-        viewMode={viewMode}
-        timeRange="custom"
-        activeType={activeType}
-        activeStatusFilter={statusFilter}
-        onSelectStatus={setStatusFilter}
-      />
+      {/* KPI METRIC CARDS — chỉ hiện ở "Bảng công suất" (nhiều ngày): statusFilter mà các thẻ này
+          set không tác động tới TodayFlowBoard (bảng dòng chảy có anchor-nav riêng, cố ý không lọc
+          theo trạng thái — cùng lý do đã áp cho ReceptionistAppointments). */}
+      {isCapacityView && (
+        <AppointmentKpiCards
+          role="admin"
+          kpis={kpis}
+          viewMode={viewMode}
+          timeRange="custom"
+          activeType={activeType}
+          activeStatusFilter={statusFilter}
+          onSelectStatus={setStatusFilter}
+        />
+      )}
 
           <AppointmentsFilterBar
             startDate={startDate}
@@ -655,12 +550,10 @@ export default function ManageAppointments() {
             setViewMode={setViewMode}
           />
 
-          {/* MAIN WORKBOARD GRID */}
-          <div className="flex flex-col lg:flex-row gap-6 items-start">
-            
-            {/* Left Content Area */}
-            <div className="flex-1 w-full min-w-0">
-              {selectedStaffFilter && (
+          {/* MAIN WORKBOARD — full-width, không còn sidebar riêng (bộ lọc nhân sự đã chuyển vào
+              dropdown ngay trong TodayFlowBoard, cạnh Sức khỏe ca). */}
+          <div className="w-full">
+            {selectedStaffFilter && (
                 <div className="mb-4">
                   <ActiveFilterChip
                     label={`Lịch ${activeType === 'kham' ? 'Bác sĩ' : 'Kỹ thuật viên'}: ${staffToUse.find(s => String(s.id) === String(selectedStaffFilter))?.ho_ten || 'Chuyên gia'}`}
@@ -669,7 +562,7 @@ export default function ManageAppointments() {
                 </div>
               )}
 
-              {statusFilter && (
+              {isCapacityView && statusFilter && (
                 <div className="mb-4">
                   <ActiveFilterChip
                     label={`Đang lọc: ${KPI_BUCKET_LABELS[statusFilter]}`}
@@ -710,20 +603,20 @@ export default function ManageAppointments() {
               ) : (
                 <>
                   {viewMode === 'timeline' && (
-                    <AppointmentCalendar
-                      appointments={filteredAppointments}
-                      statusConfig={statusConfig}
-                      handleOpenDetailModal={handleOpenDetailModal}
+                    <TodayFlowBoard
+                      appointments={dayAppointmentsForBoard}
+                      activeType={activeType}
+                      searchTerm={searchTerm}
                       staffList={staffToUse}
                       schedulesList={schedulesToUse}
-                      allAppointments={appointmentsToUse}
                       selectedDateStr={formattedSelectedDate}
-                      onOpenWalkInModal={(time) => {
-                        setWalkInTime(time);
-                        setIsWalkInModalOpen(true);
-                      }}
-                      onUpdateAppointment={handleUpdateAppointmentFields}
-                      viewMode="admin"
+                      onOpenDetailModal={handleOpenDetailModal}
+                      onQuickCheckin={handleQuickCheckin}
+                      onOpenWalkInModal={() => setIsWalkInModalOpen(true)}
+                      focusAppointmentId={new URLSearchParams(location.search).get('appointmentId') || undefined}
+                      staffFilterId={selectedStaffFilter}
+                      staffFilterOptions={onDutyStaffOptions}
+                      onStaffFilterChange={setSelectedStaffFilter}
                     />
                   )}
 
@@ -756,64 +649,6 @@ export default function ManageAppointments() {
                   )}
                 </>
               )}
-            </div>
-
-            {/* Right Sidebar (Collapsible) */}
-            {!isWalkInModalOpen && (
-              <div className="relative shrink-0 flex items-stretch min-h-[400px]">
-                <button
-                  type="button"
-                  onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                  className="absolute -left-3 top-1/2 -translate-y-1/2 z-20 w-6 h-12 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 hover:border-teal-500 rounded-full flex items-center justify-center text-slate-500 hover:text-teal-600 shadow-sm transition-all focus:outline-none"
-                >
-                  <span className="text-[10px] font-black">{isSidebarOpen ? '❯' : '❮'}</span>
-                </button>
-
-                {isSidebarOpen ? (
-                  <div className="w-80 border-l border-slate-100 dark:border-zinc-800 pl-6 space-y-6 overflow-y-auto animate-in slide-in-from-right-3 duration-200">
-                    
-                    {viewMode === 'timeline' && (
-                      <UnassignedPanel
-                        unassignedAppointments={unassignedAppointments}
-                        onOpenDetailModal={handleOpenDetailModal}
-                      />
-                    )}
-                    <DoctorWorkloadPanel 
-                      doctorWorkloads={doctorWorkloads} 
-                      activeType={activeType} 
-                      selectedStaffId={selectedStaffFilter}
-                      onSelectStaff={setSelectedStaffFilter}
-                      periodLabel={periodLabel}
-                    />
-                    
-                    <div className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 p-4 rounded-2xl shadow-sm">
-                      <h4 className="text-xs font-black text-slate-800 dark:text-zinc-200 uppercase mb-2 tracking-wide">Trạng thái phòng khám</h4>
-                      <div className="space-y-2">
-                        {roomsToUse.filter(r => r.loai_phong === 'kham_benh' || r.loai_phong === 'phong_kham').map(r => {
-                          const isUsed = filteredAppointments.some(a => String(a.phong_id) === String(r.id));
-                          return (
-                            <div key={r.id} className="flex justify-between items-center text-xs">
-                              <span className="font-semibold text-slate-650 dark:text-zinc-400">{r.ten_phong}</span>
-                              <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
-                                isUsed 
-                                  ? 'bg-amber-50 dark:bg-amber-955/20 text-amber-700 dark:text-amber-400' 
-                                  : 'bg-emerald-50 dark:bg-emerald-955/20 text-emerald-750 dark:text-emerald-400'
-                              }`}>
-                                {isUsed ? 'Đang hoạt động' : 'Phòng trống'}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                  </div>
-                ) : (
-                  <div className="w-4 bg-slate-50/50 dark:bg-zinc-800/10 border-l border-slate-100 dark:border-zinc-800 rounded-r-2xl" />
-                )}
-
-              </div>
-            )}
           </div>
 
       {/* GLOBAL MODALS */}
@@ -838,8 +673,8 @@ export default function ManageAppointments() {
           appointments={appointmentsToUse}
           schedulesList={schedulesToUse}
           isReceptionistOverride={false}
-          selectedTimeSlot={selectedTimeSlot}
-          setSelectedTimeSlot={setSelectedTimeSlot}
+          selectedBuoi={selectedBuoi}
+          setSelectedBuoi={setSelectedBuoi}
           rescheduleDate={rescheduleDate}
           setRescheduleDate={setRescheduleDate}
         />

@@ -5,8 +5,10 @@ export const getAppointments = () => api.get('/admin/appointments');
 export const createAppointment = (data: any) => api.post('/admin/appointments', data);
 export const updateAppointmentStatus = (id: string, data: any) => 
   api.patch(`/admin/appointments/${id}/status`, data);
-export const keepAliveAppointment = (id: string) => 
+export const keepAliveAppointment = (id: string) =>
   api.post(`/admin/appointments/${id}/keep-alive`);
+export const getStaffBudgetForBuoi = (date: string, buoi: 'sang' | 'chieu', loai: string, excludeApptId?: string) =>
+  api.get('/admin/appointments/staff-budget', { params: { date, buoi, loai, excludeApptId } });
 
 // Packages
 export const getPackages = () => api.get('/admin/packages');
@@ -19,6 +21,7 @@ export const getStaff = () => api.get('/admin/staff');
 export const createStaff = (data: any) => api.post('/admin/staff', data);
 export const updateStaff = (id: string, data: any) => api.put(`/admin/staff/${id}`, data);
 export const updateStaffStatus = (id: string, trang_thai: string) => api.patch(`/admin/staff/${id}/status`, { trang_thai });
+export const deleteStaffAvatar = (id: string) => api.delete(`/admin/staff/${id}/avatar`);
 export const updateStaffPassword = (id: string, data: { password?: string; oldPassword?: string; isReset?: boolean }) => api.post(`/admin/staff/${id}/update-password`, data);
 export const getCustomers = () => api.get('/admin/customers');
 export const updateCustomer = (id: string, data: any) => api.put(`/admin/customers/${id}`, data);
