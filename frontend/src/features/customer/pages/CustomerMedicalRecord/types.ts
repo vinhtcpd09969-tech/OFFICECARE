@@ -2,6 +2,8 @@
 // (backend/src/repositories/appointment.repository.ts::getCustomerMedicalRecord).
 
 export interface RecordCustomer {
+  id?: string;
+  ma_khach_hang?: string;
   ho_ten: string;
   so_dien_thoai: string | null;
   email: string | null;
@@ -19,6 +21,7 @@ export interface SessionEntry {
   ghi_chu: string | null;
   vas_truoc: number | null;
   vas_sau: number | null;
+  du_lieu_tri_lieu?: any;
   ten_bac_si: string | null;
   anh_ky_thuat_vien: string | null;
   ten_phong: string | null;

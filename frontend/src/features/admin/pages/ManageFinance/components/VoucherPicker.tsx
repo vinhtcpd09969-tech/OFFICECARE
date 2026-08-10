@@ -5,9 +5,10 @@ import axiosInstance from '../../../../../api/axios';
 import { formatCurrency } from '../../../../../utils/format';
 import { formatVoucherPaymentMethods } from '../../../../../utils/voucherPaymentMethod';
 
-interface VoucherOption {
+export interface VoucherOption {
   id: string;
   ma_voucher: string;
+  ten_chien_dich?: string;
   loai_giam: string;
   gia_tri_giam: number;
   giam_toi_da: number | null;
@@ -15,6 +16,9 @@ interface VoucherOption {
   so_luong_toi_da: number | null;
   ngay_het_han: string | null;
   yeu_cau_thanh_toan: string[];
+  tu_dong_ap_dung?: boolean;
+  kenh_ap_dung?: string[];
+  loai_goi_ap_dung?: string[];
 }
 
 interface VoucherPickerProps {
@@ -25,39 +29,58 @@ interface VoucherPickerProps {
   /** Giá trị đơn hàng hiện tại (gia_goc_goi) — dùng để chỉ hiển thị voucher đủ điều kiện đơn tối thiểu. */
   orderValue?: number;
   /** Hình thức thanh toán đang chọn — dùng để lọc voucher giới hạn theo hình thức. */
-  loaiThanhToan?: 'tra_thang' | 'tra_gop' | 'tung_buoi';
+  loaiThanhToan?: 'tra_thang' | 'tung_buoi';
   /** Khách hàng đang checkout — dùng để kiểm tra giới hạn lượt dùng theo TỪNG khách. */
   khachHangId?: string;
+  kenh?: 'online' | 'tai_quay';
+  loaiGoi?: 'KHAM' | 'LE' | 'LIEU_TRINH';
 }
 
 const isPercent = (loaiGiam: string) => loaiGiam === 'phan_tram' || loaiGiam === 'percentage';
 
 // Dùng chung cho cả việc lọc danh sách dropdown VÀ kiểm tra voucher đang áp còn hợp lệ hay không
 // sau khi đổi hình thức thanh toán — một nơi duy nhất, tránh 2 chỗ lệch điều kiện nhau.
-const isVoucherEligible = (
-  v: Pick<VoucherOption, 'don_hang_toi_thieu' | 'yeu_cau_thanh_toan'>,
+export const isVoucherEligible = (
+  v: Partial<VoucherOption>,
   orderValue: number,
-  loaiThanhToan?: 'tra_thang' | 'tra_gop' | 'tung_buoi'
-) =>
-  orderValue >= Number(v.don_hang_toi_thieu || 0) &&
-  (!v.yeu_cau_thanh_toan?.length || v.yeu_cau_thanh_toan.includes('tat_ca') || (!!loaiThanhToan && v.yeu_cau_thanh_toan.includes(loaiThanhToan)));
+  loaiThanhToan?: 'tra_thang' | 'tung_buoi',
+  kenh: 'online' | 'tai_quay' = 'tai_quay',
+  loaiGoi?: 'KHAM' | 'LE' | 'LIEU_TRINH'
+) => {
+  if (orderValue < Number(v.don_hang_toi_thieu || 0)) return false;
+
+  const yeuCauThanhToan = Array.isArray(v.yeu_cau_thanh_toan) ? v.yeu_cau_thanh_toan : (v.yeu_cau_thanh_toan ? [v.yeu_cau_thanh_toan] : []);
+  if (yeuCauThanhToan.length > 0 && !yeuCauThanhToan.includes('tat_ca')) {
+    if (loaiThanhToan && !yeuCauThanhToan.includes(loaiThanhToan)) return false;
+  }
+
+  const kenhApDung = Array.isArray(v.kenh_ap_dung) ? v.kenh_ap_dung : (v.kenh_ap_dung ? [v.kenh_ap_dung] : []);
+  if (kenhApDung.length > 0 && !kenhApDung.includes('tat_ca')) {
+    if (kenh && !kenhApDung.includes(kenh)) return false;
+  }
+
+  const loaiGoiApDung = Array.isArray(v.loai_goi_ap_dung) ? v.loai_goi_ap_dung : (v.loai_goi_ap_dung ? [v.loai_goi_ap_dung] : []);
+  if (loaiGoiApDung.length > 0 && !loaiGoiApDung.includes('tat_ca')) {
+    if (loaiGoi && !loaiGoiApDung.includes(loaiGoi)) return false;
+  }
+
+  return true;
+};
 
 const formatDiscount = (v: { loai_giam: string; gia_tri_giam: number; giam_toi_da?: number | null }) =>
   isPercent(v.loai_giam)
     ? `Giảm ${v.gia_tri_giam}%${v.giam_toi_da ? ` (tối đa ${formatCurrency(v.giam_toi_da)})` : ''}`
     : `Giảm ${formatCurrency(v.gia_tri_giam)}`;
 
-export default function VoucherPicker({ appliedVoucher, onApply, onRemove, disabled, orderValue = 0, loaiThanhToan, khachHangId }: VoucherPickerProps) {
+export default function VoucherPicker({ appliedVoucher, onApply, onRemove, disabled, orderValue = 0, loaiThanhToan, khachHangId, kenh = 'tai_quay', loaiGoi }: VoucherPickerProps) {
   const [open, setOpen] = useState(false);
   const [vouchers, setVouchers] = useState<VoucherOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  // Chỉ hiển thị voucher đơn hàng hiện tại đủ điều kiện áp dụng (đơn tối thiểu + đúng hình thức
-  // thanh toán yêu cầu nếu có giới hạn) — voucher không đạt điều kiện bị ẩn hẳn thay vì hiện ra
-  // rồi báo "áp dụng thành công" nhưng giảm 0đ hoặc bị chặn ở bước tính tiền.
-  const eligibleVouchers = vouchers.filter((v) => isVoucherEligible(v, orderValue, loaiThanhToan));
+  // Chỉ hiển thị voucher đơn hàng hiện tại đủ điều kiện áp dụng
+  const eligibleVouchers = vouchers.filter((v) => isVoucherEligible(v, orderValue, loaiThanhToan, kenh, loaiGoi));
 
   // Reset danh sách đã tải khi đổi khách hàng — giới hạn lượt dùng tính riêng theo từng khách.
   useEffect(() => {

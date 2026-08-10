@@ -97,6 +97,7 @@ router.get('/appointments', authorizeRoles(2, 4, 5, 6), appointmentController.ge
 router.get('/appointments/staff-budget', authorizeRoles(5, 6), appointmentController.getStaffBudgetForBuoi);
 router.post('/appointments', authorizeRoles(2, 5, 6), appointmentController.createAppointment);
 router.patch('/appointments/:id/status', authorizeRoles(2, 4, 5, 6), appointmentController.updateAppointmentStatus);
+router.post('/appointments/:id/push-back', authorizeRoles(2, 5, 6), appointmentController.pushBackAppointment);
 router.delete('/appointments/break-time', authorizeRoles(5, 6), appointmentController.cancelBreakTimeAppointments);
 router.post('/appointments/:id/keep-alive', authorizeRoles(2, 5, 6), appointmentController.keepAliveAppointment);
 

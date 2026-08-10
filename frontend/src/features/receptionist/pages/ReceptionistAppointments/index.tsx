@@ -1,12 +1,14 @@
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { format, addDays, isSameDay } from 'date-fns';
+import toast from 'react-hot-toast';
 
 // Import Shared Components
 import AppointmentDetailModal from '../../../../components/appointments/DetailModal';
 import WalkInBookingModal from '../../../../components/WalkInBookingModal';
 import TreatmentBookingModal from '../../../../components/appointments/TreatmentBookingModal';
+import { pushBackAppointment } from '../../../admin/api/admin.api';
 
 // Import Shared Hooks & UI
 import { useAppointmentsData } from '../../../../components/appointments/hooks/useAppointmentsData';
@@ -18,6 +20,9 @@ import { CapacityView } from '../../../../components/appointments/ui/CapacityVie
 import { computeAppointmentKpiBuckets, KPI_BUCKET_STATUSES, KPI_BUCKET_LABELS, AppointmentKpiBuckets } from '../../../../utils/appointmentKpi';
 import { ActiveFilterChip } from '../../../../components/appointments/ui/ActiveFilterChip';
 import { ViewMode } from '../../../../components/appointments/types';
+import { StaffWorkloadModal } from '../../components/StaffWorkloadModal';
+import { getStaffWorkload } from '../../api/receptionist.api';
+import { addMinutes } from 'date-fns';
 
 export default function ReceptionistAppointments() {
   const location = useLocation();
@@ -40,6 +45,7 @@ export default function ReceptionistAppointments() {
   const [activeType, setActiveType] = useState<'kham' | 'dieu_tri'>('kham');
   // Lễ tân được lọc xem theo nhân sự giống Admin (chỉ không có quyền phân bổ/đổi nhân sự cho lịch).
   const [selectedStaffFilter, setSelectedStaffFilter] = useState<string | null>(null);
+  const [isWorkloadModalOpen, setIsWorkloadModalOpen] = useState(false);
 
   const handleSelectDateRange = (start: Date, end: Date) => {
     setStartDate(start);
@@ -57,7 +63,6 @@ export default function ReceptionistAppointments() {
       today.setHours(0, 0, 0, 0);
       setStartDate(today);
       setEndDate(addDays(today, 6));
-      setViewMode('capacity');
       return;
     }
 
@@ -66,13 +71,14 @@ export default function ReceptionistAppointments() {
     const e = new Date(endDate);
     e.setHours(0, 0, 0, 0);
     const diffDays = Math.max(1, Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+    const stepDays = viewMode === 'timeline' ? 1 : diffDays;
 
     if (direction === 'next') {
-      setStartDate(prev => addDays(prev, diffDays));
-      setEndDate(prev => addDays(prev, diffDays));
+      setStartDate(prev => addDays(prev, stepDays));
+      setEndDate(prev => addDays(prev, stepDays));
     } else {
-      setStartDate(prev => addDays(prev, -diffDays));
-      setEndDate(prev => addDays(prev, -diffDays));
+      setStartDate(prev => addDays(prev, -stepDays));
+      setEndDate(prev => addDays(prev, -stepDays));
     }
   };
 
@@ -157,6 +163,19 @@ export default function ReceptionistAppointments() {
     activeType,
     setActiveType
   });
+
+  const handleCloseWalkInModal = useCallback(() => {
+    setIsWalkInModalOpen(false);
+    const newParams = new URLSearchParams(location.search);
+    newParams.delete('khach_hang_id');
+    newParams.delete('goi_dich_vu_id');
+    newParams.delete('phac_do_id');
+    newParams.delete('buoi');
+    const newSearch = newParams.toString() ? `?${newParams.toString()}` : '';
+    if (location.search !== newSearch) {
+      navigate(location.pathname + newSearch, { replace: true });
+    }
+  }, [location.search, location.pathname, navigate, setIsWalkInModalOpen]);
 
   const focusTimerRef = useRef<any>(null);
   const bookingFormRef = useRef<HTMLDivElement>(null);
@@ -280,23 +299,65 @@ export default function ReceptionistAppointments() {
 
   const handleQuickCheckin = async (apt: any) => {
     await handleUpdateAppointmentFields(String(apt.id), { trang_thai: 'da_checkin' }, `Đã check-in cho ${apt.ten_khach_hang || apt.ho_ten_khach || 'khách hàng'}`);
+
+    // Kiểm tra xem ca này có chọn đích danh nhân sự và nhân sự đó đang bận ca khác không
+    const assignedId = apt.nhan_su_id || apt.bac_si_id || apt.chuyen_gia_id;
+    if (assignedId) {
+      try {
+        const res = await getStaffWorkload();
+        const workload = res.data || [];
+        const staffInfo = workload.find((w) => String(w.nhan_su_id) === String(assignedId));
+        if (staffInfo && staffInfo.so_ca_dang_lam > 0 && staffInfo.thoi_gian_xong_du_kien_muon_nhat) {
+          const finishDate = new Date(staffInfo.thoi_gian_xong_du_kien_muon_nhat);
+          const finishStr = format(finishDate, 'HH:mm');
+          const estEntryDate = addMinutes(finishDate, 5);
+          const estEntryStr = format(estEntryDate, 'HH:mm');
+          toast(`⏰ ${staffInfo.ten_vai_tro} ${staffInfo.ho_ten} đang bận ca khác (dự kiến xong ~${finishStr}). Khách hàng dự kiến vào phòng lúc ${estEntryStr} hoặc sớm hơn.`, {
+            duration: 7000,
+            icon: 'ℹ️'
+          });
+        }
+      } catch (e) {
+        console.warn('Lỗi kiểm tra tải nhân sự khi checkin:', e);
+      }
+    }
   };
 
-  // Danh sách nhân sự đang trực đúng ngày đang xem — nguồn cho dropdown lọc trong TodayFlowBoard.
-  // Lễ tân được xem/lọc giống Admin, chỉ không có quyền phân bổ/đổi nhân sự cho lịch hẹn (đó là thao
-  // tác riêng trong DetailModal, không liên quan tới bộ lọc xem này).
-  const targetWorkloadRole = activeType === 'kham' ? 'Bác sĩ' : 'Kỹ thuật viên';
-  const formattedSelectedDate = format(startDate, 'yyyy-MM-dd');
+  // B11 (bản Lễ tân) — đẩy khách xuống cuối hàng đợi (đi vệ sinh/bỏ về tạm...), không đổi trạng thái.
+  const handlePushBack = async (apt: any) => {
+    try {
+      await pushBackAppointment(String(apt.id));
+      toast(`Đã đẩy ${apt.ten_khach_hang || apt.ho_ten_khach || 'khách'} xuống cuối hàng đợi.`, { icon: '⬇' });
+      await refetch();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Không thể cập nhật hàng đợi.');
+    }
+  };
+
+  // Lễ tân tự tay chuyển "Không đến" cho ca đã check-in (đã gọi/đẩy nhiều lần mà khách vẫn không tới).
+  const handleMarkNoShow = async (apt: any) => {
+    await handleUpdateAppointmentFields(String(apt.id), { trang_thai: 'khong_den' }, `Đã đánh dấu ${apt.ten_khach_hang || apt.ho_ten_khach || 'khách'} không đến`);
+  };
+
+  // Danh sách nhân sự theo đúng vai trò đang chọn (Chuyên viên PHCN hoặc KTV) — nguồn cho dropdown lọc trong TodayFlowBoard.
   const onDutyStaffOptions = useMemo(() => {
+    const isKham = activeType === 'kham';
     return staffList
-      .filter((s) => s.vai_tro === targetWorkloadRole)
-      .filter((doc) => schedulesList.some((s) =>
-        String(s.nguoi_dung_id) === String(doc.id) &&
-        s.ngay === formattedSelectedDate &&
-        s.trang_thai === 'hoat_dong'
-      ))
-      .map((doc) => ({ id: String(doc.id), name: doc.ho_ten }));
-  }, [staffList, schedulesList, targetWorkloadRole, formattedSelectedDate]);
+      .filter((s) => {
+        const roleId = Number((s as any).vai_tro_id);
+        if (isKham) {
+          return roleId === 4 || s.vai_tro === 'Chuyên viên PHCN' || s.vai_tro === 'Bác sĩ';
+        } else {
+          return roleId === 3 || s.vai_tro === 'Kỹ thuật viên';
+        }
+      })
+      .map((doc) => ({
+        id: String(doc.id),
+        name: doc.ho_ten,
+        avatar_url: doc.anh_dai_dien || (doc as any).avatar_url,
+        avatarUrl: doc.anh_dai_dien || (doc as any).avatar_url
+      }));
+  }, [staffList, activeType]);
 
   return (
     <div className="space-y-6 max-w-full font-jakarta">
@@ -328,15 +389,28 @@ export default function ReceptionistAppointments() {
           <AppointmentsFilterBar
             startDate={startDate}
             endDate={endDate}
-            onSelectDateRange={handleSelectDateRange}
-            handleNavigateRange={handleNavigateRange}
+            onSelectDateRange={(start, end) => {
+              handleCloseWalkInModal();
+              handleSelectDateRange(start, end);
+            }}
+            handleNavigateRange={(direction) => {
+              handleCloseWalkInModal();
+              handleNavigateRange(direction);
+            }}
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
             viewMode={viewMode}
             activeType={activeType}
-            onToggleType={() => setActiveType(prev => prev === 'kham' ? 'dieu_tri' : 'kham')}
+            onToggleType={() => {
+              handleCloseWalkInModal();
+              setActiveType(prev => prev === 'kham' ? 'dieu_tri' : 'kham');
+            }}
             canToggleType={true}
-            setViewMode={setViewMode}
+            setViewMode={(mode) => {
+              handleCloseWalkInModal();
+              setViewMode(mode);
+            }}
+            onOpenWalkInModal={() => setIsWalkInModalOpen(true)}
           />
 
           {/* MAIN WORKBOARD — full-width, không còn sidebar riêng (bộ lọc nhân sự đã chuyển vào
@@ -364,7 +438,10 @@ export default function ReceptionistAppointments() {
                       const newParams = new URLSearchParams(location.search);
                       newParams.delete('khach_hang_id');
                       newParams.delete('goi_dich_vu_id');
-                      navigate(location.pathname + '?' + newParams.toString(), { replace: true });
+                      newParams.delete('phac_do_id');
+                      newParams.delete('buoi');
+                      const newSearch = newParams.toString() ? `?${newParams.toString()}` : '';
+                      navigate(location.pathname + newSearch, { replace: true });
                     }}
                     onSubmitApi={handleBookWalkIn}
                     bookingLoading={bookingLoading}
@@ -388,11 +465,14 @@ export default function ReceptionistAppointments() {
                       selectedDateStr={format(startDate, 'yyyy-MM-dd')}
                       onOpenDetailModal={handleOpenDetailModal}
                       onQuickCheckin={handleQuickCheckin}
+                      onPushBack={handlePushBack}
+                      onMarkNoShow={handleMarkNoShow}
                       onOpenWalkInModal={() => setIsWalkInModalOpen(true)}
                       focusAppointmentId={new URLSearchParams(location.search).get('appointmentId') || undefined}
                       staffFilterId={selectedStaffFilter}
                       staffFilterOptions={onDutyStaffOptions}
                       onStaffFilterChange={setSelectedStaffFilter}
+                      onOpenWorkloadModal={() => setIsWorkloadModalOpen(true)}
                     />
                   )}
 
@@ -421,6 +501,7 @@ export default function ReceptionistAppointments() {
                       activeStatusLabel={statusFilter ? KPI_BUCKET_LABELS[statusFilter] : null}
                       selectedStaffFilter={selectedStaffFilter}
                       staffList={staffList}
+                      onOpenWalkInModal={() => setIsWalkInModalOpen(true)}
                     />
                   )}
                 </>
@@ -484,6 +565,12 @@ export default function ReceptionistAppointments() {
           onSubmit={handleBookTreatment}
         />
       )}
+
+      <StaffWorkloadModal
+        isOpen={isWorkloadModalOpen}
+        onClose={() => setIsWorkloadModalOpen(false)}
+        dateStr={format(startDate, 'yyyy-MM-dd')}
+      />
     </div>
   );
 }

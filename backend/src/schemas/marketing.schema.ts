@@ -29,6 +29,14 @@ export const voucherSchema = z.object({
     ),
     trang_thai: z.string().optional().default('hoat_dong'),
     tu_dong_ap_dung: z.boolean().optional().default(false),
+    kenh_ap_dung: z.preprocess(
+      (val) => (Array.isArray(val) && val.length > 0 ? val : ['tat_ca']),
+      z.array(z.string()).optional().default(['tat_ca'])
+    ),
+    loai_goi_ap_dung: z.preprocess(
+      (val) => (Array.isArray(val) && val.length > 0 ? val : ['tat_ca']),
+      z.array(z.string()).optional().default(['tat_ca'])
+    ),
     yeu_cau_thanh_toan: z.preprocess(
       (val) => (Array.isArray(val) && val.length > 0 ? val : ['tat_ca']),
       z.array(z.string()).optional().default(['tat_ca'])
@@ -57,5 +65,11 @@ export const voucherSchema = z.object({
       yeu_cau_thanh_toan: Array.isArray(body.yeu_cau_thanh_toan) && body.yeu_cau_thanh_toan.includes('tat_ca')
         ? ['tat_ca']
         : (body.yeu_cau_thanh_toan || ['tat_ca']),
+      kenh_ap_dung: Array.isArray(body.kenh_ap_dung) && body.kenh_ap_dung.includes('tat_ca')
+        ? ['tat_ca']
+        : (body.kenh_ap_dung || ['tat_ca']),
+      loai_goi_ap_dung: Array.isArray(body.loai_goi_ap_dung) && body.loai_goi_ap_dung.includes('tat_ca')
+        ? ['tat_ca']
+        : (body.loai_goi_ap_dung || ['tat_ca']),
     }))
 });

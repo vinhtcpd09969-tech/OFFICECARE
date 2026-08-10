@@ -301,23 +301,27 @@ export function useAppointmentActions({
   }, [selectedAppointment, treatmentType, selectedServiceId, selectedPackageId, selectedKtvId, selectedRoomId, treatmentDate, treatmentTime, services, packages, refetch, isDemoMode, setDemoApts]);
 
   const handleBookWalkIn = useCallback(async (payload: any) => {
-    const statusLabel = payload.trang_thai === 'da_checkin' 
+    const isExamCheckinPaymentRequired = payload.shouldPayNow;
+    const cleanPayload = { ...payload };
+    delete cleanPayload.shouldPayNow;
+
+    const statusLabel = cleanPayload.trang_thai === 'da_checkin' 
       ? 'đã Check-in' 
-      : (payload.trang_thai === 'da_xac_nhan' ? 'đã xác nhận' : 'chờ gán nhân sự');
+      : (cleanPayload.trang_thai === 'da_xac_nhan' ? 'đã xác nhận' : 'chờ gán nhân sự');
 
     if (isDemoMode && setDemoApts) {
       const newApt: Appointment = {
         id: `demo_${Date.now()}`,
         ma_lich_dat: `LH-W${Math.floor(100 + Math.random() * 900)}`,
-        ten_khach_hang: payload.ho_ten_khach || "Khách vãng lai",
-        so_dien_thoai: payload.so_dien_thoai || "09xxxxxxxx",
-        ngay_gio_bat_dau: payload.ngay_gio_bat_dau,
-        ngay_gio_ket_thuc: payload.ngay_gio_ket_thuc,
-        trang_thai: payload.trang_thai || "da_xac_nhan",
-        bac_si_id: payload.bac_si_id || null,
-        phong_id: payload.phong_id || null,
-        ten_dich_vu: services.find(s => String(s.id) === String(payload.goi_dich_vu_id))?.ten_dich_vu || "Dịch vụ khám/trị liệu",
-        loai_lich: payload.loai_lich || 'kham_moi'
+        ten_khach_hang: cleanPayload.ho_ten_khach || "Khách vãng lai",
+        so_dien_thoai: cleanPayload.so_dien_thoai || "09xxxxxxxx",
+        ngay_gio_bat_dau: cleanPayload.ngay_gio_bat_dau,
+        ngay_gio_ket_thuc: cleanPayload.ngay_gio_ket_thuc,
+        trang_thai: cleanPayload.trang_thai || "da_xac_nhan",
+        bac_si_id: cleanPayload.bac_si_id || null,
+        phong_id: cleanPayload.phong_id || null,
+        ten_dich_vu: services.find(s => String(s.id) === String(cleanPayload.goi_dich_vu_id))?.ten_dich_vu || "Dịch vụ khám/trị liệu",
+        loai_lich: cleanPayload.loai_lich || 'kham_moi'
       };
       setDemoApts(prev => [...prev, newApt]);
       toast.success(`MÔ PHỎNG: Lập lịch hẹn thành công (Trạng thái: ${statusLabel})!`);
@@ -327,26 +331,36 @@ export function useAppointmentActions({
 
     try {
       setBookingLoading(true);
-      const res = await createAppointment(payload);
-      const newAptId = res?.data?.id;
-      toast.success(`Đăng ký lịch hẹn thành công (Trạng thái: ${statusLabel})!`);
-      setIsWalkInModalOpen(false);
-      await refetch();
+      const res = await createAppointment(cleanPayload);
+      const createdAppt = res.data;
 
-      if (navigate && newAptId) {
-        const params = new URLSearchParams(window.location.search);
+      setIsWalkInModalOpen(false);
+      if (navigate && location) {
+        const params = new URLSearchParams(location.search);
         params.delete('khach_hang_id');
         params.delete('goi_dich_vu_id');
-        params.set('triggerFocus', 'true');
-        params.set('appointmentId', String(newAptId));
-        navigate(`${window.location.pathname}?${params.toString()}`);
+        params.delete('phac_do_id');
+        params.delete('buoi');
+        const newSearch = params.toString() ? `?${params.toString()}` : '';
+        if (location.search !== newSearch) {
+          navigate(location.pathname + newSearch);
+        }
+      }
+      await refetch();
+
+      if (isExamCheckinPaymentRequired && createdAppt?.id && navigate) {
+        const billingRoute = roleView === 'receptionist' ? '/receptionist/billing' : '/admin/quick-billing';
+        toast.success('💳 Ca Lượng giá bắt buộc thu tiền trước khi Check-in. Vui lòng hoàn tất thu tiền!');
+        navigate(`${billingRoute}?lich_dat_id=${createdAppt.id}`);
+      } else {
+        toast.success(`Đăng ký lịch hẹn thành công (Trạng thái: ${statusLabel})!`);
       }
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Không thể đăng ký lịch hẹn');
     } finally {
       setBookingLoading(false);
     }
-  }, [refetch, isDemoMode, setDemoApts, services, navigate]);
+  }, [refetch, isDemoMode, setDemoApts, services, roleView, navigate]);
 
   const handleUpdateAppointmentFields = useCallback(async (appointmentId: string, updatedFields: any, successMessage: string = 'Đã cập nhật phân bổ lịch trình') => {
     if (isDemoMode && setDemoApts) {

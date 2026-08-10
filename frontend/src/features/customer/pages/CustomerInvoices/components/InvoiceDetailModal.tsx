@@ -46,22 +46,10 @@ export function InvoiceDetailModal({ invoice, payments, onClose, onOpenPolicy, a
   // admin/pages/ManageFinance/components/InvoiceDetailModal.tsx, khớp
   // backend/src/domain/billing.ts::calculatePackageCancellationRefund().
   const isPackage = !!invoice.phac_do_dieu_tri_id;
-  const chi_phi_kham = Number(invoice.chi_phi_kham || 0);
   const so_tien_giam_voucher = Number(invoice.so_tien_giam_voucher || 0);
-  const tong_tien_goc = Number(invoice.tong_tien_goc);
-  const hasPaidSeparateExam = !!invoice.ma_hoa_don_kham_rieng;
+  const tong_tien_goc = Number(invoice.tong_tien_goc || invoice.tong_tien_thanh_toan || 0);
   const gia_goc_goi = tong_tien_goc;
-  const ti_le_giam = Number(invoice.ti_le_giam_gia_goi || 0);
-  const giam_gia_goi = isPackage ? Math.round((gia_goc_goi * ti_le_giam) / 100) : 0;
-
-  const isExamWaived = isPackage && (gia_goc_goi >= 1000000) && ['tra_thang', 'tra_gop'].includes(invoice.hinh_thuc_thanh_toan_goi || '');
-  const mien_phi_kham = isExamWaived ? chi_phi_kham : 0;
-
-  // "Tổng chi phí cần thu" trong panel "Phân tích chi tiết hóa đơn LÚC MUA" phải là giá trị TẠI THỜI
-  // ĐIỂM MUA — không đọc thẳng invoice.tong_tien_thanh_toan (field này bị trừ ngược lại
-  // examFeeToCharge sau khi hủy gói, xem admin.repository.ts::handlePackageRefund) — mirror đúng fix
-  // ở admin InvoiceDetailModal.tsx.
-  const tongChiPhiLucMuaGoi = gia_goc_goi - giam_gia_goi - (hasPaidSeparateExam ? mien_phi_kham : 0) - so_tien_giam_voucher;
+  const tongChiPhiLucMuaGoi = Math.max(0, gia_goc_goi - so_tien_giam_voucher);
 
   // Dùng chung công thức với Admin qua canRefundPackage() (utils/billing.ts) — bản cũ tự chép
   // logic riêng ở đây thiếu hẳn điều kiện "gói đã quá hạn sử dụng", khiến bảng xem trước hoàn tiền
@@ -70,13 +58,11 @@ export function InvoiceDetailModal({ invoice, payments, onClose, onOpenPolicy, a
   const isTungBuoiPackage = isPackage && invoice.hinh_thuc_thanh_toan_goi === 'tung_buoi';
 
   const totalPaid = Number(invoice.da_thanh_toan);
-  const gia_thanh_toan_goi = gia_goc_goi - giam_gia_goi;
+  const gia_thanh_toan_goi = gia_goc_goi - so_tien_giam_voucher;
   const penaltyAmount = Math.round((gia_thanh_toan_goi * penaltyPercent) / 100);
   const totalSessions = Number(invoice.tong_so_buoi || 10);
   const usedSessionsCost = Math.round((gia_thanh_toan_goi * usedSessions) / totalSessions);
-  const hasExam = isPackage && !!invoice.cuoc_hen_id;
-  const examFeeToCharge = hasExam && !hasPaidSeparateExam ? chi_phi_kham : 0;
-  const totalDeduction = usedSessionsCost + penaltyAmount + examFeeToCharge;
+  const totalDeduction = usedSessionsCost + penaltyAmount;
   const estimatedRefund = Math.max(0, totalPaid - totalDeduction);
   const keptRevenue = totalPaid - estimatedRefund;
   const perSessionCost = totalSessions > 0 ? Math.round(gia_thanh_toan_goi / totalSessions) : 0;
@@ -294,7 +280,7 @@ export function InvoiceDetailModal({ invoice, payments, onClose, onOpenPolicy, a
                                 {Number(analysis.exam_fee_to_charge) > 0 && (
                                   <div className="flex justify-between items-start gap-3">
                                     <span className="text-zinc-500 text-left max-w-[280px]">
-                                      {isExamWaived ? 'Phí khám lâm sàng (thu hồi ưu đãi miễn phí khi mua gói)' : 'Phí khám lâm sàng (đã thu)'}
+                                      Phí khám lâm sàng & Lượng giá
                                       {invoice.ngay_kham ? ` · ca khám ${formatLongDate(invoice.ngay_kham)}` : ''}:
                                     </span>
                                     <span className="shrink-0">-{formatCurrency(analysis.exam_fee_to_charge)}</span>
@@ -359,47 +345,13 @@ export function InvoiceDetailModal({ invoice, payments, onClose, onOpenPolicy, a
                                     <span className="text-zinc-500">Giá gốc gói trị liệu:</span>
                                     <span className="font-semibold">{formatCurrency(gia_goc_goi)}</span>
                                   </div>
-                                  {/* Giá gốc gói KHÔNG bao gồm phí khám — chỉ hiện dòng tham khảo này khi phí khám
-                                      chưa được miễn/khấu trừ ở dòng dưới, tránh trùng lặp gây hiểu nhầm cộng khống. */}
-                                  {chi_phi_kham > 0 && mien_phi_kham === 0 && (
-                                    <div className="flex justify-between">
-                                      <span className="text-zinc-500">Phí khám lâm sàng & Lượng giá (thu riêng, không gộp vào tổng gói):</span>
-                                      <span className="font-semibold">{formatCurrency(chi_phi_kham)}</span>
-                                    </div>
-                                  )}
-                                  {giam_gia_goi > 0 && (
-                                    <div className="flex justify-between text-emerald-700">
-                                      <span>Ưu đãi hình thức ({ti_le_giam}%):</span>
-                                      <span className="font-semibold">-{formatCurrency(giam_gia_goi)}</span>
-                                    </div>
-                                  )}
-                                  {/* "Khấu trừ đã đóng riêng" là khoản trừ THẬT (đã trả 150.000đ ở hóa đơn khác, phải trừ
-                                      ra khỏi hóa đơn này để không thu 2 lần). "Miễn phí khám" là ưu đãi CHƯA TỪNG được
-                                      tính vào giá gói (Giá gốc gói trị liệu ở trên vốn không bao gồm phí khám) — không có
-                                      gì để trừ, nên hiện dưới dạng ghi chú riêng bên dưới, không phải 1 dòng trừ. */}
-                                  {mien_phi_kham > 0 && hasPaidSeparateExam && (
-                                    <div className="flex justify-between text-emerald-700">
-                                      <span>
-                                        Khấu trừ phí khám đã đóng riêng
-                                        {invoice.ngay_thanh_toan_kham_rieng ? ` ngày ${formatLongDate(invoice.ngay_thanh_toan_kham_rieng)}` : ''}
-                                        {invoice.ma_hoa_don_kham_rieng ? ` (HĐ ${invoice.ma_hoa_don_kham_rieng})` : ''}:
-                                      </span>
-                                      <span className="font-semibold">-{formatCurrency(mien_phi_kham)}</span>
-                                    </div>
-                                  )}
                                 </>
                               ) : (
                                 <>
                                   <div className="flex justify-between">
                                     <span className="text-zinc-500">{invoice.loai_goi === 'LE' ? 'Giá gốc dịch vụ lẻ:' : 'Phí khám lâm sàng & Lượng giá:'}</span>
-                                    <span className="font-semibold">{formatCurrency(chi_phi_kham || Number(invoice.tong_tien_thanh_toan))}</span>
+                                    <span className="font-semibold">{formatCurrency(tong_tien_goc || Number(invoice.tong_tien_thanh_toan))}</span>
                                   </div>
-                                  {invoice.trang_thai === 'da_thanh_toan' && Number(invoice.tong_tien_thanh_toan) === 0 && chi_phi_kham > 0 && (
-                                    <div className="flex justify-between text-emerald-700">
-                                      <span>Khấu trừ/Miễn phí theo hóa đơn gói:</span>
-                                      <span className="font-semibold">-{formatCurrency(chi_phi_kham)}</span>
-                                    </div>
-                                  )}
                                 </>
                               )}
                               {so_tien_giam_voucher > 0 && (
@@ -416,12 +368,6 @@ export function InvoiceDetailModal({ invoice, payments, onClose, onOpenPolicy, a
                                 <span>Tổng chi phí cần thu:</span>
                                 <span>{formatCurrency(isPackage ? tongChiPhiLucMuaGoi : Number(invoice.tong_tien_thanh_toan))}</span>
                               </div>
-                              {isPackage && mien_phi_kham > 0 && !hasPaidSeparateExam && (
-                                <div className="text-[10px] text-emerald-700/90 bg-emerald-50/60 border border-emerald-150 rounded-lg px-2.5 py-1.5 italic">
-                                  🎁 Kèm ưu đãi miễn phí khám lâm sàng (trị giá {formatCurrency(mien_phi_kham)})
-                                  {invoice.ngay_kham ? ` cho ca khám ngày ${formatLongDate(invoice.ngay_kham)}` : ''}.
-                                </div>
-                              )}
                             </div>
                           </div>
                         </div>
@@ -454,51 +400,22 @@ export function InvoiceDetailModal({ invoice, payments, onClose, onOpenPolicy, a
                       return (
                         <>
                           <div className="bg-white border border-slate-150 rounded-xl overflow-hidden">
-                            {hasPaidSeparateExam && chi_phi_kham > 0 && (
-                              <div className="flex justify-between items-center px-4 py-2.5 bg-amber-50/40 border-b border-amber-100/60">
-                                <span className="text-[11px] font-bold text-amber-800">Giá gói theo hợp đồng</span>
-                                <span className="text-amber-900 font-black text-xs">{formatCurrency(gia_thanh_toan_goi)}</span>
-                              </div>
-                            )}
+                            <div className="flex justify-between items-center px-4 py-2.5 bg-amber-50/40 border-b border-amber-100/60">
+                              <span className="text-[11px] font-bold text-amber-800">Giá gói theo hợp đồng</span>
+                              <span className="text-amber-900 font-black text-xs">{formatCurrency(gia_thanh_toan_goi)}</span>
+                            </div>
 
                             <div className="flex justify-between items-center px-4 py-3 bg-zinc-50/70">
                               <div className="text-left">
                                 <span className="text-xs font-bold text-zinc-650 block">Khách đã đóng</span>
-                                {/* Không viết dạng công thức "= Giá gói hợp đồng − X" — với gói trả góp, "Khách đã
-                                    đóng" chỉ mới là đợt 1 (hoặc đợt 1+2), KHÔNG phải toàn bộ giá gói hợp đồng, viết
-                                    vậy dễ hiểu nhầm Giá gói hợp đồng − X = Khách đã đóng (sai số học). Nêu thẳng sự
-                                    thật kèm mã hóa đơn khám để tra cứu, không đưa công thức dễ hiểu lầm. */}
-                                {hasPaidSeparateExam && chi_phi_kham > 0 && (
-                                  <span className="text-[10px] text-zinc-450 font-medium block mt-0.5">
-                                    Đã trừ sẵn {formatCurrency(chi_phi_kham)} phí khám đã đóng riêng
-                                    {invoice.ma_hoa_don_kham_rieng && (
-                                      <> (HĐ {invoice.ma_hoa_don_kham_rieng}{invoice.ngay_thanh_toan_kham_rieng ? ` ngày ${formatLongDate(invoice.ngay_thanh_toan_kham_rieng)}` : ''})</>
-                                    )} trong số tiền đã thu ở trên
-                                  </span>
-                                )}
                               </div>
                               <span className="text-secondary font-black text-sm shrink-0">{formatCurrency(totalPaid)}</span>
                             </div>
 
                             <div className="px-4 py-3 space-y-3 border-t border-slate-100">
                               <p className="text-[9px] font-black text-zinc-400 uppercase tracking-wider">
-                                Trừ đi các khoản sau{hasPaidSeparateExam && chi_phi_kham > 0 ? ' (tính theo giá gói hợp đồng, không theo số khách thực đóng)' : ''}
+                                Trừ đi các khoản sau:
                               </p>
-
-                              {examFeeToCharge > 0 && (
-                                <div className="flex justify-between items-start gap-3">
-                                  <div className="text-left">
-                                    <p className="text-xs font-bold text-zinc-700">Phí khám lâm sàng</p>
-                                    <p className="text-[10px] text-zinc-450 font-medium leading-relaxed">
-                                      Thu hồi ưu đãi miễn phí khám khi mua gói
-                                      {invoice.ngay_kham ? ` · ca khám ${formatLongDate(invoice.ngay_kham)}` : ''}
-                                    </p>
-                                  </div>
-                                  <span className="text-rose-600 font-black text-xs shrink-0 tabular-nums">
-                                    −{formatCurrency(examFeeToCharge)}
-                                  </span>
-                                </div>
-                              )}
 
                               <div className="flex justify-between items-start gap-3">
                                 <div className="text-left">

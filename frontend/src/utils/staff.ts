@@ -5,8 +5,8 @@ export const getStaffRoleTitle = (staffName: string | null | undefined, roleId: 
   if (nameLower.includes('ktv') || nameLower.includes('kỹ thuật viên') || nameLower.includes('kĩ thuật viên')) {
     return 'Kỹ thuật viên PHCN';
   }
-  if (nameLower.includes('bs') || nameLower.includes('bác sĩ') || nameLower.includes('bác sỹ')) {
-    return 'Bác sĩ chuyên khoa';
+  if (nameLower.includes('bs') || nameLower.includes('bác sĩ') || nameLower.includes('bác sỹ') || nameLower.includes('chuyên viên')) {
+    return 'Chuyên viên tư vấn';
   }
-  return roleId === 3 ? 'Bác sĩ chuyên khoa' : 'Kỹ thuật viên PHCN';
+  return roleId === 4 ? 'Chuyên viên tư vấn' : 'Kỹ thuật viên PHCN';
 };

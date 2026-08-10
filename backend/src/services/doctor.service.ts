@@ -1,4 +1,5 @@
 import doctorRepository from '../repositories/doctor.repository';
+import appointmentRepository from '../repositories/appointment.repository';
 
 class DoctorService {
   // 1. Lấy danh sách hàng đợi khám bệnh hôm nay của bác sĩ
@@ -13,21 +14,47 @@ class DoctorService {
     return appointments;
   }
 
+  // 2b. Gọi bệnh nhân vào phòng (B2/B19)
+  async callInPatient(cuocHenId: string, userId: string, roleId: number) {
+    return doctorRepository.callInPatient(cuocHenId, userId, roleId);
+  }
+
+  // 2c. Đánh dấu không có mặt (B11) — lần 2 mới thật sự chuyển "không đến", giao đúng cho
+  // appointmentRepository.updateAppointmentStatus xử lý (phạt uy tín/trừ buổi gói), không chép lại.
+  async markPatientAbsent(cuocHenId: string, userId: string, roleId: number) {
+    const result = await doctorRepository.markPatientAbsent(cuocHenId, userId, roleId);
+    if (result.shouldFinalize) {
+      await appointmentRepository.updateAppointmentStatus(cuocHenId, { trang_thai: 'khong_den' }, roleId);
+    }
+    return result;
+  }
+
   // 3. Tổng hợp hồ sơ y tế toàn diện của bệnh nhân: 2 danh sách TÁCH BIỆT — visits (khám lâm sàng +
   // dịch vụ lẻ độc lập, gộp chung 1 dòng thời gian) và treatmentPlans (chỉ phác đồ/liệu trình thật,
   // mỗi phác đồ kèm sessions + liên kết ngược về đúng ca khám đã chỉ định ra nó). Trộn lẫn dịch vụ lẻ
   // vào treatmentPlans như bản cũ gây rối mắt cho Bác sĩ/KTV khi xem — đã tách theo góp ý người dùng.
   async getPatientMedicalProfile(patientId: string) {
+    if (!patientId) {
+      return { patient: null, visits: [], treatmentPlans: [] };
+    }
+
+    const patient = await doctorRepository.getPatientInfoById(patientId);
+    if (!patient) {
+      return { patient: null, visits: [], treatmentPlans: [] };
+    }
+
+    const realPatientId = patient.id;
+
     const [medicalRecords, rawTreatments, standaloneVisits] = await Promise.all([
-      doctorRepository.getPatientHistory(patientId),
-      doctorRepository.getPatientTreatments(patientId),
-      doctorRepository.getStandaloneServiceVisits(patientId),
+      doctorRepository.getPatientHistory(realPatientId).catch(() => []),
+      doctorRepository.getPatientTreatments(realPatientId).catch(() => []),
+      doctorRepository.getStandaloneServiceVisits(realPatientId).catch(() => []),
     ]);
 
     const treatmentPlans = await Promise.all(
-      rawTreatments.map(async (treatment: any) => ({
+      (rawTreatments || []).map(async (treatment: any) => ({
         ...treatment,
-        sessions: await doctorRepository.getTreatmentSessions(treatment.id),
+        sessions: treatment?.id ? await doctorRepository.getTreatmentSessions(treatment.id).catch(() => []) : [],
       }))
     );
 
@@ -43,13 +70,16 @@ class DoctorService {
       loai: 'KHAM' as const,
       thoi_gian: r.thoi_gian_tao,
       ma_lich_dat: r.ma_lich_dat,
-      trang_thai: 'hoan_thanh',
+      trang_thai: r.trang_thai || 'hoan_thanh',
       chan_doan: r.chan_doan,
       chong_chi_dinh: r.chong_chi_dinh,
       ly_do_kham: r.ly_do_kham,
       anh_dinh_kem_url: r.anh_dinh_kem_url,
       ghi_chu: r.ghi_chu,
       khuyen_nghi_goi: r.khuyen_nghi_goi,
+      vas_truoc: r.vas_truoc,
+      du_lieu_luong_gia: r.du_lieu_luong_gia,
+      du_lieu_tri_lieu: r.du_lieu_tri_lieu,
       ten_nhan_su: r.ten_bac_si,
       anh_nhan_su: r.anh_bac_si,
       prescribed_plan_id: planByOriginExamId.get(r.lich_dat_id)?.id || null,
@@ -65,6 +95,7 @@ class DoctorService {
       ghi_chu: v.ghi_chu,
       vas_truoc: v.vas_truoc,
       vas_sau: v.vas_sau,
+      du_lieu_tri_lieu: v.du_lieu_tri_lieu,
       ten_nhan_su: v.ten_nhan_su,
       anh_nhan_su: v.anh_nhan_su,
       prescribed_plan_id: null,
@@ -84,6 +115,7 @@ class DoctorService {
     });
 
     return {
+      patient,
       visits,
       treatmentPlans,
     };
@@ -94,6 +126,17 @@ class DoctorService {
     let detail = await doctorRepository.getAppointmentDetail(appointmentId);
     if (!detail) {
       throw new Error('Không tìm thấy chi tiết ca khám.');
+    }
+
+    // A8b — buổi Lượng giá (KHAM) là con đường DUY NHẤT đưa khách ra khỏi trung tâm (chuyên viên có
+    // thể "Chuyển tuyến" cho khách đi luôn), nên PHẢI thu tiền xong trước khi cho bắt đầu — chặn cứng
+    // ở đây, không chỉ cảnh báo UI. Không áp cho DIEU_TRI/DICH_VU_LE (khách không có đường thất thoát,
+    // xem "Thời điểm thanh toán" trong kế hoạch). trang_thai_thanh_toan do processPayment ghi (Lễ tân
+    // thu quầy hoặc webhook PayOS) — nguồn ghi duy nhất, xem receptionist.repository.ts::processPayment.
+    if (detail.trang_thai === 'da_checkin' && detail.loai === 'KHAM' && detail.trang_thai_thanh_toan !== 'da_thanh_toan') {
+      const err: any = new Error('Buổi Lượng giá này chưa thanh toán — vui lòng nhờ Lễ tân thu tiền trước khi bắt đầu.');
+      err.errorCode = 'PAYMENT_REQUIRED';
+      throw err;
     }
 
     // Tự động chuyển trạng thái sang 'dang_kham' nếu lịch đang ở 'da_checkin'
@@ -130,11 +173,13 @@ class DoctorService {
       goi_dich_vu_id?: string | null;
       ghi_chu?: string | null;
       resolvePendingConflict?: boolean;
+      is_reassessment?: boolean;
+      han_tai_kham?: string | null;
+      vas_score?: number | null;
+      rom_data?: any[] | null;
+      mmt_data?: any[] | null;
     }
   ) {
-    // Chỉ còn 1 loại chỉ định duy nhất: gói liệu trình — chặn cứng ở server (không chỉ ẩn UI)
-    // trường hợp lọt lên 1 gói lẻ, và 1 khách tối đa 1 liệu trình tại 1 thời điểm nên phải kiểm
-    // tra trước khi cho chỉ định thêm (xem getBlockingLieuTrinh).
     if (data.goi_dich_vu_id) {
       const isLieuTrinh = await doctorRepository.isPackageLieuTrinh(data.goi_dich_vu_id);
       if (!isLieuTrinh) {
@@ -142,15 +187,11 @@ class DoctorService {
       }
       const blockCheck = await doctorRepository.getBlockingLieuTrinh(data.lich_dat_id);
       if (blockCheck.blocked) {
-        // Phác đồ đang điều trị thật (đã thu tiền) — chặn cứng tuyệt đối, không có lối thoát qua
-        // màn hình khám; muốn hủy phải đi đúng luồng hủy gói/hoàn tiền hiện có.
         if (blockCheck.type === 'active_plan') {
           const err: any = new Error(blockCheck.reason);
           err.errorCode = 'ACTIVE_LIEU_TRINH_CONFLICT';
           throw err;
         }
-        // Chỉ định cũ CHƯA kích hoạt — cho Bác sĩ chọn xóa hẳn rồi dùng gói mới, nếu chưa xác nhận
-        // thì báo lỗi kèm errorCode để frontend hiện modal 3 lựa chọn thay vì chặn cứng luôn.
         if (data.resolvePendingConflict && blockCheck.chi_dinh_buoi_id) {
           await doctorRepository.deletePendingChiDinh(blockCheck.chi_dinh_buoi_id);
         } else {
@@ -161,7 +202,6 @@ class DoctorService {
       }
     }
 
-    // Gọi repository để thực hiện transaction lưu bệnh án và đóng lịch hẹn
     const result = await doctorRepository.saveClinicalAssessment({
       lich_dat_id: data.lich_dat_id,
       bac_si_id: userId,
@@ -169,6 +209,11 @@ class DoctorService {
       chong_chi_dinh: data.chong_chi_dinh,
       goi_dich_vu_id: data.goi_dich_vu_id,
       ghi_chu: data.ghi_chu,
+      is_reassessment: data.is_reassessment,
+      han_tai_kham: data.han_tai_kham,
+      vas_score: data.vas_score,
+      rom_data: data.rom_data,
+      mmt_data: data.mmt_data,
     });
 
     return result;
@@ -190,6 +235,33 @@ class DoctorService {
   async getActiveSession(userId: string) {
     const staffId = parseInt(userId, 10);
     return await doctorRepository.getActiveSessionForStaff(staffId, null);
+  }
+
+  // 9. Lưu NHÁP thông tin lượng giá (không đổi trang_thai, không kết thúc ca)
+  async saveAssessmentDraft(
+    userId: string,
+    data: {
+      lich_dat_id: string;
+      chan_doan?: string;
+      chong_chi_dinh?: string;
+      ghi_chu?: string;
+      vas_score?: number;
+      rom_data?: any[];
+      mmt_data?: any[];
+      selected_package_id?: string;
+    }
+  ) {
+    return await doctorRepository.saveAssessmentDraft({
+      lich_dat_id: data.lich_dat_id,
+      bac_si_id: userId,
+      chan_doan: data.chan_doan,
+      chong_chi_dinh: data.chong_chi_dinh,
+      ghi_chu: data.ghi_chu,
+      vas_score: data.vas_score,
+      rom_data: data.rom_data,
+      mmt_data: data.mmt_data,
+      selected_package_id: data.selected_package_id,
+    });
   }
 }
 

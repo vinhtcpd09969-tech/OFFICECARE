@@ -213,7 +213,7 @@ export default function SpecialistDetailPage() {
 
               {/* Bio Summary inside Hero */}
               <p className="text-xs text-slate-650 font-normal leading-relaxed whitespace-pre-line line-clamp-3 pt-0.5">
-                {specialist.mo_ta || 'Bác sĩ chuyên khoa Phục hồi chức năng &amp; Cơ xương khớp, nhiều năm kinh nghiệm chẩn đoán lâm sàng và thiết kế phác đồ trị liệu bảo tồn cho bệnh nhân văn phòng.'}
+                {specialist.mo_ta || 'Chuyên viên Phục hồi chức năng &amp; Cơ xương khớp, nhiều năm kinh nghiệm lượng giá chức năng và thiết kế kế hoạch trị liệu bảo tồn cho khách hàng văn phòng.'}
               </p>
 
               {/* Contacts & Compact Action Buttons */}
@@ -313,7 +313,7 @@ export default function SpecialistDetailPage() {
               <div className="size-8 rounded-xl bg-[#0D9488]/15 text-[#0D9488] flex items-center justify-center font-black text-xs">01</div>
               <h4 className="font-extrabold text-xs md:text-sm text-slate-900">100% Chứng Chỉ Hành Nghề</h4>
               <p className="text-slate-600 text-xs leading-relaxed font-normal">
-                Tất cả Bác sĩ CKI và Kỹ thuật viên đều tốt nghiệp chính quy Đại học Y Dược và sở hữu chứng chỉ hành nghề chính thức do Bộ Y Tế cấp.
+                Tất cả Chuyên viên tư vấn và Kỹ thuật viên đều tốt nghiệp chính quy Đại học Y Dược và sở hữu chứng chỉ hành nghề chính thức.
               </p>
             </div>
 
@@ -329,7 +329,7 @@ export default function SpecialistDetailPage() {
               <div className="size-8 rounded-xl bg-[#0D9488]/15 text-[#0D9488] flex items-center justify-center font-black text-xs">03</div>
               <h4 className="font-extrabold text-xs md:text-sm text-slate-900">Bảo Mật &amp; Tận Tâm 1:1</h4>
               <p className="text-slate-600 text-xs leading-relaxed font-normal">
-                Bệnh nhân được 1 Bác sĩ và 1 KTV trực tiếp theo dõi chỉ số phục hồi xuyên suốt phác đồ, bảo mật 100% thông tin bệnh án y khoa.
+                Khách hàng được Chuyên viên và KTV trực tiếp theo dõi chỉ số phục hồi xuyên suốt phác đồ, bảo mật 100% thông tin lịch sử điều trị.
               </p>
             </div>
           </div>

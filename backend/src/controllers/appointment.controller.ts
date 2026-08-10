@@ -86,6 +86,21 @@ export const updateAppointmentStatus = async (req: Request, res: Response): Prom
   }
 };
 
+// B11 (bản Lễ tân) — đẩy 1 lịch hẹn xuống cuối hàng đợi (khách rời chỗ chờ, không phải "không đến")
+export const pushBackAppointment = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params as { id: string };
+    const result = await appointmentService.pushBackAppointment(id);
+    return res.json(result);
+  } catch (error: any) {
+    console.error('Lỗi khi đẩy lịch hẹn xuống hàng đợi:', error);
+    if (error.message && !error.stack?.includes('pg') && !error.stack?.includes('Prisma') && !error.message.includes('connection')) {
+      return res.status(400).json({ message: error.message });
+    }
+    return res.status(500).json({ message: 'Lỗi server' });
+  }
+};
+
 // Lấy danh sách lịch hẹn của Khách hàng đang đăng nhập
 export const getCustomerAppointments = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -119,6 +134,29 @@ export const cancelCustomerAppointment = async (req: Request, res: Response): Pr
     // Lỗi nghiệp vụ (message có sẵn, không phải lỗi hạ tầng pg/Prisma) → 400 kèm message gốc.
     const status = error.message && !error.stack?.includes('pg') && !error.stack?.includes('Prisma') ? 400 : 500;
     return res.status(status).json({ message: error.message || 'Lỗi server khi hủy lịch hẹn.' });
+  }
+};
+
+// Khách hàng tự đổi lịch hẹn đã thanh toán của mình
+export const rescheduleCustomerAppointment = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const id = req.params.id as string;
+    const nguoi_dung_id = (req as any).user.id;
+    const { new_date, new_buoi, new_staff_id } = req.body;
+
+    if (!new_date || !new_buoi) {
+      return res.status(400).json({ message: 'Vui lòng chọn ngày và buổi mới.' });
+    }
+
+    const appointment = await appointmentService.rescheduleCustomerAppointment(id, nguoi_dung_id, new_date, new_buoi, new_staff_id);
+    return res.json({ success: true, message: 'Đổi lịch hẹn thành công.', appointment });
+  } catch (error: any) {
+    console.error('Lỗi khi khách hàng đổi lịch:', error);
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ message: error.message });
+    }
+    const status = error.message && !error.stack?.includes('pg') && !error.stack?.includes('Prisma') ? 400 : 500;
+    return res.status(status).json({ message: error.message || 'Lỗi server khi đổi lịch hẹn.' });
   }
 };
 
@@ -235,7 +273,7 @@ export const getCustomerMedicalRecord = async (req: Request, res: Response): Pro
     return res.json(record);
   } catch (error) {
     console.error('Lỗi khi lấy bệnh án khách hàng:', error);
-    return res.status(500).json({ message: 'Lỗi server khi truy vấn bệnh án.' });
+    return res.status(500).json({ message: 'Lỗi server khi truy vấn bệnh án.', detail: (error as any)?.message || String(error) });
   }
 };
 

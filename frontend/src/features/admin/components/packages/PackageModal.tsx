@@ -246,7 +246,7 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
 
   // Helper colors for badges
   const typeLabels = {
-    KHAM: { text: 'Gói Khám Lâm Sàng', color: 'bg-indigo-50 border-indigo-200 text-indigo-700 shadow-indigo-100/50' },
+    KHAM: { text: 'Gói Lượng Giá Chức Năng', color: 'bg-indigo-50 border-indigo-200 text-indigo-700 shadow-indigo-100/50' },
     LE: { text: 'Gói Lẻ Trị Liệu', color: 'bg-teal-50 border-teal-200 text-teal-700 shadow-teal-100/50' },
     LIEU_TRINH: { text: 'Gói Liệu Trình Chuyên Sâu', color: 'bg-emerald-50 border-emerald-200 text-emerald-700 shadow-emerald-100/50' }
   };
@@ -318,7 +318,7 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                 <div>
                   <p className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wide">
                     {watchLoaiGoi === 'KHAM' 
-                      ? 'Hướng dẫn Khám Lâm Sàng' 
+                      ? 'Hướng dẫn Lượng Giá Chức Năng' 
                       : watchLoaiGoi === 'LE' 
                         ? 'Hướng dẫn Gói Lẻ' 
                         : watchLoaiGoi === 'LIEU_TRINH'
@@ -327,7 +327,7 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                   </p>
                   <p className="text-[9px] text-emerald-700 dark:text-emerald-300/90 font-semibold mt-0.5 leading-relaxed">
                     {watchLoaiGoi === 'KHAM' && (
-                      'Dành riêng cho Bác sĩ thực hiện kiểm tra tầm vận động, chẩn đoán ban đầu và lên phác đồ điều trị cho bệnh nhân.'
+                      'Dành riêng cho Chuyên viên thực hiện kiểm tra tầm vận động, đánh giá chức năng ban đầu và lập kế hoạch trị liệu cho khách hàng.'
                     )}
                     {watchLoaiGoi === 'LE' && (
                       'Áp dụng cho các dịch vụ đơn lẻ vãng lai. Khách hàng sử dụng buổi nào sẽ thực hiện thanh toán buổi đó.'
@@ -361,7 +361,7 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
                       className="w-full px-4 py-3 bg-white dark:bg-zinc-800 border border-zinc-250 dark:border-zinc-700 rounded-xl focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 outline-none transition-all text-secondary dark:text-zinc-100 font-semibold text-xs shadow-sm cursor-pointer relative z-30 font-heading"
                     >
                       <option value="">-- CHỌN LOẠI GÓI DỊCH VỤ --</option>
-                      <option value="KHAM">Gói Khám Lâm Sàng (Bác sĩ chuẩn đoán bệnh)</option>
+                      <option value="KHAM">Gói Lượng Giá Chức Năng (Chuyên viên đánh giá chức năng)</option>
                       <option value="LE">Gói Lẻ (Trị liệu đơn buổi nhanh gọn)</option>
                       <option value="LIEU_TRINH">Gói Liệu Trình (Phương án điều trị dài hạn)</option>
                     </select>

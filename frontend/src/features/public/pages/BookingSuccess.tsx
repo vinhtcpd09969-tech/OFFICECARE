@@ -235,7 +235,7 @@ export default function BookingSuccess() {
 
             {isConfirmed && appointment.ten_ky_thuat_vien && (
               <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-                <span className="text-slate-455 font-bold uppercase tracking-wider text-[9px]">Bác sĩ lượng giá</span>
+                <span className="text-slate-455 font-bold uppercase tracking-wider text-[9px]">Chuyên viên lượng giá</span>
                 <span className="text-slate-855 font-black text-slate-800 flex items-center gap-1">
                   <User size={13} className="text-[#0D9488]" />
                   {appointment.ten_ky_thuat_vien}

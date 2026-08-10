@@ -10,8 +10,7 @@ interface InvoiceCardProps {
 const STATUS_META: Record<string, { label: string; cls: string }> = {
   da_thanh_toan: { label: 'ĐÃ THANH TOÁN', cls: 'bg-emerald-100/80 text-emerald-800 border-emerald-200/60' },
   chua_thanh_toan: { label: 'CHƯA THANH TOÁN', cls: 'bg-rose-100/80 text-rose-800 border-rose-200/60' },
-  dang_tra_tung_buoi: { label: 'ĐANG TRẢ GÓP', cls: 'bg-amber-100/80 text-amber-800 border-amber-200/60' },
-  dang_tra_gop: { label: 'ĐANG TRẢ GÓP', cls: 'bg-amber-100/80 text-amber-800 border-amber-200/60' },
+  dang_tra_tung_buoi: { label: 'ĐANG TRẢ TỪNG BUỔI', cls: 'bg-amber-100/80 text-amber-800 border-amber-200/60' },
   da_huy: { label: 'ĐÃ HỦY', cls: 'bg-slate-100 text-slate-500 border-slate-200' },
   da_hoan_tien: { label: 'ĐÃ HOÀN TIỀN', cls: 'bg-rose-100 text-rose-700 border-rose-200' },
 };

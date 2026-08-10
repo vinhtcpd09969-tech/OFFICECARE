@@ -45,7 +45,8 @@ export const equipmentSchema = z.object({
     ten_thiet_bi: z.string().min(1, 'Tên thiết bị là bắt buộc'),
     ngay_mua: z.string().optional().nullable(),
     trang_thai: z.enum(['san_sang', 'dang_su_dung', 'dang_bao_tri', 'hong']).default('san_sang'),
-    ghi_chu: z.string().optional().nullable()
+    ghi_chu: z.string().optional().nullable(),
+    phong_id: z.union([z.number().int(), z.string().transform(v => v ? Number(v) : null)]).optional().nullable()
   })
 });
 
@@ -69,7 +70,7 @@ export const paymentPromotionSchema = z.object({
   body: z.object({
     ten_uu_dai: z.string().min(1, 'Tên ưu đãi là bắt buộc'),
     phan_tram_tra_thang: z.number().int().min(0).max(100).default(10),
-    phan_tram_tra_gop: z.number().int().min(0).max(100).default(5),
+    phan_tram_tra_gop: z.number().int().min(0).max(100).optional().default(0),
     ngay_bat_dau: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Ngày bắt đầu không hợp lệ (YYYY-MM-DD)'),
     ngay_het_han: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Ngày hết hạn không hợp lệ (YYYY-MM-DD)').optional().nullable(),
     trang_thai: z.enum(['hoat_dong', 'vo_hieu']).default('hoat_dong'),

@@ -281,18 +281,9 @@ export const useFinanceDashboard = (isCheckoutMode: boolean) => {
 
       if (itemTypeFilter !== 'all') {
         const hinhThuc = inv.hinh_thuc_thanh_toan_goi || '';
-
-        // Lọc theo hình thức thanh toán gói thật (hinh_thuc_thanh_toan_goi) — 3 nhánh 'goi'/
-        // 'kham_lam_sang'/'buoi_le' (đoán loại dịch vụ qua tên chuỗi ten_dich_vu) đã bỏ vì không có
-        // option nào trong FinanceFilterBar.tsx trỏ tới, là code chết từ thiết kế cũ.
         if (itemTypeFilter === '100') {
-          // 100%: Bao gồm gói trả thẳng 100%, khám lâm sàng, buổi dịch vụ lẻ
-          if (hinhThuc === 'tra_gop' || hinhThuc === 'tung_buoi') return false;
-        } else if (itemTypeFilter === '50') {
-          // 50%: Gói trả góp đợt 1
-          if (hinhThuc !== 'tra_gop') return false;
+          if (hinhThuc === 'tung_buoi') return false;
         } else if (itemTypeFilter === 'tung_buoi') {
-          // Từng buổi: Thanh toán lẻ theo ca
           if (hinhThuc !== 'tung_buoi') return false;
         }
       }
@@ -356,6 +347,15 @@ export const useFinanceDashboard = (isCheckoutMode: boolean) => {
     const totalCollected = filteredInvoices.reduce((acc, inv) => acc + Number(inv.da_thanh_toan || 0), 0);
     const paidInvoiceCount = filteredInvoices.filter((inv) => inv.trang_thai === 'da_thanh_toan').length;
     
+    // Nợ chờ thu thực tế từ các hóa đơn chưa hoàn tất thanh toán
+    const pendingAmount = filteredInvoices.reduce((acc, inv) => {
+      if (inv.trang_thai !== 'da_thanh_toan' && inv.trang_thai !== 'da_hoan_tien' && inv.trang_thai !== 'da_huy') {
+        const debt = Math.max(0, Number(inv.tong_tien_thanh_toan || 0) - Number(inv.da_thanh_toan || 0));
+        return acc + debt;
+      }
+      return acc;
+    }, 0);
+
     const packageInvoices = filteredInvoices.filter((inv) => !!inv.phac_do_dieu_tri_id);
     const totalPackageRevenue = packageInvoices.reduce((acc, inv) => acc + Number(inv.da_thanh_toan || 0), 0);
 
@@ -366,6 +366,7 @@ export const useFinanceDashboard = (isCheckoutMode: boolean) => {
 
     return {
       totalCollected,
+      pendingAmount,
       paidInvoiceCount,
       totalPackageRevenue,
       packageInvoiceCount: packageInvoices.length,

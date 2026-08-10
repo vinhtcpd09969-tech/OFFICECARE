@@ -254,10 +254,10 @@ export default function AdminDashboard() {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
             <h1 className="text-lg md:text-xl font-black text-slate-900 dark:text-white tracking-tight">
-              Thống Kê Vận Hành Phòng Khám
+              Thống Kê Vận Hành Trung Tâm
             </h1>
             <p className="text-slate-500 dark:text-slate-400 text-xs font-medium mt-0.5">
-              Báo cáo tổng quan doanh thu, bệnh nhân &amp; hiệu suất nhân sự PhysioFlow
+              Báo cáo tổng quan doanh thu, khách hàng &amp; hiệu suất nhân sự OfficeCare
             </p>
           </div>
 

@@ -1,7 +1,8 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Stethoscope, ClipboardList } from 'lucide-react';
 import { ConfirmDialog } from '../../../../components/ConfirmDialog';
-import PatientEmrDetail from '../../components/PatientEmrDetail';
+import { PatientDossierTimeline } from '../../../../pages/DoctorMedicalRecords/components/PatientDossierTimeline';
 import { CustomerSummaryCards } from '../../components/customers/ui/CustomerSummaryCards';
 import { CustomerFilterToolbar } from '../../components/customers/ui/CustomerFilterToolbar';
 import { CustomerTable } from '../../components/customers/ui/CustomerTable';
@@ -24,6 +25,7 @@ import './recovery-arc-theme.css';
 type ViewMode = 'customer' | 'plan';
 
 export default function ManageCustomers() {
+  const navigate = useNavigate();
   const [view, setView] = useState<ViewMode>('customer');
 
   const filters = useCustomerFilters();
@@ -170,11 +172,25 @@ export default function ManageCustomers() {
           )}
         </div>
       ) : (
-        <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm animate-fade-in">
-          {emr.loading ? (
-            <div className="py-20 text-center text-slate-400 font-semibold text-xs animate-pulse">Đang tải hồ sơ khách hàng...</div>
+        <div className="animate-fade-in">
+          {emr.loading || !emr.patientInfo ? (
+            <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-slate-200 dark:border-zinc-800 p-16 text-center flex flex-col items-center justify-center gap-3">
+              <div className="size-10 border-4 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500 animate-pulse">
+                Đang tải hồ sơ điều trị & dòng thời gian...
+              </p>
+            </div>
           ) : (
-            <PatientEmrDetail patient={emr.patient} onBack={emr.closeCustomer} showAdminInfo={false} highlightTarget={emr.highlightTarget} />
+            <PatientDossierTimeline
+              selectedPatient={emr.patientInfo}
+              profile={emr.profile}
+              onBack={emr.closeCustomer}
+              highlightTarget={emr.highlightTarget}
+              onBookNextSession={(plan) => {
+                const nextSessionNum = (plan.so_buoi_da_dung || 0) + 1;
+                navigate(`/admin/appointments?khach_hang_id=${emr.patientInfo?.id}&goi_dich_vu_id=${(plan as any).goi_dich_vu_id || ''}&phac_do_id=${plan.id}&buoi=${nextSessionNum}`);
+              }}
+            />
           )}
         </div>
       )}

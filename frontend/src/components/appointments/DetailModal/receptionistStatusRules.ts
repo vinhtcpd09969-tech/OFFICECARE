@@ -6,9 +6,9 @@
  * A10 (06/08/2026): bỏ hẳn khái niệm "chưa xác nhận"/"chờ xác nhận" — mọi lịch vào thẳng
  * `da_xac_nhan` lúc tạo (Phase 1), nên Lễ tân không còn hành động "Xác nhận" nào cả.
  */
-import { CHECKED_IN_STATUSES, CANCELLED_STATUSES, NO_SHOW_STATUSES } from '../../../utils/appointmentKpi';
+import { CANCELLED_STATUSES, NO_SHOW_STATUSES } from '../../../utils/appointmentKpi';
 
-const IN_PROGRESS_LOCKED_STATUSES = [...CHECKED_IN_STATUSES, 'dang_kham', 'cho_tai_luong_gia', 'hoan_thanh'];
+const IN_PROGRESS_LOCKED_STATUSES = ['dang_kham', 'hoan_thanh'];
 const TERMINAL_STATUSES = [...CANCELLED_STATUSES, ...NO_SHOW_STATUSES];
 
 export interface ReceptionistStatusOption {
@@ -16,26 +16,14 @@ export interface ReceptionistStatusOption {
   label: string;
 }
 
-/** Nhân sự đã được gán cho lịch hẹn chưa (khách tự chọn lúc đặt online, hoặc Quản lý gán tay).
- * Dùng chung giữa dropdown trạng thái (file này) và `StaffRoomAllocation.tsx` để không lệch nhau. */
 export function hasAssignedStaff(apt: { bac_si_id?: unknown; chuyen_gia_id?: unknown } | null | undefined): boolean {
   return !!apt?.bac_si_id || !!apt?.chuyen_gia_id;
 }
 
-/**
- * Trạng thái mà Lễ tân không còn thao tác gì được nữa (khóa toàn bộ form: dropdown, ghi chú
- * nội bộ, nhân sự/phòng, nút Lưu cập nhật) — chỉ còn xem, hoặc (khi `hoan_thanh`) đi tới luồng
- * thanh toán riêng (không đổi, xem `DetailFooter.tsx`).
- */
 export function isReceptionistLockedStatus(currentStatus: string): boolean {
   return IN_PROGRESS_LOCKED_STATUSES.includes(currentStatus) || TERMINAL_STATUSES.includes(currentStatus);
 }
 
-/**
- * Danh sách hành động Lễ tân được chọn từ `currentStatus` hiện tại, kèm nhãn hiển thị.
- * Lịch mới luôn ở `da_xac_nhan` — Lễ tân chỉ còn Check-in/Không đến/Hủy; mọi trạng thái sau đó
- * bị khóa (xem `isReceptionistLockedStatus`).
- */
 export function getReceptionistActionOptions(
   currentStatus: string,
   _hasAssignedStaff: boolean
@@ -44,6 +32,18 @@ export function getReceptionistActionOptions(
     return [
       { value: 'da_checkin', label: 'Check-in' },
       { value: 'khong_den', label: 'Không đến' },
+      { value: 'da_huy', label: 'Hủy' },
+    ];
+  }
+  if (currentStatus === 'da_checkin') {
+    return [
+      { value: 'khong_den', label: 'Không đến (Vắng mặt)' },
+      { value: 'da_huy', label: 'Hủy lịch' },
+    ];
+  }
+  if (currentStatus === 'cho_tai_luong_gia') {
+    return [
+      { value: 'da_checkin', label: 'Check-in tái khám' },
       { value: 'da_huy', label: 'Hủy' },
     ];
   }

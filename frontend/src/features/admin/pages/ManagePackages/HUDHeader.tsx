@@ -54,7 +54,7 @@ export function HUDHeader({
 
         <div className="bg-white dark:bg-zinc-900 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col justify-between transition-all hover:border-indigo-200/50 hover:shadow-md">
           <div className="flex justify-between items-start mb-2">
-            <p className="text-[9px] font-black text-slate-400 dark:text-zinc-400 uppercase tracking-widest">KHÁM & TƯ VẤN</p>
+            <p className="text-[9px] font-black text-slate-400 dark:text-zinc-400 uppercase tracking-widest">LƯỢNG GIÁ CHỨC NĂNG</p>
             <span className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-650 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800/60 text-[10px] font-bold">Kham</span>
           </div>
           <div className="flex items-baseline gap-2">

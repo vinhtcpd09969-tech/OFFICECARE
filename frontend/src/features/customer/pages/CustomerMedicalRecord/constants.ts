@@ -5,7 +5,6 @@
 export const INVOICE_STATUS_META: Record<string, { label: string; className: string }> = {
   da_thanh_toan: { label: 'Đã thanh toán', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   chua_thanh_toan: { label: 'Chờ thanh toán', className: 'bg-rose-50 text-rose-700 border-rose-200' },
-  dang_tra_gop: { label: 'Đang trả góp', className: 'bg-amber-50 text-amber-700 border-amber-200' },
   dang_tra_tung_buoi: { label: 'Đang trả từng buổi', className: 'bg-sky-50 text-sky-700 border-sky-200' },
   da_hoan_tien: { label: 'Đã hoàn tiền', className: 'bg-zinc-100 text-zinc-600 border-zinc-200' },
   // Gói bị hủy KHÔNG hoàn tiền (quá hạn sử dụng, tự động hoặc Admin xử lý) — khác hẳn da_hoan_tien.
@@ -16,7 +15,6 @@ export const DEFAULT_INVOICE_STATUS_META = { label: 'Chờ cập nhật', classN
 
 export const PAYMENT_METHOD_LABEL: Record<string, string> = {
   tra_thang: 'Trả thẳng 100%',
-  tra_gop: 'Trả góp theo đợt',
   tung_buoi: 'Trả lẻ từng buổi',
 };
 

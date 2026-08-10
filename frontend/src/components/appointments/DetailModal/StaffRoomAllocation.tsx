@@ -1,5 +1,4 @@
 import { resolveImageUrl } from '../../../utils/imageUrl';
-import { statusConfig } from '../../appointmentStatusConfig';
 
 interface StaffRoomAllocationProps {
   selectedAppointment: any;
@@ -45,9 +44,10 @@ export function StaffRoomAllocation({
   aptDateStr,
   aptStartHourStr,
   aptEndHourStr,
-  appointments = []
-}: StaffRoomAllocationProps) {
-  const hasAssignedStaff = !!selectedAppointment?.bac_si_id || !!selectedAppointment?.chuyen_gia_id;
+  appointments = [],
+  onUnassignStaff
+}: StaffRoomAllocationProps & { onUnassignStaff?: () => void }) {
+  const hasAssignedStaff = !!selectedAppointment?.bac_si_id || !!selectedAppointment?.chuyen_gia_id || !!selectedAppointment?.nhan_su_id;
   const isEditable = isReassignAllowed && !(_isReceptionist && (hasAssignedStaff || isLocked));
 
   // Lễ tân không có quyền chọn nhân sự — khi ca chưa được Quản lý phân bổ, ẩn hẳn phần
@@ -55,12 +55,12 @@ export function StaffRoomAllocation({
   // chọn lúc đặt online hay Quản lý gán tay), phần dưới vẫn hiển thị nhưng chỉ đọc (isEditable=false).
   if (_isReceptionist && !hasAssignedStaff) {
     return (
-      <div className="space-y-3">
+      <div className="space-y-3 font-jakarta">
         <h4 className="text-xs font-bold text-slate-400 dark:text-zinc-555 uppercase tracking-wider border-b border-slate-100 dark:border-zinc-800 pb-1.5">
           Điều phối lâm sàng
         </h4>
         <div className="py-6 text-center text-xs font-bold text-slate-450 dark:text-zinc-500 border border-dashed border-slate-200 dark:border-zinc-800/80 rounded-2xl select-none">
-          🕓 Nhân sự &amp; phòng sẽ hiển thị sau khi Quản lý phân bổ
+          🕓 Ca thuộc Hàng chờ chung (Bất kỳ nhân sự rảnh nào cũng có thể nhận ca)
         </div>
       </div>
     );
@@ -167,19 +167,29 @@ export function StaffRoomAllocation({
     });
 
   return (
-    <div className="space-y-5">
-      <h4 className="text-xs font-bold text-slate-400 dark:text-zinc-555 uppercase tracking-wider border-b border-slate-100 dark:border-zinc-800 pb-1.5">
-        Điều phối lâm sàng
-      </h4>
-
-      {!isReassignAllowed && (
-        <div className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5">
-          🔒 Không thể đổi nhân sự — ca này đã{' '}
-          <strong>{statusConfig[selectedAppointment.trang_thai]?.label || selectedAppointment.trang_thai}</strong>.
-          Chỉ đổi được khi ca chưa bắt đầu (đã xác nhận/đã check-in) hoặc đang thực hiện.
+    <div className="space-y-5 font-jakarta">
+      {/* 0. THÔNG BÁO ĐÍCH DANH & NÚT RÚT VỀ HÀNG CHỜ CHUNG CHO LỄ TÂN */}
+      {_isReceptionist && hasAssignedStaff && ['da_xac_nhan', 'da_checkin'].includes(selectedAppointment.trang_thai) && (
+        <div className="p-4 bg-amber-500/10 dark:bg-amber-955/40 border border-amber-300 dark:border-amber-900/60 rounded-2xl flex items-center justify-between gap-3 shadow-2xs">
+          <div className="space-y-0.5">
+            <span className="text-xs font-black text-amber-900 dark:text-amber-200 uppercase tracking-wide block">
+              🎯 Khách chỉ định đích danh nhân sự
+            </span>
+            <p className="text-[11px] text-amber-700 dark:text-amber-400 font-medium">
+              Nếu khách không muốn chờ KTV này, bấm nút bên dưới để đưa ca về Hàng chờ chung cho nhân sự rảnh nhận ngay.
+            </p>
+          </div>
+          {onUnassignStaff && (
+            <button
+              type="button"
+              onClick={onUnassignStaff}
+              className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-md transition-all shrink-0 cursor-pointer flex items-center gap-1.5"
+            >
+              <span>🔄 Rút về Hàng chờ chung</span>
+            </button>
+          )}
         </div>
       )}
-
       {/* 1. NHÂN SỰ PHỤ TRÁCH */}
       <div className="space-y-2">
         <div className="flex justify-between items-center">

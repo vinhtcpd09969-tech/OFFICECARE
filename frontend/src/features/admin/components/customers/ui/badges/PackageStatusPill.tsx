@@ -14,49 +14,45 @@ const TIER_STYLE: Record<string, { bg: string; color: string }> = {
 
 // Trạng thái 1 liệu trình (phac_do_dieu_tri) dùng chung đúng bảng màu trên qua ánh xạ sang tier
 // tương ứng — không rời rạc thêm 1 bộ hex mới.
-const PLAN_STATUS_TO_TIER_STYLE: Record<TreatmentPlanStatus, string> = {
+const PLAN_STATUS_TO_TIER_STYLE: Record<string, string> = {
   dang_dieu_tri: 'progress',
   qua_han: 'qua_han',
   hoan_thanh: 'done',
-  huy: 'cancel'
+  huy: 'cancel',
+  cho_kich_hoat: 'pending',
+  tam_dung: 'pending',
 };
 
 // Cột "Trạng thái" ở khối "Gói liệu trình" (tab "Hồ sơ điều trị") — 1 dòng = 1 gói.
-export function PlanStatusPill({ status }: { status: TreatmentPlanStatus }) {
-  const style = TIER_STYLE[PLAN_STATUS_TO_TIER_STYLE[status]];
+export function PlanStatusPill({ status }: { status: TreatmentPlanStatus | string }) {
+  const tierKey = (status && PLAN_STATUS_TO_TIER_STYLE[status]) || 'none';
+  const style = TIER_STYLE[tierKey] || TIER_STYLE.none;
+  const label = (status && PLAN_STATUS_META[status as TreatmentPlanStatus]?.label) || status || 'Khác';
+
   return (
     <span
       className="recovery-arc-scope inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10.5px] font-bold whitespace-nowrap"
       style={{ background: style.bg, color: style.color }}
     >
       <span className="size-1.5 rounded-full shrink-0" style={{ background: 'currentColor' }} />
-      {PLAN_STATUS_META[status].label}
+      {label}
     </span>
   );
 }
 
-export function RecordViewButton({ hasRecord, onClick }: { hasRecord: boolean; onClick: () => void }) {
-  if (!hasRecord) {
-    return (
-      <span
-        title="Khách hàng chưa có hồ sơ điều trị"
-        className="recovery-arc-scope inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border border-dashed whitespace-nowrap"
-        style={{ borderColor: 'var(--rc-line)', color: 'var(--rc-taupe)' }}
-      >
-        <ClipboardPlus size={13} className="opacity-50" />
-        Chưa có
-      </span>
-    );
-  }
+export function RecordViewButton({ hasRecord, onClick }: { hasRecord?: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
       title="Xem hồ sơ điều trị"
-      className="recovery-arc-scope inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all hover:-translate-y-0.5 active:scale-95 whitespace-nowrap"
-      style={{ background: 'var(--rc-sage-soft)', color: 'var(--rc-sage)', borderColor: 'var(--rc-sage)' }}
+      className={`recovery-arc-scope inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all hover:-translate-y-0.5 active:scale-95 whitespace-nowrap cursor-pointer ${
+        hasRecord
+          ? 'bg-teal-50 text-teal-700 border-teal-300 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-800'
+          : 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+      }`}
     >
-      <ClipboardPlus size={13} />
+      <ClipboardPlus size={13} className={hasRecord ? 'text-teal-600' : 'text-slate-500'} />
       Hồ sơ
     </button>
   );

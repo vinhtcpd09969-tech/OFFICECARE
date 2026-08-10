@@ -22,6 +22,7 @@ import {
   deleteEquipment
 } from '../../api/admin.api';
 import { format } from 'date-fns';
+import api from '../../../../api/axios';
 
 interface Equipment {
   id: string;
@@ -30,6 +31,8 @@ interface Equipment {
   ngay_mua?: string;
   trang_thai: string;
   ghi_chu?: string;
+  phong_id?: number | null;
+  ten_phong?: string;
 }
 
 // Utility to calculate local YYYY-MM-DD date string without timezone offsets
@@ -211,13 +214,23 @@ export default function ManageEquipment() {
   const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
 
   // Form state
-  const [equipmentFormData, setEquipmentFormData] = useState({
+  const [equipmentFormData, setEquipmentFormData] = useState<{
+    ma_thiet_bi: string;
+    ten_thiet_bi: string;
+    ngay_mua: string;
+    trang_thai: string;
+    ghi_chu: string;
+    phong_id: string | number;
+  }>({
     ma_thiet_bi: '',
     ten_thiet_bi: '',
     ngay_mua: '',
     trang_thai: 'dang_su_dung',
-    ghi_chu: ''
+    ghi_chu: '',
+    phong_id: ''
   });
+
+  const [rooms, setRooms] = useState<any[]>([]);
 
   const loadData = async () => {
     try {
@@ -245,6 +258,7 @@ export default function ManageEquipment() {
 
   useEffect(() => {
     loadData();
+    api.get('/admin/rooms').then(res => setRooms(res.data || [])).catch(() => {});
   }, []);
 
   const stats = useMemo(() => {
@@ -303,7 +317,8 @@ export default function ManageEquipment() {
         ten_thiet_bi: eq.ten_thiet_bi,
         ngay_mua: eq.ngay_mua ? eq.ngay_mua.substring(0, 10) : '',
         trang_thai: eq.trang_thai,
-        ghi_chu: eq.ghi_chu || ''
+        ghi_chu: eq.ghi_chu || '',
+        phong_id: eq.phong_id || ''
       });
     } else {
       setEditingEquipment(null);
@@ -312,7 +327,8 @@ export default function ManageEquipment() {
         ten_thiet_bi: '',
         ngay_mua: getLocalDateString(),
         trang_thai: 'dang_su_dung',
-        ghi_chu: ''
+        ghi_chu: '',
+        phong_id: ''
       });
     }
     setIsEquipmentModalOpen(true);
@@ -335,7 +351,8 @@ export default function ManageEquipment() {
         ten_thiet_bi: equipmentFormData.ten_thiet_bi.trim(),
         ngay_mua: equipmentFormData.ngay_mua || null,
         trang_thai: equipmentFormData.trang_thai,
-        ghi_chu: equipmentFormData.ghi_chu || null
+        ghi_chu: equipmentFormData.ghi_chu || null,
+        phong_id: equipmentFormData.phong_id ? Number(equipmentFormData.phong_id) : null
       };
 
       if (editingEquipment) {
@@ -573,6 +590,19 @@ export default function ManageEquipment() {
 
                   <h4 className="font-black text-slate-800 text-sm mt-3.5 leading-tight">{eq.ten_thiet_bi}</h4>
                   
+                  {/* Room Location Badge */}
+                  <div className="mt-2.5">
+                    {eq.ten_phong ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800 text-[11px] font-black">
+                        🏢 Vị trí: {eq.ten_phong}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700 text-[11px] font-bold italic">
+                        📦 Vị trí: Chưa gán phòng (Lưu kho)
+                      </span>
+                    )}
+                  </div>
+
                   <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-semibold mt-2.5">
                     <Calendar size={11} />
                     <span>Ngày mua: {eq.ngay_mua ? format(new Date(eq.ngay_mua), 'dd/MM/yyyy') : '—'}</span>
@@ -626,7 +656,8 @@ export default function ManageEquipment() {
                 <tr className="bg-slate-50 border-b border-slate-100 text-slate-550 font-bold uppercase tracking-wider select-none">
                   <th className="p-4 pl-6 w-32">Mã máy</th>
                   <th className="p-4">Tên thiết bị y tế</th>
-                  <th className="p-4 w-44">Ngày mua</th>
+                  <th className="p-4 w-44">Vị trí phòng</th>
+                  <th className="p-4 w-36">Ngày mua</th>
                   <th className="p-4 text-center w-36">Trạng thái</th>
                   <th className="p-4 pr-6 text-right w-48">Thao tác</th>
                 </tr>
@@ -654,6 +685,15 @@ export default function ManageEquipment() {
                       <td className="p-4">
                         <div className="font-extrabold text-slate-800">{eq.ten_thiet_bi}</div>
                         {eq.ghi_chu && <div className="text-[11px] text-slate-400 italic mt-0.5">{eq.ghi_chu}</div>}
+                      </td>
+                      <td className="p-4 font-bold text-slate-700 dark:text-zinc-300">
+                        {eq.ten_phong ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 text-xs font-black">
+                            🏢 {eq.ten_phong}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 font-normal italic">Chưa phân phòng</span>
+                        )}
                       </td>
                       <td className="p-4 font-semibold text-slate-700">
                         {eq.ngay_mua ? format(new Date(eq.ngay_mua), 'dd/MM/yyyy') : '—'}
@@ -790,6 +830,22 @@ export default function ManageEquipment() {
                   onChange={(e) => setEquipmentFormData({ ...equipmentFormData, ten_thiet_bi: e.target.value })}
                   className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 p-2.5 font-bold rounded-xl text-slate-800 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-slate-500/10 transition-colors"
                 />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 dark:text-zinc-400 uppercase tracking-widest mb-1.5">Phòng / Vị trí bố trí</label>
+                <select
+                  value={equipmentFormData.phong_id || ''}
+                  onChange={(e) => setEquipmentFormData({ ...equipmentFormData, phong_id: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 p-2.5 font-bold rounded-xl text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-slate-500/10 transition-colors cursor-pointer"
+                >
+                  <option value="">-- Chưa gán phòng (Hoặc thiết bị lưu kho) --</option>
+                  {rooms.filter((r: any) => r.loai_phong === 'phong_tri_lieu' || r.loai_phong === 'phong_dieu_tri').map((r: any) => (
+                    <option key={r.id} value={r.id}>
+                      🏥 {r.ten_phong} ({r.ma_phong})
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {editingEquipment && (

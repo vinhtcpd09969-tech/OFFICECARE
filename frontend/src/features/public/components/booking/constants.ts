@@ -31,8 +31,10 @@ export const generateAvailableDates = (): Date[] => {
   return dates;
 };
 
-/** Buổi đặt cho hôm nay đã trôi qua giờ nhận khách kết thúc — mirror `isBuoiDaQua` phía backend
- * (đặt buổi sáng sau 12h00 thì không đặt được nữa). Ngày trong quá khứ luôn coi là đã qua. */
+/** Thời gian ngắt nhận lịch online trước khi kết thúc buổi (phút) — mặc định 45 phút để khách di chuyển & check-in */
+export const CUTOFF_LEAD_MINUTES = 45;
+
+/** Buổi đặt cho hôm nay đã trôi qua giờ nhận khách kết thúc (chặn trước 45 phút) — mirror `isBuoiDaQua` phía backend */
 export const isBuoiDaQua = (dateStr: string, buoi: Buoi): boolean => {
   const todayStr = formatLocalDate(new Date());
   if (dateStr < todayStr) return true;
@@ -40,7 +42,8 @@ export const isBuoiDaQua = (dateStr: string, buoi: Buoi): boolean => {
   const now = new Date();
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
   const [h, m] = BUOI_INFO[buoi].ketThuc.split(':').map(Number);
-  return nowMinutes >= h * 60 + m;
+  const endMinutes = h * 60 + m;
+  return nowMinutes >= (endMinutes - CUTOFF_LEAD_MINUTES);
 };
 
 export const getVietnameseDay = (date: Date): string => {

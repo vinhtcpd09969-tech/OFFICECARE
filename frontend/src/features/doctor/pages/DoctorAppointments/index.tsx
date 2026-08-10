@@ -1,18 +1,19 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../../../stores/authStore';
-import { CheckCircle2 } from 'lucide-react';
+import { Stethoscope, PhoneCall } from 'lucide-react';
 import { format, addDays, isSameDay } from 'date-fns';
+import toast from 'react-hot-toast';
 
-import AppointmentCalendar from '../../../../components/appointments/AppointmentCalendar';
 import AppointmentInfoModal from '../../../../components/appointments/AppointmentInfoModal';
 import { AppointmentsFilterBar } from '../../../../components/appointments/ui/AppointmentsFilterBar';
 import { AppointmentKpiCards } from '../../../../components/appointments/ui/AppointmentKpiCards';
 import { CapacityView } from '../../../../components/appointments/ui/CapacityView';
-import { getAppointments, getDoctorSchedules, DoctorAppointment, DoctorSchedule } from '../../api/doctor.api';
+import { SpecialistFlowBoard } from '../../components/SpecialistFlowBoard';
+
+import { getAppointments, DoctorAppointment } from '../../api/doctor.api';
 import { computeAppointmentKpiBuckets, KPI_BUCKET_STATUSES, KPI_BUCKET_LABELS, AppointmentKpiBuckets } from '../../../../utils/appointmentKpi';
 import { ActiveFilterChip } from '../../../../components/appointments/ui/ActiveFilterChip';
-import { statusConfig as STATUS_CONFIG } from '../../../../components/appointmentStatusConfig';
 
 export default function DoctorAppointments() {
   const navigate = useNavigate();
@@ -28,11 +29,10 @@ export default function DoctorAppointments() {
   const [endDate, setEndDate] = useState<Date>(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return addDays(today, 6);
+    return today;
   });
 
   const [appointments, setAppointments] = useState<DoctorAppointment[]>([]);
-  const [schedules, setSchedules] = useState<DoctorSchedule[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Modal state for viewing finished/cancelled appointments
@@ -49,9 +49,9 @@ export default function DoctorAppointments() {
     }
   }, [location.state, navigate, location.pathname]);
 
-  // Filter States
+  // Filter States - Mặc định viewMode là 'timeline' để mở ngay Bảng Flow Board giống Lễ tân (Ảnh 3)
   const [timeRange] = useState<'today' | '7days' | 'month' | 'custom'>('7days');
-  const [viewMode, setViewMode] = useState<'timeline' | 'capacity'>('capacity');
+  const [viewMode, setViewMode] = useState<'timeline' | 'capacity'>('timeline');
   const [searchTerm, setSearchTerm] = useState<string>('');
 
   const handleSelectDateRange = (start: Date, end: Date) => {
@@ -70,7 +70,6 @@ export default function DoctorAppointments() {
       today.setHours(0, 0, 0, 0);
       setStartDate(today);
       setEndDate(addDays(today, 6));
-      setViewMode('capacity');
       return;
     }
 
@@ -79,21 +78,19 @@ export default function DoctorAppointments() {
     const e = new Date(endDate);
     e.setHours(0, 0, 0, 0);
     const diffDays = Math.max(1, Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+    const stepDays = viewMode === 'timeline' ? 1 : diffDays;
 
     if (direction === 'next') {
-      setStartDate(prev => addDays(prev, diffDays));
-      setEndDate(prev => addDays(prev, diffDays));
+      setStartDate(prev => addDays(prev, stepDays));
+      setEndDate(prev => addDays(prev, stepDays));
     } else {
-      setStartDate(prev => addDays(prev, -diffDays));
-      setEndDate(prev => addDays(prev, -diffDays));
+      setStartDate(prev => addDays(prev, -stepDays));
+      setEndDate(prev => addDays(prev, -stepDays));
     }
   };
 
-  // Lọc theo 1 trạng thái cụ thể khi bấm thẻ KPI — độc lập với số liệu trên thẻ (kpiStats tính từ
-  // appointments gốc, không bị thu hẹp bởi filter này).
   const [statusFilter, setStatusFilter] = useState<Exclude<keyof AppointmentKpiBuckets, 'total'> | null>(null);
 
-  // Calculate Active Interval
   const activeInterval = useMemo(() => {
     const start = new Date(startDate);
     start.setHours(0, 0, 0, 0);
@@ -109,13 +106,8 @@ export default function DoctorAppointments() {
       const startIso = activeInterval.start.toISOString();
       const endIso = activeInterval.end.toISOString();
       
-      const [apptRes, schedRes] = await Promise.all([
-        getAppointments(startIso, endIso),
-        getDoctorSchedules()
-      ]);
-      
+      const apptRes = await getAppointments(startIso, endIso);
       setAppointments(apptRes.data);
-      setSchedules(schedRes.data);
     } catch (error) {
       console.error('Lỗi khi tải lịch khám:', error);
     } finally {
@@ -127,40 +119,40 @@ export default function DoctorAppointments() {
     loadData();
   }, [loadData]);
 
-  // Giả lập staffList chứa chính bác sĩ đang đăng nhập để hiển thị 1 cột trên calendar
-  const staffList = useMemo(() => {
-    if (!user) return [];
-    return [
-      {
-        id: user.id,
-        chuyen_gia_id: user.id, // Doctor ID matches User ID in doctor layout resolve logic
-        ho_ten: user.ho_ten || 'Bác sĩ',
-        vai_tro: 'Bác sĩ'
+  // B2/B11/B19 — poll lặng lẽ mỗi 8s (cùng nhịp với useAppointmentsData bên Lễ tân/Admin) để nhân sự
+  // thấy kịp thời khi Lễ tân "Đẩy xuống" một khách từ máy khác (khác trình duyệt/thiết bị — không
+  // còn tín hiệu localStorage tức thời nữa, xem cảnh báo ở AGENTS.md §2.5). KHÔNG gọi setLoading, chỉ
+  // âm thầm cập nhật appointments — tránh nhấp nháy spinner toàn màn hình mỗi 8 giây.
+  useEffect(() => {
+    const startIso = activeInterval.start.toISOString();
+    const endIso = activeInterval.end.toISOString();
+    const interval = setInterval(() => {
+      getAppointments(startIso, endIso)
+        .then((res) => setAppointments(res.data))
+        .catch((err) => console.error('Silent refresh failed:', err));
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [activeInterval]);
+
+  // QUY TẮC HIỂN THỊ CẨN MẬT (VISIBILITY RULES):
+  // 1. Ca đặt "Bất kỳ" (nhan_su_id IS NULL): Mọi Bác sĩ trong ca đều thấy.
+  // 2. Ca đặt chọn đích danh Bác sĩ A (nhan_su_id = A): CHỈ Bác sĩ A thấy. Bác sĩ B sẽ KHÔNG THẤY!
+  const doctorVisibleAppointments = useMemo(() => {
+    const currentUserIdStr = String(user?.id);
+    return appointments.filter(a => {
+      const aptStaffId = (a as any).bac_si_id || (a as any).nhan_su_id;
+      if (aptStaffId && String(aptStaffId) !== currentUserIdStr) {
+        return false; // Lịch của Bác sĩ khác -> ẨN BỎ
       }
-    ];
-  }, [user]);
+      return true; // Lịch của mình HOẶC "Bất kỳ" -> HIỂN THỊ
+    });
+  }, [appointments, user?.id]);
 
-  // Ánh xạ schedules sang định dạng mà AppointmentCalendar hiểu
-  const schedulesList = useMemo(() => {
-    return schedules.map(s => ({
-      nguoi_dung_id: s.nguoi_dung_id,
-      ngay: s.ngay.substring(0, 10), // Tránh giờ giấc đằng sau nếu có
-      gio_bat_dau: s.gio_bat_dau,
-      gio_ket_thuc: s.gio_ket_thuc,
-      trang_thai: s.trang_thai
-    }));
-  }, [schedules]);
+  const kpiStats = useMemo(() => computeAppointmentKpiBuckets(doctorVisibleAppointments), [doctorVisibleAppointments]);
 
-  // Tính toán số liệu thống kê ca khám cho Bác sĩ dựa trên activeInterval — dùng chung 1 hàm với
-  // Admin/Lễ tân/KTV (utils/appointmentKpi.ts) để cả 4 actor nhìn cùng 1 con số cho cùng 1 khái
-  // niệm trạng thái, thay vì mỗi trang tự định nghĩa "waiting"/"completed"/"secondary" khác nhau.
-  const kpiStats = useMemo(() => computeAppointmentKpiBuckets(appointments), [appointments]);
-
-  // Search filter + lọc trạng thái (áp dụng cho cả timeline lẫn capacity view vì cả 2 đều dựa
-  // trên danh sách này — xem filteredAppointmentsForDay/mappedAppointments bên dưới).
   const searchedAppointments = useMemo(() => {
     const lower = searchTerm.trim().toLowerCase();
-    return appointments.filter(a => {
+    return doctorVisibleAppointments.filter(a => {
       const matchSearch = !lower ||
         a.ten_khach_hang?.toLowerCase().includes(lower) ||
         a.ma_lich_dat?.toLowerCase().includes(lower) ||
@@ -168,28 +160,17 @@ export default function DoctorAppointments() {
       const matchStatus = !statusFilter || KPI_BUCKET_STATUSES[statusFilter].includes(a.trang_thai);
       return matchSearch && matchStatus;
     });
-  }, [appointments, searchTerm, statusFilter]);
+  }, [doctorVisibleAppointments, searchTerm, statusFilter]);
 
-  // Mapped appointments for CapacityView compatibility
   const mappedAppointments = useMemo(() => {
     return searchedAppointments.map(apt => ({
       ...apt,
-      loai_lich: 'kham_moi',
-      bac_si_id: user?.id,
-      chuyen_gia_id: user?.id
+      loai_lich: (apt as any).loai_lich || 'kham_moi',
+      bac_si_id: (apt as any).bac_si_id || (apt as any).nhan_su_id || null,
+      chuyen_gia_id: (apt as any).chuyen_gia_id || (apt as any).bac_si_id || (apt as any).nhan_su_id || null,
     }));
-  }, [searchedAppointments, user]);
+  }, [searchedAppointments]);
 
-  // Daily filtered appointments for the timeline view
-  const filteredAppointmentsForDay = useMemo(() => {
-    const selectedDateStr = format(startDate, 'yyyy-MM-dd');
-    return searchedAppointments.filter(apt => {
-      const aptDateStr = format(new Date(apt.ngay_gio_bat_dau), 'yyyy-MM-dd');
-      return aptDateStr === selectedDateStr;
-    });
-  }, [searchedAppointments, startDate]);
-
-  // Khi bác sĩ click vào 1 card hẹn trên calendar
   const handleOpenDetailModal = useCallback((apt: any) => {
     if (['dang_kham', 'da_checkin'].includes(apt.trang_thai)) {
       setConfirmApt(apt);
@@ -198,28 +179,40 @@ export default function DoctorAppointments() {
     }
   }, []);
 
-  return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      
-      {/* KPI METRIC CARDS */}
-      <AppointmentKpiCards
-        role="doctor"
-        kpis={kpiStats}
-        viewMode={viewMode}
-        timeRange={timeRange}
-        activeType="kham"
-        activeStatusFilter={statusFilter}
-        onSelectStatus={setStatusFilter}
-      />
+  const handleCallIn = (apt: any) => {
+    toast.success(`🔊 Đã phát tín hiệu gọi bệnh nhân ${apt.ten_khach_hang} vào phòng khám!`);
+  };
 
-      {statusFilter && (
-        <ActiveFilterChip
-          label={`Đang lọc: ${KPI_BUCKET_LABELS[statusFilter]}`}
-          onClear={() => setStatusFilter(null)}
-        />
+  const handleOpenDesk = (aptId: string) => {
+    navigate(`/doctor/appointments/${aptId}/assess`);
+  };
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-500 font-jakarta">
+      
+      {/* KPI METRIC CARDS — Chỉ hiện khi ở view Bảng công suất */}
+      {viewMode === 'capacity' && (
+        <>
+          <AppointmentKpiCards
+            role="doctor"
+            kpis={kpiStats}
+            viewMode={viewMode}
+            timeRange={timeRange}
+            activeType="kham"
+            activeStatusFilter={statusFilter}
+            onSelectStatus={setStatusFilter}
+          />
+
+          {statusFilter && (
+            <ActiveFilterChip
+              label={`Đang lọc: ${KPI_BUCKET_LABELS[statusFilter]}`}
+              onClear={() => setStatusFilter(null)}
+            />
+          )}
+        </>
       )}
 
-      {/* Top filter bar inherited from Admin style */}
+      {/* FILTER BAR */}
       <AppointmentsFilterBar
         startDate={startDate}
         endDate={endDate}
@@ -234,24 +227,22 @@ export default function DoctorAppointments() {
         setViewMode={setViewMode}
       />
 
-      {/* Calendar Area */}
+      {/* WORKBOARD: TODAY FLOW BOARD (GIỐNG LỄ TÂN ĐƯỢC CHUYÊN BIỆT CHO BÁC SĨ) */}
       {loading ? (
         <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-3xl p-24 text-center text-zinc-400 dark:text-zinc-500 flex flex-col items-center justify-center gap-3">
           <div className="size-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-xs font-bold uppercase tracking-wider">Đang đồng bộ lịch trình...</p>
+          <p className="text-xs font-bold uppercase tracking-wider">Đang đồng bộ lịch trình Chuyên viên...</p>
         </div>
       ) : (
         <>
           {viewMode === 'timeline' ? (
-            <AppointmentCalendar
-              appointments={filteredAppointmentsForDay}
-              allAppointments={searchedAppointments}
-              statusConfig={STATUS_CONFIG}
-              handleOpenDetailModal={handleOpenDetailModal}
-              staffList={staffList}
-              schedulesList={schedulesList}
+            <SpecialistFlowBoard
+              appointments={mappedAppointments as any}
+              currentUserId={user?.id || ''}
               selectedDateStr={format(startDate, 'yyyy-MM-dd')}
-              viewMode="doctor"
+              searchTerm={searchTerm}
+              onOpenDetailModal={handleOpenDetailModal}
+              onRefresh={loadData}
             />
           ) : (
             <CapacityView
@@ -268,7 +259,7 @@ export default function DoctorAppointments() {
               endDate={endDate}
               activeType="kham"
               searchTerm={searchTerm}
-              onSelectAppointment={(id) => {
+              onSelectAppointment={(id: string) => {
                 const apt = appointments.find(a => String(a.id) === String(id));
                 if (apt) handleOpenDetailModal(apt);
               }}
@@ -278,76 +269,60 @@ export default function DoctorAppointments() {
         </>
       )}
 
-      {/* Detail Modal for Finished/Cancelled Appointments */}
+      {/* Detail Modal cho ca đã hoàn thành / hủy */}
       <AppointmentInfoModal appointment={selectedApt} onClose={() => setSelectedApt(null)} />
 
-      {/* Confirmation Modal for Checked-in Appointments */}
+      {/* Modal xác nhận chuyển sang Bàn Tư Vấn khi click ca Đã check-in */}
       {confirmApt && (() => {
         const isStarted = confirmApt.trang_thai === 'dang_kham';
-        const getRemainingMinutes = (apt: any) => {
-          // Thống nhất với HUD "Còn lại trong ca" ở trang Bàn làm việc (ClinicalAssessment/index.tsx)
-          // — luôn tính theo giờ KẾT THÚC THEO LỊCH ĐÃ ĐẶT (ngay_gio_ket_thuc), không theo giờ mở bàn
-          // thực tế, vì mốc cần cảnh báo là tràn slot/phòng đã đặt cho bệnh nhân sau, không phải ước
-          // lượng cá nhân dựa trên lúc thật sự bắt đầu làm.
-          if (!apt?.ngay_gio_ket_thuc) return 0;
-          const end = new Date(apt.ngay_gio_ket_thuc);
-          const remainingMs = end.getTime() - Date.now();
-          return Math.max(0, Math.ceil(remainingMs / 60000));
-        };
-        const remaining = getRemainingMinutes(confirmApt);
-
-        // Sớm/đúng giờ/trễ so với giờ hẹn — luôn hỏi lại 1 bước trước khi mở bàn khám, chỉ khác
-        // nội dung cảnh báo, để BS ý thức rõ đang mở sớm hay ca đã trễ trước khi bấm tiếp.
-        const scheduledStart = new Date(confirmApt.ngay_gio_bat_dau);
-        const diffMinutes = Math.round((Date.now() - scheduledStart.getTime()) / 60000);
-        const scheduledTimeStr = format(scheduledStart, 'HH:mm');
-        const readyMessage = diffMinutes < 0
-          ? `Ca này chưa tới giờ hẹn (${scheduledTimeStr}) — bạn có chắc muốn mở bàn khám ngay bây giờ không?`
-          : diffMinutes > 5
-            ? `Lịch hẹn này đã trễ ${diffMinutes} phút so với giờ hẹn (${scheduledTimeStr}) — bạn có chắc muốn mở bàn khám không?`
-            : 'Bạn đã sẵn sàng cho ca khám này chưa?';
-
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-955/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="w-full max-w-md bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden p-6 relative">
-              <div className="flex flex-col items-center text-center space-y-4">
-                <div className={`size-12 rounded-full flex items-center justify-center ${isStarted ? 'bg-amber-50 dark:bg-amber-955/30 text-amber-500 animate-pulse' : 'bg-teal-50 dark:bg-teal-955/30 text-[#0D9488]'}`}>
-                  <CheckCircle2 size={24} />
+            <div className="w-full max-w-md bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden p-6 relative space-y-4">
+              <div className="flex flex-col items-center text-center space-y-3">
+                <div className={`size-12 rounded-2xl flex items-center justify-center ${isStarted ? 'bg-amber-50 dark:bg-amber-955/30 text-amber-500 animate-pulse' : 'bg-teal-50 dark:bg-teal-955/30 text-[#0D9488]'}`}>
+                  <Stethoscope size={24} />
                 </div>
                 <div className="space-y-1">
-                  <h3 className="text-sm font-black text-secondary dark:text-zinc-100 uppercase">
-                    {isStarted ? 'Ca khám đang thực hiện' : 'Xác nhận vào ca'}
+                  <h3 className="text-sm font-black text-secondary dark:text-zinc-100 uppercase tracking-wide">
+                    {isStarted ? 'Ca khám đang thực hiện' : 'Xác nhận Khách đã vào phòng khám'}
                   </h3>
-                  <p className="text-xs text-zinc-555 dark:text-zinc-400 font-bold">
-                    Bệnh nhân: <span className="text-slate-800 dark:text-zinc-200">{confirmApt.ten_khach_hang}</span>
+                  <p className="text-xs text-zinc-600 dark:text-zinc-300 font-semibold leading-relaxed">
+                    Bệnh nhân: <span className="text-slate-900 dark:text-zinc-100 font-black">{confirmApt.ten_khach_hang}</span>
                   </p>
-                  <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium">
-                    {confirmApt.ten_dich_vu}
+                  <p className="text-[11px] text-amber-700 dark:text-amber-400 font-bold bg-amber-50 dark:bg-amber-955/30 p-2.5 rounded-xl border border-amber-200/80 dark:border-amber-900/50">
+                    💡 Vui lòng đảm bảo bệnh nhân đã có mặt trong phòng trước khi bấm mở bàn làm việc.
                   </p>
                 </div>
-                
-                <p className="text-xs font-bold text-secondary dark:text-zinc-355 leading-relaxed bg-zinc-50 dark:bg-zinc-800/50 p-3 rounded-2xl w-full border border-zinc-100 dark:border-zinc-800">
-                  {isStarted
-                    ? `Ca khám này đã được mở trước đó. Dự kiến ca khám sẽ hoàn thành sau ${remaining} phút.`
-                    : readyMessage}
-                </p>
 
-                <div className="flex items-center gap-3 w-full pt-3">
+                <div className="flex flex-col gap-2 w-full pt-2">
                   <button
-                    onClick={() => setConfirmApt(null)}
-                    className="flex-1 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-355 py-2.5 rounded-xl font-bold transition-all text-xs"
+                    type="button"
+                    onClick={() => handleCallIn(confirmApt)}
+                    className="w-full py-3 px-4 rounded-xl bg-slate-100 dark:bg-zinc-800 hover:bg-cyan-50 dark:hover:bg-cyan-950/40 text-cyan-700 dark:text-cyan-300 font-bold text-xs flex items-center justify-center gap-2 border border-slate-200 dark:border-zinc-700 transition-all cursor-pointer"
                   >
-                    Hủy
+                    <PhoneCall size={15} />
+                    <span>📞 Phát tín hiệu Gọi vào phòng (Báo Lễ tân)</span>
                   </button>
+
                   <button
+                    type="button"
                     onClick={() => {
                       const aptId = confirmApt.id;
                       setConfirmApt(null);
-                      navigate(`/doctor/appointments/${aptId}/assess`);
+                      handleOpenDesk(String(aptId));
                     }}
-                    className={`flex-1 text-white py-2.5 rounded-xl font-bold transition-all text-xs shadow-md ${isStarted ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/10' : 'bg-primary hover:bg-primary-hover shadow-primary/10'}`}
+                    className="w-full py-3 px-4 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md shadow-cyan-600/20 cursor-pointer flex items-center justify-center gap-2"
                   >
-                    {isStarted ? 'Vào bàn khám' : 'Mở bàn khám'}
+                    <Stethoscope size={15} />
+                    <span>🩺 Mở Bàn Tư Vấn / Lượng Giá Riêng</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setConfirmApt(null)}
+                    className="w-full py-2.5 rounded-xl bg-slate-100 text-slate-500 font-bold text-xs hover:bg-slate-200 transition-all cursor-pointer mt-1"
+                  >
+                    Đóng
                   </button>
                 </div>
               </div>

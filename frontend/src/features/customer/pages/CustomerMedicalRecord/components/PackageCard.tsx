@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronDown, ChevronUp, FileText, XCircle, CreditCard, AlertCircle, Check, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronUp, FileText, XCircle, CreditCard, Check, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -9,7 +9,7 @@ import { SessionTimelineItem } from './SessionTimelineItem';
 import { BookNextSessionModal } from './BookNextSessionModal';
 import { PACKAGE_STATUS_META } from '../constants';
 import type { PackageEntry } from '../types';
-import { isSessionPaymentSatisfied, getInstallmentCutoffSession } from '../../../../../utils/billing';
+import { isSessionPaymentSatisfied } from '../../../../../utils/billing';
 
 /** Gom dữ liệu hóa đơn gói từ 1 PackageEntry về đúng shape mà utils/billing mong đợi. */
 function toPlanShape(pkg: PackageEntry) {
@@ -52,7 +52,7 @@ export function PackageCard({ pkg, isExpanded, onToggleExpand, targetSessionId }
     }
   }, [targetSessionId, pkg.buoi_dieu_tri]);
 
-  const isPrepaidPackage = pkg.hinh_thuc_thanh_toan_goi === 'tra_thang' || pkg.hinh_thuc_thanh_toan_goi === 'tra_gop';
+  const isPrepaidPackage = pkg.hinh_thuc_thanh_toan_goi === 'tra_thang';
   const completedFromSessions = sortedSessions.filter((s) =>
     s.trang_thai === 'hoan_thanh' ||
     (isPrepaidPackage && ['khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(s.trang_thai))
@@ -92,14 +92,6 @@ export function PackageCard({ pkg, isExpanded, onToggleExpand, targetSessionId }
   // động yêu cầu hủy và được hoàn tiền" (trang_thai_hoa_don = da_hoan_tien). Hiện rõ lý do để khách
   // không thắc mắc "sao gói tự nhiên bị hủy".
   const isExpiredCancel = pkg.trang_thai_phac_do === 'huy' && !!pkg.han_su_dung && new Date(pkg.han_su_dung) < new Date();
-
-  // Gói trả góp còn đang chạy, chưa đóng đợt 2 — nhắc trước để khách chủ động, không đợi tới lúc bị
-  // chặn đặt buổi mới biết (cùng ngưỡng buổi với getMinPaymentRequired()/isSessionPaymentSatisfied()
-  // đang chặn nút "Đặt lịch" bên dưới, xem utils/billing.ts).
-  const installmentCutoff = pkg.hinh_thuc_thanh_toan_goi === 'tra_gop' ? getInstallmentCutoffSession(pkg.tong_so_buoi) : null;
-  const needsInstallment2 = pkg.trang_thai_phac_do === 'dang_dieu_tri'
-    && installmentCutoff !== null
-    && !isSessionPaymentSatisfied(toPlanShape(pkg), installmentCutoff);
 
   return (
     <div
@@ -158,12 +150,6 @@ export function PackageCard({ pkg, isExpanded, onToggleExpand, targetSessionId }
             daTra={pkg.so_tien_da_tra}
             trangThai={pkg.trang_thai_hoa_don}
           />
-          {needsInstallment2 && (
-            <div className="flex items-start gap-2 text-[11px] font-semibold text-amber-800 bg-amber-50/90 border border-amber-200/80 rounded-xl p-3 shadow-2xs">
-              <AlertCircle size={14} className="shrink-0 mt-0.5 text-amber-600" />
-              <span>Vui lòng thanh toán đợt 2 khi hoàn thành buổi số {installmentCutoff! - 1} để tiếp tục đặt buổi tiếp theo.</span>
-            </div>
-          )}
         </div>
       </div>
 

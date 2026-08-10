@@ -117,17 +117,27 @@ Lý do: gán theo "người ít ca nhất lúc check-in" là sai — ít ca nh�
 
 Cách đúng: khách không chọn ai → vào **hàng đợi chung**, `nhan_su_id` để trống. Ai xong ca trước thì bấm **"Gọi vào"**, hệ thống gán ngay lúc đó.
 
-**Phân biệt hai loại "rảnh":**
+**Phân biệt hai loại "rảnh"** — ⚠️ dựa THUẦN vào **số bàn đang giữ so với số bàn song song tối đa** (KTV = 2, xem §1.1), **KHÔNG dựa vào giai đoạn thiết bị nào** (cơ chế theo dõi máy real-time đã CẮT khỏi phạm vi 08/08/2026, xem §2.1 và §4.2):
 
 | Trạng thái | Ai quyết định gán |
 |---|---|
-| Đang thực hiện (tay-đôi) | — bận, không gán |
-| **Rảnh tạm** (khách đang nằm máy) | **Nhân sự tự quyết** — hệ thống KHÔNG ép |
+| Đang bận hết bàn (giữ đủ số bàn song song tối đa) | — bận, không gán |
+| **Rảnh tạm** (đang giữ 1/2 bàn, còn 1 chỗ trống) | **Nhân sự tự quyết** — muốn kéo thêm thì tự bấm "Gọi vào" cho slot còn trống, hệ thống KHÔNG ép |
 | **Rảnh hoàn toàn** (vừa xong ca, không còn khách nào) | ⭐ **Hệ thống TỰ GÁN** khách tiếp theo (ưu tiên: khách chọn đích danh > khách chờ lâu nhất), hiện nổi bật + nút "Gọi vào"; không bấm trong 5 phút thì trả về hàng đợi chung |
 
 Hai nút tách biệt: **"Gọi vào khám"** (báo Lễ tân mời khách) → **"Bắt đầu khám"** (đồng hồ mới chạy).
 
 Thứ tự hàng đợi theo `thoi_gian_checkin` (ai đến trước gọi trước), KHÔNG theo thời điểm đặt lịch.
+
+**Cơ chế Gọi vào / Số thứ tự / Không có mặt — ĐÃ TRIỂN KHAI 08/08/2026 (B2/B11/B19/B23 một phần), server-side hoàn toàn:**
+
+- **`phien_lam_viec` tạo đúng 1 dòng MỖI LẦN cuộc hẹn chuyển sang `da_checkin`** — kể cả check-in lại sau `cho_tai_luong_gia` (tạo dòng MỚI, `lan_thu` tăng dần, không tái dùng dòng cũ) → đếm "gọi không có mặt" của lần khám trước không dính sang lần tái lượng giá. Cài trong CÙNG transaction với `updateAppointmentStatus` (`appointment.repository.ts`).
+- **Số thứ tự hàng đợi (`so_thu_tu_hang_doi`)** gán lúc tạo dòng trên — **MỘT DÃY SỐ RIÊNG cho mỗi túi vai trò** (Lượng giá vs Điều trị+dịch vụ lẻ, đúng ranh giới §1.1), reset về 1 mỗi ngày. Hiện ở cả `SpecialistFlowBoard.tsx` (badge số cạnh tên khách) và `TodayFlowBoard.tsx` (badge tròn góc avatar).
+- **"Gọi vào" (`doctor.repository.ts::callInPatient`):** nếu ca đang "Bất kỳ" (`nhan_su_id NULL`) thì gán luôn cho người bấm (khóa lạc quan trong `WHERE`, 2 người bấm trùng thì người sau bị từ chối rõ ràng). Trả về **tên nhân sự + tên phòng THẬT** (tái dùng LATERAL join `lich_truc_nhan_su` theo ca trực hôm nay của người vừa được gán) — không còn hard-code chuỗi tĩnh.
+- **"Không có mặt"/"Đẩy xuống" — HAI điểm vào, CÙNG một hiệu ứng cốt lõi** (tăng `so_lan_goi_khong_co_mat`, reset `thoi_gian_goi_vao`, đẩy `cuoc_hen.thoi_gian_checkin = NOW()` để tự rơi xuống cuối hàng đợi ở **cả 2 màn hình** vì cả hai đều sort theo `thoi_gian_checkin`):
+  - **Nhân sự** (`doctor.repository.ts::markPatientAbsent`) — CẦN ownership (đang được gán ca đó). Lần 1: êm, không hỏi. **Lần 2: TỰ ĐỘNG chuyển `khong_den`** (qua `appointmentRepository.updateAppointmentStatus`, có popup xác nhận trước khi gọi API).
+  - **Lễ tân** (`appointmentRepository.pushBackAppointment`, route `POST /admin/appointments/:id/push-back`) — KHÔNG cần ownership (quản lý cả hàng đợi). **KHÔNG BAO GIỜ tự động chuyển "Không đến"** dù đếm đạt 2 — Lễ tân luôn phải tự bấm nút **"Không đến" riêng** (carve-out xuyên qua khóa `da_checkin`, xem §2.1) để xác nhận bằng tay.
+- ⚠️ **Carve-out `da_checkin → khong_den` phải sửa Ở HAI TẦNG, sửa 1 tầng là không đủ:** (1) `domain/appointmentStatus.ts::checkReceptionistTransition` (rule thuần), VÀ (2) gate `isReceptionistLockedStatus(...)` chạy TRƯỚC nó ngay trong `appointment.repository.ts::updateAppointmentStatus` (nhánh `actorRoleId === 2`) — gate này throw sớm nếu không loại trừ đúng transition, khiến sửa (1) trở thành dead code. Đây là lỗi thật đã xảy ra khi cài đặt lần đầu, đã vá cả 2 nơi + thêm test (`appointmentStatus.test.ts`).
 
 ### 1.3. Ranh giới thẩm quyền: Chuyên viên PHCN vs Bác sĩ y khoa
 
@@ -186,7 +196,7 @@ Hai tình huống hay bị gộp nhầm:
 
 ## 2. 📐 QUY TẮC KIẾN TRÚC & RÀNG BUỘC CODE
 
-### 2.1. Cấu trúc trạng thái — 3 tầng, KHÔNG được trộn
+### 2.1. Cấu trúc trạng thái — 2 tầng, KHÔNG được trộn
 
 **Tầng 1 — LÂM SÀNG (`cuoc_hen.trang_thai`): đúng 7 giá trị**
 
@@ -203,8 +213,9 @@ Hai tình huống hay bị gộp nhầm:
 **Tầng 2 — THANH TOÁN (`cuoc_hen.trang_thai_thanh_toan`): đúng 3 giá trị**
 `chua_thanh_toan` · `dang_cho_thanh_toan` · `da_thanh_toan` — **đã bỏ `mien_phi`** (buổi gói 100%/tái lượng giá cùng lịch/voucher 0đ đều quy về `da_thanh_toan`).
 
-**Tầng 3 — GIAI ĐOẠN TRONG BUỔI (`phien_lam_viec.giai_doan_hien_tai`): 3 giá trị**
-`dang_thuc_hien` · `dang_tren_may` · `cho_ktv` — ⚠️ **TUYỆT ĐỐI KHÔNG xuất hiện trong bộ lọc màn hình quản lý lịch hẹn**, chỉ sống ở bàn làm việc.
+> ❌ **ĐÃ CẮT — không còn "Tầng 3" (giai đoạn trong buổi).** Bản thiết kế trước có tầng thứ ba `phien_lam_viec.giai_doan_hien_tai` (`dang_thuc_hien`/`dang_tren_may`/`cho_ktv`) cho cơ chế phục vụ song song có thiết bị (A17c) — **đã cắt khỏi phạm vi 08/08/2026** (xem §4.2 "A17c — đã cắt"). `phien_lam_viec` không còn cột này, cũng không còn `may_bat_dau_luc`/`may_ket_thuc_du_kien`/`thiet_bi_id`. **Nếu thấy code/tài liệu cũ nhắc `dang_tren_may`/`cho_ktv`/"Đưa vào máy" — đó là phần đã bị loại bỏ, không triển khai theo.**
+>
+> ✅ **`phien_lam_viec` ĐÃ TRIỂN KHAI ĐẦY ĐỦ 08/08/2026** đúng 5 cột thuần queue/no-show còn lại (`lan_thu`, `so_thu_tu_hang_doi`, `thoi_gian_goi_vao`, `so_lan_goi_khong_co_mat`, `thoi_gian_tao`) — tạo dòng lúc check-in, đọc/ghi qua `callInPatient`/`markPatientAbsent`/`pushBackAppointment`. Chi tiết đầy đủ ở §1.2 "Cơ chế Gọi vào / Số thứ tự / Không có mặt".
 
 > **"Hoàn tất" KHÔNG phải trạng thái thứ 8** — tính động, một điều kiện duy nhất: `trang_thai = 'hoan_thanh'` **VÀ** `trang_thai_thanh_toan = 'da_thanh_toan'`. Không lưu cột thứ ba.
 
@@ -296,6 +307,8 @@ dang_cho_thanh_toan   🔒 KHÓA nút Hủy · KHÓA tạo giao dịch thứ hai
 - **Thay đổi schema CSDL: TUYỆT ĐỐI KHÔNG chạy `prisma migrate dev`** (gây reset dữ liệu). Dùng MCP `postgres` (`pg_manage_schema`) hoặc raw SQL, sau đó `npx prisma generate`.
 - Test chạy bằng `npx vitest run`, KHÔNG dùng `npx jest` (lỗi ESM import trên codebase này).
 
+> 🔴 **CẤM dùng `localStorage`/`sessionStorage`/`BroadcastChannel` làm nguồn sự thật hoặc kênh đồng bộ giữa 2 vai trò/2 thiết bị — kể cả cho tín hiệu tưởng chừng vô hại (chuông báo, "đang gọi vào"...).** Hệ thống này **sẽ deploy lên web chính thức**, nơi Lễ tân và Chuyên viên/KTV luôn ngồi **2 máy vật lý khác nhau** — các cơ chế này chỉ hoạt động trong CÙNG một trình duyệt (đúng bằng đúng sai lầm đã mắc và phải vá lại 08/08/2026: `utils/callInSignal.ts` từng dùng `localStorage` + `BroadcastChannel` để báo "Chuyên viên gọi vào" cho Lễ tân, chạy đúng lúc test 4 tab cùng Chrome nhưng sẽ **câm lặng hoàn toàn** khi 2 máy thật). Quy tắc thay thế bắt buộc: **mọi trạng thái cần chia sẻ giữa vai trò PHẢI ghi xuống DB** (bảng đã có sẵn, đừng thêm bảng mới nếu không cần), phía nhận đọc qua **polling/refetch định kỳ đã có sẵn** (`useAppointmentsData.ts` refetch mỗi 8s) — không cần hạ tầng realtime mới. `localStorage` chỉ được phép cho dữ liệu **thuần UI, mất cũng không sao** (nháp form chưa submit...) — xem thêm quy ước ở kế hoạch gốc mục "Quy ước localStorage/sessionStorage", đặc biệt cấm tuyệt đối cho bất kỳ thứ gì liên quan tới **tiền/thanh toán**.
+
 ---
 
 ## 3. ⚠️ NGUYÊN TẮC THIẾT KẾ GIAO DIỆN (UI/UX)
@@ -340,11 +353,33 @@ dang_cho_thanh_toan   🔒 KHÓA nút Hủy · KHÓA tạo giao dịch thứ hai
 - Nút **"Đặt lịch buổi tiếp theo"** phải là hành động CHÍNH của mỗi gói đang điều trị, hiện ngay ở trạng thái thu gọn của card gói — khi bị khóa (quy tắc đặt tuần tự) phải nói rõ lý do tại chỗ ("Cần hoàn thành buổi 4 trước"), không chỉ làm mờ nút.
 - Tái dùng bắt buộc: `frontend/src/components/TreatmentSessionDetailBody.tsx` (đang phục vụ 6 vị trí ở 3 actor) — **mở rộng** component này (thêm khối "Kỹ thuật đã thực hiện" đọc từ JSONB `du_lieu_tri_lieu.nhat_ky`), không viết lại.
 
+### 3.6. Quy tắc thực thi từ Skill `frontend-design` (Tự động áp dụng cho mọi giao diện mới & sửa lỗi)
+
+> 📌 **Bắt buộc áp dụng:** Skill `.agents/skills/frontend-design/SKILL.md` đã được cài đặt vào hệ thống. Mọi thao tác làm mới (New Component/Page) hoặc sửa lỗi UI (Fix UI) phải tuân thủ nghiêm ngặt các chỉ dẫn sau:
+
+1. **Gắn chặt vào ngữ cảnh sản phẩm (Ground in the Subject):**
+   - OfficeCare là sản phẩm **Phục Hồi Chức Năng Y Tế Văn Phòng**. Mọi thiết kế phải toát lên tinh thần y khoa hiện đại, tin cậy, tự tin, không nhầm lẫn với các dashboard quản trị chung chung.
+2. **Hero là một luận điểm (Hero as a Thesis):**
+   - Mở đầu bằng điểm nhấn đặc trưng nhất của sản phẩm (ví dụ: Thang đau VAS Wong-Baker, Tiến độ phục hồi, Sức khỏe ca trực), không dùng các con số thống kê rải rác kiểu template AI.
+3. **Phông chữ mang cá tính (Typography carries Personality):**
+   - Đội ngũ Headings dùng **Plus Jakarta Sans** hoặc **Outfit** (weight 700-800, spacing `-0.01em`).
+   - Đội ngũ Body dùng **Be Vietnam Pro** hoặc **Inter** (weight 400-600, line-height 1.6).
+   - Áp dụng quy tắc mềm hóa font-weight: `.font-black` mềm hóa về `font-weight: 700`.
+4. **Tăng tốc phần cứng cho hiệu ứng (Hardware-Accelerated Motion):**
+   - Vi hiệu ứng hover/active **CHỈ ĐƯỢC PHÉP** thay đổi `transform` (`translateY(-2px)`, `scale(0.98)`) và `opacity`. CẤM animate `margin`, `padding`, `top`, `left` (gây sụt giảm FPS/layout thrashing).
+   - Easing mượt: `transition-all duration-200 ease-out`. Focus ring bàn phím rõ ràng: `focus-visible:ring-2 focus-visible:ring-cyan-500/50`.
+5. **Tiết chế & Tự phê bình (Restraint & Self-Critique):**
+   - Mỗi màn hình chỉ dành sự nổi bật cho **MỘT yếu tố nhận diện duy nhất** (Signature Element). Mọi thứ xung quanh phải giữ kỷ luật, tinh tế, không lạm dụng hiệu ứng rườm rà.
+6. **Tính hợp lý nghiệp vụ UX/UI (Business UX Rationality & Practical Filtering):**
+   - Giao diện KHÔNG CHỈ ĐẸP mà BẮT BUỘC PHẢI HỢP LÝ VỚI THỰC TẾ VẬN HÀNH PHÒNG KHÁM PHCN.
+   - Mọi nút bấm, ô nhập liệu, thẻ thông tin hay bộ lọc phải qua phân tích sàng lọc chuẩn thực tế (ví dụ: Chuyên viên tập trung ROM/MMT/VAS/Chống chỉ định; Lễ tân tập trung Hàng đợi/Trạng thái thanh toán/Thời gian chờ; Khách hàng tập trung Mức độ cải thiện đau & Đặt lịch tiếp theo).
+   - Loại bỏ hoàn toàn các trang trí rườm rà gây nhiễu cho nhân sự khi thao tác trong ca làm việc thực tế.
+
 ---
 
 ## 4. 📋 TRẠNG THÁI TRIỂN KHAI — ĐÃ LÀM / DANG DỞ / VIỆC TIẾP THEO
 
-> Cập nhật tại thời điểm viết file này (phiên làm việc liên tục kể từ 04/08/2026, hôm nay theo hệ thống là 07/08/2026 — còn **~26 ngày** tới deadline 02/09/2026).
+> Cập nhật tại thời điểm viết file này (phiên làm việc liên tục kể từ 04/08/2026, hôm nay theo hệ thống là 08/08/2026 — còn **~25 ngày** tới deadline 02/09/2026).
 
 ### 4.1. ✅ ĐÃ LÀM XONG
 
@@ -357,8 +392,24 @@ dang_cho_thanh_toan   🔒 KHÓA nút Hủy · KHÓA tạo giao dịch thứ hai
 - **A15 — `dang_cho_thanh_toan` + PayOS:** middleware sweep 15 phút, markLinkCreated/revertPending, badge "Đang xác nhận" ở UI. Xem §2.3.
 - **A15b/A15c — Phạt hủy gói không hồi tố:** snapshot `ti_le_phat_huy_goi` vào hóa đơn lúc bán, đọc lại đúng số đó lúc hủy (không đổi theo cấu hình hiện hành); `giaThanhToanGoi` lấy thẳng `tong_tien_phai_tra` (đúng cả khi có voucher).
 - **B10 — Tự động đánh dấu không đến:** lazy sweep (`noShowSweep.middleware.ts`), điều kiện `da_xac_nhan` + qua giờ nhận khách + đệm 30 phút. Tái dùng nguyên vẹn `updateAppointmentStatus`.
+- **B2/B11/B19/B23 (một phần) — Gọi vào / Số thứ tự hàng đợi / Không có mặt (08/08/2026):** đã cài đặt server-side đầy đủ trong `SpecialistFlowBoard.tsx` (Chuyên viên/KTV, dùng chung màn `DoctorAppointments`) + `TodayFlowBoard.tsx` (Lễ tân/Admin) — **KHÔNG chờ A17 tái cấu trúc xong**, cài trực tiếp vào màn hình hiện có. Xem đặc tả đầy đủ ở §1.2. Còn thiếu để B19/B23 trọn vẹn: hiển thị "dự kiến gọi lúc mấy giờ" (B23 phần dự báo thời gian thực), và chưa có màn hình Hàng đợi riêng theo đúng bản mẫu A17 (vẫn đang dùng bảng danh sách, chưa phải sidebar hàng đợi thật).
 
-**Màn hình quản lý lịch hẹn (A5 — mảng vừa hoàn thành trong phiên gần nhất):**
+**Bàn Lượng Giá & Hàng đợi Chuyên viên (A11 / A17 / A17a / B1 — Đã xong 08/08/2026):**
+- **A11/A17/A17a — Bàn Lượng Giá Chuyên Viên (`SpecialistAssessmentDesk.tsx` & `ClinicalAssessment/index.tsx`):**
+  - **VAS 3 chế độ**: Wong-Baker FACES (6 mặt cười), Mô tả bằng lời, và Slider thang số 0-10.
+  - **Chỉ số ROM (Tầm vận động)** & **MMT (Cơ lực 0-5)**: Bảng nhập động cho phép thêm/sửa/xóa linh hoạt từng khớp & nhóm cơ.
+  - **Kết luận Lượng giá Chức năng** & **Chống chỉ định Trị liệu**: Tuân thủ chuẩn ranh giới chuyên môn PHCN (§1.3), không ghi chẩn đoán y khoa.
+  - **Chỉ định Gói liệu trình**: Gắn gói liệu trình trực tiếp sau khi lượng giá.
+  - **2 Nút kết thúc quy trình**:
+    - **`[ 🩺 CHUYỂN TUYẾN / HẸN TÁI LƯỢNG GIÁ ]`**: Mở modal nhập hạn quay lại $\rightarrow$ ca chuyển sang `cho_tai_luong_gia` $\rightarrow$ giải phóng Chuyên viên ngay lập tức.
+    - **`[ ✅ HOÀN THÀNH LƯỢNG GIÁ ]`**: Modal xác nhận kết thúc ca khám.
+- **B1 / B2 / B11 / B19 / B23 — Luồng Hàng Đợi Chuyên Viên (`SpecialistFlowBoard.tsx`):**
+  - Hiển thị Số thứ tự hàng đợi (`so_thu_tu_hang_doi`) theo dãy riêng.
+  - **Phát tín hiệu Gọi vào (`📞 GỌI VÀO`)**: Thẻ thông báo tĩnh `🔔 Đã phát tín hiệu gọi vào lúc HH:mm` / `🔔 Đã gọi lần 2`.
+  - **Thao tác Vắng mặt (`❗ Không vào / Đẩy xuống`)**: Tăng đếm `so_lan_goi_khong_co_mat`, đẩy ca rơi xuống cuối hàng đợi.
+  - **Nút `[ 🩺 MỞ BÀN TƯ VẤN ]`**: Modal xác nhận khách đã vào phòng trước khi tạo nhật ký và điều hướng vào Bàn Lượng Giá.
+
+**Màn hình quản lý lịch hẹn (A5 — mảng hoàn thành phiên 08/08/2026):**
 - `TodayFlowBoard.tsx` — bảng 1 nhóm theo dòng chảy (Chưa đến/Đang chờ/Đang làm/Xong + Ngoại lệ thu gọn), thay hẳn `AppointmentCalendar` cũ (dạng slot-giờ cố định) cho **MỌI ngày đơn lẻ** (không chỉ "hôm nay" như bản đầu) và **CẢ HAI actor** Lễ tân + Admin dùng chung.
 - Widget "Sức khỏe ca Sáng/Chiều" (B21 bản rút gọn) — đã sửa để nhận biết ngày đang xem có phải hôm nay không (tránh tính sai công suất khi xem ngày khác).
 - Dropdown lọc theo nhân sự (thay hẳn card `DoctorWorkloadPanel` cũ) — gộp chung hàng với "Sức khỏe ca", chỉ Admin có (Lễ tân xem/lọc được, không có quyền phân bổ/đổi nhân sự cho lịch).
@@ -370,15 +421,13 @@ dang_cho_thanh_toan   🔒 KHÓA nút Hủy · KHÓA tạo giao dịch thứ hai
 
 ### 4.2. ⚠️ DANG DỞ / CHƯA LÀM — theo mức độ ưu tiên
 
-🔴 **ƯU TIÊN CAO NHẤT — chính là 2/3 điểm hội đồng chê, CHƯA giải quyết dứt điểm:**
-
 | Hạng mục | Hiện trạng |
 |---|---|
-| **A11/A17/A17a — Bàn lượng giá** | Form khám **VẪN CÒN 3 ô nhập cũ** (chẩn đoán/chống chỉ định/ghi chú). Chưa thêm ROM/MMT/VAS 3-cách-nhập, chưa 2 nút kết thúc (Hoàn thành lượng giá / Chuyển tuyến), chưa tab Chỉ định gói. |
-| **B1/A17 — Hàng đợi cho Chuyên viên/KTV** | Chưa tồn tại màn hình riêng. Theo kế hoạch, B1 hợp nhất làm sidebar của màn A17 (Bàn lượng giá) — cả 2 phải làm cùng lúc. |
-| **A17b/A17c — Bàn trị liệu KTV** | Vẫn chỉ có VAS trước/sau + ghi chú tự do. Chưa có Nhật ký thao tác, chưa cơ chế "Đưa vào máy" + song song hóa, chưa trạng thái `cho_ktv`. |
+| **A17b — Bàn trị liệu KTV** | Vẫn chỉ có VAS trước/sau + ghi chú tự do. Chưa có Nhật ký thao tác (KTV tự gõ tay tên kỹ thuật đã làm, hoàn toàn thủ công — xem A17c). |
+| **A18 — Hồ sơ điều trị khách hàng** | Tái cấu trúc theo Timeline 1 cột + Biểu đồ SparklineVAS giảm đau % (xem §3.5). |
+| **B20 / B20b — Công thức ngân sách realtime & Đèn 3 màu tại quầy** | Đèn 3 màu và modal 3 lựa chọn khi đặt lịch tại quầy cận giờ đóng cửa / hết ngân sách. |
 
-Đây là **điểm nghẽn quan trọng nhất của toàn bộ kế hoạch** — càng để lâu càng rủi ro sát deadline (kế hoạch gốc xếp đây là Giai đoạn 4, 7 ngày, "điểm nghẽn lớn nhất").
+> ❌ **A17c — Cơ chế phục vụ song song có thiết bị: ĐÃ CẮT KHỎI PHẠM VI (quyết định 08/08/2026), không phải "chưa làm".** Bản thiết kế trước đây bắt KTV chọn đích danh máy, nhập số phút, hệ thống đếm ngược/tự nhả/chặn gọi khách mới khi máy bận — đã bị hủy bỏ hoàn toàn sau khi khảo sát thực tế vận hành: KTV đang thao tác tay với khách không có tay rảnh để liên tục cập nhật trạng thái từng máy trên app (sẽ tạo dữ liệu giả); phần mềm phòng khám/spa thực tế cũng không làm chi tiết tới mức này; và quan trọng nhất — điểm hội đồng chê #3 (booking khóa cứng slot) đã được giải quyết trọn vẹn bằng mô hình buổi + ngân sách phút (§1.1), không cần thêm cơ chế này. **Thay bằng:** `thiet_bi` chỉ còn bảng CRUD thuần cho Admin (`trang_thai`: `san_sang`/`dang_su_dung`/`dang_bao_tri`/`hong`, tự tay đổi, không hệ thống nào ghi tự động) + `phong_id` (thuần kiểm kê tài sản); KTV mở tối đa 2 bàn song song vẫn giữ (A1b), nhưng do **KTV tự quyết** khi nào rảnh để gọi thêm khách, không do hệ thống phát hiện máy chạy xong. Đã dọn sạch cột `phien_lam_viec.giai_doan_hien_tai`/`may_bat_dau_luc`/`may_ket_thuc_du_kien`/`thiet_bi_id` và `thiet_bi.dang_su_dung_boi`/`ban_den_luc` khỏi cả `schema.prisma` lẫn DB dev thật (đã chạy `ALTER TABLE ... DROP COLUMN` + `prisma generate`, `tsc --noEmit` sạch). **Nếu có yêu cầu/tài liệu cũ nhắc lại cơ chế "Đưa vào máy"/"chọn thiết bị"/`cho_ktv` — đó là phần đã bị loại bỏ có chủ đích, không tự ý triển khai lại; nếu người dùng thật sự muốn làm lại, phải hỏi rõ lý do trước.**
 
 **Còn lại theo nhóm (chưa làm, đúng như kế hoạch gốc):**
 
@@ -386,26 +435,21 @@ dang_cho_thanh_toan   🔒 KHÓA nút Hủy · KHÓA tạo giao dịch thứ hai
 |---|---|---|
 | Booking Lớp 2 | **B20/B20b** — công thức `MIN(tan ca, đóng cửa) − thời lượng − đệm`, đèn 3 màu tại quầy, modal 3 lựa chọn | Chỉ mới có 1 cảnh báo cam TĨNH ở `WalkInBookingModal` khi nhân sự tan ca sớm hơn buổi — chưa có công thức đầy đủ, chưa có đèn/modal |
 | Hồ sơ khách hàng | **A18** — tái cấu trúc theo Timeline 1 cột (xem §3.5) | Kiến trúc đã CHỐT trong kế hoạch, code chưa động tới |
-| Hàng đợi & gọi khám | B2–B9, B11, B14, B16, B18, B18b, B19, B22, B23 | Toàn bộ nhóm phụ thuộc B1/A17 xong trước |
 | Thanh toán online cho khách | **B12** | PayOS đã có sẵn cho Lễ tân, chỉ cần mở rộng endpoint cho vai trò khách hàng |
 | Voucher điều kiện | **B13** | Thêm 3 cột `tu_dong_ap_dung`/`kenh_ap_dung`/`loai_goi_ap_dung` vào `khuyen_mai_voucher` |
 | Dọn dữ liệu | **C12** — cron dọn triệt để `refresh_tokens`/`otp_codes` | Hiện chỉ có dọn lười (delete-expired-on-write) |
 | Cố ý giữ lại | **C9** — nút "Không đến" thủ công của Lễ tân | Giữ song song làm lưới an toàn cạnh sweep tự động (B10), chưa gỡ vì rủi ro nếu sweep có ca biên chưa lường hết — cần hỏi lại trước khi gỡ |
 | Chưa chốt | **B24** — Check-in từ xa cho khách đã thanh toán | Đã đặc tả cơ chế đầy đủ trong kế hoạch nhưng **CHƯA CHỐT triển khai** — hỏi lại khi làm tới Phase 3/5, phụ thuộc Hàng đợi + B12 xong trước |
 
-**Backlog kỹ thuật phát sinh trong lúc audit (chưa xử lý, cần quyết định riêng):**
-- 3 endpoint `receptionist.repository.ts::getTodayAppointments/getReceptionistStats` (`GET /receptionist/today-appointments`, `/stats`, `/dashboard`) là code mồ côi từ kanban đời trước — grep frontend không còn nơi nào gọi. Chưa xóa vì là quyết định xóa hẳn API, cần hỏi lại trước.
-
 ### 4.3. Việc tiếp theo — thứ tự đề xuất
 
-1. **A11 + A17 + A17a + B1 (Bàn lượng giá + Hàng đợi Chuyên viên)** — làm CÙNG LÚC theo đúng kế hoạch (B1 là sidebar của A17), vì đây là 2 trong 3 điểm hội đồng chê, deadline không còn nhiều. Cần bản mẫu giao diện tham chiếu (MediPlus) đã có sẵn trong kế hoạch gốc — lấy bố cục, không bê nguyên nội dung (nhiều khối như "dấu hiệu sinh tồn"/"đơn thuốc" ngoài thẩm quyền PHCN).
-2. **A17b/A17c (Bàn trị liệu KTV)** — Nhật ký thao tác + cơ chế song song hóa máy. Có thể cắt A17c trước tiên nếu trễ tiến độ (đã đánh giá "ưu tiên thấp, có thể cắt" ngay trong kế hoạch gốc — điểm chê #3 đã giải quyết trọn vẹn bằng mô hình buổi, song song hóa chỉ là điểm cộng thêm).
-3. **B20/B20b đầy đủ** — công thức thời gian thực + đèn 3 màu, vì hiện tại vẫn còn lỗ hổng đã xác nhận (khách đặt sát giờ đóng cửa với dịch vụ dài vẫn được nhận mà không cảnh báo đúng).
-4. **A18 (Hồ sơ khách hàng)** — nên gộp cùng đợt với A17 vì cùng cần hiển thị dữ liệu lượng giá mới (ROM/MMT), tránh đụng lại cùng file 2 lần.
-5. **B12/B13 (thanh toán online khách + voucher)** — xếp cuối vì độc lập nhất, trễ không ảnh hưởng luồng chính.
-6. **C12** — việc nhỏ, làm xen kẽ bất kỳ lúc nào rảnh.
+1. **A17b (Bàn trị liệu KTV)** — Nhật ký thao tác kỹ thuật trị liệu (KTV tự gõ các kỹ thuật thực hiện).
+2. **A18 (Hồ sơ điều trị khách hàng)** — Timeline 1 cột hiển thị kết quả lượng giá (ROM/MMT) & Biểu đồ SparklineVAS giảm đau %.
+3. **B20/B20b đầy đủ** — Công thức thời gian thực + đèn 3 màu cảnh báo khi đặt lịch sát giờ đóng cửa / hết ngân sách.
+4. **B12/B13 (Thanh toán online khách + Voucher điều kiện)**.
+5. **C12 (Cron dọn dữ liệu hệ thống)**.
 
-**Mốc kiểm tra:** nếu tới ngày 21 (theo lịch trình gốc, tính từ 04/08) chưa xong A17/A18, thứ tự cắt: (1) A17c trước tiên · (2) độ tinh chi tiết giao diện · **giữ bằng mọi giá** luồng chạy được trọn vẹn (A11, B4–B7) vì đó mới là điều hội đồng chê.
+**Mốc kiểm tra:** nếu tới ngày 21 (theo lịch trình gốc, tính từ 04/08) chưa xong A17/A18, thứ tự cắt: A17c đã cắt sẵn từ trước nên không còn là lựa chọn dự phòng — chỉ còn **(1) độ tinh chi tiết giao diện** để cắt tiếp nếu cần · **giữ bằng mọi giá** luồng chạy được trọn vẹn (A11, B4–B7) vì đó mới là điều hội đồng chê.
 
 ---
 
@@ -420,6 +464,8 @@ dang_cho_thanh_toan   🔒 KHÓA nút Hủy · KHÓA tạo giao dịch thứ hai
 | Ngân sách/booking/hủy lịch backend | `backend/src/repositories/appointment.repository.ts` |
 | Thu tiền/PayOS/sweep thanh toán | `backend/src/repositories/receptionist.repository.ts`, `middlewares/paymentPendingSweep.middleware.ts` |
 | Bảng dòng chảy dùng chung Lễ tân+Admin | `frontend/src/components/appointments/ui/TodayFlowBoard.tsx` |
+| Hàng đợi Gọi vào/Số thứ tự/Không có mặt (Chuyên viên/KTV) | `frontend/src/features/doctor/components/SpecialistFlowBoard.tsx`, `backend/src/repositories/doctor.repository.ts` (`callInPatient`/`markPatientAbsent`) |
+| Đẩy hàng đợi/Không đến thủ công (Lễ tân) | `backend/src/repositories/appointment.repository.ts` (`pushBackAppointment`, carve-out trong `updateAppointmentStatus`), `backend/src/domain/appointmentStatus.ts` |
 | Trang quản lý lịch hẹn theo actor | `frontend/src/features/receptionist/pages/ReceptionistAppointments/`, `frontend/src/features/admin/pages/ManageAppointments/` |
 | Bàn lượng giá/hàng đợi (CHƯA tái cấu trúc) | `frontend/src/pages/ClinicalAssessment/index.tsx` |
 | Hồ sơ điều trị khách hàng (CHƯA tái cấu trúc) | `frontend/src/features/customer/pages/CustomerMedicalRecord/`, tái dùng `frontend/src/components/TreatmentSessionDetailBody.tsx` |

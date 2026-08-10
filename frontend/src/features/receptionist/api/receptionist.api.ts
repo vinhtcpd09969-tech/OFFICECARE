@@ -28,3 +28,19 @@ export const getCustomerRoster = (params: {
 
 export const getCustomerHistory = (id: string, staleDays?: number) =>
   api.get(`/receptionist/customers/${id}/history`, { params: { staleDays } });
+
+export interface StaffWorkloadItem {
+  nhan_su_id: number;
+  ho_ten: string;
+  vai_tro_id: number;
+  ten_vai_tro: string;
+  so_khach_song_song: number;
+  gio_bat_dau: string;
+  gio_ket_thuc: string;
+  ten_phong: string | null;
+  so_ca_dang_lam: number;
+  thoi_gian_xong_du_kien_muon_nhat: string | null;
+}
+
+export const getStaffWorkload = (date?: string) => api.get<StaffWorkloadItem[]>('/receptionist/staff-workload', { params: { date } });
+export const unassignAppointmentStaff = (id: string) => api.post(`/receptionist/appointments/${id}/unassign`, {});

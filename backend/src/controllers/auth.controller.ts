@@ -13,7 +13,7 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
       ...result
     });
   } catch (error: any) {
-    if (error.message === 'Email đã được sử dụng') {
+    if (error.message && (error.message.includes('Email') || error.message.includes('Số điện thoại') || error.message.includes('sử dụng') || error.message.includes('đăng ký'))) {
       throw new BadRequestError(error.message);
     }
     throw error;

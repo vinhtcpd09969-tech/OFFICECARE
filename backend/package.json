@@ -2,9 +2,9 @@
   "name": "office-care-backend",
   "version": "1.0.0",
   "description": "Backend API for OfficeCare",
-  "main": "dist/index.js",
+  "main": "dist/src/index.js",
   "scripts": {
-    "start": "node dist/index.js",
+    "start": "node dist/src/index.js",
     "build": "prisma generate && tsc",
     "dev": "nodemon --exec ts-node src/index.ts",
     "seed": "ts-node scripts/seed.ts",

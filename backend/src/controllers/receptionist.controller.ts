@@ -288,15 +288,13 @@ export const checkPackagePayment = async (req: Request, res: Response): Promise<
 
     const minRequired = getMinPaymentRequired(hinhThuc, tongTien, tongSoBuoi, nextSessionNum, grossBeforeExamDeduction);
     if (daThanhToan < minRequired) {
-      const label = hinhThuc === 'tra_gop' ? 'Trả góp' : hinhThuc === 'tung_buoi' ? 'Trả từng buổi' : 'Trả thẳng 100%';
+      const label = hinhThuc === 'tung_buoi' ? 'Trả từng buổi' : 'Trả thẳng 100%';
       const conThieu = minRequired - daThanhToan;
       return res.json({
         paid: false,
         nextSessionNum,
         soTienConThieu: conThieu,
-        message: hinhThuc === 'tra_gop'
-          ? `Gói trả góp: cần đóng Đợt 2 (còn thiếu ${conThieu.toLocaleString('vi-VN')}đ) trước khi đặt buổi số ${nextSessionNum}.`
-          : `Gói trị liệu (${label}) yêu cầu thanh toán tối thiểu trước khi đặt buổi số ${nextSessionNum}.`
+        message: `Gói trị liệu (${label}) yêu cầu thanh toán tối thiểu trước khi đặt buổi số ${nextSessionNum}.`
       });
     }
 
@@ -433,6 +431,63 @@ export const getInvoiceStatus = async (req: Request, res: Response): Promise<any
     });
   } catch (error: any) {
     console.error('Lỗi khi lấy trạng thái hóa đơn:', error);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+};
+
+// GET /api/receptionist/staff-workload
+export const getStaffWorkload = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { date } = req.query;
+    const targetDate = date ? String(date) : new Date().toISOString().split('T')[0];
+
+    const queryStr = `
+      SELECT 
+        ns.id as nhan_su_id,
+        ns.ho_ten,
+        ns.vai_tro_id,
+        vt.ten_vai_tro,
+        CASE WHEN ns.vai_tro_id = 4 THEN 1 ELSE 2 END as so_khach_song_song,
+        to_char(lt.gio_bat_dau, 'HH24:MI') as gio_bat_dau,
+        to_char(lt.gio_ket_thuc, 'HH24:MI') as gio_ket_thuc,
+        p.ten_phong,
+        COUNT(DISTINCT ch.id) FILTER (WHERE ch.trang_thai = 'dang_kham')::integer as so_ca_dang_lam,
+        MAX(ch.thoi_gian_bat_dau + (COALESCE(ch.thoi_luong_phut, g.thoi_luong_phut, 30) || ' minutes')::interval) FILTER (WHERE ch.trang_thai = 'dang_kham') as thoi_gian_xong_du_kien_muon_nhat
+      FROM lich_truc_nhan_su lt
+      JOIN nguoi_dung ns ON lt.nhan_su_id = ns.id
+      JOIN vai_tro vt ON ns.vai_tro_id = vt.id
+      LEFT JOIN phong_lam_viec p ON lt.phong_id = p.id
+      LEFT JOIN cuoc_hen ch ON ch.nhan_su_id = ns.id AND ch.trang_thai = 'dang_kham'
+      LEFT JOIN goi_dich_vu g ON ch.goi_dich_vu_id = g.id
+      WHERE lt.ngay_truc = $1::date
+      GROUP BY ns.id, ns.ho_ten, ns.vai_tro_id, vt.ten_vai_tro, lt.gio_bat_dau, lt.gio_ket_thuc, p.ten_phong
+      ORDER BY ns.vai_tro_id DESC, ns.ho_ten ASC;
+    `;
+    const { rows } = await pool.query(queryStr, [targetDate]);
+    res.json(rows);
+  } catch (error: any) {
+    console.error('Lỗi khi lấy tải làm việc của nhân sự:', error);
+    res.status(500).json({ message: 'Lỗi server khi lấy tải làm việc nhân sự' });
+  }
+};
+
+// POST /api/receptionist/appointments/:id/unassign
+export const unassignAppointmentStaff = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params as { id: string };
+    const queryStr = `
+      UPDATE cuoc_hen
+      SET nhan_su_id = NULL
+      WHERE id = $1::uuid AND trang_thai IN ('da_xac_nhan', 'da_checkin')
+      RETURNING id, nhan_su_id, trang_thai;
+    `;
+    const { rows } = await pool.query(queryStr, [id]);
+    if (rows.length === 0) {
+      return res.status(400).json({ message: 'Không thể rút chỉ định nhân sự ca này (ca đã bắt đầu hoặc không tồn tại).' });
+    }
+    res.json({ message: 'Đã rút khỏi chỉ định đích danh và đưa ca hẹn về hàng chờ chung.', appointment: rows[0] });
+  } catch (error: any) {
+    console.error('Lỗi khi rút chỉ định nhân sự:', error);
     res.status(500).json({ message: 'Lỗi server' });
   }
 };

@@ -46,16 +46,18 @@ export const getAppointmentDetail = async (req: AuthenticatedRequest, res: Respo
   try {
     const { id } = req.params as { id: string };
     const userId = req.user?.id;
+    const confirmOvertime = req.query.confirmOvertime === 'true';
     if (!id) {
       return res.status(400).json({ message: 'Thiếu ID lịch hẹn.' });
     }
-    const detail = await technicianService.getAppointmentDetail(id, userId);
+    const detail = await technicianService.getAppointmentDetail(id, userId, confirmOvertime);
     res.json(detail);
   } catch (error: any) {
     console.error('Lỗi khi lấy chi tiết ca trị liệu KTV:', error);
-    res.status(400).json({ 
+    res.status(400).json({
       message: error.message || 'Lỗi server',
-      activeSessionId: error.activeSessionId
+      activeSessionId: error.activeSessionId,
+      errorCode: error.errorCode,
     });
   }
 };
@@ -64,7 +66,7 @@ export const getAppointmentDetail = async (req: AuthenticatedRequest, res: Respo
 export const saveTreatmentRecord = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user?.id;
-    const { lich_dat_id, vas_truoc, vas_sau, ghi_chu } = req.body;
+    const { lich_dat_id, vas_truoc, vas_sau, ghi_chu, du_lieu_tri_lieu } = req.body;
 
     if (!userId) {
       return res.status(401).json({ message: 'Không xác định được danh tính người dùng.' });
@@ -75,15 +77,13 @@ export const saveTreatmentRecord = async (req: AuthenticatedRequest, res: Respon
     if (vas_truoc === undefined || vas_sau === undefined) {
       return res.status(400).json({ message: 'Vui lòng điền đầy đủ lượng giá VAS trước và sau buổi.' });
     }
-    if (!ghi_chu?.trim()) {
-      return res.status(400).json({ message: 'Vui lòng điền diễn tiến / ghi chú buổi trị liệu.' });
-    }
 
     const result = await technicianService.saveTreatmentRecord(userId, {
       lich_dat_id,
       vas_truoc: Number(vas_truoc),
       vas_sau: Number(vas_sau),
-      ghi_chu
+      ghi_chu: ghi_chu || '',
+      du_lieu_tri_lieu
     });
     res.json(result);
   } catch (error: any) {
@@ -94,6 +94,33 @@ export const saveTreatmentRecord = async (req: AuthenticatedRequest, res: Respon
       return res.status(400).json({ message: error.message });
     }
     res.status(500).json({ message: 'Lỗi server' });
+  }
+};
+
+// POST /api/technician/appointments/draft — lưu nháp, không hoàn thành ca (xem service để rõ lý do)
+export const saveTreatmentDraft = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const { lich_dat_id, vas_truoc, vas_sau, ghi_chu, du_lieu_tri_lieu } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'Không xác định được danh tính người dùng.' });
+    }
+    if (!lich_dat_id) {
+      return res.status(400).json({ message: 'Thiếu ID ca trị liệu.' });
+    }
+
+    const result = await technicianService.saveTreatmentDraft(userId, {
+      lich_dat_id,
+      vas_truoc: vas_truoc !== undefined ? Number(vas_truoc) : undefined,
+      vas_sau: vas_sau !== undefined ? Number(vas_sau) : undefined,
+      ghi_chu,
+      du_lieu_tri_lieu,
+    });
+    res.json(result);
+  } catch (error: any) {
+    console.error('Lỗi khi lưu nháp buổi trị liệu KTV:', error);
+    res.status(400).json({ message: error.message || 'Lỗi server' });
   }
 };
 
@@ -123,6 +150,21 @@ export const getActiveSession = async (req: AuthenticatedRequest, res: Response)
     res.json(activeSession);
   } catch (error: any) {
     console.error('Lỗi khi lấy ca trị liệu đang chạy dở KTV:', error);
+    res.status(500).json({ message: error.message || 'Lỗi server' });
+  }
+};
+
+// GET /api/technician/workstation-info
+export const getWorkstationInfo = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: 'Không xác định được danh tính người dùng.' });
+    }
+    const info = await technicianService.getWorkstationInfo(userId);
+    res.json(info);
+  } catch (error: any) {
+    console.error('Lỗi khi lấy thông tin phòng trực & thiết bị:', error);
     res.status(500).json({ message: error.message || 'Lỗi server' });
   }
 };

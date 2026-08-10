@@ -11,7 +11,7 @@ interface CapacityViewProps {
   setSelectedDate: (date: Date) => void;
   setViewMode: (view: 'timeline' | 'capacity') => void;
   appointments: any[];
-  timeRange: 'today' | '7days' | 'month' | 'custom';
+  timeRange?: 'today' | '7days' | 'month' | 'custom';
   startDate?: Date;
   endDate?: Date;
   activeType: 'kham' | 'dieu_tri';
@@ -20,6 +20,7 @@ interface CapacityViewProps {
   activeStatusLabel?: string | null;
   selectedStaffFilter?: string | null;
   staffList?: any[];
+  onOpenWalkInModal?: () => void;
 }
 
 const removeAccents = (str: string) => {

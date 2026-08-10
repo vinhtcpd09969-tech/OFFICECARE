@@ -4,6 +4,7 @@ import {
   createPublicAppointment,
   getCustomerAppointments,
   cancelCustomerAppointment,
+  rescheduleCustomerAppointment,
   getBuoiAvailability,
   getActiveDoctorDates,
   getPublicServices,
@@ -17,6 +18,7 @@ import { verifyToken } from '../middlewares/auth.middleware';
 import adminService from '../services/admin.service';
 import { SentimentService } from '../services/sentiment.service';
 import { pool } from '../config/db';
+import { payos } from '../config/payos';
 
 const router = Router();
 
@@ -194,6 +196,7 @@ router.get('/appointments/buoi-availability', getBuoiAvailability);
 router.get('/appointments/active-doctor-dates', getActiveDoctorDates);
 router.get('/appointments', verifyToken, getCustomerAppointments);
 router.patch('/appointments/:id/cancel', verifyToken, cancelCustomerAppointment);
+router.patch('/appointments/:id/reschedule', verifyToken, rescheduleCustomerAppointment);
 
 router.get('/appointments/pending-rating', verifyToken, async (req, res) => {
   try {
@@ -463,6 +466,112 @@ router.get('/tts', async (req, res) => {
   } catch (error: any) {
     console.error('TTS proxy error:', error.message);
     res.status(500).send('Error generating TTS');
+  }
+});
+
+// Client active vouchers for Online Payment auto-apply
+router.get('/vouchers/active', async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT v.id,
+             v.ma_code AS ma_voucher,
+             v.ten_chien_dich AS ten_khuyen_mai,
+             v.loai_giam_gia AS loai_giam,
+             v.gia_tri_giam::text AS gia_tri_giam,
+             v.giam_toi_da::text AS giam_toi_da,
+             v.don_hang_toi_thieu::text AS don_hang_toi_thieu,
+             v.tu_dong_ap_dung,
+             v.kenh_ap_dung,
+             v.loai_goi_ap_dung,
+             v.so_luong_gioi_han
+      FROM khuyen_mai_voucher v
+      LEFT JOIN hoa_don hd ON hd.voucher_id = v.id
+      WHERE v.dang_kich_hoat = true
+        AND (v.ngay_bat_dau IS NULL OR v.ngay_bat_dau <= NOW())
+        AND (v.ngay_het_han IS NULL OR v.ngay_het_han >= NOW())
+      GROUP BY v.id
+      HAVING v.so_luong_gioi_han IS NULL OR COUNT(hd.id) < v.so_luong_gioi_han
+      ORDER BY v.tu_dong_ap_dung DESC, v.gia_tri_giam DESC
+    `);
+
+    const mappedRows = rows.map((r: any) => ({
+      ...r,
+      gia_tri_giam: Number(r.gia_tri_giam || 0),
+      giam_toi_da: r.giam_toi_da ? Number(r.giam_toi_da) : null,
+      don_hang_toi_thieu: Number(r.don_hang_toi_thieu || 0),
+    }));
+
+    res.json({ vouchers: mappedRows });
+  } catch (error: any) {
+    console.error('Lỗi lấy danh sách voucher client:', error);
+    res.status(500).json({ message: 'Lỗi server', error: error?.message });
+  }
+});
+
+// Client official PayOS payment link creation using PayOS SDK
+router.post('/payment/create-payos-link', async (req, res) => {
+  try {
+    const { amount, phone, description } = req.body;
+    const finalAmount = Math.round(Number(amount) || 0);
+    if (finalAmount <= 0) {
+      return res.status(400).json({ message: 'Số tiền thanh toán phải lớn hơn 0' });
+    }
+
+    const removeAccents = (str: string) => {
+      return str
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'D')
+        .replace(/[^a-zA-Z0-9 ]/g, '');
+    };
+    const cleanPhone = removeAccents(phone || 'CLIENT').replace(/\s+/g, '');
+    const orderCode = Date.now() % 2000000000;
+    const descText = (description || `PAY ${cleanPhone}`).substring(0, 25).trim();
+
+    const cancelUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/booking`;
+    const returnUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/appointments`;
+
+    const paymentData = {
+      orderCode,
+      amount: finalAmount,
+      description: descText,
+      cancelUrl,
+      returnUrl,
+      expiredAt: Math.floor(Date.now() / 1000) + 600, // 10 minutes
+    };
+
+    const paymentLinkRes = await payos.paymentRequests.create(paymentData);
+    res.json({
+      ...paymentLinkRes,
+      orderCode,
+      amount: finalAmount,
+      accountNumber: paymentLinkRes.accountNumber || '0358966332',
+      accountName: paymentLinkRes.accountName || 'PHONG KHAM PHCN OFFICECARE',
+    });
+  } catch (error: any) {
+    console.error('Lỗi khi tạo PayOS link client:', error);
+    res.status(500).json({ message: error.message || 'Lỗi server khi tạo PayOS QR' });
+  }
+});
+
+// Client check PayOS payment status by orderCode
+router.get('/payment/status/:orderCode', async (req, res) => {
+  try {
+    const { orderCode } = req.params;
+    if (!orderCode) {
+      return res.status(400).json({ message: 'Thiếu orderCode' });
+    }
+    const paymentLinkInfo = await payos.paymentRequests.get(Number(orderCode));
+    const isPaid = paymentLinkInfo && paymentLinkInfo.status === 'PAID';
+    res.json({
+      status: paymentLinkInfo?.status,
+      paid: isPaid,
+      amountPaid: paymentLinkInfo?.amountPaid || paymentLinkInfo?.amount
+    });
+  } catch (error: any) {
+    console.error('Lỗi kiểm tra trạng thái PayOS orderCode:', error?.message);
+    res.json({ status: 'PENDING', paid: false });
   }
 });
 

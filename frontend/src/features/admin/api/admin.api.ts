@@ -3,8 +3,11 @@ import api from '../../../api/axios';
 // Appointments
 export const getAppointments = () => api.get('/admin/appointments');
 export const createAppointment = (data: any) => api.post('/admin/appointments', data);
-export const updateAppointmentStatus = (id: string, data: any) => 
+export const updateAppointmentStatus = (id: string, data: any) =>
   api.patch(`/admin/appointments/${id}/status`, data);
+// B11 (bản Lễ tân) — đẩy khách xuống cuối hàng đợi, không đổi trạng thái (khác updateAppointmentStatus)
+export const pushBackAppointment = (id: string) =>
+  api.post(`/admin/appointments/${id}/push-back`);
 export const keepAliveAppointment = (id: string) =>
   api.post(`/admin/appointments/${id}/keep-alive`);
 export const getStaffBudgetForBuoi = (date: string, buoi: 'sang' | 'chieu', loai: string, excludeApptId?: string) =>

@@ -1,6 +1,6 @@
 import { pool } from '../config/db';
 import prisma from '../config/prisma';
-import { calculatePackageCancellationRefund, PACKAGE_ACTIVATION_WINDOW_DAYS, DEFAULT_CANCELLATION_PENALTY_PERCENT } from '../domain/billing';
+import { calculatePackageCancellationRefund, DEFAULT_CANCELLATION_PENALTY_PERCENT } from '../domain/billing';
 
 class AdminRepository {
   constructor() {
@@ -161,6 +161,11 @@ class AdminRepository {
 
   async findUserByEmail(email: string) {
     const { rows } = await pool.query('SELECT id FROM nguoi_dung WHERE email = $1', [email]);
+    return rows[0];
+  }
+
+  async findUserByPhone(phone: string) {
+    const { rows } = await pool.query('SELECT id FROM nguoi_dung WHERE so_dien_thoai = $1', [phone]);
     return rows[0];
   }
 
@@ -334,30 +339,34 @@ class AdminRepository {
   // --- QUẢN LÝ THIẾT BỊ Y TẾ ---
   async getEquipment(): Promise<any[]> {
     const { rows } = await pool.query(`
-      SELECT id, ma_thiet_bi, ten_thiet_bi, ngay_mua, trang_thai, ghi_chu
-      FROM thiet_bi
-      ORDER BY ten_thiet_bi ASC
+      SELECT tb.id, tb.ma_thiet_bi, tb.ten_thiet_bi, tb.ngay_mua, tb.trang_thai, tb.ghi_chu,
+             tb.phong_id, p.ten_phong, p.ma_phong
+      FROM thiet_bi tb
+      LEFT JOIN phong_lam_viec p ON tb.phong_id = p.id
+      ORDER BY tb.ten_thiet_bi ASC
     `);
     return rows;
   }
 
   async createEquipment(ma_thiet_bi: string, data: any): Promise<any> {
     const ma = data.ma_thiet_bi || ma_thiet_bi || ('TB-' + Math.random().toString(36).substring(2, 8).toUpperCase());
+    const phongId = data.phong_id ? Number(data.phong_id) : null;
     const { rows } = await pool.query(`
-      INSERT INTO thiet_bi (ma_thiet_bi, ten_thiet_bi, ngay_mua, trang_thai, ghi_chu)
-      VALUES ($1, $2, $3::date, $4, $5)
-      RETURNING id, ma_thiet_bi, ten_thiet_bi, ngay_mua, trang_thai, ghi_chu
-    `, [ma, data.ten_thiet_bi, data.ngay_mua || null, data.trang_thai || 'san_sang', data.ghi_chu]);
+      INSERT INTO thiet_bi (ma_thiet_bi, ten_thiet_bi, ngay_mua, trang_thai, ghi_chu, phong_id)
+      VALUES ($1, $2, $3::date, $4, $5, $6)
+      RETURNING id, ma_thiet_bi, ten_thiet_bi, ngay_mua, trang_thai, ghi_chu, phong_id
+    `, [ma, data.ten_thiet_bi, data.ngay_mua || null, data.trang_thai || 'san_sang', data.ghi_chu, phongId]);
     return rows[0];
   }
 
   async updateEquipment(id: string, data: any): Promise<any> {
+    const phongId = data.phong_id ? Number(data.phong_id) : null;
     const { rows } = await pool.query(`
       UPDATE thiet_bi
-      SET ma_thiet_bi = $1, ten_thiet_bi = $2, ngay_mua = $3::date, trang_thai = $4, ghi_chu = $5
-      WHERE id = $6::uuid
-      RETURNING id, ma_thiet_bi, ten_thiet_bi, ngay_mua, trang_thai, ghi_chu
-    `, [data.ma_thiet_bi, data.ten_thiet_bi, data.ngay_mua || null, data.trang_thai || 'san_sang', data.ghi_chu, id]);
+      SET ma_thiet_bi = $1, ten_thiet_bi = $2, ngay_mua = $3::date, trang_thai = $4, ghi_chu = $5, phong_id = $6
+      WHERE id = $7::uuid
+      RETURNING id, ma_thiet_bi, ten_thiet_bi, ngay_mua, trang_thai, ghi_chu, phong_id
+    `, [data.ma_thiet_bi, data.ten_thiet_bi, data.ngay_mua || null, data.trang_thai || 'san_sang', data.ghi_chu, phongId, id]);
     return rows[0];
   }
 
@@ -645,7 +654,7 @@ class AdminRepository {
               JOIN cuoc_hen ch ON nk.cuoc_hen_id = ch.id
               JOIN goi_dich_vu g ON cd.goi_dich_vu_id = g.id
               WHERE ch.khach_hang_id = kh.id AND cd.phac_do_dieu_tri_id IS NULL
-                AND g.loai_goi = 'LIEU_TRINH' AND ch.ngay_gio_bat_dau >= NOW() - $4 * INTERVAL '1 day'
+                AND g.loai_goi = 'LIEU_TRINH'
             )
             OR EXISTS (
               SELECT 1 FROM cuoc_hen ch_h
@@ -669,7 +678,7 @@ class AdminRepository {
       WHERE ${searchWhere} AND ${statusWhere} AND ${repWhere}
       ORDER BY ho_ten ASC
       LIMIT $2 OFFSET $3
-    `, [`%${search}%`, pageSize, offset, PACKAGE_ACTIVATION_WINDOW_DAYS]);
+    `, [`%${search}%`, pageSize, offset]);
 
     const total = rows[0]?.full_count ? Number(rows[0].full_count) : 0;
     const data = rows.map((r: any) => ({
@@ -818,7 +827,7 @@ class AdminRepository {
           WHERE phac_do_dieu_tri_id = pd.id
             AND (
               trang_thai = 'hoan_thanh'
-              OR (trang_thai IN ('khong_den', 'khach_khong_den', 'khach_khong_den_phat') AND hd.hinh_thuc_thanh_toan_goi IN ('tra_thang', 'tra_gop'))
+              OR (trang_thai IN ('khong_den', 'khach_khong_den', 'khach_khong_den_phat') AND hd.hinh_thuc_thanh_toan_goi = 'tra_thang')
             )
             AND loai = 'DIEU_TRI'
         ) as so_buoi_da_dung,
@@ -869,7 +878,7 @@ class AdminRepository {
         p_kham.ten_phong as ten_phong_kham,
         ch.id as cuoc_hen_id,
         ch.ngay_gio_bat_dau as ngay_kham,
-        ch.ngay_gio_bat_dau + $2 * INTERVAL '1 day' as han_kich_hoat
+        NULL::timestamptz as han_kich_hoat
       FROM chi_dinh_buoi cd
       JOIN nhat_ky_buoi_dieu_tri nk ON cd.nhat_ky_id = nk.id
       JOIN cuoc_hen ch ON nk.cuoc_hen_id = ch.id
@@ -879,8 +888,7 @@ class AdminRepository {
       WHERE ch.loai = 'KHAM'
         AND cd.phac_do_dieu_tri_id IS NULL
         AND ch.khach_hang_id = $1
-        AND ch.ngay_gio_bat_dau >= NOW() - $2 * INTERVAL '1 day'
-    `, [khachHangId, PACKAGE_ACTIVATION_WINDOW_DAYS]);
+    `, [khachHangId]);
 
     const virtualPlans = prescribedUnpaid.map((item: any) => ({
       id: `virtual-${item.cuoc_hen_id}`,
@@ -971,7 +979,7 @@ class AdminRepository {
               OR (
                 trang_thai IN ('khong_den', 'khach_khong_den', 'khach_khong_den_phat')
                 AND (SELECT hinh_thuc_thanh_toan_goi FROM hoa_don WHERE phac_do_dieu_tri_id = phac_do_dieu_tri.id LIMIT 1)
-                    IN ('tra_thang', 'tra_gop')
+                    = 'tra_thang'
               )
             )
             AND loai = 'DIEU_TRI'
@@ -994,7 +1002,7 @@ class AdminRepository {
           WHERE phac_do_dieu_tri_id = pd.id
             AND (
               trang_thai = 'hoan_thanh'
-              OR (trang_thai IN ('khong_den', 'khach_khong_den', 'khach_khong_den_phat') AND hd.hinh_thuc_thanh_toan_goi IN ('tra_thang', 'tra_gop'))
+              OR (trang_thai IN ('khong_den', 'khach_khong_den', 'khach_khong_den_phat') AND hd.hinh_thuc_thanh_toan_goi = 'tra_thang')
             )
             AND loai = 'DIEU_TRI'
         ) as so_buoi_da_dung,
@@ -1048,7 +1056,7 @@ class AdminRepository {
         p_kham.ten_phong as ten_phong_kham,
         ch.id as cuoc_hen_id,
         ch.ngay_gio_bat_dau as ngay_kham,
-        ch.ngay_gio_bat_dau + $1 * INTERVAL '1 day' as han_kich_hoat
+        NULL::timestamptz as han_kich_hoat
       FROM chi_dinh_buoi cd
       JOIN nhat_ky_buoi_dieu_tri nk ON cd.nhat_ky_id = nk.id
       JOIN cuoc_hen ch ON nk.cuoc_hen_id = ch.id
@@ -1057,8 +1065,7 @@ class AdminRepository {
       LEFT JOIN phong_lam_viec p_kham ON ch.phong_id = p_kham.id
       WHERE ch.loai = 'KHAM'
         AND cd.phac_do_dieu_tri_id IS NULL
-        AND ch.ngay_gio_bat_dau >= NOW() - $1 * INTERVAL '1 day'
-    `, [PACKAGE_ACTIVATION_WINDOW_DAYS]);
+    `);
 
     const virtualPlans = prescribedUnpaid.map((item: any) => ({
       id: `virtual-${item.cuoc_hen_id}`,
@@ -1150,7 +1157,7 @@ class AdminRepository {
           WHERE phac_do_dieu_tri_id = pd.id
             AND (
               trang_thai = 'hoan_thanh'
-              OR (trang_thai IN ('khong_den', 'khach_khong_den', 'khach_khong_den_phat') AND hd.hinh_thuc_thanh_toan_goi IN ('tra_thang', 'tra_gop'))
+              OR (trang_thai IN ('khong_den', 'khach_khong_den', 'khach_khong_den_phat') AND hd.hinh_thuc_thanh_toan_goi = 'tra_thang')
             )
             AND loai = 'DIEU_TRI'
         ) as so_buoi_da_dung,
@@ -1170,8 +1177,8 @@ class AdminRepository {
               AND exam_hd.phac_do_dieu_tri_id IS NULL
               AND exam_hd.trang_thai = 'da_thanh_toan'
           ) THEN 0
-          WHEN hd.phac_do_dieu_tri_id IS NULL AND hd.tong_tien_goc > COALESCE(NULLIF(hd.phi_kham_ap_dung, 0), dv.don_gia, 0) THEN 0
-          WHEN hd.cuoc_hen_id IS NOT NULL THEN COALESCE(NULLIF(hd.phi_kham_ap_dung, 0), dv.don_gia, 0)
+          WHEN hd.phac_do_dieu_tri_id IS NULL THEN COALESCE(NULLIF(hd.phi_kham_ap_dung, 0), hd.tong_tien_goc, dv.don_gia, 0)
+          WHEN hd.cuoc_hen_id IS NOT NULL THEN COALESCE(NULLIF(hd.phi_kham_ap_dung, 0), hd.tong_tien_goc, dv.don_gia, 0)
           ELSE 0
         END as chi_phi_kham,
         -- CHỈ tính là "đã đóng khám riêng TRƯỚC KHI mua gói" nếu hóa đơn khám đó được tạo TRƯỚC hóa
@@ -1314,60 +1321,55 @@ class AdminRepository {
   // --- QUẢN LÝ MARKETING (VOUCHERS) ---
   async getVouchers() {
     const { rows } = await pool.query(`
-      SELECT id, ma_code as ma_voucher, ten_chien_dich, loai_giam_gia as loai_giam, gia_tri_giam, giam_toi_da,
-             don_hang_toi_thieu, so_luong_gioi_han as so_luong_toi_da,
+      SELECT id, ma_code as ma_voucher, ten_chien_dich, loai_giam_gia as loai_giam,
+             gia_tri_giam::text as gia_tri_giam,
+             giam_toi_da::text as giam_toi_da,
+             don_hang_toi_thieu::text as don_hang_toi_thieu,
+             so_luong_gioi_han as so_luong_toi_da,
              ngay_bat_dau, ngay_het_han, dang_kich_hoat, yeu_cau_thanh_toan,
+             tu_dong_ap_dung, kenh_ap_dung, loai_goi_ap_dung,
              CASE WHEN dang_kich_hoat = true THEN 'hoat_dong' ELSE 'tam_dung' END as trang_thai
       FROM khuyen_mai_voucher
       ORDER BY ngay_bat_dau DESC
     `);
-    return rows;
+    return rows.map((r: any) => ({
+      ...r,
+      gia_tri_giam: Number(r.gia_tri_giam || 0),
+      giam_toi_da: r.giam_toi_da ? Number(r.giam_toi_da) : null,
+      don_hang_toi_thieu: Number(r.don_hang_toi_thieu || 0),
+    }));
   }
 
   async getVoucherByCode(code: string) {
     const { rows } = await pool.query(`
-      SELECT id, ma_code as ma_voucher, ten_chien_dich, loai_giam_gia as loai_giam, gia_tri_giam, giam_toi_da,
-             don_hang_toi_thieu, so_luong_gioi_han as so_luong_toi_da,
+      SELECT id, ma_code as ma_voucher, ten_chien_dich, loai_giam_gia as loai_giam,
+             gia_tri_giam::text as gia_tri_giam,
+             giam_toi_da::text as giam_toi_da,
+             don_hang_toi_thieu::text as don_hang_toi_thieu,
+             so_luong_gioi_han as so_luong_toi_da,
              ngay_bat_dau, ngay_het_han, dang_kich_hoat, yeu_cau_thanh_toan,
+             tu_dong_ap_dung, kenh_ap_dung, loai_goi_ap_dung,
              CASE WHEN dang_kich_hoat = true THEN 'hoat_dong' ELSE 'tam_dung' END as trang_thai
       FROM khuyen_mai_voucher
       WHERE ma_code = $1
     `, [code]);
-    return rows[0];
+    if (!rows[0]) return null;
+    const r = rows[0];
+    return {
+      ...r,
+      gia_tri_giam: Number(r.gia_tri_giam || 0),
+      giam_toi_da: r.giam_toi_da ? Number(r.giam_toi_da) : null,
+      don_hang_toi_thieu: Number(r.don_hang_toi_thieu || 0),
+    };
   }
 
   async createVoucher(data: any, userId: string) {
     const isAct = data.trang_thai === 'hoat_dong' || data.trang_thai === 'kich_hoat' || data.trang_thai === true;
+    const isAuto = data.tu_dong_ap_dung === true || data.tu_dong_ap_dung === 'true';
     const { rows } = await pool.query(
-      `INSERT INTO khuyen_mai_voucher (ma_code, ten_chien_dich, loai_giam_gia, gia_tri_giam, giam_toi_da, don_hang_toi_thieu, so_luong_gioi_han, ngay_bat_dau, ngay_het_han, dang_kich_hoat, yeu_cau_thanh_toan)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-       RETURNING id, ma_code as ma_voucher, ten_chien_dich, loai_giam_gia as loai_giam, gia_tri_giam, giam_toi_da, don_hang_toi_thieu, so_luong_gioi_han as so_luong_toi_da, dang_kich_hoat, yeu_cau_thanh_toan`,
-      [
-        data.ma_voucher,
-        data.ten_chien_dich || '',
-        data.loai_giam,
-        data.gia_tri_giam ? BigInt(data.gia_tri_giam) : BigInt(0),
-        data.giam_toi_da ? BigInt(data.giam_toi_da) : null,
-        data.don_hang_toi_thieu ? BigInt(data.don_hang_toi_thieu) : BigInt(0),
-        data.so_luong_toi_da ? Number(data.so_luong_toi_da) : null,
-        data.ngay_bat_dau,
-        data.ngay_het_han || null,
-        isAct,
-        data.yeu_cau_thanh_toan?.length ? data.yeu_cau_thanh_toan : ['tat_ca']
-      ]
-    );
-    return rows[0];
-  }
-
-  async updateVoucher(id: string, data: any) {
-    const isAct = data.trang_thai === 'hoat_dong' || data.trang_thai === 'kich_hoat' || data.trang_thai === true;
-    const { rows } = await pool.query(
-      `UPDATE khuyen_mai_voucher SET
-        ma_code = $1, ten_chien_dich = $2, loai_giam_gia = $3, gia_tri_giam = $4, giam_toi_da = $5,
-        don_hang_toi_thieu = $6, so_luong_gioi_han = $7,
-        ngay_bat_dau = $8, ngay_het_han = $9, dang_kich_hoat = $10, yeu_cau_thanh_toan = $11
-       WHERE id = $12
-       RETURNING id, ma_code as ma_voucher, ten_chien_dich, loai_giam_gia as loai_giam, gia_tri_giam, giam_toi_da, don_hang_toi_thieu, so_luong_gioi_han as so_luong_toi_da, dang_kich_hoat, yeu_cau_thanh_toan`,
+      `INSERT INTO khuyen_mai_voucher (ma_code, ten_chien_dich, loai_giam_gia, gia_tri_giam, giam_toi_da, don_hang_toi_thieu, so_luong_gioi_han, ngay_bat_dau, ngay_het_han, dang_kich_hoat, yeu_cau_thanh_toan, tu_dong_ap_dung, kenh_ap_dung, loai_goi_ap_dung)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+       RETURNING id, ma_code as ma_voucher, ten_chien_dich, loai_giam_gia as loai_giam, gia_tri_giam, giam_toi_da, don_hang_toi_thieu, so_luong_gioi_han as so_luong_toi_da, dang_kich_hoat, yeu_cau_thanh_toan, tu_dong_ap_dung, kenh_ap_dung, loai_goi_ap_dung`,
       [
         data.ma_voucher,
         data.ten_chien_dich || '',
@@ -1380,6 +1382,40 @@ class AdminRepository {
         data.ngay_het_han || null,
         isAct,
         data.yeu_cau_thanh_toan?.length ? data.yeu_cau_thanh_toan : ['tat_ca'],
+        isAuto,
+        data.kenh_ap_dung?.length ? data.kenh_ap_dung : ['tat_ca'],
+        data.loai_goi_ap_dung?.length ? data.loai_goi_ap_dung : ['tat_ca']
+      ]
+    );
+    return rows[0];
+  }
+
+  async updateVoucher(id: string, data: any) {
+    const isAct = data.trang_thai === 'hoat_dong' || data.trang_thai === 'kich_hoat' || data.trang_thai === true;
+    const isAuto = data.tu_dong_ap_dung === true || data.tu_dong_ap_dung === 'true';
+    const { rows } = await pool.query(
+      `UPDATE khuyen_mai_voucher SET
+        ma_code = $1, ten_chien_dich = $2, loai_giam_gia = $3, gia_tri_giam = $4, giam_toi_da = $5,
+        don_hang_toi_thieu = $6, so_luong_gioi_han = $7,
+        ngay_bat_dau = $8, ngay_het_han = $9, dang_kich_hoat = $10, yeu_cau_thanh_toan = $11,
+        tu_dong_ap_dung = $12, kenh_ap_dung = $13, loai_goi_ap_dung = $14
+       WHERE id = $15
+       RETURNING id, ma_code as ma_voucher, ten_chien_dich, loai_giam_gia as loai_giam, gia_tri_giam, giam_toi_da, don_hang_toi_thieu, so_luong_gioi_han as so_luong_toi_da, dang_kich_hoat, yeu_cau_thanh_toan, tu_dong_ap_dung, kenh_ap_dung, loai_goi_ap_dung`,
+      [
+        data.ma_voucher,
+        data.ten_chien_dich || '',
+        data.loai_giam,
+        data.gia_tri_giam ? BigInt(data.gia_tri_giam) : BigInt(0),
+        data.giam_toi_da ? BigInt(data.giam_toi_da) : null,
+        data.don_hang_toi_thieu ? BigInt(data.don_hang_toi_thieu) : BigInt(0),
+        data.so_luong_toi_da ? Number(data.so_luong_toi_da) : null,
+        data.ngay_bat_dau,
+        data.ngay_het_han || null,
+        isAct,
+        data.yeu_cau_thanh_toan?.length ? data.yeu_cau_thanh_toan : ['tat_ca'],
+        isAuto,
+        data.kenh_ap_dung?.length ? data.kenh_ap_dung : ['tat_ca'],
+        data.loai_goi_ap_dung?.length ? data.loai_goi_ap_dung : ['tat_ca'],
         id
       ]
     );
@@ -1557,8 +1593,8 @@ class AdminRepository {
         FROM phac_do_dieu_tri
       `),
       // "Chờ kích hoạt" là trạng thái ẢO: gói liệu trình đã được bác sĩ chỉ định (chi_dinh_buoi) từ
-      // 1 ca khám nhưng khách chưa thanh toán/kích hoạt, còn trong hạn PACKAGE_ACTIVATION_WINDOW_DAYS
-      // — cùng logic với getBlockingLieuTrinh() ở doctor.repository.ts.
+      // 1 ca khám nhưng khách chưa thanh toán/kích hoạt — A19: không còn hạn, cùng logic với
+      // getBlockingLieuTrinh() ở doctor.repository.ts.
       pool.query(`
         SELECT COUNT(*)::int AS cnt
         FROM chi_dinh_buoi cd
@@ -1567,8 +1603,7 @@ class AdminRepository {
         JOIN goi_dich_vu g ON cd.goi_dich_vu_id = g.id
         WHERE cd.phac_do_dieu_tri_id IS NULL
           AND g.loai_goi = 'LIEU_TRINH'
-          AND ch.ngay_gio_bat_dau >= NOW() - $1 * INTERVAL '1 day'
-      `, [PACKAGE_ACTIVATION_WINDOW_DAYS]),
+      `),
       // Đếm khách CHƯA có hồ sơ điều trị nào (chưa từng khám/dùng dịch vụ lẻ/có liệu trình) — dùng
       // đúng 3 EXISTS y hệt has_record trong getCustomersOverview() (không được lệch định nghĩa
       // "có hồ sơ" giữa 2 nơi), cho 2 card tĩnh ở tab "Theo khách hàng".
@@ -1583,7 +1618,7 @@ class AdminRepository {
             JOIN cuoc_hen ch ON nk.cuoc_hen_id = ch.id
             JOIN goi_dich_vu g ON cd.goi_dich_vu_id = g.id
             WHERE ch.khach_hang_id = kh.id AND cd.phac_do_dieu_tri_id IS NULL
-              AND g.loai_goi = 'LIEU_TRINH' AND ch.ngay_gio_bat_dau >= NOW() - $1 * INTERVAL '1 day'
+              AND g.loai_goi = 'LIEU_TRINH'
           )
           OR EXISTS (
             SELECT 1 FROM cuoc_hen ch_h
@@ -1591,7 +1626,7 @@ class AdminRepository {
               AND ch_h.trang_thai NOT IN ('da_huy', 'huy')
           )
         )
-      `, [PACKAGE_ACTIVATION_WINDOW_DAYS])
+      `)
     ];
     const results = await Promise.all(queries);
 

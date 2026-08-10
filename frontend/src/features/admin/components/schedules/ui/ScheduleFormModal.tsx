@@ -271,7 +271,7 @@ export function ScheduleFormModal({
           {watch('trang_thai') === 'hoat_dong' && (isDoctor || isTechnician) && (
             <div>
               <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-1.5">
-                {isDoctor ? 'Phòng Khám Bệnh' : 'Phòng Trị Liệu'} *
+                {isDoctor ? 'Phòng Lượng Giá' : 'Phòng Trị Liệu'} *
               </label>
 
               {/* Custom Selector Trigger Button */}
@@ -302,7 +302,7 @@ export function ScheduleFormModal({
                       </div>
                     ) : (
                       <span className="text-xs font-semibold text-slate-400">
-                        {isDoctor ? '-- Chọn phòng khám y khoa --' : '-- Chọn phòng trị liệu --'}
+                        {isDoctor ? '-- Chọn phòng lượng giá --' : '-- Chọn phòng trị liệu --'}
                       </span>
                     )}
                   </div>
