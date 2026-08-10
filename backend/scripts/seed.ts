@@ -220,7 +220,7 @@ async function main() {
             thoi_luong_phut: 30,
             don_gia: BigInt(200000),
             don_gia_theo_buoi: BigInt(200000),
-            mo_ta: 'Bác sĩ khám lâm sàng, lượng giá tầm vận động cột sống, kiểm tra biến dạng khớp và lên phác đồ điều trị.',
+            quy_trinh: 'Bác sĩ khám lâm sàng, lượng giá tầm vận động cột sống, kiểm tra biến dạng khớp và lên phác đồ điều trị.',
             trang_thai: 'hoat_dong',
           },
           // 5.2 Gói Lẻ (LE)
@@ -232,7 +232,7 @@ async function main() {
             thoi_luong_phut: 15,
             don_gia: BigInt(250000),
             don_gia_theo_buoi: BigInt(250000),
-            mo_ta: 'Sử dụng tia Laser cao tần kích thích sâu dưới da, tăng tuần hoàn và giảm sưng viêm tại chỗ khớp xương.',
+            quy_trinh: 'Sử dụng tia Laser cao tần kích thích sâu dưới da, tăng tuần hoàn và giảm sưng viêm tại chỗ khớp xương.',
             trang_thai: 'hoat_dong',
           },
           {
@@ -243,7 +243,7 @@ async function main() {
             thoi_luong_phut: 20,
             don_gia: BigInt(300000),
             don_gia_theo_buoi: BigInt(300000),
-            mo_ta: 'Giải tỏa điểm kích hoạt đau (trigger points), hóa lỏng các điểm xơ hóa cơ bằng xung kích cơ học.',
+            quy_trinh: 'Giải tỏa điểm kích hoạt đau (trigger points), hóa lỏng các điểm xơ hóa cơ bằng xung kích cơ học.',
             trang_thai: 'hoat_dong',
           },
           {
@@ -254,7 +254,7 @@ async function main() {
             thoi_luong_phut: 45,
             don_gia: BigInt(350000),
             don_gia_theo_buoi: BigInt(350000),
-            mo_ta: 'Kỹ thuật viên xoa bóp, di động cơ học chuyên sâu giải phóng các bó cơ co thắt gây đau đầu, vai gáy, thắt lưng.',
+            quy_trinh: 'Kỹ thuật viên xoa bóp, di động cơ học chuyên sâu giải phóng các bó cơ co thắt gây đau đầu, vai gáy, thắt lưng.',
             trang_thai: 'hoat_dong',
           },
           // 5.3 Gói Liệu Trình (LIEU_TRINH)
@@ -266,7 +266,7 @@ async function main() {
             thoi_luong_phut: 60,
             don_gia: BigInt(3200000),
             don_gia_theo_buoi: BigInt(400000),
-            mo_ta: 'Mỗi buổi KTV thực hiện: Điện xung giảm đau vai gáy (15 phút), Nhiệt trị liệu làm mềm cơ (15 phút), và Nắn chỉnh di động khớp cổ (30 phút).',
+            quy_trinh: 'Mỗi buổi KTV thực hiện: Điện xung giảm đau vai gáy (15 phút), Nhiệt trị liệu làm mềm cơ (15 phút), và Nắn chỉnh di động khớp cổ (30 phút).',
             trang_thai: 'hoat_dong',
           },
           {
@@ -277,7 +277,7 @@ async function main() {
             thoi_luong_phut: 60,
             don_gia: BigInt(4500000),
             don_gia_theo_buoi: BigInt(450000),
-            mo_ta: 'Mỗi buổi KTV thực hiện: Kéo giãn cột sống cổ/thắt lưng giảm áp đĩa đệm (20 phút), Laser công suất cao giảm viêm rễ thần kinh (15 phút), và Tập phục hồi nhóm cơ lõi thắt lưng (25 phút).',
+            quy_trinh: 'Mỗi buổi KTV thực hiện: Kéo giãn cột sống cổ/thắt lưng giảm áp đĩa đệm (20 phút), Laser công suất cao giảm viêm rễ thần kinh (15 phút), và Tập phục hồi nhóm cơ lõi thắt lưng (25 phút).',
             trang_thai: 'hoat_dong',
           },
           {
@@ -288,7 +288,7 @@ async function main() {
             thoi_luong_phut: 60,
             don_gia: BigInt(5400000),
             don_gia_theo_buoi: BigInt(450000),
-            mo_ta: 'Mỗi buổi KTV thực hiện: Trị liệu sóng xung kích hội tụ Focused Shockwave (20 phút), Laser tiêu viêm sâu (15 phút), và Tập Kinetic Rehab tăng sức mạnh gân cơ dây chằng (25 phút).',
+            quy_trinh: 'Mỗi buổi KTV thực hiện: Trị liệu sóng xung kích hội tụ Focused Shockwave (20 phút), Laser tiêu viêm sâu (15 phút), và Tập Kinetic Rehab tăng sức mạnh gân cơ dây chằng (25 phút).',
             trang_thai: 'hoat_dong',
           },
         ],
@@ -311,7 +311,6 @@ async function main() {
             ngay_bat_dau: new Date('2026-06-29T00:00:00Z'),
             ngay_het_han: new Date('2026-09-27T00:00:00Z'),
             so_luong_gioi_han: 100,
-            so_luong_da_dung: 0,
             dang_kich_hoat: true,
           },
           {
@@ -324,7 +323,6 @@ async function main() {
             ngay_bat_dau: new Date('2026-06-29T00:00:00Z'),
             ngay_het_han: new Date('2026-07-29T00:00:00Z'),
             so_luong_gioi_han: 50,
-            so_luong_da_dung: 0,
             dang_kich_hoat: true,
           },
         ],
