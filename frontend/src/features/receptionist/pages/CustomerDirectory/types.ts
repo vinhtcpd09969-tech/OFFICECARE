@@ -11,7 +11,7 @@ export interface CurrentPackageInfo {
 // Lý do cần liên hệ — suy ra từ dữ liệu, KHÔNG lưu DB, chỉ để gợi ý cho Lễ tân biết ai cần gọi
 // trước. 2 lý do loại trừ nhau (luật "1 khách 1 liệu trình tại 1 thời điểm").
 export type ContactReason =
-  | { type: 'sap_het_han'; han_kich_hoat: string | null; goi_dich_vu_id?: string | null; cuoc_hen_id?: string | null }
+  | { type: 'cho_kich_hoat'; goi_dich_vu_id?: string | null; cuoc_hen_id?: string | null }
   | { type: 'lau_chua_quay_lai' };
 
 export interface CustomerRosterItem {
@@ -47,7 +47,7 @@ export interface CustomerHistoryPlan {
   cuoc_hen_id?: string;
   han_kich_hoat?: string | null;
   // Field thanh toán — cần cho isSessionPaymentSatisfied() (utils/billing.ts) để biết buổi tiếp
-  // theo có đang bị chặn vì chưa đóng đợt 2 (tra_gop)/buổi hiện tại (tung_buoi) hay không.
+  // theo có đang bị chặn vì chưa đóng tiền/buổi hiện tại (tung_buoi) hay không.
   hoa_don_id?: string | null;
   hinh_thuc_thanh_toan_goi?: string | null;
   tong_tien_phai_tra?: number | string | null;

@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { X, Pencil, Check, Clock, Undo2, DollarSign } from 'lucide-react';
+import { X, Pencil, Check, Clock, Undo2, DollarSign, Sparkles, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { useAuthStore } from '../../../stores/authStore';
@@ -11,13 +11,14 @@ import {
 } from '../../../features/admin/api/admin.api';
 import {
   updateAppointmentStatus as updateAppointmentStatusRec,
-  resendEmail
+  resendEmail,
+  unassignAppointmentStaff
 } from '../../../features/receptionist/api/receptionist.api';
 import { CustomDatePicker } from '../../CustomDatePicker';
 import { StatusHistoryModal } from '../../StatusHistoryModal';
 
 
-import { getInstallmentCutoffSession, isPaymentDue } from '../../../utils/billing';
+import { isPaymentDue } from '../../../utils/billing';
 import { getReceptionistActionOptions, getReceptionistAllowedTargets, hasAssignedStaff, isReceptionistLockedStatus } from './receptionistStatusRules';
 import { statusConfig } from '../../appointmentStatusConfig';
 
@@ -608,36 +609,7 @@ export default function AppointmentDetailModal({
                 trangThai={selectedAppointment.trang_thai}
               />
 
-              {/* Installment Payment Warning Notice for Receptionist */}
-              {selectedAppointment.loai_lich?.toUpperCase() === 'DIEU_TRI' &&
-                selectedAppointment.hinh_thuc_thanh_toan_goi === 'tra_gop' &&
-                selectedAppointment.trang_thai_hoa_don_goi !== 'da_thanh_toan' &&
-                Number(selectedAppointment.so_tien_da_tra_goi) < Number(selectedAppointment.tong_tien_phai_tra_goi) &&
-                Number(selectedAppointment.so_thu_tu_buoi) >= getInstallmentCutoffSession(Number(selectedAppointment.tong_so_buoi_goi || 10)) && (
-                  <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 p-4 rounded-2xl flex items-start gap-3 text-left animate-in fade-in slide-in-from-top-2">
-                    <span className="text-amber-500 shrink-0 text-base">⚠️</span>
-                    <div className="text-xs text-amber-800 dark:text-amber-300">
-                      <p className="font-bold uppercase tracking-wider">Cảnh báo thanh toán Đợt 2 (Trả Góp 50%)</p>
-                      <p className="mt-1 font-semibold leading-relaxed">
-                        Bệnh nhân đã hoàn thành <strong>{Number(selectedAppointment.so_thu_tu_buoi || 1) - 1} / {selectedAppointment.tong_so_buoi_goi}</strong> buổi điều trị. 
-                        Theo quy định bảo vệ dòng tiền, khách hàng <strong>bắt buộc phải đóng 50% còn lại</strong> trước khi tiến hành trị liệu buổi số {selectedAppointment.so_thu_tu_buoi}.
-                      </p>
-                      <div className="mt-2.5">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const dest = isReceptionist ? '/receptionist/billing' : '/admin/quick-billing';
-                            navigate(`${dest}?lich_dat_id=${selectedAppointment.id}`);
-                            onClose();
-                          }}
-                          className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2 rounded-xl shadow-sm transition-all text-[11px]"
-                        >
-                          💵 Thu tiền Đợt 2 ngay
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-              )}
+
 
               {/* Warning message when staff selected is busy */}
               {isStaffUnavailable && !isCurrentStaffUnavailableAtNewSlot && (
@@ -807,6 +779,56 @@ export default function AppointmentDetailModal({
                 )}
               </div>
 
+              {/* THẺ CHỈ ĐỊNH GÓI LIỆU TRÌNH (Hiển thị ngay sau Trạng thái Lịch hẹn & Thanh toán) */}
+              {['kham_moi', 'KHAM'].includes(selectedAppointment.loai_lich) && selectedAppointment.khuyen_nghi_goi_id && (
+                <div className="bg-gradient-to-br from-teal-50/90 via-emerald-50/50 to-teal-50/30 dark:from-teal-950/40 dark:via-zinc-900 dark:to-teal-950/20 p-4.5 rounded-2xl border border-teal-200/80 dark:border-teal-900/50 shadow-2xs space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="size-7 rounded-xl bg-teal-600/10 dark:bg-teal-400/20 text-teal-700 dark:text-teal-300 flex items-center justify-center font-bold">
+                        <Sparkles size={15} />
+                      </div>
+                      <span className="text-[11px] font-black text-teal-800 dark:text-teal-300 uppercase tracking-wider">
+                        Gói liệu trình được chỉ định
+                      </span>
+                    </div>
+                    {selectedAppointment.khuyen_nghi_phac_do_id && (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-xs font-black border border-emerald-300/60 dark:border-emerald-800">
+                        <CheckCircle2 size={13} />
+                        <span>Đã mua & kích hoạt</span>
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap bg-white/90 dark:bg-zinc-800/90 p-3.5 rounded-xl border border-teal-100 dark:border-teal-900/40 shadow-2xs">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-xs font-black text-slate-900 dark:text-zinc-100">
+                        {selectedAppointment.khuyen_nghi_ten_goi}
+                      </h4>
+                      <p className="text-[10px] font-medium text-slate-500 dark:text-zinc-400 mt-0.5 leading-relaxed">
+                        {selectedAppointment.khuyen_nghi_phac_do_id
+                          ? 'Khách hàng đã đăng ký mua gói và mở phác đồ điều trị thành công.'
+                          : 'Gói trị liệu được chuyên viên chỉ định sau khi lượng giá chức năng.'}
+                      </p>
+                    </div>
+
+                    {!selectedAppointment.khuyen_nghi_phac_do_id && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const dest = isReceptionist ? '/receptionist/billing' : '/admin/quick-billing';
+                          navigate(`${dest}?lich_dat_id=${selectedAppointment.id}`);
+                          onClose();
+                        }}
+                        className="px-4 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-black text-xs rounded-xl shadow-md shadow-teal-600/20 flex items-center gap-1.5 transition-all cursor-pointer shrink-0 active:scale-98"
+                      >
+                        <DollarSign size={14} />
+                        <span>Thanh toán ngay</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Ghi chú nội bộ phòng khám (Hiển thị cho tất cả nhân sự) */}
               <div className="space-y-2 bg-slate-50/50 dark:bg-zinc-800/40 p-4 rounded-xl border border-slate-150 dark:border-zinc-800/80">
                 <label className="text-xs font-extrabold text-slate-700 dark:text-zinc-300 uppercase tracking-wider block">
@@ -850,6 +872,17 @@ export default function AppointmentDetailModal({
                 aptStartHourStr={newStartHourStr}
                 aptEndHourStr={newEndHourStr}
                 appointments={appointments}
+                onUnassignStaff={async () => {
+                  try {
+                    await unassignAppointmentStaff(String(selectedAppointment.id));
+                    toast.success('Đã rút khỏi đích danh và đưa ca hẹn về Hàng chờ chung.');
+                    onSuccess?.();
+                    onClose();
+                  } catch (err: any) {
+                    console.error('Lỗi khi rút chỉ định nhân sự:', err);
+                    toast.error(err?.response?.data?.message || 'Không thể rút chỉ định nhân sự.');
+                  }
+                }}
               />
             </div>
 

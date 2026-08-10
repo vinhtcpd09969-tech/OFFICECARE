@@ -123,8 +123,10 @@ export const createStaff = async (req: Request, res: Response): Promise<any> => 
     res.status(201).json(staff);
   } catch (error: any) {
     if (error instanceof ZodError) return res.status(400).json({ message: error.errors[0].message });
-    if (error.message === 'Email đã được sử dụng') return res.status(400).json({ message: error.message });
-    res.status(500).json({ message: 'Lỗi server' });
+    if (error.message && (error.message.includes('Email') || error.message.includes('Số điện thoại') || error.message.includes('đăng ký'))) {
+      return res.status(400).json({ message: error.message });
+    }
+    res.status(500).json({ message: 'Lỗi server khi tạo tài khoản nhân sự' });
   }
 };
 

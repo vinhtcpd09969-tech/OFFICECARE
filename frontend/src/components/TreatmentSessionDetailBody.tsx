@@ -1,4 +1,4 @@
-import { CheckCircle2, FileText, ShieldAlert, TrendingDown, TrendingUp } from 'lucide-react';
+import { CheckCircle2, FileText, ShieldAlert, TrendingDown, TrendingUp, Zap } from 'lucide-react';
 
 // Khối nội dung chi tiết "1 buổi điều trị" — dùng chung cho cả buổi trong liệu trình LẪN dịch vụ lẻ,
 // vì 2 loại này về bản chất cùng 1 cấu trúc dữ liệu (chan_doan/chong_chi_dinh/ghi_chu/vas_truoc/
@@ -21,6 +21,7 @@ export interface TreatmentSessionDetailBodyProps {
   chongChiDinh?: string | null;
   vasTruoc?: number | null;
   vasSau?: number | null;
+  duLieuTriLieu?: any;
   // Mặc định so sánh trước/sau CỦA CHÍNH buổi này. Truyền riêng khi cần so sánh khác (vd
   // SessionTimelineItem so vas_sau buổi này với vas_sau buổi TRƯỚC ĐÓ, không phải trước/sau cùng buổi).
   vasDeltaOverride?: number | null;
@@ -34,10 +35,16 @@ export function TreatmentSessionDetailBody({
   chongChiDinh,
   vasTruoc = null,
   vasSau = null,
+  duLieuTriLieu = null,
   vasDeltaOverride,
   vasDeltaSuffixLabel = 'so với trước trị liệu'
 }: TreatmentSessionDetailBodyProps) {
-  const hasLeftColumn = !!chanDoan || !!ghiChu || !!chongChiDinh;
+  const rawTriLieu = typeof duLieuTriLieu === 'string'
+    ? (function() { try { return JSON.parse(duLieuTriLieu); } catch(e) { return {}; } })()
+    : (duLieuTriLieu || {});
+  const nhatKyList: any[] = rawTriLieu.nhat_ky || rawTriLieu.technique_logs || rawTriLieu.physical_therapy_logs || [];
+
+  const hasLeftColumn = !!chanDoan || !!ghiChu || !!chongChiDinh || nhatKyList.length > 0;
   const hasVas = vasTruoc !== null || vasSau !== null;
   const vasDelta = vasDeltaOverride !== undefined
     ? vasDeltaOverride
@@ -65,6 +72,24 @@ export function TreatmentSessionDetailBody({
                 <FileText size={13} className="text-amber-500" /> {ghiChuLabel}
               </span>
               <p className="text-xs font-semibold text-slate-650 dark:text-slate-300 italic leading-relaxed mt-1 flex-1">"{ghiChu}"</p>
+            </div>
+          )}
+
+          {nhatKyList.length > 0 && (
+            <div className="p-3.5 bg-teal-50/60 dark:bg-teal-955/20 border border-teal-200/80 dark:border-teal-800 rounded-2xl shadow-xs space-y-2 shrink-0">
+              <span className="text-[10px] font-black text-teal-800 dark:text-teal-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Zap size={13} className="text-teal-600" /> Thao tác kỹ thuật KTV đã thực hiện ({nhatKyList.length})
+              </span>
+              <div className="grid grid-cols-1 gap-2 pt-1">
+                {nhatKyList.map((item: any, idx: number) => (
+                  <div key={idx} className="p-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-teal-100 dark:border-zinc-700 flex items-center gap-2.5">
+                    <CheckCircle2 size={14} className="text-teal-600 shrink-0" />
+                    <span className="font-bold text-xs text-slate-800 dark:text-zinc-200">
+                      {item.noi_dung || item.name || item.technique || 'Kỹ thuật trị liệu PHCN'}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

@@ -201,7 +201,7 @@ export default function DashboardLayout() {
                   {Number(user?.vai_tro_id) === 1 ? 'Khách hàng' : 
                    Number(user?.vai_tro_id) === 2 ? 'Lễ tân' : 
                    Number(user?.vai_tro_id) === 3 ? 'Kỹ thuật viên' : 
-                   Number(user?.vai_tro_id) === 4 ? 'Bác sĩ' : 
+                   Number(user?.vai_tro_id) === 4 ? 'Chuyên viên' : 
                    Number(user?.vai_tro_id) === 5 ? 'Quản trị viên' : 
                    Number(user?.vai_tro_id) === 6 ? 'Quản lý' : 'Khách hàng'}
                 </p>

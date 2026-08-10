@@ -12,6 +12,7 @@ export interface Room {
 
 interface RoomCardProps {
   room: Room;
+  equipmentList?: any[];
 }
 
 const renderRoomIcon = (type: string) => {
@@ -42,7 +43,7 @@ const renderRoomIcon = (type: string) => {
   );
 };
 
-export function RoomCard({ room }: RoomCardProps) {
+export function RoomCard({ room, equipmentList }: RoomCardProps) {
   const isUnderMaintenance = room.trang_thai === 'bao_tri';
   const isAvailable = room.trang_thai === 'san_sang' || room.trang_thai === 'trong';
   const isOccupied = room.trang_thai === 'dang_dung' || room.trang_thai === 'dang_co_khach';
@@ -110,9 +111,43 @@ export function RoomCard({ room }: RoomCardProps) {
         </div>
 
         {room.mo_ta && (
-          <p className="text-xs text-slate-600 dark:text-zinc-300 font-medium leading-relaxed line-clamp-2 mb-4 bg-slate-50/50 dark:bg-zinc-800/50 p-2.5 rounded-xl border border-slate-100/50 dark:border-zinc-700/60">
+          <p className="text-xs text-slate-600 dark:text-zinc-300 font-medium leading-relaxed line-clamp-2 mb-3 bg-slate-50/50 dark:bg-zinc-800/50 p-2.5 rounded-xl border border-slate-100/50 dark:border-zinc-700/60">
             {room.mo_ta}
           </p>
+        )}
+
+        {/* Equipment availability banner / pills */}
+        {room.loai_phong === 'phong_kham' || room.loai_phong === 'kham_benh' ? (
+          <div className="mb-4 bg-slate-50 dark:bg-zinc-800/40 p-2.5 rounded-xl border border-slate-100 dark:border-zinc-800 text-[11px] font-semibold text-slate-400 dark:text-zinc-400 flex items-center gap-1.5">
+            <span className="shrink-0 text-slate-400">🚫</span>
+            <span>Không có thiết bị khả dụng (Phòng khám lâm sàng)</span>
+          </div>
+        ) : (
+          <div className="mb-4 bg-indigo-50/50 dark:bg-indigo-955/30 p-2.5 rounded-xl border border-indigo-100/60 dark:border-indigo-800/40 text-[11px] space-y-1.5">
+            <div className="flex items-center justify-between text-indigo-900 dark:text-indigo-200 font-extrabold text-[10px] uppercase tracking-wider">
+              <span className="flex items-center gap-1">
+                <span>🔌 Thiết bị tại phòng</span>
+              </span>
+              <span className="bg-indigo-500/20 px-2 py-0.2 rounded-full font-mono text-[9px] text-indigo-700 dark:text-indigo-300 font-black">
+                {(equipmentList || []).filter(e => String(e.phong_id) === String(room.id)).length} thiết bị
+              </span>
+            </div>
+            {((equipmentList || []).filter(e => String(e.phong_id) === String(room.id))).length > 0 ? (
+              <div className="flex flex-wrap gap-1">
+                {((equipmentList || []).filter(e => String(e.phong_id) === String(room.id))).map((eq: any) => (
+                  <span
+                    key={eq.id}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white dark:bg-zinc-800 border border-indigo-200/80 dark:border-indigo-700/60 text-[10px] font-bold text-slate-800 dark:text-zinc-200 shadow-2xs"
+                  >
+                    <span className="text-[8px]">{eq.trang_thai === 'dang_bao_tri' ? '⚠️' : '⚡'}</span>
+                    <span>{eq.ten_thiet_bi}</span>
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[10px] text-indigo-400 dark:text-indigo-400 italic font-medium">Chưa có thiết bị nào được gán vào phòng này.</p>
+            )}
+          </div>
         )}
       </div>
 

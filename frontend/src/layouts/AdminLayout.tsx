@@ -1,9 +1,8 @@
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuthStore } from '../stores/authStore';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { format } from 'date-fns';
 import { MascotWidget } from './MascotWidget';
 import { isAwaitingPaymentForList } from '../utils/billing';
 import { 
@@ -146,21 +145,10 @@ export default function AdminLayout() {
           });
 
           checkedInApts.forEach((apt: any) => {
-            const id = String(apt.id);
-            if (!seenCheckedInIds.current.has(id)) {
-              seenCheckedInIds.current.add(id);
-              hasNewEvent = true;
-              const name = apt.ten_khach_hang || 'Khách hàng';
-              toast(`🎉 Bệnh nhân mới vừa check-in: ${name}`, {
-                icon: '👏',
-                duration: 8000,
-                style: { borderRadius: '16px', background: '#0d9488', color: '#fff', fontWeight: 'bold' }
-              });
-            }
+            seenCheckedInIds.current.add(String(apt.id));
           });
 
-          const totalCount = paymentApts.length;
-          if (hasNewEvent || totalCount > 0) {
+          if (hasNewEvent) {
             playNotificationSound();
           }
         }
@@ -196,7 +184,10 @@ export default function AdminLayout() {
     }
   }, [location.pathname, activeCheckIn]);
 
-  // Poll queue for KTV (role 3) or Doctor (role 4) checked-in appointments and play alert sound
+  const seenStaffCheckedInIds = useRef<Set<string>>(new Set());
+  const isStaffFirstLoad = useRef(true);
+
+  // Poll queue for KTV (role 3) or Doctor (role 4) checked-in appointments and trigger Toast + Sound ONCE per new arrival
   useEffect(() => {
     if (!user || (Number(user.vai_tro_id) !== 3 && Number(user.vai_tro_id) !== 4)) return;
 
@@ -204,52 +195,46 @@ export default function AdminLayout() {
       try {
         const endpoint = Number(user.vai_tro_id) === 4 ? '/doctor/queue' : '/technician/queue';
         const res = await api.get(endpoint);
-        const checkedInApts = res.data.filter((apt: any) =>
-          (apt.trang_thai === 'da_checkin' || apt.trang_thai === 'check_in')
+        const checkedInApts = (res.data || []).filter((apt: any) =>
+          ['da_checkin', 'check_in'].includes(apt.trang_thai)
         );
 
-        if (checkedInApts.length > 0) {
-          const ackStr = localStorage.getItem('ack-checkins') || '[]';
-          let acks = [];
-          try { acks = JSON.parse(ackStr); } catch(e) {}
+        if (isStaffFirstLoad.current) {
+          checkedInApts.forEach((apt: any) => seenStaffCheckedInIds.current.add(String(apt.id)));
+          isStaffFirstLoad.current = false;
+        } else {
+          let hasNewCheckIn = false;
+          checkedInApts.forEach((apt: any) => {
+            const id = String(apt.id);
+            if (!seenStaffCheckedInIds.current.has(id)) {
+              seenStaffCheckedInIds.current.add(id);
+              hasNewCheckIn = true;
+              const name = apt.ten_khach_hang || apt.ho_ten_khach || 'Bệnh nhân';
+              const assignedStaffId = apt.bac_si_id || apt.nhan_su_id;
+              const isAssignedToMe = Boolean(assignedStaffId && String(assignedStaffId) === String(user.id));
+              const assignedText = isAssignedToMe ? ' (Đích danh bạn ⭐)' : ' (Hàng đợi chung)';
 
-          const unack = checkedInApts.find((apt: any) => !acks.includes(String(apt.id)));
-          if (unack) {
-            setActiveCheckIn(unack);
-            
-            // Play notification chime
-            try {
-              const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-              if (AudioContextClass) {
-                const ctx = new AudioContextClass();
-                const now = ctx.currentTime;
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(880, now);
-                gain.gain.setValueAtTime(0.08, now);
-                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                osc.start(now);
-                osc.stop(now + 0.35);
-              }
-            } catch (soundErr) {
-              console.error('Quiet beep failed:', soundErr);
+              toast(`🩺 Bệnh nhân mới vừa check-in: ${name}${assignedText}`, {
+                icon: '🩺',
+                duration: 7000,
+                style: { borderRadius: '16px', background: '#0891b2', color: '#fff', fontWeight: 'bold' }
+              });
             }
-            return;
+          });
+
+          if (hasNewCheckIn) {
+            playNotificationSound();
           }
         }
-        setActiveCheckIn(null);
       } catch (err) {
         console.error('Error fetching queue for notifications:', err);
       }
     };
 
     checkQueue();
-    const timer = setInterval(checkQueue, 6000);
+    const timer = setInterval(checkQueue, 10000);
     return () => clearInterval(timer);
-  }, [location.pathname, user]);
+  }, [user, playNotificationSound]);
 
   const pendingAssignCount = pendingAppointmentsCount + pendingTreatmentsCount;
 
@@ -536,7 +521,7 @@ export default function AdminLayout() {
             <div className="flex-1 min-w-0">
               <p className="text-xs font-bold text-secondary dark:text-zinc-100 truncate">{user?.ho_ten || user?.email || 'admin@officecare.com'}</p>
               <p className="text-[9px] text-zinc-400 dark:text-zinc-550 font-bold uppercase tracking-wider mt-0.5">
-                {user?.vai_tro_id === 4 ? 'Bác sĩ chuyên khoa' : user?.vai_tro_id === 3 ? 'Kỹ thuật viên' : user?.vai_tro_id === 2 ? 'Lễ tân' : user?.vai_tro_id === 6 ? 'Quản lý' : 'Quản trị viên'}
+                {user?.vai_tro_id === 4 ? 'Chuyên viên tư vấn' : user?.vai_tro_id === 3 ? 'Kỹ thuật viên' : user?.vai_tro_id === 2 ? 'Lễ tân' : user?.vai_tro_id === 6 ? 'Quản lý' : 'Quản trị viên'}
               </p>
             </div>
           </div>
@@ -562,22 +547,6 @@ export default function AdminLayout() {
           <div className="flex items-center gap-6 shrink-0">
             {/* Actions: Notification, Theme Toggle, & Help */}
             <div className="flex items-center gap-3 border-l border-zinc-100 dark:border-zinc-800 pl-6">
-              {activeCheckIn && (
-                <button
-                  onClick={() => {
-                    // Không tự ack ở đây nữa — chỉ điều hướng tới trang Lịch hẹn kèm ca cần mở, để
-                    // modal "Xác nhận vào ca" có sẵn ở đó tự bật lên; ack thật sự xảy ra khi vào
-                    // /assess (effect bên dưới), nên nếu Lễ tân/BS/KTV bấm Hủy ở modal thì banner
-                    // này vẫn còn nguyên, không bị im lặng mất tiêu.
-                    const listPath = Number(user?.vai_tro_id) === 4 ? '/doctor/appointments' : '/technician/appointments';
-                    navigate(listPath, { state: { pendingConfirmAppointment: activeCheckIn } });
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-full text-[10px] font-black uppercase tracking-wider animate-bounce shadow-md mr-2"
-                >
-                  <span className="size-2 rounded-full bg-white animate-ping"></span>
-                  {Number(user?.vai_tro_id) === 4 ? '🔔 Bắt đầu ngay!' : '🔔 Bắt đầu ngay!'}
-                </button>
-              )}
 
               <button 
                 onClick={() => {
@@ -603,7 +572,7 @@ export default function AdminLayout() {
               <div className="text-right hidden sm:block">
                 <p className="text-xs font-bold text-secondary dark:text-zinc-100">{user?.ho_ten || 'Admin Physio'}</p>
                 <p className="text-[9px] text-zinc-400 dark:text-zinc-555 font-bold uppercase tracking-wider mt-0.5">
-                  {user?.vai_tro_id === 4 ? 'Bác sĩ' : user?.vai_tro_id === 3 ? 'Kỹ thuật viên' : user?.vai_tro_id === 2 ? 'Lễ tân' : user?.vai_tro_id === 6 ? 'Quản lý' : 'Quản trị viên'}
+                  {user?.vai_tro_id === 4 ? 'Chuyên viên' : user?.vai_tro_id === 3 ? 'Kỹ thuật viên' : user?.vai_tro_id === 2 ? 'Lễ tân' : user?.vai_tro_id === 6 ? 'Quản lý' : 'Quản trị viên'}
                 </p>
               </div>
               <img 
@@ -618,34 +587,6 @@ export default function AdminLayout() {
         {/* Content Area */}
         <div className="flex-1 overflow-auto p-8 bg-background dark:bg-zinc-950 transition-colors duration-300">
           <div className="max-w-7xl mx-auto">
-            {activeCheckIn && (
-              <div className="mb-6 p-4 bg-gradient-to-r from-rose-500 to-red-600 text-white rounded-2xl shadow-xl flex items-center justify-between gap-4 animate-bounce border border-rose-400/20">
-                <div className="flex items-center gap-3 text-left">
-                  <span className="text-2xl animate-spin shrink-0">🔔</span>
-                  <div>
-                    <p className="text-sm font-black uppercase tracking-wider">
-                      {Number(user?.vai_tro_id) === 4 
-                        ? 'CÓ CA KHÁM MỚI CHECK-IN CHƯA VÀO PHÒNG KHÁM!' 
-                        : 'CÓ CA TRỊ LIỆU MỚI CHECK-IN CHƯA VÀO PHÒNG TRỊ LIỆU!'}
-                    </p>
-                    <p className="text-xs font-bold opacity-90 mt-0.5">
-                      Bệnh nhân: <span className="underline font-black">{activeCheckIn.ho_ten_khach || activeCheckIn.ten_khach_hang}</span> | Mã ca: {activeCheckIn.ma_lich_dat} | Khung giờ: {format(new Date(activeCheckIn.ngay_gio_bat_dau), 'HH:mm')}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    // Cùng lý do như nút thu gọn ở header: không ack ngay, chỉ điều hướng kèm ca cần
-                    // mở để modal xác nhận có sẵn ở trang Lịch hẹn tự bật lên trước khi vào bàn khám.
-                    const listPath = Number(user?.vai_tro_id) === 4 ? '/doctor/appointments' : '/technician/appointments';
-                    navigate(listPath, { state: { pendingConfirmAppointment: activeCheckIn } });
-                  }}
-                  className="bg-white text-rose-600 hover:bg-rose-50 px-4 py-2 rounded-xl text-xs font-black transition-colors uppercase tracking-widest shrink-0 shadow-md animate-pulse"
-                >
-                  Bắt đầu ngay ➜
-                </button>
-              </div>
-            )}
             <Outlet />
           </div>
         </div>

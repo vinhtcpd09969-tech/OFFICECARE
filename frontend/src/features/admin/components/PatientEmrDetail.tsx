@@ -7,7 +7,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { resolveImageUrl } from '../../../utils/imageUrl';
-import { getMinPaymentRequired, isPlanCancelled, isPlanExpired, resolveGrossBeforeExamDeduction } from '../../../utils/billing';
+import { getMinPaymentRequired, isPlanCancelled, isPlanExpired } from '../../../utils/billing';
 import { formatCountdown } from '../../../utils/format';
 import { getStaffRoleTitle } from '../../../utils/staff';
 import { TreatmentSessionDetailBody } from '../../../components/TreatmentSessionDetailBody';
@@ -57,7 +57,7 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
   }, [patient, expandedPlanId]);
 
   const selectedPlanSessions = useMemo(() => {
-    const isPrepaidPackage = selectedPlan?.hinh_thuc_thanh_toan_goi === 'tra_thang' || selectedPlan?.hinh_thuc_thanh_toan_goi === 'tra_gop';
+    const isPrepaidPackage = selectedPlan?.hinh_thuc_thanh_toan_goi === 'tra_thang';
     const raw = patient?.appointments?.filter(
       (ap: any) => ap.phac_do_dieu_tri_id === expandedPlanId
     ) || [];
@@ -269,7 +269,7 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
                               </span>
                               {pl.hinh_thuc_thanh_toan_goi && (
                                 <span className="text-[9px] font-black uppercase tracking-wider bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 px-2 py-0.5 rounded-lg border border-slate-200/60 dark:border-zinc-700">
-                                  {pl.hinh_thuc_thanh_toan_goi === 'tra_gop' ? 'Trả góp' : pl.hinh_thuc_thanh_toan_goi === 'tra_buoi' ? 'Trả từng buổi' : 'Trả thẳng'}
+                                  {pl.hinh_thuc_thanh_toan_goi === 'tung_buoi' ? 'Trả từng buổi' : 'Trả thẳng'}
                                 </span>
                               )}
                             </div>
@@ -674,13 +674,11 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
                         const isPrevNoShowForfeited = ['khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(prevAppt?.trang_thai);
                         const isPrevFinished = sessionNum === 1 || (prevAppt && (prevAppt.trang_thai === 'hoan_thanh' || isPrevNoShowForfeited));
 
-                        const grossBeforeExamDeduction = resolveGrossBeforeExamDeduction(selectedPlan);
                         const minRequired = getMinPaymentRequired(
                           selectedPlan.hinh_thuc_thanh_toan_goi || 'tra_thang',
                           Number(selectedPlan.tong_tien_phai_tra || 0),
                           Number(selectedPlan.tong_so_buoi || 10),
-                          sessionNum,
-                          grossBeforeExamDeduction
+                          sessionNum
                         );
                         const soTienDaTra = Number(selectedPlan.so_tien_da_tra || 0);
                         const isPaymentBlocked = !isCancelled && !isExpired && selectedPlan.loai_goi !== 'LE' && soTienDaTra < minRequired;
@@ -691,9 +689,7 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
                             ? `⛔ Gói đã quá hạn sử dụng (hạn ${selectedPlan.han_su_dung ? new Date(selectedPlan.han_su_dung).toLocaleDateString('vi-VN') : ''}) — liên hệ Admin để xử lý trước khi đặt thêm buổi.`
                             : (!isPrevFinished
                               ? `⚠️ Vui lòng hoàn thành buổi điều trị số ${sessionNum - 1} để đặt lịch buổi này.`
-                              : (selectedPlan.hinh_thuc_thanh_toan_goi === 'tra_gop'
-                                ? `⚠️ Vui lòng thanh toán Đợt 2 của gói trả góp để đặt lịch buổi này.`
-                                : `⚠️ Vui lòng thanh toán liệu trình để đặt lịch buổi này.`)));
+                              : `⚠️ Vui lòng thanh toán liệu trình để đặt lịch buổi này.`));
 
                         return (
                           <div key={sessionNum} className={`border rounded-xl p-4 flex justify-between items-center gap-4 ${isCancelled || isExpired
@@ -746,7 +742,7 @@ export default function PatientEmrDetail({ patient, onBack, showAdminInfo = true
                                 }}
                                 className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95 cursor-pointer shrink-0"
                               >
-                                💵 {selectedPlan.hinh_thuc_thanh_toan_goi === 'tra_gop' ? 'Thanh toán Đợt 2' : 'Thanh toán'}
+                                💵 Thanh toán
                               </button>
                             ) : isBlocked ? (
                               <button

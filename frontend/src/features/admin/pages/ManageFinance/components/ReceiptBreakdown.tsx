@@ -1,7 +1,6 @@
 import React from 'react';
-import { Receipt, Sparkles, Tag, ShieldCheck } from 'lucide-react';
+import { Receipt, Tag, ShieldCheck } from 'lucide-react';
 import { formatCurrency } from '../../../../../utils/format';
-import { getInstallmentCutoffSession } from '../../../../../utils/billing';
 import type { Invoice } from '../hooks/useFinanceDashboard';
 import type { CalculatedCheckoutData, AssignedPackage } from '../hooks/useCheckout';
 
@@ -11,7 +10,7 @@ interface ReceiptBreakdownProps {
   dangKyGoi: boolean;
   selectedPackage: AssignedPackage | null;
   calculatedData: CalculatedCheckoutData | null;
-  loaiThanhToan: 'tra_thang' | 'tra_gop' | 'tung_buoi';
+  loaiThanhToan: 'tra_thang' | 'tung_buoi';
 }
 
 export const ReceiptBreakdown: React.FC<ReceiptBreakdownProps> = ({
@@ -23,11 +22,17 @@ export const ReceiptBreakdown: React.FC<ReceiptBreakdownProps> = ({
   loaiThanhToan,
 }) => {
   const tongSoBuoi = calculatedData?.so_buoi_goi || selectedPackage?.tong_so_buoi || 10;
-  const buoiDongDot2 = getInstallmentCutoffSession(Number(tongSoBuoi));
+
+  const totalToPay = checkoutTab === 'single'
+    ? Number(hoaDon?.tong_tien_thanh_toan || 0)
+    : (!dangKyGoi
+      ? Number(calculatedData?.tong_tien_thanh_toan || 0)
+      : (loaiThanhToan === 'tung_buoi'
+        ? Number(calculatedData?.so_tien_dot_1 || 0)
+        : Number(calculatedData?.tong_tien_thanh_toan || 0)));
 
   return (
-    <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-[28px] border border-slate-200/80 dark:border-slate-800 shadow-xl shadow-slate-200/40 dark:shadow-none p-6 space-y-6 sticky top-6 text-left font-jakarta">
-      
+    <div className="space-y-5 text-left font-jakarta">
       {/* Receipt Header */}
       <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
         <div className="flex items-center gap-2.5">
@@ -44,186 +49,65 @@ export const ReceiptBreakdown: React.FC<ReceiptBreakdownProps> = ({
         </span>
       </div>
 
-      {checkoutTab === 'single' ? (
-        hoaDon ? (
-          <div className="space-y-5">
-            <div className="space-y-1 bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Nội dung thanh toán</p>
-              <p className="text-slate-900 dark:text-white font-extrabold text-xs leading-normal">{hoaDon.ten_dich_vu || 'Phí khám lâm sàng'}</p>
-            </div>
-            
-            <div className="space-y-3.5 text-xs font-bold text-slate-600 dark:text-slate-300">
-              <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
-                <span>Giá trị buổi:</span>
-                <span className="text-slate-900 dark:text-white font-black">{formatCurrency(Number(hoaDon.tong_tien_goc || hoaDon.tong_tien_thanh_toan))}</span>
-              </div>
-              <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-2 text-slate-900 dark:text-white font-black">
-                <span>Tổng phải thu:</span>
-                <span className="text-teal-600 dark:text-teal-400 font-black text-base">{formatCurrency(Number(hoaDon.tong_tien_thanh_toan))}</span>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="py-8 text-center text-slate-400 text-xs font-bold italic">
-            Vui lòng chọn khách hàng có lịch khám/điều trị...
-          </div>
-        )
-      ) : !dangKyGoi ? (
-        calculatedData ? (
-          <div className="space-y-5">
-            <div className="space-y-1 bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Nội dung thanh toán</p>
-              <p className="text-slate-900 dark:text-white font-extrabold text-xs leading-normal">{calculatedData.ten_item || 'Khám lâm sàng'}</p>
-            </div>
+      {/* Item summary section */}
+      <div className="space-y-4">
+        {/* Item Title & Base Price Combined in Single Card */}
+        {(() => {
+          const itemName = checkoutTab === 'single'
+            ? (hoaDon?.ten_dich_vu || 'Buổi Lượng Giá PHCN (Chuyên sâu)')
+            : (!dangKyGoi
+              ? (calculatedData?.ten_item || 'Buổi Lượng Giá PHCN (Chuyên sâu)')
+              : (`${calculatedData?.ten_goi || selectedPackage?.ten_goi || 'Gói trị liệu PHCN'} (${tongSoBuoi} buổi)`));
 
-            <div className="space-y-3.5 text-xs font-bold text-slate-600 dark:text-slate-300">
-              <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
-                <span>Giá trị buổi:</span>
-                <span className="text-slate-900 dark:text-white font-black">{formatCurrency(Number(calculatedData.gia_goc || 0))}</span>
-              </div>
+          const basePrice = checkoutTab === 'single'
+            ? Number(hoaDon?.tong_tien_goc || hoaDon?.tong_tien_thanh_toan || 200000)
+            : (!dangKyGoi
+              ? Number(calculatedData?.gia_goc || 200000)
+              : Number(calculatedData?.gia_goc_goi || (selectedPackage as any)?.don_gia || selectedPackage?.gia_ban || 0));
 
-              {Number(calculatedData.so_tien_giam_voucher || 0) > 0 && (
-                <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-2 text-emerald-600 dark:text-emerald-400 font-bold">
-                  <span className="flex items-center gap-1"><Tag size={12} /> Voucher giảm giá:</span>
-                  <span>-{formatCurrency(Number(calculatedData.so_tien_giam_voucher))}</span>
+          return (
+            <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 space-y-2">
+              <div className="flex justify-between items-start gap-3">
+                <div className="space-y-0.5 min-w-0">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Khoản thu y tế</p>
+                  <h4 className="text-xs font-black text-slate-900 dark:text-white leading-snug">
+                    {itemName}
+                  </h4>
                 </div>
-              )}
-
-              <div className="pt-2 flex justify-between items-center text-slate-900 dark:text-white font-black border-t border-slate-200/80 dark:border-slate-700">
-                <span>Tổng phải thu:</span>
-                <span className="text-teal-600 dark:text-teal-400 text-lg font-black">{formatCurrency(Number(calculatedData.tong_tien_thanh_toan || 0))}</span>
+                <div className="text-right shrink-0">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Nguyên giá</p>
+                  <span className="font-mono font-black text-sm text-slate-900 dark:text-white">
+                    {formatCurrency(basePrice)}
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
-        ) : (
-          <div className="py-8 text-center text-slate-400 text-xs font-bold italic">
-            Đang tính toán chi phí...
-          </div>
-        )
-      ) : calculatedData ? (
-        <div className="space-y-5">
-          <div className="space-y-1 bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-              {calculatedData.loai_goi === 'LE' ? 'Dịch vụ lẻ chỉ định' : 'Gói trị liệu được chọn'}
-            </p>
-            <p className="text-slate-900 dark:text-white font-extrabold text-xs leading-normal">
-              {calculatedData.ten_goi} ({calculatedData.so_buoi_goi} buổi)
-            </p>
-          </div>
+          );
+        })()}
 
-          <div className="space-y-3.5 text-xs font-bold text-slate-600 dark:text-slate-300">
-            <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
-              <span>Đơn giá gói niêm yết:</span>
-              <span className="text-slate-900 dark:text-white font-black">{formatCurrency(Number(calculatedData.gia_goc_goi))}</span>
+        {/* Breakdown Calculation Rows (Discounts & Vouchers) */}
+        <div className="space-y-3 text-xs font-bold text-slate-600 dark:text-slate-300">
+          {calculatedData && Number(calculatedData.so_tien_giam_voucher || 0) > 0 && (
+            <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-2 text-emerald-600 dark:text-emerald-400">
+              <span className="flex items-center gap-1"><Tag size={12} /> Voucher giảm giá:</span>
+              <span className="font-mono font-black">-{formatCurrency(Number(calculatedData.so_tien_giam_voucher))}</span>
             </div>
+          )}
 
-            {/* 1. Ưu đãi theo hình thức thanh toán (Trả thẳng 10% / Trả góp 5%) */}
-            {Number(calculatedData.so_tien_giam_phuong_thuc || 0) > 0 && (
-              <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-2 text-emerald-600 dark:text-emerald-400 font-bold">
-                <span>Ưu đãi thanh toán ({loaiThanhToan === 'tra_thang' ? '10%' : '5%'}):</span>
-                <span>-{formatCurrency(Number(calculatedData.so_tien_giam_phuong_thuc))}</span>
-              </div>
-            )}
-
-            {/* 2. Khấu trừ phí khám lâm sàng đã đóng trước đó */}
-            {Number(calculatedData.giam_tru_kham_truoc_do || 0) > 0 && (
-              <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-2 text-emerald-600 dark:text-emerald-400 font-bold">
-                <div>
-                  <span>Khấu trừ phí khám đã đóng:</span>
-                  {(calculatedData.ma_hoa_don_kham || calculatedData.ngay_thanh_toan_kham) && (
-                    <span className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">
-                      (Mã HĐ: <strong className="text-teal-600 dark:text-teal-400 font-mono font-black">{calculatedData.ma_hoa_don_kham}</strong>
-                      {calculatedData.ngay_thanh_toan_kham ? `, thanh toán ngày ${calculatedData.ngay_thanh_toan_kham}` : ''})
-                    </span>
-                  )}
-                </div>
-                <span className="shrink-0 text-xs font-black">-{formatCurrency(Number(calculatedData.giam_tru_kham_truoc_do))}</span>
-              </div>
-            )}
-
-            {/* 3. Miễn phí khám lâm sàng cho ca khám mới */}
-            {Number(calculatedData.mien_phi_kham_chua_dong || 0) > 0 && (
-              <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-2 text-emerald-600 dark:text-emerald-400 font-bold">
-                <span>Miễn phí khám lâm sàng:</span>
-                <span>0đ (Miễn {formatCurrency(Number(calculatedData.mien_phi_kham_chua_dong))})</span>
-              </div>
-            )}
-
-            {/* 4. Mã giảm giá Voucher áp dụng */}
-            {Number(calculatedData.so_tien_giam_voucher || 0) > 0 && (
-              <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-2 text-emerald-600 dark:text-emerald-400 font-bold">
-                <span className="flex items-center gap-1"><Tag size={12} /> Mã voucher áp dụng:</span>
-                <span>-{formatCurrency(Number(calculatedData.so_tien_giam_voucher))}</span>
-              </div>
-            )}
-
-            {/* Total Savings Highlight Badge */}
-            {(() => {
-              const totalSavings = Number(calculatedData.so_tien_giam_phuong_thuc || 0) 
-                + Number(calculatedData.so_tien_giam_voucher || 0) 
-                + Number(calculatedData.giam_tru_kham_truoc_do || 0) 
-                + Number(calculatedData.mien_phi_kham_chua_dong || 0);
-              if (totalSavings <= 0) return null;
-              return (
-                <div className="p-3.5 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center gap-2.5 animate-in fade-in duration-300">
-                  <div className="p-2 rounded-xl bg-emerald-500 text-white shrink-0 shadow-xs">
-                    <Sparkles size={14} className="animate-pulse" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black uppercase text-emerald-700 dark:text-emerald-300 tracking-wider">Ưu Đãi Tiết Kiệm Y Khoa</p>
-                    <p className="text-xs font-black text-emerald-600 dark:text-emerald-400">
-                      Bệnh nhân tiết kiệm được tổng cộng {formatCurrency(totalSavings)}!
-                    </p>
-                  </div>
-                </div>
-              );
-            })()}
-
-            <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-2 text-slate-900 dark:text-white font-black">
-              <span>Tổng giá trị sau giảm & khấu trừ:</span>
-              <span>{formatCurrency(Number(calculatedData.tong_tien_thanh_toan))}</span>
-            </div>
-
-            {/* Tra gop / Tung buoi logic status */}
-            {loaiThanhToan === 'tra_gop' && (
-              <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 space-y-2">
-                <div className="flex justify-between items-center text-amber-900 dark:text-amber-300 font-black">
-                  <span>Cần thu đợt 1 (50%):</span>
-                  <span className="text-base text-amber-600 dark:text-amber-400">{formatCurrency(Number(calculatedData.so_tien_dot_1))}</span>
-                </div>
-                <div className="text-[10px] text-amber-800 dark:text-amber-400 font-bold">
-                  Còn lại đợt 2: {formatCurrency(Number(calculatedData.so_tien_dot_2))} (Đóng ở buổi thứ #{buoiDongDot2})
-                </div>
-              </div>
-            )}
-
-            {loaiThanhToan === 'tung_buoi' && (
-              <div className="p-4 rounded-2xl bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800 space-y-2">
-                <div className="flex justify-between items-center text-teal-900 dark:text-teal-300 font-black">
-                  <span>Đơn giá mỗi buổi:</span>
-                  <span className="text-base text-teal-600 dark:text-teal-400">{formatCurrency(Number(calculatedData.don_gia_theo_buoi))}/buổi</span>
-                </div>
-                <div className="text-[10px] text-teal-800 dark:text-teal-400 font-bold">
-                  Thanh toán từng buổi khi bệnh nhân đến khám.
-                </div>
-              </div>
-            )}
-
-            <div className="pt-3 flex justify-between items-center text-slate-900 dark:text-white font-black border-t border-slate-200/80 dark:border-slate-700">
-              <span className="text-sm">Tổng cần thu ngay:</span>
-              <span className="text-teal-600 dark:text-teal-400 text-xl font-black">
-                {loaiThanhToan === 'tra_gop' || loaiThanhToan === 'tung_buoi'
-                  ? formatCurrency(Number(calculatedData.so_tien_dot_1))
-                  : formatCurrency(Number(calculatedData.tong_tien_thanh_toan))}
+          {/* Total display row - Refined High-Contrast Medical Card */}
+          <div className="p-4 rounded-2xl bg-gradient-to-br from-teal-50/90 to-emerald-50/90 dark:from-teal-950/60 dark:to-emerald-950/60 border border-teal-200/80 dark:border-teal-800/80 flex items-center justify-between gap-3 shadow-xs">
+            <div>
+              <span className="text-[10px] font-black uppercase text-teal-800 dark:text-teal-300 tracking-wider block">
+                {loaiThanhToan === 'tung_buoi' ? 'TỔNG CẦN THU ĐỢT 1' : 'TỔNG NGUYÊN GIÁ THU NGAY'}
               </span>
+              <span className="text-[10px] font-bold text-teal-600/90 dark:text-teal-400">Đã trừ các khoản chiết khấu</span>
+            </div>
+            <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono tracking-tight shrink-0 drop-shadow-xs">
+              {formatCurrency(totalToPay)}
             </div>
           </div>
         </div>
-      ) : (
-        <div className="py-8 text-center text-slate-400 text-xs font-bold italic">
-          Đang tải thông tin tính phí...
-        </div>
-      )}
+      </div>
     </div>
   );
 };

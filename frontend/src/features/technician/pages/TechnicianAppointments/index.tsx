@@ -4,15 +4,14 @@ import { useAuthStore } from '../../../../stores/authStore';
 import { CheckCircle2 } from 'lucide-react';
 import { format, addDays, isSameDay } from 'date-fns';
 
-import AppointmentCalendar from '../../../../components/appointments/AppointmentCalendar';
 import AppointmentInfoModal from '../../../../components/appointments/AppointmentInfoModal';
 import { AppointmentsFilterBar } from '../../../../components/appointments/ui/AppointmentsFilterBar';
 import { AppointmentKpiCards } from '../../../../components/appointments/ui/AppointmentKpiCards';
 import { CapacityView } from '../../../../components/appointments/ui/CapacityView';
-import { getAppointments, getDoctorSchedules, DoctorAppointment, DoctorSchedule } from '../../../doctor/api/doctor.api';
+import { SpecialistFlowBoard } from '../../../doctor/components/SpecialistFlowBoard';
+import { getAppointments, DoctorAppointment } from '../../../doctor/api/doctor.api';
 import { computeAppointmentKpiBuckets, KPI_BUCKET_STATUSES, KPI_BUCKET_LABELS, AppointmentKpiBuckets } from '../../../../utils/appointmentKpi';
 import { ActiveFilterChip } from '../../../../components/appointments/ui/ActiveFilterChip';
-import { statusConfig as STATUS_CONFIG } from '../../../../components/appointmentStatusConfig';
 
 export default function TechnicianAppointments() {
   const navigate = useNavigate();
@@ -28,11 +27,10 @@ export default function TechnicianAppointments() {
   const [endDate, setEndDate] = useState<Date>(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return addDays(today, 6);
+    return today;
   });
 
   const [appointments, setAppointments] = useState<DoctorAppointment[]>([]);
-  const [schedules, setSchedules] = useState<DoctorSchedule[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Modal state for viewing finished/cancelled appointments
@@ -49,9 +47,9 @@ export default function TechnicianAppointments() {
     }
   }, [location.state, navigate, location.pathname]);
 
-  // Filter States
+  // Filter States - Default viewMode to 'timeline' for Flow Board
   const [timeRange] = useState<'today' | '7days' | 'month' | 'custom'>('7days');
-  const [viewMode, setViewMode] = useState<'timeline' | 'capacity'>('capacity');
+  const [viewMode, setViewMode] = useState<'timeline' | 'capacity'>('timeline');
   const [searchTerm, setSearchTerm] = useState<string>('');
 
   const handleSelectDateRange = (start: Date, end: Date) => {
@@ -70,7 +68,6 @@ export default function TechnicianAppointments() {
       today.setHours(0, 0, 0, 0);
       setStartDate(today);
       setEndDate(addDays(today, 6));
-      setViewMode('capacity');
       return;
     }
 
@@ -79,18 +76,17 @@ export default function TechnicianAppointments() {
     const e = new Date(endDate);
     e.setHours(0, 0, 0, 0);
     const diffDays = Math.max(1, Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+    const stepDays = viewMode === 'timeline' ? 1 : diffDays;
 
     if (direction === 'next') {
-      setStartDate(prev => addDays(prev, diffDays));
-      setEndDate(prev => addDays(prev, diffDays));
+      setStartDate(prev => addDays(prev, stepDays));
+      setEndDate(prev => addDays(prev, stepDays));
     } else {
-      setStartDate(prev => addDays(prev, -diffDays));
-      setEndDate(prev => addDays(prev, -diffDays));
+      setStartDate(prev => addDays(prev, -stepDays));
+      setEndDate(prev => addDays(prev, -stepDays));
     }
   };
 
-  // Lọc theo 1 trạng thái cụ thể khi bấm thẻ KPI — độc lập với số liệu trên thẻ (kpiStats tính từ
-  // appointments gốc, không bị thu hẹp bởi filter này).
   const [statusFilter, setStatusFilter] = useState<Exclude<keyof AppointmentKpiBuckets, 'total'> | null>(null);
 
   // Calculate Active Interval
@@ -102,20 +98,15 @@ export default function TechnicianAppointments() {
     return { start, end };
   }, [startDate, endDate]);
 
-  // Fetch appointments and schedules
+  // Fetch appointments
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const startIso = activeInterval.start.toISOString();
       const endIso = activeInterval.end.toISOString();
       
-      const [apptRes, schedRes] = await Promise.all([
-        getAppointments(startIso, endIso),
-        getDoctorSchedules()
-      ]);
-      
+      const apptRes = await getAppointments(startIso, endIso);
       setAppointments(apptRes.data);
-      setSchedules(schedRes.data);
     } catch (error) {
       console.error('Lỗi khi tải lịch kỹ thuật viên:', error);
     } finally {
@@ -127,39 +118,35 @@ export default function TechnicianAppointments() {
     loadData();
   }, [loadData]);
 
-  // Giả lập staffList chứa chính KTV đang đăng nhập để hiển thị 1 cột trên calendar
-  const staffList = useMemo(() => {
-    if (!user) return [];
-    return [
-      {
-        id: user.id,
-        chuyen_gia_id: user.id,
-        ho_ten: user.ho_ten || 'Kỹ thuật viên',
-        vai_tro: 'Kỹ thuật viên'
+  // Silent polling every 8s to stay in sync with receptionist actions
+  useEffect(() => {
+    const startIso = activeInterval.start.toISOString();
+    const endIso = activeInterval.end.toISOString();
+    const interval = setInterval(() => {
+      getAppointments(startIso, endIso)
+        .then((res: any) => setAppointments(res.data))
+        .catch((err: any) => console.error('Silent refresh failed:', err));
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [activeInterval]);
+
+  // Visibility Rules for KTV: Only show unassigned ("Bất kỳ") or assigned to current KTV
+  const technicianVisibleAppointments = useMemo(() => {
+    const currentUserIdStr = String(user?.id);
+    return appointments.filter(a => {
+      const aptStaffId = (a as any).bac_si_id || (a as any).nhan_su_id;
+      if (aptStaffId && String(aptStaffId) !== currentUserIdStr) {
+        return false;
       }
-    ];
-  }, [user]);
+      return true;
+    });
+  }, [appointments, user?.id]);
 
-  const schedulesList = useMemo(() => {
-    return schedules.map(s => ({
-      nguoi_dung_id: s.nguoi_dung_id,
-      ngay: s.ngay.substring(0, 10),
-      gio_bat_dau: s.gio_bat_dau,
-      gio_ket_thuc: s.gio_ket_thuc,
-      trang_thai: s.trang_thai
-    }));
-  }, [schedules]);
+  const kpiStats = useMemo(() => computeAppointmentKpiBuckets(technicianVisibleAppointments), [technicianVisibleAppointments]);
 
-  // Tính toán số liệu thống kê ca điều trị cho KTV dựa trên activeInterval — dùng chung 1 hàm với
-  // Admin/Lễ tân/Bác sĩ (utils/appointmentKpi.ts) để cả 4 actor nhìn cùng 1 con số cho cùng 1 khái
-  // niệm trạng thái, thay vì mỗi trang tự định nghĩa "waiting"/"completed"/"secondary" khác nhau.
-  const kpiStats = useMemo(() => computeAppointmentKpiBuckets(appointments), [appointments]);
-
-  // Search filter + lọc trạng thái (áp dụng cho cả timeline lẫn capacity view vì cả 2 đều dựa
-  // trên danh sách này — xem filteredAppointmentsForDay/mappedAppointments bên dưới).
   const searchedAppointments = useMemo(() => {
     const lower = searchTerm.trim().toLowerCase();
-    return appointments.filter(a => {
+    return technicianVisibleAppointments.filter(a => {
       const matchSearch = !lower ||
         a.ten_khach_hang?.toLowerCase().includes(lower) ||
         a.ma_lich_dat?.toLowerCase().includes(lower) ||
@@ -167,28 +154,18 @@ export default function TechnicianAppointments() {
       const matchStatus = !statusFilter || KPI_BUCKET_STATUSES[statusFilter].includes(a.trang_thai);
       return matchSearch && matchStatus;
     });
-  }, [appointments, searchTerm, statusFilter]);
+  }, [technicianVisibleAppointments, searchTerm, statusFilter]);
 
-  // Mapped appointments for CapacityView compatibility
   const mappedAppointments = useMemo(() => {
     return searchedAppointments.map(apt => ({
       ...apt,
       loai_lich: 'dieu_tri',
-      bac_si_id: user?.id,
-      chuyen_gia_id: user?.id
+      bac_si_id: (apt as any).bac_si_id || (apt as any).nhan_su_id || null,
+      chuyen_gia_id: (apt as any).chuyen_gia_id || (apt as any).bac_si_id || (apt as any).nhan_su_id || null,
+      thoi_luong_phut: Number(apt.thoi_luong_phut) || (apt as any).thoi_luong_buoi_phut || (apt as any).thoi_gian_phut || 30,
     }));
-  }, [searchedAppointments, user]);
+  }, [searchedAppointments]);
 
-  // Daily filtered appointments for the timeline view
-  const filteredAppointmentsForDay = useMemo(() => {
-    const selectedDateStr = format(startDate, 'yyyy-MM-dd');
-    return searchedAppointments.filter(apt => {
-      const aptDateStr = format(new Date(apt.ngay_gio_bat_dau), 'yyyy-MM-dd');
-      return aptDateStr === selectedDateStr;
-    });
-  }, [searchedAppointments, startDate]);
-
-  // Khi KTV click vào 1 card hẹn trên calendar
   const handleOpenDetailModal = useCallback((apt: any) => {
     if (['dang_kham', 'da_checkin'].includes(apt.trang_thai)) {
       setConfirmApt(apt);
@@ -198,27 +175,31 @@ export default function TechnicianAppointments() {
   }, []);
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-500 font-jakarta">
       
-      {/* KPI METRIC CARDS */}
-      <AppointmentKpiCards
-        role="technician"
-        kpis={kpiStats}
-        viewMode={viewMode}
-        timeRange={timeRange}
-        activeType="dieu_tri"
-        activeStatusFilter={statusFilter}
-        onSelectStatus={setStatusFilter}
-      />
+      {/* KPI METRIC CARDS — Chỉ hiện khi ở view Bảng công suất */}
+      {viewMode === 'capacity' && (
+        <>
+          <AppointmentKpiCards
+            role="technician"
+            kpis={kpiStats}
+            viewMode={viewMode}
+            timeRange={timeRange}
+            activeType="dieu_tri"
+            activeStatusFilter={statusFilter}
+            onSelectStatus={setStatusFilter}
+          />
 
-      {statusFilter && (
-        <ActiveFilterChip
-          label={`Đang lọc: ${KPI_BUCKET_LABELS[statusFilter]}`}
-          onClear={() => setStatusFilter(null)}
-        />
+          {statusFilter && (
+            <ActiveFilterChip
+              label={`Đang lọc: ${KPI_BUCKET_LABELS[statusFilter]}`}
+              onClear={() => setStatusFilter(null)}
+            />
+          )}
+        </>
       )}
 
-      {/* Top filter bar inherited from Admin style */}
+      {/* Top filter bar */}
       <AppointmentsFilterBar
         startDate={startDate}
         endDate={endDate}
@@ -233,24 +214,22 @@ export default function TechnicianAppointments() {
         setViewMode={setViewMode}
       />
 
-      {/* Calendar Area */}
+      {/* Flow Board / Capacity View Area */}
       {loading ? (
         <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-3xl p-24 text-center text-zinc-450 dark:text-zinc-500 flex flex-col items-center justify-center gap-3">
           <div className="size-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-xs font-bold uppercase tracking-wider">Đang đồng bộ lịch trình...</p>
+          <p className="text-xs font-bold uppercase tracking-wider">Đang đồng bộ lịch trình Kỹ thuật viên...</p>
         </div>
       ) : (
         <>
           {viewMode === 'timeline' ? (
-            <AppointmentCalendar
-              appointments={filteredAppointmentsForDay}
-              allAppointments={searchedAppointments}
-              statusConfig={STATUS_CONFIG}
-              handleOpenDetailModal={handleOpenDetailModal}
-              staffList={staffList}
-              schedulesList={schedulesList}
+            <SpecialistFlowBoard
+              appointments={mappedAppointments as any}
+              currentUserId={user?.id || ''}
               selectedDateStr={format(startDate, 'yyyy-MM-dd')}
-              viewMode="doctor"
+              searchTerm={searchTerm}
+              onOpenDetailModal={handleOpenDetailModal}
+              onRefresh={loadData}
             />
           ) : (
             <CapacityView
@@ -267,7 +246,7 @@ export default function TechnicianAppointments() {
               endDate={endDate}
               activeType="dieu_tri"
               searchTerm={searchTerm}
-              onSelectAppointment={(id) => {
+              onSelectAppointment={(id: string) => {
                 const apt = appointments.find(a => String(a.id) === String(id));
                 if (apt) handleOpenDetailModal(apt);
               }}

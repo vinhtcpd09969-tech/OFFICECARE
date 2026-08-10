@@ -77,7 +77,7 @@ export const QRWebhookModal: React.FC<QRWebhookModalProps> = ({
         const orderCodeParam = payosLinkData?.orderCode ? `?orderCode=${payosLinkData.orderCode}` : '';
         const res = await axiosInstance.get(`/receptionist/payment/status/${hoaDonId}${orderCodeParam}`);
         const { trang_thai } = res.data;
-        if (trang_thai === 'da_thanh_toan' || trang_thai === 'dang_tra_gop') {
+        if (trang_thai === 'da_thanh_toan') {
           clearInterval(pollingTimerRef.current!);
           clearInterval(countdownTimerRef.current!);
           toast.success('🎉 Thanh toán thành công qua PayOS!');

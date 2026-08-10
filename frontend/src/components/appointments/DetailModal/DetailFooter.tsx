@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { CheckCircle2, DollarSign, CalendarPlus } from 'lucide-react';
 import { updateAppointmentStatus as updateAppointmentStatusAdmin } from '../../../features/admin/api/admin.api';
 import { isPlanCancelled, isSessionPaymentSatisfied } from '../../../utils/billing';
 
@@ -14,7 +15,6 @@ function toPlanShape(apt: any) {
     tong_tien_goc: apt.tong_tien_goc_goi,
     ti_le_giam_gia_goi: apt.ti_le_giam_gia_goi,
     so_tien_giam_voucher: apt.so_tien_giam_voucher_goi,
-    // Cần cho isPlanCancelled: gói đã hoàn tiền thì không đòi tiền, không mời đặt buổi tiếp.
     trang_thai_hoa_don_goi: apt.trang_thai_hoa_don_goi,
   };
 }
@@ -33,8 +33,6 @@ interface DetailFooterProps {
   appointments?: any[];
 }
 
-
-
 export function DetailFooter({
   selectedAppointment,
   isReceptionist,
@@ -49,18 +47,17 @@ export function DetailFooter({
   appointments = []
 }: DetailFooterProps) {
   const navigate = useNavigate();
+  const isCompleted = selectedAppointment.trang_thai === 'hoan_thanh';
 
   return (
-    <div className="pt-6 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between gap-3">
-      {['kham_moi', 'dich_vu_don', 'KHAM', 'DICH_VU_LE'].includes(selectedAppointment.loai_lich) && selectedAppointment.trang_thai === 'hoan_thanh' ? (
-        <div className="flex gap-2">
-          {selectedAppointment.trang_thai_thanh_toan === 'da_thanh_toan' || 
-           (!!selectedAppointment.hoa_don_goi_id && 
-            ['tra_thang', 'tra_gop'].includes(selectedAppointment.hinh_thuc_thanh_toan_goi)) ? (
-            <div className="px-4 py-2.5 bg-emerald-50 border border-emerald-250 text-emerald-600 text-xs font-black rounded-xl flex items-center gap-1.5 select-none uppercase tracking-wider">
-              🟢 {['kham_moi', 'KHAM'].includes(selectedAppointment.loai_lich) ? 'Đã thanh toán khám' : 'Đã thanh toán dịch vụ lẻ'}
-            </div>
-          ) : (
+    <div className="pt-5 border-t border-slate-100 dark:border-zinc-800/80 flex flex-wrap items-center justify-between gap-3">
+      {/* KHỐI TRÁI: HIỂN THỊ HÀNH ĐỘNG THANH TOÁN NẾU CÒN NỢ PHÍ KHÁM / DỊCH VỤ LẺ */}
+      {['kham_moi', 'dich_vu_don', 'KHAM', 'DICH_VU_LE'].includes(selectedAppointment.loai_lich) && isCompleted ? (
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          {/* Nút Thanh toán Phí khám nếu chưa thanh toán (Trạng thái Đã thu đã hiện ở Card trên) */}
+          {selectedAppointment.trang_thai_thanh_toan !== 'da_thanh_toan' &&
+           (!selectedAppointment.hoa_don_goi_id ||
+            selectedAppointment.hinh_thuc_thanh_toan_goi !== 'tra_thang') && (
             <button
               type="button"
               onClick={() => {
@@ -68,29 +65,24 @@ export function DetailFooter({
                 navigate(`${dest}?lich_dat_id=${selectedAppointment.id}`);
                 onClose();
               }}
-              className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white shadow-sm text-xs font-black rounded-xl flex items-center gap-2 transition-all"
+              className="px-4 py-2 bg-amber-500 hover:bg-amber-600 active:scale-98 text-white shadow-md shadow-amber-500/20 text-xs font-black rounded-xl flex items-center gap-1.5 transition-all cursor-pointer"
             >
-              {selectedAppointment.hoa_don_goi_id ? '💵 Chờ thanh toán' : '💵 Thanh toán ngay'}
+              <DollarSign size={15} />
+              <span>{selectedAppointment.hoa_don_goi_id ? 'Chờ thanh toán phí khám' : 'Thanh toán phí khám ngay'}</span>
             </button>
           )}
         </div>
-      ) : !hideBilling && ['dieu_tri', 'DIEU_TRI'].includes(selectedAppointment.loai_lich) && selectedAppointment.trang_thai === 'hoan_thanh' ? (
-        <div className="flex gap-2">
+      ) : !hideBilling && ['dieu_tri', 'DIEU_TRI'].includes(selectedAppointment.loai_lich) && isCompleted ? (
+        <div className="flex items-center gap-2 flex-1">
           {(() => {
             const isRetail = selectedAppointment.loai_goi === 'LE';
             const isPayPerSession = selectedAppointment.hinh_thuc_thanh_toan_goi === 'tung_buoi';
-            const isInstallment = selectedAppointment.hinh_thuc_thanh_toan_goi === 'tra_gop';
-
             const currentSessionNum = Number(selectedAppointment.so_thu_tu_buoi || 1);
 
             let isSessionPaid = false;
             if (isRetail) {
               isSessionPaid = selectedAppointment.trang_thai_thanh_toan === 'da_thanh_toan';
             } else if (isPayPerSession) {
-              // Buổi HIỆN TẠI (đã hoàn thành) coi là đã trả xong khi số đã đóng đủ cho các buổi
-              // 1..N — tức ngưỡng "trước buổi N+1" của getMinPaymentRequired (nguồn chung, đã net
-              // hóa voucher). Không dùng đơn giá/buổi tĩnh của gói mẫu (pd_don_gia_theo_buoi) —
-              // giá đó bỏ qua voucher đã áp cho hóa đơn này.
               isSessionPaid =
                 !!selectedAppointment.hoa_don_goi_id &&
                 isSessionPaymentSatisfied(toPlanShape(selectedAppointment), currentSessionNum + 1);
@@ -105,7 +97,6 @@ export function DetailFooter({
             if (isSessionPaid) {
               const nextSessionNum = currentSessionNum + 1;
               const hasMoreSessions = nextSessionNum <= Number(selectedAppointment.tong_so_buoi_goi || 10);
-              // Buổi tiếp theo đã được đặt (bất kỳ trạng thái nào ngoài đã hủy) thì không cho đặt trùng nữa.
               const nextSessionAlreadyBooked = appointments.some((apt) =>
                 apt.phac_do_dieu_tri_id &&
                 selectedAppointment.phac_do_dieu_tri_id &&
@@ -114,11 +105,6 @@ export function DetailFooter({
                 apt.trang_thai !== 'da_huy'
               );
               const showNextSessionAction = !isRetail && hasMoreSessions && !nextSessionAlreadyBooked;
-
-              // Buổi hiện tại đã trả đủ KHÔNG có nghĩa buổi kế tiếp được phép đặt: gói trả góp
-              // phải đóng xong Đợt 2 trước mốc quy định (docs/BUSINESS_RULES.md mục 3). Nếu chưa
-              // đủ, backend sẽ chặn ở createAppointment — nên ở đây phải mời đóng Đợt 2 thay vì
-              // mời đặt lịch rồi mới báo lỗi.
               const isCancelledPlan = isPlanCancelled(toPlanShape(selectedAppointment));
               const needsInstallment2 =
                 showNextSessionAction &&
@@ -126,15 +112,17 @@ export function DetailFooter({
                 !isSessionPaymentSatisfied(toPlanShape(selectedAppointment), nextSessionNum);
 
               return (
-                <div className="flex items-center gap-2">
-                  {/* Khi đã phải đòi Đợt 2 thì ẩn nhãn "đã thanh toán" đi cho gọn — hai thứ cạnh nhau gây rối. */}
+                <div className="flex items-center gap-2 flex-wrap">
                   {!needsInstallment2 && (
-                    <div className="px-4 py-2.5 bg-emerald-50 border border-emerald-250 text-emerald-600 text-xs font-black rounded-xl flex items-center gap-1.5 select-none uppercase tracking-wider">
-                      🟢 {isRetail
-                        ? 'Đã thanh toán dịch vụ lẻ'
-                        : (isPayPerSession || isInstallment)
-                          ? `Đã thanh toán buổi ${currentSessionNum} của liệu trình`
-                          : 'Đã thanh toán liệu trình'}
+                    <div className="px-3.5 py-2 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 text-emerald-700 dark:text-emerald-400 text-xs font-black rounded-xl flex items-center gap-1.5 select-none uppercase tracking-wider">
+                      <CheckCircle2 size={15} />
+                      <span>
+                        {isRetail
+                          ? 'Đã thanh toán dịch vụ lẻ'
+                          : isPayPerSession
+                            ? `Đã thanh toán buổi ${currentSessionNum}`
+                            : 'Đã thanh toán liệu trình'}
+                      </span>
                     </div>
                   )}
 
@@ -142,12 +130,6 @@ export function DetailFooter({
                     <button
                       type="button"
                       onClick={() => {
-                        // Đợt 2 trả góp thu đúng dư nợ còn lại của hóa đơn — deep-link ?hoa_don_id=
-                        // (mở thẳng modal chi tiết hóa đơn) là chính xác. Nhưng từng buổi thì số
-                        // cần thu là ĐÚNG BUỔI TIẾP THEO, không phải cả dư nợ (gồm cả các buổi
-                        // tương lai chưa tới) — phải qua đúng luồng checkout theo
-                        // customer_id + goi_dich_vu_id (cùng nguồn getTungBuoiSessionDue backend
-                        // dùng để ghi sổ), nếu không sẽ bắt thu nhầm nguyên giá trị gói còn lại.
                         if (selectedAppointment.hinh_thuc_thanh_toan_goi === 'tung_buoi') {
                           const checkoutDest = isReceptionist ? '/receptionist/billing' : '/admin/quick-billing';
                           navigate(`${checkoutDest}?customer_id=${selectedAppointment.khach_hang_id}&goi_dich_vu_id=${selectedAppointment.pd_goi_dich_vu_id || selectedAppointment.goi_dich_vu_id}`);
@@ -157,9 +139,10 @@ export function DetailFooter({
                         }
                         onClose();
                       }}
-                      className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white shadow-sm text-xs font-black rounded-xl flex items-center gap-1.5 transition-all"
+                      className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-black text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-md shadow-amber-500/20 cursor-pointer"
                     >
-                      💵 {selectedAppointment.hinh_thuc_thanh_toan_goi === 'tra_gop' ? 'Thanh toán Đợt 2' : 'Thanh toán'}
+                      <DollarSign size={15} />
+                      <span>Thanh toán</span>
                     </button>
                   )}
 
@@ -171,9 +154,10 @@ export function DetailFooter({
                         navigate(`${calendarPath}?khach_hang_id=${selectedAppointment.khach_hang_id}&goi_dich_vu_id=${selectedAppointment.pd_goi_dich_vu_id || selectedAppointment.goi_dich_vu_id}`);
                         onClose();
                       }}
-                      className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm text-xs font-black rounded-xl flex items-center gap-1.5 transition-all"
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-md shadow-emerald-600/20 cursor-pointer"
                     >
-                      📅 + Đặt lịch buổi {nextSessionNum} tiếp theo
+                      <CalendarPlus size={15} />
+                      <span>Đặt lịch buổi {nextSessionNum} tiếp theo</span>
                     </button>
                   )}
                 </div>
@@ -184,13 +168,6 @@ export function DetailFooter({
                   type="button"
                   onClick={async () => {
                     try {
-                      // Nhánh này chỉ render khi selectedAppointment.trang_thai đã là 'hoan_thanh'
-                      // (điều kiện bọc ngoài ở trên) — với Lễ tân, backend luôn khóa MỌI thay đổi
-                      // (kể cả ghi lại đúng giá trị cũ) một khi lịch đã ở trạng thái kết thúc, nên
-                      // gọi lại API đổi trạng thái ở đây chỉ để "đẩy kèm" staff/phòng luôn thất bại
-                      // với 403 — trong khi staff/phòng cũng đã bị khóa không cho Lễ tân sửa từ lúc
-                      // hoàn thành, nên không có gì thực sự cần lưu. Chỉ Admin (được sửa tự do kể cả
-                      // sau khi hoàn thành) mới cần gọi API này để không mất thay đổi vừa chỉnh.
                       if (!isReceptionist) {
                         await updateAppointmentStatusAdmin(selectedAppointment.id, {
                           trang_thai: 'hoan_thanh',
@@ -201,41 +178,47 @@ export function DetailFooter({
                           ghi_chu_noi_bo: localGhiChuNoiBo || null
                         });
                       }
-
                       const dest = isReceptionist ? '/receptionist/billing' : '/admin/quick-billing';
                       navigate(`${dest}?lich_dat_id=${selectedAppointment.id}`);
                       onClose();
-                      if (onSuccess) {
-                        onSuccess();
-                      }
+                      onSuccess?.();
                     } catch (err: any) {
                       console.error(err);
                       toast.error(err.response?.data?.message || 'Không thể cập nhật trạng thái hẹn trước khi thanh toán');
                     }
                   }}
-                  className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white shadow-sm text-xs font-black rounded-xl flex items-center gap-2 transition-all"
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-black text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-md shadow-amber-500/20 cursor-pointer"
                 >
-                  💵 {isRetail ? 'Thanh toán ngay' : 'Vui lòng thanh toán liệu trình'}
+                  <DollarSign size={15} />
+                  <span>{isRetail ? 'Thanh toán ngay' : 'Vui lòng thanh toán liệu trình'}</span>
                 </button>
               );
             }
           })()}
         </div>
       ) : (
-        // Ca CHƯA hoàn thành mà còn nợ tiền: nút "Thu tiền" giờ nằm NGAY CẠNH badge trạng thái lâm
-        // sàng ở đầu modal (A10c — "hai chỉ báo nằm cạnh nhau"), không lặp lại ở góc footer nữa.
         <div />
       )}
 
-      {/* Right actions */}
-      <div className="flex gap-2 ml-auto">
+      {/* KHỐI PHẢI: NÚT THAO TÁC / ĐÓNG MODAL */}
+      <div className="flex items-center gap-2 ml-auto">
         <button
-          type="submit"
-          disabled={isAssigning || selectedAppointment.trang_thai === 'hoan_thanh' || isReceptionistLocked}
-          className="px-6 py-2.5 bg-emerald-600 text-white text-xs font-bold rounded-xl hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          type="button"
+          onClick={onClose}
+          className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 font-bold text-xs rounded-xl transition-all cursor-pointer"
         >
-          {isAssigning ? 'Đang lưu...' : 'Lưu cập nhật'}
+          Đóng
         </button>
+
+        {!isCompleted && !isReceptionistLocked && (
+          <button
+            type="submit"
+            disabled={isAssigning}
+            className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-black text-xs rounded-xl shadow-md shadow-emerald-600/20 transition-all disabled:opacity-50 cursor-pointer"
+          >
+            {isAssigning ? 'Đang lưu...' : 'Lưu cập nhật'}
+          </button>
+        )}
       </div>
     </div>
   );

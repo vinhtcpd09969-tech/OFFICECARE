@@ -68,7 +68,7 @@ export default function Specialists() {
 
   const PILLS: { key: 'ALL' | 'DOCTOR' | 'TECH'; label: string; count: number }[] = [
     { key: 'ALL', label: 'Tất cả chuyên gia', count: allCount },
-    { key: 'DOCTOR', label: 'Bác sĩ chuyên khoa', count: doctorCount },
+    { key: 'DOCTOR', label: 'Chuyên viên tư vấn', count: doctorCount },
     { key: 'TECH', label: 'Kỹ thuật viên', count: techCount },
   ];
 
@@ -82,7 +82,7 @@ export default function Specialists() {
             Đồng Hành Cùng <span className="text-[#0D9488]">Chuyên Gia Hàng Đầu</span>
           </h1>
           <p className="text-slate-600 font-normal text-xs sm:text-sm leading-relaxed max-w-2xl mx-auto">
-            Hội tụ các Bác sĩ chuyên khoa Phục hồi chức năng đầu ngành cùng đội ngũ Kỹ thuật viên trị liệu dày dặn kinh nghiệm, tận tâm và chuyên nghiệp.
+            Hội tụ đội ngũ Chuyên viên Phục hồi chức năng đầu ngành cùng Kỹ thuật viên trị liệu dày dặn kinh nghiệm, tận tâm và chuyên nghiệp.
           </p>
         </div>
 
@@ -94,7 +94,7 @@ export default function Specialists() {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
               <input
                 type="text"
-                placeholder="Tìm tên bác sĩ, chuyên môn..."
+                placeholder="Tìm tên chuyên gia, chuyên môn..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 className="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-200 hover:border-slate-300 focus:border-[#0D9488] focus:bg-white rounded-2xl text-xs text-slate-800 font-semibold placeholder-slate-400 outline-none transition-all duration-200"

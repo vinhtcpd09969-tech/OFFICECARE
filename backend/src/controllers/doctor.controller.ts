@@ -47,7 +47,15 @@ export const getAppointments = async (req: AuthenticatedRequest, res: Response) 
 // GET /api/doctor/patients/:patientId/profile
 export const getPatientProfile = async (req: Request, res: Response) => {
   try {
-    const { patientId } = req.params as { patientId: string };
+    let { patientId } = req.params as { patientId: string };
+    const userRole = Number((req as any).user?.vai_tro_id || 0);
+    const userId = String((req as any).user?.id || '');
+
+    // Nếu là Khách hàng (role 1), mặc định lấy hồ sơ của chính mình nếu patientId là 'me' hoặc rỗng
+    if (userRole === 1 && (!patientId || patientId === 'me' || patientId === 'my-profile')) {
+      patientId = userId;
+    }
+
     if (!patientId) {
       return res.status(400).json({ message: 'Thiếu ID khách hàng.' });
     }
@@ -71,9 +79,10 @@ export const getAppointmentDetail = async (req: AuthenticatedRequest, res: Respo
     res.json(detail);
   } catch (error: any) {
     console.error('Lỗi khi lấy chi tiết ca khám:', error);
-    res.status(400).json({ 
+    res.status(400).json({
       message: error.message || 'Lỗi server',
-      activeSessionId: error.activeSessionId
+      activeSessionId: error.activeSessionId,
+      errorCode: error.errorCode
     });
   }
 };
@@ -82,42 +91,87 @@ export const getAppointmentDetail = async (req: AuthenticatedRequest, res: Respo
 export const saveAssessment = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user?.id;
-    const { lich_dat_id, chan_doan, chong_chi_dinh, goi_dich_vu_id, ghi_chu, resolvePendingConflict } = req.body;
+    const {
+      lich_dat_id, chan_doan, chong_chi_dinh, goi_dich_vu_id, ghi_chu,
+      resolvePendingConflict, is_reassessment, han_tai_kham,
+      vas_score, rom_data, mmt_data
+    } = req.body;
 
     if (!userId) {
       return res.status(401).json({ message: 'Không xác định được danh tính người dùng.' });
     }
-    if (!lich_dat_id || !chan_doan?.trim()) {
-      return res.status(400).json({ message: 'Thiếu mã lịch khám hoặc chẩn đoán lâm sàng.' });
+    if (!lich_dat_id) {
+      return res.status(400).json({ message: 'Thiếu mã lịch khám.' });
     }
-    if (!chong_chi_dinh?.trim()) {
-      return res.status(400).json({ message: 'Thiếu chống chỉ định y khoa (nếu không có, ghi rõ "Không có").' });
-    }
-    if (!ghi_chu?.trim()) {
-      return res.status(400).json({ message: 'Thiếu ghi chú / dặn dò cho khách hàng.' });
-    }
+
+    const finalChanDoan = chan_doan?.trim() || 'Chưa điền';
+    const finalChongChiDinh = chong_chi_dinh?.trim() || 'Chưa điền';
+    const finalGhiChu = ghi_chu?.trim() || null;
 
     const result = await doctorService.saveAssessment(userId, {
       lich_dat_id,
-      chan_doan,
-      chong_chi_dinh,
+      chan_doan: finalChanDoan,
+      chong_chi_dinh: finalChongChiDinh,
       goi_dich_vu_id: goi_dich_vu_id || null,
-      ghi_chu,
+      ghi_chu: finalGhiChu,
       resolvePendingConflict,
+      is_reassessment: Boolean(is_reassessment),
+      han_tai_kham: han_tai_kham || null,
+      vas_score: vas_score != null ? Number(vas_score) : null,
+      rom_data: rom_data || null,
+      mmt_data: mmt_data || null,
     });
 
     res.json({
-      message: 'Ghi nhận chẩn đoán lâm sàng và hoàn thành ca khám thành công!',
+      message: is_reassessment ? 'Hẹn tái khám thành công! Lịch hẹn đã chuyển sang Chờ tái lượng giá.' : 'Ghi nhận chẩn đoán lâm sàng và hoàn thành ca khám thành công!',
       ...result,
     });
   } catch (error: any) {
-    console.error('Lỗi khi lưu chẩn đoán khám bệnh:', error);
-    // Lỗi nghiệp vụ (chẩn đoán sai gói, trùng chỉ định...) → 400 kèm message gốc + errorCode để
-    // frontend phân biệt được loại lỗi, không nuốt thành 500 chung chung.
-    if (error.message && !error.stack?.includes('pg') && !error.stack?.includes('Prisma') && !error.message.includes('connection')) {
-      return res.status(400).json({ message: error.message, errorCode: error.errorCode });
+    if (error.errorCode === 'ACTIVE_LIEU_TRINH_CONFLICT' || error.errorCode === 'PENDING_LIEU_TRINH_CONFLICT') {
+      return res.status(409).json({
+        message: error.message,
+        errorCode: error.errorCode,
+      });
     }
-    res.status(500).json({ message: 'Lỗi server' });
+    console.error('Lỗi khi lưu chẩn đoán:', error);
+    res.status(500).json({ message: error.message || 'Lỗi server khi lưu chẩn đoán.' });
+  }
+};
+
+// POST /api/doctor/appointments/draft
+export const saveAssessmentDraft = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const {
+      lich_dat_id, chan_doan, chong_chi_dinh, ghi_chu,
+      vas_score, rom_data, mmt_data, selected_package_id
+    } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'Không xác định được danh tính người dùng.' });
+    }
+    if (!lich_dat_id) {
+      return res.status(400).json({ message: 'Thiếu mã lịch khám.' });
+    }
+
+    const result = await doctorService.saveAssessmentDraft(userId, {
+      lich_dat_id,
+      chan_doan,
+      chong_chi_dinh,
+      ghi_chu,
+      vas_score: vas_score != null ? Number(vas_score) : undefined,
+      rom_data,
+      mmt_data,
+      selected_package_id,
+    });
+
+    res.json({
+      message: 'Đã lưu nháp kết quả lượng giá.',
+      ...result,
+    });
+  } catch (error: any) {
+    console.error('Lỗi khi lưu nháp lượng giá:', error);
+    res.status(500).json({ message: error.message || 'Lỗi server khi lưu nháp lượng giá.' });
   }
 };
 
@@ -161,6 +215,40 @@ export const getPatients = async (req: AuthenticatedRequest, res: Response) => {
   } catch (error: any) {
     console.error('Lỗi khi lấy danh sách bệnh nhân cho bác sĩ:', error);
     res.status(500).json({ message: error.message || 'Lỗi server' });
+  }
+};
+
+// POST /api/doctor/queue/:id/call-in
+export const callInPatient = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const userRole = req.user?.vai_tro_id ? Number(req.user.vai_tro_id) : 4;
+    const { id } = req.params as { id: string };
+    if (!userId) {
+      return res.status(401).json({ message: 'Không xác định được danh tính người dùng.' });
+    }
+    const result = await doctorService.callInPatient(id, userId, userRole);
+    res.json(result);
+  } catch (error: any) {
+    console.error('Lỗi khi gọi bệnh nhân vào phòng:', error);
+    res.status(400).json({ message: error.message || 'Không thể gọi bệnh nhân vào phòng.' });
+  }
+};
+
+// POST /api/doctor/queue/:id/mark-absent
+export const markPatientAbsent = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const userRole = req.user?.vai_tro_id ? Number(req.user.vai_tro_id) : 4;
+    const { id } = req.params as { id: string };
+    if (!userId) {
+      return res.status(401).json({ message: 'Không xác định được danh tính người dùng.' });
+    }
+    const result = await doctorService.markPatientAbsent(id, userId, userRole);
+    res.json(result);
+  } catch (error: any) {
+    console.error('Lỗi khi đánh dấu bệnh nhân không có mặt:', error);
+    res.status(400).json({ message: error.message || 'Không thể đánh dấu không có mặt.' });
   }
 };
 

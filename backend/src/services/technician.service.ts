@@ -12,7 +12,10 @@ class TechnicianService {
   }
 
   // 3. Lấy chi tiết lịch trị liệu
-  async getAppointmentDetail(appointmentId: string, userId?: string) {
+  //    confirmOvertime — KTV đã xác nhận muốn mở bàn 2 dù dự kiến xong sau giờ tan ca (cảnh báo mềm,
+  //    xem checkShiftOvertime). Không truyền / false → nếu lệch giờ, ném lỗi SHIFT_OVERTIME_WARNING
+  //    để frontend hỏi lại thay vì tự ý mở.
+  async getAppointmentDetail(appointmentId: string, userId?: string, confirmOvertime?: boolean) {
     const detail = await technicianRepository.getAppointmentDetail(appointmentId);
     if (!detail) {
       throw new Error('Không tìm thấy chi tiết ca trị liệu.');
@@ -21,15 +24,37 @@ class TechnicianService {
     // Tự động chuyển trạng thái sang 'dang_kham' nếu lịch đang ở 'da_checkin'
     if (detail.trang_thai === 'da_checkin' && userId) {
       const staffId = parseInt(userId, 10);
-      // 1 KTV chỉ được mở 1 "bàn trị liệu" tại 1 thời điểm — chặn nếu còn ca khác đang dang_kham
-      // (vd quên bấm hoàn thành ca trước).
-      const otherOpenSession = await technicianRepository.getActiveSessionForStaff(staffId, appointmentId);
-      if (otherOpenSession) {
-        const errorMsg = `Bạn đang có ca trị liệu ${otherOpenSession.ma_lich_dat} (${otherOpenSession.ten_khach_hang}) chưa hoàn thành. Vui lòng hoàn thành ca đó trước khi mở ca trị liệu mới.`;
-        const err = new Error(errorMsg) as any;
-        err.activeSessionId = otherOpenSession.id;
+      // A1b — KTV được mở TỐI ĐA 2 "bàn trị liệu" song song (Chuyên viên vẫn 1, xem doctor.service.ts
+      // — không dùng chung guard này). Đủ 2 bàn khác rồi thì chặn cứng, không có cảnh báo mềm nào.
+      const otherOpenSessions = await technicianRepository.getActiveSessionForStaff(staffId, appointmentId);
+      if (otherOpenSessions.length >= 2) {
+        const names = otherOpenSessions.map((s: any) => `${s.ma_lich_dat} (${s.ten_khach_hang})`).join(', ');
+        const err = new Error(`Bạn đang mở tối đa 2 bàn trị liệu cùng lúc (${names}). Vui lòng hoàn thành bớt trước khi mở bàn mới.`) as any;
+        err.activeSessionId = otherOpenSessions[0].id;
         throw err;
       }
+
+      // Đang mở bàn THỨ 2 (đã có đúng 1 bàn khác chạy) — cảnh báo mềm nếu ước tính xong sau giờ tan
+      // ca, KHÔNG chặn cứng: KTV tự quyết định có nhận thêm hay không (xem kế hoạch mục "hai loại rảnh").
+      if (otherOpenSessions.length === 1) {
+        const overtimeInfo = await this.checkShiftOvertime(staffId, Number(detail.thoi_luong_phut) || 30);
+        if (overtimeInfo) {
+          if (!confirmOvertime) {
+            const err = new Error(
+              `Ca này dự kiến xong lúc ${overtimeInfo.estimateFinish}, sau giờ tan ca của bạn (${overtimeInfo.shiftEnd}). Bạn vẫn muốn mở bàn 2?`
+            ) as any;
+            err.errorCode = 'SHIFT_OVERTIME_WARNING';
+            throw err;
+          }
+          const now = new Date();
+          const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+          await technicianRepository.appendGhiChuNoiBo(
+            appointmentId,
+            `[${timeStr}] Mở bàn trị liệu thứ 2 ngoài giờ ca (KTV xác nhận, tan ca ${overtimeInfo.shiftEnd}).`
+          );
+        }
+      }
+
       await technicianRepository.startSession(appointmentId, staffId);
       return await technicianRepository.getAppointmentDetail(appointmentId);
     }
@@ -37,7 +62,27 @@ class TechnicianService {
     return detail;
   }
 
-  // 4. Lưu kết quả lượng giá buổi trị liệu và ghi chú
+  // Trả về thông tin lệch giờ nếu mở ca này khiến KTV dự kiến xong SAU giờ tan ca hôm nay — null nếu
+  // ổn hoặc không có ca trực nào bao trùm hiện tại (không suy đoán khi thiếu dữ liệu ca trực).
+  private async checkShiftOvertime(
+    staffId: number,
+    thoiLuongPhut: number
+  ): Promise<{ shiftEnd: string; estimateFinish: string } | null> {
+    const shiftEnd = await technicianRepository.getCurrentShiftEndForStaff(staffId);
+    if (!shiftEnd) return null;
+
+    const now = new Date();
+    const estimateFinishDate = new Date(now.getTime() + thoiLuongPhut * 60000);
+    const [eh, em] = shiftEnd.split(':').map(Number);
+    const shiftEndToday = new Date(now);
+    shiftEndToday.setHours(eh, em, 0, 0);
+    if (estimateFinishDate <= shiftEndToday) return null;
+
+    const estimateFinish = `${String(estimateFinishDate.getHours()).padStart(2, '0')}:${String(estimateFinishDate.getMinutes()).padStart(2, '0')}`;
+    return { shiftEnd, estimateFinish };
+  }
+
+  // 4. Lưu kết quả lượng giá buổi trị liệu, nhật ký thao tác và ghi chú
   async saveTreatmentRecord(
     userId: string,
     data: {
@@ -45,6 +90,7 @@ class TechnicianService {
       vas_truoc: number;
       vas_sau: number;
       ghi_chu?: string | null;
+      du_lieu_tri_lieu?: any;
     }
   ) {
     return await technicianRepository.saveTreatmentRecord({
@@ -52,7 +98,29 @@ class TechnicianService {
       ktv_id: userId,
       vas_truoc: data.vas_truoc,
       vas_sau: data.vas_sau,
-      ghi_chu: data.ghi_chu
+      ghi_chu: data.ghi_chu,
+      du_lieu_tri_lieu: data.du_lieu_tri_lieu
+    });
+  }
+
+  // 4b. Lưu nháp — xem chú thích đầy đủ ở technician.repository.ts::saveTreatmentDraft
+  async saveTreatmentDraft(
+    userId: string,
+    data: {
+      lich_dat_id: string;
+      vas_truoc?: number | null;
+      vas_sau?: number | null;
+      ghi_chu?: string | null;
+      du_lieu_tri_lieu?: any;
+    }
+  ) {
+    return await technicianRepository.saveTreatmentDraft({
+      lich_dat_id: data.lich_dat_id,
+      ktv_id: userId,
+      vas_truoc: data.vas_truoc,
+      vas_sau: data.vas_sau,
+      ghi_chu: data.ghi_chu,
+      du_lieu_tri_lieu: data.du_lieu_tri_lieu,
     });
   }
 
@@ -65,6 +133,12 @@ class TechnicianService {
   async getActiveSession(userId: string) {
     const staffId = parseInt(userId, 10);
     return await technicianRepository.getActiveSessionForStaff(staffId, null);
+  }
+
+  // 7. Lấy thông tin phòng trực & thiết bị y tế có sẵn tại phòng của nhân sự
+  async getWorkstationInfo(userId: string) {
+    const staffId = parseInt(userId, 10);
+    return await technicianRepository.getRoomAndEquipmentForStaff(staffId);
   }
 }
 

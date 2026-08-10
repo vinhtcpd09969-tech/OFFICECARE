@@ -2,9 +2,8 @@ import { useEffect, useState } from 'react';
 import { Ticket, X } from 'lucide-react';
 import { Voucher } from './VoucherCard';
 
-const PAYMENT_METHOD_OPTIONS: { value: 'tra_thang' | 'tra_gop' | 'tung_buoi'; label: string }[] = [
+const PAYMENT_METHOD_OPTIONS: { value: 'tra_thang' | 'tung_buoi'; label: string }[] = [
   { value: 'tra_thang', label: 'Trả thẳng 100%' },
-  { value: 'tra_gop', label: 'Trả góp' },
   { value: 'tung_buoi', label: 'Từng buổi (liệu trình)' },
 ];
 
@@ -17,6 +16,12 @@ interface VoucherFormModalProps {
   setLoaiGiam: (val: 'phan_tram' | 'so_tien_co_dinh') => void;
   yeuCauThanhToan: string[];
   setYeuCauThanhToan: (val: string[]) => void;
+  tuDongApDung: boolean;
+  setTuDongApDung: (val: boolean) => void;
+  kenhApDung: string[];
+  setKenhApDung: (val: string[]) => void;
+  loaiGoiApDung: string[];
+  setLoaiGoiApDung: (val: string[]) => void;
   formatLocalDate: (date: Date) => string;
 }
 
@@ -29,6 +34,12 @@ export function VoucherFormModal({
   setLoaiGiam,
   yeuCauThanhToan,
   setYeuCauThanhToan,
+  tuDongApDung,
+  setTuDongApDung,
+  kenhApDung,
+  setKenhApDung,
+  loaiGoiApDung,
+  setLoaiGoiApDung,
   formatLocalDate
 }: VoucherFormModalProps) {
   const [giaTriGiam, setGiaTriGiam] = useState('');
@@ -52,6 +63,13 @@ export function VoucherFormModal({
     setTenChienDichTouched(false);
   }, [isOpen, editingVoucher]);
 
+  useEffect(() => {
+    const isLieuTrinhApplicable = loaiGoiApDung.includes('tat_ca') || loaiGoiApDung.includes('LIEU_TRINH');
+    if (!isLieuTrinhApplicable) {
+      setYeuCauThanhToan(['tra_thang']);
+    }
+  }, [loaiGoiApDung, setYeuCauThanhToan]);
+
   if (!isOpen) return null;
 
   const toggleAllPaymentMethods = () => setYeuCauThanhToan(['tat_ca']);
@@ -63,7 +81,25 @@ export function VoucherFormModal({
     );
   };
 
-  // Lỗi hiển thị ngay khi nhập, không đợi tới lúc bấm lưu mới báo.
+  const toggleAllKenh = () => setKenhApDung(['tat_ca']);
+  const toggleKenh = (val: string) => {
+    setKenhApDung(
+      kenhApDung.includes(val)
+        ? kenhApDung.filter((v) => v !== val)
+        : [...kenhApDung.filter((v) => v !== 'tat_ca'), val]
+    );
+  };
+
+  const toggleAllLoaiGoi = () => setLoaiGoiApDung(['tat_ca']);
+  const toggleLoaiGoi = (val: string) => {
+    setLoaiGoiApDung(
+      loaiGoiApDung.includes(val)
+        ? loaiGoiApDung.filter((v) => v !== val)
+        : [...loaiGoiApDung.filter((v) => v !== 'tat_ca'), val]
+    );
+  };
+
+  // Lỗi hiển thị ngay khi nhập
   const giaTriGiamError = (() => {
     if (giaTriGiam === '') return '';
     const n = Number(giaTriGiam);
@@ -76,8 +112,6 @@ export function VoucherFormModal({
     }
     return '';
   })();
-  // Validate on-blur cho các ô bắt buộc nhập chữ — chỉ báo đỏ sau khi người dùng đã rời khỏi ô
-  // (touched) mà vẫn để trống, tránh báo lỗi ngay khi vừa mở form chưa kịp nhập gì.
   const maVoucherError = maVoucherTouched && !maVoucher.trim() ? 'Vui lòng nhập mã voucher' : '';
   const tenChienDichError = tenChienDichTouched && !tenChienDich.trim() ? 'Vui lòng nhập tên chiến dịch' : '';
   const giamToiDaError = (() => {
@@ -220,7 +254,6 @@ export function VoucherFormModal({
                   placeholder="Để trống nếu không giới hạn"
                   className={`w-full px-4 py-2.5 rounded-xl border focus:ring-2 outline-none text-sm bg-slate-50/30 transition-colors ${giamToiDaError ? errorInputClass : normalInputClass}`}
                 />
-                {/* Ô nhập hiển thị định dạng có dấu chấm ngăn cách; giá trị số thô gửi lên qua input ẩn này. */}
                 <input type="hidden" name="giam_toi_da" value={giamToiDa} />
                 {giamToiDaError && <p className="text-[10px] text-rose-500 font-bold mt-1">{giamToiDaError}</p>}
               </div>
@@ -260,9 +293,10 @@ export function VoucherFormModal({
               {soLuongToiDaError ? (
                 <p className="text-[10px] text-rose-500 font-bold mt-1">{soLuongToiDaError}</p>
               ) : (
-                <p className="text-[10px] text-slate-400 font-medium mt-1">Mỗi khách dùng mã này tối đa bấy nhiêu lần — không giới hạn tổng số khách khác nhau.</p>
+                <p className="text-[10px] text-slate-400 font-medium mt-1">Mỗi khách dùng mã này tối đa bấy nhiêu lần.</p>
               )}
             </div>
+
             <div>
               <label htmlFor="ngay_bat_dau" className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
                 Ngày bắt đầu *
@@ -290,60 +324,246 @@ export function VoucherFormModal({
               />
             </div>
 
-            {/* Hình thức thanh toán yêu cầu — multi-select: có thể áp dụng cho nhiều hình thức cùng lúc */}
-            <div className="col-span-2 border-t border-slate-100 pt-5">
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                Yêu cầu Hình thức thanh toán
-              </label>
-              <div className="flex flex-wrap gap-2">
-                <label
-                  className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border cursor-pointer text-xs font-bold transition-colors ${yeuCauThanhToan.includes('tat_ca')
-                      ? 'bg-primary/10 border-primary text-primary'
-                      : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
-                    }`}
+            {/* --- CẤU HÌNH ĐIỀU KIỆN TỰ ĐỘNG & BỘ LỌC NÂNG CAO --- */}
+            <div className="col-span-2 border-t border-slate-100 dark:border-zinc-800 pt-5 space-y-4">
+              
+              {/* TỰ ĐỘNG ÁP DỤNG SWITCH */}
+              <div className="p-4 bg-purple-50/60 dark:bg-purple-955/30 rounded-2xl border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-extrabold text-purple-900 dark:text-purple-200 block">
+                    ⚡ Tự động áp dụng voucher này
+                  </span>
+                  <p className="text-[10px] text-purple-700/80 dark:text-purple-300/80 font-medium mt-0.5">
+                    Hệ thống sẽ tự động kích hoạt mã khi đơn hàng thỏa điều kiện (khách không cần nhập mã tay).
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setTuDongApDung(!tuDongApDung)}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                    tuDongApDung ? 'bg-purple-600' : 'bg-slate-300 dark:bg-zinc-700'
+                  }`}
                 >
-                  <input
-                    type="checkbox"
-                    checked={yeuCauThanhToan.includes('tat_ca')}
-                    onChange={toggleAllPaymentMethods}
-                    className="accent-primary"
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
+                      tuDongApDung ? 'translate-x-5' : 'translate-x-0'
+                    }`}
                   />
-                  Tất cả hình thức
+                </button>
+              </div>
+
+              {/* KÊNH THANH TOÁN ÁP DỤNG */}
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                  📱 Kênh thanh toán áp dụng
                 </label>
-                {PAYMENT_METHOD_OPTIONS.map((opt) => (
+                <div className="flex flex-wrap gap-2">
                   <label
-                    key={opt.value}
-                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border cursor-pointer text-xs font-bold transition-colors ${yeuCauThanhToan.includes(opt.value)
-                        ? 'bg-primary/10 border-primary text-primary'
-                        : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
-                      }`}
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border cursor-pointer text-xs font-bold transition-colors ${
+                      kenhApDung.includes('tat_ca')
+                        ? 'bg-cyan-50 border-cyan-500 text-cyan-700 dark:bg-cyan-955/50 dark:text-cyan-200'
+                        : 'bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-300'
+                    }`}
                   >
                     <input
                       type="checkbox"
-                      checked={yeuCauThanhToan.includes(opt.value)}
-                      onChange={() => togglePaymentMethod(opt.value)}
-                      className="accent-primary"
+                      checked={kenhApDung.includes('tat_ca')}
+                      onChange={toggleAllKenh}
+                      className="accent-cyan-600"
                     />
-                    {opt.label}
+                    Tất cả các kênh
                   </label>
-                ))}
+
+                  <label
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border cursor-pointer text-xs font-bold transition-colors ${
+                      kenhApDung.includes('online')
+                        ? 'bg-cyan-50 border-cyan-500 text-cyan-700 dark:bg-cyan-955/50 dark:text-cyan-200'
+                        : 'bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-300'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={kenhApDung.includes('online')}
+                      onChange={() => toggleKenh('online')}
+                      className="accent-cyan-600"
+                    />
+                    🌐 Khách trả Online (Website)
+                  </label>
+
+                  <label
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border cursor-pointer text-xs font-bold transition-colors ${
+                      kenhApDung.includes('tai_quay')
+                        ? 'bg-cyan-50 border-cyan-500 text-cyan-700 dark:bg-cyan-955/50 dark:text-cyan-200'
+                        : 'bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-300'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={kenhApDung.includes('tai_quay')}
+                      onChange={() => toggleKenh('tai_quay')}
+                      className="accent-cyan-600"
+                    />
+                    🏦 Lễ tân thu Tại Quầy
+                  </label>
+                </div>
               </div>
+
+              {/* LOẠI GÓI / DỊCH VỤ ÁP DỤNG */}
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                  🏥 Loại dịch vụ áp dụng
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <label
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border cursor-pointer text-xs font-bold transition-colors ${
+                      loaiGoiApDung.includes('tat_ca')
+                        ? 'bg-amber-50 border-amber-500 text-amber-700 dark:bg-amber-955/50 dark:text-amber-200'
+                        : 'bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-300'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={loaiGoiApDung.includes('tat_ca')}
+                      onChange={toggleAllLoaiGoi}
+                      className="accent-amber-600"
+                    />
+                    Tất cả dịch vụ
+                  </label>
+
+                  <label
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border cursor-pointer text-xs font-bold transition-colors ${
+                      loaiGoiApDung.includes('LIEU_TRINH')
+                        ? 'bg-amber-50 border-amber-500 text-amber-700 dark:bg-amber-955/50 dark:text-amber-200'
+                        : 'bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-300'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={loaiGoiApDung.includes('LIEU_TRINH')}
+                      onChange={() => toggleLoaiGoi('LIEU_TRINH')}
+                      className="accent-amber-600"
+                    />
+                    📋 Gói liệu trình PHCN
+                  </label>
+
+                  <label
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border cursor-pointer text-xs font-bold transition-colors ${
+                      loaiGoiApDung.includes('KHAM')
+                        ? 'bg-amber-50 border-amber-500 text-amber-700 dark:bg-amber-955/50 dark:text-amber-200'
+                        : 'bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-300'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={loaiGoiApDung.includes('KHAM')}
+                      onChange={() => toggleLoaiGoi('KHAM')}
+                      className="accent-amber-600"
+                    />
+                    🩺 Buổi Lượng giá / Khám
+                  </label>
+
+                  <label
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border cursor-pointer text-xs font-bold transition-colors ${
+                      loaiGoiApDung.includes('LE')
+                        ? 'bg-amber-50 border-amber-500 text-amber-700 dark:bg-amber-955/50 dark:text-amber-200'
+                        : 'bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-300'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={loaiGoiApDung.includes('LE')}
+                      onChange={() => toggleLoaiGoi('LE')}
+                      className="accent-amber-600"
+                    />
+                    ⚡ Dịch vụ lẻ
+                  </label>
+                </div>
+              </div>
+
+              {/* HÌNH THỨC THANH TOÁN GÓI */}
+              {(() => {
+                const isLieuTrinhApplicable = loaiGoiApDung.includes('tat_ca') || loaiGoiApDung.includes('LIEU_TRINH');
+
+                if (!isLieuTrinhApplicable) {
+                  return (
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                        💳 Hình thức thanh toán
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <label className="flex items-center gap-2 px-3.5 py-2 rounded-xl border bg-primary/10 border-primary text-primary text-xs font-bold cursor-default select-none">
+                          <input
+                            type="checkbox"
+                            checked={true}
+                            readOnly
+                            className="accent-primary"
+                          />
+                          Trả thẳng 100%
+                        </label>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                      💳 Hình thức thanh toán gói
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <label
+                        className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border cursor-pointer text-xs font-bold transition-colors ${
+                          yeuCauThanhToan.includes('tat_ca')
+                            ? 'bg-primary/10 border-primary text-primary'
+                            : 'bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-300'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={yeuCauThanhToan.includes('tat_ca')}
+                          onChange={toggleAllPaymentMethods}
+                          className="accent-primary"
+                        />
+                        Tất cả hình thức
+                      </label>
+                      {PAYMENT_METHOD_OPTIONS.map((opt) => (
+                        <label
+                          key={opt.value}
+                          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border cursor-pointer text-xs font-bold transition-colors ${
+                            yeuCauThanhToan.includes(opt.value)
+                              ? 'bg-primary/10 border-primary text-primary'
+                              : 'bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-300'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={yeuCauThanhToan.includes(opt.value)}
+                            onChange={() => togglePaymentMethod(opt.value)}
+                            className="accent-primary"
+                          />
+                          {opt.label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
             </div>
           </div>
 
           {/* Action Buttons */}
-          <div className="pt-6 border-t border-slate-100 flex justify-end gap-3.5">
+          <div className="pt-6 border-t border-slate-100 dark:border-zinc-800 flex justify-end gap-3.5">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-650 font-semibold hover:bg-slate-50 transition-colors text-sm"
+              className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 text-slate-650 dark:text-zinc-300 font-semibold hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors text-sm cursor-pointer"
             >
               Hủy bỏ
             </button>
             <button
               type="submit"
-              className="px-5 py-2.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary/95 shadow-lg shadow-teal-500/20 transition-all text-sm"
+              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white font-black uppercase tracking-wider shadow-lg shadow-teal-500/20 transition-all text-sm cursor-pointer active:scale-95"
             >
               {editingVoucher?.id ? 'Lưu thay đổi' : 'Kích hoạt ngay'}
             </button>

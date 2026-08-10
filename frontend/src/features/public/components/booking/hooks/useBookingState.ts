@@ -8,6 +8,8 @@ const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 export interface BuoiSlotAvailability {
   conLaiChung: number;
   choPhep: boolean;
+  /** Khách đã có 1 lịch ĐANG HOẠT ĐỘNG với đúng dịch vụ này trong buổi này — cảnh báo mềm, không chặn. */
+  trungDichVu: boolean;
 }
 
 export interface BuoiNhanSu {
@@ -24,13 +26,15 @@ export interface BuoiAvailability {
   chieu: BuoiSlotAvailability;
   nhanSu: BuoiNhanSu[];
   hasExistingClinicalExam: boolean;
+  buoc_thanh_toan_online?: boolean;
 }
 
 const EMPTY_AVAILABILITY: BuoiAvailability = {
-  sang: { conLaiChung: 0, choPhep: false },
-  chieu: { conLaiChung: 0, choPhep: false },
+  sang: { conLaiChung: 0, choPhep: false, trungDichVu: false },
+  chieu: { conLaiChung: 0, choPhep: false, trungDichVu: false },
   nhanSu: [],
-  hasExistingClinicalExam: false
+  hasExistingClinicalExam: false,
+  buoc_thanh_toan_online: false
 };
 
 function bookingReducer(state: BookingState, action: BookingAction): BookingState {

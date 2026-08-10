@@ -36,6 +36,9 @@ export interface Appointment {
   tong_so_buoi_goi?: number;
   so_tien_da_tra_goi?: number;
   tong_tien_phai_tra_goi?: number;
+  thoi_gian_goi_vao?: string | null;
+  so_lan_goi_khong_co_mat?: number;
+  so_thu_tu_hang_doi?: number | null;
 }
 
 export interface Staff {

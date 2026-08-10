@@ -158,7 +158,7 @@ export function SchedulesGrid({
                 <React.Fragment key={role}>
                   <tr className="bg-gray-50 dark:bg-zinc-800/80 select-none">
                     <td colSpan={8} className="py-2.5 px-4 text-[11px] font-bold text-gray-500 dark:text-teal-400 uppercase tracking-wider">
-                      {role} ({roleStaff.length})
+                      {role === 'Bác sĩ' ? 'Chuyên viên tư vấn' : role} ({roleStaff.length})
                     </td>
                   </tr>
                   {roleStaff.map(staff => {

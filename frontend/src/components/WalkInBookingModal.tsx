@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Clock, MapPin, User, Stethoscope, Search, Loader2, CalendarRange, ArrowLeft, X, ChevronDown, Check, Sun, Moon } from 'lucide-react';
+import { Clock, MapPin, User, Stethoscope, Search, Loader2, CalendarRange, ArrowLeft, X, ChevronDown, Check, Sun, Moon, Users, CheckCircle2, CreditCard } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
@@ -246,6 +246,7 @@ export default function WalkInBookingModal({
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [selectedServiceId, setSelectedServiceId] = useState('');
   const [packageManuallyCleared, setPackageManuallyCleared] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
 
   // 1. Filter services based on activeType (Kham vs Lieu Trinh Le)
@@ -298,12 +299,21 @@ export default function WalkInBookingModal({
         }
       };
       fetchAndSelectCustomer();
+    } else {
+      setSelectedCustomer(null);
+      setHoTen('');
+      setSdt('');
+      setEmail('');
+      setGioiTinh('nam');
+      setSelectedPlan(null);
     }
   }, [initialCustomerId]);
 
   useEffect(() => {
     if (initialServiceId) {
       setSelectedServiceId(initialServiceId);
+    } else {
+      setSelectedServiceId('');
     }
   }, [initialServiceId]);
 
@@ -570,6 +580,82 @@ export default function WalkInBookingModal({
     }
   }, [availableDoctors, selectedDoctorId]);
 
+  const handleProceedToPayment = async () => {
+    setShowPaymentModal(false);
+    let customerId = selectedCustomer?.id;
+    if (isNewCustomer) {
+      try {
+        const res = await axiosInstance.post('/admin/customers', {
+          ho_ten: hoTen,
+          so_dien_thoai: sdt,
+          gioi_tinh: gioiTinh,
+          email: email || null
+        });
+        customerId = res.data?.id || res.data?.customer?.id;
+      } catch (err: any) {
+        toast.error('Không thể tạo thông tin khách hàng mới');
+        return;
+      }
+    }
+
+    const isPlanRec = selectedPlan && selectedPlan.trang_thai === 'khuyen_nghi';
+    const activePlan = selectedPlan && !isPlanRec ? selectedPlan : null;
+
+    const draftPayload = {
+      khach_hang_id: customerId,
+      ho_ten_khach: hoTen,
+      so_dien_thoai: sdt,
+      gioi_tinh_khach: gioiTinh,
+      email: email || null,
+      ly_do_kham: lyDo || (activePlan ? `Điều trị buổi ${activePlan.so_buoi_da_dung + 1}` : (isPlanRec ? `Trị liệu theo chỉ định: ${selectedPlan.ten_goi_dich_vu}` : 'Khám lượng giá')),
+      goi_dich_vu_id: selectedServiceId,
+      ngay: selectedDate,
+      buoi: selectedBuoi,
+      bac_si_id: selectedDoctorId ? Number(selectedDoctorId) : null,
+      phong_id: selectedRoomId ? Number(selectedRoomId) : null,
+      loai_lich: activePlan ? 'dieu_tri' : (isExam ? 'kham_moi' : 'dich_vu_don'),
+      phac_do_dieu_tri_id: activePlan ? activePlan.id : null,
+      so_thu_tu_buoi: activePlan ? activePlan.so_buoi_da_dung + 1 : null,
+      trang_thai: 'da_checkin',
+      ghi_chu_dat_lich: lyDo || (activePlan ? `Đặt lịch trị liệu theo gói ${activePlan.ten_goi_dich_vu}` : (isPlanRec ? 'Đặt lịch trị liệu theo chỉ định y khoa' : 'Lập lịch nhanh tại quầy lễ tân'))
+    };
+
+    sessionStorage.setItem('draft_walkin_checkin', JSON.stringify(draftPayload));
+    onClose();
+
+    const billingRoute = isReceptionist ? '/receptionist/billing' : '/admin/quick-billing';
+    toast.success('💳 Chuyển sang màn hình thu tiền. Vui lòng thanh toán để tạo & Check-in ca hẹn!');
+    navigate(`${billingRoute}?draft_walkin=true`);
+  };
+
+  const executeSubmit = async (shouldPayNow: boolean, overrideStatus?: 'da_checkin' | 'da_xac_nhan') => {
+    const isPlanRec = selectedPlan && selectedPlan.trang_thai === 'khuyen_nghi';
+    const activePlan = selectedPlan && !isPlanRec ? selectedPlan : null;
+    const finalStatus = overrideStatus || (shouldPayNow ? 'da_xac_nhan' : bookingStatus);
+
+    const payload = {
+      khach_hang_id: isNewCustomer ? null : selectedCustomer.id,
+      ho_ten_khach: hoTen,
+      so_dien_thoai: sdt,
+      gioi_tinh_khach: gioiTinh,
+      email: email || null,
+      ly_do_kham: lyDo || (activePlan ? `Điều trị buổi ${activePlan.so_buoi_da_dung + 1}` : (isPlanRec ? `Trị liệu theo chỉ định: ${selectedPlan.ten_goi_dich_vu}` : 'Khám lượng giá')),
+      goi_dich_vu_id: selectedServiceId,
+      ngay: selectedDate,
+      buoi: selectedBuoi,
+      bac_si_id: selectedDoctorId ? Number(selectedDoctorId) : null,
+      phong_id: selectedRoomId ? Number(selectedRoomId) : null,
+      loai_lich: activePlan ? 'dieu_tri' : (isExam ? 'kham_moi' : 'dich_vu_don'),
+      phac_do_dieu_tri_id: activePlan ? activePlan.id : null,
+      so_thu_tu_buoi: activePlan ? activePlan.so_buoi_da_dung + 1 : null,
+      trang_thai: finalStatus,
+      shouldPayNow,
+      ghi_chu_dat_lich: lyDo || (activePlan ? `Đặt lịch trị liệu theo gói ${activePlan.ten_goi_dich_vu}` : (isPlanRec ? 'Đặt lịch trị liệu theo chỉ định y khoa' : 'Lập lịch nhanh tại quầy lễ tân'))
+    };
+
+    await onSubmitApi(payload);
+  };
+
   const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedBuoi) {
@@ -578,10 +664,6 @@ export default function WalkInBookingModal({
     }
     if (!selectedServiceId) {
       toast.error('Vui lòng chọn dịch vụ!');
-      return;
-    }
-    if (!isReceptionist && !selectedDoctorId) {
-      toast.error('Vui lòng chọn nhân sự phụ trách!');
       return;
     }
     if (!isNewCustomer && !selectedCustomer) {
@@ -597,8 +679,6 @@ export default function WalkInBookingModal({
           if (!errs[field]) errs[field] = issue.message;
         }
         setNewCustomerErrors(errs);
-        // Trường bị lỗi nằm ở đầu form (dài, có thể đang cuộn xuống khu chọn dịch vụ/giờ) — chỉ
-        // hiện lỗi inline dưới ô thì dễ bị bỏ sót ngoài màn hình, nên toast thêm để chắc chắn thấy.
         toast.error(parsed.error.issues[0]?.message || 'Vui lòng kiểm tra lại thông tin khách hàng mới.');
         return;
       }
@@ -612,9 +692,7 @@ export default function WalkInBookingModal({
       toast.error(
         selectedPlan.lich_dang_hoat_dong
           ? `Buổi ${selectedPlan.lich_dang_hoat_dong.so_thu_tu_buoi} của gói này đang có lịch hoạt động. Vui lòng hoàn thành hoặc hủy lịch cũ trước khi đặt buổi tiếp theo!`
-          : selectedPlan.hinh_thuc_thanh_toan_goi === 'tra_gop'
-            ? `Gói trả góp chưa đóng Đợt 2. Vui lòng thu Đợt 2 trước khi đặt buổi số ${nextSession}!`
-            : `Gói chưa thanh toán đủ. Vui lòng thu tiền trước khi đặt buổi số ${nextSession}!`
+          : `Gói chưa thanh toán đủ. Vui lòng thu tiền trước khi đặt buổi số ${nextSession}!`
       );
       return;
     }
@@ -633,29 +711,16 @@ export default function WalkInBookingModal({
       return;
     }
 
-    const isPlanRec = selectedPlan && selectedPlan.trang_thai === 'khuyen_nghi';
-    const activePlan = selectedPlan && !isPlanRec ? selectedPlan : null;
+    const servicePrice = Number(selectedService?.don_gia ?? selectedService?.gia_dich_vu ?? selectedService?.gia_tien ?? 0);
+    const requiresPrepayment = bookingStatus === 'da_checkin' && isExam && servicePrice > 0;
 
-    const payload = {
-      khach_hang_id: isNewCustomer ? null : selectedCustomer.id,
-      ho_ten_khach: hoTen,
-      so_dien_thoai: sdt,
-      gioi_tinh_khach: gioiTinh,
-      email: email || null,
-      ly_do_kham: lyDo || (activePlan ? `Điều trị buổi ${activePlan.so_buoi_da_dung + 1}` : (isPlanRec ? `Trị liệu theo chỉ định: ${selectedPlan.ten_goi_dich_vu}` : 'Khám lượng giá')),
-      goi_dich_vu_id: selectedServiceId,
-      ngay: selectedDate,
-      buoi: selectedBuoi,
-      bac_si_id: isReceptionist ? null : (selectedDoctorId ? Number(selectedDoctorId) : null),
-      phong_id: isReceptionist ? null : (selectedRoomId ? Number(selectedRoomId) : null),
-      loai_lich: activePlan ? 'dieu_tri' : (isExam ? 'kham_moi' : 'dich_vu_don'),
-      phac_do_dieu_tri_id: activePlan ? activePlan.id : null,
-      so_thu_tu_buoi: activePlan ? activePlan.so_buoi_da_dung + 1 : null,
-      trang_thai: (!isReceptionist && selectedDoctorId) ? bookingStatus : 'da_xac_nhan',
-      ghi_chu_dat_lich: lyDo || (activePlan ? `Đặt lịch trị liệu theo gói ${activePlan.ten_goi_dich_vu}` : (isPlanRec ? 'Đặt lịch trị liệu theo chỉ định y khoa' : 'Lập lịch nhanh tại quầy lễ tân'))
-    };
+    if (requiresPrepayment) {
+      // Bật popup thông báo thu tiền trước khi Check-in ca Lượng giá
+      setShowPaymentModal(true);
+      return;
+    }
 
-    await onSubmitApi(payload);
+    await executeSubmit(false);
   };
 
   const buoiOptions = (['sang', 'chieu'] as Buoi[]).map(key => {
@@ -666,29 +731,29 @@ export default function WalkInBookingModal({
 
   return (
     <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm p-6 space-y-6 animate-in fade-in duration-300">
-      {/* Header */}
-      <div className="pb-4 border-b border-slate-100 flex justify-between items-center bg-white">
+      {/* Header Pro Max */}
+      <div className="pb-4 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between bg-white dark:bg-zinc-900">
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 hover:bg-slate-100 text-slate-500 rounded-lg transition-colors flex items-center gap-1 text-xs font-black uppercase tracking-wider"
-            title="Quay lại bảng"
-          >
-            <ArrowLeft size={16} className="stroke-[3]" />
-            <span>Quay lại bảng</span>
-          </button>
-          <div className="h-6 w-[1px] bg-slate-200"></div>
+          <div className="size-10 rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-600 text-white flex items-center justify-center font-black shadow-md shrink-0">
+            <Stethoscope size={20} />
+          </div>
           <div>
-            <h3 className="text-base font-black text-slate-800 flex items-center gap-2">
-              <Stethoscope className="text-emerald-600" size={20} />
-              Đăng ký ca {activeType === 'kham' ? 'khám' : 'điều trị'} tại quầy
+            <h3 className="text-base font-black text-slate-900 dark:text-zinc-100 flex items-center gap-2 font-jakarta">
+              Đăng ký ca {activeType === 'kham' ? 'khám lượng giá' : 'điều trị'} tại quầy
             </h3>
-            <p className="text-[10px] text-slate-400 font-bold mt-0.5">
+            <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-bold mt-0.5">
               Lập lịch nhanh dịch vụ, tự động xác nhận
             </p>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="size-9 rounded-full bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-500 dark:text-zinc-400 flex items-center justify-center transition-all cursor-pointer hover:scale-105"
+          title="Đóng form"
+        >
+          <X size={18} />
+        </button>
       </div>
 
       {/* Form Content */}
@@ -696,19 +761,19 @@ export default function WalkInBookingModal({
         
         {/* Tab chọn Khách hàng Cũ / Khách mới */}
         <div className="space-y-4">
-          <div className="flex justify-between items-center border-b border-slate-100 pb-1.5">
-            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+          <div className="flex justify-between items-center border-b border-slate-100 dark:border-zinc-800 pb-2">
+            <h4 className="text-xs font-black text-slate-400 dark:text-zinc-400 uppercase tracking-wider font-jakarta">
               Hành chính bệnh nhân
             </h4>
             {!initialCustomerId && (
-              <div className="flex bg-slate-100 p-0.5 rounded-lg text-xs font-bold">
+              <div className="flex bg-slate-100 dark:bg-zinc-800 p-1 rounded-xl text-xs font-bold shadow-inner">
                 <button
                   type="button"
                   onClick={() => {
                     setIsNewCustomer(false);
                     handleClearCustomer();
                   }}
-                  className={`px-3 py-1 rounded-md transition-all ${!isNewCustomer ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                  className={`px-3.5 py-1.5 rounded-lg transition-all font-black ${!isNewCustomer ? 'bg-white dark:bg-zinc-900 text-teal-700 dark:text-teal-400 shadow-sm' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200'}`}
                 >
                   Khách đã có hồ sơ
                 </button>
@@ -718,7 +783,7 @@ export default function WalkInBookingModal({
                     setIsNewCustomer(true);
                     handleClearCustomer();
                   }}
-                  className={`px-3 py-1 rounded-md transition-all ${isNewCustomer ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                  className={`px-3.5 py-1.5 rounded-lg transition-all font-black ${isNewCustomer ? 'bg-white dark:bg-zinc-900 text-teal-700 dark:text-teal-400 shadow-sm' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200'}`}
                 >
                   + Khách mới (Tạo hồ sơ)
                 </button>
@@ -731,7 +796,7 @@ export default function WalkInBookingModal({
             <div className="space-y-3">
               {!selectedCustomer ? (
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-zinc-500">
                     <Search size={16} />
                   </div>
                   <input
@@ -739,54 +804,81 @@ export default function WalkInBookingModal({
                     placeholder="Tìm kiếm khách hàng bằng Tên hoặc Số điện thoại (tối thiểu 2 ký tự)..."
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all font-semibold"
+                    className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-zinc-800/80 border border-slate-200 dark:border-zinc-700 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-semibold text-slate-800 dark:text-zinc-100"
                   />
                   {searchLoading && (
-                    <div className="absolute inset-y-0 right-3 flex items-center">
-                      <Loader2 className="animate-spin text-slate-400" size={16} />
+                    <div className="absolute inset-y-0 right-3.5 flex items-center">
+                      <Loader2 className="animate-spin text-teal-600 dark:text-teal-400" size={18} />
                     </div>
                   )}
 
-                  {/* Kết quả tìm kiếm */}
+                  {/* Kết quả tìm kiếm Pro Max */}
                   {searchResults.length > 0 && (
-                    <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-150 rounded-2xl shadow-xl max-h-56 overflow-y-auto z-50 divide-y divide-slate-100">
+                    <div className="absolute left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl max-h-64 overflow-y-auto z-50 divide-y divide-slate-100 dark:divide-zinc-800 p-1.5 animate-in fade-in slide-in-from-top-2 duration-150">
                       {searchResults.map((cust) => (
                         <div
                           key={cust.id}
                           onClick={() => handleSelectCustomer(cust)}
-                          className="p-3 hover:bg-slate-55 cursor-pointer flex items-center justify-between transition-colors"
+                          className="p-3 hover:bg-teal-50/60 dark:hover:bg-teal-950/40 rounded-xl cursor-pointer flex items-center justify-between transition-all group"
                         >
-                          <div>
-                            <p className="text-xs font-black text-slate-800">{cust.ho_ten}</p>
-                            <p className="text-[10px] text-slate-455 font-mono mt-0.5">{cust.so_dien_thoai || 'Không có SĐT'}</p>
+                          <div className="flex items-center gap-3">
+                            <div className="size-9 rounded-xl bg-teal-100 dark:bg-teal-950/80 text-teal-700 dark:text-teal-300 font-black text-xs flex items-center justify-center shrink-0">
+                              {(cust.ho_ten || 'K').trim().split(/\s+/).pop()?.[0] || 'K'}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className="text-xs font-black text-slate-900 dark:text-zinc-100 group-hover:text-teal-700 dark:group-hover:text-teal-400 transition-colors">
+                                  {cust.ho_ten}
+                                </p>
+                                <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400">
+                                  {cust.ma_khach_hang || `KH-${cust.id}`}
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-slate-500 dark:text-zinc-400 font-mono mt-0.5">
+                                SĐT: {cust.so_dien_thoai || 'Không có SĐT'} {cust.email ? `· ${cust.email}` : ''}
+                              </p>
+                            </div>
                           </div>
-                          <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Chọn</span>
+                          <span className="text-[11px] font-black text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/80 px-3 py-1 rounded-lg group-hover:bg-teal-600 group-hover:text-white transition-all shadow-2xs">
+                            🚀 Chọn
+                          </span>
                         </div>
                       ))}
                     </div>
                   )}
                 </div>
               ) : (
-                /* Đã chọn khách hàng profile card */
+                /* Đã chọn khách hàng profile card Pro Max */
                 <div className="flex flex-col gap-3">
-                  <div className="bg-emerald-50/30 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/60 p-4 rounded-2xl flex justify-between items-center animate-in fade-in duration-200">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2.5 bg-emerald-600 text-white rounded-2xl">
-                        <User size={18} />
+                  <div className="bg-gradient-to-r from-teal-50/80 to-cyan-50/80 dark:from-teal-950/40 dark:to-cyan-950/40 border border-teal-200/80 dark:border-teal-800/60 p-4 rounded-2xl flex justify-between items-center animate-in fade-in duration-200 shadow-2xs">
+                    <div className="flex items-center gap-3.5">
+                      <div className="size-11 rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-600 text-white flex items-center justify-center font-black text-lg shadow-md shrink-0">
+                        <User size={20} />
                       </div>
                       <div>
-                        <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest block">Bệnh nhân liên kết</span>
-                        <span className="text-sm font-black text-slate-800 dark:text-zinc-100 block mt-0.5">{hoTen}</span>
-                        <span className="text-[10px] text-slate-500 dark:text-zinc-400 font-semibold block mt-0.5">SĐT liên hệ: {sdt}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-black text-teal-700 dark:text-teal-400 uppercase tracking-widest block">
+                            Bệnh nhân đã chọn
+                          </span>
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-teal-100 dark:bg-teal-900/60 text-teal-800 dark:text-teal-300">
+                            {selectedCustomer.ma_khach_hang || `KH-${selectedCustomer.id}`}
+                          </span>
+                        </div>
+                        <span className="text-sm font-black text-slate-900 dark:text-zinc-100 block mt-0.5 font-jakarta">
+                          {hoTen}
+                        </span>
+                        <span className="text-[11px] text-slate-600 dark:text-zinc-400 font-semibold block mt-0.5 font-mono">
+                          SĐT: <strong>{sdt}</strong> {email ? `· Email: ${email}` : ''}
+                        </span>
                       </div>
                     </div>
                     {!initialCustomerId && (
                       <button
                         type="button"
                         onClick={handleClearCustomer}
-                        className="px-3 py-1.5 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-700 text-xs font-bold text-slate-700 dark:text-zinc-200 rounded-lg transition-all cursor-pointer"
+                        className="px-3.5 py-2 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-700 text-xs font-bold text-slate-700 dark:text-zinc-200 rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-105"
                       >
-                        Chọn khách hàng khác
+                        ✕ Chọn khách hàng khác
                       </button>
                     )}
                   </div>
@@ -891,7 +983,7 @@ export default function WalkInBookingModal({
                 <div className="space-y-0.5">
                   <h4 className="text-[11px] font-black text-emerald-950 dark:text-emerald-200">
                     {treatmentPlans.some(p => p.trang_thai === 'khuyen_nghi') 
-                      ? 'Khách có chỉ định dịch vụ từ Bác sĩ' 
+                      ? 'Khách có chỉ định dịch vụ từ Chuyên viên' 
                       : `Khách có gói liệu trình đang hoạt động (${treatmentPlans.length})`}
                   </h4>
                   <p className="text-[10px] text-emerald-800/80 dark:text-emerald-300 font-bold">
@@ -947,7 +1039,7 @@ export default function WalkInBookingModal({
                           </div>
                           <p className="text-[10px] text-slate-400 font-semibold mt-0.5">
                             {isRec
-                              ? 'Bác sĩ chỉ định — chưa thanh toán/kích hoạt'
+                              ? 'Chuyên viên chỉ định — chưa thanh toán/kích hoạt'
                               : hasActiveAppt
                                 ? `Đã dùng: ${plan.so_buoi_da_dung}/${plan.tong_so_buoi} buổi | Buổi ${plan.lich_dang_hoat_dong.so_thu_tu_buoi} đã có lịch`
                                 : `Đã dùng: ${plan.so_buoi_da_dung}/${plan.tong_so_buoi} buổi | Ca tiếp theo: Buổi ${nextSession}`
@@ -957,9 +1049,7 @@ export default function WalkInBookingModal({
                             <p className="text-[10px] text-rose-600 font-bold mt-1">
                               {hasActiveAppt
                                 ? `📅 Buổi ${plan.lich_dang_hoat_dong.so_thu_tu_buoi}: ${format(new Date(plan.lich_dang_hoat_dong.ngay_gio_bat_dau), 'dd/MM/yyyy HH:mm')} (${statusConfig[plan.lich_dang_hoat_dong.trang_thai]?.label || plan.lich_dang_hoat_dong.trang_thai}) — hoàn thành/hủy buổi này trước khi đặt tiếp.`
-                                : `⚠️ ${plan.hinh_thuc_thanh_toan_goi === 'tra_gop'
-                                    ? `Chưa đóng Đợt 2 — không thể đặt buổi ${nextSession}.`
-                                    : `Chưa thanh toán đủ — không thể đặt buổi ${nextSession}.`}`}
+                                : `⚠️ Chưa thanh toán đủ — không thể đặt buổi ${nextSession}.`}
                             </p>
                           )}
                         </div>
@@ -978,7 +1068,7 @@ export default function WalkInBookingModal({
                               }}
                               className="text-[10px] font-black px-3 py-2 rounded-lg shrink-0 bg-amber-500 hover:bg-amber-600 text-white shadow-sm transition-all active:scale-95 cursor-pointer"
                             >
-                              💵 {plan.hinh_thuc_thanh_toan_goi === 'tra_gop' ? 'Thanh toán Đợt 2' : 'Thanh toán'}
+                              💵 Thanh toán
                             </button>
                           ) : (
                             <span className="text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 bg-rose-500 text-white">
@@ -1131,166 +1221,288 @@ export default function WalkInBookingModal({
           </div>
         </div>
 
-        {/* QUẢN LÝ THÌ MỚI HIỆN PHẦN CHỌN NHÂN SỰ VÀ TỰ ĐỘNG KHÓA PHÒNG TRỰC */}
-        {selectedBuoi && !isReceptionist && (
+        {/* CHỌN NHÂN SỰ VÀ TRẠNG THÁI CA HẸN (DÙNG CHUNG CHO CẢ ADMIN VÀ LỄ TÂN) */}
+        {selectedBuoi && (
           <>
-            {/* Chọn Bác Sĩ / KTV (Không bắt buộc) */}
-            <div className="space-y-3">
-              <div className="flex justify-between items-center border-b border-slate-100 dark:border-zinc-800 pb-1.5">
-                <h4 className="text-xs font-bold text-slate-400 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <User size={14} className="text-slate-400 dark:text-zinc-400" />
-                  {isExam ? 'Phân bổ Bác sĩ phụ trách' : 'Phân bổ Kỹ thuật viên phụ trách'}
-                </h4>
-                <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-semibold italic">(Không bắt buộc)</span>
+            {/* Trạng thái ca hẹn */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-400 dark:text-zinc-400 uppercase tracking-wider block font-jakarta">
+                Trạng thái đăng ký ca hẹn
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setBookingStatus('da_checkin')}
+                  className={`p-3.5 rounded-2xl border flex items-center gap-3 text-left transition-all cursor-pointer ${
+                    bookingStatus === 'da_checkin'
+                      ? 'bg-emerald-600 border-emerald-600 text-white shadow-md'
+                      : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-800 dark:text-zinc-100 hover:border-emerald-300'
+                  }`}
+                >
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black ${
+                    bookingStatus === 'da_checkin' ? 'bg-white/20 text-white' : 'bg-emerald-50 text-emerald-600'
+                  }`}>
+                    <CheckCircle2 size={16} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-black">Khách tại quầy (Check-in ngay)</p>
+                    <p className={`text-[10px] font-medium mt-0.5 ${bookingStatus === 'da_checkin' ? 'text-white/80' : 'text-slate-400'}`}>
+                      {isExam ? 'Bắt buộc thu tiền Lượng giá để vào hàng đợi' : 'Vào thẳng hàng đợi (Thu tiền linh hoạt)'}
+                    </p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setBookingStatus('da_xac_nhan')}
+                  className={`p-3.5 rounded-2xl border flex items-center gap-3 text-left transition-all cursor-pointer ${
+                    bookingStatus === 'da_xac_nhan'
+                      ? 'bg-emerald-600 border-emerald-600 text-white shadow-md'
+                      : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-800 dark:text-zinc-100 hover:border-emerald-300'
+                  }`}
+                >
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black ${
+                    bookingStatus === 'da_xac_nhan' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    <CalendarRange size={16} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-black">Đặt trước (Đã xác nhận)</p>
+                    <p className={`text-[10px] font-medium mt-0.5 ${bookingStatus === 'da_xac_nhan' ? 'text-white/80' : 'text-slate-400'}`}>
+                      Lưu lịch hẹn trước, check-in sau khi khách tới
+                    </p>
+                  </div>
+                </button>
               </div>
-              
-              {selectedDoctorId && (
-                <div className="flex gap-4 p-3 bg-slate-50 dark:bg-zinc-800/80 rounded-xl border border-slate-200 dark:border-zinc-700 mb-2">
-                  <span className="text-xs font-bold text-slate-500 dark:text-zinc-400">Trạng thái ca hẹn:</span>
-                  <div className="flex gap-4">
-                    <label className="flex items-center gap-1.5 text-xs font-black cursor-pointer text-slate-700 dark:text-zinc-200">
-                      <input
-                        type="radio"
-                        name="bookingStatus"
-                        checked={bookingStatus === 'da_checkin'}
-                        onChange={() => setBookingStatus('da_checkin')}
-                        className="accent-emerald-600"
-                      />
-                      Khách đã đến (Check-in)
-                    </label>
-                    <label className="flex items-center gap-1.5 text-xs font-black cursor-pointer text-slate-700 dark:text-zinc-200">
-                      <input
-                        type="radio"
-                        name="bookingStatus"
-                        checked={bookingStatus === 'da_xac_nhan'}
-                        onChange={() => setBookingStatus('da_xac_nhan')}
-                        className="accent-emerald-600"
-                      />
-                      Đặt lịch trước (Xác nhận)
-                    </label>
+            </div>
+
+            {/* Chọn Bác Sĩ / KTV (Chỉ hiển thị cho Quản lý / Admin — Lễ tân không phân bổ nhân sự, luôn vào bể chung) */}
+            {!isReceptionist && (
+              <>
+                <div className="space-y-3 pt-2">
+                  <div className="flex justify-between items-center border-b border-slate-100 dark:border-zinc-800 pb-1.5">
+                    <h4 className="text-xs font-bold text-slate-400 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <User size={14} className="text-slate-400 dark:text-zinc-400" />
+                      {isExam ? 'Phân bổ Chuyên viên phụ trách' : 'Phân bổ Kỹ thuật viên phụ trách'}
+                    </h4>
+                    <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-semibold italic">(Có thể chọn Bất kỳ)</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Thẻ Nút: Bất kỳ / Không phân bổ */}
+                    <div
+                      onClick={() => {
+                        setSelectedDoctorId('');
+                        setSelectedRoomId('');
+                      }}
+                      className={`p-3.5 border rounded-2xl flex items-center gap-3 transition-all cursor-pointer ${
+                        !selectedDoctorId
+                          ? 'border-emerald-500 dark:border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/40 ring-2 ring-emerald-500/10'
+                          : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-emerald-300'
+                      }`}
+                    >
+                      <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+                        !selectedDoctorId ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500'
+                      }`}>
+                        <Users size={16} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-black text-slate-800 dark:text-zinc-100 truncate">
+                          Bất kỳ (Hàng đợi chung)
+                        </p>
+                        <p className="text-[10px] font-semibold text-slate-400 mt-0.5">
+                          Chưa gán đích danh — Nhân sự rảnh bấm gọi
+                        </p>
+                      </div>
+                      {!selectedDoctorId && (
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-600 text-white">
+                          Đã chọn
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Danh sách nhân sự khả dụng */}
+                    {availableDoctors.map(doc => {
+                      const isSelected = String(selectedDoctorId) === String(doc.id);
+                      return (
+                        <div
+                          key={doc.id}
+                          onClick={() => doc.available && setSelectedDoctorId(String(doc.id))}
+                          className={`p-3.5 border rounded-2xl flex items-center gap-3 transition-all ${
+                            doc.available
+                              ? isSelected
+                                ? 'border-emerald-500 dark:border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/40 ring-2 ring-emerald-500/10 cursor-pointer'
+                                : doc.endsEarly
+                                  ? 'border-amber-300 dark:border-amber-800/70 bg-amber-50/40 dark:bg-amber-950/20 hover:border-amber-400 hover:shadow-sm cursor-pointer'
+                                  : 'border-slate-150 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-emerald-300 dark:hover:border-emerald-600 hover:shadow-sm cursor-pointer'
+                              : 'border-slate-100 dark:border-zinc-800 bg-slate-100/60 dark:bg-zinc-800/60 opacity-60 cursor-not-allowed'
+                          }`}
+                        >
+                          {doc.anh_dai_dien ? (
+                            <img
+                              src={resolveImageUrl(doc.anh_dai_dien)}
+                              alt={doc.ho_ten}
+                              className={`w-9 h-9 rounded-full object-cover shrink-0 border-2 ${
+                                isSelected && doc.available ? 'border-emerald-500' : 'border-slate-200 dark:border-zinc-700'
+                              } ${doc.available ? '' : 'grayscale'}`}
+                            />
+                          ) : (
+                            <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+                              doc.available ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300' : 'bg-slate-200 dark:bg-zinc-700 text-slate-500 dark:text-zinc-400'
+                            }`}>
+                              {isExam ? 'BS' : 'KTV'}
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-black text-slate-800 dark:text-zinc-100 truncate flex items-center gap-1.5">
+                              <span>{doc.ho_ten}</span>
+                              <span className="text-[9px] text-slate-500 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 px-1.5 py-0.2 rounded font-extrabold">{doc.occupiedCount} ca</span>
+                            </p>
+                            <p className={`text-[10px] font-semibold mt-0.5 ${doc.endsEarly ? 'text-amber-600 dark:text-amber-450 font-black' : 'text-slate-400 dark:text-zinc-400'}`}>
+                              {doc.endsEarly ? `⚠️ ${doc.reason} — chỉ nhận khách đến trước ${doc.gioKetThucTruc}` : doc.reason}
+                            </p>
+                          </div>
+                          {doc.available && (
+                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                              isSelected ? 'bg-emerald-600 text-white' : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                            }`}>
+                              {isSelected ? 'Đã chọn' : 'Sẵn sàng'}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              )}
 
-              {availableDoctors.length === 0 ? (
-                <div className="text-sm text-slate-400 dark:text-zinc-500 italic">Không tìm thấy thông tin nhân sự khả dụng.</div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {availableDoctors.map(doc => {
-                    const isSelected = String(selectedDoctorId) === String(doc.id);
-                    return (
-                      <div
-                        key={doc.id}
-                        onClick={() => doc.available && setSelectedDoctorId(String(doc.id))}
-                        className={`p-3.5 border rounded-2xl flex items-center gap-3 transition-all ${
-                          doc.available
-                            ? isSelected
-                              ? 'border-emerald-500 dark:border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/40 ring-2 ring-emerald-500/10 cursor-pointer'
-                              : doc.endsEarly
-                                ? 'border-amber-300 dark:border-amber-800/70 bg-amber-50/40 dark:bg-amber-950/20 hover:border-amber-400 hover:shadow-sm cursor-pointer'
-                                : 'border-slate-150 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-emerald-300 dark:hover:border-emerald-600 hover:shadow-sm cursor-pointer'
-                            : 'border-slate-100 dark:border-zinc-800 bg-slate-100/60 dark:bg-zinc-800/60 opacity-60 cursor-not-allowed'
-                        }`}
-                      >
-                        {doc.anh_dai_dien ? (
-                          <img
-                            src={resolveImageUrl(doc.anh_dai_dien)}
-                            alt={doc.ho_ten}
-                            className={`w-9 h-9 rounded-full object-cover shrink-0 border-2 ${
-                              isSelected && doc.available ? 'border-emerald-500' : 'border-slate-200 dark:border-zinc-700'
-                            } ${doc.available ? '' : 'grayscale'}`}
-                          />
-                        ) : (
-                          <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
-                            doc.available ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300' : 'bg-slate-200 dark:bg-zinc-700 text-slate-500 dark:text-zinc-400'
-                          }`}>
-                            {isExam ? 'BS' : 'KTV'}
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-black text-slate-800 dark:text-zinc-100 truncate flex items-center gap-1.5">
-                            <span>{doc.ho_ten}</span>
-                            <span className="text-[9px] text-slate-500 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 px-1.5 py-0.2 rounded font-extrabold">{doc.occupiedCount} ca</span>
-                          </p>
-                          <p className={`text-[10px] font-semibold mt-0.5 ${doc.endsEarly ? 'text-amber-600 dark:text-amber-450 font-black' : 'text-slate-400 dark:text-zinc-400'}`}>
-                            {doc.endsEarly ? `⚠️ ${doc.reason} — chỉ nhận khách đến trước ${doc.gioKetThucTruc}` : doc.reason}
-                          </p>
-                        </div>
-                        {doc.available && (
-                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
-                            isSelected ? 'bg-emerald-600 text-white' : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
-                          }`}>
-                            {isSelected ? 'Đã chọn' : 'Sẵn sàng'}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
+                {/* TỰ ĐỘNG KHÓA VÀ HIỂN THỊ PHÒNG TRỰC CỦA CHUYÊN GIA (Không cho chọn thủ công) */}
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center border-b border-slate-100 dark:border-zinc-800 pb-1.5">
+                    <h4 className="text-xs font-bold text-slate-400 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <MapPin size={14} className="text-slate-400 dark:text-zinc-400" />
+                      Phòng chuyên khoa / trị liệu gán ca trực
+                    </h4>
+                  </div>
+
+                  <div className="bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 p-4 rounded-2xl flex justify-between items-center select-none animate-in fade-in duration-200">
+                    <div>
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Phòng trực ca làm việc</span>
+                      <span className="text-sm font-black text-slate-800 block mt-0.5">
+                        {selectedRoomId ? (roomsList.find(r => String(r.id) === String(selectedRoomId))?.ten_phong || 'Phòng làm việc') : 'Chưa xếp phòng trực'}
+                      </span>
+                      <span className="text-[10px] text-emerald-600 font-bold block mt-1">
+                        {selectedDoctorId ? '✓ Tự động gán theo cấu hình ca trực' : '⚠️ Sẽ tự động phân phòng khi gán nhân sự'}
+                      </span>
+                    </div>
+                    <span className="text-xs font-black text-slate-400 bg-slate-100/80 px-3 py-1 rounded-xl">Đã khóa</span>
+                  </div>
                 </div>
-              )}
-            </div>
-
-            {/* TỰ ĐỘNG KHÓA VÀ HIỂN THỊ PHÒNG TRỰC CỦA CHUYÊN GIA (Không cho chọn thủ công) */}
-            <div className="space-y-3">
-              <div className="flex justify-between items-center border-b border-slate-100 dark:border-zinc-800 pb-1.5">
-                <h4 className="text-xs font-bold text-slate-400 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <MapPin size={14} className="text-slate-400 dark:text-zinc-400" />
-                  Phòng chuyên khoa / trị liệu gán ca trực
-                </h4>
-              </div>
-
-              <div className="bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 p-4 rounded-2xl flex justify-between items-center select-none animate-in fade-in duration-200">
-                <div>
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Phòng trực ca làm việc</span>
-                  <span className="text-sm font-black text-slate-800 block mt-0.5">
-                    {selectedRoomId ? (roomsList.find(r => String(r.id) === String(selectedRoomId))?.ten_phong || 'Phòng làm việc') : 'Chưa xếp phòng trực'}
-                  </span>
-                  <span className="text-[10px] text-emerald-600 font-bold block mt-1">
-                    {selectedDoctorId ? '✓ Tự động gán theo cấu hình ca trực' : '⚠️ Sẽ tự động phân phòng khi gán nhân sự'}
-                  </span>
-                </div>
-                <span className="text-xs font-black text-slate-400 bg-slate-100/80 px-3 py-1 rounded-xl">Đã khóa</span>
-              </div>
-            </div>
+              </>
+            )}
           </>
         )}
       </form>
 
-      {/* Footer Buttons */}
-      <div className="pt-6 border-t border-slate-100 flex items-center justify-end gap-3 bg-white">
+      {/* Footer Buttons Static */}
+      <div className="pt-5 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between gap-3 bg-white dark:bg-zinc-900">
         <button
           type="button"
           onClick={onClose}
-          className="px-5 py-2.5 bg-white border border-slate-200 text-slate-650 text-sm font-semibold rounded-xl hover:bg-slate-50 transition-all active:scale-95"
+          className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 text-xs font-black uppercase tracking-wider rounded-2xl transition-all cursor-pointer flex items-center gap-2 border border-slate-200 dark:border-zinc-700 shadow-2xs hover:scale-105"
         >
-          Quay lại bảng
+          <ArrowLeft size={16} className="text-teal-600 dark:text-teal-400 stroke-[3]" />
+          <span>QUAY LẠI BẢNG</span>
         </button>
-        <button
-          type="button"
-          onClick={onClose}
-          className="px-5 py-2.5 bg-rose-50 border border-rose-100 text-rose-600 text-sm font-semibold rounded-xl hover:bg-rose-100/60 transition-all active:scale-95"
-        >
-          Hủy tạo lịch
-        </button>
-        <button
-          type="button"
-          disabled={bookingLoading || !selectedBuoi || !selectedServiceId || (!isNewCustomer && !selectedCustomer) || (!isReceptionist && !selectedDoctorId) || hasReachedLimit || (!!selectedPlan && !isPlanBookable(selectedPlan))}
-          onClick={() => {
-            const form = document.querySelector('form');
-            if (form) form.requestSubmit();
-          }}
-          className="px-6 py-2.5 bg-emerald-600 text-white text-sm font-black rounded-xl hover:bg-emerald-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
-        >
-          {bookingLoading ? (
-            <>
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              Đang ghi nhận...
-            </>
-          ) : (
-            'Xác nhận đăng ký'
-          )}
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200/80 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 text-xs font-black uppercase tracking-wider rounded-2xl hover:bg-rose-100 dark:hover:bg-rose-950/80 transition-all cursor-pointer"
+          >
+            ✕ HỦY TẠO
+          </button>
+          <button
+            type="button"
+            disabled={bookingLoading || !selectedBuoi || !selectedServiceId || (!isNewCustomer && !selectedCustomer) || hasReachedLimit || (!!selectedPlan && !isPlanBookable(selectedPlan))}
+            onClick={() => {
+              const form = document.querySelector('form');
+              if (form) form.requestSubmit();
+            }}
+            className="px-6 py-3 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white text-xs font-black uppercase tracking-wider rounded-2xl shadow-lg shadow-teal-600/20 transition-all cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-jakarta"
+          >
+            {bookingLoading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Đang ghi nhận...
+              </>
+            ) : (
+              '🚀 XÁC NHẬN ĐĂNG KÝ (ENTER)'
+            )}
+          </button>
+        </div>
       </div>
+
+      {/* POPUP THÔNG BÁO YÊU CẦU THANH TOÁN TRƯỚC KHI CHECK-IN CA LƯỢNG GIÁ */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 font-jakarta relative">
+            {/* Nút X đóng modal */}
+            <button
+              type="button"
+              onClick={() => setShowPaymentModal(false)}
+              className="absolute top-4 right-4 p-2 rounded-2xl text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all cursor-pointer shadow-2xs"
+              title="Đóng / Hủy bỏ"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto">
+              <CreditCard size={24} />
+            </div>
+
+            <div className="text-center space-y-1.5">
+              <h3 className="text-base font-black text-slate-800 dark:text-zinc-100">
+                Xác Nhận Thu Tiền Lượng Giá
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-zinc-400 font-medium leading-relaxed">
+                Theo quy định phòng khám, <strong className="text-slate-700 dark:text-zinc-200">ca Lượng giá bắt buộc phải hoàn tất thu tiền</strong> trước khi đưa bệnh nhân vào Hàng đợi Check-in.
+              </p>
+            </div>
+
+            <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-900/40 p-4 rounded-2xl text-xs space-y-1">
+              <p className="font-bold text-slate-700 dark:text-zinc-300">
+                Dịch vụ: <span className="text-emerald-700 dark:text-emerald-400 font-black">{selectedService?.ten_goi || selectedService?.ten_dich_vu || 'Lượng giá PHCN'}</span>
+              </p>
+              <p className="font-black text-emerald-700 dark:text-emerald-400 text-sm mt-1">
+                Số tiền cần thu: {Number(selectedService?.don_gia ?? selectedService?.gia_dich_vu ?? 0).toLocaleString('vi-VN')} đ
+              </p>
+            </div>
+
+            <div className="space-y-2 pt-2">
+              <button
+                type="button"
+                onClick={handleProceedToPayment}
+                className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-black uppercase tracking-wider rounded-2xl shadow-lg shadow-emerald-600/20 transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <CreditCard size={16} />
+                <span>CHUYỂN SANG THU TIỀN NGAY</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPaymentModal(false);
+                  setBookingStatus('da_xac_nhan');
+                  executeSubmit(false, 'da_xac_nhan');
+                }}
+                className="w-full py-2.5 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 text-slate-700 dark:text-zinc-300 text-xs font-bold rounded-2xl transition-all cursor-pointer"
+              >
+                Lưu ca ở trạng thái Đặt Trước (Chưa Check-in)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

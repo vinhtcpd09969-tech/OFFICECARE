@@ -35,7 +35,7 @@ export function Step1TypeSelection({
           Chọn hình thức đặt lịch hẹn
         </h3>
         <p className="text-xs font-medium text-slate-400">
-          OfficeCare cung cấp dịch vụ khám lâm sàng và các gói chăm sóc trị liệu nhanh phù hợp với từng nhu cầu.
+          OfficeCare cung cấp dịch vụ lượng giá chức năng và các gói chăm sóc trị liệu phù hợp với từng nhu cầu.
         </p>
       </div>
 
@@ -58,14 +58,14 @@ export function Step1TypeSelection({
               <div className="w-9 h-9 rounded-xl bg-[#2EC4B6]/10 text-[#2EC4B6] flex items-center justify-center">
                 <Stethoscope size={20} />
               </div>
-              <span className="text-sm font-black text-slate-800">Lịch Khám Lâm Sàng</span>
+              <span className="text-sm font-black text-slate-800">Lịch Lượng Giá Chức Năng</span>
             </div>
             <p className="text-xs text-slate-400 font-semibold leading-relaxed">
-              Dành cho khách hàng có nhu cầu trị liệu bệnh lý (đau mỏi vai gáy, lưng, khớp...) cần được Bác sĩ kiểm tra trực tiếp và lên phác đồ trước.
+              Dành cho khách hàng có nhu cầu trị liệu bệnh lý (đau mỏi vai gáy, lưng, khớp...) cần được Chuyên viên kiểm tra trực tiếp và lập kế hoạch trị liệu trước.
             </p>
           </div>
           <div className="flex gap-1.5 mt-4">
-            <span className="text-[9px] font-black px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 uppercase tracking-wider">Có Bác sĩ</span>
+            <span className="text-[9px] font-black px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 uppercase tracking-wider">Có Chuyên viên</span>
             <span className="text-[9px] font-black px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 uppercase tracking-wider">Lượng giá chuyên sâu</span>
           </div>
         </div>

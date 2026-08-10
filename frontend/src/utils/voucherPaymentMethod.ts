@@ -1,6 +1,5 @@
 export const VOUCHER_PAYMENT_METHOD_LABELS: Record<string, string> = {
   tra_thang: 'Trả thẳng 100%',
-  tra_gop: 'Trả góp',
   tung_buoi: 'Trả từng buổi',
 };
 

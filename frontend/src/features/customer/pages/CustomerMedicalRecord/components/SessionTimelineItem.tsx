@@ -78,6 +78,7 @@ export function SessionTimelineItem({ session, previousVasSau }: SessionTimeline
             vasSau={session.vas_sau}
             vasDeltaOverride={vasDelta}
             vasDeltaSuffixLabel="so với buổi trước"
+            duLieuTriLieu={session.du_lieu_tri_lieu}
           />
         )}
       </div>

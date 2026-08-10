@@ -6,15 +6,15 @@ import { checkEmailExists, register as registerApi } from '../api/auth.api';
 import { toast } from 'react-hot-toast';
 
 export const registerSchema = z.object({
-  ho_ten: z.string().min(2, 'Họ tên phải có ít nhất 2 ký tự'),
-  email: z.string().email('Email không hợp lệ'),
-  so_dien_thoai: z.string().regex(/^(0|\+84)(3|5|7|8|9)\d{8}$/, 'Số điện thoại không hợp lệ'),
+  ho_ten: z.string().min(1, 'Vui lòng không để trống họ tên').min(2, 'Họ tên phải có ít nhất 2 ký tự'),
+  email: z.string().min(1, 'Vui lòng không để trống email').email('Email không đúng định dạng (vd: user@example.com)'),
+  so_dien_thoai: z.string().min(1, 'Vui lòng không để trống số điện thoại').regex(/^(0|\+84)(3|5|7|8|9)\d{8}$/, 'Số điện thoại không hợp lệ (vd: 0912345678)'),
   gioi_tinh: z.enum(['nam', 'nu', 'khac'], { message: 'Vui lòng chọn giới tính' }),
   ngay_sinh: z.string().min(1, 'Vui lòng chọn ngày sinh').refine((val) => new Date(val) <= new Date(), {
-    message: 'Ngày sinh không hợp lệ'
+    message: 'Ngày sinh không thể là ngày trong tương lai'
   }),
   dia_chi: z.string().optional(),
-  password: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự'),
+  password: z.string().min(1, 'Vui lòng không để trống mật khẩu').min(6, 'Mật khẩu phải có ít nhất 6 ký tự'),
   confirmPassword: z.string().min(1, 'Vui lòng xác nhận mật khẩu'),
   dong_y_dieu_khoan: z.boolean().refine((val) => val === true, {
     message: 'Bạn cần đồng ý với Điều khoản dịch vụ để tiếp tục'
@@ -49,6 +49,7 @@ export function useRegisterState(): UseRegisterStateReturn {
   const [registeredEmail, setRegisteredEmail] = useState('');
 
   const form = useForm<RegisterFormValues>({
+    mode: 'onTouched',
     resolver: zodResolver(registerSchema),
     defaultValues: {
       ho_ten: '',

@@ -78,7 +78,12 @@ export function useSchedulesState() {
     // 1. Filter staff by role and search query with smart diacritic normalization
     let filtered = staff;
     if (roleFilter !== 'all') {
-      filtered = staff.filter(s => s.vai_tro === roleFilter);
+      filtered = staff.filter(s => {
+        if (roleFilter === 'Bác sĩ') {
+          return s.vai_tro === 'Bác sĩ' || s.vai_tro === 'Chuyên viên PHCN' || s.vai_tro === 'Chuyên viên tư vấn' || Number((s as any).vai_tro_id) === 4;
+        }
+        return s.vai_tro === roleFilter;
+      });
     }
     if (searchQuery.trim() !== '') {
       const q = removeDiacritics(searchQuery).toLowerCase().trim();
@@ -88,7 +93,9 @@ export function useSchedulesState() {
     // 2. Group by role
     const grouped: Record<string, Staff[]> = { 'Bác sĩ': [], 'Lễ tân': [], 'Kỹ thuật viên': [] };
     filtered.forEach(s => {
-      if (grouped[s.vai_tro]) grouped[s.vai_tro].push(s);
+      const isDoc = s.vai_tro === 'Bác sĩ' || s.vai_tro === 'Chuyên viên PHCN' || s.vai_tro === 'Chuyên viên tư vấn' || Number((s as any).vai_tro_id) === 4;
+      const key = isDoc ? 'Bác sĩ' : s.vai_tro;
+      if (grouped[key]) grouped[key].push(s);
     });
 
     // 3. Detect conflicts

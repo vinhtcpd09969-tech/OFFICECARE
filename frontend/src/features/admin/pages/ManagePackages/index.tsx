@@ -242,7 +242,7 @@ export default function ManagePackages() {
                       : 'bg-slate-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700'
                   }`}
                 >
-                  KHÁM LÂM SÀNG ({packages.filter(p => p.loai_goi === 'KHAM').length})
+                  LƯỢNG GIÁ CHỨC NĂNG ({packages.filter(p => p.loai_goi === 'KHAM').length})
                 </button>
                 <button
                   type="button"

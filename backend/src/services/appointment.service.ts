@@ -25,6 +25,11 @@ class AppointmentService {
     return updated;
   }
 
+  // B11 (bản Lễ tân) — đẩy khách xuống cuối hàng đợi khi Lễ tân trực tiếp thấy khách rời chỗ chờ.
+  async pushBackAppointment(id: string) {
+    return appointmentRepository.pushBackAppointment(id);
+  }
+
   async getPublicServices() {
     return appointmentRepository.getPublicServices();
   }
@@ -50,8 +55,18 @@ class AppointmentService {
     return updated;
   }
 
+  async rescheduleCustomerAppointment(id: string, khach_hang_id: string, new_date: string, new_buoi: 'sang' | 'chieu', new_staff_id?: number | null) {
+    return appointmentRepository.rescheduleCustomerAppointment(id, khach_hang_id, new_date, new_buoi, new_staff_id);
+  }
+
   async getCustomerMedicalRecord(nguoi_dung_id: string) {
-    return appointmentRepository.getCustomerMedicalRecord(nguoi_dung_id);
+    try {
+      const res = await appointmentRepository.getCustomerMedicalRecord(nguoi_dung_id);
+      return res || { khach_hang: null, lich_su_kham: [], goi_dieu_tri: [], dieu_tri_le: [] };
+    } catch (err) {
+      console.error('Error fetching customer medical record legacy:', err);
+      return { khach_hang: null, lich_su_kham: [], goi_dieu_tri: [], dieu_tri_le: [] };
+    }
   }
 
   async getCustomerTreatmentSessions(nguoi_dung_id: string) {

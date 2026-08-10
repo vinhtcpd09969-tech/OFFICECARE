@@ -39,6 +39,11 @@ export interface DoctorAppointment {
   nhat_ky_ngay_tao?: string | null;
   so_thu_tu_buoi?: number | null;
   tong_so_buoi_goi?: number | null;
+  ten_phong?: string | null;
+  thoi_gian_checkin?: string | null;
+  thoi_gian_goi_vao?: string | null;
+  thoi_luong_phut?: number;
+  so_lan_goi_khong_co_mat?: number;
 }
 
 // Khám lâm sàng & dịch vụ lẻ gộp chung 1 dòng thời gian (KHÔNG lẫn buổi trong phác đồ) — mirror
@@ -58,6 +63,8 @@ export interface PatientVisit {
   ten_dich_vu?: string | null;
   vas_truoc?: number | null;
   vas_sau?: number | null;
+  du_lieu_luong_gia?: any;
+  du_lieu_tri_lieu?: any;
   ten_nhan_su?: string | null;
   anh_nhan_su?: string | null;
   // Nếu ca khám này đã dẫn tới 1 phác đồ được kích hoạt — id của phác đồ đó để nhảy popup.
@@ -83,6 +90,7 @@ export interface TreatmentSession {
   thuc_hien_id?: number | null;
   ten_ky_thuat_vien?: string;
   anh_ky_thuat_vien?: string;
+  du_lieu_tri_lieu?: any;
 }
 
 export interface TreatmentPlan {
@@ -99,12 +107,22 @@ export interface TreatmentPlan {
   // Ca khám đã chỉ định ra phác đồ này (nếu có) + tên bác sĩ chỉ định, để hiện banner liên kết ngược.
   goc_kham_id?: string | null;
   bac_si_chi_dinh?: string | null;
+  gia_goc_goi?: number;
+  so_tien_giam_voucher?: number;
+  tong_tien_thanh_toan?: number;
+  da_thanh_toan?: number;
+  trang_thai_thanh_toan?: string;
+  hinh_thuc_thanh_toan_goi?: string;
+  han_su_dung?: string;
   sessions: TreatmentSession[];
 }
 
 export interface PatientProfile {
   visits: PatientVisit[];
   treatmentPlans: TreatmentPlan[];
+  patient?: PatientInfo;
+  assessments?: PatientVisit[];
+  plans?: TreatmentPlan[];
 }
 
 export interface PackageItem {
@@ -125,6 +143,11 @@ export interface ClinicalAssessmentPayload {
   // Bác sĩ đã chọn "xóa chỉ định cũ, dùng gói mới" ở modal xung đột — chỉ gửi lại true khi thực
   // sự cần xóa, không gửi ở lần lưu đầu tiên.
   resolvePendingConflict?: boolean;
+  is_reassessment?: boolean;
+  han_tai_kham?: string | null;
+  vas_score?: number | null;
+  rom_data?: any[] | null;
+  mmt_data?: any[] | null;
 }
 
 // Cảnh báo/chặn khi khách đang có chỉ định gói (chưa kích hoạt) hoặc phác đồ (đang điều trị) khác
@@ -142,6 +165,15 @@ export interface PackageConflict {
 // --- API Calls ---
 export const getAppointments = (startDate?: string, endDate?: string) =>
   api.get<DoctorAppointment[]>('/doctor/appointments', { params: { startDate, endDate } });
+
+export const getDoctorQueue = () =>
+  api.get<DoctorQueueItem[]>('/doctor/queue');
+
+export const callInPatient = (id: string) =>
+  api.post<{ ten_nhan_su: string | null; ten_phong: string | null }>(`/doctor/queue/${id}/call-in`);
+
+export const markPatientAbsent = (id: string) =>
+  api.post<{ so_lan_goi_khong_co_mat: number; shouldFinalize: boolean }>(`/doctor/queue/${id}/mark-absent`);
 
 export const getAppointmentDetail = (id: string) =>
   api.get<DoctorQueueItem & {
@@ -170,6 +202,18 @@ export const getActiveSession = () =>
 export const saveAssessment = (payload: ClinicalAssessmentPayload) => 
   api.post<{ success: boolean; message: string; medicalRecordId: string }>('/doctor/appointments/assess', payload);
 
+export const saveAssessmentDraft = (payload: {
+  lich_dat_id: string;
+  chan_doan?: string;
+  chong_chi_dinh?: string;
+  ghi_chu?: string;
+  vas_score?: number;
+  rom_data?: any[];
+  mmt_data?: any[];
+  selected_package_id?: string;
+}) =>
+  api.post<{ success: boolean; message: string }>('/doctor/appointments/draft', payload);
+
 export interface DoctorSchedule {
   id: string;
   nguoi_dung_id: string;
@@ -183,7 +227,8 @@ export const getDoctorSchedules = () => api.get<DoctorSchedule[]>('/doctor/sched
 
 export interface PatientInfo {
   id: string;
-  nguoi_dung_id: string;
+  nguoi_dung_id?: string;
+  ma_khach_hang?: string;
   ngay_sinh?: string;
   gioi_tinh?: string;
   ho_ten: string;

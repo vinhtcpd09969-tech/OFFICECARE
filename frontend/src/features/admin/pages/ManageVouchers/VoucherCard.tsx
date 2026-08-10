@@ -15,6 +15,9 @@ export interface Voucher {
   trang_thai: 'hoat_dong' | 'tam_dung' | 'sap_ra_mat' | 'het_han' | 'vo_hieu';
   dang_kich_hoat?: boolean;
   yeu_cau_thanh_toan: string[];
+  tu_dong_ap_dung?: boolean;
+  kenh_ap_dung?: string[];
+  loai_goi_ap_dung?: string[];
 }
 
 interface VoucherCardProps {
@@ -106,6 +109,24 @@ export function VoucherCard({
                  computedStatus === 'sap_ra_mat' ? 'Sắp hoạt động' :
                  computedStatus === 'het_han' ? 'Đã hết hạn' : 'Ngưng sử dụng'}
               </span>
+
+              {v.tu_dong_ap_dung && (
+                <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg border bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-955/40 dark:text-purple-300">
+                  ⚡ Tự động áp dụng
+                </span>
+              )}
+
+              {v.kenh_ap_dung && !v.kenh_ap_dung.includes('tat_ca') && (
+                <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg border bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-955/40 dark:text-cyan-300">
+                  Kênh: {v.kenh_ap_dung.map(k => k === 'online' ? 'Web Online' : k === 'tai_quay' ? 'Lễ tân' : k).join(', ')}
+                </span>
+              )}
+
+              {v.loai_goi_ap_dung && !v.loai_goi_ap_dung.includes('tat_ca') && (
+                <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg border bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-955/40 dark:text-amber-300">
+                  Gói: {v.loai_goi_ap_dung.map(l => l === 'LIEU_TRINH' ? 'Liệu trình' : l === 'KHAM' ? 'Lượng giá' : l === 'LE' ? 'Dịch vụ lẻ' : l).join(', ')}
+                </span>
+              )}
 
               {paymentMethodLabel && (
                 <span className="text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-lg border bg-indigo-50 text-indigo-700 border-indigo-100">

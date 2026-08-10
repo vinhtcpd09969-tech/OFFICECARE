@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, ChevronDown, Search, Stethoscope, Zap, Calendar as CalendarIcon, RotateCcw, ArrowRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, Search, Stethoscope, Zap, Calendar as CalendarIcon, RotateCcw, ArrowRight, BarChart3 } from 'lucide-react';
 import { format, isSameDay, addDays, addMonths, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
@@ -17,6 +17,7 @@ interface AppointmentsFilterBarProps {
   onToggleType: () => void;
   canToggleType?: boolean;
   setViewMode?: (mode: 'timeline' | 'capacity') => void;
+  onOpenWalkInModal?: () => void;
 }
 
 export function AppointmentsFilterBar({
@@ -30,7 +31,8 @@ export function AppointmentsFilterBar({
   activeType,
   onToggleType,
   canToggleType = false,
-  setViewMode: _setViewMode
+  setViewMode: _setViewMode,
+  onOpenWalkInModal
 }: AppointmentsFilterBarProps) {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [pickerNavDate, setPickerNavDate] = useState<Date>(startDate || new Date());
@@ -158,97 +160,97 @@ export function AppointmentsFilterBar({
   };
 
   return (
-    <div className="relative bg-white dark:bg-zinc-900 rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.02)] border border-slate-100 dark:border-zinc-800/80 p-4 lg:p-5 transition-colors duration-300">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 lg:gap-4">
-        
-        {/* Left Section: Tab Selector Lịch Khám/Điều Trị + Ô tìm kiếm bệnh nhân */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 shrink-0 min-w-0">
-          
-          <div className="flex items-center gap-3 shrink-0">
-            {canToggleType ? (
-              <div className="flex bg-slate-100 dark:bg-zinc-800/80 p-1 rounded-2xl border border-slate-200/40 dark:border-zinc-800 select-none shrink-0">
-                <button
-                  type="button"
-                  onClick={() => { if (activeType !== 'kham') onToggleType(); }}
-                  className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-black uppercase tracking-wider rounded-xl transition-all active:scale-95 cursor-pointer ${
-                    activeType === 'kham'
-                      ? 'bg-white dark:bg-zinc-700 text-[#0d9488] dark:text-teal-400 shadow-sm border border-slate-200/20'
-                      : 'text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200'
-                  }`}
-                >
-                  <Stethoscope size={13} className="shrink-0 text-[#0d9488]" />
-                  <span>Lịch Khám</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { if (activeType !== 'dieu_tri') onToggleType(); }}
-                  className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-black uppercase tracking-wider rounded-xl transition-all active:scale-95 cursor-pointer ${
-                    activeType === 'dieu_tri'
-                      ? 'bg-white dark:bg-zinc-700 text-amber-600 dark:text-amber-400 shadow-sm border border-slate-200/20'
-                      : 'text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200'
-                  }`}
-                >
-                  <Zap size={13} className="shrink-0 text-amber-500" />
-                  <span>Lịch Điều Trị</span>
-                </button>
-              </div>
-            ) : (
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-zinc-850/60 text-slate-800 dark:text-zinc-200 border border-slate-200/60 dark:border-zinc-800 rounded-2xl text-xs font-black uppercase tracking-wider select-none shrink-0">
-                {activeType === 'kham' ? (
-                  <>
-                    <Stethoscope size={14} className="text-[#0d9488] shrink-0" />
-                    <span>Lịch Khám Chuyên Khoa</span>
-                  </>
-                ) : (
-                  <>
-                    <Zap size={14} className="text-amber-500 shrink-0" />
-                    <span>Lịch Điều Trị Vật Lý</span>
-                  </>
-                )}
-              </div>
-            )}
-            
-            <div className="hidden 2xl:flex flex-col text-left">
-              <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-bold tracking-wide uppercase">
-                {totalDaysCount === 1 
-                  ? "Trình tự giờ" 
-                  : `Công suất (${totalDaysCount} ngày)`}
-              </p>
-            </div>
-          </div>
- 
-          <div className="hidden sm:block w-[1px] h-8 bg-slate-150 dark:bg-zinc-800 shrink-0" />
- 
+    <div className="relative bg-white dark:bg-zinc-900 rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.02)] border border-slate-150 dark:border-zinc-800/80 p-4 lg:p-5 space-y-4 transition-all duration-300">
+      {/* 2 NÚT TAB TỔ BỐ MỖI NÚT 50% CHIỀU RỘNG MÀN HÌNH (BẤM CHUYỂN CỰC SƯỚNG) */}
+      {canToggleType && (
+        <div className="grid grid-cols-2 gap-3 p-1.5 bg-slate-100 dark:bg-zinc-800/80 rounded-2xl border border-slate-200/50 dark:border-zinc-700/80 select-none">
+          <button
+            type="button"
+            onClick={() => { if (activeType !== 'kham') onToggleType(); }}
+            className={`w-full py-3.5 px-4 text-sm font-black uppercase tracking-wider rounded-xl transition-all duration-200 flex items-center justify-center gap-2.5 active:scale-[0.99] cursor-pointer ${
+              activeType === 'kham'
+                ? 'bg-gradient-to-r from-teal-600 to-cyan-600 text-white shadow-md shadow-teal-600/25 border border-teal-500/30'
+                : 'text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-200/50'
+            }`}
+          >
+            <Stethoscope size={18} className="shrink-0" />
+            <span>🩺 LỊCH LƯỢNG GIÁ CHỨC NĂNG</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => { if (activeType !== 'dieu_tri') onToggleType(); }}
+            className={`w-full py-3.5 px-4 text-sm font-black uppercase tracking-wider rounded-xl transition-all duration-200 flex items-center justify-center gap-2.5 active:scale-[0.99] cursor-pointer ${
+              activeType === 'dieu_tri'
+                ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/25 border border-amber-500/30'
+                : 'text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-200/50'
+            }`}
+          >
+            <Zap size={18} className="shrink-0" />
+            <span>⚡ LỊCH ĐIỀU TRỊ VẬT LÝ</span>
+          </button>
+        </div>
+      )}
+
+      {/* HÀNG ĐIỀU KHIỂN BÊN DƯỚI DỌN THEO ĐÚNG THỨ TỰ: Quay lại -> Search -> Đặt lịch mới -> Ô chọn ngày */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* Nhóm trái: Quay lại & Ô Tìm kiếm */}
+        <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap flex-1 min-w-0">
+          {_viewMode === 'timeline' ? (
+            <button
+              type="button"
+              onClick={() => {
+                if (_setViewMode) _setViewMode('capacity');
+                handleApplyPreset('7days');
+              }}
+              className="flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-black uppercase tracking-wider text-[#0D9488] bg-[#0D9488]/10 hover:bg-[#0D9488]/15 rounded-xl border border-[#0D9488]/20 transition-all cursor-pointer shrink-0 shadow-2xs hover:scale-105"
+              title="Xem Bảng công suất 7 ngày"
+            >
+              <BarChart3 size={15} />
+              <span>Xem Bảng Công Suất 7 Ngày</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                if (_setViewMode) _setViewMode('timeline');
+                handleApplyPreset('today');
+              }}
+              className="flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-black uppercase tracking-wider text-slate-700 dark:text-zinc-200 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-xl border border-slate-200 dark:border-zinc-700 transition-all cursor-pointer shrink-0 shadow-2xs hover:scale-105"
+              title="Quay lại xem Hàng đợi Hôm nay"
+            >
+              <ChevronLeft size={15} className="stroke-[3]" />
+              <span>Quay lại Hàng Đợi</span>
+            </button>
+          )}
+
           {/* Ô Tìm Kiếm Bệnh Nhân */}
-          <div className="relative w-full sm:w-44 md:w-48 lg:w-56 shrink-0">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-555 pointer-events-none" size={13} />
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500 pointer-events-none" size={15} />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Tìm tên bệnh nhân, mã..."
-              className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-zinc-850/60 border border-slate-200/80 dark:border-zinc-800 text-slate-850 dark:text-zinc-200 text-xs font-bold rounded-xl outline-none focus:ring-2 focus:ring-teal-500/10 focus:border-teal-500 dark:focus:border-teal-500/50 transition-all placeholder-slate-400 dark:placeholder-zinc-555"
+              placeholder="Search / Tìm tên bệnh nhân, mã..."
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-zinc-850/60 border border-slate-200/80 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 text-xs font-bold rounded-xl outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all placeholder-slate-400 dark:placeholder-zinc-500"
             />
           </div>
- 
         </div>
- 
-        {/* Right Section: Bộ điều hướng khoảng ngày (Date Range Navigator) */}
-        <div className="flex items-center gap-2.5 shrink-0 justify-start lg:justify-end flex-wrap sm:flex-nowrap">
-          {totalDaysCount === 1 && (
+
+        {/* Nhóm phải: Nút Đặt Lịch Mới + Ô Chọn Ngày */}
+        <div className="flex items-center gap-3 shrink-0 flex-wrap sm:flex-nowrap">
+          {_viewMode === 'timeline' && onOpenWalkInModal && (
             <button
               type="button"
-              onClick={() => handleApplyPreset('7days')}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-black uppercase tracking-wider text-[#0D9488] bg-[#0D9488]/10 hover:bg-[#0D9488]/15 rounded-xl border border-[#0D9488]/20 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-xs shrink-0"
-              title="Quay lại xem Bảng công suất 7 ngày"
+              onClick={onOpenWalkInModal}
+              className="flex items-center gap-2 px-5 py-2.5 text-xs font-black uppercase tracking-wider text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-md shadow-indigo-600/25 shrink-0"
             >
-              <ChevronLeft size={14} className="stroke-[3]" />
-              <span className="hidden sm:inline">Quay lại Bảng công suất</span>
-              <span className="sm:hidden">Công suất</span>
+              <span className="text-base font-bold">+</span>
+              <span>ĐẶT LỊCH MỚI</span>
             </button>
           )}
 
-          {/* Khung Điều Hướng Khoảng Ngày (Interactive Date Range Navigator) */}
+          {/* Ô chọn ngày */}
           <div ref={popoverRef} className="relative">
             <div className={`flex items-center justify-between bg-slate-50 dark:bg-zinc-850/60 border rounded-xl p-1 shrink-0 transition-all ${
               currentPreset !== 'custom'
@@ -280,17 +282,17 @@ export function AppointmentsFilterBar({
                   </span>
                 )}
 
-                {totalDaysCount === 1 ? (
-                  <span className="lowercase first-letter:uppercase">Ngày: {format(startDate, 'eeee, dd/MM/yyyy', { locale: vi })}</span>
+                {_viewMode === 'timeline' || totalDaysCount === 1 ? (
+                  <span className="capitalize font-bold">Ngày: {format(startDate, 'eeee, dd/MM/yyyy', { locale: vi })}</span>
                 ) : (
                   <span>{format(startDate, 'dd/MM')} ➔ {format(endDate, 'dd/MM/yyyy')} ({totalDaysCount} ngày)</span>
                 )}
 
-                {currentPreset !== 'custom' && (
-                  <span className="text-[9px] font-black uppercase text-[#0d9488] dark:text-teal-400 bg-[#0d9488]/10 dark:bg-teal-950/40 px-1.5 py-0.5 rounded border border-teal-500/20">
-                    {currentPreset === 'today' ? 'Hôm nay' : currentPreset === '7days' ? '7 ngày' : 'Tháng này'}
-                  </span>
-                )}
+                <span className="text-[9px] font-black uppercase text-[#0d9488] dark:text-teal-400 bg-[#0d9488]/10 dark:bg-teal-950/40 px-1.5 py-0.5 rounded border border-teal-500/20">
+                  {_viewMode === 'timeline'
+                    ? (isSameDay(startDate, new Date()) ? 'Hôm nay' : format(startDate, 'dd/MM'))
+                    : (currentPreset === 'today' ? 'Hôm nay' : currentPreset === '7days' ? '7 ngày' : currentPreset === 'month' ? 'Tháng này' : 'Tùy chỉnh')}
+                </span>
 
                 <ChevronDown size={13} className={`text-slate-400 dark:text-zinc-500 transition-transform duration-200 ${isPickerOpen ? 'rotate-180 text-teal-600' : 'group-hover:text-slate-600'}`} />
               </button>

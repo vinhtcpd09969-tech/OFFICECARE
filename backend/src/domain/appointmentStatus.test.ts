@@ -6,16 +6,16 @@ describe('getReceptionistAllowedTargets', () => {
     expect(getReceptionistAllowedTargets('da_xac_nhan', true)).toEqual(['da_checkin', 'khong_den', 'da_huy']);
   });
 
-  it('đã check-in -> không còn target nào', () => {
-    expect(getReceptionistAllowedTargets('da_checkin', true)).toEqual([]);
+  it('đã check-in -> Không đến, Hủy', () => {
+    expect(getReceptionistAllowedTargets('da_checkin', true)).toEqual(['khong_den', 'da_huy']);
   });
 });
 
 describe('isReceptionistLockedStatus', () => {
-  it('khóa khi đang tiến hành/chờ tái lượng giá/đã hoàn thành', () => {
-    expect(isReceptionistLockedStatus('da_checkin')).toBe(true);
+  it('khóa khi đang tiến hành (dang_kham)/đã hoàn thành', () => {
+    expect(isReceptionistLockedStatus('da_checkin')).toBe(false);
     expect(isReceptionistLockedStatus('dang_kham')).toBe(true);
-    expect(isReceptionistLockedStatus('cho_tai_luong_gia')).toBe(true);
+    expect(isReceptionistLockedStatus('cho_tai_luong_gia')).toBe(false);
     expect(isReceptionistLockedStatus('hoan_thanh')).toBe(true);
   });
 
@@ -36,9 +36,14 @@ describe('checkReceptionistTransition', () => {
     expect(checkReceptionistTransition('da_xac_nhan', 'da_xac_nhan', true)).toEqual({ allowed: true });
   });
 
-  it('đã check-in -> khóa toàn bộ, không đổi được gì kể cả hủy', () => {
-    const result = checkReceptionistTransition('da_checkin', 'da_huy', true);
-    expect(result.allowed).toBe(false);
+  it('đã check-in -> cho phép chuyển không đến và hủy', () => {
+    expect(checkReceptionistTransition('da_checkin', 'khong_den', true)).toEqual({ allowed: true });
+    expect(checkReceptionistTransition('da_checkin', 'da_huy', true)).toEqual({ allowed: true });
+  });
+
+  it('đã check-in -> chặn thủ công chuyển về đã xác nhận trừ khi đổi lịch', () => {
+    expect(checkReceptionistTransition('da_checkin', 'da_xac_nhan', true).allowed).toBe(false);
+    expect(checkReceptionistTransition('da_checkin', 'da_xac_nhan', true, true)).toEqual({ allowed: true });
   });
 
   it('đã hủy -> khóa toàn bộ, không đổi lại được', () => {
@@ -51,11 +56,12 @@ describe('checkReceptionistTransition', () => {
     expect(checkReceptionistTransition('da_xac_nhan', 'hoan_thanh', true).allowed).toBe(false);
   });
 
-  it('đã xác nhận -> check-in hợp lệ, không còn gác cửa theo giờ hẹn (mô hình buổi)', () => {
+  it('đã xác nhận -> check-in hợp lệ', () => {
     expect(checkReceptionistTransition('da_xac_nhan', 'da_checkin', true)).toEqual({ allowed: true });
   });
 
-  it('đã xác nhận -> đánh dấu không đến hợp lệ, không còn gác cửa theo giờ hẹn (mô hình buổi)', () => {
-    expect(checkReceptionistTransition('da_xac_nhan', 'khong_den', true)).toEqual({ allowed: true });
+  it('chờ tái lượng giá -> check-in tái khám và hủy đều hợp lệ', () => {
+    expect(checkReceptionistTransition('cho_tai_luong_gia', 'da_checkin', true)).toEqual({ allowed: true });
+    expect(checkReceptionistTransition('cho_tai_luong_gia', 'da_huy', true)).toEqual({ allowed: true });
   });
 });

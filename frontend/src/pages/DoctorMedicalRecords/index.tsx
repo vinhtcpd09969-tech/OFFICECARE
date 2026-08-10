@@ -3,9 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { getPatients, getPatientProfile, PatientInfo, PatientProfile } from '../../features/doctor/api/doctor.api';
 import { PatientSidebar } from './components/PatientSidebar';
-import { PatientHeader } from './components/PatientHeader';
-import { PlanColumn } from './components/PlanColumn';
-import { VisitColumn } from './components/VisitColumn';
+import { PatientDossierTimeline } from './components/PatientDossierTimeline';
 import { PlanDetailModal } from './components/PlanDetailModal';
 import { VisitDetailModal } from './components/VisitDetailModal';
 
@@ -110,28 +108,23 @@ export default function DoctorMedicalRecords() {
           loadingPatients={loadingPatients}
         />
       ) : (
-        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-150 dark:border-slate-800 shadow-sm overflow-hidden">
-          <PatientHeader selectedPatient={selectedPatient} onBack={() => setSelectedPatient(null)} />
-
-          <div className="p-6">
-            {loadingProfile ? (
-              <div className="py-20 flex flex-col items-center justify-center gap-2 text-slate-400">
-                <div className="size-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-                <p className="text-[10px] font-bold uppercase tracking-wider animate-pulse">Đang tải dữ liệu hồ sơ...</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-                <PlanColumn
-                  plans={profile?.treatmentPlans || []}
-                  onOpenPlan={(id) => setActiveModal({ type: 'plan', id })}
-                />
-                <VisitColumn
-                  visits={profile?.visits || []}
-                  onOpenVisit={(id) => setActiveModal({ type: 'visit', id })}
-                />
-              </div>
-            )}
-          </div>
+        <div>
+          {loadingProfile ? (
+            <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-slate-200 dark:border-zinc-800 p-20 text-center flex flex-col items-center justify-center gap-3">
+              <div className="size-10 border-4 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500 animate-pulse">
+                Đang tổng hợp dòng thời gian hồ sơ y tế bệnh nhân...
+              </p>
+            </div>
+          ) : (
+            <PatientDossierTimeline
+              selectedPatient={selectedPatient}
+              profile={profile}
+              onBack={() => setSelectedPatient(null)}
+              onOpenVisit={(visitId) => setActiveModal({ type: 'visit', id: visitId })}
+              onOpenPlan={(planId) => setActiveModal({ type: 'plan', id: planId })}
+            />
+          )}
         </div>
       )}
 

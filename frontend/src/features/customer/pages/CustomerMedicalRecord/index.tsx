@@ -1,111 +1,68 @@
-import { HeartPulse, Sparkles, FileText } from 'lucide-react';
-import { useMedicalRecord } from './hooks/useMedicalRecord';
-import { RecordHeader } from './components/RecordHeader';
-import { RecordTabs } from './components/RecordTabs';
-import { PackageCard } from './components/PackageCard';
-import { SingleTreatmentCard } from './components/SingleTreatmentCard';
-import { ExamHistoryCard } from './components/ExamHistoryCard';
-import { EmptyRecordState } from './components/EmptyRecordState';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { PatientDossierTimeline } from '../../../../pages/DoctorMedicalRecords/components/PatientDossierTimeline';
+import { getPatientProfile, PatientProfile } from '../../../doctor/api/doctor.api';
+import { useAuthStore } from '../../../../stores/authStore';
 
 export default function CustomerMedicalRecord() {
-  const record = useMedicalRecord();
+  const navigate = useNavigate();
+  const currentUser = useAuthStore((state) => state.user);
+  const [profile, setProfile] = useState<PatientProfile | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  if (record.loading) {
+  useEffect(() => {
+    if (!currentUser?.id) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    getPatientProfile(String(currentUser.id))
+      .then((res: { data: PatientProfile }) => setProfile(res.data))
+      .catch((err: unknown) => console.error('Failed to load customer patient profile', err))
+      .finally(() => setLoading(false));
+  }, [currentUser?.id]);
+
+  if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[500px] gap-3">
-        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-        <p className="text-sm font-semibold text-zinc-500">Đang tải hồ sơ &amp; hóa đơn y khoa...</p>
+        <div className="size-10 border-4 border-teal-600 border-t-transparent rounded-full animate-spin" />
+        <p className="text-xs font-bold uppercase tracking-wider text-slate-500 animate-pulse">
+          Đang tải hồ sơ điều trị & dòng thời gian...
+        </p>
       </div>
     );
   }
 
-  const { khach_hang, lich_su_kham = [], goi_dieu_tri = [], dieu_tri_le = [] } = record.data || {};
+  const patient = profile?.patient;
 
-  if (!khach_hang) {
+  if (!patient) {
     return (
-      <div className="max-w-3xl mx-auto">
-        <EmptyRecordState
-          icon={<HeartPulse size={22} />}
-          title="Không thể tải hồ sơ trị liệu"
-          description="Đã có lỗi khi tải dữ liệu. Vui lòng thử tải lại trang hoặc liên hệ lễ tân nếu tình trạng này lặp lại."
-          showCta={false}
-        />
+      <div className="max-w-3xl mx-auto p-12 text-center bg-white dark:bg-zinc-900 rounded-3xl border border-slate-200 dark:border-zinc-800 space-y-2">
+        <h3 className="text-base font-black text-slate-800 dark:text-zinc-200">Chưa tìm thấy dữ liệu hồ sơ cá nhân</h3>
+        <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">
+          Bạn chưa có dữ liệu lịch sử khám hoặc gói liệu trình điều trị nào trên hệ thống.
+        </p>
       </div>
     );
   }
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <RecordHeader
-        khachHang={khach_hang}
-        goiDieuTri={goi_dieu_tri}
-        dieuTriLe={dieu_tri_le}
-        lichSuKham={lich_su_kham}
+      <PatientDossierTimeline
+        selectedPatient={{
+          id: patient.id,
+          ma_khach_hang: patient.ma_khach_hang || `KH-${patient.id.substring(0, 8).toUpperCase()}`,
+          ho_ten: patient.ho_ten,
+          so_dien_thoai: patient.so_dien_thoai || '',
+          email: patient.email || '',
+        }}
+        profile={profile}
+        onBack={() => navigate('/')}
+        onBookNextSession={(plan) => {
+          const nextSessionNum = (plan.so_buoi_da_dung || 0) + 1;
+          navigate(`/booking?goi_dich_vu_id=${(plan as any).goi_dich_vu_id || ''}&phac_do_id=${plan.id}&buoi=${nextSessionNum}`);
+        }}
       />
-
-      <RecordTabs
-        activeTab={record.activeTab}
-        goiCount={goi_dieu_tri.length}
-        leCount={dieu_tri_le.length}
-        khamCount={lich_su_kham.length}
-        onChange={record.setActiveTab}
-      />
-
-      {record.activeTab === 'goi' && (
-        <div className="space-y-6">
-          {goi_dieu_tri.length === 0 ? (
-            <EmptyRecordState
-              icon={<HeartPulse size={22} />}
-              title="Bạn chưa đăng ký gói trị liệu nào"
-              description="Đăng ký gói liệu trình để theo dõi tiến trình phục hồi, lịch sử từng buổi và thang đo giảm đau theo thời gian."
-            />
-          ) : (
-            goi_dieu_tri.map((pkg) => (
-              <PackageCard
-                key={pkg.phac_do_id}
-                pkg={pkg}
-                isExpanded={!!record.expandedPackages[pkg.phac_do_id]}
-                onToggleExpand={() => record.togglePackage(pkg.phac_do_id)}
-                targetSessionId={record.targetSessionId}
-              />
-            ))
-          )}
-        </div>
-      )}
-
-      {record.activeTab === 'le' && (
-        <div className="space-y-6">
-          {dieu_tri_le.length === 0 ? (
-            <EmptyRecordState
-              icon={<Sparkles size={22} />}
-              title="Chưa có dịch vụ lẻ nào"
-              description="Các buổi trị liệu lẻ (không thuộc gói liệu trình) bạn từng thực hiện sẽ hiển thị ở đây, kèm chẩn đoán và hóa đơn liên quan."
-            />
-          ) : (
-            dieu_tri_le.map((item) => (
-              <SingleTreatmentCard key={item.cuoc_hen_id} item={item} />
-            ))
-          )}
-        </div>
-      )}
-
-      {record.activeTab === 'kham' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {lich_su_kham.length === 0 ? (
-            <div className="col-span-full">
-              <EmptyRecordState
-                icon={<FileText size={22} />}
-                title="Bạn chưa có lịch sử khám lâm sàng nào"
-                description="Mọi phiếu chẩn đoán lâm sàng đầu vào từ Bác sĩ sẽ được số hóa và hiển thị ở đây."
-              />
-            </div>
-          ) : (
-            lich_su_kham.map((exam) => (
-              <ExamHistoryCard key={exam.cuoc_hen_id} exam={exam} onJumpToPackage={record.jumpToPackage} />
-            ))
-          )}
-        </div>
-      )}
     </div>
   );
 }

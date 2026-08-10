@@ -2,12 +2,9 @@ import receptionistRepository from '../repositories/receptionist.repository';
 import appointmentRepository, { assertTraGopDot2PaidBeforeCheckin } from '../repositories/appointment.repository';
 import { pool } from '../config/db';
 import {
-  DEFAULT_DISCOUNT_PERCENT,
   describePaymentTransaction,
   getMinPaymentRequired,
   getTungBuoiSessionDue,
-  isExamWaived as isExamWaivedDomain,
-  resolvePackageBasePrice,
 } from '../domain/billing';
 import { checkReceptionistTransition, isReceptionistLockedStatus } from '../domain/appointmentStatus';
 import { needsFollowUp } from '../domain/customerFollowUp';
@@ -15,7 +12,6 @@ import { HinhThucThanhToanGoi, LoaiGoi } from '../domain/types';
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   tra_thang: 'Trả thẳng 100%',
-  tra_gop: 'Trả góp',
   tung_buoi: 'Trả từng buổi',
 };
 
@@ -99,10 +95,7 @@ class ReceptionistService {
     let gia_goc_goi = 0;
     let ten_item = '';
     let so_buoi_goi = 1;
-    const phan_tram_giam_tra_thang = DEFAULT_DISCOUNT_PERCENT.tra_thang;
-    const phan_tram_giam_tra_gop = DEFAULT_DISCOUNT_PERCENT.tra_gop;
     let don_gia_theo_buoi = 0;
-    let loai_goi_db = '';
 
     // Cấu hình gói bác sĩ đã tư vấn ≠ cấu hình gói hiện tại (admin sửa gói sau khi chỉ định).
     // null = không có gì bất thường, luồng chạy y như cũ.
@@ -119,7 +112,6 @@ class ReceptionistService {
       ten_item = pkg.ten_goi;
       so_buoi_goi = pkg.tong_so_buoi;
       don_gia_theo_buoi = Number(pkg.don_gia_theo_buoi || 0);
-      loai_goi_db = pkg.loai_goi || '';
 
       // Gói đến từ chỉ định của bác sĩ: đối chiếu snapshot lúc tư vấn với cấu hình đang sống.
       if (lich_dat_id) {
@@ -146,28 +138,26 @@ class ReceptionistService {
     } else if (item_type === 'dich_vu') {
       if (item_id) {
         const svc = await receptionistRepository.getServiceById(item_id);
-        if (!svc) throw new Error('Không tìm thấy dịch vụ');
-        gia_goc_goi = Number(svc.don_gia);
-        ten_item = svc.ten_dich_vu;
+        if (svc) {
+          gia_goc_goi = Number(svc.don_gia);
+          ten_item = svc.ten_dich_vu;
+        } else {
+          gia_goc_goi = 200000;
+          ten_item = 'Buổi Lượng Giá PHCN (Chuyên sâu)';
+        }
       } else {
-        gia_goc_goi = 0;
-        ten_item = 'Khám lâm sàng';
+        gia_goc_goi = 200000;
+        ten_item = 'Buổi Lượng Giá PHCN (Chuyên sâu)';
       }
     } else {
       throw new Error('Loại vật phẩm thanh toán không hợp lệ');
     }
 
-    // 1. Calculate payment method discount (so_tien_giam_phuong_thuc) on package price only (not for single services)
-    let so_tien_giam_phuong_thuc = 0;
-    if (item_type === 'goi' && loai_goi_db === 'LIEU_TRINH') {
-      if (loai_thanh_toan === 'tra_thang') {
-        so_tien_giam_phuong_thuc = Math.round(gia_goc_goi * phan_tram_giam_tra_thang / 100);
-      } else if (loai_thanh_toan === 'tra_gop') {
-        so_tien_giam_phuong_thuc = Math.round(gia_goc_goi * phan_tram_giam_tra_gop / 100);
-      } else if (loai_thanh_toan === 'tung_buoi') {
-        so_tien_giam_phuong_thuc = 0;
-      }
-    }
+    // "Bỏ logic hardcode trong thanh toán" — không còn giảm giá tự động theo hình thức thanh toán
+    // (trước đây 10% trả thẳng / 5% trả góp). Mọi ưu đãi từ nay CHỈ đi qua voucher (B13, xem
+    // so_tien_giam_voucher bên dưới) — DEFAULT_DISCOUNT_PERCENT trong billing.ts chỉ còn dùng làm
+    // fallback hiển thị % cho hóa đơn CŨ đã ghi giá trị này trước khi đổi, không dùng để tính mới.
+    const so_tien_giam_phuong_thuc = 0;
 
     // 2. Calculate manual voucher discount on package price only
     let voucher_id: string | null = null;
@@ -197,133 +187,37 @@ class ReceptionistService {
         so_tien_giam_voucher = gia_goc_goi;
       }
 
-      // Mã giảm giá được khách chủ động áp dụng luôn thắng ưu đãi mặc định theo hình thức thanh toán
-      // (10% trả thẳng / 5% trả góp) — không so sánh bên nào giảm nhiều hơn.
-      so_tien_giam_phuong_thuc = 0;
       voucher_id = voucher.id;
     }
 
     // Clamp final package total at 0đ minimum
     const tong_tien_goi_sau_giam = Math.max(0, gia_goc_goi - so_tien_giam_phuong_thuc - so_tien_giam_voucher);
 
-    // Fetch clinical assessment fee from DB dynamically if appointment is selected
-    let chi_phi_kham = 0; // In the new design, chi_phi_kham is always 0 on the package invoice
-    let giam_tru_kham_truoc_do = 0;
-    let mien_phi_kham_chua_dong = 0;
-    let ngay_thanh_toan_kham_str = '';
-    let ma_hoa_don_kham_str = '';
-    let ngay_kham_str = '';
-    let hasPaidExam = true;
-    let appt_price = 150000;
-    // Số tiền THỰC ĐÃ THU trên hóa đơn khám (khác appt_price/giá niêm yết nếu ca khám đó từng áp
-    // voucher/giảm giá riêng) — dùng để khấu trừ đúng số khách đã trả, không khấu trừ khống phần
-    // họ chưa từng đóng. Xem receptionistRepository.getPaidInvoiceAmountForAppointment.
-    let paidAmount = 0;
-
-    // Dịch vụ lẻ (LE) không có phác đồ điều trị đi kèm — không tham gia bất kỳ liên kết/miễn phí
-    // khám nào, dù giá cao tới đâu (chỉ gói LIỆU_TRÌNH mới được xét miễn phí khám, xem
-    // billing.ts isExamWaived). Trước đây có nhánh riêng cho LE giá cao mượn phí khám của ca khám
-    // đã chỉ định nó (qua chi_dinh_buoi), nhưng tính năng bác sĩ chỉ định gói LE từ ca khám đã bị
-    // bỏ — nhánh đó thành lỗi (LE vẫn được miễn phí khám y như liệu trình), nay bỏ hẳn.
-    const isSingleService = item_type === 'goi' && loai_goi_db === 'LE';
-    const isExcludeExam = isSingleService;
-
-    let targetLichDatId = lich_dat_id;
-    if (!targetLichDatId && data.khach_hang_id && !isExcludeExam) {
-      // Find the last clinical exam appointment for this customer that has a paid invoice!
-      const { rows: apptRows } = await pool.query(`
-        SELECT ch.id
-        FROM cuoc_hen ch
-        JOIN hoa_don hd ON hd.cuoc_hen_id = ch.id
-        WHERE ch.khach_hang_id = $1
-          AND ch.loai IN ('KHAM', 'KHAM_MOI')
-          AND hd.trang_thai = 'da_thanh_toan'
-        ORDER BY ch.ngay_gio_bat_dau DESC LIMIT 1
-      `, [data.khach_hang_id]);
-      if (apptRows.length > 0) {
-        targetLichDatId = apptRows[0].id;
-      }
-    }
-
-    if (targetLichDatId && !isExcludeExam) {
-      const appt = await receptionistRepository.getAppointmentWithServicePrice(targetLichDatId);
-      appt_price = appt ? Number(appt.don_gia) : 150000;
-      if (appt && appt.ngay_kham) {
-        const dk = new Date(appt.ngay_kham);
-        ngay_kham_str = `${String(dk.getDate()).padStart(2, '0')}/${String(dk.getMonth() + 1).padStart(2, '0')}/${dk.getFullYear()}`;
-      }
-
-      paidAmount = await receptionistRepository.getPaidInvoiceAmountForAppointment(targetLichDatId);
-      hasPaidExam = paidAmount > 0;
-      if (hasPaidExam) {
-        const paidInvoice = await pool.query(
-          "SELECT ngay_tao, 'HD-' || UPPER(SUBSTRING(id::text FROM 1 FOR 6)) as ma_hoa_don FROM hoa_don WHERE cuoc_hen_id = $1 AND trang_thai = 'da_thanh_toan' LIMIT 1",
-          [targetLichDatId]
-        );
-        if (paidInvoice.rows.length > 0 && paidInvoice.rows[0].ngay_tao) {
-          const d = new Date(paidInvoice.rows[0].ngay_tao);
-          const day = String(d.getDate()).padStart(2, '0');
-          const month = String(d.getMonth() + 1).padStart(2, '0');
-          const year = d.getFullYear();
-          ngay_thanh_toan_kham_str = `${day}/${month}/${year}`;
-          ma_hoa_don_kham_str = paidInvoice.rows[0].ma_hoa_don || '';
-        }
-      }
-
-      // Miễn phí khám: xem docs/BUSINESS_RULES.md mục 5 / backend/src/domain/billing.ts isExamWaived()
-      // — CHỈ áp dụng cho gói LIỆU_TRÌNH, dịch vụ lẻ (LE) không bao giờ được miễn dù giá cao.
-      const isExamWaived = isExamWaivedDomain(loai_thanh_toan, gia_goc_goi, loai_goi_db as LoaiGoi);
-
-      if (isExamWaived) {
-        if (hasPaidExam) {
-          // Exam already paid separately — khấu trừ đúng số tiền THỰC ĐÃ THU (paidAmount), không
-          // phải giá niêm yết (appt_price): ca khám có thể đã áp voucher/giảm giá riêng nên số
-          // thực thu thấp hơn giá gốc, dùng giá gốc sẽ khấu trừ khống phần khách chưa từng trả.
-          giam_tru_kham_truoc_do = paidAmount;
-          mien_phi_kham_chua_dong = 0;
-        } else {
-          // Exam not paid separately yet (will be marked paid with 0đ at checkout)
-          giam_tru_kham_truoc_do = 0;
-          mien_phi_kham_chua_dong = appt_price;
-        }
-      } else {
-        if (!hasPaidExam) {
-          chi_phi_kham = appt_price;
-        }
-      }
-    }
+    // A19 — hóa đơn gói từ nay ĐỘC LẬP HOÀN TOÀN với hóa đơn khám: buổi Lượng giá luôn được thu
+    // tiền riêng và thu TRƯỚC (A8b khóa cứng "Bắt đầu khám" tới khi thanh toán xong), nên không còn
+    // khoản "nợ khám" nào để khấu trừ/miễn vào hóa đơn gói nữa. Đã xóa toàn bộ cơ chế tra cứu ca
+    // khám gần nhất + isExamWaived/resolvePackageBasePrice — không tham chiếu, không khấu trừ qua
+    // lại. `chi_phi_kham`/`giam_tru_kham_truoc_do`/`mien_phi_kham_chua_dong` giữ tên field trong
+    // response (một số nơi gọi vẫn đọc) nhưng luôn = 0 từ nay (ngừng ghi mới, xem C11).
+    const chi_phi_kham = 0;
+    const giam_tru_kham_truoc_do = 0;
+    const mien_phi_kham_chua_dong = 0;
+    const ngay_thanh_toan_kham_str = '';
+    const ma_hoa_don_kham_str = '';
+    const ngay_kham_str = '';
 
     // Total display values (gia_goc on package invoice is always gia_goc_goi)
     const gia_goc = gia_goc_goi;
-    // Total to pay before deduction
-    let tong_tien_thanh_toan = tong_tien_goi_sau_giam;
-
-    // Apply the deduction if applicable
-    if (giam_tru_kham_truoc_do > 0) {
-      tong_tien_thanh_toan = Math.max(0, tong_tien_thanh_toan - giam_tru_kham_truoc_do);
-    }
+    const tong_tien_thanh_toan = tong_tien_goi_sau_giam;
 
     let so_tien_dot_1 = tong_tien_thanh_toan;
     let so_tien_dot_2 = 0;
 
     if (item_type === 'goi') {
-      if (loai_thanh_toan === 'tra_gop') {
-        const packageDot1 = Math.round(tong_tien_goi_sau_giam / 2);
-        // Note: For tra_gop, first payment is: (50% of package) - (deduction if prepaid exam)
-        so_tien_dot_1 = Math.max(0, packageDot1 - giam_tru_kham_truoc_do);
-        if (!hasPaidExam && mien_phi_kham_chua_dong === 0) {
-          so_tien_dot_1 += appt_price;
-        }
-        so_tien_dot_2 = tong_tien_goi_sau_giam - packageDot1;
-      } else if (loai_thanh_toan === 'tung_buoi') {
-        so_tien_dot_1 = hasPaidExam ? 0 : appt_price;
+      if (loai_thanh_toan === 'tung_buoi') {
+        so_tien_dot_1 = 0;
         so_tien_dot_2 = tong_tien_goi_sau_giam;
-      } else { // tra_thang
-        if (!hasPaidExam && mien_phi_kham_chua_dong === 0) {
-          so_tien_dot_1 += appt_price;
-        }
       }
-      // Always calculate don_gia_theo_buoi dynamically from the package value to ensure consistency:
       don_gia_theo_buoi = Math.round(tong_tien_goi_sau_giam / so_buoi_goi);
     }
 
@@ -344,12 +238,9 @@ class ReceptionistService {
       chi_phi_kham,
       giam_tru_kham_truoc_do,
       mien_phi_kham_chua_dong,
-      // Phí khám thực tế áp cho hóa đơn gói này (miễn hoặc khấu trừ) — snapshot để lúc hủy gói
-      // truy thu đúng số đã miễn, không phụ thuộc giá khám hiện hành (xem admin.repository refund).
-      // Khi ca khám đã đóng riêng trước đó (hasPaidExam), dùng đúng số THỰC ĐÃ THU (paidAmount) —
-      // phải khớp với giam_tru_kham_truoc_do ở trên, nếu không lúc hủy gói sẽ truy thu sai (nhiều
-      // hơn số thực sự đã miễn cho khách, do ca khám có thể đã áp voucher riêng).
-      phi_kham_ap_dung: (targetLichDatId && !isExcludeExam) ? (hasPaidExam ? paidAmount : appt_price) : 0,
+      // C11/A19 — hóa đơn gói không còn miễn/khấu trừ phí khám nào để snapshot; cột giữ đọc lịch sử
+      // cho hóa đơn CŨ, ngừng ghi mới (luôn 0 từ nay).
+      phi_kham_ap_dung: 0,
       don_gia_theo_buoi,
       ngay_thanh_toan_kham: ngay_thanh_toan_kham_str,
       ma_hoa_don_kham: ma_hoa_don_kham_str,
@@ -362,7 +253,13 @@ class ReceptionistService {
    * Kiểm tra mã giảm giá còn hiệu lực (tồn tại, trong hạn, đang kích hoạt, chưa hết lượt dùng,
    * đúng hình thức thanh toán yêu cầu nếu có giới hạn).
    */
-  private async assertVoucherUsable(voucher: any, loai_thanh_toan?: string, khach_hang_id?: string) {
+  private async assertVoucherUsable(
+    voucher: any,
+    loai_thanh_toan?: string,
+    khach_hang_id?: string,
+    kenh?: 'online' | 'tai_quay',
+    loai_goi?: 'KHAM' | 'LE' | 'LIEU_TRINH'
+  ) {
     if (!voucher) {
       throw new Error('Mã giảm giá không tồn tại');
     }
@@ -378,9 +275,6 @@ class ReceptionistService {
       throw new Error('Mã giảm giá không hoạt động');
     }
 
-    // Giới hạn số lượt dùng tính RIÊNG theo từng khách hàng, không phải tổng toàn hệ thống — nếu
-    // có giới hạn mà thiếu khach_hang_id thì KHÔNG được coi là "chưa dùng lần nào" (đếm sẽ luôn ra
-    // 0 vì "khach_hang_id = NULL" không bao giờ đúng trong SQL), phải chặn cứng thay vì bỏ qua.
     if (voucher.so_luong_toi_da !== null && !khach_hang_id) {
       throw new Error('Thiếu thông tin khách hàng để kiểm tra lượt dùng mã giảm giá');
     }
@@ -392,13 +286,28 @@ class ReceptionistService {
     const yeuCauThanhToan: string[] = Array.isArray(voucher.yeu_cau_thanh_toan)
       ? voucher.yeu_cau_thanh_toan
       : (voucher.yeu_cau_thanh_toan ? [voucher.yeu_cau_thanh_toan] : []);
-    // Có giới hạn hình thức thanh toán mà KHÔNG biết loai_thanh_toan là gì thì phải chặn (fail
-    // closed), không được coi là hợp lệ — khớp hành vi cũ khi so sánh scalar (undefined !== giá
-    // trị yêu cầu luôn throw).
     const hasPaymentRestriction = yeuCauThanhToan.length > 0 && !yeuCauThanhToan.includes('tat_ca');
     if (hasPaymentRestriction && (!loai_thanh_toan || !yeuCauThanhToan.includes(loai_thanh_toan))) {
       const labels = yeuCauThanhToan.map((v) => PAYMENT_METHOD_LABELS[v] || v).join(', ');
       throw new Error(`Mã giảm giá này chỉ áp dụng cho hình thức thanh toán: ${labels}`);
+    }
+
+    const kenhApDung: string[] = Array.isArray(voucher.kenh_ap_dung)
+      ? voucher.kenh_ap_dung
+      : (voucher.kenh_ap_dung ? [voucher.kenh_ap_dung] : []);
+    const hasKenhRestriction = kenhApDung.length > 0 && !kenhApDung.includes('tat_ca');
+    if (hasKenhRestriction && kenh && !kenhApDung.includes(kenh)) {
+      const kenhLabel = kenhApDung.map(k => k === 'online' ? 'Website Online' : k === 'tai_quay' ? 'Lễ tân tại quầy' : k).join(', ');
+      throw new Error(`Mã giảm giá này chỉ áp dụng cho kênh thanh toán: ${kenhLabel}`);
+    }
+
+    const loaiGoiApDung: string[] = Array.isArray(voucher.loai_goi_ap_dung)
+      ? voucher.loai_goi_ap_dung
+      : (voucher.loai_goi_ap_dung ? [voucher.loai_goi_ap_dung] : []);
+    const hasLoaiGoiRestriction = loaiGoiApDung.length > 0 && !loaiGoiApDung.includes('tat_ca');
+    if (hasLoaiGoiRestriction && loai_goi && !loaiGoiApDung.includes(loai_goi)) {
+      const goiLabel = loaiGoiApDung.map(l => l === 'LIEU_TRINH' ? 'Gói liệu trình' : l === 'KHAM' ? 'Buổi lượng giá/Khám' : l === 'LE' ? 'Dịch vụ lẻ' : l).join(', ');
+      throw new Error(`Mã giảm giá này chỉ áp dụng cho loại dịch vụ: ${goiLabel}`);
     }
   }
 
@@ -406,9 +315,9 @@ class ReceptionistService {
     return receptionistRepository.getActiveVouchers(khach_hang_id);
   }
 
-  async applyVoucher(ma_voucher: string, loai_thanh_toan?: string, khach_hang_id?: string) {
+  async applyVoucher(ma_voucher: string, loai_thanh_toan?: string, khach_hang_id?: string, kenh?: 'online' | 'tai_quay', loai_goi?: 'KHAM' | 'LE' | 'LIEU_TRINH') {
     const voucher = await receptionistRepository.getVoucherByCode(ma_voucher);
-    await this.assertVoucherUsable(voucher, loai_thanh_toan, khach_hang_id);
+    await this.assertVoucherUsable(voucher, loai_thanh_toan, khach_hang_id, kenh, loai_goi);
     return voucher;
   }
 
@@ -493,7 +402,7 @@ class ReceptionistService {
       const ldt = await receptionistRepository.getTreatmentPlanById(finalLdtId);
       if (!ldt) throw new Error('Không tìm thấy lịch điều trị');
 
-      if (['tra_thang', 'tra_gop', 'tung_buoi'].includes(loai_thanh_toan)) {
+      if (['tra_thang', 'tung_buoi'].includes(loai_thanh_toan)) {
         await this.snapshotTreatmentPlanExpiry(finalLdtId);
       }
 
@@ -531,11 +440,7 @@ class ReceptionistService {
         loai_thanh_toan,
         voucher_id: calc.voucher_id,
         cuoc_hen_id: lich_dat_id || null,
-        ghi_chu: calc.giam_tru_kham_truoc_do > 0
-          ? `Gói trị liệu chỉ định từ ca khám ngày ${calc.ngay_thanh_toan_kham || ''} đã thanh toán. Miễn phí khám được khấu trừ vào gói.`
-          : (calc.mien_phi_kham_chua_dong > 0
-              ? `Gói trị liệu chỉ định từ ca khám ngày ${calc.ngay_kham || ''}. Được miễn phí khám lâm sàng (Ưu đãi mua gói trị liệu > 1.000.000đ).`
-              : `Gói trị liệu chỉ định từ ca khám.`)
+        ghi_chu: `Gói trị liệu chỉ định từ ca khám.`
       };
 
       const invoice = await receptionistRepository.createInvoiceForTreatmentPlan(invoiceData);
@@ -584,11 +489,7 @@ class ReceptionistService {
       phi_kham_ap_dung: calc.phi_kham_ap_dung,
       ho_ten_khach: tenKhach,
       so_dien_thoai: sdtKhach,
-      ghi_chu: calc.giam_tru_kham_truoc_do > 0
-        ? `Đã khấu trừ ${calc.giam_tru_kham_truoc_do.toLocaleString()}đ phí khám lâm sàng đã đóng trước đó (ca khám ngày ${calc.ngay_thanh_toan_kham || ''}).`
-        : (calc.mien_phi_kham_chua_dong > 0
-            ? `Được miễn phí khám lâm sàng cho ca khám ngày ${calc.ngay_kham || ''} (Ưu đãi mua gói trị liệu > 1.000.000đ).`
-            : null)
+      ghi_chu: null
     };
 
     const invoice = await receptionistRepository.createInvoiceDirect(invoiceData);
@@ -608,38 +509,15 @@ class ReceptionistService {
     const loai_thanh_toan = hd.loai_thanh_toan;
     const so_buoi_goi = Number(hd.so_buoi_goi) || 1;
 
-    let chi_phi_kham = 0;
-    let giam_tru = 0;
-    let paidExam = 0;
-    let giaGocGoi = Number(hd.tong_tien_goc);
-
-    if (hd.cuoc_hen_id) {
-      const appt = await receptionistRepository.getAppointmentWithServicePrice(hd.cuoc_hen_id);
-      if (appt) {
-        chi_phi_kham = Number(appt.don_gia);
-      }
-
-      paidExam = await receptionistRepository.getPaidInvoiceAmountForAppointment(hd.cuoc_hen_id);
-      const hasPaidSeparateExam = paidExam > 0;
-      giaGocGoi = resolvePackageBasePrice(Number(hd.tong_tien_goc), chi_phi_kham, hasPaidSeparateExam);
-
-      // Miễn phí khám: xem docs/BUSINESS_RULES.md mục 5 / backend/src/domain/billing.ts isExamWaived()
-      // — chỉ hóa đơn gói LIỆU_TRÌNH (có phac_do_dieu_tri_id) mới được xét miễn, dịch vụ lẻ (LE)
-      // không có phác đồ đi kèm nên không bao giờ đủ điều kiện.
-      const loaiGoiForWaiver: LoaiGoi | null = hd.phac_do_dieu_tri_id ? 'LIEU_TRINH' : null;
-      if (hasPaidSeparateExam && isExamWaivedDomain(loai_thanh_toan, giaGocGoi, loaiGoiForWaiver)) {
-        giam_tru = paidExam;
-      }
-    }
+    // A19 — hóa đơn gói độc lập hoàn toàn với hóa đơn khám (xem calculateBilling): không còn
+    // resolvePackageBasePrice/isExamWaivedDomain nào để tính khấu trừ, giaGocGoi lấy thẳng gốc.
+    const giaGocGoi = Number(hd.tong_tien_goc);
 
     let requiredAmount: number;
     if (hd.trang_thai === 'chua_thanh_toan') {
       // First payment
-      if (loai_thanh_toan === 'tra_gop') {
-        const totalPackage = tong_tien + giam_tru;
-        requiredAmount = Math.round(totalPackage / 2) - giam_tru;
-      } else if (loai_thanh_toan === 'tung_buoi') {
-        requiredAmount = paidExam > 0 ? 0 : chi_phi_kham;
+      if (loai_thanh_toan === 'tung_buoi') {
+        requiredAmount = 0;
       } else {
         requiredAmount = tong_tien;
       }
@@ -682,25 +560,11 @@ class ReceptionistService {
     const loaiHoaDonForDetail: LoaiGoi | null = hd.phac_do_dieu_tri_id ? 'LIEU_TRINH' : null;
     let chiTiet: ReturnType<typeof describePaymentTransaction> | null = null;
 
-    const { requiredAmount: requiredDot1, giaGocGoi } = await this.computeRequiredPayment(hd, so_thu_tu_buoi);
+    const { requiredAmount: requiredDot1 } = await this.computeRequiredPayment(hd, so_thu_tu_buoi);
 
     if (hd.trang_thai === 'chua_thanh_toan') {
       // First payment
-      if (loai_thanh_toan === 'tra_gop') {
-        if (tien_nhan < requiredDot1) {
-          throw new Error(`Số tiền nhận không đủ cho đợt 1 (tối thiểu ${requiredDot1.toLocaleString()}đ)`);
-        }
-
-        if (tien_nhan >= tong_tien) {
-          da_thanh_toan_moi = tong_tien;
-          trang_thai_moi = 'da_thanh_toan';
-          chiTiet = describePaymentTransaction({ loaiHoaDon: loaiHoaDonForDetail, hinhThuc: 'tra_gop', dot: 'tron_goi' });
-        } else {
-          da_thanh_toan_moi = requiredDot1;
-          trang_thai_moi = 'dang_tra_gop';
-          chiTiet = describePaymentTransaction({ loaiHoaDon: loaiHoaDonForDetail, hinhThuc: 'tra_gop', dot: 'dot_1' });
-        }
-      } else if (loai_thanh_toan === 'tung_buoi') {
+      if (loai_thanh_toan === 'tung_buoi') {
         if (tien_nhan < requiredDot1) {
           throw new Error(`Số tiền nhận không đủ cho buổi khám lâm sàng (tối thiểu ${requiredDot1.toLocaleString()}đ)`);
         }
@@ -752,7 +616,7 @@ class ReceptionistService {
         chiTiet = describePaymentTransaction({
           loaiHoaDon: loaiHoaDonForDetail,
           hinhThuc: loai_thanh_toan || null,
-          dot: loai_thanh_toan === 'tra_gop' ? 'dot_2' : 'con_lai',
+          dot: 'con_lai',
         });
       }
     }
@@ -781,44 +645,18 @@ class ReceptionistService {
       await receptionistRepository.updateTreatmentPlanStatus(hd.lich_dieu_tri_id, statusToSet);
     }
 
-    // Mark any pending original exam invoice for this client/appointment as Paid (0đ due) to link it to the package promotion
-    const isExamWaived = isExamWaivedDomain(
-      hd.loai_thanh_toan || '',
-      giaGocGoi,
-      hd.phac_do_dieu_tri_id ? 'LIEU_TRINH' : null
-    );
-    if (isExamWaived) {
-      const maHoaDonGoi = `HD-${hoa_don_id.substring(0, 6).toUpperCase()}`;
-      const promoNote = `Được miễn phí khám lâm sàng theo chương trình ưu đãi của hóa đơn gói ${maHoaDonGoi}.`;
+    // A19 — đã bỏ cơ chế "tặng miễn phí khám" (isExamWaived) từng chạy ở đây: điều kiện tiên quyết
+    // của nó (hóa đơn khám khác đang chua_thanh_toan) không còn xảy ra được trong luồng chuẩn nữa,
+    // vì A8b khóa cứng "Bắt đầu khám" tới khi thanh toán xong — hóa đơn gói và hóa đơn khám từ nay
+    // độc lập hoàn toàn, không còn UPDATE chéo nào giữa hai loại hóa đơn.
 
-      if (hd.cuoc_hen_id) {
-        // CHỈ đánh dấu miễn phí cho hóa đơn KHÁM (phac_do_dieu_tri_id IS NULL). Trước đây nhánh
-        // `cuoc_hen_id = $2` không lọc điều kiện này, nên một hóa đơn GÓI khác chưa thanh toán của
-        // cùng ca khám (vd lễ tân lập lại hóa đơn) bị ghi đè thành 0đ kèm ghi chú "miễn phí khám".
-        await pool.query(`
-          UPDATE hoa_don
-          SET trang_thai = 'da_thanh_toan',
-              tong_tien_phai_tra = 0,
-              so_tien_da_tra = 0,
-              ghi_chu = $1
-          WHERE phac_do_dieu_tri_id IS NULL
-            AND id <> $4
-            AND (cuoc_hen_id = $2 OR (khach_hang_id = $3 AND tong_tien_phai_tra = (SELECT don_gia FROM goi_dich_vu WHERE loai_goi = 'KHAM' LIMIT 1)))
-            AND trang_thai = 'chua_thanh_toan'
-        `, [promoNote, hd.cuoc_hen_id, hd.khach_hang_id, hoa_don_id]);
-      } else {
-        await pool.query(`
-          UPDATE hoa_don
-          SET trang_thai = 'da_thanh_toan',
-              tong_tien_phai_tra = 0,
-              so_tien_da_tra = 0,
-              ghi_chu = $1
-          WHERE khach_hang_id = $2 
-            AND phac_do_dieu_tri_id IS NULL 
-            AND tong_tien_phai_tra = (SELECT don_gia FROM goi_dich_vu WHERE loai_goi = 'KHAM' LIMIT 1)
-            AND trang_thai = 'chua_thanh_toan'
-        `, [promoNote, hd.khach_hang_id]);
-      }
+    // Sync appointment status if this invoice has a direct appointment link
+    if (hd.cuoc_hen_id) {
+      await pool.query(`
+        UPDATE cuoc_hen
+        SET trang_thai_thanh_toan = 'da_thanh_toan'
+        WHERE id = $1
+      `, [hd.cuoc_hen_id]);
     }
 
     // Mark the original exam invoice as Paid if it is paid now under tung_buoi
@@ -849,6 +687,12 @@ class ReceptionistService {
                 ghi_chu = $1
             WHERE id = $2
           `, [`Đã thanh toán cùng lúc với đăng ký gói trả theo từng buổi.`, examInv.id]);
+
+          await pool.query(`
+            UPDATE cuoc_hen
+            SET trang_thai_thanh_toan = 'da_thanh_toan'
+            WHERE id = $1
+          `, [hd.cuoc_hen_id]);
         } else {
           // Chưa từng có hóa đơn khám riêng nào được tạo trước (lễ tân đăng ký gói trả từng buổi
           // ngay từ đầu, thu phí khám trong CHÍNH lần thanh toán này) — trước đây code chỉ biết
@@ -866,6 +710,12 @@ class ReceptionistService {
             `, [hd.khach_hang_id, hd.cuoc_hen_id, chiPhiKham, 'Phí khám lâm sàng — thu cùng lúc đăng ký gói trả theo từng buổi.']);
             examInvId = newExamRows[0].id;
             examInvAmount = chiPhiKham;
+
+            await pool.query(`
+              UPDATE cuoc_hen
+              SET trang_thai_thanh_toan = 'da_thanh_toan'
+              WHERE id = $1
+            `, [hd.cuoc_hen_id]);
           }
         }
 
@@ -939,7 +789,8 @@ class ReceptionistService {
     let lyDoLienHe: any = null;
 
     if (pendingPlan) {
-      lyDoLienHe = { type: 'sap_het_han', han_kich_hoat: pendingPlan.han_kich_hoat };
+      // A19 — không còn hạn kích hoạt, chỉ còn "chờ kích hoạt" thuần túy (bất kể đã bao lâu).
+      lyDoLienHe = { type: 'cho_kich_hoat' };
     } else if (activePlan) {
       const sessions = record.appointments.filter((a: any) => a.phac_do_dieu_tri_id === activePlan.id);
       const completedTimes = sessions

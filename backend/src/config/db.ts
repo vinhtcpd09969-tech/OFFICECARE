@@ -28,12 +28,20 @@ pool.on('error', (err) => {
   process.exit(-1);
 });
 
-// Dynamic migration block to ensure cuoc_hen has the required cancellation and internal notes columns
+// Dynamic migration block to ensure cuoc_hen has the required cancellation and internal notes columns and sync paid appointments
 pool.query(`
   ALTER TABLE cuoc_hen
   ADD COLUMN IF NOT EXISTS ghi_chu_noi_bo TEXT,
   ADD COLUMN IF NOT EXISTS thoi_gian_huy TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS ly_do_huy TEXT;
+  ADD COLUMN IF NOT EXISTS ly_do_huy TEXT,
+  ADD COLUMN IF NOT EXISTS thoi_luong_phut INT;
+
+  UPDATE cuoc_hen ch
+  SET trang_thai_thanh_toan = 'da_thanh_toan'
+  FROM hoa_don hd
+  WHERE hd.cuoc_hen_id = ch.id
+    AND hd.trang_thai = 'da_thanh_toan'
+    AND ch.trang_thai_thanh_toan != 'da_thanh_toan';
 `).then(() => {
   console.log('Database schema for cuoc_hen columns checked and updated successfully.');
 }).catch(err => {

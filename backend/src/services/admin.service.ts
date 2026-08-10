@@ -43,8 +43,13 @@ class AdminService {
   }
 
   async createStaff(data: any) {
-    const existing = await adminRepository.findUserByEmail(data.email);
-    if (existing) throw new Error('Email đã được sử dụng');
+    const existingEmail = await adminRepository.findUserByEmail(data.email);
+    if (existingEmail) throw new Error('Email này đã được đăng ký bởi người dùng khác trên hệ thống');
+
+    if (data.so_dien_thoai) {
+      const existingPhone = await adminRepository.findUserByPhone(data.so_dien_thoai);
+      if (existingPhone) throw new Error('Số điện thoại này đã được đăng ký bởi người dùng khác trên hệ thống');
+    }
 
     const salt = await bcrypt.genSalt(10);
     const hash = await bcrypt.hash(data.mat_khau, salt);

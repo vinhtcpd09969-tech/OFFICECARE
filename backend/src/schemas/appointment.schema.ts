@@ -32,6 +32,7 @@ export const createAppointmentSchema = z.object({
     lich_dat_id: z.string().uuid().optional().nullable(),
     trang_thai: z.string().optional().nullable(),
     trang_thai_thanh_toan: z.enum(['chua_thanh_toan', 'dang_cho_thanh_toan', 'da_thanh_toan']).optional().nullable(),
+    hoa_don_id: z.string().uuid().optional().nullable(),
   }).refine(data => data.khach_hang_id || (data.ho_ten_khach && data.so_dien_thoai), {
     message: 'Phải cung cấp ID khách hàng hoặc thông tin khách vãng lai (họ tên, sđt)'
   })
@@ -50,13 +51,15 @@ export const createPublicAppointmentSchema = z.object({
     gioi_tinh_khach: z.enum(['nam', 'nu', 'khac']).optional(),
     ngay: ngaySchema,
     buoi: buoiSchema,
-    trieu_chung: z.string({ required_error: 'Mô tả triệu chứng là bắt buộc' })
-      .min(10, 'Mô tả triệu chứng phải có ít nhất 10 ký tự'),
+    trieu_chung: z.string().optional().nullable(),
     ly_do_kham: z.string().optional(),
     anh_dinh_kem_url: z.string().optional(),
     goi_dich_vu_id: z.string().uuid('Gói dịch vụ/Lịch khám là bắt buộc'),
     phac_do_dieu_tri_id: z.string().uuid().optional().nullable(),
     so_thu_tu_buoi: z.number().int().positive().optional().nullable(),
+    trang_thai_thanh_toan: z.enum(['chua_thanh_toan', 'dang_cho_thanh_toan', 'da_thanh_toan']).optional().nullable(),
+    hinh_thuc_thanh_toan: z.string().optional().nullable(),
+    ma_voucher: z.string().optional().nullable(),
   })
 });
 

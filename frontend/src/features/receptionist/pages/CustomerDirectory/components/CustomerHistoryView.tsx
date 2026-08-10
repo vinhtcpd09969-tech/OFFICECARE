@@ -65,15 +65,15 @@ export function CustomerHistoryView({ customer, staleDays, onBack }: CustomerHis
       </div>
 
       {/* Banner cần liên hệ */}
-      {customer.ly_do_lien_he?.type === 'sap_het_han' && (
+      {customer.ly_do_lien_he?.type === 'cho_kich_hoat' && (
         <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-150 rounded-2xl">
           <div className="p-2 bg-amber-100 text-amber-600 rounded-xl shrink-0">
             <Bell size={16} />
           </div>
           <div>
-            <p className="text-xs font-black text-amber-800 uppercase tracking-wide">Sắp hết hạn kích hoạt</p>
+            <p className="text-xs font-black text-amber-800 uppercase tracking-wide">Chờ kích hoạt</p>
             <p className="text-[11px] text-amber-700 font-semibold mt-0.5 leading-relaxed">
-              Khách có gói bác sĩ vừa chỉ định nhưng chưa thanh toán — chỉ định sẽ mất nếu quá hạn. Vui lòng gọi khách để chốt thanh toán & kích hoạt sớm.
+              Khách có gói bác sĩ vừa chỉ định nhưng chưa thanh toán. Vui lòng gọi khách để chốt thanh toán & kích hoạt.
             </p>
           </div>
         </div>
@@ -177,10 +177,6 @@ export function CustomerHistoryView({ customer, staleDays, onBack }: CustomerHis
                         ) : p.trang_thai === 'dang_dieu_tri' && !isPlanCompleted ? (
                           (() => {
                             const nextSessionNum = (p.so_buoi_da_dung || 0) + 1;
-                            // Khớp đúng điều kiện chặn đặt buổi tiếp theo đang áp dụng ở mọi nơi khác
-                            // (WalkInBookingModal, DetailFooter.tsx, backend createAppointment) —
-                            // trước đây trang này thiếu dữ liệu thanh toán nên không bắt được, luôn
-                            // hiện "Đặt lịch buổi N" dù còn nợ đợt 2 (trả góp)/buổi hiện tại (từng buổi).
                             if (!isSessionPaymentSatisfied(p, nextSessionNum)) {
                               return (
                                 <button

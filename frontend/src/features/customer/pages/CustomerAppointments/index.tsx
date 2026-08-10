@@ -75,6 +75,12 @@ export default function CustomerAppointments() {
   const [ratingApptId, setRatingApptId] = useState<string | null>(null);
   const [selectedTimelineAppt, setSelectedTimelineAppt] = useState<any | null>(null);
 
+  // Reschedule Modal States
+  const [rescheduleAppt, setRescheduleAppt] = useState<Appointment | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState<string>('');
+  const [rescheduleBuoi, setRescheduleBuoi] = useState<'sang' | 'chieu'>('sang');
+  const [rescheduleSubmitting, setRescheduleSubmitting] = useState<boolean>(false);
+
   // Separate rating states
   const [ratingStarsService, setRatingStarsService] = useState<number>(5);
   const [ratingCommentService, setRatingCommentService] = useState<string>('');
@@ -628,11 +634,21 @@ export default function CustomerAppointments() {
                     && elapsedSinceBookingMs < CANCEL_WINDOW_MS
                     && app.trang_thai === 'da_xac_nhan'
                     && currentTime.getTime() < new Date(app.ngay_gio_ket_thuc).getTime();
+                  
+                  const isPaid = app.trang_thai_thanh_toan === 'da_thanh_toan';
+                  const apptDateObj = new Date(app.ngay_gio_bat_dau);
+                  const apptDateStr = `${apptDateObj.getFullYear()}-${String(apptDateObj.getMonth() + 1).padStart(2, '0')}-${String(apptDateObj.getDate()).padStart(2, '0')}`;
+                  const todayStr = `${currentTime.getFullYear()}-${String(currentTime.getMonth() + 1).padStart(2, '0')}-${String(currentTime.getDate()).padStart(2, '0')}`;
+                  const isTodayAppt = apptDateStr === todayStr;
+
+                  const nowMins = currentTime.getHours() * 60 + currentTime.getMinutes();
+                  const isMorningAppt = apptDateObj.getHours() < 12;
+                  const cutoffMins = isMorningAppt ? (7 * 60 + 30 + 135) : (12 * 60 + 225); // 9:45 AM or 15:45 PM
+                  const isPast50PercentCutoff = isPaid && app.trang_thai === 'da_xac_nhan' && isTodayAppt && nowMins >= cutoffMins;
+                  const canSelfReschedule = isPaid && app.trang_thai === 'da_xac_nhan';
 
                   const showWarningNotice = app.trang_thai === 'da_xac_nhan';
 
-                  // Buổi thuộc gói liệu trình: nêu rõ đang là buổi thứ mấy/tổng số buổi, tránh chỉ
-                  // hiện tên gói trơ trọi khiến khách không biết đây là buổi nào trong liệu trình.
                   const isPackageSession = app.loai_goi === 'LIEU_TRINH' && !!app.so_thu_tu_buoi;
 
                   const getInitials = (fullName: string | null) => {
@@ -862,6 +878,33 @@ export default function CustomerAppointments() {
                           </motion.button>
                         )}
 
+                        {/* NÚT TỰ ĐỔI LỊCH CHO LỊCH ĐÃ THANH TOÁN */}
+                        {canSelfReschedule && (
+                          <motion.button
+                            whileHover={{ scale: isPast50PercentCutoff ? 1 : 1.02 }}
+                            whileTap={{ scale: isPast50PercentCutoff ? 1 : 0.98 }}
+                            disabled={isPast50PercentCutoff}
+                            onClick={() => {
+                              if (!isPast50PercentCutoff) {
+                                setRescheduleAppt(app);
+                                const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+                                setRescheduleDate(`${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`);
+                                setRescheduleBuoi('sang');
+                              }
+                            }}
+                            className={`w-full sm:w-auto font-extrabold text-[10px] uppercase tracking-wider py-2.5 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+                              isPast50PercentCutoff
+                                ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                                : 'bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 cursor-pointer shadow-2xs'
+                            }`}
+                            title={isPast50PercentCutoff ? 'Đã quá 50% thời lượng buổi hôm nay (sau 09h45/15h45). Vui lòng gọi hotline 0398 655 332.' : 'Tự đổi ngày/buổi mới'}
+                          >
+                            <RefreshCw size={12} className={isPast50PercentCutoff ? '' : 'text-teal-600'} />
+                            {isPast50PercentCutoff ? 'Khóa sát giờ' : 'Đổi lịch hẹn'}
+                          </motion.button>
+                        )}
+
+                        {/* NÚT HỦY LỊCH CHO LỊCH CHƯA THANH TOÁN (TRONG 60 PHÚT) */}
                         {app.trang_thai === 'da_xac_nhan' && canSelfCancel && (
                           <motion.button
                             whileHover={{ scale: 1.02 }}
@@ -869,7 +912,7 @@ export default function CustomerAppointments() {
                             onClick={() => setCancellingId(app.id)}
                             className="w-full sm:w-auto bg-white hover:bg-rose-50 hover:text-rose-600 border border-slate-200 hover:border-rose-200 text-slate-650 font-extrabold text-[10px] uppercase tracking-wider py-2.5 px-3 rounded-xl transition-all cursor-pointer shadow-2xs"
                           >
-                            Yêu cầu hủy lịch
+                            Hủy lịch
                           </motion.button>
                         )}
                       </div>
@@ -1195,6 +1238,115 @@ export default function CustomerAppointments() {
             </div>
           );
         })()}
+      </AnimatePresence>
+
+      {/* RESCHEDULE MODAL */}
+      <AnimatePresence>
+        {rescheduleAppt && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl border border-slate-100"
+            >
+              <div className="flex items-center justify-between border-b pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2.5 bg-teal-50 text-teal-600 rounded-2xl">
+                    <RefreshCw size={20} />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-slate-900 text-sm uppercase tracking-tight">Đổi Lịch Hẹn Trực Tuyến</h3>
+                    <p className="text-[10px] text-slate-400 font-medium mt-0.5">Mã lịch: <span className="font-mono text-teal-600 font-bold">{rescheduleAppt.ma_lich_dat}</span></p>
+                  </div>
+                </div>
+                <button onClick={() => setRescheduleAppt(null)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-black text-slate-700 uppercase tracking-wider block mb-1.5">
+                    1. Chọn Ngày Khám/Trị Liệu Mới *
+                  </label>
+                  <CustomDatePicker
+                    value={rescheduleDate}
+                    onChange={(val) => setRescheduleDate(val)}
+                    minDate={new Date().toISOString().split('T')[0]}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-900 focus:bg-white focus:border-teal-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-black text-slate-700 uppercase tracking-wider block mb-1.5">
+                    2. Chọn Buổi Mới *
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setRescheduleBuoi('sang')}
+                      className={`p-3.5 rounded-2xl border text-center transition-all cursor-pointer ${
+                        rescheduleBuoi === 'sang'
+                          ? 'border-teal-500 bg-teal-50 text-teal-900 font-black ring-2 ring-teal-500/20'
+                          : 'border-slate-200 hover:border-slate-300 bg-white text-slate-700'
+                      }`}
+                    >
+                      <div className="text-xs font-black">🌅 Buổi Sáng</div>
+                      <div className="text-[10px] text-slate-500 font-medium mt-0.5">07:30 – 12:00</div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setRescheduleBuoi('chieu')}
+                      className={`p-3.5 rounded-2xl border text-center transition-all cursor-pointer ${
+                        rescheduleBuoi === 'chieu'
+                          ? 'border-teal-500 bg-teal-50 text-teal-900 font-black ring-2 ring-teal-500/20'
+                          : 'border-slate-200 hover:border-slate-300 bg-white text-slate-700'
+                      }`}
+                    >
+                      <div className="text-xs font-black">🌆 Buổi Chiều</div>
+                      <div className="text-[10px] text-slate-500 font-medium mt-0.5">12:00 – 19:30</div>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setRescheduleAppt(null)}
+                  className="flex-1 py-3 border border-slate-200 text-slate-600 font-bold text-xs rounded-2xl hover:bg-slate-50 transition-all cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="button"
+                  disabled={rescheduleSubmitting || !rescheduleDate}
+                  onClick={async () => {
+                    try {
+                      setRescheduleSubmitting(true);
+                      await api.patch(`/client/appointments/${rescheduleAppt.id}/reschedule`, {
+                        new_date: rescheduleDate,
+                        new_buoi: rescheduleBuoi
+                      });
+                      toast.success('Đã đổi lịch hẹn thành công!');
+                      setRescheduleAppt(null);
+                      fetchAppointments();
+                    } catch (err: any) {
+                      toast.error(err.response?.data?.message || err.message || 'Lỗi đổi lịch hẹn');
+                    } finally {
+                      setRescheduleSubmitting(false);
+                    }
+                  }}
+                  className="flex-1 py-3 bg-teal-600 hover:bg-teal-700 text-white font-black text-xs rounded-2xl shadow-md disabled:opacity-50 transition-all cursor-pointer"
+                >
+                  {rescheduleSubmitting ? 'Đang đổi...' : 'Xác nhận đổi lịch'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
       </AnimatePresence>
 
       {/* STATUS HISTORY TIMELINE MODAL */}

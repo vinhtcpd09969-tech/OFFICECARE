@@ -146,15 +146,19 @@ export const PaymentSuccessBox: React.FC<PaymentSuccessBoxProps> = ({
       <div className="flex gap-3 pt-2">
         <button
           type="button"
-          onClick={onComplete}
-          className="flex-1 py-3.5 bg-zinc-100 hover:bg-zinc-200/80 active:scale-[0.98] text-secondary text-xs font-bold uppercase tracking-wider rounded-xl transition-all border border-zinc-200"
+          onClick={() => {
+            onComplete();
+            const calendarPath = Number(user?.vai_tro_id) === 2 ? '/receptionist/appointments' : '/admin/appointments';
+            navigate(`${calendarPath}?range=today&view=timeline`);
+          }}
+          className="flex-1 py-3.5 bg-teal-600 hover:bg-teal-700 active:scale-[0.98] text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-sm flex items-center justify-center gap-2"
         >
-          Hoàn tất
+          <CalendarRange size={16} /> Quay lại hàng chờ hôm nay
         </button>
         <button
           type="button"
           onClick={onComplete}
-          className="flex-1 py-3.5 bg-primary hover:bg-primary/90 active:scale-[0.98] text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-sm transition-all"
+          className="flex-1 py-3.5 bg-zinc-100 hover:bg-zinc-200/80 active:scale-[0.98] text-secondary text-xs font-bold uppercase tracking-wider rounded-xl transition-all border border-zinc-200"
         >
           Quản lý tài chính
         </button>

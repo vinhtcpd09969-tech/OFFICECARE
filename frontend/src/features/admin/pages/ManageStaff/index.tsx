@@ -36,11 +36,13 @@ import {
 } from 'lucide-react';
 
 const staffSchema = z.object({
-  ho_ten: z.string().min(1, 'Họ tên là bắt buộc'),
-  email: z.string().email('Email không hợp lệ'),
-  mat_khau: z.string().min(6, 'Mật khẩu tối thiểu 6 ký tự'),
-  vai_tro_id: z.number().min(2, 'Vui lòng chọn vai trò'),
-  so_dien_thoai: z.string().optional(),
+  ho_ten: z.string().min(1, 'Vui lòng không để trống họ và tên'),
+  email: z.string().min(1, 'Vui lòng không để trống email đăng nhập').email('Email không đúng định dạng y khoa (vd: ten@officecare.vn)'),
+  mat_khau: z.string().min(1, 'Vui lòng không để trống mật khẩu').min(6, 'Mật khẩu khởi tạo phải từ 6 ký tự trở lên'),
+  vai_tro_id: z.number().min(2, 'Vui lòng chọn vai trò làm việc'),
+  so_dien_thoai: z.string().optional().refine((val) => !val || /^(0|\+84)(3|5|7|8|9)\d{8}$/.test(val), {
+    message: 'Số điện thoại không đúng định dạng (vd: 0912345678)'
+  }),
   trang_thai: z.enum(['hoat_dong', 'vo_hieu'])
 });
 
@@ -100,9 +102,15 @@ export default function ManageStaff() {
     onConfirm: () => void;
   } | null>(null);
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<StaffFormValues>({
+  const { register, handleSubmit, reset, setError, formState: { errors } } = useForm<StaffFormValues>({
+    mode: 'onTouched',
     resolver: zodResolver(staffSchema),
     defaultValues: {
+      ho_ten: '',
+      email: '',
+      mat_khau: '',
+      vai_tro_id: 0,
+      so_dien_thoai: '',
       trang_thai: 'hoat_dong'
     }
   });
@@ -376,7 +384,13 @@ export default function ManageStaff() {
       fetchStaff();
     } catch (error: any) {
       console.error('Error creating staff:', error);
-      toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi tạo nhân sự');
+      const errMsg = error.response?.data?.message || 'Có lỗi xảy ra khi tạo nhân sự';
+      if (errMsg.toLowerCase().includes('email')) {
+        setError('email', { type: 'server', message: errMsg });
+      } else if (errMsg.toLowerCase().includes('số điện thoại') || errMsg.toLowerCase().includes('phone')) {
+        setError('so_dien_thoai', { type: 'server', message: errMsg });
+      }
+      toast.error(errMsg);
     }
   };
 
@@ -408,7 +422,7 @@ export default function ManageStaff() {
     switch (roleId) {
       case 2: return 'Lễ tân';
       case 3: return 'Kỹ thuật viên';
-      case 4: return 'Bác sĩ';
+      case 4: return 'Chuyên viên tư vấn';
       case 5: return 'Admin';
       case 6: return 'Quản lý';
       default: return 'Khác';
@@ -646,7 +660,7 @@ export default function ManageStaff() {
                     >
                       <option value={2}>Lễ tân</option>
                       <option value={3}>Kỹ thuật viên</option>
-                      <option value={4}>Bác sĩ</option>
+                      <option value={4}>Chuyên viên tư vấn</option>
                       <option value={5}>Admin</option>
                       <option value={6}>Quản lý</option>
                     </select>
@@ -1043,7 +1057,7 @@ export default function ManageStaff() {
           <div className="flex bg-zinc-100 dark:bg-zinc-950 p-1 rounded-xl w-full lg:w-auto overflow-x-auto">
             {[
               { id: 'all', label: 'TẤT CẢ' },
-              { id: '4', label: 'BÁC SĨ' },
+              { id: '4', label: 'CHUYÊN VIÊN TƯ VẤN' },
               { id: '3', label: 'KỸ THUẬT VIÊN' },
               { id: '2', label: 'LỄ TÂN' },
               { id: '6', label: 'QUẢN LÝ' },
@@ -1261,7 +1275,7 @@ export default function ManageStaff() {
                     <option value={0}>Chọn...</option>
                     <option value={2}>Lễ tân</option>
                     <option value={3}>Kỹ thuật viên</option>
-                    <option value={4}>Bác sĩ</option>
+                    <option value={4}>Chuyên viên tư vấn</option>
                     <option value={5}>Admin</option>
                     <option value={6}>Quản lý</option>
                   </select>
@@ -1274,8 +1288,9 @@ export default function ManageStaff() {
                     id="so_dien_thoai"
                     placeholder="Số di động liên hệ..."
                     {...register('so_dien_thoai')}
-                    className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-850 focus:border-primary rounded-xl px-4 py-2.5 text-xs text-secondary font-bold outline-none focus:ring-2 focus:ring-primary/20"
+                    className={`w-full bg-zinc-50 dark:bg-zinc-950 border ${errors.so_dien_thoai ? 'border-red-400 focus:border-red-500 ring-2 ring-red-100' : 'border-zinc-200 dark:border-zinc-850 focus:border-primary'} rounded-xl px-4 py-2.5 text-xs text-secondary font-bold outline-none focus:ring-2 focus:ring-primary/20`}
                   />
+                  {errors.so_dien_thoai && <p className="text-red-500 text-[10px] mt-1 font-semibold">{errors.so_dien_thoai.message}</p>}
                 </div>
               </div>
 

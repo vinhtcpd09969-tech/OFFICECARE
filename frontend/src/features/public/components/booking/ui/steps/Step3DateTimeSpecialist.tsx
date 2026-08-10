@@ -105,7 +105,7 @@ export function Step3DateTimeSpecialist({
                   <Icon size={20} />
                 </div>
                 {isSelected && (
-                  <CheckCircle2 size={20} className="text-[#2EC4B6] fill-[#2EC4B6] text-white" />
+                  <CheckCircle2 size={20} className="text-[#2EC4B6] fill-[#2EC4B6]" />
                 )}
               </div>
               <h4 className="text-sm font-jakarta font-black text-slate-900">{BUOI_INFO[key].label}</h4>
@@ -122,7 +122,7 @@ export function Step3DateTimeSpecialist({
       <div className="bg-slate-50/80 border border-slate-200/80 p-5 sm:p-6 rounded-[24px] mt-6 space-y-4 font-jakarta shadow-xs">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
-            <label className="block text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
+            <label className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
               {bookingType === 'kham' ? (
                 <>
                   <span className="p-1 rounded-lg bg-teal-50 text-[#2EC4B6]">👨‍⚕️</span>

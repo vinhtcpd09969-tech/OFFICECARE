@@ -4,6 +4,7 @@ import {
   createRoom 
 } from '../../api/admin.api';
 import { Compass, CheckCircle2, AlertTriangle, Info, X } from 'lucide-react';
+import api from '../../../../api/axios';
 
 // Local subcomponents & types
 import { RoomCard, Room } from './RoomCard';
@@ -68,8 +69,11 @@ export default function ManageRooms() {
     }
   };
 
+  const [equipmentList, setEquipmentList] = useState<any[]>([]);
+
   useEffect(() => {
     loadData();
+    api.get('/admin/equipment').then(res => setEquipmentList(res.data || [])).catch(() => {});
   }, []);
 
   // Statistics calculation
@@ -198,9 +202,10 @@ export default function ManageRooms() {
         <div>
           <button 
             onClick={() => handleOpenRoomModal()}
-            className="bg-teal-800 hover:bg-teal-900 text-white font-bold text-xs uppercase tracking-wider px-6 py-3.5 rounded-xl shadow-md hover:shadow-lg transition-all active:scale-[0.98] duration-250"
+            className="bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white font-black text-xs uppercase tracking-wider px-6 py-3.5 rounded-2xl shadow-lg shadow-teal-600/25 hover:shadow-teal-600/40 transition-all active:scale-95 duration-200 flex items-center gap-2 cursor-pointer"
           >
-            + Khai báo phòng trực mới
+            <span>✨</span>
+            <span>Khai báo phòng trực mới</span>
           </button>
         </div>
       </div>
@@ -326,7 +331,7 @@ export default function ManageRooms() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredRooms.map(room => (
-            <RoomCard key={room.id} room={room} />
+            <RoomCard key={room.id} room={room} equipmentList={equipmentList} />
           ))}
         </div>
       )}

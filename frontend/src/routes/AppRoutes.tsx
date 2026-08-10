@@ -140,7 +140,7 @@ export default function AppRoutes() {
         </Route>
 
         {/* Receptionist Protected Routes */}
-        <Route element={<ProtectedRoute allowedRoles={[2]} />}>
+        <Route element={<ProtectedRoute allowedRoles={[2, 5, 6]} />}>
           <Route element={<AdminLayout />}>
             <Route path="/receptionist" element={<Navigate to="/receptionist/appointments" replace />} />
             <Route path="/receptionist/appointments" element={<ReceptionistAppointments />} />

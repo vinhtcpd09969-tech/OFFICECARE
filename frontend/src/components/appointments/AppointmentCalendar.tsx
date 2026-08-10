@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, Clock, Plus, Coffee, Stethoscope } from 'lucide-react';
 import { format } from 'date-fns';
-import { isPaymentDue, getInstallmentCutoffSession } from '../../utils/billing';
+import { isPaymentDue } from '../../utils/billing';
 import { useAuthStore } from '../../stores/authStore';
 
 interface AppointmentCalendarProps {
@@ -351,13 +351,7 @@ function AppointmentCard({
   const isUnassigned = !hasStaff;
   const isCheckedIn = apt.trang_thai === 'da_checkin';
 
-  const isInstallmentWarning =
-    apt.loai_lich?.toUpperCase() === 'DIEU_TRI' &&
-    apt.hinh_thuc_thanh_toan_goi === 'tra_gop' &&
-    apt.trang_thai_hoa_don_goi !== 'da_thanh_toan' &&
-    !['da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(apt.trang_thai) &&
-    Number(apt.so_tien_da_tra_goi) < Number(apt.tong_tien_phai_tra_goi) &&
-    Number(apt.so_thu_tu_buoi) >= getInstallmentCutoffSession(Number(apt.tong_so_buoi_goi || 10));
+  const isInstallmentWarning = false;
 
   const showPaymentDueBadge = viewMode === 'admin' && apt.trang_thai === 'hoan_thanh' && isPaymentDue(apt);
 
