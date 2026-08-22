@@ -1,3 +1,4 @@
+// Reloaded: 2026-08-20T00:04:00+07:00
 import dotenv from 'dotenv';
 dotenv.config();
 

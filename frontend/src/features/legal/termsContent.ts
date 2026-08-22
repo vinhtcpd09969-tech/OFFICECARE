@@ -4,99 +4,84 @@ export interface TermsSection {
   bullets?: string[];
 }
 
-export const TERMS_EFFECTIVE_DATE = '02/08/2026';
+export const TERMS_EFFECTIVE_DATE = '22/08/2026';
 
 export const TERMS_OF_SERVICE: TermsSection[] = [
   {
-    heading: '1. Định nghĩa thuật ngữ',
+    heading: '1. Định nghĩa & Phạm vi hoạt động',
     paragraphs: [
-      '1.1 OfficeCare: Thương hiệu thuộc quản lý của Phòng khám Phục hồi chức năng & Trị liệu Cột sống OfficeCare.',
-      '1.2 Dịch vụ: Các gói dịch vụ khám lâm sàng, lượng giá cơ sinh học, điều trị vật lý trị liệu (buổi lẻ hoặc liệu trình dài ngày) được mô tả trên hệ thống.',
-      '1.3 Phác đồ điều trị: Lộ trình điều trị được Bác sĩ chuyên khoa thiết lập riêng cho từng bệnh nhân dựa trên kết quả lượng giá lâm sàng.',
-      '1.4 Tài khoản bệnh nhân: Tài khoản điện tử đăng ký trên website/ứng dụng OfficeCare bằng email và số điện thoại chính chủ để quản lý lịch hẹn, hóa đơn và bệnh án điện tử.',
-      '1.5 Điểm uy tín: Chỉ số đánh giá mức độ tuân thủ lịch hẹn của khách hàng. Điểm uy tín mặc định là 100 và sẽ bị khấu trừ nếu vi phạm quy định hủy lịch trễ hoặc tự ý vắng mặt.',
-      '1.6 Hạn sử dụng gói: Mốc thời gian (tính từ ngày kích hoạt gói cộng số ngày quy định riêng cho từng gói dịch vụ) mà Khách hàng cần hoàn tất sử dụng hết gói liệu trình đã mua. Hạn sử dụng được chốt cố định ngay khi gói được kích hoạt, không thay đổi dù OfficeCare sau đó điều chỉnh cấu hình gói.',
-      '1.7 Mã giảm giá (Voucher): Mã ưu đãi do OfficeCare phát hành, được áp dụng theo các điều kiện về hình thức thanh toán, giá trị đơn hàng tối thiểu và số lượt sử dụng tối đa cho mỗi Khách hàng, quy định chi tiết tại Điều 5.',
+      '1.1 OfficeCare: Trung tâm chuyên khoa Phục Hồi Chức Năng và Vật lý trị liệu bảo tồn cơ xương khớp dành cho dân văn phòng và người lao động. Phương pháp can thiệp hoàn toàn tự nhiên, không xâm lấn, không dùng thuốc và không phẫu thuật.',
+      '1.2 Chuyên viên Vật lý trị liệu: Nhân sự chuyên môn y tế có chứng chỉ hành nghề, chịu trách nhiệm trực tiếp lượng giá chức năng vận động, đánh giá tầm vận động khớp, cơ lực, mức độ đau, xác định các yếu tố chống chỉ định và thiết lập Kế hoạch trị liệu cá nhân hóa.',
+      '1.3 Kỹ thuật viên (KTV): Nhân sự y tế thực hiện các kỹ thuật trị liệu chuyên sâu bằng tay và vận hành các trang thiết bị vật lý trị liệu công nghệ cao theo đúng kế hoạch được chỉ định.',
+      '1.4 Buổi Lượng giá chức năng: Buổi đánh giá chuyên môn ban đầu nhằm đo lường mức độ suy giảm vận động, xác định nguyên nhân co cứng cơ xương khớp và đưa ra giải pháp can thiệp phù hợp.',
+      '1.5 Kế hoạch trị liệu: Lộ trình các buổi can thiệp phục hồi chức năng (theo từng buổi dịch vụ lẻ hoặc gói liệu trình chuyên sâu nhiều buổi) được thiết kế riêng biệt cho từng thể trạng khách hàng.',
+      '1.6 Tài khoản định danh cá nhân: Mỗi hồ sơ điều trị gắn liền với một tài khoản chính chủ duy nhất (qua số điện thoại và thông tin cá nhân) để đảm bảo tính an toàn, bảo mật và chính xác tuyệt đối của dữ liệu y tế phục hồi.',
     ],
   },
   {
-    heading: '2. Phạm vi dịch vụ & Quy chuẩn y đức',
+    heading: '2. Quy định đặt lịch hẹn & Khung giờ vận hành',
     paragraphs: [
-      'OfficeCare cung cấp các dịch vụ khám và điều trị bảo tồn (không dùng thuốc, không phẫu thuật) đối với các hội giúp đau mỏi cơ xương khớp văn phòng (đau lưng, cổ, vai gáy, tê bì tay...).',
-      'Bằng việc đăng ký tài khoản hoặc sử dụng dịch vụ đặt lịch hẹn, Khách hàng xác nhận đã đọc, hiểu và đồng ý tự nguyện tuân thủ toàn bộ các quy định trong Thỏa thuận này.',
+      '2.1 Khung giờ tiếp nhận theo Buổi: OfficeCare tiếp nhận lịch hẹn theo 2 khung buổi linh hoạt:',
+    ],
+    bullets: [
+      'Buổi Sáng: 07:30 – 12:00',
+      'Buổi Chiều: 12:00 – 20:00',
+      'Giờ đóng cửa trung tâm: Trung tâm kết thúc ca làm việc vào lúc 20:00 hàng ngày. Đối với các lượt tiếp nhận sát giờ đóng cửa, hệ thống và nhân viên tiếp đón sẽ thông báo trước để trao đổi, thống nhất thời gian thực hiện phù hợp nhằm đảm bảo trọn vẹn chất lượng buổi trị liệu.',
+      'Sức chứa & Ngân sách thời gian: Sức chứa phục vụ được tính toán tự động dựa trên tổng thời lượng ca trực của đội ngũ nhân sự chuyên môn. Hệ thống sẽ tạm dừng tiếp nhận khi ngân sách thời gian trong buổi đã đạt công suất tối đa để đảm bảo chất lượng phục vụ tốt nhất.',
+      'Lựa chọn Chuyên môn: Khách hàng có thể chủ động chọn Chuyên viên/Kỹ thuật viên mong muốn hoặc chọn "Chuyên gia bất kỳ" để hệ thống tự động phân bổ đến nhân sự sẵn sàng tiếp nhận sớm nhất.',
+      'Giới hạn số lượng lịch hẹn: Mỗi tài khoản khách hàng được duy trì tối đa 03 lịch hẹn đang hoạt động (chưa hoàn thành) cùng lúc trên toàn hệ thống.',
     ],
   },
   {
-    heading: '3. Quy định đặt lịch & Đặt lịch tuần tự',
+    heading: '3. Tiếp đón, Hàng đợi & Quy trình chuyển tuyến',
     paragraphs: [
-      '3.1 Xác nhận lịch hẹn: Lịch hẹn ban đầu ở trạng thái Đã xác nhận.',
-      '3.2 Quy tắc đặt lịch tuần tự: Đối với các gói liệu trình, Khách hàng bắt buộc phải hoàn thành buổi điều trị trước đó mới được quyền đặt lịch cho buổi tiếp theo.',
-      '3.3 Sức chứa khả dụng: Số lượng lịch hẹn trong mỗi khung giờ được giới hạn dựa trên năng lực phục vụ của phòng khám. Hệ thống sẽ báo Đầy hoặc ẩn khung giờ khi đã đạt giới hạn sức chứa, không cho phép đặt lịch vượt tải.',
+      '3.1 Check-in & Lấy số thứ tự: Khi đến Trung tâm, Khách hàng vui lòng xuất trình thông tin tại quầy Lễ tân để hoàn tất thủ tục Check-in và nhận Số thứ tự vào hàng đợi tiếp đón.',
+      '3.2 Mô hình tiếp nhận linh hoạt: Chuyên viên và Kỹ thuật viên khi hoàn tất ca trước sẽ chủ động bấm gọi số tiếp theo theo thứ tự check-in thực tế tại quầy để mời khách vào phòng làm việc.',
+      '3.3 Quy định khi vắng mặt tại sảnh chờ: Trường hợp được gọi tên nhưng Khách hàng tạm thời chưa có mặt, hệ thống sẽ chuyển lượt xuống cuối hàng đợi để nhường quyền ưu tiên cho khách kế tiếp. Trường hợp gọi đến lần thứ 2 vẫn không có mặt, buổi hẹn sẽ được ghi nhận là vắng mặt không lý do.',
+      '3.4 Quy trình Chuyển tuyến ngoài an toàn: Khi phát hiện các dấu hiệu tổn thương nghi ngờ vượt ngoài thẩm quyền phục hồi chức năng ban đầu (cần chụp X-quang, MRI hoặc can thiệp y khoa chuyên sâu), Chuyên viên sẽ tư vấn Chuyển tuyến an toàn sang cơ sở y tế phù hợp và chuyển trạng thái buổi hẹn sang "Chờ tái lượng giá" kèm thời hạn quay lại.',
+      '3.5 Ưu đãi tái lượng giá: Khách hàng quay lại trong thời hạn hẹn được ưu tiên tiếp nhận ngay ở đầu hàng đợi để Chuyên viên đọc kết quả phim chụp và hoàn thiện kết luận lượng giá mà HOÀN TOÀN KHÔNG PHÁT SINH THÊM CHI PHÍ LƯỢNG GIÁ LẦN 2. Trường hợp quá thời hạn hẹn mà Khách hàng không quay lại, buổi lượng giá ban đầu sẽ được tự động đóng hoàn tất (không hoàn phí do dịch vụ đánh giá ban đầu và khuyến cáo an toàn đã được cung cấp đầy đủ).',
     ],
   },
   {
-    heading: '4. Biểu phí & Hình thức thanh toán gói liệu trình',
+    heading: '4. Biểu phí, Thanh toán & Quy định đăng ký gói',
     paragraphs: [
-      'Khách hàng có thể lựa chọn các hình thức thanh toán sau:',
-      '4.1 Thanh toán từng buổi: Khách hàng thanh toán dứt điểm chi phí của buổi hiện tại mới được phép đặt lịch cho buổi kế tiếp.',
-      '4.2 Thanh toán trả thẳng: Khách hàng thanh toán 100% giá trị gói ngay khi đăng ký mua.',
-      '4.3 Ưu đãi tự động theo hình thức thanh toán: Khi mua Gói liệu trình, hệ thống tự động áp dụng giảm giá 10% cho hình thức Trả thẳng (hình thức Từng buổi không có ưu đãi tự động). Nếu Khách hàng sử dụng thêm Mã giảm giá (Voucher) cho cùng hóa đơn, ưu đãi tự động này sẽ KHÔNG được cộng dồn — hệ thống chỉ áp dụng mức giảm giá của Voucher.',
+      '4.1 Biểu phí minh bạch: Toàn bộ giá dịch vụ lẻ, buổi lượng giá chức năng và các gói liệu trình được niêm yết công khai trên hệ thống và tại Trung tâm.',
+      '4.2 Buổi Lượng giá chức năng: Hoàn tất thanh toán trước khi bắt đầu vào bàn lượng giá (thanh toán trực tuyến khi đặt lịch hoặc thanh toán tại quầy khi check-in).',
+      '4.3 Dịch vụ lẻ & Buổi gói: Thanh toán linh hoạt (trả trước trực tuyến, thanh toán tại quầy lúc check-in hoặc sau khi kết thúc buổi trị liệu).',
+      '4.4 Gói liệu trình nhiều buổi: Khách hàng có thể lựa chọn hình thức Thanh toán trả thẳng 100% khi đăng ký hoặc hình thức Thanh toán phân kỳ theo từng buổi (chi phí trọn gói được chia đều theo từng buổi đến trị liệu thực tế).',
+      '4.5 Nguyên tắc đăng ký gói: Gói liệu trình trị liệu chỉ được phép đăng ký và thanh toán SAU KHI Khách hàng đã hoàn thành buổi lượng giá chức năng ban đầu và có chỉ định lộ trình cụ thể từ Chuyên viên.',
     ],
   },
   {
     heading: '5. Chính sách mã giảm giá (Voucher)',
     paragraphs: [
-      '5.1 Điều kiện áp dụng: Mỗi Voucher có thể được giới hạn theo một hoặc nhiều hình thức thanh toán cụ thể (Trả thẳng/Từng buổi) và/hoặc giá trị đơn hàng tối thiểu. Voucher không ghi rõ giới hạn hình thức thanh toán được áp dụng cho mọi hình thức.',
-      '5.2 Giới hạn lượt sử dụng: Số lượt sử dụng tối đa của mỗi Voucher (nếu có) được tính riêng cho từng Khách hàng, không phải tổng lượt dùng chung của toàn hệ thống — khi một Khách hàng đã dùng hết số lượt được phép, mã sẽ không còn khả dụng đối với chính Khách hàng đó (các Khách hàng khác không bị ảnh hưởng).',
-      '5.3 Không cộng dồn: Voucher không được cộng dồn với ưu đãi tự động theo hình thức thanh toán (Điều 4.3) hoặc với Voucher khác trên cùng một hóa đơn.',
-      '5.4 Thay đổi lựa chọn: Nếu Khách hàng đã áp dụng một Voucher rồi sau đó thay đổi hình thức thanh toán hoặc gói dịch vụ khiến Voucher không còn đủ điều kiện áp dụng, hệ thống sẽ tự động gỡ Voucher đó và yêu cầu Khách hàng chọn lại mã phù hợp.',
+      '5.1 Điều kiện áp dụng: Mỗi mã Voucher có quy định cụ thể về mức giảm, giá trị đơn hàng tối thiểu, nhóm dịch vụ áp dụng và kênh thanh toán (trực tuyến hoặc trực tiếp tại quầy).',
+      '5.2 Mã có cấu hình "Tự động áp dụng": Hệ thống sẽ tự động nhận diện và khấu trừ mức giảm giá ưu đãi cao nhất vào hóa đơn khi đơn hàng thỏa mãn toàn bộ điều kiện.',
+      '5.3 Mã ưu đãi thông thường: Nằm trong Kho mã ưu đãi. Khách hàng hoặc thu ngân sẽ tự nhập mã hoặc mở Kho mã để chọn áp dụng khi đủ điều kiện.',
+      '5.4 Quy định sử dụng: Mỗi hóa đơn chỉ được áp dụng duy nhất 01 mã giảm giá. Mỗi mã ưu đãi được quản lý giới hạn số lượt sử dụng riêng cho từng tài khoản khách hàng.',
     ],
   },
   {
-    heading: '6. Chính sách miễn phí khám lâm sàng',
+    heading: '6. Chính sách đổi lịch & Vắng mặt (No-Show)',
     paragraphs: [
-      '6.1 Điều kiện miễn phí: Khách hàng được miễn phí 100% chi phí khám lâm sàng ban đầu khi mua Gói liệu trình (nhiều buổi) theo hình thức Trả thẳng, với điều kiện giá trị gốc của gói (không bao gồm phí khám) đạt từ 1.000.000đ trở lên.',
-      '6.2 Đối tượng loại trừ: Chính sách miễn phí khám KHÔNG áp dụng dưới bất kỳ hình thức nào đối với khách hàng lựa chọn hình thức Thanh toán từng buổi, và KHÔNG áp dụng cho Dịch vụ lẻ (gói 1 buổi độc lập, không thuộc liệu trình) dù giá trị dịch vụ có đạt ngưỡng trên.',
+      '6.1 Quyền đổi lịch hẹn linh hoạt: Khách hàng có quyền chủ động đổi buổi hẹn sang ngày khác hoặc buổi khác thông qua ứng dụng hoặc liên hệ tổng đài Trung tâm trước khi ca trực kết thúc.',
+      '6.2 Xử lý khi vắng mặt (Không đến): Đối với các buổi hẹn đã thanh toán trước (thanh toán trực tuyến hoặc theo gói trả thẳng), trường hợp Khách hàng không đến và không thực hiện đổi lịch trong thời gian ca trực của ngày hẹn, buổi hẹn sẽ được ghi nhận là Đã kết thúc theo ca trực (không áp dụng hoàn phí cho lượt hẹn này) nhằm đảm bảo tính công bằng trong việc điều tiết công suất phục vụ của Trung tâm cho các khách hàng khác. Đối với các buổi hẹn chưa thanh toán, buổi hẹn sẽ tự động đóng khi hết ca trực và ghi nhận lịch sử vắng mặt trên hệ thống.',
     ],
   },
   {
-    heading: '7. Chính sách thay đổi lịch hẹn',
+    heading: '7. Chính sách hạn sử dụng gói & Hoàn tiền',
     paragraphs: [
-      '7.1 Quyền thay đổi lịch hẹn: Khách hàng được phép thay đổi giờ hẹn/ngày hẹn bằng cách liên hệ hotline trước ít nhất 8 tiếng trước giờ bắt đầu của ca hẹn.',
-      '7.2 Hạn chế đổi lịch: Trong vòng 8 tiếng trước khi ca hẹn bắt đầu, Khách hàng không thể thực hiện đổi lịch mà chỉ được phép hủy lịch hoặc chấp nhận vắng mặt.',
+      '7.1 Hạn sử dụng gói liệu trình: Mỗi gói liệu trình có Hạn sử dụng cố định (tính từ ngày kích hoạt cộng số ngày quy định của gói) và hiển thị trực tiếp trong hồ sơ cá nhân. Hạn sử dụng đã chốt cho hợp đồng sẽ không bị thay đổi.',
+      '7.2 Gói quá hạn sử dụng: Khi gói liệu trình hết hạn mà Khách hàng chưa sử dụng hết số buổi, gói sẽ tự động đóng lại. Trung tâm không hoàn lại tiền cho các buổi chưa sử dụng và không thu thêm bất kỳ khoản phí nào.',
+      '7.3 Đối tượng áp dụng hoàn tiền: Chính sách hoàn tiền CHỈ ÁP DỤNG DUY NHẤT cho các Gói liệu trình đã thanh toán 100% (Trả thẳng) và hợp đồng gói vẫn còn trong Hạn sử dụng. (Các gói thanh toán từng buổi hoặc dịch vụ lẻ không phát sinh hoàn tiền do thực hiện buổi nào thanh toán dứt điểm buổi đó).',
+      '7.4 Quy tắc tính toán số tiền hoàn lại: Lấy tổng số tiền thực tế Khách hàng đã thanh toán cho gói liệu trình, trừ đi chi phí của các buổi trị liệu Khách hàng đã thực hiện thực tế (được tính bằng giá trị gói chia đều cho tổng số buổi rồi nhân với số buổi đã dùng), và trừ đi 10% phí quản lý và chấm dứt hợp đồng sớm (tính trên tổng giá trị gói đã ký). Phần tiền còn lại sau khi trừ sẽ được hoàn trả trực tiếp cho Khách hàng. Trường hợp số tiền sau khi trừ nhỏ hơn hoặc bằng 0đ, số tiền hoàn lại là 0đ và Khách hàng không phải đóng thêm bất kỳ chi phí nào.',
     ],
   },
   {
-    heading: '8. Chính sách vắng mặt & Hủy lịch trễ (No-Show & Penalty)',
+    heading: '8. Bảo mật hồ sơ & Quyền riêng tư dữ liệu',
     paragraphs: [
-      'Để đảm bảo công bằng cho tất cả bệnh nhân và tối ưu hóa thời gian điều trị của bác sĩ, OfficeCare áp dụng khấu trừ Điểm uy tín ngay từ lần vi phạm đầu tiên khi Khách hàng chủ động hủy lịch hoặc vắng mặt không báo trước. Hậu quả cụ thể căn cứ theo hành động vi phạm và nhóm hình thức thanh toán của buổi hẹn:',
-      '8.1 Nhóm chưa thanh toán trước (gói Khám, Dịch vụ lẻ, và gói liệu trình Từng buổi):',
-      '- Chủ động hủy lịch: Trừ 10 điểm uy tín. Buổi hẹn KHÔNG bị tính là đã sử dụng, Khách hàng có thể đặt lại bình thường.',
-      '- Vắng mặt không báo trước (No-show): Trừ 20 điểm uy tín. Buổi hẹn KHÔNG bị tính là đã sử dụng, Khách hàng có thể đặt lại bình thường.',
-      '8.2 Nhóm đã thanh toán trước (gói liệu trình Trả thẳng 100%):',
-      '- Chủ động hủy lịch: Trừ 10 điểm uy tín. Buổi hẹn KHÔNG bị tính là đã sử dụng — Khách hàng có thể đặt lại đúng buổi đó.',
-      '- Vắng mặt không báo trước (No-show): KHÔNG bị trừ điểm uy tín (đã chịu hậu quả mất buổi nên hệ thống không phạt điểm trùng lặp), nhưng buổi hẹn bị tính là ĐÃ SỬ DỤNG và không được hoàn lại.',
-      '8.3 Mốc thời gian hủy lịch: Khách hàng tự hủy lịch qua hệ thống/ứng dụng chỉ được thực hiện khi còn tối thiểu 8 tiếng trước giờ hẹn. Trong vòng 8 tiếng trước giờ hẹn, Khách hàng vui lòng liên hệ trực tiếp Lễ tân qua hotline để được hỗ trợ hủy lịch.',
-      '8.4 Quyền khóa tài khoản: Nếu Điểm uy tín của tài khoản giảm xuống mức thấp, OfficeCare có quyền chủ động tạm khóa hoặc khóa vĩnh viễn tài khoản của Khách hàng thông qua bộ phận kiểm duyệt và lọc thành viên định kỳ.',
-    ],
-  },
-  {
-    heading: '9. Chính sách phạt hủy gói & Hoàn tiền (Refund Policy)',
-    paragraphs: [
-      'Khách hàng có quyền yêu cầu chấm dứt hợp đồng sử dụng gói liệu trình trước thời hạn (khi gói vẫn còn trong Hạn sử dụng — xem Điều 10 đối với trường hợp gói đã quá hạn). Việc hoàn tiền sẽ tuân thủ nghiêm ngặt công thức sau:',
-      '9.1 Phí phạt hủy gói: Được tính cố định bằng 10% trên tổng giá trị hợp đồng gói đã chốt theo hình thức thanh toán (không tính trên số tiền thực tế khách hàng đã đóng đến thời điểm hủy).',
-      '9.2 Khấu trừ chi phí các buổi đã sử dụng: Được tính theo phương pháp phân bổ đều trên giá gói đã chốt theo hình thức thanh toán, cụ thể: (Giá gói đã chốt ÷ Tổng số buổi của gói) × Số buổi đã sử dụng.',
-      '9.3 Khấu trừ chi phí khám lâm sàng: Trường hợp gói có kèm ca khám lâm sàng ban đầu mà Khách hàng chưa thanh toán riêng phí khám đó (kể cả trường hợp đã được miễn phí theo Điều 6), phí khám sẽ được truy thu theo đơn giá dịch vụ khám hiện hành của OfficeCare tại thời điểm hủy gói. Phí khám chỉ bị truy thu đúng 1 lần, không trừ trùng nếu Khách hàng đã thanh toán riêng trước đó.',
-      'Số tiền hoàn lại = (Tổng số tiền khách đã đóng) - (Chi phí các buổi đã sử dụng) - (Chi phí khám lâm sàng truy thu, nếu có) - (Phí phạt hủy gói 10%). Số tiền hoàn lại tối thiểu là 0đ — Khách hàng không phát sinh nghĩa vụ phải đóng thêm trong mọi trường hợp.',
-    ],
-  },
-  {
-    heading: '10. Chính sách hạn sử dụng gói liệu trình (Quá hạn — Không hoàn tiền)',
-    paragraphs: [
-      '10.1 Mỗi gói liệu trình có Hạn sử dụng được xác định ngay khi kích hoạt (ngày kích hoạt cộng số ngày quy định riêng cho từng gói dịch vụ) và được hiển thị trong hồ sơ điều trị cá nhân của Khách hàng. Hạn sử dụng đã chốt cho một Khách hàng không thay đổi dù OfficeCare sau đó điều chỉnh cấu hình gói dịch vụ.',
-      '10.2 Nếu Khách hàng không hoàn tất sử dụng hết số buổi của gói trước Hạn sử dụng, OfficeCare có quyền chủ động chấm dứt gói do quá hạn sử dụng.',
-      '10.3 Trong trường hợp chấm dứt do quá hạn sử dụng: OfficeCare giữ nguyên toàn bộ số tiền Khách hàng đã đóng cho gói — KHÔNG hoàn trả bất kỳ khoản nào và KHÔNG thu thêm bất kỳ khoản nào, không phân biệt hình thức thanh toán. Công thức phạt 10% và khấu trừ theo buổi tại Điều 9 KHÔNG áp dụng cho trường hợp này.',
-      '10.4 Khách hàng vui lòng chủ động theo dõi tiến độ sử dụng gói và liên hệ Lễ tân/hotline để sắp xếp lịch trước khi gói hết hạn, nhằm tránh phát sinh trường hợp tại Điều 10.3.',
+      '8.1 Bảo mật dữ liệu: Toàn bộ chỉ số lượng giá tầm vận động, cơ lực, mức độ đau, hình ảnh tư thế và tiến trình can thiệp của Quý khách được lưu trữ bảo mật theo tiêu chuẩn dữ liệu y tế điện tử của OfficeCare.',
+      '8.2 Quyền tra cứu minh bạch: Khách hàng có quyền truy cập ứng dụng OfficeCare để theo dõi toàn bộ Lịch sử điều trị, hình ảnh bài tập phục hồi chức năng và hóa đơn thanh toán của mình mọi lúc, mọi nơi.',
     ],
   },
 ];

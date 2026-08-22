@@ -17,11 +17,14 @@ interface PatientHeaderBannerProps {
     vas_truoc?: number;
     trang_thai: string;
     ten_dich_vu?: string;
+    so_thu_tu_buoi?: number | null;
+    pd_tong_so_buoi?: number | null;
     thoi_luong_phut?: number;
     thoi_gian_bat_dau?: string | null;
   } | null;
   onBack?: () => void;
   isKtvMode?: boolean;
+  compactMode?: boolean;
 }
 
 export function PatientHeaderBanner({ patient, onBack, isKtvMode = false }: PatientHeaderBannerProps) {
@@ -38,7 +41,7 @@ export function PatientHeaderBanner({ patient, onBack, isKtvMode = false }: Pati
   const attachedImgUrl = patient.anh_dinh_kem_url || patient.anh_dinh_kem ? resolveImageUrl(patient.anh_dinh_kem_url || patient.anh_dinh_kem!) : null;
 
   return (
-    <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-5 md:p-6 shadow-sm space-y-4 font-jakarta">
+    <div className="w-full space-y-4 font-jakarta border-b border-slate-100 dark:border-zinc-800 pb-5">
       {/* HEADER HÀNG ĐẦU: AVATAR, THÔNG TIN & BADGES */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3.5 min-w-0">
@@ -131,6 +134,7 @@ export function PatientHeaderBanner({ patient, onBack, isKtvMode = false }: Pati
 
           <span className="px-3.5 py-2 rounded-2xl text-xs font-black uppercase tracking-wider bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/20 shadow-2xs">
             {patient.ten_dich_vu || 'Lượng giá PHCN Chuyên sâu'}
+            {patient.so_thu_tu_buoi ? ` (Buổi ${patient.so_thu_tu_buoi}${patient.pd_tong_so_buoi ? `/${patient.pd_tong_so_buoi}` : ''})` : ''}
           </span>
         </div>
       </div>

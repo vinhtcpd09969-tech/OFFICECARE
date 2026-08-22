@@ -103,9 +103,9 @@ export function StaffWorkloadModal({ isOpen, onClose, dateStr }: StaffWorkloadMo
                 {ktvList.map((stf) => {
                   const maxCap = stf.so_khach_song_song || 2;
                   const currentCap = stf.so_ca_dang_lam || 0;
-                  const isFree = currentCap === 0;
-                  const isPartial = currentCap > 0 && currentCap < maxCap;
-                  const isFull = currentCap >= maxCap;
+                  const waitingCap = stf.so_ca_cho || 0;
+                  const isFree = currentCap === 0 && waitingCap === 0;
+                  const isBusy = currentCap > 0 || waitingCap > 0;
 
                   let finishTimeStr = '---';
                   if (stf.thoi_gian_xong_du_kien_muon_nhat) {
@@ -117,12 +117,10 @@ export function StaffWorkloadModal({ isOpen, onClose, dateStr }: StaffWorkloadMo
                   return (
                     <div
                       key={stf.nhan_su_id}
-                      className={`p-3.5 rounded-2xl border transition-all space-y-2.5 ${
+                      className={`p-4 rounded-2xl border transition-all space-y-2.5 ${
                         isFree
-                          ? 'bg-emerald-50/50 dark:bg-emerald-955/30 border-emerald-200 dark:border-emerald-800/60'
-                          : isPartial
-                          ? 'bg-amber-50/50 dark:bg-amber-955/30 border-amber-200 dark:border-amber-800/60'
-                          : 'bg-slate-50 dark:bg-zinc-800/50 border-slate-200 dark:border-zinc-700'
+                          ? 'bg-emerald-50/60 dark:bg-emerald-955/30 border-emerald-200 dark:border-emerald-800/60'
+                          : 'bg-amber-50/50 dark:bg-amber-955/30 border-amber-200 dark:border-amber-800/60'
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
@@ -136,30 +134,45 @@ export function StaffWorkloadModal({ isOpen, onClose, dateStr }: StaffWorkloadMo
                         </div>
 
                         {/* Status Badge */}
-                        {isFree && (
+                        {isFree ? (
                           <span className="px-2.5 py-1 rounded-xl text-[10.5px] font-black bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 flex items-center gap-1 shadow-2xs">
-                            <CheckCircle2 size={12} /> Đang rảnh
+                            <CheckCircle2 size={12} /> Đang rảnh bàn
                           </span>
-                        )}
-                        {isPartial && (
+                        ) : (
                           <span className="px-2.5 py-1 rounded-xl text-[10.5px] font-black bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800 flex items-center gap-1 shadow-2xs">
-                            <Clock size={12} /> Bận 1/{maxCap} bàn
-                          </span>
-                        )}
-                        {isFull && (
-                          <span className="px-2.5 py-1 rounded-xl text-[10.5px] font-black bg-slate-200 text-slate-700 dark:bg-zinc-700 dark:text-zinc-300 border border-slate-300 dark:border-zinc-600 flex items-center gap-1">
-                            Full ({currentCap}/{maxCap} bàn)
+                            <Clock size={12} /> Bận ({currentCap + waitingCap} ca)
                           </span>
                         )}
                       </div>
 
-                      {/* Chi tiết ca bận */}
-                      {currentCap > 0 && (
-                        <div className="pt-2 border-t border-slate-200/60 dark:border-zinc-700/60 flex items-center justify-between text-[11px] font-semibold">
-                          <span className="text-slate-500 dark:text-zinc-400">Dự kiến xong ca bận:</span>
-                          <span className="font-bold text-amber-700 dark:text-amber-400 bg-amber-100/70 dark:bg-amber-955/60 px-2 py-0.5 rounded-md border border-amber-300/60 dark:border-amber-800">
-                            ~{finishTimeStr}
-                          </span>
+                      {/* Chi tiết ca bận / Hàng chờ */}
+                      {isBusy && (
+                        <div className="pt-2 border-t border-slate-200/60 dark:border-zinc-700/60 text-[11px] font-semibold space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-500 dark:text-zinc-400">Trạng thái bàn:</span>
+                            <span className="font-bold text-slate-800 dark:text-zinc-200 flex items-center gap-1">
+                              {currentCap > 0 ? (
+                                <>
+                                  <span>🔴 Đang làm việc ({currentCap}/{maxCap} bàn)</span>
+                                  {finishTimeStr !== '---' && (
+                                    <span className="text-amber-700 dark:text-amber-400 bg-amber-100/80 dark:bg-amber-955/70 px-1.5 py-0.5 rounded-md border border-amber-300/60 dark:border-amber-800 text-[10.5px] font-extrabold">
+                                      (Dự kiến xong ~{finishTimeStr})
+                                    </span>
+                                  )}
+                                </>
+                              ) : (
+                                <span className="text-amber-700 dark:text-amber-400 font-bold">🟡 Khách đã check-in chờ gọi</span>
+                              )}
+                            </span>
+                          </div>
+                          {waitingCap > 0 && (
+                            <div className="flex items-center justify-between text-amber-800 dark:text-amber-300">
+                              <span>Hàng chờ:</span>
+                              <span className="font-black bg-amber-100 dark:bg-amber-955 px-2 py-0.5 rounded-md border border-amber-300/60 text-[10.5px]">
+                                {waitingCap} người đang chờ
+                              </span>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -174,7 +187,7 @@ export function StaffWorkloadModal({ isOpen, onClose, dateStr }: StaffWorkloadMo
             <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-zinc-800">
               <h4 className="text-xs font-black text-slate-900 dark:text-zinc-100 uppercase tracking-wider flex items-center gap-2">
                 <ShieldCheck size={16} className="text-cyan-600" />
-                <span>Chuyên Viên VLTL (Khám & Lượng giá)</span>
+                <span>Chuyên Viên VLTL (Lượng giá & Trị liệu)</span>
               </h4>
               <span className="text-[11px] font-bold text-slate-400">
                 {specialistList.length} chuyên viên trực ca ngày {formattedDateLabel}
@@ -187,7 +200,9 @@ export function StaffWorkloadModal({ isOpen, onClose, dateStr }: StaffWorkloadMo
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {specialistList.map((stf) => {
                   const currentCap = stf.so_ca_dang_lam || 0;
-                  const isFree = currentCap === 0;
+                  const waitingCap = stf.so_ca_cho || 0;
+                  const isFree = currentCap === 0 && waitingCap === 0;
+                  const isBusy = currentCap > 0 || waitingCap > 0;
 
                   let finishTimeStr = '---';
                   if (stf.thoi_gian_xong_du_kien_muon_nhat) {
@@ -202,7 +217,7 @@ export function StaffWorkloadModal({ isOpen, onClose, dateStr }: StaffWorkloadMo
                       className={`p-4 rounded-2xl border transition-all space-y-2.5 ${
                         isFree
                           ? 'bg-emerald-50/60 dark:bg-emerald-955/20 border-emerald-200 dark:border-emerald-900/50'
-                          : 'bg-slate-50 dark:bg-zinc-800/60 border-slate-200 dark:border-zinc-700/80'
+                          : 'bg-amber-50/50 dark:bg-amber-955/30 border-amber-200 dark:border-amber-800/60'
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
@@ -223,18 +238,39 @@ export function StaffWorkloadModal({ isOpen, onClose, dateStr }: StaffWorkloadMo
                             <CheckCircle2 size={12} /> Rảnh bàn
                           </span>
                         ) : (
-                          <span className="px-2.5 py-1 rounded-xl text-[10.5px] font-black bg-slate-200 text-slate-700 dark:bg-zinc-700 dark:text-zinc-300 border border-slate-300 dark:border-zinc-600 flex items-center gap-1">
-                            Đang khám
+                          <span className="px-2.5 py-1 rounded-xl text-[10.5px] font-black bg-amber-100 text-amber-800 dark:bg-amber-955 dark:text-amber-300 border border-amber-300 dark:border-amber-800 flex items-center gap-1 shadow-2xs">
+                            <Clock size={12} /> Bận ({currentCap + waitingCap} ca)
                           </span>
                         )}
                       </div>
 
-                      {!isFree && (
-                        <div className="pt-2 border-t border-slate-200/60 dark:border-zinc-700/60 flex items-center justify-between text-[11px] font-semibold">
-                          <span className="text-slate-500 dark:text-zinc-400">Dự kiến xong ca khám:</span>
-                          <span className="font-bold text-amber-700 dark:text-amber-400 bg-amber-100/70 dark:bg-amber-955/60 px-2 py-0.5 rounded-md border border-amber-300/60 dark:border-amber-800">
-                            ~{finishTimeStr}
-                          </span>
+                      {isBusy && (
+                        <div className="pt-2 border-t border-slate-200/60 dark:border-zinc-700/60 text-[11px] font-semibold space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-500 dark:text-zinc-400">Trạng thái bàn:</span>
+                            <span className="font-bold text-slate-800 dark:text-zinc-200 flex items-center gap-1">
+                              {currentCap > 0 ? (
+                                <>
+                                  <span>🔴 Đang gặp khách</span>
+                                  {finishTimeStr !== '---' && (
+                                    <span className="text-amber-700 dark:text-amber-400 bg-amber-100/80 dark:bg-amber-955/70 px-1.5 py-0.5 rounded-md border border-amber-300/60 dark:border-amber-800 text-[10.5px] font-extrabold">
+                                      (Dự kiến xong ~{finishTimeStr})
+                                    </span>
+                                  )}
+                                </>
+                              ) : (
+                                <span className="text-amber-700 dark:text-amber-400 font-bold">🟡 Đang có khách chờ gọi vào</span>
+                              )}
+                            </span>
+                          </div>
+                          {waitingCap > 0 && (
+                            <div className="flex items-center justify-between text-amber-800 dark:text-amber-300">
+                              <span>Hàng chờ:</span>
+                              <span className="font-black bg-amber-100 dark:bg-amber-955 px-2 py-0.5 rounded-md border border-amber-300/60 text-[10.5px]">
+                                {waitingCap} người đang chờ
+                              </span>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

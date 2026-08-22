@@ -12,12 +12,12 @@ import {
   deleteStaffAvatar,
   uploadImage
 } from '../../api/admin.api';
-import { useAuthStore } from '../../../../stores/authStore';
+import { useAuthStore, useAuthActions } from '../../../../stores/authStore';
 import { getSmartSearchScore } from '../../../../utils/smartSearch';
 import { ConfirmDialog } from '../../../../components/ConfirmDialog';
 import { 
   Eye, 
-  EyeOff,
+  EyeOff, 
   Lock, 
   Unlock, 
   Search, 
@@ -30,9 +30,10 @@ import {
   Sparkles, 
   X, 
   Check, 
-  Loader2,
-  ArrowLeft,
-  Upload
+  Loader2, 
+  ArrowLeft, 
+  Upload,
+  Camera
 } from 'lucide-react';
 
 const staffSchema = z.object({
@@ -50,6 +51,7 @@ type StaffFormValues = z.infer<typeof staffSchema>;
 
 export default function ManageStaff() {
   const { user: currentUser } = useAuthStore();
+  const { updateUser } = useAuthActions();
   const [staffList, setStaffList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -83,6 +85,7 @@ export default function ManageStaff() {
   const [editHoTen, setEditHoTen] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editSoDienThoai, setEditSoDienThoai] = useState('');
+  const [editAnhDaiDien, setEditAnhDaiDien] = useState<string | null>(null);
   const [editVaiTroId, setEditVaiTroId] = useState(2);
   const [editExperience, setEditExperience] = useState(0);
   const [editCert, setEditCert] = useState('');
@@ -170,8 +173,12 @@ export default function ManageStaff() {
         try {
           await deleteStaffAvatar(staff.id);
           toast.success('Đã xóa ảnh đại diện.');
+          setEditAnhDaiDien(null);
           setStaffList(prev => prev.map(s => s.id === staff.id ? { ...s, anh_dai_dien: null } : s));
           setSelectedStaff((prev: any) => (prev && prev.id === staff.id ? { ...prev, anh_dai_dien: null } : prev));
+          if (isSelf) {
+            updateUser({ anh_dai_dien: null, avatar_url: null });
+          }
         } catch (error: any) {
           console.error('Error deleting staff avatar:', error);
           toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi xóa ảnh đại diện.');
@@ -266,6 +273,7 @@ export default function ManageStaff() {
     setEditHoTen(staff.ho_ten);
     setEditEmail(staff.email || '');
     setEditSoDienThoai(staff.so_dien_thoai || '');
+    setEditAnhDaiDien(staff.anh_dai_dien || null);
     setEditVaiTroId(Number(staff.vai_tro_id));
     setEditExperience(Number(staff.so_nam_kinh_nghiem) || 0);
     setEditDescription(staff.mo_ta || '');
@@ -292,6 +300,23 @@ export default function ManageStaff() {
     setShowConfirmPassword(false);
     setIsEditMode(false);
     setEditTab('basic');
+  };
+
+  const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Kích thước ảnh không được vượt quá 2MB');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result as string;
+      setEditAnhDaiDien(base64);
+      if (!isEditMode) setIsEditMode(true);
+      toast.success('Đã chọn ảnh đại diện mới. Bấm "Lưu lại" để lưu thay đổi.');
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleAddTheManh = () => {
@@ -350,6 +375,7 @@ export default function ManageStaff() {
         email: editEmail,
         so_dien_thoai: editSoDienThoai,
         vai_tro_id: editVaiTroId,
+        anh_dai_dien: editAnhDaiDien,
         so_nam_kinh_nghiem: [3, 4].includes(editVaiTroId) ? editExperience : undefined,
         bang_cap_chung_chi: [3, 4].includes(editVaiTroId) ? certValue : undefined,
         mo_ta: [3, 4].includes(editVaiTroId) ? editDescription : undefined,
@@ -360,12 +386,23 @@ export default function ManageStaff() {
       toast.success('Cập nhật thông tin nhân sự thành công!');
       setIsEditMode(false);
       
+      if (isSelf) {
+        updateUser({
+          ho_ten: editHoTen,
+          email: editEmail,
+          so_dien_thoai: editSoDienThoai,
+          anh_dai_dien: editAnhDaiDien,
+          avatar_url: editAnhDaiDien
+        });
+      }
+
       // Reload list and update local selectedStaff state
       const res = await getStaff();
       setStaffList(res.data);
       const updated = res.data.find((s: any) => s.id === selectedStaff.id);
       if (updated) {
         setSelectedStaff(updated);
+        setEditAnhDaiDien(updated.anh_dai_dien || null);
       }
     } catch (error: any) {
       console.error('Error updating staff:', error);
@@ -422,7 +459,7 @@ export default function ManageStaff() {
     switch (roleId) {
       case 2: return 'Lễ tân';
       case 3: return 'Kỹ thuật viên';
-      case 4: return 'Chuyên viên tư vấn';
+      case 4: return 'Chuyên viên VLTL';
       case 5: return 'Admin';
       case 6: return 'Quản lý';
       default: return 'Khác';
@@ -441,7 +478,8 @@ export default function ManageStaff() {
 
   // If viewing details of a staff member, render the full-screen slide-in details component
   if (selectedStaff) {
-    const avatarUrl = selectedStaff.anh_dai_dien || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(selectedStaff.ho_ten)}&backgroundType=gradientLinear&fontSize=45`;
+    const currentAvatar = editAnhDaiDien !== null ? editAnhDaiDien : selectedStaff.anh_dai_dien;
+    const avatarUrl = currentAvatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(selectedStaff.ho_ten)}&backgroundType=gradientLinear&fontSize=45`;
     
     return (
       <div className="space-y-4 pb-8 text-zinc-800 dark:text-zinc-250 font-sans text-sm min-h-[600px] animate-in fade-in slide-in-from-right duration-300">
@@ -464,28 +502,46 @@ export default function ManageStaff() {
             {/* Divider */}
             <div className="w-px h-8 bg-zinc-200 dark:bg-zinc-800"></div>
 
-            {/* Staff profile summary */}
-            <div className="flex items-center gap-3">
-              <div className="relative shrink-0 group/avatar">
+            {/* Staff profile summary with Avatar */}
+            <div className="flex items-center gap-3.5">
+              <div className="relative shrink-0 group/avatar size-12 rounded-full overflow-hidden border-2 border-primary/30 shadow-xs">
                 <img
                   src={avatarUrl}
                   alt={selectedStaff.ho_ten}
-                  className="size-10 rounded-full object-cover border border-primary/20 shadow-xs"
+                  className="size-full object-cover"
                 />
-                {selectedStaff.anh_dai_dien && (
+
+                {currentAvatar ? (
+                  /* Đã có ảnh: CHỈ hiển thị nút X để xóa ảnh khi hover */
                   <button
                     type="button"
-                    onClick={() => handleDeleteAvatar(selectedStaff)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleDeleteAvatar(selectedStaff);
+                    }}
                     title="Xóa ảnh đại diện"
-                    className="absolute inset-0 rounded-full bg-black/60 opacity-0 group-hover/avatar:opacity-100 flex items-center justify-center transition-opacity cursor-pointer"
+                    className="absolute inset-0 bg-black/60 opacity-0 group-hover/avatar:opacity-100 flex flex-col items-center justify-center text-white transition-opacity cursor-pointer z-10"
                   >
-                    <X size={14} className="text-white" />
+                    <X size={16} className="text-rose-400" />
+                    <span className="text-[7.5px] font-black uppercase mt-0.5 text-rose-300">Xóa ảnh</span>
                   </button>
+                ) : (
+                  /* Chưa có ảnh: Hiển thị nút tải ảnh đại diện mới khi hover */
+                  <label 
+                    title="Tải ảnh đại diện mới"
+                    className="absolute inset-0 bg-black/55 opacity-0 group-hover/avatar:opacity-100 flex flex-col items-center justify-center text-white transition-opacity cursor-pointer z-10"
+                  >
+                    <Camera size={16} className="text-teal-300" />
+                    <span className="text-[7.5px] font-black uppercase mt-0.5 tracking-tighter">Tải ảnh</span>
+                    <input type="file" accept="image/*" onChange={handleAvatarFileChange} className="hidden" />
+                  </label>
                 )}
               </div>
+
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-extrabold text-sm text-secondary dark:text-zinc-200 leading-none">{selectedStaff.ho_ten}</span>
+                  <span className="font-extrabold text-sm sm:text-base text-secondary dark:text-zinc-200 leading-none">{selectedStaff.ho_ten}</span>
                   <span className={`px-2 py-0.5 border rounded-lg text-[8.5px] font-extrabold uppercase tracking-widest ${getRoleStyle(selectedStaff.vai_tro_id)}`}>
                     {getRoleLabel(selectedStaff.vai_tro_id)}
                   </span>
@@ -497,7 +553,7 @@ export default function ManageStaff() {
                     {selectedStaff.trang_thai === 'hoat_dong' ? 'Hoạt động' : 'Khóa'}
                   </span>
                 </div>
-                <span className="text-[10px] text-zinc-450 dark:text-zinc-500 font-semibold block mt-1">{selectedStaff.email}</span>
+                <span className="text-[11px] text-zinc-450 dark:text-zinc-500 font-semibold block mt-1">{selectedStaff.email}</span>
               </div>
             </div>
           </div>
@@ -660,7 +716,7 @@ export default function ManageStaff() {
                     >
                       <option value={2}>Lễ tân</option>
                       <option value={3}>Kỹ thuật viên</option>
-                      <option value={4}>Chuyên viên tư vấn</option>
+                      <option value={4}>Chuyên viên Vật lý trị liệu</option>
                       <option value={5}>Admin</option>
                       <option value={6}>Quản lý</option>
                     </select>
@@ -1016,71 +1072,57 @@ export default function ManageStaff() {
   // ELSE: Render the normal Staff List Table View
   return (
     <div className="space-y-6 pb-8 text-zinc-800 font-sans text-sm min-h-[600px] animate-in fade-in duration-300">
-      
-      {/* HUD HEADER */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm relative overflow-hidden">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl pointer-events-none"></div>
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse"></span>
-            <span className="text-xs font-heading tracking-wider text-primary uppercase font-bold">Quản trị hệ thống</span>
-          </div>
-          <h2 className="text-2xl font-bold font-heading text-secondary dark:text-zinc-150 tracking-tight">HỒ SƠ NHÂN SỰ</h2>
-          <p className="text-zinc-550 dark:text-zinc-400 text-xs mt-1">Thiết lập tài khoản, vai trò làm việc và hồ sơ chuyên môn cho đội ngũ nhân sự y khoa</p>
-        </div>
-        
-        <button
-          onClick={() => {
-            reset();
-            setIsCreateOpen(true);
-          }}
-          className="bg-primary hover:bg-primary/90 hover:shadow-soft-button active:scale-95 text-white px-5 py-2.5 rounded-xl font-heading text-xs font-bold tracking-wide transition-all shadow-sm flex items-center gap-2 cursor-pointer"
-        >
-          <Plus size={16} /> THÊM NHÂN SỰ MỚI
-        </button>
-      </div>
-
-      {/* FILTER PANEL */}
-      <div className="p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm space-y-4 transition-all hover:shadow-md duration-300">
-        <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
-          <div className="relative w-full lg:w-96">
+      {/* STAFF LIST TABLE CARD WITH INTEGRATED SEARCH, ROLE TABS & ACTION BUTTON */}
+      <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-[28px] shadow-xl shadow-slate-200/40 dark:shadow-none border border-slate-200/80 dark:border-slate-800 overflow-hidden font-jakarta">
+        {/* Integrated Toolbar inside Table Header */}
+        <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex flex-col xl:flex-row gap-4 items-center justify-between">
+          <div className="relative w-full xl:w-80">
             <Search className="absolute left-3.5 top-3.5 text-zinc-400 size-4" />
             <input
               type="text"
               placeholder="Tìm kiếm nhân sự bằng họ tên, email..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-850 focus:border-primary rounded-xl pl-10 pr-4 py-2.5 text-xs text-secondary font-semibold outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+              className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800 focus:border-teal-500 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-800 dark:text-slate-200 font-semibold outline-none focus:ring-2 focus:ring-teal-500/20 transition-all shadow-2xs"
             />
           </div>
 
-          <div className="flex bg-zinc-100 dark:bg-zinc-950 p-1 rounded-xl w-full lg:w-auto overflow-x-auto">
-            {[
-              { id: 'all', label: 'TẤT CẢ' },
-              { id: '4', label: 'CHUYÊN VIÊN TƯ VẤN' },
-              { id: '3', label: 'KỸ THUẬT VIÊN' },
-              { id: '2', label: 'LỄ TÂN' },
-              { id: '6', label: 'QUẢN LÝ' },
-              { id: '5', label: 'ADMIN' },
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setSelectedRoleFilter(tab.id as any)}
-                className={`flex-1 lg:flex-initial px-4 py-2 text-[10px] font-black tracking-wider rounded-lg transition-all whitespace-nowrap cursor-pointer ${
-                  selectedRoleFilter === tab.id
-                    ? 'bg-white dark:bg-zinc-900 text-primary shadow-sm font-bold border border-zinc-200/20'
-                    : 'text-zinc-400 hover:text-zinc-650'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto justify-between xl:justify-end">
+            <div className="flex bg-slate-100/90 dark:bg-zinc-950 p-1 rounded-xl w-full sm:w-auto overflow-x-auto border border-slate-200/60 dark:border-slate-800 shrink-0">
+              {[
+                { id: 'all', label: 'TẤT CẢ' },
+                { id: '4', label: 'CHUYÊN VIÊN VLTL' },
+                { id: '3', label: 'KỸ THUẬT VIÊN' },
+                { id: '2', label: 'LỄ TÂN' },
+                { id: '6', label: 'QUẢN LÝ' },
+                { id: '5', label: 'ADMIN' },
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setSelectedRoleFilter(tab.id as any)}
+                  className={`flex-1 sm:flex-initial px-3.5 py-1.5 text-[10px] font-black tracking-wider rounded-lg transition-all whitespace-nowrap cursor-pointer ${
+                    selectedRoleFilter === tab.id
+                      ? 'bg-white dark:bg-zinc-900 text-teal-600 dark:text-teal-400 shadow-xs font-bold'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => {
+                reset();
+                setIsCreateOpen(true);
+              }}
+              className="w-full sm:w-auto bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 active:scale-95 text-white px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-md shadow-teal-600/20 flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+            >
+              <Plus size={16} /> Thêm nhân sự mới
+            </button>
           </div>
         </div>
-      </div>
 
-      {/* STAFF LIST TABLE */}
-      <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-[28px] shadow-xl shadow-slate-200/40 dark:shadow-none border border-slate-200/80 dark:border-slate-800 overflow-hidden font-jakarta">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -1275,7 +1317,7 @@ export default function ManageStaff() {
                     <option value={0}>Chọn...</option>
                     <option value={2}>Lễ tân</option>
                     <option value={3}>Kỹ thuật viên</option>
-                    <option value={4}>Chuyên viên tư vấn</option>
+                    <option value={4}>Chuyên viên Vật lý trị liệu</option>
                     <option value={5}>Admin</option>
                     <option value={6}>Quản lý</option>
                   </select>

@@ -4,10 +4,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { format, addDays, isSameDay } from 'date-fns';
 import toast from 'react-hot-toast';
 
-// Import Shared Components
 import AppointmentDetailModal from '../../../../components/appointments/DetailModal';
 import WalkInBookingModal from '../../../../components/WalkInBookingModal';
-import TreatmentBookingModal from '../../../../components/appointments/TreatmentBookingModal';
 import { pushBackAppointment } from '../../../admin/api/admin.api';
 
 // Import Shared Hooks & UI
@@ -21,7 +19,7 @@ import { computeAppointmentKpiBuckets, KPI_BUCKET_STATUSES, KPI_BUCKET_LABELS, A
 import { ActiveFilterChip } from '../../../../components/appointments/ui/ActiveFilterChip';
 import { ViewMode } from '../../../../components/appointments/types';
 import { StaffWorkloadModal } from '../../components/StaffWorkloadModal';
-import { getStaffWorkload } from '../../api/receptionist.api';
+import { getStaffWorkload, unassignAppointmentStaff } from '../../api/receptionist.api';
 import { addMinutes } from 'date-fns';
 
 export default function ReceptionistAppointments() {
@@ -29,18 +27,43 @@ export default function ReceptionistAppointments() {
   const navigate = useNavigate();
 
   const [startDate, setStartDate] = useState<Date>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const startParam = params.get('startDate') || params.get('date');
+    if (startParam) {
+      const parsedDate = new Date(startParam);
+      if (!isNaN(parsedDate.getTime())) return parsedDate;
+    }
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return today;
   });
 
   const [endDate, setEndDate] = useState<Date>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const endParam = params.get('endDate');
+    if (endParam) {
+      const parsedDate = new Date(endParam);
+      if (!isNaN(parsedDate.getTime())) return parsedDate;
+    }
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    if (params.get('khach_hang_id')) {
+      return today;
+    }
     return addDays(today, 6);
   });
 
-  const [viewMode, setViewMode] = useState<ViewMode>('capacity');
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const viewParam = params.get('view');
+    if (viewParam && ['timeline', 'capacity'].includes(viewParam)) {
+      return viewParam as ViewMode;
+    }
+    if (params.get('khach_hang_id')) {
+      return 'timeline';
+    }
+    return 'capacity';
+  });
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [activeType, setActiveType] = useState<'kham' | 'dieu_tri'>('kham');
   // Lễ tân được lọc xem theo nhân sự giống Admin (chỉ không có quyền phân bổ/đổi nhân sự cho lịch).
@@ -114,26 +137,8 @@ export default function ReceptionistAppointments() {
     setAssignStatus,
     isAssigning,
     bookingLoading,
-    isTreatmentModalOpen,
-    setIsTreatmentModalOpen,
-    treatmentType,
-    setTreatmentType,
-    selectedServiceId,
-    setSelectedServiceId,
-    selectedPackageId,
-    setSelectedPackageId,
-    selectedKtvId,
-    setSelectedKtvId,
-    selectedRoomId,
-    setSelectedRoomId,
-    treatmentDate,
-    setTreatmentDate,
-    treatmentTime,
-    setTreatmentTime,
     handleOpenDetailModal,
-    handleOpenTreatmentModal,
     handleUpdateAppointment,
-    handleBookTreatment,
     handleBookWalkIn,
     handleUpdateAppointmentFields,
     scrollToAppointment,
@@ -154,7 +159,7 @@ export default function ReceptionistAppointments() {
     },
     viewMode,
     setViewMode,
-    timeRange: 'custom',
+    timeRange: 'today',
     setTimeRange: () => {},
     refetch,
     navigate,
@@ -199,17 +204,20 @@ export default function ReceptionistAppointments() {
     };
   }, []);
 
-  // Parse URL search parameters on load
+  // Parse URL search parameters on load / external navigation
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const startParam = params.get('startDate') || params.get('date');
-    const endParam = params.get('endDate');
+    const endParam = params.get('endDate') || (startParam ? startParam : null);
     const viewParam = params.get('view');
 
     if (startParam) {
       const parsedDate = new Date(startParam);
       if (!isNaN(parsedDate.getTime()) && format(parsedDate, 'yyyy-MM-dd') !== format(startDate, 'yyyy-MM-dd')) {
         setStartDate(parsedDate);
+        if (!params.get('endDate')) {
+          setEndDate(parsedDate);
+        }
       }
     }
 
@@ -226,47 +234,99 @@ export default function ReceptionistAppointments() {
       }
     }
 
+    const typeParam = params.get('type');
+    if (typeParam === 'kham' || typeParam === 'dieu_tri') {
+      setActiveType(typeParam);
+    }
+
     const khId = params.get('khach_hang_id');
     const svcId = params.get('goi_dich_vu_id');
-    if (khId && svcId) {
+    const phacDoId = params.get('phac_do_id');
+    if (khId && (svcId || phacDoId || khId.length > 0)) {
       setActiveType('dieu_tri');
       setIsWalkInModalOpen(true);
+      if (!startParam && !endParam) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        setStartDate(today);
+        setEndDate(today);
+        setViewMode('timeline');
+      }
     }
-  }, [location.search, setActiveType, setIsWalkInModalOpen, startDate, endDate, viewMode]);
+  }, [location.search]);
 
-  // Handle Mascot redirection focus
-  const mascotTargetAppointments = location.search;
+  const [focusedAppointmentId, setFocusedAppointmentId] = useState<string | null>(null);
+
+  // Handle Mascot redirection focus smoothly without screen jitter
   useEffect(() => {
     if (loading) return;
 
     const params = new URLSearchParams(location.search);
     const focusAptId = params.get('appointmentId');
     const triggerFocus = params.get('triggerFocus');
+    const typeParam = params.get('type') as 'kham' | 'dieu_tri' | null;
 
     if (focusAptId && triggerFocus === 'true') {
       setIsWalkInModalOpen(false);
-      scrollToAppointment(focusAptId);
-      
-      // Clean up parameter without re-triggering timers
-      const newParams = new URLSearchParams(location.search);
-      newParams.delete('triggerFocus');
-      const newSearch = `?${newParams.toString()}`;
-      navigate(location.pathname + newSearch, { replace: true });
-    }
-  }, [mascotTargetAppointments, scrollToAppointment, navigate, location.pathname, loading, setIsWalkInModalOpen]);
+      setFocusedAppointmentId(focusAptId);
 
-  // Update URL search parameters when filtering state changes
+      // Tự động chuyển tab Lượng giá / Điều trị khớp với ca hẹn cần focus
+      if (typeParam === 'kham' || typeParam === 'dieu_tri') {
+        setActiveType(typeParam);
+      } else {
+        const targetApt = (appointments || []).find(a => String(a.id) === String(focusAptId));
+        if (targetApt) {
+          const neededType = targetApt.loai_lich === 'kham_moi' ? 'kham' : 'dieu_tri';
+          setActiveType(neededType);
+        }
+      }
+
+      // Xóa NGAY triggerFocus & appointmentId khỏi URL để không bị dính khi người dùng chuyển tab hoặc đổi ngày
+      const cleanParams = new URLSearchParams(location.search);
+      cleanParams.delete('triggerFocus');
+      cleanParams.delete('appointmentId');
+      cleanParams.delete('type');
+      cleanParams.delete('date');
+      cleanParams.delete('range');
+      cleanParams.set('startDate', format(startDate, 'yyyy-MM-dd'));
+      cleanParams.set('endDate', format(endDate, 'yyyy-MM-dd'));
+      cleanParams.set('view', viewMode);
+      navigate(`${location.pathname}?${cleanParams.toString()}`, { replace: true });
+
+      if (focusTimerRef.current) {
+        clearTimeout(focusTimerRef.current);
+      }
+
+      focusTimerRef.current = setTimeout(() => {
+        setFocusedAppointmentId(null);
+      }, 4000);
+    }
+  }, [location.search, loading, navigate, location.pathname, setIsWalkInModalOpen, appointments, startDate, endDate, viewMode]);
+
+  // Update URL search parameters when date or view changes (without loop)
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    params.set('startDate', format(startDate, 'yyyy-MM-dd'));
-    params.set('endDate', format(endDate, 'yyyy-MM-dd'));
-    params.set('view', viewMode);
-    
-    const newSearch = `?${params.toString()}`;
-    if (location.search !== newSearch) {
-      navigate(location.pathname + newSearch, { replace: true });
+    // If we're currently in the middle of a triggerFocus, don't interfere
+    if (params.get('triggerFocus') === 'true') return;
+
+    const currentStart = params.get('startDate');
+    const currentEnd = params.get('endDate');
+    const currentView = params.get('view');
+    const newStart = format(startDate, 'yyyy-MM-dd');
+    const newEnd = format(endDate, 'yyyy-MM-dd');
+
+    if (currentStart !== newStart || currentEnd !== newEnd || currentView !== viewMode) {
+      params.set('startDate', newStart);
+      params.set('endDate', newEnd);
+      params.set('view', viewMode);
+      params.delete('date');
+
+      const newSearch = `?${params.toString()}`;
+      if (location.search !== newSearch) {
+        navigate(location.pathname + newSearch, { replace: true });
+      }
     }
-  }, [startDate, endDate, viewMode, navigate, location.pathname]);
+  }, [startDate, endDate, viewMode, navigate, location.pathname, location.search]);
 
   const getKpiAppointments = () => {
     const matchType = (apt: any) => activeType === 'kham'
@@ -339,6 +399,25 @@ export default function ReceptionistAppointments() {
     await handleUpdateAppointmentFields(String(apt.id), { trang_thai: 'khong_den' }, `Đã đánh dấu ${apt.ten_khach_hang || apt.ho_ten_khach || 'khách'} không đến`);
   };
 
+  // Giải phóng chỉ định đích danh, chuyển về Hàng đợi chung
+  const handleUnassignStaff = async (apt: any) => {
+    const customerName = apt.ten_khach_hang || apt.ho_ten_khach || apt.ho_ten || 'khách hàng';
+    const staffName = apt.bac_si_ten || apt.ten_bac_si || apt.ten_nhan_su || 'nhân sự';
+
+    const confirmed = window.confirm(
+      `⚠️ XÁC NHẬN CHUYỂN HÀNG CHỜ:\n\nBạn có chắc chắn muốn chuyển cuộc hẹn của khách hàng "${customerName}" từ ca của ${staffName} về HÀNG CHỜ CHUNG không?\n\n(Sau khi chuyển, bất kỳ nhân sự nào rảnh bàn sẽ chủ động bấm เรียก/Gọi vào).`
+    );
+    if (!confirmed) return;
+
+    try {
+      await unassignAppointmentStaff(String(apt.id));
+      toast.success(`🎉 Đã chuyển ${customerName} về Hàng chờ chung thành công!`);
+      await refetch();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Không thể giải phóng chỉ định nhân sự.');
+    }
+  };
+
   // Danh sách nhân sự theo đúng vai trò đang chọn (Chuyên viên PHCN hoặc KTV) — nguồn cho dropdown lọc trong TodayFlowBoard.
   const onDutyStaffOptions = useMemo(() => {
     const isKham = activeType === 'kham';
@@ -386,35 +465,43 @@ export default function ReceptionistAppointments() {
         </>
       )}
 
-          <AppointmentsFilterBar
-            startDate={startDate}
-            endDate={endDate}
-            onSelectDateRange={(start, end) => {
-              handleCloseWalkInModal();
-              handleSelectDateRange(start, end);
-            }}
-            handleNavigateRange={(direction) => {
-              handleCloseWalkInModal();
-              handleNavigateRange(direction);
-            }}
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-            viewMode={viewMode}
-            activeType={activeType}
-            onToggleType={() => {
-              handleCloseWalkInModal();
-              setActiveType(prev => prev === 'kham' ? 'dieu_tri' : 'kham');
-            }}
-            canToggleType={true}
-            setViewMode={(mode) => {
-              handleCloseWalkInModal();
-              setViewMode(mode);
-            }}
-            onOpenWalkInModal={() => setIsWalkInModalOpen(true)}
-          />
+          {/* Nếu mở form đặt lịch tại quầy hoặc xem bảng công suất thì hiển thị thanh bộ lọc độc lập */}
+          {(isWalkInModalOpen || viewMode === 'capacity') && (
+            <AppointmentsFilterBar
+              startDate={startDate}
+              endDate={endDate}
+              onSelectDateRange={(start, end) => {
+                handleCloseWalkInModal();
+                setFocusedAppointmentId(null);
+                if (focusTimerRef.current) clearTimeout(focusTimerRef.current);
+                handleSelectDateRange(start, end);
+              }}
+              handleNavigateRange={(direction) => {
+                handleCloseWalkInModal();
+                setFocusedAppointmentId(null);
+                if (focusTimerRef.current) clearTimeout(focusTimerRef.current);
+                handleNavigateRange(direction);
+              }}
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
+              viewMode={viewMode}
+              activeType={activeType}
+              onToggleType={() => {
+                handleCloseWalkInModal();
+                setFocusedAppointmentId(null);
+                if (focusTimerRef.current) clearTimeout(focusTimerRef.current);
+                setActiveType(prev => prev === 'kham' ? 'dieu_tri' : 'kham');
+              }}
+              canToggleType={true}
+              setViewMode={(mode) => {
+                handleCloseWalkInModal();
+                setViewMode(mode);
+              }}
+              onOpenWalkInModal={() => setIsWalkInModalOpen(true)}
+            />
+          )}
 
-          {/* MAIN WORKBOARD — full-width, không còn sidebar riêng (bộ lọc nhân sự đã chuyển vào
-              dropdown ngay trong TodayFlowBoard, cạnh Sức khỏe ca — giống Admin). */}
+          {/* MAIN WORKBOARD */}
           <div className="w-full">
               {selectedStaffFilter && (
                 <div className="mb-4">
@@ -457,6 +544,41 @@ export default function ReceptionistAppointments() {
                 <>
                   {viewMode === 'timeline' && (
                     <TodayFlowBoard
+                      filterBar={
+                        <AppointmentsFilterBar
+                          embedded={true}
+                          startDate={startDate}
+                          endDate={endDate}
+                          onSelectDateRange={(start, end) => {
+                            handleCloseWalkInModal();
+                            setFocusedAppointmentId(null);
+                            if (focusTimerRef.current) clearTimeout(focusTimerRef.current);
+                            handleSelectDateRange(start, end);
+                          }}
+                          handleNavigateRange={(direction) => {
+                            handleCloseWalkInModal();
+                            setFocusedAppointmentId(null);
+                            if (focusTimerRef.current) clearTimeout(focusTimerRef.current);
+                            handleNavigateRange(direction);
+                          }}
+                          searchTerm={searchTerm}
+                          setSearchTerm={setSearchTerm}
+                          viewMode={viewMode}
+                          activeType={activeType}
+                          onToggleType={() => {
+                            handleCloseWalkInModal();
+                            setFocusedAppointmentId(null);
+                            if (focusTimerRef.current) clearTimeout(focusTimerRef.current);
+                            setActiveType(prev => prev === 'kham' ? 'dieu_tri' : 'kham');
+                          }}
+                          canToggleType={true}
+                          setViewMode={(mode) => {
+                            handleCloseWalkInModal();
+                            setViewMode(mode);
+                          }}
+                          onOpenWalkInModal={() => setIsWalkInModalOpen(true)}
+                        />
+                      }
                       appointments={dayTypedAppointments}
                       activeType={activeType}
                       searchTerm={searchTerm}
@@ -467,8 +589,9 @@ export default function ReceptionistAppointments() {
                       onQuickCheckin={handleQuickCheckin}
                       onPushBack={handlePushBack}
                       onMarkNoShow={handleMarkNoShow}
+                      onUnassign={handleUnassignStaff}
                       onOpenWalkInModal={() => setIsWalkInModalOpen(true)}
-                      focusAppointmentId={new URLSearchParams(location.search).get('appointmentId') || undefined}
+                      focusAppointmentId={focusedAppointmentId || undefined}
                       staffFilterId={selectedStaffFilter}
                       staffFilterOptions={onDutyStaffOptions}
                       onStaffFilterChange={setSelectedStaffFilter}
@@ -526,7 +649,6 @@ export default function ReceptionistAppointments() {
           isAssigning={isAssigning}
           onClose={() => setIsDetailModalOpen(false)}
           onSave={handleUpdateAppointment}
-          onOpenTreatment={handleOpenTreatmentModal}
           appointments={appointments}
           schedulesList={schedulesList}
           isReceptionistOverride={true}
@@ -534,35 +656,6 @@ export default function ReceptionistAppointments() {
           setSelectedBuoi={setSelectedBuoi}
           rescheduleDate={rescheduleDate}
           setRescheduleDate={setRescheduleDate}
-        />
-      )}
-
-
-
-      {isTreatmentModalOpen && (
-        <TreatmentBookingModal
-          selectedAppointment={selectedAppointment}
-          services={services}
-          packages={packages}
-          staffList={staffList}
-          roomsList={roomsList}
-          treatmentType={treatmentType}
-          setTreatmentType={setTreatmentType}
-          selectedServiceId={selectedServiceId}
-          setSelectedServiceId={setSelectedServiceId}
-          selectedPackageId={selectedPackageId}
-          setSelectedPackageId={setSelectedPackageId}
-          selectedKtvId={selectedKtvId}
-          setSelectedKtvId={setSelectedKtvId}
-          selectedRoomId={selectedRoomId}
-          setSelectedRoomId={setSelectedRoomId}
-          treatmentDate={treatmentDate}
-          setTreatmentDate={setTreatmentDate}
-          treatmentTime={treatmentTime}
-          setTreatmentTime={setTreatmentTime}
-          bookingLoading={bookingLoading}
-          onClose={() => setIsTreatmentModalOpen(false)}
-          onSubmit={handleBookTreatment}
         />
       )}
 

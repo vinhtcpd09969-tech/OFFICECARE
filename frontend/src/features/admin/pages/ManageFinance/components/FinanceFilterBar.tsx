@@ -1,5 +1,6 @@
 import { Search, Filter, RotateCcw, Calendar, CreditCard, Layers, Tag } from 'lucide-react';
 import { CustomDatePicker } from '../../../../../components/CustomDatePicker';
+import { FinanceTabs } from './FinanceTabs';
 import {
   INVOICE_STATUS_OPTIONS,
   PAYMENT_TYPE_OPTIONS,
@@ -9,6 +10,9 @@ import {
 
 interface FinanceFilterBarProps {
   activeTab: 'invoices' | 'payments';
+  onTabChange: (tab: 'invoices' | 'payments') => void;
+  invoiceCount: number;
+  paymentCount: number;
   searchTerm: string;
   onSearchChange: (value: string) => void;
   statusFilter: string;
@@ -27,6 +31,9 @@ interface FinanceFilterBarProps {
 
 export function FinanceFilterBar({
   activeTab,
+  onTabChange,
+  invoiceCount,
+  paymentCount,
   searchTerm,
   onSearchChange,
   statusFilter,
@@ -80,8 +87,17 @@ export function FinanceFilterBar({
   };
 
   return (
-    <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-200/80 dark:border-zinc-800 shadow-xs space-y-4 text-left select-none">
-      <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-850 pb-3">
+    <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-200/80 dark:border-zinc-800 shadow-xs space-y-5 text-left select-none font-jakarta">
+      {/* 50/50 Full-Width Tabs */}
+      <FinanceTabs
+        activeTab={activeTab}
+        invoiceCount={invoiceCount}
+        paymentCount={paymentCount}
+        onChange={onTabChange}
+      />
+
+      {/* Filter Section Header */}
+      <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-850 pb-3 pt-1">
         <div className="flex items-center gap-2">
           <div className="p-1.5 rounded-lg bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400">
             <Filter size={15} />

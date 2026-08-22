@@ -3,9 +3,17 @@ import { motion } from 'framer-motion';
 import { X, Stethoscope, ChevronDown, Lock, UserCheck } from 'lucide-react';
 import { TreatmentPlan } from '../../../features/doctor/api/doctor.api';
 import { StaffAvatar, getSessionStatusMeta } from './StaffAvatar';
-import { getPlanStatusMeta } from './PlanColumn';
 import { useAuthStore } from '../../../stores/authStore';
 import { TreatmentSessionDetailBody } from '../../../components/TreatmentSessionDetailBody';
+
+export const PLAN_STATUS_META: Record<string, { label: string; badge: string }> = {
+  dang_dieu_tri: { label: 'Đang điều trị', badge: 'bg-primary/10 text-primary border-primary/25' },
+  hoan_thanh: { label: 'Hoàn thành', badge: 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-650 dark:text-emerald-400 border-emerald-150/40 dark:border-emerald-900/30' },
+  cho_kich_hoat: { label: 'Chờ kích hoạt', badge: 'bg-amber-50 dark:bg-amber-950/20 text-amber-650 dark:text-amber-400 border-amber-150/40 dark:border-amber-900/30' },
+  huy: { label: 'Đã hủy', badge: 'bg-rose-50 dark:bg-rose-950/15 text-rose-600 dark:text-rose-400 border-rose-150/40 dark:border-rose-900/30' },
+  tam_dung: { label: 'Tạm dừng', badge: 'bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200/50' },
+};
+export const getPlanStatusMeta = (trangThai: string) => PLAN_STATUS_META[trangThai] || PLAN_STATUS_META.dang_dieu_tri;
 
 interface PlanDetailModalProps {
   plan: TreatmentPlan;

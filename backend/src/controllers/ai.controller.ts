@@ -1,4 +1,4 @@
-﻿import { Request, Response } from 'express';
+import { Request, Response } from 'express';
 import { AIService } from '../services/ai.service';
 import { ChatHistoryService } from '../services/chatHistory.service';
 import { asyncHandler } from '../utils/asyncHandler';
@@ -51,4 +51,24 @@ export const getChatHistory = asyncHandler(async (req: Request, res: Response) =
 export const getMyChatHistory = asyncHandler(async (req: Request, res: Response) => {
   const messages = await ChatHistoryService.getHistoryByCustomer(String(req.user!.id));
   res.json({ success: true, messages });
+});
+
+export const analyzeVasProgression = asyncHandler(async (req: Request, res: Response) => {
+  const { patientName, serviceName, symptoms, vasPoints } = req.body;
+
+  if (!Array.isArray(vasPoints) || vasPoints.length === 0) {
+    throw new BadRequestError('Dữ liệu điểm VAS không hợp lệ hoặc đang trống');
+  }
+
+  const result = await AIService.analyzeVasProgression({
+    patientName,
+    serviceName,
+    symptoms,
+    vasPoints
+  });
+
+  res.json({
+    success: true,
+    data: result
+  });
 });

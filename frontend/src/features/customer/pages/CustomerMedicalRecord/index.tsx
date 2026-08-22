@@ -3,12 +3,24 @@ import { useNavigate } from 'react-router-dom';
 import { PatientDossierTimeline } from '../../../../pages/DoctorMedicalRecords/components/PatientDossierTimeline';
 import { getPatientProfile, PatientProfile } from '../../../doctor/api/doctor.api';
 import { useAuthStore } from '../../../../stores/authStore';
+import { BookNextSessionModal } from './components/BookNextSessionModal';
 
 export default function CustomerMedicalRecord() {
   const navigate = useNavigate();
   const currentUser = useAuthStore((state) => state.user);
   const [profile, setProfile] = useState<PatientProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [bookingSessionPlan, setBookingSessionPlan] = useState<{
+    pkg: { phac_do_id: string; ten_dich_vu: string; goi_dich_vu_id: string };
+    sessionNum: number;
+  } | null>(null);
+
+  const reloadProfile = () => {
+    if (!currentUser?.id) return;
+    getPatientProfile(String(currentUser.id))
+      .then((res: { data: PatientProfile }) => setProfile(res.data))
+      .catch((err: unknown) => console.error('Failed to reload customer profile', err));
+  };
 
   useEffect(() => {
     if (!currentUser?.id) {
@@ -60,9 +72,27 @@ export default function CustomerMedicalRecord() {
         onBack={() => navigate('/')}
         onBookNextSession={(plan) => {
           const nextSessionNum = (plan.so_buoi_da_dung || 0) + 1;
-          navigate(`/booking?goi_dich_vu_id=${(plan as any).goi_dich_vu_id || ''}&phac_do_id=${plan.id}&buoi=${nextSessionNum}`);
+          setBookingSessionPlan({
+            pkg: {
+              phac_do_id: String(plan.id),
+              ten_dich_vu: (plan as any).ten_goi_dich_vu || (plan as any).ten_goi || plan.ten_dich_vu || 'Gói điều trị',
+              goi_dich_vu_id: String((plan as any).goi_dich_vu_id || plan.id)
+            },
+            sessionNum: nextSessionNum
+          });
         }}
       />
+
+      {bookingSessionPlan && (
+        <BookNextSessionModal
+          pkg={bookingSessionPlan.pkg}
+          sessionNum={bookingSessionPlan.sessionNum}
+          onClose={() => {
+            setBookingSessionPlan(null);
+            reloadProfile();
+          }}
+        />
+      )}
     </div>
   );
 }

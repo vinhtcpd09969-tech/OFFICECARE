@@ -44,7 +44,7 @@ class ReceptionistRepository {
     return count;
   }
 
-  async updateAppointmentStatus(id: string, trang_thai: string, ghi_chu_noi_bo?: string, ly_do_huy?: string) {
+  async updateAppointmentStatus(id: string, trang_thai: string, ghi_chu_noi_bo?: string) {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
@@ -82,7 +82,7 @@ class ReceptionistRepository {
               WHERE hd.phac_do_dieu_tri_id = $1
               LIMIT 1
             `, [appt.phac_do_dieu_tri_id]);
-            
+
             if (paymentCheck.rows.length > 0) {
               const { trang_thai: invoiceStatus, hinh_thuc_thanh_toan_goi } = paymentCheck.rows[0];
               if (hinh_thuc_thanh_toan_goi !== 'tung_buoi') {
@@ -100,7 +100,7 @@ class ReceptionistRepository {
       let finalStatus = trang_thai;
 
       // Handle Cancel / No-Show Logic
-      if (['da_huy', 'khong_den', 'khach_khong_den'].includes(trang_thai)) {
+      if (['da_huy', 'khong_den'].includes(trang_thai)) {
         const isPackageSession = !!(appt.phac_do_dieu_tri_id && appt.so_thu_tu_buoi);
         let hinhThuc: HinhThucThanhToanGoi | null = null;
 
@@ -113,14 +113,8 @@ class ReceptionistRepository {
           hinhThuc = invoiceRes.rows[0]?.hinh_thuc_thanh_toan_goi || null;
         }
 
-        const outcome = resolveNoShowOutcome(trang_thai as 'da_huy' | 'khong_den' | 'khach_khong_den', hinhThuc, isPackageSession);
+        const outcome = resolveNoShowOutcome(trang_thai as 'da_huy' | 'khong_den', hinhThuc, isPackageSession);
         finalStatus = outcome.finalStatus;
-        if (outcome.reputationPenalty > 0) {
-          await client.query(
-            'UPDATE khach_hang SET diem_uy_tin = GREATEST(0, diem_uy_tin - $1) WHERE id = $2',
-            [outcome.reputationPenalty, appt.khach_hang_id]
-          );
-        }
       }
 
       const updates = [];
@@ -133,15 +127,7 @@ class ReceptionistRepository {
         paramIndex++;
       }
 
-      if (ly_do_huy !== undefined) {
-        updates.push(`ly_do_huy = $${paramIndex}`);
-        values.push(ly_do_huy);
-        paramIndex++;
-      }
-
-      if (finalStatus === 'da_xac_nhan') {
-        updates.push(`thoi_gian_xac_nhan = COALESCE(thoi_gian_xac_nhan, NOW())`);
-      } else if (finalStatus === 'da_checkin') {
+      if (finalStatus === 'da_checkin') {
         updates.push(`thoi_gian_checkin = NOW()`);
       } else if (finalStatus === 'dang_kham') {
         updates.push(`thoi_gian_bat_dau = COALESCE(thoi_gian_bat_dau, NOW())`);
@@ -149,7 +135,7 @@ class ReceptionistRepository {
         updates.push(`thoi_gian_hoan_thanh = COALESCE(thoi_gian_hoan_thanh, NOW())`);
       } else if (finalStatus === 'da_huy') {
         updates.push(`thoi_gian_huy = COALESCE(thoi_gian_huy, NOW())`);
-      } else if (['khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(finalStatus)) {
+      } else if (finalStatus === 'khong_den') {
         updates.push(`thoi_gian_khong_den = COALESCE(thoi_gian_khong_den, NOW())`);
       }
 
@@ -171,12 +157,7 @@ class ReceptionistRepository {
 
       if (rows.length > 0) {
         const updatedAppt = rows[0];
-        // Buổi "không đến" cũng có thể tiêu thụ 1 buổi (Nhóm B) — gọi lại cả khi finalStatus='khong_den',
-        // không chỉ hoan_thanh. Công thức đếm bên dưới tự quyết định có tính buổi đó hay không.
-        // Buổi "không đến" cũng có thể tiêu thụ 1 buổi (Nhóm B) — gọi lại cả khi finalStatus='khong_den',
-        // không chỉ hoan_thanh. Dùng đúng hàm dùng chung (khóa hàng, chặn race với
-        // technician/appointment repository cùng đụng 1 phác đồ), không tự chép lại công thức ở đây.
-        if (['hoan_thanh', 'khong_den', 'khach_khong_den'].includes(finalStatus) && updatedAppt.phac_do_dieu_tri_id) {
+        if (['hoan_thanh', 'khong_den'].includes(finalStatus) && updatedAppt.phac_do_dieu_tri_id) {
           await updateCompletedSessionsCount(client, updatedAppt.phac_do_dieu_tri_id);
         }
       }
@@ -265,7 +246,7 @@ class ReceptionistRepository {
           customerName
         };
       }
-      
+
       // Check if this ID is a cuoc_hen
       const { rows: apptRows } = await client.query(`
         SELECT phac_do_dieu_tri_id, loai FROM cuoc_hen WHERE id = $1
@@ -314,8 +295,8 @@ class ReceptionistRepository {
       let insertParams = [];
       if (isExam) {
         insertHoaDonQuery = `
-          INSERT INTO hoa_don (khach_hang_id, cuoc_hen_id, tong_tien_phai_tra, so_tien_da_tra, trang_thai, tong_tien_goc, phi_kham_ap_dung)
-          VALUES ($1, $2, $3, 0, 'chua_thanh_toan', $3, $3) 
+          INSERT INTO hoa_don (khach_hang_id, cuoc_hen_id, tong_tien_phai_tra, so_tien_da_tra, trang_thai, tong_tien_goc)
+          VALUES ($1, $2, $3, 0, 'chua_thanh_toan', $3) 
           RETURNING id, 'HD-' || UPPER(SUBSTRING(id::text FROM 1 FOR 6)) as ma_hoa_don, tong_tien_phai_tra as tong_tien_thanh_toan
         `;
         insertParams = [khach_hang_id, lich_dat_id, don_gia];
@@ -341,7 +322,7 @@ class ReceptionistRepository {
       }
 
       await client.query('COMMIT');
-      return { 
+      return {
         hoa_don: {
           id: hoaDonRows[0].id,
           ma_hoa_don: hoaDonRows[0].ma_hoa_don,
@@ -354,9 +335,9 @@ class ReceptionistRepository {
           ten_item: tenItem,
           so_buoi_goi: soBuoiGoi,
           isNew: true
-        }, 
-        doctorUserId, 
-        customerName 
+        },
+        doctorUserId,
+        customerName
       };
     } catch (e) {
       await client.query('ROLLBACK');
@@ -382,7 +363,6 @@ class ReceptionistRepository {
         hd.ghi_chu,
         hd.hinh_thuc_thanh_toan_goi as loai_thanh_toan,
         hd.hinh_thuc_thanh_toan_goi,
-        hd.ti_le_giam_gia_goi,
         hd.so_tien_giam_voucher,
         hd.ngay_tao,
         COALESCE(pd.tong_so_buoi, 1) as so_buoi_goi,
@@ -438,12 +418,6 @@ class ReceptionistRepository {
         INSERT INTO giao_dich_thanh_toan (hoa_don_id, so_tien, loai_giao_dich, phuong_thuc, ma_tham_chieu, nhan_vien_thuc_hien_id, ngay_giao_dich)
         VALUES ($1, $2, 'THANH_TOAN', $3, $4, 1, NOW())
       `, [hoa_don_id, tong_tien, phuong_thuc, maGiaoDich]);
-
-      // A10b — nguồn ghi DUY NHẤT của cuoc_hen.trang_thai_thanh_toan khi tiền thật được xác nhận đủ
-      // (đi qua cả 2 luồng: Lễ tân thu tại quầy VÀ webhook PayOS, vì cả 2 đều gọi processPayment này).
-      // Chỉ ghi khi hóa đơn gắn với đúng 1 lịch hẹn cụ thể — hóa đơn mua cả gói không gắn 1 buổi nào
-      // thì không có cuoc_hen_id để ghi (đúng, vì "đã thanh toán" của GÓI không tương đương với bất
-      // kỳ buổi cụ thể nào — từng buổi trong gói có trạng thái thanh toán riêng của chính nó).
       const cuocHenId = hdRows[0]?.cuoc_hen_id;
       if (cuocHenId) {
         await client.query(
@@ -551,23 +525,23 @@ class ReceptionistRepository {
     return rows[0];
   }
 
-  async getActiveVouchers(khachHangId: string) {
+  async getActiveVouchers(khachHangId?: string) {
     const { rows } = await pool.query(`
       SELECT v.id, v.ma_code as ma_voucher, v.ten_chien_dich, v.loai_giam_gia as loai_giam,
              v.gia_tri_giam::text as gia_tri_giam,
              v.giam_toi_da::text as giam_toi_da,
              v.don_hang_toi_thieu::text as don_hang_toi_thieu,
              v.so_luong_gioi_han as so_luong_toi_da, v.ngay_het_han, v.yeu_cau_thanh_toan,
-             v.tu_dong_ap_dung, v.kenh_ap_dung, v.loai_goi_ap_dung
+             v.tu_dong_ap_dung, v.loai_goi_ap_dung
       FROM khuyen_mai_voucher v
-      LEFT JOIN hoa_don hd ON hd.voucher_id = v.id AND hd.khach_hang_id = $1
+      LEFT JOIN hoa_don hd ON hd.voucher_id = v.id AND ($1::text IS NULL OR hd.khach_hang_id::text = $1::text)
       WHERE v.dang_kich_hoat = true
-        AND v.ngay_bat_dau <= NOW()
+        AND (v.ngay_bat_dau IS NULL OR v.ngay_bat_dau <= NOW())
         AND (v.ngay_het_han IS NULL OR v.ngay_het_han >= NOW())
-      GROUP BY v.id
-      HAVING v.so_luong_gioi_han IS NULL OR COUNT(hd.id) < v.so_luong_gioi_han
-      ORDER BY v.ngay_bat_dau DESC
-    `, [khachHangId]);
+      GROUP BY v.id, v.ma_code, v.ten_chien_dich, v.loai_giam_gia, v.gia_tri_giam, v.giam_toi_da, v.don_hang_toi_thieu, v.so_luong_gioi_han, v.ngay_het_han, v.yeu_cau_thanh_toan, v.tu_dong_ap_dung, v.loai_goi_ap_dung, v.ngay_bat_dau
+      HAVING v.so_luong_gioi_han IS NULL OR $1::text IS NULL OR COUNT(hd.id) < v.so_luong_gioi_han
+      ORDER BY v.ngay_bat_dau DESC NULLS LAST
+    `, [khachHangId || null]);
 
     return rows.map((r: any) => ({
       ...r,
@@ -584,7 +558,7 @@ class ReceptionistRepository {
              giam_toi_da::text as giam_toi_da,
              don_hang_toi_thieu::text as don_hang_toi_thieu,
              so_luong_gioi_han as so_luong_toi_da, ngay_bat_dau, ngay_het_han,
-             dang_kich_hoat, yeu_cau_thanh_toan, tu_dong_ap_dung, kenh_ap_dung, loai_goi_ap_dung,
+             dang_kich_hoat, yeu_cau_thanh_toan, tu_dong_ap_dung, loai_goi_ap_dung,
              CASE WHEN dang_kich_hoat = true THEN 'hoat_dong' ELSE 'vo_hieu' END as trang_thai
       FROM khuyen_mai_voucher
       WHERE ma_code = $1
@@ -796,24 +770,22 @@ class ReceptionistRepository {
             phac_do_dieu_tri_id = $1,
             tong_tien_goc = $2,
             hinh_thuc_thanh_toan_goi = $3,
-            ti_le_giam_gia_goi = $4,
-            so_tien_giam_voucher = $5,
-            tong_tien_phai_tra = $6,
-            voucher_id = $7,
-            ghi_chu = $8,
-            phi_kham_ap_dung = $9,
-            ti_le_phat_huy_goi = $10
-          WHERE id = $11
+            so_tien_giam_voucher = $4,
+            tong_tien_phai_tra = $5,
+            voucher_id = $6,
+            ghi_chu = $7,
+            phi_kham_ap_dung = $8,
+            ti_le_phat_huy_goi = $9
+          WHERE id = $10
           RETURNING id, 'HD-' || UPPER(SUBSTRING(id::text FROM 1 FOR 6)) as ma_hoa_don,
                     CASE WHEN phac_do_dieu_tri_id IS NOT NULL THEN 'goi_dich_vu' ELSE 'dich_vu_don' END as loai_hoa_don,
                     khach_hang_id, phac_do_dieu_tri_id, cuoc_hen_id, tong_tien_goc,
-                    hinh_thuc_thanh_toan_goi, ti_le_giam_gia_goi, so_tien_giam_voucher,
+                    hinh_thuc_thanh_toan_goi, so_tien_giam_voucher,
                     tong_tien_phai_tra, so_tien_da_tra, trang_thai, voucher_id, ngay_tao, ghi_chu
         `, [
           phacDoId,
           tong_tien_truoc_giam || tong_tien_thanh_toan,
           loai_thanh_toan || null,
-          tiLeGiam,
           so_tien_giam_voucher || 0,
           tong_tien_thanh_toan,
           voucher_id || null,
@@ -827,14 +799,14 @@ class ReceptionistRepository {
         const { rows: hdRows } = await client.query(`
           INSERT INTO hoa_don (
             khach_hang_id, phac_do_dieu_tri_id, cuoc_hen_id,
-            tong_tien_goc, hinh_thuc_thanh_toan_goi, ti_le_giam_gia_goi, so_tien_giam_voucher,
-            tong_tien_phai_tra, so_tien_da_tra, trang_thai, voucher_id, ghi_chu, phi_kham_ap_dung,
+            tong_tien_goc, hinh_thuc_thanh_toan_goi, so_tien_giam_voucher,
+            tong_tien_phai_tra, so_tien_da_tra, trang_thai, voucher_id, ghi_chu,
             ti_le_phat_huy_goi
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0, 'chua_thanh_toan', $9, $10, $11, $12)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, 0, 'chua_thanh_toan', $8, $9, $10)
           RETURNING id, 'HD-' || UPPER(SUBSTRING(id::text FROM 1 FOR 6)) as ma_hoa_don,
                     CASE WHEN phac_do_dieu_tri_id IS NOT NULL THEN 'goi_dich_vu' ELSE 'dich_vu_don' END as loai_hoa_don,
                     khach_hang_id, phac_do_dieu_tri_id, cuoc_hen_id, tong_tien_goc,
-                    hinh_thuc_thanh_toan_goi, ti_le_giam_gia_goi, so_tien_giam_voucher,
+                    hinh_thuc_thanh_toan_goi, so_tien_giam_voucher,
                     tong_tien_phai_tra, so_tien_da_tra, trang_thai, voucher_id, ngay_tao, ghi_chu
         `, [
           khach_hang_id,
@@ -842,12 +814,10 @@ class ReceptionistRepository {
           lich_dat_id || null,
           tong_tien_truoc_giam || tong_tien_thanh_toan,
           loai_thanh_toan || null,
-          tiLeGiam,
           so_tien_giam_voucher || 0,
           tong_tien_thanh_toan,
           voucher_id || null,
           ghi_chu || null,
-          Number(phi_kham_ap_dung || 0),
           tiLePhatHuyGoi
         ]);
         hoa_don = hdRows[0];
@@ -897,12 +867,45 @@ class ReceptionistRepository {
         `, [trang_thai_moi === 'da_thanh_toan' ? 'da_thanh_toan' : 'dang_cho_thanh_toan', cuocHenId]);
       }
 
-      if (phacDoId && (trang_thai_moi === 'da_thanh_toan' || da_thanh_toan_moi > 0)) {
-        await client.query(`
-          UPDATE phac_do_dieu_tri
-          SET trang_thai = 'dang_dieu_tri', ngay_kich_hoat = COALESCE(ngay_kich_hoat, NOW())
-          WHERE id = $1 AND trang_thai = 'cho_kich_hoat'
-        `, [phacDoId]);
+      if (phacDoId) {
+        if (trang_thai_moi === 'da_thanh_toan' || da_thanh_toan_moi > 0 || trang_thai_moi === 'dang_tra_tung_buoi') {
+          await client.query(`
+            UPDATE phac_do_dieu_tri
+            SET trang_thai = 'dang_dieu_tri', ngay_kich_hoat = COALESCE(ngay_kich_hoat, NOW())
+            WHERE id = $1 AND trang_thai = 'cho_kich_hoat'
+          `, [phacDoId]);
+        }
+
+        // Cập nhật trạng thái thanh toán của các cuộc hẹn thuộc phác đồ
+        const { rows: pdInfo } = await client.query(
+          'SELECT pd.tong_so_buoi, hd.tong_tien_phai_tra, hd.hinh_thuc_thanh_toan_goi FROM hoa_don hd JOIN phac_do_dieu_tri pd ON pd.id = hd.phac_do_dieu_tri_id WHERE hd.id = $1',
+          [hoa_don_id]
+        );
+        if (pdInfo.length > 0) {
+          const { tong_so_buoi, tong_tien_phai_tra, hinh_thuc_thanh_toan_goi } = pdInfo[0];
+          if (hinh_thuc_thanh_toan_goi === 'tra_thang' && (trang_thai_moi === 'da_thanh_toan' || da_thanh_toan_moi >= Number(tong_tien_phai_tra))) {
+            await client.query(
+              "UPDATE cuoc_hen SET trang_thai_thanh_toan = 'da_thanh_toan' WHERE phac_do_dieu_tri_id = $1",
+              [phacDoId]
+            );
+          } else if (hinh_thuc_thanh_toan_goi === 'tung_buoi') {
+            const totalSessions = Number(tong_so_buoi || 10);
+            const totalAmount = Number(tong_tien_phai_tra || 0);
+            const perSession = totalSessions > 0 ? Math.round(totalAmount / totalSessions) : totalAmount;
+            const paidSessionsCount = perSession > 0 ? Math.min(totalSessions, Math.floor(da_thanh_toan_moi / perSession)) : 0;
+
+            if (paidSessionsCount > 0) {
+              await client.query(
+                "UPDATE cuoc_hen SET trang_thai_thanh_toan = 'da_thanh_toan' WHERE phac_do_dieu_tri_id = $1 AND so_thu_tu_buoi <= $2",
+                [phacDoId, paidSessionsCount]
+              );
+            }
+            await client.query(
+              "UPDATE cuoc_hen SET trang_thai_thanh_toan = 'chua_thanh_toan' WHERE phac_do_dieu_tri_id = $1 AND (so_thu_tu_buoi > $2 OR so_thu_tu_buoi IS NULL)",
+              [phacDoId, paidSessionsCount]
+            );
+          }
+        }
       }
 
       await client.query(`
@@ -977,13 +980,13 @@ class ReceptionistRepository {
       const { rows } = await client.query(`
         INSERT INTO hoa_don (
           khach_hang_id, phac_do_dieu_tri_id, cuoc_hen_id,
-          tong_tien_goc, hinh_thuc_thanh_toan_goi, ti_le_giam_gia_goi, so_tien_giam_voucher,
-          tong_tien_phai_tra, so_tien_da_tra, trang_thai, voucher_id, ghi_chu, phi_kham_ap_dung
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0, 'chua_thanh_toan', $9, $10, $11)
+          tong_tien_goc, hinh_thuc_thanh_toan_goi, so_tien_giam_voucher,
+          tong_tien_phai_tra, so_tien_da_tra, trang_thai, voucher_id, ghi_chu
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, 0, 'chua_thanh_toan', $8, $9)
         RETURNING id, 'HD-' || UPPER(SUBSTRING(id::text FROM 1 FOR 6)) as ma_hoa_don,
                   CASE WHEN phac_do_dieu_tri_id IS NOT NULL THEN 'goi_dich_vu' ELSE 'dich_vu_don' END as loai_hoa_don,
                   khach_hang_id, phac_do_dieu_tri_id, cuoc_hen_id, tong_tien_goc,
-                  hinh_thuc_thanh_toan_goi, ti_le_giam_gia_goi, so_tien_giam_voucher,
+                  hinh_thuc_thanh_toan_goi, so_tien_giam_voucher,
                   tong_tien_phai_tra, so_tien_da_tra, trang_thai, voucher_id, ngay_tao, ghi_chu
       `, [
         khach_hang_id,
@@ -991,12 +994,10 @@ class ReceptionistRepository {
         cuoc_hen_id || null,
         tong_tien_truoc_giam || tong_tien_thanh_toan,
         loai_thanh_toan || null,
-        tiLeGiam,
         so_tien_giam_voucher || 0,
         tong_tien_thanh_toan,
         voucher_id || null,
-        ghi_chu || null,
-        Number(phi_kham_ap_dung || 0)
+        ghi_chu || null
       ]);
 
       await client.query('COMMIT');
@@ -1011,7 +1012,7 @@ class ReceptionistRepository {
 
   async searchCustomers(queryText: string) {
     const { rows } = await pool.query(`
-      SELECT id, ho_ten, so_dien_thoai, email, gioi_tinh, ngay_sinh, diem_uy_tin
+      SELECT id, ho_ten, so_dien_thoai, email, gioi_tinh, ngay_sinh
       FROM khach_hang
       WHERE (unaccent(ho_ten) ILIKE unaccent($1) OR so_dien_thoai ILIKE $1) AND trang_thai = 'hoat_dong'
       LIMIT 50
@@ -1040,7 +1041,7 @@ class ReceptionistRepository {
              NULL::uuid as cuoc_hen_id, gdv.loai_goi,
              hd.id as hoa_don_id,
              hd.hinh_thuc_thanh_toan_goi, hd.tong_tien_phai_tra, hd.so_tien_da_tra,
-             hd.tong_tien_goc, hd.ti_le_giam_gia_goi, hd.so_tien_giam_voucher,
+             hd.tong_tien_goc, hd.so_tien_giam_voucher,
              hd.trang_thai as hoa_don_trang_thai,
              (
                SELECT jsonb_build_object(
@@ -1097,7 +1098,6 @@ class ReceptionistRepository {
         NULL::bigint as tong_tien_phai_tra,
         NULL::bigint as so_tien_da_tra,
         NULL::bigint as tong_tien_goc,
-        NULL::numeric as ti_le_giam_gia_goi,
         NULL::bigint as so_tien_giam_voucher,
         NULL::varchar as hoa_don_trang_thai,
         NULL::jsonb as lich_dang_hoat_dong
@@ -1139,7 +1139,7 @@ class ReceptionistRepository {
     const { rows } = await pool.query(`
       WITH base AS (
         SELECT
-          kh.id, kh.ho_ten, kh.so_dien_thoai, kh.email, kh.trang_thai, kh.diem_uy_tin,
+          kh.id, kh.ho_ten, kh.so_dien_thoai, kh.email, kh.trang_thai,
           pend.ten_goi AS pend_ten_goi, NULL::timestamptz AS pend_han_kich_hoat,
           pend.ngay_gio_bat_dau AS pend_ngay_cho_kich_hoat,
           pend.goi_dich_vu_id AS pend_goi_dich_vu_id, pend.cuoc_hen_id AS pend_cuoc_hen_id,
@@ -1235,7 +1235,6 @@ class ReceptionistRepository {
         so_dien_thoai: r.so_dien_thoai,
         email: r.email,
         trang_thai: r.trang_thai,
-        diem_uy_tin: r.diem_uy_tin,
         goi_hien_tai: goiHienTai,
         last_used_at: r.last_used_at,
         ly_do_lien_he: lyDoLienHe,
@@ -1250,7 +1249,7 @@ class ReceptionistRepository {
 
   async getCustomerHistory(customerId: string) {
     const { rows: patientRows } = await pool.query(`
-      SELECT id, ho_ten, so_dien_thoai, email, trang_thai, diem_uy_tin, ngay_sinh, gioi_tinh, dia_chi
+      SELECT id, ho_ten, so_dien_thoai, email, trang_thai, ngay_sinh, gioi_tinh, dia_chi
       FROM khach_hang WHERE id = $1
     `, [customerId]);
     if (patientRows.length === 0) return null;
@@ -1272,7 +1271,7 @@ class ReceptionistRepository {
         g.ten_goi, g.loai_goi,
         hd.id as hoa_don_id,
         hd.hinh_thuc_thanh_toan_goi, hd.tong_tien_phai_tra, hd.so_tien_da_tra,
-        hd.tong_tien_goc, hd.ti_le_giam_gia_goi, hd.so_tien_giam_voucher,
+        hd.tong_tien_goc, hd.so_tien_giam_voucher,
         hd.trang_thai as trang_thai_hoa_don_goi
       FROM phac_do_dieu_tri pd
       JOIN goi_dich_vu g ON pd.goi_dich_vu_id = g.id
@@ -1367,7 +1366,7 @@ class ReceptionistRepository {
         END as loai_lich,
         kh.id as khach_hang_id,
         kh.ho_ten as ten_khach_hang, 
-        COALESCE(ch.so_dien_thoai, kh.so_dien_thoai) as sdt_khach_hang,
+        kh.so_dien_thoai as sdt_khach_hang,
         dv.ten_goi as ten_dich_vu,
         dv.don_gia as don_gia_dich_vu,
         COALESCE(
@@ -1515,7 +1514,7 @@ class ReceptionistRepository {
       pd_ten_goi: pkg.ten_goi,
       pd_don_gia_theo_buoi: null,
       hoa_don_goi_id: pdInfo.hoa_don_goi_id || null,
-      hoa_don_goi_ma: pdInfo.hoa_don_goi_id ? `HD-${pdInfo.hoa_don_goi_id.substring(0,6).toUpperCase()}` : null,
+      hoa_don_goi_ma: pdInfo.hoa_don_goi_id ? `HD-${pdInfo.hoa_don_goi_id.substring(0, 6).toUpperCase()}` : null,
       trang_thai_hoa_don_goi: pdInfo.hoa_don_goi_id ? 'chua_thanh_toan' : null,
       so_tien_da_tra_goi: pdInfo.so_tien_da_tra_goi ? Number(pdInfo.so_tien_da_tra_goi) : 0,
       tong_tien_phai_tra_goi: pdInfo.tong_tien_phai_tra_goi ? Number(pdInfo.tong_tien_phai_tra_goi) : 0,

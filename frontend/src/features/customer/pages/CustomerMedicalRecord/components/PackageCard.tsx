@@ -20,7 +20,6 @@ function toPlanShape(pkg: PackageEntry) {
     so_tien_da_tra: pkg.so_tien_da_tra,
     tong_so_buoi: pkg.tong_so_buoi,
     tong_tien_goc: pkg.tong_tien_goc,
-    ti_le_giam_gia_goi: pkg.ti_le_giam_gia_goi,
     so_tien_giam_voucher: pkg.so_tien_giam_voucher,
     // Cần cho isPlanCancelled bên trong isSessionPaymentSatisfied: gói đã hoàn tiền thì không còn
     // khoản nào để đòi, không chặn "Đặt lịch" vì lý do thanh toán nữa.

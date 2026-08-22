@@ -75,10 +75,10 @@ class DoctorRepository {
       SELECT 
         ch.id, 
         'LH-' || UPPER(SUBSTRING(ch.id::text FROM 1 FOR 6)) as ma_lich_dat,
-        kh.ho_ten as ho_ten_khach, COALESCE(ch.so_dien_thoai, kh.so_dien_thoai) as so_dien_thoai, kh.gioi_tinh as gioi_tinh_khach,
+        kh.ho_ten as ho_ten_khach, kh.so_dien_thoai as so_dien_thoai, kh.gioi_tinh as gioi_tinh_khach,
         ch.ngay_gio_bat_dau, ch.ngay_gio_ket_thuc, ch.ghi_chu_khach_hang as ly_do_kham, ch.trang_thai, ch.anh_dinh_kem_url,
         kh.id as khach_hang_id, kh.ngay_sinh, kh.gioi_tinh,
-        kh.ho_ten as ten_khach_hang, COALESCE(ch.so_dien_thoai, kh.so_dien_thoai) as sdt_khach_hang, NULL::text as avatar_url,
+        kh.ho_ten as ten_khach_hang, kh.so_dien_thoai as sdt_khach_hang, NULL::text as avatar_url,
         ch.nhan_su_id as bac_si_id, ch.nhan_su_id as ky_thuat_vien_id,
         nk.ngay_tao as nhat_ky_ngay_tao,
         COALESCE(g.ten_goi, gpd.ten_goi) as ten_dich_vu,
@@ -143,9 +143,9 @@ class DoctorRepository {
         'LH-' || UPPER(SUBSTRING(ch.id::text FROM 1 FOR 6)) as ma_lich_dat,
         ch.ngay_gio_bat_dau, ch.ngay_gio_ket_thuc, ch.trang_thai, ch.ghi_chu_khach_hang as ly_do_kham,
         ch.anh_dinh_kem_url, ch.khach_hang_id,
-        ch.thoi_gian_tao, ch.thoi_gian_xac_nhan, ch.thoi_gian_checkin, ch.thoi_gian_bat_dau, ch.thoi_gian_hoan_thanh,
+        ch.thoi_gian_tao, ch.thoi_gian_checkin, ch.thoi_gian_bat_dau, ch.thoi_gian_hoan_thanh,
         kh.ho_ten as ten_khach_hang,
-        COALESCE(ch.so_dien_thoai, kh.so_dien_thoai) as so_dien_thoai,
+        kh.so_dien_thoai as so_dien_thoai,
         nk.id as ho_so_dieu_tri_id, nk.id as ho_so_benh_an_id, nk.chan_doan, nk.chong_chi_dinh,
         ch.nhan_su_id as bac_si_id, ch.nhan_su_id as ky_thuat_vien_id,
         nk.ngay_tao as nhat_ky_ngay_tao,
@@ -218,10 +218,6 @@ class DoctorRepository {
     if (claimRows.length === 0) {
       throw new Error('Lịch hẹn này đã được nhân sự khác nhận hoặc không còn trong hàng đợi.');
     }
-
-    // Ghi vào đúng PHIÊN MỚI NHẤT của cuộc hẹn (tạo sẵn lúc check-in, xem updateAppointmentStatus) —
-    // 1 cuộc hẹn có thể có nhiều phiên (tái lượng giá check-in lại), không được cập nhật nhầm phiên cũ.
-    // Fallback INSERT chỉ dành cho dữ liệu cũ trước khi tính năng này ra đời (chưa từng có phiên nào).
     const { rows: sessionRows } = await pool.query(
       `UPDATE phien_lam_viec SET thoi_gian_goi_vao = NOW()
        WHERE id = (SELECT id FROM phien_lam_viec WHERE cuoc_hen_id = $1 ORDER BY lan_thu DESC, thoi_gian_tao DESC LIMIT 1)
@@ -413,7 +409,7 @@ class DoctorRepository {
       WHERE ch.khach_hang_id = $1::uuid
         AND ch.loai = 'DICH_VU_LE'
         AND ch.phac_do_dieu_tri_id IS NULL
-        AND ch.trang_thai IN ('hoan_thanh', 'da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat')
+        AND ch.trang_thai IN ('hoan_thanh', 'da_huy', 'khong_den')
       ORDER BY ch.ngay_gio_bat_dau DESC;
     `;
     const { rows } = await pool.query(queryStr, [patientId]);
@@ -438,7 +434,7 @@ class DoctorRepository {
       FROM cuoc_hen ch
       LEFT JOIN nhat_ky_buoi_dieu_tri nk ON nk.cuoc_hen_id = ch.id
       LEFT JOIN nguoi_dung nd_ktv ON ch.nhan_su_id = nd_ktv.id
-      WHERE ch.phac_do_dieu_tri_id = $1::uuid AND ch.loai = 'DIEU_TRI' AND ch.trang_thai = 'hoan_thanh'
+      WHERE ch.phac_do_dieu_tri_id = $1::uuid AND ch.loai = 'DIEU_TRI' AND ch.trang_thai != 'da_huy'
       ORDER BY ch.so_thu_tu_buoi ASC;
     `;
     const { rows } = await pool.query(queryStr, [treatmentPlanId]);
@@ -452,6 +448,7 @@ class DoctorRepository {
     chan_doan: string;
     chong_chi_dinh: string;
     goi_dich_vu_id?: string | null;
+    goi_dich_vu_ids?: string[] | null;
     ghi_chu?: string | null;
     is_reassessment?: boolean;
     han_tai_kham?: string | null;
@@ -467,7 +464,7 @@ class DoctorRepository {
       if (currentRes.rows.length === 0) {
         throw new Error('Không tìm thấy cuộc hẹn.');
       }
-      if (['hoan_thanh', 'da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(currentRes.rows[0].trang_thai)) {
+      if (['hoan_thanh', 'da_huy', 'khong_den'].includes(currentRes.rows[0].trang_thai)) {
         throw new Error('Ca khám này đã kết thúc (hoàn thành/hủy/không đến), không thể chỉnh sửa hoặc hoàn thành lại.');
       }
 
@@ -500,9 +497,11 @@ class DoctorRepository {
       ]);
       const nhatKyId = nkRes.rows[0].id;
 
-      // 2. Thêm chỉ định gói/dịch vụ, kèm snapshot cấu hình gói tại đúng thời điểm chỉ định.
+      // 2. Thêm chỉ định gói/dịch vụ (hỗ trợ nhiều gói cùng lúc), kèm snapshot cấu hình gói tại đúng thời điểm chỉ định.
       await client.query('DELETE FROM chi_dinh_buoi WHERE nhat_ky_id = $1', [nhatKyId]);
-      if (data.goi_dich_vu_id) {
+      const rawGoiIds = data.goi_dich_vu_ids || (data.goi_dich_vu_id ? [data.goi_dich_vu_id] : []);
+      const validGoiIds = Array.from(new Set(rawGoiIds.filter(Boolean)));
+      for (const gid of validGoiIds) {
         await client.query(`
           INSERT INTO chi_dinh_buoi (nhat_ky_id, goi_dich_vu_id, tong_so_buoi_tu_van, don_gia_tu_van)
           SELECT $1, g.id, g.tong_so_buoi, g.don_gia
@@ -510,7 +509,7 @@ class DoctorRepository {
           WHERE g.id = $2
         `, [
           nhatKyId,
-          data.goi_dich_vu_id
+          gid
         ]);
       }
 
@@ -570,7 +569,7 @@ class DoctorRepository {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      
+
       // 1. Cập nhật trạng thái cuộc hẹn thành 'dang_kham', gán nhân sự (nếu đang Bất kỳ/NULL), và ghi mốc thoi_gian_bat_dau
       await client.query(`
         UPDATE cuoc_hen
@@ -621,12 +620,12 @@ class DoctorRepository {
       SELECT 
         ch.id, 
         'LH-' || UPPER(SUBSTRING(ch.id::text FROM 1 FOR 6)) as ma_lich_dat,
-        kh.ho_ten as ho_ten_khach, COALESCE(ch.so_dien_thoai, kh.so_dien_thoai) as so_dien_thoai, kh.gioi_tinh as gioi_tinh_khach,
+        kh.ho_ten as ho_ten_khach, kh.so_dien_thoai as so_dien_thoai, kh.gioi_tinh as gioi_tinh_khach,
         ch.ngay_gio_bat_dau, ch.ngay_gio_ket_thuc, ch.ghi_chu_khach_hang as ly_do_kham, ch.trang_thai, ch.anh_dinh_kem_url,
         ch.loai, ch.trang_thai_thanh_toan,
-        ch.thoi_gian_tao, ch.thoi_gian_xac_nhan, ch.thoi_gian_checkin, ch.thoi_gian_bat_dau, ch.thoi_gian_hoan_thanh,
+        ch.thoi_gian_tao, ch.thoi_gian_checkin, ch.thoi_gian_bat_dau, ch.thoi_gian_hoan_thanh,
         kh.id as khach_hang_id, kh.ngay_sinh, kh.gioi_tinh,
-        kh.ho_ten as ten_khach_hang, COALESCE(ch.so_dien_thoai, kh.so_dien_thoai) as sdt_khach_hang, NULL::text as avatar_url,
+        kh.ho_ten as ten_khach_hang, kh.so_dien_thoai as sdt_khach_hang, NULL::text as avatar_url,
         nk.id as ho_so_dieu_tri_id, nk.id as ho_so_benh_an_id, nk.chan_doan, nk.chong_chi_dinh, nk.ghi_chu,
         nk.vas_truoc, nk.vas_sau, nk.du_lieu_luong_gia, nk.du_lieu_tri_lieu,
         COALESCE(ch.goi_dich_vu_id, pd.goi_dich_vu_id, cd.goi_dich_vu_id) as goi_dich_vu_id,
@@ -650,7 +649,72 @@ class DoctorRepository {
       WHERE ch.id = $1::uuid;
     `;
     const { rows } = await pool.query(queryStr, [appointmentId]);
-    return rows[0] || null;
+    const apt = rows[0] || null;
+    if (apt && apt.ho_so_benh_an_id) {
+      const cdRes = await pool.query(`
+        SELECT cd.goi_dich_vu_id, g.ten_goi, g.don_gia, g.tong_so_buoi
+        FROM chi_dinh_buoi cd
+        JOIN goi_dich_vu g ON cd.goi_dich_vu_id = g.id
+        WHERE cd.nhat_ky_id = $1
+      `, [apt.ho_so_benh_an_id]);
+      apt.danh_sach_goi_chi_dinh = cdRes.rows;
+      apt.goi_dich_vu_ids = cdRes.rows.map((r: any) => r.goi_dich_vu_id);
+    }
+    if (apt) {
+      const blockedRes = await pool.query(`
+        SELECT pd.goi_dich_vu_id, g.ten_goi, 'dang_dieu_tri' as reason_type,
+               ('Khách hàng đang điều trị gói này (' || pd.so_buoi_da_dung || '/' || pd.tong_so_buoi || ' buổi)') as message
+        FROM phac_do_dieu_tri pd
+        JOIN goi_dich_vu g ON pd.goi_dich_vu_id = g.id
+        WHERE pd.khach_hang_id = $1
+          AND pd.trang_thai = 'dang_dieu_tri'
+          AND pd.so_buoi_da_dung < pd.tong_so_buoi
+        UNION ALL
+        SELECT cd.goi_dich_vu_id, g.ten_goi, 'cho_thanh_toan' as reason_type,
+               'Khách hàng đã được chỉ định gói này từ ca trước (chưa thanh toán)' as message
+        FROM chi_dinh_buoi cd
+        JOIN nhat_ky_buoi_dieu_tri nk ON cd.nhat_ky_id = nk.id
+        JOIN cuoc_hen ch ON nk.cuoc_hen_id = ch.id
+        JOIN goi_dich_vu g ON cd.goi_dich_vu_id = g.id
+        WHERE ch.khach_hang_id = $1
+          AND ch.id != $2
+          AND cd.phac_do_dieu_tri_id IS NULL
+          AND cd.goi_dich_vu_id NOT IN (
+            SELECT goi_dich_vu_id FROM phac_do_dieu_tri 
+            WHERE khach_hang_id = $1 AND trang_thai IN ('dang_dieu_tri', 'hoan_thanh')
+          )
+      `, [apt.khach_hang_id, appointmentId]);
+      apt.blocked_packages = blockedRes.rows;
+    }
+    return apt;
+  }
+
+  async getBlockedPackagesForAppointment(appointmentId: string) {
+    const { rows } = await pool.query(`
+      SELECT pd.goi_dich_vu_id, g.ten_goi, 'dang_dieu_tri' as reason_type,
+             ('Khách hàng đang điều trị gói này (' || pd.so_buoi_da_dung || '/' || pd.tong_so_buoi || ' buổi)') as message
+      FROM phac_do_dieu_tri pd
+      JOIN goi_dich_vu g ON pd.goi_dich_vu_id = g.id
+      WHERE pd.khach_hang_id = (SELECT khach_hang_id FROM cuoc_hen WHERE id = $1)
+        AND pd.trang_thai = 'dang_dieu_tri'
+        AND pd.so_buoi_da_dung < pd.tong_so_buoi
+      UNION ALL
+      SELECT cd.goi_dich_vu_id, g.ten_goi, 'cho_thanh_toan' as reason_type,
+             'Khách hàng đã được chỉ định gói này từ ca trước (chưa thanh toán)' as message
+      FROM chi_dinh_buoi cd
+      JOIN nhat_ky_buoi_dieu_tri nk ON cd.nhat_ky_id = nk.id
+      JOIN cuoc_hen ch ON nk.cuoc_hen_id = ch.id
+      JOIN goi_dich_vu g ON cd.goi_dich_vu_id = g.id
+      WHERE ch.khach_hang_id = (SELECT khach_hang_id FROM cuoc_hen WHERE id = $1)
+        AND ch.id != $1
+        AND cd.phac_do_dieu_tri_id IS NULL
+        AND cd.goi_dich_vu_id NOT IN (
+          SELECT goi_dich_vu_id FROM phac_do_dieu_tri 
+          WHERE khach_hang_id = (SELECT khach_hang_id FROM cuoc_hen WHERE id = $1) 
+            AND trang_thai IN ('dang_dieu_tri', 'hoan_thanh')
+        )
+    `, [appointmentId]);
+    return rows;
   }
 
   // 8. Lấy lịch làm việc của bác sĩ (nguoi_dung_id)
@@ -712,6 +776,7 @@ class DoctorRepository {
     rom_data?: any[] | null;
     mmt_data?: any[] | null;
     selected_package_id?: string | null;
+    selected_package_ids?: string[] | null;
   }) {
     const duLieuLuongGiaJson = (data.rom_data?.length || data.mmt_data?.length)
       ? JSON.stringify({ rom_data: data.rom_data || [], mmt_data: data.mmt_data || [] })
@@ -737,10 +802,22 @@ class DoctorRepository {
       duLieuLuongGiaJson,
     ]);
 
-    if (data.selected_package_id !== undefined) {
-      await pool.query(`
-        UPDATE cuoc_hen SET khuyen_nghi_goi_id = $2 WHERE id = $1::uuid;
-      `, [data.lich_dat_id, data.selected_package_id || null]);
+    const rawPkgIds = data.selected_package_ids || (data.selected_package_id ? [data.selected_package_id] : []);
+    if (data.selected_package_ids !== undefined || data.selected_package_id !== undefined) {
+      const nkRes = await pool.query('SELECT id FROM nhat_ky_buoi_dieu_tri WHERE cuoc_hen_id = $1::uuid', [data.lich_dat_id]);
+      if (nkRes.rows.length > 0) {
+        const nhatKyId = nkRes.rows[0].id;
+        await pool.query('DELETE FROM chi_dinh_buoi WHERE nhat_ky_id = $1', [nhatKyId]);
+        const validPkgIds = Array.from(new Set(rawPkgIds.filter(Boolean)));
+        for (const pkgId of validPkgIds) {
+          await pool.query(`
+            INSERT INTO chi_dinh_buoi (nhat_ky_id, goi_dich_vu_id, tong_so_buoi_tu_van, don_gia_tu_van)
+            SELECT $1, g.id, g.tong_so_buoi, g.don_gia
+            FROM goi_dich_vu g
+            WHERE g.id = $2
+          `, [nhatKyId, pkgId]);
+        }
+      }
     }
 
     return { success: true };
@@ -755,7 +832,7 @@ class DoctorRepository {
         SELECT
           id, ho_ten, so_dien_thoai, email,
           'KH-' || UPPER(SUBSTRING(id::text FROM 1 FOR 8)) as ma_khach_hang,
-          diem_uy_tin, ngay_sinh, gioi_tinh
+          ngay_sinh, gioi_tinh
         FROM khach_hang WHERE id = $1::uuid
         LIMIT 1
       `, [String(patientId)]);
@@ -765,7 +842,7 @@ class DoctorRepository {
         SELECT
           id, ho_ten, so_dien_thoai, email,
           'KH-' || UPPER(SUBSTRING(id::text FROM 1 FOR 8)) as ma_khach_hang,
-          diem_uy_tin, ngay_sinh, gioi_tinh
+          ngay_sinh, gioi_tinh
         FROM khach_hang WHERE id::text = $1 OR email = $1 OR so_dien_thoai = $1
         LIMIT 1
       `, [String(patientId)]);

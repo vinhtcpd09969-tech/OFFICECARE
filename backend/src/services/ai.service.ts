@@ -115,7 +115,7 @@ async function toolXemThongTinCaNhan(khachHangId: string | null): Promise<object
 
   const customer = await prisma.khach_hang.findUnique({
     where: { id: khachHangId },
-    select: { ho_ten: true, diem_uy_tin: true },
+    select: { ho_ten: true },
   });
   if (!customer) {
     return { error: 'Không tìm thấy thông tin tài khoản khách hàng.' };
@@ -144,7 +144,6 @@ async function toolXemThongTinCaNhan(khachHangId: string | null): Promise<object
 
   return {
     ten_khach_hang: customer.ho_ten,
-    diem_uy_tin: customer.diem_uy_tin,
     goi_dang_dieu_tri: activePackage
       ? {
           ten_goi: activePackage.goi_dich_vu.ten_goi,
@@ -365,6 +364,84 @@ export class AIService {
         throw new Error('Hệ thống AI đã đạt giới hạn số lượt hỏi miễn phí trong hôm nay. Vui lòng quay lại vào ngày mai hoặc liên hệ hotline để được tư vấn trực tiếp.');
       }
       throw new Error('Không thể kết nối tới dịch vụ AI lúc này.');
+    }
+  }
+
+  static async analyzeVasProgression(data: {
+    patientName?: string;
+    serviceName?: string;
+    symptoms?: string;
+    vasPoints: Array<{ buoi: number; truoc?: number | null; sau?: number | null }>;
+  }): Promise<{
+    danh_gia_chung: string;
+    muc_do_dap_ung: 'tot' | 'trung_binh' | 'can_theo_doi';
+    nhan_xet_chuyen_mon: string;
+    khuyen_nghi_cong_thai_hoc: string;
+  }> {
+    const { patientName, serviceName, symptoms, vasPoints } = data;
+
+    const firstPt = vasPoints && vasPoints.length > 0 ? vasPoints[0] : null;
+    const lastPt = vasPoints && vasPoints.length > 0 ? vasPoints[vasPoints.length - 1] : null;
+    const vasStart = Number(firstPt?.truoc ?? firstPt?.sau ?? 6);
+    const vasCurrent = Number(lastPt?.sau ?? lastPt?.truoc ?? 3);
+    const totalDiff = vasStart - vasCurrent;
+
+    const fallbackResult = {
+      danh_gia_chung: totalDiff >= 3 ? 'Tiến trình thuyên giảm vượt mong đợi' : totalDiff > 0 ? 'Thuyên giảm tích cực qua các buổi' : 'Tiến trình điều trị duy trì ổn định',
+      muc_do_dap_ung: (totalDiff >= 3 ? 'tot' : totalDiff > 0 ? 'tot' : 'trung_binh') as 'tot' | 'trung_binh' | 'can_theo_doi',
+      nhan_xet_chuyen_mon: `Khách hàng ghi nhận mức đau giảm ${Math.max(0, totalDiff)} điểm kể từ buổi đầu tiên. Cơ thể đáp ứng tốt với các kỹ thuật trị liệu và bài tập phục hồi chức năng.`,
+      khuyen_nghi_cong_thai_hoc: 'Duy trì tư thế ngồi làm việc công thái học, thực hiện giãn cơ cổ vai gáy 2-3 phút sau mỗi 45-60 phút ngồi máy tính.'
+    };
+
+    if (!apiKey) {
+      return fallbackResult;
+    }
+
+    try {
+      const model = genAI.getGenerativeModel({
+        model: 'gemini-flash-latest',
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 300,
+        },
+      });
+
+      const prompt = `Bạn là Trợ lý Y Khoa Phục Hồi Chức Năng (PHCN) của OfficeCare.
+Hãy phân tích tiến trình điểm đau VAS (thang đo 0-10) qua các buổi trị liệu của khách hàng:
+- Khách hàng: ${patientName || 'Khách hàng'}
+- Gói dịch vụ: ${serviceName || 'Trị liệu phục hồi chức năng'}
+- Triệu chứng ban đầu: ${symptoms || 'Đau mỏi cơ xương khớp văn phòng'}
+- Chuỗi điểm VAS qua các buổi:
+${vasPoints.map(p => `  + Buổi #${p.buoi}: Trước ca = ${p.truoc ?? 'N/A'}/10, Sau ca = ${p.sau ?? 'N/A'}/10`).join('\n')}
+
+Hãy đánh giá khoa học, súc tích và trả lời ĐÚNG định dạng JSON sau (không kèm markdown \`\`\`, không kèm bất kỳ từ nào ngoài JSON):
+{
+  "danh_gia_chung": "<Tiêu đề ngắn 4-8 từ>",
+  "muc_do_dap_ung": "tot" hoặc "trung_binh" hoặc "can_theo_doi",
+  "nhan_xet_chuyen_mon": "<Nhận xét y khoa 1-2 câu về mức độ giảm đau và hiệu quả phác đồ>",
+  "khuyen_nghi_cong_thai_hoc": "<1 lời khuyên thực tế ngắn gọn về tư thế làm việc/giãn cơ tại nhà>"
+}`;
+
+      const response = await model.generateContent(prompt);
+      const text = response.response.text();
+
+      const match = text.match(/\{[\s\S]*\}/);
+      if (match) {
+        const parsed = JSON.parse(match[0]);
+        if (parsed.danh_gia_chung && parsed.nhan_xet_chuyen_mon) {
+          return {
+            danh_gia_chung: parsed.danh_gia_chung,
+            muc_do_dap_ung: ['tot', 'trung_binh', 'can_theo_doi'].includes(parsed.muc_do_dap_ung) ? parsed.muc_do_dap_ung : 'tot',
+            nhan_xet_chuyen_mon: parsed.nhan_xet_chuyen_mon,
+            khuyen_nghi_cong_thai_hoc: parsed.khuyen_nghi_cong_thai_hoc || fallbackResult.khuyen_nghi_cong_thai_hoc
+          };
+        }
+      }
+
+      return fallbackResult;
+    } catch (err) {
+      console.error('Lỗi phân tích AI VAS:', err);
+      return fallbackResult;
     }
   }
 }

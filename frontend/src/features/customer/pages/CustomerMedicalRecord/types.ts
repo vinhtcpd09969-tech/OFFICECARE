@@ -7,7 +7,6 @@ export interface RecordCustomer {
   ho_ten: string;
   so_dien_thoai: string | null;
   email: string | null;
-  diem_uy_tin: number;
 }
 
 export interface SessionEntry {
@@ -47,7 +46,6 @@ export interface PackageEntry {
   trang_thai_hoa_don: string | null;
   hinh_thuc_thanh_toan_goi: string | null;
   tong_tien_goc: number | null;
-  ti_le_giam_gia_goi: number | null;
   so_tien_giam_voucher: number | null;
   loai_goi: string | null;
   buoi_dieu_tri: SessionEntry[];

@@ -35,7 +35,7 @@ export const getCustomersOverview = (params: { page: number; pageSize: number; s
 export const getCustomerEmr = (id: string) => api.get(`/admin/customers/${id}/emr`);
 export const getTreatmentPlansOverview = (params: { page: number; pageSize: number; search?: string; status?: string }) =>
   api.get('/admin/customers/treatment-plans', { params });
-export const getCompletedSingleVisits = (params: { page: number; pageSize: number }) =>
+export const getCompletedSingleVisits = (params: { page: number; pageSize: number; search?: string; loai?: string }) =>
   api.get('/admin/customers/completed-single-visits', { params });
 
 // Rooms & Equipment

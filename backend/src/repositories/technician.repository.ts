@@ -23,10 +23,10 @@ class TechnicianRepository {
       SELECT 
         ch.id, 
         'LH-' || UPPER(SUBSTRING(ch.id::text FROM 1 FOR 6)) as ma_lich_dat,
-        kh.ho_ten as ho_ten_khach, COALESCE(ch.so_dien_thoai, kh.so_dien_thoai) as so_dien_thoai, kh.gioi_tinh as gioi_tinh_khach,
+        kh.ho_ten as ho_ten_khach, kh.so_dien_thoai as so_dien_thoai, kh.gioi_tinh as gioi_tinh_khach,
         ch.ngay_gio_bat_dau, ch.ngay_gio_ket_thuc, ch.ghi_chu_khach_hang as ly_do_kham, ch.trang_thai, ch.anh_dinh_kem_url,
         kh.id as khach_hang_id, kh.ngay_sinh, kh.gioi_tinh,
-        kh.ho_ten as ten_khach_hang, COALESCE(ch.so_dien_thoai, kh.so_dien_thoai) as sdt_khach_hang, NULL::text as avatar_url,
+        kh.ho_ten as ten_khach_hang, kh.so_dien_thoai as sdt_khach_hang, NULL::text as avatar_url,
         ch.nhan_su_id as ky_thuat_vien_id,
         nk.ngay_tao as nhat_ky_ngay_tao
       FROM cuoc_hen ch
@@ -51,7 +51,7 @@ class TechnicianRepository {
         ch.ngay_gio_bat_dau, ch.ngay_gio_ket_thuc, ch.trang_thai, ch.ghi_chu_khach_hang as ly_do_kham,
         ch.khach_hang_id, ch.phac_do_dieu_tri_id,
         kh.ho_ten as ten_khach_hang,
-        COALESCE(ch.so_dien_thoai, kh.so_dien_thoai) as so_dien_thoai,
+        kh.so_dien_thoai as so_dien_thoai,
         COALESCE(g.ten_goi, gpd.ten_goi) as ten_dich_vu,
         COALESCE(ch.thoi_luong_phut, g.thoi_luong_phut, gpd.thoi_luong_phut, 30) as thoi_luong_phut,
         nk.id as ho_so_dieu_tri_id, nk.id as ho_so_benh_an_id, nk.chan_doan, nk.chong_chi_dinh,
@@ -176,11 +176,11 @@ class TechnicianRepository {
       SELECT 
         ch.id, 
         'LH-' || UPPER(SUBSTRING(ch.id::text FROM 1 FOR 6)) as ma_lich_dat,
-        kh.ho_ten as ho_ten_khach, COALESCE(ch.so_dien_thoai, kh.so_dien_thoai) as so_dien_thoai, kh.gioi_tinh as gioi_tinh_khach,
+        kh.ho_ten as ho_ten_khach, kh.so_dien_thoai as so_dien_thoai, kh.gioi_tinh as gioi_tinh_khach,
         ch.ngay_gio_bat_dau, ch.ngay_gio_ket_thuc, ch.ghi_chu_khach_hang as ly_do_kham, ch.trang_thai, ch.anh_dinh_kem_url,
-        ch.thoi_gian_tao, ch.thoi_gian_xac_nhan, ch.thoi_gian_checkin, ch.thoi_gian_bat_dau, ch.thoi_gian_hoan_thanh,
+        ch.thoi_gian_tao, ch.thoi_gian_checkin, ch.thoi_gian_bat_dau, ch.thoi_gian_hoan_thanh,
         kh.id as khach_hang_id, kh.ngay_sinh, kh.gioi_tinh,
-        kh.ho_ten as ten_khach_hang, COALESCE(ch.so_dien_thoai, kh.so_dien_thoai) as sdt_khach_hang, NULL::text as avatar_url,
+        kh.ho_ten as ten_khach_hang, kh.so_dien_thoai as sdt_khach_hang, NULL::text as avatar_url,
         nk.id as ho_so_dieu_tri_id, nk.id as ho_so_benh_an_id, nk.chan_doan, nk.chong_chi_dinh, nk.ghi_chu,
         nk.vas_truoc, nk.vas_sau, nk.du_lieu_tri_lieu,
         COALESCE(ch.goi_dich_vu_id, pd.goi_dich_vu_id, cd.goi_dich_vu_id) as goi_dich_vu_id,
@@ -225,7 +225,7 @@ class TechnicianRepository {
       if (currentRes.rows.length === 0) {
         throw new Error('Không tìm thấy cuộc hẹn.');
       }
-      if (['hoan_thanh', 'da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(currentRes.rows[0].trang_thai)) {
+      if (['hoan_thanh', 'da_huy', 'khong_den'].includes(currentRes.rows[0].trang_thai)) {
         throw new Error('Ca trị liệu này đã kết thúc (hoàn thành/hủy/không đến), không thể chỉnh sửa hoặc hoàn thành lại.');
       }
 
@@ -315,24 +315,31 @@ class TechnicianRepository {
     return rows;
   }
 
-  // 6. Lấy thông tin phòng làm việc & danh sách thiết bị y tế thuộc phòng đó của nhân sự hôm nay
-  async getRoomAndEquipmentForStaff(staffId: number) {
+  // 6. Lấy thông tin phòng làm việc & danh sách thiết bị y tế thuộc phòng đó của nhân sự
+  async getRoomAndEquipmentForStaff(staffId: number, appointmentId?: string | null) {
     const { rows: shiftRows } = await pool.query(
       `SELECT 
-         lt.phong_id,
+         COALESCE(ch.phong_id, lt.phong_id) as phong_id,
          p.ten_phong,
          p.ma_phong,
          p.loai_phong,
-         to_char(lt.gio_bat_dau, 'HH24:MI') as gio_bat_dau,
-         to_char(lt.gio_ket_thuc, 'HH24:MI') as gio_ket_thuc
-       FROM lich_truc_nhan_su lt
-       LEFT JOIN phong_lam_viec p ON lt.phong_id = p.id
-       WHERE lt.nhan_su_id = $1::integer
-         AND lt.ngay_truc = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
-         AND lt.trang_thai = 'hoat_dong'
-       ORDER BY lt.gio_bat_dau ASC
-       LIMIT 1`,
-      [staffId]
+         to_char(COALESCE(lt.gio_bat_dau, '07:00'::time), 'HH24:MI') as gio_bat_dau,
+         to_char(COALESCE(lt.gio_ket_thuc, '16:00'::time), 'HH24:MI') as gio_ket_thuc
+       FROM nguoi_dung u
+       LEFT JOIN cuoc_hen ch ON ch.id = $2 AND (ch.nhan_su_id = u.id OR ch.nhan_su_id IS NULL)
+       LEFT JOIN LATERAL (
+         SELECT lt_sub.phong_id, lt_sub.gio_bat_dau, lt_sub.gio_ket_thuc
+         FROM lich_truc_nhan_su lt_sub
+         WHERE lt_sub.nhan_su_id = u.id
+           AND lt_sub.trang_thai = 'hoat_dong'
+         ORDER BY 
+           (CASE WHEN ch.id IS NOT NULL AND lt_sub.ngay_truc = DATE(ch.ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh') THEN 0 ELSE 1 END) ASC,
+           ABS(lt_sub.ngay_truc - (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh')::date) ASC
+         LIMIT 1
+       ) lt ON TRUE
+       LEFT JOIN phong_lam_viec p ON p.id = COALESCE(ch.phong_id, lt.phong_id)
+       WHERE u.id = $1::integer`,
+      [staffId, appointmentId || null]
     );
 
     if (shiftRows.length === 0 || !shiftRows[0].phong_id) {

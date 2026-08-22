@@ -196,7 +196,6 @@ class AuthRepository {
         trang_thai: true,
         gioi_tinh: true,
         ngay_sinh: true,
-        diem_uy_tin: true,
         ngay_dong_y_dieu_khoan: true,
         dia_chi: true,
         mat_khau_hash: true,
@@ -341,7 +340,6 @@ class AuthRepository {
           gioi_tinh: true,
           dia_chi: true,
           ngay_sinh: true,
-          diem_uy_tin: true,
           ngay_dong_y_dieu_khoan: true
         }
       });

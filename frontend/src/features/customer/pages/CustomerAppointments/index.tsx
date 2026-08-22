@@ -10,10 +10,11 @@ import {
   Clock,
   User,
   MapPin,
+  Building2,
   TrendingUp,
-  ShieldCheck,
   FileText,
-  AlertTriangle
+  AlertTriangle,
+  Sparkles
 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
@@ -23,6 +24,7 @@ import { resolveImageUrl } from '../../../../utils/imageUrl';
 import { useAuthStore } from '../../../../stores/authStore';
 import { CustomDatePicker } from '../../../../components/CustomDatePicker';
 import { StatusHistoryModal } from '../../../../components/StatusHistoryModal';
+import { BookNextSessionModal } from '../../components/BookNextSessionModal';
 
 interface Appointment {
   id: string;
@@ -30,6 +32,8 @@ interface Appointment {
   ma_lich_dat: string;
   ngay_gio_bat_dau: string;
   ngay_gio_ket_thuc: string;
+  buoi?: string | null;
+  thoi_luong_phut?: number | null;
   trang_thai: string;
   trang_thai_kham?: string | null;
   trang_thai_thanh_toan?: string | null;
@@ -41,7 +45,6 @@ interface Appointment {
   ten_phong: string | null;
   chan_doan: string | null;
   chong_chi_dinh: string | null;
-  ly_do_huy: string | null;
   ghi_chu_noi_bo: string | null;
   thoi_gian_huy: string | null;
   ly_do_kham: string | null;
@@ -58,7 +61,6 @@ interface Appointment {
   rating_staff_comment?: string | null;
   loai_goi?: string;
   phac_do_status?: string;
-  diem_uy_tin?: number;
   anh_bac_si?: string | null;
   so_thu_tu_buoi?: number | null;
   tong_so_buoi_goi?: number | null;
@@ -139,9 +141,23 @@ export default function CustomerAppointments() {
     }
   };
 
+  // Active Treatment Plans & Book Next Session Modal State
+  const [activeTreatmentPlans, setActiveTreatmentPlans] = useState<any[]>([]);
+  const [bookNextSessionPlan, setBookNextSessionPlan] = useState<any | null>(null);
+
+  const fetchActiveTreatmentPlans = async () => {
+    try {
+      const res = await api.get('/client/treatment-plans');
+      setActiveTreatmentPlans(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error('Lỗi nạp gói liệu trình active:', err);
+    }
+  };
+
   useEffect(() => {
     fetchAppointments();
     fetchPendingRatings();
+    fetchActiveTreatmentPlans();
   }, []);
 
   const handleRatingSubmit = async () => {
@@ -182,7 +198,7 @@ export default function CustomerAppointments() {
 
     const toastId = toast.loading('Đang gửi yêu cầu hủy lịch hẹn...');
     try {
-      await api.patch(`/client/appointments/${cancellingId}/cancel`, { ghi_chu_noi_bo: lyDoHuy, ly_do_huy: lyDoHuy });
+      await api.patch(`/client/appointments/${cancellingId}/cancel`, { ghi_chu_noi_bo: lyDoHuy });
       toast.success('Đã gửi yêu cầu hủy lịch hẹn! Vui lòng chờ Trung tâm xác nhận.', { id: toastId });
       setCancellingId(null);
       setLyDoHuy('');
@@ -200,11 +216,12 @@ export default function CustomerAppointments() {
     return { dateStr, timeStr };
   };
 
-  const getCountdownString = (startTimeIso: string) => {
+  const getCountdownString = (startTimeIso: string, buoi?: string | null) => {
     const start = new Date(startTimeIso).getTime();
     const diff = start - currentTime.getTime();
+    const buoiText = buoi === 'chieu' ? 'Buổi Chiều' : 'Buổi Sáng';
     if (diff <= 0) {
-      return 'Lịch hẹn đang diễn ra hoặc sắp bắt đầu';
+      return `${buoiText} đang trong khung giờ đón tiếp`;
     }
     const sec = Math.floor(diff / 1000);
     const hours = Math.floor(sec / 3600);
@@ -216,9 +233,10 @@ export default function CustomerAppointments() {
     if (minutes > 0 || hours > 0) parts.push(`${minutes}m`);
     parts.push(`${seconds}s`);
 
-    return `Bắt đầu sau: ${parts.join(' ')}`;
+    return `${buoiText} bắt đầu đón khách sau: ${parts.join(' ')}`;
   };
 
+  /*
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'da_xac_nhan':
@@ -241,8 +259,8 @@ export default function CustomerAppointments() {
         );
       case 'cho_tai_luong_gia':
         return (
-          <span className="text-[9px] font-black text-amber-600 bg-amber-50 border border-amber-200/50 px-2 py-0.5 rounded uppercase tracking-wider">
-            Chờ Tái Lượng Giá
+          <span className="text-[9px] font-black text-purple-700 bg-purple-50 border border-purple-200/50 px-2 py-0.5 rounded uppercase tracking-wider">
+            🔮 Chờ Tái Lượng Giá
           </span>
         );
       case 'cho_huy':
@@ -273,13 +291,10 @@ export default function CustomerAppointments() {
           </span>
         );
       default:
-        return (
-          <span className="text-[9px] font-black text-gray-500 bg-gray-50 border border-gray-200/50 px-2 py-0.5 rounded uppercase tracking-wider">
-            {status}
-          </span>
-        );
+        return null;
     }
   };
+  */
 
   const getStatusColorClass = (status: string) => {
     switch (status) {
@@ -335,11 +350,7 @@ export default function CustomerAppointments() {
       return sum + (isNaN(durationHours) ? 0 : durationHours);
     }, 0);
 
-  // Ưu tiên điểm mới nhất kèm theo danh sách lịch hẹn (làm mới sau mỗi lần hủy/no-show); khi danh
-  // sách rỗng (khách mới, hoặc lịch trong khoảng lọc hiện tại không có), KHÔNG được mặc định cứng về
-  // 100 — trước đây làm vậy khiến điểm uy tín thật sự đã tụt (vd 0) vẫn hiển thị sai thành 100/100.
-  // Dùng lại điểm đã có sẵn trong hồ sơ đăng nhập (authStore) làm phương án dự phòng.
-  const diemUyTin = appointments[0]?.diem_uy_tin ?? user?.diem_uy_tin ?? 100;
+
 
   // Filter & Priority Sorting implementation
   const filteredAppointments = useMemo(() => {
@@ -395,20 +406,17 @@ export default function CustomerAppointments() {
 
 
 
-      {/* Top Hero Analytics Banner (Pro Max Medical Ambient Strip) */}
-      <div className="relative overflow-hidden rounded-[32px] p-6 md:p-8 text-white shadow-xl bg-gradient-to-r from-[#0D4B46] via-[#0F766E] to-[#115E59] border border-teal-600/30">
-        <div className="pointer-events-none absolute -top-24 -right-24 size-80 bg-teal-400/20 rounded-full blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-24 -left-24 size-80 bg-emerald-500/15 rounded-full blur-3xl" />
-
-        <div className="relative z-10 flex flex-wrap items-center justify-between gap-6">
-          <div className="space-y-1">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-teal-200 text-[10px] font-black uppercase tracking-widest border border-white/15">
-              🛡️ Quản Lý Lịch Hẹn & Phác Đồ
+      {/* Top Hero Analytics Header (Clean Slate/Teal Medical Layout) */}
+      <div className="relative overflow-hidden rounded-[32px] p-6 md:p-8 bg-white border border-slate-200/80 shadow-xs space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-6">
+          <div className="space-y-1.5">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-50 text-[#0D9488] text-[10px] font-black uppercase tracking-widest border border-teal-200/60">
+              🛡️ Quản Lý Lịch Hẹn &amp; Phác Đồ Trị Liệu
             </span>
-            <h1 className="font-heading text-2xl md:text-3xl font-black text-white tracking-tight">
+            <h1 className="font-heading text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
               Hành Trình Phục Hồi Y Khoa
             </h1>
-            <p className="text-xs text-teal-100/80 font-medium max-w-xl">
+            <p className="text-xs text-slate-500 font-medium max-w-xl">
               Theo dõi chi tiết các ca hẹn, độ tuân thủ và tiến trình điều trị cơ xương khớp cá nhân hóa.
             </p>
           </div>
@@ -417,54 +425,135 @@ export default function CustomerAppointments() {
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
             onClick={() => navigate('/booking')}
-            className="flex items-center gap-2 bg-white text-[#0D9488] hover:bg-teal-50 font-black text-xs uppercase tracking-wider py-3.5 px-6 rounded-2xl transition-all shadow-lg cursor-pointer shrink-0"
+            className="flex items-center gap-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-black text-xs uppercase tracking-wider py-3.5 px-6 rounded-2xl transition-all shadow-md shadow-teal-600/20 cursor-pointer shrink-0"
           >
             <PlusCircle size={16} /> Đăng ký buổi khám mới
           </motion.button>
         </div>
 
-        {/* 4 Metric Glass Tiles Horizontal Grid */}
-        <div className="relative z-10 grid grid-cols-2 lg:grid-cols-4 gap-3.5 mt-7">
-          <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-4 flex items-center gap-3.5 transition-all hover:bg-white/15">
-            <div className="size-10 rounded-xl bg-teal-400/20 border border-teal-300/30 text-teal-200 flex items-center justify-center shrink-0">
+        {/* 3 Metric Tiles Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-2">
+          <div className="bg-slate-50/80 border border-slate-200/70 rounded-2xl p-4 flex items-center gap-3.5 transition-all hover:bg-slate-100/70">
+            <div className="size-10 rounded-xl bg-teal-500/10 border border-teal-500/20 text-[#0D9488] flex items-center justify-center shrink-0">
               <Calendar size={20} />
             </div>
             <div>
-              <div className="font-heading text-xl font-black tabular-nums text-white">{totalCount} Ca</div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-teal-100/70">Tổng số ca hẹn</div>
+              <div className="font-heading text-xl font-black tabular-nums text-slate-900">{totalCount} Ca</div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tổng số ca hẹn</div>
             </div>
           </div>
 
-          <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-4 flex items-center gap-3.5 transition-all hover:bg-white/15">
-            <div className="size-10 rounded-xl bg-emerald-400/20 border border-emerald-300/30 text-emerald-300 flex items-center justify-center shrink-0">
+          <div className="bg-slate-50/80 border border-slate-200/70 rounded-2xl p-4 flex items-center gap-3.5 transition-all hover:bg-slate-100/70">
+            <div className="size-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 flex items-center justify-center shrink-0">
               <TrendingUp size={20} />
             </div>
             <div>
-              <div className="font-heading text-xl font-black tabular-nums text-white">{recoveryRate}%</div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-teal-100/70">Hoàn thành ({completedCount}/{totalCount})</div>
+              <div className="font-heading text-xl font-black tabular-nums text-slate-900">{recoveryRate}%</div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Hoàn thành ({completedCount}/{totalCount})</div>
             </div>
           </div>
 
-          <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-4 flex items-center gap-3.5 transition-all hover:bg-white/15">
-            <div className="size-10 rounded-xl bg-sky-400/20 border border-sky-300/30 text-sky-200 flex items-center justify-center shrink-0">
+          <div className="bg-slate-50/80 border border-slate-200/70 rounded-2xl p-4 flex items-center gap-3.5 transition-all hover:bg-slate-100/70">
+            <div className="size-10 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-600 flex items-center justify-center shrink-0">
               <Clock size={20} />
             </div>
             <div>
-              <div className="font-heading text-xl font-black tabular-nums text-white">{totalHours.toFixed(1)} giờ</div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-teal-100/70">Thời lượng trị liệu</div>
-            </div>
-          </div>
-
-          <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-4 flex items-center gap-3.5 transition-all hover:bg-white/15">
-            <div className="size-10 rounded-xl bg-amber-400/20 border border-amber-300/30 text-amber-300 flex items-center justify-center shrink-0">
-              <ShieldCheck size={20} />
-            </div>
-            <div>
-              <div className="font-heading text-xl font-black tabular-nums text-white">{diemUyTin}/100</div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-teal-100/70">Điểm tuân thủ</div>
+              <div className="font-heading text-xl font-black tabular-nums text-slate-900">{totalHours.toFixed(1)} giờ</div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Thời lượng trị liệu</div>
             </div>
           </div>
         </div>
+
+        {/* Active Treatment Packages Banner */}
+        {activeTreatmentPlans.length > 0 && (
+          <div className="mt-4 space-y-3 border-t border-slate-100 pt-4 font-jakarta">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                <Sparkles size={15} className="text-amber-500" />
+                Gói liệu trình đang thực hiện ({activeTreatmentPlans.length})
+              </h3>
+            </div>
+
+            <div className="space-y-2.5">
+              {activeTreatmentPlans.map((plan: any) => {
+                const validSessions = appointments.filter((a: any) =>
+                  a.phac_do_dieu_tri_id === plan.id && a.trang_thai !== 'da_huy'
+                );
+                const used = Math.max(Number(plan.so_buoi_da_dung || 0), validSessions.length);
+                const total = Number(plan.tong_so_buoi || 10);
+                const isFinished = used >= total;
+                const progressPercent = Math.min(100, Math.round((used / total) * 100));
+
+                const activeSessionAppt = appointments.find((a: any) =>
+                  a.phac_do_dieu_tri_id === plan.id && ['da_xac_nhan', 'da_checkin', 'dang_kham'].includes(a.trang_thai)
+                );
+
+                return (
+                  <div
+                    key={plan.id}
+                    className="bg-emerald-50/50 border border-emerald-200/80 rounded-2xl p-3.5 flex flex-wrap items-center justify-between gap-3 text-slate-800 transition-all shadow-2xs hover:border-emerald-300"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="size-9 rounded-xl bg-teal-600 text-white flex items-center justify-center font-black text-xs shrink-0 shadow-2xs">
+                        <span>{used}/{total}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-teal-700 block">
+                          Phác đồ trị liệu y khoa
+                        </span>
+                        <h4 className="text-xs font-extrabold text-slate-900 leading-tight">
+                          {plan.ten_goi_dich_vu || plan.ten_goi}
+                        </h4>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-4">
+                      <div className="text-right space-y-1">
+                        <span className="text-xs font-black text-teal-700">
+                          {used} / {total} buổi
+                        </span>
+                        <div className="w-28 h-2 bg-teal-200/80 rounded-full overflow-hidden">
+                          <div className="h-full bg-teal-600 rounded-full" style={{ width: `${progressPercent}%` }} />
+                        </div>
+                      </div>
+
+                      {!isFinished && (
+                        activeSessionAppt ? (
+                          <button
+                            type="button"
+                            onClick={() => toast.error(`⚠️ Gói này đang có 1 ca hẹn (Buổi #${activeSessionAppt.so_thu_tu_buoi || used}) ở trạng thái chờ/thực hiện. Vui lòng hoàn thành buổi này trước khi đặt buổi tiếp theo!`)}
+                            className="px-3.5 py-2 rounded-xl bg-amber-100 text-amber-800 border border-amber-300 font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                            title="Đã có ca hẹn chưa hoàn thành"
+                          >
+                            <AlertTriangle size={15} className="text-amber-600" />
+                            <span>📅 Đã có lịch Buổi #{activeSessionAppt.so_thu_tu_buoi || used}</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setBookNextSessionPlan({
+                              phac_do_id: plan.id,
+                              ten_goi: plan.ten_goi_dich_vu || plan.ten_goi,
+                              goi_dich_vu_id: plan.goi_dich_vu_id,
+                              thoi_luong_phut: plan.thoi_luong_phut || 45,
+                              tong_so_buoi: total,
+                              so_buoi_da_dung: used,
+                              khach_hang_id: user?.id || ''
+                            })}
+                            className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-xs"
+                          >
+                            <PlusCircle size={15} />
+                            <span>📅 Đặt lịch buổi tiếp</span>
+                          </button>
+                        )
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Main Content Area (Full 12 Columns) */}
@@ -611,31 +700,34 @@ export default function CustomerAppointments() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <AnimatePresence mode="popLayout">
                 {filteredAppointments.map((app) => {
-                  const { dateStr, timeStr } = formatDateTime(app.ngay_gio_bat_dau);
+                  const { dateStr } = formatDateTime(app.ngay_gio_bat_dau);
                   const gradientStatus = getStatusColorClass(app.trang_thai);
-                  const docAvatar = resolveImageUrl(app.anh_bac_si);
+const docAvatar = resolveImageUrl(app.anh_bac_si);
 
                   const isConfirmed = app.trang_thai === 'da_xac_nhan';
-                  // Đã check-in / đang khám-trị liệu: đã qua bước Xác nhận từ lâu, chỉ còn thiếu bước
-                  // Hoàn thành — dùng chung nhánh hiển thị với isConfirmed cho thanh tiến trình 3 bước
-                  // (Đăng ký/Xác nhận/Hoàn thành) để không bị tụt về 0% như khi mới đăng ký.
-                  const isCheckedInOrInSession = ['da_checkin', 'dang_kham'].includes(app.trang_thai);
+                  const isCheckedIn = ['da_checkin', 'dang_kham'].includes(app.trang_thai);
                   const isCompleted = app.trang_thai === 'hoan_thanh';
-                  const isCancelled = ['da_huy', 'da_huy_phat', 'cho_huy', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(app.trang_thai);
+                  const isCancelled = ['da_huy', 'khong_den'].includes(app.trang_thai);
 
-                  // A13/A14 — khớp đúng gate mới ở backend cancelCustomerAppointment: CHƯA thanh
-                  // toán + còn trong 60 phút kể từ lúc đặt + chưa check-in + buổi chưa kết thúc.
-                  // ngay_gio_ket_thuc chính là mốc kết thúc DANH NGHĨA của buổi (12:00/19:30) nên
-                  // so trực tiếp là đủ, không cần tách ngày/giờ theo múi giờ riêng.
                   const isPaidOrPending = app.trang_thai_thanh_toan === 'da_thanh_toan' || app.trang_thai_thanh_toan === 'dang_cho_thanh_toan';
+                  const isPaid = app.trang_thai_thanh_toan === 'da_thanh_toan';
+
+                  // Tính thời gian đếm ngược 60 phút tự HỦY (Lịch chưa thanh toán)
                   const CANCEL_WINDOW_MS = 60 * 60 * 1000;
                   const elapsedSinceBookingMs = app.thoi_gian_tao ? currentTime.getTime() - new Date(app.thoi_gian_tao).getTime() : Infinity;
+                  const remainingCancelMs = Math.max(0, CANCEL_WINDOW_MS - elapsedSinceBookingMs);
+                  const remainingCancelSecs = Math.floor(remainingCancelMs / 1000);
                   const canSelfCancel = !isPaidOrPending
-                    && elapsedSinceBookingMs < CANCEL_WINDOW_MS
+                    && remainingCancelSecs > 0
                     && app.trang_thai === 'da_xac_nhan'
                     && currentTime.getTime() < new Date(app.ngay_gio_ket_thuc).getTime();
-                  
-                  const isPaid = app.trang_thai_thanh_toan === 'da_thanh_toan';
+
+                  // Định dạng MM:SS cho nút Hủy Lịch
+                  const cancelMinsStr = Math.floor(remainingCancelSecs / 60);
+                  const cancelSecsStr = String(remainingCancelSecs % 60).padStart(2, '0');
+                  const cancelCountdownLabel = `${cancelMinsStr}:${cancelSecsStr}`;
+
+                  // Tính thời gian tự ĐỔI LỊCH (Lịch đã thanh toán)
                   const apptDateObj = new Date(app.ngay_gio_bat_dau);
                   const apptDateStr = `${apptDateObj.getFullYear()}-${String(apptDateObj.getMonth() + 1).padStart(2, '0')}-${String(apptDateObj.getDate()).padStart(2, '0')}`;
                   const todayStr = `${currentTime.getFullYear()}-${String(currentTime.getMonth() + 1).padStart(2, '0')}-${String(currentTime.getDate()).padStart(2, '0')}`;
@@ -643,11 +735,22 @@ export default function CustomerAppointments() {
 
                   const nowMins = currentTime.getHours() * 60 + currentTime.getMinutes();
                   const isMorningAppt = apptDateObj.getHours() < 12;
-                  const cutoffMins = isMorningAppt ? (7 * 60 + 30 + 135) : (12 * 60 + 225); // 9:45 AM or 15:45 PM
+                  const cutoffMins = isMorningAppt ? (7 * 60 + 30 + 135) : (12 * 60 + 225); // 9:45 AM hoặc 15:45 PM
                   const isPast50PercentCutoff = isPaid && app.trang_thai === 'da_xac_nhan' && isTodayAppt && nowMins >= cutoffMins;
                   const canSelfReschedule = isPaid && app.trang_thai === 'da_xac_nhan';
 
-                  const showWarningNotice = app.trang_thai === 'da_xac_nhan';
+                  // Đếm ngược mốc 50% buổi cho Lịch Đã Thanh Toán diễn ra hôm nay
+                  const remainingCutoffMins = Math.max(0, cutoffMins - nowMins);
+                  const remainingCutoffSecs = Math.max(0, remainingCutoffMins * 60 - currentTime.getSeconds());
+                  const rescheduleMinsStr = Math.floor(remainingCutoffSecs / 60);
+                  const rescheduleSecsStr = String(remainingCutoffSecs % 60).padStart(2, '0');
+                  const rescheduleCountdownLabel = `${rescheduleMinsStr}:${rescheduleSecsStr}`;
+
+                  // Dòng thông báo Hotline CHỈ HIỂN THỊ KHI HẾT HẠN TỰ THAO TÁC ONLINE (cả 2 loại lịch):
+                  const showWarningNotice = app.trang_thai === 'da_xac_nhan' && (
+                    (!isPaidOrPending && remainingCancelSecs <= 0) || // Lịch chưa thanh toán & đã HẾT 60 phút
+                    (isPaid && isPast50PercentCutoff) // Lịch đã thanh toán & đã QUÁ mốc 50% thời gian
+                  );
 
                   const isPackageSession = app.loai_goi === 'LIEU_TRINH' && !!app.so_thu_tu_buoi;
 
@@ -686,84 +789,133 @@ export default function CustomerAppointments() {
                               }`}>
                               {app.loai_lich === 'kham_moi' ? 'Khám' : 'Trị liệu'}
                             </span>
-                            {getStatusBadge(app.trang_thai)}
+                            <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded border ${isPaid
+                                ? 'bg-teal-50 border-teal-200 text-teal-700 font-extrabold'
+                                : 'bg-[#14B8A6]/10 border-[#14B8A6]/20 text-[#0D9488]'
+                              }`}>
+                              {isPaid ? 'Đã thanh toán' : 'Đã xác nhận'}
+                            </span>
                           </div>
                         </div>
 
-                        {/* Title of service */}
-                        <div className="space-y-1.5">
-                          <h3 className="font-heading font-black text-slate-900 text-xs uppercase tracking-wide leading-snug">
-                            {app.ten_dich_vu || 'Khám Lâm Sàng & Lượng Giá'}
-                            {isPackageSession && (
-                              <span className="ml-2 inline-flex items-center normal-case text-[10px] font-black text-[#0d766e] bg-[#0d9488]/10 px-2 py-0.5 rounded border border-[#0d9488]/15 align-middle">
-                                Buổi {app.so_thu_tu_buoi} / {app.tong_so_buoi_goi ?? '?'}
-                              </span>
-                            )}
-                          </h3>
+                        {/* Title & Session Info */}
+                        {(() => {
+                          const isMorningSession = app.buoi === 'sang';
+                          const buoiLabel = isMorningSession ? 'Buổi Sáng (07:30 – 12:00)' : 'Buổi Chiều (12:00 – 20:00)';
+                          const durationMins = app.thoi_luong_phut || 30;
+                          const sessionEndMins = isMorningSession ? (12 * 60) : (20 * 60);
+                          const latestArrivalMins = sessionEndMins - durationMins;
+                          const latestH = Math.floor(latestArrivalMins / 60);
+                          const latestM = latestArrivalMins % 60;
+                          const latestArrivalStr = `${String(latestH).padStart(2, '0')}:${String(latestM).padStart(2, '0')}`;
+                          const sessionStartStr = isMorningSession ? '07:30' : '12:00';
 
-                          {/* Date details */}
-                          <div className="flex items-center gap-1 text-[10px] font-extrabold text-[#0D9488]">
-                            <Clock size={12} />
-                            <span>{timeStr}</span>
-                            <span className="text-slate-300">•</span>
-                            <span>{dateStr}</span>
-                          </div>
-                        </div>
+                          return (
+                            <div className="space-y-3">
+                              {/* Service Title */}
+                              <div className="space-y-1.5">
+                                <h3 className="font-heading font-black text-slate-900 text-sm uppercase tracking-wide leading-snug">
+                                  {app.ten_dich_vu || 'Khám Lâm Sàng & Lượng Giá'}
+                                  {isPackageSession && (
+                                    <span className="ml-2 inline-flex items-center normal-case text-[10px] font-black text-[#0d766e] bg-[#0d9488]/10 px-2 py-0.5 rounded border border-[#0d9488]/15 align-middle">
+                                      Buổi {app.so_thu_tu_buoi} / {app.tong_so_buoi_goi ?? '?'}
+                                    </span>
+                                  )}
+                                </h3>
 
-                        {/* Countdown for Confirmed */}
-                        {isConfirmed && (
-                          <div className="bg-amber-500/10 text-amber-800 border border-amber-500/20 rounded-xl p-2.5 flex items-center gap-2 text-[10px] font-black animate-pulse">
-                            <span className="text-base leading-none">⏳</span>
-                            <span className="tracking-wide">{getCountdownString(app.ngay_gio_bat_dau)}</span>
-                          </div>
-                        )}
+                                {/* Session badge & Date */}
+                                <div className="flex flex-wrap items-center gap-2 text-xs font-black text-[#0D9488]">
+                                  <span className="flex items-center gap-1 bg-teal-50 border border-teal-200/60 px-2.5 py-1 rounded-lg">
+                                    <Clock size={13} className="text-[#0D9488]" />
+                                    {buoiLabel}
+                                  </span>
+                                  <span className="text-slate-500 font-bold">• {dateStr}</span>
+                                </div>
+                              </div>
 
-                        {/* Doctor and Location layout */}
-                        {!isCancelled && (
-                          <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between pt-1 border-t border-slate-50/80">
+                              {/* Countdown for Confirmed */}
+                              {isConfirmed && (
+                                <div className="bg-amber-500/10 text-amber-800 border border-amber-500/20 rounded-xl p-2.5 flex items-center gap-2 text-[10px] font-black animate-pulse">
+                                  <span className="text-base leading-none">⏳</span>
+                                  <span className="tracking-wide">{getCountdownString(app.ngay_gio_bat_dau, app.buoi)}</span>
+                                </div>
+                              )}
 
-                            <div className="flex items-center gap-2">
-                              {app.ten_ky_thuat_vien ? (
-                                <>
-                                  <div className="size-7 rounded-full overflow-hidden border border-slate-200 shadow-xs shrink-0 bg-slate-100 flex items-center justify-center">
-                                    {docAvatar ? (
-                                      <img src={docAvatar} alt={app.ten_ky_thuat_vien} className="w-full h-full object-cover" />
+                              {/* Smart Session Arrival Guidance & Clinic Address Box */}
+                              {!isCancelled && (
+                                <div className="bg-gradient-to-br from-slate-50 to-teal-50/40 border border-teal-100 p-3.5 rounded-2xl space-y-2 text-slate-700">
+                                  <div className="flex items-center justify-between gap-2 border-b border-teal-100/80 pb-2">
+                                    <span className="text-[11px] font-black text-[#0D9488] flex items-center gap-1.5">
+                                      <Sparkles size={14} className="text-amber-500" />
+                                      Khung Giờ Nhận Khách Đón Tiếp
+                                    </span>
+                                    <span className="text-[10px] font-black text-teal-700 bg-white px-2 py-0.5 rounded-md border border-teal-200/70 shadow-2xs">
+                                      Thời lượng: {durationMins} phút
+                                    </span>
+                                  </div>
+                                  
+                                  <p className="text-[11px] font-medium leading-relaxed text-slate-700">
+                                    💡 Quý khách vui lòng có mặt tại trung tâm từ <strong>{sessionStartStr}</strong> đến <strong>trước {latestArrivalStr}</strong> (trước giờ đóng cửa buổi {durationMins} phút) để đảm bảo hoàn tất trị liệu.
+                                  </p>
+
+                                  <div className="flex items-start gap-1.5 text-[10px] font-bold text-slate-600 pt-1 border-t border-slate-100">
+                                    <MapPin size={13} className="shrink-0 text-[#0D9488] mt-0.5" />
+                                    <span><strong>Cơ sở OfficeCare:</strong> 123 Nguyễn Văn Cừ, Phường 2, Quận 5, TP. Hồ Chí Minh (Tầng 3)</span>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Doctor and Location layout */}
+                              {!isCancelled && (
+                                <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between pt-1 border-t border-slate-100">
+                                  <div className="flex items-center gap-2">
+                                    {app.ten_ky_thuat_vien ? (
+                                      <>
+                                        <div className="size-7 rounded-full overflow-hidden border border-slate-200 shadow-xs shrink-0 bg-slate-100 flex items-center justify-center">
+                                          {docAvatar ? (
+                                            <img src={docAvatar} alt={app.ten_ky_thuat_vien} className="w-full h-full object-cover" />
+                                          ) : (
+                                            <span className="text-[9px] font-black text-slate-600">{getInitials(app.ten_ky_thuat_vien)}</span>
+                                          )}
+                                        </div>
+                                        <div>
+                                          <span className="text-[8px] text-slate-450 uppercase font-black block leading-none">
+                                            {app.loai_lich === 'kham_moi' || app.loai_goi === 'KHAM' ? 'Chuyên viên phụ trách' : 'Kỹ thuật viên phụ trách'}
+                                          </span>
+                                          <span className="text-[11px] font-black text-slate-800 block mt-0.5">{app.ten_ky_thuat_vien}</span>
+                                        </div>
+                                      </>
                                     ) : (
-                                      <span className="text-[9px] font-black text-slate-600">{getInitials(app.ten_ky_thuat_vien)}</span>
+                                      <>
+                                        <div className="size-7 rounded-full border-2 border-dashed border-slate-200 shrink-0 bg-slate-50 flex items-center justify-center">
+                                          <User size={12} className="text-slate-400" />
+                                        </div>
+                                        <div>
+                                          <span className="text-[8px] text-slate-450 uppercase font-black block leading-none">
+                                            {app.loai_lich === 'kham_moi' || app.loai_goi === 'KHAM' ? 'Chuyên viên phụ trách' : 'Kỹ thuật viên phụ trách'}
+                                          </span>
+                                          <span className="text-[11px] font-bold text-amber-600 block mt-0.5 italic">Đang phân công</span>
+                                        </div>
+                                      </>
                                     )}
                                   </div>
-                                  <div>
-                                    <span className="text-[8px] text-slate-450 uppercase font-black block leading-none">Bác sĩ phụ trách</span>
-                                    <span className="text-[11px] font-black text-slate-800 block mt-0.5">{app.ten_ky_thuat_vien}</span>
+
+                                  <div className="flex items-center gap-2">
+                                    <div className="size-7 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0">
+                                      <Building2 size={12} className="text-slate-400" />
+                                    </div>
+                                    <div>
+                                      <span className="text-[8px] text-slate-450 uppercase font-black block leading-none">Phòng ban</span>
+                                      <span className={`text-[11px] font-black block mt-0.5 ${app.ten_phong ? 'text-slate-800' : 'text-amber-600 italic font-bold'}`}>
+                                        {app.ten_phong || 'Đang xếp phòng'}
+                                      </span>
+                                    </div>
                                   </div>
-                                </>
-                              ) : (
-                                <>
-                                  <div className="size-7 rounded-full border-2 border-dashed border-slate-200 shrink-0 bg-slate-50 flex items-center justify-center">
-                                    <User size={12} className="text-slate-400" />
-                                  </div>
-                                  <div>
-                                    <span className="text-[8px] text-slate-450 uppercase font-black block leading-none">Bác sĩ phụ trách</span>
-                                    <span className="text-[11px] font-bold text-amber-600 block mt-0.5 italic">Đang phân công</span>
-                                  </div>
-                                </>
+                                </div>
                               )}
                             </div>
-
-                            <div className="flex items-center gap-2">
-                              <div className="size-7 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0">
-                                <MapPin size={12} className="text-slate-400" />
-                              </div>
-                              <div>
-                                <span className="text-[8px] text-slate-450 uppercase font-black block leading-none">Phòng ban</span>
-                                <span className={`text-[11px] font-black block mt-0.5 ${app.ten_phong ? 'text-slate-800' : 'text-amber-600 italic font-bold'}`}>
-                                  {app.ten_phong || 'Đang xếp phòng'}
-                                </span>
-                              </div>
-                            </div>
-
-                          </div>
-                        )}
+                          );
+                        })()}
 
                         {/* Premium Workflow Stepper (Horizontal Pipeline) */}
                         {!isCancelled && (
@@ -776,30 +928,30 @@ export default function CustomerAppointments() {
                               <div
                                 className="absolute left-4 top-2 h-0.5 bg-gradient-to-r from-teal-500 to-emerald-500 -translate-y-1/2 z-0 transition-all duration-500"
                                 style={{
-                                  width: isCompleted ? '100%' : (isConfirmed || isCheckedInOrInSession) ? '50%' : '0%'
+                                  width: isCompleted ? '100%' : isCheckedIn ? '50%' : '0%'
                                 }}
                               />
 
-                              {/* Step 1: Đăng ký */}
+                              {/* Step 1: Đăng ký & Xác nhận */}
                               <div className="flex flex-col items-center z-10">
                                 <div className="size-4 rounded-full bg-emerald-500 border-2 border-white shadow-xs flex items-center justify-center">
                                   <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
                                 </div>
-                                <span className="text-[9px] font-black text-slate-800 mt-1 uppercase tracking-wide">Đăng ký</span>
+                                <span className="text-[9px] font-black text-slate-800 mt-1 uppercase tracking-wide">Đăng ký &amp; Xác nhận</span>
                               </div>
 
-                              {/* Step 2: Xác nhận */}
+                              {/* Step 2: Check-in & Thực hiện */}
                               <div className="flex flex-col items-center z-10">
-                                <div className={`size-4 rounded-full border-2 border-white shadow-xs flex items-center justify-center transition-all ${isConfirmed || isCheckedInOrInSession || isCompleted
+                                <div className={`size-4 rounded-full border-2 border-white shadow-xs flex items-center justify-center transition-all ${isCheckedIn || isCompleted
                                     ? 'bg-emerald-500'
                                     : 'bg-slate-250'
                                   }`}>
-                                  {(isConfirmed || isCheckedInOrInSession || isCompleted) && <span className="w-1.5 h-1.5 rounded-full bg-white"></span>}
+                                  {(isCheckedIn || isCompleted) && <span className="w-1.5 h-1.5 rounded-full bg-white"></span>}
                                 </div>
-                                <span className={`text-[9px] font-black mt-1 uppercase tracking-wide ${isConfirmed || isCheckedInOrInSession || isCompleted
+                                <span className={`text-[9px] font-black mt-1 uppercase tracking-wide ${isCheckedIn || isCompleted
                                     ? 'text-slate-800'
                                     : 'text-slate-400'
-                                  }`}>Xác nhận</span>
+                                  }`}>Check-in &amp; Thực hiện</span>
                               </div>
 
                               {/* Step 3: Hoàn thành */}
@@ -823,7 +975,7 @@ export default function CustomerAppointments() {
                               {app.trang_thai.includes('huy') ? 'Đã Hủy Lịch Hẹn' : 'Vắng Mặt (No-Show)'}
                             </p>
                             <p className="text-slate-400 mt-1 italic font-medium text-[10px]">
-                              "Lý do: {app.ly_do_huy || app.ghi_chu_noi_bo || 'Không có lý do chi tiết'}"
+                              "Lý do: {app.ghi_chu_noi_bo || 'Không có lý do chi tiết'}"
                             </p>
                           </div>
                         )}
@@ -836,7 +988,7 @@ export default function CustomerAppointments() {
                           </div>
                         )}
 
-                        {/* Warning Box */}
+                        {/* Hotline Notice Box */}
                         {showWarningNotice && (
                           <div className="bg-slate-50 border border-slate-150 p-3 rounded-xl text-[10px] text-slate-450 leading-relaxed font-semibold">
                             ⚠️ <strong>Lưu ý:</strong> Quý khách có nhu cầu thay đổi giờ lịch hẹn vui lòng liên hệ Hotline: <strong>1900 6868</strong> hoặc{' '}
@@ -897,22 +1049,30 @@ export default function CustomerAppointments() {
                                 ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
                                 : 'bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 cursor-pointer shadow-2xs'
                             }`}
-                            title={isPast50PercentCutoff ? 'Đã quá 50% thời lượng buổi hôm nay (sau 09h45/15h45). Vui lòng gọi hotline 0398 655 332.' : 'Tự đổi ngày/buổi mới'}
+                            title={isPast50PercentCutoff ? 'Đã quá 50% thời lượng buổi hôm nay (sau 09h45/15h45). Vui lòng gọi hotline 1900 6868.' : 'Tự đổi ngày/buổi mới'}
                           >
                             <RefreshCw size={12} className={isPast50PercentCutoff ? '' : 'text-teal-600'} />
-                            {isPast50PercentCutoff ? 'Khóa sát giờ' : 'Đổi lịch hẹn'}
+                            <span>
+                              {isPast50PercentCutoff
+                                ? 'Khóa sát giờ'
+                                : isTodayAppt
+                                ? `Đổi lịch (${rescheduleCountdownLabel})`
+                                : `Đổi lịch (trước ${isMorningAppt ? '09:45' : '15:45'})`}
+                            </span>
                           </motion.button>
                         )}
 
-                        {/* NÚT HỦY LỊCH CHO LỊCH CHƯA THANH TOÁN (TRONG 60 PHÚT) */}
+                        {/* NÚT HỦY LỊCH CHO LỊCH CHƯA THANH TOÁN (TRONG 60 PHÚT KÈM ĐẾM NGƯỢC) */}
                         {app.trang_thai === 'da_xac_nhan' && canSelfCancel && (
                           <motion.button
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
                             onClick={() => setCancellingId(app.id)}
-                            className="w-full sm:w-auto bg-white hover:bg-rose-50 hover:text-rose-600 border border-slate-200 hover:border-rose-200 text-slate-650 font-extrabold text-[10px] uppercase tracking-wider py-2.5 px-3 rounded-xl transition-all cursor-pointer shadow-2xs"
+                            className="w-full sm:w-auto bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 font-extrabold text-[10px] uppercase tracking-wider py-2.5 px-3 rounded-xl transition-all cursor-pointer shadow-2xs flex items-center justify-center gap-1.5"
+                            title="Tự hủy online trong vòng 60 phút kể từ lúc đăng ký"
                           >
-                            Hủy lịch
+                            <XCircle size={12} className="text-rose-500" />
+                            <span>Hủy lịch ({cancelCountdownLabel})</span>
                           </motion.button>
                         )}
                       </div>
@@ -986,31 +1146,25 @@ export default function CustomerAppointments() {
                   )}
                 </div>
 
-                <div className="bg-slate-50 border border-slate-200/70 p-3.5 rounded-2xl text-xs text-slate-600 leading-relaxed font-medium space-y-1">
-                  <p>
-                    Nếu có nhu cầu thay đổi lịch hẹn, vui lòng liên hệ Hotline{' '}
-                    <a href="tel:19006868" className="font-extrabold text-slate-900 hover:text-[#0D9488]">1900 6868</a>{' '}
-                    hoặc{' '}
-                    <a
-                      href="https://www.facebook.com/profile.php?id=61591064963268"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-extrabold text-[#0D9488] underline hover:text-[#0b7d72]"
-                    >
-                      Chat với phòng khám
-                    </a>{' '}
-                    để được hỗ trợ đổi giờ tốt nhất.
-                  </p>
-                </div>
-
-                <div className="bg-rose-50 border border-rose-200/80 p-3.5 rounded-2xl text-xs font-bold text-rose-800 space-y-1">
-                  <p className="flex items-center gap-1.5 text-rose-700 font-black">
-                    ⚠️ Hủy lịch sẽ ảnh hưởng đến Điểm uy tín của khách hàng!
-                  </p>
-                  <p className="text-[11px] font-medium text-rose-600 leading-snug">
-                    Xác nhận hủy lịch sẽ làm giảm 10 điểm uy tín tích lũy của bạn trong hệ thống.
-                  </p>
-                </div>
+                {/* Hiển thị dòng gợi ý đổi lịch CHỈ khi lịch ĐÃ THANH TOÁN */}
+                {cancellingAppt?.trang_thai_thanh_toan === 'da_thanh_toan' && (
+                  <div className="bg-slate-50 border border-slate-200/70 p-3.5 rounded-2xl text-xs text-slate-600 leading-relaxed font-medium space-y-1">
+                    <p>
+                      Nếu có nhu cầu thay đổi lịch hẹn, vui lòng liên hệ Hotline{' '}
+                      <a href="tel:19006868" className="font-extrabold text-slate-900 hover:text-[#0D9488]">1900 6868</a>{' '}
+                      hoặc{' '}
+                      <a
+                        href="https://www.facebook.com/profile.php?id=61591064963268"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-extrabold text-[#0D9488] underline hover:text-[#0b7d72]"
+                      >
+                        Chat với phòng khám
+                      </a>{' '}
+                      để được hỗ trợ đổi giờ tốt nhất.
+                    </p>
+                  </div>
+                )}
 
                 <form onSubmit={handleCancelSubmit} className="space-y-3.5">
                   <div className="space-y-1.5 text-left">
@@ -1027,10 +1181,6 @@ export default function CustomerAppointments() {
                       className="w-full bg-slate-50 border border-slate-200 focus:border-[#0D9488] p-3 rounded-xl text-xs font-semibold resize-none outline-none text-slate-800 transition-colors"
                     />
                   </div>
-
-                  <p className="text-[10px] text-slate-400 font-semibold italic text-center leading-snug">
-                    *(Điểm uy tín dưới 50% sẽ có nguy cơ bị khóa tài khoản)*
-                  </p>
 
                   <div className="grid grid-cols-2 gap-3 pt-1">
                     <button
@@ -1306,7 +1456,7 @@ export default function CustomerAppointments() {
                       }`}
                     >
                       <div className="text-xs font-black">🌆 Buổi Chiều</div>
-                      <div className="text-[10px] text-slate-500 font-medium mt-0.5">12:00 – 19:30</div>
+                      <div className="text-[10px] text-slate-500 font-medium mt-0.5">12:00 – 20:00</div>
                     </button>
                   </div>
                 </div>
@@ -1354,6 +1504,17 @@ export default function CustomerAppointments() {
         isOpen={!!selectedTimelineAppt}
         onClose={() => setSelectedTimelineAppt(null)}
         appointment={selectedTimelineAppt}
+      />
+
+      {/* BOOK NEXT PACKAGE SESSION MODAL */}
+      <BookNextSessionModal
+        isOpen={!!bookNextSessionPlan}
+        onClose={() => setBookNextSessionPlan(null)}
+        onSuccess={() => {
+          fetchAppointments();
+          fetchActiveTreatmentPlans();
+        }}
+        packagePlan={bookNextSessionPlan}
       />
 
     </div>

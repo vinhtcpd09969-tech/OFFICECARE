@@ -31,6 +31,9 @@ export const ReceiptBreakdown: React.FC<ReceiptBreakdownProps> = ({
         ? Number(calculatedData?.so_tien_dot_1 || 0)
         : Number(calculatedData?.tong_tien_thanh_toan || 0)));
 
+  const packageTotalAfterDiscount = Number(calculatedData?.tong_tien_goi_sau_giam || calculatedData?.tong_tien_thanh_toan || 0);
+  const donGiaTheoBuoi = calculatedData?.don_gia_theo_buoi || (tongSoBuoi > 0 ? Math.round(packageTotalAfterDiscount / tongSoBuoi) : 0);
+
   return (
     <div className="space-y-5 text-left font-jakarta">
       {/* Receipt Header */}
@@ -44,7 +47,7 @@ export const ReceiptBreakdown: React.FC<ReceiptBreakdownProps> = ({
             <p className="text-[10px] text-slate-400 font-bold">Chi tiết khoản thu dự kiến tại quầy</p>
           </div>
         </div>
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-400 dark:border-emerald-800">
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-955/60 dark:text-emerald-400 dark:border-emerald-800">
           <ShieldCheck size={11} /> Chuẩn y tế
         </span>
       </div>
@@ -94,13 +97,37 @@ export const ReceiptBreakdown: React.FC<ReceiptBreakdownProps> = ({
             </div>
           )}
 
+          {/* Dòng hiển thị Tổng tiền sau giảm */}
+          {calculatedData && (Number(calculatedData.so_tien_giam_voucher || 0) > 0 || Number(calculatedData.so_tien_giam_phuong_thuc || 0) > 0) && (
+            <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-2 text-slate-700 dark:text-slate-200">
+              <span className="font-bold text-[11.5px] text-slate-600 dark:text-slate-300">Tổng tiền sau giảm:</span>
+              <span className="font-mono font-black text-xs text-slate-900 dark:text-white">
+                {formatCurrency(packageTotalAfterDiscount)}
+              </span>
+            </div>
+          )}
+
+          {/* Nếu chọn trả từng buổi: hiển thị rõ đơn giá mỗi buổi sau khi đã chia voucher */}
+          {dangKyGoi && loaiThanhToan === 'tung_buoi' && (
+            <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-2 text-teal-800 dark:text-teal-300 bg-teal-50/70 dark:bg-teal-950/30 px-3.5 py-2.5 rounded-xl border border-teal-200/60 dark:border-teal-800/60">
+              <span className="font-extrabold text-xs">💰 Chi phí chia theo từng buổi ({tongSoBuoi} buổi):</span>
+              <span className="font-mono font-black text-sm text-teal-700 dark:text-teal-300">
+                {formatCurrency(donGiaTheoBuoi)} <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">/ buổi</span>
+              </span>
+            </div>
+          )}
+
           {/* Total display row - Refined High-Contrast Medical Card */}
           <div className="p-4 rounded-2xl bg-gradient-to-br from-teal-50/90 to-emerald-50/90 dark:from-teal-950/60 dark:to-emerald-950/60 border border-teal-200/80 dark:border-teal-800/80 flex items-center justify-between gap-3 shadow-xs">
             <div>
               <span className="text-[10px] font-black uppercase text-teal-800 dark:text-teal-300 tracking-wider block">
-                {loaiThanhToan === 'tung_buoi' ? 'TỔNG CẦN THU ĐỢT 1' : 'TỔNG NGUYÊN GIÁ THU NGAY'}
+                TỔNG NGUYÊN GIÁ THU NGAY
               </span>
-              <span className="text-[10px] font-bold text-teal-600/90 dark:text-teal-400">Đã trừ các khoản chiết khấu</span>
+              <span className="text-[10px] font-bold text-teal-600/90 dark:text-teal-400">
+                {loaiThanhToan === 'tung_buoi'
+                  ? `Đã trừ voucher (Thu theo từng buổi: ${formatCurrency(donGiaTheoBuoi)}/buổi)`
+                  : 'Đã trừ các khoản chiết khấu'}
+              </span>
             </div>
             <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono tracking-tight shrink-0 drop-shadow-xs">
               {formatCurrency(totalToPay)}

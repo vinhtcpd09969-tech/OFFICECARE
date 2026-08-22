@@ -118,13 +118,13 @@ export const cancelCustomerAppointment = async (req: Request, res: Response): Pr
   try {
     const id = req.params.id as string;
     const nguoi_dung_id = (req as any).user.id;
-    const ly_do_huy = (req.body.ghi_chu_noi_bo || req.body.ly_do_huy) as string;
+    const lyDoHuy = req.body.ghi_chu_noi_bo as string;
 
-    if (!ly_do_huy) {
+    if (!lyDoHuy) {
       return res.status(400).json({ message: 'Vui lòng cung cấp lý do hủy lịch hẹn.' });
     }
 
-    const appointment = await appointmentService.cancelCustomerAppointment(id, nguoi_dung_id, ly_do_huy);
+    const appointment = await appointmentService.cancelCustomerAppointment(id, nguoi_dung_id, lyDoHuy);
     return res.json({ success: true, message: 'Đã hủy lịch hẹn thành công.', appointment });
   } catch (error: any) {
     console.error('Lỗi khi khách hàng hủy lịch:', error);

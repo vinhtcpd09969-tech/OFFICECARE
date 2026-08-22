@@ -198,6 +198,39 @@ router.get('/appointments', verifyToken, getCustomerAppointments);
 router.patch('/appointments/:id/cancel', verifyToken, cancelCustomerAppointment);
 router.patch('/appointments/:id/reschedule', verifyToken, rescheduleCustomerAppointment);
 
+router.get('/treatment-plans', verifyToken, async (req, res) => {
+  try {
+    const khach_hang_id = (req as any).user?.id;
+    if (!khach_hang_id) {
+      return res.json([]);
+    }
+    const queryStr = `
+      SELECT pd.id,
+             pd.goi_dich_vu_id,
+             gdv.ten_goi AS ten_goi_dich_vu,
+             gdv.thoi_luong_phut,
+             pd.tong_so_buoi,
+             pd.so_buoi_da_dung,
+             pd.trang_thai,
+             hd.hinh_thuc_thanh_toan_goi,
+             hd.so_tien_da_tra,
+             hd.tong_tien_phai_tra,
+             hd.trang_thai AS trang_thai_hoa_don
+      FROM phac_do_dieu_tri pd
+      JOIN goi_dich_vu gdv ON pd.goi_dich_vu_id = gdv.id
+      LEFT JOIN hoa_don hd ON hd.phac_do_dieu_tri_id = pd.id
+      WHERE pd.khach_hang_id = $1
+        AND pd.trang_thai IN ('dang_dieu_tri', 'moi_tao')
+      ORDER BY COALESCE(pd.ngay_kich_hoat, hd.ngay_tao) DESC
+    `;
+    const { rows } = await pool.query(queryStr, [khach_hang_id]);
+    res.json(rows);
+  } catch (error) {
+    console.error('Lỗi khi lấy gói liệu trình active của client:', error);
+    res.status(500).json({ message: 'Lỗi server khi lấy gói liệu trình' });
+  }
+});
+
 router.get('/appointments/pending-rating', verifyToken, async (req, res) => {
   try {
     const khach_hang_id = (req as any).user.id;
@@ -321,7 +354,7 @@ router.get('/reviews/my-reviews', verifyToken, async (req, res) => {
     
     // Service reviews
     const { rows: serviceReviews } = await pool.query(`
-      SELECT dg.id, dg.so_sao as rating, dg.nhan_xet as comment, dg.ngay_cap_nhat as date, g.ten_goi as service_name, dg.goi_dich_vu_id, dg.phan_hoi_nhan_xet as reply
+      SELECT dg.id, dg.so_sao as rating, dg.nhan_xet as comment, dg.ngay_cap_nhat as date, g.ten_goi as service_name, g.hinh_anh as service_avatar, dg.goi_dich_vu_id, dg.phan_hoi_nhan_xet as reply
       FROM danh_gia dg
       JOIN goi_dich_vu g ON dg.goi_dich_vu_id = g.id
       WHERE dg.khach_hang_id = $1 AND dg.loai_danh_gia = 'GOI_DICH_VU'
@@ -330,7 +363,7 @@ router.get('/reviews/my-reviews', verifyToken, async (req, res) => {
 
     // Staff reviews
     const { rows: staffReviews } = await pool.query(`
-      SELECT dg.id, dg.so_sao as rating, dg.nhan_xet as comment, dg.ngay_cap_nhat as date, nd.ho_ten as staff_name, dg.nhan_su_id, dg.phan_hoi_nhan_xet as reply
+      SELECT dg.id, dg.so_sao as rating, dg.nhan_xet as comment, dg.ngay_cap_nhat as date, nd.ho_ten as staff_name, nd.anh_dai_dien as staff_avatar, dg.nhan_su_id, dg.phan_hoi_nhan_xet as reply
       FROM danh_gia dg
       JOIN nguoi_dung nd ON dg.nhan_su_id = nd.id
       WHERE dg.khach_hang_id = $1 AND dg.loai_danh_gia = 'NHAN_SU'
@@ -341,7 +374,7 @@ router.get('/reviews/my-reviews', verifyToken, async (req, res) => {
     // cuoc_hen_id đại diện để gửi đánh giá qua endpoint /appointments/:id/rate có sẵn.
     const { rows: pendingServiceReviews } = await pool.query(`
       SELECT DISTINCT ON (ch.goi_dich_vu_id)
-        ch.goi_dich_vu_id, g.ten_goi as service_name, ch.id as cuoc_hen_id, ch.ngay_gio_bat_dau as date
+        ch.goi_dich_vu_id, g.ten_goi as service_name, g.hinh_anh as service_avatar, ch.id as cuoc_hen_id, ch.ngay_gio_bat_dau as date
       FROM cuoc_hen ch
       JOIN goi_dich_vu g ON ch.goi_dich_vu_id = g.id
       LEFT JOIN phac_do_dieu_tri pddt ON ch.phac_do_dieu_tri_id = pddt.id
@@ -357,7 +390,7 @@ router.get('/reviews/my-reviews', verifyToken, async (req, res) => {
     // Nhân sự đã phục vụ (buổi hoàn thành) nhưng chưa đánh giá — 1 thẻ/nhân sự.
     const { rows: pendingStaffReviews } = await pool.query(`
       SELECT DISTINCT ON (ch.nhan_su_id)
-        ch.nhan_su_id, nd.ho_ten as staff_name, ch.id as cuoc_hen_id, ch.ngay_gio_bat_dau as date
+        ch.nhan_su_id, nd.ho_ten as staff_name, nd.anh_dai_dien as staff_avatar, ch.id as cuoc_hen_id, ch.ngay_gio_bat_dau as date
       FROM cuoc_hen ch
       JOIN nguoi_dung nd ON ch.nhan_su_id = nd.id
       LEFT JOIN danh_gia dg ON (dg.khach_hang_id = ch.khach_hang_id AND dg.nhan_su_id = ch.nhan_su_id AND dg.loai_danh_gia = 'NHAN_SU')
@@ -481,8 +514,8 @@ router.get('/vouchers/active', async (req, res) => {
              v.giam_toi_da::text AS giam_toi_da,
              v.don_hang_toi_thieu::text AS don_hang_toi_thieu,
              v.tu_dong_ap_dung,
-             v.kenh_ap_dung,
              v.loai_goi_ap_dung,
+             v.yeu_cau_thanh_toan,
              v.so_luong_gioi_han
       FROM khuyen_mai_voucher v
       LEFT JOIN hoa_don hd ON hd.voucher_id = v.id

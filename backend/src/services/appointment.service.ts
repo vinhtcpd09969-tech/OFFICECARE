@@ -50,8 +50,8 @@ class AppointmentService {
     return appointmentRepository.getCustomerAppointments(khach_hang_id);
   }
 
-  async cancelCustomerAppointment(id: string, khach_hang_id: string, ly_do_huy: string) {
-    const updated = await appointmentRepository.cancelCustomerAppointment(id, khach_hang_id, ly_do_huy);
+  async cancelCustomerAppointment(id: string, khach_hang_id: string, lyDoHuy: string) {
+    const updated = await appointmentRepository.cancelCustomerAppointment(id, khach_hang_id, lyDoHuy);
     return updated;
   }
 

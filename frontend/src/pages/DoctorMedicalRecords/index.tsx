@@ -5,7 +5,6 @@ import { getPatients, getPatientProfile, PatientInfo, PatientProfile } from '../
 import { PatientSidebar } from './components/PatientSidebar';
 import { PatientDossierTimeline } from './components/PatientDossierTimeline';
 import { PlanDetailModal } from './components/PlanDetailModal';
-import { VisitDetailModal } from './components/VisitDetailModal';
 
 type ActiveModal = { type: 'plan'; id: string } | { type: 'visit'; id: string } | null;
 
@@ -19,7 +18,7 @@ export default function DoctorMedicalRecords() {
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
 
   // Deep-link từ nơi khác (vd nút "Xem chi tiết" của 1 lịch hẹn đã kết thúc trong AppointmentInfoModal)
-  // — tự chọn sẵn bệnh nhân + mở đúng popup buổi khám/phác đồ tương ứng, chỉ áp dụng 1 lần lúc vào trang.
+  // — tự chọn sẵn bệnh nhân + mở đúng buổi khám/phác đồ mở rộng inline trong dòng thời gian.
   const [searchParams, setSearchParams] = useSearchParams();
   const [pendingDeepLinkModal, setPendingDeepLinkModal] = useState<ActiveModal>(null);
 
@@ -89,18 +88,8 @@ export default function DoctorMedicalRecords() {
     return profile.treatmentPlans.find((p) => p.id === activeModal.id) || null;
   }, [activeModal, profile]);
 
-  const activeVisit = useMemo(() => {
-    if (activeModal?.type !== 'visit' || !profile) return null;
-    return profile.visits.find((v) => v.id === activeModal.id) || null;
-  }, [activeModal, profile]);
-
-  const linkedPlanForActiveVisit = useMemo(() => {
-    if (!activeVisit?.prescribed_plan_id || !profile) return null;
-    return profile.treatmentPlans.find((p) => p.id === activeVisit.prescribed_plan_id) || null;
-  }, [activeVisit, profile]);
-
   return (
-    <div className="animate-in fade-in duration-500">
+    <div className="w-full space-y-6 font-jakarta pb-12 animate-fade-in">
       {!selectedPatient ? (
         <PatientSidebar
           patients={patients}
@@ -121,8 +110,7 @@ export default function DoctorMedicalRecords() {
               selectedPatient={selectedPatient}
               profile={profile}
               onBack={() => setSelectedPatient(null)}
-              onOpenVisit={(visitId) => setActiveModal({ type: 'visit', id: visitId })}
-              onOpenPlan={(planId) => setActiveModal({ type: 'plan', id: planId })}
+              highlightTarget={activeModal}
             />
           )}
         </div>
@@ -135,15 +123,6 @@ export default function DoctorMedicalRecords() {
             plan={activePlan}
             onClose={() => setActiveModal(null)}
             onJumpToVisit={(visitId) => setActiveModal({ type: 'visit', id: visitId })}
-          />
-        )}
-        {activeVisit && (
-          <VisitDetailModal
-            key={`visit-${activeVisit.id}`}
-            visit={activeVisit}
-            linkedPlan={linkedPlanForActiveVisit}
-            onClose={() => setActiveModal(null)}
-            onJumpToPlan={(planId) => setActiveModal({ type: 'plan', id: planId })}
           />
         )}
       </AnimatePresence>

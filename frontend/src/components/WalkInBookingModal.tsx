@@ -10,11 +10,12 @@ import { resolveImageUrl } from '../utils/imageUrl';
 import { statusConfig } from './appointmentStatusConfig';
 import { CustomDatePicker } from './CustomDatePicker';
 import { getSmartSearchScore } from '../utils/smartSearch';
+import { StaffWorkloadModal } from '../features/receptionist/components/StaffWorkloadModal';
 
 type Buoi = 'sang' | 'chieu';
 const BUOI_INFO: Record<Buoi, { label: string; khung: string; ketThuc: string }> = {
   sang: { label: 'Buổi sáng', khung: '7:30 - 12:00', ketThuc: '12:00' },
-  chieu: { label: 'Buổi chiều', khung: '12:00 - 19:30', ketThuc: '19:30' }
+  chieu: { label: 'Buổi chiều', khung: '12:00 - 20:00', ketThuc: '20:00' }
 };
 
 /** Mirror `isBuoiDaQua` phía backend/domain/capacity.ts — buổi đặt cho hôm nay đã qua giờ nhận
@@ -233,6 +234,16 @@ export default function WalkInBookingModal({
   const [selectedRoomId, setSelectedRoomId] = useState('');
   const [bookingStatus, setBookingStatus] = useState<'da_checkin' | 'da_xac_nhan'>('da_checkin');
 
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  // Chỉ Lễ tân mới bị giới hạn không cho Check-in ngay ngày tương lai. Admin/Quản lý được thoải mái chọn.
+  const isFutureDateRestrict = isReceptionist && selectedDate > todayStr;
+
+  useEffect(() => {
+    if (isFutureDateRestrict && bookingStatus === 'da_checkin') {
+      setBookingStatus('da_xac_nhan');
+    }
+  }, [selectedDate, isFutureDateRestrict, bookingStatus]);
+
   // Sức chứa 2 buổi (sáng/chiều) cho ngày+dịch vụ đang chọn — cùng nguồn A1 dùng cho trang đặt lịch
   // khách hàng (getBuoiAvailability), để Lễ tân/Admin và khách luôn thấy cùng một sự thật.
   const [buoiAvailability, setBuoiAvailability] = useState<{
@@ -247,6 +258,7 @@ export default function WalkInBookingModal({
   const [selectedServiceId, setSelectedServiceId] = useState('');
   const [packageManuallyCleared, setPackageManuallyCleared] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showWorkloadModal, setShowWorkloadModal] = useState(false);
 
 
   // 1. Filter services based on activeType (Kham vs Lieu Trinh Le)
@@ -522,52 +534,96 @@ export default function WalkInBookingModal({
       ? staffList.filter(s => s.vai_tro === 'Bác sĩ')
       : staffList.filter(s => s.vai_tro === 'Kỹ thuật viên' || s.vai_tro === 'KTV');
 
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+
     return staffToFilter.map(doc => {
-      const docAptsCount = (appointments || []).filter(apt => {
-        const assignedId = apt.bac_si_id || apt.chuyen_gia_id;
+      const docApts = (appointments || []).filter(apt => {
+        const assignedId = apt.bac_si_id || apt.chuyen_gia_id || apt.ky_thuat_vien_id || apt.nhan_su_id;
         let aptDateStr = '';
         try {
-          aptDateStr = format(new Date(apt.ngay_gio_bat_dau || ''), 'yyyy-MM-dd');
+          aptDateStr = format(new Date(apt.ngay_gio_bat_dau || apt.thoi_gian_checkin || ''), 'yyyy-MM-dd');
         } catch (e) {}
         return String(assignedId) === String(doc.id) &&
           aptDateStr === selectedDate &&
           apt.trang_thai !== 'da_huy' &&
           apt.trang_thai !== 'khong_den';
-      }).length;
+      });
+
+      const docAptsCount = docApts.length;
+
+      // Đếm thực tế các ca ĐÃ CHECK-IN / ĐANG KHÁM / ĐANG CHỜ TÁI KHÁM trong ca trực ngày hôm nay
+      const checkedInApts = docApts.filter(apt => ['da_checkin', 'dang_kham', 'cho_tai_luong_gia'].includes(apt.trang_thai));
+      const checkedInCount = checkedInApts.length;
+      const isWorkingNow = checkedInApts.some(apt => apt.trang_thai === 'dang_kham');
+      const isWaitingQueueCount = checkedInApts.filter(apt => apt.trang_thai === 'da_checkin' || apt.trang_thai === 'cho_tai_luong_gia').length;
 
       const nhanSuInfo = buoiAvailability.nhanSu.find(n => String(n.id) === String(doc.id));
       if (!nhanSuInfo) {
-        return { ...doc, occupiedCount: docAptsCount, available: false, reason: 'Không trực hôm nay' };
+        return {
+          ...doc,
+          occupiedCount: docAptsCount,
+          checkedInCount,
+          isWorkingNow,
+          isWaitingQueueCount,
+          available: false,
+          reason: 'Không trực hôm nay'
+        };
       }
 
       const conLai = selectedBuoi === 'sang' ? nhanSuInfo.conLaiSang : nhanSuInfo.conLaiChieu;
       if (conLai < duration) {
-        return { ...doc, occupiedCount: docAptsCount, available: false, reason: `Trực ${nhanSuInfo.caTruc} — không đủ chỗ`, endsEarly: false };
+        return {
+          ...doc,
+          occupiedCount: docAptsCount,
+          checkedInCount,
+          isWorkingNow,
+          isWaitingQueueCount,
+          available: false,
+          reason: `Trực ${nhanSuInfo.caTruc} — không đủ chỗ`,
+          endsEarly: false
+        };
       }
 
       const gioKetThucTruc = nhanSuInfo.caTruc.split('-')[1];
 
-      // Nhân sự đã TAN CA THẬT (giờ hiện tại đã qua giờ kết thúc ca trực) khi đặt cho HÔM NAY —
-      // họ không còn ở phòng khám nữa nên phải khóa hẳn, không chỉ cảnh báo. `conLai` chỉ trừ theo
-      // ngân sách phút của buổi, không biết đồng hồ thực tế đã trôi qua khỏi ca trực chưa.
-      if (selectedDate === format(new Date(), 'yyyy-MM-dd') && gioKetThucTruc) {
+      // Nhân sự đã TAN CA THẬT khi đặt cho HÔM NAY
+      if (selectedDate === todayStr && gioKetThucTruc) {
         const now = new Date();
         const nowMinutes = now.getHours() * 60 + now.getMinutes();
         const [endH, endM] = gioKetThucTruc.split(':').map(Number);
         if (nowMinutes >= endH * 60 + endM) {
-          return { ...doc, occupiedCount: docAptsCount, available: false, reason: `Đã tan ca (${nhanSuInfo.caTruc}) — không còn tại phòng khám`, endsEarly: false };
+          return {
+            ...doc,
+            occupiedCount: docAptsCount,
+            checkedInCount,
+            isWorkingNow,
+            isWaitingQueueCount,
+            available: false,
+            reason: `Đã tan ca (${nhanSuInfo.caTruc}) — không còn tại phòng khám`,
+            endsEarly: false
+          };
         }
       }
 
-      // Cảnh báo khi nhân sự tan ca SỚM HƠN mốc kết thúc buổi (vd trực tới 16h nhưng buổi chiều
-      // kéo dài tới 19h30) — ngân sách phút đã chặn đúng theo phần giao thực (không cho đặt dịch
-      // vụ dài hơn phần còn lại), nhưng lễ tân vẫn có thể hiểu lầm khách "đến muộn trong buổi" là
-      // bình thường rồi hẹn khách tới sát giờ đóng cửa trong khi nhân sự này đã về từ lâu. Cảnh báo
-      // thuần hiển thị — KHÔNG chặn chọn, vì ngân sách phút đã tự bảo vệ phần thời lượng rồi.
       const gioKetThucBuoi = BUOI_INFO[selectedBuoi].ketThuc;
       const endsEarly = !!gioKetThucTruc && gioKetThucTruc < gioKetThucBuoi;
 
-      return { ...doc, occupiedCount: docAptsCount, available: true, reason: `Trực ${nhanSuInfo.caTruc}`, endsEarly, gioKetThucTruc };
+      let statusReason = `Trực ${nhanSuInfo.caTruc}`;
+      if (checkedInCount > 0) {
+        statusReason = `Đang bận (${checkedInCount} khách check-in/hàng chờ)`;
+      }
+
+      return {
+        ...doc,
+        occupiedCount: docAptsCount,
+        checkedInCount,
+        isWorkingNow,
+        isWaitingQueueCount,
+        available: true,
+        reason: statusReason,
+        endsEarly,
+        gioKetThucTruc
+      };
     });
   }, [selectedBuoi, selectedServiceId, buoiAvailability, staffList, appointments, selectedDate, isExam, selectedService]);
 
@@ -960,18 +1016,7 @@ export default function WalkInBookingModal({
           )}
         </div>
 
-        {/* SĐT có thể sửa đổi nếu cần liên hệ số khác */}
-        {!isNewCustomer && selectedCustomer && (
-          <div className="space-y-1 bg-slate-50/50 dark:bg-zinc-800/80 p-3 rounded-xl border border-slate-100 dark:border-zinc-700">
-            <label className="text-[10px] font-bold text-slate-400 dark:text-zinc-400 uppercase tracking-wider block">Số điện thoại liên hệ cho ca hẹn này</label>
-            <input
-              type="tel"
-              value={sdt}
-              onChange={e => setSdt(e.target.value)}
-              className="w-full px-3 py-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all font-mono font-bold text-slate-800 dark:text-zinc-100 mt-1"
-            />
-          </div>
-        )}
+
 
         {/* GÓI LIỆU TRÌNH ĐANG HOẠT ĐỘNG / CHỈ ĐỊNH (Chỉ hiện ở tab điều trị và khi có phác đồ/khuyến nghị) */}
         {activeType === 'dieu_tri' && selectedCustomer && treatmentPlans.length > 0 && (
@@ -1167,7 +1212,18 @@ export default function WalkInBookingModal({
               <Clock size={14} className="text-slate-400" />
               Chọn buổi đặt lịch
             </h4>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
+              {/* Nút xem Trạng Thái Nhân Sự Ca Trực kiểu Pill nhỏ gọn (giống Ảnh 2) */}
+              <button
+                type="button"
+                onClick={() => setShowWorkloadModal(true)}
+                className="px-3.5 py-1.5 rounded-full bg-teal-50 dark:bg-teal-955/60 border border-teal-200 dark:border-teal-800/80 text-[#0d9488] dark:text-teal-300 font-bold text-xs flex items-center gap-1.5 hover:bg-teal-100 dark:hover:bg-teal-900/60 transition-all cursor-pointer shadow-2xs shrink-0"
+                title="Xem Trạng Thái Nhân Sự Ca Trực Real-time"
+              >
+                <Users size={16} className="text-teal-600 dark:text-teal-400" />
+                <span>📊 Trạng Thái Nhân Sự Ca Trực</span>
+              </button>
+
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Ngày khám:</span>
               <CustomDatePicker
                 value={selectedDate}
@@ -1181,6 +1237,7 @@ export default function WalkInBookingModal({
                   }
                 }}
                 className="w-36"
+                align="right"
               />
             </div>
           </div>
@@ -1226,28 +1283,49 @@ export default function WalkInBookingModal({
           <>
             {/* Trạng thái ca hẹn */}
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 dark:text-zinc-400 uppercase tracking-wider block font-jakarta">
-                Trạng thái đăng ký ca hẹn
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-400 dark:text-zinc-400 uppercase tracking-wider block font-jakarta">
+                  Trạng thái đăng ký ca hẹn
+                </label>
+                {isFutureDateRestrict && (
+                  <span className="text-[10px] font-black text-rose-500 bg-rose-50 dark:bg-rose-955/40 px-2 py-0.5 rounded border border-rose-200/60">
+                    🔴 Lễ tân chỉ được chọn Check-in ngay cho ca ngày hôm nay
+                  </span>
+                )}
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Nút Check-in ngay: CHỈ LỄ TÂN MỚI BỊ KHÓA KHI LÀ NGÀY TRONG TƯƠNG LAI. ADMIN ĐƯỢC THOẢI MÁI CHỌN */}
                 <button
                   type="button"
-                  onClick={() => setBookingStatus('da_checkin')}
-                  className={`p-3.5 rounded-2xl border flex items-center gap-3 text-left transition-all cursor-pointer ${
-                    bookingStatus === 'da_checkin'
-                      ? 'bg-emerald-600 border-emerald-600 text-white shadow-md'
-                      : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-800 dark:text-zinc-100 hover:border-emerald-300'
+                  disabled={isFutureDateRestrict}
+                  onClick={() => !isFutureDateRestrict && setBookingStatus('da_checkin')}
+                  className={`p-3.5 rounded-2xl border flex items-center gap-3 text-left transition-all ${
+                    isFutureDateRestrict
+                      ? 'bg-slate-100 dark:bg-zinc-800/60 border-slate-200 dark:border-zinc-700/60 opacity-50 cursor-not-allowed text-slate-400 dark:text-zinc-500'
+                      : bookingStatus === 'da_checkin'
+                        ? 'bg-emerald-600 border-emerald-600 text-white shadow-md cursor-pointer'
+                        : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-800 dark:text-zinc-100 hover:border-emerald-300 cursor-pointer'
                   }`}
+                  title={isFutureDateRestrict ? 'Lễ tân chỉ áp dụng Check-in ngay cho khách đang có mặt tại quầy trong ngày hôm nay' : ''}
                 >
                   <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black ${
-                    bookingStatus === 'da_checkin' ? 'bg-white/20 text-white' : 'bg-emerald-50 text-emerald-600'
+                    isFutureDateRestrict
+                      ? 'bg-slate-200 dark:bg-zinc-700 text-slate-400'
+                      : bookingStatus === 'da_checkin' ? 'bg-white/20 text-white' : 'bg-emerald-50 text-emerald-600'
                   }`}>
                     <CheckCircle2 size={16} />
                   </div>
                   <div>
                     <p className="text-xs font-black">Khách tại quầy (Check-in ngay)</p>
-                    <p className={`text-[10px] font-medium mt-0.5 ${bookingStatus === 'da_checkin' ? 'text-white/80' : 'text-slate-400'}`}>
-                      {isExam ? 'Bắt buộc thu tiền Lượng giá để vào hàng đợi' : 'Vào thẳng hàng đợi (Thu tiền linh hoạt)'}
+                    <p className={`text-[10px] font-medium mt-0.5 ${
+                      isFutureDateRestrict
+                        ? 'text-rose-500 font-bold'
+                        : bookingStatus === 'da_checkin' ? 'text-white/80' : 'text-slate-400'
+                    }`}>
+                      {isFutureDateRestrict
+                        ? '🚫 Lễ tân không áp dụng cho ngày tương lai'
+                        : isExam ? 'Bắt buộc thu tiền Lượng giá để vào hàng đợi' : 'Vào thẳng hàng đợi (Thu tiền linh hoạt)'}
                     </p>
                   </div>
                 </button>
@@ -1324,6 +1402,7 @@ export default function WalkInBookingModal({
                     {/* Danh sách nhân sự khả dụng */}
                     {availableDoctors.map(doc => {
                       const isSelected = String(selectedDoctorId) === String(doc.id);
+                      const isBusyNow = doc.checkedInCount > 0;
                       return (
                         <div
                           key={doc.id}
@@ -1356,17 +1435,27 @@ export default function WalkInBookingModal({
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-black text-slate-800 dark:text-zinc-100 truncate flex items-center gap-1.5">
                               <span>{doc.ho_ten}</span>
-                              <span className="text-[9px] text-slate-500 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 px-1.5 py-0.2 rounded font-extrabold">{doc.occupiedCount} ca</span>
+                              <span className={`text-[9px] px-1.5 py-0.2 rounded font-extrabold ${
+                                isBusyNow ? 'bg-amber-100 dark:bg-amber-955 text-amber-800 dark:text-amber-300' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400'
+                              }`}>
+                                {doc.occupiedCount} ca
+                              </span>
                             </p>
-                            <p className={`text-[10px] font-semibold mt-0.5 ${doc.endsEarly ? 'text-amber-600 dark:text-amber-450 font-black' : 'text-slate-400 dark:text-zinc-400'}`}>
-                              {doc.endsEarly ? `⚠️ ${doc.reason} — chỉ nhận khách đến trước ${doc.gioKetThucTruc}` : doc.reason}
+                            <p className={`text-[10px] font-semibold mt-0.5 ${
+                              isBusyNow ? 'text-amber-600 dark:text-amber-400 font-bold' : doc.endsEarly ? 'text-amber-600 dark:text-amber-450 font-black' : 'text-slate-400 dark:text-zinc-400'
+                            }`}>
+                              {isBusyNow ? `🟡 Đang bận (${doc.checkedInCount} ca check-in/chờ)` : doc.endsEarly ? `⚠️ ${doc.reason} — chỉ nhận khách đến trước ${doc.gioKetThucTruc}` : doc.reason}
                             </p>
                           </div>
                           {doc.available && (
                             <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
-                              isSelected ? 'bg-emerald-600 text-white' : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                              isSelected
+                                ? 'bg-emerald-600 text-white'
+                                : isBusyNow
+                                  ? 'bg-amber-100 dark:bg-amber-955/60 text-amber-800 dark:text-amber-300 border border-amber-300/60'
+                                  : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
                             }`}>
-                              {isSelected ? 'Đã chọn' : 'Sẵn sàng'}
+                              {isSelected ? 'Đã chọn' : isBusyNow ? `Bận (${doc.checkedInCount})` : 'Sẵn sàng'}
                             </span>
                           )}
                         </div>
@@ -1503,6 +1592,12 @@ export default function WalkInBookingModal({
           </div>
         </div>
       )}
+      {/* POPUP XEM CHI TIẾT TRẠNG THÁI NHÂN SỰ CA TRỰC REAL-TIME */}
+      <StaffWorkloadModal
+        isOpen={showWorkloadModal}
+        onClose={() => setShowWorkloadModal(false)}
+        dateStr={selectedDate}
+      />
     </div>
   );
 }

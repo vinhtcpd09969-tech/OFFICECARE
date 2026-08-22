@@ -4,10 +4,7 @@ import {
   Ticket, 
   Plus, 
   Search, 
-  Sparkles, 
-  AlertCircle,
-  CheckCircle2,
-  PauseCircle
+  AlertCircle
 } from 'lucide-react';
 import api from '../../../../api/axios';
 
@@ -105,7 +102,9 @@ export default function ManageVouchers() {
       giam_toi_da: data.loai_giam === 'so_tien_co_dinh' ? null : (data.giam_toi_da ? Number(data.giam_toi_da) : null),
       don_hang_toi_thieu: Number(data.don_hang_toi_thieu),
       so_luong_toi_da: data.so_luong_toi_da ? Number(data.so_luong_toi_da) : null,
-      yeu_cau_thanh_toan: yeuCauThanhToan.length ? yeuCauThanhToan : ['tat_ca'],
+      yeu_cau_thanh_toan: (loaiGoiApDung.includes('tat_ca') || loaiGoiApDung.includes('LIEU_TRINH'))
+        ? (yeuCauThanhToan.length ? yeuCauThanhToan : ['tat_ca'])
+        : ['tat_ca'],
       tu_dong_ap_dung: tuDongApDung,
       kenh_ap_dung: kenhApDung.length ? kenhApDung : ['tat_ca'],
       loai_goi_ap_dung: loaiGoiApDung.length ? loaiGoiApDung : ['tat_ca'],
@@ -224,139 +223,109 @@ export default function ManageVouchers() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-zinc-900 rounded-3xl p-6 border border-slate-100 dark:border-zinc-800 shadow-soft-ui">
-        <div className="flex items-center gap-4">
-          <div className="bg-primary-container p-3.5 rounded-2xl text-primary">
-            <Sparkles className="w-6 h-6 animate-pulse" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-extrabold text-secondary dark:text-zinc-100 font-heading tracking-tight">Chiến dịch Marketing & Ưu đãi</h1>
-            <p className="text-slate-500 dark:text-zinc-400 text-sm mt-0.5">Quản lý thống nhất toàn bộ mã giảm giá áp dụng trên hóa đơn.</p>
-          </div>
-        </div>
-        
-        <button
-          onClick={() => {
-            setEditingVoucher({});
-            setLoaiGiam('phan_tram');
-            setYeuCauThanhToan(['tat_ca']);
-            setIsVoucherModalOpen(true);
-          }}
-          className="bg-primary text-white px-5 py-2.5 rounded-xl font-semibold shadow-soft-button hover:-translate-y-0.5 transition-all duration-200 flex items-center gap-2 text-sm self-start md:self-auto"
-        >
-          <Plus className="w-4 h-4" /> Tạo ưu đãi / mã mới
-        </button>
-      </div>
-
-      {/* 4 Stats Cards làm chức năng Tab Lọc */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* 1. Tất cả mã */}
-        <button
-          type="button"
-          onClick={() => setStatusFilter('all')}
-          className={`bg-white dark:bg-zinc-900 rounded-2xl p-4 border text-left transition-all cursor-pointer flex items-center justify-between ${
-            statusFilter === 'all'
-              ? 'border-indigo-500 ring-2 ring-indigo-500/20 shadow-md bg-indigo-50/20 dark:bg-indigo-950/40'
-              : 'border-slate-100 dark:border-zinc-800 hover:border-slate-200 dark:hover:border-zinc-700 shadow-soft-ui'
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
-              <Ticket className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider block">Tất Cả Mã</span>
-              <span className="text-xl font-black text-slate-800 dark:text-zinc-100 mt-0.5 block tabular-nums">{totalCount} Mã</span>
-            </div>
-          </div>
-        </button>
-
-        {/* 2. Đang hoạt động */}
-        <button
-          type="button"
-          onClick={() => setStatusFilter('hoat_dong')}
-          className={`bg-white dark:bg-zinc-900 rounded-2xl p-4 border text-left transition-all cursor-pointer flex items-center justify-between ${
-            statusFilter === 'hoat_dong'
-              ? 'border-emerald-500 ring-2 ring-emerald-500/20 shadow-md bg-emerald-50/20 dark:bg-emerald-950/40'
-              : 'border-slate-100 dark:border-zinc-800 hover:border-slate-200 dark:hover:border-zinc-700 shadow-soft-ui'
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-              <CheckCircle2 className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider block">Đang Chạy</span>
-              <span className="text-xl font-black text-slate-800 dark:text-zinc-100 mt-0.5 block tabular-nums">{activeCount} Mã</span>
-            </div>
-          </div>
-        </button>
-
-        {/* 3. Ngưng sử dụng / Tạm dừng */}
-        <button
-          type="button"
-          onClick={() => setStatusFilter('tam_dung')}
-          className={`bg-white dark:bg-zinc-900 rounded-2xl p-4 border text-left transition-all cursor-pointer flex items-center justify-between ${
-            statusFilter === 'tam_dung'
-              ? 'border-amber-500 ring-2 ring-amber-500/20 shadow-md bg-amber-50/20 dark:bg-amber-950/40'
-              : 'border-slate-100 dark:border-zinc-800 hover:border-slate-200 dark:hover:border-zinc-700 shadow-soft-ui'
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-              <PauseCircle className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-xs font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wider block">Tạm Dừng</span>
-              <span className="text-xl font-black text-slate-800 dark:text-zinc-100 mt-0.5 block tabular-nums">{pausedCount} Mã</span>
-            </div>
-          </div>
-        </button>
-
-        {/* 4. Hết hạn */}
-        <button
-          type="button"
-          onClick={() => setStatusFilter('het_han')}
-          className={`bg-white dark:bg-zinc-900 rounded-2xl p-4 border text-left transition-all cursor-pointer flex items-center justify-between ${
-            statusFilter === 'het_han'
-              ? 'border-rose-500 ring-2 ring-rose-500/20 shadow-md bg-rose-50/20 dark:bg-rose-950/40'
-              : 'border-slate-100 dark:border-zinc-800 hover:border-slate-200 dark:hover:border-zinc-700 shadow-soft-ui'
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
-              <AlertCircle className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-xs font-bold text-rose-700 dark:text-rose-300 uppercase tracking-wider block">Đã Hết hạn</span>
-              <span className="text-xl font-black text-slate-800 dark:text-zinc-100 mt-0.5 block tabular-nums">{expiredCount} Mã</span>
-            </div>
-          </div>
-        </button>
-      </div>
-
-      {/* Filter & Search Bar Section */}
-      <div className="bg-white dark:bg-zinc-900 rounded-2xl p-4 border border-slate-100 dark:border-zinc-800 shadow-soft-ui flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="relative w-full md:w-80">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-zinc-500 pointer-events-none" />
-          <input
-            type="text"
-            placeholder="Tìm mã hoặc tên chiến dịch..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm transition-all placeholder-slate-400 dark:placeholder-zinc-500"
-          />
-        </div>
-        {statusFilter !== 'all' && (
+      {/* Unified Stats, Filter Pill & Action Toolbar (Pro Max Toolbar) */}
+      <div className="bg-white dark:bg-zinc-900 rounded-3xl p-3.5 md:p-4 border border-slate-150/70 dark:border-zinc-800 shadow-sm flex flex-col xl:flex-row items-center justify-between gap-4">
+        {/* Left: Filter Pills with expressive icons and counts */}
+        <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto">
+          {/* Tất cả */}
           <button
             type="button"
             onClick={() => setStatusFilter('all')}
-            className="text-xs font-bold text-primary hover:underline self-end md:self-auto cursor-pointer"
+            className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
+              statusFilter === 'all'
+                ? 'bg-slate-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-md scale-[1.02]'
+                : 'bg-slate-50 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-750'
+            }`}
           >
-            Hiển thị tất cả mã ({totalCount})
+            <span>🎟️ Tất cả</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+              statusFilter === 'all' ? 'bg-white/20 text-white dark:bg-zinc-900/20 dark:text-zinc-900' : 'bg-slate-200 dark:bg-zinc-700 text-slate-700 dark:text-zinc-300'
+            }`}>
+              {totalCount}
+            </span>
           </button>
-        )}
+
+          {/* Đang chạy */}
+          <button
+            type="button"
+            onClick={() => setStatusFilter('hoat_dong')}
+            className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
+              statusFilter === 'hoat_dong'
+                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25 scale-[1.02]'
+                : 'bg-slate-50 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-750'
+            }`}
+          >
+            <span>🔥 Đang chạy</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+              statusFilter === 'hoat_dong' ? 'bg-white/20 text-white' : 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200'
+            }`}>
+              {activeCount}
+            </span>
+          </button>
+
+          {/* Tạm ngưng */}
+          <button
+            type="button"
+            onClick={() => setStatusFilter('tam_dung')}
+            className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
+              statusFilter === 'tam_dung'
+                ? 'bg-amber-500 text-white shadow-md shadow-amber-500/25 scale-[1.02]'
+                : 'bg-slate-50 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-750'
+            }`}
+          >
+            <span>⏸️ Tạm ngưng</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+              statusFilter === 'tam_dung' ? 'bg-white/20 text-white' : 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200'
+            }`}>
+              {pausedCount}
+            </span>
+          </button>
+
+          {/* Đã hết hạn */}
+          <button
+            type="button"
+            onClick={() => setStatusFilter('het_han')}
+            className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
+              statusFilter === 'het_han'
+                ? 'bg-rose-600 text-white shadow-md shadow-rose-600/25 scale-[1.02]'
+                : 'bg-slate-50 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-750'
+            }`}
+          >
+            <span>⌛ Đã hết hạn</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+              statusFilter === 'het_han' ? 'bg-white/20 text-white' : 'bg-rose-100 dark:bg-rose-900/50 text-rose-800 dark:text-rose-200'
+            }`}>
+              {expiredCount}
+            </span>
+          </button>
+        </div>
+
+        {/* Right: Search box & Action Button */}
+        <div className="flex items-center gap-3 w-full xl:w-auto justify-between xl:justify-end">
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-zinc-500 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Tìm mã hoặc tên chiến dịch..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none text-xs font-bold transition-all placeholder-slate-400 dark:placeholder-zinc-500 shadow-2xs"
+            />
+          </div>
+
+          <button
+            onClick={() => {
+              setEditingVoucher({});
+              setLoaiGiam('phan_tram');
+              setYeuCauThanhToan(['tat_ca']);
+              setIsVoucherModalOpen(true);
+            }}
+            className="bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 active:scale-95 text-white px-5 py-2.5 rounded-2xl font-bold text-xs uppercase tracking-wider transition-all shadow-md shadow-teal-600/20 flex items-center gap-2 cursor-pointer shrink-0"
+          >
+            <Plus size={16} />
+            <span>Tạo ưu đãi mới</span>
+          </button>
+        </div>
       </div>
 
       {/* Unified Voucher Card List */}

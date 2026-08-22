@@ -10,7 +10,6 @@ interface Invoice {
   so_dien_thoai?: string;
   tong_tien_goc: number;
   hinh_thuc_thanh_toan_goi?: string;
-  ti_le_giam_gia_goi?: number;
   so_tien_giam_voucher?: number;
   ma_voucher_ap_dung?: string | null;
   ten_voucher_ap_dung?: string | null;

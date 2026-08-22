@@ -64,6 +64,32 @@ class AdminService {
   }
 
   async updateStaffDetails(id: string, data: any) {
+    if (data.email) {
+      const emailTrim = data.email.trim().toLowerCase();
+      const existingUserEmail = await adminRepository.findUserByEmail(emailTrim, id);
+      if (existingUserEmail) {
+        throw new Error('Email này đã được sử dụng bởi nhân sự khác trong hệ thống.');
+      }
+      const existingCustomerEmail = await adminRepository.findCustomerByEmail(emailTrim);
+      if (existingCustomerEmail) {
+        throw new Error('Email này đã được sử dụng bởi khách hàng trong hệ thống.');
+      }
+      data.email = emailTrim;
+    }
+
+    if (data.so_dien_thoai) {
+      const phoneTrim = data.so_dien_thoai.trim();
+      const existingUserPhone = await adminRepository.findUserByPhone(phoneTrim, id);
+      if (existingUserPhone) {
+        throw new Error('Số điện thoại này đã được sử dụng bởi nhân sự khác trong hệ thống.');
+      }
+      const existingCustomerPhone = await adminRepository.findCustomerByPhone(phoneTrim);
+      if (existingCustomerPhone) {
+        throw new Error('Số điện thoại này đã được sử dụng bởi khách hàng trong hệ thống.');
+      }
+      data.so_dien_thoai = phoneTrim;
+    }
+
     const user = await adminRepository.updateStaffDetails(id, data);
     if (!user) throw new Error('Không tìm thấy nhân sự');
     return user;
@@ -89,6 +115,32 @@ class AdminService {
   }
 
   async updateCustomer(id: string, data: any) {
+    if (data.email) {
+      const emailTrim = data.email.trim().toLowerCase();
+      const existingCustomerEmail = await adminRepository.findCustomerByEmail(emailTrim, id);
+      if (existingCustomerEmail) {
+        throw new Error('Email này đã được sử dụng bởi khách hàng khác trên hệ thống.');
+      }
+      const existingUserEmail = await adminRepository.findUserByEmail(emailTrim);
+      if (existingUserEmail) {
+        throw new Error('Email này đã được đăng ký bởi người dùng khác trong hệ thống.');
+      }
+      data.email = emailTrim;
+    }
+
+    if (data.so_dien_thoai) {
+      const phoneTrim = data.so_dien_thoai.trim();
+      const existingCustomerPhone = await adminRepository.findCustomerByPhone(phoneTrim, id);
+      if (existingCustomerPhone) {
+        throw new Error('Số điện thoại này đã được sử dụng bởi khách hàng khác trên hệ thống.');
+      }
+      const existingUserPhone = await adminRepository.findUserByPhone(phoneTrim);
+      if (existingUserPhone) {
+        throw new Error('Số điện thoại này đã được đăng ký bởi người dùng khác trong hệ thống.');
+      }
+      data.so_dien_thoai = phoneTrim;
+    }
+
     return adminRepository.updateCustomer(id, data);
   }
 
@@ -108,7 +160,7 @@ class AdminService {
     return adminRepository.getTreatmentPlansOverview(filters);
   }
 
-  async getCompletedSingleVisits(params: { page: number; pageSize: number }) {
+  async getCompletedSingleVisits(params: { page: number; pageSize: number; search?: string; loai?: string }) {
     return adminRepository.getCompletedSingleVisits(params);
   }
 

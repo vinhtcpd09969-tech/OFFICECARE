@@ -3,7 +3,6 @@ import { format } from 'date-fns';
 import { ChevronLeft, Phone, Mail, Bell, CalendarPlus, Calendar, CreditCard, ClipboardList, History } from 'lucide-react';
 import { statusConfig } from '../../../../../components/appointmentStatusConfig';
 import { isSessionPaymentSatisfied } from '../../../../../utils/billing';
-import { ReputationScore } from './ReputationScore';
 import type { CustomerHistoryDetail } from '../types';
 
 interface CustomerHistoryViewProps {
@@ -48,7 +47,6 @@ export function CustomerHistoryView({ customer, staleDays, onBack }: CustomerHis
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-base font-black text-slate-900">{customer.ho_ten}</h2>
               <span className="text-[9px] text-slate-400 font-extrabold font-mono">{customer.ma_khach_hang}</span>
-              <ReputationScore score={customer.diem_uy_tin} />
             </div>
             <div className="flex items-center gap-4 mt-1.5">
               <span className="flex items-center gap-1.5 text-xs font-black text-slate-700">
@@ -197,7 +195,10 @@ export function CustomerHistoryView({ customer, staleDays, onBack }: CustomerHis
                             return (
                               <button
                                 type="button"
-                                onClick={() => navigate(`/receptionist/appointments?khach_hang_id=${customer.id}&goi_dich_vu_id=${p.goi_dich_vu_id}&phac_do_id=${p.id}&buoi=${nextSessionNum}`)}
+                                onClick={() => {
+                                  const todayStr = format(new Date(), 'yyyy-MM-dd');
+                                  navigate(`/receptionist/appointments?khach_hang_id=${customer.id}&goi_dich_vu_id=${p.goi_dich_vu_id}&phac_do_id=${p.id}&buoi=${nextSessionNum}&startDate=${todayStr}&endDate=${todayStr}&view=timeline`);
+                                }}
                                 className="px-3 py-1.5 bg-[#0D9488] hover:bg-[#0D9488]/90 text-white rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 shadow-xs active:scale-95 shrink-0 cursor-pointer"
                               >
                                 <CalendarPlus size={13} />

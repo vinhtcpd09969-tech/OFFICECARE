@@ -61,7 +61,7 @@ export default function AppointmentInfoModal({ appointment, onClose }: Appointme
   // Ca đã kết thúc (hoàn thành/hủy/không đến) — không còn gì để "làm" nữa, đưa về đúng nơi xem lại
   // hồ sơ (Hồ sơ điều trị) thay vì Bàn làm việc (trang dành cho khám/trị liệu đang diễn ra, có nút
   // "Hoàn thành" — mở nhầm vào đây với 1 ca đã xong sẽ cho phép hoàn thành lại, ghi đè dữ liệu cũ).
-  const isTerminalStatus = ['hoan_thanh', 'da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(rawStatus);
+  const isTerminalStatus = ['hoan_thanh', 'da_huy', 'khong_den'].includes(rawStatus);
 
   const handleGoToDetail = () => {
     onClose();
@@ -209,7 +209,7 @@ export default function AppointmentInfoModal({ appointment, onClose }: Appointme
               GHI CHÚ NỘI BỘ PHÒNG KHÁM
             </label>
             <p className="text-xs text-slate-600 dark:text-zinc-300 font-medium leading-relaxed bg-white dark:bg-zinc-900/60 p-3 rounded-xl border border-slate-200/80 dark:border-zinc-800 whitespace-pre-wrap min-h-[50px]">
-              {appointment.ghi_chu_noi_bo || appointment.ly_do_huy || appointment.ly_do_kham || appointment.ghi_chu || 'Không có ghi chú nội bộ.'}
+              {appointment.ghi_chu_noi_bo || appointment.ly_do_kham || appointment.ghi_chu || 'Không có ghi chú nội bộ.'}
             </p>
           </div>
         </div>

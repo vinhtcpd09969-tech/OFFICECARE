@@ -136,9 +136,9 @@ class TechnicianService {
   }
 
   // 7. Lấy thông tin phòng trực & thiết bị y tế có sẵn tại phòng của nhân sự
-  async getWorkstationInfo(userId: string) {
+  async getWorkstationInfo(userId: string, appointmentId?: string | null) {
     const staffId = parseInt(userId, 10);
-    return await technicianRepository.getRoomAndEquipmentForStaff(staffId);
+    return await technicianRepository.getRoomAndEquipmentForStaff(staffId, appointmentId);
   }
 }
 

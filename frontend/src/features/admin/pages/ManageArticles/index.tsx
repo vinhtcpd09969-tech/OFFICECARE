@@ -124,43 +124,35 @@ export default function ManageArticles() {
             transition={{ duration: 0.25, ease: 'easeInOut' }}
             className="space-y-6"
           >
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-black font-heading text-secondary">Bài viết (Blog)</h2>
-                <p className="text-xs text-slate-450 font-medium mt-0.5">
-                  {articles.length} bài viết · {publishedCount} đã đăng · {draftCount} bản nháp · {suspendedCount} đã gỡ
-                </p>
-              </div>
-              <button
-                onClick={() => { setEditingArticle(null); setIsEditorOpen(true); }}
-                className="flex items-center gap-2 px-5 py-3 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl shadow-md transition-all text-xs shrink-0"
-              >
-                <PenSquare size={14} /> Viết bài mới
-              </button>
-            </div>
-
-            <div className="p-6 bg-white border border-zinc-200 rounded-2xl shadow-sm space-y-4">
-              <div className="flex flex-col lg:flex-row gap-3">
-                <div className="relative flex-1">
+            <div className="p-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm space-y-4">
+              <div className="flex flex-col lg:flex-row gap-3 items-center justify-between">
+                <div className="relative flex-1 w-full">
                   <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
                   <input
                     type="text"
                     placeholder="Tìm kiếm tiêu đề bài viết..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 border border-zinc-200 rounded-xl text-xs outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 text-secondary font-bold placeholder-zinc-400 shadow-sm"
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 text-secondary dark:text-zinc-100 font-bold placeholder-zinc-400 shadow-2xs"
                   />
                 </div>
                 <select
                   value={danhMucFilter}
                   onChange={(e) => setDanhMucFilter(e.target.value)}
-                  className="px-4 py-2.5 border border-zinc-200 rounded-xl bg-white text-xs outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 text-secondary font-bold shadow-sm cursor-pointer"
+                  className="px-4 py-2.5 border border-zinc-200 dark:border-zinc-800 rounded-xl bg-slate-50 dark:bg-zinc-950 text-xs outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 text-secondary dark:text-zinc-100 font-bold shadow-2xs cursor-pointer w-full lg:w-56"
                 >
                   {DANH_MUC_FILTERS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                 </select>
+
+                <button
+                  onClick={() => { setEditingArticle(null); setIsEditorOpen(true); }}
+                  className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-bold rounded-xl shadow-md shadow-teal-600/20 transition-all text-xs shrink-0 cursor-pointer w-full lg:w-auto"
+                >
+                  <PenSquare size={14} /> Viết bài mới
+                </button>
               </div>
 
-              <div className="flex border-t border-slate-100 pt-4 items-center gap-2 overflow-x-auto pb-1">
+              <div className="flex border-t border-slate-100 dark:border-zinc-800 pt-3 items-center gap-2 overflow-x-auto pb-1">
                 {(['all', 'xuat_ban', 'nhap', 'ngung_su_dung'] as const).map(status => (
                   <button
                     key={status}
@@ -172,12 +164,12 @@ export default function ManageArticles() {
                     }`}
                   >
                     {status === 'all'
-                      ? 'Tất cả trạng thái'
+                      ? `Tất cả (${articles.length})`
                       : status === 'xuat_ban'
-                      ? 'Đã đăng'
+                      ? `Đã đăng (${publishedCount})`
                       : status === 'nhap'
-                      ? 'Bản nháp'
-                      : 'Đã gỡ'}
+                      ? `Bản nháp (${draftCount})`
+                      : `Đã gỡ (${suspendedCount})`}
                   </button>
                 ))}
               </div>

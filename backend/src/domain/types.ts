@@ -5,6 +5,6 @@ export type LoaiCuocHen = 'KHAM' | 'KHAM_MOI' | 'DICH_VU_LE' | 'DIEU_TRI';
 
 export type HinhThucThanhToanGoi = 'tra_thang' | 'tung_buoi';
 
-export type NoShowAction = 'da_huy' | 'khong_den' | 'khach_khong_den';
+export type NoShowAction = 'da_huy' | 'khong_den';
 
 export type PaymentInstallment = 'tron_goi' | 'buoi_le' | 'phi_kham' | 'con_lai';

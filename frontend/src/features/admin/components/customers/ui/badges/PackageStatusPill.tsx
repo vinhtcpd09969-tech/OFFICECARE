@@ -46,14 +46,14 @@ export function RecordViewButton({ hasRecord, onClick }: { hasRecord?: boolean; 
       type="button"
       onClick={onClick}
       title="Xem hồ sơ điều trị"
-      className={`recovery-arc-scope inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all hover:-translate-y-0.5 active:scale-95 whitespace-nowrap cursor-pointer ${
+      className={`h-8 inline-flex items-center gap-1.5 px-2.5 rounded-lg text-xs font-semibold border transition-all hover:bg-slate-50 dark:hover:bg-slate-800 whitespace-nowrap cursor-pointer shadow-xs shrink-0 ${
         hasRecord
-          ? 'bg-teal-50 text-teal-700 border-teal-300 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-800'
-          : 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+          ? 'bg-teal-50/80 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-800'
+          : 'bg-white text-slate-700 border-slate-200/80 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800'
       }`}
     >
-      <ClipboardPlus size={13} className={hasRecord ? 'text-teal-600' : 'text-slate-500'} />
-      Hồ sơ
+      <ClipboardPlus size={13} className={hasRecord ? 'text-teal-600 dark:text-teal-400' : 'text-slate-400'} />
+      <span>Hồ sơ</span>
     </button>
   );
 }

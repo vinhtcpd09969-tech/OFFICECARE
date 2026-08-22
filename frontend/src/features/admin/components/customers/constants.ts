@@ -1,4 +1,4 @@
-import type { ReputationTier, TreatmentPlanStatus } from './types';
+import type { TreatmentPlanStatus } from './types';
 
 // Nhãn trạng thái THẬT của 1 gói liệu trình — dùng ở khối "Gói liệu trình" (tab "Hồ sơ điều trị").
 export const PLAN_STATUS_META: Record<TreatmentPlanStatus, { label: string }> = {
@@ -7,16 +7,6 @@ export const PLAN_STATUS_META: Record<TreatmentPlanStatus, { label: string }> = 
   hoan_thanh: { label: 'Hoàn thành' },
   huy: { label: 'Đã hủy' }
 };
-
-export const REPUTATION_TIER_OPTIONS: { value: ReputationTier | 'all'; label: string }[] = [
-  { value: 'all', label: 'Tất cả' },
-  { value: 'low', label: '0–40' },
-  { value: 'mid', label: '41–70' },
-  { value: 'high', label: '71–100' }
-];
-
-export { getReputationTier } from '../../../../utils/reputation';
-
 export const DEFAULT_PAGE_SIZE = 20;
 
 // Khối "Ca khám & dịch vụ lẻ hoàn thành" nằm phía trên "Gói liệu trình" trong cùng 1 màn hình —

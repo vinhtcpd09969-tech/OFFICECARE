@@ -30,7 +30,6 @@ interface AppointmentData {
   ten_phong: string | null;
   chan_doan: string | null;
   chong_chi_dinh: string | null;
-  ly_do_huy: string | null;
   ghi_chu_noi_bo?: string | null;
   thoi_gian_huy: string | null;
   ly_do_kham: string | null;
@@ -197,7 +196,7 @@ export default function BookingSuccess() {
           </h1>
           <p className="text-sm text-slate-500 font-semibold max-w-xl mx-auto leading-relaxed">
             {isCancelled
-              ? `Lịch hẹn này đã bị hủy. Lý do: "${appointment.ly_do_huy || appointment.ghi_chu_noi_bo || 'Hủy bởi hệ thống'}"`
+              ? `Lịch hẹn này đã bị hủy. Lý do: "${appointment.ghi_chu_noi_bo || 'Hủy bởi hệ thống'}"`
               : 'Lịch hẹn của bạn đã được tiếp nhận và xác nhận thành công. Vui lòng tới phòng khám đúng buổi đã chọn để check-in.'}
           </p>
         </div>

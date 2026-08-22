@@ -92,7 +92,7 @@ export const saveAssessment = async (req: AuthenticatedRequest, res: Response) =
   try {
     const userId = req.user?.id;
     const {
-      lich_dat_id, chan_doan, chong_chi_dinh, goi_dich_vu_id, ghi_chu,
+      lich_dat_id, chan_doan, chong_chi_dinh, goi_dich_vu_id, goi_dich_vu_ids, ghi_chu,
       resolvePendingConflict, is_reassessment, han_tai_kham,
       vas_score, rom_data, mmt_data
     } = req.body;
@@ -113,6 +113,7 @@ export const saveAssessment = async (req: AuthenticatedRequest, res: Response) =
       chan_doan: finalChanDoan,
       chong_chi_dinh: finalChongChiDinh,
       goi_dich_vu_id: goi_dich_vu_id || null,
+      goi_dich_vu_ids: goi_dich_vu_ids || (goi_dich_vu_id ? [goi_dich_vu_id] : []),
       ghi_chu: finalGhiChu,
       resolvePendingConflict,
       is_reassessment: Boolean(is_reassessment),
@@ -144,7 +145,7 @@ export const saveAssessmentDraft = async (req: AuthenticatedRequest, res: Respon
     const userId = req.user?.id;
     const {
       lich_dat_id, chan_doan, chong_chi_dinh, ghi_chu,
-      vas_score, rom_data, mmt_data, selected_package_id
+      vas_score, rom_data, mmt_data, selected_package_id, selected_package_ids
     } = req.body;
 
     if (!userId) {
@@ -163,6 +164,7 @@ export const saveAssessmentDraft = async (req: AuthenticatedRequest, res: Respon
       rom_data,
       mmt_data,
       selected_package_id,
+      selected_package_ids: selected_package_ids || (selected_package_id ? [selected_package_id] : []),
     });
 
     res.json({

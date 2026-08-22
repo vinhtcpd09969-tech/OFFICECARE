@@ -1,6 +1,6 @@
-﻿import { Router, Request, Response, NextFunction } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { chatWithAI, getChatHistory, getMyChatHistory } from '../controllers/ai.controller';
+import { chatWithAI, getChatHistory, getMyChatHistory, analyzeVasProgression } from '../controllers/ai.controller';
 import { aiRateLimiter } from '../middlewares/rateLimit.middleware';
 import { verifyToken, authorizeRoles } from '../middlewares/auth.middleware';
 
@@ -32,5 +32,6 @@ const optionalVerifyToken = (req: Request, res: Response, next: NextFunction) =>
 router.post('/chat', optionalVerifyToken, aiRateLimiter, chatWithAI);
 router.get('/chat/history', optionalVerifyToken, getChatHistory);
 router.get('/chat/history/me', verifyToken, authorizeRoles(1), getMyChatHistory);
+router.post('/analyze-vas', optionalVerifyToken, analyzeVasProgression);
 
 export default router;

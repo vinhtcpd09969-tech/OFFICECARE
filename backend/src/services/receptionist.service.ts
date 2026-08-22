@@ -9,6 +9,7 @@ import {
 import { checkReceptionistTransition, isReceptionistLockedStatus } from '../domain/appointmentStatus';
 import { needsFollowUp } from '../domain/customerFollowUp';
 import { HinhThucThanhToanGoi, LoaiGoi } from '../domain/types';
+import { sendPaymentReceiptEmail } from '../utils/mailer';
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   tra_thang: 'Trả thẳng 100%',
@@ -16,7 +17,7 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
 };
 
 class ReceptionistService {
-  async updateAppointmentStatus(id: string, trang_thai: string, ghi_chu_noi_bo?: string, ly_do_huy?: string) {
+  async updateAppointmentStatus(id: string, trang_thai: string, ghi_chu_noi_bo?: string) {
     const currentApt = await pool.query('SELECT trang_thai, nhan_su_id FROM cuoc_hen WHERE id = $1', [id]);
     if (currentApt.rows.length === 0) throw new Error('Không tìm thấy lịch hẹn');
     const currentStatus = currentApt.rows[0].trang_thai;
@@ -45,7 +46,7 @@ class ReceptionistService {
       await assertTraGopDot2PaidBeforeCheckin(pool, id);
     }
 
-    const appointment = await receptionistRepository.updateAppointmentStatus(id, trang_thai, ghi_chu_noi_bo, ly_do_huy);
+    const appointment = await receptionistRepository.updateAppointmentStatus(id, trang_thai, ghi_chu_noi_bo);
     if (!appointment) throw new Error('Không tìm thấy lịch hẹn');
 
     return appointment;
@@ -165,7 +166,14 @@ class ReceptionistService {
 
     if (ma_voucher) {
       const voucher = await receptionistRepository.getVoucherByCode(ma_voucher);
-      await this.assertVoucherUsable(voucher, loai_thanh_toan, khach_hang_id);
+      let currentLoaiGoi: 'KHAM' | 'LE' | 'LIEU_TRINH' = 'KHAM';
+      if (item_type === 'goi') {
+        const pkg = await receptionistRepository.getPackageById(item_id);
+        currentLoaiGoi = pkg?.loai_goi === 'LE' ? 'LE' : (pkg?.loai_goi === 'KHAM' ? 'KHAM' : 'LIEU_TRINH');
+      } else {
+        currentLoaiGoi = 'KHAM';
+      }
+      await this.assertVoucherUsable(voucher, loai_thanh_toan, khach_hang_id, 'tai_quay', currentLoaiGoi);
 
       // Check minimum order value
       if (gia_goc_goi < Number(voucher.don_hang_toi_thieu)) {
@@ -238,9 +246,6 @@ class ReceptionistService {
       chi_phi_kham,
       giam_tru_kham_truoc_do,
       mien_phi_kham_chua_dong,
-      // C11/A19 — hóa đơn gói không còn miễn/khấu trừ phí khám nào để snapshot; cột giữ đọc lịch sử
-      // cho hóa đơn CŨ, ngừng ghi mới (luôn 0 từ nay).
-      phi_kham_ap_dung: 0,
       don_gia_theo_buoi,
       ngay_thanh_toan_kham: ngay_thanh_toan_kham_str,
       ma_hoa_don_kham: ma_hoa_don_kham_str,
@@ -287,19 +292,12 @@ class ReceptionistService {
       ? voucher.yeu_cau_thanh_toan
       : (voucher.yeu_cau_thanh_toan ? [voucher.yeu_cau_thanh_toan] : []);
     const hasPaymentRestriction = yeuCauThanhToan.length > 0 && !yeuCauThanhToan.includes('tat_ca');
-    if (hasPaymentRestriction && (!loai_thanh_toan || !yeuCauThanhToan.includes(loai_thanh_toan))) {
+    if (hasPaymentRestriction && loai_goi === 'LIEU_TRINH' && (!loai_thanh_toan || !yeuCauThanhToan.includes(loai_thanh_toan))) {
       const labels = yeuCauThanhToan.map((v) => PAYMENT_METHOD_LABELS[v] || v).join(', ');
-      throw new Error(`Mã giảm giá này chỉ áp dụng cho hình thức thanh toán: ${labels}`);
+      throw new Error(`Mã giảm giá này chỉ áp dụng cho hình thức thanh toán gói: ${labels}`);
     }
 
-    const kenhApDung: string[] = Array.isArray(voucher.kenh_ap_dung)
-      ? voucher.kenh_ap_dung
-      : (voucher.kenh_ap_dung ? [voucher.kenh_ap_dung] : []);
-    const hasKenhRestriction = kenhApDung.length > 0 && !kenhApDung.includes('tat_ca');
-    if (hasKenhRestriction && kenh && !kenhApDung.includes(kenh)) {
-      const kenhLabel = kenhApDung.map(k => k === 'online' ? 'Website Online' : k === 'tai_quay' ? 'Lễ tân tại quầy' : k).join(', ');
-      throw new Error(`Mã giảm giá này chỉ áp dụng cho kênh thanh toán: ${kenhLabel}`);
-    }
+
 
     const loaiGoiApDung: string[] = Array.isArray(voucher.loai_goi_ap_dung)
       ? voucher.loai_goi_ap_dung
@@ -311,7 +309,7 @@ class ReceptionistService {
     }
   }
 
-  async getActiveVouchers(khach_hang_id: string) {
+  async getActiveVouchers(khach_hang_id?: string) {
     return receptionistRepository.getActiveVouchers(khach_hang_id);
   }
 
@@ -429,7 +427,6 @@ class ReceptionistService {
 
       const invoiceData = {
         lich_dieu_tri_id: finalLdtId,
-        phi_kham_ap_dung: calc.phi_kham_ap_dung,
         khach_hang_id: ldt.khach_hang_id,
         item_type: 'goi',
         tong_tien_truoc_giam: calc.gia_goc,
@@ -486,7 +483,6 @@ class ReceptionistService {
       lich_dat_id,
       ten_item: calc.ten_item,
       so_buoi_goi: calc.so_buoi_goi,
-      phi_kham_ap_dung: calc.phi_kham_ap_dung,
       ho_ten_khach: tenKhach,
       so_dien_thoai: sdtKhach,
       ghi_chu: null
@@ -733,6 +729,39 @@ class ReceptionistService {
     const displayPaymentAmount = (hd.loai_thanh_toan === 'tung_buoi' && da_thanh_toan_truoc === 0 && actualPaymentAmount === 0)
       ? requiredDot1
       : actualPaymentAmount;
+
+    // Tự động gửi email biên lai thanh toán thành công tới Gmail khách hàng (chạy ngầm, không block response)
+    (async () => {
+      try {
+        const customerInfo = await pool.query(`
+          SELECT kh.ho_ten, kh.email, g.ten_goi, g.so_buoi
+          FROM hoa_don hd
+          JOIN khach_hang kh ON hd.khach_hang_id = kh.id
+          LEFT JOIN goi_dich_vu g ON hd.goi_dich_vu_id = g.id
+          WHERE hd.id = $1
+        `, [hoa_don_id]);
+
+        if (customerInfo.rows.length > 0 && customerInfo.rows[0].email) {
+          const cust = customerInfo.rows[0];
+          await sendPaymentReceiptEmail({
+            toEmail: cust.email,
+            userName: cust.ho_ten || 'Quý khách',
+            maHoaDon: hd.ma_hoa_don || `HD-${hoa_don_id.slice(0, 6).toUpperCase()}`,
+            tenDichVu: cust.ten_goi || hd.ten_dich_vu || 'Dịch vụ phục hồi chức năng',
+            soTienThanhToan: actualPaymentAmount || displayPaymentAmount,
+            tongTienHoaDon: tong_tien,
+            daThanhToan: da_thanh_toan_moi,
+            conLai: Math.max(0, tong_tien - da_thanh_toan_moi),
+            phuongThuc: phuong_thuc || 'tien_mat',
+            hinhThucGoi: loai_thanh_toan || undefined,
+            soBuoi: cust.so_buoi || undefined,
+            ngayThanhToan: new Date()
+          });
+        }
+      } catch (err) {
+        console.error('Không thể gửi email biên lai thanh toán tự động:', err);
+      }
+    })();
 
     return { 
       success: true, 

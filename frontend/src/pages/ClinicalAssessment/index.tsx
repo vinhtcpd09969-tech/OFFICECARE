@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Stethoscope, Activity, CheckCircle2, FileText, Monitor } from 'lucide-react';
+import { Stethoscope, Activity, CheckCircle2, FileText, Monitor, Zap, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import api from '../../api/axios';
 import { PatientHeaderBanner } from '../../features/clinical/components/PatientHeaderBanner';
 import { SpecialistAssessmentDesk } from '../../features/clinical/components/SpecialistAssessmentDesk';
 import { TechnicianTreatmentDesk } from '../../features/clinical/components/TechnicianTreatmentDesk';
@@ -19,7 +20,6 @@ import {
   getAppointmentDetail as getAppointmentDetailKtv,
   saveTreatmentRecord,
   saveTreatmentDraft,
-  getActiveSession as getActiveSessionKtv,
 } from '../../features/technician/api/technician.api';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -43,6 +43,23 @@ export function ClinicalAssessment() {
   const [ktvActiveId, setKtvActiveId] = useState<string | undefined>(undefined);
   const [overtimeConfirm, setOvertimeConfirm] = useState<{ id: string; message: string } | null>(null);
   const ktvOpenIds = Object.keys(ktvOpenAppointments);
+
+  // Thông tin phòng & thiết bị y tế của KTV
+  const [workstation, setWorkstation] = useState<{
+    phong: { phong_id: number; ten_phong: string; ma_phong: string; gio_bat_dau: string; gio_ket_thuc: string; loai_phong?: string } | null;
+    thiet_bi: Array<{ id: string; ma_thiet_bi: string; ten_thiet_bi: string; trang_thai: string; ghi_chu?: string }>;
+  } | null>(null);
+  const [showRoomDevicesModal, setShowRoomDevicesModal] = useState(false);
+
+  useEffect(() => {
+    if (!isKtv) return;
+    const aptId = params.id || ktvActiveId;
+    api.get('/technician/workstation-info', {
+      params: aptId ? { appointment_id: aptId } : undefined
+    })
+      .then((res) => setWorkstation(res.data))
+      .catch(() => {});
+  }, [isKtv, params.id, ktvActiveId]);
 
   const loadQueueData = async () => {
     try {
@@ -101,90 +118,59 @@ export function ClinicalAssessment() {
     return () => {
       cancelled = true;
     };
-  }, [isKtv, selectedAppointmentId]);
+  }, [isKtv, selectedAppointmentId, navigate]);
 
-  // ---- KTV: đồng bộ route + tải TOÀN BỘ các bàn đang 'dang_kham' của KTV này
+  // ---- KTV: đồng bộ route -> mở bàn trị liệu tương ứng
   useEffect(() => {
     if (!isKtv) return;
     const routeId = params.id;
-    let cancelled = false;
+    if (!routeId) return;
 
+    let cancelled = false;
     (async () => {
       try {
-        // 1. Lấy tất cả ca đang 'dang_kham' của KTV này từ server
-        const resSessions = await getActiveSessionKtv();
+        const res = await getAppointmentDetailKtv(routeId);
         if (cancelled) return;
-        const activeList = resSessions.data || [];
-
-        // Tập hợp danh sách ID cần tải chi tiết
-        const idsToFetch = new Set<string>(activeList.map((s) => s.id));
-        if (routeId) {
-          idsToFetch.add(routeId);
-        }
-
-        if (idsToFetch.size === 0) {
-          setKtvOpenAppointments({});
-          setKtvActiveId(undefined);
-          return;
-        }
-
-        // Tải song song chi tiết tất cả các bàn đang mở
-        const detailPromises = Array.from(idsToFetch).map(async (id) => {
-          try {
-            const detailRes = await getAppointmentDetailKtv(id);
-            return { id, data: detailRes.data };
-          } catch (err: any) {
-            const errorCode = err?.response?.data?.errorCode;
-            const message = err?.response?.data?.message || 'Không mở được bàn trị liệu này.';
-            if (errorCode === 'SHIFT_OVERTIME_WARNING' && id === routeId) {
-              setOvertimeConfirm({ id, message });
-            }
-            return null;
-          }
-        });
-
-        const results = await Promise.all(detailPromises);
+        setKtvOpenAppointments((prev) => ({
+          ...prev,
+          [routeId]: res.data,
+        }));
+        setKtvActiveId(routeId);
+      } catch (err: any) {
         if (cancelled) return;
+        const msg = err?.response?.data?.message || '';
+        const isOvertimeBlock = err?.response?.status === 409 && msg.includes('quá thời lượng dự kiến');
 
-        const newMap: Record<string, any> = {};
-        results.forEach((r) => {
-          if (r && r.data) {
-            newMap[r.id] = r.data;
-          }
-        });
-
-        setKtvOpenAppointments(newMap);
-
-        if (routeId && newMap[routeId]) {
-          setKtvActiveId(routeId);
-        } else if (activeList.length > 0 && newMap[activeList[0].id]) {
-          setKtvActiveId(activeList[0].id);
-          if (!routeId) {
-            navigate(`/technician/appointments/${activeList[0].id}/assess`, { replace: true });
-          }
+        if (isOvertimeBlock) {
+          setOvertimeConfirm({ id: routeId, message: msg });
+        } else {
+          console.error('Lỗi khi mở bàn KTV:', err);
+          toast.error(msg || 'Không mở được ca trị liệu này.');
+          navigate('/technician/appointments');
         }
-      } catch (err) {
-        console.error('Lỗi tải danh sách bàn KTV đang mở:', err);
       }
     })();
 
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isKtv, params.id]);
+  }, [isKtv, params.id, navigate]);
 
+  // Xử lý xác nhận mở bàn 2 dù bàn 1 quá giờ
   const confirmOvertimeOpen = async () => {
     if (!overtimeConfirm) return;
     const { id } = overtimeConfirm;
     setOvertimeConfirm(null);
     try {
       const res = await getAppointmentDetailKtv(id, true);
-      setKtvOpenAppointments((prev) => ({ ...prev, [id]: res.data }));
+      setKtvOpenAppointments((prev) => ({
+        ...prev,
+        [id]: res.data,
+      }));
       setKtvActiveId(id);
+      navigate(`/technician/appointments/${id}/assess`);
     } catch (err: any) {
-      console.error('Lỗi khi mở bàn 2:', err);
-      toast.error(err?.response?.data?.message || 'Không mở được bàn trị liệu này.');
+      toast.error(err?.response?.data?.message || 'Lỗi khi mở bàn.');
       navigate('/technician/appointments');
     }
   };
@@ -192,6 +178,23 @@ export function ClinicalAssessment() {
   const cancelOvertimeOpen = () => {
     setOvertimeConfirm(null);
     navigate('/technician/appointments');
+  };
+
+  // Lưu nháp lượng giá (Chuyên viên)
+  const handleSaveAssessmentDraft = async (appointmentId: string, data: any) => {
+    try {
+      await saveAssessmentDraftDoctor({
+        lich_dat_id: appointmentId,
+        chan_doan: data.clinicalConclusion,
+        chong_chi_dinh: data.contraindications,
+        ghi_chu: data.notes,
+        vas_score: data.vasScore,
+        rom_data: data.romData,
+        mmt_data: data.mmtData,
+      });
+    } catch (err) {
+      console.error('Lỗi tự động lưu nháp lượng giá:', err);
+    }
   };
 
   // Nộp kết quả Hoàn thành Lượng Giá
@@ -202,7 +205,7 @@ export function ClinicalAssessment() {
       lich_dat_id: selectedAppointmentId,
       chan_doan: data.clinicalConclusion?.trim() || 'Chưa điền',
       chong_chi_dinh: data.contraindications?.trim() || 'Chưa điền',
-      goi_dich_vu_id: data.selectedPackageId,
+      goi_dich_vu_id: data.selectedPackageId || null,
       ghi_chu: data.notes,
       vas_score: data.vasScore,
       rom_data: data.romData,
@@ -215,7 +218,7 @@ export function ClinicalAssessment() {
     navigate('/doctor/appointments');
   };
 
-  // Nộp Hẹn Tái Khám
+  // Nộp Hẹn Tái Khám (Hẹn quay lại)
   const handleScheduleReassessment = async (
     limitDate: string,
     notes?: string,
@@ -233,7 +236,7 @@ export function ClinicalAssessment() {
       lich_dat_id: selectedAppointmentId,
       chan_doan: assessmentData?.clinicalConclusion?.trim() || currentAppointment?.chan_doan || 'Chưa thể kết luận',
       chong_chi_dinh: assessmentData?.contraindications?.trim() || 'Chưa điền',
-      ghi_chu: notes ? `[Hẹn tái khám hạn: ${limitDate}] ${notes}` : `Hẹn tái khám hạn: ${limitDate}`,
+      ghi_chu: notes ? notes : (limitDate ? `[Hạn tái lượng giá: ${limitDate}]` : null),
       is_reassessment: true,
       han_tai_kham: limitDate,
       vas_score: assessmentData?.vasScore,
@@ -289,38 +292,16 @@ export function ClinicalAssessment() {
     }).catch((err) => console.error('Lỗi lưu nháp buổi trị liệu:', err));
   };
 
-  const handleSaveAssessmentDraft = (
-    appointmentId: string,
-    data: {
-      vasScore: number;
-      romData: any[];
-      mmtData: any[];
-      clinicalConclusion: string;
-      contraindications: string;
-      selectedPackageId?: string;
-    }
-  ) => {
-    saveAssessmentDraftDoctor({
-      lich_dat_id: appointmentId,
-      chan_doan: data.clinicalConclusion,
-      chong_chi_dinh: data.contraindications,
-      vas_score: data.vasScore,
-      rom_data: data.romData,
-      mmt_data: data.mmtData,
-      selected_package_id: data.selectedPackageId,
-    }).catch((err) => console.error('Lỗi lưu nháp lượng giá:', err));
-  };
-
   const redirectPath = isKtv ? '/technician/appointments' : '/doctor/appointments';
 
-  // ==================== NHÁNH KTV — hỗ trợ 2 bàn song song ====================
+  // ==================== RENDER ====================
   if (isKtv) {
     const activeApt = ktvActiveId ? ktvOpenAppointments[ktvActiveId] : null;
     const activePatientId = activeApt?.khach_hang_id || activeApt?.khach_hang?.id || activeApt?.id || '';
     const activePatientName = activeApt?.ten_khach_hang || 'Khách hàng';
 
     return (
-      <div className="max-w-7xl mx-auto p-4 sm:p-6 space-y-6 bg-[#F8FAFC] dark:bg-zinc-950 min-h-screen font-jakarta">
+      <div className="w-full space-y-6 font-jakarta">
         <ConfirmDialog
           isOpen={!!overtimeConfirm}
           title="Mở bàn trị liệu thứ 2?"
@@ -357,7 +338,7 @@ export function ClinicalAssessment() {
           </div>
         ) : (
           <div className="space-y-6">
-            {/* THANH ĐIỀU HƯỚNG TÁP: BÀN LÀM VIỆC vs LỊCH SỬ ĐIỀU TRỊ + DROPDOWN BÀN ĐANG MỞ */}
+            {/* THANH ĐIỀU HƯỚNG TÁP: BÀN LÀM VIỆC vs LỊCH SỬ ĐIỀU TRỊ + THIẾT BỊ PHÒNG + DROPDOWN BÀN ĐANG MỞ */}
             <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-2 shadow-2xs">
               {/* Tab Selector */}
               <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-zinc-800/80 rounded-xl">
@@ -388,12 +369,24 @@ export function ClinicalAssessment() {
                 </button>
               </div>
 
-              {/* Dropdown danh sách bàn KTV đang mở */}
-              {ktvOpenIds.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider hidden sm:inline">
-                    Bàn đang mở:
+              {/* Action Toolbar bên phải: Nút Thiết bị y tế trong phòng + Dropdown Bàn mở */}
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Nút xem thiết bị y tế trong phòng */}
+                <button
+                  type="button"
+                  onClick={() => setShowRoomDevicesModal(true)}
+                  className="px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border border-teal-200/80 dark:border-teal-800 hover:bg-teal-100 dark:hover:bg-teal-900/60 cursor-pointer shadow-2xs"
+                  title="Xem danh sách thiết bị y tế đã cấu hình vào phòng trực"
+                >
+                  <Zap size={14} className="text-teal-600 dark:text-teal-400" />
+                  <span>Thiết bị trong phòng</span>
+                  <span className="px-1.5 py-0.2 rounded-md bg-teal-200/80 dark:bg-teal-800 text-[10px] font-mono font-bold">
+                    {workstation?.thiet_bi?.length || 0}
                   </span>
+                </button>
+
+                {/* Dropdown danh sách bàn KTV đang mở */}
+                {ktvOpenIds.length > 0 && (
                   <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-zinc-800 p-1 rounded-xl border border-slate-200/80 dark:border-zinc-700">
                     {ktvOpenIds.map((id, idx) => {
                       const apt = ktvOpenAppointments[id];
@@ -415,8 +408,8 @@ export function ClinicalAssessment() {
                       );
                     })}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             {/* TAB CONTENT: BÀN LÀM VIỆC VS LỊCH SỬ ĐIỀU TRỊ (EMR) */}
@@ -447,6 +440,8 @@ export function ClinicalAssessment() {
                         vas_truoc: apt.vas_truoc !== undefined && apt.vas_truoc !== null ? apt.vas_truoc : undefined,
                         trang_thai: apt.trang_thai,
                         ten_dich_vu: apt.ten_dich_vu,
+                        so_thu_tu_buoi: apt.so_thu_tu_buoi,
+                        pd_tong_so_buoi: apt.pd_tong_so_buoi,
                         thoi_luong_phut: apt.thoi_luong_phut,
                         thoi_gian_bat_dau: apt.thoi_gian_bat_dau || apt.thoi_gian_goi_vao || apt.thoi_gian_checkin,
                       }}
@@ -465,6 +460,120 @@ export function ClinicalAssessment() {
             )}
           </div>
         )}
+
+        {/* MODAL XEM THIẾT BỊ Y TẾ CỦA PHÒNG TRỰC KTV */}
+        {showRoomDevicesModal && (
+          <div className="fixed inset-0 z-50 bg-slate-955/65 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-6 max-w-xl w-full shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 max-h-[85vh] flex flex-col font-jakarta">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="size-11 rounded-2xl bg-teal-500/15 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold shrink-0">
+                    <Zap size={22} />
+                  </div>
+                  <div>
+                    <h3 className="font-heading text-base font-black text-slate-900 dark:text-zinc-100 uppercase tracking-wide">
+                      Thiết Bị Y Tế Trong Phòng Trực
+                    </h3>
+                    <p className="text-xs text-slate-500 font-semibold mt-0.5">
+                      {workstation?.phong ? (
+                        <>
+                          <span className="font-bold text-teal-700 dark:text-teal-300">🏢 {workstation.phong.ten_phong}</span>
+                          <span className="mx-1.5">·</span>
+                          <span className="font-mono">{workstation.phong.ma_phong}</span>
+                          <span className="mx-1.5">·</span>
+                          <span>Ca trực: {workstation.phong.gio_bat_dau} - {workstation.phong.gio_ket_thuc}</span>
+                        </>
+                      ) : (
+                        'Chưa xác định phòng trực hôm nay'
+                      )}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowRoomDevicesModal(false)}
+                  className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Modal Body: Danh sách thiết bị */}
+              <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
+                {workstation?.thiet_bi && workstation.thiet_bi.length > 0 ? (
+                  workstation.thiet_bi.map((tb) => (
+                    <div
+                      key={tb.id}
+                      className="p-3.5 rounded-2xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200/70 dark:border-zinc-700 flex items-center justify-between gap-3"
+                    >
+                      <div className="min-w-0 space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-xs font-black text-slate-900 dark:text-zinc-100 truncate">
+                            {tb.ten_thiet_bi}
+                          </h4>
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-white dark:bg-zinc-700 text-slate-600 dark:text-zinc-300 border border-slate-200 dark:border-zinc-600">
+                            {tb.ma_thiet_bi}
+                          </span>
+                        </div>
+                        {tb.ghi_chu && (
+                          <p className="text-[11px] text-slate-500 dark:text-zinc-400 truncate">
+                            {tb.ghi_chu}
+                          </p>
+                        )}
+                      </div>
+
+                      {(() => {
+                        const isBaoTri = tb.trang_thai === 'dang_bao_tri' || tb.trang_thai === 'tam_dung';
+                        const isNgungSuDung = tb.trang_thai === 'ngung_su_dung' || tb.trang_thai === 'ngung_hoat_dong';
+
+                        if (isBaoTri) {
+                          return (
+                            <span className="px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider shrink-0 border bg-amber-50 dark:bg-amber-955/50 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800">
+                              ⚠️ Bảo trì
+                            </span>
+                          );
+                        }
+                        if (isNgungSuDung) {
+                          return (
+                            <span className="px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider shrink-0 border bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-700">
+                              ✕ Ngưng sử dụng
+                            </span>
+                          );
+                        }
+                        return (
+                          <span className="px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider shrink-0 border bg-emerald-50 dark:bg-emerald-955/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800">
+                            ✓ Sẵn sàng
+                          </span>
+                        );
+                      })()}
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-8 text-center border border-dashed border-slate-200 dark:border-zinc-800 rounded-2xl space-y-2">
+                    <p className="text-xs font-bold text-slate-500 dark:text-zinc-400">
+                      Phòng trực hiện tại chưa được cấu hình thiết bị y tế nào trong hệ thống.
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                      Quản trị viên có thể gán thiết bị theo phòng tại menu Quản lý Phòng trị liệu.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex justify-end pt-3 border-t border-slate-100 dark:border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => setShowRoomDevicesModal(false)}
+                  className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 font-bold text-xs transition-all cursor-pointer"
+                >
+                  Đóng
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -477,7 +586,7 @@ export function ClinicalAssessment() {
   const docPatientName = currentAppointment?.ten_khach_hang || 'Khách hàng';
 
   return (
-    <div className="max-w-7xl mx-auto p-4 sm:p-6 space-y-6 bg-[#F8FAFC] dark:bg-zinc-950 min-h-screen font-jakarta">
+    <div className="w-full space-y-6 font-jakarta">
       <main className="w-full space-y-6">
         {selectedAppointmentId && currentAppointment ? (
           isCompleted ? (
@@ -513,14 +622,14 @@ export function ClinicalAssessment() {
               </div>
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="w-full space-y-6 font-jakarta">
               {/* THANH ĐIỀU HƯỚNG TÁP BÀN LÀM VIỆC VS LỊCH SỬ ĐIỀU TRỊ (CHUYÊN VIÊN) */}
-              <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-2 shadow-2xs">
-                <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-zinc-800/80 rounded-xl">
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-5 border-b border-slate-100 dark:border-zinc-800">
+                <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-zinc-800/80 rounded-2xl">
                   <button
                     type="button"
                     onClick={() => setActiveDeskTab('desk')}
-                    className={`px-4 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
+                    className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
                       activeDeskTab === 'desk'
                         ? 'bg-gradient-to-r from-teal-600 to-cyan-600 text-white shadow-md shadow-teal-600/25'
                         : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 hover:bg-slate-200/60 dark:hover:bg-zinc-700/60'
@@ -533,7 +642,7 @@ export function ClinicalAssessment() {
                   <button
                     type="button"
                     onClick={() => setActiveDeskTab('emr')}
-                    className={`px-4 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
+                    className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
                       activeDeskTab === 'emr'
                         ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-600/25'
                         : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 hover:bg-slate-200/60 dark:hover:bg-zinc-700/60'
@@ -545,7 +654,7 @@ export function ClinicalAssessment() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="px-3 py-1 rounded-xl text-xs font-black bg-teal-50 dark:bg-teal-950/60 text-[#0d766e] dark:text-teal-400 border border-teal-200/60 dark:border-teal-800">
+                  <span className="px-3.5 py-1.5 rounded-xl text-xs font-black bg-teal-50 dark:bg-teal-950/60 text-[#0d766e] dark:text-teal-400 border border-teal-200/60 dark:border-teal-800">
                     🟢 ĐANG KHÁM: {docPatientName}
                   </span>
                 </div>
@@ -560,7 +669,7 @@ export function ClinicalAssessment() {
                   tuoi={currentAppointment.tuoi}
                 />
               ) : (
-                <>
+                <div className="space-y-6">
                   <PatientHeaderBanner
                     patient={{
                       id: String(currentAppointment.id),
@@ -578,11 +687,14 @@ export function ClinicalAssessment() {
                           : undefined,
                       trang_thai: currentAppointment.trang_thai,
                       ten_dich_vu: currentAppointment.ten_dich_vu,
+                      so_thu_tu_buoi: currentAppointment.so_thu_tu_buoi,
+                      pd_tong_so_buoi: currentAppointment.pd_tong_so_buoi,
                       thoi_luong_phut: currentAppointment.thoi_luong_phut,
                       thoi_gian_bat_dau: currentAppointment.thoi_gian_bat_dau || currentAppointment.thoi_gian_goi_vao || currentAppointment.thoi_gian_checkin,
                     }}
                     onBack={() => navigate(redirectPath)}
                     isKtvMode={false}
+                    compactMode={true}
                   />
 
                   <SpecialistAssessmentDesk
@@ -592,8 +704,9 @@ export function ClinicalAssessment() {
                     onCompleteAssessment={handleCompleteAssessment}
                     onScheduleReassessment={handleScheduleReassessment}
                     onSaveDraft={(data) => handleSaveAssessmentDraft(selectedAppointmentId!, data)}
+                    compactMode={true}
                   />
-                </>
+                </div>
               )}
             </div>
           )

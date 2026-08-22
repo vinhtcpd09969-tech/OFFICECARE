@@ -2,7 +2,7 @@ export type Buoi = 'sang' | 'chieu';
 
 export const BUOI_INFO: Record<Buoi, { label: string; khung: string; batDau: string; ketThuc: string }> = {
   sang: { label: 'Buổi sáng', khung: '7:30 - 12:00', batDau: '07:30', ketThuc: '12:00' },
-  chieu: { label: 'Buổi chiều', khung: '12:00 - 19:30', batDau: '12:00', ketThuc: '19:30' }
+  chieu: { label: 'Buổi chiều', khung: '12:00 - 20:00', batDau: '12:00', ketThuc: '20:00' }
 };
 
 export const fullDateFormatter = new Intl.DateTimeFormat('vi-VN', {

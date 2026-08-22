@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import {
-  Plus,
-  Trash2,
   CheckCircle2,
   FileText,
   Zap,
@@ -49,17 +47,6 @@ interface TechnicianTreatmentDeskProps {
     du_lieu_tri_lieu: { nhat_ky: TreatmentLogItem[] };
   }) => void;
 }
-
-// Preset kỹ thuật bổ sung chuẩn PHCN
-const PRESET_TECHNIQUES = [
-  { name: 'Di động khớp vai / cột sống', icon: '🧘‍♂️' },
-  { name: 'Giải phóng điểm đau & cơ sâu (Myofascial)', icon: '💆‍♂️' },
-  { name: 'Chườm nóng thảo dược / Nhiệt trị liệu', icon: '♨️' },
-  { name: 'Điện xung trị liệu TENS', icon: '⚡' },
-  { name: 'Siêu âm điều trị tần số sâu', icon: '🔊' },
-  { name: 'Tập vận động thụ động & trợ lực', icon: '🏋️‍♂️' },
-  { name: 'Nắn chỉnh mô mềm & xoa bóp trị liệu', icon: '🖐️' },
-];
 
 // Wong-Baker Faces mapping
 const WONG_BAKER_FACES = [
@@ -133,14 +120,8 @@ export function TechnicianTreatmentDesk({
     if (appointmentDetail?.du_lieu_tri_lieu?.nhat_ky?.length) {
       return appointmentDetail.du_lieu_tri_lieu.nhat_ky;
     }
-    const nowStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-    return [
-      { luc: nowStr, noi_dung: packageSteps[0]?.name || 'Chườm nóng & Nhiệt trị liệu' }
-    ];
+    return [];
   });
-
-  // Dynamic input state cho kỹ thuật mới
-  const [newTechniqueName, setNewTechniqueName] = useState('');
 
   // Ghi chú KTV
   const [notes, setNotes] = useState(appointmentDetail?.ghi_chu || '');
@@ -160,7 +141,7 @@ export function TechnicianTreatmentDesk({
         if (parsed.vasTruoc != null) setVasTruoc(parsed.vasTruoc);
         if (parsed.vasSau != null) setVasSau(parsed.vasSau);
         if (parsed.notes != null) setNotes(parsed.notes);
-        if (Array.isArray(parsed.logs) && parsed.logs.length > 0) setLogs(parsed.logs);
+        if (Array.isArray(parsed.logs)) setLogs(parsed.logs);
       }
     } catch (e) {}
   }, [draftKey]);
@@ -194,38 +175,33 @@ export function TechnicianTreatmentDesk({
     setLogs(prev => {
       const existingNames = new Set(prev.map(p => p.noi_dung));
       const filteredNew = newItems.filter(i => !existingNames.has(i.noi_dung));
-      return [...prev, ...filteredNew];
+      const nextLogs = [...prev, ...filteredNew];
+      try {
+        sessionStorage.setItem(draftKey, JSON.stringify({ vasTruoc, vasSau, notes, logs: nextLogs }));
+      } catch (e) {}
+      if (onSaveDraft) {
+        onSaveDraft({ vas_truoc: vasTruoc, vas_sau: vasSau, ghi_chu: notes, du_lieu_tri_lieu: { nhat_ky: nextLogs } });
+      }
+      return nextLogs;
     });
   };
 
-  // Tick / Untick 1 bước trong gói
+  // Tick / Untick 1 bước trong gói (Lưu tức thì 0ms)
   const togglePackageStep = (name: string) => {
-    const exists = logs.some(l => l.noi_dung === name);
-    if (exists) {
-      setLogs(prev => prev.filter(l => l.noi_dung !== name));
-    } else {
-      const timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-      setLogs(prev => [...prev, { luc: timeStr, noi_dung: name }]);
-    }
-  };
-
-  // Thêm nhanh kỹ thuật từ preset bổ sung
-  const handleAddPreset = (name: string) => {
     const timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-    setLogs(prev => [...prev, { luc: timeStr, noi_dung: name }]);
-  };
-
-  // Thêm kỹ thuật tùy chỉnh
-  const handleAddCustomTechnique = () => {
-    if (!newTechniqueName.trim()) return;
-    const timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-    setLogs(prev => [...prev, { luc: timeStr, noi_dung: newTechniqueName.trim() }]);
-    setNewTechniqueName('');
-  };
-
-  // Xóa kỹ thuật
-  const handleRemoveLog = (index: number) => {
-    setLogs(prev => prev.filter((_, i) => i !== index));
+    setLogs(prev => {
+      const exists = prev.some(l => l.noi_dung === name);
+      const nextLogs = exists
+        ? prev.filter(l => l.noi_dung !== name)
+        : [...prev, { luc: timeStr, noi_dung: name }];
+      try {
+        sessionStorage.setItem(draftKey, JSON.stringify({ vasTruoc, vasSau, notes, logs: nextLogs }));
+      } catch (e) {}
+      if (onSaveDraft) {
+        onSaveDraft({ vas_truoc: vasTruoc, vas_sau: vasSau, ghi_chu: notes, du_lieu_tri_lieu: { nhat_ky: nextLogs } });
+      }
+      return nextLogs;
+    });
   };
 
   // Nộp ca trị liệu
@@ -238,6 +214,9 @@ export function TechnicianTreatmentDesk({
         ghi_chu: notes,
         du_lieu_tri_lieu: { nhat_ky: logs },
       });
+      try {
+        sessionStorage.removeItem(draftKey);
+      } catch (e) {}
     } finally {
       setSubmitting(false);
       setShowConfirmModal(false);
@@ -476,8 +455,8 @@ export function TechnicianTreatmentDesk({
             <Zap className="text-cyan-600 dark:text-cyan-400" size={18} />
             <span>Nhật Ký Thao Tác Kỹ Thuật Trị Liệu</span>
           </div>
-          <span className="text-xs font-bold text-slate-400">
-            {logs.length} kỹ thuật đã thực hiện
+          <span className="text-xs font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/50 px-3 py-1 rounded-full border border-teal-200/60 font-mono">
+            {logs.length} / {packageSteps.length} kỹ thuật đã chọn
           </span>
         </div>
 
@@ -486,7 +465,10 @@ export function TechnicianTreatmentDesk({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/60 dark:border-zinc-700/60 pb-2.5">
             <div className="flex items-center gap-2">
               <span className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-zinc-200">
-                📋 Quy trình kỹ thuật chuẩn của gói: <span className="text-teal-600 dark:text-teal-400">{appointmentDetail?.ten_dich_vu || 'Vật lý trị liệu'}</span>
+                📋 Quy trình kỹ thuật chuẩn của gói: <span className="text-teal-600 dark:text-teal-400">
+                  {appointmentDetail?.ten_dich_vu || 'Vật lý trị liệu'}
+                  {appointmentDetail?.so_thu_tu_buoi ? ` (Buổi ${appointmentDetail.so_thu_tu_buoi}${appointmentDetail.pd_tong_so_buoi ? `/${appointmentDetail.pd_tong_so_buoi}` : ''})` : ''}
+                </span>
               </span>
             </div>
 
@@ -528,75 +510,6 @@ export function TechnicianTreatmentDesk({
               );
             })}
           </div>
-        </div>
-
-        {/* THÊM NHANH TỪ PRESET KỸ THUẬT BỔ SUNG */}
-        <div className="space-y-2 pt-1">
-          <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider block">
-            Thêm kỹ thuật bổ sung / phát sinh ngoài gói:
-          </span>
-          <div className="flex flex-wrap gap-2">
-            {PRESET_TECHNIQUES.map(pt => (
-              <button
-                key={pt.name}
-                type="button"
-                onClick={() => handleAddPreset(pt.name)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-teal-50 hover:text-teal-700 dark:bg-zinc-800 dark:hover:bg-teal-950/40 dark:hover:text-teal-300 text-slate-700 dark:text-zinc-300 text-xs font-bold transition-all border border-transparent hover:border-teal-200 cursor-pointer"
-              >
-                <span>{pt.icon}</span>
-                <span>{pt.name}</span>
-                <Plus size={12} className="ml-0.5 text-teal-600" />
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* FORM NHẬP KỸ THUẬT TÙY CHỈNH */}
-        <div className="flex flex-col sm:flex-row gap-3 pt-2">
-          <input
-            type="text"
-            placeholder="Nhập tên kỹ thuật thủ công khác (ví dụ: Tập di động khớp vai)..."
-            value={newTechniqueName}
-            onChange={e => setNewTechniqueName(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddCustomTechnique())}
-            className="flex-1 px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 text-xs font-medium text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500/50"
-          />
-          <button
-            type="button"
-            onClick={handleAddCustomTechnique}
-            className="px-5 py-2.5 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer whitespace-nowrap"
-          >
-            <Plus size={14} />
-            <span>Thêm mục</span>
-          </button>
-        </div>
-
-        {/* DANH SÁCH NHẬT KÝ KỸ THUẬT ĐÃ THỰC HIỆN */}
-        <div className="border border-slate-100 dark:border-zinc-800 rounded-2xl overflow-hidden divide-y divide-slate-100 dark:divide-zinc-800">
-          {logs.length === 0 ? (
-            <div className="p-8 text-center text-slate-400 text-xs font-medium">
-              Chưa ghi nhận kỹ thuật nào. Bấm nút [ ⚡ Tích Chọn Tất Cả Theo Quy Trình Gói ] ở trên hoặc chọn các mục từ danh sách.
-            </div>
-          ) : (
-            logs.map((item, idx) => (
-              <div key={idx} className="p-3.5 bg-white dark:bg-zinc-900 flex items-center justify-between gap-3 hover:bg-slate-50/50 dark:hover:bg-zinc-800/30 transition-all">
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="text-xs font-bold text-slate-800 dark:text-zinc-200 truncate">
-                    {item.noi_dung}
-                  </span>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => handleRemoveLog(idx)}
-                  className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-all shrink-0"
-                  title="Xóa kỹ thuật"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            ))
-          )}
         </div>
       </div>
 

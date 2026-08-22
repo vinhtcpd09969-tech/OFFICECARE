@@ -39,6 +39,7 @@ export interface StaffWorkloadItem {
   gio_ket_thuc: string;
   ten_phong: string | null;
   so_ca_dang_lam: number;
+  so_ca_cho?: number;
   thoi_gian_xong_du_kien_muon_nhat: string | null;
 }
 

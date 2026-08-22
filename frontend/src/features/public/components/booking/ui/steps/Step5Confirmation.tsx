@@ -70,13 +70,13 @@ export function Step5Confirmation({
           
           <div className="sm:col-span-2 border-t border-slate-200/60 pt-3">
             <p className="text-slate-400 font-bold uppercase tracking-wider">
-              {bookingType === 'kham' ? 'Bác sĩ lượng giá' : 'Kỹ thuật viên thực hiện'}
+              {bookingType === 'kham' ? 'Chuyên viên lượng giá' : 'Kỹ thuật viên thực hiện'}
             </p>
             <p className="text-[#2EC4B6] font-extrabold mt-1 text-sm">{selectedStaffName}</p>
           </div>
 
           <div className="sm:col-span-2 border-t border-slate-200/60 pt-3">
-            <p className="text-slate-400 font-bold uppercase tracking-wider">Thời gian khám</p>
+            <p className="text-slate-400 font-bold uppercase tracking-wider">Thời gian lượng giá &amp; trị liệu</p>
             <p className="text-[#0F172A] font-extrabold mt-1 text-sm capitalize">
               {selectedBuoi ? BUOI_INFO[selectedBuoi].label : ''} ({selectedBuoi ? BUOI_INFO[selectedBuoi].khung : ''}) — {formatFullDate(selectedDate)}
             </p>

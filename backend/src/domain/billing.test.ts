@@ -52,24 +52,12 @@ describe('calculatePackageCancellationRefund', () => {
 });
 
 describe('resolveNoShowOutcome', () => {
-  it('Nhóm A (KHAM/LE, không phải gói) hủy -> trừ 10đ', () => {
-    expect(resolveNoShowOutcome('da_huy', null, false)).toEqual({ finalStatus: 'da_huy', reputationPenalty: 10 });
+  it('hủy -> trả về finalStatus da_huy và 0 điểm uy tín', () => {
+    expect(resolveNoShowOutcome('da_huy', null, false)).toEqual({ finalStatus: 'da_huy', reputationPenalty: 0 });
   });
 
-  it('Nhóm A (LIEU_TRINH trả từng buổi) hủy -> trừ 10đ', () => {
-    expect(resolveNoShowOutcome('da_huy', 'tung_buoi', true)).toEqual({ finalStatus: 'da_huy', reputationPenalty: 10 });
-  });
-
-  it('Nhóm B (trả thẳng) hủy -> trừ 10đ y hệt Nhóm A', () => {
-    expect(resolveNoShowOutcome('da_huy', 'tra_thang', true)).toEqual({ finalStatus: 'da_huy', reputationPenalty: 10 });
-  });
-
-  it('Nhóm A (KHAM/LE) không đến -> trừ 20đ', () => {
-    expect(resolveNoShowOutcome('khong_den', null, false)).toEqual({ finalStatus: 'khong_den', reputationPenalty: 20 });
-  });
-
-  it('Nhóm B (trả thẳng) không đến -> KHÔNG trừ điểm (đã mất buổi/tiền)', () => {
-    expect(resolveNoShowOutcome('khong_den', 'tra_thang', true)).toEqual({ finalStatus: 'khong_den', reputationPenalty: 0 });
+  it('không đến -> trả về finalStatus khong_den và 0 điểm uy tín', () => {
+    expect(resolveNoShowOutcome('khong_den', null, false)).toEqual({ finalStatus: 'khong_den', reputationPenalty: 0 });
   });
 });
 

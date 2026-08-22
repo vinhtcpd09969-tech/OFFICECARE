@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { CheckCircle2, DollarSign, CalendarPlus } from 'lucide-react';
 import { updateAppointmentStatus as updateAppointmentStatusAdmin } from '../../../features/admin/api/admin.api';
@@ -13,7 +14,6 @@ function toPlanShape(apt: any) {
     so_tien_da_tra: apt.so_tien_da_tra_goi,
     tong_so_buoi: apt.tong_so_buoi_goi,
     tong_tien_goc: apt.tong_tien_goc_goi,
-    ti_le_giam_gia_goi: apt.ti_le_giam_gia_goi,
     so_tien_giam_voucher: apt.so_tien_giam_voucher_goi,
     trang_thai_hoa_don_goi: apt.trang_thai_hoa_don_goi,
   };
@@ -85,7 +85,7 @@ export function DetailFooter({
             } else if (isPayPerSession) {
               isSessionPaid =
                 !!selectedAppointment.hoa_don_goi_id &&
-                isSessionPaymentSatisfied(toPlanShape(selectedAppointment), currentSessionNum + 1);
+                isSessionPaymentSatisfied(toPlanShape(selectedAppointment), currentSessionNum);
             } else {
               isSessionPaid =
                 selectedAppointment.trang_thai_thanh_toan === 'da_thanh_toan' ||
@@ -151,7 +151,8 @@ export function DetailFooter({
                       type="button"
                       onClick={() => {
                         const calendarPath = isReceptionist ? '/receptionist/appointments' : '/admin/appointments';
-                        navigate(`${calendarPath}?khach_hang_id=${selectedAppointment.khach_hang_id}&goi_dich_vu_id=${selectedAppointment.pd_goi_dich_vu_id || selectedAppointment.goi_dich_vu_id}`);
+                        const todayStr = format(new Date(), 'yyyy-MM-dd');
+                        navigate(`${calendarPath}?khach_hang_id=${selectedAppointment.khach_hang_id}&goi_dich_vu_id=${selectedAppointment.pd_goi_dich_vu_id || selectedAppointment.goi_dich_vu_id}&startDate=${todayStr}&endDate=${todayStr}&view=timeline`);
                         onClose();
                       }}
                       className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-md shadow-emerald-600/20 cursor-pointer"
@@ -163,6 +164,10 @@ export function DetailFooter({
                 </div>
               );
             } else {
+              const paymentLabel = isPayPerSession
+                ? `Thanh toán buổi ${currentSessionNum}`
+                : (isRetail ? 'Thanh toán ngay' : 'Thanh toán liệu trình');
+
               return (
                 <button
                   type="button"
@@ -190,7 +195,7 @@ export function DetailFooter({
                   className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-black text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-md shadow-amber-500/20 cursor-pointer"
                 >
                   <DollarSign size={15} />
-                  <span>{isRetail ? 'Thanh toán ngay' : 'Vui lòng thanh toán liệu trình'}</span>
+                  <span>{paymentLabel}</span>
                 </button>
               );
             }

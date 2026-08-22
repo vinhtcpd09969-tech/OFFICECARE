@@ -1,5 +1,5 @@
 import { useMemo, useState, useRef, useEffect } from 'react';
-import { ChevronDown, ChevronRight, Phone, User2, Clock3, CheckCircle2, DollarSign, Eye, Users, Activity, Sun, Moon, Check, Volume2, ArrowDownCircle, UserX, AlertCircle, Sparkles } from 'lucide-react';
+import { ChevronDown, Phone, User2, Clock3, CheckCircle2, DollarSign, Eye, Users, Activity, Sun, Moon, Check, Volume2, ArrowDownCircle, UserX, AlertCircle, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
 import { Appointment, Staff } from '../types';
 import { useNavigate } from 'react-router-dom';
@@ -213,6 +213,10 @@ interface TodayFlowBoardProps {
   staffFilterOptions?: Array<{ id: string; name: string }>;
   onStaffFilterChange?: (id: string | null) => void;
   onOpenWorkloadModal?: () => void;
+  /** Giải phóng chỉ định nhân sự đích danh, chuyển về Hàng đợi chung (nhan_su_id = null) khi nhân sự bị tắc ca */
+  onUnassign?: (apt: Appointment) => void;
+  /** Component thanh bộ lọc & chuyển tab lịch lượng giá / điều trị (Ảnh 1) gộp chung vào cùng card */
+  filterBar?: React.ReactNode;
 }
 
 function minutesOfDay(d: Date): number {
@@ -282,7 +286,7 @@ function useSucKhoeCa(appointments: Appointment[], staffList: Staff[], schedules
       appointments.forEach((apt) => {
         if (apt.buoi !== buoi) return;
         if (!['da_checkin', 'dang_kham'].includes(apt.trang_thai)) return;
-        const matchNhom = isKham ? (apt.loai_lich === 'kham_moi' || (apt as any).loai === 'KHAM') : (apt.loai_lich === 'dieu_tri' || apt.loai_lich === 'dich_vu_don' || (apt as any).loai !== 'KHAM');
+        const matchNhom = isKham ? apt.loai_lich === 'kham_moi' : (apt.loai_lich === 'dieu_tri' || apt.loai_lich === 'dich_vu_don');
         if (!matchNhom) return;
         total += Number(apt.thoi_luong_phut) || 30;
       });
@@ -386,52 +390,69 @@ function AppointmentRow({
   apt,
   variant,
   staffList,
+  allAppointments = [],
   onOpenDetailModal,
   onQuickCheckin,
   onPushBack,
   onMarkNoShow,
+  onUnassign,
   focusAppointmentId,
 }: {
   apt: Appointment;
   variant: RowVariant;
   staffList: Staff[];
+  allAppointments?: Appointment[];
   onOpenDetailModal: (apt: Appointment) => void;
   onQuickCheckin: (apt: Appointment) => void;
   onPushBack?: (apt: Appointment) => void;
   onMarkNoShow?: (apt: Appointment) => void;
+  onUnassign?: (apt: Appointment) => void;
   focusAppointmentId?: string;
 }) {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const billingRoute = user?.vai_tro_id === 2 ? '/receptionist/billing' : '/admin/quick-billing';
   const meta = statusConfig[apt.trang_thai] || { label: apt.trang_thai, color: 'bg-slate-100 text-slate-700 border-slate-200', icon: null };
-  const isPackageSession = apt.loai_goi === 'LIEU_TRINH' && !!apt.so_thu_tu_buoi;
+  const isPackageSession = Boolean(apt.so_thu_tu_buoi || (apt as any).phac_do_dieu_tri_id || apt.loai_goi === 'LIEU_TRINH');
   const waitMinutes = apt.thoi_gian_checkin
     ? Math.max(0, Math.round((Date.now() - new Date(apt.thoi_gian_checkin).getTime()) / 60000))
     : null;
 
   const isCalledIn = !!apt.thoi_gian_goi_vao && apt.trang_thai === 'da_checkin';
   const missedCalls = apt.so_lan_goi_khong_co_mat || 0;
-  const isFocused = !!focusAppointmentId && String(apt.id) === String(focusAppointmentId);
+  
+  // Highlight màu vàng nổi bật & hiệu ứng nổi nhẹ nhàng khi mascot/liên kết điều hướng tới lịch
+  const [highlighted, setHighlighted] = useState(false);
 
   useEffect(() => {
-    if (isFocused) {
-      const timer = setTimeout(() => {
+    if (focusAppointmentId && String(apt.id) === String(focusAppointmentId)) {
+      setHighlighted(true);
+      const scrollTimer = setTimeout(() => {
         const el = document.getElementById(`appointment-card-${apt.id}`);
         if (el) {
           el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
       }, 150);
-      return () => clearTimeout(timer);
+
+      const fadeTimer = setTimeout(() => {
+        setHighlighted(false);
+      }, 4500);
+
+      return () => {
+        clearTimeout(scrollTimer);
+        clearTimeout(fadeTimer);
+      };
+    } else {
+      setHighlighted(false);
     }
-  }, [isFocused, apt.id]);
+  }, [focusAppointmentId, apt.id]);
 
   return (
     <div
       id={`appointment-card-${apt.id}`}
-      className={`flex items-center gap-4 px-5 py-3.5 border-b border-slate-100 dark:border-zinc-800/80 last:border-b-0 transition-all ${
-        isFocused
-          ? 'bg-amber-100/90 dark:bg-amber-955/60 border-amber-400 ring-4 ring-amber-400/80 shadow-xl shadow-amber-500/20 rounded-2xl my-1.5'
+      className={`flex items-center gap-4 px-5 py-3.5 border-b border-slate-100 dark:border-zinc-800/80 last:border-b-0 transition-all duration-700 ease-out ${
+        highlighted
+          ? 'relative z-20 -translate-y-1.5 scale-[1.015] bg-gradient-to-r from-amber-50 via-amber-100/70 to-amber-50 dark:from-amber-950/80 dark:via-amber-900/60 dark:to-amber-950/80 border-amber-400 dark:border-amber-500 ring-4 ring-amber-400/40 dark:ring-amber-500/30 shadow-2xl shadow-amber-500/25 rounded-2xl my-1.5'
           : isCalledIn
             ? 'bg-amber-50/90 dark:bg-amber-955/40 border-amber-300 dark:border-amber-700/60 ring-2 ring-amber-400/80 shadow-md'
             : 'hover:bg-slate-50/80 dark:hover:bg-zinc-800/40'
@@ -439,9 +460,11 @@ function AppointmentRow({
     >
         {/* Buổi + trạng thái */}
         <div className="w-[110px] shrink-0 flex flex-col gap-1">
-          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-zinc-500">
-            {apt.buoi ? BUOI_LABEL[apt.buoi] : '—'}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-zinc-500">
+              {apt.buoi ? BUOI_LABEL[apt.buoi] : '—'}
+            </span>
+          </div>
           <span className={`inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-md border w-fit shadow-2xs ${meta.color}`}>
             {meta.icon}
             {meta.label}
@@ -472,26 +495,202 @@ function AppointmentRow({
 
       {/* Dịch vụ / gói */}
       <div className="flex-1 min-w-0">
-        <p className="text-xs font-bold text-slate-800 dark:text-zinc-200 truncate">
-          {apt.ten_dich_vu || 'Khám Lâm sàng & Lượng giá'}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-xs font-bold text-slate-800 dark:text-zinc-200">
+            {apt.ten_dich_vu || 'Khám Lâm sàng & Lượng giá'}
+          </span>
           {((apt as any).is_reassessment || (apt as any).trang_thai_cu === 'cho_tai_luong_gia' || apt.trang_thai === 'cho_tai_luong_gia') && (
-            <span className="ml-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-purple-600 text-white shadow-2xs">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-purple-600 text-white shadow-2xs shrink-0">
               <Sparkles size={11} /> 🔄 TÁI LƯỢNG GIÁ
             </span>
           )}
           {isPackageSession && (
-            <span className="ml-1.5 text-[10px] font-black text-[#0d766e] dark:text-emerald-400 bg-teal-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-teal-200/50">
+            <span className="text-[10px] font-black text-[#0d766e] dark:text-emerald-400 bg-teal-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-teal-200/50 shrink-0">
               Buổi {apt.so_thu_tu_buoi}/{apt.tong_so_buoi_goi ?? '?'}
             </span>
           )}
-        </p>
+        </div>
+        {/* DỰ BÁO GIỜ XONG CHO CA ĐANG THỰC HIỆN */}
+        {variant === 'dang_lam' && (() => {
+          const duration = Number((apt as any).thoi_luong_phut) || 30;
+          const startMs = ((apt as any).thoi_gian_bat_dau || apt.ngay_gio_bat_dau) ? new Date((apt as any).thoi_gian_bat_dau || apt.ngay_gio_bat_dau).getTime() : Date.now();
+          const finishMs = startMs + duration * 60000;
+          const finishTimeStr = format(new Date(finishMs), 'HH:mm');
+
+          return (
+            <p className="text-[11px] font-black text-teal-800 dark:text-teal-300 flex items-center gap-1.5 mt-1 bg-teal-50 dark:bg-teal-955/50 px-2.5 py-1 rounded-full border border-teal-200 dark:border-teal-800/60 w-fit">
+              <span>⏰ DỰ KIẾN XONG: <strong>{finishTimeStr}</strong> ({duration}p)</span>
+            </p>
+          );
+        })()}
+
         {variant === 'dang_cho' && waitMinutes !== null && (
-          <p className="text-[11px] text-amber-700 dark:text-amber-400 font-bold flex items-center gap-1 mt-0.5">
-            <Clock3 size={11} /> Chờ {fmtMinutes(waitMinutes)}
-          </p>
+          <div className="space-y-0.5">
+            <p className="text-[11px] text-amber-700 dark:text-amber-400 font-bold flex items-center gap-1 mt-0.5">
+              <Clock3 size={11} /> Chờ {fmtMinutes(waitMinutes)}
+            </p>
+
+            {/* B23 — DỰ BÁO GIỜ GỌI VÀO (DỰ KIẾN GỌI) CHO CA ĐANG CHỜ */}
+            {(() => {
+              const staffId = apt.bac_si_id || (apt as any).nhan_su_id || (apt as any).ky_thuat_vien_id;
+              const allWaiting = (allAppointments || [])
+                .filter(a => a.trang_thai === 'da_checkin' || a.trang_thai === 'cho_tai_luong_gia')
+                .sort((a, b) => {
+                  const isReA = (a as any).is_reassessment || a.trang_thai === 'cho_tai_luong_gia';
+                  const isReB = (b as any).is_reassessment || b.trang_thai === 'cho_tai_luong_gia';
+                  if (isReA && !isReB) return -1;
+                  if (!isReA && isReB) return 1;
+                  return new Date(a.thoi_gian_checkin || a.thoi_gian_tao || 0).getTime() - new Date(b.thoi_gian_checkin || b.thoi_gian_tao || 0).getTime();
+                });
+
+              let estimatedWaitMins = 0;
+              let isFreeNow = false;
+
+              if (staffId) {
+                // 1. Khách chọn ĐÍCH DANH nhân sự staffId
+                const activeSession = (allAppointments || []).find(a => 
+                  String(a.bac_si_id || (a as any).nhan_su_id || (a as any).ky_thuat_vien_id) === String(staffId) && 
+                  a.trang_thai === 'dang_kham'
+                );
+
+                let currentSessionRemaining = 0;
+                if (activeSession) {
+                  const duration = Number((activeSession as any).thoi_luong_phut) || 30;
+                  const startMs = ((activeSession as any).thoi_gian_bat_dau || activeSession.ngay_gio_bat_dau) ? new Date((activeSession as any).thoi_gian_bat_dau || activeSession.ngay_gio_bat_dau).getTime() : Date.now();
+                  const elapsedMins = Math.floor((Date.now() - startMs) / 60000);
+                  currentSessionRemaining = Math.max(1, duration - elapsedMins);
+                }
+
+                const staffQueue = allWaiting.filter(a => String(a.bac_si_id || (a as any).nhan_su_id || (a as any).ky_thuat_vien_id) === String(staffId));
+                const posInQueue = staffQueue.findIndex(a => String(a.id) === String(apt.id));
+
+                let queueBeforeMins = 0;
+                if (posInQueue > 0) {
+                  for (let i = 0; i < posInQueue; i++) {
+                    queueBeforeMins += Number((staffQueue[i] as any).thoi_luong_phut) || 30;
+                  }
+                }
+
+                estimatedWaitMins = currentSessionRemaining + queueBeforeMins;
+                if (!activeSession && posInQueue === 0) {
+                  isFreeNow = true;
+                }
+              } else {
+                // 2. Khách ở HÀNG ĐỢI CHUNG (nhan_su_id === null / Bất kỳ)
+                const workingStaffIds = new Set(
+                  (allAppointments || [])
+                    .filter(a => a.trang_thai === 'dang_kham')
+                    .map(a => String(a.bac_si_id || (a as any).nhan_su_id || (a as any).ky_thuat_vien_id))
+                );
+
+                const commonQueue = allWaiting.filter(a => !a.bac_si_id && !(a as any).nhan_su_id);
+                const posInCommonQueue = commonQueue.findIndex(a => String(a.id) === String(apt.id));
+                const availableStaffCount = staffList.filter(s => !workingStaffIds.has(String(s.id))).length;
+
+                if (availableStaffCount > 0 && posInCommonQueue < availableStaffCount) {
+                  isFreeNow = true;
+                  estimatedWaitMins = 0;
+                } else {
+                  const activeSessions = (allAppointments || []).filter(a => a.trang_thai === 'dang_kham');
+                  if (activeSessions.length > 0) {
+                    const remainingTimes = activeSessions.map(a => {
+                      const duration = Number((a as any).thoi_luong_phut) || 30;
+                      const startMs = ((a as any).thoi_gian_bat_dau || a.ngay_gio_bat_dau) ? new Date((a as any).thoi_gian_bat_dau || a.ngay_gio_bat_dau).getTime() : Date.now();
+                      const elapsedMins = Math.floor((Date.now() - startMs) / 60000);
+                      return Math.max(1, duration - elapsedMins);
+                    });
+                    const minRemainingMins = Math.min(...remainingTimes);
+                    const extraAhead = Math.max(0, posInCommonQueue - (availableStaffCount || 0));
+                    const staffCountOnDuty = Math.max(1, staffList.length);
+                    const extraWaitMins = Math.floor((extraAhead * 30) / staffCountOnDuty);
+
+                    estimatedWaitMins = minRemainingMins + extraWaitMins;
+                  } else {
+                    isFreeNow = true;
+                  }
+                }
+              }
+
+              const projectedTimeMs = Date.now() + estimatedWaitMins * 60000;
+              const projectedTimeStr = format(new Date(projectedTimeMs), 'HH:mm');
+
+              return (
+                <p className={`text-[10px] font-extrabold flex items-center gap-1 ${
+                  isFreeNow ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-800 dark:text-amber-300'
+                }`}>
+                  <span>⏱️ Dự kiến gọi: <strong className={`font-black ${isFreeNow ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-800 dark:text-amber-300'}`}>
+                    {isFreeNow ? 'Ngay bây giờ (Sẵn sàng)' : `~${projectedTimeStr} (sau ~${estimatedWaitMins}p)`}
+                  </strong></span>
+                </p>
+              );
+            })()}
+          </div>
         )}
-        {/* B22 — DỰ BÁO HẠN ĐẾN MUỘN NHẤT THEO THỜI LƯỢNG DỊCH VỤ */}
+        {/* B22 — DỰ BÁO HẠN ĐẾN MUỘN NHẤT THEO THỜI LƯỢNG DỊCH VỤ HOẶC HẠN TÁI LƯỢNG GIÁ */}
         {variant === 'chua_den' && (() => {
+          if (apt.trang_thai === 'cho_tai_luong_gia' || (apt as any).han_tai_kham) {
+            let formattedDeadline = '';
+            let isOverdue = false;
+
+            const textToSearch = `${(apt as any).ghi_chu || ''} ${(apt as any).ghi_chu_noi_bo || ''} ${(apt as any).chan_doan || ''} ${(apt as any).ly_do_kham || ''}`;
+            
+            // Ưu tiên 1: Chuỗi có đầy đủ giờ + ngày từ ghi chú chuyên viên, ví dụ "[Hạn tái lượng giá: 23:30 ngày 22/08/2026]"
+            const matchExplicit = textToSearch.match(/\[Hạn tái lượng giá:\s*([^\]]+)\]/i) 
+              || textToSearch.match(/(\d{1,2}:\d{2}\s+ngày\s+\d{1,2}\/\d{1,2}\/\d{4})/i);
+
+            if (matchExplicit && matchExplicit[1]) {
+              formattedDeadline = matchExplicit[1].trim();
+            } else if ((apt as any).han_tai_kham) {
+              const raw = String((apt as any).han_tai_kham).trim();
+              const datePart = raw.split('T')[0].split(' ')[0];
+              let dStr = '';
+              if (datePart.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                const [y, m, d] = datePart.split('-');
+                dStr = `${d}/${m}/${y}`;
+              } else {
+                dStr = datePart;
+              }
+
+              // Trích xuất giờ từ thời điểm chuyên viên bắt đầu lượng giá / check-in
+              const sourceTime = apt.thoi_gian_bat_dau || apt.thoi_gian_checkin || apt.thoi_gian_tao;
+              if (sourceTime) {
+                try {
+                  const tDate = new Date(sourceTime);
+                  const hh = String(tDate.getHours()).padStart(2, '0');
+                  const mm = String(tDate.getMinutes()).padStart(2, '0');
+                  formattedDeadline = `${hh}:${mm} ngày ${dStr}`;
+                } catch {
+                  formattedDeadline = dStr;
+                }
+              } else {
+                formattedDeadline = dStr;
+              }
+            } else {
+              // Fallback: 3 ngày tính từ thời điểm tạo / bắt đầu ca
+              const baseDate = apt.thoi_gian_bat_dau || apt.thoi_gian_checkin || apt.thoi_gian_tao;
+              const d = baseDate ? new Date(baseDate) : new Date();
+              d.setDate(d.getDate() + 3);
+              const hh = String(d.getHours()).padStart(2, '0');
+              const mm = String(d.getMinutes()).padStart(2, '0');
+              const dd = String(d.getDate()).padStart(2, '0');
+              const MM = String(d.getMonth() + 1).padStart(2, '0');
+              const yyyy = d.getFullYear();
+              formattedDeadline = `${hh}:${mm} ngày ${dd}/${MM}/${yyyy}`;
+            }
+
+            return (
+              <p className={`text-[10px] font-extrabold flex items-center gap-1 mt-0.5 ${
+                isOverdue ? 'text-rose-600 dark:text-rose-400' : 'text-amber-800 dark:text-amber-300'
+              }`}>
+                <Clock3 size={11} className={isOverdue ? 'text-rose-600 shrink-0' : 'text-amber-600 shrink-0'} />
+                <span>
+                  ⏱️ Hạn quay lại muộn nhất: <strong className={`font-black ${isOverdue ? 'text-rose-700 dark:text-rose-300' : 'text-slate-900 dark:text-zinc-100'}`}>{formattedDeadline}</strong>
+                  {isOverdue && ' (⚠️ Đã quá hạn)'}
+                </span>
+              </p>
+            );
+          }
+
           const duration = Number((apt as any).thoi_luong_phut) || 30;
           const isSang = apt.buoi === 'sang' || (apt.ngay_gio_bat_dau && new Date(apt.ngay_gio_bat_dau).getHours() < 12);
           const latestMins = (isSang ? 12 * 60 : 19 * 60 + 30) - duration;
@@ -561,7 +760,7 @@ function AppointmentRow({
             >
               <CheckCircle2 size={13} /> CHECK-IN TÁI KHÁM
             </button>
-          ) : (apt.loai_lich === 'kham_moi' || (apt as any).loai === 'KHAM') && isPaymentDue(apt) ? (
+          ) : apt.loai_lich === 'kham_moi' && isPaymentDue(apt) ? (
             <button
               type="button"
               onClick={() => navigate(`${billingRoute}?lich_dat_id=${apt.id}`)}
@@ -589,6 +788,18 @@ function AppointmentRow({
             <DollarSign size={13} /> THU TIỀN
           </button>
         )}
+        {/* Nút Giải phóng nhân sự về Hàng đợi chung (khi khách đang được gán đích danh cho 1 nhân sự bị tắc) */}
+        {variant === 'dang_cho' && (apt.bac_si_id != null || (apt as any).nhan_su_id != null) && onUnassign && (
+          <button
+            type="button"
+            onClick={() => onUnassign(apt)}
+            title="Giải phóng chỉ định đích danh — Chuyển ca này về Hàng đợi chung để nhân sự rảnh bất kỳ gọi vào"
+            className="px-2 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-955/40 text-amber-800 dark:text-amber-300 hover:bg-amber-100 border border-amber-300/80 dark:border-amber-700/60 font-black text-[11px] flex items-center gap-1 shadow-2xs transition-all cursor-pointer whitespace-nowrap"
+          >
+            <UserX size={13} /> HÀNG CHỜ CHUNG
+          </button>
+        )}
+
         {/* B11 (bản Lễ tân) — ẩn nút "Đẩy xuống" khi đã gọi lần 2 (nhường chỗ cho nút Không đến) */}
         {variant === 'dang_cho' && onPushBack && (() => {
           const currentCallNum = isCalledIn ? missedCalls + 1 : missedCalls;
@@ -631,7 +842,7 @@ function AppointmentRow({
  * nào là cột nào — trước đây chỉ có tên khách trần trụi, không rõ ngữ cảnh của từng giá trị. */
 function ColumnHeaderRow() {
   return (
-    <div className="flex items-center gap-4 px-5 py-2.5 bg-slate-50/80 dark:bg-zinc-800/40 border-b border-slate-200/60 dark:border-zinc-800 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+    <div className="flex items-center gap-4 px-5 py-2.5 bg-slate-50/80 dark:bg-zinc-850/60 border-b border-slate-200/60 dark:border-zinc-800 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400">
       <div className="w-[110px] shrink-0">Buổi/TT</div>
       <div className="w-[180px] shrink-0">Khách hàng</div>
       <div className="flex-1 min-w-0">Dịch vụ / Gói</div>
@@ -642,151 +853,6 @@ function ColumnHeaderRow() {
   );
 }
 
-function FlowGroup({
-  id,
-  title,
-  badge,
-  icon: Icon = Clock3,
-  appointments,
-  variant,
-  staffList,
-  defaultOpen,
-  emptyText,
-  emptySubtitle,
-  focusAppointmentId,
-  onOpenDetailModal,
-  onQuickCheckin,
-  onPushBack,
-  onMarkNoShow,
-}: {
-  id: string;
-  title: string;
-  badge?: React.ReactNode;
-  icon?: React.ElementType;
-  appointments: Appointment[];
-  variant: 'chua_den' | 'dang_cho' | 'dang_lam' | 'xong' | 'ngoai_le';
-  staffList: Staff[];
-  defaultOpen: boolean;
-  emptyText: string;
-  emptySubtitle?: string;
-  focusAppointmentId?: string;
-  onOpenDetailModal: (apt: Appointment) => void;
-  onQuickCheckin: (apt: Appointment) => void;
-  onPushBack?: (apt: Appointment) => void;
-  onMarkNoShow?: (apt: Appointment) => void;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-
-  useEffect(() => {
-    if (defaultOpen || (focusAppointmentId && appointments.some((a) => String(a.id) === String(focusAppointmentId)))) {
-      setOpen(true);
-    }
-  }, [defaultOpen, focusAppointmentId, appointments]);
-
-  const variantThemes = {
-    chua_den: {
-      border: 'border-indigo-200/80 dark:border-indigo-900/60',
-      headerBg: 'bg-gradient-to-r from-indigo-50/90 via-blue-50/50 to-white dark:from-indigo-955/40 dark:via-zinc-900 dark:to-zinc-900',
-      iconBg: 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60',
-      titleColor: 'text-indigo-950 dark:text-indigo-200',
-      countBadge: 'bg-indigo-100/80 dark:bg-indigo-955/60 text-indigo-800 dark:text-indigo-300 border border-indigo-200/60',
-      emptyIcon: Users,
-    },
-    dang_cho: {
-      border: 'border-amber-200/80 dark:border-amber-900/60',
-      headerBg: 'bg-gradient-to-r from-amber-50/90 via-orange-50/50 to-white dark:from-amber-955/40 dark:via-zinc-900 dark:to-zinc-900',
-      iconBg: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800/60',
-      titleColor: 'text-amber-950 dark:text-amber-200',
-      countBadge: 'bg-amber-100/80 dark:bg-amber-955/60 text-amber-800 dark:text-amber-300 border border-amber-200/60',
-      emptyIcon: Clock3,
-    },
-    dang_lam: {
-      border: 'border-cyan-200/80 dark:border-cyan-900/60',
-      headerBg: 'bg-gradient-to-r from-cyan-50/90 via-teal-50/50 to-white dark:from-cyan-955/40 dark:via-zinc-900 dark:to-zinc-900',
-      iconBg: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border border-cyan-200/60 dark:border-cyan-800/60',
-      titleColor: 'text-cyan-950 dark:text-cyan-200',
-      countBadge: 'bg-cyan-100/80 dark:bg-cyan-955/60 text-cyan-800 dark:text-cyan-300 border border-cyan-200/60',
-      emptyIcon: Activity,
-    },
-    xong: {
-      border: 'border-emerald-200/80 dark:border-emerald-900/60',
-      headerBg: 'bg-gradient-to-r from-emerald-50/90 via-teal-50/50 to-white dark:from-emerald-955/40 dark:via-zinc-900 dark:to-zinc-900',
-      iconBg: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60',
-      titleColor: 'text-emerald-950 dark:text-emerald-200',
-      countBadge: 'bg-emerald-100/80 dark:bg-emerald-955/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200/60',
-      emptyIcon: CheckCircle2,
-    },
-    ngoai_le: {
-      border: 'border-rose-200/80 dark:border-rose-900/60',
-      headerBg: 'bg-gradient-to-r from-rose-50/90 via-slate-50/50 to-white dark:from-rose-955/40 dark:via-zinc-900 dark:to-zinc-900',
-      iconBg: 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-200/60 dark:border-rose-800/60',
-      titleColor: 'text-rose-950 dark:text-rose-200',
-      countBadge: 'bg-rose-100/80 dark:bg-rose-955/60 text-rose-800 dark:text-rose-300 border border-rose-200/60',
-      emptyIcon: AlertCircle,
-    }
-  };
-
-  const theme = variantThemes[variant] || variantThemes.chua_den;
-  const EmptyIcon = theme.emptyIcon;
-
-  return (
-    <div id={id} className={`bg-white dark:bg-zinc-900 border ${theme.border} rounded-3xl overflow-hidden shadow-xs transition-all duration-200 scroll-mt-4`}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className={`w-full flex items-center justify-between px-5 py-3.5 ${theme.headerBg} hover:opacity-95 transition-all cursor-pointer select-none`}
-      >
-        <span className="flex items-center gap-3">
-          <div className={`p-1.5 rounded-xl ${theme.iconBg} flex items-center justify-center shrink-0`}>
-            <Icon size={16} />
-          </div>
-          <span className={`text-xs font-black uppercase tracking-wider ${theme.titleColor}`}>{title}</span>
-          <span className={`text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full ${theme.countBadge}`}>
-            {appointments.length} ca
-          </span>
-        </span>
-        <div className="flex items-center gap-3">
-          {badge}
-          <div className="p-1 rounded-lg bg-slate-200/40 dark:bg-zinc-800 text-slate-500">
-            {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          </div>
-        </div>
-      </button>
-      {open && (
-        appointments.length === 0 ? (
-          <div className="py-8 px-4 flex flex-col items-center justify-center text-center space-y-1.5 select-none bg-slate-50/30 dark:bg-zinc-900/30">
-            <div className={`p-3 rounded-2xl ${theme.iconBg} shadow-2xs mb-1`}>
-              <EmptyIcon size={22} />
-            </div>
-            <p className="text-xs font-black text-slate-800 dark:text-zinc-200">{emptyText}</p>
-            {emptySubtitle && (
-              <p className="text-[11px] font-medium text-slate-400 dark:text-zinc-500 max-w-md">{emptySubtitle}</p>
-            )}
-          </div>
-        ) : (
-          <>
-            <ColumnHeaderRow />
-            <div className="max-h-[380px] overflow-y-auto scrollbar-thin">
-              {appointments.map((apt) => (
-                <AppointmentRow
-                  key={apt.id}
-                  apt={apt}
-                  variant={variant}
-                  staffList={staffList}
-                  onOpenDetailModal={onOpenDetailModal}
-                  onQuickCheckin={onQuickCheckin}
-                  onPushBack={onPushBack}
-                  onMarkNoShow={onMarkNoShow}
-                  focusAppointmentId={focusAppointmentId}
-                />
-              ))}
-            </div>
-          </>
-        )
-      )}
-    </div>
-  );
-}
 
 // A5 — bảng dòng chảy dùng chung cho MỌI ngày đơn lẻ (không chỉ hôm nay) và cả 2 actor (Lễ tân +
 // Admin) — tên giữ nguyên "TodayFlowBoard" vì đây là nơi tính năng bắt đầu, nhưng hành vi đã tổng
@@ -802,14 +868,17 @@ export function TodayFlowBoard({
   onQuickCheckin,
   onPushBack,
   onMarkNoShow,
+  onUnassign,
   onOpenWalkInModal: _onOpenWalkInModal,
   focusAppointmentId,
   staffFilterId,
   staffFilterOptions,
   onStaffFilterChange,
   onOpenWorkloadModal,
+  filterBar,
 }: TodayFlowBoardProps) {
   const user = useAuthStore((state) => state.user);
+  const [activeTab, setActiveTab] = useState<'chua_den' | 'dang_cho' | 'dang_lam' | 'xong' | 'cho_tai_luong_gia' | 'ngoai_le'>('chua_den');
   // B2/B19 — phát hiện "Gọi vào" MỚI bằng cách so sánh `thoi_gian_goi_vao` giữa các lần `appointments`
   // được refetch (mỗi 8s, xem useAppointmentsData) — thay cho tín hiệu localStorage/BroadcastChannel
   // cũ (chỉ hoạt động cùng 1 trình duyệt). Chuông/toast giờ đúng cả khi Lễ tân và Chuyên viên ngồi 2
@@ -862,18 +931,37 @@ export function TodayFlowBoard({
     }
   }, [appointments]);
 
+  useEffect(() => {
+    if (!focusAppointmentId) return;
+    const target = appointments.find((a) => String(a.id) === String(focusAppointmentId));
+    if (!target) return;
+
+    if (target.trang_thai === 'da_xac_nhan') {
+      setActiveTab('chua_den');
+    } else if (target.trang_thai === 'cho_tai_luong_gia') {
+      setActiveTab('cho_tai_luong_gia');
+    } else if (target.trang_thai === 'da_checkin') {
+      setActiveTab('dang_cho');
+    } else if (target.trang_thai === 'dang_kham') {
+      setActiveTab('dang_lam');
+    } else if (target.trang_thai === 'hoan_thanh') {
+      setActiveTab('xong');
+    } else if (TERMINAL_STATUSES.includes(target.trang_thai)) {
+      setActiveTab('ngoai_le');
+    }
+  }, [focusAppointmentId, appointments]);
+
   // Sức khỏe ca PHẢI nhìn cả ca (mọi nhân sự), nên nhận `appointments` gốc — lọc theo staff chỉ áp
   // xuống danh sách dòng (typedAppointments) bên dưới.
   const sucKhoeCa = useSucKhoeCa(appointments, staffList, schedulesList, selectedDateStr, activeType);
 
   const typedAppointments = useMemo(() => {
     return appointments.filter((apt) => {
-      if (focusAppointmentId && String(apt.id) === String(focusAppointmentId)) return true;
       const matchType = activeType === 'kham' ? apt.loai_lich === 'kham_moi' : (apt.loai_lich === 'dieu_tri' || apt.loai_lich === 'dich_vu_don');
       const matchStaff = !staffFilterId || String(apt.bac_si_id) === String(staffFilterId);
       return matchType && matchStaff;
     });
-  }, [appointments, activeType, staffFilterId, focusAppointmentId]);
+  }, [appointments, activeType, staffFilterId]);
 
   const searched = useMemo(() => {
     if (!searchTerm.trim()) return typedAppointments;
@@ -917,14 +1005,13 @@ export function TodayFlowBoard({
 
   const xongChuaThu = groups.xong.filter(isAwaitingPaymentForList).length;
 
-  const jumpTo = (id: string) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
 
   // Check-in là thao tác đổi trạng thái tức thời (không giống "Thu tiền" — nút đó chỉ điều hướng
   // sang trang thanh toán, nơi tự có bước xác nhận riêng của chính nó) — bấm nhầm 1 cái là dữ liệu
   // sai ngay, nên bắt buộc phải qua 1 bước xác nhận trước khi gọi API thật.
   const [pendingCheckin, setPendingCheckin] = useState<Appointment | null>(null);
+  const [pendingOvertimeCheckin, setPendingOvertimeCheckin] = useState<Appointment | null>(null);
+
   const requestCheckin = (apt: Appointment) => {
     if (user?.vai_tro_id === 2 && apt.ngay_gio_bat_dau) {
       const apptDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(apt.ngay_gio_bat_dau));
@@ -935,6 +1022,17 @@ export function TodayFlowBoard({
         return;
       }
     }
+
+    // B20 — Cảnh báo Check-in sát giờ đóng cửa (20:00 PM)
+    const duration = Number((apt as any).thoi_luong_phut) || 45;
+    const now = new Date();
+    const currentMins = now.getHours() * 60 + now.getMinutes();
+    const CLOSING_MINS = 20 * 60; // 20:00 PM
+    if (currentMins + duration > CLOSING_MINS && now.getHours() >= 17) {
+      setPendingOvertimeCheckin(apt);
+      return;
+    }
+
     setPendingCheckin(apt);
   };
 
@@ -945,8 +1043,14 @@ export function TodayFlowBoard({
 
   return (
     <div className="space-y-4">
-      {/* Sức khỏe ca (B21) & Tải nhân sự gộp thành 1 Card thống nhất */}
+      {/* 1. KHỐI TỔNG HỢP: ĐIỀU HƯỚNG BỘ LỌC + SỨC KHỎE CA TRỰC (GỘP 2 CARD ẢNH 1) */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-4 md:p-5 shadow-xs space-y-4">
+        {filterBar}
+
+        {filterBar && (
+          <div className="border-t border-slate-100 dark:border-zinc-800/80 my-4" />
+        )}
+
         {/* Card Header Row: tiêu đề + nút mở Modal Tải Nhân Sự */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-zinc-800/80 pb-3">
           <div className="flex items-center gap-2.5">
@@ -1046,144 +1150,7 @@ export function TodayFlowBoard({
         </div>
       </div>
 
-      {/* BỘ 4 THẺ THỐNG KÊ VẬN HÀNH SANG TRỌNG VÀ TO RỘNG NHƯ ẢNH MẪU 2 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: ĐANG CHỜ */}
-        <button
-          type="button"
-          onClick={() => jumpTo('flow-dang-cho')}
-          className="relative overflow-hidden rounded-3xl p-5 border text-left transition-all duration-300 bg-amber-500/10 dark:bg-amber-950/30 border-amber-500/20 shadow-md shadow-amber-500/5 hover:scale-[1.015] cursor-pointer"
-        >
-          <div className="flex items-center gap-3">
-            <div className="size-11 rounded-2xl flex items-center justify-center border shadow-xs bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-400/40 shadow-[0_0_12px_rgba(245,158,11,0.3)]">
-              <Clock3 size={20} />
-            </div>
-            <span className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-zinc-100">
-              ĐANG CHỜ
-            </span>
-          </div>
 
-          <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-4xl font-jakarta font-black text-slate-900 dark:text-zinc-100 tracking-tight">
-              {String(groups.dangCho.length).padStart(2, '0')}
-            </span>
-            <span className="text-xs font-bold text-slate-500 dark:text-zinc-400">
-              Bệnh nhân
-            </span>
-          </div>
-
-          <div className="mt-4 w-full h-1.5 bg-slate-200/60 dark:bg-zinc-800/80 rounded-full overflow-hidden">
-            <div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-yellow-400 transition-all duration-500" style={{ width: `${Math.max(groups.dangCho.length * 15, 10)}%` }} />
-          </div>
-
-          <div className="mt-2.5 flex items-center justify-between text-[11px] font-extrabold text-slate-500 dark:text-zinc-400">
-            <span>Đang chờ gọi vào</span>
-            <span className="font-mono text-[10px] text-amber-600">{groups.dangCho.length} ca</span>
-          </div>
-        </button>
-
-        {/* Card 2: ĐANG KHÁM */}
-        <button
-          type="button"
-          onClick={() => jumpTo('flow-dang-lam')}
-          className="relative overflow-hidden rounded-3xl p-5 border text-left transition-all duration-300 bg-cyan-500/10 dark:bg-cyan-950/30 border-cyan-500/20 shadow-md shadow-cyan-500/5 hover:scale-[1.015] cursor-pointer"
-        >
-          <div className="flex items-center gap-3">
-            <div className="size-11 rounded-2xl flex items-center justify-center border shadow-xs bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border-cyan-400/40 shadow-[0_0_12px_rgba(6,182,212,0.3)]">
-              <Activity size={20} />
-            </div>
-            <span className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-zinc-100">
-              ĐANG KHÁM
-            </span>
-          </div>
-
-          <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-4xl font-jakarta font-black text-slate-900 dark:text-zinc-100 tracking-tight">
-              {String(groups.dangLam.length).padStart(2, '0')}
-            </span>
-            <span className="text-xs font-bold text-slate-500 dark:text-zinc-400">
-              Bệnh nhân
-            </span>
-          </div>
-
-          <div className="mt-4 w-full h-1.5 bg-slate-200/60 dark:bg-zinc-800/80 rounded-full overflow-hidden">
-            <div className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-teal-400 transition-all duration-500" style={{ width: `${Math.max(groups.dangLam.length * 20, 10)}%` }} />
-          </div>
-
-          <div className="mt-2.5 flex items-center justify-between text-[11px] font-extrabold text-slate-500 dark:text-zinc-400">
-            <span>Đang gặp chuyên viên</span>
-            <span className="font-mono text-[10px] text-cyan-600">{groups.dangLam.length} ca</span>
-          </div>
-        </button>
-
-        {/* Card 3: ĐÃ XÁC NHẬN */}
-        <button
-          type="button"
-          onClick={() => jumpTo('flow-chua-den')}
-          className="relative overflow-hidden rounded-3xl p-5 border text-left transition-all duration-300 bg-indigo-500/10 dark:bg-indigo-950/30 border-indigo-500/20 shadow-md shadow-indigo-500/5 hover:scale-[1.015] cursor-pointer"
-        >
-          <div className="flex items-center gap-3">
-            <div className="size-11 rounded-2xl flex items-center justify-center border shadow-xs bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border-indigo-400/40 shadow-[0_0_12px_rgba(99,102,241,0.3)]">
-              <Users size={20} />
-            </div>
-            <span className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-zinc-100">
-              ĐÃ XÁC NHẬN
-            </span>
-          </div>
-
-          <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-4xl font-jakarta font-black text-slate-900 dark:text-zinc-100 tracking-tight">
-              {String(groups.chuaDen.length).padStart(2, '0')}
-            </span>
-            <span className="text-xs font-bold text-slate-500 dark:text-zinc-400">
-              Lịch hẹn
-            </span>
-          </div>
-
-          <div className="mt-4 w-full h-1.5 bg-slate-200/60 dark:bg-zinc-800/80 rounded-full overflow-hidden">
-            <div className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-blue-400 transition-all duration-500" style={{ width: `${Math.max(groups.chuaDen.length * 15, 10)}%` }} />
-          </div>
-
-          <div className="mt-2.5 flex items-center justify-between text-[11px] font-extrabold text-slate-500 dark:text-zinc-400">
-            <span>Đã xác nhận hôm nay</span>
-            <span className="font-mono text-[10px] text-indigo-600">{groups.chuaDen.length} ca</span>
-          </div>
-        </button>
-
-        {/* Card 4: HOÀN THÀNH */}
-        <button
-          type="button"
-          onClick={() => jumpTo('flow-xong')}
-          className="relative overflow-hidden rounded-3xl p-5 border text-left transition-all duration-300 bg-emerald-500/10 dark:bg-emerald-950/30 border-emerald-500/20 shadow-md shadow-emerald-500/5 hover:scale-[1.015] cursor-pointer"
-        >
-          <div className="flex items-center gap-3">
-            <div className="size-11 rounded-2xl flex items-center justify-center border shadow-xs bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-400/40 shadow-[0_0_12px_rgba(16,185,129,0.3)]">
-              <CheckCircle2 size={20} />
-            </div>
-            <span className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-zinc-100">
-              HOÀN THÀNH
-            </span>
-          </div>
-
-          <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-4xl font-jakarta font-black text-slate-900 dark:text-zinc-100 tracking-tight">
-              {String(groups.xong.length).padStart(2, '0')}
-            </span>
-            <span className="text-xs font-bold text-slate-500 dark:text-zinc-400">
-              Ca khám
-            </span>
-          </div>
-
-          <div className="mt-4 w-full h-1.5 bg-slate-200/60 dark:bg-zinc-800/80 rounded-full overflow-hidden">
-            <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-green-400 transition-all duration-500" style={{ width: `${Math.max(groups.xong.length * 20, 10)}%` }} />
-          </div>
-
-          <div className="mt-2.5 flex items-center justify-between text-[11px] font-extrabold text-slate-500 dark:text-zinc-400">
-            <span>Đã hoàn thành</span>
-            <span className="font-mono text-[10px] text-emerald-600">{groups.xong.length} ca</span>
-          </div>
-        </button>
-      </div>
 
       <ConfirmDialog
         isOpen={!!pendingCheckin}
@@ -1221,106 +1188,302 @@ export function TodayFlowBoard({
         onCancel={() => setPendingNoShow(null)}
       />
 
-      <FlowGroup
-        id="flow-chua-den"
-        title="Chưa đến"
-        icon={Users}
-        appointments={groups.chuaDen}
-        variant="chua_den"
-        defaultOpen
-        emptyText="Không có lịch hẹn chưa đến"
-        emptySubtitle="Tất cả khách hàng đã check-in hoặc chưa có lịch hẹn mới trong ca làm việc."
-        staffList={staffList}
-        onOpenDetailModal={onOpenDetailModal}
-        onQuickCheckin={requestCheckin}
-        focusAppointmentId={focusAppointmentId}
-      />
-      <FlowGroup
-        id="flow-dang-cho"
-        title="Đang chờ"
-        icon={Clock3}
-        appointments={groups.dangCho}
-        variant="dang_cho"
-        defaultOpen
-        emptyText="Hàng đợi đang trống"
-        emptySubtitle="Không có khách hàng nào đang xếp hàng chờ gọi vào phòng khám / lượng giá."
-        staffList={staffList}
-        onOpenDetailModal={onOpenDetailModal}
-        onQuickCheckin={requestCheckin}
-        onPushBack={onPushBack}
-        onMarkNoShow={setPendingNoShow}
-        focusAppointmentId={focusAppointmentId}
-      />
-      <FlowGroup
-        id="flow-dang-lam"
-        title="Đang làm"
-        icon={Activity}
-        appointments={groups.dangLam}
-        variant="dang_lam"
-        defaultOpen
-        emptyText="Chưa có ca nào đang thực hiện"
-        emptySubtitle="Chuyên viên tư vấn và Kỹ thuật viên sẵn sàng tiếp nhận khách hàng tiếp theo."
-        staffList={staffList}
-        onOpenDetailModal={onOpenDetailModal}
-        onQuickCheckin={requestCheckin}
-        focusAppointmentId={focusAppointmentId}
-      />
-      <FlowGroup
-        id="flow-xong"
-        title="Xong"
-        icon={CheckCircle2}
-        badge={
-          xongChuaThu > 0 ? (
-            <span className="text-[9px] font-black px-2.5 py-1 rounded-full bg-rose-100 dark:bg-rose-955/40 text-rose-700 dark:text-rose-300 border border-rose-200/80 animate-pulse flex items-center gap-1">
-              ⚠ {xongChuaThu} ca chưa thu tiền
-            </span>
-          ) : undefined
-        }
-        appointments={groups.xong}
-        variant="xong"
-        defaultOpen={true}
-        emptyText="Chưa có ca hoàn thành"
-        emptySubtitle="Các ca lượng giá và trị liệu hoàn thành trong ngày sẽ được tự động chuyển về đây."
-        staffList={staffList}
-        onOpenDetailModal={onOpenDetailModal}
-        onQuickCheckin={requestCheckin}
-        focusAppointmentId={focusAppointmentId}
-      />
-      {groups.ngoaiLe.length > 0 && (
-        <FlowGroup
-          id="flow-ngoai-le"
-          title="Ngoại lệ · Đã hủy / Không đến"
-          icon={AlertCircle}
-          appointments={groups.ngoaiLe}
-          variant="ngoai_le"
-          defaultOpen={true}
-          emptyText="Không có lịch ngoại lệ"
-          staffList={staffList}
-          onOpenDetailModal={onOpenDetailModal}
-          onQuickCheckin={requestCheckin}
-          focusAppointmentId={focusAppointmentId}
-        />
-      )}
-      {groups.choTaiLuongGia.length > 0 && (
-        <FlowGroup
-          id="flow-cho-tai-luong-gia"
-          title="Chờ tái lượng giá (Chờ khách quay lại từ chụp chiếu)"
-          icon={Sparkles}
-          badge={
-            <span className="text-[9px] font-black px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-955/40 text-amber-800 dark:text-amber-300 border border-amber-200/60">
-              🔄 {groups.choTaiLuongGia.length} ca
-            </span>
+      {/* OVERTIME CHECK-IN WARNING MODAL FOR 20:00 CLOSING CUTOFF (B20) */}
+      {pendingOvertimeCheckin && (() => {
+        const duration = Number((pendingOvertimeCheckin as any).thoi_luong_phut) || 45;
+        const now = new Date();
+        const finishMinutes = now.getHours() * 60 + now.getMinutes() + duration;
+        const finishH = Math.floor(finishMinutes / 60);
+        const finishM = finishMinutes % 60;
+        const finishTimeStr = `${finishH}:${finishM < 10 ? '0' : ''}${finishM}`;
+        const overtimeMins = finishMinutes - 20 * 60;
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-150">
+            <div className="w-full max-w-lg bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-amber-200 dark:border-amber-900/60 space-y-5 text-slate-800 dark:text-zinc-100 font-sans">
+              <div className="flex items-center gap-3">
+                <div className="size-11 rounded-2xl bg-amber-100 text-amber-700 dark:bg-amber-955 dark:text-amber-300 flex items-center justify-center font-bold shrink-0 border border-amber-300">
+                  <AlertCircle size={24} />
+                </div>
+                <div>
+                  <span className="text-[10px] font-black text-amber-700 dark:text-amber-400 uppercase tracking-widest block">
+                    Cảnh báo sát giờ đóng cửa trung tâm
+                  </span>
+                  <h3 className="text-base font-black tracking-tight text-slate-900 dark:text-zinc-100 font-jakarta">
+                    Check-in ca quá giờ 20:00 tối
+                  </h3>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-955/40 border border-amber-200 dark:border-amber-900/60 text-xs leading-relaxed space-y-2">
+                <p className="font-bold text-amber-900 dark:text-amber-200">
+                  📌 Bệnh nhân: <strong>{pendingOvertimeCheckin.ten_khach_hang || (pendingOvertimeCheckin as any).ho_ten_khach}</strong> (Dịch vụ {duration} phút)
+                </p>
+                <p className="text-slate-600 dark:text-zinc-300">
+                  Trung tâm chính thức đóng cửa lúc <strong>20:00 (8h00 tối)</strong>. Nếu tiếp nhận check-in bây giờ, thời gian hoàn thành dự kiến là <strong className="text-amber-700 dark:text-amber-300 font-black">{finishTimeStr}</strong> (vượt giờ đóng cửa {overtimeMins} phút).
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs font-black uppercase text-slate-500 tracking-wider">Hãy trao đổi với khách và chọn hướng xử lý:</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const apt = pendingOvertimeCheckin;
+                      setPendingOvertimeCheckin(null);
+                      setPendingCheckin(apt);
+                    }}
+                    className="px-4 py-3 bg-amber-600 hover:bg-amber-700 text-white font-black text-xs rounded-xl shadow-sm transition-all cursor-pointer text-center"
+                  >
+                    🔴 Vẫn Check-in (Làm ngoài giờ)
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPendingOvertimeCheckin(null);
+                      toast.success('💡 Hãy sử dụng nút "Đổi lịch" trên thẻ ca hẹn để chọn ngày mới cho khách (Khách không bị phạt no-show).');
+                    }}
+                    className="px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-sm transition-all cursor-pointer text-center"
+                  >
+                    🟢 Đổi Lịch Sang Buổi Khác (Không tính No-show)
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+
+      {/* 2. KHỐI DANH SÁCH CA HẸN: THANH TAB TÍCH HỢP TRÊN ĐẦU BẢNG (GỘP 2 CARD ẢNH 2) */}
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200/90 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-xs mt-4">
+        {/* THANH TAB CHUYỂN TRẠNG THÁI CA HẸN LINH HOẠT - THIẾT KẾ RÕ RÀNG & NỔI BẬT */}
+        <div className="p-2.5 bg-slate-50/70 dark:bg-zinc-850/60 border-b border-slate-200/80 dark:border-zinc-800">
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-none py-0.5 px-0.5">
+            
+            {/* TAB 1: CHƯA ĐẾN */}
+            <button
+              type="button"
+              onClick={() => setActiveTab('chua_den')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2.5 shrink-0 cursor-pointer border ${
+                activeTab === 'chua_den'
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-600/25 ring-2 ring-indigo-500/20'
+                  : 'bg-slate-50/80 dark:bg-zinc-800/60 border-slate-200/80 dark:border-zinc-700/60 text-slate-700 dark:text-zinc-300 hover:bg-indigo-50/60 hover:text-indigo-700 hover:border-indigo-200 dark:hover:bg-zinc-700'
+              }`}
+            >
+              <Users size={15} className={activeTab === 'chua_den' ? 'text-white' : 'text-indigo-600 dark:text-indigo-400'} />
+              <span>CHƯA ĐẾN</span>
+              <span className={`px-2 py-0.5 rounded-full text-[11px] font-mono font-black min-w-[22px] text-center ${
+                activeTab === 'chua_den'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60'
+              }`}>
+                {groups.chuaDen.length}
+              </span>
+            </button>
+
+            {/* TAB 2: ĐANG CHỜ GỌI VÀO */}
+            <button
+              type="button"
+              onClick={() => setActiveTab('dang_cho')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2.5 shrink-0 cursor-pointer border ${
+                activeTab === 'dang_cho'
+                  ? 'bg-amber-500 text-white border-amber-500 shadow-md shadow-amber-500/25 ring-2 ring-amber-500/20'
+                  : 'bg-slate-50/80 dark:bg-zinc-800/60 border-slate-200/80 dark:border-zinc-700/60 text-slate-700 dark:text-zinc-300 hover:bg-amber-50/60 hover:text-amber-700 hover:border-amber-200 dark:hover:bg-zinc-700'
+              }`}
+            >
+              <Clock3 size={15} className={activeTab === 'dang_cho' ? 'text-white' : 'text-amber-600 dark:text-amber-400'} />
+              <span>ĐANG CHỜ GỌI VÀO</span>
+              <span className={`px-2 py-0.5 rounded-full text-[11px] font-mono font-black min-w-[22px] text-center ${
+                activeTab === 'dang_cho'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60'
+              }`}>
+                {groups.dangCho.length}
+              </span>
+            </button>
+
+            {/* TAB 3: ĐANG LÀM */}
+            <button
+              type="button"
+              onClick={() => setActiveTab('dang_lam')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2.5 shrink-0 cursor-pointer border ${
+                activeTab === 'dang_lam'
+                  ? 'bg-cyan-600 text-white border-cyan-600 shadow-md shadow-cyan-600/25 ring-2 ring-cyan-500/20'
+                  : 'bg-slate-50/80 dark:bg-zinc-800/60 border-slate-200/80 dark:border-zinc-700/60 text-slate-700 dark:text-zinc-300 hover:bg-cyan-50/60 hover:text-cyan-700 hover:border-cyan-200 dark:hover:bg-zinc-700'
+              }`}
+            >
+              <Activity size={15} className={activeTab === 'dang_lam' ? 'text-white' : 'text-cyan-600 dark:text-cyan-400'} />
+              <span>ĐANG LÀM</span>
+              <span className={`px-2 py-0.5 rounded-full text-[11px] font-mono font-black min-w-[22px] text-center ${
+                activeTab === 'dang_lam'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-cyan-100 dark:bg-cyan-950/80 text-cyan-800 dark:text-cyan-300 border border-cyan-200/60 dark:border-cyan-800/60'
+              }`}>
+                {groups.dangLam.length}
+              </span>
+            </button>
+
+            {/* TAB 4: ĐÃ XONG */}
+            <button
+              type="button"
+              onClick={() => setActiveTab('xong')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2.5 shrink-0 cursor-pointer border ${
+                activeTab === 'xong'
+                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/25 ring-2 ring-emerald-500/20'
+                  : 'bg-slate-50/80 dark:bg-zinc-800/60 border-slate-200/80 dark:border-zinc-700/60 text-slate-700 dark:text-zinc-300 hover:bg-emerald-50/60 hover:text-emerald-700 hover:border-emerald-200 dark:hover:bg-zinc-700'
+              }`}
+            >
+              <CheckCircle2 size={15} className={activeTab === 'xong' ? 'text-white' : 'text-emerald-600 dark:text-emerald-400'} />
+              <span>ĐÃ XONG</span>
+              <span className={`px-2 py-0.5 rounded-full text-[11px] font-mono font-black min-w-[22px] text-center ${
+                activeTab === 'xong'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60'
+              }`}>
+                {groups.xong.length}
+              </span>
+              {xongChuaThu > 0 && (
+                <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-rose-500 text-white animate-pulse ml-1">
+                  ⚠ {xongChuaThu} chưa thu
+                </span>
+              )}
+            </button>
+
+            {/* TAB 5: CHỜ TÁI LƯỢNG GIÁ */}
+            {activeType === 'kham' && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('cho_tai_luong_gia')}
+                className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2.5 shrink-0 cursor-pointer border ${
+                  activeTab === 'cho_tai_luong_gia'
+                    ? 'bg-purple-600 text-white border-purple-600 shadow-md shadow-purple-600/25 ring-2 ring-purple-500/20'
+                    : 'bg-slate-50/80 dark:bg-zinc-800/60 border-slate-200/80 dark:border-zinc-700/60 text-slate-700 dark:text-zinc-300 hover:bg-purple-50/60 hover:text-purple-700 hover:border-purple-200 dark:hover:bg-zinc-700'
+                }`}
+              >
+                <Sparkles size={15} className={activeTab === 'cho_tai_luong_gia' ? 'text-white' : 'text-purple-600 dark:text-purple-400'} />
+                <span>CHỜ TÁI LƯỢNG GIÁ</span>
+                <span className={`px-2 py-0.5 rounded-full text-[11px] font-mono font-black min-w-[22px] text-center ${
+                  activeTab === 'cho_tai_luong_gia'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-purple-100 dark:bg-purple-950/80 text-purple-800 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/60'
+                }`}>
+                  {groups.choTaiLuongGia.length}
+                </span>
+              </button>
+            )}
+
+            {/* TAB 6: NGOẠI LỆ / HỦY */}
+            <button
+              type="button"
+              onClick={() => setActiveTab('ngoai_le')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2.5 shrink-0 cursor-pointer border ${
+                activeTab === 'ngoai_le'
+                  ? 'bg-rose-600 text-white border-rose-600 shadow-md shadow-rose-600/25 ring-2 ring-rose-500/20'
+                  : 'bg-slate-50/80 dark:bg-zinc-800/60 border-slate-200/80 dark:border-zinc-700/60 text-slate-700 dark:text-zinc-300 hover:bg-rose-50/60 hover:text-rose-700 hover:border-rose-200 dark:hover:bg-zinc-700'
+              }`}
+            >
+              <AlertCircle size={15} className={activeTab === 'ngoai_le' ? 'text-white' : 'text-rose-600 dark:text-rose-400'} />
+              <span>NGOẠI LỆ / HỦY</span>
+              <span className={`px-2 py-0.5 rounded-full text-[11px] font-mono font-black min-w-[22px] text-center ${
+                activeTab === 'ngoai_le'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300 border border-rose-200/60 dark:border-rose-800/60'
+              }`}>
+                {groups.ngoaiLe.length}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* NỘI DUNG DANH SÁCH CA HẸN KHỚP VỚI TAB ĐANG CHỌN */}
+        {(() => {
+          const tabConfig = {
+            chua_den: {
+              list: groups.chuaDen,
+              emptyIcon: Users,
+              iconBg: 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400',
+              emptyText: 'Không có lịch hẹn chưa đến',
+              emptySubtitle: 'Tất cả khách hàng đã check-in hoặc chưa có lịch hẹn mới trong ca làm việc.'
+            },
+            dang_cho: {
+              list: groups.dangCho,
+              emptyIcon: Clock3,
+              iconBg: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+              emptyText: 'Hàng đợi đang trống',
+              emptySubtitle: 'Không có khách hàng nào đang xếp hàng chờ gọi vào phòng khám / lượng giá.'
+            },
+            dang_lam: {
+              list: groups.dangLam,
+              emptyIcon: Activity,
+              iconBg: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400',
+              emptyText: 'Chưa có ca nào đang thực hiện',
+              emptySubtitle: 'Chuyên viên tư vấn và Kỹ thuật viên sẵn sàng tiếp nhận khách hàng tiếp theo.'
+            },
+            xong: {
+              list: groups.xong,
+              emptyIcon: CheckCircle2,
+              iconBg: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+              emptyText: 'Chưa có ca hoàn thành',
+              emptySubtitle: 'Các ca lượng giá và trị liệu hoàn thành trong ngày sẽ được tự động chuyển về đây.'
+            },
+            cho_tai_luong_gia: {
+              list: groups.choTaiLuongGia,
+              emptyIcon: Sparkles,
+              iconBg: 'bg-purple-500/15 text-purple-600 dark:text-purple-400',
+              emptyText: 'Không có ca nào chờ tái lượng giá.',
+              emptySubtitle: 'Khách chuyển tuyến ngoài chụp chiếu khi quay lại sẽ xuất hiện tại đây.'
+            },
+            ngoai_le: {
+              list: groups.ngoaiLe,
+              emptyIcon: AlertCircle,
+              iconBg: 'bg-rose-500/15 text-rose-600 dark:text-rose-400',
+              emptyText: 'Không có ca hẹn ngoại lệ hay bị hủy',
+              emptySubtitle: 'Các ca không đến hoặc đã hủy lịch sẽ được lưu trữ tại đây.'
+            }
+          };
+
+          const currentTab = tabConfig[activeTab] || tabConfig.chua_den;
+          const EmptyIcon = currentTab.emptyIcon;
+
+          if (currentTab.list.length === 0) {
+            return (
+              <div className="py-12 px-4 flex flex-col items-center justify-center text-center space-y-2 select-none bg-slate-50/20 dark:bg-zinc-900/20">
+                <div className={`p-3.5 rounded-2xl ${currentTab.iconBg} shadow-2xs mb-1`}>
+                  <EmptyIcon size={26} />
+                </div>
+                <p className="text-sm font-black text-slate-800 dark:text-zinc-200">{currentTab.emptyText}</p>
+                <p className="text-xs font-medium text-slate-400 dark:text-zinc-500 max-w-md">{currentTab.emptySubtitle}</p>
+              </div>
+            );
           }
-          appointments={groups.choTaiLuongGia}
-          variant="chua_den"
-          defaultOpen
-          emptyText="Không có ca nào chờ tái lượng giá."
-          staffList={staffList}
-          onOpenDetailModal={onOpenDetailModal}
-          onQuickCheckin={requestCheckin}
-          focusAppointmentId={focusAppointmentId}
-        />
-      )}
+
+          return (
+            <div>
+              <ColumnHeaderRow />
+              <div className="divide-y divide-slate-100 dark:divide-zinc-800">
+                {currentTab.list.map((apt) => (
+                  <AppointmentRow
+                    key={apt.id}
+                    apt={apt}
+                    variant={activeTab === 'cho_tai_luong_gia' ? 'chua_den' : (activeTab as any)}
+                    staffList={staffList}
+                    allAppointments={searched}
+                    onOpenDetailModal={onOpenDetailModal}
+                    onQuickCheckin={requestCheckin}
+                    onPushBack={onPushBack}
+                    onMarkNoShow={activeTab === 'dang_cho' ? setPendingNoShow : onMarkNoShow}
+                    onUnassign={onUnassign}
+                    focusAppointmentId={focusAppointmentId}
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+      </div>
     </div>
   );
 }

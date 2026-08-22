@@ -9,7 +9,6 @@ import {
   Stethoscope, 
   XCircle, 
   AlertTriangle, 
-  Calendar,
   Building2,
   User,
   FileText
@@ -56,42 +55,28 @@ export const StatusHistoryModal: React.FC<StatusHistoryModalProps> = ({
     color: string;
   }> = [];
 
-  // 1. Mốc Khởi tạo ca hẹn (Luôn có nếu ca tồn tại)
+  // 1. Mốc Đăng ký & Xác nhận ca hẹn (Luôn có nếu ca tồn tại)
   const creationTime = formatDateStr(appointment.thoi_gian_tao);
   const creatorName = appointment.ten_nguoi_tao 
     ? `Nhân viên: ${appointment.ten_nguoi_tao}`
     : (appointment.nguoi_tao_id ? 'Quản trị viên / Lễ tân' : (appointment.ten_khach_hang || appointment.ho_ten_khach || 'Khách hàng (Tự đăng ký)'));
 
+  const assignmentDetail = appointment.ten_ky_thuat_vien
+    ? ` • Phân công: ${appointment.ten_ky_thuat_vien} ${appointment.ten_phong ? `(${appointment.ten_phong})` : ''}`
+    : '';
+
   timelineEvents.push({
-    key: 'created',
-    title: 'Đăng ký khởi tạo ca hẹn',
+    key: 'created_and_confirmed',
+    title: 'Đăng ký & Xác nhận ca hẹn',
     timestamp: creationTime,
     status: 'completed',
     performer: creatorName,
-    description: appointment.nguoi_tao_id 
-      ? 'Ca hẹn được nhân viên phòng khám tạo trực tiếp trên hệ thống.' 
-      : 'Hệ thống đã tiếp nhận đăng ký trực tuyến từ Khách hàng.',
-    icon: Calendar,
+    description: (appointment.nguoi_tao_id 
+      ? 'Ca hẹn được tạo trực tiếp trên hệ thống và tự động xác nhận.' 
+      : 'Hệ thống tiếp nhận đăng ký từ Khách hàng và đã tự động xác nhận.') + assignmentDetail,
+    icon: CalendarCheck,
     color: 'bg-emerald-500 text-white'
   });
-
-  // 2. Mốc Xác nhận & Phân bổ (Chỉ hiển thị khi ĐÃ xảy ra) — không nêu "người thực hiện": có thể do
-  // khách tự xác thực OTP (đã chọn sẵn nhân sự) hoặc nhân viên bấm tay, không có cột nào lưu vết
-  // nguồn gốc nên không đoán, tránh gán nhầm (từng gán sai thành "Quản trị viên / Admin" cho ca khách
-  // tự xác nhận).
-  if (appointment.thoi_gian_xac_nhan || ['da_xac_nhan', 'da_checkin', 'dang_kham', 'hoan_thanh'].includes(appointment.trang_thai)) {
-    timelineEvents.push({
-      key: 'confirmed',
-      title: 'Xác nhận & Phân bổ chuyên gia/phòng',
-      timestamp: formatDateStr(appointment.thoi_gian_xac_nhan || appointment.thoi_gian_tao),
-      status: 'completed',
-      description: appointment.ten_ky_thuat_vien
-        ? `Đã phân công chuyên gia: ${appointment.ten_ky_thuat_vien} ${appointment.ten_phong ? `(${appointment.ten_phong})` : ''}`
-        : 'Đã xác nhận ca hẹn và xếp lịch làm việc.',
-      icon: CalendarCheck,
-      color: 'bg-blue-500 text-white'
-    });
-  }
 
   // 3. Mốc Check-in tại quầy (Chỉ hiển thị khi ĐÃ xảy ra)
   if (appointment.thoi_gian_checkin || ['da_checkin', 'dang_kham', 'hoan_thanh'].includes(appointment.trang_thai)) {
@@ -135,7 +120,7 @@ export const StatusHistoryModal: React.FC<StatusHistoryModalProps> = ({
   // 6. Mốc Hủy ca (Chỉ hiển thị khi bị Hủy)
   if (appointment.thoi_gian_huy || ['da_huy', 'da_huy_phat', 'cho_huy'].includes(appointment.trang_thai)) {
     const cancelTime = formatDateStr(appointment.thoi_gian_huy) || formatDateStr(appointment.thoi_gian_tao);
-    const cancelReasonText = appointment.ghi_chu_noi_bo || appointment.ly_do_huy || 'Thay đổi lịch làm việc';
+    const cancelReasonText = appointment.ghi_chu_noi_bo || 'Thay đổi lịch làm việc';
 
     timelineEvents.push({
       key: 'cancelled',

@@ -35,7 +35,10 @@ export const updateProfile = (data: {
   ngay_sinh?: string | null;
 }) => api.put('/auth/profile', data);
 
-export const changePassword = (data: { oldPassword: string; newPassword: string }) =>
+export const sendChangePasswordOTP = () =>
+  api.post('/auth/send-change-password-otp');
+
+export const changePassword = (data: { otp?: string; newPassword: string; oldPassword?: string }) =>
   api.put('/auth/change-password', data);
 
 export const getMe = () => api.get('/auth/me');
@@ -53,7 +56,6 @@ export interface CustomerInvoice {
   cuoc_hen_id?: string | null;
   tong_tien_goc: number;
   hinh_thuc_thanh_toan_goi?: string | null;
-  ti_le_giam_gia_goi?: number;
   voucher_id?: string | null;
   so_tien_giam_voucher?: number;
   ma_voucher_ap_dung?: string | null;

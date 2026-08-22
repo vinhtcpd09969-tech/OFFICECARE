@@ -10,7 +10,7 @@ import { CustomDatePicker } from '../../../../../components/CustomDatePicker';
 type Buoi = 'sang' | 'chieu';
 const BUOI_INFO: Record<Buoi, { label: string; khung: string; ketThuc: string }> = {
   sang: { label: 'Buổi sáng', khung: '7:30 - 12:00', ketThuc: '12:00' },
-  chieu: { label: 'Buổi chiều', khung: '12:00 - 19:30', ketThuc: '19:30' }
+  chieu: { label: 'Buổi chiều', khung: '12:00 - 20:00', ketThuc: '20:00' }
 };
 
 /** Mirror `isBuoiDaQua` phía backend/domain/capacity.ts. */
@@ -56,7 +56,7 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
   };
 
   const [selectedDate, setSelectedDate] = useState<string>(getTodayString());
-  const [sdt, setSdt] = useState<string>(user?.so_dien_thoai || '');
+  const [sdt] = useState<string>(user?.so_dien_thoai || '');
   const [selectedStaffId, setSelectedStaffId] = useState<string>('');
   const [selectedBuoi, setSelectedBuoi] = useState<Buoi | ''>('');
   const [lyDo, setLyDo] = useState<string>(`Đặt lịch buổi trị liệu số ${sessionNum} theo gói ${pkg.ten_dich_vu}.`);
@@ -263,15 +263,18 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
 
                 {/* SĐT Liên hệ */}
                 <div className="space-y-1.5 flex flex-col justify-center">
-                  <label className="text-[10px] font-extrabold text-zinc-400 dark:text-zinc-550 uppercase tracking-wider block">Số điện thoại liên hệ cho ca hẹn này</label>
-                  <input
-                    type="tel"
-                    value={sdt}
-                    onChange={(e) => setSdt(e.target.value)}
-                    placeholder="Nhập số điện thoại liên hệ..."
-                    className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-850 rounded-2xl text-sm font-mono font-bold focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary text-secondary dark:text-zinc-300"
-                    required
-                  />
+                  <label className="text-[10px] font-extrabold text-zinc-400 dark:text-zinc-550 uppercase tracking-wider block">Số điện thoại liên hệ cho ca hẹn</label>
+                  <div className="relative">
+                    <input
+                      type="tel"
+                      value={sdt || user?.so_dien_thoai || ''}
+                      disabled
+                      className="w-full px-4 py-2.5 bg-zinc-100/80 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-sm font-mono font-bold text-zinc-600 dark:text-zinc-400 cursor-not-allowed"
+                    />
+                    <span className="absolute right-3.5 top-2.5 text-[10px] font-black text-slate-400">
+                      🔒 Tài khoản chính chủ
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -328,6 +331,7 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
                       setSelectedStaffId('');
                     }}
                     className="w-36"
+                    align="right"
                   />
                 </div>
               </div>

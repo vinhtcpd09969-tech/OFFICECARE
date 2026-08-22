@@ -17,7 +17,7 @@ import { LoaiCuocHen } from './types';
 /** Giờ nhận khách theo buổi — tham số cấu hình, KHÔNG viết cứng ở nơi khác. */
 export const GIO_NHAN_KHACH: Record<Buoi, { batDau: string; ketThuc: string }> = {
   sang: { batDau: '07:30', ketThuc: '12:00' },
-  chieu: { batDau: '12:00', ketThuc: '19:30' },
+  chieu: { batDau: '12:00', ketThuc: '20:00' },
 };
 
 /** Giờ đóng cửa trung tâm — mọi ca phải xong trước mốc này (dùng ở Lớp 2, xem B20). */
@@ -45,6 +45,17 @@ export function resolveNhomVaiTro(loaiCuocHen: LoaiCuocHen | string): NhomVaiTro
 
 export function vaiTroIdCuaNhom(nhom: NhomVaiTro): number {
   return nhom === 'chuyen_vien' ? VAI_TRO_ID_CHUYEN_VIEN : VAI_TRO_ID_KTV;
+}
+
+/**
+ * Số khách tối đa 1 nhân sự được gọi vào đồng thời, suy THẲNG từ vai_tro_id — không còn cột DB
+ * riêng (ho_so_chuyen_gia.so_khach_song_song đã bỏ vì data thật chưa từng lệch khỏi công thức
+ * này). KTV = 2 (xen kẽ được khi khách nằm máy), còn lại (Chuyên viên VLTL) = 1 (lượng giá cần
+ * tập trung). Đây là nguồn sự thật DUY NHẤT — mọi câu SQL raw cần giá trị này phải dùng CASE
+ * đúng theo công thức ở đây (`vai_tro_id = ${VAI_TRO_ID_KTV} THEN 2 ELSE 1`), không tự bịa anchor khác.
+ */
+export function soKhachSongSongTheoVaiTro(vaiTroId: number): number {
+  return vaiTroId === VAI_TRO_ID_KTV ? 2 : 1;
 }
 
 /** Chuyển "HH:MM" hoặc "HH:MM:SS" (node-postgres trả TIME dạng chuỗi) thành số phút từ 00:00. */
@@ -78,7 +89,7 @@ export interface NhanSuTrucCa {
   nhanSuId: number;
   gioBatDau: string;
   gioKetThuc: string;
-  /** ho_so_chuyen_gia.so_khach_song_song — mặc định Chuyên viên = 1, KTV = 2. */
+  /** Suy thẳng từ vai_tro_id (không còn cột DB riêng) — Chuyên viên = 1, KTV = 2. */
   soKhachSongSong: number;
 }
 
@@ -182,3 +193,32 @@ export function kiemTraDatBatKy(
 
   return { choPhep: true, soPhutConLai: conLaiChung - thoiLuongMoiPhut };
 }
+
+export interface CaSangAppointment {
+  thoiGianCheckin: string | Date | null;
+  thoiLuongPhut: number;
+}
+
+/**
+ * Tính số phút các ca Sáng tràn sang ca Chiều sau mốc 12:00.
+ * Khách ca Sáng check-in muộn (vd 11h45) làm gói 90 phút (xong lúc 13h15) -> Tràn 75 phút sang ca Chiều.
+ * Số phút tràn này sẽ tự động khấu trừ vào Ngân sách Buổi Chiều để ca Chiều không bị quá tải ngầm.
+ */
+export function tinhPhutTranCa(caSangAppointments: CaSangAppointment[]): number {
+  const KET_THUC_SANG_PHUT = 12 * 60; // 12:00 = 720 phút
+  let tongPhutTran = 0;
+
+  for (const apt of caSangAppointments) {
+    if (!apt.thoiGianCheckin) continue;
+    const checkinDate = new Date(apt.thoiGianCheckin);
+    const checkinMins = checkinDate.getHours() * 60 + checkinDate.getMinutes();
+    const duKienXongMins = checkinMins + Math.max(0, apt.thoiLuongPhut);
+
+    if (duKienXongMins > KET_THUC_SANG_PHUT) {
+      tongPhutTran += (duKienXongMins - KET_THUC_SANG_PHUT);
+    }
+  }
+
+  return tongPhutTran;
+}
+

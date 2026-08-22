@@ -133,14 +133,14 @@ export default function SpecialistDetailPage() {
 
   return (
     <div className="min-h-screen bg-slate-50/50 pb-20 pt-6 font-jakarta">
-      <div className="max-w-6xl mx-auto px-6 relative z-10">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         
         {/* Sleek E-Commerce Standard Breadcrumb Bar */}
-        <div className="mb-4 flex items-center gap-2 text-xs font-semibold text-slate-500 flex-wrap">
+        <div className="mb-5 flex items-center gap-2 text-xs font-semibold text-slate-500 flex-wrap">
           <button
             type="button"
             onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/specialists'))}
-            className="inline-flex items-center gap-1.5 text-[#0D9488] font-extrabold hover:text-[#0b7a70] transition-colors cursor-pointer mr-1"
+            className="inline-flex items-center gap-1.5 text-[#0D9488] font-extrabold hover:text-[#0b7a70] transition-colors cursor-pointer mr-1 bg-teal-50/80 px-3 py-1.5 rounded-lg border border-teal-100/60"
           >
             <ArrowLeft size={14} />
             <span>Quay lại</span>

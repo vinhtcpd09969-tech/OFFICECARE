@@ -173,7 +173,7 @@ export default function ServicesPage() {
 
   return (
     <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50 pb-12 pt-6 font-jakarta transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* Asymmetric Header */}
         <div className="mb-8 grid grid-cols-1 lg:grid-cols-12 gap-6 items-end border-b border-slate-200 dark:border-slate-800 pb-6">

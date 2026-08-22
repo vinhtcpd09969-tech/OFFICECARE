@@ -99,49 +99,48 @@ export function VoucherCard({
           {/* Badge Row */}
           <div className="flex items-center justify-between gap-2 mb-2">
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-lg border ${
-                computedStatus === 'hoat_dong' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                computedStatus === 'sap_ra_mat' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                computedStatus === 'het_han' ? 'bg-rose-50 text-rose-700 border-rose-100' :
-                'bg-amber-50 text-amber-700 border-amber-100'
+              <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-xl border flex items-center gap-1 ${
+                computedStatus === 'hoat_dong' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800' :
+                computedStatus === 'sap_ra_mat' ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800' :
+                computedStatus === 'het_han' ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800' :
+                'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
               }`}>
-                {computedStatus === 'hoat_dong' ? 'Đang chạy' :
-                 computedStatus === 'sap_ra_mat' ? 'Sắp hoạt động' :
-                 computedStatus === 'het_han' ? 'Đã hết hạn' : 'Ngưng sử dụng'}
+                {computedStatus === 'hoat_dong' ? '🔥 Đang chạy' :
+                 computedStatus === 'sap_ra_mat' ? '⏳ Sắp hoạt động' :
+                 computedStatus === 'het_han' ? '⌛ Đã hết hạn' : '⏸️ Tạm ngưng'}
               </span>
 
               {v.tu_dong_ap_dung && (
-                <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg border bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-955/40 dark:text-purple-300">
-                  ⚡ Tự động áp dụng
+                <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-xl border bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800 flex items-center gap-1">
+                  ✨ Tự động trừ tiền
                 </span>
               )}
 
               {v.kenh_ap_dung && !v.kenh_ap_dung.includes('tat_ca') && (
-                <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg border bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-955/40 dark:text-cyan-300">
-                  Kênh: {v.kenh_ap_dung.map(k => k === 'online' ? 'Web Online' : k === 'tai_quay' ? 'Lễ tân' : k).join(', ')}
+                <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-xl border bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-950/40 dark:text-cyan-300 dark:border-cyan-800">
+                  Kênh: {v.kenh_ap_dung.map(k => k === 'online' ? 'Web' : k === 'tai_quay' ? 'Tại quầy' : k).join(', ')}
                 </span>
               )}
 
               {v.loai_goi_ap_dung && !v.loai_goi_ap_dung.includes('tat_ca') && (
-                <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg border bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-955/40 dark:text-amber-300">
+                <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-xl border bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800">
                   Gói: {v.loai_goi_ap_dung.map(l => l === 'LIEU_TRINH' ? 'Liệu trình' : l === 'KHAM' ? 'Lượng giá' : l === 'LE' ? 'Dịch vụ lẻ' : l).join(', ')}
                 </span>
               )}
 
               {paymentMethodLabel && (
-                <span className="text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-lg border bg-indigo-50 text-indigo-700 border-indigo-100">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-xl border bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800">
                   Chỉ {paymentMethodLabel}
                 </span>
               )}
             </div>
 
-            {/* Toggle status — vị trí bật/tắt theo trạng thái THỰC TẾ (computedStatus), không chỉ
-                theo trang_thai lưu DB, vì 1 mã "hoat_dong" nhưng đã hết hạn vẫn phải hiện là tắt. */}
+            {/* Toggle status */}
             <button
               onClick={() => handleToggleVoucherStatus(v)}
               title={computedStatus === 'hoat_dong' ? 'Ngưng sử dụng mã giảm giá' : 'Kích hoạt lại mã giảm giá'}
               className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                computedStatus === 'hoat_dong' || computedStatus === 'sap_ra_mat' ? 'bg-teal-500' : 'bg-slate-200'
+                computedStatus === 'hoat_dong' || computedStatus === 'sap_ra_mat' ? 'bg-teal-500' : 'bg-slate-200 dark:bg-zinc-700'
               }`}
             >
               <span
@@ -152,16 +151,12 @@ export function VoucherCard({
             </button>
           </div>
 
-          <h3 className="font-bold text-slate-800 text-base mb-1 group-hover:text-primary transition-colors">
+          <h3 className="font-extrabold text-slate-900 dark:text-zinc-100 text-sm md:text-base mb-1 group-hover:text-teal-600 transition-colors">
             {v.ten_chien_dich || 'Chiến dịch ưu đãi'}
           </h3>
-          <p className="text-xs text-slate-505 leading-relaxed">
-            Áp dụng cho đơn hàng từ <span className="font-semibold text-slate-700">{formatCurrency(v.don_hang_toi_thieu)}</span>.
+          <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed font-semibold">
+            Áp dụng cho đơn hàng từ <span className="font-black text-slate-800 dark:text-zinc-200">{formatCurrency(v.don_hang_toi_thieu)}</span>.
           </p>
-
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">Áp dụng cho toàn bộ hóa đơn thanh toán</span>
-          </div>
         </div>
 
         {/* Details */}

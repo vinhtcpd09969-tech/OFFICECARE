@@ -11,11 +11,10 @@ export interface CustomerEditForm {
   gioi_tinh: string;
   dia_chi: string;
   ngay_sinh: string;
-  diem_uy_tin: number;
 }
 
 const EMPTY_FORM: CustomerEditForm = {
-  ho_ten: '', so_dien_thoai: '', email: '', gioi_tinh: 'khac', dia_chi: '', ngay_sinh: '', diem_uy_tin: 100
+  ho_ten: '', so_dien_thoai: '', email: '', gioi_tinh: 'khac', dia_chi: '', ngay_sinh: ''
 };
 
 // Sửa thông tin hành chính + khóa/mở khóa tài khoản — dùng ConfirmDialog thay window.confirm cho
@@ -35,9 +34,7 @@ export function useCustomerActions(onChanged: () => void) {
       email: customer.email || '',
       gioi_tinh: customer.gioi_tinh || 'khac',
       dia_chi: customer.dia_chi || '',
-      ngay_sinh: customer.ngay_sinh ? format(new Date(customer.ngay_sinh), 'yyyy-MM-dd') : '',
-      // Cap 0-100 theo thang badge uy tín mới — không còn cho nhập tới 500 như bản cũ.
-      diem_uy_tin: Math.min(100, customer.diem_uy_tin || 0)
+      ngay_sinh: customer.ngay_sinh ? format(new Date(customer.ngay_sinh), 'yyyy-MM-dd') : ''
     });
   };
 
@@ -46,7 +43,7 @@ export function useCustomerActions(onChanged: () => void) {
   const saveProfile = async () => {
     if (!editingCustomerId) return;
     try {
-      const payload = { ...editForm, diem_uy_tin: Math.max(0, Math.min(100, editForm.diem_uy_tin)) };
+      const payload = { ...editForm };
       await updateCustomer(editingCustomerId, payload);
       toast.success('Đã cập nhật thông tin khách hàng thành công!');
       setEditingCustomerId(null);

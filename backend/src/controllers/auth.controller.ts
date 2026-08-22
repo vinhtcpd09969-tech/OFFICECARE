@@ -177,13 +177,28 @@ export const updateProfile = asyncHandler(async (req: Request, res: Response) =>
   }
 });
 
+export const sendChangePasswordOTP = asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const result = await authService.sendChangePasswordOTP(req.user.id);
+    res.json({
+      success: true,
+      ...result
+    });
+  } catch (error: any) {
+    throw new BadRequestError(error.message || 'Lỗi khi gửi mã OTP đổi mật khẩu');
+  }
+});
+
 export const changePassword = asyncHandler(async (req: Request, res: Response) => {
   try {
-    const { oldPassword, newPassword } = req.body;
-    if (!oldPassword || !newPassword) {
-      throw new BadRequestError('Vui lòng nhập đầy đủ mật khẩu cũ và mới');
+    const { otp, oldPassword, newPassword } = req.body;
+    if (!newPassword) {
+      throw new BadRequestError('Vui lòng nhập mật khẩu mới');
     }
-    const result = await authService.changePassword(req.user.id, { oldPassword, newPassword });
+    if (!otp && !oldPassword) {
+      throw new BadRequestError('Vui lòng cung cấp mã OTP xác thực');
+    }
+    const result = await authService.changePassword(req.user.id, { otp, oldPassword, newPassword });
     res.json({
       success: true,
       ...result

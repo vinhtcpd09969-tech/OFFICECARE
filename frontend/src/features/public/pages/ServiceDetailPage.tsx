@@ -252,14 +252,14 @@ export default function ServiceDetailPage() {
       {/* Visual background gradient */}
       <div className="absolute top-0 left-0 right-0 h-[450px] bg-gradient-to-b from-teal-50/20 via-transparent to-transparent pointer-events-none z-0"></div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         
         {/* Sleek E-Commerce Standard Breadcrumb Bar */}
-        <div className="mb-4 flex items-center gap-2 text-xs font-semibold text-slate-500 flex-wrap">
+        <div className="mb-5 flex items-center gap-2 text-xs font-semibold text-slate-500 flex-wrap">
           <button
             type="button"
             onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/services'))}
-            className="inline-flex items-center gap-1.5 text-[#0D9488] font-extrabold hover:text-[#0b7a70] transition-colors cursor-pointer mr-1"
+            className="inline-flex items-center gap-1.5 text-[#0D9488] font-extrabold hover:text-[#0b7a70] transition-colors cursor-pointer mr-1 bg-teal-50/80 px-3 py-1.5 rounded-lg border border-teal-100/60"
           >
             <ArrowLeft size={14} />
             <span>Quay lại</span>
@@ -271,19 +271,19 @@ export default function ServiceDetailPage() {
         </div>
 
         {/* Unified Service Detail Card */}
-        <div className="bg-white rounded-[24px] border border-slate-150 p-6 md:p-10 mb-12 shadow-[0_8px_30px_rgba(15,23,42,0.015)] relative overflow-hidden">
+        <div className="bg-white rounded-[28px] border border-slate-200/80 p-6 md:p-8 xl:p-10 mb-12 shadow-[0_12px_40px_rgba(15,23,42,0.03)] relative overflow-hidden">
           <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl pointer-events-none"></div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 relative z-10">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 xl:gap-12 relative z-10">
             {/* Left Column: Image Showcase & Gallery Thumbnails */}
             <div className="lg:col-span-6 space-y-4">
-              <div className="aspect-[4/3] w-full rounded-2xl overflow-hidden bg-slate-100 border border-slate-150 relative group">
+              <div className="aspect-[16/10] w-full rounded-2xl overflow-hidden bg-slate-100 border border-slate-200/80 relative group shadow-sm">
                 <img
                   src={resolveImageUrl(selectedImage || service.anh_goi || '/images/packages/wellness_hero.png')}
                   alt={service.ten_goi}
-                  className="w-full h-full object-cover transition-all duration-500"
+                  className="w-full h-full object-cover transition-all duration-500 group-hover:scale-102"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/20 to-transparent pointer-events-none"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/30 via-transparent to-transparent pointer-events-none"></div>
               </div>
 
               {/* Gallery Thumbnails */}

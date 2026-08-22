@@ -43,10 +43,6 @@ model ho_so_chuyen_gia {
   bang_cap_chung_chi String?
   mo_ta              String?
   the_manh           String[]   @default([])
-  // Số khách tối đa nhân sự này được gọi vào đồng thời — Chuyên viên VLTL mặc định 1 (lượng giá
-  // cần tập trung), KTV mặc định 2 (xen kẽ được khi khách nằm máy). Nhân với ngân sách phút của ca
-  // để ra tổng ngân sách phút riêng của người này (xem backend/src/domain/capacity.ts).
-  so_khach_song_song Int        @default(1) @db.SmallInt
   nguoi_dung         nguoi_dung @relation(fields: [nguoi_dung_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
@@ -54,7 +50,6 @@ model lich_truc_nhan_su {
   id           String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   nhan_su_id   Int
   ngay_truc    DateTime        @db.Date
-  ca_truc      String          @db.VarChar(20)
   gio_bat_dau  DateTime        @db.Time(6)
   gio_ket_thuc DateTime        @db.Time(6)
   trang_thai   String          @default("hoat_dong") @db.VarChar(20)
@@ -73,7 +68,6 @@ model khach_hang {
   ngay_sinh           DateTime?             @db.Date
   gioi_tinh           String?               @db.VarChar(10)
   trang_thai          String                @default("hoat_dong") @db.VarChar(20)
-  diem_uy_tin         Int                   @default(100)
   phai_doi_mat_khau   Boolean               @default(false)
   ngay_dong_y_dieu_khoan DateTime?          @db.Timestamptz(6)
   cuoc_hen            cuoc_hen[]
@@ -155,17 +149,17 @@ model cuoc_hen {
   trang_thai            String                 @default("cho_xac_nhan") @db.VarChar(20)
   ghi_chu_khach_hang    String?
   phong_id              Int?
+  // Ghi chú nội bộ dùng chung — cũng là nơi lưu lý do hủy (khách tự hủy hoặc Lễ tân hủy giúp),
+  // gộp từ cột ly_do_huy cũ vì mọi nơi hiển thị đều đọc 2 cột này như nhau (luôn OR fallback).
   ghi_chu_noi_bo        String?
   anh_dinh_kem_url      String?
   thoi_gian_tao         DateTime?              @default(now()) @db.Timestamptz(6)
   thoi_gian_huy         DateTime?              @db.Timestamptz(6)
-  thoi_gian_xac_nhan    DateTime?              @db.Timestamptz(6)
   thoi_gian_checkin     DateTime?              @db.Timestamptz(6)
   thoi_gian_bat_dau     DateTime?              @db.Timestamptz(6)
   thoi_gian_hoan_thanh  DateTime?              @db.Timestamptz(6)
   thoi_gian_khong_den   DateTime?              @db.Timestamptz(6)
   nguoi_tao_id          Int?
-  ly_do_huy             String?
   // sáng ('sang') / chiều ('chieu') — đơn vị đặt lịch mới, thay cho giờ cụ thể.
   buoi                  String                 @db.VarChar(10)
   // Hạn quay lại do chuyên viên đặt khi chuyển sang trạng thái chờ tái lượng giá.
@@ -190,7 +184,6 @@ model cuoc_hen {
   danh_gia              danh_gia[]
   hoa_don               hoa_don[]
   nhat_ky_buoi_dieu_tri nhat_ky_buoi_dieu_tri?
-  so_dien_thoai         String?                @db.VarChar(20)
   phien_lam_viec        phien_lam_viec[]
 }
 
@@ -246,11 +239,6 @@ model hoa_don {
   so_tien_da_tra           BigInt                 @default(0)
   trang_thai               String                 @default("chua_thanh_toan") @db.VarChar(30)
   ghi_chu                  String?
-  // Phí khám lâm sàng tại đúng thời điểm chốt hóa đơn gói (được miễn hoặc khấu trừ vào gói).
-  // Bắt buộc snapshot: hóa đơn khám được miễn bị ghi đè tong_tien_phai_tra = 0, nên nếu không lưu
-  // ở đây thì lúc hủy gói không còn cách nào biết đã miễn cho khách bao nhiêu để truy thu lại.
-  // NGỪNG GHI MỚI (C11) — buổi Lượng giá giờ bắt buộc thu trước, không còn cơ chế miễn phí khám.
-  phi_kham_ap_dung         BigInt                 @default(0)
   // Snapshot % phạt hủy gói tại thời điểm bán — đọc từ cấu hình tập trung lúc tạo hóa đơn, KHÔNG
   // đổi theo cấu hình hiện hành lúc hủy (điều khoản hợp đồng không hồi tố). Xem A15b.
   ti_le_phat_huy_goi       Int?                   @db.SmallInt
@@ -294,7 +282,6 @@ model khuyen_mai_voucher {
   yeu_cau_thanh_toan String[] @default(["tat_ca"])
   // Điều kiện lọc chi tiết cho mã tự động (B13) — xem docs/BUSINESS_RULES.md.
   tu_dong_ap_dung    Boolean   @default(false)
-  kenh_ap_dung       String[]  @default([])
   loai_goi_ap_dung   String[]  @default([])
   hoa_don            hoa_don[]
 }

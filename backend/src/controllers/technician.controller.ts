@@ -161,7 +161,8 @@ export const getWorkstationInfo = async (req: AuthenticatedRequest, res: Respons
     if (!userId) {
       return res.status(401).json({ message: 'Không xác định được danh tính người dùng.' });
     }
-    const info = await technicianService.getWorkstationInfo(userId);
+    const appointmentId = (req.query.appointment_id as string) || null;
+    const info = await technicianService.getWorkstationInfo(userId, appointmentId);
     res.json(info);
   } catch (error: any) {
     console.error('Lỗi khi lấy thông tin phòng trực & thiết bị:', error);

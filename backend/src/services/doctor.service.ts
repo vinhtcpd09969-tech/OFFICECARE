@@ -155,12 +155,7 @@ class DoctorService {
       detail = await doctorRepository.getAppointmentDetail(appointmentId);
     }
 
-    // Cho Bác sĩ biết NGAY lúc mở ca khám (không đợi tới lúc lưu mới báo) nếu khách đang có chỉ
-    // định/phác đồ liệu trình khác đang chặn — dùng lại đúng check ở saveAssessment, để trang bàn
-    // khám hiện banner cảnh báo sớm giống cách Admin đang thấy ở PatientEmrDetail.
-    const packageConflict = await doctorRepository.getBlockingLieuTrinh(appointmentId);
-
-    return { ...detail, package_conflict: packageConflict };
+    return { ...detail, package_conflict: null };
   }
 
   // 5. Lưu chẩn đoán lâm sàng và hoàn thành ca khám
@@ -171,6 +166,7 @@ class DoctorService {
       chan_doan: string;
       chong_chi_dinh: string;
       goi_dich_vu_id?: string | null;
+      goi_dich_vu_ids?: string[] | null;
       ghi_chu?: string | null;
       resolvePendingConflict?: boolean;
       is_reassessment?: boolean;
@@ -180,24 +176,25 @@ class DoctorService {
       mmt_data?: any[] | null;
     }
   ) {
-    if (data.goi_dich_vu_id) {
-      const isLieuTrinh = await doctorRepository.isPackageLieuTrinh(data.goi_dich_vu_id);
-      if (!isLieuTrinh) {
-        throw new Error('Bác sĩ chỉ được chỉ định gói liệu trình, không được chỉ định dịch vụ lẻ.');
-      }
-      const blockCheck = await doctorRepository.getBlockingLieuTrinh(data.lich_dat_id);
-      if (blockCheck.blocked) {
-        if (blockCheck.type === 'active_plan') {
-          const err: any = new Error(blockCheck.reason);
-          err.errorCode = 'ACTIVE_LIEU_TRINH_CONFLICT';
-          throw err;
+    const rawGoiIds = data.goi_dich_vu_ids || (data.goi_dich_vu_id ? [data.goi_dich_vu_id] : []);
+    const validGoiIds = Array.from(new Set(rawGoiIds.filter(Boolean)));
+
+    if (validGoiIds.length > 0) {
+      const blockedPackages = await doctorRepository.getBlockedPackagesForAppointment(data.lich_dat_id);
+
+      for (const gid of validGoiIds) {
+        const isLieuTrinh = await doctorRepository.isPackageLieuTrinh(gid);
+        if (!isLieuTrinh) {
+          throw new Error('Chuyên viên chỉ được chỉ định gói liệu trình, không được chỉ định dịch vụ lẻ.');
         }
-        if (data.resolvePendingConflict && blockCheck.chi_dinh_buoi_id) {
-          await doctorRepository.deletePendingChiDinh(blockCheck.chi_dinh_buoi_id);
-        } else {
-          const err: any = new Error(blockCheck.reason);
-          err.errorCode = 'PENDING_LIEU_TRINH_CONFLICT';
-          throw err;
+
+        const blocked = blockedPackages.find((b: any) => String(b.goi_dich_vu_id) === String(gid));
+        if (blocked) {
+          if (blocked.reason_type === 'dang_dieu_tri') {
+            throw new Error(`Khách hàng đang điều trị gói "${blocked.ten_goi}" (chưa hoàn thành). Không thể chỉ định trùng gói này. Chuyên viên có thể chọn gói khác để dùng kèm.`);
+          } else {
+            throw new Error(`Khách hàng đã được chỉ định gói "${blocked.ten_goi}" ở ca trước (chưa thanh toán). Không thể chỉ định trùng gói này. Chuyên viên có thể chọn gói khác để dùng kèm.`);
+          }
         }
       }
     }
@@ -207,7 +204,8 @@ class DoctorService {
       bac_si_id: userId,
       chan_doan: data.chan_doan,
       chong_chi_dinh: data.chong_chi_dinh,
-      goi_dich_vu_id: data.goi_dich_vu_id,
+      goi_dich_vu_id: validGoiIds[0] || data.goi_dich_vu_id,
+      goi_dich_vu_ids: validGoiIds,
       ghi_chu: data.ghi_chu,
       is_reassessment: data.is_reassessment,
       han_tai_kham: data.han_tai_kham,
@@ -249,6 +247,7 @@ class DoctorService {
       rom_data?: any[];
       mmt_data?: any[];
       selected_package_id?: string;
+      selected_package_ids?: string[];
     }
   ) {
     return await doctorRepository.saveAssessmentDraft({
@@ -261,6 +260,7 @@ class DoctorService {
       rom_data: data.rom_data,
       mmt_data: data.mmt_data,
       selected_package_id: data.selected_package_id,
+      selected_package_ids: data.selected_package_ids,
     });
   }
 }

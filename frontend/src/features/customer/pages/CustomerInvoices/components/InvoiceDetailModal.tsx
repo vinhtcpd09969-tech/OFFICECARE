@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { User, Building, Activity, Receipt, ChevronDown, Phone, ShieldAlert, RotateCcw } from 'lucide-react';
+import { User, Building, Activity, Receipt, ChevronDown, Phone, ShieldAlert, RotateCcw, Printer } from 'lucide-react';
 import { formatCurrency } from '../../../../../utils/format';
 import { canRefundPackage } from '../../../../../utils/billing';
+import { generateInvoiceHtml } from '../../../../../utils/invoicePrinter';
 import type { CustomerInvoice, CustomerPayment } from '../../../api/customer.api';
 
 interface InvoiceDetailModalProps {
@@ -67,6 +68,13 @@ export function InvoiceDetailModal({ invoice, payments, onClose, onOpenPolicy, a
   const keptRevenue = totalPaid - estimatedRefund;
   const perSessionCost = totalSessions > 0 ? Math.round(gia_thanh_toan_goi / totalSessions) : 0;
   const shortfall = Math.max(0, totalDeduction - totalPaid);
+
+  const handlePrint = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    printWindow.document.write(generateInvoiceHtml(invoice as any));
+    printWindow.document.close();
+  };
 
   return (
     <div className="fixed inset-0 bg-zinc-950/60 backdrop-blur-xs z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -532,10 +540,16 @@ export function InvoiceDetailModal({ invoice, payments, onClose, onOpenPolicy, a
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4.5 bg-zinc-50 border-t border-zinc-100 flex items-center justify-end">
+        <div className="px-6 py-4.5 bg-zinc-50 border-t border-zinc-100 flex items-center justify-between">
+          <button
+            onClick={handlePrint}
+            className="px-4 py-2 bg-zinc-150 hover:bg-zinc-200 text-zinc-700 hover:text-zinc-900 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer border border-zinc-200"
+          >
+            <Printer size={14} className="text-teal-600" /> In hóa đơn
+          </button>
           <button
             onClick={onClose}
-            className="px-5 py-2.5 bg-zinc-200 hover:bg-zinc-300 text-zinc-700 text-xs font-bold rounded-xl transition-all"
+            className="px-5 py-2.5 bg-zinc-200 hover:bg-zinc-300 text-zinc-700 text-xs font-bold rounded-xl transition-all cursor-pointer"
           >
             Đóng
           </button>

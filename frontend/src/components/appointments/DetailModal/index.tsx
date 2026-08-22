@@ -44,7 +44,6 @@ interface AppointmentDetailModalProps {
   isAssigning: boolean;
   onClose: () => void;
   onSave: (e: React.FormEvent, note?: string) => void;
-  onOpenTreatment?: (type?: 'single' | 'package', recId?: string) => void;
   appointments?: any[];
   onSuccess?: () => void;
   schedulesList?: any[];
@@ -174,11 +173,11 @@ export default function AppointmentDetailModal({
   // buổi (vd 07:30-12:00), không phải khung giờ riêng của dịch vụ.
   const BUOI_INFO: Record<'sang' | 'chieu', { label: string; batDau: string; ketThuc: string }> = {
     sang: { label: 'Buổi sáng', batDau: '07:30', ketThuc: '12:00' },
-    chieu: { label: 'Buổi chiều', batDau: '12:00', ketThuc: '19:30' },
+    chieu: { label: 'Buổi chiều', batDau: '12:00', ketThuc: '20:00' },
   };
 
   // Nhân sự có TRỰC GIAO với buổi này không (chỉ cần giao nhau, không bắt phủ trọn buổi — trực
-  // 07:00-16:00 vẫn giao với buổi chiều 12:00-19:30, chỉ là phủ một phần, xem StaffRoomAllocation
+  // 07:00-16:00 vẫn giao với buổi chiều 12:00-20:00, chỉ là phủ một phần, xem StaffRoomAllocation
   // để biết cách hiện cảnh báo "chỉ nhận khách đến trước ...").
   const checkStaffOnDutyForBuoi = (staffId: string | number, dateStr: string, buoi: 'sang' | 'chieu') => {
     if (!staffId || !schedulesList || schedulesList.length === 0) return true;
@@ -387,7 +386,9 @@ export default function AppointmentDetailModal({
         toast.error('Vui lòng chọn phòng thực hiện!');
         return;
       }
-      if (!currentStaffIdToCheck) {
+      // Chỉ bắt buộc chọn nhân sự nếu ca đang ở trạng thái 'dang_kham' hoặc 'hoan_thanh'.
+      // Với 'da_xac_nhan' và 'da_checkin', cho phép để trống nhân sự (chuyển/giữ ở Hàng chờ chung - "Bất kỳ")
+      if (!currentStaffIdToCheck && ['dang_kham', 'hoan_thanh'].includes(assignStatus)) {
         toast.error(
           targetRole === 'Bác sĩ' 
             ? 'Vui lòng chọn Bác sĩ phụ trách!' 
@@ -744,7 +745,6 @@ export default function AppointmentDetailModal({
                             { value: 'da_xac_nhan', label: 'Đã xác nhận' },
                             { value: 'da_checkin', label: 'Đã check-in' },
                             { value: 'dang_kham', label: 'Đang thực hiện' },
-                            { value: 'cho_tai_luong_gia', label: 'Chờ tái lượng giá' },
                             { value: 'hoan_thanh', label: 'Hoàn thành' },
                             { value: 'da_huy', label: 'Đã hủy' },
                             { value: 'khong_den', label: 'Không đến' }

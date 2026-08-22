@@ -4,6 +4,7 @@ import receptionistRepository from '../repositories/receptionist.repository';
 import { getMinPaymentRequired } from '../domain/billing';
 import { DEFAULT_FOLLOW_UP_STALE_DAYS } from '../domain/customerFollowUp';
 import { HinhThucThanhToanGoi } from '../domain/types';
+import { VAI_TRO_ID_KTV } from '../domain/capacity';
 import { payos } from '../config/payos';
 import { pool } from '../config/db';
 
@@ -11,14 +12,14 @@ import { pool } from '../config/db';
 export const updateAppointmentStatus = async (req: Request, res: Response): Promise<any> => {
   try {
     const { id } = req.params as { id: string };
-    const { trang_thai, ly_do_huy, ghi_chu_noi_bo } = req.body;
-    const effectiveReason = (ly_do_huy && ly_do_huy.trim()) ? ly_do_huy.trim() : (ghi_chu_noi_bo && ghi_chu_noi_bo.trim() ? ghi_chu_noi_bo.trim() : undefined);
-    if (['da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(trang_thai)) {
+    const { trang_thai, ghi_chu_noi_bo } = req.body;
+    const effectiveReason = ghi_chu_noi_bo && ghi_chu_noi_bo.trim() ? ghi_chu_noi_bo.trim() : undefined;
+    if (['da_huy', 'khong_den'].includes(trang_thai)) {
       if (!effectiveReason) {
         return res.status(400).json({ message: 'Lý do hủy/vắng mặt là bắt buộc.' });
       }
     }
-    const appointment = await receptionistService.updateAppointmentStatus(id, trang_thai, ghi_chu_noi_bo, effectiveReason);
+    const appointment = await receptionistService.updateAppointmentStatus(id, trang_thai, effectiveReason);
     res.json(appointment);
   } catch (error: any) {
     console.error('Lỗi cập nhật trạng thái:', error);
@@ -82,10 +83,7 @@ export const calculateBilling = async (req: Request, res: Response): Promise<any
 // GET /api/receptionist/vouchers/active
 export const getActiveVouchers = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { khach_hang_id } = req.query;
-    if (!khach_hang_id || typeof khach_hang_id !== 'string') {
-      return res.status(400).json({ message: 'Thiếu khach_hang_id để kiểm tra lượt dùng voucher' });
-    }
+    const khach_hang_id = req.query.khach_hang_id ? String(req.query.khach_hang_id) : undefined;
     const vouchers = await receptionistService.getActiveVouchers(khach_hang_id);
     res.json({ vouchers });
   } catch (error: any) {
@@ -97,11 +95,11 @@ export const getActiveVouchers = async (req: Request, res: Response): Promise<an
 // POST /api/receptionist/vouchers/apply
 export const applyVoucher = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { ma_voucher, loai_thanh_toan, khach_hang_id } = req.body;
+    const { ma_voucher, loai_thanh_toan, khach_hang_id, kenh, loai_goi } = req.body;
     if (!ma_voucher || !String(ma_voucher).trim()) {
       return res.status(400).json({ message: 'Vui lòng nhập mã giảm giá' });
     }
-    const voucher = await receptionistService.applyVoucher(ma_voucher, loai_thanh_toan, khach_hang_id);
+    const voucher = await receptionistService.applyVoucher(ma_voucher, loai_thanh_toan, khach_hang_id, kenh, loai_goi);
     res.json({ voucher });
   } catch (error: any) {
     console.error('Lỗi áp dụng voucher:', error);
@@ -257,7 +255,7 @@ export const checkPackagePayment = async (req: Request, res: Response): Promise<
 
     const { rows } = await pool.query(`
       SELECT hd.tong_tien_phai_tra, hd.so_tien_da_tra, hd.hinh_thuc_thanh_toan_goi, hd.trang_thai, pd.tong_so_buoi,
-             hd.tong_tien_goc, hd.ti_le_giam_gia_goi, hd.so_tien_giam_voucher,
+             hd.tong_tien_goc, hd.so_tien_giam_voucher,
              (
                SELECT COUNT(*)::int
                FROM cuoc_hen
@@ -279,7 +277,6 @@ export const checkPackagePayment = async (req: Request, res: Response): Promise<
     const hinhThuc: HinhThucThanhToanGoi = invoiceObj.hinh_thuc_thanh_toan_goi || 'tra_thang';
     const tongSoBuoi = Number(invoiceObj.tong_so_buoi || 10);
     const grossBeforeExamDeduction = Number(invoiceObj.tong_tien_goc || 0)
-      - Math.round(Number(invoiceObj.tong_tien_goc || 0) * Number(invoiceObj.ti_le_giam_gia_goi || 0) / 100)
       - Number(invoiceObj.so_tien_giam_voucher || 0);
 
     // Buổi sắp được đặt = số buổi DIEU_TRI đã tạo + 1 — khớp đúng cách appointment.repository.ts
@@ -447,17 +444,20 @@ export const getStaffWorkload = async (req: Request, res: Response): Promise<any
         ns.ho_ten,
         ns.vai_tro_id,
         vt.ten_vai_tro,
-        CASE WHEN ns.vai_tro_id = 4 THEN 1 ELSE 2 END as so_khach_song_song,
+        CASE WHEN ns.vai_tro_id = ${VAI_TRO_ID_KTV} THEN 2 ELSE 1 END as so_khach_song_song,
         to_char(lt.gio_bat_dau, 'HH24:MI') as gio_bat_dau,
         to_char(lt.gio_ket_thuc, 'HH24:MI') as gio_ket_thuc,
         p.ten_phong,
         COUNT(DISTINCT ch.id) FILTER (WHERE ch.trang_thai = 'dang_kham')::integer as so_ca_dang_lam,
+        COUNT(DISTINCT ch.id) FILTER (WHERE ch.trang_thai IN ('da_checkin', 'cho_tai_luong_gia'))::integer as so_ca_cho,
         MAX(ch.thoi_gian_bat_dau + (COALESCE(ch.thoi_luong_phut, g.thoi_luong_phut, 30) || ' minutes')::interval) FILTER (WHERE ch.trang_thai = 'dang_kham') as thoi_gian_xong_du_kien_muon_nhat
       FROM lich_truc_nhan_su lt
       JOIN nguoi_dung ns ON lt.nhan_su_id = ns.id
       JOIN vai_tro vt ON ns.vai_tro_id = vt.id
       LEFT JOIN phong_lam_viec p ON lt.phong_id = p.id
-      LEFT JOIN cuoc_hen ch ON ch.nhan_su_id = ns.id AND ch.trang_thai = 'dang_kham'
+      LEFT JOIN cuoc_hen ch ON ch.nhan_su_id = ns.id 
+          AND ch.trang_thai IN ('dang_kham', 'da_checkin', 'cho_tai_luong_gia') 
+          AND (DATE(ch.ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh') = $1::date)
       LEFT JOIN goi_dich_vu g ON ch.goi_dich_vu_id = g.id
       WHERE lt.ngay_truc = $1::date
       GROUP BY ns.id, ns.ho_ten, ns.vai_tro_id, vt.ten_vai_tro, lt.gio_bat_dau, lt.gio_ket_thuc, p.ten_phong

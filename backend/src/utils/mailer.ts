@@ -664,3 +664,263 @@ export const sendAccountLockedNotification = async (toEmail: string, userName: s
     console.error('Lỗi khi gửi email thông báo khóa tài khoản:', error);
   }
 };
+
+export interface PaymentReceiptEmailParams {
+  toEmail: string;
+  userName: string;
+  maHoaDon: string;
+  tenDichVu: string;
+  soTienThanhToan: number;
+  tongTienHoaDon: number;
+  daThanhToan: number;
+  conLai: number;
+  phuongThuc: string;
+  hinhThucGoi?: string;
+  soBuoi?: number;
+  ngayThanhToan?: Date | string;
+}
+
+export const sendPaymentReceiptEmail = async (params: PaymentReceiptEmailParams) => {
+  try {
+    const {
+      toEmail,
+      userName,
+      maHoaDon,
+      tenDichVu,
+      soTienThanhToan,
+      tongTienHoaDon,
+      daThanhToan,
+      conLai,
+      phuongThuc,
+      hinhThucGoi,
+      soBuoi,
+      ngayThanhToan = new Date()
+    } = params;
+
+    if (!toEmail || !toEmail.includes('@')) {
+      console.log('⚠️ Không có địa chỉ email hợp lệ để gửi biên nhận thanh toán:', toEmail);
+      return;
+    }
+
+    let transporter;
+    const isSMTPConfigured = process.env.EMAIL_USER && 
+                              process.env.EMAIL_USER !== 'your_email@gmail.com' && 
+                              process.env.EMAIL_PASS && 
+                              process.env.EMAIL_PASS !== 'your_app_password';
+
+    if (isSMTPConfigured) {
+      transporter = nodemailer.createTransport({
+        host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+        port: parseInt(process.env.EMAIL_PORT || '587'),
+        secure: process.env.EMAIL_PORT === '465',
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS,
+        },
+      });
+    } else {
+      const testAccount = await nodemailer.createTestAccount();
+      transporter = nodemailer.createTransport({
+        host: 'smtp.ethereal.email',
+        port: 587,
+        secure: false,
+        auth: {
+          user: testAccount.user,
+          pass: testAccount.pass,
+        },
+      });
+    }
+
+    const formatVND = (num: number) => num.toLocaleString('vi-VN') + 'đ';
+    const dateFormatted = new Date(ngayThanhToan).toLocaleString('vi-VN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+
+    const methodLabel = phuongThuc === 'tien_mat' 
+      ? 'Tiền mặt' 
+      : phuongThuc === 'chuyen_khoan' 
+        ? 'Chuyển khoản (Ngân hàng/QR)' 
+        : phuongThuc === 'the' 
+          ? 'Thẻ POS' 
+          : (phuongThuc || 'Thanh toán trực tuyến').toUpperCase();
+
+    const planLabel = hinhThucGoi 
+      ? hinhThucGoi.replace(/_/g, ' ').toUpperCase() 
+      : 'MỘT LẦN (100%)';
+
+    const isPaidFull = conLai <= 0;
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Biên lai xác nhận thanh toán OfficeCare</title>
+      </head>
+      <body style="margin: 0; padding: 0; background-color: #F1F5F9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #F1F5F9; padding: 30px 10px;">
+          <tr>
+            <td align="center">
+              <table width="100%" max-width="600" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06); border: 1px solid #E2E8F0;">
+                
+                <!-- Header Banner -->
+                <tr>
+                  <td style="background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); padding: 36px 30px; text-align: center;">
+                    <div style="font-size: 26px; font-weight: 800; color: #FFFFFF; letter-spacing: -0.5px; line-height: 1.2;">
+                      <span style="color: #0D9488;">O</span>FFICE<span style="color: #0D9488;">CARE</span>
+                    </div>
+                    <div style="font-size: 11px; color: #94A3B8; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 6px;">
+                      Trung Tâm Phục Hồi Chức Năng
+                    </div>
+                    <div style="display: inline-block; margin-top: 18px; background-color: rgba(13, 148, 136, 0.15); border: 1px solid #0D9488; border-radius: 20px; padding: 5px 16px;">
+                      <span style="color: #2DD4BF; font-size: 12px; font-weight: 700; letter-spacing: 0.5px;">✓ BIÊN LAI THANH TOÁN ĐIỆN TỬ</span>
+                    </div>
+                  </td>
+                </tr>
+
+                <!-- Content Body -->
+                <tr>
+                  <td style="padding: 32px 30px 24px 30px;">
+                    <p style="margin: 0 0 8px 0; color: #0F172A; font-size: 18px; font-weight: 800;">
+                      Kính chào Quý khách ${userName},
+                    </p>
+                    <p style="margin: 0 0 22px 0; color: #475569; font-size: 13.5px; line-height: 1.6;">
+                      OfficeCare xin chân thành cảm ơn Quý khách đã tin tưởng và sử dụng dịch vụ trị liệu phục hồi chức năng của chúng tôi. Hệ thống xác nhận đã ghi nhận giao dịch thanh toán thành công với chi tiết như sau:
+                    </p>
+
+                    <!-- Receipt Info Card -->
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #F8FAFC; border-radius: 12px; border: 1px solid #E2E8F0; margin-bottom: 22px;">
+                      <tr>
+                        <td style="padding: 18px 20px;">
+                          <table width="100%" border="0" cellspacing="0" cellpadding="0" style="font-size: 13px;">
+                            <tr>
+                              <td style="padding: 5px 0; color: #64748B; width: 42%;">Mã hóa đơn:</td>
+                              <td style="padding: 5px 0; color: #0D9488; font-weight: 800; font-family: monospace; text-align: right;">${maHoaDon}</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 5px 0; color: #64748B;">Thời gian giao dịch:</td>
+                              <td style="padding: 5px 0; color: #0F172A; font-weight: 600; text-align: right;">${dateFormatted}</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 5px 0; color: #64748B;">Phương thức thanh toán:</td>
+                              <td style="padding: 5px 0; color: #0F172A; font-weight: 600; text-align: right;">${methodLabel}</td>
+                            </tr>
+                            ${hinhThucGoi ? `
+                            <tr>
+                              <td style="padding: 5px 0; color: #64748B;">Hình thức gói:</td>
+                              <td style="padding: 5px 0; color: #0F172A; font-weight: 600; text-align: right;">${planLabel}</td>
+                            </tr>` : ''}
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Service Breakdown Table -->
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="border-collapse: collapse; margin-bottom: 22px; font-size: 13px;">
+                      <thead>
+                        <tr style="background-color: #F1F5F9; border-bottom: 2px solid #CBD5E1;">
+                          <th style="padding: 10px 12px; text-align: left; color: #334155; font-weight: 700; font-size: 12px; text-transform: uppercase;">Dịch vụ / Liệu trình</th>
+                          <th style="padding: 10px 12px; text-align: right; color: #334155; font-weight: 700; font-size: 12px; text-transform: uppercase;">Số tiền thu</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr style="border-bottom: 1px solid #E2E8F0;">
+                          <td style="padding: 14px 12px; color: #0F172A; font-weight: 600;">
+                            ${tenDichVu}
+                            ${soBuoi ? `<div style="font-size: 11.5px; color: #64748B; font-weight: normal; margin-top: 3px;">Quy mô: ${soBuoi} buổi trị liệu chuyên sâu</div>` : ''}
+                          </td>
+                          <td style="padding: 14px 12px; text-align: right; font-weight: 800; color: #0D9488; font-size: 14px;">
+                            ${formatVND(soTienThanhToan)}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+
+                    <!-- Financial Summary Box -->
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #F0FDFA; border: 1px solid #CCFBF1; border-radius: 12px; margin-bottom: 24px;">
+                      <tr>
+                        <td style="padding: 16px 20px;">
+                          <table width="100%" border="0" cellspacing="0" cellpadding="0" style="font-size: 13px;">
+                            <tr>
+                              <td style="padding: 4px 0; color: #475569;">Tổng giá trị hóa đơn:</td>
+                              <td style="padding: 4px 0; color: #0F172A; font-weight: 700; text-align: right;">${formatVND(tongTienHoaDon)}</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 4px 0; color: #059669; font-weight: 700;">Tổng số tiền đã nộp:</td>
+                              <td style="padding: 4px 0; color: #059669; font-weight: 800; text-align: right;">${formatVND(daThanhToan)}</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 6px 0 2px 0; color: ${isPaidFull ? '#059669' : '#D97706'}; font-weight: 700; border-top: 1px dashed #99F6E4;">
+                                ${isPaidFull ? 'Trạng thái quyết toán:' : 'Số tiền còn lại cần nộp:'}
+                              </td>
+                              <td style="padding: 6px 0 2px 0; color: ${isPaidFull ? '#059669' : '#D97706'}; font-weight: 800; text-align: right; border-top: 1px dashed #99F6E4; font-size: 14px;">
+                                ${isPaidFull ? '✓ ĐÃ HOÀN TẤT 100%' : formatVND(conLai)}
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <p style="margin: 0 0 20px 0; color: #64748B; font-size: 12.5px; line-height: 1.6; font-style: italic;">
+                      💡 Quý khách có thể xem và tra cứu toàn bộ lịch sử khám, lịch tập trị liệu và tiến trình phục hồi chức năng của mình trên ứng dụng OfficeCare bằng số điện thoại đã đăng ký.
+                    </p>
+
+                    <hr style="border: none; border-top: 1px solid #E2E8F0; margin: 24px 0;" />
+
+                    <!-- Clinic Support Info -->
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="color: #64748B; font-size: 12px; line-height: 1.7;">
+                      <tr>
+                        <td>
+                          <strong style="color: #0F172A;">Phòng Khám Phục Hồi Chức Năng OfficeCare</strong><br>
+                          🏢 Địa chỉ: Tòa nhà OfficeCare Clinic, TP. Hồ Chí Minh<br>
+                          📞 Tổng đài CSKH: <strong>1900 6868</strong> (Hỗ trợ 24/7)<br>
+                          ✉️ Email hỗ trợ: support@officecare.vn
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <!-- Footer -->
+                <tr>
+                  <td style="background-color: #F8FAFC; padding: 18px 24px; border-top: 1px solid #E2E8F0; text-align: center; font-size: 11px; color: #94A3B8;">
+                    © 2026 OfficeCare Clinic. Đây là email tự động gửi biên nhận thanh toán, quý khách vui lòng không phản hồi trực tiếp vào địa chỉ email này.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const fromAddress = isSMTPConfigured 
+      ? `"OfficeCare Clinic" <${process.env.EMAIL_USER}>` 
+      : '"OfficeCare Clinic" <noreply@officareclinic.com>';
+
+    const info = await transporter.sendMail({
+      from: fromAddress,
+      to: toEmail,
+      subject: `[OfficeCare] Biên lai xác nhận thanh toán thành công - Hóa đơn #${maHoaDon}`,
+      html: htmlContent,
+    });
+
+    console.log('----------------------------------------------------');
+    console.log('✅ Đã gửi Email Biên lai Thanh toán tới: %s (Hóa đơn: %s)', toEmail, maHoaDon);
+    if (!isSMTPConfigured) {
+      console.log('📩 Bấm vào Link này để XEM EMAIL (Ethereal): %s', nodemailer.getTestMessageUrl(info));
+    }
+    console.log('----------------------------------------------------');
+
+    return info;
+  } catch (error) {
+    console.error('Lỗi khi gửi email biên lai thanh toán:', error);
+  }
+};

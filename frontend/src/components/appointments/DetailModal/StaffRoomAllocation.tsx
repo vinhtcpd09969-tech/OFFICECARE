@@ -1,3 +1,4 @@
+import { Users } from 'lucide-react';
 import { resolveImageUrl } from '../../../utils/imageUrl';
 
 interface StaffRoomAllocationProps {
@@ -45,7 +46,7 @@ export function StaffRoomAllocation({
   aptStartHourStr,
   aptEndHourStr,
   appointments = [],
-  onUnassignStaff
+  onUnassignStaff: _onUnassignStaff
 }: StaffRoomAllocationProps & { onUnassignStaff?: () => void }) {
   const hasAssignedStaff = !!selectedAppointment?.bac_si_id || !!selectedAppointment?.chuyen_gia_id || !!selectedAppointment?.nhan_su_id;
   const isEditable = isReassignAllowed && !(_isReceptionist && (hasAssignedStaff || isLocked));
@@ -68,7 +69,7 @@ export function StaffRoomAllocation({
 
   // aptStartHourStr/aptEndHourStr là mốc buổi danh nghĩa (vd 07:30-12:00) — chỉ cần GIAO NHAU với
   // ca trực, không bắt ca trực phủ trọn buổi: nhân sự trực 07:00-16:00 vẫn hợp lệ cho buổi chiều
-  // (12:00-19:30), chỉ là phủ MỘT PHẦN, cần cảnh báo rõ chứ không loại hẳn (giống cảnh báo đã có
+  // (12:00-20:00), chỉ là phủ MỘT PHẦN, cần cảnh báo rõ chứ không loại hẳn (giống cảnh báo đã có
   // ở form đặt lịch tại quầy — WalkInBookingModal.tsx).
   const getStaffDutyStatus = (staff: any) => {
     if (!schedulesList || schedulesList.length === 0) {
@@ -134,11 +135,17 @@ export function StaffRoomAllocation({
     }).length;
   };
 
-  const getAvatarInitials = (name: string) => {
-    if (!name) return 'NV';
-    const parts = name.split(' ');
-    if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-    return name.slice(0, 2).toUpperCase();
+  const getAvatarInitials = (name?: string | null) => {
+    if (!name || typeof name !== 'string') return 'NV';
+    const clean = name.trim();
+    if (!clean) return 'NV';
+    const parts = clean.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      const first = parts[0]?.[0] || '';
+      const last = parts[parts.length - 1]?.[0] || '';
+      return (first + last).toUpperCase() || 'NV';
+    }
+    return clean.slice(0, 2).toUpperCase() || 'NV';
   };
 
   // Filter staff according to user business logic
@@ -166,48 +173,52 @@ export function StaffRoomAllocation({
       return true;
     });
 
+  const isCurrentCaActiveOrDone = ['dang_kham', 'hoan_thanh'].includes(selectedAppointment.trang_thai);
+
   return (
-    <div className="space-y-5 font-jakarta">
-      {/* 0. THÔNG BÁO ĐÍCH DANH & NÚT RÚT VỀ HÀNG CHỜ CHUNG CHO LỄ TÂN */}
-      {_isReceptionist && hasAssignedStaff && ['da_xac_nhan', 'da_checkin'].includes(selectedAppointment.trang_thai) && (
-        <div className="p-4 bg-amber-500/10 dark:bg-amber-955/40 border border-amber-300 dark:border-amber-900/60 rounded-2xl flex items-center justify-between gap-3 shadow-2xs">
-          <div className="space-y-0.5">
-            <span className="text-xs font-black text-amber-900 dark:text-amber-200 uppercase tracking-wide block">
-              🎯 Khách chỉ định đích danh nhân sự
-            </span>
-            <p className="text-[11px] text-amber-700 dark:text-amber-400 font-medium">
-              Nếu khách không muốn chờ KTV này, bấm nút bên dưới để đưa ca về Hàng chờ chung cho nhân sự rảnh nhận ngay.
-            </p>
-          </div>
-          {onUnassignStaff && (
-            <button
-              type="button"
-              onClick={onUnassignStaff}
-              className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-md transition-all shrink-0 cursor-pointer flex items-center gap-1.5"
-            >
-              <span>🔄 Rút về Hàng chờ chung</span>
-            </button>
-          )}
-        </div>
-      )}
+    <div className="space-y-4 font-jakarta">
       {/* 1. NHÂN SỰ PHỤ TRÁCH */}
       <div className="space-y-2">
         <div className="flex justify-between items-center">
           <label className="text-xs font-extrabold text-slate-700 dark:text-zinc-300 uppercase tracking-wider">
-            {targetRole === 'Bác sĩ' ? 'Bác sĩ phụ trách' : 'Kỹ thuật viên phụ trách'}
+            {targetRole === 'Bác sĩ' ? 'Chuyên viên phụ trách' : 'Kỹ thuật viên phụ trách'}
           </label>
-          {isEditable && assignStaffId && (
+          {isEditable && assignStaffId && !isCurrentCaActiveOrDone && ['da_xac_nhan', 'da_checkin'].includes(selectedAppointment.trang_thai) && (
             <button
               type="button"
               onClick={() => setAssignStaffId('')}
-              className="text-[10px] text-rose-500 font-extrabold hover:underline"
+              className="text-[10px] text-rose-500 font-extrabold hover:underline cursor-pointer"
             >
-              Hủy phân công
+              Hủy gán (Chuyển về Hàng chờ chung)
             </button>
           )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[220px] overflow-y-auto pr-1 scrollbar-thin">
+          {/* Card: Bất kỳ (Hàng chờ chung) - Chỉ hiện khi ca ở trạng thái Chờ (da_xac_nhan / da_checkin) */}
+          {isEditable && !isCurrentCaActiveOrDone && ['da_xac_nhan', 'da_checkin'].includes(selectedAppointment.trang_thai) && (
+            <div
+              onClick={() => setAssignStaffId('')}
+              className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center gap-3 ${
+                !assignStaffId
+                  ? 'bg-emerald-50 dark:bg-emerald-955/60 border-emerald-500 text-emerald-900 dark:text-emerald-200 shadow-md ring-2 ring-emerald-500/20'
+                  : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-emerald-300 dark:hover:border-emerald-700'
+              }`}
+            >
+              <div className={`size-9 rounded-xl flex items-center justify-center font-black shrink-0 ${
+                !assignStaffId ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500'
+              }`}>
+                <Users size={16} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-black truncate">Bất kỳ (Hàng chờ chung)</p>
+                <p className="text-[10px] font-semibold text-slate-400 dark:text-zinc-400 truncate">
+                  Không gán đích danh · Nhân sự rảnh tự nhận
+                </p>
+              </div>
+            </div>
+          )}
+
           {displayedStaff.length === 0 ? (
             <div className="col-span-full py-6 text-center text-xs font-bold text-slate-450 dark:text-zinc-500 border border-dashed border-slate-200 dark:border-zinc-800/80 rounded-2xl select-none">
               📭 Không có nhân sự trực khả dụng
@@ -254,20 +265,27 @@ export function StaffRoomAllocation({
                   apt.trang_thai !== 'khong_den';
               }).length;
 
+              const isClickable = isEditable && !isCurrentCaActiveOrDone && isAvailable;
+
               return (
                 <div
                   key={staff.id}
-                  onClick={() => isEditable && isAvailable && setAssignStaffId(String(staffId))}
-                  className={`p-3 rounded-xl border-2 transition-all flex items-center gap-3 select-none ${!isEditable
+                  onClick={() => isClickable && setAssignStaffId(String(staffId))}
+                  className={`p-3 rounded-2xl border-2 transition-all flex items-center gap-3 select-none ${
+                    isCurrentCaActiveOrDone
                       ? isSelected
-                        ? 'bg-emerald-50/30 dark:bg-emerald-955/10 border-emerald-500/80 dark:border-emerald-600/80 text-emerald-800 dark:text-emerald-355 cursor-default'
-                        : 'bg-slate-50/50 dark:bg-zinc-800/10 border-slate-100 dark:border-zinc-800/30 opacity-40 cursor-not-allowed'
-                      : !isAvailable
-                        ? 'bg-slate-50 dark:bg-zinc-800/20 border-slate-100 dark:border-zinc-800/50 opacity-40 cursor-not-allowed'
-                        : isSelected
-                          ? 'bg-emerald-50/50 dark:bg-emerald-955/15 border-emerald-500 dark:border-emerald-600 text-emerald-800 dark:text-emerald-355 ring-2 ring-emerald-500/10 cursor-pointer'
-                          : 'bg-white dark:bg-zinc-900 border-slate-150 dark:border-zinc-800 hover:border-slate-350 dark:hover:border-zinc-700 cursor-pointer'
-                    }`}
+                        ? 'bg-emerald-50/70 dark:bg-emerald-955/40 border-emerald-500 dark:border-emerald-600 text-emerald-900 dark:text-emerald-200 shadow-md ring-2 ring-emerald-500/20 cursor-default font-extrabold'
+                        : 'bg-slate-50/60 dark:bg-zinc-900/40 border-slate-200/60 dark:border-zinc-800/60 opacity-40 cursor-not-allowed select-none'
+                      : !isEditable
+                        ? isSelected
+                          ? 'bg-emerald-50/30 dark:bg-emerald-955/10 border-emerald-500/80 dark:border-emerald-600/80 text-emerald-800 dark:text-emerald-355 cursor-default'
+                          : 'bg-slate-50/50 dark:bg-zinc-800/10 border-slate-100 dark:border-zinc-800/30 opacity-40 cursor-not-allowed'
+                        : !isAvailable
+                          ? 'bg-slate-50 dark:bg-zinc-800/20 border-slate-100 dark:border-zinc-800/50 opacity-40 cursor-not-allowed'
+                          : isSelected
+                            ? 'bg-emerald-50/50 dark:bg-emerald-955/15 border-emerald-500 dark:border-emerald-600 text-emerald-800 dark:text-emerald-355 ring-2 ring-emerald-500/10 cursor-pointer'
+                            : 'bg-white dark:bg-zinc-900 border-slate-150 dark:border-zinc-800 hover:border-slate-350 dark:hover:border-zinc-700 cursor-pointer'
+                  }`}
                 >
                   {staff.anh_dai_dien ? (
                     <img

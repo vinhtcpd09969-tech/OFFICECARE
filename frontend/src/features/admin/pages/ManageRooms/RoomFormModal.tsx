@@ -63,12 +63,12 @@ export function RoomFormModal({
         <form onSubmit={onSubmit} className="p-6 space-y-5 overflow-y-auto flex-1 text-slate-800 dark:text-zinc-200 text-xs">
           <div>
             <label className="block text-[10px] font-black text-slate-400 dark:text-zinc-400 uppercase tracking-widest mb-1.5">
-              Tên phòng khám / điều trị *
+              Tên phòng lượng giá / trị liệu *
             </label>
             <input 
               type="text" 
               required
-              placeholder="Ví dụ: Phòng Trị Liệu Laser, Phòng Khám số 3..."
+              placeholder="Ví dụ: Phòng Trị Liệu Laser, Phòng Lượng Giá số 1..."
               value={roomFormData.ten_phong}
               onChange={(e) => setRoomFormData({ ...roomFormData, ten_phong: e.target.value })}
               className="w-full border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 p-3.5 text-xs font-bold rounded-2xl focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500 transition-all placeholder-slate-400 dark:placeholder-zinc-500 text-slate-800 dark:text-zinc-100"
@@ -106,7 +106,7 @@ export function RoomFormModal({
 
           <div className="p-4 bg-teal-50/70 dark:bg-teal-955/30 rounded-2xl border border-teal-200/80 dark:border-teal-800/60 space-y-2.5">
             <label className="block text-[10px] font-black text-teal-800 dark:text-teal-300 uppercase tracking-widest">
-              {roomFormData.loai_phong === 'phong_tri_lieu' ? 'SỨC CHỨA TỐI ĐA (GIƯỜNG TRỊ LIỆU) *' : 'SỨC CHỨA TỐI ĐA (BÁC SĨ TRỰC CA) *'}
+              {roomFormData.loai_phong === 'phong_tri_lieu' ? 'SỨC CHỨA TỐI ĐA (GIƯỜNG TRỊ LIỆU) *' : 'SỨC CHỨA TỐI ĐA (CHUYÊN VIÊN TRỰC CA) *'}
             </label>
             
             <div className="flex items-center gap-3">
@@ -135,7 +135,7 @@ export function RoomFormModal({
                   className="w-full border border-teal-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-3 text-center text-sm font-black rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/40 text-slate-900 dark:text-zinc-100"
                 />
                 <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 dark:text-zinc-500 pointer-events-none uppercase">
-                  {roomFormData.loai_phong === 'phong_tri_lieu' ? 'Giường' : 'Bác sĩ'}
+                  {roomFormData.loai_phong === 'phong_tri_lieu' ? 'Giường' : 'Chuyên viên'}
                 </span>
               </div>
 

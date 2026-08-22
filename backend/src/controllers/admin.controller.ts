@@ -151,7 +151,7 @@ export const updateStaffStatus = async (req: Request, res: Response): Promise<an
 export const updateStaff = async (req: Request, res: Response): Promise<any> => {
   try {
     const { id } = req.params as { id: string };
-    const { ho_ten, email, so_dien_thoai, vai_tro_id, so_nam_kinh_nghiem, bang_cap_chung_chi, mo_ta, the_manh } = req.body;
+    const { ho_ten, email, so_dien_thoai, vai_tro_id, so_nam_kinh_nghiem, bang_cap_chung_chi, mo_ta, the_manh, anh_dai_dien } = req.body;
     
     if (!ho_ten) {
       return res.status(400).json({ message: 'Họ tên là bắt buộc' });
@@ -174,6 +174,7 @@ export const updateStaff = async (req: Request, res: Response): Promise<any> => 
       email,
       so_dien_thoai,
       vai_tro_id,
+      anh_dai_dien,
       so_nam_kinh_nghiem,
       bang_cap_chung_chi,
       mo_ta,
@@ -183,7 +184,7 @@ export const updateStaff = async (req: Request, res: Response): Promise<any> => 
     res.json(staff);
   } catch (error: any) {
     if (error.message === 'Không tìm thấy nhân sự') return res.status(404).json({ message: error.message });
-    res.status(500).json({ message: 'Lỗi server khi cập nhật nhân sự' });
+    res.status(400).json({ message: error.message || 'Lỗi server khi cập nhật nhân sự' });
   }
 };
 
@@ -256,8 +257,8 @@ export const updateCustomer = async (req: Request, res: Response) => {
     const id = req.params.id as string;
     const updated = await adminService.updateCustomer(id, req.body);
     res.json({ message: 'Cập nhật khách hàng thành công', data: updated });
-  } catch (error) {
-    res.status(500).json({ message: 'Lỗi server khi cập nhật khách hàng' });
+  } catch (error: any) {
+    res.status(400).json({ message: error.message || 'Lỗi server khi cập nhật khách hàng' });
   }
 };
 
@@ -334,7 +335,9 @@ export const getCompletedSingleVisits = async (req: Request, res: Response) => {
   try {
     const page = Math.max(1, parseInt(String(req.query.page ?? '1'), 10) || 1);
     const pageSize = Math.min(100, Math.max(1, parseInt(String(req.query.pageSize ?? '20'), 10) || 20));
-    const result = await adminService.getCompletedSingleVisits({ page, pageSize });
+    const search = req.query.search ? String(req.query.search).trim() : undefined;
+    const loai = req.query.loai ? String(req.query.loai).trim() : undefined;
+    const result = await adminService.getCompletedSingleVisits({ page, pageSize, search, loai });
     res.json(result);
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server khi lấy danh sách ca khám lẻ hoàn thành' });
@@ -666,6 +669,7 @@ export const analyzeFeedback = async (req: Request, res: Response) => {
 
 export const getDashboardSummary = async (req: Request, res: Response) => {
   try {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     const { range, startDate, endDate } = req.query as { range?: string; startDate?: string; endDate?: string };
     const summary = await adminService.getDashboardSummary(range, startDate, endDate);
     res.json(summary);

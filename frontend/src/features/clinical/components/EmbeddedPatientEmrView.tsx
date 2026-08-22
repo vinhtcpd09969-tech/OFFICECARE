@@ -101,11 +101,12 @@ export function EmbeddedPatientEmrView({
   }
 
   return (
-    <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-4 sm:p-6 shadow-sm animate-in fade-in duration-300 font-jakarta">
+    <div className="w-full animate-in fade-in duration-300 font-jakarta">
       <PatientDossierTimeline
         selectedPatient={patientInfoMock}
         profile={profile}
         onBack={() => {}}
+        compactMode={true}
       />
     </div>
   );
