@@ -43,7 +43,7 @@ export default function DashboardLayout() {
 
   const filteredNavItems = navItems.filter(item => user && item.roles.map(Number).includes(Number(user.vai_tro_id)));
 
-  const avatarSrc = user?.avatar_url ? resolveImageUrl(user.avatar_url) : null;
+  const avatarSrc = (user?.anh_dai_dien || user?.avatar_url) ? resolveImageUrl(user.anh_dai_dien || user.avatar_url!) : null;
 
   return (
     <div className="min-h-screen bg-background flex font-body">

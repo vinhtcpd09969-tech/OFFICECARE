@@ -7,8 +7,8 @@ interface User {
   email: string;
   so_dien_thoai: string | null;
   vai_tro_id: number;
-  avatar_url: string | null;
   anh_dai_dien?: string | null;
+  avatar_url?: string | null;
   ho_so_chuyen_gia?: {
     so_nam_kinh_nghiem: number;
     bang_cap_chung_chi: string;
