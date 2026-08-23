@@ -579,7 +579,7 @@ export function StaffDetailView({
                     }`}
                   >
                     {isAdmin ? (
-                      <option value={5}>Admin (Quản trị viên tối cao)</option>
+                      <option value={5}>Admin</option>
                     ) : (
                       <>
                         <option value={2}>Lễ tân</option>
