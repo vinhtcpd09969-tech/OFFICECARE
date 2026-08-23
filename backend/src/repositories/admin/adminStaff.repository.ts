@@ -34,6 +34,10 @@ export class AdminStaffRepository {
   }
 
   async createStaff(data: any, hash: string) {
+    if (Number(data.vai_tro_id) === 5) {
+      throw new Error('Hệ thống chỉ cho phép duy nhất 1 tài khoản Quản trị viên (Admin). Không thể tạo thêm!');
+    }
+
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
@@ -62,6 +66,11 @@ export class AdminStaffRepository {
   }
 
   async updateStaffStatus(id: string, status: string) {
+    const checkAdmin = await pool.query('SELECT vai_tro_id FROM nguoi_dung WHERE id = $1', [Number(id)]);
+    if (checkAdmin.rows.length > 0 && checkAdmin.rows[0].vai_tro_id === 5) {
+      throw new Error('Không thể khóa hoặc vô hiệu hóa tài khoản Quản trị viên duy nhất của hệ thống.');
+    }
+
     const { rows } = await pool.query(
       'UPDATE nguoi_dung SET trang_thai = $1 WHERE id = $2 RETURNING *',
       [status, id]
@@ -70,6 +79,19 @@ export class AdminStaffRepository {
   }
 
   async updateStaffDetails(id: string, data: any) {
+    const checkTarget = await pool.query('SELECT vai_tro_id FROM nguoi_dung WHERE id = $1', [Number(id)]);
+    if (checkTarget.rows.length === 0) {
+      throw new Error('Không tìm thấy nhân sự');
+    }
+    const currentTargetRole = checkTarget.rows[0].vai_tro_id;
+
+    if (currentTargetRole !== 5 && Number(data.vai_tro_id) === 5) {
+      throw new Error('Không thể nâng quyền nhân viên thành Quản trị viên (Admin).');
+    }
+    if (currentTargetRole === 5 && Number(data.vai_tro_id) !== 5) {
+      throw new Error('Không thể thay đổi vai trò của tài khoản Quản trị viên duy nhất.');
+    }
+
     const client = await pool.connect();
     try {
       await client.query('BEGIN');

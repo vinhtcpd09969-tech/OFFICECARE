@@ -7,7 +7,9 @@ const staffSchema = z.object({
   ho_ten: z.string().min(1, 'Vui lòng không để trống họ và tên'),
   email: z.string().min(1, 'Vui lòng không để trống email đăng nhập').email('Email không đúng định dạng y khoa (vd: ten@officecare.vn)'),
   mat_khau: z.string().min(1, 'Vui lòng không để trống mật khẩu').min(6, 'Mật khẩu khởi tạo phải từ 6 ký tự trở lên'),
-  vai_tro_id: z.number().min(2, 'Vui lòng chọn vai trò làm việc'),
+  vai_tro_id: z.number().refine(val => [2, 3, 4, 6].includes(val), {
+    message: 'Vui lòng chọn vai trò làm việc hợp lệ (Lễ tân, KTV, Chuyên viên hoặc Quản lý)'
+  }),
   so_dien_thoai: z.string().optional().refine((val) => !val || /^(0|\+84)(3|5|7|8|9)\d{8}$/.test(val), {
     message: 'Số điện thoại không đúng định dạng (vd: 0912345678)'
   }),
@@ -105,7 +107,6 @@ export function CreateStaffModal({ isOpen, onClose, onSubmit }: CreateStaffModal
                 <option value={2}>Lễ tân</option>
                 <option value={3}>Kỹ thuật viên</option>
                 <option value={4}>Chuyên viên Vật lý trị liệu</option>
-                <option value={5}>Admin</option>
                 <option value={6}>Quản lý</option>
               </select>
               {errors.vai_tro_id && <p className="text-red-500 text-[10px] mt-1 font-semibold">{errors.vai_tro_id.message}</p>}

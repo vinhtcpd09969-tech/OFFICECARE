@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import {
   Eye,
@@ -16,9 +16,11 @@ import {
   Loader2,
   ArrowLeft,
   Upload,
-  Camera
+  Camera,
+  Send,
+  ShieldAlert
 } from 'lucide-react';
-import { updateStaff, updateStaffPassword, uploadImage, getStaff } from '../../../api/admin.api';
+import { updateStaff, updateStaffPassword, uploadImage, getStaff, sendAdminOTP } from '../../../api/admin.api';
 import { useAuthStore, useAuthActions } from '../../../../../stores/authStore';
 import { getRoleLabel, getRoleStyle } from './StaffTable';
 
@@ -46,6 +48,8 @@ export function StaffDetailView({
       (selectedStaff.email && selectedStaff.email === currentUser.email))
   );
 
+  const isAdmin = Number(selectedStaff.vai_tro_id) === 5;
+
   const [isEditMode, setIsEditMode] = useState(false);
   const [editTab, setEditTab] = useState<'basic' | 'specialist'>('basic');
   const [saveLoading, setSaveLoading] = useState(false);
@@ -58,6 +62,57 @@ export function StaffDetailView({
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+
+  // Admin Security OTP States
+  const [emailOtp, setEmailOtp] = useState('');
+  const [isSendingEmailOtp, setIsSendingEmailOtp] = useState(false);
+  const [emailOtpCountdown, setEmailOtpCountdown] = useState(0);
+
+  const [passwordOtp, setPasswordOtp] = useState('');
+  const [isSendingPassOtp, setIsSendingPassOtp] = useState(false);
+  const [passOtpCountdown, setPassOtpCountdown] = useState(0);
+
+  useEffect(() => {
+    let timer: any;
+    if (emailOtpCountdown > 0) {
+      timer = setTimeout(() => setEmailOtpCountdown(prev => prev - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [emailOtpCountdown]);
+
+  useEffect(() => {
+    let timer: any;
+    if (passOtpCountdown > 0) {
+      timer = setTimeout(() => setPassOtpCountdown(prev => prev - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [passOtpCountdown]);
+
+  const handleSendEmailOtp = async () => {
+    try {
+      setIsSendingEmailOtp(true);
+      const res = await sendAdminOTP('CHANGE_EMAIL');
+      toast.success(res.data?.message || 'Đã gửi mã OTP về email hiện tại của Admin');
+      setEmailOtpCountdown(60);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Lỗi khi gửi mã OTP');
+    } finally {
+      setIsSendingEmailOtp(false);
+    }
+  };
+
+  const handleSendPassOtp = async () => {
+    try {
+      setIsSendingPassOtp(true);
+      const res = await sendAdminOTP('CHANGE_PASSWORD');
+      toast.success(res.data?.message || 'Đã gửi mã OTP về email của bạn');
+      setPassOtpCountdown(60);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Lỗi khi gửi mã OTP');
+    } finally {
+      setIsSendingPassOtp(false);
+    }
+  };
 
   // Edit fields
   const [editHoTen, setEditHoTen] = useState(selectedStaff.ho_ten || '');
@@ -165,12 +220,21 @@ export function StaffDetailView({
     try {
       setSaveLoading(true);
       
+      const isEmailChanged = editEmail.trim().toLowerCase() !== (selectedStaff.email || '').trim().toLowerCase();
+      if (isAdmin && isEmailChanged) {
+        if (!emailOtp || emailOtp.trim().length !== 6) {
+          toast.error('Vui lòng nhập mã OTP 6 số gửi về email hiện tại của Admin để đổi email.');
+          setSaveLoading(false);
+          return;
+        }
+      }
+
       const certValue = [3, 4].includes(editVaiTroId) ? JSON.stringify({
         text: editCert,
         images: editCertImages
       }) : '';
 
-      const payload = {
+      const payload: any = {
         ho_ten: editHoTen,
         email: editEmail,
         so_dien_thoai: editSoDienThoai,
@@ -180,11 +244,13 @@ export function StaffDetailView({
         bang_cap_chung_chi: [3, 4].includes(editVaiTroId) ? certValue : undefined,
         mo_ta: [3, 4].includes(editVaiTroId) ? editDescription : undefined,
         the_manh: [3, 4].includes(editVaiTroId) ? editTheManh : undefined,
+        otp: (isAdmin && isEmailChanged) ? emailOtp.trim() : undefined,
       };
 
       await updateStaff(selectedStaff.id, payload);
       toast.success('Cập nhật thông tin nhân sự thành công!');
       setIsEditMode(false);
+      setEmailOtp('');
       
       if (isSelf) {
         updateUser({
@@ -212,7 +278,6 @@ export function StaffDetailView({
   };
 
   const handleUpdatePassword = async () => {
-    const isAdmin = Number(selectedStaff.vai_tro_id) === 5;
     if (isAdmin) {
       if (!oldPassword) {
         toast.error('Vui lòng nhập mật khẩu hiện tại.');
@@ -226,6 +291,10 @@ export function StaffDetailView({
         toast.error('Xác nhận mật khẩu mới không khớp.');
         return;
       }
+      if (!passwordOtp || passwordOtp.trim().length !== 6) {
+        toast.error('Vui lòng nhập mã OTP 6 số gửi về email của bạn.');
+        return;
+      }
     } else {
       if (!newPassword || newPassword.length < 6) {
         toast.error('Mật khẩu mới phải từ 6 ký tự trở lên.');
@@ -237,12 +306,14 @@ export function StaffDetailView({
       setIsUpdatingPassword(true);
       await updateStaffPassword(selectedStaff.id, {
         oldPassword: isAdmin ? oldPassword : '',
-        password: newPassword
+        password: newPassword,
+        otp: isAdmin ? passwordOtp.trim() : undefined
       });
       toast.success('Cập nhật mật khẩu thành công!');
       setOldPassword('');
       setNewPassword('');
       setConfirmPassword('');
+      setPasswordOtp('');
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Lỗi khi cập nhật mật khẩu');
     } finally {
@@ -423,6 +494,37 @@ export function StaffDetailView({
                 <span className="text-[8px] text-zinc-400 block italic leading-normal">
                   {isEditMode ? '* Có thể cập nhật địa chỉ email đăng nhập.' : '* Địa chỉ email đăng nhập do Admin quản lý.'}
                 </span>
+
+                {/* Khối xác thực OTP khi Admin đổi sang Email Mới */}
+                {isEditMode && isAdmin && editEmail.trim().toLowerCase() !== (selectedStaff.email || '').trim().toLowerCase() && (
+                  <div className="mt-2.5 p-3.5 bg-amber-50/90 dark:bg-amber-955/20 border border-amber-200 dark:border-amber-900/40 rounded-xl space-y-2.5 animate-in fade-in duration-200">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="text-[10px] font-extrabold text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
+                        <ShieldAlert size={14} className="text-amber-600 shrink-0" />
+                        Xác thực đổi email Admin qua OTP gửi về: <span className="underline font-mono">{selectedStaff.email}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleSendEmailOtp}
+                        disabled={isSendingEmailOtp || emailOtpCountdown > 0}
+                        className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 disabled:bg-zinc-300 disabled:text-zinc-500 text-white rounded-lg text-[9px] font-black uppercase tracking-wider transition-all shrink-0 cursor-pointer shadow-xs flex items-center justify-center gap-1"
+                      >
+                        {isSendingEmailOtp ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}
+                        {isSendingEmailOtp ? 'Đang gửi...' : emailOtpCountdown > 0 ? `Gửi lại (${emailOtpCountdown}s)` : 'Gửi mã OTP'}
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        maxLength={6}
+                        value={emailOtp}
+                        onChange={(e) => setEmailOtp(e.target.value.replace(/\D/g, ''))}
+                        placeholder="Nhập mã OTP 6 số gửi về email hiện tại..."
+                        className="w-full bg-white dark:bg-zinc-900 border border-amber-300 dark:border-amber-800 focus:border-amber-500 rounded-lg px-3.5 py-2 text-xs font-bold text-slate-800 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-amber-500/20 font-mono tracking-widest placeholder:tracking-normal placeholder:font-sans"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-1.5">
@@ -469,18 +571,23 @@ export function StaffDetailView({
                   <select
                     value={editVaiTroId}
                     onChange={(e) => setEditVaiTroId(Number(e.target.value))}
-                    disabled={!isEditMode || isSelf}
+                    disabled={!isEditMode || isSelf || isAdmin}
                     className={`w-full border rounded-xl pl-10 pr-4 py-2.5 text-xs font-bold outline-none ${
-                      isEditMode && !isSelf
+                      isEditMode && !isSelf && !isAdmin
                         ? 'bg-white border-zinc-200 focus:border-primary focus:ring-2 focus:ring-primary/20 text-secondary dark:bg-zinc-950 dark:border-zinc-800 cursor-pointer' 
                         : 'bg-zinc-50/50 border-zinc-250/50 text-zinc-500 cursor-not-allowed dark:bg-zinc-955/20 dark:border-zinc-850'
                     }`}
                   >
-                    <option value={2}>Lễ tân</option>
-                    <option value={3}>Kỹ thuật viên</option>
-                    <option value={4}>Chuyên viên Vật lý trị liệu</option>
-                    <option value={5}>Admin</option>
-                    <option value={6}>Quản lý</option>
+                    {isAdmin ? (
+                      <option value={5}>Admin (Quản trị viên tối cao)</option>
+                    ) : (
+                      <>
+                        <option value={2}>Lễ tân</option>
+                        <option value={3}>Kỹ thuật viên</option>
+                        <option value={4}>Chuyên viên Vật lý trị liệu</option>
+                        <option value={6}>Quản lý</option>
+                      </>
+                    )}
                   </select>
                 </div>
                 {isSelf && (
@@ -498,13 +605,13 @@ export function StaffDetailView({
                   <Key size={14} className="text-primary" /> Mật khẩu đăng nhập
                 </h5>
                 <p className="text-[9px] text-zinc-500 dark:text-zinc-400 mt-1 leading-normal font-medium">
-                  {Number(selectedStaff.vai_tro_id) === 5 
-                    ? 'Để thay đổi mật khẩu Admin, vui lòng điền đầy đủ thông tin xác thực bên dưới.' 
+                  {isAdmin 
+                    ? 'Để thay đổi mật khẩu Admin, vui lòng nhập mật khẩu cũ và mã OTP gửi về email xác nhận.' 
                     : 'Nhập mật khẩu mới bên dưới để thay đổi mật khẩu đăng nhập của nhân sự này.'}
                 </p>
               </div>
 
-              {Number(selectedStaff.vai_tro_id) === 5 ? (
+              {isAdmin ? (
                 <div className="space-y-3">
                   <div className="relative">
                     <input
@@ -559,11 +666,38 @@ export function StaffDetailView({
                     </div>
                   </div>
 
+                  {/* OTP Xác thực đổi mật khẩu Admin */}
+                  <div className="p-3 bg-white dark:bg-zinc-900 border border-teal-200 dark:border-teal-900/30 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-bold text-teal-800 dark:text-teal-300 flex items-center gap-1">
+                        <ShieldAlert size={13} className="text-teal-600 shrink-0" />
+                        Mã OTP gửi về email: <span className="underline font-mono">{selectedStaff.email}</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleSendPassOtp}
+                        disabled={isSendingPassOtp || passOtpCountdown > 0}
+                        className="px-3 py-1 bg-teal-600 hover:bg-teal-700 disabled:bg-zinc-300 disabled:text-zinc-500 text-white rounded-lg text-[9px] font-black uppercase tracking-wider transition-all shrink-0 cursor-pointer shadow-xs flex items-center justify-center gap-1"
+                      >
+                        {isSendingPassOtp ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}
+                        {isSendingPassOtp ? 'Đang gửi...' : passOtpCountdown > 0 ? `Gửi lại (${passOtpCountdown}s)` : 'Gửi mã OTP'}
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      value={passwordOtp}
+                      onChange={(e) => setPasswordOtp(e.target.value.replace(/\D/g, ''))}
+                      placeholder="Nhập mã OTP 6 chữ số từ email..."
+                      className="w-full px-3.5 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 text-slate-800 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 font-mono tracking-widest placeholder:tracking-normal placeholder:font-sans"
+                    />
+                  </div>
+
                   <div className="flex flex-wrap gap-3 pt-2">
                     <button
                       type="button"
                       onClick={handleUpdatePassword}
-                      disabled={isUpdatingPassword || !oldPassword || !newPassword || !confirmPassword || newPassword.length < 6}
+                      disabled={isUpdatingPassword || !oldPassword || !newPassword || !confirmPassword || newPassword.length < 6 || !passwordOtp || passwordOtp.length !== 6}
                       className="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white disabled:bg-slate-200 disabled:text-slate-400 disabled:dark:bg-zinc-800 disabled:dark:text-zinc-600 font-black text-[10px] rounded-xl tracking-wider transition-all cursor-pointer select-none uppercase shadow-xs flex items-center justify-center gap-1.5 h-[38px]"
                     >
                       {isUpdatingPassword ? <Loader2 className="animate-spin w-3.5 h-3.5" /> : <Check size={12} />}

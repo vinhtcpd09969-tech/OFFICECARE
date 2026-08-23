@@ -19,6 +19,7 @@ router.put('/staff/:id', authorizeRoles(5), adminController.updateStaff);
 router.patch('/staff/:id/status', authorizeRoles(5), adminController.updateStaffStatus);
 router.delete('/staff/:id/avatar', authorizeRoles(5), adminController.deleteStaffAvatar);
 router.post('/staff/:id/update-password', authorizeRoles(5), adminController.updateStaffPassword);
+router.post('/staff/send-security-otp', authorizeRoles(5), adminController.sendAdminOTP);
 
 // ─── GÓI ĐIỀU TRỊ ─────────────────────────────────────────────────────────────
 router.get('/packages', authorizeRoles(2, 3, 4, 5, 6), adminController.getPackages);

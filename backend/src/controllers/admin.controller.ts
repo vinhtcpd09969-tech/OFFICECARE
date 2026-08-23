@@ -6,7 +6,8 @@ import { refundSchema, packageRefundSchema, expirePackageNoRefundSchema } from '
 import { voucherSchema } from '../schemas/marketing.schema';
 import { pool } from '../config/db';
 import bcrypt from 'bcryptjs';
-import { sendAccountLockedNotification } from '../utils/mailer';
+import { sendAccountLockedNotification, sendAdminSecurityOTP } from '../utils/mailer';
+import authRepository from '../repositories/auth.repository';
 
 // --- QUẢN LÝ PHÒNG KHÁM ---
 
@@ -148,10 +149,47 @@ export const updateStaffStatus = async (req: Request, res: Response): Promise<an
   }
 };
 
+export const sendAdminOTP = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const currentUserId = (req as any).user?.id;
+    const currentUserRole = (req as any).user?.vai_tro_id;
+
+    if (Number(currentUserRole) !== 5) {
+      return res.status(403).json({ message: 'Chỉ tài khoản Quản trị viên mới có quyền yêu cầu mã bảo mật này' });
+    }
+
+    const { rows } = await pool.query('SELECT id, email, ho_ten FROM nguoi_dung WHERE id = $1', [Number(currentUserId)]);
+    if (rows.length === 0 || !rows[0].email) {
+      return res.status(404).json({ message: 'Không tìm thấy thông tin email của Quản trị viên' });
+    }
+
+    const admin = rows[0];
+    const { action } = req.body as { action?: 'CHANGE_EMAIL' | 'CHANGE_PASSWORD' };
+    const actionTitle = action === 'CHANGE_EMAIL' ? 'Đổi địa chỉ email đăng nhập' : 'Đổi mật khẩu tài khoản Admin';
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 10);
+
+    await authRepository.deleteOTPsByEmail(admin.email);
+    await authRepository.saveOTP(admin.email, otp, expiresAt);
+
+    sendAdminSecurityOTP(admin.email, otp, actionTitle, admin.ho_ten || 'Quản trị viên').catch((err) => {
+      console.error('Lỗi khi gửi email OTP bảo mật Admin:', err);
+    });
+
+    const maskedEmail = admin.email.replace(/^(.)(.*)(@.*)$/, (_: string, a: string, b: string, c: string) => `${a}***${c}`);
+    res.json({ message: `Mã OTP xác thực đã được gửi tới email ${maskedEmail}` });
+  } catch (error: any) {
+    console.error('Lỗi khi gửi mã OTP bảo mật Admin:', error);
+    res.status(500).json({ message: 'Lỗi server khi gửi mã OTP bảo mật' });
+  }
+};
+
 export const updateStaff = async (req: Request, res: Response): Promise<any> => {
   try {
     const { id } = req.params as { id: string };
-    const { ho_ten, email, so_dien_thoai, vai_tro_id, so_nam_kinh_nghiem, bang_cap_chung_chi, mo_ta, the_manh, anh_dai_dien } = req.body;
+    const { ho_ten, email, so_dien_thoai, vai_tro_id, so_nam_kinh_nghiem, bang_cap_chung_chi, mo_ta, the_manh, anh_dai_dien, otp } = req.body;
     
     if (!ho_ten) {
       return res.status(400).json({ message: 'Họ tên là bắt buộc' });
@@ -167,6 +205,34 @@ export const updateStaff = async (req: Request, res: Response): Promise<any> => 
     const currentUserRoleId = (req as any).user?.vai_tro_id;
     if (currentUserId && String(currentUserId) === String(id) && Number(vai_tro_id) !== Number(currentUserRoleId)) {
       return res.status(400).json({ message: 'Tài khoản Admin không thể tự thay đổi vai trò của chính mình' });
+    }
+
+    // Kiểm tra thông tin hiện tại của nhân sự trong DB
+    const existingStaffRes = await pool.query('SELECT vai_tro_id, email FROM nguoi_dung WHERE id = $1', [Number(id)]);
+    if (existingStaffRes.rows.length === 0) {
+      return res.status(404).json({ message: 'Không tìm thấy nhân sự' });
+    }
+    const currentStaffInDb = existingStaffRes.rows[0];
+
+    // Nếu người được sửa là Admin và đang thay đổi email -> Bắt buộc xác thực OTP từ email cũ
+    if (Number(currentStaffInDb.vai_tro_id) === 5 && email.trim().toLowerCase() !== currentStaffInDb.email.trim().toLowerCase()) {
+      if (!otp) {
+        return res.status(400).json({ message: 'Vui lòng nhập mã OTP xác thực gửi về email hiện tại của Admin để đổi email.' });
+      }
+
+      const validOTP = await authRepository.findValidOTP(currentStaffInDb.email, String(otp).trim());
+      if (!validOTP) {
+        return res.status(400).json({ message: 'Mã OTP xác thực không chính xác hoặc đã hết hạn.' });
+      }
+
+      // Kiểm tra email mới có bị trùng không
+      const dupStaff = await pool.query('SELECT id FROM nguoi_dung WHERE LOWER(email) = LOWER($1) AND id != $2', [email.trim(), Number(id)]);
+      const dupCustomer = await pool.query('SELECT id FROM khach_hang WHERE LOWER(email) = LOWER($1)', [email.trim()]);
+      if (dupStaff.rows.length > 0 || dupCustomer.rows.length > 0) {
+        return res.status(400).json({ message: 'Địa chỉ email mới đã được sử dụng bởi tài khoản khác trong hệ thống.' });
+      }
+
+      await authRepository.deleteOTPsByEmail(currentStaffInDb.email);
     }
 
     const staff = await adminService.updateStaffDetails(id, {
@@ -202,10 +268,10 @@ export const deleteStaffAvatar = async (req: Request, res: Response): Promise<an
 export const updateStaffPassword = async (req: Request, res: Response): Promise<any> => {
   try {
     const { id } = req.params as { id: string };
-    const { password, oldPassword, isReset } = req.body as { password?: string; oldPassword?: string; isReset?: boolean };
+    const { password, oldPassword, isReset, otp } = req.body as { password?: string; oldPassword?: string; isReset?: boolean; otp?: string };
     
     // Tìm nhân sự để xem vai trò và hash mật khẩu hiện tại
-    const userRes = await pool.query('SELECT vai_tro_id, mat_khau_hash FROM nguoi_dung WHERE id = $1', [Number(id)]);
+    const userRes = await pool.query('SELECT vai_tro_id, email, mat_khau_hash FROM nguoi_dung WHERE id = $1', [Number(id)]);
     if (userRes.rows.length === 0) {
       return res.status(404).json({ message: 'Không tìm thấy nhân sự' });
     }
@@ -221,7 +287,7 @@ export const updateStaffPassword = async (req: Request, res: Response): Promise<
       return res.status(400).json({ message: 'Mật khẩu mới phải từ 6 ký tự trở lên' });
     }
 
-    // Nếu người dùng được đổi mật khẩu là Admin (role 5), bắt buộc kiểm tra mật khẩu cũ
+    // Nếu người dùng được đổi mật khẩu là Admin (role 5), bắt buộc kiểm tra mật khẩu cũ + OTP gửi về email
     if (Number(dbUser.vai_tro_id) === 5) {
       if (!oldPassword) {
         return res.status(400).json({ message: 'Mật khẩu cũ là bắt buộc đối với tài khoản Admin' });
@@ -230,6 +296,17 @@ export const updateStaffPassword = async (req: Request, res: Response): Promise<
       if (!isMatch) {
         return res.status(400).json({ message: 'Mật khẩu cũ không chính xác' });
       }
+
+      if (!otp) {
+        return res.status(400).json({ message: 'Vui lòng nhập mã OTP xác thực được gửi về email của bạn.' });
+      }
+
+      const validOTP = await authRepository.findValidOTP(dbUser.email, String(otp).trim());
+      if (!validOTP) {
+        return res.status(400).json({ message: 'Mã OTP xác thực không chính xác hoặc đã hết hạn' });
+      }
+
+      await authRepository.deleteOTPsByEmail(dbUser.email);
     }
 
     const staff = await adminService.updateStaffPassword(id, password);

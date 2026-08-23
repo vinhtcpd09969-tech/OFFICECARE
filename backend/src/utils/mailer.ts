@@ -924,3 +924,143 @@ export const sendPaymentReceiptEmail = async (params: PaymentReceiptEmailParams)
     console.error('Lỗi khi gửi email biên lai thanh toán:', error);
   }
 };
+
+export const sendAdminSecurityOTP = async (
+  toEmail: string,
+  otpCode: string,
+  actionTitle: string,
+  userName: string
+) => {
+  try {
+    let transporter;
+    const isSMTPConfigured = process.env.EMAIL_USER && 
+                              process.env.EMAIL_USER !== 'your_email@gmail.com' && 
+                              process.env.EMAIL_PASS && 
+                              process.env.EMAIL_PASS !== 'your_app_password';
+
+    if (isSMTPConfigured) {
+      transporter = nodemailer.createTransport({
+        host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+        port: parseInt(process.env.EMAIL_PORT || '587'),
+        secure: process.env.EMAIL_PORT === '465',
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS,
+        },
+      });
+    } else {
+      const testAccount = await nodemailer.createTestAccount();
+      transporter = nodemailer.createTransport({
+        host: 'smtp.ethereal.email',
+        port: 587,
+        secure: false,
+        auth: {
+          user: testAccount.user,
+          pass: testAccount.pass,
+        },
+      });
+    }
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Mã xác thực bảo mật Admin - OfficeCare</title>
+      </head>
+      <body style="margin: 0; padding: 0; background-color: #F8FAFC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #F8FAFC; padding: 30px 10px;">
+          <tr>
+            <td align="center">
+              <table width="100%" max-width="560" border="0" cellspacing="0" cellpadding="0" style="max-width: 560px; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03); border: 1px solid #E2E8F0;">
+                
+                <!-- Header Banner -->
+                <tr>
+                  <td align="center" style="background-color: #0F172A; padding: 30px 20px; text-align: center;">
+                    <div style="font-size: 24px; font-weight: 800; color: #FFFFFF; letter-spacing: -0.5px; line-height: 1.2;">
+                      <span style="color: #14B8A6;">O</span>fficeCare
+                    </div>
+                    <div style="font-size: 11px; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: 2px; margin-top: 4px;">
+                      Xác thực bảo mật Quản trị viên
+                    </div>
+                  </td>
+                </tr>
+
+                <!-- Content Area -->
+                <tr>
+                  <td style="padding: 35px 30px;">
+                    <div style="font-size: 15px; color: #334155; line-height: 1.6; margin-bottom: 20px;">
+                      Xin chào <strong style="color: #0F172A;">${userName || 'Quản trị viên'}</strong>,
+                    </div>
+                    
+                    <div style="font-size: 14px; color: #475569; line-height: 1.6; margin-bottom: 25px;">
+                      Hệ thống ghi nhận yêu cầu <strong style="color: #0F172A;">${actionTitle}</strong> cho tài khoản Quản trị viên của bạn. Vui lòng sử dụng mã xác thực OTP 6 số dưới đây để xác nhận:
+                    </div>
+
+                    <!-- OTP Code Box -->
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 25px;">
+                      <tr>
+                        <td align="center" style="background-color: #F0FDFA; border: 2px dashed #0D9488; border-radius: 12px; padding: 20px;">
+                          <div style="font-size: 32px; font-weight: 900; letter-spacing: 8px; color: #0D9488; font-family: monospace;">
+                            ${otpCode}
+                          </div>
+                          <div style="font-size: 12px; color: #64748B; margin-top: 8px; font-weight: 500;">
+                            Mã có hiệu lực trong vòng <strong>10 phút</strong>
+                          </div>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <div style="font-size: 12px; color: #DC2626; line-height: 1.5; background-color: #FEF2F2; padding: 12px 15px; border-radius: 8px; border-left: 4px solid #EF4444; margin-bottom: 25px;">
+                      ⚠️ <strong>Cảnh báo an toàn:</strong> Tuyệt đối không chia sẻ mã này cho bất kỳ ai. Nếu bạn không thực hiện yêu cầu này, vui lòng kiểm tra ngay lịch sử bảo mật tài khoản.
+                    </div>
+
+                    <div style="font-size: 13px; color: #64748B; line-height: 1.5; border-top: 1px solid #F1F5F9; padding-top: 20px;">
+                      Trân trọng,<br>
+                      <strong>Đội ngũ Bảo mật Hệ thống OfficeCare</strong>
+                    </div>
+                  </td>
+                </tr>
+
+                <!-- Footer -->
+                <tr>
+                  <td align="center" style="background-color: #F8FAFC; padding: 20px; text-align: center; border-top: 1px solid #E2E8F0;">
+                    <div style="font-size: 11px; color: #94A3B8;">
+                      © ${new Date().getFullYear()} OfficeCare Clinic Management System. All rights reserved.
+                    </div>
+                  </td>
+                </tr>
+
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const fromAddress = isSMTPConfigured 
+      ? `"OfficeCare Security" <${process.env.EMAIL_USER}>` 
+      : '"OfficeCare Security" <security@officecare.vn>';
+
+    const info = await transporter.sendMail({
+      from: fromAddress,
+      to: toEmail,
+      subject: `[OfficeCare Security] Mã OTP xác thực: ${actionTitle}`,
+      html: htmlContent,
+    });
+
+    console.log('----------------------------------------------------');
+    console.log('🛡️ Đã gửi OTP Bảo mật Admin tới: %s (Hành động: %s)', toEmail, actionTitle);
+    if (!isSMTPConfigured) {
+      console.log('📩 Bấm vào Link này để XEM EMAIL (Ethereal): %s', nodemailer.getTestMessageUrl(info));
+    }
+    console.log('----------------------------------------------------');
+
+    return info;
+  } catch (error) {
+    console.error('Lỗi khi gửi email OTP bảo mật Admin:', error);
+  }
+};
+
