@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
-import { getPatients, getPatientProfile, PatientInfo, PatientProfile } from '../../features/doctor/api/doctor.api';
+import { getPatients, getPatientProfile, PatientInfo, PatientProfile } from '../../api/doctor.api';
 import { PatientSidebar } from './components/PatientSidebar';
 import { PatientDossierTimeline } from './components/PatientDossierTimeline';
 import { PlanDetailModal } from './components/PlanDetailModal';

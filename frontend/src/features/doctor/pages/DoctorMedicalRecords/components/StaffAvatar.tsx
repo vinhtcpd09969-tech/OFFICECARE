@@ -1,5 +1,5 @@
 import { Check, Minus, X, Clock3 } from 'lucide-react';
-import { resolveImageUrl } from '../../../utils/imageUrl';
+import { resolveImageUrl } from '../../../../../utils/imageUrl';
 
 // Trạng thái buổi/phác đồ: map trực tiếp enum thật của cuoc_hen.trang_thai / phac_do_dieu_tri.trang_thai,
 // không phỏng đoán theo "có tồn tại record hay không". Dùng chung cho cả trang Hồ sơ điều trị và bàn khám.

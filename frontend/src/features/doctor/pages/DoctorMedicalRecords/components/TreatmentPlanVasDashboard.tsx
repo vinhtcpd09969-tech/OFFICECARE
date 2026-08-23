@@ -12,7 +12,7 @@ import {
   TrendingUp,
   X,
 } from 'lucide-react';
-import { TreatmentPlan } from '../../../features/doctor/api/doctor.api';
+import { TreatmentPlan } from '../../../api/doctor.api';
 
 // Wong-Baker Faces helper
 export const WONG_BAKER_FACES = [

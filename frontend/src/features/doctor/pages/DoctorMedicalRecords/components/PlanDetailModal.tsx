@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { X, Stethoscope, ChevronDown, Lock, UserCheck } from 'lucide-react';
-import { TreatmentPlan } from '../../../features/doctor/api/doctor.api';
+import { TreatmentPlan } from '../../../api/doctor.api';
 import { StaffAvatar, getSessionStatusMeta } from './StaffAvatar';
-import { useAuthStore } from '../../../stores/authStore';
-import { TreatmentSessionDetailBody } from '../../../features/clinical/components/TreatmentSessionDetailBody';
+import { useAuthStore } from '../../../../../stores/authStore';
+import { TreatmentSessionDetailBody } from '../../../../clinical/components/TreatmentSessionDetailBody';
 
 export const PLAN_STATUS_META: Record<string, { label: string; badge: string }> = {
   dang_dieu_tri: { label: 'Đang điều trị', badge: 'bg-primary/10 text-primary border-primary/25' },

@@ -10,7 +10,7 @@ import {
   updateServiceReview,
   updateStaffReview,
   rateAppointment,
-} from '../../../features/customer/api/customer.api';
+} from '../../../api/customer.api';
 import toast from 'react-hot-toast';
 
 export const QUICK_FEEDBACK_TAGS = [

@@ -2,12 +2,12 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Stethoscope, Activity, CheckCircle2, FileText, Monitor, Zap, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import api from '../../api/axios';
-import { PatientHeaderBanner } from '../../features/clinical/components/PatientHeaderBanner';
-import { SpecialistAssessmentDesk } from '../../features/clinical/components/SpecialistAssessmentDesk';
-import { TechnicianTreatmentDesk } from '../../features/clinical/components/TechnicianTreatmentDesk';
-import { EmbeddedPatientEmrView } from '../../features/clinical/components/EmbeddedPatientEmrView';
-import { ConfirmDialog } from '../../components/ConfirmDialog';
+import api from '../../../../api/axios';
+import { PatientHeaderBanner } from '../../../clinical/components/PatientHeaderBanner';
+import { SpecialistAssessmentDesk } from '../../../clinical/components/SpecialistAssessmentDesk';
+import { TechnicianTreatmentDesk } from '../../../clinical/components/TechnicianTreatmentDesk';
+import { EmbeddedPatientEmrView } from '../../../clinical/components/EmbeddedPatientEmrView';
+import { ConfirmDialog } from '../../../../components/ConfirmDialog';
 import {
   getAppointmentDetail as getAppointmentDetailDoctor,
   getPackages,
@@ -15,13 +15,13 @@ import {
   saveAssessmentDraft as saveAssessmentDraftDoctor,
   getDoctorQueue,
   getActiveSession as getActiveSessionDoctor,
-} from '../../features/doctor/api/doctor.api';
+} from '../../api/doctor.api';
 import {
   getAppointmentDetail as getAppointmentDetailKtv,
   saveTreatmentRecord,
   saveTreatmentDraft,
-} from '../../features/technician/api/technician.api';
-import { useAuthStore } from '../../stores/authStore';
+} from '../../../technician/api/technician.api';
+import { useAuthStore } from '../../../../stores/authStore';
 
 export function ClinicalAssessment() {
   const params = useParams<{ id?: string }>();

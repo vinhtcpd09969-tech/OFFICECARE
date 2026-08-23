@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Loader2, FileText, AlertCircle } from 'lucide-react';
-import { getPatientProfile, PatientProfile, PatientInfo } from '../../../features/doctor/api/doctor.api';
-import { PatientDossierTimeline } from '../../../pages/DoctorMedicalRecords/components/PatientDossierTimeline';
+import { getPatientProfile, PatientProfile, PatientInfo } from '../../doctor/api/doctor.api';
+import { PatientDossierTimeline } from '../../doctor/pages/DoctorMedicalRecords/components/PatientDossierTimeline';
 
 interface EmbeddedPatientEmrViewProps {
   patientId: string;

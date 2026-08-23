@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { Stethoscope, Package, Search, X } from 'lucide-react';
 import { ConfirmDialog } from '../../../../components/ConfirmDialog';
-import { PatientDossierTimeline } from '../../../../pages/DoctorMedicalRecords/components/PatientDossierTimeline';
+import { PatientDossierTimeline } from '../../../doctor/pages/DoctorMedicalRecords/components/PatientDossierTimeline';
 import { CustomerSummaryCards } from '../../components/customers/ui/CustomerSummaryCards';
 import { CustomerTable } from '../../components/customers/ui/CustomerTable';
 import { CompletedSingleVisitTable } from '../../components/customers/ui/CompletedSingleVisitTable';

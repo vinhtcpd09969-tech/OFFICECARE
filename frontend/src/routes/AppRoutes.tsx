@@ -30,7 +30,7 @@ const VerifyEmail = lazy(() => import('../features/auth/pages/VerifyEmail'));
 
 // Customer Feature
 const CustomerAppointments = lazy(() => import('../features/customer/pages/CustomerAppointments/index'));
-const CustomerSettings = lazy(() => import('../pages/CustomerSettings/index'));
+const CustomerSettings = lazy(() => import('../features/customer/pages/CustomerSettings/index'));
 const CustomerMedicalRecord = lazy(() => import('../features/customer/pages/CustomerMedicalRecord/index'));
 const CustomerInvoices = lazy(() => import('../features/customer/pages/CustomerInvoices/index'));
 
@@ -60,9 +60,9 @@ const TechnicianAppointments = lazy(() => import('../features/technician/pages/T
 
 // Doctor Feature
 const DoctorAppointments = lazy(() => import('../features/doctor/pages/DoctorAppointments'));
-const ClinicalAssessment = lazy(() => import('../pages/ClinicalAssessment'));
-const DoctorMedicalRecords = lazy(() => import('../pages/DoctorMedicalRecords'));
-const DoctorSchedules = lazy(() => import('../pages/DoctorSchedules'));
+const ClinicalAssessment = lazy(() => import('../features/doctor/pages/ClinicalAssessment'));
+const DoctorMedicalRecords = lazy(() => import('../features/doctor/pages/DoctorMedicalRecords'));
+const DoctorSchedules = lazy(() => import('../features/doctor/pages/DoctorSchedules'));
 
 export default function AppRoutes() {
   const location = useLocation();

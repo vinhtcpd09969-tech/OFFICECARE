@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Clock, Calendar, AlertCircle, CheckCircle2, Moon, Sparkles, RotateCcw } from 'lucide-react';
-import { getDoctorSchedules, DoctorSchedule } from '../../features/doctor/api/doctor.api';
-import { CustomDatePicker } from '../../components/CustomDatePicker';
+import { getDoctorSchedules, DoctorSchedule } from '../../api/doctor.api';
+import { CustomDatePicker } from '../../../../components/CustomDatePicker';
 
 export default function DoctorSchedules() {
   const [schedules, setSchedules] = useState<DoctorSchedule[]>([]);

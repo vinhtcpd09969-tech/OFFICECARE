@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { useAuthStore } from '../../../stores/authStore';
+import { useAuthStore } from '../../../../../stores/authStore';
 import {
   Calendar,
   ChevronDown,
@@ -22,9 +22,9 @@ import {
   Eye,
   X,
 } from 'lucide-react';
-import { PatientInfo, PatientProfile, TreatmentPlan } from '../../../features/doctor/api/doctor.api';
-import { formatCurrency } from '../../../utils/format';
-import { resolveImageUrl } from '../../../utils/imageUrl';
+import { PatientInfo, PatientProfile, TreatmentPlan } from '../../../api/doctor.api';
+import { formatCurrency } from '../../../../../utils/format';
+import { resolveImageUrl } from '../../../../../utils/imageUrl';
 import { TreatmentPlanVasDashboard, getFaceForVas, WONG_BAKER_FACES } from './TreatmentPlanVasDashboard';
 
 interface PatientDossierTimelineProps {

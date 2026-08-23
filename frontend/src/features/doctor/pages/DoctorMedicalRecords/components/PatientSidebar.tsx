@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Search, ClipboardPlus, Inbox } from 'lucide-react';
-import { PatientInfo } from '../../../features/doctor/api/doctor.api';
-import { formatDaysAgo } from '../../../utils/date';
+import { PatientInfo } from '../../../api/doctor.api';
+import { formatDaysAgo } from '../../../../../utils/date';
 
 interface PatientSidebarProps {
   patients: PatientInfo[];

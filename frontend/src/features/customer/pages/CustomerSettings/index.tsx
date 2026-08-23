@@ -1,13 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useAuthStore, useAuthActions } from '../../stores/authStore';
-import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { useAuthStore, useAuthActions } from '../../../../stores/authStore';
+import { ConfirmDialog } from '../../../../components/ConfirmDialog';
 import {
   updateProfile,
   changePassword,
   sendChangePasswordOTP,
   getMe,
   getMyReviews,
-} from '../../features/customer/api/customer.api';
+} from '../../api/customer.api';
 import toast from 'react-hot-toast';
 import { 
   User,
