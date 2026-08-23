@@ -330,8 +330,9 @@ export const createPayOSPaymentLink = async (req: Request, res: Response): Promi
     const orderCode = Date.now() % 2000000000;
     const description = `TTHD ${cleanUuid.substring(0, 8).toUpperCase()} ${cleanName}`.substring(0, 25).trim();
 
-    const cancelUrl = `http://localhost:3000/admin/quick-billing`;
-    const returnUrl = `http://localhost:3000/admin/quick-billing`;
+    const frontendBaseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const cancelUrl = `${frontendBaseUrl}/admin/quick-billing`;
+    const returnUrl = `${frontendBaseUrl}/admin/quick-billing`;
 
     const paymentData = {
       orderCode,

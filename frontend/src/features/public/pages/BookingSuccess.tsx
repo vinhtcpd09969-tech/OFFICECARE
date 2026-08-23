@@ -63,7 +63,8 @@ export default function BookingSuccess() {
 
     const fetchStatus = async () => {
       try {
-        const response = await fetch(`http://localhost:5001/api/client/appointments/public/track/${id}`);
+        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+        const response = await fetch(`${baseUrl}/client/appointments/public/track/${id}`);
         if (!response.ok) {
           throw new Error('Không thể tải thông tin lịch hẹn.');
         }
