@@ -1,8 +1,8 @@
-import { pool } from '../config/db';
+import { pool } from '../../config/db';
 import bcrypt from 'bcryptjs';
-import { getMinPaymentRequired } from '../domain/billing';
-import { TERMINAL_STATUSES } from '../domain/appointmentStatus';
-import { HinhThucThanhToanGoi, LoaiCuocHen } from '../domain/types';
+import { getMinPaymentRequired } from '../../domain/billing';
+import { TERMINAL_STATUSES } from '../../domain/appointmentStatus';
+import { HinhThucThanhToanGoi, LoaiCuocHen } from '../../domain/types';
 import {
   Buoi,
   GIO_NHAN_KHACH,
@@ -18,7 +18,7 @@ import {
   tinhNganSachChung,
   tinhNganSachRieng,
   vaiTroIdCuaNhom,
-} from '../domain/capacity';
+} from '../../domain/capacity';
 
 /**
  * Kiểm tra tính hợp lệ khi đặt buổi tiếp theo của gói liệu trình:

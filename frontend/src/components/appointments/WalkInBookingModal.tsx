@@ -3,27 +3,27 @@ import { Stethoscope, ArrowLeft, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-import axiosInstance from '../api/axios';
-import { getSmartSearchScore } from '../utils/smartSearch';
-import { StaffWorkloadModal } from '../features/receptionist/components/StaffWorkloadModal';
-import { ServiceSelect } from '../features/receptionist/components/walkin/ServiceSelect';
-import { WalkInPaymentModal } from '../features/receptionist/components/walkin/WalkInPaymentModal';
+import axiosInstance from '../../api/axios';
+import { getSmartSearchScore } from '../../utils/smartSearch';
+import { StaffWorkloadModal } from '../../features/receptionist/components/StaffWorkloadModal';
+import { ServiceSelect } from '../../features/receptionist/components/walkin/ServiceSelect';
+import { WalkInPaymentModal } from '../../features/receptionist/components/walkin/WalkInPaymentModal';
 
 import {
   WalkInCustomerSearch,
   newCustomerSchema,
   phoneRegex,
   NewCustomerErrors
-} from '../features/receptionist/components/walkin/WalkInCustomerSearch';
+} from '../../features/receptionist/components/walkin/WalkInCustomerSearch';
 import {
   WalkInTreatmentPlansList,
   isPlanBookable
-} from '../features/receptionist/components/walkin/WalkInTreatmentPlansList';
+} from '../../features/receptionist/components/walkin/WalkInTreatmentPlansList';
 import {
   WalkInBuoiStaffPicker,
   BUOI_INFO,
   Buoi
-} from '../features/receptionist/components/walkin/WalkInBuoiStaffPicker';
+} from '../../features/receptionist/components/walkin/WalkInBuoiStaffPicker';
 
 function isBuoiDaQua(dateStr: string, buoi: Buoi): boolean {
   const todayStr = format(new Date(), 'yyyy-MM-dd');
@@ -35,7 +35,7 @@ function isBuoiDaQua(dateStr: string, buoi: Buoi): boolean {
   return nowMinutes >= h * 60 + m;
 }
 
-interface WalkInBookingModalProps {
+export interface WalkInBookingModalProps {
   roomsList: any[];
   staffList: any[];
   appointments: any[];
@@ -577,7 +577,7 @@ export default function WalkInBookingModal({
             <h3 className="text-base font-black text-slate-900 dark:text-zinc-100 flex items-center gap-2 font-jakarta">
               Đăng ký ca {activeType === 'kham' ? 'khám lượng giá' : 'điều trị'} tại quầy
             </h3>
-            <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-bold mt-0.5">
+            <p className="text-[10px] text-slate-400 dark:text-zinc-550 font-bold mt-0.5">
               Lập lịch nhanh dịch vụ, tự động xác nhận
             </p>
           </div>

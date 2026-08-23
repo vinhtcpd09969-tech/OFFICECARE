@@ -13,7 +13,7 @@ import api from '../../../../api/axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '../../../../stores/authStore';
 import { CustomDatePicker } from '../../../../components/CustomDatePicker';
-import { StatusHistoryModal } from '../../../../components/StatusHistoryModal';
+import { StatusHistoryModal } from '../../../../components/appointments';
 import { BookNextSessionModal } from '../../components/BookNextSessionModal';
 
 import { CancelAppointmentModal } from './components/CancelAppointmentModal';

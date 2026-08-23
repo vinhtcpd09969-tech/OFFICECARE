@@ -1,10 +1,9 @@
 import { Pool, PoolClient } from 'pg';
-import { pool } from '../config/db';
-import { resolveNoShowOutcome } from '../domain/billing';
-import { checkReceptionistTransition, isReceptionistLockedStatus } from '../domain/appointmentStatus';
-import { HinhThucThanhToanGoi, NoShowAction } from '../domain/types';
-import { Buoi } from '../domain/capacity';
-import { isBuoiDaQua } from './appointment.booking.repository';
+import { pool } from '../../config/db';
+import { resolveNoShowOutcome } from '../../domain/billing';
+import { checkReceptionistTransition, isReceptionistLockedStatus } from '../../domain/appointmentStatus';
+import { HinhThucThanhToanGoi, NoShowAction } from '../../domain/types';
+import { isBuoiDaQua } from './booking.repository';
 
 /**
  * Đếm lại số buổi ĐÃ TIÊU THỤ của 1 phác đồ và tự chuyển trang_thai sang 'hoan_thanh' nếu đã đủ
@@ -340,7 +339,7 @@ export class AppointmentLifecycleRepository {
       throw err;
     }
     const ngayStr = new Date(appt.ngay_gio_bat_dau).toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
-    if (appt.buoi && isBuoiDaQua(ngayStr, appt.buoi as Buoi)) {
+    if (appt.buoi && isBuoiDaQua(ngayStr, appt.buoi)) {
       const err: any = new Error('Buổi hẹn đã kết thúc, không thể tự hủy nữa. Vui lòng gọi Hotline để được hỗ trợ.');
       err.statusCode = 400;
       throw err;

@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { ChevronLeft, Phone, Mail, Bell, CalendarPlus, Calendar, CreditCard, ClipboardList, History } from 'lucide-react';
-import { statusConfig } from '../../../../../components/appointmentStatusConfig';
+import { statusConfig } from '../../../../../components/appointments';
 import { isSessionPaymentSatisfied } from '../../../../../utils/billing';
 import type { CustomerHistoryDetail } from '../types';
 

@@ -2,7 +2,7 @@ import { Calendar, Clock, MapPin, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { resolveImageUrl } from '../../../../../utils/imageUrl';
-import { TreatmentSessionDetailBody } from '../../../../../components/TreatmentSessionDetailBody';
+import { TreatmentSessionDetailBody } from '../../../../clinical/components/TreatmentSessionDetailBody';
 import type { SessionEntry } from '../types';
 
 interface SessionTimelineItemProps {

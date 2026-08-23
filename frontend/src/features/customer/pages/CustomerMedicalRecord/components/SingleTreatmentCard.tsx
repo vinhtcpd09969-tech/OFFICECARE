@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { InvoiceSnippet } from './InvoiceSnippet';
 import { SessionRatingControl } from './SessionRatingControl';
-import { TreatmentSessionDetailBody } from '../../../../../components/TreatmentSessionDetailBody';
+import { TreatmentSessionDetailBody } from '../../../../clinical/components/TreatmentSessionDetailBody';
 import type { SingleTreatmentEntry } from '../types';
 
 interface SingleTreatmentCardProps {

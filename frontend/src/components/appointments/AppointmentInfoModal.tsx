@@ -1,7 +1,7 @@
 import { X, User, Activity, Clock, Calendar, FileText, ArrowRight } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
-import { statusConfig } from '../appointmentStatusConfig';
+import { statusConfig } from './appointmentStatusConfig';
 import { format, isValid } from 'date-fns';
 
 interface AppointmentInfoModalProps {

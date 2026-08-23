@@ -4,8 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { format, addDays, isSameDay } from 'date-fns';
 import toast from 'react-hot-toast';
 
-import AppointmentDetailModal from '../../../../components/appointments/DetailModal';
-import WalkInBookingModal from '../../../../components/WalkInBookingModal';
+import { AppointmentDetailModal, WalkInBookingModal } from '../../../../components/appointments';
 import { pushBackAppointment } from '../../../admin/api/admin.api';
 
 // Import Shared Hooks & UI

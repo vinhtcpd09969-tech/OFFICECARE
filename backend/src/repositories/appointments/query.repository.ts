@@ -1,5 +1,5 @@
-import { pool } from '../config/db';
-import adminCustomerRepository from './admin/adminCustomer.repository';
+import { pool } from '../../config/db';
+import adminCustomerRepository from '../admin/adminCustomer.repository';
 
 export class AppointmentQueryRepository {
   async getAllAppointments(_userRole?: number) {

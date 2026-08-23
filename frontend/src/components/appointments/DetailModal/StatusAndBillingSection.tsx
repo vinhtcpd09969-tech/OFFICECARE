@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Pencil, Check, Clock, Undo2, DollarSign, Sparkles, CheckCircle2 } from 'lucide-react';
 import { isPaymentDue } from '../../../utils/billing';
-import { statusConfig } from '../../appointmentStatusConfig';
+import { statusConfig } from '../appointmentStatusConfig';
 
 interface StatusAndBillingSectionProps {
   selectedAppointment: any;

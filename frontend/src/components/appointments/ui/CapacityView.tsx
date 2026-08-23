@@ -3,7 +3,7 @@ import { format, startOfWeek, addDays, isSameDay, isToday } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { motion } from 'framer-motion';
 import { User, MapPin, ChevronRight, Calendar, Search } from 'lucide-react';
-import { statusConfig } from '../../appointmentStatusConfig';
+import { statusConfig } from '../appointmentStatusConfig';
 import { getSmartSearchScore } from '../../../utils/smartSearch';
 
 interface CapacityViewProps {

@@ -14,7 +14,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { Appointment, Staff } from '../../types';
-import { statusConfig } from '../../../appointmentStatusConfig';
+import { statusConfig } from '../../appointmentStatusConfig';
 import { isPaymentDue } from '../../../../utils/billing';
 import { useAuthStore } from '../../../../stores/authStore';
 import { PaymentBadge, StaffCell } from './PaymentBadge';
