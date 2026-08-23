@@ -55,7 +55,11 @@ export const createBillingFromAppointment = async (req: Request, res: Response):
 // POST /api/receptionist/payment
 export const processPayment = async (req: Request, res: Response): Promise<any> => {
   try {
-    const result = await receptionistService.processPayment(req.body);
+    const staffId = (req as any).user?.id || (req as any).user?.userId || null;
+    const result = await receptionistService.processPayment({
+      ...req.body,
+      nhan_vien_thuc_hien_id: staffId
+    });
     res.json({ message: 'Thanh toán thành công', ...result });
   } catch (error: any) {
     console.error('Lỗi thanh toán:', error);

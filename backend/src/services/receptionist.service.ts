@@ -537,7 +537,7 @@ class ReceptionistService {
   }
 
   async processPayment(data: any) {
-    const { hoa_don_id, phuong_thuc, so_tien_nhan, so_thu_tu_buoi } = data;
+    const { hoa_don_id, phuong_thuc, so_tien_nhan, so_thu_tu_buoi, nhan_vien_thuc_hien_id } = data;
     const hd = await receptionistRepository.getInvoiceById(hoa_don_id);
     if (!hd) throw new Error('Không tìm thấy hóa đơn');
 
@@ -623,7 +623,8 @@ class ReceptionistService {
       da_thanh_toan_moi,
       trang_thai_moi,
       phuong_thuc,
-      chiTiet || undefined
+      chiTiet || undefined,
+      nhan_vien_thuc_hien_id || null
     );
 
     // Update linked treatment plan status on first payment

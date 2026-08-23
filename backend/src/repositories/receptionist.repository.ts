@@ -282,7 +282,7 @@ class ReceptionistRepository {
     return rows[0];
   }
 
-  async processPayment(hoa_don_id: string, maGiaoDich: string, tong_tien: number, phuong_thuc: string) {
+  async processPayment(hoa_don_id: string, maGiaoDich: string, tong_tien: number, phuong_thuc: string, nhan_vien_thuc_hien_id?: number | null) {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
@@ -295,8 +295,8 @@ class ReceptionistRepository {
 
       await client.query(`
         INSERT INTO giao_dich_thanh_toan (hoa_don_id, so_tien, loai_giao_dich, phuong_thuc, ma_tham_chieu, nhan_vien_thuc_hien_id, ngay_giao_dich)
-        VALUES ($1, $2, 'THANH_TOAN', $3, $4, 1, NOW())
-      `, [hoa_don_id, tong_tien, phuong_thuc, maGiaoDich]);
+        VALUES ($1, $2, 'THANH_TOAN', $3, $4, $5, NOW())
+      `, [hoa_don_id, tong_tien, phuong_thuc, maGiaoDich, nhan_vien_thuc_hien_id || 1]);
       const cuocHenId = hdRows[0]?.cuoc_hen_id;
       if (cuocHenId) {
         await client.query(
@@ -722,7 +722,8 @@ class ReceptionistRepository {
     da_thanh_toan_moi: number,
     trang_thai_moi: string,
     phuong_thuc: string,
-    chi_tiet?: PaymentTransactionDetail
+    chi_tiet?: PaymentTransactionDetail,
+    nhan_vien_thuc_hien_id?: number | null
   ) {
     const client = await pool.connect();
     try {
@@ -789,8 +790,8 @@ class ReceptionistRepository {
 
       await client.query(`
         INSERT INTO giao_dich_thanh_toan (hoa_don_id, so_tien, loai_giao_dich, phuong_thuc, ma_tham_chieu, nhan_vien_thuc_hien_id, ngay_giao_dich, chi_tiet)
-        VALUES ($1, $2, 'THANH_TOAN', $3, $4, 1, NOW(), $5)
-      `, [hoa_don_id, so_tien_nhan, phuong_thuc, maGiaoDich, chi_tiet ? JSON.stringify(chi_tiet) : null]);
+        VALUES ($1, $2, 'THANH_TOAN', $3, $4, $5, NOW(), $6)
+      `, [hoa_don_id, so_tien_nhan, phuong_thuc, maGiaoDich, nhan_vien_thuc_hien_id || 1, chi_tiet ? JSON.stringify(chi_tiet) : null]);
 
       await client.query('COMMIT');
     } catch (e) {
