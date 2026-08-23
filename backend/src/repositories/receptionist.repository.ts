@@ -901,7 +901,7 @@ class ReceptionistRepository {
 
   async getCustomerTreatmentPlans(customerId: string) {
     // so_buoi_da_dung: đếm hoan_thanh luôn; đếm thêm khong_den chỉ khi gói Nhóm B
-    // (tra_thang/tra_gop — đã trả trước nên buổi không đến vẫn bị tính tiêu thụ) — khớp
+    // (tra_thang — đã trả trước nên buổi không đến vẫn bị tính tiêu thụ) — khớp
     // công thức ở updateCompletedSessionsCount (appointment.repository.ts).
     const { rows } = await pool.query(`
       SELECT pd.id::text, pd.goi_dich_vu_id, pd.tong_so_buoi,

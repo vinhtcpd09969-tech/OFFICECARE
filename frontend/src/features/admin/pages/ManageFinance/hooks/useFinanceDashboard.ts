@@ -242,8 +242,8 @@ export const useFinanceDashboard = (isCheckoutMode: boolean) => {
         (inv.so_dien_thoai || '').includes(query);
       if (!matchesSearch) return false;
 
-      // "con_no" là lựa chọn gộp (không phải trang_thai thật) — khớp cả dang_tra_gop lẫn
-      // dang_tra_tung_buoi, xem giải thích ở constants.ts::INVOICE_PENDING_STATUSES.
+      // "con_no" là lựa chọn gộp (không phải trang_thai thật) — khớp dang_tra_tung_buoi,
+      // xem giải thích ở constants.ts::INVOICE_PENDING_STATUSES.
       if (statusFilter === 'con_no') {
         if (!INVOICE_PENDING_STATUSES.includes(inv.trang_thai)) return false;
       } else if (statusFilter !== 'all' && inv.trang_thai !== statusFilter) {

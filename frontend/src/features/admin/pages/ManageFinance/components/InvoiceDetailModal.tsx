@@ -87,7 +87,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                     !['da_hoan_tien', 'da_huy'].includes(invoice.trang_thai) &&
                     !['huy', 'hoan_thanh'].includes(invoice.trang_thai_phac_do || '');
 
-  // Refund eligibility check (Only pre-paid packages: LIEU_TRINH and hinh_thuc is tra_thang/tra_gop)
+  // Refund eligibility check (Only pre-paid packages: LIEU_TRINH and hinh_thuc is tra_thang)
   // — gói đã quá hạn sử dụng KHÔNG được hủy theo luồng hoàn tiền thông thường nữa (chỉ còn đúng 1
   // lối ra: "Hủy do quá hạn sử dụng", không hoàn tiền — xem isPackageOverdue).
   // Dùng chung công thức với PaymentTable.tsx (tab Lịch sử giao dịch) qua canRefundPackage() — 2

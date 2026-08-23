@@ -82,6 +82,84 @@ export async function updateCompletedSessionsCount(db: Pool | PoolClient, phac_d
   }
 }
 
+/**
+ * Kiểm tra tính hợp lệ khi đặt buổi tiếp theo của gói liệu trình:
+ * 1. Chặn nếu có ca hẹn đang hoạt động thuộc phác đồ này (chống đặt chồng chéo)
+ * 2. Chặn nếu gói đã bị hủy hoặc hoàn tiền
+ * 3. Chặn nếu gói đã quá hạn sử dụng
+ * 4. Kiểm tra điều kiện số tiền đã trả tối thiểu theo hình thức thanh toán (tra_thang vs tung_buoi)
+ */
+export async function assertTreatmentPlanCanBookSession(
+  phac_do_dieu_tri_id: string,
+  so_thu_tu_buoi?: number,
+  isClientFacing: boolean = false
+): Promise<void> {
+  const activeApptRes = await pool.query(
+    `SELECT id, so_thu_tu_buoi, trang_thai 
+     FROM cuoc_hen 
+     WHERE phac_do_dieu_tri_id = $1 
+       AND trang_thai IN ('da_xac_nhan', 'da_checkin', 'dang_kham', 'cho_tai_luong_gia')
+     LIMIT 1`,
+    [phac_do_dieu_tri_id]
+  );
+  if (activeApptRes.rows.length > 0) {
+    const activeAppt = activeApptRes.rows[0];
+    const who = isClientFacing ? 'Bạn' : 'Khách hàng';
+    throw new Error(`${who} đã có lịch đặt cho buổi số ${activeAppt.so_thu_tu_buoi} đang hoạt động. Vui lòng hoàn thành hoặc hủy lịch hẹn cũ trước khi đặt buổi tiếp theo.`);
+  }
+
+  const invRes = await pool.query(
+    `SELECT hd.hinh_thuc_thanh_toan_goi, hd.tong_tien_phai_tra, hd.so_tien_da_tra, hd.tong_tien_goc,
+            hd.so_tien_giam_voucher, hd.trang_thai as hd_trang_thai,
+            pd.tong_so_buoi, pd.trang_thai as pd_trang_thai, g.loai_goi,
+            (pd.trang_thai = 'dang_dieu_tri' AND pd.han_su_dung IS NOT NULL AND pd.han_su_dung < CURRENT_DATE) as qua_han,
+            pd.han_su_dung
+     FROM hoa_don hd
+     JOIN phac_do_dieu_tri pd ON pd.id = hd.phac_do_dieu_tri_id
+     JOIN goi_dich_vu g ON pd.goi_dich_vu_id = g.id
+     WHERE hd.phac_do_dieu_tri_id = $1
+     LIMIT 1`,
+    [phac_do_dieu_tri_id]
+  );
+  if (invRes.rows.length > 0) {
+    const {
+      hinh_thuc_thanh_toan_goi, tong_tien_phai_tra, so_tien_da_tra, tong_so_buoi, loai_goi,
+      tong_tien_goc, so_tien_giam_voucher,
+      pd_trang_thai, hd_trang_thai, qua_han, han_su_dung
+    } = invRes.rows[0];
+
+    if (['huy', 'da_huy'].includes(String(pd_trang_thai)) || hd_trang_thai === 'da_hoan_tien') {
+      throw new Error('Gói trị liệu này đã bị hủy và hoàn tiền. Không thể đặt thêm buổi điều trị cho gói đã hủy.');
+    }
+
+    if (qua_han) {
+      const hanStr = new Date(han_su_dung).toLocaleDateString('vi-VN');
+      const contactWho = isClientFacing ? 'phòng khám để được hỗ trợ' : 'Admin để xử lý';
+      throw new Error(`Gói trị liệu này đã quá hạn sử dụng (hạn ${hanStr}). Vui lòng liên hệ ${contactWho} trước khi đặt thêm buổi điều trị.`);
+    }
+
+    if (loai_goi !== 'LE') {
+      const M = Number(so_thu_tu_buoi) || 1;
+      const grossBeforeExamDeduction = Number(tong_tien_goc || 0) - Number(so_tien_giam_voucher || 0);
+      const minRequired = getMinPaymentRequired(
+        hinh_thuc_thanh_toan_goi,
+        Number(tong_tien_phai_tra),
+        Number(tong_so_buoi || 10),
+        M,
+        grossBeforeExamDeduction
+      );
+      if (Number(so_tien_da_tra) < minRequired) {
+        const who = isClientFacing ? 'Bạn' : 'Khách hàng';
+        if (hinh_thuc_thanh_toan_goi === 'tra_thang') {
+          throw new Error(`${who} chưa hoàn tất thanh toán cho gói trị liệu này. Vui lòng thanh toán trước khi thực hiện buổi số ${M}!`);
+        } else {
+          throw new Error(`${who} chưa hoàn tất thanh toán cho buổi điều trị trước đó. Vui lòng thanh toán trước khi đặt lịch cho buổi số ${M}!`);
+        }
+      }
+    }
+  }
+}
+
 function calculateConfirmationDeadline(now: Date, appointmentStart: Date): Date {
   const durationMs = 30 * 60 * 1000;
 
@@ -330,77 +408,6 @@ class AppointmentRepository {
       if (dvRes.rows.length > 0) thoiLuongPhut = Number(dvRes.rows[0].thoi_luong_phut) || 60;
     }
 
-    // Kiểm tra chặn đặt lịch tiếp theo khi buổi trước đó chưa hoàn thành
-    if (phac_do_dieu_tri_id) {
-      const activeApptRes = await pool.query(
-        `SELECT id, so_thu_tu_buoi, trang_thai 
-         FROM cuoc_hen 
-         WHERE phac_do_dieu_tri_id = $1 
-           AND trang_thai IN ('da_xac_nhan', 'da_checkin', 'dang_kham', 'cho_tai_luong_gia')
-         LIMIT 1`,
-        [phac_do_dieu_tri_id]
-      );
-      if (activeApptRes.rows.length > 0) {
-        const activeAppt = activeApptRes.rows[0];
-        throw new Error(`Khách hàng đã có lịch đặt cho buổi số ${activeAppt.so_thu_tu_buoi} đang hoạt động. Vui lòng hoàn thành hoặc hủy lịch hẹn cũ trước khi đặt buổi tiếp theo.`);
-      }
-
-
-
-      // Kiểm tra điều kiện hoàn tất thanh toán của buổi trước khi đặt lịch cho buổi tiếp theo (Thống nhất 3 hình thức)
-      const invRes = await pool.query(
-        `SELECT hd.hinh_thuc_thanh_toan_goi, hd.tong_tien_phai_tra, hd.so_tien_da_tra, hd.tong_tien_goc,
-                hd.so_tien_giam_voucher, hd.trang_thai as hd_trang_thai,
-                pd.tong_so_buoi, pd.trang_thai as pd_trang_thai, g.loai_goi,
-                (pd.trang_thai = 'dang_dieu_tri' AND pd.han_su_dung IS NOT NULL AND pd.han_su_dung < CURRENT_DATE) as qua_han,
-                pd.han_su_dung
-         FROM hoa_don hd
-         JOIN phac_do_dieu_tri pd ON pd.id = hd.phac_do_dieu_tri_id
-         JOIN goi_dich_vu g ON pd.goi_dich_vu_id = g.id
-         WHERE hd.phac_do_dieu_tri_id = $1
-         LIMIT 1`,
-        [phac_do_dieu_tri_id]
-      );
-      if (invRes.rows.length > 0) {
-        const { hinh_thuc_thanh_toan_goi, tong_tien_phai_tra, so_tien_da_tra, tong_so_buoi, loai_goi,
-          tong_tien_goc, so_tien_giam_voucher,
-          pd_trang_thai, hd_trang_thai, qua_han, han_su_dung } = invRes.rows[0];
-
-        // Gói đã hủy/hoàn tiền: chấm dứt vĩnh viễn, không đặt thêm buổi nào nữa (kể cả khi
-        // so_tien_da_tra tụt xuống sau hoàn tiền — đó KHÔNG phải "khách còn nợ tiền").
-        if (['huy', 'da_huy'].includes(String(pd_trang_thai)) || hd_trang_thai === 'da_hoan_tien') {
-          throw new Error('Gói trị liệu này đã bị hủy và hoàn tiền. Không thể đặt thêm buổi điều trị cho gói đã hủy.');
-        }
-
-        // Gói đã quá hạn sử dụng: chặn đặt buổi mới cho tới khi Admin xử lý thủ công (hủy do quá
-        // hạn, xem expirePackageNoRefund) — hệ thống KHÔNG tự hủy gói, chỉ chặn thao tác đặt tiếp.
-        if (qua_han) {
-          throw new Error(`Gói trị liệu này đã quá hạn sử dụng (hạn ${new Date(han_su_dung).toLocaleDateString('vi-VN')}). Vui lòng liên hệ Admin để xử lý trước khi đặt thêm buổi điều trị.`);
-        }
-
-        // Gói lẻ LE không bị chặn đặt lịch trước thanh toán
-        if (loai_goi !== 'LE') {
-          const M = Number(so_thu_tu_buoi) || 1;
-          const grossBeforeExamDeduction = Number(tong_tien_goc || 0)
-            - Number(so_tien_giam_voucher || 0);
-          const minRequired = getMinPaymentRequired(
-            hinh_thuc_thanh_toan_goi,
-            Number(tong_tien_phai_tra),
-            Number(tong_so_buoi || 10),
-            M,
-            grossBeforeExamDeduction
-          );
-          if (Number(so_tien_da_tra) < minRequired) {
-            if (hinh_thuc_thanh_toan_goi === 'tra_thang') {
-              throw new Error(`Khách hàng chưa hoàn tất thanh toán cho gói trị liệu này. Vui lòng thanh toán trước khi thực hiện buổi số ${M}!`);
-            } else {
-              throw new Error(`Khách hàng chưa hoàn tất thanh toán cho buổi điều trị trước đó. Vui lòng thanh toán trước khi đặt lịch cho buổi số ${M}!`);
-            }
-          }
-        }
-      }
-    }
-
     // A1 — ngân sách phút theo buổi (thay hoàn toàn slot giờ cố định + trùng lịch nhân sự).
     // isBuoiDaQua chỉ chặn "chốt thô" (đã qua giờ nhận khách của cả buổi); Lớp 2 (giờ đến muộn
     // nhất theo từng dịch vụ) là kiểm tra ở thời điểm check-in, thuộc giai đoạn 3, chưa cài ở đây.
@@ -577,64 +584,8 @@ class AppointmentRepository {
       so_thu_tu_buoi = expectedNextSession;
       data.so_thu_tu_buoi = expectedNextSession;
 
-      const activeApptRes = await pool.query(
-        `SELECT id, so_thu_tu_buoi, trang_thai 
-         FROM cuoc_hen 
-         WHERE phac_do_dieu_tri_id = $1 
-           AND trang_thai IN ('da_xac_nhan', 'da_checkin', 'dang_kham', 'cho_tai_luong_gia')
-         LIMIT 1`,
-        [finalPhacDoId]
-      );
-      if (activeApptRes.rows.length > 0) {
-        const activeAppt = activeApptRes.rows[0];
-        throw new Error(`Khách hàng đã có lịch đặt cho buổi số ${activeAppt.so_thu_tu_buoi} đang hoạt động. Vui lòng hoàn thành hoặc hủy lịch hẹn cũ trước khi đặt buổi tiếp theo.`);
-      }
-
-
-
-      // Kiểm tra điều kiện hoàn tất thanh toán của buổi trước khi đặt lịch cho buổi tiếp theo (Thống nhất 3 hình thức)
-      const invRes = await pool.query(
-        `SELECT hd.hinh_thuc_thanh_toan_goi, hd.tong_tien_phai_tra, hd.so_tien_da_tra, hd.tong_tien_goc,
-                hd.so_tien_giam_voucher, pd.tong_so_buoi, g.loai_goi,
-                (pd.trang_thai = 'dang_dieu_tri' AND pd.han_su_dung IS NOT NULL AND pd.han_su_dung < CURRENT_DATE) as qua_han,
-                pd.han_su_dung
-         FROM hoa_don hd
-         JOIN phac_do_dieu_tri pd ON pd.id = hd.phac_do_dieu_tri_id
-         JOIN goi_dich_vu g ON pd.goi_dich_vu_id = g.id
-         WHERE hd.phac_do_dieu_tri_id = $1
-         LIMIT 1`,
-        [finalPhacDoId]
-      );
-      if (invRes.rows.length > 0) {
-        const { hinh_thuc_thanh_toan_goi, tong_tien_phai_tra, so_tien_da_tra, tong_so_buoi, loai_goi,
-          tong_tien_goc, so_tien_giam_voucher, qua_han, han_su_dung } = invRes.rows[0];
-
-        // Gói đã quá hạn sử dụng: chặn đặt buổi mới cho tới khi Admin xử lý thủ công.
-        if (qua_han) {
-          throw new Error(`Gói trị liệu này đã quá hạn sử dụng (hạn ${new Date(han_su_dung).toLocaleDateString('vi-VN')}). Vui lòng liên hệ Admin để xử lý trước khi đặt thêm buổi điều trị.`);
-        }
-
-        // Gói lẻ LE không bị chặn đặt lịch trước thanh toán
-        if (loai_goi !== 'LE') {
-          const M = Number(so_thu_tu_buoi) || 1;
-          const grossBeforeExamDeduction = Number(tong_tien_goc || 0)
-            - Number(so_tien_giam_voucher || 0);
-          const minRequired = getMinPaymentRequired(
-            hinh_thuc_thanh_toan_goi,
-            Number(tong_tien_phai_tra),
-            Number(tong_so_buoi || 10),
-            M,
-            grossBeforeExamDeduction
-          );
-          if (Number(so_tien_da_tra) < minRequired) {
-            if (hinh_thuc_thanh_toan_goi === 'tra_thang') {
-              throw new Error(`Khách hàng chưa hoàn tất thanh toán cho gói trị liệu này. Vui lòng thanh toán trước khi thực hiện buổi số ${M}!`);
-            } else {
-              throw new Error(`Khách hàng chưa hoàn tất thanh toán cho buổi điều trị trước đó. Vui lòng thanh toán trước khi đặt lịch cho buổi số ${M}!`);
-            }
-          }
-        }
-      }
+      // Kiểm tra tính hợp lệ của gói liệu trình & điều kiện thanh toán
+      await assertTreatmentPlanCanBookSession(finalPhacDoId, so_thu_tu_buoi, false);
     }
 
     // Phân loại tự động trang_thai_thanh_toan cho buổi gói liệu trình
@@ -800,71 +751,9 @@ class AppointmentRepository {
 
     const final_khach_hang_id_input = khach_hang_id || null;
 
-    // Kiểm tra chặn đặt lịch tiếp theo khi buổi trước đó chưa hoàn thành
+    // Kiểm tra tính hợp lệ của gói liệu trình & điều kiện thanh toán (isClientFacing = true)
     if (phac_do_dieu_tri_id) {
-      const activeApptRes = await pool.query(
-        `SELECT id, so_thu_tu_buoi, trang_thai 
-         FROM cuoc_hen 
-         WHERE phac_do_dieu_tri_id = $1 
-           AND trang_thai IN ('da_xac_nhan', 'da_checkin', 'dang_kham', 'cho_tai_luong_gia')
-         LIMIT 1`,
-        [phac_do_dieu_tri_id]
-      );
-      if (activeApptRes.rows.length > 0) {
-        const activeAppt = activeApptRes.rows[0];
-        throw new Error(`Bạn đã có lịch đặt cho buổi số ${activeAppt.so_thu_tu_buoi} đang hoạt động. Vui lòng hoàn thành hoặc hủy lịch hẹn cũ trước khi đặt buổi tiếp theo.`);
-      }
-
-
-
-      // Kiểm tra điều kiện hoàn tất thanh toán của buổi trước khi đặt lịch cho buổi tiếp theo
-      const invRes = await pool.query(
-        `SELECT hd.hinh_thuc_thanh_toan_goi, hd.tong_tien_phai_tra, hd.so_tien_da_tra, hd.tong_tien_goc,
-                hd.so_tien_giam_voucher, hd.trang_thai as hd_trang_thai,
-                pd.tong_so_buoi, pd.trang_thai as pd_trang_thai, g.loai_goi,
-                (pd.trang_thai = 'dang_dieu_tri' AND pd.han_su_dung IS NOT NULL AND pd.han_su_dung < CURRENT_DATE) as qua_han,
-                pd.han_su_dung
-         FROM hoa_don hd
-         JOIN phac_do_dieu_tri pd ON pd.id = hd.phac_do_dieu_tri_id
-         JOIN goi_dich_vu g ON pd.goi_dich_vu_id = g.id
-         WHERE hd.phac_do_dieu_tri_id = $1
-         LIMIT 1`,
-        [phac_do_dieu_tri_id]
-      );
-      if (invRes.rows.length > 0) {
-        const { hinh_thuc_thanh_toan_goi, tong_tien_phai_tra, so_tien_da_tra, tong_so_buoi, loai_goi,
-          tong_tien_goc, so_tien_giam_voucher,
-          pd_trang_thai, hd_trang_thai, qua_han, han_su_dung } = invRes.rows[0];
-
-        if (['huy', 'da_huy'].includes(String(pd_trang_thai)) || hd_trang_thai === 'da_hoan_tien') {
-          throw new Error('Gói trị liệu này đã bị hủy và hoàn tiền. Không thể đặt thêm buổi điều trị cho gói đã hủy.');
-        }
-
-        // Gói đã quá hạn sử dụng: chặn đặt buổi mới cho tới khi Admin xử lý thủ công.
-        if (qua_han) {
-          throw new Error(`Gói trị liệu này đã quá hạn sử dụng (hạn ${new Date(han_su_dung).toLocaleDateString('vi-VN')}). Vui lòng liên hệ phòng khám để được hỗ trợ trước khi đặt thêm buổi điều trị.`);
-        }
-
-        if (loai_goi !== 'LE') {
-          const M = Number(so_thu_tu_buoi) || 1;
-          const grossBeforeExamDeduction = Number(tong_tien_goc || 0)
-            - Number(so_tien_giam_voucher || 0);
-          const minRequired = getMinPaymentRequired(
-            hinh_thuc_thanh_toan_goi,
-            Number(tong_tien_phai_tra),
-            Number(tong_so_buoi || 10),
-            M,
-            grossBeforeExamDeduction
-          );
-          if (Number(so_tien_da_tra) < minRequired) {
-            if (hinh_thuc_thanh_toan_goi === 'tra_thang') {
-              throw new Error(`Bạn chưa hoàn tất thanh toán cho gói trị liệu này. Vui lòng thanh toán trước khi thực hiện buổi số ${M}!`);
-            } else {
-              throw new Error(`Bạn chưa hoàn tất thanh toán cho buổi điều trị trước đó. Vui lòng thanh toán trước khi đặt lịch cho buổi số ${M}!`);
-            }
-          }
-        }
-      }
+      await assertTreatmentPlanCanBookSession(phac_do_dieu_tri_id, so_thu_tu_buoi, true);
     }
 
     let isExamService = false;
