@@ -35,6 +35,29 @@ export class AdminCustomerRepository {
     return rows[0];
   }
 
+  async findCustomerByIdOrIdentifier(identifier: string) {
+    const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(String(identifier));
+    if (isUuid) {
+      const { rows } = await pool.query(
+        `SELECT id, ho_ten, so_dien_thoai, email,
+                'KH-' || UPPER(SUBSTRING(id::text FROM 1 FOR 8)) as ma_khach_hang,
+                ngay_sinh, gioi_tinh, dia_chi
+         FROM khach_hang WHERE id = $1::uuid LIMIT 1`,
+        [String(identifier)]
+      );
+      return rows[0] || null;
+    } else {
+      const { rows } = await pool.query(
+        `SELECT id, ho_ten, so_dien_thoai, email,
+                'KH-' || UPPER(SUBSTRING(id::text FROM 1 FOR 8)) as ma_khach_hang,
+                ngay_sinh, gioi_tinh, dia_chi
+         FROM khach_hang WHERE id::text = $1 OR email = $1 OR so_dien_thoai = $1 LIMIT 1`,
+        [String(identifier)]
+      );
+      return rows[0] || null;
+    }
+  }
+
   async updateCustomer(id: string, data: any) {
     const { ho_ten, so_dien_thoai, email, gioi_tinh, dia_chi, ngay_sinh } = data;
     const { rows } = await pool.query(`

@@ -1,5 +1,6 @@
 import { pool } from '../config/db';
 import { updateCompletedSessionsCount } from './appointment.repository';
+import doctorRepository from './doctor.repository';
 
 // UPSERT nhật ký buổi điều trị — dùng chung cho saveTreatmentRecord (hoàn thành, trong transaction)
 // và saveTreatmentDraft (lưu nháp, ngoài transaction) để không lệch 2 bản sao của cùng 1 câu lệnh.
@@ -17,29 +18,9 @@ const UPSERT_NHAT_KY_SQL = `
 `;
 
 class TechnicianRepository {
-  // 1. Lấy danh sách ca trị liệu chờ thực hiện hôm nay của KTV
+  // 1. Lấy danh sách ca trị liệu chờ thực hiện hôm nay của KTV (hợp nhất với doctorRepository)
   async getTechnicianQueue(userId: string) {
-    const queryStr = `
-      SELECT 
-        ch.id, 
-        'LH-' || UPPER(SUBSTRING(ch.id::text FROM 1 FOR 6)) as ma_lich_dat,
-        kh.ho_ten as ho_ten_khach, kh.so_dien_thoai as so_dien_thoai, kh.gioi_tinh as gioi_tinh_khach,
-        ch.ngay_gio_bat_dau, ch.ngay_gio_ket_thuc, ch.ghi_chu_khach_hang as ly_do_kham, ch.trang_thai, ch.anh_dinh_kem_url,
-        kh.id as khach_hang_id, kh.ngay_sinh, kh.gioi_tinh,
-        kh.ho_ten as ten_khach_hang, kh.so_dien_thoai as sdt_khach_hang, NULL::text as avatar_url,
-        ch.nhan_su_id as ky_thuat_vien_id,
-        nk.ngay_tao as nhat_ky_ngay_tao
-      FROM cuoc_hen ch
-      JOIN khach_hang kh ON ch.khach_hang_id = kh.id
-      LEFT JOIN nhat_ky_buoi_dieu_tri nk ON nk.cuoc_hen_id = ch.id
-      WHERE ch.nhan_su_id = $1::integer
-        AND ch.loai != 'KHAM'
-        AND ch.trang_thai IN ('dang_kham', 'check_in', 'da_xac_nhan', 'da_checkin')
-        AND DATE(ch.ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh') = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh')
-      ORDER BY ch.ngay_gio_bat_dau ASC;
-    `;
-    const { rows } = await pool.query(queryStr, [userId]);
-    return rows;
+    return await doctorRepository.getDoctorQueue(userId, 3);
   }
 
   // 2. Lấy danh sách lịch hẹn điều trị của KTV (hỗ trợ filter thời gian)

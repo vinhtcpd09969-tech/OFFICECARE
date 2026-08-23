@@ -1,5 +1,5 @@
 import receptionistRepository from '../repositories/receptionist.repository';
-import appointmentRepository, { assertTraGopDot2PaidBeforeCheckin } from '../repositories/appointment.repository';
+import appointmentRepository from '../repositories/appointment.repository';
 import { pool } from '../config/db';
 import {
   describePaymentTransaction,
@@ -40,10 +40,6 @@ class ReceptionistService {
         err.statusCode = 403;
         throw err;
       }
-    }
-
-    if (trang_thai === 'da_checkin' || trang_thai === 'check_in') {
-      await assertTraGopDot2PaidBeforeCheckin(pool, id);
     }
 
     const appointment = await receptionistRepository.updateAppointmentStatus(id, trang_thai, ghi_chu_noi_bo);

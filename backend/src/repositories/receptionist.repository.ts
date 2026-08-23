@@ -1,6 +1,5 @@
 import { pool } from '../config/db';
-import { calculateDiscountPercent, resolveNoShowOutcome, PaymentTransactionDetail, DEFAULT_CANCELLATION_PENALTY_PERCENT } from '../domain/billing';
-import { HinhThucThanhToanGoi } from '../domain/types';
+import { calculateDiscountPercent, PaymentTransactionDetail, DEFAULT_CANCELLATION_PENALTY_PERCENT } from '../domain/billing';
 import { GIO_NHAN_KHACH, NO_SHOW_SWEEP_BUFFER_MINUTES } from '../domain/capacity';
 import appointmentRepository, { updateCompletedSessionsCount } from './appointment.repository';
 
@@ -45,131 +44,11 @@ class ReceptionistRepository {
   }
 
   async updateAppointmentStatus(id: string, trang_thai: string, ghi_chu_noi_bo?: string) {
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-
-      // Fetch the appointment first to check types and previous records
-      const apptRes = await client.query('SELECT * FROM cuoc_hen WHERE id = $1', [id]);
-      if (apptRes.rows.length === 0) {
-        throw new Error('Không tìm thấy cuộc hẹn');
-      }
-      const appt = apptRes.rows[0];
-
-      // Chặn Lễ tân check-in ca hẹn vượt thời gian (chỉ cho phép check-in hôm nay hoặc quá khứ)
-      if (trang_thai === 'da_checkin') {
-        const apptDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(appt.ngay_gio_bat_dau));
-        const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
-        if (apptDateStr > todayStr) {
-          const formattedDate = new Date(appt.ngay_gio_bat_dau).toLocaleDateString('vi-VN');
-          throw new Error(`Lễ tân chỉ được phép Check-in cho các ca hẹn trong ngày hôm nay. Không thể check-in vượt thời gian cho ca hẹn ngày ${formattedDate}.`);
-        }
-      }
-
-      if (trang_thai === 'hoan_thanh') {
-        if (appt.phac_do_dieu_tri_id) {
-          const planInfo = await client.query(`
-            SELECT gdv.loai_goi
-            FROM phac_do_dieu_tri pd
-            JOIN goi_dich_vu gdv ON pd.goi_dich_vu_id = gdv.id
-            WHERE pd.id = $1
-          `, [appt.phac_do_dieu_tri_id]);
-
-          if (planInfo.rows.length > 0 && planInfo.rows[0].loai_goi === 'LIEU_TRINH') {
-            const paymentCheck = await client.query(`
-              SELECT hd.trang_thai, hd.hinh_thuc_thanh_toan_goi
-              FROM hoa_don hd
-              WHERE hd.phac_do_dieu_tri_id = $1
-              LIMIT 1
-            `, [appt.phac_do_dieu_tri_id]);
-
-            if (paymentCheck.rows.length > 0) {
-              const { trang_thai: invoiceStatus, hinh_thuc_thanh_toan_goi } = paymentCheck.rows[0];
-              if (hinh_thuc_thanh_toan_goi !== 'tung_buoi') {
-                if (invoiceStatus !== 'da_thanh_toan') {
-                  throw new Error('Gói trị liệu liên kết chưa được thanh toán (đối với trả thẳng). Không thể hoàn thành ca điều trị.');
-                }
-              }
-            } else {
-              throw new Error('Gói trị liệu liên kết chưa được đăng ký/thành lập hóa đơn.');
-            }
-          }
-        }
-      }
-
-      let finalStatus = trang_thai;
-
-      // Handle Cancel / No-Show Logic
-      if (['da_huy', 'khong_den'].includes(trang_thai)) {
-        const isPackageSession = !!(appt.phac_do_dieu_tri_id && appt.so_thu_tu_buoi);
-        let hinhThuc: HinhThucThanhToanGoi | null = null;
-
-        if (isPackageSession) {
-          const invoiceRes = await client.query(`
-            SELECT hinh_thuc_thanh_toan_goi FROM hoa_don
-            WHERE phac_do_dieu_tri_id = $1
-            LIMIT 1
-          `, [appt.phac_do_dieu_tri_id]);
-          hinhThuc = invoiceRes.rows[0]?.hinh_thuc_thanh_toan_goi || null;
-        }
-
-        const outcome = resolveNoShowOutcome(trang_thai as 'da_huy' | 'khong_den', hinhThuc, isPackageSession);
-        finalStatus = outcome.finalStatus;
-      }
-
-      const updates = [];
-      const values = [finalStatus];
-      let paramIndex = 2;
-
-      if (ghi_chu_noi_bo !== undefined) {
-        updates.push(`ghi_chu_noi_bo = $${paramIndex}`);
-        values.push(ghi_chu_noi_bo);
-        paramIndex++;
-      }
-
-      if (finalStatus === 'da_checkin') {
-        updates.push(`thoi_gian_checkin = NOW()`);
-      } else if (finalStatus === 'dang_kham') {
-        updates.push(`thoi_gian_bat_dau = COALESCE(thoi_gian_bat_dau, NOW())`);
-      } else if (finalStatus === 'hoan_thanh') {
-        updates.push(`thoi_gian_hoan_thanh = COALESCE(thoi_gian_hoan_thanh, NOW())`);
-      } else if (finalStatus === 'da_huy') {
-        updates.push(`thoi_gian_huy = COALESCE(thoi_gian_huy, NOW())`);
-      } else if (finalStatus === 'khong_den') {
-        updates.push(`thoi_gian_khong_den = COALESCE(thoi_gian_khong_den, NOW())`);
-      }
-
-      // Chỉ HỦY mới giải phóng nhân sự/phòng — "không đến" giữ nguyên
-      if (finalStatus === 'da_huy') {
-        updates.push(`nhan_su_id = NULL`);
-        updates.push(`phong_id = NULL`);
-      }
-
-      const updateQuery = `
-        UPDATE cuoc_hen 
-        SET trang_thai = $1${updates.length > 0 ? ', ' + updates.join(', ') : ''} 
-        WHERE id = $${paramIndex} 
-        RETURNING *
-      `;
-      values.push(id);
-
-      const { rows } = await client.query(updateQuery, values);
-
-      if (rows.length > 0) {
-        const updatedAppt = rows[0];
-        if (['hoan_thanh', 'khong_den'].includes(finalStatus) && updatedAppt.phac_do_dieu_tri_id) {
-          await updateCompletedSessionsCount(client, updatedAppt.phac_do_dieu_tri_id);
-        }
-      }
-
-      await client.query('COMMIT');
-      return rows[0] || null;
-    } catch (e) {
-      await client.query('ROLLBACK');
-      throw e;
-    } finally {
-      client.release();
-    }
+    return await appointmentRepository.updateAppointmentStatus(
+      id,
+      { trang_thai, ghi_chu_noi_bo },
+      2
+    );
   }
 
   async getAppointmentForBilling(lich_dat_id: string) {

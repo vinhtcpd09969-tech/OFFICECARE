@@ -1,4 +1,5 @@
 import { pool } from '../config/db';
+import adminCustomerRepository from './admin/adminCustomer.repository';
 
 class DoctorRepository {
   async isPackageLieuTrinh(goi_dich_vu_id: string) {
@@ -824,32 +825,7 @@ class DoctorRepository {
   }
 
   async getPatientInfoById(patientId: string) {
-    const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(String(patientId));
-    let rows: any[] = [];
-
-    if (isUuid) {
-      const res = await pool.query(`
-        SELECT
-          id, ho_ten, so_dien_thoai, email,
-          'KH-' || UPPER(SUBSTRING(id::text FROM 1 FOR 8)) as ma_khach_hang,
-          ngay_sinh, gioi_tinh
-        FROM khach_hang WHERE id = $1::uuid
-        LIMIT 1
-      `, [String(patientId)]);
-      rows = res.rows;
-    } else {
-      const res = await pool.query(`
-        SELECT
-          id, ho_ten, so_dien_thoai, email,
-          'KH-' || UPPER(SUBSTRING(id::text FROM 1 FOR 8)) as ma_khach_hang,
-          ngay_sinh, gioi_tinh
-        FROM khach_hang WHERE id::text = $1 OR email = $1 OR so_dien_thoai = $1
-        LIMIT 1
-      `, [String(patientId)]);
-      rows = res.rows;
-    }
-
-    return rows[0] || null;
+    return await adminCustomerRepository.findCustomerByIdOrIdentifier(patientId);
   }
 }
 

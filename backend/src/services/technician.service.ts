@@ -1,9 +1,10 @@
 import technicianRepository from '../repositories/technician.repository';
+import doctorRepository from '../repositories/doctor.repository';
 
 class TechnicianService {
-  // 1. Lấy danh sách hàng đợi trị liệu hôm nay của KTV
+  // 1. Lấy danh sách hàng đợi trị liệu hôm nay của KTV (đồng bộ cấu trúc queue với doctor.repository)
   async getQueue(userId: string) {
-    return await technicianRepository.getTechnicianQueue(userId);
+    return await doctorRepository.getDoctorQueue(userId, 3);
   }
 
   // 2. Lấy danh sách lịch hẹn của KTV

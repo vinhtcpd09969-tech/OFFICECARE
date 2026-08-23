@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { getMinPaymentRequired, resolveNoShowOutcome } from '../domain/billing';
 import { checkReceptionistTransition, isReceptionistLockedStatus, TERMINAL_STATUSES } from '../domain/appointmentStatus';
 import { HinhThucThanhToanGoi, NoShowAction, LoaiCuocHen } from '../domain/types';
+import adminCustomerRepository from './admin/adminCustomer.repository';
 import {
   Buoi,
   GIO_NHAN_KHACH,
@@ -21,16 +22,7 @@ import {
   vaiTroIdCuaNhom,
 } from '../domain/capacity';
 
-/**
- * Chặn check-in buổi tới ngưỡng của gói trả góp khi chưa đóng đủ Đợt 2. Dùng chung cho cả
- * route `/receptionist/appointments/:id/status` (`receptionist.service.ts` import từ đây) lẫn
- * `/admin/appointments/:id/status` (khi actor là Lễ tân, ngay bên dưới trong file này), để không
- * route nào bỏ lọt gate tài chính này. Throw Error `.statusCode = 400` nếu chưa đủ điều kiện,
- * không làm gì nếu không áp dụng (không phải buổi trị liệu trả góp).
- */
-export async function assertTraGopDot2PaidBeforeCheckin(_db: Pool | PoolClient, _cuocHenId: string): Promise<void> {
-  return;
-}
+
 
 /**
  * Đếm lại số buổi ĐÃ TIÊU THỤ của 1 phác đồ và tự chuyển trang_thai sang 'hoan_thanh' nếu đã đủ
@@ -1331,9 +1323,6 @@ class AppointmentRepository {
             err.statusCode = 403;
             throw err;
           }
-          if (data.trang_thai === 'da_checkin' || data.trang_thai === 'check_in') {
-            await assertTraGopDot2PaidBeforeCheckin(client, id);
-          }
         }
       }
 
@@ -1895,23 +1884,7 @@ class AppointmentRepository {
   }
 
   async getCustomerMedicalRecord(customer_id: string) {
-    const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(String(customer_id));
-    let khach_hang: any = null;
-
-    if (isUuid) {
-      const custRes = await pool.query(
-        "SELECT id, ho_ten, so_dien_thoai, email, 'KH-' || UPPER(SUBSTRING(id::text FROM 1 FOR 8)) as ma_khach_hang FROM khach_hang WHERE id = $1::uuid LIMIT 1",
-        [String(customer_id)]
-      );
-      khach_hang = custRes.rows[0] || null;
-    } else {
-      const custRes = await pool.query(
-        "SELECT id, ho_ten, so_dien_thoai, email, 'KH-' || UPPER(SUBSTRING(id::text FROM 1 FOR 8)) as ma_khach_hang FROM khach_hang WHERE id::text = $1 OR email = $1 OR so_dien_thoai = $1 LIMIT 1",
-        [String(customer_id)]
-      );
-      khach_hang = custRes.rows[0] || null;
-    }
-
+    const khach_hang = await adminCustomerRepository.findCustomerByIdOrIdentifier(customer_id);
     if (!khach_hang) return null;
 
     const realKhachHangId = khach_hang.id;
