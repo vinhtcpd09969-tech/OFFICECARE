@@ -1,6 +1,6 @@
 import React from 'react';
 import { Sun, Moon, Sparkles } from 'lucide-react';
-import { CustomDatePicker } from '../../CustomDatePicker';
+import { CustomDatePicker } from '../../../CustomDatePicker';
 
 export const BUOI_INFO: Record<'sang' | 'chieu', { label: string; batDau: string; ketThuc: string; khungGio: string }> = {
   sang: { label: 'Buổi sáng', batDau: '07:30', ketThuc: '12:00', khungGio: '07:30 - 12:00' },

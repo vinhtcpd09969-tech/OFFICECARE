@@ -1,5 +1,5 @@
 import { Users } from 'lucide-react';
-import { resolveImageUrl } from '../../../utils/imageUrl';
+import { resolveImageUrl } from '../../../../utils/imageUrl';
 
 interface StaffRoomAllocationProps {
   selectedAppointment: any;

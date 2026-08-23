@@ -6,7 +6,7 @@
  * A10 (06/08/2026): bỏ hẳn khái niệm "chưa xác nhận"/"chờ xác nhận" — mọi lịch vào thẳng
  * `da_xac_nhan` lúc tạo (Phase 1), nên Lễ tân không còn hành động "Xác nhận" nào cả.
  */
-import { CANCELLED_STATUSES, NO_SHOW_STATUSES } from '../../../utils/appointmentKpi';
+import { CANCELLED_STATUSES, NO_SHOW_STATUSES } from '../../../../utils/appointmentKpi';
 
 const IN_PROGRESS_LOCKED_STATUSES = ['dang_kham', 'hoan_thanh'];
 const TERMINAL_STATUSES = [...CANCELLED_STATUSES, ...NO_SHOW_STATUSES];

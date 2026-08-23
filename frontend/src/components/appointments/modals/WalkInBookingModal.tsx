@@ -3,27 +3,27 @@ import { Stethoscope, ArrowLeft, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-import axiosInstance from '../../api/axios';
-import { getSmartSearchScore } from '../../utils/smartSearch';
-import { StaffWorkloadModal } from '../../features/receptionist/components/StaffWorkloadModal';
-import { ServiceSelect } from '../../features/receptionist/components/walkin/ServiceSelect';
-import { WalkInPaymentModal } from '../../features/receptionist/components/walkin/WalkInPaymentModal';
+import axiosInstance from '../../../api/axios';
+import { getSmartSearchScore } from '../../../utils/smartSearch';
+import { StaffWorkloadModal } from '../../../features/receptionist/components/StaffWorkloadModal';
+import { ServiceSelect } from '../../../features/receptionist/components/walkin/ServiceSelect';
+import { WalkInPaymentModal } from '../../../features/receptionist/components/walkin/WalkInPaymentModal';
 
 import {
   WalkInCustomerSearch,
   newCustomerSchema,
   phoneRegex,
   NewCustomerErrors
-} from '../../features/receptionist/components/walkin/WalkInCustomerSearch';
+} from '../../../features/receptionist/components/walkin/WalkInCustomerSearch';
 import {
   WalkInTreatmentPlansList,
   isPlanBookable
-} from '../../features/receptionist/components/walkin/WalkInTreatmentPlansList';
+} from '../../../features/receptionist/components/walkin/WalkInTreatmentPlansList';
 import {
   WalkInBuoiStaffPicker,
   BUOI_INFO,
   Buoi
-} from '../../features/receptionist/components/walkin/WalkInBuoiStaffPicker';
+} from '../../../features/receptionist/components/walkin/WalkInBuoiStaffPicker';
 
 function isBuoiDaQua(dateStr: string, buoi: Buoi): boolean {
   const todayStr = format(new Date(), 'yyyy-MM-dd');

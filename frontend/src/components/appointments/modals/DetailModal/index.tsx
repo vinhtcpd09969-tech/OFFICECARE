@@ -3,16 +3,16 @@ import toast from 'react-hot-toast';
 import { X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
-import { useAuthStore } from '../../../stores/authStore';
+import { useAuthStore } from '../../../../stores/authStore';
 import {
   updateAppointmentStatus as updateAppointmentStatusAdmin,
   getStaffBudgetForBuoi
-} from '../../../features/admin/api/admin.api';
+} from '../../../../features/admin/api/admin.api';
 import {
   updateAppointmentStatus as updateAppointmentStatusRec,
   resendEmail,
   unassignAppointmentStaff
-} from '../../../features/receptionist/api/receptionist.api';
+} from '../../../../features/receptionist/api/receptionist.api';
 import { StatusHistoryModal } from '../StatusHistoryModal';
 import { getReceptionistActionOptions, getReceptionistAllowedTargets, hasAssignedStaff, isReceptionistLockedStatus } from './receptionistStatusRules';
 

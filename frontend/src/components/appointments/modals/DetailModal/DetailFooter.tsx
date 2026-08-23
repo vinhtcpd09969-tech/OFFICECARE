@@ -2,8 +2,8 @@ import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { CheckCircle2, DollarSign, CalendarPlus } from 'lucide-react';
-import { updateAppointmentStatus as updateAppointmentStatusAdmin } from '../../../features/admin/api/admin.api';
-import { isPlanCancelled, isSessionPaymentSatisfied } from '../../../utils/billing';
+import { updateAppointmentStatus as updateAppointmentStatusAdmin } from '../../../../features/admin/api/admin.api';
+import { isPlanCancelled, isSessionPaymentSatisfied } from '../../../../utils/billing';
 
 /** Gom dữ liệu hóa đơn gói từ 1 lịch hẹn về đúng shape mà utils/billing mong đợi. */
 function toPlanShape(apt: any) {
