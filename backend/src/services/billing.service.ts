@@ -655,10 +655,15 @@ export class BillingService {
     (async () => {
       try {
         const customerInfo = await pool.query(`
-          SELECT kh.ho_ten, kh.email, g.ten_goi, g.so_buoi
+          SELECT kh.ho_ten, kh.email,
+                 COALESCE(g_pdt.ten_goi, g_ch.ten_goi, 'Dịch vụ phục hồi chức năng') AS ten_goi,
+                 COALESCE(g_pdt.tong_so_buoi, g_ch.tong_so_buoi, 1) AS so_buoi
           FROM hoa_don hd
           JOIN khach_hang kh ON hd.khach_hang_id = kh.id
-          LEFT JOIN goi_dich_vu g ON hd.goi_dich_vu_id = g.id
+          LEFT JOIN phac_do_dieu_tri pdt ON hd.phac_do_dieu_tri_id = pdt.id
+          LEFT JOIN goi_dich_vu g_pdt ON pdt.goi_dich_vu_id = g_pdt.id
+          LEFT JOIN cuoc_hen ch ON hd.cuoc_hen_id = ch.id
+          LEFT JOIN goi_dich_vu g_ch ON ch.goi_dich_vu_id = g_ch.id
           WHERE hd.id = $1
         `, [hoa_don_id]);
 

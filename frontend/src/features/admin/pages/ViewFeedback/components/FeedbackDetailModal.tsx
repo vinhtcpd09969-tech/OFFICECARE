@@ -300,7 +300,7 @@ export function FeedbackDetailModal({
                         className="px-3.5 py-1.5 bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 hover:bg-teal-100 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors border border-teal-200/50"
                       >
                         <Sparkles size={13} className="text-teal-600" />
-                        <span>Dùng câu trả lời AI gợi ý</span>
+                        <span>Dùng câu trả lời gợi ý</span>
                       </button>
                     )}
 
@@ -315,7 +315,7 @@ export function FeedbackDetailModal({
                       ) : (
                         <RefreshCw size={13} className="text-teal-600" />
                       )}
-                      <span>Soạn lại phản hồi khác (AI)</span>
+                      <span>Gợi ý phản hồi khác</span>
                     </button>
                   </div>
                 </div>

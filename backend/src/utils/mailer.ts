@@ -1,16 +1,18 @@
 import nodemailer from 'nodemailer';
 import {
   PaymentReceiptEmailParams,
+  BookingSuccessEmailParams,
   renderOtpEmail,
   renderForgotPasswordEmail,
   renderBookingConfirmationEmail,
+  renderBookingSuccessEmail,
   renderAppointmentReminderEmail,
   renderAccountLockedEmail,
   renderPaymentReceiptEmail,
   renderAdminSecurityOtpEmail,
 } from '../templates/emails/emailTemplates';
 
-export { PaymentReceiptEmailParams };
+export { PaymentReceiptEmailParams, BookingSuccessEmailParams };
 
 const isSMTPConfigured = Boolean(
   process.env.EMAIL_USER && 
@@ -266,3 +268,34 @@ export const sendAdminSecurityOTP = async (
     console.error('Lỗi khi gửi email OTP bảo mật Admin:', error);
   }
 };
+
+export const sendBookingSuccessEmail = async (toEmail: string, params: BookingSuccessEmailParams) => {
+  try {
+    if (!toEmail || !toEmail.includes('@') || toEmail.endsWith('@officecare.placeholder')) {
+      console.log('⚠️ Không có địa chỉ email hợp lệ để gửi thông báo đặt lịch:', toEmail);
+      return;
+    }
+
+    const transporter = await getTransporter();
+    const htmlContent = renderBookingSuccessEmail(params);
+
+    const info = await transporter.sendMail({
+      from: getFromAddress('OfficeCare Clinic'),
+      to: toEmail,
+      subject: `[OfficeCare] Xác nhận đặt lịch hẹn thành công - Mã #${params.maLichDat}`,
+      html: htmlContent,
+    });
+
+    console.log('----------------------------------------------------');
+    console.log('✅ Đã gửi Email Xác nhận Đặt lịch tới: %s (Mã LH: #%s)', toEmail, params.maLichDat);
+    if (!isSMTPConfigured) {
+      console.log('📩 Bấm vào Link này để XEM EMAIL (Ethereal): %s', nodemailer.getTestMessageUrl(info));
+    }
+    console.log('----------------------------------------------------');
+
+    return info;
+  } catch (error) {
+    console.error('Lỗi khi gửi email xác nhận đặt lịch hẹn:', error);
+  }
+};
+

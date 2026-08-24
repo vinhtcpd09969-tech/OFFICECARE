@@ -352,20 +352,15 @@ export default function ManageAppointments() {
     }
   };
 
-  const activeRole = activeType === 'kham' ? 'Bác sĩ' : 'Kỹ thuật viên';
   const formattedSelectedDate = format(startDate, 'yyyy-MM-dd');
 
   const getKpiAppointments = () => {
-    const matchType = (apt: any) => activeType === 'kham'
-      ? apt.loai_lich === 'kham_moi'
-      : (apt.loai_lich === 'dieu_tri' || apt.loai_lich === 'dich_vu_don');
-    
     const filterByStaff = (apt: any) => !selectedStaffFilter || String(apt.bac_si_id) === String(selectedStaffFilter);
 
     if (viewMode === 'timeline') {
       return appointmentsToUse.filter(apt => {
         const aptDateStr = format(new Date(apt.ngay_gio_bat_dau || ''), 'yyyy-MM-dd');
-        return aptDateStr === formattedSelectedDate && matchType(apt) && filterByStaff(apt);
+        return aptDateStr === formattedSelectedDate && filterByStaff(apt);
       });
     } else {
       const startBound = new Date(startDate);
@@ -374,7 +369,7 @@ export default function ManageAppointments() {
       endBound.setHours(23, 59, 59, 999);
       return appointmentsToUse.filter(apt => {
         const aptDate = new Date(apt.ngay_gio_bat_dau || '');
-        return aptDate >= startBound && aptDate <= endBound && matchType(apt) && filterByStaff(apt);
+        return aptDate >= startBound && aptDate <= endBound && filterByStaff(apt);
       });
     }
   };
@@ -799,7 +794,7 @@ export default function ManageAppointments() {
           selectedAppointment={selectedAppointment}
           roomsList={roomsToUse}
           staffList={staffToUse}
-          activeRole={activeRole}
+          activeRole={roleView}
           assignRoomId={assignRoomId}
           setAssignRoomId={setAssignRoomId}
           assignStaffId={assignStaffId}

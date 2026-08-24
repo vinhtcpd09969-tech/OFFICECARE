@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { PenSquare, Search } from 'lucide-react';
@@ -6,6 +6,7 @@ import { PenSquare, Search } from 'lucide-react';
 import { getArticles, updateArticle } from '../../api/admin.api';
 import ArticleEditor from '../../components/articles/ArticleEditor';
 import { ConfirmDialog } from '../../../../components/ConfirmDialog';
+import { CustomSelect } from '../../../../components/CustomSelect';
 import { ArticleRow } from './ArticleRow';
 
 const DANH_MUC_FILTERS = [
@@ -39,6 +40,32 @@ export default function ManageArticles() {
 
   const [confirmConfig, setConfirmConfig] = useState<{ isOpen: boolean; title: string; message: string; onConfirm: () => void } | null>(null);
 
+  const scrollToTop = useCallback(() => {
+    // 1. Cuộn window & document
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    if (document.documentElement) document.documentElement.scrollTop = 0;
+    if (document.body) document.body.scrollTop = 0;
+
+    // 2. Cuộn tất cả container cuộn bên trong layout Admin
+    const scrollContainers = document.querySelectorAll('.overflow-auto, .overflow-y-auto, main, main > div');
+    scrollContainers.forEach((el) => {
+      el.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      el.scrollTop = 0;
+    });
+
+    // 3. Lặp lại sau các mốc hiệu ứng chuyển trang (AnimatePresence)
+    [50, 150, 300].forEach((delay) => {
+      setTimeout(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        const containers = document.querySelectorAll('.overflow-auto, .overflow-y-auto, main, main > div');
+        containers.forEach((el) => {
+          el.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+          el.scrollTop = 0;
+        });
+      }, delay);
+    });
+  }, []);
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -56,6 +83,12 @@ export default function ManageArticles() {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    if (!isEditorOpen) {
+      scrollToTop();
+    }
+  }, [isEditorOpen, scrollToTop]);
+
   const filteredArticles = useMemo(() => {
     return articles.filter((a: any) => {
       const matchesSearch = normalizeString(a.tieu_de).includes(normalizeString(searchQuery));
@@ -67,15 +100,15 @@ export default function ManageArticles() {
 
   const sortedArticles = useMemo(() => {
     return [...filteredArticles].sort((a, b) => {
-      // ngung_su_dung goes to the bottom
+      // ngung_su_dung goes to the bottom when viewing all
       const aSuspended = a.trang_thai === 'ngung_su_dung' ? 1 : 0;
       const bSuspended = b.trang_thai === 'ngung_su_dung' ? 1 : 0;
       if (aSuspended !== bSuspended) {
         return aSuspended - bSuspended; // 0 first (active), 1 last (suspended)
       }
-      // Within same section, sort by ngay_dang descending (khớp với cột ngày hiển thị trên UI)
-      const aTime = new Date(a.ngay_dang || a.ngay_tao || 0).getTime();
-      const bTime = new Date(b.ngay_dang || b.ngay_tao || 0).getTime();
+      // Within same section, sort by latest update/created time descending
+      const aTime = new Date(a.ngay_cap_nhat || a.ngay_dang || a.ngay_tao || 0).getTime();
+      const bTime = new Date(b.ngay_cap_nhat || b.ngay_dang || b.ngay_tao || 0).getTime();
       return bTime - aTime;
     });
   }, [filteredArticles]);
@@ -92,7 +125,7 @@ export default function ManageArticles() {
       onConfirm: async () => {
         setConfirmConfig(null);
         try {
-          await updateArticle(article.id, { ...article, trang_thai: 'ngung_su_dung' });
+          await updateArticle(article.id, { ...article, trang_thai: 'ngung_su_dung', ngay_cap_nhat: new Date().toISOString() });
           toast.success(`Đã gỡ bài viết "${article.tieu_de}" thành công!`);
           fetchData();
         } catch (error: any) {
@@ -104,9 +137,11 @@ export default function ManageArticles() {
 
   const handleRestore = async (article: any) => {
     try {
-      await updateArticle(article.id, { ...article, trang_thai: 'nhap' });
+      await updateArticle(article.id, { ...article, trang_thai: 'nhap', ngay_cap_nhat: new Date().toISOString() });
       toast.success(`Đã khôi phục bài viết "${article.tieu_de}" về dạng bản nháp thành công!`);
+      setTrangThaiFilter('all');
       fetchData();
+      scrollToTop();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Không thể khôi phục bài viết');
     }
@@ -136,13 +171,13 @@ export default function ManageArticles() {
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 text-secondary dark:text-zinc-100 font-bold placeholder-zinc-400 shadow-2xs"
                   />
                 </div>
-                <select
+                <CustomSelect
                   value={danhMucFilter}
-                  onChange={(e) => setDanhMucFilter(e.target.value)}
-                  className="px-4 py-2.5 border border-zinc-200 dark:border-zinc-800 rounded-xl bg-slate-50 dark:bg-zinc-950 text-xs outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 text-secondary dark:text-zinc-100 font-bold shadow-2xs cursor-pointer w-full lg:w-56"
-                >
-                  {DANH_MUC_FILTERS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                </select>
+                  onChange={setDanhMucFilter}
+                  options={DANH_MUC_FILTERS}
+                  className="w-full lg:w-56 shrink-0"
+                  align="right"
+                />
 
                 <button
                   onClick={() => { setEditingArticle(null); setIsEditorOpen(true); }}
@@ -211,7 +246,16 @@ export default function ManageArticles() {
             <ArticleEditor
               editingArticle={editingArticle}
               onClose={() => { setIsEditorOpen(false); setEditingArticle(null); }}
-              onSuccess={() => { setIsEditorOpen(false); setEditingArticle(null); fetchData(); }}
+              onSuccess={(savedStatus?: string) => {
+                setIsEditorOpen(false);
+                setEditingArticle(null);
+                if (savedStatus === 'xuat_ban' || savedStatus === 'nhap') {
+                  setTrangThaiFilter('all');
+                }
+                setSearchQuery('');
+                fetchData();
+                scrollToTop();
+              }}
             />
           </motion.div>
         )}

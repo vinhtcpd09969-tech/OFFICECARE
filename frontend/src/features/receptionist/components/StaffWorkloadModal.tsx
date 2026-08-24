@@ -223,7 +223,7 @@ export function StaffWorkloadModal({ isOpen, onClose, dateStr }: StaffWorkloadMo
             <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-zinc-800">
               <h4 className="text-xs font-black text-slate-900 dark:text-zinc-100 uppercase tracking-wider flex items-center gap-2">
                 <ShieldCheck size={16} className="text-cyan-600" />
-                <span>Chuyên Viên VLTL (Lượng giá & Trị liệu)</span>
+                <span>Chuyên Viên Tư Vấn (Lượng giá & Tư vấn)</span>
               </h4>
               <span className="text-[11px] font-bold text-slate-400">
                 {specialistList.length} chuyên viên trực ca ngày {formattedDateLabel}

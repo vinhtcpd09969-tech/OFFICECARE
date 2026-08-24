@@ -451,7 +451,7 @@ export function TodayFlowBoard({
 
               <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-955/40 border border-amber-200 dark:border-amber-900/60 text-xs leading-relaxed space-y-2">
                 <p className="font-bold text-amber-900 dark:text-amber-200">
-                  📌 Bệnh nhân: <strong>{pendingOvertimeCheckin.ten_khach_hang || (pendingOvertimeCheckin as any).ho_ten_khach}</strong> (Dịch vụ {duration} phút)
+                  📌 Khách hàng: <strong>{pendingOvertimeCheckin.ten_khach_hang || (pendingOvertimeCheckin as any).ho_ten_khach}</strong> (Dịch vụ {duration} phút)
                 </p>
                 <p className="text-slate-600 dark:text-zinc-300">
                   Trung tâm chính thức đóng cửa lúc <strong>20:00 (8h00 tối)</strong>. Nếu tiếp nhận check-in bây giờ, thời gian hoàn thành dự kiến là <strong className="text-amber-700 dark:text-amber-300 font-black">{finishTimeStr}</strong> (vượt giờ đóng cửa {overtimeMins} phút).

@@ -73,7 +73,7 @@ export function FeedbackTable({
                   </button>
                 </th>
                 <th className="py-4 px-6 min-w-[240px]">Khách hàng</th>
-                <th className="py-4 px-4 w-60 text-center">Cảm xúc AI</th>
+                <th className="py-4 px-4 w-60 text-center">Cảm xúc</th>
                 <th className="py-4 px-4 w-52 text-center">Trạng thái</th>
                 <th className="py-4 px-4 w-40 text-center">Thời gian</th>
                 <th className="py-4 px-4 w-32 text-center">Thao tác</th>
@@ -150,7 +150,7 @@ export function FeedbackTable({
                             ) : (
                               <Sparkles size={13} className="text-teal-600" />
                             )}
-                            <span>Phân tích AI</span>
+                            <span>Phân tích</span>
                           </button>
                         )}
                       </div>

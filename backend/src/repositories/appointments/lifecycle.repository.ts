@@ -100,7 +100,7 @@ export class AppointmentLifecycleRepository {
         if (data.trang_thai === 'da_checkin') {
           const apptDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(appt.ngay_gio_bat_dau));
           const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
-          if (apptDateStr > todayStr) {
+          if (appt.trang_thai !== 'cho_tai_luong_gia' && apptDateStr > todayStr) {
             const formattedDate = new Date(appt.ngay_gio_bat_dau).toLocaleDateString('vi-VN');
             throw new Error(`Lễ tân chỉ được phép Check-in cho các ca hẹn trong ngày hôm nay. Không thể check-in vượt thời gian cho ca hẹn ngày ${formattedDate}.`);
           }
@@ -255,7 +255,12 @@ export class AppointmentLifecycleRepository {
       }
 
       if (finalStatus === 'da_checkin') {
-        updates.push(`thoi_gian_checkin = COALESCE(thoi_gian_checkin, NOW())`);
+        updates.push(`thoi_gian_checkin = NOW()`);
+        if (appt.trang_thai === 'cho_tai_luong_gia' || data.ngay_gio_bat_dau === undefined) {
+          updates.push(`ngay_gio_bat_dau = NOW()`);
+          updates.push(`buoi = CASE WHEN EXTRACT(HOUR FROM (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')) < 12 THEN 'sang' ELSE 'chieu' END`);
+          updates.push(`ngay_gio_ket_thuc = NOW() + (COALESCE(thoi_luong_phut, 30) || ' minutes')::interval`);
+        }
       } else if (finalStatus === 'dang_kham') {
         updates.push(`thoi_gian_bat_dau = COALESCE(thoi_gian_bat_dau, NOW())`);
       } else if (finalStatus === 'hoan_thanh') {
@@ -277,7 +282,7 @@ export class AppointmentLifecycleRepository {
       const { rows } = await client.query(query, values);
 
       if (rows.length > 0) {
-        if (['hoan_thanh', 'khong_den'].includes(finalStatus) && rows[0].phac_do_dieu_tri_id) {
+        if (rows[0].phac_do_dieu_tri_id) {
           await updateCompletedSessionsCount(client, rows[0].phac_do_dieu_tri_id);
         }
 

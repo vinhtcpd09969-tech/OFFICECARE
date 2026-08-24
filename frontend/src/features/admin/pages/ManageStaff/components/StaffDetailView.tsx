@@ -584,7 +584,7 @@ export function StaffDetailView({
                       <>
                         <option value={2}>Lễ tân</option>
                         <option value={3}>Kỹ thuật viên</option>
-                        <option value={4}>Chuyên viên Vật lý trị liệu</option>
+                        <option value={4}>Chuyên viên tư vấn</option>
                         <option value={6}>Quản lý</option>
                       </>
                     )}

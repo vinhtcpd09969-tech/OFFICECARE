@@ -115,6 +115,13 @@ export const BookingDateTimeStaffSection: React.FC<BookingDateTimeStaffSectionPr
               const chieuSlots = Math.floor((buoiAvailability.chieu?.conLaiChung || 0) / (serviceDuration || 30));
               const chieuChoPhep = buoiAvailability.chieu?.choPhep && !chieuDaQua && chieuSlots > 0;
 
+              const renderBuoiStatus = (daQua: boolean, choPhep: boolean, slots: number) => {
+                if (daQua) return <span className="text-rose-500 font-bold">Đã qua giờ nhận</span>;
+                if (!choPhep || slots <= 0) return <span className="text-rose-500 font-bold">Hết slot</span>;
+                if (slots <= 3) return <span className="text-amber-600 font-black">Sắp hết (Còn {slots} slot)</span>;
+                return <span className="text-emerald-600 font-black">Còn {slots} slot</span>;
+              };
+
               return (
                 <>
                   <button
@@ -129,8 +136,8 @@ export const BookingDateTimeStaffSection: React.FC<BookingDateTimeStaffSectionPr
                   >
                     <div className="text-xs font-black">🌅 Buổi Sáng</div>
                     <div className="text-[10px] text-slate-500 font-medium mt-0.5">07:30 – 12:00</div>
-                    <div className={`text-[9px] font-bold mt-1 ${sangDaQua ? 'text-rose-500' : sangChoPhep ? 'text-emerald-600' : 'text-rose-500'}`}>
-                      {sangDaQua ? 'Đã qua giờ nhận khách' : (!sangChoPhep ? 'Hết chỗ' : `Còn ${sangSlots} chỗ`)}
+                    <div className="text-[10px] font-bold mt-1">
+                      {renderBuoiStatus(sangDaQua, !!buoiAvailability.sang?.choPhep, sangSlots)}
                     </div>
                   </button>
 
@@ -146,8 +153,8 @@ export const BookingDateTimeStaffSection: React.FC<BookingDateTimeStaffSectionPr
                   >
                     <div className="text-xs font-black">🌆 Buổi Chiều</div>
                     <div className="text-[10px] text-slate-500 font-medium mt-0.5">12:00 – 20:00</div>
-                    <div className={`text-[9px] font-bold mt-1 ${chieuDaQua ? 'text-rose-500' : chieuChoPhep ? 'text-emerald-600' : 'text-rose-500'}`}>
-                      {chieuDaQua ? 'Đã qua giờ nhận khách' : (!chieuChoPhep ? 'Hết chỗ' : `Còn ${chieuSlots} chỗ`)}
+                    <div className="text-[10px] font-bold mt-1">
+                      {renderBuoiStatus(chieuDaQua, !!buoiAvailability.chieu?.choPhep, chieuSlots)}
                     </div>
                   </button>
                 </>
@@ -184,15 +191,15 @@ export const BookingDateTimeStaffSection: React.FC<BookingDateTimeStaffSectionPr
       <div className="space-y-3 pt-3 border-t border-slate-100">
         <div className="flex items-center justify-between">
           <label className="text-xs font-black text-slate-700 uppercase tracking-wider block">
-            {bookingType === 'kham' ? 'Chọn Chuyên viên VLTL Lượng giá' : 'Chọn Kỹ thuật viên thực hiện'} (Tùy chọn)
+            {bookingType === 'kham' ? 'Chọn Chuyên viên tư vấn Lượng giá' : 'Chọn Kỹ thuật viên thực hiện'} (Tùy chọn)
           </label>
           <span className="text-[10px] text-teal-600 font-bold">⭐ Bất kỳ = Tự động gán người rảnh sớm nhất</span>
         </div>
 
         {!selectedBuoi ? (
-          <p className="text-[11px] text-slate-400 font-bold py-2">Vui lòng chọn Buổi Sáng/Chiều ở trên trước để xem nhân sự còn chỗ.</p>
+          <p className="text-[11px] text-slate-400 font-bold py-2">Vui lòng chọn Buổi Sáng/Chiều ở trên trước để xem nhân sự còn slot.</p>
         ) : staffList.length === 0 ? (
-          <p className="text-[11px] text-amber-600 font-bold py-2">Không còn nhân sự nào đủ chỗ cho dịch vụ này ở buổi đã chọn — vui lòng đổi buổi.</p>
+          <p className="text-[11px] text-amber-600 font-bold py-2">Không còn nhân sự nào đủ thời lượng cho dịch vụ này ở buổi đã chọn — vui lòng đổi buổi.</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             {/* Any Staff Card Option */}
@@ -211,7 +218,7 @@ export const BookingDateTimeStaffSection: React.FC<BookingDateTimeStaffSectionPr
               <div className="min-w-0">
                 <div className="text-xs font-black text-slate-900 truncate">Bất kỳ nhân sự</div>
                 <div className="text-[10px] text-teal-600 font-bold truncate">
-                  {selectedBuoi ? `Còn ${Math.floor(((selectedBuoi === 'sang' ? buoiAvailability.sang?.conLaiChung : buoiAvailability.chieu?.conLaiChung) || 0) / (serviceDuration || 30))} chỗ` : 'Tự động rải tải'}
+                  {selectedBuoi ? `Còn ${Math.floor(((selectedBuoi === 'sang' ? buoiAvailability.sang?.conLaiChung : buoiAvailability.chieu?.conLaiChung) || 0) / (serviceDuration || 30))} slot` : 'Tự động rải tải'}
                 </div>
               </div>
             </button>
@@ -244,7 +251,7 @@ export const BookingDateTimeStaffSection: React.FC<BookingDateTimeStaffSectionPr
                     <div className="text-[10px] font-bold text-slate-500 truncate flex items-center gap-1 mt-0.5">
                       <span>{ns.caTruc === 'ca_1' ? 'Ca Sáng' : ns.caTruc === 'ca_2' ? 'Ca Chiều' : (ns.chuyen_mon || 'Chuyên viên')}</span>
                       <span>·</span>
-                      <span className="text-emerald-600 font-black">Còn {staffSlots} chỗ</span>
+                      <span className="text-emerald-600 font-black">Còn {staffSlots} slot</span>
                     </div>
                   </div>
                 </button>

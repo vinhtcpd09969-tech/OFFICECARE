@@ -19,6 +19,7 @@ import {
   tinhNganSachRieng,
   vaiTroIdCuaNhom,
 } from '../../domain/capacity';
+import { sendBookingSuccessEmail, sendPaymentReceiptEmail } from '../../utils/mailer';
 
 /**
  * Kiểm tra tính hợp lệ khi đặt buổi tiếp theo của gói liệu trình:
@@ -229,13 +230,17 @@ export class AppointmentBookingRepository {
     nhanSuId?: number | null; excludeApptId?: string;
   }): Promise<KetQuaKiemTraDatLich> {
     const nhom = resolveNhomVaiTro(params.loaiCuocHen);
+    const { dateStr: todayStr, minutesOfDay: nowMinutes } = getVnNowParts();
+    const isToday = params.ngay === todayStr;
+    const currentMinutesIfToday = isToday ? nowMinutes : undefined;
+
     const [nhanSu, daDat] = await Promise.all([
       this.getNhanSuTrucCaTheoBuoi(params.ngay, nhom),
       this.getPhutDaDatTheoBuoi(params.ngay, nhom, params.buoi, params.excludeApptId)
     ]);
     return params.nhanSuId
-      ? kiemTraDatChoNhanSuCuThe(params.nhanSuId, nhanSu, daDat, params.thoiLuongPhut, params.buoi)
-      : kiemTraDatBatKy(nhanSu, daDat, params.thoiLuongPhut, params.buoi);
+      ? kiemTraDatChoNhanSuCuThe(params.nhanSuId, nhanSu, daDat, params.thoiLuongPhut, params.buoi, currentMinutesIfToday)
+      : kiemTraDatBatKy(nhanSu, daDat, params.thoiLuongPhut, params.buoi, currentMinutesIfToday);
   }
 
   /**
@@ -275,6 +280,10 @@ export class AppointmentBookingRepository {
       ]);
     }
 
+    const { dateStr: todayStr, minutesOfDay: nowMinutes } = getVnNowParts();
+    const isToday = dateStr === todayStr;
+    const currentMinutesIfToday = isToday ? nowMinutes : undefined;
+
     const roleId = vaiTroIdCuaNhom(nhom);
     const [nhanSuTruc, staffInfoRes, daDatSang, daDatChieu] = await Promise.all([
       this.getNhanSuTrucCaTheoBuoi(dateStr, nhom),
@@ -284,9 +293,14 @@ export class AppointmentBookingRepository {
     ]);
 
     const conLaiRieng = (ns: NhanSuTrucCa, buoi: Buoi, daDat: PhutDaDat[]) => {
-      const nganSach = tinhNganSachRieng(ns, buoi);
+      const nganSachGoc = tinhNganSachRieng(ns, buoi);
       const daDung = daDat.filter(d => d.nhanSuId === ns.nhanSuId).reduce((tong, d) => tong + d.soPhut, 0);
-      return Math.max(0, nganSach - daDung);
+      let conLai = Math.max(0, nganSachGoc - daDung);
+      if (isToday) {
+        const nganSachTuNow = tinhNganSachRieng(ns, buoi, nowMinutes);
+        conLai = Math.min(nganSachTuNow, conLai);
+      }
+      return conLai;
     };
 
     const nhanSuOut = staffInfoRes.rows
@@ -306,8 +320,16 @@ export class AppointmentBookingRepository {
       })
       .filter((s): s is NonNullable<typeof s> => s !== null);
 
-    const conLaiChungBuoi = (daDat: PhutDaDat[], buoi: Buoi) =>
-      Math.max(0, tinhNganSachChung(nhanSuTruc, buoi) - daDat.reduce((tong, d) => tong + d.soPhut, 0));
+    const conLaiChungBuoi = (daDat: PhutDaDat[], buoi: Buoi) => {
+      const nganSachChungGoc = tinhNganSachChung(nhanSuTruc, buoi);
+      const daDung = daDat.reduce((tong, d) => tong + d.soPhut, 0);
+      let conLai = Math.max(0, nganSachChungGoc - daDung);
+      if (isToday) {
+        const nganSachChungTuNow = tinhNganSachChung(nhanSuTruc, buoi, nowMinutes);
+        conLai = Math.min(nganSachChungTuNow, conLai);
+      }
+      return conLai;
+    };
 
     let buoc_thanh_toan_online = false;
     if (khach_hang_id) {
@@ -325,8 +347,16 @@ export class AppointmentBookingRepository {
     }
 
     return {
-      sang: { conLaiChung: conLaiChungBuoi(daDatSang, 'sang'), choPhep: kiemTraDatBatKy(nhanSuTruc, daDatSang, thoiLuongPhut, 'sang').choPhep, trungDichVu: trungDichVuSang },
-      chieu: { conLaiChung: conLaiChungBuoi(daDatChieu, 'chieu'), choPhep: kiemTraDatBatKy(nhanSuTruc, daDatChieu, thoiLuongPhut, 'chieu').choPhep, trungDichVu: trungDichVuChieu },
+      sang: {
+        conLaiChung: conLaiChungBuoi(daDatSang, 'sang'),
+        choPhep: kiemTraDatBatKy(nhanSuTruc, daDatSang, thoiLuongPhut, 'sang', currentMinutesIfToday).choPhep,
+        trungDichVu: trungDichVuSang
+      },
+      chieu: {
+        conLaiChung: conLaiChungBuoi(daDatChieu, 'chieu'),
+        choPhep: kiemTraDatBatKy(nhanSuTruc, daDatChieu, thoiLuongPhut, 'chieu', currentMinutesIfToday).choPhep,
+        trungDichVu: trungDichVuChieu
+      },
       nhanSu: nhanSuOut,
       hasExistingClinicalExam,
       buoc_thanh_toan_online
@@ -772,6 +802,51 @@ export class AppointmentBookingRepository {
       `, [createdAppointment.id, isKham]);
     }
 
+    // Gửi email xác nhận đặt lịch hẹn thành công (chạy ngầm)
+    (async () => {
+      try {
+        const infoRes = await pool.query(`
+          SELECT kh.ho_ten, kh.email, g.ten_goi, nd.ho_ten AS ten_chuyen_vien, p.ten_phong
+          FROM cuoc_hen ch
+          JOIN khach_hang kh ON ch.khach_hang_id = kh.id
+          LEFT JOIN goi_dich_vu g ON ch.goi_dich_vu_id = g.id
+          LEFT JOIN nguoi_dung nd ON ch.nhan_su_id = nd.id
+          LEFT JOIN phong_lam_viec p ON ch.phong_id = p.id
+          WHERE ch.id = $1
+        `, [createdAppointment.id]);
+
+        if (infoRes.rows.length > 0 && infoRes.rows[0].email) {
+          const row = infoRes.rows[0];
+          const buoiStr = createdAppointment.buoi === 'sang' ? 'Buổi Sáng' : 'Buổi Chiều';
+          const khungGioStr = createdAppointment.buoi === 'sang' ? '07:30 - 12:00' : '12:00 - 20:00';
+          const ngayStart = createdAppointment.ngay_gio_bat_dau ? new Date(createdAppointment.ngay_gio_bat_dau) : new Date();
+          const ngayFormatted = `${String(ngayStart.getDate()).padStart(2, '0')}/${String(ngayStart.getMonth() + 1).padStart(2, '0')}/${ngayStart.getFullYear()}`;
+
+          const duration = createdAppointment.thoi_luong_phut || snapshotThoiLuong || 30;
+          const endMinutes = createdAppointment.buoi === 'sang' ? 12 * 60 : 20 * 60;
+          const latestMinutes = Math.max(0, endMinutes - duration);
+          const lH = Math.floor(latestMinutes / 60);
+          const lM = latestMinutes % 60;
+          const gioDenMuonNhat = `${lH}h${String(lM).padStart(2, '0')}`;
+
+          await sendBookingSuccessEmail(row.email, {
+            userName: row.ho_ten || 'Quý khách',
+            maLichDat: createdAppointment.ma_lich_dat || `LH-${createdAppointment.id.slice(0, 6).toUpperCase()}`,
+            tenDichVu: row.ten_goi || 'Dịch vụ phục hồi chức năng',
+            ngayHen: ngayFormatted,
+            buoiHen: buoiStr,
+            khungGio: khungGioStr,
+            gioDenMuonNhat,
+            tenChuyenVien: row.ten_chuyen_vien || undefined,
+            tenPhong: row.ten_phong || undefined,
+            ghiChu: createdAppointment.ghi_chu_dat_lich || undefined
+          });
+        }
+      } catch (emailErr) {
+        console.error('Không thể gửi email xác nhận đặt lịch tự động:', emailErr);
+      }
+    })();
+
     return createdAppointment;
   }
 
@@ -916,7 +991,157 @@ export class AppointmentBookingRepository {
       snapshotThoiLuongPublic
     ]);
 
-    return rows[0];
+    const createdAppointment = rows[0];
+
+    // Tự động lập Hóa đơn & Giao dịch thanh toán nếu khách đã thanh toán Online PayOS
+    let donGiaGoc = 0;
+    let tenDichVuGoi = '';
+    if (goi_dich_vu_id) {
+      const gRes = await pool.query('SELECT ten_goi, don_gia FROM goi_dich_vu WHERE id = $1', [goi_dich_vu_id]);
+      if (gRes.rows.length > 0) {
+        donGiaGoc = Number(gRes.rows[0].don_gia) || 0;
+        tenDichVuGoi = gRes.rows[0].ten_goi;
+      }
+    }
+
+    let voucherId = null;
+    let soTienGiamVoucher = 0;
+    if (data.ma_voucher) {
+      const vRes = await pool.query(
+        `SELECT id, loai_giam_gia, gia_tri_giam, giam_toi_da FROM khuyen_mai_voucher WHERE UPPER(ma_code) = UPPER($1) AND dang_kich_hoat = true`,
+        [data.ma_voucher]
+      );
+      if (vRes.rows.length > 0) {
+        const v = vRes.rows[0];
+        voucherId = v.id;
+        if (v.loai_giam_gia === 'phan_tram' || v.loai_giam_gia === 'percentage') {
+          soTienGiamVoucher = (donGiaGoc * Number(v.gia_tri_giam)) / 100;
+          if (v.giam_toi_da && soTienGiamVoucher > Number(v.giam_toi_da)) {
+            soTienGiamVoucher = Number(v.giam_toi_da);
+          }
+        } else {
+          soTienGiamVoucher = Number(v.gia_tri_giam) || 0;
+        }
+        if (soTienGiamVoucher > donGiaGoc) {
+          soTienGiamVoucher = donGiaGoc;
+        }
+      }
+    }
+    const tongTienPhaiTra = Math.max(0, donGiaGoc - soTienGiamVoucher);
+
+    let createdHoaDon: any = null;
+    if (data.trang_thai_thanh_toan === 'da_thanh_toan') {
+      try {
+        const hdRes = await pool.query(`
+          INSERT INTO hoa_don (
+            khach_hang_id, cuoc_hen_id, phac_do_dieu_tri_id,
+            tong_tien_goc, so_tien_giam_voucher, tong_tien_phai_tra, so_tien_da_tra,
+            trang_thai, voucher_id, ghi_chu, ngay_tao
+          ) VALUES ($1, $2, $3, $4, $5, $6, $6, 'da_thanh_toan', $7, $8, NOW())
+          RETURNING id, 'HD-' || UPPER(SUBSTRING(id::text FROM 1 FOR 6)) as ma_hoa_don
+        `, [
+          final_khach_hang_id,
+          createdAppointment.id,
+          phac_do_dieu_tri_id || null,
+          donGiaGoc,
+          soTienGiamVoucher,
+          tongTienPhaiTra,
+          voucherId,
+          'Thanh toán chuyển khoản PayOS trực tuyến khi đặt lịch'
+        ]);
+
+        if (hdRes.rows.length > 0) {
+          createdHoaDon = hdRes.rows[0];
+          const maGD = 'GD' + Math.floor(10000000 + Math.random() * 90000000);
+          await pool.query(`
+            INSERT INTO giao_dich_thanh_toan (
+              hoa_don_id, so_tien, loai_giao_dich, phuong_thuc, ma_tham_chieu, ngay_giao_dich, chi_tiet
+            ) VALUES ($1, $2, 'THANH_TOAN', 'chuyen_khoan', $3, NOW(), $4)
+          `, [
+            createdHoaDon.id,
+            tongTienPhaiTra,
+            maGD,
+            JSON.stringify({
+              v: 1,
+              dot: 'tron_goi',
+              dien_giai: 'Thanh toán trực tuyến (PayOS / Chuyển khoản QR)',
+              loai_hoa_don: phac_do_dieu_tri_id ? 'LIEU_TRINH' : 'LE',
+              so_buoi_thu_tu: null,
+              ty_le_phan_tram: 100,
+              hinh_thuc_thanh_toan_goi: 'tra_thang',
+              ma_lich_dat: createdAppointment.ma_lich_dat
+            })
+          ]);
+        }
+      } catch (hdErr) {
+        console.error('Lỗi khi tạo hóa đơn cho lịch đặt thanh toán online:', hdErr);
+      }
+    }
+
+    // Gửi email xác nhận đặt lịch hẹn & biên lai thanh toán tự động (chạy ngầm)
+    (async () => {
+      try {
+        const infoRes = await pool.query(`
+          SELECT kh.ho_ten, kh.email, g.ten_goi, nd.ho_ten AS ten_chuyen_vien, p.ten_phong
+          FROM cuoc_hen ch
+          JOIN khach_hang kh ON ch.khach_hang_id = kh.id
+          LEFT JOIN goi_dich_vu g ON ch.goi_dich_vu_id = g.id
+          LEFT JOIN nguoi_dung nd ON ch.nhan_su_id = nd.id
+          LEFT JOIN phong_lam_viec p ON ch.phong_id = p.id
+          WHERE ch.id = $1
+        `, [createdAppointment.id]);
+
+        if (infoRes.rows.length > 0 && infoRes.rows[0].email) {
+          const row = infoRes.rows[0];
+          const buoiStr = buoi === 'sang' ? 'Buổi Sáng' : 'Buổi Chiều';
+          const khungGioStr = buoi === 'sang' ? '07:30 - 12:00' : '12:00 - 20:00';
+          const [yyyy, mm, dd] = (ngay || '').split('-');
+          const ngayFormatted = yyyy && mm && dd ? `${dd}/${mm}/${yyyy}` : ngay;
+
+          const duration = snapshotThoiLuongPublic || 30;
+          const endMinutes = buoi === 'sang' ? 12 * 60 : 20 * 60;
+          const latestMinutes = Math.max(0, endMinutes - duration);
+          const lH = Math.floor(latestMinutes / 60);
+          const lM = latestMinutes % 60;
+          const gioDenMuonNhat = `${lH}h${String(lM).padStart(2, '0')}`;
+
+          // 1. Gửi email xác nhận lịch hẹn
+          await sendBookingSuccessEmail(row.email, {
+            userName: row.ho_ten || ho_ten_khach || 'Quý khách',
+            maLichDat: createdAppointment.ma_lich_dat || `LH-${createdAppointment.id.slice(0, 6).toUpperCase()}`,
+            tenDichVu: row.ten_goi || tenDichVuGoi || (finalLoaiForCapacity === 'KHAM' ? 'Buổi Lượng giá chức năng ban đầu' : 'Dịch vụ trị liệu PHCN'),
+            ngayHen: ngayFormatted,
+            buoiHen: buoiStr,
+            khungGio: khungGioStr,
+            gioDenMuonNhat,
+            tenChuyenVien: row.ten_chuyen_vien || undefined,
+            tenPhong: row.ten_phong || undefined,
+            ghiChu: trieu_chung || ly_do_kham || undefined
+          });
+
+          // 2. Nếu đã thanh toán trực tuyến qua PayOS, gửi kèm email Biên lai thanh toán
+          if (data.trang_thai_thanh_toan === 'da_thanh_toan' && createdHoaDon) {
+            await sendPaymentReceiptEmail({
+              toEmail: row.email,
+              userName: row.ho_ten || ho_ten_khach || 'Quý khách',
+              maHoaDon: createdHoaDon.ma_hoa_don || `HD-${createdHoaDon.id.slice(0, 6).toUpperCase()}`,
+              tenDichVu: row.ten_goi || tenDichVuGoi || (finalLoaiForCapacity === 'KHAM' ? 'Buổi Lượng giá chức năng ban đầu' : 'Dịch vụ trị liệu PHCN'),
+              soTienThanhToan: tongTienPhaiTra,
+              tongTienHoaDon: donGiaGoc || tongTienPhaiTra,
+              daThanhToan: tongTienPhaiTra,
+              conLai: 0,
+              phuongThuc: 'chuyen_khoan',
+              soBuoi: 1,
+              ngayThanhToan: new Date()
+            });
+          }
+        }
+      } catch (emailErr) {
+        console.error('Không thể gửi email tự động:', emailErr);
+      }
+    })();
+
+    return createdAppointment;
   }
 }
 

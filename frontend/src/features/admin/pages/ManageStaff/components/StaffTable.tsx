@@ -6,7 +6,7 @@ export const getRoleLabel = (roleId: number) => {
   switch (roleId) {
     case 2: return 'Lễ tân';
     case 3: return 'Kỹ thuật viên';
-    case 4: return 'Chuyên viên VLTL';
+    case 4: return 'Chuyên viên tư vấn';
     case 5: return 'Admin';
     case 6: return 'Quản lý';
     default: return 'Khác';
@@ -88,7 +88,7 @@ export function StaffTable({
           <div className="flex bg-slate-100/90 dark:bg-zinc-955 p-1 rounded-xl w-full sm:w-auto overflow-x-auto border border-slate-200/60 dark:border-slate-800 shrink-0">
             {[
               { id: 'all', label: 'TẤT CẢ' },
-              { id: '4', label: 'CHUYÊN VIÊN VLTL' },
+              { id: '4', label: 'CHUYÊN VIÊN TƯ VẤN' },
               { id: '3', label: 'KỸ THUẬT VIÊN' },
               { id: '2', label: 'LỄ TÂN' },
               { id: '6', label: 'QUẢN LÝ' },

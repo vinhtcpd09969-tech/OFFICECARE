@@ -29,6 +29,7 @@ interface DetailFooterProps {
   onSuccess?: () => void;
   assignStaffId: string;
   assignRoomId: string;
+  assignStatus?: string;
   localGhiChuNoiBo: string;
   appointments?: any[];
 }
@@ -43,14 +44,16 @@ export function DetailFooter({
   onSuccess,
   assignStaffId,
   assignRoomId,
+  assignStatus,
   localGhiChuNoiBo,
   appointments = []
 }: DetailFooterProps) {
   const navigate = useNavigate();
   const isCompleted = selectedAppointment.trang_thai === 'hoan_thanh';
+  const isSaveAllowed = !isReceptionistLocked && (!isCompleted || (!isReceptionist && assignStatus !== 'hoan_thanh') || !isReceptionist);
 
   return (
-    <div className="px-6 py-4 bg-slate-50/70 dark:bg-zinc-850/80 border-t border-slate-100 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3 shrink-0 select-none">
+    <div className="px-6 py-4 bg-slate-50/80 dark:bg-zinc-850/80 border-t border-slate-100 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3 shrink-0 select-none">
       {!hideBilling && ['dieu_tri', 'DIEU_TRI'].includes(selectedAppointment.loai_lich) && isCompleted ? (
         <div className="flex items-center gap-2 flex-1">
           {(() => {
@@ -93,14 +96,12 @@ export function DetailFooter({
               return (
                 <div className="flex items-center gap-2 flex-wrap">
                   {!needsInstallment2 && (
-                    <div className="px-3.5 py-2 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 text-emerald-700 dark:text-emerald-400 text-xs font-black rounded-xl flex items-center gap-1.5 select-none uppercase tracking-wider">
+                    <div className="px-3.5 py-2 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 text-emerald-700 dark:text-emerald-400 text-xs font-black rounded-2xl flex items-center gap-1.5 select-none uppercase tracking-wider">
                       <CheckCircle2 size={15} />
                       <span>
                         {isRetail
                           ? 'Đã thanh toán dịch vụ lẻ'
-                          : isPayPerSession
-                            ? `Đã thanh toán buổi ${currentSessionNum}`
-                            : 'Đã thanh toán liệu trình'}
+                          : `Đã hoàn tất thanh toán buổi ${currentSessionNum}`}
                       </span>
                     </div>
                   )}
@@ -109,23 +110,18 @@ export function DetailFooter({
                     <button
                       type="button"
                       onClick={() => {
-                        if (selectedAppointment.hinh_thuc_thanh_toan_goi === 'tung_buoi') {
-                          const checkoutDest = isReceptionist ? '/receptionist/billing' : '/admin/quick-billing';
-                          navigate(`${checkoutDest}?customer_id=${selectedAppointment.khach_hang_id}&goi_dich_vu_id=${selectedAppointment.pd_goi_dich_vu_id || selectedAppointment.goi_dich_vu_id}`);
-                        } else {
-                          const dest = isReceptionist ? '/receptionist/billing' : '/admin/finance';
-                          navigate(`${dest}?hoa_don_id=${selectedAppointment.hoa_don_goi_id}`);
-                        }
+                        const dest = isReceptionist ? '/receptionist/billing' : '/admin/quick-billing';
+                        navigate(`${dest}?lich_dat_id=${selectedAppointment.id}`);
                         onClose();
                       }}
-                      className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-black text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-md shadow-amber-500/20 cursor-pointer"
+                      className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-black text-xs rounded-2xl flex items-center gap-1.5 transition-all shadow-md shadow-amber-500/20 cursor-pointer uppercase tracking-wider"
                     >
                       <DollarSign size={15} />
-                      <span>Thanh toán</span>
+                      <span>Thanh toán Đợt 2 gói</span>
                     </button>
                   )}
 
-                  {showNextSessionAction && !needsInstallment2 && !isCancelledPlan && (
+                  {showNextSessionAction && !needsInstallment2 && (
                     <button
                       type="button"
                       onClick={() => {
@@ -134,7 +130,7 @@ export function DetailFooter({
                         navigate(`${calendarPath}?khach_hang_id=${selectedAppointment.khach_hang_id}&goi_dich_vu_id=${selectedAppointment.pd_goi_dich_vu_id || selectedAppointment.goi_dich_vu_id}&startDate=${todayStr}&endDate=${todayStr}&view=timeline`);
                         onClose();
                       }}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-md shadow-emerald-600/20 cursor-pointer"
+                      className="px-4 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-black text-xs rounded-2xl flex items-center gap-1.5 transition-all shadow-md shadow-teal-600/20 cursor-pointer uppercase tracking-wider"
                     >
                       <CalendarPlus size={15} />
                       <span>Đặt lịch buổi {nextSessionNum} tiếp theo</span>
@@ -171,7 +167,7 @@ export function DetailFooter({
                       toast.error(err.response?.data?.message || 'Không thể cập nhật trạng thái hẹn trước khi thanh toán');
                     }
                   }}
-                  className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-black text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-md shadow-amber-500/20 cursor-pointer"
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-black text-xs rounded-2xl flex items-center gap-1.5 transition-all shadow-md shadow-amber-500/20 cursor-pointer uppercase tracking-wider"
                 >
                   <DollarSign size={15} />
                   <span>{paymentLabel}</span>
@@ -185,20 +181,20 @@ export function DetailFooter({
       )}
 
       {/* KHỐI PHẢI: NÚT THAO TÁC / ĐÓNG MODAL */}
-      <div className="flex items-center gap-2 ml-auto">
+      <div className="flex items-center gap-2.5 ml-auto">
         <button
           type="button"
           onClick={onClose}
-          className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 font-bold text-xs rounded-xl transition-all cursor-pointer"
+          className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-slate-700 dark:text-zinc-200 font-black text-xs uppercase tracking-wider rounded-2xl transition-all cursor-pointer shadow-2xs"
         >
           Đóng
         </button>
 
-        {!isCompleted && !isReceptionistLocked && (
+        {isSaveAllowed && (
           <button
             type="submit"
             disabled={isAssigning}
-            className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-black text-xs rounded-xl shadow-md shadow-emerald-600/20 transition-all disabled:opacity-50 cursor-pointer"
+            className="px-6 py-2.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 active:scale-98 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-md shadow-teal-600/25 transition-all disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
           >
             {isAssigning ? 'Đang lưu...' : 'Lưu cập nhật'}
           </button>

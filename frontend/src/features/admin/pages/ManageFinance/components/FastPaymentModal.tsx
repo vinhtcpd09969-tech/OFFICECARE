@@ -288,8 +288,8 @@ export const FastPaymentModal: React.FC<FastPaymentModalProps> = ({
         title="Xác nhận thu tiền thanh toán"
         message={
           method === 'chuyen_khoan'
-            ? `Mở cổng thanh toán QR PayOS để thu ${formatCurrency(amountToConfirm)} cho bệnh nhân "${invoice.ten_khach_hang}" (Mã HĐ: ${invoice.ma_hoa_don})? Hóa đơn chỉ được đánh dấu đã thu sau khi hệ thống xác nhận tiền đã về qua webhook.`
-            : `Bạn có chắc chắn muốn xác nhận thu ${formatCurrency(amountToConfirm)} cho bệnh nhân "${invoice.ten_khach_hang}" (Mã HĐ: ${invoice.ma_hoa_don}) qua hình thức Tiền mặt?`
+            ? `Mở cổng thanh toán QR PayOS để thu ${formatCurrency(amountToConfirm)} cho khách hàng "${invoice.ten_khach_hang}" (Mã HĐ: ${invoice.ma_hoa_don})? Hóa đơn chỉ được đánh dấu đã thu sau khi hệ thống xác nhận tiền đã về qua webhook.`
+            : `Bạn có chắc chắn muốn xác nhận thu ${formatCurrency(amountToConfirm)} cho khách hàng "${invoice.ten_khach_hang}" (Mã HĐ: ${invoice.ma_hoa_don}) qua hình thức Tiền mặt?`
         }
         confirmLabel={method === 'chuyen_khoan' ? 'Mở cổng thanh toán QR' : 'Đồng ý & Thu tiền'}
         cancelLabel="Kiểm tra lại"

@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { Controller } from 'react-hook-form';
 import { Eye, EyeOff, ArrowRight, ArrowLeft, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRegisterState } from '../hooks/useRegisterState';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import AuthVisualPanel from '../components/AuthVisualPanel';
+import { CustomDatePicker } from '../../../components/CustomDatePicker';
 import { TERMS_OF_SERVICE, TERMS_EFFECTIVE_DATE } from '@/constants/termsContent';
 
 const todayStr = new Date().toISOString().split('T')[0];
@@ -210,12 +212,21 @@ export default function Register() {
 
                 <div className="space-y-2">
                   <label htmlFor="ngay_sinh" className="block text-[10px] font-black uppercase tracking-widest text-slate-400">Ngày sinh</label>
-                  <input
-                    {...register('ngay_sinh')}
-                    id="ngay_sinh"
-                    type="date"
-                    max={todayStr}
-                    className="w-full bg-slate-50/50 border border-slate-200 hover:border-slate-350 focus:border-[#14B8A6] focus:ring-4 focus:ring-[#14B8A6]/10 rounded-2xl px-4 py-[15px] outline-none transition-all duration-300 text-slate-800 text-sm font-semibold"
+                  <Controller
+                    control={form.control}
+                    name="ngay_sinh"
+                    render={({ field }) => (
+                      <CustomDatePicker
+                        value={field.value || ''}
+                        onChange={field.onChange}
+                        placeholder="dd/mm/yyyy"
+                        maxDate={todayStr}
+                        align="right"
+                        showPresets={false}
+                        className="w-full"
+                        buttonClassName="w-full bg-slate-50/50 border border-slate-200 hover:border-slate-350 focus:border-[#14B8A6] focus:ring-4 focus:ring-[#14B8A6]/10 rounded-2xl px-4 py-[13px] outline-none transition-all duration-300 text-slate-800 text-sm font-semibold"
+                      />
+                    )}
                   />
                   {errors.ngay_sinh && <p className="text-red-500 text-xs font-semibold mt-1">{errors.ngay_sinh.message}</p>}
                 </div>

@@ -646,7 +646,7 @@ export function generateInvoiceHtml(inv: InvoicePrintData): string {
     <!-- Footer -->
     <div class="invoice-footer">
       <strong>Cảm ơn quý khách đã tin tưởng và đồng hành cùng OfficeCare trên hành trình phục hồi sức khỏe!</strong><br/>
-      OfficeCare Clinic • Hotline hỗ trợ y khoa: 1900 6868 • Bản in hóa đơn y khoa điện tử hợp lệ theo quy chuẩn trung tâm.
+      OfficeCare • Hotline hỗ trợ khách hàng: 1900 6868 • Bản in hóa đơn điện tử hợp lệ theo quy chuẩn trung tâm.
     </div>
   </div>
 

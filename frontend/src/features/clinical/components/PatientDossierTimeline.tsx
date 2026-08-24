@@ -26,6 +26,7 @@ import { PatientInfo, PatientProfile, TreatmentPlan } from '@/features/doctor/ap
 import { formatCurrency } from '@/utils/format';
 import { resolveImageUrl } from '@/utils/imageUrl';
 import { TreatmentPlanVasDashboard, getFaceForVas, WONG_BAKER_FACES } from './TreatmentPlanVasDashboard';
+import { printSingleVisit, printTreatmentPlan } from '@/utils/medicalRecordPrinter';
 
 function formatClinicalNote(note?: string | null): string {
   if (!note) return '';
@@ -146,8 +147,8 @@ export const PatientDossierTimeline: React.FC<PatientDossierTimelineProps> = ({
     }
   };
 
-  // Tên Bác sĩ/Chuyên viên phụ trách gần nhất
-  const latestDoctorName = profile?.visits?.[0]?.ten_nhan_su || profile?.treatmentPlans?.[0]?.bac_si_chi_dinh || 'BS. CKI Chuyên Khoa PHCN';
+  // Tên Chuyên viên phụ trách gần nhất
+  const latestDoctorName = profile?.visits?.[0]?.ten_nhan_su || profile?.treatmentPlans?.[0]?.bac_si_chi_dinh || 'Chuyên viên tư vấn OfficeCare';
 
   return (
     <div className="w-full space-y-6 font-jakarta">
@@ -197,7 +198,7 @@ export const PatientDossierTimeline: React.FC<PatientDossierTimelineProps> = ({
 
                 <div className="flex items-center gap-2">
                   <User size={14} className="text-slate-400 shrink-0" />
-                  <span>BS. Phụ trách: <strong className="text-slate-800 dark:text-zinc-100 font-bold">{latestDoctorName}</strong></span>
+                  <span>Chuyên viên: <strong className="text-slate-800 dark:text-zinc-100 font-bold">{latestDoctorName}</strong></span>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -218,18 +219,6 @@ export const PatientDossierTimeline: React.FC<PatientDossierTimelineProps> = ({
                 )}
               </div>
             </div>
-          </div>
-
-          {/* ACTION BUTTONS (GÓC PHẢI) */}
-          <div className="flex items-center gap-2.5 shrink-0 self-end lg:self-center">
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className="px-4 py-2.5 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-md transition-all"
-            >
-              <Printer size={15} />
-              <span>In Hồ Sơ EMR</span>
-            </button>
           </div>
 
         </div>
@@ -712,6 +701,22 @@ export const PatientDossierTimeline: React.FC<PatientDossierTimelineProps> = ({
 
                             </div>
                           )}
+
+                          {/* NÚT IN PHIẾU LƯỢNG GIÁ / DỊCH VỤ NÀY */}
+                          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200/80 dark:border-zinc-800">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                printSingleVisit(selectedPatient, visit);
+                              }}
+                              className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs flex items-center gap-2 shadow-xs transition-all cursor-pointer"
+                              title="In phiếu kết quả lượng giá / dịch vụ của riêng buổi này"
+                            >
+                              <Printer size={14} />
+                              <span>In Phiếu {isAssessment ? 'Lượng Giá' : 'Dịch Vụ'} Này</span>
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -877,6 +882,20 @@ export const PatientDossierTimeline: React.FC<PatientDossierTimelineProps> = ({
                           </button>
                         )}
 
+                        {/* NÚT IN SỔ THEO DÕI GÓI LIỆU TRÌNH */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            printTreatmentPlan(selectedPatient, plan);
+                          }}
+                          className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700 font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-2xs transition-all"
+                          title="In sổ theo dõi & nhật ký chi tiết các buổi tập của gói này"
+                        >
+                          <Printer size={14} className="text-teal-600 dark:text-teal-400" />
+                          <span>In Sổ Liệu Trình</span>
+                        </button>
+
                         <button
                           type="button"
                           onClick={() => togglePlanExpand(plan.id)}
@@ -893,7 +912,8 @@ export const PatientDossierTimeline: React.FC<PatientDossierTimelineProps> = ({
                         
                         {/* BẢNG ĐIỀU KHIỂN TIẾN TRÌNH & LƯỢNG GIÁ VAS GÓI LIỆU TRÌNH */}
                         <TreatmentPlanVasDashboard 
-                          plan={plan} 
+                          plan={plan}
+                          patient={selectedPatient}
                         />
 
                       </div>
@@ -965,7 +985,7 @@ export const PatientDossierTimeline: React.FC<PatientDossierTimelineProps> = ({
                 <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
                 <div>
                   <p className="font-black uppercase tracking-wider text-[10px] text-amber-800">Thông báo hỗ trợ tại quầy</p>
-                  <p className="mt-0.5">Yêu cầu hủy gói của bạn đã được ghi nhận. Quý khách vui lòng liên hệ Lễ tân/Quản lý tại quầy phòng khám để làm thủ tục nhận lại tiền hoàn trả.</p>
+                  <p className="mt-0.5">Quý khách vui lòng liên hệ Lễ tân/Quản lý tại quầy trung tâm để làm thủ tục nhận lại tiền hoàn trả.</p>
                 </div>
               </div>
 

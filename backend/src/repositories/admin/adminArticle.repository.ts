@@ -9,7 +9,7 @@ export class AdminArticleRepository {
         ...(filter.search && { tieu_de: { contains: filter.search, mode: 'insensitive' } })
       },
       include: { nguoi_dung: { select: { ho_ten: true } } },
-      orderBy: { ngay_tao: 'desc' }
+      orderBy: { ngay_cap_nhat: 'desc' }
     });
   }
 
@@ -27,11 +27,23 @@ export class AdminArticleRepository {
   }
 
   async create(data: any) {
-    return prisma.bai_viet.create({ data });
+    return prisma.bai_viet.create({
+      data: {
+        ...data,
+        ngay_tao: new Date(),
+        ngay_cap_nhat: new Date()
+      }
+    });
   }
 
   async update(id: string, data: any) {
-    return prisma.bai_viet.update({ where: { id }, data });
+    return prisma.bai_viet.update({
+      where: { id },
+      data: {
+        ...data,
+        ngay_cap_nhat: new Date()
+      }
+    });
   }
 
   async delete(id: string) {

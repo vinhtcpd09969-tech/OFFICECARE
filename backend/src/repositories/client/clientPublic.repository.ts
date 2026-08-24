@@ -118,7 +118,7 @@ export class ClientPublicRepository {
              v.yeu_cau_thanh_toan,
              v.so_luong_gioi_han
       FROM khuyen_mai_voucher v
-      LEFT JOIN hoa_don hd ON hd.voucher_id = v.id AND ($1::text IS NULL OR hd.khach_hang_id::text = $1::text)
+      LEFT JOIN hoa_don hd ON hd.voucher_id = v.id AND ($1::text IS NULL OR hd.khach_hang_id::text = $1::text) AND hd.trang_thai NOT IN ('da_huy', 'da_hoan_tien')
       WHERE v.dang_kich_hoat = true
         AND (v.ngay_bat_dau IS NULL OR v.ngay_bat_dau <= NOW())
         AND (v.ngay_het_han IS NULL OR v.ngay_het_han >= NOW())

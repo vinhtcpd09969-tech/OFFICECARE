@@ -58,7 +58,7 @@ export function FeedbackStatsHeader({
             😊
           </div>
           <div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-zinc-500 block">Tích Cực (AI)</span>
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-zinc-500 block">Tích Cực</span>
             <span className="text-xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">{sentimentBreakdown.positivePct}% <span className="text-xs font-semibold text-slate-400">({sentimentBreakdown.positive} ca)</span></span>
           </div>
         </div>

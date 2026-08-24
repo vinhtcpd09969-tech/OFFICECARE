@@ -416,8 +416,8 @@ export const renderPaymentReceiptEmail = (params: PaymentReceiptEmailParams): st
               </tr>
               <tr>
                 <td style="padding: 32px 30px 24px 30px;">
-                  <p style="margin: 0 0 8px 0; color: #0F172A; font-size: 18px; font-weight: 800;">
-                    Kính chào Quý khách ${userName},
+                  <p style="margin: 0 0 10px 0; color: #1E293B; font-size: 16px; font-weight: 700; letter-spacing: -0.2px;">
+                    Kính chào Quý khách <span style="color: #0D9488;">${userName}</span>,
                   </p>
                   <p style="margin: 0 0 22px 0; color: #475569; font-size: 13.5px; line-height: 1.6;">
                     OfficeCare xin chân thành cảm ơn Quý khách đã tin tưởng và sử dụng dịch vụ trị liệu phục hồi chức năng của chúng tôi. Hệ thống xác nhận đã ghi nhận giao dịch thanh toán thành công với chi tiết như sau:
@@ -490,8 +490,8 @@ export const renderPaymentReceiptEmail = (params: PaymentReceiptEmailParams): st
                       </td>
                     </tr>
                   </table>
-                  <p style="margin: 0 0 20px 0; color: #64748B; font-size: 12.5px; line-height: 1.6; font-style: italic;">
-                    💡 Quý khách có thể xem và tra cứu toàn bộ lịch sử khám, lịch tập trị liệu và tiến trình phục hồi chức năng của mình trên ứng dụng OfficeCare bằng số điện thoại đã đăng ký.
+                  <p style="margin: 0 0 20px 0; color: #475569; font-size: 12.5px; line-height: 1.6; background-color: #F8FAFC; border-left: 3px solid #0D9488; padding: 12px 16px; border-radius: 0 10px 10px 0;">
+                    💡 Quý khách có thể xem và tra cứu toàn bộ lịch sử lượng giá, lịch tập trị liệu và tiến trình phục hồi chức năng của mình trên ứng dụng OfficeCare bằng số điện thoại đã đăng ký.
                   </p>
                   <hr style="border: none; border-top: 1px solid #E2E8F0; margin: 24px 0;" />
                   <table width="100%" border="0" cellspacing="0" cellpadding="0" style="color: #64748B; font-size: 12px; line-height: 1.7;">
@@ -582,6 +582,150 @@ export const renderAdminSecurityOtpEmail = (
                   <div style="font-size: 11px; color: #94A3B8;">
                     © ${new Date().getFullYear()} OfficeCare Clinic Management System. All rights reserved.
                   </div>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `;
+};
+
+export interface BookingSuccessEmailParams {
+  userName: string;
+  maLichDat: string;
+  tenDichVu: string;
+  ngayHen: string;
+  buoiHen: string;
+  khungGio: string;
+  gioDenMuonNhat?: string;
+  tenChuyenVien?: string;
+  tenPhong?: string;
+  diaChiTrungTam?: string;
+  ghiChu?: string;
+}
+
+export const renderBookingSuccessEmail = (params: BookingSuccessEmailParams): string => {
+  const {
+    userName,
+    maLichDat,
+    tenDichVu,
+    ngayHen,
+    buoiHen,
+    khungGio,
+    gioDenMuonNhat,
+    tenChuyenVien,
+    tenPhong,
+    diaChiTrungTam = 'Tòa nhà OfficeCare, Số 123 Đường Nguyễn Văn Cừ, Quận 5, TP.HCM',
+    ghiChu
+  } = params;
+
+  const defaultLatestArrival = buoiHen.toLowerCase().includes('sáng') ? '11h30' : '19h30';
+  const latestArrivalStr = gioDenMuonNhat || defaultLatestArrival;
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Xác nhận đặt lịch hẹn thành công - OfficeCare</title>
+    </head>
+    <body style="margin: 0; padding: 0; background-color: #F8FAFC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+      <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #F8FAFC; padding: 30px 10px;">
+        <tr>
+          <td align="center">
+            <table width="100%" max-width="560" border="0" cellspacing="0" cellpadding="0" style="max-width: 560px; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03); border: 1px solid #E2E8F0;">
+              <tr>
+                <td align="center" style="background-color: #0F172A; padding: 35px 30px; text-align: center;">
+                  <div style="font-size: 28px; font-weight: 800; color: #FFFFFF; letter-spacing: -0.5px; line-height: 1.2;">
+                    <span style="color: #14B8A6;">O</span>fficeCare
+                  </div>
+                  <div style="font-size: 11px; color: #94A3B8; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 6px;">
+                    Trung Tâm Phục Hồi Chức Năng Cho Dân Văn Phòng
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 35px 35px 25px 35px;">
+                  <div style="text-align: center; margin-bottom: 24px;">
+                    <div style="display: inline-block; width: 56px; height: 56px; line-height: 56px; background-color: #F0FDF4; border-radius: 50%; color: #16A34A; font-size: 28px; border: 1px solid #DCFCE7;">
+                      ✓
+                    </div>
+                    <h2 style="margin: 12px 0 4px 0; color: #0F172A; font-size: 20px; font-weight: 800;">Đặt Lịch Hẹn Thành Công!</h2>
+                    <p style="margin: 0; color: #64748B; font-size: 13px;">Mã lịch hẹn: <strong style="color: #0D9488; font-family: monospace; font-size: 15px;">#${maLichDat}</strong></p>
+                  </div>
+
+                  <p style="margin: 0 0 20px 0; color: #334155; font-size: 14px; line-height: 1.7;">Chào <strong>${userName || 'Quý khách'}</strong>, hệ thống đã ghi nhận lịch hẹn của bạn tại <strong>Trung tâm OfficeCare</strong> với thông tin chi tiết như sau:</p>
+
+                  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #F8FAFC; border-radius: 12px; border: 1px solid #E2E8F0; margin-bottom: 24px; font-size: 13.5px; color: #334155;">
+                    <tr>
+                      <td style="padding: 18px;">
+                        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="line-height: 2;">
+                          <tr>
+                            <td width="38%" style="color: #64748B; font-weight: 600;">Dịch vụ:</td>
+                            <td style="color: #0F172A; font-weight: 700;">${tenDichVu}</td>
+                          </tr>
+                          <tr>
+                            <td style="color: #64748B; font-weight: 600;">Ngày hẹn:</td>
+                            <td style="color: #0F172A; font-weight: 700;">${ngayHen}</td>
+                          </tr>
+                          <tr>
+                            <td style="color: #64748B; font-weight: 600;">Khung giờ:</td>
+                            <td style="color: #0D9488; font-weight: 700;">${buoiHen} (${khungGio})</td>
+                          </tr>
+                          ${tenChuyenVien ? `
+                          <tr>
+                            <td style="color: #64748B; font-weight: 600;">Chuyên viên:</td>
+                            <td style="color: #0F172A; font-weight: 600;">${tenChuyenVien}</td>
+                          </tr>
+                          ` : `
+                          <tr>
+                            <td style="color: #64748B; font-weight: 600;">Chuyên viên:</td>
+                            <td style="color: #0F172A; font-weight: 600;">Phân công linh hoạt tại quầy (Ưu tiên)</td>
+                          </tr>
+                          `}
+                          ${tenPhong ? `
+                          <tr>
+                            <td style="color: #64748B; font-weight: 600;">Phòng:</td>
+                            <td style="color: #0F172A; font-weight: 600;">${tenPhong}</td>
+                          </tr>
+                          ` : ''}
+                          ${ghiChu ? `
+                          <tr>
+                            <td style="color: #64748B; font-weight: 600;">Ghi chú:</td>
+                            <td style="color: #0F172A; font-style: italic;">${ghiChu}</td>
+                          </tr>
+                          ` : ''}
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <div style="background-color: #EFF6FF; border-left: 4px solid #3B82F6; padding: 14px 16px; border-radius: 8px; margin-bottom: 24px; font-size: 12.5px; color: #1E40AF; line-height: 1.6;">
+                    <strong>📌 Hướng dẫn khi đến trung tâm:</strong><br>
+                    • Quý khách có thể đến trung tâm bất kỳ lúc nào trong khung giờ buổi hẹn đã chọn, vui lòng có mặt <strong>trước ${latestArrivalStr}</strong> để làm thủ tục check-in tại quầy Lễ tân và đảm bảo trọn vẹn thời lượng trị liệu.<br>
+                    • Cung cấp Mã lịch hẹn <strong>#${maLichDat}</strong> hoặc Số điện thoại đăng ký cho Lễ tân khi đến nơi.<br>
+                    • Địa chỉ trung tâm: <em>${diaChiTrungTam}</em>
+                  </div>
+
+                  <hr style="border: none; border-top: 1px solid #F1F5F9; margin: 25px 0;" />
+                  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="color: #64748B; font-size: 12px; line-height: 1.7;">
+                    <tr>
+                      <td>
+                        <strong>Hỗ trợ khách hàng OfficeCare:</strong><br>
+                        📞 Hotline: 1900 6868<br>
+                        ✉️ Email: support@officecare.vn
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              <tr>
+                <td align="center" style="background-color: #F8FAFC; padding: 20px 35px; border-top: 1px solid #E2E8F0;">
+                  <p style="margin: 0; color: #94A3B8; font-size: 11px; line-height: 1.5;">© ${new Date().getFullYear()} OfficeCare Clinic. Bảo lưu mọi quyền.</p>
                 </td>
               </tr>
             </table>

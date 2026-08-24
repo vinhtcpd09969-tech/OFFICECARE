@@ -3,17 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { PatientDossierTimeline } from '@/features/clinical/components/PatientDossierTimeline';
 import { getPatientProfile, PatientProfile } from '@/features/doctor/api/doctor.api';
 import { useAuthStore } from '@/stores/authStore';
-import { BookNextSessionModal } from './components/BookNextSessionModal';
+import { BookNextSessionModal } from '@/features/customer/components/BookNextSessionModal';
 
 export default function CustomerMedicalRecord() {
   const navigate = useNavigate();
   const currentUser = useAuthStore((state) => state.user);
   const [profile, setProfile] = useState<PatientProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [bookingSessionPlan, setBookingSessionPlan] = useState<{
-    pkg: { phac_do_id: string; ten_dich_vu: string; goi_dich_vu_id: string };
-    sessionNum: number;
-  } | null>(null);
+  const [bookingSessionPlan, setBookingSessionPlan] = useState<any | null>(null);
 
   const reloadProfile = () => {
     if (!currentUser?.id) return;
@@ -71,23 +68,25 @@ export default function CustomerMedicalRecord() {
         profile={profile}
         onBack={() => navigate('/')}
         onBookNextSession={(plan) => {
-          const nextSessionNum = (plan.so_buoi_da_dung || 0) + 1;
           setBookingSessionPlan({
-            pkg: {
-              phac_do_id: String(plan.id),
-              ten_dich_vu: (plan as any).ten_goi_dich_vu || (plan as any).ten_goi || plan.ten_dich_vu || 'Gói điều trị',
-              goi_dich_vu_id: String((plan as any).goi_dich_vu_id || plan.id)
-            },
-            sessionNum: nextSessionNum
+            id: plan.id,
+            phac_do_id: plan.id,
+            ten_goi: (plan as any).ten_goi_dich_vu || (plan as any).ten_goi || plan.ten_dich_vu || 'Gói điều trị',
+            goi_dich_vu_id: (plan as any).goi_dich_vu_id || plan.id,
+            thoi_luong_phut: (plan as any).thoi_luong_phut || 45,
+            tong_so_buoi: plan.tong_so_buoi,
+            so_buoi_da_dung: plan.so_buoi_da_dung || 0,
+            khach_hang_id: patient.id,
           });
         }}
       />
 
       {bookingSessionPlan && (
         <BookNextSessionModal
-          pkg={bookingSessionPlan.pkg}
-          sessionNum={bookingSessionPlan.sessionNum}
-          onClose={() => {
+          isOpen={!!bookingSessionPlan}
+          packagePlan={bookingSessionPlan}
+          onClose={() => setBookingSessionPlan(null)}
+          onSuccess={() => {
             setBookingSessionPlan(null);
             reloadProfile();
           }}

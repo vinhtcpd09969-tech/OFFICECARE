@@ -49,7 +49,7 @@ function slugifyPreview(text: string): string {
 interface ArticleEditorProps {
   editingArticle?: any;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (savedStatus?: string) => void;
 }
 
 export default function ArticleEditor({ editingArticle, onClose, onSuccess }: ArticleEditorProps) {
@@ -92,16 +92,22 @@ export default function ArticleEditor({ editingArticle, onClose, onSuccess }: Ar
   const slugPreview = watchSlug ? slugifyPreview(watchSlug) : slugifyPreview(watchTieuDe);
 
   const executeSave = async (data: ArticleFormValues, publish: boolean) => {
-    const payload = { ...data, trang_thai: publish ? 'xuat_ban' : 'nhap' };
+    const targetStatus = publish ? 'xuat_ban' : 'nhap';
+    const payload = {
+      ...data,
+      trang_thai: targetStatus,
+      ...(publish ? { ngay_dang: new Date().toISOString() } : {}),
+      ngay_cap_nhat: new Date().toISOString()
+    };
     try {
       if (isEdit) {
         await updateArticle(editingArticle.id, payload);
-        toast.success(`Cập nhật bài viết "${data.tieu_de}" thành công!`);
+        toast.success(publish ? `Đã xuất bản bài viết "${data.tieu_de}" thành công!` : `Cập nhật bài viết "${data.tieu_de}" thành công!`);
       } else {
         await createArticle(payload);
-        toast.success(`Tạo bài viết "${data.tieu_de}" thành công!`);
+        toast.success(publish ? `Xuất bản bài viết "${data.tieu_de}" thành công!` : `Tạo bài viết "${data.tieu_de}" thành công!`);
       }
-      onSuccess();
+      onSuccess(targetStatus);
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi lưu bài viết');
     }

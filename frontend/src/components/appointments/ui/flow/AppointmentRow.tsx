@@ -268,7 +268,7 @@ export function AppointmentRow({
               const projectedTimeMs = Date.now() + estimatedWaitMins * 60000;
               const projectedTimeStr = format(new Date(projectedTimeMs), 'HH:mm');
 
-              const duration = Number(apt.thoi_luong_phut) || (apt.loai === 'kham_moi' ? 30 : 60);
+              const duration = Number(apt.thoi_luong_phut) || (apt.loai_lich === 'kham_moi' || apt.loai_lich === 'luong_gia' ? 30 : 60);
               const projectedEndMs = projectedTimeMs + duration * 60000;
               const projectedEndDate = new Date(projectedEndMs);
               const projectedEndStr = format(projectedEndDate, 'HH:mm');

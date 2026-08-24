@@ -330,17 +330,13 @@ export default function ReceptionistAppointments() {
   }, [startDate, endDate, viewMode, navigate, location.pathname, location.search]);
 
   const getKpiAppointments = () => {
-    const matchType = (apt: any) => activeType === 'kham'
-      ? apt.loai_lich === 'kham_moi'
-      : (apt.loai_lich === 'dieu_tri' || apt.loai_lich === 'dich_vu_don');
-    
     const startBound = new Date(startDate);
     startBound.setHours(0, 0, 0, 0);
     const endBound = new Date(endDate);
     endBound.setHours(23, 59, 59, 999);
     return appointments.filter(apt => {
       const aptDate = new Date(apt.ngay_gio_bat_dau || '');
-      return aptDate >= startBound && aptDate <= endBound && matchType(apt);
+      return aptDate >= startBound && aptDate <= endBound;
     });
   };
   const kpiAppointments = getKpiAppointments();

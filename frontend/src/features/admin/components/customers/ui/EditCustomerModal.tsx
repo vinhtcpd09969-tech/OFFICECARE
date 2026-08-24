@@ -1,5 +1,6 @@
 import { Edit3, User, Phone, Mail, Calendar, MapPin, X, Save } from 'lucide-react';
 import type { CustomerEditForm } from '../hooks/useCustomerActions';
+import { CustomDatePicker } from '../../../../../components/CustomDatePicker';
 
 interface EditCustomerModalProps {
   isOpen: boolean;
@@ -24,11 +25,8 @@ export function EditCustomerModal({ isOpen, form, onChange, onSave, onCancel }: 
             </div>
             <div>
               <h3 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">
-                Cập Nhật Thông Tin Hành Chính
+                Cập Nhật Thông Tin Khách Hàng
               </h3>
-              <p className="text-xs font-semibold text-slate-400 mt-0.5">
-                Chỉnh sửa hồ sơ thông tin cá nhân khách hàng trong CSDL
-              </p>
             </div>
           </div>
           <button
@@ -110,11 +108,15 @@ export function EditCustomerModal({ isOpen, form, onChange, onSave, onCancel }: 
               <Calendar size={13} className="text-teal-600 dark:text-teal-400" />
               Ngày sinh
             </label>
-            <input
-              type="date"
-              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all cursor-pointer"
+            <CustomDatePicker
               value={form.ngay_sinh}
-              onChange={(e) => onChange({ ...form, ngay_sinh: e.target.value })}
+              onChange={(val) => onChange({ ...form, ngay_sinh: val })}
+              placeholder="dd/mm/yyyy"
+              maxDate={new Date().toISOString().split('T')[0]}
+              align="right"
+              showPresets={false}
+              className="w-full"
+              buttonClassName="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
             />
           </div>
 

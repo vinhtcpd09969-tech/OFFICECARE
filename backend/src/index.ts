@@ -1,5 +1,5 @@
 import env from './config/env';
-import { initDatabaseSchema, closePool } from './config/db';
+import { closePool } from './config/db';
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -60,9 +60,6 @@ const PORT = env.PORT || 5001;
 const server = app.listen(PORT, async () => {
   console.log(`🚀 Server is running on port ${PORT}`);
   
-  // Đồng bộ schema cơ sở dữ liệu khi khởi động
-  await initDatabaseSchema();
-
   // Khởi động job quét nhắc lịch tự động
   initReminderJob();
   // Khởi động job tự động thử lại phân tích cảm xúc đánh giá khi trước đó thất bại/hết quota

@@ -54,7 +54,7 @@ export function RescheduleAppointmentModal({
           <div className="space-y-4">
             <div>
               <label className="text-xs font-black text-slate-700 uppercase tracking-wider block mb-1.5">
-                1. Chọn Ngày Khám/Trị Liệu Mới *
+                1. Chọn Ngày Hẹn / Trị Liệu Mới *
               </label>
               <CustomDatePicker
                 value={rescheduleDate}

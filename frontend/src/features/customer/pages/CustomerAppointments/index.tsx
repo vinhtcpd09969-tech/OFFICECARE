@@ -286,11 +286,17 @@ export default function CustomerAppointments() {
       if (aUpcoming && !bUpcoming) return -1;
       if (!aUpcoming && bUpcoming) return 1;
 
-      if (aUpcoming && bUpcoming) {
-        return new Date(a.ngay_gio_bat_dau).getTime() - new Date(b.ngay_gio_bat_dau).getTime();
+      // 1. So sánh ngày hẹn: ngày gần nhất / mới nhất lên đầu (ví dụ 24/8 trước 23/8)
+      const timeA = new Date(a.ngay_gio_bat_dau).getTime();
+      const timeB = new Date(b.ngay_gio_bat_dau).getTime();
+      if (timeA !== timeB) {
+        return timeB - timeA;
       }
 
-      return new Date(b.ngay_gio_bat_dau).getTime() - new Date(a.ngay_gio_bat_dau).getTime();
+      // 2. Cùng ngày hẹn: lịch nào tạo sau cùng (mới đặt sau) thì hiển thị lên đầu
+      const createA = a.thoi_gian_tao ? new Date(a.thoi_gian_tao).getTime() : 0;
+      const createB = b.thoi_gian_tao ? new Date(b.thoi_gian_tao).getTime() : 0;
+      return createB - createA;
     });
 
     return sorted.filter((app) => {
@@ -340,7 +346,7 @@ export default function CustomerAppointments() {
             onClick={() => navigate('/booking')}
             className="flex items-center gap-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-black text-xs uppercase tracking-wider py-3.5 px-6 rounded-2xl transition-all shadow-md shadow-teal-600/20 cursor-pointer shrink-0"
           >
-            <PlusCircle size={16} /> Đăng ký buổi khám mới
+            <PlusCircle size={16} /> Đặt Lịch Ngay
           </motion.button>
         </div>
 

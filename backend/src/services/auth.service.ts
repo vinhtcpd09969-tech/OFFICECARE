@@ -116,7 +116,8 @@ class AuthService {
         email: user.email,
         so_dien_thoai: user.so_dien_thoai,
         vai_tro_id: user.vai_tro_id,
-        avatar_url: null,
+        anh_dai_dien: (user as any).anh_dai_dien || null,
+        avatar_url: (user as any).anh_dai_dien || null,
         isDefaultPassword
       }
     };
@@ -150,7 +151,8 @@ class AuthService {
         email: user.email,
         so_dien_thoai: user.so_dien_thoai,
         vai_tro_id: user.vai_tro_id,
-        avatar_url: null
+        anh_dai_dien: (user as any).anh_dai_dien || null,
+        avatar_url: (user as any).anh_dai_dien || null
       }
     };
   }

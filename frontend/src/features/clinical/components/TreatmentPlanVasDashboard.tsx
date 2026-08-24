@@ -11,8 +11,10 @@ import {
   Sparkles,
   TrendingUp,
   X,
+  Printer,
 } from 'lucide-react';
-import { TreatmentPlan } from '@/features/doctor/api/doctor.api';
+import { TreatmentPlan, PatientInfo } from '@/features/doctor/api/doctor.api';
+import { printSingleSession } from '@/utils/medicalRecordPrinter';
 
 // Wong-Baker Faces helper
 export const WONG_BAKER_FACES = [
@@ -32,9 +34,10 @@ export function getFaceForVas(score: number | null | undefined) {
 
 interface TreatmentPlanVasDashboardProps {
   plan: TreatmentPlan;
+  patient?: PatientInfo;
 }
 
-export const TreatmentPlanVasDashboard: React.FC<TreatmentPlanVasDashboardProps> = ({ plan }) => {
+export const TreatmentPlanVasDashboard: React.FC<TreatmentPlanVasDashboardProps> = ({ plan, patient }) => {
   const [filterRange, setFilterRange] = useState<'all' | '3' | '6'>('all');
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
@@ -178,7 +181,7 @@ export const TreatmentPlanVasDashboard: React.FC<TreatmentPlanVasDashboardProps>
         {/* CARD 1: VAS HIỆN TẠI */}
         <div className="bg-emerald-50/50 dark:bg-emerald-955/20 border border-emerald-200/80 dark:border-emerald-800/60 rounded-2xl p-4 flex items-center justify-between shadow-2xs">
           <div className="space-y-1">
-            <span className="text-[10.5px] font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider block flex items-center gap-1">
+            <span className="text-[10.5px] font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider flex items-center gap-1">
               <Activity size={12} />
               VAS hiện tại (sau buổi gần nhất)
             </span>
@@ -201,7 +204,7 @@ export const TreatmentPlanVasDashboard: React.FC<TreatmentPlanVasDashboardProps>
         {/* CARD 2: MỨC GIẢM TRUNG BÌNH */}
         <div className="bg-sky-50/50 dark:bg-sky-955/20 border border-sky-200/80 dark:border-sky-800/60 rounded-2xl p-4 flex items-center justify-between shadow-2xs">
           <div className="space-y-1">
-            <span className="text-[10.5px] font-bold text-sky-700 dark:text-sky-300 uppercase tracking-wider block flex items-center gap-1">
+            <span className="text-[10.5px] font-bold text-sky-700 dark:text-sky-300 uppercase tracking-wider flex items-center gap-1">
               <TrendingUp size={12} />
               Mức giảm trung bình
             </span>
@@ -221,7 +224,7 @@ export const TreatmentPlanVasDashboard: React.FC<TreatmentPlanVasDashboardProps>
         {/* CARD 3: MỨC GIẢM TỔNG CỘNG */}
         <div className="bg-amber-50/50 dark:bg-amber-955/20 border border-amber-200/80 dark:border-amber-800/60 rounded-2xl p-4 flex items-center justify-between shadow-2xs">
           <div className="space-y-1">
-            <span className="text-[10.5px] font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wider block flex items-center gap-1">
+            <span className="text-[10.5px] font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wider flex items-center gap-1">
               <Flame size={12} />
               Mức giảm tổng cộng
             </span>
@@ -241,7 +244,7 @@ export const TreatmentPlanVasDashboard: React.FC<TreatmentPlanVasDashboardProps>
         {/* CARD 4: TIẾN ĐỘ LIỆU TRÌNH */}
         <div className="bg-purple-50/50 dark:bg-purple-955/20 border border-purple-200/80 dark:border-purple-800/60 rounded-2xl p-4 flex items-center justify-between shadow-2xs">
           <div className="space-y-1">
-            <span className="text-[10.5px] font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider block flex items-center gap-1">
+            <span className="text-[10.5px] font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider flex items-center gap-1">
               <Calendar size={12} />
               Tiến độ liệu trình
             </span>
@@ -671,6 +674,18 @@ export const TreatmentPlanVasDashboard: React.FC<TreatmentPlanVasDashboardProps>
               )}
 
               <div className="flex items-center gap-1.5 shrink-0">
+                {patient && selectedSession.trang_thai !== 'khong_den' && (
+                  <button
+                    type="button"
+                    onClick={() => printSingleSession(patient, plan, selectedSession)}
+                    className="px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer transition-all shrink-0"
+                    title="In phiếu chi tiết buổi trị liệu này"
+                  >
+                    <Printer size={14} />
+                    <span>In Phiếu Buổi #{selectedSession.so_thu_tu_buoi}</span>
+                  </button>
+                )}
+
                 {(() => {
                   const curIdx = allTreatmentSessions.findIndex((s) => s.id === selectedSession.id);
                   const prevSession = curIdx > 0 ? allTreatmentSessions[curIdx - 1] : null;

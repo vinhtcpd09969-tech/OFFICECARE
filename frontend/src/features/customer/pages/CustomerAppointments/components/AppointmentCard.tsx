@@ -1,4 +1,4 @@
-import React, { forwardRef } from 'react';
+import { forwardRef } from 'react';
 import { motion } from 'framer-motion';
 import {
   Clock,
@@ -43,6 +43,7 @@ export const AppointmentCard = forwardRef<HTMLDivElement, AppointmentCardProps>(
   const isCheckedIn = ['da_checkin', 'dang_kham'].includes(app.trang_thai);
   const isCompleted = app.trang_thai === 'hoan_thanh';
   const isCancelled = ['da_huy', 'khong_den'].includes(app.trang_thai);
+  const isPendingReExam = app.trang_thai === 'cho_tai_luong_gia';
 
   const isPaidOrPending = app.trang_thai_thanh_toan === 'da_thanh_toan' || app.trang_thai_thanh_toan === 'dang_cho_thanh_toan';
   const isPaid = app.trang_thai_thanh_toan === 'da_thanh_toan';
@@ -67,12 +68,13 @@ export const AppointmentCard = forwardRef<HTMLDivElement, AppointmentCardProps>(
   const apptDateStr = `${apptDateObj.getFullYear()}-${String(apptDateObj.getMonth() + 1).padStart(2, '0')}-${String(apptDateObj.getDate()).padStart(2, '0')}`;
   const todayStr = `${currentTime.getFullYear()}-${String(currentTime.getMonth() + 1).padStart(2, '0')}-${String(currentTime.getDate()).padStart(2, '0')}`;
   const isTodayAppt = apptDateStr === todayStr;
+  const isPastDate = apptDateStr < todayStr;
 
   const nowMins = currentTime.getHours() * 60 + currentTime.getMinutes();
-  const isMorningAppt = apptDateObj.getHours() < 12;
+  const isMorningAppt = app.buoi === 'sang' || apptDateObj.getHours() < 12;
   const cutoffMins = isMorningAppt ? (7 * 60 + 30 + 135) : (12 * 60 + 225); // 9:45 AM hoặc 15:45 PM
-  const isPast50PercentCutoff = isPaid && app.trang_thai === 'da_xac_nhan' && isTodayAppt && nowMins >= cutoffMins;
-  const canSelfReschedule = isPaid && app.trang_thai === 'da_xac_nhan';
+  const isPast50PercentCutoff = isPaid && app.trang_thai === 'da_xac_nhan' && (isPastDate || (isTodayAppt && nowMins >= cutoffMins));
+  const canSelfReschedule = isPaid && app.trang_thai === 'da_xac_nhan' && !isPastDate;
 
   // Đếm ngược mốc 50% buổi cho Lịch Đã Thanh Toán diễn ra hôm nay
   const remainingCutoffMins = Math.max(0, cutoffMins - nowMins);
@@ -84,7 +86,7 @@ export const AppointmentCard = forwardRef<HTMLDivElement, AppointmentCardProps>(
   // Dòng thông báo Hotline CHỈ HIỂN THỊ KHI HẾT HẠN TỰ THAO TÁC ONLINE (cả 2 loại lịch):
   const showWarningNotice = app.trang_thai === 'da_xac_nhan' && (
     (!isPaidOrPending && remainingCancelSecs <= 0) || // Lịch chưa thanh toán & đã HẾT 60 phút
-    (isPaid && isPast50PercentCutoff) // Lịch đã thanh toán & đã QUÁ mốc 50% thời gian
+    (isPaid && (isPast50PercentCutoff || isPastDate)) // Lịch đã thanh toán & đã QUÁ mốc 50% thời gian hoặc quá ngày
   );
 
   const isPackageSession = app.loai_goi === 'LIEU_TRINH' && !!app.so_thu_tu_buoi;
@@ -134,7 +136,7 @@ export const AppointmentCard = forwardRef<HTMLDivElement, AppointmentCardProps>(
                 ? 'bg-blue-50 border-blue-100 text-blue-600'
                 : 'bg-purple-50 border-purple-100 text-purple-600'
             }`}>
-              {app.loai_lich === 'kham_moi' ? 'Khám' : 'Trị liệu'}
+              {app.loai_lich === 'kham_moi' ? 'Lượng giá' : 'Trị liệu'}
             </span>
             <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded border ${
               isPaid
@@ -151,7 +153,7 @@ export const AppointmentCard = forwardRef<HTMLDivElement, AppointmentCardProps>(
           {/* Service Title */}
           <div className="space-y-1.5">
             <h3 className="font-heading font-black text-slate-900 text-sm uppercase tracking-wide leading-snug">
-              {app.ten_dich_vu || 'Khám Lâm Sàng & Lượng Giá'}
+              {app.ten_dich_vu || 'Buổi Lượng Giá Chức Năng Ban Đầu'}
               {isPackageSession && (
                 <span className="ml-2 inline-flex items-center normal-case text-[10px] font-black text-[#0d766e] bg-[#0d9488]/10 px-2 py-0.5 rounded border border-[#0d9488]/15 align-middle">
                   Buổi {app.so_thu_tu_buoi} / {app.tong_so_buoi_goi ?? '?'}
@@ -179,26 +181,46 @@ export const AppointmentCard = forwardRef<HTMLDivElement, AppointmentCardProps>(
 
           {/* Smart Session Arrival Guidance & Clinic Address Box */}
           {!isCancelled && (
-            <div className="bg-gradient-to-br from-slate-50 to-teal-50/40 border border-teal-100 p-3.5 rounded-2xl space-y-2 text-slate-700">
-              <div className="flex items-center justify-between gap-2 border-b border-teal-100/80 pb-2">
-                <span className="text-[11px] font-black text-[#0D9488] flex items-center gap-1.5">
-                  <Sparkles size={14} className="text-amber-500" />
-                  Khung Giờ Nhận Khách Đón Tiếp
-                </span>
-                <span className="text-[10px] font-black text-teal-700 bg-white px-2 py-0.5 rounded-md border border-teal-200/70 shadow-2xs">
-                  Thời lượng: {durationMins} phút
-                </span>
-              </div>
-              
-              <p className="text-[11px] font-medium leading-relaxed text-slate-700">
-                💡 Quý khách vui lòng có mặt tại trung tâm từ <strong>{sessionStartStr}</strong> đến <strong>trước {latestArrivalStr}</strong> (trước giờ đóng cửa buổi {durationMins} phút) để đảm bảo hoàn tất trị liệu.
-              </p>
+            isPendingReExam ? (
+              <div className="bg-gradient-to-br from-amber-50 to-orange-50/40 border border-amber-200 p-3.5 rounded-2xl space-y-2 text-slate-700 shadow-2xs">
+                <div className="border-b border-amber-200/80 pb-2">
+                  <span className="text-[11px] font-black text-amber-800 flex items-center gap-1.5">
+                    <Sparkles size={14} className="text-amber-600" />
+                    Chờ Tái Lượng Giá
+                  </span>
+                </div>
+                
+                <p className="text-[11px] font-medium leading-relaxed text-slate-700">
+                  💡 Chuyên viên đã lượng giá đợt 1 và hướng dẫn Quý khách chụp chiếu ngoài. Khi có kết quả, Quý khách mang phim quay lại quầy lễ tân để tiếp tục lượng giá.
+                </p>
 
-              <div className="flex items-start gap-1.5 text-[10px] font-bold text-slate-600 pt-1 border-t border-slate-100">
-                <MapPin size={13} className="shrink-0 text-[#0D9488] mt-0.5" />
-                <span><strong>Cơ sở OfficeCare:</strong> 123 Nguyễn Văn Cừ, Phường 2, Quận 5, TP. Hồ Chí Minh (Tầng 3)</span>
+                <div className="flex items-start gap-1.5 text-[10px] font-bold text-slate-600 pt-1 border-t border-amber-100">
+                  <MapPin size={13} className="shrink-0 text-amber-700 mt-0.5" />
+                  <span><strong>Cơ sở OfficeCare:</strong> 123 Nguyễn Văn Cừ, Phường 2, Quận 5, TP. Hồ Chí Minh (Tầng 3)</span>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="bg-gradient-to-br from-slate-50 to-teal-50/40 border border-teal-100 p-3.5 rounded-2xl space-y-2 text-slate-700">
+                <div className="flex items-center justify-between gap-2 border-b border-teal-100/80 pb-2">
+                  <span className="text-[11px] font-black text-[#0D9488] flex items-center gap-1.5">
+                    <Sparkles size={14} className="text-amber-500" />
+                    Khung Giờ Nhận Khách Đón Tiếp
+                  </span>
+                  <span className="text-[10px] font-black text-teal-700 bg-white px-2 py-0.5 rounded-md border border-teal-200/70 shadow-2xs">
+                    Thời lượng: {durationMins} phút
+                  </span>
+                </div>
+                
+                <p className="text-[11px] font-medium leading-relaxed text-slate-700">
+                  💡 Quý khách vui lòng có mặt tại trung tâm từ <strong>{sessionStartStr}</strong> đến <strong>trước {latestArrivalStr}</strong> để được hỗ trợ và phục vụ tốt nhất.
+                </p>
+
+                <div className="flex items-start gap-1.5 text-[10px] font-bold text-slate-600 pt-1 border-t border-slate-100">
+                  <MapPin size={13} className="shrink-0 text-[#0D9488] mt-0.5" />
+                  <span><strong>Cơ sở OfficeCare:</strong> 123 Nguyễn Văn Cừ, Phường 2, Quận 5, TP. Hồ Chí Minh (Tầng 3)</span>
+                </div>
+              </div>
+            )
           )}
 
           {/* Doctor and Location layout */}
@@ -259,7 +281,7 @@ export const AppointmentCard = forwardRef<HTMLDivElement, AppointmentCardProps>(
               <div
                 className="absolute left-4 top-2 h-0.5 bg-gradient-to-r from-teal-500 to-emerald-500 -translate-y-1/2 z-0 transition-all duration-500"
                 style={{
-                  width: isCompleted ? '100%' : isCheckedIn ? '50%' : '0%'
+                  width: isCompleted ? '100%' : isCheckedIn || isPendingReExam ? '50%' : '0%'
                 }}
               />
 
@@ -272,13 +294,15 @@ export const AppointmentCard = forwardRef<HTMLDivElement, AppointmentCardProps>(
 
               <div className="flex flex-col items-center z-10">
                 <div className={`size-4 rounded-full border-2 border-white shadow-xs flex items-center justify-center transition-all ${
-                  isCheckedIn || isCompleted ? 'bg-emerald-500' : 'bg-slate-250'
+                  isPendingReExam ? 'bg-amber-500 ring-2 ring-amber-200' : isCheckedIn || isCompleted ? 'bg-emerald-500' : 'bg-slate-250'
                 }`}>
-                  {(isCheckedIn || isCompleted) && <span className="w-1.5 h-1.5 rounded-full bg-white"></span>}
+                  {(isCheckedIn || isCompleted || isPendingReExam) && <span className="w-1.5 h-1.5 rounded-full bg-white"></span>}
                 </div>
                 <span className={`text-[9px] font-black mt-1 uppercase tracking-wide ${
-                  isCheckedIn || isCompleted ? 'text-slate-800' : 'text-slate-400'
-                }`}>Check-in &amp; Thực hiện</span>
+                  isPendingReExam ? 'text-amber-700 font-bold' : isCheckedIn || isCompleted ? 'text-slate-800' : 'text-slate-400'
+                }`}>
+                  {isPendingReExam ? 'Chờ tái lượng giá' : 'Check-in & Thực hiện'}
+                </span>
               </div>
 
               <div className="flex flex-col items-center z-10">
@@ -318,17 +342,29 @@ export const AppointmentCard = forwardRef<HTMLDivElement, AppointmentCardProps>(
 
         {/* Hotline Notice Box */}
         {showWarningNotice && (
-          <div className="bg-slate-50 border border-slate-150 p-3 rounded-xl text-[10px] text-slate-450 leading-relaxed font-semibold">
-            ⚠️ <strong>Lưu ý:</strong> Quý khách có nhu cầu thay đổi giờ lịch hẹn vui lòng liên hệ Hotline: <strong>1900 6868</strong> hoặc{' '}
-            <a
-              href="https://www.facebook.com/profile.php?id=61591064963268"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[#0D9488] font-black underline underline-offset-2 hover:text-[#0b7d72]"
-            >
-              Chat với phòng khám
-            </a>{' '}
-            để được hỗ trợ.
+          <div className="bg-amber-50/80 border border-amber-200/80 p-3 rounded-2xl text-[11px] text-amber-900 leading-relaxed font-medium space-y-1 shadow-2xs">
+            <div className="flex items-center gap-1.5 font-bold text-amber-950 text-xs">
+              <span>⚠️</span>
+              <span>
+                {isPaid
+                  ? (isPastDate
+                      ? 'Buổi hẹn đã quá ngày tiếp đón'
+                      : 'Đã sát khung giờ tiếp đón')
+                  : 'Đã hết thời hạn tự thao tác online'}
+              </span>
+            </div>
+            <p className="text-[10.5px] text-amber-800 leading-relaxed">
+              Quý khách vui lòng liên hệ Hotline: <strong className="text-amber-950 font-bold">1900 6868</strong> hoặc{' '}
+              <a
+                href="https://www.facebook.com/profile.php?id=61591064963268"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-teal-700 font-extrabold underline underline-offset-2 hover:text-teal-800"
+              >
+                Chat với trung tâm
+              </a>{' '}
+              để được nhân viên hỗ trợ.
+            </p>
           </div>
         )}
       </div>

@@ -1,7 +1,8 @@
-import { Calendar, Clock, Edit2, User, Activity } from 'lucide-react';
+import { Calendar, Clock, User, Timer, Edit2 } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 
 interface DetailHeaderProps {
+  maLichDat?: string;
   tenKhachHang: string;
   soDienThoai?: string;
   ngayGioBatDau: string;
@@ -23,6 +24,7 @@ interface DetailHeaderProps {
 const BUOI_LABEL: Record<string, string> = { sang: 'Buổi sáng', chieu: 'Buổi chiều' };
 
 export function DetailHeader({
+  maLichDat,
   tenKhachHang,
   soDienThoai,
   ngayGioBatDau,
@@ -37,129 +39,132 @@ export function DetailHeader({
   setIsRescheduling,
   selectedBuoi,
   rescheduleDate,
-  currentBuoi,
+  currentBuoi: _currentBuoi,
   trangThai
 }: DetailHeaderProps) {
-  // Gói liệu trình: nêu rõ đang là buổi thứ mấy / tổng số buổi, thay vì chỉ tên gói trơ trọi.
   const isPackageSession = loaiGoi === 'LIEU_TRINH' && !!soThuTuBuoi;
+  const durationMinutes = Math.round(durationMs / 60000) || 60;
 
-  // Đổi buổi chỉ hợp lệ khi lịch còn ở `da_xac_nhan`/`da_checkin` (race-condition guard lớp 1 —
-  // xem mục "Đổi buổi" trong kế hoạch tổng): ca đang thực hiện, chờ tái lượng giá, đã hoàn thành,
-  // đã hủy hoặc không đến đều không còn ý nghĩa để dời buổi.
   const RESCHEDULABLE_STATUSES = ['da_xac_nhan', 'da_checkin'];
   const isRescheduleDisabled = !RESCHEDULABLE_STATUSES.includes(trangThai || '');
 
-  const disableReason = isRescheduleDisabled
-    ? 'Không thể đổi lịch của ca đang thực hiện, chờ tái lượng giá, đã hoàn tất, đã hủy hoặc không đến.'
-    : '';
+  const dateObj = new Date(ngayGioBatDau);
+  const formattedDate = isValid(dateObj) ? format(dateObj, 'dd/MM/yyyy') : '';
 
   return (
-    <div className="bg-slate-50/90 dark:bg-zinc-800/40 p-5 rounded-3xl border border-slate-200/80 dark:border-zinc-800 space-y-4 select-none shadow-xs">
-      {/* Row 1: Khách hàng */}
-      <div className="flex items-center gap-3.5">
-        <div className="size-9 rounded-2xl bg-emerald-500/10 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold shrink-0 border border-emerald-500/20">
-          <User size={16} />
+    <div className="space-y-2 font-jakarta select-none">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 flex-wrap">
+          <label className="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
+            Thông tin lịch hẹn
+          </label>
+          {maLichDat && (
+            <span className="text-emerald-600 dark:text-emerald-400 font-mono font-bold text-xs bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-0.5 rounded-lg border border-emerald-200/70 dark:border-emerald-800/60 shadow-2xs">
+              #{maLichDat}
+            </span>
+          )}
         </div>
-        <div className="flex-1 min-w-0">
-          <label className="text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest block">Khách hàng</label>
-          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-            <span className="text-sm font-black text-slate-900 dark:text-zinc-100">{tenKhachHang}</span>
-            {soDienThoai && (
-              <span className="inline-flex items-center text-[10px] font-mono font-extrabold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/40 px-2.5 py-0.5 rounded-lg border border-teal-200/60 dark:border-teal-900/40">
-                📞 {soDienThoai}
-              </span>
-            )}
-          </div>
-        </div>
+        {!isRescheduleDisabled && (
+          <button
+            type="button"
+            onClick={() => setIsRescheduling(!isRescheduling)}
+            className={`text-xs font-bold transition-all flex items-center gap-1 cursor-pointer mr-6 ${
+              isRescheduling ? 'text-teal-600 dark:text-teal-400' : 'text-slate-500 hover:text-teal-600 dark:hover:text-teal-400'
+            }`}
+          >
+            <Edit2 size={12} />
+            <span>{isRescheduling ? 'Đang đổi lịch' : 'Đổi lịch hẹn'}</span>
+          </button>
+        )}
       </div>
 
-      <div className="h-px bg-slate-200/60 dark:bg-zinc-800/60 w-full" />
+      {/* 2 KHUNG 1 DÒNG (2 Columns Grid) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Khung 1: Khách hàng & Dịch vụ */}
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-2xs space-y-3.5">
+          {/* Khách hàng */}
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div className="size-11 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-100 dark:border-emerald-900/30 shadow-2xs">
+              <User size={20} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <span className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium block">Khách hàng</span>
+              <p className="text-sm sm:text-base font-bold text-slate-900 dark:text-zinc-100 mt-0.5">
+                {tenKhachHang || 'Khách hàng'}
+              </p>
+              {soDienThoai && (
+                <div className="mt-1">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2.5 py-0.5 rounded-full border border-emerald-200/60 dark:border-emerald-900/40 font-mono">
+                    <span>📞</span>
+                    <span>{soDienThoai}</span>
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
 
-      {/* Row 2: Chi tiết dịch vụ */}
-      <div className="flex items-start gap-3.5">
-        <div className="size-9 rounded-2xl bg-cyan-500/10 dark:bg-cyan-950/40 text-cyan-600 dark:text-cyan-400 flex items-center justify-center font-bold shrink-0 border border-cyan-500/20 mt-0.5">
-          <Activity size={16} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <label className="text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest block">Chi tiết dịch vụ</label>
-          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-            <span className="text-xs font-black text-slate-800 dark:text-zinc-200 leading-relaxed">
-              {tenDichVu || 'Lượng giá Chức năng PHCN'}
-            </span>
+          <div className="h-px bg-slate-100 dark:bg-zinc-800 w-full" />
+
+          {/* Dịch vụ */}
+          <div className="min-w-0">
+            <span className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium block">Dịch vụ</span>
+            <p className="text-sm font-bold text-slate-900 dark:text-zinc-100 leading-snug mt-0.5">
+              {tenDichVu || 'Lượng giá chức năng cơ xương khớp'}
+            </p>
             {isPackageSession && (
-              <span className="inline-flex items-center text-[10px] font-black text-[#0d766e] dark:text-emerald-400 bg-teal-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-lg border border-teal-200/50">
+              <span className="inline-block text-[10px] font-bold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/50 px-2.5 py-0.5 rounded-md border border-teal-200/60 dark:border-teal-900/40 mt-1.5">
                 Buổi {soThuTuBuoi} / {tongSoBuoiGoi}
               </span>
             )}
           </div>
         </div>
-      </div>
 
-      <div className="h-px bg-slate-200/60 dark:bg-zinc-800/60 w-full" />
+        {/* Khung 2: Thời gian & Thời lượng */}
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-2xs space-y-3.5 flex flex-col justify-between">
+          {/* Thời gian */}
+          <div className="space-y-2">
+            <span className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium block">Thời gian hẹn</span>
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-1.5 bg-sky-50 dark:bg-sky-950/40 border border-sky-200/60 dark:border-sky-900/40 px-3 py-1.5 rounded-xl">
+                <Clock size={14} className="text-sky-600 dark:text-sky-400" />
+                <span className="text-xs font-bold text-slate-900 dark:text-zinc-100 font-mono">
+                  {aptStartHourStr} – {aptEndHourStr}
+                </span>
+              </div>
 
-      {/* Row 3: Thời gian & Đổi lịch */}
-      <div className="flex items-center gap-3.5">
-        <div className="size-9 rounded-2xl bg-amber-500/10 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold shrink-0 border border-amber-500/20">
-          <Clock size={16} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <label className="text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest block">Khung giờ hẹn</label>
-          <div className="flex items-center justify-between gap-3 mt-1 flex-wrap sm:flex-nowrap">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-black text-slate-900 dark:text-zinc-100 font-mono">
-                {aptStartHourStr} - {aptEndHourStr}
-              </span>
-              <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-bold bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded-md">
-                {Math.round(durationMs / 60000)} phút
+              <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200/60 dark:border-zinc-700/60 px-3 py-1.5 rounded-xl">
+                <Calendar size={14} className="text-slate-500 dark:text-zinc-400" />
+                <span className="text-xs font-bold text-slate-900 dark:text-zinc-100 font-mono">
+                  {formattedDate}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="h-px bg-slate-100 dark:bg-zinc-800 w-full" />
+
+          {/* Thời lượng */}
+          <div className="flex items-center gap-3">
+            <div className="size-10 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 border border-purple-100 dark:border-purple-900/30">
+              <Timer size={18} />
+            </div>
+            <div>
+              <span className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium block">Thời lượng</span>
+              <span className="text-sm font-bold text-slate-900 dark:text-zinc-100">
+                {durationMinutes} phút
               </span>
             </div>
-
-            {/* Hiển thị ngày bắt đầu */}
-            {(() => {
-              const dateObj = new Date(ngayGioBatDau);
-              if (isValid(dateObj)) {
-                return (
-                  <span className="inline-flex items-center gap-1 text-[10px] text-slate-700 dark:text-zinc-300 font-mono font-black bg-white dark:bg-zinc-800/80 px-2.5 py-1 rounded-xl border border-slate-200 dark:border-zinc-700 shadow-2xs">
-                    <Calendar size={11} className="text-amber-500" />
-                    {format(dateObj, 'dd/MM/yyyy')}
-                  </span>
-                );
-              }
-              return null;
-            })()}
-
-             <button
-              type="button"
-              disabled={isRescheduleDisabled}
-              onClick={() => setIsRescheduling(!isRescheduling)}
-              className={`px-3 py-1.5 rounded-xl border transition-all flex items-center justify-center gap-1.5 ${
-                isRescheduling
-                  ? 'bg-cyan-600 border-cyan-600 text-white hover:bg-cyan-700 shadow-sm'
-                  : isRescheduleDisabled
-                    ? 'bg-slate-100 dark:bg-zinc-800/40 border-slate-200 dark:border-zinc-800 text-slate-400 dark:text-zinc-500 cursor-not-allowed opacity-50'
-                    : 'bg-teal-50 dark:bg-teal-955/40 border-teal-200/80 dark:border-teal-900/30 text-teal-700 dark:text-teal-300 hover:bg-teal-100/70 cursor-pointer shadow-2xs'
-              }`}
-              title={disableReason || "Thay đổi ngày/giờ hẹn"}
-            >
-              <Edit2 size={12} />
-              <span className="text-[10px] font-black uppercase tracking-wider">Đổi lịch</span>
-            </button>
-
-            {isRescheduling && (() => {
-              if (!selectedBuoi || !rescheduleDate) return null;
-              const origStart = new Date(ngayGioBatDau);
-              const origDateStr = format(origStart, 'yyyy-MM-dd');
-              const isChanged = selectedBuoi !== currentBuoi || rescheduleDate !== origDateStr;
-              if (!isChanged) return null;
-              return (
-                <span className="inline-flex items-center gap-1.5 text-xs font-mono font-black text-rose-700 dark:text-rose-455 bg-rose-50 dark:bg-rose-955/20 border border-rose-100 dark:border-rose-900/30 px-2.5 py-1.5 rounded-lg">
-                  👉 Lịch muốn đổi: {BUOI_LABEL[selectedBuoi]} ({format(new Date(rescheduleDate), 'dd/MM/yyyy')})
-                </span>
-              );
-            })()}
           </div>
         </div>
       </div>
+
+      {/* Reschedule notification banner if active */}
+      {isRescheduling && selectedBuoi && rescheduleDate && (
+        <div className="mt-3.5 pt-3 border-t border-slate-100 dark:border-zinc-800 flex items-center gap-2 text-xs font-mono font-bold text-rose-700 dark:text-rose-400 bg-rose-50/70 dark:bg-rose-950/30 p-2.5 rounded-xl border border-rose-200/60 dark:border-rose-900/40">
+          <span>👉 Lịch muốn đổi:</span>
+          <span>{BUOI_LABEL[selectedBuoi]} ({format(new Date(rescheduleDate), 'dd/MM/yyyy')})</span>
+        </div>
+      )}
     </div>
   );
 }

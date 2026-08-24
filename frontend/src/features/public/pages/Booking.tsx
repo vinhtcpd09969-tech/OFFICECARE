@@ -4,7 +4,7 @@ import {
   CheckCircle2,
   Loader2,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../../../api/axios';
 import { useAuthStore, useAuthActions } from '../../../stores/authStore';
 import { agreeTerms } from '../../customer/api/customer.api';
@@ -22,6 +22,9 @@ const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 export default function Booking() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const navState = (location.state || {}) as { bookingType?: 'kham' | 'dich_vu'; selectedServiceId?: string; from?: string };
+
   const [isClient, setIsClient] = useState(false);
   const { user, isAuthenticated } = useAuthStore();
   const { updateUser } = useAuthActions();
@@ -35,9 +38,10 @@ export default function Booking() {
   const [modalTermsChecked, setModalTermsChecked] = useState(false);
 
   // Initialize booking type & selected service
-  const [bookingType, setBookingType] = useState<'kham' | 'dich_vu'>('kham');
-  const [selectedServiceId, setSelectedServiceId] = useState<string>('');
+  const [bookingType, setBookingType] = useState<'kham' | 'dich_vu'>(navState.bookingType || 'kham');
+  const [selectedServiceId, setSelectedServiceId] = useState<string>(navState.selectedServiceId ? String(navState.selectedServiceId) : '');
   const [selectedStaffId, setSelectedStaffId] = useState<string>('');
+  const initializedFromNavRef = useRef(false);
 
   const [services, setServices] = useState<any[]>([]);
   const [servicesLoading, setServicesLoading] = useState(false);
@@ -71,7 +75,7 @@ export default function Booking() {
 
   const { selectedDate, selectedBuoi, isSubmitting, formData } = state;
 
-  const selectedService = services.find(s => s.id === selectedServiceId);
+  const selectedService = services.find(s => String(s.id) === String(selectedServiceId));
   const serviceDuration = Number(selectedService?.thoi_luong_phut) || 30;
 
   const staffList = useMemo(() => {
@@ -123,22 +127,48 @@ export default function Booking() {
       .catch(err => console.error('Lỗi tải danh sách nhân sự:', err));
   }, []);
 
-  // Auto select default service and reset staff when bookingType or services list changes
+  // Smart auto-selection: Prioritize passed navigation state service on first load, otherwise default
   useEffect(() => {
     if (services.length === 0) return;
-    if (bookingType === 'kham') {
-      const examService = services.find(s => s.loai_goi === 'KHAM' || s.loai_dich_vu === 'KHAM');
-      if (examService && selectedServiceId !== examService.id) {
-        setSelectedServiceId(examService.id);
-      }
-    } else {
-      const regularService = services.find(s => s.loai_goi !== 'KHAM' && s.loai_dich_vu !== 'KHAM');
-      if (regularService && selectedServiceId !== regularService.id) {
-        setSelectedServiceId(regularService.id);
+
+    if (!initializedFromNavRef.current && navState.selectedServiceId) {
+      const matched = services.find(s => String(s.id) === String(navState.selectedServiceId));
+      if (matched) {
+        const isExam = matched.loai_goi === 'KHAM' || matched.loai_dich_vu === 'KHAM';
+        setBookingType(isExam ? 'kham' : 'dich_vu');
+        setSelectedServiceId(String(matched.id));
+        initializedFromNavRef.current = true;
+        return;
       }
     }
+    initializedFromNavRef.current = true;
+
+    if (bookingType === 'kham') {
+      const cur = services.find(s => String(s.id) === String(selectedServiceId));
+      if (!cur || (cur.loai_goi !== 'KHAM' && cur.loai_dich_vu !== 'KHAM')) {
+        const examService = services.find(s => s.loai_goi === 'KHAM' || s.loai_dich_vu === 'KHAM');
+        if (examService) setSelectedServiceId(String(examService.id));
+      }
+    } else {
+      const cur = services.find(s => String(s.id) === String(selectedServiceId));
+      if (!cur || cur.loai_goi === 'KHAM' || cur.loai_dich_vu === 'KHAM') {
+        const regularService = services.find(s => s.loai_goi !== 'KHAM' && s.loai_dich_vu !== 'KHAM');
+        if (regularService) setSelectedServiceId(String(regularService.id));
+      }
+    }
+  }, [bookingType, services, navState.selectedServiceId]);
+
+  const handleSetBookingType = (type: 'kham' | 'dich_vu') => {
+    setBookingType(type);
+    if (type === 'kham') {
+      const examService = services.find(s => s.loai_goi === 'KHAM' || s.loai_dich_vu === 'KHAM');
+      if (examService) setSelectedServiceId(String(examService.id));
+    } else {
+      const regularService = services.find(s => s.loai_goi !== 'KHAM' && s.loai_dich_vu !== 'KHAM');
+      if (regularService) setSelectedServiceId(String(regularService.id));
+    }
     setSelectedStaffId('');
-  }, [bookingType, services]);
+  };
 
   // Fetch active vouchers for Client Online booking
   useEffect(() => {
@@ -568,7 +598,7 @@ export default function Booking() {
               {/* Section 1: Service Type & Item Selection */}
               <BookingServiceSection
                 bookingType={bookingType}
-                setBookingType={setBookingType}
+                setBookingType={handleSetBookingType}
                 selectedServiceId={selectedServiceId}
                 setSelectedServiceId={setSelectedServiceId}
                 services={services}

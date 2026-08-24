@@ -1,5 +1,6 @@
 import { Search, Filter, RotateCcw, Calendar, CreditCard, Layers, Tag } from 'lucide-react';
 import { CustomDatePicker } from '../../../../../components/CustomDatePicker';
+import { CustomSelect } from '../../../../../components/CustomSelect';
 import { FinanceTabs } from './FinanceTabs';
 import {
   INVOICE_STATUS_OPTIONS,
@@ -143,16 +144,15 @@ export function FinanceFilterBar({
             <Tag size={12} className="text-zinc-400" />
             {statusLabel}
           </label>
-          <select
+          <CustomSelect
             value={statusFilter}
-            onChange={(e) => onStatusChange(e.target.value)}
-            className="w-full px-3.5 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-800 rounded-xl focus:outline-none focus:border-teal-500 text-xs font-bold text-slate-800 dark:text-zinc-200 cursor-pointer shadow-2xs"
-          >
-            <option value="all">{statusPlaceholder}</option>
-            {statusOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+            onChange={onStatusChange}
+            options={[
+              { value: 'all', label: statusPlaceholder },
+              ...statusOptions
+            ]}
+            fullWidth
+          />
         </div>
 
         {/* Invoice Type OR Payment Method */}
@@ -162,16 +162,15 @@ export function FinanceFilterBar({
               <Layers size={12} className="text-zinc-400" />
               Hình thức thanh toán gói
             </label>
-            <select
+            <CustomSelect
               value={itemTypeFilter}
-              onChange={(e) => onItemTypeChange(e.target.value)}
-              className="w-full px-3.5 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-800 rounded-xl focus:outline-none focus:border-teal-500 text-xs font-bold text-slate-800 dark:text-zinc-200 cursor-pointer shadow-2xs"
-            >
-              <option value="all">Tất cả hình thức</option>
-              {INVOICE_TYPE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
+              onChange={onItemTypeChange}
+              options={[
+                { value: 'all', label: 'Tất cả hình thức' },
+                ...INVOICE_TYPE_OPTIONS
+              ]}
+              fullWidth
+            />
           </div>
         ) : (
           <div className="space-y-1.5">
@@ -179,16 +178,15 @@ export function FinanceFilterBar({
               <CreditCard size={12} className="text-zinc-400" />
               Phương thức thanh toán
             </label>
-            <select
+            <CustomSelect
               value={methodFilter}
-              onChange={(e) => onMethodChange(e.target.value)}
-              className="w-full px-3.5 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-800 rounded-xl focus:outline-none focus:border-teal-500 text-xs font-bold text-slate-800 dark:text-zinc-200 cursor-pointer shadow-2xs"
-            >
-              <option value="all">Tất cả phương thức</option>
-              {PAYMENT_METHOD_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
+              onChange={onMethodChange}
+              options={[
+                { value: 'all', label: 'Tất cả phương thức' },
+                ...PAYMENT_METHOD_OPTIONS
+              ]}
+              fullWidth
+            />
           </div>
         )}
 

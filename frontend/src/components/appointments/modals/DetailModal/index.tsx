@@ -215,7 +215,9 @@ export default function AppointmentDetailModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBuoi, rescheduleDate]);
 
-  const isReassignAllowed = ['da_xac_nhan', 'da_checkin', 'dang_kham'].includes(selectedAppointment.trang_thai);
+  const isReassignAllowed = !isReceptionist
+    ? !['hoan_thanh', 'da_huy'].includes(assignStatus)
+    : ['da_xac_nhan', 'da_checkin', 'dang_kham'].includes(selectedAppointment.trang_thai);
 
   const [staffBudget, setStaffBudget] = useState<Record<string, { conLai: number; soKhachSongSong: number }> | null>(null);
   useEffect(() => {
@@ -250,8 +252,17 @@ export default function AppointmentDetailModal({
 
     if (staffSchedule && staffSchedule.phong_id) {
       setAssignRoomId(String(staffSchedule.phong_id));
+    } else if (!assignRoomId && roomsList && roomsList.length > 0) {
+      const matchingRoom = roomsList.find(r =>
+        selectedAppointment.loai_lich === 'kham_moi'
+          ? (r.loai_phong === 'phong_kham' || r.loai_phong === 'phong_luong_gia')
+          : (r.loai_phong === 'phong_tri_lieu' || r.loai_phong === 'phong_dieu_tri')
+      );
+      if (matchingRoom) {
+        setAssignRoomId(String(matchingRoom.id));
+      }
     }
-  }, [assignStaffId, schedulesList, rescheduleDate, newStartHourStr, newEndHourStr, setAssignRoomId]);
+  }, [assignStaffId, schedulesList, rescheduleDate, newStartHourStr, newEndHourStr, setAssignRoomId, assignRoomId, roomsList, selectedAppointment.loai_lich]);
 
   const currentStaff = staffList.find(s => String(s.id) === String(assignStaffId));
   const currentStaffName = currentStaff ? currentStaff.ho_ten : 'nhân sự';
@@ -330,17 +341,19 @@ export default function AppointmentDetailModal({
     const currentStaffIdToCheck = isCurrentStaffUnavailableAtNewSlot && isReceptionist ? '' : assignStaffId;
 
     if (!['da_huy', 'khong_den', 'cho_huy'].includes(assignStatus)) {
-      if (!assignRoomId) {
-        toast.error('Vui lòng chọn phòng thực hiện!');
-        return;
-      }
-      if (!currentStaffIdToCheck && ['dang_kham', 'hoan_thanh'].includes(assignStatus)) {
-        toast.error(
-          targetRole === 'Bác sĩ' 
-            ? 'Vui lòng chọn Bác sĩ phụ trách!' 
-            : 'Vui lòng chọn Kỹ thuật viên phụ trách!'
-        );
-        return;
+      if (['dang_kham', 'hoan_thanh'].includes(assignStatus)) {
+        if (!currentStaffIdToCheck) {
+          toast.error(
+            targetRole === 'Bác sĩ' 
+              ? 'Vui lòng chọn Chuyên viên tư vấn phụ trách!' 
+              : 'Vui lòng chọn Kỹ thuật viên phụ trách!'
+          );
+          return;
+        }
+        if (!assignRoomId) {
+          toast.error('Vui lòng chọn phòng thực hiện!');
+          return;
+        }
       }
     }
 
@@ -412,7 +425,7 @@ export default function AppointmentDetailModal({
         initial={{ opacity: 0, y: -40, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ type: "spring", duration: 0.5, bounce: 0.15 }}
-        className={`bg-white dark:bg-zinc-900 rounded-[32px] w-full flex flex-col shadow-[0_20px_50px_rgba(0,0,0,0.18)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.45)] overflow-hidden border border-slate-100 dark:border-zinc-800 transition-all duration-300 max-h-[90vh] relative ${isRescheduling ? 'max-w-5xl' : 'max-w-2xl'}`}
+        className={`bg-white dark:bg-zinc-900 rounded-[28px] w-full flex flex-col shadow-[0_20px_60px_rgba(0,0,0,0.2)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.5)] overflow-hidden border border-slate-200/90 dark:border-zinc-800 transition-all duration-300 max-h-[92vh] relative ${isRescheduling ? 'max-w-6xl' : 'max-w-4xl'}`}
       >
         {/* Custom Confirmation Dialog Overlay */}
         <DetailConfirmationModal
@@ -426,30 +439,28 @@ export default function AppointmentDetailModal({
           onConfirm={handleConfirmAction}
         />
 
-        {/* Header Modal */}
-        <div className="px-6 py-5 border-b border-slate-100 dark:border-zinc-800/80 flex justify-between items-center bg-white dark:bg-zinc-900 transition-colors duration-300 shrink-0 select-none">
-          <div>
-            <h3 className="text-lg font-black text-slate-800 dark:text-zinc-150">
-              Hồ sơ Lịch hẹn <span className="text-emerald-600 dark:text-emerald-450">#{selectedAppointment.ma_lich_dat}</span>
-            </h3>
-            <p className="text-xs text-slate-400 dark:text-zinc-555 font-semibold mt-1">Thông tin chi tiết và điều phối phòng khám</p>
-          </div>
+        {/* Top Close Button */}
+        <div className="absolute top-4 right-4 z-20">
           <button
             type="button"
             onClick={onClose}
-            className="p-2 text-slate-400 dark:text-zinc-500 hover:text-slate-600 dark:hover:text-zinc-350 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-full transition-colors cursor-pointer"
+            className="size-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+            title="Đóng"
           >
             <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden pt-3">
           {/* Scrollable Modal Content */}
-          <div className="flex-1 overflow-y-auto p-6 md:grid md:grid-cols-12 md:gap-6 space-y-6 md:space-y-0 scrollbar-thin">
+          <div className="flex-1 overflow-y-auto p-6 md:grid md:grid-cols-12 md:gap-6 space-y-5 md:space-y-0 scrollbar-thin">
             
             {/* Left Column - Dossier & Allocation */}
-            <div className={`${isRescheduling ? 'md:col-span-7' : 'md:col-span-12'} space-y-6 overflow-y-visible`}>
+            <div className={`${isRescheduling ? 'md:col-span-7' : 'md:col-span-12'} space-y-5 overflow-y-visible`}>
+              
+              {/* 1. THÔNG TIN LỊCH HẸN */}
               <DetailHeader
+                maLichDat={selectedAppointment.ma_lich_dat}
                 tenKhachHang={selectedAppointment.ten_khach_hang}
                 soDienThoai={selectedAppointment.so_dien_thoai || selectedAppointment.sdt_khach_hang}
                 ngayGioBatDau={selectedAppointment.ngay_gio_bat_dau}
@@ -469,7 +480,7 @@ export default function AppointmentDetailModal({
               />
 
               {isStaffUnavailable && !isCurrentStaffUnavailableAtNewSlot && (
-                <div className="text-xs text-rose-700 dark:text-rose-455 font-medium leading-relaxed bg-rose-50 dark:bg-rose-955/10 p-3 rounded-xl border border-rose-150 dark:border-rose-900/30 flex items-start gap-2 animate-in fade-in slide-in-from-top-1">
+                <div className="text-xs text-rose-700 dark:text-rose-455 font-medium leading-relaxed bg-rose-50 dark:bg-rose-955/10 p-3.5 rounded-2xl border border-rose-200/80 dark:border-rose-900/30 flex items-start gap-2 animate-in fade-in slide-in-from-top-1 shadow-2xs">
                   <span>⚠️</span>
                   <span>
                     Khung giờ này nhân sự <strong>{currentStaffName}</strong> không đáp ứng được (trùng lịch khác hoặc ngoài ca trực). Vui lòng chọn nhân sự khác hoặc đổi giờ!
@@ -484,7 +495,7 @@ export default function AppointmentDetailModal({
                 appendCallLog={appendCallLog}
               />
 
-              {/* Trạng thái & Thanh toán Section */}
+              {/* 2. TRẠNG THÁI & THANH TOÁN */}
               <StatusAndBillingSection
                 selectedAppointment={selectedAppointment}
                 assignStatus={assignStatus}
@@ -499,30 +510,7 @@ export default function AppointmentDetailModal({
                 onClose={onClose}
               />
 
-              {/* Ghi chú nội bộ phòng khám */}
-              <div className="space-y-2 bg-slate-50/50 dark:bg-zinc-800/40 p-4 rounded-xl border border-slate-150 dark:border-zinc-800/80">
-                <label className="text-xs font-extrabold text-slate-700 dark:text-zinc-300 uppercase tracking-wider block">
-                  Ghi chú nội bộ {isNoteRequired && <span className="text-rose-500">*</span>}
-                </label>
-                <textarea
-                  ref={noteTextareaRef}
-                  rows={3}
-                  value={localGhiChuNoiBo}
-                  onChange={(e) => handleNoteChange(e.target.value)}
-                  disabled={isReceptionistLocked}
-                  placeholder="Nhập ghi chú nội bộ (lý do hủy, ghi chú cuộc gọi, ghi chú ca trực, v.v.)..."
-                  className={`w-full px-3.5 py-2.5 bg-white dark:bg-zinc-900 border rounded-xl text-xs text-slate-800 dark:text-zinc-200 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-semibold font-mono leading-relaxed resize-none disabled:opacity-50 disabled:cursor-not-allowed ${
-                    rescheduleError
-                      ? 'border-rose-500 focus:border-rose-500 focus:ring-rose-500/20'
-                      : 'border-slate-250 dark:border-zinc-800'
-                  }`}
-                />
-                {rescheduleError && (
-                  <p className="text-[10px] text-rose-500 font-bold mt-1 leading-none">{rescheduleError}</p>
-                )}
-              </div>
-
-              {/* Staff Room Allocation */}
+              {/* 3. ĐIỀU PHỐI NHÂN SỰ & PHÒNG */}
               <StaffRoomAllocation
                 selectedAppointment={selectedAppointment}
                 resolvedRoomName={resolvedRoomName}
@@ -555,6 +543,34 @@ export default function AppointmentDetailModal({
                   }
                 }}
               />
+
+              {/* 4. GHI CHÚ NỘI BỘ */}
+              <div className="space-y-2 font-jakarta select-none">
+                <label className="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider block">
+                  Ghi chú nội bộ {isNoteRequired && <span className="text-rose-500">*</span>}
+                </label>
+                <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-3 sm:p-4 shadow-2xs relative">
+                  <textarea
+                    ref={noteTextareaRef}
+                    rows={3}
+                    maxLength={500}
+                    value={localGhiChuNoiBo}
+                    onChange={(e) => handleNoteChange(e.target.value)}
+                    disabled={isReceptionistLocked}
+                    placeholder="Nhập ghi chú nội bộ (lý do hủy, ghi chú cuộc gọi, ghi chú ca trực, v.v.)..."
+                    className="w-full bg-transparent text-xs text-slate-800 dark:text-zinc-200 outline-none resize-none leading-relaxed placeholder:text-slate-400 font-medium"
+                  />
+                  <div className="flex justify-end pt-1">
+                    <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono font-medium">
+                      {localGhiChuNoiBo.length}/500
+                    </span>
+                  </div>
+                </div>
+                {rescheduleError && (
+                  <p className="text-[11px] text-rose-500 font-bold mt-1 flex items-center gap-1">⚠️ {rescheduleError}</p>
+                )}
+              </div>
+
             </div>
 
             {/* Right Column - Live Reschedule Workspace */}
@@ -585,6 +601,7 @@ export default function AppointmentDetailModal({
             onSuccess={onSuccess}
             assignStaffId={assignStaffId}
             assignRoomId={assignRoomId}
+            assignStatus={assignStatus}
             localGhiChuNoiBo={localGhiChuNoiBo}
             appointments={appointments}
           />

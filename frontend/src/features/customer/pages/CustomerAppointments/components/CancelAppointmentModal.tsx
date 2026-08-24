@@ -21,24 +21,49 @@ export function CancelAppointmentModal({
 }: CancelAppointmentModalProps) {
   if (!cancellingId) return null;
 
-  const getRemainingTimeText = (startDateStr?: string) => {
-    if (!startDateStr) return '';
-    const startMs = new Date(startDateStr).getTime();
-    const nowMs = Date.now();
-    const diffMs = startMs - nowMs;
-    if (diffMs <= 0) return '0 phút';
+  const getSessionTimingInfo = (appt: any) => {
+    if (!appt?.ngay_gio_bat_dau) return null;
+    const start = new Date(appt.ngay_gio_bat_dau);
+    const now = new Date();
+    const buoi = appt.buoi || (start.getHours() < 12 ? 'sang' : 'chieu');
 
-    const totalMinutes = Math.floor(diffMs / 60000);
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-
-    if (hours > 0) {
-      return `${hours} giờ ${minutes > 0 ? `${minutes} phút` : ''}`;
+    const end = new Date(start);
+    if (buoi === 'sang') {
+      end.setHours(12, 0, 0, 0);
+    } else {
+      end.setHours(20, 0, 0, 0);
     }
-    return `${minutes} phút`;
+
+    const startMs = start.getTime();
+    const endMs = end.getTime();
+    const nowMs = now.getTime();
+
+    if (nowMs < startMs) {
+      const diffMs = startMs - nowMs;
+      const totalMinutes = Math.floor(diffMs / 60000);
+      const hours = Math.floor(totalMinutes / 60);
+      const minutes = totalMinutes % 60;
+      const timeStr = hours > 0 ? `${hours} giờ ${minutes > 0 ? `${minutes} phút` : ''}` : `${minutes} phút`;
+      return {
+        type: 'future',
+        badge: `⏱️ Còn ${timeStr} nữa mới bắt đầu (${buoi === 'sang' ? 'Buổi Sáng' : 'Buổi Chiều'})`
+      };
+    }
+
+    if (nowMs >= startMs && nowMs < endMs) {
+      return {
+        type: 'current',
+        badge: `📍 Buổi hẹn hôm nay đang diễn ra (Khung giờ đón tiếp đến ${buoi === 'sang' ? '12:00' : '20:00'})`
+      };
+    }
+
+    return {
+      type: 'past',
+      badge: `⚠️ Buổi hẹn đã qua khung giờ đón tiếp (${buoi === 'sang' ? '07:30 – 12:00' : '12:00 – 20:00'})`
+    };
   };
 
-  const remainingTime = getRemainingTimeText(cancellingAppt?.ngay_gio_bat_dau);
+  const timingInfo = getSessionTimingInfo(cancellingAppt);
 
   return (
     <AnimatePresence>
@@ -65,11 +90,15 @@ export function CancelAppointmentModal({
               Xác nhận Hủy Lịch Hẹn
             </h3>
 
-            {remainingTime && (
-              <div className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-800 font-extrabold text-xs px-3.5 py-1.5 rounded-full border border-amber-200/80">
-                <span>⏱️ Lịch hẹn còn</span>
-                <span className="text-rose-600 font-black">{remainingTime}</span>
-                <span>nữa mới bắt đầu</span>
+            {timingInfo && (
+              <div className={`inline-flex items-center gap-1.5 font-extrabold text-xs px-3.5 py-1.5 rounded-full border ${
+                timingInfo.type === 'current'
+                  ? 'bg-teal-50 text-teal-800 border-teal-200/80'
+                  : timingInfo.type === 'past'
+                  ? 'bg-rose-50 text-rose-800 border-rose-200/80'
+                  : 'bg-amber-50 text-amber-800 border-amber-200/80'
+              }`}>
+                <span>{timingInfo.badge}</span>
               </div>
             )}
           </div>

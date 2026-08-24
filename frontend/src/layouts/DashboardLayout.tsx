@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
+import api from '../api/axios';
 import {
   Calendar,
   Settings,
@@ -25,9 +26,20 @@ function DefaultAvatar() {
 }
 
 export default function DashboardLayout() {
-  const { user, logout } = useAuthStore();
+  const { user, logout, updateUser } = useAuthStore();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Sync profile on mount
+  useEffect(() => {
+    if (user?.id) {
+      api.get('/auth/me')
+        .then(res => {
+          if (res.data) updateUser(res.data);
+        })
+        .catch(() => {});
+    }
+  }, [user?.id, updateUser]);
 
   const handleLogout = () => {
     logout();

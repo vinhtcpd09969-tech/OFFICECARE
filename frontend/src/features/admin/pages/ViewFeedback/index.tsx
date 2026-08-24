@@ -133,9 +133,9 @@ export default function ViewFeedback() {
           setReplyText(result.draftReply || '');
         }
       }
-      toast.success('AI đã phân tích cảm xúc & gợi ý câu trả lời.');
+      toast.success('Đã phân tích cảm xúc & gợi ý câu trả lời.');
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'AI không thể phân tích đánh giá lúc này.');
+      toast.error(error.response?.data?.message || 'Không thể phân tích đánh giá lúc này.');
     } finally {
       setAnalyzingId(null);
     }
@@ -149,7 +149,7 @@ export default function ViewFeedback() {
       const result = res.data.data as AnalyzeResult;
       applyAnalysisResult(f.id, result);
       setReplyText(result.draftReply || '');
-      toast.success('AI đã soạn thảo một mẫu phản hồi mới!');
+      toast.success('Đã soạn thảo một mẫu phản hồi mới!');
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Không thể tạo phản hồi mới lúc này.');
     } finally {
@@ -168,7 +168,7 @@ export default function ViewFeedback() {
       message: (
         <div className="space-y-2 text-left">
           <p>
-            Bạn có chắc chắn muốn gửi ngay <b>{ready.length}</b> câu trả lời do AI soạn thảo cho khách hàng?
+            Bạn có chắc chắn muốn gửi ngay <b>{ready.length}</b> câu trả lời gợi ý cho khách hàng?
           </p>
           <p className="text-xs text-slate-500 font-medium">
             Hành động này sẽ cập nhật trực tiếp nội dung phản hồi chính thức từ phòng khám.
@@ -432,7 +432,7 @@ export default function ViewFeedback() {
           />
 
           <FilterSelect
-            label="Cảm xúc AI"
+            label="Cảm xúc"
             value={selectedSentiment}
             options={[
               { value: 'Tất cả', label: 'Tất cả cảm xúc' },

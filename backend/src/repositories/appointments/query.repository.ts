@@ -549,7 +549,7 @@ export class AppointmentQueryRepository {
         pd.han_su_dung,
         pd.trang_thai as trang_thai_phac_do,
         COALESCE(gdv.loai_goi, dv.loai_goi) as loai_goi,
-        COALESCE(gdv.ten_goi, dv.ten_goi, 'Phí khám lâm sàng & Lượng giá') as ten_dich_vu,
+        COALESCE(gdv.ten_goi, dv.ten_goi, 'Buổi Lượng giá chức năng') as ten_dich_vu,
         CASE
           WHEN hd.hinh_thuc_thanh_toan_goi = 'tung_buoi' AND EXISTS (
             SELECT 1 FROM hoa_don exam_hd

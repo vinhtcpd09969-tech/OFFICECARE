@@ -18,7 +18,7 @@ const STATUS_META: Record<string, { label: string; cls: string }> = {
 const TYPE_META: Record<string, { label: string; icon: typeof Package }> = {
   LIEU_TRINH: { label: 'Gói liệu trình', icon: Package },
   LE: { label: 'Dịch vụ lẻ', icon: Wrench },
-  KHAM: { label: 'Khám lâm sàng', icon: Stethoscope },
+  KHAM: { label: 'Buổi Lượng giá', icon: Stethoscope },
 };
 
 export function InvoiceCard({ invoice, onOpen }: InvoiceCardProps) {
@@ -53,7 +53,7 @@ export function InvoiceCard({ invoice, onOpen }: InvoiceCardProps) {
           </div>
 
           <h4 className="text-sm font-extrabold text-slate-800 truncate group-hover:text-[#0D9488] transition-colors">
-            {invoice.ten_dich_vu || 'Phí khám lâm sàng/Buổi lẻ'}
+            {invoice.ten_dich_vu || 'Buổi Lượng giá / Dịch vụ lẻ'}
           </h4>
         </div>
       </div>

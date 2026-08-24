@@ -52,11 +52,11 @@ describe('Ví dụ tính ngân sách trong kế hoạch — buổi sáng 2 nhân
     expect(tinhNganSachChung(danhSach, 'sang')).toBe(330);
   });
 
-  it('bật so_khach_song_song = 2 cho KTV -> ngân sách GẤP ĐÔI, không giữ nguyên', () => {
+  it('ngân sách tính 1:1 theo thời lượng ca trực thực tế (270 phút cho ca sáng 7h-16h)', () => {
     const mot: NhanSuTrucCa = { nhanSuId: 1, gioBatDau: '07:00', gioKetThuc: '16:00', soKhachSongSong: 1 };
     const hai: NhanSuTrucCa = { nhanSuId: 1, gioBatDau: '07:00', gioKetThuc: '16:00', soKhachSongSong: 2 };
     expect(tinhNganSachRieng(mot, 'sang')).toBe(270);
-    expect(tinhNganSachRieng(hai, 'sang')).toBe(540);
+    expect(tinhNganSachRieng(hai, 'sang')).toBe(270);
   });
 });
 

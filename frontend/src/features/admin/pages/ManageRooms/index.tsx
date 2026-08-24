@@ -9,6 +9,7 @@ import api from '../../../../api/axios';
 // Local subcomponents & types
 import { RoomCard, Room } from './RoomCard';
 import { RoomFormModal } from './RoomFormModal';
+import { CustomSelect } from '../../../../components/CustomSelect';
 
 const ALL_ROOM_TYPES = [
   { value: 'phong_tri_lieu', label: 'Phòng trị liệu' },
@@ -234,7 +235,7 @@ export default function ManageRooms() {
       </div>
 
       {/* Filters & Action Toolbar */}
-      <div className="bg-slate-50/80 dark:bg-zinc-900 backdrop-blur-md border border-slate-200/60 dark:border-zinc-800 p-4 rounded-2xl flex flex-col md:flex-row gap-3 items-center justify-between">
+      <div className="relative z-20 bg-slate-50/80 dark:bg-zinc-900 backdrop-blur-md border border-slate-200/60 dark:border-zinc-800 p-4 rounded-2xl flex flex-col md:flex-row gap-3 items-center justify-between">
         {/* Search */}
         <div className="relative flex-1 w-full">
           <span className="absolute inset-y-0 left-3.5 flex items-center text-slate-400 dark:text-zinc-400">
@@ -250,16 +251,17 @@ export default function ManageRooms() {
         </div>
 
         {/* Room Type Filter */}
-        <div className="w-full md:w-56">
-          <select 
+        <div className="w-full md:w-64">
+          <CustomSelect
             value={selectedType}
-            onChange={(e) => setSelectedType(e.target.value)}
-            className="w-full py-2.5 px-3 border border-slate-200/80 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 text-xs font-bold rounded-xl focus:outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 transition-all cursor-pointer"
-          >
-            <option value="all">TẤT CẢ LOẠI PHÒNG</option>
-            <option value="phong_tri_lieu">PHÒNG TRỊ LIỆU</option>
-            <option value="phong_kham">PHÒNG LƯỢNG GIÁ CHỨC NĂNG</option>
-          </select>
+            onChange={setSelectedType}
+            options={[
+              { value: 'all', label: 'TẤT CẢ LOẠI PHÒNG' },
+              { value: 'phong_tri_lieu', label: 'PHÒNG TRỊ LIỆU', icon: '💆' },
+              { value: 'phong_kham', label: 'PHÒNG LƯỢNG GIÁ CHỨC NĂNG', icon: '🩺' },
+            ]}
+            fullWidth
+          />
         </div>
 
         {/* Create Room Button */}

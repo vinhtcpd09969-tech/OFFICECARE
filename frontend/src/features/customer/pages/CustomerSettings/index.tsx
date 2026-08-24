@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuthStore, useAuthActions } from '../../../../stores/authStore';
 import { ConfirmDialog } from '../../../../components/ConfirmDialog';
+import { CustomDatePicker } from '../../../../components/CustomDatePicker';
 import {
   updateProfile,
   changePassword,
@@ -291,15 +292,18 @@ export default function CustomerSettings() {
   }, [anhDaiDien, hoTen]);
 
   // Dirty check: Chỉ sáng nút lưu khi thông tin cá nhân thực sự thay đổi
+  // Dirty check: Chỉ sáng nút lưu khi thông tin cá nhân thực sự thay đổi
   const isProfileDirty = useMemo(() => {
     if (!user) return false;
     const userBirth = user.ngay_sinh ? new Date(user.ngay_sinh).toISOString().split('T')[0] : '';
     const baseDirty = (
       hoTen.trim() !== (user.ho_ten || '').trim() ||
       soDienThoai.trim() !== (user.so_dien_thoai || '').trim() ||
-      gioiTinh !== (user.gioi_tinh || 'nam') ||
-      diaChi.trim() !== (user.dia_chi || '').trim() ||
-      ngaySinh !== userBirth ||
+      (isCustomer && (
+        gioiTinh !== (user.gioi_tinh || 'nam') ||
+        diaChi.trim() !== (user.dia_chi || '').trim() ||
+        ngaySinh !== userBirth
+      )) ||
       (!isCustomer && anhDaiDien !== (user.anh_dai_dien || ''))
     );
     if (baseDirty) return true;
@@ -326,7 +330,7 @@ export default function CustomerSettings() {
       if (expertDirty) return true;
     }
     return false;
-  }, [user, hoTen, soDienThoai, gioiTinh, diaChi, ngaySinh, anhDaiDien, isExpert, soNamKinhNghiem, moTa, bangCapChungChi, anhChungChiList, theManh]);
+  }, [user, hoTen, soDienThoai, gioiTinh, diaChi, ngaySinh, anhDaiDien, isCustomer, isExpert, soNamKinhNghiem, moTa, bangCapChungChi, anhChungChiList, theManh]);
 
   const handleSaveGeneral = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -361,12 +365,13 @@ export default function CustomerSettings() {
       const payload: any = {
         ho_ten: hoTen,
         so_dien_thoai: soDienThoai,
-        gioi_tinh: gioiTinh,
-        dia_chi: diaChi,
-        ngay_sinh: ngaySinh || null
       };
 
-      if (!isCustomer) {
+      if (isCustomer) {
+        payload.gioi_tinh = gioiTinh;
+        payload.dia_chi = diaChi;
+        payload.ngay_sinh = ngaySinh || null;
+      } else {
         payload.anh_dai_dien = anhDaiDien || null;
       }
 
@@ -380,39 +385,44 @@ export default function CustomerSettings() {
       await updateProfile(payload);
       
       // Cập nhật client state
-      updateUser({
+      const updateData: any = {
         ho_ten: hoTen,
         so_dien_thoai: soDienThoai,
-        anh_dai_dien: anhDaiDien || null,
-        gioi_tinh: gioiTinh,
-        dia_chi: diaChi,
-        ngay_sinh: ngaySinh || null,
+        anh_dai_dien: !isCustomer ? (anhDaiDien || null) : user?.anh_dai_dien,
         ho_so_chuyen_gia: isExpert ? {
           so_nam_kinh_nghiem: soNamKinhNghiem,
           bang_cap_chung_chi: certValue,
           mo_ta: moTa,
           the_manh: theManh
         } : null
-      });
+      };
+
+      if (isCustomer) {
+        updateData.gioi_tinh = gioiTinh;
+        updateData.dia_chi = diaChi;
+        updateData.ngay_sinh = ngaySinh || null;
+      }
+
+      updateUser(updateData);
 
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 3000);
       toast.success('Cập nhật thông tin tài khoản thành công!');
-    } catch (error: any) {
-      console.error('Lỗi khi lưu thông tin:', error);
-      toast.error(error.response?.data?.message || error.message || 'Đã có lỗi xảy ra khi lưu thông tin.');
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.message || err.message || 'Lỗi khi cập nhật thông tin.');
     } finally {
       setLoading(false);
     }
   };
 
   const getRoleBadge = (roleId?: number) => {
-    if (roleId === 4) return 'Chuyên viên Vật lý trị liệu';
-    if (roleId === 3) return 'Kỹ thuật viên Phục hồi';
-    if (roleId === 2) return 'Lễ tân trung tâm';
-    if (roleId === 6) return 'Quản lý trung tâm';
-    if (roleId === 5) return 'Quản trị viên hệ thống';
-    return 'Khách hàng thành viên';
+    if (roleId === 4) return 'Chuyên viên tư vấn';
+    if (roleId === 3) return 'Kỹ thuật viên';
+    if (roleId === 2) return 'Lễ tân';
+    if (roleId === 6) return 'Quản lý';
+    if (roleId === 5) return 'Quản trị viên';
+    return 'Khách hàng';
   };
 
   return (
@@ -545,46 +555,56 @@ export default function CustomerSettings() {
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">
-                        Giới tính
-                      </label>
-                      <select
-                        value={gioiTinh}
-                        onChange={(e) => setGioiTinh(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 p-2.5 rounded-xl text-xs font-bold text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-colors cursor-pointer"
-                      >
-                        <option value="nam">Nam</option>
-                        <option value="nu">Nữ</option>
-                        <option value="khac">Khác</option>
-                      </select>
-                    </div>
+                    {isCustomer && (
+                      <>
+                        <div>
+                          <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">
+                            Giới tính
+                          </label>
+                          <select
+                            value={gioiTinh}
+                            onChange={(e) => setGioiTinh(e.target.value)}
+                            className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 p-2.5 rounded-xl text-xs font-bold text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-colors cursor-pointer"
+                          >
+                            <option value="nam">Nam</option>
+                            <option value="nu">Nữ</option>
+                            <option value="khac">Khác</option>
+                          </select>
+                        </div>
 
+                        <div>
+                          <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">
+                            Ngày sinh
+                          </label>
+                          <CustomDatePicker
+                            value={ngaySinh}
+                            onChange={(val) => setNgaySinh(val)}
+                            placeholder="dd/mm/yyyy"
+                            maxDate={new Date().toISOString().split('T')[0]}
+                            align="right"
+                            showPresets={false}
+                            className="w-full"
+                            buttonClassName="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 py-2.5 px-3 rounded-xl text-xs font-bold text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-colors"
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {isCustomer && (
                     <div>
                       <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">
-                        Ngày sinh
+                        Địa chỉ
                       </label>
                       <input
-                        type="date"
-                        value={ngaySinh}
-                        onChange={(e) => setNgaySinh(e.target.value)}
+                        type="text"
+                        value={diaChi}
+                        onChange={(e) => setDiaChi(e.target.value)}
+                        placeholder="Địa chỉ cư trú hiện tại..."
                         className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 p-2.5 rounded-xl text-xs font-bold text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-colors"
                       />
                     </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">
-                      Địa chỉ
-                    </label>
-                    <input
-                      type="text"
-                      value={diaChi}
-                      onChange={(e) => setDiaChi(e.target.value)}
-                      placeholder="Địa chỉ cư trú hiện tại..."
-                      className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 p-2.5 rounded-xl text-xs font-bold text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-colors"
-                    />
-                  </div>
+                  )}
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>

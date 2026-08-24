@@ -17,6 +17,7 @@ import {
 } from '../../api/admin.api';
 import { format } from 'date-fns';
 import api from '../../../../api/axios';
+import { CustomSelect } from '../../../../components/CustomSelect';
 
 interface Equipment {
   id: string;
@@ -398,7 +399,7 @@ export default function ManageEquipment() {
       </div>
 
       {/* Filters and Action Toolbar */}
-      <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4">
+      <div className="relative z-20 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
             <div className="relative w-full sm:w-64">
@@ -412,17 +413,18 @@ export default function ManageEquipment() {
               />
             </div>
 
-            <div className="w-full sm:w-48">
-              <select
+            <div className="w-full sm:w-52">
+              <CustomSelect
                 value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 p-2.5 text-xs font-bold rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500/10 cursor-pointer"
-              >
-                <option value="all">Tất cả trạng thái</option>
-                <option value="san_sang">🟢 Sẵn sàng</option>
-                <option value="dang_bao_tri">🛠️ Đang bảo trì</option>
-                <option value="ngung_su_dung">🚫 Ngưng sử dụng</option>
-              </select>
+                onChange={setSelectedStatus}
+                options={[
+                  { value: 'all', label: 'Tất cả trạng thái' },
+                  { value: 'san_sang', label: 'Sẵn sàng', icon: '🟢' },
+                  { value: 'dang_bao_tri', label: 'Đang bảo trì', icon: '🛠️' },
+                  { value: 'ngung_su_dung', label: 'Ngưng sử dụng', icon: '🚫' },
+                ]}
+                fullWidth
+              />
             </div>
           </div>
 

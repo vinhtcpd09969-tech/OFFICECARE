@@ -12,10 +12,12 @@ import { toast } from 'react-hot-toast';
 // Import subcomponents
 import { StatCard } from '../../components/StatCard';
 import { CustomDatePicker } from '../../../../components/CustomDatePicker';
+import { CustomSelect, CustomSelectOption } from '../../../../components/CustomSelect';
 import { RevenueChart } from './RevenueChart';
 import { TopPackagesChart } from './TopPackagesChart';
 import { TopVipCustomers } from './TopVipCustomers';
 import { StaffPerformanceGrid } from './StaffPerformanceGrid';
+import { ExportReportModal } from './ExportReportModal';
 
 const getLocalFormattedDate = (date: Date) => {
   const y = date.getFullYear();
@@ -59,6 +61,7 @@ export default function AdminDashboard() {
 
   const [isClient, setIsClient] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   // Bộ lọc thời gian DUY NHẤT cho cả trang — 3 chế độ Ngày/Tháng/Năm, mỗi chế độ chọn mốc bắt đầu
   // Bộ lọc thời gian DUY NHẤT cho cả trang — Mặc định khi mới tải trang là 7 ngày gần nhất (chế độ Ngày)
@@ -131,6 +134,31 @@ export default function AdminDashboard() {
 
   const filteredEndYearsForMonth = useMemo(() => years.filter((y) => y >= monthStartYear), [monthStartYear, years]);
   const filteredEndYearsOnly = useMemo(() => years.filter((y) => y >= yearStartVal), [yearStartVal, years]);
+
+  const monthOptions: CustomSelectOption[] = useMemo(() => months.map((m) => ({
+    value: m,
+    label: `Tháng ${m}`
+  })), [months]);
+
+  const yearOptions: CustomSelectOption[] = useMemo(() => years.map((y) => ({
+    value: y,
+    label: `${y}`
+  })), [years]);
+
+  const filteredEndMonthOptions: CustomSelectOption[] = useMemo(() => filteredEndMonths.map((m) => ({
+    value: m,
+    label: `Tháng ${m}`
+  })), [filteredEndMonths]);
+
+  const filteredEndYearsForMonthOptions: CustomSelectOption[] = useMemo(() => filteredEndYearsForMonth.map((y) => ({
+    value: y,
+    label: `${y}`
+  })), [filteredEndYearsForMonth]);
+
+  const filteredEndYearsOnlyOptions: CustomSelectOption[] = useMemo(() => filteredEndYearsOnly.map((y) => ({
+    value: y,
+    label: `${y}`
+  })), [filteredEndYearsOnly]);
 
   // Suy ra {startDate, endDate, bucket, label} duy nhất từ chế độ đang chọn — nguồn chung cho cả
   // 3 thẻ KPI lẫn biểu đồ doanh thu bên dưới.
@@ -302,58 +330,58 @@ export default function AdminDashboard() {
             )}
 
             {filterMode === 'month' && (
-              <div className="flex items-center gap-1.5 shrink-0">
-                <select
+              <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                <CustomSelect
                   value={monthStartVal}
-                  onChange={(e) => setMonthStartVal(Number(e.target.value))}
-                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl px-2.5 py-1.5 font-semibold text-xs cursor-pointer focus:outline-none hover:border-slate-300 dark:hover:border-slate-600 h-9"
-                >
-                  {months.map((m) => <option key={m} value={m}>Tháng {m}</option>)}
-                </select>
-                <select
+                  onChange={(val) => setMonthStartVal(Number(val))}
+                  options={monthOptions}
+                  buttonClassName="!h-9 !py-1 !px-3 !rounded-xl !text-xs !bg-slate-50 dark:!bg-slate-800 !border-slate-200 dark:!border-slate-700 font-bold min-w-[95px]"
+                  menuClassName="!min-w-[120px] max-h-56"
+                />
+                <CustomSelect
                   value={monthStartYear}
-                  onChange={(e) => setMonthStartYear(Number(e.target.value))}
-                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl px-2.5 py-1.5 font-semibold text-xs cursor-pointer focus:outline-none hover:border-slate-300 dark:hover:border-slate-600 h-9"
-                >
-                  {years.map((y) => <option key={y} value={y}>{y}</option>)}
-                </select>
+                  onChange={(val) => setMonthStartYear(Number(val))}
+                  options={yearOptions}
+                  buttonClassName="!h-9 !py-1 !px-3 !rounded-xl !text-xs !bg-slate-50 dark:!bg-slate-800 !border-slate-200 dark:!border-slate-700 font-bold min-w-[80px]"
+                  menuClassName="!min-w-[100px] max-h-56"
+                />
 
-                <span className="text-slate-400 font-medium text-xs">đến</span>
+                <span className="text-slate-400 font-medium text-xs px-0.5">đến</span>
 
-                <select
+                <CustomSelect
                   value={monthEndVal}
-                  onChange={(e) => setMonthEndVal(Number(e.target.value))}
-                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl px-2.5 py-1.5 font-semibold text-xs cursor-pointer focus:outline-none hover:border-slate-300 dark:hover:border-slate-600 h-9"
-                >
-                  {filteredEndMonths.map((m) => <option key={m} value={m}>Tháng {m}</option>)}
-                </select>
-                <select
+                  onChange={(val) => setMonthEndVal(Number(val))}
+                  options={filteredEndMonthOptions}
+                  buttonClassName="!h-9 !py-1 !px-3 !rounded-xl !text-xs !bg-slate-50 dark:!bg-slate-800 !border-slate-200 dark:!border-slate-700 font-bold min-w-[95px]"
+                  menuClassName="!min-w-[120px] max-h-56"
+                />
+                <CustomSelect
                   value={monthEndYear}
-                  onChange={(e) => setMonthEndYear(Number(e.target.value))}
-                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl px-2.5 py-1.5 font-semibold text-xs cursor-pointer focus:outline-none hover:border-slate-300 dark:hover:border-slate-600 h-9"
-                >
-                  {filteredEndYearsForMonth.map((y) => <option key={y} value={y}>{y}</option>)}
-                </select>
+                  onChange={(val) => setMonthEndYear(Number(val))}
+                  options={filteredEndYearsForMonthOptions}
+                  buttonClassName="!h-9 !py-1 !px-3 !rounded-xl !text-xs !bg-slate-50 dark:!bg-slate-800 !border-slate-200 dark:!border-slate-700 font-bold min-w-[80px]"
+                  menuClassName="!min-w-[100px] max-h-56"
+                />
               </div>
             )}
 
             {filterMode === 'year' && (
-              <div className="flex items-center gap-1.5 shrink-0">
-                <select
+              <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                <CustomSelect
                   value={yearStartVal}
-                  onChange={(e) => setYearStartVal(Number(e.target.value))}
-                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl px-2.5 py-1.5 font-semibold text-xs cursor-pointer focus:outline-none hover:border-slate-300 dark:hover:border-slate-600 h-9"
-                >
-                  {years.map((y) => <option key={y} value={y}>{y}</option>)}
-                </select>
-                <span className="text-slate-400 font-medium text-xs">đến</span>
-                <select
+                  onChange={(val) => setYearStartVal(Number(val))}
+                  options={yearOptions}
+                  buttonClassName="!h-9 !py-1 !px-3 !rounded-xl !text-xs !bg-slate-50 dark:!bg-slate-800 !border-slate-200 dark:!border-slate-700 font-bold min-w-[85px]"
+                  menuClassName="!min-w-[100px] max-h-56"
+                />
+                <span className="text-slate-400 font-medium text-xs px-0.5">đến</span>
+                <CustomSelect
                   value={yearEndVal}
-                  onChange={(e) => setYearEndVal(Number(e.target.value))}
-                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl px-2.5 py-1.5 font-semibold text-xs cursor-pointer focus:outline-none hover:border-slate-300 dark:hover:border-slate-600 h-9"
-                >
-                  {filteredEndYearsOnly.map((y) => <option key={y} value={y}>{y}</option>)}
-                </select>
+                  onChange={(val) => setYearEndVal(Number(val))}
+                  options={filteredEndYearsOnlyOptions}
+                  buttonClassName="!h-9 !py-1 !px-3 !rounded-xl !text-xs !bg-slate-50 dark:!bg-slate-800 !border-slate-200 dark:!border-slate-700 font-bold min-w-[85px]"
+                  menuClassName="!min-w-[100px] max-h-56"
+                />
               </div>
             )}
 
@@ -369,7 +397,7 @@ export default function AdminDashboard() {
 
             {/* Export PDF Button */}
             <button
-              onClick={() => toast.success('Đang khởi tạo báo cáo PDF...')}
+              onClick={() => setIsExportModalOpen(true)}
               className="flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs px-3.5 h-9 rounded-xl shadow-xs transition-all cursor-pointer shrink-0 active:scale-95"
             >
               <FileDown size={14} />
@@ -432,6 +460,16 @@ export default function AdminDashboard() {
         <TopVipCustomers />
         <StaffPerformanceGrid performanceData={performanceData} />
       </div>
+
+      {/* Modal Xuất Báo Cáo Tổng Quan PDF */}
+      <ExportReportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        periodLabel={rangeInfo.label}
+        rangeInfo={rangeInfo}
+        stats={stats}
+        performanceData={performanceData}
+      />
     </div>
   );
 }

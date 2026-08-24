@@ -11,7 +11,7 @@ type TypeFilter = 'all' | 'LIEU_TRINH' | 'other';
 const FILTERS: { key: TypeFilter; label: string }[] = [
   { key: 'all', label: 'Tất cả' },
   { key: 'LIEU_TRINH', label: 'Gói liệu trình' },
-  { key: 'other', label: 'Gói khám và gói dịch vụ đơn lẻ' },
+  { key: 'other', label: 'Buổi Lượng giá & Dịch vụ lẻ' },
 ];
 
 export default function CustomerInvoices() {
@@ -63,7 +63,7 @@ export default function CustomerInvoices() {
           <div>
             <h1 className="text-xl font-black text-slate-800 font-heading">Hóa đơn của tôi</h1>
             <p className="text-xs text-slate-500 font-medium leading-relaxed mt-0.5">
-              Toàn bộ hóa đơn khám, dịch vụ lẻ và gói liệu trình đã phát sinh tại Office Care.
+              Toàn bộ hóa đơn lượng giá, dịch vụ lẻ và gói liệu trình đã phát sinh tại OfficeCare.
             </p>
           </div>
         </div>

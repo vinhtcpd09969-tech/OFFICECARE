@@ -36,7 +36,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
   const [isRefundPanelOpen, setIsRefundPanelOpen] = useState(false);
   const usedSessions = invoice.so_buoi_da_dung || 0;
   const penaltyPercent = 10;
-  const [refundReason, setRefundReason] = useState<string>('Hủy gói theo yêu cầu của bệnh nhân');
+  const [refundReason, setRefundReason] = useState<string>('Hủy gói theo yêu cầu của khách hàng');
   const [submittingRefund, setSubmittingRefund] = useState(false);
   const [showConfirmCancelModal, setShowConfirmCancelModal] = useState(false);
   const [selectedTxId, setSelectedTxId] = useState<string | null>(null);
@@ -156,7 +156,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
             </span>
             <div>
               <h2 className="text-base font-black text-secondary dark:text-zinc-100 flex items-center gap-2">
-                Chi tiết Hóa đơn y khoa {invoice.ma_hoa_don}
+                Chi tiết Hóa đơn {invoice.ma_hoa_don}
               </h2>
               <p className="text-[10px] text-zinc-400 dark:text-zinc-400 font-bold uppercase tracking-wide">
                 Khởi tạo ngày: {new Date(invoice.ngay_tao).toLocaleString('vi-VN')}
@@ -649,7 +649,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                             </div>
 
                             <div className="flex justify-between items-center px-4 py-2.5 border-t border-slate-100 dark:border-zinc-800 bg-white dark:bg-zinc-900">
-                              <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400">Phòng khám giữ lại</span>
+                              <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400">Trung tâm giữ lại</span>
                               <span className="text-secondary dark:text-zinc-100 font-black text-xs tabular-nums">{formatCurrency(keptRevenue)}</span>
                             </div>
                           </div>
@@ -664,7 +664,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                                 {shortfall > 0 ? 'vượt quá' : 'dùng hết'} số tiền khách đóng ({formatCurrency(totalPaid)})
                                 {shortfall > 0 ? ` — vượt ${formatCurrency(shortfall)}` : ''}. Khách đã dùng{' '}
                                 {usedSessions}/{totalSessions} buổi của gói nên không thể hoàn tiền.
-                                {shortfall > 0 && ' Phòng khám KHÔNG truy thu thêm phần vượt này.'}
+                                {shortfall > 0 && ' Trung tâm KHÔNG truy thu thêm phần vượt này.'}
                               </p>
                             </div>
                           )}

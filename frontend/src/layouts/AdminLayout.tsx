@@ -5,6 +5,7 @@ import api from '../api/axios';
 import toast from 'react-hot-toast';
 import { MascotWidget } from './MascotWidget';
 import { isAwaitingPaymentForList } from '../utils/billing';
+import { resolveImageUrl } from '../utils/imageUrl';
 import { 
   LayoutDashboard, 
   Calendar, 
@@ -32,8 +33,22 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const logout = useAuthStore(state => state.logout);
   const user = useAuthStore(state => state.user);
+  const updateUser = useAuthStore(state => state.updateUser);
   
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
+
+  // Luôn nạp thông tin user mới nhất từ database ngay khi vào trang quản trị
+  useEffect(() => {
+    if (user?.id) {
+      api.get('/auth/me')
+        .then(res => {
+          if (res.data) {
+            updateUser(res.data);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [user?.id, updateUser]);
 
   // State và Effect cho thông báo ca đã check-in đang chờ gọi vào (Alarm & Bouncing notification)
   const [pendingAppointmentsCount, setPendingAppointmentsCount] = useState<number>(0);
@@ -519,6 +534,10 @@ export default function AdminLayout() {
   );
   const currentItem = allItems.find(item => isItemActive(item.path, item.name));
 
+  const avatarSrc = (user?.anh_dai_dien || user?.avatar_url)
+    ? resolveImageUrl(user.anh_dai_dien || user.avatar_url!)
+    : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user?.ho_ten || 'Staff')}&backgroundType=gradientLinear&fontSize=45`;
+
   return (
     <div className="h-screen overflow-hidden bg-background dark:bg-zinc-950 flex font-body text-secondary dark:text-zinc-100 transition-colors duration-300">
       {/* Sidebar - Soft UI Light & Dark Theme */}
@@ -618,13 +637,16 @@ export default function AdminLayout() {
         <div className="p-4 border-t border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 transition-colors duration-300 shrink-0">
           <div className="flex items-center gap-3 mb-3.5">
             <img 
-              src={user?.anh_dai_dien || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user?.ho_ten || 'Staff')}&backgroundType=gradientLinear&fontSize=45`} 
+              src={avatarSrc} 
               alt="Avatar" 
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user?.ho_ten || 'Staff')}&backgroundType=gradientLinear&fontSize=45`;
+              }}
               className="size-9 rounded-full object-cover border border-teal-500/20 shadow-xs shrink-0" 
             />
             <div className="flex-1 min-w-0">
               <p className="text-xs font-black text-slate-900 dark:text-zinc-100 truncate">{user?.ho_ten || user?.email || 'admin@officecare.com'}</p>
-              <p className="text-[9px] text-slate-400 dark:text-zinc-550 font-extrabold uppercase tracking-wider mt-0.5">
+              <p className="text-[9px] text-slate-400 dark:text-zinc-555 font-extrabold uppercase tracking-wider mt-0.5">
                 {user?.vai_tro_id === 4 ? 'Chuyên viên tư vấn' : user?.vai_tro_id === 3 ? 'Kỹ thuật viên' : user?.vai_tro_id === 2 ? 'Lễ tân' : user?.vai_tro_id === 6 ? 'Quản lý' : 'Quản trị viên'}
               </p>
             </div>
@@ -680,8 +702,11 @@ export default function AdminLayout() {
                 </p>
               </div>
               <img 
-                src={user?.anh_dai_dien || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user?.ho_ten || 'Staff')}&backgroundType=gradientLinear&fontSize=45`}
+                src={avatarSrc}
                 alt="Admin Avatar"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user?.ho_ten || 'Staff')}&backgroundType=gradientLinear&fontSize=45`;
+                }}
                 className="w-9 h-9 rounded-full object-cover border border-primary/20 shadow-sm"
               />
             </div>

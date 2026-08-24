@@ -128,7 +128,7 @@ export function CompletedSingleVisitTable({
               </th>
               <th className="p-3.5 sm:p-4">Thời gian</th>
               <th className="p-3.5 sm:p-4">
-                {isKham ? 'Chuyên viên VLTL' : isDichVuLe ? 'Kỹ thuật viên' : 'Chuyên viên / KTV'}
+                {isKham ? 'Chuyên viên tư vấn' : isDichVuLe ? 'Kỹ thuật viên' : 'Chuyên viên / KTV'}
               </th>
               <th className="p-3.5 sm:p-4 text-right">Phân loại</th>
             </tr>

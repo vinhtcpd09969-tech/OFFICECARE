@@ -160,7 +160,7 @@ export function AppointmentKpiCards({
   };
 
   const cardKeys: Array<'total' | FilterableBucketKey> = isStaff
-    ? ['total', 'daXacNhan', 'daCheckin', 'dangKham', 'choTaiLuongGia', 'hoanThanh', 'khongDen']
+    ? ['daXacNhan', 'daCheckin', 'hoanThanh', 'khongDen']
     : ['hoanThanh', 'daXacNhan', 'daHuy', 'khongDen'];
 
   const stats = cardKeys.map((key) => allCards[key]);
