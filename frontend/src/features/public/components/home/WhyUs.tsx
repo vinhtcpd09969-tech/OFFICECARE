@@ -4,8 +4,8 @@ import ScrollReveal from '../effects/ScrollReveal';
 const FEATURES = [
   {
     icon: Stethoscope,
-    title: 'Khám 1:1 cùng Bác sĩ CKI',
-    desc: 'Lượng giá biên độ khớp và siêu âm chẩn đoán vị trí tổn thương chính xác trước khi lên phác đồ.',
+    title: 'Lượng giá 1:1 cùng Chuyên viên PHCN',
+    desc: 'Lượng giá biên độ khớp (ROM), cơ lực (MMT) và thang đau VAS chính xác trước khi lên kế hoạch trị liệu.',
     tag: 'Chuyên môn cao'
   },
   {
@@ -23,7 +23,7 @@ const FEATURES = [
   {
     icon: HeartPulse,
     title: 'Phác đồ cá nhân hóa 100%',
-    desc: 'Thiết kế riêng theo tính chất công việc văn phòng, ngưỡng chịu đau và thể trạng của từng bệnh nhân.',
+    desc: 'Thiết kế riêng theo tính chất công việc văn phòng, ngưỡng chịu đau và thể trạng của từng khách hàng.',
     tag: 'Chuẩn y khoa'
   }
 ];

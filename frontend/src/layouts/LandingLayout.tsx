@@ -269,7 +269,7 @@ export default function LandingLayout() {
             Gói Trị Liệu
           </Link>
           <Link to="/specialists" className="text-base font-jakarta font-extrabold py-3 border-b border-slate-100 text-slate-800" onClick={() => setIsMobileMenuOpen(false)}>
-            Đội Ngũ Bác Sĩ
+            Đội Ngũ Chuyên Viên
           </Link>
           <Link to="/tin-tuc" className="text-base font-jakarta font-extrabold py-3 border-b border-slate-100 text-slate-800" onClick={() => setIsMobileMenuOpen(false)}>
             Kiến Thức Y Khoa
@@ -337,7 +337,7 @@ export default function LandingLayout() {
                 </div>
               </Link>
               <p className="text-slate-600 text-xs leading-relaxed font-semibold">
-                Giải pháp phục hồi chức năng cơ xương khớp & cột sống văn phòng chuyên sâu. Kết hợp công nghệ trị liệu Châu Âu và phác đồ cá nhân hóa 1:1 từ Bác sĩ chuyên khoa.
+                Giải pháp phục hồi chức năng cơ xương khớp & cột sống văn phòng chuyên sâu. Kết hợp công nghệ trị liệu Châu Âu và phác đồ cá nhân hóa 1:1 từ Chuyên viên tư vấn.
               </p>
               <div className="flex flex-wrap gap-2 pt-1">
                 <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-50/80 border border-teal-200/80 text-[#0D9488] text-[10px] font-black shadow-2xs">
@@ -355,7 +355,7 @@ export default function LandingLayout() {
               <ul className="space-y-2.5 text-slate-600 font-bold text-xs">
                 <li>
                   <Link to="/services" className="hover:text-[#0D9488] transition-colors inline-flex items-center gap-1 group">
-                    <span className="group-hover:translate-x-1 transition-transform">Khám Lâm Sàng 1:1</span>
+                    <span className="group-hover:translate-x-1 transition-transform">Lượng Giá Chức Năng 1:1</span>
                   </Link>
                 </li>
                 <li>
@@ -382,7 +382,7 @@ export default function LandingLayout() {
               <ul className="space-y-2.5 text-slate-600 font-bold text-xs">
                 <li>
                   <Link to="/gioi-thieu" className="hover:text-[#0D9488] transition-colors inline-flex items-center gap-1 group">
-                    <span className="group-hover:translate-x-1 transition-transform">Giới thiệu phòng khám</span>
+                    <span className="group-hover:translate-x-1 transition-transform">Giới thiệu trung tâm</span>
                   </Link>
                 </li>
                 <li>
@@ -417,7 +417,7 @@ export default function LandingLayout() {
                   className="inline-flex items-center gap-1.5 bg-[#0D9488] hover:bg-[#0b7a70] text-white text-xs font-jakarta font-extrabold px-4 py-2 rounded-2xl shadow-sm hover:shadow transition-all cursor-pointer shrink-0"
                 >
                   <Calendar size={14} />
-                  <span>Đặt lịch khám</span>
+                  <span>Đặt lịch lượng giá</span>
                 </Link>
               </div>
 

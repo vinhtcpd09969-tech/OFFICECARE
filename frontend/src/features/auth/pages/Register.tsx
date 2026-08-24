@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useRegisterState } from '../hooks/useRegisterState';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import AuthVisualPanel from '../components/AuthVisualPanel';
-import { TERMS_OF_SERVICE, TERMS_EFFECTIVE_DATE } from '../../legal/termsContent';
+import { TERMS_OF_SERVICE, TERMS_EFFECTIVE_DATE } from '@/constants/termsContent';
 
 const todayStr = new Date().toISOString().split('T')[0];
 

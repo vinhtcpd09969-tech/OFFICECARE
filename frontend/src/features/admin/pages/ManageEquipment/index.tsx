@@ -3,23 +3,17 @@ import { toast } from 'react-hot-toast';
 import {
   Search,
   Plus,
-  Grid,
-  List,
+  Eye,
   Activity,
   Calendar,
   Wrench,
-  Trash2,
-  Edit3,
-  RefreshCw,
   Cpu,
-  ShieldCheck,
-  AlertTriangle
+  ShieldCheck
 } from 'lucide-react';
 import {
   getEquipment,
   createEquipment,
-  updateEquipment,
-  deleteEquipment
+  updateEquipment
 } from '../../api/admin.api';
 import { format } from 'date-fns';
 import api from '../../../../api/axios';
@@ -201,13 +195,8 @@ export default function ManageEquipment() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
-  
   // Sorting helper states
   const [newlyCreatedId, setNewlyCreatedId] = useState<string | null>(null);
-
-  // Custom Confirm Modal State
-  const [deleteTarget, setDeleteTarget] = useState<Equipment | null>(null);
 
   // Modals state
   const [isEquipmentModalOpen, setIsEquipmentModalOpen] = useState(false);
@@ -225,7 +214,7 @@ export default function ManageEquipment() {
     ma_thiet_bi: '',
     ten_thiet_bi: '',
     ngay_mua: '',
-    trang_thai: 'dang_su_dung',
+    trang_thai: 'san_sang',
     ghi_chu: '',
     phong_id: ''
   });
@@ -239,11 +228,12 @@ export default function ManageEquipment() {
       
       const normalized = (eqRes.data || []).map((eq: any) => {
         let normalizedStatus = eq.trang_thai;
-        if (eq.trang_thai === 'san_sang') normalizedStatus = 'dang_su_dung';
-        if (eq.trang_thai === 'hong' || eq.trang_thai === 'da_xoa') normalizedStatus = 'ngung_su_dung';
+        if (eq.trang_thai === 'dang_su_dung' || eq.trang_thai === 'hoat_dong') normalizedStatus = 'san_sang';
+        if (eq.trang_thai === 'bao_tri' || eq.trang_thai === 'tam_dung') normalizedStatus = 'dang_bao_tri';
+        if (eq.trang_thai === 'hong' || eq.trang_thai === 'da_xoa' || eq.trang_thai === 'ngung_hoat_dong') normalizedStatus = 'ngung_su_dung';
         return {
           ...eq,
-          trang_thai: normalizedStatus
+          trang_thai: normalizedStatus || 'san_sang'
         };
       });
 
@@ -262,24 +252,12 @@ export default function ManageEquipment() {
   }, []);
 
   const stats = useMemo(() => {
-    const activeEq = equipment.filter(e => e.trang_thai !== 'ngung_su_dung');
-    const total = activeEq.length;
-    const inUse = activeEq.filter(e => e.trang_thai === 'dang_su_dung').length;
-    const maintenance = activeEq.filter(e => e.trang_thai === 'dang_bao_tri').length;
+    const total = equipment.length;
+    const ready = equipment.filter(e => e.trang_thai === 'san_sang').length;
+    const maintenance = equipment.filter(e => e.trang_thai === 'dang_bao_tri').length;
     const discontinued = equipment.filter(e => e.trang_thai === 'ngung_su_dung').length;
-    return { total, inUse, maintenance, discontinued };
+    return { total, ready, maintenance, discontinued };
   }, [equipment]);
-
-  const getEquipmentIcon = (name: string) => {
-    const nameLower = name.toLowerCase();
-    if (nameLower.includes('laser')) return '⚡';
-    if (nameLower.includes('shockwave') || nameLower.includes('xung kích')) return '💥';
-    if (nameLower.includes('kéo giãn') || nameLower.includes('traction')) return '🏹';
-    if (nameLower.includes('siêu âm') || nameLower.includes('ultrasound')) return '🔊';
-    if (nameLower.includes('nhiệt') || nameLower.includes('đông') || nameLower.includes('cryo')) return '❄️';
-    if (nameLower.includes('điện xung') || nameLower.includes('tens')) return '🔋';
-    return '🔌';
-  };
 
   const processedEquipment = useMemo(() => {
     const filtered = equipment.filter(eq => {
@@ -316,7 +294,7 @@ export default function ManageEquipment() {
         ma_thiet_bi: eq.ma_thiet_bi,
         ten_thiet_bi: eq.ten_thiet_bi,
         ngay_mua: eq.ngay_mua ? eq.ngay_mua.substring(0, 10) : '',
-        trang_thai: eq.trang_thai,
+        trang_thai: eq.trang_thai || 'san_sang',
         ghi_chu: eq.ghi_chu || '',
         phong_id: eq.phong_id || ''
       });
@@ -326,7 +304,7 @@ export default function ManageEquipment() {
         ma_thiet_bi: 'TB-' + Math.random().toString(36).substring(2, 7).toUpperCase(),
         ten_thiet_bi: '',
         ngay_mua: getLocalDateString(),
-        trang_thai: 'dang_su_dung',
+        trang_thai: 'san_sang',
         ghi_chu: '',
         phong_id: ''
       });
@@ -374,60 +352,8 @@ export default function ManageEquipment() {
     }
   };
 
-  const confirmSoftDelete = async () => {
-    if (!deleteTarget) return;
-    try {
-      await deleteEquipment(deleteTarget.id);
-      toast.success(`Đã ngưng sử dụng thiết bị "${deleteTarget.ten_thiet_bi}" thành công.`);
-      setDeleteTarget(null);
-      loadData();
-    } catch (error) {
-      toast.error('Lỗi khi cập nhật trạng thái thiết bị.');
-    }
-  };
-
-  const handleRestoreEquipment = async (eq: Equipment) => {
-    try {
-      await updateEquipment(eq.id, {
-        ma_thiet_bi: eq.ma_thiet_bi,
-        ten_thiet_bi: eq.ten_thiet_bi,
-        ngay_mua: eq.ngay_mua ? eq.ngay_mua.substring(0, 10) : null,
-        trang_thai: 'dang_su_dung',
-        ghi_chu: eq.ghi_chu || null
-      });
-      toast.success('Đã khôi phục thiết bị hoạt động bình thường!');
-      setNewlyCreatedId(eq.id);
-      loadData();
-    } catch (error) {
-      toast.error('Lỗi khi khôi phục thiết bị.');
-    }
-  };
-
   return (
     <div className="space-y-6 pb-12 animate-fade-in text-slate-800 font-sans">
-      {/* Header section */}
-      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 border-b border-slate-100 pb-5">
-        <div>
-          <h2 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2.5">
-            <Cpu size={26} className="text-teal-600 stroke-[2.5]" />
-            Quản lý Thiết bị Y tế
-          </h2>
-          <p className="text-slate-500 mt-1 text-xs font-semibold">
-            Quản lý danh mục thiết bị, theo dõi trạng thái hoạt động và khấu hao thời gian máy móc.
-          </p>
-        </div>
-
-        <div>
-          <button
-            onClick={() => handleOpenEquipmentModal()}
-            className="bg-slate-900 hover:bg-slate-850 text-white px-4 py-2.5 text-xs font-bold rounded-xl transition-all shadow-sm active:scale-95 flex items-center gap-1.5 cursor-pointer animate-scale-up"
-          >
-            <Plus size={16} className="stroke-[2.5]" />
-            Thêm thiết bị mới
-          </button>
-        </div>
-      </div>
-
       {/* KPI Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm flex items-center justify-between transition-all hover:shadow-md">
@@ -442,8 +368,8 @@ export default function ManageEquipment() {
 
         <div className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm flex items-center justify-between transition-all hover:shadow-md">
           <div>
-            <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest block">Đang hoạt động</span>
-            <span className="text-2xl font-black text-emerald-700 mt-2 block">{stats.inUse}</span>
+            <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest block">Sẵn sàng</span>
+            <span className="text-2xl font-black text-emerald-700 mt-2 block">{stats.ready}</span>
           </div>
           <div className="size-11 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
             <ShieldCheck size={20} className="stroke-[2.25]" />
@@ -471,7 +397,7 @@ export default function ManageEquipment() {
         </div>
       </div>
 
-      {/* Filters and View toggles */}
+      {/* Filters and Action Toolbar */}
       <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
@@ -493,35 +419,20 @@ export default function ManageEquipment() {
                 className="w-full bg-slate-50 border border-slate-200 p-2.5 text-xs font-bold rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500/10 cursor-pointer"
               >
                 <option value="all">Tất cả trạng thái</option>
-                <option value="dang_su_dung">🟢 Đang sử dụng</option>
+                <option value="san_sang">🟢 Sẵn sàng</option>
                 <option value="dang_bao_tri">🛠️ Đang bảo trì</option>
                 <option value="ngung_su_dung">🚫 Ngưng sử dụng</option>
               </select>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 border border-slate-100 bg-slate-50 p-1.5 rounded-xl self-end md:self-auto">
+          <div className="flex items-center gap-3 w-full md:w-auto justify-end">
             <button
-              onClick={() => setViewMode('grid')}
-              className={`p-2 rounded-lg transition-all cursor-pointer ${
-                viewMode === 'grid'
-                  ? 'bg-white text-slate-800 shadow-sm font-black'
-                  : 'text-slate-400 hover:text-slate-600'
-              }`}
-              title="Chế độ lưới"
+              onClick={() => handleOpenEquipmentModal()}
+              className="bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white px-4 py-2.5 text-xs font-bold rounded-xl transition-all shadow-md shadow-teal-600/20 active:scale-95 flex items-center gap-1.5 cursor-pointer shrink-0"
             >
-              <Grid size={15} />
-            </button>
-            <button
-              onClick={() => setViewMode('table')}
-              className={`p-2 rounded-lg transition-all cursor-pointer ${
-                viewMode === 'table'
-                  ? 'bg-white text-slate-800 shadow-sm font-black'
-                  : 'text-slate-400 hover:text-slate-600'
-              }`}
-              title="Chế độ danh sách"
-            >
-              <List size={15} />
+              <Plus size={16} className="stroke-[2.5]" />
+              Thêm thiết bị mới
             </button>
           </div>
         </div>
@@ -529,140 +440,29 @@ export default function ManageEquipment() {
 
       {/* Equipment View Render */}
       {loading ? (
-        <div className="bg-white border border-slate-100 rounded-2xl p-12 text-center text-slate-400 font-bold uppercase tracking-wider text-xs shadow-sm animate-pulse">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-2xl p-12 text-center text-slate-400 font-bold uppercase tracking-wider text-xs shadow-sm animate-pulse">
           ⏳ Đang đồng bộ hóa thiết bị y tế...
         </div>
       ) : processedEquipment.length === 0 ? (
-        <div className="bg-white border border-slate-100 rounded-2xl p-12 text-center text-slate-400 font-semibold italic text-xs shadow-sm">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-2xl p-12 text-center text-slate-400 font-semibold italic text-xs shadow-sm">
           Không tìm thấy thiết bị nào phù hợp.
-        </div>
-      ) : viewMode === 'grid' ? (
-        /* GRID MODE */
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {processedEquipment.map((eq) => {
-            const isDiscontinued = eq.trang_thai === 'ngung_su_dung';
-            const icon = getEquipmentIcon(eq.ten_thiet_bi);
-            const isNew = eq.id === newlyCreatedId;
-
-            return (
-              <div
-                key={eq.id}
-                className={`bg-white border rounded-2xl p-5 shadow-sm transition-all duration-300 relative flex flex-col justify-between min-h-[200px] ${
-                  isNew ? 'ring-2 ring-indigo-500 border-indigo-200 shadow-md shadow-indigo-500/5' : ''
-                } ${
-                  isDiscontinued 
-                    ? 'border-slate-200 bg-slate-50/20 opacity-75' 
-                    : 'border-slate-100 hover:border-slate-200 hover:shadow-md'
-                }`}
-              >
-                {/* Header info */}
-                <div>
-                  <div className="flex justify-between items-start gap-3">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xl shrink-0">{icon}</span>
-                      <div className="flex flex-col">
-                        <span className="font-mono text-[9px] font-black text-slate-400 uppercase">{eq.ma_thiet_bi}</span>
-                        {isNew && (
-                          <span className="inline-block bg-indigo-50 text-indigo-700 text-[8px] font-extrabold px-1.5 py-0.5 rounded tracking-wide uppercase mt-0.5 w-fit">
-                            Mới tạo
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase border tracking-wide ${
-                      eq.trang_thai === 'dang_su_dung'
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                        : eq.trang_thai === 'dang_bao_tri'
-                          ? 'bg-amber-50 text-amber-700 border-amber-100'
-                          : 'bg-slate-100 text-slate-505 border-slate-200'
-                    }`}>
-                      {!isDiscontinued && (
-                        <span className={`size-1.5 rounded-full shrink-0 ${
-                          eq.trang_thai === 'dang_su_dung'
-                            ? 'bg-emerald-500 animate-pulse'
-                            : 'bg-amber-500 animate-pulse'
-                        }`} />
-                      )}
-                      {eq.trang_thai === 'dang_su_dung' ? 'Đang sử dụng' : eq.trang_thai === 'dang_bao_tri' ? 'Đang bảo trì' : 'Ngưng sử dụng'}
-                    </span>
-                  </div>
-
-                  <h4 className="font-black text-slate-800 text-sm mt-3.5 leading-tight">{eq.ten_thiet_bi}</h4>
-                  
-                  {/* Room Location Badge */}
-                  <div className="mt-2.5">
-                    {eq.ten_phong ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800 text-[11px] font-black">
-                        🏢 Vị trí: {eq.ten_phong}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700 text-[11px] font-bold italic">
-                        📦 Vị trí: Chưa gán phòng (Lưu kho)
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-semibold mt-2.5">
-                    <Calendar size={11} />
-                    <span>Ngày mua: {eq.ngay_mua ? format(new Date(eq.ngay_mua), 'dd/MM/yyyy') : '—'}</span>
-                  </div>
-
-                  {eq.ghi_chu && (
-                    <p className="text-[11px] text-slate-450 italic mt-3 bg-slate-50 p-2.5 rounded-xl border border-slate-100/50 line-clamp-2">
-                      "{eq.ghi_chu}"
-                    </p>
-                  )}
-                </div>
-
-                <div className="flex gap-2 justify-end pt-4 border-t border-slate-50 mt-4">
-                  {isDiscontinued ? (
-                    <button
-                      onClick={() => handleRestoreEquipment(eq)}
-                      className="px-3.5 py-1.5 border border-emerald-250 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl font-bold text-[10px] transition-all flex items-center gap-1 active:scale-95 cursor-pointer shadow-sm"
-                    >
-                      <RefreshCw size={10} />
-                      Khôi phục hoạt động
-                    </button>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => handleOpenEquipmentModal(eq)}
-                        className="px-2.5 py-1.5 border border-slate-200 hover:bg-slate-50 text-slate-655 hover:text-slate-800 rounded-xl font-bold text-[10px] transition-all flex items-center gap-1 active:scale-95 cursor-pointer shadow-sm"
-                      >
-                        <Edit3 size={10} />
-                        Sửa
-                      </button>
-                      <button
-                        onClick={() => setDeleteTarget(eq)}
-                        className="px-2.5 py-1.5 border border-rose-200 hover:bg-rose-50 text-rose-600 rounded-xl font-bold text-[10px] transition-all flex items-center gap-1 active:scale-95 cursor-pointer shadow-sm"
-                      >
-                        <Trash2 size={10} />
-                        Ngưng sử dụng
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            );
-          })}
         </div>
       ) : (
         /* TABLE MODE */
-        <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-100 text-slate-550 font-bold uppercase tracking-wider select-none">
-                  <th className="p-4 pl-6 w-32">Mã máy</th>
-                  <th className="p-4">Tên thiết bị y tế</th>
-                  <th className="p-4 w-44">Vị trí phòng</th>
-                  <th className="p-4 w-36">Ngày mua</th>
-                  <th className="p-4 text-center w-36">Trạng thái</th>
-                  <th className="p-4 pr-6 text-right w-48">Thao tác</th>
+                <tr className="bg-slate-50/80 dark:bg-zinc-800/60 border-b border-slate-100 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 font-black uppercase tracking-wider select-none text-[11px]">
+                  <th className="p-4 pl-6 w-36 text-left">Mã máy</th>
+                  <th className="p-4 text-left">Tên thiết bị y tế</th>
+                  <th className="p-4 w-48 text-left">Vị trí phòng</th>
+                  <th className="p-4 w-36 text-center">Ngày mua</th>
+                  <th className="p-4 w-36 text-center">Trạng thái</th>
+                  <th className="p-4 pr-6 w-28 text-center">Thao tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/60">
                 {processedEquipment.map((eq) => {
                   const isDiscontinued = eq.trang_thai === 'ngung_su_dung';
                   const isNew = eq.id === newlyCreatedId;
@@ -670,74 +470,73 @@ export default function ManageEquipment() {
                   return (
                     <tr
                       key={eq.id}
-                      className={`hover:bg-slate-50/50 transition-colors ${
-                        isDiscontinued ? 'bg-slate-50/30 opacity-75' : ''
-                      } ${isNew ? 'bg-indigo-50/30 font-semibold shadow-sm' : ''}`}
+                      onClick={() => handleOpenEquipmentModal(eq)}
+                      className={`hover:bg-slate-50/80 dark:hover:bg-zinc-800/40 transition-colors cursor-pointer group ${
+                        isDiscontinued ? 'bg-slate-50/30 dark:bg-zinc-900/30 opacity-75' : ''
+                      } ${isNew ? 'bg-indigo-50/30 dark:bg-indigo-950/20 font-semibold shadow-sm' : ''}`}
                     >
-                      <td className="p-4 pl-6 font-mono font-bold text-slate-500">
+                      <td className="p-4 pl-6 font-mono font-bold text-slate-500 dark:text-zinc-400 text-left align-middle">
                         <div className="flex flex-col">
                           <span>{eq.ma_thiet_bi}</span>
                           {isNew && (
-                            <span className="text-[8px] font-black text-indigo-600 uppercase tracking-wide mt-0.5">Mới tạo</span>
+                            <span className="text-[8px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wide mt-0.5">Mới tạo</span>
                           )}
                         </div>
                       </td>
-                      <td className="p-4">
-                        <div className="font-extrabold text-slate-800">{eq.ten_thiet_bi}</div>
-                        {eq.ghi_chu && <div className="text-[11px] text-slate-400 italic mt-0.5">{eq.ghi_chu}</div>}
+                      <td className="p-4 text-left align-middle">
+                        <div className="font-extrabold text-slate-800 dark:text-zinc-100 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
+                          {eq.ten_thiet_bi}
+                        </div>
+                        {eq.ghi_chu && (
+                          <div className="text-[11px] text-slate-400 dark:text-zinc-500 italic mt-0.5 font-normal">
+                            {eq.ghi_chu}
+                          </div>
+                        )}
                       </td>
-                      <td className="p-4 font-bold text-slate-700 dark:text-zinc-300">
+                      <td className="p-4 font-bold text-slate-700 dark:text-zinc-300 text-left align-middle">
                         {eq.ten_phong ? (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 text-xs font-black">
                             🏢 {eq.ten_phong}
                           </span>
                         ) : (
-                          <span className="text-slate-400 font-normal italic">Chưa phân phòng</span>
+                          <span className="text-slate-400 dark:text-zinc-500 font-normal italic">
+                            Chưa phân phòng
+                          </span>
                         )}
                       </td>
-                      <td className="p-4 font-semibold text-slate-700">
+                      <td className="p-4 font-semibold text-slate-600 dark:text-zinc-300 text-center align-middle">
                         {eq.ngay_mua ? format(new Date(eq.ngay_mua), 'dd/MM/yyyy') : '—'}
                       </td>
-                      <td className="p-4 text-center">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase border tracking-wider ${
-                          eq.trang_thai === 'dang_su_dung'
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                      <td className="p-4 text-center align-middle">
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase border tracking-wider ${
+                          eq.trang_thai === 'san_sang'
+                            ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
                             : eq.trang_thai === 'dang_bao_tri'
-                              ? 'bg-amber-50 text-amber-700 border-amber-100'
-                              : 'bg-slate-100 text-slate-505 border-slate-200'
+                              ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                              : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-700'
                         }`}>
-                          {eq.trang_thai === 'dang_su_dung' ? 'Đang sử dụng' : eq.trang_thai === 'dang_bao_tri' ? 'Đang bảo trì' : 'Ngưng sử dụng'}
+                          <span className={`size-1.5 rounded-full ${
+                            eq.trang_thai === 'san_sang' 
+                              ? 'bg-emerald-500 animate-pulse' 
+                              : eq.trang_thai === 'dang_bao_tri' 
+                                ? 'bg-amber-500 animate-pulse' 
+                                : 'bg-slate-400'
+                          }`} />
+                          {eq.trang_thai === 'san_sang' ? 'Sẵn sàng' : eq.trang_thai === 'dang_bao_tri' ? 'Đang bảo trì' : 'Ngưng sử dụng'}
                         </span>
                       </td>
-                      <td className="p-4 pr-6 text-right">
-                        <div className="flex justify-end gap-2">
-                          {isDiscontinued ? (
-                            <button
-                              onClick={() => handleRestoreEquipment(eq)}
-                              className="px-3.5 py-1.5 border border-emerald-250 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl font-bold text-[10px] transition-all flex items-center gap-1 active:scale-95 cursor-pointer shadow-sm"
-                            >
-                              <RefreshCw size={10} />
-                              Khôi phục
-                            </button>
-                          ) : (
-                            <>
-                              <button
-                                onClick={() => handleOpenEquipmentModal(eq)}
-                                className="px-2.5 py-1.5 border border-slate-200 hover:bg-slate-50 text-slate-655 hover:text-slate-800 rounded-xl font-bold text-[10px] transition-all flex items-center gap-1 active:scale-95 cursor-pointer shadow-sm"
-                              >
-                                <Edit3 size={10} />
-                                Sửa
-                              </button>
-                              <button
-                                onClick={() => setDeleteTarget(eq)}
-                                className="px-2.5 py-1.5 border border-rose-200 hover:bg-rose-50 text-rose-600 rounded-xl font-bold text-[10px] transition-all flex items-center gap-1 active:scale-95 cursor-pointer shadow-sm"
-                              >
-                                <Trash2 size={10} />
-                                Ngưng
-                              </button>
-                            </>
-                          )}
-                        </div>
+                      <td className="p-4 pr-6 text-center align-middle">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenEquipmentModal(eq);
+                          }}
+                          className="size-8 inline-flex items-center justify-center rounded-xl bg-slate-100 dark:bg-zinc-800 hover:bg-teal-50 dark:hover:bg-teal-950/40 text-slate-600 dark:text-zinc-400 hover:text-teal-600 dark:hover:text-teal-300 border border-slate-200/80 dark:border-zinc-700/80 hover:border-teal-300 transition-all cursor-pointer shadow-2xs group/btn"
+                          title="Xem chi tiết & Hiệu chỉnh"
+                        >
+                          <Eye size={15} className="group-hover/btn:scale-110 transition-transform" />
+                        </button>
                       </td>
                     </tr>
                   );
@@ -748,48 +547,12 @@ export default function ManageEquipment() {
         </div>
       )}
 
-      {/* Custom Pro Confirm Modal (No local native window.confirm!) */}
-      {deleteTarget && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-fade-in">
-          <div className="bg-white border border-slate-100 shadow-2xl max-w-sm w-full flex flex-col overflow-hidden rounded-2xl animate-scale-up">
-            <div className="p-6 text-center space-y-4">
-              <div className="size-14 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto shadow-sm">
-                <AlertTriangle size={28} className="stroke-[2.25]" />
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-base font-black text-slate-800">Xác nhận ngưng sử dụng</h3>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Bạn có chắc chắn muốn ngưng hoạt động thiết bị <strong className="text-slate-850 font-bold">"{deleteTarget.ten_thiet_bi}"</strong>?
-                  Máy sẽ bị chuyển trạng thái thành Ngưng sử dụng và đưa xuống cuối danh sách.
-                </p>
-              </div>
-            </div>
-            <div className="bg-slate-50 px-6 py-4 flex gap-3 justify-end border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setDeleteTarget(null)}
-                className="px-4 py-2 border border-slate-200 bg-white text-slate-550 text-xs font-bold rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                Hủy bỏ
-              </button>
-              <button
-                type="button"
-                onClick={confirmSoftDelete}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-sm transition-colors active:scale-95 cursor-pointer"
-              >
-                Xác nhận ngưng dùng
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Modal: Add / Edit Equipment */}
       {isEquipmentModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-xl max-w-md w-full flex flex-col rounded-2xl animate-scale-up">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-xl max-w-md w-full flex flex-col rounded-2xl animate-scale-up overflow-hidden">
             {/* Modal Header */}
-            <div className="border-b border-slate-100 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50 px-6 py-4 flex justify-between items-center rounded-t-2xl">
+            <div className="border-b border-slate-100 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50 px-6 py-4 flex justify-between items-center">
               <div>
                 <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest block mb-0.5">
                   {editingEquipment ? 'Hạ tầng y tế' : 'Đăng ký thiết bị'}
@@ -799,15 +562,16 @@ export default function ManageEquipment() {
                 </h3>
               </div>
               <button
+                type="button"
                 onClick={() => setIsEquipmentModalOpen(false)}
-                className="text-slate-400 dark:text-zinc-400 hover:text-slate-600 dark:hover:text-zinc-200 transition-colors font-bold text-sm cursor-pointer"
+                className="text-slate-400 dark:text-zinc-400 hover:text-slate-600 dark:hover:text-zinc-200 transition-colors font-bold text-sm cursor-pointer p-1 rounded-lg hover:bg-slate-100"
               >
                 ✕
               </button>
             </div>
 
             {/* Modal Form */}
-            <form onSubmit={handleEquipmentSubmit} className="p-6 space-y-4 text-slate-800 dark:text-zinc-200 text-xs rounded-b-2xl">
+            <form onSubmit={handleEquipmentSubmit} className="p-6 space-y-4 text-slate-800 dark:text-zinc-200 text-xs">
               <div>
                 <label className="block text-[10px] font-black text-slate-400 dark:text-zinc-400 uppercase tracking-widest mb-1.5">Mã thiết bị (Độc nhất)</label>
                 <input
@@ -848,19 +612,43 @@ export default function ManageEquipment() {
                 </select>
               </div>
 
-              {editingEquipment && (
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 dark:text-zinc-400 uppercase tracking-widest mb-1.5">Trạng thái</label>
-                  <select
-                    value={equipmentFormData.trang_thai}
-                    onChange={(e) => setEquipmentFormData({ ...equipmentFormData, trang_thai: e.target.value })}
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 p-2.5 font-bold rounded-xl text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-slate-500/10 transition-colors cursor-pointer"
-                  >
-                    <option value="dang_su_dung">Đang sử dụng</option>
-                    <option value="dang_bao_tri">Đang bảo trì</option>
-                  </select>
-                </div>
-              )}
+              {/* Trạng thái 3 lựa chọn động */}
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 dark:text-zinc-400 uppercase tracking-widest mb-1.5">Trạng thái</label>
+                <select
+                  value={equipmentFormData.trang_thai}
+                  onChange={(e) => setEquipmentFormData({ ...equipmentFormData, trang_thai: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 p-2.5 font-bold rounded-xl text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-slate-500/10 transition-colors cursor-pointer"
+                >
+                  {editingEquipment ? (
+                    editingEquipment.trang_thai === 'san_sang' ? (
+                      <>
+                        <option value="san_sang">🟢 Sẵn sàng (Hiện tại)</option>
+                        <option value="dang_bao_tri">🛠️ Đang bảo trì</option>
+                        <option value="ngung_su_dung">🚫 Ngưng sử dụng</option>
+                      </>
+                    ) : editingEquipment.trang_thai === 'dang_bao_tri' ? (
+                      <>
+                        <option value="dang_bao_tri">🛠️ Đang bảo trì (Hiện tại)</option>
+                        <option value="san_sang">🟢 Sẵn sàng</option>
+                        <option value="ngung_su_dung">🚫 Ngưng sử dụng</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="ngung_su_dung">🚫 Ngưng sử dụng (Hiện tại)</option>
+                        <option value="san_sang">🟢 Sẵn sàng</option>
+                        <option value="dang_bao_tri">🛠️ Đang bảo trì</option>
+                      </>
+                    )
+                  ) : (
+                    <>
+                      <option value="san_sang">🟢 Sẵn sàng</option>
+                      <option value="dang_bao_tri">🛠️ Đang bảo trì</option>
+                      <option value="ngung_su_dung">🚫 Ngưng sử dụng</option>
+                    </>
+                  )}
+                </select>
+              </div>
 
               <div>
                 <label className="block text-[10px] font-black text-slate-400 dark:text-zinc-400 uppercase tracking-widest mb-1.5">Ngày mua</label>
@@ -886,13 +674,13 @@ export default function ManageEquipment() {
                 <button
                   type="button"
                   onClick={() => setIsEquipmentModalOpen(false)}
-                  className="px-4 py-2 border border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 text-xs font-bold uppercase tracking-wider rounded-xl transition-colors"
+                  className="px-4 py-2 border border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 text-xs font-bold uppercase tracking-wider rounded-xl transition-colors cursor-pointer"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-slate-900 dark:bg-teal-600 hover:bg-slate-800 dark:hover:bg-teal-500 text-white text-xs font-bold uppercase tracking-wider transition-colors rounded-xl active:scale-95"
+                  className="px-6 py-2 bg-slate-900 dark:bg-teal-600 hover:bg-slate-800 dark:hover:bg-teal-500 text-white text-xs font-bold uppercase tracking-wider transition-colors rounded-xl active:scale-95 cursor-pointer shadow-sm"
                 >
                   {editingEquipment ? 'Lưu thông tin' : 'Thêm mới'}
                 </button>

@@ -18,8 +18,6 @@ interface VoucherFormModalProps {
   setYeuCauThanhToan: (val: string[]) => void;
   tuDongApDung: boolean;
   setTuDongApDung: (val: boolean) => void;
-  kenhApDung: string[];
-  setKenhApDung: (val: string[]) => void;
   loaiGoiApDung: string[];
   setLoaiGoiApDung: (val: string[]) => void;
   formatLocalDate: (date: Date) => string;
@@ -36,8 +34,6 @@ export function VoucherFormModal({
   setYeuCauThanhToan,
   tuDongApDung,
   setTuDongApDung,
-  kenhApDung,
-  setKenhApDung,
   loaiGoiApDung,
   setLoaiGoiApDung,
   formatLocalDate
@@ -81,14 +77,7 @@ export function VoucherFormModal({
     );
   };
 
-  const toggleAllKenh = () => setKenhApDung(['tat_ca']);
-  const toggleKenh = (val: string) => {
-    setKenhApDung(
-      kenhApDung.includes(val)
-        ? kenhApDung.filter((v) => v !== val)
-        : [...kenhApDung.filter((v) => v !== 'tat_ca'), val]
-    );
-  };
+
 
   const toggleAllLoaiGoi = () => setLoaiGoiApDung(['tat_ca']);
   const toggleLoaiGoi = (val: string) => {
@@ -352,61 +341,7 @@ export function VoucherFormModal({
                 </button>
               </div>
 
-              {/* KÊNH THANH TOÁN ÁP DỤNG */}
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                  📱 Kênh thanh toán áp dụng
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  <label
-                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border cursor-pointer text-xs font-bold transition-colors ${
-                      kenhApDung.includes('tat_ca')
-                        ? 'bg-cyan-50 border-cyan-500 text-cyan-700 dark:bg-cyan-955/50 dark:text-cyan-200'
-                        : 'bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-300'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={kenhApDung.includes('tat_ca')}
-                      onChange={toggleAllKenh}
-                      className="accent-cyan-600"
-                    />
-                    Tất cả các kênh
-                  </label>
 
-                  <label
-                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border cursor-pointer text-xs font-bold transition-colors ${
-                      kenhApDung.includes('online')
-                        ? 'bg-cyan-50 border-cyan-500 text-cyan-700 dark:bg-cyan-955/50 dark:text-cyan-200'
-                        : 'bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-300'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={kenhApDung.includes('online')}
-                      onChange={() => toggleKenh('online')}
-                      className="accent-cyan-600"
-                    />
-                    🌐 Khách trả Online (Website)
-                  </label>
-
-                  <label
-                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border cursor-pointer text-xs font-bold transition-colors ${
-                      kenhApDung.includes('tai_quay')
-                        ? 'bg-cyan-50 border-cyan-500 text-cyan-700 dark:bg-cyan-955/50 dark:text-cyan-200'
-                        : 'bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-300'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={kenhApDung.includes('tai_quay')}
-                      onChange={() => toggleKenh('tai_quay')}
-                      className="accent-cyan-600"
-                    />
-                    🏦 Lễ tân thu Tại Quầy
-                  </label>
-                </div>
-              </div>
 
               {/* LOẠI GÓI / DỊCH VỤ ÁP DỤNG */}
               <div>
@@ -459,7 +394,7 @@ export function VoucherFormModal({
                       onChange={() => toggleLoaiGoi('KHAM')}
                       className="accent-amber-600"
                     />
-                    🩺 Buổi Lượng giá / Khám
+                    🩺 Buổi Lượng giá Chức năng
                   </label>
 
                   <label
@@ -480,36 +415,25 @@ export function VoucherFormModal({
                 </div>
               </div>
 
-              {/* HÌNH THỨC THANH TOÁN GÓI */}
+              {/* HÌNH THỨC THANH TOÁN GÓI (HIỂN THỊ KHI CÓ CHỌN GÓI LIỆU TRÌNH HOẶC TẤT CẢ) */}
               {(() => {
-                const isLieuTrinhApplicable = loaiGoiApDung.includes('tat_ca') || loaiGoiApDung.includes('LIEU_TRINH');
+                const hasLieuTrinh = loaiGoiApDung.includes('tat_ca') || loaiGoiApDung.includes('LIEU_TRINH');
 
-                if (!isLieuTrinhApplicable) {
-                  return (
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                        💳 Hình thức thanh toán
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <label className="flex items-center gap-2 px-3.5 py-2 rounded-xl border bg-primary/10 border-primary text-primary text-xs font-bold cursor-default select-none">
-                          <input
-                            type="checkbox"
-                            checked={true}
-                            readOnly
-                            className="accent-primary"
-                          />
-                          Trả thẳng 100%
-                        </label>
-                      </div>
-                    </div>
-                  );
+                if (!hasLieuTrinh) {
+                  return null;
                 }
 
                 return (
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                      💳 Hình thức thanh toán gói
-                    </label>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        💳 Quy định riêng khi mua Gói liệu trình
+                      </label>
+                      <span className="text-[10.5px] text-teal-600 dark:text-teal-400 font-bold">
+                        (Buổi Lượng giá & Dịch vụ lẻ không bị giới hạn)
+                      </span>
+                    </div>
+
                     <div className="flex flex-wrap gap-2">
                       <label
                         className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border cursor-pointer text-xs font-bold transition-colors ${
@@ -524,7 +448,7 @@ export function VoucherFormModal({
                           onChange={toggleAllPaymentMethods}
                           className="accent-primary"
                         />
-                        Tất cả hình thức
+                        Tất cả hình thức gói
                       </label>
                       {PAYMENT_METHOD_OPTIONS.map((opt) => (
                         <label
@@ -545,6 +469,10 @@ export function VoucherFormModal({
                         </label>
                       ))}
                     </div>
+
+                    <p className="text-[11px] text-slate-400 dark:text-zinc-400 italic">
+                      💡 Mẹo: Khi khách hàng dùng mã này để thanh toán <strong>Buổi Lượng giá</strong> hoặc <strong>Dịch vụ lẻ</strong>, mã vẫn áp dụng bình thường mà không bị ảnh hưởng bởi lựa chọn Trả thẳng / Từng buổi của Gói liệu trình.
+                    </p>
                   </div>
                 );
               })()}

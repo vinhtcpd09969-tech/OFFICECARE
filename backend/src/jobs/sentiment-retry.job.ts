@@ -1,5 +1,5 @@
 import prisma from '../config/prisma';
-import { SentimentService } from '../services/sentiment.service';
+import { SentimentService } from '../services/ai/ai.sentiment';
 
 // Gemini free-tier: 20 request/ngày dùng chung với chatbox AI + nút "AI đánh giá ngay" của Admin.
 // Chỉ thử lại tối đa 3 đánh giá/lượt quét để dành phần lớn hạn mức cho người dùng thật.

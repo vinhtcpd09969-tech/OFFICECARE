@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import type { ReputationTier } from '../types';
 
 export type CustomerRecordFilter = 'all' | 'no_record';
 
@@ -8,7 +7,6 @@ export type CustomerRecordFilter = 'all' | 'no_record';
 export function useCustomerFilters() {
   const [showLockedOnly, setShowLockedOnly] = useState(false);
   const [recordFilter, setRecordFilter] = useState<CustomerRecordFilter>('all');
-  const [repTier, setRepTier] = useState<ReputationTier | 'all'>('all');
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
@@ -25,7 +23,6 @@ export function useCustomerFilters() {
   return {
     showLockedOnly, toggleLockedOnly,
     recordFilter, toggleRecordFilter,
-    repTier, setRepTier,
     searchInput, setSearchInput,
     debouncedSearch
   };

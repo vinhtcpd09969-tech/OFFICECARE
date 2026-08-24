@@ -10,7 +10,7 @@ import {
 } from 'recharts';
 import api from '../../../../api/axios';
 import { toast } from 'react-hot-toast';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, BarChart2 } from 'lucide-react';
 
 const currencyFormatter = new Intl.NumberFormat('vi-VN', {
   style: 'currency',
@@ -28,10 +28,8 @@ const formatYAxis = (val: number) => {
 
 export type RevenueBucket = 'day' | 'month' | 'year';
 
-// bucket đến thẳng từ chế độ Ngày/Tháng/Năm đang chọn ở trang cha — backend TO_CHAR theo đúng
-// granularity đó (xem getRevenueStats), ở đây chỉ định dạng lại nhãn cho gọn mắt.
 const formatLabel = (label: string, bucket: RevenueBucket) => {
-  if (bucket === 'year') return label; // đã là "YYYY"
+  if (bucket === 'year') return label;
   if (bucket === 'month' && label.includes('-')) {
     const [y, m] = label.split('-');
     return `T${Number(m)}/${y.substring(2)}`;
@@ -94,79 +92,89 @@ export function RevenueChart({ startDate, endDate, bucket, periodLabel, isClient
   }, [chartData, bucket]);
 
   return (
-    <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl p-6 md:p-8 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-xl shadow-slate-200/40 dark:shadow-none transition-all duration-300 hover:border-teal-500/30">
-      {/* Title */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 border-b border-slate-100 dark:border-slate-800 pb-5">
+    <div className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-200">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 border-b border-slate-100 dark:border-slate-800/80 pb-4">
         <div>
-          <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2 tracking-tight">
-            <TrendingUp className="text-teal-600 dark:text-teal-400 shrink-0" size={20} />
+          <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2 tracking-tight">
+            <TrendingUp className="text-teal-600 dark:text-teal-400 shrink-0" size={18} />
             Biểu Đồ Doanh Thu
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
-            Xu hướng doanh số · {periodLabel}
+            Xu hướng doanh số theo thời gian · {periodLabel}
           </p>
         </div>
 
         {!loading && (
-          <span className="text-xs font-black text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/40 border border-teal-150 dark:border-teal-900/40 px-3 py-1.5 rounded-xl shrink-0">
-            Tổng: {isClient ? currencyFormatter.format(totalRevenue) : '0 đ'}
-          </span>
+          <div className="flex items-center gap-2 self-start sm:self-auto bg-slate-50 dark:bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-200/60 dark:border-slate-700/60 text-xs">
+            <span className="text-slate-500 dark:text-slate-400 font-medium">Tổng kỳ:</span>
+            <strong className="font-bold text-teal-600 dark:text-teal-400">
+              {isClient ? currencyFormatter.format(totalRevenue) : '0 đ'}
+            </strong>
+          </div>
         )}
       </div>
 
-      {/* Chart Canvas Area — full-width riêng 1 hàng nên để cao hơn bản 2 cột cũ, đọc xu hướng rõ hơn */}
-      <div className="h-[340px] w-full flex items-center justify-center">
+      {/* Chart Canvas Area */}
+      <div className="h-[270px] w-full flex items-center justify-center">
         {loading ? (
-          <div className="text-zinc-400 text-xs font-bold animate-pulse">Đang đồng bộ hóa doanh số...</div>
+          <div className="text-slate-400 text-xs font-semibold animate-pulse flex items-center gap-2">
+            <div className="size-4 rounded-full border-2 border-teal-500 border-t-transparent animate-spin" />
+            Đang đồng bộ dữ liệu doanh thu...
+          </div>
         ) : processedChartData.length === 0 ? (
-          <div className="text-zinc-400 text-xs italic font-bold">Không có giao dịch thanh toán trong thời gian này.</div>
+          <div className="text-slate-400 dark:text-slate-500 text-xs font-medium flex flex-col items-center gap-1.5 py-10">
+            <BarChart2 size={24} className="opacity-40" />
+            <span>Không có giao dịch thanh toán trong khoảng thời gian này.</span>
+          </div>
         ) : (
           isClient && (
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={processedChartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+              <AreaChart data={processedChartData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#0D9488" stopOpacity={0.25} />
+                    <stop offset="5%" stopColor="#0D9488" stopOpacity={0.15} />
                     <stop offset="95%" stopColor="#0D9488" stopOpacity={0.0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#E2E8F0" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" className="dark:stroke-slate-800" />
                 <XAxis
                   dataKey="label"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fill: '#94A3B8', fontSize: 9, fontWeight: 'bold' }}
-                  dy={10}
+                  tick={{ fill: '#94A3B8', fontSize: 11, fontWeight: 600 }}
+                  dy={8}
                   interval="preserveStartEnd"
-                  minTickGap={12}
+                  minTickGap={16}
                 />
                 <YAxis
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fill: '#94A3B8', fontSize: 10, fontWeight: 'bold' }}
-                  width={60}
+                  tick={{ fill: '#94A3B8', fontSize: 11, fontWeight: 600 }}
+                  width={55}
                   tickFormatter={formatYAxis}
                 />
                 <Tooltip
-                  cursor={{ stroke: '#0D9488', strokeWidth: 1.5, strokeDasharray: '4 4' }}
+                  cursor={{ stroke: '#0D9488', strokeWidth: 1.5, strokeDasharray: '3 3' }}
                   contentStyle={{
-                    borderRadius: '16px',
-                    border: 'none',
-                    boxShadow: '0 20px 40px -15px rgba(0,0,0,0.08)',
-                    padding: '12px 16px',
-                    fontFamily: 'Inter, sans-serif',
-                    fontSize: '11px',
-                    fontWeight: 'bold',
-                    background: 'rgba(255, 255, 255, 0.95)',
-                    backdropFilter: 'blur(4px)'
+                    borderRadius: '12px',
+                    border: '1px solid rgba(226, 232, 240, 0.8)',
+                    boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)',
+                    padding: '8px 12px',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    background: '#FFFFFF',
+                    color: '#0F172A'
                   }}
                   formatter={(val) => [currencyFormatter.format(Number(val)), 'Doanh thu']}
+                  labelStyle={{ fontWeight: 700, color: '#0D9488', marginBottom: 2 }}
                 />
                 <Area
                   type="monotone"
                   dataKey="revenue"
                   stroke="#0D9488"
-                  strokeWidth={2.5}
+                  strokeWidth={2}
+                  activeDot={{ r: 4, stroke: '#0D9488', strokeWidth: 2, fill: '#FFFFFF' }}
                   fillOpacity={1}
                   fill="url(#colorRevenue)"
                 />
@@ -178,3 +186,4 @@ export function RevenueChart({ startDate, endDate, bucket, periodLabel, isClient
     </div>
   );
 }
+

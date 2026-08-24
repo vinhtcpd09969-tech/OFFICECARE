@@ -72,9 +72,9 @@ export const PaymentSuccessBox: React.FC<PaymentSuccessBoxProps> = ({
           <div className="flex items-start gap-3">
             <span className="text-amber-500 text-xl shrink-0">💡</span>
             <div className="space-y-1">
-              <h4 className="text-xs font-black text-amber-955">Chỉ định dịch vụ lẻ từ Bác sĩ</h4>
+              <h4 className="text-xs font-black text-amber-955">Chỉ định dịch vụ lẻ từ Chuyên viên tư vấn</h4>
               <p className="text-[11px] text-amber-800 leading-normal font-semibold">
-                Bác sĩ đã chỉ định khách hàng thực hiện thêm dịch vụ lẻ:
+                Chuyên viên tư vấn đã chỉ định khách hàng thực hiện thêm dịch vụ lẻ:
               </p>
               <p className="text-xs font-black text-amber-900 mt-1">
                 👉 {paymentSuccessData.khuyenNghiTenGoi || 'Dịch vụ lẻ chỉ định'}

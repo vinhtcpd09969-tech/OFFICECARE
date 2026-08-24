@@ -8,11 +8,9 @@ import {
 import { format, addDays, isSameDay } from 'date-fns';
 import toast from 'react-hot-toast';
 
-// Import Components
-import AppointmentDetailModal from '../../../../components/appointments/DetailModal';
-import TreatmentBookingModal from '../../../../components/appointments/TreatmentBookingModal';
-import WalkInBookingModal from '../../../../components/WalkInBookingModal';
+import { AppointmentDetailModal, WalkInBookingModal } from '../../../../components/appointments';
 import { pushBackAppointment } from '../../api/admin.api';
+import { ConfirmDialog } from '../../../../components/ConfirmDialog';
 
 // Import Module Hooks & UI Components
 import { useAppointmentsData } from '../../../../components/appointments/hooks/useAppointmentsData';
@@ -24,6 +22,8 @@ import { TodayFlowBoard } from '../../../../components/appointments/ui/TodayFlow
 import { computeAppointmentKpiBuckets, KPI_BUCKET_STATUSES, KPI_BUCKET_LABELS, AppointmentKpiBuckets } from '../../../../utils/appointmentKpi';
 import { ActiveFilterChip } from '../../../../components/appointments/ui/ActiveFilterChip';
 import { RoleView, ViewMode } from '../../../../components/appointments/types';
+import { unassignAppointmentStaff } from '../../../receptionist/api/receptionist.api';
+import { StaffWorkloadModal } from '../../../receptionist/components/StaffWorkloadModal';
 
 // Import Local Components
 import { CommandPalette } from './CommandPalette';
@@ -47,6 +47,8 @@ export default function ManageAppointments() {
     return 'manager';
   })();
   const [selectedDocSimId, setSelectedDocSimId] = useState<string>('');
+  const [isWorkloadModalOpen, setIsWorkloadModalOpen] = useState(false);
+  const [pendingUnassignApt, setPendingUnassignApt] = useState<any | null>(null);
 
   // State quản lý việc gọi dữ liệu từ Custom Hook
   const {
@@ -82,6 +84,10 @@ export default function ManageAppointments() {
     }
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    // Nếu có khach_hang_id (đặt lịch nhanh), mặc định xem Hôm nay (1 ngày)
+    if (params.get('khach_hang_id')) {
+      return today;
+    }
     return addDays(today, 6); // Mặc định 7 ngày (Hôm nay + 6 ngày)
   });
 
@@ -92,6 +98,9 @@ export default function ManageAppointments() {
     const viewParam = params.get('view');
     if (viewParam && ['timeline', 'capacity'].includes(viewParam)) {
       return viewParam as ViewMode;
+    }
+    if (params.get('khach_hang_id')) {
+      return 'timeline';
     }
     return 'capacity';
   });
@@ -121,8 +130,6 @@ export default function ManageAppointments() {
     selectedAppointment,
     isDetailModalOpen,
     setIsDetailModalOpen,
-    isTreatmentModalOpen,
-    setIsTreatmentModalOpen,
     isWalkInModalOpen,
     setIsWalkInModalOpen,
     walkInTime,
@@ -134,25 +141,9 @@ export default function ManageAppointments() {
     assignStatus,
     setAssignStatus,
     isAssigning,
-    treatmentType,
-    setTreatmentType,
-    selectedServiceId,
-    setSelectedServiceId,
-    selectedPackageId,
-    setSelectedPackageId,
-    selectedKtvId,
-    setSelectedKtvId,
-    selectedRoomId,
-    setSelectedRoomId,
-    treatmentDate,
-    setTreatmentDate,
-    treatmentTime,
-    setTreatmentTime,
     bookingLoading,
     handleOpenDetailModal,
-    handleOpenTreatmentModal,
     handleUpdateAppointment,
-    handleBookTreatment,
     handleBookWalkIn,
     handleUpdateAppointmentFields,
     scrollToAppointment,
@@ -261,12 +252,24 @@ export default function ManageAppointments() {
       }
     }
 
+    const typeParam = params.get('type');
+    if (typeParam === 'kham' || typeParam === 'dieu_tri') {
+      setActiveType(typeParam);
+    }
+
     const khId = params.get('khach_hang_id');
     const svcId = params.get('goi_dich_vu_id');
     const phacDoId = params.get('phac_do_id');
     if (khId && (svcId || phacDoId || khId.length > 0)) {
       setActiveType('dieu_tri');
       setIsWalkInModalOpen(true);
+      if (!startParam && !endParam) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        setStartDate(today);
+        setEndDate(today);
+        setViewMode('timeline');
+      }
     }
   }, [location.search, roleView, setActiveType, setIsWalkInModalOpen, startDate, endDate, viewMode]);
 
@@ -308,7 +311,10 @@ export default function ManageAppointments() {
   useEffect(() => {
     setSelectedStaffFilter(null);
     setStatusFilter(null);
-    setIsWalkInModalOpen(false);
+    const params = new URLSearchParams(window.location.search);
+    if (!params.get('khach_hang_id')) {
+      setIsWalkInModalOpen(false);
+    }
   }, [activeType, setIsWalkInModalOpen]);
 
   const handleSelectDateRange = (start: Date, end: Date) => {
@@ -408,6 +414,25 @@ export default function ManageAppointments() {
     await handleUpdateAppointmentFields(String(apt.id), { trang_thai: 'khong_den' }, `Đã đánh dấu ${apt.ten_khach_hang || apt.ho_ten_khach || 'khách'} không đến`);
   };
 
+  // Giải phóng chỉ định đích danh, chuyển về Hàng đợi chung
+  const handleUnassignStaff = (apt: any) => {
+    setPendingUnassignApt(apt);
+  };
+
+  const handleConfirmUnassign = async () => {
+    if (!pendingUnassignApt) return;
+    const customerName = pendingUnassignApt.ten_khach_hang || pendingUnassignApt.ho_ten_khach || pendingUnassignApt.ho_ten || 'khách hàng';
+    try {
+      await unassignAppointmentStaff(String(pendingUnassignApt.id));
+      toast.success(`🎉 Đã chuyển ${customerName} về Hàng chờ chung thành công!`);
+      await refetch();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Không thể giải phóng chỉ định nhân sự.');
+    } finally {
+      setPendingUnassignApt(null);
+    }
+  };
+
   // Chỉ còn kiểm tra CA TRỰC — bỏ kiểm tra "trùng giờ" giữa 2 lịch hẹn của cùng nhân sự.
   // Lý do: từ khi đặt lịch chuyển sang mô hình theo BUỔI, mọi lịch hẹn trong cùng 1 buổi đều
   // mang cùng mốc ngay_gio_bat_dau/ngay_gio_ket_thuc NOMINAL, nên 1 nhân sự có ≥2 lịch trong
@@ -451,27 +476,52 @@ export default function ManageAppointments() {
     };
   }, []);
 
+  const [focusedAppointmentId, setFocusedAppointmentId] = useState<string | null>(null);
+
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const aptIdParam = params.get('appointmentId');
+    const typeParam = params.get('type') as 'kham' | 'dieu_tri' | null;
+
     if (params.get('triggerFocus') === 'true' && !loading) {
       const targetId = aptIdParam || (mascotTargetAppointments.length > 0 ? String(mascotTargetAppointments[0].id) : null);
       if (targetId) {
         setIsWalkInModalOpen(false);
-        params.delete('triggerFocus');
-        const newSearch = params.toString() ? `?${params.toString()}` : '';
-        navigate(location.pathname + newSearch, { replace: true });
+        setFocusedAppointmentId(targetId);
+
+        // Tự động chuyển tab Lượng giá / Điều trị khớp với ca hẹn cần focus
+        if (typeParam === 'kham' || typeParam === 'dieu_tri') {
+          setActiveType(typeParam);
+        } else {
+          const targetApt = (appointmentsToUse || []).find(a => String(a.id) === String(targetId));
+          if (targetApt) {
+            const neededType = targetApt.loai_lich === 'kham_moi' ? 'kham' : 'dieu_tri';
+            setActiveType(neededType);
+          }
+        }
+
+        // Xóa NGAY triggerFocus & appointmentId khỏi URL để không dính khi chuyển tab hoặc đổi ngày
+        const cleanParams = new URLSearchParams(location.search);
+        cleanParams.delete('triggerFocus');
+        cleanParams.delete('appointmentId');
+        cleanParams.delete('type');
+        cleanParams.delete('date');
+        cleanParams.delete('range');
+        cleanParams.set('startDate', format(startDate, 'yyyy-MM-dd'));
+        cleanParams.set('endDate', format(endDate, 'yyyy-MM-dd'));
+        cleanParams.set('view', viewMode);
+        navigate(`${location.pathname}?${cleanParams.toString()}`, { replace: true });
 
         if (focusTimerRef.current) {
           clearTimeout(focusTimerRef.current);
         }
 
         focusTimerRef.current = setTimeout(() => {
-          scrollToAppointment(targetId);
-        }, 500);
+          setFocusedAppointmentId(null);
+        }, 4000);
       }
     }
-  }, [location.search, mascotTargetAppointments, scrollToAppointment, navigate, location.pathname, loading, setIsWalkInModalOpen]);
+  }, [location.search, mascotTargetAppointments, navigate, location.pathname, loading, setIsWalkInModalOpen, appointmentsToUse, startDate, endDate, viewMode]);
 
   // Danh sách nhân sự theo đúng vai trò đang chọn (Chuyên viên PHCN hoặc KTV) — nguồn cho dropdown lọc trong TodayFlowBoard.
   const onDutyStaffOptions = useMemo(() => {
@@ -573,39 +623,48 @@ export default function ManageAppointments() {
         />
       )}
 
-          <AppointmentsFilterBar
-            startDate={startDate}
-            endDate={endDate}
-            onSelectDateRange={(start, end) => {
-              handleCloseWalkInModal();
-              handleSelectDateRange(start, end);
-            }}
-            handleNavigateRange={(direction) => {
-              handleCloseWalkInModal();
-              handleNavigateRange(direction);
-            }}
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-            viewMode={viewMode}
-            activeType={activeType}
-            onToggleType={() => {
-              handleCloseWalkInModal();
-              setActiveType(prev => prev === 'kham' ? 'dieu_tri' : 'kham');
-            }}
-            canToggleType={true}
-            setViewMode={(mode) => {
-              handleCloseWalkInModal();
-              setViewMode(mode);
-            }}
-            onOpenWalkInModal={() => setIsWalkInModalOpen(true)}
-          />
+          {/* Nếu mở form đặt lịch tại quầy hoặc xem bảng công suất thì hiển thị thanh bộ lọc độc lập */}
+          {(isWalkInModalOpen || viewMode === 'capacity') && (
+            <AppointmentsFilterBar
+              startDate={startDate}
+              endDate={endDate}
+              onSelectDateRange={(start, end) => {
+                handleCloseWalkInModal();
+                setFocusedAppointmentId(null);
+                if (focusTimerRef.current) clearTimeout(focusTimerRef.current);
+                handleSelectDateRange(start, end);
+              }}
+              handleNavigateRange={(direction) => {
+                handleCloseWalkInModal();
+                setFocusedAppointmentId(null);
+                if (focusTimerRef.current) clearTimeout(focusTimerRef.current);
+                handleNavigateRange(direction);
+              }}
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
+              viewMode={viewMode}
+              activeType={activeType}
+              onToggleType={() => {
+                handleCloseWalkInModal();
+                setFocusedAppointmentId(null);
+                if (focusTimerRef.current) clearTimeout(focusTimerRef.current);
+                setActiveType(prev => prev === 'kham' ? 'dieu_tri' : 'kham');
+              }}
+              canToggleType={true}
+              setViewMode={(mode) => {
+                handleCloseWalkInModal();
+                setViewMode(mode);
+              }}
+              onOpenWalkInModal={() => setIsWalkInModalOpen(true)}
+            />
+          )}
 
           {/* MAIN WORKBOARD */}
           <div className="w-full">
             {selectedStaffFilter && (
                 <div className="mb-4">
                   <ActiveFilterChip
-                    label={`Lịch ${activeType === 'kham' ? 'Bác sĩ' : 'Kỹ thuật viên'}: ${staffToUse.find(s => String(s.id) === String(selectedStaffFilter))?.ho_ten || 'Chuyên gia'}`}
+                    label={`Lịch ${activeType === 'kham' ? 'Chuyên viên tư vấn' : 'Kỹ thuật viên'}: ${staffToUse.find(s => String(s.id) === String(selectedStaffFilter))?.ho_ten || 'Chuyên gia'}`}
                     onClear={() => setSelectedStaffFilter(null)}
                   />
                 </div>
@@ -647,6 +706,41 @@ export default function ManageAppointments() {
                 <>
                   {viewMode === 'timeline' && (
                     <TodayFlowBoard
+                      filterBar={
+                        <AppointmentsFilterBar
+                          embedded={true}
+                          startDate={startDate}
+                          endDate={endDate}
+                          onSelectDateRange={(start, end) => {
+                            handleCloseWalkInModal();
+                            setFocusedAppointmentId(null);
+                            if (focusTimerRef.current) clearTimeout(focusTimerRef.current);
+                            handleSelectDateRange(start, end);
+                          }}
+                          handleNavigateRange={(direction) => {
+                            handleCloseWalkInModal();
+                            setFocusedAppointmentId(null);
+                            if (focusTimerRef.current) clearTimeout(focusTimerRef.current);
+                            handleNavigateRange(direction);
+                          }}
+                          searchTerm={searchTerm}
+                          setSearchTerm={setSearchTerm}
+                          viewMode={viewMode}
+                          activeType={activeType}
+                          onToggleType={() => {
+                            handleCloseWalkInModal();
+                            setFocusedAppointmentId(null);
+                            if (focusTimerRef.current) clearTimeout(focusTimerRef.current);
+                            setActiveType(prev => prev === 'kham' ? 'dieu_tri' : 'kham');
+                          }}
+                          canToggleType={true}
+                          setViewMode={(mode) => {
+                            handleCloseWalkInModal();
+                            setViewMode(mode);
+                          }}
+                          onOpenWalkInModal={() => setIsWalkInModalOpen(true)}
+                        />
+                      }
                       appointments={dayAppointmentsForBoard}
                       activeType={activeType}
                       searchTerm={searchTerm}
@@ -657,11 +751,13 @@ export default function ManageAppointments() {
                       onQuickCheckin={handleQuickCheckin}
                       onPushBack={handlePushBack}
                       onMarkNoShow={handleMarkNoShow}
+                      onUnassign={handleUnassignStaff}
                       onOpenWalkInModal={() => setIsWalkInModalOpen(true)}
-                      focusAppointmentId={new URLSearchParams(location.search).get('appointmentId') || undefined}
+                      focusAppointmentId={focusedAppointmentId || undefined}
                       staffFilterId={selectedStaffFilter}
                       staffFilterOptions={onDutyStaffOptions}
                       onStaffFilterChange={setSelectedStaffFilter}
+                      onOpenWorkloadModal={() => setIsWorkloadModalOpen(true)}
                     />
                   )}
 
@@ -715,7 +811,6 @@ export default function ManageAppointments() {
           isAssigning={isAssigning}
           onClose={() => setIsDetailModalOpen(false)}
           onSave={handleUpdateAppointment}
-          onOpenTreatment={handleOpenTreatmentModal}
           appointments={appointmentsToUse}
           schedulesList={schedulesToUse}
           isReceptionistOverride={false}
@@ -724,44 +819,45 @@ export default function ManageAppointments() {
           rescheduleDate={rescheduleDate}
           setRescheduleDate={setRescheduleDate}
         />
-      )}
-
-      {isTreatmentModalOpen && (
-        <TreatmentBookingModal
-          selectedAppointment={selectedAppointment}
-          services={services}
-          packages={packages}
-          staffList={staffToUse}
-          roomsList={roomsToUse}
-          treatmentType={treatmentType}
-          setTreatmentType={setTreatmentType}
-          selectedServiceId={selectedServiceId}
-          setSelectedServiceId={setSelectedServiceId}
-          selectedPackageId={selectedPackageId}
-          setSelectedPackageId={setSelectedPackageId}
-          selectedKtvId={selectedKtvId}
-          setSelectedKtvId={setSelectedKtvId}
-          selectedRoomId={selectedRoomId}
-          setSelectedRoomId={setSelectedRoomId}
-          treatmentDate={treatmentDate}
-          setTreatmentDate={setTreatmentDate}
-          treatmentTime={treatmentTime}
-          setTreatmentTime={setTreatmentTime}
-          bookingLoading={bookingLoading}
-          onClose={() => setIsTreatmentModalOpen(false)}
-          onSubmit={handleBookTreatment}
-        />
-      )}
-
-
-
-      {/* COMMAND PALETTE (CTRL+K) */}
+      )}{/* COMMAND PALETTE (CTRL+K) */}
       <CommandPalette 
         isOpen={isCommandPaletteOpen}
         onClose={() => setIsCommandPaletteOpen(false)}
         commands={commandShortcuts}
         appointments={appointmentsToUse}
         onOpenDetailModal={handleOpenDetailModal}
+      />
+
+      <StaffWorkloadModal
+        isOpen={isWorkloadModalOpen}
+        onClose={() => setIsWorkloadModalOpen(false)}
+        dateStr={formattedSelectedDate}
+      />
+
+      <ConfirmDialog
+        isOpen={!!pendingUnassignApt}
+        title="Xác nhận chuyển Hàng chờ chung"
+        message={
+          pendingUnassignApt ? (
+            <div className="space-y-2 text-left">
+              <p>
+                Bạn có chắc chắn muốn chuyển cuộc hẹn của khách hàng{' '}
+                <strong className="text-slate-900 dark:text-zinc-100">
+                  {pendingUnassignApt.ten_khach_hang || pendingUnassignApt.ho_ten_khach || 'khách hàng'}
+                </strong>{' '}
+                từ ca của <strong>{pendingUnassignApt.bac_si_ten || pendingUnassignApt.ten_bac_si || pendingUnassignApt.ten_nhan_su || 'nhân sự'}</strong> về <strong>HÀNG CHỜ CHUNG</strong> không?
+              </p>
+              <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-955/40 border border-amber-200/80 dark:border-amber-800/60 text-xs font-semibold text-amber-900 dark:text-amber-300">
+                Sau khi chuyển, bất kỳ nhân sự nào rảnh bàn sẽ chủ động bấm Gọi vào để tiếp nhận.
+              </div>
+            </div>
+          ) : ''
+        }
+        confirmLabel="Chuyển về Hàng chờ chung"
+        cancelLabel="Hủy"
+        type="warning"
+        onConfirm={handleConfirmUnassign}
+        onCancel={() => setPendingUnassignApt(null)}
       />
     </div>
   );

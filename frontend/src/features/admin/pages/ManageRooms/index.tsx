@@ -12,7 +12,7 @@ import { RoomFormModal } from './RoomFormModal';
 
 const ALL_ROOM_TYPES = [
   { value: 'phong_tri_lieu', label: 'Phòng trị liệu' },
-  { value: 'phong_kham', label: 'Phòng khám' }
+  { value: 'phong_kham', label: 'Phòng lượng giá chức năng' }
 ];
 
 export default function ManageRooms() {
@@ -154,7 +154,7 @@ export default function ManageRooms() {
   };
 
   const translateType = (type: string) => {
-    if (type === 'phong_kham' || type === 'kham_benh') return 'Phòng khám';
+    if (type === 'phong_kham' || type === 'kham_benh') return 'Phòng lượng giá chức năng';
     if (type === 'phong_tri_lieu' || type === 'phong_tri_lieu_chuan' || type === 'tri_lieu' || type === 'phong_dac_biet') return 'Phòng trị liệu';
     return type;
   };
@@ -184,30 +184,6 @@ export default function ManageRooms() {
             </button>
           </div>
         ))}
-      </div>
-
-      {/* Header Panel */}
-      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-6 border-b border-slate-100 pb-8">
-        <div>
-          <div className="flex items-center gap-3">
-            <span className="bg-teal-50 text-teal-800 text-xs font-black uppercase tracking-widest px-3 py-1 rounded-full">Hạ tầng y khoa</span>
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          </div>
-          <h2 className="text-4xl font-black text-slate-900 tracking-tight mt-2 flex items-center gap-3">
-            Hệ Thống Phòng Khám & Điều Trị
-          </h2>
-          <p className="text-slate-500 mt-2 text-sm font-medium">Quản lý sơ đồ phòng khám lâm sàng, cabin trị liệu và thiết lập sức chứa vận hành</p>
-        </div>
-        
-        <div>
-          <button 
-            onClick={() => handleOpenRoomModal()}
-            className="bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white font-black text-xs uppercase tracking-wider px-6 py-3.5 rounded-2xl shadow-lg shadow-teal-600/25 hover:shadow-teal-600/40 transition-all active:scale-95 duration-200 flex items-center gap-2 cursor-pointer"
-          >
-            <span>✨</span>
-            <span>Khai báo phòng trực mới</span>
-          </button>
-        </div>
       </div>
 
       {/* Statistics Cards */}
@@ -257,10 +233,10 @@ export default function ManageRooms() {
         </div>
       </div>
 
-      {/* Filters Panel */}
-      <div className="bg-slate-50/80 dark:bg-zinc-900 backdrop-blur-md border border-slate-200/60 dark:border-zinc-800 p-5 rounded-2xl grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+      {/* Filters & Action Toolbar */}
+      <div className="bg-slate-50/80 dark:bg-zinc-900 backdrop-blur-md border border-slate-200/60 dark:border-zinc-800 p-4 rounded-2xl flex flex-col md:flex-row gap-3 items-center justify-between">
         {/* Search */}
-        <div className="relative md:col-span-3">
+        <div className="relative flex-1 w-full">
           <span className="absolute inset-y-0 left-3.5 flex items-center text-slate-400 dark:text-zinc-400">
             <Compass className="w-5 h-5" />
           </span>
@@ -269,20 +245,31 @@ export default function ManageRooms() {
             placeholder="Tìm kiếm theo mã phòng, tên phòng hoặc ghi chú..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-11 pr-4 py-3 border border-slate-200/80 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 text-sm font-semibold rounded-xl focus:outline-none focus:border-teal-800 focus:ring-2 focus:ring-teal-100 transition-all placeholder-slate-400 dark:placeholder-zinc-500"
+            className="w-full pl-11 pr-4 py-2.5 border border-slate-200/80 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 text-xs font-semibold rounded-xl focus:outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 transition-all placeholder-slate-400 dark:placeholder-zinc-500"
           />
         </div>
 
         {/* Room Type Filter */}
-        <select 
-          value={selectedType}
-          onChange={(e) => setSelectedType(e.target.value)}
-          className="w-full py-3 px-4 border border-slate-200/80 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 text-sm font-bold rounded-xl focus:outline-none focus:border-teal-800 focus:ring-2 focus:ring-teal-100 transition-all cursor-pointer"
+        <div className="w-full md:w-56">
+          <select 
+            value={selectedType}
+            onChange={(e) => setSelectedType(e.target.value)}
+            className="w-full py-2.5 px-3 border border-slate-200/80 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 text-xs font-bold rounded-xl focus:outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 transition-all cursor-pointer"
+          >
+            <option value="all">TẤT CẢ LOẠI PHÒNG</option>
+            <option value="phong_tri_lieu">PHÒNG TRỊ LIỆU</option>
+            <option value="phong_kham">PHÒNG LƯỢNG GIÁ CHỨC NĂNG</option>
+          </select>
+        </div>
+
+        {/* Create Room Button */}
+        <button 
+          onClick={() => handleOpenRoomModal()}
+          className="w-full md:w-auto bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-bold text-xs uppercase tracking-wider px-5 py-2.5 rounded-xl shadow-md shadow-teal-600/20 hover:shadow-teal-600/35 transition-all active:scale-95 duration-200 flex items-center justify-center gap-2 cursor-pointer shrink-0"
         >
-          <option value="all">TẤT CẢ LOẠI PHÒNG</option>
-          <option value="phong_tri_lieu">PHÒNG TRỊ LIỆU</option>
-          <option value="phong_kham">PHÒNG KHÁM</option>
-        </select>
+          <span>✨</span>
+          <span>Khai báo phòng trực mới</span>
+        </button>
       </div>
 
       {/* Active filters display */}

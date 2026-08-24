@@ -9,14 +9,14 @@ interface FinanceTabsProps {
 
 export function FinanceTabs({ activeTab, invoiceCount, paymentCount, onChange }: FinanceTabsProps) {
   return (
-    <div className="flex bg-slate-100/90 dark:bg-slate-800 p-1.5 rounded-2xl w-fit shadow-inner border border-slate-200/80 dark:border-slate-700 select-none font-jakarta">
+    <div className="w-full grid grid-cols-2 gap-2 bg-slate-100/90 dark:bg-slate-800/90 p-1.5 rounded-2xl shadow-inner border border-slate-200/80 dark:border-slate-700 select-none font-jakarta">
       <button
         type="button"
         onClick={() => onChange('invoices')}
-        className={`px-5 py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-all duration-200 flex items-center gap-2.5 cursor-pointer ${
+        className={`w-full py-3 px-4 text-xs font-black uppercase tracking-wider rounded-xl transition-all duration-200 flex items-center justify-center gap-2.5 cursor-pointer ${
           activeTab === 'invoices'
-            ? 'bg-teal-600 text-white shadow-md shadow-teal-600/25 scale-[1.02]'
-            : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            ? 'bg-teal-600 text-white shadow-md shadow-teal-600/25'
+            : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-700/50'
         }`}
       >
         <Receipt size={16} className={activeTab === 'invoices' ? 'text-white' : 'text-slate-400'} />
@@ -33,10 +33,10 @@ export function FinanceTabs({ activeTab, invoiceCount, paymentCount, onChange }:
       <button
         type="button"
         onClick={() => onChange('payments')}
-        className={`px-5 py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-all duration-200 flex items-center gap-2.5 cursor-pointer ${
+        className={`w-full py-3 px-4 text-xs font-black uppercase tracking-wider rounded-xl transition-all duration-200 flex items-center justify-center gap-2.5 cursor-pointer ${
           activeTab === 'payments'
-            ? 'bg-teal-600 text-white shadow-md shadow-teal-600/25 scale-[1.02]'
-            : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            ? 'bg-teal-600 text-white shadow-md shadow-teal-600/25'
+            : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-700/50'
         }`}
       >
         <Landmark size={16} className={activeTab === 'payments' ? 'text-white' : 'text-slate-400'} />

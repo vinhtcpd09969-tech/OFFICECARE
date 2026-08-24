@@ -9,9 +9,9 @@ import toast from 'react-hot-toast';
 import { censorText } from '../../../utils/profanity';
 
 const TRUST_BADGES = [
-  { icon: ShieldCheck, title: 'An toàn chuẩn y khoa', desc: 'Phác đồ được bác sĩ chuyên khoa xây dựng và giám sát.' },
+  { icon: ShieldCheck, title: 'An toàn chuẩn y khoa', desc: 'Phác đồ được chuyên viên tư vấn xây dựng và giám sát.' },
   { icon: HeartPulse, title: 'Cá nhân hóa phác đồ', desc: 'Không rập khuôn — lộ trình riêng theo cơ địa từng khách hàng.' },
-  { icon: Award, title: 'Chuyên gia giàu kinh nghiệm', desc: 'Đội ngũ bác sĩ, KTV được đào tạo bài bản, tận tâm.' },
+  { icon: Award, title: 'Chuyên gia giàu kinh nghiệm', desc: 'Đội ngũ chuyên viên tư vấn, KTV được đào tạo bài bản, tận tâm.' },
 ];
 
 interface Service {
@@ -198,7 +198,7 @@ export default function ServiceDetailPage() {
   const getCategoryName = (): string => {
     if (!service) return 'Gói dịch vụ';
     const loai = service.loai_goi?.toUpperCase() || '';
-    if (loai === 'KHAM') return 'Khám chuyên khoa 1:1';
+    if (loai === 'KHAM') return 'Lượng giá chuyên sâu 1:1';
     if (loai.includes('LIEU_TRINH')) return 'Liệu trình chuyên sâu';
     return 'Trị liệu đơn buổi';
   };
@@ -252,14 +252,14 @@ export default function ServiceDetailPage() {
       {/* Visual background gradient */}
       <div className="absolute top-0 left-0 right-0 h-[450px] bg-gradient-to-b from-teal-50/20 via-transparent to-transparent pointer-events-none z-0"></div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         
         {/* Sleek E-Commerce Standard Breadcrumb Bar */}
-        <div className="mb-4 flex items-center gap-2 text-xs font-semibold text-slate-500 flex-wrap">
+        <div className="mb-5 flex items-center gap-2 text-xs font-semibold text-slate-500 flex-wrap">
           <button
             type="button"
             onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/services'))}
-            className="inline-flex items-center gap-1.5 text-[#0D9488] font-extrabold hover:text-[#0b7a70] transition-colors cursor-pointer mr-1"
+            className="inline-flex items-center gap-1.5 text-[#0D9488] font-extrabold hover:text-[#0b7a70] transition-colors cursor-pointer mr-1 bg-teal-50/80 px-3 py-1.5 rounded-lg border border-teal-100/60"
           >
             <ArrowLeft size={14} />
             <span>Quay lại</span>
@@ -271,19 +271,19 @@ export default function ServiceDetailPage() {
         </div>
 
         {/* Unified Service Detail Card */}
-        <div className="bg-white rounded-[24px] border border-slate-150 p-6 md:p-10 mb-12 shadow-[0_8px_30px_rgba(15,23,42,0.015)] relative overflow-hidden">
+        <div className="bg-white rounded-[28px] border border-slate-200/80 p-6 md:p-8 xl:p-10 mb-12 shadow-[0_12px_40px_rgba(15,23,42,0.03)] relative overflow-hidden">
           <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl pointer-events-none"></div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 relative z-10">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 xl:gap-12 relative z-10">
             {/* Left Column: Image Showcase & Gallery Thumbnails */}
             <div className="lg:col-span-6 space-y-4">
-              <div className="aspect-[4/3] w-full rounded-2xl overflow-hidden bg-slate-100 border border-slate-150 relative group">
+              <div className="aspect-[16/10] w-full rounded-2xl overflow-hidden bg-slate-100 border border-slate-200/80 relative group shadow-sm">
                 <img
                   src={resolveImageUrl(selectedImage || service.anh_goi || '/images/packages/wellness_hero.png')}
                   alt={service.ten_goi}
-                  className="w-full h-full object-cover transition-all duration-500"
+                  className="w-full h-full object-cover transition-all duration-500 group-hover:scale-102"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/20 to-transparent pointer-events-none"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/30 via-transparent to-transparent pointer-events-none"></div>
               </div>
 
               {/* Gallery Thumbnails */}
@@ -329,7 +329,7 @@ export default function ServiceDetailPage() {
                 </h1>
 
                 <p className="text-slate-500 text-xs font-semibold leading-relaxed">
-                  {service.mo_ta || 'Lộ trình phục hồi toàn diện cá nhân hóa theo phác đồ bác sĩ.'}
+                  {service.mo_ta || 'Lộ trình phục hồi toàn diện cá nhân hóa theo phác đồ chuyên viên tư vấn.'}
                 </p>
 
                 {/* Benefits (Mục tiêu & Lợi ích) */}
@@ -352,7 +352,7 @@ export default function ServiceDetailPage() {
                   <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">🏷️ Chỉ định trị liệu:</p>
                   <div className="flex flex-wrap gap-1.5">
                     <span className="bg-slate-100 text-slate-600 text-[9px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-md border border-slate-200">
-                      {service.loai_goi === 'KHAM' ? 'Khám chuyên khoa' : 'Trị liệu đơn buổi'}
+                      {service.loai_goi === 'KHAM' ? 'Lượng giá chuyên sâu' : 'Trị liệu đơn buổi'}
                     </span>
                     <span className="bg-slate-100 text-slate-600 text-[9px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-md border border-slate-200">
                       Vận động trị liệu
@@ -552,7 +552,7 @@ export default function ServiceDetailPage() {
                       <div>
                         <h4 className="font-heading font-black text-xs text-slate-900 uppercase tracking-tight">{spec.ho_ten}</h4>
                         <p className="text-[9px] text-[#0D9488] font-black uppercase tracking-widest mt-0.5">
-                          {spec.vai_tro_id === 3 ? 'Bác sĩ chuyên khoa' : 'Kỹ thuật viên phục hồi'}
+                          {spec.vai_tro_id === 4 || spec.vai_tro_id === 3 ? 'Chuyên viên tư vấn' : 'Kỹ thuật viên phục hồi'}
                         </p>
                       </div>
                     </div>

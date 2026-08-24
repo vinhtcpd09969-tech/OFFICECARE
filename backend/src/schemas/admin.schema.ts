@@ -32,7 +32,9 @@ export const staffSchema = z.object({
     ho_ten: z.string().min(1, 'Họ tên là bắt buộc'),
     email: z.string().email('Email không hợp lệ'),
     mat_khau: z.string().min(6, 'Mật khẩu tối thiểu 6 ký tự'),
-    vai_tro_id: z.number().int().positive('Vai trò không hợp lệ (2=Lễ tân, 3=KTV, 4=Bác sĩ, 5=Admin, 6=Quản lý)'),
+    vai_tro_id: z.number().int().refine(val => [2, 3, 4, 6].includes(val), {
+      message: 'Vai trò không hợp lệ để tạo mới (2=Lễ tân, 3=KTV, 4=Bác sĩ, 6=Quản lý). Hệ thống không cho phép tạo thêm Admin.'
+    }),
     so_dien_thoai: z.string().optional(),
     trang_thai: z.enum(['hoat_dong', 'vo_hieu']).default('hoat_dong')
   })

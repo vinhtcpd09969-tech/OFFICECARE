@@ -1,90 +1,31 @@
 interface HUDHeaderProps {
-  totalCount: number;
-  activeCount: number;
-  khamCount: number;
-  leCount: number;
-  lieuTrinhCount: number;
   onOpenAddPackage: () => void;
 }
 
 export function HUDHeader({
-  totalCount,
-  activeCount,
-  khamCount,
-  leCount,
-  lieuTrinhCount,
   onOpenAddPackage
 }: HUDHeaderProps) {
   return (
-    <>
-      {/* HUD Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm relative overflow-hidden">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl pointer-events-none"></div>
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse"></span>
-            <span className="text-xs font-heading tracking-wider text-primary uppercase font-bold">Không gian làm việc</span>
-          </div>
-          <h2 className="text-2xl font-bold font-heading text-secondary dark:text-zinc-100 tracking-tight">CẤU HÌNH GÓI DỊCH VỤ</h2>
-          <p className="text-zinc-550 dark:text-zinc-400 text-xs mt-1">Quản lý định giá, phân loại và cấu trúc phác đồ điều trị của các gói dịch vụ</p>
+    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-5 border-b border-slate-100 dark:border-zinc-800">
+      <div>
+        <div className="flex items-center gap-2 mb-1">
+          <span className="size-2 rounded-full bg-teal-500 animate-pulse"></span>
+          <span className="text-[10px] font-black uppercase tracking-wider text-teal-600 dark:text-teal-400">Không gian quản trị</span>
         </div>
-        
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onOpenAddPackage}
-            className="bg-primary hover:bg-primary/90 hover:shadow-soft-button active:scale-95 text-white px-5 py-2.5 rounded-xl font-heading text-xs font-bold tracking-wide transition-all shadow-sm flex items-center gap-2"
-          >
-            [+] TẠO GÓI DỊCH VỤ MỚI
-          </button>
-        </div>
+        <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-zinc-100 font-jakarta tracking-tight">
+          CẤU HÌNH GÓI DỊCH VỤ
+        </h2>
+        <p className="text-slate-500 dark:text-zinc-400 text-xs mt-0.5">
+          Quản lý định giá, phân loại chuyên môn và cấu trúc phác đồ điều trị của các gói dịch vụ
+        </p>
       </div>
 
-      {/* KPI HUD Panel - Premium 4-Card Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-zinc-900 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col justify-between transition-all hover:border-primary/30 hover:shadow-md">
-          <div className="flex justify-between items-start mb-2">
-            <p className="text-[9px] font-black text-slate-400 dark:text-zinc-400 uppercase tracking-widest">TỔNG THIẾT LẬP</p>
-            <span className="p-1.5 rounded-lg bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-300 border border-teal-100 dark:border-teal-800/60 text-[10px] font-bold">Gói</span>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <h3 className="text-2xl font-black text-secondary dark:text-zinc-100">{totalCount}</h3>
-            <span className="text-[9px] text-teal-705 dark:text-teal-300 font-bold bg-teal-50 dark:bg-teal-950/60 px-1.5 py-0.5 rounded border border-teal-150 dark:border-teal-800/60">Đang chạy: {activeCount}</span>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-zinc-900 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col justify-between transition-all hover:border-indigo-200/50 hover:shadow-md">
-          <div className="flex justify-between items-start mb-2">
-            <p className="text-[9px] font-black text-slate-400 dark:text-zinc-400 uppercase tracking-widest">LƯỢNG GIÁ CHỨC NĂNG</p>
-            <span className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-650 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800/60 text-[10px] font-bold">Kham</span>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <h3 className="text-2xl font-black text-secondary dark:text-zinc-100">{khamCount}</h3>
-            <span className="text-[9px] text-indigo-700 dark:text-indigo-300 font-bold bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-150 dark:border-indigo-800/60">Dịch vụ</span>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-zinc-900 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col justify-between transition-all hover:border-teal-300/50 hover:shadow-md">
-          <div className="flex justify-between items-start mb-2">
-            <p className="text-[9px] font-black text-slate-400 dark:text-zinc-400 uppercase tracking-widest">GÓI LẺ TRỊ LIỆU</p>
-            <span className="p-1.5 rounded-lg bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-100 dark:border-teal-800/60 text-[10px] font-bold">Le</span>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <h3 className="text-2xl font-black text-secondary dark:text-zinc-100">{leCount}</h3>
-            <span className="text-[9px] text-teal-800 dark:text-teal-300 font-bold bg-teal-50 dark:bg-teal-950/60 px-1.5 py-0.5 rounded border border-teal-150 dark:border-teal-800/60">Đơn buổi</span>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-zinc-900 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col justify-between transition-all hover:border-emerald-300/50 hover:shadow-md">
-          <div className="flex justify-between items-start mb-2">
-            <p className="text-[9px] font-black text-slate-400 dark:text-zinc-400 uppercase tracking-widest">LIỆU TRÌNH CHUYÊN SÂU</p>
-            <span className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-300 border border-emerald-100 dark:border-emerald-800/60 text-[10px] font-bold">Regimen</span>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <h3 className="text-2xl font-black text-secondary dark:text-zinc-100">{lieuTrinhCount}</h3>
-            <span className="text-[9px] text-emerald-800 dark:text-emerald-300 font-bold bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-150 dark:border-emerald-800/60">Đa buổi</span>
-          </div>
-        </div>
-      </div>
-    </>
+      <button
+        onClick={onOpenAddPackage}
+        className="bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 active:scale-95 text-white px-5 py-2.5 rounded-2xl font-black text-xs uppercase tracking-wider transition-all shadow-md shadow-teal-600/20 flex items-center gap-2 cursor-pointer shrink-0"
+      >
+        <span>[+] TẠO GÓI DỊCH VỤ MỚI</span>
+      </button>
+    </div>
   );
 }

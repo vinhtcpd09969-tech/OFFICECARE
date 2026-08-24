@@ -2,7 +2,6 @@ import React, { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { User as UserIcon, Upload, X, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { formatFullDate } from '../../constants';
 
 interface Step4CustomerFormProps {
   formData: any;
@@ -10,9 +9,9 @@ interface Step4CustomerFormProps {
   handleGenderChange: (gender: string) => void;
   handleFile: (file: File) => void;
   removeImage: () => void;
-  selectedDate: string;
+  selectedDate?: string;
   bookingType: 'kham' | 'dich_vu';
-  hasExistingClinicalExam: boolean;
+  hasExistingClinicalExam?: boolean;
   isPhoneTakenByOther?: boolean;
   user: any;
   setActiveStep: (step: number) => void;
@@ -23,16 +22,14 @@ export function Step4CustomerForm({
   onChange,
   handleFile,
   removeImage,
-  selectedDate,
   bookingType,
-  hasExistingClinicalExam,
   isPhoneTakenByOther,
   user,
   setActiveStep
 }: Step4CustomerFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
-  const [isEditingPhone, setIsEditingPhone] = useState(false);
+
 
   const [errors, setErrors] = useState<{
     ho_ten_khach?: string;
@@ -153,10 +150,10 @@ export function Step4CustomerForm({
         </div>
         <div>
           <h3 className="text-base md:text-lg font-black text-slate-900 dark:text-white tracking-tight">
-            Thông tin bệnh nhân liên hệ
+            Thông tin khách hàng liên hệ
           </h3>
           <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-0.5">
-            Thông tin liên hệ của bạn và mô tả sơ bộ tình trạng đau nhức để bác sĩ chuẩn bị chu đáo nhất.
+            Thông tin liên hệ của bạn và mô tả sơ bộ tình trạng đau nhức để Chuyên viên chuẩn bị chu đáo nhất.
           </p>
         </div>
       </div>
@@ -168,18 +165,6 @@ export function Step4CustomerForm({
             <p className="font-black uppercase tracking-wider text-amber-800 text-[10px]">Cảnh báo: Số điện thoại đã được sử dụng</p>
             <p className="mt-0.5 font-bold text-amber-700">
               Số điện thoại này đã thuộc về một tài khoản khách hàng khác trong hệ thống. Vui lòng kiểm tra lại chính xác số điện thoại của bạn.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {hasExistingClinicalExam && bookingType === 'kham' && !isPhoneTakenByOther && (
-        <div className="bg-rose-50 border border-rose-200 p-4 rounded-2xl text-xs flex items-start gap-3 text-rose-900 leading-relaxed font-semibold animate-fade-in">
-          <AlertTriangle size={18} className="text-rose-500 shrink-0 mt-0.5" />
-          <div>
-            <p className="font-black uppercase tracking-wider text-rose-800 text-[10px]">Cảnh báo: Trùng lịch hẹn</p>
-            <p className="mt-0.5 font-bold text-rose-700">
-              Bạn đang có lịch hẹn ngày <span className="font-extrabold text-rose-900">{formatFullDate(selectedDate)}</span>. Vui lòng liên hệ hotline <span className="font-extrabold text-slate-900">0398 655 332</span> nếu muốn đặt tiếp 1 lịch khác.
             </p>
           </div>
         </div>
@@ -233,7 +218,7 @@ export function Step4CustomerForm({
             name="so_dien_thoai"
             required
             placeholder=" "
-            disabled={!!user && !isEditingPhone}
+            disabled={!!user}
             className={`peer block w-full rounded-2xl border bg-white dark:bg-slate-900 px-4 pt-6 pb-2 text-sm font-extrabold focus:ring-2 focus:ring-[#2EC4B6]/15 outline-none transition-all placeholder-transparent shadow-xs disabled:bg-slate-50 dark:disabled:bg-slate-800/60 disabled:text-slate-500 disabled:cursor-not-allowed
               ${errors.so_dien_thoai
                 ? 'border-rose-300 focus:border-rose-500 text-rose-600'
@@ -252,33 +237,10 @@ export function Step4CustomerForm({
           >
             Số điện thoại *
           </label>
-          {user?.so_dien_thoai && !isEditingPhone && (
-            <button
-              type="button"
-              onClick={() => setIsEditingPhone(true)}
-              className="absolute right-3 top-4 text-[10px] font-black text-[#2EC4B6] bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/60 px-2.5 py-0.5 rounded-full transition-all border border-teal-100 dark:border-teal-800 cursor-pointer"
-            >
-              Đổi số liên hệ
-            </button>
-          )}
-          {user?.so_dien_thoai && isEditingPhone && (
-            <button
-              type="button"
-              onClick={() => {
-                setIsEditingPhone(false);
-                const event = {
-                  target: {
-                    name: 'so_dien_thoai',
-                    value: user.so_dien_thoai
-                  }
-                } as React.ChangeEvent<HTMLInputElement>;
-                onChange(event);
-                setErrors(prev => ({ ...prev, so_dien_thoai: '' }));
-              }}
-              className="absolute right-3 top-4 text-[10px] font-black text-slate-500 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 px-2.5 py-0.5 rounded-full transition-all cursor-pointer"
-            >
-              Mặc định
-            </button>
+          {user?.so_dien_thoai && (
+            <span className="absolute right-3 top-4 text-[10px] font-black text-slate-400">
+              🔒 Đã gắn với tài khoản
+            </span>
           )}
           {errors.so_dien_thoai && (
             <span className="text-[10px] font-extrabold text-rose-500 mt-1 block pl-1">
@@ -323,7 +285,7 @@ export function Step4CustomerForm({
                 </span>
               ) : (
                 <span className="text-[11px] font-semibold text-slate-400 block pl-1">
-                  💡 Nhập ngắn gọn tình trạng bạn gặp phải (ví dụ: đau mỏi lưng, tê tay, thoát vị đĩa đệm...) để bác sĩ nắm rõ trước buổi khám.
+                  💡 Nhập ngắn gọn tình trạng bạn gặp phải (ví dụ: đau mỏi lưng, tê tay, khó vận động...) để Chuyên viên nắm rõ trước buổi lượng giá.
                 </span>
               )}
             </div>
@@ -370,7 +332,7 @@ export function Step4CustomerForm({
                   <div className="flex-1 min-w-0 space-y-0.5">
                     <p className="text-xs font-extrabold text-slate-800 dark:text-white truncate">Ảnh triệu chứng đã tải lên</p>
                     <p className="text-[10px] text-teal-600 dark:text-teal-400 font-black flex items-center gap-1">
-                      <CheckCircle2 size={12} /> Sẵn sàng đính kèm ca khám
+                      <CheckCircle2 size={12} /> Sẵn sàng đính kèm ca hẹn
                     </p>
                   </div>
                   <button
@@ -397,7 +359,7 @@ export function Step4CustomerForm({
         </button>
         <button
           type="button"
-          disabled={(hasExistingClinicalExam && bookingType === 'kham') || isPhoneTakenByOther}
+          disabled={isPhoneTakenByOther}
           onClick={handleNextStep}
           className="bg-[#0F172A] hover:bg-[#1E293B] dark:bg-teal-600 dark:hover:bg-teal-700 text-white font-black py-3.5 px-8 rounded-2xl text-xs uppercase tracking-widest transition-all shadow-lg shadow-slate-900/10 active:scale-98 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >

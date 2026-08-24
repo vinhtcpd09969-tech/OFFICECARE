@@ -18,6 +18,9 @@ export interface Appointment {
   trang_thai: string;
   thoi_gian_tao?: string;
   thoi_gian_checkin?: string | null;
+  thoi_gian_bat_dau?: string | null;
+  han_tai_kham?: string | null;
+  ghi_chu?: string | null;
   han_xac_nhan?: string;
   buoi?: 'sang' | 'chieu';
   thoi_luong_phut?: number;

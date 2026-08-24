@@ -27,7 +27,7 @@ export default function ServicesCarousel() {
         const topServices = res.data.map((p: any) => ({
           id: p.id,
           title: p.ten_goi,
-          desc: p.quy_trinh || p.muc_tieu || (p.loai_goi === 'KHAM' ? 'Dịch vụ lượng giá lâm sàng và thăm khám chuyên sâu.' : 'Liệu trình phục hồi toàn diện cá nhân hóa theo phác đồ bác sĩ.'),
+          desc: p.quy_trinh || p.muc_tieu || (p.loai_goi === 'KHAM' ? 'Dịch vụ lượng giá chức năng và tầm soát chuyên sâu.' : 'Liệu trình phục hồi toàn diện cá nhân hóa theo phác đồ chuyên khoa.'),
           image: p.anh_goi || (p.loai_goi === 'KHAM' ? '/images/goi/kham_sang_loc.png' : p.loai_goi === 'LE' ? '/images/goi/laser_tri_lieu.png' : '/images/goi/giai_co_sau.png'),
           price: p.don_gia === 0 ? 'Liên hệ' : Number(p.don_gia).toLocaleString('vi-VN') + ' đ',
           duration: p.loai_goi === 'LIEU_TRINH' ? `${p.tong_so_buoi} buổi` : `${p.thoi_luong_phut} phút`,
@@ -98,7 +98,7 @@ export default function ServicesCarousel() {
                   </div>
                   <div className="p-6 space-y-2 text-left">
                     <span className="text-[10px] font-black uppercase tracking-wider text-[#0D9488] block">
-                      {service.loai_goi === 'KHAM' ? 'Khám chuyên khoa 1:1' : service.loai_goi === 'LE' ? 'Trị liệu đơn buổi' : 'Gói phác đồ điều trị'}
+                      {service.loai_goi === 'KHAM' ? 'Lượng giá chuyên sâu 1:1' : service.loai_goi === 'LE' ? 'Trị liệu đơn buổi' : 'Gói phác đồ điều trị'}
                     </span>
                     <h4 className="font-heading font-black text-base text-slate-900 leading-snug line-clamp-2">
                       {service.title}
@@ -118,7 +118,7 @@ export default function ServicesCarousel() {
                     onClick={() => handleServiceClick(service)}
                     className="px-4 py-2.5 bg-teal-50 hover:bg-[#0D9488] text-[#0D9488] hover:text-white rounded-xl text-xs font-black transition-all duration-200 flex items-center gap-1.5 cursor-pointer border border-teal-500/20 shadow-2xs"
                   >
-                    <span>{service.loai_goi === 'KHAM' ? 'Đăng ký khám' : 'Đăng ký ngay'}</span>
+                    <span>{service.loai_goi === 'KHAM' ? 'Đăng ký lượng giá' : 'Đăng ký ngay'}</span>
                     <ArrowRight size={13} />
                   </button>
                 </div>

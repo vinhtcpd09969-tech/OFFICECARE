@@ -19,11 +19,9 @@ describe('isReceptionistLockedStatus', () => {
     expect(isReceptionistLockedStatus('hoan_thanh')).toBe(true);
   });
 
-  it('khóa khi đã hủy/không đến (kể cả biến thể phạt)', () => {
+  it('khóa khi đã hủy/không đến', () => {
     expect(isReceptionistLockedStatus('da_huy')).toBe(true);
-    expect(isReceptionistLockedStatus('da_huy_phat')).toBe(true);
     expect(isReceptionistLockedStatus('khong_den')).toBe(true);
-    expect(isReceptionistLockedStatus('khach_khong_den_phat')).toBe(true);
   });
 
   it('không khóa khi đã xác nhận', () => {

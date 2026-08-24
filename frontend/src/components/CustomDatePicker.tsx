@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Calendar as CalendarIcon, ChevronRight } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronRight, ChevronLeft, X } from 'lucide-react';
 
 interface CustomDatePickerProps {
   value: string; // YYYY-MM-DD
@@ -10,7 +10,8 @@ interface CustomDatePickerProps {
   className?: string;
   buttonClassName?: string;
   align?: 'left' | 'right';
-  variant?: 'emerald' | 'subtle' | 'neutral';
+  variant?: 'emerald' | 'subtle' | 'neutral' | 'teal';
+  label?: string;
 }
 
 export function CustomDatePicker({
@@ -21,7 +22,7 @@ export function CustomDatePicker({
   placeholder = 'Chọn ngày',
   className = '',
   buttonClassName = '',
-  align = 'right',
+  align = 'left',
   variant = 'neutral'
 }: CustomDatePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -57,7 +58,9 @@ export function CustomDatePicker({
   }, [year, month]);
 
   const firstDayIndex = useMemo(() => {
-    return new Date(year, month, 1).getDay();
+    const day = new Date(year, month, 1).getDay();
+    // Monday as first day of week: 0 -> 6 (CN), 1 -> 0 (T2)...
+    return day === 0 ? 6 : day - 1;
   }, [year, month]);
 
   const handlePrevMonth = () => {
@@ -74,6 +77,30 @@ export function CustomDatePicker({
     const m = String(selectedDate.getMonth() + 1).padStart(2, '0');
     const d = String(selectedDate.getDate()).padStart(2, '0');
     onChange(`${y}-${m}-${d}`);
+    setIsOpen(false);
+  };
+
+  const handleSelectToday = () => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    onChange(`${y}-${m}-${d}`);
+    setIsOpen(false);
+  };
+
+  const handleSelectTomorrow = () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const y = tomorrow.getFullYear();
+    const m = String(tomorrow.getMonth() + 1).padStart(2, '0');
+    const d = String(tomorrow.getDate()).padStart(2, '0');
+    onChange(`${y}-${m}-${d}`);
+    setIsOpen(false);
+  };
+
+  const handleClear = () => {
+    onChange('');
     setIsOpen(false);
   };
 
@@ -125,37 +152,30 @@ export function CustomDatePicker({
     return new Date(maxDate + 'T23:59:59').getTime();
   }, [maxDate]);
 
-  const isEmerald = variant === 'emerald';
+  const todayStr = useMemo(() => new Date().toLocaleDateString('fr-CA'), []);
 
   return (
-    <div ref={wrapperRef} className={`relative ${className}`}>
+    <div ref={wrapperRef} className={`relative font-jakarta text-left ${className}`}>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl text-xs transition-all w-full shadow-2xs cursor-pointer ${
-          isEmerald
-            ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-400 border border-emerald-150 dark:border-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-950/40 font-black'
-            : 'bg-zinc-50 dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-800 hover:bg-zinc-100/80 dark:hover:bg-zinc-900/60 focus:outline-none focus:border-teal-500'
+        className={`flex items-center justify-between gap-2.5 px-4 py-3 rounded-2xl text-xs font-bold transition-all w-full shadow-2xs cursor-pointer border ${
+          isOpen
+            ? 'border-teal-500 ring-2 ring-teal-500/20 bg-white dark:bg-zinc-800'
+            : variant === 'teal' || variant === 'emerald'
+            ? 'bg-teal-50 dark:bg-teal-950/20 text-teal-800 dark:text-teal-300 border-teal-200/60 dark:border-teal-900/30 hover:bg-teal-100/60 font-black'
+            : 'bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 hover:border-slate-300 dark:hover:border-zinc-600 text-slate-800 dark:text-zinc-100'
         } ${buttonClassName}`}
       >
-        <div className="flex items-center gap-2 truncate">
-          <CalendarIcon
-            size={14}
-            className={`shrink-0 transition-colors ${
-              isEmerald
-                ? 'text-emerald-600 dark:text-emerald-400'
-                : value
-                  ? 'text-teal-600 dark:text-teal-400'
-                  : 'text-zinc-400 dark:text-zinc-500'
-            }`}
-          />
+        <div className="flex items-center gap-2.5 truncate min-w-0">
+          <div className="p-1.5 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 shrink-0">
+            <CalendarIcon size={16} />
+          </div>
           <span
-            className={`truncate ${
-              isEmerald
-                ? ''
-                : value
-                  ? 'text-slate-900 dark:text-zinc-100 font-bold'
-                  : 'text-zinc-400 dark:text-zinc-500 font-medium'
+            className={`truncate text-xs ${
+              value
+                ? 'text-slate-900 dark:text-zinc-100 font-black font-mono tracking-wider'
+                : 'text-slate-400 dark:text-zinc-500 font-semibold'
             }`}
           >
             {formattedValue}
@@ -163,50 +183,77 @@ export function CustomDatePicker({
         </div>
         <ChevronRight
           size={14}
-          className={`transform transition-transform shrink-0 ${
-            isEmerald
-              ? 'text-emerald-600/70 dark:text-emerald-400/70'
-              : 'text-zinc-400 dark:text-zinc-500'
-          } ${isOpen ? 'rotate-90' : ''}`}
+          className={`text-slate-400 dark:text-zinc-400 transform transition-transform shrink-0 ${
+            isOpen ? 'rotate-90 text-teal-600' : ''
+          }`}
         />
       </button>
 
       {isOpen && (
-        <div className={`absolute ${align === 'left' ? 'left-0' : 'right-0'} mt-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-2xl p-4 w-72 z-[9999] text-slate-800 dark:text-zinc-200 animate-in fade-in slide-in-from-top-1 duration-200`}>
-          <div className="flex justify-between items-center mb-3">
+        <div
+          className={`absolute ${
+            align === 'right' ? 'right-0' : 'left-0'
+          } top-full mt-2 bg-white dark:bg-zinc-900 border border-slate-200/90 dark:border-zinc-800 shadow-2xl rounded-3xl p-4 sm:p-5 w-[310px] z-[9999] text-slate-800 dark:text-zinc-200 animate-in fade-in zoom-in-95 duration-200 backdrop-blur-xl`}
+        >
+          {/* Header Tháng & Năm */}
+          <div className="flex justify-between items-center mb-3.5">
             <button
               type="button"
               onClick={handlePrevMonth}
-              className="size-7 rounded-lg hover:bg-zinc-150 dark:hover:bg-zinc-900 flex items-center justify-center font-bold text-zinc-500 transition-colors cursor-pointer"
+              className="size-8 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800 border border-slate-200/50 dark:border-zinc-700/50 flex items-center justify-center text-slate-600 dark:text-zinc-300 transition-colors cursor-pointer active:scale-95"
+              title="Tháng trước"
             >
-              ‹
+              <ChevronLeft size={16} />
             </button>
-            <span className="font-black text-xs text-zinc-800 dark:text-zinc-200 uppercase tracking-wide">
-              {monthNames[month]} {year}
-            </span>
+            <div className="text-center">
+              <span className="font-black text-xs sm:text-sm text-slate-900 dark:text-zinc-100 uppercase tracking-wider block">
+                {monthNames[month]} {year}
+              </span>
+            </div>
             <button
               type="button"
               onClick={handleNextMonth}
-              className="size-7 rounded-lg hover:bg-zinc-150 dark:hover:bg-zinc-900 flex items-center justify-center font-bold text-zinc-500 transition-colors cursor-pointer"
+              className="size-8 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800 border border-slate-200/50 dark:border-zinc-700/50 flex items-center justify-center text-slate-600 dark:text-zinc-300 transition-colors cursor-pointer active:scale-95"
+              title="Tháng sau"
             >
-              ›
+              <ChevronRight size={16} />
             </button>
           </div>
 
-          <div className="grid grid-cols-7 gap-1 text-center font-black text-[9px] text-zinc-450 dark:text-zinc-500 uppercase tracking-wider mb-2">
-            <span>CN</span>
+          {/* Quick Preset Buttons (Hôm nay / Ngày mai) */}
+          <div className="flex items-center gap-1.5 mb-3">
+            <button
+              type="button"
+              onClick={handleSelectToday}
+              className="flex-1 py-1.5 px-2 bg-teal-50 hover:bg-teal-100/80 dark:bg-teal-950/40 dark:hover:bg-teal-900/60 text-teal-700 dark:text-teal-300 border border-teal-200/70 dark:border-teal-800/60 rounded-xl text-[10.5px] font-black uppercase tracking-wider transition-all cursor-pointer text-center"
+            >
+              Hôm nay
+            </button>
+            <button
+              type="button"
+              onClick={handleSelectTomorrow}
+              className="flex-1 py-1.5 px-2 bg-slate-50 hover:bg-slate-100 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-slate-700 dark:text-zinc-200 border border-slate-200/70 dark:border-zinc-700 rounded-xl text-[10.5px] font-black uppercase tracking-wider transition-all cursor-pointer text-center"
+            >
+              Ngày mai
+            </button>
+          </div>
+
+          {/* Thứ trong tuần */}
+          <div className="grid grid-cols-7 gap-1 text-center font-black text-[10px] text-slate-400 dark:text-zinc-500 uppercase tracking-wider mb-2">
             <span>T2</span>
             <span>T3</span>
             <span>T4</span>
             <span>T5</span>
             <span>T6</span>
             <span>T7</span>
+            <span className="text-rose-500">CN</span>
           </div>
 
+          {/* Lưới ngày trong tháng */}
           <div className="grid grid-cols-7 gap-1 text-center text-xs">
             {calendarCells.map((cell, idx) => {
               if (cell === null) {
-                return <div key={`empty-${idx}`} />;
+                return <div key={`empty-${idx}`} className="aspect-square" />;
               }
 
               const cellDate = new Date(year, month, cell);
@@ -215,10 +262,9 @@ export function CustomDatePicker({
               const isFuture = maxDateTime ? cellTime > maxDateTime : false;
               const isDisabled = isPast || isFuture;
 
-              const isSelected = 
-                currentDate.getDate() === cell &&
-                currentDate.getMonth() === month &&
-                currentDate.getFullYear() === year;
+              const cellDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(cell).padStart(2, '0')}`;
+              const isCurrentDay = cellDateStr === todayStr;
+              const isSelected = value === cellDateStr;
 
               return (
                 <button
@@ -226,12 +272,14 @@ export function CustomDatePicker({
                   type="button"
                   disabled={isDisabled}
                   onClick={() => handleDaySelect(cell)}
-                  className={`aspect-square w-full rounded-lg font-bold flex items-center justify-center transition-all ${
+                  className={`aspect-square w-full rounded-xl font-bold text-xs flex items-center justify-center transition-all ${
                     isDisabled
-                      ? 'text-zinc-350 dark:text-zinc-700 cursor-not-allowed opacity-40'
+                      ? 'text-slate-300 dark:text-zinc-700 cursor-not-allowed opacity-35 line-through'
                       : isSelected
-                        ? 'bg-[#0D9488] dark:bg-emerald-500 text-white shadow-sm font-black'
-                        : 'hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-300 cursor-pointer'
+                      ? 'bg-teal-600 text-white shadow-md shadow-teal-600/30 font-black ring-2 ring-teal-500/30 scale-105 z-10'
+                      : isCurrentDay
+                      ? 'border-2 border-teal-500 text-teal-600 dark:text-teal-400 font-black hover:bg-teal-50/80 dark:hover:bg-teal-950/40'
+                      : 'hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 cursor-pointer active:scale-95'
                   }`}
                 >
                   {cell}
@@ -239,8 +287,22 @@ export function CustomDatePicker({
               );
             })}
           </div>
+
+          {/* Footer Xóa */}
+          {value && (
+            <div className="flex items-center justify-end border-t border-slate-100 dark:border-zinc-800/80 pt-2.5 mt-3 text-[11px] font-black">
+              <button
+                type="button"
+                onClick={handleClear}
+                className="text-slate-400 hover:text-rose-600 transition-colors cursor-pointer flex items-center gap-1 text-[10.5px]"
+              >
+                <X size={12} /> Bỏ chọn ngày
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
+export default CustomDatePicker;

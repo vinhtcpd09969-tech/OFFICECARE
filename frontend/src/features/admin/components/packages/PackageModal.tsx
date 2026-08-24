@@ -1,9 +1,9 @@
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { createPackage, updatePackage } from '../../api/admin.api';
-import { useEffect, useState } from 'react';
-import { X, Sparkles, Coins, Layers, Lock } from 'lucide-react';
+import { X, Sparkles, Coins, Layers, Lock, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { ConfirmDialog } from '../../../../components/ConfirmDialog';
 import { ImageUploadZone } from '../upload/ImageUploadZone';
@@ -252,37 +252,65 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
   };
 
   return (
-    <div className="bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 rounded-3xl shadow-xl max-w-5xl mx-auto w-full text-secondary dark:text-zinc-100 overflow-hidden backdrop-blur-md bg-white/95 dark:bg-zinc-900/95 animate-fade-in">
+    <div className="w-full space-y-6 font-jakarta pb-12 animate-fade-in">
         
-        {/* Modal Header */}
-        <div className="px-8 py-6 flex justify-between items-center border-b border-zinc-100 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-800/70">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-2xl bg-emerald-600/10 dark:bg-emerald-500/20 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400 animate-pulse" />
-            </div>
+        {/* Form Top Navigation Bar */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b border-slate-100 dark:border-zinc-800">
+          <div className="flex items-center gap-3.5">
+            <button 
+              type="button"
+              onClick={onClose} 
+              className="p-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 transition-all cursor-pointer shadow-2xs hover:scale-105 active:scale-95 shrink-0"
+              title="Quay lại danh sách gói"
+            >
+              <ArrowLeft size={18} />
+            </button>
             <div>
-              <h3 className="text-sm font-bold font-heading tracking-wide uppercase text-slate-800 dark:text-zinc-100">
-                {editingPackage && editingPackage.id ? `[CHỈNH SỬA] CẤU HÌNH GÓI` : `[THIẾT KẾ MỚI] GÓI DỊCH VỤ`}
-              </h3>
-              <p className="text-[10px] text-slate-400 dark:text-zinc-400 font-medium">Bảng cấu hình gói chuyên khoa & phân tích doanh thu</p>
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className="size-2 rounded-full bg-teal-500 animate-pulse"></span>
+                <span className="text-[10px] font-black uppercase tracking-wider text-teal-600 dark:text-teal-400">
+                  {editingPackage && editingPackage.id ? 'Chỉnh sửa cấu hình gói' : 'Thiết kế gói mới'}
+                </span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-zinc-100 font-jakarta tracking-tight">
+                {editingPackage && editingPackage.id ? `CẤU HÌNH GÓI: ${editingPackage.ten_goi}` : 'TẠO GÓI DỊCH VỤ MỚI'}
+              </h2>
+              <p className="text-slate-500 dark:text-zinc-400 text-xs mt-0.5">
+                Bảng cấu hình gói chuyên khoa phục hồi chức năng & phân tích tài chính
+              </p>
             </div>
           </div>
-          <button 
-            type="button"
-            onClick={onClose} 
-            className="text-zinc-500 dark:text-zinc-300 hover:text-rose-600 dark:hover:text-rose-400 text-xs border border-zinc-200 dark:border-zinc-700 hover:border-rose-200 px-4 py-2 rounded-xl bg-white dark:bg-zinc-800 shadow-sm transition-all hover:bg-rose-50/30 flex items-center gap-1.5 font-bold cursor-pointer"
-          >
-            <X className="w-3.5 h-3.5" /> [ Đóng ]
-          </button>
+
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+            <button 
+              type="button"
+              onClick={onClose} 
+              className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-600 dark:text-zinc-300 font-bold text-xs cursor-pointer transition-all"
+            >
+              Hủy bỏ
+            </button>
+            <button 
+              type="button"
+              onClick={handleSubmit(onSubmit)}
+              disabled={!isTypeSelected}
+              className={`px-5 py-2.5 font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer ${
+                !isTypeSelected
+                  ? 'bg-zinc-200 text-zinc-400 cursor-not-allowed shadow-none'
+                  : 'bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white shadow-teal-600/20 active:scale-95'
+              }`}
+            >
+              <Sparkles className="w-4 h-4" /> {editingPackage && editingPackage.id ? 'CẬP NHẬT CẤU HÌNH' : 'LƯU GÓI DỊCH VỤ'}
+            </button>
+          </div>
         </div>
 
-        {/* Form Body - Two-Column Layout */}
+        {/* Form Body - Two-Column Layout (Full Width Grid) */}
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-0">
-          <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-zinc-100 dark:divide-zinc-800 min-h-[460px]">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             
-            {/* LEFT PANEL (33% width) - Interactive Image Upload & Dynamic Guide */}
-            <div className="col-span-1 p-8 bg-slate-50/40 dark:bg-zinc-900/60 flex flex-col justify-between space-y-6">
-              <div className="space-y-6">
+            {/* LEFT PANEL (4 cols) - Interactive Image Upload & Dynamic Guide */}
+            <div className="col-span-12 lg:col-span-4 space-y-6">
+              <div className="bg-slate-50/70 dark:bg-zinc-900/60 p-6 rounded-3xl border border-slate-200/80 dark:border-zinc-800 space-y-6">
                 <ImageUploadZone
                   value={watch('anh_goi') || null}
                   onChange={(url) => setValue('anh_goi', url)}
@@ -343,8 +371,8 @@ export default function PackageModal({ onClose, onSuccess, editingPackage, exist
               </div>
             </div>
 
-            {/* RIGHT PANEL (67% width) - Core Fields & Intelligent Pricing */}
-            <div className="col-span-2 p-8 flex flex-col justify-between">
+            {/* RIGHT PANEL (8 cols) - Core Fields & Intelligent Pricing */}
+            <div className="col-span-12 lg:col-span-8 bg-white dark:bg-zinc-900 p-6 sm:p-8 rounded-3xl border border-slate-200/80 dark:border-zinc-800 flex flex-col justify-between space-y-6">
               
               <div className="space-y-6 text-xs">
                 

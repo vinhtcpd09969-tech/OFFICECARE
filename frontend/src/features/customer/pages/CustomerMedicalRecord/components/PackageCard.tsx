@@ -20,7 +20,6 @@ function toPlanShape(pkg: PackageEntry) {
     so_tien_da_tra: pkg.so_tien_da_tra,
     tong_so_buoi: pkg.tong_so_buoi,
     tong_tien_goc: pkg.tong_tien_goc,
-    ti_le_giam_gia_goi: pkg.ti_le_giam_gia_goi,
     so_tien_giam_voucher: pkg.so_tien_giam_voucher,
     // Cần cho isPlanCancelled bên trong isSessionPaymentSatisfied: gói đã hoàn tiền thì không còn
     // khoản nào để đòi, không chặn "Đặt lịch" vì lý do thanh toán nữa.
@@ -262,7 +261,7 @@ export function PackageCard({ pkg, isExpanded, onToggleExpand, targetSessionId }
                           </h4>
                           <p className="text-xs text-slate-500 font-medium mt-0.5 truncate">
                             {status === 'hoan_thanh' && session
-                              ? `Bác sĩ: ${session.ten_bac_si || 'KTV'} • Thời gian: ${format(new Date(session.ngay_gio_bat_dau), 'dd/MM/yyyy HH:mm')}`
+                              ? `Chuyên viên/KTV: ${session.ten_bac_si || 'KTV'} • Thời gian: ${format(new Date(session.ngay_gio_bat_dau), 'dd/MM/yyyy HH:mm')}`
                               : status === 'khong_den' && session
                                 ? `Vắng mặt lúc ${format(new Date(session.ngay_gio_bat_dau), 'dd/MM/yyyy HH:mm')}`
                                 : status === 'da_dat_lich' && session

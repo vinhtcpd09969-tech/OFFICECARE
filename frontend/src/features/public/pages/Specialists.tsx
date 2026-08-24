@@ -74,7 +74,7 @@ export default function Specialists() {
 
   return (
     <div className="min-h-screen bg-slate-50/50 pb-20 pt-6 font-jakarta">
-      <div className="max-w-7xl mx-auto px-6">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* Centered Hero Header */}
         <div className="mb-10 max-w-3xl mx-auto text-center space-y-2">

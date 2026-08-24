@@ -35,10 +35,9 @@ export default function AdminLayout() {
   
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
 
-  // State và Effect cho thông báo gán Bác sĩ & KTV (Alarm & Bouncing notification)
+  // State và Effect cho thông báo ca đã check-in đang chờ gọi vào (Alarm & Bouncing notification)
   const [pendingAppointmentsCount, setPendingAppointmentsCount] = useState<number>(0);
-  const [pendingTreatmentsCount, setPendingTreatmentsCount] = useState<number>(0);
-  const [earliestPending, setEarliestPending] = useState<{ id: string, type: 'appointment' | 'treatment', ngay_gio_bat_dau: string } | null>(null);
+  const [earliestPending, setEarliestPending] = useState<{ id: string, type: 'appointment' | 'treatment', loai_lich?: 'kham' | 'dieu_tri', ngay_gio_bat_dau: string } | null>(null);
   const [activeRoleView, setActiveRoleView] = useState(
     localStorage.getItem('admin-test-role-view') || 'manager'
   );
@@ -51,6 +50,7 @@ export default function AdminLayout() {
   const [pendingPaymentCount, setPendingPaymentCount] = useState<number>(0);
   const [earliestPaymentId, setEarliestPaymentId] = useState<string | null>(null);
   const [earliestPaymentDate, setEarliestPaymentDate] = useState<string | null>(null);
+  const [earliestPaymentType, setEarliestPaymentType] = useState<'kham' | 'dieu_tri'>('kham');
 
   const seenCheckedInIds = useRef<Set<string>>(new Set());
   const seenPaymentIds = useRef<Set<string>>(new Set());
@@ -111,12 +111,16 @@ export default function AdminLayout() {
         setPendingPaymentCount(paymentApts.length);
         if (paymentApts.length > 0) {
           paymentApts.sort((a: any, b: any) => new Date(a.ngay_gio_bat_dau || '').getTime() - new Date(b.ngay_gio_bat_dau || '').getTime());
-          setEarliestPaymentId(paymentApts[0].id);
-          const targetDate = paymentApts[0].ngay_gio_bat_dau ? paymentApts[0].ngay_gio_bat_dau.match(/^\d{4}-\d{2}-\d{2}/)?.[0] || '' : '';
+          const firstPayment = paymentApts[0];
+          setEarliestPaymentId(firstPayment.id);
+          const targetDate = firstPayment.ngay_gio_bat_dau ? firstPayment.ngay_gio_bat_dau.match(/^\d{4}-\d{2}-\d{2}/)?.[0] || '' : '';
           setEarliestPaymentDate(targetDate);
+          const targetType = firstPayment.loai_lich === 'kham_moi' ? 'kham' : 'dieu_tri';
+          setEarliestPaymentType(targetType);
         } else {
           setEarliestPaymentId(null);
           setEarliestPaymentDate(null);
+          setEarliestPaymentType('kham');
         }
 
         // 4. Check-in notifications
@@ -136,7 +140,7 @@ export default function AdminLayout() {
               seenPaymentIds.current.add(id);
               hasNewEvent = true;
               const name = apt.ten_khach_hang || 'Khách hàng';
-              toast(`💵 Ca khám mới cần thanh toán: ${name}`, {
+              toast(`💵 Ca lượng giá mới cần thanh toán: ${name}`, {
                 icon: '💰',
                 duration: 8000,
                 style: { borderRadius: '16px', background: '#0d9488', color: '#fff', fontWeight: 'bold' }
@@ -209,15 +213,20 @@ export default function AdminLayout() {
             if (!seenStaffCheckedInIds.current.has(id)) {
               seenStaffCheckedInIds.current.add(id);
               hasNewCheckIn = true;
-              const name = apt.ten_khach_hang || apt.ho_ten_khach || 'Bệnh nhân';
+              const name = apt.ten_khach_hang || apt.ho_ten_khach || 'Khách hàng';
               const assignedStaffId = apt.bac_si_id || apt.nhan_su_id;
               const isAssignedToMe = Boolean(assignedStaffId && String(assignedStaffId) === String(user.id));
-              const assignedText = isAssignedToMe ? ' (Đích danh bạn ⭐)' : ' (Hàng đợi chung)';
+              const isDoctor = Number(user.vai_tro_id) === 4;
+              const queueType = isDoctor ? 'Lượng giá' : 'Trị liệu';
+              const icon = isDoctor ? '🩺' : '💆';
+              const toastMessage = isAssignedToMe
+                ? `${icon} Khách hàng ${name} đặt đích danh bạn vừa check-in!`
+                : `${icon} Khách hàng ${name} vừa check-in vào hàng đợi ${queueType}!`;
 
-              toast(`🩺 Bệnh nhân mới vừa check-in: ${name}${assignedText}`, {
-                icon: '🩺',
+              toast(toastMessage, {
+                icon,
                 duration: 7000,
-                style: { borderRadius: '16px', background: '#0891b2', color: '#fff', fontWeight: 'bold' }
+                style: { borderRadius: '16px', background: isDoctor ? '#0891b2' : '#0d9488', color: '#fff', fontWeight: 'bold' }
               });
             }
           });
@@ -236,15 +245,11 @@ export default function AdminLayout() {
     return () => clearInterval(timer);
   }, [user, playNotificationSound]);
 
-  const pendingAssignCount = pendingAppointmentsCount + pendingTreatmentsCount;
+  const pendingAssignCount = pendingAppointmentsCount;
 
   let tooltipText = "Thông báo";
-  if (pendingAppointmentsCount > 0 && pendingTreatmentsCount > 0) {
-    tooltipText = `Có ${pendingAppointmentsCount} lịch khám & ${pendingTreatmentsCount} lịch điều trị chưa gán nhân sự!`;
-  } else if (pendingAppointmentsCount > 0) {
-    tooltipText = `Có ${pendingAppointmentsCount} lịch khám chưa gán Bác sĩ!`;
-  } else if (pendingTreatmentsCount > 0) {
-    tooltipText = `Có ${pendingTreatmentsCount} lịch điều trị chưa gán KTV!`;
+  if (pendingAppointmentsCount > 0) {
+    tooltipText = `Có ${pendingAppointmentsCount} khách check-in ở hàng chờ chung (có nhân sự rảnh hoàn toàn chưa gọi vào)!`;
   }
 
   useEffect(() => {
@@ -257,34 +262,33 @@ export default function AdminLayout() {
   }, []);
 
   useEffect(() => {
-    const isManagerOrAdmin = user?.vai_tro_id === 5 || user?.vai_tro_id === 6;
+    const isManagerOrAdmin = Number(user?.vai_tro_id) === 5 || Number(user?.vai_tro_id) === 6;
     if (!isManagerOrAdmin) {
       setPendingAppointmentsCount(0);
-      setPendingTreatmentsCount(0);
       setEarliestPending(null);
       return;
     }
 
     const fetchPendingCount = async () => {
       try {
-        const res = await api.get('/admin/analytics/summary');
-        setPendingAppointmentsCount(Number(res.data.pending_appointments_need_assign || 0));
-        setPendingTreatmentsCount(Number(res.data.pending_treatments || 0));
+        const res = await api.get(`/admin/analytics/summary?_t=${Date.now()}`);
+        const count = Number(res.data.pending_appointments_need_assign || 0);
+        setPendingAppointmentsCount(count);
         setEarliestPending(res.data.earliest_pending || null);
       } catch (err) {
-        console.error('Lỗi lấy số lượng lịch chờ gán:', err);
+        console.error('Lỗi lấy số lượng ca chờ gọi vào:', err);
       }
     };
 
     fetchPendingCount();
 
-    // Poll every 10 seconds to detect new bookings immediately
-    const interval = setInterval(fetchPendingCount, 10000);
+    // Poll every 4 seconds to detect queue changes and idle staff immediately
+    const interval = setInterval(fetchPendingCount, 4000);
     return () => clearInterval(interval);
   }, [user]);
 
   useEffect(() => {
-    const isManagerOrAdmin = user?.vai_tro_id === 5 || user?.vai_tro_id === 6;
+    const isManagerOrAdmin = Number(user?.vai_tro_id) === 5 || Number(user?.vai_tro_id) === 6;
     if (!isManagerOrAdmin || activeRoleView !== 'manager' || pendingAssignCount <= 0) return;
 
     const playAlarmSound = () => {
@@ -363,171 +367,271 @@ export default function AdminLayout() {
   const isDoctor = Number(user?.vai_tro_id) === 4;
   const isTechnician = Number(user?.vai_tro_id) === 3;
   const isReceptionist = Number(user?.vai_tro_id) === 2;
+  const userRoleId = Number(user?.vai_tro_id || 5);
 
-  const rawNavItems = [
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+
+  const toggleGroup = (groupName: string) => {
+    setCollapsedGroups(prev => ({
+      ...prev,
+      [groupName]: !prev[groupName]
+    }));
+  };
+
+  interface NavItem {
+    name: string;
+    path: string;
+    icon: React.ReactNode;
+    roles: number[];
+  }
+
+  interface NavGroup {
+    groupName: string;
+    roles: number[];
+    items: NavItem[];
+  }
+
+  const allNavGroups: NavGroup[] = [
+    // --- 1. ADMIN GROUPS ---
     {
-      name: 'Tổng quan',
-      path: '/admin',
-      icon: <LayoutDashboard size={18} />,
-      roles: [5, 6]
-    },
-    { 
-      name: 'Lịch hẹn', 
-      path: isDoctor 
-        ? '/doctor/appointments' 
-        : (isReceptionist 
-          ? '/receptionist/appointments' 
-          : (isTechnician 
-            ? '/technician/appointments' 
-            : '/admin/appointments')), 
-      icon: <Calendar size={18} />,
-      roles: [2, 3, 4, 5, 6]
-    },
-    { 
-      name: 'Bàn làm việc', 
-      path: isTechnician ? '/technician/desk' : '/doctor/desk',
-      icon: <Activity size={18} />,
-      roles: [3, 4]
-    },
-    { name: 'Ca làm việc', path: '/admin/schedules', icon: <Clock size={18} />, roles: [5, 6] },
-    { 
-      name: 'Lịch trực cá nhân', 
-      path: isReceptionist 
-        ? '/receptionist/schedules' 
-        : (isDoctor 
-          ? '/doctor/schedules' 
-          : '/technician/schedules'), 
-      icon: <Clock size={18} />, 
-      roles: [2, 3, 4] 
-    },
-    {
-      name: 'Khách hàng',
-      path: '/admin/customers',
-      icon: <User size={18} />,
-      roles: [5, 6]
+      groupName: 'VẬN HÀNH & CƠ SỞ',
+      roles: [5, 6],
+      items: [
+        { name: 'Tổng quan', path: '/admin', icon: <LayoutDashboard size={17} />, roles: [5, 6] },
+        { name: 'Lịch hẹn', path: '/admin/appointments', icon: <Calendar size={17} />, roles: [5, 6] },
+        { name: 'Ca làm việc', path: '/admin/schedules', icon: <Clock size={17} />, roles: [5, 6] },
+        { name: 'Khách hàng', path: '/admin/customers', icon: <User size={17} />, roles: [5, 6] },
+        { name: 'Nhân sự', path: '/admin/staff', icon: <Users size={17} />, roles: [5] },
+        { name: 'Phòng trị liệu', path: '/admin/rooms', icon: <Key size={17} />, roles: [5, 6] },
+        { name: 'Thiết bị y tế', path: '/admin/equipment', icon: <Cpu size={17} />, roles: [5, 6] },
+      ]
     },
     {
-      name: 'Khách hàng',
-      path: '/receptionist/customers',
-      icon: <User size={18} />,
-      roles: [2]
-    },
-    { 
-      name: 'Hồ sơ điều trị', 
-      path: isTechnician 
-        ? '/technician/medical-records' 
-        : (isDoctor 
-          ? '/doctor/medical-records' 
-          : '/admin/medical-records'), 
-      icon: <FileText size={18} />,
-      roles: [3, 4]
+      groupName: 'KINH DOANH & MARKETING',
+      roles: [5, 6],
+      items: [
+        { name: 'Tài chính', path: '/admin/finance', icon: <DollarSign size={17} />, roles: [5, 6] },
+        { name: 'Marketing', path: '/admin/marketing', icon: <Megaphone size={17} />, roles: [5, 6] },
+      ]
     },
     {
-      name: 'Hóa đơn & Thanh toán',
-      path: '/receptionist/billing',
-      icon: <DollarSign size={18} />,
-      roles: [2]
+      groupName: 'DỊCH VỤ & TRUYỀN THÔNG',
+      roles: [5, 6],
+      items: [
+        { name: 'Gói Dịch Vụ', path: '/admin/packages', icon: <Package size={17} />, roles: [5, 6] },
+        { name: 'Bài viết', path: '/admin/articles', icon: <Newspaper size={17} />, roles: [5, 6] },
+        { name: 'Đánh giá', path: '/admin/feedback', icon: <Star size={17} />, roles: [5, 6] },
+      ]
+    },
+
+    // --- 2. RECEPTIONIST GROUPS ---
+    {
+      groupName: 'VẬN HÀNH TIẾP ĐÓN',
+      roles: [2],
+      items: [
+        { name: 'Lịch hẹn', path: '/receptionist/appointments', icon: <Calendar size={17} />, roles: [2] },
+        { name: 'Khách hàng', path: '/receptionist/customers', icon: <User size={17} />, roles: [2] },
+        { name: 'Lịch trực cá nhân', path: '/receptionist/schedules', icon: <Clock size={17} />, roles: [2] },
+      ]
     },
     {
-      name: 'Đánh giá',
-      path: '/receptionist/feedback',
-      icon: <Star size={18} />,
-      roles: [2]
+      groupName: 'THU NGÂN & PHẢN HỒI',
+      roles: [2],
+      items: [
+        { name: 'Hóa đơn & Thanh toán', path: '/receptionist/billing', icon: <DollarSign size={17} />, roles: [2] },
+        { name: 'Đánh giá', path: '/receptionist/feedback', icon: <Star size={17} />, roles: [2] },
+      ]
     },
-    { name: 'Nhân sự', path: '/admin/staff', icon: <Users size={18} />, roles: [5] },
-    { name: 'Gói Dịch Vụ', path: '/admin/packages', icon: <Package size={18} />, roles: [5, 6] },
-    { name: 'Phòng trị liệu', path: '/admin/rooms', icon: <Key size={18} />, roles: [5, 6] },
-    { name: 'Thiết bị y tế', path: '/admin/equipment', icon: <Cpu size={18} />, roles: [5, 6] },
-    { name: 'Tài chính', path: '/admin/finance', icon: <DollarSign size={18} />, roles: [5, 6] },
-    { name: 'Marketing', path: '/admin/marketing', icon: <Megaphone size={18} />, roles: [5, 6] },
-    { name: 'Bài viết', path: '/admin/articles', icon: <Newspaper size={18} />, roles: [5, 6] },
-    { name: 'Đánh giá', path: '/admin/feedback', icon: <Star size={18} />, roles: [5, 6] },
+
+    // --- 3. DOCTOR / SPECIALIST GROUPS ---
     {
-      name: 'Cài đặt tài khoản', 
-      path: isReceptionist 
-        ? '/receptionist/settings' 
-        : (isDoctor 
-          ? '/doctor/settings' 
-          : (isTechnician 
-            ? '/technician/settings' 
-            : '/admin/settings')), 
-      icon: <Settings size={18} />, 
-      roles: [2, 3, 4, 6] 
+      groupName: 'CHUYÊN MÔN ĐIỀU TRỊ',
+      roles: [4],
+      items: [
+        { name: 'Bàn làm việc', path: '/doctor/desk', icon: <Activity size={17} />, roles: [4] },
+        { name: 'Lịch hẹn', path: '/doctor/appointments', icon: <Calendar size={17} />, roles: [4] },
+        { name: 'Hồ sơ điều trị', path: '/doctor/medical-records', icon: <FileText size={17} />, roles: [4] },
+      ]
+    },
+    {
+      groupName: 'LỊCH TRÌNH',
+      roles: [4],
+      items: [
+        { name: 'Lịch trực cá nhân', path: '/doctor/schedules', icon: <Clock size={17} />, roles: [4] },
+      ]
+    },
+
+    // --- 4. TECHNICIAN GROUPS ---
+    {
+      groupName: 'CHUYÊN MÔN ĐIỀU TRỊ',
+      roles: [3],
+      items: [
+        { name: 'Bàn làm việc', path: '/technician/desk', icon: <Activity size={17} />, roles: [3] },
+        { name: 'Lịch hẹn', path: '/technician/appointments', icon: <Calendar size={17} />, roles: [3] },
+        { name: 'Hồ sơ điều trị', path: '/technician/medical-records', icon: <FileText size={17} />, roles: [3] },
+      ]
+    },
+    {
+      groupName: 'LỊCH TRÌNH',
+      roles: [3],
+      items: [
+        { name: 'Lịch trực cá nhân', path: '/technician/schedules', icon: <Clock size={17} />, roles: [3] },
+      ]
     },
   ];
 
-  const navItems = rawNavItems.filter(item => item.roles.includes(user?.vai_tro_id || 5));
+  // Standalone menu item: Cài đặt tài khoản (dành cho Lễ tân 2, KTV 3, Bác sĩ 4, Quản lý 6)
+  const standaloneSettingsItem: NavItem = {
+    name: 'Cài đặt tài khoản',
+    path: isReceptionist
+      ? '/receptionist/settings'
+      : (isDoctor
+        ? '/doctor/settings'
+        : (isTechnician
+          ? '/technician/settings'
+          : '/admin/settings')),
+    icon: <Settings size={17} />,
+    roles: [2, 3, 4, 6]
+  };
 
-  const currentItem = navItems.find(item => item.path === location.pathname || (item.path !== '/admin' && item.path !== '/receptionist' && item.path !== '/doctor' && location.pathname.startsWith(item.path + '/')));
+  // Filter groups according to active user role
+  const userGroups = allNavGroups
+    .filter(g => g.roles.includes(userRoleId))
+    .map(g => ({
+      ...g,
+      items: g.items.filter(item => item.roles.includes(userRoleId))
+    }))
+    .filter(g => g.items.length > 0);
+
+  const isItemActive = (itemPath: string, itemName: string) => {
+    const isAssess = location.pathname.includes('/assess') || location.pathname.endsWith('/desk');
+    if (itemPath.includes('/desk')) {
+      return isAssess;
+    }
+    if (itemName === 'Lịch hẹn') {
+      return !isAssess && (location.pathname === itemPath || location.pathname.startsWith(itemPath + '/'));
+    }
+    return location.pathname === itemPath || (itemPath !== '/admin' && itemPath !== '/receptionist' && itemPath !== '/doctor' && location.pathname.startsWith(itemPath + '/'));
+  };
+
+  const allItems = userGroups.flatMap(g => g.items).concat(
+    standaloneSettingsItem.roles.includes(userRoleId) ? [standaloneSettingsItem] : []
+  );
+  const currentItem = allItems.find(item => isItemActive(item.path, item.name));
 
   return (
     <div className="h-screen overflow-hidden bg-background dark:bg-zinc-950 flex font-body text-secondary dark:text-zinc-100 transition-colors duration-300">
       {/* Sidebar - Soft UI Light & Dark Theme */}
-      <aside className="w-64 bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 flex flex-col shrink-0 border-r border-zinc-100 dark:border-zinc-800 shadow-sm z-30 transition-colors duration-300">
-        <div className="h-16 flex items-center gap-3 px-6 border-b border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 transition-colors duration-300">
-          <div className="size-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
-            <span className="text-primary font-bold text-sm">🏥</span>
+      <aside className="w-64 bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 flex flex-col shrink-0 border-r border-zinc-150/70 dark:border-zinc-800 shadow-sm z-30 transition-colors duration-300">
+        <div className="h-16 flex items-center gap-3 px-5 border-b border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 transition-colors duration-300 shrink-0">
+          <div className="size-9 rounded-xl bg-teal-50 dark:bg-teal-950/60 border border-teal-200/80 dark:border-teal-800 flex items-center justify-center shadow-xs">
+            <span className="text-teal-600 dark:text-teal-400 font-black text-sm">🏥</span>
           </div>
           <div>
-            <h1 className="text-sm font-extrabold text-secondary dark:text-zinc-100 tracking-tight flex items-center gap-1.5">
-              OFFICE CARE <span className="text-primary font-bold text-[9px] bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20">2026</span>
+            <h1 className="text-sm font-black text-slate-900 dark:text-zinc-100 tracking-tight flex items-center gap-1.5 font-heading">
+              OFFICE CARE <span className="text-teal-700 dark:text-teal-300 font-extrabold text-[9px] bg-teal-50 dark:bg-teal-950/60 px-1.5 py-0.5 rounded-md border border-teal-200/70 dark:border-teal-800">2026</span>
             </h1>
-            <p className="text-[8px] text-zinc-400 dark:text-zinc-500 font-extrabold tracking-widest uppercase mt-0.5">Phục hồi chức năng</p>
+            <p className="text-[8px] text-slate-400 dark:text-zinc-500 font-black tracking-widest uppercase mt-0.5">Phục hồi chức năng</p>
           </div>
         </div>
         
-        <nav className="flex-1 py-4 overflow-y-auto pr-1 scrollbar-thin">
-          <ul className="space-y-1 px-3">
-            {navItems.map((item) => {
-              const isAssess = location.pathname.includes('/assess') || location.pathname.endsWith('/desk');
-              let isActive = false;
-              if (item.path.includes('/desk')) {
-                isActive = isAssess;
-              } else if (item.name === 'Lịch hẹn') {
-                isActive = !isAssess && (location.pathname === item.path || location.pathname.startsWith(item.path + '/'));
-              } else {
-                isActive = location.pathname === item.path || (item.path !== '/admin' && item.path !== '/receptionist' && item.path !== '/doctor' && location.pathname.startsWith(item.path + '/'));
-              }
-              return (
-                <li key={item.name}>
-                  <Link
-                    to={item.path}
-                    className={`flex items-center justify-between px-4 py-2.5 rounded-[14px] transition-all duration-200 group border-l-4 ${
-                      isActive 
-                        ? 'bg-primary/5 dark:bg-primary/10 text-primary font-bold border-primary shadow-sm' 
-                        : 'border-transparent hover:bg-zinc-50 dark:hover:bg-zinc-800 hover:text-secondary dark:hover:text-zinc-100'
+        <nav className="flex-1 py-4 overflow-y-auto px-3 scrollbar-thin space-y-4">
+          {userGroups.map((group) => {
+            const isCollapsed = collapsedGroups[group.groupName] || false;
+            return (
+              <div key={group.groupName} className="space-y-1">
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group.groupName)}
+                  className="w-full flex items-center justify-between px-3 py-1.5 text-[9.5px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest hover:text-slate-700 dark:hover:text-zinc-300 transition-colors cursor-pointer select-none group"
+                >
+                  <span className="truncate">{group.groupName}</span>
+                  <span className="text-slate-400 group-hover:text-slate-600 dark:group-hover:text-zinc-300 text-[9px] transition-transform duration-200">
+                    {isCollapsed ? '▼' : '▲'}
+                  </span>
+                </button>
+
+                {!isCollapsed && (
+                  <ul className="space-y-1 pt-0.5">
+                    {group.items.map((item) => {
+                      const isActive = isItemActive(item.path, item.name);
+                      return (
+                        <li key={item.path}>
+                          <Link
+                            to={item.path}
+                            className={`flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all duration-200 group ${
+                              isActive 
+                                ? 'bg-gradient-to-r from-teal-600 via-teal-500 to-emerald-600 text-white font-extrabold shadow-md shadow-teal-600/25 scale-[1.01]' 
+                                : 'text-slate-650 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800/80 hover:text-slate-900 dark:hover:text-white font-bold'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span 
+                                className={`p-1.5 rounded-xl transition-transform duration-200 group-hover:scale-110 shrink-0 ${
+                                  isActive
+                                    ? 'bg-white/20 text-white shadow-xs'
+                                    : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 group-hover:text-teal-600 dark:group-hover:text-teal-400 group-hover:bg-teal-50 dark:group-hover:bg-teal-950/40'
+                                }`}
+                              >
+                                {item.icon}
+                              </span>
+                              <span className="text-xs tracking-tight truncate">{item.name}</span>
+                            </div>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Standalone Bottom Item: Cài đặt tài khoản */}
+          {standaloneSettingsItem.roles.includes(userRoleId) && (
+            <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 space-y-1">
+              <Link
+                to={standaloneSettingsItem.path}
+                className={`flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all duration-200 group ${
+                  isItemActive(standaloneSettingsItem.path, standaloneSettingsItem.name)
+                    ? 'bg-gradient-to-r from-teal-600 via-teal-500 to-emerald-600 text-white font-extrabold shadow-md shadow-teal-600/25 scale-[1.01]'
+                    : 'text-slate-650 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800/80 hover:text-slate-900 dark:hover:text-white font-bold'
+                }`}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <span
+                    className={`p-1.5 rounded-xl transition-transform duration-200 group-hover:scale-110 shrink-0 ${
+                      isItemActive(standaloneSettingsItem.path, standaloneSettingsItem.name)
+                        ? 'bg-white/20 text-white shadow-xs'
+                        : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 group-hover:text-teal-600 dark:group-hover:text-teal-400 group-hover:bg-teal-50 dark:group-hover:bg-teal-950/40'
                     }`}
                   >
-                    <div className="flex items-center">
-                      <span className={`mr-3 transition-transform group-hover:scale-110 duration-200 ${isActive ? 'text-primary' : 'text-zinc-400 dark:text-zinc-500 group-hover:text-secondary dark:group-hover:text-zinc-100'}`}>
-                        {item.icon}
-                      </span>
-                      <span className="text-[11px] font-bold tracking-wide uppercase">{item.name}</span>
-                    </div>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+                    {standaloneSettingsItem.icon}
+                  </span>
+                  <span className="text-xs tracking-tight truncate">{standaloneSettingsItem.name}</span>
+                </div>
+              </Link>
+            </div>
+          )}
         </nav>
         
-        <div className="p-4 border-t border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 transition-colors duration-300">
-          <div className="flex items-center gap-3 mb-4">
+        <div className="p-4 border-t border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 transition-colors duration-300 shrink-0">
+          <div className="flex items-center gap-3 mb-3.5">
             <img 
               src={user?.anh_dai_dien || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user?.ho_ten || 'Staff')}&backgroundType=gradientLinear&fontSize=45`} 
               alt="Avatar" 
-              className="size-10 rounded-full object-cover border border-primary/20 shadow-inner shrink-0" 
+              className="size-9 rounded-full object-cover border border-teal-500/20 shadow-xs shrink-0" 
             />
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-secondary dark:text-zinc-100 truncate">{user?.ho_ten || user?.email || 'admin@officecare.com'}</p>
-              <p className="text-[9px] text-zinc-400 dark:text-zinc-550 font-bold uppercase tracking-wider mt-0.5">
+              <p className="text-xs font-black text-slate-900 dark:text-zinc-100 truncate">{user?.ho_ten || user?.email || 'admin@officecare.com'}</p>
+              <p className="text-[9px] text-slate-400 dark:text-zinc-550 font-extrabold uppercase tracking-wider mt-0.5">
                 {user?.vai_tro_id === 4 ? 'Chuyên viên tư vấn' : user?.vai_tro_id === 3 ? 'Kỹ thuật viên' : user?.vai_tro_id === 2 ? 'Lễ tân' : user?.vai_tro_id === 6 ? 'Quản lý' : 'Quản trị viên'}
               </p>
             </div>
           </div>
           <button 
             onClick={handleLogout}
-            className="w-full py-2.5 px-4 rounded-[14px] bg-zinc-50 dark:bg-zinc-800 hover:bg-rose-50 dark:hover:bg-rose-950/20 hover:text-rose-600 border border-zinc-100 dark:border-zinc-800 hover:border-rose-200 text-xs font-bold transition-all flex items-center justify-center gap-2 text-zinc-650 dark:text-zinc-400"
+            className="w-full py-2.5 px-4 rounded-xl bg-slate-50 dark:bg-zinc-800 hover:bg-rose-50 dark:hover:bg-rose-950/20 hover:text-rose-600 border border-slate-200/60 dark:border-zinc-750 hover:border-rose-200 text-xs font-black transition-all flex items-center justify-center gap-2 text-slate-600 dark:text-zinc-400 cursor-pointer"
           >
             <LogOut size={14} /> Đăng xuất
           </button>
@@ -535,7 +639,7 @@ export default function AdminLayout() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative bg-background dark:bg-zinc-950 transition-colors duration-300">
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative bg-white dark:bg-zinc-950 transition-colors duration-300">
         {/* Top Header - Premium Design with Actions */}
         <header className="h-16 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between px-8 shrink-0 z-20 sticky top-0 transition-colors duration-300">
           <div className="flex items-center gap-6 flex-1 min-w-0">
@@ -585,8 +689,8 @@ export default function AdminLayout() {
         </header>
  
         {/* Content Area */}
-        <div className="flex-1 overflow-auto p-8 bg-background dark:bg-zinc-950 transition-colors duration-300">
-          <div className="max-w-7xl mx-auto">
+        <div className="flex-1 overflow-auto p-4 sm:p-6 bg-white dark:bg-zinc-950 transition-colors duration-300">
+          <div className="w-full">
             <Outlet />
           </div>
         </div>
@@ -599,12 +703,13 @@ export default function AdminLayout() {
           onClick={() => {
             if (earliestPending) {
               const targetDate = earliestPending.ngay_gio_bat_dau ? earliestPending.ngay_gio_bat_dau.match(/^\d{4}-\d{2}-\d{2}/)?.[0] || '' : '';
+              const targetType = (earliestPending.type === 'treatment' || earliestPending.loai_lich === 'dieu_tri') ? 'dieu_tri' : 'kham';
               const query = targetDate 
-                ? `?date=${targetDate}&range=today&view=timeline&appointmentId=${earliestPending.id}&triggerFocus=true` 
-                : `?appointmentId=${earliestPending.id}&triggerFocus=true`;
+                ? `?date=${targetDate}&range=today&view=timeline&type=${targetType}&appointmentId=${earliestPending.id}&tab=dang_cho&triggerFocus=true` 
+                : `?type=${targetType}&appointmentId=${earliestPending.id}&tab=dang_cho&triggerFocus=true`;
               navigate(`/admin/appointments${query}`);
             } else {
-              navigate('/admin/appointments?triggerFocus=true');
+              navigate('/admin/appointments?tab=dang_cho&triggerFocus=true');
             }
           }}
           tooltipText={tooltipText}
@@ -624,7 +729,7 @@ export default function AdminLayout() {
           // hay đợt 2 của gói) — KHÔNG nhảy thẳng vào /receptionist/billing, vì cách đó luôn tự tạo
           // 1 hóa đơn khám mới bất kể ca đó thực chất đang nợ đợt 2 của gói (hóa đơn đã có sẵn).
           if (earliestPaymentId && earliestPaymentDate) {
-            navigate(`/receptionist/appointments?date=${earliestPaymentDate}&range=today&view=timeline&appointmentId=${earliestPaymentId}&triggerFocus=true`);
+            navigate(`/receptionist/appointments?date=${earliestPaymentDate}&range=today&view=timeline&type=${earliestPaymentType}&appointmentId=${earliestPaymentId}&triggerFocus=true`);
           } else {
             navigate('/receptionist/appointments?triggerFocus=true');
           }

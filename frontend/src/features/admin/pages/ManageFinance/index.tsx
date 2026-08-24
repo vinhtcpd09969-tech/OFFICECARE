@@ -4,11 +4,10 @@ import { useAuthStore } from '../../../../stores/authStore';
 import {
   ArrowLeft,
   Coins,
-  DollarSign,
-  Tag
+  DollarSign
 } from 'lucide-react';
 import { formatCurrency } from '../../../../utils/format';
-import { INVOICE_STATUS_LABELS } from './constants';
+import { generateInvoiceHtml, generateTransactionReceiptHtml } from '../../../../utils/invoicePrinter';
 
 // Hooks
 import { useCheckout } from './hooks/useCheckout';
@@ -25,7 +24,6 @@ import ConfirmPaymentModal from './components/ConfirmPaymentModal';
 import QRWebhookModal from './components/QRWebhookModal';
 import VoucherPicker from './components/VoucherPicker';
 import FinanceKpiCards from './components/FinanceKpiCards';
-import FinanceTabs from './components/FinanceTabs';
 import FinanceFilterBar from './components/FinanceFilterBar';
 import InvoiceTable from './components/InvoiceTable';
 import PaymentTable from './components/PaymentTable';
@@ -81,152 +79,16 @@ export default function ManageFinance() {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>In Hóa Đơn - ${inv.ma_hoa_don}</title>
-          <style>
-            body { font-family: sans-serif; padding: 40px; color: #333; line-height: 1.6; }
-            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #eee; padding-bottom: 20px; }
-            .logo { font-size: 24px; font-weight: bold; color: #0d9488; }
-            .invoice-title { font-size: 20px; margin-top: 10px; font-weight: bold; text-transform: uppercase; }
-            .meta-grid { display: grid; grid-template-cols: 1fr 1fr; margin-bottom: 30px; gap: 15px; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-            th { background: #f8fafc; border-bottom: 2px solid #cbd5e1; padding: 12px; text-align: left; font-size: 14px; }
-            td { border-bottom: 1px solid #e2e8f0; padding: 12px; font-size: 14px; }
-            .total-section { text-align: right; font-size: 15px; font-weight: bold; }
-            .footer { text-align: center; margin-top: 50px; font-size: 12px; color: #666; border-top: 1px solid #eee; padding-top: 20px; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div class="logo">OFFICECARE - TRUNG TÂM PHỤC HỒI CHỨC NĂNG</div>
-            <div class="invoice-title">HÓA ĐƠN DỊCH VỤ TRỊ LIỆU</div>
-            <div>Mã số: ${inv.ma_hoa_don}</div>
-          </div>
-          <div class="meta-grid">
-            <div>
-              <strong>Khách hàng:</strong> ${inv.ten_khach_hang}<br/>
-              <strong>Điện thoại:</strong> ${inv.so_dien_thoai || 'N/A'}<br/>
-              <strong>Ngày tạo:</strong> ${new Date(inv.ngay_tao).toLocaleString('vi-VN')}
-            </div>
-            <div style="text-align: right;">
-              <strong>Hình thức thanh toán:</strong> ${inv.hinh_thuc_thanh_toan_goi ? inv.hinh_thuc_thanh_toan_goi.replace(/_/g, ' ').toUpperCase() : 'MẶC ĐỊNH'}<br/>
-              <strong>Trạng thái:</strong> ${INVOICE_STATUS_LABELS[inv.trang_thai] || inv.trang_thai.toUpperCase().replace(/_/g, ' ')}
-            </div>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Nội dung thanh toán</th>
-                <th style="text-align: right;">Thành tiền</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>${inv.ten_dich_vu || 'Phí khám lâm sàng/Buổi lẻ'}</td>
-                <td style="text-align: right;">${formatCurrency(Number(inv.tong_tien_goc))}</td>
-              </tr>
-              ${Number(inv.ti_le_giam_gia_goi) > 0 ? `
-              <tr style="color: #0d9488;">
-                <td>Giảm giá ưu đãi (${inv.ti_le_giam_gia_goi}%)</td>
-                <td style="text-align: right;">-${formatCurrency(Math.round(Number(inv.tong_tien_goc) * Number(inv.ti_le_giam_gia_goi) / 100))}</td>
-              </tr>` : ''}
-              ${Number(inv.so_tien_giam_voucher) > 0 ? `
-              <tr style="color: #0d9488;">
-                <td>Giảm giá voucher</td>
-                <td style="text-align: right;">-${formatCurrency(Number(inv.so_tien_giam_voucher))}</td>
-              </tr>` : ''}
-            </tbody>
-          </table>
-          <div class="total-section">
-            <div>Tổng số tiền phải thanh toán: ${formatCurrency(Number(inv.tong_tien_thanh_toan))}</div>
-            <div style="color: #10b981; margin-top: 5px;">Số tiền đã đóng${inv.trang_thai === 'da_hoan_tien' ? ' (giữ lại)' : ''}: ${formatCurrency(Number(inv.da_thanh_toan))}</div>
-            ${inv.trang_thai === 'da_hoan_tien'
-              ? `<div style="color: #e11d48; margin-top: 5px;">Đã hoàn trả cho khách: ${formatCurrency(Math.max(0, Number(inv.tong_tien_thanh_toan) - Number(inv.da_thanh_toan)))}</div>`
-              : `<div style="color: #f59e0b; margin-top: 5px;">Còn nợ lại: ${formatCurrency(Math.max(0, Number(inv.tong_tien_thanh_toan) - Number(inv.da_thanh_toan)))}</div>`
-            }
-          </div>
-          <div class="footer">
-            Cảm ơn quý khách đã tin tưởng và sử dụng dịch vụ phục hồi chức năng của chúng tôi!<br/>
-            <em>Bản in hóa đơn y khoa điện tử hợp lệ</em>
-          </div>
-          <script>window.print();</script>
-        </body>
-      </html>
-    `);
+    printWindow.document.write(generateInvoiceHtml(inv));
     printWindow.document.close();
   };
 
-  // In biên nhận cho ĐÚNG 1 giao dịch (không phải cả hóa đơn) — cần khi khách chỉ muốn giấy biên
-  // nhận cho 1 lần thu/hoàn cụ thể, vd hóa đơn "từng buổi" thu nhiều lần rải rác, hoặc muốn biên
-  // nhận riêng cho giao dịch hoàn tiền. handlePrint() ở trên chỉ in được tổng lũy kế cả hóa đơn.
+  // In biên nhận cho ĐÚNG 1 giao dịch (không phải cả hóa đơn)
   const handlePrintTransaction = (inv: Invoice, pay: Payment) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    const isRefund = pay.loai_giao_dich === 'HOAN_TIEN';
-    const soTien = Math.abs(Number(pay.so_tien));
-
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Biên nhận ${pay.ma_giao_dich}</title>
-          <style>
-            body { font-family: sans-serif; padding: 40px; color: #333; line-height: 1.6; }
-            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #eee; padding-bottom: 20px; }
-            .logo { font-size: 24px; font-weight: bold; color: #0d9488; }
-            .invoice-title { font-size: 20px; margin-top: 10px; font-weight: bold; text-transform: uppercase; }
-            .meta-grid { display: grid; grid-template-cols: 1fr 1fr; margin-bottom: 30px; gap: 15px; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-            th { background: #f8fafc; border-bottom: 2px solid #cbd5e1; padding: 12px; text-align: left; font-size: 14px; }
-            td { border-bottom: 1px solid #e2e8f0; padding: 12px; font-size: 14px; }
-            .total-section { text-align: right; font-size: 15px; font-weight: bold; }
-            .footer { text-align: center; margin-top: 50px; font-size: 12px; color: #666; border-top: 1px solid #eee; padding-top: 20px; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div class="logo">OFFICECARE - TRUNG TÂM PHỤC HỒI CHỨC NĂNG</div>
-            <div class="invoice-title">${isRefund ? 'BIÊN NHẬN HOÀN TIỀN' : 'BIÊN NHẬN THANH TOÁN'}</div>
-            <div>Mã giao dịch: ${pay.ma_giao_dich}</div>
-          </div>
-          <div class="meta-grid">
-            <div>
-              <strong>Khách hàng:</strong> ${inv.ten_khach_hang}<br/>
-              <strong>Điện thoại:</strong> ${inv.so_dien_thoai || 'N/A'}<br/>
-              <strong>Thời gian:</strong> ${new Date(pay.thoi_gian_giao_dich).toLocaleString('vi-VN')}
-            </div>
-            <div style="text-align: right;">
-              <strong>Hóa đơn liên quan:</strong> ${inv.ma_hoa_don}<br/>
-              <strong>Phương thức:</strong> ${pay.phuong_thuc === 'tien_mat' ? 'Tiền mặt' : pay.phuong_thuc === 'chuyen_khoan' ? 'Chuyển khoản' : 'Thẻ/POS'}
-            </div>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Nội dung</th>
-                <th style="text-align: right;">Số tiền</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>${inv.ten_dich_vu || 'Phí khám lâm sàng/Buổi lẻ'} — ${isRefund ? 'Hoàn tiền' : 'Thanh toán'}</td>
-                <td style="text-align: right; color: ${isRefund ? '#e11d48' : '#0d9488'};">${formatCurrency(soTien)}</td>
-              </tr>
-            </tbody>
-          </table>
-          <div class="total-section" style="color: ${isRefund ? '#e11d48' : '#0d9488'};">
-            <div>${isRefund ? 'Đã hoàn trả cho khách' : 'Số tiền đã thu'}: ${formatCurrency(soTien)}</div>
-          </div>
-          <div class="footer">
-            Cảm ơn quý khách đã tin tưởng và sử dụng dịch vụ phục hồi chức năng của chúng tôi!<br/>
-            <em>Bản in biên nhận điện tử hợp lệ</em>
-          </div>
-          <script>window.print();</script>
-        </body>
-      </html>
-    `);
+    printWindow.document.write(generateTransactionReceiptHtml(inv, pay));
     printWindow.document.close();
   };
 
@@ -254,11 +116,17 @@ export default function ManageFinance() {
       );
     }
 
-    const totalRequired = checkout.checkoutTab === 'package' && checkout.calculatedData
-      ? (checkout.dangKyGoi && checkout.loaiThanhToan === 'tung_buoi'
-        ? Number(checkout.calculatedData.so_tien_dot_1)
-        : Number(checkout.calculatedData.tong_tien_thanh_toan))
-      : (checkout.state.hoaDon ? Number(checkout.state.hoaDon.tong_tien_thanh_toan) : 0);
+    const fallbackBasePrice = Number((checkout.selectedPackage as any)?.don_gia || checkout.selectedPackage?.gia_ban || checkout.selectedConsultation?.don_gia_dich_vu || 0);
+
+    const totalRequired = checkout.checkoutTab === 'package'
+      ? (checkout.calculatedData
+        ? (checkout.dangKyGoi && checkout.loaiThanhToan === 'tung_buoi'
+          ? Number(checkout.calculatedData.so_tien_dot_1 || 0)
+          : Number(checkout.calculatedData.tong_tien_thanh_toan || 0))
+        : (checkout.dangKyGoi && checkout.loaiThanhToan === 'tung_buoi'
+          ? 0
+          : fallbackBasePrice))
+      : (checkout.state.hoaDon ? Number(checkout.state.hoaDon.tong_tien_thanh_toan) : fallbackBasePrice);
 
     const received = Number(checkout.state.soTienNhan || 0);
     const isShortage = checkout.state.phuongThuc === 'tien_mat' && totalRequired > 0 && received > 0 && received < totalRequired;
@@ -267,10 +135,6 @@ export default function ManageFinance() {
     const quickCashOptions = Array.from(new Set([totalRequired, 200000, 500000, 1000000, 2000000, 5000000]))
       .filter(val => val > 0)
       .sort((a, b) => a - b);
-
-    const isTungBuoiWithPaidExam = checkout.dangKyGoi &&
-      checkout.loaiThanhToan === 'tung_buoi' &&
-      checkout.selectedConsultation?.ngay_thanh_toan_kham;
 
     const hasLockedTarget = !!checkout.selectedConsultation?.khuyen_nghi_goi_id ||
       !!checkout.selectedConsultation?.goi_dich_vu_id;
@@ -331,7 +195,14 @@ export default function ManageFinance() {
                 </div>
 
                 <span className="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-teal-50 text-teal-700 border border-teal-200 dark:bg-teal-950/60 dark:text-teal-300 dark:border-teal-800 shrink-0">
-                  {checkout.selectedConsultation.loai_lich === 'kham_moi' ? 'Lượng giá PHCN' : checkout.selectedConsultation.loai_lich === 'tai_kham' ? 'Lượng giá bổ sung' : 'Trị liệu phác đồ'}
+                  {(() => {
+                    const loaiLich = String(checkout.selectedConsultation.loai_lich || '').toUpperCase();
+                    const loaiGoi = String(checkout.selectedConsultation.loai_goi || checkout.selectedPackage?.loai_goi || '').toUpperCase();
+                    if (loaiLich === 'KHAM_MOI' || loaiLich === 'KHAM') return 'Lượng giá PHCN';
+                    if (loaiLich === 'TAI_KHAM') return 'Lượng giá bổ sung';
+                    if (loaiLich.includes('LE') || loaiLich === 'DICH_VU_LE' || loaiLich === 'DICH_VU_DON' || loaiGoi === 'LE') return 'Dịch vụ lẻ';
+                    return 'Trị liệu phác đồ';
+                  })()}
                 </span>
               </div>
             ) : (
@@ -377,7 +248,7 @@ export default function ManageFinance() {
                           checkout.setSelectedPackage(matched || null);
                         }}
                         required
-                        disabled={hasLockedTarget || isTungBuoiWithPaidExam}
+                        disabled={hasLockedTarget}
                         className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none transition-all cursor-pointer disabled:opacity-60 shadow-xs"
                       >
                         <option value="">-- Chọn gói trị liệu --</option>
@@ -426,18 +297,20 @@ export default function ManageFinance() {
             {/* 3. Voucher Selector */}
             {checkout.checkoutTab === 'package' && (
               <div className="space-y-3">
-                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">
-                  <span className="p-1.5 rounded-lg bg-teal-50 text-teal-600 dark:bg-teal-950 dark:text-teal-400">
-                    <Tag size={15} />
-                  </span>
-                  <span>Mã ưu đãi & Voucher</span>
-                </div>
                 <VoucherPicker
                   appliedVoucher={checkout.appliedVoucher}
                   onApply={checkout.handleApplyVoucher}
                   onRemove={checkout.handleRemoveVoucher}
-                  disabled={isTungBuoiWithPaidExam}
-                  orderValue={Number(checkout.calculatedData?.gia_goc_goi || checkout.calculatedData?.gia_goc || 0)}
+                  disabled={false}
+                  orderValue={Number(
+                    checkout.calculatedData?.gia_goc_goi ||
+                    checkout.calculatedData?.gia_goc ||
+                    (checkout.selectedPackage as any)?.don_gia ||
+                    checkout.selectedPackage?.gia_goi ||
+                    checkout.selectedConsultation?.don_gia_dich_vu ||
+                    checkout.packages.find((p: any) => p.loai_goi === 'KHAM')?.don_gia ||
+                    0
+                  )}
                   loaiThanhToan={checkout.dangKyGoi ? checkout.loaiThanhToan : 'tra_thang'}
                   khachHangId={checkout.selectedConsultation?.khach_hang_id}
                   kenh="tai_quay"
@@ -550,7 +423,7 @@ export default function ManageFinance() {
               )}
 
               <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <label htmlFor="feedbackLyDo" className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Ghi chú nội bộ phòng khám</label>
+                <label htmlFor="feedbackLyDo" className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Ghi chú nội bộ</label>
                 <textarea 
                   id="feedbackLyDo"
                   placeholder="Ghi nhận phản hồi hoặc lưu ý thu ngân..."
@@ -601,8 +474,8 @@ export default function ManageFinance() {
             checkout.checkoutTab === 'package'
               ? (checkout.dangKyGoi
                 ? (checkout.selectedPackage?.ten_goi || 'Gói trị liệu')
-                : (checkout.calculatedData?.ten_item || 'Phí khám'))
-              : (checkout.state.hoaDon?.ten_dich_vu || 'Phí khám/Buổi trị liệu')
+                : (checkout.calculatedData?.ten_item || 'Phí lượng giá'))
+              : (checkout.state.hoaDon?.ten_dich_vu || 'Phí lượng giá/Buổi trị liệu')
           }
           totalAmount={totalRequired}
           paymentMethod={checkout.state.phuongThuc}
@@ -644,51 +517,39 @@ export default function ManageFinance() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500 text-left font-jakarta">
-      {/* HUD Header Banner Đồng Nhất Admin */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl p-6 rounded-[28px] border border-slate-200/80 dark:border-slate-800 shadow-xl shadow-slate-200/30 dark:shadow-none relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-teal-500/5 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="space-y-1 text-left">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-teal-500 animate-ping"></span>
-            <span className="text-[10px] font-black uppercase tracking-wider text-teal-600 dark:text-teal-400">
-              PHÂN HỆ KẾ TOÁN LÂM SÀNG
+      {/* KPI Metrics Strip */}
+      <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-[28px] border border-slate-200/80 dark:border-slate-800 shadow-xl shadow-slate-200/30 dark:shadow-none p-5 relative overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-teal-500 animate-pulse"></span>
+            <span className="text-xs font-black uppercase tracking-wider text-teal-700 dark:text-teal-400">
+              Tổng quan dòng tiền & Doanh thu
             </span>
           </div>
-          <h1 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight uppercase flex items-center gap-2.5">
-            <DollarSign className="text-teal-600 dark:text-teal-400 size-7" />
-            QUẢN LÝ TÀI CHÍNH & HÓA ĐƠN Y KHOA
-          </h1>
-          <p className="text-slate-500 dark:text-slate-400 text-xs font-semibold">
-            Theo dõi dòng tiền, hóa đơn khám/gói trị liệu và xử lý các giao dịch hoàn tiền của hệ thống.
-          </p>
+
+          <button
+            onClick={() => navigate(isAdminOrManager ? '/admin/appointments' : '/receptionist/appointments')}
+            className="px-4 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-md shadow-teal-600/20 active:scale-95 flex items-center gap-2 shrink-0 cursor-pointer self-start sm:self-auto"
+          >
+            <Coins size={15} /> Thu Ngân Ngay
+          </button>
         </div>
 
-        <button
-          onClick={() => navigate(isAdminOrManager ? '/admin/appointments' : '/receptionist/appointments')}
-          className="px-5 py-3 bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-700 hover:to-teal-600 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-md shadow-teal-600/25 active:scale-95 flex items-center gap-2 shrink-0 cursor-pointer"
-        >
-          <Coins size={16} /> Thu Ngân Ngay
-        </button>
+        <FinanceKpiCards kpis={dashboard.kpis} />
       </div>
 
       <OverduePackagePanel invoices={overdueInvoices} onOpenDetail={(inv) => dashboard.setSelectedInvoice(inv)} />
 
-      <FinanceKpiCards kpis={dashboard.kpis} />
-
-      {/* Tabs + Filter + Bảng — bỏ sidebar dọc 1/4 cũ, nhường toàn bộ chiều rộng cho bảng dữ liệu */}
+      {/* Tabs + Filter + Bảng (Gộp Tabs và Filter vào 1 card duy nhất với tabs full width 50/50) */}
       <div className="space-y-5 text-left">
-        <FinanceTabs
+        <FinanceFilterBar
           activeTab={dashboard.activeTab}
-          invoiceCount={dashboard.invoices.length}
-          paymentCount={dashboard.payments.length}
-          onChange={(tab) => {
+          onTabChange={(tab) => {
             dashboard.setActiveTab(tab);
             dashboard.setStatusFilter('all');
           }}
-        />
-
-        <FinanceFilterBar
-          activeTab={dashboard.activeTab}
+          invoiceCount={dashboard.invoices.length}
+          paymentCount={dashboard.payments.length}
           searchTerm={dashboard.searchTerm}
           onSearchChange={dashboard.setSearchTerm}
           statusFilter={dashboard.statusFilter}

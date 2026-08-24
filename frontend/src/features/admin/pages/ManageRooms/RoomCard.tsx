@@ -120,7 +120,7 @@ export function RoomCard({ room, equipmentList }: RoomCardProps) {
         {room.loai_phong === 'phong_kham' || room.loai_phong === 'kham_benh' ? (
           <div className="mb-4 bg-slate-50 dark:bg-zinc-800/40 p-2.5 rounded-xl border border-slate-100 dark:border-zinc-800 text-[11px] font-semibold text-slate-400 dark:text-zinc-400 flex items-center gap-1.5">
             <span className="shrink-0 text-slate-400">🚫</span>
-            <span>Không có thiết bị khả dụng (Phòng khám lâm sàng)</span>
+            <span>Không có thiết bị khả dụng (Phòng lượng giá chức năng)</span>
           </div>
         ) : (
           <div className="mb-4 bg-indigo-50/50 dark:bg-indigo-955/30 p-2.5 rounded-xl border border-indigo-100/60 dark:border-indigo-800/40 text-[11px] space-y-1.5">
@@ -129,17 +129,17 @@ export function RoomCard({ room, equipmentList }: RoomCardProps) {
                 <span>🔌 Thiết bị tại phòng</span>
               </span>
               <span className="bg-indigo-500/20 px-2 py-0.2 rounded-full font-mono text-[9px] text-indigo-700 dark:text-indigo-300 font-black">
-                {(equipmentList || []).filter(e => String(e.phong_id) === String(room.id)).length} thiết bị
+                {(equipmentList || []).filter(e => String(e.phong_id) === String(room.id) && e.trang_thai !== 'ngung_su_dung').length} thiết bị
               </span>
             </div>
-            {((equipmentList || []).filter(e => String(e.phong_id) === String(room.id))).length > 0 ? (
+            {((equipmentList || []).filter(e => String(e.phong_id) === String(room.id) && e.trang_thai !== 'ngung_su_dung')).length > 0 ? (
               <div className="flex flex-wrap gap-1">
-                {((equipmentList || []).filter(e => String(e.phong_id) === String(room.id))).map((eq: any) => (
+                {((equipmentList || []).filter(e => String(e.phong_id) === String(room.id) && e.trang_thai !== 'ngung_su_dung')).map((eq: any) => (
                   <span
                     key={eq.id}
                     className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white dark:bg-zinc-800 border border-indigo-200/80 dark:border-indigo-700/60 text-[10px] font-bold text-slate-800 dark:text-zinc-200 shadow-2xs"
                   >
-                    <span className="text-[8px]">{eq.trang_thai === 'dang_bao_tri' ? '⚠️' : '⚡'}</span>
+                    <span className="text-[8px]">{eq.trang_thai === 'dang_bao_tri' || eq.trang_thai === 'tam_dung' ? '⚠️' : '✓'}</span>
                     <span>{eq.ten_thiet_bi}</span>
                   </span>
                 ))}
@@ -157,7 +157,7 @@ export function RoomCard({ room, equipmentList }: RoomCardProps) {
           <span>
             {room.loai_phong === 'phong_tri_lieu' || room.loai_phong === 'tri_lieu'
               ? `Giường tối đa: ${room.suc_chua || 1}` 
-              : `Sức chứa: ${room.suc_chua || 1} bác sĩ`}
+              : `Sức chứa: ${room.suc_chua || 1} chuyên viên`}
           </span>
         </div>
         <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-400 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors flex items-center gap-1">

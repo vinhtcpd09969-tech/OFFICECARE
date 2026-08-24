@@ -65,7 +65,7 @@ export function useBookingState(user: any, bookingType: 'kham' | 'dich_vu', sele
       so_dien_thoai: user?.so_dien_thoai || '',
       gioi_tinh_khach: user?.gioi_tinh || 'nam',
       trieu_chung: '',
-      ly_do_kham: 'Khám lượng giá ban đầu',
+      ly_do_kham: 'Lượng giá phục hồi chức năng ban đầu',
       anh_dinh_kem_url: ''
     }
   });

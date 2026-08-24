@@ -7,8 +7,8 @@ interface User {
   email: string;
   so_dien_thoai: string | null;
   vai_tro_id: number;
-  avatar_url: string | null;
   anh_dai_dien?: string | null;
+  avatar_url?: string | null;
   ho_so_chuyen_gia?: {
     so_nam_kinh_nghiem: number;
     bang_cap_chung_chi: string;
@@ -16,7 +16,6 @@ interface User {
     the_manh?: string[];
   } | null;
   gioi_tinh?: string | null;
-  diem_uy_tin?: number;
   ngay_dong_y_dieu_khoan?: string | null;
   dia_chi?: string | null;
   ngay_sinh?: string | null;

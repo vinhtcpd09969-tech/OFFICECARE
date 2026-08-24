@@ -33,8 +33,6 @@ export const createAppointmentSchema = z.object({
     trang_thai: z.string().optional().nullable(),
     trang_thai_thanh_toan: z.enum(['chua_thanh_toan', 'dang_cho_thanh_toan', 'da_thanh_toan']).optional().nullable(),
     hoa_don_id: z.string().uuid().optional().nullable(),
-  }).refine(data => data.khach_hang_id || (data.ho_ten_khach && data.so_dien_thoai), {
-    message: 'Phải cung cấp ID khách hàng hoặc thông tin khách vãng lai (họ tên, sđt)'
   })
 });
 
@@ -68,7 +66,7 @@ export const updateAppointmentStatusSchema = z.object({
     id: z.string().uuid('ID Lịch hẹn không hợp lệ'),
   }),
   body: z.object({
-    trang_thai: z.enum(['da_xac_nhan', 'da_checkin', 'dang_kham', 'cho_tai_luong_gia', 'hoan_thanh', 'cho_huy', 'da_huy', 'khong_den', 'khach_khong_den', 'da_huy_phat', 'khach_khong_den_phat'], {
+    trang_thai: z.enum(['da_xac_nhan', 'da_checkin', 'dang_kham', 'cho_tai_luong_gia', 'hoan_thanh', 'da_huy', 'khong_den'], {
       required_error: 'Trạng thái là bắt buộc',
       invalid_type_error: 'Trạng thái không hợp lệ'
     }),
@@ -83,16 +81,15 @@ export const updateAppointmentStatusSchema = z.object({
     ngay_gio_bat_dau: z.string().datetime({ message: 'Ngày giờ bắt đầu không hợp lệ' }).optional().nullable(),
     ngay_gio_ket_thuc: z.string().datetime({ message: 'Ngày giờ kết thúc không hợp lệ' }).optional().nullable(),
     ghi_chu_noi_bo: z.string().optional().nullable(),
-    ly_do_huy: z.string().optional().nullable(),
   })
 }).refine(data => {
-  const isCancelledOrNoShow = ['da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(data.body.trang_thai);
-  const effectiveReason = data.body.ly_do_huy || data.body.ghi_chu_noi_bo;
+  const isCancelledOrNoShow = ['da_huy', 'khong_den'].includes(data.body.trang_thai);
+  const effectiveReason = data.body.ghi_chu_noi_bo;
   if (isCancelledOrNoShow && (!effectiveReason || !effectiveReason.trim())) {
     return false;
   }
   return true;
 }, {
   message: 'Lý do hủy/vắng mặt là bắt buộc.',
-  path: ['body', 'ly_do_huy']
+  path: ['body', 'ghi_chu_noi_bo']
 });

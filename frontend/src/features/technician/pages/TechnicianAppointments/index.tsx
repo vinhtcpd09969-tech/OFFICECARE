@@ -4,7 +4,7 @@ import { useAuthStore } from '../../../../stores/authStore';
 import { CheckCircle2 } from 'lucide-react';
 import { format, addDays, isSameDay } from 'date-fns';
 
-import AppointmentInfoModal from '../../../../components/appointments/AppointmentInfoModal';
+import { AppointmentInfoModal } from '../../../../components/appointments';
 import { AppointmentsFilterBar } from '../../../../components/appointments/ui/AppointmentsFilterBar';
 import { AppointmentKpiCards } from '../../../../components/appointments/ui/AppointmentKpiCards';
 import { CapacityView } from '../../../../components/appointments/ui/CapacityView';

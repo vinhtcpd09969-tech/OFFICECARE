@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import {
   getAppointments as getAppointmentsAdmin,
@@ -18,9 +18,6 @@ export function useAppointmentsData(isReceptionist: boolean) {
   const [packages, setPackages] = useState<any[]>([]);
   const [schedulesList, setSchedulesList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const seenCheckedInIds = useRef<Set<string>>(new Set());
-  const isFirstLoad = useRef(true);
 
   // Sound chime notifier for doctor/receptionist
   const playNotificationSound = useCallback(() => {
@@ -99,40 +96,7 @@ export function useAppointmentsData(isReceptionist: boolean) {
     return () => clearInterval(interval);
   }, [isReceptionist]);
 
-  // Monitor changes in check-ins and trigger chime sound for new entries
-  useEffect(() => {
-    if (appointments.length === 0 || isReceptionist) return;
 
-    const currentCheckedInIds = appointments
-      .filter(apt => apt.trang_thai === 'da_checkin')
-      .map(apt => String(apt.id));
-
-    if (isFirstLoad.current) {
-      currentCheckedInIds.forEach(id => seenCheckedInIds.current.add(id));
-      isFirstLoad.current = false;
-    } else {
-      let hasNewCheckIn = false;
-      currentCheckedInIds.forEach(id => {
-        if (!seenCheckedInIds.current.has(id)) {
-          seenCheckedInIds.current.add(id);
-          hasNewCheckIn = true;
-        }
-      });
-
-      if (hasNewCheckIn) {
-        playNotificationSound();
-        toast('🎉 Bệnh nhân mới vừa check-in phòng khám!', {
-          icon: '👏',
-          style: {
-            borderRadius: '16px',
-            background: '#0d9488',
-            color: '#fff',
-            fontWeight: 'bold',
-          },
-        });
-      }
-    }
-  }, [appointments, isReceptionist, playNotificationSound]);
 
   return {
     appointments,

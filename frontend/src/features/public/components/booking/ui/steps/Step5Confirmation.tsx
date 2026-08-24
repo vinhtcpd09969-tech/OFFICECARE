@@ -70,13 +70,13 @@ export function Step5Confirmation({
           
           <div className="sm:col-span-2 border-t border-slate-200/60 pt-3">
             <p className="text-slate-400 font-bold uppercase tracking-wider">
-              {bookingType === 'kham' ? 'Bác sĩ lượng giá' : 'Kỹ thuật viên thực hiện'}
+              {bookingType === 'kham' ? 'Chuyên viên lượng giá' : 'Kỹ thuật viên thực hiện'}
             </p>
             <p className="text-[#2EC4B6] font-extrabold mt-1 text-sm">{selectedStaffName}</p>
           </div>
 
           <div className="sm:col-span-2 border-t border-slate-200/60 pt-3">
-            <p className="text-slate-400 font-bold uppercase tracking-wider">Thời gian khám</p>
+            <p className="text-slate-400 font-bold uppercase tracking-wider">Thời gian lượng giá &amp; trị liệu</p>
             <p className="text-[#0F172A] font-extrabold mt-1 text-sm capitalize">
               {selectedBuoi ? BUOI_INFO[selectedBuoi].label : ''} ({selectedBuoi ? BUOI_INFO[selectedBuoi].khung : ''}) — {formatFullDate(selectedDate)}
             </p>
@@ -103,7 +103,7 @@ export function Step5Confirmation({
       <div className="flex items-start gap-3 bg-teal-50/50 border border-[#2EC4B6]/15 p-4 rounded-xl text-[11px] leading-relaxed text-slate-500">
         <Lock size={16} className="text-[#2EC4B6] shrink-0 mt-0.5" />
         <p>
-          Bằng cách bấm xác nhận giữ chỗ, bạn đồng ý cung cấp thông tin y khoa này phục vụ riêng cho việc thăm khám chẩn đoán tại OfficeCare. Dữ liệu được bảo mật tuyệt mật.
+          Bằng cách bấm xác nhận giữ chỗ, bạn đồng ý cung cấp thông tin y khoa này phục vụ riêng cho việc lượng giá chức năng &amp; phục hồi tại OfficeCare. Dữ liệu được bảo mật tuyệt mật.
         </p>
       </div>
 

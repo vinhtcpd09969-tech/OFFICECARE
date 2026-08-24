@@ -94,11 +94,11 @@ export function LiveClinicPulse({ stats }: LiveClinicPulseProps) {
         <div className="bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/40 p-3.5 rounded-2xl flex flex-col justify-between">
           <div className="flex items-center justify-between text-indigo-600 dark:text-indigo-400 mb-1">
             <Stethoscope className="size-4" />
-            <span className="text-[10px] font-black uppercase tracking-wider bg-indigo-100 dark:bg-indigo-900/60 px-1.5 py-0.5 rounded-md">Bác sĩ</span>
+            <span className="text-[10px] font-black uppercase tracking-wider bg-indigo-100 dark:bg-indigo-900/60 px-1.5 py-0.5 rounded-md">Chuyên viên</span>
           </div>
           <div>
             <div className="text-xl font-black text-slate-900 dark:text-white">{pulseMetrics.inExamination}</div>
-            <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Đang khám</div>
+            <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Đang lượng giá</div>
           </div>
         </div>
 

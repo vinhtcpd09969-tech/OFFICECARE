@@ -5,8 +5,10 @@ export interface CustomerOverviewItem {
   so_dien_thoai: string | null;
   email: string | null;
   trang_thai: string;
-  diem_uy_tin: number;
   tong_chi_tieu: number;
+  ti_le_huy?: number;
+  tong_lich?: number;
+  so_lich_huy_vang?: number;
   has_record: boolean;
 }
 
@@ -18,7 +20,6 @@ export interface CustomerLockImpact {
   activePlans: { id: string; ten_goi: string; so_buoi_da_dung: number; tong_so_buoi: number }[];
 }
 
-export type { ReputationTier } from '../../../../utils/reputation';
 
 export interface EmrStats {
   lieu_trinh: {
@@ -59,7 +60,9 @@ export interface TreatmentPlanItem {
 export interface CompletedSingleVisitItem {
   id: string;
   khach_hang_id: string;
+  ma_khach_hang?: string;
   ho_ten: string;
+  so_dien_thoai?: string | null;
   loai: 'KHAM' | 'DICH_VU_LE';
   ten_dich_vu: string | null;
   ngay_gio_bat_dau: string;

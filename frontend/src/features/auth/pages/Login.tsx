@@ -264,10 +264,11 @@ export default function Login() {
                     </p>
                   </div>
 
+                  {/* ⚡ ĐĂNG NHẬP NHANH DEMO */}
                   <div className="mt-6 pt-5 border-t border-slate-150/70">
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 text-center mb-3 flex items-center justify-center gap-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-[#14B8A6] animate-pulse"></span>
-                      ⚡ ĐĂNG NHẬP NHANH (MÔI TRƯỜNG TEST)
+                      ⚡ ĐĂNG NHẬP NHANH DEMO
                     </p>
                     <div className="grid grid-cols-3 gap-2">
                       <button
@@ -300,7 +301,7 @@ export default function Login() {
                         disabled={isSubmitting}
                         className="px-2 py-2.5 rounded-xl text-[10px] font-black bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200/50 active:scale-95 transition-all text-center cursor-pointer disabled:opacity-50"
                       >
-                        Bác Sĩ
+                        Chuyên Viên
                       </button>
                       <button
                         type="button"

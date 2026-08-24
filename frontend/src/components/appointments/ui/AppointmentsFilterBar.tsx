@@ -18,6 +18,7 @@ interface AppointmentsFilterBarProps {
   canToggleType?: boolean;
   setViewMode?: (mode: 'timeline' | 'capacity') => void;
   onOpenWalkInModal?: () => void;
+  embedded?: boolean;
 }
 
 export function AppointmentsFilterBar({
@@ -32,7 +33,8 @@ export function AppointmentsFilterBar({
   onToggleType,
   canToggleType = false,
   setViewMode: _setViewMode,
-  onOpenWalkInModal
+  onOpenWalkInModal,
+  embedded = false
 }: AppointmentsFilterBarProps) {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [pickerNavDate, setPickerNavDate] = useState<Date>(startDate || new Date());
@@ -160,7 +162,11 @@ export function AppointmentsFilterBar({
   };
 
   return (
-    <div className="relative bg-white dark:bg-zinc-900 rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.02)] border border-slate-150 dark:border-zinc-800/80 p-4 lg:p-5 space-y-4 transition-all duration-300">
+    <div className={`relative transition-all duration-300 ${
+      embedded
+        ? 'space-y-4'
+        : 'bg-white dark:bg-zinc-900 rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.02)] border border-slate-150 dark:border-zinc-800/80 p-4 lg:p-5 space-y-4'
+    }`}>
       {/* 2 NÚT TAB TỔ BỐ MỖI NÚT 50% CHIỀU RỘNG MÀN HÌNH (BẤM CHUYỂN CỰC SƯỚNG) */}
       {canToggleType && (
         <div className="grid grid-cols-2 gap-3 p-1.5 bg-slate-100 dark:bg-zinc-800/80 rounded-2xl border border-slate-200/50 dark:border-zinc-700/80 select-none">

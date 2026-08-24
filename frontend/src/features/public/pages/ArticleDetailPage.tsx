@@ -346,7 +346,7 @@ export default function ArticleDetailPage() {
                   {article.nguoi_dung?.ho_ten || 'Ban biên tập Y Khoa OfficeCare'}
                 </h4>
                 <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
-                  Bài viết được kiểm duyệt chuyên môn kỹ lưỡng bởi đội ngũ Bác sĩ CKI Phục hồi chức năng nhằm mang lại thông tin y khoa chính xác cho người bệnh.
+                  Bài viết được kiểm duyệt chuyên môn kỹ lưỡng bởi đội ngũ Chuyên viên tư vấn Phục hồi chức năng nhằm mang lại thông tin y khoa chính xác cho người bệnh.
                 </p>
               </div>
             </div>
@@ -437,7 +437,7 @@ export default function ArticleDetailPage() {
                     to="/booking"
                     className="inline-flex items-center gap-1 text-[11px] font-black text-[#0D9488] hover:underline uppercase tracking-wider"
                   >
-                    <span>📅 Đặt lịch tư vấn bác sĩ 1:1</span>
+                    <span>📅 Đặt lịch tư vấn chuyên viên 1:1</span>
                     <ChevronRight size={13} />
                   </Link>
                 </div>

@@ -1,6 +1,5 @@
 import { Phone, Mail, CheckCircle2, Activity, Calendar } from 'lucide-react';
 import { formatPhone } from '../../../../../utils/format';
-import { getReputationTier } from '../../../../../utils/reputation';
 import type { RecordCustomer, PackageEntry, SingleTreatmentEntry, ExamEntry } from '../types';
 
 interface RecordHeaderProps {
@@ -10,12 +9,6 @@ interface RecordHeaderProps {
   lichSuKham?: ExamEntry[];
 }
 
-const TIER_META: Record<string, { label: string; dot: string; bg: string }> = {
-  low: { label: 'Cần lưu ý', dot: '#FB7185', bg: 'bg-rose-500/15 border-rose-400/30 text-rose-300' },
-  mid: { label: 'Ổn định', dot: '#F0A93B', bg: 'bg-amber-500/15 border-amber-400/30 text-amber-300' },
-  high: { label: 'Xuất sắc', dot: '#34D399', bg: 'bg-emerald-500/15 border-emerald-400/30 text-emerald-300' },
-};
-
 function getInitials(name: string) {
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
@@ -23,9 +16,6 @@ function getInitials(name: string) {
 }
 
 export function RecordHeader({ khachHang, goiDieuTri = [], dieuTriLe = [], lichSuKham = [] }: RecordHeaderProps) {
-  const tier = getReputationTier(khachHang.diem_uy_tin || 0);
-  const tierMeta = TIER_META[tier];
-
   // 1. Tính tổng tất cả cuộc hẹn ĐÃ HOÀN THÀNH của khách hàng (gói + lẻ + khám)
   const packageCompletedCount = goiDieuTri.reduce(
     (acc, pkg) => acc + pkg.buoi_dieu_tri.filter((s) => s.trang_thai === 'hoan_thanh').length,
@@ -72,7 +62,7 @@ export function RecordHeader({ khachHang, goiDieuTri = [], dieuTriLe = [], lichS
             <div className="flex items-center gap-2">
               <h1 className="font-heading text-2xl md:text-3xl font-black tracking-tight text-white">{khachHang.ho_ten}</h1>
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-white/10 text-teal-200 border border-white/15">
-                Hồ Sơ Y Khoa
+                Lịch Sử Điều Trị
               </span>
             </div>
             <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-teal-100/80 font-medium">
@@ -84,14 +74,6 @@ export function RecordHeader({ khachHang, goiDieuTri = [], dieuTriLe = [], lichS
               )}
             </div>
           </div>
-        </div>
-
-        {/* Reputation Pill */}
-        <div className={`flex items-center gap-2.5 backdrop-blur-md border rounded-full px-4 py-2 shrink-0 shadow-md ${tierMeta.bg}`}>
-          <span className="size-2.5 rounded-full shrink-0 animate-pulse" style={{ background: tierMeta.dot, boxShadow: `0 0 10px ${tierMeta.dot}` }} />
-          <span className="text-xs font-bold text-white">
-            Điểm uy tín <strong className="text-white font-black text-sm ml-0.5">{Math.min(100, khachHang.diem_uy_tin || 0)}</strong>/100 · <span className="font-extrabold">{tierMeta.label}</span>
-          </span>
         </div>
       </div>
 

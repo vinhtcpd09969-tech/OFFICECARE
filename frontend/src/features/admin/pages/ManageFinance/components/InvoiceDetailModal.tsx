@@ -87,7 +87,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                     !['da_hoan_tien', 'da_huy'].includes(invoice.trang_thai) &&
                     !['huy', 'hoan_thanh'].includes(invoice.trang_thai_phac_do || '');
 
-  // Refund eligibility check (Only pre-paid packages: LIEU_TRINH and hinh_thuc is tra_thang/tra_gop)
+  // Refund eligibility check (Only pre-paid packages: LIEU_TRINH and hinh_thuc is tra_thang)
   // — gói đã quá hạn sử dụng KHÔNG được hủy theo luồng hoàn tiền thông thường nữa (chỉ còn đúng 1
   // lối ra: "Hủy do quá hạn sử dụng", không hoàn tiền — xem isPackageOverdue).
   // Dùng chung công thức với PaymentTable.tsx (tab Lịch sử giao dịch) qua canRefundPackage() — 2
@@ -204,7 +204,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                   <div className="flex justify-between items-start gap-2">
                     <span className="text-zinc-400 dark:text-zinc-400 shrink-0">Chi tiết:</span>
                     <span className="text-secondary dark:text-zinc-100 font-black text-right leading-snug" title={invoice.ten_dich_vu}>
-                      {invoice.ten_dich_vu || 'Phí khám lâm sàng/Buổi lẻ'}
+                      {invoice.ten_dich_vu || 'Phí lượng giá chức năng/Buổi lẻ'}
                       {isPackage && ` (${totalSessions} buổi)`}
                     </span>
                   </div>
@@ -412,7 +412,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                                 {examTrace && Number(analysis.exam_fee_to_charge || 0) > 0 && (
                                   <div className="flex justify-between items-start">
                                     <span className="text-zinc-500 dark:text-zinc-400 text-left max-w-[280px]">
-                                      2.3. Phí khám lâm sàng & Lượng giá{examTrace.appointment_date ? ` (Ca khám ngày ${formatLongDate(examTrace.appointment_date)})` : ''}:
+                                      2.3. Phí lượng giá chức năng{examTrace.appointment_date ? ` (Ca lượng giá ngày ${formatLongDate(examTrace.appointment_date)})` : ''}:
                                     </span>
                                     <span className="shrink-0">-{formatCurrency(analysis.exam_fee_to_charge)}</span>
                                   </div>
@@ -484,7 +484,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                                 ) : (
                                   <>
                                     <div className="flex justify-between">
-                                      <span className="text-zinc-500 dark:text-zinc-400">{invoice.loai_goi === 'LE' ? 'Giá gốc dịch vụ lẻ:' : 'Phí khám lâm sàng & Lượng giá:'}</span>
+                                      <span className="text-zinc-500 dark:text-zinc-400">{invoice.loai_goi === 'LE' ? 'Giá gốc dịch vụ lẻ:' : 'Phí lượng giá chức năng:'}</span>
                                       <span className="font-semibold text-zinc-800 dark:text-zinc-200">{formatCurrency(tong_tien_goc || Number(invoice.tong_tien_thanh_toan))}</span>
                                     </div>
                                   </>

@@ -6,10 +6,10 @@ interface PackageRowProps {
   onRestore: (pkg: any) => void;
 }
 
-const LOAI_GOI_LABELS: Record<string, string> = {
-  KHAM: 'Khám',
-  LE: 'Lẻ',
-  LIEU_TRINH: 'Liệu trình'
+const LOAI_GOI_CONFIG: Record<string, { label: string; bg: string; text: string; border: string }> = {
+  KHAM: { label: 'LƯỢNG GIÁ', bg: 'bg-indigo-50 dark:bg-indigo-950/60', text: 'text-indigo-700 dark:text-indigo-300', border: 'border-indigo-200/80 dark:border-indigo-800/80' },
+  LE: { label: 'DỊCH VỤ LẺ', bg: 'bg-teal-50 dark:bg-teal-950/60', text: 'text-teal-700 dark:text-teal-300', border: 'border-teal-200/80 dark:border-teal-800/80' },
+  LIEU_TRINH: { label: 'LIỆU TRÌNH', bg: 'bg-emerald-50 dark:bg-emerald-950/60', text: 'text-emerald-700 dark:text-emerald-300', border: 'border-emerald-200/80 dark:border-emerald-800/80' }
 };
 
 export function PackageRow({
@@ -20,13 +20,17 @@ export function PackageRow({
   onRestore
 }: PackageRowProps) {
   const isInactive = pkg.trang_thai !== 'hoat_dong';
-
-  const catName = LOAI_GOI_LABELS[pkg.loai_goi] || pkg.loai_goi;
+  const typeConfig = LOAI_GOI_CONFIG[pkg.loai_goi] || {
+    label: pkg.loai_goi,
+    bg: 'bg-slate-100 dark:bg-zinc-800',
+    text: 'text-slate-700 dark:text-zinc-300',
+    border: 'border-slate-200 dark:border-zinc-700'
+  };
 
   return (
     <div 
-      className={`group relative bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-2xl p-6 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:border-emerald-250 hover:shadow-[0_20px_50px_rgba(16,185,129,0.05)] hover:-translate-y-1.5 active:scale-[0.995] cursor-pointer ${
-        isInactive ? 'opacity-70' : ''
+      className={`group relative bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 transition-all duration-300 hover:border-teal-500/40 hover:shadow-md hover:-translate-y-0.5 cursor-pointer ${
+        isInactive ? 'opacity-60 bg-slate-50/50' : ''
       }`}
       onClick={(e) => {
         const target = e.target as HTMLElement;
@@ -36,18 +40,15 @@ export function PackageRow({
         onEdit(pkg);
       }}
     >
-      {/* Left accent bar on hover */}
-      <div className="absolute left-0 top-4 bottom-4 w-1.5 rounded-r-2xl scale-y-50 group-hover:scale-y-100 opacity-0 group-hover:opacity-100 transition-all duration-300 origin-center shadow-sm bg-primary shadow-emerald-400/50"></div>
-
-      <div className="flex flex-col lg:grid lg:grid-cols-12 lg:items-center gap-6 lg:gap-4">
+      <div className="flex flex-col lg:grid lg:grid-cols-12 lg:items-center gap-4">
         
         {/* 1. THÔNG TIN GÓI */}
-        <div className="col-span-12 lg:col-span-5 min-w-0 flex gap-4">
+        <div className="col-span-12 lg:col-span-5 min-w-0 flex items-center gap-3.5">
           {/* Thumbnail Image */}
-          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl border border-zinc-150 dark:border-zinc-800 overflow-hidden flex-shrink-0 bg-slate-100 dark:bg-zinc-800 flex items-center justify-center relative shadow-sm">
+          <div className="w-14 h-14 rounded-2xl border border-slate-200/80 dark:border-zinc-700 overflow-hidden shrink-0 bg-slate-100 dark:bg-zinc-800 flex items-center justify-center relative shadow-2xs">
             <img 
               src={pkg.anh_goi || '/images/goi/kham_sang_loc.png'} 
-              className="w-full h-full object-cover group-hover:scale-110 transition-all duration-500 ease-out" 
+              className="w-full h-full object-cover group-hover:scale-105 transition-all duration-300" 
               alt={pkg.ten_goi} 
               onError={(e) => {
                 (e.target as HTMLImageElement).src = '/images/goi/kham_sang_loc.png';
@@ -57,83 +58,83 @@ export function PackageRow({
 
           {/* Details */}
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-              <span className="text-[9px] text-teal-850 dark:text-teal-300 font-black bg-teal-50 dark:bg-teal-950/60 border border-teal-150/60 dark:border-teal-800/60 px-2 py-0.5 rounded-lg uppercase tracking-wider shrink-0 flex items-center gap-1 shadow-2xs">
-                <svg className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2 2v12m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-                <span>{catName}</span>
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <span className={`text-[9.5px] font-black px-2 py-0.5 rounded-md border uppercase tracking-wider shrink-0 ${typeConfig.bg} ${typeConfig.text} ${typeConfig.border}`}>
+                {typeConfig.label}
               </span>
             </div>
             
-            <h4 className="font-heading font-black text-[13.5px] sm:text-[14px] text-secondary dark:text-zinc-100 tracking-tight hover:text-primary transition-colors mt-0.5 duration-200 leading-snug">
+            <h4 className="font-jakarta font-black text-sm text-slate-900 dark:text-zinc-100 tracking-tight group-hover:text-teal-600 transition-colors leading-snug">
               {pkg.ten_goi}
             </h4>
             {(pkg.quy_trinh || pkg.muc_tieu) && (
-              <p className="text-[11px] text-zinc-450 dark:text-zinc-400 mt-1 font-medium line-clamp-1">{pkg.quy_trinh || pkg.muc_tieu}</p>
+              <p className="text-[11px] text-slate-400 dark:text-zinc-400 mt-0.5 font-medium line-clamp-1">{pkg.quy_trinh || pkg.muc_tieu}</p>
             )}
           </div>
         </div>
 
         {/* 2. SỐ BUỔI & THỜI LƯỢNG */}
         <div className="col-span-12 lg:col-span-2 shrink-0 flex flex-col items-start lg:items-center gap-1">
-          <span className="text-sm font-black text-secondary dark:text-zinc-100">{pkg.tong_so_buoi} buổi</span>
-          <span className="text-[10px] text-zinc-400 dark:text-zinc-300 font-bold bg-zinc-50 dark:bg-zinc-800 border border-zinc-150 dark:border-zinc-700 px-2 py-0.5 rounded-md">
+          <span className="text-xs font-black text-slate-800 dark:text-zinc-200">{pkg.tong_so_buoi} buổi</span>
+          <span className="text-[10px] text-slate-500 dark:text-zinc-400 font-bold bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded-lg border border-slate-200/60 dark:border-zinc-700">
             ⏱️ {pkg.thoi_luong_buoi_phut || pkg.thoi_luong_phut || 60} phút/buổi
           </span>
         </div>
 
         {/* 3. ĐƠN GIÁ TRỌN GÓI */}
         <div className="col-span-12 lg:col-span-2 shrink-0 flex flex-col items-start lg:items-center">
-          <span className="font-black text-teal-600 dark:text-teal-300 text-sm select-all">
+          <span className="font-mono font-black text-teal-600 dark:text-teal-400 text-sm">
             {currencyFormatter.format(pkg.gia_tien || pkg.gia_goi || pkg.don_gia)}đ
           </span>
         </div>
 
         {/* 4. TRẠNG THÁI */}
         <div className="col-span-12 lg:col-span-1 shrink-0 flex lg:justify-center">
-          <span className={`inline-flex items-center gap-1.5 text-[9px] font-black uppercase px-2.5 py-1.5 rounded-xl border shadow-2xs ${
+          <span className={`inline-flex items-center gap-1.5 text-[9px] font-black uppercase px-2.5 py-1 rounded-xl border ${
             pkg.trang_thai === 'hoat_dong'
-              ? 'bg-emerald-500/5 text-emerald-700 border-emerald-500/20 shadow-inner'
-              : 'bg-zinc-100 text-zinc-400 border-zinc-200 shadow-inner'
+              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+              : 'bg-slate-100 text-slate-400 border-slate-200'
           }`}>
-            <span className="relative flex h-2 w-2">
+            <span className="relative flex h-1.5 w-1.5">
               {pkg.trang_thai === 'hoat_dong' && (
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               )}
-              <span className={`relative inline-flex rounded-full h-2 w-2 ${pkg.trang_thai === 'hoat_dong' ? 'bg-emerald-500' : 'bg-zinc-400'}`}></span>
+              <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${pkg.trang_thai === 'hoat_dong' ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
             </span>
-            <span>{pkg.trang_thai === 'hoat_dong' ? 'HOẠT ĐỘNG' : 'TẠM NGƯNG'}</span>
+            <span>{pkg.trang_thai === 'hoat_dong' ? 'Hoạt động' : 'Tạm ngưng'}</span>
           </span>
         </div>
 
         {/* 5. THAO TÁC QUẢN TRỊ */}
         <div className="col-span-12 lg:col-span-2 shrink-0 flex items-center lg:justify-end gap-2">
           <button
+            type="button"
             onClick={() => onEdit(pkg)}
-            className="px-3 py-2 border border-zinc-200 hover:border-primary/30 hover:bg-primary-container text-zinc-655 hover:text-primary rounded-xl transition-all duration-200 active:scale-95 bg-white shadow-2xs font-bold text-[9.5px]"
+            className="px-3.5 py-1.5 border border-slate-200 dark:border-zinc-700 hover:border-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/40 text-slate-700 dark:text-zinc-200 hover:text-teal-700 rounded-xl transition-all font-black text-[11px] cursor-pointer shadow-2xs"
           >
-            SỬA ĐỔI
+            Sửa đổi
           </button>
 
           {pkg.trang_thai === 'hoat_dong' ? (
             <button
+              type="button"
               onClick={() => onDelete(pkg)}
-              className="p-2 border border-zinc-200 hover:border-amber-300 hover:bg-amber-50/50 text-zinc-400 hover:text-amber-500 rounded-xl transition-all duration-200 active:scale-95 bg-white shadow-2xs"
+              className="p-1.5 border border-slate-200 dark:border-zinc-700 hover:border-amber-400 hover:bg-amber-50 text-slate-400 hover:text-amber-600 rounded-xl transition-all cursor-pointer shadow-2xs"
               title="Ngưng sử dụng gói"
             >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636" />
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636" />
               </svg>
             </button>
           ) : (
             <button
+              type="button"
               onClick={() => onRestore(pkg)}
-              className="p-2 border border-zinc-200 hover:border-emerald-300 hover:bg-emerald-50/50 text-zinc-400 hover:text-emerald-600 rounded-xl transition-all duration-200 active:scale-95 bg-white shadow-2xs"
+              className="p-1.5 border border-slate-200 dark:border-zinc-700 hover:border-emerald-400 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded-xl transition-all cursor-pointer shadow-2xs"
               title="Khôi phục sử dụng gói"
             >
-              <svg className="w-3.5 h-3.5 text-emerald-650" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 6.578M3.9 9h6.1" />
+              <svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 6.578M3.9 9h6.1" />
               </svg>
             </button>
           )}

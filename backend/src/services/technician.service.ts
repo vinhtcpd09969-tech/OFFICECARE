@@ -1,9 +1,10 @@
-import technicianRepository from '../repositories/technician.repository';
+import technicianRepository from '../repositories/technician';
+import doctorRepository from '../repositories/doctor';
 
 class TechnicianService {
-  // 1. Lấy danh sách hàng đợi trị liệu hôm nay của KTV
+  // 1. Lấy danh sách hàng đợi trị liệu hôm nay của KTV (đồng bộ cấu trúc queue với doctor.repository)
   async getQueue(userId: string) {
-    return await technicianRepository.getTechnicianQueue(userId);
+    return await doctorRepository.getDoctorQueue(userId, 3);
   }
 
   // 2. Lấy danh sách lịch hẹn của KTV
@@ -30,6 +31,7 @@ class TechnicianService {
       if (otherOpenSessions.length >= 2) {
         const names = otherOpenSessions.map((s: any) => `${s.ma_lich_dat} (${s.ten_khach_hang})`).join(', ');
         const err = new Error(`Bạn đang mở tối đa 2 bàn trị liệu cùng lúc (${names}). Vui lòng hoàn thành bớt trước khi mở bàn mới.`) as any;
+        err.statusCode = 400;
         err.activeSessionId = otherOpenSessions[0].id;
         throw err;
       }
@@ -43,6 +45,7 @@ class TechnicianService {
             const err = new Error(
               `Ca này dự kiến xong lúc ${overtimeInfo.estimateFinish}, sau giờ tan ca của bạn (${overtimeInfo.shiftEnd}). Bạn vẫn muốn mở bàn 2?`
             ) as any;
+            err.statusCode = 400;
             err.errorCode = 'SHIFT_OVERTIME_WARNING';
             throw err;
           }
@@ -136,9 +139,9 @@ class TechnicianService {
   }
 
   // 7. Lấy thông tin phòng trực & thiết bị y tế có sẵn tại phòng của nhân sự
-  async getWorkstationInfo(userId: string) {
+  async getWorkstationInfo(userId: string, appointmentId?: string | null) {
     const staffId = parseInt(userId, 10);
-    return await technicianRepository.getRoomAndEquipmentForStaff(staffId);
+    return await technicianRepository.getRoomAndEquipmentForStaff(staffId, appointmentId);
   }
 }
 

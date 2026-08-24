@@ -37,9 +37,15 @@ export const getWeekDates = (selectedWeek: 'current' | 'next' | 'after_next'): W
   return dates;
 };
 
-export const getAvatarInitials = (name: string): string => {
-  if (!name) return 'NV';
-  const parts = name.split(' ');
-  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
+export const getAvatarInitials = (name?: string | null): string => {
+  if (!name || typeof name !== 'string') return 'NV';
+  const clean = name.trim();
+  if (!clean) return 'NV';
+  const parts = clean.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    const first = parts[0]?.[0] || '';
+    const last = parts[parts.length - 1]?.[0] || '';
+    return (first + last).toUpperCase() || 'NV';
+  }
+  return clean.slice(0, 2).toUpperCase() || 'NV';
 };

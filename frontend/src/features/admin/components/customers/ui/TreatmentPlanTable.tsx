@@ -36,44 +36,44 @@ const TreatmentPlanTableRow = memo(function TreatmentPlanTableRow({
   const end = endDateInfo(plan);
   return (
     <tr 
-      className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors cursor-pointer font-jakarta" 
+      className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors cursor-pointer" 
       onClick={() => onViewProfile(plan.khach_hang_id, plan.id)}
     >
-      <td className="p-4">
+      <td className="p-3.5 sm:p-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-teal-500/20 to-teal-600/30 border border-teal-500/30 text-teal-700 dark:text-teal-300 font-black flex items-center justify-center text-xs uppercase shrink-0 shadow-sm">
+          <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950/50 border border-teal-200/60 dark:border-teal-800/60 text-teal-700 dark:text-teal-300 font-bold flex items-center justify-center text-xs uppercase shrink-0">
             {plan.ho_ten?.charAt(0) || 'K'}
           </div>
           <div className="flex flex-col min-w-0">
-            <span className="font-extrabold text-xs md:text-sm text-slate-900 dark:text-white truncate">
+            <span className="font-semibold text-xs sm:text-sm text-slate-900 dark:text-white truncate">
               {plan.ho_ten}
             </span>
-            <span className="text-[10px] text-slate-400 font-extrabold mt-0.5 tracking-wider">
+            <span className="text-[11px] text-slate-400 font-medium mt-0.5">
               {plan.ma_khach_hang}
             </span>
           </div>
         </div>
       </td>
-      <td className="p-4">
-        <div className="flex flex-col gap-0.5">
-          <span className="font-extrabold text-xs text-slate-800 dark:text-slate-200 leading-snug">{plan.ten_goi}</span>
-          <span className="text-[11px] text-teal-700 dark:text-teal-400 font-black bg-teal-50 dark:bg-teal-950/60 px-2 py-0.5 rounded-md border border-teal-100 dark:border-teal-800 w-fit">
+      <td className="p-3.5 sm:p-4">
+        <div className="flex flex-col gap-1">
+          <span className="font-semibold text-xs sm:text-sm text-slate-800 dark:text-slate-200 leading-snug">{plan.ten_goi}</span>
+          <span className="text-[11px] text-teal-700 dark:text-teal-400 font-semibold bg-teal-50 dark:bg-teal-950/60 px-2 py-0.5 rounded-md border border-teal-100 dark:border-teal-800/60 w-fit">
             {plan.so_buoi_da_dung}/{plan.tong_so_buoi} buổi
           </span>
         </div>
       </td>
-      <td className="p-4 text-center">
+      <td className="p-3.5 sm:p-4 text-center">
         <PlanStatusPill status={plan.status} />
       </td>
-      <td className="p-4 whitespace-nowrap">
-        <span className="font-extrabold text-xs text-slate-700 dark:text-slate-300">
+      <td className="p-3.5 sm:p-4 whitespace-nowrap">
+        <span className="font-medium text-xs text-slate-700 dark:text-slate-300">
           {formatDate(plan.ngay_kich_hoat)}
         </span>
       </td>
-      <td className="p-4">
+      <td className="p-3.5 sm:p-4">
         <div className="flex flex-col gap-0.5">
-          <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">{end.label}</span>
-          <span className="font-extrabold text-xs text-slate-700 dark:text-slate-300 whitespace-nowrap">
+          <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">{end.label}</span>
+          <span className="font-medium text-xs text-slate-700 dark:text-slate-300 whitespace-nowrap">
             {formatDate(end.value)}
           </span>
         </div>
@@ -100,23 +100,23 @@ function TableSkeletonRows() {
 
 export function TreatmentPlanTable({ data, loading, meta, onPageChange, onViewProfile }: TreatmentPlanTableProps) {
   return (
-    <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 rounded-[28px] shadow-xl shadow-slate-200/40 dark:shadow-none overflow-hidden font-jakarta">
+    <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse text-xs table-fixed">
           <colgroup>
-            <col className="w-[24%]" />
             <col className="w-[26%]" />
-            <col className="w-[15%]" />
-            <col className="w-[15%]" />
-            <col className="w-[20%]" />
+            <col className="w-[26%]" />
+            <col className="w-[16%]" />
+            <col className="w-[14%]" />
+            <col className="w-[18%]" />
           </colgroup>
           <thead>
-            <tr className="bg-slate-50/80 dark:bg-slate-800/80 border-b border-slate-200/80 dark:border-slate-700/80 text-slate-400 dark:text-slate-400 font-black uppercase tracking-widest text-[10px]">
-              <th className="p-4">Khách hàng</th>
-              <th className="p-4">Liệu trình</th>
-              <th className="p-4 text-center">Trạng thái</th>
-              <th className="p-4">Ngày kích hoạt</th>
-              <th className="p-4">Mốc thời gian</th>
+            <tr className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-700/80 text-slate-500 dark:text-slate-400 font-semibold text-xs">
+              <th className="p-3.5 sm:p-4">Khách hàng</th>
+              <th className="p-3.5 sm:p-4">Liệu trình</th>
+              <th className="p-3.5 sm:p-4 text-center">Trạng thái</th>
+              <th className="p-3.5 sm:p-4">Ngày kích hoạt</th>
+              <th className="p-3.5 sm:p-4">Mốc thời gian</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -124,10 +124,10 @@ export function TreatmentPlanTable({ data, loading, meta, onPageChange, onViewPr
               <TableSkeletonRows />
             ) : data.length === 0 ? (
               <tr>
-                <td colSpan={5} className="py-16 text-center">
-                  <div className="flex flex-col items-center gap-2 text-slate-400">
-                    <Inbox size={28} className="stroke-[1.5]" />
-                    <span className="font-extrabold text-xs">Không tìm thấy liệu trình nào thỏa điều kiện lọc.</span>
+                <td colSpan={5} className="py-14 text-center">
+                  <div className="flex flex-col items-center gap-2 text-slate-400 dark:text-slate-500">
+                    <Inbox size={26} className="stroke-[1.5]" />
+                    <span className="font-medium text-xs">Không tìm thấy liệu trình nào thỏa điều kiện lọc.</span>
                   </div>
                 </td>
               </tr>
@@ -140,7 +140,7 @@ export function TreatmentPlanTable({ data, loading, meta, onPageChange, onViewPr
         </table>
       </div>
       {!loading && data.length > 0 && (
-        <div className="border-t border-slate-100 dark:border-slate-800 p-4">
+        <div className="border-t border-slate-100 dark:border-slate-800/80 p-4">
           <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} pageSize={meta.pageSize} onPageChange={onPageChange} label="liệu trình" />
         </div>
       )}

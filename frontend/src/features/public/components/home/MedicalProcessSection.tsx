@@ -12,9 +12,9 @@ const PROCESS_STEPS = [
   {
     step: '02',
     icon: Stethoscope,
-    title: 'Bác Sĩ CKI Thăm Khám & Lượng Giá 1:1',
-    desc: 'Bác sĩ chuyên khoa đo biên độ vận động (ROM), đánh giá thang điểm đau (VAS) và siêu âm vị trí mô cơ tổn thương.',
-    tag: 'Chẩn đoán chính xác'
+    title: 'Chuyên Viên PHCN Lượng Giá Chức Năng 1:1',
+    desc: 'Chuyên viên PHCN đo biên độ vận động (ROM), đánh giá cơ lực (MMT) và thang điểm đau (VAS) để lập kế hoạch phục hồi.',
+    tag: 'Đánh giá chuyên sâu'
   },
   {
     step: '03',
@@ -43,10 +43,10 @@ export default function MedicalProcessSection() {
               Quy Trình Tiếp Đón Chuẩn Y Khoa
             </span>
             <h2 className="font-heading font-black text-2xl sm:text-3xl text-slate-900 tracking-tight">
-              4 Bước Trải Nghiệm Thăm Khám &amp; Phục Hồi Tại OfficeCare
+              4 Bước Trải Nghiệm Lượng Giá &amp; Phục Hồi Tại OfficeCare
             </h2>
             <p className="text-slate-500 font-normal text-xs sm:text-sm leading-relaxed">
-              Áp dụng cho toàn bộ bệnh nhân khi đến thăm khám - từ buổi tư vấn đầu tiên tới các gói phác đồ trị liệu chuyên sâu.
+              Áp dụng cho toàn bộ khách hàng khi đến trung tâm - từ buổi lượng giá ban đầu tới các gói phác đồ trị liệu chuyên sâu.
             </p>
           </div>
         </ScrollReveal>

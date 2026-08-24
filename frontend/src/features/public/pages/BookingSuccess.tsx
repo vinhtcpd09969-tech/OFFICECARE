@@ -30,7 +30,6 @@ interface AppointmentData {
   ten_phong: string | null;
   chan_doan: string | null;
   chong_chi_dinh: string | null;
-  ly_do_huy: string | null;
   ghi_chu_noi_bo?: string | null;
   thoi_gian_huy: string | null;
   ly_do_kham: string | null;
@@ -64,7 +63,8 @@ export default function BookingSuccess() {
 
     const fetchStatus = async () => {
       try {
-        const response = await fetch(`http://localhost:5001/api/client/appointments/public/track/${id}`);
+        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+        const response = await fetch(`${baseUrl}/client/appointments/public/track/${id}`);
         if (!response.ok) {
           throw new Error('Không thể tải thông tin lịch hẹn.');
         }
@@ -197,7 +197,7 @@ export default function BookingSuccess() {
           </h1>
           <p className="text-sm text-slate-500 font-semibold max-w-xl mx-auto leading-relaxed">
             {isCancelled
-              ? `Lịch hẹn này đã bị hủy. Lý do: "${appointment.ly_do_huy || appointment.ghi_chu_noi_bo || 'Hủy bởi hệ thống'}"`
+              ? `Lịch hẹn này đã bị hủy. Lý do: "${appointment.ghi_chu_noi_bo || 'Hủy bởi hệ thống'}"`
               : 'Lịch hẹn của bạn đã được tiếp nhận và xác nhận thành công. Vui lòng tới phòng khám đúng buổi đã chọn để check-in.'}
           </p>
         </div>
@@ -212,7 +212,7 @@ export default function BookingSuccess() {
           <div className="space-y-4 text-xs">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <span className="text-slate-455 font-bold uppercase tracking-wider text-[9px]">Dịch vụ trị liệu</span>
-              <span className="text-slate-800 font-extrabold">{appointment.ten_dich_vu || 'Khám Lâm sàng & Lượng giá'}</span>
+              <span className="text-slate-800 font-extrabold">{appointment.ten_dich_vu || 'Lượng giá Chức năng PHCN'}</span>
             </div>
 
             <div className="flex justify-between items-start border-b border-slate-100 pb-3">
@@ -225,7 +225,7 @@ export default function BookingSuccess() {
 
             {isConfirmed && appointment.ten_phong && (
               <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-                <span className="text-slate-455 font-bold uppercase tracking-wider text-[9px]">Phòng khám lâm sàng</span>
+                <span className="text-slate-455 font-bold uppercase tracking-wider text-[9px]">Phòng lượng giá chức năng</span>
                 <span className="text-[#0D9488] font-extrabold flex items-center gap-1">
                   <MapPin size={13} />
                   {appointment.ten_phong}
@@ -244,7 +244,7 @@ export default function BookingSuccess() {
             )}
 
             <div className="flex justify-between items-center pb-1">
-              <span className="text-slate-455 font-bold uppercase tracking-wider text-[9px]">Họ tên bệnh nhân</span>
+              <span className="text-slate-455 font-bold uppercase tracking-wider text-[9px]">Họ tên khách hàng</span>
               <span className="text-slate-800 font-extrabold">{appointment.ho_ten_khach}</span>
             </div>
           </div>
@@ -281,7 +281,7 @@ export default function BookingSuccess() {
                   {isCompleted ? <CheckCircle2 size={8} /> : <Clock size={8} />}
                 </div>
                 <h4 className={`font-extrabold uppercase tracking-wider text-[10px] ${isCompleted ? 'text-slate-800' : 'text-slate-400'}`}>
-                  2. Hoàn thành khám trị liệu
+                  2. Hoàn thành buổi lượng giá / trị liệu
                 </h4>
               </div>
             </div>
@@ -292,7 +292,7 @@ export default function BookingSuccess() {
         {!isCancelled && appointment.ghi_chu_noi_bo && (
           <div className="bg-amber-50/20 border border-amber-100 p-6 rounded-[24px] text-left space-y-3">
             <h4 className="text-xs font-black text-amber-700 uppercase tracking-wider flex items-center gap-1.5">
-              📌 Lời khuyên từ phòng khám:
+              📌 Lời khuyên từ trung tâm:
             </h4>
             <p className="text-xs text-slate-650 italic font-semibold">
               "{appointment.ghi_chu_noi_bo}"

@@ -6,16 +6,14 @@ import { formatLocalDate, getVietnameseDay } from '../../constants';
 interface Step2DatePickerProps {
   selectedDate: string;
   setDateField: (date: string) => void;
-  hasExistingClinicalExam: boolean;
-  setShowBlockWarning: (show: boolean) => void;
+  hasExistingClinicalExam?: boolean;
+  setShowBlockWarning?: (show: boolean) => void;
   setActiveStep: (step: number) => void;
 }
 
 export function Step2DatePicker({
   selectedDate,
   setDateField,
-  hasExistingClinicalExam,
-  setShowBlockWarning,
   setActiveStep
 }: Step2DatePickerProps) {
   const dateContainerRef = useRef<HTMLDivElement>(null);
@@ -118,13 +116,7 @@ export function Step2DatePicker({
         </button>
         <button
           type="button"
-          onClick={() => {
-            if (hasExistingClinicalExam) {
-              setShowBlockWarning(true);
-              return;
-            }
-            setActiveStep(3);
-          }}
+          onClick={() => setActiveStep(3)}
           disabled={!selectedDate}
           className="bg-[#0F172A] hover:bg-[#1E293B] text-white font-jakarta font-extrabold py-3.5 px-6 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
         >

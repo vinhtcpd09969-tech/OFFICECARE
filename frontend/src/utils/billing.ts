@@ -79,7 +79,6 @@ export function isSessionPaymentSatisfied(
     so_tien_da_tra?: number | string | null;
     tong_so_buoi?: number | string | null;
     tong_tien_goc?: number | string | null;
-    ti_le_giam_gia_goi?: number | string | null;
     so_tien_giam_voucher?: number | string | null;
     trang_thai?: string | null;
     hoa_don_trang_thai?: string | null;
@@ -90,13 +89,18 @@ export function isSessionPaymentSatisfied(
   if (plan?.loai_goi === 'LE') return true;
   if (isPlanCancelled(plan)) return true;
 
-  const minRequired = getMinPaymentRequired(
-    plan?.hinh_thuc_thanh_toan_goi || 'tra_thang',
-    Number(plan?.tong_tien_phai_tra || 0),
-    Number(plan?.tong_so_buoi || 10),
-    sessionNum
-  );
-  return Number(plan?.so_tien_da_tra || 0) >= minRequired;
+  const hinhThuc = plan?.hinh_thuc_thanh_toan_goi || 'tra_thang';
+  if (hinhThuc === 'tra_thang') {
+    return Number(plan?.so_tien_da_tra || 0) >= Number(plan?.tong_tien_phai_tra || 0);
+  }
+  if (hinhThuc === 'tung_buoi') {
+    const totalSessions = Number(plan?.tong_so_buoi || 10);
+    const totalAmount = Number(plan?.tong_tien_phai_tra || 0);
+    const sessionPrice = totalSessions > 0 ? Math.round(totalAmount / totalSessions) : totalAmount;
+    const requiredForThisSession = sessionNum >= totalSessions ? totalAmount : sessionNum * sessionPrice;
+    return Number(plan?.so_tien_da_tra || 0) >= requiredForThisSession;
+  }
+  return false;
 }
 
 /**
@@ -114,13 +118,23 @@ export function isPaymentDue(apt: {
   tong_tien_phai_tra_goi?: number | string | null;
   tong_tien_goc_goi?: number | string | null;
 }): boolean {
+  const hinhThuc = apt.hinh_thuc_thanh_toan_goi;
+
+  // Nếu là gói trả từng buổi: tính chính xác theo số tiền đã tích lũy và số thứ tự buổi
+  if (hinhThuc === 'tung_buoi') {
+    const soThuTu = Number(apt.so_thu_tu_buoi || 1);
+    const tongSoBuoi = Number(apt.tong_so_buoi_goi || 10);
+    const daTra = Number(apt.so_tien_da_tra_goi || 0);
+    const phaiTra = Number(apt.tong_tien_phai_tra_goi || 0);
+    return getTungBuoiSessionDue(phaiTra, tongSoBuoi, soThuTu, daTra) > 0;
+  }
+
   const DONE_INVOICE_STATUSES = ['da_thanh_toan', 'da_hoan_tien'];
   if (DONE_INVOICE_STATUSES.includes(apt.trang_thai_thanh_toan || '') || DONE_INVOICE_STATUSES.includes(apt.trang_thai_hoa_don_goi || '')) {
     return false;
   }
 
   const isRetailOrExam = ['kham_moi', 'KHAM', 'dich_vu_don', 'DICH_VU_LE'].includes(apt.loai_lich || '') || apt.loai_goi === 'LE';
-  const hinhThuc = apt.hinh_thuc_thanh_toan_goi;
 
   if (isRetailOrExam) {
     if (!hinhThuc) {
@@ -131,14 +145,8 @@ export function isPaymentDue(apt: {
     if (isWaived) return false;
   }
 
-  const soThuTu = Number(apt.so_thu_tu_buoi || 1);
-  const tongSoBuoi = Number(apt.tong_so_buoi_goi || 10);
   const daTra = Number(apt.so_tien_da_tra_goi || 0);
   const phaiTra = Number(apt.tong_tien_phai_tra_goi || 0);
-
-  if (hinhThuc === 'tung_buoi') {
-    return getTungBuoiSessionDue(phaiTra, tongSoBuoi, soThuTu, daTra) > 0;
-  }
 
   if (hinhThuc === 'tra_thang' || !hinhThuc) {
     return daTra < phaiTra;

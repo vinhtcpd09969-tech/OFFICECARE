@@ -22,9 +22,9 @@ export function TrustSection() {
             <Stethoscope size={20} />
           </div>
           <div className="space-y-2 text-left">
-            <h4 className="text-base font-jakarta font-black text-[#0F172A]">Quy trình khám 5 bước</h4>
+            <h4 className="text-base font-jakarta font-black text-[#0F172A]">Quy trình 5 bước chuẩn y khoa</h4>
             <p className="text-xs font-medium text-slate-400 leading-relaxed">
-              Từ tiếp nhận triệu chứng, kiểm tra khớp, đọc phim chụp y khoa đến thiết lập phác đồ cá nhân hóa dưới sự hội chẩn chuyên sâu của bác sĩ.
+              Từ tiếp nhận triệu chứng, kiểm tra khớp, lượng giá chức năng đến thiết lập phác đồ cá nhân hóa dưới sự hướng dẫn chuyên sâu của Chuyên viên PHCN.
             </p>
           </div>
         </div>
@@ -37,7 +37,7 @@ export function TrustSection() {
           <div className="space-y-2 text-left">
             <h4 className="text-base font-jakarta font-black text-[#0F172A]">Chứng chỉ y khoa chuyên môn</h4>
             <p className="text-xs font-medium text-slate-400 leading-relaxed">
-              100% bác sĩ, kỹ thuật viên có bằng cấp chuyên ngành phục hồi chức năng và sở hữu chứng chỉ hành nghề y tế hợp pháp của Bộ Y Tế.
+              100% chuyên viên, kỹ thuật viên có bằng cấp chuyên ngành phục hồi chức năng và sở hữu chứng chỉ chuyên môn theo quy định.
             </p>
           </div>
         </div>

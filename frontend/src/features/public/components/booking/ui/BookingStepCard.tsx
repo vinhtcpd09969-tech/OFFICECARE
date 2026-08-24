@@ -146,7 +146,7 @@ export function BookingStepCard({
                       Đạt giới hạn đặt lịch
                     </p>
                     <p className="text-slate-600 font-jakarta font-semibold text-xs sm:text-[13px] leading-relaxed">
-                      Bạn đã đạt tối đa lượt khám của ngày <span className="text-rose-600 font-extrabold">{selectedDate ? selectedDate.split('-').reverse().slice(0, 2).join('/') : ''}</span>. Vui lòng liên hệ hotline để được hỗ trợ sắp xếp lịch khám phù hợp.
+                      Bạn đã đạt tối đa lịch hẹn đang hoạt động. Vui lòng liên hệ hotline để được hỗ trợ sắp xếp lịch hẹn phù hợp.
                     </p>
                   </div>
                 </div>
@@ -188,7 +188,7 @@ export function BookingStepCard({
                   }}
                   className="bg-[#2EC4B6] hover:bg-[#25A89C] text-white font-jakarta font-extrabold text-xs uppercase tracking-wider py-4 px-6 rounded-2xl flex-1 text-center transition-all shadow-[0_4px_14px_rgba(46,196,182,0.25)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] hover:shadow-[0_6px_20px_rgba(46,196,182,0.35)]"
                 >
-                  Lịch khám của tôi
+                  Lịch hẹn của tôi
                 </button>
               </div>
             </motion.div>

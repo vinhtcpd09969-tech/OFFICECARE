@@ -91,11 +91,11 @@ export function Step1TypeSelection({
               <span className="text-sm font-black text-slate-800">Dịch Vụ Lẻ / Trị Liệu Nhanh</span>
             </div>
             <p className="text-xs text-slate-400 font-semibold leading-relaxed">
-              Dành cho khách hàng chỉ muốn sử dụng các dịch vụ chăm sóc sức khỏe làm nhanh, thư giãn cơ, siêu âm trị liệu... không cần Bác sĩ khám trước.
+              Dành cho khách hàng chỉ muốn sử dụng các dịch vụ chăm sóc sức khỏe làm nhanh, thư giãn cơ, siêu âm trị liệu... chọn dịch vụ trực tiếp.
             </p>
           </div>
           <div className="flex gap-1.5 mt-4">
-            <span className="text-[9px] font-black px-2 py-0.5 rounded bg-amber-100 text-amber-700 uppercase tracking-wider">Không cần khám</span>
+            <span className="text-[9px] font-black px-2 py-0.5 rounded bg-amber-100 text-amber-700 uppercase tracking-wider">Trực tiếp dịch vụ</span>
             <span className="text-[9px] font-black px-2 py-0.5 rounded bg-slate-100 text-slate-500 uppercase tracking-wider">45-60 phút</span>
             <span className="text-[9px] font-black px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 uppercase tracking-wider">Bảng giá lẻ</span>
           </div>
@@ -105,7 +105,7 @@ export function Step1TypeSelection({
       {/* Dynamic Service selection grid */}
       <div className="space-y-3 pt-4 border-t border-slate-150 animate-fade-in">
         <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider">
-          {bookingType === 'kham' ? 'Chọn Gói Khám Lâm Sàng *' : 'Chọn Dịch Vụ Lẻ Mong Muốn *'}
+          {bookingType === 'kham' ? 'Chọn Dịch Vụ Lượng Giá Chức Năng *' : 'Chọn Dịch Vụ Lẻ Mong Muốn *'}
         </h4>
         {servicesLoading ? (
           <div className="py-8 text-center text-slate-400 text-xs font-semibold">

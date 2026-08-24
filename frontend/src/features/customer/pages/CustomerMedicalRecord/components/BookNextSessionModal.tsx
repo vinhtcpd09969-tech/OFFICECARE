@@ -10,7 +10,7 @@ import { CustomDatePicker } from '../../../../../components/CustomDatePicker';
 type Buoi = 'sang' | 'chieu';
 const BUOI_INFO: Record<Buoi, { label: string; khung: string; ketThuc: string }> = {
   sang: { label: 'Buổi sáng', khung: '7:30 - 12:00', ketThuc: '12:00' },
-  chieu: { label: 'Buổi chiều', khung: '12:00 - 19:30', ketThuc: '19:30' }
+  chieu: { label: 'Buổi chiều', khung: '12:00 - 20:00', ketThuc: '20:00' }
 };
 
 /** Mirror `isBuoiDaQua` phía backend/domain/capacity.ts. */
@@ -39,6 +39,7 @@ interface BuoiNhanSu {
   ho_ten: string;
   anh_dai_dien: string | null;
   caTruc: string;
+  gioKetThuc?: string;
   conLaiSang: number;
   conLaiChieu: number;
 }
@@ -56,7 +57,7 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
   };
 
   const [selectedDate, setSelectedDate] = useState<string>(getTodayString());
-  const [sdt, setSdt] = useState<string>(user?.so_dien_thoai || '');
+  const [sdt] = useState<string>(user?.so_dien_thoai || '');
   const [selectedStaffId, setSelectedStaffId] = useState<string>('');
   const [selectedBuoi, setSelectedBuoi] = useState<Buoi | ''>('');
   const [lyDo, setLyDo] = useState<string>(`Đặt lịch buổi trị liệu số ${sessionNum} theo gói ${pkg.ten_dich_vu}.`);
@@ -145,6 +146,36 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
     if (!selectedStaffId) return null;
     return nhanSu.find((s) => String(s.id) === String(selectedStaffId)) || null;
   }, [selectedStaffId, nhanSu]);
+
+  const staffAlertInfo = useMemo(() => {
+    if (!selectedStaffObject || !selectedBuoi) return null;
+    const ca = selectedStaffObject.caTruc || '';
+    const ketThuc = selectedStaffObject.gioKetThuc || (ca.includes('-') ? ca.split('-')[1]?.trim() : '');
+    if (!ketThuc) return null;
+    const [h, m] = ketThuc.split(':').map((v: string) => parseInt(v, 10));
+    if (isNaN(h)) return null;
+
+    const staffShiftEndMins = h * 60 + (m || 0);
+    const buoiEndMins = selectedBuoi === 'sang' ? 12 * 60 : 20 * 60;
+
+    if (staffShiftEndMins < buoiEndMins) {
+      const latestCheckinMins = staffShiftEndMins - duration;
+      const latestH = Math.floor(latestCheckinMins / 60);
+      const latestM = latestCheckinMins % 60;
+      const latestStr = `${latestH}h${latestM < 10 ? '0' : ''}${latestM}`;
+      const endH = Math.floor(staffShiftEndMins / 60);
+      const endM = staffShiftEndMins % 60;
+      const endStr = `${endH}h${endM < 10 ? '0' : ''}${endM}`;
+
+      return {
+        staffName: formatStaffName(selectedStaffObject.ho_ten),
+        endStr,
+        latestStr,
+        caTruc: selectedStaffObject.caTruc || `${endStr}`
+      };
+    }
+    return null;
+  }, [selectedStaffObject, selectedBuoi, duration]);
 
   const handleOpenConfirm = (e: React.FormEvent) => {
     e.preventDefault();
@@ -263,15 +294,18 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
 
                 {/* SĐT Liên hệ */}
                 <div className="space-y-1.5 flex flex-col justify-center">
-                  <label className="text-[10px] font-extrabold text-zinc-400 dark:text-zinc-550 uppercase tracking-wider block">Số điện thoại liên hệ cho ca hẹn này</label>
-                  <input
-                    type="tel"
-                    value={sdt}
-                    onChange={(e) => setSdt(e.target.value)}
-                    placeholder="Nhập số điện thoại liên hệ..."
-                    className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-850 rounded-2xl text-sm font-mono font-bold focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary text-secondary dark:text-zinc-300"
-                    required
-                  />
+                  <label className="text-[10px] font-extrabold text-zinc-400 dark:text-zinc-550 uppercase tracking-wider block">Số điện thoại liên hệ cho ca hẹn</label>
+                  <div className="relative">
+                    <input
+                      type="tel"
+                      value={sdt || user?.so_dien_thoai || ''}
+                      disabled
+                      className="w-full px-4 py-2.5 bg-zinc-100/80 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-sm font-mono font-bold text-zinc-600 dark:text-zinc-400 cursor-not-allowed"
+                    />
+                    <span className="absolute right-3.5 top-2.5 text-[10px] font-black text-slate-400">
+                      🔒 Tài khoản chính chủ
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -298,7 +332,7 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
 
                 {/* Triệu chứng / Ghi chú */}
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-extrabold text-zinc-400 dark:text-zinc-550 uppercase tracking-wider block">Mô tả triệu chứng / Lý do khám / Ghi chú</label>
+                  <label className="text-[10px] font-extrabold text-zinc-400 dark:text-zinc-550 uppercase tracking-wider block">Mô tả triệu chứng / Lý do đến / Ghi chú</label>
                   <textarea
                     rows={2}
                     value={lyDo}
@@ -318,7 +352,7 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
                   Chọn buổi đặt lịch
                 </h4>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Ngày khám:</span>
+                  <span className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Ngày hẹn:</span>
                   <CustomDatePicker
                     value={selectedDate}
                     minDate={getTodayString()}
@@ -328,6 +362,7 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
                       setSelectedStaffId('');
                     }}
                     className="w-36"
+                    align="right"
                   />
                 </div>
               </div>
@@ -452,6 +487,19 @@ export function BookNextSessionModal({ pkg, sessionNum, onClose }: BookNextSessi
                     );
                   })}
                 </div>
+
+                {/* Cảnh báo nhân sự trực kết thúc sớm */}
+                {staffAlertInfo && (
+                  <div className="p-3.5 bg-amber-50/90 dark:bg-amber-950/20 border border-amber-200/90 dark:border-amber-900/40 rounded-2xl text-xs flex items-start gap-2.5 text-amber-900 dark:text-amber-200 leading-relaxed font-medium animate-in fade-in duration-200">
+                    <Clock size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-black text-amber-950 dark:text-amber-100 block text-[11px] uppercase tracking-wider mb-0.5">
+                        ⏰ Lưu ý ca trực của {staffAlertInfo.staffName}:
+                      </span>
+                      Nhân sự này chỉ có mặt tại trung tâm đến <strong className="text-amber-950 dark:text-amber-100 font-black">{staffAlertInfo.endStr}</strong> (Trực {staffAlertInfo.caTruc}). Quý khách vui lòng đến check-in trước <strong className="text-emerald-700 dark:text-emerald-400 font-black">{staffAlertInfo.latestStr}</strong> để đảm bảo được phục vụ bởi đúng nhân sự này. Sau thời gian này nếu nhân sự đã hết ca, hệ thống sẽ linh hoạt điều phối nhân sự đang trực tiếp nhận.
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </form>

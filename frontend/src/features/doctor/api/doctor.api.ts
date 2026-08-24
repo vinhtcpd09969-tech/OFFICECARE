@@ -139,6 +139,7 @@ export interface ClinicalAssessmentPayload {
   chan_doan: string;
   chong_chi_dinh: string;
   goi_dich_vu_id?: string | null;
+  goi_dich_vu_ids?: string[] | null;
   ghi_chu?: string | null;
   // Bác sĩ đã chọn "xóa chỉ định cũ, dùng gói mới" ở modal xung đột — chỉ gửi lại true khi thực
   // sự cần xóa, không gửi ở lần lưu đầu tiên.
@@ -148,6 +149,13 @@ export interface ClinicalAssessmentPayload {
   vas_score?: number | null;
   rom_data?: any[] | null;
   mmt_data?: any[] | null;
+}
+
+export interface BlockedPackage {
+  goi_dich_vu_id: string;
+  ten_goi: string;
+  reason_type: 'dang_dieu_tri' | 'cho_thanh_toan';
+  message: string;
 }
 
 // Cảnh báo/chặn khi khách đang có chỉ định gói (chưa kích hoạt) hoặc phác đồ (đang điều trị) khác
@@ -182,6 +190,13 @@ export const getAppointmentDetail = (id: string) =>
     chong_chi_dinh?: string;
     ghi_chu?: string;
     goi_dich_vu_id?: string;
+    goi_dich_vu_ids?: string[];
+    danh_sach_goi_chi_dinh?: Array<{
+      goi_dich_vu_id: string;
+      ten_goi: string;
+      don_gia: number;
+      tong_so_buoi: number;
+    }>;
     vas_truoc?: number;
     vas_sau?: number;
     phac_do_dieu_tri_id?: string | null;
@@ -189,6 +204,7 @@ export const getAppointmentDetail = (id: string) =>
     ten_dich_vu?: string | null;
     pd_tong_so_buoi?: number | null;
     package_conflict?: PackageConflict | null;
+    blocked_packages?: BlockedPackage[];
   }>(`/doctor/appointments/${id}`);
 
 export const getPatientProfile = (patientId: string) => 
@@ -211,6 +227,7 @@ export const saveAssessmentDraft = (payload: {
   rom_data?: any[];
   mmt_data?: any[];
   selected_package_id?: string;
+  selected_package_ids?: string[];
 }) =>
   api.post<{ success: boolean; message: string }>('/doctor/appointments/draft', payload);
 

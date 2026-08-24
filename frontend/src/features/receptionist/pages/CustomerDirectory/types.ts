@@ -21,7 +21,6 @@ export interface CustomerRosterItem {
   so_dien_thoai: string;
   email: string | null;
   trang_thai: string;
-  diem_uy_tin: number;
   goi_hien_tai: CurrentPackageInfo | null;
   last_used_at: string | null;
   ly_do_lien_he: ContactReason | null;
@@ -53,7 +52,6 @@ export interface CustomerHistoryPlan {
   tong_tien_phai_tra?: number | string | null;
   so_tien_da_tra?: number | string | null;
   tong_tien_goc?: number | string | null;
-  ti_le_giam_gia_goi?: number | string | null;
   so_tien_giam_voucher?: number | string | null;
   trang_thai_hoa_don_goi?: string | null;
 }
@@ -77,7 +75,6 @@ export interface CustomerHistoryDetail {
   so_dien_thoai: string;
   email: string | null;
   trang_thai: string;
-  diem_uy_tin: number;
   ngay_sinh: string | null;
   gioi_tinh: string | null;
   dia_chi: string | null;

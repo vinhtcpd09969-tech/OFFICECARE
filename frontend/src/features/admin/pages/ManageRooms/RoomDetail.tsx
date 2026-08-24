@@ -221,7 +221,7 @@ export default function RoomDetail() {
         <form onSubmit={handleRoomSubmit} className="p-6 space-y-6 text-slate-800 dark:text-zinc-200 text-xs">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
-              <label className="block text-[10px] font-black text-slate-400 dark:text-zinc-400 uppercase tracking-widest mb-1.5">Tên phòng khám / điều trị *</label>
+              <label className="block text-[10px] font-black text-slate-400 dark:text-zinc-400 uppercase tracking-widest mb-1.5">Tên phòng lượng giá / trị liệu *</label>
               <input 
                 type="text" 
                 required
@@ -307,7 +307,7 @@ export default function RoomDetail() {
 
             <div>
               <label className="block text-[10px] font-black text-slate-400 dark:text-zinc-400 uppercase tracking-widest mb-1.5">
-                {roomFormData.loai_phong === 'phong_tri_lieu' ? 'Sức chứa (Số giường trị liệu)' : 'Sức chứa (Số bác sĩ trực ca)'} *
+                {roomFormData.loai_phong === 'phong_tri_lieu' ? 'Sức chứa (Số giường trị liệu)' : 'Sức chứa (Số chuyên viên trực ca)'} *
               </label>
               <input 
                 type="number"
@@ -382,13 +382,13 @@ export default function RoomDetail() {
                     <h4 className="text-xs font-extrabold text-slate-800 dark:text-zinc-100">{tb.ten_thiet_bi}</h4>
                   </div>
                   <span className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-full border ${
-                    tb.trang_thai === 'dang_bao_tri'
+                    tb.trang_thai === 'dang_bao_tri' || tb.trang_thai === 'tam_dung'
                       ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-955/40 dark:text-amber-300'
-                      : tb.trang_thai === 'dang_su_dung'
-                        ? 'bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-955/40 dark:text-cyan-300'
+                      : tb.trang_thai === 'ngung_su_dung'
+                        ? 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-zinc-800 dark:text-zinc-400'
                         : 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-955/40 dark:text-emerald-300'
                   }`}>
-                    {tb.trang_thai === 'dang_bao_tri' ? 'Bảo trì' : tb.trang_thai === 'dang_su_dung' ? 'Đang dùng' : 'Sẵn sàng'}
+                    {tb.trang_thai === 'dang_bao_tri' || tb.trang_thai === 'tam_dung' ? 'Bảo trì' : tb.trang_thai === 'ngung_su_dung' ? 'Ngưng sử dụng' : 'Sẵn sàng'}
                   </span>
                 </div>
               ))}
