@@ -15,7 +15,7 @@ export type Buoi = 'sang' | 'chieu';
 
 export const BUOI_INFO: Record<Buoi, { label: string; khung: string; ketThuc: string }> = {
   sang: { label: 'Buổi Sáng', khung: '07:30 – 12:00', ketThuc: '12:00' },
-  chieu: { label: 'Buổi Chiều', khung: '12:00 – 19:30', ketThuc: '19:30' }
+  chieu: { label: 'Buổi Chiều', khung: '12:00 – 20:00', ketThuc: '20:00' }
 };
 
 interface WalkInBuoiStaffPickerProps {

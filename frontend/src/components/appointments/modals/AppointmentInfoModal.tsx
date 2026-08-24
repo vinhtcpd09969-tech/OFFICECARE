@@ -203,10 +203,10 @@ export default function AppointmentInfoModal({ appointment, onClose }: Appointme
             </div>
           </div>
 
-          {/* Card 3: Ghi chú nội bộ phòng khám */}
+          {/* Card 3: Ghi chú nội bộ */}
           <div className="bg-slate-50/70 dark:bg-zinc-800/30 p-5 rounded-2xl border border-slate-150 dark:border-zinc-800/80 space-y-2 select-none shadow-sm">
             <label className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest block">
-              GHI CHÚ NỘI BỘ PHÒNG KHÁM
+              GHI CHÚ NỘI BỘ
             </label>
             <p className="text-xs text-slate-600 dark:text-zinc-300 font-medium leading-relaxed bg-white dark:bg-zinc-900/60 p-3 rounded-xl border border-slate-200/80 dark:border-zinc-800 whitespace-pre-wrap min-h-[50px]">
               {appointment.ghi_chu_noi_bo || appointment.ly_do_kham || appointment.ghi_chu || 'Không có ghi chú nội bộ.'}

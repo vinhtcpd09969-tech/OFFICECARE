@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { AIService } from '../services/ai.service';
-import { ChatHistoryService } from '../services/chatHistory.service';
+import { ChatHistoryService } from '../services/ai/ai.history';
 import { asyncHandler } from '../utils/asyncHandler';
 import { BadRequestError } from '../utils/appError';
 
@@ -24,7 +24,10 @@ export const chatWithAI = asyncHandler(async (req: Request, res: Response) => {
   res.json({
     success: true,
     reply: result.reply,
-    suggestBooking: result.suggestBooking
+    suggestBooking: result.suggestBooking,
+    bookingActionType: result.bookingActionType ?? null,
+    showPackagePrompt: result.showPackagePrompt ?? false,
+    suggestedQuestions: result.suggestedQuestions ?? []
   });
 
   // Lưu lịch sử chat vào Postgres không đồng bộ, không chặn phản hồi đã trả về khách.

@@ -157,16 +157,12 @@ export const useCheckout = (
  
           if (hinhThuc === 'tra_thang') {
             sessionPrice = 0;
-          } else if (hinhThuc === 'tung_buoi') {
+          } else {
             // Nguồn chung duy nhất cho số tiền/buổi — PHẢI khớp đúng công thức backend dùng để ghi
             // sổ (receptionist.service.ts:processPayment), không tự chế công thức khác ở đây, nếu
             // không sẽ lệch số tiền hiển thị vs số tiền thực ghi nhận do làm tròn khác nhau, khiến
-            // hóa đơn không bao giờ lên đúng trạng thái "đã thanh toán". Không dùng đơn giá/buổi
-            // tĩnh của gói mẫu (pd_don_gia_theo_buoi) vì không phản ánh voucher đã áp cho hóa đơn này.
+            // hóa đơn không bao giờ lên đúng trạng thái "đã thanh toán".
             sessionPrice = getTungBuoiSessionDue(totalRequired, totalSessions, soThuTu, alreadyPaid);
-          } else {
-            const totalPackageCost = totalRequired - Number(appt.don_gia_dich_vu || 200000);
-            sessionPrice = Math.round(totalPackageCost / totalSessions);
           }
  
           const mockHoaDon = {
@@ -235,12 +231,13 @@ export const useCheckout = (
       return;
 
     if (checkoutTab === 'single') {
+      const defaultExamPrice = Number(packages.find((p: any) => p.loai_goi === 'KHAM')?.don_gia || 0);
       const draftSingleInvoice = {
         id: null,
         khach_hang_id: selectedConsultation.khach_hang_id,
         ten_dich_vu: selectedConsultation.ten_dich_vu || (selectedConsultation.loai_lich === 'kham_moi' ? 'Buổi Lượng Giá PHCN (Chuyên sâu)' : 'Dịch vụ lẻ PHCN'),
-        tong_tien_goc: Number(selectedConsultation.don_gia_dich_vu || 200000),
-        tong_tien_thanh_toan: Number(selectedConsultation.don_gia_dich_vu || 200000),
+        tong_tien_goc: Number(selectedConsultation.don_gia_dich_vu || defaultExamPrice),
+        tong_tien_thanh_toan: Number(selectedConsultation.don_gia_dich_vu || defaultExamPrice),
         da_thanh_toan: 0,
         trang_thai: 'chua_thanh_toan',
         ho_ten_khach: selectedConsultation.ten_khach_hang,
@@ -248,18 +245,19 @@ export const useCheckout = (
       };
       dispatch({ type: 'SET_HOA_DON', hoaDon: draftSingleInvoice });
     }
-  }, [checkoutTab, selectedConsultation, isCheckoutMode]);
+  }, [checkoutTab, selectedConsultation, isCheckoutMode, packages]);
 
   // Fetch package calculations
   useEffect(() => {
     if (!isCheckoutMode || checkoutTab !== 'package' || !selectedConsultation) return;
 
+    const defaultExamPrice = Number(packages.find((p: any) => p.loai_goi === 'KHAM')?.don_gia || 0);
     const targetLoaiGoi: 'KHAM' | 'LE' | 'LIEU_TRINH' = (dangKyGoi && selectedPackage)
       ? (selectedPackage.loai_goi === 'LE' ? 'LE' : 'LIEU_TRINH')
       : 'KHAM';
     const orderVal = (dangKyGoi && selectedPackage)
       ? Number(selectedPackage.don_gia || selectedPackage.gia_goi || selectedPackage.gia_ban || selectedPackage.gia_niem_yet || 0)
-      : Number(selectedConsultation.don_gia_dich_vu || 200000);
+      : Number(selectedConsultation.don_gia_dich_vu || defaultExamPrice);
     const isVoucherValid = appliedVoucher && isVoucherEligible(appliedVoucher, orderVal, loaiThanhToan, 'tai_quay', targetLoaiGoi);
     const voucherCodeToSend = isVoucherValid ? appliedVoucher.ma_voucher : null;
 
@@ -292,6 +290,11 @@ export const useCheckout = (
         } catch (error: any) {
           lastCalcParamsRef.current = ''; // reset on error to allow retry
           console.warn('Lỗi tính giá gói:', error.response?.data?.message || error.message);
+          if (voucherCodeToSend) {
+            setAppliedVoucher(null);
+            setMaVoucher('');
+            toast.error(error.response?.data?.message || 'Mã giảm giá không còn hiệu lực cho khách hàng này');
+          }
         } finally {
           setCalculating(false);
         }
@@ -314,6 +317,11 @@ export const useCheckout = (
         } catch (error: any) {
           lastCalcParamsRef.current = ''; // reset on error to allow retry
           console.warn('Lỗi tính giá dịch vụ:', error);
+          if (voucherCodeToSend) {
+            setAppliedVoucher(null);
+            setMaVoucher('');
+            toast.error(error.response?.data?.message || 'Mã giảm giá không còn hiệu lực cho khách hàng này');
+          }
         } finally {
           setCalculating(false);
         }
@@ -333,7 +341,7 @@ export const useCheckout = (
 
   const handleApplyVoucher = async (codeOverride?: string, isSilent = false) => {
     const code = codeOverride ?? maVoucher;
-    if (!code.trim() || !selectedConsultation) return;
+    if (!code.trim()) return;
     const toastId = isSilent ? undefined : toast.loading('Đang áp dụng voucher...');
     try {
       const targetLoaiGoi = dangKyGoi && selectedPackage
@@ -341,7 +349,7 @@ export const useCheckout = (
         : 'KHAM';
       const res = await axiosInstance.post('/receptionist/vouchers/apply', {
         ma_voucher: code,
-        khach_hang_id: selectedConsultation.khach_hang_id,
+        khach_hang_id: selectedConsultation?.khach_hang_id || null,
         loai_thanh_toan: dangKyGoi ? loaiThanhToan : 'tra_thang',
         kenh: 'tai_quay',
         loai_goi: targetLoaiGoi,
@@ -554,7 +562,7 @@ export const useCheckout = (
       toast.success(
         dangKyGoi
           ? (selectedPackage?.loai_goi === 'LE' ? 'Đăng ký & Thanh toán dịch vụ thành công!' : 'Đăng ký & Thanh toán gói trị liệu thành công!')
-          : 'Đã lập hóa đơn & thanh toán phí khám thành công!',
+          : 'Đã lập hóa đơn & thanh toán phí lượng giá thành công!',
         { id: toastId }
       );
     } catch (error: any) {

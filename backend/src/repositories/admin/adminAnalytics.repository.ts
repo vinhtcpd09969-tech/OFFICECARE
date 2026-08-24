@@ -146,7 +146,7 @@ export class AdminAnalyticsRepository {
 
     const queries = [
       pool.query('SELECT COUNT(*) FROM khach_hang'),
-      pool.query('SELECT COUNT(*) FROM cuoc_hen WHERE trang_thai = \'cho_xac_nhan\''),
+      pool.query('SELECT COUNT(*) FROM cuoc_hen WHERE trang_thai = \'da_xac_nhan\''),
       pool.query(`SELECT COALESCE(SUM(so_tien), 0) AS sum FROM giao_dich_thanh_toan ${revWhere}`),
       pool.query('SELECT COUNT(*) FROM nguoi_dung WHERE trang_thai = \'hoat_dong\''),
       pool.query(`
@@ -166,6 +166,9 @@ export class AdminAnalyticsRepository {
                   SELECT 1 FROM phien_lam_viec plv_act 
                   WHERE plv_act.cuoc_hen_id = ch_active.id 
                     AND plv_act.thoi_gian_goi_vao IS NOT NULL
+                    AND plv_act.lan_thu = (
+                      SELECT MAX(plv_m.lan_thu) FROM phien_lam_viec plv_m WHERE plv_m.cuoc_hen_id = ch_active.id
+                    )
                 )
               )
             )
@@ -174,6 +177,10 @@ export class AdminAnalyticsRepository {
               OR DATE(ch_active.ngay_gio_bat_dau) = lt.ngay_truc
             )
           WHERE lt.ngay_truc = CURRENT_DATE
+            AND (
+              lt.gio_ket_thuc IS NULL 
+              OR (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::time <= lt.gio_ket_thuc
+            )
           GROUP BY ns.id, ns.vai_tro_id, lt.ngay_truc
           HAVING COUNT(ch_active.id) = 0
         )
@@ -186,6 +193,9 @@ export class AdminAnalyticsRepository {
             SELECT 1 FROM phien_lam_viec plv 
             WHERE plv.cuoc_hen_id = ch.id 
               AND plv.thoi_gian_goi_vao IS NOT NULL
+              AND plv.lan_thu = (
+                SELECT MAX(plv_max.lan_thu) FROM phien_lam_viec plv_max WHERE plv_max.cuoc_hen_id = ch.id
+              )
           )
           AND (
             ((ch.loai = 'KHAM' OR (ch.phac_do_dieu_tri_id IS NULL AND g.loai_goi = 'KHAM')) AND EXISTS (
@@ -194,7 +204,7 @@ export class AdminAnalyticsRepository {
                 AND (r.ngay_truc = DATE(ch.ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh') OR r.ngay_truc = DATE(ch.ngay_gio_bat_dau))
             ))
             OR
-            ((ch.loai IN ('DIEU_TRI', 'DICH_VU_LE') OR g.loai_goi IN ('LIEU_TRINH', 'DICH_VU_LE')) AND EXISTS (
+            ((ch.loai IN ('DIEU_TRI', 'DICH_VU_LE') OR g.loai_goi IN ('LIEU_TRINH', 'DICH_VU_LE', 'LE')) AND EXISTS (
               SELECT 1 FROM ranh_hoan_toan r 
               WHERE r.vai_tro_id = 3 
                 AND (r.ngay_truc = DATE(ch.ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh') OR r.ngay_truc = DATE(ch.ngay_gio_bat_dau))
@@ -219,6 +229,9 @@ export class AdminAnalyticsRepository {
                   SELECT 1 FROM phien_lam_viec plv_act 
                   WHERE plv_act.cuoc_hen_id = ch_active.id 
                     AND plv_act.thoi_gian_goi_vao IS NOT NULL
+                    AND plv_act.lan_thu = (
+                      SELECT MAX(plv_m.lan_thu) FROM phien_lam_viec plv_m WHERE plv_m.cuoc_hen_id = ch_active.id
+                    )
                 )
               )
             )
@@ -227,10 +240,14 @@ export class AdminAnalyticsRepository {
               OR DATE(ch_active.ngay_gio_bat_dau) = lt.ngay_truc
             )
           WHERE lt.ngay_truc = CURRENT_DATE
+            AND (
+              lt.gio_ket_thuc IS NULL 
+              OR (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::time <= lt.gio_ket_thuc
+            )
           GROUP BY ns.id, ns.vai_tro_id, lt.ngay_truc
           HAVING COUNT(ch_active.id) = 0
         )
-        SELECT ch.id, ch.ngay_gio_bat_dau AS start_time
+        SELECT ch.id, ch.ngay_gio_bat_dau AS start_time, ch.loai, COALESCE(g.loai_goi, '') AS loai_goi
         FROM cuoc_hen ch
         LEFT JOIN goi_dich_vu g ON ch.goi_dich_vu_id = g.id
         WHERE ch.trang_thai = 'da_checkin'
@@ -239,6 +256,9 @@ export class AdminAnalyticsRepository {
             SELECT 1 FROM phien_lam_viec plv 
             WHERE plv.cuoc_hen_id = ch.id 
               AND plv.thoi_gian_goi_vao IS NOT NULL
+              AND plv.lan_thu = (
+                SELECT MAX(plv_max.lan_thu) FROM phien_lam_viec plv_max WHERE plv_max.cuoc_hen_id = ch.id
+              )
           )
           AND (
             ((ch.loai = 'KHAM' OR (ch.phac_do_dieu_tri_id IS NULL AND g.loai_goi = 'KHAM')) AND EXISTS (
@@ -247,7 +267,7 @@ export class AdminAnalyticsRepository {
                 AND (r.ngay_truc = DATE(ch.ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh') OR r.ngay_truc = DATE(ch.ngay_gio_bat_dau))
             ))
             OR
-            ((ch.loai IN ('DIEU_TRI', 'DICH_VU_LE') OR g.loai_goi IN ('LIEU_TRINH', 'DICH_VU_LE')) AND EXISTS (
+            ((ch.loai IN ('DIEU_TRI', 'DICH_VU_LE') OR g.loai_goi IN ('LIEU_TRINH', 'DICH_VU_LE', 'LE')) AND EXISTS (
               SELECT 1 FROM ranh_hoan_toan r 
               WHERE r.vai_tro_id = 3 
                 AND (r.ngay_truc = DATE(ch.ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh') OR r.ngay_truc = DATE(ch.ngay_gio_bat_dau))
@@ -301,20 +321,17 @@ export class AdminAnalyticsRepository {
     ];
     const results = await Promise.all(queries);
 
-    const aptTime = results[6].rows[0]?.start_time;
-    const treatTime = results[7].rows[0]?.start_time;
     let earliestPending = null;
-
-    if (aptTime && treatTime) {
-      if (new Date(aptTime) <= new Date(treatTime)) {
-        earliestPending = { id: results[6].rows[0].id, type: 'appointment', ngay_gio_bat_dau: aptTime };
-      } else {
-        earliestPending = { id: results[7].rows[0].id, type: 'treatment', ngay_gio_bat_dau: treatTime };
-      }
-    } else if (aptTime) {
-      earliestPending = { id: results[6].rows[0].id, type: 'appointment', ngay_gio_bat_dau: aptTime };
-    } else if (treatTime) {
-      earliestPending = { id: results[7].rows[0].id, type: 'treatment', ngay_gio_bat_dau: treatTime };
+    const r6 = results[6].rows[0];
+    if (r6 && r6.start_time) {
+      const isTreatment = ['DIEU_TRI', 'DICH_VU_LE'].includes(String(r6.loai || '').toUpperCase()) ||
+                          ['LIEU_TRINH', 'DICH_VU_LE', 'LE'].includes(String(r6.loai_goi || '').toUpperCase());
+      earliestPending = {
+        id: r6.id,
+        type: isTreatment ? 'treatment' : 'appointment',
+        loai_lich: isTreatment ? 'dieu_tri' : 'kham',
+        ngay_gio_bat_dau: r6.start_time
+      };
     }
 
     return {

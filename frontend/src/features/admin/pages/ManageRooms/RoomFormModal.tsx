@@ -151,7 +151,7 @@ export function RoomFormModal({
             <p className="text-[10px] text-teal-700/80 dark:text-teal-400/80 font-medium">
               {roomFormData.loai_phong === 'phong_tri_lieu' 
                 ? 'Dùng để gán đồng thời nhiều kỹ thuật viên trực tiếp phục vụ trong ca trực.' 
-                : 'Dùng để giới hạn số lượng bác sĩ khám bệnh đồng thời trong một ca trực.'}
+                : 'Dùng để giới hạn số lượng chuyên viên tư vấn làm việc đồng thời trong một ca trực.'}
             </p>
           </div>
 

@@ -78,8 +78,8 @@ const runReminderScan = async () => {
 export const initReminderJob = () => {
   console.log('🤖 Chức năng nhắc lịch hẹn tự động (Native Interval Scheduler) đã khởi động!');
   
-  // Quét ngay lập tức 1 lần khi server vừa khởi động
-  runReminderScan();
+  // Chờ 3 giây sau khi server và database pool khởi tạo xong mới quét lần đầu
+  setTimeout(runReminderScan, 3000);
 
   // Thiết lập quét định kỳ mỗi 15 phút (15 phút * 60 giây * 1000 ms)
   setInterval(runReminderScan, 15 * 60 * 1000);

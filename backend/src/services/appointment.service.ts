@@ -1,5 +1,5 @@
 import prisma from '../config/prisma';
-import appointmentRepository from '../repositories/appointment.repository';
+import appointmentRepository from '../repositories/appointments';
 
 class AppointmentService {
   async getAllAppointments(userRole?: number) {

@@ -21,17 +21,18 @@ export const ReceiptBreakdown: React.FC<ReceiptBreakdownProps> = ({
   calculatedData,
   loaiThanhToan,
 }) => {
-  const tongSoBuoi = calculatedData?.so_buoi_goi || selectedPackage?.tong_so_buoi || 10;
+  const tongSoBuoi = calculatedData?.so_buoi_goi || selectedPackage?.tong_so_buoi || 1;
+  const rawBasePrice = Number((selectedPackage as any)?.don_gia || (selectedPackage as any)?.gia_goi || selectedPackage?.gia_ban || 0);
 
   const totalToPay = checkoutTab === 'single'
     ? Number(hoaDon?.tong_tien_thanh_toan || 0)
     : (!dangKyGoi
-      ? Number(calculatedData?.tong_tien_thanh_toan || 0)
+      ? Number(calculatedData?.tong_tien_thanh_toan ?? rawBasePrice)
       : (loaiThanhToan === 'tung_buoi'
-        ? Number(calculatedData?.so_tien_dot_1 || 0)
-        : Number(calculatedData?.tong_tien_thanh_toan || 0)));
+        ? Number(calculatedData?.so_tien_dot_1 ?? 0)
+        : Number(calculatedData?.tong_tien_thanh_toan ?? rawBasePrice)));
 
-  const packageTotalAfterDiscount = Number(calculatedData?.tong_tien_goi_sau_giam || calculatedData?.tong_tien_thanh_toan || 0);
+  const packageTotalAfterDiscount = Number(calculatedData?.tong_tien_goi_sau_giam ?? calculatedData?.tong_tien_thanh_toan ?? rawBasePrice);
   const donGiaTheoBuoi = calculatedData?.don_gia_theo_buoi || (tongSoBuoi > 0 ? Math.round(packageTotalAfterDiscount / tongSoBuoi) : 0);
 
   return (
@@ -63,9 +64,9 @@ export const ReceiptBreakdown: React.FC<ReceiptBreakdownProps> = ({
               : (`${calculatedData?.ten_goi || selectedPackage?.ten_goi || 'Gói trị liệu PHCN'} (${tongSoBuoi} buổi)`));
 
           const basePrice = checkoutTab === 'single'
-            ? Number(hoaDon?.tong_tien_goc || hoaDon?.tong_tien_thanh_toan || 200000)
+            ? Number(hoaDon?.tong_tien_goc || hoaDon?.tong_tien_thanh_toan || 0)
             : (!dangKyGoi
-              ? Number(calculatedData?.gia_goc || 200000)
+              ? Number(calculatedData?.gia_goc || (selectedPackage as any)?.don_gia || 0)
               : Number(calculatedData?.gia_goc_goi || (selectedPackage as any)?.don_gia || selectedPackage?.gia_ban || 0));
 
           return (

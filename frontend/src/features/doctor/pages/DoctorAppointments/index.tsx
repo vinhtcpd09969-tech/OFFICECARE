@@ -180,7 +180,7 @@ export default function DoctorAppointments() {
   }, []);
 
   const handleCallIn = (apt: any) => {
-    toast.success(`🔊 Đã phát tín hiệu gọi bệnh nhân ${apt.ten_khach_hang} vào phòng khám!`);
+    toast.success(`🔊 Đã phát tín hiệu gọi khách hàng ${apt.ten_khach_hang} vào phòng!`);
   };
 
   const handleOpenDesk = (aptId: string) => {
@@ -284,13 +284,13 @@ export default function DoctorAppointments() {
                 </div>
                 <div className="space-y-1">
                   <h3 className="text-sm font-black text-secondary dark:text-zinc-100 uppercase tracking-wide">
-                    {isStarted ? 'Ca khám đang thực hiện' : 'Xác nhận Khách đã vào phòng khám'}
+                    {isStarted ? 'Ca hẹn đang thực hiện' : 'Xác nhận Khách đã vào phòng'}
                   </h3>
                   <p className="text-xs text-zinc-600 dark:text-zinc-300 font-semibold leading-relaxed">
-                    Bệnh nhân: <span className="text-slate-900 dark:text-zinc-100 font-black">{confirmApt.ten_khach_hang}</span>
+                    Khách hàng: <span className="text-slate-900 dark:text-zinc-100 font-black">{confirmApt.ten_khach_hang}</span>
                   </p>
                   <p className="text-[11px] text-amber-700 dark:text-amber-400 font-bold bg-amber-50 dark:bg-amber-955/30 p-2.5 rounded-xl border border-amber-200/80 dark:border-amber-900/50">
-                    💡 Vui lòng đảm bảo bệnh nhân đã có mặt trong phòng trước khi bấm mở bàn làm việc.
+                    💡 Vui lòng đảm bảo khách hàng đã có mặt trong phòng trước khi bấm mở bàn làm việc.
                   </p>
                 </div>
 

@@ -40,7 +40,7 @@ export const WalkInPaymentModal: React.FC<WalkInPaymentModalProps> = ({
             Xác Nhận Thu Tiền Lượng Giá
           </h3>
           <p className="text-xs text-slate-500 dark:text-zinc-400 font-medium leading-relaxed">
-            Theo quy định phòng khám, <strong className="text-slate-700 dark:text-zinc-200">ca Lượng giá bắt buộc phải hoàn tất thu tiền</strong> trước khi đưa bệnh nhân vào Hàng đợi Check-in.
+            Theo quy định trung tâm, <strong className="text-slate-700 dark:text-zinc-200">ca Lượng giá bắt buộc phải hoàn tất thu tiền</strong> trước khi đưa khách hàng vào Hàng đợi Check-in.
           </p>
         </div>
 

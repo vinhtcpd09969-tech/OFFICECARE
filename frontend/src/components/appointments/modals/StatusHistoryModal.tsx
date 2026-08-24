@@ -81,20 +81,21 @@ export const StatusHistoryModal: React.FC<StatusHistoryModalProps> = ({
       title: 'Đón tiếp & Check-in tại quầy',
       timestamp: formatDateStr(appointment.thoi_gian_checkin),
       status: 'completed',
-      description: 'Bệnh nhân đã có mặt tại phòng khám và hoàn tất thủ tục check-in.',
+      description: 'Khách hàng đã có mặt tại trung tâm và hoàn tất thủ tục check-in.',
       icon: UserCheck,
       color: 'bg-teal-500 text-white'
     });
   }
 
-  // 3. Mốc Bắt đầu ca Khám / Trị liệu
-  if (appointment.thoi_gian_bat_dau || ['dang_kham', 'hoan_thanh'].includes(appointment.trang_thai)) {
+  // 3. Mốc Bắt đầu ca thực hiện
+  const startTimeVal = appointment.thoi_gian_bat_dau || appointment.thoi_gian_goi_vao || (appointment as any).thoi_gian_bat_dau_dieu_tri || (appointment.trang_thai === 'hoan_thanh' ? appointment.thoi_gian_checkin : null);
+  if (startTimeVal || ['dang_kham', 'hoan_thanh'].includes(appointment.trang_thai)) {
     timelineEvents.push({
       key: 'in_progress',
-      title: 'Bắt đầu ca Khám / Trị liệu',
-      timestamp: formatDateStr(appointment.thoi_gian_bat_dau),
+      title: 'Bắt đầu thực hiện',
+      timestamp: formatDateStr(startTimeVal),
       status: 'completed',
-      description: 'Chuyên gia đã tiếp nhận bệnh nhân và bắt đầu tiến trình chuyên môn.',
+      description: 'Nhân sự đã tiếp nhận khách hàng và bắt đầu ca.',
       icon: Stethoscope,
       color: 'bg-indigo-500 text-white'
     });
@@ -104,10 +105,10 @@ export const StatusHistoryModal: React.FC<StatusHistoryModalProps> = ({
   if (appointment.thoi_gian_hoan_thanh || appointment.trang_thai === 'hoan_thanh') {
     timelineEvents.push({
       key: 'completed',
-      title: 'Hoàn thành ca & Lưu hồ sơ y khoa',
+      title: 'Hoàn thành ca & Lưu lịch sử dịch vụ',
       timestamp: formatDateStr(appointment.thoi_gian_hoan_thanh),
       status: 'completed',
-      description: 'Buổi trị liệu đã kết thúc thành công. Đã lưu nhật ký trị liệu và thang đo VAS.',
+      description: 'Buổi hẹn đã kết thúc thành công. Đã cập nhật đầy đủ dữ liệu dịch vụ.',
       icon: CheckCircle2,
       color: 'bg-emerald-600 text-white'
     });
@@ -135,10 +136,10 @@ export const StatusHistoryModal: React.FC<StatusHistoryModalProps> = ({
 
     timelineEvents.push({
       key: 'noshow',
-      title: 'Bệnh nhân không đến (No-show)',
+      title: 'Khách hàng không đến (No-show)',
       timestamp: noshowTime,
       status: 'failed',
-      description: 'Nhân viên tiếp nhận ghi nhận bệnh nhân không có mặt theo giờ hẹn đã đăng ký.',
+      description: 'Nhân viên tiếp nhận ghi nhận khách hàng không có mặt theo buổi hẹn đã đăng ký.',
       icon: AlertTriangle,
       color: 'bg-amber-500 text-white'
     });

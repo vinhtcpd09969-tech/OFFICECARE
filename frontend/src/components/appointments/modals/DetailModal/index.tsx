@@ -502,7 +502,7 @@ export default function AppointmentDetailModal({
               {/* Ghi chú nội bộ phòng khám */}
               <div className="space-y-2 bg-slate-50/50 dark:bg-zinc-800/40 p-4 rounded-xl border border-slate-150 dark:border-zinc-800/80">
                 <label className="text-xs font-extrabold text-slate-700 dark:text-zinc-300 uppercase tracking-wider block">
-                  Ghi chú nội bộ phòng khám {isNoteRequired && <span className="text-rose-500">*</span>}
+                  Ghi chú nội bộ {isNoteRequired && <span className="text-rose-500">*</span>}
                 </label>
                 <textarea
                   ref={noteTextareaRef}

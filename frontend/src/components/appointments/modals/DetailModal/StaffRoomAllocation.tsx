@@ -348,7 +348,7 @@ export function StaffRoomAllocation({
       <div className="space-y-2">
         <div className="flex justify-between items-center">
           <label className="text-xs font-extrabold text-slate-700 dark:text-zinc-300 uppercase tracking-wider">
-            {selectedAppointment.loai_lich === 'kham_moi' ? 'Phòng khám lâm sàng' : 'Phòng trị liệu'}
+            {selectedAppointment.loai_lich === 'kham_moi' ? 'Phòng lượng giá chức năng' : 'Phòng trị liệu'}
           </label>
         </div>
         <div className="w-full px-4 py-3.5 bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-855 rounded-xl text-sm font-bold text-slate-800 dark:text-zinc-150 flex flex-col gap-1">
@@ -356,7 +356,7 @@ export function StaffRoomAllocation({
             <span className="text-slate-800 dark:text-zinc-100">{resolvedRoomName}</span>
             <span className="text-[10px] text-slate-400 dark:text-zinc-555 uppercase tracking-wider font-extrabold">
               {resolvedRoom
-                ? (selectedAppointment.loai_lich === 'kham_moi' ? 'Tự động phân theo ca trực Bác sĩ' : 'Tự động phân theo ca trực KTV')
+                ? (selectedAppointment.loai_lich === 'kham_moi' ? 'Tự động phân theo ca trực Chuyên viên PHCN' : 'Tự động phân theo ca trực KTV')
                 : 'Chưa phân phòng'}
             </span>
           </div>

@@ -1,3 +1,4 @@
+import React, { forwardRef } from 'react';
 import { motion } from 'framer-motion';
 import {
   Clock,
@@ -23,7 +24,7 @@ interface AppointmentCardProps {
   onOpenCancel: (appId: string) => void;
 }
 
-export function AppointmentCard({
+export const AppointmentCard = forwardRef<HTMLDivElement, AppointmentCardProps>(function AppointmentCard({
   app,
   currentTime,
   getStatusColorClass,
@@ -33,7 +34,7 @@ export function AppointmentCard({
   onViewTreatmentDetail,
   onOpenReschedule,
   onOpenCancel
-}: AppointmentCardProps) {
+}: AppointmentCardProps, ref) {
   const { dateStr } = formatDateTime(app.ngay_gio_bat_dau);
   const gradientStatus = getStatusColorClass(app.trang_thai);
   const docAvatar = resolveImageUrl(app.anh_bac_si);
@@ -98,9 +99,9 @@ export function AppointmentCard({
   };
 
   const isMorningSession = app.buoi === 'sang';
-  const buoiLabel = isMorningSession ? 'Buổi Sáng (07:30 – 12:00)' : 'Buổi Chiều (12:00 – 19:30)';
+  const buoiLabel = isMorningSession ? 'Buổi Sáng (07:30 – 12:00)' : 'Buổi Chiều (12:00 – 20:00)';
   const durationMins = app.thoi_luong_phut || 30;
-  const sessionEndMins = isMorningSession ? (12 * 60) : (19 * 60 + 30);
+  const sessionEndMins = isMorningSession ? (12 * 60) : (20 * 60);
   const latestArrivalMins = sessionEndMins - durationMins;
   const latestH = Math.floor(latestArrivalMins / 60);
   const latestM = latestArrivalMins % 60;
@@ -109,6 +110,7 @@ export function AppointmentCard({
 
   return (
     <motion.div
+      ref={ref}
       layout
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
@@ -396,4 +398,4 @@ export function AppointmentCard({
       </div>
     </motion.div>
   );
-}
+});

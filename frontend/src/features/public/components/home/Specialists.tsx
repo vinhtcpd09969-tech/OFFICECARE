@@ -55,7 +55,7 @@ export default function Specialists() {
               Hội Đồng Chuyên Gia Hàng Đầu
             </h3>
             <p className="text-slate-600 dark:text-slate-400 font-medium text-xs sm:text-sm leading-relaxed">
-              Các Bác sĩ chuyên khoa và Kỹ thuật viên trị liệu nhiều năm kinh nghiệm, luôn tận tâm đồng hành trong từng ca phục hồi.
+              Các Chuyên viên tư vấn và Kỹ thuật viên trị liệu nhiều năm kinh nghiệm, luôn tận tâm đồng hành trong từng ca phục hồi.
             </p>
           </div>
         </ScrollReveal>
@@ -123,7 +123,7 @@ export default function Specialists() {
                     }}
                     className="w-full text-center py-3 bg-[#0D9488] hover:bg-[#0B7A70] text-white font-bold rounded-xl transition-all text-xs cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
                   >
-                    <span>Đặt lịch khám với chuyên gia</span>
+                    <span>Đặt lịch lượng giá với chuyên gia</span>
                     <ChevronRight size={13} />
                   </Link>
                 </motion.div>

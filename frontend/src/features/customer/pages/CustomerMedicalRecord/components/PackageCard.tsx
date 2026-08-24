@@ -261,7 +261,7 @@ export function PackageCard({ pkg, isExpanded, onToggleExpand, targetSessionId }
                           </h4>
                           <p className="text-xs text-slate-500 font-medium mt-0.5 truncate">
                             {status === 'hoan_thanh' && session
-                              ? `Bác sĩ: ${session.ten_bac_si || 'KTV'} • Thời gian: ${format(new Date(session.ngay_gio_bat_dau), 'dd/MM/yyyy HH:mm')}`
+                              ? `Chuyên viên/KTV: ${session.ten_bac_si || 'KTV'} • Thời gian: ${format(new Date(session.ngay_gio_bat_dau), 'dd/MM/yyyy HH:mm')}`
                               : status === 'khong_den' && session
                                 ? `Vắng mặt lúc ${format(new Date(session.ngay_gio_bat_dau), 'dd/MM/yyyy HH:mm')}`
                                 : status === 'da_dat_lich' && session

@@ -111,7 +111,7 @@ export const BookNextSessionModal: React.FC<BookNextSessionModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
       <div className="relative w-full max-w-xl bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl border border-slate-100 dark:border-zinc-800 overflow-hidden font-sans text-slate-800 dark:text-zinc-100">
-        
+
         {/* Modal Header */}
         <div className="px-6 py-5 bg-gradient-to-r from-emerald-600 to-teal-700 text-white flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -138,7 +138,7 @@ export const BookNextSessionModal: React.FC<BookNextSessionModalProps> = ({
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
-          
+
           {/* Card Thông tin gói & Phân loại thanh toán */}
           <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 border border-emerald-200/80 dark:border-emerald-800/60 space-y-2">
             <div className="flex items-center justify-between">
@@ -207,15 +207,13 @@ export const BookNextSessionModal: React.FC<BookNextSessionModalProps> = ({
                     key={key}
                     type="button"
                     onClick={() => setSelectedBuoi(key)}
-                    className={`p-4 rounded-2xl border text-left flex items-center gap-3 transition-all cursor-pointer ${
-                      isSelected
+                    className={`p-4 rounded-2xl border text-left flex items-center gap-3 transition-all cursor-pointer ${isSelected
                         ? 'bg-emerald-600 border-emerald-600 text-white shadow-md'
                         : 'bg-slate-50 dark:bg-zinc-800/80 border-slate-200 dark:border-zinc-700 hover:border-emerald-400'
-                    }`}
+                      }`}
                   >
-                    <div className={`size-9 rounded-xl flex items-center justify-center ${
-                      isSelected ? 'bg-white/20 text-white' : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
-                    }`}>
+                    <div className={`size-9 rounded-xl flex items-center justify-center ${isSelected ? 'bg-white/20 text-white' : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
+                      }`}>
                       <Icon size={18} />
                     </div>
                     <div>
@@ -223,9 +221,8 @@ export const BookNextSessionModal: React.FC<BookNextSessionModalProps> = ({
                       <p className={`text-[10px] font-bold mt-0.5 ${isSelected ? 'text-white/80' : 'text-slate-400'}`}>
                         {BUOI_INFO[key].khung}
                       </p>
-                      <span className={`text-[9px] font-black block mt-1 ${
-                        isSelected ? 'text-white' : info.choPhep !== false ? 'text-emerald-600' : 'text-rose-500'
-                      }`}>
+                      <span className={`text-[9px] font-black block mt-1 ${isSelected ? 'text-white' : info.choPhep !== false ? 'text-emerald-600' : 'text-rose-500'
+                        }`}>
                         {info.choPhep !== false ? '🟢 Còn chỗ' : '🔴 Đông/Hết chỗ'}
                       </span>
                     </div>
@@ -245,15 +242,13 @@ export const BookNextSessionModal: React.FC<BookNextSessionModalProps> = ({
               <button
                 type="button"
                 onClick={() => setSelectedStaffId('')}
-                className={`p-3 rounded-2xl border flex items-center gap-3 text-left transition-all cursor-pointer ${
-                  !selectedStaffId
+                className={`p-3 rounded-2xl border flex items-center gap-3 text-left transition-all cursor-pointer ${!selectedStaffId
                     ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/20'
                     : 'bg-slate-50 dark:bg-zinc-800/80 border-slate-200 dark:border-zinc-700'
-                }`}
+                  }`}
               >
-                <div className={`size-8 rounded-full flex items-center justify-center font-bold text-xs ${
-                  !selectedStaffId ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-500'
-                }`}>
+                <div className={`size-8 rounded-full flex items-center justify-center font-bold text-xs ${!selectedStaffId ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-500'
+                  }`}>
                   ✨
                 </div>
                 <div>
@@ -270,11 +265,10 @@ export const BookNextSessionModal: React.FC<BookNextSessionModalProps> = ({
                     key={st.id}
                     type="button"
                     onClick={() => setSelectedStaffId(String(st.id))}
-                    className={`p-3 rounded-2xl border flex items-center gap-3 text-left transition-all cursor-pointer ${
-                      isSelected
+                    className={`p-3 rounded-2xl border flex items-center gap-3 text-left transition-all cursor-pointer ${isSelected
                         ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/20'
                         : 'bg-slate-50 dark:bg-zinc-800/80 border-slate-200 dark:border-zinc-700'
-                    }`}
+                      }`}
                   >
                     {st.anh_dai_dien ? (
                       <img src={resolveImageUrl(st.anh_dai_dien)} alt={st.ho_ten} className="size-8 rounded-full object-cover" />

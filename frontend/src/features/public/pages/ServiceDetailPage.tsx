@@ -9,9 +9,9 @@ import toast from 'react-hot-toast';
 import { censorText } from '../../../utils/profanity';
 
 const TRUST_BADGES = [
-  { icon: ShieldCheck, title: 'An toàn chuẩn y khoa', desc: 'Phác đồ được bác sĩ chuyên khoa xây dựng và giám sát.' },
+  { icon: ShieldCheck, title: 'An toàn chuẩn y khoa', desc: 'Phác đồ được chuyên viên tư vấn xây dựng và giám sát.' },
   { icon: HeartPulse, title: 'Cá nhân hóa phác đồ', desc: 'Không rập khuôn — lộ trình riêng theo cơ địa từng khách hàng.' },
-  { icon: Award, title: 'Chuyên gia giàu kinh nghiệm', desc: 'Đội ngũ bác sĩ, KTV được đào tạo bài bản, tận tâm.' },
+  { icon: Award, title: 'Chuyên gia giàu kinh nghiệm', desc: 'Đội ngũ chuyên viên tư vấn, KTV được đào tạo bài bản, tận tâm.' },
 ];
 
 interface Service {
@@ -198,7 +198,7 @@ export default function ServiceDetailPage() {
   const getCategoryName = (): string => {
     if (!service) return 'Gói dịch vụ';
     const loai = service.loai_goi?.toUpperCase() || '';
-    if (loai === 'KHAM') return 'Khám chuyên khoa 1:1';
+    if (loai === 'KHAM') return 'Lượng giá chuyên sâu 1:1';
     if (loai.includes('LIEU_TRINH')) return 'Liệu trình chuyên sâu';
     return 'Trị liệu đơn buổi';
   };
@@ -329,7 +329,7 @@ export default function ServiceDetailPage() {
                 </h1>
 
                 <p className="text-slate-500 text-xs font-semibold leading-relaxed">
-                  {service.mo_ta || 'Lộ trình phục hồi toàn diện cá nhân hóa theo phác đồ bác sĩ.'}
+                  {service.mo_ta || 'Lộ trình phục hồi toàn diện cá nhân hóa theo phác đồ chuyên viên tư vấn.'}
                 </p>
 
                 {/* Benefits (Mục tiêu & Lợi ích) */}
@@ -352,7 +352,7 @@ export default function ServiceDetailPage() {
                   <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">🏷️ Chỉ định trị liệu:</p>
                   <div className="flex flex-wrap gap-1.5">
                     <span className="bg-slate-100 text-slate-600 text-[9px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-md border border-slate-200">
-                      {service.loai_goi === 'KHAM' ? 'Khám chuyên khoa' : 'Trị liệu đơn buổi'}
+                      {service.loai_goi === 'KHAM' ? 'Lượng giá chuyên sâu' : 'Trị liệu đơn buổi'}
                     </span>
                     <span className="bg-slate-100 text-slate-600 text-[9px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-md border border-slate-200">
                       Vận động trị liệu
@@ -552,7 +552,7 @@ export default function ServiceDetailPage() {
                       <div>
                         <h4 className="font-heading font-black text-xs text-slate-900 uppercase tracking-tight">{spec.ho_ten}</h4>
                         <p className="text-[9px] text-[#0D9488] font-black uppercase tracking-widest mt-0.5">
-                          {spec.vai_tro_id === 3 ? 'Bác sĩ chuyên khoa' : 'Kỹ thuật viên phục hồi'}
+                          {spec.vai_tro_id === 4 || spec.vai_tro_id === 3 ? 'Chuyên viên tư vấn' : 'Kỹ thuật viên phục hồi'}
                         </p>
                       </div>
                     </div>

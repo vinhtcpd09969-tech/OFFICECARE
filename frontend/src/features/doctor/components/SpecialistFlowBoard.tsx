@@ -8,6 +8,7 @@ import {
   Eye,
   Sparkles,
   AlertCircle,
+  AlertTriangle,
   BellRing,
   Play,
   Zap,
@@ -25,6 +26,45 @@ function fmtMinutes(mins: number): string {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
   return h > 0 ? `${h}h${m > 0 ? `${m}p` : ''}` : `${m}p`;
+}
+
+export interface OvertimeInfo {
+  isOvertime: boolean;
+  expectedEndTimeStr: string;
+  overtimeMinutes: number;
+  durationMinutes: number;
+  shiftCutoffStr: string;
+  shiftName: string;
+}
+
+export function calculateOvertime(apt: SpecialistAppointmentItem, isKtv: boolean): OvertimeInfo {
+  const duration = apt.thoi_luong_phut || (isKtv ? 60 : 30);
+  const now = new Date();
+  const currMins = now.getHours() * 60 + now.getMinutes();
+  const finishMins = currMins + duration;
+
+  // Ca sáng kết thúc lúc 12:00 (720 phút)
+  // Ca chiều & Giờ đóng cửa kết thúc lúc 20:00 (1200 phút)
+  const isMorning = apt.buoi === 'sang';
+  const shiftCutoffMins = isMorning ? 12 * 60 : 20 * 60;
+  const shiftCutoffStr = isMorning ? '12:00' : '20:00';
+  const shiftName = isMorning ? 'Ca Sáng (12:00)' : 'Ca Chiều / Giờ đóng cửa (20:00)';
+
+  const finishHour = Math.floor(finishMins / 60) % 24;
+  const finishMinute = finishMins % 60;
+  const expectedEndTimeStr = `${String(finishHour).padStart(2, '0')}:${String(finishMinute).padStart(2, '0')}`;
+
+  const isOvertime = finishMins > shiftCutoffMins;
+  const overtimeMinutes = isOvertime ? finishMins - shiftCutoffMins : 0;
+
+  return {
+    isOvertime,
+    expectedEndTimeStr,
+    overtimeMinutes,
+    durationMinutes: duration,
+    shiftCutoffStr,
+    shiftName
+  };
 }
 
 export interface SpecialistAppointmentItem {
@@ -330,7 +370,7 @@ export function SpecialistFlowBoard({
                             )}
                           </div>
                           <p className="text-xs font-medium text-slate-500 dark:text-zinc-400 flex items-center flex-wrap gap-x-2 gap-y-1">
-                            <span>{apt.ten_dich_vu || 'Khám lâm sàng & Lượng giá PHCN'} · SĐT: {apt.so_dien_thoai || '---'}</span>
+                            <span>{apt.ten_dich_vu || 'Lượng giá Chức năng PHCN'} · SĐT: {apt.so_dien_thoai || '---'}</span>
                             {(() => {
                               if (apt.trang_thai !== 'da_checkin') return null;
                               const waitMinutes = apt.thoi_gian_checkin
@@ -361,6 +401,19 @@ export function SpecialistFlowBoard({
                                     : `Đã gọi lần 1`}
                                 </span>
                               </p>
+                            );
+                          })()}
+
+                          {/* Cảnh báo lố giờ ca trực / giờ đóng cửa nếu mở bàn bây giờ */}
+                          {(() => {
+                            if (apt.trang_thai === 'dang_kham') return null;
+                            const ot = calculateOvertime(apt, isKtv);
+                            if (!ot.isOvertime) return null;
+                            return (
+                              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-rose-50 dark:bg-rose-955/60 border border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-[10.5px] font-extrabold shadow-2xs mt-1 w-fit">
+                                <AlertTriangle size={11} className="text-rose-600 shrink-0" />
+                                <span>Dự kiến xong: <strong>~{ot.expectedEndTimeStr}</strong> (Lố ca {ot.shiftCutoffStr} ~{ot.overtimeMinutes}p)</span>
+                              </div>
                             );
                           })()}
 
@@ -469,7 +522,7 @@ export function SpecialistFlowBoard({
                           {apt.ten_khach_hang}
                         </h5>
                         <p className="text-xs font-medium text-slate-500 dark:text-zinc-400 mt-0.5">
-                          {apt.ten_dich_vu || 'Khám lâm sàng & Lượng giá PHCN'} · Đã hoàn thành hôm nay
+                          {apt.ten_dich_vu || 'Lượng giá Chức năng PHCN'} · Đã hoàn thành hôm nay
                         </p>
                       </div>
                     </div>
@@ -480,7 +533,7 @@ export function SpecialistFlowBoard({
                       className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-bold text-xs flex items-center gap-1.5 border border-slate-200 dark:border-zinc-700 hover:bg-slate-200 transition-all cursor-pointer"
                     >
                       <Eye size={14} />
-                      <span>👁 XEM HỒ SƠ</span>
+                      <span>Xem hồ sơ</span>
                     </button>
                   </div>
                 ))}
@@ -509,46 +562,81 @@ export function SpecialistFlowBoard({
       />
 
       {/* MODAL XÁC NHẬN BỆNH NHÂN ĐÃ VÀO PHÒNG TRƯỚC KHI MỞ BÀN */}
-      {openDeskConfirmApt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-955/65 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl shadow-2xl p-6 text-center space-y-5 animate-in zoom-in-95 duration-200">
-            <div className="size-16 rounded-2xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto font-bold text-2xl shadow-inner border border-emerald-500/30">
-              {isKtv ? <Zap size={34} /> : <Stethoscope size={34} />}
-            </div>
+      {openDeskConfirmApt && (() => {
+        const ot = calculateOvertime(openDeskConfirmApt, isKtv);
 
-            <div className="space-y-2">
-              <h3 className="text-base font-black text-slate-900 dark:text-zinc-100 uppercase tracking-wide">
-                {isKtv ? 'Xác nhận khách đã vào phòng trị liệu?' : 'Xác nhận khách đã vào phòng?'}
-              </h3>
-              <p className="text-xs text-slate-600 dark:text-zinc-300 font-semibold leading-relaxed">
-                Vui lòng xác nhận bệnh nhân <span className="font-black text-emerald-600 dark:text-emerald-400">{openDeskConfirmApt.ten_khach_hang}</span>
-                {openDeskConfirmApt.so_thu_tu_hang_doi != null && <span className="font-black text-amber-600 dark:text-amber-400"> (STT {openDeskConfirmApt.so_thu_tu_hang_doi})</span>} đã có mặt trong phòng trước khi chính thức {isKtv ? 'mở bàn trị liệu và tạo nhật ký kỹ thuật thủ công.' : 'mở bàn làm việc và tạo nhật ký điều trị.'}
-              </p>
-            </div>
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-955/65 backdrop-blur-md animate-in fade-in duration-200">
+            <div className="w-full max-w-md bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl shadow-2xl p-6 text-center space-y-4 animate-in zoom-in-95 duration-200">
+              <div className={`size-16 rounded-2xl flex items-center justify-center mx-auto font-bold text-2xl shadow-inner border ${
+                ot.isOvertime
+                  ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 ring-4 ring-amber-500/10'
+                  : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+              }`}>
+                {ot.isOvertime ? <AlertTriangle size={34} className="animate-bounce text-amber-500" /> : (isKtv ? <Zap size={34} /> : <Stethoscope size={34} />)}
+              </div>
 
-            <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setOpenDeskConfirmApt(null)}
-                className="flex-1 py-3.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-600 dark:text-zinc-300 font-bold text-xs transition-all cursor-pointer"
-              >
-                Chưa vào — Hủy
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const aptId = openDeskConfirmApt.id;
-                  setOpenDeskConfirmApt(null);
-                  navigate(`${basePath}/${aptId}/assess`);
-                }}
-                className="flex-1 py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-600/25 transition-all cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                <Play size={16} /> {isKtv ? '⚡ Khách đã vào — Bắt đầu trị liệu' : '✅ Khách đã vào — Mở bàn'}
-              </button>
+              <div className="space-y-2">
+                <h3 className="text-base font-black text-slate-900 dark:text-zinc-100 uppercase tracking-wide">
+                  {isKtv ? 'Xác nhận khách đã vào phòng trị liệu?' : 'Xác nhận khách đã vào phòng?'}
+                </h3>
+                <p className="text-xs text-slate-600 dark:text-zinc-300 font-semibold leading-relaxed">
+                  Vui lòng xác nhận bệnh nhân <span className="font-black text-emerald-600 dark:text-emerald-400">{openDeskConfirmApt.ten_khach_hang}</span>
+                  {openDeskConfirmApt.so_thu_tu_hang_doi != null && <span className="font-black text-amber-600 dark:text-amber-400"> (STT {openDeskConfirmApt.so_thu_tu_hang_doi})</span>} đã có mặt trong phòng trước khi chính thức {isKtv ? 'mở bàn trị liệu và tạo nhật ký kỹ thuật thủ công.' : 'mở bàn làm việc và tạo nhật ký điều trị.'}
+                </p>
+              </div>
+
+              {/* CẢNH BÁO QUÁ GIỜ CA TRỰC / OFF CA */}
+              {ot.isOvertime && (
+                <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-955/40 border-2 border-amber-400/80 dark:border-amber-500/50 text-left space-y-2 animate-in fade-in duration-200">
+                  <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200 font-black text-xs">
+                    <AlertTriangle size={17} className="text-amber-600 dark:text-amber-400 shrink-0 animate-pulse" />
+                    <span className="uppercase tracking-wider">CẢNH BÁO: CA NÀY SẼ LÀM QUÁ GIỜ CA TRỰC</span>
+                  </div>
+                  <div className="text-[11.5px] text-slate-700 dark:text-zinc-300 font-medium space-y-1 pl-6">
+                    <p>• Dịch vụ: <strong className="font-bold text-slate-900 dark:text-white">{openDeskConfirmApt.ten_dich_vu || 'Trị liệu'}</strong> ({ot.durationMinutes} phút).</p>
+                    <p>• Dự kiến hoàn thành lúc: <strong className="font-black text-rose-600 dark:text-rose-400 text-xs">~{ot.expectedEndTimeStr}</strong>.</p>
+                    <p>• Vượt quá giờ kết thúc {ot.shiftCutoffStr} khoảng <strong className="font-black text-rose-600 dark:text-rose-400 text-xs">{ot.overtimeMinutes} phút</strong> ({ot.shiftName}).</p>
+                  </div>
+                  <p className="text-[10.5px] text-amber-900/90 dark:text-amber-200/90 italic font-bold pl-6 pt-1 border-t border-amber-200/60 dark:border-amber-800/40">
+                    💡 Vui lòng xác nhận sẵn sàng làm thêm giờ (overtime) để hoàn tất ca trị liệu cho khách hàng.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setOpenDeskConfirmApt(null)}
+                  className="flex-1 py-3.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-600 dark:text-zinc-300 font-bold text-xs transition-all cursor-pointer"
+                >
+                  Chưa vào — Hủy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const aptId = openDeskConfirmApt.id;
+                    setOpenDeskConfirmApt(null);
+                    navigate(`${basePath}/${aptId}/assess`);
+                  }}
+                  className={`flex-1 py-3.5 px-4 rounded-xl active:scale-98 text-white font-black text-xs uppercase tracking-wider shadow-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                    ot.isOvertime
+                      ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/30 ring-2 ring-amber-400/50'
+                      : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/25'
+                  }`}
+                >
+                  <Play size={16} />
+                  <span>
+                    {ot.isOvertime
+                      ? `⚡ BẮT ĐẦU (LÀM QUÁ GIỜ ${ot.overtimeMinutes}P)`
+                      : (isKtv ? '⚡ Khách đã vào — Bắt đầu trị liệu' : '✅ Khách đã vào — Mở bàn')}
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

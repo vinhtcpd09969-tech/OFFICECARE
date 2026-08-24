@@ -105,7 +105,7 @@ export function Step1TypeSelection({
       {/* Dynamic Service selection grid */}
       <div className="space-y-3 pt-4 border-t border-slate-150 animate-fade-in">
         <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider">
-          {bookingType === 'kham' ? 'Chọn Gói Khám Lâm Sàng *' : 'Chọn Dịch Vụ Lẻ Mong Muốn *'}
+          {bookingType === 'kham' ? 'Chọn Dịch Vụ Lượng Giá Chức Năng *' : 'Chọn Dịch Vụ Lẻ Mong Muốn *'}
         </h4>
         {servicesLoading ? (
           <div className="py-8 text-center text-slate-400 text-xs font-semibold">

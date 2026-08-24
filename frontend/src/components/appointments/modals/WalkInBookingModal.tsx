@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Stethoscope, ArrowLeft, X } from 'lucide-react';
+import { Stethoscope, ArrowLeft, X, Info } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
@@ -178,6 +178,14 @@ export default function WalkInBookingModal({
     );
   }, [selectedCustomer, appointments]);
 
+  const sameDayActiveAppts = React.useMemo(() => {
+    if (!selectedCustomer || !selectedDate) return [];
+    return activeCustomerAppts.filter(apt => {
+      const aDate = apt.ngay_gio_bat_dau ? String(apt.ngay_gio_bat_dau).slice(0, 10) : '';
+      return aDate === selectedDate;
+    });
+  }, [selectedCustomer, selectedDate, activeCustomerAppts]);
+
   const hasReachedLimit = activeCustomerAppts.length >= 3;
 
   useEffect(() => {
@@ -209,14 +217,15 @@ export default function WalkInBookingModal({
   }, [searchQuery]);
 
   useEffect(() => {
-    if (!selectedCustomer || isNewCustomer) {
+    const custId = selectedCustomer?.id || selectedCustomer?.khach_hang_id;
+    if (!selectedCustomer || !custId || isNewCustomer) {
       setTreatmentPlans([]);
       setSelectedPlan(null);
       return;
     }
     const fetchPlans = async () => {
       try {
-        const res = await axiosInstance.get(`/receptionist/customers/${selectedCustomer.id}/treatment-plans`);
+        const res = await axiosInstance.get(`/receptionist/customers/${custId}/treatment-plans`);
         const list = res.data || [];
         setTreatmentPlans(list);
         setPackageManuallyCleared(false);
@@ -235,7 +244,8 @@ export default function WalkInBookingModal({
   }, [selectedCustomer, isNewCustomer, initialServiceId]);
 
   const handleSelectCustomer = (customer: any) => {
-    setSelectedCustomer(customer);
+    const custId = customer.id || customer.khach_hang_id;
+    setSelectedCustomer({ ...customer, id: custId });
     setHoTen(customer.ho_ten);
     setSdt(customer.so_dien_thoai || '');
     setGioiTinh(customer.gioi_tinh || 'nam');
@@ -288,6 +298,27 @@ export default function WalkInBookingModal({
   const selectedService = servicesList.find((s: any) => String(s.id) === String(selectedServiceId));
   const isExam = selectedService ? (selectedService.loai_goi === 'KHAM' || selectedService.loai_dich_vu === 'KHAM') : true;
 
+  const matchingSameDayActiveAppts = React.useMemo(() => {
+    if (!selectedCustomer || !selectedDate || !selectedServiceId) return [];
+
+    return sameDayActiveAppts.filter((apt: any) => {
+      // 1. So khớp theo ID dịch vụ / gói dịch vụ
+      const aptServiceId = String(apt.dich_vu_id || apt.goi_dich_vu_id || apt.goi_dich_vu?.id || '');
+      if (aptServiceId && aptServiceId === String(selectedServiceId)) {
+        return true;
+      }
+
+      // 2. So khớp theo tên gói / dịch vụ (khớp chính xác hoặc chuỗi con)
+      const curServiceName = (selectedPlan?.ten_goi_dich_vu || selectedService?.ten_goi || selectedService?.ten_dich_vu || '').trim().toLowerCase();
+      const aptServiceName = (apt.ten_dich_vu || apt.ten_goi_dich_vu || apt.goi_dich_vu?.ten_goi || apt.ly_do_kham || '').trim().toLowerCase();
+      if (curServiceName && aptServiceName && (curServiceName === aptServiceName || aptServiceName.includes(curServiceName) || curServiceName.includes(aptServiceName))) {
+        return true;
+      }
+
+      return false;
+    });
+  }, [selectedCustomer, selectedDate, selectedServiceId, selectedPlan, selectedService, sameDayActiveAppts]);
+
   useEffect(() => {
     if (!selectedDate || !selectedServiceId) {
       setBuoiAvailability({ sang: { conLaiChung: 0, choPhep: false }, chieu: { conLaiChung: 0, choPhep: false }, nhanSu: [] });
@@ -336,10 +367,10 @@ export default function WalkInBookingModal({
       });
 
       const docAptsCount = docApts.length;
-      const checkedInApts = docApts.filter(apt => ['da_checkin', 'dang_kham', 'cho_tai_luong_gia'].includes(apt.trang_thai));
+      const checkedInApts = docApts.filter(apt => ['da_checkin', 'dang_kham'].includes(apt.trang_thai));
       const checkedInCount = checkedInApts.length;
       const isWorkingNow = checkedInApts.some(apt => apt.trang_thai === 'dang_kham');
-      const isWaitingQueueCount = checkedInApts.filter(apt => apt.trang_thai === 'da_checkin' || apt.trang_thai === 'cho_tai_luong_gia').length;
+      const isWaitingQueueCount = checkedInApts.filter(apt => apt.trang_thai === 'da_checkin').length;
 
       const nhanSuInfo = buoiAvailability.nhanSu.find(n => String(n.id) === String(doc.id));
       if (!nhanSuInfo) {
@@ -446,7 +477,7 @@ export default function WalkInBookingModal({
       so_dien_thoai: sdt,
       gioi_tinh_khach: gioiTinh,
       email: email || null,
-      ly_do_kham: lyDo || (activePlan ? `Điều trị buổi ${activePlan.so_buoi_da_dung + 1}` : (isPlanRec ? `Trị liệu theo chỉ định: ${selectedPlan.ten_goi_dich_vu}` : 'Khám lượng giá')),
+      ly_do_kham: lyDo || (activePlan ? `Điều trị buổi ${activePlan.so_buoi_da_dung + 1}` : (isPlanRec ? `Trị liệu theo chỉ định: ${selectedPlan.ten_goi_dich_vu}` : 'Lượng giá chức năng')),
       goi_dich_vu_id: selectedServiceId,
       ngay: selectedDate,
       buoi: selectedBuoi,
@@ -478,7 +509,7 @@ export default function WalkInBookingModal({
       so_dien_thoai: sdt,
       gioi_tinh_khach: gioiTinh,
       email: email || null,
-      ly_do_kham: lyDo || (activePlan ? `Điều trị buổi ${activePlan.so_buoi_da_dung + 1}` : (isPlanRec ? `Trị liệu theo chỉ định: ${selectedPlan.ten_goi_dich_vu}` : 'Khám lượng giá')),
+      ly_do_kham: lyDo || (activePlan ? `Điều trị buổi ${activePlan.so_buoi_da_dung + 1}` : (isPlanRec ? `Trị liệu theo chỉ định: ${selectedPlan.ten_goi_dich_vu}` : 'Lượng giá chức năng')),
       goi_dich_vu_id: selectedServiceId,
       ngay: selectedDate,
       buoi: selectedBuoi,
@@ -575,7 +606,7 @@ export default function WalkInBookingModal({
           </div>
           <div>
             <h3 className="text-base font-black text-slate-900 dark:text-zinc-100 flex items-center gap-2 font-jakarta">
-              Đăng ký ca {activeType === 'kham' ? 'khám lượng giá' : 'điều trị'} tại quầy
+              Đăng ký ca {activeType === 'kham' ? 'lượng giá chức năng' : 'trị liệu'} tại quầy
             </h3>
             <p className="text-[10px] text-slate-400 dark:text-zinc-550 font-bold mt-0.5">
               Lập lịch nhanh dịch vụ, tự động xác nhận
@@ -634,7 +665,7 @@ export default function WalkInBookingModal({
         {/* 3. Service Selection */}
         <div className="space-y-3">
           <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-zinc-800 pb-1.5">
-            Dịch vụ đăng ký
+            Dịch vụ đăng ký *
           </h4>
           
           {selectedPlan ? (
@@ -658,8 +689,7 @@ export default function WalkInBookingModal({
               )}
             </div>
           ) : (
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-500 dark:text-zinc-400">Chọn dịch vụ lẻ *</label>
+            <div>
               <ServiceSelect
                 services={filteredServices}
                 value={selectedServiceId}
@@ -673,8 +703,44 @@ export default function WalkInBookingModal({
             </div>
           )}
 
+          {/* Thông báo nhắc nhở KHI ĐÃ CHỌN GÓI và gói đó TRÙNG với gói chưa hoàn thành trong ngày */}
+          {matchingSameDayActiveAppts.length > 0 && (
+            <div className="p-3.5 bg-amber-50/90 dark:bg-amber-955/30 border border-amber-200/80 dark:border-amber-900/60 rounded-2xl flex items-start gap-2.5 animate-in fade-in duration-200">
+              <div className="p-1 rounded-lg bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 shrink-0 mt-0.5">
+                <Info size={15} className="stroke-[2.5]" />
+              </div>
+              <div className="flex-1 text-xs space-y-1.5">
+                <p className="font-black text-amber-900 dark:text-amber-200 text-[11px] uppercase tracking-wide">
+                  💡 Khách hàng đang có {matchingSameDayActiveAppts.length} lịch hẹn cho gói này chưa hoàn thành trong ngày ({selectedDate ? selectedDate.split('-').reverse().join('/') : ''}):
+                </p>
+                <div className="space-y-1">
+                  {matchingSameDayActiveAppts.map((apt: any, idx: number) => {
+                    const buoiStr = apt.buoi === 'sang' ? 'Buổi Sáng' : apt.buoi === 'chieu' ? 'Buổi Chiều' : 'Trong ngày';
+                    const statusText = apt.trang_thai === 'da_xac_nhan' ? 'Đã xác nhận'
+                      : apt.trang_thai === 'da_checkin' ? 'Đã check-in'
+                      : apt.trang_thai === 'dang_kham' ? 'Đang thực hiện'
+                      : apt.trang_thai === 'cho_tai_luong_gia' ? 'Chờ tái lượng giá'
+                      : apt.trang_thai;
+                    const serviceName = apt.ten_dich_vu || apt.ten_goi_dich_vu || apt.ly_do_kham || selectedPlan?.ten_goi_dich_vu || selectedService?.ten_goi || 'Gói dịch vụ';
+
+                    return (
+                      <div key={apt.id || idx} className="flex items-center justify-between text-[11px] bg-white/80 dark:bg-zinc-800/80 px-2.5 py-1.5 rounded-xl border border-amber-200/60 dark:border-amber-800/40 shadow-2xs">
+                        <span className="font-semibold text-slate-800 dark:text-zinc-200 truncate mr-2">
+                          • <strong className="font-bold text-amber-950 dark:text-amber-100">{serviceName}</strong> {apt.so_thu_tu_buoi ? `(Buổi ${apt.so_thu_tu_buoi})` : ''}
+                        </span>
+                        <span className="text-amber-800 dark:text-amber-300 font-bold shrink-0 text-[10px]">
+                          {buoiStr} · <span className="underline decoration-amber-400 font-black">{statusText}</span>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-500 dark:text-zinc-400">Mô tả triệu chứng / Lý do khám / Ghi chú</label>
+            <label className="text-xs font-bold text-slate-500 dark:text-zinc-400">Mô tả triệu chứng / Lý do đến / Ghi chú</label>
             <textarea
               rows={2}
               placeholder="Đau mỏi vai gáy cấp tính sau khi ngủ dậy..."

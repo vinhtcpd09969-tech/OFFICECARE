@@ -43,7 +43,7 @@ export function ExamHistoryCard({ exam, onJumpToPackage }: ExamHistoryCardProps)
 
         {exam.ghi_chu && (
           <div>
-            <p className="text-[9.5px] uppercase font-black text-zinc-400 tracking-wider">Ghi chú của bác sĩ</p>
+            <p className="text-[9.5px] uppercase font-black text-zinc-400 tracking-wider">Ghi chú của chuyên viên tư vấn</p>
             <p className="text-xs text-zinc-600 italic mt-0.5">"{exam.ghi_chu}"</p>
           </div>
         )}
@@ -114,7 +114,7 @@ export function ExamHistoryCard({ exam, onJumpToPackage }: ExamHistoryCardProps)
               href={resolveImageUrl(exam.anh_dinh_kem_url)}
               target="_blank"
               rel="noreferrer"
-              className="block rounded-2xl border border-zinc-100 bg-zinc-50 overflow-hidden flex items-center justify-center"
+              className="rounded-2xl border border-zinc-100 bg-zinc-50 overflow-hidden flex items-center justify-center"
             >
               <img
                 src={resolveImageUrl(exam.anh_dinh_kem_url)}
@@ -130,7 +130,7 @@ export function ExamHistoryCard({ exam, onJumpToPackage }: ExamHistoryCardProps)
         {exam.anh_bac_si ? (
           <img
             src={resolveImageUrl(exam.anh_bac_si)}
-            alt={exam.ten_bac_si || 'Bác sĩ'}
+            alt={exam.ten_bac_si || 'Chuyên viên tư vấn'}
             className="size-11 rounded-full object-cover border border-zinc-200 shadow-sm shrink-0"
           />
         ) : (
@@ -139,9 +139,9 @@ export function ExamHistoryCard({ exam, onJumpToPackage }: ExamHistoryCardProps)
           </div>
         )}
         <div className="min-w-0 flex-1">
-          <p className="text-[9px] uppercase font-black text-zinc-400 tracking-wider">Bác sĩ khám</p>
+          <p className="text-[9px] uppercase font-black text-zinc-400 tracking-wider">Chuyên viên tư vấn</p>
           <h4 className="text-sm font-black text-secondary truncate">{exam.ten_bac_si || 'Đang cập nhật'}</h4>
-          <p className="text-[11px] font-semibold text-zinc-500 truncate">{getStaffRoleTitle(exam.ten_bac_si, exam.vai_tro_bac_si)} · {exam.ten_phong || 'Phòng khám'}</p>
+          <p className="text-[11px] font-semibold text-zinc-500 truncate">{getStaffRoleTitle(exam.ten_bac_si, exam.vai_tro_bac_si)} · {exam.ten_phong || 'Phòng tư vấn'}</p>
         </div>
       </div>
 

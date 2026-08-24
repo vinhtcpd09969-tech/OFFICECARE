@@ -11,7 +11,6 @@ import {
   getCustomerTreatmentSessions,
   getCustomerInvoices
 } from '../controllers/appointment.controller';
-import { getPublicArticles, getPublicArticleBySlug } from '../controllers/article.controller';
 import {
   getServices,
   getPackages,
@@ -21,6 +20,8 @@ import {
   getSpecialistReviews,
   getServiceReviews,
   getTestimonials,
+  getPublicArticles,
+  getPublicArticleBySlug,
   getTreatmentPlans,
   getPendingRatingAppointments,
   rateAppointment,
@@ -30,6 +31,7 @@ import {
   agreeTerms,
   getTtsProxy,
   getActiveVouchers,
+  applyClientVoucher,
   createPayosPaymentLink,
   getPayosPaymentStatus
 } from '../controllers/client.controller';
@@ -61,6 +63,7 @@ router.get('/articles/:slug', getPublicArticleBySlug);
 
 // Vouchers & Payments - Public
 router.get('/vouchers/active', getActiveVouchers);
+router.post('/vouchers/apply', applyClientVoucher);
 router.post('/payment/create-payos-link', createPayosPaymentLink);
 router.get('/payment/status/:orderCode', getPayosPaymentStatus);
 router.get('/tts', getTtsProxy);

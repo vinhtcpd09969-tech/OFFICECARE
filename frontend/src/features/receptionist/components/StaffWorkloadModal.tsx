@@ -2,7 +2,29 @@ import { useState, useEffect } from 'react';
 import { X, Users, Clock, CheckCircle2, RefreshCw, Activity, ShieldCheck } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { getStaffWorkload, StaffWorkloadItem } from '../api/receptionist.api';
-import { format } from 'date-fns';
+import { format, isSameDay } from 'date-fns';
+
+function getStaffShiftStatus(stf: StaffWorkloadItem, dateStr?: string) {
+  const now = new Date();
+  const isToday = !dateStr || isSameDay(new Date(dateStr), now);
+  if (!isToday) {
+    return { isOffDuty: false, isUpcoming: false, label: 'Đang trực' };
+  }
+
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const [startH, startM] = (stf.gio_bat_dau || '00:00').split(':').map(Number);
+  const [endH, endM] = (stf.gio_ket_thuc || '23:59').split(':').map(Number);
+  const shiftStartMinutes = (startH || 0) * 60 + (startM || 0);
+  const shiftEndMinutes = (endH || 0) * 60 + (endM || 0);
+
+  if (currentMinutes >= shiftEndMinutes) {
+    return { isOffDuty: true, isUpcoming: false, label: 'Đã tan ca' };
+  }
+  if (currentMinutes < shiftStartMinutes) {
+    return { isOffDuty: false, isUpcoming: true, label: 'Chưa vào ca' };
+  }
+  return { isOffDuty: false, isUpcoming: false, label: 'Đang trực' };
+}
 
 interface StaffWorkloadModalProps {
   isOpen: boolean;
@@ -101,10 +123,10 @@ export function StaffWorkloadModal({ isOpen, onClose, dateStr }: StaffWorkloadMo
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {ktvList.map((stf) => {
-                  const maxCap = stf.so_khach_song_song || 2;
                   const currentCap = stf.so_ca_dang_lam || 0;
                   const waitingCap = stf.so_ca_cho || 0;
-                  const isFree = currentCap === 0 && waitingCap === 0;
+                  const shiftStatus = getStaffShiftStatus(stf, dateStr);
+                  const isFree = !shiftStatus.isOffDuty && !shiftStatus.isUpcoming && currentCap === 0 && waitingCap === 0;
                   const isBusy = currentCap > 0 || waitingCap > 0;
 
                   let finishTimeStr = '---';
@@ -118,7 +140,9 @@ export function StaffWorkloadModal({ isOpen, onClose, dateStr }: StaffWorkloadMo
                     <div
                       key={stf.nhan_su_id}
                       className={`p-4 rounded-2xl border transition-all space-y-2.5 ${
-                        isFree
+                        shiftStatus.isOffDuty
+                          ? 'bg-slate-100/70 dark:bg-zinc-800/40 border-slate-200 dark:border-zinc-800 opacity-75'
+                          : isFree
                           ? 'bg-emerald-50/60 dark:bg-emerald-955/30 border-emerald-200 dark:border-emerald-800/60'
                           : 'bg-amber-50/50 dark:bg-amber-955/30 border-amber-200 dark:border-amber-800/60'
                       }`}
@@ -134,7 +158,15 @@ export function StaffWorkloadModal({ isOpen, onClose, dateStr }: StaffWorkloadMo
                         </div>
 
                         {/* Status Badge */}
-                        {isFree ? (
+                        {shiftStatus.isOffDuty ? (
+                          <span className="px-2.5 py-1 rounded-xl text-[10.5px] font-black bg-slate-200 text-slate-700 dark:bg-zinc-800 dark:text-zinc-400 border border-slate-300 dark:border-zinc-700 flex items-center gap-1 shadow-2xs">
+                            ⚪ Đã tan ca
+                          </span>
+                        ) : shiftStatus.isUpcoming ? (
+                          <span className="px-2.5 py-1 rounded-xl text-[10.5px] font-black bg-sky-100 text-sky-800 dark:bg-sky-955 dark:text-sky-300 border border-sky-300 dark:border-sky-800 flex items-center gap-1 shadow-2xs">
+                            🕒 Chưa vào ca
+                          </span>
+                        ) : isFree ? (
                           <span className="px-2.5 py-1 rounded-xl text-[10.5px] font-black bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 flex items-center gap-1 shadow-2xs">
                             <CheckCircle2 size={12} /> Đang rảnh bàn
                           </span>
@@ -147,32 +179,36 @@ export function StaffWorkloadModal({ isOpen, onClose, dateStr }: StaffWorkloadMo
 
                       {/* Chi tiết ca bận / Hàng chờ */}
                       {isBusy && (
-                        <div className="pt-2 border-t border-slate-200/60 dark:border-zinc-700/60 text-[11px] font-semibold space-y-1.5">
+                        <div className="pt-2 border-t border-slate-200/60 dark:border-zinc-700/60 text-[11px] font-semibold space-y-2">
                           <div className="flex items-center justify-between">
-                            <span className="text-slate-500 dark:text-zinc-400">Trạng thái bàn:</span>
-                            <span className="font-bold text-slate-800 dark:text-zinc-200 flex items-center gap-1">
+                            <span className="text-slate-500 dark:text-zinc-400">Đang làm:</span>
+                            <span className="font-bold text-slate-800 dark:text-zinc-200 flex items-center gap-1.5">
                               {currentCap > 0 ? (
                                 <>
-                                  <span>🔴 Đang làm việc ({currentCap}/{maxCap} bàn)</span>
+                                  <span className="text-rose-600 dark:text-rose-400 font-extrabold flex items-center gap-1">
+                                    🔴 {currentCap} ca
+                                  </span>
                                   {finishTimeStr !== '---' && (
-                                    <span className="text-amber-700 dark:text-amber-400 bg-amber-100/80 dark:bg-amber-955/70 px-1.5 py-0.5 rounded-md border border-amber-300/60 dark:border-amber-800 text-[10.5px] font-extrabold">
-                                      (Dự kiến xong ~{finishTimeStr})
+                                    <span className="text-amber-700 dark:text-amber-400 bg-amber-100/80 dark:bg-amber-955/70 px-1.5 py-0.5 rounded-md border border-amber-300/60 dark:border-amber-800 text-[10px] font-bold">
+                                      (Xong ~{finishTimeStr})
                                     </span>
                                   )}
                                 </>
                               ) : (
-                                <span className="text-amber-700 dark:text-amber-400 font-bold">🟡 Khách đã check-in chờ gọi</span>
+                                <span className="text-slate-400 font-medium">0 ca</span>
                               )}
                             </span>
                           </div>
-                          {waitingCap > 0 && (
-                            <div className="flex items-center justify-between text-amber-800 dark:text-amber-300">
-                              <span>Hàng chờ:</span>
-                              <span className="font-black bg-amber-100 dark:bg-amber-955 px-2 py-0.5 rounded-md border border-amber-300/60 text-[10.5px]">
-                                {waitingCap} người đang chờ
-                              </span>
-                            </div>
-                          )}
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-500 dark:text-zinc-400">Đang chờ:</span>
+                            <span className={`px-2 py-0.5 rounded-md text-[10.5px] font-black ${
+                              waitingCap > 0
+                                ? 'bg-amber-100 dark:bg-amber-955 text-amber-800 dark:text-amber-300 border border-amber-300/60'
+                                : 'text-slate-400 font-medium'
+                            }`}>
+                              {waitingCap > 0 ? `${waitingCap} người đang chờ` : '0 người'}
+                            </span>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -201,7 +237,8 @@ export function StaffWorkloadModal({ isOpen, onClose, dateStr }: StaffWorkloadMo
                 {specialistList.map((stf) => {
                   const currentCap = stf.so_ca_dang_lam || 0;
                   const waitingCap = stf.so_ca_cho || 0;
-                  const isFree = currentCap === 0 && waitingCap === 0;
+                  const shiftStatus = getStaffShiftStatus(stf, dateStr);
+                  const isFree = !shiftStatus.isOffDuty && !shiftStatus.isUpcoming && currentCap === 0 && waitingCap === 0;
                   const isBusy = currentCap > 0 || waitingCap > 0;
 
                   let finishTimeStr = '---';
@@ -215,7 +252,9 @@ export function StaffWorkloadModal({ isOpen, onClose, dateStr }: StaffWorkloadMo
                     <div
                       key={stf.nhan_su_id}
                       className={`p-4 rounded-2xl border transition-all space-y-2.5 ${
-                        isFree
+                        shiftStatus.isOffDuty
+                          ? 'bg-slate-100/70 dark:bg-zinc-800/40 border-slate-200 dark:border-zinc-800 opacity-75'
+                          : isFree
                           ? 'bg-emerald-50/60 dark:bg-emerald-955/20 border-emerald-200 dark:border-emerald-900/50'
                           : 'bg-amber-50/50 dark:bg-amber-955/30 border-amber-200 dark:border-amber-800/60'
                       }`}
@@ -233,7 +272,15 @@ export function StaffWorkloadModal({ isOpen, onClose, dateStr }: StaffWorkloadMo
                           </div>
                         </div>
 
-                        {isFree ? (
+                        {shiftStatus.isOffDuty ? (
+                          <span className="px-2.5 py-1 rounded-xl text-[10.5px] font-black bg-slate-200 text-slate-700 dark:bg-zinc-800 dark:text-zinc-400 border border-slate-300 dark:border-zinc-700 flex items-center gap-1 shadow-2xs">
+                            ⚪ Đã tan ca
+                          </span>
+                        ) : shiftStatus.isUpcoming ? (
+                          <span className="px-2.5 py-1 rounded-xl text-[10.5px] font-black bg-sky-100 text-sky-800 dark:bg-sky-955 dark:text-sky-300 border border-sky-300 dark:border-sky-800 flex items-center gap-1 shadow-2xs">
+                            🕒 Chưa vào ca
+                          </span>
+                        ) : isFree ? (
                           <span className="px-2.5 py-1 rounded-xl text-[10.5px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 flex items-center gap-1 shadow-2xs">
                             <CheckCircle2 size={12} /> Rảnh bàn
                           </span>
@@ -245,32 +292,36 @@ export function StaffWorkloadModal({ isOpen, onClose, dateStr }: StaffWorkloadMo
                       </div>
 
                       {isBusy && (
-                        <div className="pt-2 border-t border-slate-200/60 dark:border-zinc-700/60 text-[11px] font-semibold space-y-1.5">
+                        <div className="pt-2 border-t border-slate-200/60 dark:border-zinc-700/60 text-[11px] font-semibold space-y-2">
                           <div className="flex items-center justify-between">
-                            <span className="text-slate-500 dark:text-zinc-400">Trạng thái bàn:</span>
-                            <span className="font-bold text-slate-800 dark:text-zinc-200 flex items-center gap-1">
+                            <span className="text-slate-500 dark:text-zinc-400">Đang làm:</span>
+                            <span className="font-bold text-slate-800 dark:text-zinc-200 flex items-center gap-1.5">
                               {currentCap > 0 ? (
                                 <>
-                                  <span>🔴 Đang gặp khách</span>
+                                  <span className="text-rose-600 dark:text-rose-400 font-extrabold flex items-center gap-1">
+                                    🔴 {currentCap} ca
+                                  </span>
                                   {finishTimeStr !== '---' && (
-                                    <span className="text-amber-700 dark:text-amber-400 bg-amber-100/80 dark:bg-amber-955/70 px-1.5 py-0.5 rounded-md border border-amber-300/60 dark:border-amber-800 text-[10.5px] font-extrabold">
-                                      (Dự kiến xong ~{finishTimeStr})
+                                    <span className="text-amber-700 dark:text-amber-400 bg-amber-100/80 dark:bg-amber-955/70 px-1.5 py-0.5 rounded-md border border-amber-300/60 dark:border-amber-800 text-[10px] font-bold">
+                                      (Xong ~{finishTimeStr})
                                     </span>
                                   )}
                                 </>
                               ) : (
-                                <span className="text-amber-700 dark:text-amber-400 font-bold">🟡 Đang có khách chờ gọi vào</span>
+                                <span className="text-slate-400 font-medium">0 ca</span>
                               )}
                             </span>
                           </div>
-                          {waitingCap > 0 && (
-                            <div className="flex items-center justify-between text-amber-800 dark:text-amber-300">
-                              <span>Hàng chờ:</span>
-                              <span className="font-black bg-amber-100 dark:bg-amber-955 px-2 py-0.5 rounded-md border border-amber-300/60 text-[10.5px]">
-                                {waitingCap} người đang chờ
-                              </span>
-                            </div>
-                          )}
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-500 dark:text-zinc-400">Đang chờ:</span>
+                            <span className={`px-2 py-0.5 rounded-md text-[10.5px] font-black ${
+                              waitingCap > 0
+                                ? 'bg-amber-100 dark:bg-amber-955 text-amber-800 dark:text-amber-300 border border-amber-300/60'
+                                : 'text-slate-400 font-medium'
+                            }`}>
+                              {waitingCap > 0 ? `${waitingCap} người đang chờ` : '0 người'}
+                            </span>
+                          </div>
                         </div>
                       )}
                     </div>

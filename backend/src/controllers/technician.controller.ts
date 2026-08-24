@@ -1,171 +1,119 @@
 import { Request, Response } from 'express';
 import technicianService from '../services/technician.service';
-
-interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    vai_tro_id: number;
-  };
-}
+import { asyncHandler } from '../utils/asyncHandler';
+import { BadRequestError, UnauthorizedError } from '../utils/appError';
 
 // GET /api/technician/queue
-export const getQueue = async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const userId = req.user?.id;
-    if (!userId) {
-      return res.status(401).json({ message: 'Không xác định được danh tính người dùng.' });
-    }
-    const queue = await technicianService.getQueue(userId);
-    res.json(queue);
-  } catch (error: any) {
-    console.error('Lỗi khi lấy hàng đợi trị liệu KTV:', error);
-    res.status(500).json({ message: error.message || 'Lỗi server' });
+export const getQueue = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    throw new UnauthorizedError('Không xác định được danh tính người dùng.');
   }
-};
+  const queue = await technicianService.getQueue(userId);
+  res.json(queue);
+});
 
 // GET /api/technician/appointments
-export const getAppointments = async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const userId = req.user?.id;
-    const { startDate, endDate } = req.query as { startDate?: string; endDate?: string };
-    
-    if (!userId) {
-      return res.status(401).json({ message: 'Không xác định được danh tính người dùng.' });
-    }
-    
-    const appointments = await technicianService.getAppointments(userId, startDate, endDate);
-    res.json(appointments);
-  } catch (error: any) {
-    console.error('Lỗi khi lấy danh sách lịch hẹn KTV:', error);
-    res.status(500).json({ message: error.message || 'Lỗi server' });
+export const getAppointments = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+  const { startDate, endDate } = req.query as { startDate?: string; endDate?: string };
+
+  if (!userId) {
+    throw new UnauthorizedError('Không xác định được danh tính người dùng.');
   }
-};
+
+  const appointments = await technicianService.getAppointments(userId, startDate, endDate);
+  res.json(appointments);
+});
 
 // GET /api/technician/appointments/:id
-export const getAppointmentDetail = async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const { id } = req.params as { id: string };
-    const userId = req.user?.id;
-    const confirmOvertime = req.query.confirmOvertime === 'true';
-    if (!id) {
-      return res.status(400).json({ message: 'Thiếu ID lịch hẹn.' });
-    }
-    const detail = await technicianService.getAppointmentDetail(id, userId, confirmOvertime);
-    res.json(detail);
-  } catch (error: any) {
-    console.error('Lỗi khi lấy chi tiết ca trị liệu KTV:', error);
-    res.status(400).json({
-      message: error.message || 'Lỗi server',
-      activeSessionId: error.activeSessionId,
-      errorCode: error.errorCode,
-    });
+export const getAppointmentDetail = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params as { id: string };
+  const userId = req.user?.id;
+  const confirmOvertime = req.query.confirmOvertime === 'true';
+
+  if (!id) {
+    throw new BadRequestError('Thiếu ID lịch hẹn.');
   }
-};
+
+  const detail = await technicianService.getAppointmentDetail(id, userId, confirmOvertime);
+  res.json(detail);
+});
 
 // POST /api/technician/appointments/assess
-export const saveTreatmentRecord = async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const userId = req.user?.id;
-    const { lich_dat_id, vas_truoc, vas_sau, ghi_chu, du_lieu_tri_lieu } = req.body;
+export const saveTreatmentRecord = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+  const { lich_dat_id, vas_truoc, vas_sau, ghi_chu, du_lieu_tri_lieu } = req.body;
 
-    if (!userId) {
-      return res.status(401).json({ message: 'Không xác định được danh tính người dùng.' });
-    }
-    if (!lich_dat_id) {
-      return res.status(400).json({ message: 'Thiếu ID ca trị liệu.' });
-    }
-    if (vas_truoc === undefined || vas_sau === undefined) {
-      return res.status(400).json({ message: 'Vui lòng điền đầy đủ lượng giá VAS trước và sau buổi.' });
-    }
-
-    const result = await technicianService.saveTreatmentRecord(userId, {
-      lich_dat_id,
-      vas_truoc: Number(vas_truoc),
-      vas_sau: Number(vas_sau),
-      ghi_chu: ghi_chu || '',
-      du_lieu_tri_lieu
-    });
-    res.json(result);
-  } catch (error: any) {
-    console.error('Lỗi khi lưu kết quả buổi trị liệu KTV:', error);
-    // Lỗi nghiệp vụ (ca đã kết thúc, không tìm thấy cuộc hẹn...) → 400 kèm message gốc, không nuốt
-    // thành 500 chung chung (đồng bộ quy ước với doctor.controller.ts::saveAssessment).
-    if (error.message && !error.stack?.includes('pg') && !error.stack?.includes('Prisma') && !error.message.includes('connection')) {
-      return res.status(400).json({ message: error.message });
-    }
-    res.status(500).json({ message: 'Lỗi server' });
+  if (!userId) {
+    throw new UnauthorizedError('Không xác định được danh tính người dùng.');
   }
-};
-
-// POST /api/technician/appointments/draft — lưu nháp, không hoàn thành ca (xem service để rõ lý do)
-export const saveTreatmentDraft = async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const userId = req.user?.id;
-    const { lich_dat_id, vas_truoc, vas_sau, ghi_chu, du_lieu_tri_lieu } = req.body;
-
-    if (!userId) {
-      return res.status(401).json({ message: 'Không xác định được danh tính người dùng.' });
-    }
-    if (!lich_dat_id) {
-      return res.status(400).json({ message: 'Thiếu ID ca trị liệu.' });
-    }
-
-    const result = await technicianService.saveTreatmentDraft(userId, {
-      lich_dat_id,
-      vas_truoc: vas_truoc !== undefined ? Number(vas_truoc) : undefined,
-      vas_sau: vas_sau !== undefined ? Number(vas_sau) : undefined,
-      ghi_chu,
-      du_lieu_tri_lieu,
-    });
-    res.json(result);
-  } catch (error: any) {
-    console.error('Lỗi khi lưu nháp buổi trị liệu KTV:', error);
-    res.status(400).json({ message: error.message || 'Lỗi server' });
+  if (!lich_dat_id) {
+    throw new BadRequestError('Thiếu ID ca trị liệu.');
   }
-};
+  if (vas_truoc === undefined || vas_sau === undefined) {
+    throw new BadRequestError('Vui lòng điền đầy đủ lượng giá VAS trước và sau buổi.');
+  }
+
+  const result = await technicianService.saveTreatmentRecord(userId, {
+    lich_dat_id,
+    vas_truoc: Number(vas_truoc),
+    vas_sau: Number(vas_sau),
+    ghi_chu: ghi_chu || '',
+    du_lieu_tri_lieu
+  });
+  res.json(result);
+});
+
+// POST /api/technician/appointments/draft
+export const saveTreatmentDraft = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+  const { lich_dat_id, vas_truoc, vas_sau, ghi_chu, du_lieu_tri_lieu } = req.body;
+
+  if (!userId) {
+    throw new UnauthorizedError('Không xác định được danh tính người dùng.');
+  }
+  if (!lich_dat_id) {
+    throw new BadRequestError('Thiếu ID ca trị liệu.');
+  }
+
+  const result = await technicianService.saveTreatmentDraft(userId, {
+    lich_dat_id,
+    vas_truoc: vas_truoc !== undefined ? Number(vas_truoc) : undefined,
+    vas_sau: vas_sau !== undefined ? Number(vas_sau) : undefined,
+    ghi_chu,
+    du_lieu_tri_lieu,
+  });
+  res.json(result);
+});
 
 // GET /api/technician/schedules
-export const getSchedules = async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const userId = req.user?.id;
-    if (!userId) {
-      return res.status(401).json({ message: 'Không xác định được danh tính người dùng.' });
-    }
-    const schedules = await technicianService.getSchedules(userId);
-    res.json(schedules);
-  } catch (error: any) {
-    console.error('Lỗi khi lấy lịch trực KTV:', error);
-    res.status(500).json({ message: error.message || 'Lỗi server' });
+export const getSchedules = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    throw new UnauthorizedError('Không xác định được danh tính người dùng.');
   }
-};
+  const schedules = await technicianService.getSchedules(userId);
+  res.json(schedules);
+});
 
 // GET /api/technician/active-session
-export const getActiveSession = async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const userId = req.user?.id;
-    if (!userId) {
-      return res.status(401).json({ message: 'Không xác định được danh tính người dùng.' });
-    }
-    const activeSession = await technicianService.getActiveSession(userId);
-    res.json(activeSession);
-  } catch (error: any) {
-    console.error('Lỗi khi lấy ca trị liệu đang chạy dở KTV:', error);
-    res.status(500).json({ message: error.message || 'Lỗi server' });
+export const getActiveSession = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    throw new UnauthorizedError('Không xác định được danh tính người dùng.');
   }
-};
+  const activeSession = await technicianService.getActiveSession(userId);
+  res.json(activeSession);
+});
 
 // GET /api/technician/workstation-info
-export const getWorkstationInfo = async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const userId = req.user?.id;
-    if (!userId) {
-      return res.status(401).json({ message: 'Không xác định được danh tính người dùng.' });
-    }
-    const appointmentId = (req.query.appointment_id as string) || null;
-    const info = await technicianService.getWorkstationInfo(userId, appointmentId);
-    res.json(info);
-  } catch (error: any) {
-    console.error('Lỗi khi lấy thông tin phòng trực & thiết bị:', error);
-    res.status(500).json({ message: error.message || 'Lỗi server' });
+export const getWorkstationInfo = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    throw new UnauthorizedError('Không xác định được danh tính người dùng.');
   }
-};
+  const appointmentId = (req.query.appointment_id as string) || null;
+  const info = await technicianService.getWorkstationInfo(userId, appointmentId);
+  res.json(info);
+});

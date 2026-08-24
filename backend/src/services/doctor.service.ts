@@ -1,5 +1,5 @@
-import doctorRepository from '../repositories/doctor.repository';
-import appointmentRepository from '../repositories/appointment.repository';
+import doctorRepository from '../repositories/doctor';
+import appointmentRepository from '../repositories/appointments';
 
 class DoctorService {
   // 1. Lấy danh sách hàng đợi khám bệnh hôm nay của bác sĩ

@@ -1,7 +1,10 @@
-import clientRepository from '../repositories/client.repository';
+import clientRepository from '../repositories/client';
+import adminRepository from '../repositories/admin';
 import adminService from './admin.service';
-import { SentimentService } from './sentiment.service';
+import billingService from './billing.service';
+import { SentimentService } from './ai/ai.sentiment';
 import { payos } from '../config/payos';
+import { BadRequestError, ForbiddenError, NotFoundError } from '../utils/appError';
 
 export class ClientService {
   async getPublicServices() {
@@ -82,15 +85,15 @@ export class ClientService {
 
     const appt = await clientRepository.getAppointmentForRating(cuocHenId);
     if (!appt) {
-      throw { status: 404, message: 'Không tìm thấy lịch hẹn' };
+      throw new NotFoundError('Không tìm thấy lịch hẹn');
     }
 
     if (String(appt.khach_hang_id) !== String(customerId)) {
-      throw { status: 403, message: 'Không có quyền đánh giá lịch hẹn này' };
+      throw new ForbiddenError('Không có quyền đánh giá lịch hẹn này');
     }
 
     if (appt.trang_thai !== 'hoan_thanh') {
-      throw { status: 400, message: 'Chỉ có thể đánh giá các lịch hẹn đã hoàn thành khám' };
+      throw new BadRequestError('Chỉ có thể đánh giá các lịch hẹn đã hoàn thành khám');
     }
 
     // 1. KTV review
@@ -114,7 +117,7 @@ export class ClientService {
       if (appt.loai_goi === 'LIEU_TRINH') {
         const isValidPackageEnd = appt.phac_do_status === 'hoan_thanh' || appt.phac_do_status === 'huy_ngang';
         if (!isValidPackageEnd) {
-          throw { status: 400, message: 'Gói liệu trình chưa hoàn thành hoặc chưa bị hủy để đánh giá dịch vụ' };
+          throw new BadRequestError('Gói liệu trình chưa hoàn thành hoặc chưa bị hủy để đánh giá dịch vụ');
         }
       }
 
@@ -159,14 +162,18 @@ export class ClientService {
     return clientRepository.agreeTerms(customerId);
   }
 
-  async getActiveVouchers() {
-    return clientRepository.getActiveVouchers();
+  async getActiveVouchers(khachHangId?: string) {
+    return clientRepository.getActiveVouchers(khachHangId);
+  }
+
+  async applyVoucher(ma_voucher: string, loai_thanh_toan?: string, khach_hang_id?: string, kenh?: 'online' | 'tai_quay', loai_goi?: 'KHAM' | 'LE' | 'LIEU_TRINH') {
+    return billingService.applyVoucher(ma_voucher, loai_thanh_toan, khach_hang_id, kenh || 'online', loai_goi);
   }
 
   async createPayOSPaymentLink(amount: number, phone?: string, description?: string) {
     const finalAmount = Math.round(Number(amount) || 0);
     if (finalAmount <= 0) {
-      throw { status: 400, message: 'Số tiền thanh toán phải lớn hơn 0' };
+      throw new BadRequestError('Số tiền thanh toán phải lớn hơn 0');
     }
 
     const removeAccents = (str: string) => {
@@ -211,6 +218,20 @@ export class ClientService {
       paid: isPaid,
       amountPaid: paymentLinkInfo?.amountPaid || paymentLinkInfo?.amount
     };
+  }
+
+  // --- BÀI VIẾT PUBLIC ---
+  async getPublicArticles(danhMuc?: string) {
+    return adminService.getArticles({ danh_muc: danhMuc, trang_thai: 'xuat_ban' });
+  }
+
+  async getPublicArticleBySlug(slug: string) {
+    const article = await adminRepository.getPublicArticleBySlug(slug);
+    if (!article) {
+      throw new Error('Không tìm thấy bài viết');
+    }
+    await adminRepository.incrementArticleView(article.id);
+    return article;
   }
 }
 

@@ -9,8 +9,8 @@ const HERO_SLIDES = [
   {
     id: 1,
     tag: 'Lượng giá chuyên sâu',
-    title: 'Thăm Khám & Lượng Giá Lâm Sàng 1:1 Với Bác Sĩ CKI',
-    subtitle: 'Đánh giá tầm vận động khớp và siêu âm chẩn đoán chính xác vị trí cơ xương khớp tổn thương.',
+    title: 'Lượng Giá Chức Năng 1:1 Cùng Chuyên Viên PHCN',
+    subtitle: 'Đánh giá tầm vận động khớp (ROM), cơ lực (MMT) và xác định chính xác vị trí tổn thương.',
     image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuChY7AW6ev6J87eZLl2o4MoOD8BnBBtnPFSB4sYKHKTosht_wFuKieK_jt9CtkyD3kA167GUk8Yv-tUkVT4HN7Y30l1-IvGzK21MPHz2SivO1OybUi6n3NCCiMObQuKtnx2j3jPLLy02O1zGNlbH6Q2vUq-MIs7udDukLlJ6rq88bk56Zx9KQdrvKpHKuGS5t8GE28Cpn03TTkqWiO84_J2E0tCuwpNunaAl4gqM19_WXyeqvQDPUdzHpThmQ9l73Ch6AY7CGkNuv8',
     badge: 'Phác Đồ Cá Nhân Hóa'
   },
@@ -80,7 +80,7 @@ export default function Hero() {
 
             <ScrollReveal delay={300}>
               <p className="text-slate-600 text-xs md:text-sm leading-relaxed font-normal max-w-lg">
-                Thăm khám 1:1 cùng Bác sĩ chuyên khoa, trị liệu chuẩn phác đồ y tế kết hợp công nghệ sóng Châu Âu giúp giải phóng đau mỏi an toàn không dùng thuốc.
+                Lượng giá 1:1 cùng Chuyên viên PHCN, trị liệu chuẩn phác đồ y tế kết hợp công nghệ sóng Châu Âu giúp giải phóng đau mỏi an toàn không dùng thuốc.
               </p>
             </ScrollReveal>
 
@@ -109,7 +109,7 @@ export default function Hero() {
               <div className="pt-5 border-t border-slate-200/80 grid grid-cols-3 gap-4 text-left">
                 <div>
                   <p className="text-lg font-bold text-slate-900 font-heading">+15.000</p>
-                  <p className="text-[10px] text-slate-500 font-normal">Bệnh nhân đã điều trị</p>
+                  <p className="text-[10px] text-slate-500 font-normal">Khách hàng đã phục hồi</p>
                 </div>
                 <div>
                   <p className="text-lg font-bold text-[#0D9488] font-heading">4.9 / 5.0</p>
@@ -117,7 +117,7 @@ export default function Hero() {
                 </div>
                 <div>
                   <p className="text-lg font-bold text-slate-900 font-heading">100%</p>
-                  <p className="text-[10px] text-slate-500 font-normal">Bác sĩ CKI lượng giá 1:1</p>
+                  <p className="text-[10px] text-slate-500 font-normal">Chuyên viên tư vấn 1:1</p>
                 </div>
               </div>
             </ScrollReveal>

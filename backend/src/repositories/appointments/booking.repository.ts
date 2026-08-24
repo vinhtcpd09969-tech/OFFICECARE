@@ -298,6 +298,8 @@ export class AppointmentBookingRepository {
           ho_ten: s.ho_ten,
           anh_dai_dien: s.anh_dai_dien,
           caTruc: `${ns.gioBatDau.substring(0, 5)}-${ns.gioKetThuc.substring(0, 5)}`,
+          gioBatDau: ns.gioBatDau.substring(0, 5),
+          gioKetThuc: ns.gioKetThuc.substring(0, 5),
           conLaiSang: conLaiRieng(ns, 'sang', daDatSang),
           conLaiChieu: conLaiRieng(ns, 'chieu', daDatChieu)
         };

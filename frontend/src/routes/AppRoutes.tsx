@@ -58,11 +58,13 @@ const ReceptionistFeedback = lazy(() => import('../features/receptionist/pages/V
 // Technician Feature
 const TechnicianAppointments = lazy(() => import('../features/technician/pages/TechnicianAppointments/index'));
 
-// Doctor Feature
+// Doctor / Specialist Feature
 const DoctorAppointments = lazy(() => import('../features/doctor/pages/DoctorAppointments'));
-const ClinicalAssessment = lazy(() => import('../features/doctor/pages/ClinicalAssessment'));
-const DoctorMedicalRecords = lazy(() => import('../features/doctor/pages/DoctorMedicalRecords'));
-const DoctorSchedules = lazy(() => import('../features/doctor/pages/DoctorSchedules'));
+
+// Clinical & Shared Staff Features
+const ClinicalAssessment = lazy(() => import('../features/clinical/pages/ClinicalAssessment'));
+const StaffMedicalRecords = lazy(() => import('../features/clinical/pages/StaffMedicalRecords'));
+const StaffSchedules = lazy(() => import('../features/clinical/pages/StaffSchedules'));
 
 export default function AppRoutes() {
   const location = useLocation();
@@ -147,7 +149,7 @@ export default function AppRoutes() {
             <Route path="/receptionist/customers" element={<CustomerDirectory />} />
             <Route path="/receptionist/billing" element={<QuickBilling />} />
             <Route path="/receptionist/feedback" element={<ReceptionistFeedback />} />
-            <Route path="/receptionist/schedules" element={<DoctorSchedules />} />
+            <Route path="/receptionist/schedules" element={<StaffSchedules />} />
             <Route path="/receptionist/settings" element={<CustomerSettings />} />
           </Route>
         </Route>
@@ -158,8 +160,8 @@ export default function AppRoutes() {
             <Route path="/technician/appointments" element={<TechnicianAppointments />} />
             <Route path="/technician/appointments/:id/assess" element={<ClinicalAssessment />} />
             <Route path="/technician/desk" element={<ClinicalAssessment />} />
-            <Route path="/technician/medical-records" element={<DoctorMedicalRecords />} />
-            <Route path="/technician/schedules" element={<DoctorSchedules />} />
+            <Route path="/technician/medical-records" element={<StaffMedicalRecords />} />
+            <Route path="/technician/schedules" element={<StaffSchedules />} />
             <Route path="/technician/settings" element={<CustomerSettings />} />
           </Route>
         </Route>
@@ -171,8 +173,8 @@ export default function AppRoutes() {
             <Route path="/doctor/appointments" element={<DoctorAppointments />} />
             <Route path="/doctor/appointments/:id/assess" element={<ClinicalAssessment />} />
             <Route path="/doctor/desk" element={<ClinicalAssessment />} />
-            <Route path="/doctor/medical-records" element={<DoctorMedicalRecords />} />
-            <Route path="/doctor/schedules" element={<DoctorSchedules />} />
+            <Route path="/doctor/medical-records" element={<StaffMedicalRecords />} />
+            <Route path="/doctor/schedules" element={<StaffSchedules />} />
             <Route path="/doctor/settings" element={<CustomerSettings />} />
           </Route>
         </Route>

@@ -116,11 +116,17 @@ export default function ManageFinance() {
       );
     }
 
-    const totalRequired = checkout.checkoutTab === 'package' && checkout.calculatedData
-      ? (checkout.dangKyGoi && checkout.loaiThanhToan === 'tung_buoi'
-        ? Number(checkout.calculatedData.so_tien_dot_1)
-        : Number(checkout.calculatedData.tong_tien_thanh_toan))
-      : (checkout.state.hoaDon ? Number(checkout.state.hoaDon.tong_tien_thanh_toan) : 0);
+    const fallbackBasePrice = Number((checkout.selectedPackage as any)?.don_gia || checkout.selectedPackage?.gia_ban || checkout.selectedConsultation?.don_gia_dich_vu || 0);
+
+    const totalRequired = checkout.checkoutTab === 'package'
+      ? (checkout.calculatedData
+        ? (checkout.dangKyGoi && checkout.loaiThanhToan === 'tung_buoi'
+          ? Number(checkout.calculatedData.so_tien_dot_1 || 0)
+          : Number(checkout.calculatedData.tong_tien_thanh_toan || 0))
+        : (checkout.dangKyGoi && checkout.loaiThanhToan === 'tung_buoi'
+          ? 0
+          : fallbackBasePrice))
+      : (checkout.state.hoaDon ? Number(checkout.state.hoaDon.tong_tien_thanh_toan) : fallbackBasePrice);
 
     const received = Number(checkout.state.soTienNhan || 0);
     const isShortage = checkout.state.phuongThuc === 'tien_mat' && totalRequired > 0 && received > 0 && received < totalRequired;
@@ -189,7 +195,14 @@ export default function ManageFinance() {
                 </div>
 
                 <span className="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-teal-50 text-teal-700 border border-teal-200 dark:bg-teal-950/60 dark:text-teal-300 dark:border-teal-800 shrink-0">
-                  {checkout.selectedConsultation.loai_lich === 'kham_moi' ? 'Lượng giá PHCN' : checkout.selectedConsultation.loai_lich === 'tai_kham' ? 'Lượng giá bổ sung' : 'Trị liệu phác đồ'}
+                  {(() => {
+                    const loaiLich = String(checkout.selectedConsultation.loai_lich || '').toUpperCase();
+                    const loaiGoi = String(checkout.selectedConsultation.loai_goi || checkout.selectedPackage?.loai_goi || '').toUpperCase();
+                    if (loaiLich === 'KHAM_MOI' || loaiLich === 'KHAM') return 'Lượng giá PHCN';
+                    if (loaiLich === 'TAI_KHAM') return 'Lượng giá bổ sung';
+                    if (loaiLich.includes('LE') || loaiLich === 'DICH_VU_LE' || loaiLich === 'DICH_VU_DON' || loaiGoi === 'LE') return 'Dịch vụ lẻ';
+                    return 'Trị liệu phác đồ';
+                  })()}
                 </span>
               </div>
             ) : (
@@ -294,6 +307,8 @@ export default function ManageFinance() {
                     checkout.calculatedData?.gia_goc ||
                     (checkout.selectedPackage as any)?.don_gia ||
                     checkout.selectedPackage?.gia_goi ||
+                    checkout.selectedConsultation?.don_gia_dich_vu ||
+                    checkout.packages.find((p: any) => p.loai_goi === 'KHAM')?.don_gia ||
                     0
                   )}
                   loaiThanhToan={checkout.dangKyGoi ? checkout.loaiThanhToan : 'tra_thang'}
@@ -408,7 +423,7 @@ export default function ManageFinance() {
               )}
 
               <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <label htmlFor="feedbackLyDo" className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Ghi chú nội bộ phòng khám</label>
+                <label htmlFor="feedbackLyDo" className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Ghi chú nội bộ</label>
                 <textarea 
                   id="feedbackLyDo"
                   placeholder="Ghi nhận phản hồi hoặc lưu ý thu ngân..."
@@ -459,8 +474,8 @@ export default function ManageFinance() {
             checkout.checkoutTab === 'package'
               ? (checkout.dangKyGoi
                 ? (checkout.selectedPackage?.ten_goi || 'Gói trị liệu')
-                : (checkout.calculatedData?.ten_item || 'Phí khám'))
-              : (checkout.state.hoaDon?.ten_dich_vu || 'Phí khám/Buổi trị liệu')
+                : (checkout.calculatedData?.ten_item || 'Phí lượng giá'))
+              : (checkout.state.hoaDon?.ten_dich_vu || 'Phí lượng giá/Buổi trị liệu')
           }
           totalAmount={totalRequired}
           paymentMethod={checkout.state.phuongThuc}

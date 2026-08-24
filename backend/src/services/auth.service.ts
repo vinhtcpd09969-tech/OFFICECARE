@@ -1,8 +1,9 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import authRepository from '../repositories/auth.repository';
+import authRepository from '../repositories/auth';
 import { sendOTP, sendForgotPasswordOTP } from '../utils/mailer';
 import prisma from '../config/prisma';
+import { AppError, BadRequestError, UnauthorizedError, ForbiddenError, NotFoundError } from '../utils/appError';
 
 class AuthService {
   private generateAccessToken(user: any) {
@@ -25,7 +26,7 @@ class AuthService {
     // 1. Check if email already exists
     const existingUser = await authRepository.findUserByEmail(data.email);
     if (existingUser) {
-      throw new Error('Email đã được đăng ký sử dụng');
+      throw new BadRequestError('Email đã được đăng ký sử dụng');
     }
 
     // Check if phone number already exists
@@ -33,7 +34,7 @@ class AuthService {
       const phoneExistsCustomer = await prisma.khach_hang.findFirst({ where: { so_dien_thoai: data.so_dien_thoai } });
       const phoneExistsUser = await prisma.nguoi_dung.findFirst({ where: { so_dien_thoai: data.so_dien_thoai } });
       if (phoneExistsCustomer || phoneExistsUser) {
-        throw new Error('Số điện thoại này đã được sử dụng');
+        throw new BadRequestError('Số điện thoại này đã được sử dụng');
       }
     }
 
@@ -73,26 +74,23 @@ class AuthService {
 
   async login(data: any) {
     const user = await authRepository.findUserByEmail(data.email);
-    if (!user) throw new Error('Email hoặc mật khẩu không chính xác');
+    if (!user) throw new UnauthorizedError('Email hoặc mật khẩu không chính xác');
 
     if (user.trang_thai !== 'hoat_dong' && user.trang_thai !== 'cho_kich_hoat') {
-      throw new Error('Tài khoản đã bị khóa hoặc vô hiệu hóa');
+      throw new ForbiddenError('Tài khoản đã bị khóa hoặc vô hiệu hóa');
     }
 
     const isVerified = (user as any).trang_thai !== 'cho_kich_hoat';
     if (!isVerified) {
-      const error = new Error('Tài khoản chưa được xác thực email') as any;
-      error.requiresVerification = true;
-      error.email = user.email;
-      throw error;
+      throw new ForbiddenError('Tài khoản chưa được xác thực email', { requiresVerification: true, email: user.email });
     }
 
     if (!user.mat_khau_hash) {
-      throw new Error('Email hoặc mật khẩu không chính xác');
+      throw new UnauthorizedError('Email hoặc mật khẩu không chính xác');
     }
 
     const isMatch = await bcrypt.compare(data.password, user.mat_khau_hash);
-    if (!isMatch) throw new Error('Email hoặc mật khẩu không chính xác');
+    if (!isMatch) throw new UnauthorizedError('Email hoặc mật khẩu không chính xác');
 
     const accessToken = this.generateAccessToken(user);
     const refreshToken = this.generateRefreshToken(user);

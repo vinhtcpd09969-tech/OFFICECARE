@@ -96,7 +96,7 @@ export const BookingPaymentSection: React.FC<BookingPaymentSectionProps> = ({
             <div>
               <div className="text-xs font-black">Thanh toán tại quầy</div>
               <div className="text-[10px] text-slate-500 font-medium">
-                {buoiAvailability?.buoc_thanh_toan_online ? 'Khóa do dính 2 lần No-show' : 'Thanh toán khi tới phòng khám (Chưa thanh toán)'}
+                {buoiAvailability?.buoc_thanh_toan_online ? 'Khóa do dính 2 lần No-show' : 'Thanh toán khi tới trung tâm (Chưa thanh toán)'}
               </div>
             </div>
           </button>
@@ -192,7 +192,7 @@ export const BookingPaymentSection: React.FC<BookingPaymentSectionProps> = ({
                     <QrCode size={20} className="text-teal-200 animate-pulse shrink-0" />
                     <div className="text-left">
                       <h4 className="text-xs font-black uppercase tracking-wider leading-none">CỔNG THANH TOÁN VIETQR PAYOS</h4>
-                      <p className="text-[10px] text-teal-100 font-bold mt-0.5">Tự động nhận tiền &amp; xác nhận lượt khám y tế tức thì</p>
+                      <p className="text-[10px] text-teal-100 font-bold mt-0.5">Tự động nhận tiền &amp; xác nhận lịch hẹn y tế tức thì</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">

@@ -5,7 +5,7 @@ import { Appointment, Staff } from '../../types';
 const BUOI_LABEL: Record<string, string> = { sang: 'Sáng', chieu: 'Chiều' };
 const BUOI_WINDOW: Record<'sang' | 'chieu', { start: number; end: number }> = {
   sang: { start: 7 * 60 + 30, end: 12 * 60 },
-  chieu: { start: 12 * 60, end: 19 * 60 + 30 },
+  chieu: { start: 12 * 60, end: 20 * 60 },
 };
 
 function minutesOfDay(d: Date): number {
@@ -60,8 +60,7 @@ export function useSucKhoeCa(
         const shiftEnd = eh * 60 + em;
         const from = isToday ? Math.max(nowMins, shiftStart, win.start) : Math.max(shiftStart, win.start);
         const to = Math.min(shiftEnd, win.end);
-        const parallelMultiplier = Number((staff as any)?.so_khach_song_song) || (isRoleMatch(staff, sch, 'ktv') ? 2 : 1);
-        total += Math.max(0, (to - from) * parallelMultiplier);
+        total += Math.max(0, to - from);
       });
       return total;
     };

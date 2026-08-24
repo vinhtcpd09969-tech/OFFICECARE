@@ -43,7 +43,7 @@ export function getReceptionistActionOptions(
   }
   if (currentStatus === 'cho_tai_luong_gia') {
     return [
-      { value: 'da_checkin', label: 'Check-in tái khám' },
+      { value: 'da_checkin', label: 'Check-in tái lượng giá' },
       { value: 'da_huy', label: 'Hủy' },
     ];
   }

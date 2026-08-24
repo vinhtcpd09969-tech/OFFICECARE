@@ -146,7 +146,7 @@ model cuoc_hen {
   ngay_gio_bat_dau      DateTime               @db.Timestamptz(6)
   ngay_gio_ket_thuc     DateTime               @db.Timestamptz(6)
   loai                  String                 @db.VarChar(20)
-  trang_thai            String                 @default("cho_xac_nhan") @db.VarChar(20)
+  trang_thai            String                 @default("da_xac_nhan") @db.VarChar(20)
   ghi_chu_khach_hang    String?
   phong_id              Int?
   // Ghi chú nội bộ dùng chung — cũng là nơi lưu lý do hủy (khách tự hủy hoặc Lễ tân hủy giúp),

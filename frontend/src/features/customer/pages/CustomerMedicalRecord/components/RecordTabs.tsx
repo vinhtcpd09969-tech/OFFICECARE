@@ -36,7 +36,7 @@ export function RecordTabs({ activeTab, goiCount, leCount, khamCount, onChange }
 
       <button type="button" onClick={() => onChange('kham')} className={tabClass('kham')}>
         <FileText size={15} className={activeTab === 'kham' ? 'text-[#0D9488]' : 'text-slate-400'} />
-        <span>Khám lâm sàng</span>
+        <span>Lượng giá chức năng</span>
         <span className={`px-2 py-0.5 rounded-full text-[10px] font-black tabular-nums ${activeTab === 'kham' ? 'bg-[#0D9488]/10 text-[#0D9488]' : 'bg-slate-200/70 text-slate-600'}`}>
           {khamCount}
         </span>

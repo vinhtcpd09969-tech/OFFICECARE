@@ -84,7 +84,7 @@ export function DetailHeader({
           <label className="text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest block">Chi tiết dịch vụ</label>
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
             <span className="text-xs font-black text-slate-800 dark:text-zinc-200 leading-relaxed">
-              {tenDichVu || 'Khám lâm sàng & Lượng giá chức năng'}
+              {tenDichVu || 'Lượng giá Chức năng PHCN'}
             </span>
             {isPackageSession && (
               <span className="inline-flex items-center text-[10px] font-black text-[#0d766e] dark:text-emerald-400 bg-teal-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-lg border border-teal-200/50">

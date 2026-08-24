@@ -318,7 +318,7 @@ export default function ConditionsTreated() {
                 className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-black text-xs shadow-lg shadow-teal-600/20 transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-95"
               >
                 <Calendar size={15} />
-                Đặt Lịch Khám &amp; Tư Vấn Ngay
+                Đặt Lịch Lượng Giá &amp; Tư Vấn Ngay
               </button>
             </div>
           </div>

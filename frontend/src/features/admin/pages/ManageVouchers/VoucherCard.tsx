@@ -16,7 +16,6 @@ export interface Voucher {
   dang_kich_hoat?: boolean;
   yeu_cau_thanh_toan: string[];
   tu_dong_ap_dung?: boolean;
-  kenh_ap_dung?: string[];
   loai_goi_ap_dung?: string[];
 }
 
@@ -113,12 +112,6 @@ export function VoucherCard({
               {v.tu_dong_ap_dung && (
                 <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-xl border bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800 flex items-center gap-1">
                   ✨ Tự động trừ tiền
-                </span>
-              )}
-
-              {v.kenh_ap_dung && !v.kenh_ap_dung.includes('tat_ca') && (
-                <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-xl border bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-950/40 dark:text-cyan-300 dark:border-cyan-800">
-                  Kênh: {v.kenh_ap_dung.map(k => k === 'online' ? 'Web' : k === 'tai_quay' ? 'Tại quầy' : k).join(', ')}
                 </span>
               )}
 

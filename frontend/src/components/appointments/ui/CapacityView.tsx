@@ -110,28 +110,15 @@ export function CapacityView({
       activeRoomsCount: activeRooms.length,
       activeDocsCount: activeDocs.length,
       activeDocsList: Array.from(new Set(activeDocs.map(id => {
-        const aptWithDoc = dayApts.find(apt => apt.bac_si_id === id);
-        if (aptWithDoc?.ten_ky_thuat_vien) {
-          const fullName = aptWithDoc.ten_ky_thuat_vien;
-          const prefix = activeType === 'kham' ? 'BS. ' : 'KTV. ';
-          const parts = fullName.trim().split(' ');
-          const lastName = parts[parts.length - 1];
-          return `${prefix}${lastName}`;
-        }
-        if (aptWithDoc?.ten_bac_si) {
-          const fullName = aptWithDoc.ten_bac_si;
-          const prefix = activeType === 'kham' ? 'BS. ' : 'KTV. ';
-          const parts = fullName.trim().split(' ');
-          const lastName = parts[parts.length - 1];
-          return `${prefix}${lastName}`;
-        }
+        const staffObj = staffList?.find(s => s.id === id || s.nhan_su_id === id);
+        const aptWithDoc = dayApts.find(apt => apt.bac_si_id === id || apt.nhan_su_id === id || apt.ky_thuat_vien_id === id);
+        const fullName = staffObj?.ho_ten || staffObj?.ten || aptWithDoc?.ten_ky_thuat_vien || aptWithDoc?.ten_bac_si || aptWithDoc?.ten_nhan_su || aptWithDoc?.ho_ten_nhan_su;
         const prefix = activeType === 'kham' ? 'BS. ' : 'KTV. ';
-        if (id === 'doc_1' || id === '20000000-0000-0000-0000-000000000005') return `${prefix}Khoa`;
-        if (id === 'doc_2' || id === '20000000-0000-0000-0000-000000000006') return `${prefix}Lan Anh`;
-        if (id === 'doc_3' || id === '20000000-0000-0000-0000-000000000007') return `${prefix}Hưng`;
-        if (id === 'doc_4' || id === '20000000-0000-0000-0000-000000000008') return `${prefix}Minh`;
-        if (id === 'ktv_1' || id === '20000000-0000-0000-0000-000000000009') return `${prefix}Tuấn`;
-        if (id === 'ktv_2' || id === '20000000-0000-0000-0000-000000000010') return `${prefix}Trang`;
+        if (fullName) {
+          const parts = fullName.trim().split(' ');
+          const lastName = parts[parts.length - 1];
+          return `${prefix}${lastName}`;
+        }
         return `${prefix}Nhân viên`;
       })))
     };

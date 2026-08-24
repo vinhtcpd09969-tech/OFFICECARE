@@ -1,6 +1,6 @@
 import React from 'react';
 import { ShieldCheck, X } from 'lucide-react';
-import { TERMS_OF_SERVICE, TermsSection } from '../../../../../legal/termsContent';
+import { TERMS_OF_SERVICE, TermsSection } from '@/constants/termsContent';
 
 interface BookingTermsModalProps {
   isOpen: boolean;
@@ -54,7 +54,7 @@ export const BookingTermsModal: React.FC<BookingTermsModalProps> = ({
             <p>1. Hồ sơ y tế điều trị gắn liền với tài khoản cá nhân, không thể đặt giùm hoặc chuyển nhượng.</p>
             <p>2. Khách hàng vui lòng đến đúng khung giờ của buổi đã đăng ký (Buổi Sáng: 7h30–12h00, Buổi Chiều: 12h00–20h00).</p>
             <p>3. Trong trường hợp có từ 2 lần vắng mặt không báo trước (No-show), hệ thống sẽ yêu cầu thanh toán trực tuyến trước khi đặt lịch lần sau.</p>
-            <p>4. Mọi chính sách bảo lưu và hoàn trả thực hiện theo đúng quy định điều khoản dịch vụ của phòng khám OfficeCare.</p>
+            <p>4. Mọi chính sách bảo lưu và hoàn trả thực hiện theo đúng quy định điều khoản dịch vụ của Trung tâm PHCN OfficeCare.</p>
           </div>
 
           <div className="space-y-4">

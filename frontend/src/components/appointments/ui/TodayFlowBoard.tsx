@@ -1,4 +1,5 @@
 import { useMemo, useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Clock3,
   CheckCircle2,
@@ -73,7 +74,31 @@ export function TodayFlowBoard({
   filterBar,
 }: TodayFlowBoardProps) {
   const user = useAuthStore((state) => state.user);
+  const navigate = useNavigate();
+  const billingRoute = user?.vai_tro_id === 2 ? '/receptionist/billing' : '/admin/quick-billing';
   const [activeTab, setActiveTab] = useState<'chua_den' | 'dang_cho' | 'dang_lam' | 'xong' | 'cho_tai_luong_gia' | 'ngoai_le'>('chua_den');
+  const [pendingPayment, setPendingPayment] = useState<Appointment | null>(null);
+
+  // Tự động chuyển đến đúng tab của ca hẹn đang được focus (từ mascot hoặc link thông báo)
+  useEffect(() => {
+    if (!focusAppointmentId) return;
+    const targetApt = appointments.find((a) => String(a.id) === String(focusAppointmentId));
+    if (!targetApt) return;
+
+    if (targetApt.trang_thai === 'da_checkin') {
+      setActiveTab('dang_cho');
+    } else if (targetApt.trang_thai === 'dang_kham') {
+      setActiveTab('dang_lam');
+    } else if (targetApt.trang_thai === 'cho_tai_luong_gia') {
+      setActiveTab('cho_tai_luong_gia');
+    } else if (targetApt.trang_thai === 'hoan_thanh') {
+      setActiveTab('xong');
+    } else if (['da_huy', 'da_huy_phat', 'khong_den', 'khach_khong_den', 'khach_khong_den_phat'].includes(targetApt.trang_thai)) {
+      setActiveTab('ngoai_le');
+    } else if (targetApt.trang_thai === 'da_xac_nhan') {
+      setActiveTab('chua_den');
+    }
+  }, [focusAppointmentId, appointments]);
 
   const seenCallInKeys = useRef<Set<string>>(new Set());
   const isFirstCallInScan = useRef(true);
@@ -308,7 +333,7 @@ export function TodayFlowBoard({
                       >
                         <div className="uppercase tracking-wider text-[9px] font-black opacity-70 mb-0.5">{r.label}</div>
                         <div className="text-xs font-black">
-                          còn <span className="font-mono">{fmtMinutes(r.capacity)}</span> · cần <span className="font-mono">{fmtMinutes(r.demand)}</span>
+                          công suất <span className="font-mono">{fmtMinutes(r.capacity)}</span> · cần <span className="font-mono">{fmtMinutes(r.demand)}</span>
                         </div>
                         {r.over && <div className="mt-0.5 text-[9.5px] font-extrabold text-rose-600">⚠ Vượt {fmtMinutes(r.demand - r.capacity)}</div>}
                       </div>
@@ -365,6 +390,36 @@ export function TodayFlowBoard({
           setPendingNoShow(null);
         }}
         onCancel={() => setPendingNoShow(null)}
+      />
+
+      <ConfirmDialog
+        isOpen={!!pendingPayment}
+        title="Xác nhận thu tiền & xuất hóa đơn"
+        message={
+          pendingPayment ? (
+            <div className="space-y-2 text-left">
+              <p>
+                Bạn có chắc chắn muốn chuyển sang màn hình thu tiền cho khách hàng{' '}
+                <strong className="text-slate-900 dark:text-zinc-100">
+                  {pendingPayment.ten_khach_hang || pendingPayment.ho_ten_khach}
+                </strong>?
+              </p>
+              <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-955/40 border border-amber-200/80 dark:border-amber-800/60 text-xs font-semibold text-amber-900 dark:text-amber-300">
+                Dịch vụ: <strong>{pendingPayment.ten_dich_vu || 'Lượng giá Chức năng PHCN'}</strong>
+              </div>
+            </div>
+          ) : ''
+        }
+        confirmLabel="Chuyển đến Thu tiền"
+        cancelLabel="Để sau"
+        type="info"
+        onConfirm={() => {
+          if (pendingPayment) {
+            navigate(`${billingRoute}?lich_dat_id=${pendingPayment.id}`);
+          }
+          setPendingPayment(null);
+        }}
+        onCancel={() => setPendingPayment(null)}
       />
 
       {/* OVERTIME CHECK-IN WARNING MODAL FOR 20:00 CLOSING CUTOFF */}
@@ -590,7 +645,7 @@ export function TodayFlowBoard({
               emptyIcon: Clock3,
               iconBg: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
               emptyText: 'Hàng đợi đang trống',
-              emptySubtitle: 'Không có khách hàng nào đang xếp hàng chờ gọi vào phòng khám / lượng giá.'
+              emptySubtitle: 'Không có khách hàng nào đang xếp hàng chờ gọi vào phòng lượng giá / trị liệu.'
             },
             dang_lam: {
               list: groups.dangLam,
@@ -653,6 +708,7 @@ export function TodayFlowBoard({
                     onPushBack={onPushBack}
                     onMarkNoShow={activeTab === 'dang_cho' ? setPendingNoShow : onMarkNoShow}
                     onUnassign={onUnassign}
+                    onPayment={setPendingPayment}
                     focusAppointmentId={focusAppointmentId}
                   />
                 ))}

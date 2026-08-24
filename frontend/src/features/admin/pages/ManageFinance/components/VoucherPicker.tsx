@@ -8,7 +8,9 @@ import { formatVoucherPaymentMethods } from '../../../../../utils/voucherPayment
 export interface VoucherOption {
   id: string;
   ma_voucher: string;
+  ten_khuyen_mai?: string;
   ten_chien_dich?: string;
+  ten_voucher?: string;
   loai_giam: string;
   gia_tri_giam: number;
   giam_toi_da: number | null;
@@ -17,7 +19,6 @@ export interface VoucherOption {
   ngay_het_han: string | null;
   yeu_cau_thanh_toan: string[];
   tu_dong_ap_dung?: boolean;
-  kenh_ap_dung?: string[];
   loai_goi_ap_dung?: string[];
 }
 
@@ -38,36 +39,48 @@ interface VoucherPickerProps {
   availableVouchers?: VoucherOption[];
 }
 
+export const normalizeArrayProp = (val: any): string[] => {
+  if (!val) return [];
+  if (Array.isArray(val)) return val.map(String);
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) return parsed.map(String);
+      } catch {}
+    }
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      return trimmed
+        .slice(1, -1)
+        .split(',')
+        .map((s) => s.trim().replace(/^["']|["']$/g, ''))
+        .filter(Boolean);
+    }
+    return [trimmed];
+  }
+  return [String(val)];
+};
+
 const isPercent = (loaiGiam: string) => loaiGiam === 'phan_tram' || loaiGiam === 'percentage';
 
 export const isVoucherEligible = (
   v: Partial<VoucherOption>,
   orderValue: number,
   loaiThanhToan?: 'tra_thang' | 'tung_buoi',
-  kenh: 'online' | 'tai_quay' = 'tai_quay',
+  _kenh: 'online' | 'tai_quay' = 'tai_quay',
   loaiGoi?: 'KHAM' | 'LE' | 'LIEU_TRINH'
 ) => {
   if (orderValue < Number(v.don_hang_toi_thieu || 0)) return false;
 
-  const yeuCauThanhToan = Array.isArray(v.yeu_cau_thanh_toan)
-    ? v.yeu_cau_thanh_toan
-    : (v.yeu_cau_thanh_toan ? [v.yeu_cau_thanh_toan] : []);
+  const yeuCauThanhToan = normalizeArrayProp(v.yeu_cau_thanh_toan);
   if (yeuCauThanhToan.length > 0 && !yeuCauThanhToan.includes('tat_ca')) {
     if (loaiGoi === 'LIEU_TRINH' && loaiThanhToan && !yeuCauThanhToan.includes(loaiThanhToan)) {
       return false;
     }
   }
 
-  const kenhApDung = Array.isArray(v.kenh_ap_dung)
-    ? v.kenh_ap_dung
-    : (v.kenh_ap_dung ? [v.kenh_ap_dung] : []);
-  if (kenhApDung.length > 0 && !kenhApDung.includes('tat_ca')) {
-    if (kenh && !kenhApDung.includes(kenh)) return false;
-  }
-
-  const loaiGoiApDung = Array.isArray(v.loai_goi_ap_dung)
-    ? v.loai_goi_ap_dung
-    : (v.loai_goi_ap_dung ? [v.loai_goi_ap_dung] : []);
+  const loaiGoiApDung = normalizeArrayProp(v.loai_goi_ap_dung);
   if (loaiGoiApDung.length > 0 && !loaiGoiApDung.includes('tat_ca')) {
     if (loaiGoi && !loaiGoiApDung.includes(loaiGoi)) return false;
   }
@@ -93,16 +106,14 @@ export const getVoucherIneligibleReason = (
   v: Partial<VoucherOption>,
   orderValue: number,
   loaiThanhToan?: 'tra_thang' | 'tung_buoi',
-  kenh: 'online' | 'tai_quay' = 'tai_quay',
+  _kenh: 'online' | 'tai_quay' = 'tai_quay',
   loaiGoi?: 'KHAM' | 'LE' | 'LIEU_TRINH'
 ): string | null => {
   if (orderValue < Number(v.don_hang_toi_thieu || 0)) {
     return `Đơn tối thiểu ${formatCurrency(Number(v.don_hang_toi_thieu))}`;
   }
 
-  const loaiGoiApDung = Array.isArray(v.loai_goi_ap_dung)
-    ? v.loai_goi_ap_dung
-    : (v.loai_goi_ap_dung ? [v.loai_goi_ap_dung] : []);
+  const loaiGoiApDung = normalizeArrayProp(v.loai_goi_ap_dung);
   if (loaiGoiApDung.length > 0 && !loaiGoiApDung.includes('tat_ca')) {
     if (loaiGoi && !loaiGoiApDung.includes(loaiGoi)) {
       const labels = loaiGoiApDung.map(l => l === 'LIEU_TRINH' ? 'Gói liệu trình' : l === 'KHAM' ? 'Lượng giá' : l === 'LE' ? 'Dịch vụ lẻ' : l).join(', ');
@@ -110,21 +121,10 @@ export const getVoucherIneligibleReason = (
     }
   }
 
-  const yeuCauThanhToan = Array.isArray(v.yeu_cau_thanh_toan)
-    ? v.yeu_cau_thanh_toan
-    : (v.yeu_cau_thanh_toan ? [v.yeu_cau_thanh_toan] : []);
+  const yeuCauThanhToan = normalizeArrayProp(v.yeu_cau_thanh_toan);
   if (yeuCauThanhToan.length > 0 && !yeuCauThanhToan.includes('tat_ca')) {
     if (loaiGoi === 'LIEU_TRINH' && loaiThanhToan && !yeuCauThanhToan.includes(loaiThanhToan)) {
       return `Chỉ áp dụng: ${formatVoucherPaymentMethods(yeuCauThanhToan)}`;
-    }
-  }
-
-  const kenhApDung = Array.isArray(v.kenh_ap_dung)
-    ? v.kenh_ap_dung
-    : (v.kenh_ap_dung ? [v.kenh_ap_dung] : []);
-  if (kenhApDung.length > 0 && !kenhApDung.includes('tat_ca')) {
-    if (kenh && !kenhApDung.includes(kenh)) {
-      return `Chỉ áp dụng kênh: ${kenhApDung.join(', ')}`;
     }
   }
 
@@ -189,7 +189,10 @@ export default function VoucherPicker({
     const params = khachHangId ? { khach_hang_id: khachHangId } : {};
     axiosInstance
       .get(endpoint, { params })
-      .then((res) => setVouchers(res.data.vouchers || []))
+      .then((res) => {
+        const list = Array.isArray(res.data) ? res.data : (res.data?.vouchers || []);
+        setVouchers(list);
+      })
       .catch(() => setVouchers([]))
       .finally(() => setLoading(false));
   }, [khachHangId, kenh, availableVouchers]);
@@ -199,6 +202,7 @@ export default function VoucherPicker({
     if (userExplicitlyRemovedRef.current) return;
     if (appliedVoucher) return;
     if (orderValue <= 0) return;
+    if (loading) return;
 
     // Tìm voucher đủ điều kiện CÓ TICK TỰ ĐỘNG ÁP DỤNG và có số tiền giảm cao nhất
     const bestAutoEligible = sortedVouchers.find(
@@ -207,7 +211,7 @@ export default function VoucherPicker({
     if (bestAutoEligible) {
       onApply(bestAutoEligible.ma_voucher, true);
     }
-  }, [sortedVouchers, orderValue, appliedVoucher]);
+  }, [sortedVouchers, orderValue, appliedVoucher, loading]);
 
   // Kiểm tra tính hợp lệ của voucher đang áp khi thay đổi điều kiện đơn hàng (im lặng bỏ chọn để tự chuyển mã phù hợp)
   useEffect(() => {
@@ -305,29 +309,46 @@ export default function VoucherPicker({
       </div>
 
       {/* Đang áp dụng banner nếu có voucher được chọn */}
-      {appliedVoucher && (
-        <div className="relative flex items-center justify-between gap-3 px-4 py-3 bg-emerald-50/90 dark:bg-emerald-955/30 border border-emerald-300 dark:border-emerald-800 rounded-2xl animate-in fade-in duration-200">
-          <div className="flex items-center gap-2.5 min-w-0 pr-6">
-            <Sparkles size={16} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
-            <div className="min-w-0">
-              <p className="text-xs font-black text-emerald-800 dark:text-emerald-300 truncate">
-                Đã áp dụng: <span className="underline decoration-emerald-500">{appliedVoucher.ma_voucher}</span> ({formatDiscount(appliedVoucher)})
-              </p>
-              <p className="text-[10.5px] font-bold text-emerald-600 dark:text-emerald-400">
-                Tiết kiệm được: -{formatCurrency(calculateVoucherDiscount(appliedVoucher, orderValue))}
-              </p>
+      {appliedVoucher && (() => {
+        const matchedVoucher = allVouchers.find((v) => v.ma_voucher?.toUpperCase() === appliedVoucher.ma_voucher?.toUpperCase());
+        const voucherName = appliedVoucher.ten_khuyen_mai || appliedVoucher.ten_chien_dich || matchedVoucher?.ten_khuyen_mai || matchedVoucher?.ten_chien_dich;
+        const discountText = formatDiscount(appliedVoucher || matchedVoucher);
+
+        return (
+          <div className="relative flex items-center justify-between gap-3 px-4 py-3 bg-emerald-50/90 dark:bg-emerald-955/30 border border-emerald-300 dark:border-emerald-800 rounded-2xl animate-in fade-in duration-200">
+            <div className="flex items-center gap-2.5 min-w-0 pr-6">
+              <Sparkles size={16} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs font-black text-emerald-800 dark:text-emerald-300 truncate">
+                  Đã áp dụng:{' '}
+                  {voucherName ? (
+                    <>
+                      <span className="font-bold text-emerald-950 dark:text-emerald-100">{voucherName}</span>{' '}
+                      <span className="text-[11px] font-mono font-black px-1.5 py-0.5 rounded bg-emerald-200/70 dark:bg-emerald-900/70 text-emerald-900 dark:text-emerald-200 border border-emerald-300/70 dark:border-emerald-700/70">
+                        {appliedVoucher.ma_voucher}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="underline decoration-emerald-500">{appliedVoucher.ma_voucher}</span>
+                  )}{' '}
+                  ({discountText})
+                </p>
+                <p className="text-[10.5px] font-bold text-emerald-600 dark:text-emerald-400">
+                  Tiết kiệm được: -{formatCurrency(calculateVoucherDiscount(appliedVoucher, orderValue))}
+                </p>
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={handleRemove}
+              title="Bỏ áp dụng mã"
+              className="absolute top-2.5 right-2.5 p-1 rounded-full text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-all cursor-pointer shrink-0"
+            >
+              <X size={15} />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={handleRemove}
-            title="Bỏ áp dụng mã"
-            className="absolute top-2.5 right-2.5 p-1 rounded-full text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-all cursor-pointer shrink-0"
-          >
-            <X size={15} />
-          </button>
-        </div>
-      )}
+        );
+      })()}
 
       {/* POPUP MODAL: KHO VOUCHER & MÃ GIẢM GIÁ */}
       {modalOpen && (

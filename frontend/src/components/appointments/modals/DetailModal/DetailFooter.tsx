@@ -50,29 +50,8 @@ export function DetailFooter({
   const isCompleted = selectedAppointment.trang_thai === 'hoan_thanh';
 
   return (
-    <div className="pt-5 border-t border-slate-100 dark:border-zinc-800/80 flex flex-wrap items-center justify-between gap-3">
-      {/* KHỐI TRÁI: HIỂN THỊ HÀNH ĐỘNG THANH TOÁN NẾU CÒN NỢ PHÍ KHÁM / DỊCH VỤ LẺ */}
-      {['kham_moi', 'dich_vu_don', 'KHAM', 'DICH_VU_LE'].includes(selectedAppointment.loai_lich) && isCompleted ? (
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          {/* Nút Thanh toán Phí khám nếu chưa thanh toán (Trạng thái Đã thu đã hiện ở Card trên) */}
-          {selectedAppointment.trang_thai_thanh_toan !== 'da_thanh_toan' &&
-           (!selectedAppointment.hoa_don_goi_id ||
-            selectedAppointment.hinh_thuc_thanh_toan_goi !== 'tra_thang') && (
-            <button
-              type="button"
-              onClick={() => {
-                const dest = isReceptionist ? '/receptionist/billing' : '/admin/quick-billing';
-                navigate(`${dest}?lich_dat_id=${selectedAppointment.id}`);
-                onClose();
-              }}
-              className="px-4 py-2 bg-amber-500 hover:bg-amber-600 active:scale-98 text-white shadow-md shadow-amber-500/20 text-xs font-black rounded-xl flex items-center gap-1.5 transition-all cursor-pointer"
-            >
-              <DollarSign size={15} />
-              <span>{selectedAppointment.hoa_don_goi_id ? 'Chờ thanh toán phí khám' : 'Thanh toán phí khám ngay'}</span>
-            </button>
-          )}
-        </div>
-      ) : !hideBilling && ['dieu_tri', 'DIEU_TRI'].includes(selectedAppointment.loai_lich) && isCompleted ? (
+    <div className="px-6 py-4 bg-slate-50/70 dark:bg-zinc-850/80 border-t border-slate-100 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3 shrink-0 select-none">
+      {!hideBilling && ['dieu_tri', 'DIEU_TRI'].includes(selectedAppointment.loai_lich) && isCompleted ? (
         <div className="flex items-center gap-2 flex-1">
           {(() => {
             const isRetail = selectedAppointment.loai_goi === 'LE';

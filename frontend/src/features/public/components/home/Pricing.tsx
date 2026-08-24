@@ -73,7 +73,7 @@ export default function Pricing() {
                 </div>
                 <ul className="space-y-4 mb-8 font-jakarta text-xs md:text-sm text-slate-600 font-semibold">
                   <li className="flex items-start gap-3 text-left">
-                    <CheckCircle2 size={16} className="text-[#25A89C] shrink-0 mt-0.5" /> 6 buổi Khám cơ xương khớp chuyên sâu
+                    <CheckCircle2 size={16} className="text-[#25A89C] shrink-0 mt-0.5" /> 6 buổi Lượng giá cơ xương khớp chuyên sâu
                   </li>
                   <li className="flex items-start gap-3 text-left">
                     <CheckCircle2 size={16} className="text-[#25A89C] shrink-0 mt-0.5" /> 6 buổi Siêu âm & điện xung trị liệu sâu
@@ -111,7 +111,7 @@ export default function Pricing() {
                 </div>
                 <ul className="space-y-4 mb-8 font-jakarta text-xs md:text-sm text-slate-600 font-semibold">
                   <li className="flex items-start gap-3 text-left">
-                    <CheckCircle2 size={16} className="text-primary shrink-0 mt-0.5" /> 12 buổi Khám lượng giá cột sống định kỳ
+                    <CheckCircle2 size={16} className="text-primary shrink-0 mt-0.5" /> 12 buổi Lượng giá cột sống định kỳ
                   </li>
                   <li className="flex items-start gap-3 text-left">
                     <CheckCircle2 size={16} className="text-primary shrink-0 mt-0.5" /> 12 buổi Điện xung giảm co cứng nhóm cơ sâu

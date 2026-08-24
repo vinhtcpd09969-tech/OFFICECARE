@@ -12,6 +12,7 @@ import {
   rateAppointment,
 } from '../../../api/customer.api';
 import toast from 'react-hot-toast';
+import { censorText } from '../../../../../utils/profanity';
 
 export const QUICK_FEEDBACK_TAGS = [
   'Chuyên viên nhiệt tình',
@@ -219,7 +220,7 @@ export function ReviewCard({
       ) : (
         <div className="space-y-3">
           <p className="text-xs sm:text-sm text-slate-700 dark:text-zinc-300 leading-relaxed font-medium bg-slate-50/60 dark:bg-zinc-800/40 p-4 rounded-2xl border border-slate-100 dark:border-zinc-800/60">
-            "{comment || 'Khách hàng không để lại nhận xét chi tiết.'}"
+            "{censorText(comment) || 'Khách hàng không để lại nhận xét chi tiết.'}"
           </p>
 
           {reply && (

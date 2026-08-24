@@ -148,7 +148,7 @@ export function PatientHeaderBanner({ patient, onBack, isKtvMode = false }: Pati
             </div>
             <div>
               <span className="text-[10px] font-black text-slate-400 dark:text-zinc-400 uppercase tracking-wider block mb-0.5">
-                Lý do đến khám (Khách hàng mô tả):
+                Lý do đến lượng giá / trị liệu (Khách hàng mô tả):
               </span>
               <p className="font-bold text-slate-800 dark:text-zinc-100 leading-relaxed">
                 {patient.ly_do_kham || 'Lập lịch nhanh tại quầy lễ tân'}

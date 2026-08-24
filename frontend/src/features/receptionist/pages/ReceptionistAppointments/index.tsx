@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 
 import { AppointmentDetailModal, WalkInBookingModal } from '../../../../components/appointments';
 import { pushBackAppointment } from '../../../admin/api/admin.api';
+import { ConfirmDialog } from '../../../../components/ConfirmDialog';
 
 // Import Shared Hooks & UI
 import { useAppointmentsData } from '../../../../components/appointments/hooks/useAppointmentsData';
@@ -68,6 +69,7 @@ export default function ReceptionistAppointments() {
   // Lễ tân được lọc xem theo nhân sự giống Admin (chỉ không có quyền phân bổ/đổi nhân sự cho lịch).
   const [selectedStaffFilter, setSelectedStaffFilter] = useState<string | null>(null);
   const [isWorkloadModalOpen, setIsWorkloadModalOpen] = useState(false);
+  const [pendingUnassignApt, setPendingUnassignApt] = useState<any | null>(null);
 
   const handleSelectDateRange = (start: Date, end: Date) => {
     setStartDate(start);
@@ -399,21 +401,21 @@ export default function ReceptionistAppointments() {
   };
 
   // Giải phóng chỉ định đích danh, chuyển về Hàng đợi chung
-  const handleUnassignStaff = async (apt: any) => {
-    const customerName = apt.ten_khach_hang || apt.ho_ten_khach || apt.ho_ten || 'khách hàng';
-    const staffName = apt.bac_si_ten || apt.ten_bac_si || apt.ten_nhan_su || 'nhân sự';
+  const handleUnassignStaff = (apt: any) => {
+    setPendingUnassignApt(apt);
+  };
 
-    const confirmed = window.confirm(
-      `⚠️ XÁC NHẬN CHUYỂN HÀNG CHỜ:\n\nBạn có chắc chắn muốn chuyển cuộc hẹn của khách hàng "${customerName}" từ ca của ${staffName} về HÀNG CHỜ CHUNG không?\n\n(Sau khi chuyển, bất kỳ nhân sự nào rảnh bàn sẽ chủ động bấm เรียก/Gọi vào).`
-    );
-    if (!confirmed) return;
-
+  const handleConfirmUnassign = async () => {
+    if (!pendingUnassignApt) return;
+    const customerName = pendingUnassignApt.ten_khach_hang || pendingUnassignApt.ho_ten_khach || pendingUnassignApt.ho_ten || 'khách hàng';
     try {
-      await unassignAppointmentStaff(String(apt.id));
+      await unassignAppointmentStaff(String(pendingUnassignApt.id));
       toast.success(`🎉 Đã chuyển ${customerName} về Hàng chờ chung thành công!`);
       await refetch();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Không thể giải phóng chỉ định nhân sự.');
+    } finally {
+      setPendingUnassignApt(null);
     }
   };
 
@@ -505,7 +507,7 @@ export default function ReceptionistAppointments() {
               {selectedStaffFilter && (
                 <div className="mb-4">
                   <ActiveFilterChip
-                    label={`Lịch ${activeType === 'kham' ? 'Bác sĩ' : 'Kỹ thuật viên'}: ${staffList.find(s => String(s.id) === String(selectedStaffFilter))?.ho_ten || 'Chuyên gia'}`}
+                    label={`Lịch ${activeType === 'kham' ? 'Chuyên viên tư vấn' : 'Kỹ thuật viên'}: ${staffList.find(s => String(s.id) === String(selectedStaffFilter))?.ho_ten || 'Chuyên gia'}`}
                     onClear={() => setSelectedStaffFilter(null)}
                   />
                 </div>
@@ -662,6 +664,32 @@ export default function ReceptionistAppointments() {
         isOpen={isWorkloadModalOpen}
         onClose={() => setIsWorkloadModalOpen(false)}
         dateStr={format(startDate, 'yyyy-MM-dd')}
+      />
+
+      <ConfirmDialog
+        isOpen={!!pendingUnassignApt}
+        title="Xác nhận chuyển Hàng chờ chung"
+        message={
+          pendingUnassignApt ? (
+            <div className="space-y-2 text-left">
+              <p>
+                Bạn có chắc chắn muốn chuyển cuộc hẹn của khách hàng{' '}
+                <strong className="text-slate-900 dark:text-zinc-100">
+                  {pendingUnassignApt.ten_khach_hang || pendingUnassignApt.ho_ten_khach || 'khách hàng'}
+                </strong>{' '}
+                từ ca của <strong>{pendingUnassignApt.bac_si_ten || pendingUnassignApt.ten_bac_si || pendingUnassignApt.ten_nhan_su || 'nhân sự'}</strong> về <strong>HÀNG CHỜ CHUNG</strong> không?
+              </p>
+              <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-955/40 border border-amber-200/80 dark:border-amber-800/60 text-xs font-semibold text-amber-900 dark:text-amber-300">
+                Sau khi chuyển, bất kỳ nhân sự nào rảnh bàn sẽ chủ động bấm Gọi vào để tiếp nhận.
+              </div>
+            </div>
+          ) : ''
+        }
+        confirmLabel="Chuyển về Hàng chờ chung"
+        cancelLabel="Hủy"
+        type="warning"
+        onConfirm={handleConfirmUnassign}
+        onCancel={() => setPendingUnassignApt(null)}
       />
     </div>
   );

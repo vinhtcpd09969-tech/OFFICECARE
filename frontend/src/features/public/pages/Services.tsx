@@ -21,7 +21,7 @@ interface UnifiedService {
 
 const TAB_OPTIONS: { key: 'ALL' | 'KHAM' | 'LE' | 'LIEU_TRINH'; label: string; icon: typeof Stethoscope }[] = [
   { key: 'ALL', label: 'Tất Cả', icon: Activity },
-  { key: 'KHAM', label: 'Khám Lâm Sàng', icon: Stethoscope },
+  { key: 'KHAM', label: 'Lượng Giá Chức Năng', icon: Stethoscope },
   { key: 'LE', label: 'Trị Liệu Đơn Buổi', icon: Zap },
   { key: 'LIEU_TRINH', label: 'Liệu Trình Chuyên Sâu', icon: ShieldCheck },
 ];
@@ -29,8 +29,8 @@ const TAB_OPTIONS: { key: 'ALL' | 'KHAM' | 'LE' | 'LIEU_TRINH'; label: string; i
 const TREATMENT_STEPS = [
   {
     step: '01',
-    title: 'Khám & Lượng Giá',
-    desc: 'Bác sĩ chuyên khoa khám lâm sàng, đánh giá tầm vận động khớp và thực hiện siêu âm chẩn đoán để định vị chính xác vùng cơ xương khớp tổn thương.'
+    title: 'Lượng Giá Chức Năng',
+    desc: 'Chuyên viên PHCN lượng giá chức năng, đánh giá tầm vận động khớp (ROM), cơ lực (MMT) và thang đau VAS để định vị chính xác vùng cơ xương khớp tổn thương.'
   },
   {
     step: '02',
@@ -74,11 +74,11 @@ const MEDICAL_TECHS = [
 const MEDICAL_FAQS = [
   {
     q: 'Tần suất thực hiện trị liệu vật lý là bao nhiêu lần một tuần?',
-    a: 'Tùy thuộc vào tình trạng cấp tính hay mãn tính, bác sĩ sẽ chỉ định tần suất phù hợp. Thông thường từ 2 - 3 buổi/tuần để đảm bảo cơ thể có thời gian phục hồi và đáp ứng tốt với các kích thích vật lý.'
+    a: 'Tùy thuộc vào tình trạng cấp tính hay mãn tính, chuyên viên tư vấn sẽ chỉ định tần suất phù hợp. Thông thường từ 2 - 3 buổi/tuần để đảm bảo cơ thể có thời gian phục hồi và đáp ứng tốt với các kích thích vật lý.'
   },
   {
-    q: 'Tôi có cần đặt lịch khám trước khi làm liệu trình chuyên sâu không?',
-    a: 'Có. Để đảm bảo an toàn và đạt hiệu quả tối ưu, khách hàng bắt buộc phải được lượng giá lâm sàng và siêu âm chẩn đoán bởi Bác sĩ chuyên khoa trước khi bắt đầu bất kỳ liệu trình chuyên sâu nào.'
+    q: 'Tôi có cần đặt lịch lượng giá trước khi làm liệu trình chuyên sâu không?',
+    a: 'Có. Để đảm bảo an toàn và đạt hiệu quả tối ưu, khách hàng bắt buộc phải được lượng giá chức năng bởi Chuyên viên PHCN trước khi bắt đầu bất kỳ liệu trình chuyên sâu nào.'
   },
   {
     q: 'Trị liệu bằng sóng xung kích hay laser công suất cao có đau không?',
@@ -131,7 +131,7 @@ export default function ServicesPage() {
           id: p.id.toString(),
           ten_goi: p.ten_goi,
           ma_goi: p.ma_goi || 'LIEU_TRINH',
-          mo_ta: p.quy_trinh || p.muc_tieu || 'Lộ trình phục hồi toàn diện cá nhân hóa theo phác đồ bác sĩ.',
+          mo_ta: p.quy_trinh || p.muc_tieu || 'Lộ trình phục hồi toàn diện cá nhân hóa theo phác đồ chuyên viên tư vấn.',
           quy_trinh: p.quy_trinh,
           muc_tieu: p.muc_tieu,
           tong_so_buoi: p.tong_so_buoi,
@@ -297,7 +297,7 @@ export default function ServicesPage() {
 
                     {/* Service Category Tag */}
                     <span className="text-[9.5px] font-bold tracking-wider text-[#0D9488] mb-1 block">
-                      {item.loai_goi === 'KHAM' ? 'Khám chuyên khoa' : item.loai_goi === 'LE' ? 'Trị liệu đơn' : 'Liệu trình phục hồi'}
+                      {item.loai_goi === 'KHAM' ? 'Lượng giá chuyên sâu' : item.loai_goi === 'LE' ? 'Trị liệu đơn' : 'Liệu trình phục hồi'}
                     </span>
 
                     {/* Title */}
@@ -447,7 +447,7 @@ export default function ServicesPage() {
               Giải Đáp Thắc Mắc Thường Gặp
             </h2>
             <p className="text-slate-600 font-medium text-xs sm:text-sm leading-relaxed">
-              Các câu hỏi đáp nhanh từ bác sĩ chuyên khoa giúp quý khách hiểu rõ hơn về lộ trình trị liệu cơ xương khớp.
+              Các câu hỏi đáp nhanh từ chuyên viên tư vấn giúp quý khách hiểu rõ hơn về lộ trình trị liệu cơ xương khớp.
             </p>
           </div>
 
@@ -482,9 +482,9 @@ export default function ServicesPage() {
               <div className="w-14 h-14 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto border border-amber-100">
                 <AlertTriangle size={28} />
               </div>
-              <h3 className="text-xl font-heading font-bold text-slate-800 tracking-normal">Yêu cầu chỉ định thăm khám</h3>
+              <h3 className="text-xl font-heading font-bold text-slate-800 tracking-normal">Yêu cầu chỉ định lượng giá</h3>
               <p className="text-xs text-slate-500 font-semibold leading-relaxed">
-                Gói liệu trình chuyên sâu cần có chỉ định thăm khám lâm sàng từ Bác sĩ chuyên khoa trước khi thực hiện để đảm bảo an toàn & hiệu quả điều trị.
+                Gói liệu trình chuyên sâu cần có chỉ định lượng giá chức năng từ Chuyên viên PHCN trước khi thực hiện để đảm bảo an toàn & hiệu quả điều trị.
               </p>
             </div>
 
@@ -497,7 +497,7 @@ export default function ServicesPage() {
                 }}
                 className="bg-primary hover:bg-[#25A89C] text-white font-extrabold text-xs uppercase tracking-wider py-3.5 rounded-xl shadow-sm transition-all cursor-pointer"
               >
-                Tiếp tục đặt lịch khám
+                Tiếp tục đặt lịch lượng giá
               </button>
               <button
                 type="button"

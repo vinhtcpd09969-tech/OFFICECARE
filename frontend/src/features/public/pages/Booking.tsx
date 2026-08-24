@@ -142,17 +142,23 @@ export default function Booking() {
 
   // Fetch active vouchers for Client Online booking
   useEffect(() => {
-    fetch(`${BASE_URL}/client/vouchers/active`)
+    const url = user?.id 
+      ? `${BASE_URL}/client/vouchers/active?khach_hang_id=${user.id}` 
+      : `${BASE_URL}/client/vouchers/active`;
+    fetch(url)
       .then(res => res.json())
       .then(data => {
         const list = data.vouchers || [];
         setActiveVouchers(list);
       })
       .catch(err => console.error('Lỗi tải voucher client:', err));
-  }, []);
+  }, [user?.id]);
 
   // Price calculations
-  const rawPrice = selectedService ? Number(selectedService.don_gia) : (bookingType === 'kham' ? 200000 : 0);
+  const examService = services.find(s => s.loai_goi === 'KHAM' || s.loai_dich_vu === 'KHAM');
+  const rawPrice = selectedService 
+    ? Number(selectedService.don_gia) 
+    : (bookingType === 'kham' ? Number(examService?.don_gia || 0) : 0);
 
   const handleApplyVoucher = async (code: string, isSilent = false) => {
     const matched = activeVouchers.find((v: any) => v.ma_voucher?.toUpperCase() === code.trim().toUpperCase());
@@ -303,7 +309,7 @@ export default function Booking() {
 
     if (bookingType === 'kham') {
       if (!symptomTrimmed) {
-        toast.error('Vui lòng nhập lý do khám / triệu chứng!');
+        toast.error('Vui lòng nhập lý do đến lượng giá / triệu chứng!');
         return false;
       }
     }
@@ -368,10 +374,10 @@ export default function Booking() {
   const executeBookingCreation = async (method: 'payos' | 'tai_quay') => {
     if (isSubmitting) return;
     if (!selectedBuoi || (selectedBuoi !== 'sang' && selectedBuoi !== 'chieu')) {
-      toast.error('Vui lòng chọn buổi khám (Buổi Sáng hoặc Buổi Chiều) trước khi hoàn tất đặt lịch.');
+      toast.error('Vui lòng chọn buổi (Buổi Sáng hoặc Buổi Chiều) trước khi hoàn tất đặt lịch.');
       return;
     }
-    const toastId = toast.loading(method === 'payos' ? 'Đang tự động kích hoạt lượt khám...' : 'Đang gửi đăng ký lượt khám...');
+    const toastId = toast.loading(method === 'payos' ? 'Đang tự động kích hoạt lịch hẹn...' : 'Đang gửi đăng ký lịch hẹn...');
     setSubmitting(true);
 
     try {
@@ -392,7 +398,7 @@ export default function Booking() {
           nhan_su_id: selectedStaffId ? parseInt(selectedStaffId, 10) : null,
           goi_dich_vu_id: targetDichVuId,
           trieu_chung: bookingType === 'dich_vu' ? `Đặt lịch gói lẻ: ${selectedService?.ten_dich_vu || 'Dịch vụ lẻ PHCN'}` : formData.trieu_chung,
-          ly_do_kham: bookingType === 'dich_vu' ? `Trị liệu lẻ: ${selectedService?.ten_dich_vu || 'Không rõ'}` : (formData.ly_do_kham || 'Khám lượng giá ban đầu'),
+          ly_do_kham: bookingType === 'dich_vu' ? `Trị liệu lẻ: ${selectedService?.ten_dich_vu || 'Không rõ'}` : (formData.ly_do_kham || 'Lượng giá chức năng ban đầu'),
           trang_thai: 'da_xac_nhan',
           trang_thai_thanh_toan: payNow ? 'da_thanh_toan' : 'chua_thanh_toan',
           hinh_thuc_thanh_toan: method,
@@ -407,7 +413,7 @@ export default function Booking() {
         }
 
         const appt = await response.json();
-        toast.success(payNow ? '🎉 Thanh toán PayOS thành công & Lượt khám đã được xác nhận!' : 'Đăng ký lượt khám thành công!', { id: toastId });
+        toast.success(payNow ? '🎉 Thanh toán PayOS thành công & Lịch hẹn đã được xác nhận!' : 'Đăng ký lịch hẹn thành công!', { id: toastId });
 
         if (user) {
           navigate('/appointments');
@@ -459,7 +465,7 @@ export default function Booking() {
           </h3>
           
           <p className="text-slate-600 dark:text-zinc-400 font-medium text-xs sm:text-sm leading-relaxed text-center mb-6 px-1">
-            Quý khách vui lòng đăng nhập hoặc đăng ký tài khoản để bắt đầu đặt lịch khám lượng giá & trị liệu cá nhân hóa.
+            Quý khách vui lòng đăng nhập hoặc đăng ký tài khoản để bắt đầu đặt lịch lượng giá & trị liệu cá nhân hóa.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 w-full">

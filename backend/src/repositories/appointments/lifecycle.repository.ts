@@ -77,6 +77,25 @@ export class AppointmentLifecycleRepository {
       }
       const appt = apptRes.rows[0];
 
+      // Nếu là ca chờ tái lượng giá và đã quá hạn, tự động chuyển sang hoàn thành và từ chối check-in
+      if (appt.trang_thai === 'cho_tai_luong_gia' && data.trang_thai === 'da_checkin') {
+        if (appt.han_tai_kham && new Date(appt.han_tai_kham).getTime() < Date.now()) {
+          await client.query(`
+            UPDATE cuoc_hen
+            SET trang_thai = 'hoan_thanh',
+                thoi_gian_hoan_thanh = COALESCE(thoi_gian_hoan_thanh, NOW()),
+                ghi_chu_noi_bo = COALESCE(ghi_chu_noi_bo || E'\n', '') || 'Tự động hoàn thành — quá hạn tái lượng giá.'
+            WHERE id = $1
+          `, [id]);
+          await client.query('COMMIT');
+          const err = new Error(
+            `Ca chờ tái lượng giá đã quá hạn (hạn chót: ${new Date(appt.han_tai_kham).toLocaleString('vi-VN')}). Hệ thống đã tự động chuyển sang trạng thái Hoàn thành và không nhận check-in.`
+          ) as any;
+          err.statusCode = 400;
+          throw err;
+        }
+      }
+
       if (actorRoleId === 2) {
         if (data.trang_thai === 'da_checkin') {
           const apptDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(appt.ngay_gio_bat_dau));
@@ -166,7 +185,37 @@ export class AppointmentLifecycleRepository {
       const values: any[] = [finalStatus];
       let paramIndex = 2;
 
-      if (final_bac_si_id !== undefined && !isCancelledOrNoShow) {
+      let effectiveNhanSuId: number | null = final_bac_si_id !== undefined
+        ? (final_bac_si_id ? parseInt(final_bac_si_id, 10) : null)
+        : appt.nhan_su_id;
+
+      // An toàn ca trực: Nếu khách check-in khi nhân sự được gán đã hết ca trực hôm nay (now > gio_ket_thuc)
+      // thì tự động chuyển về Hàng đợi chung (nhan_su_id = NULL) để nhân sự ca hiện tại kéo vào làm việc
+      if (finalStatus === 'da_checkin' && effectiveNhanSuId) {
+        const shiftCheck = await client.query(`
+          SELECT gio_ket_thuc,
+                 (CURRENT_TIME AT TIME ZONE 'Asia/Ho_Chi_Minh' > gio_ket_thuc::time) AS da_het_ca
+          FROM lich_truc_nhan_su
+          WHERE nhan_su_id = $1
+            AND ngay_truc = CURRENT_DATE
+            AND trang_thai = 'hoat_dong'
+          ORDER BY gio_ket_thuc DESC
+          LIMIT 1
+        `, [effectiveNhanSuId]);
+
+        if (shiftCheck.rows.length === 0 || shiftCheck.rows[0]?.da_het_ca) {
+          effectiveNhanSuId = null;
+        }
+      }
+
+      if (finalStatus === 'da_checkin') {
+        updates.push(`nhan_su_id = $${paramIndex}`);
+        values.push(effectiveNhanSuId);
+        paramIndex++;
+        if (effectiveNhanSuId === null) {
+          updates.push(`gan_qua_hang_doi = false`);
+        }
+      } else if (final_bac_si_id !== undefined && !isCancelledOrNoShow) {
         updates.push(`nhan_su_id = $${paramIndex}`);
         values.push(final_bac_si_id ? parseInt(final_bac_si_id, 10) : null);
         paramIndex++;
@@ -206,10 +255,11 @@ export class AppointmentLifecycleRepository {
       }
 
       if (finalStatus === 'da_checkin') {
-        updates.push(`thoi_gian_checkin = NOW()`);
+        updates.push(`thoi_gian_checkin = COALESCE(thoi_gian_checkin, NOW())`);
       } else if (finalStatus === 'dang_kham') {
         updates.push(`thoi_gian_bat_dau = COALESCE(thoi_gian_bat_dau, NOW())`);
       } else if (finalStatus === 'hoan_thanh') {
+        updates.push(`thoi_gian_bat_dau = COALESCE(thoi_gian_bat_dau, thoi_gian_checkin, NOW())`);
         updates.push(`thoi_gian_hoan_thanh = COALESCE(thoi_gian_hoan_thanh, NOW())`);
       } else if (finalStatus === 'da_huy') {
         updates.push(`thoi_gian_huy = COALESCE(thoi_gian_huy, NOW())`);

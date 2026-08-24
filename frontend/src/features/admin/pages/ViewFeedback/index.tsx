@@ -59,7 +59,8 @@ export default function ViewFeedback() {
     try {
       setLoading(true);
       const res = await api.get('/admin/feedback');
-      setFeedbacks(res.data.data || []);
+      const list = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      setFeedbacks(list);
     } catch (error) {
       console.error('Error fetching feedbacks:', error);
       toast.error('Không thể tải danh sách đánh giá.');

@@ -409,8 +409,8 @@ export default function CustomerSettings() {
   const getRoleBadge = (roleId?: number) => {
     if (roleId === 4) return 'Chuyên viên Vật lý trị liệu';
     if (roleId === 3) return 'Kỹ thuật viên Phục hồi';
-    if (roleId === 2) return 'Lễ tân phòng khám';
-    if (roleId === 6) return 'Quản lý phòng khám';
+    if (roleId === 2) return 'Lễ tân trung tâm';
+    if (roleId === 6) return 'Quản lý trung tâm';
     if (roleId === 5) return 'Quản trị viên hệ thống';
     return 'Khách hàng thành viên';
   };

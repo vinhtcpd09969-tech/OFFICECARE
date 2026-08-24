@@ -54,7 +54,7 @@ export const DetailConfirmationModal: React.FC<DetailConfirmationModalProps> = (
                   return 'Bạn có muốn check-in cho khách ngay bây giờ không?';
                 }
                 if (assignStatus === 'dang_kham') {
-                  return 'Bạn có muốn chuyển lịch hẹn sang trạng thái đang khám không?';
+                  return 'Bạn có muốn chuyển lịch hẹn sang trạng thái đang thực hiện không?';
                 }
                 if (assignStatus === 'hoan_thanh') {
                   return 'Bạn có muốn hoàn thành lịch hẹn này không?';

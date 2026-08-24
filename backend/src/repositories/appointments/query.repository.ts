@@ -2,7 +2,44 @@ import { pool } from '../../config/db';
 import adminCustomerRepository from '../admin/adminCustomer.repository';
 
 export class AppointmentQueryRepository {
+  async lazySweepExpiredReassessment() {
+    try {
+      // 1. Quét chuyển các ca ĐANG Ở 'cho_tai_luong_gia' mà đã quá hạn sang 'hoan_thanh' và đính kèm ghi chú
+      await pool.query(`
+        WITH expired_reassessments AS (
+          UPDATE cuoc_hen
+          SET trang_thai = 'hoan_thanh',
+              thoi_gian_hoan_thanh = COALESCE(thoi_gian_hoan_thanh, NOW()),
+              ghi_chu_noi_bo = COALESCE(ghi_chu_noi_bo || E'\n', '') || 'Tự động hoàn thành — quá hạn tái lượng giá mà khách không quay lại.'
+          WHERE trang_thai = 'cho_tai_luong_gia'
+            AND han_tai_kham IS NOT NULL
+            AND han_tai_kham < NOW()
+          RETURNING id
+        )
+        UPDATE nhat_ky_buoi_dieu_tri nk
+        SET ghi_chu = REGEXP_REPLACE(
+          nk.ghi_chu,
+          '(\\[Hạn tái lượng giá:[^\\]]+)(\\])',
+          '\\1 - Đã quá hạn khách không quay lại\\2'
+        )
+        WHERE nk.cuoc_hen_id IN (SELECT id FROM expired_reassessments)
+          AND nk.ghi_chu LIKE '%[Hạn tái lượng giá:%'
+          AND nk.ghi_chu NOT LIKE '%Đã quá hạn khách không quay lại%';
+      `);
+
+      // 2. Xóa bỏ tiền tố thừa [Hẹn tái khám hạn: ...] nếu có
+      await pool.query(`
+        UPDATE nhat_ky_buoi_dieu_tri
+        SET ghi_chu = TRIM(REGEXP_REPLACE(ghi_chu, '\\[Hẹn tái khám hạn:[^\\]]+\\]\\s*', '', 'g'))
+        WHERE ghi_chu LIKE '%[Hẹn tái khám hạn:%';
+      `);
+    } catch (err) {
+      console.error('Lỗi khi quét tự động hoàn thành ca chờ tái lượng giá quá hạn:', err);
+    }
+  }
+
   async getAllAppointments(_userRole?: number) {
+    await this.lazySweepExpiredReassessment();
     const whereClause = '';
 
     const query = `
@@ -63,7 +100,7 @@ export class AppointmentQueryRepository {
         pv.thoi_gian_goi_vao,
         COALESCE(pv.so_lan_goi_khong_co_mat, 0) as so_lan_goi_khong_co_mat,
         pv.so_thu_tu_hang_doi,
-        (CASE WHEN ch.trang_thai = 'cho_tai_luong_gia' OR (pv.lan_thu IS NOT NULL AND pv.lan_thu > 1) THEN true ELSE false END) AS is_reassessment
+        (CASE WHEN (COALESCE(g.loai_goi, '') = 'KHAM' OR UPPER(COALESCE(ch.loai, '')) = 'KHAM') AND (ch.trang_thai = 'cho_tai_luong_gia' OR (pv.lan_thu IS NOT NULL AND pv.lan_thu > 1)) THEN true ELSE false END) AS is_reassessment
       FROM cuoc_hen ch
       LEFT JOIN khach_hang kh ON ch.khach_hang_id = kh.id
       LEFT JOIN goi_dich_vu g ON ch.goi_dich_vu_id = g.id

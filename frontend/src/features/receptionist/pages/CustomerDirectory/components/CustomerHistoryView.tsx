@@ -19,7 +19,7 @@ const PLAN_STATUS_META: Record<string, { label: string; cls: string }> = {
 };
 
 function loaiLabel(loai: string) {
-  if (loai === 'KHAM' || loai === 'KHAM_MOI') return 'Khám';
+  if (loai === 'KHAM' || loai === 'KHAM_MOI') return 'Lượng giá';
   if (loai === 'DIEU_TRI') return 'Trị liệu';
   return 'Dịch vụ lẻ';
 }
@@ -71,7 +71,7 @@ export function CustomerHistoryView({ customer, staleDays, onBack }: CustomerHis
           <div>
             <p className="text-xs font-black text-amber-800 uppercase tracking-wide">Chờ kích hoạt</p>
             <p className="text-[11px] text-amber-700 font-semibold mt-0.5 leading-relaxed">
-              Khách có gói bác sĩ vừa chỉ định nhưng chưa thanh toán. Vui lòng gọi khách để chốt thanh toán & kích hoạt.
+              Khách có gói chuyên viên tư vấn vừa chỉ định nhưng chưa thanh toán. Vui lòng gọi khách để chốt thanh toán & kích hoạt.
             </p>
           </div>
         </div>
@@ -251,7 +251,7 @@ export function CustomerHistoryView({ customer, staleDays, onBack }: CustomerHis
                           {a.so_thu_tu_buoi ? ` #${a.so_thu_tu_buoi}` : ''}
                         </span>
                       </td>
-                      <td className="p-3 font-bold text-slate-800">{a.ten_dich_vu || 'Khám lâm sàng'}</td>
+                      <td className="p-3 font-bold text-slate-800">{a.ten_dich_vu || 'Lượng giá Chức năng PHCN'}</td>
                       <td className="p-3">
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-wider ${meta.color}`}>
                           {meta.label}

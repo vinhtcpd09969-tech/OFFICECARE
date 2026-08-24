@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PatientDossierTimeline } from '../../../doctor/pages/DoctorMedicalRecords/components/PatientDossierTimeline';
-import { getPatientProfile, PatientProfile } from '../../../doctor/api/doctor.api';
-import { useAuthStore } from '../../../../stores/authStore';
+import { PatientDossierTimeline } from '@/features/clinical/components/PatientDossierTimeline';
+import { getPatientProfile, PatientProfile } from '@/features/doctor/api/doctor.api';
+import { useAuthStore } from '@/stores/authStore';
 import { BookNextSessionModal } from './components/BookNextSessionModal';
 
 export default function CustomerMedicalRecord() {
@@ -52,7 +52,7 @@ export default function CustomerMedicalRecord() {
       <div className="max-w-3xl mx-auto p-12 text-center bg-white dark:bg-zinc-900 rounded-3xl border border-slate-200 dark:border-zinc-800 space-y-2">
         <h3 className="text-base font-black text-slate-800 dark:text-zinc-200">Chưa tìm thấy dữ liệu hồ sơ cá nhân</h3>
         <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">
-          Bạn chưa có dữ liệu lịch sử khám hoặc gói liệu trình điều trị nào trên hệ thống.
+          Bạn chưa có dữ liệu lịch sử lượng giá hoặc gói liệu trình điều trị nào trên hệ thống.
         </p>
       </div>
     );

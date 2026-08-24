@@ -37,7 +37,7 @@ export default function AdminLayout() {
 
   // State và Effect cho thông báo ca đã check-in đang chờ gọi vào (Alarm & Bouncing notification)
   const [pendingAppointmentsCount, setPendingAppointmentsCount] = useState<number>(0);
-  const [earliestPending, setEarliestPending] = useState<{ id: string, type: 'appointment' | 'treatment', ngay_gio_bat_dau: string } | null>(null);
+  const [earliestPending, setEarliestPending] = useState<{ id: string, type: 'appointment' | 'treatment', loai_lich?: 'kham' | 'dieu_tri', ngay_gio_bat_dau: string } | null>(null);
   const [activeRoleView, setActiveRoleView] = useState(
     localStorage.getItem('admin-test-role-view') || 'manager'
   );
@@ -140,7 +140,7 @@ export default function AdminLayout() {
               seenPaymentIds.current.add(id);
               hasNewEvent = true;
               const name = apt.ten_khach_hang || 'Khách hàng';
-              toast(`💵 Ca khám mới cần thanh toán: ${name}`, {
+              toast(`💵 Ca lượng giá mới cần thanh toán: ${name}`, {
                 icon: '💰',
                 duration: 8000,
                 style: { borderRadius: '16px', background: '#0d9488', color: '#fff', fontWeight: 'bold' }
@@ -282,8 +282,8 @@ export default function AdminLayout() {
 
     fetchPendingCount();
 
-    // Poll every 10 seconds to detect new bookings immediately
-    const interval = setInterval(fetchPendingCount, 10000);
+    // Poll every 4 seconds to detect queue changes and idle staff immediately
+    const interval = setInterval(fetchPendingCount, 4000);
     return () => clearInterval(interval);
   }, [user]);
 
@@ -703,13 +703,13 @@ export default function AdminLayout() {
           onClick={() => {
             if (earliestPending) {
               const targetDate = earliestPending.ngay_gio_bat_dau ? earliestPending.ngay_gio_bat_dau.match(/^\d{4}-\d{2}-\d{2}/)?.[0] || '' : '';
-              const targetType = earliestPending.type === 'treatment' ? 'dieu_tri' : 'kham';
+              const targetType = (earliestPending.type === 'treatment' || earliestPending.loai_lich === 'dieu_tri') ? 'dieu_tri' : 'kham';
               const query = targetDate 
-                ? `?date=${targetDate}&range=today&view=timeline&type=${targetType}&appointmentId=${earliestPending.id}&triggerFocus=true` 
-                : `?type=${targetType}&appointmentId=${earliestPending.id}&triggerFocus=true`;
+                ? `?date=${targetDate}&range=today&view=timeline&type=${targetType}&appointmentId=${earliestPending.id}&tab=dang_cho&triggerFocus=true` 
+                : `?type=${targetType}&appointmentId=${earliestPending.id}&tab=dang_cho&triggerFocus=true`;
               navigate(`/admin/appointments${query}`);
             } else {
-              navigate('/admin/appointments?triggerFocus=true');
+              navigate('/admin/appointments?tab=dang_cho&triggerFocus=true');
             }
           }}
           tooltipText={tooltipText}

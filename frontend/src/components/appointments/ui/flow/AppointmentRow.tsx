@@ -41,6 +41,7 @@ export function AppointmentRow({
   onPushBack,
   onMarkNoShow,
   onUnassign,
+  onPayment,
   focusAppointmentId,
 }: {
   apt: Appointment;
@@ -52,12 +53,17 @@ export function AppointmentRow({
   onPushBack?: (apt: Appointment) => void;
   onMarkNoShow?: (apt: Appointment) => void;
   onUnassign?: (apt: Appointment) => void;
+  onPayment?: (apt: Appointment) => void;
   focusAppointmentId?: string;
 }) {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const billingRoute = user?.vai_tro_id === 2 ? '/receptionist/billing' : '/admin/quick-billing';
   const meta = statusConfig[apt.trang_thai] || { label: apt.trang_thai, color: 'bg-slate-100 text-slate-700 border-slate-200', icon: null };
+  const isExam =
+    String((apt as any).loai || (apt as any).loai_goi || '').toUpperCase().includes('KHAM') ||
+    String(apt.ten_dich_vu || '').toLowerCase().includes('lượng giá') ||
+    String(apt.ten_dich_vu || '').toLowerCase().includes('khám');
   const isPackageSession = Boolean(apt.so_thu_tu_buoi || (apt as any).phac_do_dieu_tri_id || apt.loai_goi === 'LIEU_TRINH');
   const waitMinutes = apt.thoi_gian_checkin
     ? Math.max(0, Math.round((Date.now() - new Date(apt.thoi_gian_checkin).getTime()) / 60000))
@@ -140,9 +146,15 @@ export function AppointmentRow({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className="text-xs font-bold text-slate-800 dark:text-zinc-200">
-            {apt.ten_dich_vu || 'Khám Lâm sàng & Lượng giá'}
+            {apt.ten_dich_vu || 'Lượng giá Chức năng PHCN'}
           </span>
-          {((apt as any).is_reassessment || (apt as any).trang_thai_cu === 'cho_tai_luong_gia' || apt.trang_thai === 'cho_tai_luong_gia') && (
+          {Number((apt as any).thoi_luong_phut) > 0 && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-350 border border-slate-200/80 dark:border-zinc-700 shrink-0">
+              <Clock3 size={10} className="text-slate-400" />
+              {Number((apt as any).thoi_luong_phut)} phút
+            </span>
+          )}
+          {Boolean(isExam && ((apt as any).is_reassessment || (apt as any).trang_thai_cu === 'cho_tai_luong_gia' || apt.trang_thai === 'cho_tai_luong_gia')) && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-purple-600 text-white shadow-2xs shrink-0">
               <Sparkles size={11} /> 🔄 TÁI LƯỢNG GIÁ
             </span>
@@ -256,14 +268,34 @@ export function AppointmentRow({
               const projectedTimeMs = Date.now() + estimatedWaitMins * 60000;
               const projectedTimeStr = format(new Date(projectedTimeMs), 'HH:mm');
 
+              const duration = Number(apt.thoi_luong_phut) || (apt.loai === 'kham_moi' ? 30 : 60);
+              const projectedEndMs = projectedTimeMs + duration * 60000;
+              const projectedEndDate = new Date(projectedEndMs);
+              const projectedEndStr = format(projectedEndDate, 'HH:mm');
+              const projectedEndMins = projectedEndDate.getHours() * 60 + projectedEndDate.getMinutes();
+
+              // Ca sáng kết thúc lúc 12:00 (720 phút), Ca chiều / đóng cửa kết thúc lúc 20:00 (1200 phút)
+              const isMorning = apt.buoi === 'sang';
+              const cutoffMins = isMorning ? 12 * 60 : 20 * 60;
+              const cutoffStr = isMorning ? '12:00' : '20:00';
+              const isOvertime = projectedEndMins > cutoffMins;
+              const overtimeMins = isOvertime ? projectedEndMins - cutoffMins : 0;
+
               return (
-                <p className={`text-[10px] font-extrabold flex items-center gap-1 ${
-                  isFreeNow ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-800 dark:text-amber-300'
-                }`}>
-                  <span>⏱️ Dự kiến gọi: <strong className={`font-black ${isFreeNow ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-800 dark:text-amber-300'}`}>
-                    {isFreeNow ? 'Ngay bây giờ (Sẵn sàng)' : `~${projectedTimeStr} (sau ~${estimatedWaitMins}p)`}
-                  </strong></span>
-                </p>
+                <div className="space-y-0.5">
+                  <p className={`text-[10px] font-extrabold flex items-center gap-1 ${
+                    isFreeNow ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-800 dark:text-amber-300'
+                  }`}>
+                    <span>⏱️ Dự kiến gọi: <strong className={`font-black ${isFreeNow ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-800 dark:text-amber-300'}`}>
+                      {isFreeNow ? 'Ngay bây giờ (Sẵn sàng)' : `~${projectedTimeStr} (sau ~${estimatedWaitMins}p)`}
+                    </strong></span>
+                  </p>
+                  {isOvertime && (
+                    <p className="text-[10px] font-black text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                      <span>⚠️ Dự kiến xong ~{projectedEndStr} (Lố ca {cutoffStr} ~{overtimeMins}p)</span>
+                    </p>
+                  )}
+                </div>
               );
             })()}
           </div>
@@ -333,7 +365,7 @@ export function AppointmentRow({
 
           const duration = Number((apt as any).thoi_luong_phut) || 30;
           const isSang = apt.buoi === 'sang' || (apt.ngay_gio_bat_dau && new Date(apt.ngay_gio_bat_dau).getHours() < 12);
-          const latestMins = (isSang ? 12 * 60 : 19 * 60 + 30) - duration;
+          const latestMins = (isSang ? 12 * 60 : 20 * 60) - duration;
           const latestHours = Math.floor(latestMins / 60);
           const latestRemMins = latestMins % 60;
           const latestTimeStr = `${latestHours}h${latestRemMins < 10 ? '0' : ''}${latestRemMins}`;
@@ -392,18 +424,30 @@ export function AppointmentRow({
       <div className="w-[230px] shrink-0 flex items-center justify-end gap-1.5">
         {variant === 'chua_den' && (
           apt.trang_thai === 'cho_tai_luong_gia' ? (
-            <button
-              type="button"
-              onClick={() => onQuickCheckin(apt)}
-              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-600 to-teal-600 hover:from-amber-700 hover:to-teal-700 text-white font-black text-[11px] uppercase tracking-wider flex items-center gap-1 shadow-xs transition-all cursor-pointer whitespace-nowrap"
-              title="Khách quay lại tái lượng giá — Check-in vào đầu hàng đợi"
-            >
-              <CheckCircle2 size={13} /> CHECK-IN TÁI KHÁM
-            </button>
+            (() => {
+              const isExpired = apt.han_tai_kham && new Date(apt.han_tai_kham).getTime() < Date.now();
+              if (isExpired) {
+                return (
+                  <span className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 font-bold text-[10.5px] border border-slate-200 dark:border-zinc-700 whitespace-nowrap select-none">
+                    Đã hết hạn tái lượng giá
+                  </span>
+                );
+              }
+              return (
+                <button
+                  type="button"
+                  onClick={() => onQuickCheckin(apt)}
+                  className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-600 to-teal-600 hover:from-amber-700 hover:to-teal-700 text-white font-black text-[11px] uppercase tracking-wider flex items-center gap-1 shadow-xs transition-all cursor-pointer whitespace-nowrap"
+                  title="Khách quay lại tái lượng giá — Check-in vào đầu hàng đợi"
+                >
+                  <CheckCircle2 size={13} /> CHECK-IN TÁI LƯỢNG GIÁ
+                </button>
+              );
+            })()
           ) : apt.loai_lich === 'kham_moi' && isPaymentDue(apt) ? (
             <button
               type="button"
-              onClick={() => navigate(`${billingRoute}?lich_dat_id=${apt.id}`)}
+              onClick={() => onPayment ? onPayment(apt) : navigate(`${billingRoute}?lich_dat_id=${apt.id}`)}
               className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-[11px] uppercase tracking-wider flex items-center gap-1 shadow-xs transition-all cursor-pointer whitespace-nowrap"
               title="Bắt buộc thu tiền Lượng giá trước khi Check-in"
             >
@@ -422,7 +466,7 @@ export function AppointmentRow({
         {variant !== 'chua_den' && !TERMINAL_STATUSES.includes(apt.trang_thai) && isPaymentDue(apt) && (
           <button
             type="button"
-            onClick={() => navigate(`${billingRoute}?lich_dat_id=${apt.id}`)}
+            onClick={() => onPayment ? onPayment(apt) : navigate(`${billingRoute}?lich_dat_id=${apt.id}`)}
             className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-[11px] uppercase tracking-wider flex items-center gap-1 shadow-xs transition-all cursor-pointer whitespace-nowrap"
           >
             <DollarSign size={13} /> THU TIỀN

@@ -1,5 +1,5 @@
-import React from 'react';
-import { Calendar, Info, AlertTriangle, User } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Calendar, Info, AlertTriangle, User, Clock } from 'lucide-react';
 import { CustomDatePicker } from '../../../../../../components/CustomDatePicker';
 import { BUOI_INFO, formatFullDate, isBuoiDaQua } from '../../constants';
 
@@ -30,6 +30,40 @@ export const BookingDateTimeStaffSection: React.FC<BookingDateTimeStaffSectionPr
   selectedStaffId,
   setSelectedStaffId,
 }) => {
+  const selectedStaffObj = useMemo(() => {
+    return staffList.find((ns: any) => String(ns.id) === selectedStaffId);
+  }, [staffList, selectedStaffId]);
+
+  const staffAlertInfo = useMemo(() => {
+    if (!selectedStaffObj || !selectedBuoi) return null;
+    const ca = selectedStaffObj.caTruc || '';
+    const ketThuc = selectedStaffObj.gioKetThuc || (ca.includes('-') ? ca.split('-')[1]?.trim() : '');
+    if (!ketThuc) return null;
+    const [h, m] = ketThuc.split(':').map((v: string) => parseInt(v, 10));
+    if (isNaN(h)) return null;
+
+    const staffShiftEndMins = h * 60 + (m || 0);
+    const buoiEndMins = selectedBuoi === 'sang' ? 12 * 60 : 20 * 60;
+
+    // Cảnh báo nếu nhân sự kết thúc ca sớm hơn giờ kết thúc của buổi (ví dụ ca 16:00 trong Buổi chiều)
+    if (staffShiftEndMins < buoiEndMins) {
+      const latestCheckinMins = staffShiftEndMins - (serviceDuration || 30);
+      const latestH = Math.floor(latestCheckinMins / 60);
+      const latestM = latestCheckinMins % 60;
+      const latestStr = `${latestH}h${latestM < 10 ? '0' : ''}${latestM}`;
+      const endH = Math.floor(staffShiftEndMins / 60);
+      const endM = staffShiftEndMins % 60;
+      const endStr = `${endH}h${endM < 10 ? '0' : ''}${endM}`;
+
+      return {
+        staffName: selectedStaffObj.ho_ten,
+        endStr,
+        latestStr,
+        caTruc: selectedStaffObj.caTruc || `${endStr}`
+      };
+    }
+    return null;
+  }, [selectedStaffObj, selectedBuoi, serviceDuration]);
   return (
     <div className="space-y-5 pb-8 border-b border-slate-100">
       <div className="flex items-center gap-3 pb-1">
@@ -38,7 +72,7 @@ export const BookingDateTimeStaffSection: React.FC<BookingDateTimeStaffSectionPr
         </div>
         <div>
           <h3 className="text-sm sm:text-base font-black text-slate-900 uppercase tracking-tight">
-            2. Chọn ngày &amp; Buổi khám
+            2. Chọn ngày &amp; Buổi hẹn
           </h3>
           <p className="text-[11px] text-slate-400 font-medium">
             Đơn vị đặt lịch là Buổi Sáng (07:30–12:00) hoặc Buổi Chiều (12:00–20:00)
@@ -56,7 +90,7 @@ export const BookingDateTimeStaffSection: React.FC<BookingDateTimeStaffSectionPr
             value={selectedDate}
             onChange={(val: string) => setDateField(val)}
             minDate={new Date().toISOString().split('T')[0]}
-            placeholder="Chọn ngày khám/lượng giá"
+            placeholder="Chọn ngày hẹn"
             buttonClassName="py-3.5 px-4 rounded-2xl bg-slate-50 border-slate-200 text-slate-900 focus:bg-white focus:border-teal-500 shadow-2xs hover:border-teal-400"
           />
           {selectedDate && (
@@ -216,6 +250,19 @@ export const BookingDateTimeStaffSection: React.FC<BookingDateTimeStaffSectionPr
                 </button>
               );
             })}
+          </div>
+        )}
+
+        {/* Cảnh báo ca trực kết thúc sớm */}
+        {staffAlertInfo && (
+          <div className="p-3.5 bg-amber-50/90 border border-amber-200/90 rounded-2xl text-xs flex items-start gap-2.5 text-amber-900 leading-relaxed font-medium animate-in fade-in duration-200 mt-2">
+            <Clock size={16} className="text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-black text-amber-950 block text-[11px] uppercase tracking-wider mb-0.5">
+                ⏰ Lưu ý ca trực của {staffAlertInfo.staffName}:
+              </span>
+              Nhân sự này chỉ có mặt tại trung tâm đến <strong className="text-amber-950 font-black">{staffAlertInfo.endStr}</strong> (Trực {staffAlertInfo.caTruc}). Quý khách vui lòng đến check-in trước <strong className="text-emerald-800 font-black">{staffAlertInfo.latestStr}</strong> để đảm bảo được phục vụ bởi đúng nhân sự này. Sau thời gian này nếu nhân sự đã hết ca, hệ thống sẽ linh hoạt điều phối nhân sự đang trực tiếp nhận.
+            </div>
           </div>
         )}
       </div>

@@ -92,7 +92,7 @@ export function RescheduleAppointmentModal({
                   }`}
                 >
                   <div className="text-xs font-black">🌆 Buổi Chiều</div>
-                  <div className="text-[10px] text-slate-500 font-medium mt-0.5">12:00 – 19:30</div>
+                  <div className="text-[10px] text-slate-500 font-medium mt-0.5">12:00 – 20:00</div>
                 </button>
               </div>
             </div>

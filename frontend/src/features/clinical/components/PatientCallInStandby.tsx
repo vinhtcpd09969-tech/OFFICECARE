@@ -58,14 +58,14 @@ export function PatientCallInStandby({
         </h3>
         
         <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">
-          {patient.ma_khach_hang || 'KH-88392'} · {patient.ten_dich_vu || 'Khám lâm sàng & Lượng giá PHCN'}
+          {patient.ma_khach_hang || 'KH-88392'} · {patient.ten_dich_vu || 'Lượng giá Chức năng PHCN'}
         </p>
 
         {/* CẢNH BÁO CHẶN MỀM NẾU CHƯA THANH TOÁN BÀN LƯỢNG GIÁ */}
         {isUnpaidAssessment && (
           <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-2xl text-xs font-extrabold text-rose-700 dark:text-rose-400 flex items-center justify-center gap-2">
             <ShieldAlert size={16} className="shrink-0" />
-            <span>⚠️ CHƯA THANH TOÁN: Vui lòng báo Lễ tân thu tiền Lượng giá trước khi bấm Bắt đầu khám!</span>
+            <span>⚠️ CHƯA THANH TOÁN: Vui lòng báo Lễ tân thu tiền Lượng giá trước khi bấm Bắt đầu lượng giá!</span>
           </div>
         )}
         
@@ -83,12 +83,12 @@ export function PatientCallInStandby({
             className="w-full py-4 px-6 rounded-2xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-cyan-600/20 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2"
           >
             <PhoneCall size={18} />
-            <span>1. 📞 GỌI BỆNH NHÂN VÀO PHÒNG (BÁO LỄ TÂN)</span>
+            <span>1. 📞 GỌI KHÁCH HÀNG VÀO PHÒNG (BÁO LỄ TÂN)</span>
           </button>
         ) : (
           <div className="w-full space-y-3 animate-in fade-in duration-300">
             <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/80 rounded-2xl text-xs font-semibold text-amber-800 dark:text-amber-300">
-              🔊 Đã phát chuông gọi bệnh nhân <strong className="underline">{patient.ten_khach_hang}</strong> vào phòng khám. Khi bệnh nhân đã ngồi vào ghế, bấm bên dưới để mở bàn khám:
+              🔊 Đã phát chuông gọi khách hàng <strong className="underline">{patient.ten_khach_hang}</strong> vào phòng. Khi khách hàng đã sẵn sàng, bấm bên dưới để mở bàn làm việc:
             </div>
 
             <button
@@ -102,7 +102,7 @@ export function PatientCallInStandby({
               }`}
             >
               <Play size={18} />
-              <span>2. ⏱ BẮT ĐẦU MỞ BÀN LƯỢNG GIÁ</span>
+              <span>2. ⏱ BẮT ĐẦU MỞ BÀN LÀM VIỆC</span>
             </button>
           </div>
         )}
@@ -130,7 +130,7 @@ export function PatientCallInStandby({
                 Xác nhận khách đã vào phòng?
               </h3>
               <p className="text-xs text-slate-600 dark:text-zinc-300 font-semibold leading-relaxed">
-                Vui lòng xác nhận bệnh nhân <span className="font-black text-emerald-600 dark:text-emerald-400">{patient.ten_khach_hang}</span> đã có mặt trong phòng trước khi chính thức mở bàn khám và tính thời gian.
+                Vui lòng xác nhận khách hàng <span className="font-black text-emerald-600 dark:text-emerald-400">{patient.ten_khach_hang}</span> đã có mặt trong phòng trước khi chính thức mở bàn lượng giá và tính thời gian.
               </p>
             </div>
 

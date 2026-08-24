@@ -18,8 +18,6 @@ interface VoucherFormModalProps {
   setYeuCauThanhToan: (val: string[]) => void;
   tuDongApDung: boolean;
   setTuDongApDung: (val: boolean) => void;
-  kenhApDung: string[];
-  setKenhApDung: (val: string[]) => void;
   loaiGoiApDung: string[];
   setLoaiGoiApDung: (val: string[]) => void;
   formatLocalDate: (date: Date) => string;
@@ -36,8 +34,6 @@ export function VoucherFormModal({
   setYeuCauThanhToan,
   tuDongApDung,
   setTuDongApDung,
-  kenhApDung: _kenhApDung,
-  setKenhApDung: _setKenhApDung,
   loaiGoiApDung,
   setLoaiGoiApDung,
   formatLocalDate
@@ -398,7 +394,7 @@ export function VoucherFormModal({
                       onChange={() => toggleLoaiGoi('KHAM')}
                       className="accent-amber-600"
                     />
-                    🩺 Buổi Lượng giá / Khám
+                    🩺 Buổi Lượng giá Chức năng
                   </label>
 
                   <label
@@ -434,7 +430,7 @@ export function VoucherFormModal({
                         💳 Quy định riêng khi mua Gói liệu trình
                       </label>
                       <span className="text-[10.5px] text-teal-600 dark:text-teal-400 font-bold">
-                        (Khám/Lượng giá & Dịch vụ lẻ không bị giới hạn)
+                        (Buổi Lượng giá & Dịch vụ lẻ không bị giới hạn)
                       </span>
                     </div>
 

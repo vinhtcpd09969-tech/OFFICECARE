@@ -285,7 +285,7 @@ export function Step4CustomerForm({
                 </span>
               ) : (
                 <span className="text-[11px] font-semibold text-slate-400 block pl-1">
-                  💡 Nhập ngắn gọn tình trạng bạn gặp phải (ví dụ: đau mỏi lưng, tê tay, thoát vị đĩa đệm...) để bác sĩ nắm rõ trước buổi khám.
+                  💡 Nhập ngắn gọn tình trạng bạn gặp phải (ví dụ: đau mỏi lưng, tê tay, khó vận động...) để Chuyên viên nắm rõ trước buổi lượng giá.
                 </span>
               )}
             </div>
@@ -332,7 +332,7 @@ export function Step4CustomerForm({
                   <div className="flex-1 min-w-0 space-y-0.5">
                     <p className="text-xs font-extrabold text-slate-800 dark:text-white truncate">Ảnh triệu chứng đã tải lên</p>
                     <p className="text-[10px] text-teal-600 dark:text-teal-400 font-black flex items-center gap-1">
-                      <CheckCircle2 size={12} /> Sẵn sàng đính kèm ca khám
+                      <CheckCircle2 size={12} /> Sẵn sàng đính kèm ca hẹn
                     </p>
                   </div>
                   <button

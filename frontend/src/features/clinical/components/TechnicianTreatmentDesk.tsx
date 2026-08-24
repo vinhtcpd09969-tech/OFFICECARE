@@ -9,17 +9,26 @@ import {
   Sliders,
   Flame,
   AlertTriangle,
+  Calendar,
+  Stethoscope,
 } from 'lucide-react';
+import { format } from 'date-fns';
 import { TreatmentLogItem } from '../../technician/api/technician.api';
+import toast from 'react-hot-toast';
 
 interface TechnicianTreatmentDeskProps {
   patientName: string;
   appointmentDetail?: {
     id?: string;
     khach_hang_id?: string;
+    phac_do_dieu_tri_id?: string | null;
     chan_doan?: string;
     chong_chi_dinh?: string;
     ghi_chu?: string;
+    ghi_chu_chuyen_vien?: string;
+    chuyen_vien_chi_dinh?: string;
+    ma_lich_kham_goc?: string;
+    ngay_luong_gia?: string;
     ten_dich_vu?: string | null;
     quy_trinh?: string | null;
     mo_ta_goi?: string | null;
@@ -36,10 +45,6 @@ interface TechnicianTreatmentDeskProps {
     ghi_chu: string;
     du_lieu_tri_lieu: { nhat_ky: TreatmentLogItem[] };
   }) => Promise<void>;
-  // Lưu nháp định kỳ — KHÔNG bắt buộc (nếu không truyền thì không tự lưu). Rời trang giữa chừng (qua
-  // Hàng đợi, "Bàn làm việc", F5...) mà không có prop này thì dữ liệu đang gõ dở sẽ mất khi quay lại,
-  // vì mỗi lần mở lại bàn là 1 lần mount mới — chỉ giữ được state khi chuyển tab NGAY TRONG cùng
-  // trang (xem ClinicalAssessment/index.tsx).
   onSaveDraft?: (data: {
     vas_truoc: number;
     vas_sau: number;
@@ -58,79 +63,47 @@ const WONG_BAKER_FACES = [
   { score: 10, face: '😭', label: 'Đau dữ dội', desc: 'Không thể chịu đựng' },
 ];
 
-// Bộ phân tách Quy trình gói dịch vụ thành các bước kỹ thuật động chuẩn
-function parsePackageProtocol(quyTrinhStr?: string | null) {
-  if (!quyTrinhStr || !quyTrinhStr.trim()) {
-    return [
-      { name: 'Nhiệt trị liệu / Chườm nóng thảo dược', icon: '♨️' },
-      { name: 'Điện xung trị liệu TENS giảm đau', icon: '⚡' },
-      { name: 'Giải phóng điểm đau & Mô mềm sâu (Myofascial)', icon: '💆‍♂️' },
-      { name: 'Tập vận động kéo giãn trợ lực', icon: '🏋️‍♂️' },
-    ];
-  }
-
-  let rawSteps: string[] = [];
-  if (quyTrinhStr.includes('\n')) {
-    rawSteps = quyTrinhStr.split(/\r?\n/);
-  } else if (/[|;]/.test(quyTrinhStr)) {
-    rawSteps = quyTrinhStr.split(/[|;]/);
-  } else if (/\d+[\.\)]\s*/.test(quyTrinhStr)) {
-    rawSteps = quyTrinhStr.split(/(?=\b\d+[\.\)]\s*)/);
-  } else {
-    rawSteps = [quyTrinhStr];
-  }
-
-  rawSteps = rawSteps.map(s => s.trim()).filter(Boolean);
-
-  if (rawSteps.length === 0) {
-    return [{ name: quyTrinhStr.trim(), icon: '⚡' }];
-  }
-
-  return rawSteps.map(step => {
-    const cleanName = step.replace(/^(\d+[\.\)]\s*|bước\s*\d+:\s*)/i, '').trim();
-
-    let icon = '⚡';
-    if (/nhiệt|chườm|nóng/i.test(cleanName)) icon = '♨️';
-    else if (/xung|điện|tens/i.test(cleanName)) icon = '⚡';
-    else if (/cơ|massage|nắn|bóp/i.test(cleanName)) icon = '💆‍♂️';
-    else if (/khớp|nắn chỉnh/i.test(cleanName)) icon = '🧘‍♂️';
-    else if (/tập|vận động|kéo/i.test(cleanName)) icon = '🏋️‍♂️';
-    else if (/siêu âm/i.test(cleanName)) icon = '🔊';
-
-    return { name: cleanName, icon };
-  });
-}
-
 export function TechnicianTreatmentDesk({
   patientName,
   appointmentDetail,
   onCompleteTreatment,
   onSaveDraft,
 }: TechnicianTreatmentDeskProps) {
-  // Thang đo VAS trước & sau
-  const [vasMode, setVasMode] = useState<'faces' | 'verbal' | 'numeric'>('faces');
-  const [vasTruoc, setVasTruoc] = useState<number>(appointmentDetail?.vas_truoc ?? 6);
-  const [vasSau, setVasSau] = useState<number>(appointmentDetail?.vas_sau ?? 3);
-
-  // Parse các bước kỹ thuật từ gói dịch vụ
-  const packageSteps = parsePackageProtocol(appointmentDetail?.quy_trinh);
-
-  // Nhật ký thao tác kỹ thuật thực tế
-  const [logs, setLogs] = useState<TreatmentLogItem[]>(() => {
-    if (appointmentDetail?.du_lieu_tri_lieu?.nhat_ky?.length) {
-      return appointmentDetail.du_lieu_tri_lieu.nhat_ky;
+  // Parse quy trình kỹ thuật chuẩn của gói từ DB (nếu có, phân tách bằng dấu chấm phẩy hoặc xuống dòng)
+  const packageSteps = (() => {
+    const rawProtocol = appointmentDetail?.quy_trinh || '';
+    if (!rawProtocol.trim()) {
+      // Fallback mặc định theo chuyên khoa PHCN chuẩn
+      return [
+        { name: 'Chườm nóng & Massage cổ - vai - gáy - lưng: Nhiệt trị liệu làm mềm cơ kết hợp xoa bóp chuyên sâu giảm đau mỏi vùng vai gáy và lưng.', icon: '♨️' },
+        { name: 'Massage chân & bắp chân: Xoa bóp day ấn nhẹ chi dưới giúp giảm cảm giác nặng chân, tê mỏi và hỗ trợ tuần hoàn máu.', icon: '🦵' },
+        { name: 'Massage đầu & Kéo giãn cơ toàn thân: Massage thư giãn thần kinh vùng đầu kết hợp kéo giãn linh hoạt các khớp cơ toàn cơ thể.', icon: '💆' },
+        { name: 'Nhiệt trị liệu phục hồi: Tác động nhiệt sâu giúp giãn cơ tối đa, duy trì hiệu quả thư giãn và phục hồi thể trạng.', icon: '🔥' },
+      ];
     }
-    return [];
-  });
 
-  // Ghi chú KTV
-  const [notes, setNotes] = useState(appointmentDetail?.ghi_chu || '');
+    const lines = rawProtocol.split(/[;\n\r]+/).map(s => s.trim()).filter(Boolean);
+    const icons = ['♨️', '🦵', '💆', '🔥', '⚡', '🩹', '🧘', '🩺'];
+    return lines.map((line, idx) => ({
+      name: line.replace(/^[\d+.\-–*•]\s*/, ''),
+      icon: icons[idx % icons.length]
+    }));
+  })();
+
+  const [vasMode, setVasMode] = useState<'faces' | 'verbal' | 'slider'>('faces');
+  const [vasTruoc, setVasTruoc] = useState<number>(appointmentDetail?.vas_truoc ?? 4);
+  const [vasSau, setVasSau] = useState<number>(appointmentDetail?.vas_sau ?? 2);
+  const [notes, setNotes] = useState<string>(appointmentDetail?.ghi_chu || '');
+  const [logs, setLogs] = useState<TreatmentLogItem[]>(
+    appointmentDetail?.du_lieu_tri_lieu?.nhat_ky || []
+  );
 
   // Loading & Modal state
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [triedSubmitWithoutLogs, setTriedSubmitWithoutLogs] = useState(false);
 
-  const draftKey = appointmentDetail?.id ? `draft_treat_${appointmentDetail.id}` : `draft_treat_${patientName.trim().replace(/\s+/g, '_')}`;
+  const draftKey = appointmentDetail?.id ? ('draft_treat_' + appointmentDetail.id) : ('draft_treat_' + patientName.trim().replace(/\s+/g, '_'));
 
   // Khôi phục nháp từ sessionStorage nếu vừa chuyển tab hoặc rời trang quay lại
   useEffect(() => {
@@ -167,6 +140,7 @@ export function TechnicianTreatmentDesk({
 
   // Tích chọn tất cả các bước theo quy trình gói (1-click)
   const handleSelectAllPackageProtocol = () => {
+    setTriedSubmitWithoutLogs(false);
     const timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
     const newItems: TreatmentLogItem[] = packageSteps.map(step => ({
       luc: timeStr,
@@ -188,6 +162,7 @@ export function TechnicianTreatmentDesk({
 
   // Tick / Untick 1 bước trong gói (Lưu tức thì 0ms)
   const togglePackageStep = (name: string) => {
+    setTriedSubmitWithoutLogs(false);
     const timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
     setLogs(prev => {
       const exists = prev.some(l => l.noi_dung === name);
@@ -204,8 +179,29 @@ export function TechnicianTreatmentDesk({
     });
   };
 
+  // Kiểm tra tính hợp lệ trước khi mở Modal xác nhận hoàn thành
+  const handleOpenCompleteModal = () => {
+    if (logs.length === 0) {
+      setTriedSubmitWithoutLogs(true);
+      toast.error('Vui lòng tích chọn ít nhất 1 quy trình / thao tác kỹ thuật trước khi hoàn thành ca trị liệu!');
+      const el = document.getElementById('technician-protocol-card');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      return;
+    }
+    setTriedSubmitWithoutLogs(false);
+    setShowConfirmModal(true);
+  };
+
   // Nộp ca trị liệu
   const handleSubmit = async () => {
+    if (logs.length === 0) {
+      setTriedSubmitWithoutLogs(true);
+      setShowConfirmModal(false);
+      toast.error('Vui lòng tích chọn ít nhất 1 quy trình / thao tác kỹ thuật trước khi hoàn thành!');
+      return;
+    }
     setSubmitting(true);
     try {
       await onCompleteTreatment({
@@ -224,11 +220,86 @@ export function TechnicianTreatmentDesk({
   };
 
   const deltaVas = vasTruoc - vasSau;
+  const isTreatmentPlanPackage = Boolean(
+    appointmentDetail?.phac_do_dieu_tri_id || (appointmentDetail?.so_thu_tu_buoi && appointmentDetail.so_thu_tu_buoi > 0)
+  );
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300 font-jakarta">
-      
+      {/* CARD 1: THÔNG TIN HỒ SƠ & CHỈ ĐỊNH TỪ CHUYÊN VIÊN PHCN (CHỈ HIỂN THỊ VỚI GÓI LIỆU TRÌNH) */}
+      {isTreatmentPlanPackage && (
+        <div className="bg-gradient-to-br from-teal-900/10 via-cyan-900/5 to-slate-900/10 dark:from-teal-950/40 dark:via-cyan-950/20 dark:to-zinc-900/40 border border-teal-500/20 dark:border-teal-500/30 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-teal-500/15 dark:border-teal-500/20 pb-3">
+            <div className="flex items-center gap-2 text-teal-800 dark:text-teal-300 font-black text-sm uppercase tracking-wider font-jakarta">
+              <Sparkles className="text-teal-600 dark:text-teal-400" size={18} />
+              <span>Kế Hoạch Trị Liệu & Chỉ Định Từ Chuyên Viên PHCN</span>
+            </div>
+            <div className="flex items-center flex-wrap gap-2">
+              {appointmentDetail?.chuyen_vien_chi_dinh && (
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-teal-800 dark:text-teal-200 bg-white/90 dark:bg-zinc-800/90 px-3 py-1 rounded-full border border-teal-300/80 dark:border-teal-700/80 shadow-2xs">
+                  <Stethoscope size={13} className="text-teal-600 dark:text-teal-400" />
+                  <span>Chỉ định bởi: <strong className="font-black text-teal-950 dark:text-teal-100">{appointmentDetail.chuyen_vien_chi_dinh}</strong></span>
+                </span>
+              )}
+              {appointmentDetail?.so_thu_tu_buoi && (
+                <span className="text-xs font-extrabold text-teal-700 dark:text-teal-300 bg-teal-100 dark:bg-teal-900/50 px-3 py-1 rounded-full border border-teal-300 dark:border-teal-700">
+                  Buổi {appointmentDetail.so_thu_tu_buoi}{appointmentDetail.pd_tong_so_buoi ? ` / ${appointmentDetail.pd_tong_so_buoi}` : ''}
+                </span>
+              )}
+            </div>
+          </div>
 
+          {/* Thông tin buổi lượng giá gốc nếu có */}
+          {(appointmentDetail?.ma_lich_kham_goc || appointmentDetail?.ngay_luong_gia) && (
+            <div className="flex items-center flex-wrap gap-x-4 gap-y-1.5 text-[11.5px] text-slate-600 dark:text-zinc-400 font-semibold bg-white/60 dark:bg-zinc-900/60 p-2.5 rounded-xl border border-teal-500/10 dark:border-teal-500/20">
+              {appointmentDetail.ma_lich_kham_goc && (
+                <span className="flex items-center gap-1">
+                  <span>📋 Buổi lượng giá gốc:</span>
+                  <strong className="text-teal-700 dark:text-teal-300 font-black">{appointmentDetail.ma_lich_kham_goc}</strong>
+                </span>
+              )}
+              {appointmentDetail.ngay_luong_gia && (
+                <span className="flex items-center gap-1">
+                  <Calendar size={12} className="text-slate-400" />
+                  <span>Ngày lượng giá:</span>
+                  <strong className="text-slate-800 dark:text-zinc-200">
+                    {format(new Date(appointmentDetail.ngay_luong_gia), 'dd/MM/yyyy')}
+                  </strong>
+                </span>
+              )}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+            {/* Kết luận lượng giá */}
+            <div className="bg-white/80 dark:bg-zinc-900/80 rounded-2xl p-4 border border-teal-500/10 dark:border-teal-500/20 space-y-1.5 shadow-2xs">
+              <span className="font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider text-[10px] block">
+                Kết luận lượng giá chức năng:
+              </span>
+              <p className="font-semibold text-slate-800 dark:text-zinc-200 leading-relaxed">
+                {appointmentDetail?.chan_doan || 'Lượng giá phục hồi chức năng cơ xương khớp vùng làm việc.'}
+              </p>
+            </div>
+
+            {/* Chống chỉ định */}
+            <div className="bg-rose-50/80 dark:bg-rose-955/40 rounded-2xl p-4 border border-rose-200/80 dark:border-rose-900/50 space-y-1.5 shadow-2xs">
+              <span className="font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider text-[10px] flex items-center gap-1">
+                <AlertTriangle size={12} />
+                Chống chỉ định & Vùng cần tránh:
+              </span>
+              <p className="font-semibold text-rose-900 dark:text-rose-200 leading-relaxed">
+                {appointmentDetail?.chong_chi_dinh || 'Không có chống chỉ định đặc biệt.'}
+              </p>
+            </div>
+          </div>
+
+          {(appointmentDetail?.ghi_chu_chuyen_vien || appointmentDetail?.ghi_chu) && (
+            <div className="bg-white/60 dark:bg-zinc-900/60 rounded-xl p-3 border border-slate-200/60 dark:border-zinc-800 text-xs text-slate-600 dark:text-zinc-300 font-medium">
+              <span className="font-bold text-slate-700 dark:text-zinc-200">Ghi chú & Dặn dò từ Chuyên viên PHCN:</span> {appointmentDetail.ghi_chu_chuyen_vien || appointmentDetail.ghi_chu}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* CARD 2: ĐÁNH GIÁ THANG ĐAU VAS (TRƯỚC & SAU THAO TÁC) */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-5">
@@ -266,29 +337,28 @@ export function TechnicianTreatmentDesk({
             </button>
             <button
               type="button"
-              onClick={() => setVasMode('numeric')}
+              onClick={() => setVasMode('slider')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
-                vasMode === 'numeric'
+                vasMode === 'slider'
                   ? 'bg-white dark:bg-zinc-900 text-teal-600 dark:text-teal-400 shadow-sm'
                   : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800'
               }`}
             >
               <Sliders size={14} />
-              <span>Thang Số</span>
+              <span>Thanh Trượt</span>
             </button>
           </div>
         </div>
 
-        {/* 2 KHỐI VAS TRƯỚC VÀ SAU */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
-          {/* VAS TRƯỚC */}
-          <div className="bg-rose-50/40 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30 rounded-2xl p-4 space-y-3">
+        {/* 2 Cột: Trước Trị Liệu & Sau Trị Liệu */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* CỘT 1: VAS TRƯỚC */}
+          <div className="space-y-3 bg-slate-50 dark:bg-zinc-800/40 border border-slate-200/70 dark:border-zinc-700/60 rounded-2xl p-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-black uppercase tracking-wider text-rose-700 dark:text-rose-300">
-                🔴 VAS Trước Khi Trị Liệu
+              <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-zinc-300">
+                1. Mức đau TRƯỚC khi bắt đầu
               </span>
-              <span className="text-lg font-black text-rose-600 dark:text-rose-400">
+              <span className="text-sm font-black text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-955/60 px-2.5 py-0.5 rounded-lg border border-rose-200 dark:border-rose-900/50">
                 {vasTruoc} / 10
               </span>
             </div>
@@ -297,44 +367,49 @@ export function TechnicianTreatmentDesk({
               <div className="grid grid-cols-6 gap-1.5 pt-1">
                 {WONG_BAKER_FACES.map(f => (
                   <button
-                    key={`truoc-${f.score}`}
+                    key={f.score}
                     type="button"
                     onClick={() => setVasTruoc(f.score)}
-                    className={`flex flex-col items-center p-2 rounded-xl border text-center transition-all ${
+                    className={`p-2 rounded-xl border flex flex-col items-center gap-1 transition-all cursor-pointer ${
                       vasTruoc === f.score
-                        ? 'bg-rose-500 text-white border-rose-600 scale-105 shadow-md shadow-rose-500/20'
-                        : 'bg-white dark:bg-zinc-900 border-rose-100 dark:border-rose-900/40 text-slate-700 dark:text-zinc-300 hover:border-rose-300'
+                        ? 'bg-rose-500 text-white border-rose-600 shadow-md scale-105'
+                        : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 hover:border-rose-300 text-slate-700 dark:text-zinc-300'
                     }`}
                   >
                     <span className="text-xl">{f.face}</span>
-                    <span className="text-[10px] font-black mt-1">{f.score}</span>
+                    <span className="text-[10px] font-black">{f.score}</span>
                   </button>
                 ))}
               </div>
             )}
 
             {vasMode === 'verbal' && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+              <div className="grid grid-cols-2 gap-2 pt-1">
                 {WONG_BAKER_FACES.map(f => (
                   <button
-                    key={`truoc-verb-${f.score}`}
+                    key={f.score}
                     type="button"
                     onClick={() => setVasTruoc(f.score)}
-                    className={`p-2.5 rounded-xl border text-left text-xs transition-all ${
+                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
                       vasTruoc === f.score
-                        ? 'bg-rose-500 text-white border-rose-600 font-bold'
-                        : 'bg-white dark:bg-zinc-900 border-rose-100 dark:border-rose-900/40 text-slate-700 dark:text-zinc-300'
+                        ? 'bg-rose-500 text-white border-rose-600 shadow-md font-bold'
+                        : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 hover:border-rose-300 text-slate-700 dark:text-zinc-300'
                     }`}
                   >
-                    <div className="font-black">{f.score} - {f.label}</div>
-                    <div className="text-[10px] opacity-80 line-clamp-1">{f.desc}</div>
+                    <div className="flex items-center justify-between text-xs font-bold">
+                      <span>{f.label}</span>
+                      <span className="opacity-80">({f.score})</span>
+                    </div>
+                    <p className={`text-[10px] truncate mt-0.5 ${vasTruoc === f.score ? 'text-white/90' : 'text-slate-400 dark:text-zinc-500'}`}>
+                      {f.desc}
+                    </p>
                   </button>
                 ))}
               </div>
             )}
 
-            {vasMode === 'numeric' && (
-              <div className="space-y-2 pt-2">
+            {vasMode === 'slider' && (
+              <div className="pt-2 px-1 space-y-2">
                 <input
                   type="range"
                   min={0}
@@ -342,24 +417,24 @@ export function TechnicianTreatmentDesk({
                   step={1}
                   value={vasTruoc}
                   onChange={e => setVasTruoc(Number(e.target.value))}
-                  className="w-full accent-rose-500 cursor-pointer"
+                  className="w-full h-2 bg-slate-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-rose-600"
                 />
-                <div className="flex justify-between text-[10px] font-bold text-slate-400">
+                <div className="flex justify-between text-[10px] font-bold text-slate-400 dark:text-zinc-500">
                   <span>0 (Không đau)</span>
-                  <span>5 (Vừa)</span>
+                  <span>5 (Đau vừa)</span>
                   <span>10 (Dữ dội)</span>
                 </div>
               </div>
             )}
           </div>
 
-          {/* VAS SAU */}
-          <div className="bg-emerald-50/40 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 rounded-2xl p-4 space-y-3">
+          {/* CỘT 2: VAS SAU */}
+          <div className="space-y-3 bg-slate-50 dark:bg-zinc-800/40 border border-slate-200/70 dark:border-zinc-700/60 rounded-2xl p-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
-                🟢 VAS Sau Khi Trị Liệu
+              <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-zinc-300">
+                2. Mức đau SAU khi kết thúc ca
               </span>
-              <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">
+              <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-955/60 px-2.5 py-0.5 rounded-lg border border-emerald-200 dark:border-emerald-900/50">
                 {vasSau} / 10
               </span>
             </div>
@@ -368,44 +443,49 @@ export function TechnicianTreatmentDesk({
               <div className="grid grid-cols-6 gap-1.5 pt-1">
                 {WONG_BAKER_FACES.map(f => (
                   <button
-                    key={`sau-${f.score}`}
+                    key={f.score}
                     type="button"
                     onClick={() => setVasSau(f.score)}
-                    className={`flex flex-col items-center p-2 rounded-xl border text-center transition-all ${
+                    className={`p-2 rounded-xl border flex flex-col items-center gap-1 transition-all cursor-pointer ${
                       vasSau === f.score
-                        ? 'bg-emerald-600 text-white border-emerald-700 scale-105 shadow-md shadow-emerald-600/20'
-                        : 'bg-white dark:bg-zinc-900 border-emerald-100 dark:border-emerald-900/40 text-slate-700 dark:text-zinc-300 hover:border-emerald-300'
+                        ? 'bg-emerald-500 text-white border-emerald-600 shadow-md scale-105'
+                        : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 hover:border-emerald-300 text-slate-700 dark:text-zinc-300'
                     }`}
                   >
                     <span className="text-xl">{f.face}</span>
-                    <span className="text-[10px] font-black mt-1">{f.score}</span>
+                    <span className="text-[10px] font-black">{f.score}</span>
                   </button>
                 ))}
               </div>
             )}
 
             {vasMode === 'verbal' && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+              <div className="grid grid-cols-2 gap-2 pt-1">
                 {WONG_BAKER_FACES.map(f => (
                   <button
-                    key={`sau-verb-${f.score}`}
+                    key={f.score}
                     type="button"
                     onClick={() => setVasSau(f.score)}
-                    className={`p-2.5 rounded-xl border text-left text-xs transition-all ${
+                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
                       vasSau === f.score
-                        ? 'bg-emerald-600 text-white border-emerald-700 font-bold'
-                        : 'bg-white dark:bg-zinc-900 border-emerald-100 dark:border-emerald-900/40 text-slate-700 dark:text-zinc-300'
+                        ? 'bg-emerald-500 text-white border-emerald-600 shadow-md font-bold'
+                        : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 hover:border-emerald-300 text-slate-700 dark:text-zinc-300'
                     }`}
                   >
-                    <div className="font-black">{f.score} - {f.label}</div>
-                    <div className="text-[10px] opacity-80 line-clamp-1">{f.desc}</div>
+                    <div className="flex items-center justify-between text-xs font-bold">
+                      <span>{f.label}</span>
+                      <span className="opacity-80">({f.score})</span>
+                    </div>
+                    <p className={`text-[10px] truncate mt-0.5 ${vasSau === f.score ? 'text-white/90' : 'text-slate-400 dark:text-zinc-500'}`}>
+                      {f.desc}
+                    </p>
                   </button>
                 ))}
               </div>
             )}
 
-            {vasMode === 'numeric' && (
-              <div className="space-y-2 pt-2">
+            {vasMode === 'slider' && (
+              <div className="pt-2 px-1 space-y-2">
                 <input
                   type="range"
                   min={0}
@@ -413,11 +493,11 @@ export function TechnicianTreatmentDesk({
                   step={1}
                   value={vasSau}
                   onChange={e => setVasSau(Number(e.target.value))}
-                  className="w-full accent-emerald-500 cursor-pointer"
+                  className="w-full h-2 bg-slate-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-emerald-600"
                 />
-                <div className="flex justify-between text-[10px] font-bold text-slate-400">
+                <div className="flex justify-between text-[10px] font-bold text-slate-400 dark:text-zinc-500">
                   <span>0 (Không đau)</span>
-                  <span>5 (Vừa)</span>
+                  <span>5 (Đau vừa)</span>
                   <span>10 (Dữ dội)</span>
                 </div>
               </div>
@@ -425,11 +505,11 @@ export function TechnicianTreatmentDesk({
           </div>
         </div>
 
-        {/* MỨC CẢI THIỆN ĐAU SPARKLINE BANNER */}
-        <div className="bg-gradient-to-r from-teal-500/10 via-cyan-500/10 to-emerald-500/10 border border-teal-500/20 rounded-2xl p-3.5 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <Sparkles className="text-teal-600 dark:text-teal-400" size={20} />
-            <div className="text-xs">
+        {/* Delta VAS badge */}
+        <div className="flex items-center justify-between p-3 rounded-2xl bg-teal-500/10 border border-teal-500/20 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="text-base">📊</span>
+            <div>
               <span className="font-bold text-slate-700 dark:text-zinc-200">Hiệu quả giảm đau buổi trị liệu:</span>
               <span className="font-medium text-slate-500 dark:text-zinc-400 ml-1">
                 {deltaVas > 0
@@ -449,16 +529,33 @@ export function TechnicianTreatmentDesk({
       </div>
 
       {/* CARD 3: NHẬT KÝ THAO TÁC KỸ THUẬT TRỊ LIỆU THỦ CÔNG */}
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-5">
-        <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
+      <div
+        id="technician-protocol-card"
+        className={`bg-white dark:bg-zinc-900 border rounded-3xl p-5 sm:p-6 shadow-sm space-y-5 transition-all duration-300 ${
+          triedSubmitWithoutLogs && logs.length === 0
+            ? 'border-2 border-rose-500/90 dark:border-rose-500 ring-4 ring-rose-500/10'
+            : 'border-slate-200/80 dark:border-zinc-800'
+        }`}
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-zinc-800 pb-3">
           <div className="flex items-center gap-2 text-slate-800 dark:text-zinc-100 font-black text-sm uppercase tracking-wider font-jakarta">
             <Zap className="text-cyan-600 dark:text-cyan-400" size={18} />
             <span>Nhật Ký Thao Tác Kỹ Thuật Trị Liệu</span>
           </div>
-          <span className="text-xs font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/50 px-3 py-1 rounded-full border border-teal-200/60 font-mono">
-            {logs.length} / {packageSteps.length} kỹ thuật đã chọn
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-955/50 px-3 py-1 rounded-full border border-teal-200/60 font-mono">
+              {logs.length} / {packageSteps.length} kỹ thuật đã chọn
+            </span>
+          </div>
         </div>
+
+        {/* THÔNG BÁO LỖI NẾU CHƯA CHỌN MÀ BẤM HOÀN THÀNH */}
+        {triedSubmitWithoutLogs && logs.length === 0 && (
+          <div className="p-3.5 rounded-2xl bg-rose-50/90 dark:bg-rose-955/60 border border-rose-200 dark:border-rose-800/80 text-rose-800 dark:text-rose-200 text-xs font-bold flex items-center gap-2 animate-in fade-in duration-200">
+            <AlertTriangle size={17} className="text-rose-600 shrink-0" />
+            <span>Vui lòng tích chọn các thao tác kỹ thuật đã thực hiện dưới đây (hoặc bấm "Tích chọn tất cả") trước khi hoàn thành ca trị liệu!</span>
+          </div>
+        )}
 
         {/* QUY TRÌNH KỸ THUẬT THEO GÓI DỊCH VỤ (KẾT NỐI ĐỘNG TỪ DB) */}
         <div className="bg-slate-50 dark:bg-zinc-800/40 border border-slate-200/70 dark:border-zinc-700/60 rounded-2xl p-4 space-y-3">
@@ -493,7 +590,7 @@ export function TechnicianTreatmentDesk({
                   onClick={() => togglePackageStep(step.name)}
                   className={`p-3.5 rounded-xl border text-left flex items-center justify-between gap-2 transition-all cursor-pointer ${
                     isLogged
-                      ? 'bg-teal-50 dark:bg-teal-950/40 border-teal-300 dark:border-teal-700 text-teal-900 dark:text-teal-200 font-bold shadow-xs'
+                      ? 'bg-teal-50 dark:bg-teal-955/40 border-teal-300 dark:border-teal-700 text-teal-900 dark:text-teal-200 font-bold shadow-xs'
                       : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:border-teal-200'
                   }`}
                 >
@@ -533,8 +630,8 @@ export function TechnicianTreatmentDesk({
       <div className="flex items-center justify-end gap-4 pt-2">
         <button
           type="button"
-          onClick={() => setShowConfirmModal(true)}
-          className="px-8 py-3.5 rounded-2xl bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-teal-600/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+          onClick={handleOpenCompleteModal}
+          className="px-8 py-3.5 rounded-2xl text-white font-black text-xs uppercase tracking-wider shadow-lg bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 shadow-teal-600/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
         >
           <CheckCircle2 size={18} />
           <span>HOÀN THÀNH CA TRỊ LIỆU</span>

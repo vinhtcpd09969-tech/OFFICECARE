@@ -36,11 +36,10 @@ export default function ManageVouchers() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   
-  // Loại giảm trừ + Payment & Channels & Service types requirements states inside Modal
+  // Loại giảm trừ + Payment & Service types requirements states inside Modal
   const [loaiGiam, setLoaiGiam] = useState<'phan_tram' | 'so_tien_co_dinh'>('phan_tram');
   const [yeuCauThanhToan, setYeuCauThanhToan] = useState<string[]>(['tat_ca']);
   const [tuDongApDung, setTuDongApDung] = useState<boolean>(false);
-  const [kenhApDung, setKenhApDung] = useState<string[]>(['tat_ca']);
   const [loaiGoiApDung, setLoaiGoiApDung] = useState<string[]>(['tat_ca']);
 
   // Modal confirm state
@@ -63,11 +62,9 @@ export default function ManageVouchers() {
         editingVoucher.yeu_cau_thanh_toan?.length ? editingVoucher.yeu_cau_thanh_toan : ['tat_ca']
       );
       setTuDongApDung(!!editingVoucher.tu_dong_ap_dung);
-      setKenhApDung(editingVoucher.kenh_ap_dung?.length ? editingVoucher.kenh_ap_dung : ['tat_ca']);
       setLoaiGoiApDung(editingVoucher.loai_goi_ap_dung?.length ? editingVoucher.loai_goi_ap_dung : ['tat_ca']);
     } else {
       setTuDongApDung(false);
-      setKenhApDung(['tat_ca']);
       setLoaiGoiApDung(['tat_ca']);
     }
   }, [editingVoucher]);
@@ -106,7 +103,6 @@ export default function ManageVouchers() {
         ? (yeuCauThanhToan.length ? yeuCauThanhToan : ['tat_ca'])
         : ['tat_ca'],
       tu_dong_ap_dung: tuDongApDung,
-      kenh_ap_dung: kenhApDung.length ? kenhApDung : ['tat_ca'],
       loai_goi_ap_dung: loaiGoiApDung.length ? loaiGoiApDung : ['tat_ca'],
       trang_thai: editingVoucher?.id ? (editingVoucher.trang_thai || 'hoat_dong') : 'hoat_dong',
     };
@@ -368,8 +364,6 @@ export default function ManageVouchers() {
         setYeuCauThanhToan={setYeuCauThanhToan}
         tuDongApDung={tuDongApDung}
         setTuDongApDung={setTuDongApDung}
-        kenhApDung={kenhApDung}
-        setKenhApDung={setKenhApDung}
         loaiGoiApDung={loaiGoiApDung}
         setLoaiGoiApDung={setLoaiGoiApDung}
         formatLocalDate={formatLocalDate}

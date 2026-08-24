@@ -18,7 +18,7 @@ const CORE_PILLARS = [
   {
     icon: Stethoscope,
     title: 'Đội Ngũ Chuyên Chế 1:1',
-    desc: 'Đội ngũ bác sĩ và kỹ thuật viên tận tâm, đồng hành hỗ trợ bệnh nhân xuyên suốt lộ trình phục hồi.'
+    desc: 'Đội ngũ chuyên viên tư vấn và kỹ thuật viên tận tâm, đồng hành hỗ trợ khách hàng xuyên suốt lộ trình phục hồi.'
   },
   {
     icon: HeartPulse,
@@ -81,7 +81,7 @@ export default function AboutUs() {
                     to="/booking"
                     className="px-5 py-2.5 bg-[#0D9488] hover:bg-[#0B7A70] text-white font-bold text-xs sm:text-sm rounded-xl transition-all shadow-xs flex items-center gap-2 active:scale-95 cursor-pointer"
                   >
-                    <span>Đặt lịch thăm khám 1:1</span>
+                    <span>Đặt lịch lượng giá 1:1</span>
                     <ArrowRight size={15} />
                   </Link>
                   <Link
@@ -163,7 +163,7 @@ export default function AboutUs() {
                 <div className="space-y-2.5 pt-1">
                   {[
                     'Môi trường y tế chuẩn hóa, thân thiện và riêng tư cho từng khách hàng',
-                    'Đội ngũ y bác sĩ & kỹ thuật viên chuyên nghiệp, tận tâm đồng hành',
+                    'Đội ngũ chuyên viên tư vấn & kỹ thuật viên chuyên nghiệp, tận tâm đồng hành',
                     'Trang thiết bị trị liệu hiện đại nhập khẩu, hỗ trợ phục hồi tối ưu',
                     'Theo dõi lộ trình chăm sóc minh bạch trên hệ thống hồ sơ điện tử'
                   ].map((text, idx) => (
@@ -328,7 +328,7 @@ export default function AboutUs() {
                 to="/booking"
                 className="w-full bg-[#0D9488] hover:bg-[#0B7A70] text-white text-center font-bold py-2.5 rounded-xl text-xs transition-all block shadow-xs active:scale-95"
               >
-                Đặt Lịch Khám &amp; Tư Vấn Trị Liệu
+                Đặt Lịch Lượng Giá &amp; Tư Vấn Trị Liệu
               </Link>
             </div>
           </div>

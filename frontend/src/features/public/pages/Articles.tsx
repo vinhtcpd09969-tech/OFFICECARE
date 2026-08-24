@@ -95,7 +95,7 @@ export default function Articles() {
             Kiến Thức &amp; Phác Đồ <span className="text-[#0D9488]">Phục Hồi Chuyên Sâu</span>
           </h1>
           <p className="text-slate-600 text-xs sm:text-sm font-normal leading-relaxed max-w-2xl mx-auto">
-            Tổng hợp các bài viết tham vấn từ Hội đồng Bác sĩ CKI &amp; Kỹ thuật viên Phục hồi chức năng. Cập nhật giải pháp khoa học cho sức khỏe xương khớp văn phòng.
+            Tổng hợp các bài viết tham vấn từ Hội đồng Chuyên viên tư vấn &amp; Kỹ thuật viên Phục hồi chức năng. Cập nhật giải pháp khoa học cho sức khỏe xương khớp văn phòng.
           </p>
         </div>
 
@@ -348,7 +348,7 @@ export default function Articles() {
                 Nhận Lời Khuyên Y Khoa Hàng Tuần
               </h3>
               <p className="text-slate-300 text-xs font-normal leading-relaxed">
-                Đăng ký nhận bài tập phục hồi chức năng và mẹo phòng ngừa đau mỏi từ Bác sĩ OfficeCare.
+                Đăng ký nhận bài tập phục hồi chức năng và mẹo phòng ngừa đau mỏi từ Chuyên viên tư vấn OfficeCare.
               </p>
 
               {newsletterSubmitted ? (
@@ -369,29 +369,29 @@ export default function Articles() {
                     type="submit"
                     className="w-full py-2.5 bg-[#0D9488] hover:bg-[#0b7a70] text-white font-extrabold text-xs rounded-xl uppercase tracking-wider transition-all cursor-pointer shadow-sm"
                   >
-                    Đăng Ký Khám Phá
+                    Đăng Ký Nhận Bản Tin
                   </button>
                 </form>
               )}
             </div>
 
-            {/* Widget 3: Card Tư Vấn Trực Tiếp Bác Sĩ (Doctor Booking Banner) */}
+            {/* Widget 3: Card Tư Vấn Trực Tiếp Chuyên Viên (Doctor Booking Banner) */}
             <div className="bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border border-amber-200/70 rounded-[28px] p-5 text-left space-y-3">
               <div className="flex items-center gap-2">
                 <UserCheck size={18} className="text-amber-600" />
                 <h4 className="font-heading font-black text-xs uppercase tracking-wider text-amber-900">
-                  Cần Tư Vấn Bệnh Lý?
+                  Cần Tư Vấn Phục Hồi?
                 </h4>
               </div>
               <p className="text-xs text-amber-950 font-medium leading-relaxed">
-                Đặt lịch khám 1:1 trực tiếp với Bác sĩ chuyên khoa CKI để nhận phác đồ phục hồi cá nhân hóa.
+                Đặt lịch lượng giá 1:1 trực tiếp với Chuyên viên tư vấn để nhận kế hoạch phục hồi cá nhân hóa.
               </p>
               <button
                 type="button"
                 onClick={() => navigate('/booking')}
                 className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs rounded-xl uppercase tracking-wider transition-all cursor-pointer shadow-sm text-center block"
               >
-                Đặt Lịch Khám 1:1
+                Đặt Lịch Lượng Giá 1:1
               </button>
             </div>
 

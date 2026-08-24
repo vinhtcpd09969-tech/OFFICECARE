@@ -62,7 +62,7 @@ export function RecordHeader({ khachHang, goiDieuTri = [], dieuTriLe = [], lichS
             <div className="flex items-center gap-2">
               <h1 className="font-heading text-2xl md:text-3xl font-black tracking-tight text-white">{khachHang.ho_ten}</h1>
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-white/10 text-teal-200 border border-white/15">
-                Hồ Sơ Y Khoa
+                Lịch Sử Điều Trị
               </span>
             </div>
             <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-teal-100/80 font-medium">
