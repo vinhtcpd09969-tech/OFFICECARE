@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import nodemailer from 'nodemailer';
 import {
   PaymentReceiptEmailParams,
@@ -14,7 +15,7 @@ import {
 
 export { PaymentReceiptEmailParams, BookingSuccessEmailParams };
 
-const isSMTPConfigured = Boolean(
+const checkSMTPConfigured = () => Boolean(
   process.env.EMAIL_USER && 
   process.env.EMAIL_USER !== 'your_email@gmail.com' && 
   process.env.EMAIL_PASS && 
@@ -26,14 +27,11 @@ let cachedTransporter: nodemailer.Transporter | null = null;
 const getTransporter = async (): Promise<nodemailer.Transporter> => {
   if (cachedTransporter) return cachedTransporter;
 
-  if (isSMTPConfigured) {
+  if (checkSMTPConfigured()) {
     cachedTransporter = nodemailer.createTransport({
       host: process.env.EMAIL_HOST || 'smtp.gmail.com',
       port: parseInt(process.env.EMAIL_PORT || '587'),
       secure: process.env.EMAIL_PORT === '465',
-      pool: true,
-      maxConnections: 5,
-      maxMessages: 100,
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
@@ -56,7 +54,7 @@ const getTransporter = async (): Promise<nodemailer.Transporter> => {
 };
 
 const getFromAddress = (senderName = 'OfficeCare Clinic', customEmail?: string) => {
-  return isSMTPConfigured
+  return checkSMTPConfigured()
     ? `"${senderName}" <${customEmail || process.env.EMAIL_USER}>`
     : `"${senderName}" <noreply@officareclinic.com>`;
 };
@@ -76,7 +74,7 @@ export const sendOTP = async (toEmail: string, otpCode: string, userName: string
     console.log('----------------------------------------------------');
     console.log('🔑 MÃ OTP CỦA BẠN LÀ: %s', otpCode);
     console.log('✅ Đã gửi Email OTP tới: %s', toEmail);
-    if (!isSMTPConfigured) {
+    if (!checkSMTPConfigured()) {
       console.log('📩 Bấm vào Link này để XEM EMAIL (Ethereal): %s', nodemailer.getTestMessageUrl(info));
     }
     console.log('----------------------------------------------------');
@@ -103,7 +101,7 @@ export const sendForgotPasswordOTP = async (toEmail: string, otpCode: string, us
     console.log('----------------------------------------------------');
     console.log('🔑 MÃ OTP QUÊN MẬT KHẨU CỦA BẠN LÀ: %s', otpCode);
     console.log('✅ Đã gửi Email OTP khôi phục tới: %s', toEmail);
-    if (!isSMTPConfigured) {
+    if (!checkSMTPConfigured()) {
       console.log('📩 Bấm vào Link này để XEM EMAIL (Ethereal): %s', nodemailer.getTestMessageUrl(info));
     }
     console.log('----------------------------------------------------');
@@ -137,7 +135,7 @@ export const sendBookingConfirmationOTP = async (
     console.log('----------------------------------------------------');
     console.log('🔑 MÃ OTP LỊCH HẸN CỦA BẠN LÀ: %s', otpCode);
     console.log('✅ Đã gửi Email OTP xác thực lịch hẹn tới: %s', toEmail);
-    if (!isSMTPConfigured) {
+    if (!checkSMTPConfigured()) {
       console.log('📩 Bấm vào Link này để XEM EMAIL (Ethereal): %s', nodemailer.getTestMessageUrl(info));
     }
     console.log('----------------------------------------------------');
@@ -171,7 +169,7 @@ export const sendAppointmentReminder = async (
 
     console.log('----------------------------------------------------');
     console.log('✅ Đã gửi Email Nhắc hẹn tới: %s', toEmail);
-    if (!isSMTPConfigured) {
+    if (!checkSMTPConfigured()) {
       console.log('📩 Bấm vào Link này để XEM EMAIL (Ethereal): %s', nodemailer.getTestMessageUrl(info));
     }
     console.log('----------------------------------------------------');
@@ -196,7 +194,7 @@ export const sendAccountLockedNotification = async (toEmail: string, userName: s
 
     console.log('----------------------------------------------------');
     console.log('🔒 Đã gửi Email Thông báo Khóa tài khoản tới: %s', toEmail);
-    if (!isSMTPConfigured) {
+    if (!checkSMTPConfigured()) {
       console.log('📩 Bấm vào Link này để XEM EMAIL (Ethereal): %s', nodemailer.getTestMessageUrl(info));
     }
     console.log('----------------------------------------------------');
@@ -228,7 +226,7 @@ export const sendPaymentReceiptEmail = async (params: PaymentReceiptEmailParams)
 
     console.log('----------------------------------------------------');
     console.log('✅ Đã gửi Email Biên lai Thanh toán tới: %s (Hóa đơn: %s)', toEmail, maHoaDon);
-    if (!isSMTPConfigured) {
+    if (!checkSMTPConfigured()) {
       console.log('📩 Bấm vào Link này để XEM EMAIL (Ethereal): %s', nodemailer.getTestMessageUrl(info));
     }
     console.log('----------------------------------------------------');
@@ -258,7 +256,7 @@ export const sendAdminSecurityOTP = async (
 
     console.log('----------------------------------------------------');
     console.log('🛡️ Đã gửi OTP Bảo mật Admin tới: %s (Hành động: %s)', toEmail, actionTitle);
-    if (!isSMTPConfigured) {
+    if (!checkSMTPConfigured()) {
       console.log('📩 Bấm vào Link này để XEM EMAIL (Ethereal): %s', nodemailer.getTestMessageUrl(info));
     }
     console.log('----------------------------------------------------');
@@ -288,7 +286,7 @@ export const sendBookingSuccessEmail = async (toEmail: string, params: BookingSu
 
     console.log('----------------------------------------------------');
     console.log('✅ Đã gửi Email Xác nhận Đặt lịch tới: %s (Mã LH: #%s)', toEmail, params.maLichDat);
-    if (!isSMTPConfigured) {
+    if (!checkSMTPConfigured()) {
       console.log('📩 Bấm vào Link này để XEM EMAIL (Ethereal): %s', nodemailer.getTestMessageUrl(info));
     }
     console.log('----------------------------------------------------');
