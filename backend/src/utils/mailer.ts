@@ -22,6 +22,15 @@ const checkSMTPConfigured = () => Boolean(
   process.env.EMAIL_PASS !== 'your_app_password'
 );
 
+import dns from 'dns';
+try {
+  dns.setDefaultResultOrder('ipv4first');
+} catch (_) {}
+
+const customIpv4Lookup = (hostname: string, _options: any, callback: (err: NodeJS.ErrnoException | null, address: string, family: number) => void) => {
+  dns.lookup(hostname, { family: 4, all: false }, callback);
+};
+
 export const getTransporter = async (): Promise<nodemailer.Transporter> => {
   if (checkSMTPConfigured()) {
     const user = (process.env.EMAIL_USER || '').trim();
@@ -38,6 +47,7 @@ export const getTransporter = async (): Promise<nodemailer.Transporter> => {
         auth: { user, pass },
         tls: { rejectUnauthorized: false },
         family: 4,
+        lookup: customIpv4Lookup,
         connectionTimeout: 8000,
         greetingTimeout: 8000,
         socketTimeout: 10000,
@@ -51,6 +61,7 @@ export const getTransporter = async (): Promise<nodemailer.Transporter> => {
       auth: { user, pass },
       tls: { rejectUnauthorized: false },
       family: 4,
+      lookup: customIpv4Lookup,
       connectionTimeout: 8000,
       greetingTimeout: 8000,
       socketTimeout: 10000,

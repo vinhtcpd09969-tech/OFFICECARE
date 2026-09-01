@@ -1,3 +1,8 @@
+import dns from 'dns';
+try {
+  dns.setDefaultResultOrder('ipv4first');
+} catch (_) {}
+
 import env from './config/env';
 import { closePool } from './config/db';
 import express, { Request, Response } from 'express';
