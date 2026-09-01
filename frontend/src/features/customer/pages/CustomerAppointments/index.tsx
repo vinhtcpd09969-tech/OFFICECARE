@@ -188,12 +188,11 @@ export default function CustomerAppointments() {
   };
 
 
-  const getCountdownString = (startTimeIso: string, buoi?: string | null) => {
+  const getCountdownString = (startTimeIso: string, _buoi?: string | null) => {
     const start = new Date(startTimeIso).getTime();
     const diff = start - currentTime.getTime();
-    const buoiText = buoi === 'chieu' ? 'Buổi Chiều' : 'Buổi Sáng';
     if (diff <= 0) {
-      return `${buoiText} đang trong khung giờ đón tiếp`;
+      return 'Đang trong giờ đón tiếp';
     }
     const sec = Math.floor(diff / 1000);
     const hours = Math.floor(sec / 3600);
@@ -205,7 +204,7 @@ export default function CustomerAppointments() {
     if (minutes > 0 || hours > 0) parts.push(`${minutes}m`);
     parts.push(`${seconds}s`);
 
-    return `${buoiText} bắt đầu đón khách sau: ${parts.join(' ')}`;
+    return `Đón khách sau ${parts.join(' ')}`;
   };
 
   const getStatusColorClass = (status: string) => {

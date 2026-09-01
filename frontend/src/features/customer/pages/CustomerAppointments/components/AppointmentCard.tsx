@@ -220,9 +220,12 @@ export const AppointmentCard = forwardRef<HTMLDivElement, AppointmentCardProps>(
 
         {/* Countdown for Confirmed */}
         {isConfirmed && (
-          <div className="w-full text-[10px] font-bold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-900/60 rounded-xl p-2 flex items-center gap-1.5 animate-pulse mt-0.5">
-            <span>⏳</span>
-            <span className="truncate">{getCountdownString(app.ngay_gio_bat_dau, app.buoi)}</span>
+          <div 
+            title={getCountdownString(app.ngay_gio_bat_dau, app.buoi)}
+            className="w-full text-[10.5px] font-bold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-900/60 rounded-xl p-2 flex items-center justify-center gap-1.5 animate-pulse mt-0.5 text-center leading-snug"
+          >
+            <span className="shrink-0">⏳</span>
+            <span>{getCountdownString(app.ngay_gio_bat_dau, app.buoi)}</span>
           </div>
         )}
       </div>
