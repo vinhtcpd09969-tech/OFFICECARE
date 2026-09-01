@@ -25,7 +25,13 @@ router.post('/payment/payos-webhook', payosWebhookHandler);
 
 // Live SMTP diagnostic endpoint
 router.get('/test-smtp', async (req, res) => {
-  const targetEmail = (req.query.to as string) || 'kinquan0506@gmail.com';
+  const targetEmail = (req.query.to as string || '').trim();
+  if (!targetEmail) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'Vui lòng cung cấp tham số email người nhận qua query param: ?to=email_cua_ban@example.com'
+    });
+  }
   const emailUser = process.env.EMAIL_USER || '';
   const emailPass = process.env.EMAIL_PASS || '';
   const emailHost = process.env.EMAIL_HOST || '';
