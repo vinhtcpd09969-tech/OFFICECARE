@@ -314,8 +314,8 @@ export const renderAccountLockedEmail = (userName: string): string => {
                   <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #FEF2F2; border-radius: 12px; border: 1px solid #FEE2E2; margin-bottom: 24px; font-size: 14px; color: #991B1B; font-family: sans-serif;">
                     <tr>
                       <td style="padding: 20px 16px; line-height: 1.6;">
-                        ⚠️ <strong>Lý do:</strong> Bạn đã vi phạm chính sách của phòng khám <strong>OfficeCare</strong> nên đã bị khóa tài khoản.<br><br>
-                        📞 Mọi thắc mắc vui lòng liên hệ hotline hỗ trợ hoặc Fanpage của phòng khám để được giải đáp và hỗ trợ mở lại nếu có nhầm lẫn.
+                        ⚠️ <strong>Lý do:</strong> Bạn đã vi phạm chính sách của trung tâm <strong>OfficeCare</strong> nên đã bị khóa tài khoản.<br><br>
+                        📞 Mọi thắc mắc vui lòng liên hệ hotline hỗ trợ hoặc Fanpage của trung tâm để được giải đáp và hỗ trợ mở lại nếu có nhầm lẫn.
                       </td>
                     </tr>
                   </table>
@@ -497,7 +497,7 @@ export const renderPaymentReceiptEmail = (params: PaymentReceiptEmailParams): st
                   <table width="100%" border="0" cellspacing="0" cellpadding="0" style="color: #64748B; font-size: 12px; line-height: 1.7;">
                     <tr>
                       <td>
-                        <strong style="color: #0F172A;">Phòng Khám Phục Hồi Chức Năng OfficeCare</strong><br>
+                        <strong style="color: #0F172A;">Trung Tâm Phục Hồi Chức Năng OfficeCare</strong><br>
                         🏢 Địa chỉ: Tòa nhà OfficeCare Clinic, TP. Hồ Chí Minh<br>
                         📞 Tổng đài CSKH: <strong>1900 6868</strong> (Hỗ trợ 24/7)<br>
                         ✉️ Email hỗ trợ: support@officecare.vn
