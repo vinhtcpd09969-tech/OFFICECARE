@@ -22,62 +22,41 @@ const checkSMTPConfigured = () => Boolean(
   process.env.EMAIL_PASS !== 'your_app_password'
 );
 
-let cachedTransporter: nodemailer.Transporter | null = null;
-
 export const getTransporter = async (): Promise<nodemailer.Transporter> => {
-  if (cachedTransporter) return cachedTransporter;
-
   if (checkSMTPConfigured()) {
-    const isGmail = (process.env.EMAIL_HOST || '').includes('gmail') || (process.env.EMAIL_USER || '').includes('@gmail.com');
+    const user = (process.env.EMAIL_USER || '').trim();
+    const pass = (process.env.EMAIL_PASS || '').trim();
+    const host = (process.env.EMAIL_HOST || 'smtp.gmail.com').trim();
+    const port = parseInt(process.env.EMAIL_PORT || '465', 10);
+    const isGmail = host.includes('gmail') || user.includes('@gmail.com');
+
     if (isGmail) {
-      cachedTransporter = nodemailer.createTransport({
-        host: 'smtp.gmail.com',
-        port: 465,
-        secure: true,
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
-        },
-        tls: {
-          rejectUnauthorized: false,
-        },
-        family: 4,
-        connectionTimeout: 10000,
-        greetingTimeout: 10000,
-        socketTimeout: 15000,
-      } as any);
-    } else {
-      cachedTransporter = nodemailer.createTransport({
-        host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-        port: parseInt(process.env.EMAIL_PORT || '587', 10),
-        secure: process.env.EMAIL_PORT === '465',
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
-        },
-        tls: {
-          rejectUnauthorized: false,
-        },
-        family: 4,
-        connectionTimeout: 10000,
-        greetingTimeout: 10000,
-        socketTimeout: 15000,
-      } as any);
+      return nodemailer.createTransport({
+        service: 'gmail',
+        auth: { user, pass },
+        tls: { rejectUnauthorized: false }
+      });
     }
-  } else {
-    const testAccount = await nodemailer.createTestAccount();
-    cachedTransporter = nodemailer.createTransport({
-      host: 'smtp.ethereal.email',
-      port: 587,
-      secure: false,
-      auth: {
-        user: testAccount.user,
-        pass: testAccount.pass,
-      },
+
+    return nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      auth: { user, pass },
+      tls: { rejectUnauthorized: false }
     });
   }
 
-  return cachedTransporter;
+  const testAccount = await nodemailer.createTestAccount();
+  return nodemailer.createTransport({
+    host: 'smtp.ethereal.email',
+    port: 587,
+    secure: false,
+    auth: {
+      user: testAccount.user,
+      pass: testAccount.pass,
+    },
+  });
 };
 
 const getFromAddress = (senderName = 'OfficeCare Clinic', customEmail?: string) => {
