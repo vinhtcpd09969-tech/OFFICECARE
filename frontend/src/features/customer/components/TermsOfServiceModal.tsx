@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { TERMS_OF_SERVICE, TERMS_EFFECTIVE_DATE } from '../../legal/termsContent';
+import { TERMS_OF_SERVICE, TERMS_EFFECTIVE_DATE } from '@/constants/termsContent';
 
 interface TermsOfServiceModalProps {
   open: boolean;

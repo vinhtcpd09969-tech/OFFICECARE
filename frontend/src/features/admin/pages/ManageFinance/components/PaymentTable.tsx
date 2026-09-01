@@ -55,12 +55,13 @@ export function PaymentTable({ payments, allPayments, invoices, loading, isAdmin
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs table-fixed">
               <colgroup>
-                <col className="w-[15%]" />
-                <col className="w-[15%]" />
-                <col className="w-[24%]" />
-                <col className="w-[16%]" />
+                <col className="w-[13%]" />
+                <col className="w-[13%]" />
+                <col className="w-[18%]" />
                 <col className="w-[14%]" />
-                <col className="w-[16%]" />
+                <col className="w-[14%]" />
+                <col className="w-[15%]" />
+                <col className="w-[13%]" />
               </colgroup>
               <thead>
                 <tr className="bg-slate-50/80 dark:bg-slate-800/80 border-b border-slate-200/80 dark:border-slate-700/80 text-slate-400 font-black uppercase tracking-widest text-[10px]">
@@ -69,6 +70,7 @@ export function PaymentTable({ payments, allPayments, invoices, loading, isAdmin
                   <th className="p-4">Khách hàng</th>
                   <th className="p-4">Số tiền</th>
                   <th className="p-4">Phương thức</th>
+                  <th className="p-4">Người thu</th>
                   <th className="p-4 text-right">Thao tác</th>
                 </tr>
               </thead>
@@ -90,6 +92,20 @@ export function PaymentTable({ payments, allPayments, invoices, loading, isAdmin
                       </td>
                       <td className="p-4 text-xs text-slate-700 dark:text-slate-300 font-bold">
                         {METHOD_LABEL[pay.phuong_thuc] || '🏦 Chuyển khoản'}
+                      </td>
+                      <td className="p-4 text-xs">
+                        {pay.ten_nhan_vien_thuc_hien ? (
+                          <div className="flex flex-col">
+                            <span className="font-extrabold text-slate-800 dark:text-slate-200 text-[11px]">{pay.ten_nhan_vien_thuc_hien}</span>
+                            {pay.vai_tro_nhan_vien && (
+                              <span className="text-[9.5px] text-teal-600 dark:text-teal-400 font-bold">{pay.vai_tro_nhan_vien}</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="inline-flex items-center text-[10px] font-bold text-sky-700 bg-sky-50 dark:bg-sky-950/60 dark:text-sky-300 px-2 py-0.5 rounded-lg border border-sky-200 dark:border-sky-800">
+                            🌐 Khách hàng (Online)
+                          </span>
+                        )}
                       </td>
                       <td className="p-4 text-right">
                         {canRefundThis && invoice ? (

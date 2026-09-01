@@ -79,24 +79,26 @@ export function isSessionPaymentSatisfied(
     so_tien_da_tra?: number | string | null;
     tong_so_buoi?: number | string | null;
     tong_tien_goc?: number | string | null;
-    ti_le_giam_gia_goi?: number | string | null;
     so_tien_giam_voucher?: number | string | null;
     trang_thai?: string | null;
     hoa_don_trang_thai?: string | null;
     trang_thai_hoa_don_goi?: string | null;
   },
-  sessionNum: number
+  _sessionNum?: number
 ): boolean {
   if (plan?.loai_goi === 'LE') return true;
   if (isPlanCancelled(plan)) return true;
 
-  const minRequired = getMinPaymentRequired(
-    plan?.hinh_thuc_thanh_toan_goi || 'tra_thang',
-    Number(plan?.tong_tien_phai_tra || 0),
-    Number(plan?.tong_so_buoi || 10),
-    sessionNum
-  );
-  return Number(plan?.so_tien_da_tra || 0) >= minRequired;
+  const hinhThuc = plan?.hinh_thuc_thanh_toan_goi || 'tra_thang';
+  if (hinhThuc === 'tra_thang') {
+    return Number(plan?.so_tien_da_tra || 0) >= Number(plan?.tong_tien_phai_tra || 0);
+  }
+  if (hinhThuc === 'tung_buoi') {
+    // Với gói trả từng buổi: thanh toán linh hoạt theo từng ca (tại quầy lúc check-in hoặc sau ca trị liệu).
+    // Khách hàng không bị chặn đặt lịch buổi tiếp theo.
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -114,13 +116,23 @@ export function isPaymentDue(apt: {
   tong_tien_phai_tra_goi?: number | string | null;
   tong_tien_goc_goi?: number | string | null;
 }): boolean {
+  const hinhThuc = apt.hinh_thuc_thanh_toan_goi;
+
+  // Nếu là gói trả từng buổi: tính chính xác theo số tiền đã tích lũy và số thứ tự buổi
+  if (hinhThuc === 'tung_buoi') {
+    const soThuTu = Number(apt.so_thu_tu_buoi || 1);
+    const tongSoBuoi = Number(apt.tong_so_buoi_goi || 10);
+    const daTra = Number(apt.so_tien_da_tra_goi || 0);
+    const phaiTra = Number(apt.tong_tien_phai_tra_goi || 0);
+    return getTungBuoiSessionDue(phaiTra, tongSoBuoi, soThuTu, daTra) > 0;
+  }
+
   const DONE_INVOICE_STATUSES = ['da_thanh_toan', 'da_hoan_tien'];
   if (DONE_INVOICE_STATUSES.includes(apt.trang_thai_thanh_toan || '') || DONE_INVOICE_STATUSES.includes(apt.trang_thai_hoa_don_goi || '')) {
     return false;
   }
 
   const isRetailOrExam = ['kham_moi', 'KHAM', 'dich_vu_don', 'DICH_VU_LE'].includes(apt.loai_lich || '') || apt.loai_goi === 'LE';
-  const hinhThuc = apt.hinh_thuc_thanh_toan_goi;
 
   if (isRetailOrExam) {
     if (!hinhThuc) {
@@ -131,14 +143,8 @@ export function isPaymentDue(apt: {
     if (isWaived) return false;
   }
 
-  const soThuTu = Number(apt.so_thu_tu_buoi || 1);
-  const tongSoBuoi = Number(apt.tong_so_buoi_goi || 10);
   const daTra = Number(apt.so_tien_da_tra_goi || 0);
   const phaiTra = Number(apt.tong_tien_phai_tra_goi || 0);
-
-  if (hinhThuc === 'tung_buoi') {
-    return getTungBuoiSessionDue(phaiTra, tongSoBuoi, soThuTu, daTra) > 0;
-  }
 
   if (hinhThuc === 'tra_thang' || !hinhThuc) {
     return daTra < phaiTra;
@@ -187,3 +193,72 @@ export function isAwaitingPaymentForList(apt: Parameters<typeof isPaymentDue>[0]
 
   return isPaymentDue(apt);
 }
+
+export interface PackageRefundCalculationParams {
+  totalPaid: number;
+  packagePrice: number;
+  voucherDiscount?: number;
+  usedSessions: number;
+  totalSessions: number;
+  penaltyPercent?: number;
+  examFeeToCharge?: number;
+}
+
+export interface PackageRefundCalculationResult {
+  giaGocGoi: number;
+  soTienDaDong: number;
+  giaThanhToanGoi: number;
+  totalSessions: number;
+  usedSessions: number;
+  perSessionCost: number;
+  usedSessionsCost: number;
+  penaltyPercent: number;
+  penaltyAmount: number;
+  examFeeToCharge: number;
+  totalDeduction: number;
+  estimatedRefund: number;
+  keptRevenue: number;
+  shortfall: number;
+  isRefundable: boolean;
+}
+
+/**
+ * Tính toán số tiền hoàn trả cho gói liệu trình hủy giữa chừng — Single Source of Truth
+ */
+export function calculatePackageRefund(params: PackageRefundCalculationParams): PackageRefundCalculationResult {
+  const totalPaid = Math.max(0, Number(params.totalPaid || 0));
+  const giaGocGoi = Math.max(0, Number(params.packagePrice || 0));
+  const voucherDiscount = Math.max(0, Number(params.voucherDiscount || 0));
+  const giaThanhToanGoi = Math.max(0, giaGocGoi - voucherDiscount);
+  const totalSessions = Math.max(1, Number(params.totalSessions || 10));
+  const usedSessions = Math.max(0, Number(params.usedSessions || 0));
+  const penaltyPercent = Number(params.penaltyPercent ?? DEFAULT_CANCELLATION_PENALTY_PERCENT);
+  const examFeeToCharge = Math.max(0, Number(params.examFeeToCharge || 0));
+
+  const perSessionCost = totalSessions > 0 ? Math.round(giaThanhToanGoi / totalSessions) : 0;
+  const usedSessionsCost = Math.round((giaThanhToanGoi * usedSessions) / totalSessions);
+  const penaltyAmount = Math.round((giaThanhToanGoi * penaltyPercent) / 100);
+  const totalDeduction = usedSessionsCost + penaltyAmount + examFeeToCharge;
+  const estimatedRefund = Math.max(0, totalPaid - totalDeduction);
+  const keptRevenue = totalPaid - estimatedRefund;
+  const shortfall = Math.max(0, totalDeduction - totalPaid);
+
+  return {
+    giaGocGoi,
+    soTienDaDong: totalPaid,
+    giaThanhToanGoi,
+    totalSessions,
+    usedSessions,
+    perSessionCost,
+    usedSessionsCost,
+    penaltyPercent,
+    penaltyAmount,
+    examFeeToCharge,
+    totalDeduction,
+    estimatedRefund,
+    keptRevenue,
+    shortfall,
+    isRefundable: estimatedRefund > 0
+  };
+}
+

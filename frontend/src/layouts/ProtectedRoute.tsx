@@ -23,11 +23,9 @@ export const ProtectedRoute = ({ allowedRoles }: ProtectedRouteProps) => {
 
   if (allowedRoles && user && !allowedRoles.map(Number).includes(Number(user.vai_tro_id))) {
     const roleId = Number(user.vai_tro_id);
-    console.log('ProtectedRoute: Access denied. User role:', roleId, 'Allowed roles:', allowedRoles);
     return <Navigate to={getDefaultRouteByRole(roleId)} replace />;
   }
 
-  console.log('ProtectedRoute: Access granted. User role:', user?.vai_tro_id, 'Path:', location.pathname);
   return <Outlet />;
 };
 

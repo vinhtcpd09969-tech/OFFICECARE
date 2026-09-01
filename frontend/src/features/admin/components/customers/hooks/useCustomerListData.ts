@@ -2,17 +2,16 @@ import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { getCustomersOverview, getDashboardSummary } from '../../../api/admin.api';
 import { DEFAULT_PAGE_SIZE } from '../constants';
-import type { CustomerOverviewItem, EmrStats, ReputationTier } from '../types';
+import type { CustomerOverviewItem, EmrStats } from '../types';
 import type { CustomerRecordFilter } from './useCustomerFilters';
 
 interface UseCustomerListDataParams {
   showLockedOnly: boolean;
   recordFilter: CustomerRecordFilter;
-  repTier: ReputationTier | 'all';
   search: string;
 }
 
-export function useCustomerListData({ showLockedOnly, recordFilter, repTier, search }: UseCustomerListDataParams) {
+export function useCustomerListData({ showLockedOnly, recordFilter, search }: UseCustomerListDataParams) {
   const [data, setData] = useState<CustomerOverviewItem[]>([]);
   const [meta, setMeta] = useState({ page: 1, pageSize: DEFAULT_PAGE_SIZE, total: 0, totalPages: 1 });
   const [page, setPage] = useState(1);
@@ -26,7 +25,7 @@ export function useCustomerListData({ showLockedOnly, recordFilter, repTier, sea
   // Đổi filter/search thì luôn quay về trang 1.
   useEffect(() => {
     setPage(1);
-  }, [statusKey, repTier, search]);
+  }, [statusKey, search]);
 
   const fetchList = useCallback(async () => {
     try {
@@ -38,8 +37,7 @@ export function useCustomerListData({ showLockedOnly, recordFilter, repTier, sea
         page,
         pageSize: DEFAULT_PAGE_SIZE,
         search: search || undefined,
-        status: status.length ? status : undefined,
-        repTier: repTier !== 'all' ? repTier : undefined
+        status: status.length ? status : undefined
       });
       setData(res.data.data || []);
       setMeta(res.data.meta || { page: 1, pageSize: DEFAULT_PAGE_SIZE, total: 0, totalPages: 1 });
@@ -50,7 +48,7 @@ export function useCustomerListData({ showLockedOnly, recordFilter, repTier, sea
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, search, statusKey, repTier]);
+  }, [page, search, statusKey]);
 
   useEffect(() => {
     fetchList();

@@ -20,10 +20,12 @@ export function ArticleRow({ article, onEdit, onDelete, onRestore }: ArticleRowP
   const isPublished = article.trang_thai === 'xuat_ban';
   const isSuspended = article.trang_thai === 'ngung_su_dung';
 
+  const displayDate = article.ngay_cap_nhat || article.ngay_dang || article.ngay_tao;
+
   return (
     <div
       className={`group relative bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-2xl p-6 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:border-teal-250 dark:hover:border-teal-700 hover:shadow-[0_20px_50px_rgba(46,196,182,0.06)] hover:-translate-y-1.5 cursor-pointer ${
-        isSuspended ? 'opacity-65 grayscale-[30%]' : ''
+        isSuspended ? 'opacity-65 grayscale-[30%] bg-zinc-50/50 dark:bg-zinc-900/50' : ''
       }`}
       onClick={(e) => {
         const target = e.target as HTMLElement;
@@ -47,7 +49,14 @@ export function ArticleRow({ article, onEdit, onDelete, onRestore }: ArticleRowP
             <span className="text-[9px] text-teal-850 dark:text-teal-300 font-black bg-teal-50 dark:bg-teal-950/40 border border-teal-150/60 dark:border-teal-800/60 px-2 py-0.5 rounded-lg uppercase tracking-wider">
               {DANH_MUC_LABELS[article.danh_muc] || article.danh_muc}
             </span>
-            <h4 className="font-heading font-black text-[13.5px] text-secondary dark:text-zinc-100 tracking-tight mt-1.5 leading-snug line-clamp-1">
+            <h4
+              className={`font-heading font-black text-[13.5px] tracking-tight mt-1.5 leading-snug line-clamp-1 ${
+                isSuspended
+                  ? 'text-zinc-400 dark:text-zinc-500 line-through decoration-zinc-400/90 dark:decoration-zinc-500/90'
+                  : 'text-secondary dark:text-zinc-100'
+              }`}
+              title={article.tieu_de}
+            >
               {article.tieu_de}
             </h4>
             <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 font-medium line-clamp-1">{article.tom_tat}</p>
@@ -55,12 +64,12 @@ export function ArticleRow({ article, onEdit, onDelete, onRestore }: ArticleRowP
         </div>
 
         <div className="col-span-6 lg:col-span-2 flex items-center gap-1.5 text-[11px] font-bold text-slate-500 dark:text-zinc-400">
-          <Eye size={13} className="text-slate-400 dark:text-zinc-500" /> {article.luot_xem} lượt xem
+          <Eye size={13} className="text-slate-400 dark:text-zinc-500 shrink-0" /> {article.luot_xem} lượt xem
         </div>
 
         <div className="col-span-6 lg:col-span-2 flex items-center gap-1.5 text-[11px] font-bold text-slate-500 dark:text-zinc-400">
-          <Calendar size={13} className="text-slate-400 dark:text-zinc-500" />
-          {article.ngay_dang ? new Date(article.ngay_dang).toLocaleDateString('vi-VN') : 'Chưa đăng'}
+          <Calendar size={13} className="text-slate-400 dark:text-zinc-500 shrink-0" />
+          <span>{displayDate ? new Date(displayDate).toLocaleDateString('vi-VN') : 'Chưa đăng'}</span>
         </div>
 
         <div className="col-span-6 lg:col-span-1">

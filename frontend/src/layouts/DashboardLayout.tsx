@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
+import api from '../api/axios';
 import {
   Calendar,
   Settings,
@@ -14,6 +15,7 @@ import {
   User
 } from 'lucide-react';
 import { resolveImageUrl } from '../utils/imageUrl';
+import { OfficeCareLogo } from '../components/OfficeCareLogo';
 
 // Default Silhouette Avatar (Chuẩn Facebook SVG Avatar)
 function DefaultAvatar() {
@@ -25,9 +27,20 @@ function DefaultAvatar() {
 }
 
 export default function DashboardLayout() {
-  const { user, logout } = useAuthStore();
+  const { user, logout, updateUser } = useAuthStore();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Sync profile on mount
+  useEffect(() => {
+    if (user?.id) {
+      api.get('/auth/me')
+        .then(res => {
+          if (res.data) updateUser(res.data);
+        })
+        .catch(() => { });
+    }
+  }, [user?.id, updateUser]);
 
   const handleLogout = () => {
     logout();
@@ -36,30 +49,22 @@ export default function DashboardLayout() {
 
   const navItems = [
     { name: 'Lịch hẹn', path: '/appointments', icon: <Calendar size={20} />, roles: [1, 2, 4] },
-    { name: 'Hồ sơ trị liệu', path: '/medical-record', icon: <FileText size={20} />, roles: [1] },
+    { name: 'Hồ sơ điều trị', path: '/medical-record', icon: <FileText size={20} />, roles: [1] },
     { name: 'Hóa đơn', path: '/invoices', icon: <Receipt size={20} />, roles: [1] },
     { name: 'Cài đặt', path: '/settings', icon: <Settings size={20} />, roles: [1, 2, 3, 4] },
   ];
 
   const filteredNavItems = navItems.filter(item => user && item.roles.map(Number).includes(Number(user.vai_tro_id)));
 
-  const avatarSrc = user?.avatar_url ? resolveImageUrl(user.avatar_url) : null;
+  const avatarSrc = (user?.anh_dai_dien || user?.avatar_url) ? resolveImageUrl(user.anh_dai_dien || user.avatar_url!) : null;
 
   return (
     <div className="min-h-screen bg-background flex font-body">
-      
+
       {/* Sidebar (Desktop) */}
       <aside className="hidden lg:flex flex-col w-64 bg-white text-zinc-500 fixed h-full z-20 border-r border-zinc-100 shadow-xs">
-        <div className="h-16 flex items-center gap-3 px-6 border-b border-zinc-100 bg-white">
-          <div className="size-8 rounded-lg bg-[#0D9488]/10 border border-[#0D9488]/20 flex items-center justify-center">
-            <span className="text-[#0D9488] font-bold text-sm">🏥</span>
-          </div>
-          <div>
-            <h1 className="text-sm font-extrabold text-secondary tracking-tight flex items-center gap-1.5">
-              OFFICE CARE <span className="text-[#0D9488] font-bold text-[9px] bg-[#0D9488]/10 px-1.5 py-0.5 rounded border border-[#0D9488]/20">2026</span>
-            </h1>
-            <p className="text-[8px] text-zinc-400 font-extrabold tracking-widest uppercase mt-0.5">Phục hồi chức năng</p>
-          </div>
+        <div className="h-16 flex items-center px-3.5 border-b border-zinc-100 bg-white">
+          <OfficeCareLogo size={32} badgeText="2026" subText="PHỤC HỒI CHỨC NĂNG" />
         </div>
 
         {/* Back to Landing Page Button - Redesigned Pro Max */}
@@ -74,17 +79,16 @@ export default function DashboardLayout() {
             <span className="truncate">Quay lại Trang chủ</span>
           </NavLink>
         </div>
-        
+
         <nav className="flex-1 px-3.5 py-4 space-y-1.5 overflow-y-auto">
           {filteredNavItems.map((item) => (
             <NavLink
               key={item.name}
               to={item.path}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 rounded-2xl font-black text-xs uppercase tracking-wide transition-all duration-200 group ${
-                  isActive 
-                    ? 'bg-[#0D9488]/15 text-[#0D9488] shadow-2xs font-black' 
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-bold'
+                `flex items-center gap-3 px-4 py-3 rounded-2xl font-black text-xs uppercase tracking-wide transition-all duration-200 group ${isActive
+                  ? 'bg-[#0D9488]/15 text-[#0D9488] shadow-2xs font-black'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-bold'
                 }`
               }
             >
@@ -97,7 +101,7 @@ export default function DashboardLayout() {
         </nav>
 
         <div className="p-4 border-t border-zinc-100 bg-white">
-          <button 
+          <button
             onClick={handleLogout}
             className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-[14px] bg-zinc-50 hover:bg-rose-50 hover:text-rose-600 border border-zinc-100 hover:border-rose-200 text-xs font-bold transition-all text-zinc-600 cursor-pointer"
           >
@@ -109,34 +113,27 @@ export default function DashboardLayout() {
 
       {/* Mobile Menu Overlay */}
       {isMobileMenuOpen && (
-        <div 
-          className="fixed inset-0 bg-secondary/80 backdrop-blur-sm z-30 lg:hidden" 
+        <div
+          className="fixed inset-0 bg-secondary/80 backdrop-blur-sm z-30 lg:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setIsMobileMenuOpen(false); }}
           role="button"
           tabIndex={0}
           aria-label="Close mobile menu"
         >
-          <aside 
-            className="w-64 bg-white h-full p-4 flex flex-col border-r border-zinc-100 shadow-lg" 
+          <aside
+            className="w-64 bg-white h-full p-4 flex flex-col border-r border-zinc-100 shadow-lg"
             onClick={e => e.stopPropagation()}
             onKeyDown={e => e.stopPropagation()}
             role="none"
           >
             <div className="flex justify-between items-center mb-6 px-2">
-              <div className="flex items-center gap-2">
-                <div className="size-8 rounded-lg bg-[#0D9488]/10 border border-[#0D9488]/20 flex items-center justify-center">
-                  <span className="text-[#0D9488] font-bold text-sm">🏥</span>
-                </div>
-                <h1 className="text-sm font-extrabold text-secondary tracking-tight">
-                  OFFICE CARE
-                </h1>
-              </div>
+              <OfficeCareLogo size={32} badgeText="" subText="" />
               <button onClick={() => setIsMobileMenuOpen(false)} className="text-zinc-400 hover:text-secondary">
                 <X size={24} />
               </button>
             </div>
-            
+
             <nav className="flex-1 space-y-1">
               {filteredNavItems.map((item) => (
                 <NavLink
@@ -144,8 +141,7 @@ export default function DashboardLayout() {
                   to={item.path}
                   onClick={() => setIsMobileMenuOpen(false)}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-4 py-2.5 rounded-[14px] font-bold text-[11px] tracking-wide uppercase transition-all border-l-4 ${
-                      isActive ? 'bg-[#0D9488]/10 text-[#0D9488] border-[#0D9488]' : 'border-transparent text-zinc-500 hover:bg-zinc-50 hover:text-secondary'
+                    `flex items-center gap-3 px-4 py-2.5 rounded-[14px] font-bold text-[11px] tracking-wide uppercase transition-all border-l-4 ${isActive ? 'bg-[#0D9488]/10 text-[#0D9488] border-[#0D9488]' : 'border-transparent text-zinc-500 hover:bg-zinc-50 hover:text-secondary'
                     }`
                   }
                 >
@@ -162,9 +158,9 @@ export default function DashboardLayout() {
             >
               <ArrowLeft size={15} /> Quay lại Trang chủ
             </NavLink>
-            
-            <button 
-              onClick={handleLogout} 
+
+            <button
+              onClick={handleLogout}
               className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-[14px] bg-zinc-50 hover:bg-rose-50 hover:text-rose-600 border border-zinc-100 hover:border-rose-200 text-xs font-bold transition-all text-zinc-600"
             >
               <LogOut size={16} /> Đăng xuất
@@ -175,17 +171,17 @@ export default function DashboardLayout() {
 
       {/* Main Content Area */}
       <div className="flex-1 lg:ml-64 flex flex-col min-h-screen">
-        
+
         {/* Topbar */}
         <header className="h-16 bg-white/90 backdrop-blur-md border-b border-slate-100 sticky top-0 z-10 px-4 sm:px-8 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <button 
+            <button
               className="lg:hidden text-secondary p-2 rounded-xl hover:bg-slate-100 transition-colors"
               onClick={() => setIsMobileMenuOpen(true)}
             >
               <Menu size={22} />
             </button>
-            
+
             {/* Context Badge replacing useless search bar */}
             <div className="hidden sm:flex items-center gap-2 text-slate-500 text-xs font-bold">
               <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
@@ -198,21 +194,21 @@ export default function DashboardLayout() {
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-black text-slate-800 group-hover:text-[#0D9488] transition-colors">{user?.ho_ten || 'Người dùng'}</p>
                 <p className="text-[10px] text-slate-400 font-black uppercase tracking-wider">
-                  {Number(user?.vai_tro_id) === 1 ? 'Khách hàng' : 
-                   Number(user?.vai_tro_id) === 2 ? 'Lễ tân' : 
-                   Number(user?.vai_tro_id) === 3 ? 'Kỹ thuật viên' : 
-                   Number(user?.vai_tro_id) === 4 ? 'Chuyên viên' : 
-                   Number(user?.vai_tro_id) === 5 ? 'Quản trị viên' : 
-                   Number(user?.vai_tro_id) === 6 ? 'Quản lý' : 'Khách hàng'}
+                  {Number(user?.vai_tro_id) === 1 ? 'Khách hàng' :
+                    Number(user?.vai_tro_id) === 2 ? 'Lễ tân' :
+                      Number(user?.vai_tro_id) === 3 ? 'Kỹ thuật viên' :
+                        Number(user?.vai_tro_id) === 4 ? 'Chuyên viên' :
+                          Number(user?.vai_tro_id) === 5 ? 'Quản trị viên' :
+                            Number(user?.vai_tro_id) === 6 ? 'Quản lý' : 'Khách hàng'}
                 </p>
               </div>
 
               {/* User Avatar: Clean SVG Silhouette Default instead of random Pravatar photo */}
               <div className="size-10 rounded-full border-2 border-[#0D9488]/20 p-0.5 overflow-hidden group-hover:border-[#0D9488] transition-colors shadow-2xs">
                 {avatarSrc ? (
-                  <img 
-                    src={avatarSrc} 
-                    alt={user?.ho_ten || 'Avatar'} 
+                  <img
+                    src={avatarSrc}
+                    alt={user?.ho_ten || 'Avatar'}
                     className="size-full object-cover rounded-full"
                     onError={(e) => {
                       // Fallback if avatar URL fails to load
@@ -242,7 +238,7 @@ export default function DashboardLayout() {
                   </p>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={() => navigate('/settings')}
                 className="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition-all shadow-md shadow-amber-600/15 cursor-pointer whitespace-nowrap"
               >

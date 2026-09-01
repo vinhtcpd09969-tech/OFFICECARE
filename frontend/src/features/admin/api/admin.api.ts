@@ -25,7 +25,8 @@ export const createStaff = (data: any) => api.post('/admin/staff', data);
 export const updateStaff = (id: string, data: any) => api.put(`/admin/staff/${id}`, data);
 export const updateStaffStatus = (id: string, trang_thai: string) => api.patch(`/admin/staff/${id}/status`, { trang_thai });
 export const deleteStaffAvatar = (id: string) => api.delete(`/admin/staff/${id}/avatar`);
-export const updateStaffPassword = (id: string, data: { password?: string; oldPassword?: string; isReset?: boolean }) => api.post(`/admin/staff/${id}/update-password`, data);
+export const updateStaffPassword = (id: string, data: { password?: string; oldPassword?: string; isReset?: boolean; otp?: string }) => api.post(`/admin/staff/${id}/update-password`, data);
+export const sendAdminOTP = (action: 'CHANGE_EMAIL' | 'CHANGE_PASSWORD') => api.post('/admin/staff/send-security-otp', { action });
 export const getCustomers = () => api.get('/admin/customers');
 export const updateCustomer = (id: string, data: any) => api.put(`/admin/customers/${id}`, data);
 export const toggleCustomerLock = (id: string, isLocked: boolean) => api.patch(`/admin/customers/${id}/toggle-lock`, { isLocked });
@@ -35,7 +36,7 @@ export const getCustomersOverview = (params: { page: number; pageSize: number; s
 export const getCustomerEmr = (id: string) => api.get(`/admin/customers/${id}/emr`);
 export const getTreatmentPlansOverview = (params: { page: number; pageSize: number; search?: string; status?: string }) =>
   api.get('/admin/customers/treatment-plans', { params });
-export const getCompletedSingleVisits = (params: { page: number; pageSize: number }) =>
+export const getCompletedSingleVisits = (params: { page: number; pageSize: number; search?: string; loai?: string }) =>
   api.get('/admin/customers/completed-single-visits', { params });
 
 // Rooms & Equipment

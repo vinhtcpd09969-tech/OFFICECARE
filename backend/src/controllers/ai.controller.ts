@@ -1,6 +1,6 @@
-﻿import { Request, Response } from 'express';
+import { Request, Response } from 'express';
 import { AIService } from '../services/ai.service';
-import { ChatHistoryService } from '../services/chatHistory.service';
+import { ChatHistoryService } from '../services/ai/ai.history';
 import { asyncHandler } from '../utils/asyncHandler';
 import { BadRequestError } from '../utils/appError';
 
@@ -24,7 +24,10 @@ export const chatWithAI = asyncHandler(async (req: Request, res: Response) => {
   res.json({
     success: true,
     reply: result.reply,
-    suggestBooking: result.suggestBooking
+    suggestBooking: result.suggestBooking,
+    bookingActionType: result.bookingActionType ?? null,
+    showPackagePrompt: result.showPackagePrompt ?? false,
+    suggestedQuestions: result.suggestedQuestions ?? []
   });
 
   // Lưu lịch sử chat vào Postgres không đồng bộ, không chặn phản hồi đã trả về khách.
@@ -51,4 +54,24 @@ export const getChatHistory = asyncHandler(async (req: Request, res: Response) =
 export const getMyChatHistory = asyncHandler(async (req: Request, res: Response) => {
   const messages = await ChatHistoryService.getHistoryByCustomer(String(req.user!.id));
   res.json({ success: true, messages });
+});
+
+export const analyzeVasProgression = asyncHandler(async (req: Request, res: Response) => {
+  const { patientName, serviceName, symptoms, vasPoints } = req.body;
+
+  if (!Array.isArray(vasPoints) || vasPoints.length === 0) {
+    throw new BadRequestError('Dữ liệu điểm VAS không hợp lệ hoặc đang trống');
+  }
+
+  const result = await AIService.analyzeVasProgression({
+    patientName,
+    serviceName,
+    symptoms,
+    vasPoints
+  });
+
+  res.json({
+    success: true,
+    data: result
+  });
 });

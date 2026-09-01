@@ -1,7 +1,6 @@
 import { memo } from 'react';
 import { Inbox, ClipboardPlus } from 'lucide-react';
 import { Pagination } from '../../../../../components/Pagination';
-import { ReputationScore } from './ReputationScore';
 import { PackageStatusBadge } from './PackageStatusBadge';
 import { FollowUpFlag } from './FollowUpFlag';
 import { formatDaysAgo } from '../../../../../utils/date';
@@ -47,9 +46,6 @@ const CustomerRosterRow = memo(function CustomerRosterRow({
           <span className="font-bold text-xs text-slate-800 dark:text-slate-200">{customer.so_dien_thoai || '-'}</span>
           <span className="text-[11px] text-slate-400 font-medium truncate max-w-[160px]">{customer.email || '-'}</span>
         </div>
-      </td>
-      <td className="p-4">
-        <ReputationScore score={customer.diem_uy_tin} />
       </td>
       <td className="p-4">
         <PackageStatusBadge goi={customer.goi_hien_tai} />
@@ -98,10 +94,9 @@ export function CustomerRosterTable({ data, loading, meta, staleDays, onPageChan
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse text-xs table-fixed">
           <colgroup>
-            <col className="w-[20%]" />
-            <col className="w-[16%]" />
-            <col className="w-[6%]" />
             <col className="w-[22%]" />
+            <col className="w-[18%]" />
+            <col className="w-[24%]" />
             <col className="w-[11%]" />
             <col className="w-[12%]" />
             <col className="w-[13%]" />
@@ -110,7 +105,6 @@ export function CustomerRosterTable({ data, loading, meta, staleDays, onPageChan
             <tr className="bg-slate-50/80 dark:bg-slate-800/80 border-b border-slate-200/80 dark:border-slate-700/80 text-slate-400 dark:text-slate-400 font-black uppercase tracking-widest text-[10px]">
               <th className="p-4">Khách hàng</th>
               <th className="p-4">Liên hệ</th>
-              <th className="p-4">Uy tín</th>
               <th className="p-4">Trạng thái gói</th>
               <th className="p-4">Lần cuối dùng</th>
               <th className="p-4">Cần liên hệ</th>
@@ -122,7 +116,7 @@ export function CustomerRosterTable({ data, loading, meta, staleDays, onPageChan
               <TableSkeletonRows />
             ) : data.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-16 text-center">
+                <td colSpan={6} className="py-16 text-center">
                   <div className="flex flex-col items-center gap-2 text-slate-400">
                     <Inbox size={28} className="stroke-[1.5]" />
                     <span className="font-extrabold text-xs">Không tìm thấy khách hàng nào thỏa điều kiện lọc.</span>

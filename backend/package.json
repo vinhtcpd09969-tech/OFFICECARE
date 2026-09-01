@@ -10,7 +10,7 @@
     "seed": "ts-node scripts/seed.ts",
     "db:reset-and-seed": "ts-node scripts/reset_and_seed_data.ts",
     "db:dump-base": "ts-node scripts/export_split_data.ts",
-    "test": "vitest run"
+    "test": "vitest run src"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

@@ -1,5 +1,6 @@
-import { Edit3, User, Phone, Mail, Calendar, MapPin, Award, X, Save } from 'lucide-react';
+import { Edit3, User, Phone, Mail, Calendar, MapPin, X, Save } from 'lucide-react';
 import type { CustomerEditForm } from '../hooks/useCustomerActions';
+import { CustomDatePicker } from '../../../../../components/CustomDatePicker';
 
 interface EditCustomerModalProps {
   isOpen: boolean;
@@ -24,11 +25,8 @@ export function EditCustomerModal({ isOpen, form, onChange, onSave, onCancel }: 
             </div>
             <div>
               <h3 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">
-                Cập Nhật Thông Tin Hành Chính
+                Cập Nhật Thông Tin Khách Hàng
               </h3>
-              <p className="text-xs font-semibold text-slate-400 mt-0.5">
-                Chỉnh sửa hồ sơ thông tin cá nhân khách hàng trong CSDL
-              </p>
             </div>
           </div>
           <button
@@ -45,7 +43,7 @@ export function EditCustomerModal({ isOpen, form, onChange, onSave, onCancel }: 
           
           {/* Full Name */}
           <div className="sm:col-span-2 space-y-1.5">
-            <label className="block text-slate-700 dark:text-slate-300 font-extrabold flex items-center gap-1.5">
+            <label className="text-slate-700 dark:text-slate-300 font-extrabold flex items-center gap-1.5">
               <User size={13} className="text-teal-600 dark:text-teal-400" />
               Họ và tên khách hàng
             </label>
@@ -60,7 +58,7 @@ export function EditCustomerModal({ isOpen, form, onChange, onSave, onCancel }: 
 
           {/* Phone */}
           <div className="space-y-1.5">
-            <label className="block text-slate-700 dark:text-slate-300 font-extrabold flex items-center gap-1.5">
+            <label className="text-slate-700 dark:text-slate-300 font-extrabold flex items-center gap-1.5">
               <Phone size={13} className="text-teal-600 dark:text-teal-400" />
               Số điện thoại
             </label>
@@ -75,7 +73,7 @@ export function EditCustomerModal({ isOpen, form, onChange, onSave, onCancel }: 
 
           {/* Email */}
           <div className="space-y-1.5">
-            <label className="block text-slate-700 dark:text-slate-300 font-extrabold flex items-center gap-1.5">
+            <label className="text-slate-700 dark:text-slate-300 font-extrabold flex items-center gap-1.5">
               <Mail size={13} className="text-teal-600 dark:text-teal-400" />
               Địa chỉ Email
             </label>
@@ -90,7 +88,7 @@ export function EditCustomerModal({ isOpen, form, onChange, onSave, onCancel }: 
 
           {/* Gender */}
           <div className="space-y-1.5">
-            <label className="block text-slate-700 dark:text-slate-300 font-extrabold flex items-center gap-1.5">
+            <label className="text-slate-700 dark:text-slate-300 font-extrabold flex items-center gap-1.5">
               Giới tính
             </label>
             <select
@@ -106,21 +104,25 @@ export function EditCustomerModal({ isOpen, form, onChange, onSave, onCancel }: 
 
           {/* Date of Birth */}
           <div className="space-y-1.5">
-            <label className="block text-slate-700 dark:text-slate-300 font-extrabold flex items-center gap-1.5">
+            <label className="text-slate-700 dark:text-slate-300 font-extrabold flex items-center gap-1.5">
               <Calendar size={13} className="text-teal-600 dark:text-teal-400" />
               Ngày sinh
             </label>
-            <input
-              type="date"
-              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all cursor-pointer"
+            <CustomDatePicker
               value={form.ngay_sinh}
-              onChange={(e) => onChange({ ...form, ngay_sinh: e.target.value })}
+              onChange={(val) => onChange({ ...form, ngay_sinh: val })}
+              placeholder="dd/mm/yyyy"
+              maxDate={new Date().toISOString().split('T')[0]}
+              align="right"
+              showPresets={false}
+              className="w-full"
+              buttonClassName="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
             />
           </div>
 
           {/* Address */}
           <div className="sm:col-span-2 space-y-1.5">
-            <label className="block text-slate-700 dark:text-slate-300 font-extrabold flex items-center gap-1.5">
+            <label className="text-slate-700 dark:text-slate-300 font-extrabold flex items-center gap-1.5">
               <MapPin size={13} className="text-teal-600 dark:text-teal-400" />
               Địa chỉ thường trú
             </label>
@@ -130,23 +132,6 @@ export function EditCustomerModal({ isOpen, form, onChange, onSave, onCancel }: 
               className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
               value={form.dia_chi}
               onChange={(e) => onChange({ ...form, dia_chi: e.target.value })}
-            />
-          </div>
-
-          {/* Reputation Score */}
-          <div className="sm:col-span-2 space-y-1.5">
-            <label className="block text-slate-700 dark:text-slate-300 font-extrabold flex items-center gap-1.5">
-              <Award size={13} className="text-amber-500" />
-              Điểm uy tín (0 – 100 điểm)
-            </label>
-            <input
-              type="number"
-              min="0"
-              max="100"
-              placeholder="100"
-              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
-              value={form.diem_uy_tin}
-              onChange={(e) => onChange({ ...form, diem_uy_tin: Number(e.target.value) })}
             />
           </div>
         </div>

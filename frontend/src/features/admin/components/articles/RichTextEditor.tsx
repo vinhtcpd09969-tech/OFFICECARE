@@ -15,11 +15,23 @@ interface RichTextEditorProps {
 }
 
 export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [isImageSelected, setIsImageSelected] = useState(false);
+  const [floatingActionPos, setFloatingActionPos] = useState<{ top: number; right: number } | null>(null);
 
   const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
   const serverOrigin = baseUrl.replace(/\/api\/?$/, '');
+
+  const updateFloatingPosFromEl = (imgEl: HTMLElement) => {
+    if (!containerRef.current) return;
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const imgRect = imgEl.getBoundingClientRect();
+    setFloatingActionPos({
+      top: imgRect.top - containerRect.top + 16,
+      right: containerRect.right - imgRect.right + 16,
+    });
+  };
 
   const editor = useEditor({
     extensions: [
@@ -35,27 +47,34 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
     content: value ? value.replace(/src="\/uploads\//g, `src="${serverOrigin}/uploads/`) : '',
     onUpdate: ({ editor }) => {
       const html = editor.getHTML();
-      // Remove server origin so database stores clean relative paths
       const cleanHtml = html.replace(new RegExp(serverOrigin, 'g'), '');
       onChange(cleanHtml);
     },
     onSelectionUpdate: ({ editor }) => {
       const selection = editor.state.selection;
       const isImg = selection instanceof NodeSelection && selection.node.type.name === 'image';
-      setIsImageSelected(isImg || editor.isActive('image'));
+      setIsImageSelected(isImg);
+      if (!isImg) {
+        setFloatingActionPos(null);
+      }
     },
     editorProps: {
       attributes: {
         class: 'prose prose-slate max-w-none focus:outline-none min-h-[360px] px-6 py-5 font-jakarta text-slate-700 text-sm leading-relaxed'
       },
-      handleClickOn(view, _pos, node, nodePos, _event, _direct) {
+      handleClickOn(view, _pos, node, nodePos, event) {
         if (node.type.name === 'image') {
           const selection = NodeSelection.create(view.state.doc, nodePos);
           view.dispatch(view.state.tr.setSelection(selection));
           setIsImageSelected(true);
+          const target = event.target as HTMLElement;
+          if (target) {
+            updateFloatingPosFromEl(target);
+          }
           return true;
         }
         setIsImageSelected(false);
+        setFloatingActionPos(null);
         return false;
       },
       handleKeyDown(view, event) {
@@ -64,6 +83,7 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
           if (node.type.name === 'image') {
             view.dispatch(view.state.tr.deleteSelection());
             setIsImageSelected(false);
+            setFloatingActionPos(null);
             toast.success('Đã xóa ảnh khỏi bài viết');
             return true;
           }
@@ -100,6 +120,7 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
     if (editor) {
       editor.chain().focus().deleteSelection().run();
       setIsImageSelected(false);
+      setFloatingActionPos(null);
       toast.success('Đã xóa ảnh khỏi bài viết!');
     }
   };
@@ -129,7 +150,7 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
   );
 
   return (
-    <div className="border border-slate-200/90 rounded-2xl overflow-hidden bg-white shadow-sm relative">
+    <div ref={containerRef} className="border border-slate-200/90 rounded-2xl overflow-hidden bg-white shadow-sm relative">
       <style>{`
         .ProseMirror img {
           transition: all 0.2s ease-in-out;
@@ -201,36 +222,45 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
           </ToolbarButton>
         </div>
 
-        {/* Action button for selected image in sticky toolbar */}
+        {/* Optional delete button on toolbar when image is active */}
         {isImageSelected && (
           <button
             type="button"
             onClick={handleDeleteSelectedImage}
-            className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer animate-in fade-in"
+            className="px-3 py-1.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-200 hover:border-rose-600 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer animate-in fade-in"
+            title="Xóa hình ảnh đang chọn"
           >
-            <Trash2 size={14} />
-            <span>Xóa ảnh đang chọn</span>
+            <Trash2 size={13} />
+            <span>Xóa ảnh</span>
           </button>
         )}
       </div>
 
-      {/* QUICK FLOATING IMAGE ACTION BAR WHEN AN IMAGE IS CLICKED */}
-      {isImageSelected && (
-        <div className="bg-rose-50 border-b border-rose-200 px-4 py-2.5 flex items-center justify-between gap-3 shadow-xs sticky top-[49px] z-10 animate-in slide-in-from-top-2 duration-200">
-          <div className="flex items-center gap-2 text-rose-800 text-xs font-bold">
-            <ImageIcon size={15} className="text-rose-600" />
-            <span>Đã chọn 1 hình ảnh trong bài viết. Bạn có thể xóa hoặc bấm phím Delete/Backspace để xóa.</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleDeleteSelectedImage}
-              className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
-            >
-              <Trash2 size={14} />
-              <span>Xóa ảnh này ngay</span>
-            </button>
-          </div>
+      {/* FLOATING ACTION OVERLAY DIRECTLY ATTACHED TO THE SELECTED IMAGE */}
+      {isImageSelected && floatingActionPos && (
+        <div
+          style={{
+            position: 'absolute',
+            top: `${floatingActionPos.top}px`,
+            right: `${floatingActionPos.right}px`,
+            zIndex: 30
+          }}
+          className="flex items-center gap-1.5 bg-slate-900/90 text-white px-2.5 py-1.5 rounded-xl shadow-2xl border border-slate-700 backdrop-blur-md animate-in fade-in zoom-in-95"
+        >
+          <span className="text-[11px] font-bold text-slate-300 px-1 flex items-center gap-1">
+            <ImageIcon size={13} className="text-teal-400" />
+            Ảnh bài viết
+          </span>
+          <div className="w-px h-3.5 bg-slate-700" />
+          <button
+            type="button"
+            onClick={handleDeleteSelectedImage}
+            className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shadow-xs"
+            title="Xóa hình ảnh này khỏi bài viết (hoặc nhấn Delete / Backspace)"
+          >
+            <Trash2 size={13} />
+            <span>Xóa ảnh này</span>
+          </button>
         </div>
       )}
 

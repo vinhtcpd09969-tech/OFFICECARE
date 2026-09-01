@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { User, Building, Activity, Receipt, ChevronDown, Phone, ShieldAlert, RotateCcw } from 'lucide-react';
 import { formatCurrency } from '../../../../../utils/format';
-import { canRefundPackage } from '../../../../../utils/billing';
+import { canRefundPackage, calculatePackageRefund } from '../../../../../utils/billing';
+import { PackageRefundBreakdown } from '../../../../../components/billing/PackageRefundBreakdown';
 import type { CustomerInvoice, CustomerPayment } from '../../../api/customer.api';
 
 interface InvoiceDetailModalProps {
@@ -58,15 +59,15 @@ export function InvoiceDetailModal({ invoice, payments, onClose, onOpenPolicy, a
   const isTungBuoiPackage = isPackage && invoice.hinh_thuc_thanh_toan_goi === 'tung_buoi';
 
   const totalPaid = Number(invoice.da_thanh_toan);
-  const gia_thanh_toan_goi = gia_goc_goi - so_tien_giam_voucher;
-  const penaltyAmount = Math.round((gia_thanh_toan_goi * penaltyPercent) / 100);
   const totalSessions = Number(invoice.tong_so_buoi || 10);
-  const usedSessionsCost = Math.round((gia_thanh_toan_goi * usedSessions) / totalSessions);
-  const totalDeduction = usedSessionsCost + penaltyAmount;
-  const estimatedRefund = Math.max(0, totalPaid - totalDeduction);
-  const keptRevenue = totalPaid - estimatedRefund;
-  const perSessionCost = totalSessions > 0 ? Math.round(gia_thanh_toan_goi / totalSessions) : 0;
-  const shortfall = Math.max(0, totalDeduction - totalPaid);
+  const refundCalc = calculatePackageRefund({
+    totalPaid,
+    packagePrice: tong_tien_goc,
+    voucherDiscount: so_tien_giam_voucher,
+    usedSessions,
+    totalSessions,
+    penaltyPercent
+  });
 
   return (
     <div className="fixed inset-0 bg-zinc-950/60 backdrop-blur-xs z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -121,7 +122,7 @@ export function InvoiceDetailModal({ invoice, payments, onClose, onOpenPolicy, a
                   <div className="flex justify-between items-start gap-2">
                     <span className="text-zinc-400 shrink-0">Chi tiết:</span>
                     <span className="text-secondary font-black text-right leading-snug" title={invoice.ten_dich_vu || ''}>
-                      {invoice.ten_dich_vu || 'Phí khám lâm sàng/Buổi lẻ'}
+                      {invoice.ten_dich_vu || 'Buổi Lượng giá / Dịch vụ lẻ'}
                       {isPackage && ` (${totalSessions} buổi)`}
                     </span>
                   </div>
@@ -280,8 +281,8 @@ export function InvoiceDetailModal({ invoice, payments, onClose, onOpenPolicy, a
                                 {Number(analysis.exam_fee_to_charge) > 0 && (
                                   <div className="flex justify-between items-start gap-3">
                                     <span className="text-zinc-500 text-left max-w-[280px]">
-                                      Phí khám lâm sàng & Lượng giá
-                                      {invoice.ngay_kham ? ` · ca khám ${formatLongDate(invoice.ngay_kham)}` : ''}:
+                                      Buổi Lượng giá chức năng
+                                      {invoice.ngay_kham ? ` · ca thực hiện ${formatLongDate(invoice.ngay_kham)}` : ''}:
                                     </span>
                                     <span className="shrink-0">-{formatCurrency(analysis.exam_fee_to_charge)}</span>
                                   </div>
@@ -303,8 +304,8 @@ export function InvoiceDetailModal({ invoice, payments, onClose, onOpenPolicy, a
                       }
 
                       const chiTiet = selectedTx.chi_tiet;
-                      const txContent = chiTiet?.dien_giai || 'Giao dịch thanh toán (dữ liệu cũ, trước nâng cấp hệ thống)';
-                      const percentPaid = chiTiet ? `${chiTiet.ty_le_phan_tram}%` : 'Không rõ (giao dịch cũ)';
+                      const txContent = chiTiet?.dien_giai || chiTiet?.mo_ta || (selectedTx.phuong_thuc === 'chuyen_khoan' ? 'Thanh toán trực tuyến (PayOS / Chuyển khoản QR)' : 'Thanh toán trực tiếp');
+                      const percentPaid = chiTiet?.ty_le_phan_tram ? `${chiTiet.ty_le_phan_tram}%` : '100%';
 
                       return (
                         <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-250 text-emerald-950 text-xs font-semibold space-y-3 shadow-sm animate-in fade-in duration-200">
@@ -331,7 +332,7 @@ export function InvoiceDetailModal({ invoice, payments, onClose, onOpenPolicy, a
                             <div className="flex justify-between">
                               <span className="text-zinc-500">4. Phương thức giao dịch:</span>
                               <span className="font-semibold text-zinc-800 capitalize">
-                                {selectedTx.phuong_thuc === 'tien_mat' ? 'Tiền mặt' : selectedTx.phuong_thuc === 'chuyen_khoan' ? 'Chuyển khoản' : 'Thẻ / POS'}
+                                {selectedTx.phuong_thuc === 'tien_mat' ? 'Tiền mặt' : selectedTx.phuong_thuc === 'chuyen_khoan' ? 'Chuyển khoản (QR)' : 'Thẻ / POS'}
                               </span>
                             </div>
 
@@ -349,7 +350,7 @@ export function InvoiceDetailModal({ invoice, payments, onClose, onOpenPolicy, a
                               ) : (
                                 <>
                                   <div className="flex justify-between">
-                                    <span className="text-zinc-500">{invoice.loai_goi === 'LE' ? 'Giá gốc dịch vụ lẻ:' : 'Phí khám lâm sàng & Lượng giá:'}</span>
+                                    <span className="text-zinc-500">{invoice.loai_goi === 'LE' ? 'Giá gốc dịch vụ lẻ:' : 'Phí buổi Lượng giá:'}</span>
                                     <span className="font-semibold">{formatCurrency(tong_tien_goc || Number(invoice.tong_tien_thanh_toan))}</span>
                                   </div>
                                 </>
@@ -395,106 +396,16 @@ export function InvoiceDetailModal({ invoice, payments, onClose, onOpenPolicy, a
                   </div>
 
                   {isRefundPanelOpen && (
-                  <div className="space-y-4">
-                    {(() => {
-                      return (
-                        <>
-                          <div className="bg-white border border-slate-150 rounded-xl overflow-hidden">
-                            <div className="flex justify-between items-center px-4 py-2.5 bg-amber-50/40 border-b border-amber-100/60">
-                              <span className="text-[11px] font-bold text-amber-800">Giá gói theo hợp đồng</span>
-                              <span className="text-amber-900 font-black text-xs">{formatCurrency(gia_thanh_toan_goi)}</span>
-                            </div>
-
-                            <div className="flex justify-between items-center px-4 py-3 bg-zinc-50/70">
-                              <div className="text-left">
-                                <span className="text-xs font-bold text-zinc-650 block">Khách đã đóng</span>
-                              </div>
-                              <span className="text-secondary font-black text-sm shrink-0">{formatCurrency(totalPaid)}</span>
-                            </div>
-
-                            <div className="px-4 py-3 space-y-3 border-t border-slate-100">
-                              <p className="text-[9px] font-black text-zinc-400 uppercase tracking-wider">
-                                Trừ đi các khoản sau:
-                              </p>
-
-                              <div className="flex justify-between items-start gap-3">
-                                <div className="text-left">
-                                  <p className="text-xs font-bold text-zinc-700">
-                                    {usedSessions}/{totalSessions} buổi khách đã thực hiện
-                                  </p>
-                                  <p className="text-[10px] text-zinc-450 font-medium leading-relaxed tabular-nums">
-                                    {formatCurrency(perSessionCost)} × {usedSessions} buổi
-                                  </p>
-                                </div>
-                                <span className="text-rose-600 font-black text-xs shrink-0 tabular-nums">
-                                  −{formatCurrency(usedSessionsCost)}
-                                </span>
-                              </div>
-
-                              <div className="flex justify-between items-start gap-3">
-                                <div className="text-left">
-                                  <p className="text-xs font-bold text-zinc-700">Phí phạt hủy gói giữa chừng</p>
-                                  <p className="text-[10px] text-zinc-450 font-medium leading-relaxed tabular-nums">
-                                    {penaltyPercent}% × giá gói sau giảm ({formatCurrency(gia_thanh_toan_goi)})
-                                  </p>
-                                </div>
-                                <span className="text-rose-600 font-black text-xs shrink-0 tabular-nums">
-                                  −{formatCurrency(penaltyAmount)}
-                                </span>
-                              </div>
-
-                              <div className="flex justify-between items-center pt-2.5 border-t border-dashed border-zinc-200">
-                                <span className="text-xs font-black text-zinc-700">Tổng cộng bị trừ</span>
-                                <span className="text-rose-600 font-black text-sm tabular-nums">
-                                  {formatCurrency(totalDeduction)}
-                                </span>
-                              </div>
-                            </div>
-
-                            <div
-                              className={`flex justify-between items-center px-4 py-3.5 border-t-2 ${
-                                estimatedRefund > 0 ? 'bg-emerald-50/70 border-emerald-200' : 'bg-zinc-100/70 border-zinc-200'
-                              }`}
-                            >
-                              <span className={`text-xs font-black ${estimatedRefund > 0 ? 'text-emerald-800' : 'text-zinc-650'}`}>
-                                Hoàn lại cho khách
-                              </span>
-                              <span className={`font-black text-base tabular-nums ${estimatedRefund > 0 ? 'text-emerald-600' : 'text-zinc-450'}`}>
-                                {formatCurrency(estimatedRefund)}
-                              </span>
-                            </div>
-
-                            <div className="flex justify-between items-center px-4 py-2.5 border-t border-slate-100 bg-white">
-                              <span className="text-[11px] font-bold text-zinc-500">Phòng khám giữ lại</span>
-                              <span className="text-secondary font-black text-xs tabular-nums">{formatCurrency(keptRevenue)}</span>
-                            </div>
-                          </div>
-
-                          {estimatedRefund === 0 && (
-                            <div className="p-3.5 bg-rose-50/50 border border-rose-100 rounded-xl space-y-1 animate-in fade-in duration-200">
-                              <p className="text-rose-700 text-xs font-black flex items-center gap-1.5">
-                                <span>⚠️</span> Không hoàn tiền
-                              </p>
-                              <p className="text-[11px] text-rose-800/90 font-semibold leading-relaxed">
-                                Các khoản phải trừ ({formatCurrency(totalDeduction)}) đã{' '}
-                                {shortfall > 0 ? 'vượt quá' : 'dùng hết'} số tiền khách đóng ({formatCurrency(totalPaid)})
-                                {shortfall > 0 ? ` — vượt ${formatCurrency(shortfall)}` : ''}. Khách đã dùng{' '}
-                                {usedSessions}/{totalSessions} buổi của gói nên không thể hoàn tiền.
-                                {shortfall > 0 && ' Phòng khám KHÔNG truy thu thêm phần vượt này.'}
-                              </p>
-                            </div>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </div>
+                    <div className="pt-2 animate-in fade-in duration-200">
+                      <PackageRefundBreakdown calculation={refundCalc} />
+                    </div>
                   )}
 
                   <div className="bg-primary/5 border border-primary/15 rounded-xl p-4 flex items-start gap-3">
                     <Phone size={16} className="text-primary shrink-0 mt-0.5" />
                     <div className="space-y-1.5">
                       <p className="text-xs font-bold text-secondary leading-relaxed">
-                        Vui lòng liên hệ phòng khám để hủy gói liệu trình và hoàn tiền.
+                        Vui lòng liên hệ trung tâm để hủy gói liệu trình và hoàn tiền.
                       </p>
                       <button
                         type="button"
@@ -514,8 +425,8 @@ export function InvoiceDetailModal({ invoice, payments, onClose, onOpenPolicy, a
                   <div className="space-y-1.5">
                     <p className="text-xs font-bold text-secondary leading-relaxed">
                       {isTungBuoiPackage
-                        ? 'Gói thanh toán theo hình thức từng buổi không áp dụng hoàn tiền. Vui lòng liên hệ phòng khám nếu cần hỗ trợ.'
-                        : 'Gói này đã kết thúc (hủy/hoàn tiền/quá hạn) — xem chi tiết trong lịch sử giao dịch phía trên. Mọi thắc mắc vui lòng liên hệ phòng khám.'}
+                        ? 'Gói thanh toán theo hình thức từng buổi không áp dụng hoàn tiền. Vui lòng liên hệ trung tâm nếu cần hỗ trợ.'
+                        : 'Gói này đã kết thúc (hủy/hoàn tiền/quá hạn) — xem chi tiết trong lịch sử giao dịch phía trên. Mọi thắc mắc vui lòng liên hệ trung tâm.'}
                     </p>
                     <button
                       type="button"
@@ -535,7 +446,7 @@ export function InvoiceDetailModal({ invoice, payments, onClose, onOpenPolicy, a
         <div className="px-6 py-4.5 bg-zinc-50 border-t border-zinc-100 flex items-center justify-end">
           <button
             onClick={onClose}
-            className="px-5 py-2.5 bg-zinc-200 hover:bg-zinc-300 text-zinc-700 text-xs font-bold rounded-xl transition-all"
+            className="px-6 py-2.5 bg-zinc-200 hover:bg-zinc-300 text-zinc-700 text-xs font-bold rounded-xl transition-all cursor-pointer shadow-2xs"
           >
             Đóng
           </button>

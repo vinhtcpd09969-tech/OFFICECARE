@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Loader2, FileText, AlertCircle } from 'lucide-react';
-import { getPatientProfile, PatientProfile, PatientInfo } from '../../../features/doctor/api/doctor.api';
-import { PatientDossierTimeline } from '../../../pages/DoctorMedicalRecords/components/PatientDossierTimeline';
+import { getPatientProfile, PatientProfile, PatientInfo } from '@/features/doctor/api/doctor.api';
+import { PatientDossierTimeline } from './PatientDossierTimeline';
 
 interface EmbeddedPatientEmrViewProps {
   patientId: string;
@@ -9,6 +9,7 @@ interface EmbeddedPatientEmrViewProps {
   soDienThoai?: string;
   gioiTinh?: string;
   tuoi?: number;
+  highlightTarget?: { type: 'plan' | 'visit'; id: string } | null;
 }
 
 export function EmbeddedPatientEmrView({
@@ -17,6 +18,7 @@ export function EmbeddedPatientEmrView({
   soDienThoai,
   gioiTinh,
   tuoi,
+  highlightTarget,
 }: EmbeddedPatientEmrViewProps) {
   const [profile, setProfile] = useState<PatientProfile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -94,18 +96,20 @@ export function EmbeddedPatientEmrView({
         </div>
         <h4 className="text-sm font-black text-slate-800 dark:text-zinc-200">Chưa có lịch sử điều trị trước đây</h4>
         <p className="text-xs text-slate-500 dark:text-zinc-400">
-          Khách hàng <strong className="text-slate-700 dark:text-zinc-300">{patientName}</strong> hiện chưa có buổi khám hoặc phác đồ điều trị nào đã ghi nhận trong hệ thống.
+          Khách hàng <strong className="text-slate-700 dark:text-zinc-300">{patientName}</strong> hiện chưa có buổi lượng giá hoặc phác đồ điều trị nào đã ghi nhận trong hệ thống.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-4 sm:p-6 shadow-sm animate-in fade-in duration-300 font-jakarta">
+    <div className="w-full animate-in fade-in duration-300 font-jakarta">
       <PatientDossierTimeline
         selectedPatient={patientInfoMock}
         profile={profile}
         onBack={() => {}}
+        compactMode={true}
+        highlightTarget={highlightTarget}
       />
     </div>
   );

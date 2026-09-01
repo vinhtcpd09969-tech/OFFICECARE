@@ -42,7 +42,7 @@
 | Hạng mục | Giá trị |
 |---|---|
 | Buổi Sáng | 07:30 – 12:00 (270 phút) |
-| Buổi Chiều | 12:00 – 19:30 (450 phút) |
+| Buổi Chiều | 12:00 – 20:00 (480 phút) |
 | Giờ đóng cửa | **20:00** — mọi ca phải xong trước mốc này (tham số `GIO_DONG_CUA` trong `backend/src/domain/capacity.ts`, hiện chưa được dùng ở đâu — xem §3 Pending) |
 | Ca trực nhân sự | Giữ nguyên 2 ca: 7h–16h và 11h–20h |
 

@@ -18,7 +18,7 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function main() {
   // Import động sau khi dotenv.config() đã chạy, để SentimentService đọc đúng GEMINI_API_KEY.
-  const { SentimentService } = await import('../src/services/sentiment.service');
+  const { SentimentService } = await import('../src/services/ai/ai.sentiment');
 
   console.log('Bắt đầu backfill phân tích cảm xúc cho các đánh giá cũ...');
 

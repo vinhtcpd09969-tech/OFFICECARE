@@ -67,12 +67,6 @@ export default function Login() {
 
   const { register, handleSubmit, getValues, setValue, formState: { errors } } = form;
 
-  const handleQuickLogin = (email: string) => {
-    setValue('email', email, { shouldValidate: true });
-    setValue('password', 'admin123', { shouldValidate: true });
-    handleSubmit(onSubmit)();
-  };
-
   const handleBack = () => {
     if (showForgotPassword) {
       setShowForgotPassword(false);
@@ -85,18 +79,33 @@ export default function Login() {
   return (
     <div className="h-screen w-full flex flex-col lg:flex-row text-[#0F172A] relative overflow-hidden font-jakarta p-6 gap-6 justify-between items-center">
       {/* Full-screen Background Image with clean light clinical oak wood tone */}
-      <div className="absolute inset-0 z-0 select-none pointer-events-none">
+      <motion.div 
+        initial={{ opacity: 0, scale: 1.04 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+        className="absolute inset-0 z-0 select-none pointer-events-none"
+      >
         <img
           src="/images/therapist_treatment.png"
           alt="Clinic Rehab Background"
           className="w-full h-full object-cover object-right-bottom lg:object-center filter brightness-[1.02]"
         />
         {/* Fine vignette overlay fading from pristine soft white to transparent */}
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-50/95 via-slate-50/70 to-transparent z-10"></div>
-      </div>
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.6, delay: 0.1 }}
+          className="absolute inset-0 bg-gradient-to-r from-slate-50/95 via-slate-50/70 to-transparent z-10"
+        ></motion.div>
+      </motion.div>
 
       {/* HUD High-tech Grid Background */}
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(20,184,166,0.015)_1px,transparent_1px),linear-gradient(90deg,rgba(20,184,166,0.015)_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none opacity-80 z-10"></div>
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 0.8 }}
+        transition={{ duration: 0.7, delay: 0.15 }}
+        className="absolute inset-0 bg-[linear-gradient(rgba(20,184,166,0.015)_1px,transparent_1px),linear-gradient(90deg,rgba(20,184,166,0.015)_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none z-10"
+      ></motion.div>
 
       {/* Floating dynamic particles */}
       <div className="absolute top-[20%] left-[15%] size-1.5 bg-[#14B8A6]/15 rounded-full animate-float z-10"></div>
@@ -130,9 +139,9 @@ export default function Login() {
 
         {/* Form Card: Glassmorphism layout with 32px rounded corner and soft shadows */}
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ type: "spring", stiffness: 260, damping: 24 }}
+          initial={{ opacity: 0, y: 30, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.55, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
           className="w-full max-w-[460px] bg-white/80 backdrop-blur-xl border border-white/60 rounded-[32px] p-8 md:p-10 shadow-[0_24px_50px_-12px_rgba(15,23,42,0.08)] hover:border-[#14B8A6]/20 transition-all duration-500"
         >
           <AnimatePresence mode="wait">
@@ -262,63 +271,6 @@ export default function Login() {
                         Đăng ký ngay
                       </Link>
                     </p>
-                  </div>
-
-                  <div className="mt-6 pt-5 border-t border-slate-150/70">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 text-center mb-3 flex items-center justify-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#14B8A6] animate-pulse"></span>
-                      ⚡ ĐĂNG NHẬP NHANH (MÔI TRƯỜNG TEST)
-                    </p>
-                    <div className="grid grid-cols-3 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleQuickLogin('admin@officecare.vn')}
-                        disabled={isSubmitting}
-                        className="px-2 py-2.5 rounded-xl text-[10px] font-black bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200/50 active:scale-95 transition-all text-center cursor-pointer disabled:opacity-50"
-                      >
-                        Admin
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleQuickLogin('letan1@officecare.vn')}
-                        disabled={isSubmitting}
-                        className="px-2 py-2.5 rounded-xl text-[10px] font-black bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200/50 active:scale-95 transition-all text-center cursor-pointer disabled:opacity-50"
-                      >
-                        Lễ Tân
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleQuickLogin('duong.le@officecare.vn')}
-                        disabled={isSubmitting}
-                        className="px-2 py-2.5 rounded-xl text-[10px] font-black bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200/50 active:scale-95 transition-all text-center cursor-pointer disabled:opacity-50"
-                      >
-                        KTV
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleQuickLogin('duc.nguyen@officecare.vn')}
-                        disabled={isSubmitting}
-                        className="px-2 py-2.5 rounded-xl text-[10px] font-black bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200/50 active:scale-95 transition-all text-center cursor-pointer disabled:opacity-50"
-                      >
-                        Bác Sĩ
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleQuickLogin('quanly@officecare.vn')}
-                        disabled={isSubmitting}
-                        className="px-2 py-2.5 rounded-xl text-[10px] font-black bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200/50 active:scale-95 transition-all text-center cursor-pointer disabled:opacity-50"
-                      >
-                        Quản Lý
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleQuickLogin('kh1@gmail.com')}
-                        disabled={isSubmitting}
-                        className="px-2 py-2.5 rounded-xl text-[10px] font-black bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300/50 active:scale-95 transition-all text-center cursor-pointer disabled:opacity-50"
-                      >
-                        Khách Hàng
-                      </button>
-                    </div>
                   </div>
                 </form>
               </motion.div>

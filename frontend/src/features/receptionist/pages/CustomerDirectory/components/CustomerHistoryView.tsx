@@ -1,9 +1,9 @@
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { ChevronLeft, Phone, Mail, Bell, CalendarPlus, Calendar, CreditCard, ClipboardList, History } from 'lucide-react';
-import { statusConfig } from '../../../../../components/appointmentStatusConfig';
-import { isSessionPaymentSatisfied } from '../../../../../utils/billing';
-import { ReputationScore } from './ReputationScore';
+import { statusConfig } from '@/components/appointments';
+import { isSessionPaymentSatisfied } from '@/utils/billing';
+import { TREATMENT_PLAN_STATUS_META } from '@/constants/statusMeta';
 import type { CustomerHistoryDetail } from '../types';
 
 interface CustomerHistoryViewProps {
@@ -12,15 +12,10 @@ interface CustomerHistoryViewProps {
   onBack: () => void;
 }
 
-const PLAN_STATUS_META: Record<string, { label: string; cls: string }> = {
-  cho_kich_hoat: { label: 'Chờ kích hoạt', cls: 'bg-amber-50 text-amber-700 border-amber-150' },
-  dang_dieu_tri: { label: 'Đang điều trị', cls: 'bg-teal-50 text-teal-700 border-teal-150' },
-  hoan_thanh: { label: 'Hoàn thành', cls: 'bg-slate-100 text-slate-600 border-slate-200' },
-  huy: { label: 'Đã hủy', cls: 'bg-rose-50 text-rose-700 border-rose-150' },
-};
+
 
 function loaiLabel(loai: string) {
-  if (loai === 'KHAM' || loai === 'KHAM_MOI') return 'Khám';
+  if (loai === 'KHAM' || loai === 'KHAM_MOI') return 'Lượng giá';
   if (loai === 'DIEU_TRI') return 'Trị liệu';
   return 'Dịch vụ lẻ';
 }
@@ -48,7 +43,6 @@ export function CustomerHistoryView({ customer, staleDays, onBack }: CustomerHis
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-base font-black text-slate-900">{customer.ho_ten}</h2>
               <span className="text-[9px] text-slate-400 font-extrabold font-mono">{customer.ma_khach_hang}</span>
-              <ReputationScore score={customer.diem_uy_tin} />
             </div>
             <div className="flex items-center gap-4 mt-1.5">
               <span className="flex items-center gap-1.5 text-xs font-black text-slate-700">
@@ -73,7 +67,7 @@ export function CustomerHistoryView({ customer, staleDays, onBack }: CustomerHis
           <div>
             <p className="text-xs font-black text-amber-800 uppercase tracking-wide">Chờ kích hoạt</p>
             <p className="text-[11px] text-amber-700 font-semibold mt-0.5 leading-relaxed">
-              Khách có gói bác sĩ vừa chỉ định nhưng chưa thanh toán. Vui lòng gọi khách để chốt thanh toán & kích hoạt.
+              Khách có gói chuyên viên tư vấn vừa chỉ định nhưng chưa thanh toán. Vui lòng gọi khách để chốt thanh toán & kích hoạt.
             </p>
           </div>
         </div>
@@ -114,7 +108,7 @@ export function CustomerHistoryView({ customer, staleDays, onBack }: CustomerHis
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {customer.plans.map((p) => {
-                  const meta = PLAN_STATUS_META[p.trang_thai] || { label: p.trang_thai, cls: 'bg-slate-100 text-slate-600 border-slate-200' };
+                  const meta = TREATMENT_PLAN_STATUS_META[p.trang_thai] || { label: p.trang_thai, cls: 'bg-slate-100 text-slate-600 border-slate-200' };
                   const hanDate = p.trang_thai === 'cho_kich_hoat' ? p.han_kich_hoat : p.han_su_dung;
 
                   // Lọc lịch hẹn tiếp theo đang chờ diễn ra cho gói này (Chỉ tính các ca CHƯA hoàn thành/hủy)
@@ -177,15 +171,13 @@ export function CustomerHistoryView({ customer, staleDays, onBack }: CustomerHis
                         ) : p.trang_thai === 'dang_dieu_tri' && !isPlanCompleted ? (
                           (() => {
                             const nextSessionNum = (p.so_buoi_da_dung || 0) + 1;
-                            if (!isSessionPaymentSatisfied(p, nextSessionNum)) {
+                            const isTungBuoi = p.hinh_thuc_thanh_toan_goi === 'tung_buoi';
+                            if (!isTungBuoi && !isSessionPaymentSatisfied(p, nextSessionNum)) {
                               return (
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    const dest = p.hinh_thuc_thanh_toan_goi === 'tung_buoi'
-                                      ? `/receptionist/billing?customer_id=${customer.id}&goi_dich_vu_id=${p.goi_dich_vu_id}`
-                                      : `/receptionist/billing?hoa_don_id=${p.hoa_don_id}`;
-                                    navigate(dest);
+                                    navigate(`/receptionist/billing?hoa_don_id=${p.hoa_don_id}`);
                                   }}
                                   className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 shadow-xs active:scale-95 shrink-0 cursor-pointer"
                                 >
@@ -197,7 +189,10 @@ export function CustomerHistoryView({ customer, staleDays, onBack }: CustomerHis
                             return (
                               <button
                                 type="button"
-                                onClick={() => navigate(`/receptionist/appointments?khach_hang_id=${customer.id}&goi_dich_vu_id=${p.goi_dich_vu_id}&phac_do_id=${p.id}&buoi=${nextSessionNum}`)}
+                                onClick={() => {
+                                  const todayStr = format(new Date(), 'yyyy-MM-dd');
+                                  navigate(`/receptionist/appointments?khach_hang_id=${customer.id}&goi_dich_vu_id=${p.goi_dich_vu_id}&phac_do_id=${p.id}&buoi=${nextSessionNum}&startDate=${todayStr}&endDate=${todayStr}&view=timeline`);
+                                }}
                                 className="px-3 py-1.5 bg-[#0D9488] hover:bg-[#0D9488]/90 text-white rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 shadow-xs active:scale-95 shrink-0 cursor-pointer"
                               >
                                 <CalendarPlus size={13} />
@@ -250,7 +245,7 @@ export function CustomerHistoryView({ customer, staleDays, onBack }: CustomerHis
                           {a.so_thu_tu_buoi ? ` #${a.so_thu_tu_buoi}` : ''}
                         </span>
                       </td>
-                      <td className="p-3 font-bold text-slate-800">{a.ten_dich_vu || 'Khám lâm sàng'}</td>
+                      <td className="p-3 font-bold text-slate-800">{a.ten_dich_vu || 'Lượng giá Chức năng PHCN'}</td>
                       <td className="p-3">
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-wider ${meta.color}`}>
                           {meta.label}

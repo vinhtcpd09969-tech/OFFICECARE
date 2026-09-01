@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { sendChatMessage, getMyChatHistory } from '../api/chat.api';
 import { useAuthStore } from '../../../stores/authStore';
 import { toast } from 'react-hot-toast';
@@ -9,6 +9,9 @@ export interface ChatMessage {
   content: string;
   timestamp: number;
   suggestBooking?: boolean;
+  bookingActionType?: 'customer_records' | 'booking_page';
+  showPackagePrompt?: boolean;
+  suggestedQuestions?: string[];
 }
 
 export function useAIChat() {
@@ -20,8 +23,7 @@ export function useAIChat() {
   const user = useAuthStore((state) => state.user);
   const storageKey = user ? `officecare_ai_chat_${user.id}` : 'officecare_ai_chat_guest';
 
-  // Session id bền vững trong phiên trình duyệt — gửi kèm mỗi lượt chat để backend lưu
-  // lịch sử vào Postgres (localStorage vẫn là cache hiển thị chính, DB chỉ là nguồn lưu bền).
+  // Session id bền vững trong phiên trình duyệt
   const [sessionId] = useState(() => {
     let id = sessionStorage.getItem('officecare_ai_chat_session_id');
     if (!id) {
@@ -31,9 +33,20 @@ export function useAIChat() {
     return id;
   });
 
-  // Nạp lịch sử chat tương ứng với storageKey của tài khoản đang đăng nhập. Nếu trình duyệt/thiết
-  // bị này chưa có cache (vd khách đổi máy) và đang đăng nhập với vai trò khách hàng (vai_tro_id=1),
-  // thử khôi phục lại hội thoại đã lưu bền ở DB trước khi rơi về tin nhắn chào mừng mặc định.
+  const getWelcomeMessage = (): ChatMessage => ({
+    id: 'welcome',
+    role: 'model',
+    content: 'Xin chào! Tôi là Trợ lý Chuyên viên AI của Trung tâm Phục hồi Chức năng OfficeCare. Tôi có thể hỗ trợ bạn phân tích các triệu chứng đau mỏi cơ xương khớp (cổ vai gáy, thắt lưng, cột sống...), tư vấn phác đồ và giải đáp toàn bộ thông tin tại trung tâm.',
+    timestamp: Date.now(),
+    suggestedQuestions: [
+      '💆 Trị mỏi cổ vai gáy văn phòng',
+      '🧘 Phục hồi đau thắt lưng & cột sống',
+      '⚡ Công nghệ Laser & Sóng xung kích',
+      '📅 Đặt lịch lượng giá 1:1'
+    ]
+  });
+
+  // Nạp lịch sử chat tương ứng với storageKey của tài khoản đang đăng nhập
   useEffect(() => {
     let cancelled = false;
 
@@ -69,14 +82,9 @@ export function useAIChat() {
       }
 
       if (cancelled) return;
-      const welcomeMessage: ChatMessage = {
-        id: 'welcome',
-        role: 'model',
-        content: 'Xin chào! Tôi là trợ lý y khoa ảo của trung tâm OfficeCare. Tôi có thể giúp gì cho bạn về các vấn đề đau mỏi cơ xương khớp hoặc các dịch vụ trị liệu phục hồi của phòng khám?',
-        timestamp: Date.now(),
-      };
-      setMessages([welcomeMessage]);
-      localStorage.setItem(storageKey, JSON.stringify([welcomeMessage]));
+      const welcome = getWelcomeMessage();
+      setMessages([welcome]);
+      localStorage.setItem(storageKey, JSON.stringify([welcome]));
     };
 
     loadHistory();
@@ -110,7 +118,7 @@ export function useAIChat() {
 
       const response = await sendChatMessage({
         message: userMsg.content,
-        history: contextHistory.slice(0, -1), // Lịch sử không gồm tin nhắn vừa gõ
+        history: contextHistory.slice(0, -1),
         sessionId,
       });
 
@@ -120,6 +128,9 @@ export function useAIChat() {
         content: response.data.reply,
         timestamp: Date.now(),
         suggestBooking: response.data.suggestBooking === true,
+        bookingActionType: response.data.bookingActionType || (response.data.suggestBooking ? 'booking_page' : undefined),
+        showPackagePrompt: response.data.showPackagePrompt === true,
+        suggestedQuestions: response.data.suggestedQuestions || []
       };
 
       const finalMessages = [...updatedMessages, replyMsg];
@@ -127,14 +138,15 @@ export function useAIChat() {
       localStorage.setItem(storageKey, JSON.stringify(finalMessages));
     } catch (error: any) {
       console.error('Lỗi khi kết nối AI:', error);
-      const errMsg = error.response?.data?.message || 'Không thể kết nối đến máy chủ AI. Vui lòng thử lại sau.';
+      const errMsg = error.response?.data?.message || 'Hệ thống đang bận. Vui lòng thử lại sau ít phút hoặc liên hệ hotline OfficeCare.';
       toast.error(errMsg);
 
       const errorMsg: ChatMessage = {
         id: Math.random().toString(36).substring(7),
         role: 'model',
-        content: `⚠️ Lỗi: ${errMsg}`,
+        content: `⚠️ ${errMsg}`,
         timestamp: Date.now(),
+        suggestedQuestions: ['Đặt lịch lượng giá 1:1', 'Xem bảng giá dịch vụ', 'Liên hệ hotline']
       };
       setMessages(prev => [...prev, errorMsg]);
     } finally {
@@ -143,14 +155,9 @@ export function useAIChat() {
   };
 
   const clearChat = () => {
-    const welcomeMessage: ChatMessage = {
-      id: 'welcome',
-      role: 'model',
-      content: 'Xin chào! Tôi là trợ lý y khoa ảo của trung tâm OfficeCare. Tôi có thể giúp gì cho bạn về các vấn đề đau mỏi cơ xương khớp hoặc các dịch vụ trị liệu phục hồi của phòng khám?',
-      timestamp: Date.now(),
-    };
-    setMessages([welcomeMessage]);
-    localStorage.setItem(storageKey, JSON.stringify([welcomeMessage]));
+    const welcome = getWelcomeMessage();
+    setMessages([welcome]);
+    localStorage.setItem(storageKey, JSON.stringify([welcome]));
   };
 
   return {

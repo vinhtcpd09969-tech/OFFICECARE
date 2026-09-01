@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Star, Quote } from 'lucide-react';
 import ScrollReveal from '../effects/ScrollReveal';
 import { getPublicTestimonials } from '../../api/public.api';
+import { censorText } from '../../../../utils/profanity';
 
 interface Testimonial {
   id: string;
@@ -99,7 +100,7 @@ export default function Testimonials() {
 
                 {/* Feedback text */}
                 <p className="text-slate-600 text-xs md:text-sm font-semibold leading-relaxed line-clamp-4">
-                  "{t.nhan_xet}"
+                  "{censorText(t.nhan_xet)}"
                 </p>
               </div>
 

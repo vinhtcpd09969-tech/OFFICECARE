@@ -17,7 +17,7 @@ import { LoaiCuocHen } from './types';
 /** Giờ nhận khách theo buổi — tham số cấu hình, KHÔNG viết cứng ở nơi khác. */
 export const GIO_NHAN_KHACH: Record<Buoi, { batDau: string; ketThuc: string }> = {
   sang: { batDau: '07:30', ketThuc: '12:00' },
-  chieu: { batDau: '12:00', ketThuc: '19:30' },
+  chieu: { batDau: '12:00', ketThuc: '20:00' },
 };
 
 /** Giờ đóng cửa trung tâm — mọi ca phải xong trước mốc này (dùng ở Lớp 2, xem B20). */
@@ -47,6 +47,17 @@ export function vaiTroIdCuaNhom(nhom: NhomVaiTro): number {
   return nhom === 'chuyen_vien' ? VAI_TRO_ID_CHUYEN_VIEN : VAI_TRO_ID_KTV;
 }
 
+/**
+ * Số khách tối đa 1 nhân sự được gọi vào đồng thời, suy THẲNG từ vai_tro_id — không còn cột DB
+ * riêng (ho_so_chuyen_gia.so_khach_song_song đã bỏ vì data thật chưa từng lệch khỏi công thức
+ * này). KTV = 2 (xen kẽ được khi khách nằm máy), còn lại (Chuyên viên VLTL) = 1 (lượng giá cần
+ * tập trung). Đây là nguồn sự thật DUY NHẤT — mọi câu SQL raw cần giá trị này phải dùng CASE
+ * đúng theo công thức ở đây (`vai_tro_id = ${VAI_TRO_ID_KTV} THEN 2 ELSE 1`), không tự bịa anchor khác.
+ */
+export function soKhachSongSongTheoVaiTro(vaiTroId: number): number {
+  return vaiTroId === VAI_TRO_ID_KTV ? 2 : 1;
+}
+
 /** Chuyển "HH:MM" hoặc "HH:MM:SS" (node-postgres trả TIME dạng chuỗi) thành số phút từ 00:00. */
 export function parseGioThanhPhut(gio: string): number {
   const [h, m] = gio.split(':').map((x) => parseInt(x, 10));
@@ -60,41 +71,51 @@ export function getKhungGioBuoi(buoi: Buoi): { batDauPhut: number; ketThucPhut: 
 
 /**
  * Phút giao nhau giữa 1 ca trực (lich_truc_nhan_su.gio_bat_dau/gio_ket_thuc) và khung giờ nhận
- * khách của 1 buổi. Đây là bẫy phổ biến nhất khi tính ngân sách: 2 nhân sự cùng "trực buổi sáng"
- * nhưng ca 7h–16h đóng góp 270 phút còn ca 11h–20h chỉ đóng góp 60 phút — KHÔNG được coi 2 người
- * đóng góp bằng nhau (xem ví dụ trong kế hoạch: 540 phút nếu cùng ca 7h–16h, chỉ 330 nếu mỗi
- * người một ca khác nhau).
+ * khách của 1 buổi.
+ * Nếu có gioHienTaiPhut (khi đặt lịch cho chính ngày HÔM NAY):
+ *   Điểm bắt đầu tính khả dụng = max(giờ bắt đầu ca, giờ bắt đầu buổi, giờ hiện tại).
+ *   Nhờ đó, thời gian đã trôi qua trong ca trực sẽ tự động được khấu trừ trong ngày.
  */
-export function tinhPhutGiaoNhau(gioBatDauCa: string, gioKetThucCa: string, buoi: Buoi): number {
+export function tinhPhutGiaoNhau(
+  gioBatDauCa: string,
+  gioKetThucCa: string,
+  buoi: Buoi,
+  gioHienTaiPhut?: number
+): number {
   const batDauCaPhut = parseGioThanhPhut(gioBatDauCa);
   const ketThucCaPhut = parseGioThanhPhut(gioKetThucCa);
   const { batDauPhut, ketThucPhut } = getKhungGioBuoi(buoi);
-  const giaoBatDau = Math.max(batDauCaPhut, batDauPhut);
+  const giaoBatDauGoc = Math.max(batDauCaPhut, batDauPhut);
   const giaoKetThuc = Math.min(ketThucCaPhut, ketThucPhut);
-  return Math.max(0, giaoKetThuc - giaoBatDau);
+
+  if (gioHienTaiPhut !== undefined) {
+    const giaoBatDauHienTai = Math.max(giaoBatDauGoc, gioHienTaiPhut);
+    return Math.max(0, giaoKetThuc - giaoBatDauHienTai);
+  }
+
+  return Math.max(0, giaoKetThuc - giaoBatDauGoc);
 }
 
 export interface NhanSuTrucCa {
   nhanSuId: number;
   gioBatDau: string;
   gioKetThuc: string;
-  /** ho_so_chuyen_gia.so_khach_song_song — mặc định Chuyên viên = 1, KTV = 2. */
+  /** Suy thẳng từ vai_tro_id (không còn cột DB riêng) — Chuyên viên = 1, KTV = 2. */
   soKhachSongSong: number;
 }
 
 /**
- * Ngân sách riêng của 1 nhân sự cho 1 buổi = phút giao nhau × số khách song song.
- * Đây là hệ số nhân THỨ HAI hay bị bỏ sót — nhân với số ca trực là chưa đủ, phải nhân thêm
- * số khách song song mới ra đúng ngân sách (KTV bật song song 2 thì ngân sách gấp đôi ngay).
+ * Ngân sách riêng của 1 nhân sự cho 1 buổi = phút giao nhau giữa ca trực và buổi.
+ * Thời lượng ngân sách tính đúng 1:1 theo thời lượng ca trực thực tế (không nhân đôi số phút cho KTV,
+ * dù KTV có thể mở tối đa 2 bàn đồng thời khi phục vụ lâm sàng).
  */
-export function tinhNganSachRieng(nhanSu: NhanSuTrucCa, buoi: Buoi): number {
-  const phutGiaoNhau = tinhPhutGiaoNhau(nhanSu.gioBatDau, nhanSu.gioKetThuc, buoi);
-  return phutGiaoNhau * Math.max(1, nhanSu.soKhachSongSong);
+export function tinhNganSachRieng(nhanSu: NhanSuTrucCa, buoi: Buoi, gioHienTaiPhut?: number): number {
+  return tinhPhutGiaoNhau(nhanSu.gioBatDau, nhanSu.gioKetThuc, buoi, gioHienTaiPhut);
 }
 
 /** Ngân sách chung của túi vai trò trong 1 buổi = Σ ngân sách riêng của mọi nhân sự đang trực. */
-export function tinhNganSachChung(danhSachNhanSu: NhanSuTrucCa[], buoi: Buoi): number {
-  return danhSachNhanSu.reduce((tong, ns) => tong + tinhNganSachRieng(ns, buoi), 0);
+export function tinhNganSachChung(danhSachNhanSu: NhanSuTrucCa[], buoi: Buoi, gioHienTaiPhut?: number): number {
+  return danhSachNhanSu.reduce((tong, ns) => tong + tinhNganSachRieng(ns, buoi, gioHienTaiPhut), 0);
 }
 
 /** 1 lịch đã đặt, quy về số phút đã chiếm dụng — nhanSuId = null nghĩa là khách chọn "Bất kỳ". */
@@ -119,17 +140,21 @@ export function kiemTraDatChoNhanSuCuThe(
   danhSachNhanSu: NhanSuTrucCa[],
   daDat: PhutDaDat[],
   thoiLuongMoiPhut: number,
-  buoi: Buoi
+  buoi: Buoi,
+  gioHienTaiPhut?: number
 ): KetQuaKiemTraDatLich {
   const nhanSu = danhSachNhanSu.find((n) => n.nhanSuId === nhanSuId);
   if (!nhanSu) {
     return { choPhep: false, lyDo: 'Nhân sự không trực buổi này.' };
   }
-  const nganSachRieng = tinhNganSachRieng(nhanSu, buoi);
+  const nganSach = gioHienTaiPhut !== undefined
+    ? tinhNganSachRieng(nhanSu, buoi, gioHienTaiPhut)
+    : tinhNganSachRieng(nhanSu, buoi);
   const daDungRieng = daDat
     .filter((d) => d.nhanSuId === nhanSuId)
     .reduce((tong, d) => tong + d.soPhut, 0);
-  const conLai = nganSachRieng - daDungRieng;
+  const conLai = Math.max(0, nganSach - daDungRieng);
+
   if (thoiLuongMoiPhut > conLai) {
     return {
       choPhep: false,
@@ -141,21 +166,24 @@ export function kiemTraDatChoNhanSuCuThe(
 }
 
 /**
- * Kiểm tra đặt lịch khi khách chọn "Bất kỳ" — BẮT BUỘC đủ CẢ HAI điều kiện, thiếu điều kiện ②
- * là lỗi kinh điển: ngân sách chung còn nhưng không ai đủ chỗ riêng (ví dụ trong kế hoạch: 2
- * người đích danh còn 20 phút mỗi người, chung còn 40, khách đặt 30 phút "Bất kỳ" phải bị chặn
- * vì không ai một mình đủ 30 phút, dù 20+20=40 ≥ 30).
+ * Kiểm tra đặt lịch khi khách chọn "Bất kỳ" — BẮT BUỘC đủ CẢ HAI điều kiện:
+ * ① Ngân sách CHUNG còn đủ
+ * ② TỒN TẠI ít nhất 1 nhân sự còn đủ thời lượng RIÊNG
  */
 export function kiemTraDatBatKy(
   danhSachNhanSu: NhanSuTrucCa[],
   daDat: PhutDaDat[],
   thoiLuongMoiPhut: number,
-  buoi: Buoi
+  buoi: Buoi,
+  gioHienTaiPhut?: number
 ): KetQuaKiemTraDatLich {
   // ① Ngân sách CHUNG của cả túi
-  const nganSachChung = tinhNganSachChung(danhSachNhanSu, buoi);
+  const nganSachChung = gioHienTaiPhut !== undefined
+    ? tinhNganSachChung(danhSachNhanSu, buoi, gioHienTaiPhut)
+    : tinhNganSachChung(danhSachNhanSu, buoi);
   const tongDaDung = daDat.reduce((tong, d) => tong + d.soPhut, 0);
-  const conLaiChung = nganSachChung - tongDaDung;
+  const conLaiChung = Math.max(0, nganSachChung - tongDaDung);
+
   if (thoiLuongMoiPhut > conLaiChung) {
     return {
       choPhep: false,
@@ -166,19 +194,52 @@ export function kiemTraDatBatKy(
 
   // ② TỒN TẠI ít nhất 1 nhân sự còn đủ chỗ RIÊNG (không suy từ tổng chung)
   const coNguoiConDu = danhSachNhanSu.some((ns) => {
-    const nganSachRieng = tinhNganSachRieng(ns, buoi);
+    const nganSachRieng = gioHienTaiPhut !== undefined
+      ? tinhNganSachRieng(ns, buoi, gioHienTaiPhut)
+      : tinhNganSachRieng(ns, buoi);
     const daDungRieng = daDat
       .filter((d) => d.nhanSuId === ns.nhanSuId)
       .reduce((tong, d) => tong + d.soPhut, 0);
-    return nganSachRieng - daDungRieng >= thoiLuongMoiPhut;
+    const conLaiRieng = Math.max(0, nganSachRieng - daDungRieng);
+    return conLaiRieng >= thoiLuongMoiPhut;
   });
+
   if (!coNguoiConDu) {
     return {
       choPhep: false,
-      lyDo: 'Không có nhân sự nào còn đủ chỗ cho dịch vụ này, dù tổng ngân sách buổi vẫn còn.',
+      lyDo: 'Không có nhân sự nào còn đủ thời lượng cho dịch vụ này, dù tổng ngân sách buổi vẫn còn.',
       soPhutConLai: 0,
     };
   }
 
   return { choPhep: true, soPhutConLai: conLaiChung - thoiLuongMoiPhut };
 }
+
+export interface CaSangAppointment {
+  thoiGianCheckin: string | Date | null;
+  thoiLuongPhut: number;
+}
+
+/**
+ * Tính số phút các ca Sáng tràn sang ca Chiều sau mốc 12:00.
+ * Khách ca Sáng check-in muộn (vd 11h45) làm gói 90 phút (xong lúc 13h15) -> Tràn 75 phút sang ca Chiều.
+ * Số phút tràn này sẽ tự động khấu trừ vào Ngân sách Buổi Chiều để ca Chiều không bị quá tải ngầm.
+ */
+export function tinhPhutTranCa(caSangAppointments: CaSangAppointment[]): number {
+  const KET_THUC_SANG_PHUT = 12 * 60; // 12:00 = 720 phút
+  let tongPhutTran = 0;
+
+  for (const apt of caSangAppointments) {
+    if (!apt.thoiGianCheckin) continue;
+    const checkinDate = new Date(apt.thoiGianCheckin);
+    const checkinMins = checkinDate.getHours() * 60 + checkinDate.getMinutes();
+    const duKienXongMins = checkinMins + Math.max(0, apt.thoiLuongPhut);
+
+    if (duKienXongMins > KET_THUC_SANG_PHUT) {
+      tongPhutTran += (duKienXongMins - KET_THUC_SANG_PHUT);
+    }
+  }
+
+  return tongPhutTran;
+}
+

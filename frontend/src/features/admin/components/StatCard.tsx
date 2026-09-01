@@ -1,5 +1,4 @@
 import React from 'react';
-import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 
 interface StatCardProps {
   title: string;
@@ -8,9 +7,8 @@ interface StatCardProps {
   changeColor?: string;
   icon: React.ReactNode;
   color: string;
-  delay: string;
-  sparklineData?: { val: number }[];
-  progressCircle?: { percent: number };
+  delay?: string;
+  subtitle?: string;
 }
 
 export function StatCard({
@@ -21,85 +19,42 @@ export function StatCard({
   icon,
   color,
   delay,
-  sparklineData,
-  progressCircle
+  subtitle
 }: StatCardProps) {
-  const badgeClass = changeColor || "text-emerald-500 bg-emerald-50/80";
+  const badgeClass = changeColor || "text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/40";
 
   return (
     <div
-      className="bg-white p-6 rounded-3xl border border-zinc-100/80 shadow-soft-ui hover:shadow-soft-ui-hover hover:-translate-y-1 transition-all duration-300 opacity-0 animate-slide-up flex flex-col justify-between"
-      style={{ animationDelay: delay }}
+      className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-200 flex flex-col justify-between"
+      style={delay ? { animationDelay: delay } : undefined}
     >
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <div className={`size-9 rounded-xl ${color} flex items-center justify-center text-sm shadow-inner`}>
+      {/* Top Header Row: Icon + Title & Badge */}
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className={`size-8 rounded-lg ${color} flex items-center justify-center text-sm shrink-0 border border-black/5 dark:border-white/5`}>
             {icon}
           </div>
-          <span className="text-zinc-400 text-[10px] font-black uppercase tracking-wider">{title}</span>
+          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 truncate">
+            {title}
+          </span>
         </div>
-        <span className={`text-[9px] font-black px-2.5 py-1 rounded-lg ${badgeClass}`}>
+        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md shrink-0 border ${badgeClass}`}>
           {change}
         </span>
       </div>
 
-      <div className="flex items-end justify-between mt-2 gap-4">
-        <div>
-          <h3 className="text-xl font-black text-secondary tracking-tight">{value}</h3>
-        </div>
-
-        {/* Circular Progress Ring */}
-        {progressCircle && (
-          <div className="relative size-12 shrink-0 flex items-center justify-center">
-            <svg className="size-full transform -rotate-90">
-              <circle
-                cx="24"
-                cy="24"
-                r="18"
-                stroke="#F1F5F9"
-                strokeWidth="3.5"
-                fill="transparent"
-              />
-              <circle
-                cx="24"
-                cy="24"
-                r="18"
-                stroke="#0D9488"
-                strokeWidth="3.5"
-                fill="transparent"
-                strokeDasharray={2 * Math.PI * 18}
-                strokeDashoffset={2 * Math.PI * 18 * (1 - progressCircle.percent / 100)}
-                strokeLinecap="round"
-              />
-            </svg>
-            <span className="absolute text-[9px] font-black text-secondary">{progressCircle.percent}%</span>
-          </div>
-        )}
-
-        {/* Mini Sparkline Area Chart */}
-        {sparklineData && (
-          <div className="w-[85px] h-[35px] shrink-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={sparklineData}>
-                <defs>
-                  <linearGradient id="colorSpark" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#0D9488" stopOpacity={0.2}/>
-                    <stop offset="95%" stopColor="#0D9488" stopOpacity={0.0}/>
-                  </linearGradient>
-                </defs>
-                <Area
-                  type="monotone"
-                  dataKey="val"
-                  stroke="#0D9488"
-                  strokeWidth={1.5}
-                  dot={false}
-                  fill="url(#colorSpark)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+      {/* Main Metric Value */}
+      <div className="flex items-baseline justify-between gap-2 mt-1">
+        <h3 className="text-2xl sm:text-[26px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
+          {value}
+        </h3>
+        {subtitle && (
+          <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 shrink-0">
+            {subtitle}
+          </span>
         )}
       </div>
     </div>
   );
 }
+

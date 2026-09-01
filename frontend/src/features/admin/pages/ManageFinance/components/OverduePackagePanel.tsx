@@ -1,4 +1,5 @@
 import { CalendarX } from 'lucide-react';
+import { formatCurrency } from '@/utils/format';
 import type { Invoice } from '../hooks/useFinanceDashboard';
 
 interface OverduePackagePanelProps {
@@ -51,7 +52,7 @@ export function OverduePackagePanel({ invoices, onOpenDetail }: OverduePackagePa
             </p>
             <div className="flex justify-between items-center text-[9px] font-bold">
               <span className="text-amber-700">{formatDaysOverdue(inv.han_su_dung)}</span>
-              <span className="text-zinc-400">Đã đóng: {Number(inv.da_thanh_toan).toLocaleString('vi-VN')}đ</span>
+              <span className="text-zinc-400">Đã đóng: {formatCurrency(inv.da_thanh_toan)}</span>
             </div>
           </div>
         ))}

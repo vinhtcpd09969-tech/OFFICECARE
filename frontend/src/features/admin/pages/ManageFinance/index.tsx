@@ -3,12 +3,20 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../../../stores/authStore';
 import {
   ArrowLeft,
-  Coins,
-  DollarSign,
-  Tag
+  Clock3,
+  User,
+  FileText,
+  ShieldCheck,
+  QrCode,
+  Banknote,
+  Lock,
+  CalendarCheck,
+  Receipt
 } from 'lucide-react';
 import { formatCurrency } from '../../../../utils/format';
-import { INVOICE_STATUS_LABELS } from './constants';
+import { generateInvoiceHtml, generateTransactionReceiptHtml } from '../../../../utils/invoicePrinter';
+import { useActiveShiftCheck } from '../../../../hooks/useActiveShiftCheck';
+import toast from 'react-hot-toast';
 
 // Hooks
 import { useCheckout } from './hooks/useCheckout';
@@ -19,19 +27,18 @@ import type { Invoice, Payment } from './hooks/useFinanceDashboard';
 import FastPaymentModal from './components/FastPaymentModal';
 import InvoiceDetailModal from './components/InvoiceDetailModal';
 import OverduePackagePanel from './components/OverduePackagePanel';
-import { ReceiptBreakdown } from './components/ReceiptBreakdown';
 import PaymentSuccessBox from './components/PaymentSuccessBox';
 import ConfirmPaymentModal from './components/ConfirmPaymentModal';
 import QRWebhookModal from './components/QRWebhookModal';
 import VoucherPicker from './components/VoucherPicker';
-import FinanceKpiCards from './components/FinanceKpiCards';
-import FinanceTabs from './components/FinanceTabs';
-import FinanceFilterBar from './components/FinanceFilterBar';
-import InvoiceTable from './components/InvoiceTable';
-import PaymentTable from './components/PaymentTable';
+import { FinanceKpiCards } from './components/FinanceKpiCards';
+import { FinanceFilterBar } from './components/FinanceFilterBar';
+import { InvoiceTable } from './components/InvoiceTable';
+import { PaymentTable } from './components/PaymentTable';
 
 export default function ManageFinance() {
   const { user } = useAuthStore();
+  const { hasShiftToday, isSuperUser } = useActiveShiftCheck();
   const isAdminOrManager = Number(user?.vai_tro_id) === 5 || Number(user?.vai_tro_id) === 6;
 
   const navigate = useNavigate();
@@ -81,152 +88,16 @@ export default function ManageFinance() {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>In Hóa Đơn - ${inv.ma_hoa_don}</title>
-          <style>
-            body { font-family: sans-serif; padding: 40px; color: #333; line-height: 1.6; }
-            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #eee; padding-bottom: 20px; }
-            .logo { font-size: 24px; font-weight: bold; color: #0d9488; }
-            .invoice-title { font-size: 20px; margin-top: 10px; font-weight: bold; text-transform: uppercase; }
-            .meta-grid { display: grid; grid-template-cols: 1fr 1fr; margin-bottom: 30px; gap: 15px; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-            th { background: #f8fafc; border-bottom: 2px solid #cbd5e1; padding: 12px; text-align: left; font-size: 14px; }
-            td { border-bottom: 1px solid #e2e8f0; padding: 12px; font-size: 14px; }
-            .total-section { text-align: right; font-size: 15px; font-weight: bold; }
-            .footer { text-align: center; margin-top: 50px; font-size: 12px; color: #666; border-top: 1px solid #eee; padding-top: 20px; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div class="logo">OFFICECARE - TRUNG TÂM PHỤC HỒI CHỨC NĂNG</div>
-            <div class="invoice-title">HÓA ĐƠN DỊCH VỤ TRỊ LIỆU</div>
-            <div>Mã số: ${inv.ma_hoa_don}</div>
-          </div>
-          <div class="meta-grid">
-            <div>
-              <strong>Khách hàng:</strong> ${inv.ten_khach_hang}<br/>
-              <strong>Điện thoại:</strong> ${inv.so_dien_thoai || 'N/A'}<br/>
-              <strong>Ngày tạo:</strong> ${new Date(inv.ngay_tao).toLocaleString('vi-VN')}
-            </div>
-            <div style="text-align: right;">
-              <strong>Hình thức thanh toán:</strong> ${inv.hinh_thuc_thanh_toan_goi ? inv.hinh_thuc_thanh_toan_goi.replace(/_/g, ' ').toUpperCase() : 'MẶC ĐỊNH'}<br/>
-              <strong>Trạng thái:</strong> ${INVOICE_STATUS_LABELS[inv.trang_thai] || inv.trang_thai.toUpperCase().replace(/_/g, ' ')}
-            </div>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Nội dung thanh toán</th>
-                <th style="text-align: right;">Thành tiền</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>${inv.ten_dich_vu || 'Phí khám lâm sàng/Buổi lẻ'}</td>
-                <td style="text-align: right;">${formatCurrency(Number(inv.tong_tien_goc))}</td>
-              </tr>
-              ${Number(inv.ti_le_giam_gia_goi) > 0 ? `
-              <tr style="color: #0d9488;">
-                <td>Giảm giá ưu đãi (${inv.ti_le_giam_gia_goi}%)</td>
-                <td style="text-align: right;">-${formatCurrency(Math.round(Number(inv.tong_tien_goc) * Number(inv.ti_le_giam_gia_goi) / 100))}</td>
-              </tr>` : ''}
-              ${Number(inv.so_tien_giam_voucher) > 0 ? `
-              <tr style="color: #0d9488;">
-                <td>Giảm giá voucher</td>
-                <td style="text-align: right;">-${formatCurrency(Number(inv.so_tien_giam_voucher))}</td>
-              </tr>` : ''}
-            </tbody>
-          </table>
-          <div class="total-section">
-            <div>Tổng số tiền phải thanh toán: ${formatCurrency(Number(inv.tong_tien_thanh_toan))}</div>
-            <div style="color: #10b981; margin-top: 5px;">Số tiền đã đóng${inv.trang_thai === 'da_hoan_tien' ? ' (giữ lại)' : ''}: ${formatCurrency(Number(inv.da_thanh_toan))}</div>
-            ${inv.trang_thai === 'da_hoan_tien'
-              ? `<div style="color: #e11d48; margin-top: 5px;">Đã hoàn trả cho khách: ${formatCurrency(Math.max(0, Number(inv.tong_tien_thanh_toan) - Number(inv.da_thanh_toan)))}</div>`
-              : `<div style="color: #f59e0b; margin-top: 5px;">Còn nợ lại: ${formatCurrency(Math.max(0, Number(inv.tong_tien_thanh_toan) - Number(inv.da_thanh_toan)))}</div>`
-            }
-          </div>
-          <div class="footer">
-            Cảm ơn quý khách đã tin tưởng và sử dụng dịch vụ phục hồi chức năng của chúng tôi!<br/>
-            <em>Bản in hóa đơn y khoa điện tử hợp lệ</em>
-          </div>
-          <script>window.print();</script>
-        </body>
-      </html>
-    `);
+    printWindow.document.write(generateInvoiceHtml(inv));
     printWindow.document.close();
   };
 
-  // In biên nhận cho ĐÚNG 1 giao dịch (không phải cả hóa đơn) — cần khi khách chỉ muốn giấy biên
-  // nhận cho 1 lần thu/hoàn cụ thể, vd hóa đơn "từng buổi" thu nhiều lần rải rác, hoặc muốn biên
-  // nhận riêng cho giao dịch hoàn tiền. handlePrint() ở trên chỉ in được tổng lũy kế cả hóa đơn.
+  // In biên nhận cho ĐÚNG 1 giao dịch (không phải cả hóa đơn)
   const handlePrintTransaction = (inv: Invoice, pay: Payment) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    const isRefund = pay.loai_giao_dich === 'HOAN_TIEN';
-    const soTien = Math.abs(Number(pay.so_tien));
-
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Biên nhận ${pay.ma_giao_dich}</title>
-          <style>
-            body { font-family: sans-serif; padding: 40px; color: #333; line-height: 1.6; }
-            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #eee; padding-bottom: 20px; }
-            .logo { font-size: 24px; font-weight: bold; color: #0d9488; }
-            .invoice-title { font-size: 20px; margin-top: 10px; font-weight: bold; text-transform: uppercase; }
-            .meta-grid { display: grid; grid-template-cols: 1fr 1fr; margin-bottom: 30px; gap: 15px; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-            th { background: #f8fafc; border-bottom: 2px solid #cbd5e1; padding: 12px; text-align: left; font-size: 14px; }
-            td { border-bottom: 1px solid #e2e8f0; padding: 12px; font-size: 14px; }
-            .total-section { text-align: right; font-size: 15px; font-weight: bold; }
-            .footer { text-align: center; margin-top: 50px; font-size: 12px; color: #666; border-top: 1px solid #eee; padding-top: 20px; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div class="logo">OFFICECARE - TRUNG TÂM PHỤC HỒI CHỨC NĂNG</div>
-            <div class="invoice-title">${isRefund ? 'BIÊN NHẬN HOÀN TIỀN' : 'BIÊN NHẬN THANH TOÁN'}</div>
-            <div>Mã giao dịch: ${pay.ma_giao_dich}</div>
-          </div>
-          <div class="meta-grid">
-            <div>
-              <strong>Khách hàng:</strong> ${inv.ten_khach_hang}<br/>
-              <strong>Điện thoại:</strong> ${inv.so_dien_thoai || 'N/A'}<br/>
-              <strong>Thời gian:</strong> ${new Date(pay.thoi_gian_giao_dich).toLocaleString('vi-VN')}
-            </div>
-            <div style="text-align: right;">
-              <strong>Hóa đơn liên quan:</strong> ${inv.ma_hoa_don}<br/>
-              <strong>Phương thức:</strong> ${pay.phuong_thuc === 'tien_mat' ? 'Tiền mặt' : pay.phuong_thuc === 'chuyen_khoan' ? 'Chuyển khoản' : 'Thẻ/POS'}
-            </div>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Nội dung</th>
-                <th style="text-align: right;">Số tiền</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>${inv.ten_dich_vu || 'Phí khám lâm sàng/Buổi lẻ'} — ${isRefund ? 'Hoàn tiền' : 'Thanh toán'}</td>
-                <td style="text-align: right; color: ${isRefund ? '#e11d48' : '#0d9488'};">${formatCurrency(soTien)}</td>
-              </tr>
-            </tbody>
-          </table>
-          <div class="total-section" style="color: ${isRefund ? '#e11d48' : '#0d9488'};">
-            <div>${isRefund ? 'Đã hoàn trả cho khách' : 'Số tiền đã thu'}: ${formatCurrency(soTien)}</div>
-          </div>
-          <div class="footer">
-            Cảm ơn quý khách đã tin tưởng và sử dụng dịch vụ phục hồi chức năng của chúng tôi!<br/>
-            <em>Bản in biên nhận điện tử hợp lệ</em>
-          </div>
-          <script>window.print();</script>
-        </body>
-      </html>
-    `);
+    printWindow.document.write(generateTransactionReceiptHtml(inv, pay));
     printWindow.document.close();
   };
 
@@ -254,11 +125,17 @@ export default function ManageFinance() {
       );
     }
 
-    const totalRequired = checkout.checkoutTab === 'package' && checkout.calculatedData
-      ? (checkout.dangKyGoi && checkout.loaiThanhToan === 'tung_buoi'
-        ? Number(checkout.calculatedData.so_tien_dot_1)
-        : Number(checkout.calculatedData.tong_tien_thanh_toan))
-      : (checkout.state.hoaDon ? Number(checkout.state.hoaDon.tong_tien_thanh_toan) : 0);
+    const fallbackBasePrice = Number((checkout.selectedPackage as any)?.don_gia || checkout.selectedPackage?.gia_ban || checkout.selectedConsultation?.don_gia_dich_vu || 0);
+
+    const totalRequired = checkout.checkoutTab === 'package'
+      ? (checkout.calculatedData
+        ? (checkout.dangKyGoi && checkout.loaiThanhToan === 'tung_buoi'
+          ? Number(checkout.calculatedData.so_tien_dot_1 || 0)
+          : Number(checkout.calculatedData.tong_tien_thanh_toan || 0))
+        : (checkout.dangKyGoi && checkout.loaiThanhToan === 'tung_buoi'
+          ? 0
+          : fallbackBasePrice))
+      : (checkout.state.hoaDon ? Number(checkout.state.hoaDon.tong_tien_thanh_toan) : fallbackBasePrice);
 
     const received = Number(checkout.state.soTienNhan || 0);
     const isShortage = checkout.state.phuongThuc === 'tien_mat' && totalRequired > 0 && received > 0 && received < totalRequired;
@@ -267,10 +144,6 @@ export default function ManageFinance() {
     const quickCashOptions = Array.from(new Set([totalRequired, 200000, 500000, 1000000, 2000000, 5000000]))
       .filter(val => val > 0)
       .sort((a, b) => a - b);
-
-    const isTungBuoiWithPaidExam = checkout.dangKyGoi &&
-      checkout.loaiThanhToan === 'tung_buoi' &&
-      checkout.selectedConsultation?.ngay_thanh_toan_kham;
 
     const hasLockedTarget = !!checkout.selectedConsultation?.khuyen_nghi_goi_id ||
       !!checkout.selectedConsultation?.goi_dich_vu_id;
@@ -288,306 +161,480 @@ export default function ManageFinance() {
       }
     };
 
+    const loaiLichLabel = (() => {
+      const loaiLich = String(checkout.selectedConsultation?.loai_lich || '').toUpperCase();
+      const loaiGoi = String(checkout.selectedConsultation?.loai_goi || checkout.selectedPackage?.loai_goi || '').toUpperCase();
+      if (loaiLich === 'KHAM_MOI' || loaiLich === 'KHAM') return 'Lượng giá PHCN';
+      if (loaiLich === 'TAI_KHAM') return 'Lượng giá bổ sung';
+      if (loaiLich.includes('LE') || loaiLich === 'DICH_VU_LE' || loaiLich === 'DICH_VU_DON' || loaiGoi === 'LE') return 'Dịch vụ lẻ';
+      return 'Trị liệu phác đồ';
+    })();
+
+    const currentItemName = checkout.checkoutTab === 'single'
+      ? (checkout.state.hoaDon?.ten_dich_vu || checkout.state.hoaDon?.ten_item || checkout.selectedConsultation?.ten_dich_vu || 'Buổi Lượng Giá PHCN (Chuyên sâu)')
+      : (!checkout.dangKyGoi
+        ? (checkout.calculatedData?.ten_item || checkout.selectedConsultation?.ten_dich_vu || 'Buổi Lượng Giá PHCN (Chuyên sâu)')
+        : (checkout.calculatedData?.ten_goi || checkout.selectedPackage?.ten_goi || 'Gói trị liệu PHCN'));
+
+    const currentItemPrice = checkout.checkoutTab === 'single'
+      ? Number(checkout.state.hoaDon?.tong_tien_goc ?? checkout.state.hoaDon?.tong_tien_thanh_toan ?? checkout.selectedConsultation?.don_gia_dich_vu ?? 0)
+      : Number(
+          checkout.calculatedData?.gia_goc_goi ||
+          checkout.calculatedData?.gia_goc ||
+          (checkout.selectedPackage as any)?.don_gia ||
+          checkout.selectedPackage?.gia_goi ||
+          checkout.selectedConsultation?.don_gia_dich_vu ||
+          checkout.packages.find((p: any) => p.loai_goi === 'KHAM')?.don_gia ||
+          0
+        );
+
+    const tongSoBuoi = checkout.calculatedData?.so_buoi_goi || checkout.selectedPackage?.tong_so_buoi || 1;
+    const packageTotalAfterDiscount = Number(checkout.calculatedData?.tong_tien_goi_sau_giam ?? checkout.calculatedData?.tong_tien_thanh_toan ?? currentItemPrice);
+    const donGiaTheoBuoi = checkout.calculatedData?.don_gia_theo_buoi || (tongSoBuoi > 0 ? Math.round(packageTotalAfterDiscount / tongSoBuoi) : 0);
+
     return (
       <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-300 font-jakarta text-left pb-12">
+        {/* TOP BAR / PAGE HEADER */}
+        <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200/80 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleBackNavigation}
+              title="Quay lại"
+              className="p-2.5 bg-white hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-2xl transition-all cursor-pointer border border-slate-200 dark:border-slate-700 shadow-2xs active:scale-95 flex items-center justify-center shrink-0"
+            >
+              <ArrowLeft size={18} />
+            </button>
+            <div>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h1 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white tracking-tight">
+                  {checkout.dangKyGoi ? 'Biên Lai Gói Liệu Trình' : 'Biên Lai Dịch Vụ'}
+                </h1>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                Hoàn tất thanh toán và xuất hóa đơn thu ngân tại quầy
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 shadow-2xs">
+              <ShieldCheck size={14} className="text-teal-600 dark:text-teal-400" />
+              <span>{loaiLichLabel}</span>
+            </span>
+          </div>
+        </div>
+
+        {/* SHIFT WARNING IF RECEPTIONIST HAS NO SHIFT */}
+        {Number(user?.vai_tro_id) === 2 && !hasShiftToday && !isSuperUser && (
+          <div className="p-4 rounded-3xl bg-amber-50/90 dark:bg-amber-955/40 border border-amber-200 dark:border-amber-800/60 flex items-start gap-3 shadow-xs animate-in fade-in duration-200">
+            <span className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 shrink-0 mt-0.5">
+              <Clock3 size={18} />
+            </span>
+            <div className="space-y-0.5 text-left">
+              <h4 className="text-xs font-black text-amber-900 dark:text-amber-200 uppercase tracking-wide">
+                ☕ Chế độ tra cứu hồ sơ (Lễ tân không có ca trực hôm nay)
+              </h4>
+              <p className="text-xs text-amber-800/80 dark:text-amber-300/80 leading-relaxed font-semibold">
+                Hôm nay bạn không có ca trực được phân công tại quầy lễ tân. Chức năng xác nhận thu tiền mặt/POS tại quầy được tạm khóa an toàn để tránh ghi nhận nhầm dòng tiền của quầy. Vui lòng liên hệ Quản lý để được xếp ca trực nếu bạn đang trực thay.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* MAIN CHECKOUT FORM (2 COLUMNS: LEFT 7 SPAN, RIGHT 5 SPAN) */}
         <form 
           onSubmit={(e) => {
             e.preventDefault();
+            if (Number(user?.vai_tro_id) === 2 && !hasShiftToday && !isSuperUser) {
+              toast.error('Bạn không có ca trực phân công hôm nay để thực hiện thu ngân tại quầy.');
+              return;
+            }
             if (totalRequired === 0) {
               checkout.dispatch({ type: 'SET_FIELD', field: 'soTienNhan', value: '0' });
             }
             setShowConfirmModal(true);
           }}
-          className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start"
+          className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start"
         >
-          {/* LEFT COLUMN: SINGLE UNIFIED POS CONTROL PANEL */}
-          <div className="lg:col-span-7 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 space-y-6 shadow-sm text-left">
+          {/* LEFT COLUMN: 1 KHUNG HÓA ĐƠN Y TẾ LIỀN MẠCH (60% WIDTH) */}
+          <div className="lg:col-span-7 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 sm:p-7 shadow-sm space-y-6 text-left">
             
-            {/* 1. Customer Info Banner Strip with Embedded Back Button */}
-            {checkout.selectedConsultation ? (
-              <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <button
-                    type="button"
-                    onClick={handleBackNavigation}
-                    title="Quay lại hàng chờ hôm nay"
-                    className="p-2.5 bg-white hover:bg-slate-100 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl transition-all cursor-pointer border border-slate-200 dark:border-slate-600 shrink-0 shadow-xs active:scale-95"
-                  >
-                    <ArrowLeft size={18} />
-                  </button>
-
-                  <div className="size-11 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white font-black text-base flex items-center justify-center shadow-sm shrink-0">
-                    {(checkout.selectedConsultation.ten_khach_hang || 'K').trim().split(/\s+/).pop()?.[0] || 'K'}
-                  </div>
-
-                  <div className="min-w-0 space-y-0.5">
-                    <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">
-                      {checkout.selectedConsultation.ten_khach_hang}
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 font-bold">
-                      📞 {checkout.selectedConsultation.sdt_khach_hang || 'N/A'}
-                    </p>
-                  </div>
-                </div>
-
-                <span className="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-teal-50 text-teal-700 border border-teal-200 dark:bg-teal-950/60 dark:text-teal-300 dark:border-teal-800 shrink-0">
-                  {checkout.selectedConsultation.loai_lich === 'kham_moi' ? 'Lượng giá PHCN' : checkout.selectedConsultation.loai_lich === 'tai_kham' ? 'Lượng giá bổ sung' : 'Trị liệu phác đồ'}
-                </span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={handleBackNavigation}
-                  title="Quay lại hàng chờ hôm nay"
-                  className="p-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl transition-all cursor-pointer border border-slate-200 dark:border-slate-700 active:scale-95"
-                >
-                  <ArrowLeft size={18} />
-                </button>
-                <span className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">
-                  THU NGÂN & XÁC NHẬN THANH TOÁN
-                </span>
-              </div>
-            )}
-
-            {/* 2. Package & Treatment Plan Configuration (Only when doctor recommended or user selected package) */}
-            {(checkout.dangKyGoi || checkout.selectedConsultation?.khuyen_nghi_goi_id) && (
-              <>
-                <div className="border-t border-slate-100 dark:border-slate-800" />
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">
-                    <span className="p-1.5 rounded-lg bg-teal-50 text-teal-600 dark:bg-teal-950 dark:text-teal-400">
-                      <Coins size={15} />
-                    </span>
-                    <span>Cấu hình phác đồ & Lịch thanh toán</span>
-                  </div>
-
-
-
-                  {checkout.dangKyGoi && !hasLockedTarget && (
-                    <div className="space-y-1.5">
-                      <label htmlFor="selectedPackage" className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">
-                        {checkout.selectedPackage?.loai_goi === 'LE' ? 'Dịch vụ lẻ được chỉ định *' : 'Gói trị liệu được chỉ định *'}
-                      </label>
-                      <select
-                        id="selectedPackage"
-                        value={checkout.selectedPackage?.id || ''}
-                        onChange={(e) => {
-                          const matched = checkout.packages.find(p => String(p.id) === e.target.value);
-                          checkout.setSelectedPackage(matched || null);
-                        }}
-                        required
-                        disabled={hasLockedTarget || isTungBuoiWithPaidExam}
-                        className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none transition-all cursor-pointer disabled:opacity-60 shadow-xs"
-                      >
-                        <option value="">-- Chọn gói trị liệu --</option>
-                        {checkout.packages.map(pkg => (
-                          <option key={pkg.id} value={pkg.id}>
-                            {pkg.ten_goi} ({formatCurrency(pkg.don_gia)})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  {checkout.dangKyGoi && checkout.selectedPackage?.loai_goi !== 'LE' && (
-                    <div className="space-y-2 pt-1">
-                      <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block">Hình thức thanh toán gói</label>
-                      <div className="grid grid-cols-2 gap-3">
-                        <button
-                          type="button"
-                          onClick={() => checkout.setLoaiThanhToan('tra_thang')}
-                          className={`py-3 px-3 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
-                            checkout.loaiThanhToan === 'tra_thang'
-                              ? 'bg-teal-600 border-teal-600 text-white shadow-md shadow-teal-600/20'
-                              : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
-                          }`}
-                        >
-                          Trả Thẳng (100%)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => checkout.setLoaiThanhToan('tung_buoi')}
-                          className={`py-3 px-3 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
-                            checkout.loaiThanhToan === 'tung_buoi'
-                              ? 'bg-teal-600 border-teal-600 text-white shadow-md shadow-teal-600/20'
-                              : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
-                          }`}
-                        >
-                          Trả Từng Buổi
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-
-            {/* 3. Voucher Selector */}
-            {checkout.checkoutTab === 'package' && (
-              <div className="space-y-3">
+            {/* Section 1: Thông tin khách hàng */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">
                   <span className="p-1.5 rounded-lg bg-teal-50 text-teal-600 dark:bg-teal-950 dark:text-teal-400">
-                    <Tag size={15} />
+                    <User size={15} />
                   </span>
-                  <span>Mã ưu đãi & Voucher</span>
+                  <span>Thông tin khách hàng</span>
                 </div>
-                <VoucherPicker
-                  appliedVoucher={checkout.appliedVoucher}
-                  onApply={checkout.handleApplyVoucher}
-                  onRemove={checkout.handleRemoveVoucher}
-                  disabled={isTungBuoiWithPaidExam}
-                  orderValue={Number(checkout.calculatedData?.gia_goc_goi || checkout.calculatedData?.gia_goc || 0)}
-                  loaiThanhToan={checkout.dangKyGoi ? checkout.loaiThanhToan : 'tra_thang'}
-                  khachHangId={checkout.selectedConsultation?.khach_hang_id}
-                  kenh="tai_quay"
-                  loaiGoi={
-                    checkout.dangKyGoi && checkout.selectedPackage
-                      ? (checkout.selectedPackage.loai_goi === 'LE' ? 'LE' : 'LIEU_TRINH')
-                      : 'KHAM'
-                  }
-                />
-                <div className="border-t border-slate-100 dark:border-slate-800 pt-2" />
-              </div>
-            )}
-
-            {/* 4. Payment Method & Cash Operations */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">
-                <span className="p-1.5 rounded-lg bg-teal-50 text-teal-600 dark:bg-teal-950 dark:text-teal-400">
-                  <DollarSign size={15} />
-                </span>
-                <span>Phương thức thanh toán & Tiền nhận</span>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => checkout.dispatch({ type: 'SET_FIELD', field: 'phuongThuc', value: 'chuyen_khoan' })}
-                  className={`py-4 px-4 rounded-2xl border text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                    checkout.state.phuongThuc === 'chuyen_khoan'
-                      ? 'bg-teal-600 border-teal-600 text-white shadow-md shadow-teal-600/20'
-                      : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
-                  }`}
-                >
-                  <span className="text-lg">🏦</span>
-                  <span className="text-xs font-extrabold tracking-tight">VIETQR (PayOS Tự Động)</span>
-                </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                <div>
+                  <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block">
+                    Họ và tên khách hàng
+                  </span>
+                  <p className="text-sm font-extrabold text-slate-900 dark:text-white mt-0.5">
+                    {checkout.selectedConsultation?.ten_khach_hang || 'Khách vãng lai'}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block">
+                    Số điện thoại
+                  </span>
+                  <p className="text-sm font-extrabold text-slate-900 dark:text-white font-mono mt-0.5">
+                    {checkout.selectedConsultation?.sdt_khach_hang || 'N/A'}
+                  </p>
+                </div>
+              </div>
+            </div>
 
-                <button
-                  type="button"
-                  onClick={() => checkout.dispatch({ type: 'SET_FIELD', field: 'phuongThuc', value: 'tien_mat' })}
-                  className={`py-4 px-4 rounded-2xl border text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                    checkout.state.phuongThuc === 'tien_mat'
-                      ? 'bg-teal-600 border-teal-600 text-white shadow-md shadow-teal-600/20'
-                      : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
-                  }`}
-                >
-                  <span className="text-lg">💵</span>
-                  <span className="text-xs font-extrabold tracking-tight">TIỀN MẶT (Cash)</span>
-                </button>
+            {/* Section 2: Bảng kê chi tiết dịch vụ & Gói trị liệu */}
+            <div className="pt-5 border-t border-slate-100 dark:border-slate-800 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">
+                  <span className="p-1.5 rounded-lg bg-teal-50 text-teal-600 dark:bg-teal-950 dark:text-teal-400">
+                    <FileText size={15} />
+                  </span>
+                  <span>Bảng kê chi tiết dịch vụ</span>
+                </div>
+
+                {checkout.dangKyGoi && (checkout.calculatedData?.so_buoi_goi || checkout.selectedPackage?.tong_so_buoi) && (
+                  <span className="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-teal-50 text-teal-700 dark:bg-teal-950/60 dark:text-teal-300 border border-teal-200/60 dark:border-teal-800">
+                    Liệu trình {checkout.calculatedData?.so_buoi_goi || checkout.selectedPackage?.tong_so_buoi} buổi
+                  </span>
+                )}
               </div>
 
-              {checkout.state.phuongThuc === 'tien_mat' && totalRequired > 0 && (
-                <div className="space-y-3 pt-2">
-                  <div className="space-y-1.5">
-                    <label htmlFor="soTienNhan" className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Số tiền khách đưa (VND) *</label>
-                    <input 
-                      id="soTienNhan"
-                      type="text" 
-                      placeholder="VD: 500.000"
-                      value={checkout.state.soTienNhan ? Number(checkout.state.soTienNhan.replace(/\D/g, '')).toLocaleString('vi-VN') : ''}
-                      onChange={(e) => {
-                        const raw = e.target.value.replace(/\D/g, '');
-                        checkout.dispatch({ type: 'SET_FIELD', field: 'soTienNhan', value: raw });
-                      }}
-                      required
-                      className={`w-full px-4 py-3.5 rounded-2xl text-xs font-black transition-all outline-none ${
-                        isShortage 
-                          ? 'bg-rose-50/60 border-rose-400 text-rose-900 focus:bg-white focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20' 
-                          : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900 focus:border-teal-500'
-                      }`}
-                    />
-                    {isShortage && (
-                      <p className="text-[11px] text-rose-600 font-extrabold flex items-center gap-1 mt-1">
-                        ⚠️ Còn thiếu {formatCurrency(totalRequired - received)} để hoàn thành thanh toán
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    {quickCashOptions.map(val => {
-                      const isActive = val === received;
-                      const isExact = val === totalRequired;
-
-                      return (
-                        <button 
-                          key={val} 
-                          type="button"
-                          onClick={() => checkout.dispatch({ type: 'SET_FIELD', field: 'soTienNhan', value: val.toString() })}
-                          className={`px-3.5 py-2 rounded-full text-xs font-extrabold transition-all border cursor-pointer ${
-                            isActive
-                              ? 'bg-teal-600 border-teal-600 text-white shadow-sm'
-                              : isExact
-                              ? 'bg-teal-50 dark:bg-teal-950/60 border-teal-300 dark:border-teal-800 text-teal-700 dark:text-teal-300'
-                              : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-teal-600 hover:text-white'
-                          }`}
-                        >
-                          {formatCurrency(val)}
-                          {isExact && !isActive && <span className="text-[9px] font-bold ml-1 opacity-80">(Đúng tiền)</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {changeAmount > 0 && (
-                    <div className="bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-2xl p-4 text-xs font-extrabold flex justify-between items-center shadow-xs">
-                      <span>💵 Tiền thừa thối lại khách:</span>
-                      <span className="text-base font-black text-emerald-600 dark:text-emerald-400">{formatCurrency(changeAmount)}</span>
-                    </div>
-                  )}
+              {/* Package dropdown IF package is not pre-locked */}
+              {checkout.dangKyGoi && !hasLockedTarget && (
+                <div className="space-y-1.5 pb-1">
+                  <label htmlFor="selectedPackage" className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">
+                    {checkout.selectedPackage?.loai_goi === 'LE' ? 'Dịch vụ lẻ được chỉ định *' : 'Gói trị liệu được chỉ định *'}
+                  </label>
+                  <select
+                    id="selectedPackage"
+                    value={checkout.selectedPackage?.id || ''}
+                    onChange={(e) => {
+                      const matched = checkout.packages.find(p => String(p.id) === e.target.value);
+                      checkout.setSelectedPackage(matched || null);
+                    }}
+                    required
+                    disabled={hasLockedTarget}
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none transition-all cursor-pointer disabled:opacity-60 shadow-xs"
+                  >
+                    <option value="">-- Chọn gói trị liệu --</option>
+                    {checkout.packages.map(pkg => (
+                      <option key={pkg.id} value={pkg.id}>
+                        {pkg.ten_goi} ({formatCurrency(pkg.don_gia)})
+                      </option>
+                    ))}
+                  </select>
                 </div>
               )}
 
-              <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <label htmlFor="feedbackLyDo" className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Ghi chú nội bộ phòng khám</label>
-                <textarea 
-                  id="feedbackLyDo"
-                  placeholder="Ghi nhận phản hồi hoặc lưu ý thu ngân..."
-                  rows={2}
-                  value={checkout.feedbackLyDo}
-                  onChange={(e) => checkout.setFeedbackLyDo(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900 focus:border-teal-500 outline-none transition-all resize-none shadow-xs"
-                />
+              <div className="overflow-hidden rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">
+                      <th className="py-3 px-4">Hạng mục dịch vụ</th>
+                      <th className="py-3 px-3 text-center">Số lượng</th>
+                      <th className="py-3 px-3 text-right">Đơn giá</th>
+                      <th className="py-3 px-4 text-right">Thành tiền</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-bold text-slate-800 dark:text-slate-200">
+                    <tr>
+                      <td className="py-3.5 px-4">
+                        <span className="font-extrabold block text-slate-900 dark:text-white">
+                          {currentItemName}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-3 text-center font-mono">1</td>
+                      <td className="py-3.5 px-3 text-right font-mono">
+                        {formatCurrency(currentItemPrice)}
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-mono font-black text-slate-900 dark:text-white">
+                        {formatCurrency(currentItemPrice)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
+
+              {/* Tóm tắt chân hóa đơn */}
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <div className="flex items-center gap-1.5">
+                  <ShieldCheck size={14} className="text-teal-600 dark:text-teal-400 shrink-0" />
+                  <span>Phiếu thu y tế OfficeCare • Thu ngân tại quầy</span>
+                </div>
+                <div className="font-mono text-slate-700 dark:text-slate-200 text-xs">
+                  Tổng chi phí: <strong className="text-slate-900 dark:text-white font-extrabold">{formatCurrency(currentItemPrice)}</strong>
+                </div>
+              </div>
+
+              {/* CẤU HÌNH HÌNH THỨC THANH TOÁN (CHỈ KHI LÀ GÓI LIỆU TRÌNH) */}
+              {checkout.dangKyGoi && checkout.selectedPackage?.loai_goi !== 'LE' && (
+                <div className="space-y-2 pt-2">
+                  <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block">
+                    Hình thức thanh toán gói
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => checkout.setLoaiThanhToan('tra_thang')}
+                      className={`py-3 px-4 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                        checkout.loaiThanhToan === 'tra_thang'
+                          ? 'bg-teal-600 border-teal-600 text-white shadow-md shadow-teal-600/20'
+                          : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
+                      }`}
+                    >
+                      <CalendarCheck size={14} />
+                      <span>Trả Thẳng (100%)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => checkout.setLoaiThanhToan('tung_buoi')}
+                      className={`py-3 px-4 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                        checkout.loaiThanhToan === 'tung_buoi'
+                          ? 'bg-teal-600 border-teal-600 text-white shadow-md shadow-teal-600/20'
+                          : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
+                      }`}
+                    >
+                      <Clock3 size={14} />
+                      <span>Trả Từng Buổi</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
           </div>
 
-          {/* RIGHT COLUMN: Unified Sticky Receipt Ticket Panel & Confirm Button */}
-          <div className="lg:col-span-5 lg:sticky lg:top-6">
-            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 space-y-6 shadow-xl text-left">
-              <ReceiptBreakdown
-                checkoutTab={checkout.checkoutTab}
-                hoaDon={checkout.state.hoaDon}
-                dangKyGoi={checkout.dangKyGoi}
-                selectedPackage={checkout.selectedPackage}
-                calculatedData={checkout.calculatedData}
-                loaiThanhToan={checkout.loaiThanhToan}
-              />
+          {/* RIGHT COLUMN: TRẠM THANH TOÁN (STICKY POS SIDEBAR 40% WIDTH) */}
+          <div className="lg:col-span-5 lg:sticky lg:top-6 space-y-4">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 sm:p-6 space-y-4 shadow-xl text-left">
+              
+              {/* 1. Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 border border-teal-100 dark:border-teal-800">
+                    <Receipt size={16} />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-tight">Tổng quan thanh toán</h3>
+                    <p className="text-[9.5px] text-slate-400 font-bold">Biên lai tạm tính tại quầy thu ngân</p>
+                  </div>
+                </div>
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-955/60 dark:text-emerald-400 dark:border-emerald-800">
+                  <ShieldCheck size={11} /> Chuẩn y tế
+                </span>
+              </div>
 
+              {/* 2. Chi tiết tính tiền (Tạm tính + Voucher gộp 1 dòng) */}
+              <div className="space-y-3">
+                <div className="flex justify-between items-center text-xs font-bold text-slate-600 dark:text-slate-300">
+                  <span>Tạm tính (Giá niêm yết):</span>
+                  <span className="font-mono font-black text-slate-900 dark:text-white text-sm">{formatCurrency(currentItemPrice)}</span>
+                </div>
+
+                {/* Voucher Selector (Khi đã áp dụng sẽ hiển thị 1 dòng gọn gàng gộp tên mã và số tiền giảm) */}
+                {checkout.checkoutTab === 'package' && (
+                  <div className="pt-0.5">
+                    <VoucherPicker
+                      appliedVoucher={checkout.appliedVoucher}
+                      onApply={checkout.handleApplyVoucher}
+                      onRemove={checkout.handleRemoveVoucher}
+                      disabled={false}
+                      orderValue={currentItemPrice}
+                      loaiThanhToan={checkout.dangKyGoi ? checkout.loaiThanhToan : 'tra_thang'}
+                      khachHangId={checkout.selectedConsultation?.khach_hang_id}
+                      kenh="tai_quay"
+                      loaiGoi={
+                        checkout.dangKyGoi && checkout.selectedPackage
+                          ? (checkout.selectedPackage.loai_goi === 'LE' ? 'LE' : 'LIEU_TRINH')
+                          : 'KHAM'
+                      }
+                    />
+                  </div>
+                )}
+
+                {/* Nếu chọn trả từng buổi: hiển thị đơn giá mỗi buổi */}
+                {checkout.dangKyGoi && checkout.loaiThanhToan === 'tung_buoi' && (
+                  <div className="flex justify-between items-center text-teal-800 dark:text-teal-300 bg-teal-50/80 dark:bg-teal-950/40 px-3 py-2 rounded-xl border border-teal-200/70 dark:border-teal-800/70">
+                    <span className="font-extrabold text-xs">💰 Chi phí chia theo từng buổi ({tongSoBuoi} buổi):</span>
+                    <span className="font-mono font-black text-xs text-teal-700 dark:text-teal-300">
+                      {formatCurrency(donGiaTheoBuoi)} <span className="text-[9.5px] font-bold text-slate-500 dark:text-slate-400">/ buổi</span>
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* 3. TỔNG CỘNG PHẢI THANH TOÁN (KẾT QUẢ CUỐI CÙNG) */}
+              <div className="p-3.5 rounded-2xl bg-gradient-to-br from-teal-50/90 to-emerald-50/90 dark:from-teal-950/60 dark:to-emerald-950/60 border border-teal-200/80 dark:border-teal-800/80 flex items-center justify-between gap-3 shadow-xs">
+                <div>
+                  <span className="text-[10px] font-black uppercase text-teal-800 dark:text-teal-300 tracking-wider block">
+                    TỔNG CỘNG PHẢI THANH TOÁN
+                  </span>
+                  <span className="text-[10px] font-bold text-teal-600/90 dark:text-teal-400">
+                    {checkout.dangKyGoi && checkout.loaiThanhToan === 'tung_buoi'
+                      ? `Đợt 1 cần thu: 0đ (Thu theo từng buổi: ${formatCurrency(donGiaTheoBuoi)}/buổi)`
+                      : 'Đã khấu trừ các khoản ưu đãi'}
+                  </span>
+                </div>
+                <div className="text-xl font-black text-emerald-600 dark:text-emerald-400 font-mono tracking-tight shrink-0 drop-shadow-xs">
+                  {formatCurrency(totalRequired)}
+                </div>
+              </div>
+
+              {/* 7. PHƯƠNG THỨC THANH TOÁN (GRID 2 CỘT GỌN GÀNG) */}
+              <div className="space-y-2.5 pt-1 border-t border-slate-100 dark:border-slate-800">
+                <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block">
+                  Phương thức thanh toán *
+                </label>
+
+                <div className="grid grid-cols-2 gap-2.5">
+                  {/* Radio 1: QR PayOS */}
+                  <div
+                    onClick={() => checkout.dispatch({ type: 'SET_FIELD', field: 'phuongThuc', value: 'chuyen_khoan' })}
+                    className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer transition-all ${
+                      checkout.state.phuongThuc === 'chuyen_khoan'
+                        ? 'bg-teal-50/90 dark:bg-teal-950/50 border-teal-500 ring-2 ring-teal-500/20 text-slate-900 dark:text-white shadow-xs'
+                        : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span className="p-1.5 rounded-lg bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300 shrink-0">
+                      <QrCode size={14} />
+                    </span>
+                    <div className="min-w-0">
+                      <span className="text-xs font-black block text-slate-900 dark:text-white truncate">QR PayOS</span>
+                      <span className="text-[9.5px] text-slate-400 dark:text-slate-500 font-medium block truncate">Quét mã tức thì</span>
+                    </div>
+                  </div>
+
+                  {/* Radio 2: Cash */}
+                  <div
+                    onClick={() => checkout.dispatch({ type: 'SET_FIELD', field: 'phuongThuc', value: 'tien_mat' })}
+                    className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer transition-all ${
+                      checkout.state.phuongThuc === 'tien_mat'
+                        ? 'bg-teal-50/90 dark:bg-teal-950/50 border-teal-500 ring-2 ring-teal-500/20 text-slate-900 dark:text-white shadow-xs'
+                        : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span className="p-1.5 rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 shrink-0">
+                      <Banknote size={14} />
+                    </span>
+                    <div className="min-w-0">
+                      <span className="text-xs font-black block text-slate-900 dark:text-white truncate">Tiền Mặt</span>
+                      <span className="text-[9.5px] text-slate-400 dark:text-slate-500 font-medium block truncate">Thu tại quầy</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tiền mặt inputs */}
+                {checkout.state.phuongThuc === 'tien_mat' && totalRequired > 0 && (
+                  <div className="space-y-2.5 pt-1 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
+                    <div className="space-y-1">
+                      <label htmlFor="soTienNhan" className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">
+                        Số tiền khách đưa (VND) *
+                      </label>
+                      <input 
+                        id="soTienNhan"
+                        type="text" 
+                        placeholder="VD: 200.000"
+                        value={checkout.state.soTienNhan ? Number(checkout.state.soTienNhan.replace(/\D/g, '')).toLocaleString('vi-VN') : ''}
+                        onChange={(e) => {
+                          const raw = e.target.value.replace(/\D/g, '');
+                          checkout.dispatch({ type: 'SET_FIELD', field: 'soTienNhan', value: raw });
+                        }}
+                        required
+                        className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-black transition-all outline-none ${
+                          isShortage 
+                            ? 'bg-rose-50 border-rose-400 text-rose-900 focus:bg-white focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20' 
+                            : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:border-teal-500'
+                        }`}
+                      />
+                      {isShortage && (
+                        <p className="text-[11px] text-rose-600 font-extrabold flex items-center gap-1 mt-1">
+                          ⚠️ Còn thiếu {formatCurrency(totalRequired - received)}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 pt-0.5">
+                      {quickCashOptions.map(val => {
+                        const isActive = val === received;
+                        const isExact = val === totalRequired;
+
+                        return (
+                          <button 
+                            key={val} 
+                            type="button"
+                            onClick={() => checkout.dispatch({ type: 'SET_FIELD', field: 'soTienNhan', value: val.toString() })}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold transition-all border cursor-pointer ${
+                              isActive
+                                ? 'bg-teal-600 border-teal-600 text-white shadow-xs'
+                                : isExact
+                                ? 'bg-teal-50 dark:bg-teal-950/60 border-teal-300 dark:border-teal-800 text-teal-700 dark:text-teal-300'
+                                : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-teal-600 hover:text-white'
+                            }`}
+                          >
+                            {formatCurrency(val)}
+                            {isExact && !isActive && <span className="text-[9px] font-bold ml-1 opacity-80">(Đủ)</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {changeAmount > 0 && (
+                      <div className="bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-xl p-2.5 text-xs font-extrabold flex justify-between items-center shadow-xs">
+                        <span>💵 Tiền thối lại khách:</span>
+                        <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">{formatCurrency(changeAmount)}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Ghi chú nội bộ */}
+                <div className="space-y-1 pt-0.5">
+                  <label htmlFor="feedbackLyDo" className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">
+                    Ghi chú thu ngân (nếu có)
+                  </label>
+                  <input 
+                    id="feedbackLyDo"
+                    type="text"
+                    placeholder="Ghi nhận phản hồi hoặc lưu ý..."
+                    value={checkout.feedbackLyDo}
+                    onChange={(e) => checkout.setFeedbackLyDo(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900 focus:border-teal-500 outline-none transition-all shadow-xs"
+                  />
+                </div>
+              </div>
+
+              {/* 8. Nút bấm Xác nhận to ở cuối */}
               <button
                 type="submit"
-                disabled={checkout.state.loading || (checkout.checkoutTab === 'package' ? (checkout.calculating || !checkout.calculatedData) : !checkout.state.hoaDon)}
-                className="w-full py-5 px-6 bg-gradient-to-r from-teal-600 via-emerald-600 to-teal-600 hover:from-teal-700 hover:to-emerald-700 text-white font-black text-base uppercase tracking-wider rounded-2xl shadow-lg shadow-teal-600/30 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-45 disabled:pointer-events-none flex items-center justify-center gap-2.5 border border-teal-400/40"
+                disabled={
+                  checkout.state.loading ||
+                  (Number(user?.vai_tro_id) === 2 && !hasShiftToday && !isSuperUser) ||
+                  (checkout.checkoutTab === 'package' ? (checkout.calculating || !checkout.calculatedData) : !checkout.state.hoaDon)
+                }
+                title={Number(user?.vai_tro_id) === 2 && !hasShiftToday && !isSuperUser ? 'Bạn không có ca trực phân công hôm nay để thu tiền' : undefined}
+                className="w-full py-4 px-6 bg-gradient-to-r from-teal-600 via-emerald-600 to-teal-600 hover:from-teal-700 hover:to-emerald-700 text-white font-black text-sm uppercase tracking-wider rounded-2xl shadow-lg shadow-teal-600/25 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-45 disabled:pointer-events-none flex items-center justify-center gap-2 border border-teal-400/40"
               >
                 {checkout.state.loading
                   ? 'Đang xử lý...'
                   : (checkout.state.phuongThuc === 'chuyen_khoan'
                     ? '📲 TẠO MÃ QR PAYOS TỰ ĐỘNG'
-                    : (totalRequired === 0 ? 'Kích hoạt phác đồ & Đặt lịch' : '🟢 XÁC NHẬN THU TIỀN & IN HÓA ĐƠN'))
+                    : (totalRequired === 0 ? 'Kích hoạt phác đồ & Đặt lịch' : '🖨️ XÁC NHẬN THANH TOÁN & IN PHIẾU THU'))
                 }
               </button>
+
+              <p className="text-[10px] text-center text-slate-400 dark:text-slate-500 font-medium flex items-center justify-center gap-1">
+                <Lock size={11} /> Giao dịch được mã hóa và bảo mật an toàn y tế
+              </p>
             </div>
           </div>
         </form>
@@ -601,8 +648,8 @@ export default function ManageFinance() {
             checkout.checkoutTab === 'package'
               ? (checkout.dangKyGoi
                 ? (checkout.selectedPackage?.ten_goi || 'Gói trị liệu')
-                : (checkout.calculatedData?.ten_item || 'Phí khám'))
-              : (checkout.state.hoaDon?.ten_dich_vu || 'Phí khám/Buổi trị liệu')
+                : (checkout.calculatedData?.ten_item || 'Phí lượng giá'))
+              : (checkout.state.hoaDon?.ten_dich_vu || 'Phí lượng giá/Buổi trị liệu')
           }
           totalAmount={totalRequired}
           paymentMethod={checkout.state.phuongThuc}
@@ -644,67 +691,42 @@ export default function ManageFinance() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500 text-left font-jakarta">
-      {/* HUD Header Banner Đồng Nhất Admin */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl p-6 rounded-[28px] border border-slate-200/80 dark:border-slate-800 shadow-xl shadow-slate-200/30 dark:shadow-none relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-teal-500/5 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="space-y-1 text-left">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-teal-500 animate-ping"></span>
-            <span className="text-[10px] font-black uppercase tracking-wider text-teal-600 dark:text-teal-400">
-              PHÂN HỆ KẾ TOÁN LÂM SÀNG
-            </span>
-          </div>
-          <h1 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight uppercase flex items-center gap-2.5">
-            <DollarSign className="text-teal-600 dark:text-teal-400 size-7" />
-            QUẢN LÝ TÀI CHÍNH & HÓA ĐƠN Y KHOA
-          </h1>
-          <p className="text-slate-500 dark:text-slate-400 text-xs font-semibold">
-            Theo dõi dòng tiền, hóa đơn khám/gói trị liệu và xử lý các giao dịch hoàn tiền của hệ thống.
-          </p>
-        </div>
-
-        <button
-          onClick={() => navigate(isAdminOrManager ? '/admin/appointments' : '/receptionist/appointments')}
-          className="px-5 py-3 bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-700 hover:to-teal-600 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-md shadow-teal-600/25 active:scale-95 flex items-center gap-2 shrink-0 cursor-pointer"
-        >
-          <Coins size={16} /> Thu Ngân Ngay
-        </button>
+      {/* KPI Metrics Strip */}
+      <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-[28px] border border-slate-200/80 dark:border-slate-800 shadow-xl shadow-slate-200/30 dark:shadow-none p-5 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-bl from-teal-500/10 via-emerald-500/5 to-transparent rounded-full blur-3xl -z-10 pointer-events-none" />
+        <FinanceKpiCards kpis={dashboard.kpis} />
       </div>
 
-      <OverduePackagePanel invoices={overdueInvoices} onOpenDetail={(inv) => dashboard.setSelectedInvoice(inv)} />
+      {/* Overdue Treatment Package Alert Panel (for both Receptionist & Admin) */}
+      <OverduePackagePanel
+        invoices={overdueInvoices}
+        onOpenDetail={(inv) => dashboard.setSelectedInvoice(inv)}
+      />
 
-      <FinanceKpiCards kpis={dashboard.kpis} />
+      {/* Filter and Tab Navigation Bar */}
+      <FinanceFilterBar
+        activeTab={dashboard.activeTab}
+        onTabChange={dashboard.setActiveTab}
+        invoiceCount={filteredInvoices.length}
+        paymentCount={filteredPayments.length}
+        searchTerm={dashboard.searchTerm}
+        onSearchChange={dashboard.setSearchTerm}
+        statusFilter={dashboard.statusFilter}
+        onStatusChange={dashboard.setStatusFilter}
+        itemTypeFilter={dashboard.itemTypeFilter}
+        onItemTypeChange={dashboard.setItemTypeFilter}
+        methodFilter={dashboard.methodFilter}
+        onMethodChange={dashboard.setMethodFilter}
+        dateFilter={dashboard.dateFilter}
+        onDateChange={dashboard.setDateFilter}
+        startDate={dashboard.startDate}
+        onStartDateChange={dashboard.setStartDate}
+        endDate={dashboard.endDate}
+        onEndDateChange={dashboard.setEndDate}
+      />
 
-      {/* Tabs + Filter + Bảng — bỏ sidebar dọc 1/4 cũ, nhường toàn bộ chiều rộng cho bảng dữ liệu */}
-      <div className="space-y-5 text-left">
-        <FinanceTabs
-          activeTab={dashboard.activeTab}
-          invoiceCount={dashboard.invoices.length}
-          paymentCount={dashboard.payments.length}
-          onChange={(tab) => {
-            dashboard.setActiveTab(tab);
-            dashboard.setStatusFilter('all');
-          }}
-        />
-
-        <FinanceFilterBar
-          activeTab={dashboard.activeTab}
-          searchTerm={dashboard.searchTerm}
-          onSearchChange={dashboard.setSearchTerm}
-          statusFilter={dashboard.statusFilter}
-          onStatusChange={dashboard.setStatusFilter}
-          itemTypeFilter={dashboard.itemTypeFilter}
-          onItemTypeChange={dashboard.setItemTypeFilter}
-          methodFilter={dashboard.methodFilter}
-          onMethodChange={dashboard.setMethodFilter}
-          dateFilter={dashboard.dateFilter}
-          onDateChange={dashboard.setDateFilter}
-          startDate={dashboard.startDate}
-          onStartDateChange={dashboard.setStartDate}
-          endDate={dashboard.endDate}
-          onEndDateChange={dashboard.setEndDate}
-        />
-
+      {/* Main Data Tables Container */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-sm p-4 sm:p-6">
         {dashboard.activeTab === 'invoices' ? (
           <InvoiceTable
             invoices={filteredInvoices}
@@ -729,7 +751,20 @@ export default function ManageFinance() {
         )}
       </div>
 
-      {/* Invoice Detail Modal Overlay */}
+      {/* Modals Container */}
+      <FastPaymentModal
+        invoice={dashboard.fastPayInvoice}
+        onClose={() => dashboard.setFastPayInvoice(null)}
+        onSubmit={dashboard.handleFastPaySubmit}
+        method={dashboard.fastPayMethod}
+        setMethod={dashboard.setFastPayMethod}
+        received={dashboard.fastPayReceived}
+        setReceived={dashboard.setFastPayReceived}
+        note={dashboard.fastPayNote}
+        setNote={dashboard.setFastPayNote}
+        loading={dashboard.fastPayLoading}
+      />
+
       {dashboard.selectedInvoice && (
         <InvoiceDetailModal
           invoice={dashboard.selectedInvoice}
@@ -738,42 +773,13 @@ export default function ManageFinance() {
           onClose={() => dashboard.setSelectedInvoice(null)}
           onPrint={handlePrint}
           onPrintTransaction={handlePrintTransaction}
-          onOpenFastPay={(inv) => dashboard.setFastPayInvoice(inv)}
+          onOpenFastPay={(inv) => {
+            dashboard.setFastPayInvoice(inv);
+            dashboard.setSelectedInvoice(null);
+          }}
           onRefund={dashboard.handleRefund}
           onPackageRefund={dashboard.handlePackageRefund}
           onExpireNoRefund={dashboard.handleExpireNoRefund}
-        />
-      )}
-
-      {/* Fast Payment Sub-Modal Pop-up */}
-      {dashboard.fastPayInvoice && (
-        <FastPaymentModal
-          invoice={dashboard.fastPayInvoice}
-          onClose={() => dashboard.setFastPayInvoice(null)}
-          onSubmit={dashboard.handleFastPaySubmit}
-          method={dashboard.fastPayMethod}
-          setMethod={dashboard.setFastPayMethod}
-          received={dashboard.fastPayReceived}
-          setReceived={dashboard.setFastPayReceived}
-          note={dashboard.fastPayNote}
-          setNote={dashboard.setFastPayNote}
-          loading={dashboard.fastPayLoading}
-        />
-      )}
-      {checkout.activePayOSInvoice && (
-        <QRWebhookModal
-          hoaDonId={checkout.activePayOSInvoice.invoice.id}
-          amount={checkout.activePayOSInvoice.amount}
-          onClose={() => checkout.setActivePayOSInvoice(null)}
-          onSuccess={(paidInvoice) => checkout.handlePayOSSuccess(paidInvoice)}
-        />
-      )}
-      {dashboard.fastPayQRInvoice && (
-        <QRWebhookModal
-          hoaDonId={dashboard.fastPayQRInvoice.invoice.id}
-          amount={dashboard.fastPayQRInvoice.amount}
-          onClose={() => dashboard.setFastPayQRInvoice(null)}
-          onSuccess={(paidInvoice) => dashboard.handleFastPayQRSuccess(paidInvoice)}
         />
       )}
     </div>

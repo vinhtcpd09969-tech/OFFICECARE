@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { payos } from '../config/payos';
-import receptionistRepository from '../repositories/receptionist.repository';
-import receptionistService from '../services/receptionist.service';
+import receptionistRepository from '../repositories/receptionist';
+import billingService from '../services/billing.service';
 
 export const payosWebhookHandler = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -36,8 +36,8 @@ export const payosWebhookHandler = async (req: Request, res: Response): Promise<
 
       console.log(`Tìm thấy hóa đơn ${hd.id} từ orderCode ${orderCode}. Tiến hành cập nhật thanh toán...`);
 
-      // Process payment with 'chuyen_khoan' method and received amount
-      await receptionistService.processPayment({
+      // Process payment with 'chuyen_khoan' method and received amount via BillingService
+      await billingService.processPayment({
         hoa_don_id: hd.id,
         phuong_thuc: 'chuyen_khoan',
         so_tien_nhan: amount.toString()

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { format } from 'date-fns';
 import { updateCustomer, toggleCustomerLock, getCustomerLockImpact } from '../../../api/admin.api';
+import { validateEmail } from '../../../../../utils/validators';
 import type { CustomerLockImpact } from '../types';
 
 export interface CustomerEditForm {
@@ -11,11 +12,10 @@ export interface CustomerEditForm {
   gioi_tinh: string;
   dia_chi: string;
   ngay_sinh: string;
-  diem_uy_tin: number;
 }
 
 const EMPTY_FORM: CustomerEditForm = {
-  ho_ten: '', so_dien_thoai: '', email: '', gioi_tinh: 'khac', dia_chi: '', ngay_sinh: '', diem_uy_tin: 100
+  ho_ten: '', so_dien_thoai: '', email: '', gioi_tinh: 'khac', dia_chi: '', ngay_sinh: ''
 };
 
 // Sửa thông tin hành chính + khóa/mở khóa tài khoản — dùng ConfirmDialog thay window.confirm cho
@@ -35,9 +35,7 @@ export function useCustomerActions(onChanged: () => void) {
       email: customer.email || '',
       gioi_tinh: customer.gioi_tinh || 'khac',
       dia_chi: customer.dia_chi || '',
-      ngay_sinh: customer.ngay_sinh ? format(new Date(customer.ngay_sinh), 'yyyy-MM-dd') : '',
-      // Cap 0-100 theo thang badge uy tín mới — không còn cho nhập tới 500 như bản cũ.
-      diem_uy_tin: Math.min(100, customer.diem_uy_tin || 0)
+      ngay_sinh: customer.ngay_sinh ? format(new Date(customer.ngay_sinh), 'yyyy-MM-dd') : ''
     });
   };
 
@@ -45,15 +43,43 @@ export function useCustomerActions(onChanged: () => void) {
 
   const saveProfile = async () => {
     if (!editingCustomerId) return;
+
+    if (!editForm.ho_ten || editForm.ho_ten.trim().length < 2) {
+      toast.error('Họ tên khách hàng phải có ít nhất 2 ký tự.');
+      return;
+    }
+
+    if (editForm.so_dien_thoai) {
+      const phoneRegex = /^(0|\+84)(3|5|7|8|9)\d{8}$/;
+      if (!phoneRegex.test(editForm.so_dien_thoai.trim())) {
+        toast.error('Số điện thoại không hợp lệ (phải gồm 10 chữ số và bắt đầu bằng 03, 05, 07, 08 hoặc 09).');
+        return;
+      }
+    }
+
+    if (editForm.email) {
+      const emailRes = validateEmail(editForm.email.trim());
+      if (!emailRes.isValid) {
+        toast.error(emailRes.message || 'Địa chỉ email không đúng định dạng.');
+        return;
+      }
+    }
+
     try {
-      const payload = { ...editForm, diem_uy_tin: Math.max(0, Math.min(100, editForm.diem_uy_tin)) };
+      const payload = {
+        ...editForm,
+        ho_ten: editForm.ho_ten.trim(),
+        email: editForm.email ? editForm.email.trim().toLowerCase() : null,
+        so_dien_thoai: editForm.so_dien_thoai ? editForm.so_dien_thoai.trim() : null,
+      };
       await updateCustomer(editingCustomerId, payload);
       toast.success('Đã cập nhật thông tin khách hàng thành công!');
       setEditingCustomerId(null);
       onChanged();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to update customer:', error);
-      toast.error('Có lỗi xảy ra khi lưu thông tin khách hàng.');
+      const msg = error.response?.data?.message || 'Có lỗi xảy ra khi lưu thông tin khách hàng.';
+      toast.error(msg);
     }
   };
 

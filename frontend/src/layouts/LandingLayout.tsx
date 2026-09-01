@@ -6,25 +6,55 @@ import GlobalAuthModal from './GlobalAuthModal';
 import AIChatBubble from '../features/chat/components/AIChatBubble';
 import { resolveImageUrl } from '../utils/imageUrl';
 import { TermsOfServiceModal } from '../features/customer/components/TermsOfServiceModal';
+import { OfficeCareLogoMark } from '../components/OfficeCareLogo';
+import { getPublicServices, getPublicPackages } from '../features/public/api/public.api';
 
-// Official Zalo Logo Vector Component
+// Official Zalo Logo Vector Component (Clean, Full-bleed Blue Bubble with crisp white Zalo)
 function ZaloIcon({ className = "size-4" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 500 500" className={className} fill="currentColor">
-      <path d="M438.4 250c0 104-84.4 188.4-188.4 188.4S61.6 354 61.6 250 146 61.6 250 61.6 438.4 146 438.4 250z" fill="none" />
-      <path d="M125 150h120l-100 140h100v40H125v-40l100-140H125v-40zm140 180v-90h30v90h-30zm35-180h40v180h-40V150zm75 90c0-50 35-90 85-90s85 40 85 90-35 90-85 90-85-40-85-90zm130 0c0-30-20-55-45-55s-45 25-45 55 20 55 45 55 45-25 45-55z" />
+    <svg viewBox="0 0 24 24" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M12 2C6.48 2 2 6.03 2 11C2 13.6 3.2 15.9 5.2 17.4C4.8 19.3 3.6 20.8 3.5 21C3.3 21.2 3.4 21.6 3.7 21.7C3.8 21.7 3.9 21.7 4 21.7C5.9 21.7 8.1 20.6 9.4 19.6C10.2 19.9 11.1 20 12 20C17.52 20 22 15.97 22 11C22 6.03 17.52 2 12 2Z"
+        fill="#0068FF"
+      />
+      <text
+        x="12"
+        y="12"
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill="white"
+        fontSize="7.5"
+        fontWeight="900"
+        fontFamily="Arial, Helvetica, sans-serif"
+        letterSpacing="-0.2px"
+      >
+        Zalo
+      </text>
     </svg>
   );
 }
 
-// Facebook Vector Component
+// Facebook Vector Component (Matching Circular Full-bleed Blue Badge with Crisp White 'f')
 function FacebookIcon({ className = "size-4" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" className={className} fill="currentColor">
-      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+    <svg viewBox="0 0 24 24" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="12" r="10" fill="#1877F2" />
+      <path
+        d="M14.2 8.8H12.8C12.4 8.8 12.1 9.1 12.1 9.5V11.2H14.4L14.1 13.5H12.1V18.5H9.8V13.5H8.2V11.2H9.8V9.5C9.8 7.8 11.1 6.5 12.8 6.5H14.2V8.8Z"
+        fill="white"
+      />
     </svg>
   );
 }
+
+const DEFAULT_FOOTER_SERVICES = [
+  { id: 'c1000000-0000-0000-0000-000000000000', ten_goi: 'Lượng Giá Chức Năng Cơ Xương Khớp' },
+  { id: 'c1000000-0000-0000-0000-000000000201', ten_goi: 'Liệu Trình Điều Trị Cổ - Vai - Gáy' },
+  { id: 'c1000000-0000-0000-0000-000000000202', ten_goi: 'Liệu Trình Điều Trị Đau Lưng Văn Phòng' },
+  { id: 'c1000000-0000-0000-0000-000000000203', ten_goi: 'Liệu Trình Cải Thiện Tư Thế Văn Phòng' },
+  { id: 'c1000000-0000-0000-0000-000000000204', ten_goi: 'Liệu Trình Phục Hồi Chuyên Sâu' },
+  { id: 'c1000000-0000-0000-0000-000000000103', ten_goi: 'Gói Phục Hồi Toàn Diện' },
+];
 
 export default function LandingLayout() {
   const { isAuthenticated, user, logout } = useAuthStore();
@@ -35,6 +65,31 @@ export default function LandingLayout() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [showGlobalAuthModal, setShowGlobalAuthModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
+  const [footerServices, setFooterServices] = useState<{ id: string; ten_goi: string }[]>(DEFAULT_FOOTER_SERVICES);
+
+  useEffect(() => {
+    async function loadFooterServices() {
+      try {
+        const [resSvcs, resPkgs] = await Promise.all([
+          getPublicServices(),
+          getPublicPackages()
+        ]);
+        const all = [...(resSvcs.data || []), ...(resPkgs.data || [])];
+        const mapped = all
+          .filter(s => s.trang_thai === 'hoat_dong' || s.trang_thai === undefined)
+          .map(s => ({ id: String(s.id), ten_goi: String(s.ten_goi || s.ten_dich_vu) }))
+          .filter((v, i, a) => a.findIndex(t => t.id === v.id) === i)
+          .slice(0, 6);
+
+        if (mapped.length > 0) {
+          setFooterServices(mapped);
+        }
+      } catch (err) {
+        console.error('Lỗi khi tải danh sách dịch vụ footer:', err);
+      }
+    }
+    loadFooterServices();
+  }, []);
 
   // Active Route Detector
   const isActive = (path: string) => {
@@ -96,16 +151,14 @@ export default function LandingLayout() {
           <div className="flex items-center justify-between">
             
             {/* Logo */}
-            <Link to="/" className="flex items-center gap-3 group">
-              <div className="size-10 rounded-[14px] bg-[#2EC4B6] text-white font-heading font-extrabold text-xl flex items-center justify-center shadow-md shadow-[#2EC4B6]/20 group-hover:scale-105 transition-all">
-                O
-              </div>
+            <Link to="/" className="flex items-center gap-2.5 group">
+              <OfficeCareLogoMark size={32} className="group-hover:scale-105 transition-transform" />
               <div className="flex flex-col text-left">
-                <span className="font-heading font-black text-lg text-[#0F172A] leading-tight tracking-tight">
+                <span className="font-heading font-black text-[18px] text-[#0F172A] leading-tight tracking-tight">
                   OFFICE CARE
                 </span>
-                <span className="text-[10px] text-[#2EC4B6] font-jakarta font-extrabold uppercase tracking-widest leading-none">
-                  PREMIUM REHAB
+                <span className="text-[10px] text-[#0D9488] font-jakarta font-extrabold uppercase tracking-widest leading-none mt-0.5">
+                  PHỤC HỒI CHỨC NĂNG
                 </span>
               </div>
             </Link>
@@ -131,7 +184,7 @@ export default function LandingLayout() {
                     : 'text-slate-600 hover:text-[#0F172A]'
                 }`}
               >
-                Gói Trị Liệu
+                Gói Dịch Vụ
               </Link>
 
               <Link
@@ -266,10 +319,10 @@ export default function LandingLayout() {
             Trang Chủ
           </Link>
           <Link to="/services" className="text-base font-jakarta font-extrabold py-3 border-b border-slate-100 text-slate-800" onClick={() => setIsMobileMenuOpen(false)}>
-            Gói Trị Liệu
+            Gói Dịch Vụ
           </Link>
           <Link to="/specialists" className="text-base font-jakarta font-extrabold py-3 border-b border-slate-100 text-slate-800" onClick={() => setIsMobileMenuOpen(false)}>
-            Đội Ngũ Bác Sĩ
+            Đội Ngũ Chuyên Viên
           </Link>
           <Link to="/tin-tuc" className="text-base font-jakarta font-extrabold py-3 border-b border-slate-100 text-slate-800" onClick={() => setIsMobileMenuOpen(false)}>
             Kiến Thức Y Khoa
@@ -323,21 +376,19 @@ export default function LandingLayout() {
           <div className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-10">
             {/* Column 1: Brand & Mission */}
             <div className="md:col-span-4 space-y-4 text-left">
-              <Link to="/" className="inline-flex items-center gap-3 group">
-                <div className="size-10 rounded-2xl bg-[#0D9488] text-white font-heading font-black text-xl flex items-center justify-center shadow-md shadow-teal-700/15 group-hover:scale-105 transition-transform">
-                  O
-                </div>
-                <div className="flex flex-col">
-                  <span className="font-heading font-black text-lg text-slate-900 tracking-tight">
-                    OfficeCare
+              <Link to="/" className="inline-flex items-center gap-2.5 group">
+                <OfficeCareLogoMark size={32} className="group-hover:scale-105 transition-transform" />
+                <div className="flex flex-col text-left">
+                  <span className="font-heading font-black text-[18px] text-slate-900 tracking-tight leading-tight">
+                    OFFICE CARE
                   </span>
-                  <span className="text-[9.5px] text-[#0D9488] font-black uppercase tracking-widest">
+                  <span className="text-[10px] text-[#0D9488] font-black uppercase tracking-widest leading-none mt-0.5">
                     PHỤC HỒI CHỨC NĂNG Y KHOA
                   </span>
                 </div>
               </Link>
               <p className="text-slate-600 text-xs leading-relaxed font-semibold">
-                Giải pháp phục hồi chức năng cơ xương khớp & cột sống văn phòng chuyên sâu. Kết hợp công nghệ trị liệu Châu Âu và phác đồ cá nhân hóa 1:1 từ Bác sĩ chuyên khoa.
+                Giải pháp phục hồi chức năng cơ xương khớp & cột sống văn phòng chuyên sâu. Kết hợp công nghệ trị liệu Châu Âu và phác đồ cá nhân hóa 1:1 từ Chuyên viên tư vấn.
               </p>
               <div className="flex flex-wrap gap-2 pt-1">
                 <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-50/80 border border-teal-200/80 text-[#0D9488] text-[10px] font-black shadow-2xs">
@@ -350,29 +401,19 @@ export default function LandingLayout() {
             </div>
 
             {/* Column 2: Services */}
-            <div className="md:col-span-2 space-y-3.5 text-left">
-              <h4 className="font-black text-xs tracking-widest text-slate-900 uppercase border-b border-[#C8E3DE] pb-2">Dịch Vụ</h4>
+            <div className="md:col-span-3 space-y-3.5 text-left">
+              <h4 className="font-black text-xs tracking-widest text-slate-900 uppercase border-b border-[#C8E3DE] pb-2">Dịch Vụ Nổi Bật</h4>
               <ul className="space-y-2.5 text-slate-600 font-bold text-xs">
-                <li>
-                  <Link to="/services" className="hover:text-[#0D9488] transition-colors inline-flex items-center gap-1 group">
-                    <span className="group-hover:translate-x-1 transition-transform">Khám Lâm Sàng 1:1</span>
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/services" className="hover:text-[#0D9488] transition-colors inline-flex items-center gap-1 group">
-                    <span className="group-hover:translate-x-1 transition-transform">Trị Liệu Sóng Xung Kích</span>
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/services" className="hover:text-[#0D9488] transition-colors inline-flex items-center gap-1 group">
-                    <span className="group-hover:translate-x-1 transition-transform">Giải Phóng Cơ Mô Mềm</span>
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/services" className="hover:text-[#0D9488] transition-colors inline-flex items-center gap-1 group">
-                    <span className="group-hover:translate-x-1 transition-transform">Liệu Trình Cột Sống</span>
-                  </Link>
-                </li>
+                {footerServices.map((svc) => (
+                  <li key={svc.id}>
+                    <Link
+                      to={`/services/${svc.id}`}
+                      className="hover:text-[#0D9488] transition-colors inline-flex items-center gap-1 group"
+                    >
+                      <span className="group-hover:translate-x-1 transition-transform">{svc.ten_goi}</span>
+                    </Link>
+                  </li>
+                ))}
               </ul>
             </div>
 
@@ -382,7 +423,7 @@ export default function LandingLayout() {
               <ul className="space-y-2.5 text-slate-600 font-bold text-xs">
                 <li>
                   <Link to="/gioi-thieu" className="hover:text-[#0D9488] transition-colors inline-flex items-center gap-1 group">
-                    <span className="group-hover:translate-x-1 transition-transform">Giới thiệu phòng khám</span>
+                    <span className="group-hover:translate-x-1 transition-transform">Giới thiệu trung tâm</span>
                   </Link>
                 </li>
                 <li>
@@ -407,19 +448,11 @@ export default function LandingLayout() {
               </ul>
             </div>
 
-            {/* Column 4: Location & Social Media */}
-            <div className="md:col-span-4 space-y-3.5 text-left">
-              <div className="flex items-center justify-between border-b border-[#C8E3DE] pb-2">
-                <h4 className="font-black text-xs tracking-widest text-slate-900 uppercase">Vị Trí & Liên Hệ</h4>
-                <Link
-                  to="/booking"
-                  onClick={handleBookingClick}
-                  className="inline-flex items-center gap-1.5 bg-[#0D9488] hover:bg-[#0b7a70] text-white text-xs font-jakarta font-extrabold px-4 py-2 rounded-2xl shadow-sm hover:shadow transition-all cursor-pointer shrink-0"
-                >
-                  <Calendar size={14} />
-                  <span>Đặt lịch khám</span>
-                </Link>
-              </div>
+            {/* Column 4: Location & Contact */}
+            <div className="md:col-span-3 space-y-3.5 text-left">
+              <h4 className="font-black text-xs tracking-widest text-slate-900 uppercase border-b border-[#C8E3DE] pb-2">
+                Vị Trí &amp; Liên Hệ
+              </h4>
 
               <div className="space-y-2.5 text-slate-700 font-semibold text-xs">
                 <p className="flex items-start gap-2.5 leading-relaxed">
@@ -430,44 +463,37 @@ export default function LandingLayout() {
                   <Phone size={16} className="shrink-0 text-[#0D9488]" />
                   <a href="tel:0398655332" className="hover:text-[#0D9488] font-black transition-colors">0398 655 332 (Zalo / Hotline)</a>
                 </p>
-                <p className="flex items-center gap-2.5">
-                  <Mail size={16} className="shrink-0 text-[#0D9488]" />
-                  <a href="mailto:lienhe@officecare.vn" className="hover:text-[#0D9488] transition-colors">lienhe@officecare.vn</a>
-                </p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="flex items-center gap-2">
+                    <Mail size={16} className="shrink-0 text-[#0D9488]" />
+                    <a href="mailto:lienhe@officecare.vn" className="hover:text-[#0D9488] transition-colors">lienhe@officecare.vn</a>
+                  </span>
+                  <span className="text-slate-300 font-normal">|</span>
+                  <div className="inline-flex items-center gap-1.5">
+                    <a
+                      href="https://www.facebook.com/profile.php?id=61591064963268"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center hover:scale-110 transition-transform cursor-pointer"
+                      title="Facebook OfficeCare"
+                    >
+                      <FacebookIcon className="size-5 shadow-2xs rounded-[5px]" />
+                    </a>
+                    <a
+                      href="https://zalo.me/0398655332"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center hover:scale-110 transition-transform cursor-pointer"
+                      title="Zalo Chat 0398655332"
+                    >
+                      <ZaloIcon className="size-5 shadow-2xs rounded-[5px]" />
+                    </a>
+                  </div>
+                </div>
                 <p className="flex items-center gap-2.5 text-slate-500">
                   <Clock size={16} className="shrink-0 text-[#0D9488]" />
-                  <span>08:00 - 20:00 (Tất cả các ngày trong tuần)</span>
+                  <span>08:00 – 20:00 (Tất cả các ngày trong tuần)</span>
                 </p>
-              </div>
-
-              {/* Social Media Section */}
-              <div className="pt-2">
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Kênh hỗ trợ chính thức</span>
-                <div className="flex flex-wrap items-center gap-2.5">
-                  {/* Facebook Button */}
-                  <a
-                    href="https://www.facebook.com/profile.php?id=61591064963268"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#1877F2] hover:bg-[#166fe5] text-white font-extrabold text-xs transition-all shadow-xs hover:scale-105 active:scale-95 cursor-pointer"
-                    title="Facebook Page OfficeCare"
-                  >
-                    <FacebookIcon className="size-4" />
-                    <span>Facebook Fanpage</span>
-                  </a>
-
-                  {/* Zalo Official Button */}
-                  <a
-                    href="https://zalo.me/0398655332"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#0068FF] hover:bg-[#005cdb] text-white font-extrabold text-xs transition-all shadow-xs hover:scale-105 active:scale-95 cursor-pointer"
-                    title="Zalo Chat 0398655332"
-                  >
-                    <ZaloIcon className="size-4" />
-                    <span>Zalo Official</span>
-                  </a>
-                </div>
               </div>
             </div>
           </div>

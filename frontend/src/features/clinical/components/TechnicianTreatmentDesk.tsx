@@ -1,27 +1,30 @@
 import { useState, useEffect, useRef } from 'react';
 import {
-  Plus,
-  Trash2,
   CheckCircle2,
   FileText,
   Zap,
-  Sparkles,
-  Smile,
-  MessageSquare,
-  Sliders,
-  Flame,
+  Activity,
   AlertTriangle,
+  Stethoscope,
+  ArrowUpRight,
 } from 'lucide-react';
 import { TreatmentLogItem } from '../../technician/api/technician.api';
+import toast from 'react-hot-toast';
 
 interface TechnicianTreatmentDeskProps {
   patientName: string;
   appointmentDetail?: {
     id?: string;
     khach_hang_id?: string;
+    phac_do_dieu_tri_id?: string | null;
     chan_doan?: string;
     chong_chi_dinh?: string;
     ghi_chu?: string;
+    ghi_chu_chuyen_vien?: string;
+    chuyen_vien_chi_dinh?: string;
+    ten_bac_si?: string;
+    ma_lich_kham_goc?: string;
+    ngay_luong_gia?: string;
     ten_dich_vu?: string | null;
     quy_trinh?: string | null;
     mo_ta_goi?: string | null;
@@ -38,118 +41,75 @@ interface TechnicianTreatmentDeskProps {
     ghi_chu: string;
     du_lieu_tri_lieu: { nhat_ky: TreatmentLogItem[] };
   }) => Promise<void>;
-  // Lưu nháp định kỳ — KHÔNG bắt buộc (nếu không truyền thì không tự lưu). Rời trang giữa chừng (qua
-  // Hàng đợi, "Bàn làm việc", F5...) mà không có prop này thì dữ liệu đang gõ dở sẽ mất khi quay lại,
-  // vì mỗi lần mở lại bàn là 1 lần mount mới — chỉ giữ được state khi chuyển tab NGAY TRONG cùng
-  // trang (xem ClinicalAssessment/index.tsx).
   onSaveDraft?: (data: {
     vas_truoc: number;
     vas_sau: number;
     ghi_chu: string;
     du_lieu_tri_lieu: { nhat_ky: TreatmentLogItem[] };
   }) => void;
+  onViewAssessment?: () => void;
 }
 
-// Preset kỹ thuật bổ sung chuẩn PHCN
-const PRESET_TECHNIQUES = [
-  { name: 'Di động khớp vai / cột sống', icon: '🧘‍♂️' },
-  { name: 'Giải phóng điểm đau & cơ sâu (Myofascial)', icon: '💆‍♂️' },
-  { name: 'Chườm nóng thảo dược / Nhiệt trị liệu', icon: '♨️' },
-  { name: 'Điện xung trị liệu TENS', icon: '⚡' },
-  { name: 'Siêu âm điều trị tần số sâu', icon: '🔊' },
-  { name: 'Tập vận động thụ động & trợ lực', icon: '🏋️‍♂️' },
-  { name: 'Nắn chỉnh mô mềm & xoa bóp trị liệu', icon: '🖐️' },
-];
-
-// Wong-Baker Faces mapping
+// Wong-Baker Faces mapping chuẩn đồng bộ với Bàn Lượng Giá
 const WONG_BAKER_FACES = [
   { score: 0, face: '😊', label: 'Không đau', desc: 'Hoàn toàn thoải mái' },
-  { score: 2, face: '😐', label: 'Đau nhẹ', desc: 'Đau ít, không ảnh hưởng sinh hoạt' },
-  { score: 4, face: '🙁', label: 'Đau vừa', desc: 'Đau gây khó chịu nhẹ' },
-  { score: 6, face: '😣', label: 'Đau nhiều', desc: 'Ảnh hưởng tập trung / giấc ngủ' },
-  { score: 8, face: '😫', label: 'Rất đau', desc: 'Khó vận động, đau nhói' },
-  { score: 10, face: '😭', label: 'Đau dữ dội', desc: 'Không thể chịu đựng' },
+  { score: 2, face: '🙂', label: 'Đau nhẹ', desc: 'Đau ít, không ảnh hưởng sinh hoạt' },
+  { score: 4, face: '😐', label: 'Đau vừa', desc: 'Đau gây khó chịu nhẹ' },
+  { score: 6, face: '🙁', label: 'Đau nhức', desc: 'Ảnh hưởng tập trung / giấc ngủ' },
+  { score: 8, face: '😣', label: 'Đau nặng', desc: 'Khó vận động, đau nhói' },
+  { score: 10, face: '😭', label: 'Cực độ', desc: 'Không thể chịu đựng' },
 ];
 
-// Bộ phân tách Quy trình gói dịch vụ thành các bước kỹ thuật động chuẩn
-function parsePackageProtocol(quyTrinhStr?: string | null) {
-  if (!quyTrinhStr || !quyTrinhStr.trim()) {
-    return [
-      { name: 'Nhiệt trị liệu / Chườm nóng thảo dược', icon: '♨️' },
-      { name: 'Điện xung trị liệu TENS giảm đau', icon: '⚡' },
-      { name: 'Giải phóng điểm đau & Mô mềm sâu (Myofascial)', icon: '💆‍♂️' },
-      { name: 'Tập vận động kéo giãn trợ lực', icon: '🏋️‍♂️' },
-    ];
-  }
-
-  let rawSteps: string[] = [];
-  if (quyTrinhStr.includes('\n')) {
-    rawSteps = quyTrinhStr.split(/\r?\n/);
-  } else if (/[|;]/.test(quyTrinhStr)) {
-    rawSteps = quyTrinhStr.split(/[|;]/);
-  } else if (/\d+[\.\)]\s*/.test(quyTrinhStr)) {
-    rawSteps = quyTrinhStr.split(/(?=\b\d+[\.\)]\s*)/);
-  } else {
-    rawSteps = [quyTrinhStr];
-  }
-
-  rawSteps = rawSteps.map(s => s.trim()).filter(Boolean);
-
-  if (rawSteps.length === 0) {
-    return [{ name: quyTrinhStr.trim(), icon: '⚡' }];
-  }
-
-  return rawSteps.map(step => {
-    const cleanName = step.replace(/^(\d+[\.\)]\s*|bước\s*\d+:\s*)/i, '').trim();
-
-    let icon = '⚡';
-    if (/nhiệt|chườm|nóng/i.test(cleanName)) icon = '♨️';
-    else if (/xung|điện|tens/i.test(cleanName)) icon = '⚡';
-    else if (/cơ|massage|nắn|bóp/i.test(cleanName)) icon = '💆‍♂️';
-    else if (/khớp|nắn chỉnh/i.test(cleanName)) icon = '🧘‍♂️';
-    else if (/tập|vận động|kéo/i.test(cleanName)) icon = '🏋️‍♂️';
-    else if (/siêu âm/i.test(cleanName)) icon = '🔊';
-
-    return { name: cleanName, icon };
-  });
-}
+const VERBAL_OPTIONS = [
+  { score: 0, label: 'Không đau' },
+  { score: 2, label: 'Đau rất nhẹ' },
+  { score: 4, label: 'Đau vừa phải' },
+  { score: 6, label: 'Đau khó chịu' },
+  { score: 8, label: 'Đau dữ dội' },
+  { score: 10, label: 'Đau không chịu nổi' },
+];
 
 export function TechnicianTreatmentDesk({
   patientName,
   appointmentDetail,
   onCompleteTreatment,
   onSaveDraft,
+  onViewAssessment,
 }: TechnicianTreatmentDeskProps) {
-  // Thang đo VAS trước & sau
-  const [vasMode, setVasMode] = useState<'faces' | 'verbal' | 'numeric'>('faces');
-  const [vasTruoc, setVasTruoc] = useState<number>(appointmentDetail?.vas_truoc ?? 6);
-  const [vasSau, setVasSau] = useState<number>(appointmentDetail?.vas_sau ?? 3);
-
-  // Parse các bước kỹ thuật từ gói dịch vụ
-  const packageSteps = parsePackageProtocol(appointmentDetail?.quy_trinh);
-
-  // Nhật ký thao tác kỹ thuật thực tế
-  const [logs, setLogs] = useState<TreatmentLogItem[]>(() => {
-    if (appointmentDetail?.du_lieu_tri_lieu?.nhat_ky?.length) {
-      return appointmentDetail.du_lieu_tri_lieu.nhat_ky;
+  // Parse quy trình kỹ thuật chuẩn của gói từ DB (phân tách bằng dấu chấm phẩy hoặc xuống dòng)
+  const packageSteps = (() => {
+    const rawProtocol = appointmentDetail?.quy_trinh || '';
+    if (!rawProtocol.trim()) {
+      return [
+        { name: 'Chườm nóng & Massage cổ - vai - gáy - lưng: Nhiệt trị liệu làm mềm cơ kết hợp xoa bóp chuyên sâu giảm đau mỏi vùng vai gáy và lưng.', icon: '♨️' },
+        { name: 'Massage chân & bắp chân: Xoa bóp day ấn nhẹ chi dưới giúp giảm cảm giác nặng chân, tê mỏi và hỗ trợ tuần hoàn máu.', icon: '🦵' },
+        { name: 'Massage đầu & Kéo giãn cơ toàn thân: Massage thư giãn thần kinh vùng đầu kết hợp kéo giãn linh hoạt các khớp cơ toàn cơ thể.', icon: '💆' },
+        { name: 'Nhiệt trị liệu phục hồi: Tác động nhiệt sâu giúp giãn cơ tối đa, duy trì hiệu quả thư giãn và phục hồi thể trạng.', icon: '🔥' },
+      ];
     }
-    const nowStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-    return [
-      { luc: nowStr, noi_dung: packageSteps[0]?.name || 'Chườm nóng & Nhiệt trị liệu' }
-    ];
-  });
 
-  // Dynamic input state cho kỹ thuật mới
-  const [newTechniqueName, setNewTechniqueName] = useState('');
+    const lines = rawProtocol.split(/[;\n\r]+/).map(s => s.trim()).filter(Boolean);
+    const icons = ['♨️', '🦵', '💆', '🔥', '⚡', '🩹', '🧘', '🩺'];
+    return lines.map((line, idx) => ({
+      name: line.replace(/^[\d+.\-–*•]\s*/, ''),
+      icon: icons[idx % icons.length]
+    }));
+  })();
 
-  // Ghi chú KTV
-  const [notes, setNotes] = useState(appointmentDetail?.ghi_chu || '');
+  const [vasMode, setVasMode] = useState<'faces' | 'verbal' | 'numeric'>('faces');
+  const [vasTruoc, setVasTruoc] = useState<number>(appointmentDetail?.vas_truoc ?? 4);
+  const [vasSau, setVasSau] = useState<number>(appointmentDetail?.vas_sau ?? 2);
+  const [notes, setNotes] = useState<string>(appointmentDetail?.ghi_chu || '');
+  const [logs, setLogs] = useState<TreatmentLogItem[]>(
+    appointmentDetail?.du_lieu_tri_lieu?.nhat_ky || []
+  );
 
   // Loading & Modal state
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [triedSubmitWithoutLogs, setTriedSubmitWithoutLogs] = useState(false);
 
-  const draftKey = appointmentDetail?.id ? `draft_treat_${appointmentDetail.id}` : `draft_treat_${patientName.trim().replace(/\s+/g, '_')}`;
+  const draftKey = appointmentDetail?.id ? ('draft_treat_' + appointmentDetail.id) : ('draft_treat_' + patientName.trim().replace(/\s+/g, '_'));
 
   // Khôi phục nháp từ sessionStorage nếu vừa chuyển tab hoặc rời trang quay lại
   useEffect(() => {
@@ -160,7 +120,7 @@ export function TechnicianTreatmentDesk({
         if (parsed.vasTruoc != null) setVasTruoc(parsed.vasTruoc);
         if (parsed.vasSau != null) setVasSau(parsed.vasSau);
         if (parsed.notes != null) setNotes(parsed.notes);
-        if (Array.isArray(parsed.logs) && parsed.logs.length > 0) setLogs(parsed.logs);
+        if (Array.isArray(parsed.logs)) setLogs(parsed.logs);
       }
     } catch (e) {}
   }, [draftKey]);
@@ -186,6 +146,7 @@ export function TechnicianTreatmentDesk({
 
   // Tích chọn tất cả các bước theo quy trình gói (1-click)
   const handleSelectAllPackageProtocol = () => {
+    setTriedSubmitWithoutLogs(false);
     const timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
     const newItems: TreatmentLogItem[] = packageSteps.map(step => ({
       luc: timeStr,
@@ -194,42 +155,59 @@ export function TechnicianTreatmentDesk({
     setLogs(prev => {
       const existingNames = new Set(prev.map(p => p.noi_dung));
       const filteredNew = newItems.filter(i => !existingNames.has(i.noi_dung));
-      return [...prev, ...filteredNew];
+      const nextLogs = [...prev, ...filteredNew];
+      try {
+        sessionStorage.setItem(draftKey, JSON.stringify({ vasTruoc, vasSau, notes, logs: nextLogs }));
+      } catch (e) {}
+      if (onSaveDraft) {
+        onSaveDraft({ vas_truoc: vasTruoc, vas_sau: vasSau, ghi_chu: notes, du_lieu_tri_lieu: { nhat_ky: nextLogs } });
+      }
+      return nextLogs;
     });
   };
 
-  // Tick / Untick 1 bước trong gói
+  // Tick / Untick 1 bước trong gói (Lưu tức thì 0ms)
   const togglePackageStep = (name: string) => {
-    const exists = logs.some(l => l.noi_dung === name);
-    if (exists) {
-      setLogs(prev => prev.filter(l => l.noi_dung !== name));
-    } else {
-      const timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-      setLogs(prev => [...prev, { luc: timeStr, noi_dung: name }]);
+    setTriedSubmitWithoutLogs(false);
+    const timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    setLogs(prev => {
+      const exists = prev.some(l => l.noi_dung === name);
+      const nextLogs = exists
+        ? prev.filter(l => l.noi_dung !== name)
+        : [...prev, { luc: timeStr, noi_dung: name }];
+      try {
+        sessionStorage.setItem(draftKey, JSON.stringify({ vasTruoc, vasSau, notes, logs: nextLogs }));
+      } catch (e) {}
+      if (onSaveDraft) {
+        onSaveDraft({ vas_truoc: vasTruoc, vas_sau: vasSau, ghi_chu: notes, du_lieu_tri_lieu: { nhat_ky: nextLogs } });
+      }
+      return nextLogs;
+    });
+  };
+
+  // Kiểm tra tính hợp lệ trước khi mở Modal xác nhận hoàn thành
+  const handleOpenCompleteModal = () => {
+    if (logs.length === 0) {
+      setTriedSubmitWithoutLogs(true);
+      toast.error('Vui lòng tích chọn ít nhất 1 quy trình / thao tác kỹ thuật trước khi hoàn thành ca trị liệu!');
+      const el = document.getElementById('technician-protocol-card');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      return;
     }
-  };
-
-  // Thêm nhanh kỹ thuật từ preset bổ sung
-  const handleAddPreset = (name: string) => {
-    const timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-    setLogs(prev => [...prev, { luc: timeStr, noi_dung: name }]);
-  };
-
-  // Thêm kỹ thuật tùy chỉnh
-  const handleAddCustomTechnique = () => {
-    if (!newTechniqueName.trim()) return;
-    const timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-    setLogs(prev => [...prev, { luc: timeStr, noi_dung: newTechniqueName.trim() }]);
-    setNewTechniqueName('');
-  };
-
-  // Xóa kỹ thuật
-  const handleRemoveLog = (index: number) => {
-    setLogs(prev => prev.filter((_, i) => i !== index));
+    setTriedSubmitWithoutLogs(false);
+    setShowConfirmModal(true);
   };
 
   // Nộp ca trị liệu
   const handleSubmit = async () => {
+    if (logs.length === 0) {
+      setTriedSubmitWithoutLogs(true);
+      setShowConfirmModal(false);
+      toast.error('Vui lòng tích chọn ít nhất 1 quy trình / thao tác kỹ thuật trước khi hoàn thành!');
+      return;
+    }
     setSubmitting(true);
     try {
       await onCompleteTreatment({
@@ -238,6 +216,9 @@ export function TechnicianTreatmentDesk({
         ghi_chu: notes,
         du_lieu_tri_lieu: { nhat_ky: logs },
       });
+      try {
+        sessionStorage.removeItem(draftKey);
+      } catch (e) {}
     } finally {
       setSubmitting(false);
       setShowConfirmModal(false);
@@ -245,212 +226,226 @@ export function TechnicianTreatmentDesk({
   };
 
   const deltaVas = vasTruoc - vasSau;
+  const isTreatmentPlanPackage = Boolean(
+    appointmentDetail?.phac_do_dieu_tri_id || (appointmentDetail?.so_thu_tu_buoi && appointmentDetail.so_thu_tu_buoi > 0)
+  );
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300 font-jakarta">
+    <div className="w-full space-y-6 pt-1 font-jakarta text-left">
       
+      {/* KHỐI 0: CHỈ ĐỊNH TỪ CHUYÊN VIÊN PHCN */}
+      {isTreatmentPlanPackage && (
+        <div className="flex flex-wrap items-center gap-2.5 pb-5 border-b border-slate-100 dark:border-zinc-800 text-xs">
+          <span className="p-1.5 rounded-lg bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 border border-teal-200/60 dark:border-teal-800 shrink-0">
+            <Stethoscope size={15} />
+          </span>
+          <span className="font-bold text-slate-500 dark:text-zinc-400 flex items-center gap-1.5 flex-wrap">
+            <span>Gói chỉ định bởi chuyên viên:</span>
+            <strong className="text-slate-900 dark:text-zinc-100 font-black mr-1">
+              {appointmentDetail?.chuyen_vien_chi_dinh || appointmentDetail?.ten_bac_si || 'Chuyên viên PHCN'}
+            </strong>
+          </span>
 
+          {onViewAssessment && (
+            <button
+              type="button"
+              onClick={onViewAssessment}
+              className="px-3 py-1 rounded-xl bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/60 dark:hover:bg-teal-900/60 text-teal-700 dark:text-teal-300 border border-teal-200/80 dark:border-teal-800 font-bold text-[11px] transition-all inline-flex items-center gap-1.5 shadow-2xs cursor-pointer shrink-0"
+              title="Chuyển sang tab Lịch sử điều trị để xem chi tiết buổi lượng giá"
+            >
+              <FileText size={13} />
+              <span>Xem buổi lượng giá</span>
+              <ArrowUpRight size={13} />
+            </button>
+          )}
+        </div>
+      )}
 
-      {/* CARD 2: ĐÁNH GIÁ THANG ĐAU VAS (TRƯỚC & SAU THAO TÁC) */}
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-zinc-800 pb-3">
-          <div className="flex items-center gap-2 text-slate-800 dark:text-zinc-100 font-black text-sm uppercase tracking-wider font-jakarta">
-            <Flame className="text-amber-500" size={18} />
-            <span>Thang Đo Đau VAS (Trước & Sau Trị Liệu)</span>
+      {/* KHỐI 1: THANG ĐO ĐAU VAS TRƯỚC & SAU TRỊ LIỆU (ĐỒNG BỘ 100% VỚI BÀN LƯỢNG GIÁ) */}
+      <div className="space-y-4 pb-6 border-b border-slate-100 dark:border-zinc-800">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Activity className="size-4 text-cyan-600" />
+            <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 uppercase tracking-wider">
+              1. Thang đo điểm đau VAS (Trước & Sau trị liệu):
+            </h4>
           </div>
 
-          {/* Selector Chế độ VAS */}
-          <div className="inline-flex p-1 bg-slate-100 dark:bg-zinc-800 rounded-xl text-xs font-bold">
+          {/* Switch mode nhập VAS */}
+          <div className="flex bg-slate-200 dark:bg-zinc-700 p-0.5 rounded-xl text-[11px] font-bold">
             <button
               type="button"
               onClick={() => setVasMode('faces')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
-                vasMode === 'faces'
-                  ? 'bg-white dark:bg-zinc-900 text-teal-600 dark:text-teal-400 shadow-sm'
-                  : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800'
+              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                vasMode === 'faces' ? 'bg-white dark:bg-zinc-800 text-cyan-700 dark:text-cyan-300 shadow-xs' : 'text-slate-600 dark:text-zinc-400'
               }`}
             >
-              <Smile size={14} />
-              <span>Mặt Cười</span>
+              Mặt cười (Wong-Baker)
             </button>
             <button
               type="button"
               onClick={() => setVasMode('verbal')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
-                vasMode === 'verbal'
-                  ? 'bg-white dark:bg-zinc-900 text-teal-600 dark:text-teal-400 shadow-sm'
-                  : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800'
+              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                vasMode === 'verbal' ? 'bg-white dark:bg-zinc-800 text-cyan-700 dark:text-cyan-300 shadow-xs' : 'text-slate-600 dark:text-zinc-400'
               }`}
             >
-              <MessageSquare size={14} />
-              <span>Mô Tả</span>
+              Mô tả lời nói
             </button>
             <button
               type="button"
               onClick={() => setVasMode('numeric')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
-                vasMode === 'numeric'
-                  ? 'bg-white dark:bg-zinc-900 text-teal-600 dark:text-teal-400 shadow-sm'
-                  : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800'
+              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                vasMode === 'numeric' ? 'bg-white dark:bg-zinc-800 text-cyan-700 dark:text-cyan-300 shadow-xs' : 'text-slate-600 dark:text-zinc-400'
               }`}
             >
-              <Sliders size={14} />
-              <span>Thang Số</span>
+              Thang số (0-10)
             </button>
           </div>
         </div>
 
-        {/* 2 KHỐI VAS TRƯỚC VÀ SAU */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
-          {/* VAS TRƯỚC */}
-          <div className="bg-rose-50/40 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30 rounded-2xl p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-black uppercase tracking-wider text-rose-700 dark:text-rose-300">
-                🔴 VAS Trước Khi Trị Liệu
-              </span>
-              <span className="text-lg font-black text-rose-600 dark:text-rose-400">
-                {vasTruoc} / 10
-              </span>
-            </div>
-
-            {vasMode === 'faces' && (
-              <div className="grid grid-cols-6 gap-1.5 pt-1">
-                {WONG_BAKER_FACES.map(f => (
-                  <button
-                    key={`truoc-${f.score}`}
-                    type="button"
-                    onClick={() => setVasTruoc(f.score)}
-                    className={`flex flex-col items-center p-2 rounded-xl border text-center transition-all ${
-                      vasTruoc === f.score
-                        ? 'bg-rose-500 text-white border-rose-600 scale-105 shadow-md shadow-rose-500/20'
-                        : 'bg-white dark:bg-zinc-900 border-rose-100 dark:border-rose-900/40 text-slate-700 dark:text-zinc-300 hover:border-rose-300'
-                    }`}
-                  >
-                    <span className="text-xl">{f.face}</span>
-                    <span className="text-[10px] font-black mt-1">{f.score}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {vasMode === 'verbal' && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
-                {WONG_BAKER_FACES.map(f => (
-                  <button
-                    key={`truoc-verb-${f.score}`}
-                    type="button"
-                    onClick={() => setVasTruoc(f.score)}
-                    className={`p-2.5 rounded-xl border text-left text-xs transition-all ${
-                      vasTruoc === f.score
-                        ? 'bg-rose-500 text-white border-rose-600 font-bold'
-                        : 'bg-white dark:bg-zinc-900 border-rose-100 dark:border-rose-900/40 text-slate-700 dark:text-zinc-300'
-                    }`}
-                  >
-                    <div className="font-black">{f.score} - {f.label}</div>
-                    <div className="text-[10px] opacity-80 line-clamp-1">{f.desc}</div>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {vasMode === 'numeric' && (
-              <div className="space-y-2 pt-2">
-                <input
-                  type="range"
-                  min={0}
-                  max={10}
-                  step={1}
-                  value={vasTruoc}
-                  onChange={e => setVasTruoc(Number(e.target.value))}
-                  className="w-full accent-rose-500 cursor-pointer"
-                />
-                <div className="flex justify-between text-[10px] font-bold text-slate-400">
-                  <span>0 (Không đau)</span>
-                  <span>5 (Vừa)</span>
-                  <span>10 (Dữ dội)</span>
-                </div>
-              </div>
-            )}
+        {/* 1.1 VAS TRƯỚC KHI BẮT ĐẦU */}
+        <div className="space-y-2 pt-1">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-bold text-slate-700 dark:text-zinc-300">
+              • Mức đau TRƯỚC khi bắt đầu: <strong className="text-rose-600 dark:text-rose-400 text-sm ml-1">{vasTruoc}/10</strong>
+            </span>
           </div>
 
-          {/* VAS SAU */}
-          <div className="bg-emerald-50/40 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 rounded-2xl p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
-                🟢 VAS Sau Khi Trị Liệu
-              </span>
-              <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">
-                {vasSau} / 10
-              </span>
+          {vasMode === 'faces' && (
+            <div className="grid grid-cols-6 gap-2">
+              {WONG_BAKER_FACES.map((f) => (
+                <button
+                  key={f.score}
+                  type="button"
+                  onClick={() => setVasTruoc(f.score)}
+                  className={`p-3 rounded-2xl border text-center transition-all cursor-pointer ${
+                    vasTruoc === f.score
+                      ? 'bg-rose-500/10 dark:bg-rose-955/40 border-2 border-rose-600 dark:border-rose-500 shadow-sm scale-105'
+                      : 'bg-white/80 dark:bg-zinc-800/80 border-slate-200 dark:border-zinc-700 hover:border-rose-300'
+                  }`}
+                >
+                  <div className="text-2xl">{f.face}</div>
+                  <div className="text-[11px] font-bold mt-1 text-slate-800 dark:text-zinc-100">{f.score} điểm</div>
+                  <div className="text-[10px] text-slate-500 dark:text-zinc-400">{f.label}</div>
+                </button>
+              ))}
             </div>
+          )}
 
-            {vasMode === 'faces' && (
-              <div className="grid grid-cols-6 gap-1.5 pt-1">
-                {WONG_BAKER_FACES.map(f => (
-                  <button
-                    key={`sau-${f.score}`}
-                    type="button"
-                    onClick={() => setVasSau(f.score)}
-                    className={`flex flex-col items-center p-2 rounded-xl border text-center transition-all ${
-                      vasSau === f.score
-                        ? 'bg-emerald-600 text-white border-emerald-700 scale-105 shadow-md shadow-emerald-600/20'
-                        : 'bg-white dark:bg-zinc-900 border-emerald-100 dark:border-emerald-900/40 text-slate-700 dark:text-zinc-300 hover:border-emerald-300'
-                    }`}
-                  >
-                    <span className="text-xl">{f.face}</span>
-                    <span className="text-[10px] font-black mt-1">{f.score}</span>
-                  </button>
-                ))}
-              </div>
-            )}
+          {vasMode === 'verbal' && (
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+              {VERBAL_OPTIONS.map((v) => (
+                <button
+                  key={v.score}
+                  type="button"
+                  onClick={() => setVasTruoc(v.score)}
+                  className={`p-3 rounded-2xl border text-center transition-all cursor-pointer ${
+                    vasTruoc === v.score
+                      ? 'bg-rose-500/10 dark:bg-rose-955/40 border-2 border-rose-600 dark:border-rose-500 shadow-sm'
+                      : 'bg-white/80 dark:bg-zinc-800/80 border-slate-200 dark:border-zinc-700 hover:border-rose-300'
+                  }`}
+                >
+                  <div className="text-sm font-bold text-rose-800 dark:text-rose-300">{v.score} điểm</div>
+                  <div className="text-[11px] text-slate-600 dark:text-zinc-300 mt-0.5">{v.label}</div>
+                </button>
+              ))}
+            </div>
+          )}
 
-            {vasMode === 'verbal' && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
-                {WONG_BAKER_FACES.map(f => (
-                  <button
-                    key={`sau-verb-${f.score}`}
-                    type="button"
-                    onClick={() => setVasSau(f.score)}
-                    className={`p-2.5 rounded-xl border text-left text-xs transition-all ${
-                      vasSau === f.score
-                        ? 'bg-emerald-600 text-white border-emerald-700 font-bold'
-                        : 'bg-white dark:bg-zinc-900 border-emerald-100 dark:border-emerald-900/40 text-slate-700 dark:text-zinc-300'
-                    }`}
-                  >
-                    <div className="font-black">{f.score} - {f.label}</div>
-                    <div className="text-[10px] opacity-80 line-clamp-1">{f.desc}</div>
-                  </button>
-                ))}
+          {vasMode === 'numeric' && (
+            <div className="pt-2 px-2 space-y-2">
+              <input
+                type="range"
+                min="0"
+                max="10"
+                step="1"
+                value={vasTruoc}
+                onChange={(e) => setVasTruoc(Number(e.target.value))}
+                className="w-full h-2 bg-slate-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-rose-600"
+              />
+              <div className="flex justify-between text-[10px] font-bold text-slate-400">
+                <span>0 (Không đau)</span>
+                <span>5 (Đau vừa)</span>
+                <span>10 (Cực độ)</span>
               </div>
-            )}
-
-            {vasMode === 'numeric' && (
-              <div className="space-y-2 pt-2">
-                <input
-                  type="range"
-                  min={0}
-                  max={10}
-                  step={1}
-                  value={vasSau}
-                  onChange={e => setVasSau(Number(e.target.value))}
-                  className="w-full accent-emerald-500 cursor-pointer"
-                />
-                <div className="flex justify-between text-[10px] font-bold text-slate-400">
-                  <span>0 (Không đau)</span>
-                  <span>5 (Vừa)</span>
-                  <span>10 (Dữ dội)</span>
-                </div>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
-        {/* MỨC CẢI THIỆN ĐAU SPARKLINE BANNER */}
-        <div className="bg-gradient-to-r from-teal-500/10 via-cyan-500/10 to-emerald-500/10 border border-teal-500/20 rounded-2xl p-3.5 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <Sparkles className="text-teal-600 dark:text-teal-400" size={20} />
-            <div className="text-xs">
+        {/* 1.2 VAS SAU KHI KẾT THÚC */}
+        <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-zinc-800/80">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-bold text-slate-700 dark:text-zinc-300">
+              • Mức đau SAU khi kết thúc ca: <strong className="text-emerald-600 dark:text-emerald-400 text-sm ml-1">{vasSau}/10</strong>
+            </span>
+          </div>
+
+          {vasMode === 'faces' && (
+            <div className="grid grid-cols-6 gap-2">
+              {WONG_BAKER_FACES.map((f) => (
+                <button
+                  key={f.score}
+                  type="button"
+                  onClick={() => setVasSau(f.score)}
+                  className={`p-3 rounded-2xl border text-center transition-all cursor-pointer ${
+                    vasSau === f.score
+                      ? 'bg-emerald-500/10 dark:bg-emerald-955/40 border-2 border-emerald-600 dark:border-emerald-500 shadow-sm scale-105'
+                      : 'bg-white/80 dark:bg-zinc-800/80 border-slate-200 dark:border-zinc-700 hover:border-emerald-300'
+                  }`}
+                >
+                  <div className="text-2xl">{f.face}</div>
+                  <div className="text-[11px] font-bold mt-1 text-slate-800 dark:text-zinc-100">{f.score} điểm</div>
+                  <div className="text-[10px] text-slate-500 dark:text-zinc-400">{f.label}</div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {vasMode === 'verbal' && (
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+              {VERBAL_OPTIONS.map((v) => (
+                <button
+                  key={v.score}
+                  type="button"
+                  onClick={() => setVasSau(v.score)}
+                  className={`p-3 rounded-2xl border text-center transition-all cursor-pointer ${
+                    vasSau === v.score
+                      ? 'bg-emerald-500/10 dark:bg-emerald-955/40 border-2 border-emerald-600 dark:border-emerald-500 shadow-sm'
+                      : 'bg-white/80 dark:bg-zinc-800/80 border-slate-200 dark:border-zinc-700 hover:border-emerald-300'
+                  }`}
+                >
+                  <div className="text-sm font-bold text-emerald-800 dark:text-emerald-300">{v.score} điểm</div>
+                  <div className="text-[11px] text-slate-600 dark:text-zinc-300 mt-0.5">{v.label}</div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {vasMode === 'numeric' && (
+            <div className="pt-2 px-2 space-y-2">
+              <input
+                type="range"
+                min="0"
+                max="10"
+                step="1"
+                value={vasSau}
+                onChange={(e) => setVasSau(Number(e.target.value))}
+                className="w-full h-2 bg-slate-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-emerald-600"
+              />
+              <div className="flex justify-between text-[10px] font-bold text-slate-400">
+                <span>0 (Không đau)</span>
+                <span>5 (Đau vừa)</span>
+                <span>10 (Cực độ)</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Delta VAS badge */}
+        <div className="flex items-center justify-between p-3 rounded-2xl bg-teal-500/10 border border-teal-500/20 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="text-base">📊</span>
+            <div>
               <span className="font-bold text-slate-700 dark:text-zinc-200">Hiệu quả giảm đau buổi trị liệu:</span>
               <span className="font-medium text-slate-500 dark:text-zinc-400 ml-1">
                 {deltaVas > 0
@@ -469,142 +464,78 @@ export function TechnicianTreatmentDesk({
         </div>
       </div>
 
-      {/* CARD 3: NHẬT KÝ THAO TÁC KỸ THUẬT TRỊ LIỆU THỦ CÔNG */}
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-5">
-        <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
-          <div className="flex items-center gap-2 text-slate-800 dark:text-zinc-100 font-black text-sm uppercase tracking-wider font-jakarta">
-            <Zap className="text-cyan-600 dark:text-cyan-400" size={18} />
-            <span>Nhật Ký Thao Tác Kỹ Thuật Trị Liệu</span>
+      {/* KHỐI 2: NHẬT KÝ THAO TÁC KỸ THUẬT TRỊ LIỆU (ĐỒNG BỘ KHỐI ROM/MMT) */}
+      <div
+        id="technician-protocol-card"
+        className="space-y-4 pb-6 border-b border-slate-100 dark:border-zinc-800"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Zap className="size-4 text-cyan-600" />
+            <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 uppercase tracking-wider">
+              2. Nhật ký thao tác kỹ thuật trị liệu: *
+            </h4>
           </div>
-          <span className="text-xs font-bold text-slate-400">
-            {logs.length} kỹ thuật đã thực hiện
-          </span>
-        </div>
 
-        {/* QUY TRÌNH KỸ THUẬT THEO GÓI DỊCH VỤ (KẾT NỐI ĐỘNG TỪ DB) */}
-        <div className="bg-slate-50 dark:bg-zinc-800/40 border border-slate-200/70 dark:border-zinc-700/60 rounded-2xl p-4 space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/60 dark:border-zinc-700/60 pb-2.5">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-zinc-200">
-                📋 Quy trình kỹ thuật chuẩn của gói: <span className="text-teal-600 dark:text-teal-400">{appointmentDetail?.ten_dich_vu || 'Vật lý trị liệu'}</span>
-              </span>
-            </div>
-
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-955/50 px-3 py-1 rounded-full border border-teal-200/60 font-mono">
+              {logs.length} / {packageSteps.length} kỹ thuật đã chọn
+            </span>
             <button
               type="button"
               onClick={handleSelectAllPackageProtocol}
-              className="px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-black text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm cursor-pointer whitespace-nowrap"
+              className="text-xs text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1 font-bold cursor-pointer"
             >
-              <Zap size={14} />
-              <span>⚡ TÍCH CHỌN TẤT CẢ THEO QUY TRÌNH GÓI</span>
+              <Zap size={14} /> Tích chọn tất cả
             </button>
           </div>
-
-          {/* CHECKLIST CÁC BƯỚC CỦA GÓI */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-            {packageSteps.map(step => {
-              const isLogged = logs.some(l => l.noi_dung === step.name);
-              return (
-                <button
-                  key={step.name}
-                  type="button"
-                  onClick={() => togglePackageStep(step.name)}
-                  className={`p-3.5 rounded-xl border text-left flex items-center justify-between gap-2 transition-all cursor-pointer ${
-                    isLogged
-                      ? 'bg-teal-50 dark:bg-teal-950/40 border-teal-300 dark:border-teal-700 text-teal-900 dark:text-teal-200 font-bold shadow-xs'
-                      : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:border-teal-200'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <span className="text-base">{step.icon}</span>
-                    <span className="text-xs leading-relaxed">{step.name}</span>
-                  </div>
-                  <div className={`size-5 rounded-md flex items-center justify-center border transition-all shrink-0 ${
-                    isLogged ? 'bg-teal-600 border-teal-600 text-white' : 'border-slate-300 dark:border-zinc-600 bg-white dark:bg-zinc-800'
-                  }`}>
-                    {isLogged && <CheckCircle2 size={13} />}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
         </div>
 
-        {/* THÊM NHANH TỪ PRESET KỸ THUẬT BỔ SUNG */}
-        <div className="space-y-2 pt-1">
-          <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider block">
-            Thêm kỹ thuật bổ sung / phát sinh ngoài gói:
-          </span>
-          <div className="flex flex-wrap gap-2">
-            {PRESET_TECHNIQUES.map(pt => (
+        {/* THÔNG BÁO LỖI NẾU CHƯA CHỌN MÀ BẤM HOÀN THÀNH */}
+        {triedSubmitWithoutLogs && logs.length === 0 && (
+          <div className="p-3.5 rounded-2xl bg-rose-50/90 dark:bg-rose-955/60 border border-rose-200 dark:border-rose-800/80 text-rose-800 dark:text-rose-200 text-xs font-bold flex items-center gap-2 animate-in fade-in duration-200">
+            <AlertTriangle size={17} className="text-rose-600 shrink-0" />
+            <span>Vui lòng tích chọn các thao tác kỹ thuật đã thực hiện dưới đây trước khi hoàn thành ca trị liệu!</span>
+          </div>
+        )}
+
+        {/* CHECKLIST CÁC BƯỚC CỦA GÓI */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+          {packageSteps.map(step => {
+            const isLogged = logs.some(l => l.noi_dung === step.name);
+            return (
               <button
-                key={pt.name}
+                key={step.name}
                 type="button"
-                onClick={() => handleAddPreset(pt.name)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-teal-50 hover:text-teal-700 dark:bg-zinc-800 dark:hover:bg-teal-950/40 dark:hover:text-teal-300 text-slate-700 dark:text-zinc-300 text-xs font-bold transition-all border border-transparent hover:border-teal-200 cursor-pointer"
+                onClick={() => togglePackageStep(step.name)}
+                className={`p-3.5 rounded-2xl border text-left flex items-center justify-between gap-3 transition-all cursor-pointer ${
+                  isLogged
+                    ? 'bg-teal-50/80 dark:bg-teal-955/40 border-teal-400 dark:border-teal-700 text-teal-950 dark:text-teal-100 font-bold shadow-xs'
+                    : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-teal-300'
+                }`}
               >
-                <span>{pt.icon}</span>
-                <span>{pt.name}</span>
-                <Plus size={12} className="ml-0.5 text-teal-600" />
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* FORM NHẬP KỸ THUẬT TÙY CHỈNH */}
-        <div className="flex flex-col sm:flex-row gap-3 pt-2">
-          <input
-            type="text"
-            placeholder="Nhập tên kỹ thuật thủ công khác (ví dụ: Tập di động khớp vai)..."
-            value={newTechniqueName}
-            onChange={e => setNewTechniqueName(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddCustomTechnique())}
-            className="flex-1 px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 text-xs font-medium text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500/50"
-          />
-          <button
-            type="button"
-            onClick={handleAddCustomTechnique}
-            className="px-5 py-2.5 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer whitespace-nowrap"
-          >
-            <Plus size={14} />
-            <span>Thêm mục</span>
-          </button>
-        </div>
-
-        {/* DANH SÁCH NHẬT KÝ KỸ THUẬT ĐÃ THỰC HIỆN */}
-        <div className="border border-slate-100 dark:border-zinc-800 rounded-2xl overflow-hidden divide-y divide-slate-100 dark:divide-zinc-800">
-          {logs.length === 0 ? (
-            <div className="p-8 text-center text-slate-400 text-xs font-medium">
-              Chưa ghi nhận kỹ thuật nào. Bấm nút [ ⚡ Tích Chọn Tất Cả Theo Quy Trình Gói ] ở trên hoặc chọn các mục từ danh sách.
-            </div>
-          ) : (
-            logs.map((item, idx) => (
-              <div key={idx} className="p-3.5 bg-white dark:bg-zinc-900 flex items-center justify-between gap-3 hover:bg-slate-50/50 dark:hover:bg-zinc-800/30 transition-all">
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="text-xs font-bold text-slate-800 dark:text-zinc-200 truncate">
-                    {item.noi_dung}
-                  </span>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="text-lg">{step.icon}</span>
+                  <span className="text-xs leading-relaxed">{step.name}</span>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => handleRemoveLog(idx)}
-                  className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-all shrink-0"
-                  title="Xóa kỹ thuật"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            ))
-          )}
+                <div className={`size-5 rounded-md flex items-center justify-center border transition-all shrink-0 ${
+                  isLogged ? 'bg-teal-600 border-teal-600 text-white' : 'border-slate-300 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800'
+                }`}>
+                  {isLogged && <CheckCircle2 size={13} />}
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* CARD 4: GHI CHÚ DIỄN TIẾN CA TRỊ LIỆU */}
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
-        <div className="flex items-center gap-2 text-slate-800 dark:text-zinc-100 font-black text-sm uppercase tracking-wider font-jakarta border-b border-slate-100 dark:border-zinc-800 pb-3">
-          <FileText className="text-slate-600 dark:text-zinc-400" size={18} />
-          <span>Ghi Chú Diễn Tiến & Dặn Dò KTV</span>
+      {/* KHỐI 3: GHI CHÚ DIỄN TIẾN CA TRỊ LIỆU */}
+      <div className="space-y-3 pb-6 border-b border-slate-100 dark:border-zinc-800">
+        <div className="flex items-center gap-2">
+          <FileText className="size-4 text-slate-600 dark:text-zinc-400" />
+          <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 uppercase tracking-wider">
+            3. Ghi chú diễn tiến & dặn dò KTV:
+          </h4>
         </div>
 
         <textarea
@@ -612,16 +543,16 @@ export function TechnicianTreatmentDesk({
           placeholder="Nhập ghi chú phản ứng của khách hàng, mức đáp ứng trị liệu, dặn dò KTV cho các buổi tiếp theo..."
           value={notes}
           onChange={e => setNotes(e.target.value)}
-          className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 text-xs font-medium text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500/50 leading-relaxed resize-none"
+          className="w-full p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-xs font-medium text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500/50 leading-relaxed resize-none shadow-2xs"
         />
       </div>
 
-      {/* FOOTER ACTION BAR */}
-      <div className="flex items-center justify-end gap-4 pt-2">
+      {/* KHỐI 4: NÚT HOÀN THÀNH CA TRỊ LIỆU */}
+      <div className="flex items-center justify-end pt-2">
         <button
           type="button"
-          onClick={() => setShowConfirmModal(true)}
-          className="px-8 py-3.5 rounded-2xl bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-teal-600/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+          onClick={handleOpenCompleteModal}
+          className="px-8 py-3.5 rounded-2xl text-white font-black text-xs uppercase tracking-wider shadow-lg bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 shadow-teal-600/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
         >
           <CheckCircle2 size={18} />
           <span>HOÀN THÀNH CA TRỊ LIỆU</span>

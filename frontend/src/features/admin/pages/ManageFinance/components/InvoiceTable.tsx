@@ -43,10 +43,29 @@ export function InvoiceTable({ invoices, loading, page, pageSize, onPageChange, 
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {pageInvoices.map((inv) => {
+                  const isRefunded = inv.trang_thai === 'da_hoan_tien';
+                  const isCanceled = inv.trang_thai === 'da_huy';
                   const isPayPerSession = inv.hinh_thuc_thanh_toan_goi === 'tung_buoi';
                   const isUnpaid = inv.trang_thai === 'chua_thanh_toan' || inv.trang_thai === 'dang_cho_thanh_toan';
-                  const isDue = isUnpaid || Number(inv.da_thanh_toan) < Number(inv.tong_tien_thanh_toan);
+                  const isDue = !isRefunded && !isCanceled && (isUnpaid || Number(inv.da_thanh_toan) < Number(inv.tong_tien_thanh_toan));
                   const showCollectBtn = isDue && !isPayPerSession;
+
+                  let statusLabel = 'Đã thanh toán';
+                  let statusBadgeCls = 'bg-emerald-50 text-emerald-800 dark:bg-emerald-955/60 dark:text-emerald-300 border-emerald-200/80';
+
+                  if (isRefunded) {
+                    statusLabel = 'Đã hoàn tiền';
+                    statusBadgeCls = 'bg-rose-50 text-rose-700 dark:bg-rose-955/60 dark:text-rose-300 border-rose-200/80';
+                  } else if (isCanceled) {
+                    statusLabel = 'Đã hủy';
+                    statusBadgeCls = 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border-slate-200';
+                  } else if (isPayPerSession) {
+                    statusLabel = 'Đang trả từng buổi';
+                    statusBadgeCls = 'bg-sky-50 text-sky-800 dark:bg-sky-955/60 dark:text-sky-300 border-sky-200/80 dark:border-sky-800/80';
+                  } else if (isDue) {
+                    statusLabel = 'Chờ thanh toán';
+                    statusBadgeCls = 'bg-amber-50 text-amber-800 dark:bg-amber-955/60 dark:text-amber-300 border-amber-200/80 dark:border-amber-800/80';
+                  }
 
                   return (
                     <tr
@@ -68,7 +87,9 @@ export function InvoiceTable({ invoices, loading, page, pageSize, onPageChange, 
                       <td className="p-4">
                         <div className="flex items-center gap-2.5 min-w-0">
                           <div className={`size-8 rounded-full font-black text-xs flex items-center justify-center shrink-0 border ${
-                            isDue ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-200 dark:border-amber-800 font-extrabold' : 'bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 border-slate-200 dark:border-zinc-700'
+                            isDue
+                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-955 dark:text-amber-300 border-amber-200 dark:border-amber-800 font-extrabold'
+                              : 'bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 border-slate-200 dark:border-zinc-700'
                           }`}>
                             {(inv.ten_khach_hang || 'K').trim().split(/\s+/).pop()?.[0] || 'K'}
                           </div>
@@ -92,25 +113,19 @@ export function InvoiceTable({ invoices, loading, page, pageSize, onPageChange, 
 
                       {/* 4. TRẠNG THÁI */}
                       <td className="p-4 text-center">
-                        <span className={`text-[11px] font-extrabold px-3 py-1 rounded-full border inline-block whitespace-nowrap ${
-                          isPayPerSession
-                            ? 'bg-amber-50 text-amber-800 dark:bg-amber-955/60 dark:text-amber-300 border-amber-200/80 dark:border-amber-800/80'
-                            : isDue
-                              ? 'bg-amber-50 text-amber-800 dark:bg-amber-955/60 dark:text-amber-300 border-amber-200/80 dark:border-amber-800/80'
-                              : 'bg-emerald-50 text-emerald-800 dark:bg-emerald-955/60 dark:text-emerald-300 border-emerald-200/80'
-                        }`}>
-                          {isPayPerSession
-                            ? 'Đang trả từng buổi'
-                            : isDue
-                              ? 'Chờ thanh toán'
-                              : 'Đã thanh toán'}
+                        <span className={`text-[11px] font-extrabold px-3 py-1 rounded-full border inline-block whitespace-nowrap ${statusBadgeCls}`}>
+                          {statusLabel}
                         </span>
                       </td>
 
                       {/* 5. THANH TOÁN */}
                       <td className="p-4 font-mono font-black text-xs">
-                        <span className={isDue ? 'text-amber-700 dark:text-amber-400 font-black' : 'text-emerald-600 dark:text-emerald-400 font-black'}>
-                          {formatCurrency(inv.tong_tien_thanh_toan)}
+                        <span className={
+                          isDue
+                            ? 'text-amber-700 dark:text-amber-400 font-black'
+                            : 'text-emerald-600 dark:text-emerald-400 font-black'
+                        }>
+                          {formatCurrency(isRefunded ? inv.da_thanh_toan : inv.tong_tien_thanh_toan)}
                         </span>
                       </td>
 

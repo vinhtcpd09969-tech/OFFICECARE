@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { Receipt, CreditCard } from 'lucide-react';
 import { formatCurrency } from '../../../../../utils/format';
 import { ConfirmDialog } from '../../../../../components/ConfirmDialog';
+import { useAuthStore } from '../../../../../stores/authStore';
+import { useActiveShiftCheck } from '../../../../../hooks/useActiveShiftCheck';
+import toast from 'react-hot-toast';
 import type { Invoice } from '../hooks/useFinanceDashboard';
 
 interface FastPaymentModalProps {
@@ -30,6 +33,8 @@ export const FastPaymentModal: React.FC<FastPaymentModalProps> = ({
   loading,
 }) => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const user = useAuthStore((state) => state.user);
+  const { hasShiftToday, isSuperUser } = useActiveShiftCheck();
   if (!invoice) return null;
 
   const isRefundedOrCancelled = invoice.trang_thai === 'da_hoan_tien' || invoice.trang_thai === 'da_huy';
@@ -53,6 +58,10 @@ export const FastPaymentModal: React.FC<FastPaymentModalProps> = ({
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (Number(user?.vai_tro_id) === 2 && !hasShiftToday && !isSuperUser) {
+      toast.error('Bạn không có ca trực phân công hôm nay để thực hiện thu ngân tại quầy.');
+      return;
+    }
     setShowConfirmModal(true);
   };
 
@@ -273,8 +282,9 @@ export const FastPaymentModal: React.FC<FastPaymentModalProps> = ({
               </button>
               <button
                 type="submit"
-                disabled={loading}
-                className="flex-1 py-3 bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-md transition-all cursor-pointer"
+                disabled={loading || (Number(user?.vai_tro_id) === 2 && !hasShiftToday && !isSuperUser)}
+                title={Number(user?.vai_tro_id) === 2 && !hasShiftToday && !isSuperUser ? 'Bạn không có ca trực phân công hôm nay để thu tiền' : undefined}
+                className="flex-1 py-3 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-md transition-all cursor-pointer"
               >
                 {loading ? 'Đang xử lý...' : method === 'chuyen_khoan' ? 'Tiếp tục quét mã QR' : 'Xác nhận thu'}
               </button>
@@ -288,8 +298,8 @@ export const FastPaymentModal: React.FC<FastPaymentModalProps> = ({
         title="Xác nhận thu tiền thanh toán"
         message={
           method === 'chuyen_khoan'
-            ? `Mở cổng thanh toán QR PayOS để thu ${formatCurrency(amountToConfirm)} cho bệnh nhân "${invoice.ten_khach_hang}" (Mã HĐ: ${invoice.ma_hoa_don})? Hóa đơn chỉ được đánh dấu đã thu sau khi hệ thống xác nhận tiền đã về qua webhook.`
-            : `Bạn có chắc chắn muốn xác nhận thu ${formatCurrency(amountToConfirm)} cho bệnh nhân "${invoice.ten_khach_hang}" (Mã HĐ: ${invoice.ma_hoa_don}) qua hình thức Tiền mặt?`
+            ? `Mở cổng thanh toán QR PayOS để thu ${formatCurrency(amountToConfirm)} cho khách hàng "${invoice.ten_khach_hang}" (Mã HĐ: ${invoice.ma_hoa_don})? Hóa đơn chỉ được đánh dấu đã thu sau khi hệ thống xác nhận tiền đã về qua webhook.`
+            : `Bạn có chắc chắn muốn xác nhận thu ${formatCurrency(amountToConfirm)} cho khách hàng "${invoice.ten_khach_hang}" (Mã HĐ: ${invoice.ma_hoa_don}) qua hình thức Tiền mặt?`
         }
         confirmLabel={method === 'chuyen_khoan' ? 'Mở cổng thanh toán QR' : 'Đồng ý & Thu tiền'}
         cancelLabel="Kiểm tra lại"

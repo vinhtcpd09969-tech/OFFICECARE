@@ -10,8 +10,8 @@
  */
 
 const IN_PROGRESS_LOCKED_STATUSES = ['dang_kham', 'hoan_thanh'];
-const CANCELLED_STATUSES = ['da_huy', 'da_huy_phat'];
-const NO_SHOW_STATUSES = ['khong_den', 'khach_khong_den', 'khach_khong_den_phat'];
+const CANCELLED_STATUSES = ['da_huy'];
+const NO_SHOW_STATUSES = ['khong_den'];
 export const TERMINAL_STATUSES = [...CANCELLED_STATUSES, ...NO_SHOW_STATUSES];
 
 export interface ReceptionistTransitionCheck {

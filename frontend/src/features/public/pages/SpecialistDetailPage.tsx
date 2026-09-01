@@ -133,14 +133,14 @@ export default function SpecialistDetailPage() {
 
   return (
     <div className="min-h-screen bg-slate-50/50 pb-20 pt-6 font-jakarta">
-      <div className="max-w-6xl mx-auto px-6 relative z-10">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         
         {/* Sleek E-Commerce Standard Breadcrumb Bar */}
-        <div className="mb-4 flex items-center gap-2 text-xs font-semibold text-slate-500 flex-wrap">
+        <div className="mb-5 flex items-center gap-2 text-xs font-semibold text-slate-500 flex-wrap">
           <button
             type="button"
             onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/specialists'))}
-            className="inline-flex items-center gap-1.5 text-[#0D9488] font-extrabold hover:text-[#0b7a70] transition-colors cursor-pointer mr-1"
+            className="inline-flex items-center gap-1.5 text-[#0D9488] font-extrabold hover:text-[#0b7a70] transition-colors cursor-pointer mr-1 bg-teal-50/80 px-3 py-1.5 rounded-lg border border-teal-100/60"
           >
             <ArrowLeft size={14} />
             <span>Quay lại</span>
@@ -175,12 +175,13 @@ export default function SpecialistDetailPage() {
             <div className="flex-1 space-y-3.5 text-center md:text-left">
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
-                  <span className={`text-[9.5px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg border inline-block ${
+                  <span className={`text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-lg border inline-flex items-center gap-1 ${
                     isDoctor
-                      ? 'bg-[#0D9488]/10 text-[#0D9488] border-[#0D9488]/20'
-                      : 'bg-amber-50 text-amber-700 border-amber-200'
+                      ? 'bg-teal-50 text-[#0D9488] border-teal-200'
+                      : 'bg-blue-50 text-blue-700 border-blue-200'
                   }`}>
-                    {specialist.vai_tro}
+                    <span>{isDoctor ? '🩺' : '💆'}</span>
+                    <span>{isDoctor ? 'Chuyên viên tư vấn' : 'Kỹ thuật viên'}</span>
                   </span>
 
                   <div className="flex items-center gap-1 text-[11px] font-bold text-slate-600 bg-slate-50 px-2.5 py-0.5 rounded-md border border-slate-200">
@@ -452,8 +453,8 @@ export default function SpecialistDetailPage() {
                           </div>
                         )}
                       </div>
-                      <span className={`text-[8px] font-black uppercase tracking-widest ${specIsDoctor ? 'text-[#0D9488]' : 'text-[#D97706]'}`}>
-                        {spec.vai_tro}
+                      <span className={`text-[9px] font-black uppercase tracking-wider ${specIsDoctor ? 'text-[#0D9488]' : 'text-blue-600'}`}>
+                        {specIsDoctor ? 'Chuyên viên tư vấn' : 'Kỹ thuật viên'}
                       </span>
                       <h3 className="font-heading font-black text-sm text-slate-900 leading-tight mb-3">{spec.ho_ten}</h3>
                       <Link

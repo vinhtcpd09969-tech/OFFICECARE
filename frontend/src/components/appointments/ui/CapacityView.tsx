@@ -3,7 +3,7 @@ import { format, startOfWeek, addDays, isSameDay, isToday } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { motion } from 'framer-motion';
 import { User, MapPin, ChevronRight, Calendar, Search } from 'lucide-react';
-import { statusConfig } from '../../appointmentStatusConfig';
+import { statusConfig } from '../appointmentStatusConfig';
 import { getSmartSearchScore } from '../../../utils/smartSearch';
 
 interface CapacityViewProps {
@@ -89,13 +89,19 @@ export function CapacityView({
       return format(aptDate, 'yyyy-MM-dd') === dayStr;
     });
 
-    const activeRooms = Array.from(new Set(dayApts.map(apt => apt.phong_id).filter(Boolean)));
-    const activeDocs = Array.from(new Set(dayApts.map(apt => apt.bac_si_id).filter(Boolean)));
+    // Tách các ca hợp lệ (chiếm công suất/thực tế phục vụ) và ca đã hủy / vắng mặt
+    const activeApts = dayApts.filter(apt => apt.trang_thai !== 'da_huy' && apt.trang_thai !== 'khong_den');
+    const cancelledCount = dayApts.filter(apt => apt.trang_thai === 'da_huy').length;
+    const noShowCount = dayApts.filter(apt => apt.trang_thai === 'khong_den').length;
+
+    const activeRooms = Array.from(new Set(activeApts.map(apt => apt.phong_id).filter(Boolean)));
+    const activeDocs = Array.from(new Set(activeApts.map(apt => apt.bac_si_id || apt.nhan_su_id).filter(Boolean)));
 
     const maxDailyCapacity = 20; // 20 slots max
-    const percentage = Math.min(Math.round((dayApts.length / maxDailyCapacity) * 100), 100);
+    // Tỉ lệ lấp đầy tính theo số ca thực tế hoạt động
+    const percentage = Math.min(Math.round((activeApts.length / maxDailyCapacity) * 100), 100);
 
-    // Xác định mức độ tải
+    // Xác định mức độ tải dựa trên tải thực tế
     let loadLevel = 'Thấp';
     if (percentage >= 75) {
       loadLevel = 'Cao';
@@ -104,34 +110,24 @@ export function CapacityView({
     }
 
     return {
-      count: dayApts.length,
+      totalCount: dayApts.length,
+      activeCount: activeApts.length,
+      cancelledCount,
+      noShowCount,
       percentage,
       loadLevel,
       activeRoomsCount: activeRooms.length,
       activeDocsCount: activeDocs.length,
       activeDocsList: Array.from(new Set(activeDocs.map(id => {
-        const aptWithDoc = dayApts.find(apt => apt.bac_si_id === id);
-        if (aptWithDoc?.ten_ky_thuat_vien) {
-          const fullName = aptWithDoc.ten_ky_thuat_vien;
-          const prefix = activeType === 'kham' ? 'BS. ' : 'KTV. ';
+        const staffObj = staffList?.find(s => s.id === id || s.nhan_su_id === id);
+        const aptWithDoc = activeApts.find(apt => apt.bac_si_id === id || apt.nhan_su_id === id || apt.ky_thuat_vien_id === id);
+        const fullName = staffObj?.ho_ten || staffObj?.ten || aptWithDoc?.ten_ky_thuat_vien || aptWithDoc?.ten_bac_si || aptWithDoc?.ten_nhan_su || aptWithDoc?.ho_ten_nhan_su;
+        const prefix = activeType === 'kham' ? 'CV. ' : 'KTV. ';
+        if (fullName) {
           const parts = fullName.trim().split(' ');
           const lastName = parts[parts.length - 1];
           return `${prefix}${lastName}`;
         }
-        if (aptWithDoc?.ten_bac_si) {
-          const fullName = aptWithDoc.ten_bac_si;
-          const prefix = activeType === 'kham' ? 'BS. ' : 'KTV. ';
-          const parts = fullName.trim().split(' ');
-          const lastName = parts[parts.length - 1];
-          return `${prefix}${lastName}`;
-        }
-        const prefix = activeType === 'kham' ? 'BS. ' : 'KTV. ';
-        if (id === 'doc_1' || id === '20000000-0000-0000-0000-000000000005') return `${prefix}Khoa`;
-        if (id === 'doc_2' || id === '20000000-0000-0000-0000-000000000006') return `${prefix}Lan Anh`;
-        if (id === 'doc_3' || id === '20000000-0000-0000-0000-000000000007') return `${prefix}Hưng`;
-        if (id === 'doc_4' || id === '20000000-0000-0000-0000-000000000008') return `${prefix}Minh`;
-        if (id === 'ktv_1' || id === '20000000-0000-0000-0000-000000000009') return `${prefix}Tuấn`;
-        if (id === 'ktv_2' || id === '20000000-0000-0000-0000-000000000010') return `${prefix}Trang`;
         return `${prefix}Nhân viên`;
       })))
     };
@@ -197,7 +193,7 @@ export function CapacityView({
       ? staffList.find(s => String(s.id) === String(selectedStaffFilter))
       : null;
     const staffName = selectedStaff
-      ? `${activeType === 'kham' ? 'BS.' : 'KTV.'} ${selectedStaff.ho_ten}`
+      ? `${activeType === 'kham' ? 'CV.' : 'KTV.'} ${selectedStaff.ho_ten}`
       : 'chuyên gia';
 
     const headerText = cleanSearch && activeStatusLabel
@@ -369,9 +365,19 @@ export function CapacityView({
               {/* Load Progress Column */}
               <div className="flex-1 min-w-0 max-w-sm flex flex-col gap-1.5">
                 <div className="flex justify-between items-center text-[10px] font-bold">
-                  <span className="text-slate-500 dark:text-zinc-400">
-                    {stats.count} {activeType === 'kham' ? 'ca khám đã đặt' : 'ca điều trị đã đặt'}
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-slate-700 dark:text-zinc-200">
+                      {stats.activeCount} {activeType === 'kham' ? 'ca lượng giá' : 'ca điều trị'}
+                    </span>
+                    {(stats.cancelledCount > 0 || stats.noShowCount > 0) && (
+                      <span className="text-[9px] font-semibold text-slate-400 dark:text-zinc-500">
+                        ({[
+                          stats.cancelledCount > 0 ? `${stats.cancelledCount} hủy` : '',
+                          stats.noShowCount > 0 ? `${stats.noShowCount} vắng` : ''
+                        ].filter(Boolean).join(', ')})
+                      </span>
+                    )}
+                  </div>
                   <span className={`${textColor} font-black font-mono`}>{stats.percentage}% lấp đầy</span>
                 </div>
                 
@@ -396,11 +402,11 @@ export function CapacityView({
               {/* Doctor/KTV On Duty Column */}
               <div className="w-52 shrink-0 flex flex-col justify-center">
                 <span className="text-[9px] text-slate-400 dark:text-zinc-550 font-bold uppercase tracking-wider block mb-1">
-                  {activeType === 'kham' ? 'Bác sĩ trực' : 'Kỹ thuật viên trực'}
+                  {activeType === 'kham' ? 'Chuyên viên trực' : 'Kỹ thuật viên trực'}
                 </span>
                 <div className="flex items-center gap-1.5 font-bold text-xs text-slate-700 dark:text-zinc-350">
                   <User size={13} className="text-slate-400 shrink-0" />
-                  <span>{stats.activeDocsCount} {activeType === 'kham' ? 'Bác sĩ' : 'Kỹ thuật viên'}</span>
+                  <span>{stats.activeDocsCount} {activeType === 'kham' ? 'Chuyên viên' : 'Kỹ thuật viên'}</span>
                 </div>
                 {stats.activeDocsList.length > 0 ? (
                   <p className="text-[10px] text-slate-500 dark:text-zinc-400 mt-1 font-medium truncate max-w-[190px]">

@@ -18,6 +18,8 @@ interface AppointmentsFilterBarProps {
   canToggleType?: boolean;
   setViewMode?: (mode: 'timeline' | 'capacity') => void;
   onOpenWalkInModal?: () => void;
+  embedded?: boolean;
+  appointments?: any[];
 }
 
 export function AppointmentsFilterBar({
@@ -32,7 +34,9 @@ export function AppointmentsFilterBar({
   onToggleType,
   canToggleType = false,
   setViewMode: _setViewMode,
-  onOpenWalkInModal
+  onOpenWalkInModal,
+  embedded = false,
+  appointments = []
 }: AppointmentsFilterBarProps) {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [pickerNavDate, setPickerNavDate] = useState<Date>(startDate || new Date());
@@ -159,35 +163,164 @@ export function AppointmentsFilterBar({
     setIsPickerOpen(false);
   };
 
+  // Theo dõi mốc thời gian xem lần cuối của từng Tab trong localStorage
+  const [lastViewKham, setLastViewKham] = useState<string>(() => {
+    return localStorage.getItem('officecare_last_view_kham') || new Date(0).toISOString();
+  });
+  const [lastViewDieuTri, setLastViewDieuTri] = useState<string>(() => {
+    return localStorage.getItem('officecare_last_view_dieu_tri') || new Date(0).toISOString();
+  });
+
+  // Tự động cập nhật mốc thời gian của tab hiện tại khi người dùng đang xem
+  useEffect(() => {
+    const nowIso = new Date().toISOString();
+    if (activeType === 'kham') {
+      localStorage.setItem('officecare_last_view_kham', nowIso);
+      setLastViewKham(nowIso);
+    } else {
+      localStorage.setItem('officecare_last_view_dieu_tri', nowIso);
+      setLastViewDieuTri(nowIso);
+    }
+  }, [activeType]);
+
+  // Tính số lượng ca chờ check-in và số ca mới phát sinh từ mốc xem lần cuối
+  const { khamPendingCount, dieuTriPendingCount, khamNewCount, dieuTriNewCount } = useMemo(() => {
+    if (!appointments || !Array.isArray(appointments)) {
+      return { khamPendingCount: 0, dieuTriPendingCount: 0, khamNewCount: 0, dieuTriNewCount: 0 };
+    }
+
+    let khamPending = 0;
+    let dieuTriPending = 0;
+    let khamNew = 0;
+    let dieuTriNew = 0;
+
+    const khamViewTime = new Date(lastViewKham).getTime();
+    const dieuTriViewTime = new Date(lastViewDieuTri).getTime();
+
+    appointments.forEach((apt) => {
+      const status = String(apt.trang_thai || '').toLowerCase();
+      const isPending = status === 'da_xac_nhan' || status === 'chua_den';
+      if (!isPending) return;
+
+      const loai = String(apt.loai || '').toLowerCase();
+      const loaiDichVu = String(apt.loai_dich_vu || '').toLowerCase();
+      const loaiLich = String(apt.loai_lich || '').toLowerCase();
+
+      const isKham = loai === 'kham' || loai === 'kham_moi' || loaiDichVu === 'kham' || loaiLich === 'kham_moi' || loaiLich === 'kham';
+      const isDieuTri = loai === 'dieu_tri' || loai === 'dich_vu_le' || loai === 'dich_vu_don' || loaiDichVu === 'dieu_tri' || loaiLich === 'dieu_tri' || loaiLich === 'dich_vu_don' || loaiLich === 'tai_kham';
+
+      const createdAtTime = apt.thoi_gian_tao ? new Date(apt.thoi_gian_tao).getTime() : (apt.created_at ? new Date(apt.created_at).getTime() : 0);
+
+      if (isKham) {
+        khamPending++;
+        if (createdAtTime > khamViewTime) {
+          khamNew++;
+        }
+      } else if (isDieuTri) {
+        dieuTriPending++;
+        if (createdAtTime > dieuTriViewTime) {
+          dieuTriNew++;
+        }
+      }
+    });
+
+    return {
+      khamPendingCount: khamPending,
+      dieuTriPendingCount: dieuTriPending,
+      khamNewCount: khamNew,
+      dieuTriNewCount: dieuTriNew
+    };
+  }, [appointments, lastViewKham, lastViewDieuTri]);
+
   return (
-    <div className="relative bg-white dark:bg-zinc-900 rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.02)] border border-slate-150 dark:border-zinc-800/80 p-4 lg:p-5 space-y-4 transition-all duration-300">
+    <div className={`relative transition-all duration-300 ${
+      embedded
+        ? 'space-y-4'
+        : 'bg-white dark:bg-zinc-900 rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.02)] border border-slate-150 dark:border-zinc-800/80 p-4 lg:p-5 space-y-4'
+    }`}>
       {/* 2 NÚT TAB TỔ BỐ MỖI NÚT 50% CHIỀU RỘNG MÀN HÌNH (BẤM CHUYỂN CỰC SƯỚNG) */}
       {canToggleType && (
         <div className="grid grid-cols-2 gap-3 p-1.5 bg-slate-100 dark:bg-zinc-800/80 rounded-2xl border border-slate-200/50 dark:border-zinc-700/80 select-none">
           <button
             type="button"
-            onClick={() => { if (activeType !== 'kham') onToggleType(); }}
-            className={`w-full py-3.5 px-4 text-sm font-black uppercase tracking-wider rounded-xl transition-all duration-200 flex items-center justify-center gap-2.5 active:scale-[0.99] cursor-pointer ${
+            onClick={() => {
+              if (activeType !== 'kham') {
+                const nowIso = new Date().toISOString();
+                localStorage.setItem('officecare_last_view_kham', nowIso);
+                setLastViewKham(nowIso);
+                onToggleType();
+              }
+            }}
+            className={`relative w-full py-3 px-4 text-sm font-black uppercase tracking-wider rounded-xl transition-all duration-200 flex flex-wrap items-center justify-center gap-2 active:scale-[0.99] cursor-pointer ${
               activeType === 'kham'
                 ? 'bg-gradient-to-r from-teal-600 to-cyan-600 text-white shadow-md shadow-teal-600/25 border border-teal-500/30'
-                : 'text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-200/50'
+                : 'text-slate-600 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-200/60 bg-white/60 dark:bg-zinc-800/60 border border-slate-200/40 dark:border-zinc-700/40'
             }`}
           >
-            <Stethoscope size={18} className="shrink-0" />
-            <span>🩺 LỊCH LƯỢNG GIÁ CHỨC NĂNG</span>
+            <div className="flex items-center gap-2">
+              <Stethoscope size={18} className="shrink-0" />
+              <span>LỊCH LƯỢNG GIÁ CHỨC NĂNG</span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              {/* Badge số lượng ca chờ check-in */}
+              <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full transition-all flex items-center gap-1 ${
+                activeType === 'kham'
+                  ? 'bg-white/20 text-white border border-white/30 backdrop-blur-xs'
+                  : 'bg-teal-50 text-teal-800 dark:bg-teal-950/60 dark:text-teal-300 border border-teal-200 dark:border-teal-800/60'
+              }`}>
+                {khamPendingCount} chờ check-in
+              </span>
+
+              {/* Badge thông báo ca mới (+N mới) với hiệu ứng Pulse nhấp nháy nổi bật khi ở tab đối diện */}
+              {khamNewCount > 0 && activeType !== 'kham' && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-black uppercase bg-rose-500 text-white rounded-full shadow-sm shadow-rose-500/40 animate-pulse border border-white">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                  +{khamNewCount} mới
+                </span>
+              )}
+            </div>
           </button>
 
           <button
             type="button"
-            onClick={() => { if (activeType !== 'dieu_tri') onToggleType(); }}
-            className={`w-full py-3.5 px-4 text-sm font-black uppercase tracking-wider rounded-xl transition-all duration-200 flex items-center justify-center gap-2.5 active:scale-[0.99] cursor-pointer ${
+            onClick={() => {
+              if (activeType !== 'dieu_tri') {
+                const nowIso = new Date().toISOString();
+                localStorage.setItem('officecare_last_view_dieu_tri', nowIso);
+                setLastViewDieuTri(nowIso);
+                onToggleType();
+              }
+            }}
+            className={`relative w-full py-3 px-4 text-sm font-black uppercase tracking-wider rounded-xl transition-all duration-200 flex flex-wrap items-center justify-center gap-2 active:scale-[0.99] cursor-pointer ${
               activeType === 'dieu_tri'
                 ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/25 border border-amber-500/30'
-                : 'text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-200/50'
+                : 'text-slate-600 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-200/60 bg-white/60 dark:bg-zinc-800/60 border border-slate-200/40 dark:border-zinc-700/40'
             }`}
           >
-            <Zap size={18} className="shrink-0" />
-            <span>⚡ LỊCH ĐIỀU TRỊ VẬT LÝ</span>
+            <div className="flex items-center gap-2">
+              <Zap size={18} className="shrink-0" />
+              <span>LỊCH ĐIỀU TRỊ VẬT LÝ</span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              {/* Badge số lượng ca chờ check-in */}
+              <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full transition-all flex items-center gap-1 ${
+                activeType === 'dieu_tri'
+                  ? 'bg-white/20 text-white border border-white/30 backdrop-blur-xs'
+                  : 'bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60'
+              }`}>
+                {dieuTriPendingCount} chờ check-in
+              </span>
+
+              {/* Badge thông báo ca mới (+N mới) với hiệu ứng Pulse nhấp nháy nổi bật khi ở tab đối diện */}
+              {dieuTriNewCount > 0 && activeType !== 'dieu_tri' && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-black uppercase bg-rose-500 text-white rounded-full shadow-sm shadow-rose-500/40 animate-pulse border border-white">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                  +{dieuTriNewCount} mới
+                </span>
+              )}
+            </div>
           </button>
         </div>
       )}
@@ -224,14 +357,14 @@ export function AppointmentsFilterBar({
             </button>
           )}
 
-          {/* Ô Tìm Kiếm Bệnh Nhân */}
+          {/* Ô Tìm Kiếm Khách Hàng */}
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500 pointer-events-none" size={15} />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search / Tìm tên bệnh nhân, mã..."
+              placeholder="Search / Tìm tên khách hàng, mã..."
               className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-zinc-850/60 border border-slate-200/80 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 text-xs font-bold rounded-xl outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all placeholder-slate-400 dark:placeholder-zinc-500"
             />
           </div>

@@ -87,7 +87,7 @@ export const ConfirmPaymentModal: React.FC<ConfirmPaymentModalProps> = ({
           <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl p-4.5 space-y-3 text-xs">
             <div className="flex items-center justify-between gap-4 pb-3 border-b border-slate-200/60 dark:border-slate-700/60">
               <span className="text-slate-500 font-extrabold flex items-center gap-1.5 shrink-0">
-                <User size={15} className="text-teal-600 dark:text-teal-400" /> Bệnh nhân:
+                <User size={15} className="text-teal-600 dark:text-teal-400" /> Khách hàng:
               </span>
               <span className="text-slate-900 dark:text-white font-extrabold text-sm truncate">{patientName}</span>
             </div>

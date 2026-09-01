@@ -124,28 +124,17 @@ export interface NoShowOutcome {
 }
 
 /**
- * Quyết định trạng thái cuối cùng và số điểm uy tín bị phạt khi khách hủy/không đến.
- * Nhóm A (chưa trả trước: KHAM, LE, LIEU_TRINH trả từng buổi):
- * - Hủy → trừ 10đ uy tín. Không đến → trừ 20đ uy tín.
- * Nhóm B (đã trả trước: LIEU_TRINH trả thẳng):
- * - Hủy → trừ 10đ uy tín. Không đến → KHÔNG trừ điểm (tránh phạt kép), MẤT buổi.
+ * Xác định trạng thái kết thúc ca (da_huy / khong_den). Đã loại bỏ hoàn toàn phạt điểm uy tín.
  */
 export function resolveNoShowOutcome(
   action: NoShowAction,
-  hinhThuc: HinhThucThanhToanGoi | null,
-  isPackageSession: boolean
+  _hinhThuc: HinhThucThanhToanGoi | null,
+  _isPackageSession: boolean
 ): NoShowOutcome {
-  const isCancelAction = action === 'da_huy';
-  const isPrepaidPackage = isPackageSession && hinhThuc === 'tra_thang';
-
-  if (isCancelAction) {
-    return { finalStatus: 'da_huy', reputationPenalty: 10 };
-  }
-
-  if (isPrepaidPackage) {
-    return { finalStatus: 'khong_den', reputationPenalty: 0 };
-  }
-  return { finalStatus: 'khong_den', reputationPenalty: 20 };
+  return {
+    finalStatus: action === 'da_huy' ? 'da_huy' : 'khong_den',
+    reputationPenalty: 0
+  };
 }
 
 export interface PaymentTransactionDetail {

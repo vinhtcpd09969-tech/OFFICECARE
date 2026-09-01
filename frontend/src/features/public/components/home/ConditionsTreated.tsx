@@ -155,25 +155,25 @@ export default function ConditionsTreated() {
   };
 
   return (
-    <section className="py-10 lg:py-12 bg-slate-50/70 dark:bg-slate-950/70 relative overflow-hidden transition-colors">
+    <section className="py-12 lg:py-16 bg-[#F8FBFA] dark:bg-slate-950/80 relative overflow-hidden transition-colors border-b border-slate-200/60 dark:border-slate-800/60">
       {/* Background glowing decorations */}
-      <div className="absolute top-1/3 -left-32 w-80 h-80 bg-teal-500/10 dark:bg-teal-500/5 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-10 -right-32 w-80 h-80 bg-cyan-500/10 dark:bg-cyan-500/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-1/3 -left-32 w-96 h-96 bg-teal-500/10 dark:bg-teal-500/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-10 -right-32 w-96 h-96 bg-cyan-500/10 dark:bg-cyan-500/5 rounded-full blur-3xl pointer-events-none" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto mb-8 lg:mb-10">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-teal-50 dark:bg-teal-950/60 border border-teal-200/80 dark:border-teal-800/80 text-teal-700 dark:text-teal-300 text-[11px] font-bold tracking-wider uppercase mb-3 shadow-xs">
+        <div className="text-center max-w-3xl mx-auto mb-10 lg:mb-12 space-y-2.5">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-50 dark:bg-teal-950/60 border border-teal-500/20 dark:border-teal-800/80 text-teal-700 dark:text-teal-300 text-[11px] font-extrabold tracking-wider uppercase shadow-2xs">
             <Activity className="size-3.5 animate-pulse text-teal-600 dark:text-teal-400" />
             <span>Phân Loại Bệnh Lý Chuẩn Y Khoa</span>
           </div>
 
-          <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 dark:text-white tracking-tight leading-snug">
-            Các Vấn Đề Cơ Xương Khớp & Tư Thế <span className="bg-gradient-to-r from-teal-600 via-teal-500 to-emerald-500 bg-clip-text text-transparent">OFFICECARE</span> Hỗ Trợ Điều Trị
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-slate-900 dark:text-white tracking-tight font-heading leading-tight">
+            Các Vấn Đề Cơ Xương Khớp &amp; Tư Thế Được <span className="text-[#0D9488]">OfficeCare</span> Điều Trị
           </h2>
 
-          <p className="mt-2 text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium leading-relaxed">
-            Giải pháp Vật lý trị liệu Chuyên sâu – Tối ưu hóa Sức khỏe Vận động &amp; Chấm dứt Cơn đau Mãn tính dành riêng cho Dân Văn Phòng.
+          <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium leading-relaxed max-w-2xl mx-auto">
+            Giải pháp Vật lý trị liệu chuyên sâu – Tối ưu hóa sức khỏe vận động &amp; chấm dứt cơn đau mạn tính cho dân văn phòng.
           </p>
         </div>
 
@@ -318,7 +318,7 @@ export default function ConditionsTreated() {
                 className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-black text-xs shadow-lg shadow-teal-600/20 transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-95"
               >
                 <Calendar size={15} />
-                Đặt Lịch Khám &amp; Tư Vấn Ngay
+                Đặt Lịch Lượng Giá &amp; Tư Vấn Ngay
               </button>
             </div>
           </div>

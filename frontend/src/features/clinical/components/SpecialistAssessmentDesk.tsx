@@ -9,9 +9,21 @@ import {
   Layers,
   Check,
   Clock,
+  Ban,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { PackageItem } from '../../../features/doctor/api/doctor.api';
+import { formatCurrency } from '../../../utils/format';
+import { CustomSelect } from '../../../components/CustomSelect';
+
+const MMT_OPTIONS = [
+  { value: '0/5', label: 'Bậc 0/5' },
+  { value: '1/5', label: 'Bậc 1/5' },
+  { value: '2/5', label: 'Bậc 2/5' },
+  { value: '3/5', label: 'Bậc 3/5' },
+  { value: '4/5', label: 'Bậc 4/5' },
+  { value: '5/5', label: 'Bậc 5/5' },
+];
 
 interface RomItem {
   joint: string;
@@ -54,6 +66,7 @@ interface SpecialistAssessmentDeskProps {
     contraindications: string;
     selectedPackageId?: string;
   }) => void;
+  compactMode?: boolean;
 }
 
 export function SpecialistAssessmentDesk({
@@ -77,7 +90,7 @@ export function SpecialistAssessmentDesk({
   const [contraindications, setContraindications] = useState('');
   const [notes] = useState('');
 
-  // Chỉ định gói
+  // Chỉ định gói (1 gói đề xuất cho ca lượng giá này)
   const [selectedPackageId, setSelectedPackageId] = useState<string>('');
 
   // Modal Hẹn tái khám State
@@ -117,8 +130,8 @@ export function SpecialistAssessmentDesk({
   const hydratedAptIdRef = useRef<string | null>(null);
 
   const draftKey = useMemo(() => {
-    return appointmentDetail?.id 
-      ? `draft_assess_${appointmentDetail.id}` 
+    return appointmentDetail?.id
+      ? `draft_assess_${appointmentDetail.id}`
       : `draft_assess_${patientName.trim().replace(/\s+/g, '_')}`;
   }, [appointmentDetail?.id, patientName]);
 
@@ -138,7 +151,11 @@ export function SpecialistAssessmentDesk({
         if (parsed.mmtList) setMmtList(parsed.mmtList);
         if (parsed.clinicalConclusion != null) setClinicalConclusion(parsed.clinicalConclusion);
         if (parsed.contraindications != null) setContraindications(parsed.contraindications);
-        if (parsed.selectedPackageId != null) setSelectedPackageId(parsed.selectedPackageId);
+        if (parsed.selectedPackageId !== undefined) {
+          setSelectedPackageId(parsed.selectedPackageId || '');
+        } else if (Array.isArray(parsed.selectedPackageIds) && parsed.selectedPackageIds[0]) {
+          setSelectedPackageId(parsed.selectedPackageIds[0]);
+        }
         isHydratedRef.current = true;
         return;
       }
@@ -156,12 +173,15 @@ export function SpecialistAssessmentDesk({
     if (appointmentDetail.chong_chi_dinh && appointmentDetail.chong_chi_dinh !== 'Chưa điền') {
       setContraindications(appointmentDetail.chong_chi_dinh);
     }
+    if (appointmentDetail.goi_dich_vu_id) {
+      setSelectedPackageId(appointmentDetail.goi_dich_vu_id);
+    }
 
     const rawLuongGia = appointmentDetail.du_lieu_luong_gia;
     if (rawLuongGia) {
       let parsed = typeof rawLuongGia === 'string' ? null : rawLuongGia;
       if (typeof rawLuongGia === 'string') {
-        try { parsed = JSON.parse(rawLuongGia); } catch (e) {}
+        try { parsed = JSON.parse(rawLuongGia); } catch (e) { }
       }
       if (parsed) {
         if (Array.isArray(parsed.rom_data) && parsed.rom_data.length > 0) {
@@ -192,7 +212,7 @@ export function SpecialistAssessmentDesk({
           selectedPackageId,
         })
       );
-    } catch (err) {}
+    } catch (err) { }
 
     if (!onSaveDraft) return;
     if (isFirstRender.current) {
@@ -212,11 +232,44 @@ export function SpecialistAssessmentDesk({
     return () => clearTimeout(timer);
   }, [draftKey, vasMode, vasScore, romList, mmtList, clinicalConclusion, contraindications, selectedPackageId, onSaveDraft]);
 
+  // Map các gói đang bị khóa cho bệnh nhân này (do đang điều trị dở hoặc đã chỉ định chưa thanh toán)
+  const blockedPackagesMap = useMemo(() => {
+    const list = (appointmentDetail as any)?.blocked_packages || [];
+    const map = new Map<string, { reason_type: 'dang_dieu_tri' | 'cho_thanh_toan'; message: string; ten_goi: string }>();
+    list.forEach((item: any) => {
+      map.set(String(item.goi_dich_vu_id), item);
+    });
+    return map;
+  }, [appointmentDetail]);
+
   // Xử lý nút Hoàn thành (Bật Modal xác nhận)
   const handleSubmitComplete = () => {
+    // 1. Kiểm tra ROM
+    if (!romList || romList.length === 0 || romList.some(r => !r.joint?.trim() || !r.movement?.trim() || !r.degrees?.trim())) {
+      toast.error('Vui lòng thêm ít nhất 1 dòng Tầm vận động khớp (ROM) và điền đầy đủ thông tin!');
+      return;
+    }
+    // 2. Kiểm tra MMT
+    if (!mmtList || mmtList.length === 0 || mmtList.some(m => !m.muscleGroup?.trim() || !m.grade?.trim())) {
+      toast.error('Vui lòng thêm ít nhất 1 dòng Đánh giá cơ lực (MMT) và điền đầy đủ thông tin!');
+      return;
+    }
+    // 3. Kiểm tra Kết luận lượng giá
     if (!clinicalConclusion.trim()) {
       toast.error('Vui lòng nhập Kết luận lượng giá chức năng!');
       return;
+    }
+    // 4. Kiểm tra gói bị khóa
+    if (selectedPackageId) {
+      const blocked = blockedPackagesMap.get(String(selectedPackageId));
+      if (blocked) {
+        toast.error(
+          blocked.reason_type === 'dang_dieu_tri'
+            ? `Khách hàng đang điều trị gói "${blocked.ten_goi}" (chưa hoàn thành). Vui lòng chọn gói khác!`
+            : `Khách hàng đã được chỉ định gói "${blocked.ten_goi}" (chưa thanh toán). Vui lòng chọn gói khác!`
+        );
+        return;
+      }
     }
     setShowConfirmCompleteModal(true);
   };
@@ -244,7 +297,7 @@ export function SpecialistAssessmentDesk({
     }
   };
 
-  // Xử lý Hẹn tái khám (Giải phóng chuyên viên ngay)
+  // Xử lý Hẹn quay lại (Tái lượng giá - Giải phóng chuyên viên ngay)
   const handleSubmitReassess = async () => {
     const days = Math.max(1, Number(reassessDays) || 1);
     const deadline = new Date();
@@ -254,8 +307,8 @@ export function SpecialistAssessmentDesk({
     const hh = String(deadline.getHours()).padStart(2, '0');
     const mm = String(deadline.getMinutes()).padStart(2, '0');
     const dateStr = format(deadline, 'dd/MM/yyyy');
-    
-    const limitNoteText = `[Hạn tái lượng giá: ${hh}:${mm} ngày ${dateStr}] ${reassessNotes}`.trim();
+
+    const limitNoteText = `[Hạn tái lượng giá: ${hh}:${mm} ngày ${dateStr}]${reassessNotes?.trim() ? ' ' + reassessNotes.trim() : ''}`.trim();
 
     setLoadingReassess(true);
     try {
@@ -268,33 +321,18 @@ export function SpecialistAssessmentDesk({
       });
       sessionStorage.removeItem(draftKey);
       setShowReassessModal(false);
-      toast.success(`Đã lưu hẹn tái khám (${days} ngày)! Chuyên viên đã được giải phóng để nhận ca mới.`);
+      toast.success(`Đã lưu hẹn quay lại (${days} ngày)! Chuyên viên đã được giải phóng để nhận ca mới.`);
     } catch (err: any) {
-      toast.error(err.message || 'Lỗi khi lưu hẹn tái khám');
+      toast.error(err.message || 'Lỗi khi lưu hẹn quay lại');
     } finally {
       setLoadingReassess(false);
     }
   };
 
   return (
-    <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-5 md:p-6 shadow-sm space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-zinc-800">
-        <div>
-          <span className="text-[10px] font-black uppercase tracking-wider text-cyan-700 bg-cyan-50 border border-cyan-200 px-2.5 py-0.5 rounded-lg">
-            BÀN LƯỢNG GIÁ LÂM SÀNG PHCN
-          </span>
-          <h3 className="font-heading text-lg font-bold text-slate-900 dark:text-zinc-100 mt-1">
-            Đánh giá chức năng & Ra chỉ định trị liệu
-          </h3>
-        </div>
-
-        <span className="text-xs font-semibold text-slate-500">
-          Bệnh nhân: <strong className="text-slate-800 dark:text-zinc-200">{patientName}</strong>
-        </span>
-      </div>
-
+    <div className="w-full space-y-6 pt-1 font-jakarta">
       {/* KHỐI 1: THANG ĐO ĐAU VAS WONG-BAKER 3 CÁCH NHẬP */}
-      <div className="p-4 bg-slate-50 dark:bg-zinc-800/60 border border-slate-200/80 dark:border-zinc-700/80 rounded-2xl space-y-3">
+      <div className="space-y-3 pb-6 border-b border-slate-100 dark:border-zinc-800">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Activity className="size-4 text-cyan-600" />
@@ -308,262 +346,273 @@ export function SpecialistAssessmentDesk({
             <button
               type="button"
               onClick={() => setVasMode('faces')}
-              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                vasMode === 'faces' ? 'bg-white dark:bg-zinc-800 text-cyan-700 dark:text-cyan-300 shadow-xs' : 'text-slate-600 dark:text-zinc-400'
-              }`}
+              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${vasMode === 'faces' ? 'bg-white dark:bg-zinc-800 text-cyan-700 dark:text-cyan-300 shadow-xs' : 'text-slate-600 dark:text-zinc-400'
+                }`}
             >
               Mặt cười (Wong-Baker)
             </button>
             <button
               type="button"
               onClick={() => setVasMode('verbal')}
-              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                vasMode === 'verbal' ? 'bg-white dark:bg-zinc-800 text-cyan-700 dark:text-cyan-300 shadow-xs' : 'text-slate-600 dark:text-zinc-400'
-              }`}
+              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${vasMode === 'verbal' ? 'bg-white dark:bg-zinc-800 text-cyan-700 dark:text-cyan-300 shadow-xs' : 'text-slate-600 dark:text-zinc-400'
+                }`}
             >
-              Mô tả lời
+              Mô tả lời nói
             </button>
             <button
               type="button"
               onClick={() => setVasMode('numeric')}
-              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                vasMode === 'numeric' ? 'bg-white dark:bg-zinc-800 text-cyan-700 dark:text-cyan-300 shadow-xs' : 'text-slate-600 dark:text-zinc-400'
-              }`}
+              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${vasMode === 'numeric' ? 'bg-white dark:bg-zinc-800 text-cyan-700 dark:text-cyan-300 shadow-xs' : 'text-slate-600 dark:text-zinc-400'
+                }`}
             >
-              Thang số
+              Thang số (0-10)
             </button>
           </div>
         </div>
 
-        {/* Render theo mode được chọn */}
+        {/* Render theo mode VAS */}
         {vasMode === 'faces' && (
-          <div className="grid grid-cols-6 gap-2 pt-1">
+          <div className="grid grid-cols-6 gap-2 pt-2">
             {[
               { score: 0, face: '😊', label: 'Không đau' },
               { score: 2, face: '🙂', label: 'Đau nhẹ' },
               { score: 4, face: '😐', label: 'Đau vừa' },
-              { score: 6, face: '😟', label: 'Đau nhức' },
+              { score: 6, face: '🙁', label: 'Đau nhức' },
               { score: 8, face: '😣', label: 'Đau nặng' },
-              { score: 10, face: '😫', label: 'Cực độ' },
+              { score: 10, face: '😭', label: 'Cực độ' },
             ].map((f) => (
               <button
                 key={f.score}
                 type="button"
                 onClick={() => setVasScore(f.score)}
-                className={`p-3 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center gap-1 ${
-                  vasScore === f.score
-                    ? 'bg-cyan-600 text-white border-cyan-600 shadow-md scale-105'
-                    : 'bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 hover:border-cyan-400'
-                }`}
+                className={`p-3 rounded-2xl border text-center transition-all cursor-pointer ${vasScore === f.score
+                    ? 'bg-cyan-500/10 dark:bg-cyan-950/40 border-2 border-cyan-600 dark:border-cyan-500 shadow-sm scale-105'
+                    : 'bg-white/80 dark:bg-zinc-800/80 border-slate-200 dark:border-zinc-700 hover:border-cyan-300'
+                  }`}
               >
-                <span className="text-2xl">{f.face}</span>
-                <span className="text-[11px] font-bold">{f.score} điểm</span>
-                <span className="text-[9.5px] opacity-80">{f.label}</span>
+                <div className="text-2xl">{f.face}</div>
+                <div className="text-[11px] font-bold mt-1 text-slate-800 dark:text-zinc-100">{f.score} điểm</div>
+                <div className="text-[10px] text-slate-500 dark:text-zinc-400">{f.label}</div>
               </button>
             ))}
           </div>
         )}
 
         {vasMode === 'verbal' && (
-          <div className="flex flex-wrap gap-2 pt-1">
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 pt-2">
             {[
-              { score: 0, text: 'Không đau (0)' },
-              { score: 2, text: 'Ê ẩm nhẹ (2)' },
-              { score: 4, text: 'Đau tức vừa (4)' },
-              { score: 6, text: 'Đau nhức cản trở (6)' },
-              { score: 8, text: 'Đau buốt dữ dội (8)' },
-              { score: 10, text: 'Không thể chịu nổi (10)' },
+              { score: 0, label: 'Không đau' },
+              { score: 2, label: 'Đau rất nhẹ' },
+              { score: 4, label: 'Đau vừa phải' },
+              { score: 6, label: 'Đau khó chịu' },
+              { score: 8, label: 'Đau dữ dội' },
+              { score: 10, label: 'Đau không chịu nổi' },
             ].map((v) => (
               <button
                 key={v.score}
                 type="button"
                 onClick={() => setVasScore(v.score)}
-                className={`px-3 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                  vasScore === v.score
-                    ? 'bg-cyan-600 text-white border-cyan-600 shadow-xs'
-                    : 'bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 hover:border-cyan-400'
-                }`}
+                className={`p-3 rounded-2xl border text-center transition-all cursor-pointer ${vasScore === v.score
+                    ? 'bg-cyan-500/10 dark:bg-cyan-950/40 border-2 border-cyan-600 dark:border-cyan-500 shadow-sm'
+                    : 'bg-white/80 dark:bg-zinc-800/80 border-slate-200 dark:border-zinc-700 hover:border-cyan-300'
+                  }`}
               >
-                {v.text}
+                <div className="text-sm font-bold text-cyan-800 dark:text-cyan-300">{v.score} điểm</div>
+                <div className="text-[11px] text-slate-600 dark:text-zinc-300 mt-0.5">{v.label}</div>
               </button>
             ))}
           </div>
         )}
 
         {vasMode === 'numeric' && (
-          <div className="space-y-2 pt-1">
+          <div className="pt-2 px-2 space-y-2">
             <input
               type="range"
-              min={0}
-              max={10}
-              step={1}
+              min="0"
+              max="10"
+              step="1"
               value={vasScore}
               onChange={(e) => setVasScore(Number(e.target.value))}
-              className="w-full accent-cyan-600 cursor-pointer"
+              className="w-full h-2 bg-slate-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-cyan-600"
             />
             <div className="flex justify-between text-[10px] font-bold text-slate-400">
-              <span>0 · Không đau</span>
-              <span>5 · Đau trung bình</span>
-              <span>10 · Đau cực độ</span>
+              <span>0 (Không đau)</span>
+              <span>5 (Đau vừa)</span>
+              <span>10 (Cực độ)</span>
             </div>
           </div>
         )}
       </div>
 
-      {/* KHỐI 2: BẢNG CHỈ SỐ ROM & MMT */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* ROM */}
-        <div className="p-4 bg-slate-50 dark:bg-zinc-800/60 border border-slate-200/80 dark:border-zinc-700/80 rounded-2xl space-y-3">
+      {/* KHỐI 2: ĐO ROM & ĐÁNH GIÁ MMT */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-6 border-b border-slate-100 dark:border-zinc-800">
+        {/* TẦM VẬN ĐỘNG KHỚP (ROM) */}
+        <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 uppercase tracking-wider">
-              2. Tầm vận động khớp (ROM):
+              2. Tầm vận động khớp (ROM): *
             </h4>
             <button
               type="button"
               onClick={handleAddRom}
-              className="px-2.5 py-1 rounded-xl bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300 font-bold text-[11px] flex items-center gap-1 border border-cyan-200 dark:border-cyan-800 hover:bg-cyan-100 cursor-pointer"
+              className="text-xs text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1 font-bold cursor-pointer"
             >
-              <Plus size={12} /> Thêm khớp
+              <Plus size={14} /> Thêm khớp
             </button>
           </div>
 
-          <div className="space-y-2 max-h-44 overflow-y-auto pr-1 hide-scrollbar">
-            {romList.map((item, idx) => (
-              <div key={idx} className="flex items-center gap-2 bg-white dark:bg-zinc-800 p-2 rounded-xl border border-slate-200/80 dark:border-zinc-700">
-                <input
-                  type="text"
-                  placeholder="Vị trí khớp (Khớp cổ...)"
-                  value={item.joint}
-                  onChange={(e) => {
-                    const next = [...romList];
-                    next[idx].joint = e.target.value;
-                    setRomList(next);
-                  }}
-                  className="w-1/3 px-2 py-1 text-xs bg-transparent border-b border-slate-200 focus:border-cyan-500 focus:outline-none text-slate-800 dark:text-zinc-200 font-medium"
-                />
-                <input
-                  type="text"
-                  placeholder="Cử động (Xoay/Gập...)"
-                  value={item.movement}
-                  onChange={(e) => {
-                    const next = [...romList];
-                    next[idx].movement = e.target.value;
-                    setRomList(next);
-                  }}
-                  className="w-1/3 px-2 py-1 text-xs bg-transparent border-b border-slate-200 focus:border-cyan-500 focus:outline-none text-slate-800 dark:text-zinc-200 font-medium"
-                />
-                <input
-                  type="text"
-                  placeholder="Góc đo (°)"
-                  value={item.degrees}
-                  onChange={(e) => {
-                    const next = [...romList];
-                    next[idx].degrees = e.target.value;
-                    setRomList(next);
-                  }}
-                  className="w-1/3 px-2 py-1 text-xs bg-transparent border-b border-slate-200 focus:border-cyan-500 focus:outline-none text-slate-800 dark:text-zinc-200 font-medium"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleRemoveRom(idx)}
-                  className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
-                >
-                  <Trash2 size={13} />
-                </button>
+          <div className="space-y-2">
+            {romList.length === 0 ? (
+              <div className="p-4 rounded-2xl border border-dashed border-slate-200 dark:border-zinc-800 text-center text-xs text-slate-400">
+                Chưa thêm khớp đo nào. Bấm "+ Thêm khớp" để đo ROM (Bắt buộc).
               </div>
-            ))}
+            ) : (
+              romList.map((item, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center gap-2 p-2 rounded-2xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700"
+                >
+                  <input
+                    type="text"
+                    value={item.joint}
+                    onChange={(e) => {
+                      const next = [...romList];
+                      next[idx].joint = e.target.value;
+                      setRomList(next);
+                    }}
+                    placeholder="Vị trí khớp (vd: Khớp cổ)"
+                    className="flex-1 p-2 text-xs bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl"
+                  />
+                  <input
+                    type="text"
+                    value={item.movement}
+                    onChange={(e) => {
+                      const next = [...romList];
+                      next[idx].movement = e.target.value;
+                      setRomList(next);
+                    }}
+                    placeholder="Cử động (vd: Gập / Xoay)"
+                    className="flex-1 p-2 text-xs bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl"
+                  />
+                  <input
+                    type="text"
+                    value={item.degrees}
+                    onChange={(e) => {
+                      const next = [...romList];
+                      next[idx].degrees = e.target.value;
+                      setRomList(next);
+                    }}
+                    placeholder="Độ (vd: 45°)"
+                    className="w-20 p-2 text-xs text-center font-bold bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveRom(idx)}
+                    className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl cursor-pointer"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
-        {/* MMT */}
-        <div className="p-4 bg-slate-50 dark:bg-zinc-800/60 border border-slate-200/80 dark:border-zinc-700/80 rounded-2xl space-y-3">
+        {/* ĐÁNH GIÁ CƠ LỰC (MMT 0-5) */}
+        <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 uppercase tracking-wider">
-              3. Đánh giá cơ lực (MMT 0-5):
+              3. Đánh giá cơ lực (MMT 0-5): *
             </h4>
             <button
               type="button"
               onClick={handleAddMmt}
-              className="px-2.5 py-1 rounded-xl bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300 font-bold text-[11px] flex items-center gap-1 border border-cyan-200 dark:border-cyan-800 hover:bg-cyan-100 cursor-pointer"
+              className="text-xs text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1 font-bold cursor-pointer"
             >
-              <Plus size={12} /> Thêm nhóm cơ
+              <Plus size={14} /> Thêm nhóm cơ
             </button>
           </div>
 
-          <div className="space-y-2 max-h-44 overflow-y-auto pr-1 hide-scrollbar">
-            {mmtList.map((item, idx) => (
-              <div key={idx} className="flex items-center gap-2 bg-white dark:bg-zinc-800 p-2 rounded-xl border border-slate-200/80 dark:border-zinc-700">
-                <input
-                  type="text"
-                  placeholder="Tên nhóm cơ..."
-                  value={item.muscleGroup}
-                  onChange={(e) => {
-                    const next = [...mmtList];
-                    next[idx].muscleGroup = e.target.value;
-                    setMmtList(next);
-                  }}
-                  className="flex-1 px-2 py-1 text-xs bg-transparent border-b border-slate-200 focus:border-cyan-500 focus:outline-none text-slate-800 dark:text-zinc-200 font-medium"
-                />
-                <select
-                  value={item.grade}
-                  onChange={(e) => {
-                    const next = [...mmtList];
-                    next[idx].grade = e.target.value;
-                    setMmtList(next);
-                  }}
-                  className="w-28 px-2 py-1 text-xs font-bold bg-slate-100 dark:bg-zinc-700 rounded-lg text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-600 focus:outline-none cursor-pointer"
-                >
-                  <option value="0/5">0/5 (Tê liệt)</option>
-                  <option value="1/5">1/5 (Co cơ)</option>
-                  <option value="2/5">2/5 (Yếu nặng)</option>
-                  <option value="3/5">3/5 (Trung bình)</option>
-                  <option value="4/5">4/5 (Khá tốt)</option>
-                  <option value="5/5">5/5 (Bình thường)</option>
-                </select>
-                <button
-                  type="button"
-                  onClick={() => handleRemoveMmt(idx)}
-                  className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
-                >
-                  <Trash2 size={13} />
-                </button>
+          <div className="space-y-2">
+            {mmtList.length === 0 ? (
+              <div className="p-4 rounded-2xl border border-dashed border-slate-200 dark:border-zinc-800 text-center text-xs text-slate-400">
+                Chưa thêm nhóm cơ nào. Bấm "+ Thêm nhóm cơ" để đánh giá MMT (Bắt buộc).
               </div>
-            ))}
+            ) : (
+              mmtList.map((item, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center gap-2 p-2 rounded-2xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700"
+                >
+                  <input
+                    type="text"
+                    value={item.muscleGroup}
+                    onChange={(e) => {
+                      const next = [...mmtList];
+                      next[idx].muscleGroup = e.target.value;
+                      setMmtList(next);
+                    }}
+                    placeholder="Nhóm cơ (vd: Nhóm cơ thang dưới)"
+                    className="flex-1 p-2 text-xs bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl"
+                  />
+                  <CustomSelect
+                    value={item.grade}
+                    onChange={(val) => {
+                      const next = [...mmtList];
+                      next[idx].grade = val;
+                      setMmtList(next);
+                    }}
+                    options={MMT_OPTIONS}
+                    align="right"
+                    className="w-28 sm:w-32 shrink-0"
+                    buttonClassName="py-2 px-3 rounded-xl text-xs font-bold bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700"
+                    menuClassName="!min-w-[140px] w-36"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveMmt(idx)}
+                    className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl cursor-pointer"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
 
-      {/* KHỐI 3: KẾT LUẬN LƯỢNG GIÁ & CHỐNG CHỈ ĐỊNH */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* KHỐI 3: KẾT LUẬN & CHỐNG CHỈ ĐỊNH */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-6 border-b border-slate-100 dark:border-zinc-800">
         <div>
-          <label className="text-xs font-bold text-slate-800 dark:text-zinc-200 uppercase tracking-wider block mb-1.5">
-            4. Kết luận lượng giá chức năng (`chan_doan`): *
+          <label className="text-xs font-bold text-slate-900 dark:text-zinc-100 uppercase tracking-wider block mb-1.5">
+            4. Kết luận lượng giá chức năng: *
           </label>
           <textarea
             rows={3}
             value={clinicalConclusion}
             onChange={(e) => setClinicalConclusion(e.target.value)}
             placeholder="Mô tả chức năng hạn chế, không gõ chẩn đoán bệnh lý y khoa..."
-            className="w-full p-3 text-xs bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-cyan-500/50 text-slate-800 dark:text-zinc-200 font-medium"
+            className="w-full p-3.5 text-xs bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-2xl text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
           />
         </div>
 
         <div>
-          <label className="text-xs font-bold text-slate-800 dark:text-zinc-200 uppercase tracking-wider block mb-1.5">
-            5. Chống chỉ định vận động / trị liệu (`chong_chi_dinh`):
+          <label className="text-xs font-bold text-slate-900 dark:text-zinc-100 uppercase tracking-wider block mb-1.5">
+            5. Chống chỉ định vận động / trị liệu:
           </label>
           <textarea
             rows={3}
             value={contraindications}
             onChange={(e) => setContraindications(e.target.value)}
             placeholder="Các lưu ý chống chỉ định nắn chỉnh, siêu âm hay kéo giãn..."
-            className="w-full p-3 text-xs bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-cyan-500/50 text-slate-800 dark:text-zinc-200 font-medium"
+            className="w-full p-3.5 text-xs bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-2xl text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
           />
         </div>
       </div>
 
-      {/* KHỐI 4: THẺ CHỌN CHỈ ĐỊNH GÓI LIỆU TRÌNH SANG TRỌNG */}
-      <div className="p-4 bg-cyan-50/50 dark:bg-cyan-950/20 border border-cyan-200/80 dark:border-cyan-800/60 rounded-3xl space-y-3">
+      {/* KHỐI 4: THẺ CHỌN CHỈ ĐỊNH GÓI LIỆU TRÌNH */}
+      <div className="space-y-3 pb-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="size-7 rounded-xl bg-cyan-600 text-white flex items-center justify-center font-bold">
@@ -583,15 +632,13 @@ export function SpecialistAssessmentDesk({
           {/* Card Option 1: Không chỉ định gói */}
           <div
             onClick={() => setSelectedPackageId('')}
-            className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 relative ${
-              selectedPackageId === ''
+            className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 relative ${selectedPackageId === ''
                 ? 'bg-white dark:bg-zinc-800 border-2 border-slate-800 dark:border-zinc-300 shadow-sm'
                 : 'bg-white/80 dark:bg-zinc-900/60 border-slate-200 dark:border-zinc-800 hover:border-slate-400'
-            }`}
+              }`}
           >
-            <div className={`size-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${
-              selectedPackageId === '' ? 'border-slate-800 dark:border-zinc-200 bg-slate-800 text-white' : 'border-slate-300 dark:border-zinc-600'
-            }`}>
+            <div className={`size-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${selectedPackageId === '' ? 'border-slate-800 dark:border-zinc-200 bg-slate-800 text-white' : 'border-slate-300 dark:border-zinc-600'
+              }`}>
               {selectedPackageId === '' && <Check size={11} />}
             </div>
             <div>
@@ -604,22 +651,58 @@ export function SpecialistAssessmentDesk({
             </div>
           </div>
 
-          {/* Cards các gói điều trị */}
+          {/* Cards các gói điều trị (chọn 1 gói) */}
           {packages.map((pkg) => {
+            const blockedInfo = blockedPackagesMap.get(String(pkg.id));
+            const isBlocked = Boolean(blockedInfo);
             const isSelected = selectedPackageId === pkg.id;
+
+            if (isBlocked) {
+              return (
+                <div
+                  key={pkg.id}
+                  className="p-3.5 rounded-2xl border border-slate-200/90 dark:border-zinc-800 bg-slate-100/80 dark:bg-zinc-900/60 opacity-60 cursor-not-allowed select-none flex items-start gap-3 relative transition-all shadow-none"
+                  title={blockedInfo?.message}
+                >
+                  <div className="size-5 rounded-full border-2 border-slate-300 dark:border-zinc-600 bg-slate-200 dark:bg-zinc-800 flex items-center justify-center shrink-0 mt-0.5 text-slate-400">
+                    <Ban size={11} />
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <div className="flex items-start justify-between gap-1">
+                      <h5 className="font-heading text-xs font-bold text-slate-500 dark:text-zinc-400 line-clamp-1 line-through">
+                        {pkg.ten_goi}
+                      </h5>
+                      {blockedInfo?.reason_type === 'dang_dieu_tri' ? (
+                        <span className="px-2 py-0.5 rounded-md text-[9px] font-black bg-amber-100 dark:bg-amber-955/60 text-amber-800 dark:text-amber-300 shrink-0 border border-amber-200/80 dark:border-amber-900/60 flex items-center gap-0.5">
+                          <span>🚫 Đang điều trị</span>
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-md text-[9px] font-black bg-indigo-100 dark:bg-indigo-955/60 text-indigo-800 dark:text-indigo-300 shrink-0 border border-indigo-200/80 dark:border-indigo-900/60 flex items-center gap-0.5">
+                          <span>⏳ Chờ thanh toán</span>
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-amber-700 dark:text-amber-400 font-bold italic line-clamp-1">
+                      {blockedInfo?.message || (blockedInfo?.reason_type === 'dang_dieu_tri'
+                        ? 'Khách đang điều trị gói này (chưa xong)'
+                        : 'Đã chỉ định ở ca trước (chưa thanh toán)')}
+                    </p>
+                  </div>
+                </div>
+              );
+            }
+
             return (
               <div
                 key={pkg.id}
                 onClick={() => setSelectedPackageId(pkg.id)}
-                className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 relative ${
-                  isSelected
+                className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 relative ${isSelected
                     ? 'bg-cyan-500/10 dark:bg-cyan-950/40 border-2 border-cyan-600 dark:border-cyan-500 shadow-sm'
                     : 'bg-white dark:bg-zinc-800/80 border-slate-200 dark:border-zinc-700 hover:border-cyan-300'
-                }`}
+                  }`}
               >
-                <div className={`size-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${
-                  isSelected ? 'border-cyan-600 bg-cyan-600 text-white' : 'border-slate-300 dark:border-zinc-600'
-                }`}>
+                <div className={`size-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${isSelected ? 'border-cyan-600 bg-cyan-600 text-white' : 'border-slate-300 dark:border-zinc-600'
+                  }`}>
                   {isSelected && <Check size={11} />}
                 </div>
                 <div className="flex-1 space-y-1">
@@ -627,12 +710,14 @@ export function SpecialistAssessmentDesk({
                     <h5 className="font-heading text-xs font-bold text-slate-900 dark:text-zinc-100 line-clamp-1">
                       {pkg.ten_goi}
                     </h5>
-                    <span className="px-2 py-0.5 rounded-md text-[9.5px] font-black bg-cyan-100 dark:bg-cyan-900/60 text-cyan-800 dark:text-cyan-300 shrink-0">
-                      {pkg.tong_so_buoi || 10} buổi
-                    </span>
+                    {pkg.tong_so_buoi && (
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-cyan-100 dark:bg-cyan-950/60 text-cyan-800 dark:text-cyan-300 shrink-0">
+                        {pkg.tong_so_buoi} buổi
+                      </span>
+                    )}
                   </div>
-                  <p className="text-xs font-bold text-cyan-700 dark:text-cyan-400">
-                    {Number(pkg.gia_goi).toLocaleString('vi-VN')} đ
+                  <p className="text-xs font-bold text-slate-800 dark:text-zinc-200">
+                    {(pkg.gia_goi || (pkg as any).don_gia) ? formatCurrency(pkg.gia_goi || (pkg as any).don_gia) : 'Chưa có giá'}
                   </p>
                 </div>
               </div>
@@ -641,16 +726,16 @@ export function SpecialistAssessmentDesk({
         </div>
       </div>
 
-      {/* FOOTER: ĐÚNG 2 NÚT KẾT THÚC (HOÀN THÀNH & HẸN TÁI KHÁM) */}
+      {/* FOOTER: ĐÚNG 2 NÚT KẾT THÚC (HOÀN THÀNH & HẸN QUAY LẠI) */}
       <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 flex flex-wrap items-center justify-end gap-3">
-        {/* Nút 2: Hẹn tái khám (Tái lượng giá) */}
+        {/* Nút 2: Hẹn quay lại (Tái lượng giá) */}
         <button
           type="button"
           onClick={() => setShowReassessModal(true)}
           className="px-6 py-3.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2"
         >
           <RotateCcw size={15} />
-          <span>🔄 HẸN TÁI KHÁM</span>
+          <span>🔄 HẸN QUAY LẠI</span>
         </button>
 
         {/* Nút 1: Hoàn thành lượng giá */}
@@ -665,7 +750,7 @@ export function SpecialistAssessmentDesk({
         </button>
       </div>
 
-      {/* MODAL HẸN TÁI KHÁM (CHUYỂN SANG CHỜ TÁI LƯỢNG GIÁ & GIẢI PHÓNG SLOT) */}
+      {/* MODAL HẸN QUAY LẠI (CHUYỂN SANG CHỜ TÁI LƯỢNG GIÁ & GIẢI PHÓNG SLOT) */}
       {showReassessModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5">
@@ -675,16 +760,16 @@ export function SpecialistAssessmentDesk({
               </div>
               <div>
                 <h3 className="font-heading text-base font-bold text-slate-900 dark:text-zinc-100">
-                  Xác Nhận Hẹn Tái Khám
+                  Xác Nhận Hẹn Quay Lại (Tái Lượng Giá)
                 </h3>
               </div>
             </div>
 
             <div className="space-y-4 pt-1 font-jakarta">
-              {/* 1. Nhập số ngày thời hạn tái khám */}
+              {/* 1. Nhập số ngày thời hạn quay lại */}
               <div>
                 <label className="text-xs font-bold text-slate-800 dark:text-zinc-200 block mb-1.5">
-                  1. Thời hạn tái khám (số ngày): *
+                  1. Thời hạn quay lại (số ngày): *
                 </label>
                 <div className="flex items-center gap-2.5">
                   <input
@@ -738,7 +823,7 @@ export function SpecialistAssessmentDesk({
                 onClick={handleSubmitReassess}
                 className="px-6 py-2.5 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs disabled:opacity-50 transition-all shadow-md cursor-pointer"
               >
-                {loadingReassess ? 'Đang lưu...' : 'Xác Nhận Hẹn Tái Khám'}
+                {loadingReassess ? 'Đang lưu...' : 'Xác Nhận Hẹn Quay Lại'}
               </button>
             </div>
           </div>
@@ -749,8 +834,8 @@ export function SpecialistAssessmentDesk({
       {showConfirmCompleteModal && (() => {
         const selectedPkg = packages.find((p) => String(p.id) === selectedPackageId);
         return (
-          <div className="fixed inset-0 z-50 bg-slate-955/65 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
+          <div className="fixed inset-0 z-50 bg-slate-955/65 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200 font-jakarta">
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
               <div className="flex items-center gap-3">
                 <div className="size-12 rounded-2xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold shrink-0">
                   <CheckCircle2 size={26} />
@@ -766,17 +851,61 @@ export function SpecialistAssessmentDesk({
               </div>
 
               {/* Tóm tắt thông tin kết quả */}
-              <div className="bg-slate-50 dark:bg-zinc-800/60 rounded-2xl p-4 space-y-2.5 text-xs border border-slate-200/60 dark:border-zinc-700/60">
+              <div className="bg-slate-50 dark:bg-zinc-800/60 rounded-2xl p-4 space-y-2.5 text-xs border border-slate-200/60 dark:border-zinc-700/60 font-sans">
                 <div className="flex justify-between items-center pb-2 border-b border-slate-200/60 dark:border-zinc-700/50">
                   <span className="font-bold text-slate-500 dark:text-zinc-400">Thang đau VAS:</span>
                   <span className="font-black text-amber-600 dark:text-amber-400">{vasScore}/10</span>
                 </div>
+
+                {/* Tầm vận động khớp (ROM) */}
+                <div className="pb-2 border-b border-slate-200/60 dark:border-zinc-700/50">
+                  <span className="font-bold text-slate-500 dark:text-zinc-400 block mb-1">
+                    Tầm vận động khớp (ROM):
+                  </span>
+                  {romList && romList.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {romList.map((r, i) => (
+                        <span
+                          key={i}
+                          className="px-2 py-0.5 rounded-lg bg-teal-50 dark:bg-teal-950/40 text-teal-800 dark:text-teal-300 font-bold border border-teal-200/60 text-[11px]"
+                        >
+                          {r.joint}: {r.movement} ({r.degrees})
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-slate-400 italic">Chưa đo</span>
+                  )}
+                </div>
+
+                {/* Đánh giá cơ lực (MMT) */}
+                <div className="pb-2 border-b border-slate-200/60 dark:border-zinc-700/50">
+                  <span className="font-bold text-slate-500 dark:text-zinc-400 block mb-1">
+                    Đánh giá cơ lực (MMT 0-5):
+                  </span>
+                  {mmtList && mmtList.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {mmtList.map((m, i) => (
+                        <span
+                          key={i}
+                          className="px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-800 dark:text-indigo-300 font-bold border border-indigo-200/60 text-[11px]"
+                        >
+                          {m.muscleGroup}: Bậc {m.grade}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-slate-400 italic">Chưa đo</span>
+                  )}
+                </div>
+
                 <div>
                   <span className="font-bold text-slate-500 dark:text-zinc-400 block mb-0.5">Kết luận lượng giá:</span>
                   <p className="font-bold text-slate-800 dark:text-zinc-200 line-clamp-2 leading-relaxed">
                     {clinicalConclusion}
                   </p>
                 </div>
+
                 {contraindications && (
                   <div>
                     <span className="font-bold text-slate-500 dark:text-zinc-400 block mb-0.5">Chống chỉ định:</span>
@@ -785,10 +914,11 @@ export function SpecialistAssessmentDesk({
                     </p>
                   </div>
                 )}
+
                 <div className="pt-2 border-t border-slate-200/60 dark:border-zinc-700/50 flex justify-between items-center">
                   <span className="font-bold text-slate-500 dark:text-zinc-400">Chỉ định phác đồ / gói:</span>
                   <span className="font-black text-emerald-600 dark:text-emerald-400">
-                    {selectedPkg ? selectedPkg.ten_goi : 'Chưa chọn gói (Khám lẻ)'}
+                    {selectedPkg ? `${selectedPkg.ten_goi} (${selectedPkg.tong_so_buoi || 10} buổi)` : 'Không chỉ định gói (Dịch vụ lẻ)'}
                   </span>
                 </div>
               </div>

@@ -4,8 +4,7 @@ import {
   Activity,
   DollarSign,
   FileDown,
-  RefreshCw,
-  Calendar
+  RefreshCw
 } from 'lucide-react';
 import api from '../../../../api/axios';
 import { toast } from 'react-hot-toast';
@@ -13,10 +12,12 @@ import { toast } from 'react-hot-toast';
 // Import subcomponents
 import { StatCard } from '../../components/StatCard';
 import { CustomDatePicker } from '../../../../components/CustomDatePicker';
+import { CustomSelect, CustomSelectOption } from '../../../../components/CustomSelect';
 import { RevenueChart } from './RevenueChart';
 import { TopPackagesChart } from './TopPackagesChart';
 import { TopVipCustomers } from './TopVipCustomers';
 import { StaffPerformanceGrid } from './StaffPerformanceGrid';
+import { ExportReportModal } from './ExportReportModal';
 
 const getLocalFormattedDate = (date: Date) => {
   const y = date.getFullYear();
@@ -60,6 +61,7 @@ export default function AdminDashboard() {
 
   const [isClient, setIsClient] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   // Bộ lọc thời gian DUY NHẤT cho cả trang — 3 chế độ Ngày/Tháng/Năm, mỗi chế độ chọn mốc bắt đầu
   // Bộ lọc thời gian DUY NHẤT cho cả trang — Mặc định khi mới tải trang là 7 ngày gần nhất (chế độ Ngày)
@@ -133,6 +135,31 @@ export default function AdminDashboard() {
   const filteredEndYearsForMonth = useMemo(() => years.filter((y) => y >= monthStartYear), [monthStartYear, years]);
   const filteredEndYearsOnly = useMemo(() => years.filter((y) => y >= yearStartVal), [yearStartVal, years]);
 
+  const monthOptions: CustomSelectOption[] = useMemo(() => months.map((m) => ({
+    value: m,
+    label: `Tháng ${m}`
+  })), [months]);
+
+  const yearOptions: CustomSelectOption[] = useMemo(() => years.map((y) => ({
+    value: y,
+    label: `${y}`
+  })), [years]);
+
+  const filteredEndMonthOptions: CustomSelectOption[] = useMemo(() => filteredEndMonths.map((m) => ({
+    value: m,
+    label: `Tháng ${m}`
+  })), [filteredEndMonths]);
+
+  const filteredEndYearsForMonthOptions: CustomSelectOption[] = useMemo(() => filteredEndYearsForMonth.map((y) => ({
+    value: y,
+    label: `${y}`
+  })), [filteredEndYearsForMonth]);
+
+  const filteredEndYearsOnlyOptions: CustomSelectOption[] = useMemo(() => filteredEndYearsOnly.map((y) => ({
+    value: y,
+    label: `${y}`
+  })), [filteredEndYearsOnly]);
+
   // Suy ra {startDate, endDate, bucket, label} duy nhất từ chế độ đang chọn — nguồn chung cho cả
   // 3 thẻ KPI lẫn biểu đồ doanh thu bên dưới.
   const rangeInfo = useMemo(() => {
@@ -171,7 +198,7 @@ export default function AdminDashboard() {
       setIsRefreshing(true);
       const [statsRes, performanceRes] = await Promise.all([
         api.get('/admin/analytics/summary', { params: { startDate: rangeInfo.startDate, endDate: rangeInfo.endDate } }),
-        api.get('/admin/analytics/performance')
+        api.get('/admin/analytics/performance', { params: { startDate: rangeInfo.startDate, endDate: rangeInfo.endDate } })
       ]);
 
       setData({
@@ -226,15 +253,6 @@ export default function AdminDashboard() {
     return 'Cảnh báo cao';
   }, [stats]);
 
-  // Sparklines from real database stats
-  const revenueTrend = useMemo(() => [
-    { val: Number(stats?.total_revenue || 0) }
-  ], [stats]);
-
-  const customerTrend = useMemo(() => [
-    { val: Number(stats?.customers_this_month || 0) }
-  ], [stats]);
-
   if (!isLoaded) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -247,23 +265,24 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="space-y-8 pb-16">
-      {/* Single Unified Header & Filter Card */}
-      <div className="relative z-30 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl p-5 md:p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm space-y-4">
-        {/* Row 1: Header Title & Mode Pills + Action Buttons */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+    <div className="space-y-5 sm:space-y-6 pb-12">
+      {/* Unified Header & Filter Control Bar */}
+      <div className="relative z-30 bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm transition-all duration-200">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+          {/* Title & Subtitle */}
           <div>
-            <h1 className="text-lg md:text-xl font-black text-slate-900 dark:text-white tracking-tight">
+            <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
               Thống Kê Vận Hành Trung Tâm
             </h1>
-            <p className="text-slate-500 dark:text-slate-400 text-xs font-medium mt-0.5">
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
               Báo cáo tổng quan doanh thu, khách hàng &amp; hiệu suất nhân sự OfficeCare
             </p>
           </div>
 
-          {/* Filter Mode + Action Buttons */}
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-            <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
+          {/* Filter Controls & Actions */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Mode Switcher: Ngày | Tháng | Năm */}
+            <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200/60 dark:border-slate-700/60 shrink-0">
               {[
                 { id: 'day' as const, label: 'Ngày' },
                 { id: 'month' as const, label: 'Tháng' },
@@ -272,10 +291,10 @@ export default function AdminDashboard() {
                 <button
                   key={mode.id}
                   onClick={() => setFilterMode(mode.id)}
-                  className={`px-3.5 py-1.5 text-xs font-extrabold rounded-xl transition-all cursor-pointer ${
+                  className={`px-3 py-1.5 text-xs rounded-lg transition-all cursor-pointer ${
                     filterMode === mode.id
-                      ? 'bg-teal-600 text-white shadow-md shadow-teal-600/20'
-                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      ? 'bg-white dark:bg-slate-700 text-teal-700 dark:text-teal-300 shadow-xs font-bold'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 font-semibold'
                   }`}
                 >
                   {mode.label}
@@ -283,36 +302,9 @@ export default function AdminDashboard() {
               ))}
             </div>
 
-            <button
-              onClick={() => fetchData()}
-              disabled={isRefreshing}
-              className="p-2 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60 transition-all cursor-pointer"
-              title="Làm mới dữ liệu"
-            >
-              <RefreshCw size={15} className={isRefreshing ? 'animate-spin' : ''} />
-            </button>
-
-            <button
-              onClick={() => toast.success('Đang khởi tạo báo cáo PDF...')}
-              className="flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-xs px-3.5 py-2 rounded-2xl shadow-lg shadow-teal-600/20 transition-all cursor-pointer active:scale-95"
-            >
-              <FileDown size={15} />
-              Xuất PDF
-            </button>
-          </div>
-        </div>
-
-        {/* Row 2: Date Range Inputs */}
-        <div className="border-t border-slate-100 dark:border-slate-800/60 pt-3.5 flex flex-wrap items-center gap-4">
-          <span className="flex items-center gap-1.5 text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0">
-            <Calendar size={13} />
-            Khoảng thời gian
-          </span>
-
-          {filterMode === 'day' && (
-            <>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Từ ngày</span>
+            {/* Date Inputs by Mode */}
+            {filterMode === 'day' && (
+              <div className="flex items-center gap-1.5 shrink-0">
                 <CustomDatePicker
                   value={dayStart}
                   onChange={(val) => {
@@ -323,9 +315,7 @@ export default function AdminDashboard() {
                   align="left"
                   variant="neutral"
                 />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Đến ngày</span>
+                <span className="text-slate-400 font-medium text-xs">đến</span>
                 <CustomDatePicker
                   value={dayEnd}
                   onChange={(val) => {
@@ -337,119 +327,123 @@ export default function AdminDashboard() {
                   variant="neutral"
                 />
               </div>
-            </>
-          )}
+            )}
 
-          {filterMode === 'month' && (
-            <>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Từ tháng</span>
-                <select
+            {filterMode === 'month' && (
+              <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                <CustomSelect
                   value={monthStartVal}
-                  onChange={(e) => setMonthStartVal(Number(e.target.value))}
-                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl px-3 py-1.5 font-bold text-xs cursor-pointer focus:outline-none hover:border-slate-300 dark:hover:border-slate-600"
-                >
-                  {months.map((m) => <option key={m} value={m}>Tháng {m}</option>)}
-                </select>
-                <select
+                  onChange={(val) => setMonthStartVal(Number(val))}
+                  options={monthOptions}
+                  buttonClassName="!h-9 !py-1 !px-3 !rounded-xl !text-xs !bg-slate-50 dark:!bg-slate-800 !border-slate-200 dark:!border-slate-700 font-bold min-w-[95px]"
+                  menuClassName="!min-w-[120px] max-h-56"
+                />
+                <CustomSelect
                   value={monthStartYear}
-                  onChange={(e) => setMonthStartYear(Number(e.target.value))}
-                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl px-3 py-1.5 font-bold text-xs cursor-pointer focus:outline-none hover:border-slate-300 dark:hover:border-slate-600"
-                >
-                  {years.map((y) => <option key={y} value={y}>{y}</option>)}
-                </select>
-              </div>
+                  onChange={(val) => setMonthStartYear(Number(val))}
+                  options={yearOptions}
+                  buttonClassName="!h-9 !py-1 !px-3 !rounded-xl !text-xs !bg-slate-50 dark:!bg-slate-800 !border-slate-200 dark:!border-slate-700 font-bold min-w-[80px]"
+                  menuClassName="!min-w-[100px] max-h-56"
+                />
 
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Đến tháng</span>
-                <select
+                <span className="text-slate-400 font-medium text-xs px-0.5">đến</span>
+
+                <CustomSelect
                   value={monthEndVal}
-                  onChange={(e) => setMonthEndVal(Number(e.target.value))}
-                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl px-3 py-1.5 font-bold text-xs cursor-pointer focus:outline-none hover:border-slate-300 dark:hover:border-slate-600"
-                >
-                  {filteredEndMonths.map((m) => <option key={m} value={m}>Tháng {m}</option>)}
-                </select>
-                <select
+                  onChange={(val) => setMonthEndVal(Number(val))}
+                  options={filteredEndMonthOptions}
+                  buttonClassName="!h-9 !py-1 !px-3 !rounded-xl !text-xs !bg-slate-50 dark:!bg-slate-800 !border-slate-200 dark:!border-slate-700 font-bold min-w-[95px]"
+                  menuClassName="!min-w-[120px] max-h-56"
+                />
+                <CustomSelect
                   value={monthEndYear}
-                  onChange={(e) => setMonthEndYear(Number(e.target.value))}
-                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl px-3 py-1.5 font-bold text-xs cursor-pointer focus:outline-none hover:border-slate-300 dark:hover:border-slate-600"
-                >
-                  {filteredEndYearsForMonth.map((y) => <option key={y} value={y}>{y}</option>)}
-                </select>
+                  onChange={(val) => setMonthEndYear(Number(val))}
+                  options={filteredEndYearsForMonthOptions}
+                  buttonClassName="!h-9 !py-1 !px-3 !rounded-xl !text-xs !bg-slate-50 dark:!bg-slate-800 !border-slate-200 dark:!border-slate-700 font-bold min-w-[80px]"
+                  menuClassName="!min-w-[100px] max-h-56"
+                />
               </div>
-            </>
-          )}
+            )}
 
-          {filterMode === 'year' && (
-            <>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Từ năm</span>
-                <select
+            {filterMode === 'year' && (
+              <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                <CustomSelect
                   value={yearStartVal}
-                  onChange={(e) => setYearStartVal(Number(e.target.value))}
-                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl px-3 py-1.5 font-bold text-xs cursor-pointer focus:outline-none hover:border-slate-300 dark:hover:border-slate-600"
-                >
-                  {years.map((y) => <option key={y} value={y}>{y}</option>)}
-                </select>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Đến năm</span>
-                <select
+                  onChange={(val) => setYearStartVal(Number(val))}
+                  options={yearOptions}
+                  buttonClassName="!h-9 !py-1 !px-3 !rounded-xl !text-xs !bg-slate-50 dark:!bg-slate-800 !border-slate-200 dark:!border-slate-700 font-bold min-w-[85px]"
+                  menuClassName="!min-w-[100px] max-h-56"
+                />
+                <span className="text-slate-400 font-medium text-xs px-0.5">đến</span>
+                <CustomSelect
                   value={yearEndVal}
-                  onChange={(e) => setYearEndVal(Number(e.target.value))}
-                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl px-3 py-1.5 font-bold text-xs cursor-pointer focus:outline-none hover:border-slate-300 dark:hover:border-slate-600"
-                >
-                  {filteredEndYearsOnly.map((y) => <option key={y} value={y}>{y}</option>)}
-                </select>
+                  onChange={(val) => setYearEndVal(Number(val))}
+                  options={filteredEndYearsOnlyOptions}
+                  buttonClassName="!h-9 !py-1 !px-3 !rounded-xl !text-xs !bg-slate-50 dark:!bg-slate-800 !border-slate-200 dark:!border-slate-700 font-bold min-w-[85px]"
+                  menuClassName="!min-w-[100px] max-h-56"
+                />
               </div>
-            </>
-          )}
+            )}
+
+            {/* Refresh Button */}
+            <button
+              onClick={() => fetchData()}
+              disabled={isRefreshing}
+              className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60 transition-all cursor-pointer h-9 w-9 flex items-center justify-center shrink-0"
+              title="Làm mới dữ liệu"
+            >
+              <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+            </button>
+
+            {/* Export PDF Button */}
+            <button
+              onClick={() => setIsExportModalOpen(true)}
+              className="flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs px-3.5 h-9 rounded-xl shadow-xs transition-all cursor-pointer shrink-0 active:scale-95"
+            >
+              <FileDown size={14} />
+              Xuất PDF
+            </button>
+          </div>
         </div>
       </div>
 
       {/* 3 Core KPI Stat Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
         {/* Doanh thu tổng */}
         <StatCard
           title="Doanh Thu Thuần"
           value={isClient ? currencyFormatter.format(Number(stats?.total_revenue || 0)) : '0 đ'}
           change={rangeInfo.label}
-          changeColor="bg-teal-50 text-teal-600 dark:bg-teal-950/40 dark:text-teal-400"
-          icon={<DollarSign className="text-teal-600 dark:text-teal-400" size={20} />}
-          color="bg-teal-50 dark:bg-teal-950/30"
-          delay="100ms"
-          sparklineData={revenueTrend}
+          changeColor="bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300 border-teal-200/60 dark:border-teal-800/40"
+          icon={<DollarSign className="text-teal-600 dark:text-teal-400" size={18} />}
+          color="bg-teal-50 dark:bg-teal-950/40"
+          subtitle="Kỳ báo cáo"
         />
 
-        {/* Tổng khách hàng đã đăng ký tài khoản (không phân biệt đã có hồ sơ điều trị hay chưa) —
-            đây là số lũy kế toàn thời gian, không đổi theo bộ lọc thời gian ở trên, chỉ phần trăm
-            tăng trưởng (so với tháng trước) là có ý nghĩa theo thời gian thực. */}
+        {/* Tổng khách hàng đã đăng ký */}
         <StatCard
           title="Tổng Khách Hàng Đăng Ký"
           value={`${stats?.total_customers || 0} khách`}
           change={customerMoM}
           changeColor={customerMoMColor}
-          icon={<Users className="text-indigo-600 dark:text-indigo-400" size={20} />}
-          color="bg-indigo-50 dark:bg-indigo-950/30"
-          delay="150ms"
-          sparklineData={customerTrend}
+          icon={<Users className="text-indigo-600 dark:text-indigo-400" size={18} />}
+          color="bg-indigo-50 dark:bg-indigo-950/40"
+          subtitle="Tăng trưởng tháng"
         />
 
-        {/* Tỉ lệ hủy lịch */}
+        {/* Tỉ lệ hủy & vắng */}
         <StatCard
-          title="Tỷ Lệ Hủy / Đổi Lịch"
+          title="Tỷ Lệ Hủy / Vắng"
           value={`${stats?.cancellation_rate || 0}%`}
           change={cancelRateLabel}
           changeColor={cancelRateColor}
-          icon={<Activity className="text-rose-500" size={20} />}
-          color="bg-rose-50 dark:bg-rose-950/30"
-          delay="200ms"
+          icon={<Activity className="text-rose-500" size={18} />}
+          color="bg-rose-50 dark:bg-rose-950/40"
+          subtitle="Kỳ báo cáo"
         />
       </div>
 
-      {/* Biểu Đồ Doanh Thu — full-width riêng 1 hàng, Top Gói xếp hàng riêng bên dưới để không còn
-          phải ép 2 khối nội dung có bản chất khác nhau (chart liên tục vs. danh sách xếp hạng) vào
-          chung 1 hàng rồi tranh nhau chiều cao. */}
+      {/* Biểu Đồ Doanh Thu */}
       <RevenueChart
         startDate={rangeInfo.startDate}
         endDate={rangeInfo.endDate}
@@ -458,13 +452,24 @@ export default function AdminDashboard() {
         isClient={isClient}
       />
 
+      {/* Top Gói Dịch Vụ Phổ Biến */}
       <TopPackagesChart />
 
       {/* Leaderboards Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6 items-stretch">
         <TopVipCustomers />
         <StaffPerformanceGrid performanceData={performanceData} />
       </div>
+
+      {/* Modal Xuất Báo Cáo Tổng Quan PDF */}
+      <ExportReportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        periodLabel={rangeInfo.label}
+        rangeInfo={rangeInfo}
+        stats={stats}
+        performanceData={performanceData}
+      />
     </div>
   );
 }

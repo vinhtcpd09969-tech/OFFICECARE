@@ -73,7 +73,7 @@ export default function GlobalAuthModal({ isOpen, onClose }: GlobalAuthModalProp
 
         {/* Subtitle / UX copy explaining exactly why this is needed */}
         <p className="text-slate-500 font-semibold text-sm leading-relaxed text-center mb-10 px-2 max-w-[400px] mx-auto">
-          Để tránh mất công điền thông tin lâm sàng cả buổi khi chưa có tài khoản, vui lòng đăng ký hoặc đăng nhập trước để tiếp tục khám lượng giá nhé!
+          Để tránh mất công điền thông tin lâm sàng cả buổi khi chưa có tài khoản, vui lòng đăng ký hoặc đăng nhập trước để tiếp tục đặt lịch lượng giá nhé!
         </p>
 
         {/* Premium Action Buttons - Side-by-Side on desktop, stacked on mobile */}

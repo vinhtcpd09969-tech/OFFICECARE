@@ -1,8 +1,9 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import authRepository from '../repositories/auth.repository';
+import authRepository from '../repositories/auth';
 import { sendOTP, sendForgotPasswordOTP } from '../utils/mailer';
 import prisma from '../config/prisma';
+import { AppError, BadRequestError, UnauthorizedError, ForbiddenError, NotFoundError } from '../utils/appError';
 
 class AuthService {
   private generateAccessToken(user: any) {
@@ -25,7 +26,7 @@ class AuthService {
     // 1. Check if email already exists
     const existingUser = await authRepository.findUserByEmail(data.email);
     if (existingUser) {
-      throw new Error('Email đã được đăng ký sử dụng');
+      throw new BadRequestError('Email đã được đăng ký sử dụng');
     }
 
     // Check if phone number already exists
@@ -33,7 +34,7 @@ class AuthService {
       const phoneExistsCustomer = await prisma.khach_hang.findFirst({ where: { so_dien_thoai: data.so_dien_thoai } });
       const phoneExistsUser = await prisma.nguoi_dung.findFirst({ where: { so_dien_thoai: data.so_dien_thoai } });
       if (phoneExistsCustomer || phoneExistsUser) {
-        throw new Error('Số điện thoại này đã được sử dụng');
+        throw new BadRequestError('Số điện thoại này đã được sử dụng');
       }
     }
 
@@ -73,33 +74,30 @@ class AuthService {
 
   async login(data: any) {
     const user = await authRepository.findUserByEmail(data.email);
-    if (!user) throw new Error('Email hoặc mật khẩu không chính xác');
+    if (!user) throw new UnauthorizedError('Email hoặc mật khẩu không chính xác');
 
     if (user.trang_thai !== 'hoat_dong' && user.trang_thai !== 'cho_kich_hoat') {
-      throw new Error('Tài khoản đã bị khóa hoặc vô hiệu hóa');
+      throw new ForbiddenError('Tài khoản đã bị khóa hoặc vô hiệu hóa');
     }
 
     const isVerified = (user as any).trang_thai !== 'cho_kich_hoat';
     if (!isVerified) {
-      const error = new Error('Tài khoản chưa được xác thực email') as any;
-      error.requiresVerification = true;
-      error.email = user.email;
-      throw error;
+      throw new ForbiddenError('Tài khoản chưa được xác thực email', { requiresVerification: true, email: user.email });
     }
 
     if (!user.mat_khau_hash) {
-      throw new Error('Email hoặc mật khẩu không chính xác');
+      throw new UnauthorizedError('Email hoặc mật khẩu không chính xác');
     }
 
     const isMatch = await bcrypt.compare(data.password, user.mat_khau_hash);
-    if (!isMatch) throw new Error('Email hoặc mật khẩu không chính xác');
+    if (!isMatch) throw new UnauthorizedError('Email hoặc mật khẩu không chính xác');
 
     const accessToken = this.generateAccessToken(user);
     const refreshToken = this.generateRefreshToken(user);
 
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
-    
+
     const isCustomer = user.vai_tro_id === 1;
     await authRepository.saveRefreshToken(String(user.id), refreshToken, expiresAt, isCustomer);
     await authRepository.updateLastLogin(user.id);
@@ -118,11 +116,8 @@ class AuthService {
         email: user.email,
         so_dien_thoai: user.so_dien_thoai,
         vai_tro_id: user.vai_tro_id,
-        avatar_url: null,
-        // Chỉ có ở khach_hang — undefined với nhân sự (nguoi_dung không có cột này), vô hại vì
-        // frontend khai optional. Thiếu trường này khiến authStore.user.diem_uy_tin luôn undefined
-        // ngay sau đăng nhập, trang Lịch hẹn phải chờ fetch riêng mới có đúng số.
-        diem_uy_tin: (user as any).diem_uy_tin,
+        anh_dai_dien: (user as any).anh_dai_dien || null,
+        avatar_url: (user as any).anh_dai_dien || null,
         isDefaultPassword
       }
     };
@@ -142,7 +137,7 @@ class AuthService {
 
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
-    
+
     const isCustomer = user.vai_tro_id === 1;
     await authRepository.saveRefreshToken(String(user.id), refreshToken, expiresAt, isCustomer);
     await authRepository.updateLastLogin(user.id);
@@ -156,8 +151,8 @@ class AuthService {
         email: user.email,
         so_dien_thoai: user.so_dien_thoai,
         vai_tro_id: user.vai_tro_id,
-        avatar_url: null,
-        diem_uy_tin: (user as any).diem_uy_tin
+        anh_dai_dien: (user as any).anh_dai_dien || null,
+        avatar_url: (user as any).anh_dai_dien || null
       }
     };
   }
@@ -192,7 +187,7 @@ class AuthService {
   async resendOTP(email: string) {
     const user = await authRepository.findUserByEmail(email);
     if (!user) throw new Error('Người dùng không tồn tại');
-    
+
     const isVerified = (user as any).trang_thai !== 'cho_kich_hoat';
     if (isVerified) throw new Error('Tài khoản đã được xác thực email trước đó');
 
@@ -204,7 +199,7 @@ class AuthService {
     // Xóa các OTP cũ và lưu OTP mới
     await authRepository.deleteOTPsByEmail(email);
     await authRepository.saveOTP(email, otp, expiresAt);
-    
+
     // Gửi email OTP bất đồng bộ để tránh làm chậm yêu cầu gửi lại
     sendOTP(email, otp, user.ho_ten).catch((err) => {
       console.error('Lỗi gửi email OTP bất đồng bộ khi gửi lại:', err);
@@ -255,6 +250,14 @@ class AuthService {
     const validOTP = await authRepository.findValidOTP(data.email, data.otp);
     if (!validOTP) throw new Error('Mã OTP không hợp lệ hoặc đã hết hạn');
 
+    const customer = await authRepository.findActiveCustomerByEmail(data.email);
+    if (customer && customer.mat_khau_hash) {
+      const isSame = await bcrypt.compare(data.newPassword, customer.mat_khau_hash);
+      if (isSame) {
+        throw new Error('Mật khẩu mới không được trùng với mật khẩu hiện tại. Vui lòng chọn mật khẩu khác.');
+      }
+    }
+
     const salt = await bcrypt.genSalt(10);
     const newHash = await bcrypt.hash(data.newPassword, salt);
 
@@ -279,7 +282,7 @@ class AuthService {
     ngay_sinh?: string | Date;
   }) {
     if (!data.ho_ten) throw new Error('Họ tên không được để trống');
-    
+
     // Check if phone number is already registered by another user/customer
     if (data.so_dien_thoai) {
       const isNguoiDung = typeof userId === 'number' || (typeof userId === 'string' && /^\d+$/.test(userId));
@@ -316,15 +319,67 @@ class AuthService {
     return authRepository.updateProfile(userId, data);
   }
 
-  async changePassword(userId: string | number, data: any) {
-    const currentHash = await authRepository.findPasswordHashById(userId);
-    if (!currentHash) {
+  async sendChangePasswordOTP(userId: string | number) {
+    const user = await authRepository.findUserById(String(userId));
+    if (!user || !user.email) {
+      throw new Error('Không tìm thấy thông tin tài khoản hoặc email người dùng.');
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 10);
+
+    await authRepository.deleteOTPsByEmail(user.email);
+    await authRepository.saveOTP(user.email, otp, expiresAt);
+
+    sendForgotPasswordOTP(user.email, otp, user.ho_ten || 'Quý khách').catch((err) => {
+      console.error('Lỗi gửi email OTP đổi mật khẩu:', err);
+    });
+
+    return { message: `Đã gửi mã OTP xác thực tới email ${user.email}.` };
+  }
+
+  async changePassword(userId: string | number, data: { otp?: string; newPassword: string; oldPassword?: string }) {
+    if (!data.newPassword || data.newPassword.length < 6) {
+      throw new Error('Mật khẩu mới phải có ít nhất 6 ký tự');
+    }
+
+    const user = await authRepository.findUserById(String(userId));
+    if (!user || !user.email) {
       throw new Error('Người dùng không tồn tại');
     }
 
-    const isValid = await bcrypt.compare(data.oldPassword, currentHash);
-    if (!isValid) {
-      throw new Error('Mật khẩu hiện tại không chính xác');
+    const currentHash = await authRepository.findPasswordHashById(userId);
+
+    if (data.otp) {
+      const validOTP = await authRepository.findValidOTP(user.email, data.otp.trim());
+      if (!validOTP) {
+        throw new Error('Mã OTP không chính xác hoặc đã hết hạn');
+      }
+
+      // Kiểm tra mật khẩu mới có bị trùng với mật khẩu cũ đang dùng không
+      if (currentHash) {
+        const isSame = await bcrypt.compare(data.newPassword, currentHash);
+        if (isSame) {
+          throw new Error('Mật khẩu mới không được trùng với mật khẩu hiện tại. Vui lòng chọn mật khẩu khác.');
+        }
+      }
+
+      await authRepository.deleteOTPsByEmail(user.email);
+    } else if (data.oldPassword) {
+      if (!currentHash) {
+        throw new Error('Người dùng không tồn tại');
+      }
+      const isValid = await bcrypt.compare(data.oldPassword, currentHash);
+      if (!isValid) {
+        throw new Error('Mật khẩu hiện tại không chính xác');
+      }
+
+      if (data.oldPassword === data.newPassword) {
+        throw new Error('Mật khẩu mới không được trùng với mật khẩu hiện tại. Vui lòng chọn mật khẩu khác.');
+      }
+    } else {
+      throw new Error('Vui lòng cung cấp mã OTP xác thực');
     }
 
     const salt = await bcrypt.genSalt(10);

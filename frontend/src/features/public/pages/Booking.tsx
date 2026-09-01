@@ -1,41 +1,30 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import {
-  ShieldCheck,
-  Star,
-  User,
-  Loader2,
-  Activity,
-  Lock,
-  Calendar,
-  CreditCard,
-  QrCode,
   Sparkles,
   CheckCircle2,
-  Tag,
-  Upload,
-  X,
-  Info,
-  ExternalLink,
-  FileCheck,
-  AlertTriangle,
-  Phone
+  Loader2,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import api from '../../../api/axios';
 import { useAuthStore, useAuthActions } from '../../../stores/authStore';
 import { agreeTerms } from '../../customer/api/customer.api';
-import { TERMS_OF_SERVICE } from '../../legal/termsContent';
 import { toast } from 'react-hot-toast';
 import { useBookingState } from '../components/booking/hooks/useBookingState';
-import {
-  BUOI_INFO,
-  formatFullDate,
-  isBuoiDaQua
-} from '../components/booking/constants';
+import { calculateVoucherDiscount } from '../../admin/pages/ManageFinance/components/VoucherPicker';
+import { BookingServiceSection } from '../components/booking/ui/sections/BookingServiceSection';
+import { BookingDateTimeStaffSection } from '../components/booking/ui/sections/BookingDateTimeStaffSection';
+import { BookingCustomerFormSection } from '../components/booking/ui/sections/BookingCustomerFormSection';
+import { BookingPaymentSection } from '../components/booking/ui/sections/BookingPaymentSection';
+import { BookingSummaryCard } from '../components/booking/ui/sections/BookingSummaryCard';
+import { BookingTermsModal } from '../components/booking/ui/sections/BookingTermsModal';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 export default function Booking() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const navState = (location.state || {}) as { bookingType?: 'kham' | 'dich_vu'; selectedServiceId?: string; from?: string };
+
   const [isClient, setIsClient] = useState(false);
   const { user, isAuthenticated } = useAuthStore();
   const { updateUser } = useAuthActions();
@@ -49,9 +38,10 @@ export default function Booking() {
   const [modalTermsChecked, setModalTermsChecked] = useState(false);
 
   // Initialize booking type & selected service
-  const [bookingType, setBookingType] = useState<'kham' | 'dich_vu'>('kham');
-  const [selectedServiceId, setSelectedServiceId] = useState<string>('');
+  const [bookingType, setBookingType] = useState<'kham' | 'dich_vu'>(navState.bookingType || 'kham');
+  const [selectedServiceId, setSelectedServiceId] = useState<string>(navState.selectedServiceId ? String(navState.selectedServiceId) : '');
   const [selectedStaffId, setSelectedStaffId] = useState<string>('');
+  const initializedFromNavRef = useRef(false);
 
   const [services, setServices] = useState<any[]>([]);
   const [servicesLoading, setServicesLoading] = useState(false);
@@ -68,7 +58,6 @@ export default function Booking() {
   const pollingTimerRef = useRef<any>(null);
   const countdownTimerRef = useRef<any>(null);
   const isCreatingBookingRef = useRef(false);
-  const userTouchedVoucherRef = useRef(false);
 
   // Vouchers state for Online payment
   const [activeVouchers, setActiveVouchers] = useState<any[]>([]);
@@ -77,7 +66,6 @@ export default function Booking() {
   const {
     state,
     buoiAvailability,
-    hasExistingClinicalExam,
     isPhoneTakenByOther,
     setDateField,
     setBuoiField,
@@ -87,12 +75,9 @@ export default function Booking() {
 
   const { selectedDate, selectedBuoi, isSubmitting, formData } = state;
 
-  const selectedService = services.find(s => s.id === selectedServiceId);
+  const selectedService = services.find(s => String(s.id) === String(selectedServiceId));
   const serviceDuration = Number(selectedService?.thoi_luong_phut) || 30;
 
-  // Nhân sự hiển thị PHẢI lọc theo buổi đang chọn + còn đủ phút cho đúng dịch vụ (điều kiện #7,
-  // "Danh sách đầy đủ điều kiện chặn đặt lịch") — nếu không lọc, khách chọn được người đã hết chỗ
-  // ở buổi này, chỉ bị từ chối khi submit thay vì thấy ngay tại đây.
   const staffList = useMemo(() => {
     if (buoiAvailability.nhanSu.length === 0) return specialists;
     if (!selectedBuoi) return [];
@@ -103,8 +88,6 @@ export default function Booking() {
   }, [buoiAvailability.nhanSu, selectedBuoi, serviceDuration, specialists]);
   const selectedStaffObj = staffList.find(s => String(s.id) === selectedStaffId);
 
-  // Buổi đổi thì nhân sự đã chọn có thể không còn đủ chỗ ở buổi mới — reset để tránh giữ lựa chọn
-  // đã hết hiệu lực (loại riêng khỏi effect reset theo dịch vụ/loại lịch bên dưới).
   useEffect(() => {
     setSelectedStaffId('');
   }, [selectedBuoi]);
@@ -144,90 +127,98 @@ export default function Booking() {
       .catch(err => console.error('Lỗi tải danh sách nhân sự:', err));
   }, []);
 
-  // Auto select default service and reset staff when bookingType or services list changes
+  // Smart auto-selection: Prioritize passed navigation state service on first load, otherwise default
   useEffect(() => {
     if (services.length === 0) return;
-    if (bookingType === 'kham') {
-      const examService = services.find(s => s.loai_goi === 'KHAM' || s.loai_dich_vu === 'KHAM');
-      if (examService && selectedServiceId !== examService.id) {
-        setSelectedServiceId(examService.id);
-      }
-    } else {
-      const regularService = services.find(s => s.loai_goi !== 'KHAM' && s.loai_dich_vu !== 'KHAM');
-      if (regularService && selectedServiceId !== regularService.id) {
-        setSelectedServiceId(regularService.id);
+
+    if (!initializedFromNavRef.current && navState.selectedServiceId) {
+      const matched = services.find(s => String(s.id) === String(navState.selectedServiceId));
+      if (matched) {
+        const isExam = matched.loai_goi === 'KHAM' || matched.loai_dich_vu === 'KHAM';
+        setBookingType(isExam ? 'kham' : 'dich_vu');
+        setSelectedServiceId(String(matched.id));
+        initializedFromNavRef.current = true;
+        return;
       }
     }
+    initializedFromNavRef.current = true;
+
+    if (bookingType === 'kham') {
+      const cur = services.find(s => String(s.id) === String(selectedServiceId));
+      if (!cur || (cur.loai_goi !== 'KHAM' && cur.loai_dich_vu !== 'KHAM')) {
+        const examService = services.find(s => s.loai_goi === 'KHAM' || s.loai_dich_vu === 'KHAM');
+        if (examService) setSelectedServiceId(String(examService.id));
+      }
+    } else {
+      const cur = services.find(s => String(s.id) === String(selectedServiceId));
+      if (!cur || cur.loai_goi === 'KHAM' || cur.loai_dich_vu === 'KHAM') {
+        const regularService = services.find(s => s.loai_goi !== 'KHAM' && s.loai_dich_vu !== 'KHAM');
+        if (regularService) setSelectedServiceId(String(regularService.id));
+      }
+    }
+  }, [bookingType, services, navState.selectedServiceId]);
+
+  const handleSetBookingType = (type: 'kham' | 'dich_vu') => {
+    setBookingType(type);
+    if (type === 'kham') {
+      const examService = services.find(s => s.loai_goi === 'KHAM' || s.loai_dich_vu === 'KHAM');
+      if (examService) setSelectedServiceId(String(examService.id));
+    } else {
+      const regularService = services.find(s => s.loai_goi !== 'KHAM' && s.loai_dich_vu !== 'KHAM');
+      if (regularService) setSelectedServiceId(String(regularService.id));
+    }
     setSelectedStaffId('');
-  }, [bookingType, services]);
+  };
 
   // Fetch active vouchers for Client Online booking
   useEffect(() => {
-    fetch(`${BASE_URL}/client/vouchers/active`)
+    const url = user?.id 
+      ? `${BASE_URL}/client/vouchers/active?khach_hang_id=${user.id}` 
+      : `${BASE_URL}/client/vouchers/active`;
+    fetch(url)
       .then(res => res.json())
       .then(data => {
         const list = data.vouchers || [];
         setActiveVouchers(list);
       })
       .catch(err => console.error('Lỗi tải voucher client:', err));
-  }, []);
+  }, [user?.id]);
 
   // Price calculations
-  const rawPrice = selectedService ? Number(selectedService.don_gia) : (bookingType === 'kham' ? 200000 : 0);
+  const examService = services.find(s => s.loai_goi === 'KHAM' || s.loai_dich_vu === 'KHAM');
+  const rawPrice = selectedService 
+    ? Number(selectedService.don_gia) 
+    : (bookingType === 'kham' ? Number(examService?.don_gia || 0) : 0);
 
-  // AUTO-APPLY ENGINE: Auto-select best eligible voucher ONLY ONCE when switching to PayOS
-  useEffect(() => {
-    if (paymentMethod === 'tai_quay') {
-      setSelectedVoucher(null);
-      userTouchedVoucherRef.current = false;
-      return;
+  const handleApplyVoucher = async (code: string, isSilent = false) => {
+    const matched = activeVouchers.find((v: any) => v.ma_voucher?.toUpperCase() === code.trim().toUpperCase());
+    if (matched) {
+      setSelectedVoucher(matched);
+      if (!isSilent) toast.success(`Đã áp dụng mã "${matched.ma_voucher}"!`);
+    } else {
+      try {
+        const res = await api.post('/client/vouchers/apply', {
+          ma_voucher: code,
+          khach_hang_id: user?.id,
+          loai_thanh_toan: 'tra_thang',
+          kenh: 'online',
+          loai_goi: bookingType === 'kham' ? 'KHAM' : 'LE',
+        });
+        if (res.data?.voucher) {
+          setSelectedVoucher(res.data.voucher);
+          if (!isSilent) toast.success(`Đã áp dụng mã "${res.data.voucher.ma_voucher}"!`);
+        }
+      } catch (err: any) {
+        if (!isSilent) toast.error(err.response?.data?.message || 'Mã giảm giá không tồn tại hoặc chưa thỏa điều kiện.');
+      }
     }
-
-    // Respect user's manual dropdown selection (including "No voucher")
-    if (userTouchedVoucherRef.current) {
-      return;
-    }
-
-    if (activeVouchers.length === 0) {
-      setSelectedVoucher(null);
-      return;
-    }
-
-    const currentLoaiGoi = bookingType === 'kham' ? 'KHAM' : 'LE';
-
-    const eligible = activeVouchers.filter((v: any) => {
-      const kenhList = Array.isArray(v.kenh_ap_dung)
-        ? v.kenh_ap_dung.map((k: any) => String(k).toLowerCase().trim())
-        : [String(v.kenh_ap_dung || '').toLowerCase().trim()];
-
-      const goiList = Array.isArray(v.loai_goi_ap_dung)
-        ? v.loai_goi_ap_dung.map((g: any) => String(g).toLowerCase().trim())
-        : [String(v.loai_goi_ap_dung || '').toLowerCase().trim()];
-
-      const isOnlineOnly = kenhList.some((k: string) => k === 'online' || k === 'web_online' || k === 'web online');
-      const isTatCaKenh = kenhList.length === 0 || kenhList.some((k: string) => !k || k === 'tat_ca' || k === 'all');
-      const matchKenh = isOnlineOnly || isTatCaKenh;
-
-      const matchGoi = goiList.length === 0 || goiList.some((g: string) => !g || g === currentLoaiGoi.toLowerCase() || g === 'tat_ca' || g === 'all' || g === 'toan_bo');
-      const matchMin = rawPrice >= (Number(v.don_hang_toi_thieu) || 0);
-      return matchKenh && matchGoi && matchMin;
-    });
-
-    const autoVoucher = eligible.find((v: any) => v.tu_dong_ap_dung === true || v.tu_dong_ap_dung === 'true') || eligible[0];
-    if (autoVoucher) {
-      setSelectedVoucher(autoVoucher);
-    }
-  }, [paymentMethod, bookingType, rawPrice, activeVouchers]);
-
-  const calculateDiscount = (v: any, price: number) => {
-    if (!v) return 0;
-    if (v.loai_giam === 'phan_tram' || v.loai_giam === 'percentage') {
-      const disc = Math.round(price * (Number(v.gia_tri_giam) / 100));
-      return v.giam_toi_da ? Math.min(disc, Number(v.giam_toi_da)) : disc;
-    }
-    return Number(v.gia_tri_giam || 0);
   };
-  const discountAmount = selectedVoucher ? calculateDiscount(selectedVoucher, rawPrice) : 0;
+
+  const handleRemoveVoucher = () => {
+    setSelectedVoucher(null);
+  };
+
+  const discountAmount = selectedVoucher ? calculateVoucherDiscount(selectedVoucher, rawPrice) : 0;
   const finalPrice = Math.max(0, rawPrice - discountAmount);
 
   // Trigger PayOS Link creation via official PayOS SDK backend endpoint
@@ -281,7 +272,6 @@ export default function Booking() {
     setPayosTimeLeft(600);
     isCreatingBookingRef.current = false;
 
-    // Start 10-minute countdown
     countdownTimerRef.current = setInterval(() => {
       setPayosTimeLeft((prev) => {
         if (prev <= 1) {
@@ -295,7 +285,6 @@ export default function Booking() {
       });
     }, 1000);
 
-    // Start polling payment status every 3s
     pollingTimerRef.current = setInterval(async () => {
       if (isCreatingBookingRef.current) return;
       try {
@@ -350,19 +339,11 @@ export default function Booking() {
 
     if (bookingType === 'kham') {
       if (!symptomTrimmed) {
-        toast.error('Vui lòng nhập lý do khám / triệu chứng!');
+        toast.error('Vui lòng nhập lý do đến lượng giá / triệu chứng!');
         return false;
       }
     }
 
-    // Chặn TRƯỚC KHI cho sang PayOS — quan trọng hơn cả chặn ở handleSubmit, vì nhánh PayOS tạo
-    // lịch NGAY SAU khi webhook báo đã nhận tiền (executeBookingCreation gọi từ effect polling,
-    // không đi qua handleSubmit). Không chặn ở đây thì khách có thể trả tiền thành công cho một
-    // lượt khám sẽ bị backend từ chối tạo — tiền đã đi, lịch thì không.
-    if (hasExistingClinicalExam && bookingType === 'kham') {
-      toast.error('Bạn đã có một buổi Lượng giá trong ngày này — vui lòng chọn ngày khác trước khi thanh toán.');
-      return false;
-    }
     if (isPhoneTakenByOther) {
       toast.error('Số điện thoại tài khoản đã thuộc về hồ sơ khách hàng khác — vui lòng cập nhật lại trước khi thanh toán.');
       return false;
@@ -396,7 +377,7 @@ export default function Booking() {
     toast.success('Đã xác nhận đồng ý điều khoản! Đang khởi tạo mã QR PayOS...');
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormField(e.target.name, e.target.value);
   };
 
@@ -420,10 +401,13 @@ export default function Booking() {
     setFormField('anh_dinh_kem_url', '');
   };
 
-  // Helper function to create appointment in database
   const executeBookingCreation = async (method: 'payos' | 'tai_quay') => {
     if (isSubmitting) return;
-    const toastId = toast.loading(method === 'payos' ? 'Đang tự động kích hoạt lượt khám...' : 'Đang gửi đăng ký lượt khám...');
+    if (!selectedBuoi || (selectedBuoi !== 'sang' && selectedBuoi !== 'chieu')) {
+      toast.error('Vui lòng chọn buổi (Buổi Sáng hoặc Buổi Chiều) trước khi hoàn tất đặt lịch.');
+      return;
+    }
+    const toastId = toast.loading(method === 'payos' ? 'Đang tự động kích hoạt lịch hẹn...' : 'Đang gửi đăng ký lịch hẹn...');
     setSubmitting(true);
 
     try {
@@ -444,7 +428,7 @@ export default function Booking() {
           nhan_su_id: selectedStaffId ? parseInt(selectedStaffId, 10) : null,
           goi_dich_vu_id: targetDichVuId,
           trieu_chung: bookingType === 'dich_vu' ? `Đặt lịch gói lẻ: ${selectedService?.ten_dich_vu || 'Dịch vụ lẻ PHCN'}` : formData.trieu_chung,
-          ly_do_kham: bookingType === 'dich_vu' ? `Trị liệu lẻ: ${selectedService?.ten_dich_vu || 'Không rõ'}` : (formData.ly_do_kham || 'Khám lượng giá ban đầu'),
+          ly_do_kham: bookingType === 'dich_vu' ? `Trị liệu lẻ: ${selectedService?.ten_dich_vu || 'Không rõ'}` : (formData.ly_do_kham || 'Lượng giá chức năng ban đầu'),
           trang_thai: 'da_xac_nhan',
           trang_thai_thanh_toan: payNow ? 'da_thanh_toan' : 'chua_thanh_toan',
           hinh_thuc_thanh_toan: method,
@@ -458,14 +442,10 @@ export default function Booking() {
           updateUser({ ngay_dong_y_dieu_khoan: new Date().toISOString() });
         }
 
-        const appt = await response.json();
-        toast.success(payNow ? '🎉 Thanh toán PayOS thành công & Lượt khám đã được xác nhận!' : 'Đăng ký lượt khám thành công!', { id: toastId });
+        await response.json();
+        toast.success(payNow ? '🎉 Thanh toán PayOS thành công & Lịch hẹn đã được xác nhận!' : 'Đăng ký lịch hẹn thành công!', { id: toastId });
 
-        if (user) {
-          navigate('/appointments');
-        } else {
-          navigate(`/booking/success/${appt.id}`);
-        }
+        navigate('/appointments');
       } else {
         const error = await response.json();
         toast.error(error.message || 'Không thể đăng ký lịch hẹn. Hãy thử lại.', { id: toastId });
@@ -479,42 +459,7 @@ export default function Booking() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedDate) {
-      toast.error('Vui lòng chọn ngày!');
-      return;
-    }
-    if (!selectedBuoi) {
-      toast.error('Vui lòng chọn buổi (Sáng hoặc Chiều)!');
-      return;
-    }
-    if (hasExistingClinicalExam && bookingType === 'kham') {
-      toast.error('Bạn đã có một buổi Lượng giá trong ngày này — vui lòng chọn ngày khác.');
-      return;
-    }
-    if (isPhoneTakenByOther) {
-      toast.error('Số điện thoại tài khoản đã thuộc về hồ sơ khách hàng khác — vui lòng cập nhật lại trước khi đặt lịch.');
-      return;
-    }
-    const nameTrimmed = (formData.ho_ten_khach || user?.ho_ten || '').trim();
-    const phoneTrimmed = (formData.so_dien_thoai || user?.so_dien_thoai || '').trim();
-    const symptomTrimmed = formData.trieu_chung.trim();
-
-    if (!nameTrimmed) {
-      toast.error('Thông tin họ tên tài khoản không hợp lệ!');
-      return;
-    }
-
-    if (!phoneTrimmed) {
-      toast.error('Thông tin số điện thoại tài khoản không hợp lệ!');
-      return;
-    }
-
-    if (bookingType === 'kham') {
-      if (!symptomTrimmed) {
-        toast.error('Vui lòng nhập lý do khám / triệu chứng!');
-        return;
-      }
-    }
+    if (!validateFormFields()) return;
 
     if (paymentMethod === 'payos' && !payTermsAccepted) {
       toast.error('Bạn vui lòng tích xem & đồng ý Điều khoản thanh toán để tiếp tục!');
@@ -524,32 +469,44 @@ export default function Booking() {
     await executeBookingCreation(paymentMethod);
   };
 
-  // Prevent flashing component structure if unauthenticated
   if (!isAuthenticated()) {
     return (
-      <div className="min-h-screen bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
-        <div className="relative max-w-[540px] w-full bg-white rounded-[32px] sm:rounded-[40px] p-8 md:p-12 border border-slate-100 shadow-2xl z-10 text-center animate-in fade-in zoom-in duration-300">
-          <div className="w-20 h-20 bg-[#2EC4B6]/10 text-[#2EC4B6] rounded-[24px] flex items-center justify-center mx-auto mb-8 shadow-inner">
-            <User size={36} strokeWidth={2.2} />
+      <div className="min-h-screen bg-slate-900/70 backdrop-blur-xl flex items-center justify-center p-4 relative overflow-hidden font-jakarta">
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-teal-500/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-1/4 left-1/3 w-80 h-80 bg-cyan-500/15 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative max-w-[500px] w-full bg-white/95 dark:bg-zinc-900/95 backdrop-blur-2xl rounded-[36px] p-8 sm:p-10 border border-teal-100 dark:border-zinc-800 shadow-2xl shadow-teal-950/20 z-10 text-center animate-in fade-in zoom-in-95 duration-300">
+          <div className="relative inline-flex mb-6">
+            <div className="w-20 h-20 bg-gradient-to-br from-teal-400 to-cyan-600 rounded-3xl flex items-center justify-center shadow-lg shadow-teal-500/30 text-white transform -rotate-3 hover:rotate-0 transition-all duration-300">
+              <Sparkles size={38} className="animate-pulse" />
+            </div>
           </div>
-          <h3 className="font-heading font-black text-2xl sm:text-[28px] text-slate-900 text-center mb-4 tracking-tight leading-snug">
-            Yêu cầu đăng nhập
+
+          <div className="inline-block px-3.5 py-1 rounded-full bg-teal-50 dark:bg-teal-950/60 border border-teal-200/60 dark:border-teal-800/60 text-teal-700 dark:text-teal-300 text-[11px] font-black uppercase tracking-wider mb-3">
+            Bảo vệ hồ sơ & Chuẩn hóa lịch hẹn
+          </div>
+
+          <h3 className="font-heading font-black text-2xl sm:text-[26px] text-slate-900 dark:text-white text-center mb-3 tracking-tight leading-snug">
+            Chào mừng bạn đến với OfficeCare 🌿
           </h3>
-          <p className="text-slate-500 font-semibold text-sm leading-relaxed text-center mb-10 px-2 max-w-[420px] mx-auto">
-            Quý khách vui lòng đăng nhập tài khoản để tiến hành đặt lịch khám lượng giá và trị liệu tại trung tâm OfficeCare.
+          
+          <p className="text-slate-600 dark:text-zinc-400 font-medium text-xs sm:text-sm leading-relaxed text-center mb-6 px-1">
+            Quý khách vui lòng đăng nhập hoặc đăng ký tài khoản để bắt đầu đặt lịch lượng giá & trị liệu cá nhân hóa.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 w-full">
+
+          <div className="flex flex-col sm:flex-row gap-3 w-full">
             <button
               onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/'))}
-              className="bg-slate-950 hover:bg-slate-900 text-white font-extrabold text-[13px] tracking-wide py-4 px-6 rounded-2xl flex-1 text-center transition-all shadow-md cursor-pointer"
+              className="bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 font-bold text-xs py-3.5 px-5 rounded-2xl flex-1 text-center transition-all cursor-pointer shadow-2xs"
             >
-              HỦY
+              Quay về Trang chủ
             </button>
             <button
               onClick={() => navigate('/login', { state: { from: '/booking' } })}
-              className="bg-[#2EC4B6] hover:bg-[#25A89C] text-white font-extrabold text-[13px] tracking-wide py-4 px-6 rounded-2xl flex-1 text-center transition-all shadow-md cursor-pointer"
+              className="bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white font-black text-xs tracking-wide py-3.5 px-6 rounded-2xl flex-1 text-center transition-all shadow-lg shadow-teal-500/25 hover:shadow-teal-500/40 hover:scale-[1.02] cursor-pointer flex items-center justify-center gap-2"
             >
-              ĐẮNG NHẬP NGAY
+              <span>Đăng nhập / Đăng ký</span>
+              <span className="text-sm">➔</span>
             </button>
           </div>
         </div>
@@ -557,965 +514,181 @@ export default function Booking() {
     );
   }
 
-  // Official VietQR URL for official PayOS payload
   const payosQrImgUrl = payosData
     ? `https://img.vietqr.io/image/${payosData.bin || 'MB'}-${payosData.accountNumber || '0358966332'}-compact2.png?amount=${payosData.amount}&addInfo=${encodeURIComponent(payosData.description)}&accountName=${encodeURIComponent(payosData.accountName || 'PHONG KHAM PHCN OFFICECARE')}`
     : '';
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] pt-6 pb-20 px-4 sm:px-6 lg:px-8 font-jakarta">
-      {/* Terms and Conditions Consent Modal Gate for New Account */}
-      {user && user.ngay_dong_y_dieu_khoan === null && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="relative max-w-2xl w-full bg-white rounded-[32px] border border-slate-100 shadow-2xl p-6 md:p-10 flex flex-col max-h-[90vh] overflow-hidden">
-            <div className="text-center pb-5 border-b border-slate-100 shrink-0">
-              <span className="bg-teal-50 text-teal-700 border border-teal-200 text-[9px] font-black uppercase tracking-widest px-3.5 py-1 rounded-full inline-flex items-center gap-1.5 mb-3">
-                📜 Cam kết chất lượng
-              </span>
-              <h2 className="font-heading font-black text-xl md:text-2xl text-slate-900 tracking-tight leading-tight mb-2">
-                Điều khoản dịch vụ &amp; Quy định
-              </h2>
-              <p className="text-[11px] text-slate-450 font-bold uppercase tracking-wider">
-                Áp dụng cho mọi hoạt động trị liệu tại OfficeCare
-              </p>
-            </div>
+      {/* Terms consent modal gate for new accounts */}
+      <BookingTermsModal
+        isOpen={!!user && user.ngay_dong_y_dieu_khoan === null}
+        onClose={() => (window.history.length > 1 ? navigate(-1) : navigate('/'))}
+        checked={acceptedTerms}
+        setChecked={setAcceptedTerms}
+        onConfirm={handleAgreeTermsModalGate}
+        loading={agreeingLoading}
+      />
 
-            <div className="flex-1 overflow-y-auto py-6 pr-2 my-4 border-b border-slate-100 space-y-6 text-left text-xs">
-              <p className="text-slate-650 leading-relaxed font-semibold">
-                Chào mừng quý khách đến với trung tâm Vật lý trị liệu và Phục hồi chức năng <strong>OfficeCare</strong>. Xin vui lòng đọc kỹ các quy định dưới đây:
-              </p>
-              {TERMS_OF_SERVICE.map((section) => (
-                <div key={section.heading} className="space-y-2">
-                  <h3 className="text-xs font-black text-slate-900 uppercase tracking-wide flex items-center gap-2">
-                    <span className="size-1.5 bg-[#0D9488] rounded-full shrink-0" />
-                    {section.heading}
-                  </h3>
-                  <div className="space-y-2.5 pl-3.5">
-                    {section.paragraphs.map((p, idx) => (
-                      <p key={idx} className="text-[11px] text-slate-500 font-semibold leading-relaxed">
-                        {p}
-                      </p>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="pt-2 shrink-0 space-y-4 text-left">
-              <label className="flex items-start gap-3 cursor-pointer group">
-                <input
-                  type="checkbox"
-                  checked={acceptedTerms}
-                  onChange={(e) => setAcceptedTerms(e.target.checked)}
-                  className="mt-1 size-4 text-teal-600 border-slate-200 rounded focus:ring-teal-500/20 cursor-pointer"
-                />
-                <span className="text-[11px] text-slate-600 font-bold leading-relaxed select-none">
-                  Tôi đã đọc, hiểu rõ và đồng ý với tất cả Điều khoản dịch vụ &amp; Quy chế uy tín của OfficeCare.
-                </span>
-              </label>
-
-              <div className="flex gap-4 pt-2">
-                <button
-                  type="button"
-                  onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/'))}
-                  className="py-3.5 px-6 border border-slate-200 hover:bg-slate-50 text-slate-700 font-extrabold rounded-2xl text-[11px] uppercase tracking-wider transition-all cursor-pointer text-center flex-1"
-                >
-                  Quay lại
-                </button>
-                <button
-                  type="button"
-                  disabled={!acceptedTerms || agreeingLoading}
-                  onClick={handleAgreeTermsModalGate}
-                  className="py-3.5 px-6 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-black rounded-2xl text-[11px] uppercase tracking-wider transition-all flex items-center justify-center gap-2 flex-[2] cursor-pointer shadow-md"
-                >
-                  {agreeingLoading ? <Loader2 className="animate-spin" size={14} /> : 'Đồng ý & Tiếp tục đặt lịch'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* POPUP MODAL: ĐIỀU KHOẢN THANH TOÁN ONLINE */}
-      {isTermsModalOpen && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="relative max-w-2xl w-full bg-white rounded-[32px] border border-slate-100 shadow-2xl p-6 md:p-10 flex flex-col max-h-[90vh] overflow-hidden text-left">
-            <div className="text-center pb-5 border-b border-slate-100 shrink-0">
-              <span className="bg-teal-50 text-teal-700 border border-teal-200 text-[9px] font-black uppercase tracking-widest px-3.5 py-1 rounded-full inline-flex items-center gap-1.5 mb-3">
-                📋 Quy định &amp; Điều khoản thanh toán
-              </span>
-              <h2 className="font-heading font-black text-xl md:text-2xl text-slate-900 tracking-tight leading-tight mb-1">
-                Điều khoản thanh toán &amp; Nhận số đăng ký Online
-              </h2>
-              <p className="text-[11px] text-slate-450 font-bold uppercase tracking-wider">
-                Vui lòng đọc và tích đồng ý điều khoản để kích hoạt sinh mã QR PayOS
-              </p>
-            </div>
-
-            <div className="flex-1 overflow-y-auto py-6 pr-2 my-4 border-b border-slate-100 space-y-6 text-xs">
-              <p className="text-slate-650 leading-relaxed font-semibold">
-                Khi sử dụng hình thức <strong>Thanh toán Online (PayOS)</strong> để hoàn tất đăng ký lượt khám tại OfficeCare, bạn đồng ý tuân thủ các quy định sau:
-              </p>
-              {TERMS_OF_SERVICE.map((section) => (
-                <div key={section.heading} className="space-y-2">
-                  <h3 className="text-xs font-black text-slate-900 uppercase tracking-wide flex items-center gap-2">
-                    <span className="size-1.5 bg-[#0D9488] rounded-full shrink-0" />
-                    {section.heading}
-                  </h3>
-                  <div className="space-y-2.5 pl-3.5">
-                    {section.paragraphs.map((p, idx) => (
-                      <p key={idx} className="text-[11px] text-slate-500 font-semibold leading-relaxed">
-                        {p}
-                      </p>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="pt-2 shrink-0 space-y-4">
-              <label className="flex items-start gap-3 cursor-pointer group bg-teal-50/60 p-3.5 rounded-2xl border border-teal-100">
-                <input
-                  type="checkbox"
-                  checked={modalTermsChecked}
-                  onChange={(e) => setModalTermsChecked(e.target.checked)}
-                  className="mt-0.5 size-4 text-teal-600 border-slate-300 rounded focus:ring-teal-500/20 cursor-pointer"
-                />
-                <span className="text-xs text-slate-800 font-extrabold leading-relaxed select-none">
-                  Tôi đã đọc, hiểu rõ và đồng ý với tất cả Điều khoản dịch vụ &amp; Quy định thanh toán online tại OfficeCare.
-                </span>
-              </label>
-
-              <div className="flex gap-4 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setIsTermsModalOpen(false)}
-                  className="py-3.5 px-6 border border-slate-200 hover:bg-slate-50 text-slate-700 font-extrabold rounded-2xl text-[11px] uppercase tracking-wider transition-all cursor-pointer text-center flex-1"
-                >
-                  Đóng
-                </button>
-                <button
-                  type="button"
-                  disabled={!modalTermsChecked}
-                  onClick={handleConfirmModalTerms}
-                  className="py-3.5 px-6 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-black rounded-2xl text-[11px] uppercase tracking-wider transition-all flex items-center justify-center gap-2 flex-[2] cursor-pointer shadow-md"
-                >
-                  <FileCheck size={16} /> Xác nhận đồng ý điều khoản
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Online payment terms popup modal */}
+      <BookingTermsModal
+        isOpen={isTermsModalOpen}
+        onClose={() => setIsTermsModalOpen(false)}
+        checked={modalTermsChecked}
+        setChecked={setModalTermsChecked}
+        onConfirm={handleConfirmModalTerms}
+      />
 
       <div className="max-w-7xl mx-auto space-y-8">
-        {/* HERO BANNER SECTION WITH GUIDANCE */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center text-left">
-          <div className="lg:col-span-8 space-y-4">
-            <div className="inline-flex items-center gap-2 bg-teal-50 border border-teal-200/60 px-3.5 py-1.5 rounded-full select-none">
-              <span className="flex h-2 w-2 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-600"></span>
-              </span>
-              <span className="text-[10px] font-black text-teal-800 uppercase tracking-widest">OfficeCare Single-Page Booking</span>
-            </div>
-
-            <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight leading-tight">
-              Đặt lịch khám &amp; Trị liệu <span className="text-teal-600">PHCN Chuyên sâu</span>
-            </h1>
-            <div className="p-4 bg-teal-50/70 border border-teal-100 rounded-2xl space-y-1 max-w-2xl">
-              <p className="text-xs font-black text-teal-900 uppercase tracking-wider">💡 Hướng dẫn đăng ký lượt khám:</p>
-              <p className="text-slate-650 font-medium text-xs leading-relaxed">
-                Hệ thống vận hành theo mô hình Lấy số – Chờ gọi theo buổi. Quý khách vui lòng chọn loại dịch vụ, ngày và buổi khám mong muốn để đăng ký lượt phục vụ.
-              </p>
-            </div>
+        {/* Header Title */}
+        <div className="text-center space-y-3 max-w-4xl mx-auto pt-2 pb-2">
+          <div className="inline-flex items-center gap-2 bg-teal-50 border border-teal-200/80 px-4 py-1.5 rounded-full shadow-2xs">
+            <span className="text-teal-600 text-xs">🏥</span>
+            <span className="text-[10px] sm:text-[11px] font-black text-teal-800 uppercase tracking-wider">
+              Dịch vụ Phục hồi Chức năng Y khoa Chuẩn Quốc Tế
+            </span>
           </div>
 
-          <div className="lg:col-span-4 flex items-center justify-start lg:justify-end gap-3 text-xs font-bold text-slate-600">
-            <div className="flex items-center gap-2 bg-white px-4 py-2.5 rounded-2xl border border-slate-200/80 shadow-xs">
-              <Star size={16} className="text-amber-400 fill-amber-400" />
-              <span>4.9/5 Chuyên nghiệp</span>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-slate-900 tracking-tight leading-snug">
+            Đặt Lịch Hẹn <span className="text-teal-600">Lượng Giá &amp; Trị Liệu PHCN</span>
+          </h1>
+
+          {/* Stepper Cards Header */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-2 text-left">
+            <div className="p-3.5 rounded-2xl border-2 border-teal-200 bg-teal-50/70 transition-all flex items-center gap-3 shadow-2xs">
+              <div className="w-8 h-8 rounded-full font-black text-xs flex items-center justify-center shrink-0 shadow-xs bg-teal-600 text-white">1</div>
+              <div className="min-w-0">
+                <p className="text-[9px] font-black uppercase text-teal-700">Bước 1</p>
+                <p className="text-xs font-black text-slate-900 truncate">Gói Dịch Vụ</p>
+              </div>
             </div>
-            <div className="flex items-center gap-2 bg-white px-4 py-2.5 rounded-2xl border border-slate-200/80 shadow-xs">
-              <ShieldCheck size={16} className="text-teal-600" />
-              <span>Chuẩn Y khoa</span>
+            <div className="p-3.5 rounded-2xl border-2 border-sky-200 bg-sky-50/70 transition-all flex items-center gap-3 shadow-2xs">
+              <div className="w-8 h-8 rounded-full font-black text-xs flex items-center justify-center shrink-0 shadow-xs bg-sky-600 text-white">2</div>
+              <div className="min-w-0">
+                <p className="text-[9px] font-black uppercase text-sky-700">Bước 2</p>
+                <p className="text-xs font-black text-slate-900 truncate">Buổi &amp; Thời Gian</p>
+              </div>
+            </div>
+            <div className="p-3.5 rounded-2xl border-2 border-indigo-200 bg-indigo-50/70 transition-all flex items-center gap-3 shadow-2xs">
+              <div className="w-8 h-8 rounded-full font-black text-xs flex items-center justify-center shrink-0 shadow-xs bg-indigo-600 text-white">3</div>
+              <div className="min-w-0">
+                <p className="text-[9px] font-black uppercase text-indigo-700">Bước 3</p>
+                <p className="text-xs font-black text-slate-900 truncate">Thông Tin Khách</p>
+              </div>
+            </div>
+            <div className="p-3.5 rounded-2xl border-2 border-emerald-200 bg-emerald-50/70 transition-all flex items-center gap-3 shadow-2xs">
+              <div className="w-8 h-8 rounded-full font-black text-xs flex items-center justify-center shrink-0 shadow-xs bg-emerald-600 text-white">4</div>
+              <div className="min-w-0">
+                <p className="text-[9px] font-black uppercase text-emerald-700">Bước 4</p>
+                <p className="text-xs font-black text-slate-900 truncate">Thanh Toán &amp; Đặt</p>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* MAIN UNIFIED BOOKING FORM & SUMMARY (1-STEP EXPERIENCE) */}
+        {/* Main Unified Booking Form */}
         <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          
-          {/* LEFT 8-COLS: MAIN FORM CONTROL PANEL */}
-          <div className="lg:col-span-8 space-y-6">
+          {/* Left Column: 8-cols */}
+          <div className="lg:col-span-8">
+            <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 space-y-8 shadow-xs text-left">
+              {/* Section 1: Service Type & Item Selection */}
+              <BookingServiceSection
+                bookingType={bookingType}
+                setBookingType={handleSetBookingType}
+                selectedServiceId={selectedServiceId}
+                setSelectedServiceId={setSelectedServiceId}
+                services={services}
+                servicesLoading={servicesLoading}
+              />
 
-            {/* KHỐI 1: CHỌN LOẠI DỊCH VỤ */}
-            <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 space-y-6 shadow-xs text-left">
-              <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-                <div className="p-2.5 bg-teal-50 text-teal-600 rounded-2xl">
-                  <Sparkles size={20} />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-slate-900 uppercase tracking-tight">1. Chọn loại gói dịch vụ</h3>
-                  <p className="text-xs text-slate-400 font-medium">Chọn tư vấn lượng giá phục hồi chức năng hoặc làm dịch vụ đơn lẻ</p>
-                </div>
-              </div>
+              {/* Section 2: Date, Session, Staff Selection */}
+              <BookingDateTimeStaffSection
+                selectedDate={selectedDate}
+                setDateField={setDateField}
+                selectedBuoi={selectedBuoi}
+                setBuoiField={setBuoiField}
+                buoiAvailability={buoiAvailability}
+                serviceDuration={serviceDuration}
+                selectedService={selectedService}
+                bookingType={bookingType}
+                staffList={staffList}
+                selectedStaffId={selectedStaffId}
+                setSelectedStaffId={setSelectedStaffId}
+              />
 
-              {/* Segmented Track Switcher */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBookingType('kham');
-                    const examService = services.find(s => s.loai_goi === 'KHAM' || s.loai_dich_vu === 'KHAM');
-                    if (examService) setSelectedServiceId(examService.id);
-                    setSelectedStaffId('');
-                  }}
-                  className={`p-5 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden ${
-                    bookingType === 'kham'
-                      ? 'border-teal-500 bg-teal-50/40 ring-2 ring-teal-500/20 shadow-xs'
-                      : 'border-slate-200 hover:border-slate-300 bg-white'
-                  }`}
-                >
-                  {bookingType === 'kham' && (
-                    <span className="absolute top-3 right-3 text-teal-600">
-                      <CheckCircle2 size={18} />
-                    </span>
-                  )}
-                  <div className="flex items-center gap-2.5 text-teal-700 font-black text-xs uppercase tracking-wider mb-2">
-                    <Activity size={16} />
-                    <span>Buổi Lượng Giá Chức Năng</span>
-                  </div>
-                  <p className="text-xs font-bold text-slate-900 mb-1">Lượng giá PHCN &amp; Đánh giá ROM/VAS/MMT</p>
-                  <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
-                    Dành cho khách hàng mới hoặc đau mạn tính — Chuyên viên đánh giá chức năng, lập kế hoạch trị liệu và chỉ định gói phù hợp.
-                  </p>
-                </button>
+              {/* Section 3: Customer Information */}
+              <BookingCustomerFormSection
+                user={user}
+                formData={formData}
+                handleChange={handleChange}
+                bookingType={bookingType}
+                isPhoneTakenByOther={isPhoneTakenByOther}
+                handleFile={handleFile}
+                removeImage={removeImage}
+              />
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBookingType('dich_vu');
-                    const leServices = services.filter(s => s.loai_goi === 'LE' || s.loai_dich_vu === 'DICH_VU_LE' || s.loai_goi !== 'KHAM');
-                    if (leServices.length > 0) setSelectedServiceId(leServices[0].id);
-                    setSelectedStaffId('');
-                  }}
-                  className={`p-5 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden ${
-                    bookingType === 'dich_vu'
-                      ? 'border-teal-500 bg-teal-50/40 ring-2 ring-teal-500/20 shadow-xs'
-                      : 'border-slate-200 hover:border-slate-300 bg-white'
-                  }`}
-                >
-                  {bookingType === 'dich_vu' && (
-                    <span className="absolute top-3 right-3 text-teal-600">
-                      <CheckCircle2 size={18} />
-                    </span>
-                  )}
-                  <div className="flex items-center gap-2.5 text-teal-700 font-black text-xs uppercase tracking-wider mb-2">
-                    <Sparkles size={16} />
-                    <span>Gói Lẻ (Dịch Vụ Đơn Lẻ)</span>
-                  </div>
-                  <p className="text-xs font-bold text-slate-900 mb-1">Đặt dịch vụ lẻ trực tiếp siêu tốc</p>
-                  <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
-                    Siêu âm, Điện xung, Kéo giãn, Nắn chỉnh... Đặt trực tiếp không cần gõ lý do khám hay up ảnh.
-                  </p>
-                </button>
-              </div>
+              {/* Section 4: Payment Methods, Voucher, PayOS */}
+              <BookingPaymentSection
+                paymentMethod={paymentMethod}
+                setPaymentMethod={setPaymentMethod}
+                buoiAvailability={buoiAvailability}
+                validateFormFields={validateFormFields}
+                selectedVoucher={selectedVoucher}
+                handleApplyVoucher={handleApplyVoucher}
+                handleRemoveVoucher={handleRemoveVoucher}
+                rawPrice={rawPrice}
+                discountAmount={discountAmount}
+                finalPrice={finalPrice}
+                activeVouchers={activeVouchers}
+                user={user}
+                bookingType={bookingType}
+                payTermsAccepted={payTermsAccepted}
+                setPayTermsAccepted={setPayTermsAccepted}
+                setIsTermsModalOpen={setIsTermsModalOpen}
+                payosLoading={payosLoading}
+                payosData={payosData}
+                payosQrImgUrl={payosQrImgUrl}
+                payosTimeLeft={payosTimeLeft}
+              />
 
-              {/* Service Cards Picker (When dich_vu is chosen) */}
-              {bookingType === 'dich_vu' && (
-                <div className="space-y-3 pt-2">
-                  <label className="text-xs font-black text-slate-700 uppercase tracking-wider block">
-                    Danh sách dịch vụ đơn lẻ PHCN *
-                  </label>
-                  {servicesLoading ? (
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-400 py-4">
-                      <Loader2 className="animate-spin" size={16} /> Đang tải danh sách dịch vụ lẻ...
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {services.filter(s => s.loai_goi === 'LE' || s.loai_dich_vu === 'DICH_VU_LE' || s.loai_goi !== 'KHAM').map(s => (
-                        <button
-                          key={s.id}
-                          type="button"
-                          onClick={() => setSelectedServiceId(s.id)}
-                          className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-2 ${
-                            selectedServiceId === s.id
-                              ? 'border-teal-500 bg-teal-500/5 text-slate-900 ring-2 ring-teal-500/20 font-bold'
-                              : 'border-slate-200 hover:border-slate-300 bg-white text-slate-700'
-                          }`}
-                        >
-                          <div className="flex justify-between items-start gap-2">
-                            <span className="text-xs font-black leading-snug">{s.ten_dich_vu}</span>
-                            <span className="text-[11px] font-black text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full shrink-0 border border-teal-100">
-                              {Number(s.don_gia).toLocaleString('vi-VN')}đ
-                            </span>
-                          </div>
-                          <span className="text-[10px] text-slate-400 font-semibold">Thời lượng: {s.thoi_luong_phut} phút</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* KHỐI 2: CHỌN NGÀY & BUỔI (GIAO DIỆN CHỌN NHÂN SỰ CÓ AVATAR NÂNG CAO) */}
-            <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 space-y-6 shadow-xs text-left">
-              <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-                <div className="p-2.5 bg-teal-50 text-teal-600 rounded-2xl">
-                  <Calendar size={20} />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-slate-900 uppercase tracking-tight">2. Chọn ngày &amp; Buổi</h3>
-                  <p className="text-xs text-slate-400 font-medium">Đơn vị đặt lịch là Buổi Sáng hoặc Buổi Chiều</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {/* Date Input */}
-                <div className="space-y-2">
-                  <label htmlFor="selectedDateInput" className="text-xs font-black text-slate-700 uppercase tracking-wider block">
-                    Ngày *
-                  </label>
-                  <input
-                    id="selectedDateInput"
-                    type="date"
-                    min={new Date().toISOString().split('T')[0]}
-                    value={selectedDate}
-                    onChange={(e) => setDateField(e.target.value)}
-                    required
-                    className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-900 focus:bg-white focus:border-teal-500 outline-none transition-all cursor-pointer"
-                  />
-                  {selectedDate && (
-                    <p className="text-[11px] font-bold text-teal-600 capitalize">
-                      📅 {formatFullDate(selectedDate)}
-                    </p>
-                  )}
-                </div>
-
-                {/* Session Radios (Sáng vs Chiều) */}
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-slate-700 uppercase tracking-wider block">
-                    Chọn Buổi *
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {(() => {
-                      const sangDaQua = isBuoiDaQua(selectedDate, 'sang');
-                      const sangChoPhep = buoiAvailability.sang.choPhep && !sangDaQua;
-                      const chieuDaQua = isBuoiDaQua(selectedDate, 'chieu');
-                      const chieuChoPhep = buoiAvailability.chieu.choPhep && !chieuDaQua;
-
-                      return (
-                        <>
-                          <button
-                            type="button"
-                            disabled={!sangChoPhep}
-                            onClick={() => setBuoiField('sang')}
-                            className={`p-3.5 rounded-2xl border text-center transition-all cursor-pointer ${
-                              selectedBuoi === 'sang' && sangChoPhep
-                                ? 'border-teal-500 bg-teal-50 text-teal-900 font-black ring-2 ring-teal-500/20'
-                                : 'border-slate-200 hover:border-slate-300 bg-white text-slate-700'
-                            } disabled:opacity-40 disabled:cursor-not-allowed`}
-                          >
-                            <div className="text-xs font-black">🌅 Buổi Sáng</div>
-                            <div className="text-[10px] text-slate-500 font-medium mt-0.5">07:30 – 12:00</div>
-                            <div className={`text-[9px] font-bold mt-1 ${sangDaQua ? 'text-rose-500' : sangChoPhep ? 'text-emerald-600' : 'text-rose-500'}`}>
-                              {sangDaQua ? 'Đã qua giờ nhận khách' : (!buoiAvailability.sang.choPhep ? 'Hết chỗ' : `Còn ${buoiAvailability.sang.conLaiChung} phút`)}
-                            </div>
-                          </button>
-
-                          <button
-                            type="button"
-                            disabled={!chieuChoPhep}
-                            onClick={() => setBuoiField('chieu')}
-                            className={`p-3.5 rounded-2xl border text-center transition-all cursor-pointer ${
-                              selectedBuoi === 'chieu' && chieuChoPhep
-                                ? 'border-teal-500 bg-teal-50 text-teal-900 font-black ring-2 ring-teal-500/20'
-                                : 'border-slate-200 hover:border-slate-300 bg-white text-slate-700'
-                            } disabled:opacity-40 disabled:cursor-not-allowed`}
-                          >
-                            <div className="text-xs font-black">🌆 Buổi Chiều</div>
-                            <div className="text-[10px] text-slate-500 font-medium mt-0.5">12:00 – 19:30</div>
-                            <div className={`text-[9px] font-bold mt-1 ${chieuDaQua ? 'text-rose-500' : chieuChoPhep ? 'text-emerald-600' : 'text-rose-500'}`}>
-                              {chieuDaQua ? 'Đã qua giờ nhận khách' : (!buoiAvailability.chieu.choPhep ? 'Hết chỗ' : `Còn ${buoiAvailability.chieu.conLaiChung} phút`)}
-                            </div>
-                          </button>
-                        </>
-                      );
-                    })()}
-                  </div>
-
-                  {/* PHASE 1: GỢI Ý KHUNG GIỜ ĐẾN THEO THỜI LƯỢNG DỊCH VỤ */}
-                  {selectedBuoi && (
-                    <div className="p-3.5 bg-teal-50/70 border border-teal-200/80 rounded-2xl text-xs flex items-center gap-2.5 text-teal-950 leading-relaxed font-medium animate-in fade-in duration-200 mt-2.5">
-                      <Info size={16} className="text-teal-600 shrink-0" />
-                      <div>
-                        Dịch vụ bạn chọn có thời lượng <strong className="text-teal-700 font-extrabold">{serviceDuration} phút</strong>. Quý khách vui lòng đến trong khung giờ từ <strong className="text-slate-900 font-extrabold">{selectedBuoi === 'sang' ? '7h30' : '12h00'}</strong> đến trước <strong className="text-emerald-700 font-black">{selectedBuoi === 'sang' ? `${Math.floor((12 * 60 - serviceDuration) / 60)}h${(12 * 60 - serviceDuration) % 60 < 10 ? '0' : ''}${(12 * 60 - serviceDuration) % 60}` : `${Math.floor((19 * 60 + 30 - serviceDuration) / 60)}h${(19 * 60 + 30 - serviceDuration) % 60 < 10 ? '0' : ''}${(19 * 60 + 30 - serviceDuration) % 60}`}</strong> để được hỗ trợ phục vụ tốt nhất.
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* CẢNH BÁO MỀM: khách đã có 1 lịch ĐÚNG dịch vụ này trong buổi đang chọn (vd đặt
-                  massage toàn thân 10h rồi đặt tiếp cùng dịch vụ lúc 11h cùng buổi) — chỉ thông
-                  báo, KHÔNG chặn submit, khác hẳn 2 cảnh báo chặn cứng bên dưới. Quyết định
-                  09/08/2026: dịch vụ lẻ trùng có thể là ý định thật của khách (không giống 2 buổi
-                  Lượng giá cùng ngày), nhưng vẫn cần báo trước để bắt lỗi bấm nhầm/double-click. */}
-              {bookingType === 'dich_vu' && selectedBuoi && buoiAvailability[selectedBuoi].trungDichVu && (
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-xs flex items-start gap-3 text-amber-900 leading-relaxed font-semibold">
-                  <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-black uppercase tracking-wider text-amber-800 text-[10px]">Bạn đã đặt dịch vụ này trong buổi rồi</p>
-                    <p className="mt-0.5 font-bold text-amber-700">
-                      Bạn đang có 1 lịch <span className="font-extrabold text-amber-900">{selectedService?.ten_dich_vu || 'dịch vụ này'}</span> trong {BUOI_INFO[selectedBuoi].label.toLowerCase()} ngày {selectedDate ? formatFullDate(selectedDate) : ''}. Vẫn có thể đặt thêm nếu bạn chắc chắn muốn đặt 2 lượt.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* CẢNH BÁO TỨC THÌ: đã có buổi Lượng giá trong ngày này — hiện ngay khi ngày/loại
-                  dịch vụ khiến trạng thái này đúng, không chờ khách bấm nút xác nhận nào */}
-              {hasExistingClinicalExam && bookingType === 'kham' && (
-                <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-xs flex items-start gap-3 text-rose-900 leading-relaxed font-semibold">
-                  <AlertTriangle size={18} className="text-rose-500 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-black uppercase tracking-wider text-rose-800 text-[10px]">Trùng buổi Lượng giá trong ngày</p>
-                    <p className="mt-0.5 font-bold text-rose-700">
-                      Bạn đã có một buổi Lượng giá vào ngày <span className="font-extrabold text-rose-900">{selectedDate ? formatFullDate(selectedDate) : ''}</span>. Mỗi ngày chỉ đặt được 1 buổi Lượng giá — vui lòng chọn ngày khác hoặc gọi hotline <span className="font-extrabold text-slate-900">0398 655 332</span> nếu cần hỗ trợ.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* REDESIGNED STAFF SELECTOR CARDS WITH AVATAR */}
-              <div className="space-y-3 pt-3 border-t border-slate-100">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-black text-slate-700 uppercase tracking-wider block">
-                    {bookingType === 'kham' ? 'Chọn Chuyên viên VLTL Lượng giá' : 'Chọn Kỹ thuật viên thực hiện'} (Tùy chọn)
-                  </label>
-                  <span className="text-[10px] text-teal-600 font-bold">⭐ Bất kỳ = Tự động gán người rảnh sớm nhất</span>
-                </div>
-
-                {!selectedBuoi ? (
-                  <p className="text-[11px] text-slate-400 font-bold py-2">Vui lòng chọn Buổi Sáng/Chiều ở trên trước để xem nhân sự còn chỗ.</p>
-                ) : staffList.length === 0 ? (
-                  <p className="text-[11px] text-amber-600 font-bold py-2">Không còn nhân sự nào đủ chỗ cho dịch vụ này ở buổi đã chọn — vui lòng đổi buổi.</p>
-                ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                  {/* Any Staff Card Option */}
+              {/* Submit CTA Button (Only shown for Cash at Counter) */}
+              {paymentMethod === 'tai_quay' && (
+                <div className="pt-4 border-t border-slate-100">
                   <button
-                    type="button"
-                    onClick={() => setSelectedStaffId('')}
-                    className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex items-center gap-3 ${
-                      selectedStaffId === ''
-                        ? 'border-teal-500 bg-teal-50/50 ring-2 ring-teal-500/20 font-bold'
-                        : 'border-slate-200 hover:border-slate-300 bg-white'
-                    }`}
+                    type="submit"
+                    disabled={isSubmitting || isPhoneTakenByOther}
+                    className="w-full bg-teal-600 hover:bg-teal-700 text-white font-jakarta font-black text-sm uppercase tracking-widest rounded-2xl h-16 shadow-lg shadow-teal-600/20 transition-all hover:-translate-y-0.5 active:translate-y-0 duration-200 flex justify-center items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <div className="w-10 h-10 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center font-black text-sm shrink-0">
-                      ✨
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-xs font-black text-slate-900 truncate">Bất kỳ nhân sự</div>
-                      <div className="text-[10px] text-teal-600 font-bold">Hệ thống rải tải rảnh nhất</div>
-                    </div>
-                  </button>
-
-                  {/* Staff List Cards */}
-                  {staffList.map((ns: any) => (
-                    <button
-                      key={ns.id}
-                      type="button"
-                      onClick={() => setSelectedStaffId(String(ns.id))}
-                      className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex items-center gap-3 ${
-                        selectedStaffId === String(ns.id)
-                          ? 'border-teal-500 bg-teal-50/50 ring-2 ring-teal-500/20 font-bold'
-                          : 'border-slate-200 hover:border-slate-300 bg-white'
-                      }`}
-                    >
-                      <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
-                        {ns.anh_dai_dien ? (
-                          <img src={ns.anh_dai_dien} alt={ns.ho_ten} className="w-full h-full object-cover" />
-                        ) : (
-                          <User size={18} className="text-slate-400" />
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-xs font-black text-slate-900 truncate">{ns.ho_ten}</div>
-                        <div className="text-[10px] text-slate-500 font-medium truncate">
-                          {ns.caTruc === 'ca_1' ? 'Ca Sáng (7h-16h)' : ns.caTruc === 'ca_2' ? 'Ca Chiều (11h-20h)' : (ns.chuyen_mon || 'Chuyên viên PHCN')}
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-                )}
-              </div>
-            </div>
-
-            {/* KHỐI 3: THÔNG TIN KHÁCH HÀNG (DISABLE HỌ TÊN + SĐT, XÓA GIỚI TÍNH) */}
-            <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 space-y-6 shadow-xs text-left">
-              <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-                <div className="p-2.5 bg-teal-50 text-teal-600 rounded-2xl">
-                  <User size={20} />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-slate-900 uppercase tracking-tight">3. Thông tin người thăm khám</h3>
-                  <p className="text-xs text-slate-400 font-medium">Hồ sơ y tế cố định gắn với tài khoản cá nhân đã đăng nhập</p>
-                </div>
-              </div>
-
-              {/* CẢNH BÁO TỨC THÌ: SĐT tài khoản trùng với tài khoản khác trong hệ thống — hiện
-                  ngay khi phát hiện, không chờ khách bấm submit */}
-              {isPhoneTakenByOther && (
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-xs flex items-start gap-3 text-amber-900 leading-relaxed font-semibold">
-                  <Phone size={18} className="text-amber-500 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-black uppercase tracking-wider text-amber-800 text-[10px]">Số điện thoại đã được sử dụng</p>
-                    <p className="mt-0.5 font-bold text-amber-700">
-                      Số điện thoại của tài khoản này đã thuộc về một hồ sơ khách hàng khác trong hệ thống. Vui lòng vào trang cá nhân cập nhật lại số điện thoại chính xác trước khi đặt lịch.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Disabled Full Name Input */}
-                <div className="space-y-1.5">
-                  <label htmlFor="hoTenInputDisabled" className="text-[11px] font-black text-slate-600 uppercase tracking-wider block">
-                    Họ và tên tài khoản
-                  </label>
-                  <input
-                    id="hoTenInputDisabled"
-                    type="text"
-                    value={user?.ho_ten || formData.ho_ten_khach || ''}
-                    disabled
-                    className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-2xl text-xs font-black text-slate-700 cursor-not-allowed opacity-85"
-                  />
-                </div>
-
-                {/* Disabled Phone Input + Helper Note */}
-                <div className="space-y-1.5">
-                  <label htmlFor="sdtInputDisabled" className="text-[11px] font-black text-slate-600 uppercase tracking-wider block">
-                    Số điện thoại tài khoản
-                  </label>
-                  <input
-                    id="sdtInputDisabled"
-                    type="tel"
-                    value={user?.so_dien_thoai || formData.so_dien_thoai || ''}
-                    disabled
-                    className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-2xl text-xs font-black text-slate-700 cursor-not-allowed opacity-85"
-                  />
-                </div>
-
-                {/* User Phone Number Note */}
-                <div className="sm:col-span-2 p-3 bg-teal-50/60 rounded-2xl border border-teal-100 text-teal-800 text-[11px] font-bold flex items-center gap-2">
-                  <Info size={15} className="text-teal-600 shrink-0" />
-                  <span>Quý khách có nhu cầu đổi số điện thoại vui lòng vào trang cá nhân để cập nhật số mới nhất.</span>
-                </div>
-              </div>
-
-              {/* CONDITIONAL CLINICAL FIELDS: ONLY SHOWN FOR GÓI TƯ VẤN (KHÁM) */}
-              {bookingType === 'kham' ? (
-                <div className="space-y-4 pt-4 border-t border-slate-100 animate-in fade-in duration-200">
-                  <div className="space-y-1.5">
-                    <label htmlFor="trieuChungArea" className="text-xs font-black text-slate-700 uppercase tracking-wider block">
-                      Mô tả triệu chứng &amp; Vị trí đau *
-                    </label>
-                    <textarea
-                      id="trieuChungArea"
-                      name="trieu_chung"
-                      rows={3}
-                      value={formData.trieu_chung}
-                      onChange={handleChange}
-                      placeholder="VD: Đau mỏi vùng cổ vai gáy lan xuống tay phải khi ngồi làm việc máy tính >4 tiếng, xoay cổ bị hạn chế..."
-                      className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-medium text-slate-900 focus:bg-white focus:border-teal-500 outline-none transition-all leading-relaxed"
-                    />
-                  </div>
-
-                  {/* Upload Image Section */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-black text-slate-700 uppercase tracking-wider block">
-                      Tải ảnh chẩn đoán / Phim X-quang, MRI (Tùy chọn)
-                    </label>
-                    {formData.anh_dinh_kem_url ? (
-                      <div className="relative w-36 h-36 rounded-2xl overflow-hidden border border-teal-200 group shadow-xs">
-                        <img src={formData.anh_dinh_kem_url} alt="Symptom preview" className="w-full h-full object-cover" />
-                        <button
-                          type="button"
-                          onClick={removeImage}
-                          className="absolute top-2 right-2 p-1.5 bg-rose-600 text-white rounded-full hover:bg-rose-700 transition-all cursor-pointer shadow-md"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                    ) : (
-                      <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-200 hover:border-teal-400 bg-slate-50/60 hover:bg-teal-50/20 rounded-2xl cursor-pointer transition-all">
-                        <Upload size={24} className="text-teal-600 mb-1" />
-                        <span className="text-xs font-bold text-slate-700">Tải ảnh triệu chứng hoặc phim chụp</span>
-                        <span className="text-[10px] text-slate-400 font-medium mt-0.5">Chấp nhận JPG, PNG, WEBP (Tối đa 5MB)</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
-                          className="hidden"
-                        />
-                      </label>
-                    )}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-
-            {/* KHỐI 4: PHƯƠNG THỨC THANH TOÁN & KHỐI MÃ QR PAYOS CHUẨN SDK */}
-            <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 space-y-6 shadow-xs text-left">
-              <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-                <div className="p-2.5 bg-teal-50 text-teal-600 rounded-2xl">
-                  <CreditCard size={20} />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-slate-900 uppercase tracking-tight">4. Phương thức thanh toán</h3>
-                  <p className="text-xs text-slate-400 font-medium">Chọn thanh toán tại quầy hoặc Thanh toán Online mã QR PayOS</p>
-                </div>
-              </div>
-
-              {/* Payment Option Radios (FIRST) */}
-              <div className="space-y-2">
-                <label className="text-xs font-black text-slate-700 uppercase tracking-wider block">
-                  Chọn phương thức thanh toán *
-                </label>
-
-                {buoiAvailability?.buoc_thanh_toan_online && (
-                  <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs flex items-start gap-3 text-rose-900 leading-relaxed font-semibold mb-3">
-                    <AlertTriangle size={18} className="text-rose-500 shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-black uppercase tracking-wider text-rose-800 text-[10px]">Yêu cầu thanh toán Online (No-show Enforcement)</p>
-                      <p className="mt-0.5 font-bold text-rose-700">
-                        Tài khoản của bạn có từ 2 lần vắng mặt (no-show) trong 60 ngày qua. Quý khách vui lòng chọn <span className="font-extrabold text-rose-900 underline">Thanh toán Online PayOS</span> để hoàn tất đặt lịch.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <button
-                    type="button"
-                    disabled={!!buoiAvailability?.buoc_thanh_toan_online}
-                    onClick={() => setPaymentMethod('tai_quay')}
-                    className={`p-4 rounded-2xl border text-left transition-all flex items-center gap-3 ${
-                      paymentMethod === 'tai_quay'
-                        ? 'border-teal-500 bg-teal-50/40 text-slate-900 ring-2 ring-teal-500/20'
-                        : 'border-slate-200 hover:border-slate-300 bg-white text-slate-700'
-                    } disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer`}
-                  >
-                    <div className="p-2.5 rounded-xl bg-amber-50 text-amber-600 font-black">🏪</div>
-                    <div>
-                      <div className="text-xs font-black">Thanh toán tại quầy</div>
-                      <div className="text-[10px] text-slate-500 font-medium">
-                        {buoiAvailability?.buoc_thanh_toan_online ? 'Khóa do dính 2 lần No-show' : 'Thanh toán khi tới phòng khám (Chưa thanh toán)'}
-                      </div>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (paymentMethod !== 'payos') {
-                        if (!validateFormFields()) return;
-                        setPaymentMethod('payos');
-                      }
-                    }}
-                    className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex items-center gap-3 ${
-                      paymentMethod === 'payos'
-                        ? 'border-teal-500 bg-teal-50/40 text-slate-900 ring-2 ring-teal-500/20'
-                        : 'border-slate-200 hover:border-slate-300 bg-white text-slate-700'
-                    }`}
-                  >
-                    <div className="p-2.5 rounded-xl bg-teal-50 text-teal-600 font-black">💳</div>
-                    <div>
-                      <div className="text-xs font-black">Thanh toán Online (PayOS QR)</div>
-                      <div className="text-[10px] text-slate-500 font-medium">Quét QR nhận đăng ký ngay (Đã thanh toán)</div>
-                    </div>
-                  </button>
-                </div>
-              </div>
-
-              {/* ONLINE PAYMENT SPECIFIC SECTION: VOUCHER APPLIER + TERMS GATE + PAYOS SDK QR DISPLAY */}
-              {paymentMethod === 'payos' && (
-                <div className="space-y-6 pt-4 border-t border-slate-100 animate-in fade-in duration-200">
-                  {/* Voucher Picker & Auto-Apply Badge Section (ONLY SHOWN FOR PAYOS ONLINE) */}
-                  <div className="space-y-2.5 p-4 bg-slate-50/80 rounded-2xl border border-slate-200/80">
-                    <label htmlFor="clientVoucherSelect" className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
-                        <Tag size={15} className="text-teal-600" />
-                        Mã ưu đãi &amp; Voucher (Thanh toán Online)
+                    {isSubmitting ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="animate-spin" size={18} /> Đang xử lý đăng ký...
                       </span>
-                    </label>
-
-                    {activeVouchers.length > 0 ? (
-                      <select
-                        id="clientVoucherSelect"
-                        value={selectedVoucher?.id || ''}
-                        onChange={(e) => {
-                          userTouchedVoucherRef.current = true;
-                          const matched = activeVouchers.find(v => String(v.id) === e.target.value);
-                          setSelectedVoucher(matched || null);
-                        }}
-                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:border-teal-500 outline-none transition-all cursor-pointer"
-                      >
-                        <option value="">-- Không sử dụng voucher --</option>
-                        {activeVouchers.map(v => (
-                          <option key={v.id} value={v.id}>
-                            🎟️ {v.ma_voucher} ({v.loai_giam === 'phan_tram' ? `Giảm ${v.gia_tri_giam}%` : `Giảm ${Number(v.gia_tri_giam).toLocaleString()}đ`}) {v.tu_dong_ap_dung ? '[Tự động]' : ''}
-                          </option>
-                        ))}
-                      </select>
                     ) : (
-                      <p className="text-[11px] text-slate-400 font-medium">Không tìm thấy voucher khả dụng cho dịch vụ này.</p>
+                      <>
+                        <CheckCircle2 size={18} /> Xác nhận đăng ký lượt lượng giá (Thanh toán tại quầy)
+                      </>
                     )}
-
-                    {selectedVoucher && (
-                      <div className="p-3.5 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-900 text-xs font-bold flex items-center justify-between shadow-2xs">
-                        <div className="flex items-center gap-2">
-                          <Sparkles size={16} className="text-emerald-600" />
-                          <span>Đã áp dụng mã: <strong className="text-emerald-700">{selectedVoucher.ma_voucher}</strong> ({selectedVoucher.ten_khuyen_mai || 'Ưu đãi'})</span>
-                        </div>
-                        <span className="text-emerald-700 font-black text-sm">-{discountAmount.toLocaleString('vi-VN')}đ</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Compulsory Terms Acceptance Box */}
-                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <label className="flex items-start gap-3 cursor-pointer group flex-1">
-                        <input
-                          type="checkbox"
-                          checked={payTermsAccepted}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              if (!validateFormFields()) return;
-                              setIsTermsModalOpen(true);
-                            } else {
-                              setPayTermsAccepted(false);
-                            }
-                          }}
-                          className="mt-0.5 size-4 text-teal-600 border-slate-300 rounded focus:ring-teal-500/20 cursor-pointer"
-                        />
-                        <span className="text-xs text-slate-700 font-extrabold group-hover:text-teal-700 transition-colors leading-relaxed select-none">
-                          Tôi đã xem, hiểu rõ và đồng ý với tất cả Điều khoản thanh toán &amp; Quy định đăng ký tại OfficeCare.
-                        </span>
-                      </label>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!validateFormFields()) return;
-                          setIsTermsModalOpen(true);
-                        }}
-                        className="text-[11px] font-black text-teal-600 hover:text-teal-800 underline underline-offset-2 shrink-0 cursor-pointer"
-                      >
-                        Xem chi tiết
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* OFFICIAL PAYOS SDK QR DISPLAY BOX */}
-                  {payTermsAccepted ? (
-                    payosLoading ? (
-                      <div className="p-8 bg-teal-50/40 rounded-3xl border border-teal-200 text-center space-y-3">
-                        <Loader2 className="animate-spin text-teal-600 mx-auto" size={28} />
-                        <p className="text-xs font-black text-teal-900">Đang khởi tạo mã QR PayOS SDK chính thức từ máy chủ...</p>
-                      </div>
-                    ) : payosData ? (
-                      <div className="rounded-3xl border border-teal-200 overflow-hidden bg-white shadow-md space-y-0 animate-in zoom-in-95 duration-300">
-                        {/* Header bar matching Receptionist PayOS Modal */}
-                        <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white px-5 py-3.5 flex flex-wrap items-center justify-between gap-2">
-                          <div className="flex items-center gap-2.5">
-                            <QrCode size={20} className="text-teal-200 animate-pulse shrink-0" />
-                            <div className="text-left">
-                              <h4 className="text-xs font-black uppercase tracking-wider leading-none">CỔNG THANH TOÁN VIETQR PAYOS</h4>
-                              <p className="text-[10px] text-teal-100 font-bold mt-0.5">Tự động nhận tiền &amp; xác nhận lượt khám y tế tức thì</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-black bg-teal-500/30 text-teal-100 px-2.5 py-0.5 rounded-full border border-teal-400/40">
-                              ⚡ WEBHOOK REAL-TIME
-                            </span>
-                            <span className="text-xs font-black bg-emerald-950/60 text-emerald-300 px-3 py-0.5 rounded-full border border-emerald-400/40 font-mono tracking-wider">
-                              ⏱ Giữ mã: {String(Math.floor(payosTimeLeft / 60)).padStart(2, '0')}:{String(payosTimeLeft % 60).padStart(2, '0')}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="p-5 space-y-4 text-left">
-                          <div className="flex flex-col sm:flex-row items-center gap-6">
-                            {/* QR Image generated via PayOS payload */}
-                            <div className="size-48 bg-white p-2 rounded-2xl border border-slate-200 shadow-md shrink-0 flex items-center justify-center relative group">
-                              <img src={payosQrImgUrl} alt="PayOS QR Transfer" className="w-full h-full object-contain rounded-xl" />
-                            </div>
-
-                            {/* PayOS Transfer Details */}
-                            <div className="space-y-2 text-xs font-jakarta text-left min-w-0 flex-1">
-                              <div>
-                                <span className="text-slate-400 font-bold uppercase text-[10px]">Ngân hàng nhận</span>
-                                <p className="font-black text-slate-900">MB BANK (Ngân hàng Quân Đội)</p>
-                              </div>
-                              <div>
-                                <span className="text-slate-400 font-bold uppercase text-[10px]">Số tài khoản</span>
-                                <p className="font-black text-teal-700 text-sm tracking-wider">{payosData.accountNumber || '0358966332'}</p>
-                              </div>
-                              <div>
-                                <span className="text-slate-400 font-bold uppercase text-[10px]">Tên tài khoản</span>
-                                <p className="font-black text-slate-900 uppercase">{payosData.accountName || 'PHONG KHAM PHCN OFFICECARE'}</p>
-                              </div>
-                              <div>
-                                <span className="text-slate-400 font-bold uppercase text-[10px]">Số tiền cần thanh toán</span>
-                                <p className="font-black text-emerald-600 text-base">{Number(payosData.amount || finalPrice).toLocaleString('vi-VN')}đ</p>
-                              </div>
-                              <div>
-                                <span className="text-slate-400 font-bold uppercase text-[10px]">Nội dung chuyển khoản chuẩn PayOS</span>
-                                <p className="font-black text-slate-900 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200 inline-block font-mono text-[11px] select-all">
-                                  {payosData.description}
-                                </p>
-                              </div>
-
-                              {payosData.checkoutUrl && (
-                                <div className="pt-1">
-                                  <a
-                                    href={payosData.checkoutUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1.5 text-[11px] font-black text-teal-700 hover:text-teal-900 underline"
-                                  >
-                                    Mở cổng PayOS web <ExternalLink size={12} />
-                                  </a>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ) : null
-                  ) : (
-                    <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200/80 text-amber-800 text-xs font-bold flex items-center gap-2">
-                      <Lock size={16} className="text-amber-600 shrink-0" />
-                      <span>Vui lòng xem &amp; tích chọn đồng ý điều khoản ở trên để hiển thị Mã QR chuyển tiền PayOS SDK chuẩn.</span>
-                    </div>
-                  )}
-
+                  </button>
                 </div>
               )}
             </div>
-
-            {/* SUBMIT CTA BUTTON (ONLY SHOWN FOR CASH AT COUNTER PAYMENT) */}
-            {paymentMethod === 'tai_quay' && (
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={isSubmitting || (hasExistingClinicalExam && bookingType === 'kham') || isPhoneTakenByOther}
-                  className="w-full bg-[#2EC4B6] hover:bg-[#25A89C] text-white font-jakarta font-black text-sm uppercase tracking-widest rounded-2xl h-16 shadow-lg shadow-[#2EC4B6]/25 transition-all hover:-translate-y-0.5 active:translate-y-0 duration-200 flex justify-center items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isSubmitting ? (
-                    <span className="flex items-center gap-2">
-                      <Loader2 className="animate-spin" size={18} /> Đang xử lý đăng ký...
-                    </span>
-                  ) : (
-                    <>
-                      <CheckCircle2 size={18} /> Xác nhận đăng ký lượt khám (Thanh toán tại quầy)
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
-
           </div>
 
-          {/* RIGHT 4-COLS: STICKY BOOKING SUMMARY CARD */}
+          {/* Right Column: Sticky Summary Card */}
           <div className="lg:col-span-4 lg:sticky lg:top-24 space-y-6">
-            <div className="bg-white rounded-3xl border border-slate-200/80 shadow-md p-6 space-y-5 text-left">
-              <div className="space-y-3">
-                <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border ${
-                  bookingType === 'dich_vu' ? 'bg-teal-50 text-teal-700 border-teal-100' : 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                }`}>
-                  {bookingType === 'dich_vu' ? 'Trị liệu dịch vụ đơn lẻ' : 'Gói tư vấn chẩn đoán'}
-                </span>
-                <h3 className="text-base font-black text-slate-900 leading-snug">
-                  {selectedService?.ten_dich_vu || (bookingType === 'dich_vu' ? 'Chọn dịch vụ đơn lẻ' : 'Lượng giá PHCN & Đánh giá ROM/VAS/MMT')}
-                </h3>
-              </div>
-
-              <div className="h-px bg-slate-100" />
-
-              <div className="space-y-3.5 text-xs font-jakarta">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Ngày</span>
-                  <span className="text-slate-900 font-black capitalize">
-                    {selectedDate && isClient ? formatFullDate(selectedDate).split(',').slice(0, 2).join(',') : 'Chưa chọn'}
-                  </span>
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Buổi nhận ca</span>
-                  <span className="text-slate-900 font-black">
-                    {selectedBuoi ? `${BUOI_INFO[selectedBuoi].label} (${BUOI_INFO[selectedBuoi].khung})` : 'Chưa chọn'}
-                  </span>
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Nhân sự</span>
-                  <span className="text-teal-700 font-black">
-                    {selectedStaffObj ? selectedStaffObj.ho_ten : 'Bất kỳ (Tự rải tải)'}
-                  </span>
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Hình thức trả</span>
-                  <span className="text-slate-900 font-black">
-                    {paymentMethod === 'payos' ? '💳 PayOS Online' : '🏪 Tại quầy'}
-                  </span>
-                </div>
-
-                {selectedVoucher && (
-                  <div className="flex justify-between items-center text-emerald-600 font-bold">
-                    <span className="uppercase tracking-wider text-[10px]">Mã giảm giá ({selectedVoucher.ma_voucher})</span>
-                    <span>-{discountAmount.toLocaleString('vi-VN')}đ</span>
-                  </div>
-                )}
-
-                <div className="flex justify-between items-center pt-2 border-t border-slate-100">
-                  <span className="text-slate-700 font-black uppercase tracking-wider text-xs">Tổng chi phí</span>
-                  <span className="text-teal-600 bg-teal-50 border-teal-100 font-black px-3 py-1 rounded-full border text-sm">
-                    {finalPrice.toLocaleString('vi-VN')}đ
-                  </span>
-                </div>
-              </div>
-
-              <div className="h-px bg-slate-100" />
-
-              {/* REVISED BENEFITS LIST ACCORDING TO USER'S QUEUE-BASED MODEL */}
-              <div className="space-y-2 text-left">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Quyền lợi đăng ký</p>
-                <ul className="space-y-2 text-xs font-bold text-slate-650">
-                  <li className="flex items-center gap-2">
-                    <span className="text-teal-600">✓</span>
-                    <span>Lấy số thứ tự &amp; Phục vụ theo thứ tự check-in</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="text-teal-600">✓</span>
-                    <span>Đánh giá tầm vận động (ROM) &amp; Cơ lực (MMT)</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="text-teal-600">✓</span>
-                    <span>Bảo mật tuyệt đối dữ liệu y tế cá nhân</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
+            <BookingSummaryCard
+              bookingType={bookingType}
+              selectedService={selectedService}
+              selectedDate={selectedDate}
+              isClient={isClient}
+              selectedBuoi={selectedBuoi}
+              selectedStaffObj={selectedStaffObj}
+              paymentMethod={paymentMethod}
+              selectedVoucher={selectedVoucher}
+              discountAmount={discountAmount}
+              finalPrice={finalPrice}
+            />
           </div>
-
         </form>
       </div>
     </div>

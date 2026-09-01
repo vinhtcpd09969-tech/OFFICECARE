@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { verifyToken, authorizeRoles } from '../middlewares/auth.middleware';
+import { requireActiveShift } from '../middlewares/shiftGuard.middleware';
 import {
   updateAppointmentStatus,
   createBillingFromAppointment,
@@ -21,7 +22,8 @@ import {
   cancelPayOSPaymentLink,
   getInvoiceStatus,
   getStaffWorkload,
-  unassignAppointmentStaff
+  unassignAppointmentStaff,
+  sweepNoShowAppointments
 } from '../controllers/receptionist.controller';
 
 const router = Router();
@@ -30,15 +32,16 @@ const router = Router();
 router.use(verifyToken);
 
 router.get('/staff-workload', authorizeRoles(2, 5, 6), getStaffWorkload);
-router.post('/appointments/:id/unassign', authorizeRoles(2, 5, 6), unassignAppointmentStaff);
+router.post('/appointments/:id/unassign', authorizeRoles(2, 5, 6), requireActiveShift, unassignAppointmentStaff);
+router.post('/appointments/sweep-noshow', authorizeRoles(2, 5, 6), requireActiveShift, sweepNoShowAppointments);
 
-router.patch('/appointments/:id/status', authorizeRoles(2, 5, 6), updateAppointmentStatus);
+router.patch('/appointments/:id/status', authorizeRoles(2, 5, 6), requireActiveShift, updateAppointmentStatus);
 router.post('/billing', authorizeRoles(2, 5, 6), createBillingFromAppointment);
-router.post('/payment', authorizeRoles(2, 5, 6), processPayment);
+router.post('/payment', authorizeRoles(2, 5, 6), requireActiveShift, processPayment);
 router.post('/billing/calculate', authorizeRoles(2, 5, 6), calculateBilling);
 router.get('/vouchers/active', authorizeRoles(2, 5, 6), getActiveVouchers);
 router.post('/vouchers/apply', authorizeRoles(2, 5, 6), applyVoucher);
-router.post('/billing/create', authorizeRoles(2, 5, 6), createBillingDirect);
+router.post('/billing/create', authorizeRoles(2, 5, 6), requireActiveShift, createBillingDirect);
 router.get('/packages', authorizeRoles(2, 5, 6), getPackagesForReceptionist);
 router.get('/customers/search', authorizeRoles(2, 5, 6), searchCustomers);
 router.get('/customers/roster', authorizeRoles(2, 5, 6), getCustomerRoster);
