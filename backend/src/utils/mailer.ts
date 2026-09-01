@@ -31,7 +31,9 @@ const getTransporter = async (): Promise<nodemailer.Transporter> => {
     const isGmail = (process.env.EMAIL_HOST || '').includes('gmail') || (process.env.EMAIL_USER || '').includes('@gmail.com');
     if (isGmail) {
       cachedTransporter = nodemailer.createTransport({
-        service: 'gmail',
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
         auth: {
           user: process.env.EMAIL_USER,
           pass: process.env.EMAIL_PASS,
@@ -39,7 +41,11 @@ const getTransporter = async (): Promise<nodemailer.Transporter> => {
         tls: {
           rejectUnauthorized: false,
         },
-      });
+        family: 4,
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 15000,
+      } as any);
     } else {
       cachedTransporter = nodemailer.createTransport({
         host: process.env.EMAIL_HOST || 'smtp.gmail.com',
@@ -52,7 +58,11 @@ const getTransporter = async (): Promise<nodemailer.Transporter> => {
         tls: {
           rejectUnauthorized: false,
         },
-      });
+        family: 4,
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 15000,
+      } as any);
     }
   } else {
     const testAccount = await nodemailer.createTestAccount();

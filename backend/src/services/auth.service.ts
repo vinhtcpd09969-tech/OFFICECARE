@@ -249,11 +249,9 @@ class AuthService {
     await authRepository.deleteOTPsByEmail(cleanEmail);
     await authRepository.saveOTP(cleanEmail, otp, expiresAt);
 
-    try {
-      await sendForgotPasswordOTP(cleanEmail, otp, customer.ho_ten || 'Quý khách');
-    } catch (err) {
+    sendForgotPasswordOTP(cleanEmail, otp, customer.ho_ten || 'Quý khách').catch((err) => {
       console.error('Lỗi gửi email OTP khôi phục mật khẩu:', err);
-    }
+    });
 
     return { message: 'Đã gửi mã OTP khôi phục mật khẩu. Vui lòng kiểm tra email của bạn.' };
   }
@@ -350,11 +348,9 @@ class AuthService {
     await authRepository.deleteOTPsByEmail(user.email);
     await authRepository.saveOTP(user.email, otp, expiresAt);
 
-    try {
-      await sendForgotPasswordOTP(user.email, otp, user.ho_ten || 'Quý khách');
-    } catch (err) {
+    sendForgotPasswordOTP(user.email, otp, user.ho_ten || 'Quý khách').catch((err) => {
       console.error('Lỗi gửi email OTP đổi mật khẩu:', err);
-    }
+    });
 
     return { message: `Đã gửi mã OTP xác thực tới email ${user.email}.` };
   }
