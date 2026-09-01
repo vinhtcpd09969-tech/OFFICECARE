@@ -23,32 +23,32 @@ export default function AppointmentInfoModal({ appointment, onClose }: Appointme
   const tenDichVu = appointment.ten_dich_vu || appointment.dich_vu || 'Lượng giá chức năng & Phục hồi';
 
   // Format time and date
-  let startTimeStr = '--:--';
-  let endTimeStr = '--:--';
   let dateStr = '--/--/----';
-  let durationMinutes = 30;
+  let durationMinutes = Number(appointment.thoi_luong_phut) || (appointment as any).thoi_luong || (appointment as any).thoi_luong_buoi_phut || 0;
 
   if (appointment.ngay_gio_bat_dau) {
     const startDate = new Date(appointment.ngay_gio_bat_dau);
     if (isValid(startDate)) {
-      startTimeStr = format(startDate, 'HH:mm');
       dateStr = format(startDate, 'dd/MM/yyyy');
     }
   }
 
-  if (appointment.ngay_gio_ket_thuc) {
-    const endDate = new Date(appointment.ngay_gio_ket_thuc);
-    if (isValid(endDate)) {
-      endTimeStr = format(endDate, 'HH:mm');
-    }
-  }
+  const isMorning = appointment.buoi === 'sang' || (appointment.ngay_gio_bat_dau && new Date(appointment.ngay_gio_bat_dau).getHours() < 12);
+  const buoiLabel = isMorning ? 'Buổi Sáng (07:30 – 12:00)' : 'Buổi Chiều (12:00 – 20:00)';
 
-  if (appointment.ngay_gio_bat_dau && appointment.ngay_gio_ket_thuc) {
+  if (!durationMinutes && appointment.ngay_gio_bat_dau && appointment.ngay_gio_ket_thuc) {
     const startMs = new Date(appointment.ngay_gio_bat_dau).getTime();
     const endMs = new Date(appointment.ngay_gio_ket_thuc).getTime();
     if (!isNaN(startMs) && !isNaN(endMs) && endMs > startMs) {
-      durationMinutes = Math.round((endMs - startMs) / 60000);
+      const diffMins = Math.round((endMs - startMs) / 60000);
+      if (diffMins <= 120) {
+        durationMinutes = diffMins;
+      }
     }
+  }
+
+  if (!durationMinutes) {
+    durationMinutes = (appointment.loai_goi === 'KHAM' || (appointment as any).loai_lich === 'kham_moi' || (appointment as any).loai_lich === 'luong_gia') ? 30 : 60;
   }
 
   const rawStatus = appointment.trang_thai || 'da_xac_nhan';
@@ -72,23 +72,30 @@ export default function AppointmentInfoModal({ appointment, onClose }: Appointme
     if (isTerminalStatus) {
       const recordsPath = isKtv ? '/technician/medical-records' : '/doctor/medical-records';
       if (!appointment.khach_hang_id) {
-        // Dữ liệu cũ chưa có khach_hang_id (trước bản vá) — vẫn đưa đúng trang, chỉ là không tự
-        // chọn sẵn bệnh nhân/mở popup được.
         navigate(recordsPath);
         return;
       }
-      const params = new URLSearchParams({ patientId: appointment.khach_hang_id });
-      // Chuyên viên: mỗi lịch hẹn trong danh sách này luôn là buổi lượng giá độc lập (loai='KHAM' / 'kham_moi'),
-      // ánh xạ thẳng 1-1 với 1 mục trong "visits". KTV: mỗi lịch hẹn luôn là 1 buổi trong phác đồ
-      // (loai='DIEU_TRI'), phải mở đúng cả phác đồ (PlanDetailModal) qua phac_do_dieu_tri_id.
-      if (isKtv) {
-        if (appointment.phac_do_dieu_tri_id) {
-          params.set('type', 'plan');
-          params.set('itemId', appointment.phac_do_dieu_tri_id);
-        }
+      const params = new URLSearchParams({ patientId: String(appointment.khach_hang_id) });
+
+      const loaiUpper = String(appointment.loai || (appointment as any).loai_lich || '').toUpperCase();
+      const isExamOrAssessment = ['KHAM', 'KHAM_MOI', 'LUONG_GIA', 'TAI_KHAM'].includes(loaiUpper) || appointment.loai_goi === 'KHAM';
+      const isRetailService = ['DICH_VU_LE', 'DICH_VU_DON', 'LE'].includes(loaiUpper) || appointment.loai_goi === 'LE';
+
+      // Chỉ khi là ca trị liệu thuộc gói phác đồ liệu trình ('LIEU_TRINH' / 'DIEU_TRI' hoặc có phac_do_dieu_tri_id / so_thu_tu_buoi) thì mới chuyển sang tab gói ('plan')
+      const isPackageAppointment = !isExamOrAssessment && !isRetailService && Boolean(
+        appointment.phac_do_dieu_tri_id ||
+        appointment.so_thu_tu_buoi ||
+        loaiUpper === 'DIEU_TRI' ||
+        appointment.loai_goi === 'LIEU_TRINH' ||
+        (appointment.ten_dich_vu && appointment.ten_dich_vu.toLowerCase().includes('liệu trình'))
+      );
+
+      if (isPackageAppointment) {
+        params.set('type', 'plan');
+        params.set('itemId', String(appointment.phac_do_dieu_tri_id || aptId));
       } else {
         params.set('type', 'visit');
-        params.set('itemId', aptId);
+        params.set('itemId', String(aptId));
       }
       navigate(`${recordsPath}?${params.toString()}`);
       return;
@@ -180,8 +187,8 @@ export default function AppointmentInfoModal({ appointment, onClose }: Appointme
                   <div className="flex items-center gap-3 flex-wrap">
                     <div className="flex items-center gap-1.5 bg-sky-50 dark:bg-sky-950/40 border border-sky-200/60 dark:border-sky-900/40 px-3 py-1.5 rounded-xl">
                       <Clock size={14} className="text-sky-600 dark:text-sky-400" />
-                      <span className="text-xs font-bold text-slate-900 dark:text-zinc-100 font-mono">
-                        {startTimeStr} – {endTimeStr}
+                      <span className="text-xs font-bold text-slate-900 dark:text-zinc-100 font-sans">
+                        {buoiLabel}
                       </span>
                     </div>
 

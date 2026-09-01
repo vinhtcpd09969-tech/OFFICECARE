@@ -1150,7 +1150,7 @@ export function generateMedicalRecordHtml(
   const plans = profile?.treatmentPlans || [];
   const printDate = new Date();
 
-  const latestDoctor = visits[0]?.ten_nhan_su || plans[0]?.bac_si_chi_dinh || 'Chuyên viên VLTL OfficeCare';
+  const latestDoctor = visits[0]?.ten_nhan_su || plans[0]?.bac_si_chi_dinh || 'Chuyên viên tư vấn OfficeCare';
   const maKhachHang = patient.ma_khach_hang || `KH-${patient.id.substring(0, 6).toUpperCase()}`;
 
   return `<!DOCTYPE html>

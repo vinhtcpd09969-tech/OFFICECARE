@@ -10,6 +10,7 @@ export class DoctorQueueRepository {
         'LH-' || UPPER(SUBSTRING(ch.id::text FROM 1 FOR 6)) as ma_lich_dat,
         kh.ho_ten as ho_ten_khach, kh.so_dien_thoai as so_dien_thoai, kh.gioi_tinh as gioi_tinh_khach,
         ch.ngay_gio_bat_dau, ch.ngay_gio_ket_thuc, ch.ghi_chu_khach_hang as ly_do_kham, ch.trang_thai, ch.anh_dinh_kem_url,
+        ch.phac_do_dieu_tri_id, ch.loai, COALESCE(g.loai_goi, gpd.loai_goi) as loai_goi, ch.buoi, ch.ghi_chu_noi_bo,
         kh.id as khach_hang_id, kh.ngay_sinh, kh.gioi_tinh,
         kh.ho_ten as ten_khach_hang, kh.so_dien_thoai as sdt_khach_hang, NULL::text as avatar_url,
         ch.nhan_su_id as bac_si_id, ch.nhan_su_id as ky_thuat_vien_id,
@@ -76,6 +77,7 @@ export class DoctorQueueRepository {
         'LH-' || UPPER(SUBSTRING(ch.id::text FROM 1 FOR 6)) as ma_lich_dat,
         ch.ngay_gio_bat_dau, ch.ngay_gio_ket_thuc, ch.trang_thai, ch.ghi_chu_khach_hang as ly_do_kham,
         ch.anh_dinh_kem_url, ch.khach_hang_id,
+        ch.phac_do_dieu_tri_id, ch.loai, COALESCE(g.loai_goi, gpd.loai_goi) as loai_goi, ch.buoi, ch.ghi_chu_noi_bo,
         ch.thoi_gian_tao, ch.thoi_gian_checkin, ch.thoi_gian_bat_dau, ch.thoi_gian_hoan_thanh,
         kh.ho_ten as ten_khach_hang,
         kh.so_dien_thoai as so_dien_thoai,
@@ -212,24 +214,18 @@ export class DoctorQueueRepository {
       newCount = updRows[0].so_lan_goi_khong_co_mat;
     }
 
-    if (newCount < 2) {
-      await pool.query(
-        `UPDATE phien_lam_viec SET thoi_gian_goi_vao = NULL
-         WHERE id = (SELECT id FROM phien_lam_viec WHERE cuoc_hen_id = $1 ORDER BY lan_thu DESC, thoi_gian_tao DESC LIMIT 1)`,
-        [cuocHenId]
-      );
-      await pool.query(
-        `UPDATE cuoc_hen
-         SET thoi_gian_checkin = NOW(),
-             nhan_su_id = CASE WHEN gan_qua_hang_doi THEN NULL ELSE nhan_su_id END,
-             gan_qua_hang_doi = FALSE
-         WHERE id = $1`,
-        [cuocHenId]
-      );
-      return { so_lan_goi_khong_co_mat: newCount, shouldFinalize: false };
-    }
-
-    return { so_lan_goi_khong_co_mat: newCount, shouldFinalize: true };
+    await pool.query(
+      `UPDATE phien_lam_viec SET thoi_gian_goi_vao = NULL
+       WHERE id = (SELECT id FROM phien_lam_viec WHERE cuoc_hen_id = $1 ORDER BY lan_thu DESC, thoi_gian_tao DESC LIMIT 1)`,
+      [cuocHenId]
+    );
+    await pool.query(
+      `UPDATE cuoc_hen
+       SET thoi_gian_checkin = NOW()
+       WHERE id = $1`,
+      [cuocHenId]
+    );
+    return { so_lan_goi_khong_co_mat: newCount, shouldFinalize: false };
   }
 
   // 6.4. Kiểm tra nhân sự có ca khám khác đang mở dở (trang_thai='dang_kham')

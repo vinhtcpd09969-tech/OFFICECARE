@@ -172,6 +172,15 @@ export class AdminFinanceRepository {
         hd.trang_thai, 
         hd.ghi_chu,
         hd.ngay_tao, 
+        COALESCE(
+          (SELECT MAX(gt.ngay_giao_dich) FROM giao_dich_thanh_toan gt WHERE gt.hoa_don_id = hd.id),
+          hd.ngay_tao
+        ) as ngay_cap_nhat_moi_nhat,
+        (
+          SELECT json_agg(gt.ngay_giao_dich)
+          FROM giao_dich_thanh_toan gt
+          WHERE gt.hoa_don_id = hd.id
+        ) as danh_sach_ngay_giao_dich,
         ch.ngay_gio_bat_dau as ngay_kham,
         ch.ngay_gio_ket_thuc as ngay_kham_ket_thuc,
         'HD-' || UPPER(SUBSTRING(hd.id::text FROM 1 FOR 6)) as ma_hoa_don, 
@@ -247,10 +256,15 @@ export class AdminFinanceRepository {
         gt.ma_tham_chieu as ma_giao_dich,
         gt.ngay_giao_dich as thoi_gian_giao_dich,
         gt.chi_tiet,
+        gt.nhan_vien_thuc_hien_id,
+        nv.ho_ten as ten_nhan_vien_thuc_hien,
+        vt.ten_vai_tro as vai_tro_nhan_vien,
         'HD-' || UPPER(SUBSTRING(hd.id::text FROM 1 FOR 6)) as ma_hoa_don, kh.ho_ten as ten_khach_hang
       FROM giao_dich_thanh_toan gt
       JOIN hoa_don hd ON gt.hoa_don_id = hd.id
       JOIN khach_hang kh ON hd.khach_hang_id = kh.id
+      LEFT JOIN nguoi_dung nv ON gt.nhan_vien_thuc_hien_id = nv.id
+      LEFT JOIN vai_tro vt ON nv.vai_tro_id = vt.id
       ORDER BY gt.ngay_giao_dich DESC
     `);
     return rows;
@@ -304,7 +318,7 @@ export class AdminFinanceRepository {
       );
 
       const { rows: invoices } = await client.query(
-        'UPDATE hoa_don SET trang_thai = \'chua_thanh_toan\', so_tien_da_tra = so_tien_da_tra - $1 WHERE id = $2 RETURNING *',
+        'UPDATE hoa_don SET trang_thai = \'da_hoan_tien\', so_tien_da_tra = GREATEST(0, so_tien_da_tra - $1) WHERE id = $2 RETURNING *',
         [originalPayment.so_tien, originalPayment.hoa_don_id]
       );
 

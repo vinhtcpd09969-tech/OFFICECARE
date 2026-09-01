@@ -198,7 +198,7 @@ export default function AdminDashboard() {
       setIsRefreshing(true);
       const [statsRes, performanceRes] = await Promise.all([
         api.get('/admin/analytics/summary', { params: { startDate: rangeInfo.startDate, endDate: rangeInfo.endDate } }),
-        api.get('/admin/analytics/performance')
+        api.get('/admin/analytics/performance', { params: { startDate: rangeInfo.startDate, endDate: rangeInfo.endDate } })
       ]);
 
       setData({

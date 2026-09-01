@@ -175,10 +175,16 @@ export class DoctorAssessmentRepository {
         JOIN goi_dich_vu g ON cd.goi_dich_vu_id = g.id
         WHERE ch.khach_hang_id = $1
           AND ch.id != $2
+          AND ch.trang_thai NOT IN ('da_huy', 'khong_den')
           AND cd.phac_do_dieu_tri_id IS NULL
-          AND cd.goi_dich_vu_id NOT IN (
-            SELECT goi_dich_vu_id FROM phac_do_dieu_tri 
-            WHERE khach_hang_id = $1 AND trang_thai IN ('dang_dieu_tri', 'hoan_thanh')
+          AND NOT EXISTS (
+            SELECT 1 FROM phac_do_dieu_tri pd
+            WHERE pd.khach_hang_id = $1
+              AND pd.goi_dich_vu_id = cd.goi_dich_vu_id
+              AND (
+                pd.trang_thai IN ('dang_dieu_tri', 'hoan_thanh')
+                OR (pd.trang_thai = 'huy' AND (pd.ngay_huy >= nk.ngay_tao OR pd.ngay_kich_hoat >= nk.ngay_tao::date))
+              )
           )
       `, [apt.khach_hang_id, appointmentId]);
       apt.blocked_packages = blockedRes.rows;

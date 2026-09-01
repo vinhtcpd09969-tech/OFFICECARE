@@ -6,18 +6,19 @@ import toast from 'react-hot-toast';
 import { MascotWidget } from './MascotWidget';
 import { isAwaitingPaymentForList } from '../utils/billing';
 import { resolveImageUrl } from '../utils/imageUrl';
-import { 
-  LayoutDashboard, 
-  Calendar, 
-  Clock, 
-  User, 
-  FileText, 
-  Users, 
-  Package, 
-  Key, 
-  DollarSign, 
-  Megaphone, 
-  Star, 
+import { OfficeCareLogo } from '../components/OfficeCareLogo';
+import {
+  LayoutDashboard,
+  Calendar,
+  Clock,
+  User,
+  FileText,
+  Users,
+  Package,
+  Key,
+  DollarSign,
+  Megaphone,
+  Star,
   LogOut,
   HelpCircle,
   Sun,
@@ -34,7 +35,7 @@ export default function AdminLayout() {
   const logout = useAuthStore(state => state.logout);
   const user = useAuthStore(state => state.user);
   const updateUser = useAuthStore(state => state.updateUser);
-  
+
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
 
   // Luôn nạp thông tin user mới nhất từ database ngay khi vào trang quản trị
@@ -46,7 +47,7 @@ export default function AdminLayout() {
             updateUser(res.data);
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [user?.id, updateUser]);
 
@@ -77,7 +78,7 @@ export default function AdminLayout() {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioContextClass) return;
       const ctx = new AudioContextClass();
-      
+
       const play = () => {
         const now = ctx.currentTime;
         const osc1 = ctx.createOscillator();
@@ -320,7 +321,7 @@ export default function AdminLayout() {
 
           osc.type = 'sine';
           osc.frequency.setValueAtTime(freq, startTime);
-          
+
           // Gentle attack and exponential decay to avoid clicky sounds
           gain.gain.setValueAtTime(0, startTime);
           gain.gain.linearRampToValueAtTime(0.04, startTime + 0.02);
@@ -542,18 +543,10 @@ export default function AdminLayout() {
     <div className="h-screen overflow-hidden bg-background dark:bg-zinc-950 flex font-body text-secondary dark:text-zinc-100 transition-colors duration-300">
       {/* Sidebar - Soft UI Light & Dark Theme */}
       <aside className="w-64 bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 flex flex-col shrink-0 border-r border-zinc-150/70 dark:border-zinc-800 shadow-sm z-30 transition-colors duration-300">
-        <div className="h-16 flex items-center gap-3 px-5 border-b border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 transition-colors duration-300 shrink-0">
-          <div className="size-9 rounded-xl bg-teal-50 dark:bg-teal-950/60 border border-teal-200/80 dark:border-teal-800 flex items-center justify-center shadow-xs">
-            <span className="text-teal-600 dark:text-teal-400 font-black text-sm">🏥</span>
-          </div>
-          <div>
-            <h1 className="text-sm font-black text-slate-900 dark:text-zinc-100 tracking-tight flex items-center gap-1.5 font-heading">
-              OFFICE CARE <span className="text-teal-700 dark:text-teal-300 font-extrabold text-[9px] bg-teal-50 dark:bg-teal-950/60 px-1.5 py-0.5 rounded-md border border-teal-200/70 dark:border-teal-800">2026</span>
-            </h1>
-            <p className="text-[8px] text-slate-400 dark:text-zinc-500 font-black tracking-widest uppercase mt-0.5">Phục hồi chức năng</p>
-          </div>
+        <div className="h-16 flex items-center px-3.5 border-b border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 transition-colors duration-300 shrink-0">
+          <OfficeCareLogo size={32} badgeText="2026" subText="PHỤC HỒI CHỨC NĂNG" />
         </div>
-        
+
         <nav className="flex-1 py-4 overflow-y-auto px-3 scrollbar-thin space-y-4">
           {userGroups.map((group) => {
             const isCollapsed = collapsedGroups[group.groupName] || false;
@@ -578,19 +571,17 @@ export default function AdminLayout() {
                         <li key={item.path}>
                           <Link
                             to={item.path}
-                            className={`flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all duration-200 group ${
-                              isActive 
-                                ? 'bg-gradient-to-r from-teal-600 via-teal-500 to-emerald-600 text-white font-extrabold shadow-md shadow-teal-600/25 scale-[1.01]' 
+                            className={`flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all duration-200 group ${isActive
+                                ? 'bg-gradient-to-r from-teal-600 via-teal-500 to-emerald-600 text-white font-extrabold shadow-md shadow-teal-600/25 scale-[1.01]'
                                 : 'text-slate-650 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800/80 hover:text-slate-900 dark:hover:text-white font-bold'
-                            }`}
+                              }`}
                           >
                             <div className="flex items-center gap-3 min-w-0">
-                              <span 
-                                className={`p-1.5 rounded-xl transition-transform duration-200 group-hover:scale-110 shrink-0 ${
-                                  isActive
+                              <span
+                                className={`p-1.5 rounded-xl transition-transform duration-200 group-hover:scale-110 shrink-0 ${isActive
                                     ? 'bg-white/20 text-white shadow-xs'
                                     : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 group-hover:text-teal-600 dark:group-hover:text-teal-400 group-hover:bg-teal-50 dark:group-hover:bg-teal-950/40'
-                                }`}
+                                  }`}
                               >
                                 {item.icon}
                               </span>
@@ -611,19 +602,17 @@ export default function AdminLayout() {
             <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 space-y-1">
               <Link
                 to={standaloneSettingsItem.path}
-                className={`flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all duration-200 group ${
-                  isItemActive(standaloneSettingsItem.path, standaloneSettingsItem.name)
+                className={`flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all duration-200 group ${isItemActive(standaloneSettingsItem.path, standaloneSettingsItem.name)
                     ? 'bg-gradient-to-r from-teal-600 via-teal-500 to-emerald-600 text-white font-extrabold shadow-md shadow-teal-600/25 scale-[1.01]'
                     : 'text-slate-650 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800/80 hover:text-slate-900 dark:hover:text-white font-bold'
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <span
-                    className={`p-1.5 rounded-xl transition-transform duration-200 group-hover:scale-110 shrink-0 ${
-                      isItemActive(standaloneSettingsItem.path, standaloneSettingsItem.name)
+                    className={`p-1.5 rounded-xl transition-transform duration-200 group-hover:scale-110 shrink-0 ${isItemActive(standaloneSettingsItem.path, standaloneSettingsItem.name)
                         ? 'bg-white/20 text-white shadow-xs'
                         : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 group-hover:text-teal-600 dark:group-hover:text-teal-400 group-hover:bg-teal-50 dark:group-hover:bg-teal-950/40'
-                    }`}
+                      }`}
                   >
                     {standaloneSettingsItem.icon}
                   </span>
@@ -633,16 +622,16 @@ export default function AdminLayout() {
             </div>
           )}
         </nav>
-        
+
         <div className="p-4 border-t border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 transition-colors duration-300 shrink-0">
           <div className="flex items-center gap-3 mb-3.5">
-            <img 
-              src={avatarSrc} 
-              alt="Avatar" 
+            <img
+              src={avatarSrc}
+              alt="Avatar"
               onError={(e) => {
                 (e.currentTarget as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user?.ho_ten || 'Staff')}&backgroundType=gradientLinear&fontSize=45`;
               }}
-              className="size-9 rounded-full object-cover border border-teal-500/20 shadow-xs shrink-0" 
+              className="size-9 rounded-full object-cover border border-teal-500/20 shadow-xs shrink-0"
             />
             <div className="flex-1 min-w-0">
               <p className="text-xs font-black text-slate-900 dark:text-zinc-100 truncate">{user?.ho_ten || user?.email || 'admin@officecare.com'}</p>
@@ -651,7 +640,7 @@ export default function AdminLayout() {
               </p>
             </div>
           </div>
-          <button 
+          <button
             onClick={handleLogout}
             className="w-full py-2.5 px-4 rounded-xl bg-slate-50 dark:bg-zinc-800 hover:bg-rose-50 dark:hover:bg-rose-950/20 hover:text-rose-600 border border-slate-200/60 dark:border-zinc-750 hover:border-rose-200 text-xs font-black transition-all flex items-center justify-center gap-2 text-slate-600 dark:text-zinc-400 cursor-pointer"
           >
@@ -674,7 +663,7 @@ export default function AdminLayout() {
             {/* Actions: Notification, Theme Toggle, & Help */}
             <div className="flex items-center gap-3 border-l border-zinc-100 dark:border-zinc-800 pl-6">
 
-              <button 
+              <button
                 onClick={() => {
                   const nextTheme = theme === 'dark' ? 'light' : 'dark';
                   setTheme(nextTheme);
@@ -686,13 +675,13 @@ export default function AdminLayout() {
               >
                 {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
               </button>
-              
+
               {/* Old alarm bell button removed to avoid duplicates */}
               <button className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 transition-colors">
                 <HelpCircle size={18} />
               </button>
             </div>
- 
+
             {/* Profile Avatar Card */}
             <div className="flex items-center gap-3 pl-2">
               <div className="text-right hidden sm:block">
@@ -701,7 +690,7 @@ export default function AdminLayout() {
                   {user?.vai_tro_id === 4 ? 'Chuyên viên' : user?.vai_tro_id === 3 ? 'Kỹ thuật viên' : user?.vai_tro_id === 2 ? 'Lễ tân' : user?.vai_tro_id === 6 ? 'Quản lý' : 'Quản trị viên'}
                 </p>
               </div>
-              <img 
+              <img
                 src={avatarSrc}
                 alt="Admin Avatar"
                 onError={(e) => {
@@ -712,7 +701,7 @@ export default function AdminLayout() {
             </div>
           </div>
         </header>
- 
+
         {/* Content Area */}
         <div className="flex-1 overflow-auto p-4 sm:p-6 bg-white dark:bg-zinc-950 transition-colors duration-300">
           <div className="w-full">
@@ -720,7 +709,7 @@ export default function AdminLayout() {
           </div>
         </div>
       </main>
- 
+
       {/* Floating Mascot Widget for all Admin/Manager pages */}
       {(Number(user?.vai_tro_id) === 5 || Number(user?.vai_tro_id) === 6) && (
         <MascotWidget
@@ -729,8 +718,8 @@ export default function AdminLayout() {
             if (earliestPending) {
               const targetDate = earliestPending.ngay_gio_bat_dau ? earliestPending.ngay_gio_bat_dau.match(/^\d{4}-\d{2}-\d{2}/)?.[0] || '' : '';
               const targetType = (earliestPending.type === 'treatment' || earliestPending.loai_lich === 'dieu_tri') ? 'dieu_tri' : 'kham';
-              const query = targetDate 
-                ? `?date=${targetDate}&range=today&view=timeline&type=${targetType}&appointmentId=${earliestPending.id}&tab=dang_cho&triggerFocus=true` 
+              const query = targetDate
+                ? `?date=${targetDate}&range=today&view=timeline&type=${targetType}&appointmentId=${earliestPending.id}&tab=dang_cho&triggerFocus=true`
                 : `?type=${targetType}&appointmentId=${earliestPending.id}&tab=dang_cho&triggerFocus=true`;
               navigate(`/admin/appointments${query}`);
             } else {

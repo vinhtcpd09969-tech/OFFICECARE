@@ -1,8 +1,9 @@
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { ChevronLeft, Phone, Mail, Bell, CalendarPlus, Calendar, CreditCard, ClipboardList, History } from 'lucide-react';
-import { statusConfig } from '../../../../../components/appointments';
-import { isSessionPaymentSatisfied } from '../../../../../utils/billing';
+import { statusConfig } from '@/components/appointments';
+import { isSessionPaymentSatisfied } from '@/utils/billing';
+import { TREATMENT_PLAN_STATUS_META } from '@/constants/statusMeta';
 import type { CustomerHistoryDetail } from '../types';
 
 interface CustomerHistoryViewProps {
@@ -11,12 +12,7 @@ interface CustomerHistoryViewProps {
   onBack: () => void;
 }
 
-const PLAN_STATUS_META: Record<string, { label: string; cls: string }> = {
-  cho_kich_hoat: { label: 'Chờ kích hoạt', cls: 'bg-amber-50 text-amber-700 border-amber-150' },
-  dang_dieu_tri: { label: 'Đang điều trị', cls: 'bg-teal-50 text-teal-700 border-teal-150' },
-  hoan_thanh: { label: 'Hoàn thành', cls: 'bg-slate-100 text-slate-600 border-slate-200' },
-  huy: { label: 'Đã hủy', cls: 'bg-rose-50 text-rose-700 border-rose-150' },
-};
+
 
 function loaiLabel(loai: string) {
   if (loai === 'KHAM' || loai === 'KHAM_MOI') return 'Lượng giá';
@@ -112,7 +108,7 @@ export function CustomerHistoryView({ customer, staleDays, onBack }: CustomerHis
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {customer.plans.map((p) => {
-                  const meta = PLAN_STATUS_META[p.trang_thai] || { label: p.trang_thai, cls: 'bg-slate-100 text-slate-600 border-slate-200' };
+                  const meta = TREATMENT_PLAN_STATUS_META[p.trang_thai] || { label: p.trang_thai, cls: 'bg-slate-100 text-slate-600 border-slate-200' };
                   const hanDate = p.trang_thai === 'cho_kich_hoat' ? p.han_kich_hoat : p.han_su_dung;
 
                   // Lọc lịch hẹn tiếp theo đang chờ diễn ra cho gói này (Chỉ tính các ca CHƯA hoàn thành/hủy)
@@ -175,15 +171,13 @@ export function CustomerHistoryView({ customer, staleDays, onBack }: CustomerHis
                         ) : p.trang_thai === 'dang_dieu_tri' && !isPlanCompleted ? (
                           (() => {
                             const nextSessionNum = (p.so_buoi_da_dung || 0) + 1;
-                            if (!isSessionPaymentSatisfied(p, nextSessionNum)) {
+                            const isTungBuoi = p.hinh_thuc_thanh_toan_goi === 'tung_buoi';
+                            if (!isTungBuoi && !isSessionPaymentSatisfied(p, nextSessionNum)) {
                               return (
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    const dest = p.hinh_thuc_thanh_toan_goi === 'tung_buoi'
-                                      ? `/receptionist/billing?customer_id=${customer.id}&goi_dich_vu_id=${p.goi_dich_vu_id}`
-                                      : `/receptionist/billing?hoa_don_id=${p.hoa_don_id}`;
-                                    navigate(dest);
+                                    navigate(`/receptionist/billing?hoa_don_id=${p.hoa_don_id}`);
                                   }}
                                   className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 shadow-xs active:scale-95 shrink-0 cursor-pointer"
                                 >

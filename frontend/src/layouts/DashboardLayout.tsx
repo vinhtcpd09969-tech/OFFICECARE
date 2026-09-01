@@ -15,6 +15,7 @@ import {
   User
 } from 'lucide-react';
 import { resolveImageUrl } from '../utils/imageUrl';
+import { OfficeCareLogo } from '../components/OfficeCareLogo';
 
 // Default Silhouette Avatar (Chuẩn Facebook SVG Avatar)
 function DefaultAvatar() {
@@ -37,7 +38,7 @@ export default function DashboardLayout() {
         .then(res => {
           if (res.data) updateUser(res.data);
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [user?.id, updateUser]);
 
@@ -48,7 +49,7 @@ export default function DashboardLayout() {
 
   const navItems = [
     { name: 'Lịch hẹn', path: '/appointments', icon: <Calendar size={20} />, roles: [1, 2, 4] },
-    { name: 'Hồ sơ trị liệu', path: '/medical-record', icon: <FileText size={20} />, roles: [1] },
+    { name: 'Hồ sơ điều trị', path: '/medical-record', icon: <FileText size={20} />, roles: [1] },
     { name: 'Hóa đơn', path: '/invoices', icon: <Receipt size={20} />, roles: [1] },
     { name: 'Cài đặt', path: '/settings', icon: <Settings size={20} />, roles: [1, 2, 3, 4] },
   ];
@@ -62,16 +63,8 @@ export default function DashboardLayout() {
 
       {/* Sidebar (Desktop) */}
       <aside className="hidden lg:flex flex-col w-64 bg-white text-zinc-500 fixed h-full z-20 border-r border-zinc-100 shadow-xs">
-        <div className="h-16 flex items-center gap-3 px-6 border-b border-zinc-100 bg-white">
-          <div className="size-8 rounded-lg bg-[#0D9488]/10 border border-[#0D9488]/20 flex items-center justify-center">
-            <span className="text-[#0D9488] font-bold text-sm">🏥</span>
-          </div>
-          <div>
-            <h1 className="text-sm font-extrabold text-secondary tracking-tight flex items-center gap-1.5">
-              OFFICE CARE <span className="text-[#0D9488] font-bold text-[9px] bg-[#0D9488]/10 px-1.5 py-0.5 rounded border border-[#0D9488]/20">2026</span>
-            </h1>
-            <p className="text-[8px] text-zinc-400 font-extrabold tracking-widest uppercase mt-0.5">Phục hồi chức năng</p>
-          </div>
+        <div className="h-16 flex items-center px-3.5 border-b border-zinc-100 bg-white">
+          <OfficeCareLogo size={32} badgeText="2026" subText="PHỤC HỒI CHỨC NĂNG" />
         </div>
 
         {/* Back to Landing Page Button - Redesigned Pro Max */}
@@ -135,14 +128,7 @@ export default function DashboardLayout() {
             role="none"
           >
             <div className="flex justify-between items-center mb-6 px-2">
-              <div className="flex items-center gap-2">
-                <div className="size-8 rounded-lg bg-[#0D9488]/10 border border-[#0D9488]/20 flex items-center justify-center">
-                  <span className="text-[#0D9488] font-bold text-sm">🏥</span>
-                </div>
-                <h1 className="text-sm font-extrabold text-secondary tracking-tight">
-                  OFFICE CARE
-                </h1>
-              </div>
+              <OfficeCareLogo size={32} badgeText="" subText="" />
               <button onClick={() => setIsMobileMenuOpen(false)} className="text-zinc-400 hover:text-secondary">
                 <X size={24} />
               </button>

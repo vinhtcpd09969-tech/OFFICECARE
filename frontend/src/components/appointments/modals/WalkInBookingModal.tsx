@@ -477,7 +477,7 @@ export default function WalkInBookingModal({
       so_dien_thoai: sdt,
       gioi_tinh_khach: gioiTinh,
       email: email || null,
-      ly_do_kham: lyDo || (activePlan ? `Điều trị buổi ${activePlan.so_buoi_da_dung + 1}` : (isPlanRec ? `Trị liệu theo chỉ định: ${selectedPlan.ten_goi_dich_vu}` : 'Lượng giá chức năng')),
+      ly_do_kham: lyDo || (activePlan ? `Điều trị buổi ${Number(activePlan.so_buoi_da_dung || 0) + 1}` : (isPlanRec ? `Trị liệu theo chỉ định: ${selectedPlan.ten_goi_dich_vu}` : 'Lượng giá chức năng')),
       goi_dich_vu_id: selectedServiceId,
       ngay: selectedDate,
       buoi: selectedBuoi,
@@ -485,7 +485,7 @@ export default function WalkInBookingModal({
       phong_id: selectedRoomId ? Number(selectedRoomId) : null,
       loai_lich: activePlan ? 'dieu_tri' : (isExam ? 'kham_moi' : 'dich_vu_don'),
       phac_do_dieu_tri_id: activePlan ? activePlan.id : null,
-      so_thu_tu_buoi: activePlan ? activePlan.so_buoi_da_dung + 1 : null,
+      so_thu_tu_buoi: activePlan ? Number(activePlan.so_buoi_da_dung || 0) + 1 : null,
       trang_thai: 'da_checkin',
       ghi_chu_dat_lich: lyDo || (activePlan ? `Đặt lịch trị liệu theo gói ${activePlan.ten_goi_dich_vu}` : (isPlanRec ? 'Đặt lịch trị liệu theo chỉ định y khoa' : 'Lập lịch nhanh tại quầy lễ tân'))
     };
@@ -509,7 +509,7 @@ export default function WalkInBookingModal({
       so_dien_thoai: sdt,
       gioi_tinh_khach: gioiTinh,
       email: email || null,
-      ly_do_kham: lyDo || (activePlan ? `Điều trị buổi ${activePlan.so_buoi_da_dung + 1}` : (isPlanRec ? `Trị liệu theo chỉ định: ${selectedPlan.ten_goi_dich_vu}` : 'Lượng giá chức năng')),
+      ly_do_kham: lyDo || (activePlan ? `Điều trị buổi ${Number(activePlan.so_buoi_da_dung || 0) + 1}` : (isPlanRec ? `Trị liệu theo chỉ định: ${selectedPlan.ten_goi_dich_vu}` : 'Lượng giá chức năng')),
       goi_dich_vu_id: selectedServiceId,
       ngay: selectedDate,
       buoi: selectedBuoi,
@@ -517,7 +517,7 @@ export default function WalkInBookingModal({
       phong_id: selectedRoomId ? Number(selectedRoomId) : null,
       loai_lich: activePlan ? 'dieu_tri' : (isExam ? 'kham_moi' : 'dich_vu_don'),
       phac_do_dieu_tri_id: activePlan ? activePlan.id : null,
-      so_thu_tu_buoi: activePlan ? activePlan.so_buoi_da_dung + 1 : null,
+      so_thu_tu_buoi: activePlan ? Number(activePlan.so_buoi_da_dung || 0) + 1 : null,
       trang_thai: finalStatus,
       shouldPayNow,
       ghi_chu_dat_lich: lyDo || (activePlan ? `Đặt lịch trị liệu theo gói ${activePlan.ten_goi_dich_vu}` : (isPlanRec ? 'Đặt lịch trị liệu theo chỉ định y khoa' : 'Lập lịch nhanh tại quầy lễ tân'))
@@ -683,7 +683,7 @@ export default function WalkInBookingModal({
               </span>
               <span className="text-sm font-black text-slate-800 dark:text-zinc-100 block mt-0.5 pr-8">{selectedPlan.ten_goi_dich_vu}</span>
               {selectedPlan.trang_thai !== 'khuyen_nghi' ? (
-                <span className="text-[10px] text-emerald-600 font-bold block mt-0.5">⏳ Buổi {selectedPlan.so_buoi_da_dung + 1} ({selectedPlan.thoi_luong_phut} phút)</span>
+                <span className="text-[10px] text-emerald-600 font-bold block mt-0.5">⏳ Buổi {Number(selectedPlan.so_buoi_da_dung || 0) + 1} ({selectedPlan.thoi_luong_phut} phút)</span>
               ) : (
                 <span className="text-[10px] text-amber-600 font-bold block mt-0.5">⏳ {selectedPlan.thoi_luong_phut} phút (Chỉ định)</span>
               )}

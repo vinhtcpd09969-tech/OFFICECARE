@@ -2,19 +2,62 @@ import { pool } from '../../config/db';
 import { GIO_NHAN_KHACH, NO_SHOW_SWEEP_BUFFER_MINUTES } from '../../domain/capacity';
 import appointmentRepository from '../appointments';
 
+export interface SweptNoShowItem {
+  id: string;
+  ma_cuoc_hen: string;
+  ten_khach_hang: string;
+  so_dien_thoai: string;
+  ten_dich_vu: string;
+  buoi: 'sang' | 'chieu' | string;
+  ngay_hen: string;
+  trang_thai_thanh_toan: string;
+  is_package: boolean;
+  is_strike: boolean;
+  strike_reason: string;
+  customer_strikes_count: number;
+  is_customer_locked_postpaid: boolean;
+}
+
+export interface SweepNoShowReport {
+  total_swept: number;
+  unpaid_strikes_count: number;
+  paid_noshow_count: number;
+  package_noshow_count: number;
+  expired_reassessments_count: number;
+  items: SweptNoShowItem[];
+}
+
 export class ReceptionistQueueRepository {
   /**
-   * B10 — quét "lười" các lịch đã xác nhận nhưng chưa check-in mà buổi đã kết thúc quá
+   * B10 — quét các lịch đã xác nhận nhưng chưa check-in mà buổi đã kết thúc quá
    * NO_SHOW_SWEEP_BUFFER_MINUTES phút, tự động đánh dấu "không đến".
+   * 
+   * Quy tắc nghiệp vụ (Cập nhật chuẩn):
+   * 1. Lịch lẻ/lượng giá ngoài client CHƯA THANH TOÁN: Đánh dấu 'khong_den', CỘNG 1 LẦN VI PHẠM (Strike).
+   * 2. Lịch ĐÃ THANH TOÁN online: Đánh dấu 'khong_den' (phòng khám giữ tiền, không hoàn tiền), NHƯNG KHÔNG CỘNG VI PHẠM.
+   * 3. Lịch thuộc Gói liệu trình (trả thẳng / từng buổi): Đánh dấu 'khong_den', KHÔNG CỘNG VI PHẠM khóa đặt lịch.
    */
-  async sweepNoShowAppointments(): Promise<number> {
+  async sweepNoShowAppointmentsDetailed(): Promise<SweepNoShowReport> {
     const { rows } = await pool.query(
-      `SELECT id FROM cuoc_hen
-       WHERE trang_thai = 'da_xac_nhan'
-         AND buoi IS NOT NULL
+      `SELECT 
+         ch.id,
+         ch.khach_hang_id,
+         ch.trang_thai_thanh_toan,
+         ch.phac_do_dieu_tri_id,
+         ch.loai,
+         ch.buoi,
+         ch.ngay_gio_bat_dau,
+         COALESCE(kh.ho_ten, 'Khách hàng') as ten_khach_hang,
+         COALESCE(kh.so_dien_thoai, '') as so_dien_thoai,
+         COALESCE(g.ten_goi, 'Dịch vụ Lượng giá / Trị liệu') as ten_dich_vu
+       FROM cuoc_hen ch
+       LEFT JOIN khach_hang kh ON ch.khach_hang_id = kh.id
+       LEFT JOIN goi_dich_vu g ON ch.goi_dich_vu_id = g.id
+       WHERE ch.trang_thai = 'da_xac_nhan'
+         AND ch.buoi IS NOT NULL
          AND (
-           (DATE(ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh')::text || ' ' ||
-             CASE WHEN buoi = 'sang' THEN $1 ELSE $2 END
+           (DATE(ch.ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh')::text || ' ' ||
+             CASE WHEN ch.buoi = 'sang' THEN $1 ELSE $2 END
            )::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh'
            + ($3 || ' minutes')::interval
            <= NOW()
@@ -22,23 +65,63 @@ export class ReceptionistQueueRepository {
       [GIO_NHAN_KHACH.sang.ketThuc, GIO_NHAN_KHACH.chieu.ketThuc, NO_SHOW_SWEEP_BUFFER_MINUTES]
     );
 
-    let count = 0;
+    const sweptItems: SweptNoShowItem[] = [];
+
     for (const row of rows) {
       try {
-        await this.updateAppointmentStatus(
-          row.id,
-          'khong_den',
-          `Tự động đánh dấu không đến — quá giờ nhận khách ${NO_SHOW_SWEEP_BUFFER_MINUTES} phút, khách chưa check-in.`
-        );
-        count++;
+        const isPackage = Boolean(row.phac_do_dieu_tri_id || ['DIEU_TRI', 'dieu_tri_goi'].includes(String(row.loai)));
+        const isPaid = row.trang_thai_thanh_toan === 'da_thanh_toan';
+        const isStrike = !isPackage && !isPaid;
+
+        const strikeReason = isPackage
+          ? 'Lịch thuộc gói liệu trình — Không tính vi phạm'
+          : isPaid
+            ? 'Đã thanh toán online — Phòng khám giữ tiền, không phạt vi phạm'
+            : 'Lịch hẹn chưa thanh toán — Ghi nhận 1 lần vi phạm No-Show';
+
+        const internalNote = `Tự động đánh dấu không đến — quá giờ nhận khách ${NO_SHOW_SWEEP_BUFFER_MINUTES} phút, khách chưa check-in. (${strikeReason})`;
+
+        await this.updateAppointmentStatus(row.id, 'khong_den', internalNote);
+
+        let customerStrikes = 0;
+        if (row.khach_hang_id) {
+          const strikesRes = await pool.query(
+            `SELECT COUNT(*)::int as count
+             FROM cuoc_hen
+             WHERE khach_hang_id = $1
+               AND trang_thai = 'khong_den'
+               AND trang_thai_thanh_toan = 'chua_thanh_toan'
+               AND phac_do_dieu_tri_id IS NULL
+               AND (thoi_gian_khong_den IS NULL OR thoi_gian_khong_den >= NOW() - INTERVAL '60 days')`,
+            [row.khach_hang_id]
+          );
+          customerStrikes = strikesRes.rows[0]?.count || 0;
+        }
+
+        sweptItems.push({
+          id: row.id,
+          ma_cuoc_hen: `APT-${row.id.substring(0, 6).toUpperCase()}`,
+          ten_khach_hang: row.ten_khach_hang,
+          so_dien_thoai: row.so_dien_thoai,
+          ten_dich_vu: row.ten_dich_vu,
+          buoi: row.buoi,
+          ngay_hen: row.ngay_gio_bat_dau ? new Date(row.ngay_gio_bat_dau).toLocaleDateString('vi-VN') : 'Hôm nay',
+          trang_thai_thanh_toan: row.trang_thai_thanh_toan,
+          is_package: isPackage,
+          is_strike: isStrike,
+          strike_reason: strikeReason,
+          customer_strikes_count: customerStrikes,
+          is_customer_locked_postpaid: customerStrikes >= 2
+        });
       } catch (err) {
         console.error(`Lỗi khi tự động đánh dấu không đến cho lịch ${row.id}:`, err);
       }
     }
 
     // Quét tự động hoàn thành các ca chờ tái lượng giá đã quá hạn
+    let expiredReassessmentsCount = 0;
     try {
-      await pool.query(`
+      const expiredRes = await pool.query(`
         WITH expired_reassessments AS (
           UPDATE cuoc_hen
           SET trang_thai = 'hoan_thanh',
@@ -59,6 +142,7 @@ export class ReceptionistQueueRepository {
           AND nk.ghi_chu LIKE '%[Hạn tái lượng giá:%'
           AND nk.ghi_chu NOT LIKE '%Đã quá hạn khách không quay lại%';
       `);
+      expiredReassessmentsCount = (expiredRes as any).rowCount || 0;
 
       await pool.query(`
         UPDATE nhat_ky_buoi_dieu_tri
@@ -69,7 +153,19 @@ export class ReceptionistQueueRepository {
       console.error('Lỗi khi quét tự động hoàn thành ca chờ tái lượng giá quá hạn:', err);
     }
 
-    return count;
+    return {
+      total_swept: sweptItems.length,
+      unpaid_strikes_count: sweptItems.filter(s => s.is_strike).length,
+      paid_noshow_count: sweptItems.filter(s => !s.is_strike && s.trang_thai_thanh_toan === 'da_thanh_toan').length,
+      package_noshow_count: sweptItems.filter(s => s.is_package).length,
+      expired_reassessments_count: expiredReassessmentsCount,
+      items: sweptItems
+    };
+  }
+
+  async sweepNoShowAppointments(): Promise<number> {
+    const report = await this.sweepNoShowAppointmentsDetailed();
+    return report.total_swept;
   }
 
   async getStaffWorkload(targetDate: string) {

@@ -1,5 +1,6 @@
 import { pool } from '../../config/db';
 import bcrypt from 'bcryptjs';
+import { BadRequestError } from '../../utils/appError';
 import { getMinPaymentRequired } from '../../domain/billing';
 import { TERMINAL_STATUSES } from '../../domain/appointmentStatus';
 import { HinhThucThanhToanGoi, LoaiCuocHen } from '../../domain/types';
@@ -20,6 +21,7 @@ import {
   vaiTroIdCuaNhom,
 } from '../../domain/capacity';
 import { sendBookingSuccessEmail, sendPaymentReceiptEmail } from '../../utils/mailer';
+import { validateEmail } from '../../utils/validators';
 
 /**
  * Kiểm tra tính hợp lệ khi đặt buổi tiếp theo của gói liệu trình:
@@ -73,7 +75,7 @@ export async function assertTreatmentPlanCanBookSession(
 
     if (qua_han) {
       const hanStr = new Date(han_su_dung).toLocaleDateString('vi-VN');
-      const contactWho = isClientFacing ? 'phòng khám để được hỗ trợ' : 'Admin để xử lý';
+      const contactWho = isClientFacing ? 'trung tâm để được hỗ trợ' : 'Admin để xử lý';
       throw new Error(`Gói trị liệu này đã quá hạn sử dụng (hạn ${hanStr}). Vui lòng liên hệ ${contactWho} trước khi đặt thêm buổi điều trị.`);
     }
 
@@ -293,14 +295,11 @@ export class AppointmentBookingRepository {
     ]);
 
     const conLaiRieng = (ns: NhanSuTrucCa, buoi: Buoi, daDat: PhutDaDat[]) => {
-      const nganSachGoc = tinhNganSachRieng(ns, buoi);
+      const nganSach = isToday
+        ? tinhNganSachRieng(ns, buoi, nowMinutes)
+        : tinhNganSachRieng(ns, buoi);
       const daDung = daDat.filter(d => d.nhanSuId === ns.nhanSuId).reduce((tong, d) => tong + d.soPhut, 0);
-      let conLai = Math.max(0, nganSachGoc - daDung);
-      if (isToday) {
-        const nganSachTuNow = tinhNganSachRieng(ns, buoi, nowMinutes);
-        conLai = Math.min(nganSachTuNow, conLai);
-      }
-      return conLai;
+      return Math.max(0, nganSach - daDung);
     };
 
     const nhanSuOut = staffInfoRes.rows
@@ -321,23 +320,27 @@ export class AppointmentBookingRepository {
       .filter((s): s is NonNullable<typeof s> => s !== null);
 
     const conLaiChungBuoi = (daDat: PhutDaDat[], buoi: Buoi) => {
-      const nganSachChungGoc = tinhNganSachChung(nhanSuTruc, buoi);
+      const nganSachChung = isToday
+        ? tinhNganSachChung(nhanSuTruc, buoi, nowMinutes)
+        : tinhNganSachChung(nhanSuTruc, buoi);
       const daDung = daDat.reduce((tong, d) => tong + d.soPhut, 0);
-      let conLai = Math.max(0, nganSachChungGoc - daDung);
-      if (isToday) {
-        const nganSachChungTuNow = tinhNganSachChung(nhanSuTruc, buoi, nowMinutes);
-        conLai = Math.min(nganSachChungTuNow, conLai);
-      }
-      return conLai;
+      return Math.max(0, nganSachChung - daDung);
     };
 
     let buoc_thanh_toan_online = false;
     if (khach_hang_id) {
+      // Chỉ tính số lần vi phạm No-Show khi:
+      // 1. Khách đặt lịch ngoài (lịch lẻ/lượng giá, không thuộc gói: hop_dong_goi_id IS NULL)
+      // 2. Trạng thái 'khong_den'
+      // 3. VÀ CHƯA THANH TOÁN (trang_thai_thanh_toan = 'chua_thanh_toan')
+      // (Khách đã thanh toán online rồi mà không đến thì không tính vi phạm vì phòng khám không hoàn tiền)
       const noShowRes = await pool.query(
         `SELECT COUNT(*)::int as count
          FROM cuoc_hen
          WHERE khach_hang_id = $1
            AND trang_thai = 'khong_den'
+           AND trang_thai_thanh_toan = 'chua_thanh_toan'
+           AND phac_do_dieu_tri_id IS NULL
            AND (thoi_gian_khong_den IS NULL OR thoi_gian_khong_den >= NOW() - INTERVAL '60 days')`,
         [khach_hang_id]
       );
@@ -535,13 +538,14 @@ export class AppointmentBookingRepository {
 
     if (so_dien_thoai && so_dien_thoai.trim() !== '') {
       const cleanPhone = so_dien_thoai.trim();
+      const validCustUuid = (typeof final_khach_hang_id === 'string' && /^[0-9a-f-]{36}$/i.test(final_khach_hang_id)) ? final_khach_hang_id : null;
       const checkPhoneCust = await pool.query(
         'SELECT id FROM khach_hang WHERE so_dien_thoai = $1 AND ($2::uuid IS NULL OR id != $2::uuid)',
-        [cleanPhone, final_khach_hang_id || null]
+        [cleanPhone, validCustUuid]
       );
       const checkPhoneStaff = await pool.query('SELECT id FROM nguoi_dung WHERE so_dien_thoai = $1', [cleanPhone]);
       if (checkPhoneCust.rows.length > 0 || checkPhoneStaff.rows.length > 0) {
-        throw new Error('Số điện thoại liên hệ này đã được đăng ký cho một tài khoản khác trong hệ thống.');
+        throw new BadRequestError('Số điện thoại liên hệ này đã được đăng ký cho một tài khoản khác trong hệ thống.');
       }
     }
 
@@ -565,9 +569,9 @@ export class AppointmentBookingRepository {
       if (!email || email.trim() === '') {
         throw new Error('Email khách hàng là bắt buộc.');
       }
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email.trim())) {
-        throw new Error('Địa chỉ email không đúng định dạng.');
+      const emailValidation = validateEmail(email);
+      if (!emailValidation.isValid) {
+        throw new Error(emailValidation.message || 'Địa chỉ email không đúng định dạng.');
       }
 
       if (email && email.trim() !== '') {
@@ -894,10 +898,6 @@ export class AppointmentBookingRepository {
 
     if (final_khach_hang_id_input || so_dien_thoai) {
       if (finalLoaiForCapacity === 'KHAM') {
-        const hasExam = await this.checkCustomerHasClinicalExamOnDate(final_khach_hang_id_input, so_dien_thoai || null, ngay);
-        if (hasExam) {
-          throw new Error('Bạn đã có một buổi Lượng giá trong ngày này.');
-        }
         const hasPendingReExam = await this.checkCoLichChoTaiLuongGia(final_khach_hang_id_input, so_dien_thoai || null);
         if (hasPendingReExam) {
           throw new Error('Bạn đang có lịch chờ tái lượng giá — vui lòng quay lại dùng lịch đó thay vì đặt lịch Lượng giá mới.');
@@ -906,6 +906,21 @@ export class AppointmentBookingRepository {
       const overActiveLimit = await this.checkCustomerActiveLimit(final_khach_hang_id_input, so_dien_thoai || null);
       if (overActiveLimit) {
         throw new Error('Bạn đang có tối đa 3 lịch chưa hoàn thành/chưa hủy — vui lòng hoàn thành hoặc hủy bớt lịch hiện có trước khi đặt thêm.');
+      }
+      if (data.trang_thai_thanh_toan === 'chua_thanh_toan' && final_khach_hang_id_input) {
+        const noShowCountRes = await pool.query(
+          `SELECT COUNT(*)::int as count
+           FROM cuoc_hen
+           WHERE khach_hang_id = $1
+             AND trang_thai = 'khong_den'
+             AND trang_thai_thanh_toan = 'chua_thanh_toan'
+             AND phac_do_dieu_tri_id IS NULL
+             AND (thoi_gian_khong_den IS NULL OR thoi_gian_khong_den >= NOW() - INTERVAL '60 days')`,
+          [final_khach_hang_id_input]
+        );
+        if ((noShowCountRes.rows[0]?.count || 0) >= 2) {
+          throw new Error('Tài khoản của bạn đã vi phạm 2 lần không đến hẹn chưa thanh toán. Vui lòng chọn Thanh toán Trực tuyến (PayOS QR) để hoàn tất đặt lịch.');
+        }
       }
     }
 
@@ -964,6 +979,31 @@ export class AppointmentBookingRepository {
       }
     }
 
+    let defaultTrangThaiThanhToan = data.trang_thai_thanh_toan || 'chua_thanh_toan';
+    if (phac_do_dieu_tri_id) {
+      const invCheck = await pool.query(
+        `SELECT hd.hinh_thuc_thanh_toan_goi, hd.so_tien_da_tra, hd.tong_tien_phai_tra, hd.tong_tien_goc,
+                hd.so_tien_giam_voucher, pd.tong_so_buoi
+         FROM hoa_don hd
+         JOIN phac_do_dieu_tri pd ON pd.id = hd.phac_do_dieu_tri_id
+         WHERE hd.phac_do_dieu_tri_id = $1 LIMIT 1`,
+        [phac_do_dieu_tri_id]
+      );
+      if (invCheck.rows.length > 0) {
+        const { hinh_thuc_thanh_toan_goi, so_tien_da_tra, tong_tien_phai_tra, tong_so_buoi } = invCheck.rows[0];
+        if (hinh_thuc_thanh_toan_goi === 'tra_thang') {
+          defaultTrangThaiThanhToan = 'da_thanh_toan';
+        } else if (hinh_thuc_thanh_toan_goi === 'tung_buoi') {
+          const M = Number(so_thu_tu_buoi) || 1;
+          const totalSessions = Number(tong_so_buoi || 10);
+          const totalAmount = Number(tong_tien_phai_tra || 0);
+          const perSession = totalSessions > 0 ? Math.round(totalAmount / totalSessions) : totalAmount;
+          const reqForThisSession = M >= totalSessions ? totalAmount : M * perSession;
+          defaultTrangThaiThanhToan = Number(so_tien_da_tra) >= reqForThisSession ? 'da_thanh_toan' : 'chua_thanh_toan';
+        }
+      }
+    }
+
     const query = `
       INSERT INTO cuoc_hen (
         khach_hang_id, goi_dich_vu_id, nhan_su_id, ngay_gio_bat_dau, ngay_gio_ket_thuc, buoi,
@@ -982,7 +1022,7 @@ export class AppointmentBookingRepository {
       buoi,
       finalLoaiForCapacity,
       trang_thai || 'da_xac_nhan',
-      data.trang_thai_thanh_toan || 'chua_thanh_toan',
+      defaultTrangThaiThanhToan,
       trieu_chung || ly_do_kham || null,
       resolvedPhongId,
       anh_dinh_kem_url || null,

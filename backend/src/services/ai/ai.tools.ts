@@ -30,7 +30,7 @@ export const AI_TOOLS: FunctionDeclaration[] = [
   {
     name: 'tra_cuu_chuyen_gia_uy_tin',
     description:
-      'Tra cứu danh sách Chuyên viên Vật lý trị liệu & Kỹ thuật viên uy tín của phòng khám (kèm học vị, số năm kinh nghiệm, thế mạnh chuyên môn lâm sàng). Dùng khi khách hỏi chung về đội ngũ nhân sự của phòng khám.',
+      'Tra cứu danh sách Chuyên viên tư vấn & Kỹ thuật viên uy tín của trung tâm OfficeCare (kèm học vị, số năm kinh nghiệm, thế mạnh chuyên môn lâm sàng). Dùng khi khách hỏi chung về đội ngũ nhân sự của trung tâm.',
     parameters: {
       type: SchemaType.OBJECT,
       properties: {
@@ -59,7 +59,7 @@ export const AI_TOOLS: FunctionDeclaration[] = [
   {
     name: 'tra_cuu_chinh_sach_phong_kham',
     description:
-      'Tra cứu chính sách phòng khám: đặt lịch theo buổi, hủy lịch trong 60 phút, đổi lịch trước mốc 50% thời gian buổi, hoàn tiền trong 7 ngày, trả góp từng buổi, quy định no-show (vắng mặt 2 lần).',
+      'Tra cứu chính sách trung tâm OfficeCare: đặt lịch theo buổi, hủy lịch trong 60 phút, đổi lịch trước mốc 50% thời gian buổi, hoàn tiền trong 7 ngày, trả góp từng buổi, quy định no-show (vắng mặt 2 lần).',
     parameters: {
       type: SchemaType.OBJECT,
       properties: {
@@ -239,7 +239,7 @@ export async function toolTraCuuChuyenGiaUyTin(args: any): Promise<object> {
 
   const list = specialists.map(s => ({
     ho_ten: s.ho_ten,
-    vai_tro: s.vai_tro_id === 4 ? 'Chuyên viên Vật lý trị liệu / PHCN' : 'Kỹ thuật viên Phục hồi chức năng',
+    vai_tro: s.vai_tro_id === 4 ? 'Chuyên viên tư vấn' : 'Kỹ thuật viên Phục hồi chức năng',
     kinh_nghiem: `${s.ho_so_chuyen_gia?.so_nam_kinh_nghiem || 3}+ năm lâm sàng`,
     bang_cap: s.ho_so_chuyen_gia?.bang_cap_chung_chi || 'Cử nhân Vật lý trị liệu & Phục hồi chức năng',
     the_manh: s.ho_so_chuyen_gia?.the_manh || ['Cơ xương khớp văn phòng', 'Cột sống & Đĩa đệm', 'Giải cơ sâu'],

@@ -39,22 +39,38 @@ function generateRevenueSvgChart(timeline: { label: string; revenue: number }[])
 
   const width = 340;
   const height = 180;
-  const padLeft = 42;
+  const padLeft = 48;
   const padRight = 16;
-  const padTop = 20;
-  const padBottom = 30;
+  const padTop = 18;
+  const padBottom = 28;
 
   const chartW = width - padLeft - padRight;
   const chartH = height - padTop - padBottom;
 
-  const maxVal = Math.max(...timeline.map(t => Number(t.revenue) || 0), 1000000);
-  // Round maxVal up to nice scale
-  const niceMax = Math.ceil(maxVal / 300000) * 300000 || 1200000;
+  const rawValues = timeline.map(t => Number(t.revenue) || 0);
+  const maxRaw = Math.max(...rawValues);
+  const minRaw = Math.min(...rawValues);
+
+  // Compute nice max & min bounds supporting negative revenues
+  const maxMagnitude = Math.max(Math.abs(maxRaw), Math.abs(minRaw), 500000);
+  const step = maxMagnitude > 5000000 ? 1000000 : (maxMagnitude > 2000000 ? 500000 : (maxMagnitude > 500000 ? 300000 : 100000));
+
+  let niceMax = Math.ceil(Math.max(maxRaw, 0) / step) * step;
+  if (niceMax === 0) niceMax = step;
+
+  let niceMin = 0;
+  if (minRaw < 0) {
+    niceMin = Math.floor(minRaw / step) * step;
+  }
+
+  const range = niceMax - niceMin || 1;
+  const yZero = padTop + ((niceMax - 0) / range) * chartH;
 
   const points = timeline.map((item, idx) => {
     const x = padLeft + (idx / Math.max(timeline.length - 1, 1)) * chartW;
     const rev = Number(item.revenue) || 0;
-    const y = padTop + chartH - (rev / niceMax) * chartH;
+    const clampedRev = Math.max(niceMin, Math.min(niceMax, rev));
+    const y = padTop + ((niceMax - clampedRev) / range) * chartH;
     return { x, y, label: item.label, rev };
   });
 
@@ -67,15 +83,30 @@ function generateRevenueSvgChart(timeline: { label: string; revenue: number }[])
     pathD += ` C ${mx} ${p0.y}, ${mx} ${p1.y}, ${p1.x} ${p1.y}`;
   }
 
-  const areaD = `${pathD} L ${points[points.length - 1].x} ${padTop + chartH} L ${points[0].x} ${padTop + chartH} Z`;
+  const baselineY = niceMin < 0 ? yZero : (padTop + chartH);
+  const areaD = `${pathD} L ${points[points.length - 1].x} ${baselineY} L ${points[0].x} ${baselineY} Z`;
 
   // Y-axis grid ticks (4 intervals)
-  const yTicks = [0, niceMax * 0.25, niceMax * 0.5, niceMax * 0.75, niceMax];
+  const tickCount = 4;
+  const tickStep = range / tickCount;
+  const yTicks: number[] = [];
+  for (let i = 0; i <= tickCount; i++) {
+    yTicks.push(niceMin + i * tickStep);
+  }
 
   const formatShortMoney = (val: number) => {
-    if (val >= 1000000) return (val / 1000000).toFixed(1).replace('.0', '') + 'M';
-    if (val >= 1000) return Math.round(val / 1000) + 'k';
-    return String(val);
+    if (Math.abs(val) < 1) return '0';
+    const isNegative = val < 0;
+    const absVal = Math.abs(val);
+    let str = '';
+    if (absVal >= 1000000) {
+      str = (absVal / 1000000).toFixed(1).replace('.0', '') + 'M';
+    } else if (absVal >= 1000) {
+      str = Math.round(absVal / 1000) + 'k';
+    } else {
+      str = String(absVal);
+    }
+    return isNegative ? `-${str}` : str;
   };
 
   const formatShortDate = (dateStr: string) => {
@@ -87,33 +118,42 @@ function generateRevenueSvgChart(timeline: { label: string; revenue: number }[])
   };
 
   return `
-    <svg width="100%" height="${height}" viewBox="0 0 ${width} ${height}" style="overflow: visible; font-family: -apple-system, BlinkMacSystemFont, sans-serif;">
+    <svg width="100%" height="${height}" viewBox="0 0 ${width} ${height}" style="overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, sans-serif;">
       <defs>
         <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stop-color="#0d9488" stop-opacity="0.25"/>
           <stop offset="100%" stop-color="#0d9488" stop-opacity="0.02"/>
         </linearGradient>
+        <clipPath id="chartClip">
+          <rect x="${padLeft - 2}" y="${padTop}" width="${chartW + 4}" height="${chartH}" />
+        </clipPath>
       </defs>
 
       <!-- Y Grid Lines & Labels -->
       ${yTicks.map(val => {
-        const y = padTop + chartH - (val / niceMax) * chartH;
+        const y = padTop + ((niceMax - val) / range) * chartH;
+        const isZero = Math.abs(val) < 1;
         return `
-          <line x1="${padLeft}" y1="${y}" x2="${width - padRight}" y2="${y}" stroke="#e2e8f0" stroke-width="0.8" stroke-dasharray="2,2" />
-          <text x="${padLeft - 6}" y="${y + 3}" text-anchor="end" font-size="8.5" fill="#64748b" font-weight="600">${formatShortMoney(val)}</text>
+          <line x1="${padLeft}" y1="${y}" x2="${width - padRight}" y2="${y}" 
+            stroke="${isZero ? '#94a3b8' : '#e2e8f0'}" 
+            stroke-width="${isZero ? '1.2' : '0.8'}" 
+            stroke-dasharray="${isZero ? 'none' : '2,2'}" />
+          <text x="${padLeft - 6}" y="${y + 3}" text-anchor="end" font-size="8" fill="${isZero ? '#334155' : '#64748b'}" font-weight="${isZero ? '700' : '600'}">
+            ${formatShortMoney(val)}
+          </text>
         `;
       }).join('')}
 
-      <!-- Area Fill -->
-      <path d="${areaD}" fill="url(#chartGrad)" />
-
-      <!-- Smooth Line -->
-      <path d="${pathD}" fill="none" stroke="#0d9488" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      <!-- Area Fill & Curve with Clip Protection -->
+      <g clip-path="url(#chartClip)">
+        <path d="${areaD}" fill="url(#chartGrad)" />
+        <path d="${pathD}" fill="none" stroke="#0d9488" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      </g>
 
       <!-- Data Dots & X Labels -->
       ${points.map(p => `
-        <circle cx="${p.x}" cy="${p.y}" r="3" fill="#ffffff" stroke="#0d9488" stroke-width="1.8" />
-        <text x="${p.x}" y="${padTop + chartH + 14}" text-anchor="middle" font-size="8" fill="#64748b" font-weight="600">${formatShortDate(p.label)}</text>
+        <circle cx="${p.x}" cy="${p.y}" r="2.8" fill="#ffffff" stroke="${p.rev < 0 ? '#e11d48' : '#0d9488'}" stroke-width="1.8" />
+        <text x="${p.x}" y="${padTop + chartH + 14}" text-anchor="middle" font-size="7.5" fill="#64748b" font-weight="600">${formatShortDate(p.label)}</text>
       `).join('')}
     </svg>
   `;
@@ -478,7 +518,7 @@ export function generateDashboardReportHtml(data: DashboardReportPrintData): str
           </div>
         </div>
         <div class="clinic-meta">
-          <strong>Phòng Khám Chuyên Khoa PHCN OfficeCare</strong><br/>
+          <strong>Trung Tâm Vật Lý Trị Liệu & PHCN OfficeCare</strong><br/>
           Hotline: 1900 0586 · Website: officecare.vn<br/>
           Thời gian xuất: ${printTimeStr}
         </div>
@@ -497,7 +537,7 @@ export function generateDashboardReportHtml(data: DashboardReportPrintData): str
           <div class="kpi-icon-box" style="background: #ccfbf1; color: #0d9488;">$</div>
           <div>
             <div class="kpi-label">Doanh Thu Thuần</div>
-            <div class="kpi-value">${formatVND(totalRev)}</div>
+            <div class="kpi-value" style="color: ${totalRev < 0 ? '#e11d48' : '#0f766e'};">${formatVND(totalRev)}</div>
             <div class="kpi-sub">Doanh thu ghi nhận trong kỳ</div>
           </div>
         </div>
@@ -542,7 +582,7 @@ export function generateDashboardReportHtml(data: DashboardReportPrintData): str
                 <tr>
                   <td class="text-center font-bold text-slate-500">${idx + 1}</td>
                   <td class="font-bold font-mono">${item.label}</td>
-                  <td class="text-right font-bold" style="color: #0f766e;">${formatVND(item.revenue)}</td>
+                  <td class="text-right font-bold" style="color: ${Number(item.revenue) < 0 ? '#e11d48' : '#0f766e'};">${formatVND(item.revenue)}</td>
                 </tr>
               `).join('') : `
                 <tr><td colspan="3" class="text-center text-slate-400">Không có dữ liệu chi tiết</td></tr>
@@ -554,7 +594,7 @@ export function generateDashboardReportHtml(data: DashboardReportPrintData): str
         <!-- Total Banner -->
         <div class="total-revenue-banner">
           <span class="font-bold" style="color: #0f766e; text-transform: uppercase; font-size: 10.5px;">TỔNG CỘNG DOANH THU KỲ BÁO CÁO:</span>
-          <span class="font-bold" style="color: #0f766e; font-size: 13px;">${formatVND(totalRev)}</span>
+          <span class="font-bold" style="color: ${totalRev < 0 ? '#e11d48' : '#0f766e'}; font-size: 13px;">${formatVND(totalRev)}</span>
         </div>
       </div>
 
@@ -662,7 +702,7 @@ export function generateDashboardReportHtml(data: DashboardReportPrintData): str
               <td class="font-bold">${staff.ho_ten}</td>
               <td>
                 <span class="badge ${staff.vai_tro === 'Bác sĩ' ? 'badge-teal' : 'badge-amber'}">
-                  ${staff.vai_tro === 'Bác sĩ' ? 'CHUYÊN VIÊN VLTL' : 'KỸ THUẬT VIÊN'}
+                  ${staff.vai_tro === 'Bác sĩ' ? 'CHUYÊN VIÊN TƯ VẤN' : 'KỸ THUẬT VIÊN'}
                 </span>
               </td>
               <td class="text-right font-bold">${staff.completed_count || 0} ca</td>

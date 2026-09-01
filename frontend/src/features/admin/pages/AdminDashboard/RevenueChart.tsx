@@ -20,9 +20,11 @@ const currencyFormatter = new Intl.NumberFormat('vi-VN', {
 
 const formatYAxis = (val: number) => {
   if (val === 0) return '0';
-  if (val >= 1_000_000_000) return `${(val / 1_000_000_000).toFixed(1)} Tỷ`;
-  if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(0)} Tr`;
-  if (val >= 1_000) return `${(val / 1_000).toFixed(0)}k`;
+  const abs = Math.abs(val);
+  const sign = val < 0 ? '-' : '';
+  if (abs >= 1_000_000_000) return `${sign}${(abs / 1_000_000_000).toFixed(1)} Tỷ`;
+  if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(0)} Tr`;
+  if (abs >= 1_000) return `${sign}${(abs / 1_000).toFixed(0)}k`;
   return `${val}`;
 };
 
@@ -116,20 +118,20 @@ export function RevenueChart({ startDate, endDate, bucket, periodLabel, isClient
       </div>
 
       {/* Chart Canvas Area */}
-      <div className="h-[270px] w-full flex items-center justify-center">
+      <div className="h-[270px] w-full min-w-0 min-h-[250px] relative">
         {loading ? (
-          <div className="text-slate-400 text-xs font-semibold animate-pulse flex items-center gap-2">
+          <div className="h-full w-full flex items-center justify-center text-slate-400 text-xs font-semibold animate-pulse gap-2">
             <div className="size-4 rounded-full border-2 border-teal-500 border-t-transparent animate-spin" />
             Đang đồng bộ dữ liệu doanh thu...
           </div>
         ) : processedChartData.length === 0 ? (
-          <div className="text-slate-400 dark:text-slate-500 text-xs font-medium flex flex-col items-center gap-1.5 py-10">
+          <div className="h-full w-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 text-xs font-medium gap-1.5 py-10">
             <BarChart2 size={24} className="opacity-40" />
             <span>Không có giao dịch thanh toán trong khoảng thời gian này.</span>
           </div>
         ) : (
           isClient && (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height={270} minWidth={0} minHeight={250}>
               <AreaChart data={processedChartData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">

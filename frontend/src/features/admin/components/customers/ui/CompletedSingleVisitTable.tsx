@@ -16,9 +16,7 @@ function formatDateTime(v: string) {
   if (!v) return '-';
   const d = new Date(v);
   if (isNaN(d.getTime())) return v;
-  const time = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-  const date = d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  return `${time} • ${date}`;
+  return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 const LOAI_LABEL: Record<string, string> = {

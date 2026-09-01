@@ -25,14 +25,16 @@ export function useSchedulesState() {
   const [staff, setStaff] = useState<Staff[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefetching, setIsRefetching] = useState(false);
   
   const [selectedMonday, setSelectedMonday] = useState<Date>(() => getMonday(new Date()));
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (isInitial = false) => {
     try {
-      setLoading(true);
+      if (isInitial) setLoading(true);
+      setIsRefetching(true);
       const [schedRes, staffRes, roomsRes] = await Promise.all([
         getSchedules(),
         getStaff(),
@@ -45,12 +47,13 @@ export function useSchedulesState() {
       console.error('Error fetching schedules data:', error);
       toast.error('Không thể tải dữ liệu lịch trực');
     } finally {
-      setLoading(false);
+      if (isInitial) setLoading(false);
+      setIsRefetching(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchData();
+    fetchData(true);
   }, [fetchData]);
 
   const weekDates = useMemo(() => {
@@ -209,18 +212,15 @@ export function useSchedulesState() {
   }, [staff, schedules, weekDates, searchQuery]);
 
   const handleDeleteScheduleById = useCallback(async (id: string | number) => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa ca trực này?')) {
-      try {
-        await deleteSchedule(String(id));
-        toast.success('Xóa ca trực thành công!');
-        await fetchData();
-        return true;
-      } catch (error: any) {
-        toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi xóa');
-        return false;
-      }
+    try {
+      await deleteSchedule(String(id));
+      toast.success('Xóa ca trực thành công!');
+      await fetchData(false);
+      return true;
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi xóa');
+      return false;
     }
-    return false;
   }, [fetchData]);
 
   return {
@@ -228,6 +228,7 @@ export function useSchedulesState() {
     staff,
     rooms,
     loading,
+    isRefetching,
     selectedMonday,
     setSelectedMonday,
     roleFilter,

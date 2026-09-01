@@ -3,6 +3,7 @@ import { Edit3, Inbox, Lock, Unlock } from 'lucide-react';
 import { RecordViewButton } from './badges/PackageStatusPill';
 import { CustomerFilterToolbar } from './CustomerFilterToolbar';
 import { Pagination } from '../../../../../components/Pagination';
+import { formatCurrency } from '@/utils/format';
 import type { CustomerOverviewItem } from '../types';
 
 interface CustomerTableProps {
@@ -17,10 +18,6 @@ interface CustomerTableProps {
   onSearchChange?: (value: string) => void;
   showLockedOnly?: boolean;
   onToggleLockedOnly?: () => void;
-}
-
-function formatCurrency(v: number) {
-  return v.toLocaleString('vi-VN') + 'đ';
 }
 
 const CustomerTableRow = memo(function CustomerTableRow({

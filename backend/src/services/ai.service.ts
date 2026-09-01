@@ -83,7 +83,7 @@ export class AIService {
     const GREETINGS = ['xin chào', 'chào bạn', 'chào bot', 'chào em', 'chào ad', 'chào bác sĩ', 'chào chuyên viên', 'hello', 'hi', 'hey', 'alo'];
     if (history.length === 0 && GREETINGS.includes(trimmedLower)) {
       return {
-        reply: 'Xin chào! Tôi là **Trợ lý Chuyên viên AI** của trung tâm OfficeCare. Tôi có thể hỗ trợ bạn phân tích các triệu chứng đau mỏi cơ xương khớp (cổ vai gáy, thắt lưng, cột sống...), tư vấn phác đồ và giải đáp toàn bộ thông tin phòng khám.',
+        reply: 'Xin chào! Tôi là **Trợ lý Chuyên viên AI** của Trung tâm Phục hồi Chức năng OfficeCare. Tôi có thể hỗ trợ bạn phân tích các triệu chứng đau mỏi cơ xương khớp (cổ vai gáy, thắt lưng, cột sống...), tư vấn phác đồ và giải đáp toàn bộ thông tin tại trung tâm.',
         suggestBooking: false,
         bookingActionType: null,
         showPackagePrompt: false,
@@ -232,7 +232,7 @@ export class AIService {
         }
         suggestedQuestions = ['Xem hồ sơ điều trị', 'Kiểm tra lịch hẹn sắp tới', 'Liên hệ lễ tân'];
       } else if (lowerMsg.includes('chuyên viên') || lowerMsg.includes('kỹ thuật viên') || lowerMsg.includes('uy tín') || lowerMsg.includes('bác sĩ')) {
-        fallbackReply = 'Dạ tại OfficeCare, 100% đội ngũ Chuyên viên Vật lý trị liệu và Kỹ thuật viên (KTV) đều được đào tạo bài bản chuyên ngành PHCN, giàu kinh nghiệm lâm sàng về cơ xương khớp văn phòng và cột sống. Khách hàng sẽ được lượng giá 1:1 và đồng hành tận tâm trong suốt liệu trình.';
+        fallbackReply = 'Dạ tại OfficeCare, 100% đội ngũ Chuyên viên tư vấn và Kỹ thuật viên (KTV) đều được đào tạo bài bản chuyên ngành PHCN, giàu kinh nghiệm lâm sàng về cơ xương khớp văn phòng và cột sống. Khách hàng sẽ được lượng giá 1:1 và đồng hành tận tâm trong suốt liệu trình.';
         suggestedQuestions = ['Đặt lịch lượng giá 1:1', 'Các dịch vụ công nghệ cao', 'Thời gian làm việc'];
       } else if (lowerMsg.includes('gói') || lowerMsg.includes('giá') || lowerMsg.includes('liệu trình') || lowerMsg.includes('chi phí')) {
         fallbackReply = 'Dạ OfficeCare có các gói trị liệu chuyên sâu cho Cổ Vai Gáy, Thắt Lưng Cột Sống, Thoát Vị Đĩa Đệm và Phục Hồi Thần Kinh Tọa kết hợp Laser công suất cao 30W, Sóng xung kích Shockwave và Giường kéo giãn DTS. Mức giá dao động linh hoạt từ 250.000đ/buổi lẻ đến các gói 10 - 20 buổi tiết kiệm.';

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronDown, Check } from 'lucide-react';
+import { formatCurrency } from '@/utils/format';
 
 interface ServiceSelectProps {
   services: any[];
@@ -55,7 +56,7 @@ export const ServiceSelect: React.FC<ServiceSelectProps> = ({
               {selected.thoi_luong_phut}p
             </span>
             <span className="text-[10px] font-black text-emerald-700 dark:text-emerald-400 shrink-0">
-              {Number(selected.don_gia).toLocaleString('vi-VN')}đ
+              {formatCurrency(selected.don_gia)}
             </span>
           </span>
         ) : (
@@ -95,7 +96,7 @@ export const ServiceSelect: React.FC<ServiceSelectProps> = ({
                       ⏳ {svc.thoi_luong_phut} phút
                     </span>
                     <span className="text-[10px] font-black text-emerald-700 dark:text-emerald-400">
-                      {Number(svc.don_gia).toLocaleString('vi-VN')}đ
+                      {formatCurrency(svc.don_gia)}
                     </span>
                   </div>
                 </div>

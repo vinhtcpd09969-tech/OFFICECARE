@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import sanitizeHtml from 'sanitize-html';
 import { SentimentService } from './ai/ai.sentiment';
 import { BadRequestError, NotFoundError } from '../utils/appError';
+import { validateEmail } from '../utils/validators';
 
 const ALLOWED_TAGS = ['p', 'h2', 'h3', 'strong', 'em', 'u', 'ul', 'ol', 'li', 'a', 'img', 'blockquote', 'br'];
 const COMBINING_MARKS = new RegExp('[' + String.fromCharCode(0x300) + '-' + String.fromCharCode(0x36f) + ']', 'g');
@@ -62,12 +63,30 @@ class AdminService {
   }
 
   async createStaff(data: any) {
-    const existingEmail = await adminRepository.findUserByEmail(data.email);
-    if (existingEmail) throw new BadRequestError('Email này đã được đăng ký bởi người dùng khác trên hệ thống');
+    if (data.email) {
+      const emailTrim = data.email.trim().toLowerCase();
+      const existingUserEmail = await adminRepository.findUserByEmail(emailTrim);
+      if (existingUserEmail) {
+        throw new BadRequestError('Email này đã được sử dụng bởi nhân sự khác trong hệ thống.');
+      }
+      const existingCustomerEmail = await adminRepository.findCustomerByEmail(emailTrim);
+      if (existingCustomerEmail) {
+        throw new BadRequestError('Email này đã được sử dụng bởi khách hàng trong hệ thống.');
+      }
+      data.email = emailTrim;
+    }
 
     if (data.so_dien_thoai) {
-      const existingPhone = await adminRepository.findUserByPhone(data.so_dien_thoai);
-      if (existingPhone) throw new BadRequestError('Số điện thoại này đã được đăng ký bởi người dùng khác trên hệ thống');
+      const phoneTrim = data.so_dien_thoai.trim();
+      const existingUserPhone = await adminRepository.findUserByPhone(phoneTrim);
+      if (existingUserPhone) {
+        throw new BadRequestError('Số điện thoại này đã được đăng ký bởi nhân sự khác trên hệ thống.');
+      }
+      const existingCustomerPhone = await adminRepository.findCustomerByPhone(phoneTrim);
+      if (existingCustomerPhone) {
+        throw new BadRequestError('Số điện thoại này đã được đăng ký bởi khách hàng trên hệ thống.');
+      }
+      data.so_dien_thoai = phoneTrim;
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -136,6 +155,10 @@ class AdminService {
   async updateCustomer(id: string, data: any) {
     if (data.email) {
       const emailTrim = data.email.trim().toLowerCase();
+      const emailValidation = validateEmail(emailTrim);
+      if (!emailValidation.isValid) {
+        throw new BadRequestError(emailValidation.message || 'Địa chỉ email không hợp lệ.');
+      }
       const existingCustomerEmail = await adminRepository.findCustomerByEmail(emailTrim, id);
       if (existingCustomerEmail) {
         throw new BadRequestError('Email này đã được sử dụng bởi khách hàng khác trên hệ thống.');
@@ -363,8 +386,8 @@ class AdminService {
     return adminRepository.getRevenueStats(range, startDate, endDate, bucket);
   }
 
-  async getStaffPerformance() {
-    return adminRepository.getStaffPerformance();
+  async getStaffPerformance(startDate?: string, endDate?: string) {
+    return adminRepository.getStaffPerformance(startDate, endDate);
   }
 
   async getTopPackages() {

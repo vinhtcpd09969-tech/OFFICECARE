@@ -64,32 +64,38 @@ export function useScheduleForm({
     const isCurrentMorning = currentHour < 11;
 
     // Count occupancy per room in the same shift on the same date
-    const occupancyMap: Record<string, number> = {};
+    const totalOccupancyMap: Record<string, number> = {};
+    const otherStaffOccupancyMap: Record<string, number> = {};
+
     schedules.forEach(s => {
       if (
         s.ngay === watchedNgay && 
         s.trang_thai === 'hoat_dong' && 
-        s.phong_id &&
-        (!editingSchedule || s.id !== editingSchedule.id)
+        s.phong_id
       ) {
         const sHour = parseInt(s.gio_bat_dau.split(':')[0]) || 0;
         const isSMorning = sHour < 11;
         
         if (isCurrentMorning === isSMorning) {
           const roomIdStr = s.phong_id.toString();
-          occupancyMap[roomIdStr] = (occupancyMap[roomIdStr] || 0) + 1;
+          totalOccupancyMap[roomIdStr] = (totalOccupancyMap[roomIdStr] || 0) + 1;
+
+          if (!editingSchedule || s.id !== editingSchedule.id) {
+            otherStaffOccupancyMap[roomIdStr] = (otherStaffOccupancyMap[roomIdStr] || 0) + 1;
+          }
         }
       }
     });
 
     return candidateRooms.map((r: Room) => {
       const cap = r.suc_chua || 1;
-      const occ = occupancyMap[r.id.toString()] || 0;
+      const totalOcc = totalOccupancyMap[r.id.toString()] || 0;
+      const otherOcc = otherStaffOccupancyMap[r.id.toString()] || 0;
       return {
         ...r,
         suc_chua: cap,
-        occupancy: occ,
-        isFull: occ >= cap
+        occupancy: totalOcc,
+        isFull: otherOcc >= cap
       };
     });
   }, [rooms, isDoctor, isTechnician, watchedNgay, watchedGioBatDau, schedules, editingSchedule, watchedNguoiDungId]);
@@ -235,8 +241,7 @@ export function useScheduleForm({
     }
   }, [reset, setValue, setSelectedShiftType]);
 
-  const onSubmit = async (data: ScheduleFormValues) => {
-    // Validate doctor duplicate shifts
+  const validateForm = (data: ScheduleFormValues): boolean => {
     const selectedStaff = staff.find(s => s.id === data.nguoi_dung_id);
     if (selectedStaff && selectedStaff.vai_tro === 'Bác sĩ') {
       const hour = parseInt(data.gio_bat_dau.split(':')[0]);
@@ -258,7 +263,7 @@ export function useScheduleForm({
 
         if (conflict) {
           toast.error(`Không thể phân công: Bác sĩ ${selectedStaff.ho_ten} đã có lịch trực ca này vào ngày ${data.ngay} rồi!`);
-          return;
+          return false;
         }
       }
     }
@@ -267,12 +272,20 @@ export function useScheduleForm({
     const isDoctorNow = selectedStaffObj?.vai_tro === 'Bác sĩ';
     const isTechnicianNow = selectedStaffObj?.vai_tro === 'Kỹ thuật viên';
 
-    // Chỉ Bác sĩ/KTV mới bắt buộc chọn phòng (Lễ tân không có ô chọn phòng trên form) — kiểm tra ở
-    // đây thay vì trong zod schema vì schema không biết vai trò nhân sự đang chọn.
     if ((isDoctorNow || isTechnicianNow) && data.trang_thai === 'hoat_dong' && !data.phong_id) {
       toast.error(`Vui lòng chọn ${isDoctorNow ? 'phòng khám' : 'phòng trị liệu'} cho ca trực này.`);
-      return;
+      return false;
     }
+
+    return true;
+  };
+
+  const onSubmit = async (data: ScheduleFormValues) => {
+    if (!validateForm(data)) return;
+
+    const selectedStaffObj = staff.find(s => s.id === data.nguoi_dung_id);
+    const isDoctorNow = selectedStaffObj?.vai_tro === 'Bác sĩ';
+    const isTechnicianNow = selectedStaffObj?.vai_tro === 'Kỹ thuật viên';
 
     try {
       const submitData = {
@@ -306,6 +319,7 @@ export function useScheduleForm({
     handleShiftTypeChange,
     fillFormForCreation,
     fillFormForEditing,
+    validateForm,
     onSubmit
   };
 }

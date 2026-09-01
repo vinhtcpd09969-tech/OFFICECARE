@@ -19,7 +19,7 @@ export class AdminCustomerRepository {
 
   async findCustomerByEmail(email: string, excludeId?: string) {
     const query = excludeId
-      ? 'SELECT id FROM khach_hang WHERE LOWER(email) = LOWER($1) AND id != $2'
+      ? 'SELECT id FROM khach_hang WHERE LOWER(email) = LOWER($1) AND id != $2::uuid'
       : 'SELECT id FROM khach_hang WHERE LOWER(email) = LOWER($1)';
     const params = excludeId ? [email, excludeId] : [email];
     const { rows } = await pool.query(query, params);
@@ -28,7 +28,7 @@ export class AdminCustomerRepository {
 
   async findCustomerByPhone(phone: string, excludeId?: string) {
     const query = excludeId
-      ? 'SELECT id FROM khach_hang WHERE so_dien_thoai = $1 AND id != $2'
+      ? 'SELECT id FROM khach_hang WHERE so_dien_thoai = $1 AND id != $2::uuid'
       : 'SELECT id FROM khach_hang WHERE so_dien_thoai = $1';
     const params = excludeId ? [phone, excludeId] : [phone];
     const { rows } = await pool.query(query, params);

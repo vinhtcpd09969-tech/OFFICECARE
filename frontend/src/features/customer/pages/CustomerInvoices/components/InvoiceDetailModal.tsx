@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { User, Building, Activity, Receipt, ChevronDown, Phone, ShieldAlert, RotateCcw } from 'lucide-react';
 import { formatCurrency } from '../../../../../utils/format';
-import { canRefundPackage } from '../../../../../utils/billing';
+import { canRefundPackage, calculatePackageRefund } from '../../../../../utils/billing';
+import { PackageRefundBreakdown } from '../../../../../components/billing/PackageRefundBreakdown';
 import type { CustomerInvoice, CustomerPayment } from '../../../api/customer.api';
 
 interface InvoiceDetailModalProps {
@@ -58,15 +59,15 @@ export function InvoiceDetailModal({ invoice, payments, onClose, onOpenPolicy, a
   const isTungBuoiPackage = isPackage && invoice.hinh_thuc_thanh_toan_goi === 'tung_buoi';
 
   const totalPaid = Number(invoice.da_thanh_toan);
-  const gia_thanh_toan_goi = gia_goc_goi - so_tien_giam_voucher;
-  const penaltyAmount = Math.round((gia_thanh_toan_goi * penaltyPercent) / 100);
   const totalSessions = Number(invoice.tong_so_buoi || 10);
-  const usedSessionsCost = Math.round((gia_thanh_toan_goi * usedSessions) / totalSessions);
-  const totalDeduction = usedSessionsCost + penaltyAmount;
-  const estimatedRefund = Math.max(0, totalPaid - totalDeduction);
-  const keptRevenue = totalPaid - estimatedRefund;
-  const perSessionCost = totalSessions > 0 ? Math.round(gia_thanh_toan_goi / totalSessions) : 0;
-  const shortfall = Math.max(0, totalDeduction - totalPaid);
+  const refundCalc = calculatePackageRefund({
+    totalPaid,
+    packagePrice: tong_tien_goc,
+    voucherDiscount: so_tien_giam_voucher,
+    usedSessions,
+    totalSessions,
+    penaltyPercent
+  });
 
   return (
     <div className="fixed inset-0 bg-zinc-950/60 backdrop-blur-xs z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -395,99 +396,9 @@ export function InvoiceDetailModal({ invoice, payments, onClose, onOpenPolicy, a
                   </div>
 
                   {isRefundPanelOpen && (
-                  <div className="space-y-4">
-                    {(() => {
-                      return (
-                        <>
-                          <div className="bg-white border border-slate-150 rounded-xl overflow-hidden">
-                            <div className="flex justify-between items-center px-4 py-2.5 bg-amber-50/40 border-b border-amber-100/60">
-                              <span className="text-[11px] font-bold text-amber-800">Giá gói theo hợp đồng</span>
-                              <span className="text-amber-900 font-black text-xs">{formatCurrency(gia_thanh_toan_goi)}</span>
-                            </div>
-
-                            <div className="flex justify-between items-center px-4 py-3 bg-zinc-50/70">
-                              <div className="text-left">
-                                <span className="text-xs font-bold text-zinc-650 block">Khách đã đóng</span>
-                              </div>
-                              <span className="text-secondary font-black text-sm shrink-0">{formatCurrency(totalPaid)}</span>
-                            </div>
-
-                            <div className="px-4 py-3 space-y-3 border-t border-slate-100">
-                              <p className="text-[9px] font-black text-zinc-400 uppercase tracking-wider">
-                                Trừ đi các khoản sau:
-                              </p>
-
-                              <div className="flex justify-between items-start gap-3">
-                                <div className="text-left">
-                                  <p className="text-xs font-bold text-zinc-700">
-                                    {usedSessions}/{totalSessions} buổi khách đã thực hiện
-                                  </p>
-                                  <p className="text-[10px] text-zinc-450 font-medium leading-relaxed tabular-nums">
-                                    {formatCurrency(perSessionCost)} × {usedSessions} buổi
-                                  </p>
-                                </div>
-                                <span className="text-rose-600 font-black text-xs shrink-0 tabular-nums">
-                                  −{formatCurrency(usedSessionsCost)}
-                                </span>
-                              </div>
-
-                              <div className="flex justify-between items-start gap-3">
-                                <div className="text-left">
-                                  <p className="text-xs font-bold text-zinc-700">Phí phạt hủy gói giữa chừng</p>
-                                  <p className="text-[10px] text-zinc-450 font-medium leading-relaxed tabular-nums">
-                                    {penaltyPercent}% × giá gói sau giảm ({formatCurrency(gia_thanh_toan_goi)})
-                                  </p>
-                                </div>
-                                <span className="text-rose-600 font-black text-xs shrink-0 tabular-nums">
-                                  −{formatCurrency(penaltyAmount)}
-                                </span>
-                              </div>
-
-                              <div className="flex justify-between items-center pt-2.5 border-t border-dashed border-zinc-200">
-                                <span className="text-xs font-black text-zinc-700">Tổng cộng bị trừ</span>
-                                <span className="text-rose-600 font-black text-sm tabular-nums">
-                                  {formatCurrency(totalDeduction)}
-                                </span>
-                              </div>
-                            </div>
-
-                            <div
-                              className={`flex justify-between items-center px-4 py-3.5 border-t-2 ${
-                                estimatedRefund > 0 ? 'bg-emerald-50/70 border-emerald-200' : 'bg-zinc-100/70 border-zinc-200'
-                              }`}
-                            >
-                              <span className={`text-xs font-black ${estimatedRefund > 0 ? 'text-emerald-800' : 'text-zinc-650'}`}>
-                                Hoàn lại cho khách
-                              </span>
-                              <span className={`font-black text-base tabular-nums ${estimatedRefund > 0 ? 'text-emerald-600' : 'text-zinc-450'}`}>
-                                {formatCurrency(estimatedRefund)}
-                              </span>
-                            </div>
-
-                            <div className="flex justify-between items-center px-4 py-2.5 border-t border-slate-100 bg-white">
-                              <span className="text-[11px] font-bold text-zinc-500">Trung tâm giữ lại</span>
-                              <span className="text-secondary font-black text-xs tabular-nums">{formatCurrency(keptRevenue)}</span>
-                            </div>
-                          </div>
-
-                          {estimatedRefund === 0 && (
-                            <div className="p-3.5 bg-rose-50/50 border border-rose-100 rounded-xl space-y-1 animate-in fade-in duration-200">
-                              <p className="text-rose-700 text-xs font-black flex items-center gap-1.5">
-                                <span>⚠️</span> Không hoàn tiền
-                              </p>
-                              <p className="text-[11px] text-rose-800/90 font-semibold leading-relaxed">
-                                Các khoản phải trừ ({formatCurrency(totalDeduction)}) đã{' '}
-                                {shortfall > 0 ? 'vượt quá' : 'dùng hết'} số tiền khách đóng ({formatCurrency(totalPaid)})
-                                {shortfall > 0 ? ` — vượt ${formatCurrency(shortfall)}` : ''}. Khách đã dùng{' '}
-                                {usedSessions}/{totalSessions} buổi của gói nên không thể hoàn tiền.
-                                {shortfall > 0 && ' Trung tâm KHÔNG truy thu thêm phần vượt này.'}
-                              </p>
-                            </div>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </div>
+                    <div className="pt-2 animate-in fade-in duration-200">
+                      <PackageRefundBreakdown calculation={refundCalc} />
+                    </div>
                   )}
 
                   <div className="bg-primary/5 border border-primary/15 rounded-xl p-4 flex items-start gap-3">

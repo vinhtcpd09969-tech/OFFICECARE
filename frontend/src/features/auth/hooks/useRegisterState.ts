@@ -4,10 +4,19 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { checkEmailExists, register as registerApi } from '../api/auth.api';
 import { toast } from 'react-hot-toast';
+import { validateEmail } from '../../../utils/validators';
 
 export const registerSchema = z.object({
   ho_ten: z.string().min(1, 'Vui lòng không để trống họ tên').min(2, 'Họ tên phải có ít nhất 2 ký tự'),
-  email: z.string().min(1, 'Vui lòng không để trống email').email('Email không đúng định dạng (vd: user@example.com)'),
+  email: z.string().min(1, 'Vui lòng không để trống email').superRefine((val, ctx) => {
+    const res = validateEmail(val);
+    if (!res.isValid) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: res.message || 'Email không đúng định dạng',
+      });
+    }
+  }),
   so_dien_thoai: z.string().min(1, 'Vui lòng không để trống số điện thoại').regex(/^(0|\+84)(3|5|7|8|9)\d{8}$/, 'Số điện thoại không hợp lệ (vd: 0912345678)'),
   gioi_tinh: z.enum(['nam', 'nu', 'khac'], { message: 'Vui lòng chọn giới tính' }),
   ngay_sinh: z.string().min(1, 'Vui lòng chọn ngày sinh').refine((val) => new Date(val) <= new Date(), {

@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import api from '../../../../api/axios';
-import { Search, X } from 'lucide-react';
+import { Search, X, Sparkles } from 'lucide-react';
 import { ConfirmDialog } from '../../../../components/ConfirmDialog';
 
 import { FilterSelect } from './components/FilterSelect';
@@ -48,7 +48,6 @@ export default function ViewFeedback() {
   } | null>(null);
 
   // Multi-select & Actions
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -80,7 +79,7 @@ export default function ViewFeedback() {
     }
     try {
       setSubmittingReply(true);
-      await api.post(`/admin/feedback/${loai}/${id}/reply`, { phanHoi });
+      await api.post(`/admin/feedback/${loai}/${id}/reply`, { phanHoi, noi_dung_tra_loi: phanHoi });
       toast.success('Gửi phản hồi thành công!');
       fetchFeedback();
       if (selectedFeedback && selectedFeedback.id === id) {
@@ -166,12 +165,27 @@ export default function ViewFeedback() {
       type: 'info',
       confirmLabel: `Gửi ngay ${ready.length} phản hồi`,
       message: (
-        <div className="space-y-2 text-left">
-          <p>
-            Bạn có chắc chắn muốn gửi ngay <b>{ready.length}</b> câu trả lời gợi ý cho khách hàng?
+        <div className="space-y-3 text-left">
+          <p className="text-sm text-slate-700 dark:text-zinc-200 font-medium">
+            Hệ thống đã tự động lọc <b>{ready.length}</b> đánh giá <span className="text-amber-600 dark:text-amber-400 font-bold">chưa phản hồi</span> để gửi câu trả lời gợi ý của AI:
           </p>
-          <p className="text-xs text-slate-500 font-medium">
-            Hành động này sẽ cập nhật trực tiếp nội dung phản hồi chính thức từ phòng khám.
+          <div className="max-h-48 overflow-y-auto space-y-2 pr-1 divide-y divide-slate-100 dark:divide-zinc-800">
+            {ready.map((f, i) => (
+              <div key={f.id} className="pt-2 text-xs">
+                <div className="flex items-center justify-between font-bold text-slate-800 dark:text-zinc-100">
+                  <span>{i + 1}. {f.ten_khach_hang || 'Khách hàng'}</span>
+                  <span className="text-teal-600 dark:text-teal-400 text-[11px] font-semibold">
+                    {f.cam_xuc === 'POSITIVE' ? '😊 Tích cực' : f.cam_xuc === 'NEGATIVE' ? '🙁 Tiêu cực' : '😐 Trung tính'}
+                  </span>
+                </div>
+                <p className="text-slate-500 dark:text-zinc-400 italic text-[11px] mt-0.5 line-clamp-2">
+                  "{f.de_xuat_phan_hoi}"
+                </p>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-slate-400 font-medium">
+            Hành động này sẽ cập nhật trực tiếp nội dung phản hồi chính thức từ trung tâm OfficeCare cho các khách hàng trên.
           </p>
         </div>
       ),
@@ -181,7 +195,10 @@ export default function ViewFeedback() {
         let successCount = 0;
         for (const f of ready) {
           try {
-            await api.post(`/admin/feedback/${f.loai_danh_gia}/${f.id}/reply`, { phanHoi: f.de_xuat_phan_hoi });
+            await api.post(`/admin/feedback/${f.loai_danh_gia}/${f.id}/reply`, {
+              phanHoi: f.de_xuat_phan_hoi,
+              noi_dung_tra_loi: f.de_xuat_phan_hoi
+            });
             successCount++;
           } catch (error) {
             console.error('Lỗi gửi phản hồi hàng loạt:', error);
@@ -203,24 +220,6 @@ export default function ViewFeedback() {
     setSelectedFeedback(f);
     setReplyText(f.phan_hoi_nhan_xet || f.de_xuat_phan_hoi || '');
     setIsEditingReply(!f.phan_hoi_nhan_xet);
-  };
-
-  const handleToggleSelect = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const handleToggleSelectAll = () => {
-    if (selectedIds.size === filteredFeedbacks.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(filteredFeedbacks.map(f => f.id)));
-    }
   };
 
   const uniqueServices = useMemo(() => {
@@ -269,6 +268,10 @@ export default function ViewFeedback() {
       return true;
     });
   }, [activeAllFeedbacks, activeTab, searchQuery, selectedService, selectedSpecialist, selectedStars, selectedSentiment, selectedResponseStatus]);
+
+  const allUnrepliedFeedbacks = useMemo(() => {
+    return filteredFeedbacks.filter(f => !f.phan_hoi_nhan_xet && f.de_xuat_phan_hoi);
+  }, [filteredFeedbacks]);
 
   const serviceStats = useMemo(() => {
     if (allServiceFeedbacks.length === 0) return { avg: 5.0, count: 0 };
@@ -466,6 +469,30 @@ export default function ViewFeedback() {
               <span>Đặt lại</span>
             </button>
           )}
+
+          {/* Nút phản hồi hàng loạt chuyên dụng */}
+          <button
+            type="button"
+            disabled={allUnrepliedFeedbacks.length === 0 || submittingReply}
+            onClick={() => handleBulkApprove(allUnrepliedFeedbacks)}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm whitespace-nowrap ${
+              allUnrepliedFeedbacks.length > 0
+                ? 'bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white shadow-teal-600/20 active:scale-95 cursor-pointer'
+                : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 dark:text-zinc-500 cursor-not-allowed opacity-75'
+            }`}
+            title={
+              allUnrepliedFeedbacks.length > 0
+                ? `Bấm để gửi phản hồi tự động cho ${allUnrepliedFeedbacks.length} đánh giá chưa trả lời (đã có nội dung soạn sẵn)`
+                : 'Tất cả đánh giá hiện tại đều đã được phản hồi'
+            }
+          >
+            <Sparkles size={14} className={allUnrepliedFeedbacks.length > 0 ? 'text-amber-300 animate-pulse' : ''} />
+            <span>
+              {allUnrepliedFeedbacks.length > 0
+                ? `Phản hồi hàng loạt (${allUnrepliedFeedbacks.length})`
+                : 'Đã phản hồi tất cả'}
+            </span>
+          </button>
         </div>
       </div>
 
@@ -473,15 +500,9 @@ export default function ViewFeedback() {
       <FeedbackTable
         loading={loading}
         filteredFeedbacks={filteredFeedbacks}
-        feedbacks={feedbacks}
-        selectedIds={selectedIds}
-        setSelectedIds={setSelectedIds}
         onOpenDetail={handleOpenDetail}
-        handleToggleSelect={handleToggleSelect}
-        handleToggleSelectAll={handleToggleSelectAll}
         analyzingId={analyzingId}
         handleAnalyzeOne={handleAnalyzeOne}
-        handleBulkApprove={handleBulkApprove}
         formatDateShort={formatDateShort}
       />
 

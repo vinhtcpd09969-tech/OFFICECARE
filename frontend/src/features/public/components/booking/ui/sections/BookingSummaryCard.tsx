@@ -1,5 +1,6 @@
 import React from 'react';
 import { BUOI_INFO, formatFullDate } from '../../constants';
+import { formatCurrency } from '@/utils/format';
 
 interface BookingSummaryCardProps {
   bookingType: 'kham' | 'dich_vu';
@@ -69,8 +70,8 @@ export const BookingSummaryCard: React.FC<BookingSummaryCardProps> = ({
 
         <div className="flex justify-between items-center">
           <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Nhân sự</span>
-          <span className="text-teal-700 font-black">
-            {selectedStaffObj ? selectedStaffObj.ho_ten : 'Bất kỳ (Tự rải tải)'}
+          <span className={selectedStaffObj ? 'text-teal-700 font-black' : 'text-slate-900 font-black'}>
+            {selectedStaffObj ? selectedStaffObj.ho_ten : 'Chưa chọn'}
           </span>
         </div>
 
@@ -86,14 +87,14 @@ export const BookingSummaryCard: React.FC<BookingSummaryCardProps> = ({
             <span className="uppercase tracking-wider text-[10px]">
               Mã giảm giá ({selectedVoucher.ma_voucher})
             </span>
-            <span>-{discountAmount.toLocaleString('vi-VN')}đ</span>
+            <span>-{formatCurrency(discountAmount)}</span>
           </div>
         )}
 
         <div className="flex justify-between items-center pt-2 border-t border-slate-100">
           <span className="text-slate-700 font-black uppercase tracking-wider text-xs">Tổng chi phí</span>
           <span className="text-teal-600 bg-teal-50 border-teal-100 font-black px-3 py-1 rounded-full border text-sm">
-            {finalPrice.toLocaleString('vi-VN')}đ
+            {formatCurrency(finalPrice)}
           </span>
         </div>
       </div>

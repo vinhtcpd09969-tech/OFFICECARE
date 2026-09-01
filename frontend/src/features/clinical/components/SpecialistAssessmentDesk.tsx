@@ -13,6 +13,17 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { PackageItem } from '../../../features/doctor/api/doctor.api';
+import { formatCurrency } from '../../../utils/format';
+import { CustomSelect } from '../../../components/CustomSelect';
+
+const MMT_OPTIONS = [
+  { value: '0/5', label: 'Bậc 0/5' },
+  { value: '1/5', label: 'Bậc 1/5' },
+  { value: '2/5', label: 'Bậc 2/5' },
+  { value: '3/5', label: 'Bậc 3/5' },
+  { value: '4/5', label: 'Bậc 4/5' },
+  { value: '5/5', label: 'Bậc 5/5' },
+];
 
 interface RomItem {
   joint: string;
@@ -119,8 +130,8 @@ export function SpecialistAssessmentDesk({
   const hydratedAptIdRef = useRef<string | null>(null);
 
   const draftKey = useMemo(() => {
-    return appointmentDetail?.id 
-      ? `draft_assess_${appointmentDetail.id}` 
+    return appointmentDetail?.id
+      ? `draft_assess_${appointmentDetail.id}`
       : `draft_assess_${patientName.trim().replace(/\s+/g, '_')}`;
   }, [appointmentDetail?.id, patientName]);
 
@@ -170,7 +181,7 @@ export function SpecialistAssessmentDesk({
     if (rawLuongGia) {
       let parsed = typeof rawLuongGia === 'string' ? null : rawLuongGia;
       if (typeof rawLuongGia === 'string') {
-        try { parsed = JSON.parse(rawLuongGia); } catch (e) {}
+        try { parsed = JSON.parse(rawLuongGia); } catch (e) { }
       }
       if (parsed) {
         if (Array.isArray(parsed.rom_data) && parsed.rom_data.length > 0) {
@@ -201,7 +212,7 @@ export function SpecialistAssessmentDesk({
           selectedPackageId,
         })
       );
-    } catch (err) {}
+    } catch (err) { }
 
     if (!onSaveDraft) return;
     if (isFirstRender.current) {
@@ -296,7 +307,7 @@ export function SpecialistAssessmentDesk({
     const hh = String(deadline.getHours()).padStart(2, '0');
     const mm = String(deadline.getMinutes()).padStart(2, '0');
     const dateStr = format(deadline, 'dd/MM/yyyy');
-    
+
     const limitNoteText = `[Hạn tái lượng giá: ${hh}:${mm} ngày ${dateStr}]${reassessNotes?.trim() ? ' ' + reassessNotes.trim() : ''}`.trim();
 
     setLoadingReassess(true);
@@ -335,27 +346,24 @@ export function SpecialistAssessmentDesk({
             <button
               type="button"
               onClick={() => setVasMode('faces')}
-              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                vasMode === 'faces' ? 'bg-white dark:bg-zinc-800 text-cyan-700 dark:text-cyan-300 shadow-xs' : 'text-slate-600 dark:text-zinc-400'
-              }`}
+              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${vasMode === 'faces' ? 'bg-white dark:bg-zinc-800 text-cyan-700 dark:text-cyan-300 shadow-xs' : 'text-slate-600 dark:text-zinc-400'
+                }`}
             >
               Mặt cười (Wong-Baker)
             </button>
             <button
               type="button"
               onClick={() => setVasMode('verbal')}
-              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                vasMode === 'verbal' ? 'bg-white dark:bg-zinc-800 text-cyan-700 dark:text-cyan-300 shadow-xs' : 'text-slate-600 dark:text-zinc-400'
-              }`}
+              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${vasMode === 'verbal' ? 'bg-white dark:bg-zinc-800 text-cyan-700 dark:text-cyan-300 shadow-xs' : 'text-slate-600 dark:text-zinc-400'
+                }`}
             >
               Mô tả lời nói
             </button>
             <button
               type="button"
               onClick={() => setVasMode('numeric')}
-              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                vasMode === 'numeric' ? 'bg-white dark:bg-zinc-800 text-cyan-700 dark:text-cyan-300 shadow-xs' : 'text-slate-600 dark:text-zinc-400'
-              }`}
+              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${vasMode === 'numeric' ? 'bg-white dark:bg-zinc-800 text-cyan-700 dark:text-cyan-300 shadow-xs' : 'text-slate-600 dark:text-zinc-400'
+                }`}
             >
               Thang số (0-10)
             </button>
@@ -377,11 +385,10 @@ export function SpecialistAssessmentDesk({
                 key={f.score}
                 type="button"
                 onClick={() => setVasScore(f.score)}
-                className={`p-3 rounded-2xl border text-center transition-all cursor-pointer ${
-                  vasScore === f.score
+                className={`p-3 rounded-2xl border text-center transition-all cursor-pointer ${vasScore === f.score
                     ? 'bg-cyan-500/10 dark:bg-cyan-950/40 border-2 border-cyan-600 dark:border-cyan-500 shadow-sm scale-105'
                     : 'bg-white/80 dark:bg-zinc-800/80 border-slate-200 dark:border-zinc-700 hover:border-cyan-300'
-                }`}
+                  }`}
               >
                 <div className="text-2xl">{f.face}</div>
                 <div className="text-[11px] font-bold mt-1 text-slate-800 dark:text-zinc-100">{f.score} điểm</div>
@@ -405,11 +412,10 @@ export function SpecialistAssessmentDesk({
                 key={v.score}
                 type="button"
                 onClick={() => setVasScore(v.score)}
-                className={`p-3 rounded-2xl border text-center transition-all cursor-pointer ${
-                  vasScore === v.score
+                className={`p-3 rounded-2xl border text-center transition-all cursor-pointer ${vasScore === v.score
                     ? 'bg-cyan-500/10 dark:bg-cyan-950/40 border-2 border-cyan-600 dark:border-cyan-500 shadow-sm'
                     : 'bg-white/80 dark:bg-zinc-800/80 border-slate-200 dark:border-zinc-700 hover:border-cyan-300'
-                }`}
+                  }`}
               >
                 <div className="text-sm font-bold text-cyan-800 dark:text-cyan-300">{v.score} điểm</div>
                 <div className="text-[11px] text-slate-600 dark:text-zinc-300 mt-0.5">{v.label}</div>
@@ -549,22 +555,19 @@ export function SpecialistAssessmentDesk({
                     placeholder="Nhóm cơ (vd: Nhóm cơ thang dưới)"
                     className="flex-1 p-2 text-xs bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl"
                   />
-                  <select
+                  <CustomSelect
                     value={item.grade}
-                    onChange={(e) => {
+                    onChange={(val) => {
                       const next = [...mmtList];
-                      next[idx].grade = e.target.value;
+                      next[idx].grade = val;
                       setMmtList(next);
                     }}
-                    className="w-28 p-2 text-xs font-bold bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl"
-                  >
-                    <option value="0/5">Bậc 0/5</option>
-                    <option value="1/5">Bậc 1/5</option>
-                    <option value="2/5">Bậc 2/5</option>
-                    <option value="3/5">Bậc 3/5</option>
-                    <option value="4/5">Bậc 4/5</option>
-                    <option value="5/5">Bậc 5/5</option>
-                  </select>
+                    options={MMT_OPTIONS}
+                    align="right"
+                    className="w-28 sm:w-32 shrink-0"
+                    buttonClassName="py-2 px-3 rounded-xl text-xs font-bold bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700"
+                    menuClassName="!min-w-[140px] w-36"
+                  />
                   <button
                     type="button"
                     onClick={() => handleRemoveMmt(idx)}
@@ -629,15 +632,13 @@ export function SpecialistAssessmentDesk({
           {/* Card Option 1: Không chỉ định gói */}
           <div
             onClick={() => setSelectedPackageId('')}
-            className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 relative ${
-              selectedPackageId === ''
+            className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 relative ${selectedPackageId === ''
                 ? 'bg-white dark:bg-zinc-800 border-2 border-slate-800 dark:border-zinc-300 shadow-sm'
                 : 'bg-white/80 dark:bg-zinc-900/60 border-slate-200 dark:border-zinc-800 hover:border-slate-400'
-            }`}
+              }`}
           >
-            <div className={`size-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${
-              selectedPackageId === '' ? 'border-slate-800 dark:border-zinc-200 bg-slate-800 text-white' : 'border-slate-300 dark:border-zinc-600'
-            }`}>
+            <div className={`size-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${selectedPackageId === '' ? 'border-slate-800 dark:border-zinc-200 bg-slate-800 text-white' : 'border-slate-300 dark:border-zinc-600'
+              }`}>
               {selectedPackageId === '' && <Check size={11} />}
             </div>
             <div>
@@ -695,15 +696,13 @@ export function SpecialistAssessmentDesk({
               <div
                 key={pkg.id}
                 onClick={() => setSelectedPackageId(pkg.id)}
-                className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 relative ${
-                  isSelected
+                className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 relative ${isSelected
                     ? 'bg-cyan-500/10 dark:bg-cyan-950/40 border-2 border-cyan-600 dark:border-cyan-500 shadow-sm'
                     : 'bg-white dark:bg-zinc-800/80 border-slate-200 dark:border-zinc-700 hover:border-cyan-300'
-                }`}
+                  }`}
               >
-                <div className={`size-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${
-                  isSelected ? 'border-cyan-600 bg-cyan-600 text-white' : 'border-slate-300 dark:border-zinc-600'
-                }`}>
+                <div className={`size-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${isSelected ? 'border-cyan-600 bg-cyan-600 text-white' : 'border-slate-300 dark:border-zinc-600'
+                  }`}>
                   {isSelected && <Check size={11} />}
                 </div>
                 <div className="flex-1 space-y-1">
@@ -718,7 +717,7 @@ export function SpecialistAssessmentDesk({
                     )}
                   </div>
                   <p className="text-xs font-bold text-slate-800 dark:text-zinc-200">
-                    {(pkg.gia_goi || (pkg as any).don_gia) ? `${Number(pkg.gia_goi || (pkg as any).don_gia).toLocaleString('vi-VN')} đ` : 'Chưa có giá'}
+                    {(pkg.gia_goi || (pkg as any).don_gia) ? formatCurrency(pkg.gia_goi || (pkg as any).don_gia) : 'Chưa có giá'}
                   </p>
                 </div>
               </div>

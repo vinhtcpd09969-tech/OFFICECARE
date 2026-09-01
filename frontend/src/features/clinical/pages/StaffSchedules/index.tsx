@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Clock, Calendar, AlertCircle, CheckCircle2, Moon, Sparkles, RotateCcw } from 'lucide-react';
+import { Clock, Calendar, AlertCircle, CheckCircle2, Moon, Sparkles, RotateCcw, DoorOpen } from 'lucide-react';
 import { getDoctorSchedules, DoctorSchedule } from '@/features/doctor/api/doctor.api';
 import { CustomDatePicker } from '@/components/CustomDatePicker';
 
@@ -114,7 +114,7 @@ export default function StaffSchedules() {
 
   return (
     <div className="w-full space-y-6 font-jakarta pb-12 animate-fade-in">
-      
+
       {/* 1. Header Trang & Ca Trực Hôm Nay */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-5 border-b border-slate-100 dark:border-zinc-800">
         <div>
@@ -126,7 +126,7 @@ export default function StaffSchedules() {
             LỊCH TRỰC CÁ NHÂN
           </h2>
           <p className="text-slate-500 dark:text-zinc-400 text-xs mt-0.5">
-            {isCustomRange 
+            {isCustomRange
               ? `Hiển thị ca trực từ ${startDate ? formatDate(startDate) : 'trước đây'} đến ${endDate ? formatDate(endDate) : 'tương lai'}`
               : 'Tự động hiển thị 10 ca trực tiếp theo từ hôm nay'}
           </p>
@@ -136,14 +136,17 @@ export default function StaffSchedules() {
         {todayShift && (
           <div className="flex items-center gap-2.5 bg-emerald-500 text-white px-4 py-2 rounded-2xl shadow-sm text-xs font-black shrink-0">
             <Sparkles size={14} className="animate-pulse" />
-            <span>Hôm nay: {todayShift.gio_bat_dau.substring(0, 5)} - {todayShift.gio_ket_thuc.substring(0, 5)}</span>
+            <span>
+              Hôm nay: {todayShift.gio_bat_dau.substring(0, 5)} - {todayShift.gio_ket_thuc.substring(0, 5)}
+              {todayShift.ten_phong ? ` • ${todayShift.ten_phong}` : ''}
+            </span>
           </div>
         )}
       </div>
 
       {/* 2. Toolbar Bố cục: Bộ lọc Ngày (Từ ngày -> Đến ngày) + Thống kê tự động + Lọc trạng thái */}
       <div className="bg-slate-50/70 dark:bg-zinc-900/50 p-3.5 rounded-2xl border border-slate-200/70 dark:border-zinc-800 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
-        
+
         {/* Nhóm 1: Chọn khoảng thời gian với CustomDatePicker tiếng Việt (dd/MM/yyyy) */}
         <div className="flex flex-wrap items-center gap-2.5">
           <div className="flex items-center gap-1.5 bg-white dark:bg-zinc-800 pl-3 pr-1 py-1 rounded-xl border border-slate-200/80 dark:border-zinc-700 shadow-2xs">
@@ -194,7 +197,7 @@ export default function StaffSchedules() {
 
         {/* Nhóm 2: Thống kê tự động theo khoảng đã chọn & Lọc trạng thái */}
         <div className="flex flex-wrap items-center gap-3">
-          
+
           {/* Thống kê tự động */}
           <div className="flex items-center gap-2 text-xs">
             <div className="px-3 py-1.5 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200/80 dark:border-zinc-700 font-bold text-emerald-700 dark:text-emerald-300 shadow-2xs flex items-center gap-1.5">
@@ -220,33 +223,30 @@ export default function StaffSchedules() {
             <button
               type="button"
               onClick={() => setStatusFilter('all')}
-              className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
-                statusFilter === 'all'
+              className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${statusFilter === 'all'
                   ? 'bg-white dark:bg-zinc-700 text-slate-900 dark:text-white shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900'
-              }`}
+                }`}
             >
               Tất cả
             </button>
             <button
               type="button"
               onClick={() => setStatusFilter('hoat_dong')}
-              className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
-                statusFilter === 'hoat_dong'
+              className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${statusFilter === 'hoat_dong'
                   ? 'bg-emerald-600 text-white shadow-2xs'
                   : 'text-slate-600 hover:text-emerald-700'
-              }`}
+                }`}
             >
               Đi làm
             </button>
             <button
               type="button"
               onClick={() => setStatusFilter('tam_nghi')}
-              className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
-                statusFilter === 'tam_nghi'
+              className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${statusFilter === 'tam_nghi'
                   ? 'bg-rose-600 text-white shadow-2xs'
                   : 'text-slate-600 hover:text-rose-700'
-              }`}
+                }`}
             >
               Nghỉ
             </button>
@@ -264,8 +264,8 @@ export default function StaffSchedules() {
         <div className="p-16 text-center text-slate-400 bg-slate-50/50 dark:bg-zinc-900/50 rounded-2xl border border-slate-200/60 dark:border-zinc-800">
           <AlertCircle size={32} className="text-slate-300 mx-auto mb-2" />
           <p className="text-xs font-bold text-slate-500">
-            {isCustomRange 
-              ? 'Không tìm thấy ca trực nào trong khoảng thời gian đã chọn' 
+            {isCustomRange
+              ? 'Không tìm thấy ca trực nào trong khoảng thời gian đã chọn'
               : 'Hiện chưa có ca trực nào trong 10 ca tiếp theo'}
           </p>
         </div>
@@ -274,27 +274,25 @@ export default function StaffSchedules() {
           {finalFilteredSchedules.map((schedule) => {
             const current = isToday(schedule.ngay);
             const active = schedule.trang_thai === 'hoat_dong';
-            
+
             return (
-              <div 
-                key={schedule.id} 
-                className={`p-4 rounded-2xl border transition-all hover:shadow-xs flex items-center justify-between gap-3 ${
-                  current 
-                    ? 'bg-teal-50/40 dark:bg-teal-950/20 border-teal-500/60 ring-2 ring-teal-500/20' 
+              <div
+                key={schedule.id}
+                className={`p-4 rounded-2xl border transition-all hover:shadow-xs flex items-center justify-between gap-3 ${current
+                    ? 'bg-teal-50/40 dark:bg-teal-950/20 border-teal-500/60 ring-2 ring-teal-500/20'
                     : 'bg-white dark:bg-zinc-900 border-slate-200/70 dark:border-zinc-800'
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className={`size-10 rounded-xl flex items-center justify-center shrink-0 ${
-                    current 
-                      ? 'bg-teal-600 text-white shadow-2xs' 
-                      : active 
-                        ? 'bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 border border-teal-100 dark:border-teal-900' 
+                  <div className={`size-10 rounded-xl flex items-center justify-center shrink-0 ${current
+                      ? 'bg-teal-600 text-white shadow-2xs'
+                      : active
+                        ? 'bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 border border-teal-100 dark:border-teal-900'
                         : 'bg-rose-50 dark:bg-rose-955/20 text-rose-500 border border-rose-200/50'
-                  }`}>
+                    }`}>
                     <Calendar size={18} />
                   </div>
-                  
+
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <h4 className="text-xs font-black text-slate-900 dark:text-zinc-100 uppercase tracking-tight">
@@ -310,10 +308,19 @@ export default function StaffSchedules() {
                       )}
                     </div>
 
-                    <p className="text-[11px] font-bold text-slate-600 dark:text-zinc-300 mt-1 flex items-center gap-1">
-                      <Clock size={11} className="text-teal-600" />
-                      <span>{schedule.gio_bat_dau.substring(0, 5)} - {schedule.gio_ket_thuc.substring(0, 5)}</span>
-                    </p>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <p className="text-[11px] font-bold text-slate-600 dark:text-zinc-300 flex items-center gap-1">
+                        <Clock size={11} className="text-teal-600" />
+                        <span>{schedule.gio_bat_dau.substring(0, 5)} - {schedule.gio_ket_thuc.substring(0, 5)}</span>
+                      </p>
+
+                      {schedule.ten_phong && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/50 px-2 py-0.5 rounded-md border border-teal-200/60 dark:border-teal-800/60 shadow-2xs">
+                          <DoorOpen size={10} className="text-teal-600 dark:text-teal-400" />
+                          <span>{schedule.ten_phong}</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 

@@ -3,16 +3,11 @@ import {
   CheckCircle2,
   FileText,
   Zap,
-  Sparkles,
-  Smile,
-  MessageSquare,
-  Sliders,
-  Flame,
+  Activity,
   AlertTriangle,
-  Calendar,
   Stethoscope,
+  ArrowUpRight,
 } from 'lucide-react';
-import { format } from 'date-fns';
 import { TreatmentLogItem } from '../../technician/api/technician.api';
 import toast from 'react-hot-toast';
 
@@ -27,6 +22,7 @@ interface TechnicianTreatmentDeskProps {
     ghi_chu?: string;
     ghi_chu_chuyen_vien?: string;
     chuyen_vien_chi_dinh?: string;
+    ten_bac_si?: string;
     ma_lich_kham_goc?: string;
     ngay_luong_gia?: string;
     ten_dich_vu?: string | null;
@@ -51,16 +47,26 @@ interface TechnicianTreatmentDeskProps {
     ghi_chu: string;
     du_lieu_tri_lieu: { nhat_ky: TreatmentLogItem[] };
   }) => void;
+  onViewAssessment?: () => void;
 }
 
-// Wong-Baker Faces mapping
+// Wong-Baker Faces mapping chuẩn đồng bộ với Bàn Lượng Giá
 const WONG_BAKER_FACES = [
   { score: 0, face: '😊', label: 'Không đau', desc: 'Hoàn toàn thoải mái' },
-  { score: 2, face: '😐', label: 'Đau nhẹ', desc: 'Đau ít, không ảnh hưởng sinh hoạt' },
-  { score: 4, face: '🙁', label: 'Đau vừa', desc: 'Đau gây khó chịu nhẹ' },
-  { score: 6, face: '😣', label: 'Đau nhiều', desc: 'Ảnh hưởng tập trung / giấc ngủ' },
-  { score: 8, face: '😫', label: 'Rất đau', desc: 'Khó vận động, đau nhói' },
-  { score: 10, face: '😭', label: 'Đau dữ dội', desc: 'Không thể chịu đựng' },
+  { score: 2, face: '🙂', label: 'Đau nhẹ', desc: 'Đau ít, không ảnh hưởng sinh hoạt' },
+  { score: 4, face: '😐', label: 'Đau vừa', desc: 'Đau gây khó chịu nhẹ' },
+  { score: 6, face: '🙁', label: 'Đau nhức', desc: 'Ảnh hưởng tập trung / giấc ngủ' },
+  { score: 8, face: '😣', label: 'Đau nặng', desc: 'Khó vận động, đau nhói' },
+  { score: 10, face: '😭', label: 'Cực độ', desc: 'Không thể chịu đựng' },
+];
+
+const VERBAL_OPTIONS = [
+  { score: 0, label: 'Không đau' },
+  { score: 2, label: 'Đau rất nhẹ' },
+  { score: 4, label: 'Đau vừa phải' },
+  { score: 6, label: 'Đau khó chịu' },
+  { score: 8, label: 'Đau dữ dội' },
+  { score: 10, label: 'Đau không chịu nổi' },
 ];
 
 export function TechnicianTreatmentDesk({
@@ -68,12 +74,12 @@ export function TechnicianTreatmentDesk({
   appointmentDetail,
   onCompleteTreatment,
   onSaveDraft,
+  onViewAssessment,
 }: TechnicianTreatmentDeskProps) {
-  // Parse quy trình kỹ thuật chuẩn của gói từ DB (nếu có, phân tách bằng dấu chấm phẩy hoặc xuống dòng)
+  // Parse quy trình kỹ thuật chuẩn của gói từ DB (phân tách bằng dấu chấm phẩy hoặc xuống dòng)
   const packageSteps = (() => {
     const rawProtocol = appointmentDetail?.quy_trinh || '';
     if (!rawProtocol.trim()) {
-      // Fallback mặc định theo chuyên khoa PHCN chuẩn
       return [
         { name: 'Chườm nóng & Massage cổ - vai - gáy - lưng: Nhiệt trị liệu làm mềm cơ kết hợp xoa bóp chuyên sâu giảm đau mỏi vùng vai gáy và lưng.', icon: '♨️' },
         { name: 'Massage chân & bắp chân: Xoa bóp day ấn nhẹ chi dưới giúp giảm cảm giác nặng chân, tê mỏi và hỗ trợ tuần hoàn máu.', icon: '🦵' },
@@ -90,7 +96,7 @@ export function TechnicianTreatmentDesk({
     }));
   })();
 
-  const [vasMode, setVasMode] = useState<'faces' | 'verbal' | 'slider'>('faces');
+  const [vasMode, setVasMode] = useState<'faces' | 'verbal' | 'numeric'>('faces');
   const [vasTruoc, setVasTruoc] = useState<number>(appointmentDetail?.vas_truoc ?? 4);
   const [vasSau, setVasSau] = useState<number>(appointmentDetail?.vas_sau ?? 2);
   const [notes, setNotes] = useState<string>(appointmentDetail?.ghi_chu || '');
@@ -225,284 +231,214 @@ export function TechnicianTreatmentDesk({
   );
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300 font-jakarta">
-      {/* CARD 1: THÔNG TIN HỒ SƠ & CHỈ ĐỊNH TỪ CHUYÊN VIÊN PHCN (CHỈ HIỂN THỊ VỚI GÓI LIỆU TRÌNH) */}
+    <div className="w-full space-y-6 pt-1 font-jakarta text-left">
+      
+      {/* KHỐI 0: CHỈ ĐỊNH TỪ CHUYÊN VIÊN PHCN */}
       {isTreatmentPlanPackage && (
-        <div className="bg-gradient-to-br from-teal-900/10 via-cyan-900/5 to-slate-900/10 dark:from-teal-950/40 dark:via-cyan-950/20 dark:to-zinc-900/40 border border-teal-500/20 dark:border-teal-500/30 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-teal-500/15 dark:border-teal-500/20 pb-3">
-            <div className="flex items-center gap-2 text-teal-800 dark:text-teal-300 font-black text-sm uppercase tracking-wider font-jakarta">
-              <Sparkles className="text-teal-600 dark:text-teal-400" size={18} />
-              <span>Kế Hoạch Trị Liệu & Chỉ Định Từ Chuyên Viên PHCN</span>
-            </div>
-            <div className="flex items-center flex-wrap gap-2">
-              {appointmentDetail?.chuyen_vien_chi_dinh && (
-                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-teal-800 dark:text-teal-200 bg-white/90 dark:bg-zinc-800/90 px-3 py-1 rounded-full border border-teal-300/80 dark:border-teal-700/80 shadow-2xs">
-                  <Stethoscope size={13} className="text-teal-600 dark:text-teal-400" />
-                  <span>Chỉ định bởi: <strong className="font-black text-teal-950 dark:text-teal-100">{appointmentDetail.chuyen_vien_chi_dinh}</strong></span>
-                </span>
-              )}
-              {appointmentDetail?.so_thu_tu_buoi && (
-                <span className="text-xs font-extrabold text-teal-700 dark:text-teal-300 bg-teal-100 dark:bg-teal-900/50 px-3 py-1 rounded-full border border-teal-300 dark:border-teal-700">
-                  Buổi {appointmentDetail.so_thu_tu_buoi}{appointmentDetail.pd_tong_so_buoi ? ` / ${appointmentDetail.pd_tong_so_buoi}` : ''}
-                </span>
-              )}
-            </div>
-          </div>
+        <div className="flex flex-wrap items-center gap-2.5 pb-5 border-b border-slate-100 dark:border-zinc-800 text-xs">
+          <span className="p-1.5 rounded-lg bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 border border-teal-200/60 dark:border-teal-800 shrink-0">
+            <Stethoscope size={15} />
+          </span>
+          <span className="font-bold text-slate-500 dark:text-zinc-400 flex items-center gap-1.5 flex-wrap">
+            <span>Gói chỉ định bởi chuyên viên:</span>
+            <strong className="text-slate-900 dark:text-zinc-100 font-black mr-1">
+              {appointmentDetail?.chuyen_vien_chi_dinh || appointmentDetail?.ten_bac_si || 'Chuyên viên PHCN'}
+            </strong>
+          </span>
 
-          {/* Thông tin buổi lượng giá gốc nếu có */}
-          {(appointmentDetail?.ma_lich_kham_goc || appointmentDetail?.ngay_luong_gia) && (
-            <div className="flex items-center flex-wrap gap-x-4 gap-y-1.5 text-[11.5px] text-slate-600 dark:text-zinc-400 font-semibold bg-white/60 dark:bg-zinc-900/60 p-2.5 rounded-xl border border-teal-500/10 dark:border-teal-500/20">
-              {appointmentDetail.ma_lich_kham_goc && (
-                <span className="flex items-center gap-1">
-                  <span>📋 Buổi lượng giá gốc:</span>
-                  <strong className="text-teal-700 dark:text-teal-300 font-black">{appointmentDetail.ma_lich_kham_goc}</strong>
-                </span>
-              )}
-              {appointmentDetail.ngay_luong_gia && (
-                <span className="flex items-center gap-1">
-                  <Calendar size={12} className="text-slate-400" />
-                  <span>Ngày lượng giá:</span>
-                  <strong className="text-slate-800 dark:text-zinc-200">
-                    {format(new Date(appointmentDetail.ngay_luong_gia), 'dd/MM/yyyy')}
-                  </strong>
-                </span>
-              )}
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-            {/* Kết luận lượng giá */}
-            <div className="bg-white/80 dark:bg-zinc-900/80 rounded-2xl p-4 border border-teal-500/10 dark:border-teal-500/20 space-y-1.5 shadow-2xs">
-              <span className="font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider text-[10px] block">
-                Kết luận lượng giá chức năng:
-              </span>
-              <p className="font-semibold text-slate-800 dark:text-zinc-200 leading-relaxed">
-                {appointmentDetail?.chan_doan || 'Lượng giá phục hồi chức năng cơ xương khớp vùng làm việc.'}
-              </p>
-            </div>
-
-            {/* Chống chỉ định */}
-            <div className="bg-rose-50/80 dark:bg-rose-955/40 rounded-2xl p-4 border border-rose-200/80 dark:border-rose-900/50 space-y-1.5 shadow-2xs">
-              <span className="font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider text-[10px] flex items-center gap-1">
-                <AlertTriangle size={12} />
-                Chống chỉ định & Vùng cần tránh:
-              </span>
-              <p className="font-semibold text-rose-900 dark:text-rose-200 leading-relaxed">
-                {appointmentDetail?.chong_chi_dinh || 'Không có chống chỉ định đặc biệt.'}
-              </p>
-            </div>
-          </div>
-
-          {(appointmentDetail?.ghi_chu_chuyen_vien || appointmentDetail?.ghi_chu) && (
-            <div className="bg-white/60 dark:bg-zinc-900/60 rounded-xl p-3 border border-slate-200/60 dark:border-zinc-800 text-xs text-slate-600 dark:text-zinc-300 font-medium">
-              <span className="font-bold text-slate-700 dark:text-zinc-200">Ghi chú & Dặn dò từ Chuyên viên PHCN:</span> {appointmentDetail.ghi_chu_chuyen_vien || appointmentDetail.ghi_chu}
-            </div>
+          {onViewAssessment && (
+            <button
+              type="button"
+              onClick={onViewAssessment}
+              className="px-3 py-1 rounded-xl bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/60 dark:hover:bg-teal-900/60 text-teal-700 dark:text-teal-300 border border-teal-200/80 dark:border-teal-800 font-bold text-[11px] transition-all inline-flex items-center gap-1.5 shadow-2xs cursor-pointer shrink-0"
+              title="Chuyển sang tab Lịch sử điều trị để xem chi tiết buổi lượng giá"
+            >
+              <FileText size={13} />
+              <span>Xem buổi lượng giá</span>
+              <ArrowUpRight size={13} />
+            </button>
           )}
         </div>
       )}
 
-      {/* CARD 2: ĐÁNH GIÁ THANG ĐAU VAS (TRƯỚC & SAU THAO TÁC) */}
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-zinc-800 pb-3">
-          <div className="flex items-center gap-2 text-slate-800 dark:text-zinc-100 font-black text-sm uppercase tracking-wider font-jakarta">
-            <Flame className="text-amber-500" size={18} />
-            <span>Thang Đo Đau VAS (Trước & Sau Trị Liệu)</span>
+      {/* KHỐI 1: THANG ĐO ĐAU VAS TRƯỚC & SAU TRỊ LIỆU (ĐỒNG BỘ 100% VỚI BÀN LƯỢNG GIÁ) */}
+      <div className="space-y-4 pb-6 border-b border-slate-100 dark:border-zinc-800">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Activity className="size-4 text-cyan-600" />
+            <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 uppercase tracking-wider">
+              1. Thang đo điểm đau VAS (Trước & Sau trị liệu):
+            </h4>
           </div>
 
-          {/* Selector Chế độ VAS */}
-          <div className="inline-flex p-1 bg-slate-100 dark:bg-zinc-800 rounded-xl text-xs font-bold">
+          {/* Switch mode nhập VAS */}
+          <div className="flex bg-slate-200 dark:bg-zinc-700 p-0.5 rounded-xl text-[11px] font-bold">
             <button
               type="button"
               onClick={() => setVasMode('faces')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
-                vasMode === 'faces'
-                  ? 'bg-white dark:bg-zinc-900 text-teal-600 dark:text-teal-400 shadow-sm'
-                  : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800'
+              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                vasMode === 'faces' ? 'bg-white dark:bg-zinc-800 text-cyan-700 dark:text-cyan-300 shadow-xs' : 'text-slate-600 dark:text-zinc-400'
               }`}
             >
-              <Smile size={14} />
-              <span>Mặt Cười</span>
+              Mặt cười (Wong-Baker)
             </button>
             <button
               type="button"
               onClick={() => setVasMode('verbal')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
-                vasMode === 'verbal'
-                  ? 'bg-white dark:bg-zinc-900 text-teal-600 dark:text-teal-400 shadow-sm'
-                  : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800'
+              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                vasMode === 'verbal' ? 'bg-white dark:bg-zinc-800 text-cyan-700 dark:text-cyan-300 shadow-xs' : 'text-slate-600 dark:text-zinc-400'
               }`}
             >
-              <MessageSquare size={14} />
-              <span>Mô Tả</span>
+              Mô tả lời nói
             </button>
             <button
               type="button"
-              onClick={() => setVasMode('slider')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
-                vasMode === 'slider'
-                  ? 'bg-white dark:bg-zinc-900 text-teal-600 dark:text-teal-400 shadow-sm'
-                  : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800'
+              onClick={() => setVasMode('numeric')}
+              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                vasMode === 'numeric' ? 'bg-white dark:bg-zinc-800 text-cyan-700 dark:text-cyan-300 shadow-xs' : 'text-slate-600 dark:text-zinc-400'
               }`}
             >
-              <Sliders size={14} />
-              <span>Thanh Trượt</span>
+              Thang số (0-10)
             </button>
           </div>
         </div>
 
-        {/* 2 Cột: Trước Trị Liệu & Sau Trị Liệu */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* CỘT 1: VAS TRƯỚC */}
-          <div className="space-y-3 bg-slate-50 dark:bg-zinc-800/40 border border-slate-200/70 dark:border-zinc-700/60 rounded-2xl p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-zinc-300">
-                1. Mức đau TRƯỚC khi bắt đầu
-              </span>
-              <span className="text-sm font-black text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-955/60 px-2.5 py-0.5 rounded-lg border border-rose-200 dark:border-rose-900/50">
-                {vasTruoc} / 10
-              </span>
-            </div>
-
-            {vasMode === 'faces' && (
-              <div className="grid grid-cols-6 gap-1.5 pt-1">
-                {WONG_BAKER_FACES.map(f => (
-                  <button
-                    key={f.score}
-                    type="button"
-                    onClick={() => setVasTruoc(f.score)}
-                    className={`p-2 rounded-xl border flex flex-col items-center gap-1 transition-all cursor-pointer ${
-                      vasTruoc === f.score
-                        ? 'bg-rose-500 text-white border-rose-600 shadow-md scale-105'
-                        : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 hover:border-rose-300 text-slate-700 dark:text-zinc-300'
-                    }`}
-                  >
-                    <span className="text-xl">{f.face}</span>
-                    <span className="text-[10px] font-black">{f.score}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {vasMode === 'verbal' && (
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                {WONG_BAKER_FACES.map(f => (
-                  <button
-                    key={f.score}
-                    type="button"
-                    onClick={() => setVasTruoc(f.score)}
-                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                      vasTruoc === f.score
-                        ? 'bg-rose-500 text-white border-rose-600 shadow-md font-bold'
-                        : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 hover:border-rose-300 text-slate-700 dark:text-zinc-300'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between text-xs font-bold">
-                      <span>{f.label}</span>
-                      <span className="opacity-80">({f.score})</span>
-                    </div>
-                    <p className={`text-[10px] truncate mt-0.5 ${vasTruoc === f.score ? 'text-white/90' : 'text-slate-400 dark:text-zinc-500'}`}>
-                      {f.desc}
-                    </p>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {vasMode === 'slider' && (
-              <div className="pt-2 px-1 space-y-2">
-                <input
-                  type="range"
-                  min={0}
-                  max={10}
-                  step={1}
-                  value={vasTruoc}
-                  onChange={e => setVasTruoc(Number(e.target.value))}
-                  className="w-full h-2 bg-slate-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-rose-600"
-                />
-                <div className="flex justify-between text-[10px] font-bold text-slate-400 dark:text-zinc-500">
-                  <span>0 (Không đau)</span>
-                  <span>5 (Đau vừa)</span>
-                  <span>10 (Dữ dội)</span>
-                </div>
-              </div>
-            )}
+        {/* 1.1 VAS TRƯỚC KHI BẮT ĐẦU */}
+        <div className="space-y-2 pt-1">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-bold text-slate-700 dark:text-zinc-300">
+              • Mức đau TRƯỚC khi bắt đầu: <strong className="text-rose-600 dark:text-rose-400 text-sm ml-1">{vasTruoc}/10</strong>
+            </span>
           </div>
 
-          {/* CỘT 2: VAS SAU */}
-          <div className="space-y-3 bg-slate-50 dark:bg-zinc-800/40 border border-slate-200/70 dark:border-zinc-700/60 rounded-2xl p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-zinc-300">
-                2. Mức đau SAU khi kết thúc ca
-              </span>
-              <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-955/60 px-2.5 py-0.5 rounded-lg border border-emerald-200 dark:border-emerald-900/50">
-                {vasSau} / 10
-              </span>
+          {vasMode === 'faces' && (
+            <div className="grid grid-cols-6 gap-2">
+              {WONG_BAKER_FACES.map((f) => (
+                <button
+                  key={f.score}
+                  type="button"
+                  onClick={() => setVasTruoc(f.score)}
+                  className={`p-3 rounded-2xl border text-center transition-all cursor-pointer ${
+                    vasTruoc === f.score
+                      ? 'bg-rose-500/10 dark:bg-rose-955/40 border-2 border-rose-600 dark:border-rose-500 shadow-sm scale-105'
+                      : 'bg-white/80 dark:bg-zinc-800/80 border-slate-200 dark:border-zinc-700 hover:border-rose-300'
+                  }`}
+                >
+                  <div className="text-2xl">{f.face}</div>
+                  <div className="text-[11px] font-bold mt-1 text-slate-800 dark:text-zinc-100">{f.score} điểm</div>
+                  <div className="text-[10px] text-slate-500 dark:text-zinc-400">{f.label}</div>
+                </button>
+              ))}
             </div>
+          )}
 
-            {vasMode === 'faces' && (
-              <div className="grid grid-cols-6 gap-1.5 pt-1">
-                {WONG_BAKER_FACES.map(f => (
-                  <button
-                    key={f.score}
-                    type="button"
-                    onClick={() => setVasSau(f.score)}
-                    className={`p-2 rounded-xl border flex flex-col items-center gap-1 transition-all cursor-pointer ${
-                      vasSau === f.score
-                        ? 'bg-emerald-500 text-white border-emerald-600 shadow-md scale-105'
-                        : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 hover:border-emerald-300 text-slate-700 dark:text-zinc-300'
-                    }`}
-                  >
-                    <span className="text-xl">{f.face}</span>
-                    <span className="text-[10px] font-black">{f.score}</span>
-                  </button>
-                ))}
-              </div>
-            )}
+          {vasMode === 'verbal' && (
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+              {VERBAL_OPTIONS.map((v) => (
+                <button
+                  key={v.score}
+                  type="button"
+                  onClick={() => setVasTruoc(v.score)}
+                  className={`p-3 rounded-2xl border text-center transition-all cursor-pointer ${
+                    vasTruoc === v.score
+                      ? 'bg-rose-500/10 dark:bg-rose-955/40 border-2 border-rose-600 dark:border-rose-500 shadow-sm'
+                      : 'bg-white/80 dark:bg-zinc-800/80 border-slate-200 dark:border-zinc-700 hover:border-rose-300'
+                  }`}
+                >
+                  <div className="text-sm font-bold text-rose-800 dark:text-rose-300">{v.score} điểm</div>
+                  <div className="text-[11px] text-slate-600 dark:text-zinc-300 mt-0.5">{v.label}</div>
+                </button>
+              ))}
+            </div>
+          )}
 
-            {vasMode === 'verbal' && (
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                {WONG_BAKER_FACES.map(f => (
-                  <button
-                    key={f.score}
-                    type="button"
-                    onClick={() => setVasSau(f.score)}
-                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                      vasSau === f.score
-                        ? 'bg-emerald-500 text-white border-emerald-600 shadow-md font-bold'
-                        : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 hover:border-emerald-300 text-slate-700 dark:text-zinc-300'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between text-xs font-bold">
-                      <span>{f.label}</span>
-                      <span className="opacity-80">({f.score})</span>
-                    </div>
-                    <p className={`text-[10px] truncate mt-0.5 ${vasSau === f.score ? 'text-white/90' : 'text-slate-400 dark:text-zinc-500'}`}>
-                      {f.desc}
-                    </p>
-                  </button>
-                ))}
+          {vasMode === 'numeric' && (
+            <div className="pt-2 px-2 space-y-2">
+              <input
+                type="range"
+                min="0"
+                max="10"
+                step="1"
+                value={vasTruoc}
+                onChange={(e) => setVasTruoc(Number(e.target.value))}
+                className="w-full h-2 bg-slate-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-rose-600"
+              />
+              <div className="flex justify-between text-[10px] font-bold text-slate-400">
+                <span>0 (Không đau)</span>
+                <span>5 (Đau vừa)</span>
+                <span>10 (Cực độ)</span>
               </div>
-            )}
+            </div>
+          )}
+        </div>
 
-            {vasMode === 'slider' && (
-              <div className="pt-2 px-1 space-y-2">
-                <input
-                  type="range"
-                  min={0}
-                  max={10}
-                  step={1}
-                  value={vasSau}
-                  onChange={e => setVasSau(Number(e.target.value))}
-                  className="w-full h-2 bg-slate-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-emerald-600"
-                />
-                <div className="flex justify-between text-[10px] font-bold text-slate-400 dark:text-zinc-500">
-                  <span>0 (Không đau)</span>
-                  <span>5 (Đau vừa)</span>
-                  <span>10 (Dữ dội)</span>
-                </div>
-              </div>
-            )}
+        {/* 1.2 VAS SAU KHI KẾT THÚC */}
+        <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-zinc-800/80">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-bold text-slate-700 dark:text-zinc-300">
+              • Mức đau SAU khi kết thúc ca: <strong className="text-emerald-600 dark:text-emerald-400 text-sm ml-1">{vasSau}/10</strong>
+            </span>
           </div>
+
+          {vasMode === 'faces' && (
+            <div className="grid grid-cols-6 gap-2">
+              {WONG_BAKER_FACES.map((f) => (
+                <button
+                  key={f.score}
+                  type="button"
+                  onClick={() => setVasSau(f.score)}
+                  className={`p-3 rounded-2xl border text-center transition-all cursor-pointer ${
+                    vasSau === f.score
+                      ? 'bg-emerald-500/10 dark:bg-emerald-955/40 border-2 border-emerald-600 dark:border-emerald-500 shadow-sm scale-105'
+                      : 'bg-white/80 dark:bg-zinc-800/80 border-slate-200 dark:border-zinc-700 hover:border-emerald-300'
+                  }`}
+                >
+                  <div className="text-2xl">{f.face}</div>
+                  <div className="text-[11px] font-bold mt-1 text-slate-800 dark:text-zinc-100">{f.score} điểm</div>
+                  <div className="text-[10px] text-slate-500 dark:text-zinc-400">{f.label}</div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {vasMode === 'verbal' && (
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+              {VERBAL_OPTIONS.map((v) => (
+                <button
+                  key={v.score}
+                  type="button"
+                  onClick={() => setVasSau(v.score)}
+                  className={`p-3 rounded-2xl border text-center transition-all cursor-pointer ${
+                    vasSau === v.score
+                      ? 'bg-emerald-500/10 dark:bg-emerald-955/40 border-2 border-emerald-600 dark:border-emerald-500 shadow-sm'
+                      : 'bg-white/80 dark:bg-zinc-800/80 border-slate-200 dark:border-zinc-700 hover:border-emerald-300'
+                  }`}
+                >
+                  <div className="text-sm font-bold text-emerald-800 dark:text-emerald-300">{v.score} điểm</div>
+                  <div className="text-[11px] text-slate-600 dark:text-zinc-300 mt-0.5">{v.label}</div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {vasMode === 'numeric' && (
+            <div className="pt-2 px-2 space-y-2">
+              <input
+                type="range"
+                min="0"
+                max="10"
+                step="1"
+                value={vasSau}
+                onChange={(e) => setVasSau(Number(e.target.value))}
+                className="w-full h-2 bg-slate-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-emerald-600"
+              />
+              <div className="flex justify-between text-[10px] font-bold text-slate-400">
+                <span>0 (Không đau)</span>
+                <span>5 (Đau vừa)</span>
+                <span>10 (Cực độ)</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Delta VAS badge */}
@@ -528,24 +464,30 @@ export function TechnicianTreatmentDesk({
         </div>
       </div>
 
-      {/* CARD 3: NHẬT KÝ THAO TÁC KỸ THUẬT TRỊ LIỆU THỦ CÔNG */}
+      {/* KHỐI 2: NHẬT KÝ THAO TÁC KỸ THUẬT TRỊ LIỆU (ĐỒNG BỘ KHỐI ROM/MMT) */}
       <div
         id="technician-protocol-card"
-        className={`bg-white dark:bg-zinc-900 border rounded-3xl p-5 sm:p-6 shadow-sm space-y-5 transition-all duration-300 ${
-          triedSubmitWithoutLogs && logs.length === 0
-            ? 'border-2 border-rose-500/90 dark:border-rose-500 ring-4 ring-rose-500/10'
-            : 'border-slate-200/80 dark:border-zinc-800'
-        }`}
+        className="space-y-4 pb-6 border-b border-slate-100 dark:border-zinc-800"
       >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-zinc-800 pb-3">
-          <div className="flex items-center gap-2 text-slate-800 dark:text-zinc-100 font-black text-sm uppercase tracking-wider font-jakarta">
-            <Zap className="text-cyan-600 dark:text-cyan-400" size={18} />
-            <span>Nhật Ký Thao Tác Kỹ Thuật Trị Liệu</span>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Zap className="size-4 text-cyan-600" />
+            <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 uppercase tracking-wider">
+              2. Nhật ký thao tác kỹ thuật trị liệu: *
+            </h4>
           </div>
+
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-955/50 px-3 py-1 rounded-full border border-teal-200/60 font-mono">
               {logs.length} / {packageSteps.length} kỹ thuật đã chọn
             </span>
+            <button
+              type="button"
+              onClick={handleSelectAllPackageProtocol}
+              className="text-xs text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1 font-bold cursor-pointer"
+            >
+              <Zap size={14} /> Tích chọn tất cả
+            </button>
           </div>
         </div>
 
@@ -553,68 +495,47 @@ export function TechnicianTreatmentDesk({
         {triedSubmitWithoutLogs && logs.length === 0 && (
           <div className="p-3.5 rounded-2xl bg-rose-50/90 dark:bg-rose-955/60 border border-rose-200 dark:border-rose-800/80 text-rose-800 dark:text-rose-200 text-xs font-bold flex items-center gap-2 animate-in fade-in duration-200">
             <AlertTriangle size={17} className="text-rose-600 shrink-0" />
-            <span>Vui lòng tích chọn các thao tác kỹ thuật đã thực hiện dưới đây (hoặc bấm "Tích chọn tất cả") trước khi hoàn thành ca trị liệu!</span>
+            <span>Vui lòng tích chọn các thao tác kỹ thuật đã thực hiện dưới đây trước khi hoàn thành ca trị liệu!</span>
           </div>
         )}
 
-        {/* QUY TRÌNH KỸ THUẬT THEO GÓI DỊCH VỤ (KẾT NỐI ĐỘNG TỪ DB) */}
-        <div className="bg-slate-50 dark:bg-zinc-800/40 border border-slate-200/70 dark:border-zinc-700/60 rounded-2xl p-4 space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/60 dark:border-zinc-700/60 pb-2.5">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-zinc-200">
-                📋 Quy trình kỹ thuật chuẩn của gói: <span className="text-teal-600 dark:text-teal-400">
-                  {appointmentDetail?.ten_dich_vu || 'Vật lý trị liệu'}
-                  {appointmentDetail?.so_thu_tu_buoi ? ` (Buổi ${appointmentDetail.so_thu_tu_buoi}${appointmentDetail.pd_tong_so_buoi ? `/${appointmentDetail.pd_tong_so_buoi}` : ''})` : ''}
-                </span>
-              </span>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleSelectAllPackageProtocol}
-              className="px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-black text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm cursor-pointer whitespace-nowrap"
-            >
-              <Zap size={14} />
-              <span>⚡ TÍCH CHỌN TẤT CẢ THEO QUY TRÌNH GÓI</span>
-            </button>
-          </div>
-
-          {/* CHECKLIST CÁC BƯỚC CỦA GÓI */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-            {packageSteps.map(step => {
-              const isLogged = logs.some(l => l.noi_dung === step.name);
-              return (
-                <button
-                  key={step.name}
-                  type="button"
-                  onClick={() => togglePackageStep(step.name)}
-                  className={`p-3.5 rounded-xl border text-left flex items-center justify-between gap-2 transition-all cursor-pointer ${
-                    isLogged
-                      ? 'bg-teal-50 dark:bg-teal-955/40 border-teal-300 dark:border-teal-700 text-teal-900 dark:text-teal-200 font-bold shadow-xs'
-                      : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:border-teal-200'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <span className="text-base">{step.icon}</span>
-                    <span className="text-xs leading-relaxed">{step.name}</span>
-                  </div>
-                  <div className={`size-5 rounded-md flex items-center justify-center border transition-all shrink-0 ${
-                    isLogged ? 'bg-teal-600 border-teal-600 text-white' : 'border-slate-300 dark:border-zinc-600 bg-white dark:bg-zinc-800'
-                  }`}>
-                    {isLogged && <CheckCircle2 size={13} />}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+        {/* CHECKLIST CÁC BƯỚC CỦA GÓI */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+          {packageSteps.map(step => {
+            const isLogged = logs.some(l => l.noi_dung === step.name);
+            return (
+              <button
+                key={step.name}
+                type="button"
+                onClick={() => togglePackageStep(step.name)}
+                className={`p-3.5 rounded-2xl border text-left flex items-center justify-between gap-3 transition-all cursor-pointer ${
+                  isLogged
+                    ? 'bg-teal-50/80 dark:bg-teal-955/40 border-teal-400 dark:border-teal-700 text-teal-950 dark:text-teal-100 font-bold shadow-xs'
+                    : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-teal-300'
+                }`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="text-lg">{step.icon}</span>
+                  <span className="text-xs leading-relaxed">{step.name}</span>
+                </div>
+                <div className={`size-5 rounded-md flex items-center justify-center border transition-all shrink-0 ${
+                  isLogged ? 'bg-teal-600 border-teal-600 text-white' : 'border-slate-300 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800'
+                }`}>
+                  {isLogged && <CheckCircle2 size={13} />}
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* CARD 4: GHI CHÚ DIỄN TIẾN CA TRỊ LIỆU */}
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
-        <div className="flex items-center gap-2 text-slate-800 dark:text-zinc-100 font-black text-sm uppercase tracking-wider font-jakarta border-b border-slate-100 dark:border-zinc-800 pb-3">
-          <FileText className="text-slate-600 dark:text-zinc-400" size={18} />
-          <span>Ghi Chú Diễn Tiến & Dặn Dò KTV</span>
+      {/* KHỐI 3: GHI CHÚ DIỄN TIẾN CA TRỊ LIỆU */}
+      <div className="space-y-3 pb-6 border-b border-slate-100 dark:border-zinc-800">
+        <div className="flex items-center gap-2">
+          <FileText className="size-4 text-slate-600 dark:text-zinc-400" />
+          <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 uppercase tracking-wider">
+            3. Ghi chú diễn tiến & dặn dò KTV:
+          </h4>
         </div>
 
         <textarea
@@ -622,12 +543,12 @@ export function TechnicianTreatmentDesk({
           placeholder="Nhập ghi chú phản ứng của khách hàng, mức đáp ứng trị liệu, dặn dò KTV cho các buổi tiếp theo..."
           value={notes}
           onChange={e => setNotes(e.target.value)}
-          className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 text-xs font-medium text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500/50 leading-relaxed resize-none"
+          className="w-full p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-xs font-medium text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500/50 leading-relaxed resize-none shadow-2xs"
         />
       </div>
 
-      {/* FOOTER ACTION BAR */}
-      <div className="flex items-center justify-end gap-4 pt-2">
+      {/* KHỐI 4: NÚT HOÀN THÀNH CA TRỊ LIỆU */}
+      <div className="flex items-center justify-end pt-2">
         <button
           type="button"
           onClick={handleOpenCompleteModal}

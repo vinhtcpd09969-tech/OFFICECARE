@@ -65,6 +65,8 @@ export class AppointmentQueryRepository {
         ch.nhan_su_id AS ky_thuat_vien_id,
         COALESCE(shift_room.phong_id, ch.phong_id) as phong_id,
         COALESCE(shift_room.ten_phong, p.ten_phong) as ten_phong,
+        shift_room.ca_gio_bat_dau,
+        shift_room.ca_gio_ket_thuc,
         nk.chan_doan,
         nk.chong_chi_dinh,
         nk.ghi_chu,
@@ -132,14 +134,24 @@ export class AppointmentQueryRepository {
       ) hd ON TRUE
       LEFT JOIN phong_lam_viec p ON ch.phong_id = p.id
       LEFT JOIN LATERAL (
-        SELECT lt.phong_id, p_lt.ten_phong
+        SELECT 
+          lt.phong_id, 
+          p_lt.ten_phong,
+          to_char(lt.gio_bat_dau, 'HH24:MI') as ca_gio_bat_dau,
+          to_char(lt.gio_ket_thuc, 'HH24:MI') as ca_gio_ket_thuc
         FROM lich_truc_nhan_su lt
-        JOIN phong_lam_viec p_lt ON lt.phong_id = p_lt.id
+        LEFT JOIN phong_lam_viec p_lt ON lt.phong_id = p_lt.id
         WHERE lt.nhan_su_id = ch.nhan_su_id
           AND lt.ngay_truc = DATE(ch.ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh')
           AND lt.trang_thai = 'hoat_dong'
-          AND lt.gio_bat_dau <= (CASE WHEN DATE(ch.ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh') = CURRENT_DATE THEN (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::time ELSE (ch.ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh')::time END)
-          AND lt.gio_ket_thuc > (CASE WHEN DATE(ch.ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh') = CURRENT_DATE THEN (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::time ELSE (ch.ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh')::time END)
+          AND (
+            (ch.buoi = 'sang' AND lt.gio_bat_dau < '12:00:00' AND lt.gio_ket_thuc > '07:30:00')
+            OR
+            (ch.buoi = 'chieu' AND lt.gio_bat_dau < '20:00:00' AND lt.gio_ket_thuc > '12:00:00')
+            OR
+            (ch.buoi IS NULL)
+          )
+        ORDER BY lt.gio_bat_dau ASC
         LIMIT 1
       ) shift_room ON TRUE
       ${whereClause}
@@ -234,29 +246,10 @@ export class AppointmentQueryRepository {
         nd_ktv.ho_ten AS ten_ky_thuat_vien,
         nd_ktv.anh_dai_dien AS anh_bac_si,
         ch.nhan_su_id as bac_si_id,
-        COALESCE(
-          ch.phong_id,
-          (
-            SELECT lt.phong_id 
-            FROM lich_truc_nhan_su lt 
-            WHERE lt.nhan_su_id = ch.nhan_su_id 
-              AND lt.ngay_truc = ch.ngay_gio_bat_dau::date 
-              AND lt.phong_id IS NOT NULL 
-            LIMIT 1
-          )
-        ) as phong_id,
-        COALESCE(
-          p.ten_phong,
-          (
-            SELECT p2.ten_phong 
-            FROM lich_truc_nhan_su lt 
-            JOIN phong_lam_viec p2 ON lt.phong_id = p2.id 
-            WHERE lt.nhan_su_id = ch.nhan_su_id 
-              AND lt.ngay_truc = ch.ngay_gio_bat_dau::date 
-              AND lt.phong_id IS NOT NULL 
-            LIMIT 1
-          )
-        ) as ten_phong,
+        COALESCE(shift_room.phong_id, ch.phong_id) as phong_id,
+        COALESCE(shift_room.ten_phong, p.ten_phong) as ten_phong,
+        shift_room.ca_gio_bat_dau,
+        shift_room.ca_gio_ket_thuc,
         nk.chan_doan,
         nk.chong_chi_dinh,
         ch.ghi_chu_khach_hang as ghi_chu,
@@ -299,6 +292,27 @@ export class AppointmentQueryRepository {
       LEFT JOIN nguoi_dung nd_tao ON ch.nguoi_tao_id = nd_tao.id
       LEFT JOIN nhat_ky_buoi_dieu_tri nk ON nk.cuoc_hen_id = ch.id
       LEFT JOIN phong_lam_viec p ON ch.phong_id = p.id
+      LEFT JOIN LATERAL (
+        SELECT 
+          lt.phong_id, 
+          p_lt.ten_phong,
+          to_char(lt.gio_bat_dau, 'HH24:MI') as ca_gio_bat_dau,
+          to_char(lt.gio_ket_thuc, 'HH24:MI') as ca_gio_ket_thuc
+        FROM lich_truc_nhan_su lt
+        LEFT JOIN phong_lam_viec p_lt ON lt.phong_id = p_lt.id
+        WHERE lt.nhan_su_id = ch.nhan_su_id
+          AND lt.ngay_truc = DATE(ch.ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh')
+          AND lt.trang_thai = 'hoat_dong'
+          AND (
+            (ch.buoi = 'sang' AND lt.gio_bat_dau < '12:00:00' AND lt.gio_ket_thuc > '07:30:00')
+            OR
+            (ch.buoi = 'chieu' AND lt.gio_bat_dau < '20:00:00' AND lt.gio_ket_thuc > '12:00:00')
+            OR
+            (ch.buoi IS NULL)
+          )
+        ORDER BY lt.gio_bat_dau ASC
+        LIMIT 1
+      ) shift_room ON TRUE
       LEFT JOIN phac_do_dieu_tri pddt ON ch.phac_do_dieu_tri_id = pddt.id
       LEFT JOIN danh_gia dg_g ON (dg_g.khach_hang_id = ch.khach_hang_id AND dg_g.goi_dich_vu_id = ch.goi_dich_vu_id AND dg_g.loai_danh_gia = 'GOI_DICH_VU')
       LEFT JOIN danh_gia dg_n ON (dg_n.khach_hang_id = ch.khach_hang_id AND dg_n.nhan_su_id = ch.nhan_su_id AND dg_n.loai_danh_gia = 'NHAN_SU')

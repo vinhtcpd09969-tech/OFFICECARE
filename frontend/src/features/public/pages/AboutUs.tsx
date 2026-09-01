@@ -4,26 +4,30 @@ import { ShieldCheck, HeartPulse, Stethoscope, MapPin, Phone, Mail, Facebook, Ar
 import LazyImage from '../components/LazyImage';
 import ScrollReveal from '../components/effects/ScrollReveal';
 
-const CORE_PILLARS = [
+const WHY_CHOOSE_US = [
   {
-    icon: ShieldCheck,
-    title: 'Trị Liệu Bảo Tồn Tự Nhiên',
-    desc: 'Phương pháp tập trung giải tỏa nguyên nhân gây đau cơ xương khớp hiệu quả, an toàn và không phụ thuộc vào thuốc.'
+    icon: Stethoscope,
+    tag: 'Chuyên môn cao',
+    title: 'Lượng giá 1:1 cùng Chuyên viên PHCN',
+    desc: 'Lượng giá biên độ khớp (ROM), cơ lực (MMT) và thang đau VAS chính xác trước khi lên kế hoạch trị liệu.'
   },
   {
     icon: Zap,
-    title: 'Trang Thiết Bị Hiện Đại',
-    desc: 'Đầu tư hệ thống máy sóng xung kích, Laser cường độ cao và giường kéo giãn cột sống công nghệ tân tiến.'
+    tag: 'Công nghệ 2026',
+    title: 'Công nghệ Y tế FDA Châu Âu',
+    desc: 'Sóng xung kích Shockwave & Laser 30W giúp cắt cơn đau cấp tính và phục hồi tái tạo mô xơ.'
   },
   {
-    icon: Stethoscope,
-    title: 'Đội Ngũ Chuyên Chế 1:1',
-    desc: 'Đội ngũ chuyên viên tư vấn và kỹ thuật viên tận tâm, đồng hành hỗ trợ khách hàng xuyên suốt lộ trình phục hồi.'
+    icon: ShieldCheck,
+    tag: 'An toàn 100%',
+    title: 'Không phẫu thuật – Không dùng thuốc',
+    desc: 'Phương pháp điều trị cơ học & vật lý trị liệu an toàn tuyệt đối, triệt tiêu tận gốc nguyên nhân.'
   },
   {
     icon: HeartPulse,
-    title: 'Theo Dõi & Cá Nhân Hóa',
-    desc: 'Lộ trình chăm sóc được cập nhật minh bạch trên hệ thống bệnh án điện tử, giúp đánh giá tiến triển rõ ràng.'
+    tag: 'Chuẩn y khoa',
+    title: 'Phác đồ cá nhân hóa 100%',
+    desc: 'Thiết kế riêng theo tính chất công việc văn phòng, ngưỡng chịu đau và thể trạng của từng khách hàng.'
   }
 ];
 
@@ -180,32 +184,37 @@ export default function AboutUs() {
         </div>
       </section>
 
-      {/* 4 Trụ cột cốt lõi (Centered Header & Optimized Spacing) */}
+      {/* Ưu thế vượt trội - Tại sao hơn 15.000 khách hàng tin chọn */}
       <section className="py-10 lg:py-12 bg-slate-50/70 dark:bg-slate-950/70 border-t border-slate-200/70 dark:border-slate-800/70 transition-colors">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <ScrollReveal>
             <div className="text-center max-w-2xl mx-auto mb-8 lg:mb-10 space-y-1.5">
               <span className="bg-teal-50 dark:bg-teal-950/60 text-[#0D9488] dark:text-teal-300 border border-teal-500/20 dark:border-teal-800/60 font-bold tracking-wider uppercase text-[11px] px-3.5 py-1 rounded-full inline-block shadow-2xs">
-                Quy chuẩn dịch vụ
+                Ưu thế vượt trội
               </span>
               <h2 className="font-bold text-xl sm:text-2xl lg:text-3xl text-slate-900 dark:text-white tracking-tight">
-                4 Trụ Cột Tại Trung Tâm OfficeCare
+                Tại Sao Hơn 15.000 Khách Hàng Tin Chọn OfficeCare?
               </h2>
             </div>
           </ScrollReveal>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {CORE_PILLARS.map((item, idx) => {
+            {WHY_CHOOSE_US.map((item, idx) => {
               const Icon = item.icon;
               return (
                 <ScrollReveal key={idx} delay={idx * 80}>
-                  <div className="bg-white rounded-2xl p-5 border border-slate-200/80 hover:border-teal-500/40 hover:shadow-xs transition-all duration-300 h-full flex flex-col justify-between text-left group">
+                  <div className="bg-white dark:bg-zinc-900 rounded-2xl p-6 border border-slate-200/80 dark:border-zinc-800 hover:border-teal-500/40 hover:shadow-lg transition-all duration-300 h-full flex flex-col justify-between text-left group">
                     <div className="space-y-3">
-                      <div className="size-10 rounded-xl bg-teal-50 text-[#0D9488] group-hover:bg-[#0D9488] group-hover:text-white flex items-center justify-center transition-colors duration-300">
-                        <Icon size={18} />
+                      <div className="flex items-center justify-between">
+                        <div className="size-11 rounded-xl bg-teal-500/10 group-hover:bg-[#0D9488] text-[#0D9488] group-hover:text-white flex items-center justify-center transition-colors duration-300">
+                          <Icon size={20} />
+                        </div>
+                        <span className="text-[9.5px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 bg-slate-50 dark:bg-zinc-800 px-2 py-0.5 rounded-md border border-slate-200/60 dark:border-zinc-700">
+                          {item.tag}
+                        </span>
                       </div>
-                      <h4 className="font-heading font-bold text-sm text-slate-800">{item.title}</h4>
-                      <p className="text-xs text-slate-500 font-normal leading-relaxed">{item.desc}</p>
+                      <h4 className="font-heading font-bold text-sm text-slate-900 dark:text-zinc-100 leading-snug">{item.title}</h4>
+                      <p className="text-xs text-slate-500 dark:text-zinc-400 font-normal leading-relaxed">{item.desc}</p>
                     </div>
                   </div>
                 </ScrollReveal>

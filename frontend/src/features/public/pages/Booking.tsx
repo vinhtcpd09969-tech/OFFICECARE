@@ -442,14 +442,10 @@ export default function Booking() {
           updateUser({ ngay_dong_y_dieu_khoan: new Date().toISOString() });
         }
 
-        const appt = await response.json();
+        await response.json();
         toast.success(payNow ? '🎉 Thanh toán PayOS thành công & Lịch hẹn đã được xác nhận!' : 'Đăng ký lịch hẹn thành công!', { id: toastId });
 
-        if (user) {
-          navigate('/appointments');
-        } else {
-          navigate(`/booking/success/${appt.id}`);
-        }
+        navigate('/appointments');
       } else {
         const error = await response.json();
         toast.error(error.message || 'Không thể đăng ký lịch hẹn. Hãy thử lại.', { id: toastId });

@@ -1,19 +1,12 @@
 import { Calendar, ChevronRight, Package, Stethoscope, Wrench } from 'lucide-react';
-import { formatCurrency } from '../../../../../utils/format';
+import { formatCurrency } from '@/utils/format';
+import { INVOICE_STATUS_META } from '@/constants/statusMeta';
 import type { CustomerInvoice } from '../../../api/customer.api';
 
 interface InvoiceCardProps {
   invoice: CustomerInvoice;
   onOpen: (invoice: CustomerInvoice) => void;
 }
-
-const STATUS_META: Record<string, { label: string; cls: string }> = {
-  da_thanh_toan: { label: 'ĐÃ THANH TOÁN', cls: 'bg-emerald-100/80 text-emerald-800 border-emerald-200/60' },
-  chua_thanh_toan: { label: 'CHƯA THANH TOÁN', cls: 'bg-rose-100/80 text-rose-800 border-rose-200/60' },
-  dang_tra_tung_buoi: { label: 'ĐANG TRẢ TỪNG BUỔI', cls: 'bg-amber-100/80 text-amber-800 border-amber-200/60' },
-  da_huy: { label: 'ĐÃ HỦY', cls: 'bg-slate-100 text-slate-500 border-slate-200' },
-  da_hoan_tien: { label: 'ĐÃ HOÀN TIỀN', cls: 'bg-rose-100 text-rose-700 border-rose-200' },
-};
 
 const TYPE_META: Record<string, { label: string; icon: typeof Package }> = {
   LIEU_TRINH: { label: 'Gói liệu trình', icon: Package },
@@ -22,7 +15,7 @@ const TYPE_META: Record<string, { label: string; icon: typeof Package }> = {
 };
 
 export function InvoiceCard({ invoice, onOpen }: InvoiceCardProps) {
-  const statusMeta = STATUS_META[invoice.trang_thai] || { label: invoice.trang_thai, cls: 'bg-slate-100 text-slate-500 border-slate-200' };
+  const statusMeta = INVOICE_STATUS_META[invoice.trang_thai] || { label: invoice.trang_thai, cls: 'bg-slate-100 text-slate-500 border-slate-200' };
   const typeMeta = TYPE_META[invoice.loai_goi || 'KHAM'] || TYPE_META.KHAM;
   const TypeIcon = typeMeta.icon;
   const dateStr = new Date(invoice.ngay_tao).toLocaleDateString('vi-VN');

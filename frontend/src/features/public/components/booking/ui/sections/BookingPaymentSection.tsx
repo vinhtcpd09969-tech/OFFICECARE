@@ -1,6 +1,7 @@
 import React from 'react';
 import { CreditCard, AlertTriangle, QrCode, Loader2, ExternalLink } from 'lucide-react';
 import VoucherPicker from '../../../../../admin/pages/ManageFinance/components/VoucherPicker';
+import { formatCurrency } from '@/utils/format';
 
 interface BookingPaymentSectionProps {
   paymentMethod: 'tai_quay' | 'payos';
@@ -228,7 +229,7 @@ export const BookingPaymentSection: React.FC<BookingPaymentSectionProps> = ({
                       </div>
                       <div>
                         <span className="text-slate-400 font-bold uppercase text-[10px]">Số tiền cần thanh toán</span>
-                        <p className="font-black text-emerald-600 text-base">{Number(payosData.amount || finalPrice).toLocaleString('vi-VN')}đ</p>
+                        <p className="font-black text-emerald-600 text-base">{formatCurrency(payosData.amount || finalPrice)}</p>
                       </div>
                       <div>
                         <span className="text-slate-400 font-bold uppercase text-[10px]">Nội dung chuyển khoản chuẩn PayOS</span>
@@ -268,21 +269,20 @@ export const BookingPaymentSection: React.FC<BookingPaymentSectionProps> = ({
         </div>
       )}
 
-      {/* Pricing Breakdown Summary */}
       <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2 mt-4">
         <div className="flex items-center justify-between text-xs font-bold text-slate-600">
           <span>Giá dịch vụ gốc:</span>
-          <span>{rawPrice.toLocaleString('vi-VN')} đ</span>
+          <span>{formatCurrency(rawPrice)}</span>
         </div>
         {discountAmount > 0 && (
           <div className="flex items-center justify-between text-xs font-bold text-emerald-600">
             <span>Giảm giá Voucher:</span>
-            <span>-{discountAmount.toLocaleString('vi-VN')} đ</span>
+            <span>-{formatCurrency(discountAmount)}</span>
           </div>
         )}
         <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
           <span className="text-xs font-black text-slate-900 uppercase">Tổng tiền thanh toán:</span>
-          <span className="text-base font-black text-teal-600">{finalPrice.toLocaleString('vi-VN')} đ</span>
+          <span className="text-base font-black text-teal-600">{formatCurrency(finalPrice)}</span>
         </div>
       </div>
     </div>

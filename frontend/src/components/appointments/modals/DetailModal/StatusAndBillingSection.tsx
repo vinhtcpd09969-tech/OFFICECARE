@@ -188,35 +188,49 @@ export const StatusAndBillingSection: React.FC<StatusAndBillingSectionProps> = (
       </div>
 
       {/* 2. Thẻ chỉ định gói liệu trình */}
-      {['kham_moi', 'KHAM'].includes(selectedAppointment.loai_lich) && selectedAppointment.khuyen_nghi_goi_id && (
-        <div className="bg-gradient-to-br from-teal-50/90 via-emerald-50/50 to-teal-50/30 dark:from-teal-950/40 dark:via-zinc-900 dark:to-teal-950/20 p-4 rounded-2xl border border-teal-200/80 dark:border-teal-900/50 shadow-2xs space-y-2.5">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <div className="size-7 rounded-xl bg-teal-600/10 dark:bg-teal-400/20 text-teal-700 dark:text-teal-300 flex items-center justify-center font-bold">
-                <Sparkles size={15} />
+      {['kham_moi', 'KHAM', 'kham'].includes(selectedAppointment.loai_lich) && (selectedAppointment.khuyen_nghi_goi_id || selectedAppointment.khuyen_nghi_ten_goi || selectedAppointment.ten_goi_khuyen_nghi) && (
+        <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-teal-50/90 via-emerald-50/40 to-teal-50/60 dark:from-teal-950/40 dark:via-zinc-900 dark:to-teal-950/20 border border-teal-200/90 dark:border-teal-800/60 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="size-10 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold shrink-0 shadow-xs shadow-teal-600/30">
+              <Sparkles size={18} />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-extrabold text-teal-700 dark:text-teal-300 uppercase tracking-wider">
+                  Gói liệu trình được chỉ định
+                </span>
+                {selectedAppointment.tong_so_buoi_goi && (
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-teal-100/90 dark:bg-teal-950/80 text-teal-800 dark:text-teal-300">
+                    {selectedAppointment.tong_so_buoi_goi} buổi
+                  </span>
+                )}
               </div>
-              <span className="text-xs font-bold text-teal-800 dark:text-teal-300 uppercase tracking-wider">
-                Gói liệu trình được chỉ định
-              </span>
+              <h5 className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-zinc-100 truncate mt-0.5">
+                {selectedAppointment.ten_goi_khuyen_nghi || selectedAppointment.khuyen_nghi_ten_goi || selectedAppointment.khuyen_nghi_goi_ten || 'Gói trị liệu chuyên sâu'}
+              </h5>
             </div>
-            {selectedAppointment.khuyen_nghi_phac_do_id && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-xs font-bold border border-emerald-300/60 dark:border-emerald-800">
-                <CheckCircle2 size={13} />
-                Đã duyệt phác đồ
-              </span>
-            )}
           </div>
-          <div className="flex items-center justify-between gap-3 bg-white/80 dark:bg-zinc-900/80 p-3 rounded-xl border border-teal-200/50 dark:border-teal-900/30">
-            <div>
-              <p className="text-xs font-bold text-slate-800 dark:text-zinc-100">
-                {selectedAppointment.ten_goi_khuyen_nghi || selectedAppointment.khuyen_nghi_goi_ten || 'Gói trị liệu chuyên sâu'}
-              </p>
-              {selectedAppointment.tong_so_buoi_goi && (
-                <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
-                  Quy mô: {selectedAppointment.tong_so_buoi_goi} buổi điều trị
-                </p>
-              )}
-            </div>
+
+          <div className="shrink-0">
+            {selectedAppointment.khuyen_nghi_phac_do_id ? (
+              <span className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-xs font-black border border-emerald-300/80 dark:border-emerald-800">
+                <CheckCircle2 size={14} />
+                Đã kích hoạt phác đồ
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  const dest = isReceptionist ? '/receptionist/billing' : '/admin/quick-billing';
+                  navigate(`${dest}?lich_dat_id=${selectedAppointment.id}`);
+                  onClose();
+                }}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 active:scale-98 text-white text-xs font-black shadow-md shadow-amber-500/25 transition-all cursor-pointer uppercase tracking-wider"
+              >
+                <DollarSign size={14} />
+                <span>Thanh toán gói liệu trình</span>
+              </button>
+            )}
           </div>
         </div>
       )}

@@ -467,6 +467,7 @@ export default function AppointmentDetailModal({
                 aptStartHourStr={aptStartHourStr}
                 aptEndHourStr={aptEndHourStr}
                 durationMs={durationMs}
+                thoiLuongPhut={Number(selectedAppointment.thoi_luong_phut) || (selectedAppointment as any).thoi_luong || (selectedAppointment as any).thoi_luong_buoi_phut || 0}
                 tenDichVu={selectedAppointment.ten_dich_vu}
                 soThuTuBuoi={selectedAppointment.so_thu_tu_buoi}
                 tongSoBuoiGoi={selectedAppointment.tong_so_buoi_goi}

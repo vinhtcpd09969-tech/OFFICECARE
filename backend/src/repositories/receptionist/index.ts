@@ -10,6 +10,7 @@ export {
 
 export class ReceptionistRepository {
   // --- HÀNG ĐỢI & NO-SHOW ---
+  sweepNoShowAppointmentsDetailed = receptionistQueueRepository.sweepNoShowAppointmentsDetailed.bind(receptionistQueueRepository);
   sweepNoShowAppointments = receptionistQueueRepository.sweepNoShowAppointments.bind(receptionistQueueRepository);
   updateAppointmentStatus = receptionistQueueRepository.updateAppointmentStatus.bind(receptionistQueueRepository);
   getStaffWorkload = receptionistQueueRepository.getStaffWorkload.bind(receptionistQueueRepository);

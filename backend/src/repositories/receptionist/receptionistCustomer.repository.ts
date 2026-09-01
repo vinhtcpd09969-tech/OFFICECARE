@@ -149,7 +149,7 @@ export class ReceptionistCustomerRepository {
         ) pend ON true
         LEFT JOIN LATERAL (
           SELECT pd.id, g.ten_goi, pd.tong_so_buoi,
-            (SELECT COUNT(*)::int FROM cuoc_hen WHERE phac_do_dieu_tri_id = pd.id AND trang_thai = 'hoan_thanh' AND loai = 'DIEU_TRI') AS so_buoi_da_dung,
+            pd.so_buoi_da_dung,
             (SELECT MAX(ngay_gio_bat_dau) FROM cuoc_hen WHERE phac_do_dieu_tri_id = pd.id AND trang_thai = 'hoan_thanh' AND loai = 'DIEU_TRI') AS last_completed_at,
             EXISTS (
               SELECT 1 FROM cuoc_hen ch_up
@@ -233,10 +233,7 @@ export class ReceptionistCustomerRepository {
     const { rows: plans } = await pool.query(`
       SELECT
         pd.id, pd.goi_dich_vu_id, pd.tong_so_buoi,
-        (
-          SELECT COUNT(*)::int FROM cuoc_hen
-          WHERE phac_do_dieu_tri_id = pd.id AND trang_thai = 'hoan_thanh' AND loai = 'DIEU_TRI'
-        ) as so_buoi_da_dung,
+        pd.so_buoi_da_dung,
         pd.trang_thai, pd.ngay_kich_hoat, pd.han_su_dung,
         g.ten_goi, g.loai_goi,
         hd.id as hoa_don_id,

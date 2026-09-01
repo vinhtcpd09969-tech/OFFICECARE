@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Search, ClipboardPlus, Inbox } from 'lucide-react';
 import { PatientInfo } from '@/features/doctor/api/doctor.api';
-import { formatDaysAgo } from '@/utils/date';
 
 interface PatientSidebarProps {
   patients: PatientInfo[];
@@ -71,18 +70,16 @@ export const PatientSidebar: React.FC<PatientSidebarProps> = ({
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse text-xs table-fixed">
           <colgroup>
-            <col className="w-[28%]" />
-            <col className="w-[16%]" />
-            <col className="w-[22%]" />
+            <col className="w-[36%]" />
+            <col className="w-[20%]" />
+            <col className="w-[26%]" />
             <col className="w-[18%]" />
-            <col className="w-[16%]" />
           </colgroup>
           <thead>
             <tr className="bg-slate-50/80 dark:bg-slate-800/80 border-b border-slate-200/80 dark:border-slate-700/80 text-slate-400 dark:text-slate-400 font-black uppercase tracking-widest text-[10px]">
               <th className="p-4">Khách hàng</th>
               <th className="p-4">Giới tính / Tuổi</th>
               <th className="p-4">Liên hệ</th>
-              <th className="p-4">Lần cuối dùng dịch vụ</th>
               <th className="p-4 text-right">Thao tác</th>
             </tr>
           </thead>
@@ -90,7 +87,7 @@ export const PatientSidebar: React.FC<PatientSidebarProps> = ({
             {loadingPatients ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i}>
-                  {Array.from({ length: 5 }).map((__, j) => (
+                  {Array.from({ length: 4 }).map((__, j) => (
                     <td key={j} className="p-4">
                       <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded-lg animate-pulse" style={{ width: j === 0 ? '70%' : '50%' }} />
                     </td>
@@ -99,7 +96,7 @@ export const PatientSidebar: React.FC<PatientSidebarProps> = ({
               ))
             ) : filteredPatients.length === 0 ? (
               <tr>
-                <td colSpan={5} className="py-16 text-center">
+                <td colSpan={4} className="py-16 text-center">
                   <div className="flex flex-col items-center gap-2 text-slate-400 dark:text-slate-500">
                     <Inbox size={28} className="stroke-[1.5]" />
                     <span className="font-extrabold text-xs">Không tìm thấy khách hàng nào</span>
@@ -134,11 +131,8 @@ export const PatientSidebar: React.FC<PatientSidebarProps> = ({
                   <td className="p-4">
                     <div className="flex flex-col gap-0.5">
                       <span className="font-bold text-slate-800 dark:text-slate-200 text-xs font-mono">{p.so_dien_thoai || '-'}</span>
-                      <span className="text-[11px] text-slate-400 font-medium truncate max-w-[170px]">{p.email || '-'}</span>
+                      <span className="text-[11px] text-slate-400 font-medium truncate max-w-[200px]">{p.email || '-'}</span>
                     </div>
-                  </td>
-                  <td className="p-4 text-slate-700 dark:text-slate-300 font-bold text-xs">
-                    {formatDaysAgo(p.lan_cuoi_su_dung)}
                   </td>
                   <td className="p-4 text-right">
                     <button

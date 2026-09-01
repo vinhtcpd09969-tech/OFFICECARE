@@ -1,5 +1,6 @@
 import React from 'react';
 import { CreditCard, X } from 'lucide-react';
+import { formatCurrency } from '@/utils/format';
 
 interface WalkInPaymentModalProps {
   isOpen: boolean;
@@ -49,7 +50,7 @@ export const WalkInPaymentModal: React.FC<WalkInPaymentModalProps> = ({
             Dịch vụ: <span className="text-emerald-700 dark:text-emerald-400 font-black">{selectedService?.ten_goi || selectedService?.ten_dich_vu || 'Lượng giá PHCN'}</span>
           </p>
           <p className="font-black text-emerald-700 dark:text-emerald-400 text-sm mt-1">
-            Số tiền cần thu: {Number(selectedService?.don_gia ?? selectedService?.gia_dich_vu ?? 0).toLocaleString('vi-VN')} đ
+            Số tiền cần thu: {formatCurrency(selectedService?.don_gia ?? selectedService?.gia_dich_vu ?? 0)}
           </p>
         </div>
 

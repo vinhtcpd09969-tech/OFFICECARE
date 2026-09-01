@@ -8,7 +8,7 @@ import {
   DollarSign,
   Eye,
   Volume2,
-  ArrowDownCircle,
+  ArrowDownToLine,
   UserX,
   AlertCircle,
   Sparkles
@@ -35,6 +35,7 @@ export function AppointmentRow({
   apt,
   variant,
   staffList,
+  schedulesList,
   allAppointments = [],
   onOpenDetailModal,
   onQuickCheckin,
@@ -47,6 +48,7 @@ export function AppointmentRow({
   apt: Appointment;
   variant: RowVariant;
   staffList: Staff[];
+  schedulesList?: any[];
   allAppointments?: Appointment[];
   onOpenDetailModal: (apt: Appointment) => void;
   onQuickCheckin: (apt: Appointment) => void;
@@ -100,16 +102,16 @@ export function AppointmentRow({
   return (
     <div
       id={`appointment-card-${apt.id}`}
-      className={`flex items-center gap-4 px-5 py-3.5 border-b border-slate-100 dark:border-zinc-800/80 last:border-b-0 transition-all duration-700 ease-out ${
+      className={`flex items-center gap-4 px-5 py-3.5 border-b border-slate-100 dark:border-zinc-800/80 last:border-b-0 transition-all duration-300 ${
         highlighted
           ? 'relative z-20 -translate-y-1.5 scale-[1.015] bg-gradient-to-r from-amber-50 via-amber-100/70 to-amber-50 dark:from-amber-950/80 dark:via-amber-900/60 dark:to-amber-950/80 border-amber-400 dark:border-amber-500 ring-4 ring-amber-400/40 dark:ring-amber-500/30 shadow-2xl shadow-amber-500/25 rounded-2xl my-1.5'
           : isCalledIn
-            ? 'bg-amber-50/90 dark:bg-amber-955/40 border-amber-300 dark:border-amber-700/60 ring-2 ring-amber-400/80 shadow-md'
+            ? 'bg-amber-50/70 dark:bg-amber-955/30 border-amber-200 dark:border-amber-800/60'
             : 'hover:bg-slate-50/80 dark:hover:bg-zinc-800/40'
       }`}
     >
       {/* Buổi + trạng thái */}
-      <div className="w-[110px] shrink-0 flex flex-col gap-1">
+      <div className="w-[100px] shrink-0 flex flex-col gap-1">
         <div className="flex items-center gap-1.5">
           <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-zinc-500">
             {apt.buoi ? BUOI_LABEL[apt.buoi] : '—'}
@@ -122,7 +124,7 @@ export function AppointmentRow({
       </div>
 
       {/* Khách hàng */}
-      <div className="w-[180px] shrink-0 min-w-0 flex items-center gap-2.5">
+      <div className="w-[165px] shrink-0 min-w-0 flex items-center gap-2">
         <div className="relative shrink-0">
           <div className="size-9 rounded-2xl bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-bold text-xs flex items-center justify-center border border-slate-200/60 dark:border-zinc-700 shadow-2xs">
             {(apt.ten_khach_hang || apt.ho_ten_khach || 'K').trim().split(/\s+/).pop()?.[0] || 'K'}
@@ -180,11 +182,13 @@ export function AppointmentRow({
           );
         })()}
 
-        {variant === 'dang_cho' && waitMinutes !== null && (
-          <div className="space-y-0.5">
-            <p className="text-[11px] text-amber-700 dark:text-amber-400 font-bold flex items-center gap-1 mt-0.5">
-              <Clock3 size={11} /> Chờ {fmtMinutes(waitMinutes)}
-            </p>
+        {variant === 'dang_cho' && (
+          <div className="flex items-center gap-2 flex-wrap mt-1 text-[10.5px]">
+            {waitMinutes !== null && (
+              <span className="text-amber-700 dark:text-amber-400 font-bold flex items-center gap-1">
+                <Clock3 size={11} /> Chờ {fmtMinutes(waitMinutes)}
+              </span>
+            )}
 
             {/* B23 — DỰ BÁO GIỜ GỌI VÀO */}
             {(() => {
@@ -282,20 +286,30 @@ export function AppointmentRow({
               const overtimeMins = isOvertime ? projectedEndMins - cutoffMins : 0;
 
               return (
-                <div className="space-y-0.5">
-                  <p className={`text-[10px] font-extrabold flex items-center gap-1 ${
-                    isFreeNow ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-800 dark:text-amber-300'
+                <>
+                  <span className={`font-extrabold flex items-center gap-1 ${
+                    isFreeNow ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-600 dark:text-zinc-350'
                   }`}>
-                    <span>⏱️ Dự kiến gọi: <strong className={`font-black ${isFreeNow ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-800 dark:text-amber-300'}`}>
+                    <span>• ⏱️ Dự kiến gọi: <strong className={isFreeNow ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-800 dark:text-zinc-200'}>
                       {isFreeNow ? 'Ngay bây giờ (Sẵn sàng)' : `~${projectedTimeStr} (sau ~${estimatedWaitMins}p)`}
                     </strong></span>
-                  </p>
+                  </span>
                   {isOvertime && (
-                    <p className="text-[10px] font-black text-rose-600 dark:text-rose-400 flex items-center gap-1">
-                      <span>⚠️ Dự kiến xong ~{projectedEndStr} (Lố ca {cutoffStr} ~{overtimeMins}p)</span>
-                    </p>
+                    <span className="font-black text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                      • ⚠️ Dự kiến xong ~{projectedEndStr} (Lố ca {cutoffStr} ~{overtimeMins}p)
+                    </span>
                   )}
-                </div>
+                </>
+              );
+            })()}
+
+            {(missedCalls > 0 || isCalledIn) && (() => {
+              const currentCallNum = isCalledIn ? missedCalls + 1 : missedCalls;
+              if (currentCallNum === 0) return null;
+              return (
+                <span className="text-rose-600 dark:text-rose-400 font-black flex items-center gap-1">
+                  • <AlertCircle size={11} /> Đã gọi {currentCallNum} lần
+                </span>
               );
             })()}
           </div>
@@ -370,58 +384,80 @@ export function AppointmentRow({
           const latestRemMins = latestMins % 60;
           const latestTimeStr = `${latestHours}h${latestRemMins < 10 ? '0' : ''}${latestRemMins}`;
 
-          return (
-            <p className="text-[10px] text-teal-700 dark:text-teal-400 font-extrabold flex items-center gap-1 mt-0.5">
-              <Clock3 size={11} className="text-teal-600 shrink-0" />
-              <span>⏱️ Hạn đến muộn nhất: <strong className="font-black text-slate-900 dark:text-zinc-100">{latestTimeStr}</strong> ({duration}p)</span>
-            </p>
-          );
-        })()}
+          const hasStaffAssigned = Boolean(apt.ten_ky_thuat_vien || apt.bac_si_id);
+          let caKetThuc = apt.ca_gio_ket_thuc;
+          let caBatDau = apt.ca_gio_bat_dau;
 
-        {variant === 'dang_cho' && (missedCalls > 0 || isCalledIn) && (() => {
-          const isCallingNow = isCalledIn;
-          const currentCallNum = isCallingNow ? missedCalls + 1 : missedCalls;
-          if (currentCallNum === 0) return null;
+          if ((!caKetThuc || !caBatDau) && schedulesList && schedulesList.length > 0 && apt.bac_si_id) {
+            const aptDateStr = apt.ngay_gio_bat_dau ? String(apt.ngay_gio_bat_dau).split('T')[0].split(' ')[0] : '';
+            const matchingShift = schedulesList.find((s: any) =>
+              String(s.nguoi_dung_id || s.nhan_su_id) === String(apt.bac_si_id) &&
+              (!aptDateStr || s.ngay === aptDateStr) &&
+              s.trang_thai === 'hoat_dong'
+            );
+            if (matchingShift) {
+              caKetThuc = caKetThuc || matchingShift.gio_ket_thuc?.substring(0, 5);
+              caBatDau = caBatDau || matchingShift.gio_bat_dau?.substring(0, 5);
+            }
+          }
+
+          const isEarlyShiftEnd = !isSang && hasStaffAssigned && !!caKetThuc && caKetThuc < '20:00';
+          const isLateShiftStart = isSang && hasStaffAssigned && !!caBatDau && caBatDau > '07:30';
 
           return (
-            <p className="text-[11px] text-rose-600 dark:text-rose-400 font-extrabold flex items-center gap-1 mt-0.5">
-              <AlertCircle size={12} className="shrink-0" />
-              <span>
-                {currentCallNum >= 2
-                  ? `Đã gọi lần ${currentCallNum} — Cân nhắc vắng mặt (Không đến)`
-                  : `Đã gọi lần 1`}
-              </span>
-            </p>
+            <div className="space-y-0.5 mt-0.5">
+              <p className="text-[10px] text-teal-700 dark:text-teal-400 font-extrabold flex items-center gap-1">
+                <Clock3 size={11} className="text-teal-600 shrink-0" />
+                <span>⏱️ Hạn đến muộn nhất: <strong className="font-black text-slate-900 dark:text-zinc-100">{latestTimeStr}</strong> ({duration}p)</span>
+              </p>
+              {isEarlyShiftEnd && (
+                <p className="text-[10px] text-amber-700 dark:text-amber-400 font-extrabold flex items-center gap-1">
+                  <AlertCircle size={11} className="text-amber-600 shrink-0" />
+                  <span>⚠️ Lưu ý: Nhân sự được chọn chỉ làm đến <strong className="font-black text-amber-900 dark:text-amber-200">{caKetThuc}</strong></span>
+                </p>
+              )}
+              {isLateShiftStart && (
+                <p className="text-[10px] text-amber-700 dark:text-amber-400 font-extrabold flex items-center gap-1">
+                  <AlertCircle size={11} className="text-amber-600 shrink-0" />
+                  <span>⚠️ Lưu ý: Nhân sự được chọn bắt đầu ca từ <strong className="font-black text-amber-900 dark:text-amber-200">{caBatDau}</strong></span>
+                </p>
+              )}
+            </div>
           );
         })()}
       </div>
 
       {/* Nhân sự / Phòng */}
-      <div className="w-[180px] shrink-0 space-y-1">
+      <div className="w-[200px] shrink-0 space-y-1">
         {isCalledIn && (() => {
           const currentCallNum = missedCalls + 1;
           const callTimeStr = apt.thoi_gian_goi_vao ? format(new Date(apt.thoi_gian_goi_vao), 'HH:mm') : '';
           return (
-            <span className="inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-955/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700/60 shadow-xs w-fit tracking-wide animate-pulse">
-              <Volume2 size={12} className="shrink-0 text-amber-600 dark:text-amber-400" />
-              <span>
+            <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-955/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700/60 shadow-xs w-fit tracking-wide animate-pulse max-w-full">
+              <Volume2 size={11} className="shrink-0 text-amber-600 dark:text-amber-400" />
+              <span className="truncate">
                 {currentCallNum > 1
                   ? `🔔 Đã gọi lần ${currentCallNum}${callTimeStr ? ` lúc ${callTimeStr}` : ''}`
-                  : `🔔 Đã phát tín hiệu gọi vào${callTimeStr ? ` lúc ${callTimeStr}` : ''}`}
+                  : `🔔 Đã gọi lúc ${callTimeStr || 'ngay bây giờ'}`}
               </span>
             </span>
           );
         })()}
-        <StaffCell apt={apt} staffList={staffList} />
+        <StaffCell
+          apt={apt}
+          staffList={staffList}
+          canUnassign={Boolean((variant === 'dang_cho' || variant === 'chua_den') && (apt.bac_si_id != null || (apt as any).nhan_su_id != null))}
+          onUnassign={onUnassign}
+        />
       </div>
 
       {/* Thanh toán */}
-      <div className="w-[100px] shrink-0">
+      <div className="w-[85px] shrink-0 flex items-center justify-center">
         {!TERMINAL_STATUSES.includes(apt.trang_thai) && <PaymentBadge apt={apt} />}
       </div>
 
       {/* Thao tác */}
-      <div className="w-[230px] shrink-0 flex items-center justify-end gap-1.5">
+      <div className="w-[175px] shrink-0 flex items-center justify-center gap-1.5">
         {variant === 'chua_den' && (
           apt.trang_thai === 'cho_tai_luong_gia' ? (
             (() => {
@@ -444,75 +480,68 @@ export function AppointmentRow({
                 </button>
               );
             })()
-          ) : apt.loai_lich === 'kham_moi' && isPaymentDue(apt) ? (
+          ) : (apt.loai_lich === 'kham_moi' || isExam) && isPaymentDue(apt) ? (
             <button
               type="button"
               onClick={() => onPayment ? onPayment(apt) : navigate(`${billingRoute}?lich_dat_id=${apt.id}`)}
               className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-[11px] uppercase tracking-wider flex items-center gap-1 shadow-xs transition-all cursor-pointer whitespace-nowrap"
-              title="Bắt buộc thu tiền Lượng giá trước khi Check-in"
+              title="Thu tiền Lượng giá"
             >
-              <DollarSign size={13} /> THU TIỀN TRƯỚC
+              <DollarSign size={13} /> THU TIỀN
             </button>
           ) : (
             <button
               type="button"
               onClick={() => onQuickCheckin(apt)}
-              className="px-3 py-1.5 rounded-xl bg-[#0d9488] hover:bg-[#0b7970] text-white font-black text-[11px] uppercase tracking-wider flex items-center gap-1 shadow-xs transition-all cursor-pointer whitespace-nowrap"
+              className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-md shadow-teal-600/20 active:scale-95 transition-all cursor-pointer whitespace-nowrap"
             >
-              <CheckCircle2 size={13} /> CHECK-IN
+              <CheckCircle2 size={14} /> CHECK-IN
             </button>
           )
         )}
-        {variant !== 'chua_den' && !TERMINAL_STATUSES.includes(apt.trang_thai) && isPaymentDue(apt) && (
+
+        {/* Tab Đang chờ: CHỈ ca Lượng giá chưa thanh toán mới hiện nút Thu tiền nhanh (Trị liệu/Gói thu linh hoạt, mở popup để thu) */}
+        {variant === 'dang_cho' && isExam && isPaymentDue(apt) && (
           <button
             type="button"
             onClick={() => onPayment ? onPayment(apt) : navigate(`${billingRoute}?lich_dat_id=${apt.id}`)}
-            className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-[11px] uppercase tracking-wider flex items-center gap-1 shadow-xs transition-all cursor-pointer whitespace-nowrap"
+            className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-black text-[10.5px] uppercase tracking-wider flex items-center gap-1 shadow-xs transition-all cursor-pointer whitespace-nowrap shrink-0"
+            title="Thu tiền Lượng giá để mở khóa nút Bắt đầu khám"
           >
-            <DollarSign size={13} /> THU TIỀN
-          </button>
-        )}
-        {variant === 'dang_cho' && (apt.bac_si_id != null || (apt as any).nhan_su_id != null) && onUnassign && (
-          <button
-            type="button"
-            onClick={() => onUnassign(apt)}
-            title="Giải phóng chỉ định đích danh — Chuyển ca này về Hàng đợi chung để nhân sự rảnh bất kỳ gọi vào"
-            className="px-2 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-955/40 text-amber-800 dark:text-amber-300 hover:bg-amber-100 border border-amber-300/80 dark:border-amber-700/60 font-black text-[11px] flex items-center gap-1 shadow-2xs transition-all cursor-pointer whitespace-nowrap"
-          >
-            <UserX size={13} /> HÀNG CHỜ CHUNG
+            <DollarSign size={12} /> THU TIỀN
           </button>
         )}
 
-        {variant === 'dang_cho' && onPushBack && (() => {
-          const currentCallNum = isCalledIn ? missedCalls + 1 : missedCalls;
-          if (currentCallNum >= 2) return null;
-          return (
-            <button
-              type="button"
-              onClick={() => onPushBack(apt)}
-              title="Đẩy xuống cuối hàng đợi (khách rời chỗ chờ, đi vệ sinh...)"
-              className="p-1.5 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-955/40 border border-slate-200 dark:border-zinc-700 transition-all cursor-pointer shrink-0"
-            >
-              <ArrowDownCircle size={14} />
-            </button>
-          );
-        })()}
-        {variant === 'dang_cho' && missedCalls >= 1 && onMarkNoShow && (
+        {/* Tab Đã xong: Hiện nút Thu tiền cho mọi ca đã hoàn thành nhưng chưa thanh toán */}
+        {variant === 'xong' && isPaymentDue(apt) && (
           <button
             type="button"
-            onClick={() => onMarkNoShow(apt)}
-            title={`Đã gọi ${missedCalls} lần không thấy khách — đánh dấu Không đến`}
-            className="p-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 border border-rose-200 dark:border-rose-900/60 transition-all cursor-pointer shrink-0"
+            onClick={() => onPayment ? onPayment(apt) : navigate(`${billingRoute}?lich_dat_id=${apt.id}`)}
+            className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-black text-[10.5px] uppercase tracking-wider flex items-center gap-1 shadow-xs transition-all cursor-pointer whitespace-nowrap shrink-0"
+            title="Khách đã làm xong — Thu tiền trước khi ra về"
           >
-            <UserX size={14} />
+            <DollarSign size={12} /> THU TIỀN
           </button>
         )}
+
+        {/* Nút Đẩy xuống cuối hàng đợi — Không giới hạn số lần đẩy */}
+        {variant === 'dang_cho' && onPushBack && (
+          <button
+            type="button"
+            onClick={() => onPushBack(apt)}
+            title="Khách chưa có mặt — Đẩy xuống cuối hàng đợi"
+            className="px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100 border border-amber-200 dark:border-amber-900/60 font-extrabold text-[10.5px] flex items-center gap-1 transition-all cursor-pointer shrink-0 whitespace-nowrap"
+          >
+            <ArrowDownToLine size={12} /> ĐẨY XUỐNG
+          </button>
+        )}
+
         <button
           type="button"
           onClick={() => onOpenDetailModal(apt)}
-          className="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:bg-slate-200 font-extrabold text-[11px] flex items-center gap-1 border border-slate-200 dark:border-zinc-700 transition-all cursor-pointer whitespace-nowrap"
+          className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:bg-slate-200 font-extrabold text-[10.5px] flex items-center gap-1 border border-slate-200 dark:border-zinc-700 transition-all cursor-pointer whitespace-nowrap shrink-0"
         >
-          <Eye size={13} /> XEM
+          <Eye size={12} /> XEM
         </button>
       </div>
     </div>
@@ -521,13 +550,13 @@ export function AppointmentRow({
 
 export function ColumnHeaderRow() {
   return (
-    <div className="flex items-center gap-4 px-5 py-2.5 bg-slate-50/80 dark:bg-zinc-850/60 border-b border-slate-200/60 dark:border-zinc-800 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-      <div className="w-[110px] shrink-0">Buổi/TT</div>
-      <div className="w-[180px] shrink-0">Khách hàng</div>
-      <div className="flex-1 min-w-0">Dịch vụ / Gói</div>
-      <div className="w-[180px] shrink-0">Nhân sự / Phòng</div>
-      <div className="w-[100px] shrink-0">Thanh toán</div>
-      <div className="w-[230px] shrink-0 text-right pr-4">Thao tác</div>
+    <div className="flex items-center gap-4 px-5 py-2.5 bg-slate-50/80 dark:bg-zinc-855/60 border-b border-slate-200/60 dark:border-zinc-800 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+      <div className="w-[100px] shrink-0">Buổi/TT</div>
+      <div className="w-[165px] shrink-0">Khách hàng</div>
+      <div className="flex-1 min-w-[320px]">Dịch vụ / Gói</div>
+      <div className="w-[200px] shrink-0">Nhân sự / Phòng</div>
+      <div className="w-[85px] shrink-0 text-center">Thanh toán</div>
+      <div className="w-[175px] shrink-0 text-center">Thao tác</div>
     </div>
   );
 }

@@ -18,6 +18,7 @@ import {
 } from '@/features/doctor/api/doctor.api';
 import {
   getAppointmentDetail as getAppointmentDetailKtv,
+  getActiveSession as getActiveSessionKtv,
   saveTreatmentRecord,
   saveTreatmentDraft,
 } from '@/features/technician/api/technician.api';
@@ -31,6 +32,7 @@ export function ClinicalAssessment() {
 
   const [packages, setPackages] = useState<any[]>([]);
   const [activeDeskTab, setActiveDeskTab] = useState<'desk' | 'emr'>('desk');
+  const [emrHighlightTarget, setEmrHighlightTarget] = useState<{ type: 'plan' | 'visit'; id: string } | null>(null);
 
   // ==== NHÁNH CHUYÊN VIÊN — đúng 1 bàn ====
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | undefined>(
@@ -120,34 +122,80 @@ export function ClinicalAssessment() {
     };
   }, [isKtv, selectedAppointmentId, navigate]);
 
-  // ---- KTV: đồng bộ route -> mở bàn trị liệu tương ứng
+  // ---- KTV: đồng bộ route & tải toàn bộ các bàn trị liệu đang mở (song song tối đa 2 bàn)
   useEffect(() => {
     if (!isKtv) return;
     const routeId = params.id;
-    if (!routeId) return;
-
     let cancelled = false;
+
     (async () => {
       try {
-        const res = await getAppointmentDetailKtv(routeId);
+        // 1. Tải danh sách tất cả các ca đang mở bàn (dang_kham) của KTV
+        let activeSessions: Array<{ id: string; ma_lich_dat?: string; ten_khach_hang?: string }> = [];
+        try {
+          const activeRes = await getActiveSessionKtv();
+          activeSessions = activeRes.data || [];
+        } catch (e) {
+          console.error('Lỗi lấy active-session KTV:', e);
+        }
+
+        // 2. Tập hợp các appointment ID cần nạp chi tiết
+        const idsToFetch = new Set<string>();
+        if (routeId) idsToFetch.add(routeId);
+        activeSessions.forEach((s) => {
+          if (s.id) idsToFetch.add(String(s.id));
+        });
+
+        if (idsToFetch.size === 0) {
+          if (cancelled) return;
+          setKtvOpenAppointments({});
+          setKtvActiveId(undefined);
+          return;
+        }
+
+        // 3. Tải chi tiết các ca song song
+        const fetchResults = await Promise.all(
+          Array.from(idsToFetch).map(async (id) => {
+            try {
+              const res = await getAppointmentDetailKtv(id);
+              return { id, data: res.data };
+            } catch (err: any) {
+              const msg = err?.response?.data?.message || '';
+              const isOvertimeBlock = err?.response?.status === 409 && msg.includes('quá thời lượng dự kiến');
+              if (isOvertimeBlock && id === routeId) {
+                setOvertimeConfirm({ id, message: msg });
+              }
+              return null;
+            }
+          })
+        );
+
         if (cancelled) return;
-        setKtvOpenAppointments((prev) => ({
-          ...prev,
-          [routeId]: res.data,
-        }));
-        setKtvActiveId(routeId);
+
+        const newMap: Record<string, any> = {};
+        fetchResults.forEach((item) => {
+          if (item && item.data) {
+            newMap[item.id] = item.data;
+          }
+        });
+
+        setKtvOpenAppointments(newMap);
+
+        // 4. Chọn bàn active
+        if (routeId && newMap[routeId]) {
+          setKtvActiveId(routeId);
+        } else {
+          const firstAvailableId = Object.keys(newMap)[0];
+          if (firstAvailableId) {
+            setKtvActiveId(firstAvailableId);
+            if (!routeId) {
+              navigate(`/technician/appointments/${firstAvailableId}/assess`, { replace: true });
+            }
+          }
+        }
       } catch (err: any) {
         if (cancelled) return;
-        const msg = err?.response?.data?.message || '';
-        const isOvertimeBlock = err?.response?.status === 409 && msg.includes('quá thời lượng dự kiến');
-
-        if (isOvertimeBlock) {
-          setOvertimeConfirm({ id: routeId, message: msg });
-        } else {
-          console.error('Lỗi khi mở bàn KTV:', err);
-          toast.error(msg || 'Không mở được ca trị liệu này.');
-          navigate('/technician/appointments');
-        }
+        console.error('Lỗi khi tải các bàn KTV:', err);
       }
     })();
 
@@ -338,14 +386,14 @@ export function ClinicalAssessment() {
           </div>
         ) : (
           <div className="space-y-6">
-            {/* THANH ĐIỀU HƯỚNG TÁP: BÀN LÀM VIỆC vs LỊCH SỬ ĐIỀU TRỊ + THIẾT BỊ PHÒNG + DROPDOWN BÀN ĐANG MỞ */}
-            <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-2 shadow-2xs">
+            {/* THANH ĐIỀU HƯỚNG TAB: BÀN LÀM VIỆC vs LỊCH SỬ ĐIỀU TRỊ + THIẾT BỊ PHÒNG + DROPDOWN BÀN ĐANG MỞ */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-5 border-b border-slate-100 dark:border-zinc-800">
               {/* Tab Selector */}
-              <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-zinc-800/80 rounded-xl">
+              <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-zinc-800/80 rounded-2xl">
                 <button
                   type="button"
                   onClick={() => setActiveDeskTab('desk')}
-                  className={`px-4 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
+                  className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
                     activeDeskTab === 'desk'
                       ? 'bg-gradient-to-r from-teal-600 to-cyan-600 text-white shadow-md shadow-teal-600/25'
                       : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 hover:bg-slate-200/60 dark:hover:bg-zinc-700/60'
@@ -358,7 +406,7 @@ export function ClinicalAssessment() {
                 <button
                   type="button"
                   onClick={() => setActiveDeskTab('emr')}
-                  className={`px-4 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
+                  className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
                     activeDeskTab === 'emr'
                       ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-600/25'
                       : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 hover:bg-slate-200/60 dark:hover:bg-zinc-700/60'
@@ -370,12 +418,12 @@ export function ClinicalAssessment() {
               </div>
 
               {/* Action Toolbar bên phải: Nút Thiết bị y tế trong phòng + Dropdown Bàn mở */}
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 {/* Nút xem thiết bị y tế trong phòng */}
                 <button
                   type="button"
                   onClick={() => setShowRoomDevicesModal(true)}
-                  className="px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border border-teal-200/80 dark:border-teal-800 hover:bg-teal-100 dark:hover:bg-teal-900/60 cursor-pointer shadow-2xs"
+                  className="px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/40 dark:hover:bg-teal-900/60 text-teal-700 dark:text-teal-300 border border-teal-200/80 dark:border-teal-800 cursor-pointer shadow-2xs"
                   title="Xem danh sách thiết bị y tế đã cấu hình vào phòng trực"
                 >
                   <Zap size={14} className="text-teal-600 dark:text-teal-400" />
@@ -387,7 +435,7 @@ export function ClinicalAssessment() {
 
                 {/* Dropdown danh sách bàn KTV đang mở */}
                 {ktvOpenIds.length > 0 && (
-                  <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-zinc-800 p-1 rounded-xl border border-slate-200/80 dark:border-zinc-700">
+                  <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-zinc-800/80 p-1 rounded-2xl">
                     {ktvOpenIds.map((id, idx) => {
                       const apt = ktvOpenAppointments[id];
                       const isActive = id === ktvActiveId;
@@ -396,7 +444,7 @@ export function ClinicalAssessment() {
                           key={id}
                           type="button"
                           onClick={() => navigate(`/technician/appointments/${id}/assess`)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
+                          className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
                             isActive
                               ? 'bg-teal-600 text-white shadow-xs'
                               : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-200/60 dark:hover:bg-zinc-700'
@@ -420,6 +468,7 @@ export function ClinicalAssessment() {
                 soDienThoai={activeApt?.so_dien_thoai}
                 gioiTinh={activeApt?.gioi_tinh}
                 tuoi={activeApt?.tuoi}
+                highlightTarget={emrHighlightTarget}
               />
             ) : (
               ktvOpenIds.map((id) => {
@@ -453,6 +502,15 @@ export function ClinicalAssessment() {
                       appointmentDetail={apt}
                       onCompleteTreatment={(data) => handleCompleteTreatment(id, data)}
                       onSaveDraft={(data) => handleSaveDraft(id, data)}
+                      onViewAssessment={() => {
+                        const planId = apt.phac_do_dieu_tri_id;
+                        const visitId = apt.lich_kham_goc_id || apt.ma_lich_kham_goc;
+                        setEmrHighlightTarget({
+                          type: 'visit',
+                          id: String(visitId || planId || 'ASSESSMENT_FIRST'),
+                        });
+                        setActiveDeskTab('emr');
+                      }}
                     />
                   </div>
                 );
@@ -667,6 +725,7 @@ export function ClinicalAssessment() {
                   soDienThoai={currentAppointment.so_dien_thoai}
                   gioiTinh={currentAppointment.gioi_tinh}
                   tuoi={currentAppointment.tuoi}
+                  highlightTarget={emrHighlightTarget}
                 />
               ) : (
                 <div className="space-y-6">

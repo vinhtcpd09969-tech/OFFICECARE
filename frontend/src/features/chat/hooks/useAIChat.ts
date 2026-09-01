@@ -36,7 +36,7 @@ export function useAIChat() {
   const getWelcomeMessage = (): ChatMessage => ({
     id: 'welcome',
     role: 'model',
-    content: 'Xin chào! Tôi là Trợ lý Chuyên viên AI của trung tâm OfficeCare. Tôi có thể hỗ trợ bạn phân tích các triệu chứng đau mỏi cơ xương khớp (cổ vai gáy, thắt lưng, cột sống...), tư vấn phác đồ và giải đáp toàn bộ thông tin phòng khám.',
+    content: 'Xin chào! Tôi là Trợ lý Chuyên viên AI của Trung tâm Phục hồi Chức năng OfficeCare. Tôi có thể hỗ trợ bạn phân tích các triệu chứng đau mỏi cơ xương khớp (cổ vai gáy, thắt lưng, cột sống...), tư vấn phác đồ và giải đáp toàn bộ thông tin tại trung tâm.',
     timestamp: Date.now(),
     suggestedQuestions: [
       '💆 Trị mỏi cổ vai gáy văn phòng',

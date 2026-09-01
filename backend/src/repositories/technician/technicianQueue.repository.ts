@@ -126,12 +126,14 @@ export class TechnicianQueueRepository {
   async getTechnicianSchedules(userId: string) {
     const queryStr = `
       SELECT 
-        id, nhan_su_id as nguoi_dung_id, to_char(ngay_truc, 'YYYY-MM-DD') as ngay, 
-        to_char(gio_bat_dau, 'HH24:MI') as gio_bat_dau, to_char(gio_ket_thuc, 'HH24:MI') as gio_ket_thuc,
-        trang_thai
-      FROM lich_truc_nhan_su
-      WHERE nhan_su_id = $1::integer AND ngay_truc >= CURRENT_DATE
-      ORDER BY ngay_truc ASC;
+        lt.id, lt.nhan_su_id as nguoi_dung_id, to_char(lt.ngay_truc, 'YYYY-MM-DD') as ngay, 
+        to_char(lt.gio_bat_dau, 'HH24:MI') as gio_bat_dau, to_char(lt.gio_ket_thuc, 'HH24:MI') as gio_ket_thuc,
+        lt.trang_thai,
+        lt.phong_id, p.ma_phong, p.ten_phong
+      FROM lich_truc_nhan_su lt
+      LEFT JOIN phong_lam_viec p ON lt.phong_id = p.id
+      WHERE lt.nhan_su_id = $1::integer
+      ORDER BY lt.ngay_truc ASC;
     `;
     const { rows } = await pool.query(queryStr, [userId]);
     return rows;

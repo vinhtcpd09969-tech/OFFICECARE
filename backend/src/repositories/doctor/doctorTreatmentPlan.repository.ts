@@ -15,6 +15,7 @@ export class DoctorTreatmentPlanRepository {
       JOIN goi_dich_vu g ON pd.goi_dich_vu_id = g.id
       WHERE pd.khach_hang_id = (SELECT khach_hang_id FROM cuoc_hen WHERE id = $1)
         AND pd.trang_thai = 'dang_dieu_tri' AND g.loai_goi = 'LIEU_TRINH'
+        AND pd.so_buoi_da_dung < pd.tong_so_buoi
       LIMIT 1
     `, [cuoc_hen_id]);
     if (activeRows.length > 0) {

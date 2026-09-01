@@ -8,7 +8,12 @@ import {
   Calendar,
   Wrench,
   Cpu,
-  ShieldCheck
+  ShieldCheck,
+  Tag,
+  Building2,
+  FileText,
+  X,
+  Save,
 } from 'lucide-react';
 import {
   getEquipment,
@@ -18,6 +23,7 @@ import {
 import { format } from 'date-fns';
 import api from '../../../../api/axios';
 import { CustomSelect } from '../../../../components/CustomSelect';
+import { CustomDatePicker } from '../../../../components/CustomDatePicker';
 
 interface Equipment {
   id: string;
@@ -38,158 +44,6 @@ const getLocalDateString = () => {
   const day = String(today.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
-
-// Premium Custom React Calendar (Inline collapsible layout to prevent modal overflow)
-function CustomDatePicker({ value, onChange }: { value: string; onChange: (val: string) => void }) {
-  const [isOpen, setIsOpen] = useState(false);
-  
-  // Parse YYYY-MM-DD value
-  const currentDate = useMemo(() => {
-    if (!value) return new Date();
-    const d = new Date(value);
-    return isNaN(d.getTime()) ? new Date() : d;
-  }, [value]);
-
-  const [navDate, setNavDate] = useState(currentDate);
-
-  // Sync when value changes externally
-  useEffect(() => {
-    if (value) {
-      const d = new Date(value);
-      if (!isNaN(d.getTime())) {
-        setNavDate(d);
-      }
-    }
-  }, [value]);
-
-  const year = navDate.getFullYear();
-  const month = navDate.getMonth();
-
-  const monthNames = [
-    'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6',
-    'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'
-  ];
-
-  const daysInMonth = useMemo(() => {
-    return new Date(year, month + 1, 0).getDate();
-  }, [year, month]);
-
-  const firstDayIndex = useMemo(() => {
-    return new Date(year, month, 1).getDay();
-  }, [year, month]);
-
-  const handlePrevMonth = () => {
-    setNavDate(new Date(year, month - 1, 1));
-  };
-
-  const handleNextMonth = () => {
-    setNavDate(new Date(year, month + 1, 1));
-  };
-
-  const handleDaySelect = (dayNum: number) => {
-    const selectedDate = new Date(year, month, dayNum);
-    const y = selectedDate.getFullYear();
-    const m = String(selectedDate.getMonth() + 1).padStart(2, '0');
-    const d = String(selectedDate.getDate()).padStart(2, '0');
-    onChange(`${y}-${m}-${d}`);
-    setIsOpen(false);
-  };
-
-  const formattedValue = useMemo(() => {
-    if (!value) return 'Chọn ngày';
-    const parts = value.split('-');
-    if (parts.length === 3) {
-      return `${parts[2]}/${parts[1]}/${parts[0]}`;
-    }
-    return value;
-  }, [value]);
-
-  const calendarCells = useMemo(() => {
-    const cells = [];
-    for (let i = 0; i < firstDayIndex; i++) {
-      cells.push(null);
-    }
-    for (let d = 1; d <= daysInMonth; d++) {
-      cells.push(d);
-    }
-    return cells;
-  }, [firstDayIndex, daysInMonth]);
-
-  return (
-    <div className="space-y-2">
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full border border-slate-200 p-2.5 font-bold rounded-xl bg-white text-left text-slate-705 focus:outline-none focus:ring-2 focus:ring-slate-500/10 flex justify-between items-center cursor-pointer shadow-sm hover:border-slate-350 transition-colors"
-      >
-        <span>{formattedValue}</span>
-        <Calendar size={14} className="text-slate-400" />
-      </button>
-
-      {isOpen && (
-        <div className="bg-slate-50 border border-slate-150 shadow-inner rounded-2xl p-4 w-full animate-scale-up text-slate-800">
-          <div className="flex justify-between items-center mb-3">
-            <button
-              type="button"
-              onClick={handlePrevMonth}
-              className="size-7 rounded-lg hover:bg-slate-200 flex items-center justify-center font-bold text-slate-505 transition-colors cursor-pointer"
-            >
-              ‹
-            </button>
-            <span className="font-extrabold text-xs text-slate-800 uppercase tracking-wide">
-              {monthNames[month]} {year}
-            </span>
-            <button
-              type="button"
-              onClick={handleNextMonth}
-              className="size-7 rounded-lg hover:bg-slate-200 flex items-center justify-center font-bold text-slate-505 transition-colors cursor-pointer"
-            >
-              ›
-            </button>
-          </div>
-
-          <div className="grid grid-cols-7 gap-1 text-center font-black text-[9px] text-slate-400 uppercase tracking-wider mb-2">
-            <span>CN</span>
-            <span>T2</span>
-            <span>T3</span>
-            <span>T4</span>
-            <span>T5</span>
-            <span>T6</span>
-            <span>T7</span>
-          </div>
-
-          <div className="grid grid-cols-7 gap-1 text-center text-xs">
-            {calendarCells.map((cell, idx) => {
-              if (cell === null) {
-                return <div key={`empty-${idx}`} />;
-              }
-
-              const isSelected = 
-                currentDate.getDate() === cell &&
-                currentDate.getMonth() === month &&
-                currentDate.getFullYear() === year;
-
-              return (
-                <button
-                  key={`day-${cell}`}
-                  type="button"
-                  onClick={() => handleDaySelect(cell)}
-                  className={`aspect-square w-full rounded-lg font-bold flex items-center justify-center transition-all cursor-pointer ${
-                    isSelected
-                      ? 'bg-teal-600 text-white shadow-sm font-black'
-                      : 'hover:bg-slate-200/80 text-slate-700'
-                  }`}
-                >
-                  {cell}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function ManageEquipment() {
   const [equipment, setEquipment] = useState<Equipment[]>([]);
@@ -352,6 +206,23 @@ export default function ManageEquipment() {
       toast.error(msg);
     }
   };
+
+  const roomOptions = useMemo(() => [
+    { value: '', label: '-- Chưa gán phòng (Lưu kho) --', icon: '📦' },
+    ...rooms
+      .filter((r: any) => r.loai_phong === 'phong_tri_lieu' || r.loai_phong === 'phong_dieu_tri')
+      .map((r: any) => ({
+        value: String(r.id),
+        label: `${r.ten_phong} (${r.ma_phong})`,
+        icon: '🏢'
+      }))
+  ], [rooms]);
+
+  const statusOptions = useMemo(() => [
+    { value: 'san_sang', label: '🟢 Sẵn sàng hoạt động' },
+    { value: 'dang_bao_tri', label: '🛠️ Đang bảo trì, sửa chữa' },
+    { value: 'ngung_su_dung', label: '🚫 Ngưng sử dụng (Thanh lý/Hỏng)' },
+  ], []);
 
   return (
     <div className="space-y-6 pb-12 animate-fade-in text-slate-800 font-sans">
@@ -551,140 +422,142 @@ export default function ManageEquipment() {
 
       {/* Modal: Add / Edit Equipment */}
       {isEquipmentModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-xl max-w-md w-full flex flex-col rounded-2xl animate-scale-up overflow-hidden">
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 z-50 animate-in fade-in duration-200 overflow-y-auto font-sans">
+          <div className="bg-white dark:bg-zinc-900 rounded-[32px] border border-zinc-200/80 dark:border-zinc-800 shadow-2xl max-w-xl w-full animate-in zoom-in-95 duration-200 my-auto overflow-visible relative">
             {/* Modal Header */}
-            <div className="border-b border-slate-100 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50 px-6 py-4 flex justify-between items-center">
-              <div>
-                <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest block mb-0.5">
-                  {editingEquipment ? 'Hạ tầng y tế' : 'Đăng ký thiết bị'}
-                </span>
-                <h3 className="font-extrabold text-sm text-slate-800 dark:text-zinc-100 uppercase tracking-wider">
-                  {editingEquipment ? 'Hiệu chỉnh thiết bị' : 'Thêm thiết bị mới'}
-                </h3>
+            <div className="px-7 py-5 border-b border-zinc-150/80 dark:border-zinc-800 flex justify-between items-center bg-gradient-to-r from-teal-500/10 via-emerald-500/5 to-transparent rounded-t-[31px]">
+              <div className="flex items-center gap-3.5">
+                <div className="size-11 rounded-2xl bg-teal-500/15 border border-teal-500/30 text-teal-600 dark:text-teal-400 flex items-center justify-center shadow-inner shrink-0">
+                  <Cpu size={22} className="stroke-[2.5]" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900 dark:text-zinc-100 font-heading tracking-tight">
+                    {editingEquipment ? 'Hiệu Chỉnh Thiết Bị' : 'Thêm Thiết Bị Mới'}
+                  </h3>
+                  <p className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium mt-0.5">
+                    {editingEquipment ? 'Cập nhật cấu hình và vị trí phân bổ máy' : 'Đăng ký thông tin thiết bị y tế và phòng phân bổ'}
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsEquipmentModalOpen(false)}
-                className="text-slate-400 dark:text-zinc-400 hover:text-slate-600 dark:hover:text-zinc-200 transition-colors font-bold text-sm cursor-pointer p-1 rounded-lg hover:bg-slate-100"
+                className="size-9 rounded-2xl flex items-center justify-center bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-100 cursor-pointer transition-all hover:rotate-90"
               >
-                ✕
+                <X size={16} />
               </button>
             </div>
 
             {/* Modal Form */}
-            <form onSubmit={handleEquipmentSubmit} className="p-6 space-y-4 text-slate-800 dark:text-zinc-200 text-xs">
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 dark:text-zinc-400 uppercase tracking-widest mb-1.5">Mã thiết bị (Độc nhất)</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ví dụ: LASER-01, SHOCK-02..."
-                  value={equipmentFormData.ma_thiet_bi}
-                  onChange={(e) => setEquipmentFormData({ ...equipmentFormData, ma_thiet_bi: e.target.value })}
-                  className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 p-2.5 font-bold rounded-xl text-slate-800 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-slate-500/10 transition-colors"
-                />
+            <form onSubmit={handleEquipmentSubmit} className="p-7 space-y-4 text-xs">
+              {/* Row 1: Mã thiết bị & Ngày mua (2 columns) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-black text-slate-600 dark:text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Tag size={13} className="text-teal-600 dark:text-teal-400" />
+                    <span>Mã thiết bị (Độc nhất) <b className="text-rose-500">*</b></span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="TB-XXXXX"
+                    value={equipmentFormData.ma_thiet_bi}
+                    onChange={(e) => setEquipmentFormData({ ...equipmentFormData, ma_thiet_bi: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 focus:border-teal-500 ring-teal-500/15 rounded-2xl px-4 py-3 text-xs text-slate-800 dark:text-zinc-100 font-mono font-bold outline-none focus:ring-4 transition-all shadow-2xs placeholder-slate-400"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-black text-slate-600 dark:text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Calendar size={13} className="text-teal-600 dark:text-teal-400" />
+                    <span>Ngày mua / Nhập kho</span>
+                  </label>
+                  <CustomDatePicker
+                    value={equipmentFormData.ngay_mua}
+                    onChange={(val) => setEquipmentFormData({ ...equipmentFormData, ngay_mua: val })}
+                    placeholder="dd/mm/yyyy"
+                    align="right"
+                    maxDate={getLocalDateString()}
+                    buttonClassName="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-2xl px-4 py-3 text-xs font-bold text-slate-800 dark:text-zinc-100 focus:border-teal-500"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 dark:text-zinc-400 uppercase tracking-widest mb-1.5">Tên thiết bị</label>
+              {/* Row 2: Tên thiết bị (Full width) */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-black text-slate-600 dark:text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Cpu size={13} className="text-teal-600 dark:text-teal-400" />
+                  <span>Tên thiết bị y tế <b className="text-rose-500">*</b></span>
+                </label>
                 <input
                   type="text"
                   required
                   placeholder="Ví dụ: Máy Laser trị liệu công suất cao..."
                   value={equipmentFormData.ten_thiet_bi}
                   onChange={(e) => setEquipmentFormData({ ...equipmentFormData, ten_thiet_bi: e.target.value })}
-                  className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 p-2.5 font-bold rounded-xl text-slate-800 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-slate-500/10 transition-colors"
+                  className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 focus:border-teal-500 ring-teal-500/15 rounded-2xl px-4 py-3 text-xs text-slate-800 dark:text-zinc-100 font-bold outline-none focus:ring-4 transition-all shadow-2xs placeholder-slate-400"
                 />
               </div>
 
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 dark:text-zinc-400 uppercase tracking-widest mb-1.5">Phòng / Vị trí bố trí</label>
-                <select
-                  value={equipmentFormData.phong_id || ''}
-                  onChange={(e) => setEquipmentFormData({ ...equipmentFormData, phong_id: e.target.value })}
-                  className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 p-2.5 font-bold rounded-xl text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-slate-500/10 transition-colors cursor-pointer"
-                >
-                  <option value="">-- Chưa gán phòng (Hoặc thiết bị lưu kho) --</option>
-                  {rooms.filter((r: any) => r.loai_phong === 'phong_tri_lieu' || r.loai_phong === 'phong_dieu_tri').map((r: any) => (
-                    <option key={r.id} value={r.id}>
-                      🏥 {r.ten_phong} ({r.ma_phong})
-                    </option>
-                  ))}
-                </select>
+              {/* Row 3: Vị trí phòng & Trạng thái (2 columns) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-black text-slate-600 dark:text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Building2 size={13} className="text-teal-600 dark:text-teal-400" />
+                    <span>Phòng / Vị trí bố trí</span>
+                  </label>
+                  <CustomSelect
+                    value={String(equipmentFormData.phong_id || '')}
+                    onChange={(val) => setEquipmentFormData({ ...equipmentFormData, phong_id: val })}
+                    options={roomOptions}
+                    fullWidth
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-black text-slate-600 dark:text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Activity size={13} className="text-teal-600 dark:text-teal-400" />
+                    <span>Trạng thái thiết bị</span>
+                  </label>
+                  <CustomSelect
+                    value={equipmentFormData.trang_thai}
+                    onChange={(val) => setEquipmentFormData({ ...equipmentFormData, trang_thai: val })}
+                    options={statusOptions}
+                    fullWidth
+                  />
+                </div>
               </div>
 
-              {/* Trạng thái 3 lựa chọn động */}
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 dark:text-zinc-400 uppercase tracking-widest mb-1.5">Trạng thái</label>
-                <select
-                  value={equipmentFormData.trang_thai}
-                  onChange={(e) => setEquipmentFormData({ ...equipmentFormData, trang_thai: e.target.value })}
-                  className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 p-2.5 font-bold rounded-xl text-slate-800 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-slate-500/10 transition-colors cursor-pointer"
-                >
-                  {editingEquipment ? (
-                    editingEquipment.trang_thai === 'san_sang' ? (
-                      <>
-                        <option value="san_sang">🟢 Sẵn sàng (Hiện tại)</option>
-                        <option value="dang_bao_tri">🛠️ Đang bảo trì</option>
-                        <option value="ngung_su_dung">🚫 Ngưng sử dụng</option>
-                      </>
-                    ) : editingEquipment.trang_thai === 'dang_bao_tri' ? (
-                      <>
-                        <option value="dang_bao_tri">🛠️ Đang bảo trì (Hiện tại)</option>
-                        <option value="san_sang">🟢 Sẵn sàng</option>
-                        <option value="ngung_su_dung">🚫 Ngưng sử dụng</option>
-                      </>
-                    ) : (
-                      <>
-                        <option value="ngung_su_dung">🚫 Ngưng sử dụng (Hiện tại)</option>
-                        <option value="san_sang">🟢 Sẵn sàng</option>
-                        <option value="dang_bao_tri">🛠️ Đang bảo trì</option>
-                      </>
-                    )
-                  ) : (
-                    <>
-                      <option value="san_sang">🟢 Sẵn sàng</option>
-                      <option value="dang_bao_tri">🛠️ Đang bảo trì</option>
-                      <option value="ngung_su_dung">🚫 Ngưng sử dụng</option>
-                    </>
-                  )}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 dark:text-zinc-400 uppercase tracking-widest mb-1.5">Ngày mua</label>
-                <CustomDatePicker
-                  value={equipmentFormData.ngay_mua}
-                  onChange={(val) => setEquipmentFormData({ ...equipmentFormData, ngay_mua: val })}
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 dark:text-zinc-400 uppercase tracking-widest mb-1.5">Ghi chú / Mô tả</label>
+              {/* Row 4: Ghi chú */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-black text-slate-600 dark:text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <FileText size={13} className="text-teal-600 dark:text-teal-400" />
+                  <span>Ghi chú / Tình trạng máy</span>
+                </label>
                 <textarea
                   value={equipmentFormData.ghi_chu}
                   onChange={(e) => setEquipmentFormData({ ...equipmentFormData, ghi_chu: e.target.value })}
-                  placeholder="Thông tin chi tiết về tình trạng máy..."
+                  placeholder="Thông tin chi tiết về tình trạng máy, lịch bảo trì hoặc thông số kỹ thuật..."
                   rows={3}
-                  className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 p-2.5 font-semibold rounded-xl text-slate-800 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-slate-500/10 transition-colors"
+                  className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 focus:border-teal-500 ring-teal-500/15 rounded-2xl p-3.5 text-xs text-slate-800 dark:text-zinc-100 font-semibold outline-none focus:ring-4 transition-all shadow-2xs placeholder-slate-400 resize-none"
                 />
               </div>
 
               {/* Action buttons */}
-              <div className="flex gap-3 justify-end pt-4 border-t border-slate-100 dark:border-zinc-800">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-zinc-150/80 dark:border-zinc-800">
                 <button
                   type="button"
                   onClick={() => setIsEquipmentModalOpen(false)}
-                  className="px-4 py-2 border border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 text-xs font-bold uppercase tracking-wider rounded-xl transition-colors cursor-pointer"
+                  className="px-5 py-3 rounded-2xl border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 text-xs font-black uppercase tracking-wider transition-all cursor-pointer"
                 >
-                  Hủy
+                  Hủy bỏ
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-slate-900 dark:bg-teal-600 hover:bg-slate-800 dark:hover:bg-teal-500 text-white text-xs font-bold uppercase tracking-wider transition-colors rounded-xl active:scale-95 cursor-pointer shadow-sm"
+                  className="px-6 py-3 rounded-2xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-teal-600/25 active:scale-95 flex items-center gap-2 cursor-pointer"
                 >
-                  {editingEquipment ? 'Lưu thông tin' : 'Thêm mới'}
+                  <Save size={16} />
+                  <span>{editingEquipment ? 'Lưu thay đổi' : 'Thêm mới'}</span>
                 </button>
               </div>
             </form>

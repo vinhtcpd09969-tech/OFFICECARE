@@ -249,7 +249,7 @@ export function FeedbackDetailModal({
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-black text-slate-800 dark:text-zinc-200 flex items-center gap-2 font-jakarta">
                   <Send size={14} className="text-teal-600" />
-                  <span>Phản hồi từ phòng khám OfficeCare</span>
+                  <span>Phản hồi từ Trung tâm OfficeCare</span>
                 </h4>
 
                 {selectedFeedback.phan_hoi_nhan_xet && !isEditingReply && (

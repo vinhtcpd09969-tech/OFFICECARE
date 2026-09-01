@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { validateEmail } from '../utils/validators';
 
 const staffIdSchema = z.union([
   z.number().int(),
@@ -14,7 +15,17 @@ export const createAppointmentSchema = z.object({
     ho_ten_khach: z.string().optional().nullable(),
     so_dien_thoai: z.string().optional().nullable(),
     gioi_tinh_khach: z.string().optional().nullable(),
-    email: z.string().optional().nullable(),
+    email: z.string().optional().nullable().superRefine((val, ctx) => {
+      if (val && val.trim() !== '') {
+        const res = validateEmail(val);
+        if (!res.isValid) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: res.message || 'Địa chỉ email không hợp lệ.',
+          });
+        }
+      }
+    }),
     goi_dich_vu_id: z.string().uuid().optional().nullable(),
     dich_vu_id: z.string().uuid().optional().nullable(),
     bac_si_id: staffIdSchema,

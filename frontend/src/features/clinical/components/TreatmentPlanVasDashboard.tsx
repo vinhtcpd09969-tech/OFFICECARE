@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { TreatmentPlan, PatientInfo } from '@/features/doctor/api/doctor.api';
 import { printSingleSession } from '@/utils/medicalRecordPrinter';
+import { useAuthStore } from '@/stores/authStore';
 
 // Wong-Baker Faces helper
 export const WONG_BAKER_FACES = [
@@ -28,8 +29,8 @@ export const WONG_BAKER_FACES = [
 
 export function getFaceForVas(score: number | null | undefined) {
   if (score === null || score === undefined) return { face: '—', label: 'Chưa đo' };
-  const found = WONG_BAKER_FACES.find((f) => f.score >= score);
-  return found || WONG_BAKER_FACES[WONG_BAKER_FACES.length - 1];
+  const found = WONG_BAKER_FACES.find((f) => f.score === score);
+  return found || { face: '😐', label: `Mức ${score}` };
 }
 
 interface TreatmentPlanVasDashboardProps {
@@ -38,6 +39,8 @@ interface TreatmentPlanVasDashboardProps {
 }
 
 export const TreatmentPlanVasDashboard: React.FC<TreatmentPlanVasDashboardProps> = ({ plan, patient }) => {
+  const currentUser = useAuthStore((state) => state.user);
+  const isCustomer = currentUser?.vai_tro_id === 1 || window.location.pathname.startsWith('/medical-record');
   const [filterRange, setFilterRange] = useState<'all' | '3' | '6'>('all');
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
@@ -106,8 +109,7 @@ export const TreatmentPlanVasDashboard: React.FC<TreatmentPlanVasDashboardProps>
 
   // Tiến độ liệu trình
   const totalSessionsCount = plan.tong_so_buoi || 1;
-  const validSessions = plan.sessions?.filter((s: any) => s.trang_thai !== 'da_huy') || [];
-  const usedSessionsCount = Math.max(plan.so_buoi_da_dung || 0, validSessions.length);
+  const usedSessionsCount = Number(plan.so_buoi_da_dung !== undefined && plan.so_buoi_da_dung !== null ? plan.so_buoi_da_dung : completedCount);
   const progressPercent = Math.min(100, Math.round((usedSessionsCount / totalSessionsCount) * 100));
 
   // Biểu đồ SVG chỉ vẽ các buổi ĐÃ HOÀN THÀNH (không hiển thị buổi không đến lên biểu đồ)
@@ -119,12 +121,12 @@ export const TreatmentPlanVasDashboard: React.FC<TreatmentPlanVasDashboardProps>
       : completedSessions;
 
   // SVG Chart Dimensions (Full Width 100%)
-  const svgWidth = Math.max(760, displaySessions.length * 75);
-  const svgHeight = 230;
-  const paddingLeft = 50;
-  const paddingRight = 95;
-  const paddingTop = 22;
-  const paddingBottom = 32;
+  const svgWidth = Math.max(720, displaySessions.length * 64);
+  const svgHeight = 240;
+  const paddingLeft = 45;
+  const paddingRight = 24;
+  const paddingTop = 26;
+  const paddingBottom = 44;
   const chartWidth = svgWidth - paddingLeft - paddingRight;
   const chartHeight = svgHeight - paddingTop - paddingBottom;
 
@@ -152,18 +154,40 @@ export const TreatmentPlanVasDashboard: React.FC<TreatmentPlanVasDashboardProps>
     postPoints.push({ x: getX(idx), y: getY(postVal) });
   });
 
-  const createPath = (pts: { x: number; y: number }[]) => {
-    if (pts.length < 2) return '';
+  // Đường cong mềm mại Cubic Bézier Spline
+  const createCurvedPath = (pts: { x: number; y: number }[]) => {
+    if (pts.length === 0) return '';
+    if (pts.length === 1) return `M ${pts[0].x} ${pts[0].y}`;
+    if (pts.length === 2) return `M ${pts[0].x} ${pts[0].y} L ${pts[1].x} ${pts[1].y}`;
+
     let path = `M ${pts[0].x} ${pts[0].y}`;
     for (let i = 0; i < pts.length - 1; i++) {
-      const next = pts[i + 1];
-      path += ` L ${next.x} ${next.y}`;
+      const p0 = i > 0 ? pts[i - 1] : pts[i];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = i < pts.length - 2 ? pts[i + 2] : p2;
+
+      const cp1x = p1.x + (p2.x - p0.x) / 6;
+      const cp1y = p1.y + (p2.y - p0.y) / 6;
+      const cp2x = p2.x - (p3.x - p1.x) / 6;
+      const cp2y = p2.y - (p3.y - p1.y) / 6;
+
+      path += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x} ${p2.y}`;
     }
     return path;
   };
 
-  const prePathD = createPath(prePoints);
-  const postPathD = createPath(postPoints);
+  const createCurvedAreaPath = (pts: { x: number; y: number }[], baseY: number) => {
+    if (pts.length === 0) return '';
+    const curve = createCurvedPath(pts);
+    const first = pts[0];
+    const last = pts[pts.length - 1];
+    return `${curve} L ${last.x} ${baseY} L ${first.x} ${baseY} Z`;
+  };
+
+  const prePathD = createCurvedPath(prePoints);
+  const postPathD = createCurvedPath(postPoints);
+  const postAreaD = createCurvedAreaPath(postPoints, getY(0));
 
   // Kỹ thuật KTV thực hiện của selectedSession
   const rawTriLieu = selectedSession
@@ -332,40 +356,40 @@ export const TreatmentPlanVasDashboard: React.FC<TreatmentPlanVasDashboardProps>
         </div>
 
         {/* SVG CHART CONTAINER */}
-        <div className="bg-slate-50/70 dark:bg-zinc-950/60 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-3.5 sm:p-4 shadow-inner overflow-x-auto">
+        <div className="bg-slate-50/70 dark:bg-zinc-950/60 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-4 sm:p-5 shadow-inner overflow-x-auto">
           <div className="w-full">
-            <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full h-auto min-w-[620px]">
-              {/* DẢI MÀU NỀN PHÂN VÙNG MỨC ĐỘ ĐAU */}
-              <rect x={paddingLeft} y={getY(10)} width={chartWidth} height={getY(7) - getY(10)} fill="#FFF1F2" opacity="0.6" />
-              <g transform={`translate(${svgWidth - paddingRight + 8}, ${getY(8.5) - 9.5})`}>
-                <rect x="0" y="0" width="86" height="19" rx="6" fill="#FFE4E6" stroke="#FECDD3" strokeWidth="0.8" />
-                <text x="43" y="13" fill="#BE123C" fontSize="9.5" fontWeight="800" fontFamily="sans-serif" textAnchor="middle">
-                  7-10: Đau nhiều
-                </text>
-              </g>
+            <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full h-auto min-w-[660px]">
+              <defs>
+                {/* Vùng chuyển sắc mờ ảo dưới đường VAS Sau Buổi */}
+                <linearGradient id="vasTealArea" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#0D9488" stopOpacity="0.25" />
+                  <stop offset="50%" stopColor="#0D9488" stopOpacity="0.08" />
+                  <stop offset="100%" stopColor="#0D9488" stopOpacity="0.00" />
+                </linearGradient>
 
-              <rect x={paddingLeft} y={getY(6.9)} width={chartWidth} height={getY(4) - getY(6.9)} fill="#FFFBEB" opacity="0.6" />
-              <g transform={`translate(${svgWidth - paddingRight + 8}, ${getY(5) - 9.5})`}>
-                <rect x="0" y="0" width="86" height="19" rx="6" fill="#FEF3C7" stroke="#FDE68A" strokeWidth="0.8" />
-                <text x="43" y="13" fill="#B45309" fontSize="9.5" fontWeight="800" fontFamily="sans-serif" textAnchor="middle">
-                  4-6: Đau vừa
-                </text>
-              </g>
+                {/* Vùng chuyển sắc mờ dưới đường VAS Trước Buổi */}
+                <linearGradient id="vasRoseArea" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#F43F5E" stopOpacity="0.10" />
+                  <stop offset="100%" stopColor="#F43F5E" stopOpacity="0.00" />
+                </linearGradient>
 
-              <rect x={paddingLeft} y={getY(3.9)} width={chartWidth} height={getY(1) - getY(3.9)} fill="#F0FDF4" opacity="0.6" />
-              <g transform={`translate(${svgWidth - paddingRight + 8}, ${getY(2) - 9.5})`}>
-                <rect x="0" y="0" width="86" height="19" rx="6" fill="#DCFCE7" stroke="#BBF7D0" strokeWidth="0.8" />
-                <text x="43" y="13" fill="#15803D" fontSize="9.5" fontWeight="800" fontFamily="sans-serif" textAnchor="middle">
-                  1-3: Đau nhẹ
-                </text>
-              </g>
+                {/* Bóng mờ phát sáng nhẹ cho các điểm dữ liệu */}
+                <filter id="glowTeal" x="-30%" y="-30%" width="160%" height="160%">
+                  <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#0D9488" floodOpacity="0.28" />
+                </filter>
+                <filter id="glowRose" x="-30%" y="-30%" width="160%" height="160%">
+                  <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#F43F5E" floodOpacity="0.28" />
+                </filter>
+                <filter id="cardPillShadow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#0F172A" floodOpacity="0.06" />
+                </filter>
+              </defs>
 
-              <g transform={`translate(${svgWidth - paddingRight + 8}, ${getY(0) - 9.5})`}>
-                <rect x="0" y="0" width="86" height="19" rx="6" fill="#CCFBF1" stroke="#99F6E4" strokeWidth="0.8" />
-                <text x="43" y="13" fill="#0F766E" fontSize="9.5" fontWeight="900" fontFamily="sans-serif" textAnchor="middle">
-                  0: Hồi phục
-                </text>
-              </g>
+              {/* DẢI MÀU NỀN PHÂN VÙNG MỨC ĐỘ ĐAU (Trải dài 100% chartWidth) */}
+              <rect x={paddingLeft} y={getY(10)} width={chartWidth} height={getY(7) - getY(10)} rx="6" fill="#FFF1F2" opacity="0.6" />
+              <rect x={paddingLeft} y={getY(6.99)} width={chartWidth} height={getY(4) - getY(6.99)} rx="6" fill="#FFFBEB" opacity="0.6" />
+              <rect x={paddingLeft} y={getY(3.99)} width={chartWidth} height={getY(1) - getY(3.99)} rx="6" fill="#F0FDF4" opacity="0.6" />
+              <rect x={paddingLeft} y={getY(0.99)} width={chartWidth} height={getY(0) - getY(0.99)} rx="6" fill="#CCFBF1" opacity="0.6" />
 
               {/* Horizontal Grid lines */}
               {[0, 2, 4, 6, 8, 10].map((val) => {
@@ -378,19 +402,44 @@ export const TreatmentPlanVasDashboard: React.FC<TreatmentPlanVasDashboardProps>
                       x2={svgWidth - paddingRight}
                       y2={y}
                       stroke="#E2E8F0"
-                      strokeDasharray={val === 0 ? undefined : '3 3'}
-                      strokeWidth={val === 0 ? '1.5' : '1'}
+                      strokeDasharray={val === 0 ? undefined : '4 4'}
+                      strokeWidth={val === 0 ? '1.5' : '0.8'}
                     />
-                    <text x={paddingLeft - 8} y={y + 3.5} fill="#94A3B8" fontSize="9.5" fontWeight="bold" fontFamily="monospace" textAnchor="end">
+                    <text x={paddingLeft - 10} y={y + 3.5} fill="#94A3B8" fontSize="9.5" fontWeight="bold" fontFamily="monospace" textAnchor="end">
                       {val}
                     </text>
                   </g>
                 );
               })}
 
-              {prePathD && <path d={prePathD} fill="none" stroke="#F43F5E" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />}
-              {postPathD && <path d={postPathD} fill="none" stroke="#0D9488" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />}
+              {/* Area Fills under curves */}
+              {postAreaD && <path d={postAreaD} fill="url(#vasTealArea)" />}
 
+              {/* Smooth Curves */}
+              {prePathD && (
+                <path
+                  d={prePathD}
+                  fill="none"
+                  stroke="#F43F5E"
+                  strokeWidth="2.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  opacity="0.9"
+                />
+              )}
+              {postPathD && (
+                <path
+                  d={postPathD}
+                  fill="none"
+                  stroke="#0D9488"
+                  strokeWidth="3.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  filter="url(#glowTeal)"
+                />
+              )}
+
+              {/* Interactive Columns and Data Points */}
               {displaySessions.map((s, idx) => {
                 const posX = getX(idx);
                 const isSelected = s.id === selectedSessionId;
@@ -410,41 +459,70 @@ export const TreatmentPlanVasDashboard: React.FC<TreatmentPlanVasDashboardProps>
                     onMouseEnter={() => setHoveredIdx(idx)}
                     onMouseLeave={() => setHoveredIdx(null)}
                   >
+                    {/* Cột sáng rọi mờ tương tác khi hover/select */}
+                    <rect
+                      x={posX - 32}
+                      y={paddingTop - 12}
+                      width="64"
+                      height={chartHeight + 20}
+                      rx="14"
+                      fill="#0D9488"
+                      opacity={isSelected ? 0.08 : isHovered ? 0.04 : 0}
+                      className="transition-all duration-200"
+                    />
+
+                    {/* Đường rọi liên kết dọc */}
                     <line
                       x1={posX}
                       y1={paddingTop}
                       x2={posX}
                       y2={svgHeight - paddingBottom}
-                      stroke={isSelected ? '#0D9488' : '#CBD5E1'}
+                      stroke={isSelected ? '#0D9488' : isHovered ? '#0D9488' : '#CBD5E1'}
                       strokeWidth={isSelected ? '2' : '1'}
                       strokeDasharray="2 2"
+                      opacity={isSelected || isHovered ? 0.9 : 0.6}
                     />
 
-                    <circle cx={posX} cy={preY} r={isSelected ? '6.5' : '5'} fill="#F43F5E" stroke="#FFFFFF" strokeWidth="1.5" />
-                    <text x={posX} y={preY - 7} fill="#E11D48" fontSize="9.5" fontWeight="900" fontFamily="monospace" textAnchor="middle">
-                      {preVal}
-                    </text>
+                    {/* Điểm VAS đầu ca (Đỏ Glow 2 lớp) */}
+                    <circle cx={posX} cy={preY} r={isSelected ? '8' : '6'} fill="#F43F5E" fillOpacity="0.18" />
+                    <circle cx={posX} cy={preY} r={isSelected ? '5.5' : '4'} fill="#F43F5E" stroke="#FFFFFF" strokeWidth="2" filter="url(#glowRose)" />
+                    
+                    {/* Badge số điểm Trước */}
+                    <g transform={`translate(${preVal === postVal ? posX - 13 : posX}, ${preY - 13})`}>
+                      <rect x="-10" y="-7.5" width="20" height="14" rx="4.5" fill="#FFE4E6" stroke="#FECDD3" strokeWidth="0.8" filter="url(#cardPillShadow)" />
+                      <text x="0" y="3" fill="#E11D48" fontSize="9" fontWeight="900" fontFamily="monospace" textAnchor="middle">
+                        {preVal}
+                      </text>
+                    </g>
 
-                    <circle cx={posX} cy={postY} r={isSelected ? '7.5' : '6'} fill="#0D9488" stroke="#FFFFFF" strokeWidth="2" />
-                    <text x={posX} y={postY + 13} fill="#0F766E" fontSize="9.5" fontWeight="900" fontFamily="monospace" textAnchor="middle">
-                      {postVal}
-                    </text>
+                    {/* Điểm VAS sau ca (Xanh ngọc Glow 2 lớp) */}
+                    <circle cx={posX} cy={postY} r={isSelected ? '9' : '7'} fill="#0D9488" fillOpacity="0.22" />
+                    <circle cx={posX} cy={postY} r={isSelected ? '6' : '4.5'} fill="#0D9488" stroke="#FFFFFF" strokeWidth="2" filter="url(#glowTeal)" />
 
+                    {/* Badge số điểm Sau */}
+                    <g transform={`translate(${preVal === postVal ? posX + 13 : posX}, ${preVal === postVal ? postY - 13 : postVal <= 1 ? postY - 13 : postY + 13})`}>
+                      <rect x="-10" y="-7.5" width="20" height="14" rx="4.5" fill="#CCFBF1" stroke="#99F6E4" strokeWidth="0.8" filter="url(#cardPillShadow)" />
+                      <text x="0" y="3" fill="#0F766E" fontSize="9" fontWeight="900" fontFamily="monospace" textAnchor="middle">
+                        {postVal}
+                      </text>
+                    </g>
+
+                    {/* Nhãn Buổi & Ngày ở trục hoành (Typography thanh mảnh, không bọc thẻ card) */}
                     <text
                       x={posX}
-                      y={svgHeight - paddingBottom + 14}
-                      fill={isSelected ? '#0D9488' : '#1E293B'}
-                      fontSize="10.5"
+                      y={svgHeight - paddingBottom + 16}
+                      fill={isSelected ? '#0D9488' : isHovered ? '#0D9488' : '#1E293B'}
+                      fontSize="11"
                       fontWeight={isSelected ? '900' : '700'}
                       fontFamily="sans-serif"
                       textAnchor="middle"
                     >
-                      Buổi #{s.so_thu_tu_buoi}
+                      Buổi {s.so_thu_tu_buoi}
                     </text>
                     <text
                       x={posX}
-                      y={svgHeight - paddingBottom + 25}
-                      fill="#64748B"
+                      y={svgHeight - paddingBottom + 28}
+                      fill={isSelected ? '#0D9488' : '#64748B'}
                       fontSize="9"
                       fontWeight="bold"
                       fontFamily="monospace"
@@ -453,15 +531,16 @@ export const TreatmentPlanVasDashboard: React.FC<TreatmentPlanVasDashboardProps>
                       {s.thoi_gian_bat_dau ? new Date(s.thoi_gian_bat_dau).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : ''}
                     </text>
 
+                    {/* Hover Floating Tooltip */}
                     {isHovered && (
-                      <g transform={`translate(${posX > svgWidth - 140 ? posX - 130 : posX + 10}, ${Math.min(preY, postY) - 15})`}>
-                        <rect x="0" y="0" width="125" height="64" rx="8" fill="#FFFFFF" stroke="#0D9488" strokeWidth="1.5" className="shadow-lg" />
-                        <text x="8" y="14" fill="#0F172A" fontSize="9.5" fontWeight="900">
-                          Buổi #{s.so_thu_tu_buoi} ({s.thoi_gian_bat_dau ? new Date(s.thoi_gian_bat_dau).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : ''})
+                      <g transform={`translate(${posX > svgWidth - 160 ? posX - 145 : posX + 15}, ${Math.min(preY, postY) - 10})`}>
+                        <rect x="0" y="0" width="135" height="70" rx="10" fill="#FFFFFF" stroke="#0D9488" strokeWidth="1.5" filter="url(#cardPillShadow)" />
+                        <text x="10" y="16" fill="#0F172A" fontSize="10" fontWeight="900">
+                          Buổi {s.so_thu_tu_buoi} ({s.thoi_gian_bat_dau ? new Date(s.thoi_gian_bat_dau).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : ''})
                         </text>
-                        <text x="8" y="29" fill="#E11D48" fontSize="9" fontWeight="700">● VAS đầu: {preVal}/10</text>
-                        <text x="8" y="42" fill="#0D9488" fontSize="9" fontWeight="700">● VAS sau: {postVal}/10</text>
-                        <text x="8" y="55" fill="#059669" fontSize="9" fontWeight="900">● Giảm: ↓ {delta} điểm</text>
+                        <text x="10" y="32" fill="#E11D48" fontSize="9.5" fontWeight="700">● VAS đầu: {preVal}/10</text>
+                        <text x="10" y="47" fill="#0D9488" fontSize="9.5" fontWeight="700">● VAS sau: {postVal}/10</text>
+                        <text x="10" y="61" fill="#059669" fontSize="9.5" fontWeight="900">● Giảm: ↓ {delta} điểm</text>
                       </g>
                     )}
                   </g>
@@ -470,17 +549,33 @@ export const TreatmentPlanVasDashboard: React.FC<TreatmentPlanVasDashboardProps>
             </svg>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-5 pt-3 border-t border-slate-200/60 dark:border-zinc-800 text-xs font-bold text-slate-600 dark:text-zinc-400">
-            <div className="flex items-center gap-1.5">
-              <span className="size-2.5 rounded-full bg-rose-500" />
-              <span>VAS đầu buổi (trước trị liệu)</span>
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-3.5 border-t border-slate-200/60 dark:border-zinc-800 text-xs font-bold text-slate-600 dark:text-zinc-400">
+            {/* 2 Đường nét biểu đồ */}
+            <div className="flex flex-wrap items-center gap-2.5">
+              <div className="flex items-center gap-2 bg-white dark:bg-zinc-800/80 px-3 py-1.5 rounded-xl border border-slate-200/80 dark:border-zinc-700 shadow-2xs">
+                <span className="size-2.5 rounded-full bg-rose-500 shadow-xs" />
+                <span>VAS đầu ca (Trước trị liệu)</span>
+              </div>
+              <div className="flex items-center gap-2 bg-white dark:bg-zinc-800/80 px-3 py-1.5 rounded-xl border border-slate-200/80 dark:border-zinc-700 shadow-2xs">
+                <span className="size-2.5 rounded-full bg-teal-600 shadow-xs" />
+                <span>VAS sau ca (Sau trị liệu)</span>
+              </div>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="size-2.5 rounded-full bg-teal-600" />
-              <span>VAS sau buổi (sau trị liệu)</span>
-            </div>
-            <div className="flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-black">
-              <span>↓ Mức thuyên giảm</span>
+
+            {/* 4 Thang phân vùng mức độ đau */}
+            <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+              <span className="px-2.5 py-1 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200/80 dark:border-rose-900/60 font-bold">
+                🔥 7-10: Đau nhiều
+              </span>
+              <span className="px-2.5 py-1 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/80 dark:border-amber-900/60 font-bold">
+                ⚡ 4-6: Đau vừa
+              </span>
+              <span className="px-2.5 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-900/60 font-bold">
+                🍃 1-3: Đau nhẹ
+              </span>
+              <span className="px-2.5 py-1 rounded-xl bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border border-teal-200/80 dark:border-teal-900/60 font-bold">
+                ✨ 0: Hồi phục
+              </span>
             </div>
           </div>
         </div>
@@ -541,7 +636,7 @@ export const TreatmentPlanVasDashboard: React.FC<TreatmentPlanVasDashboardProps>
                     </div>
                     <div>
                       <div className="text-xs font-black text-slate-900 dark:text-zinc-100 leading-tight">
-                        Buổi #{s.so_thu_tu_buoi}
+                        Buổi {s.so_thu_tu_buoi}
                       </div>
                       <div className="flex items-center gap-1 text-[10px] font-medium text-slate-400 mt-0.5">
                         <Calendar size={10} className="text-slate-400 shrink-0" />
@@ -619,7 +714,7 @@ export const TreatmentPlanVasDashboard: React.FC<TreatmentPlanVasDashboardProps>
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <h5 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
-                    Chi Tiết Lâm Sàng Buổi #{selectedSession.so_thu_tu_buoi}
+                    Chi Tiết Lâm Sàng Buổi {selectedSession.so_thu_tu_buoi}
                   </h5>
                   <span
                     className={`px-2.5 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider ${
@@ -674,7 +769,7 @@ export const TreatmentPlanVasDashboard: React.FC<TreatmentPlanVasDashboardProps>
               )}
 
               <div className="flex items-center gap-1.5 shrink-0">
-                {patient && selectedSession.trang_thai !== 'khong_den' && (
+                {!isCustomer && patient && selectedSession.trang_thai !== 'khong_den' && (
                   <button
                     type="button"
                     onClick={() => printSingleSession(patient, plan, selectedSession)}
@@ -682,7 +777,7 @@ export const TreatmentPlanVasDashboard: React.FC<TreatmentPlanVasDashboardProps>
                     title="In phiếu chi tiết buổi trị liệu này"
                   >
                     <Printer size={14} />
-                    <span>In Phiếu Buổi #{selectedSession.so_thu_tu_buoi}</span>
+                    <span>In Phiếu Buổi {selectedSession.so_thu_tu_buoi}</span>
                   </button>
                 )}
 
@@ -734,7 +829,7 @@ export const TreatmentPlanVasDashboard: React.FC<TreatmentPlanVasDashboardProps>
                 <AlertTriangle size={24} />
               </div>
               <h6 className="text-sm font-black text-slate-800 dark:text-zinc-200">
-                Khách hàng không đến ca hẹn điều trị Buổi #{selectedSession.so_thu_tu_buoi}
+                Khách hàng không đến ca hẹn điều trị Buổi {selectedSession.so_thu_tu_buoi}
               </h6>
               <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-md mx-auto">
                 Ca hẹn đã được ghi nhận trạng thái <strong>Không đến (Vắng mặt)</strong>. Do đó không có dữ liệu đánh giá thang đo VAS hoặc nhật ký kỹ thuật trị liệu nào cho buổi này.
@@ -814,7 +909,7 @@ export const TreatmentPlanVasDashboard: React.FC<TreatmentPlanVasDashboardProps>
                   selectedSession.danh_gia_truoc_buoi !== null &&
                   selectedSession.danh_gia_sau_buoi !== null &&
                   selectedSession.danh_gia_truoc_buoi > selectedSession.danh_gia_sau_buoi
-                    ? `Hiệu quả thuyên giảm đau trong buổi #${selectedSession.so_thu_tu_buoi}: Giảm ${selectedSession.danh_gia_truoc_buoi - selectedSession.danh_gia_sau_buoi} điểm (${selectedSession.danh_gia_truoc_buoi}/10 ➔ ${selectedSession.danh_gia_sau_buoi}/10)`
+                    ? `Hiệu quả thuyên giảm đau trong buổi ${selectedSession.so_thu_tu_buoi}: Giảm ${selectedSession.danh_gia_truoc_buoi - selectedSession.danh_gia_sau_buoi} điểm (${selectedSession.danh_gia_truoc_buoi}/10 ➔ ${selectedSession.danh_gia_sau_buoi}/10)`
                     : `Mức độ đau sau ca trị liệu: (${selectedSession.danh_gia_sau_buoi ?? selectedSession.danh_gia_truoc_buoi ?? 4}/10)`}
                 </span>
               </div>

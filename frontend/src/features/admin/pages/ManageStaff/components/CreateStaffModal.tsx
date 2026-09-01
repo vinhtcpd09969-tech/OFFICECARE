@@ -4,10 +4,19 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { X, User, Mail, Lock, ShieldCheck, Phone, Eye, EyeOff, UserPlus } from 'lucide-react';
 import { CustomSelect } from '../../../../../components/CustomSelect';
+import { validateEmail } from '../../../../../utils/validators';
 
 const staffSchema = z.object({
   ho_ten: z.string().min(1, 'Vui lòng không để trống họ và tên'),
-  email: z.string().min(1, 'Vui lòng không để trống email đăng nhập').email('Email không đúng định dạng (vd: ten@officecare.vn)'),
+  email: z.string().min(1, 'Vui lòng không để trống email đăng nhập').superRefine((val, ctx) => {
+    const res = validateEmail(val);
+    if (!res.isValid) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: res.message || 'Email không đúng định dạng',
+      });
+    }
+  }),
   mat_khau: z.string().min(1, 'Vui lòng không để trống mật khẩu').min(6, 'Mật khẩu khởi tạo phải từ 6 ký tự trở lên'),
   vai_tro_id: z.number().refine(val => [2, 3, 4, 6].includes(val), {
     message: 'Vui lòng chọn vai trò làm việc (Lễ tân, KTV, Chuyên viên hoặc Quản lý)'
@@ -180,10 +189,10 @@ export function CreateStaffModal({ isOpen, onClose, onSubmit }: CreateStaffModal
                     buttonClassName="py-3 px-4 rounded-2xl bg-slate-50 dark:bg-zinc-950"
                     options={[
                       { value: 0, label: 'Chọn vai trò làm việc...' },
-                      { value: 2, label: 'Lễ tân (Tiếp đón & Thu ngân)', icon: '🛎️' },
-                      { value: 3, label: 'Kỹ thuật viên (Thực hiện trị liệu)', icon: '👐' },
-                      { value: 4, label: 'Chuyên viên tư vấn (Lượng giá)', icon: '🩺' },
-                      { value: 6, label: 'Quản lý chi nhánh', icon: '👔' },
+                      { value: 2, label: 'Lễ tân', icon: '🛎️' },
+                      { value: 3, label: 'Kỹ thuật viên', icon: '👐' },
+                      { value: 4, label: 'Chuyên viên tư vấn', icon: '🩺' },
+                      { value: 6, label: 'Quản lý', icon: '👔' },
                     ]}
                   />
                 )}

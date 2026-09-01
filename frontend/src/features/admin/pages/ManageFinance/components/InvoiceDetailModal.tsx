@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { User, Building, Activity, Receipt, RotateCcw, Printer, CreditCard, ShieldAlert, CalendarX, ChevronDown } from 'lucide-react';
 import { formatCurrency } from '../../../../../utils/format';
-import { canRefundPackage } from '../../../../../utils/billing';
+import { canRefundPackage, calculatePackageRefund } from '../../../../../utils/billing';
+import { PackageRefundBreakdown } from '../../../../../components/billing/PackageRefundBreakdown';
 import type { Invoice, Payment } from '../hooks/useFinanceDashboard';
 
 interface InvoiceDetailModalProps {
@@ -97,16 +98,18 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
 
   // Refund preview — khớp đúng công thức calculatePackageCancellationRefund() ở backend:
   // phạt 10% trên gia_thanh_toan_goi (giá gói đã chốt theo hình thức thanh toán) — CỐ ĐỊNH
-  // theo hợp đồng, không đổi theo đã đóng bao nhiêu tiền (khớp commit 581f9fc).
+  // Tính toán hoàn tiền qua helper dùng chung
   const totalPaid = Number(invoice.da_thanh_toan);
-  const gia_thanh_toan_goi = gia_goc_goi - so_tien_giam_voucher;
-  const penaltyAmount = Math.round((gia_thanh_toan_goi * penaltyPercent) / 100);
-  const totalSessions = Number(invoice.tong_so_buoi || 10);
-  const usedSessionsCost = Math.round((gia_thanh_toan_goi * usedSessions) / totalSessions);
-
-  const totalDeduction = usedSessionsCost + penaltyAmount;
-  const estimatedRefund = Math.max(0, totalPaid - totalDeduction);
-  const keptRevenue = totalPaid - estimatedRefund;
+  const refundCalc = calculatePackageRefund({
+    totalPaid,
+    packagePrice: tong_tien_goc,
+    voucherDiscount: so_tien_giam_voucher,
+    usedSessions,
+    totalSessions: Number(invoice.tong_so_buoi || 10),
+    penaltyPercent
+  });
+  const estimatedRefund = refundCalc.estimatedRefund;
+  const keptRevenue = refundCalc.keptRevenue;
 
   const handleRefundSubmit = () => {
     if (!onPackageRefund) return;
@@ -198,14 +201,14 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
               <div className="p-4 bg-zinc-50/50 dark:bg-zinc-800/50 border border-zinc-150 dark:border-zinc-700/80 rounded-2xl space-y-2.5">
                 <h3 className="text-[10px] font-black text-zinc-400 dark:text-zinc-400 uppercase tracking-wider pb-1 border-b border-zinc-100 dark:border-zinc-700/60 flex items-center gap-1.5">
                   <Building size={13} className="text-primary dark:text-teal-400" />
-                  Sản phẩm điều trị
+                  Gói dịch vụ
                 </h3>
                 <div className="space-y-1.5 text-xs font-semibold text-zinc-650 dark:text-zinc-300">
                   <div className="flex justify-between items-start gap-2">
                     <span className="text-zinc-400 dark:text-zinc-400 shrink-0">Chi tiết:</span>
                     <span className="text-secondary dark:text-zinc-100 font-black text-right leading-snug" title={invoice.ten_dich_vu}>
                       {invoice.ten_dich_vu || 'Phí lượng giá chức năng/Buổi lẻ'}
-                      {isPackage && ` (${totalSessions} buổi)`}
+                      {isPackage && ` (${Number(invoice.tong_so_buoi || 10)} buổi)`}
                     </span>
                   </div>
                   {invoice.hinh_thuc_thanh_toan_goi && (
@@ -366,71 +369,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                       }
 
                       if (selectedTx.loai_giao_dich === 'HOAN_TIEN') {
-                        const analysis = selectedTx.chi_tiet;
-
-                        if (!analysis) {
-                          return (
-                            <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-150 dark:border-zinc-700 border-dashed text-zinc-400 dark:text-zinc-500 text-[11px] italic text-center">
-                              Giao dịch trước nâng cấp hệ thống — không có dữ liệu chi tiết.
-                            </div>
-                          );
-                        }
-
-                        const examTrace = analysis.exam_trace as {
-                          has_separate_invoice: boolean;
-                          invoice_code: string | null;
-                          invoice_date: string | null;
-                          appointment_date: string | null;
-                          appointment_end: string | null;
-                        } | null;
-                        const totalDeduct = Number(analysis.chi_phi_buoi_dung) + Number(analysis.phi_phat_thuc_te) + Number(analysis.exam_fee_to_charge);
-
-                        return (
-                          <div className="p-4 rounded-2xl bg-rose-50/60 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/60 text-rose-950 dark:text-rose-100 text-xs font-semibold space-y-3.5 shadow-sm animate-in fade-in duration-200">
-                            <div className="flex justify-between items-center pb-2 border-b border-rose-100/65 dark:border-rose-900/50">
-                              <span className="font-black text-rose-700 dark:text-rose-400 uppercase tracking-wider text-[10px] flex items-center gap-1.5">
-                                📊 Phân tích chi tiết giao dịch hoàn tiền ({selectedTx.ma_giao_dich})
-                              </span>
-                              <span className="text-[9px] bg-rose-200/50 dark:bg-rose-900/60 text-rose-800 dark:text-rose-300 px-1.5 py-0.5 rounded font-black">REFUND</span>
-                            </div>
-
-                            <div className="space-y-2.5">
-                              <div className="flex justify-between items-center text-zinc-700 dark:text-zinc-300 font-bold">
-                                <span>1. Số tiền khách đã thực đóng (A):</span>
-                                <strong className="text-secondary dark:text-zinc-100 font-black text-sm">{formatCurrency(analysis.so_tien_da_dong)}</strong>
-                              </div>
-
-                              <div className="pl-3 border-l-2 border-rose-200 dark:border-rose-800 space-y-1.5 text-[11px] text-zinc-650 dark:text-zinc-400">
-                                <div className="flex justify-between">
-                                  <span className="text-zinc-500 dark:text-zinc-400">2.1. Chi phí số buổi đã sử dụng ({analysis.so_buoi_dung}/{analysis.tong_so_buoi} buổi):</span>
-                                  <span>-{formatCurrency(analysis.chi_phi_buoi_dung)}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-zinc-500 dark:text-zinc-400">2.2. Phí phạt hủy gói ({analysis.phi_phat_percent}% trên số tiền đã đóng thực tế):</span>
-                                  <span>-{formatCurrency(analysis.phi_phat_thuc_te)}</span>
-                                </div>
-                                {examTrace && Number(analysis.exam_fee_to_charge || 0) > 0 && (
-                                  <div className="flex justify-between items-start">
-                                    <span className="text-zinc-500 dark:text-zinc-400 text-left max-w-[280px]">
-                                      2.3. Phí lượng giá chức năng{examTrace.appointment_date ? ` (Ca lượng giá ngày ${formatLongDate(examTrace.appointment_date)})` : ''}:
-                                    </span>
-                                    <span className="shrink-0">-{formatCurrency(analysis.exam_fee_to_charge)}</span>
-                                  </div>
-                                )}
-                              </div>
-
-                              <div className="flex justify-between items-center pt-2 border-t border-dashed border-rose-200/60 dark:border-rose-900/50 font-bold text-rose-800 dark:text-rose-300">
-                                <span>3. Tổng số tiền khấu trừ (B = 2.1 + 2.2 + 2.3):</span>
-                                <span>-{formatCurrency(totalDeduct)}</span>
-                              </div>
-
-                              <div className="flex justify-between items-center pt-2.5 border-t border-rose-200 dark:border-rose-800 font-black text-rose-950 dark:text-rose-100 text-xs">
-                                <span>4. Thực tế hoàn trả cho khách (A - B):</span>
-                                <span className="text-rose-600 dark:text-rose-400 font-black text-sm">{formatCurrency(analysis.so_tien_hoan_tra)}</span>
-                              </div>
-                            </div>
-                          </div>
-                        );
+                        return <PackageRefundBreakdown calculation={selectedTx.chi_tiet as any} />;
                       } else {
                         const chiTiet = selectedTx.chi_tiet;
                         const txContent = chiTiet?.dien_giai || 'Giao dịch thanh toán (dữ liệu cũ, trước nâng cấp hệ thống)';
@@ -466,6 +405,25 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                                     : selectedTx.phuong_thuc === 'chuyen_khoan'
                                     ? 'Chuyển khoản'
                                     : 'Thẻ / POS'}
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-zinc-500 dark:text-zinc-400">5. Người thu:</span>
+                                <span className="font-semibold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
+                                  {selectedTx.ten_nhan_vien_thuc_hien ? (
+                                    <>
+                                      <span className="text-teal-800 dark:text-teal-300 font-bold">{selectedTx.ten_nhan_vien_thuc_hien}</span>
+                                      {selectedTx.vai_tro_nhan_vien && (
+                                        <span className="text-[9px] bg-teal-100/80 text-teal-800 dark:bg-teal-950 dark:text-teal-300 border border-teal-200/80 dark:border-teal-800 px-1.5 py-0.2 rounded font-black uppercase">
+                                          {selectedTx.vai_tro_nhan_vien}
+                                        </span>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <span className="text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/60 border border-sky-200/60 dark:border-sky-800 px-2 py-0.5 rounded-md font-bold text-[10px]">
+                                      🌐 Khách hàng (Thanh toán trực tuyến)
+                                    </span>
+                                  )}
                                 </span>
                               </div>
 
@@ -562,115 +520,8 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                       />
                     </div>
 
-                    {/* Bảng tính hoàn tiền — trình bày đúng dạng một phép trừ: đã đóng, trừ từng khoản,
-                        còn lại. Không dùng dấu "+" cho các khoản khấu trừ (gây hiểu nhầm là cộng tiền). */}
-                    {(() => {
-                      const perSessionCost = totalSessions > 0 ? Math.round(gia_thanh_toan_goi / totalSessions) : 0;
-                      const shortfall = Math.max(0, totalDeduction - totalPaid);
-
-                      return (
-                        <>
-                          <div className="bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 rounded-xl overflow-hidden">
-                            {/* Giá gói theo hợp đồng */}
-                            <div className="flex justify-between items-center px-4 py-2.5 bg-amber-50/40 dark:bg-amber-950/40 border-b border-amber-100/60 dark:border-amber-900/60">
-                              <span className="text-[11px] font-bold text-amber-800 dark:text-amber-300">Giá gói theo hợp đồng</span>
-                              <span className="text-amber-900 dark:text-amber-200 font-black text-xs">{formatCurrency(gia_thanh_toan_goi)}</span>
-                            </div>
-
-                            {/* Khách đã đóng */}
-                            <div className="flex justify-between items-center px-4 py-3 bg-zinc-50/70 dark:bg-zinc-800/80">
-                              <div className="text-left">
-                                <span className="text-xs font-bold text-zinc-700 dark:text-zinc-200 block">Khách đã đóng</span>
-                              </div>
-                              <span className="text-slate-900 dark:text-zinc-100 font-black text-sm tabular-nums">
-                                {formatCurrency(totalPaid)}
-                              </span>
-                            </div>
-
-                            {/* Chi tiết trừ */}
-                            <div className="p-4 space-y-3 bg-white dark:bg-zinc-900 border-t border-zinc-150 dark:border-zinc-800 text-xs">
-
-                              <div className="flex justify-between items-start gap-3">
-                                <div className="text-left">
-                                  <p className="text-xs font-bold text-zinc-700 dark:text-zinc-200">
-                                    {usedSessions}/{totalSessions} buổi khách đã thực hiện
-                                  </p>
-                                  <p className="text-[10px] text-zinc-400 dark:text-zinc-400 font-medium leading-relaxed tabular-nums">
-                                    {formatCurrency(perSessionCost)} × {usedSessions} buổi
-                                  </p>
-                                </div>
-                                <span className="text-rose-600 dark:text-rose-400 font-black text-xs shrink-0 tabular-nums">
-                                  −{formatCurrency(usedSessionsCost)}
-                                </span>
-                              </div>
-
-                              <div className="flex justify-between items-start gap-3">
-                                <div className="text-left">
-                                  <p className="text-xs font-bold text-zinc-700 dark:text-zinc-200">Phí phạt hủy gói giữa chừng</p>
-                                  <p className="text-[10px] text-zinc-400 dark:text-zinc-400 font-medium leading-relaxed tabular-nums">
-                                    {penaltyPercent}% × giá gói sau giảm ({formatCurrency(gia_thanh_toan_goi)})
-                                  </p>
-                                </div>
-                                <span className="text-rose-600 dark:text-rose-400 font-black text-xs shrink-0 tabular-nums">
-                                  −{formatCurrency(penaltyAmount)}
-                                </span>
-                              </div>
-
-                              <div className="flex justify-between items-center pt-2.5 border-t border-dashed border-zinc-200 dark:border-zinc-800">
-                                <span className="text-xs font-black text-zinc-700 dark:text-zinc-200">Tổng cộng bị trừ</span>
-                                <span className="text-rose-600 dark:text-rose-400 font-black text-sm tabular-nums">
-                                  {formatCurrency(totalDeduction)}
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Kết quả */}
-                            <div
-                              className={`flex justify-between items-center px-4 py-3.5 border-t-2 ${
-                                estimatedRefund > 0
-                                  ? 'bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800'
-                                  : 'bg-zinc-100/70 dark:bg-zinc-800/60 border-zinc-200 dark:border-zinc-700'
-                              }`}
-                            >
-                              <span
-                                className={`text-xs font-black ${
-                                  estimatedRefund > 0 ? 'text-emerald-800 dark:text-emerald-300' : 'text-zinc-700 dark:text-zinc-300'
-                                }`}
-                              >
-                                Hoàn lại cho khách
-                              </span>
-                              <span
-                                className={`font-black text-base tabular-nums ${
-                                  estimatedRefund > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400 dark:text-zinc-500'
-                                }`}
-                              >
-                                {formatCurrency(estimatedRefund)}
-                              </span>
-                            </div>
-
-                            <div className="flex justify-between items-center px-4 py-2.5 border-t border-slate-100 dark:border-zinc-800 bg-white dark:bg-zinc-900">
-                              <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400">Trung tâm giữ lại</span>
-                              <span className="text-secondary dark:text-zinc-100 font-black text-xs tabular-nums">{formatCurrency(keptRevenue)}</span>
-                            </div>
-                          </div>
-
-                          {estimatedRefund === 0 && (
-                            <div className="p-3.5 bg-rose-50/50 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900/50 rounded-xl space-y-1 animate-in fade-in duration-200">
-                              <p className="text-rose-700 dark:text-rose-300 text-xs font-black flex items-center gap-1.5">
-                                <span>⚠️</span> Không hoàn tiền
-                              </p>
-                              <p className="text-[11px] text-rose-800/90 dark:text-rose-300/90 font-semibold leading-relaxed">
-                                Các khoản phải trừ ({formatCurrency(totalDeduction)}) đã{' '}
-                                {shortfall > 0 ? 'vượt quá' : 'dùng hết'} số tiền khách đóng ({formatCurrency(totalPaid)})
-                                {shortfall > 0 ? ` — vượt ${formatCurrency(shortfall)}` : ''}. Khách đã dùng{' '}
-                                {usedSessions}/{totalSessions} buổi của gói nên không thể hoàn tiền.
-                                {shortfall > 0 && ' Trung tâm KHÔNG truy thu thêm phần vượt này.'}
-                              </p>
-                            </div>
-                          )}
-                        </>
-                      );
-                    })()}
+                    {/* BẢNG TÍNH HOÀN TIỀN DÙNG CHUNG */}
+                    <PackageRefundBreakdown calculation={refundCalc} />
 
                     <div className="flex justify-end gap-2 pt-2">
                       <button

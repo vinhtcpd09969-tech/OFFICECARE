@@ -11,7 +11,7 @@ export const TERMS_OF_SERVICE: TermsSection[] = [
     heading: '1. Định nghĩa & Phạm vi hoạt động',
     paragraphs: [
       '1.1 OfficeCare: Trung tâm chuyên khoa Phục Hồi Chức Năng và Vật lý trị liệu bảo tồn cơ xương khớp dành cho dân văn phòng và người lao động. Phương pháp can thiệp hoàn toàn tự nhiên, không xâm lấn, không dùng thuốc và không phẫu thuật.',
-      '1.2 Chuyên viên Vật lý trị liệu: Nhân sự chuyên môn y tế có chứng chỉ hành nghề, chịu trách nhiệm trực tiếp lượng giá chức năng vận động, đánh giá tầm vận động khớp, cơ lực, mức độ đau, xác định các yếu tố chống chỉ định và thiết lập Kế hoạch trị liệu cá nhân hóa.',
+      '1.2 Chuyên viên tư vấn: Nhân sự chuyên môn y tế có chứng chỉ hành nghề, chịu trách nhiệm trực tiếp lượng giá chức năng vận động, đánh giá tầm vận động khớp, cơ lực, mức độ đau, xác định các yếu tố chống chỉ định và thiết lập Kế hoạch trị liệu cá nhân hóa.',
       '1.3 Kỹ thuật viên (KTV): Nhân sự y tế thực hiện các kỹ thuật trị liệu chuyên sâu bằng tay và vận hành các trang thiết bị vật lý trị liệu công nghệ cao theo đúng kế hoạch được chỉ định.',
       '1.4 Buổi Lượng giá chức năng: Buổi đánh giá chuyên môn ban đầu nhằm đo lường mức độ suy giảm vận động, xác định nguyên nhân co cứng cơ xương khớp và đưa ra giải pháp can thiệp phù hợp.',
       '1.5 Kế hoạch trị liệu: Lộ trình các buổi can thiệp phục hồi chức năng (theo từng buổi dịch vụ lẻ hoặc gói liệu trình chuyên sâu nhiều buổi) được thiết kế riêng biệt cho từng thể trạng khách hàng.',

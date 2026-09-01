@@ -7,6 +7,7 @@ import { resolveImageUrl } from '../../../utils/imageUrl';
 import ScrollReveal from '../components/effects/ScrollReveal';
 import toast from 'react-hot-toast';
 import { censorText } from '../../../utils/profanity';
+import { formatCurrency } from '../../../utils/format';
 
 const TRUST_BADGES = [
   { icon: ShieldCheck, title: 'An toàn chuẩn y khoa', desc: 'Phác đồ được chuyên viên tư vấn xây dựng và giám sát.' },
@@ -208,7 +209,7 @@ export default function ServiceDetailPage() {
     const numPrice = typeof price === 'string' ? parseInt(price, 10) : price;
     if (isNaN(numPrice)) return price.toString();
     if (numPrice === 0) return 'Liên hệ';
-    return numPrice.toLocaleString('vi-VN') + ' đ';
+    return formatCurrency(numPrice);
   };
 
   const handleBooking = () => {
@@ -265,7 +266,7 @@ export default function ServiceDetailPage() {
             <span>Quay lại</span>
           </button>
           <span>/</span>
-          <Link to="/services" className="hover:text-[#0D9488] transition-colors">Gói trị liệu</Link>
+          <Link to="/services" className="hover:text-[#0D9488] transition-colors">Gói dịch vụ</Link>
           <span>/</span>
           <span className="text-slate-800 font-bold truncate max-w-sm">{service.ten_goi}</span>
         </div>

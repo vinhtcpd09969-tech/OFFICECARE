@@ -128,39 +128,45 @@ export class BillingService {
     let so_tien_giam_voucher = 0;
 
     if (ma_voucher) {
-      const voucher = await receptionistRepository.getVoucherByCode(ma_voucher);
-      let currentLoaiGoi: 'KHAM' | 'LE' | 'LIEU_TRINH' = 'KHAM';
-      if (item_type === 'goi' || item_type === 'dich_vu') {
-        if (item_id) {
-          const pkg = await receptionistRepository.getPackageById(item_id);
-          currentLoaiGoi = pkg?.loai_goi === 'LE' ? 'LE' : (pkg?.loai_goi === 'LIEU_TRINH' ? 'LIEU_TRINH' : 'KHAM');
-        } else if (svc) {
-          currentLoaiGoi = svc.loai_goi === 'LE' ? 'LE' : (svc.loai_goi === 'LIEU_TRINH' ? 'LIEU_TRINH' : 'KHAM');
+      try {
+        const voucher = await receptionistRepository.getVoucherByCode(ma_voucher);
+        let currentLoaiGoi: 'KHAM' | 'LE' | 'LIEU_TRINH' = 'KHAM';
+        if (item_type === 'goi' || item_type === 'dich_vu') {
+          if (item_id) {
+            const pkg = await receptionistRepository.getPackageById(item_id);
+            currentLoaiGoi = pkg?.loai_goi === 'LE' ? 'LE' : (pkg?.loai_goi === 'LIEU_TRINH' ? 'LIEU_TRINH' : 'KHAM');
+          } else if (svc) {
+            currentLoaiGoi = svc.loai_goi === 'LE' ? 'LE' : (svc.loai_goi === 'LIEU_TRINH' ? 'LIEU_TRINH' : 'KHAM');
+          }
         }
-      }
-      await this.assertVoucherUsable(voucher, loai_thanh_toan, khach_hang_id, 'tai_quay', currentLoaiGoi);
+        await this.assertVoucherUsable(voucher, loai_thanh_toan, khach_hang_id, 'tai_quay', currentLoaiGoi);
 
-      // Check minimum order value
-      if (gia_goc_goi < Number(voucher.don_hang_toi_thieu)) {
-        throw new BadRequestError(`Đơn hàng chưa đạt giá trị tối thiểu (${Number(voucher.don_hang_toi_thieu).toLocaleString()}đ) để áp dụng mã này`);
-      }
-
-      // Calculate voucher discount on original package price
-      if (voucher.loai_giam === 'phan_tram' || voucher.loai_giam === 'percentage') {
-        so_tien_giam_voucher = Math.round(gia_goc_goi * (Number(voucher.gia_tri_giam) / 100));
-        if (voucher.giam_toi_da && so_tien_giam_voucher > Number(voucher.giam_toi_da)) {
-          so_tien_giam_voucher = Number(voucher.giam_toi_da);
+        // Check minimum order value
+        if (gia_goc_goi < Number(voucher.don_hang_toi_thieu)) {
+          throw new BadRequestError(`Đơn hàng chưa đạt giá trị tối thiểu (${Number(voucher.don_hang_toi_thieu).toLocaleString()}đ) để áp dụng mã này`);
         }
-      } else {
-        so_tien_giam_voucher = Number(voucher.gia_tri_giam);
-      }
 
-      // Ensure discount does not exceed package price
-      if (so_tien_giam_voucher > gia_goc_goi) {
-        so_tien_giam_voucher = gia_goc_goi;
-      }
+        // Calculate voucher discount on original package price
+        if (voucher.loai_giam === 'phan_tram' || voucher.loai_giam === 'percentage') {
+          so_tien_giam_voucher = Math.round(gia_goc_goi * (Number(voucher.gia_tri_giam) / 100));
+          if (voucher.giam_toi_da && so_tien_giam_voucher > Number(voucher.giam_toi_da)) {
+            so_tien_giam_voucher = Number(voucher.giam_toi_da);
+          }
+        } else {
+          so_tien_giam_voucher = Number(voucher.gia_tri_giam);
+        }
 
-      voucher_id = voucher.id;
+        // Ensure discount does not exceed package price
+        if (so_tien_giam_voucher > gia_goc_goi) {
+          so_tien_giam_voucher = gia_goc_goi;
+        }
+
+        voucher_id = voucher.id;
+      } catch (voucherErr) {
+        // Voucher không hợp lệ hoặc đã dùng hết lượt -> Bỏ qua không áp dụng voucher, không chặn tính tiền
+        voucher_id = null;
+        so_tien_giam_voucher = 0;
+      }
     }
 
     const tong_tien_goi_sau_giam = Math.max(0, gia_goc_goi - so_tien_giam_phuong_thuc - so_tien_giam_voucher);

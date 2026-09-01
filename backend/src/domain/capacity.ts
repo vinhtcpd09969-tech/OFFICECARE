@@ -147,15 +147,13 @@ export function kiemTraDatChoNhanSuCuThe(
   if (!nhanSu) {
     return { choPhep: false, lyDo: 'Nhân sự không trực buổi này.' };
   }
-  const nganSachGoc = tinhNganSachRieng(nhanSu, buoi);
+  const nganSach = gioHienTaiPhut !== undefined
+    ? tinhNganSachRieng(nhanSu, buoi, gioHienTaiPhut)
+    : tinhNganSachRieng(nhanSu, buoi);
   const daDungRieng = daDat
     .filter((d) => d.nhanSuId === nhanSuId)
     .reduce((tong, d) => tong + d.soPhut, 0);
-  let conLai = Math.max(0, nganSachGoc - daDungRieng);
-  if (gioHienTaiPhut !== undefined) {
-    const nganSachTuNow = tinhNganSachRieng(nhanSu, buoi, gioHienTaiPhut);
-    conLai = Math.min(nganSachTuNow, conLai);
-  }
+  const conLai = Math.max(0, nganSach - daDungRieng);
 
   if (thoiLuongMoiPhut > conLai) {
     return {
@@ -180,13 +178,11 @@ export function kiemTraDatBatKy(
   gioHienTaiPhut?: number
 ): KetQuaKiemTraDatLich {
   // ① Ngân sách CHUNG của cả túi
-  const nganSachChungGoc = tinhNganSachChung(danhSachNhanSu, buoi);
+  const nganSachChung = gioHienTaiPhut !== undefined
+    ? tinhNganSachChung(danhSachNhanSu, buoi, gioHienTaiPhut)
+    : tinhNganSachChung(danhSachNhanSu, buoi);
   const tongDaDung = daDat.reduce((tong, d) => tong + d.soPhut, 0);
-  let conLaiChung = Math.max(0, nganSachChungGoc - tongDaDung);
-  if (gioHienTaiPhut !== undefined) {
-    const nganSachChungTuNow = tinhNganSachChung(danhSachNhanSu, buoi, gioHienTaiPhut);
-    conLaiChung = Math.min(nganSachChungTuNow, conLaiChung);
-  }
+  const conLaiChung = Math.max(0, nganSachChung - tongDaDung);
 
   if (thoiLuongMoiPhut > conLaiChung) {
     return {
@@ -198,15 +194,13 @@ export function kiemTraDatBatKy(
 
   // ② TỒN TẠI ít nhất 1 nhân sự còn đủ chỗ RIÊNG (không suy từ tổng chung)
   const coNguoiConDu = danhSachNhanSu.some((ns) => {
-    const nganSachGoc = tinhNganSachRieng(ns, buoi);
+    const nganSachRieng = gioHienTaiPhut !== undefined
+      ? tinhNganSachRieng(ns, buoi, gioHienTaiPhut)
+      : tinhNganSachRieng(ns, buoi);
     const daDungRieng = daDat
       .filter((d) => d.nhanSuId === ns.nhanSuId)
       .reduce((tong, d) => tong + d.soPhut, 0);
-    let conLaiRieng = Math.max(0, nganSachGoc - daDungRieng);
-    if (gioHienTaiPhut !== undefined) {
-      const nganSachTuNow = tinhNganSachRieng(ns, buoi, gioHienTaiPhut);
-      conLaiRieng = Math.min(nganSachTuNow, conLaiRieng);
-    }
+    const conLaiRieng = Math.max(0, nganSachRieng - daDungRieng);
     return conLaiRieng >= thoiLuongMoiPhut;
   });
 

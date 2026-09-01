@@ -3,6 +3,7 @@ import {
   PhoneCall,
   Stethoscope,
   Clock,
+  Clock3,
   CheckCircle2,
   User,
   Eye,
@@ -17,6 +18,7 @@ import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../../../stores/authStore';
+import { useActiveShiftCheck } from '../../../hooks/useActiveShiftCheck';
 import { playCallInAudioChime } from '../../../utils/callInSignal';
 import { callInPatient, markPatientAbsent } from '../api/doctor.api';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
@@ -114,6 +116,7 @@ export function SpecialistFlowBoard({
 }: SpecialistFlowBoardProps) {
   const navigate = useNavigate();
   const user = useAuthStore(state => state.user);
+  const { hasShiftToday, isSuperUser } = useActiveShiftCheck();
   const isKtv = Number(user?.vai_tro_id) === 3;
   const basePath = isKtv ? '/technician/appointments' : '/doctor/appointments';
   const currentUserIdStr = String(currentUserId);
@@ -204,27 +207,18 @@ export function SpecialistFlowBoard({
     }
   };
 
-  // B11 — bấm "Không vào": lần 1 (đếm hiện tại = 0) xử lý êm không hỏi lại; lần 2 (đếm hiện tại = 1)
-  // bắt buộc xác nhận vì đây là hành động khó đảo ngược (chuyển "Không đến", mất tiền nếu đã thanh
-  // toán + cộng no-show).
+  // B11 — bấm "Không vào": Đẩy khách xuống cuối hàng đợi để gọi lại sau (thao tác chuyển Không đến do Lễ tân quản lý)
   const handleMarkAbsentClick = (apt: SpecialistAppointmentItem) => {
     if (pendingActionId) return;
-    if ((apt.so_lan_goi_khong_co_mat || 0) >= 1) {
-      setConfirmAbsentApt(apt);
-      return;
-    }
-    void runMarkAbsent(apt);
+    setConfirmAbsentApt(apt);
   };
 
   const runMarkAbsent = async (apt: SpecialistAppointmentItem) => {
     setPendingActionId(apt.id);
     try {
       const { data } = await markPatientAbsent(apt.id);
-      if (data.shouldFinalize) {
-        toast.success(`Đã đánh dấu ${apt.ten_khach_hang} KHÔNG ĐẾN.`);
-      } else {
-        toast(`Đã đẩy ${apt.ten_khach_hang} xuống cuối hàng đợi — gọi lại khi rảnh.`, { icon: '⚠️' });
-      }
+      const callNum = data?.so_lan_goi_khong_co_mat || 1;
+      toast(`Đã đẩy ${apt.ten_khach_hang} xuống cuối hàng đợi (Đã gọi ${callNum} lần).`, { icon: '⬇' });
       onRefresh?.();
     } catch (error: any) {
       toast.error(error?.response?.data?.message || 'Không thể cập nhật — vui lòng thử lại.');
@@ -291,6 +285,22 @@ export function SpecialistFlowBoard({
 
       {/* QUEUE CONTENT LIST */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-xs p-4">
+        {!hasShiftToday && !isSuperUser && (
+          <div className="mb-4 p-4 rounded-2xl bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 flex items-start gap-3 shadow-xs animate-in fade-in duration-200">
+            <span className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 shrink-0 mt-0.5">
+              <Clock3 size={18} />
+            </span>
+            <div className="space-y-0.5 text-left">
+              <h4 className="text-xs font-black text-amber-900 dark:text-amber-200 uppercase tracking-wide">
+                ☕ Chế độ tra cứu hồ sơ (Không có ca trực hôm nay)
+              </h4>
+              <p className="text-xs text-amber-800/80 dark:text-amber-300/80 leading-relaxed font-semibold">
+                Hôm nay bạn không có ca trực được phân công trên hệ thống. Các nút thao tác tiếp nhận và điều trị trực tiếp được tạm khóa an toàn. Bạn vẫn có thể xem lịch hẹn và tra cứu hồ sơ bình thường. Nếu bạn đang trực thay đột xuất, vui lòng liên hệ Quản lý để được xếp ca trực.
+              </p>
+            </div>
+          </div>
+        )}
+
         {queueTab === 'waiting' && (
           <div>
             {waitingList.length === 0 ? (
@@ -365,7 +375,7 @@ export function SpecialistFlowBoard({
                               </span>
                             ) : (
                               <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-400">
-                                Hàng đợi chung (Bất kỳ)
+                                Nhân sự: Bất kỳ
                               </span>
                             )}
                           </div>
@@ -397,7 +407,7 @@ export function SpecialistFlowBoard({
                                 <AlertCircle size={11} />
                                 <span>
                                   {currentCallNum >= 2
-                                    ? `Đã gọi lần ${currentCallNum} — Cân nhắc vắng mặt (Không đến)`
+                                    ? `Đã gọi ${currentCallNum} lần không vào (Đã đẩy xuống cuối hàng đợi)`
                                     : `Đã gọi lần 1`}
                                 </span>
                               </p>
@@ -450,8 +460,11 @@ export function SpecialistFlowBoard({
                               <button
                                 type="button"
                                 onClick={() => handleMarkAbsentClick(apt)}
-                                disabled={pendingActionId === apt.id}
-                                className="px-3 py-2.5 rounded-xl bg-white dark:bg-zinc-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-bold text-xs flex items-center gap-1.5 border border-rose-200 dark:border-rose-900/60 transition-all cursor-pointer disabled:opacity-50"
+                                disabled={!hasShiftToday || pendingActionId === apt.id}
+                                title={!hasShiftToday ? 'Bạn không có ca trực phân công hôm nay để thực hiện thao tác này' : undefined}
+                                className={`px-3 py-2.5 rounded-xl bg-white dark:bg-zinc-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-bold text-xs flex items-center gap-1.5 border border-rose-200 dark:border-rose-900/60 transition-all ${
+                                  !hasShiftToday ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer disabled:opacity-50'
+                                }`}
                               >
                                 <AlertCircle size={14} />
                                 <span>Không vào</span>
@@ -461,8 +474,11 @@ export function SpecialistFlowBoard({
                             <button
                               type="button"
                               onClick={() => handleCallInSignal(apt)}
-                              disabled={pendingActionId === apt.id}
-                              className="px-3.5 py-2.5 rounded-xl bg-white dark:bg-zinc-800 hover:bg-cyan-50 dark:hover:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300 font-bold text-xs flex items-center gap-1.5 border border-slate-200 dark:border-zinc-700 transition-all cursor-pointer shadow-2xs disabled:opacity-50"
+                              disabled={!hasShiftToday || pendingActionId === apt.id}
+                              title={!hasShiftToday ? 'Bạn không có ca trực phân công hôm nay để gọi khám' : undefined}
+                              className={`px-3.5 py-2.5 rounded-xl bg-white dark:bg-zinc-800 hover:bg-cyan-50 dark:hover:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300 font-bold text-xs flex items-center gap-1.5 border border-slate-200 dark:border-zinc-700 transition-all shadow-2xs ${
+                                !hasShiftToday ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer disabled:opacity-50'
+                              }`}
                             >
                               <PhoneCall size={14} />
                               <span>
@@ -483,10 +499,14 @@ export function SpecialistFlowBoard({
                             <button
                               type="button"
                               onClick={() => handleOpenAssessmentDesk(apt)}
-                              className={`px-4 py-2.5 rounded-xl text-white font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-md transition-all cursor-pointer ${
-                                isCurrentInDesk
-                                  ? 'bg-[#0d9488] hover:bg-[#0b7970] shadow-teal-600/20 ring-2 ring-teal-400/50 animate-pulse-subtle'
-                                  : 'bg-cyan-600 hover:bg-cyan-700 shadow-cyan-600/20'
+                              disabled={!hasShiftToday}
+                              title={!hasShiftToday ? 'Bạn không có ca trực phân công hôm nay để mở bàn' : undefined}
+                              className={`px-4 py-2.5 rounded-xl text-white font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-md transition-all ${
+                                !hasShiftToday
+                                  ? 'opacity-40 cursor-not-allowed bg-slate-400 dark:bg-zinc-700'
+                                  : isCurrentInDesk
+                                  ? 'bg-[#0d9488] hover:bg-[#0b7970] shadow-teal-600/20 ring-2 ring-teal-400/50 animate-pulse-subtle cursor-pointer'
+                                  : 'bg-cyan-600 hover:bg-cyan-700 shadow-cyan-600/20 cursor-pointer'
                               }`}
                             >
                               <Stethoscope size={14} />
@@ -545,15 +565,26 @@ export function SpecialistFlowBoard({
 
       <ConfirmDialog
         isOpen={!!confirmAbsentApt}
-        title="Xác nhận KHÔNG ĐẾN"
+        title="Xác nhận khách chưa vào phòng"
         message={
-          confirmAbsentApt
-            ? `${confirmAbsentApt.ten_khach_hang} đã được gọi 2 lần nhưng không vào. Xác nhận sẽ chuyển ca này sang "Không đến" — khách sẽ mất tiền (nếu đã thanh toán) và bị cộng 1 lần no-show. Tiếp tục?`
-            : ''
+          confirmAbsentApt ? (
+            <div className="space-y-2 text-left">
+              <p>
+                Bạn có chắc chắn muốn đẩy khách hàng{' '}
+                <strong className="text-slate-900 dark:text-zinc-100">
+                  {confirmAbsentApt.ten_khach_hang}
+                </strong>{' '}
+                xuống cuối hàng đợi để gọi lại sau không?
+              </p>
+              <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-955/40 border border-amber-200/80 dark:border-amber-800/60 text-xs font-semibold text-amber-900 dark:text-amber-300">
+                Khách hàng sẽ được đưa về cuối danh sách chờ và bạn có thể tiếp tục bấm Gọi vào cho ca tiếp theo.
+              </div>
+            </div>
+          ) : ''
         }
-        type="danger"
-        confirmLabel="Xác nhận Không đến"
-        cancelLabel="Để sau"
+        confirmLabel="Đồng ý đẩy xuống"
+        cancelLabel="Hủy"
+        type="warning"
         onConfirm={() => {
           if (confirmAbsentApt) void runMarkAbsent(confirmAbsentApt);
           setConfirmAbsentApt(null);

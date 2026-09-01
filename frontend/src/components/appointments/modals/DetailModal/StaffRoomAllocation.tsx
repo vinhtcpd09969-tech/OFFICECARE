@@ -193,89 +193,95 @@ export function StaffRoomAllocation({
           </label>
 
           {currentAssignedStaff ? (
-            <div className="rounded-2xl border-2 border-emerald-500 bg-emerald-50/20 dark:bg-emerald-950/20 p-4 flex items-center justify-between gap-3 shadow-2xs min-h-[96px]">
-              <div className="flex items-center gap-3 min-w-0">
-                {currentAssignedStaff.anh_dai_dien ? (
-                  <img
-                    src={resolveImageUrl(currentAssignedStaff.anh_dai_dien)}
-                    alt={currentAssignedStaff.ho_ten}
-                    className="size-11 rounded-full object-cover shrink-0 border-2 border-emerald-500 shadow-xs"
-                  />
-                ) : (
-                  <div className="size-11 rounded-full bg-gradient-to-br from-teal-600 to-emerald-600 text-white flex items-center justify-center font-bold text-sm shrink-0 border-2 border-emerald-500 shadow-xs">
-                    {getAvatarInitials(currentAssignedStaff.ho_ten)}
-                  </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <p className="text-sm font-bold text-slate-900 dark:text-zinc-100">
-                      {currentAssignedStaff.ho_ten}
-                    </p>
-                    <span className="text-[10px] text-slate-500 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded-md font-bold shrink-0">
-                      {staffAptsCount} ca
-                    </span>
-                  </div>
-
-                  <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-0.5">
-                    <span className="size-1.5 rounded-full bg-emerald-500 inline-block"></span>
-                    <span>Sẵn sàng</span>
-                  </p>
-
-                  {staffDuty && staffDuty.hasDuty && (
-                    <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 leading-snug mt-0.5">
-                      ⚠️ {staffDuty.label}{staffDuty.isPartial ? ` (đến ${staffDuty.dutyEnd})` : ''}
-                    </p>
+            <div className="rounded-2xl border-2 border-emerald-500 bg-emerald-50/20 dark:bg-emerald-950/20 p-3.5 flex flex-col justify-between gap-2 shadow-2xs min-h-[96px]">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  {currentAssignedStaff.anh_dai_dien ? (
+                    <img
+                      src={resolveImageUrl(currentAssignedStaff.anh_dai_dien)}
+                      alt={currentAssignedStaff.ho_ten}
+                      className="size-10 rounded-full object-cover shrink-0 border-2 border-emerald-500 shadow-xs"
+                    />
+                  ) : (
+                    <div className="size-10 rounded-full bg-gradient-to-br from-teal-600 to-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0 border-2 border-emerald-500 shadow-xs">
+                      {getAvatarInitials(currentAssignedStaff.ho_ten)}
+                    </div>
                   )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="text-sm font-bold text-slate-900 dark:text-zinc-100">
+                        {currentAssignedStaff.ho_ten}
+                      </p>
+                      <span className="text-[10px] text-slate-500 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded-md font-bold shrink-0">
+                        {staffAptsCount} ca
+                      </span>
+                    </div>
+
+                    <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-0.5">
+                      <span className="size-1.5 rounded-full bg-emerald-500 inline-block"></span>
+                      <span>Sẵn sàng</span>
+                    </p>
+                  </div>
                 </div>
+
+                {isEditable && (
+                  <button
+                    type="button"
+                    onClick={() => setIsPickerOpen(!isPickerOpen)}
+                    className={`shrink-0 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 shadow-2xs border ${
+                      isPickerOpen
+                        ? 'bg-teal-600 border-teal-600 text-white'
+                        : 'bg-white dark:bg-zinc-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/80'
+                    }`}
+                  >
+                    <Users size={12} />
+                    <span>{roleButtonLabel}</span>
+                    <ChevronDown size={11} className={`transition-transform ${isPickerOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                )}
               </div>
 
-              {isEditable && (
-                <button
-                  type="button"
-                  onClick={() => setIsPickerOpen(!isPickerOpen)}
-                  className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs border ${
-                    isPickerOpen
-                      ? 'bg-teal-600 border-teal-600 text-white'
-                      : 'bg-white dark:bg-zinc-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/80'
-                  }`}
-                >
-                  <Users size={13} />
-                  <span>{roleButtonLabel}</span>
-                  <ChevronDown size={12} className={`transition-transform ${isPickerOpen ? 'rotate-180' : ''}`} />
-                </button>
+              {staffDuty && staffDuty.hasDuty && (
+                <div className="pt-1.5 border-t border-emerald-200/60 dark:border-emerald-900/40">
+                  <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 leading-snug">
+                    ⚠️ {staffDuty.label}{staffDuty.isPartial ? ` (đến ${staffDuty.dutyEnd})` : ''}
+                  </p>
+                </div>
               )}
             </div>
           ) : (
-            <div className="rounded-2xl border-2 border-dashed border-emerald-400 dark:border-emerald-600/60 bg-emerald-50/15 dark:bg-emerald-950/15 p-4 flex items-center justify-between gap-3 shadow-2xs min-h-[96px]">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="size-11 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-sm shrink-0 border border-emerald-300 dark:border-emerald-700">
-                  <Users size={20} />
+            <div className="rounded-2xl border-2 border-dashed border-emerald-400 dark:border-emerald-600/60 bg-emerald-50/15 dark:bg-emerald-950/15 p-3.5 flex flex-col justify-between gap-2 shadow-2xs min-h-[96px]">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <div className="size-10 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-sm shrink-0 border border-emerald-300 dark:border-emerald-700">
+                    <Users size={18} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-slate-900 dark:text-zinc-100">
+                      Bất kỳ (Hàng chờ chung)
+                    </p>
+                    <p className="text-xs font-medium text-slate-400 dark:text-zinc-500 mt-0.5">
+                      Không gán đích danh · Nhân sự rảnh tự nhận
+                    </p>
+                  </div>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-slate-900 dark:text-zinc-100">
-                    Bất kỳ (Hàng chờ chung)
-                  </p>
-                  <p className="text-xs font-medium text-slate-400 dark:text-zinc-500 mt-0.5">
-                    Không gán đích danh · Nhân sự rảnh tự nhận
-                  </p>
-                </div>
-              </div>
 
-              {isEditable && (
-                <button
-                  type="button"
-                  onClick={() => setIsPickerOpen(!isPickerOpen)}
-                  className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs border ${
-                    isPickerOpen
-                      ? 'bg-teal-600 border-teal-600 text-white'
-                      : 'bg-white dark:bg-zinc-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/80'
-                  }`}
-                >
-                  <Users size={13} />
-                  <span>Chọn nhân sự</span>
-                  <ChevronDown size={12} className={`transition-transform ${isPickerOpen ? 'rotate-180' : ''}`} />
-                </button>
-              )}
+                {isEditable && (
+                  <button
+                    type="button"
+                    onClick={() => setIsPickerOpen(!isPickerOpen)}
+                    className={`shrink-0 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 shadow-2xs border ${
+                      isPickerOpen
+                        ? 'bg-teal-600 border-teal-600 text-white'
+                        : 'bg-white dark:bg-zinc-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/80'
+                    }`}
+                  >
+                    <Users size={12} />
+                    <span>Chọn nhân sự</span>
+                    <ChevronDown size={11} className={`transition-transform ${isPickerOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -286,9 +292,9 @@ export function StaffRoomAllocation({
             {roomTitle}
           </label>
 
-          <div className="rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 flex items-center gap-3.5 shadow-2xs min-h-[96px]">
-            <div className="size-11 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-100 dark:border-indigo-900/30">
-              <Building2 size={22} />
+          <div className="rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3.5 flex items-center gap-3 shadow-2xs min-h-[96px]">
+            <div className="size-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-100 dark:border-indigo-900/30">
+              <Building2 size={20} />
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold text-slate-900 dark:text-zinc-100 leading-snug">

@@ -16,7 +16,6 @@ const Home = lazy(() => import('../features/public/pages/Home'));
 const Services = lazy(() => import('../features/public/pages/Services'));
 const ServiceDetailPage = lazy(() => import('../features/public/pages/ServiceDetailPage'));
 const Booking = lazy(() => import('../features/public/pages/Booking'));
-const BookingSuccess = lazy(() => import('../features/public/pages/BookingSuccess'));
 const Specialists = lazy(() => import('../features/public/pages/Specialists'));
 const SpecialistDetailPage = lazy(() => import('../features/public/pages/SpecialistDetailPage'));
 const Articles = lazy(() => import('../features/public/pages/Articles'));
@@ -88,7 +87,6 @@ export default function AppRoutes() {
           <Route path="/services/:id" element={<ServiceDetailPage />} />
           <Route path="/packages/:id" element={<ServiceDetailPage />} />
           <Route path="/booking" element={<Booking />} />
-          <Route path="/booking/success/:id" element={<BookingSuccess />} />
           <Route path="/specialists" element={<Specialists />} />
           <Route path="/specialists/:id" element={<SpecialistDetailPage />} />
           <Route path="/tin-tuc" element={<Articles />} />

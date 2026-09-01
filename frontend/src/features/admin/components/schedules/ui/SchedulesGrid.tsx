@@ -8,6 +8,7 @@ interface SchedulesGridProps {
   groupedStaff: Record<string, Staff[]>;
   schedules: Schedule[];
   conflicts: any[];
+  highlightCell?: { staffId: string; dateStr: string } | null;
   onOpenModal: (userId: string, dateStr?: string) => void;
   onOpenEditModal: (sched: Schedule) => void;
 }
@@ -17,6 +18,7 @@ export function SchedulesGrid({
   groupedStaff,
   schedules,
   conflicts,
+  highlightCell,
   onOpenModal,
   onOpenEditModal
 }: SchedulesGridProps) {
@@ -71,16 +73,20 @@ export function SchedulesGrid({
       return (
         <div 
           key={sched.id} 
-          className="text-[11px] font-bold border border-slate-200/60 dark:border-zinc-700/50 p-1.5 rounded-xl text-center mb-1.5 shadow-xs bg-slate-50 dark:bg-zinc-800/60 text-slate-400 dark:text-zinc-400 cursor-not-allowed select-none opacity-75 flex flex-col items-center gap-0.5"
+          className="text-xs font-bold border border-slate-200/60 dark:border-zinc-700/50 p-2 rounded-xl text-center mb-1.5 shadow-xs bg-slate-50 dark:bg-zinc-800/60 text-slate-400 dark:text-zinc-400 cursor-not-allowed select-none opacity-75 flex flex-col items-center gap-1"
         >
-          <div className="flex items-center gap-1">
-            <ShiftIcon size={12} className="opacity-60" />
-            <span className="uppercase tracking-wider font-extrabold text-[10px]">{label}</span>
+          <div className="flex items-center gap-1.5">
+            <ShiftIcon size={13} className="opacity-60 shrink-0" />
+            <span className="uppercase tracking-wider font-black text-[10px]">{label}</span>
           </div>
           {sched.trang_thai !== 'tam_nghi' && (
-            <div className="flex items-center gap-1 text-[9.5px]">
-              {sched.ma_phong && <span className="bg-slate-200 dark:bg-zinc-700 px-1 py-0.2 rounded text-[8.5px] font-black text-slate-600 dark:text-zinc-300">{sched.ma_phong}</span>}
-              <span>{sched.gio_bat_dau.slice(0, 5)}-{sched.gio_ket_thuc.slice(0, 5)}</span>
+            <div className="flex items-center justify-center gap-1.5 text-[10px] whitespace-nowrap">
+              {sched.ma_phong && (
+                <span className="bg-slate-200 dark:bg-zinc-700 px-1.5 py-0.2 rounded text-[9px] font-black text-slate-600 dark:text-zinc-300">
+                  {sched.ma_phong}
+                </span>
+              )}
+              <span className="font-mono tracking-tight">{sched.gio_bat_dau.slice(0, 5)} - {sched.gio_ket_thuc.slice(0, 5)}</span>
             </div>
           )}
         </div>
@@ -91,21 +97,21 @@ export function SchedulesGrid({
       <div 
         key={sched.id} 
         onClick={(e) => { e.stopPropagation(); onOpenEditModal(sched); }}
-        className={`text-[11px] font-bold border p-1.5 rounded-xl text-center mb-1.5 shadow-2xs transition-all cursor-pointer flex flex-col items-center gap-0.5 ${colorClass}`}
+        className={`text-xs font-bold border p-2 rounded-xl text-center mb-1.5 shadow-2xs transition-all cursor-pointer flex flex-col items-center gap-1 hover:scale-[1.02] ${colorClass}`}
         title={`Click để chỉnh sửa ca trực (${sched.gio_bat_dau.slice(0, 5)} - ${sched.gio_ket_thuc.slice(0, 5)})`}
       >
-        <div className="flex items-center gap-1">
-          <ShiftIcon size={12} className={iconColor} />
-          <span className="uppercase tracking-wider font-extrabold text-[10px]">{label}</span>
+        <div className="flex items-center gap-1.5">
+          <ShiftIcon size={13} className={`${iconColor} shrink-0`} />
+          <span className="uppercase tracking-wider font-black text-[10px]">{label}</span>
         </div>
         {sched.trang_thai !== 'tam_nghi' && (
-          <div className="flex items-center gap-1 text-[9.5px] mt-0.5">
+          <div className="flex items-center justify-center gap-1.5 text-[10px] whitespace-nowrap">
             {sched.ma_phong && (
-              <span className="bg-white/80 dark:bg-zinc-800 px-1.5 py-0.2 rounded-md text-[8.5px] font-black text-teal-800 dark:text-teal-300 border border-teal-150 dark:border-teal-800/60 shadow-2xs">
+              <span className="bg-white/90 dark:bg-zinc-800 px-1.5 py-0.5 rounded-md text-[9px] font-black text-teal-800 dark:text-teal-300 border border-teal-200/60 dark:border-teal-800/60 shadow-2xs">
                 {sched.ma_phong}
               </span>
             )}
-            <span className="opacity-90 font-mono">{sched.gio_bat_dau.slice(0, 5)}-{sched.gio_ket_thuc.slice(0, 5)}</span>
+            <span className="font-mono font-bold tracking-tight opacity-95">{sched.gio_bat_dau.slice(0, 5)} - {sched.gio_ket_thuc.slice(0, 5)}</span>
           </div>
         )}
       </div>
@@ -113,37 +119,48 @@ export function SchedulesGrid({
   };
 
   return (
-    <div className="flex-1 bg-white dark:bg-zinc-900/90 rounded-[24px] shadow-sm border border-gray-100 dark:border-zinc-800 overflow-hidden">
+    <div className="flex-1 bg-white dark:bg-zinc-900/90 rounded-[24px] shadow-sm border border-gray-100 dark:border-zinc-800 overflow-hidden font-jakarta">
       <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse min-w-[800px]">
+        <table className="w-full text-left border-collapse min-w-[950px] table-fixed">
+          <colgroup>
+            <col className="w-[18%] min-w-[160px]" />
+            {weekDates.map(d => (
+              <col key={d.key} className="w-[11.71%]" />
+            ))}
+          </colgroup>
           <thead>
             <tr className="bg-gray-50/50 dark:bg-zinc-900/80 select-none">
-              <th className="p-4 font-bold text-xs text-gray-500 dark:text-zinc-400 uppercase tracking-wider w-1/4 border-b border-r border-gray-100 dark:border-zinc-800">Nhân viên</th>
+              <th className="p-3.5 font-black text-xs text-gray-500 dark:text-zinc-400 uppercase tracking-wider border-b border-r border-gray-100 dark:border-zinc-800">
+                Nhân viên
+              </th>
               {weekDates.map(d => (
                 <th 
                   key={d.key} 
-                  className={`p-3 text-center border-b border-r border-gray-100 dark:border-zinc-800 min-w-[100px] transition-all relative ${
+                  className={`p-2 text-center border-b border-r border-gray-100 dark:border-zinc-800 transition-all ${
                     d.isToday 
-                      ? 'bg-teal-50/50 dark:bg-teal-950/30 border-b-2 border-b-teal-500 text-teal-700 dark:text-teal-300 font-extrabold' 
+                      ? 'bg-teal-50/60 dark:bg-teal-950/40 border-b-2 border-b-teal-500 text-teal-700 dark:text-teal-300 font-extrabold' 
                       : 'border-b-gray-100 dark:border-b-zinc-800 text-gray-800 dark:text-zinc-200'
                   }`}
                 >
-                  <div className="flex flex-col items-center justify-center pt-2">
-                    <div className="flex items-center gap-1">
-                      {d.isToday && (
-                        <span className="flex h-2 w-2 relative shrink-0">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-500 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
-                        </span>
-                      )}
-                      <span className={`font-bold text-sm ${d.isToday ? 'text-teal-700 dark:text-teal-300' : 'text-gray-800 dark:text-zinc-200'}`}>{d.label}</span>
-                    </div>
-                    <div className={`text-xs mt-1 ${d.isToday ? 'text-teal-600 dark:text-teal-400 font-bold' : 'text-gray-500 dark:text-zinc-400'}`}>{d.dateStr}</div>
-                    {d.isToday && (
-                      <span className="absolute top-1 text-[8px] font-black uppercase text-[#0d9488] dark:text-teal-300 bg-teal-100/50 dark:bg-teal-900/50 px-1.5 py-0.5 rounded scale-[0.8] select-none">
+                  <div className="flex flex-col items-center justify-center min-h-[52px]">
+                    {d.isToday ? (
+                      <span className="text-[9px] font-black uppercase tracking-wider text-teal-700 dark:text-teal-300 bg-teal-100/90 dark:bg-teal-900/70 px-2 py-0.5 rounded-full mb-1 select-none shadow-2xs">
                         Hôm nay
                       </span>
+                    ) : (
+                      <div className="h-[18px]" />
                     )}
+                    <div className="flex items-center gap-1.5">
+                      {d.isToday && (
+                        <span className="size-1.5 rounded-full bg-teal-500 animate-pulse"></span>
+                      )}
+                      <span className={`font-black text-sm leading-tight ${d.isToday ? 'text-teal-700 dark:text-teal-300' : 'text-gray-800 dark:text-zinc-200'}`}>
+                        {d.label}
+                      </span>
+                    </div>
+                    <div className={`text-[11px] leading-tight mt-0.5 ${d.isToday ? 'text-teal-600 dark:text-teal-400 font-bold' : 'text-gray-500 dark:text-zinc-400 font-medium'}`}>
+                      {d.dateStr}
+                    </div>
                   </div>
                 </th>
               ))}
@@ -157,35 +174,46 @@ export function SchedulesGrid({
               return (
                 <React.Fragment key={role}>
                   <tr className="bg-gray-50 dark:bg-zinc-800/80 select-none">
-                    <td colSpan={8} className="py-2.5 px-4 text-[11px] font-bold text-gray-500 dark:text-teal-400 uppercase tracking-wider">
+                    <td colSpan={8} className="py-2.5 px-4 text-[11px] font-black text-gray-600 dark:text-teal-400 uppercase tracking-wider">
                       {role === 'Bác sĩ' ? 'Chuyên viên tư vấn' : role} ({roleStaff.length})
                     </td>
                   </tr>
                   {roleStaff.map(staff => {
                     const isStaffConflict = conflicts.some(c => c.id === staff.id);
                     return (
-                      <tr key={staff.id} className="hover:bg-gray-50/50 dark:hover:bg-zinc-800/40 transition-colors group border-b border-gray-100 dark:border-zinc-800 last:border-none">
-                        <td className="p-4 border-r border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 group-hover:bg-gray-50/50 dark:group-hover:bg-zinc-800/50 transition-colors">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-zinc-700 text-slate-600 dark:text-zinc-200 flex items-center justify-center text-sm font-bold shrink-0 shadow-sm border border-white dark:border-zinc-600 select-none">
+                      <tr key={staff.id} id={`staff-row-${staff.id}`} className="hover:bg-gray-50/50 dark:hover:bg-zinc-800/40 transition-colors group border-b border-gray-100 dark:border-zinc-800 last:border-none">
+                        <td className="p-3.5 border-r border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 group-hover:bg-gray-50/50 dark:group-hover:bg-zinc-800/50 transition-colors">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 flex items-center justify-center text-xs font-black shrink-0 shadow-2xs border border-slate-200/80 dark:border-zinc-700 select-none">
                               {getAvatarInitials(staff.ho_ten)}
                             </div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-sm text-gray-800 dark:text-zinc-100">{staff.ho_ten}</span>
-                              {isStaffConflict && <AlertTriangle size={16} className="text-rose-500" />}
+                            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                              <span className="font-bold text-xs sm:text-sm text-gray-900 dark:text-zinc-100 whitespace-nowrap block" title={staff.ho_ten}>
+                                {staff.ho_ten}
+                              </span>
+                              {isStaffConflict && <AlertTriangle size={14} className="text-rose-500 shrink-0" />}
                             </div>
                           </div>
                         </td>
                         {weekDates.map(dow => {
                           const cellSchedules = schedules.filter(s => s.nguoi_dung_id === staff.id && s.ngay === dow.fullDateStr);
                           const isPastDate = dow.fullDateStr < todayDateStr;
+                          const isHighlighted = Boolean(
+                            highlightCell &&
+                            highlightCell.staffId === staff.id &&
+                            highlightCell.dateStr === dow.fullDateStr
+                          );
+
                           return (
                             <td 
                               key={dow.key} 
-                              className={`p-2 border-r border-gray-100 dark:border-zinc-800 align-top transition-colors relative ${
-                                dow.isToday 
-                                  ? 'bg-teal-50/20 dark:bg-teal-950/20 ring-1 ring-teal-500/10' 
-                                  : 'bg-white dark:bg-zinc-900'
+                              id={`schedule-cell-${staff.id}-${dow.fullDateStr}`}
+                              className={`p-2 border-r border-gray-100 dark:border-zinc-800 align-top transition-all duration-300 relative ${
+                                isHighlighted
+                                  ? 'bg-emerald-100/70 dark:bg-emerald-950/70 ring-2 ring-emerald-500 rounded-lg shadow-sm'
+                                  : dow.isToday 
+                                    ? 'bg-teal-50/20 dark:bg-teal-950/20 ring-1 ring-teal-500/10' 
+                                    : 'bg-white dark:bg-zinc-900'
                               } group-hover:bg-gray-50/50 dark:group-hover:bg-zinc-800/40`}
                             >
                               {cellSchedules.length > 0 ? (
@@ -194,12 +222,13 @@ export function SchedulesGrid({
                                 !isPastDate ? (
                                   <div 
                                     onClick={() => onOpenModal(staff.id, dow.fullDateStr)}
-                                    className="h-full min-h-[40px] rounded-lg border border-transparent hover:border-gray-300 dark:hover:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800/60 border-dashed flex items-center justify-center cursor-pointer transition-all opacity-0 group-hover:opacity-100 text-gray-400 dark:text-zinc-500 hover:text-teal-600 dark:hover:text-teal-400"
+                                    className="h-full min-h-[44px] rounded-xl border border-transparent hover:border-teal-300 dark:hover:border-teal-700 hover:bg-teal-50/30 dark:hover:bg-zinc-800/60 border-dashed flex items-center justify-center cursor-pointer transition-all opacity-0 group-hover:opacity-100 text-gray-400 dark:text-zinc-500 hover:text-teal-600 dark:hover:text-teal-400"
+                                    title="Thêm ca trực"
                                   >
                                     <Plus size={16} />
                                   </div>
                                 ) : (
-                                  <div className="h-full min-h-[40px]" />
+                                  <div className="h-full min-h-[44px]" />
                                 )
                               )}
                             </td>

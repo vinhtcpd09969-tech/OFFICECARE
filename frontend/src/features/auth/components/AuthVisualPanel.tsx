@@ -78,7 +78,10 @@ export default function AuthVisualPanel({
   ];
 
   return (
-    <div 
+    <motion.div 
+      initial={{ opacity: 0, y: 25, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.6, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       className="hidden lg:flex lg:w-[58%] h-full relative flex-col justify-between p-8 xl:p-10 z-10 select-none bg-white/40 backdrop-blur-xl border border-white/50 rounded-[32px] shadow-[0_24px_50px_-12px_rgba(15,23,42,0.15)] overflow-hidden transition-all duration-300"
@@ -124,7 +127,12 @@ export default function AuthVisualPanel({
       {/* Main Content Area: Storytelling & Timeline (Fills space gracefully) */}
       <div className="grid grid-cols-12 gap-6 xl:gap-8 items-center z-20 flex-1 py-4 my-auto w-full">
         {/* Left Side: Headline Glass Card */}
-        <div className="col-span-12 xl:col-span-6 z-10">
+        <motion.div 
+          initial={{ opacity: 0, x: -15 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
+          className="col-span-12 xl:col-span-6 z-10"
+        >
           <div className="bg-white/85 backdrop-blur-md border border-white/80 rounded-[28px] p-6 xl:p-7 space-y-4 shadow-md relative overflow-hidden group hover:border-[#14B8A6]/30 transition-all duration-300">
             <div className="absolute inset-0 bg-gradient-to-br from-[#14B8A6]/5 to-transparent pointer-events-none"></div>
             
@@ -156,7 +164,7 @@ export default function AuthVisualPanel({
               </span>
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Right Side: Recovery Timeline */}
         <div className="col-span-12 xl:col-span-6 border-t xl:border-t-0 xl:border-l border-slate-200/80 pt-4 xl:pt-1 xl:pl-6 space-y-4 relative z-10">
@@ -175,7 +183,7 @@ export default function AuthVisualPanel({
                   hidden: { opacity: 0, x: -10 },
                   visible: { opacity: 1, x: 0 }
                 }}
-                transition={{ duration: 0.4, delay: idx * 0.06 }}
+                transition={{ duration: 0.35, delay: 0.4 + idx * 0.05 }}
                 className="flex items-start gap-3.5 relative group cursor-default p-1.5 rounded-xl hover:bg-white/40 transition-all"
               >
                 {/* Glowing step point */}
@@ -200,7 +208,12 @@ export default function AuthVisualPanel({
       <div className="space-y-4 xl:space-y-5 z-20 shrink-0 border-t border-slate-200/60 pt-4">
         
         {/* Floating Insight Cards */}
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 w-full">
+        <motion.div 
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.55, ease: [0.16, 1, 0.3, 1] }}
+          className="grid grid-cols-2 xl:grid-cols-4 gap-3 w-full"
+        >
           {statCards.map((card, idx) => {
             const xOffset = useSpring(
               useMotionValue(0),
@@ -233,13 +246,13 @@ export default function AuthVisualPanel({
               </motion.div>
             );
           })}
-        </div>
+        </motion.div>
 
         <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest pt-2 border-t border-slate-200/40">
           <span>© 2026 OfficeCare Inc. All rights reserved.</span>
           <span>Chuẩn y khoa y tế 5★</span>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

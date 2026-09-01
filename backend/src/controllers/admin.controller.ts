@@ -337,27 +337,27 @@ export const getFeedback = asyncHandler(async (req: Request, res: Response) => {
 
 export const replyServiceFeedback = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params as { id: string };
-  const { noi_dung_tra_loi } = req.body;
+  const noi_dung_tra_loi = (req.body?.phanHoi ?? req.body?.noi_dung_tra_loi ?? req.body?.phan_hoi ?? req.body?.noi_dung ?? '') as string;
   const user = (req as any).user;
 
   if (!noi_dung_tra_loi?.trim()) {
     throw new BadRequestError('Nội dung phản hồi không được để trống');
   }
 
-  const result = await adminService.replyServiceFeedback(id, noi_dung_tra_loi, user.id);
+  const result = await adminService.replyServiceFeedback(id, noi_dung_tra_loi.trim(), user.id);
   res.json(result);
 });
 
 export const replyStaffFeedback = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params as { id: string };
-  const { noi_dung_tra_loi } = req.body;
+  const noi_dung_tra_loi = (req.body?.phanHoi ?? req.body?.noi_dung_tra_loi ?? req.body?.phan_hoi ?? req.body?.noi_dung ?? '') as string;
   const user = (req as any).user;
 
   if (!noi_dung_tra_loi?.trim()) {
     throw new BadRequestError('Nội dung phản hồi không được để trống');
   }
 
-  const result = await adminService.replyStaffFeedback(id, noi_dung_tra_loi, user.id);
+  const result = await adminService.replyStaffFeedback(id, noi_dung_tra_loi.trim(), user.id);
   res.json(result);
 });
 
@@ -382,7 +382,8 @@ export const getRevenueStats = asyncHandler(async (req: Request, res: Response) 
 });
 
 export const getStaffPerformance = asyncHandler(async (req: Request, res: Response) => {
-  const performance = await adminService.getStaffPerformance();
+  const { startDate, endDate } = req.query as { startDate?: string; endDate?: string };
+  const performance = await adminService.getStaffPerformance(startDate, endDate);
   res.json(performance);
 });
 

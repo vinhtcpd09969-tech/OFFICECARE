@@ -17,6 +17,7 @@ import { getSmartSearchScore } from '../../../utils/smartSearch';
 import { ConfirmDialog } from '../../ConfirmDialog';
 import { playCallInAudioChime } from '../../../utils/callInSignal';
 import { useAuthStore } from '../../../stores/authStore';
+import { useActiveShiftCheck } from '../../../hooks/useActiveShiftCheck';
 
 import { StaffSelectDropdown } from './flow/StaffSelectDropdown';
 import { useSucKhoeCa } from './flow/ShiftHealthWidget';
@@ -74,6 +75,7 @@ export function TodayFlowBoard({
   filterBar,
 }: TodayFlowBoardProps) {
   const user = useAuthStore((state) => state.user);
+  const { hasShiftToday, isSuperUser } = useActiveShiftCheck();
   const navigate = useNavigate();
   const billingRoute = user?.vai_tro_id === 2 ? '/receptionist/billing' : '/admin/quick-billing';
   const [activeTab, setActiveTab] = useState<'chua_den' | 'dang_cho' | 'dang_lam' | 'xong' | 'cho_tai_luong_gia' | 'ngoai_le'>('chua_den');
@@ -224,6 +226,11 @@ export function TodayFlowBoard({
   const [pendingOvertimeCheckin, setPendingOvertimeCheckin] = useState<Appointment | null>(null);
 
   const requestCheckin = (apt: Appointment) => {
+    if (user?.vai_tro_id === 2 && !hasShiftToday && !isSuperUser) {
+      toast.error('Bạn không có ca trực phân công hôm nay để thực hiện tiếp đón khách tại quầy.');
+      return;
+    }
+
     if (user?.vai_tro_id === 2 && apt.ngay_gio_bat_dau) {
       const apptDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(apt.ngay_gio_bat_dau));
       const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
@@ -247,9 +254,26 @@ export function TodayFlowBoard({
   };
 
   const [pendingNoShow, setPendingNoShow] = useState<Appointment | null>(null);
+  const [pendingPushBackApt, setPendingPushBackApt] = useState<Appointment | null>(null);
 
   return (
     <div className="space-y-4">
+      {user?.vai_tro_id === 2 && !hasShiftToday && !isSuperUser && (
+        <div className="p-4 rounded-3xl bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 flex items-start gap-3 shadow-xs animate-in fade-in duration-200">
+          <span className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 shrink-0 mt-0.5">
+            <Clock3 size={18} />
+          </span>
+          <div className="space-y-0.5 text-left">
+            <h4 className="text-xs font-black text-amber-900 dark:text-amber-200 uppercase tracking-wide">
+              ☕ Chế độ tra cứu hồ sơ (Lễ tân không có ca trực hôm nay)
+            </h4>
+            <p className="text-xs text-amber-800/80 dark:text-amber-300/80 leading-relaxed font-semibold">
+              Hôm nay bạn không có ca trực được phân công tại quầy lễ tân. Các nút tiếp đón (Check-in) và thu tiền tại quầy được tạm khóa an toàn. Bạn vẫn có thể xem lịch hẹn và tra cứu hồ sơ bình thường. Nếu bạn đang trực thay đột xuất, vui lòng liên hệ Quản lý để được xếp ca trực.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* 1. KHỐI TỔNG HỢP: ĐIỀU HƯỚNG BỘ LỌC + SỨC KHỎE CA TRỰC */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-4 md:p-5 shadow-xs space-y-4">
         {filterBar}
@@ -378,9 +402,30 @@ export function TodayFlowBoard({
         isOpen={!!pendingNoShow}
         title="Xác nhận KHÔNG ĐẾN"
         message={
-          pendingNoShow
-            ? <>Xác nhận <strong>{pendingNoShow.ten_khach_hang || pendingNoShow.ho_ten_khach}</strong> KHÔNG ĐẾN — khách sẽ mất tiền (nếu đã thanh toán) và bị cộng 1 lần no-show. Tiếp tục?</>
-            : ''
+          pendingNoShow ? (
+            <div className="space-y-2.5 text-left text-xs">
+              <p className="text-slate-700 dark:text-zinc-300">
+                Xác nhận khách hàng{' '}
+                <strong className="text-slate-900 dark:text-zinc-100 font-black">
+                  {pendingNoShow.ten_khach_hang || pendingNoShow.ho_ten_khach}
+                </strong>{' '}
+                KHÔNG ĐẾN buổi hẹn này?
+              </p>
+              {pendingNoShow.trang_thai_thanh_toan === 'da_thanh_toan' ? (
+                <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-955/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 font-semibold leading-relaxed">
+                  ✅ <strong>Khách đã thanh toán trước:</strong> Phòng khám giữ tiền, không hoàn tiền và <u>KHÔNG tính vi phạm</u> No-Show.
+                </div>
+              ) : Boolean(pendingNoShow.loai_goi === 'LIEU_TRINH' || pendingNoShow.loai_lich === 'dieu_tri_goi' || (pendingNoShow.tong_so_buoi_goi && pendingNoShow.tong_so_buoi_goi > 1)) ? (
+                <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-955/40 border border-indigo-200 dark:border-indigo-800 text-indigo-800 dark:text-indigo-300 font-semibold leading-relaxed">
+                  📦 <strong>Lịch thuộc gói liệu trình:</strong> Không tính vi phạm No-Show khóa quyền đặt lịch.
+                </div>
+              ) : (
+                <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-955/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300 font-semibold leading-relaxed">
+                  ⚠️ <strong>Lịch chưa thanh toán:</strong> Khách sẽ bị tính 1 lần vi phạm No-Show (tích lũy 2 lần trong 60 ngày sẽ bắt buộc thanh toán online qua PayOS).
+                </div>
+              )}
+            </div>
+          ) : ''
         }
         confirmLabel="Xác nhận Không đến"
         cancelLabel="Để sau"
@@ -693,7 +738,7 @@ export function TodayFlowBoard({
           }
 
           return (
-            <div>
+            <div className="overflow-x-auto">
               <ColumnHeaderRow />
               <div className="divide-y divide-slate-100 dark:divide-zinc-800">
                 {currentTab.list.map((apt) => (
@@ -702,10 +747,11 @@ export function TodayFlowBoard({
                     apt={apt}
                     variant={activeTab === 'cho_tai_luong_gia' ? 'chua_den' : (activeTab as any)}
                     staffList={staffList}
+                    schedulesList={schedulesList}
                     allAppointments={searched}
                     onOpenDetailModal={onOpenDetailModal}
                     onQuickCheckin={requestCheckin}
-                    onPushBack={onPushBack}
+                    onPushBack={(apt) => setPendingPushBackApt(apt)}
                     onMarkNoShow={activeTab === 'dang_cho' ? setPendingNoShow : onMarkNoShow}
                     onUnassign={onUnassign}
                     onPayment={setPendingPayment}
@@ -717,6 +763,37 @@ export function TodayFlowBoard({
           );
         })()}
       </div>
+
+      <ConfirmDialog
+        isOpen={!!pendingPushBackApt}
+        title="Xác nhận đẩy xuống cuối hàng đợi"
+        message={
+          pendingPushBackApt ? (
+            <div className="space-y-2 text-left">
+              <p>
+                Bạn có chắc chắn muốn đẩy khách hàng{' '}
+                <strong className="text-slate-900 dark:text-zinc-100">
+                  {pendingPushBackApt.ten_khach_hang || (pendingPushBackApt as any).ho_ten_khach || 'khách hàng'}
+                </strong>{' '}
+                xuống cuối hàng đợi để tiếp tục gọi khách hàng tiếp theo không?
+              </p>
+              <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-955/40 border border-amber-200/80 dark:border-amber-800/60 text-xs font-semibold text-amber-900 dark:text-amber-300">
+                Khách hàng này sẽ được dời thời gian check-in về hiện tại và xếp sau các khách hàng đang chờ khác.
+              </div>
+            </div>
+          ) : ''
+        }
+        confirmLabel="Đồng ý đẩy xuống"
+        cancelLabel="Hủy"
+        type="warning"
+        onConfirm={() => {
+          if (pendingPushBackApt && onPushBack) {
+            onPushBack(pendingPushBackApt);
+          }
+          setPendingPushBackApt(null);
+        }}
+        onCancel={() => setPendingPushBackApt(null)}
+      />
     </div>
   );
 }

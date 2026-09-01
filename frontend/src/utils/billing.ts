@@ -84,7 +84,7 @@ export function isSessionPaymentSatisfied(
     hoa_don_trang_thai?: string | null;
     trang_thai_hoa_don_goi?: string | null;
   },
-  sessionNum: number
+  _sessionNum?: number
 ): boolean {
   if (plan?.loai_goi === 'LE') return true;
   if (isPlanCancelled(plan)) return true;
@@ -94,11 +94,9 @@ export function isSessionPaymentSatisfied(
     return Number(plan?.so_tien_da_tra || 0) >= Number(plan?.tong_tien_phai_tra || 0);
   }
   if (hinhThuc === 'tung_buoi') {
-    const totalSessions = Number(plan?.tong_so_buoi || 10);
-    const totalAmount = Number(plan?.tong_tien_phai_tra || 0);
-    const sessionPrice = totalSessions > 0 ? Math.round(totalAmount / totalSessions) : totalAmount;
-    const requiredForThisSession = sessionNum >= totalSessions ? totalAmount : sessionNum * sessionPrice;
-    return Number(plan?.so_tien_da_tra || 0) >= requiredForThisSession;
+    // Với gói trả từng buổi: thanh toán linh hoạt theo từng ca (tại quầy lúc check-in hoặc sau ca trị liệu).
+    // Khách hàng không bị chặn đặt lịch buổi tiếp theo.
+    return true;
   }
   return false;
 }
@@ -195,3 +193,72 @@ export function isAwaitingPaymentForList(apt: Parameters<typeof isPaymentDue>[0]
 
   return isPaymentDue(apt);
 }
+
+export interface PackageRefundCalculationParams {
+  totalPaid: number;
+  packagePrice: number;
+  voucherDiscount?: number;
+  usedSessions: number;
+  totalSessions: number;
+  penaltyPercent?: number;
+  examFeeToCharge?: number;
+}
+
+export interface PackageRefundCalculationResult {
+  giaGocGoi: number;
+  soTienDaDong: number;
+  giaThanhToanGoi: number;
+  totalSessions: number;
+  usedSessions: number;
+  perSessionCost: number;
+  usedSessionsCost: number;
+  penaltyPercent: number;
+  penaltyAmount: number;
+  examFeeToCharge: number;
+  totalDeduction: number;
+  estimatedRefund: number;
+  keptRevenue: number;
+  shortfall: number;
+  isRefundable: boolean;
+}
+
+/**
+ * Tính toán số tiền hoàn trả cho gói liệu trình hủy giữa chừng — Single Source of Truth
+ */
+export function calculatePackageRefund(params: PackageRefundCalculationParams): PackageRefundCalculationResult {
+  const totalPaid = Math.max(0, Number(params.totalPaid || 0));
+  const giaGocGoi = Math.max(0, Number(params.packagePrice || 0));
+  const voucherDiscount = Math.max(0, Number(params.voucherDiscount || 0));
+  const giaThanhToanGoi = Math.max(0, giaGocGoi - voucherDiscount);
+  const totalSessions = Math.max(1, Number(params.totalSessions || 10));
+  const usedSessions = Math.max(0, Number(params.usedSessions || 0));
+  const penaltyPercent = Number(params.penaltyPercent ?? DEFAULT_CANCELLATION_PENALTY_PERCENT);
+  const examFeeToCharge = Math.max(0, Number(params.examFeeToCharge || 0));
+
+  const perSessionCost = totalSessions > 0 ? Math.round(giaThanhToanGoi / totalSessions) : 0;
+  const usedSessionsCost = Math.round((giaThanhToanGoi * usedSessions) / totalSessions);
+  const penaltyAmount = Math.round((giaThanhToanGoi * penaltyPercent) / 100);
+  const totalDeduction = usedSessionsCost + penaltyAmount + examFeeToCharge;
+  const estimatedRefund = Math.max(0, totalPaid - totalDeduction);
+  const keptRevenue = totalPaid - estimatedRefund;
+  const shortfall = Math.max(0, totalDeduction - totalPaid);
+
+  return {
+    giaGocGoi,
+    soTienDaDong: totalPaid,
+    giaThanhToanGoi,
+    totalSessions,
+    usedSessions,
+    perSessionCost,
+    usedSessionsCost,
+    penaltyPercent,
+    penaltyAmount,
+    examFeeToCharge,
+    totalDeduction,
+    estimatedRefund,
+    keptRevenue,
+    shortfall,
+    isRefundable: estimatedRefund > 0
+  };
+}
+

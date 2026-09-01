@@ -32,6 +32,7 @@ export default function ManageSchedules() {
   const [prefilledStaffId, setPrefilledStaffId] = useState<string | null>(null);
   const [prefilledDate, setPrefilledDate] = useState<string | null>(null);
   const [selectedShiftType, setSelectedShiftType] = useState<'morning' | 'afternoon' | 'tam_nghi'>('morning');
+  const [highlightCell, setHighlightCell] = useState<{ staffId: string; dateStr: string } | null>(null);
 
   const handleOpenAddModal = (userId: string, dateStr?: string) => {
     setEditingSchedule(null);
@@ -55,11 +56,21 @@ export default function ManageSchedules() {
   };
 
   const handleSuccess = () => {
+    const targetStaffId = prefilledStaffId || editingSchedule?.nguoi_dung_id;
+    const targetDate = prefilledDate || editingSchedule?.ngay;
+
+    if (targetStaffId && targetDate) {
+      setHighlightCell({ staffId: targetStaffId, dateStr: targetDate });
+      setTimeout(() => {
+        setHighlightCell(null);
+      }, 2500);
+    }
+
     setIsModalOpen(false);
     setEditingSchedule(null);
     setPrefilledStaffId(null);
     setPrefilledDate(null);
-    fetchData();
+    fetchData(false);
   };
 
   const handleDeleteSchedule = async () => {
@@ -132,6 +143,7 @@ export default function ManageSchedules() {
           groupedStaff={groupedStaff}
           schedules={schedules}
           conflicts={conflicts}
+          highlightCell={highlightCell}
           onOpenModal={handleOpenAddModal}
           onOpenEditModal={handleOpenEditModal}
         />

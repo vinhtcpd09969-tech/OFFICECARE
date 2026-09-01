@@ -1,18 +1,12 @@
 import type { CurrentPackageInfo } from '../types';
-import { formatCountdown } from '../../../../../utils/format';
-
-const STATUS_META: Record<string, { label: string; cls: string }> = {
-  cho_kich_hoat: { label: 'Chờ kích hoạt', cls: 'bg-amber-50 text-amber-700 border-amber-200/60' },
-  dang_dieu_tri: { label: 'Đang điều trị', cls: 'bg-teal-50 text-[#0D9488] border-teal-200/60' },
-  hoan_thanh: { label: 'Hoàn thành', cls: 'bg-slate-100 text-slate-600 border-slate-200/80' },
-  huy: { label: 'Đã hủy', cls: 'bg-rose-50 text-rose-700 border-rose-200/60' },
-};
+import { formatCountdown } from '@/utils/format';
+import { TREATMENT_PLAN_STATUS_META } from '@/constants/statusMeta';
 
 export function PackageStatusBadge({ goi }: { goi: CurrentPackageInfo | null }) {
   if (!goi) {
     return <span className="text-xs text-slate-400 font-bold italic">Chưa có liệu trình</span>;
   }
-  const meta = STATUS_META[goi.trang_thai] || { label: goi.trang_thai, cls: 'bg-slate-100 text-slate-600 border-slate-200' };
+  const meta = TREATMENT_PLAN_STATUS_META[goi.trang_thai] || { label: goi.trang_thai, cls: 'bg-slate-100 text-slate-600 border-slate-200' };
   const countdown = goi.trang_thai === 'cho_kich_hoat' && goi.han_kich_hoat ? formatCountdown(goi.han_kich_hoat) : null;
 
   return (

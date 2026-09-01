@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { X, Calendar, Clock, DoorOpen, Check, AlertCircle, Sun, Sunrise, Palmtree, ChevronDown, Sparkles } from 'lucide-react';
-import { Schedule, Staff, Room } from '../types';
+import { X, Calendar, DoorOpen, Check, AlertCircle, Sun, Sunrise, Palmtree, ChevronDown, Sparkles } from 'lucide-react';
+import { Schedule, Staff, Room, ScheduleFormValues } from '../types';
 import { useScheduleForm } from '../hooks/useScheduleForm';
 import { getAvatarInitials } from '../constants';
+import { ConfirmDialog } from '../../../../../components/ConfirmDialog';
 
 interface ScheduleFormModalProps {
   isOpen: boolean;
@@ -46,6 +47,7 @@ export function ScheduleFormModal({
     handleShiftTypeChange,
     fillFormForCreation,
     fillFormForEditing,
+    validateForm,
     onSubmit
   } = useScheduleForm({
     staff,
@@ -57,6 +59,9 @@ export function ScheduleFormModal({
   });
 
   const [isRoomDropdownOpen, setIsRoomDropdownOpen] = useState(false);
+  const [isUpdateConfirmOpen, setIsUpdateConfirmOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [pendingSubmitData, setPendingSubmitData] = useState<ScheduleFormValues | null>(null);
 
   // Pre-fill form when modal opens
   useEffect(() => {
@@ -87,6 +92,23 @@ export function ScheduleFormModal({
 
   const selectedRoomObj = availableRoomsForRole.find(r => String(r.id) === String(watchedPhongId));
 
+  const formatDateDisplay = (dStr?: string | null) => {
+    if (!dStr) return '';
+    const parts = dStr.split('-');
+    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    return dStr;
+  };
+
+  const handleFormSubmit = async (data: ScheduleFormValues) => {
+    if (!validateForm(data)) return;
+    if (editingSchedule) {
+      setPendingSubmitData(data);
+      setIsUpdateConfirmOpen(true);
+    } else {
+      await onSubmit(data);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -116,7 +138,7 @@ export function ScheduleFormModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-5 max-h-[85vh] overflow-y-auto no-scrollbar">
+        <form onSubmit={handleSubmit(handleFormSubmit)} className="p-6 space-y-5 max-h-[85vh] overflow-y-auto no-scrollbar">
           
           {/* Staff Banner Card */}
           <div className="bg-gradient-to-br from-teal-50/80 to-emerald-50/50 dark:from-teal-950/60 dark:to-emerald-950/40 border border-teal-100 dark:border-teal-900/60 rounded-2xl p-3.5 flex items-center justify-between">
@@ -134,225 +156,202 @@ export function ScheduleFormModal({
             <input type="hidden" {...register('nguoi_dung_id')} />
           </div>
 
-          {/* Current Schedule Summary if editing */}
-          {editingSchedule && (
-            <div className="bg-slate-50 dark:bg-zinc-800/80 border border-slate-200/80 dark:border-zinc-700 rounded-2xl p-3.5 space-y-1.5 select-none">
-              <span className="text-[10px] font-black text-slate-400 dark:text-zinc-400 uppercase tracking-widest block">Thông tin ca trực hiện tại</span>
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div>
-                  <span className="text-slate-400 dark:text-zinc-400 font-bold block mb-0.5">KHUNG GIỜ:</span>
-                  <p className="font-extrabold text-slate-800 dark:text-zinc-100 flex items-center gap-1">
-                    <Clock size={12} className="text-[#0D9488] dark:text-teal-400" />
-                    {editingSchedule.gio_bat_dau?.slice(0, 5)} - {editingSchedule.gio_ket_thuc?.slice(0, 5)}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-slate-400 dark:text-zinc-400 font-bold block mb-0.5">PHÒNG GÁN:</span>
-                  <p className="font-extrabold text-slate-800 dark:text-zinc-100 flex items-center gap-1">
-                    <DoorOpen size={12} className="text-[#0D9488] dark:text-teal-400" />
-                    {editingSchedule.ma_phong ? editingSchedule.ma_phong : 'Chưa gán phòng'}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Date Picker Input */}
-          <div>
-            <label className="block text-xs font-extrabold text-slate-700 dark:text-zinc-300 uppercase tracking-wider mb-1.5">
-              Ngày Trực *
+          {/* Date Picker Component */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-black text-slate-700 dark:text-zinc-300 uppercase tracking-wider block">
+              Ngày Trực
             </label>
             <div className="relative">
-              <input 
-                type="date" 
+              <input
+                type="date"
+                {...register('ngay')}
                 disabled={isPastDate}
-                {...register('ngay')} 
-                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl focus:ring-2 focus:ring-[#0D9488]/20 focus:border-[#0D9488] outline-none text-sm font-bold text-slate-800 dark:text-zinc-100 transition-all disabled:opacity-60 disabled:cursor-not-allowed" 
+                min={todayDateStr}
+                className="w-full bg-slate-50 dark:bg-zinc-800/80 border border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-zinc-100 text-xs rounded-2xl px-4 py-3 font-extrabold focus:outline-none focus:ring-2 focus:ring-[#0D9488]/20 focus:border-[#0D9488] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
               />
             </div>
-            {errors.ngay && <p className="text-rose-500 text-xs mt-1 font-bold">{errors.ngay.message}</p>}
+            {errors.ngay && (
+              <p className="text-rose-500 text-xs mt-1 font-bold flex items-center gap-1">
+                <AlertCircle size={12} /> {errors.ngay.message}
+              </p>
+            )}
           </div>
 
-          {/* Shift Selection (Visual Interactive Radio Cards) */}
-          <div>
-            <label className="block text-xs font-extrabold text-slate-700 dark:text-zinc-300 uppercase tracking-wider mb-2">
-              Ca Trực Thiết Lập *
+          {/* Shift Selection Radios */}
+          <div className="space-y-2">
+            <label className="text-xs font-black text-slate-700 dark:text-zinc-300 uppercase tracking-wider block">
+              Chọn Ca Làm Việc
             </label>
+            
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              
-              {/* Ca sáng */}
+              {/* Ca Sáng */}
               <button
                 type="button"
                 disabled={isPastDate || disabledShiftsForSelected.morning}
                 onClick={() => handleShiftTypeChange('morning')}
-                className={`p-3 rounded-2xl border text-left transition-all duration-200 relative cursor-pointer ${
+                className={`p-3 rounded-2xl border text-left transition-all relative flex flex-col justify-between cursor-pointer ${
                   selectedShiftType === 'morning'
-                    ? 'bg-teal-50/80 dark:bg-teal-950/60 border-[#0D9488] text-[#0D9488] dark:text-teal-300 shadow-sm ring-2 ring-[#0D9488]/20 font-black'
-                    : 'bg-slate-50/60 dark:bg-zinc-800 border-slate-200/80 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 hover:bg-slate-100/80 dark:hover:bg-zinc-700 font-bold'
-                } ${disabledShiftsForSelected.morning ? 'opacity-40 cursor-not-allowed bg-slate-100 dark:bg-zinc-800' : ''}`}
+                    ? 'border-[#0D9488] bg-teal-50/60 dark:bg-teal-950/40 ring-2 ring-[#0D9488]/20 text-[#0D9488]'
+                    : disabledShiftsForSelected.morning
+                    ? 'border-slate-100 bg-slate-50 dark:bg-zinc-800/40 text-slate-300 opacity-50 cursor-not-allowed'
+                    : 'border-slate-200 dark:border-zinc-700 hover:border-slate-300 bg-white dark:bg-zinc-800/60 text-slate-700 dark:text-zinc-300'
+                }`}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-black flex items-center gap-1.5">
-                    <Sunrise size={14} className={selectedShiftType === 'morning' ? 'text-[#0D9488] dark:text-teal-300' : 'text-amber-500'} /> Ca Sáng
-                  </span>
+                <div className="flex justify-between items-center w-full mb-1">
+                  <Sunrise size={16} className={selectedShiftType === 'morning' ? 'text-[#0D9488]' : 'text-amber-500'} />
                   {selectedShiftType === 'morning' && (
                     <div className="size-4 rounded-full bg-[#0D9488] text-white flex items-center justify-center">
                       <Check size={10} strokeWidth={3} />
                     </div>
                   )}
                 </div>
-                <span className="text-[10px] text-slate-500 dark:text-zinc-400 font-semibold block">
-                  {selectedStaffRole === 'Lễ tân' ? '07:00 - 12:00' : '07:00 - 16:00'}
-                </span>
-                {disabledShiftsForSelected.morning && (
-                  <span className="text-[9px] font-black text-rose-500 uppercase mt-1 block">Đã có ca</span>
-                )}
+                <div>
+                  <div className="text-xs font-extrabold">Ca Sáng</div>
+                  <div className="text-[10px] text-slate-400 font-bold mt-0.5">
+                    {selectedStaffRole === 'Lễ tân' ? '07:00 – 12:00' : '07:00 – 16:00'}
+                  </div>
+                </div>
               </button>
 
-              {/* Ca chiều */}
+              {/* Ca Chiều */}
               <button
                 type="button"
                 disabled={isPastDate || disabledShiftsForSelected.afternoon}
                 onClick={() => handleShiftTypeChange('afternoon')}
-                className={`p-3 rounded-2xl border text-left transition-all duration-200 relative cursor-pointer ${
+                className={`p-3 rounded-2xl border text-left transition-all relative flex flex-col justify-between cursor-pointer ${
                   selectedShiftType === 'afternoon'
-                    ? 'bg-teal-50/80 dark:bg-teal-950/60 border-[#0D9488] text-[#0D9488] dark:text-teal-300 shadow-sm ring-2 ring-[#0D9488]/20 font-black'
-                    : 'bg-slate-50/60 dark:bg-zinc-800 border-slate-200/80 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 hover:bg-slate-100/80 dark:hover:bg-zinc-700 font-bold'
-                } ${disabledShiftsForSelected.afternoon ? 'opacity-40 cursor-not-allowed bg-slate-100 dark:bg-zinc-800' : ''}`}
+                    ? 'border-[#0D9488] bg-teal-50/60 dark:bg-teal-950/40 ring-2 ring-[#0D9488]/20 text-[#0D9488]'
+                    : disabledShiftsForSelected.afternoon
+                    ? 'border-slate-100 bg-slate-50 dark:bg-zinc-800/40 text-slate-300 opacity-50 cursor-not-allowed'
+                    : 'border-slate-200 dark:border-zinc-700 hover:border-slate-300 bg-white dark:bg-zinc-800/60 text-slate-700 dark:text-zinc-300'
+                }`}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-black flex items-center gap-1.5">
-                    <Sun size={14} className={selectedShiftType === 'afternoon' ? 'text-[#0D9488] dark:text-teal-300' : 'text-amber-500'} /> Ca Chiều
-                  </span>
+                <div className="flex justify-between items-center w-full mb-1">
+                  <Sun size={16} className={selectedShiftType === 'afternoon' ? 'text-[#0D9488]' : 'text-orange-500'} />
                   {selectedShiftType === 'afternoon' && (
                     <div className="size-4 rounded-full bg-[#0D9488] text-white flex items-center justify-center">
                       <Check size={10} strokeWidth={3} />
                     </div>
                   )}
                 </div>
-                <span className="text-[10px] text-slate-500 dark:text-zinc-400 font-semibold block">
-                  {selectedStaffRole === 'Lễ tân' ? '12:00 - 20:00' : '11:00 - 20:00'}
-                </span>
-                {disabledShiftsForSelected.afternoon && (
-                  <span className="text-[9px] font-black text-rose-500 uppercase mt-1 block">Đã có ca</span>
-                )}
+                <div>
+                  <div className="text-xs font-extrabold">Ca Chiều</div>
+                  <div className="text-[10px] text-slate-400 font-bold mt-0.5">
+                    {selectedStaffRole === 'Lễ tân' ? '12:00 – 20:00' : '11:00 – 20:00'}
+                  </div>
+                </div>
               </button>
 
-              {/* Tạm nghỉ */}
+              {/* Tạm Nghỉ */}
               <button
                 type="button"
                 disabled={isPastDate}
                 onClick={() => handleShiftTypeChange('tam_nghi')}
-                className={`p-3 rounded-2xl border text-left transition-all duration-200 relative cursor-pointer ${
+                className={`p-3 rounded-2xl border text-left transition-all relative flex flex-col justify-between cursor-pointer ${
                   selectedShiftType === 'tam_nghi'
-                    ? 'bg-amber-50/80 dark:bg-amber-950/60 border-amber-500 text-amber-800 dark:text-amber-300 shadow-sm ring-2 ring-amber-400/20 font-black'
-                    : 'bg-slate-50/60 dark:bg-zinc-800 border-slate-200/80 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 hover:bg-slate-100/80 dark:hover:bg-zinc-700 font-bold'
+                    ? 'border-amber-500 bg-amber-50/60 dark:bg-amber-950/40 ring-2 ring-amber-500/20 text-amber-800'
+                    : 'border-slate-200 dark:border-zinc-700 hover:border-slate-300 bg-white dark:bg-zinc-800/60 text-slate-700 dark:text-zinc-300'
                 }`}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-black flex items-center gap-1.5">
-                    <Palmtree size={14} className="text-amber-600" /> Tạm Nghỉ
-                  </span>
+                <div className="flex justify-between items-center w-full mb-1">
+                  <Palmtree size={16} className={selectedShiftType === 'tam_nghi' ? 'text-amber-600' : 'text-slate-400'} />
                   {selectedShiftType === 'tam_nghi' && (
-                    <div className="size-4 rounded-full bg-amber-500 text-white flex items-center justify-center">
+                    <div className="size-4 rounded-full bg-amber-600 text-white flex items-center justify-center">
                       <Check size={10} strokeWidth={3} />
                     </div>
                   )}
                 </div>
-                <span className="text-[10px] text-amber-700/80 font-semibold block">
-                  Nghỉ phép / Ca nghỉ
-                </span>
+                <div>
+                  <div className="text-xs font-extrabold">Tạm Nghỉ</div>
+                  <div className="text-[10px] text-slate-400 font-bold mt-0.5">Nghỉ phép ca này</div>
+                </div>
               </button>
-
             </div>
           </div>
 
-          {/* Room Choice Custom Styled Dropdown Panel */}
-          {watch('trang_thai') === 'hoat_dong' && (isDoctor || isTechnician) && (
-            <div>
-              <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-1.5">
-                {isDoctor ? 'Phòng Lượng Giá' : 'Phòng Trị Liệu'} *
-              </label>
+          {/* Room Selector with Dropdown (Only for Doctor/Technician) */}
+          {(isDoctor || isTechnician) && selectedShiftType !== 'tam_nghi' && (
+            <div className="space-y-1.5 relative">
+              <div className="flex justify-between items-center">
+                <label className="text-xs font-black text-slate-700 dark:text-zinc-300 uppercase tracking-wider block">
+                  Phân Phòng Làm Việc *
+                </label>
+                <span className="text-[10px] font-bold text-slate-400">
+                  {isDoctor ? 'Phòng Khám Lượng Giá' : 'Phòng Trị Liệu'}
+                </span>
+              </div>
 
-              {/* Custom Selector Trigger Button */}
+              {/* Custom Room Select Trigger Button */}
               <div className="relative">
                 <button
                   type="button"
                   disabled={isPastDate}
                   onClick={() => setIsRoomDropdownOpen(!isRoomDropdownOpen)}
-                  className={`w-full px-4 py-3 bg-slate-50/80 border rounded-2xl flex items-center justify-between text-left transition-all duration-200 cursor-pointer ${
+                  className={`w-full bg-slate-50 dark:bg-zinc-800/80 border rounded-2xl px-4 py-3 text-left flex justify-between items-center transition-all cursor-pointer ${
                     errors.phong_id 
-                      ? 'border-rose-300 ring-2 ring-rose-100' 
-                      : (watchedPhongId ? 'border-[#0D9488] bg-teal-50/20 ring-2 ring-[#0D9488]/10' : 'border-slate-200 hover:border-slate-300')
-                  } ${isPastDate ? 'opacity-60 cursor-not-allowed' : ''}`}
+                      ? 'border-rose-300 ring-2 ring-rose-500/10' 
+                      : 'border-slate-200 dark:border-zinc-700 hover:border-slate-300 focus:border-[#0D9488]'
+                  }`}
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <DoorOpen size={18} className={watchedPhongId ? 'text-[#0D9488]' : 'text-slate-400'} />
+                    <DoorOpen size={16} className="text-[#0D9488] shrink-0" />
                     {selectedRoomObj ? (
                       <div className="truncate">
-                        <span className="text-xs font-black text-slate-900 mr-2">
-                          {selectedRoomObj.ten_phong}
+                        <span className="font-extrabold text-xs text-slate-900 dark:text-zinc-100">
+                          {selectedRoomObj.ten_phong} ({selectedRoomObj.ma_phong})
                         </span>
-                        <span className="text-[10px] font-bold text-teal-700 bg-teal-100/70 px-2 py-0.5 rounded-md border border-teal-200/60">
-                          {selectedRoomObj.ma_phong}
-                        </span>
-                        <span className="text-[10px] text-slate-500 ml-2 font-semibold">
-                          ({selectedRoomObj.occupancy || 0}/{selectedRoomObj.suc_chua || 1} ca)
+                        <span className="text-[10px] font-bold text-slate-400 ml-2">
+                          • Sức chứa: {selectedRoomObj.suc_chua || 1} người
                         </span>
                       </div>
                     ) : (
-                      <span className="text-xs font-semibold text-slate-400">
-                        {isDoctor ? '-- Chọn phòng lượng giá --' : '-- Chọn phòng trị liệu --'}
-                      </span>
+                      <span className="text-xs font-bold text-slate-400">-- Chọn phòng làm việc trực tiếp --</span>
                     )}
                   </div>
-                  <ChevronDown size={16} className={`text-slate-400 transition-transform duration-200 ${isRoomDropdownOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDown size={14} className={`text-slate-400 transition-transform ${isRoomDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
 
-                {/* Dropdown Options Custom Popup Menu */}
-                {isRoomDropdownOpen && !isPastDate && (
-                  <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200/90 rounded-2xl shadow-xl z-30 p-2 space-y-1 max-h-56 overflow-y-auto no-scrollbar animate-in fade-in slide-in-from-top-2 duration-150">
+                {/* Dropdown Menu */}
+                {isRoomDropdownOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-2xl shadow-xl z-50 p-1.5 space-y-1 max-h-56 overflow-y-auto no-scrollbar animate-in zoom-in-95 duration-150">
                     {availableRoomsForRole.length === 0 ? (
-                      <div className="p-3 text-center text-xs text-slate-400 font-semibold">
-                        Không có phòng khả dụng cho vai trò này
+                      <div className="p-3 text-center text-xs text-slate-400 font-bold">
+                        Chưa có phòng phù hợp với vai trò này
                       </div>
                     ) : (
-                      availableRoomsForRole.map(r => {
+                      availableRoomsForRole.map((r: any) => {
                         const isSelected = String(r.id) === String(watchedPhongId);
+                        const isFull = r.isFull;
+
                         return (
                           <button
                             key={r.id}
                             type="button"
-                            disabled={r.isFull}
+                            disabled={isFull}
                             onClick={() => {
                               setValue('phong_id', String(r.id), { shouldValidate: true });
                               setIsRoomDropdownOpen(false);
                             }}
-                            className={`w-full p-2.5 rounded-xl flex items-center justify-between text-left text-xs transition-all duration-150 cursor-pointer ${
-                              isSelected
-                                ? 'bg-teal-50 text-[#0D9488] font-black border border-teal-200/80'
-                                : 'hover:bg-slate-50 text-slate-700 font-bold'
-                            } ${r.isFull ? 'opacity-50 bg-slate-50/60 cursor-not-allowed' : ''}`}
+                            className={`w-full p-2.5 rounded-xl text-left flex justify-between items-center transition-colors cursor-pointer ${
+                              isSelected 
+                                ? 'bg-teal-50 dark:bg-teal-950/60 text-[#0D9488]' 
+                                : isFull
+                                ? 'bg-slate-50/50 text-slate-300 dark:text-zinc-600 cursor-not-allowed opacity-60'
+                                : 'hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200'
+                            }`}
                           >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <DoorOpen size={15} className={isSelected ? 'text-[#0D9488]' : 'text-slate-400'} />
-                              <div className="truncate">
-                                <span className="font-extrabold text-slate-900 mr-1.5">{r.ten_phong}</span>
-                                <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                                  {r.ma_phong}
-                                </span>
-                              </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-extrabold">{r.ten_phong} ({r.ma_phong})</span>
                             </div>
-
-                            <div className="flex items-center gap-2 shrink-0">
+                            <div className="flex items-center gap-2">
                               <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${
-                                r.isFull
+                                isFull 
                                   ? 'bg-rose-50 text-rose-600 border-rose-200/60'
                                   : 'bg-emerald-50 text-emerald-700 border-emerald-200/60'
                               }`}>
                                 {r.occupancy || 0}/{r.suc_chua || 1} {r.isFull ? '• Hết chỗ' : '• Trống'}
                               </span>
-                              {isSelected && <Check size={14} className="text-[#0D9488]" strokeWidth={3} />}
+                              {isSelected && <Check size={12} className="text-[#0D9488]" strokeWidth={3} />}
                             </div>
                           </button>
                         );
@@ -377,20 +376,12 @@ export function ScheduleFormModal({
           <input type="hidden" {...register('gio_ket_thuc')} />
           <input type="hidden" {...register('trang_thai')} />
 
-          {/* Past Date Warning Alert */}
-          {isPastDate && (
-            <div className="text-xs text-amber-800 font-extrabold bg-amber-50 border border-amber-200/80 p-3.5 rounded-2xl flex items-center gap-2 select-none">
-              <AlertCircle size={16} className="text-amber-600 shrink-0" />
-              <span>Ca trực ở thời điểm quá khứ chỉ cho phép xem thông tin.</span>
-            </div>
-          )}
-
           {/* Action Footer */}
           <div className="pt-3 border-t border-slate-100 flex justify-between items-center gap-3">
             {editingSchedule && !isPastDate ? (
               <button 
                 type="button" 
-                onClick={onDeleteSchedule} 
+                onClick={() => setIsDeleteConfirmOpen(true)} 
                 className="px-4 py-2.5 text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-xl font-extrabold text-xs transition-colors cursor-pointer"
               >
                 Xóa Ca Trực
@@ -403,7 +394,7 @@ export function ScheduleFormModal({
                 onClick={onClose} 
                 className="px-5 py-2.5 text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl font-extrabold text-xs transition-colors cursor-pointer"
               >
-                {isPastDate ? 'Đóng' : 'Hủy Bỏ'}
+                Hủy Bỏ
               </button>
               {!isPastDate && (
                 <button 
@@ -418,6 +409,88 @@ export function ScheduleFormModal({
 
         </form>
       </div>
+
+      {/* Confirmation Dialog for Update */}
+      <ConfirmDialog
+        isOpen={isUpdateConfirmOpen}
+        title="Xác nhận cập nhật ca trực"
+        type="warning"
+        confirmLabel="Xác nhận cập nhật"
+        cancelLabel="Kiểm tra lại"
+        message={
+          <div className="space-y-2.5 text-left bg-slate-50 dark:bg-zinc-800/80 p-4 rounded-2xl border border-slate-200/80 dark:border-zinc-700/80 text-xs w-full">
+            <p className="text-slate-600 dark:text-zinc-300 font-medium pb-1">
+              Bạn có chắc chắn muốn cập nhật phân công ca trực này không?
+            </p>
+            <div className="flex justify-between border-t border-slate-200/60 dark:border-zinc-700 pt-2">
+              <span className="text-slate-500 dark:text-zinc-400">Nhân sự:</span>
+              <strong className="text-slate-900 dark:text-zinc-100">{selectedStaffName}</strong>
+            </div>
+            <div className="flex justify-between border-t border-slate-200/60 dark:border-zinc-700 pt-2">
+              <span className="text-slate-500 dark:text-zinc-400">Ngày trực:</span>
+              <strong className="text-slate-900 dark:text-zinc-100">{formatDateDisplay(selectedDate)}</strong>
+            </div>
+            <div className="flex justify-between border-t border-slate-200/60 dark:border-zinc-700 pt-2">
+              <span className="text-slate-500 dark:text-zinc-400">Ca làm việc:</span>
+              <strong className="text-teal-700 dark:text-teal-400 font-bold">
+                {selectedShiftType === 'morning' ? 'Ca Sáng (07:00 – 16:00)' : selectedShiftType === 'afternoon' ? 'Ca Chiều (11:00 – 20:00)' : 'Tạm nghỉ'}
+              </strong>
+            </div>
+            {selectedRoomObj && selectedShiftType !== 'tam_nghi' && (
+              <div className="flex justify-between border-t border-slate-200/60 dark:border-zinc-700 pt-2">
+                <span className="text-slate-500 dark:text-zinc-400">Phòng trực:</span>
+                <strong className="text-slate-900 dark:text-zinc-100">{selectedRoomObj.ten_phong} ({selectedRoomObj.ma_phong})</strong>
+              </div>
+            )}
+          </div>
+        }
+        onConfirm={async () => {
+          setIsUpdateConfirmOpen(false);
+          if (pendingSubmitData) {
+            await onSubmit(pendingSubmitData);
+            setPendingSubmitData(null);
+          }
+        }}
+        onCancel={() => {
+          setIsUpdateConfirmOpen(false);
+          setPendingSubmitData(null);
+        }}
+      />
+
+      {/* Confirmation Dialog for Delete */}
+      <ConfirmDialog
+        isOpen={isDeleteConfirmOpen}
+        title="Xác nhận xóa ca trực"
+        type="danger"
+        confirmLabel="Xóa ca trực"
+        cancelLabel="Hủy bỏ"
+        message={
+          <div className="space-y-2.5 text-left bg-rose-50/70 dark:bg-rose-950/30 p-4 rounded-2xl border border-rose-200/80 dark:border-rose-900/50 text-xs w-full">
+            <p className="text-rose-900 dark:text-rose-200 font-medium leading-relaxed pb-1">
+              Bạn có chắc chắn muốn xóa ca trực này khỏi hệ thống không? Thao tác này sẽ xóa lịch trực đã xếp của nhân sự.
+            </p>
+            <div className="flex justify-between border-t border-rose-200/60 dark:border-rose-900/40 pt-2">
+              <span className="text-slate-600 dark:text-zinc-400">Nhân sự:</span>
+              <strong className="text-slate-900 dark:text-zinc-100">{selectedStaffName}</strong>
+            </div>
+            <div className="flex justify-between border-t border-rose-200/60 dark:border-rose-900/40 pt-2">
+              <span className="text-slate-600 dark:text-zinc-400">Ngày trực:</span>
+              <strong className="text-slate-900 dark:text-zinc-100">{formatDateDisplay(selectedDate)}</strong>
+            </div>
+            <div className="flex justify-between border-t border-rose-200/60 dark:border-rose-900/40 pt-2">
+              <span className="text-slate-600 dark:text-zinc-400">Ca trực:</span>
+              <strong className="text-rose-700 dark:text-rose-300 font-bold">
+                {selectedShiftType === 'morning' ? 'Ca Sáng (07:00 – 16:00)' : selectedShiftType === 'afternoon' ? 'Ca Chiều (11:00 – 20:00)' : 'Tạm nghỉ'}
+              </strong>
+            </div>
+          </div>
+        }
+        onConfirm={() => {
+          setIsDeleteConfirmOpen(false);
+          onDeleteSchedule();
+        }}
+        onCancel={() => setIsDeleteConfirmOpen(false)}
+      />
     </div>
   );
 }

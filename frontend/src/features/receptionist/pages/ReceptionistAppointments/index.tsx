@@ -467,6 +467,7 @@ export default function ReceptionistAppointments() {
             <AppointmentsFilterBar
               startDate={startDate}
               endDate={endDate}
+              appointments={appointments}
               onSelectDateRange={(start, end) => {
                 handleCloseWalkInModal();
                 setFocusedAppointmentId(null);
@@ -546,6 +547,7 @@ export default function ReceptionistAppointments() {
                           embedded={true}
                           startDate={startDate}
                           endDate={endDate}
+                          appointments={appointments}
                           onSelectDateRange={(start, end) => {
                             handleCloseWalkInModal();
                             setFocusedAppointmentId(null);
@@ -628,7 +630,6 @@ export default function ReceptionistAppointments() {
               )}
           </div>
 
-      {/* GLOBAL MODALS */}
       {isDetailModalOpen && (
         <AppointmentDetailModal
           selectedAppointment={selectedAppointment}
@@ -664,7 +665,7 @@ export default function ReceptionistAppointments() {
 
       <ConfirmDialog
         isOpen={!!pendingUnassignApt}
-        title="Xác nhận chuyển Hàng chờ chung"
+        title="Xác nhận chuyển sang Nhân sự: Bất kỳ"
         message={
           pendingUnassignApt ? (
             <div className="space-y-2 text-left">
@@ -673,15 +674,15 @@ export default function ReceptionistAppointments() {
                 <strong className="text-slate-900 dark:text-zinc-100">
                   {pendingUnassignApt.ten_khach_hang || pendingUnassignApt.ho_ten_khach || 'khách hàng'}
                 </strong>{' '}
-                từ ca của <strong>{pendingUnassignApt.bac_si_ten || pendingUnassignApt.ten_bac_si || pendingUnassignApt.ten_nhan_su || 'nhân sự'}</strong> về <strong>HÀNG CHỜ CHUNG</strong> không?
+                từ ca của <strong>{pendingUnassignApt.ten_ky_thuat_vien || pendingUnassignApt.bac_si_ten || pendingUnassignApt.ten_bac_si || pendingUnassignApt.ten_nhan_su || 'nhân sự'}</strong> về <strong>Nhân sự: Bất kỳ</strong> không?
               </p>
               <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-955/40 border border-amber-200/80 dark:border-amber-800/60 text-xs font-semibold text-amber-900 dark:text-amber-300">
-                Sau khi chuyển, bất kỳ nhân sự nào rảnh bàn sẽ chủ động bấm Gọi vào để tiếp nhận.
+                Sau khi chuyển, cuộc hẹn sẽ được tiếp nhận bởi nhân sự rảnh tiếp theo khi họ bấm Gọi vào.
               </div>
             </div>
           ) : ''
         }
-        confirmLabel="Chuyển về Hàng chờ chung"
+        confirmLabel="Đồng ý chuyển"
         cancelLabel="Hủy"
         type="warning"
         onConfirm={handleConfirmUnassign}

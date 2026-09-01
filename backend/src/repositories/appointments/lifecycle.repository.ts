@@ -351,9 +351,7 @@ export class AppointmentLifecycleRepository {
 
     await pool.query(
       `UPDATE cuoc_hen
-       SET thoi_gian_checkin = NOW(),
-           nhan_su_id = CASE WHEN gan_qua_hang_doi THEN NULL ELSE nhan_su_id END,
-           gan_qua_hang_doi = FALSE
+       SET thoi_gian_checkin = NOW()
        WHERE id = $1`,
       [cuocHenId]
     );

@@ -15,7 +15,7 @@ export class DoctorRecordsRepository {
       FROM nhat_ky_buoi_dieu_tri nk
       JOIN cuoc_hen ch ON nk.cuoc_hen_id = ch.id
       LEFT JOIN chi_dinh_buoi cd ON cd.nhat_ky_id = nk.id
-      LEFT JOIN nguoi_dung nd_bs ON ch.nhan_su_id = nd_bs.id
+      LEFT JOIN nguoi_dung nd_bs ON COALESCE(ch.nhan_su_id, nk.nguoi_tao_id, ch.nguoi_tao_id) = nd_bs.id
       LEFT JOIN goi_dich_vu goi ON cd.goi_dich_vu_id = goi.id
       WHERE ch.khach_hang_id = $1::uuid AND UPPER(ch.loai) LIKE '%KHAM%' AND ch.trang_thai IN ('hoan_thanh', 'cho_tai_luong_gia')
       ORDER BY nk.ngay_tao DESC;
@@ -32,7 +32,7 @@ export class DoctorRecordsRepository {
         pd.goi_dich_vu_id as goi_dich_vu_id,
         CASE WHEN goi.loai_goi = 'LIEU_TRINH' THEN 'goi' ELSE 'dich_vu' END as loai_dieu_tri,
         pd.tong_so_buoi,
-        (SELECT COUNT(*) FROM cuoc_hen c2 WHERE c2.phac_do_dieu_tri_id = pd.id AND c2.trang_thai = 'hoan_thanh') as so_buoi_da_dung,
+        pd.so_buoi_da_dung,
         pd.trang_thai, pd.ngay_kich_hoat as thoi_gian_tao,
         'PD-' || UPPER(SUBSTRING(pd.id::text FROM 1 FOR 6)) as ma_lich_dieu_tri,
         NULL::text as ten_dich_vu, goi.ten_goi,
@@ -51,7 +51,7 @@ export class DoctorRecordsRepository {
       LEFT JOIN chi_dinh_buoi cd_origin ON cd_origin.phac_do_dieu_tri_id = pd.id
       LEFT JOIN nhat_ky_buoi_dieu_tri nk_origin ON cd_origin.nhat_ky_id = nk_origin.id
       LEFT JOIN cuoc_hen origin_ch ON nk_origin.cuoc_hen_id = origin_ch.id
-      LEFT JOIN nguoi_dung nd_origin ON origin_ch.nhan_su_id = nd_origin.id
+      LEFT JOIN nguoi_dung nd_origin ON COALESCE(origin_ch.nhan_su_id, nk_origin.nguoi_tao_id, origin_ch.nguoi_tao_id) = nd_origin.id
       WHERE pd.khach_hang_id = $1::uuid
       ORDER BY pd.ngay_kich_hoat DESC NULLS LAST;
     `;
@@ -77,7 +77,7 @@ export class DoctorRecordsRepository {
       FROM cuoc_hen ch
       LEFT JOIN goi_dich_vu dv ON ch.goi_dich_vu_id = dv.id
       LEFT JOIN nhat_ky_buoi_dieu_tri nk ON nk.cuoc_hen_id = ch.id
-      LEFT JOIN nguoi_dung nd_nhan_su ON ch.nhan_su_id = nd_nhan_su.id
+      LEFT JOIN nguoi_dung nd_nhan_su ON COALESCE(ch.nhan_su_id, nk.nguoi_tao_id, ch.nguoi_tao_id) = nd_nhan_su.id
       WHERE ch.khach_hang_id = $1::uuid
         AND ch.loai = 'DICH_VU_LE'
         AND ch.phac_do_dieu_tri_id IS NULL
@@ -99,7 +99,7 @@ export class DoctorRecordsRepository {
         nd_ktv.ho_ten as ten_ky_thuat_vien, nd_ktv.anh_dai_dien as anh_ky_thuat_vien
       FROM cuoc_hen ch
       LEFT JOIN nhat_ky_buoi_dieu_tri nk ON nk.cuoc_hen_id = ch.id
-      LEFT JOIN nguoi_dung nd_ktv ON ch.nhan_su_id = nd_ktv.id
+      LEFT JOIN nguoi_dung nd_ktv ON COALESCE(ch.nhan_su_id, nk.nguoi_tao_id, ch.nguoi_tao_id) = nd_ktv.id
       WHERE ch.phac_do_dieu_tri_id = $1::uuid AND ch.loai = 'DIEU_TRI' AND ch.trang_thai != 'da_huy'
       ORDER BY ch.so_thu_tu_buoi ASC;
     `;
@@ -107,15 +107,17 @@ export class DoctorRecordsRepository {
     return rows;
   }
 
-  // 8. Lấy lịch làm việc của bác sĩ
+  // 8. Lấy lịch làm việc của bác sĩ / chuyên viên PHCN
   async getDoctorSchedules(userId: string) {
     const queryStr = `
       SELECT 
-        id, nhan_su_id as nguoi_dung_id, to_char(ngay_truc, 'YYYY-MM-DD') as ngay, 
-        to_char(gio_bat_dau, 'HH24:MI') as gio_bat_dau, to_char(gio_ket_thuc, 'HH24:MI') as gio_ket_thuc, trang_thai
-      FROM lich_truc_nhan_su
-      WHERE nhan_su_id = $1::integer
-      ORDER BY ngay_truc ASC;
+        lt.id, lt.nhan_su_id as nguoi_dung_id, to_char(lt.ngay_truc, 'YYYY-MM-DD') as ngay, 
+        to_char(lt.gio_bat_dau, 'HH24:MI') as gio_bat_dau, to_char(lt.gio_ket_thuc, 'HH24:MI') as gio_ket_thuc, lt.trang_thai,
+        lt.phong_id, p.ma_phong, p.ten_phong
+      FROM lich_truc_nhan_su lt
+      LEFT JOIN phong_lam_viec p ON lt.phong_id = p.id
+      WHERE lt.nhan_su_id = $1::integer
+      ORDER BY lt.ngay_truc ASC;
     `;
     const { rows } = await pool.query(queryStr, [userId]);
     return rows;

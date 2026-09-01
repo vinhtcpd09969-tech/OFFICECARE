@@ -126,3 +126,16 @@ export const changePassword = asyncHandler(async (req: Request, res: Response) =
     ...result
   });
 });
+
+export const getMyShiftToday = asyncHandler(async (req: Request, res: Response) => {
+  const { checkUserHasActiveShiftToday } = await import('../middlewares/shiftGuard.middleware');
+  const userId = req.user.id;
+  const roleId = Number(req.user.vai_tro_id);
+  const result = await checkUserHasActiveShiftToday(userId, roleId);
+  res.json({
+    success: true,
+    hasShiftToday: result.hasShift,
+    shiftInfo: result.shiftInfo
+  });
+});
+

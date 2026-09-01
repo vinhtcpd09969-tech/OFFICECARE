@@ -419,7 +419,7 @@ export default function ManageAppointments() {
     const customerName = pendingUnassignApt.ten_khach_hang || pendingUnassignApt.ho_ten_khach || pendingUnassignApt.ho_ten || 'khách hàng';
     try {
       await unassignAppointmentStaff(String(pendingUnassignApt.id));
-      toast.success(`🎉 Đã chuyển ${customerName} về Hàng chờ chung thành công!`);
+      toast.success(`🎉 Đã chuyển ca của ${customerName} sang trạng thái Nhân sự: Bất kỳ thành công!`);
       await refetch();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Không thể giải phóng chỉ định nhân sự.');
@@ -623,6 +623,7 @@ export default function ManageAppointments() {
             <AppointmentsFilterBar
               startDate={startDate}
               endDate={endDate}
+              appointments={dayAppointmentsForBoard || appointmentsToUse}
               onSelectDateRange={(start, end) => {
                 handleCloseWalkInModal();
                 setFocusedAppointmentId(null);
@@ -706,6 +707,7 @@ export default function ManageAppointments() {
                           embedded={true}
                           startDate={startDate}
                           endDate={endDate}
+                          appointments={dayAppointmentsForBoard || appointmentsToUse}
                           onSelectDateRange={(start, end) => {
                             handleCloseWalkInModal();
                             setFocusedAppointmentId(null);
@@ -831,7 +833,7 @@ export default function ManageAppointments() {
 
       <ConfirmDialog
         isOpen={!!pendingUnassignApt}
-        title="Xác nhận chuyển Hàng chờ chung"
+        title="Xác nhận chuyển sang Nhân sự: Bất kỳ"
         message={
           pendingUnassignApt ? (
             <div className="space-y-2 text-left">
@@ -840,15 +842,15 @@ export default function ManageAppointments() {
                 <strong className="text-slate-900 dark:text-zinc-100">
                   {pendingUnassignApt.ten_khach_hang || pendingUnassignApt.ho_ten_khach || 'khách hàng'}
                 </strong>{' '}
-                từ ca của <strong>{pendingUnassignApt.bac_si_ten || pendingUnassignApt.ten_bac_si || pendingUnassignApt.ten_nhan_su || 'nhân sự'}</strong> về <strong>HÀNG CHỜ CHUNG</strong> không?
+                từ ca của <strong>{pendingUnassignApt.ten_ky_thuat_vien || pendingUnassignApt.bac_si_ten || pendingUnassignApt.ten_bac_si || pendingUnassignApt.ten_nhan_su || 'nhân sự'}</strong> sang trạng thái <strong>Nhân sự: Bất kỳ</strong> không?
               </p>
               <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-955/40 border border-amber-200/80 dark:border-amber-800/60 text-xs font-semibold text-amber-900 dark:text-amber-300">
-                Sau khi chuyển, bất kỳ nhân sự nào rảnh bàn sẽ chủ động bấm Gọi vào để tiếp nhận.
+                Sau khi chuyển, cuộc hẹn sẽ được tiếp nhận bởi nhân sự rảnh tiếp theo khi họ bấm Gọi vào.
               </div>
             </div>
           ) : ''
         }
-        confirmLabel="Chuyển về Hàng chờ chung"
+        confirmLabel="Đồng ý chuyển"
         cancelLabel="Hủy"
         type="warning"
         onConfirm={handleConfirmUnassign}

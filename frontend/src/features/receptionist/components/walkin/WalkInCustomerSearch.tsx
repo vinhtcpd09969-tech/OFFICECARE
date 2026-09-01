@@ -1,5 +1,6 @@
-import { Search, Loader2, X } from 'lucide-react';
+import { Search, Loader2, X, Sparkles } from 'lucide-react';
 import { z } from 'zod';
+import { validateEmail } from '../../../../utils/validators';
 
 export const phoneRegex = /^(03|05|07|08|09)[0-9]{8}$/;
 export const nameRegex = /^[\p{L}\s']{2,}$/u;
@@ -12,7 +13,15 @@ export const newCustomerSchema = z.object({
     .regex(phoneRegex, 'Số điện thoại không hợp lệ (phải gồm 10 chữ số và bắt đầu bằng 03, 05, 07, 08 hoặc 09).'),
   email: z.string().trim()
     .min(1, 'Email khách hàng là bắt buộc.')
-    .email('Địa chỉ email không đúng định dạng.'),
+    .superRefine((val, ctx) => {
+      const res = validateEmail(val);
+      if (!res.isValid) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: res.message || 'Địa chỉ email không đúng định dạng.',
+        });
+      }
+    }),
 });
 
 export type NewCustomerErrors = Partial<Record<keyof z.infer<typeof newCustomerSchema>, string>>;
@@ -116,9 +125,9 @@ export function WalkInCustomerSearch({
               {/* Autocomplete Dropdown List */}
               {searchResults.length > 0 && (
                 <div className="absolute left-0 right-0 top-full mt-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-2xl shadow-xl z-50 p-2 max-h-60 overflow-y-auto space-y-1">
-                  {searchResults.map((c) => (
+                  {searchResults.map((c, index) => (
                     <button
-                      key={c.id}
+                      key={c.id || c.khach_hang_id || `cust-${index}`}
                       type="button"
                       onClick={() => onSelectCustomer(c)}
                       className="w-full p-2.5 rounded-xl hover:bg-teal-50/80 dark:hover:bg-teal-950/40 text-left transition-colors flex items-center justify-between cursor-pointer"
@@ -229,6 +238,19 @@ export function WalkInCustomerSearch({
             />
             {newCustomerErrors.email && (
               <p className="text-[10px] text-rose-500 font-bold mt-1">{newCustomerErrors.email}</p>
+            )}
+            {validateEmail(email).suggestion && (
+              <button
+                type="button"
+                onClick={() => {
+                  const sug = validateEmail(email).suggestion;
+                  if (sug) setEmail(sug);
+                }}
+                className="mt-1.5 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-teal-50 dark:bg-teal-950/60 border border-teal-200 text-teal-700 dark:text-teal-300 text-[10px] font-bold hover:bg-teal-100 transition-colors cursor-pointer text-left"
+              >
+                <Sparkles size={12} className="shrink-0 text-teal-600 animate-pulse" />
+                <span>Gợi ý sửa: <strong>{validateEmail(email).suggestion}</strong> (Bấm để áp dụng)</span>
+              </button>
             )}
           </div>
 

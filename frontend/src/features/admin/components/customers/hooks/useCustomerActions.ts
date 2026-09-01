@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { format } from 'date-fns';
 import { updateCustomer, toggleCustomerLock, getCustomerLockImpact } from '../../../api/admin.api';
+import { validateEmail } from '../../../../../utils/validators';
 import type { CustomerLockImpact } from '../types';
 
 export interface CustomerEditForm {
@@ -42,15 +43,43 @@ export function useCustomerActions(onChanged: () => void) {
 
   const saveProfile = async () => {
     if (!editingCustomerId) return;
+
+    if (!editForm.ho_ten || editForm.ho_ten.trim().length < 2) {
+      toast.error('Họ tên khách hàng phải có ít nhất 2 ký tự.');
+      return;
+    }
+
+    if (editForm.so_dien_thoai) {
+      const phoneRegex = /^(0|\+84)(3|5|7|8|9)\d{8}$/;
+      if (!phoneRegex.test(editForm.so_dien_thoai.trim())) {
+        toast.error('Số điện thoại không hợp lệ (phải gồm 10 chữ số và bắt đầu bằng 03, 05, 07, 08 hoặc 09).');
+        return;
+      }
+    }
+
+    if (editForm.email) {
+      const emailRes = validateEmail(editForm.email.trim());
+      if (!emailRes.isValid) {
+        toast.error(emailRes.message || 'Địa chỉ email không đúng định dạng.');
+        return;
+      }
+    }
+
     try {
-      const payload = { ...editForm };
+      const payload = {
+        ...editForm,
+        ho_ten: editForm.ho_ten.trim(),
+        email: editForm.email ? editForm.email.trim().toLowerCase() : null,
+        so_dien_thoai: editForm.so_dien_thoai ? editForm.so_dien_thoai.trim() : null,
+      };
       await updateCustomer(editingCustomerId, payload);
       toast.success('Đã cập nhật thông tin khách hàng thành công!');
       setEditingCustomerId(null);
       onChanged();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to update customer:', error);
-      toast.error('Có lỗi xảy ra khi lưu thông tin khách hàng.');
+      const msg = error.response?.data?.message || 'Có lỗi xảy ra khi lưu thông tin khách hàng.';
+      toast.error(msg);
     }
   };
 

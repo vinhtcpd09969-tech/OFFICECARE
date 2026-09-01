@@ -112,6 +112,8 @@ export const useCheckout = (
 
     const loadCheckoutInfo = async () => {
       dispatch({ type: 'SET_LOADING', loading: true });
+      setAppliedVoucher(null);
+      setMaVoucher('');
       try {
         const pkgRes = await axiosInstance.get('/receptionist/packages');
         const pkgs = Array.isArray(pkgRes.data) ? pkgRes.data : [];
@@ -165,16 +167,19 @@ export const useCheckout = (
             sessionPrice = getTungBuoiSessionDue(totalRequired, totalSessions, soThuTu, alreadyPaid);
           }
  
+          const sessionName = `${appt.pd_ten_goi || appt.ten_dich_vu || 'Gói trị liệu PHCN'} (Buổi ${appt.so_thu_tu_buoi}/${appt.pd_tong_so_buoi || 1})`;
           const mockHoaDon = {
             id: appt.hoa_don_goi_id,
             ma_hoa_don: appt.hoa_don_goi_ma,
             khach_hang_id: appt.khach_hang_id,
             loai_hoa_don: 'dich_vu_don',
+            tong_tien_goc: sessionPrice,
             tong_tien_truoc_giam: sessionPrice,
             tong_tien_thanh_toan: sessionPrice,
             so_tien_da_tra: appt.so_tien_da_tra_goi,
             trang_thai: appt.trang_thai_hoa_don_goi,
-            ten_item: `Buổi trị liệu số ${appt.so_thu_tu_buoi} (${appt.pd_ten_goi})`,
+            ten_item: sessionName,
+            ten_dich_vu: sessionName,
             so_buoi_goi: 1,
             ho_ten_khach: appt.ten_khach_hang,
             so_dien_thoai: appt.sdt_khach_hang,
@@ -293,7 +298,6 @@ export const useCheckout = (
           if (voucherCodeToSend) {
             setAppliedVoucher(null);
             setMaVoucher('');
-            toast.error(error.response?.data?.message || 'Mã giảm giá không còn hiệu lực cho khách hàng này');
           }
         } finally {
           setCalculating(false);
@@ -320,7 +324,6 @@ export const useCheckout = (
           if (voucherCodeToSend) {
             setAppliedVoucher(null);
             setMaVoucher('');
-            toast.error(error.response?.data?.message || 'Mã giảm giá không còn hiệu lực cho khách hàng này');
           }
         } finally {
           setCalculating(false);
@@ -340,8 +343,8 @@ export const useCheckout = (
   ]);
 
   const handleApplyVoucher = async (codeOverride?: string, isSilent = false) => {
-    const code = codeOverride ?? maVoucher;
-    if (!code.trim()) return;
+    const code = (codeOverride ?? maVoucher).trim();
+    if (!code) return;
     const toastId = isSilent ? undefined : toast.loading('Đang áp dụng voucher...');
     try {
       const targetLoaiGoi = dangKyGoi && selectedPackage
@@ -360,6 +363,8 @@ export const useCheckout = (
         toast.success('Đã áp dụng voucher thành công!', { id: toastId });
       }
     } catch (error: any) {
+      setAppliedVoucher(null);
+      setMaVoucher('');
       if (!isSilent) {
         toast.error(error.response?.data?.message || 'Lỗi áp dụng voucher', { id: toastId });
       }

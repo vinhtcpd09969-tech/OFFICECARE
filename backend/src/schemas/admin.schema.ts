@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { validateEmail } from '../utils/validators';
 
 // --- Gói dịch vụ ---
 export const packageSchema = z.object({
@@ -30,7 +31,15 @@ export const packageSchema = z.object({
 export const staffSchema = z.object({
   body: z.object({
     ho_ten: z.string().min(1, 'Họ tên là bắt buộc'),
-    email: z.string().email('Email không hợp lệ'),
+    email: z.string().superRefine((val, ctx) => {
+      const res = validateEmail(val);
+      if (!res.isValid) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: res.message || 'Email không hợp lệ',
+        });
+      }
+    }),
     mat_khau: z.string().min(6, 'Mật khẩu tối thiểu 6 ký tự'),
     vai_tro_id: z.number().int().refine(val => [2, 3, 4, 6].includes(val), {
       message: 'Vai trò không hợp lệ để tạo mới (2=Lễ tân, 3=KTV, 4=Bác sĩ, 6=Quản lý). Hệ thống không cho phép tạo thêm Admin.'

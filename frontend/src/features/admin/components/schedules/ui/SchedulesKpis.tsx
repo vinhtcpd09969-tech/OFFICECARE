@@ -90,7 +90,7 @@ export function SchedulesKpis({
             <h3 className="text-2xl font-heading font-black text-slate-800 dark:text-zinc-100">{totalRooms}</h3>
             <span className="text-xs font-bold text-slate-450 dark:text-zinc-400">phòng</span>
           </div>
-          <p className="text-[10px] text-teal-600 font-semibold">Khả dụng cho ca khám</p>
+          <p className="text-[10px] text-teal-600 font-semibold">Khả dụng</p>
         </div>
         <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-100 dark:border-indigo-900/30">
           <Building2 size={22} />

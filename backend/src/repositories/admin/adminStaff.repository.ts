@@ -208,7 +208,7 @@ export class AdminStaffRepository {
       `;
       const conflictRes = await pool.query(checkQuery, [data.ngay, Number(data.nguoi_dung_id)]);
       if (conflictRes.rows.length > 0) {
-        throw new Error(`Bác sĩ ${conflictRes.rows[0].ho_ten} đã có lịch trực ca này vào ngày ${data.ngay} rồi!`);
+        throw new Error(`Chuyên viên ${conflictRes.rows[0].ho_ten} đã có lịch trực ca này vào ngày ${data.ngay} rồi!`);
       }
     }
 
@@ -260,13 +260,104 @@ export class AdminStaffRepository {
     };
     const todayDateStr = getLocalVietnamDate();
 
-    const { rows: currentRows } = await pool.query('SELECT to_char(ngay_truc, \'YYYY-MM-DD\') as ngay FROM lich_truc_nhan_su WHERE id = $1', [id]);
-    if (currentRows.length > 0 && currentRows[0].ngay < todayDateStr) {
+    const { rows: currentRows } = await pool.query(
+      `SELECT id, nhan_su_id, to_char(ngay_truc, 'YYYY-MM-DD') as ngay, 
+              to_char(gio_bat_dau, 'HH24:MI') as gio_bat_dau, 
+              to_char(gio_ket_thuc, 'HH24:MI') as gio_ket_thuc, 
+              trang_thai, phong_id 
+       FROM lich_truc_nhan_su WHERE id = $1`, 
+      [id]
+    );
+
+    if (currentRows.length === 0) {
+      throw new Error('Không tìm thấy ca trực cần chỉnh sửa.');
+    }
+
+    const currentSchedule = currentRows[0];
+    const oldStaffId = Number(currentSchedule.nhan_su_id);
+    const oldDateStr = currentSchedule.ngay;
+    const oldStartHour = parseInt(currentSchedule.gio_bat_dau.split(':')[0]) || 0;
+    const oldBuoi = oldStartHour < 11 ? 'sang' : 'chieu';
+
+    const formatDateVN = (dStr: string) => {
+      if (!dStr) return '';
+      const parts = dStr.split('-');
+      if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      return dStr;
+    };
+
+    const now = new Date();
+    const localVietnamNow = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+    const currentHour = localVietnamNow.getUTCHours();
+    const currentMinute = localVietnamNow.getUTCMinutes();
+    const currentMinutes = currentHour * 60 + currentMinute;
+
+    if (oldDateStr < todayDateStr) {
       throw new Error('Không thể chỉnh sửa ca trực của ngày trong quá khứ!');
     }
 
     if (data.ngay < todayDateStr) {
       throw new Error('Không thể chuyển ca trực sang ngày trong quá khứ!');
+    }
+
+    const newStartHour = parseInt(String(data.gio_bat_dau || '07:00').split(':')[0]) || 0;
+    const newBuoi = newStartHour < 11 ? 'sang' : 'chieu';
+
+    // Khóa thời gian đã trôi qua cho ngày hôm nay
+    if (data.ngay === todayDateStr) {
+      if (currentMinutes >= 20 * 60) {
+        throw new Error('Không thể chỉnh sửa ca trực của ngày hôm nay vì trung tâm đã kết thúc giờ hoạt động (20:00)!');
+      }
+      if (newBuoi === 'sang' && currentMinutes >= 12 * 60) {
+        throw new Error('Không thể chuyển sang Ca Sáng cho ngày hôm nay vì thời gian ca sáng đã kết thúc trong quá khứ!');
+      }
+    }
+
+    const isShiftChanged = data.ngay !== oldDateStr || newBuoi !== oldBuoi || data.trang_thai === 'tam_nghi' || Number(data.nguoi_dung_id) !== oldStaffId;
+
+    if (isShiftChanged) {
+      const staffRes = await pool.query('SELECT ho_ten FROM nguoi_dung WHERE id = $1', [oldStaffId]);
+      const staffName = staffRes.rows[0]?.ho_ten || 'nhân sự';
+
+      // 1. Kiểm tra nếu ca cũ đã có ca khám hoàn thành hoặc đang khám
+      const historyCheck = await pool.query(`
+        SELECT COUNT(*) as cnt
+        FROM cuoc_hen
+        WHERE nhan_su_id = $1
+          AND (
+            DATE(ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh') = $2::date
+            OR DATE(ngay_gio_bat_dau) = $2::date
+          )
+          AND buoi = $3
+          AND trang_thai IN ('hoan_thanh', 'dang_kham')
+      `, [oldStaffId, oldDateStr, oldBuoi]);
+
+      const finishedCount = parseInt(historyCheck.rows[0]?.cnt || '0');
+      if (finishedCount > 0) {
+        throw new Error(
+          `Không thể đổi/hủy ca trực này vì nhân sự ${staffName} đã phát sinh ${finishedCount} lịch hẹn (${oldBuoi === 'sang' ? 'Ca Sáng' : 'Ca Chiều'} ngày ${formatDateVN(oldDateStr)})!`
+        );
+      }
+
+      // 2. Kiểm tra nếu ca cũ đang có khách đặt hẹn chưa hoàn thành
+      const activeCheck = await pool.query(`
+        SELECT COUNT(*) as cnt
+        FROM cuoc_hen
+        WHERE nhan_su_id = $1
+          AND (
+            DATE(ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh') = $2::date
+            OR DATE(ngay_gio_bat_dau) = $2::date
+          )
+          AND buoi = $3
+          AND trang_thai IN ('da_xac_nhan', 'da_checkin', 'cho_tai_luong_gia')
+      `, [oldStaffId, oldDateStr, oldBuoi]);
+
+      const activeCount = parseInt(activeCheck.rows[0]?.cnt || '0');
+      if (activeCount > 0) {
+        throw new Error(
+          `Nhân sự ${staffName} đang có ${activeCount} ca đặt trước trong ${oldBuoi === 'sang' ? 'Buổi Sáng' : 'Buổi Chiều'} ngày ${formatDateVN(oldDateStr)}. Vui lòng đưa các lịch hẹn của nhân sự về Hàng chờ chung (hoặc chuyển giao cho nhân sự khác) trước khi thao tác đổi ca!`
+        );
+      }
     }
 
     const userRes = await pool.query('SELECT vai_tro_id FROM nguoi_dung WHERE id = $1', [Number(data.nguoi_dung_id)]);
@@ -294,7 +385,7 @@ export class AdminStaffRepository {
       `;
       const conflictRes = await pool.query(checkQuery, [data.ngay, Number(data.nguoi_dung_id), id]);
       if (conflictRes.rows.length > 0) {
-        throw new Error(`Bác sĩ ${conflictRes.rows[0].ho_ten} đã có lịch trực ca này vào ngày ${data.ngay} rồi!`);
+        throw new Error(`Chuyên viên ${conflictRes.rows[0].ho_ten} đã có lịch trực ca này vào ngày ${data.ngay} rồi!`);
       }
     }
 
@@ -347,9 +438,92 @@ export class AdminStaffRepository {
     };
     const todayDateStr = getLocalVietnamDate();
 
-    const { rows: currentRows } = await pool.query('SELECT to_char(ngay_truc, \'YYYY-MM-DD\') as ngay FROM lich_truc_nhan_su WHERE id = $1', [id]);
-    if (currentRows.length > 0 && currentRows[0].ngay < todayDateStr) {
+    const { rows: currentRows } = await pool.query(
+      `SELECT id, nhan_su_id, to_char(ngay_truc, 'YYYY-MM-DD') as ngay, 
+              to_char(gio_bat_dau, 'HH24:MI') as gio_bat_dau, 
+              to_char(gio_ket_thuc, 'HH24:MI') as gio_ket_thuc, 
+              trang_thai, phong_id 
+       FROM lich_truc_nhan_su WHERE id = $1`, 
+      [id]
+    );
+
+    if (currentRows.length === 0) {
+      throw new Error('Không tìm thấy ca trực cần xóa.');
+    }
+
+    const currentSchedule = currentRows[0];
+    const staffId = Number(currentSchedule.nhan_su_id);
+    const dateStr = currentSchedule.ngay;
+    const startHour = parseInt(currentSchedule.gio_bat_dau.split(':')[0]) || 0;
+    const buoi = startHour < 11 ? 'sang' : 'chieu';
+
+    const formatDateVN = (dStr: string) => {
+      if (!dStr) return '';
+      const parts = dStr.split('-');
+      if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      return dStr;
+    };
+
+    const now = new Date();
+    const localVietnamNow = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+    const currentHour = localVietnamNow.getUTCHours();
+    const currentMinute = localVietnamNow.getUTCMinutes();
+    const currentMinutes = currentHour * 60 + currentMinute;
+
+    if (dateStr < todayDateStr) {
       throw new Error('Không thể xóa ca trực của ngày trong quá khứ!');
+    }
+
+    if (dateStr === todayDateStr) {
+      if (currentMinutes >= 20 * 60) {
+        throw new Error('Không thể xóa ca trực của ngày hôm nay vì trung tâm đã kết thúc giờ hoạt động (20:00)!');
+      }
+      if (buoi === 'sang' && currentMinutes >= 12 * 60) {
+        throw new Error('Không thể xóa ca trực sáng của ngày hôm nay vì thời gian ca sáng đã kết thúc trong quá khứ!');
+      }
+    }
+
+    const staffRes = await pool.query('SELECT ho_ten FROM nguoi_dung WHERE id = $1', [staffId]);
+    const staffName = staffRes.rows[0]?.ho_ten || 'nhân sự';
+
+    // Kiểm tra lịch hẹn hoàn thành
+    const historyCheck = await pool.query(`
+      SELECT COUNT(*) as cnt
+      FROM cuoc_hen
+      WHERE nhan_su_id = $1
+        AND (
+          DATE(ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh') = $2::date
+          OR DATE(ngay_gio_bat_dau) = $2::date
+        )
+        AND buoi = $3
+        AND trang_thai IN ('hoan_thanh', 'dang_kham')
+    `, [staffId, dateStr, buoi]);
+
+    const finishedCount = parseInt(historyCheck.rows[0]?.cnt || '0');
+    if (finishedCount > 0) {
+      throw new Error(
+        `Không thể xóa ca trực này vì nhân sự ${staffName} đã phát sinh ${finishedCount} lịch hẹn (${buoi === 'sang' ? 'Ca Sáng' : 'Ca Chiều'} ngày ${formatDateVN(dateStr)})!`
+      );
+    }
+
+    // Kiểm tra lịch hẹn đang hoạt động
+    const activeCheck = await pool.query(`
+      SELECT COUNT(*) as cnt
+      FROM cuoc_hen
+      WHERE nhan_su_id = $1
+        AND (
+          DATE(ngay_gio_bat_dau AT TIME ZONE 'Asia/Ho_Chi_Minh') = $2::date
+          OR DATE(ngay_gio_bat_dau) = $2::date
+        )
+        AND buoi = $3
+        AND trang_thai IN ('da_xac_nhan', 'da_checkin', 'cho_tai_luong_gia')
+    `, [staffId, dateStr, buoi]);
+
+    const activeCount = parseInt(activeCheck.rows[0]?.cnt || '0');
+    if (activeCount > 0) {
+      throw new Error(
+        `Nhân sự ${staffName} đang có ${activeCount} ca đặt trước trong ${buoi === 'sang' ? 'Buổi Sáng' : 'Buổi Chiều'} ngày ${formatDateVN(dateStr)}. Vui lòng đưa các lịch hẹn của nhân sự về Hàng chờ chung (hoặc chuyển giao cho nhân sự khác) trước khi xóa ca!`
+      );
     }
 
     const { rows } = await pool.query(

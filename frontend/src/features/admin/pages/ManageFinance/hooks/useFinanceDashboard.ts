@@ -17,6 +17,8 @@ interface Invoice {
   da_thanh_toan: number;
   trang_thai: string;
   ngay_tao: string;
+  ngay_cap_nhat_moi_nhat?: string;
+  danh_sach_ngay_giao_dich?: string[];
   ten_dich_vu?: string;
   ghi_chu?: string;
   phac_do_dieu_tri_id?: string | null;
@@ -52,6 +54,9 @@ interface Payment {
   thoi_gian_giao_dich: string;
   loai_giao_dich: string;
   chi_tiet?: PaymentTransactionDetail | null;
+  nhan_vien_thuc_hien_id?: number | null;
+  ten_nhan_vien_thuc_hien?: string | null;
+  vai_tro_nhan_vien?: string | null;
 }
 
 export const useFinanceDashboard = (isCheckoutMode: boolean) => {
@@ -250,31 +255,57 @@ export const useFinanceDashboard = (isCheckoutMode: boolean) => {
         return false;
       }
 
-      // Lọc theo khoảng ngày (Từ ngày - Đến ngày)
-      if (startDate) {
-        const start = new Date(startDate + 'T00:00:00');
-        const date = new Date(inv.ngay_tao);
-        if (date < start) return false;
+      // Lấy tất cả các mốc ngày tài chính liên quan tới hóa đơn này (ngày tạo, ngày thanh toán các đợt, ngày hoàn tiền)
+      const invoiceDates: Date[] = [];
+      if (inv.ngay_tao) {
+        const d = new Date(inv.ngay_tao);
+        if (!isNaN(d.getTime())) invoiceDates.push(d);
       }
-      if (endDate) {
+      if (inv.ngay_cap_nhat_moi_nhat) {
+        const d = new Date(inv.ngay_cap_nhat_moi_nhat);
+        if (!isNaN(d.getTime())) invoiceDates.push(d);
+      }
+      if (Array.isArray(inv.danh_sach_ngay_giao_dich)) {
+        for (const gdDate of inv.danh_sach_ngay_giao_dich) {
+          if (gdDate) {
+            const d = new Date(gdDate);
+            if (!isNaN(d.getTime())) invoiceDates.push(d);
+          }
+        }
+      }
+
+      // Lọc theo khoảng ngày (Từ ngày - Đến ngày)
+      // Hóa đơn được giữ lại nếu có bất kỳ mốc phát sinh nào (ngày tạo hoặc ngày giao dịch thanh toán/hoàn tiền) thuộc khoảng lọc
+      if (startDate && endDate) {
+        const start = new Date(startDate + 'T00:00:00');
         const end = new Date(endDate + 'T23:59:59');
-        const date = new Date(inv.ngay_tao);
-        if (date > end) return false;
+        const hasDateInRange = invoiceDates.some((d) => d >= start && d <= end);
+        if (!hasDateInRange) return false;
+      } else if (startDate) {
+        const start = new Date(startDate + 'T00:00:00');
+        const hasDateAfterStart = invoiceDates.some((d) => d >= start);
+        if (!hasDateAfterStart) return false;
+      } else if (endDate) {
+        const end = new Date(endDate + 'T23:59:59');
+        const hasDateBeforeEnd = invoiceDates.some((d) => d <= end);
+        if (!hasDateBeforeEnd) return false;
       }
 
       if (dateFilter !== 'all' && !startDate && !endDate) {
-        const date = new Date(inv.ngay_tao);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
         if (dateFilter === 'today') {
-          if (date < today) return false;
+          const hasToday = invoiceDates.some((d) => d >= today);
+          if (!hasToday) return false;
         } else if (dateFilter === '7days') {
           const limit = new Date(today);
           limit.setDate(limit.getDate() - 7);
-          if (date < limit) return false;
+          const has7days = invoiceDates.some((d) => d >= limit);
+          if (!has7days) return false;
         } else if (dateFilter === 'thisMonth') {
-          if (date.getMonth() !== today.getMonth() || date.getFullYear() !== today.getFullYear()) return false;
+          const hasThisMonth = invoiceDates.some((d) => d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear());
+          if (!hasThisMonth) return false;
         }
       }
 
@@ -343,7 +374,10 @@ export const useFinanceDashboard = (isCheckoutMode: boolean) => {
     const filteredInvoices = getFilteredInvoices();
     const filteredPayments = getFilteredPayments();
 
-    const totalCollected = filteredInvoices.reduce((acc, inv) => acc + Number(inv.da_thanh_toan || 0), 0);
+    // Tổng số tiền thực tế đã thu trong khoảng ngày/bộ lọc đang chọn (đồng bộ 100% với Dashboard Tổng quan)
+    const totalCollected = filteredPayments
+      .filter((p) => p.loai_giao_dich === 'THANH_TOAN')
+      .reduce((acc, p) => acc + Number(p.so_tien || 0), 0);
     const paidInvoiceCount = filteredInvoices.filter((inv) => inv.trang_thai === 'da_thanh_toan').length;
     
     // Nợ chờ thu thực tế từ các hóa đơn chưa hoàn tất thanh toán
@@ -356,7 +390,10 @@ export const useFinanceDashboard = (isCheckoutMode: boolean) => {
     }, 0);
 
     const packageInvoices = filteredInvoices.filter((inv) => !!inv.phac_do_dieu_tri_id);
-    const totalPackageRevenue = packageInvoices.reduce((acc, inv) => acc + Number(inv.da_thanh_toan || 0), 0);
+    const packageInvoiceIds = new Set(packageInvoices.map((inv) => inv.id));
+    const totalPackageRevenue = filteredPayments
+      .filter((p) => p.loai_giao_dich === 'THANH_TOAN' && packageInvoiceIds.has(p.hoa_don_id))
+      .reduce((acc, p) => acc + Number(p.so_tien || 0), 0);
 
     const refundPayments = filteredPayments.filter((p) => p.loai_giao_dich === 'HOAN_TIEN');
     const totalRefunded = refundPayments.reduce((acc, p) => acc + Math.abs(Number(p.so_tien || 0)), 0);

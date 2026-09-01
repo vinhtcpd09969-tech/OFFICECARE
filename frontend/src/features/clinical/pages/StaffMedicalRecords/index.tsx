@@ -1,12 +1,10 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AnimatePresence } from 'framer-motion';
 import { getPatients, getPatientProfile, PatientInfo, PatientProfile } from '@/features/doctor/api/doctor.api';
 import { PatientSidebar } from './PatientSidebar';
 import { PatientDossierTimeline } from '../../components/PatientDossierTimeline';
-import { PlanDetailModal } from '../../components/PlanDetailModal';
 
-type ActiveModal = { type: 'plan'; id: string } | { type: 'visit'; id: string } | null;
+type ActiveHighlight = { type: 'plan'; id: string } | { type: 'visit'; id: string } | null;
 
 export default function DoctorMedicalRecords() {
   const [patients, setPatients] = useState<PatientInfo[]>([]);
@@ -15,12 +13,12 @@ export default function DoctorMedicalRecords() {
   const [selectedPatient, setSelectedPatient] = useState<PatientInfo | null>(null);
   const [profile, setProfile] = useState<PatientProfile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
-  const [activeModal, setActiveModal] = useState<ActiveModal>(null);
+  const [activeHighlight, setActiveHighlight] = useState<ActiveHighlight>(null);
 
   // Deep-link từ nơi khác (vd nút "Xem chi tiết" của 1 lịch hẹn đã kết thúc trong AppointmentInfoModal)
   // — tự chọn sẵn bệnh nhân + mở đúng buổi khám/phác đồ mở rộng inline trong dòng thời gian.
   const [searchParams, setSearchParams] = useSearchParams();
-  const [pendingDeepLinkModal, setPendingDeepLinkModal] = useState<ActiveModal>(null);
+  const [pendingDeepLinkHighlight, setPendingDeepLinkHighlight] = useState<ActiveHighlight>(null);
 
   // Load danh sách bệnh nhân
   useEffect(() => {
@@ -45,14 +43,24 @@ export default function DoctorMedicalRecords() {
     const patientId = searchParams.get('patientId');
     if (!patientId) return;
 
-    const found = patients.find((p) => p.id === patientId);
+    const found = patients.find((p) => p.id === patientId || (p as any).khach_hang_id === patientId || (p as any).nguoi_dung_id === patientId);
+    const type = searchParams.get('type');
+    const itemId = searchParams.get('itemId');
+
     if (found) {
       setSelectedPatient(found);
-      const type = searchParams.get('type');
-      const itemId = searchParams.get('itemId');
-      if ((type === 'plan' || type === 'visit') && itemId) {
-        setPendingDeepLinkModal({ type, id: itemId });
-      }
+    } else {
+      setSelectedPatient({
+        id: patientId,
+        ho_ten: 'Khách hàng',
+        khach_hang_id: patientId,
+        so_dien_thoai: '',
+        trang_thai: 'active'
+      } as any);
+    }
+
+    if ((type === 'plan' || type === 'visit') && itemId) {
+      setPendingDeepLinkHighlight({ type, id: itemId });
     }
     setSearchParams({}, { replace: true });
   }, [patients, loadingPatients, searchParams, setSearchParams]);
@@ -66,13 +74,13 @@ export default function DoctorMedicalRecords() {
 
     async function loadProfile() {
       setLoadingProfile(true);
-      setActiveModal(null);
+      setActiveHighlight(null);
       try {
         const res = await getPatientProfile(selectedPatient!.id);
         setProfile(res.data);
-        if (pendingDeepLinkModal) {
-          setActiveModal(pendingDeepLinkModal);
-          setPendingDeepLinkModal(null);
+        if (pendingDeepLinkHighlight) {
+          setActiveHighlight(pendingDeepLinkHighlight);
+          setPendingDeepLinkHighlight(null);
         }
       } catch (error) {
         console.error('Lỗi khi tải hồ sơ điều trị bệnh nhân:', error);
@@ -82,11 +90,6 @@ export default function DoctorMedicalRecords() {
     }
     loadProfile();
   }, [selectedPatient]);
-
-  const activePlan = useMemo(() => {
-    if (activeModal?.type !== 'plan' || !profile) return null;
-    return profile.treatmentPlans.find((p) => p.id === activeModal.id) || null;
-  }, [activeModal, profile]);
 
   return (
     <div className="w-full space-y-6 font-jakarta pb-12 animate-fade-in">
@@ -110,22 +113,11 @@ export default function DoctorMedicalRecords() {
               selectedPatient={selectedPatient}
               profile={profile}
               onBack={() => setSelectedPatient(null)}
-              highlightTarget={activeModal}
+              highlightTarget={activeHighlight}
             />
           )}
         </div>
       )}
-
-      <AnimatePresence>
-        {activePlan && (
-          <PlanDetailModal
-            key={`plan-${activePlan.id}`}
-            plan={activePlan}
-            onClose={() => setActiveModal(null)}
-            onJumpToVisit={(visitId) => setActiveModal({ type: 'visit', id: visitId })}
-          />
-        )}
-      </AnimatePresence>
     </div>
   );
 }

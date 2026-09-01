@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PatientDossierTimeline } from '@/features/clinical/components/PatientDossierTimeline';
 import { getPatientProfile, PatientProfile } from '@/features/doctor/api/doctor.api';
 import { useAuthStore } from '@/stores/authStore';
@@ -7,10 +7,33 @@ import { BookNextSessionModal } from '@/features/customer/components/BookNextSes
 
 export default function CustomerMedicalRecord() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const currentUser = useAuthStore((state) => state.user);
   const [profile, setProfile] = useState<PatientProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [bookingSessionPlan, setBookingSessionPlan] = useState<any | null>(null);
+
+  const tabParam = searchParams.get('tab');
+  const phacDoId = searchParams.get('phac_do_id') || searchParams.get('plan_id');
+  const cuocHenId = searchParams.get('cuoc_hen_id') || searchParams.get('buoi') || searchParams.get('visit_id');
+  const maLich = searchParams.get('ma_lich') || searchParams.get('ma_lich_dat');
+
+  // Xác định chính xác mục tiêu highlight và tab cần nhảy tới
+  const highlightTarget = useMemo(() => {
+    if (tabParam === 'plans' || tabParam === 'goi' || phacDoId) {
+      return {
+        type: 'plan' as const,
+        id: phacDoId || cuocHenId || maLich || ''
+      };
+    }
+    if (tabParam === 'assessments' || tabParam === 'kham' || tabParam === 'le' || cuocHenId || maLich) {
+      return {
+        type: 'visit' as const,
+        id: cuocHenId || maLich || ''
+      };
+    }
+    return null;
+  }, [tabParam, phacDoId, cuocHenId, maLich]);
 
   const reloadProfile = () => {
     if (!currentUser?.id) return;
@@ -66,25 +89,26 @@ export default function CustomerMedicalRecord() {
           email: patient.email || '',
         }}
         profile={profile}
-        onBack={() => navigate('/')}
+        highlightTarget={highlightTarget}
+        onBack={() => navigate('/appointments')}
         onBookNextSession={(plan) => {
+          const used = Number(plan.so_buoi_da_dung !== undefined ? plan.so_buoi_da_dung : ((plan as any).so_buoi_da_thuc_hien || 0)) || 0;
+          const nextSessionNum = used + 1;
           setBookingSessionPlan({
-            id: plan.id,
-            phac_do_id: plan.id,
-            ten_goi: (plan as any).ten_goi_dich_vu || (plan as any).ten_goi || plan.ten_dich_vu || 'Gói điều trị',
-            goi_dich_vu_id: (plan as any).goi_dich_vu_id || plan.id,
-            thoi_luong_phut: (plan as any).thoi_luong_phut || 45,
-            tong_so_buoi: plan.tong_so_buoi,
-            so_buoi_da_dung: plan.so_buoi_da_dung || 0,
-            khach_hang_id: patient.id,
+            pkg: {
+              phac_do_id: String(plan.id),
+              ten_dich_vu: (plan as any).ten_goi_dich_vu || (plan as any).ten_goi || plan.ten_dich_vu || 'Gói điều trị',
+              goi_dich_vu_id: String((plan as any).goi_dich_vu_id || plan.id)
+            },
+            sessionNum: nextSessionNum
           });
         }}
       />
 
       {bookingSessionPlan && (
         <BookNextSessionModal
-          isOpen={!!bookingSessionPlan}
-          packagePlan={bookingSessionPlan}
+          pkg={bookingSessionPlan.pkg}
+          sessionNum={bookingSessionPlan.sessionNum}
           onClose={() => setBookingSessionPlan(null)}
           onSuccess={() => {
             setBookingSessionPlan(null);

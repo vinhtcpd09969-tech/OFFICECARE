@@ -121,7 +121,8 @@ export function useBookingState(user: any, bookingType: 'kham' | 'dich_vu', sele
           sang: data.sang || EMPTY_AVAILABILITY.sang,
           chieu: data.chieu || EMPTY_AVAILABILITY.chieu,
           nhanSu: data.nhanSu || [],
-          hasExistingClinicalExam: !!data.hasExistingClinicalExam
+          hasExistingClinicalExam: !!data.hasExistingClinicalExam,
+          buoc_thanh_toan_online: !!data.buoc_thanh_toan_online
         });
         setIsPhoneTakenByOther(!!data.isPhoneTakenByOther);
       })

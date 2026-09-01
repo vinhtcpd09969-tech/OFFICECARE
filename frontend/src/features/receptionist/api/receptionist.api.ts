@@ -44,5 +44,32 @@ export interface StaffWorkloadItem {
   thoi_gian_xong_du_kien_muon_nhat: string | null;
 }
 
+export interface SweptNoShowItem {
+  id: string;
+  ma_cuoc_hen: string;
+  ten_khach_hang: string;
+  so_dien_thoai: string;
+  ten_dich_vu: string;
+  buoi: 'sang' | 'chieu' | string;
+  ngay_hen: string;
+  trang_thai_thanh_toan: string;
+  is_package: boolean;
+  is_strike: boolean;
+  strike_reason: string;
+  customer_strikes_count: number;
+  is_customer_locked_postpaid: boolean;
+}
+
+export interface SweepNoShowReport {
+  total_swept: number;
+  unpaid_strikes_count: number;
+  paid_noshow_count: number;
+  package_noshow_count: number;
+  expired_reassessments_count: number;
+  items: SweptNoShowItem[];
+}
+
 export const getStaffWorkload = (date?: string) => api.get<StaffWorkloadItem[]>('/receptionist/staff-workload', { params: { date } });
 export const unassignAppointmentStaff = (id: string) => api.post(`/receptionist/appointments/${id}/unassign`, {});
+export const triggerNoShowSweep = () => api.post<{ success: boolean; message: string; data: SweepNoShowReport }>('/receptionist/appointments/sweep-noshow');
+

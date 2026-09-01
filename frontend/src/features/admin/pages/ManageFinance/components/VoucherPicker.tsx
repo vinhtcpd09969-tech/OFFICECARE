@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CreditCard, Sparkles, Ticket, X, Check, AlertCircle } from 'lucide-react';
+import { CreditCard, Ticket, X, Check, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import axiosInstance from '../../../../../api/axios';
 import { formatCurrency } from '../../../../../utils/format';
@@ -203,6 +203,7 @@ export default function VoucherPicker({
     if (appliedVoucher) return;
     if (orderValue <= 0) return;
     if (loading) return;
+    if (sortedVouchers.length === 0) return;
 
     // Tìm voucher đủ điều kiện CÓ TICK TỰ ĐỘNG ÁP DỤNG và có số tiền giảm cao nhất
     const bestAutoEligible = sortedVouchers.find(
@@ -213,12 +214,26 @@ export default function VoucherPicker({
     }
   }, [sortedVouchers, orderValue, appliedVoucher, loading]);
 
-  // Kiểm tra tính hợp lệ của voucher đang áp khi thay đổi điều kiện đơn hàng (im lặng bỏ chọn để tự chuyển mã phù hợp)
+  // Kiểm tra tính hợp lệ của voucher đang áp khi thay đổi điều kiện đơn hàng hoặc danh sách voucher của khách
   useEffect(() => {
-    if (appliedVoucher && !isVoucherEligible(appliedVoucher, orderValue, loaiThanhToan, kenh, loaiGoi)) {
+    if (!appliedVoucher) return;
+    if (loading) return;
+
+    // Nếu danh sách voucher khả dụng đã load, kiểm tra mã đang áp có còn trong danh sách không
+    if (allVouchers.length > 0) {
+      const stillInList = allVouchers.some(
+        (v) => v.ma_voucher?.toUpperCase() === appliedVoucher.ma_voucher?.toUpperCase()
+      );
+      if (!stillInList) {
+        onRemove();
+        return;
+      }
+    }
+
+    if (!isVoucherEligible(appliedVoucher, orderValue, loaiThanhToan, kenh, loaiGoi)) {
       onRemove();
     }
-  }, [appliedVoucher, orderValue, loaiThanhToan, kenh, loaiGoi]);
+  }, [appliedVoucher, allVouchers, loading, orderValue, loaiThanhToan, kenh, loaiGoi]);
 
   // Đồng bộ inputCode khi có appliedVoucher
   useEffect(() => {
@@ -263,92 +278,92 @@ export default function VoucherPicker({
   };
 
   return (
-    <div className="space-y-2.5 font-jakarta text-left select-none">
-      {/* Header Row (Khớp Ảnh 2) */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-emerald-800 dark:text-emerald-400">
-          <Ticket size={16} className="text-emerald-600 dark:text-emerald-400" />
-          <span>Mã giảm giá voucher</span>
-        </div>
+    <div className="space-y-1.5 font-jakarta text-left select-none">
+      {appliedVoucher ? (
+        (() => {
+          const matchedVoucher = allVouchers.find((v) => v.ma_voucher?.toUpperCase() === appliedVoucher.ma_voucher?.toUpperCase());
+          const voucherName = appliedVoucher.ten_khuyen_mai || appliedVoucher.ten_chien_dich || matchedVoucher?.ten_khuyen_mai || matchedVoucher?.ten_chien_dich;
+          const discountAmt = calculateVoucherDiscount(appliedVoucher, orderValue);
 
-        <button
-          type="button"
-          onClick={() => setModalOpen(true)}
-          disabled={disabled}
-          className="flex items-center gap-1.5 px-3 py-1 bg-pink-50 hover:bg-pink-100 dark:bg-pink-950/40 dark:hover:bg-pink-900/60 text-pink-600 dark:text-pink-300 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs active:scale-95 disabled:opacity-50"
-        >
-          <CreditCard size={13} className="text-pink-500" />
-          <span>Chọn kho mã</span>
-        </button>
-      </div>
+          return (
+            <div className="flex items-center justify-between p-3.5 bg-emerald-50/90 dark:bg-emerald-955/30 border border-emerald-200/90 dark:border-emerald-800/80 rounded-2xl animate-in fade-in duration-200">
+              <div className="flex items-start gap-2.5 min-w-0 pr-3">
+                <span className="p-1.5 rounded-xl bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 shrink-0 mt-0.5">
+                  <Ticket size={15} />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xs font-extrabold text-emerald-900 dark:text-emerald-100 leading-snug break-words">
+                    {voucherName || appliedVoucher.ma_voucher || 'Mã giảm giá'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setModalOpen(true)}
+                    className="text-[10.5px] text-teal-700 dark:text-teal-300 font-bold hover:underline cursor-pointer pt-1 block"
+                  >
+                    Đổi mã khác (Kho: {allVouchers.length})
+                  </button>
+                </div>
+              </div>
 
-      {/* Input Row (Khớp Ảnh 2) */}
-      <div className="relative flex items-center rounded-2xl border-2 border-emerald-300/80 dark:border-emerald-700/80 bg-white dark:bg-zinc-900 p-1 shadow-2xs focus-within:border-emerald-500 transition-all">
-        <input
-          type="text"
-          value={inputCode}
-          onChange={(e) => setInputCode(e.target.value.toUpperCase())}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              handleApplyManual();
-            }
-          }}
-          disabled={disabled}
-          placeholder="NHẬP MÃ VOUCHER (VD: MOM2026)"
-          className="w-full px-3.5 py-2 text-xs font-black uppercase tracking-wider text-slate-800 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500 bg-transparent outline-none"
-        />
-        <button
-          type="button"
-          onClick={handleApplyManual}
-          disabled={disabled || !inputCode.trim() || applying}
-          className="px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-xs active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
-        >
-          {applying ? 'Đang áp dụng...' : 'Áp dụng'}
-        </button>
-      </div>
-
-      {/* Đang áp dụng banner nếu có voucher được chọn */}
-      {appliedVoucher && (() => {
-        const matchedVoucher = allVouchers.find((v) => v.ma_voucher?.toUpperCase() === appliedVoucher.ma_voucher?.toUpperCase());
-        const voucherName = appliedVoucher.ten_khuyen_mai || appliedVoucher.ten_chien_dich || matchedVoucher?.ten_khuyen_mai || matchedVoucher?.ten_chien_dich;
-        const discountText = formatDiscount(appliedVoucher || matchedVoucher);
-
-        return (
-          <div className="relative flex items-center justify-between gap-3 px-4 py-3 bg-emerald-50/90 dark:bg-emerald-955/30 border border-emerald-300 dark:border-emerald-800 rounded-2xl animate-in fade-in duration-200">
-            <div className="flex items-center gap-2.5 min-w-0 pr-6">
-              <Sparkles size={16} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
-              <div className="min-w-0">
-                <p className="text-xs font-black text-emerald-800 dark:text-emerald-300 truncate">
-                  Đã áp dụng:{' '}
-                  {voucherName ? (
-                    <>
-                      <span className="font-bold text-emerald-950 dark:text-emerald-100">{voucherName}</span>{' '}
-                      <span className="text-[11px] font-mono font-black px-1.5 py-0.5 rounded bg-emerald-200/70 dark:bg-emerald-900/70 text-emerald-900 dark:text-emerald-200 border border-emerald-300/70 dark:border-emerald-700/70">
-                        {appliedVoucher.ma_voucher}
-                      </span>
-                    </>
-                  ) : (
-                    <span className="underline decoration-emerald-500">{appliedVoucher.ma_voucher}</span>
-                  )}{' '}
-                  ({discountText})
-                </p>
-                <p className="text-[10.5px] font-bold text-emerald-600 dark:text-emerald-400">
-                  Tiết kiệm được: -{formatCurrency(calculateVoucherDiscount(appliedVoucher, orderValue))}
-                </p>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="font-mono font-black text-sm text-emerald-600 dark:text-emerald-400">
+                  -{formatCurrency(discountAmt)}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleRemove}
+                  title="Gỡ bỏ mã"
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-all cursor-pointer"
+                >
+                  <X size={15} />
+                </button>
               </div>
             </div>
+          );
+        })()
+      ) : (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block">
+              Mã giảm giá / Voucher
+            </label>
             <button
               type="button"
-              onClick={handleRemove}
-              title="Bỏ áp dụng mã"
-              className="absolute top-2.5 right-2.5 p-1 rounded-full text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-all cursor-pointer shrink-0"
+              onClick={() => setModalOpen(true)}
+              disabled={disabled}
+              className="flex items-center gap-1 px-2.5 py-0.5 bg-pink-50 hover:bg-pink-100 dark:bg-pink-950/40 dark:hover:bg-pink-900/60 text-pink-600 dark:text-pink-300 rounded-lg text-[11px] font-bold transition-all cursor-pointer shadow-2xs active:scale-95 disabled:opacity-50"
             >
-              <X size={15} />
+              <CreditCard size={12} className="text-pink-500" />
+              <span>Kho mã ({allVouchers.length})</span>
             </button>
           </div>
-        );
-      })()}
+
+          <div className="relative flex items-center rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 p-1 shadow-2xs focus-within:border-teal-500 focus-within:bg-white dark:focus-within:bg-slate-900 transition-all">
+            <input
+              type="text"
+              value={inputCode}
+              onChange={(e) => setInputCode(e.target.value.toUpperCase())}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleApplyManual();
+                }
+              }}
+              disabled={disabled}
+              placeholder="NHẬP MÃ GIẢM GIÁ..."
+              className="w-full px-3 py-1.5 text-xs font-black uppercase tracking-wider text-slate-800 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500 bg-transparent outline-none"
+            />
+            <button
+              type="button"
+              onClick={handleApplyManual}
+              disabled={disabled || !inputCode.trim() || applying}
+              className="px-4 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-xs active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+            >
+              {applying ? '...' : 'Áp dụng'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* POPUP MODAL: KHO VOUCHER & MÃ GIẢM GIÁ */}
       {modalOpen && (

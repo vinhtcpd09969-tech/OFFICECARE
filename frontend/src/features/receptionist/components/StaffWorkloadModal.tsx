@@ -218,7 +218,7 @@ export function StaffWorkloadModal({ isOpen, onClose, dateStr }: StaffWorkloadMo
             )}
           </div>
 
-          {/* SECT 2: CHUYÊN VIÊN VLTL */}
+          {/* SECT 2: CHUYÊN VIÊN TƯ VẤN */}
           <div className="space-y-3 pt-2">
             <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-zinc-800">
               <h4 className="text-xs font-black text-slate-900 dark:text-zinc-100 uppercase tracking-wider flex items-center gap-2">

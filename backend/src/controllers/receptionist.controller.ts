@@ -280,3 +280,13 @@ export const unassignAppointmentStaff = asyncHandler(async (req: Request, res: R
   const appointment = await receptionistService.unassignAppointmentStaff(id);
   res.json({ message: 'Đã rút khỏi chỉ định đích danh và đưa ca hẹn về hàng chờ chung.', appointment });
 });
+
+// POST /api/receptionist/appointments/sweep-noshow
+export const sweepNoShowAppointments = asyncHandler(async (_req: Request, res: Response) => {
+  const report = await receptionistRepository.sweepNoShowAppointmentsDetailed();
+  res.json({
+    success: true,
+    message: `Đã quét hoàn tất: ${report.total_swept} ca vắng mặt (${report.unpaid_strikes_count} ca chưa TT tính vi phạm, ${report.paid_noshow_count} ca đã thanh toán).`,
+    data: report
+  });
+});

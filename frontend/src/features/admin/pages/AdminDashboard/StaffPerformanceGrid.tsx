@@ -14,6 +14,18 @@ interface StaffPerformanceGridProps {
 
 const numberFormatter = new Intl.NumberFormat('vi-VN');
 
+const getStaffRoleDisplay = (role?: string) => {
+  if (!role) return 'Kỹ thuật viên';
+  const r = role.toLowerCase();
+  if (r.includes('bác sĩ') || r.includes('doctor') || r.includes('lượng giá') || r.includes('tư vấn')) {
+    return 'Chuyên viên tư vấn';
+  }
+  if (r.includes('kỹ thuật') || r.includes('technician') || r.includes('ktv')) {
+    return 'Kỹ thuật viên';
+  }
+  return role;
+};
+
 export function StaffPerformanceGrid({ performanceData }: StaffPerformanceGridProps) {
   const maxSessions = useMemo(() => {
     return performanceData.length > 0
@@ -95,7 +107,7 @@ export function StaffPerformanceGrid({ performanceData }: StaffPerformanceGridPr
                           {staff.name}
                         </h4>
                         <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium truncate">
-                          {staff.role || 'Kỹ thuật viên'}
+                          {getStaffRoleDisplay(staff.role)}
                         </p>
                       </div>
                     </div>

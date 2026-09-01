@@ -9,6 +9,7 @@ interface DetailHeaderProps {
   aptStartHourStr: string;
   aptEndHourStr: string;
   durationMs: number;
+  thoiLuongPhut?: number;
   tenDichVu?: string;
   soThuTuBuoi?: number | null;
   tongSoBuoiGoi?: number | null;
@@ -29,8 +30,9 @@ export function DetailHeader({
   soDienThoai,
   ngayGioBatDau,
   aptStartHourStr,
-  aptEndHourStr,
+  aptEndHourStr: _aptEndHourStr,
   durationMs,
+  thoiLuongPhut,
   tenDichVu,
   soThuTuBuoi,
   tongSoBuoiGoi,
@@ -43,13 +45,21 @@ export function DetailHeader({
   trangThai
 }: DetailHeaderProps) {
   const isPackageSession = loaiGoi === 'LIEU_TRINH' && !!soThuTuBuoi;
-  const durationMinutes = Math.round(durationMs / 60000) || 60;
+  const durationMinutes = Number(thoiLuongPhut) || (Number(durationMs) > 0 && Math.round(durationMs / 60000) <= 120 ? Math.round(durationMs / 60000) : 0) || (loaiGoi === 'KHAM' ? 30 : 60);
 
   const RESCHEDULABLE_STATUSES = ['da_xac_nhan', 'da_checkin'];
   const isRescheduleDisabled = !RESCHEDULABLE_STATUSES.includes(trangThai || '');
 
   const dateObj = new Date(ngayGioBatDau);
   const formattedDate = isValid(dateObj) ? format(dateObj, 'dd/MM/yyyy') : '';
+
+  const normalizedBuoi = (_currentBuoi || '').toLowerCase();
+  const effectiveBuoi = (isRescheduling && selectedBuoi)
+    ? selectedBuoi
+    : (['sang', 'chieu'].includes(normalizedBuoi) ? normalizedBuoi : (aptStartHourStr && parseInt(aptStartHourStr.split(':')[0], 10) < 12 ? 'sang' : 'chieu'));
+
+  const displayTimeRange = effectiveBuoi === 'sang' ? '07:30 – 12:00' : '12:00 – 20:00';
+  const displayDate = (isRescheduling && rescheduleDate) ? format(new Date(rescheduleDate), 'dd/MM/yyyy') : formattedDate;
 
   return (
     <div className="space-y-2 font-jakarta select-none">
@@ -128,14 +138,14 @@ export function DetailHeader({
               <div className="flex items-center gap-1.5 bg-sky-50 dark:bg-sky-950/40 border border-sky-200/60 dark:border-sky-900/40 px-3 py-1.5 rounded-xl">
                 <Clock size={14} className="text-sky-600 dark:text-sky-400" />
                 <span className="text-xs font-bold text-slate-900 dark:text-zinc-100 font-mono">
-                  {aptStartHourStr} – {aptEndHourStr}
+                  {displayTimeRange}
                 </span>
               </div>
 
               <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200/60 dark:border-zinc-700/60 px-3 py-1.5 rounded-xl">
                 <Calendar size={14} className="text-slate-500 dark:text-zinc-400" />
                 <span className="text-xs font-bold text-slate-900 dark:text-zinc-100 font-mono">
-                  {formattedDate}
+                  {displayDate}
                 </span>
               </div>
             </div>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Activity, Sparkles, CheckCircle2, ShieldCheck, Loader2 } from 'lucide-react';
+import { formatCurrency } from '@/utils/format';
 
 interface BookingServiceSectionProps {
   bookingType: 'kham' | 'dich_vu';
@@ -111,7 +112,7 @@ export const BookingServiceSection: React.FC<BookingServiceSectionProps> = ({
                 <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
                   <span className="text-[10px] font-bold text-slate-400">Đơn giá</span>
                   <span className="text-sm font-black text-teal-600">
-                    {Number(service.don_gia || 0).toLocaleString('vi-VN')} đ
+                    {formatCurrency(service.don_gia || 0)}
                   </span>
                 </div>
               </div>

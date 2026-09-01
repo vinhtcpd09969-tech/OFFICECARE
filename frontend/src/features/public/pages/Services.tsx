@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, AlertTriangle, X, Stethoscope, Zap, ShieldCheck, Activity, Flame, Search } from 'lucide-react';
+import { Clock, AlertTriangle, X, Stethoscope, Zap, ShieldCheck, Activity, Flame, Search, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { getPublicServices, getPublicPackages } from '../api/public.api';
 import LoadingScreen from '../../../components/LoadingScreen';
 import ScrollReveal from '../components/effects/ScrollReveal';
+import { formatCurrency } from '../../../utils/format';
 
 interface UnifiedService {
   id: string;
@@ -18,6 +19,13 @@ interface UnifiedService {
   loai_goi: 'KHAM' | 'LE' | 'LIEU_TRINH';
   luot_dung: number;
 }
+
+const STATS_DATA = [
+  { value: '15.000+', label: 'CA PHỤC HỒI THÀNH CÔNG', desc: 'Giảm đau rõ rệt từ buổi 1' },
+  { value: '100%', label: 'PHÁC ĐỒ CÁ NHÂN HÓA', desc: 'Dựa trên lượng giá lâm sàng' },
+  { value: 'FDA & CE', label: 'ĐẠT CHUẨN Y TẾ QUỐC TẾ', desc: 'Công nghệ sóng xung kích, Laser Ý' },
+  { value: '4.9★', label: 'ĐÁNH GIÁ HÀI LÒNG', desc: 'Từ hơn 10.000 khách hàng' }
+];
 
 const TAB_OPTIONS: { key: 'ALL' | 'KHAM' | 'LE' | 'LIEU_TRINH'; label: string; icon: typeof Stethoscope }[] = [
   { key: 'ALL', label: 'Tất Cả', icon: Activity },
@@ -172,41 +180,55 @@ export default function ServicesPage() {
   const countByTab = { ALL: allCount, KHAM: khamCount, LE: leCount, LIEU_TRINH: lieuTrinhCount };
 
   return (
-    <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50 pb-12 pt-6 font-jakarta transition-colors">
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[#F8FBFA] dark:bg-zinc-950 pb-24 font-jakarta transition-colors">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-10 sm:pt-12">
 
-        {/* Asymmetric Header */}
-        <div className="mb-8 grid grid-cols-1 lg:grid-cols-12 gap-6 items-end border-b border-slate-200 dark:border-slate-800 pb-6">
-          <div className="lg:col-span-7 space-y-2">
-            <h1 className="font-heading font-extrabold text-2xl sm:text-3xl md:text-[32px] text-slate-900 tracking-tight leading-snug">
-              Giải Pháp <span className="text-[#0D9488]">Trị Liệu</span> <br className="hidden md:inline" />
-              &amp; Phục Hồi Chuyên Sâu
+        {/* Majestic Header & Value Metrics */}
+        <div className="text-center space-y-4 mb-8 max-w-5xl mx-auto">
+          <ScrollReveal>
+            <div className="inline-flex items-center gap-2 bg-teal-50 dark:bg-teal-950/60 border border-teal-500/20 dark:border-teal-800/60 text-[#0D9488] dark:text-teal-300 font-extrabold text-[11px] uppercase tracking-widest px-4 py-1.5 rounded-full shadow-2xs">
+              <Sparkles size={13} className="text-[#0D9488]" />
+              <span>Hệ Thống Gói Dịch Vụ &amp; Liệu Trình Y Khoa</span>
+            </div>
+          </ScrollReveal>
+
+          <ScrollReveal delay={60}>
+            <h1 className="font-heading font-black text-3xl sm:text-4xl md:text-5xl text-slate-900 dark:text-white tracking-tight leading-tight max-w-4xl mx-auto">
+              Giải Pháp <span className="text-[#0D9488]">Trị Liệu</span>, <br className="hidden sm:inline" />
+              Phục Hồi Chuẩn <span className="text-blue-600 dark:text-blue-400">Y Khoa 5★</span>
             </h1>
-          </div>
-          <div className="lg:col-span-5 space-y-4">
-            <p className="text-slate-600 font-normal text-xs sm:text-sm leading-relaxed">
-              Tất cả dịch vụ tại OfficeCare được chuẩn hóa y học quốc tế, kết hợp máy móc công nghệ cao châu Âu và phác đồ chuyên biệt từ hội đồng chuyên môn nhằm tối ưu thời gian lành thương cơ xương khớp.
+          </ScrollReveal>
+
+          <ScrollReveal delay={120}>
+            <p className="text-slate-600 dark:text-zinc-400 font-medium text-xs sm:text-sm md:text-base leading-relaxed max-w-3xl mx-auto">
+              Tất cả gói dịch vụ tại OfficeCare được chuẩn hóa y học quốc tế, kết hợp máy móc công nghệ cao châu Âu và phác đồ chuyên biệt từ hội đồng chuyên môn nhằm tối ưu thời gian lành thương cơ xương khớp cho dân văn phòng.
             </p>
-            {/* Quick trust metrics */}
-            <div className="grid grid-cols-3 gap-4 pt-2 border-t border-slate-100">
-              <div>
-                <p className="text-base font-black text-slate-900">+15k</p>
-                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Ca phục hồi</p>
-              </div>
-              <div>
-                <p className="text-base font-black text-[#0D9488]">100%</p>
-                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Cá nhân hóa</p>
-              </div>
-              <div>
-                <p className="text-base font-black text-secondary">FDA</p>
-                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Đạt chuẩn y tế</p>
+          </ScrollReveal>
+
+          {/* Floating 4-Column Stats Box (Spacious & Luxurious) */}
+          <ScrollReveal delay={180}>
+            <div className="pt-4 max-w-5xl mx-auto">
+              <div className="bg-white dark:bg-zinc-900 rounded-[28px] border border-slate-200/80 dark:border-zinc-800 p-6 sm:p-8 shadow-[0_12px_40px_rgba(15,23,42,0.04)] backdrop-blur-sm grid grid-cols-2 lg:grid-cols-4 gap-6 text-center divide-y lg:divide-y-0 lg:divide-x divide-slate-100 dark:divide-zinc-800">
+                {STATS_DATA.map((stat, idx) => (
+                  <div key={idx} className={`space-y-1 ${idx > 1 ? 'pt-4 lg:pt-0' : ''}`}>
+                    <span className="font-heading font-black text-2xl sm:text-3xl lg:text-4xl bg-gradient-to-r from-teal-600 to-emerald-600 bg-clip-text text-transparent block tracking-tight">
+                      {stat.value}
+                    </span>
+                    <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-slate-800 dark:text-zinc-200 block">
+                      {stat.label}
+                    </span>
+                    <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium block">
+                      {stat.desc}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
-          </div>
+          </ScrollReveal>
         </div>
 
         {/* Search & Filter Hub - Apple/Linear Segmented Control Standard */}
-        <div className="bg-white rounded-[28px] border border-slate-200/80 p-4 md:p-5 mb-12 shadow-[0_10px_35px_rgba(15,23,42,0.03)] space-y-4">
+        <div className="bg-white rounded-[28px] border border-slate-200/80 p-4 md:p-5 mb-10 shadow-[0_10px_35px_rgba(15,23,42,0.03)] space-y-4">
           <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
             {/* Realtime Search Input */}
             <div className="relative w-full lg:w-80 shrink-0">
@@ -327,7 +349,7 @@ export default function ServicesPage() {
                   <div className="mt-auto space-y-4">
                     <div className="flex items-baseline gap-1.5">
                       <span className="text-base font-black text-slate-900">
-                        {item.gia_tien === 0 ? 'Liên hệ' : item.gia_tien.toLocaleString('vi-VN') + ' đ'}
+                        {item.gia_tien === 0 ? 'Liên hệ' : formatCurrency(item.gia_tien)}
                       </span>
                       {item.loai_goi === 'LIEU_TRINH' ? (
                         <span className="text-[10px] text-slate-400 font-bold">/ {item.tong_so_buoi} buổi</span>

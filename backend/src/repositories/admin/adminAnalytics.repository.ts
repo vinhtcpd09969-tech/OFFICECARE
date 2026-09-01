@@ -122,25 +122,25 @@ export class AdminAnalyticsRepository {
     const isValidDate = (d?: string) => !!d && /^\d{4}-\d{2}-\d{2}$/.test(d);
     const hasCustomRange = isValidDate(startDate) && isValidDate(endDate);
 
-    let revWhere = '';
+    let revWhere = " WHERE loai_giao_dich = 'THANH_TOAN'";
     let aptWhere = '';
     if (hasCustomRange) {
-      revWhere = ` WHERE ngay_giao_dich::date >= '${startDate}'::date AND ngay_giao_dich::date <= '${endDate}'::date`;
+      revWhere += ` AND ngay_giao_dich::date >= '${startDate}'::date AND ngay_giao_dich::date <= '${endDate}'::date`;
       aptWhere = ` WHERE ngay_gio_bat_dau::date >= '${startDate}'::date AND ngay_gio_bat_dau::date <= '${endDate}'::date`;
     } else if (range === 'today') {
-      revWhere = ' WHERE ngay_giao_dich >= CURRENT_DATE';
+      revWhere += ' AND ngay_giao_dich >= CURRENT_DATE';
       aptWhere = ' WHERE ngay_gio_bat_dau >= CURRENT_DATE';
     } else if (range === 'week') {
-      revWhere = " WHERE ngay_giao_dich >= NOW() - INTERVAL '7 days'";
+      revWhere += " AND ngay_giao_dich >= NOW() - INTERVAL '7 days'";
       aptWhere = " WHERE ngay_gio_bat_dau >= NOW() - INTERVAL '7 days'";
     } else if (range === 'month') {
-      revWhere = " WHERE ngay_giao_dich >= DATE_TRUNC('month', NOW())";
+      revWhere += " AND ngay_giao_dich >= DATE_TRUNC('month', NOW())";
       aptWhere = " WHERE ngay_gio_bat_dau >= DATE_TRUNC('month', NOW())";
     } else if (range === 'quarter') {
-      revWhere = " WHERE ngay_giao_dich >= DATE_TRUNC('quarter', NOW())";
+      revWhere += " AND ngay_giao_dich >= DATE_TRUNC('quarter', NOW())";
       aptWhere = " WHERE ngay_gio_bat_dau >= DATE_TRUNC('quarter', NOW())";
     } else if (range === 'year') {
-      revWhere = " WHERE ngay_giao_dich >= DATE_TRUNC('year', NOW())";
+      revWhere += " AND ngay_giao_dich >= DATE_TRUNC('year', NOW())";
       aptWhere = " WHERE ngay_gio_bat_dau >= DATE_TRUNC('year', NOW())";
     }
 
@@ -381,7 +381,8 @@ export class AdminAnalyticsRepository {
     }
 
     const { rows } = await pool.query(`
-      SELECT TO_CHAR(ngay_giao_dich, '${formatStr}') as label, SUM(so_tien) as revenue
+      SELECT TO_CHAR(ngay_giao_dich, '${formatStr}') as label, 
+             SUM(CASE WHEN loai_giao_dich = 'THANH_TOAN' THEN so_tien ELSE 0 END) as revenue
       FROM giao_dich_thanh_toan
       WHERE ngay_giao_dich::date >= '${startD}'::date AND ngay_giao_dich::date <= '${endD}'::date
       GROUP BY label
@@ -429,22 +430,37 @@ export class AdminAnalyticsRepository {
     }));
   }
 
-  async getStaffPerformance() {
+  async getStaffPerformance(startDate?: string, endDate?: string) {
+    let dateFilter = `ch.ngay_gio_bat_dau >= DATE_TRUNC('month', NOW())`;
+    const params: any[] = [];
+
+    if (startDate && endDate) {
+      params.push(startDate, endDate);
+      dateFilter = `ch.ngay_gio_bat_dau >= $1::timestamptz AND ch.ngay_gio_bat_dau < ($2::date + INTERVAL '1 day')::timestamptz`;
+    } else if (startDate) {
+      params.push(startDate);
+      dateFilter = `ch.ngay_gio_bat_dau >= $1::timestamptz`;
+    }
+
     const { rows } = await pool.query(`
       SELECT
         nd.ho_ten as name,
         nd.anh_dai_dien as avatar,
-        vt.ten_vai_tro as role,
+        CASE
+          WHEN nd.vai_tro_id = 4 THEN 'Chuyên viên tư vấn'
+          WHEN nd.vai_tro_id = 3 THEN 'Kỹ thuật viên'
+          ELSE vt.ten_vai_tro
+        END as role,
         COUNT(ch.id)::integer as sessions
       FROM cuoc_hen ch
       JOIN nguoi_dung nd ON ch.nhan_su_id = nd.id
       JOIN vai_tro vt ON nd.vai_tro_id = vt.id
       WHERE ch.trang_thai = 'hoan_thanh'
-        AND ch.ngay_gio_bat_dau >= DATE_TRUNC('month', NOW())
-      GROUP BY nd.ho_ten, nd.anh_dai_dien, vt.ten_vai_tro
+        AND ${dateFilter}
+      GROUP BY nd.id, nd.ho_ten, nd.anh_dai_dien, vt.ten_vai_tro
       ORDER BY sessions DESC
       LIMIT 5
-    `);
+    `, params);
     return rows;
   }
 

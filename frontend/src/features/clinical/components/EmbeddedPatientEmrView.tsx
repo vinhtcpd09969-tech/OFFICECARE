@@ -9,6 +9,7 @@ interface EmbeddedPatientEmrViewProps {
   soDienThoai?: string;
   gioiTinh?: string;
   tuoi?: number;
+  highlightTarget?: { type: 'plan' | 'visit'; id: string } | null;
 }
 
 export function EmbeddedPatientEmrView({
@@ -17,6 +18,7 @@ export function EmbeddedPatientEmrView({
   soDienThoai,
   gioiTinh,
   tuoi,
+  highlightTarget,
 }: EmbeddedPatientEmrViewProps) {
   const [profile, setProfile] = useState<PatientProfile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -107,6 +109,7 @@ export function EmbeddedPatientEmrView({
         profile={profile}
         onBack={() => {}}
         compactMode={true}
+        highlightTarget={highlightTarget}
       />
     </div>
   );

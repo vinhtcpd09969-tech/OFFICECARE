@@ -21,8 +21,11 @@ import {
   Sparkles,
   Eye,
   X,
+  ArrowRight,
 } from 'lucide-react';
 import { PatientInfo, PatientProfile, TreatmentPlan } from '@/features/doctor/api/doctor.api';
+import { calculatePackageRefund } from '@/utils/billing';
+import { PackageRefundBreakdown } from '@/components/billing/PackageRefundBreakdown';
 import { formatCurrency } from '@/utils/format';
 import { resolveImageUrl } from '@/utils/imageUrl';
 import { TreatmentPlanVasDashboard, getFaceForVas, WONG_BAKER_FACES } from './TreatmentPlanVasDashboard';
@@ -31,6 +34,11 @@ import { printSingleVisit, printTreatmentPlan } from '@/utils/medicalRecordPrint
 function formatClinicalNote(note?: string | null): string {
   if (!note) return '';
   return note.replace(/\s*\[Hẹn tái khám hạn:[^\]]+\]\s*/g, '').trim();
+}
+
+function cleanStaffName(name?: string | null): string {
+  if (!name) return '';
+  return name.replace(/^(\s*(KTV|BS|CV|Bác sĩ|Kỹ thuật viên|Chuyên viên)\.?\s*)+/i, '').trim();
 }
 
 interface PatientDossierTimelineProps {
@@ -56,6 +64,7 @@ export const PatientDossierTimeline: React.FC<PatientDossierTimelineProps> = ({
 }) => {
   const location = useLocation();
   const currentUser = useAuthStore((state) => state.user);
+  const isCustomer = currentUser?.vai_tro_id === 1 || location.pathname.startsWith('/medical-record');
 
   // Chỉ hiển thị thông tin tài chính (Trạng thái thanh toán, Giá gói, Đã đóng, Còn nợ) cho ADMIN & KHÁCH HÀNG.
   // Bác sĩ (Doctor) và Kỹ thuật viên (KTV) KHÔNG thấy thông tin tài chính.
@@ -84,9 +93,20 @@ export const PatientDossierTimeline: React.FC<PatientDossierTimelineProps> = ({
 
     if (highlightTarget.type === 'plan') {
       setActiveTab('plans');
-      setExpandedPlanIds(prev => new Set(prev).add(highlightTarget.id));
+      let targetPlanId = highlightTarget.id;
+      if (profile?.treatmentPlans && profile.treatmentPlans.length > 0) {
+        const matched = profile.treatmentPlans.find(
+          p => p.id === highlightTarget.id ||
+               (highlightTarget.id && String(p.ma_lich_dieu_tri).toUpperCase() === String(highlightTarget.id).toUpperCase()) ||
+               p.sessions?.some((s: any) => s.id === highlightTarget.id || s.cuoc_hen_id === highlightTarget.id || s.ma_lich_dat === highlightTarget.id)
+        );
+        if (matched) targetPlanId = matched.id;
+        else targetPlanId = profile.treatmentPlans[0].id;
+      }
+
+      setExpandedPlanIds(prev => new Set(prev).add(targetPlanId));
       const timer = setTimeout(() => {
-        const el = document.getElementById(`plan-card-${highlightTarget.id}`);
+        const el = document.getElementById(`plan-card-${targetPlanId}`);
         if (el) {
           el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
@@ -94,16 +114,35 @@ export const PatientDossierTimeline: React.FC<PatientDossierTimelineProps> = ({
       return () => clearTimeout(timer);
     } else if (highlightTarget.type === 'visit') {
       setActiveTab('assessments');
-      setExpandedVisitIds(prev => new Set(prev).add(highlightTarget.id));
+      let targetVisitId = highlightTarget.id;
+      if (profile?.visits && profile.visits.length > 0) {
+        const matched = profile.visits.find(
+          v => String(v.id) === String(highlightTarget.id) ||
+               (highlightTarget.id && String(v.prescribed_plan_id) === String(highlightTarget.id)) ||
+               (highlightTarget.id && String(v.ma_lich_dat).toUpperCase() === String(highlightTarget.id).toUpperCase())
+        );
+        if (matched) {
+          targetVisitId = matched.id;
+        } else if (highlightTarget.id === 'ASSESSMENT_FIRST') {
+          const assessmentVisit = profile.visits.find(v => v.loai === 'KHAM');
+          if (assessmentVisit) {
+            targetVisitId = assessmentVisit.id;
+          } else {
+            targetVisitId = profile.visits[0].id;
+          }
+        }
+      }
+
+      setExpandedVisitIds(prev => new Set(prev).add(targetVisitId));
       const timer = setTimeout(() => {
-        const el = document.getElementById(`visit-row-${highlightTarget.id}`);
+        const el = document.getElementById(`visit-row-${targetVisitId}`);
         if (el) {
           el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
-      }, 250);
+      }, 300);
       return () => clearTimeout(timer);
     }
-  }, [highlightTarget]);
+  }, [highlightTarget, profile]);
 
   const toggleVisitExpand = (id: string) => {
     setExpandedVisitIds(prev => {
@@ -148,7 +187,7 @@ export const PatientDossierTimeline: React.FC<PatientDossierTimelineProps> = ({
   };
 
   // Tên Chuyên viên phụ trách gần nhất
-  const latestDoctorName = profile?.visits?.[0]?.ten_nhan_su || profile?.treatmentPlans?.[0]?.bac_si_chi_dinh || 'Chuyên viên tư vấn OfficeCare';
+  const latestDoctorName = cleanStaffName(profile?.visits?.[0]?.ten_nhan_su || profile?.treatmentPlans?.[0]?.bac_si_chi_dinh) || 'Chuyên viên tư vấn OfficeCare';
 
   return (
     <div className="w-full space-y-6 font-jakarta">
@@ -275,7 +314,12 @@ export const PatientDossierTimeline: React.FC<PatientDossierTimelineProps> = ({
                   const isExpanded = expandedVisitIds.has(visit.id);
                   const isAssessment = visit.loai === 'KHAM';
                   const isReassessmentPending = visit.trang_thai === 'cho_tai_luong_gia';
-                  const isVisitHighlighted = highlightTarget?.type === 'visit' && highlightTarget?.id === visit.id;
+                  const isVisitHighlighted = highlightTarget?.type === 'visit' && (
+                    highlightTarget?.id === visit.id ||
+                    (highlightTarget?.id && visit.prescribed_plan_id === highlightTarget.id) ||
+                    (highlightTarget?.id && visit.ma_lich_dat === highlightTarget.id) ||
+                    (highlightTarget?.id === 'ASSESSMENT_FIRST' && isAssessment)
+                  );
 
                   return (
                     <div
@@ -319,14 +363,22 @@ export const PatientDossierTimeline: React.FC<PatientDossierTimelineProps> = ({
                         {/* 3. NHÂN SỰ THỰC HIỆN (CÓ AVATAR TỰ NHIÊN) */}
                         <div className="hidden sm:flex sm:col-span-3 items-center gap-2 min-w-0">
                           {visit.anh_nhan_su ? (
-                            <img src={visit.anh_nhan_su} alt="" className="size-6 rounded-full object-cover shrink-0 border" />
-                          ) : (
+                            <img
+                              src={resolveImageUrl(visit.anh_nhan_su)}
+                              alt={cleanStaffName(visit.ten_nhan_su)}
+                              className="size-6 rounded-full object-cover shrink-0 border border-slate-200 dark:border-zinc-700 shadow-2xs"
+                            />
+                          ) : visit.ten_nhan_su ? (
                             <div className="size-6 rounded-full bg-slate-200 dark:bg-zinc-700 text-slate-700 dark:text-zinc-200 flex items-center justify-center font-bold text-[10px] shrink-0">
-                              {(visit.ten_nhan_su || 'NS').substring(0, 1).toUpperCase()}
+                              {cleanStaffName(visit.ten_nhan_su).substring(0, 1).toUpperCase()}
+                            </div>
+                          ) : (
+                            <div className="size-6 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-400 flex items-center justify-center shrink-0">
+                              <User size={12} />
                             </div>
                           )}
                           <span className="font-semibold text-slate-700 dark:text-zinc-300 truncate">
-                            {visit.ten_nhan_su || (isAssessment ? 'BS. CKI Nguyễn Minh Đức' : 'KTV. Phạm Thành Nam')}
+                            {cleanStaffName(visit.ten_nhan_su) || <em className="text-amber-600 font-medium not-italic">Đang phân công</em>}
                           </span>
                         </div>
 
@@ -513,9 +565,39 @@ export const PatientDossierTimeline: React.FC<PatientDossierTimelineProps> = ({
                               </div>
 
                               {visit.khuyen_nghi_goi && (
-                                <div className="bg-teal-50 dark:bg-teal-955/40 p-4 rounded-2xl border border-teal-200/80 font-bold text-teal-900 dark:text-teal-200 flex items-center gap-2">
-                                  <Sparkles className="size-4 text-teal-600" />
-                                  <span>📋 Gói khuyến nghị từ Chuyên viên: <strong>{visit.khuyen_nghi_goi}</strong></span>
+                                <div 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const recText = (visit.khuyen_nghi_goi || '').toLowerCase();
+                                    const targetPlan = profile?.treatmentPlans.find(
+                                      p => p.id === visit.prescribed_plan_id || 
+                                           p.goc_kham_id === visit.id ||
+                                           (p.ten_dich_vu && recText.includes(p.ten_dich_vu.toLowerCase())) ||
+                                           (p.ten_goi && recText.includes(p.ten_goi.toLowerCase())) ||
+                                           (p.ten_dich_vu && p.ten_dich_vu.toLowerCase().includes(recText))
+                                    ) || profile?.treatmentPlans[0];
+
+                                    if (targetPlan) {
+                                      setActiveTab('plans');
+                                      setExpandedPlanIds(prev => new Set(prev).add(targetPlan.id));
+                                      setTimeout(() => {
+                                        document.getElementById(`plan-card-${targetPlan.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                      }, 200);
+                                    } else {
+                                      setActiveTab('plans');
+                                    }
+                                  }}
+                                  className="bg-teal-50 hover:bg-teal-100/90 dark:bg-teal-955/40 dark:hover:bg-teal-950/60 p-4 rounded-2xl border border-teal-200/80 dark:border-teal-800/80 font-bold text-teal-900 dark:text-teal-200 flex items-center justify-between gap-3 cursor-pointer transition-all shadow-xs group"
+                                  title="Bấm để xem chi tiết gói liệu trình tương ứng"
+                                >
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <Sparkles className="size-4 text-teal-600 shrink-0" />
+                                    <span className="truncate">📋 Gói khuyến nghị từ Chuyên viên: <strong className="text-teal-700 dark:text-teal-300 underline underline-offset-2">{visit.khuyen_nghi_goi}</strong></span>
+                                  </div>
+                                  <div className="flex items-center gap-1 text-xs text-teal-700 dark:text-teal-300 font-bold group-hover:translate-x-1 transition-transform shrink-0">
+                                    <span>Xem gói liệu trình</span>
+                                    <ArrowRight size={14} />
+                                  </div>
                                 </div>
                               )}
 
@@ -703,20 +785,22 @@ export const PatientDossierTimeline: React.FC<PatientDossierTimelineProps> = ({
                           )}
 
                           {/* NÚT IN PHIẾU LƯỢNG GIÁ / DỊCH VỤ NÀY */}
-                          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200/80 dark:border-zinc-800">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                printSingleVisit(selectedPatient, visit);
-                              }}
-                              className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs flex items-center gap-2 shadow-xs transition-all cursor-pointer"
-                              title="In phiếu kết quả lượng giá / dịch vụ của riêng buổi này"
-                            >
-                              <Printer size={14} />
-                              <span>In Phiếu {isAssessment ? 'Lượng Giá' : 'Dịch Vụ'} Này</span>
-                            </button>
-                          </div>
+                          {!isCustomer && (
+                            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200/80 dark:border-zinc-800">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  printSingleVisit(selectedPatient, visit);
+                                }}
+                                className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs flex items-center gap-2 shadow-xs transition-all cursor-pointer"
+                                title="In phiếu kết quả lượng giá / dịch vụ của riêng buổi này"
+                              >
+                                <Printer size={14} />
+                                <span>In Phiếu {isAssessment ? 'Lượng Giá' : 'Dịch Vụ'}</span>
+                              </button>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -737,11 +821,14 @@ export const PatientDossierTimeline: React.FC<PatientDossierTimelineProps> = ({
             ) : (
               profile.treatmentPlans.map(plan => {
                 const isExpanded = expandedPlanIds.has(plan.id);
-                const validSessions = plan.sessions?.filter((s: any) => s.trang_thai !== 'da_huy') || [];
-                const bookedOrUsedCount = validSessions.length;
-                const displayUsedCount = Math.max(plan.so_buoi_da_dung || 0, bookedOrUsedCount);
+                const completedSessions = plan.sessions?.filter((s: any) => s.trang_thai === 'hoan_thanh') || [];
+                const displayUsedCount = Number(plan.so_buoi_da_dung !== undefined && plan.so_buoi_da_dung !== null ? plan.so_buoi_da_dung : completedSessions.length);
                 const progressPercent = Math.min(100, Math.round((displayUsedCount / (plan.tong_so_buoi || 1)) * 100));
-                const isPlanHighlighted = highlightTarget?.type === 'plan' && highlightTarget?.id === plan.id;
+                const isPlanHighlighted = highlightTarget?.type === 'plan' && (
+                  highlightTarget?.id === plan.id ||
+                  (highlightTarget?.id && String(plan.ma_lich_dieu_tri).toUpperCase() === String(highlightTarget.id).toUpperCase()) ||
+                  plan.sessions?.some((s: any) => s.id === highlightTarget?.id || s.cuoc_hen_id === highlightTarget?.id || s.ma_lich_dat === highlightTarget?.id)
+                );
 
                 return (
                   <div
@@ -774,63 +861,149 @@ export const PatientDossierTimeline: React.FC<PatientDossierTimelineProps> = ({
                             {plan.ma_lich_dieu_tri || `PD-${plan.id.substring(0, 6)}`}
                           </span>
                         </div>
-                        <h4 className="text-base font-black text-slate-900 dark:text-zinc-100">
-                          {plan.ten_dich_vu || plan.ten_goi || 'Gói Phục Hồi Chức Năng'}
-                        </h4>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <h4 className="text-base font-black text-slate-900 dark:text-zinc-100">
+                            {plan.ten_dich_vu || plan.ten_goi || 'Gói Phục Hồi Chức Năng'}
+                          </h4>
 
-                        {/* FINANCIAL DETAILS BAR FOR ADMIN & CUSTOMER ONLY */}
-                        {showFinancialDetails && ((plan.tong_tien_thanh_toan !== undefined && plan.tong_tien_thanh_toan !== null) || (plan.gia_goc_goi !== undefined && plan.gia_goc_goi !== null)) && (
-                          <div className="flex flex-wrap items-center gap-2 pt-1.5 text-xs">
-                            {/* Financial status badge */}
-                            <span className={`px-2.5 py-0.5 rounded-lg font-black text-[10px] uppercase tracking-wider border ${
-                              plan.trang_thai_thanh_toan === 'da_thanh_toan' || (plan.da_thanh_toan && plan.tong_tien_thanh_toan && plan.da_thanh_toan >= plan.tong_tien_thanh_toan)
-                                ? 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border-emerald-300'
-                                : plan.hinh_thuc_thanh_toan_goi === 'tung_buoi'
-                                  ? 'bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border-amber-300'
-                                  : 'bg-rose-100 dark:bg-rose-950/70 text-rose-800 dark:text-rose-300 border-rose-300'
-                            }`}>
-                              {plan.trang_thai_thanh_toan === 'da_thanh_toan' || (plan.da_thanh_toan && plan.tong_tien_thanh_toan && plan.da_thanh_toan >= plan.tong_tien_thanh_toan)
-                                ? '✓ Đã thanh toán 100%'
-                                : plan.hinh_thuc_thanh_toan_goi === 'tung_buoi'
-                                  ? '💳 Thanh toán từng buổi / Trả góp'
-                                  : '⚠️ Chưa thanh toán đủ'}
-                            </span>
+                          {(() => {
+                            const originExam = profile?.visits.find(
+                              v => v.loai === 'KHAM' && (v.prescribed_plan_id === plan.id || v.id === plan.goc_kham_id)
+                            ) || profile?.visits.find(v => v.loai === 'KHAM');
 
-                            {/* Giá gói */}
-                            <div className="flex items-center gap-1 bg-white dark:bg-zinc-800 px-2.5 py-0.5 rounded-lg border border-slate-200 dark:border-zinc-700 text-[11px]">
-                              <span className="text-slate-500 dark:text-zinc-400">Giá gói:</span>
-                              <strong className="font-mono font-bold text-slate-900 dark:text-zinc-100">
-                                {formatCurrency(plan.tong_tien_thanh_toan || plan.gia_goc_goi || 0)}
-                              </strong>
+                            if (!originExam) return null;
+
+                            const expertName = cleanStaffName(originExam.ten_nhan_su || (plan as any).chuyen_vien_chi_dinh || (plan as any).ten_bac_si) || 'Chuyên viên PHCN';
+
+                            return (
+                              <span className="inline-flex items-center gap-1 text-xs text-slate-500 dark:text-zinc-400 font-medium">
+                                <span>•</span>
+                                <span>Chỉ định bởi:</span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveTab('assessments');
+                                    setExpandedVisitIds(prev => new Set(prev).add(originExam.id));
+                                    setTimeout(() => {
+                                      document.getElementById(`visit-row-${originExam.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    }, 200);
+                                  }}
+                                  className="font-bold text-teal-700 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-300 underline underline-offset-2 cursor-pointer transition-colors"
+                                  title="Bấm để xem buổi lượng giá ban đầu"
+                                >
+                                  {expertName}
+                                </button>
+                              </span>
+                            );
+                          })()}
+                        </div>
+
+                        {/* STATUS & FINANCIAL DETAILS BAR */}
+                        {(() => {
+                          const isRefunded = plan.trang_thai_thanh_toan === 'da_hoan_tien' || plan.trang_thai === 'huy';
+                          const isCompleted = plan.trang_thai === 'hoan_thanh';
+                          const isPaused = plan.trang_thai === 'tam_dung';
+                          const isPendingActivation = plan.trang_thai === 'cho_kich_hoat';
+                          const isFullyPaid = plan.trang_thai_thanh_toan === 'da_thanh_toan' || (plan.da_thanh_toan && plan.tong_tien_thanh_toan && plan.da_thanh_toan >= plan.tong_tien_thanh_toan);
+                          const isPayPerSession = plan.hinh_thuc_thanh_toan_goi === 'tung_buoi';
+                          const packagePrice = Number(plan.tong_tien_thanh_toan || plan.gia_goc_goi || 0);
+                          const paidAmount = Number(plan.da_thanh_toan || 0);
+                          const refundedAmount = Math.max(0, packagePrice - paidAmount);
+
+                          return (
+                            <div className="flex flex-wrap items-center gap-2 pt-1.5 text-xs">
+                              {/* Clinical / Operational Plan Status Badge (Always visible for Doctor, KTV, Admin, Receptionist, Customer) */}
+                              <span className={`px-2.5 py-0.5 rounded-lg font-black text-[10px] uppercase tracking-wider border flex items-center gap-1 ${
+                                isRefunded
+                                  ? 'bg-rose-100 dark:bg-rose-950/70 text-rose-800 dark:text-rose-300 border-rose-300'
+                                  : isCompleted
+                                    ? 'bg-teal-100 dark:bg-teal-950/70 text-teal-800 dark:text-teal-300 border-teal-300'
+                                    : isPaused
+                                      ? 'bg-amber-100 dark:bg-amber-955/70 text-amber-800 dark:text-amber-300 border-amber-300'
+                                      : isPendingActivation
+                                        ? 'bg-indigo-100 dark:bg-indigo-955/70 text-indigo-800 dark:text-indigo-300 border-indigo-300'
+                                        : 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border-emerald-300'
+                              }`}>
+                                {isRefunded
+                                  ? '✓ Đã hoàn tiền & Hủy gói'
+                                  : isCompleted
+                                    ? '✓ Đã hoàn thành liệu trình'
+                                    : isPaused
+                                      ? '⏸ Tạm dừng'
+                                      : isPendingActivation
+                                        ? '⏳ Chờ kích hoạt'
+                                        : '🔄 Đang điều trị'}
+                              </span>
+
+                              {/* Additional Financial details (Only visible for Admin, Receptionist, Customer) */}
+                              {showFinancialDetails && ((plan.tong_tien_thanh_toan !== undefined && plan.tong_tien_thanh_toan !== null) || (plan.gia_goc_goi !== undefined && plan.gia_goc_goi !== null)) && (
+                                <>
+                                  {!isRefunded && (
+                                    <span className={`px-2.5 py-0.5 rounded-lg font-black text-[10px] uppercase tracking-wider border ${
+                                      isFullyPaid
+                                        ? 'bg-emerald-50 dark:bg-emerald-955/40 text-emerald-800 dark:text-emerald-300 border-emerald-200'
+                                        : isPayPerSession
+                                          ? 'bg-amber-50 dark:bg-amber-955/40 text-amber-800 dark:text-amber-300 border-amber-200'
+                                          : 'bg-rose-50 dark:bg-rose-955/40 text-rose-800 dark:text-rose-300 border-rose-200'
+                                    }`}>
+                                      {isFullyPaid
+                                        ? '✓ Đã thanh toán 100%'
+                                        : isPayPerSession
+                                          ? '💳 Thanh toán từng buổi / Trả góp'
+                                          : '⚠️ Chưa thanh toán đủ'}
+                                    </span>
+                                  )}
+
+                                  {/* Giá gói */}
+                                  {packagePrice > 0 && (
+                                    <div className="flex items-center gap-1 bg-white dark:bg-zinc-800 px-2.5 py-0.5 rounded-lg border border-slate-200 dark:border-zinc-700 text-[11px]">
+                                      <span className="text-slate-500 dark:text-zinc-400">Giá gói:</span>
+                                      <strong className="font-mono font-bold text-slate-900 dark:text-zinc-100">
+                                        {formatCurrency(packagePrice)}
+                                      </strong>
+                                    </div>
+                                  )}
+
+                                  {/* Đã đóng / Thực thu */}
+                                  <div className="flex items-center gap-1 bg-emerald-50 dark:bg-emerald-955/40 px-2.5 py-0.5 rounded-lg border border-emerald-200 dark:border-emerald-800 text-[11px]">
+                                    <span className="text-emerald-800 dark:text-emerald-300">{isRefunded ? 'Thực thu:' : 'Đã đóng:'}</span>
+                                    <strong className="font-mono font-black text-emerald-700 dark:text-emerald-300">
+                                      {formatCurrency(paidAmount)}
+                                    </strong>
+                                  </div>
+
+                                  {/* Đã hoàn trả / Còn phải trả */}
+                                  {isRefunded ? (
+                                    <div className="flex items-center gap-1 bg-rose-50 dark:bg-rose-955/40 px-2.5 py-0.5 rounded-lg border border-rose-200 dark:border-rose-800 text-[11px]">
+                                      <span className="text-rose-800 dark:text-rose-300">Đã hoàn trả:</span>
+                                      <strong className="font-mono font-black text-rose-600 dark:text-rose-400">
+                                        {formatCurrency(refundedAmount)}
+                                      </strong>
+                                    </div>
+                                  ) : (
+                                    packagePrice > paidAmount && (
+                                      <div className="flex items-center gap-1 bg-rose-50 dark:bg-rose-955/40 px-2.5 py-0.5 rounded-lg border border-rose-200 dark:border-rose-800 text-[11px]">
+                                        <span className="text-rose-800 dark:text-rose-300">Còn phải trả:</span>
+                                        <strong className="font-mono font-black text-rose-600 dark:text-rose-400">
+                                          {formatCurrency(packagePrice - paidAmount)}
+                                        </strong>
+                                      </div>
+                                    )
+                                  )}
+                                </>
+                              )}
+
+                              {/* Hạn sử dụng gói */}
+                              {plan.han_su_dung && (
+                                <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-800 px-2.5 py-0.5 rounded-lg text-[11px] text-slate-600 dark:text-zinc-300 font-semibold">
+                                  <Calendar size={13} className="text-teal-600" />
+                                  <span>Hạn sử dụng: <strong className="text-slate-900 dark:text-zinc-100 font-bold">{new Date(plan.han_su_dung).toLocaleDateString('vi-VN')}</strong></span>
+                                </div>
+                              )}
                             </div>
-
-                            {/* Đã đóng */}
-                            <div className="flex items-center gap-1 bg-emerald-50 dark:bg-emerald-955/40 px-2.5 py-0.5 rounded-lg border border-emerald-200 dark:border-emerald-800 text-[11px]">
-                              <span className="text-emerald-800 dark:text-emerald-300">Đã đóng:</span>
-                              <strong className="font-mono font-black text-emerald-700 dark:text-emerald-300">
-                                {formatCurrency(plan.da_thanh_toan || 0)}
-                              </strong>
-                            </div>
-
-                            {/* Còn nợ */}
-                            {plan.tong_tien_thanh_toan && plan.da_thanh_toan !== undefined && plan.tong_tien_thanh_toan > plan.da_thanh_toan && (
-                              <div className="flex items-center gap-1 bg-rose-50 dark:bg-rose-955/40 px-2.5 py-0.5 rounded-lg border border-rose-200 dark:border-rose-800 text-[11px]">
-                                <span className="text-rose-800 dark:text-rose-300">Còn nợ:</span>
-                                <strong className="font-mono font-black text-rose-600 dark:text-rose-400">
-                                  {formatCurrency(plan.tong_tien_thanh_toan - plan.da_thanh_toan)}
-                                </strong>
-                              </div>
-                            )}
-
-                            {/* Hạn sử dụng gói */}
-                            {plan.han_su_dung && (
-                              <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-800 px-2.5 py-0.5 rounded-lg text-[11px] text-slate-600 dark:text-zinc-300 font-semibold">
-                                <Calendar size={13} className="text-teal-600" />
-                                <span>Hạn sử dụng: <strong className="text-slate-900 dark:text-zinc-100 font-bold">{new Date(plan.han_su_dung).toLocaleDateString('vi-VN')}</strong></span>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                          );
+                        })()}
                       </div>
 
                       <div className="flex flex-wrap items-center gap-3 shrink-0">
@@ -844,6 +1017,9 @@ export const PatientDossierTimeline: React.FC<PatientDossierTimelineProps> = ({
                         </div>
 
                         {(() => {
+                          const isPlanInactive = plan.trang_thai === 'huy' || plan.trang_thai === 'hoan_thanh' || plan.trang_thai_thanh_toan === 'da_hoan_tien';
+                          if (isPlanInactive) return null;
+
                           const activeSessionAppt = plan.sessions?.find((s: any) =>
                             ['da_xac_nhan', 'da_checkin', 'dang_kham'].includes(s.trang_thai)
                           );
@@ -851,12 +1027,12 @@ export const PatientDossierTimeline: React.FC<PatientDossierTimelineProps> = ({
                             activeSessionAppt ? (
                               <button
                                 type="button"
-                                onClick={() => toast.error(`⚠️ Gói này đang có 1 ca hẹn (Buổi #${activeSessionAppt.so_thu_tu_buoi}) ở trạng thái chờ/thực hiện. Vui lòng hoàn thành buổi này trước khi đặt buổi tiếp theo!`)}
-                                className="px-3.5 py-2 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                                onClick={() => toast.error(`⚠️ Gói này đang có 1 ca hẹn (Buổi ${activeSessionAppt.so_thu_tu_buoi}) ở trạng thái chờ/thực hiện. Vui lòng hoàn thành buổi này trước khi đặt buổi tiếp theo!`)}
+                                className="px-3.5 py-2 rounded-xl bg-amber-100 dark:bg-amber-955/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-2xs"
                                 title="Đã có ca hẹn chưa hoàn thành"
                               >
                                 <AlertTriangle size={15} className="text-amber-600" />
-                                <span>📅 Đã có lịch Buổi #{activeSessionAppt.so_thu_tu_buoi}</span>
+                                <span>📅 Đã có lịch Buổi ${activeSessionAppt.so_thu_tu_buoi}</span>
                               </button>
                             ) : (
                               <button
@@ -872,7 +1048,7 @@ export const PatientDossierTimeline: React.FC<PatientDossierTimelineProps> = ({
                         })()}
 
                         {/* NÚT HỦY GÓI LIỆU TRÌNH (XEM TRƯỚC HÓA ĐƠN HOÀN TIỀN) - DÀNH CHO GÓI TRẢ TRƯỚC 100% */}
-                        {(plan.trang_thai_thanh_toan === 'da_thanh_toan' || (plan.da_thanh_toan && plan.tong_tien_thanh_toan && plan.da_thanh_toan >= plan.tong_tien_thanh_toan)) && plan.trang_thai !== 'hoan_thanh' && plan.trang_thai !== 'huy' && (
+                        {plan.trang_thai_thanh_toan !== 'da_hoan_tien' && plan.trang_thai !== 'hoan_thanh' && plan.trang_thai !== 'huy' && (plan.trang_thai_thanh_toan === 'da_thanh_toan' || (plan.da_thanh_toan && plan.tong_tien_thanh_toan && plan.da_thanh_toan >= plan.tong_tien_thanh_toan)) && (
                           <button
                             type="button"
                             onClick={() => setRefundPreviewPlan(plan)}
@@ -883,18 +1059,20 @@ export const PatientDossierTimeline: React.FC<PatientDossierTimelineProps> = ({
                         )}
 
                         {/* NÚT IN SỔ THEO DÕI GÓI LIỆU TRÌNH */}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            printTreatmentPlan(selectedPatient, plan);
-                          }}
-                          className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700 font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-2xs transition-all"
-                          title="In sổ theo dõi & nhật ký chi tiết các buổi tập của gói này"
-                        >
-                          <Printer size={14} className="text-teal-600 dark:text-teal-400" />
-                          <span>In Sổ Liệu Trình</span>
-                        </button>
+                        {!isCustomer && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              printTreatmentPlan(selectedPatient, plan);
+                            }}
+                            className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700 font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-2xs transition-all"
+                            title="In sổ theo dõi & nhật ký chi tiết các buổi tập của gói này"
+                          >
+                            <Printer size={14} className="text-teal-600 dark:text-teal-400" />
+                            <span>In Sổ Liệu Trình</span>
+                          </button>
+                        )}
 
                         <button
                           type="button"
@@ -929,12 +1107,15 @@ export const PatientDossierTimeline: React.FC<PatientDossierTimelineProps> = ({
       {/* MODAL XEM TRƯỚC HÓA ĐƠN HOÀN TIỀN HỦY GÓI LIỆU TRÌNH */}
       {refundPreviewPlan && (() => {
         const netPaid = Number(refundPreviewPlan.tong_tien_thanh_toan || refundPreviewPlan.da_thanh_toan || refundPreviewPlan.gia_goc_goi || 0);
-        const totalSessions = Number(refundPreviewPlan.tong_so_buoi) || 1;
-        const usedSessions = Number(refundPreviewPlan.so_buoi_da_dung) || 0;
-        const unitPrice = netPaid / totalSessions;
-        const usedCost = Math.round(usedSessions * unitPrice);
-        const penaltyCost = Math.round(netPaid * 0.1); // 10% penalty
-        const estimatedRefund = Math.max(0, netPaid - usedCost - penaltyCost);
+        const totalSessions = Number(refundPreviewPlan.tong_so_buoi) || 10;
+        const usedSessions = Number(refundPreviewPlan.so_buoi_da_dung || (refundPreviewPlan as any).so_buoi_da_thuc_hien) || 0;
+        const refundCalc = calculatePackageRefund({
+          totalPaid: netPaid,
+          packagePrice: netPaid,
+          usedSessions,
+          totalSessions,
+          penaltyPercent: 10
+        });
 
         return (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
@@ -954,32 +1135,8 @@ export const PatientDossierTimeline: React.FC<PatientDossierTimelineProps> = ({
                 </button>
               </div>
 
-              <div className="space-y-3 bg-slate-50 dark:bg-zinc-800/60 p-4 rounded-2xl border text-xs">
-                <div className="flex justify-between items-center border-b pb-2">
-                  <span className="text-slate-500 font-medium">Tên gói liệu trình:</span>
-                  <span className="font-black text-slate-800 dark:text-zinc-100 text-right">{refundPreviewPlan.ten_dich_vu || refundPreviewPlan.ten_goi}</span>
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500 font-medium">Số tiền thực nộp (đã trừ Voucher):</span>
-                  <span className="font-mono font-bold text-slate-900 dark:text-zinc-100">{formatCurrency(netPaid)}</span>
-                </div>
-
-                <div className="flex justify-between items-center text-amber-700 dark:text-amber-300">
-                  <span>Trừ chi phí {usedSessions}/{totalSessions} buổi đã sử dụng:</span>
-                  <span className="font-mono font-bold">- {formatCurrency(usedCost)}</span>
-                </div>
-
-                <div className="flex justify-between items-center text-rose-600 dark:text-rose-400">
-                  <span>Trừ Phạt vi phạm hợp đồng (10% số tiền thực nộp):</span>
-                  <span className="font-mono font-bold">- {formatCurrency(penaltyCost)}</span>
-                </div>
-
-                <div className="border-t pt-2.5 flex justify-between items-center text-sm font-black">
-                  <span className="text-teal-700 dark:text-teal-300">Số tiền dự kiến hoàn trả:</span>
-                  <span className="font-mono text-emerald-600 dark:text-emerald-400 text-base">{formatCurrency(estimatedRefund)}</span>
-                </div>
-              </div>
+              {/* Bảng tính hoàn tiền dùng chung */}
+              <PackageRefundBreakdown calculation={refundCalc} />
 
               <div className="p-4 bg-amber-50 dark:bg-amber-955/40 border border-amber-200 dark:border-amber-900/60 rounded-2xl text-xs font-semibold text-amber-900 dark:text-amber-200 leading-relaxed flex items-start gap-2.5">
                 <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />

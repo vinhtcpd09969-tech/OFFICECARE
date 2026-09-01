@@ -238,6 +238,9 @@ export interface DoctorSchedule {
   gio_bat_dau: string;
   gio_ket_thuc: string;
   trang_thai: 'hoat_dong' | 'tam_nghi';
+  phong_id?: string | number | null;
+  ma_phong?: string | null;
+  ten_phong?: string | null;
 }
 
 export const getDoctorSchedules = () => api.get<DoctorSchedule[]>('/doctor/schedules');

@@ -34,34 +34,69 @@ export const BookingDateTimeStaffSection: React.FC<BookingDateTimeStaffSectionPr
     return staffList.find((ns: any) => String(ns.id) === selectedStaffId);
   }, [staffList, selectedStaffId]);
 
+  const formatShiftBadge = (ns: any) => {
+    if (ns.gioBatDau && ns.gioKetThuc) {
+      return `${ns.gioBatDau} – ${ns.gioKetThuc}`;
+    }
+    if (ns.caTruc && ns.caTruc.includes('-')) {
+      return ns.caTruc.replace('-', ' – ');
+    }
+    if (ns.caTruc === 'ca_1') return '07:00 – 16:00';
+    if (ns.caTruc === 'ca_2') return '11:00 – 20:00';
+    return '';
+  };
+
   const staffAlertInfo = useMemo(() => {
     if (!selectedStaffObj || !selectedBuoi) return null;
     const ca = selectedStaffObj.caTruc || '';
+    const batDau = selectedStaffObj.gioBatDau || (ca.includes('-') ? ca.split('-')[0]?.trim() : '');
     const ketThuc = selectedStaffObj.gioKetThuc || (ca.includes('-') ? ca.split('-')[1]?.trim() : '');
     if (!ketThuc) return null;
-    const [h, m] = ketThuc.split(':').map((v: string) => parseInt(v, 10));
-    if (isNaN(h)) return null;
 
-    const staffShiftEndMins = h * 60 + (m || 0);
+    const [startH, startM] = (batDau || '07:00').split(':').map((v: string) => parseInt(v, 10));
+    const [endH, endM] = ketThuc.split(':').map((v: string) => parseInt(v, 10));
+    if (isNaN(endH)) return null;
+
+    const staffShiftStartMins = (isNaN(startH) ? 7 : startH) * 60 + (startM || 0);
+    const staffShiftEndMins = endH * 60 + (endM || 0);
+
+    const buoiStartMins = selectedBuoi === 'sang' ? 7 * 60 + 30 : 12 * 60;
     const buoiEndMins = selectedBuoi === 'sang' ? 12 * 60 : 20 * 60;
 
-    // Cảnh báo nếu nhân sự kết thúc ca sớm hơn giờ kết thúc của buổi (ví dụ ca 16:00 trong Buổi chiều)
-    if (staffShiftEndMins < buoiEndMins) {
-      const latestCheckinMins = staffShiftEndMins - (serviceDuration || 30);
-      const latestH = Math.floor(latestCheckinMins / 60);
-      const latestM = latestCheckinMins % 60;
-      const latestStr = `${latestH}h${latestM < 10 ? '0' : ''}${latestM}`;
-      const endH = Math.floor(staffShiftEndMins / 60);
-      const endM = staffShiftEndMins % 60;
-      const endStr = `${endH}h${endM < 10 ? '0' : ''}${endM}`;
+    const formatTimeHM = (totalMins: number) => {
+      const h = Math.floor(totalMins / 60);
+      const m = totalMins % 60;
+      return `${h}h${m < 10 ? '0' : ''}${m}`;
+    };
 
+    const caDisplay = `${formatTimeHM(staffShiftStartMins)} – ${formatTimeHM(staffShiftEndMins)}`;
+
+    // TH1: Nhân sự bắt đầu ca muộn hơn giờ mở buổi (ví dụ ca 11:00-20:00 trong Buổi Sáng 07:30-12:00)
+    if (staffShiftStartMins > buoiStartMins) {
+      const latestCheckinMins = buoiEndMins - (serviceDuration || 30);
       return {
+        type: 'start_late' as const,
         staffName: selectedStaffObj.ho_ten,
-        endStr,
-        latestStr,
-        caTruc: selectedStaffObj.caTruc || `${endStr}`
+        startStr: formatTimeHM(staffShiftStartMins),
+        endStr: formatTimeHM(staffShiftEndMins),
+        latestStr: formatTimeHM(latestCheckinMins),
+        caTruc: caDisplay
       };
     }
+
+    // TH2: Nhân sự kết thúc ca sớm hơn giờ đóng buổi (ví dụ ca 07:00-16:00 trong Buổi Chiều 12:00-20:00)
+    if (staffShiftEndMins < buoiEndMins) {
+      const latestCheckinMins = staffShiftEndMins - (serviceDuration || 30);
+      return {
+        type: 'end_early' as const,
+        staffName: selectedStaffObj.ho_ten,
+        startStr: formatTimeHM(staffShiftStartMins),
+        endStr: formatTimeHM(staffShiftEndMins),
+        latestStr: formatTimeHM(latestCheckinMins),
+        caTruc: caDisplay
+      };
+    }
+
     return null;
   }, [selectedStaffObj, selectedBuoi, serviceDuration]);
   return (
@@ -162,14 +197,47 @@ export const BookingDateTimeStaffSection: React.FC<BookingDateTimeStaffSectionPr
             })()}
           </div>
 
-          {/* Gợi ý khung giờ đến theo thời lượng dịch vụ */}
+          {/* Gợi ý khung giờ đến linh hoạt theo thời lượng dịch vụ và nhân sự chọn */}
           {selectedBuoi && (
-            <div className="p-3.5 bg-teal-50/70 border border-teal-200/80 rounded-2xl text-xs flex items-center gap-2.5 text-teal-950 leading-relaxed font-medium animate-in fade-in duration-200 mt-2.5">
-              <Info size={16} className="text-teal-600 shrink-0" />
-              <div>
-                Dịch vụ bạn chọn có thời lượng <strong className="text-teal-700 font-extrabold">{serviceDuration} phút</strong>. Quý khách vui lòng đến trong khung giờ từ <strong className="text-slate-900 font-extrabold">{selectedBuoi === 'sang' ? '7h30' : '12h00'}</strong> đến trước <strong className="text-emerald-700 font-black">{selectedBuoi === 'sang' ? `${Math.floor((12 * 60 - serviceDuration) / 60)}h${(12 * 60 - serviceDuration) % 60 < 10 ? '0' : ''}${(12 * 60 - serviceDuration) % 60}` : `${Math.floor((20 * 60 - serviceDuration) / 60)}h${(20 * 60 - serviceDuration) % 60 < 10 ? '0' : ''}${(20 * 60 - serviceDuration) % 60}`}</strong> để được hỗ trợ phục vụ tốt nhất.
-              </div>
-            </div>
+            (() => {
+              let fromMins = selectedBuoi === 'sang' ? 7 * 60 + 30 : 12 * 60;
+              let toMins = selectedBuoi === 'sang' ? 12 * 60 : 20 * 60;
+
+              if (selectedStaffObj) {
+                const ca = selectedStaffObj.caTruc || '';
+                const batDau = selectedStaffObj.gioBatDau || (ca.includes('-') ? ca.split('-')[0]?.trim() : '');
+                const ketThuc = selectedStaffObj.gioKetThuc || (ca.includes('-') ? ca.split('-')[1]?.trim() : '');
+                if (batDau) {
+                  const [sh, sm] = batDau.split(':').map((v: string) => parseInt(v, 10));
+                  if (!isNaN(sh)) fromMins = Math.max(fromMins, sh * 60 + (sm || 0));
+                }
+                if (ketThuc) {
+                  const [eh, em] = ketThuc.split(':').map((v: string) => parseInt(v, 10));
+                  if (!isNaN(eh)) toMins = Math.min(toMins, eh * 60 + (em || 0));
+                }
+              }
+
+              const latestCheckinMins = toMins - serviceDuration;
+              const fromStr = `${Math.floor(fromMins / 60)}h${fromMins % 60 < 10 ? '0' : ''}${fromMins % 60}`;
+              const latestStr = `${Math.floor(latestCheckinMins / 60)}h${latestCheckinMins % 60 < 10 ? '0' : ''}${latestCheckinMins % 60}`;
+
+              return (
+                <div className="p-3.5 bg-teal-50/70 border border-teal-200/80 rounded-2xl text-xs flex items-center gap-2.5 text-teal-950 leading-relaxed font-medium animate-in fade-in duration-200 mt-2.5">
+                  <Info size={16} className="text-teal-600 shrink-0" />
+                  <div>
+                    {fromStr === latestStr ? (
+                      <>
+                        Dịch vụ bạn chọn có thời lượng <strong className="text-teal-700 font-extrabold">{serviceDuration} phút</strong>. Quý khách vui lòng đến check-in lúc <strong className="text-emerald-700 font-black">{fromStr}</strong> để được hỗ trợ phục vụ tốt nhất.
+                      </>
+                    ) : (
+                      <>
+                        Dịch vụ bạn chọn có thời lượng <strong className="text-teal-700 font-extrabold">{serviceDuration} phút</strong>. Quý khách vui lòng đến trong khung giờ từ <strong className="text-slate-900 font-extrabold">{fromStr}</strong> đến trước <strong className="text-emerald-700 font-black">{latestStr}</strong> để được hỗ trợ phục vụ tốt nhất.
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })()
           )}
         </div>
       </div>
@@ -227,6 +295,7 @@ export const BookingDateTimeStaffSection: React.FC<BookingDateTimeStaffSectionPr
             {staffList.map((ns: any) => {
               const staffConLaiPhut = selectedBuoi === 'sang' ? ns.conLaiSang : ns.conLaiChieu;
               const staffSlots = Math.floor((staffConLaiPhut || 0) / (serviceDuration || 30));
+              const shiftBadge = formatShiftBadge(ns);
 
               return (
                 <button
@@ -248,8 +317,13 @@ export const BookingDateTimeStaffSection: React.FC<BookingDateTimeStaffSectionPr
                   </div>
                   <div className="min-w-0">
                     <div className="text-xs font-black text-slate-900 truncate">{ns.ho_ten}</div>
-                    <div className="text-[10px] font-bold text-slate-500 truncate flex items-center gap-1 mt-0.5">
-                      <span>{ns.caTruc === 'ca_1' ? 'Ca Sáng' : ns.caTruc === 'ca_2' ? 'Ca Chiều' : (ns.chuyen_mon || 'Chuyên viên')}</span>
+                    <div className="text-[10px] font-bold text-slate-500 truncate flex items-center flex-wrap gap-1 mt-0.5">
+                      <span>{bookingType === 'kham' ? 'Chuyên viên' : (ns.chuyen_mon || 'KTV')}</span>
+                      {shiftBadge && (
+                        <span className="text-teal-700 bg-teal-50 border border-teal-200/60 px-1.5 py-0.2 rounded font-extrabold text-[9.5px]">
+                          {shiftBadge}
+                        </span>
+                      )}
                       <span>·</span>
                       <span className="text-emerald-600 font-black">Còn {staffSlots} slot</span>
                     </div>
@@ -260,7 +334,7 @@ export const BookingDateTimeStaffSection: React.FC<BookingDateTimeStaffSectionPr
           </div>
         )}
 
-        {/* Cảnh báo ca trực kết thúc sớm */}
+        {/* Cảnh báo ca trực thông minh */}
         {staffAlertInfo && (
           <div className="p-3.5 bg-amber-50/90 border border-amber-200/90 rounded-2xl text-xs flex items-start gap-2.5 text-amber-900 leading-relaxed font-medium animate-in fade-in duration-200 mt-2">
             <Clock size={16} className="text-amber-600 shrink-0 mt-0.5" />
@@ -268,7 +342,15 @@ export const BookingDateTimeStaffSection: React.FC<BookingDateTimeStaffSectionPr
               <span className="font-black text-amber-950 block text-[11px] uppercase tracking-wider mb-0.5">
                 ⏰ Lưu ý ca trực của {staffAlertInfo.staffName}:
               </span>
-              Nhân sự này chỉ có mặt tại trung tâm đến <strong className="text-amber-950 font-black">{staffAlertInfo.endStr}</strong> (Trực {staffAlertInfo.caTruc}). Quý khách vui lòng đến check-in trước <strong className="text-emerald-800 font-black">{staffAlertInfo.latestStr}</strong> để đảm bảo được phục vụ bởi đúng nhân sự này. Sau thời gian này nếu nhân sự đã hết ca, hệ thống sẽ linh hoạt điều phối nhân sự đang trực tiếp nhận.
+              {staffAlertInfo.type === 'start_late' ? (
+                <>
+                  Nhân sự này bắt đầu ca làm việc từ <strong className="text-amber-950 font-black">{staffAlertInfo.startStr}</strong> (Trực ca {staffAlertInfo.caTruc}). Nếu Quý khách đến sớm hơn khung giờ này, trung tâm sẽ linh hoạt điều phối nhân sự đang trực ca sáng tiếp nhận.
+                </>
+              ) : (
+                <>
+                  Nhân sự này chỉ có mặt tại trung tâm đến <strong className="text-amber-950 font-black">{staffAlertInfo.endStr}</strong> (Trực ca {staffAlertInfo.caTruc}). Sau khoảng thời gian này, trung tâm sẽ linh hoạt điều phối nhân sự đang trực ca chiều tiếp nhận.
+                </>
+              )}
             </div>
           </div>
         )}
