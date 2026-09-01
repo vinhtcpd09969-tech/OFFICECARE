@@ -15,13 +15,16 @@ const connectionString = rawDbUrl.includes('localhost')
   ? rawDbUrl.replace('localhost', '127.0.0.1')
   : rawDbUrl;
 
+const isRemoteDb = rawDbUrl.includes('neon.tech') || rawDbUrl.includes('sslmode=require') || rawDbUrl.includes('ssl=true');
+
 const pool = new Pool({
   connectionString,
-  max: 30,
+  max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 20000,
   keepAlive: true,
   keepAliveInitialDelayMillis: 10000,
+  ...(isRemoteDb ? { ssl: { rejectUnauthorized: false } } : {}),
 });
 
 pool.on('connect', () => {
