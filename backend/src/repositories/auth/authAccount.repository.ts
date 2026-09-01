@@ -2,9 +2,10 @@ import prisma from '../../config/prisma';
 
 export class AuthAccountRepository {
   async findUserByEmail(email: string) {
+    const cleanEmail = (email || '').trim();
     // 1. Search in staff (nguoi_dung)
     const staff = await prisma.nguoi_dung.findFirst({
-      where: { email }
+      where: { email: { equals: cleanEmail, mode: 'insensitive' } }
     });
     if (staff) {
       return staff;
@@ -12,7 +13,7 @@ export class AuthAccountRepository {
 
     // 2. Search in customer (khach_hang)
     const customer = await prisma.khach_hang.findFirst({
-      where: { email }
+      where: { email: { equals: cleanEmail, mode: 'insensitive' } }
     });
     if (customer) {
       return {
@@ -25,15 +26,31 @@ export class AuthAccountRepository {
   }
 
   async findStaffByEmail(email: string) {
+    const cleanEmail = (email || '').trim();
     return prisma.nguoi_dung.findFirst({
-      where: { email }
+      where: { email: { equals: cleanEmail, mode: 'insensitive' } }
     });
   }
 
+  async findCustomerByEmail(email: string) {
+    const cleanEmail = (email || '').trim();
+    const customer = await prisma.khach_hang.findFirst({
+      where: { email: { equals: cleanEmail, mode: 'insensitive' } }
+    });
+    if (customer) {
+      return {
+        ...customer,
+        vai_tro_id: 1
+      };
+    }
+    return null;
+  }
+
   async findActiveCustomerByEmail(email: string) {
+    const cleanEmail = (email || '').trim();
     const customer = await prisma.khach_hang.findFirst({
       where: {
-        email,
+        email: { equals: cleanEmail, mode: 'insensitive' },
         trang_thai: 'hoat_dong'
       }
     });

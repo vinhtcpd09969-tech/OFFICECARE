@@ -217,25 +217,40 @@ class AuthService {
   }
 
   async forgotPassword(email: string) {
-    // 1. Block staff accounts from using public forgot password
-    const staff = await authRepository.findStaffByEmail(email);
-    if (staff) {
-      throw new Error('Tài khoản nhân sự không thể tự đặt lại mật khẩu tại đây. Vui lòng liên hệ Admin hệ thống.');
+    const cleanEmail = (email || '').trim();
+    if (!cleanEmail) {
+      throw new BadRequestError('Vui lòng nhập địa chỉ email.');
     }
 
-    // 2. Only allow active customer accounts
-    const user = await authRepository.findActiveCustomerByEmail(email);
-    if (!user) throw new Error('Tài khoản khách hàng không tồn tại hoặc chưa được kích hoạt');
+    // 1. Block staff accounts from using public forgot password
+    const staff = await authRepository.findStaffByEmail(cleanEmail);
+    if (staff) {
+      throw new BadRequestError('Tài khoản nhân sự/quản lý không thể tự đặt lại mật khẩu tại đây. Vui lòng liên hệ Quản trị viên hệ thống.');
+    }
+
+    // 2. Check customer account
+    const customer = await authRepository.findCustomerByEmail(cleanEmail);
+    if (!customer) {
+      throw new BadRequestError('Tài khoản khách hàng với email này không tồn tại trong hệ thống.');
+    }
+
+    if (customer.trang_thai === 'vo_hieu' || customer.trang_thai === 'tam_khoa' || customer.trang_thai === 'khoa') {
+      throw new BadRequestError('Tài khoản này hiện đang bị tạm khóa. Vui lòng liên hệ trung tâm để được hỗ trợ.');
+    }
+
+    if (customer.trang_thai === 'cho_kich_hoat') {
+      throw new BadRequestError('Tài khoản chưa được kích hoạt xác thực email. Vui lòng kiểm tra email kích hoạt trước.');
+    }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + 10);
 
-    await authRepository.deleteOTPsByEmail(email);
-    await authRepository.saveOTP(email, otp, expiresAt);
+    await authRepository.deleteOTPsByEmail(cleanEmail);
+    await authRepository.saveOTP(cleanEmail, otp, expiresAt);
 
     try {
-      await sendForgotPasswordOTP(email, otp, user.ho_ten || 'Quý khách');
+      await sendForgotPasswordOTP(cleanEmail, otp, customer.ho_ten || 'Quý khách');
     } catch (err) {
       console.error('Lỗi gửi email OTP khôi phục mật khẩu:', err);
     }
@@ -244,29 +259,30 @@ class AuthService {
   }
 
   async resetPassword(data: any) {
-    const staff = await authRepository.findStaffByEmail(data.email);
+    const cleanEmail = (data.email || '').trim();
+    const staff = await authRepository.findStaffByEmail(cleanEmail);
     if (staff) {
-      throw new Error('Tài khoản nhân sự không thể tự đặt lại mật khẩu tại đây. Vui lòng liên hệ Admin hệ thống.');
+      throw new BadRequestError('Tài khoản nhân sự không thể tự đặt lại mật khẩu tại đây. Vui lòng liên hệ Admin hệ thống.');
     }
 
-    const validOTP = await authRepository.findValidOTP(data.email, data.otp);
-    if (!validOTP) throw new Error('Mã OTP không hợp lệ hoặc đã hết hạn');
+    const validOTP = await authRepository.findValidOTP(cleanEmail, data.otp);
+    if (!validOTP) throw new BadRequestError('Mã OTP không hợp lệ hoặc đã hết hạn.');
 
-    const customer = await authRepository.findActiveCustomerByEmail(data.email);
+    const customer = await authRepository.findActiveCustomerByEmail(cleanEmail);
     if (customer && customer.mat_khau_hash) {
       const isSame = await bcrypt.compare(data.newPassword, customer.mat_khau_hash);
       if (isSame) {
-        throw new Error('Mật khẩu mới không được trùng với mật khẩu hiện tại. Vui lòng chọn mật khẩu khác.');
+        throw new BadRequestError('Mật khẩu mới không được trùng với mật khẩu hiện tại. Vui lòng chọn mật khẩu khác.');
       }
     }
 
     const salt = await bcrypt.genSalt(10);
     const newHash = await bcrypt.hash(data.newPassword, salt);
 
-    const updatedUser = await authRepository.updatePassword(data.email, newHash);
-    if (!updatedUser) throw new Error('Người dùng không tồn tại');
+    const updatedUser = await authRepository.updatePassword(cleanEmail, newHash);
+    if (!updatedUser) throw new BadRequestError('Người dùng không tồn tại.');
 
-    await authRepository.deleteOTPsByEmail(data.email);
+    await authRepository.deleteOTPsByEmail(cleanEmail);
 
     return { message: 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập bằng mật khẩu mới.' };
   }

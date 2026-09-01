@@ -12,6 +12,7 @@ export class AuthRepository {
   // --- TÀI KHOẢN, XÁC THỰC & TÌM KIẾM ---
   findUserByEmail = authAccountRepository.findUserByEmail.bind(authAccountRepository);
   findStaffByEmail = authAccountRepository.findStaffByEmail.bind(authAccountRepository);
+  findCustomerByEmail = authAccountRepository.findCustomerByEmail.bind(authAccountRepository);
   findActiveCustomerByEmail = authAccountRepository.findActiveCustomerByEmail.bind(authAccountRepository);
   createUser = authAccountRepository.createUser.bind(authAccountRepository);
   verifyEmail = authAccountRepository.verifyEmail.bind(authAccountRepository);
