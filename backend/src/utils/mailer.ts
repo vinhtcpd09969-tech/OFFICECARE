@@ -32,10 +32,16 @@ export const getTransporter = async (): Promise<nodemailer.Transporter> => {
 
     if (isGmail) {
       return nodemailer.createTransport({
-        service: 'gmail',
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
         auth: { user, pass },
-        tls: { rejectUnauthorized: false }
-      });
+        tls: { rejectUnauthorized: false },
+        family: 4,
+        connectionTimeout: 8000,
+        greetingTimeout: 8000,
+        socketTimeout: 10000,
+      } as any);
     }
 
     return nodemailer.createTransport({
@@ -43,8 +49,12 @@ export const getTransporter = async (): Promise<nodemailer.Transporter> => {
       port,
       secure: port === 465,
       auth: { user, pass },
-      tls: { rejectUnauthorized: false }
-    });
+      tls: { rejectUnauthorized: false },
+      family: 4,
+      connectionTimeout: 8000,
+      greetingTimeout: 8000,
+      socketTimeout: 10000,
+    } as any);
   }
 
   const testAccount = await nodemailer.createTestAccount();
