@@ -24,7 +24,7 @@ const checkSMTPConfigured = () => Boolean(
 
 let cachedTransporter: nodemailer.Transporter | null = null;
 
-const getTransporter = async (): Promise<nodemailer.Transporter> => {
+export const getTransporter = async (): Promise<nodemailer.Transporter> => {
   if (cachedTransporter) return cachedTransporter;
 
   if (checkSMTPConfigured()) {
