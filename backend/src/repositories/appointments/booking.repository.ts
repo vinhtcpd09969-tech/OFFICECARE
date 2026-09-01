@@ -806,50 +806,12 @@ export class AppointmentBookingRepository {
       `, [createdAppointment.id, isKham]);
     }
 
-    // Gửi email xác nhận đặt lịch hẹn thành công (chạy ngầm)
-    (async () => {
-      try {
-        const infoRes = await pool.query(`
-          SELECT kh.ho_ten, kh.email, g.ten_goi, nd.ho_ten AS ten_chuyen_vien, p.ten_phong
-          FROM cuoc_hen ch
-          JOIN khach_hang kh ON ch.khach_hang_id = kh.id
-          LEFT JOIN goi_dich_vu g ON ch.goi_dich_vu_id = g.id
-          LEFT JOIN nguoi_dung nd ON ch.nhan_su_id = nd.id
-          LEFT JOIN phong_lam_viec p ON ch.phong_id = p.id
-          WHERE ch.id = $1
-        `, [createdAppointment.id]);
-
-        if (infoRes.rows.length > 0 && infoRes.rows[0].email) {
-          const row = infoRes.rows[0];
-          const buoiStr = createdAppointment.buoi === 'sang' ? 'Buổi Sáng' : 'Buổi Chiều';
-          const khungGioStr = createdAppointment.buoi === 'sang' ? '07:30 - 12:00' : '12:00 - 20:00';
-          const ngayStart = createdAppointment.ngay_gio_bat_dau ? new Date(createdAppointment.ngay_gio_bat_dau) : new Date();
-          const ngayFormatted = `${String(ngayStart.getDate()).padStart(2, '0')}/${String(ngayStart.getMonth() + 1).padStart(2, '0')}/${ngayStart.getFullYear()}`;
-
-          const duration = createdAppointment.thoi_luong_phut || snapshotThoiLuong || 30;
-          const endMinutes = createdAppointment.buoi === 'sang' ? 12 * 60 : 20 * 60;
-          const latestMinutes = Math.max(0, endMinutes - duration);
-          const lH = Math.floor(latestMinutes / 60);
-          const lM = latestMinutes % 60;
-          const gioDenMuonNhat = `${lH}h${String(lM).padStart(2, '0')}`;
-
-          await sendBookingSuccessEmail(row.email, {
-            userName: row.ho_ten || 'Quý khách',
-            maLichDat: createdAppointment.ma_lich_dat || `LH-${createdAppointment.id.slice(0, 6).toUpperCase()}`,
-            tenDichVu: row.ten_goi || 'Dịch vụ phục hồi chức năng',
-            ngayHen: ngayFormatted,
-            buoiHen: buoiStr,
-            khungGio: khungGioStr,
-            gioDenMuonNhat,
-            tenChuyenVien: row.ten_chuyen_vien || undefined,
-            tenPhong: row.ten_phong || undefined,
-            ghiChu: createdAppointment.ghi_chu_dat_lich || undefined
-          });
-        }
-      } catch (emailErr) {
-        console.error('Không thể gửi email xác nhận đặt lịch tự động:', emailErr);
-      }
-    })();
+    // Gửi email xác nhận đặt lịch hẹn thành công
+    this.sendBookingNotifications(createdAppointment.id, {
+      buoi: createdAppointment.buoi,
+      thoiLuong: createdAppointment.thoi_luong_phut || snapshotThoiLuong || 30,
+      trieuChung: createdAppointment.ghi_chu_dat_lich || undefined
+    }).catch(err => console.error('Lỗi khi kích hoạt gửi email đặt lịch admin:', err));
 
     return createdAppointment;
   }
@@ -1118,70 +1080,105 @@ export class AppointmentBookingRepository {
       }
     }
 
-    // Gửi email xác nhận đặt lịch hẹn & biên lai thanh toán tự động (chạy ngầm)
-    (async () => {
-      try {
-        const infoRes = await pool.query(`
-          SELECT kh.ho_ten, kh.email, g.ten_goi, nd.ho_ten AS ten_chuyen_vien, p.ten_phong
-          FROM cuoc_hen ch
-          JOIN khach_hang kh ON ch.khach_hang_id = kh.id
-          LEFT JOIN goi_dich_vu g ON ch.goi_dich_vu_id = g.id
-          LEFT JOIN nguoi_dung nd ON ch.nhan_su_id = nd.id
-          LEFT JOIN phong_lam_viec p ON ch.phong_id = p.id
-          WHERE ch.id = $1
-        `, [createdAppointment.id]);
-
-        if (infoRes.rows.length > 0 && infoRes.rows[0].email) {
-          const row = infoRes.rows[0];
-          const buoiStr = buoi === 'sang' ? 'Buổi Sáng' : 'Buổi Chiều';
-          const khungGioStr = buoi === 'sang' ? '07:30 - 12:00' : '12:00 - 20:00';
-          const [yyyy, mm, dd] = (ngay || '').split('-');
-          const ngayFormatted = yyyy && mm && dd ? `${dd}/${mm}/${yyyy}` : ngay;
-
-          const duration = snapshotThoiLuongPublic || 30;
-          const endMinutes = buoi === 'sang' ? 12 * 60 : 20 * 60;
-          const latestMinutes = Math.max(0, endMinutes - duration);
-          const lH = Math.floor(latestMinutes / 60);
-          const lM = latestMinutes % 60;
-          const gioDenMuonNhat = `${lH}h${String(lM).padStart(2, '0')}`;
-
-          // 1. Gửi email xác nhận lịch hẹn
-          await sendBookingSuccessEmail(row.email, {
-            userName: row.ho_ten || ho_ten_khach || 'Quý khách',
-            maLichDat: createdAppointment.ma_lich_dat || `LH-${createdAppointment.id.slice(0, 6).toUpperCase()}`,
-            tenDichVu: row.ten_goi || tenDichVuGoi || (finalLoaiForCapacity === 'KHAM' ? 'Buổi Lượng giá chức năng ban đầu' : 'Dịch vụ trị liệu PHCN'),
-            ngayHen: ngayFormatted,
-            buoiHen: buoiStr,
-            khungGio: khungGioStr,
-            gioDenMuonNhat,
-            tenChuyenVien: row.ten_chuyen_vien || undefined,
-            tenPhong: row.ten_phong || undefined,
-            ghiChu: trieu_chung || ly_do_kham || undefined
-          });
-
-          // 2. Nếu đã thanh toán trực tuyến qua PayOS, gửi kèm email Biên lai thanh toán
-          if (data.trang_thai_thanh_toan === 'da_thanh_toan' && createdHoaDon) {
-            await sendPaymentReceiptEmail({
-              toEmail: row.email,
-              userName: row.ho_ten || ho_ten_khach || 'Quý khách',
-              maHoaDon: createdHoaDon.ma_hoa_don || `HD-${createdHoaDon.id.slice(0, 6).toUpperCase()}`,
-              tenDichVu: row.ten_goi || tenDichVuGoi || (finalLoaiForCapacity === 'KHAM' ? 'Buổi Lượng giá chức năng ban đầu' : 'Dịch vụ trị liệu PHCN'),
-              soTienThanhToan: tongTienPhaiTra,
-              tongTienHoaDon: donGiaGoc || tongTienPhaiTra,
-              daThanhToan: tongTienPhaiTra,
-              conLai: 0,
-              phuongThuc: 'chuyen_khoan',
-              soBuoi: 1,
-              ngayThanhToan: new Date()
-            });
-          }
-        }
-      } catch (emailErr) {
-        console.error('Không thể gửi email tự động:', emailErr);
-      }
-    })();
+    // Gửi email xác nhận đặt lịch hẹn & biên lai thanh toán tự động
+    this.sendBookingNotifications(createdAppointment.id, {
+      hoTen: ho_ten_khach,
+      email: data.email,
+      tenDichVu: tenDichVuGoi,
+      trieuChung: trieu_chung || ly_do_kham,
+      ngay,
+      buoi,
+      thoiLuong: snapshotThoiLuongPublic,
+      trangThaiThanhToan: data.trang_thai_thanh_toan,
+      hoaDon: createdHoaDon,
+      tongTienPhaiTra,
+      donGiaGoc,
+      phuongThuc: 'chuyen_khoan'
+    }).catch(err => console.error('Lỗi khi kích hoạt gửi email đặt lịch public:', err));
 
     return createdAppointment;
+  }
+
+  private async sendBookingNotifications(
+    appointmentId: string, 
+    extraData: {
+      hoTen?: string;
+      email?: string;
+      tenDichVu?: string;
+      trieuChung?: string;
+      ngay?: string;
+      buoi?: string;
+      thoiLuong?: number;
+      trangThaiThanhToan?: string;
+      hoaDon?: any;
+      tongTienPhaiTra?: number;
+      donGiaGoc?: number;
+      phuongThuc?: string;
+    }
+  ) {
+    try {
+      const infoRes = await pool.query(`
+        SELECT kh.ho_ten, kh.email, g.ten_goi, nd.ho_ten AS ten_chuyen_vien, p.ten_phong
+        FROM cuoc_hen ch
+        JOIN khach_hang kh ON ch.khach_hang_id = kh.id
+        LEFT JOIN goi_dich_vu g ON ch.goi_dich_vu_id = g.id
+        LEFT JOIN nguoi_dung nd ON ch.nhan_su_id = nd.id
+        LEFT JOIN phong_lam_viec p ON ch.phong_id = p.id
+        WHERE ch.id = $1
+      `, [appointmentId]);
+
+      const row = infoRes.rows[0];
+      const targetEmail = row?.email || extraData.email;
+      if (!targetEmail) {
+        console.log('⚠️ [sendBookingNotifications] Không tìm thấy email khách hàng để gửi thông báo cho lịch hẹn:', appointmentId);
+        return;
+      }
+
+      const buoiStr = (extraData.buoi || row?.buoi) === 'sang' ? 'Buổi Sáng' : 'Buổi Chiều';
+      const khungGioStr = (extraData.buoi || row?.buoi) === 'sang' ? '07:30 - 12:00' : '12:00 - 20:00';
+      const [yyyy, mm, dd] = (extraData.ngay || '').split('-');
+      const ngayFormatted = yyyy && mm && dd ? `${dd}/${mm}/${yyyy}` : (extraData.ngay || 'Hôm nay');
+
+      const duration = extraData.thoiLuong || 30;
+      const endMinutes = (extraData.buoi || row?.buoi) === 'sang' ? 12 * 60 : 20 * 60;
+      const latestMinutes = Math.max(0, endMinutes - duration);
+      const lH = Math.floor(latestMinutes / 60);
+      const lM = latestMinutes % 60;
+      const gioDenMuonNhat = `${lH}h${String(lM).padStart(2, '0')}`;
+
+      // 1. Gửi email xác nhận đặt lịch hẹn thành công
+      await sendBookingSuccessEmail(targetEmail, {
+        userName: row?.ho_ten || extraData.hoTen || 'Quý khách',
+        maLichDat: `LH-${appointmentId.slice(0, 6).toUpperCase()}`,
+        tenDichVu: row?.ten_goi || extraData.tenDichVu || 'Dịch vụ phục hồi chức năng',
+        ngayHen: ngayFormatted,
+        buoiHen: buoiStr,
+        khungGio: khungGioStr,
+        gioDenMuonNhat,
+        tenChuyenVien: row?.ten_chuyen_vien || undefined,
+        tenPhong: row?.ten_phong || undefined,
+        ghiChu: extraData.trieuChung || undefined
+      });
+
+      // 2. Nếu đã thanh toán trực tuyến (PayOS / 100%), gửi email Biên lai thanh toán
+      if (extraData.trangThaiThanhToan === 'da_thanh_toan' && extraData.hoaDon) {
+        await sendPaymentReceiptEmail({
+          toEmail: targetEmail,
+          userName: row?.ho_ten || extraData.hoTen || 'Quý khách',
+          maHoaDon: `HD-${extraData.hoaDon.id ? extraData.hoaDon.id.slice(0, 6).toUpperCase() : appointmentId.slice(0, 6).toUpperCase()}`,
+          tenDichVu: row?.ten_goi || extraData.tenDichVu || 'Dịch vụ phục hồi chức năng',
+          soTienThanhToan: extraData.tongTienPhaiTra || 0,
+          tongTienHoaDon: extraData.donGiaGoc || extraData.tongTienPhaiTra || 0,
+          daThanhToan: extraData.tongTienPhaiTra || 0,
+          conLai: 0,
+          phuongThuc: (extraData.phuongThuc as any) || 'chuyen_khoan',
+          soBuoi: 1,
+          ngayThanhToan: new Date()
+        });
+      }
+    } catch (error) {
+      console.error('❌ [sendBookingNotifications] Lỗi gửi email thông báo đặt lịch:', error);
+    }
   }
 }
 
