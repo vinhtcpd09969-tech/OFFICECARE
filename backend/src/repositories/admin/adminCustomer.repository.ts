@@ -1,4 +1,5 @@
 import { pool } from '../../config/db';
+import { sendAccountLockedNotification } from '../../utils/mailer';
 
 export class AdminCustomerRepository {
   // --- QUẢN LÝ KHÁCH HÀNG ---
@@ -76,6 +77,13 @@ export class AdminCustomerRepository {
       await client.query('BEGIN');
       const { rows } = await client.query('UPDATE khach_hang SET trang_thai = $1 WHERE id = $2 RETURNING *', [status, id]);
       await client.query('COMMIT');
+
+      if (isLocked && rows[0]?.email) {
+        sendAccountLockedNotification(rows[0].email, rows[0].ho_ten || 'Quý khách').catch((err: any) => {
+          console.error('Lỗi gửi email thông báo khóa tài khoản khách hàng:', err);
+        });
+      }
+
       return rows[0];
     } catch (e) {
       await client.query('ROLLBACK');
