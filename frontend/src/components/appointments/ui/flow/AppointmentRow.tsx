@@ -473,10 +473,10 @@ export function AppointmentRow({
                 <button
                   type="button"
                   onClick={() => onQuickCheckin(apt)}
-                  className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-600 to-teal-600 hover:from-amber-700 hover:to-teal-700 text-white font-black text-[11px] uppercase tracking-wider flex items-center gap-1 shadow-xs transition-all cursor-pointer whitespace-nowrap"
+                  className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-md shadow-teal-600/20 active:scale-95 transition-all cursor-pointer whitespace-nowrap"
                   title="Khách quay lại tái lượng giá — Check-in vào đầu hàng đợi"
                 >
-                  <CheckCircle2 size={13} /> CHECK-IN TÁI LƯỢNG GIÁ
+                  <CheckCircle2 size={14} /> CHECK-IN
                 </button>
               );
             })()
