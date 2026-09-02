@@ -186,9 +186,6 @@ export const PatientDossierTimeline: React.FC<PatientDossierTimelineProps> = ({
     }
   };
 
-  // Tên Chuyên viên phụ trách gần nhất
-  const latestDoctorName = cleanStaffName(profile?.visits?.[0]?.ten_nhan_su || profile?.treatmentPlans?.[0]?.bac_si_chi_dinh) || 'Chuyên viên tư vấn OfficeCare';
-
   return (
     <div className="w-full space-y-6 font-jakarta">
       {/* 1. THÔNG TIN KHÁCH HÀNG (HEADER TRANG) */}
@@ -236,8 +233,8 @@ export const PatientDossierTimeline: React.FC<PatientDossierTimelineProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <User size={14} className="text-slate-400 shrink-0" />
-                  <span>Chuyên viên: <strong className="text-slate-800 dark:text-zinc-100 font-bold">{latestDoctorName}</strong></span>
+                  <Calendar size={14} className="text-slate-400 shrink-0" />
+                  <span>Tuổi: <strong className="text-slate-800 dark:text-zinc-100 font-bold">{getAge(selectedPatient.ngay_sinh) || '28 tuổi'}</strong> ({selectedPatient.gioi_tinh === 'nam' ? 'Nam' : 'Nữ'})</span>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -245,13 +242,8 @@ export const PatientDossierTimeline: React.FC<PatientDossierTimelineProps> = ({
                   <span>SĐT: <strong className="font-mono text-slate-800 dark:text-zinc-100 font-bold">{selectedPatient.so_dien_thoai}</strong></span>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <Calendar size={14} className="text-slate-400 shrink-0" />
-                  <span>Tuổi: <strong className="text-slate-800 dark:text-zinc-100 font-bold">{getAge(selectedPatient.ngay_sinh) || '28 tuổi'}</strong> ({selectedPatient.gioi_tinh === 'nam' ? 'Nam' : 'Nữ'})</span>
-                </div>
-
                 {selectedPatient.email && (
-                  <div className="flex items-center gap-2 sm:col-span-2">
+                  <div className="flex items-center gap-2">
                     <Mail size={14} className="text-slate-400 shrink-0" />
                     <span>Email: <strong className="text-slate-800 dark:text-zinc-100 font-bold">{selectedPatient.email}</strong></span>
                   </div>
