@@ -17,6 +17,11 @@ const envSchema = z.object({
   EMAIL_USER: z.string().optional().default(''),
   EMAIL_PASS: z.string().optional().default(''),
   
+  // Brevo Transactional Email REST API (HTTPS Port 443)
+  BREVO_API_KEY: z.string().optional().default(''),
+  BREVO_SENDER_EMAIL: z.string().optional().default('officecareclinic2026@gmail.com'),
+  BREVO_SENDER_NAME: z.string().optional().default('OfficeCare Clinic'),
+  
   // PayOS Gateway
   PAYOS_CLIENT_ID: z.string().optional().default(''),
   PAYOS_API_KEY: z.string().optional().default(''),
